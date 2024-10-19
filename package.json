@@ -6,6 +6,7 @@
   "scripts": {
     "start": "ts-node-dev src/index.ts",
     "build": "npx tsc",
+    "serve": "node dist/index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -14,10 +15,12 @@
   "dependencies": {
     "@notionhq/client": "^2.2.15",
     "@types/express": "^5.0.0",
+    "@types/express-validator": "^3.0.0",
     "@types/node": "^22.7.6",
     "body-parser": "^1.20.3",
     "dotenv": "^16.4.5",
     "express": "^4.21.1",
+    "express-validator": "^7.2.0",
     "notion-client": "^6.16.0",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.6.3"
