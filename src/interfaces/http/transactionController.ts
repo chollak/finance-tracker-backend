@@ -34,6 +34,7 @@ export class TransactionController {
             const transactions = await this.getTransactionsUseCase.execute();
             res.status(200).json(transactions);
         } catch (error) {
+            console.log(error);
             res.status(500).json({ error: 'Error fetching transactions' });
         }
     }
