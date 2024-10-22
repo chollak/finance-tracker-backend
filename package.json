@@ -26,5 +26,8 @@
     "notion-client": "^6.16.0",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.6.3"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17"
   }
 }
