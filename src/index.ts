@@ -1,6 +1,7 @@
 import express from 'express';
 import bodyParser from 'body-parser';
 import dotenv from 'dotenv';
+import cors from 'cors';
 
 import { NotionService } from './infrastructure/services/notionService';
 import { LocalFileService } from './infrastructure/services/localFileService';
@@ -18,6 +19,7 @@ const app = express();
 const port = process.env.PORT || 3000;
 
 app.use(bodyParser.json());
+app.use(cors());
 
 // Инициализация сервисов
 const notionService = new NotionService();
