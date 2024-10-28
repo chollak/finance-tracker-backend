@@ -1,5 +1,7 @@
 import { Transaction } from '../../domain/entity/transaction';
 import { Client } from '@notionhq/client';
+// import dotenv from 'dotenv';
+// dotenv.config();
 
 export class NotionService {
     private notion: Client;
@@ -8,6 +10,10 @@ export class NotionService {
     constructor() {
         this.notion = new Client({ auth: process.env.NOTION_API_KEY });
         this.databaseId = process.env.NOTION_DATABASE_ID || '';  // Здесь должен быть ID базы данных в Notion
+
+        console.log(process.env);
+
+        console.log(process.env.NOTION_API_KEY, process.env.NOTION_DATABASE_ID)
     }
 
     async saveTransaction(transaction: Transaction): Promise<void> {
@@ -53,6 +59,7 @@ export class NotionService {
                 type: page.properties.Type.select.name === 'Income' ? 'income' : 'expense', // Тип транзакции
             }));
         } catch (error: any) {
+            console.log(error);
             throw new Error("Notion API Error: " + error.message);
         }
     }
