@@ -17,4 +17,9 @@ export class NotionRepository implements TransactionRepository {
     async getAll(): Promise<Transaction[]> {
         return this.notionService.getTransactions();
     }
+
+    async getRecentTransactions(limit: number): Promise<Transaction[]> {
+        const transactions = await this.getAll();
+        return transactions.slice(-limit); // Берем последние N записей
+    }
 }

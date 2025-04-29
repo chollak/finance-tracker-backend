@@ -5,7 +5,7 @@ import { NotionRepository } from './infrastructure/notionRepository';
 import { NotionService } from '../../infrastructure/services/notionService';
 
 export class TransactionModule {
-  private static transactionRepository = new NotionRepository(new NotionService()); // Можно заменить на другую реализацию
+  public static transactionRepository = new NotionRepository(new NotionService()); // Можно заменить на другую реализацию
 
   static getCreateTransactionUseCase(): CreateTransactionUseCase {
     return new CreateTransactionUseCase(this.transactionRepository);

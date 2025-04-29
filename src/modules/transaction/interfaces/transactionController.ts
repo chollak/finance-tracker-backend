@@ -2,8 +2,32 @@ import { Transaction } from './../domain/transactionEntity';
 // modules/transaction/interfaces/transactionController.ts
 import { Router } from 'express';
 import { TransactionModule } from '../transactionModule';
+import { AnalyticsService } from '../application/analyticsService';
+import { NotionRepository } from '../infrastructure/notionRepository';
+import { NotionService } from '../../../infrastructure/services/notionService';
+
 
 const router = Router();
+
+const notionService = new NotionService();
+const notionRepository = new NotionRepository(notionService);
+const analyticsService = new AnalyticsService(notionRepository);
+
+router.get('/analytics', async (req, res) => {
+    try {
+        const summary = await analyticsService.getSummary();
+        const categoryBreakdown = await analyticsService.getCategoryBreakdown();
+
+        res.json({
+            totalIncome: summary.totalIncome,
+            totalExpense: summary.totalExpense,
+            categoryBreakdown
+        });
+    } catch (error) {
+        console.error('Error fetching analytics:', error);
+        res.status(500).json({ error: 'Failed to fetch analytics' });
+    }
+});
 
 router.post('/', async (req, res) => {
     const createTransactionUseCase = TransactionModule.getCreateTransactionUseCase();
