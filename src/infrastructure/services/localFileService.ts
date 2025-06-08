@@ -1,5 +1,5 @@
 import { promises as fs } from 'fs';
-import { Transaction } from '../../domain/entity/transaction';
+import { Transaction } from '../../modules/transaction/domain/transactionEntity';
 
 export class LocalFileService {
     private filePath: string = './data/transactions.json';
