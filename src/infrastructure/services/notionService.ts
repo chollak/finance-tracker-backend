@@ -1,14 +1,13 @@
 import { Transaction } from '../../modules/transaction/domain/transactionEntity';
 import { Client } from '@notionhq/client';
-import { NOTION_API_KEY, NOTION_DATABASE_ID } from "../../config";
 
 export class NotionService {
     private notion: Client;
     private databaseId: string;
 
-    constructor() {
-        this.notion = new Client({ auth: NOTION_API_KEY });
-        this.databaseId = NOTION_DATABASE_ID;
+    constructor(apiKey: string, databaseId: string) {
+        this.notion = new Client({ auth: apiKey });
+        this.databaseId = databaseId;
     }
 
     async saveTransaction(transaction: Transaction): Promise<void> {
