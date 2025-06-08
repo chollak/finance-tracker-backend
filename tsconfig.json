@@ -100,9 +100,8 @@
     "skipLibCheck": true /* Skip type checking all .d.ts files. */
   },
   "include": [
-    "src/**/*.ts",
-    "tests/**/*.ts"
-  ], // Включить все файлы TypeScript в папке src и тесты.
+    "src/**/*.ts"
+  ], // Включить все файлы TypeScript в папке src.
   "exclude": [
     "node_modules",
     "dist"
