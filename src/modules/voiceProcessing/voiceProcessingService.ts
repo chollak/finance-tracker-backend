@@ -1,6 +1,5 @@
 import { OpenAI } from "openai";
 import fs from "fs";
-import path from "path";
 import dotenv from "dotenv";
 import { analyzeSpending } from "./textProcessingService";
 import { NotionService } from "../../infrastructure/services/notionService";
