@@ -1,18 +1,27 @@
-// modules/transaction/transactionModule.ts
 import { CreateTransactionUseCase } from './application/createTransaction';
 import { GetTransactionsUseCase } from './application/getTransactions';
+import { AnalyticsService } from './application/analyticsService';
 import { NotionRepository } from './infrastructure/notionRepository';
 import { NotionService } from '../../infrastructure/services/notionService';
 import { TransactionRepository } from './domain/transactionRepository';
 
 export class TransactionModule {
-  public static transactionRepository: TransactionRepository = new NotionRepository(new NotionService()); // Можно заменить на другую реализацию
+  constructor(private repository: TransactionRepository) {}
 
-  static getCreateTransactionUseCase(): CreateTransactionUseCase {
-    return new CreateTransactionUseCase(this.transactionRepository);
+  static create(notionService: NotionService): TransactionModule {
+    const repository = new NotionRepository(notionService);
+    return new TransactionModule(repository);
   }
 
-  static getGetTransactionsUseCase(): GetTransactionsUseCase {
-    return new GetTransactionsUseCase(this.transactionRepository);
+  getCreateTransactionUseCase(): CreateTransactionUseCase {
+    return new CreateTransactionUseCase(this.repository);
+  }
+
+  getGetTransactionsUseCase(): GetTransactionsUseCase {
+    return new GetTransactionsUseCase(this.repository);
+  }
+
+  getAnalyticsService(): AnalyticsService {
+    return new AnalyticsService(this.repository);
   }
 }

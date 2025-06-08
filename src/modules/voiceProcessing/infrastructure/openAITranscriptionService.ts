@@ -1,15 +1,12 @@
 import { OpenAI } from 'openai';
 import fs from 'fs';
-import dotenv from 'dotenv';
 import { ChatCompletionMessageParam } from 'openai/resources/chat';
-
-dotenv.config();
 
 export class OpenAITranscriptionService {
     private openai: OpenAI;
 
-    constructor() {
-        this.openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    constructor(apiKey: string) {
+        this.openai = new OpenAI({ apiKey });
     }
 
     async transcribe(filePath: string): Promise<string> {
