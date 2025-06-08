@@ -4,4 +4,6 @@ export interface Transaction {
     description: string;
     amount: number;
     type: 'income' | 'expense';  // Тип транзакции
+    userId: string;
+    userName?: string;
 }

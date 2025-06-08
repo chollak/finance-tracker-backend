@@ -16,7 +16,7 @@ describe('ProcessTextInputUseCase', () => {
     } as unknown as CreateTransactionUseCase;
 
     const useCase = new ProcessTextInputUseCase(openAIService, createTransactionUseCase);
-    const result = await useCase.execute('test');
+    const result = await useCase.execute('test', 'user1');
 
     expect(createTransactionUseCase.execute).toHaveBeenCalled();
     expect(result).toEqual({ text: 'test', amount: 5, category: 'Food', type: 'expense' });

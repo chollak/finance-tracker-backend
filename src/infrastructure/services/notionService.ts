@@ -35,6 +35,20 @@ export class NotionService {
                 Type: {
                     select: { name: transaction.type === 'income' ? 'Income' : 'Expense' },
                 },
+                UserId: {
+                    rich_text: [
+                        {
+                            text: { content: transaction.userId },
+                        },
+                    ],
+                },
+                UserName: {
+                    rich_text: [
+                        {
+                            text: { content: transaction.userName || transaction.userId },
+                        },
+                    ],
+                },
             },
         });
     }
@@ -51,6 +65,8 @@ export class NotionService {
                 description: page.properties.Description.title[0].text.content,  // Описание
                 amount: page.properties.Amount.number,   // Сумма
                 type: page.properties.Type.select.name === 'Income' ? 'income' : 'expense', // Тип транзакции
+                userId: page.properties.UserId.rich_text[0]?.plain_text || '',
+                userName: page.properties.UserName?.rich_text[0]?.plain_text,
             }));
         } catch (error: any) {
             console.log(error);

@@ -9,7 +9,8 @@ describe('CreateTransactionUseCase', () => {
       category: 'Food',
       description: 'Lunch',
       amount: 10,
-      type: 'expense'
+      type: 'expense',
+      userId: 'user1'
     };
 
     const save = jest.fn().mockResolvedValue(undefined);
