@@ -30,8 +30,9 @@ export function startTelegramBot(module: VoiceProcessingModule) {
     const userName = ctx.from?.first_name + ' ' + ctx.from?.last_name + ' ' + ctx.from?.username;
     const text = ctx.message.text;
     try {
-      await module.getProcessTextInputUseCase().execute(text, userId, userName);
+      const result = await module.getProcessTextInputUseCase().execute(text, userId, userName);
       await ctx.reply('Transaction saved');
+      await ctx.reply(`Recognized text: ${result.text}\nAmount: ${result.amount}\nCategory: ${result.category}\nType: ${result.type}`);
     } catch (err) {
       console.error('Error handling text message:', err);
       await ctx.reply('Failed to process message');
@@ -45,8 +46,9 @@ export function startTelegramBot(module: VoiceProcessingModule) {
     const filePath = path.join('downloads', ctx.message.voice.file_id);
     try {
       await downloadFile(fileLink.href, filePath);
-      await module.getProcessVoiceInputUseCase().execute({ filePath, userId, userName });
+      const result = await module.getProcessVoiceInputUseCase().execute({ filePath, userId, userName });
       await ctx.reply('Transaction saved');
+      await ctx.reply(`Recognized text: ${result.text}\nAmount: ${result.amount}\nCategory: ${result.category}\nType: ${result.type}`);
     } catch (err) {
       console.error('Error handling voice message:', err);
       await ctx.reply('Failed to process voice message');
