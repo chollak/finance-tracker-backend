@@ -1,4 +1,3 @@
-import { Transaction } from './../domain/transactionEntity';
 // modules/transaction/interfaces/transactionController.ts
 import { Router } from 'express';
 import { TransactionModule } from '../transactionModule';
