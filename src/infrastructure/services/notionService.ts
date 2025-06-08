@@ -1,15 +1,14 @@
 import { Transaction } from '../../modules/transaction/domain/transactionEntity';
 import { Client } from '@notionhq/client';
-import dotenv from 'dotenv';
-dotenv.config();
+import { NOTION_API_KEY, NOTION_DATABASE_ID } from "../../config";
 
 export class NotionService {
     private notion: Client;
     private databaseId: string;
 
     constructor() {
-        this.notion = new Client({ auth: process.env.NOTION_API_KEY });
-        this.databaseId = process.env.NOTION_DATABASE_ID || '';  // Здесь должен быть ID базы данных в Notion
+        this.notion = new Client({ auth: NOTION_API_KEY });
+        this.databaseId = NOTION_DATABASE_ID;
     }
 
     async saveTransaction(transaction: Transaction): Promise<void> {

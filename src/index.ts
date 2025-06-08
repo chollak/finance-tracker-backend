@@ -1,7 +1,7 @@
 import express, { Request } from 'express';
 import bodyParser from 'body-parser';
 import cors from 'cors';
-import 'dotenv/config'
+import './config'
 
 import transactionRoutes from './modules/transaction/interfaces/transactionController';
 import voiceProcessingRoutes from './modules/voiceProcessing/voiceProcessingController';
