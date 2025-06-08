@@ -1,9 +1,9 @@
-import { NotionRepository } from "../infrastructure/notionRepository";
+import { TransactionRepository } from "../domain/transactionRepository";
 
 export class AnalyticsService {
-    private repository: NotionRepository;
+    private repository: TransactionRepository;
 
-    constructor(repository: NotionRepository) {
+    constructor(repository: TransactionRepository) {
         this.repository = repository;
     }
 

@@ -3,15 +3,11 @@ import { Transaction } from './../domain/transactionEntity';
 import { Router } from 'express';
 import { TransactionModule } from '../transactionModule';
 import { AnalyticsService } from '../application/analyticsService';
-import { NotionRepository } from '../infrastructure/notionRepository';
-import { NotionService } from '../../../infrastructure/services/notionService';
 
 
 const router = Router();
 
-const notionService = new NotionService();
-const notionRepository = new NotionRepository(notionService);
-const analyticsService = new AnalyticsService(notionRepository);
+const analyticsService = new AnalyticsService(TransactionModule.transactionRepository);
 
 router.get('/analytics', async (req, res) => {
     try {
