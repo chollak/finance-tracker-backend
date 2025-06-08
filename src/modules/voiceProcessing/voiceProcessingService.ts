@@ -1,16 +1,15 @@
 import { OpenAI } from "openai";
 import fs from "fs";
 import path from "path";
-import dotenv from "dotenv";
+import { OPENAI_API_KEY } from "../../config";
 import { analyzeSpending } from "./textProcessingService";
 import { NotionService } from "../../infrastructure/services/notionService";
 import { NotionRepository } from "../transaction/infrastructure/notionRepository";
 import { CreateTransactionUseCase } from "../transaction/application/createTransaction";
 import { Transaction } from "../transaction/domain/transactionEntity";
 
-dotenv.config();
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const openai = new OpenAI({ apiKey: OPENAI_API_KEY });
 const notionService = new NotionService();
 const notionRepository = new NotionRepository(notionService);
 const createTransactionUseCase = new CreateTransactionUseCase(notionRepository);

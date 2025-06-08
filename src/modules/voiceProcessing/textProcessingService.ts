@@ -1,10 +1,8 @@
 import { OpenAI } from "openai";
 import { ChatCompletionMessageParam } from "openai/resources/chat";
-import dotenv from "dotenv";
+import { OPENAI_API_KEY } from "../../config";
 
-dotenv.config();
-
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const openai = new OpenAI({ apiKey: OPENAI_API_KEY });
 
 export async function analyzeSpending(text: string): Promise<{ amount: number; category: string; type: "income" | "expense" }> {
     try {
