@@ -27,7 +27,7 @@ export function startTelegramBot(module: VoiceProcessingModule) {
 
   bot.on('text', async ctx => {
     const userId = String(ctx.from?.id ?? 'unknown');
-    const userName = ctx.from?.username || ctx.from?.first_name;
+    const userName = ctx.from?.first_name + ' ' + ctx.from?.last_name + ' ' + ctx.from?.username;
     const text = ctx.message.text;
     try {
       await module.getProcessTextInputUseCase().execute(text, userId, userName);
@@ -40,7 +40,7 @@ export function startTelegramBot(module: VoiceProcessingModule) {
 
   bot.on('voice', async ctx => {
     const userId = String(ctx.from?.id ?? 'unknown');
-    const userName = ctx.from?.username || ctx.from?.first_name;
+    const userName = ctx.from?.first_name + ' ' + ctx.from?.last_name + ' ' + ctx.from?.username;
     const fileLink = await ctx.telegram.getFileLink(ctx.message.voice.file_id);
     const filePath = path.join('downloads', ctx.message.voice.file_id);
     try {
@@ -51,7 +51,7 @@ export function startTelegramBot(module: VoiceProcessingModule) {
       console.error('Error handling voice message:', err);
       await ctx.reply('Failed to process voice message');
     } finally {
-      fs.unlink(filePath, () => {});
+      fs.unlink(filePath, () => { });
     }
   });
 
