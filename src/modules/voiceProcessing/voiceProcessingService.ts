@@ -1,5 +1,6 @@
 import { OpenAI } from "openai";
 import fs from "fs";
+import fsPromises from "fs/promises";
 import path from "path";
 import dotenv from "dotenv";
 import { analyzeSpending } from "./textProcessingService";
@@ -21,7 +22,7 @@ export async function processVoiceInput(filePath: string): Promise<{ text: strin
         const newFilePath = filePath + fileExt;
 
         // Переименовываем файл, чтобы добавить расширение
-        fs.renameSync(filePath, newFilePath);
+        await fsPromises.rename(filePath, newFilePath);
         console.log("Renamed file for Whisper API:", newFilePath);
 
         const fileStream = fs.createReadStream(newFilePath);
@@ -51,7 +52,7 @@ export async function processVoiceInput(filePath: string): Promise<{ text: strin
         console.log("Transaction saved to Notion:", transaction);
 
         // Удаляем временные файлы
-        fs.unlinkSync(newFilePath);
+        await fsPromises.unlink(newFilePath);
 
         return { text: recognizedText, amount, category, type };
     } catch (error) {
