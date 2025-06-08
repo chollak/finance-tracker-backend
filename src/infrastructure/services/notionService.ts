@@ -1,4 +1,4 @@
-import { Transaction } from '../../domain/entity/transaction';
+import { Transaction } from '../../modules/transaction/domain/transactionEntity';
 import { Client } from '@notionhq/client';
 import dotenv from 'dotenv';
 dotenv.config();
