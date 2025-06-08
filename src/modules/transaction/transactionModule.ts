@@ -1,6 +1,6 @@
 // modules/transaction/transactionModule.ts
 import { CreateTransactionUseCase } from './application/createTransaction';
-import { GetTransactionsUseCase } from './application/getTransactions';;
+import { GetTransactionsUseCase } from './application/getTransactions';
 import { NotionRepository } from './infrastructure/notionRepository';
 import { NotionService } from '../../infrastructure/services/notionService';
 
