@@ -1,6 +1,6 @@
 import express, { Request, Response } from 'express';
 import multer from 'multer';
-import { processVoiceInput, processTextInput } from './voiceProcessingService';
+import { VoiceProcessingModule } from './voiceProcessingModule';
 
 const router = express.Router();
 const upload = multer({ dest: 'uploads/' });
@@ -14,8 +14,8 @@ router.post('/voice-input', upload.single('audio'), async (req: Request, res: Re
     }
 
     try {
-        const result = await processVoiceInput(req.file.path);
-        // fs.unlinkSync(req.file.path); // Удаляем временный файл
+        const useCase = VoiceProcessingModule.getProcessVoiceInputUseCase();
+        const result = await useCase.execute({ filePath: req.file.path });
         res.json(result);
     } catch (error) {
         console.error('Error processing voice input:', error);
@@ -31,7 +31,8 @@ router.post('/text-input', async (req: Request, res: Response): Promise<void> =>
     }
 
     try {
-        const result = await processTextInput(req.body.text);
+        const useCase = VoiceProcessingModule.getProcessTextInputUseCase();
+        const result = await useCase.execute(req.body.text);
         res.json(result);
     } catch (error) {
         console.error('Error processing voice input:', error);
