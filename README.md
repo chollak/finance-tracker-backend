@@ -21,6 +21,7 @@ npm install
 OPENAI_API_KEY=your_openai_key
 NOTION_API_KEY=your_notion_key
 NOTION_DATABASE_ID=your_notion_database_id
+TG_BOT_API_KEY=your_telegram_bot_key
 ```
 
 ## Build and Run

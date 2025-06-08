@@ -5,7 +5,7 @@ import { TransactionRepository } from '../src/modules/transaction/domain/transac
 describe('GetTransactionsUseCase', () => {
   it('returns data from repository', async () => {
     const data: Transaction[] = [
-      { date: '2024-01-01', category: 'Food', description: 'Lunch', amount: 10, type: 'expense' }
+      { date: '2024-01-01', category: 'Food', description: 'Lunch', amount: 10, type: 'expense', userId: 'user1' }
     ];
 
     const repo: TransactionRepository = { save: jest.fn(), getAll: jest.fn().mockResolvedValue(data) };

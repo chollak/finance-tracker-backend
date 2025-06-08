@@ -9,7 +9,7 @@ export class ProcessTextInputUseCase {
         private createTransactionUseCase: CreateTransactionUseCase
     ) {}
 
-    async execute(text: string): Promise<ProcessedTransaction> {
+    async execute(text: string, userId: string, userName?: string): Promise<ProcessedTransaction> {
         const { amount, category, type } = await this.openAIService.analyzeText(text);
 
         const transaction: Transaction = {
@@ -18,6 +18,8 @@ export class ProcessTextInputUseCase {
             description: text,
             amount,
             type,
+            userId,
+            userName,
         };
 
         await this.createTransactionUseCase.execute(transaction);

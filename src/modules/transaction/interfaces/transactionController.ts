@@ -27,14 +27,14 @@ export function createTransactionRouter(
   });
 
   router.post('/', async (req, res) => {
-    const { date, category, description, amount, type } = req.body as Transaction;
-    if (!date || !category || !description || !amount || !type) {
+    const { date, category, description, amount, type, userId, userName } = req.body as Transaction;
+    if (!date || !category || !description || !amount || !type || !userId) {
       res.status(400).json({ error: 'All fields are required' });
       return;
     }
 
     try {
-      const transaction = { date, category, description, amount, type };
+      const transaction = { date, category, description, amount, type, userId, userName };
       await createUseCase.execute(transaction);
       res.status(201).send('Transaction created');
     } catch (error: any) {

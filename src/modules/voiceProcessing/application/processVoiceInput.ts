@@ -25,6 +25,8 @@ export class ProcessVoiceInputUseCase {
             description: recognizedText,
             amount,
             type,
+            userId: input.userId,
+            userName: input.userName,
         };
 
         await this.createTransactionUseCase.execute(transaction);
