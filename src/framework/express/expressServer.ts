@@ -1,25 +1,19 @@
 import express, { Request } from 'express';
 import bodyParser from 'body-parser';
 import cors from 'cors';
-import '../../config';
-import { OPENAI_API_KEY, NOTION_API_KEY, NOTION_DATABASE_ID } from '../../config';
-import { NotionService } from '../../infrastructure/services/notionService';
 import { TransactionModule } from '../../modules/transaction/transactionModule';
-import { createTransactionRouter } from '../../modules/transaction/interfaces/transactionController';
-import { OpenAITranscriptionService } from '../../modules/voiceProcessing/infrastructure/openAITranscriptionService';
 import { VoiceProcessingModule } from '../../modules/voiceProcessing/voiceProcessingModule';
+import { createTransactionRouter } from '../../modules/transaction/interfaces/transactionController';
 import { createVoiceProcessingRouter } from '../../modules/voiceProcessing/voiceProcessingController';
 
-export function buildServer() {
+export function buildServer(
+  transactionModule: TransactionModule,
+  voiceModule: VoiceProcessingModule
+) {
   const app = express();
   app.use(bodyParser.json());
   app.use(cors<Request>());
 
-  const notionService = new NotionService(NOTION_API_KEY, NOTION_DATABASE_ID);
-  const transactionModule = TransactionModule.create(notionService);
-
-  const openAIService = new OpenAITranscriptionService(OPENAI_API_KEY);
-  const voiceModule = new VoiceProcessingModule(openAIService, transactionModule);
 
   app.use(
     '/transactions',
