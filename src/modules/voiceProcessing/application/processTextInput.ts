@@ -1,11 +1,11 @@
 import { ProcessedTransaction } from '../domain/processedTransaction';
-import { OpenAITranscriptionService } from '../infrastructure/openAITranscriptionService';
+import { TranscriptionService } from '../domain/transcriptionService';
 import { CreateTransactionUseCase } from '../../transaction/application/createTransaction';
 import { Transaction } from '../../transaction/domain/transactionEntity';
 
 export class ProcessTextInputUseCase {
     constructor(
-        private openAIService: OpenAITranscriptionService,
+        private openAIService: TranscriptionService,
         private createTransactionUseCase: CreateTransactionUseCase
     ) {}
 

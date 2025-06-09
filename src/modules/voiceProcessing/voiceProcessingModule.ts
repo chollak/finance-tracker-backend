@@ -1,11 +1,12 @@
 import { OpenAITranscriptionService } from './infrastructure/openAITranscriptionService';
+import { TranscriptionService } from './domain/transcriptionService';
 import { ProcessVoiceInputUseCase } from './application/processVoiceInput';
 import { ProcessTextInputUseCase } from './application/processTextInput';
 import { TransactionModule } from '../transaction/transactionModule';
 
 export class VoiceProcessingModule {
   constructor(
-    private openAIService: OpenAITranscriptionService,
+    private openAIService: TranscriptionService,
     private transactionModule: TransactionModule
   ) {}
 

@@ -1,8 +1,9 @@
 import OpenAI from 'openai';
 import fs from 'fs';
 import { ChatCompletionMessageParam } from 'openai/resources/chat';
+import { TranscriptionService } from '../domain/transcriptionService';
 
-export class OpenAITranscriptionService {
+export class OpenAITranscriptionService implements TranscriptionService {
     private openai: OpenAI;
 
     constructor(apiKey: string) {

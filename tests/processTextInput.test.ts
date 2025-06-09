@@ -1,5 +1,5 @@
 import { ProcessTextInputUseCase } from '../src/modules/voiceProcessing/application/processTextInput';
-import { OpenAITranscriptionService } from '../src/modules/voiceProcessing/infrastructure/openAITranscriptionService';
+import { TranscriptionService } from '../src/modules/voiceProcessing/domain/transcriptionService';
 import { CreateTransactionUseCase } from '../src/modules/transaction/application/createTransaction';
 
 jest.mock('../src/modules/voiceProcessing/infrastructure/openAITranscriptionService');
@@ -9,7 +9,7 @@ describe('ProcessTextInputUseCase', () => {
     const openAIService = {
       analyzeText: jest.fn().mockResolvedValue({ amount: 5, category: 'Food', type: 'expense' }),
       transcribe: jest.fn()
-    } as unknown as OpenAITranscriptionService;
+    } as unknown as TranscriptionService;
 
     const createTransactionUseCase = {
       execute: jest.fn()
