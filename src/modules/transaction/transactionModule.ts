@@ -1,5 +1,6 @@
 import { CreateTransactionUseCase } from './application/createTransaction';
 import { GetTransactionsUseCase } from './application/getTransactions';
+import { GetUserTransactionsUseCase } from './application/getUserTransactions';
 import { AnalyticsService } from './application/analyticsService';
 import { NotionRepository } from './infrastructure/notionRepository';
 import { NotionService } from '../../infrastructure/services/notionService';
@@ -19,6 +20,10 @@ export class TransactionModule {
 
   getGetTransactionsUseCase(): GetTransactionsUseCase {
     return new GetTransactionsUseCase(this.repository);
+  }
+
+  getGetUserTransactionsUseCase(): GetUserTransactionsUseCase {
+    return new GetUserTransactionsUseCase(this.repository);
   }
 
   getAnalyticsService(): AnalyticsService {

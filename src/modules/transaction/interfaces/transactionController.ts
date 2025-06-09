@@ -2,12 +2,14 @@ import { Router } from 'express';
 import { CreateTransactionUseCase } from '../application/createTransaction';
 import { GetTransactionsUseCase } from '../application/getTransactions';
 import { AnalyticsService } from '../application/analyticsService';
+import { GetUserTransactionsUseCase } from '../application/getUserTransactions';
 import { Transaction } from '../domain/transactionEntity';
 
 export function createTransactionRouter(
   createUseCase: CreateTransactionUseCase,
   getUseCase: GetTransactionsUseCase,
-  analyticsService: AnalyticsService
+  analyticsService: AnalyticsService,
+  getUserUseCase: GetUserTransactionsUseCase
 ): Router {
   const router = Router();
 
@@ -45,6 +47,15 @@ export function createTransactionRouter(
   router.get('/', async (req, res) => {
     try {
       const transactions = await getUseCase.execute();
+      res.status(200).json(transactions);
+    } catch (error: any) {
+      res.status(400).send(error.message);
+    }
+  });
+
+  router.get('/user/:userId', async (req, res) => {
+    try {
+      const transactions = await getUserUseCase.execute(req.params.userId);
       res.status(200).json(transactions);
     } catch (error: any) {
       res.status(400).send(error.message);

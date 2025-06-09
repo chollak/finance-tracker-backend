@@ -1,8 +1,8 @@
-import { Telegraf } from 'telegraf';
+import { Telegraf, Markup } from 'telegraf';
 import fs from 'fs';
 import https from 'https';
 import path from 'path';
-import { TG_BOT_API_KEY } from '../../config';
+import { TG_BOT_API_KEY, WEB_APP_URL } from '../../config';
 import { VoiceProcessingModule } from '../../modules/voiceProcessing/voiceProcessingModule';
 
 function downloadFile(url: string, dest: string): Promise<string> {
@@ -24,6 +24,19 @@ export function startTelegramBot(module: VoiceProcessingModule) {
   }
 
   const bot = new Telegraf(TG_BOT_API_KEY);
+
+  bot.command('transactions', async ctx => {
+    if (!WEB_APP_URL) {
+      await ctx.reply('Web app URL not configured');
+      return;
+    }
+    const userId = String(ctx.from?.id ?? 'unknown');
+    const url = `${WEB_APP_URL}/webapp/transactions.html?userId=${userId}`;
+    await ctx.reply(
+      'Open your transactions',
+      Markup.inlineKeyboard([Markup.button.webApp('Open', url)])
+    );
+  });
 
   bot.on('text', async ctx => {
     const userId = String(ctx.from?.id ?? 'unknown');

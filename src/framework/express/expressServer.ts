@@ -5,6 +5,7 @@ import { TransactionModule } from '../../modules/transaction/transactionModule';
 import { VoiceProcessingModule } from '../../modules/voiceProcessing/voiceProcessingModule';
 import { createTransactionRouter } from '../../modules/transaction/interfaces/transactionController';
 import { createVoiceProcessingRouter } from '../../modules/voiceProcessing/voiceProcessingController';
+import path from 'path';
 
 export function buildServer(
   transactionModule: TransactionModule,
@@ -14,13 +15,17 @@ export function buildServer(
   app.use(bodyParser.json());
   app.use(cors<Request>());
 
+  const publicDir = path.join(__dirname, '../../public');
+  app.use('/webapp', express.static(publicDir));
+
 
   app.use(
     '/transactions',
     createTransactionRouter(
       transactionModule.getCreateTransactionUseCase(),
       transactionModule.getGetTransactionsUseCase(),
-      transactionModule.getAnalyticsService()
+      transactionModule.getAnalyticsService(),
+      transactionModule.getGetUserTransactionsUseCase()
     )
   );
 
