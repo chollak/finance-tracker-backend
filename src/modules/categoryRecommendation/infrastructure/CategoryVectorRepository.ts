@@ -48,4 +48,8 @@ export class CategoryVectorRepository {
 
     return { label: bestLabel, score: bestScore };
   }
+
+  async recommendCategory(text: string): Promise<{ label: string; score: number }> {
+    return this.findNearest(text);
+  }
 }

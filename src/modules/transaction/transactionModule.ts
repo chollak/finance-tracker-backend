@@ -5,17 +5,18 @@ import { AnalyticsService } from './application/analyticsService';
 import { NotionRepository } from './infrastructure/notionRepository';
 import { NotionService } from '../../infrastructure/services/notionService';
 import { TransactionRepository } from './domain/transactionRepository';
+import { CategoryVectorRepository } from '../categoryRecommendation/infrastructure/CategoryVectorRepository';
 
 export class TransactionModule {
-  constructor(private repository: TransactionRepository) {}
+  constructor(private repository: TransactionRepository, private categoryRepo: CategoryVectorRepository) {}
 
-  static create(notionService: NotionService): TransactionModule {
+  static create(notionService: NotionService, categoryRepo: CategoryVectorRepository): TransactionModule {
     const repository = new NotionRepository(notionService);
-    return new TransactionModule(repository);
+    return new TransactionModule(repository, categoryRepo);
   }
 
   getCreateTransactionUseCase(): CreateTransactionUseCase {
-    return new CreateTransactionUseCase(this.repository);
+    return new CreateTransactionUseCase(this.repository, this.categoryRepo);
   }
 
   getGetTransactionsUseCase(): GetTransactionsUseCase {
