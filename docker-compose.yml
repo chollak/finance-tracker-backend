@@ -7,3 +7,10 @@ services:
       - "3000:3000"
     restart: unless-stopped
     command: npm start
+
+  analytics:
+    build: .
+    working_dir: /app
+    command: npm run analytics
+    restart: unless-stopped
+    cron: "0 2 * * *"
