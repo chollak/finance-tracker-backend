@@ -33,8 +33,9 @@ export class AssistantFacade {
     const intent = this.mapIntent(message);
     switch (intent) {
       case 'createTransaction': {
-        const data = await this.chatService.parseTransaction(message);
-        await this.createUseCase.execute(data);
+        const parser = (this.chatService as any).extractTransaction ?? (this.chatService as any).parseTransaction;
+        const data = await parser.call(this.chatService, message);
+        await this.createUseCase.execute(data as unknown as any);
         break;
       }
       case 'getBalance':

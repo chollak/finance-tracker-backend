@@ -15,7 +15,7 @@ describe('CategoryVectorRepository', () => {
     };
 
     const embeddingService: OpenAIEmbeddingService = {
-      getEmbedding: jest.fn().mockResolvedValue([1, 0]),
+      embed: jest.fn().mockResolvedValue(new Float32Array([1, 0])),
     } as unknown as OpenAIEmbeddingService;
 
     const repo = new CategoryVectorRepository(supabase, embeddingService);

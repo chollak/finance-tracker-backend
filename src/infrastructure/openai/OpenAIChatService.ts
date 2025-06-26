@@ -29,5 +29,9 @@ export class OpenAIChatService {
 
         return TransactionDTO.fromRaw(toolCall.function.arguments);
     }
+
+    async parseTransaction(prompt: string): Promise<TransactionDTO> {
+        return this.extractTransaction(prompt);
+    }
 }
 
