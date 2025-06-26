@@ -32,7 +32,8 @@ export class CategoryVectorRepository {
       throw new Error('No data returned from category_vectors');
     }
 
-    const queryEmbedding = await this.embeddingService.getEmbedding(text);
+    const queryEmbeddingArr = await this.embeddingService.embed(text);
+    const queryEmbedding = Array.from(queryEmbeddingArr);
 
     let bestLabel = '';
     let bestScore = -1;
