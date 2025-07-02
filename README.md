@@ -76,8 +76,7 @@ The `deploy` workflow in `.github/workflows/deploy.yml` runs on pushes to the `m
 1. Sets up Node.js 18 using `actions/setup-node`.
 2. Installs dependencies with `npm ci`.
 3. Executes tests with `npm test`.
-4. Builds and pushes a Docker image to your registry.
-5. Deploys the new container to your server over SSH.
+4. Deploys the application to your server over SSH, where the container is built using `docker compose`.
 
 ## Project Structure
 
