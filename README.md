@@ -40,6 +40,27 @@ During development you can run the server with automatic reload:
 npm run dev
 ```
 
+## Docker Compose
+
+To build and start the application in a container:
+
+```bash
+docker compose up -d --build
+```
+
+The service will be available on [http://localhost:3000](http://localhost:3000).
+View logs with:
+
+```bash
+docker compose logs -f
+```
+
+Stop and remove the containers when you're done:
+
+```bash
+docker compose down
+```
+
 ## Running Tests
 
 Unit tests are executed with Jest:
