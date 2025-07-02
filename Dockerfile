@@ -1,5 +1,5 @@
 # Указываем базовый образ
-FROM node:16-alpine
+FROM node:18-alpine
 
 # Устанавливаем рабочую директорию
 WORKDIR /app
