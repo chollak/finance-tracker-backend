@@ -77,6 +77,7 @@ The `deploy` workflow in `.github/workflows/deploy.yml` runs on pushes to the `m
 2. Installs dependencies with `npm ci`.
 3. Executes tests with `npm test`.
 4. Deploys the application to your server over SSH, where the container is built using `docker compose`.
+5. Ensure that the repository secrets `SSH_HOST`, `SSH_USER` and `SSH_KEY` are configured with your server details so the SSH deployment step can connect.
 
 ## Project Structure
 
