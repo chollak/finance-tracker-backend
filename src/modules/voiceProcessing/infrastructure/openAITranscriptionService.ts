@@ -16,6 +16,8 @@ export class OpenAITranscriptionService implements TranscriptionService {
             model: 'whisper-1',
             file: fileStream,
             response_format: 'json',
+            language: 'ru',
+            prompt: 'финансовые транзакции'
         });
         return response.text;
     }
