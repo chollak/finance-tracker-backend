@@ -6,6 +6,7 @@ This project provides a simple backend service written in TypeScript for trackin
 
 - Node.js >= 18
 - npm
+- ffmpeg (for converting voice messages)
 
 ## Setup
 
