@@ -15,7 +15,11 @@ export function buildServer(
   app.use(bodyParser.json());
   app.use(cors<Request>());
 
-  const publicDir = path.join(__dirname, '../../public');
+  // Serve static files from the project root "public" directory.
+  // __dirname points to "src/framework/express" in development and
+  // "dist/framework/express" in production. In both cases we need to
+  // go three levels up to reach the project root.
+  const publicDir = path.join(__dirname, '../../../public');
   app.use('/webapp', express.static(publicDir));
 
 
