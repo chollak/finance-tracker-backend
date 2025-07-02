@@ -69,6 +69,16 @@ Unit tests are executed with Jest:
 npm test
 ```
 
+## GitHub Actions
+
+The `deploy` workflow in `.github/workflows/deploy.yml` runs on pushes to the `main` branch and performs the following steps:
+
+1. Sets up Node.js 18 using `actions/setup-node`.
+2. Installs dependencies with `npm ci`.
+3. Executes tests with `npm test`.
+4. Builds and pushes a Docker image to your registry.
+5. Deploys the new container to your server over SSH.
+
 ## Project Structure
 
 The code follows Clean Architecture principles with layers for `domain`, `application`, `infrastructure`, and `interfaces`. Express configuration lives under `src/framework/express`.
