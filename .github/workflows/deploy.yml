@@ -1,0 +1,38 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: 18
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Run tests
+      run: npm test
+
+    - name: Deploy over SSH
+      uses: appleboy/ssh-action@v1
+      with:
+        host: ${{ secrets.SSH_HOST }}
+        username: ${{ secrets.SSH_USER }}
+        key: ${{ secrets.SSH_KEY }}
+        script: |
+          if [ ! -d "$HOME/finance-tracker-backend" ]; then
+            git clone https://github.com/${{ github.repository }} $HOME/finance-tracker-backend
+          fi
+          cd $HOME/finance-tracker-backend
+          git pull
+          docker compose up -d --build
