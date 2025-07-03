@@ -47,9 +47,9 @@ export class ProcessVoiceInputUseCase {
             userName: input.userName,
         };
 
-        await this.createTransactionUseCase.execute(transaction);
+        const id = await this.createTransactionUseCase.execute(transaction);
         await fs.unlink(newFilePath);
 
-        return { text: recognizedText, amount, category, type };
+        return { text: recognizedText, amount, category, type, id };
     }
 }

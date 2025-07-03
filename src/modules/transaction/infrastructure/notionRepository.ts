@@ -10,8 +10,8 @@ export class NotionRepository implements TransactionRepository {
         this.notionService = notionService;
     }
 
-    async save(transaction: Transaction): Promise<void> {
-        await this.notionService.saveTransaction(transaction);
+    async save(transaction: Transaction): Promise<string> {
+        return this.notionService.saveTransaction(transaction);
     }
 
     async getAll(): Promise<Transaction[]> {
@@ -21,5 +21,9 @@ export class NotionRepository implements TransactionRepository {
     async getRecentTransactions(limit: number): Promise<Transaction[]> {
         const transactions = await this.getAll();
         return transactions.slice(-limit); // Берем последние N записей
+    }
+
+    async delete(id: string): Promise<void> {
+        await this.notionService.deleteTransaction(id);
     }
 }

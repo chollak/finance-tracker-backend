@@ -10,8 +10,8 @@ export class NotionService {
         this.databaseId = databaseId;
     }
 
-    async saveTransaction(transaction: Transaction): Promise<void> {
-        await this.notion.pages.create({
+    async saveTransaction(transaction: Transaction): Promise<string> {
+        const page = await this.notion.pages.create({
             parent: { database_id: this.databaseId },
             properties: {
                 Date: {
@@ -51,6 +51,7 @@ export class NotionService {
                 },
             },
         });
+        return (page as any).id as string;
     }
 
     async getTransactions(): Promise<Transaction[]> {
@@ -72,5 +73,9 @@ export class NotionService {
             console.log(error);
             throw new Error("Notion API Error: " + error.message);
         }
+    }
+
+    async deleteTransaction(id: string): Promise<void> {
+        await this.notion.pages.update({ page_id: id, archived: true });
     }
 }

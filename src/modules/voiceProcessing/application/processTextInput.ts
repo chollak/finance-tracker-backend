@@ -22,8 +22,8 @@ export class ProcessTextInputUseCase {
             userName,
         };
 
-        await this.createTransactionUseCase.execute(transaction);
+        const id = await this.createTransactionUseCase.execute(transaction);
 
-        return { text, amount, category, type };
+        return { text, amount, category, type, id };
     }
 }

@@ -8,7 +8,7 @@ describe('GetTransactionsUseCase', () => {
       { date: '2024-01-01', category: 'Food', description: 'Lunch', amount: 10, type: 'expense', userId: 'user1' }
     ];
 
-    const repo: TransactionRepository = { save: jest.fn(), getAll: jest.fn().mockResolvedValue(data) };
+    const repo: TransactionRepository = { save: jest.fn(), getAll: jest.fn().mockResolvedValue(data), delete: jest.fn() } as any;
 
     const useCase = new GetTransactionsUseCase(repo);
     const result = await useCase.execute();
