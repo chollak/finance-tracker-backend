@@ -65,7 +65,8 @@ docker compose down
 ## Web App (Telegram Mini App)
 
 The `webapp/` folder contains a React + TypeScript frontend built with Vite. It
-is served by Express from the `/webapp` route.
+is served by Express at the root path, while the backend API is available under
+the `/api` prefix.
 
 ### Development
 
