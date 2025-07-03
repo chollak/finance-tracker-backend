@@ -1,6 +1,9 @@
 # Node modules
 node_modules/
 dist/
+webapp/node_modules/
+public/webapp/index.html
+public/webapp/assets/
 
 # Environment variables
 .env
