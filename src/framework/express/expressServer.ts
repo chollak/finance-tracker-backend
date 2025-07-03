@@ -15,15 +15,9 @@ export function buildServer(
   app.use(bodyParser.json());
   app.use(cors<Request>());
 
-  // Serve static files for the Telegram web app.
-  // __dirname points to "src/framework/express" in development and
-  // "dist/framework/express" in production. We go three levels up to
-  // reach the project root, then into "public/webapp".
-  const webappDir = path.join(__dirname, '../../../public/webapp');
-  app.use('/webapp', express.static(webappDir));
+  const apiRouter = express.Router();
 
-
-  app.use(
+  apiRouter.use(
     '/transactions',
     createTransactionRouter(
       transactionModule.getCreateTransactionUseCase(),
@@ -33,13 +27,26 @@ export function buildServer(
     )
   );
 
-  app.use(
+  apiRouter.use(
     '/voice',
     createVoiceProcessingRouter(
       voiceModule.getProcessVoiceInputUseCase(),
       voiceModule.getProcessTextInputUseCase()
     )
   );
+
+
+  app.use('/api', apiRouter);
+
+  // Serve the React web app from the root path. __dirname points to
+  // "src/framework/express" in development and "dist/framework/express" in
+  // production. We go three levels up to reach the project root, then into
+  // "public/webapp".
+  const webappDir = path.join(__dirname, '../../../public/webapp');
+  app.use(express.static(webappDir));
+  app.get('*', (_, res) => {
+    res.sendFile(path.join(webappDir, 'index.html'));
+  });
 
   return app;
 }
