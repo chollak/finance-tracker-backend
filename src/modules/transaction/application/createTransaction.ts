@@ -10,12 +10,12 @@ export class CreateTransactionUseCase {
         this.primaryRepository = primaryRepository;
     }
 
-    async execute(transaction: Transaction): Promise<void> {
+    async execute(transaction: Transaction): Promise<string> {
         try {
-            await this.primaryRepository.save(transaction);
+            return await this.primaryRepository.save(transaction);
         } catch (error) {
             console.error('Error with primary repository, falling back to secondary', error);
-            // await this.fallbackRepository.save(transaction);
+            throw error;
         }
     }
 }

@@ -12,13 +12,13 @@ describe('ProcessTextInputUseCase', () => {
     } as unknown as TranscriptionService;
 
     const createTransactionUseCase = {
-      execute: jest.fn()
+      execute: jest.fn().mockResolvedValue('42')
     } as unknown as CreateTransactionUseCase;
 
     const useCase = new ProcessTextInputUseCase(openAIService, createTransactionUseCase);
     const result = await useCase.execute('test', 'user1');
 
     expect(createTransactionUseCase.execute).toHaveBeenCalled();
-    expect(result).toEqual({ text: 'test', amount: 5, category: 'Food', type: 'expense' });
+    expect(result).toEqual({ text: 'test', amount: 5, category: 'Food', type: 'expense', id: '42' });
   });
 });
