@@ -113,7 +113,8 @@ export function startTelegramBot(
     try {
       await deleteUseCase.execute(id);
       lastTx[userId] = '';
-      await ctx.editMessageReplyMarkup();
+      // Remove inline keyboard after deletion
+      await ctx.editMessageReplyMarkup(undefined);
       await ctx.answerCbQuery('Deleted');
     } catch (err) {
       console.error('Error deleting transaction:', err);
