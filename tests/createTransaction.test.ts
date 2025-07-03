@@ -13,12 +13,13 @@ describe('CreateTransactionUseCase', () => {
       userId: 'user1'
     };
 
-    const save = jest.fn().mockResolvedValue(undefined);
-    const repo: TransactionRepository = { save, getAll: jest.fn() };
+    const save = jest.fn().mockResolvedValue('1');
+    const repo: TransactionRepository = { save, getAll: jest.fn(), delete: jest.fn() } as any;
 
     const useCase = new CreateTransactionUseCase(repo);
-    await useCase.execute(transaction);
+    const id = await useCase.execute(transaction);
 
     expect(save).toHaveBeenCalledWith(transaction);
+    expect(id).toBe('1');
   });
 });

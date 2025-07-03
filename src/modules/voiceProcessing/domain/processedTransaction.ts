@@ -3,4 +3,5 @@ export interface ProcessedTransaction {
     amount: number;
     category: string;
     type: 'income' | 'expense';
+    id: string;
 }

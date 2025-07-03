@@ -4,6 +4,7 @@ import https from 'https';
 import path from 'path';
 import { TG_BOT_API_KEY, WEB_APP_URL } from '../../config';
 import { VoiceProcessingModule } from '../../modules/voiceProcessing/voiceProcessingModule';
+import { TransactionModule } from '../../modules/transaction/transactionModule';
 
 function downloadFile(url: string, dest: string): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -17,13 +18,31 @@ function downloadFile(url: string, dest: string): Promise<string> {
   });
 }
 
-export function startTelegramBot(module: VoiceProcessingModule) {
+export function startTelegramBot(
+  voiceModule: VoiceProcessingModule,
+  transactionModule: TransactionModule
+) {
   if (!TG_BOT_API_KEY) {
     console.warn('TG_BOT_API_KEY is not set, Telegram bot disabled');
     return;
   }
 
   const bot = new Telegraf(TG_BOT_API_KEY);
+  const deleteUseCase = transactionModule.getDeleteTransactionUseCase();
+  const lastTx: Record<string, string> = {};
+
+  bot.start(async ctx => {
+    if (!WEB_APP_URL) {
+      await ctx.reply('Web app URL not configured');
+      return;
+    }
+    const userId = String(ctx.from?.id ?? 'unknown');
+    const url = `${WEB_APP_URL}/webapp/transactions.html?userId=${userId}`;
+    await ctx.reply(
+      'Welcome! Open your transactions below.',
+      Markup.inlineKeyboard([Markup.button.webApp('Open', url)])
+    );
+  });
 
   bot.command('transactions', async ctx => {
     if (!WEB_APP_URL) {
@@ -43,9 +62,16 @@ export function startTelegramBot(module: VoiceProcessingModule) {
     const userName = ctx.from?.first_name + ' ' + ctx.from?.last_name + ' ' + ctx.from?.username;
     const text = ctx.message.text;
     try {
-      const result = await module.getProcessTextInputUseCase().execute(text, userId, userName);
-      await ctx.reply('Transaction saved');
-      await ctx.reply(`Recognized text: ${result.text}\nAmount: ${result.amount}\nCategory: ${result.category}\nType: ${result.type}`);
+      const result = await voiceModule.getProcessTextInputUseCase().execute(text, userId, userName);
+      lastTx[userId] = result.id;
+      const url = WEB_APP_URL ? `${WEB_APP_URL}/webapp/transactions.html?userId=${userId}` : undefined;
+      await ctx.reply(
+        `Saved: ${result.text}\nAmount: ${result.amount}\nCategory: ${result.category}\nType: ${result.type}`,
+        Markup.inlineKeyboard([
+          [Markup.button.callback('Delete', `delete:${result.id}`)],
+          ...(url ? [[Markup.button.webApp('Open app', url)] ] : [])
+        ])
+      );
     } catch (err) {
       console.error('Error handling text message:', err);
       await ctx.reply('Failed to process message');
@@ -59,14 +85,39 @@ export function startTelegramBot(module: VoiceProcessingModule) {
     const filePath = path.join('downloads', ctx.message.voice.file_id);
     try {
       await downloadFile(fileLink.href, filePath);
-      const result = await module.getProcessVoiceInputUseCase().execute({ filePath, userId, userName });
-      await ctx.reply('Transaction saved');
-      await ctx.reply(`Recognized text: ${result.text}\nAmount: ${result.amount}\nCategory: ${result.category}\nType: ${result.type}`);
+      const result = await voiceModule.getProcessVoiceInputUseCase().execute({ filePath, userId, userName });
+      lastTx[userId] = result.id;
+      const url = WEB_APP_URL ? `${WEB_APP_URL}/webapp/transactions.html?userId=${userId}` : undefined;
+      await ctx.reply(
+        `Saved: ${result.text}\nAmount: ${result.amount}\nCategory: ${result.category}\nType: ${result.type}`,
+        Markup.inlineKeyboard([
+          [Markup.button.callback('Delete', `delete:${result.id}`)],
+          ...(url ? [[Markup.button.webApp('Open app', url)] ] : [])
+        ])
+      );
     } catch (err) {
       console.error('Error handling voice message:', err);
       await ctx.reply('Failed to process voice message');
     } finally {
       fs.unlink(filePath, () => { });
+    }
+  });
+
+  bot.action(/delete:(.+)/, async ctx => {
+    const id = ctx.match[1];
+    const userId = String(ctx.from?.id ?? 'unknown');
+    if (lastTx[userId] !== id) {
+      await ctx.answerCbQuery('Cannot delete this transaction');
+      return;
+    }
+    try {
+      await deleteUseCase.execute(id);
+      lastTx[userId] = '';
+      await ctx.editMessageReplyMarkup();
+      await ctx.answerCbQuery('Deleted');
+    } catch (err) {
+      console.error('Error deleting transaction:', err);
+      await ctx.answerCbQuery('Failed to delete');
     }
   });
 
