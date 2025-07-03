@@ -62,6 +62,29 @@ Stop and remove the containers when you're done:
 docker compose down
 ```
 
+## Web App (Telegram Mini App)
+
+The `webapp/` folder contains a React + TypeScript frontend built with Vite. It
+is served by Express from the `/webapp` route.
+
+### Development
+
+```bash
+cd webapp
+npm install
+npm run dev
+```
+
+### Building for production
+
+```bash
+cd webapp
+npm run build
+```
+
+The build outputs static files to `public/webapp/` so they can be served by the
+backend.
+
 ## Running Tests
 
 Unit tests are executed with Jest:

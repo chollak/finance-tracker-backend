@@ -15,12 +15,12 @@ export function buildServer(
   app.use(bodyParser.json());
   app.use(cors<Request>());
 
-  // Serve static files from the project root "public" directory.
+  // Serve static files for the Telegram web app.
   // __dirname points to "src/framework/express" in development and
-  // "dist/framework/express" in production. In both cases we need to
-  // go three levels up to reach the project root.
-  const publicDir = path.join(__dirname, '../../../public');
-  app.use('/webapp', express.static(publicDir));
+  // "dist/framework/express" in production. We go three levels up to
+  // reach the project root, then into "public/webapp".
+  const webappDir = path.join(__dirname, '../../../public/webapp');
+  app.use('/webapp', express.static(webappDir));
 
 
   app.use(
