@@ -16,7 +16,7 @@ This project provides a simple backend service written in TypeScript for trackin
 npm install
 ```
 
-2. Create a `.env` file in the project root and define the following variables:
+2. Copy `.env.example` to `.env` in the project root and define the following variables:
 
 ```
 OPENAI_API_KEY=your_openai_key
@@ -53,6 +53,8 @@ To build and start the application in a container:
 ```bash
 docker compose up -d --build
 ```
+
+Docker Compose loads environment variables from `.env`, so make sure to create it first (you can copy from `.env.example`).
 
 The service will be available on [http://localhost:3000](http://localhost:3000).
 View logs with:
