@@ -13,7 +13,8 @@ const app = express();
 app.use('/api', buildServer(transactionModule, voiceModule));
 
 const buildPath = path.join(__dirname, '../public/webapp');
-app.use(express.static(buildPath));
+// Serve the web app under the /webapp path so URLs from the Telegram bot work
+app.use('/webapp', express.static(buildPath));
 
 app.get('*', (req, res) => {
   res.sendFile(path.join(buildPath, 'index.html'));
