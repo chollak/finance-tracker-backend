@@ -6,6 +6,12 @@ export class NotionService {
     private databaseId: string;
 
     constructor(apiKey: string, databaseId: string) {
+        if (!apiKey) {
+            throw new Error('NOTION_API_KEY is not set');
+        }
+        if (!databaseId) {
+            throw new Error('NOTION_DATABASE_ID is not set');
+        }
         this.notion = new Client({ auth: apiKey });
         this.databaseId = databaseId;
     }

@@ -26,6 +26,11 @@ TG_BOT_API_KEY=your_telegram_bot_key
 WEB_APP_URL=https://sapaev.uz
 ```
 
+When the server starts, it prints a warning if the `.env` file is missing or any
+required variables are undefined. `NOTION_API_KEY` and `NOTION_DATABASE_ID` are
+mandatory and the server will stop with a descriptive error if they are not
+provided.
+
 ## Build and Run
 
 To compile the TypeScript sources and start the application:
