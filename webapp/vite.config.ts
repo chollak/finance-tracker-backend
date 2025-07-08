@@ -6,7 +6,13 @@ export default defineConfig({
   plugins: [react()],
   build: {
     outDir: '../public/webapp',
-    emptyOutDir: true
+    emptyOutDir: true,
+    rollupOptions: {
+      input: {
+        main: resolve(__dirname, 'index.html'),
+        transactions: resolve(__dirname, 'transactions.html')
+      }
+    }
   },
   resolve: {
     alias: {
