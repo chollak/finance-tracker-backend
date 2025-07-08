@@ -36,6 +36,11 @@ export default function TransactionsApp() {
   return (
     <div className="p-4">
       <h1 className="text-xl font-bold mb-4">Transactions</h1>
+      <nav className="mb-4">
+        <a className="text-blue-600 underline" href="/webapp/stats.html">
+          View Stats
+        </a>
+      </nav>
       {transactions.length === 0 ? (
         <p>No transactions found.</p>
       ) : (
