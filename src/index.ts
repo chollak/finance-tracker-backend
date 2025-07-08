@@ -1,9 +1,11 @@
-import './config';
+import { validateEnv } from './config';
 import express from 'express';
 import path from 'path';
 import { buildServer } from './framework/express/expressServer';
 import { startTelegramBot } from './framework/telegram/telegramBot';
 import { createModules } from './appModules';
+
+validateEnv();
 
 const { transactionModule, voiceModule } = createModules();
 const app = express();
