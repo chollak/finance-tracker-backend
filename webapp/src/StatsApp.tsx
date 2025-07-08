@@ -17,16 +17,16 @@ export default function StatsApp() {
   const [loading, setLoading] = useState(true);
   const [months, setMonths] = useState<Month[]>([]);
   const [index, setIndex] = useState(0);
+  const params = new URLSearchParams(window.location.search);
+  const userIdParam = params.get('userId');
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const userId = params.get('userId');
-    if (!userId) {
+    if (!userIdParam) {
       setLoading(false);
       return;
     }
 
-    fetch(`/api/transactions/user/${userId}`)
+    fetch(`/api/transactions/user/${userIdParam}`)
       .then(res => res.json())
       .then(data => {
         setTransactions(data);
@@ -85,7 +85,10 @@ export default function StatsApp() {
     <div className="p-4">
       <h1 className="text-xl font-bold mb-4">Statistics</h1>
       <nav className="mb-4">
-        <a className="text-blue-600 underline" href="/webapp/transactions.html">
+        <a
+          className="text-blue-600 underline"
+          href={`/webapp/transactions.html${userIdParam ? `?userId=${userIdParam}` : ''}`}
+        >
           Back to Transactions
         </a>
       </nav>

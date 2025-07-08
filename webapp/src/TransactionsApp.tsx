@@ -13,16 +13,16 @@ interface Transaction {
 export default function TransactionsApp() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
+  const params = new URLSearchParams(window.location.search);
+  const userIdParam = params.get('userId');
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const userId = params.get('userId');
-    if (!userId) {
+    if (!userIdParam) {
       setLoading(false);
       return;
     }
 
-    fetch(`/api/transactions/user/${userId}`)
+    fetch(`/api/transactions/user/${userIdParam}`)
       .then(res => res.json())
       .then(data => setTransactions(data))
       .catch(err => console.error('Failed to fetch transactions', err))
@@ -37,7 +37,10 @@ export default function TransactionsApp() {
     <div className="p-4">
       <h1 className="text-xl font-bold mb-4">Transactions</h1>
       <nav className="mb-4">
-        <a className="text-blue-600 underline" href="/webapp/stats.html">
+        <a
+          className="text-blue-600 underline"
+          href={`/webapp/stats.html${userIdParam ? `?userId=${userIdParam}` : ''}`}
+        >
           View Stats
         </a>
       </nav>
