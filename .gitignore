@@ -2,6 +2,7 @@
 node_modules/
 dist/
 webapp/node_modules/
+webapp/build/
 public/webapp/index.html
 public/webapp/assets/
 
