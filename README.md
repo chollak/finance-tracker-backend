@@ -83,7 +83,7 @@ cd webapp
 npm run build
 ```
 
-The build outputs static files to `public/webapp/` so they can be served by the
+The build outputs static files to `webapp/build/` so they can be served by the
 backend.
 
 ## Running Tests

@@ -6,14 +6,13 @@ WORKDIR /app
 
 # Копируем package.json и package-lock.json (или yarn.lock, если используешь Yarn)
 COPY package*.json ./
+COPY webapp ./webapp
+COPY src ./src
+COPY tsconfig.json ./
 
 # Устанавливаем зависимости
 RUN npm install
-
-# Копируем все файлы проекта в контейнер
-COPY . .
-
-# Собираем TypeScript код
+RUN npm run build:webapp
 RUN npm run build
 
 # Открываем порт, который будет использовать приложение

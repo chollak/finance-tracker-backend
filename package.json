@@ -8,7 +8,10 @@
     "build": "npx tsc",
     "serve": "node dist/index.js",
     "dev": "ts-node-dev src/index.ts",
-    "test": "jest"
+    "test": "jest",
+    "install:webapp": "cd webapp && npm install",
+    "build:webapp": "cd webapp && npm run build",
+    "postinstall": "npm run install:webapp && npm run build:webapp"
   },
   "keywords": [],
   "author": "",
