@@ -4,6 +4,7 @@ import { resolve } from 'path';
 
 export default defineConfig({
   plugins: [react()],
+  base: '/webapp/',
   build: {
     outDir: '../public/webapp',
     emptyOutDir: true,
