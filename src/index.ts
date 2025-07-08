@@ -10,7 +10,7 @@ const app = express();
 
 app.use('/api', buildServer(transactionModule, voiceModule));
 
-const buildPath = path.join(__dirname, '../webapp/build');
+const buildPath = path.join(__dirname, '../public/webapp');
 app.use(express.static(buildPath));
 
 app.get('*', (req, res) => {
