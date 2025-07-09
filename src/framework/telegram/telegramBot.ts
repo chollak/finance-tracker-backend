@@ -29,6 +29,7 @@ export function startTelegramBot(
 
   const bot = new Telegraf(TG_BOT_API_KEY);
   const deleteUseCase = transactionModule.getDeleteTransactionUseCase();
+  const fmt = new Intl.NumberFormat('ru-RU');
   const lastTx: Record<string, string> = {};
 
   bot.start(async ctx => {
@@ -66,7 +67,7 @@ export function startTelegramBot(
       lastTx[userId] = result.id;
       const url = WEB_APP_URL ? `${WEB_APP_URL}/webapp/transactions.html?userId=${userId}` : undefined;
       await ctx.reply(
-        `Saved: ${result.text}\nAmount: ${result.amount}\nCategory: ${result.category}\nType: ${result.type}`,
+        `Saved: ${result.text}\nAmount: ${fmt.format(result.amount)}\nCategory: ${result.category}\nType: ${result.type}`,
         Markup.inlineKeyboard([
           [Markup.button.callback('Delete', `delete:${result.id}`)],
           ...(url ? [[Markup.button.webApp('Open app', url)] ] : [])
@@ -89,7 +90,7 @@ export function startTelegramBot(
       lastTx[userId] = result.id;
       const url = WEB_APP_URL ? `${WEB_APP_URL}/webapp/transactions.html?userId=${userId}` : undefined;
       await ctx.reply(
-        `Saved: ${result.text}\nAmount: ${result.amount}\nCategory: ${result.category}\nType: ${result.type}`,
+        `Saved: ${result.text}\nAmount: ${fmt.format(result.amount)}\nCategory: ${result.category}\nType: ${result.type}`,
         Markup.inlineKeyboard([
           [Markup.button.callback('Delete', `delete:${result.id}`)],
           ...(url ? [[Markup.button.webApp('Open app', url)] ] : [])

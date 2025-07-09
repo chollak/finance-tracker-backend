@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { formatAmount } from './utils';
 
 interface Transaction {
   date: string;
@@ -53,7 +54,7 @@ export default function TransactionsApp() {
               <div className="text-sm text-gray-500">{new Date(tx.date).toLocaleDateString()}</div>
               <div className="font-semibold">{tx.category}</div>
               <div>{tx.description}</div>
-              <div>{tx.amount}</div>
+              <div>{formatAmount(tx.amount)}</div>
               <div className="text-sm text-gray-600">{tx.type}</div>
             </li>
           ))}

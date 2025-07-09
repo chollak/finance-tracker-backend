@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { formatAmount } from './utils';
 
 interface Transaction {
   date: string;
@@ -94,7 +95,7 @@ export default function StatsApp() {
       </nav>
       <div className="border rounded p-4 mb-4">
         <div className="text-sm text-gray-500">Total</div>
-        <div className="text-lg font-semibold">{total}</div>
+        <div className="text-lg font-semibold">{formatAmount(total)}</div>
       </div>
       <div className="border rounded p-4">
         <div className="flex items-center justify-between mb-2">
@@ -102,7 +103,7 @@ export default function StatsApp() {
           <span>{monthLabel}</span>
           <button className="px-2" onClick={next}>&gt;</button>
         </div>
-        <div className="text-lg font-semibold">{monthSum}</div>
+        <div className="text-lg font-semibold">{formatAmount(monthSum)}</div>
       </div>
     </div>
   );
