@@ -19,12 +19,13 @@
       const res = await fetch(`/api/transactions/user/${userId}`);
       const data = await res.json();
       const list = document.getElementById('list');
+      const fmt = new Intl.NumberFormat('ru-RU');
       data.forEach(t => {
         const el = document.createElement('div');
         el.className = 'bg-white p-3 rounded shadow';
         el.innerHTML = `<div class="text-sm text-gray-500">${t.date} - ${t.category}</div>` +
                        `<div class="font-medium">${t.description}</div>` +
-                       `<div class="text-right">${t.amount}</div>`;
+                       `<div class="text-right">${fmt.format(t.amount)}</div>`;
         list.appendChild(el);
       });
       window.Telegram?.WebApp?.ready();
