@@ -4,9 +4,17 @@ import { resolve } from 'path';
 
 export default defineConfig({
   plugins: [react()],
+  base: '/webapp/',
   build: {
     outDir: '../public/webapp',
-    emptyOutDir: true
+    emptyOutDir: true,
+    rollupOptions: {
+      input: {
+        main: resolve(__dirname, 'index.html'),
+        transactions: resolve(__dirname, 'transactions.html'),
+        stats: resolve(__dirname, 'stats.html')
+      }
+    }
   },
   resolve: {
     alias: {

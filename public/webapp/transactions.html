@@ -16,7 +16,7 @@
     const userId = params.get('userId');
     async function load() {
       if (!userId) return;
-      const res = await fetch(`/transactions/user/${userId}`);
+      const res = await fetch(`/api/transactions/user/${userId}`);
       const data = await res.json();
       const list = document.getElementById('list');
       data.forEach(t => {
@@ -27,6 +27,7 @@
                        `<div class="text-right">${t.amount}</div>`;
         list.appendChild(el);
       });
+      window.Telegram?.WebApp?.ready();
     }
     load();
   </script>
