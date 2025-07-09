@@ -30,6 +30,10 @@ export function createVoiceProcessingRouter(
   });
 
   router.post('/text-input', async (req: Request, res: Response) => {
+    if (!req.body.userId) {
+      req.body.userId = '1'; // Default userId if not provided
+    }
+
     if (!req.body.text || !req.body.userId) {
       res.status(400).json({ error: 'Text and userId are required' });
       return;
