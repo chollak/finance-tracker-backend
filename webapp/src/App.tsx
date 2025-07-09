@@ -11,14 +11,24 @@ export default function App() {
     window.Telegram?.WebApp?.ready();
   }, []);
 
+  const params = new URLSearchParams(window.location.search);
+  const userId = params.get('userId');
+  const query = userId ? `?userId=${userId}` : '';
+
   return (
     <div className="p-4">
       <h1 className="text-xl font-bold mb-4">FinTrack WebApp</h1>
       <nav className="space-x-4">
-        <a className="text-blue-600 underline" href="/webapp/transactions.html">
+        <a
+          className="text-blue-600 underline"
+          href={`/webapp/transactions.html${query}`}
+        >
           Transactions
         </a>
-        <a className="text-blue-600 underline" href="/webapp/stats.html">
+        <a
+          className="text-blue-600 underline"
+          href={`/webapp/stats.html${query}`}
+        >
           Stats
         </a>
       </nav>
