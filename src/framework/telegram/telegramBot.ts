@@ -11,12 +11,15 @@ function downloadFile(url: string, dest: string): Promise<string> {
     const dir = path.dirname(dest);
     fs.mkdirSync(dir, { recursive: true });
     const file = fs.createWriteStream(dest);
-    https.get(url, response => {
-      response.pipe(file);
-      file.on('finish', () => file.close(() => resolve(dest)));
-    }).on('error', err => {
-      fs.unlink(dest, () => reject(err));
-    });
+    file.on('error', err => reject(err));
+    https
+      .get(url, response => {
+        response.pipe(file);
+        file.on('finish', () => file.close(() => resolve(dest)));
+      })
+      .on('error', err => {
+        fs.unlink(dest, () => reject(err));
+      });
   });
 }
 
