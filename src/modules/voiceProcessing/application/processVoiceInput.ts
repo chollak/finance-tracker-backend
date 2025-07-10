@@ -1,7 +1,7 @@
 import fs from 'fs/promises';
 import { spawn } from 'child_process';
 import { VoiceInput } from '../domain/voiceInput';
-import { ProcessedTransaction } from '../domain/processedTransaction';
+import { ProcessedTransaction, DetectedTransaction } from '../domain/processedTransaction';
 import { TranscriptionService } from '../domain/transcriptionService';
 import { CreateTransactionUseCase } from '../../transaction/application/createTransaction';
 import { Transaction } from '../../transaction/domain/transactionEntity';
@@ -35,21 +35,26 @@ export class ProcessVoiceInputUseCase {
         }
 
         const recognizedText = await this.openAIService.transcribe(newFilePath);
-        const { amount, category, type } = await this.openAIService.analyzeText(recognizedText);
+        const parsed = await this.openAIService.analyzeTransactions(recognizedText);
 
-        const transaction: Transaction = {
-            date: new Date().toISOString(),
-            category,
-            description: recognizedText,
-            amount,
-            type,
-            userId: input.userId,
-            userName: input.userName,
-        };
+        const results: DetectedTransaction[] = [];
 
-        const id = await this.createTransactionUseCase.execute(transaction);
+        for (const p of parsed) {
+            const transaction: Transaction = {
+                date: p.date,
+                category: p.category,
+                description: recognizedText,
+                amount: p.amount,
+                type: p.type,
+                userId: input.userId,
+                userName: input.userName,
+            };
+
+            const id = await this.createTransactionUseCase.execute(transaction);
+            results.push({ id, amount: p.amount, category: p.category, type: p.type, date: p.date });
+        }
         await fs.unlink(newFilePath);
 
-        return { text: recognizedText, amount, category, type, id };
+        return { text: recognizedText, transactions: results };
     }
 }

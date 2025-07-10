@@ -7,7 +7,7 @@ jest.mock('../src/modules/voiceProcessing/infrastructure/openAITranscriptionServ
 describe('ProcessTextInputUseCase', () => {
   it('creates transaction from text analysis', async () => {
     const openAIService = {
-      analyzeText: jest.fn().mockResolvedValue({ amount: 5, category: 'Food', type: 'expense' }),
+      analyzeTransactions: jest.fn().mockResolvedValue([{ amount: 5, category: 'Food', type: 'expense', date: '2024-01-01' }]),
       transcribe: jest.fn()
     } as unknown as TranscriptionService;
 
@@ -19,6 +19,6 @@ describe('ProcessTextInputUseCase', () => {
     const result = await useCase.execute('test', 'user1');
 
     expect(createTransactionUseCase.execute).toHaveBeenCalled();
-    expect(result).toEqual({ text: 'test', amount: 5, category: 'Food', type: 'expense', id: '42' });
+    expect(result).toEqual({ text: 'test', transactions: [{ id: '42', amount: 5, category: 'Food', type: 'expense', date: '2024-01-01' }] });
   });
 });

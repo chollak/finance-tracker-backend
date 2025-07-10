@@ -22,16 +22,12 @@ export class OpenAITranscriptionService implements TranscriptionService {
         return response.text;
     }
 
-    async analyzeText(text: string): Promise<{ amount: number; category: string; type: 'income' | 'expense' }> {
+    async analyzeTransactions(text: string): Promise<{ amount: number; category: string; type: 'income' | 'expense'; date: string }[]> {
+        const today = new Date().toISOString().split('T')[0];
         const messages: ChatCompletionMessageParam[] = [
-            { role: 'system', content: 'Ты финансовый ассистент. Всегда возвращай ответ в формате JSON.' },
-            { role: 'user', content: `Проанализируй текст и извлеки сумму, категорию и тип транзакции.
-                Если текст содержит слова, связанные с доходами ("заработал", "получил", "перевели"), тип должен быть "income".
-                Если текст содержит слова, связанные с расходами ("купил", "заплатил", "потратил"), тип должен быть "expense".
-                Пример текста: "Мне перевели 5000 рублей за фриланс".
-                Ответ в формате JSON: {"amount": 5000, "category": "Работа", "type": "income"}.
-                Текст: "${text}"
-            ` }
+            { role: 'system', content: 'Ты финансовый ассистент. Сегодня ' + today + '. Всегда возвращай ответ в формате JSON.' },
+            { role: 'user', content: `Проанализируй текст и извлеки все транзакции. Каждая транзакция должна содержать сумму, категорию, тип (income или expense) и дату в формате ISO. Если встречаются слова вроде "вчера" или "позавчера", вычисли фактическую дату относительно сегодняшнего дня.` },
+            { role: 'user', content: text }
         ];
 
         const response = await this.openai.chat.completions.create({
