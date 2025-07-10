@@ -8,6 +8,8 @@ import { TransactionModule } from '../../modules/transaction/transactionModule';
 
 function downloadFile(url: string, dest: string): Promise<string> {
   return new Promise((resolve, reject) => {
+    const dir = path.dirname(dest);
+    fs.mkdirSync(dir, { recursive: true });
     const file = fs.createWriteStream(dest);
     https.get(url, response => {
       response.pipe(file);
