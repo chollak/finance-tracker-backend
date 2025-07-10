@@ -25,15 +25,21 @@ export class OpenAITranscriptionService implements TranscriptionService {
     async analyzeTransactions(text: string): Promise<{ amount: number; category: string; type: 'income' | 'expense'; date: string }[]> {
         const today = new Date().toISOString().split('T')[0];
         const messages: ChatCompletionMessageParam[] = [
-            { role: 'system', content: 'Ты финансовый ассистент. Сегодня ' + today + '. Всегда возвращай ответ в формате JSON.' },
-            { role: 'user', content: `Проанализируй текст и извлеки все транзакции. Каждая транзакция должна содержать сумму, категорию, тип (income или expense) и дату в формате ISO. Если встречаются слова вроде "вчера" или "позавчера", вычисли фактическую дату относительно сегодняшнего дня.` },
+            { role: 'system', content: 'Ты финансовый ассистент. Сегодня ' + today + '. Всегда отвечай валидным JSON.' },
+            {
+                role: 'user',
+                content:
+                    'Проанализируй текст и извлеки каждую отдельную транзакцию. ' +
+                    'Верни массив объектов формата {"amount": число, "category": строка, ' +
+                    '"type": "income" | "expense", "date": "YYYY-MM-DD"}. ' +
+                    'Если встречаются слова вроде "вчера" или "позавчера", вычисли фактическую дату относительно сегодняшнего дня.'
+            },
             { role: 'user', content: text }
         ];
 
         const response = await this.openai.chat.completions.create({
             model: 'gpt-4-turbo',
             messages,
-            response_format: { type: 'json_object' },
         });
 
         if (!response.choices[0].message.content) {

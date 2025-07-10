@@ -21,4 +21,33 @@ describe('ProcessTextInputUseCase', () => {
     expect(createTransactionUseCase.execute).toHaveBeenCalled();
     expect(result).toEqual({ text: 'test', transactions: [{ id: '42', amount: 5, category: 'Food', type: 'expense', date: '2024-01-01' }] });
   });
+
+  it('creates multiple transactions when text has more than one entry', async () => {
+    const openAIService = {
+      analyzeTransactions: jest.fn().mockResolvedValue([
+        { amount: 5, category: 'Food', type: 'expense', date: '2024-01-01' },
+        { amount: 40, category: 'Debt', type: 'expense', date: '2024-01-01' }
+      ]),
+      transcribe: jest.fn()
+    } as unknown as TranscriptionService;
+
+    const createTransactionUseCase = {
+      execute: jest
+        .fn()
+        .mockResolvedValueOnce('1')
+        .mockResolvedValueOnce('2')
+    } as unknown as CreateTransactionUseCase;
+
+    const useCase = new ProcessTextInputUseCase(openAIService, createTransactionUseCase);
+    const result = await useCase.execute('text', 'user1');
+
+    expect(createTransactionUseCase.execute).toHaveBeenCalledTimes(2);
+    expect(result).toEqual({
+      text: 'text',
+      transactions: [
+        { id: '1', amount: 5, category: 'Food', type: 'expense', date: '2024-01-01' },
+        { id: '2', amount: 40, category: 'Debt', type: 'expense', date: '2024-01-01' }
+      ]
+    });
+  });
 });
