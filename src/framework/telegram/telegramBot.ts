@@ -2,7 +2,7 @@ import { Telegraf, Markup } from 'telegraf';
 import fs from 'fs';
 import https from 'https';
 import path from 'path';
-import { TG_BOT_API_KEY, WEB_APP_URL } from '../../config';
+import { TG_BOT_API_KEY, WEB_APP_URL, DOWNLOADS_DIR } from '../../config';
 import { VoiceProcessingModule } from '../../modules/voiceProcessing/voiceProcessingModule';
 import { TransactionModule } from '../../modules/transaction/transactionModule';
 
@@ -36,6 +36,9 @@ export function startTelegramBot(
   const deleteUseCase = transactionModule.getDeleteTransactionUseCase();
   const fmt = new Intl.NumberFormat('ru-RU');
   const lastTx: Record<string, string> = {};
+
+  // Ensure downloads directory exists
+  fs.mkdirSync(DOWNLOADS_DIR, { recursive: true });
 
   bot.start(async ctx => {
     if (!WEB_APP_URL) {
@@ -90,10 +93,10 @@ export function startTelegramBot(
     const userId = String(ctx.from?.id ?? 'unknown');
     const userName = ctx.from?.first_name + ' ' + ctx.from?.last_name + ' ' + ctx.from?.username;
     const fileLink = await ctx.telegram.getFileLink(ctx.message.voice.file_id);
-    if (!fs.existsSync('downloads')) {
-      fs.mkdirSync('downloads');
+    if (!fs.existsSync(DOWNLOADS_DIR)) {
+      fs.mkdirSync(DOWNLOADS_DIR, { recursive: true });
     }
-    const filePath = path.join('downloads', ctx.message.voice.file_id);
+    const filePath = path.join(DOWNLOADS_DIR, ctx.message.voice.file_id);
     try {
       await downloadFile(fileLink.href, filePath);
       const result = await voiceModule.getProcessVoiceInputUseCase().execute({ filePath, userId, userName });
