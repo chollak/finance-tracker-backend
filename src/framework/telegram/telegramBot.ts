@@ -76,7 +76,7 @@ export function startTelegramBot(
           `Saved: ${result.text}\nAmount: ${fmt.format(tx.amount)}\nCategory: ${tx.category}\nType: ${tx.type}`,
           Markup.inlineKeyboard([
             [Markup.button.callback('Delete', `delete:${tx.id}`)],
-            ...(url ? [[Markup.button.webApp('Open app', url)] ] : [])
+            ...(url ? [[Markup.button.webApp('Open app', url)]] : [])
           ])
         );
       }
@@ -90,6 +90,9 @@ export function startTelegramBot(
     const userId = String(ctx.from?.id ?? 'unknown');
     const userName = ctx.from?.first_name + ' ' + ctx.from?.last_name + ' ' + ctx.from?.username;
     const fileLink = await ctx.telegram.getFileLink(ctx.message.voice.file_id);
+    if (!fs.existsSync('downloads')) {
+      fs.mkdirSync('downloads');
+    }
     const filePath = path.join('downloads', ctx.message.voice.file_id);
     try {
       await downloadFile(fileLink.href, filePath);
@@ -101,7 +104,7 @@ export function startTelegramBot(
           `Saved: ${result.text}\nAmount: ${fmt.format(tx.amount)}\nCategory: ${tx.category}\nType: ${tx.type}`,
           Markup.inlineKeyboard([
             [Markup.button.callback('Delete', `delete:${tx.id}`)],
-            ...(url ? [[Markup.button.webApp('Open app', url)] ] : [])
+            ...(url ? [[Markup.button.webApp('Open app', url)]] : [])
           ])
         );
       }

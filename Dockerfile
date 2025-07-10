@@ -9,6 +9,7 @@ COPY package*.json ./
 COPY webapp ./webapp
 COPY src ./src
 COPY tsconfig.json ./
+COPY .env .env
 
 # Устанавливаем зависимости
 RUN npm install
