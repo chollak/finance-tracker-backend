@@ -64,15 +64,17 @@ export function startTelegramBot(
     const text = ctx.message.text;
     try {
       const result = await voiceModule.getProcessTextInputUseCase().execute(text, userId, userName);
-      lastTx[userId] = result.id;
       const url = WEB_APP_URL ? `${WEB_APP_URL}/webapp/transactions.html?userId=${userId}` : undefined;
-      await ctx.reply(
-        `Saved: ${result.text}\nAmount: ${fmt.format(result.amount)}\nCategory: ${result.category}\nType: ${result.type}`,
-        Markup.inlineKeyboard([
-          [Markup.button.callback('Delete', `delete:${result.id}`)],
-          ...(url ? [[Markup.button.webApp('Open app', url)] ] : [])
-        ])
-      );
+      for (const tx of result.transactions) {
+        lastTx[userId] = tx.id;
+        await ctx.reply(
+          `Saved: ${result.text}\nAmount: ${fmt.format(tx.amount)}\nCategory: ${tx.category}\nType: ${tx.type}`,
+          Markup.inlineKeyboard([
+            [Markup.button.callback('Delete', `delete:${tx.id}`)],
+            ...(url ? [[Markup.button.webApp('Open app', url)] ] : [])
+          ])
+        );
+      }
     } catch (err) {
       console.error('Error handling text message:', err);
       await ctx.reply('Failed to process message');
@@ -87,15 +89,17 @@ export function startTelegramBot(
     try {
       await downloadFile(fileLink.href, filePath);
       const result = await voiceModule.getProcessVoiceInputUseCase().execute({ filePath, userId, userName });
-      lastTx[userId] = result.id;
       const url = WEB_APP_URL ? `${WEB_APP_URL}/webapp/transactions.html?userId=${userId}` : undefined;
-      await ctx.reply(
-        `Saved: ${result.text}\nAmount: ${fmt.format(result.amount)}\nCategory: ${result.category}\nType: ${result.type}`,
-        Markup.inlineKeyboard([
-          [Markup.button.callback('Delete', `delete:${result.id}`)],
-          ...(url ? [[Markup.button.webApp('Open app', url)] ] : [])
-        ])
-      );
+      for (const tx of result.transactions) {
+        lastTx[userId] = tx.id;
+        await ctx.reply(
+          `Saved: ${result.text}\nAmount: ${fmt.format(tx.amount)}\nCategory: ${tx.category}\nType: ${tx.type}`,
+          Markup.inlineKeyboard([
+            [Markup.button.callback('Delete', `delete:${tx.id}`)],
+            ...(url ? [[Markup.button.webApp('Open app', url)] ] : [])
+          ])
+        );
+      }
     } catch (err) {
       console.error('Error handling voice message:', err);
       await ctx.reply('Failed to process voice message');

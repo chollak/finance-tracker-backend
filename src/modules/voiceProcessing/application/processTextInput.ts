@@ -1,4 +1,4 @@
-import { ProcessedTransaction } from '../domain/processedTransaction';
+import { ProcessedTransaction, DetectedTransaction } from '../domain/processedTransaction';
 import { TranscriptionService } from '../domain/transcriptionService';
 import { CreateTransactionUseCase } from '../../transaction/application/createTransaction';
 import { Transaction } from '../../transaction/domain/transactionEntity';
@@ -10,20 +10,25 @@ export class ProcessTextInputUseCase {
     ) {}
 
     async execute(text: string, userId: string, userName?: string): Promise<ProcessedTransaction> {
-        const { amount, category, type } = await this.openAIService.analyzeText(text);
+        const parsed = await this.openAIService.analyzeTransactions(text);
 
-        const transaction: Transaction = {
-            date: new Date().toISOString(),
-            category,
-            description: text,
-            amount,
-            type,
-            userId,
-            userName,
-        };
+        const results: DetectedTransaction[] = [];
 
-        const id = await this.createTransactionUseCase.execute(transaction);
+        for (const p of parsed) {
+            const transaction: Transaction = {
+                date: p.date,
+                category: p.category,
+                description: text,
+                amount: p.amount,
+                type: p.type,
+                userId,
+                userName,
+            };
 
-        return { text, amount, category, type, id };
+            const id = await this.createTransactionUseCase.execute(transaction);
+            results.push({ id, amount: p.amount, category: p.category, type: p.type, date: p.date });
+        }
+
+        return { text, transactions: results };
     }
 }
