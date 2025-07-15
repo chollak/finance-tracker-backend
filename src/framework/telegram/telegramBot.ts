@@ -2,24 +2,35 @@ import { Telegraf, Markup } from 'telegraf';
 import fs from 'fs';
 import https from 'https';
 import path from 'path';
+import { pipeline } from 'stream/promises';
 import { TG_BOT_API_KEY, WEB_APP_URL, DOWNLOADS_DIR } from '../../config';
 import { VoiceProcessingModule } from '../../modules/voiceProcessing/voiceProcessingModule';
 import { TransactionModule } from '../../modules/transaction/transactionModule';
 
-function downloadFile(url: string, dest: string): Promise<string> {
+async function downloadFile(url: string, dest: string): Promise<string> {
+  const dir = path.dirname(dest);
+  await fs.promises.mkdir(dir, { recursive: true });
+
+  const file = fs.createWriteStream(dest);
+
   return new Promise((resolve, reject) => {
-    const dir = path.dirname(dest);
-    fs.mkdirSync(dir, { recursive: true });
-    const file = fs.createWriteStream(dest);
-    file.on('error', err => reject(err));
+    const handleError = async (err: Error) => {
+      await fs.promises.unlink(dest).catch(() => {});
+      reject(err);
+    };
+
+    file.on('error', handleError);
+
     https
-      .get(url, response => {
-        response.pipe(file);
-        file.on('finish', () => file.close(() => resolve(dest)));
+      .get(url, async response => {
+        try {
+          await pipeline(response, file);
+          resolve(dest);
+        } catch (err) {
+          handleError(err as Error);
+        }
       })
-      .on('error', err => {
-        fs.unlink(dest, () => reject(err));
-      });
+      .on('error', handleError);
   });
 }
 

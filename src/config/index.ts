@@ -19,7 +19,9 @@ export const NOTION_API_KEY = process.env.NOTION_API_KEY || '';
 export const NOTION_DATABASE_ID = process.env.NOTION_DATABASE_ID || '';
 export const TG_BOT_API_KEY = process.env.TG_BOT_API_KEY || '';
 export const WEB_APP_URL = process.env.WEB_APP_URL || 'https://sapaev.uz';
-export const DOWNLOADS_DIR = process.env.DOWNLOADS_DIR || path.join(process.cwd(), 'downloads');
+export const DOWNLOADS_DIR = path.resolve(
+  process.env.DOWNLOADS_DIR || path.join(process.cwd(), 'downloads')
+);
 
 export function validateEnv() {
   const missing: string[] = [];
