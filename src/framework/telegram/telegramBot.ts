@@ -15,7 +15,7 @@ async function downloadFile(url: string, dest: string): Promise<string> {
 
   return new Promise((resolve, reject) => {
     const handleError = async (err: Error) => {
-      await fs.promises.unlink(dest).catch(() => {});
+      await fs.promises.unlink(dest).catch(() => { });
       reject(err);
     };
 
@@ -50,6 +50,10 @@ export function startTelegramBot(
 
   // Ensure downloads directory exists
   fs.mkdirSync(DOWNLOADS_DIR, { recursive: true });
+
+  bot.catch(err => {
+    console.error('Error in Telegram bot:', err);
+  });
 
   bot.start(async ctx => {
     if (!WEB_APP_URL) {
