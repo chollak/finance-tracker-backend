@@ -10,6 +10,7 @@ COPY webapp ./webapp
 COPY src ./src
 COPY tsconfig.json ./
 COPY .env .env
+COPY downloads ./downloads
 
 # Устанавливаем зависимости
 RUN npm install
