@@ -1,37 +1,36 @@
 import { useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, useSearchParams } from 'react-router-dom';
+import Navigation from './components/Navigation';
+import TransactionsPage from './pages/TransactionsPage';
+import StatsPage from './pages/StatsPage';
+import HomePage from './pages/HomePage';
 
-declare global {
-  interface Window {
-    Telegram?: { WebApp: any };
-  }
-}
+function AppContent() {
+  const [searchParams] = useSearchParams();
+  const userId = searchParams.get('userId');
 
-export default function App() {
   useEffect(() => {
     window.Telegram?.WebApp?.ready();
   }, []);
 
-  const params = new URLSearchParams(window.location.search);
-  const userId = params.get('userId');
-  const query = userId ? `?userId=${userId}` : '';
-
   return (
     <div className="p-4">
       <h1 className="text-xl font-bold mb-4">FinTrack WebApp</h1>
-      <nav className="space-x-4">
-        <a
-          className="text-blue-600 underline"
-          href={`/webapp/transactions.html${query}`}
-        >
-          Transactions
-        </a>
-        <a
-          className="text-blue-600 underline"
-          href={`/webapp/stats.html${query}`}
-        >
-          Stats
-        </a>
-      </nav>
+      <Navigation userId={userId || undefined} />
+      
+      <Routes>
+        <Route path="/" element={<HomePage userId={userId} />} />
+        <Route path="/transactions" element={<TransactionsPage userId={userId} />} />
+        <Route path="/stats" element={<StatsPage userId={userId} />} />
+      </Routes>
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <Router basename="/webapp">
+      <AppContent />
+    </Router>
   );
 }
