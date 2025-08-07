@@ -19,7 +19,19 @@ describe('ProcessTextInputUseCase', () => {
     const result = await useCase.execute('test', 'user1');
 
     expect(createTransactionUseCase.execute).toHaveBeenCalled();
-    expect(result).toEqual({ text: 'test', transactions: [{ id: '42', amount: 5, category: 'Food', type: 'expense', date: '2024-01-01' }] });
+    expect(result).toEqual({ 
+      text: 'test', 
+      transactions: [{ 
+        id: '42', 
+        amount: 5, 
+        category: 'Food', 
+        type: 'expense', 
+        date: '2024-01-01',
+        merchant: undefined,
+        confidence: undefined,
+        description: 'test'
+      }] 
+    });
   });
 
   it('creates multiple transactions when text has more than one entry', async () => {
@@ -45,8 +57,26 @@ describe('ProcessTextInputUseCase', () => {
     expect(result).toEqual({
       text: 'text',
       transactions: [
-        { id: '1', amount: 5, category: 'Food', type: 'expense', date: '2024-01-01' },
-        { id: '2', amount: 40, category: 'Debt', type: 'expense', date: '2024-01-01' }
+        { 
+          id: '1', 
+          amount: 5, 
+          category: 'Food', 
+          type: 'expense', 
+          date: '2024-01-01',
+          merchant: undefined,
+          confidence: undefined,
+          description: 'text'
+        },
+        { 
+          id: '2', 
+          amount: 40, 
+          category: 'Debt', 
+          type: 'expense', 
+          date: '2024-01-01',
+          merchant: undefined,
+          confidence: undefined,
+          description: 'text'
+        }
       ]
     });
   });
