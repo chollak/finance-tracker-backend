@@ -12,17 +12,19 @@ COPY webapp/package*.json ./webapp/
 
 # Install all dependencies (including dev dependencies for build)
 RUN npm ci
-WORKDIR /app/webapp
-RUN npm ci
 
 # Copy source code
-WORKDIR /app
 COPY webapp ./webapp
 COPY src ./src
 COPY tsconfig.json ./
 
-# Build webapp and backend
-RUN npm run build:webapp
+# Install webapp dependencies and build
+WORKDIR /app/webapp
+RUN npm ci
+RUN npm run build
+
+# Build backend
+WORKDIR /app
 RUN npm run build
 
 # Production stage - smaller final image
