@@ -45,12 +45,12 @@ RUN npm ci --only=production --no-audit --no-fund --ignore-scripts && \
     npm cache clean --force
 
 # Copy built application from builder stage
-COPY --from=builder --chown=node:nodejs /app/dist ./dist
-COPY --from=builder --chown=node:nodejs /app/public ./public
+COPY --from=builder --chown=node:node /app/dist ./dist
+COPY --from=builder --chown=node:node /app/public ./public
 
 # Create necessary directories with correct permissions
 RUN mkdir -p downloads uploads data && \
-    chown -R node:nodejs downloads uploads data
+    chown -R node:node downloads uploads data
 
 # Switch to non-root user for security
 USER node
