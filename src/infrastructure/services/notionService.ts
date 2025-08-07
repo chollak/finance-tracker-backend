@@ -79,6 +79,7 @@ export class NotionService {
             });
 
             return response.results.map((page: any): Transaction => ({
+                id: page.id,
                 date: page.properties.Date?.date?.start || new Date().toISOString().split('T')[0],
                 category: page.properties.Category?.select?.name || 'Other',
                 description: page.properties.Description?.title?.[0]?.text?.content || 'No description',
@@ -144,6 +145,7 @@ export class NotionService {
             // Return the updated transaction by mapping the response
             const page = updatedPage as any;
             return {
+                id: page.id,
                 date: page.properties.Date?.date?.start || new Date().toISOString().split('T')[0],
                 category: page.properties.Category?.select?.name || 'Other',
                 description: page.properties.Description?.title?.[0]?.text?.content || 'No description',
