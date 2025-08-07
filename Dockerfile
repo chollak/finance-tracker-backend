@@ -1,25 +1,65 @@
-# Указываем базовый образ
-FROM node:18-alpine
+# Multi-stage build for smaller production image
+FROM node:18-alpine AS builder
 
-# Устанавливаем рабочую директорию
+# Install ffmpeg and curl for voice processing and health checks
+RUN apk add --no-cache ffmpeg curl
+
 WORKDIR /app
 
-# Копируем package.json и package-lock.json (или yarn.lock, если используешь Yarn)
+# Copy package files first for better Docker layer caching
 COPY package*.json ./
+COPY webapp/package*.json ./webapp/
+
+# Install all dependencies (including dev dependencies for build)
+RUN npm ci
+WORKDIR /app/webapp
+RUN npm ci
+
+# Copy source code
+WORKDIR /app
 COPY webapp ./webapp
 COPY src ./src
 COPY tsconfig.json ./
-COPY .env .env
-COPY downloads ./downloads
 
-# Устанавливаем зависимости
-RUN npm install
+# Build webapp and backend
 RUN npm run build:webapp
 RUN npm run build
 
-# Открываем порт, который будет использовать приложение
+# Production stage - smaller final image
+FROM node:18-alpine AS production
+
+# Install runtime dependencies
+RUN apk add --no-cache ffmpeg curl dumb-init
+
+# Create non-root user for security
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S node -u 1001 -G nodejs
+
+WORKDIR /app
+
+# Copy package files and install only production dependencies
+COPY package*.json ./
+RUN npm ci --only=production --no-audit --no-fund && \
+    npm cache clean --force
+
+# Copy built application from builder stage
+COPY --from=builder --chown=node:nodejs /app/dist ./dist
+COPY --from=builder --chown=node:nodejs /app/public ./public
+
+# Create necessary directories with correct permissions
+RUN mkdir -p downloads uploads data && \
+    chown -R node:nodejs downloads uploads data
+
+# Switch to non-root user for security
+USER node
+
+# Health check to monitor app status
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD curl -f http://localhost:3000/api/health || exit 1
+
 EXPOSE 3000
 
-# Указываем команду для запуска приложения
-CMD ["npm", "start"]
+# Use dumb-init to handle signals properly
+ENTRYPOINT ["dumb-init", "--"]
+CMD ["node", "dist/index.js"]
 

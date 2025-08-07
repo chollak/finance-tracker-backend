@@ -14,6 +14,15 @@ export function buildServer(
   router.use(bodyParser.json());
   router.use(cors<Request>());
 
+  // Health check endpoint for Docker health monitoring
+  router.get('/health', (_req, res) => {
+    res.status(200).json({ 
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime()
+    });
+  });
+
   router.use(
     '/transactions',
     createTransactionRouter(

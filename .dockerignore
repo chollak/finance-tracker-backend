@@ -1,5 +1,79 @@
-node_modules
+# Node.js
+node_modules/
 npm-debug.log
-dist
-webapp/node_modules
-public/webapp
+yarn-error.log
+
+# Build outputs
+dist/
+webapp/dist/
+webapp/node_modules/
+
+# Local environment files (security)
+.env
+.env.local
+.env.*.local
+
+# Development files
+.git/
+.gitignore
+README.md
+AGENTS.md
+CLAUDE.md
+
+# Test files
+tests/
+jest.config.js
+coverage/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Docker files (except the one being built)
+Dockerfile.*
+!Dockerfile
+docker-compose*.yml
+!docker-compose.yml
+
+# Logs
+*.log
+logs/
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Cache directories
+.npm/
+.yarn/
+.cache/
+
+# Optional npm cache directory
+.npm
+
+# Optional REPL history
+.node_repl_history
+
+# Uploads and downloads (will be mounted as volumes)
+uploads/*
+downloads/*
+data/*
+
+# Keep structure but ignore content
+!uploads/.gitkeep
+!downloads/.gitkeep
+!data/.gitkeep
