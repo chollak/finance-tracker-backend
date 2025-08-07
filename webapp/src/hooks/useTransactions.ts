@@ -61,12 +61,23 @@ export const useTransactions = (userId: string | null) => {
 
   const updateTransaction = useCallback(async (transactionId: string, updates: Partial<Transaction>) => {
     try {
+      // Find the original transaction to get learning context
+      const originalTransaction = transactions.find(tx => tx.id === transactionId);
+      
+      // Prepare request body with learning context if available
+      const requestBody: any = { ...updates };
+      if (originalTransaction?.originalText && originalTransaction?.originalParsing && userId) {
+        requestBody.userId = userId;
+        requestBody.originalText = originalTransaction.originalText;
+        requestBody.originalParsing = originalTransaction.originalParsing;
+      }
+      
       const response = await fetch(`/api/transactions/${transactionId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(updates),
+        body: JSON.stringify(requestBody),
       });
 
       if (!response.ok) {
@@ -87,7 +98,7 @@ export const useTransactions = (userId: string | null) => {
       setError(err instanceof Error ? err.message : 'Failed to update transaction');
       return false;
     }
-  }, []);
+  }, [transactions, userId]);
 
   return { 
     transactions, 

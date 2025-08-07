@@ -77,13 +77,22 @@ export class TransactionLearningService {
       await this.saveLearningData(existingData);
       await this.updatePatterns(learningEntry);
       
-      console.log('Learning data recorded:', {
+      console.log('✅ LEARNING: Data recorded successfully', {
         text: originalText.substring(0, 50),
         correction: userCorrection,
-        userId: userId.substring(0, 8)
+        userId: userId.substring(0, 8),
+        confidence: confidence,
+        dataFile: this.learningDataPath,
+        totalEntries: existingData.length
       });
     } catch (error) {
-      console.error('Failed to record learning data:', error);
+      console.error('❌ LEARNING: Failed to record learning data:', error);
+      console.error('❌ LEARNING: Context:', {
+        dataPath: this.learningDataPath,
+        patternsPath: this.patternsPath,
+        originalText: originalText.substring(0, 50),
+        userId: userId.substring(0, 8)
+      });
     }
   }
 

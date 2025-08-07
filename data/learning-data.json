@@ -1,0 +1,67 @@
+[
+  {
+    "originalText": "потратил деньги в evos",
+    "originalParsing": {
+      "amount": 0,
+      "category": "Другое",
+      "type": "expense",
+      "confidence": 0.3
+    },
+    "userCorrection": {
+      "amount": 35000,
+      "category": "Еда",
+      "merchant": "Evos"
+    },
+    "userId": "system-seed",
+    "timestamp": "2025-08-07T19:19:02.204Z",
+    "confidence": 0.3
+  },
+  {
+    "originalText": "заправился на азс",
+    "originalParsing": {
+      "amount": 0,
+      "category": "Другое",
+      "type": "expense",
+      "confidence": 0.4
+    },
+    "userCorrection": {
+      "category": "Транспорт",
+      "merchant": "АЗС"
+    },
+    "userId": "system-seed",
+    "timestamp": "2025-08-07T19:19:02.210Z",
+    "confidence": 0.4
+  },
+  {
+    "originalText": "такси yandex go",
+    "originalParsing": {
+      "amount": 0,
+      "category": "Другое",
+      "type": "expense",
+      "confidence": 0.4
+    },
+    "userCorrection": {
+      "category": "Транспорт",
+      "merchant": "Yandex Go"
+    },
+    "userId": "system-seed",
+    "timestamp": "2025-08-07T19:19:02.211Z",
+    "confidence": 0.4
+  },
+  {
+    "originalText": "купил в maxway",
+    "originalParsing": {
+      "amount": 0,
+      "category": "Другое",
+      "type": "expense",
+      "confidence": 0.3
+    },
+    "userCorrection": {
+      "category": "Еда",
+      "merchant": "MaxWay"
+    },
+    "userId": "system-seed",
+    "timestamp": "2025-08-07T19:19:02.212Z",
+    "confidence": 0.3
+  }
+]

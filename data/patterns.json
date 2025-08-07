@@ -1,0 +1,28 @@
+{
+  "categories": [
+    {
+      "keywords": [
+        "потратил",
+        "деньги",
+        "evos",
+        "купил",
+        "maxway"
+      ],
+      "category": "Еда",
+      "confidence": 0.7,
+      "usageCount": 2
+    },
+    {
+      "keywords": [
+        "заправился",
+        "азс",
+        "такси",
+        "yandex"
+      ],
+      "category": "Транспорт",
+      "confidence": 0.7,
+      "usageCount": 2
+    }
+  ],
+  "merchants": []
+}

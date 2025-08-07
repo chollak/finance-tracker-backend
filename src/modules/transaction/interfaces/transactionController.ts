@@ -139,8 +139,17 @@ export function createTransactionRouter(
       // Check if we have learning context
       const hasLearningContext = req.body.userId && req.body.originalText && req.body.originalParsing;
       
+      console.log('📝 TRANSACTION UPDATE:', {
+        transactionId,
+        hasLearningContext,
+        userId: req.body.userId?.substring(0, 8),
+        originalText: req.body.originalText?.substring(0, 50),
+        updates: Object.keys(updates)
+      });
+      
       let updatedTransaction;
       if (hasLearningContext) {
+        console.log('🤖 Using learning-enabled update');
         // Use learning-enabled update
         updatedTransaction = await updateWithLearningUseCase.execute({
           id: transactionId,
@@ -150,6 +159,7 @@ export function createTransactionRouter(
           originalParsing: req.body.originalParsing
         });
       } else {
+        console.log('📝 Using regular update (no learning context)');
         // Use regular update
         updatedTransaction = await updateUseCase.execute({
           id: transactionId,

@@ -7,6 +7,17 @@ export interface Transaction {
   type: 'income' | 'expense';
   userId: string;
   userName?: string;
+  // Enhanced fields for learning
+  merchant?: string;
+  confidence?: number;
+  originalText?: string;
+  originalParsing?: {
+    amount: number;
+    category: string;
+    type: 'income' | 'expense';
+    merchant?: string;
+    confidence?: number;
+  };
 }
 
 export interface TelegramWebApp {
