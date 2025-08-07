@@ -40,12 +40,27 @@ export class OpenAITranscriptionService implements TranscriptionService {
         const response = await this.openai.chat.completions.create({
             model: 'gpt-4-turbo',
             messages,
+            response_format: { type: 'json_object' }
         });
 
         if (!response.choices[0].message.content) {
             throw new Error('Empty response from OpenAI API');
         }
 
-        return JSON.parse(response.choices[0].message.content);
+        let content = response.choices[0].message.content.trim();
+        
+        // Remove markdown code block wrappers if present
+        if (content.startsWith('```json')) {
+            content = content.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+        } else if (content.startsWith('```')) {
+            content = content.replace(/^```\s*/, '').replace(/\s*```$/, '');
+        }
+
+        try {
+            return JSON.parse(content);
+        } catch (error) {
+            console.error('Failed to parse OpenAI response:', content);
+            throw new Error(`Invalid JSON response from OpenAI: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
     }
 }
