@@ -107,13 +107,28 @@ export class OpenAITranscriptionService implements TranscriptionService {
                 }
                 
                 // Ensure required fields exist with enhanced validation
+                const amount = typeof t.amount === 'number' ? t.amount : parseFloat(t.amount) || 0;
+                const category = String(t.category || 'Другое');
+                const merchant = t.merchant ? String(t.merchant) : undefined;
+                
+                // Calculate confidence based on data quality
+                let confidence = typeof t.confidence === 'number' ? t.confidence : 0.8;
+                
+                // Reduce confidence for missing/default values
+                if (amount === 0) confidence = Math.min(confidence, 0.4);
+                if (category === 'Другое' || category === 'Other') confidence = Math.min(confidence, 0.5);
+                if (!merchant && !t.merchant) confidence = Math.min(confidence, 0.6);
+                
+                // Ensure confidence is in valid range
+                confidence = Math.max(0.1, Math.min(1.0, confidence));
+                
                 return {
-                    amount: typeof t.amount === 'number' ? t.amount : parseFloat(t.amount) || 0,
-                    category: String(t.category || 'Другое'),
+                    amount,
+                    category,
                     type: (t.type === 'income' || t.type === 'expense') ? t.type : 'expense',
                     date: String(t.date || new Date().toISOString().split('T')[0]),
-                    merchant: t.merchant ? String(t.merchant) : undefined,
-                    confidence: typeof t.confidence === 'number' ? Math.max(0.1, Math.min(1.0, t.confidence)) : 0.8,
+                    merchant,
+                    confidence,
                     description: t.description ? String(t.description) : undefined
                 };
             });
