@@ -22,7 +22,7 @@ export class NotionService {
             properties: {
                 Date: {
                     date: {
-                        start: transaction.date,
+                        start: transaction.date || new Date().toISOString().split('T')[0],
                     },
                 },
                 Category: {
