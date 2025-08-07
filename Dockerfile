@@ -38,7 +38,8 @@ WORKDIR /app
 
 # Copy package files and install only production dependencies
 COPY package*.json ./
-RUN npm ci --only=production --no-audit --no-fund && \
+# Skip postinstall script that builds webapp (already built in builder stage)
+RUN npm ci --only=production --no-audit --no-fund --ignore-scripts && \
     npm cache clean --force
 
 # Copy built application from builder stage
