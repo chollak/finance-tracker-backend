@@ -5,13 +5,27 @@ import { TransactionModule } from '../../modules/transaction/transactionModule';
 import { VoiceProcessingModule } from '../../modules/voiceProcessing/voiceProcessingModule';
 import { createTransactionRouter } from '../../modules/transaction/interfaces/transactionController';
 import { createVoiceProcessingRouter } from '../../modules/voiceProcessing/voiceProcessingController';
+import { 
+  errorHandler, 
+  notFoundHandler, 
+  requestLogger, 
+  corsHeaders, 
+  securityHeaders 
+} from '../../shared/middleware/errorMiddleware';
+import { AppConfig } from '../../config/appConfig';
 
 export function buildServer(
   transactionModule: TransactionModule,
   voiceModule: VoiceProcessingModule
 ) {
   const router = Router();
-  router.use(bodyParser.json());
+  
+  // Apply middleware in correct order
+  router.use(requestLogger);
+  router.use(securityHeaders);
+  router.use(corsHeaders);
+  router.use(bodyParser.json({ limit: '10mb' }));
+  router.use(bodyParser.urlencoded({ extended: true, limit: '10mb' }));
   router.use(cors<Request>());
 
   // Health check endpoint for Docker health monitoring
@@ -19,7 +33,9 @@ export function buildServer(
     res.status(200).json({ 
       status: 'healthy',
       timestamp: new Date().toISOString(),
-      uptime: process.uptime()
+      uptime: process.uptime(),
+      version: process.env.npm_package_version || '1.0.0',
+      environment: AppConfig.NODE_ENV
     });
   });
 
@@ -42,6 +58,12 @@ export function buildServer(
       voiceModule.getProcessTextInputUseCase()
     )
   );
+
+  // Add 404 handler for unmatched routes
+  router.use('*', notFoundHandler);
+  
+  // Add global error handler (must be last)
+  router.use(errorHandler);
 
   return router;
 }
