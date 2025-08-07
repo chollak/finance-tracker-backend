@@ -1,3 +1,20 @@
+import dotenv from 'dotenv';
+import fs from 'fs';
+import path from 'path';
+
+// Load environment variables from .env file
+const envPath = path.resolve(process.cwd(), '.env');
+if (fs.existsSync(envPath)) {
+  const result = dotenv.config({ path: envPath });
+  if (result.error) {
+    console.warn('Failed to load .env file');
+  } else {
+    console.log('Environment variables loaded');
+  }
+} else {
+  console.warn('.env file not found, using environment variables');
+}
+
 export class AppConfig {
   // Environment
   static readonly NODE_ENV = process.env.NODE_ENV || 'development';
