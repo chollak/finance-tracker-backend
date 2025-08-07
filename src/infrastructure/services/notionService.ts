@@ -101,4 +101,60 @@ export class NotionService {
             throw ErrorFactory.externalService('Notion', error instanceof Error ? error : undefined);
         }
     }
+
+    async updateTransaction(id: string, updates: Partial<Transaction>): Promise<Transaction> {
+        try {
+            const updateProperties: any = {};
+
+            if (updates.date !== undefined) {
+                updateProperties.Date = {
+                    date: { start: updates.date }
+                };
+            }
+
+            if (updates.category !== undefined) {
+                updateProperties.Category = {
+                    select: { name: updates.category }
+                };
+            }
+
+            if (updates.description !== undefined) {
+                updateProperties.Description = {
+                    title: [{ text: { content: updates.description } }]
+                };
+            }
+
+            if (updates.amount !== undefined) {
+                updateProperties.Amount = {
+                    number: updates.amount
+                };
+            }
+
+            if (updates.type !== undefined) {
+                updateProperties.Type = {
+                    select: { name: updates.type === 'income' ? 'Income' : 'Expense' }
+                };
+            }
+
+            const updatedPage = await this.notion.pages.update({
+                page_id: id,
+                properties: updateProperties
+            });
+
+            // Return the updated transaction by mapping the response
+            const page = updatedPage as any;
+            return {
+                date: page.properties.Date?.date?.start || new Date().toISOString().split('T')[0],
+                category: page.properties.Category?.select?.name || 'Other',
+                description: page.properties.Description?.title?.[0]?.text?.content || 'No description',
+                amount: page.properties.Amount?.number || 0,
+                type: page.properties.Type?.select?.name === 'Income' ? 'income' : 'expense',
+                userId: page.properties.UserId?.rich_text?.[0]?.plain_text || '',
+                userName: page.properties.UserName?.rich_text?.[0]?.plain_text,
+            };
+        } catch (error) {
+            console.error('Notion update transaction error:', error);
+            throw ErrorFactory.externalService('Notion', error instanceof Error ? error : undefined);
+        }
+    }
 }

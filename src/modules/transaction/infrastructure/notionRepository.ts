@@ -26,4 +26,8 @@ export class NotionRepository implements TransactionRepository {
     async delete(id: string): Promise<void> {
         await this.notionService.deleteTransaction(id);
     }
+
+    async update(id: string, updates: Partial<Transaction>): Promise<Transaction> {
+        return this.notionService.updateTransaction(id, updates);
+    }
 }

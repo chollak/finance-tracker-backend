@@ -3,6 +3,8 @@ import { CreateTransactionUseCase } from '../application/createTransaction';
 import { GetTransactionsUseCase } from '../application/getTransactions';
 import { AnalyticsService } from '../application/analyticsService';
 import { GetUserTransactionsUseCase } from '../application/getUserTransactions';
+import { DeleteTransactionUseCase } from '../application/deleteTransaction';
+import { UpdateTransactionUseCase } from '../application/updateTransaction';
 import { Transaction } from '../domain/transactionEntity';
 import { TransactionValidator } from '../../../shared/validation/transactionValidator';
 import { handleControllerError, handleControllerSuccess, getStringParam } from '../../../shared/utils/controllerHelpers';
@@ -13,7 +15,9 @@ export function createTransactionRouter(
   createUseCase: CreateTransactionUseCase,
   getUseCase: GetTransactionsUseCase,
   analyticsService: AnalyticsService,
-  getUserUseCase: GetUserTransactionsUseCase
+  getUserUseCase: GetUserTransactionsUseCase,
+  deleteUseCase: DeleteTransactionUseCase,
+  updateUseCase: UpdateTransactionUseCase
 ): Router {
   const router = Router();
 
@@ -79,6 +83,68 @@ export function createTransactionRouter(
 
       const transactions = await getUserUseCase.execute(userId);
       handleControllerSuccess(transactions, res);
+    } catch (error) {
+      handleControllerError(error, res);
+    }
+  });
+
+  router.delete('/:id', async (req, res) => {
+    try {
+      const transactionId = getStringParam(req, 'id');
+      
+      if (!transactionId) {
+        const error = ErrorFactory.validation('Transaction ID is required');
+        return handleControllerError(error, res);
+      }
+
+      await deleteUseCase.execute(transactionId);
+      handleControllerSuccess(
+        { message: SUCCESS_MESSAGES.TRANSACTION_DELETED },
+        res,
+        200,
+        SUCCESS_MESSAGES.TRANSACTION_DELETED
+      );
+    } catch (error) {
+      handleControllerError(error, res);
+    }
+  });
+
+  router.put('/:id', async (req, res) => {
+    try {
+      const transactionId = getStringParam(req, 'id');
+      
+      if (!transactionId) {
+        const error = ErrorFactory.validation('Transaction ID is required');
+        return handleControllerError(error, res);
+      }
+
+      // Validate the update data - allow partial updates
+      const allowedFields = ['amount', 'category', 'description', 'date', 'type'];
+      const updates: any = {};
+      
+      for (const field of allowedFields) {
+        if (req.body[field] !== undefined) {
+          updates[field] = req.body[field];
+        }
+      }
+
+      // Ensure we have at least one field to update
+      if (Object.keys(updates).length === 0) {
+        const error = ErrorFactory.validation('At least one field must be provided for update');
+        return handleControllerError(error, res);
+      }
+
+      const updatedTransaction = await updateUseCase.execute({
+        id: transactionId,
+        ...updates
+      });
+
+      handleControllerSuccess(
+        updatedTransaction,
+        res,
+        200,
+        SUCCESS_MESSAGES.TRANSACTION_UPDATED
+      );
     } catch (error) {
       handleControllerError(error, res);
     }
