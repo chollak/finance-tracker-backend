@@ -144,13 +144,47 @@ export function startTelegramBot(
         
         for (const tx of result.transactions) {
           lastTx[userId] = tx.id;
-          await ctx.reply(
-            `✅ Saved: ${result.text}\nAmount: ${fmt.format(tx.amount)}\nCategory: ${tx.category}\nType: ${tx.type}`,
-            Markup.inlineKeyboard([
-              [Markup.button.callback('🗑️ Delete', `delete:${tx.id}`)],
-              ...(url ? [[Markup.button.webApp('📊 Open app', url)]] : [])
-            ])
-          );
+          
+          // Smart confirmation system - only confirm if confidence is low
+          const confidence = (tx as any).confidence || 0.8;
+          const needsConfirmation = confidence < 0.6;
+          
+          if (needsConfirmation) {
+            // Ask for confirmation with edit options
+            let message = `🤔 Please confirm:\n📝 ${result.text}\n\n`;
+            message += `💰 Amount: ${fmt.format(tx.amount)}\n`;
+            message += `📂 Category: ${tx.category}\n`;
+            message += `📊 Type: ${tx.type}`;
+            if ((tx as any).merchant) message += `\n🏪 Merchant: ${(tx as any).merchant}`;
+            message += `\n\n⚠️ Confidence: ${Math.round(confidence * 100)}%`;
+            
+            await ctx.reply(
+              message,
+              Markup.inlineKeyboard([
+                [
+                  Markup.button.callback('✅ Confirm', `confirm:${tx.id}`),
+                  Markup.button.callback('✏️ Edit', `edit:${tx.id}`)
+                ],
+                [Markup.button.callback('❌ Delete', `delete:${tx.id}`)],
+                ...(url ? [[Markup.button.webApp('📊 Open app', url)]] : [])
+              ])
+            );
+          } else {
+            // Auto-save with high confidence
+            let message = `✅ Auto-saved: ${result.text}\n\n`;
+            message += `💰 Amount: ${fmt.format(tx.amount)}\n`;
+            message += `📂 Category: ${tx.category}\n`;
+            message += `📊 Type: ${tx.type}`;
+            if ((tx as any).merchant) message += `\n🏪 ${(tx as any).merchant}`;
+            
+            await ctx.reply(
+              message,
+              Markup.inlineKeyboard([
+                [Markup.button.callback('✏️ Edit', `edit:${tx.id}`), Markup.button.callback('🗑️ Delete', `delete:${tx.id}`)],
+                ...(url ? [[Markup.button.webApp('📊 Open app', url)]] : [])
+              ])
+            );
+          }
         }
       } catch (error) {
         console.error('Error handling text message:', {
@@ -207,13 +241,47 @@ export function startTelegramBot(
         
         for (const tx of result.transactions) {
           lastTx[userId] = tx.id;
-          await ctx.reply(
-            `🎤✅ Saved: ${result.text}\nAmount: ${fmt.format(tx.amount)}\nCategory: ${tx.category}\nType: ${tx.type}`,
-            Markup.inlineKeyboard([
-              [Markup.button.callback('🗑️ Delete', `delete:${tx.id}`)],
-              ...(url ? [[Markup.button.webApp('📊 Open app', url)]] : [])
-            ])
-          );
+          
+          // Smart confirmation system - only confirm if confidence is low
+          const confidence = (tx as any).confidence || 0.8;
+          const needsConfirmation = confidence < 0.6;
+          
+          if (needsConfirmation) {
+            // Ask for confirmation with edit options
+            let message = `🎤🤔 Please confirm:\n📝 ${result.text}\n\n`;
+            message += `💰 Amount: ${fmt.format(tx.amount)}\n`;
+            message += `📂 Category: ${tx.category}\n`;
+            message += `📊 Type: ${tx.type}`;
+            if ((tx as any).merchant) message += `\n🏪 Merchant: ${(tx as any).merchant}`;
+            message += `\n\n⚠️ Confidence: ${Math.round(confidence * 100)}%`;
+            
+            await ctx.reply(
+              message,
+              Markup.inlineKeyboard([
+                [
+                  Markup.button.callback('✅ Confirm', `confirm:${tx.id}`),
+                  Markup.button.callback('✏️ Edit', `edit:${tx.id}`)
+                ],
+                [Markup.button.callback('❌ Delete', `delete:${tx.id}`)],
+                ...(url ? [[Markup.button.webApp('📊 Open app', url)]] : [])
+              ])
+            );
+          } else {
+            // Auto-save with high confidence
+            let message = `🎤✅ Auto-saved: ${result.text}\n\n`;
+            message += `💰 Amount: ${fmt.format(tx.amount)}\n`;
+            message += `📂 Category: ${tx.category}\n`;
+            message += `📊 Type: ${tx.type}`;
+            if ((tx as any).merchant) message += `\n🏪 ${(tx as any).merchant}`;
+            
+            await ctx.reply(
+              message,
+              Markup.inlineKeyboard([
+                [Markup.button.callback('✏️ Edit', `edit:${tx.id}`), Markup.button.callback('🗑️ Delete', `delete:${tx.id}`)],
+                ...(url ? [[Markup.button.webApp('📊 Open app', url)]] : [])
+              ])
+            );
+          }
         }
       } catch (error) {
         console.error('Error handling voice message:', {
@@ -237,6 +305,65 @@ export function startTelegramBot(
             }
           });
         }
+      }
+    });
+
+    // Confirm transaction action
+    bot.action(/confirm:(.+)/, async ctx => {
+      try {
+        const id = ctx.match?.[1];
+        if (!id) {
+          await ctx.answerCbQuery('❌ Invalid transaction ID');
+          return;
+        }
+
+        await ctx.answerCbQuery('✅ Transaction confirmed!');
+        const originalText = (ctx.callbackQuery?.message as any)?.text;
+        await ctx.editMessageText(
+          originalText?.replace('🤔 Please confirm:', '✅ Confirmed:') || 'Transaction confirmed!',
+          {
+            reply_markup: {
+              inline_keyboard: [[
+                { text: '✏️ Edit', callback_data: `edit:${id}` },
+                { text: '🗑️ Delete', callback_data: `delete:${id}` }
+              ]]
+            }
+          }
+        );
+      } catch (error) {
+        console.error('Error confirming transaction:', error);
+        await ctx.answerCbQuery('❌ Failed to confirm transaction');
+      }
+    });
+
+    // Edit transaction action (redirect to web app)
+    bot.action(/edit:(.+)/, async ctx => {
+      try {
+        const id = ctx.match?.[1];
+        if (!id) {
+          await ctx.answerCbQuery('❌ Invalid transaction ID');
+          return;
+        }
+
+        const userId = String(ctx.from?.id ?? 'unknown');
+        
+        if (!AppConfig.WEB_APP_URL) {
+          await ctx.answerCbQuery('❌ Web app not configured');
+          return;
+        }
+
+        const url = `${AppConfig.WEB_APP_URL}/webapp/transactions.html?userId=${userId}&edit=${id}`;
+        
+        await ctx.answerCbQuery('✏️ Opening edit form...');
+        await ctx.reply(
+          '✏️ Edit transaction',
+          Markup.inlineKeyboard([
+            Markup.button.webApp('✏️ Edit Transaction', url)
+          ])
+        );
+      } catch (error) {
+        console.error('Error handling edit request:', error);
+        await ctx.answerCbQuery('❌ Failed to open edit form');
       }
     });
 

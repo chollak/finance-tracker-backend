@@ -31,13 +31,24 @@ export class ProcessTextInputUseCase {
 
         for (const p of transactions) {
             const transaction: Transaction = {
-                date: p.date,
-                category: p.category,
+                date: p.date || new Date().toISOString().split('T')[0],
+                category: p.category || 'Другое',
                 description: text,
-                amount: p.amount,
-                type: p.type,
+                amount: p.amount || 0,
+                type: p.type || 'expense',
                 userId,
                 userName,
+                // Enhanced fields for learning
+                merchant: p.merchant,
+                confidence: p.confidence,
+                originalText: text,
+                originalParsing: {
+                    amount: p.amount || 0,
+                    category: p.category || 'Другое',
+                    type: p.type || 'expense',
+                    merchant: p.merchant,
+                    confidence: p.confidence
+                }
             };
 
             const id = await this.createTransactionUseCase.execute(transaction);

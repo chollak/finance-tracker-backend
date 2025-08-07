@@ -18,6 +18,11 @@ export class NotionRepository implements TransactionRepository {
         return this.notionService.getTransactions();
     }
 
+    async findById(id: string): Promise<Transaction | null> {
+        const transactions = await this.notionService.getTransactions();
+        return transactions.find(t => t.id === id) || null;
+    }
+
     async getRecentTransactions(limit: number): Promise<Transaction[]> {
         const transactions = await this.getAll();
         return transactions.slice(-limit); // Берем последние N записей

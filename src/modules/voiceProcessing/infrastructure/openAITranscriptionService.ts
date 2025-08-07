@@ -6,6 +6,7 @@ import { AppConfig } from '../../../config/appConfig';
 import { Result, ResultHelper } from '../../../shared/types/Result';
 import { ExternalServiceError, ErrorFactory } from '../../../shared/errors/AppError';
 import { OPENAI_PROMPTS, ERROR_MESSAGES } from '../../../shared/constants/messages';
+import { transactionLearning } from '../../../shared/learning/transactionLearning';
 
 export class OpenAITranscriptionService implements TranscriptionService {
     private openai: OpenAI;
@@ -34,7 +35,7 @@ export class OpenAITranscriptionService implements TranscriptionService {
         }
     }
 
-    async analyzeTransactions(text: string): Promise<{ amount: number; category: string; type: 'income' | 'expense'; date: string }[]> {
+    async analyzeTransactions(text: string): Promise<{ amount: number; category: string; type: 'income' | 'expense'; date: string; merchant?: string; confidence?: number; description?: string }[]> {
         if (!text || text.trim().length === 0) {
             throw ErrorFactory.validation('Text input is required for transaction analysis');
         }
@@ -44,9 +45,12 @@ export class OpenAITranscriptionService implements TranscriptionService {
             const language = AppConfig.DEFAULT_LANGUAGE.toUpperCase() as keyof typeof OPENAI_PROMPTS;
             const prompts = OPENAI_PROMPTS[language];
             
+            // Enhance prompts with learned patterns
+            const enhancedUserPrompt = await transactionLearning.getEnhancedPrompts(prompts.USER_ANALYZE_TRANSACTIONS);
+            
             const messages: ChatCompletionMessageParam[] = [
                 { role: 'system', content: prompts.SYSTEM_FINANCIAL_ASSISTANT(today) },
-                { role: 'user', content: prompts.USER_ANALYZE_TRANSACTIONS },
+                { role: 'user', content: enhancedUserPrompt },
                 { role: 'user', content: text }
             ];
 
@@ -71,7 +75,7 @@ export class OpenAITranscriptionService implements TranscriptionService {
         }
     }
 
-    private parseOpenAIResponse(content: string): { amount: number; category: string; type: 'income' | 'expense'; date: string }[] {
+    private parseOpenAIResponse(content: string): { amount: number; category: string; type: 'income' | 'expense'; date: string; merchant?: string; confidence?: number; description?: string }[] {
         let cleanContent = content.trim();
         
         // Remove markdown code block wrappers if present
@@ -102,12 +106,15 @@ export class OpenAITranscriptionService implements TranscriptionService {
                     throw ErrorFactory.externalService('OpenAI', new Error(`Invalid transaction format at index ${index}`));
                 }
                 
-                // Ensure required fields exist with basic validation
+                // Ensure required fields exist with enhanced validation
                 return {
                     amount: typeof t.amount === 'number' ? t.amount : parseFloat(t.amount) || 0,
-                    category: String(t.category || 'Other'),
+                    category: String(t.category || 'Другое'),
                     type: (t.type === 'income' || t.type === 'expense') ? t.type : 'expense',
-                    date: String(t.date || new Date().toISOString().split('T')[0])
+                    date: String(t.date || new Date().toISOString().split('T')[0]),
+                    merchant: t.merchant ? String(t.merchant) : undefined,
+                    confidence: typeof t.confidence === 'number' ? Math.max(0.1, Math.min(1.0, t.confidence)) : 0.8,
+                    description: t.description ? String(t.description) : undefined
                 };
             });
             
@@ -118,5 +125,23 @@ export class OpenAITranscriptionService implements TranscriptionService {
                 new Error(`Invalid JSON response: ${error instanceof Error ? error.message : 'Unknown parsing error'}`)
             );
         }
+    }
+
+    /**
+     * Record user correction for learning
+     */
+    async recordCorrection(
+        originalText: string,
+        originalParsing: { amount: number; category: string; type: 'income' | 'expense'; merchant?: string; confidence?: number },
+        userCorrection: { amount?: number; category?: string; type?: 'income' | 'expense'; merchant?: string },
+        userId: string
+    ): Promise<void> {
+        await transactionLearning.recordCorrection(
+            originalText,
+            originalParsing,
+            userCorrection,
+            userId,
+            originalParsing.confidence || 0.8
+        );
     }
 }

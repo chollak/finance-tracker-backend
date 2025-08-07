@@ -47,7 +47,8 @@ export function buildServer(
       transactionModule.getAnalyticsService(),
       transactionModule.getGetUserTransactionsUseCase(),
       transactionModule.getDeleteTransactionUseCase(),
-      transactionModule.getUpdateTransactionUseCase()
+      transactionModule.getUpdateTransactionUseCase(),
+      transactionModule.getUpdateTransactionWithLearningUseCase()
     )
   );
 

@@ -5,6 +5,7 @@ import { AnalyticsService } from '../application/analyticsService';
 import { GetUserTransactionsUseCase } from '../application/getUserTransactions';
 import { DeleteTransactionUseCase } from '../application/deleteTransaction';
 import { UpdateTransactionUseCase } from '../application/updateTransaction';
+import { UpdateTransactionWithLearningUseCase } from '../application/updateTransactionWithLearning';
 import { Transaction } from '../domain/transactionEntity';
 import { TransactionValidator } from '../../../shared/validation/transactionValidator';
 import { handleControllerError, handleControllerSuccess, getStringParam } from '../../../shared/utils/controllerHelpers';
@@ -17,7 +18,8 @@ export function createTransactionRouter(
   analyticsService: AnalyticsService,
   getUserUseCase: GetUserTransactionsUseCase,
   deleteUseCase: DeleteTransactionUseCase,
-  updateUseCase: UpdateTransactionUseCase
+  updateUseCase: UpdateTransactionUseCase,
+  updateWithLearningUseCase: UpdateTransactionWithLearningUseCase
 ): Router {
   const router = Router();
 
@@ -119,7 +121,7 @@ export function createTransactionRouter(
       }
 
       // Validate the update data - allow partial updates
-      const allowedFields = ['amount', 'category', 'description', 'date', 'type'];
+      const allowedFields = ['amount', 'category', 'description', 'date', 'type', 'merchant'];
       const updates: any = {};
       
       for (const field of allowedFields) {
@@ -134,10 +136,26 @@ export function createTransactionRouter(
         return handleControllerError(error, res);
       }
 
-      const updatedTransaction = await updateUseCase.execute({
-        id: transactionId,
-        ...updates
-      });
+      // Check if we have learning context
+      const hasLearningContext = req.body.userId && req.body.originalText && req.body.originalParsing;
+      
+      let updatedTransaction;
+      if (hasLearningContext) {
+        // Use learning-enabled update
+        updatedTransaction = await updateWithLearningUseCase.execute({
+          id: transactionId,
+          ...updates,
+          userId: req.body.userId,
+          originalText: req.body.originalText,
+          originalParsing: req.body.originalParsing
+        });
+      } else {
+        // Use regular update
+        updatedTransaction = await updateUseCase.execute({
+          id: transactionId,
+          ...updates
+        });
+      }
 
       handleControllerSuccess(
         updatedTransaction,

@@ -115,12 +115,23 @@ export class ProcessVoiceInputUseCase {
                 try {
                     const transaction: Transaction = {
                         date: p.date || new Date().toISOString().split('T')[0],
-                        category: p.category || 'Other',
+                        category: p.category || 'Другое',
                         description: recognizedText.substring(0, 500), // Limit description length
                         amount: parseFloat(p.amount) || 0,
                         type: p.type === 'income' ? 'income' : 'expense',
                         userId: input.userId.trim(),
                         userName: input.userName?.trim() || input.userId.trim(),
+                        // Enhanced fields for learning
+                        merchant: p.merchant,
+                        confidence: p.confidence,
+                        originalText: recognizedText,
+                        originalParsing: {
+                            amount: parseFloat(p.amount) || 0,
+                            category: p.category || 'Другое',
+                            type: p.type === 'income' ? 'income' : 'expense',
+                            merchant: p.merchant,
+                            confidence: p.confidence
+                        }
                     };
 
                     const id = await this.createTransactionUseCase.execute(transaction);
