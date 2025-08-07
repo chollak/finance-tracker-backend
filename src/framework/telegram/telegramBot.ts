@@ -146,7 +146,7 @@ export function startTelegramBot(
           lastTx[userId] = tx.id;
           
           // Smart confirmation system - only confirm if confidence is low
-          const confidence = (tx as any).confidence || 0.8;
+          const confidence = tx.confidence || 0.8;
           const needsConfirmation = confidence < 0.6;
           
           if (needsConfirmation) {
@@ -155,7 +155,7 @@ export function startTelegramBot(
             message += `💰 Amount: ${fmt.format(tx.amount)}\n`;
             message += `📂 Category: ${tx.category}\n`;
             message += `📊 Type: ${tx.type}`;
-            if ((tx as any).merchant) message += `\n🏪 Merchant: ${(tx as any).merchant}`;
+            if (tx.merchant) message += `\n🏪 Merchant: ${tx.merchant}`;
             message += `\n\n⚠️ Confidence: ${Math.round(confidence * 100)}%`;
             
             await ctx.reply(
@@ -175,7 +175,7 @@ export function startTelegramBot(
             message += `💰 Amount: ${fmt.format(tx.amount)}\n`;
             message += `📂 Category: ${tx.category}\n`;
             message += `📊 Type: ${tx.type}`;
-            if ((tx as any).merchant) message += `\n🏪 ${(tx as any).merchant}`;
+            if (tx.merchant) message += `\n🏪 ${tx.merchant}`;
             
             await ctx.reply(
               message,
@@ -243,7 +243,7 @@ export function startTelegramBot(
           lastTx[userId] = tx.id;
           
           // Smart confirmation system - only confirm if confidence is low
-          const confidence = (tx as any).confidence || 0.8;
+          const confidence = tx.confidence || 0.8;
           const needsConfirmation = confidence < 0.6;
           
           if (needsConfirmation) {
@@ -252,7 +252,7 @@ export function startTelegramBot(
             message += `💰 Amount: ${fmt.format(tx.amount)}\n`;
             message += `📂 Category: ${tx.category}\n`;
             message += `📊 Type: ${tx.type}`;
-            if ((tx as any).merchant) message += `\n🏪 Merchant: ${(tx as any).merchant}`;
+            if (tx.merchant) message += `\n🏪 Merchant: ${tx.merchant}`;
             message += `\n\n⚠️ Confidence: ${Math.round(confidence * 100)}%`;
             
             await ctx.reply(
@@ -272,7 +272,7 @@ export function startTelegramBot(
             message += `💰 Amount: ${fmt.format(tx.amount)}\n`;
             message += `📂 Category: ${tx.category}\n`;
             message += `📊 Type: ${tx.type}`;
-            if ((tx as any).merchant) message += `\n🏪 ${(tx as any).merchant}`;
+            if (tx.merchant) message += `\n🏪 ${tx.merchant}`;
             
             await ctx.reply(
               message,

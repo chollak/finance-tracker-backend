@@ -140,7 +140,10 @@ export class ProcessVoiceInputUseCase {
                         amount: transaction.amount, 
                         category: transaction.category, 
                         type: transaction.type, 
-                        date: transaction.date 
+                        date: transaction.date,
+                        merchant: transaction.merchant,
+                        confidence: transaction.confidence,
+                        description: transaction.description
                     });
                 } catch (transactionError) {
                     console.error('Failed to create transaction from voice input:', {

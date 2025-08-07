@@ -4,6 +4,9 @@ export interface DetectedTransaction {
     category: string;
     type: 'income' | 'expense';
     date: string;
+    merchant?: string;
+    confidence?: number;
+    description?: string;
 }
 
 export interface ProcessedTransaction {

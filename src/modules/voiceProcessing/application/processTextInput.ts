@@ -52,7 +52,16 @@ export class ProcessTextInputUseCase {
             };
 
             const id = await this.createTransactionUseCase.execute(transaction);
-            results.push({ id, amount: p.amount, category: p.category, type: p.type, date: p.date });
+            results.push({ 
+                id, 
+                amount: transaction.amount, 
+                category: transaction.category, 
+                type: transaction.type, 
+                date: transaction.date,
+                merchant: transaction.merchant,
+                confidence: transaction.confidence,
+                description: transaction.description
+            });
         }
 
         return { text, transactions: results };
