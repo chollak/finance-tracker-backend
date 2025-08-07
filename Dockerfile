@@ -31,9 +31,8 @@ FROM node:18-alpine AS production
 # Install runtime dependencies
 RUN apk add --no-cache ffmpeg curl dumb-init
 
-# Create non-root user for security
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S node -u 1001 -G nodejs
+# Use existing node user (already exists in node:18-alpine)
+# No need to create user - node user already exists
 
 WORKDIR /app
 
