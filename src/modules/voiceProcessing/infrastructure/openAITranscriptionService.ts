@@ -25,14 +25,15 @@ export class OpenAITranscriptionService implements TranscriptionService {
     async analyzeTransactions(text: string): Promise<{ amount: number; category: string; type: 'income' | 'expense'; date: string }[]> {
         const today = new Date().toISOString().split('T')[0];
         const messages: ChatCompletionMessageParam[] = [
-            { role: 'system', content: 'Ты финансовый ассистент. Сегодня ' + today + '. Всегда отвечай валидным JSON.' },
+            { role: 'system', content: 'Ты финансовый ассистент. Сегодня ' + today + '. Всегда возвращай ответ в формате JSON массива.' },
             {
                 role: 'user',
                 content:
                     'Проанализируй текст и извлеки каждую отдельную транзакцию. ' +
-                    'Верни массив объектов формата {"amount": число, "category": строка, ' +
-                    '"type": "income" | "expense", "date": "YYYY-MM-DD"}. ' +
-                    'Если встречаются слова вроде "вчера" или "позавчера", вычисли фактическую дату относительно сегодняшнего дня.'
+                    'Верни JSON массив объектов формата [{"amount": число, "category": строка, ' +
+                    '"type": "income" | "expense", "date": "YYYY-MM-DD"}]. ' +
+                    'Если встречаются слова вроде "вчера" или "позавчера", вычисли фактическую дату относительно сегодняшнего дня. ' +
+                    'Даже если найдена только одна транзакция, верни массив с одним элементом.'
             },
             { role: 'user', content: text }
         ];

@@ -14,7 +14,22 @@ export class ProcessTextInputUseCase {
 
         const results: DetectedTransaction[] = [];
 
-        for (const p of parsed) {
+        // Ensure parsed is an array
+        let transactions: any[] = [];
+        if (Array.isArray(parsed)) {
+            transactions = parsed;
+        } else if (parsed && typeof parsed === 'object' && 'transactions' in parsed) {
+            transactions = Array.isArray((parsed as any).transactions) ? (parsed as any).transactions : [];
+        } else if (parsed) {
+            transactions = [parsed];
+        }
+
+        if (transactions.length === 0) {
+            console.warn('No transactions found in OpenAI response:', parsed);
+            return { text, transactions: [] };
+        }
+
+        for (const p of transactions) {
             const transaction: Transaction = {
                 date: p.date,
                 category: p.category,
