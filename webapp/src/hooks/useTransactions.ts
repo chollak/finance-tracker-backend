@@ -18,11 +18,14 @@ export const useTransactions = (userId: string | null) => {
       const response = await fetch(`/api/transactions/user/${userId}`);
       
       if (!response.ok) {
-        throw new Error('Failed to fetch transactions');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error?.message || 'Failed to fetch transactions');
       }
       
-      const data = await response.json();
-      setTransactions(data);
+      const result = await response.json();
+      // Handle new response format with success/data wrapper
+      const transactions = result.success ? result.data : result;
+      setTransactions(Array.isArray(transactions) ? transactions : []);
     } catch (err) {
       console.error('Failed to fetch transactions', err);
       setError(err instanceof Error ? err.message : 'Unknown error occurred');
@@ -42,8 +45,8 @@ export const useTransactions = (userId: string | null) => {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to delete transaction');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error?.message || 'Failed to delete transaction');
       }
 
       // Remove the transaction from local state
@@ -67,11 +70,12 @@ export const useTransactions = (userId: string | null) => {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to update transaction');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error?.message || 'Failed to update transaction');
       }
 
-      const updatedTransaction = await response.json();
+      const result = await response.json();
+      const updatedTransaction = result.success ? result.data : result;
       
       // Update the transaction in local state
       setTransactions(prev => 
