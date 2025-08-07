@@ -1,6 +1,8 @@
 import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
+import { AppConfig } from './appConfig';
+import { ConfigurationError } from '../shared/errors/AppError';
 
 const envPath = path.resolve(process.cwd(), '.env');
 if (fs.existsSync(envPath)) {
@@ -14,21 +16,25 @@ if (fs.existsSync(envPath)) {
   console.warn('.env file not found, using environment variables');
 }
 
-export const OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
-export const NOTION_API_KEY = process.env.NOTION_API_KEY || '';
-export const NOTION_DATABASE_ID = process.env.NOTION_DATABASE_ID || '';
-export const TG_BOT_API_KEY = process.env.TG_BOT_API_KEY || '';
-export const WEB_APP_URL = process.env.WEB_APP_URL || 'https://sapaev.uz';
-export const DOWNLOADS_DIR = path.resolve(
-  process.env.DOWNLOADS_DIR || path.join(process.cwd(), 'downloads')
-);
+// Export configuration for backward compatibility
+export const OPENAI_API_KEY = AppConfig.OPENAI_API_KEY;
+export const NOTION_API_KEY = AppConfig.NOTION_API_KEY;
+export const NOTION_DATABASE_ID = AppConfig.NOTION_DATABASE_ID;
+export const TG_BOT_API_KEY = AppConfig.TG_BOT_API_KEY;
+export const WEB_APP_URL = AppConfig.WEB_APP_URL;
+export const DOWNLOADS_DIR = path.resolve(AppConfig.DOWNLOADS_PATH);
 
-export function validateEnv() {
-  const missing: string[] = [];
-  if (!OPENAI_API_KEY) missing.push('OPENAI_API_KEY');
-  if (!NOTION_API_KEY) missing.push('NOTION_API_KEY');
-  if (!NOTION_DATABASE_ID) missing.push('NOTION_DATABASE_ID');
-  if (missing.length) {
-    console.warn(`Missing environment variables: ${missing.join(', ')}`);
+export function validateEnv(): void {
+  const validation = AppConfig.validate();
+  
+  if (!validation.isValid) {
+    console.error('Configuration validation failed:');
+    validation.errors.forEach(error => console.error(`- ${error}`));
+    
+    throw new ConfigurationError(
+      `Missing required configuration: ${validation.errors.join(', ')}`
+    );
   }
+
+  console.log('✓ Configuration validated successfully');
 }
