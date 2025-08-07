@@ -20,7 +20,7 @@ COPY tsconfig.json ./
 
 # Install webapp dependencies and build
 WORKDIR /app/webapp
-RUN npm ci
+RUN npm install
 RUN npm run build
 
 # Build backend
