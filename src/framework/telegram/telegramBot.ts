@@ -9,6 +9,22 @@ import { ERROR_MESSAGES } from '../../shared/constants/messages';
 import { VoiceProcessingModule } from '../../modules/voiceProcessing/voiceProcessingModule';
 import { TransactionModule } from '../../modules/transaction/transactionModule';
 
+// Helper function for consistent URL generation
+function createWebAppUrl(userId: string, params: { edit?: string } = {}): string {
+  if (!AppConfig.WEB_APP_URL) {
+    throw new Error('WEB_APP_URL not configured');
+  }
+  
+  const url = new URL(`${AppConfig.WEB_APP_URL}/webapp/transactions`);
+  url.searchParams.set('userId', userId);
+  
+  if (params.edit) {
+    url.searchParams.set('edit', params.edit);
+  }
+  
+  return url.toString();
+}
+
 async function downloadFile(url: string, dest: string): Promise<string> {
   try {
     const dir = path.dirname(dest);
@@ -84,40 +100,37 @@ export function startTelegramBot(
 
     bot.start(async ctx => {
       try {
-        if (!AppConfig.WEB_APP_URL) {
-          await ctx.reply('Web app URL not configured');
-          return;
-        }
-        
         const userId = String(ctx.from?.id ?? 'unknown');
-        const url = `${AppConfig.WEB_APP_URL}/webapp/transactions.html?userId=${userId}`;
+        const url = createWebAppUrl(userId);
         
         await ctx.reply(
-          'Welcome! Open your transactions below.',
-          Markup.inlineKeyboard([Markup.button.webApp('Open', url)])
+          '👋 Welcome to AI Finance Tracker!\n\n' +
+          '🎤 Send voice messages to add transactions automatically\n' +
+          '💬 Or type your expenses in text\n' +
+          '📊 View and manage your transactions below',
+          Markup.inlineKeyboard([
+            Markup.button.webApp('📊 Open Transactions', url)
+          ])
         );
       } catch (error) {
-        console.error('Error in /start command:', error);
+        console.error('❌ /start command error:', error);
         await ctx.reply('Welcome! Sorry, there was an issue setting up the app.');
       }
     });
 
     bot.command('transactions', async ctx => {
       try {
-        if (!AppConfig.WEB_APP_URL) {
-          await ctx.reply('Web app URL not configured');
-          return;
-        }
-        
         const userId = String(ctx.from?.id ?? 'unknown');
-        const url = `${AppConfig.WEB_APP_URL}/webapp/transactions.html?userId=${userId}`;
+        const url = createWebAppUrl(userId);
         
         await ctx.reply(
-          'Open your transactions',
-          Markup.inlineKeyboard([Markup.button.webApp('Open', url)])
+          '📊 View and manage your transactions',
+          Markup.inlineKeyboard([
+            Markup.button.webApp('📊 Open Transactions', url)
+          ])
         );
       } catch (error) {
-        console.error('Error in /transactions command:', error);
+        console.error('❌ /transactions command error:', error);
         await ctx.reply('Sorry, failed to open transactions. Please try again.');
       }
     });
@@ -140,7 +153,7 @@ export function startTelegramBot(
           return;
         }
 
-        const url = AppConfig.WEB_APP_URL ? `${AppConfig.WEB_APP_URL}/webapp/transactions.html?userId=${userId}` : undefined;
+        const url = AppConfig.WEB_APP_URL ? createWebAppUrl(userId) : undefined;
         
         for (const tx of result.transactions) {
           lastTx[userId] = tx.id;
@@ -166,7 +179,7 @@ export function startTelegramBot(
                   Markup.button.callback('✏️ Edit', `edit:${tx.id}`)
                 ],
                 [Markup.button.callback('❌ Delete', `delete:${tx.id}`)],
-                ...(url ? [[Markup.button.webApp('📊 Open app', url)]] : [])
+                ...(url ? [[Markup.button.webApp('📊 View All', url)]] : [])
               ])
             );
           } else {
@@ -237,7 +250,7 @@ export function startTelegramBot(
           return;
         }
 
-        const url = AppConfig.WEB_APP_URL ? `${AppConfig.WEB_APP_URL}/webapp/transactions.html?userId=${userId}` : undefined;
+        const url = AppConfig.WEB_APP_URL ? createWebAppUrl(userId) : undefined;
         
         for (const tx of result.transactions) {
           lastTx[userId] = tx.id;
@@ -263,7 +276,7 @@ export function startTelegramBot(
                   Markup.button.callback('✏️ Edit', `edit:${tx.id}`)
                 ],
                 [Markup.button.callback('❌ Delete', `delete:${tx.id}`)],
-                ...(url ? [[Markup.button.webApp('📊 Open app', url)]] : [])
+                ...(url ? [[Markup.button.webApp('📊 View All', url)]] : [])
               ])
             );
           } else {
@@ -347,20 +360,20 @@ export function startTelegramBot(
 
         const userId = String(ctx.from?.id ?? 'unknown');
         
-        if (!AppConfig.WEB_APP_URL) {
+        try {
+          const url = createWebAppUrl(userId, { edit: id });
+          
+          await ctx.answerCbQuery('✏️ Opening edit form...');
+          await ctx.reply(
+            '✏️ Edit transaction',
+            Markup.inlineKeyboard([
+              Markup.button.webApp('✏️ Edit Transaction', url)
+            ])
+          );
+        } catch (urlError) {
           await ctx.answerCbQuery('❌ Web app not configured');
           return;
         }
-
-        const url = `${AppConfig.WEB_APP_URL}/webapp/transactions.html?userId=${userId}&edit=${id}`;
-        
-        await ctx.answerCbQuery('✏️ Opening edit form...');
-        await ctx.reply(
-          '✏️ Edit transaction',
-          Markup.inlineKeyboard([
-            Markup.button.webApp('✏️ Edit Transaction', url)
-          ])
-        );
       } catch (error) {
         console.error('Error handling edit request:', error);
         await ctx.answerCbQuery('❌ Failed to open edit form');

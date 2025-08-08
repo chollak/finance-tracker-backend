@@ -1,103 +1,37 @@
 
-# AGENTS.md
+# Repository Guidelines
 
-## Назначение
+## Project Structure & Modules
+- `src/`: TypeScript source. Key areas: `config/` (AppConfig), `framework/` (Express server, Telegram bot), `modules/` (transaction, voiceProcessing with `domain/`, `application/`, `infrastructure/`, `interfaces/`), `shared/` (errors, middleware, validation, learning), `appModules.ts`, `index.ts`.
+- `tests/`: Jest tests, `*.test.ts`.
+- `dist/`: Compiled output from TypeScript.
+- `public/webapp/`: Static web app served under `/webapp`.
+- `webapp/`: Frontend built on postinstall; not required for backend dev.
 
-Файл описывает агентов, задействованных в проекте **FinTrackAI** — системы автоматизации личных финансов. Каждый агент выполняет свою конкретную задачу, соблюдая принципы чистой архитектуры и минимальной связанности.
+## Build, Test, and Development
+- `npm run dev`: Start local API and Telegram bot via ts-node-dev.
+- `npm run build`: Compile TypeScript to `dist/`.
+- `npm start`: Run compiled server from `dist/index.js`.
+- `npm test`: Run Jest tests (`ts-jest`, Node env). Health check: `GET /api/health`.
+- Docker: `docker compose up --build` to run containerized (optional).
 
----
+## Coding Style & Naming
+- Language: TypeScript (`strict: true`). Use 2-space indentation.
+- Filenames: camelCase (`processTextInput.ts`), tests: `name.test.ts`.
+- Classes/Types: PascalCase; functions/variables: camelCase; constants: UPPER_SNAKE_CASE.
+- Organize code by module (domain/application/infrastructure/interfaces). Avoid cross-module imports from internals; depend on interfaces.
 
-## 📊 Agent: `TransactionParserAgent`
+## Testing Guidelines
+- Framework: Jest with `ts-jest` preset. Place tests in `tests/` and name `*.test.ts`.
+- Scope: unit test application/domain, route tests via Express routers; mock external services (OpenAI, Notion, Telegram).
+- Run locally with `npm test`. Add minimal fixtures; keep tests deterministic.
 
-**Описание:**  
-Обрабатывает текстовые команды пользователей (голос → текст) и извлекает структурированную транзакцию.
+## Commit & Pull Requests
+- Commits: Conventional style (`feat:`, `fix:`, `refactor:`). Imperative, concise subject; include scope when helpful.
+- PRs: clear description, linked issue, steps to validate, note breaking changes. Add API examples and screenshots for webapp changes when relevant.
+- Keep PRs focused and small. Include tests and update docs when behavior changes.
 
-**Входные данные:**
-- `text: string` — фраза, например: `"Заплатил 120000 за аренду"`
-- `userId: string` — идентификатор пользователя Telegram
-
-**Выходной JSON:**
-```json
-{
-  "amount": 120000,
-  "category": "аренда",
-  "type": "expense",
-  "account": "карта Тинькофф"
-}
-```
-
-**Технологии:**  
-OpenAI GPT (ChatGPT API) + словарь категорий/счетов
-
----
-
-## 🧾 Agent: `NotionStorageAgent`
-
-**Описание:**  
-Взаимодействует с базой данных в Notion: создание, чтение, обновление сущностей (Transaction, Account, Debt и др.)
-
-**Методы:**
-- `create(entity: string, data: object)`
-- `read(entity: string, filters?: object)`
-- `update(entity: string, id: string, data: object)`
-
-**Особенности:**
-- Работает с таблицами по ID (настраиваются в .env)
-- Поддерживает миграции (создание таблиц через API)
-
----
-
-## 🤖 Agent: `TelegramBotAgent`
-
-**Описание:**  
-Обрабатывает команды Telegram-пользователей, передает данные на парсинг и сохраняет результат.
-
-**Команды:**
-- `/add` — добавить транзакцию
-- `/view` — получить ссылку на свою страницу с транзакциями
-- `/help` — справка по возможностям
-
-**Интеграции:**
-- Chat input → `TransactionParserAgent`
-- Сохранение → `NotionStorageAgent`
-- Ответ пользователю в Telegram
-
----
-
-## 🔁 Agent: `RecurringPaymentAgent` *(в разработке)*
-
-**Описание:**  
-Следит за периодичностью транзакций и автоматически создает новые на основе заданных правил.
-
-**В планах:**
-- Ежемесячные, еженедельные, произвольные повторения
-- Cron-расписание
-- Связь с сущностью `RecurringPayment`
-
----
-
-## 🔐 Agent: `UserManagementAgent`
-
-**Описание:**  
-Управляет пользователями и их связью с данными в Notion.
-
-**Функции:**
-- Привязка `userId` и `userName` из Telegram
-- Определение пользовательских таблиц
-- Обеспечение изоляции данных
-
----
-
-## 🧠 В разработке
-
-- **AnalyticsAgent** — построение графиков и статистики
-- **BudgetPlannerAgent** — планирование бюджета на месяц
-- **DebtTrackerAgent** — учёт долгов и их погашение
-
----
-
-## Примечания
-
-- Все агенты проектируются как независимые сервисы с минимальными внешними зависимостями.
-- Используется принцип "одна ответственность — один агент".
-- Возможна будущая миграция с Notion на PostgreSQL или Supabase, при этом интерфейсы агентов останутся неизменными.
+## Security & Configuration
+- Create `.env` from `.env.example`: set `OPENAI_API_KEY`, `NOTION_API_KEY`, `NOTION_DATABASE_ID`, `TG_BOT_API_KEY` (required in prod), `WEB_APP_URL`.
+- Never commit secrets. App validates config at startup (`AppConfig.validate()`); check logs on boot.
+- Default paths: downloads/uploads under project root; supported audio formats: mp3/wav/ogg/m4a.

@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { formatAmount } from '../utils';
 import { useTransactions } from '../hooks/useTransactions';
 import { Transaction } from '../types';
@@ -10,13 +11,35 @@ interface TransactionsPageProps {
 }
 
 export default function TransactionsPage({ userId }: TransactionsPageProps) {
+  const [searchParams, setSearchParams] = useSearchParams();
   const { transactions, loading, error, deleteTransaction, updateTransaction, clearError } = useTransactions(userId);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [deletingTransaction, setDeletingTransaction] = useState<Transaction | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // Handle edit parameter from URL
+  useEffect(() => {
+    const editId = searchParams.get('edit');
+    if (editId && transactions.length > 0 && !editingTransaction) {
+      const transactionToEdit = transactions.find(tx => tx.id === editId);
+      if (transactionToEdit) {
+        setEditingTransaction(transactionToEdit);
+        // Clean up URL parameter after opening modal
+        const newSearchParams = new URLSearchParams(searchParams);
+        newSearchParams.delete('edit');
+        setSearchParams(newSearchParams, { replace: true });
+      }
+    }
+  }, [searchParams, transactions, editingTransaction, setSearchParams]);
+
   if (loading) {
-    return <div>Loading...</div>;
+    return (
+      <div className="flex items-center justify-center p-8">
+        <div className="text-center">
+          <div className="animate-pulse text-gray-500">Loading transactions...</div>
+        </div>
+      </div>
+    );
   }
 
   const handleEdit = (transaction: Transaction) => {
@@ -48,20 +71,34 @@ export default function TransactionsPage({ userId }: TransactionsPageProps) {
 
   if (error) {
     return (
-      <div className="text-red-600">
-        <p>Error: {error}</p>
-        <button 
-          onClick={() => window.location.reload()}
-          className="mt-2 px-4 py-2 bg-blue-500 text-white rounded"
-        >
-          Retry
-        </button>
+      <div className="flex items-center justify-center p-8">
+        <div className="text-center bg-red-50 border border-red-200 rounded-lg p-6 max-w-md">
+          <div className="text-red-600 mb-4">
+            <h3 className="font-semibold mb-2">Unable to load transactions</h3>
+            <p className="text-sm">{error}</p>
+          </div>
+          <button 
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded transition-colors"
+          >
+            Try Again
+          </button>
+        </div>
       </div>
     );
   }
 
   if (!userId) {
-    return <p>Please access this app through Telegram to see your transactions.</p>;
+    return (
+      <div className="flex items-center justify-center p-8">
+        <div className="text-center bg-yellow-50 border border-yellow-200 rounded-lg p-6 max-w-md">
+          <div className="text-yellow-600">
+            <h3 className="font-semibold mb-2">Access Required</h3>
+            <p className="text-sm">Please access this app through Telegram to see your transactions.</p>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
