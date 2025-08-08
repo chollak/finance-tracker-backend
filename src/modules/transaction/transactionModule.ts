@@ -7,6 +7,7 @@ import { UpdateTransactionWithLearningUseCase } from './application/updateTransa
 import { AnalyticsService } from './application/analyticsService';
 import { NotionRepository } from './infrastructure/notionRepository';
 import { NotionService } from '../../infrastructure/services/notionService';
+import { SqliteTransactionRepository } from '../../database/repositories/SqliteTransactionRepository';
 import { TransactionRepository } from './domain/transactionRepository';
 
 export class TransactionModule {
@@ -14,6 +15,11 @@ export class TransactionModule {
 
   static create(notionService: NotionService): TransactionModule {
     const repository = new NotionRepository(notionService);
+    return new TransactionModule(repository);
+  }
+
+  static createWithSqlite(): TransactionModule {
+    const repository = new SqliteTransactionRepository();
     return new TransactionModule(repository);
   }
 

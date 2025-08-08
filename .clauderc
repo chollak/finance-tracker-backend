@@ -1,0 +1,24 @@
+# Claude Code Optimization Settings
+# Add patterns to ignore large/unnecessary files
+
+# Ignore build outputs
+dist/
+build/
+node_modules/
+
+# Ignore logs and temp files  
+*.log
+*.tmp
+.DS_Store
+
+# Ignore large data files
+*.sqlite
+*.db
+*.json.backup
+
+# Include only relevant source files for context
+src/**/*.ts
+src/**/*.js
+*.md
+package.json
+tsconfig.json

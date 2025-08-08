@@ -1,0 +1,25 @@
+#!/bin/bash
+
+# Quick Claude session starter
+echo "🤖 STARTING OPTIMIZED CLAUDE SESSION"
+echo "======================================"
+echo ""
+echo "📋 Copy this output to start your Claude session efficiently:"
+echo ""
+
+node scripts/session-start.js
+
+echo ""
+echo "🔍 If you need to debug errors, run:"
+echo "    node scripts/error-context.js"
+echo ""
+echo "📁 To explore files, run:"
+echo "    node scripts/explore.js src"
+echo "    node scripts/explore.js api" 
+echo "    node scripts/explore.js db"
+echo ""
+echo "💡 BEST PRACTICES:"
+echo "• Reference CONTEXT.md in your message"
+echo "• Use specific file paths from explore.js"
+echo "• Batch related requests together"
+echo "• Share only relevant error sections"
