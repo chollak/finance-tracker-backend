@@ -12,7 +12,7 @@
     "install:webapp": "cd webapp && npm install",
     "build:webapp": "cd webapp && npm run build",
     "postinstall": "npm run install:webapp && npm run build:webapp",
-    "migrate:notion": "node -r ts-node/register src/scripts/migrate-from-notion.ts"
+    "migrate:notion": "node dist/scripts/migrate-from-notion.js"
   },
   "keywords": [],
   "author": "",

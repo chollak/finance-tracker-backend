@@ -27,7 +27,7 @@ services:
       - .env
     volumes:
       - ./data:/app/data
-    command: ["node", "-r", "ts-node/register", "src/scripts/migrate-from-notion.ts"]
+    command: ["node", "dist/scripts/migrate-from-notion.js"]
     profiles:
       - migration
     healthcheck:
