@@ -3,6 +3,7 @@ import fs from 'fs';
 import https from 'https';
 import http from 'http';
 import path from 'path';
+import os from 'os';
 import { pipeline } from 'stream/promises';
 import { AppConfig } from '../../config/appConfig';
 import { ErrorFactory, AppError } from '../../shared/errors/AppError';
@@ -260,10 +261,14 @@ export function startTelegramBot(
           throw ErrorFactory.externalService('Telegram API', new Error('Failed to get voice file link'));
         }
 
-        // Ensure downloads directory exists
-        await fs.promises.mkdir(downloadsDir, { recursive: true });
-
-        filePath = path.join(downloadsDir, ctx.message.voice.file_id);
+        // Try to create downloads directory, fallback to temp if permission denied
+        try {
+          await fs.promises.mkdir(downloadsDir, { recursive: true });
+          filePath = path.join(downloadsDir, ctx.message.voice.file_id);
+        } catch (dirError) {
+          console.warn('Cannot access downloads directory, using temp directory:', dirError);
+          filePath = path.join(os.tmpdir(), `voice_${ctx.message.voice.file_id}`);
+        }
         
         // Download voice file
         await downloadFile(fileLink.href, filePath);
