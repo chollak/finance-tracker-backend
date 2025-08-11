@@ -3,7 +3,7 @@ import { useDashboard } from '../hooks/useDashboard';
 import { Alert, AlertSeverity } from '../types';
 
 interface DashboardPageProps {
-  userId: string;
+  userId: string | null;
 }
 
 // Simple chart component for spending patterns

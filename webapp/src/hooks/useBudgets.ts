@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Budget, BudgetSummary, BudgetPeriod } from '../types';
 import { budgetApi } from '../services/api';
 
-export const useBudgets = (userId: string) => {
+export const useBudgets = (userId: string | null) => {
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [budgetSummaries, setBudgetSummaries] = useState<BudgetSummary[]>([]);
   const [loading, setLoading] = useState(false);

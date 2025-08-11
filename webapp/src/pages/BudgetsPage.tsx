@@ -5,7 +5,7 @@ import BudgetCard from '../components/BudgetCard';
 import CreateBudgetModal from '../components/CreateBudgetModal';
 
 interface BudgetsPageProps {
-  userId: string;
+  userId: string | null;
 }
 
 const BudgetsPage: React.FC<BudgetsPageProps> = ({ userId }) => {
@@ -16,8 +16,7 @@ const BudgetsPage: React.FC<BudgetsPageProps> = ({ userId }) => {
     createBudget,
     updateBudget,
     deleteBudget,
-    getBudgetAlerts,
-    refreshDashboard
+    getBudgetAlerts
   } = useBudgets(userId);
 
   const [showCreateModal, setShowCreateModal] = useState(false);

@@ -45,10 +45,11 @@ async function startApplication() {
     });
 
     const port = process.env.PORT || 3000;
-    startTelegramBot(voiceModule, transactionModule);
-
+    
     app.listen(port, () => {
       console.log(`🚀 Server running on port ${port}`);
+      // Start Telegram bot after HTTP server is ready
+      startTelegramBot(voiceModule, transactionModule);
     });
 
     // Handle graceful shutdown

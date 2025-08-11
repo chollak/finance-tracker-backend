@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { DashboardInsights, Alert, FinancialHealthScore } from '../types';
 import { dashboardApi, analyticsApi, apiUtils } from '../services/api';
 
-export const useDashboard = (userId: string) => {
+export const useDashboard = (userId: string | null) => {
   const [dashboard, setDashboard] = useState<any>(null);
   const [insights, setInsights] = useState<DashboardInsights | null>(null);
   const [alerts, setAlerts] = useState<Alert[]>([]);
@@ -152,7 +152,7 @@ export const useAnalytics = (userId: string) => {
     try {
       const response = await analyticsApi.getAnalyticsSummary(userId, startDate, endDate);
       if (response.success && response.data) {
-        setAnalytics(prev => ({ ...prev, summary: response.data }));
+        setAnalytics((prev: any) => ({ ...prev, summary: response.data }));
         return response.data;
       }
       return null;
