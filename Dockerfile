@@ -68,7 +68,7 @@ COPY --from=builder --chown=node:node /app/public ./public
 RUN mkdir -p downloads uploads data && \
     chown -R node:node downloads uploads data
 
-# Switch to non-root user for security
+# Switch to non-root user for security  
 USER node
 
 # Health check to monitor app status
