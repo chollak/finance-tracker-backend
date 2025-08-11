@@ -35,9 +35,14 @@ async function downloadFile(url: string, dest: string): Promise<string> {
     return new Promise((resolve, reject) => {
       const handleError = async (err: Error) => {
         try {
-          await fs.promises.unlink(dest).catch(() => { });
+          // Close the file stream first if it's still open
+          if (!file.destroyed) {
+            file.destroy();
+          }
+          // Try to cleanup the file, but ignore if it doesn't exist
+          await fs.promises.unlink(dest).catch(() => {});
         } catch (cleanupErr) {
-          console.warn('Failed to cleanup file after download error:', cleanupErr);
+          // Silently ignore cleanup errors
         }
         reject(ErrorFactory.externalService('File Download', err));
       };
@@ -229,9 +234,7 @@ export function startTelegramBot(
         }
 
         // Ensure downloads directory exists
-        if (!fs.existsSync(downloadsDir)) {
-          fs.mkdirSync(downloadsDir, { recursive: true });
-        }
+        await fs.promises.mkdir(downloadsDir, { recursive: true });
 
         filePath = path.join(downloadsDir, ctx.message.voice.file_id);
         
@@ -310,14 +313,13 @@ export function startTelegramBot(
           await ctx.reply('🎤❌ Failed to process your voice message. Please try again or send as text.');
         }
       } finally {
-        // Clean up downloaded file (if it was actually created)
-        if (filePath && fs.existsSync(filePath)) {
-          fs.unlink(filePath, err => {
-            if (err) {
-              // Non-blocking – just log for diagnostics
-              console.warn('Failed to cleanup voice file:', err);
-            }
-          });
+        // Clean up downloaded file (if it exists)
+        if (filePath) {
+          try {
+            await fs.promises.unlink(filePath);
+          } catch (err) {
+            // Silently ignore cleanup errors - file might not exist or already be cleaned up
+          }
         }
       }
     });
