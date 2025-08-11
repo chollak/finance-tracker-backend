@@ -10,17 +10,19 @@ WORKDIR /app
 COPY package*.json ./
 COPY webapp/package*.json ./webapp/
 
-# Install all dependencies (including dev dependencies for build)
-RUN npm ci
+# Install dependencies but skip postinstall to avoid build issues
+RUN npm ci --ignore-scripts
 
 # Copy source code
 COPY webapp ./webapp
 COPY src ./src
 COPY tsconfig.json ./
 
-# Build webapp first (from root directory for proper paths)
-RUN npm run install:webapp
-RUN npm run build:webapp
+# Install webapp dependencies manually
+RUN cd webapp && npm install
+
+# Build webapp with explicit working directory
+RUN cd webapp && npm run build
 
 # Build backend
 RUN npm run build
