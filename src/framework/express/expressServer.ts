@@ -3,8 +3,11 @@ import bodyParser from 'body-parser';
 import cors from 'cors';
 import { TransactionModule } from '../../modules/transaction/transactionModule';
 import { VoiceProcessingModule } from '../../modules/voiceProcessing/voiceProcessingModule';
+import { BudgetModule } from '../../modules/budget/budgetModule';
 import { createTransactionRouter } from '../../modules/transaction/interfaces/transactionController';
 import { createVoiceProcessingRouter } from '../../modules/voiceProcessing/voiceProcessingController';
+import { createBudgetRouter } from '../../modules/budget/interfaces/budgetRoutes';
+import { createDashboardRouter } from '../../shared/routes/dashboardRoutes';
 import { 
   errorHandler, 
   notFoundHandler, 
@@ -16,7 +19,8 @@ import { AppConfig } from '../../config/appConfig';
 
 export function buildServer(
   transactionModule: TransactionModule,
-  voiceModule: VoiceProcessingModule
+  voiceModule: VoiceProcessingModule,
+  budgetModule: BudgetModule
 ) {
   const router = Router();
   
@@ -57,6 +61,19 @@ export function buildServer(
     createVoiceProcessingRouter(
       voiceModule.getProcessVoiceInputUseCase(),
       voiceModule.getProcessTextInputUseCase()
+    )
+  );
+
+  router.use(
+    '/budgets',
+    createBudgetRouter(budgetModule)
+  );
+
+  router.use(
+    '/dashboard',
+    createDashboardRouter(
+      transactionModule.getAnalyticsService(),
+      budgetModule.budgetService
     )
   );
 

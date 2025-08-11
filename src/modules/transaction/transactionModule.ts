@@ -50,4 +50,8 @@ export class TransactionModule {
   getAnalyticsService(): AnalyticsService {
     return new AnalyticsService(this.repository);
   }
+
+  getRepository(): TransactionRepository {
+    return this.repository;
+  }
 }

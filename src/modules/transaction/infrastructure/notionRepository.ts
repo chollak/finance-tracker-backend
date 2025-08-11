@@ -35,4 +35,17 @@ export class NotionRepository implements TransactionRepository {
     async update(id: string, updates: Partial<Transaction>): Promise<Transaction> {
         return this.notionService.updateTransaction(id, updates);
     }
+
+    async getByUserIdAndDateRange(userId: string, startDate: Date, endDate: Date): Promise<Transaction[]> {
+        // For the Notion implementation, we'll filter all transactions by date range
+        // In a production system, you'd use Notion's database query filters
+        const allTransactions = await this.getAll();
+        
+        return allTransactions.filter(transaction => {
+            const transactionDate = new Date(transaction.date);
+            return transaction.userId === userId && 
+                   transactionDate >= startDate && 
+                   transactionDate <= endDate;
+        });
+    }
 }

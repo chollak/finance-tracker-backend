@@ -31,10 +31,10 @@ async function startApplication() {
     // Initialize database first
     await initializeDatabase();
     
-    const { transactionModule, voiceModule } = createModules();
+    const { transactionModule, budgetModule, voiceModule } = createModules();
     const app = express();
 
-    app.use('/api', buildServer(transactionModule, voiceModule));
+    app.use('/api', buildServer(transactionModule, voiceModule, budgetModule));
 
     const buildPath = path.join(__dirname, '../public/webapp');
     // Serve the web app under the /webapp path so URLs from the Telegram bot work

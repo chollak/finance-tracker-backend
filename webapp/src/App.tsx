@@ -4,6 +4,8 @@ import Navigation from './components/Navigation';
 import TransactionsPage from './pages/TransactionsPage';
 import StatsPage from './pages/StatsPage';
 import HomePage from './pages/HomePage';
+import BudgetsPage from './pages/BudgetsPage';
+import DashboardPage from './pages/DashboardPage';
 
 function AppContent() {
   const [searchParams] = useSearchParams();
@@ -20,7 +22,9 @@ function AppContent() {
       
       <Routes>
         <Route path="/" element={<HomePage userId={userId} />} />
+        <Route path="/dashboard" element={<DashboardPage userId={userId} />} />
         <Route path="/transactions" element={<TransactionsPage userId={userId} />} />
+        <Route path="/budgets" element={<BudgetsPage userId={userId} />} />
         <Route path="/stats" element={<StatsPage userId={userId} />} />
       </Routes>
     </div>

@@ -75,6 +75,19 @@ export class SqliteTransactionRepository implements TransactionRepository {
     return updated;
   }
 
+  async getByUserIdAndDateRange(userId: string, startDate: Date, endDate: Date): Promise<Transaction[]> {
+    const entities = await this.repository.createQueryBuilder('transaction')
+      .leftJoinAndSelect('transaction.category', 'category')
+      .leftJoinAndSelect('transaction.account', 'account')
+      .where('transaction.userId = :userId', { userId })
+      .andWhere('transaction.date >= :startDate', { startDate: startDate.toISOString().split('T')[0] })
+      .andWhere('transaction.date <= :endDate', { endDate: endDate.toISOString().split('T')[0] })
+      .orderBy('transaction.date', 'DESC')
+      .getMany();
+
+    return entities.map(entity => this.mapToTransaction(entity));
+  }
+
   // Additional methods for SQLite-specific functionality
   async findByUserId(userId: string, limit?: number): Promise<Transaction[]> {
     const queryBuilder = this.repository.createQueryBuilder('transaction')

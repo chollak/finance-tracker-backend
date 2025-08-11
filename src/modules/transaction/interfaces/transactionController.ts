@@ -38,6 +38,100 @@ export function createTransactionRouter(
     }
   });
 
+  // Enhanced analytics endpoints with time filtering
+  router.get('/analytics/summary/:userId', async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { startDate, endDate } = req.query;
+
+      let timeRange = undefined;
+      if (startDate && endDate) {
+        timeRange = {
+          startDate: new Date(startDate as string),
+          endDate: new Date(endDate as string)
+        };
+      }
+
+      const summary = await analyticsService.getAnalyticsSummary(userId, timeRange);
+      handleControllerSuccess(summary, res);
+    } catch (error) {
+      handleControllerError(error, res);
+    }
+  });
+
+  router.get('/analytics/categories/:userId', async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { startDate, endDate } = req.query;
+
+      let timeRange = undefined;
+      if (startDate && endDate) {
+        timeRange = {
+          startDate: new Date(startDate as string),
+          endDate: new Date(endDate as string)
+        };
+      }
+
+      const breakdown = await analyticsService.getDetailedCategoryBreakdown(userId, timeRange);
+      handleControllerSuccess(breakdown, res);
+    } catch (error) {
+      handleControllerError(error, res);
+    }
+  });
+
+  router.get('/analytics/trends/:userId', async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const months = req.query.months ? parseInt(req.query.months as string) : 12;
+
+      const trends = await analyticsService.getMonthlyTrends(userId, months);
+      handleControllerSuccess(trends, res);
+    } catch (error) {
+      handleControllerError(error, res);
+    }
+  });
+
+  router.get('/analytics/patterns/:userId', async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { startDate, endDate } = req.query;
+
+      let timeRange = undefined;
+      if (startDate && endDate) {
+        timeRange = {
+          startDate: new Date(startDate as string),
+          endDate: new Date(endDate as string)
+        };
+      }
+
+      const patterns = await analyticsService.getSpendingPatterns(userId, timeRange);
+      handleControllerSuccess(patterns, res);
+    } catch (error) {
+      handleControllerError(error, res);
+    }
+  });
+
+  router.get('/analytics/top-categories/:userId', async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { startDate, endDate, limit } = req.query;
+
+      let timeRange = undefined;
+      if (startDate && endDate) {
+        timeRange = {
+          startDate: new Date(startDate as string),
+          endDate: new Date(endDate as string)
+        };
+      }
+
+      const limitNum = limit ? parseInt(limit as string) : 5;
+      const topCategories = await analyticsService.getTopCategories(userId, timeRange, limitNum);
+      handleControllerSuccess(topCategories, res);
+    } catch (error) {
+      handleControllerError(error, res);
+    }
+  });
+
   router.post('/', async (req, res) => {
     try {
       // Validate input using our new validation system
