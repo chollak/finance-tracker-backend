@@ -261,17 +261,18 @@ export function startTelegramBot(
           throw ErrorFactory.externalService('Telegram API', new Error('Failed to get voice file link'));
         }
 
-        // Try to create downloads directory, fallback to temp if permission denied
+        // Try to use downloads directory first, fallback to temp directory on any error
         try {
           await fs.promises.mkdir(downloadsDir, { recursive: true });
           filePath = path.join(downloadsDir, ctx.message.voice.file_id);
-        } catch (dirError) {
-          console.warn('Cannot access downloads directory, using temp directory:', dirError);
+          // Test if we can actually write to this location
+          await downloadFile(fileLink.href, filePath);
+        } catch (downloadError) {
+          console.warn('Cannot write to downloads directory, retrying with temp directory:', downloadError);
           filePath = path.join(os.tmpdir(), `voice_${ctx.message.voice.file_id}`);
+          // Retry download with temp directory
+          await downloadFile(fileLink.href, filePath);
         }
-        
-        // Download voice file
-        await downloadFile(fileLink.href, filePath);
         
         // Process voice input
         const result = await voiceModule.getProcessVoiceInputUseCase().execute({ 
