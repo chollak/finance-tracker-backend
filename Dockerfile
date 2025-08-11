@@ -18,13 +18,11 @@ COPY webapp ./webapp
 COPY src ./src
 COPY tsconfig.json ./
 
-# Install webapp dependencies and build
-WORKDIR /app/webapp
-RUN npm install
-RUN npm run build
+# Build webapp first (from root directory for proper paths)
+RUN npm run install:webapp
+RUN npm run build:webapp
 
 # Build backend
-WORKDIR /app
 RUN npm run build
 
 # Production stage - smaller final image
