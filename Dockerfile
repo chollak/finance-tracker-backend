@@ -38,18 +38,26 @@ RUN npm run build
 # Production stage - smaller final image
 FROM node:18-alpine AS production
 
-# Install runtime dependencies including sqlite
-RUN apk add --no-cache ffmpeg curl dumb-init sqlite
+# Install runtime dependencies and build tools needed for sqlite3
+RUN apk add --no-cache \
+    ffmpeg \
+    curl \
+    dumb-init \
+    sqlite \
+    python3 \
+    make \
+    g++
 
 # Use existing node user (already exists in node:18-alpine)
 # No need to create user - node user already exists
 
 WORKDIR /app
 
-# Copy package files and install only production dependencies
+# Copy package files and install production dependencies with sqlite3 rebuild
 COPY package*.json ./
-# Skip postinstall script that builds webapp (already built in builder stage)
+# Install production dependencies and rebuild sqlite3
 RUN npm ci --only=production --no-audit --no-fund --ignore-scripts && \
+    npm rebuild sqlite3 && \
     npm cache clean --force
 
 # Copy built application from builder stage
