@@ -1,6 +1,7 @@
 import { Telegraf, Markup } from 'telegraf';
 import fs from 'fs';
 import https from 'https';
+import http from 'http';
 import path from 'path';
 import { pipeline } from 'stream/promises';
 import { AppConfig } from '../../config/appConfig';
@@ -34,6 +35,14 @@ async function downloadFile(url: string, dest: string): Promise<string> {
 
     return new Promise((resolve, reject) => {
       const handleError = async (err: Error) => {
+        console.error('Download error details:', {
+          error: err.message,
+          stack: err.stack,
+          url: url,
+          dest: dest,
+          errorType: err.constructor.name
+        });
+
         try {
           // Close the file stream first if it's still open
           if (!file.destroyed) {
@@ -49,22 +58,40 @@ async function downloadFile(url: string, dest: string): Promise<string> {
 
       file.on('error', handleError);
 
-      https
+      // Choose appropriate module based on URL protocol
+      const client = url.startsWith('https:') ? https : http;
+      
+      const request = client
         .get(url, async response => {
           try {
+            console.log(`Download attempt: ${url} -> ${dest}, Status: ${response.statusCode}`);
+            
             if (response.statusCode !== 200) {
               throw new Error(`HTTP ${response.statusCode}: ${response.statusMessage}`);
             }
             
             await pipeline(response, file);
+            console.log(`Download completed: ${dest}`);
             resolve(dest);
           } catch (err) {
             handleError(err as Error);
           }
         })
         .on('error', handleError);
+
+      // Set timeout to prevent hanging downloads
+      request.setTimeout(30000, () => {
+        request.destroy();
+        handleError(new Error('Download timeout after 30 seconds'));
+      });
     });
   } catch (error) {
+    console.error('Download setup error:', {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      url: url,
+      dest: dest
+    });
     throw ErrorFactory.externalService('File Download Setup', error instanceof Error ? error : undefined);
   }
 }
