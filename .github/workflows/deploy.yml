@@ -1,21 +1,21 @@
-name: Deploy
+name: Deploy to Production
 
 on:
   push:
     branches: [main]
 
 jobs:
-  deploy:
+  test:
     runs-on: ubuntu-latest
-
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Setup Node.js
-      uses: actions/setup-node@v3
+      uses: actions/setup-node@v4
       with:
         node-version: 18
+        cache: 'npm'
 
     - name: Install dependencies
       run: npm ci
@@ -23,16 +23,55 @@ jobs:
     - name: Run tests
       run: npm test
 
+    - name: Build webapp
+      run: npm run build:webapp
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    if: success()
+
+    steps:
     - name: Deploy over SSH
-      uses: appleboy/ssh-action@v1
+      uses: appleboy/ssh-action@v1.0.3
       with:
         host: ${{ secrets.SSH_HOST }}
         username: ${{ secrets.SSH_USER }}
         key: ${{ secrets.SSH_KEY }}
+        port: 22
+        timeout: 60s
         script: |
-          if [ ! -d "$HOME/finance-tracker-backend" ]; then
+          echo "🚀 Starting deployment..."
+          
+          # Navigate to project directory
+          cd $HOME/finance-tracker-backend || {
+            echo "❌ Project directory not found. Cloning repository..."
             git clone https://github.com/${{ github.repository }} $HOME/finance-tracker-backend
-          fi
-          cd $HOME/finance-tracker-backend
-          git pull
+            cd $HOME/finance-tracker-backend
+          }
+          
+          # Pull latest changes
+          echo "📥 Pulling latest changes..."
+          git pull origin main
+          
+          # Stop existing containers
+          echo "🛑 Stopping existing containers..."
+          docker compose down || true
+          
+          # Rebuild and start containers
+          echo "🔨 Building and starting containers..."
           docker compose up -d --build
+          
+          # Wait for services to be ready
+          echo "⏳ Waiting for services to start..."
+          sleep 10
+          
+          # Check if containers are running
+          echo "🔍 Checking container status..."
+          docker compose ps
+          
+          # Show recent logs
+          echo "📋 Recent logs:"
+          docker compose logs --tail=20
+          
+          echo "✅ Deployment complete!"
