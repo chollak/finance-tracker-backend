@@ -1,4 +1,4 @@
-import { Entity, PrimaryColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany } from 'typeorm';
+import { Entity, Column, CreateDateColumn, UpdateDateColumn, OneToMany } from 'typeorm';
 import { Transaction } from './Transaction';
 import { Category } from './Category';
 import { Account } from './Account';
@@ -6,7 +6,7 @@ import { Budget } from './Budget';
 
 @Entity('users')
 export class User {
-  @PrimaryColumn()
+  @Column({ primary: true })
   telegramId!: string;
 
   @Column({ nullable: true })
