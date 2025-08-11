@@ -29,7 +29,7 @@ export class BudgetController {
         endDate,
         categoryIds,
         description,
-        userId
+        userId: userId // Now directly using telegramId
       };
 
       const result = await this.budgetModule.createBudgetUseCase.execute(budgetData);

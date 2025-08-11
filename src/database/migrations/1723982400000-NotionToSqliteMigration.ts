@@ -111,7 +111,7 @@ export class NotionToSqliteMigration1723982400000 {
       for (const catData of defaultCategories) {
         const category = categoryRepository.create({
           ...catData,
-          userId: user.id,
+          userId: user.telegramId,
           isDefault: true
         });
         
@@ -133,7 +133,7 @@ export class NotionToSqliteMigration1723982400000 {
         type: AccountType.CASH,
         balance: 0,
         currency: 'UZS',
-        userId: user.id,
+        userId: user.telegramId,
         description: 'Основной счёт для транзакций'
       });
 
@@ -159,18 +159,18 @@ export class NotionToSqliteMigration1723982400000 {
 
       // Find or create category
       let category = categories.find(c => 
-        c.userId === user.id && 
+        c.userId === user.telegramId && 
         c.name.toLowerCase() === tx.category?.toLowerCase()
       );
       
       if (!category) {
         category = categories.find(c => 
-          c.userId === user.id && c.name === 'Другое'
+          c.userId === user.telegramId && c.name === 'Другое'
         );
       }
 
       // Get default account
-      const account = accounts.find(a => a.userId === user.id);
+      const account = accounts.find(a => a.userId === user.telegramId);
 
       const transaction = transactionRepository.create({
         amount: tx.amount,
@@ -181,7 +181,7 @@ export class NotionToSqliteMigration1723982400000 {
         confidence: tx.confidence,
         originalText: tx.originalText,
         originalParsing: tx.originalParsing ? JSON.stringify(tx.originalParsing) : undefined,
-        userId: user.id,
+        userId: user.telegramId,
         categoryId: category?.id,
         accountId: account?.id
       });
