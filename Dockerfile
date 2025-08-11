@@ -1,8 +1,15 @@
 # Multi-stage build for smaller production image
 FROM node:18-alpine AS builder
 
-# Install ffmpeg and curl for voice processing and health checks
-RUN apk add --no-cache ffmpeg curl
+# Install build tools and runtime dependencies
+RUN apk add --no-cache \
+    ffmpeg \
+    curl \
+    python3 \
+    make \
+    g++ \
+    sqlite \
+    sqlite-dev
 
 WORKDIR /app
 
@@ -10,8 +17,9 @@ WORKDIR /app
 COPY package*.json ./
 COPY webapp/package*.json ./webapp/
 
-# Install dependencies but skip postinstall to avoid build issues
+# Install backend dependencies with scripts disabled, then rebuild sqlite3
 RUN npm ci --ignore-scripts
+RUN npm rebuild sqlite3
 
 # Copy source code
 COPY webapp ./webapp
@@ -30,8 +38,8 @@ RUN npm run build
 # Production stage - smaller final image
 FROM node:18-alpine AS production
 
-# Install runtime dependencies
-RUN apk add --no-cache ffmpeg curl dumb-init
+# Install runtime dependencies including sqlite
+RUN apk add --no-cache ffmpeg curl dumb-init sqlite
 
 # Use existing node user (already exists in node:18-alpine)
 # No need to create user - node user already exists
