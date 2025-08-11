@@ -17,6 +17,19 @@ services:
       - ./downloads:/app/downloads
       - ./uploads:/app/uploads
       - ./data:/app/data
+
+  # Migration service - run with: docker compose --profile migration run migration
+  migration:
+    build: 
+      context: .
+      target: production
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+    command: ["node", "-r", "ts-node/register", "src/scripts/migrate-from-notion.ts"]
+    profiles:
+      - migration
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
       interval: 30s
