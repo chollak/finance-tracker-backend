@@ -310,10 +310,11 @@ export function startTelegramBot(
           await ctx.reply('🎤❌ Failed to process your voice message. Please try again or send as text.');
         }
       } finally {
-        // Clean up downloaded file
-        if (filePath) {
-          fs.unlink(filePath, (err) => {
+        // Clean up downloaded file (if it was actually created)
+        if (filePath && fs.existsSync(filePath)) {
+          fs.unlink(filePath, err => {
             if (err) {
+              // Non-blocking – just log for diagnostics
               console.warn('Failed to cleanup voice file:', err);
             }
           });
