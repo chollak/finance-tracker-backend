@@ -7,7 +7,7 @@ export const AppDataSource = new DataSource({
   type: 'sqlite',
   database: path.join(process.cwd(), 'data', 'database.sqlite'),
   entities: [Transaction, Budget],
-  synchronize: AppConfig.NODE_ENV === 'development', // Only in development
+  synchronize: process.env.DB_SYNCHRONIZE === 'true' || AppConfig.NODE_ENV === 'development',
   logging: AppConfig.NODE_ENV === 'development',
 });
 
