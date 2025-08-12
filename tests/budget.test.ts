@@ -4,11 +4,11 @@ import { UpdateBudgetUseCase } from '../src/modules/budget/application/updateBud
 import { DeleteBudgetUseCase } from '../src/modules/budget/application/deleteBudget';
 import { BudgetService } from '../src/modules/budget/application/budgetService';
 import { SqliteBudgetRepository } from '../src/modules/budget/infrastructure/sqliteBudgetRepository';
-import { SqliteTransactionRepository } from '../src/database/repositories/SqliteTransactionRepository';
-import { BudgetPeriod } from '../src/database/entities/Budget';
+import { SqliteTransactionRepository } from '../src/modules/transaction/infrastructure/persistence/SqliteTransactionRepository';
+import { BudgetPeriod } from '../src/modules/budget/domain/budgetEntity';
 import { CreateBudgetData, UpdateBudgetData } from '../src/modules/budget/domain/budgetEntity';
-import { initializeDatabase, closeDatabase } from '../src/database/database.config';
-import { ResultHelper } from '../src/shared/types/Result';
+import { initializeDatabase, closeDatabase } from '../src/shared/infrastructure/database/database.config';
+import { ResultHelper } from '../src/shared/domain/types/Result';
 
 // Mock TypeORM
 jest.mock('typeorm', () => ({
@@ -24,7 +24,7 @@ jest.mock('typeorm', () => ({
 }));
 
 // Mock database config
-jest.mock('../src/database/database.config', () => ({
+jest.mock('../src/shared/infrastructure/database/database.config', () => ({
   initializeDatabase: jest.fn(),
   closeDatabase: jest.fn(),
   AppDataSource: {

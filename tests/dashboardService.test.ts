@@ -1,8 +1,7 @@
-import { DashboardService } from '../src/shared/services/dashboardService';
+import { DashboardService } from '../src/modules/dashboard/application/services/dashboardService';
 import { AnalyticsService } from '../src/modules/transaction/application/analyticsService';
 import { BudgetService } from '../src/modules/budget/application/budgetService';
-import { BudgetSummary } from '../src/modules/budget/domain/budgetEntity';
-import { BudgetPeriod } from '../src/database/entities/Budget';
+import { BudgetSummary, BudgetPeriod } from '../src/modules/budget/domain/budgetEntity';
 
 describe('Dashboard Service', () => {
   let dashboardService: DashboardService;
