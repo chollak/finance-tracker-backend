@@ -1,4 +1,4 @@
-import { AppConfig } from './config/appConfig';
+import { AppConfig } from './shared/infrastructure/config/appConfig';
 import { TransactionModule } from './modules/transaction/transactionModule';
 import { OpenAITranscriptionService } from './modules/voiceProcessing/infrastructure/openAITranscriptionService';
 import { VoiceProcessingModule } from './modules/voiceProcessing/voiceProcessingModule';

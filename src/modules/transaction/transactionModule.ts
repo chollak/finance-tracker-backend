@@ -5,7 +5,7 @@ import { DeleteTransactionUseCase } from './application/deleteTransaction';
 import { UpdateTransactionUseCase } from './application/updateTransaction';
 import { UpdateTransactionWithLearningUseCase } from './application/updateTransactionWithLearning';
 import { AnalyticsService } from './application/analyticsService';
-import { SqliteTransactionRepository } from '../../database/repositories/SqliteTransactionRepository';
+import { SqliteTransactionRepository } from './infrastructure/persistence/SqliteTransactionRepository';
 import { TransactionRepository } from './domain/transactionRepository';
 
 export class TransactionModule {

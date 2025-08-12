@@ -1,12 +1,12 @@
 import 'reflect-metadata'; // Required for TypeORM decorators
 import express from 'express';
 import path from 'path';
-import { buildServer } from './framework/express/expressServer';
-import { startTelegramBot } from './framework/telegram/telegramBot';
+import { buildServer } from './delivery/web/express/expressServer';
+import { startTelegramBot } from './delivery/messaging/telegram/telegramBot';
 import { createModules } from './appModules';
-import { AppConfig } from './config/appConfig';
-import { ConfigurationError } from './shared/errors/AppError';
-import { initializeDatabase, closeDatabase } from './database/database.config';
+import { AppConfig } from './shared/infrastructure/config/appConfig';
+import { ConfigurationError } from './shared/domain/errors/AppError';
+import { initializeDatabase, closeDatabase } from './shared/infrastructure/database/database.config';
 
 // Environment validation function
 function validateEnv(): void {
