@@ -1,5 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
-import { User } from './User';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 
 export enum BudgetPeriod {
   WEEKLY = 'weekly',
@@ -46,11 +45,7 @@ export class Budget {
   @UpdateDateColumn()
   updatedAt!: Date;
 
-  // Relationships
-  @ManyToOne(() => User, user => user.budgets, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'userId' })
-  user!: User;
-
+  // User ID for tracking budgets per user
   @Column()
   userId!: string;
 }

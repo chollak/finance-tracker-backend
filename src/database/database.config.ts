@@ -1,12 +1,12 @@
 import { DataSource } from 'typeorm';
 import path from 'path';
 import { AppConfig } from '../config/appConfig';
-import { User, Category, Account, Transaction, Budget } from './entities';
+import { Transaction, Budget } from './entities';
 
 export const AppDataSource = new DataSource({
   type: 'sqlite',
   database: path.join(process.cwd(), 'data', 'database.sqlite'),
-  entities: [User, Category, Account, Transaction, Budget],
+  entities: [Transaction, Budget],
   synchronize: AppConfig.NODE_ENV === 'development', // Only in development
   logging: AppConfig.NODE_ENV === 'development',
 });

@@ -88,15 +88,15 @@ export class Validators {
     const numberResult = this.number(value, 'amount');
     if (!numberResult.success) return numberResult;
 
-    if (numberResult.data < AppConfig.MIN_AMOUNT) {
+    if (numberResult.data < 0.01) {
       return ResultHelper.failure(
-        new ValidationError(`Amount must be at least ${AppConfig.MIN_AMOUNT}`, 'amount')
+        new ValidationError(`Amount must be at least 0.01`, 'amount')
       );
     }
 
-    if (numberResult.data > AppConfig.MAX_AMOUNT) {
+    if (numberResult.data > 1000000000) {
       return ResultHelper.failure(
-        new ValidationError(`Amount must be no more than ${AppConfig.MAX_AMOUNT}`, 'amount')
+        new ValidationError(`Amount must be no more than 1,000,000,000`, 'amount')
       );
     }
 
@@ -107,14 +107,14 @@ export class Validators {
     const stringResult = this.string(value, 'category');
     if (!stringResult.success) return stringResult;
 
-    return this.maxLength(stringResult.data, AppConfig.MAX_CATEGORY_LENGTH, 'category');
+    return this.maxLength(stringResult.data, 50, 'category');
   }
 
   static description(value: any): Result<string, ValidationError> {
     const stringResult = this.string(value, 'description');
     if (!stringResult.success) return stringResult;
 
-    return this.maxLength(stringResult.data, AppConfig.MAX_DESCRIPTION_LENGTH, 'description');
+    return this.maxLength(stringResult.data, 500, 'description');
   }
 
   static transactionType(value: any): Result<'income' | 'expense', ValidationError> {

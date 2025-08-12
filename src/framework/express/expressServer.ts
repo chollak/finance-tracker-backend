@@ -1,5 +1,4 @@
 import express, { Request, Router } from 'express';
-import bodyParser from 'body-parser';
 import cors from 'cors';
 import { TransactionModule } from '../../modules/transaction/transactionModule';
 import { VoiceProcessingModule } from '../../modules/voiceProcessing/voiceProcessingModule';
@@ -28,8 +27,8 @@ export function buildServer(
   router.use(requestLogger);
   router.use(securityHeaders);
   router.use(corsHeaders);
-  router.use(bodyParser.json({ limit: '10mb' }));
-  router.use(bodyParser.urlencoded({ extended: true, limit: '10mb' }));
+  router.use(express.json({ limit: '10mb' }));
+  router.use(express.urlencoded({ extended: true, limit: '10mb' }));
   router.use(cors<Request>());
 
   // Health check endpoint for Docker health monitoring

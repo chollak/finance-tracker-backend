@@ -117,8 +117,7 @@ export class SqliteTransactionRepository implements TransactionRepository {
       confidence: entity.confidence ? Number(entity.confidence) : undefined,
       originalText: entity.originalText,
       originalParsing: entity.originalParsing ? JSON.parse(entity.originalParsing) : undefined,
-      // Map legacy fields for compatibility
-      category: entity.category?.name || 'Другое',
+      category: entity.category || 'Другое',
       userName: undefined // We'll get this from User entity later
     };
   }

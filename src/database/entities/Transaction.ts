@@ -1,7 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
-import { User } from './User';
-import { Category } from './Category';
-import { Account } from './Account';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 
 export enum TransactionType {
   INCOME = 'income',
@@ -46,25 +43,11 @@ export class Transaction {
   @UpdateDateColumn()
   updatedAt!: Date;
 
-  // Relationships
-  @ManyToOne(() => User, user => user.transactions, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'userId' })
-  user!: User;
-
+  // User ID for tracking transactions per user
   @Column()
   userId!: string;
 
-  @ManyToOne(() => Category, category => category.transactions, { nullable: true })
-  @JoinColumn({ name: 'categoryId' })
-  category?: Category;
-
-  @Column({ nullable: true })
-  categoryId?: string;
-
-  @ManyToOne(() => Account, account => account.transactions, { nullable: true })
-  @JoinColumn({ name: 'accountId' })
-  account?: Account;
-
-  @Column({ nullable: true })
-  accountId?: string;
+  // Category name (simplified, no foreign key)
+  @Column()
+  category!: string;
 }

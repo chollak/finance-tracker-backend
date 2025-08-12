@@ -5,11 +5,10 @@ import { VoiceProcessingModule } from './modules/voiceProcessing/voiceProcessing
 import { BudgetModule } from './modules/budget/budgetModule';
 
 export function createModules() {
-  // Use SQLite instead of Notion for better scalability
-  const transactionModule = TransactionModule.createWithSqlite();
+  const transactionModule = TransactionModule.create();
   const budgetModule = BudgetModule.create(transactionModule);
   const openAIService = new OpenAITranscriptionService(AppConfig.OPENAI_API_KEY);
   const voiceModule = new VoiceProcessingModule(openAIService, transactionModule);
 
-  return { transactionModule, budgetModule, openAIService, voiceModule };
+  return { transactionModule, budgetModule, voiceModule };
 }
