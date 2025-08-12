@@ -5,8 +5,8 @@ import { ProcessedTransaction, DetectedTransaction } from '../domain/processedTr
 import { TranscriptionService } from '../domain/transcriptionService';
 import { CreateTransactionUseCase } from '../../transaction/application/createTransaction';
 import { Transaction } from '../../transaction/domain/transactionEntity';
-import { ErrorFactory } from '../../../shared/errors/AppError';
-import { Validators } from '../../../shared/validation/validators';
+import { ErrorFactory } from '../../../shared/domain/errors/AppError';
+import { Validators } from '../../../shared/application/validation/validators';
 
 function convertOggToMp3(input: string, output: string): Promise<void> {
     return new Promise((resolve, reject) => {

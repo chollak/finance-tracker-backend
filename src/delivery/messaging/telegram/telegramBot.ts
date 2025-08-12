@@ -5,11 +5,11 @@ import http from 'http';
 import path from 'path';
 import os from 'os';
 import { pipeline } from 'stream/promises';
-import { AppConfig } from '../../config/appConfig';
-import { ErrorFactory, AppError } from '../../shared/errors/AppError';
-import { ERROR_MESSAGES } from '../../shared/constants/messages';
-import { VoiceProcessingModule } from '../../modules/voiceProcessing/voiceProcessingModule';
-import { TransactionModule } from '../../modules/transaction/transactionModule';
+import { AppConfig } from '../../../shared/infrastructure/config/appConfig';
+import { ErrorFactory, AppError } from '../../../shared/domain/errors/AppError';
+import { ERROR_MESSAGES } from '../../../shared/domain/constants/messages';
+import { VoiceProcessingModule } from '../../../modules/voiceProcessing/voiceProcessingModule';
+import { TransactionModule } from '../../../modules/transaction/transactionModule';
 
 // Helper function for consistent URL generation
 function createWebAppUrl(userId: string, params: { edit?: string } = {}): string {

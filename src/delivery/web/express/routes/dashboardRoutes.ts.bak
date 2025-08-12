@@ -1,9 +1,9 @@
 import { Router } from 'express';
-import { DashboardController } from '../controllers/dashboardController';
-import { DashboardService } from '../services/dashboardService';
-import { AlertService } from '../services/alertService';
-import { AnalyticsService } from '../../modules/transaction/application/analyticsService';
-import { BudgetService } from '../../modules/budget/application/budgetService';
+import { DashboardController } from '../../../modules/dashboard/presentation/controllers/dashboardController';
+import { DashboardService } from '../../../modules/dashboard/application/services/dashboardService';
+import { AlertService } from '../../../shared/application/services/alertService';
+import { AnalyticsService } from '../../../modules/transaction/application/analyticsService';
+import { BudgetService } from '../../../modules/budget/application/budgetService';
 
 export function createDashboardRouter(
   analyticsService: AnalyticsService,

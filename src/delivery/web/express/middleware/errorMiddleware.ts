@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
-import { AppError, ValidationError, ExternalServiceError, ConfigurationError } from '../errors/AppError';
-import { ERROR_MESSAGES, HTTP_STATUS_MESSAGES } from '../constants/messages';
+import { AppError, ValidationError, ExternalServiceError, ConfigurationError } from '../../../../shared/domain/errors/AppError';
+import { ERROR_MESSAGES, HTTP_STATUS_MESSAGES } from '../../../../shared/domain/constants/messages';
 
 /**
  * Global error handling middleware

@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
-import { DashboardService } from '../services/dashboardService';
-import { AlertService, AlertType, AlertSeverity } from '../services/alertService';
-import { handleControllerError, handleControllerSuccess } from '../utils/controllerHelpers';
+import { DashboardService } from '../../application/services/dashboardService';
+import { AlertService, AlertType, AlertSeverity } from '../../../../shared/application/services/alertService';
+import { handleControllerError, handleControllerSuccess } from '../../../../shared/infrastructure/utils/controllerHelpers';
 
 export class DashboardController {
   constructor(

@@ -1,6 +1,6 @@
-import { BudgetService } from '../../modules/budget/application/budgetService';
-import { AnalyticsService } from '../../modules/transaction/application/analyticsService';
-import { BudgetSummary } from '../../modules/budget/domain/budgetEntity';
+import { BudgetService } from '../../../modules/budget/application/budgetService';
+import { AnalyticsService } from '../../../modules/transaction/application/analyticsService';
+import { BudgetSummary } from '../../../modules/budget/domain/budgetEntity';
 
 export enum AlertType {
   BUDGET_EXCEEDED = 'BUDGET_EXCEEDED',

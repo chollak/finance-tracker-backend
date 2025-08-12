@@ -1,9 +1,8 @@
 import { Request, Response } from 'express';
 import { BudgetModule } from '../budgetModule';
-import { CreateBudgetData, UpdateBudgetData } from '../domain/budgetEntity';
-import { BudgetPeriod } from '../../../database/entities/Budget';
-import { handleControllerError, handleControllerSuccess } from '../../../shared/utils/controllerHelpers';
-import { ResultHelper } from '../../../shared/types/Result';
+import { CreateBudgetData, UpdateBudgetData, BudgetPeriod } from '../domain/budgetEntity';
+import { handleControllerError, handleControllerSuccess } from '../../../shared/infrastructure/utils/controllerHelpers';
+import { ResultHelper } from '../../../shared/domain/types/Result';
 
 export class BudgetController {
   private budgetModule: BudgetModule;

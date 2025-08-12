@@ -1,6 +1,6 @@
-import { Transaction } from '../../modules/transaction/domain/transactionEntity';
-import { Result, ResultHelper } from '../types/Result';
-import { ValidationError } from '../errors/AppError';
+import { Transaction } from '../../../modules/transaction/domain/transactionEntity';
+import { Result, ResultHelper } from '../../domain/types/Result';
+import { ValidationError } from '../../domain/errors/AppError';
 import { Validators, ValidationChain } from './validators';
 
 export class TransactionValidator {

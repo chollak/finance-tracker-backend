@@ -1,6 +1,6 @@
-import { AnalyticsService, TimeRange, MonthlyTrend } from '../../modules/transaction/application/analyticsService';
-import { BudgetService } from '../../modules/budget/application/budgetService';
-import { BudgetSummary } from '../../modules/budget/domain/budgetEntity';
+import { AnalyticsService, TimeRange, MonthlyTrend } from '../../../transaction/application/analyticsService';
+import { BudgetService } from '../../../budget/application/budgetService';
+import { BudgetSummary } from '../../../budget/domain/budgetEntity';
 
 export interface DashboardInsights {
   financialSummary: {

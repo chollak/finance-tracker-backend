@@ -1,10 +1,10 @@
 import { Router, Request, Response } from 'express';
 import multer from 'multer';
-import { ProcessVoiceInputUseCase } from './application/processVoiceInput';
-import { ProcessTextInputUseCase } from './application/processTextInput';
-import { handleControllerError, handleControllerSuccess } from '../../shared/utils/controllerHelpers';
-import { ErrorFactory, AppError } from '../../shared/errors/AppError';
-import { SUCCESS_MESSAGES, ERROR_MESSAGES } from '../../shared/constants/messages';
+import { ProcessVoiceInputUseCase } from '../../application/processVoiceInput';
+import { ProcessTextInputUseCase } from '../../application/processTextInput';
+import { handleControllerError, handleControllerSuccess } from '../../../../shared/infrastructure/utils/controllerHelpers';
+import { ErrorFactory, AppError } from '../../../../shared/domain/errors/AppError';
+import { SUCCESS_MESSAGES, ERROR_MESSAGES } from '../../../../shared/domain/constants/messages';
 
 export function createVoiceProcessingRouter(
   voiceUseCase: ProcessVoiceInputUseCase,

@@ -1,6 +1,5 @@
-import { AppConfig } from '../../config/appConfig';
-import { ValidationError } from '../errors/AppError';
-import { Result, ResultHelper } from '../types/Result';
+import { ValidationError } from '../../domain/errors/AppError';
+import { Result, ResultHelper } from '../../domain/types/Result';
 
 export interface ValidationResult {
   isValid: boolean;

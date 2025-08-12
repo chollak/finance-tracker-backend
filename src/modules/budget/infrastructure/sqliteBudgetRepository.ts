@@ -1,7 +1,7 @@
 import { Repository } from 'typeorm';
-import { AppDataSource } from '../../../database/database.config';
-import { Budget } from '../../../database/entities/Budget';
-import { Transaction } from '../../../database/entities/Transaction';
+import { AppDataSource } from '../../../shared/infrastructure/database/database.config';
+import { Budget } from '../../../shared/infrastructure/database/entities/Budget';
+import { Transaction } from '../../../shared/infrastructure/database/entities/Transaction';
 import { BudgetRepository } from '../domain/budgetRepository';
 import { BudgetEntity, CreateBudgetData, UpdateBudgetData, BudgetSummary } from '../domain/budgetEntity';
 

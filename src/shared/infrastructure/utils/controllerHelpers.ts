@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
-import { AppError } from '../errors/AppError';
-import { ERROR_MESSAGES, SUCCESS_MESSAGES, HTTP_STATUS_MESSAGES } from '../constants/messages';
+import { AppError } from '../../domain/errors/AppError';
+import { ERROR_MESSAGES, SUCCESS_MESSAGES, HTTP_STATUS_MESSAGES } from '../../domain/constants/messages';
 
 /**
  * Standardized error response handler for controllers

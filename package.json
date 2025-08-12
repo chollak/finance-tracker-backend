@@ -12,7 +12,13 @@
     "install:webapp": "cd webapp && npm install",
     "build:webapp": "cd webapp && npm run build",
     "postinstall": "npm run install:webapp && npm run build:webapp",
-    "migrate:notion": "node dist/scripts/migrate-from-notion.js"
+    "migrate:notion": "node dist/scripts/migrate-from-notion.js",
+    "lint": "eslint src/**/*.ts",
+    "lint:fix": "eslint src/**/*.ts --fix",
+    "format": "prettier --write src/**/*.ts",
+    "check:deps": "dependency-cruiser --validate .dependency-cruiser.js src",
+    "check:circular": "madge --circular --extensions ts src",
+    "analyze": "npm run lint && npm run check:deps && npm run check:circular"
   },
   "keywords": [],
   "author": "",
@@ -36,7 +42,14 @@
   "devDependencies": {
     "@types/jest": "^29.5.4",
     "@types/multer": "^1.4.12",
+    "@typescript-eslint/eslint-plugin": "^8.39.1",
+    "@typescript-eslint/parser": "^8.39.1",
+    "dependency-cruiser": "^17.0.1",
+    "eslint": "^9.33.0",
+    "eslint-plugin-import": "^2.32.0",
     "jest": "^29.7.0",
+    "madge": "^8.0.0",
+    "prettier": "^3.6.2",
     "ts-jest": "^29.1.1"
   }
 }

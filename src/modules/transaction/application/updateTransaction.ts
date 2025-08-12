@@ -1,7 +1,7 @@
 import { Transaction } from '../domain/transactionEntity';
 import { TransactionRepository } from '../domain/transactionRepository';
-import { ErrorFactory } from '../../../shared/errors/AppError';
-import { Validators } from '../../../shared/validation/validators';
+import { ErrorFactory } from '../../../shared/domain/errors/AppError';
+import { Validators } from '../../../shared/application/validation/validators';
 
 export interface UpdateTransactionRequest {
     id: string;

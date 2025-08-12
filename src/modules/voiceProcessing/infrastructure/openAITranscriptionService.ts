@@ -2,11 +2,11 @@ import OpenAI from 'openai';
 import fs from 'fs';
 import { ChatCompletionMessageParam } from 'openai/resources/chat';
 import { TranscriptionService } from '../domain/transcriptionService';
-import { AppConfig } from '../../../config/appConfig';
-import { Result, ResultHelper } from '../../../shared/types/Result';
-import { ExternalServiceError, ErrorFactory } from '../../../shared/errors/AppError';
-import { OPENAI_PROMPTS, ERROR_MESSAGES } from '../../../shared/constants/messages';
-import { transactionLearning } from '../../../shared/learning/transactionLearning';
+import { AppConfig } from '../../../shared/infrastructure/config/appConfig';
+import { Result, ResultHelper } from '../../../shared/domain/types/Result';
+import { ExternalServiceError, ErrorFactory } from '../../../shared/domain/errors/AppError';
+import { OPENAI_PROMPTS, ERROR_MESSAGES } from '../../../shared/domain/constants/messages';
+import { transactionLearning } from '../../../shared/application/learning/transactionLearning';
 
 export class OpenAITranscriptionService implements TranscriptionService {
     private openai: OpenAI;

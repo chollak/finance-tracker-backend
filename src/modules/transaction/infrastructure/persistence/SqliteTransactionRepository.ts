@@ -1,8 +1,8 @@
 import { Repository } from 'typeorm';
-import { AppDataSource } from '../database.config';
-import { Transaction as TransactionEntity, TransactionType } from '../entities/Transaction';
-import { TransactionRepository } from '../../modules/transaction/domain/transactionRepository';
-import { Transaction } from '../../modules/transaction/domain/transactionEntity';
+import { AppDataSource } from '../../../../shared/infrastructure/database/database.config';
+import { Transaction as TransactionEntity, TransactionType } from '../../../../shared/infrastructure/database/entities/Transaction';
+import { TransactionRepository } from '../../domain/transactionRepository';
+import { Transaction } from '../../domain/transactionEntity';
 
 export class SqliteTransactionRepository implements TransactionRepository {
   private repository: Repository<TransactionEntity>;

@@ -1,7 +1,6 @@
 import { BudgetRepository } from '../domain/budgetRepository';
 import { TransactionRepository } from '../../transaction/domain/transactionRepository';
-import { BudgetSummary } from '../domain/budgetEntity';
-import { BudgetPeriod } from '../../../database/entities/Budget';
+import { BudgetSummary, BudgetPeriod } from '../domain/budgetEntity';
 
 export class BudgetService {
   private budgetRepository: BudgetRepository;

@@ -1,8 +1,10 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 
+// Note: This mirrors the domain BudgetPeriod enum to avoid circular dependency
 export enum BudgetPeriod {
+  DAILY = 'daily',
   WEEKLY = 'weekly',
-  MONTHLY = 'monthly',
+  MONTHLY = 'monthly', 
   QUARTERLY = 'quarterly',
   YEARLY = 'yearly'
 }

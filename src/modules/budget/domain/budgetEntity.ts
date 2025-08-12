@@ -1,4 +1,10 @@
-import { BudgetPeriod } from '../../../database/entities/Budget';
+export enum BudgetPeriod {
+  DAILY = 'daily',
+  WEEKLY = 'weekly', 
+  MONTHLY = 'monthly',
+  QUARTERLY = 'quarterly',
+  YEARLY = 'yearly'
+}
 
 export interface BudgetEntity {
   id: string;

@@ -1,7 +1,7 @@
 import { BudgetRepository } from '../domain/budgetRepository';
 import { BudgetEntity, BudgetSummary } from '../domain/budgetEntity';
-import { Result, ResultHelper } from '../../../shared/types/Result';
-import { ValidationError, BusinessLogicError } from '../../../shared/errors/AppError';
+import { Result, ResultHelper } from '../../../shared/domain/types/Result';
+import { ValidationError, BusinessLogicError } from '../../../shared/domain/errors/AppError';
 
 export class GetBudgetsUseCase {
   private budgetRepository: BudgetRepository;

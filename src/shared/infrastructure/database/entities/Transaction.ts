@@ -14,7 +14,7 @@ export class Transaction {
   amount!: number;
 
   @Column()
-  type!: string;
+  type!: 'income' | 'expense';
 
   @Column()
   description!: string;
@@ -48,6 +48,6 @@ export class Transaction {
   userId!: string;
 
   // Category name (simplified, no foreign key)
-  @Column()
-  category!: string;
+  @Column({ nullable: true, default: 'Другое' })
+  category?: string;
 }

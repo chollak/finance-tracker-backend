@@ -1,20 +1,20 @@
 import express, { Request, Router } from 'express';
 import cors from 'cors';
-import { TransactionModule } from '../../modules/transaction/transactionModule';
-import { VoiceProcessingModule } from '../../modules/voiceProcessing/voiceProcessingModule';
-import { BudgetModule } from '../../modules/budget/budgetModule';
-import { createTransactionRouter } from '../../modules/transaction/interfaces/transactionController';
-import { createVoiceProcessingRouter } from '../../modules/voiceProcessing/voiceProcessingController';
-import { createBudgetRouter } from '../../modules/budget/interfaces/budgetRoutes';
-import { createDashboardRouter } from '../../shared/routes/dashboardRoutes';
+import { TransactionModule } from '../../../modules/transaction/transactionModule';
+import { VoiceProcessingModule } from '../../../modules/voiceProcessing/voiceProcessingModule';
+import { BudgetModule } from '../../../modules/budget/budgetModule';
+import { createTransactionRouter } from '../../../modules/transaction/presentation/controllers/transactionController';
+import { createVoiceProcessingRouter } from '../../../modules/voiceProcessing/presentation/controllers/voiceProcessingController';
+import { createBudgetRouter } from '../../../modules/budget/interfaces/budgetRoutes';
+// import { createDashboardRouter } from './routes/dashboardRoutes';
 import { 
   errorHandler, 
   notFoundHandler, 
   requestLogger, 
   corsHeaders, 
   securityHeaders 
-} from '../../shared/middleware/errorMiddleware';
-import { AppConfig } from '../../config/appConfig';
+} from './middleware/errorMiddleware';
+import { AppConfig } from '../../../shared/infrastructure/config/appConfig';
 
 export function buildServer(
   transactionModule: TransactionModule,
@@ -68,13 +68,13 @@ export function buildServer(
     createBudgetRouter(budgetModule)
   );
 
-  router.use(
-    '/dashboard',
-    createDashboardRouter(
-      transactionModule.getAnalyticsService(),
-      budgetModule.budgetService
-    )
-  );
+  // router.use(
+  //   '/dashboard',
+  //   createDashboardRouter(
+  //     transactionModule.getAnalyticsService(),
+  //     budgetModule.budgetService
+  //   )
+  // );
 
   // Add 404 handler for unmatched routes
   router.use('*', notFoundHandler);

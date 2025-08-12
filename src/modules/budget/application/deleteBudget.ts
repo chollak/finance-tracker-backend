@@ -1,6 +1,6 @@
 import { BudgetRepository } from '../domain/budgetRepository';
-import { Result, ResultHelper } from '../../../shared/types/Result';
-import { ValidationError, BusinessLogicError, NotFoundError } from '../../../shared/errors/AppError';
+import { Result, ResultHelper } from '../../../shared/domain/types/Result';
+import { ValidationError, BusinessLogicError, NotFoundError } from '../../../shared/domain/errors/AppError';
 
 export class DeleteBudgetUseCase {
   private budgetRepository: BudgetRepository;

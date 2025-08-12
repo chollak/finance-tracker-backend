@@ -1,8 +1,8 @@
 import { Transaction } from '../domain/transactionEntity';
 import { TransactionRepository } from '../domain/transactionRepository';
-import { ErrorFactory } from '../../../shared/errors/AppError';
-import { Validators } from '../../../shared/validation/validators';
-import { transactionLearning } from '../../../shared/learning/transactionLearning';
+import { ErrorFactory } from '../../../shared/domain/errors/AppError';
+import { Validators } from '../../../shared/application/validation/validators';
+import { transactionLearning } from '../../../shared/application/learning/transactionLearning';
 
 export interface UpdateTransactionWithLearningRequest {
     id: string;
