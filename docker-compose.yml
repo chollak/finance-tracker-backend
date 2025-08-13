@@ -20,6 +20,19 @@ services:
       - ./uploads:/app/uploads
       - ./data:/app/data
 
+  # Database initialization service - run with: docker compose run db-init
+  db-init:
+    build: 
+      context: .
+      target: production
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+    command: ["node", "scripts/init-database.js"]
+    profiles:
+      - db-init
+
   # Migration service - run with: docker compose --profile migration run migration
   migration:
     build: 

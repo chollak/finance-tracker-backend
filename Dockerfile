@@ -24,6 +24,7 @@ RUN npm rebuild sqlite3
 # Copy source code
 COPY webapp ./webapp
 COPY src ./src
+COPY scripts ./scripts
 COPY tsconfig.json ./
 
 # Install webapp dependencies manually
@@ -63,6 +64,7 @@ RUN npm ci --only=production --no-audit --no-fund --ignore-scripts && \
 # Copy built application from builder stage
 COPY --from=builder --chown=node:node /app/dist ./dist
 COPY --from=builder --chown=node:node /app/public ./public
+COPY --from=builder --chown=node:node /app/scripts ./scripts
 
 # Create necessary directories with correct permissions
 RUN mkdir -p downloads uploads data && \
