@@ -22,8 +22,7 @@ export class SqliteTransactionRepository implements TransactionRepository {
       originalText: transaction.originalText,
       originalParsing: transaction.originalParsing ? JSON.stringify(transaction.originalParsing) : undefined,
       userId: transaction.userId,
-      // For now, we'll handle category mapping later
-      // categoryId: will be set when we migrate categories
+      category: transaction.category || 'Другое'
     });
 
     const saved = await this.repository.save(entity);
@@ -32,7 +31,6 @@ export class SqliteTransactionRepository implements TransactionRepository {
 
   async getAll(): Promise<Transaction[]> {
     const entities = await this.repository.find({
-      relations: ['category', 'account'],
       order: { createdAt: 'DESC' }
     });
     
@@ -41,8 +39,7 @@ export class SqliteTransactionRepository implements TransactionRepository {
 
   async findById(id: string): Promise<Transaction | null> {
     const entity = await this.repository.findOne({
-      where: { id },
-      relations: ['category', 'account']
+      where: { id }
     });
 
     if (!entity) return null;
@@ -77,8 +74,6 @@ export class SqliteTransactionRepository implements TransactionRepository {
 
   async getByUserIdAndDateRange(userId: string, startDate: Date, endDate: Date): Promise<Transaction[]> {
     const entities = await this.repository.createQueryBuilder('transaction')
-      .leftJoinAndSelect('transaction.category', 'category')
-      .leftJoinAndSelect('transaction.account', 'account')
       .where('transaction.userId = :userId', { userId })
       .andWhere('transaction.date >= :startDate', { startDate: startDate.toISOString().split('T')[0] })
       .andWhere('transaction.date <= :endDate', { endDate: endDate.toISOString().split('T')[0] })
@@ -91,8 +86,6 @@ export class SqliteTransactionRepository implements TransactionRepository {
   // Additional methods for SQLite-specific functionality
   async findByUserId(userId: string, limit?: number): Promise<Transaction[]> {
     const queryBuilder = this.repository.createQueryBuilder('transaction')
-      .leftJoinAndSelect('transaction.category', 'category')
-      .leftJoinAndSelect('transaction.account', 'account')
       .where('transaction.userId = :userId', { userId })
       .orderBy('transaction.date', 'DESC')
       .addOrderBy('transaction.createdAt', 'DESC');
