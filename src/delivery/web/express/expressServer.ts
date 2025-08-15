@@ -6,7 +6,7 @@ import { BudgetModule } from '../../../modules/budget/budgetModule';
 import { createTransactionRouter } from '../../../modules/transaction/presentation/controllers/transactionController';
 import { createVoiceProcessingRouter } from '../../../modules/voiceProcessing/presentation/controllers/voiceProcessingController';
 import { createBudgetRouter } from '../../../modules/budget/interfaces/budgetRoutes';
-// import { createDashboardRouter } from './routes/dashboardRoutes';
+import { createDashboardRouter } from './routes/dashboardRoutes';
 import { 
   errorHandler, 
   notFoundHandler, 
@@ -68,13 +68,13 @@ export function buildServer(
     createBudgetRouter(budgetModule)
   );
 
-  // router.use(
-  //   '/dashboard',
-  //   createDashboardRouter(
-  //     transactionModule.getAnalyticsService(),
-  //     budgetModule.budgetService
-  //   )
-  // );
+  router.use(
+    '/dashboard',
+    createDashboardRouter(
+      transactionModule.getAnalyticsService(),
+      budgetModule.budgetService
+    )
+  );
 
   // Add 404 handler for unmatched routes
   router.use('*', notFoundHandler);
