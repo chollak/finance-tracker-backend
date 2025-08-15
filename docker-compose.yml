@@ -33,6 +33,20 @@ services:
     profiles:
       - db-init
 
+  # Database restore service - run with: docker compose run db-restore
+  # Usage: docker compose run db-restore node scripts/restore-data.js /app/data/backup.json
+  db-restore:
+    build: 
+      context: .
+      target: production
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+    command: ["sh", "-c", "echo 'Usage: docker compose run db-restore node scripts/restore-data.js /app/data/backup.json'"]
+    profiles:
+      - db-restore
+
   # Migration service - run with: docker compose --profile migration run migration
   migration:
     build: 
