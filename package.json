@@ -18,7 +18,12 @@
     "format": "prettier --write src/**/*.ts",
     "check:deps": "dependency-cruiser --validate .dependency-cruiser.js src",
     "check:circular": "madge --circular --extensions ts src",
-    "analyze": "npm run lint && npm run check:deps && npm run check:circular"
+    "analyze": "npm run lint && npm run check:deps && npm run check:circular",
+    "dev:setup": "node scripts/dev-setup.js",
+    "dev:full": "node scripts/dev-setup.js",
+    "dev:tunnel": "node scripts/dev-setup.js --ngrok",
+    "dev:backend": "node scripts/dev-setup.js --backend-only",
+    "dev:ngrok": "node scripts/start-ngrok.js"
   },
   "keywords": [],
   "author": "",

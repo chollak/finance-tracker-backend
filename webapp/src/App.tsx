@@ -1,22 +1,36 @@
 import { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, useSearchParams } from 'react-router-dom';
 import Navigation from './components/Navigation';
+import { DevMode } from './components/DevMode';
 import TransactionsPage from './pages/TransactionsPage';
 import StatsPage from './pages/StatsPage';
 import HomePage from './pages/HomePage';
 import BudgetsPage from './pages/BudgetsPage';
 import DashboardPage from './pages/DashboardPage';
+import { config } from './config/env';
 
 function AppContent() {
   const [searchParams] = useSearchParams();
-  const userId = searchParams.get('userId');
+  const userId = searchParams.get('userId') || config.getUserId();
 
   useEffect(() => {
-    window.Telegram?.WebApp?.ready();
+    if (window.Telegram?.WebApp) {
+      window.Telegram.WebApp.ready();
+      window.Telegram.WebApp.expand();
+      
+      // Log Telegram WebApp info in development
+      config.log.debug('Telegram WebApp initialized', {
+        initDataUnsafe: window.Telegram.WebApp.initDataUnsafe,
+        colorScheme: window.Telegram.WebApp.colorScheme
+      });
+    } else {
+      config.log.info('Running in browser mode (not Telegram WebApp)');
+    }
   }, []);
 
   return (
     <div className="p-4">
+      <DevMode />
       <h1 className="text-xl font-bold mb-4">FinTrack WebApp</h1>
       <Navigation userId={userId || undefined} />
       

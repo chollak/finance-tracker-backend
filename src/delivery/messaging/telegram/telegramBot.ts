@@ -12,12 +12,15 @@ import { VoiceProcessingModule } from '../../../modules/voiceProcessing/voicePro
 import { TransactionModule } from '../../../modules/transaction/transactionModule';
 
 // Helper function for consistent URL generation
-function createWebAppUrl(userId: string, params: { edit?: string } = {}): string {
-  if (!AppConfig.WEB_APP_URL) {
+function createWebAppUrl(userId: string, params: { edit?: string, path?: string } = {}): string {
+  const baseUrl = AppConfig.getWebAppUrl();
+  if (!baseUrl) {
     throw new Error('WEB_APP_URL not configured');
   }
   
-  const url = new URL(`${AppConfig.WEB_APP_URL}/webapp/transactions`);
+  const webPath = params.path || 'transactions';
+  const fullPath = AppConfig.IS_DEVELOPMENT ? `/${webPath}` : `/webapp/${webPath}`;
+  const url = new URL(fullPath, baseUrl);
   url.searchParams.set('userId', userId);
   
   if (params.edit) {

@@ -11,8 +11,39 @@ import {
   FinancialHealthScore,
   ApiResponse
 } from '../types';
+import { config } from '../config/env';
 
-const API_BASE = '/api';
+const API_BASE = config.apiBase;
+
+// Enhanced fetch with logging for development
+async function apiRequest<T>(url: string, options?: RequestInit): Promise<T> {
+  const fullUrl = `${API_BASE}${url}`;
+  
+  config.log.debug(`API Request: ${options?.method || 'GET'} ${fullUrl}`);
+  
+  try {
+    const response = await fetch(fullUrl, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...options?.headers,
+      },
+      ...options,
+    });
+
+    const data = await response.json();
+    
+    if (!response.ok) {
+      config.log.error(`API Error: ${response.status}`, data);
+      throw new Error(data.error || `HTTP ${response.status}`);
+    }
+    
+    config.log.debug(`API Response: ${response.status}`, data);
+    return data;
+  } catch (error) {
+    config.log.error(`API Request failed: ${fullUrl}`, error);
+    throw error;
+  }
+}
 
 // Budget Management API
 export const budgetApi = {
@@ -26,19 +57,16 @@ export const budgetApi = {
     categoryIds?: string[];
     description?: string;
   }): Promise<ApiResponse<Budget>> {
-    const response = await fetch(`${API_BASE}/budgets/users/${userId}/budgets`, {
+    return apiRequest(`/budgets/users/${userId}/budgets`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(budgetData)
     });
-    return response.json();
   },
 
   // Get user's budgets
   async getBudgets(userId: string, activeOnly?: boolean): Promise<ApiResponse<Budget[]>> {
-    const url = `${API_BASE}/budgets/users/${userId}/budgets${activeOnly ? '?active=true' : ''}`;
-    const response = await fetch(url);
-    return response.json();
+    const url = `/budgets/users/${userId}/budgets${activeOnly ? '?active=true' : ''}`;
+    return apiRequest(url);
   },
 
   // Get budget by ID
