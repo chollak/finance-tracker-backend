@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { config } from '../config/env';
+import { OpenAIUsageWidget } from './OpenAIUsageWidget';
 
 export const DevMode: React.FC = () => {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -84,6 +85,10 @@ export const DevMode: React.FC = () => {
           >
             Log Debug Info
           </button>
+          
+          <div style={{ marginTop: '8px' }}>
+            <OpenAIUsageWidget compact={true} />
+          </div>
         </div>
       )}
     </div>

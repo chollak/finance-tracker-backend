@@ -1,5 +1,6 @@
 import React from 'react';
 import { BudgetSummary, BudgetPeriod } from '../types';
+import { formatMoneyDetailed, formatPercentage } from '../utils/formatMoney';
 
 interface BudgetCardProps {
   budget: BudgetSummary;
@@ -50,8 +51,8 @@ const BudgetCard: React.FC<BudgetCardProps> = ({ budget, onEdit, onDelete }) => 
       {/* Budget amounts */}
       <div className="mb-4">
         <div className="flex justify-between text-sm text-gray-600 mb-1">
-          <span>Spent: ${budget.spent.toFixed(2)}</span>
-          <span>Budget: ${budget.amount.toFixed(2)}</span>
+          <span>Spent: {formatMoneyDetailed(budget.spent)}</span>
+          <span>Budget: {formatMoneyDetailed(budget.amount)}</span>
         </div>
         
         {/* Progress bar */}
@@ -64,7 +65,7 @@ const BudgetCard: React.FC<BudgetCardProps> = ({ budget, onEdit, onDelete }) => 
         
         <div className="flex justify-between items-center mt-2">
           <span className={`text-sm font-medium ${getProgressTextColor()}`}>
-            {budget.percentageUsed.toFixed(1)}% used
+            {formatPercentage(budget.percentageUsed)} used
           </span>
           <span className="text-sm text-gray-600">
             {budget.daysRemaining} days left
@@ -76,7 +77,7 @@ const BudgetCard: React.FC<BudgetCardProps> = ({ budget, onEdit, onDelete }) => 
       <div className="flex justify-between items-center">
         <span className="text-sm text-gray-600">Remaining:</span>
         <span className={`font-semibold ${budget.remaining >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-          ${Math.abs(budget.remaining).toFixed(2)}
+          {formatMoneyDetailed(Math.abs(budget.remaining))}
           {budget.remaining < 0 && ' over budget'}
         </span>
       </div>

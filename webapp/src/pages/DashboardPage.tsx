@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useDashboard } from '../hooks/useDashboard';
 import { Alert, AlertSeverity } from '../types';
+import { OpenAIUsageWidget } from '../components/OpenAIUsageWidget';
+import { formatMoneyCompact, formatMoneyDetailed, formatPercentage } from '../utils/formatMoney';
 
 interface DashboardPageProps {
   userId: string | null;
@@ -23,8 +25,8 @@ const SpendingPatternChart: React.FC<{ patterns: any[] }> = ({ patterns }) => {
               }}
             ></div>
           </div>
-          <div className="w-16 text-sm text-gray-900 text-right">
-            ${pattern.averageAmount.toFixed(0)}
+          <div className="w-20 text-sm text-gray-900 text-right">
+            {formatMoneyCompact(pattern.averageAmount)}
           </div>
         </div>
       ))}
@@ -165,14 +167,14 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ userId }) => {
             <p className={`text-2xl font-bold ${
               insights.financialSummary.netIncome >= 0 ? 'text-green-600' : 'text-red-600'
             }`}>
-              ${Math.abs(insights.financialSummary.netIncome).toFixed(2)}
+              {formatMoneyDetailed(Math.abs(insights.financialSummary.netIncome))}
               {insights.financialSummary.netIncome < 0 && ' deficit'}
             </p>
           </div>
           <div className="bg-white p-6 rounded-lg shadow-md">
             <h3 className="text-sm font-medium text-gray-500">Total Expenses</h3>
             <p className="text-2xl font-bold text-gray-900">
-              ${insights.financialSummary.totalExpense.toFixed(2)}
+              {formatMoneyDetailed(insights.financialSummary.totalExpense)}
             </p>
           </div>
           <div className="bg-white p-6 rounded-lg shadow-md">
@@ -181,7 +183,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ userId }) => {
               insights.insights.budgetUtilization > 100 ? 'text-red-600' : 
               insights.insights.budgetUtilization > 80 ? 'text-yellow-600' : 'text-green-600'
             }`}>
-              {insights.insights.budgetUtilization.toFixed(1)}%
+              {formatPercentage(insights.insights.budgetUtilization)}
             </p>
           </div>
           <div className="bg-white p-6 rounded-lg shadow-md">
@@ -190,11 +192,14 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ userId }) => {
               insights.insights.savingsRate >= 20 ? 'text-green-600' : 
               insights.insights.savingsRate >= 10 ? 'text-yellow-600' : 'text-red-600'
             }`}>
-              {insights.insights.savingsRate.toFixed(1)}%
+              {formatPercentage(insights.insights.savingsRate)}
             </p>
           </div>
         </div>
       )}
+
+      {/* OpenAI Usage Widget */}
+      <OpenAIUsageWidget className="col-span-full" />
 
       {/* Financial Health Score */}
       {healthScore && (
@@ -212,19 +217,19 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ userId }) => {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
             <div className="text-center">
               <p className="text-sm text-gray-500">Budget Compliance</p>
-              <p className="text-lg font-semibold">{healthScore.factors.budgetCompliance.toFixed(0)}</p>
+              <p className="text-lg font-semibold">{Math.round(healthScore.factors.budgetCompliance)}</p>
             </div>
             <div className="text-center">
               <p className="text-sm text-gray-500">Savings Rate</p>
-              <p className="text-lg font-semibold">{healthScore.factors.savingsRate.toFixed(0)}</p>
+              <p className="text-lg font-semibold">{Math.round(healthScore.factors.savingsRate)}</p>
             </div>
             <div className="text-center">
               <p className="text-sm text-gray-500">Expense Stability</p>
-              <p className="text-lg font-semibold">{healthScore.factors.expenseVariability.toFixed(0)}</p>
+              <p className="text-lg font-semibold">{Math.round(healthScore.factors.expenseVariability)}</p>
             </div>
             <div className="text-center">
               <p className="text-sm text-gray-500">Category Balance</p>
-              <p className="text-lg font-semibold">{healthScore.factors.categoryDiversification.toFixed(0)}</p>
+              <p className="text-lg font-semibold">{Math.round(healthScore.factors.categoryDiversification)}</p>
             </div>
           </div>
 
@@ -294,7 +299,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ userId }) => {
                   <div key={index} className="space-y-2">
                     <div className="flex justify-between text-sm">
                       <span className="font-medium">{trend.month} {trend.year}</span>
-                      <span className="text-gray-500">Net: ${trend.net.toFixed(0)}</span>
+                      <span className="text-gray-500">Net: {formatMoneyCompact(trend.net)}</span>
                     </div>
                     <div className="space-y-1">
                       <div className="flex items-center">
@@ -305,7 +310,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ userId }) => {
                             style={{ width: `${(trend.income / maxAmount) * 100}%` }}
                           ></div>
                         </div>
-                        <div className="w-12 text-xs text-right">${trend.income.toFixed(0)}</div>
+                        <div className="w-20 text-xs text-right">{formatMoneyCompact(trend.income)}</div>
                       </div>
                       <div className="flex items-center">
                         <div className="w-16 text-xs text-gray-600">Expenses</div>
@@ -315,7 +320,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ userId }) => {
                             style={{ width: `${(trend.expenses / maxAmount) * 100}%` }}
                           ></div>
                         </div>
-                        <div className="w-12 text-xs text-right">${trend.expenses.toFixed(0)}</div>
+                        <div className="w-20 text-xs text-right">{formatMoneyCompact(trend.expenses)}</div>
                       </div>
                     </div>
                   </div>
@@ -350,8 +355,8 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ userId }) => {
                     <span className="font-medium">{category.category}</span>
                   </div>
                   <div className="text-right">
-                    <div className="font-semibold">${category.amount.toFixed(0)}</div>
-                    <div className="text-sm text-gray-500">{category.percentage.toFixed(1)}%</div>
+                    <div className="font-semibold">{formatMoneyCompact(category.amount)}</div>
+                    <div className="text-sm text-gray-500">{formatPercentage(category.percentage)}</div>
                   </div>
                 </div>
               ))}
@@ -370,11 +375,11 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ userId }) => {
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-gray-600">Total Budget</span>
-                <span className="font-semibold">${insights.budgetOverview.totalBudgetAmount.toFixed(2)}</span>
+                <span className="font-semibold">{formatMoneyDetailed(insights.budgetOverview.totalBudgetAmount)}</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-gray-600">Total Spent</span>
-                <span className="font-semibold">${insights.budgetOverview.totalSpent.toFixed(2)}</span>
+                <span className="font-semibold">{formatMoneyDetailed(insights.budgetOverview.totalSpent)}</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-gray-600">Over Budget</span>

@@ -3,6 +3,7 @@ import cors from 'cors';
 import { TransactionModule } from '../../../modules/transaction/transactionModule';
 import { VoiceProcessingModule } from '../../../modules/voiceProcessing/voiceProcessingModule';
 import { BudgetModule } from '../../../modules/budget/budgetModule';
+import { OpenAIUsageModule } from '../../../modules/openai-usage/openAIUsageModule';
 import { createTransactionRouter } from '../../../modules/transaction/presentation/controllers/transactionController';
 import { createVoiceProcessingRouter } from '../../../modules/voiceProcessing/presentation/controllers/voiceProcessingController';
 import { createBudgetRouter } from '../../../modules/budget/interfaces/budgetRoutes';
@@ -19,7 +20,8 @@ import { AppConfig } from '../../../shared/infrastructure/config/appConfig';
 export function buildServer(
   transactionModule: TransactionModule,
   voiceModule: VoiceProcessingModule,
-  budgetModule: BudgetModule
+  budgetModule: BudgetModule,
+  openAIUsageModule: OpenAIUsageModule
 ) {
   const router = Router();
   
@@ -74,6 +76,11 @@ export function buildServer(
       transactionModule.getAnalyticsService(),
       budgetModule.budgetService
     )
+  );
+
+  router.use(
+    '/openai',
+    openAIUsageModule.routes
   );
 
   // Add 404 handler for unmatched routes

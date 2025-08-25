@@ -3,6 +3,7 @@ import { useBudgets } from '../hooks/useBudgets';
 import { BudgetSummary } from '../types';
 import BudgetCard from '../components/BudgetCard';
 import CreateBudgetModal from '../components/CreateBudgetModal';
+import { formatMoneyDetailed, formatPercentage } from '../utils/formatMoney';
 
 interface BudgetsPageProps {
   userId: string | null;
@@ -120,11 +121,11 @@ const BudgetsPage: React.FC<BudgetsPageProps> = ({ userId }) => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <div className="bg-white p-6 rounded-lg shadow-md">
             <h3 className="text-sm font-medium text-gray-500">Total Budget</h3>
-            <p className="text-2xl font-bold text-gray-900">${stats.totalBudget.toFixed(2)}</p>
+            <p className="text-2xl font-bold text-gray-900">{formatMoneyDetailed(stats.totalBudget)}</p>
           </div>
           <div className="bg-white p-6 rounded-lg shadow-md">
             <h3 className="text-sm font-medium text-gray-500">Total Spent</h3>
-            <p className="text-2xl font-bold text-gray-900">${stats.totalSpent.toFixed(2)}</p>
+            <p className="text-2xl font-bold text-gray-900">{formatMoneyDetailed(stats.totalSpent)}</p>
           </div>
           <div className="bg-white p-6 rounded-lg shadow-md">
             <h3 className="text-sm font-medium text-gray-500">Budget Utilization</h3>
@@ -132,7 +133,7 @@ const BudgetsPage: React.FC<BudgetsPageProps> = ({ userId }) => {
               stats.utilization > 100 ? 'text-red-600' : 
               stats.utilization > 80 ? 'text-yellow-600' : 'text-green-600'
             }`}>
-              {stats.utilization.toFixed(1)}%
+              {formatPercentage(stats.utilization)}
             </p>
           </div>
           <div className="bg-white p-6 rounded-lg shadow-md">
@@ -162,7 +163,7 @@ const BudgetsPage: React.FC<BudgetsPageProps> = ({ userId }) => {
                       {budget.name} is over budget
                     </h3>
                     <p className="text-sm text-red-700">
-                      You've spent ${budget.spent.toFixed(2)} of ${budget.amount.toFixed(2)} ({budget.percentageUsed.toFixed(1)}%)
+                      You've spent {formatMoneyDetailed(budget.spent)} of {formatMoneyDetailed(budget.amount)} ({formatPercentage(budget.percentageUsed)})
                     </p>
                   </div>
                 </div>
@@ -182,7 +183,7 @@ const BudgetsPage: React.FC<BudgetsPageProps> = ({ userId }) => {
                       {budget.name} is near its limit
                     </h3>
                     <p className="text-sm text-yellow-700">
-                      You've used {budget.percentageUsed.toFixed(1)}% of your budget with {budget.daysRemaining} days remaining
+                      You've used {formatPercentage(budget.percentageUsed)} of your budget with {budget.daysRemaining} days remaining
                     </p>
                   </div>
                 </div>

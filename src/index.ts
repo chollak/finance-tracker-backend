@@ -31,14 +31,23 @@ async function startApplication() {
     // Initialize database first
     await initializeDatabase();
     
-    const { transactionModule, budgetModule, voiceModule } = createModules();
+    const { transactionModule, budgetModule, voiceModule, openAIUsageModule } = createModules();
     const app = express();
 
-    app.use('/api', buildServer(transactionModule, voiceModule, budgetModule));
+    app.use('/api', buildServer(transactionModule, voiceModule, budgetModule, openAIUsageModule));
 
     const buildPath = path.join(__dirname, '../public/webapp');
-    // Serve the web app under the /webapp path so URLs from the Telegram bot work
-    app.use('/webapp', express.static(buildPath));
+    
+    // Redirect /webapp/* to root for backward compatibility
+    app.get('/webapp/*', (req, res) => {
+      const newPath = req.path.replace('/webapp', '') || '/';
+      const queryString = req.url.split('?')[1];
+      const redirectUrl = queryString ? `${newPath}?${queryString}` : newPath;
+      res.redirect(301, redirectUrl);
+    });
+    
+    // Serve the web app on root domain
+    app.use('/', express.static(buildPath));
 
     app.get('*', (_req, res) => {
       res.sendFile(path.join(buildPath, 'index.html'));

@@ -8,12 +8,20 @@ import HomePage from './pages/HomePage';
 import BudgetsPage from './pages/BudgetsPage';
 import DashboardPage from './pages/DashboardPage';
 import { config } from './config/env';
+import { OpenAIUsageProvider } from './contexts/OpenAIUsageContext';
 
 function AppContent() {
   const [searchParams] = useSearchParams();
   const userId = searchParams.get('userId') || config.getUserId();
 
   useEffect(() => {
+    // Debug logging
+    console.log('🚀 App loading...', {
+      isDevelopment: config.isDevelopment,
+      userId: userId,
+      apiBase: config.apiBase
+    });
+
     if (window.Telegram?.WebApp) {
       window.Telegram.WebApp.ready();
       window.Telegram.WebApp.expand();
@@ -47,8 +55,10 @@ function AppContent() {
 
 export default function App() {
   return (
-    <Router basename="/webapp">
-      <AppContent />
+    <Router>
+      <OpenAIUsageProvider>
+        <AppContent />
+      </OpenAIUsageProvider>
     </Router>
   );
 }
