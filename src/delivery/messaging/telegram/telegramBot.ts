@@ -19,7 +19,7 @@ function createWebAppUrl(userId: string, params: { edit?: string, path?: string 
   }
   
   const webPath = params.path || 'transactions';
-  const fullPath = AppConfig.IS_DEVELOPMENT ? `/${webPath}` : `/webapp/${webPath}`;
+  const fullPath = `/${webPath}`; // Always use root path now that frontend is served on root
   const url = new URL(fullPath, baseUrl);
   url.searchParams.set('userId', userId);
   

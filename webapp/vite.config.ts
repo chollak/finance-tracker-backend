@@ -1,23 +1,24 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-export default defineConfig(({ mode }) => {
-  const isDevelopment = mode === 'development';
+export default defineConfig(({ command, mode }) => {
+  // In dev server, command is 'serve', in build, command is 'build'
+  const isDevelopment = command === 'serve' || mode === 'development';
   
   return {
     plugins: [react()],
-    base: isDevelopment ? '/' : '/webapp/',
+    base: '/', // Always serve from root now
     root: '.',
     server: {
       port: 5173,
-      proxy: isDevelopment ? {
-        // Proxy API calls to local backend during development
+      proxy: {
+        // Always proxy API calls to local backend during development
         '/api': {
           target: 'http://localhost:3000',
           changeOrigin: true,
           secure: false
         }
-      } : undefined
+      }
     },
     build: {
       outDir: '../public/webapp',
@@ -33,8 +34,8 @@ export default defineConfig(({ mode }) => {
     },
     define: {
       // Make environment mode available to the app
-      __DEV_MODE__: isDevelopment,
-      __API_BASE__: isDevelopment ? '"/api"' : '"/api"'
+      __DEV_MODE__: JSON.stringify(isDevelopment),
+      __API_BASE__: JSON.stringify('/api')
     }
   };
 });

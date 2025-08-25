@@ -4,8 +4,9 @@ declare const __DEV_MODE__: boolean;
 declare const __API_BASE__: string;
 
 export const config = {
-  // Development mode flag
-  isDevelopment: typeof __DEV_MODE__ !== 'undefined' ? __DEV_MODE__ : false,
+  // Development mode flag - fallback to checking location for development
+  isDevelopment: (typeof __DEV_MODE__ !== 'undefined' && __DEV_MODE__ === true) || 
+                (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')),
   
   // API base URL
   apiBase: typeof __API_BASE__ !== 'undefined' ? __API_BASE__ : '/api',

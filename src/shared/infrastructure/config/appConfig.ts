@@ -39,6 +39,7 @@ export class AppConfig {
   
   // API Keys
   static readonly OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
+  static readonly OPENAI_ORG_ID = process.env.OPENAI_ORG_ID || '';
   static readonly TG_BOT_API_KEY = process.env.TG_BOT_API_KEY || '';
   static readonly WEB_APP_URL = process.env.WEB_APP_URL || '';
   static readonly NGROK_URL = process.env.NGROK_URL || '';

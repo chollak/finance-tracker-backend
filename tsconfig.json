@@ -101,7 +101,7 @@
   },
   "include": [
     "src/**/*.ts"
-  ], // Включить все файлы TypeScript в папке src.
+  ], // Include all TypeScript files in the src folder
   "exclude": [
     "node_modules",
     "dist"

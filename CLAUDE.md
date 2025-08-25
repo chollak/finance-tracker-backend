@@ -7,16 +7,23 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **Build and Run:**
 - `npm run build` - Compile TypeScript to JavaScript in `dist/` folder
 - `npm run serve` - Run the compiled application from `dist/index.js`
-- `npm run dev` - Development mode with auto-reload using ts-node-dev
+
+**Development (Choose one):**
+- `npm run dev:full` - 🚀 **RECOMMENDED**: Full-stack development with hot reload
+  - Backend: http://localhost:3000 (API + static files)
+  - Frontend: http://localhost:5173 (React dev server with hot reload)
+  - API calls automatically proxy from frontend to backend
+- `npm run dev` - Backend only (serves static production build)
+- `npm run dev:frontend` - Frontend only (requires backend running separately)
+- `npm run dev:backend` - Backend only (same as `npm run dev`)
 
 **Testing:**
 - `npm test` - Run Jest tests (located in `tests/` folder)
 - Tests use ts-jest preset and target Node.js environment
 
 **Web App (React + Vite):**
-- `npm run install:webapp` - Install webapp dependencies
+- `npm run install:webapp` - Install webapp dependencies  
 - `npm run build:webapp` - Build React frontend to `public/webapp/`
-- `cd webapp && npm run dev` - Run webapp in development mode
 
 **Docker:**
 - `docker compose up -d --build` - Build and run in container
