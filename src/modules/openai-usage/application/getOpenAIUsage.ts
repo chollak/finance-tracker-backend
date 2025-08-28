@@ -28,9 +28,15 @@ export class GetOpenAIUsage {
         const cachedResult = await this.usageRepository.getCachedUsageData(5); // 5 minutes cache
         if (cachedResult.success && cachedResult.data) {
           const summary = cachedResult.data.getSummary();
+          
+          // Always fetch fresh credit balance as it changes frequently
+          const creditBalanceResult = await this.usageRepository.getCreditBalance();
+          const creditBalance = creditBalanceResult.success ? creditBalanceResult.data : undefined;
+          
           return ResultHelper.success({
             summary,
-            entity: cachedResult.data
+            entity: cachedResult.data,
+            creditBalance
           });
         }
       }

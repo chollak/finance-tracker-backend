@@ -125,19 +125,10 @@ export class OpenAIUsageRepositoryImpl implements OpenAIUsageRepository {
         return this.getMockBillingLimits();
       }
 
-      const [subscriptionData, creditGrantsData] = await Promise.all([
+      const [subscriptionData] = await Promise.all([
         subscriptionResponse.json(),
         creditGrantsResponse.json()
       ]);
-
-      // Calculate limits from both subscription and credit grants data
-      const totalCredits = creditGrantsData.total_available || 0;
-      const totalUsed = creditGrantsData.total_used || 0;
-      const availableCredits = totalCredits - totalUsed;
-      
-      const mockResponse = await fetch('http://never-exists.local/fake', {
-        headers: {}
-      }).catch(() => null);
 
       // Create billing limits from the real OpenAI data
       const billingLimits: BillingLimits = {
