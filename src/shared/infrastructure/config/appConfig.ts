@@ -56,6 +56,11 @@ export class AppConfig {
   // File Processing
   static readonly DOWNLOADS_PATH = process.env.DOWNLOADS_PATH || './downloads';
   
+  // Database Configuration
+  static readonly DATABASE_TYPE = process.env.DATABASE_TYPE || 'sqlite'; // 'sqlite' or 'supabase'
+  static readonly SUPABASE_URL = process.env.SUPABASE_URL || '';
+  static readonly SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || '';
+  
   // Get the appropriate web app URL for current environment
   static getWebAppUrl(): string {
     if (this.IS_DEVELOPMENT && this.NGROK_URL) {
@@ -73,6 +78,16 @@ export class AppConfig {
 
     if (this.PORT < 1 || this.PORT > 65535) {
       errors.push('PORT must be between 1 and 65535');
+    }
+
+    // Validate database configuration
+    if (this.DATABASE_TYPE === 'supabase') {
+      if (!this.SUPABASE_URL) {
+        errors.push('SUPABASE_URL is required when DATABASE_TYPE is supabase');
+      }
+      if (!this.SUPABASE_ANON_KEY) {
+        errors.push('SUPABASE_ANON_KEY is required when DATABASE_TYPE is supabase');
+      }
     }
 
     return {

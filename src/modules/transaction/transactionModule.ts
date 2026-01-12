@@ -5,14 +5,14 @@ import { DeleteTransactionUseCase } from './application/deleteTransaction';
 import { UpdateTransactionUseCase } from './application/updateTransaction';
 import { UpdateTransactionWithLearningUseCase } from './application/updateTransactionWithLearning';
 import { AnalyticsService } from './application/analyticsService';
-import { SqliteTransactionRepository } from './infrastructure/persistence/SqliteTransactionRepository';
 import { TransactionRepository } from './domain/transactionRepository';
+import { RepositoryFactory } from '../../shared/infrastructure/database/repositoryFactory';
 
 export class TransactionModule {
   constructor(private repository: TransactionRepository) {}
 
   static create(): TransactionModule {
-    const repository = new SqliteTransactionRepository();
+    const repository = RepositoryFactory.createTransactionRepository();
     return new TransactionModule(repository);
   }
 

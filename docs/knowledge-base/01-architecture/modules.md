@@ -1,0 +1,280 @@
+# Module System
+
+Система организована в 5 самодостаточных модулей, каждый с четко определенной ответственностью.
+
+## Module Dependencies
+
+```mermaid
+graph TD
+    TM[TransactionModule<br/>CRUD + Analytics]
+    BM[BudgetModule<br/>Budget Management]
+    VM[VoiceProcessingModule<br/>Voice/Text Processing]
+    OM[OpenAIUsageModule<br/>Usage Monitoring]
+    DM[DashboardModule<br/>Data Aggregation]
+
+    BM -->|depends on| TM
+    VM -->|depends on| TM
+    DM -->|depends on| TM
+    DM -->|depends on| BM
+
+    style TM fill:#4CAF50,stroke:#2E7D32,color:#fff
+    style BM fill:#2196F3,stroke:#1565C0,color:#fff
+    style VM fill:#FF9800,stroke:#E65100,color:#fff
+    style OM fill:#9C27B0,stroke:#6A1B9A,color:#fff
+    style DM fill:#F44336,stroke:#C62828,color:#fff
+```
+
+## Module Overview
+
+| Модуль | Роль | Зависимости | Ключевые файлы |
+|--------|------|-------------|----------------|
+| **TransactionModule** | Core: транзакции и аналитика | Независимый | `transactionModule.ts` |
+| **BudgetModule** | Управление бюджетами | TransactionModule | `budgetModule.ts` |
+| **VoiceProcessingModule** | AI обработка голоса/текста | TransactionModule | `voiceProcessingModule.ts` |
+| **OpenAIUsageModule** | Мониторинг OpenAI costs | Независимый | `openAIUsageModule.ts` |
+| **DashboardModule** | Агрегация insights | Transaction + Budget | `dashboardModule.ts` |
+
+---
+
+## 1. TransactionModule
+
+**Файл:** [`src/modules/transaction/transactionModule.ts`](../../../src/modules/transaction/transactionModule.ts)
+
+### Назначение
+Core module системы — управление финансовыми транзакциями и аналитикой.
+
+### Use Cases
+- `CreateTransactionUseCase` - создание транзакции
+- `GetTransactionsUseCase` - получение всех транзакций
+- `GetUserTransactionsUseCase` - транзакции пользователя
+- `UpdateTransactionUseCase` - обновление транзакции
+- `DeleteTransactionUseCase` - удаление транзакции
+- `UpdateTransactionWithLearningUseCase` - обновление с ML записью
+
+### Services
+- `AnalyticsService` - аналитика (summary, categories, trends, patterns)
+
+### Repository
+- Interface: `src/modules/transaction/domain/transactionRepository.ts`
+- Implementations:
+  - `SqliteTransactionRepository`
+  - `SupabaseTransactionRepository`
+
+### Module Creation
+```typescript
+const transactionModule = TransactionModule.create();
+// Внутри: RepositoryFactory.createTransactionRepository()
+```
+
+---
+
+## 2. BudgetModule
+
+**Файл:** [`src/modules/budget/budgetModule.ts`](../../../src/modules/budget/budgetModule.ts)
+
+### Назначение
+Управление бюджетами с автоматическим расчетом потраченной суммы.
+
+### Use Cases
+- `CreateBudgetUseCase` - создание бюджета
+- `GetBudgetsUseCase` - получение бюджетов пользователя
+- `UpdateBudgetUseCase` - обновление бюджета
+- `DeleteBudgetUseCase` - удаление бюджета
+
+### Services
+- `BudgetService` - расчет spent, budget summaries, alerts
+
+### Key Dependency
+```typescript
+new BudgetService(
+  budgetRepository,
+  transactionModule.getRepository() // Нужен для расчета spent
+)
+```
+
+**Почему зависимость?**
+Для расчета `spent` нужно суммировать транзакции пользователя в периоде бюджета через `transactionRepository.getByUserIdAndDateRange()`.
+
+---
+
+## 3. VoiceProcessingModule
+
+**Файл:** [`src/modules/voiceProcessing/voiceProcessingModule.ts`](../../../src/modules/voiceProcessing/voiceProcessingModule.ts)
+
+### Назначение
+AI-powered обработка голосовых сообщений и текстового ввода в транзакции.
+
+### Use Cases
+- `ProcessVoiceInputUseCase` - OGG → MP3 → Whisper → GPT → Transaction
+- `ProcessTextInputUseCase` - Text → GPT → Transaction
+
+### Services
+- `OpenAITranscriptionService` - Whisper transcription + GPT parsing
+
+### Key Dependency
+```typescript
+new ProcessVoiceInputUseCase(
+  transcriptionService,
+  transactionModule.getCreateTransactionUseCase() // Создание транзакции
+)
+```
+
+**Почему зависимость?**
+После парсинга транзакции из голоса/текста, нужно сохранить её через `CreateTransactionUseCase`.
+
+---
+
+## 4. OpenAIUsageModule
+
+**Файл:** [`src/modules/openai-usage/openAIUsageModule.ts`](../../../src/modules/openai-usage/openAIUsageModule.ts)
+
+### Назначение
+Мониторинг использования и стоимости OpenAI API.
+
+### Use Cases
+- `GetOpenAIUsageUseCase` - получение usage data, billing limits, credit balance
+
+### Repository
+- `OpenAIUsageRepositoryImpl` - прямые API calls к OpenAI
+
+### Features
+- In-memory кеширование (5 минут)
+- Расчет процента использования лимитов
+- Алерты при приближении к лимиту
+
+---
+
+## 5. DashboardModule
+
+**Файл:** [`src/modules/dashboard/dashboardModule.ts`](../../../src/modules/dashboard/dashboardModule.ts)
+
+### Назначение
+Агрегация данных из множества источников для dashboard view.
+
+### Services
+- `DashboardService` - полная dashboard сводка
+  - Financial summary (из AnalyticsService)
+  - Budget overview (из BudgetService)
+  - Insights (savings rate, trends, рекомендации)
+  - Financial Health Score (0-100)
+
+### Key Dependencies
+```typescript
+new DashboardService(
+  transactionModule.getAnalyticsService(),
+  budgetModule.getBudgetService()
+)
+```
+
+**Особенность:** Нет собственных use cases, только service для агрегации.
+
+---
+
+## Module Creation в appModules.ts
+
+**Файл:** [`src/appModules.ts`](../../../src/appModules.ts)
+
+```typescript
+export function createModules() {
+  // 1. Независимые модули
+  const transactionModule = TransactionModule.create();
+  const openAIUsageModule = createOpenAIUsageModule();
+
+  // 2. Модули с зависимостями
+  const budgetModule = BudgetModule.create(transactionModule);
+
+  const openAIService = new OpenAITranscriptionService(AppConfig.OPENAI_API_KEY);
+  const voiceModule = new VoiceProcessingModule(openAIService, transactionModule);
+
+  return {
+    transactionModule,
+    budgetModule,
+    voiceModule,
+    openAIUsageModule
+  };
+}
+```
+
+**Порядок важен:**
+1. Сначала создаются независимые модули
+2. Затем модули с зависимостями, получая нужные модули как параметры
+
+---
+
+## Dependency Injection Pattern
+
+### Constructor Injection
+
+Каждый модуль получает зависимости через конструктор:
+
+```typescript
+class BudgetModule {
+  constructor(private transactionModule: TransactionModule) {
+    this.repository = RepositoryFactory.createBudgetRepository();
+    this.budgetService = new BudgetService(
+      this.repository,
+      transactionModule.getRepository()
+    );
+  }
+}
+```
+
+### Benefits
+✅ **Explicit Dependencies** - видно, от чего зависит модуль
+✅ **Testability** - легко мокировать зависимости в тестах
+✅ **Flexibility** - можно передать любую реализацию
+✅ **Compile-time Safety** - TypeScript проверяет типы
+
+---
+
+## Module Interface Pattern
+
+Каждый модуль предоставляет getter-методы для доступа к use cases:
+
+```typescript
+class TransactionModule {
+  getCreateTransactionUseCase() { return this.createTransactionUseCase; }
+  getAnalyticsService() { return this.analyticsService; }
+  getRepository() { return this.repository; }
+}
+```
+
+**Почему не публичные свойства?**
+- Инкапсуляция внутренней структуры
+- Возможность добавить логику (например, lazy initialization)
+- Явный API модуля
+
+---
+
+## Repository Factory
+
+**Файл:** [`src/shared/infrastructure/database/repositoryFactory.ts`](../../../src/shared/infrastructure/database/repositoryFactory.ts)
+
+```typescript
+class RepositoryFactory {
+  static createTransactionRepository(): TransactionRepository {
+    return AppConfig.DATABASE_TYPE === 'supabase'
+      ? new SupabaseTransactionRepository()
+      : new SqliteTransactionRepository();
+  }
+
+  static createBudgetRepository(): BudgetRepository {
+    return AppConfig.DATABASE_TYPE === 'supabase'
+      ? new SupabaseBudgetRepository()
+      : new SqliteBudgetRepository();
+  }
+}
+```
+
+**Преимущества:**
+- Централизованный выбор реализации
+- Легко добавить новую БД (например, MongoDB)
+- Модули не зависят от конкретной БД
+
+---
+
+## См. также
+
+- [Overview](overview.md) - Clean Architecture layers
+- [Patterns](patterns.md) - Design patterns в проекте
+- [Development Guide](../08-development/adding-features.md) - Как добавить новый модуль
