@@ -111,7 +111,7 @@ export default function HomePage({ userId }: HomePageProps) {
       </div>
 
       {/* Recent Transfer */}
-      <div>
+      <div className="mb-8">
         <p className="text-sm font-semibold mb-4 text-gray-700">Recent transfer</p>
         <div className="flex items-center gap-4 overflow-x-auto pb-2">
           {['JC', 'SM', 'AR', 'LM', 'DK'].map((initials, index) => (

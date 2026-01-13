@@ -60,7 +60,7 @@ export const TransactionItem = ({ transaction, onEdit, onDelete }: TransactionIt
 
       {/* Details */}
       <div className="flex-1 min-w-0">
-        <div className="font-semibold text-card-dark truncate">{transaction.description}</div>
+        <div className="font-semibold text-card-dark truncate max-w-[240px] md:max-w-2xl">{transaction.description}</div>
         <div className="flex items-center gap-2 text-sm text-gray-600">
           <Badge variant="default">{transaction.category}</Badge>
           <span>{new Date(transaction.date).toLocaleDateString()}</span>

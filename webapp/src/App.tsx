@@ -38,7 +38,7 @@ function AppContent() {
   }, []);
 
   return (
-    <div className="min-h-screen pb-24 md:pb-0">
+    <div className="min-h-screen pb-40 md:pb-0">
       <div className="p-4">
         <DevMode />
         <h1 className="text-xl font-bold mb-4 text-card-dark">FinTrack WebApp</h1>
