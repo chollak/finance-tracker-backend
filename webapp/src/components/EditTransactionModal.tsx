@@ -1,5 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { Transaction } from '../types';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface EditTransactionModalProps {
   isOpen: boolean;
@@ -8,11 +25,11 @@ interface EditTransactionModalProps {
   transaction: Transaction | null;
 }
 
-export default function EditTransactionModal({ 
-  isOpen, 
-  onClose, 
-  onSave, 
-  transaction 
+export default function EditTransactionModal({
+  isOpen,
+  onClose,
+  onSave,
+  transaction
 }: EditTransactionModalProps) {
   const [formData, setFormData] = useState({
     amount: '',
@@ -40,9 +57,9 @@ export default function EditTransactionModal({
     if (!transaction?.id) return;
 
     setIsSaving(true);
-    
+
     const updates: Partial<Transaction> = {};
-    
+
     // Only include fields that have changed
     if (parseFloat(formData.amount) !== transaction.amount) {
       updates.amount = parseFloat(formData.amount);
@@ -69,107 +86,100 @@ export default function EditTransactionModal({
 
     const success = await onSave(updates);
     setIsSaving(false);
-    
+
     if (success) {
       onClose();
     }
   };
 
-  if (!isOpen || !transaction) return null;
-
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md">
-        <h3 className="text-lg font-semibold mb-4">Edit Transaction</h3>
-        
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Edit Transaction</DialogTitle>
+        </DialogHeader>
+
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Amount
-            </label>
-            <input
+          <div className="space-y-2">
+            <Label htmlFor="amount">Amount</Label>
+            <Input
+              id="amount"
               type="number"
               step="0.01"
               min="0"
               value={formData.amount}
               onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-              className="w-full border rounded px-3 py-2"
               required
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Category
-            </label>
-            <input
+          <div className="space-y-2">
+            <Label htmlFor="category">Category</Label>
+            <Input
+              id="category"
               type="text"
               value={formData.category}
               onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-              className="w-full border rounded px-3 py-2"
               required
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Description
-            </label>
-            <input
+          <div className="space-y-2">
+            <Label htmlFor="description">Description</Label>
+            <Input
+              id="description"
               type="text"
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              className="w-full border rounded px-3 py-2"
               required
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Date
-            </label>
-            <input
+          <div className="space-y-2">
+            <Label htmlFor="date">Date</Label>
+            <Input
+              id="date"
               type="date"
               value={formData.date}
               onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-              className="w-full border rounded px-3 py-2"
               required
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Type
-            </label>
-            <select
+          <div className="space-y-2">
+            <Label htmlFor="type">Type</Label>
+            <Select
               value={formData.type}
-              onChange={(e) => setFormData({ ...formData, type: e.target.value as 'income' | 'expense' })}
-              className="w-full border rounded px-3 py-2"
+              onValueChange={(value) => setFormData({ ...formData, type: value as 'income' | 'expense' })}
             >
-              <option value="expense">Expense</option>
-              <option value="income">Income</option>
-            </select>
+              <SelectTrigger id="type">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="expense">Expense</SelectItem>
+                <SelectItem value="income">Income</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
-          <div className="flex gap-2 pt-4">
-            <button
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
               type="button"
+              variant="outline"
               onClick={onClose}
               disabled={isSaving}
-              className="flex-1 px-4 py-2 border border-gray-300 rounded text-gray-700 hover:bg-gray-50 disabled:opacity-50"
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
               disabled={isSaving}
-              className="flex-1 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50"
             >
               {isSaving ? 'Saving...' : 'Save Changes'}
-            </button>
-          </div>
+            </Button>
+          </DialogFooter>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
