@@ -3,7 +3,11 @@ import { useDashboard } from '../hooks/useDashboard';
 import { Alert, AlertSeverity } from '../types';
 import { OpenAIUsageWidget } from '../components/OpenAIUsageWidget';
 import { formatMoneyCompact, formatMoneyDetailed, formatPercentage } from '../utils/formatMoney';
-import { Card, Button, Badge } from '../design-system/components';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import { AlertTriangle, Info } from 'lucide-react';
 
 interface DashboardPageProps {
   userId: string | null;
@@ -17,16 +21,12 @@ const SpendingPatternChart: React.FC<{ patterns: any[] }> = ({ patterns }) => {
     <div className="space-y-2">
       {patterns.map(pattern => (
         <div key={pattern.dayOfWeek} className="flex items-center">
-          <div className="w-20 text-sm text-gray-600">{pattern.dayOfWeek.slice(0, 3)}</div>
-          <div className="flex-1 bg-gray-200 rounded-full h-4 mr-2">
-            <div
-              className="bg-card-dark h-4 rounded-full transition-all duration-300"
-              style={{
-                width: maxAmount > 0 ? `${(pattern.averageAmount / maxAmount) * 100}%` : '0%'
-              }}
-            ></div>
-          </div>
-          <div className="w-20 text-sm text-card-dark text-right">
+          <div className="w-20 text-sm text-muted-foreground">{pattern.dayOfWeek.slice(0, 3)}</div>
+          <Progress
+            value={maxAmount > 0 ? (pattern.averageAmount / maxAmount) * 100 : 0}
+            className="h-4 flex-1 mr-2"
+          />
+          <div className="w-20 text-sm text-right font-medium">
             {formatMoneyCompact(pattern.averageAmount)}
           </div>
         </div>
@@ -43,23 +43,15 @@ const AlertCard: React.FC<{ alert: Alert }> = ({ alert }) => {
       case AlertSeverity.HIGH: return 'bg-orange-50 border-orange-200 text-orange-800';
       case AlertSeverity.MEDIUM: return 'bg-yellow-50 border-yellow-200 text-yellow-800';
       case AlertSeverity.LOW: return 'bg-blue-50 border-blue-200 text-blue-800';
-      default: return 'bg-gray-50 border-gray-200 text-gray-800';
+      default: return 'bg-secondary border-border text-foreground';
     }
   };
 
   const getSeverityIcon = (severity: AlertSeverity) => {
     if (severity === AlertSeverity.CRITICAL || severity === AlertSeverity.HIGH) {
-      return (
-        <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-          <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-        </svg>
-      );
+      return <AlertTriangle className="h-5 w-5 text-red-500" />;
     }
-    return (
-      <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
-        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-      </svg>
-    );
+    return <Info className="h-5 w-5 text-blue-500" />;
   };
 
   return (
@@ -86,9 +78,9 @@ const AlertCard: React.FC<{ alert: Alert }> = ({ alert }) => {
           )}
         </div>
         <div className="flex-shrink-0">
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-white bg-opacity-50">
+          <Badge variant="secondary" className="text-xs">
             {alert.severity}
-          </span>
+          </Badge>
         </div>
       </div>
     </div>
@@ -119,7 +111,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ userId }) => {
     return (
       <div className="max-w-6xl mx-auto p-6">
         <div className="text-center py-12">
-          <p className="text-gray-500">Please provide a user ID to view the dashboard.</p>
+          <p className="text-muted-foreground">Please provide a user ID to view the dashboard.</p>
         </div>
       </div>
     );
@@ -128,7 +120,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ userId }) => {
   if (loading && !insights) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-card-dark"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
       </div>
     );
   }
@@ -148,14 +140,12 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ userId }) => {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-card-dark">Financial Dashboard</h1>
-          <p className="text-gray-600 mt-1">Overview of your financial health and spending patterns</p>
+          <h1 className="text-3xl font-bold ">Financial Dashboard</h1>
+          <p className="text-muted-foreground mt-1">Overview of your financial health and spending patterns</p>
         </div>
         <Button
           onClick={refreshDashboard}
           disabled={loading}
-          variant="primary"
-          size="md"
         >
           {loading ? 'Refreshing...' : 'Refresh'}
         </Button>
@@ -164,8 +154,8 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ userId }) => {
       {/* Key Metrics */}
       {insights && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <Card variant="white" rounded="3xl" padding="md" hover>
-            <h3 className="text-sm font-medium text-gray-500">Net Income</h3>
+          <Card hover>
+            <h3 className="text-sm font-medium text-muted-foreground">Net Income</h3>
             <p className={`text-2xl font-bold ${
               insights.financialSummary.netIncome >= 0 ? 'text-green-income' : 'text-red-expense'
             }`}>
@@ -173,26 +163,26 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ userId }) => {
               {insights.financialSummary.netIncome < 0 && ' deficit'}
             </p>
           </Card>
-          <Card variant="white" rounded="3xl" padding="md" hover>
-            <h3 className="text-sm font-medium text-gray-500">Total Expenses</h3>
-            <p className="text-2xl font-bold text-card-dark">
+          <Card hover>
+            <h3 className="text-sm font-medium text-muted-foreground">Total Expenses</h3>
+            <p className="text-2xl font-bold ">
               {formatMoneyDetailed(insights.financialSummary.totalExpense)}
             </p>
           </Card>
-          <Card variant="white" rounded="3xl" padding="md" hover>
-            <h3 className="text-sm font-medium text-gray-500">Budget Utilization</h3>
+          <Card hover>
+            <h3 className="text-sm font-medium text-muted-foreground">Budget Utilization</h3>
             <p className={`text-2xl font-bold ${
               insights.insights.budgetUtilization > 100 ? 'text-red-expense' :
-              insights.insights.budgetUtilization > 80 ? 'text-light-yellow' : 'text-green-income'
+              insights.insights.budgetUtilization > 80 ? 'text-orange-500' : 'text-green-income'
             }`}>
               {formatPercentage(insights.insights.budgetUtilization)}
             </p>
           </Card>
-          <Card variant="white" rounded="3xl" padding="md" hover>
-            <h3 className="text-sm font-medium text-gray-500">Savings Rate</h3>
+          <Card hover>
+            <h3 className="text-sm font-medium text-muted-foreground">Savings Rate</h3>
             <p className={`text-2xl font-bold ${
               insights.insights.savingsRate >= 20 ? 'text-green-income' :
-              insights.insights.savingsRate >= 10 ? 'text-light-yellow' : 'text-red-expense'
+              insights.insights.savingsRate >= 10 ? 'text-orange-500' : 'text-red-expense'
             }`}>
               {formatPercentage(insights.insights.savingsRate)}
             </p>
@@ -205,12 +195,12 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ userId }) => {
 
       {/* Financial Health Score */}
       {healthScore && (
-        <Card variant="white" rounded="3xl" padding="lg">
+        <Card>
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold text-card-dark">Financial Health Score</h2>
+            <h2 className="text-xl font-semibold ">Financial Health Score</h2>
             <div className={`text-3xl font-bold ${
               healthScore.score >= 80 ? 'text-green-income' :
-              healthScore.score >= 60 ? 'text-light-yellow' : 'text-red-expense'
+              healthScore.score >= 60 ? 'text-orange-500' : 'text-red-expense'
             }`}>
               {healthScore.score}/100
             </div>
@@ -218,27 +208,27 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ userId }) => {
           
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
             <div className="text-center">
-              <p className="text-sm text-gray-500">Budget Compliance</p>
+              <p className="text-sm text-muted-foreground">Budget Compliance</p>
               <p className="text-lg font-semibold">{Math.round(healthScore.factors.budgetCompliance)}</p>
             </div>
             <div className="text-center">
-              <p className="text-sm text-gray-500">Savings Rate</p>
+              <p className="text-sm text-muted-foreground">Savings Rate</p>
               <p className="text-lg font-semibold">{Math.round(healthScore.factors.savingsRate)}</p>
             </div>
             <div className="text-center">
-              <p className="text-sm text-gray-500">Expense Stability</p>
+              <p className="text-sm text-muted-foreground">Expense Stability</p>
               <p className="text-lg font-semibold">{Math.round(healthScore.factors.expenseVariability)}</p>
             </div>
             <div className="text-center">
-              <p className="text-sm text-gray-500">Category Balance</p>
+              <p className="text-sm text-muted-foreground">Category Balance</p>
               <p className="text-lg font-semibold">{Math.round(healthScore.factors.categoryDiversification)}</p>
             </div>
           </div>
 
           {healthScore.recommendations.length > 0 && (
-            <div className="bg-light-blue p-4 rounded-2xl">
-              <p className="text-sm font-medium text-card-dark mb-2">Recommendations:</p>
-              <ul className="text-sm text-gray-700 space-y-1">
+            <div className="bg-blue-50 p-4 rounded-2xl">
+              <p className="text-sm font-medium  mb-2">Recommendations:</p>
+              <ul className="text-sm text-muted-foreground space-y-1">
                 {healthScore.recommendations.slice(0, 3).map((recommendation, index) => (
                   <li key={index} className="flex items-start">
                     <span className="mr-2">•</span>
@@ -253,23 +243,23 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ userId }) => {
 
       {/* Alerts Section */}
       {alerts && alerts.length > 0 && (
-        <Card variant="white" rounded="3xl" padding="lg">
+        <Card>
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold text-card-dark">Active Alerts</h2>
+            <h2 className="text-xl font-semibold ">Active Alerts</h2>
             {alertSummary && (
               <div className="flex space-x-2">
                 {alertSummary.critical > 0 && (
-                  <Badge variant="error">
+                  <Badge variant="destructive">
                     {alertSummary.critical} Critical
                   </Badge>
                 )}
                 {alertSummary.high > 0 && (
-                  <Badge variant="warning">
+                  <Badge variant="outline">
                     {alertSummary.high} High
                   </Badge>
                 )}
                 {alertSummary.medium > 0 && (
-                  <Badge variant="warning">
+                  <Badge variant="outline">
                     {alertSummary.medium} Medium
                   </Badge>
                 )}
@@ -289,8 +279,8 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ userId }) => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Monthly Trends */}
         {insights && insights.monthlyTrends.length > 0 && (
-          <Card variant="white" rounded="3xl" padding="lg">
-            <h2 className="text-xl font-semibold text-card-dark mb-4">Monthly Trends</h2>
+          <Card>
+            <h2 className="text-xl font-semibold  mb-4">Monthly Trends</h2>
             <div className="space-y-3">
               {insights.monthlyTrends.slice(-6).map((trend, index) => {
                 const maxAmount = Math.max(
@@ -301,11 +291,11 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ userId }) => {
                   <div key={index} className="space-y-2">
                     <div className="flex justify-between text-sm">
                       <span className="font-medium">{trend.month} {trend.year}</span>
-                      <span className="text-gray-500">Net: {formatMoneyCompact(trend.net)}</span>
+                      <span className="text-muted-foreground">Net: {formatMoneyCompact(trend.net)}</span>
                     </div>
                     <div className="space-y-1">
                       <div className="flex items-center">
-                        <div className="w-16 text-xs text-gray-600">Income</div>
+                        <div className="w-16 text-xs text-muted-foreground">Income</div>
                         <div className="flex-1 bg-gray-200 rounded-full h-2 mr-2">
                           <div
                             className="bg-green-income h-2 rounded-full"
@@ -315,7 +305,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ userId }) => {
                         <div className="w-20 text-xs text-right">{formatMoneyCompact(trend.income)}</div>
                       </div>
                       <div className="flex items-center">
-                        <div className="w-16 text-xs text-gray-600">Expenses</div>
+                        <div className="w-16 text-xs text-muted-foreground">Expenses</div>
                         <div className="flex-1 bg-gray-200 rounded-full h-2 mr-2">
                           <div
                             className="bg-red-expense h-2 rounded-full"
@@ -334,19 +324,19 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ userId }) => {
 
         {/* Spending Patterns */}
         {insights && insights.spendingPatterns.length > 0 && (
-          <Card variant="white" rounded="3xl" padding="lg">
-            <h2 className="text-xl font-semibold text-card-dark mb-4">Weekly Spending Pattern</h2>
+          <Card>
+            <h2 className="text-xl font-semibold  mb-4">Weekly Spending Pattern</h2>
             <SpendingPatternChart patterns={insights.spendingPatterns} />
-            <div className="mt-4 text-sm text-gray-600">
-              <p>Peak spending day: <span className="font-medium text-card-dark">{insights.insights.topSpendingDay}</span></p>
+            <div className="mt-4 text-sm text-muted-foreground">
+              <p>Peak spending day: <span className="font-medium ">{insights.insights.topSpendingDay}</span></p>
             </div>
           </Card>
         )}
 
         {/* Top Categories */}
         {insights && insights.topCategories.length > 0 && (
-          <Card variant="white" rounded="3xl" padding="lg">
-            <h2 className="text-xl font-semibold text-card-dark mb-4">Top Spending Categories</h2>
+          <Card>
+            <h2 className="text-xl font-semibold  mb-4">Top Spending Categories</h2>
             <div className="space-y-3">
               {insights.topCategories.map((category, index) => (
                 <div key={index} className="flex items-center justify-between">
@@ -358,7 +348,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ userId }) => {
                   </div>
                   <div className="text-right">
                     <div className="font-semibold">{formatMoneyCompact(category.amount)}</div>
-                    <div className="text-sm text-gray-500">{formatPercentage(category.percentage)}</div>
+                    <div className="text-sm text-muted-foreground">{formatPercentage(category.percentage)}</div>
                   </div>
                 </div>
               ))}
@@ -368,23 +358,23 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ userId }) => {
 
         {/* Budget Overview */}
         {insights && (
-          <Card variant="white" rounded="3xl" padding="lg">
-            <h2 className="text-xl font-semibold text-card-dark mb-4">Budget Overview</h2>
+          <Card>
+            <h2 className="text-xl font-semibold  mb-4">Budget Overview</h2>
             <div className="space-y-4">
               <div className="flex justify-between items-center">
-                <span className="text-gray-600">Active Budgets</span>
+                <span className="text-muted-foreground">Active Budgets</span>
                 <span className="font-semibold">{insights.budgetOverview.activeBudgets}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-gray-600">Total Budget</span>
+                <span className="text-muted-foreground">Total Budget</span>
                 <span className="font-semibold">{formatMoneyDetailed(insights.budgetOverview.totalBudgetAmount)}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-gray-600">Total Spent</span>
+                <span className="text-muted-foreground">Total Spent</span>
                 <span className="font-semibold">{formatMoneyDetailed(insights.budgetOverview.totalSpent)}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-gray-600">Over Budget</span>
+                <span className="text-muted-foreground">Over Budget</span>
                 <span className={`font-semibold ${
                   insights.budgetOverview.overBudgetCount > 0 ? 'text-red-expense' : 'text-green-income'
                 }`}>
@@ -393,9 +383,9 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ userId }) => {
               </div>
 
               {insights.budgetAlerts.recommendations.length > 0 && (
-                <div className="mt-4 p-3 bg-light-yellow rounded-2xl">
-                  <p className="text-sm font-medium text-card-dark mb-1">Budget Tips:</p>
-                  <p className="text-sm text-gray-700">
+                <div className="mt-4 p-3 bg-orange-50 rounded-2xl">
+                  <p className="text-sm font-medium  mb-1">Budget Tips:</p>
+                  <p className="text-sm text-muted-foreground">
                     {insights.budgetAlerts.recommendations[0]}
                   </p>
                 </div>
@@ -406,42 +396,42 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ userId }) => {
       </div>
 
       {/* Quick Actions */}
-      <Card variant="white" rounded="3xl" padding="lg">
-        <h2 className="text-xl font-semibold text-card-dark mb-4">Quick Actions</h2>
+      <Card>
+        <h2 className="text-xl font-semibold  mb-4">Quick Actions</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <a
             href={`/webapp/budgets?userId=${userId}`}
-            className="block p-4 bg-light-blue rounded-2xl hover:opacity-90 transition-opacity"
+            className="block p-4 bg-blue-50 rounded-2xl hover:opacity-90 transition-opacity"
           >
             <div className="flex items-center space-x-3">
               <div className="text-2xl">🎯</div>
               <div>
-                <p className="font-medium text-card-dark">Manage Budgets</p>
-                <p className="text-sm text-gray-600">Create and edit your budgets</p>
+                <p className="font-medium ">Manage Budgets</p>
+                <p className="text-sm text-muted-foreground">Create and edit your budgets</p>
               </div>
             </div>
           </a>
           <a
             href={`/webapp/transactions?userId=${userId}`}
-            className="block p-4 bg-lime rounded-2xl hover:opacity-90 transition-opacity"
+            className="block p-4 bg-green-50 rounded-2xl hover:opacity-90 transition-opacity"
           >
             <div className="flex items-center space-x-3">
               <div className="text-2xl">💳</div>
               <div>
-                <p className="font-medium text-card-dark">View Transactions</p>
-                <p className="text-sm text-gray-700">Check recent transactions</p>
+                <p className="font-medium ">View Transactions</p>
+                <p className="text-sm text-muted-foreground">Check recent transactions</p>
               </div>
             </div>
           </a>
           <a
             href={`/webapp/stats?userId=${userId}`}
-            className="block p-4 bg-lavender rounded-2xl hover:opacity-90 transition-opacity"
+            className="block p-4 bg-purple-50 rounded-2xl hover:opacity-90 transition-opacity"
           >
             <div className="flex items-center space-x-3">
               <div className="text-2xl">📊</div>
               <div>
-                <p className="font-medium text-card-dark">Analytics</p>
-                <p className="text-sm text-gray-700">Detailed spending analysis</p>
+                <p className="font-medium ">Analytics</p>
+                <p className="text-sm text-muted-foreground">Detailed spending analysis</p>
               </div>
             </div>
           </a>
