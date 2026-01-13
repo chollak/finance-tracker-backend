@@ -1,5 +1,9 @@
 import { Transaction } from '../types';
-import { Badge } from '../design-system/components';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Trash2, ShoppingBag, Utensils, Car, Film, Lightbulb, Briefcase, DollarSign, Heart, GraduationCap, Plane, Gift, Wallet } from 'lucide-react';
+import { LucideIcon } from 'lucide-react';
 
 interface TransactionItemProps {
   transaction: Transaction;
@@ -7,71 +11,69 @@ interface TransactionItemProps {
   onDelete?: (transaction: Transaction) => void;
 }
 
-const categoryIcons: Record<string, string> = {
-  'Shopping': '🛍️',
-  'Food & Drink': '🍽️',
-  'Food': '🍽️',
-  'Transport': '🚗',
-  'Entertainment': '🎬',
-  'Bills': '💡',
-  'Utilities': '💡',
-  'Freelance': '💼',
-  'Salary': '💵',
-  'Health': '💊',
-  'Education': '📚',
-  'Travel': '✈️',
-  'Gifts': '🎁',
-  'Other': '💰',
+const categoryIcons: Record<string, LucideIcon> = {
+  'Shopping': ShoppingBag,
+  'Food & Drink': Utensils,
+  'Food': Utensils,
+  'Transport': Car,
+  'Entertainment': Film,
+  'Bills': Lightbulb,
+  'Utilities': Lightbulb,
+  'Freelance': Briefcase,
+  'Salary': DollarSign,
+  'Health': Heart,
+  'Education': GraduationCap,
+  'Travel': Plane,
+  'Gifts': Gift,
+  'Other': Wallet,
 };
 
 export const TransactionItem = ({ transaction, onEdit, onDelete }: TransactionItemProps) => {
-  const icon = categoryIcons[transaction.category] || '💰';
+  const Icon = categoryIcons[transaction.category] || Wallet;
   const amountPrefix = transaction.type === 'income' ? '+' : '-';
   const amountColor = transaction.type === 'income' ? 'text-green-income' : 'text-red-expense';
-  const bgGradient = transaction.type === 'income'
-    ? 'from-green-100 to-green-50'
-    : 'from-red-100 to-red-50';
+  const iconBg = transaction.type === 'income' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600';
 
   return (
-    <div className="flex items-center gap-3 bg-white p-4 rounded-2xl shadow-sm hover:shadow-md transition-all duration-200 group">
+    <Card className="flex items-center gap-3 p-4 hover:shadow-md transition-all duration-200 group">
       {onDelete && (
-        <button
+        <Button
+          variant="ghost"
+          size="icon"
           onClick={(e) => {
             e.stopPropagation();
             onDelete(transaction);
           }}
-          className="opacity-0 group-hover:opacity-100 transition-opacity text-red-500 hover:text-red-700 p-1"
+          className="opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8 text-destructive hover:text-destructive"
           title="Delete transaction"
         >
-          <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
-          </svg>
-        </button>
+          <Trash2 className="h-4 w-4" />
+        </Button>
       )}
 
       <div
         className="flex items-center gap-3 flex-1 cursor-pointer"
         onClick={() => onEdit?.(transaction)}
       >
-      {/* Icon */}
-      <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${bgGradient} flex items-center justify-center text-xl flex-shrink-0`}>
-        {icon}
-      </div>
-
-      {/* Details */}
-      <div className="flex-1 min-w-0">
-        <div className="font-semibold text-card-dark truncate max-w-[240px] md:max-w-2xl">{transaction.description}</div>
-        <div className="flex items-center gap-2 text-sm text-gray-600">
-          <Badge variant="default">{transaction.category}</Badge>
-          <span>{new Date(transaction.date).toLocaleDateString()}</span>
+        {/* Icon */}
+        <div className={`w-12 h-12 rounded-xl ${iconBg} flex items-center justify-center flex-shrink-0`}>
+          <Icon className="h-6 w-6" />
         </div>
-      </div>
+
+        {/* Details */}
+        <div className="flex-1 min-w-0">
+          <div className="font-semibold truncate max-w-full md:max-w-2xl">{transaction.description}</div>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Badge variant="secondary">{transaction.category}</Badge>
+            <span>{new Date(transaction.date).toLocaleDateString()}</span>
+          </div>
+        </div>
 
         {/* Amount */}
         <div className={`font-bold text-lg ${amountColor} whitespace-nowrap`}>
           {amountPrefix}${transaction.amount.toFixed(2)}
         </div>
       </div>
-    </div>
+    </Card>
   );
 };
