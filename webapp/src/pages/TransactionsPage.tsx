@@ -6,6 +6,10 @@ import EditTransactionModal from '../components/EditTransactionModal';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { TransactionItem } from '../components/TransactionItem';
 import { groupTransactionsByDate } from '../utils/groupTransactions';
+import { Input } from '@/components/ui/input';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Search, Wallet, AlertCircle } from 'lucide-react';
 
 interface TransactionsPageProps {
   userId: string | null;
@@ -39,7 +43,7 @@ export default function TransactionsPage({ userId }: TransactionsPageProps) {
     return (
       <div className="flex items-center justify-center p-8">
         <div className="text-center">
-          <div className="animate-pulse text-gray-500">Loading transactions...</div>
+          <div className="animate-pulse text-muted-foreground">Loading transactions...</div>
         </div>
       </div>
     );
@@ -57,11 +61,11 @@ export default function TransactionsPage({ userId }: TransactionsPageProps) {
 
   const confirmDelete = async () => {
     if (!deletingTransaction?.id) return;
-    
+
     setIsDeleting(true);
     const success = await deleteTransaction(deletingTransaction.id);
     setIsDeleting(false);
-    
+
     if (success) {
       setDeletingTransaction(null);
     }
@@ -75,18 +79,21 @@ export default function TransactionsPage({ userId }: TransactionsPageProps) {
   if (error) {
     return (
       <div className="flex items-center justify-center p-8">
-        <div className="text-center bg-red-50 border border-red-200 rounded-lg p-6 max-w-md">
-          <div className="text-red-600 mb-4">
-            <h3 className="font-semibold mb-2">Unable to load transactions</h3>
-            <p className="text-sm">{error}</p>
-          </div>
-          <button 
-            onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded transition-colors"
-          >
-            Try Again
-          </button>
-        </div>
+        <Alert variant="destructive" className="max-w-md">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Unable to load transactions</AlertTitle>
+          <AlertDescription className="mt-2">
+            {error}
+            <Button
+              onClick={() => window.location.reload()}
+              variant="outline"
+              size="sm"
+              className="mt-4"
+            >
+              Try Again
+            </Button>
+          </AlertDescription>
+        </Alert>
       </div>
     );
   }
@@ -94,12 +101,13 @@ export default function TransactionsPage({ userId }: TransactionsPageProps) {
   if (!userId) {
     return (
       <div className="flex items-center justify-center p-8">
-        <div className="text-center bg-yellow-50 border border-yellow-200 rounded-lg p-6 max-w-md">
-          <div className="text-yellow-600">
-            <h3 className="font-semibold mb-2">Access Required</h3>
-            <p className="text-sm">Please access this app through Telegram to see your transactions.</p>
-          </div>
-        </div>
+        <Alert className="max-w-md bg-yellow-50 border-yellow-200">
+          <AlertCircle className="h-4 w-4 text-yellow-600" />
+          <AlertTitle className="text-yellow-800">Access Required</AlertTitle>
+          <AlertDescription className="text-yellow-700">
+            Please access this app through Telegram to see your transactions.
+          </AlertDescription>
+        </Alert>
       </div>
     );
   }
@@ -126,27 +134,19 @@ export default function TransactionsPage({ userId }: TransactionsPageProps) {
   const groupedTransactions = groupTransactionsByDate(filteredTransactions);
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8 fade-in">
-      <h2 className="text-2xl font-bold mb-6 text-card-dark">Transactions</h2>
+    <div className="max-w-4xl mx-auto px-4 py-8">
+      <h2 className="text-2xl font-bold mb-6">Transactions</h2>
 
       {/* Search */}
       <div className="relative mb-4">
-        <input
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+        <Input
           type="text"
           placeholder="Search transactions..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full px-4 py-3 pr-10 bg-white rounded-2xl border border-gray-200 focus:outline-none focus:border-gray-300 transition"
+          className="pl-10"
         />
-        <svg
-          className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-        >
-          <circle cx="11" cy="11" r="8"/>
-          <path d="m21 21-4.35-4.35"/>
-        </svg>
       </div>
 
       {/* Filter Pills */}
@@ -155,8 +155,8 @@ export default function TransactionsPage({ userId }: TransactionsPageProps) {
           onClick={() => setActiveFilter('all')}
           className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all ${
             activeFilter === 'all'
-              ? 'bg-card-dark text-white'
-              : 'bg-white text-gray-600 border border-gray-200 hover:border-gray-300'
+              ? 'bg-primary text-primary-foreground'
+              : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
           }`}
         >
           All
@@ -165,8 +165,8 @@ export default function TransactionsPage({ userId }: TransactionsPageProps) {
           onClick={() => setActiveFilter('income')}
           className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all ${
             activeFilter === 'income'
-              ? 'bg-card-dark text-white'
-              : 'bg-white text-gray-600 border border-gray-200 hover:border-gray-300'
+              ? 'bg-primary text-primary-foreground'
+              : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
           }`}
         >
           Income
@@ -175,8 +175,8 @@ export default function TransactionsPage({ userId }: TransactionsPageProps) {
           onClick={() => setActiveFilter('expense')}
           className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all ${
             activeFilter === 'expense'
-              ? 'bg-card-dark text-white'
-              : 'bg-white text-gray-600 border border-gray-200 hover:border-gray-300'
+              ? 'bg-primary text-primary-foreground'
+              : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
           }`}
         >
           Expense
@@ -187,8 +187,8 @@ export default function TransactionsPage({ userId }: TransactionsPageProps) {
             onClick={() => setActiveFilter(category)}
             className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all ${
               activeFilter === category
-                ? 'bg-card-dark text-white'
-                : 'bg-white text-gray-600 border border-gray-200 hover:border-gray-300'
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
             }`}
           >
             {category}
@@ -199,13 +199,9 @@ export default function TransactionsPage({ userId }: TransactionsPageProps) {
       {/* Transactions List */}
       {filteredTransactions.length === 0 ? (
         <div className="text-center py-12">
-          <div className="text-gray-400 mb-4">
-            <svg className="w-16 h-16 mx-auto mb-4 opacity-30" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z" />
-            </svg>
-          </div>
-          <h3 className="text-lg font-semibold text-gray-700 mb-2">No transactions found</h3>
-          <p className="text-sm text-gray-500">
+          <Wallet className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-30" />
+          <h3 className="text-lg font-semibold mb-2">No transactions found</h3>
+          <p className="text-sm text-muted-foreground">
             {searchQuery || activeFilter !== 'all'
               ? 'Try adjusting your filters or search query'
               : 'Start tracking your finances by adding your first transaction'}
@@ -219,7 +215,7 @@ export default function TransactionsPage({ userId }: TransactionsPageProps) {
 
             return (
               <div key={groupName}>
-                <h3 className="text-sm font-semibold text-gray-500 mb-3">{groupName}</h3>
+                <h3 className="text-sm font-semibold text-muted-foreground mb-3">{groupName}</h3>
                 <div className="space-y-3">
                   {groupTransactions.map((tx, idx) => (
                     <TransactionItem
