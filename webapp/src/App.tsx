@@ -1,8 +1,8 @@
 import { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, useSearchParams } from 'react-router-dom';
-import Navigation from './components/Navigation';
-import { BottomNav } from './components/BottomNav';
+import AppNavigation from './components/AppNavigation';
 import { DevMode } from './components/DevMode';
+import { Toaster } from '@/components/ui/toaster';
 import TransactionsPage from './pages/TransactionsPage';
 import StatsPage from './pages/StatsPage';
 import HomePage from './pages/HomePage';
@@ -38,11 +38,9 @@ function AppContent() {
   }, []);
 
   return (
-    <div className="min-h-screen pb-40 md:pb-0">
+    <div className="min-h-screen pb-safe-bottom">
       <div className="p-4">
-        <DevMode />
-        <h1 className="text-xl font-bold mb-4 text-card-dark">FinTrack WebApp</h1>
-        <Navigation userId={userId || undefined} />
+        <AppNavigation userId={userId || undefined} />
 
         <Routes>
           <Route path="/" element={<HomePage userId={userId} />} />
@@ -53,7 +51,8 @@ function AppContent() {
         </Routes>
       </div>
 
-      <BottomNav />
+      <DevMode />
+      <Toaster />
     </div>
   );
 }
