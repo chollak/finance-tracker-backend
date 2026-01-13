@@ -401,6 +401,141 @@ Expected response:
 | Frontend broken | `npm run build:webapp` |
 | Bot not working | Check token, restart server |
 | Slow requests | Add indexes, optimize queries |
+| SSH auth failed | Update `SSH_HOST` with new IP, configure Elastic IP |
+| Git pull fails | Switch to HTTPS or regenerate SSH keys |
+
+---
+
+## Deployment Issues
+
+### SSH Authentication Failed (GitHub Actions)
+
+**Error:**
+```
+ssh: handshake failed: ssh: unable to authenticate, attempted methods [none publickey], no supported methods remain
+```
+
+**Common Causes:**
+
+1. **IP Address Changed (AWS EC2)**
+   - After server restart, AWS assigns new IP
+   - GitHub Actions tries to connect to old IP from `SSH_HOST` secret
+
+2. **SSH Key Mismatch**
+   - `SSH_KEY` в GitHub Secrets doesn't match server's `authorized_keys`
+
+**Solutions:**
+
+#### 1. Update SSH_HOST with New IP
+
+**On server:**
+```bash
+# Get current public IP
+curl -s http://checkip.amazonaws.com
+```
+
+**On GitHub:**
+1. Go to: https://github.com/YOUR_REPO/settings/secrets/actions
+2. Edit `SSH_HOST` secret
+3. Update with new IP address
+4. Save and re-run deployment
+
+#### 2. Configure AWS Elastic IP (Recommended)
+
+To prevent IP changes on restart:
+
+**In AWS Console:**
+1. EC2 Dashboard → Network & Security → Elastic IPs
+2. Click "Allocate Elastic IP address" → Allocate
+3. Select new Elastic IP → Actions → Associate Elastic IP address
+4. Choose your EC2 instance → Associate
+
+**Update GitHub Secret:**
+- Use Elastic IP in `SSH_HOST`
+- IP won't change on restart anymore
+
+**Cost:** Elastic IP is free while attached to running instance
+
+#### 3. Verify SSH Configuration
+
+**On server:**
+```bash
+# Check SSH keys exist
+ls -la ~/.ssh/
+
+# Test GitHub authentication
+ssh -T git@github.com
+# Should show: "Hi username! You've successfully authenticated..."
+
+# Verify git remote
+cd ~/finance-tracker-backend
+git remote -v
+```
+
+**In GitHub:**
+- Check `SSH_USER` matches server username
+- Verify `SSH_KEY` contains correct private key
+- Ensure no extra spaces/newlines in secrets
+
+---
+
+### Git Pull Fails on Server
+
+**Error:**
+```
+git@github.com: Permission denied (publickey)
+```
+
+**Solution:**
+
+**Option A: Switch to HTTPS (Simpler)**
+```bash
+cd ~/finance-tracker-backend
+git remote set-url origin https://github.com/YOUR_USERNAME/YOUR_REPO.git
+git pull origin main  # Test
+```
+
+**Option B: Fix SSH Keys**
+```bash
+# Generate new SSH key
+ssh-keygen -t ed25519 -C "deploy@server" -f ~/.ssh/github_deploy
+
+# Add to SSH config
+cat >> ~/.ssh/config << 'EOF'
+Host github.com
+  HostName github.com
+  User git
+  IdentityFile ~/.ssh/github_deploy
+  IdentitiesOnly yes
+EOF
+
+# Add public key to GitHub
+cat ~/.ssh/github_deploy.pub
+# Copy output, add to: https://github.com/settings/keys
+```
+
+---
+
+### Docker Build Fails
+
+**Error:**
+```
+Error response from daemon: No such image
+```
+
+**Solution:**
+```bash
+# Clean up Docker
+docker compose down
+docker system prune -a
+
+# Rebuild
+docker compose up -d --build
+
+# Check status
+docker compose ps
+docker compose logs -f
+```
 
 ---
 

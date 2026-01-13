@@ -4,6 +4,7 @@ import { BudgetSummary } from '../types';
 import BudgetCard from '../components/BudgetCard';
 import CreateBudgetModal from '../components/CreateBudgetModal';
 import { formatMoneyDetailed, formatPercentage } from '../utils/formatMoney';
+import { Card, Button, Badge } from '../design-system/components';
 
 interface BudgetsPageProps {
   userId: string | null;
@@ -88,7 +89,7 @@ const BudgetsPage: React.FC<BudgetsPageProps> = ({ userId }) => {
   if (loading && !budgetSummaries.length) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-card-dark"></div>
       </div>
     );
   }
@@ -98,20 +99,21 @@ const BudgetsPage: React.FC<BudgetsPageProps> = ({ userId }) => {
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Budget Management</h1>
+          <h1 className="text-3xl font-bold text-card-dark">Budget Management</h1>
           <p className="text-gray-600 mt-1">Track and manage your spending budgets</p>
         </div>
-        <button
+        <Button
           onClick={() => setShowCreateModal(true)}
-          className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          variant="primary"
+          size="md"
         >
           Create Budget
-        </button>
+        </Button>
       </div>
 
       {/* Error message */}
       {error && (
-        <div className="mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
+        <div className="mb-6 p-4 bg-red-100 border border-red-200 text-red-expense rounded-2xl">
           {error}
         </div>
       )}
@@ -119,39 +121,39 @@ const BudgetsPage: React.FC<BudgetsPageProps> = ({ userId }) => {
       {/* Overall Stats */}
       {stats && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white p-6 rounded-lg shadow-md">
+          <Card variant="white" rounded="3xl" padding="md" hover>
             <h3 className="text-sm font-medium text-gray-500">Total Budget</h3>
-            <p className="text-2xl font-bold text-gray-900">{formatMoneyDetailed(stats.totalBudget)}</p>
-          </div>
-          <div className="bg-white p-6 rounded-lg shadow-md">
+            <p className="text-2xl font-bold text-card-dark">{formatMoneyDetailed(stats.totalBudget)}</p>
+          </Card>
+          <Card variant="white" rounded="3xl" padding="md" hover>
             <h3 className="text-sm font-medium text-gray-500">Total Spent</h3>
-            <p className="text-2xl font-bold text-gray-900">{formatMoneyDetailed(stats.totalSpent)}</p>
-          </div>
-          <div className="bg-white p-6 rounded-lg shadow-md">
+            <p className="text-2xl font-bold text-card-dark">{formatMoneyDetailed(stats.totalSpent)}</p>
+          </Card>
+          <Card variant="white" rounded="3xl" padding="md" hover>
             <h3 className="text-sm font-medium text-gray-500">Budget Utilization</h3>
             <p className={`text-2xl font-bold ${
-              stats.utilization > 100 ? 'text-red-600' : 
-              stats.utilization > 80 ? 'text-yellow-600' : 'text-green-600'
+              stats.utilization > 100 ? 'text-red-expense' :
+              stats.utilization > 80 ? 'text-light-yellow' : 'text-green-income'
             }`}>
               {formatPercentage(stats.utilization)}
             </p>
-          </div>
-          <div className="bg-white p-6 rounded-lg shadow-md">
+          </Card>
+          <Card variant="white" rounded="3xl" padding="md" hover>
             <h3 className="text-sm font-medium text-gray-500">Alerts</h3>
-            <p className="text-2xl font-bold text-gray-900">
+            <p className="text-2xl font-bold text-card-dark">
               {stats.overBudgetCount + stats.nearLimitCount}
             </p>
-          </div>
+          </Card>
         </div>
       )}
 
       {/* Budget Alerts */}
       {budgetAlerts && (budgetAlerts.overBudget.length > 0 || budgetAlerts.nearLimit.length > 0) && (
         <div className="mb-8">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Budget Alerts</h2>
+          <h2 className="text-xl font-semibold text-card-dark mb-4">Budget Alerts</h2>
           <div className="space-y-3">
             {budgetAlerts.overBudget.map((budget: BudgetSummary) => (
-              <div key={budget.id} className="p-4 bg-red-50 border border-red-200 rounded-lg">
+              <div key={budget.id} className="p-4 bg-red-50 border border-red-200 rounded-2xl">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
                     <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
@@ -169,9 +171,9 @@ const BudgetsPage: React.FC<BudgetsPageProps> = ({ userId }) => {
                 </div>
               </div>
             ))}
-            
+
             {budgetAlerts.nearLimit.map((budget: BudgetSummary) => (
-              <div key={budget.id} className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <div key={budget.id} className="p-4 bg-light-yellow border border-yellow-200 rounded-2xl">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
                     <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
@@ -196,7 +198,7 @@ const BudgetsPage: React.FC<BudgetsPageProps> = ({ userId }) => {
       {/* Budget List */}
       {budgetSummaries.length > 0 ? (
         <div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Your Budgets</h2>
+          <h2 className="text-xl font-semibold text-card-dark mb-4">Your Budgets</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {budgetSummaries.map((budget) => (
               <BudgetCard
@@ -215,42 +217,48 @@ const BudgetsPage: React.FC<BudgetsPageProps> = ({ userId }) => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
             </svg>
           </div>
-          <h3 className="mt-2 text-sm font-medium text-gray-900">No budgets</h3>
+          <h3 className="mt-2 text-sm font-medium text-card-dark">No budgets</h3>
           <p className="mt-1 text-sm text-gray-500">Get started by creating your first budget.</p>
           <div className="mt-6">
-            <button
+            <Button
               onClick={() => setShowCreateModal(true)}
-              className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+              variant="primary"
+              size="md"
             >
               Create Budget
-            </button>
+            </Button>
           </div>
         </div>
       )}
 
       {/* Delete Confirmation */}
       {deleteConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg p-6 max-w-sm w-full">
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Delete Budget</h3>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 fade-in">
+          <Card variant="white" rounded="3xl" padding="lg" className="max-w-sm w-full slide-up">
+            <h3 className="text-lg font-medium text-card-dark mb-2">Delete Budget</h3>
             <p className="text-sm text-gray-500 mb-4">
               Are you sure you want to delete this budget? This action cannot be undone.
             </p>
             <div className="flex space-x-3">
-              <button
+              <Button
                 onClick={() => setDeleteConfirm(null)}
-                className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+                variant="secondary"
+                size="md"
+                fullWidth
               >
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={() => handleDeleteBudget(deleteConfirm)}
-                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+                variant="primary"
+                size="md"
+                fullWidth
+                className="bg-red-expense hover:opacity-90"
               >
                 Delete
-              </button>
+              </Button>
             </div>
-          </div>
+          </Card>
         </div>
       )}
 

@@ -246,6 +246,137 @@ HTTP API → Controller → Use Case → Repository → Database
 
 ---
 
+## Design System (WebApp Frontend)
+
+The webapp uses a **custom design system** built with Tailwind CSS and React TypeScript components, implementing a modern, mobile-first finance tracker interface.
+
+### Design System Structure
+
+**Location:** `webapp/src/design-system/`
+
+```
+webapp/src/design-system/
+├── tokens.ts                    # Design tokens (colors, spacing, typography)
+├── components/
+│   ├── Button/                  # Button component with variants
+│   ├── Card/                    # Card container component
+│   ├── Avatar/                  # User avatar component
+│   ├── Badge/                   # Status badge component
+│   ├── Modal/                   # Modal dialog component
+│   └── index.ts                 # Barrel export
+```
+
+### Design Tokens
+
+**File:** `webapp/src/design-system/tokens.ts`
+
+Centralized design constants:
+- **Colors:** App background, card dark, lime, lavender, income/expense colors
+- **Spacing:** Consistent padding/margin values
+- **Typography:** Font families, sizes, weights
+- **Shadows:** Card shadows, modal shadows
+- **Border Radius:** Rounded corners (2xl, 3xl, 4xl, etc.)
+
+### Color Palette
+
+```typescript
+'app-bg': '#F5F5F7',        // Light gray background
+'card-dark': '#1C1C1E',     // Dark cards/navigation
+'lime': '#D4F14D',          // Primary accent (Transfer button)
+'lavender': '#D4CFED',      // Secondary accent (Request button)
+'green-income': '#00D68F',  // Income amounts
+'red-expense': '#FF6B6B',   // Expense amounts
+```
+
+### UI Components
+
+**Import pattern:**
+```typescript
+import { Button, Card, Avatar, Badge, Modal } from './design-system/components';
+```
+
+**Button variants:**
+- `primary` - Dark background (default actions)
+- `secondary` - Light gray background
+- `outline` - Bordered button
+- `ghost` - Transparent background
+- `lime` - Lime accent (transfers)
+- `lavender` - Lavender accent (requests)
+
+**Card variants:**
+- `white` - White background (default)
+- `dark` - Dark background (balance card)
+- `gradient` - Lime to lavender gradient
+
+**Example usage:**
+```typescript
+<Button variant="lime" size="lg" leftIcon="💸">
+  Transfer
+</Button>
+
+<Card variant="dark" rounded="4xl" padding="lg">
+  <h2>Balance Card</h2>
+</Card>
+```
+
+### Key Features
+
+1. **Dynamic Font Sizing** - BalanceCard automatically scales text based on amount magnitude
+2. **Responsive Design** - Mobile-first with breakpoints (md: 768px, lg: 1024px)
+3. **Hybrid Navigation** - BottomNav (mobile) + TopNav (desktop)
+4. **Consistent Animations** - Fade-in, slide-up, bubble-in, ripple effects
+5. **TypeScript Typed** - Full type safety for all components
+
+### Custom Components
+
+**Location:** `webapp/src/components/`
+
+- **BalanceCard** - Dark card showing balance with dynamic font sizing
+- **TransactionItem** - Transaction list item with category icon
+- **BudgetCard** - Budget progress card with alerts
+- **Navigation** - Top navigation (desktop only)
+- **BottomNav** - Bottom navigation (mobile only)
+
+### Responsive Breakpoints
+
+```css
+/* Mobile-first approach */
+default: mobile (< 768px)
+md: tablet (≥ 768px)
+lg: desktop (≥ 1024px)
+```
+
+### Animation Classes
+
+Available in `webapp/src/index.css`:
+- `.fade-in` - Fade in with slight upward movement
+- `.slide-up` - Slide up from bottom
+- `.bubble-in` - Scale up bubble effect
+- `.animate-ripple` - Ripple effect for active nav items
+
+### Adding New Components
+
+1. Create folder in `webapp/src/design-system/components/ComponentName/`
+2. Create `ComponentName.tsx` with component implementation
+3. Create `ComponentName.types.ts` for TypeScript interfaces (optional)
+4. Create `index.ts` with barrel export
+5. Add export to `webapp/src/design-system/components/index.ts`
+6. Use design tokens from `tokens.ts` for consistency
+
+### Styling Guidelines
+
+- Use Tailwind utility classes (configured in `tailwind.config.js`)
+- Reference design tokens for colors, spacing, shadows
+- Maintain 4xl/5xl border radius for cards (modern, rounded aesthetic)
+- Use `overflow-hidden` to prevent text overflow
+- Apply `break-all` for long numbers/text that needs wrapping
+- Include hover states for interactive elements
+- Add active states with `active:scale-95` for touch feedback
+
+For detailed component documentation, see: [Design System Guide](docs/knowledge-base/08-development/design-system.md)
+
+---
+
 ## Common Development Tasks
 
 ### Adding a New Use Case

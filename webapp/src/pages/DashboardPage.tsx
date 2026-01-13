@@ -3,6 +3,7 @@ import { useDashboard } from '../hooks/useDashboard';
 import { Alert, AlertSeverity } from '../types';
 import { OpenAIUsageWidget } from '../components/OpenAIUsageWidget';
 import { formatMoneyCompact, formatMoneyDetailed, formatPercentage } from '../utils/formatMoney';
+import { Card, Button, Badge } from '../design-system/components';
 
 interface DashboardPageProps {
   userId: string | null;
@@ -11,7 +12,7 @@ interface DashboardPageProps {
 // Simple chart component for spending patterns
 const SpendingPatternChart: React.FC<{ patterns: any[] }> = ({ patterns }) => {
   const maxAmount = Math.max(...patterns.map(p => p.averageAmount));
-  
+
   return (
     <div className="space-y-2">
       {patterns.map(pattern => (
@@ -19,13 +20,13 @@ const SpendingPatternChart: React.FC<{ patterns: any[] }> = ({ patterns }) => {
           <div className="w-20 text-sm text-gray-600">{pattern.dayOfWeek.slice(0, 3)}</div>
           <div className="flex-1 bg-gray-200 rounded-full h-4 mr-2">
             <div
-              className="bg-blue-500 h-4 rounded-full transition-all duration-300"
-              style={{ 
-                width: maxAmount > 0 ? `${(pattern.averageAmount / maxAmount) * 100}%` : '0%' 
+              className="bg-card-dark h-4 rounded-full transition-all duration-300"
+              style={{
+                width: maxAmount > 0 ? `${(pattern.averageAmount / maxAmount) * 100}%` : '0%'
               }}
             ></div>
           </div>
-          <div className="w-20 text-sm text-gray-900 text-right">
+          <div className="w-20 text-sm text-card-dark text-right">
             {formatMoneyCompact(pattern.averageAmount)}
           </div>
         </div>
@@ -127,7 +128,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ userId }) => {
   if (loading && !insights) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-card-dark"></div>
       </div>
     );
   }
@@ -147,54 +148,55 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ userId }) => {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Financial Dashboard</h1>
+          <h1 className="text-3xl font-bold text-card-dark">Financial Dashboard</h1>
           <p className="text-gray-600 mt-1">Overview of your financial health and spending patterns</p>
         </div>
-        <button
+        <Button
           onClick={refreshDashboard}
           disabled={loading}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+          variant="primary"
+          size="md"
         >
           {loading ? 'Refreshing...' : 'Refresh'}
-        </button>
+        </Button>
       </div>
 
       {/* Key Metrics */}
       {insights && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div className="bg-white p-6 rounded-lg shadow-md">
+          <Card variant="white" rounded="3xl" padding="md" hover>
             <h3 className="text-sm font-medium text-gray-500">Net Income</h3>
             <p className={`text-2xl font-bold ${
-              insights.financialSummary.netIncome >= 0 ? 'text-green-600' : 'text-red-600'
+              insights.financialSummary.netIncome >= 0 ? 'text-green-income' : 'text-red-expense'
             }`}>
               {formatMoneyDetailed(Math.abs(insights.financialSummary.netIncome))}
               {insights.financialSummary.netIncome < 0 && ' deficit'}
             </p>
-          </div>
-          <div className="bg-white p-6 rounded-lg shadow-md">
+          </Card>
+          <Card variant="white" rounded="3xl" padding="md" hover>
             <h3 className="text-sm font-medium text-gray-500">Total Expenses</h3>
-            <p className="text-2xl font-bold text-gray-900">
+            <p className="text-2xl font-bold text-card-dark">
               {formatMoneyDetailed(insights.financialSummary.totalExpense)}
             </p>
-          </div>
-          <div className="bg-white p-6 rounded-lg shadow-md">
+          </Card>
+          <Card variant="white" rounded="3xl" padding="md" hover>
             <h3 className="text-sm font-medium text-gray-500">Budget Utilization</h3>
             <p className={`text-2xl font-bold ${
-              insights.insights.budgetUtilization > 100 ? 'text-red-600' : 
-              insights.insights.budgetUtilization > 80 ? 'text-yellow-600' : 'text-green-600'
+              insights.insights.budgetUtilization > 100 ? 'text-red-expense' :
+              insights.insights.budgetUtilization > 80 ? 'text-light-yellow' : 'text-green-income'
             }`}>
               {formatPercentage(insights.insights.budgetUtilization)}
             </p>
-          </div>
-          <div className="bg-white p-6 rounded-lg shadow-md">
+          </Card>
+          <Card variant="white" rounded="3xl" padding="md" hover>
             <h3 className="text-sm font-medium text-gray-500">Savings Rate</h3>
             <p className={`text-2xl font-bold ${
-              insights.insights.savingsRate >= 20 ? 'text-green-600' : 
-              insights.insights.savingsRate >= 10 ? 'text-yellow-600' : 'text-red-600'
+              insights.insights.savingsRate >= 20 ? 'text-green-income' :
+              insights.insights.savingsRate >= 10 ? 'text-light-yellow' : 'text-red-expense'
             }`}>
               {formatPercentage(insights.insights.savingsRate)}
             </p>
-          </div>
+          </Card>
         </div>
       )}
 
@@ -203,12 +205,12 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ userId }) => {
 
       {/* Financial Health Score */}
       {healthScore && (
-        <div className="bg-white rounded-lg shadow-md p-6">
+        <Card variant="white" rounded="3xl" padding="lg">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold text-gray-900">Financial Health Score</h2>
+            <h2 className="text-xl font-semibold text-card-dark">Financial Health Score</h2>
             <div className={`text-3xl font-bold ${
-              healthScore.score >= 80 ? 'text-green-600' : 
-              healthScore.score >= 60 ? 'text-yellow-600' : 'text-red-600'
+              healthScore.score >= 80 ? 'text-green-income' :
+              healthScore.score >= 60 ? 'text-light-yellow' : 'text-red-expense'
             }`}>
               {healthScore.score}/100
             </div>
@@ -234,9 +236,9 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ userId }) => {
           </div>
 
           {healthScore.recommendations.length > 0 && (
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <p className="text-sm font-medium text-blue-800 mb-2">Recommendations:</p>
-              <ul className="text-sm text-blue-700 space-y-1">
+            <div className="bg-light-blue p-4 rounded-2xl">
+              <p className="text-sm font-medium text-card-dark mb-2">Recommendations:</p>
+              <ul className="text-sm text-gray-700 space-y-1">
                 {healthScore.recommendations.slice(0, 3).map((recommendation, index) => (
                   <li key={index} className="flex items-start">
                     <span className="mr-2">•</span>
@@ -246,30 +248,30 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ userId }) => {
               </ul>
             </div>
           )}
-        </div>
+        </Card>
       )}
 
       {/* Alerts Section */}
       {alerts && alerts.length > 0 && (
-        <div className="bg-white rounded-lg shadow-md p-6">
+        <Card variant="white" rounded="3xl" padding="lg">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold text-gray-900">Active Alerts</h2>
+            <h2 className="text-xl font-semibold text-card-dark">Active Alerts</h2>
             {alertSummary && (
               <div className="flex space-x-2">
                 {alertSummary.critical > 0 && (
-                  <span className="px-2 py-1 bg-red-100 text-red-800 rounded-full text-xs font-medium">
+                  <Badge variant="error">
                     {alertSummary.critical} Critical
-                  </span>
+                  </Badge>
                 )}
                 {alertSummary.high > 0 && (
-                  <span className="px-2 py-1 bg-orange-100 text-orange-800 rounded-full text-xs font-medium">
+                  <Badge variant="warning">
                     {alertSummary.high} High
-                  </span>
+                  </Badge>
                 )}
                 {alertSummary.medium > 0 && (
-                  <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-medium">
+                  <Badge variant="warning">
                     {alertSummary.medium} Medium
-                  </span>
+                  </Badge>
                 )}
               </div>
             )}
@@ -280,15 +282,15 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ userId }) => {
               <AlertCard key={alert.id} alert={alert} />
             ))}
           </div>
-        </div>
+        </Card>
       )}
 
       {/* Charts and Analytics */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Monthly Trends */}
         {insights && insights.monthlyTrends.length > 0 && (
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Monthly Trends</h2>
+          <Card variant="white" rounded="3xl" padding="lg">
+            <h2 className="text-xl font-semibold text-card-dark mb-4">Monthly Trends</h2>
             <div className="space-y-3">
               {insights.monthlyTrends.slice(-6).map((trend, index) => {
                 const maxAmount = Math.max(
@@ -306,7 +308,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ userId }) => {
                         <div className="w-16 text-xs text-gray-600">Income</div>
                         <div className="flex-1 bg-gray-200 rounded-full h-2 mr-2">
                           <div
-                            className="bg-green-500 h-2 rounded-full"
+                            className="bg-green-income h-2 rounded-full"
                             style={{ width: `${(trend.income / maxAmount) * 100}%` }}
                           ></div>
                         </div>
@@ -316,7 +318,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ userId }) => {
                         <div className="w-16 text-xs text-gray-600">Expenses</div>
                         <div className="flex-1 bg-gray-200 rounded-full h-2 mr-2">
                           <div
-                            className="bg-red-500 h-2 rounded-full"
+                            className="bg-red-expense h-2 rounded-full"
                             style={{ width: `${(trend.expenses / maxAmount) * 100}%` }}
                           ></div>
                         </div>
@@ -327,24 +329,24 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ userId }) => {
                 );
               })}
             </div>
-          </div>
+          </Card>
         )}
 
         {/* Spending Patterns */}
         {insights && insights.spendingPatterns.length > 0 && (
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Weekly Spending Pattern</h2>
+          <Card variant="white" rounded="3xl" padding="lg">
+            <h2 className="text-xl font-semibold text-card-dark mb-4">Weekly Spending Pattern</h2>
             <SpendingPatternChart patterns={insights.spendingPatterns} />
             <div className="mt-4 text-sm text-gray-600">
-              <p>Peak spending day: <span className="font-medium text-gray-900">{insights.insights.topSpendingDay}</span></p>
+              <p>Peak spending day: <span className="font-medium text-card-dark">{insights.insights.topSpendingDay}</span></p>
             </div>
-          </div>
+          </Card>
         )}
 
         {/* Top Categories */}
         {insights && insights.topCategories.length > 0 && (
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Top Spending Categories</h2>
+          <Card variant="white" rounded="3xl" padding="lg">
+            <h2 className="text-xl font-semibold text-card-dark mb-4">Top Spending Categories</h2>
             <div className="space-y-3">
               {insights.topCategories.map((category, index) => (
                 <div key={index} className="flex items-center justify-between">
@@ -361,13 +363,13 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ userId }) => {
                 </div>
               ))}
             </div>
-          </div>
+          </Card>
         )}
 
         {/* Budget Overview */}
         {insights && (
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Budget Overview</h2>
+          <Card variant="white" rounded="3xl" padding="lg">
+            <h2 className="text-xl font-semibold text-card-dark mb-4">Budget Overview</h2>
             <div className="space-y-4">
               <div className="flex justify-between items-center">
                 <span className="text-gray-600">Active Budgets</span>
@@ -384,67 +386,67 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ userId }) => {
               <div className="flex justify-between items-center">
                 <span className="text-gray-600">Over Budget</span>
                 <span className={`font-semibold ${
-                  insights.budgetOverview.overBudgetCount > 0 ? 'text-red-600' : 'text-green-600'
+                  insights.budgetOverview.overBudgetCount > 0 ? 'text-red-expense' : 'text-green-income'
                 }`}>
                   {insights.budgetOverview.overBudgetCount} budgets
                 </span>
               </div>
-              
+
               {insights.budgetAlerts.recommendations.length > 0 && (
-                <div className="mt-4 p-3 bg-yellow-50 rounded-lg">
-                  <p className="text-sm font-medium text-yellow-800 mb-1">Budget Tips:</p>
-                  <p className="text-sm text-yellow-700">
+                <div className="mt-4 p-3 bg-light-yellow rounded-2xl">
+                  <p className="text-sm font-medium text-card-dark mb-1">Budget Tips:</p>
+                  <p className="text-sm text-gray-700">
                     {insights.budgetAlerts.recommendations[0]}
                   </p>
                 </div>
               )}
             </div>
-          </div>
+          </Card>
         )}
       </div>
 
       {/* Quick Actions */}
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">Quick Actions</h2>
+      <Card variant="white" rounded="3xl" padding="lg">
+        <h2 className="text-xl font-semibold text-card-dark mb-4">Quick Actions</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <a 
+          <a
             href={`/webapp/budgets?userId=${userId}`}
-            className="block p-4 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+            className="block p-4 bg-light-blue rounded-2xl hover:opacity-90 transition-opacity"
           >
             <div className="flex items-center space-x-3">
               <div className="text-2xl">🎯</div>
               <div>
-                <p className="font-medium text-blue-900">Manage Budgets</p>
-                <p className="text-sm text-blue-700">Create and edit your budgets</p>
+                <p className="font-medium text-card-dark">Manage Budgets</p>
+                <p className="text-sm text-gray-600">Create and edit your budgets</p>
               </div>
             </div>
           </a>
-          <a 
+          <a
             href={`/webapp/transactions?userId=${userId}`}
-            className="block p-4 bg-green-50 rounded-lg hover:bg-green-100 transition-colors"
+            className="block p-4 bg-lime rounded-2xl hover:opacity-90 transition-opacity"
           >
             <div className="flex items-center space-x-3">
               <div className="text-2xl">💳</div>
               <div>
-                <p className="font-medium text-green-900">View Transactions</p>
-                <p className="text-sm text-green-700">Check recent transactions</p>
+                <p className="font-medium text-card-dark">View Transactions</p>
+                <p className="text-sm text-gray-700">Check recent transactions</p>
               </div>
             </div>
           </a>
-          <a 
+          <a
             href={`/webapp/stats?userId=${userId}`}
-            className="block p-4 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors"
+            className="block p-4 bg-lavender rounded-2xl hover:opacity-90 transition-opacity"
           >
             <div className="flex items-center space-x-3">
               <div className="text-2xl">📊</div>
               <div>
-                <p className="font-medium text-purple-900">Analytics</p>
-                <p className="text-sm text-purple-700">Detailed spending analysis</p>
+                <p className="font-medium text-card-dark">Analytics</p>
+                <p className="text-sm text-gray-700">Detailed spending analysis</p>
               </div>
             </div>
           </a>
         </div>
-      </div>
+      </Card>
     </div>
   );
 };

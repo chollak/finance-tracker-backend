@@ -1,6 +1,7 @@
 import React from 'react';
 import { useOpenAIUsageContext } from '../contexts/OpenAIUsageContext';
 import { formatMoneyDetailed, formatPercentage } from '../utils/formatMoney';
+import { Card, Button, Badge } from '../design-system/components';
 
 interface OpenAIUsageWidgetProps {
   compact?: boolean;
@@ -16,39 +17,41 @@ export const OpenAIUsageWidget: React.FC<OpenAIUsageWidgetProps> = ({
   // Show loading state until we have at least the usage data
   if (loading && !usage) {
     return (
-      <div className={`bg-white rounded-lg shadow-md p-4 ${className}`}>
+      <Card variant="white" rounded="3xl" padding="md" className={className}>
         <div className="animate-pulse">
           <div className="h-4 bg-gray-200 rounded w-1/2 mb-2"></div>
           <div className="h-8 bg-gray-200 rounded w-3/4"></div>
         </div>
-      </div>
+      </Card>
     );
   }
 
   if (error) {
     return (
-      <div className={`bg-white rounded-lg shadow-md p-4 ${className}`}>
-        <div className="text-red-600">
+      <Card variant="white" rounded="3xl" padding="md" className={className}>
+        <div className="text-red-expense">
           <h3 className="font-semibold mb-2">⚠️ OpenAI Usage Error</h3>
           <p className="text-sm">{error}</p>
-          <button 
+          <Button
             onClick={refresh}
-            className="mt-2 px-3 py-1 bg-red-100 hover:bg-red-200 rounded text-sm"
+            variant="secondary"
+            size="sm"
+            className="mt-2"
           >
             Retry
-          </button>
+          </Button>
         </div>
-      </div>
+      </Card>
     );
   }
 
   if (!usage) {
     return (
-      <div className={`bg-white rounded-lg shadow-md p-4 ${className}`}>
+      <Card variant="white" rounded="3xl" padding="md" className={className}>
         <div className="text-gray-500">
           <p>OpenAI usage data not available</p>
         </div>
-      </div>
+      </Card>
     );
   }
 
@@ -56,10 +59,10 @@ export const OpenAIUsageWidget: React.FC<OpenAIUsageWidgetProps> = ({
   const remainingBudget = usage.limits.hardLimit - usage.currentUsage.totalCost;
 
   const getProgressColor = (percentage: number) => {
-    if (percentage >= 90) return 'bg-red-500';
-    if (percentage >= 75) return 'bg-yellow-500';
-    if (percentage >= 50) return 'bg-blue-500';
-    return 'bg-green-500';
+    if (percentage >= 90) return 'bg-red-expense';
+    if (percentage >= 75) return 'bg-light-yellow';
+    if (percentage >= 50) return 'bg-light-blue';
+    return 'bg-green-income';
   };
 
   const getAlertColor = (level: string) => {
@@ -73,13 +76,13 @@ export const OpenAIUsageWidget: React.FC<OpenAIUsageWidgetProps> = ({
 
   if (compact) {
     return (
-      <div className={`bg-white rounded-lg shadow-md p-3 ${className}`}>
+      <Card variant="white" rounded="3xl" padding="sm" className={className}>
         <div className="flex items-center justify-between mb-2">
-          <h3 className="text-sm font-semibold">🤖 OpenAI Credits</h3>
-          <button 
+          <h3 className="text-sm font-semibold text-card-dark">🤖 OpenAI Credits</h3>
+          <button
             onClick={refresh}
             disabled={loading}
-            className="text-xs text-blue-600 hover:text-blue-800 disabled:opacity-50"
+            className="text-xs text-card-dark hover:opacity-70 disabled:opacity-50 transition-opacity"
           >
             {loading ? '↻' : '🔄'}
           </button>
@@ -90,7 +93,7 @@ export const OpenAIUsageWidget: React.FC<OpenAIUsageWidgetProps> = ({
           {creditBalance && creditBalance.available !== undefined ? (
             <div>
               <div className="flex justify-between text-xs mb-1">
-                <span className="font-semibold text-green-600">
+                <span className="font-semibold text-green-income">
                   💰 {formatMoneyDetailed(creditBalance.available)} Available
                 </span>
                 <span className="text-gray-500">
@@ -98,8 +101,8 @@ export const OpenAIUsageWidget: React.FC<OpenAIUsageWidgetProps> = ({
                 </span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2">
-                <div 
-                  className={`h-2 rounded-full transition-all duration-300 ${creditBalance.available < 5 ? 'bg-red-500' : creditBalance.available < 10 ? 'bg-yellow-500' : 'bg-green-500'}`}
+                <div
+                  className={`h-2 rounded-full transition-all duration-300 ${creditBalance.available < 5 ? 'bg-red-expense' : creditBalance.available < 10 ? 'bg-light-yellow' : 'bg-green-income'}`}
                   style={{ width: `${Math.min(100, (creditBalance.available / creditBalance.total) * 100)}%` }}
                 ></div>
               </div>
@@ -131,38 +134,41 @@ export const OpenAIUsageWidget: React.FC<OpenAIUsageWidgetProps> = ({
           </div>
 
           {alerts.length > 0 && (
-            <div className={`text-xs p-2 rounded border ${getAlertColor(alerts[0].level)}`}>
+            <Badge
+              variant={alerts[0].level === 'danger' ? 'error' : alerts[0].level === 'warning' ? 'warning' : 'info'}
+              className="text-xs"
+            >
               {alerts[0].message}
-            </div>
+            </Badge>
           )}
         </div>
-      </div>
+      </Card>
     );
   }
 
   return (
-    <div className={`bg-white rounded-lg shadow-md p-6 ${className}`}>
+    <Card variant="white" rounded="3xl" padding="lg" className={className}>
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold">🤖 OpenAI API Usage</h3>
+        <h3 className="text-lg font-semibold text-card-dark">🤖 OpenAI API Usage</h3>
         <div className="flex items-center space-x-2">
           {lastUpdated && (
             <span className="text-xs text-gray-500">
               Updated {lastUpdated.toLocaleTimeString()}
             </span>
           )}
-          <button 
+          <Button
             onClick={refresh}
             disabled={loading}
-            className="px-3 py-1 bg-blue-100 hover:bg-blue-200 rounded text-sm disabled:opacity-50"
+            variant="secondary"
+            size="sm"
           >
             {loading ? 'Refreshing...' : 'Refresh'}
-          </button>
+          </Button>
         </div>
       </div>
 
       {/* Credit Balance - Most Important */}
-      {/* Credit Balance - Most Important */}
-      <div className="bg-gradient-to-r from-green-50 to-blue-50 p-6 rounded-lg mb-6 border border-green-200">
+      <div className="bg-gradient-to-r from-green-50 to-blue-50 p-6 rounded-3xl mb-6 border border-green-200">
         <div className="flex items-center justify-between mb-4">
           <h4 className="text-lg font-semibold text-green-800">💰 Credit Balance</h4>
           <div className="text-sm text-gray-600">
@@ -178,13 +184,13 @@ export const OpenAIUsageWidget: React.FC<OpenAIUsageWidgetProps> = ({
           <>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="text-center">
-                <div className="text-3xl font-bold text-green-600">
+                <div className="text-3xl font-bold text-green-income">
                   {formatMoneyDetailed(creditBalance.available)}
                 </div>
                 <div className="text-sm text-gray-600">Available Credits</div>
               </div>
               <div className="text-center">
-                <div className="text-3xl font-bold text-blue-600">
+                <div className="text-3xl font-bold text-card-dark">
                   {formatPercentage((creditBalance.available / creditBalance.total) * 100)}
                 </div>
                 <div className="text-sm text-gray-600">Remaining</div>
@@ -197,11 +203,11 @@ export const OpenAIUsageWidget: React.FC<OpenAIUsageWidgetProps> = ({
               </div>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-3 mt-4">
-              <div 
+              <div
                 className={`h-3 rounded-full transition-all duration-300 ${
-                  creditBalance.available < 5 ? 'bg-red-500' : 
-                  creditBalance.available < 10 ? 'bg-yellow-500' : 
-                  'bg-green-500'
+                  creditBalance.available < 5 ? 'bg-red-expense' :
+                  creditBalance.available < 10 ? 'bg-light-yellow' :
+                  'bg-green-income'
                 }`}
                 style={{ width: `${Math.min(100, (creditBalance.available / creditBalance.total) * 100)}%` }}
               ></div>
@@ -230,22 +236,22 @@ export const OpenAIUsageWidget: React.FC<OpenAIUsageWidgetProps> = ({
 
       {/* Usage Statistics */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div className="bg-gray-50 p-4 rounded">
-          <div className="text-2xl font-bold text-blue-600">
+        <div className="bg-gray-50 p-4 rounded-2xl">
+          <div className="text-2xl font-bold text-card-dark">
             {formatMoneyDetailed(usage.currentUsage.totalCost)}
           </div>
           <div className="text-sm text-gray-600">Total Cost</div>
         </div>
-        
-        <div className="bg-gray-50 p-4 rounded">
-          <div className="text-2xl font-bold text-green-600">
+
+        <div className="bg-gray-50 p-4 rounded-2xl">
+          <div className="text-2xl font-bold text-green-income">
             {usage.currentUsage.totalTokens.toLocaleString()}
           </div>
           <div className="text-sm text-gray-600">Total Tokens</div>
         </div>
-        
-        <div className="bg-gray-50 p-4 rounded">
-          <div className="text-2xl font-bold text-purple-600">
+
+        <div className="bg-gray-50 p-4 rounded-2xl">
+          <div className="text-2xl font-bold text-lavender">
             {usage.currentUsage.totalRequests.toLocaleString()}
           </div>
           <div className="text-sm text-gray-600">Total Requests</div>
@@ -293,6 +299,6 @@ export const OpenAIUsageWidget: React.FC<OpenAIUsageWidgetProps> = ({
           <div>Soft Limit: ${usage.limits.softLimit}</div>
         </div>
       </div>
-    </div>
+    </Card>
   );
 };

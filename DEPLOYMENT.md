@@ -177,6 +177,67 @@ pm2 logs finance-tracker
 3. **Telegram Bot**: Should work with new budget creation
 4. **Web App**: Should display transactions correctly
 
+## 🤖 Automated Deployment (GitHub Actions)
+
+The project includes automated deployment via GitHub Actions (`.github/workflows/deploy.yml`).
+
+### Prerequisites
+
+**GitHub Secrets Required:**
+- `SSH_HOST` - Server IP address (⚠️ use Elastic IP to avoid changes)
+- `SSH_USER` - Server username (e.g., `ubuntu`)
+- `SSH_KEY` - Private SSH key for server authentication
+
+### How It Works
+
+1. **Trigger**: Push to `main` branch
+2. **Steps**:
+   - Run tests
+   - Build webapp
+   - SSH to server
+   - Pull latest code
+   - Build Docker containers
+   - Restart services
+
+### Common Issues
+
+#### SSH Authentication Failed
+
+**Error:**
+```
+ssh: handshake failed: ssh: unable to authenticate
+```
+
+**Cause**: IP address changed (AWS EC2 restart without Elastic IP)
+
+**Fix:**
+1. Get new server IP:
+   ```bash
+   curl -s http://checkip.amazonaws.com
+   ```
+
+2. Update GitHub Secret:
+   - Go to: https://github.com/chollak/finance-tracker-backend/settings/secrets/actions
+   - Edit `SSH_HOST`
+   - Enter new IP address
+   - Save
+
+3. Configure Elastic IP (Recommended):
+   - AWS Console → EC2 → Elastic IPs
+   - Allocate new Elastic IP
+   - Associate with your EC2 instance
+   - Update `SSH_HOST` with Elastic IP
+   - **Benefit**: IP won't change on restart
+
+**See also**: [Troubleshooting - SSH Authentication Failed](docs/knowledge-base/08-development/troubleshooting.md#ssh-authentication-failed-github-actions)
+
+#### Manual Deployment Trigger
+
+To manually trigger deployment:
+1. Go to: https://github.com/chollak/finance-tracker-backend/actions
+2. Select "Deploy to Server" workflow
+3. Click "Run workflow" → Run on `main`
+
 ## 🔄 Future Updates
 
 With database in gitignore, future deployments will be:

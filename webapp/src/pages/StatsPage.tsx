@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { formatAmount } from '../utils';
 import { useTransactions } from '../hooks/useTransactions';
 import { Transaction } from '../types';
+import { Card, Button } from '../design-system/components';
 
 interface StatsPageProps {
   userId: string | null;
@@ -67,71 +68,77 @@ export default function StatsPage({ userId }: StatsPageProps) {
     return { monthLabel, monthSum, income, expenses };
   }, [transactions, months, currentMonthIndex]);
 
-  if (loading) return <div>Loading...</div>;
-  if (error) return <div className="text-red-600">Error: {error}</div>;
-  if (!userId) return <p>Please access this app through Telegram to see your statistics.</p>;
+  if (loading) return (
+    <div className="flex items-center justify-center h-64">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-card-dark"></div>
+    </div>
+  );
+  if (error) return <div className="text-red-expense">Error: {error}</div>;
+  if (!userId) return <p className="text-gray-600">Please access this app through Telegram to see your statistics.</p>;
 
   const prevMonth = () => setMonthIndex(i => (i > 0 ? i - 1 : i));
   const nextMonth = () => setMonthIndex(i => (i < months.length - 1 ? i + 1 : i));
 
   return (
-    <div>
-      <h2 className="text-lg font-semibold mb-4">Statistics</h2>
-      
+    <div className="max-w-4xl mx-auto px-4 py-8">
+      <h2 className="text-2xl font-bold mb-6 text-card-dark">Statistics</h2>
+
       {/* Total Balance */}
-      <div className="border rounded-lg p-4 mb-6 bg-gray-50">
+      <Card variant="white" rounded="3xl" padding="lg" className="mb-6" hover>
         <div className="text-sm text-gray-500 mb-1">Total Balance</div>
-        <div className={`text-2xl font-bold ${
-          totalBalance >= 0 ? 'text-green-600' : 'text-red-600'
+        <div className={`text-3xl font-bold ${
+          totalBalance >= 0 ? 'text-green-income' : 'text-red-expense'
         }`}>
           {formatAmount(totalBalance)}
         </div>
-      </div>
+      </Card>
 
       {/* Monthly Stats */}
       {months.length > 0 && (
-        <div className="border rounded-lg p-4">
+        <Card variant="white" rounded="3xl" padding="lg">
           <div className="flex items-center justify-between mb-4">
-            <button 
-              className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50"
+            <Button
               onClick={prevMonth}
               disabled={currentMonthIndex === 0}
+              variant="secondary"
+              size="sm"
             >
               &lt;
-            </button>
-            <span className="font-semibold">{monthStats.monthLabel}</span>
-            <button 
-              className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50"
+            </Button>
+            <span className="font-semibold text-card-dark">{monthStats.monthLabel}</span>
+            <Button
               onClick={nextMonth}
               disabled={currentMonthIndex === months.length - 1}
+              variant="secondary"
+              size="sm"
             >
               &gt;
-            </button>
+            </Button>
           </div>
 
           <div className="grid grid-cols-3 gap-4 mb-4">
             <div className="text-center">
               <div className="text-sm text-gray-500">Income</div>
-              <div className="font-semibold text-green-600">
+              <div className="font-semibold text-green-income text-lg">
                 +{formatAmount(monthStats.income)}
               </div>
             </div>
             <div className="text-center">
               <div className="text-sm text-gray-500">Expenses</div>
-              <div className="font-semibold text-red-600">
+              <div className="font-semibold text-red-expense text-lg">
                 -{formatAmount(monthStats.expenses)}
               </div>
             </div>
             <div className="text-center">
               <div className="text-sm text-gray-500">Net</div>
-              <div className={`font-semibold ${
-                monthStats.monthSum >= 0 ? 'text-green-600' : 'text-red-600'
+              <div className={`font-semibold text-lg ${
+                monthStats.monthSum >= 0 ? 'text-green-income' : 'text-red-expense'
               }`}>
                 {formatAmount(monthStats.monthSum)}
               </div>
             </div>
           </div>
-        </div>
+        </Card>
       )}
 
       {months.length === 0 && (

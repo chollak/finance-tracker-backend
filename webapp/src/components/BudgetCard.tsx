@@ -1,6 +1,7 @@
 import React from 'react';
 import { BudgetSummary, BudgetPeriod } from '../types';
 import { formatMoneyDetailed, formatPercentage } from '../utils/formatMoney';
+import { Card, Badge } from '../design-system/components';
 
 interface BudgetCardProps {
   budget: BudgetSummary;
@@ -10,15 +11,15 @@ interface BudgetCardProps {
 
 const BudgetCard: React.FC<BudgetCardProps> = ({ budget, onEdit, onDelete }) => {
   const getProgressBarColor = () => {
-    if (budget.isOverBudget) return 'bg-red-500';
-    if (budget.percentageUsed >= 80) return 'bg-yellow-500';
-    return 'bg-green-500';
+    if (budget.isOverBudget) return 'bg-red-expense';
+    if (budget.percentageUsed >= 80) return 'bg-light-yellow';
+    return 'bg-green-income';
   };
 
   const getProgressTextColor = () => {
-    if (budget.isOverBudget) return 'text-red-600';
-    if (budget.percentageUsed >= 80) return 'text-yellow-600';
-    return 'text-green-600';
+    if (budget.isOverBudget) return 'text-red-expense';
+    if (budget.percentageUsed >= 80) return 'text-light-yellow';
+    return 'text-green-income';
   };
 
   const formatPeriod = (period: BudgetPeriod) => {
@@ -26,22 +27,22 @@ const BudgetCard: React.FC<BudgetCardProps> = ({ budget, onEdit, onDelete }) => 
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
+    <Card variant="white" rounded="3xl" padding="lg" hover>
       <div className="flex justify-between items-start mb-4">
         <div>
-          <h3 className="text-lg font-semibold text-gray-900">{budget.name}</h3>
+          <h3 className="text-lg font-semibold text-card-dark">{budget.name}</h3>
           <span className="text-sm text-gray-500">{formatPeriod(budget.period)}</span>
         </div>
         <div className="flex space-x-2">
           <button
             onClick={() => onEdit(budget)}
-            className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+            className="text-card-dark hover:opacity-70 text-sm font-medium transition-opacity"
           >
             Edit
           </button>
           <button
             onClick={() => onDelete(budget.id)}
-            className="text-red-600 hover:text-red-800 text-sm font-medium"
+            className="text-red-expense hover:opacity-70 text-sm font-medium transition-opacity"
           >
             Delete
           </button>
@@ -76,7 +77,7 @@ const BudgetCard: React.FC<BudgetCardProps> = ({ budget, onEdit, onDelete }) => 
       {/* Remaining amount */}
       <div className="flex justify-between items-center">
         <span className="text-sm text-gray-600">Remaining:</span>
-        <span className={`font-semibold ${budget.remaining >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+        <span className={`font-semibold ${budget.remaining >= 0 ? 'text-green-income' : 'text-red-expense'}`}>
           {formatMoneyDetailed(Math.abs(budget.remaining))}
           {budget.remaining < 0 && ' over budget'}
         </span>
@@ -85,22 +86,22 @@ const BudgetCard: React.FC<BudgetCardProps> = ({ budget, onEdit, onDelete }) => 
       {/* Alert badges */}
       <div className="mt-3 flex flex-wrap gap-2">
         {budget.isOverBudget && (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+          <Badge variant="error">
             Over Budget
-          </span>
+          </Badge>
         )}
         {!budget.isOverBudget && budget.percentageUsed >= 80 && (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+          <Badge variant="warning">
             Near Limit
-          </span>
+          </Badge>
         )}
         {budget.daysRemaining <= 7 && (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+          <Badge variant="info">
             Ending Soon
-          </span>
+          </Badge>
         )}
       </div>
-    </div>
+    </Card>
   );
 };
 
