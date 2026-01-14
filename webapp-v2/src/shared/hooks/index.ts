@@ -1,2 +1,19 @@
 // Shared hooks barrel export
-// Will be populated with useMediaQuery, useTelegram, useDebounce, etc.
+export {
+  useMediaQuery,
+  useIsMobile,
+  useIsTablet,
+  useIsDesktop,
+  useBreakpoint,
+} from './useMediaQuery';
+
+export {
+  useTelegram,
+  useTelegramMainButton,
+  useTelegramBackButton,
+} from './useTelegram';
+
+export {
+  useDebounce,
+  useDebouncedCallback,
+} from './useDebounce';
