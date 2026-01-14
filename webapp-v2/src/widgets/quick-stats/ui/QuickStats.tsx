@@ -13,7 +13,7 @@ export function QuickStats() {
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {[1, 2, 3].map((i) => (
           <Card key={i}>
             <CardContent className="pt-6">
@@ -30,13 +30,13 @@ export function QuickStats() {
   const savingsRate = stats?.savingsRate ?? 0;
 
   return (
-    <div className="grid grid-cols-3 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
       {/* Active Budgets */}
       <Card>
         <CardContent className="pt-6">
           <div className="text-center">
-            <p className="text-3xl font-bold">{activeBudgets}</p>
-            <p className="text-sm text-muted-foreground mt-1">Активных бюджетов</p>
+            <p className="text-2xl sm:text-3xl font-bold">{activeBudgets}</p>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1">Активных бюджетов</p>
           </div>
         </CardContent>
       </Card>
@@ -45,10 +45,10 @@ export function QuickStats() {
       <Card>
         <CardContent className="pt-6">
           <div className="text-center">
-            <p className={`text-3xl font-bold ${alertsCount > 0 ? 'text-red-600' : 'text-green-600'}`}>
+            <p className={`text-2xl sm:text-3xl font-bold ${alertsCount > 0 ? 'text-red-600' : 'text-green-600'}`}>
               {alertsCount}
             </p>
-            <p className="text-sm text-muted-foreground mt-1">Уведомлений</p>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1">Уведомлений</p>
           </div>
         </CardContent>
       </Card>
@@ -57,10 +57,10 @@ export function QuickStats() {
       <Card>
         <CardContent className="pt-6">
           <div className="text-center">
-            <p className={`text-3xl font-bold ${savingsRate > 0 ? 'text-green-600' : 'text-orange-600'}`}>
+            <p className={`text-2xl sm:text-3xl font-bold ${savingsRate > 0 ? 'text-green-600' : 'text-orange-600'}`}>
               {savingsRate}%
             </p>
-            <p className="text-sm text-muted-foreground mt-1">Накопления</p>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1">Накопления</p>
           </div>
         </CardContent>
       </Card>

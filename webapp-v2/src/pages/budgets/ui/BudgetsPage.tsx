@@ -28,12 +28,13 @@ export function BudgetsPage() {
           size="icon"
           onClick={() => navigate(ROUTES.HOME)}
           className="md:hidden"
+          aria-label="Вернуться на главную"
         >
-          <ArrowLeft className="h-5 w-5" />
+          <ArrowLeft className="h-5 w-5" aria-hidden="true" />
         </Button>
         <div className="flex-1">
           <h1 className="text-3xl font-bold">Бюджеты</h1>
-          <p className="text-muted-foreground mt-1">
+          <p className="text-muted-foreground mt-1" role="status" aria-live="polite">
             {budgetViewModels.length} {budgetViewModels.length === 1 ? 'бюджет' : 'бюджетов'}
           </p>
         </div>
@@ -79,8 +80,9 @@ export function BudgetsPage() {
         size="lg"
         className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg md:h-auto md:w-auto md:rounded-md md:px-6"
         onClick={() => navigate(ROUTES.ADD_BUDGET)}
+        aria-label="Создать бюджет"
       >
-        <Plus className="h-6 w-6 md:mr-2" />
+        <Plus className="h-6 w-6 md:mr-2" aria-hidden="true" />
         <span className="hidden md:inline">Создать бюджет</span>
       </Button>
     </div>

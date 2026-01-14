@@ -49,8 +49,9 @@ export function HomePage() {
         size="lg"
         className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg md:h-auto md:w-auto md:rounded-md md:px-6"
         onClick={() => navigate(ROUTES.ADD_TRANSACTION)}
+        aria-label="Добавить транзакцию"
       >
-        <Plus className="h-6 w-6 md:mr-2" />
+        <Plus className="h-6 w-6 md:mr-2" aria-hidden="true" />
         <span className="hidden md:inline">Добавить транзакцию</span>
       </Button>
     </div>

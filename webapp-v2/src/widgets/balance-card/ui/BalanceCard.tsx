@@ -53,16 +53,16 @@ export function BalanceCard() {
         <div className="flex justify-between items-center gap-4">
           {/* Monthly Income */}
           <div className="flex-1">
-            <p className="text-sm text-slate-400 mb-1">Доход (месяц)</p>
-            <p className="text-xl font-semibold text-green-400">
+            <p className="text-xs sm:text-sm text-slate-400 mb-1">Доход (месяц)</p>
+            <p className="text-lg sm:text-xl font-semibold text-green-400">
               {formatCurrency(monthlyIncome)}
             </p>
           </div>
 
           {/* Monthly Expense */}
           <div className="flex-1 text-right">
-            <p className="text-sm text-slate-400 mb-1">Расход (месяц)</p>
-            <p className="text-xl font-semibold text-red-400">
+            <p className="text-xs sm:text-sm text-slate-400 mb-1">Расход (месяц)</p>
+            <p className="text-lg sm:text-xl font-semibold text-red-400">
               {formatCurrency(monthlyExpense)}
             </p>
           </div>
