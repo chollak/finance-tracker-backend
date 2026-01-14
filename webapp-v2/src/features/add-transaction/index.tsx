@@ -6,11 +6,15 @@ import { ROUTES } from '@/shared/lib/constants';
 import type { AddTransactionFormData } from './model/schema';
 import { toast } from 'sonner';
 
+interface AddTransactionProps {
+  onSuccess?: () => void;
+}
+
 /**
  * AddTransaction feature
  * Handles transaction creation logic and navigation
  */
-export function AddTransaction() {
+export function AddTransaction({ onSuccess }: AddTransactionProps = {}) {
   const navigate = useNavigate();
   const userId = useUserStore((state) => state.userId);
   const userName = useUserStore((state) => state.userName);
@@ -30,7 +34,12 @@ export function AddTransaction() {
       });
 
       toast.success('Транзакция добавлена');
-      navigate(ROUTES.HOME);
+
+      if (onSuccess) {
+        onSuccess();
+      } else {
+        navigate(ROUTES.HOME);
+      }
     } catch (error) {
       toast.error('Не удалось добавить транзакцию');
       console.error('Failed to create transaction:', error);

@@ -1,2 +1,9 @@
 // Pages barrel export
-// Will be populated with HomePage, TransactionsPage, BudgetsPage, etc.
+export * from './home';
+export * from './transactions';
+export * from './add-transaction';
+export * from './edit-transaction';
+export * from './budgets';
+export * from './add-budget';
+export * from './edit-budget';
+export * from './analytics';

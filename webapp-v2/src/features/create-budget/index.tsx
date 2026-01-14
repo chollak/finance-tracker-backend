@@ -6,11 +6,15 @@ import { ROUTES } from '@/shared/lib/constants';
 import type { CreateBudgetFormData } from './model/schema';
 import { toast } from 'sonner';
 
+interface CreateBudgetProps {
+  onSuccess?: () => void;
+}
+
 /**
  * CreateBudget feature
  * Handles budget creation logic and navigation
  */
-export function CreateBudget() {
+export function CreateBudget({ onSuccess }: CreateBudgetProps = {}) {
   const navigate = useNavigate();
   const userId = useUserStore((state) => state.userId);
   const createBudget = useCreateBudget();
@@ -28,7 +32,12 @@ export function CreateBudget() {
       });
 
       toast.success('Бюджет создан');
-      navigate(ROUTES.BUDGETS);
+
+      if (onSuccess) {
+        onSuccess();
+      } else {
+        navigate(ROUTES.BUDGETS);
+      }
     } catch (error) {
       toast.error('Не удалось создать бюджет');
       console.error('Failed to create budget:', error);
