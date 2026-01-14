@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, useSearchParams } from 'react-r
 import AppNavigation from './components/AppNavigation';
 import { DevMode } from './components/DevMode';
 import { Toaster } from '@/components/ui/toaster';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import TransactionsPage from './pages/TransactionsPage';
 import StatsPage from './pages/StatsPage';
 import HomePage from './pages/HomePage';
@@ -42,13 +43,15 @@ function AppContent() {
       <div className="p-4">
         <AppNavigation userId={userId || undefined} />
 
-        <Routes>
-          <Route path="/" element={<HomePage userId={userId} />} />
-          <Route path="/dashboard" element={<DashboardPage userId={userId} />} />
-          <Route path="/transactions" element={<TransactionsPage userId={userId} />} />
-          <Route path="/budgets" element={<BudgetsPage userId={userId} />} />
-          <Route path="/stats" element={<StatsPage userId={userId} />} />
-        </Routes>
+        <ErrorBoundary level="page">
+          <Routes>
+            <Route path="/" element={<HomePage userId={userId} />} />
+            <Route path="/dashboard" element={<DashboardPage userId={userId} />} />
+            <Route path="/transactions" element={<TransactionsPage userId={userId} />} />
+            <Route path="/budgets" element={<BudgetsPage userId={userId} />} />
+            <Route path="/stats" element={<StatsPage userId={userId} />} />
+          </Routes>
+        </ErrorBoundary>
       </div>
 
       <DevMode />
@@ -59,10 +62,12 @@ function AppContent() {
 
 export default function App() {
   return (
-    <Router>
-      <OpenAIUsageProvider>
-        <AppContent />
-      </OpenAIUsageProvider>
-    </Router>
+    <ErrorBoundary level="app">
+      <Router>
+        <OpenAIUsageProvider>
+          <AppContent />
+        </OpenAIUsageProvider>
+      </Router>
+    </ErrorBoundary>
   );
 }

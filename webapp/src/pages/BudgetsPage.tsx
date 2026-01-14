@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useBudgets } from '../hooks/useBudgets';
-import { BudgetSummary } from '../types';
+import { Budget, BudgetSummary } from '../types';
 import BudgetCard from '../components/BudgetCard';
 import CreateBudgetModal from '../components/CreateBudgetModal';
+import EditBudgetModal from '../components/EditBudgetModal';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { formatMoneyDetailed, formatPercentage } from '../utils/formatMoney';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
@@ -28,6 +29,8 @@ const BudgetsPage: React.FC<BudgetsPageProps> = ({ userId }) => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [budgetAlerts, setBudgetAlerts] = useState<any>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [editingBudget, setEditingBudget] = useState<BudgetSummary | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
 
   // Load budget alerts on component mount
   useEffect(() => {
@@ -52,9 +55,20 @@ const BudgetsPage: React.FC<BudgetsPageProps> = ({ userId }) => {
   };
 
   const handleEditBudget = (budget: BudgetSummary) => {
-    // For now, we'll just log this - you can implement edit modal later
-    console.log('Edit budget:', budget);
-    // You could open an edit modal here similar to create modal
+    setEditingBudget(budget);
+    setShowEditModal(true);
+  };
+
+  const handleSaveEditBudget = async (budgetId: string, updates: Partial<Budget>) => {
+    const result = await updateBudget(budgetId, updates);
+    if (result) {
+      setShowEditModal(false);
+      setEditingBudget(null);
+      // Refresh alerts
+      const alerts = await getBudgetAlerts();
+      setBudgetAlerts(alerts);
+    }
+    return result;
   };
 
   const handleDeleteBudget = async (budgetId: string) => {
@@ -229,6 +243,18 @@ const BudgetsPage: React.FC<BudgetsPageProps> = ({ userId }) => {
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
         onSubmit={handleCreateBudget}
+        loading={loading}
+      />
+
+      {/* Edit Budget Modal */}
+      <EditBudgetModal
+        isOpen={showEditModal}
+        onClose={() => {
+          setShowEditModal(false);
+          setEditingBudget(null);
+        }}
+        onSave={handleSaveEditBudget}
+        budget={editingBudget}
         loading={loading}
       />
     </div>

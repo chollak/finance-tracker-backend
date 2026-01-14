@@ -1,7 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Search, Bell, Plus, ArrowRight, ArrowLeft } from 'lucide-react';
 import { BalanceCard } from '../components/BalanceCard';
 import { useTransactions } from '../hooks/useTransactions';
 
@@ -12,7 +10,6 @@ interface HomePageProps {
 export default function HomePage({ userId }: HomePageProps) {
   const { transactions, loading } = useTransactions(userId || '');
   const [balance, setBalance] = useState(0);
-  const [expenseChange] = useState(23); // Mock data for now
 
   useEffect(() => {
     if (transactions.length > 0) {
@@ -50,18 +47,6 @@ export default function HomePage({ userId }: HomePageProps) {
             <AvatarFallback>{userId?.substring(0, 2).toUpperCase() || 'U'}</AvatarFallback>
           </Avatar>
         </div>
-
-        <div className="flex items-center gap-4">
-          {/* Search Button */}
-          <Button variant="ghost" size="icon" className="rounded-full">
-            <Search className="h-5 w-5" />
-          </Button>
-
-          {/* Notifications Button */}
-          <Button variant="ghost" size="icon" className="rounded-full">
-            <Bell className="h-5 w-5" />
-          </Button>
-        </div>
       </header>
 
       {/* Page Title */}
@@ -75,40 +60,10 @@ export default function HomePage({ userId }: HomePageProps) {
         </div>
       ) : (
         <div className="mb-6">
-          <BalanceCard balance={balance} expenseChange={expenseChange} />
+          <BalanceCard balance={balance} expenseChange={0} />
         </div>
       )}
 
-      {/* Action Buttons */}
-      <div className="grid grid-cols-2 gap-4 mb-8">
-        <Button size="lg" className="gap-2">
-          <ArrowRight className="h-5 w-5" />
-          Transfer
-        </Button>
-
-        <Button variant="secondary" size="lg" className="gap-2">
-          <ArrowLeft className="h-5 w-5" />
-          Request
-        </Button>
-      </div>
-
-      {/* Recent Transfer */}
-      <div className="mb-8">
-        <p className="text-sm font-semibold mb-4">Recent transfer</p>
-        <div className="flex items-center gap-4 overflow-x-auto pb-2">
-          {['JC', 'SM', 'AR', 'LM', 'DK'].map((initials, index) => (
-            <Avatar key={index} className="flex-shrink-0">
-              <AvatarFallback>{initials}</AvatarFallback>
-            </Avatar>
-          ))}
-
-          {/* Add Widget Button */}
-          <button className="flex-shrink-0 w-12 h-12 rounded-full border-2 border-dashed border-gray-300 flex items-center justify-center hover:border-gray-400 transition">
-            <Plus className="h-5 w-5" />
-          </button>
-          <span className="flex-shrink-0 text-xs text-muted-foreground whitespace-nowrap">Add widget</span>
-        </div>
-      </div>
     </div>
   );
 }

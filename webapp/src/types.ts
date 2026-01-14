@@ -54,6 +54,10 @@ export interface BudgetSummary {
   isOverBudget: boolean;
   period: BudgetPeriod;
   daysRemaining: number;
+  startDate: string;
+  endDate: string;
+  categoryIds?: string[];
+  description?: string;
 }
 
 // Analytics Types
