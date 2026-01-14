@@ -19,7 +19,6 @@ export {
   useBudgets,
   useBudget,
   useBudgetSummaries,
-  useBudgetAlerts,
 } from './api/queries';
 export {
   useCreateBudget,

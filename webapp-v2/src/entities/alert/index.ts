@@ -10,5 +10,9 @@ export { alertToViewModel } from './lib/toViewModel';
 export { getSeverityColor } from './lib/getSeverityColor';
 export { getTypeLabel } from './lib/getTypeLabel';
 
+// API
+export { useBudgetAlerts } from './api/queries';
+export { alertKeys } from './api/keys';
+
 // UI Components
 export { AlertCard } from './ui/AlertCard';
