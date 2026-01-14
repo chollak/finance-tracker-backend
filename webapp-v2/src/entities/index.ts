@@ -1,2 +1,6 @@
 // Entities barrel export
-// Will be populated with Transaction, Budget, Category, Alert, User entities
+export * from './transaction';
+export * from './budget';
+export * from './category';
+export * from './alert';
+export * from './user';
