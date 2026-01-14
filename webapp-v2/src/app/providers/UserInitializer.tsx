@@ -28,7 +28,7 @@ export function UserInitializer() {
     // Development fallback - use mock user
     if (import.meta.env.DEV) {
       console.warn('[UserInitializer] Running in dev mode with mock user');
-      setUser('dev-user-123', 'Dev User');
+      setUser('131184740', 'Dev User');
     }
   }, [setUser]);
 
