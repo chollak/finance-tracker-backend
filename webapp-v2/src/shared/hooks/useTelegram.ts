@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { TelegramWebApp } from '@/shared/types/common';
+import type { TelegramWebApp } from '@/shared/types/telegram';
 import { env } from '@/shared/config/env';
 
 interface TelegramUser {

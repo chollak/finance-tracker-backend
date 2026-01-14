@@ -6,3 +6,4 @@ export * from './dashboard';
 export * from './alert';
 export * from './api';
 export * from './common';
+export * from './telegram';

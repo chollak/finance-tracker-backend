@@ -23,5 +23,22 @@ export default defineConfig({
   build: {
     outDir: '../public/webapp-v2', // Временно отдельная папка
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // React and router
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          // TanStack Query
+          'query-vendor': ['@tanstack/react-query'],
+          // Charts library (heavy)
+          'charts-vendor': ['recharts'],
+          // Form libraries
+          'form-vendor': ['react-hook-form', '@hookform/resolvers', 'zod'],
+          // UI components
+          'ui-vendor': ['lucide-react', 'date-fns'],
+        },
+      },
+    },
+    chunkSizeWarningLimit: 600, // Increase limit slightly for vendor chunks
   },
 })

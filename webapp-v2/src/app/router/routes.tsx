@@ -1,47 +1,54 @@
 import { createBrowserRouter } from 'react-router-dom';
+import { lazy, Suspense } from 'react';
+import { Loading } from '@/shared/ui/loading';
 
-// Placeholder pages - will be created in Phase 6
-const HomePage = () => <div>Home Page</div>;
-const TransactionsPage = () => <div>Transactions Page</div>;
-const AddTransactionPage = () => <div>Add Transaction Page</div>;
-const EditTransactionPage = () => <div>Edit Transaction Page</div>;
-const BudgetsPage = () => <div>Budgets Page</div>;
-const AddBudgetPage = () => <div>Add Budget Page</div>;
-const EditBudgetPage = () => <div>Edit Budget Page</div>;
-const AnalyticsPage = () => <div>Analytics Page</div>;
+// Lazy load pages for code splitting
+const HomePage = lazy(() => import('@/pages').then(m => ({ default: m.HomePage })));
+const TransactionsPage = lazy(() => import('@/pages').then(m => ({ default: m.TransactionsPage })));
+const AddTransactionPage = lazy(() => import('@/pages').then(m => ({ default: m.AddTransactionPage })));
+const EditTransactionPage = lazy(() => import('@/pages').then(m => ({ default: m.EditTransactionPage })));
+const BudgetsPage = lazy(() => import('@/pages').then(m => ({ default: m.BudgetsPage })));
+const AddBudgetPage = lazy(() => import('@/pages').then(m => ({ default: m.AddBudgetPage })));
+const EditBudgetPage = lazy(() => import('@/pages').then(m => ({ default: m.EditBudgetPage })));
+const AnalyticsPage = lazy(() => import('@/pages').then(m => ({ default: m.AnalyticsPage })));
+
+// Wrapper component with Suspense
+function PageLoader({ children }: { children: React.ReactNode }) {
+  return <Suspense fallback={<Loading fullScreen />}>{children}</Suspense>;
+}
 
 export const router = createBrowserRouter([
   {
     path: '/',
-    element: <HomePage />,
+    element: <PageLoader><HomePage /></PageLoader>,
   },
   {
     path: '/transactions',
-    element: <TransactionsPage />,
+    element: <PageLoader><TransactionsPage /></PageLoader>,
   },
   {
     path: '/transactions/add',
-    element: <AddTransactionPage />,
+    element: <PageLoader><AddTransactionPage /></PageLoader>,
   },
   {
     path: '/transactions/:id/edit',
-    element: <EditTransactionPage />,
+    element: <PageLoader><EditTransactionPage /></PageLoader>,
   },
   {
     path: '/budgets',
-    element: <BudgetsPage />,
+    element: <PageLoader><BudgetsPage /></PageLoader>,
   },
   {
     path: '/budgets/add',
-    element: <AddBudgetPage />,
+    element: <PageLoader><AddBudgetPage /></PageLoader>,
   },
   {
     path: '/budgets/:id/edit',
-    element: <EditBudgetPage />,
+    element: <PageLoader><EditBudgetPage /></PageLoader>,
   },
   {
     path: '/analytics',
-    element: <AnalyticsPage />,
+    element: <PageLoader><AnalyticsPage /></PageLoader>,
   },
 ]);
 
