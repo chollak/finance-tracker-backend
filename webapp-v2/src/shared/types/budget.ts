@@ -1,10 +1,12 @@
 // Budget types
-export enum BudgetPeriod {
-  WEEKLY = 'weekly',
-  MONTHLY = 'monthly',
-  QUARTERLY = 'quarterly',
-  YEARLY = 'yearly'
-}
+export const BudgetPeriod = {
+  WEEKLY: 'weekly',
+  MONTHLY: 'monthly',
+  QUARTERLY: 'quarterly',
+  YEARLY: 'yearly'
+} as const;
+
+export type BudgetPeriod = typeof BudgetPeriod[keyof typeof BudgetPeriod];
 
 export interface Budget {
   id: string;
