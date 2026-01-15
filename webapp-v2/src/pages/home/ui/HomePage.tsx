@@ -16,7 +16,7 @@ export function HomePage() {
   const navigate = useNavigate();
 
   return (
-    <div className="container mx-auto px-4 py-6 pb-24 md:pb-6">
+    <div className="container mx-auto px-4 py-6">
       {/* Page Title */}
       <div className="mb-6">
         <h1 className="text-3xl font-bold">Главная</h1>
@@ -47,7 +47,7 @@ export function HomePage() {
       {/* Floating Action Button - Add Transaction */}
       <Button
         size="lg"
-        className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg md:h-auto md:w-auto md:rounded-md md:px-6"
+        className="fixed bottom-20 md:bottom-6 right-6 h-14 w-14 rounded-full shadow-lg md:h-auto md:w-auto md:rounded-md md:px-6"
         onClick={() => navigate(ROUTES.ADD_TRANSACTION)}
         aria-label="Добавить транзакцию"
       >

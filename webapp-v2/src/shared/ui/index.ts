@@ -17,3 +17,8 @@ export * from './separator';
 export * from './skeleton';
 export * from './sonner';
 export * from './tabs';
+
+// Navigation components
+export * from './bottom-nav';
+export * from './top-nav';
+export * from './layout';

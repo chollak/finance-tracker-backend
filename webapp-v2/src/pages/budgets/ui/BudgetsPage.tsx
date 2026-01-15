@@ -3,7 +3,7 @@ import { useUserStore } from '@/entities/user';
 import { BudgetOverview } from '@/widgets/budget-overview';
 import { Button } from '@/shared/ui/button';
 import { Skeleton } from '@/shared/ui/skeleton';
-import { Plus, ArrowLeft } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '@/shared/lib/constants/routes';
 
@@ -20,24 +20,13 @@ export function BudgetsPage() {
   const budgetViewModels = budgets ? budgets.map(budgetToViewModel) : [];
 
   return (
-    <div className="container mx-auto px-4 py-6 pb-24 md:pb-6">
+    <div className="container mx-auto px-4 py-6">
       {/* Header */}
-      <div className="mb-6 flex items-center gap-4">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => navigate(ROUTES.HOME)}
-          className="md:hidden"
-          aria-label="Вернуться на главную"
-        >
-          <ArrowLeft className="h-5 w-5" aria-hidden="true" />
-        </Button>
-        <div className="flex-1">
-          <h1 className="text-3xl font-bold">Бюджеты</h1>
-          <p className="text-muted-foreground mt-1" role="status" aria-live="polite">
-            {budgetViewModels.length} {budgetViewModels.length === 1 ? 'бюджет' : 'бюджетов'}
-          </p>
-        </div>
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold">Бюджеты</h1>
+        <p className="text-muted-foreground mt-1" role="status" aria-live="polite">
+          {budgetViewModels.length} {budgetViewModels.length === 1 ? 'бюджет' : 'бюджетов'}
+        </p>
       </div>
 
       {/* Budget Overview Widget */}
@@ -78,7 +67,7 @@ export function BudgetsPage() {
       {/* Floating Action Button - Add Budget */}
       <Button
         size="lg"
-        className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg md:h-auto md:w-auto md:rounded-md md:px-6"
+        className="fixed bottom-20 md:bottom-6 right-6 h-14 w-14 rounded-full shadow-lg md:h-auto md:w-auto md:rounded-md md:px-6"
         onClick={() => navigate(ROUTES.ADD_BUDGET)}
         aria-label="Создать бюджет"
       >

@@ -28,41 +28,14 @@
   --radius: 0.5rem;
 }
 
-@media (prefers-color-scheme: dark) {
-  @theme inline {
-    --color-background: oklch(9.6% 0 0);
-    --color-foreground: oklch(98.2% 0 0);
-    --color-card: oklch(9.6% 0 0);
-    --color-card-foreground: oklch(98.2% 0 0);
-    --color-popover: oklch(9.6% 0 0);
-    --color-popover-foreground: oklch(98.2% 0 0);
-    --color-primary: oklch(98.2% 0 0);
-    --color-primary-foreground: oklch(14.5% 0 0);
-    --color-secondary: oklch(23.2% 0 0);
-    --color-secondary-foreground: oklch(98.2% 0 0);
-    --color-muted: oklch(23.2% 0 0);
-    --color-muted-foreground: oklch(70.3% 0 0);
-    --color-accent: oklch(23.2% 0 0);
-    --color-accent-foreground: oklch(98.2% 0 0);
-    --color-destructive: oklch(51.5% 0.127 27.33);
-    --color-border: oklch(23.2% 0 0);
-    --color-input: oklch(23.2% 0 0);
-    --color-ring: oklch(82.5% 0 0);
-    --color-chart-1: oklch(61.6% 0.129 259.8);
-    --color-chart-2: oklch(59.9% 0.108 173.1);
-    --color-chart-3: oklch(67.9% 0.149 64.1);
-    --color-chart-4: oklch(70.6% 0.115 299.1);
-    --color-chart-5: oklch(74.3% 0.133 356.9);
-  }
-}
 
 @layer base {
   * {
-    border-color: hsl(var(--color-border));
+    border-color: var(--color-border);
   }
 
   body {
-    background-color: hsl(var(--color-background));
-    color: hsl(var(--color-foreground));
+    background-color: var(--color-background);
+    color: var(--color-foreground);
   }
 }

@@ -1,6 +1,7 @@
-import { createBrowserRouter } from 'react-router-dom';
+import { createBrowserRouter, Outlet } from 'react-router-dom';
 import { lazy, Suspense } from 'react';
 import { Loading } from '@/shared/ui/loading';
+import { Layout } from '@/shared/ui/layout';
 
 // Lazy load pages for code splitting
 const HomePage = lazy(() => import('@/pages').then(m => ({ default: m.HomePage })));
@@ -17,15 +18,39 @@ function PageLoader({ children }: { children: React.ReactNode }) {
   return <Suspense fallback={<Loading fullScreen />}>{children}</Suspense>;
 }
 
+// Layout wrapper for main pages with navigation
+function LayoutWrapper() {
+  return (
+    <Layout>
+      <Outlet />
+    </Layout>
+  );
+}
+
 export const router = createBrowserRouter([
   {
-    path: '/',
-    element: <PageLoader><HomePage /></PageLoader>,
+    // Main pages with navigation layout
+    element: <LayoutWrapper />,
+    children: [
+      {
+        path: '/',
+        element: <PageLoader><HomePage /></PageLoader>,
+      },
+      {
+        path: '/transactions',
+        element: <PageLoader><TransactionsPage /></PageLoader>,
+      },
+      {
+        path: '/budgets',
+        element: <PageLoader><BudgetsPage /></PageLoader>,
+      },
+      {
+        path: '/analytics',
+        element: <PageLoader><AnalyticsPage /></PageLoader>,
+      },
+    ],
   },
-  {
-    path: '/transactions',
-    element: <PageLoader><TransactionsPage /></PageLoader>,
-  },
+  // Form pages without navigation layout (have their own back button)
   {
     path: '/transactions/add',
     element: <PageLoader><AddTransactionPage /></PageLoader>,
@@ -35,20 +60,12 @@ export const router = createBrowserRouter([
     element: <PageLoader><EditTransactionPage /></PageLoader>,
   },
   {
-    path: '/budgets',
-    element: <PageLoader><BudgetsPage /></PageLoader>,
-  },
-  {
     path: '/budgets/add',
     element: <PageLoader><AddBudgetPage /></PageLoader>,
   },
   {
     path: '/budgets/:id/edit',
     element: <PageLoader><EditBudgetPage /></PageLoader>,
-  },
-  {
-    path: '/analytics',
-    element: <PageLoader><AnalyticsPage /></PageLoader>,
   },
 ]);
 

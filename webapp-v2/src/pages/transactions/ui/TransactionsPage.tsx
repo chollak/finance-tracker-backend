@@ -4,7 +4,7 @@ import { FilterBar, useTransactionFiltersStore, filterTransactions } from '@/fea
 import { useDeleteTransactionDialog } from '@/features/delete-transaction';
 import { Button } from '@/shared/ui/button';
 import { Skeleton } from '@/shared/ui/skeleton';
-import { Plus, ArrowLeft } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '@/shared/lib/constants/routes';
 
@@ -31,24 +31,13 @@ export function TransactionsPage() {
     : [];
 
   return (
-    <div className="container mx-auto px-4 py-6 pb-24 md:pb-6">
+    <div className="container mx-auto px-4 py-6">
       {/* Header */}
-      <div className="mb-6 flex items-center gap-4">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => navigate(ROUTES.HOME)}
-          className="md:hidden"
-          aria-label="Вернуться на главную"
-        >
-          <ArrowLeft className="h-5 w-5" aria-hidden="true" />
-        </Button>
-        <div className="flex-1">
-          <h1 className="text-3xl font-bold">Транзакции</h1>
-          <p className="text-muted-foreground mt-1" role="status" aria-live="polite">
-            {filteredTransactions.length} {filteredTransactions.length === 1 ? 'транзакция' : 'транзакций'}
-          </p>
-        </div>
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold">Транзакции</h1>
+        <p className="text-muted-foreground mt-1" role="status" aria-live="polite">
+          {filteredTransactions.length} {filteredTransactions.length === 1 ? 'транзакция' : 'транзакций'}
+        </p>
       </div>
 
       {/* Filter Bar */}
@@ -101,7 +90,7 @@ export function TransactionsPage() {
       {/* Floating Action Button - Add Transaction */}
       <Button
         size="lg"
-        className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg md:h-auto md:w-auto md:rounded-md md:px-6"
+        className="fixed bottom-20 md:bottom-6 right-6 h-14 w-14 rounded-full shadow-lg md:h-auto md:w-auto md:rounded-md md:px-6"
         onClick={() => navigate(ROUTES.ADD_TRANSACTION)}
         aria-label="Добавить транзакцию"
       >

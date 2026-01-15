@@ -1,10 +1,6 @@
 import { SpendingChart } from '@/widgets/spending-chart';
 import { FinancialHealth } from '@/widgets/financial-health';
-import { Button } from '@/shared/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card';
-import { ArrowLeft } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import { ROUTES } from '@/shared/lib/constants/routes';
 import { useMonthlyTrends } from '@/entities/transaction';
 import { useUserStore } from '@/entities/user';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
@@ -16,26 +12,15 @@ import { Skeleton } from '@/shared/ui/skeleton';
  * Shows spending charts, trends, and financial health
  */
 export function AnalyticsPage() {
-  const navigate = useNavigate();
   const userId = useUserStore((state) => state.userId);
   const { data: trends, isLoading: trendsLoading } = useMonthlyTrends(userId, 6);
 
   return (
-    <div className="container mx-auto px-4 py-6 pb-24 md:pb-6">
+    <div className="container mx-auto px-4 py-6">
       {/* Header */}
-      <div className="mb-6 flex items-center gap-4">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => navigate(ROUTES.HOME)}
-          className="md:hidden"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <div>
-          <h1 className="text-3xl font-bold">Аналитика</h1>
-          <p className="text-muted-foreground mt-1">Анализ ваших финансов</p>
-        </div>
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold">Аналитика</h1>
+        <p className="text-muted-foreground mt-1">Анализ ваших финансов</p>
       </div>
 
       {/* Content */}

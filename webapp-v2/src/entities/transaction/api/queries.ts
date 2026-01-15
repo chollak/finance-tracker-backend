@@ -87,6 +87,20 @@ export function useTransactionAnalytics(
   });
 }
 
+/**
+ * Backend response format for category breakdown
+ */
+interface BackendCategoryBreakdown {
+  [category: string]: {
+    amount: number;
+    count: number;
+    percentage: number;
+  };
+}
+
+/**
+ * Frontend format for category breakdown
+ */
 interface CategoryBreakdown {
   category: string;
   total: number;
@@ -104,11 +118,18 @@ export function useCategoryBreakdown(
   return useQuery({
     queryKey: transactionKeys.categorySummary(userId || '', filters),
     queryFn: async () => {
-      const response = await apiClient.get<CategoryBreakdown[]>(
+      const response = await apiClient.get<BackendCategoryBreakdown>(
         API_ENDPOINTS.TRANSACTIONS.ANALYTICS.CATEGORIES(userId!, filters)
       );
 
-      return response.data || [];
+      // Transform object to array format expected by frontend
+      const data = response.data || {};
+      return Object.entries(data).map(([category, info]) => ({
+        category,
+        total: info.amount,
+        count: info.count,
+        percentage: info.percentage,
+      }));
     },
     enabled: !!userId,
   });
