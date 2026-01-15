@@ -39,39 +39,43 @@ jobs:
         username: ${{ secrets.SSH_USER }}
         key: ${{ secrets.SSH_KEY }}
         port: 22
-        timeout: 60s
+        timeout: 120s
+        command_timeout: 10m
         script: |
           echo "🚀 Starting deployment..."
-          
+
           # Navigate to project directory
           cd $HOME/finance-tracker-backend || {
             echo "❌ Project directory not found. Cloning repository..."
             git clone https://github.com/${{ github.repository }} $HOME/finance-tracker-backend
             cd $HOME/finance-tracker-backend
           }
-          
+
           # Pull latest changes
           echo "📥 Pulling latest changes..."
           git pull origin main
-          
-          # Stop existing containers
+
+          # Stop existing containers (with timeout and force)
           echo "🛑 Stopping existing containers..."
-          docker compose down || true
-          
+          docker compose down --timeout 30 || docker compose kill || true
+
+          # Clean up any dangling containers
+          docker container prune -f || true
+
           # Rebuild and start containers
           echo "🔨 Building and starting containers..."
-          docker compose up -d --build
-          
+          docker compose up -d --build --force-recreate
+
           # Wait for services to be ready
           echo "⏳ Waiting for services to start..."
-          sleep 10
-          
+          sleep 15
+
           # Check if containers are running
           echo "🔍 Checking container status..."
           docker compose ps
-          
+
           # Show recent logs
           echo "📋 Recent logs:"
           docker compose logs --tail=20
-          
+
           echo "✅ Deployment complete!"
