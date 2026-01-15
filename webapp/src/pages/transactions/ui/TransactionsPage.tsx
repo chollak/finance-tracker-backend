@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   useTransactions,
   useArchivedTransactions,
@@ -6,6 +6,7 @@ import {
   useUnarchiveTransaction,
   useArchiveAllTransactions,
   TransactionListItem,
+  groupTransactionsByDate,
 } from '@/entities/transaction';
 import { useUserStore } from '@/entities/user';
 import { FilterBar, useTransactionFiltersStore, filterTransactions } from '@/features/filter-transactions';
@@ -24,14 +25,14 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/shared/ui/alert-dialog';
-import { Plus, Archive, ArchiveRestore } from 'lucide-react';
+import { Plus, Archive } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '@/shared/lib/constants/routes';
 import { toast } from 'sonner';
 
 /**
  * Transactions Page
- * Shows list of all transactions with filtering and archive capabilities
+ * Shows list of all transactions grouped by date with filtering and archive capabilities
  */
 export function TransactionsPage() {
   const navigate = useNavigate();
@@ -71,6 +72,17 @@ export function TransactionsPage() {
       })
     : [];
 
+  // Group transactions by date
+  const groupedTransactions = useMemo(
+    () => groupTransactionsByDate(filteredTransactions),
+    [filteredTransactions]
+  );
+
+  const groupedArchivedTransactions = useMemo(
+    () => groupTransactionsByDate(filteredArchivedTransactions),
+    [filteredArchivedTransactions]
+  );
+
   const handleArchive = async (id: string) => {
     try {
       await archiveMutation.mutateAsync(id);
@@ -101,14 +113,15 @@ export function TransactionsPage() {
 
   const currentTransactions = activeTab === 'active' ? filteredTransactions : filteredArchivedTransactions;
   const totalCount = activeTab === 'active' ? (transactions?.length || 0) : (archivedTransactions?.length || 0);
+  const currentGroups = activeTab === 'active' ? groupedTransactions : groupedArchivedTransactions;
 
   return (
-    <div className="container mx-auto px-4 py-6">
+    <div className="container mx-auto px-4 sm:px-6 py-6">
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Транзакции</h1>
-          <p className="text-muted-foreground mt-1" role="status" aria-live="polite">
+          <h1 className="text-2xl sm:text-3xl font-bold">Транзакции</h1>
+          <p className="text-muted-foreground mt-1 text-sm" role="status" aria-live="polite">
             {currentTransactions.length} из {totalCount}{' '}
             {activeTab === 'active' ? 'активных' : 'в архиве'}
           </p>
@@ -166,14 +179,14 @@ export function TransactionsPage() {
         <FilterBar />
 
         <TabsContent value="active">
-          {/* Active Transactions List */}
-          <div className="mt-6 space-y-3">
+          {/* Active Transactions List - Grouped by Date */}
+          <div className="mt-6 space-y-6">
             {isLoadingActive ? (
-              <>
+              <div className="space-y-3">
                 {[1, 2, 3, 4, 5].map((i) => (
-                  <Skeleton key={i} className="h-20 w-full" />
+                  <Skeleton key={i} className="h-16 w-full rounded-lg" />
                 ))}
-              </>
+              </div>
             ) : filteredTransactions.length === 0 ? (
               <div className="text-center py-12">
                 <p className="text-muted-foreground">
@@ -190,54 +203,40 @@ export function TransactionsPage() {
                 </Button>
               </div>
             ) : (
-              filteredTransactions.map((transaction) => (
-                <div key={transaction.id} className="flex items-center gap-2">
-                  <div className="flex-1">
-                    <TransactionListItem
-                      transaction={transaction}
-                      onClick={() => transaction.id && navigate(ROUTES.EDIT_TRANSACTION(transaction.id))}
-                    />
+              groupedTransactions.map((group) => (
+                <section key={group.label}>
+                  {/* Date Header */}
+                  <h3 className="sticky top-0 z-10 bg-background py-2 text-sm font-medium text-muted-foreground border-b mb-2">
+                    {group.label}
+                  </h3>
+
+                  {/* Transactions in Group */}
+                  <div className="space-y-1">
+                    {group.transactions.map((transaction) => (
+                      <TransactionListItem
+                        key={transaction.id}
+                        transaction={transaction}
+                        onClick={() => transaction.id && navigate(ROUTES.EDIT_TRANSACTION(transaction.id))}
+                        onArchive={transaction.id ? () => handleArchive(transaction.id!) : undefined}
+                        onDelete={transaction.id ? () => openDialog(transaction.id!) : undefined}
+                      />
+                    ))}
                   </div>
-                  <div className="flex gap-1">
-                    {transaction.id && (
-                      <>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="cursor-pointer"
-                          onClick={() => handleArchive(transaction.id!)}
-                          disabled={archiveMutation.isPending}
-                          aria-label="Архивировать"
-                        >
-                          <Archive className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="cursor-pointer text-destructive hover:text-destructive"
-                          onClick={() => openDialog(transaction.id!)}
-                          aria-label="Удалить"
-                        >
-                          Удалить
-                        </Button>
-                      </>
-                    )}
-                  </div>
-                </div>
+                </section>
               ))
             )}
           </div>
         </TabsContent>
 
         <TabsContent value="archived">
-          {/* Archived Transactions List */}
-          <div className="mt-6 space-y-3">
+          {/* Archived Transactions List - Grouped by Date */}
+          <div className="mt-6 space-y-6">
             {isLoadingArchived ? (
-              <>
+              <div className="space-y-3">
                 {[1, 2, 3, 4, 5].map((i) => (
-                  <Skeleton key={i} className="h-20 w-full" />
+                  <Skeleton key={i} className="h-16 w-full rounded-lg" />
                 ))}
-              </>
+              </div>
             ) : filteredArchivedTransactions.length === 0 ? (
               <div className="text-center py-12">
                 <p className="text-muted-foreground">
@@ -247,28 +246,25 @@ export function TransactionsPage() {
                 </p>
               </div>
             ) : (
-              filteredArchivedTransactions.map((transaction) => (
-                <div key={transaction.id} className="flex items-center gap-2 opacity-75">
-                  <div className="flex-1">
-                    <TransactionListItem
-                      transaction={transaction}
-                      onClick={() => {}}
-                    />
+              groupedArchivedTransactions.map((group) => (
+                <section key={group.label} className="opacity-75">
+                  {/* Date Header */}
+                  <h3 className="sticky top-0 z-10 bg-background py-2 text-sm font-medium text-muted-foreground border-b mb-2">
+                    {group.label}
+                  </h3>
+
+                  {/* Transactions in Group */}
+                  <div className="space-y-1">
+                    {group.transactions.map((transaction) => (
+                      <TransactionListItem
+                        key={transaction.id}
+                        transaction={transaction}
+                        onUnarchive={transaction.id ? () => handleUnarchive(transaction.id!) : undefined}
+                        onDelete={transaction.id ? () => openDialog(transaction.id!) : undefined}
+                      />
+                    ))}
                   </div>
-                  {transaction.id && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="cursor-pointer gap-1"
-                      onClick={() => handleUnarchive(transaction.id!)}
-                      disabled={unarchiveMutation.isPending}
-                      aria-label="Восстановить"
-                    >
-                      <ArchiveRestore className="h-4 w-4" />
-                      <span className="hidden sm:inline">Восстановить</span>
-                    </Button>
-                  )}
-                </div>
+                </section>
               ))
             )}
           </div>
