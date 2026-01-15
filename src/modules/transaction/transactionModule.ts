@@ -1,6 +1,7 @@
 import { CreateTransactionUseCase } from './application/createTransaction';
 import { GetTransactionsUseCase } from './application/getTransactions';
 import { GetUserTransactionsUseCase } from './application/getUserTransactions';
+import { GetTransactionByIdUseCase } from './application/getTransactionById';
 import { DeleteTransactionUseCase } from './application/deleteTransaction';
 import { UpdateTransactionUseCase } from './application/updateTransaction';
 import { UpdateTransactionWithLearningUseCase } from './application/updateTransactionWithLearning';
@@ -26,6 +27,10 @@ export class TransactionModule {
 
   getGetUserTransactionsUseCase(): GetUserTransactionsUseCase {
     return new GetUserTransactionsUseCase(this.repository);
+  }
+
+  getGetTransactionByIdUseCase(): GetTransactionByIdUseCase {
+    return new GetTransactionByIdUseCase(this.repository);
   }
 
   getDeleteTransactionUseCase(): DeleteTransactionUseCase {

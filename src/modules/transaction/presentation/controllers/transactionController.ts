@@ -3,6 +3,7 @@ import { CreateTransactionUseCase } from '../../application/createTransaction';
 import { GetTransactionsUseCase } from '../../application/getTransactions';
 import { AnalyticsService } from '../../application/analyticsService';
 import { GetUserTransactionsUseCase } from '../../application/getUserTransactions';
+import { GetTransactionByIdUseCase } from '../../application/getTransactionById';
 import { DeleteTransactionUseCase } from '../../application/deleteTransaction';
 import { UpdateTransactionUseCase } from '../../application/updateTransaction';
 import { UpdateTransactionWithLearningUseCase } from '../../application/updateTransactionWithLearning';
@@ -17,6 +18,7 @@ export function createTransactionRouter(
   getUseCase: GetTransactionsUseCase,
   analyticsService: AnalyticsService,
   getUserUseCase: GetUserTransactionsUseCase,
+  getByIdUseCase: GetTransactionByIdUseCase,
   deleteUseCase: DeleteTransactionUseCase,
   updateUseCase: UpdateTransactionUseCase,
   updateWithLearningUseCase: UpdateTransactionWithLearningUseCase
@@ -171,7 +173,7 @@ export function createTransactionRouter(
   router.get('/user/:userId', async (req, res) => {
     try {
       const userId = getStringParam(req, 'userId');
-      
+
       if (!userId) {
         const error = ErrorFactory.validation('User ID is required');
         return handleControllerError(error, res);
@@ -179,6 +181,22 @@ export function createTransactionRouter(
 
       const transactions = await getUserUseCase.execute(userId);
       handleControllerSuccess(transactions, res);
+    } catch (error) {
+      handleControllerError(error, res);
+    }
+  });
+
+  router.get('/:id', async (req, res) => {
+    try {
+      const transactionId = getStringParam(req, 'id');
+
+      if (!transactionId) {
+        const error = ErrorFactory.validation('Transaction ID is required');
+        return handleControllerError(error, res);
+      }
+
+      const transaction = await getByIdUseCase.execute(transactionId);
+      handleControllerSuccess(transaction, res);
     } catch (error) {
       handleControllerError(error, res);
     }

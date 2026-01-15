@@ -5,6 +5,7 @@ export interface TransactionRepository {
     save(transaction: Transaction): Promise<string>;
     getAll(): Promise<Transaction[]>;
     findById(id: string): Promise<Transaction | null>;
+    findByUserId(userId: string, limit?: number): Promise<Transaction[]>;
     delete(id: string): Promise<void>;
     update(id: string, updates: Partial<Transaction>): Promise<Transaction>;
     getByUserIdAndDateRange(userId: string, startDate: Date, endDate: Date): Promise<Transaction[]>;
