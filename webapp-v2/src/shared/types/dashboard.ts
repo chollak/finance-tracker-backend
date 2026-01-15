@@ -44,3 +44,36 @@ export interface FinancialHealthScore {
   };
   recommendations: string[];
 }
+
+// Full Dashboard API Response
+export interface DashboardData {
+  insights: DashboardInsights;
+  alerts: {
+    active: Array<{
+      id: string;
+      type: string;
+      severity: 'low' | 'medium' | 'high' | 'critical';
+      title: string;
+      message: string;
+      timestamp: string;
+    }>;
+    summary: {
+      total: number;
+      critical: number;
+      high: number;
+      medium: number;
+      low: number;
+      actionable: number;
+    };
+  };
+  healthScore: FinancialHealthScore;
+  weeklyInsights: Array<{
+    week: string;
+    income: number;
+    expenses: number;
+    net: number;
+    budgetPerformance: number;
+    topCategory: string;
+  }>;
+  lastUpdated: string;
+}

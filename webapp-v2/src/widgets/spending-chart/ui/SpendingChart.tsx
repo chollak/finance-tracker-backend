@@ -2,7 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/sha
 import { Skeleton } from '@/shared/ui/skeleton';
 import { useCategoryBreakdown } from '@/entities/transaction';
 import { useUserStore } from '@/entities/user';
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { getCategoryIcon } from '@/entities/category';
 
 /**
@@ -56,13 +56,25 @@ export function SpendingChart() {
     );
   }
 
-  // Transform data for recharts
-  const chartData = categories.map((cat, index) => ({
-    name: cat.category,
-    value: cat.total,
-    percentage: cat.percentage,
-    color: COLORS[index % COLORS.length],
-  }));
+  // Transform data for recharts with minimum visual size
+  // Small categories get a minimum visual percentage (5%) to be visible
+  const MIN_VISUAL_PERCENT = 5;
+  const totalValue = categories.reduce((sum, cat) => sum + cat.total, 0);
+
+  const chartData = categories.map((cat, index) => {
+    // Calculate visual value - ensure minimum visibility
+    const actualPercent = cat.percentage;
+    const visualPercent = Math.max(actualPercent, MIN_VISUAL_PERCENT);
+    const visualValue = (visualPercent / 100) * totalValue;
+
+    return {
+      name: cat.category,
+      value: visualValue, // Used for chart sizing
+      actualValue: cat.total, // Real value for tooltip
+      percentage: actualPercent, // Real percentage for tooltip
+      color: COLORS[index % COLORS.length],
+    };
+  });
 
   return (
     <Card>
@@ -71,59 +83,86 @@ export function SpendingChart() {
         <CardDescription>Распределение расходов за период</CardDescription>
       </CardHeader>
       <CardContent>
-        <ResponsiveContainer width="100%" height={300}>
-          <PieChart>
-            <Pie
-              data={chartData}
-              cx="50%"
-              cy="50%"
-              labelLine={false}
-              label={(entry: any) => `${entry.name} (${entry.percentage.toFixed(1)}%)`}
-              outerRadius={80}
-              fill="#8884d8"
-              dataKey="value"
-            >
-              {chartData.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={entry.color} />
-              ))}
-            </Pie>
-            <Tooltip
-              formatter={(value: number | undefined) =>
-                value !== undefined
-                  ? new Intl.NumberFormat('ru-RU', {
+        <div className="flex flex-col lg:flex-row items-center gap-4">
+          {/* Pie Chart */}
+          <div className="w-full lg:w-1/2">
+            <ResponsiveContainer width="100%" height={220}>
+              <PieChart>
+                <Pie
+                  data={chartData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={50}
+                  outerRadius={90}
+                  paddingAngle={0}
+                  fill="#8884d8"
+                  dataKey="value"
+                  stroke="none"
+                >
+                  {chartData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  content={({ active, payload }) => {
+                    if (active && payload && payload.length) {
+                      const data = payload[0].payload;
+                      return (
+                        <div className="bg-background border rounded-lg shadow-lg p-3">
+                          <p className="font-medium">{data.name}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {new Intl.NumberFormat('ru-RU', {
+                              style: 'currency',
+                              currency: 'UZS',
+                              minimumFractionDigits: 0,
+                            }).format(data.actualValue)}
+                          </p>
+                          <p className="text-sm font-medium" style={{ color: data.color }}>
+                            {data.percentage.toFixed(1)}%
+                          </p>
+                        </div>
+                      );
+                    }
+                    return null;
+                  }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Category List */}
+          <div className="w-full lg:w-1/2 space-y-3">
+            {categories.slice(0, 5).map((cat, index) => {
+              const icon = getCategoryIcon(cat.category);
+              const color = COLORS[index % COLORS.length];
+
+              return (
+                <div key={cat.category} className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="w-3 h-3 rounded-full flex-shrink-0"
+                      style={{ backgroundColor: color }}
+                    />
+                    <span className="text-lg">{icon}</span>
+                    <div className="flex flex-col">
+                      <span className="text-sm font-medium">{cat.category}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {cat.percentage.toFixed(1)}%
+                      </span>
+                    </div>
+                  </div>
+                  <span className="font-semibold text-sm">
+                    {new Intl.NumberFormat('ru-RU', {
                       style: 'currency',
                       currency: 'UZS',
                       minimumFractionDigits: 0,
-                    }).format(value)
-                  : ''
-              }
-            />
-            <Legend />
-          </PieChart>
-        </ResponsiveContainer>
-
-        {/* Category List */}
-        <div className="mt-4 space-y-2">
-          {categories.slice(0, 5).map((cat, index) => {
-            const icon = getCategoryIcon(cat.category);
-
-            return (
-              <div key={cat.category} className="flex items-center justify-between text-sm">
-                <div className="flex items-center gap-2">
-                  <span className={`w-3 h-3 rounded-full`} style={{ backgroundColor: COLORS[index % COLORS.length] }} />
-                  <span>{icon}</span>
-                  <span>{cat.category}</span>
+                      maximumFractionDigits: 0,
+                    }).format(cat.total)}
+                  </span>
                 </div>
-                <span className="font-medium">
-                  {new Intl.NumberFormat('ru-RU', {
-                    style: 'currency',
-                    currency: 'UZS',
-                    minimumFractionDigits: 0,
-                  }).format(cat.total)}
-                </span>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       </CardContent>
     </Card>

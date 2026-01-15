@@ -11,37 +11,37 @@ import { formatCurrency } from '@/shared/lib/formatters';
  */
 export function BalanceCard() {
   const userId = useUserStore((state) => state.userId);
-  const { data: insights, isLoading } = useDashboardInsights(userId);
+  const { data: dashboard, isLoading } = useDashboardInsights(userId);
 
   if (isLoading) {
     return (
-      <Card className="bg-gradient-to-br from-slate-900 to-slate-800 text-white">
+      <Card>
         <CardHeader>
           <CardTitle>Баланс</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Skeleton className="h-16 w-full bg-slate-700" />
+          <Skeleton className="h-16 w-full" />
           <div className="flex justify-between">
-            <Skeleton className="h-10 w-1/3 bg-slate-700" />
-            <Skeleton className="h-10 w-1/3 bg-slate-700" />
+            <Skeleton className="h-10 w-1/3" />
+            <Skeleton className="h-10 w-1/3" />
           </div>
         </CardContent>
       </Card>
     );
   }
 
-  const balance = insights?.financialSummary?.netIncome ?? 0;
-  const monthlyIncome = insights?.financialSummary?.totalIncome ?? 0;
-  const monthlyExpense = insights?.financialSummary?.totalExpense ?? 0;
+  const balance = dashboard?.insights?.financialSummary?.netIncome ?? 0;
+  const monthlyIncome = dashboard?.insights?.financialSummary?.totalIncome ?? 0;
+  const monthlyExpense = dashboard?.insights?.financialSummary?.totalExpense ?? 0;
 
   const balanceFontSize = getDynamicFontSize(balance);
   const balanceColor = getBalanceColor(balance);
 
   return (
-    <Card className="bg-gradient-to-br from-slate-900 to-slate-800 text-white border-0">
+    <Card>
       <CardHeader>
-        <CardTitle className="text-lg font-medium text-slate-300">Баланс</CardTitle>
-        <CardDescription className="text-slate-400">Текущее состояние счета</CardDescription>
+        <CardTitle className="text-lg font-medium">Баланс</CardTitle>
+        <CardDescription>Текущее состояние счета</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         {/* Balance Amount */}
@@ -53,16 +53,16 @@ export function BalanceCard() {
         <div className="flex justify-between items-center gap-4">
           {/* Monthly Income */}
           <div className="flex-1">
-            <p className="text-xs sm:text-sm text-slate-400 mb-1">Доход (месяц)</p>
-            <p className="text-lg sm:text-xl font-semibold text-green-400">
+            <p className="text-xs sm:text-sm text-muted-foreground mb-1">Доход (месяц)</p>
+            <p className="text-lg sm:text-xl font-semibold text-green-600">
               {formatCurrency(monthlyIncome)}
             </p>
           </div>
 
           {/* Monthly Expense */}
           <div className="flex-1 text-right">
-            <p className="text-xs sm:text-sm text-slate-400 mb-1">Расход (месяц)</p>
-            <p className="text-lg sm:text-xl font-semibold text-red-400">
+            <p className="text-xs sm:text-sm text-muted-foreground mb-1">Расход (месяц)</p>
+            <p className="text-lg sm:text-xl font-semibold text-red-600">
               {formatCurrency(monthlyExpense)}
             </p>
           </div>

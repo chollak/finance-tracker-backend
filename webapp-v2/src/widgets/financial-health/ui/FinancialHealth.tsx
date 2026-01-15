@@ -46,7 +46,7 @@ function getHealthScoreInfo(score: number) {
  */
 export function FinancialHealth() {
   const userId = useUserStore((state) => state.userId);
-  const { data: insights, isLoading } = useDashboardInsights(userId);
+  const { data: dashboard, isLoading } = useDashboardInsights(userId);
 
   if (isLoading) {
     return (
@@ -61,9 +61,8 @@ export function FinancialHealth() {
     );
   }
 
-  // Use insights.savingsRate as a proxy for health score
-  // TODO: Add proper health score calculation in backend
-  const healthScore = Math.min(100, Math.round((insights?.insights?.savingsRate ?? 0) * 100));
+  // Use healthScore from API (0-100 scale)
+  const healthScore = Math.max(0, Math.min(100, dashboard?.healthScore?.score ?? 0));
   const { color, label, description } = getHealthScoreInfo(healthScore);
 
   return (
