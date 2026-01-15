@@ -40,7 +40,7 @@ jobs:
         key: ${{ secrets.SSH_KEY }}
         port: 22
         timeout: 120s
-        command_timeout: 10m
+        command_timeout: 20m
         script: |
           echo "🚀 Starting deployment..."
 
