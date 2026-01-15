@@ -9,7 +9,12 @@ describe('GetUserTransactionsUseCase', () => {
       { date: '2024-01-02', category: 'Books', description: 'Book', amount: 20, type: 'expense', userId: 'u2' }
     ];
 
-    const repo: TransactionRepository = { save: jest.fn(), getAll: jest.fn().mockResolvedValue(data), delete: jest.fn() } as any;
+    const repo: TransactionRepository = {
+      save: jest.fn(),
+      getAll: jest.fn().mockResolvedValue(data),
+      findByUserId: jest.fn().mockResolvedValue([data[0]]),
+      delete: jest.fn()
+    } as any;
 
     const useCase = new GetUserTransactionsUseCase(repo);
     const result = await useCase.execute('u1');

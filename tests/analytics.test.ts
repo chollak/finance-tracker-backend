@@ -66,6 +66,7 @@ describe('Enhanced Analytics Service', () => {
       save: jest.fn(),
       getAll: jest.fn(),
       findById: jest.fn(),
+      findByUserId: jest.fn(),
       delete: jest.fn(),
       update: jest.fn(),
       getByUserIdAndDateRange: jest.fn(),
