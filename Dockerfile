@@ -1,5 +1,5 @@
 # Multi-stage build for smaller production image
-FROM node:18-alpine AS builder
+FROM node:20-alpine AS builder
 
 # Install build tools and runtime dependencies
 RUN apk add --no-cache \
@@ -37,7 +37,7 @@ RUN cd webapp && npm run build
 RUN npm run build
 
 # Production stage - smaller final image
-FROM node:18-alpine AS production
+FROM node:20-alpine AS production
 
 # Install runtime dependencies and build tools needed for sqlite3
 RUN apk add --no-cache \
@@ -49,7 +49,7 @@ RUN apk add --no-cache \
     make \
     g++
 
-# Use existing node user (already exists in node:18-alpine)
+# Use existing node user (already exists in node:20-alpine)
 # No need to create user - node user already exists
 
 WORKDIR /app
