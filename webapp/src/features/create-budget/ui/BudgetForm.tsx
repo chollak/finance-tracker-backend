@@ -26,6 +26,7 @@ import { createBudgetSchema, type CreateBudgetFormData } from '../model/schema';
 import { CalendarIcon } from 'lucide-react';
 import { cn } from '@/shared/lib';
 import { useEffect } from 'react';
+import { EXPENSE_CATEGORIES } from '@/entities/category';
 
 interface BudgetFormProps {
   onSubmit: (data: CreateBudgetFormData) => void;
@@ -45,6 +46,7 @@ export function BudgetForm({ onSubmit, isLoading, defaultValues, submitButtonTex
       period: BudgetPeriod.MONTHLY,
       startDate: format(new Date(), 'yyyy-MM-dd'),
       endDate: format(addMonths(new Date(), 1), 'yyyy-MM-dd'),
+      categoryIds: [],
       ...defaultValues,
     },
   });
@@ -139,6 +141,56 @@ export function BudgetForm({ onSubmit, isLoading, defaultValues, submitButtonTex
                   <SelectItem value={BudgetPeriod.YEARLY}>Год</SelectItem>
                 </SelectContent>
               </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        {/* Categories */}
+        <FormField
+          control={form.control}
+          name="categoryIds"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Категории (необязательно)</FormLabel>
+              <FormDescription className="text-xs">
+                Выберите категории для отслеживания. Если не выбрано — учитываются все расходы.
+              </FormDescription>
+              <FormControl>
+                <div className="flex flex-wrap gap-2 pt-2">
+                  {EXPENSE_CATEGORIES.map((category) => {
+                    const isSelected = field.value?.includes(category.name) ?? false;
+                    return (
+                      <button
+                        key={category.id}
+                        type="button"
+                        onClick={() => {
+                          const current = field.value ?? [];
+                          if (isSelected) {
+                            field.onChange(current.filter((c) => c !== category.name));
+                          } else {
+                            field.onChange([...current, category.name]);
+                          }
+                        }}
+                        className={cn(
+                          'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-all',
+                          isSelected
+                            ? 'bg-primary text-primary-foreground shadow-sm'
+                            : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                        )}
+                      >
+                        <span>{category.icon}</span>
+                        <span>{category.name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </FormControl>
+              {field.value && field.value.length > 0 && (
+                <p className="text-xs text-muted-foreground mt-2">
+                  Выбрано: {field.value.length} категорий
+                </p>
+              )}
               <FormMessage />
             </FormItem>
           )}

@@ -94,6 +94,9 @@ export class BudgetController {
         return handleControllerError(new Error('User ID is required'), res);
       }
 
+      // Recalculate spent amounts before returning summaries
+      await this.budgetModule.budgetService.recalculateAllUserBudgets(userId);
+
       const result = await this.budgetModule.getBudgetsUseCase.executeGetSummaries(userId);
 
       if (!result.success) {
@@ -164,6 +167,9 @@ export class BudgetController {
       if (!userId) {
         return handleControllerError(new Error('User ID is required'), res);
       }
+
+      // Recalculate spent amounts before checking alerts
+      await this.budgetModule.budgetService.recalculateAllUserBudgets(userId);
 
       const thresholdValue = threshold ? parseFloat(threshold as string) : 0.8;
 
