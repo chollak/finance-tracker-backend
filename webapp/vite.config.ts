@@ -1,41 +1,44 @@
-import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+import path from 'path'
 
-export default defineConfig(({ command, mode }) => {
-  // In dev server, command is 'serve', in build, command is 'build'
-  const isDevelopment = command === 'serve' || mode === 'development';
-  
-  return {
-    plugins: [react()],
-    base: '/', // Always serve from root now
-    root: '.',
-    server: {
-      port: 5173,
-      proxy: {
-        // Always proxy API calls to local backend during development
-        '/api': {
-          target: 'http://localhost:3000',
-          changeOrigin: true,
-          secure: false
-        }
-      }
+// https://vite.dev/config/
+export default defineConfig({
+  plugins: [react()],
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
     },
-    build: {
-      outDir: '../public/webapp',
-      emptyOutDir: true,
-      rollupOptions: {
-        input: 'index.html',
-        output: {
-          manualChunks: {
-            'react-vendor': ['react', 'react-dom', 'react-router-dom']
-          }
-        }
-      }
+  },
+  server: {
+    port: 5173,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+        secure: false,
+      },
     },
-    define: {
-      // Make environment mode available to the app
-      __DEV_MODE__: JSON.stringify(isDevelopment),
-      __API_BASE__: JSON.stringify('/api')
-    }
-  };
-});
+  },
+  build: {
+    outDir: '../public/webapp',
+    emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // React and router
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          // TanStack Query
+          'query-vendor': ['@tanstack/react-query'],
+          // Charts library (heavy)
+          'charts-vendor': ['recharts'],
+          // Form libraries
+          'form-vendor': ['react-hook-form', '@hookform/resolvers', 'zod'],
+          // UI components
+          'ui-vendor': ['lucide-react', 'date-fns'],
+        },
+      },
+    },
+    chunkSizeWarningLimit: 600, // Increase limit slightly for vendor chunks
+  },
+})

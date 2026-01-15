@@ -51,6 +51,7 @@ export function buildServer(
       transactionModule.getGetTransactionsUseCase(),
       transactionModule.getAnalyticsService(),
       transactionModule.getGetUserTransactionsUseCase(),
+      transactionModule.getGetTransactionByIdUseCase(),
       transactionModule.getDeleteTransactionUseCase(),
       transactionModule.getUpdateTransactionUseCase(),
       transactionModule.getUpdateTransactionWithLearningUseCase()

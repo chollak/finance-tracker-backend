@@ -1,0 +1,41 @@
+@import "tailwindcss";
+
+@theme inline {
+  /* Light theme colors */
+  --color-background: oklch(100% 0 0);
+  --color-foreground: oklch(9.6% 0 0);
+  --color-card: oklch(100% 0 0);
+  --color-card-foreground: oklch(9.6% 0 0);
+  --color-popover: oklch(100% 0 0);
+  --color-popover-foreground: oklch(9.6% 0 0);
+  --color-primary: oklch(14.5% 0 0);
+  --color-primary-foreground: oklch(98.2% 0 0);
+  --color-secondary: oklch(95.3% 0 0);
+  --color-secondary-foreground: oklch(14.5% 0 0);
+  --color-muted: oklch(95.3% 0 0);
+  --color-muted-foreground: oklch(53.2% 0 0);
+  --color-accent: oklch(95.3% 0 0);
+  --color-accent-foreground: oklch(14.5% 0 0);
+  --color-destructive: oklch(66.8% 0.186 25.75);
+  --color-border: oklch(88.1% 0 0);
+  --color-input: oklch(88.1% 0 0);
+  --color-ring: oklch(9.6% 0 0);
+  --color-chart-1: oklch(66.8% 0.155 27.5);
+  --color-chart-2: oklch(56.9% 0.097 195.2);
+  --color-chart-3: oklch(45.2% 0.059 236.8);
+  --color-chart-4: oklch(72.6% 0.145 75.4);
+  --color-chart-5: oklch(74.8% 0.159 39.2);
+  --radius: 0.5rem;
+}
+
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+  }
+}

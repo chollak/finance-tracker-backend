@@ -1,6 +1,7 @@
 # Finance Tracker Backend
 
-This project provides a simple backend service written in TypeScript for tracking financial transactions and processing voice or text inputs using OpenAI. Transactions are stored in a Notion database.
+AI-powered finance tracking with voice/text input processing using OpenAI.
+Supports SQLite (default) and Supabase databases.
 
 ## Prerequisites
 
@@ -16,20 +17,21 @@ This project provides a simple backend service written in TypeScript for trackin
 npm install
 ```
 
-2. Copy `.env.example` to `.env` in the project root and define the following variables:
+2. Copy `.env.example` to `.env` and configure:
 
-```
-OPENAI_API_KEY=your_openai_key
-NOTION_API_KEY=your_notion_key
-NOTION_DATABASE_ID=your_notion_database_id
-TG_BOT_API_KEY=your_telegram_bot_key
-WEB_APP_URL=https://sapaev.uz
-```
+**Required:**
+- `OPENAI_API_KEY` - For voice transcription and transaction parsing
+- `TG_BOT_API_KEY` - Telegram bot token
+- `WEB_APP_URL` - Public URL for the web application
 
-When the server starts, it prints a warning if the `.env` file is missing or any
-required variables are undefined. `NOTION_API_KEY` and `NOTION_DATABASE_ID` are
-mandatory and the server will stop with a descriptive error if they are not
-provided.
+**Database (choose one):**
+- `DATABASE_TYPE=sqlite` (default, no additional config needed)
+- `DATABASE_TYPE=supabase` (requires SUPABASE_URL and SUPABASE_ANON_KEY)
+
+**Optional (Notion support deprecated):**
+- `NOTION_API_KEY` and `NOTION_DATABASE_ID` - Legacy support only
+
+See `.env.example` for full configuration options.
 
 ## Build and Run
 
@@ -93,6 +95,18 @@ npm run build
 The build outputs static files to `public/webapp/` so they can be served by the
 backend.
 
+## Web App Features
+
+The React frontend provides 5 main pages:
+
+- **HomePage** (`/`) - Balance overview and quick access
+- **Dashboard** (`/dashboard`) - Financial health score, alerts, analytics
+- **Transactions** (`/transactions`) - Search, filter, edit, delete transactions
+- **Budgets** (`/budgets`) - Create/edit budgets, track spending, alerts
+- **Stats** (`/stats`) - Monthly income/expense statistics
+
+See [USER_GUIDE.md](USER_GUIDE.md) for detailed usage instructions.
+
 ## Running Tests
 
 Unit tests are executed with Jest:
@@ -118,3 +132,12 @@ The code follows Clean Architecture principles with layers for `domain`, `applic
 ### Module interactions
 
 The `voiceProcessing` module depends on the `transaction` module through the `CreateTransactionUseCase`. Voice commands are transcribed and immediately recorded as transactions. Both modules are instantiated once in `createModules()` and shared between the HTTP server and the Telegram bot.
+
+### Database Architecture
+
+The application supports dual database backends:
+- **SQLite** - File-based database (`data/database.sqlite`) for development
+- **Supabase** - Cloud PostgreSQL for production scaling
+
+Switch via `DATABASE_TYPE` environment variable. Repository pattern abstracts
+database implementation - same code works with both backends.

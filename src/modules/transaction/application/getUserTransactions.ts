@@ -5,7 +5,6 @@ export class GetUserTransactionsUseCase {
   constructor(private repository: TransactionRepository) {}
 
   async execute(userId: string): Promise<Transaction[]> {
-    const all = await this.repository.getAll();
-    return all.filter(t => t.userId === userId);
+    return this.repository.findByUserId(userId);
   }
 }
