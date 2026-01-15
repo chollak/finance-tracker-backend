@@ -14,11 +14,15 @@ export {
   useTransactionAnalytics,
   useCategoryBreakdown,
   useMonthlyTrends,
+  useArchivedTransactions,
 } from './api/queries';
 export {
   useCreateTransaction,
   useUpdateTransaction,
   useDeleteTransaction,
+  useArchiveTransaction,
+  useUnarchiveTransaction,
+  useArchiveAllTransactions,
 } from './api/mutations';
 
 // UI Components

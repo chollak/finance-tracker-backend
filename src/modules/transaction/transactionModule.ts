@@ -6,6 +6,11 @@ import { DeleteTransactionUseCase } from './application/deleteTransaction';
 import { UpdateTransactionUseCase } from './application/updateTransaction';
 import { UpdateTransactionWithLearningUseCase } from './application/updateTransactionWithLearning';
 import { AnalyticsService } from './application/analyticsService';
+import { ArchiveTransactionUseCase } from './application/archiveTransaction';
+import { UnarchiveTransactionUseCase } from './application/unarchiveTransaction';
+import { ArchiveMultipleTransactionsUseCase } from './application/archiveMultipleTransactions';
+import { ArchiveAllByUserUseCase } from './application/archiveAllByUser';
+import { GetArchivedTransactionsUseCase } from './application/getArchivedTransactions';
 import { TransactionRepository } from './domain/transactionRepository';
 import { RepositoryFactory } from '../../shared/infrastructure/database/repositoryFactory';
 
@@ -51,5 +56,26 @@ export class TransactionModule {
 
   getRepository(): TransactionRepository {
     return this.repository;
+  }
+
+  // Archive use cases
+  getArchiveTransactionUseCase(): ArchiveTransactionUseCase {
+    return new ArchiveTransactionUseCase(this.repository);
+  }
+
+  getUnarchiveTransactionUseCase(): UnarchiveTransactionUseCase {
+    return new UnarchiveTransactionUseCase(this.repository);
+  }
+
+  getArchiveMultipleTransactionsUseCase(): ArchiveMultipleTransactionsUseCase {
+    return new ArchiveMultipleTransactionsUseCase(this.repository);
+  }
+
+  getArchiveAllByUserUseCase(): ArchiveAllByUserUseCase {
+    return new ArchiveAllByUserUseCase(this.repository);
+  }
+
+  getGetArchivedTransactionsUseCase(): GetArchivedTransactionsUseCase {
+    return new GetArchivedTransactionsUseCase(this.repository);
   }
 }

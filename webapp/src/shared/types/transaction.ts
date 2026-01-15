@@ -19,6 +19,8 @@ export interface Transaction {
     merchant?: string;
     confidence?: number;
   };
+  // Archive support
+  isArchived?: boolean;
 }
 
 // DTO types for API calls

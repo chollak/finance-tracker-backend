@@ -16,7 +16,8 @@ export class SupabaseTransactionRepository implements TransactionRepository {
       original_text: transaction.originalText,
       original_parsing: transaction.originalParsing ? JSON.stringify(transaction.originalParsing) : undefined,
       user_id: transaction.userId,
-      category: transaction.category || 'Другое'
+      category: transaction.category || 'Другое',
+      is_archived: transaction.isArchived ?? false
     };
 
     const { data, error } = await this.supabase
@@ -40,6 +41,7 @@ export class SupabaseTransactionRepository implements TransactionRepository {
     const { data, error } = await this.supabase
       .from('transactions')
       .select('*')
+      .eq('is_archived', false)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -54,6 +56,7 @@ export class SupabaseTransactionRepository implements TransactionRepository {
       .from('transactions')
       .select('*')
       .eq('id', id)
+      .eq('is_archived', false)
       .single();
 
     if (error) {
@@ -112,6 +115,7 @@ export class SupabaseTransactionRepository implements TransactionRepository {
       .from('transactions')
       .select('*')
       .eq('user_id', userId)
+      .eq('is_archived', false)
       .gte('date', startDate.toISOString().split('T')[0])
       .lte('date', endDate.toISOString().split('T')[0])
       .order('date', { ascending: false });
@@ -128,6 +132,7 @@ export class SupabaseTransactionRepository implements TransactionRepository {
       .from('transactions')
       .select('*')
       .eq('user_id', userId)
+      .eq('is_archived', false)
       .order('date', { ascending: false })
       .order('created_at', { ascending: false });
 
@@ -157,7 +162,98 @@ export class SupabaseTransactionRepository implements TransactionRepository {
       originalText: row.original_text || undefined,
       originalParsing: row.original_parsing ? JSON.parse(row.original_parsing) : undefined,
       category: row.category || 'Другое',
-      userName: undefined // We'll get this from User entity later if needed
+      userName: undefined, // We'll get this from User entity later if needed
+      isArchived: row.is_archived ?? false
     };
+  }
+
+  // Archive methods
+  async archive(id: string): Promise<void> {
+    const { error } = await this.supabase
+      .from('transactions')
+      .update({ is_archived: true })
+      .eq('id', id);
+
+    if (error) {
+      throw new Error(`Failed to archive transaction: ${error.message}`);
+    }
+  }
+
+  async unarchive(id: string): Promise<void> {
+    const { error } = await this.supabase
+      .from('transactions')
+      .update({ is_archived: false })
+      .eq('id', id);
+
+    if (error) {
+      throw new Error(`Failed to unarchive transaction: ${error.message}`);
+    }
+  }
+
+  async archiveMultiple(ids: string[]): Promise<void> {
+    if (ids.length === 0) return;
+
+    const { error } = await this.supabase
+      .from('transactions')
+      .update({ is_archived: true })
+      .in('id', ids);
+
+    if (error) {
+      throw new Error(`Failed to archive transactions: ${error.message}`);
+    }
+  }
+
+  async archiveAllByUserId(userId: string): Promise<number> {
+    const { data, error } = await this.supabase
+      .from('transactions')
+      .update({ is_archived: true })
+      .eq('user_id', userId)
+      .eq('is_archived', false)
+      .select('id');
+
+    if (error) {
+      throw new Error(`Failed to archive all transactions: ${error.message}`);
+    }
+
+    return data?.length || 0;
+  }
+
+  async findArchivedByUserId(userId: string, limit?: number): Promise<Transaction[]> {
+    let query = this.supabase
+      .from('transactions')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('is_archived', true)
+      .order('date', { ascending: false })
+      .order('created_at', { ascending: false });
+
+    if (limit) {
+      query = query.limit(limit);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      throw new Error(`Failed to find archived transactions: ${error.message}`);
+    }
+
+    return (data || []).map(row => this.mapToTransaction(row));
+  }
+
+  async findByIdIncludingArchived(id: string): Promise<Transaction | null> {
+    const { data, error } = await this.supabase
+      .from('transactions')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') {
+        return null;
+      }
+      throw new Error(`Failed to find transaction: ${error.message}`);
+    }
+
+    return data ? this.mapToTransaction(data) : null;
   }
 }

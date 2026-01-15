@@ -7,6 +7,11 @@ import { GetTransactionByIdUseCase } from '../../application/getTransactionById'
 import { DeleteTransactionUseCase } from '../../application/deleteTransaction';
 import { UpdateTransactionUseCase } from '../../application/updateTransaction';
 import { UpdateTransactionWithLearningUseCase } from '../../application/updateTransactionWithLearning';
+import { ArchiveTransactionUseCase } from '../../application/archiveTransaction';
+import { UnarchiveTransactionUseCase } from '../../application/unarchiveTransaction';
+import { ArchiveMultipleTransactionsUseCase } from '../../application/archiveMultipleTransactions';
+import { ArchiveAllByUserUseCase } from '../../application/archiveAllByUser';
+import { GetArchivedTransactionsUseCase } from '../../application/getArchivedTransactions';
 import { Transaction } from '../../domain/transactionEntity';
 import { TransactionValidator } from '../../../../shared/application/validation/transactionValidator';
 import { handleControllerError, handleControllerSuccess, getStringParam } from '../../../../shared/infrastructure/utils/controllerHelpers';
@@ -21,7 +26,12 @@ export function createTransactionRouter(
   getByIdUseCase: GetTransactionByIdUseCase,
   deleteUseCase: DeleteTransactionUseCase,
   updateUseCase: UpdateTransactionUseCase,
-  updateWithLearningUseCase: UpdateTransactionWithLearningUseCase
+  updateWithLearningUseCase: UpdateTransactionWithLearningUseCase,
+  archiveUseCase: ArchiveTransactionUseCase,
+  unarchiveUseCase: UnarchiveTransactionUseCase,
+  archiveMultipleUseCase: ArchiveMultipleTransactionsUseCase,
+  archiveAllByUserUseCase: ArchiveAllByUserUseCase,
+  getArchivedUseCase: GetArchivedTransactionsUseCase
 ): Router {
   const router = Router();
 
@@ -285,6 +295,96 @@ export function createTransactionRouter(
         200,
         SUCCESS_MESSAGES.TRANSACTION_UPDATED
       );
+    } catch (error) {
+      handleControllerError(error, res);
+    }
+  });
+
+  // Archive endpoints
+  router.post('/:id/archive', async (req, res) => {
+    try {
+      const transactionId = getStringParam(req, 'id');
+
+      if (!transactionId) {
+        const error = ErrorFactory.validation('Transaction ID is required');
+        return handleControllerError(error, res);
+      }
+
+      await archiveUseCase.execute(transactionId);
+      handleControllerSuccess(
+        { message: 'Transaction archived successfully' },
+        res,
+        200
+      );
+    } catch (error) {
+      handleControllerError(error, res);
+    }
+  });
+
+  router.post('/:id/unarchive', async (req, res) => {
+    try {
+      const transactionId = getStringParam(req, 'id');
+
+      if (!transactionId) {
+        const error = ErrorFactory.validation('Transaction ID is required');
+        return handleControllerError(error, res);
+      }
+
+      await unarchiveUseCase.execute(transactionId);
+      handleControllerSuccess(
+        { message: 'Transaction unarchived successfully' },
+        res,
+        200
+      );
+    } catch (error) {
+      handleControllerError(error, res);
+    }
+  });
+
+  router.post('/archive/batch', async (req, res) => {
+    try {
+      const { ids } = req.body;
+
+      if (!ids || !Array.isArray(ids) || ids.length === 0) {
+        const error = ErrorFactory.validation('Array of transaction IDs is required');
+        return handleControllerError(error, res);
+      }
+
+      const result = await archiveMultipleUseCase.execute(ids);
+      handleControllerSuccess(result, res, 200);
+    } catch (error) {
+      handleControllerError(error, res);
+    }
+  });
+
+  router.post('/archive/all/:userId', async (req, res) => {
+    try {
+      const userId = getStringParam(req, 'userId');
+
+      if (!userId) {
+        const error = ErrorFactory.validation('User ID is required');
+        return handleControllerError(error, res);
+      }
+
+      const result = await archiveAllByUserUseCase.execute(userId);
+      handleControllerSuccess(result, res, 200);
+    } catch (error) {
+      handleControllerError(error, res);
+    }
+  });
+
+  router.get('/archived/user/:userId', async (req, res) => {
+    try {
+      const userId = getStringParam(req, 'userId');
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
+
+      if (!userId) {
+        const error = ErrorFactory.validation('User ID is required');
+        return handleControllerError(error, res);
+      }
+
+      const transactions = await getArchivedUseCase.execute(userId, limit);
+      handleControllerSuccess(transactions, res);
     } catch (error) {
       handleControllerError(error, res);
     }

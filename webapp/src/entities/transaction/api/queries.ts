@@ -158,3 +158,21 @@ export function useMonthlyTrends(userId: string | null, months: number = 12) {
     enabled: !!userId,
   });
 }
+
+/**
+ * Hook to fetch archived transactions for a user
+ */
+export function useArchivedTransactions(userId: string | null) {
+  return useQuery({
+    queryKey: transactionKeys.archived(userId || ''),
+    queryFn: async () => {
+      const response = await apiClient.get<Transaction[]>(
+        API_ENDPOINTS.TRANSACTIONS.ARCHIVE.LIST(userId!)
+      );
+
+      const transactions = response.data || [];
+      return transactions.map(transactionToViewModel);
+    },
+    enabled: !!userId,
+  });
+}

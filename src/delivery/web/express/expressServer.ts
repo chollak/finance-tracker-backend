@@ -54,7 +54,12 @@ export function buildServer(
       transactionModule.getGetTransactionByIdUseCase(),
       transactionModule.getDeleteTransactionUseCase(),
       transactionModule.getUpdateTransactionUseCase(),
-      transactionModule.getUpdateTransactionWithLearningUseCase()
+      transactionModule.getUpdateTransactionWithLearningUseCase(),
+      transactionModule.getArchiveTransactionUseCase(),
+      transactionModule.getUnarchiveTransactionUseCase(),
+      transactionModule.getArchiveMultipleTransactionsUseCase(),
+      transactionModule.getArchiveAllByUserUseCase(),
+      transactionModule.getGetArchivedTransactionsUseCase()
     )
   );
 

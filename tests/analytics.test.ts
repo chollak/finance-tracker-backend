@@ -70,6 +70,13 @@ describe('Enhanced Analytics Service', () => {
       delete: jest.fn(),
       update: jest.fn(),
       getByUserIdAndDateRange: jest.fn(),
+      // Archive methods
+      archive: jest.fn(),
+      unarchive: jest.fn(),
+      archiveMultiple: jest.fn(),
+      archiveAllByUserId: jest.fn(),
+      findArchivedByUserId: jest.fn(),
+      findByIdIncludingArchived: jest.fn(),
     };
 
     analyticsService = new AnalyticsService(mockRepository);

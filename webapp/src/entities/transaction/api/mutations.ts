@@ -77,3 +77,66 @@ export function useDeleteTransaction() {
     },
   });
 }
+
+/**
+ * Hook to archive a single transaction
+ */
+export function useArchiveTransaction() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const response = await apiClient.post<{ message: string }>(
+        API_ENDPOINTS.TRANSACTIONS.ARCHIVE.ONE(id)
+      );
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: transactionKeys.all });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['budgets'] });
+    },
+  });
+}
+
+/**
+ * Hook to unarchive a single transaction
+ */
+export function useUnarchiveTransaction() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const response = await apiClient.post<{ message: string }>(
+        API_ENDPOINTS.TRANSACTIONS.ARCHIVE.UNARCHIVE(id)
+      );
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: transactionKeys.all });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['budgets'] });
+    },
+  });
+}
+
+/**
+ * Hook to archive all transactions for a user
+ */
+export function useArchiveAllTransactions() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (userId: string) => {
+      const response = await apiClient.post<{ archivedCount: number }>(
+        API_ENDPOINTS.TRANSACTIONS.ARCHIVE.ALL(userId)
+      );
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: transactionKeys.all });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['budgets'] });
+    },
+  });
+}

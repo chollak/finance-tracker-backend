@@ -11,4 +11,6 @@ export const transactionKeys = {
     [...transactionKeys.all, 'category-summary', userId, filters] as const,
   trends: (userId: string, months?: number) =>
     [...transactionKeys.all, 'trends', userId, months] as const,
+  // Archive keys
+  archived: (userId: string) => [...transactionKeys.all, 'archived', userId] as const,
 };

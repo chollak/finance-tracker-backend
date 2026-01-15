@@ -40,6 +40,13 @@ export const API_ENDPOINTS = {
       TRENDS: (userId: string, months: number = 12) =>
         `/transactions/analytics/trends/${userId}?months=${months}`,
     },
+    ARCHIVE: {
+      ONE: (id: string) => `/transactions/${id}/archive`,
+      UNARCHIVE: (id: string) => `/transactions/${id}/unarchive`,
+      BATCH: '/transactions/archive/batch',
+      ALL: (userId: string) => `/transactions/archive/all/${userId}`,
+      LIST: (userId: string) => `/transactions/archived/user/${userId}`,
+    },
   },
 
   // Budgets

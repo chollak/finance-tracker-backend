@@ -50,4 +50,8 @@ export class Transaction {
   // Category name (simplified, no foreign key)
   @Column({ nullable: true, default: 'Другое' })
   category?: string;
+
+  // Archive support - archived transactions are excluded from analytics
+  @Column({ default: false })
+  isArchived!: boolean;
 }
