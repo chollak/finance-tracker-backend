@@ -1,4 +1,32 @@
 @import "tailwindcss";
+@import "react-day-picker/style.css";
+
+/* Override react-day-picker selection colors to match shadcn */
+.rdp-selected .rdp-day_button,
+.rdp-day_button[data-selected="true"],
+.rdp-day_button[aria-selected="true"] {
+  background-color: oklch(14.5% 0 0) !important;
+  color: oklch(98.2% 0 0) !important;
+  border-color: oklch(14.5% 0 0) !important;
+  border-radius: 0.375rem !important;
+}
+
+.rdp-selected .rdp-day_button:hover,
+.rdp-day_button[data-selected="true"]:hover {
+  background-color: oklch(14.5% 0 0) !important;
+  color: oklch(98.2% 0 0) !important;
+}
+
+.rdp-today:not(.rdp-selected) .rdp-day_button {
+  background-color: oklch(95.3% 0 0);
+  color: oklch(14.5% 0 0);
+}
+
+/* Remove default focus ring styling */
+.rdp-focused .rdp-day_button {
+  outline: none !important;
+  box-shadow: none !important;
+}
 
 @theme inline {
   /* Light theme colors */
