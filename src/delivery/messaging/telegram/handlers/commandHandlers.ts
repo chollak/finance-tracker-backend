@@ -47,6 +47,11 @@ async function handleStart(ctx: BotContext) {
       RU.welcome.description,
     ].join('\n');
 
+    // First, remove any old reply keyboards
+    await ctx.reply('...', {
+      reply_markup: { remove_keyboard: true },
+    }).then(msg => ctx.deleteMessage(msg.message_id)).catch(() => {});
+
     // Send welcome message with app button
     const keyboard = mainMenuKeyboard(userId);
     await ctx.reply(message, {
