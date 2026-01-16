@@ -1,5 +1,5 @@
 import { useBudgetSummaries, BudgetCard, budgetToViewModel } from '@/entities/budget';
-import { useUserStore } from '@/entities/user';
+import { useUserStore } from '@/entities/user/model/store';
 import { BudgetOverview } from '@/widgets/budget-overview';
 import { Button, EmptyState } from '@/shared/ui';
 import { Skeleton } from '@/shared/ui/skeleton';

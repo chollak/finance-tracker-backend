@@ -6,7 +6,7 @@
 import { useState } from 'react';
 import { RefreshCw, Check, AlertCircle, Cloud, CloudOff } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
-import { useUserStore, useIsTelegramUser } from '@/entities/user';
+import { useUserStore, useIsTelegramUser } from '@/entities/user/model/store';
 import { syncService } from '@/shared/lib/db/syncService';
 import { cn } from '@/shared/lib/utils';
 

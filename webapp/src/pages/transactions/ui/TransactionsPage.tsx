@@ -8,7 +8,7 @@ import {
   TransactionListItem,
   groupTransactionsByDate,
 } from '@/entities/transaction';
-import { useUserStore } from '@/entities/user';
+import { useUserStore } from '@/entities/user/model/store';
 import { FilterBar, useTransactionFiltersStore, filterTransactions } from '@/features/filter-transactions';
 import { useDeleteTransactionDialog } from '@/features/delete-transaction';
 import { QuickAddSheet } from '@/features/quick-add';

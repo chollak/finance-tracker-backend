@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/sha
 import { Progress } from '@/shared/ui/progress';
 import { Skeleton } from '@/shared/ui/skeleton';
 import { useDashboardInsights } from '@/entities/dashboard';
-import { useUserStore } from '@/entities/user';
+import { useUserStore } from '@/entities/user/model/store';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 
 /**

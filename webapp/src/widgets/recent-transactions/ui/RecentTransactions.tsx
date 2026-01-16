@@ -4,7 +4,7 @@ import { ScrollArea } from '@/shared/ui/scroll-area';
 import { Separator } from '@/shared/ui/separator';
 import { Button, EmptyState } from '@/shared/ui';
 import { useTransactions, TransactionListItem } from '@/entities/transaction';
-import { useUserStore } from '@/entities/user';
+import { useUserStore } from '@/entities/user/model/store';
 import { Link, useNavigate } from 'react-router-dom';
 import { ROUTES } from '@/shared/lib/constants/routes';
 import { Fragment } from 'react';

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useUserStore } from '@/entities/user';
+import { useUserStore } from '@/entities/user/model/store';
 import { initDatabase, syncService } from '@/shared/lib/db';
 
 /**

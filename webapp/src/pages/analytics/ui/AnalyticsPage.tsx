@@ -2,7 +2,7 @@ import { SpendingChart } from '@/widgets/spending-chart';
 import { FinancialHealth } from '@/widgets/financial-health';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card';
 import { useMonthlyTrends } from '@/entities/transaction';
-import { useUserStore } from '@/entities/user';
+import { useUserStore } from '@/entities/user/model/store';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { formatCurrency } from '@/shared/lib/formatters';
 import { Skeleton } from '@/shared/ui/skeleton';

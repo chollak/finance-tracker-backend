@@ -6,7 +6,7 @@
 import { db } from './indexedDB';
 import { localTransactionRepo } from './transactionRepo';
 import { apiClient } from '@/shared/api/client';
-import { useUserStore } from '@/entities/user';
+import { useUserStore } from '@/entities/user/model/store';
 import type { LocalTransaction, SyncStatus } from './schema';
 
 export interface SyncResult {

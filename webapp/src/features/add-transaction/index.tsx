@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { useCreateTransaction } from '@/entities/transaction';
-import { useUserStore } from '@/entities/user';
+import { useUserStore } from '@/entities/user/model/store';
 import { TransactionForm } from './ui/TransactionForm';
 import { ROUTES } from '@/shared/lib/constants';
 import type { AddTransactionFormData } from './model/schema';

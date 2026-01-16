@@ -8,7 +8,7 @@ import {
   type ChartConfig,
 } from '@/shared/ui/chart';
 import { useCategoryBreakdown } from '@/entities/transaction';
-import { useUserStore } from '@/entities/user';
+import { useUserStore } from '@/entities/user/model/store';
 import { PieChart, Pie, Cell } from 'recharts';
 import { getCategoryIcon } from '@/entities/category';
 import { useMemo } from 'react';

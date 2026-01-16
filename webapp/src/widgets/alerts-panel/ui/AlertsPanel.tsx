@@ -1,7 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card';
 import { Skeleton } from '@/shared/ui/skeleton';
 import { AlertCard, useBudgetAlerts } from '@/entities/alert';
-import { useUserStore } from '@/entities/user';
+import { useUserStore } from '@/entities/user/model/store';
 import { Link } from 'react-router-dom';
 import { ROUTES } from '@/shared/lib/constants/routes';
 

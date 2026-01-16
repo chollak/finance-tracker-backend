@@ -3,7 +3,7 @@
  * Switches between local-only (guest) and hybrid (authenticated) modes
  */
 
-import { useUserStore } from '@/entities/user';
+import { useUserStore } from '@/entities/user/model/store';
 import { localTransactionRepo } from './transactionRepo';
 import { apiClient } from '@/shared/api/client';
 import type { LocalTransaction, CreateLocalTransactionDTO, UpdateLocalTransactionDTO } from './schema';

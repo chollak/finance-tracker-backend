@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { useCreateBudget } from '@/entities/budget';
-import { useUserStore } from '@/entities/user';
+import { useUserStore } from '@/entities/user/model/store';
 import { BudgetForm } from './ui/BudgetForm';
 import { ROUTES } from '@/shared/lib/constants';
 import type { CreateBudgetFormData } from './model/schema';

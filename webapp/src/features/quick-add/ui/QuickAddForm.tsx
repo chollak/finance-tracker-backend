@@ -22,7 +22,7 @@ import {
   ALL_CATEGORIES,
 } from '@/entities/category';
 import { useTransactions } from '@/entities/transaction';
-import { useUserStore } from '@/entities/user';
+import { useUserStore } from '@/entities/user/model/store';
 import { cn } from '@/shared/lib';
 
 import { quickAddSchema, DEFAULT_DESCRIPTIONS, type QuickAddFormData } from '../model/schema';

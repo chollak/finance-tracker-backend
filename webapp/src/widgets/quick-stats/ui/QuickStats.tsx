@@ -1,7 +1,7 @@
 import { Card, CardContent } from '@/shared/ui/card';
 import { Skeleton } from '@/shared/ui/skeleton';
 import { useQuickStats } from '@/entities/dashboard';
-import { useUserStore } from '@/entities/user';
+import { useUserStore } from '@/entities/user/model/store';
 
 /**
  * Quick stats widget

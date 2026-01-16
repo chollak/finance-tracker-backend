@@ -4,7 +4,7 @@ import { Badge } from '@/shared/ui/badge';
 import { Skeleton } from '@/shared/ui/skeleton';
 import { Button, EmptyState } from '@/shared/ui';
 import { useBudgetSummaries } from '@/entities/budget';
-import { useUserStore } from '@/entities/user';
+import { useUserStore } from '@/entities/user/model/store';
 import { formatCurrency } from '@/shared/lib/formatters';
 import {
   calculateProgress,

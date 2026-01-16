@@ -7,7 +7,7 @@ import {
   SheetTrigger,
 } from '@/shared/ui/sheet';
 import { useCreateTransaction } from '@/entities/transaction';
-import { useUserStore } from '@/entities/user';
+import { useUserStore } from '@/entities/user/model/store';
 import { toast } from 'sonner';
 
 import { QuickAddForm } from './QuickAddForm';

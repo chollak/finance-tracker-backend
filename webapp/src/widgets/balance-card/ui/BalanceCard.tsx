@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/sha
 import { Button } from '@/shared/ui/button';
 import { Skeleton } from '@/shared/ui/skeleton';
 import { useDashboardInsights } from '@/entities/dashboard';
-import { useUserStore } from '@/entities/user';
+import { useUserStore } from '@/entities/user/model/store';
 import { ControlledQuickAddSheet } from '@/features/quick-add';
 import { formatBalance, getDynamicFontSize, getBalanceColor } from '../lib/formatBalance';
 import { formatCurrency } from '@/shared/lib/formatters';

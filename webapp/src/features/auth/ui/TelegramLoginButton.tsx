@@ -6,7 +6,7 @@
 import { useState } from 'react';
 import { Loader2, Smartphone, CloudOff, Send } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
-import { useIsGuest, useUserStore } from '@/entities/user';
+import { useIsGuest, useUserStore } from '@/entities/user/model/store';
 import { cn } from '@/shared/lib/utils';
 
 interface TelegramLoginButtonProps {
