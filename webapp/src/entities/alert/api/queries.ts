@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { apiClient } from '@/shared/api/client';
 import type { Alert } from '@/shared/types';
 import { alertToViewModel } from '../lib/toViewModel';
@@ -23,5 +23,7 @@ export function useBudgetAlerts(userId: string | null, threshold: number = 0.8) 
       return alerts.map(alertToViewModel);
     },
     enabled: !!userId,
+    staleTime: 5 * 60 * 1000, // 5 minutes - don't refetch if data is fresh
+    placeholderData: keepPreviousData,
   });
 }
