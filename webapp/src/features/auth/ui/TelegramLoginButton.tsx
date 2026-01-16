@@ -16,7 +16,7 @@ interface TelegramLoginButtonProps {
 }
 
 // Bot username - should match your Telegram bot
-const BOT_USERNAME = import.meta.env.VITE_TG_BOT_USERNAME || 'FinanceTrackerBot';
+const BOT_USERNAME = import.meta.env.VITE_TG_BOT_USERNAME || 'FinanceTrackerAppBot';
 
 export function TelegramLoginButton({
   className,
