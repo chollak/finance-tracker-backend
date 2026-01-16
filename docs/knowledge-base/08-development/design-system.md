@@ -508,11 +508,164 @@ lg:     ≥ 1024px  (desktop)
 
 ---
 
+## Theme System
+
+### Dark Mode Support
+
+**Location:** `webapp/src/shared/hooks/useTheme.ts`
+
+The app supports light, dark, and system-preference themes.
+
+#### useTheme Hook
+
+```typescript
+import { useTheme } from '@/shared/hooks';
+
+function MyComponent() {
+  const { theme, setTheme, resolvedTheme, isDark } = useTheme();
+
+  // theme: 'light' | 'dark' | 'system'
+  // resolvedTheme: actual applied theme ('light' | 'dark')
+  // isDark: boolean shorthand
+
+  return (
+    <button onClick={() => setTheme('dark')}>
+      Enable Dark Mode
+    </button>
+  );
+}
+```
+
+#### ThemeToggle Component
+
+**Location:** `webapp/src/shared/ui/theme-toggle.tsx`
+
+```tsx
+import { ThemeToggle } from '@/shared/ui';
+
+// Renders a button with popover for theme selection
+<ThemeToggle />
+```
+
+**Options:**
+- Светлая (Light)
+- Тёмная (Dark)
+- Система (System preference)
+
+#### CSS Variables
+
+Dark mode colors are defined in `globals.css`:
+
+```css
+.dark {
+  --color-background: oklch(9.6% 0 0);
+  --color-foreground: oklch(98.2% 0 0);
+  --color-card: oklch(14.5% 0 0);
+  /* ... */
+}
+```
+
+---
+
+## Empty States
+
+### EmptyState Component
+
+**Location:** `webapp/src/shared/ui/empty-state.tsx`
+
+Reusable component for displaying helpful empty state messages.
+
+#### Props
+
+```typescript
+interface EmptyStateProps {
+  icon?: ReactNode;      // Emoji or icon
+  title: string;         // Main message
+  description?: string;  // Secondary explanation
+  tip?: string;          // Helpful tip with 💡 prefix
+  action?: ReactNode;    // CTA button
+  className?: string;
+  size?: 'sm' | 'md' | 'lg';
+}
+```
+
+#### Examples
+
+```tsx
+import { EmptyState, Button } from '@/shared/ui';
+
+// Basic empty state
+<EmptyState
+  icon="📝"
+  title="Нет транзакций"
+  description="Начните записывать расходы и доходы"
+/>
+
+// With tip and action
+<EmptyState
+  icon="📊"
+  title="Нет активных бюджетов"
+  description="Создайте бюджет для контроля расходов"
+  tip="Бюджеты помогают не превышать лимиты"
+  action={<Button>Создать бюджет</Button>}
+  size="lg"
+/>
+
+// Search empty state
+<EmptyState
+  icon="🔍"
+  title="Ничего не найдено"
+  description="Попробуйте изменить параметры поиска"
+  size="md"
+/>
+```
+
+---
+
+## Autocomplete Input
+
+### AutocompleteInput Component
+
+**Location:** `webapp/src/shared/ui/autocomplete-input.tsx`
+
+Input with dropdown suggestions for quick selection.
+
+#### Props
+
+```typescript
+interface AutocompleteInputProps {
+  value: string;
+  onChange: (value: string) => void;
+  suggestions: string[];
+  placeholder?: string;
+  className?: string;
+  maxSuggestions?: number; // Default: 5
+}
+```
+
+#### Example
+
+```tsx
+import { AutocompleteInput } from '@/shared/ui';
+
+const recentMerchants = ['Магнит', 'Пятёрочка', 'Кофе Хауз'];
+
+<AutocompleteInput
+  value={merchant}
+  onChange={setMerchant}
+  suggestions={recentMerchants}
+  placeholder="Название места"
+  maxSuggestions={5}
+/>
+```
+
+---
+
 ## Animations
 
 ### Animation Classes
 
-**Location:** `webapp/src/index.css`
+**Location:** `webapp/src/app/styles/globals.css`
 
 #### fade-in
 
@@ -585,6 +738,92 @@ Ripple effect (used for active nav items).
   to {
     transform: scale(1.3);
     opacity: 0;
+  }
+}
+```
+
+### New Micro-Animations (2025)
+
+#### animate-fade-in-up
+
+Smooth fade with upward movement for page content.
+
+```css
+.animate-fade-in-up {
+  animation: fadeInUp 0.4s ease-out forwards;
+}
+```
+
+**Usage with stagger:**
+```tsx
+<div className="animate-fade-in-up">First item</div>
+<div className="animate-fade-in-up stagger-1">Second item</div>
+<div className="animate-fade-in-up stagger-2">Third item</div>
+```
+
+#### card-hover
+
+Subtle lift effect on hover for cards.
+
+```css
+.card-hover {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+```
+
+**Usage:**
+```tsx
+<Card className="card-hover cursor-pointer">
+  Clickable card
+</Card>
+```
+
+#### list-item-transition
+
+Smooth hover transition for list items.
+
+```css
+.list-item-transition {
+  transition: opacity 0.2s ease, transform 0.2s ease, background-color 0.2s ease;
+}
+.list-item-transition:hover {
+  background-color: var(--color-muted);
+}
+```
+
+#### Button Press Effect
+
+All buttons have a subtle scale-down on press.
+
+```css
+/* Built into Button component */
+active:scale-[0.98]
+```
+
+#### Stagger Delays
+
+For sequential animations:
+
+```css
+.stagger-1 { animation-delay: 0.05s; }
+.stagger-2 { animation-delay: 0.1s; }
+.stagger-3 { animation-delay: 0.15s; }
+/* ... up to stagger-8 */
+```
+
+#### Reduced Motion Support
+
+Animations are disabled for users who prefer reduced motion:
+
+```css
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
   }
 }
 ```
