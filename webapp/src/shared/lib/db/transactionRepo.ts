@@ -46,13 +46,14 @@ export const localTransactionRepo = {
    * Get all transactions for a user (non-archived)
    */
   async getByUserId(userId: string): Promise<LocalTransaction[]> {
-    return db.transactions
-      .where('[userId+isArchived]')
-      .equals([userId, 0]) // 0 = false in IndexedDB
-      .or('[userId+isArchived]')
-      .equals([userId, false])
-      .reverse()
-      .sortBy('date');
+    const transactions = await db.transactions
+      .where('userId')
+      .equals(userId)
+      .filter((tx) => !tx.isArchived)
+      .toArray();
+
+    // Sort by date descending
+    return transactions.sort((a, b) => b.date.localeCompare(a.date));
   },
 
   /**

@@ -76,4 +76,6 @@ export interface UpdateLocalTransactionDTO {
   amount?: number;
   type?: 'income' | 'expense';
   merchant?: string;
+  syncStatus?: SyncStatus;
+  isArchived?: boolean;
 }
