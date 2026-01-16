@@ -4,16 +4,18 @@ import { TransactionModule } from '../../../modules/transaction/transactionModul
 import { VoiceProcessingModule } from '../../../modules/voiceProcessing/voiceProcessingModule';
 import { BudgetModule } from '../../../modules/budget/budgetModule';
 import { OpenAIUsageModule } from '../../../modules/openai-usage/openAIUsageModule';
+import { UserModule } from '../../../modules/user/userModule';
 import { createTransactionRouter } from '../../../modules/transaction/presentation/controllers/transactionController';
 import { createVoiceProcessingRouter } from '../../../modules/voiceProcessing/presentation/controllers/voiceProcessingController';
 import { createBudgetRouter } from '../../../modules/budget/interfaces/budgetRoutes';
 import { createDashboardRouter } from './routes/dashboardRoutes';
-import { 
-  errorHandler, 
-  notFoundHandler, 
-  requestLogger, 
-  corsHeaders, 
-  securityHeaders 
+import { createUserController } from '../../../modules/user/presentation/controllers/userController';
+import {
+  errorHandler,
+  notFoundHandler,
+  requestLogger,
+  corsHeaders,
+  securityHeaders
 } from './middleware/errorMiddleware';
 import { AppConfig } from '../../../shared/infrastructure/config/appConfig';
 
@@ -21,7 +23,8 @@ export function buildServer(
   transactionModule: TransactionModule,
   voiceModule: VoiceProcessingModule,
   budgetModule: BudgetModule,
-  openAIUsageModule: OpenAIUsageModule
+  openAIUsageModule: OpenAIUsageModule,
+  userModule?: UserModule
 ) {
   const router = Router();
   
@@ -88,6 +91,14 @@ export function buildServer(
     '/openai',
     openAIUsageModule.routes
   );
+
+  // User routes (optional - only if userModule is provided)
+  if (userModule) {
+    router.use(
+      '/users',
+      createUserController(userModule)
+    );
+  }
 
   // Add 404 handler for unmatched routes
   router.use('*', notFoundHandler);

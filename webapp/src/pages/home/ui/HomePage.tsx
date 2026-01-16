@@ -7,6 +7,8 @@ import { Button } from '@/shared/ui/button';
 import { ThemeToggle } from '@/shared/ui/theme-toggle';
 import { Plus } from 'lucide-react';
 import { QuickAddSheet } from '@/features/quick-add';
+import { GuestModeBanner } from '@/features/auth';
+import { SyncButton } from '@/features/sync';
 
 /**
  * Home Page (Dashboard)
@@ -21,11 +23,15 @@ export function HomePage() {
           <h1 className="text-3xl font-bold">Главная</h1>
           <p className="text-muted-foreground mt-1">Обзор ваших финансов</p>
         </div>
-        {/* Theme Toggle - visible on mobile (hidden on desktop via TopNav) */}
-        <div className="md:hidden">
+        {/* Actions - visible on mobile (hidden on desktop via TopNav) */}
+        <div className="flex items-center gap-2 md:hidden">
+          <SyncButton />
           <ThemeToggle />
         </div>
       </div>
+
+      {/* Guest Mode Banner */}
+      <GuestModeBanner className="mb-6" />
 
       {/* Main Content */}
       <div className="space-y-6">

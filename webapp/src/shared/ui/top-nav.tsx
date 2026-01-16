@@ -2,6 +2,8 @@ import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/shared/lib/utils';
 import { ROUTES } from '@/shared/lib/constants/routes';
 import { ThemeToggle } from './theme-toggle';
+import { SyncButton } from '@/features/sync';
+import { TelegramLoginButton } from '@/features/auth';
 
 const navItems = [
   { href: ROUTES.HOME, label: 'Главная' },
@@ -45,8 +47,15 @@ export function TopNav() {
           })}
         </nav>
 
-        {/* Theme Toggle */}
-        <ThemeToggle />
+        {/* Actions */}
+        <div className="flex items-center gap-2">
+          {/* Sync Button - for Telegram users */}
+          <SyncButton showLabel />
+          {/* Login Button - for guest users */}
+          <TelegramLoginButton variant="outline" size="sm" />
+          {/* Theme Toggle */}
+          <ThemeToggle />
+        </div>
       </div>
     </header>
   );
