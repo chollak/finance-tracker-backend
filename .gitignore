@@ -9,6 +9,9 @@ public/webapp/
 .env.local
 .env.*.local
 
+# BUT allow webapp production env (no secrets, just config)
+!webapp/.env
+
 # Logs
 logs/
 *.log
