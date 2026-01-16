@@ -14,7 +14,7 @@ interface BudgetCardProps {
  */
 export function BudgetCard({ budget, onClick }: BudgetCardProps) {
   return (
-    <Card className="cursor-pointer hover:bg-accent/50 transition-colors" onClick={onClick}>
+    <Card className="cursor-pointer card-hover" onClick={onClick}>
       <CardHeader>
         <div className="flex items-start justify-between gap-4">
           <div>
@@ -59,11 +59,26 @@ export function BudgetCard({ budget, onClick }: BudgetCardProps) {
           </div>
         </div>
 
-        {/* Days Remaining */}
+        {/* Days Remaining & Velocity Prediction */}
         <Separator />
-        <p className="text-xs text-muted-foreground">
-          {budget._daysRemainingText}
-        </p>
+        <div className="flex items-center justify-between text-xs">
+          <span className="text-muted-foreground">
+            {budget._daysRemainingText}
+          </span>
+          {budget._velocityText && (
+            <span
+              className={
+                budget._velocityStatus === 'danger'
+                  ? 'text-red-600 font-medium'
+                  : budget._velocityStatus === 'warning'
+                  ? 'text-orange-600 font-medium'
+                  : 'text-green-600'
+              }
+            >
+              {budget._velocityText}
+            </span>
+          )}
+        </div>
       </CardContent>
     </Card>
   );

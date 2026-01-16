@@ -1,7 +1,7 @@
 import { useBudgetSummaries, BudgetCard, budgetToViewModel } from '@/entities/budget';
 import { useUserStore } from '@/entities/user';
 import { BudgetOverview } from '@/widgets/budget-overview';
-import { Button } from '@/shared/ui/button';
+import { Button, EmptyState } from '@/shared/ui';
 import { Skeleton } from '@/shared/ui/skeleton';
 import { Plus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -55,11 +55,19 @@ export function BudgetsPage() {
             ))}
           </div>
         ) : (
-          <div className="text-center py-12 border-2 border-dashed rounded-lg">
-            <p className="text-muted-foreground mb-4">У вас пока нет бюджетов</p>
-            <Button onClick={() => navigate(ROUTES.ADD_BUDGET)}>
-              Создать первый бюджет
-            </Button>
+          <div className="border-2 border-dashed rounded-lg">
+            <EmptyState
+              icon="💰"
+              title="Создайте свой первый бюджет"
+              description="Бюджеты помогут контролировать расходы по категориям и избежать перерасхода"
+              tip="Начните с бюджета на еду или транспорт — это самые частые категории расходов"
+              action={
+                <Button onClick={() => navigate(ROUTES.ADD_BUDGET)}>
+                  Создать бюджет
+                </Button>
+              }
+              size="lg"
+            />
           </div>
         )}
       </div>

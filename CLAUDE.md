@@ -65,6 +65,8 @@ For detailed documentation, see **[docs/knowledge-base/](docs/knowledge-base/)**
   - [Adding Features](docs/knowledge-base/08-development/adding-features.md) - Use cases, endpoints, modules
   - [Database Guide](docs/knowledge-base/08-development/database-guide.md) - SQLite vs Supabase
   - [Troubleshooting](docs/knowledge-base/08-development/troubleshooting.md) - Common issues
+- **[UX Improvements](docs/knowledge-base/09-ux-improvements/)** - UI/UX enhancement tracking
+  - [UI/UX Analysis](docs/knowledge-base/09-ux-improvements/ui-ux-analysis.md) - Complete analysis and recommendations
 
 ## Architecture Overview
 

@@ -1,7 +1,11 @@
+import { useState } from 'react';
+import { Plus, Minus } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card';
+import { Button } from '@/shared/ui/button';
 import { Skeleton } from '@/shared/ui/skeleton';
 import { useDashboardInsights } from '@/entities/dashboard';
 import { useUserStore } from '@/entities/user';
+import { ControlledQuickAddSheet } from '@/features/quick-add';
 import { formatBalance, getDynamicFontSize, getBalanceColor } from '../lib/formatBalance';
 import { formatCurrency } from '@/shared/lib/formatters';
 
@@ -12,6 +16,15 @@ import { formatCurrency } from '@/shared/lib/formatters';
 export function BalanceCard() {
   const userId = useUserStore((state) => state.userId);
   const { data: dashboard, isLoading } = useDashboardInsights(userId);
+
+  // Quick add sheet state
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const [quickAddType, setQuickAddType] = useState<'income' | 'expense'>('expense');
+
+  const openQuickAdd = (type: 'income' | 'expense') => {
+    setQuickAddType(type);
+    setQuickAddOpen(true);
+  };
 
   if (isLoading) {
     return (
@@ -49,6 +62,26 @@ export function BalanceCard() {
           {formatBalance(balance)}
         </div>
 
+        {/* Quick Actions */}
+        <div className="flex gap-3">
+          <Button
+            variant="outline"
+            className="flex-1 h-12 text-green-600 border-green-200 hover:bg-green-50 hover:border-green-300"
+            onClick={() => openQuickAdd('income')}
+          >
+            <Plus className="h-5 w-5 mr-2" />
+            Доход
+          </Button>
+          <Button
+            variant="outline"
+            className="flex-1 h-12 text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300"
+            onClick={() => openQuickAdd('expense')}
+          >
+            <Minus className="h-5 w-5 mr-2" />
+            Расход
+          </Button>
+        </div>
+
         {/* Income & Expense Row */}
         <div className="flex justify-between items-center gap-4">
           {/* Monthly Income */}
@@ -68,6 +101,13 @@ export function BalanceCard() {
           </div>
         </div>
       </CardContent>
+
+      {/* Quick Add Sheet */}
+      <ControlledQuickAddSheet
+        open={quickAddOpen}
+        onOpenChange={setQuickAddOpen}
+        defaultType={quickAddType}
+      />
     </Card>
   );
 }

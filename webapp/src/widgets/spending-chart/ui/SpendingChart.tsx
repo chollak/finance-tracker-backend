@@ -1,5 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card';
 import { Skeleton } from '@/shared/ui/skeleton';
+import { EmptyState } from '@/shared/ui';
 import {
   ChartContainer,
   ChartTooltip,
@@ -88,12 +89,15 @@ export function SpendingChart() {
       <Card>
         <CardHeader>
           <CardTitle>Расходы по категориям</CardTitle>
-          <CardDescription>Нет данных для отображения</CardDescription>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground text-center py-8">
-            Добавьте транзакции, чтобы увидеть распределение расходов
-          </p>
+          <EmptyState
+            icon="📊"
+            title="Нет данных для графика"
+            description="Добавьте транзакции с расходами, чтобы увидеть распределение"
+            tip="График покажет, какие категории расходов занимают больше всего"
+            size="sm"
+          />
         </CardContent>
       </Card>
     );

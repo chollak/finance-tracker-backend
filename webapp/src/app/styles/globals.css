@@ -29,7 +29,7 @@
 }
 
 @theme inline {
-  /* Light theme colors */
+  /* Light theme colors (default) */
   --color-background: oklch(100% 0 0);
   --color-foreground: oklch(9.6% 0 0);
   --color-card: oklch(100% 0 0);
@@ -56,6 +56,278 @@
   --radius: 0.5rem;
 }
 
+/* Dark theme colors - activated by .dark class */
+:root.dark,
+html.dark,
+.dark {
+  --color-background: oklch(9.6% 0 0) !important;
+  --color-foreground: oklch(98.2% 0 0) !important;
+  --color-card: oklch(14.5% 0 0) !important;
+  --color-card-foreground: oklch(98.2% 0 0) !important;
+  --color-popover: oklch(14.5% 0 0) !important;
+  --color-popover-foreground: oklch(98.2% 0 0) !important;
+  --color-primary: oklch(98.2% 0 0) !important;
+  --color-primary-foreground: oklch(14.5% 0 0) !important;
+  --color-secondary: oklch(20% 0 0) !important;
+  --color-secondary-foreground: oklch(98.2% 0 0) !important;
+  --color-muted: oklch(20% 0 0) !important;
+  --color-muted-foreground: oklch(65% 0 0) !important;
+  --color-accent: oklch(20% 0 0) !important;
+  --color-accent-foreground: oklch(98.2% 0 0) !important;
+  --color-destructive: oklch(60% 0.2 25) !important;
+  --color-border: oklch(25% 0 0) !important;
+  --color-input: oklch(25% 0 0) !important;
+  --color-ring: oklch(30% 0 0) !important;
+  --color-chart-1: oklch(72% 0.155 27.5) !important;
+  --color-chart-2: oklch(62% 0.097 195.2) !important;
+  --color-chart-3: oklch(55% 0.059 236.8) !important;
+  --color-chart-4: oklch(78% 0.145 75.4) !important;
+  --color-chart-5: oklch(80% 0.159 39.2) !important;
+}
+
+/* Auto dark mode based on system preference */
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    --color-background: oklch(9.6% 0 0);
+    --color-foreground: oklch(98.2% 0 0);
+    --color-card: oklch(14.5% 0 0);
+    --color-card-foreground: oklch(98.2% 0 0);
+    --color-popover: oklch(14.5% 0 0);
+    --color-popover-foreground: oklch(98.2% 0 0);
+    --color-primary: oklch(98.2% 0 0);
+    --color-primary-foreground: oklch(14.5% 0 0);
+    --color-secondary: oklch(20% 0 0);
+    --color-secondary-foreground: oklch(98.2% 0 0);
+    --color-muted: oklch(20% 0 0);
+    --color-muted-foreground: oklch(65% 0 0);
+    --color-accent: oklch(20% 0 0);
+    --color-accent-foreground: oklch(98.2% 0 0);
+    --color-destructive: oklch(60% 0.2 25);
+    --color-border: oklch(25% 0 0);
+    --color-input: oklch(25% 0 0);
+    --color-ring: oklch(30% 0 0);
+  }
+}
+
+
+/* ========================================
+   MICRO-ANIMATIONS
+   ======================================== */
+
+/* Keyframe definitions */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes progressFill {
+  from {
+    width: 0%;
+  }
+}
+
+@keyframes checkmark {
+  0% {
+    stroke-dashoffset: 100;
+  }
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+/* Animation utility classes */
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out forwards;
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.4s ease-out forwards;
+}
+
+.animate-slide-in-up {
+  animation: slideInUp 0.5s ease-out forwards;
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.3s ease-out forwards;
+}
+
+.animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--color-muted) 25%,
+    var(--color-background) 50%,
+    var(--color-muted) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+.animate-pulse-soft {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.animate-progress-fill {
+  animation: progressFill 0.8s ease-out forwards;
+}
+
+.animate-bounce-soft {
+  animation: bounce 0.6s ease-in-out;
+}
+
+/* Stagger delays for list items */
+.stagger-1 { animation-delay: 0.05s; }
+.stagger-2 { animation-delay: 0.1s; }
+.stagger-3 { animation-delay: 0.15s; }
+.stagger-4 { animation-delay: 0.2s; }
+.stagger-5 { animation-delay: 0.25s; }
+.stagger-6 { animation-delay: 0.3s; }
+.stagger-7 { animation-delay: 0.35s; }
+.stagger-8 { animation-delay: 0.4s; }
+
+/* Card hover effects */
+.card-hover {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.dark .card-hover:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* Button press effect */
+.btn-press {
+  transition: transform 0.1s ease;
+}
+
+.btn-press:active {
+  transform: scale(0.97);
+}
+
+/* Skeleton loading enhancement */
+.skeleton-enhanced {
+  position: relative;
+  overflow: hidden;
+  background-color: var(--color-muted);
+}
+
+.skeleton-enhanced::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.1) 50%,
+    transparent 100%
+  );
+  animation: shimmer 1.5s infinite;
+}
+
+/* Progress bar smooth transition */
+[role="progressbar"] > div {
+  transition: width 0.5s ease-out;
+}
+
+/* List item transitions */
+.list-item-transition {
+  transition: opacity 0.2s ease, transform 0.2s ease, background-color 0.2s ease;
+}
+
+.list-item-transition:hover {
+  background-color: var(--color-muted);
+}
+
+/* Success state */
+.success-pulse {
+  animation: pulse 0.5s ease-in-out;
+  color: var(--color-chart-4);
+}
+
+/* Sheet/Dialog animations */
+[data-state="open"] {
+  animation: fadeIn 0.2s ease-out;
+}
+
+[data-state="closed"] {
+  animation: fadeIn 0.2s ease-out reverse;
+}
+
+/* Smooth page transitions */
+.page-transition {
+  animation: fadeInUp 0.3s ease-out;
+}
 
 @layer base {
   * {
@@ -65,5 +337,52 @@
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
+  }
+
+  /* Smooth scrolling */
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Remove animation for users who prefer reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  /* Force dark mode colors on elements using bg-background */
+  .dark .bg-background,
+  .dark.bg-background {
+    background-color: var(--color-background) !important;
+  }
+
+  .dark .bg-card,
+  .dark.bg-card {
+    background-color: var(--color-card) !important;
+  }
+
+  .dark .text-foreground,
+  .dark.text-foreground {
+    color: var(--color-foreground) !important;
+  }
+
+  .dark .text-muted-foreground,
+  .dark.text-muted-foreground {
+    color: var(--color-muted-foreground) !important;
+  }
+
+  .dark .text-card-foreground,
+  .dark.text-card-foreground {
+    color: var(--color-card-foreground) !important;
+  }
+
+  .dark .border-border,
+  .dark.border-border {
+    border-color: var(--color-border) !important;
   }
 }

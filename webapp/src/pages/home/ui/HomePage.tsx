@@ -4,6 +4,7 @@ import { RecentTransactions } from '@/widgets/recent-transactions';
 import { AlertsPanel } from '@/widgets/alerts-panel';
 import { BudgetOverview } from '@/widgets/budget-overview';
 import { Button } from '@/shared/ui/button';
+import { ThemeToggle } from '@/shared/ui/theme-toggle';
 import { Plus } from 'lucide-react';
 import { QuickAddSheet } from '@/features/quick-add';
 
@@ -14,30 +15,46 @@ import { QuickAddSheet } from '@/features/quick-add';
 export function HomePage() {
   return (
     <div className="container mx-auto px-4 py-6">
-      {/* Page Title */}
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold">Главная</h1>
-        <p className="text-muted-foreground mt-1">Обзор ваших финансов</p>
+      {/* Page Title with Theme Toggle */}
+      <div className="mb-6 flex items-start justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">Главная</h1>
+          <p className="text-muted-foreground mt-1">Обзор ваших финансов</p>
+        </div>
+        {/* Theme Toggle - visible on mobile (hidden on desktop via TopNav) */}
+        <div className="md:hidden">
+          <ThemeToggle />
+        </div>
       </div>
 
       {/* Main Content */}
       <div className="space-y-6">
         {/* Balance Card - Full Width */}
-        <BalanceCard />
+        <div className="animate-fade-in-up">
+          <BalanceCard />
+        </div>
 
         {/* Quick Stats - Grid */}
-        <QuickStats />
+        <div className="animate-fade-in-up stagger-1">
+          <QuickStats />
+        </div>
 
         {/* Alerts Panel - Important */}
-        <AlertsPanel />
+        <div className="animate-fade-in-up stagger-2">
+          <AlertsPanel />
+        </div>
 
         {/* Two Column Layout on Desktop */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Budget Overview */}
-          <BudgetOverview />
+          <div className="animate-fade-in-up stagger-3">
+            <BudgetOverview />
+          </div>
 
           {/* Recent Transactions */}
-          <RecentTransactions />
+          <div className="animate-fade-in-up stagger-4">
+            <RecentTransactions />
+          </div>
         </div>
       </div>
 

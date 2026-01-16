@@ -1,6 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/shared/lib/utils';
 import { ROUTES } from '@/shared/lib/constants/routes';
+import { ThemeToggle } from './theme-toggle';
 
 const navItems = [
   { href: ROUTES.HOME, label: 'Главная' },
@@ -25,7 +26,7 @@ export function TopNav() {
         </Link>
 
         {/* Navigation Links */}
-        <nav className="flex items-center gap-6">
+        <nav className="flex flex-1 items-center gap-6">
           {navItems.map((item) => {
             const isActive = location.pathname === item.href;
 
@@ -43,6 +44,9 @@ export function TopNav() {
             );
           })}
         </nav>
+
+        {/* Theme Toggle */}
+        <ThemeToggle />
       </div>
     </header>
   );

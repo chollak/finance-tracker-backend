@@ -1,3 +1,5 @@
+import { format, differenceInDays, addDays } from 'date-fns';
+import { ru } from 'date-fns/locale';
 import type { BudgetSummary, BudgetPeriod } from '@/shared/types';
 import type { BudgetViewModel } from '../model/types';
 import { formatCurrency, formatBudgetUsage } from '@/shared/lib/formatters';
@@ -68,11 +70,102 @@ function formatDaysRemaining(days: number): string {
 }
 
 /**
+ * Get total days in budget period
+ */
+function getPeriodTotalDays(period: BudgetPeriod): number {
+  switch (period) {
+    case 'weekly': return 7;
+    case 'monthly': return 30;
+    case 'quarterly': return 90;
+    case 'yearly': return 365;
+    default: return 30;
+  }
+}
+
+/**
+ * Calculate velocity prediction - when budget will run out at current spending rate
+ * Works with or without startDate/endDate fields
+ */
+function calculateVelocityPrediction(budget: BudgetSummary): {
+  dailyRate: number;
+  runoutDate: string | null;
+  velocityText: string | null;
+  velocityStatus: 'on-track' | 'warning' | 'danger' | null;
+} {
+  const today = new Date();
+
+  // Calculate total days and days elapsed using period and daysRemaining
+  const totalDays = getPeriodTotalDays(budget.period);
+  const daysElapsed = totalDays - budget.daysRemaining;
+
+  // Calculate end date from daysRemaining
+  const endDate = addDays(today, budget.daysRemaining);
+
+  // Need at least 1 day of data
+  if (daysElapsed <= 0 || budget.spent <= 0) {
+    return {
+      dailyRate: 0,
+      runoutDate: null,
+      velocityText: null,
+      velocityStatus: null,
+    };
+  }
+
+  // Calculate daily spending rate
+  const dailyRate = budget.spent / daysElapsed;
+
+  // Already over budget
+  if (budget.isOverBudget) {
+    return {
+      dailyRate,
+      runoutDate: null,
+      velocityText: 'Бюджет превышен',
+      velocityStatus: 'danger',
+    };
+  }
+
+  // Calculate projected runout date
+  const daysUntilRunout = budget.remaining / dailyRate;
+  const projectedRunoutDate = addDays(today, Math.floor(daysUntilRunout));
+
+  // Format the date
+  const runoutDateStr = format(projectedRunoutDate, 'd MMM', { locale: ru });
+
+  // Determine velocity status
+  let velocityStatus: 'on-track' | 'warning' | 'danger' = 'on-track';
+  let velocityText: string;
+
+  if (projectedRunoutDate < endDate) {
+    // Will run out before end of period
+    const daysDiff = differenceInDays(endDate, projectedRunoutDate);
+    if (daysDiff > 3) {
+      velocityStatus = 'danger';
+      velocityText = `Закончится ${runoutDateStr}`;
+    } else {
+      velocityStatus = 'warning';
+      velocityText = `Закончится ${runoutDateStr}`;
+    }
+  } else {
+    // On track to finish within budget
+    velocityStatus = 'on-track';
+    velocityText = `Хватит до конца периода`;
+  }
+
+  return {
+    dailyRate,
+    runoutDate: runoutDateStr,
+    velocityText,
+    velocityStatus,
+  };
+}
+
+/**
  * Transforms BudgetSummary to BudgetViewModel
  * Adds formatted fields with _ prefix for direct UI rendering
  */
 export function budgetToViewModel(budget: BudgetSummary): BudgetViewModel {
   const status = getStatus(budget.percentageUsed, budget.isOverBudget);
+  const velocity = calculateVelocityPrediction(budget);
 
   return {
     ...budget,
@@ -85,5 +178,10 @@ export function budgetToViewModel(budget: BudgetSummary): BudgetViewModel {
     _statusColor: status.color,
     _daysRemainingText: formatDaysRemaining(budget.daysRemaining),
     _periodText: formatPeriod(budget.period),
+    // Velocity prediction
+    _dailySpendingRate: velocity.dailyRate,
+    _projectedRunoutDate: velocity.runoutDate,
+    _velocityText: velocity.velocityText,
+    _velocityStatus: velocity.velocityStatus,
   };
 }

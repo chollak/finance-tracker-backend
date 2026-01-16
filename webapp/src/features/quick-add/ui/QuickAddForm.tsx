@@ -6,6 +6,7 @@ import { ChevronDown, ChevronUp, Calendar as CalendarIcon } from 'lucide-react';
 
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
+import { AutocompleteInput } from '@/shared/ui/autocomplete-input';
 import { Calendar } from '@/shared/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/shared/ui/popover';
 import {
@@ -94,6 +95,17 @@ export function QuickAddForm({
 
     return [...new Set([...recentCats, ...defaults])].slice(0, 5);
   }, [transactions, transactionType]);
+
+  // Get unique merchants from transaction history for auto-suggest
+  const recentMerchants = useMemo(() => {
+    if (!transactions || transactions.length === 0) return [];
+
+    return transactions
+      .map((t) => t.merchant)
+      .filter((m): m is string => !!m && m.trim() !== '') // filter out empty
+      .filter((m, idx, arr) => arr.indexOf(m) === idx) // unique
+      .slice(0, 20); // limit to 20 recent merchants
+  }, [transactions]);
 
   // Handle form submission
   const handleSubmit = (data: QuickAddFormData) => {
@@ -284,14 +296,19 @@ export function QuickAddForm({
                 )}
               />
 
-              {/* Merchant */}
+              {/* Merchant with Auto-suggest */}
               <FormField
                 control={form.control}
                 name="merchant"
                 render={({ field }) => (
                   <FormItem>
                     <FormControl>
-                      <Input placeholder="Место / Магазин" {...field} />
+                      <AutocompleteInput
+                        value={field.value || ''}
+                        onChange={field.onChange}
+                        suggestions={recentMerchants}
+                        placeholder="Место / Магазин"
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

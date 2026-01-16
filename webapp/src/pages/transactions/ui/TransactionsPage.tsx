@@ -12,7 +12,7 @@ import { useUserStore } from '@/entities/user';
 import { FilterBar, useTransactionFiltersStore, filterTransactions } from '@/features/filter-transactions';
 import { useDeleteTransactionDialog } from '@/features/delete-transaction';
 import { QuickAddSheet } from '@/features/quick-add';
-import { Button } from '@/shared/ui/button';
+import { Button, EmptyState } from '@/shared/ui';
 import { Skeleton } from '@/shared/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/ui/tabs';
 import {
@@ -188,20 +188,27 @@ export function TransactionsPage() {
                 ))}
               </div>
             ) : filteredTransactions.length === 0 ? (
-              <div className="text-center py-12">
-                <p className="text-muted-foreground">
-                  {transactions && transactions.length > 0
-                    ? 'Нет транзакций, соответствующих фильтрам'
-                    : 'У вас пока нет активных транзакций'}
-                </p>
-                <Button
-                  variant="link"
-                  onClick={() => navigate(ROUTES.ADD_TRANSACTION)}
-                  className="mt-2"
-                >
-                  Добавить первую транзакцию
-                </Button>
-              </div>
+              transactions && transactions.length > 0 ? (
+                <EmptyState
+                  icon="🔍"
+                  title="Ничего не найдено"
+                  description="Попробуйте изменить параметры поиска или сбросить фильтры"
+                  size="md"
+                />
+              ) : (
+                <EmptyState
+                  icon="📝"
+                  title="Нет транзакций"
+                  description="Начните записывать свои расходы и доходы, чтобы видеть полную картину финансов"
+                  tip="Попробуйте голосовой ввод — просто скажите 'Обед 50 тысяч' в Telegram боте!"
+                  action={
+                    <Button onClick={() => navigate(ROUTES.ADD_TRANSACTION)}>
+                      Добавить первую транзакцию
+                    </Button>
+                  }
+                  size="lg"
+                />
+              )
             ) : (
               groupedTransactions.map((group) => (
                 <section key={group.label}>
@@ -238,13 +245,22 @@ export function TransactionsPage() {
                 ))}
               </div>
             ) : filteredArchivedTransactions.length === 0 ? (
-              <div className="text-center py-12">
-                <p className="text-muted-foreground">
-                  {archivedTransactions && archivedTransactions.length > 0
-                    ? 'Нет транзакций, соответствующих фильтрам'
-                    : 'Архив пуст'}
-                </p>
-              </div>
+              archivedTransactions && archivedTransactions.length > 0 ? (
+                <EmptyState
+                  icon="🔍"
+                  title="Ничего не найдено"
+                  description="Попробуйте изменить параметры поиска или сбросить фильтры"
+                  size="md"
+                />
+              ) : (
+                <EmptyState
+                  icon="📦"
+                  title="Архив пуст"
+                  description="Здесь будут храниться архивированные транзакции"
+                  tip="Архивируйте старые транзакции, чтобы они не учитывались в текущем балансе"
+                  size="md"
+                />
+              )
             ) : (
               groupedArchivedTransactions.map((group) => (
                 <section key={group.label} className="opacity-75">

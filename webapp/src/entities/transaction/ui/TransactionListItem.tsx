@@ -35,8 +35,8 @@ export function TransactionListItem({
 
   return (
     <div
-      className={`group flex items-center gap-3 p-3 rounded-lg transition-colors ${
-        isClickable ? 'hover:bg-accent/50 cursor-pointer active:bg-accent/70' : ''
+      className={`group flex items-center gap-3 p-3 rounded-lg list-item-transition ${
+        isClickable ? 'cursor-pointer active:scale-[0.99]' : ''
       }`}
       onClick={onClick}
     >

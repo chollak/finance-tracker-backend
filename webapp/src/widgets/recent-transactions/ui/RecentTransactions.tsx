@@ -2,9 +2,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/sha
 import { Skeleton } from '@/shared/ui/skeleton';
 import { ScrollArea } from '@/shared/ui/scroll-area';
 import { Separator } from '@/shared/ui/separator';
+import { Button, EmptyState } from '@/shared/ui';
 import { useTransactions, TransactionListItem } from '@/entities/transaction';
 import { useUserStore } from '@/entities/user';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { ROUTES } from '@/shared/lib/constants/routes';
 import { Fragment } from 'react';
 
@@ -13,6 +14,7 @@ import { Fragment } from 'react';
  * Shows the last 5-10 transactions with scrollable list
  */
 export function RecentTransactions() {
+  const navigate = useNavigate();
   const userId = useUserStore((state) => state.userId);
   const { data: transactions, isLoading } = useTransactions(userId);
 
@@ -36,15 +38,20 @@ export function RecentTransactions() {
       <Card>
         <CardHeader>
           <CardTitle>Последние транзакции</CardTitle>
-          <CardDescription>У вас пока нет транзакций</CardDescription>
         </CardHeader>
         <CardContent>
-          <Link
-            to={ROUTES.ADD_TRANSACTION}
-            className="text-sm text-primary hover:underline"
-          >
-            Добавить первую транзакцию →
-          </Link>
+          <EmptyState
+            icon="📝"
+            title="Нет транзакций"
+            description="Начните записывать расходы и доходы"
+            tip="Регулярный учёт поможет понять, куда уходят деньги"
+            action={
+              <Button size="sm" onClick={() => navigate(ROUTES.ADD_TRANSACTION)}>
+                Добавить транзакцию
+              </Button>
+            }
+            size="sm"
+          />
         </CardContent>
       </Card>
     );

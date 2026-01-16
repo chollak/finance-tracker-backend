@@ -14,9 +14,15 @@ export * from './popover';
 export * from './progress';
 export * from './select';
 export * from './separator';
+export * from './sheet';
 export * from './skeleton';
 export * from './sonner';
 export * from './tabs';
+
+// Custom components
+export * from './autocomplete-input';
+export * from './theme-toggle';
+export * from './empty-state';
 
 // Navigation components
 export * from './bottom-nav';

@@ -2,6 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/sha
 import { Progress } from '@/shared/ui/progress';
 import { Badge } from '@/shared/ui/badge';
 import { Skeleton } from '@/shared/ui/skeleton';
+import { Button, EmptyState } from '@/shared/ui';
 import { useBudgetSummaries } from '@/entities/budget';
 import { useUserStore } from '@/entities/user';
 import { formatCurrency } from '@/shared/lib/formatters';
@@ -10,7 +11,7 @@ import {
   getBudgetStatus,
   getStatusColor,
 } from '../lib/calculateProgress';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { ROUTES } from '@/shared/lib/constants/routes';
 
 /**
@@ -18,6 +19,7 @@ import { ROUTES } from '@/shared/lib/constants/routes';
  * Shows summary of all active budgets with progress bars
  */
 export function BudgetOverview() {
+  const navigate = useNavigate();
   const userId = useUserStore((state) => state.userId);
   const { data: budgets, isLoading } = useBudgetSummaries(userId);
 
@@ -41,15 +43,20 @@ export function BudgetOverview() {
       <Card>
         <CardHeader>
           <CardTitle>Бюджеты</CardTitle>
-          <CardDescription>У вас пока нет активных бюджетов</CardDescription>
         </CardHeader>
         <CardContent>
-          <Link
-            to={ROUTES.ADD_BUDGET}
-            className="text-sm text-primary hover:underline"
-          >
-            Создать первый бюджет →
-          </Link>
+          <EmptyState
+            icon="📊"
+            title="Нет активных бюджетов"
+            description="Создайте бюджет, чтобы контролировать расходы по категориям"
+            tip="Бюджеты помогают не превышать лимиты на еду, транспорт и другие категории"
+            action={
+              <Button size="sm" onClick={() => navigate(ROUTES.ADD_BUDGET)}>
+                Создать бюджет
+              </Button>
+            }
+            size="sm"
+          />
         </CardContent>
       </Card>
     );

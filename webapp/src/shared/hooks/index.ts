@@ -17,3 +17,5 @@ export {
   useDebounce,
   useDebouncedCallback,
 } from './useDebounce';
+
+export { useTheme } from './useTheme';

@@ -21,4 +21,10 @@ export interface BudgetViewModel extends BudgetSummary {
   _statusColor: string;             // "text-green-600", "text-red-600"
   _daysRemainingText: string;       // "5 дней осталось"
   _periodText: string;              // "Месячный", "Недельный"
+
+  // Velocity prediction fields
+  _dailySpendingRate: number;       // Daily spending rate
+  _projectedRunoutDate: string | null; // "25 янв" - when budget will run out
+  _velocityText: string | null;     // "Хватит до: 25 янв" or "При текущем темпе: закончится 25 янв"
+  _velocityStatus: 'on-track' | 'warning' | 'danger' | null;  // Velocity status
 }
