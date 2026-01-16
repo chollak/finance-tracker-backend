@@ -11,6 +11,10 @@ export {
   useTelegram,
   useTelegramMainButton,
   useTelegramBackButton,
+  useTelegramHaptic,
+  useTelegramCloudStorage,
+  useTelegramTheme,
+  useTelegramPopup,
 } from './useTelegram';
 
 export {
