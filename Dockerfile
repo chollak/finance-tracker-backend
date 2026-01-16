@@ -30,8 +30,8 @@ COPY tsconfig.json ./
 # Install webapp dependencies manually
 RUN cd webapp && npm install
 
-# Build webapp with explicit working directory
-RUN cd webapp && npm run build
+# Build webapp with explicit working directory and increased memory
+RUN cd webapp && NODE_OPTIONS="--max-old-space-size=1024" npm run build
 
 # Build backend
 RUN npm run build
