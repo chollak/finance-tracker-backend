@@ -28,6 +28,22 @@ const CHART_COLORS = [
 ];
 
 /**
+ * Format large numbers compactly (e.g., 1.4M, 500K)
+ */
+function formatCompactAmount(amount: number): string {
+  if (amount >= 1_000_000_000) {
+    return `${(amount / 1_000_000_000).toFixed(1).replace(/\.0$/, '')}B`;
+  }
+  if (amount >= 1_000_000) {
+    return `${(amount / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`;
+  }
+  if (amount >= 1_000) {
+    return `${(amount / 1_000).toFixed(0)}K`;
+  }
+  return amount.toFixed(0);
+}
+
+/**
  * Spending chart widget
  * Shows pie chart of spending by category using shadcn Chart components
  */
@@ -105,91 +121,105 @@ export function SpendingChart() {
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Расходы по категориям</CardTitle>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base font-semibold">Расходы по категориям</CardTitle>
         <CardDescription>Распределение расходов за период</CardDescription>
       </CardHeader>
-      <CardContent>
-        <div className="flex flex-col lg:flex-row items-center gap-4">
+      <CardContent className="pt-0">
+        <div className="flex flex-col md:flex-row items-start gap-6">
           {/* Pie Chart */}
-          <ChartContainer config={chartConfig} className="w-full lg:w-1/2 aspect-square max-h-[220px]">
-            <PieChart>
-              <ChartTooltip
-                cursor={false}
-                content={
-                  <ChartTooltipContent
-                    hideLabel
-                    formatter={(_value, _name, item) => {
-                      const data = item.payload;
-                      return (
-                        <div className="flex flex-col gap-1">
-                          <span className="font-medium">{data.name}</span>
-                          <span className="text-muted-foreground">
-                            {new Intl.NumberFormat('ru-RU', {
-                              style: 'currency',
-                              currency: 'UZS',
-                              minimumFractionDigits: 0,
-                            }).format(data.actualValue)}
-                          </span>
-                          <span className="font-medium" style={{ color: data.fill }}>
-                            {data.percentage.toFixed(1)}%
-                          </span>
-                        </div>
-                      );
-                    }}
-                  />
-                }
-              />
-              <Pie
-                data={chartData}
-                cx="50%"
-                cy="50%"
-                innerRadius={50}
-                outerRadius={90}
-                paddingAngle={0}
-                dataKey="value"
-                nameKey="name"
-                stroke="none"
-              >
-                {chartData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.fill} />
-                ))}
-              </Pie>
-            </PieChart>
-          </ChartContainer>
+          <div className="w-full md:w-auto flex-shrink-0 flex justify-center">
+            <ChartContainer config={chartConfig} className="w-[180px] h-[180px]">
+              <PieChart>
+                <ChartTooltip
+                  cursor={false}
+                  content={
+                    <ChartTooltipContent
+                      hideLabel
+                      formatter={(_value, _name, item) => {
+                        const data = item.payload;
+                        return (
+                          <div className="flex flex-col gap-1">
+                            <span className="font-medium">{data.name}</span>
+                            <span className="text-muted-foreground">
+                              {new Intl.NumberFormat('ru-RU', {
+                                style: 'currency',
+                                currency: 'UZS',
+                                minimumFractionDigits: 0,
+                              }).format(data.actualValue)}
+                            </span>
+                            <span className="font-medium" style={{ color: data.fill }}>
+                              {data.percentage.toFixed(1)}%
+                            </span>
+                          </div>
+                        );
+                      }}
+                    />
+                  }
+                />
+                <Pie
+                  data={chartData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={45}
+                  outerRadius={80}
+                  paddingAngle={1}
+                  dataKey="value"
+                  nameKey="name"
+                  stroke="none"
+                >
+                  {chartData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.fill} />
+                  ))}
+                </Pie>
+              </PieChart>
+            </ChartContainer>
+          </div>
 
-          {/* Category List */}
-          <div className="w-full lg:w-1/2 space-y-3">
-            {categories.slice(0, 5).map((cat, index) => {
-              const icon = getCategoryIcon(cat.category);
-              const color = CHART_COLORS[index % CHART_COLORS.length];
+          {/* Category List - Grid Layout */}
+          <div className="w-full flex-1 min-w-0">
+            <div className="grid gap-2">
+              {categories.slice(0, 5).map((cat, index) => {
+                const icon = getCategoryIcon(cat.category);
+                const color = CHART_COLORS[index % CHART_COLORS.length];
 
-              return (
-                <div key={cat.category} className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
+                return (
+                  <div
+                    key={cat.category}
+                    className="flex items-center gap-3 py-1.5 px-2 rounded-lg hover:bg-muted/50 transition-colors"
+                  >
+                    {/* Color indicator */}
                     <span
-                      className="w-3 h-3 rounded-full flex-shrink-0"
+                      className="w-2.5 h-2.5 rounded-full flex-shrink-0"
                       style={{ backgroundColor: color }}
                     />
-                    <span className="text-lg">{icon}</span>
-                    <div className="flex flex-col">
-                      <span className="text-sm font-medium">{cat.category}</span>
-                      <span className="text-xs text-muted-foreground">
+
+                    {/* Icon */}
+                    <span className="text-base flex-shrink-0">{icon}</span>
+
+                    {/* Category name with percentage */}
+                    <div className="flex-1 min-w-0 flex items-center gap-2">
+                      <span className="text-sm font-medium truncate">{cat.category}</span>
+                      <span className="text-xs text-muted-foreground flex-shrink-0">
                         {cat.percentage.toFixed(1)}%
                       </span>
                     </div>
+
+                    {/* Amount - compact format */}
+                    <span className="text-sm font-semibold tabular-nums flex-shrink-0">
+                      {formatCompactAmount(cat.total)} UZS
+                    </span>
                   </div>
-                  <span className="font-semibold text-sm">
-                    {new Intl.NumberFormat('ru-RU', {
-                      style: 'currency',
-                      currency: 'UZS',
-                      minimumFractionDigits: 0,
-                      maximumFractionDigits: 0,
-                    }).format(cat.total)}
-                  </span>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
+
+            {/* Show more indicator if there are more categories */}
+            {categories.length > 5 && (
+              <p className="text-xs text-muted-foreground mt-3 text-center">
+                +{categories.length - 5} ещё
+              </p>
+            )}
           </div>
         </div>
       </CardContent>
