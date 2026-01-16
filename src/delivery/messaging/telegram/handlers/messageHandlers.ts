@@ -5,7 +5,8 @@ import { RU } from '../i18n/ru';
 import { formatTransactionMessage } from '../formatters';
 import {
   transactionConfirmationKeyboard,
-  transactionAutoSavedKeyboard
+  transactionAutoSavedKeyboard,
+  getCategoryDisplay
 } from '../keyboards';
 import { downloadVoiceFile, cleanupFile } from '../utils';
 import { AppError } from '../../../../shared/domain/errors/AppError';
@@ -60,6 +61,12 @@ async function handleTextMessage(ctx: BotContext) {
   const userName = `${ctx.from?.first_name || ''} ${ctx.from?.last_name || ''}`.trim() || 'User';
 
   try {
+    // Handle Quick Add - awaiting amount after category selection
+    if (ctx.session?.pendingAction?.type === 'awaiting_amount') {
+      await handleQuickAddAmount(ctx, text, userId, userName);
+      return;
+    }
+
     if (!text || text.trim().length === 0) {
       await ctx.reply(RU.errors.emptyMessage);
       return;
@@ -233,5 +240,90 @@ async function getTodaySummary(
     return { todayTotal, monthTotal };
   } catch {
     return undefined;
+  }
+}
+
+/**
+ * Handle Quick Add amount input after category selection
+ */
+async function handleQuickAddAmount(
+  ctx: BotContext,
+  text: string,
+  userId: string,
+  userName: string
+) {
+  const category = ctx.session.pendingAction?.type === 'awaiting_amount'
+    ? ctx.session.pendingAction.category
+    : null;
+
+  if (!category) {
+    ctx.session.pendingAction = undefined;
+    return;
+  }
+
+  // Parse amount - support formats: "500", "500р", "500 рублей", "1,500"
+  const cleanText = text.replace(/[^\d.,]/g, '').replace(',', '.');
+  const amount = parseFloat(cleanText);
+
+  if (isNaN(amount) || amount <= 0) {
+    await ctx.reply(RU.errors.emptyMessage + '\n\nНапример: <b>500</b> или <b>1500</b>', {
+      parse_mode: 'HTML',
+    });
+    return;
+  }
+
+  // Clear pending action
+  ctx.session.pendingAction = undefined;
+
+  const { transactionModule } = ctx.modules;
+  const categoryDisplay = getCategoryDisplay(category);
+
+  try {
+    // Create transaction directly without AI parsing
+    const transactionData = {
+      id: `tx_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      userId,
+      userName,
+      amount,
+      category,
+      type: 'expense' as const,
+      description: categoryDisplay,
+      date: new Date().toISOString(),
+    };
+
+    const transactionId = await transactionModule.getCreateTransactionUseCase().execute(transactionData);
+
+    // Track for delete functionality
+    setLastTransactionId(userId, transactionId);
+
+    // Get summary for context
+    const summary = await getTodaySummary(transactionModule, userId);
+
+    // Create ProcessedTransaction for response
+    const processedTx: ProcessedTransaction = {
+      id: transactionId,
+      amount,
+      category,
+      type: 'expense',
+      description: categoryDisplay,
+      confidence: 1.0, // High confidence for manual quick add
+    };
+
+    // Send confirmation
+    await sendTransactionResponse(
+      ctx,
+      processedTx,
+      `${categoryDisplay} ${amount}`,
+      userId,
+      false,
+      summary
+    );
+  } catch (error) {
+    console.error('Quick add error:', error);
+    if (error instanceof AppError) {
+      await ctx.reply(`❌ ${error.message}`);
+    } else {
+      await ctx.reply(RU.errors.generic);
+    }
   }
 }

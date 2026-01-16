@@ -4,6 +4,7 @@ import path from 'path';
 import { AppConfig } from '../../../shared/infrastructure/config/appConfig';
 import { VoiceProcessingModule } from '../../../modules/voiceProcessing/voiceProcessingModule';
 import { TransactionModule } from '../../../modules/transaction/transactionModule';
+import { BudgetModule } from '../../../modules/budget/budgetModule';
 import { BotContext, BotModules, UserSession } from './types';
 import { registerCommandHandlers } from './handlers/commandHandlers';
 import { registerMessageHandlers } from './handlers/messageHandlers';
@@ -24,10 +25,12 @@ function createInitialSession(userId: string, userName: string): UserSession {
  * Starts and configures the Telegram bot
  * @param voiceModule - Voice processing module for text/voice input
  * @param transactionModule - Transaction module for CRUD operations
+ * @param budgetModule - Budget module for budget management
  */
 export function startTelegramBot(
   voiceModule: VoiceProcessingModule,
-  transactionModule: TransactionModule
+  transactionModule: TransactionModule,
+  budgetModule: BudgetModule
 ) {
   try {
     // Check if bot token is configured
@@ -43,6 +46,7 @@ export function startTelegramBot(
     const modules: BotModules = {
       voiceModule,
       transactionModule,
+      budgetModule,
     };
 
     // Ensure downloads directory exists

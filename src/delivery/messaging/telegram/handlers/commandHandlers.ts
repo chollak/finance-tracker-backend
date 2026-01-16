@@ -7,7 +7,6 @@ import {
   quickCategoryKeyboard,
   statsKeyboard,
   budgetKeyboard,
-  settingsKeyboard,
   todayKeyboard
 } from '../keyboards';
 
@@ -29,9 +28,6 @@ export function registerCommandHandlers(bot: Telegraf<BotContext>) {
 
   // /help - Help command
   bot.command('help', handleHelp);
-
-  // /settings - Open settings in webapp
-  bot.command('settings', handleSettings);
 
   // Legacy /transactions command - redirect to webapp
   bot.command('transactions', handleTransactions);
@@ -222,37 +218,12 @@ async function handleStats(ctx: BotContext) {
 async function handleBudget(ctx: BotContext) {
   try {
     const userId = String(ctx.from?.id);
-    const { transactionModule } = ctx.modules;
+    const { budgetModule } = ctx.modules;
 
-    // Get current month date range for spent calculation
-    const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    // Get budget summaries with spent calculations
+    const summaries = await budgetModule.budgetService.getBudgetSummaries(userId);
 
-    // Fetch all transactions for the month
-    const transactions = await transactionModule
-      .getGetUserTransactionsUseCase()
-      .execute(userId);
-
-    const monthTransactions = transactions.filter((tx: any) => {
-      const txDate = new Date(tx.date);
-      return txDate >= startOfMonth && txDate <= endOfMonth && tx.type === 'expense';
-    });
-
-    // Calculate spending by category
-    const spendingByCategory = new Map<string, number>();
-    for (const tx of monthTransactions) {
-      const current = spendingByCategory.get(tx.category) || 0;
-      spendingByCategory.set(tx.category, current + tx.amount);
-    }
-
-    // For now, we'll use a simplified budget approach
-    // In production, this would fetch from BudgetModule
-    const budgets: BudgetStatus[] = [];
-
-    // Check if there are any budgets (this is a placeholder - real implementation would use BudgetModule)
-    // TODO: Integrate with BudgetModule when available
-    if (budgets.length === 0) {
+    if (summaries.length === 0) {
       const keyboard = budgetKeyboard(userId, false);
       await ctx.reply(`💰 <b>${RU.commands.budget.title}</b>\n\n${RU.commands.budget.noBudgets}`, {
         parse_mode: 'HTML',
@@ -260,6 +231,18 @@ async function handleBudget(ctx: BotContext) {
       });
       return;
     }
+
+    // Convert BudgetSummary to BudgetStatus for formatting
+    const budgets: BudgetStatus[] = summaries.map(s => ({
+      id: s.id,
+      name: s.name,
+      category: '', // BudgetSummary doesn't include category directly
+      limit: s.amount,
+      spent: s.spent,
+      remaining: s.remaining,
+      percentage: Math.round(s.percentageUsed),
+      status: s.isOverBudget ? 'exceeded' : s.percentageUsed >= 80 ? 'warning' : 'ok',
+    }));
 
     const message = formatBudgetStatus(budgets);
     const keyboard = budgetKeyboard(userId, true);
@@ -287,28 +270,6 @@ async function handleHelp(ctx: BotContext) {
     await ctx.reply(RU.quickCategories.title, quickCategoryKeyboard());
   } catch (error) {
     console.error('/help command error:', error);
-    await ctx.reply(RU.errors.generic);
-  }
-}
-
-/**
- * /settings - Open settings in webapp
- */
-async function handleSettings(ctx: BotContext) {
-  try {
-    const userId = String(ctx.from?.id);
-    const keyboard = settingsKeyboard(userId);
-
-    if (keyboard) {
-      await ctx.reply(`⚙️ <b>${RU.commands.settings.title}</b>`, {
-        parse_mode: 'HTML',
-        ...keyboard,
-      });
-    } else {
-      await ctx.reply(RU.errors.webAppNotConfigured);
-    }
-  } catch (error) {
-    console.error('/settings command error:', error);
     await ctx.reply(RU.errors.generic);
   }
 }

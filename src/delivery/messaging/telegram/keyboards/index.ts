@@ -15,6 +15,5 @@ export {
   mainMenuKeyboard,
   statsKeyboard,
   budgetKeyboard,
-  settingsKeyboard,
   todayKeyboard
 } from './navigationKeyboard';

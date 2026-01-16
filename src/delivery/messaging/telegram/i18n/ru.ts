@@ -78,10 +78,6 @@ export const RU = {
 Нажмите на категорию ниже
       `.trim(),
     },
-    settings: {
-      title: 'Настройки',
-      openSettings: 'Открыть настройки',
-    },
   },
 
   // Transaction messages

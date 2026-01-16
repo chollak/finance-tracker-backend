@@ -19,16 +19,17 @@ export function createWebAppUrl(userId: string, params: WebAppUrlParams = {}): s
     throw new Error('WEB_APP_URL not configured');
   }
 
+  // For transaction editing - use the correct route path
+  if (params.edit) {
+    const url = new URL(`/transactions/${params.edit}/edit`, baseUrl);
+    url.searchParams.set('userId', userId);
+    return url.toString();
+  }
+
+  // Regular path navigation
   const webPath = params.path || '';
   const url = new URL(`/${webPath}`, baseUrl);
-
-  // Always include userId
   url.searchParams.set('userId', userId);
-
-  // Add edit parameter for transaction editing
-  if (params.edit) {
-    url.searchParams.set('edit', params.edit);
-  }
 
   return url.toString();
 }

@@ -2,6 +2,7 @@ import { Context, NarrowedContext } from 'telegraf';
 import { Message, Update, CallbackQuery } from 'telegraf/types';
 import { VoiceProcessingModule } from '../../../../modules/voiceProcessing/voiceProcessingModule';
 import { TransactionModule } from '../../../../modules/transaction/transactionModule';
+import { BudgetModule } from '../../../../modules/budget/budgetModule';
 
 /**
  * Modules available in bot context
@@ -9,6 +10,7 @@ import { TransactionModule } from '../../../../modules/transaction/transactionMo
 export interface BotModules {
   voiceModule: VoiceProcessingModule;
   transactionModule: TransactionModule;
+  budgetModule: BudgetModule;
 }
 
 /**

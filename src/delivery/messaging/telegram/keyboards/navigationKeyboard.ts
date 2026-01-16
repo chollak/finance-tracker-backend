@@ -58,24 +58,6 @@ export function budgetKeyboard(userId: string, hasBudgets: boolean) {
 }
 
 /**
- * Creates keyboard for /settings command
- */
-export function settingsKeyboard(userId: string) {
-  if (!isWebAppConfigured()) {
-    return undefined;
-  }
-
-  try {
-    const url = createWebAppUrl(userId, { path: 'settings' });
-    return Markup.inlineKeyboard([
-      [Markup.button.webApp(`⚙️ ${RU.commands.settings.openSettings}`, url)],
-    ]);
-  } catch {
-    return undefined;
-  }
-}
-
-/**
  * Creates keyboard for /today command
  */
 export function todayKeyboard(userId: string) {

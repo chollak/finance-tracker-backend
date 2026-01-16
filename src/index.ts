@@ -58,7 +58,7 @@ async function startApplication() {
     app.listen(port, () => {
       console.log(`🚀 Server running on port ${port}`);
       // Start Telegram bot after HTTP server is ready
-      startTelegramBot(voiceModule, transactionModule);
+      startTelegramBot(voiceModule, transactionModule, budgetModule);
     });
 
     // Handle graceful shutdown
