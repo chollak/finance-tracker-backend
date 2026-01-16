@@ -21,7 +21,8 @@
     "check:circular": "madge --circular --extensions ts src",
     "analyze": "npm run check:deps && npm run check:circular",
     "supabase:setup": "npx ts-node scripts/create-tables.ts",
-    "supabase:test": "npx ts-node scripts/test-supabase.ts"
+    "supabase:test": "npx ts-node scripts/test-supabase.ts",
+    "seed:test": "npx ts-node scripts/seed-test-data.ts"
   },
   "keywords": [],
   "author": "",
