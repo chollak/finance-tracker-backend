@@ -5,16 +5,13 @@ import { AlertsPanel } from '@/widgets/alerts-panel';
 import { BudgetOverview } from '@/widgets/budget-overview';
 import { Button } from '@/shared/ui/button';
 import { Plus } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import { ROUTES } from '@/shared/lib/constants/routes';
+import { QuickAddSheet } from '@/features/quick-add';
 
 /**
  * Home Page (Dashboard)
  * Main entry point showing overview of finances
  */
 export function HomePage() {
-  const navigate = useNavigate();
-
   return (
     <div className="container mx-auto px-4 py-6">
       {/* Page Title */}
@@ -44,16 +41,17 @@ export function HomePage() {
         </div>
       </div>
 
-      {/* Floating Action Button - Add Transaction */}
-      <Button
-        size="lg"
-        className="fixed bottom-20 md:bottom-6 right-6 h-14 w-14 rounded-full shadow-lg md:h-auto md:w-auto md:rounded-md md:px-6"
-        onClick={() => navigate(ROUTES.ADD_TRANSACTION)}
-        aria-label="Добавить транзакцию"
-      >
-        <Plus className="h-6 w-6 md:mr-2" aria-hidden="true" />
-        <span className="hidden md:inline">Добавить транзакцию</span>
-      </Button>
+      {/* Floating Action Button - Quick Add Transaction */}
+      <QuickAddSheet>
+        <Button
+          size="lg"
+          className="fixed bottom-20 md:bottom-6 right-6 h-14 w-14 rounded-full shadow-lg md:h-auto md:w-auto md:rounded-md md:px-6"
+          aria-label="Добавить транзакцию"
+        >
+          <Plus className="h-6 w-6 md:mr-2" aria-hidden="true" />
+          <span className="hidden md:inline">Добавить транзакцию</span>
+        </Button>
+      </QuickAddSheet>
     </div>
   );
 }

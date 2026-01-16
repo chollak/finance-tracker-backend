@@ -11,6 +11,7 @@ import {
 import { useUserStore } from '@/entities/user';
 import { FilterBar, useTransactionFiltersStore, filterTransactions } from '@/features/filter-transactions';
 import { useDeleteTransactionDialog } from '@/features/delete-transaction';
+import { QuickAddSheet } from '@/features/quick-add';
 import { Button } from '@/shared/ui/button';
 import { Skeleton } from '@/shared/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/ui/tabs';
@@ -113,7 +114,6 @@ export function TransactionsPage() {
 
   const currentTransactions = activeTab === 'active' ? filteredTransactions : filteredArchivedTransactions;
   const totalCount = activeTab === 'active' ? (transactions?.length || 0) : (archivedTransactions?.length || 0);
-  const currentGroups = activeTab === 'active' ? groupedTransactions : groupedArchivedTransactions;
 
   return (
     <div className="container mx-auto px-4 sm:px-6 py-6">
@@ -271,17 +271,18 @@ export function TransactionsPage() {
         </TabsContent>
       </Tabs>
 
-      {/* Floating Action Button - Add Transaction (only on active tab) */}
+      {/* Floating Action Button - Quick Add Transaction (only on active tab) */}
       {activeTab === 'active' && (
-        <Button
-          size="lg"
-          className="fixed bottom-20 md:bottom-6 right-6 h-14 w-14 rounded-full shadow-lg md:h-auto md:w-auto md:rounded-md md:px-6"
-          onClick={() => navigate(ROUTES.ADD_TRANSACTION)}
-          aria-label="Добавить транзакцию"
-        >
-          <Plus className="h-6 w-6 md:mr-2" aria-hidden="true" />
-          <span className="hidden md:inline">Добавить</span>
-        </Button>
+        <QuickAddSheet>
+          <Button
+            size="lg"
+            className="fixed bottom-20 md:bottom-6 right-6 h-14 w-14 rounded-full shadow-lg md:h-auto md:w-auto md:rounded-md md:px-6"
+            aria-label="Добавить транзакцию"
+          >
+            <Plus className="h-6 w-6 md:mr-2" aria-hidden="true" />
+            <span className="hidden md:inline">Добавить</span>
+          </Button>
+        </QuickAddSheet>
       )}
 
       {/* Delete Confirmation Dialog */}
