@@ -57,8 +57,8 @@ export function SyncButton({ className, showLabel = false }: SyncButtonProps) {
   const getIcon = () => {
     if (!isOnline) return <CloudOff className="h-4 w-4 text-muted-foreground" />;
     if (isSyncing) return <RefreshCw className="h-4 w-4 animate-spin" />;
-    if (lastResult === 'success') return <Check className="h-4 w-4 text-green-500" />;
-    if (lastResult === 'error') return <AlertCircle className="h-4 w-4 text-red-500" />;
+    if (lastResult === 'success') return <Check className="h-4 w-4 text-success" />;
+    if (lastResult === 'error') return <AlertCircle className="h-4 w-4 text-expense" />;
     return <Cloud className="h-4 w-4" />;
   };
 

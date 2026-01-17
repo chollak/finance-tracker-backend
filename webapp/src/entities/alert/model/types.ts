@@ -8,8 +8,8 @@ type LucideIconName = 'AlertCircle' | 'AlertTriangle' | 'Bell' | 'Info';
 // ViewModel with formatted fields for UI
 export interface AlertViewModel extends Alert {
   // Formatted fields with _ prefix (View Model Pattern)
-  _severityColor: string;     // "text-red-600", "text-yellow-600", etc.
-  _severityBg: string;        // "bg-red-50", "bg-yellow-50", etc.
+  _severityColor: string;     // "text-expense", "text-warning", etc.
+  _severityBg: string;        // "bg-expense-muted", "bg-warning-muted", etc.
   _iconName: LucideIconName;  // Lucide icon name
   _iconColor: string;         // Icon color class
   _typeLabel: string;         // "Бюджет превышен", "Необычные расходы", etc.

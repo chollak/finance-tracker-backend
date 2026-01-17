@@ -66,7 +66,7 @@ export function BalanceCard() {
         <div className="flex gap-3">
           <Button
             variant="outline"
-            className="flex-1 h-12 text-green-600 border-green-200 hover:bg-green-50 hover:border-green-300"
+            className="flex-1 h-12 text-income border-income/30 hover:bg-income-muted hover:border-income/50"
             onClick={() => openQuickAdd('income')}
           >
             <Plus className="h-5 w-5 mr-2" />
@@ -74,7 +74,7 @@ export function BalanceCard() {
           </Button>
           <Button
             variant="outline"
-            className="flex-1 h-12 text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300"
+            className="flex-1 h-12 text-expense border-expense/30 hover:bg-expense-muted hover:border-expense/50"
             onClick={() => openQuickAdd('expense')}
           >
             <Minus className="h-5 w-5 mr-2" />
@@ -87,7 +87,7 @@ export function BalanceCard() {
           {/* Monthly Income */}
           <div className="flex-1">
             <p className="text-xs sm:text-sm text-muted-foreground mb-1">Доход (месяц)</p>
-            <p className="text-lg sm:text-xl font-semibold text-green-600">
+            <p className="text-lg sm:text-xl font-semibold text-income">
               {formatCurrency(monthlyIncome)}
             </p>
           </div>
@@ -95,7 +95,7 @@ export function BalanceCard() {
           {/* Monthly Expense */}
           <div className="flex-1 text-right">
             <p className="text-xs sm:text-sm text-muted-foreground mb-1">Расход (месяц)</p>
-            <p className="text-lg sm:text-xl font-semibold text-red-600">
+            <p className="text-lg sm:text-xl font-semibold text-expense">
               {formatCurrency(monthlyExpense)}
             </p>
           </div>

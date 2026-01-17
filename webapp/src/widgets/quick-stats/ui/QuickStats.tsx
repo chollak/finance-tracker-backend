@@ -45,7 +45,7 @@ export function QuickStats() {
       <Card>
         <CardContent className="pt-6">
           <div className="text-center">
-            <p className={`text-2xl sm:text-3xl font-bold ${alertsCount > 0 ? 'text-red-600' : 'text-green-600'}`}>
+            <p className={`text-2xl sm:text-3xl font-bold ${alertsCount > 0 ? 'text-expense' : 'text-success'}`}>
               {alertsCount}
             </p>
             <p className="text-xs sm:text-sm text-muted-foreground mt-1">Уведомлений</p>
@@ -57,7 +57,7 @@ export function QuickStats() {
       <Card>
         <CardContent className="pt-6">
           <div className="text-center">
-            <p className={`text-2xl sm:text-3xl font-bold ${savingsRate > 0 ? 'text-green-600' : 'text-orange-600'}`}>
+            <p className={`text-2xl sm:text-3xl font-bold ${savingsRate > 0 ? 'text-success' : 'text-warning'}`}>
               {savingsRate}%
             </p>
             <p className="text-xs sm:text-sm text-muted-foreground mt-1">Накопления</p>

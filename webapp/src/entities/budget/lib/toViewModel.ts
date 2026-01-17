@@ -6,42 +6,44 @@ import { formatCurrency, formatBudgetUsage } from '@/shared/lib/formatters';
 
 /**
  * Gets progress bar color based on percentage used
+ * Uses semantic design tokens
  */
 function getProgressColor(percentageUsed: number, isOverBudget: boolean): string {
-  if (isOverBudget) return 'bg-red-500';
-  if (percentageUsed >= 90) return 'bg-orange-500';
-  if (percentageUsed >= 75) return 'bg-yellow-500';
-  return 'bg-green-500';
+  if (isOverBudget) return 'bg-expense';
+  if (percentageUsed >= 90) return 'bg-expense';
+  if (percentageUsed >= 75) return 'bg-warning';
+  return 'bg-success';
 }
 
 /**
  * Gets status text and color based on budget usage
+ * Uses semantic design tokens
  */
 function getStatus(percentageUsed: number, isOverBudget: boolean) {
   if (isOverBudget) {
     return {
       text: 'Превышен',
-      color: 'text-red-600 dark:text-red-400',
+      color: 'text-expense',
     };
   }
 
   if (percentageUsed >= 90) {
     return {
       text: 'Близко к лимиту',
-      color: 'text-orange-600 dark:text-orange-400',
+      color: 'text-expense',
     };
   }
 
   if (percentageUsed >= 75) {
     return {
       text: 'Внимание',
-      color: 'text-yellow-600 dark:text-yellow-400',
+      color: 'text-warning',
     };
   }
 
   return {
     text: 'На пути',
-    color: 'text-green-600 dark:text-green-400',
+    color: 'text-success',
   };
 }
 

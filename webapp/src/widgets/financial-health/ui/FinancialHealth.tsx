@@ -12,31 +12,31 @@ import { ChevronDown, ChevronUp } from 'lucide-react';
 function getHealthScoreInfo(score: number) {
   if (score >= 80) {
     return {
-      color: 'text-green-600',
-      bgColor: 'bg-green-500',
+      color: 'text-success',
+      bgColor: 'bg-success',
       label: 'Отлично',
       description: 'Ваше финансовое здоровье в отличном состоянии',
     };
   }
   if (score >= 60) {
     return {
-      color: 'text-yellow-600',
-      bgColor: 'bg-yellow-500',
+      color: 'text-warning',
+      bgColor: 'bg-warning',
       label: 'Хорошо',
       description: 'Финансовое состояние стабильное, но есть куда расти',
     };
   }
   if (score >= 40) {
     return {
-      color: 'text-orange-600',
-      bgColor: 'bg-orange-500',
+      color: 'text-warning',
+      bgColor: 'bg-warning',
       label: 'Средне',
       description: 'Рекомендуем пересмотреть расходы и увеличить накопления',
     };
   }
   return {
-    color: 'text-red-600',
-    bgColor: 'bg-red-500',
+    color: 'text-expense',
+    bgColor: 'bg-expense',
     label: 'Требует внимания',
     description: 'Финансовое здоровье нуждается в улучшении',
   };

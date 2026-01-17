@@ -14,6 +14,6 @@ export interface TransactionViewModel extends Transaction {
   _formattedDate: string;        // "Сегодня, 15:30" or "14 янв, 15:30"
   _categoryIcon: string;         // "🍔"
   _categoryColor: string;        // "bg-orange-100 text-orange-600"
-  _amountColor: string;          // "text-green-600" or "text-red-600"
+  _amountColor: string;          // "text-income" or "text-expense"
   _typeLabel: string;            // "Доход" or "Расход"
 }

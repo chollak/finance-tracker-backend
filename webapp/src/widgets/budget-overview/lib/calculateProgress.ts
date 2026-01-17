@@ -10,12 +10,13 @@ export function calculateProgress(budget: BudgetSummary): number {
 
 /**
  * Get progress bar color based on percentage
+ * Uses semantic design tokens
  */
 export function getProgressColor(percentage: number): string {
-  if (percentage >= 90) return 'bg-red-500';
-  if (percentage >= 75) return 'bg-orange-500';
-  if (percentage >= 50) return 'bg-yellow-500';
-  return 'bg-green-500';
+  if (percentage >= 90) return 'bg-expense';
+  if (percentage >= 75) return 'bg-warning';
+  if (percentage >= 50) return 'bg-warning/70';
+  return 'bg-success';
 }
 
 /**
@@ -32,12 +33,13 @@ export function getBudgetStatus(budget: BudgetSummary): string {
 
 /**
  * Get status color class
+ * Uses semantic design tokens
  */
 export function getStatusColor(budget: BudgetSummary): string {
   const percentage = calculateProgress(budget);
 
-  if (percentage >= 100) return 'text-red-600 bg-red-50';
-  if (percentage >= 90) return 'text-orange-600 bg-orange-50';
-  if (percentage >= 75) return 'text-yellow-600 bg-yellow-50';
-  return 'text-green-600 bg-green-50';
+  if (percentage >= 100) return 'text-expense bg-expense-muted';
+  if (percentage >= 90) return 'text-expense bg-expense-muted';
+  if (percentage >= 75) return 'text-warning bg-warning-muted';
+  return 'text-success bg-success-muted';
 }

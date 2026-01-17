@@ -67,6 +67,8 @@ For detailed documentation, see **[docs/knowledge-base/](docs/knowledge-base/)**
   - [Troubleshooting](docs/knowledge-base/08-development/troubleshooting.md) - Common issues
 - **[UX Improvements](docs/knowledge-base/09-ux-improvements/)** - UI/UX enhancement tracking
   - [UI/UX Analysis](docs/knowledge-base/09-ux-improvements/ui-ux-analysis.md) - Complete analysis and recommendations
+- **[Design Guidelines](docs/knowledge-base/10-design-guidelines/)** - Frontend design rules (MUST FOLLOW)
+  - [Design Guidelines](docs/knowledge-base/10-design-guidelines/design-guidelines.md) - Complete design system rules
 
 ## Architecture Overview
 
@@ -249,6 +251,28 @@ HTTP API → Controller → Use Case → Repository → Database
 ---
 
 ## Design System (WebApp Frontend)
+
+**IMPORTANT: All frontend changes MUST follow the [Design Guidelines](docs/knowledge-base/10-design-guidelines/design-guidelines.md)**
+
+### Quick Reference (MUST FOLLOW)
+
+| Aspect | Rule |
+|--------|------|
+| **Style** | Minimal & Clean — lots of whitespace, no decorative elements |
+| **Font** | Inter (400/600/700 weights only) |
+| **Colors** | Neutral grays + ONE accent color (green for finance) |
+| **Border Radius** | Cards: 24px, Buttons/Inputs: 12px, Pills: full |
+| **Animations** | Fade-in 300ms, Hover 150ms, Stagger 50ms |
+| **Touch Targets** | Minimum 44x44px, prefer 48x48px |
+| **Approach** | Mobile-first, then scale up |
+
+### Design Anti-Patterns (AVOID)
+- Purple/violet gradients (AI slop aesthetic)
+- Multiple accent colors
+- Heavy shadows
+- Animations longer than 600ms
+- Font weights 500 (use 400 or 700)
+- Decorative borders on cards
 
 The webapp uses a **custom design system** built with Tailwind CSS and React TypeScript components, implementing a modern, mobile-first finance tracker interface.
 

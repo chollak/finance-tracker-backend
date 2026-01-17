@@ -11,32 +11,33 @@ interface SeverityColors {
 
 /**
  * Gets color classes and icon based on alert severity
+ * Uses semantic design tokens
  */
 export function getSeverityColor(severity: AlertSeverity): SeverityColors {
   const SEVERITY_COLORS: Record<string, SeverityColors> = {
     critical: {
-      text: 'text-red-600 dark:text-red-400',
-      bg: 'bg-red-50 dark:bg-red-900/20',
+      text: 'text-expense',
+      bg: 'bg-expense-muted',
       iconName: 'AlertCircle',
-      iconColor: 'text-red-600 dark:text-red-400',
+      iconColor: 'text-expense',
     },
     high: {
-      text: 'text-orange-600 dark:text-orange-400',
-      bg: 'bg-orange-50 dark:bg-orange-900/20',
+      text: 'text-expense',
+      bg: 'bg-expense-muted',
       iconName: 'AlertTriangle',
-      iconColor: 'text-orange-600 dark:text-orange-400',
+      iconColor: 'text-expense',
     },
     medium: {
-      text: 'text-yellow-600 dark:text-yellow-400',
-      bg: 'bg-yellow-50 dark:bg-yellow-900/20',
+      text: 'text-warning',
+      bg: 'bg-warning-muted',
       iconName: 'Bell',
-      iconColor: 'text-yellow-600 dark:text-yellow-400',
+      iconColor: 'text-warning',
     },
     low: {
-      text: 'text-blue-600 dark:text-blue-400',
-      bg: 'bg-blue-50 dark:bg-blue-900/20',
+      text: 'text-muted-foreground',
+      bg: 'bg-muted',
       iconName: 'Info',
-      iconColor: 'text-blue-600 dark:text-blue-400',
+      iconColor: 'text-muted-foreground',
     },
   };
 
