@@ -5,7 +5,7 @@ import { useUserStore } from '@/entities/user/model/store';
 
 /**
  * Quick stats widget
- * Shows active budgets count, alerts count, and savings rate
+ * Shows active budgets count and savings rate
  * Optimized: Uses shared dashboard data instead of separate API call
  */
 export function QuickStats() {
@@ -15,8 +15,8 @@ export function QuickStats() {
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {[1, 2, 3].map((i) => (
+      <div className="grid grid-cols-2 gap-4">
+        {[1, 2].map((i) => (
           <Card key={i}>
             <CardContent className="pt-6">
               <Skeleton className="h-12 w-full" />
@@ -29,29 +29,16 @@ export function QuickStats() {
 
   // Extract data from dashboard response (same data, no extra API call)
   const activeBudgets = dashboard?.insights?.budgetOverview?.activeBudgets ?? 0;
-  const alertsCount = dashboard?.alerts?.summary?.total ?? 0;
   const savingsRate = dashboard?.insights?.insights?.savingsRate ?? 0;
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+    <div className="grid grid-cols-2 gap-4">
       {/* Active Budgets */}
       <Card>
         <CardContent className="pt-6">
           <div className="text-center">
             <p className="text-2xl sm:text-3xl font-bold">{activeBudgets}</p>
             <p className="text-xs sm:text-sm text-muted-foreground mt-1">Активных бюджетов</p>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Alerts Count */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="text-center">
-            <p className={`text-2xl sm:text-3xl font-bold ${alertsCount > 0 ? 'text-expense' : 'text-success'}`}>
-              {alertsCount}
-            </p>
-            <p className="text-xs sm:text-sm text-muted-foreground mt-1">Уведомлений</p>
           </div>
         </CardContent>
       </Card>
