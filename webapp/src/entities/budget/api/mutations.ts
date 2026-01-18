@@ -3,7 +3,6 @@ import { apiClient } from '@/shared/api';
 import { API_ENDPOINTS } from '@/shared/lib/constants';
 import type { Budget, BudgetSummary, CreateBudgetDTO, UpdateBudgetDTO } from '@/shared/types';
 import { budgetKeys } from './keys';
-import { alertKeys } from '@/entities/alert/api/keys';
 import { dashboardKeys } from '@/entities/dashboard/api/keys';
 
 /**
@@ -27,8 +26,6 @@ export function useCreateBudget() {
       // Invalidate budget summaries (need recalculation from server)
       queryClient.invalidateQueries({ queryKey: budgetKeys.summaries(userId) });
       queryClient.invalidateQueries({ queryKey: budgetKeys.list(userId) });
-      // Invalidate alerts (new budget might trigger alerts)
-      queryClient.invalidateQueries({ queryKey: alertKeys.budgetAlerts(userId) });
       // Invalidate dashboard budget overview
       queryClient.invalidateQueries({ queryKey: dashboardKeys.insights(userId) });
       queryClient.invalidateQueries({ queryKey: dashboardKeys.quickStats(userId) });
@@ -63,8 +60,6 @@ export function useUpdateBudget() {
       // Invalidate summaries (spent calculation might change due to category/date changes)
       queryClient.invalidateQueries({ queryKey: budgetKeys.summaries(userId) });
       queryClient.invalidateQueries({ queryKey: budgetKeys.list(userId) });
-      // Invalidate alerts
-      queryClient.invalidateQueries({ queryKey: alertKeys.budgetAlerts(userId) });
       // Invalidate dashboard
       queryClient.invalidateQueries({ queryKey: dashboardKeys.insights(userId) });
       queryClient.invalidateQueries({ queryKey: dashboardKeys.quickStats(userId) });
@@ -104,8 +99,6 @@ export function useDeleteBudget() {
 
       // Invalidate list (might need refresh)
       queryClient.invalidateQueries({ queryKey: budgetKeys.list(userId) });
-      // Invalidate alerts
-      queryClient.invalidateQueries({ queryKey: alertKeys.budgetAlerts(userId) });
       // Invalidate dashboard
       queryClient.invalidateQueries({ queryKey: dashboardKeys.insights(userId) });
       queryClient.invalidateQueries({ queryKey: dashboardKeys.quickStats(userId) });

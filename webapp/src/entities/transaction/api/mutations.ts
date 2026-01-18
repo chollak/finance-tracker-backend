@@ -5,7 +5,6 @@ import type { Transaction, CreateTransactionDTO, UpdateTransactionDTO } from '@/
 import type { TransactionViewModel } from '../model/types';
 import { transactionKeys } from './keys';
 import { budgetKeys } from '@/entities/budget/api/keys';
-import { alertKeys } from '@/entities/alert/api/keys';
 import { dashboardKeys } from '@/entities/dashboard/api/keys';
 import { transactionToViewModel } from '../lib/toViewModel';
 
@@ -39,7 +38,6 @@ export function useCreateTransaction() {
 
       // 2. Invalidate ONLY computed data that depends on transaction totals
       queryClient.invalidateQueries({ queryKey: budgetKeys.summaries(userId) });
-      queryClient.invalidateQueries({ queryKey: alertKeys.budgetAlerts(userId) });
       queryClient.invalidateQueries({ queryKey: dashboardKeys.insights(userId) });
       queryClient.invalidateQueries({ queryKey: dashboardKeys.quickStats(userId) });
       // Invalidate analytics since totals changed
@@ -87,7 +85,6 @@ export function useUpdateTransaction() {
 
       // 3. Invalidate computed data (amount/category might have changed)
       queryClient.invalidateQueries({ queryKey: budgetKeys.summaries(userId) });
-      queryClient.invalidateQueries({ queryKey: alertKeys.budgetAlerts(userId) });
       queryClient.invalidateQueries({ queryKey: dashboardKeys.insights(userId) });
       queryClient.invalidateQueries({ queryKey: dashboardKeys.quickStats(userId) });
       queryClient.invalidateQueries({ queryKey: transactionKeys.analytics(userId) });
@@ -129,7 +126,6 @@ export function useDeleteTransaction() {
 
       // 3. Invalidate computed data
       queryClient.invalidateQueries({ queryKey: budgetKeys.summaries(userId) });
-      queryClient.invalidateQueries({ queryKey: alertKeys.budgetAlerts(userId) });
       queryClient.invalidateQueries({ queryKey: dashboardKeys.insights(userId) });
       queryClient.invalidateQueries({ queryKey: dashboardKeys.quickStats(userId) });
       queryClient.invalidateQueries({ queryKey: transactionKeys.analytics(userId) });
@@ -186,7 +182,6 @@ export function useArchiveTransaction() {
 
       // 4. Invalidate computed data
       queryClient.invalidateQueries({ queryKey: budgetKeys.summaries(userId) });
-      queryClient.invalidateQueries({ queryKey: alertKeys.budgetAlerts(userId) });
       queryClient.invalidateQueries({ queryKey: dashboardKeys.insights(userId) });
       queryClient.invalidateQueries({ queryKey: dashboardKeys.quickStats(userId) });
       queryClient.invalidateQueries({ queryKey: transactionKeys.analytics(userId) });
@@ -246,7 +241,6 @@ export function useUnarchiveTransaction() {
 
       // 4. Invalidate computed data
       queryClient.invalidateQueries({ queryKey: budgetKeys.summaries(userId) });
-      queryClient.invalidateQueries({ queryKey: alertKeys.budgetAlerts(userId) });
       queryClient.invalidateQueries({ queryKey: dashboardKeys.insights(userId) });
       queryClient.invalidateQueries({ queryKey: dashboardKeys.quickStats(userId) });
       queryClient.invalidateQueries({ queryKey: transactionKeys.analytics(userId) });
@@ -295,7 +289,6 @@ export function useArchiveAllTransactions() {
 
       // 4. Invalidate computed data
       queryClient.invalidateQueries({ queryKey: budgetKeys.summaries(userId) });
-      queryClient.invalidateQueries({ queryKey: alertKeys.budgetAlerts(userId) });
       queryClient.invalidateQueries({ queryKey: dashboardKeys.insights(userId) });
       queryClient.invalidateQueries({ queryKey: dashboardKeys.quickStats(userId) });
       queryClient.invalidateQueries({ queryKey: transactionKeys.analytics(userId) });

@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/shared/api';
 import { API_ENDPOINTS } from '@/shared/lib/constants';
-import type { Budget, BudgetSummary, Alert } from '@/shared/types';
+import type { Budget, BudgetSummary } from '@/shared/types';
 import { budgetToViewModel } from '../lib/toViewModel';
 import { budgetKeys } from './keys';
 
@@ -60,19 +60,3 @@ export function useBudgetSummaries(userId: string | null) {
   });
 }
 
-/**
- * Hook to fetch budget alerts (budgets near or over limit)
- */
-export function useBudgetAlerts(userId: string | null, threshold: number = 0.8) {
-  return useQuery({
-    queryKey: budgetKeys.alerts(userId || '', threshold),
-    queryFn: async () => {
-      const response = await apiClient.get<Alert[]>(
-        API_ENDPOINTS.BUDGETS.ALERTS(userId!, threshold)
-      );
-
-      return response.data || [];
-    },
-    enabled: !!userId,
-  });
-}

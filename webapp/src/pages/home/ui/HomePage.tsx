@@ -1,7 +1,6 @@
 import { BalanceCard } from '@/widgets/balance-card';
 import { QuickStats } from '@/widgets/quick-stats';
 import { RecentTransactions } from '@/widgets/recent-transactions';
-import { AlertsPanel } from '@/widgets/alerts-panel';
 import { BudgetOverview } from '@/widgets/budget-overview';
 import { Button } from '@/shared/ui/button';
 import { ThemeToggle } from '@/shared/ui/theme-toggle';
@@ -45,20 +44,15 @@ export function HomePage() {
           <QuickStats />
         </div>
 
-        {/* Alerts Panel - Important */}
-        <div className="animate-fade-in-up stagger-2">
-          <AlertsPanel />
-        </div>
-
         {/* Two Column Layout on Desktop */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Budget Overview */}
-          <div className="animate-fade-in-up stagger-3">
+          <div className="animate-fade-in-up stagger-2">
             <BudgetOverview />
           </div>
 
           {/* Recent Transactions */}
-          <div className="animate-fade-in-up stagger-4">
+          <div className="animate-fade-in-up stagger-3">
             <RecentTransactions />
           </div>
         </div>
