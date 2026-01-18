@@ -1,4 +1,12 @@
 import { QuickCategory } from '../types';
+import { EXPENSE_CATEGORIES } from '../../../../shared/domain/entities/Category';
+
+// Generate quick categories from shared Category entity
+const QUICK_CATEGORIES: QuickCategory[] = EXPENSE_CATEGORIES.slice(0, 8).map((c) => ({
+  id: c.id,
+  emoji: c.icon,
+  name: c.name,
+}));
 
 /**
  * Russian language strings for Telegram bot
@@ -112,21 +120,12 @@ export const RU = {
     createBudget: 'Создать бюджет',
   },
 
-  // Quick categories for inline keyboard
+  // Quick categories for inline keyboard (synced with shared Category entity)
   quickCategories: {
     title: 'Быстрое добавление:',
     selectCategory: 'Выберите категорию:',
     enterAmount: (category: string) => `${category}\n\nВведите сумму:`,
-    categories: [
-      { id: 'food', emoji: '🍔', name: 'Еда' },
-      { id: 'groceries', emoji: '🛒', name: 'Продукты' },
-      { id: 'transport', emoji: '🚗', name: 'Транспорт' },
-      { id: 'taxi', emoji: '🚕', name: 'Такси' },
-      { id: 'coffee', emoji: '☕', name: 'Кофе' },
-      { id: 'shopping', emoji: '🛍️', name: 'Покупки' },
-      { id: 'entertainment', emoji: '🎬', name: 'Развлечения' },
-      { id: 'health', emoji: '🏥', name: 'Здоровье' },
-    ] as QuickCategory[],
+    categories: QUICK_CATEGORIES,
   },
 
   // Errors

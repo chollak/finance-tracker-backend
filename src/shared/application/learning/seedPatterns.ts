@@ -5,18 +5,18 @@ import { transactionLearning } from './transactionLearning';
  */
 export async function createSeedPatterns() {
   try {
-    // Add some common Uzbek merchant patterns
+    // Add some common Uzbek merchant patterns (using category IDs)
     await transactionLearning.recordCorrection(
       'потратил деньги в evos',
       {
         amount: 0,
-        category: 'Другое',
+        category: 'other',
         type: 'expense',
         confidence: 0.3
       },
       {
         amount: 35000,
-        category: 'Еда',
+        category: 'food',
         merchant: 'Evos'
       },
       'system-seed',
@@ -27,12 +27,12 @@ export async function createSeedPatterns() {
       'заправился на АЗС',
       {
         amount: 0,
-        category: 'Другое',
+        category: 'other',
         type: 'expense',
         confidence: 0.4
       },
       {
-        category: 'Транспорт',
+        category: 'fuel',
         merchant: 'АЗС'
       },
       'system-seed',
@@ -43,12 +43,12 @@ export async function createSeedPatterns() {
       'такси yandex go',
       {
         amount: 0,
-        category: 'Другое',
+        category: 'other',
         type: 'expense',
         confidence: 0.4
       },
       {
-        category: 'Транспорт',
+        category: 'taxi',
         merchant: 'Yandex Go'
       },
       'system-seed',
@@ -59,12 +59,12 @@ export async function createSeedPatterns() {
       'купил в maxway',
       {
         amount: 0,
-        category: 'Другое',
+        category: 'other',
         type: 'expense',
         confidence: 0.3
       },
       {
-        category: 'Еда',
+        category: 'food',
         merchant: 'MaxWay'
       },
       'system-seed',

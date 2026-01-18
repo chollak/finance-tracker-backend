@@ -7,6 +7,7 @@ import { Result, ResultHelper } from '../../../shared/domain/types/Result';
 import { ExternalServiceError, ErrorFactory } from '../../../shared/domain/errors/AppError';
 import { OPENAI_PROMPTS, ERROR_MESSAGES } from '../../../shared/domain/constants/messages';
 import { transactionLearning } from '../../../shared/application/learning/transactionLearning';
+import { normalizeCategory } from '../../../shared/domain/entities/Category';
 
 export class OpenAITranscriptionService implements TranscriptionService {
     private openai: OpenAI;
@@ -105,10 +106,12 @@ export class OpenAITranscriptionService implements TranscriptionService {
                 if (!t || typeof t !== 'object') {
                     throw ErrorFactory.externalService('OpenAI', new Error(`Invalid transaction format at index ${index}`));
                 }
-                
+
                 // Ensure required fields exist with enhanced validation
                 const amount = typeof t.amount === 'number' ? t.amount : parseFloat(t.amount) || 0;
-                const category = String(t.category || 'Другое');
+                // Normalize category to ID (handles both Russian names and English IDs)
+                const rawCategory = String(t.category || 'other');
+                const category = normalizeCategory(rawCategory);
                 const merchant = t.merchant ? String(t.merchant) : undefined;
                 
                 // Calculate confidence based on data quality
@@ -116,7 +119,7 @@ export class OpenAITranscriptionService implements TranscriptionService {
                 
                 // Reduce confidence for missing/default values
                 if (amount === 0) confidence = Math.min(confidence, 0.4);
-                if (category === 'Другое' || category === 'Other') confidence = Math.min(confidence, 0.5);
+                if (category === 'other' || category === 'other-income') confidence = Math.min(confidence, 0.5);
                 if (!merchant && !t.merchant) confidence = Math.min(confidence, 0.6);
                 
                 // Ensure confidence is in valid range
