@@ -69,10 +69,10 @@ export function BudgetCard({ budget, onClick }: BudgetCardProps) {
             <span
               className={
                 budget._velocityStatus === 'danger'
-                  ? 'text-red-600 font-medium'
+                  ? 'text-expense font-medium'
                   : budget._velocityStatus === 'warning'
-                  ? 'text-orange-600 font-medium'
-                  : 'text-green-600'
+                  ? 'text-warning font-medium'
+                  : 'text-success'
               }
             >
               {budget._velocityText}

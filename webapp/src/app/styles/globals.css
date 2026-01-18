@@ -1,6 +1,11 @@
 @import "tailwindcss";
 @import "react-day-picker/style.css";
 
+/* ========================================
+   FINANCE TRACKER DESIGN SYSTEM
+   Minimal & Clean | Inter | Green Accent
+   ======================================== */
+
 /* Override react-day-picker selection colors to match shadcn */
 .rdp-selected .rdp-day_button,
 .rdp-day_button[data-selected="true"],
@@ -28,84 +33,220 @@
   box-shadow: none !important;
 }
 
+/* Dark mode react-day-picker overrides */
+.dark .rdp-selected .rdp-day_button,
+.dark .rdp-day_button[data-selected="true"],
+.dark .rdp-day_button[aria-selected="true"] {
+  background-color: oklch(30% 0.005 260) !important;
+  color: oklch(95% 0 0) !important;
+  border-color: oklch(30% 0.005 260) !important;
+}
+
+.dark .rdp-today:not(.rdp-selected) .rdp-day_button {
+  background-color: oklch(25% 0.005 260) !important;
+  color: oklch(95% 0 0) !important;
+}
+
+.dark .rdp-day_button:hover {
+  background-color: oklch(28% 0.005 260) !important;
+}
+
 @theme inline {
-  /* Light theme colors (default) */
+  /* ===== TYPOGRAPHY ===== */
+  --font-family-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
+  /* ===== BASE COLORS (Light Theme) ===== */
   --color-background: oklch(100% 0 0);
   --color-foreground: oklch(9.6% 0 0);
   --color-card: oklch(100% 0 0);
   --color-card-foreground: oklch(9.6% 0 0);
   --color-popover: oklch(100% 0 0);
   --color-popover-foreground: oklch(9.6% 0 0);
+
+  /* Primary - Neutral (shadcn new-york) */
   --color-primary: oklch(14.5% 0 0);
   --color-primary-foreground: oklch(98.2% 0 0);
+
+  /* Secondary */
   --color-secondary: oklch(95.3% 0 0);
   --color-secondary-foreground: oklch(14.5% 0 0);
+
+  /* Muted */
   --color-muted: oklch(95.3% 0 0);
   --color-muted-foreground: oklch(53.2% 0 0);
+
+  /* Accent */
   --color-accent: oklch(95.3% 0 0);
   --color-accent-foreground: oklch(14.5% 0 0);
-  --color-destructive: oklch(66.8% 0.186 25.75);
+
+  /* Destructive */
+  --color-destructive: oklch(60% 0.2 25);
+  --color-destructive-foreground: oklch(98% 0 0);
+
+  /* Borders & Inputs */
   --color-border: oklch(88.1% 0 0);
   --color-input: oklch(88.1% 0 0);
   --color-ring: oklch(9.6% 0 0);
-  --color-chart-1: oklch(66.8% 0.155 27.5);
-  --color-chart-2: oklch(56.9% 0.097 195.2);
-  --color-chart-3: oklch(45.2% 0.059 236.8);
-  --color-chart-4: oklch(72.6% 0.145 75.4);
-  --color-chart-5: oklch(74.8% 0.159 39.2);
-  --radius: 0.5rem;
+
+  /* ===== SEMANTIC FINANCE COLORS ===== */
+  /* Income (Green) */
+  --color-income: oklch(55% 0.2 145);
+  --color-income-foreground: oklch(98% 0 0);
+  --color-income-muted: oklch(95% 0.05 145);
+
+  /* Expense (Red) */
+  --color-expense: oklch(55% 0.22 25);
+  --color-expense-foreground: oklch(98% 0 0);
+  --color-expense-muted: oklch(95% 0.04 25);
+
+  /* Warning (Orange) */
+  --color-warning: oklch(65% 0.18 55);
+  --color-warning-foreground: oklch(20% 0.05 55);
+  --color-warning-muted: oklch(95% 0.05 55);
+
+  /* Success (same as income) */
+  --color-success: oklch(55% 0.2 145);
+  --color-success-foreground: oklch(98% 0 0);
+  --color-success-muted: oklch(95% 0.05 145);
+
+  /* ===== CHART COLORS ===== */
+  --color-chart-1: oklch(55% 0.2 145);    /* Primary green (income) */
+  --color-chart-2: oklch(55% 0.15 250);   /* Blue */
+  --color-chart-3: oklch(55% 0.15 320);   /* Purple */
+  --color-chart-4: oklch(65% 0.15 55);    /* Orange */
+  --color-chart-5: oklch(55% 0.15 195);   /* Teal */
+  --color-chart-6: oklch(55% 0.22 25);    /* Red (expense) */
+
+  /* ===== BORDER RADIUS SCALE ===== */
+  --radius-sm: 0.5rem;    /* 8px - Badges, chips */
+  --radius-md: 0.75rem;   /* 12px - Buttons, inputs */
+  --radius-lg: 1rem;      /* 16px - Small cards */
+  --radius-xl: 1.25rem;   /* 20px - Standard cards */
+  --radius-2xl: 1.5rem;   /* 24px - Large cards */
+  --radius-3xl: 2rem;     /* 32px - Modals, feature cards */
+  --radius-full: 9999px;  /* Pills, avatars */
+
+  /* Legacy shadcn --radius (maps to md) */
+  --radius: 0.75rem;
+
+  /* ===== ANIMATION TIMING ===== */
+  --duration-fast: 150ms;
+  --duration-normal: 300ms;
+  --duration-slow: 400ms;
+  --duration-stagger: 50ms;
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* ===== SPACING (Touch Targets) ===== */
+  --touch-target: 2.75rem;    /* 44px minimum */
+  --touch-target-lg: 3rem;    /* 48px preferred */
 }
 
-/* Dark theme colors - activated by .dark class */
+/* ===== DARK THEME =====
+   Premium dark theme inspired by Linear/Revolut
+   Soft charcoal backgrounds, not pure black
+   ======================== */
+
+.dark,
 :root.dark,
-html.dark,
-.dark {
-  --color-background: oklch(9.6% 0 0) !important;
-  --color-foreground: oklch(98.2% 0 0) !important;
-  --color-card: oklch(14.5% 0 0) !important;
-  --color-card-foreground: oklch(98.2% 0 0) !important;
-  --color-popover: oklch(14.5% 0 0) !important;
-  --color-popover-foreground: oklch(98.2% 0 0) !important;
-  --color-primary: oklch(98.2% 0 0) !important;
-  --color-primary-foreground: oklch(14.5% 0 0) !important;
-  --color-secondary: oklch(20% 0 0) !important;
-  --color-secondary-foreground: oklch(98.2% 0 0) !important;
-  --color-muted: oklch(20% 0 0) !important;
-  --color-muted-foreground: oklch(65% 0 0) !important;
-  --color-accent: oklch(20% 0 0) !important;
-  --color-accent-foreground: oklch(98.2% 0 0) !important;
-  --color-destructive: oklch(60% 0.2 25) !important;
-  --color-border: oklch(25% 0 0) !important;
-  --color-input: oklch(25% 0 0) !important;
-  --color-ring: oklch(30% 0 0) !important;
-  --color-chart-1: oklch(72% 0.155 27.5) !important;
-  --color-chart-2: oklch(62% 0.097 195.2) !important;
-  --color-chart-3: oklch(55% 0.059 236.8) !important;
-  --color-chart-4: oklch(78% 0.145 75.4) !important;
-  --color-chart-5: oklch(80% 0.159 39.2) !important;
+html.dark {
+  /* Softer dark backgrounds - not pure black */
+  --color-background: oklch(13% 0.005 260) !important;
+  --color-foreground: oklch(95% 0 0) !important;
+
+  /* Card with subtle elevation */
+  --color-card: oklch(17% 0.005 260) !important;
+  --color-card-foreground: oklch(95% 0 0) !important;
+
+  /* Popover/Sheet - slightly lighter than cards for layering */
+  --color-popover: oklch(17% 0.005 260) !important;
+  --color-popover-foreground: oklch(95% 0 0) !important;
+
+  /* Primary - elevated dark surface for buttons, light text */
+  --color-primary: oklch(30% 0.005 260) !important;
+  --color-primary-foreground: oklch(95% 0 0) !important;
+
+  /* Secondary - elevated surface */
+  --color-secondary: oklch(22% 0.005 260) !important;
+  --color-secondary-foreground: oklch(90% 0 0) !important;
+
+  /* Muted - for backgrounds and disabled states */
+  --color-muted: oklch(22% 0.005 260) !important;
+  --color-muted-foreground: oklch(60% 0 0) !important;
+
+  /* Accent - subtle highlight */
+  --color-accent: oklch(22% 0.005 260) !important;
+  --color-accent-foreground: oklch(95% 0 0) !important;
+
+  /* Destructive */
+  --color-destructive: oklch(60% 0.22 25) !important;
+  --color-destructive-foreground: oklch(98% 0 0) !important;
+
+  /* Borders - subtle but visible */
+  --color-border: oklch(28% 0.005 260) !important;
+  --color-input: oklch(28% 0.005 260) !important;
+  --color-ring: oklch(50% 0.1 145) !important;
+
+  /* Semantic finance colors (dark mode - vibrant for visibility) */
+  --color-income: oklch(70% 0.2 145) !important;
+  --color-income-foreground: oklch(15% 0.05 145) !important;
+  --color-income-muted: oklch(25% 0.1 145) !important;
+
+  --color-expense: oklch(68% 0.22 25) !important;
+  --color-expense-foreground: oklch(98% 0 0) !important;
+  --color-expense-muted: oklch(25% 0.1 25) !important;
+
+  --color-warning: oklch(75% 0.15 70) !important;
+  --color-warning-foreground: oklch(20% 0.05 70) !important;
+  --color-warning-muted: oklch(28% 0.08 70) !important;
+
+  --color-success: oklch(70% 0.2 145) !important;
+  --color-success-foreground: oklch(15% 0.05 145) !important;
+  --color-success-muted: oklch(25% 0.1 145) !important;
+
+  /* Chart colors (dark mode - vibrant) */
+  --color-chart-1: oklch(70% 0.2 145) !important;
+  --color-chart-2: oklch(70% 0.15 250) !important;
+  --color-chart-3: oklch(70% 0.15 320) !important;
+  --color-chart-4: oklch(75% 0.15 70) !important;
+  --color-chart-5: oklch(70% 0.15 195) !important;
+  --color-chart-6: oklch(68% 0.22 25) !important;
 }
 
 /* Auto dark mode based on system preference */
 @media (prefers-color-scheme: dark) {
   :root:not(.light) {
-    --color-background: oklch(9.6% 0 0);
-    --color-foreground: oklch(98.2% 0 0);
-    --color-card: oklch(14.5% 0 0);
-    --color-card-foreground: oklch(98.2% 0 0);
-    --color-popover: oklch(14.5% 0 0);
-    --color-popover-foreground: oklch(98.2% 0 0);
-    --color-primary: oklch(98.2% 0 0);
-    --color-primary-foreground: oklch(14.5% 0 0);
-    --color-secondary: oklch(20% 0 0);
-    --color-secondary-foreground: oklch(98.2% 0 0);
-    --color-muted: oklch(20% 0 0);
-    --color-muted-foreground: oklch(65% 0 0);
-    --color-accent: oklch(20% 0 0);
-    --color-accent-foreground: oklch(98.2% 0 0);
-    --color-destructive: oklch(60% 0.2 25);
-    --color-border: oklch(25% 0 0);
-    --color-input: oklch(25% 0 0);
-    --color-ring: oklch(30% 0 0);
+    --color-background: oklch(13% 0.005 260);
+    --color-foreground: oklch(95% 0 0);
+    --color-card: oklch(17% 0.005 260);
+    --color-card-foreground: oklch(95% 0 0);
+    --color-popover: oklch(17% 0.005 260);
+    --color-popover-foreground: oklch(95% 0 0);
+    --color-primary: oklch(30% 0.005 260);
+    --color-primary-foreground: oklch(95% 0 0);
+    --color-secondary: oklch(22% 0.005 260);
+    --color-secondary-foreground: oklch(90% 0 0);
+    --color-muted: oklch(22% 0.005 260);
+    --color-muted-foreground: oklch(60% 0 0);
+    --color-accent: oklch(22% 0.005 260);
+    --color-accent-foreground: oklch(95% 0 0);
+    --color-destructive: oklch(60% 0.22 25);
+    --color-destructive-foreground: oklch(98% 0 0);
+    --color-border: oklch(28% 0.005 260);
+    --color-input: oklch(28% 0.005 260);
+    --color-ring: oklch(50% 0.1 145);
+
+    /* Semantic finance colors */
+    --color-income: oklch(70% 0.2 145);
+    --color-income-muted: oklch(25% 0.1 145);
+    --color-expense: oklch(68% 0.22 25);
+    --color-expense-muted: oklch(25% 0.1 25);
+    --color-warning: oklch(75% 0.15 70);
+    --color-warning-muted: oklch(28% 0.08 70);
+    --color-success: oklch(70% 0.2 145);
+    --color-success-muted: oklch(25% 0.1 145);
   }
 }
 
@@ -199,21 +340,21 @@ html.dark,
   }
 }
 
-/* Animation utility classes */
+/* Animation utility classes - using design tokens */
 .animate-fade-in {
-  animation: fadeIn 0.3s ease-out forwards;
+  animation: fadeIn var(--duration-normal) var(--ease-out) forwards;
 }
 
 .animate-fade-in-up {
-  animation: fadeInUp 0.4s ease-out forwards;
+  animation: fadeInUp var(--duration-normal) var(--ease-out) forwards;
 }
 
 .animate-slide-in-up {
-  animation: slideInUp 0.5s ease-out forwards;
+  animation: slideInUp var(--duration-slow) var(--ease-out) forwards;
 }
 
 .animate-scale-in {
-  animation: scaleIn 0.3s ease-out forwards;
+  animation: scaleIn var(--duration-normal) var(--ease-out) forwards;
 }
 
 .animate-shimmer {
@@ -239,19 +380,20 @@ html.dark,
   animation: bounce 0.6s ease-in-out;
 }
 
-/* Stagger delays for list items */
-.stagger-1 { animation-delay: 0.05s; }
-.stagger-2 { animation-delay: 0.1s; }
-.stagger-3 { animation-delay: 0.15s; }
-.stagger-4 { animation-delay: 0.2s; }
-.stagger-5 { animation-delay: 0.25s; }
-.stagger-6 { animation-delay: 0.3s; }
-.stagger-7 { animation-delay: 0.35s; }
-.stagger-8 { animation-delay: 0.4s; }
+/* Stagger delays for list items (50ms increments) */
+.stagger-1 { animation-delay: calc(var(--duration-stagger) * 1); }
+.stagger-2 { animation-delay: calc(var(--duration-stagger) * 2); }
+.stagger-3 { animation-delay: calc(var(--duration-stagger) * 3); }
+.stagger-4 { animation-delay: calc(var(--duration-stagger) * 4); }
+.stagger-5 { animation-delay: calc(var(--duration-stagger) * 5); }
+.stagger-6 { animation-delay: calc(var(--duration-stagger) * 6); }
+.stagger-7 { animation-delay: calc(var(--duration-stagger) * 7); }
+.stagger-8 { animation-delay: calc(var(--duration-stagger) * 8); }
 
 /* Card hover effects */
 .card-hover {
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition: transform var(--duration-fast) var(--ease-out),
+              box-shadow var(--duration-fast) var(--ease-out);
 }
 
 .card-hover:hover {
@@ -265,7 +407,7 @@ html.dark,
 
 /* Button press effect */
 .btn-press {
-  transition: transform 0.1s ease;
+  transition: transform var(--duration-fast) var(--ease-out);
 }
 
 .btn-press:active {
@@ -302,7 +444,9 @@ html.dark,
 
 /* List item transitions */
 .list-item-transition {
-  transition: opacity 0.2s ease, transform 0.2s ease, background-color 0.2s ease;
+  transition: opacity var(--duration-fast) var(--ease-out),
+              transform var(--duration-fast) var(--ease-out),
+              background-color var(--duration-fast) var(--ease-out);
 }
 
 .list-item-transition:hover {
@@ -317,16 +461,16 @@ html.dark,
 
 /* Sheet/Dialog animations */
 [data-state="open"] {
-  animation: fadeIn 0.2s ease-out;
+  animation: fadeIn var(--duration-normal) var(--ease-out);
 }
 
 [data-state="closed"] {
-  animation: fadeIn 0.2s ease-out reverse;
+  animation: fadeIn var(--duration-fast) var(--ease-out) reverse;
 }
 
 /* Smooth page transitions */
 .page-transition {
-  animation: fadeInUp 0.3s ease-out;
+  animation: fadeInUp var(--duration-normal) var(--ease-out);
 }
 
 @layer base {
@@ -334,14 +478,26 @@ html.dark,
     border-color: var(--color-border);
   }
 
+  html {
+    font-family: var(--font-family-sans);
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
   body {
+    font-family: var(--font-family-sans);
+    font-weight: 400;
+    line-height: 1.5;
     background-color: var(--color-background);
     color: var(--color-foreground);
   }
 
-  /* Smooth scrolling */
-  html {
-    scroll-behavior: smooth;
+  /* Typography - High contrast weights (400 vs 700, never 500) */
+  h1, h2, h3, h4, h5, h6 {
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
   }
 
   /* Remove animation for users who prefer reduced motion */
@@ -355,34 +511,180 @@ html.dark,
     }
   }
 
-  /* Force dark mode colors on elements using bg-background */
-  .dark .bg-background,
-  .dark.bg-background {
+  /* ===== DARK MODE COMPONENT OVERRIDES ===== */
+
+  /* Background colors */
+  .dark .bg-background {
     background-color: var(--color-background) !important;
   }
 
-  .dark .bg-card,
-  .dark.bg-card {
+  .dark .bg-card {
     background-color: var(--color-card) !important;
   }
 
-  .dark .text-foreground,
-  .dark.text-foreground {
+  .dark .bg-popover {
+    background-color: var(--color-popover) !important;
+  }
+
+  .dark .bg-muted {
+    background-color: var(--color-muted) !important;
+  }
+
+  .dark .bg-secondary {
+    background-color: var(--color-secondary) !important;
+  }
+
+  .dark .bg-accent {
+    background-color: var(--color-accent) !important;
+  }
+
+  /* Text colors */
+  .dark .text-foreground {
     color: var(--color-foreground) !important;
   }
 
-  .dark .text-muted-foreground,
-  .dark.text-muted-foreground {
+  .dark .text-muted-foreground {
     color: var(--color-muted-foreground) !important;
   }
 
-  .dark .text-card-foreground,
-  .dark.text-card-foreground {
+  .dark .text-card-foreground {
     color: var(--color-card-foreground) !important;
   }
 
-  .dark .border-border,
-  .dark.border-border {
+  .dark .text-popover-foreground {
+    color: var(--color-popover-foreground) !important;
+  }
+
+  /* Border colors */
+  .dark .border-border {
     border-color: var(--color-border) !important;
+  }
+
+  .dark .border-input {
+    border-color: var(--color-input) !important;
+  }
+
+  /* Input fields - explicit dark mode styling */
+  .dark input,
+  .dark textarea,
+  .dark select {
+    background-color: var(--color-secondary) !important;
+    border-color: var(--color-border) !important;
+    color: var(--color-foreground) !important;
+  }
+
+  .dark input::placeholder,
+  .dark textarea::placeholder {
+    color: var(--color-muted-foreground) !important;
+  }
+
+  .dark input:focus,
+  .dark textarea:focus,
+  .dark select:focus {
+    border-color: var(--color-ring) !important;
+    ring-color: var(--color-ring) !important;
+  }
+
+  /* Sheet/Dialog/Popover - explicit dark backgrounds */
+  .dark [data-radix-popper-content-wrapper] > *,
+  .dark [role="dialog"],
+  .dark [data-state="open"][role="dialog"] {
+    background-color: var(--color-card) !important;
+    border-color: var(--color-border) !important;
+  }
+
+  /* Radix Select portal - renders at document root, needs html.dark selector */
+  html.dark [data-radix-select-content],
+  html.dark [role="listbox"] {
+    background-color: var(--color-card) !important;
+    border-color: var(--color-border) !important;
+    color: var(--color-foreground) !important;
+  }
+
+  html.dark [data-radix-select-item],
+  html.dark [role="option"] {
+    color: var(--color-foreground) !important;
+  }
+
+  html.dark [data-radix-select-item]:focus,
+  html.dark [data-radix-select-item][data-highlighted],
+  html.dark [role="option"]:focus,
+  html.dark [role="option"][data-highlighted] {
+    background-color: var(--color-accent) !important;
+    color: var(--color-accent-foreground) !important;
+  }
+
+  html.dark [data-radix-select-item][data-state="checked"] {
+    background-color: var(--color-accent) !important;
+  }
+
+  /* Progress bar track visibility */
+  .dark [role="progressbar"] {
+    background-color: var(--color-muted) !important;
+  }
+
+  /* Button ghost/outline variants in dark mode */
+  .dark .hover\:bg-accent:hover {
+    background-color: var(--color-accent) !important;
+  }
+
+  /* Semantic colors in dark mode */
+  .dark .text-income {
+    color: var(--color-income) !important;
+  }
+
+  .dark .text-expense {
+    color: var(--color-expense) !important;
+  }
+
+  .dark .text-success {
+    color: var(--color-success) !important;
+  }
+
+  .dark .text-warning {
+    color: var(--color-warning) !important;
+  }
+
+  .dark .bg-income {
+    background-color: var(--color-income) !important;
+  }
+
+  .dark .bg-expense {
+    background-color: var(--color-expense) !important;
+  }
+
+  .dark .bg-income-muted {
+    background-color: var(--color-income-muted) !important;
+  }
+
+  .dark .bg-expense-muted {
+    background-color: var(--color-expense-muted) !important;
+  }
+
+  .dark .bg-success-muted {
+    background-color: var(--color-success-muted) !important;
+  }
+
+  .dark .bg-warning-muted {
+    background-color: var(--color-warning-muted) !important;
+  }
+
+  /* Primary color - ensure visibility in dark mode */
+  .dark .text-primary {
+    color: var(--color-primary) !important;
+  }
+
+  .dark .bg-primary {
+    background-color: var(--color-primary) !important;
+  }
+
+  /* SVG icons inherit color */
+  .dark svg {
+    color: inherit;
+  }
+
+  /* Lucide icons in dark mode */
+  .dark .lucide {
+    color: currentColor;
   }
 }

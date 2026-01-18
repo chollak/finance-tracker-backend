@@ -23,7 +23,6 @@ import {
 } from '@/entities/category';
 import { useTransactions } from '@/entities/transaction';
 import { useUserStore } from '@/entities/user/model/store';
-import { cn } from '@/shared/lib';
 
 import { quickAddSchema, DEFAULT_DESCRIPTIONS, type QuickAddFormData } from '../model/schema';
 
@@ -130,11 +129,8 @@ export function QuickAddForm({
         <div className="flex gap-2">
           <Button
             type="button"
-            variant={transactionType === 'expense' ? 'default' : 'outline'}
-            className={cn(
-              'flex-1 transition-all',
-              transactionType === 'expense' && 'bg-red-500 hover:bg-red-600'
-            )}
+            variant={transactionType === 'expense' ? 'expense' : 'outline'}
+            className="flex-1 transition-all"
             onClick={() => {
               form.setValue('type', 'expense');
               form.setValue('category', ''); // Reset category on type change
@@ -144,11 +140,8 @@ export function QuickAddForm({
           </Button>
           <Button
             type="button"
-            variant={transactionType === 'income' ? 'default' : 'outline'}
-            className={cn(
-              'flex-1 transition-all',
-              transactionType === 'income' && 'bg-green-500 hover:bg-green-600'
-            )}
+            variant={transactionType === 'income' ? 'income' : 'outline'}
+            className="flex-1 transition-all"
             onClick={() => {
               form.setValue('type', 'income');
               form.setValue('category', ''); // Reset category on type change
@@ -204,13 +197,9 @@ export function QuickAddForm({
                 <Button
                   key={catId}
                   type="button"
-                  variant={isSelected ? 'default' : 'outline'}
+                  variant={isSelected ? (transactionType === 'expense' ? 'expense' : 'income') : 'outline'}
                   size="sm"
-                  className={cn(
-                    'transition-all',
-                    isSelected && transactionType === 'expense' && 'bg-red-500 hover:bg-red-600',
-                    isSelected && transactionType === 'income' && 'bg-green-500 hover:bg-green-600'
-                  )}
+                  className="transition-all"
                   onClick={() => form.setValue('category', catId)}
                 >
                   {cat.icon} {cat.name}
@@ -236,17 +225,9 @@ export function QuickAddForm({
                         <Button
                           key={cat.id}
                           type="button"
-                          variant={isSelected ? 'default' : 'ghost'}
+                          variant={isSelected ? (transactionType === 'expense' ? 'expense' : 'income') : 'ghost'}
                           size="sm"
-                          className={cn(
-                            'justify-start text-xs h-8',
-                            isSelected &&
-                              transactionType === 'expense' &&
-                              'bg-red-500 hover:bg-red-600',
-                            isSelected &&
-                              transactionType === 'income' &&
-                              'bg-green-500 hover:bg-green-600'
-                          )}
+                          className="justify-start text-xs h-8"
                           onClick={() => form.setValue('category', cat.id)}
                         >
                           {cat.icon} {cat.name}
@@ -405,12 +386,8 @@ export function QuickAddForm({
           )}
           <Button
             type="submit"
-            className={cn(
-              'flex-1',
-              transactionType === 'expense'
-                ? 'bg-red-500 hover:bg-red-600'
-                : 'bg-green-500 hover:bg-green-600'
-            )}
+            variant={transactionType === 'expense' ? 'expense' : 'income'}
+            className="flex-1"
             disabled={isLoading || !selectedCategory}
           >
             {isLoading ? 'Сохранение...' : 'Добавить'}

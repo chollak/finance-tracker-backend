@@ -16,9 +16,9 @@ export interface BudgetViewModel extends BudgetSummary {
   _formattedSpent: string;          // "750 000 сўм"
   _formattedRemaining: string;      // "250 000 сўм"
   _percentageText: string;          // "75%"
-  _progressColor: string;           // "bg-green-500", "bg-yellow-500", "bg-red-500"
+  _progressColor: string;           // "bg-success", "bg-warning", "bg-expense"
   _statusText: string;              // "На пути", "Превышен", "Близко к лимиту"
-  _statusColor: string;             // "text-green-600", "text-red-600"
+  _statusColor: string;             // "text-success bg-success-muted", "text-expense bg-expense-muted"
   _daysRemainingText: string;       // "5 дней осталось"
   _periodText: string;              // "Месячный", "Недельный"
 

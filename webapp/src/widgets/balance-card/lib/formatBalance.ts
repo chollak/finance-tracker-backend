@@ -23,9 +23,10 @@ export function getDynamicFontSize(amount: number): string {
 
 /**
  * Get color class for balance amount
+ * Uses semantic design tokens
  */
 export function getBalanceColor(amount: number): string {
-  if (amount > 0) return 'text-green-600';
-  if (amount < 0) return 'text-red-600';
+  if (amount > 0) return 'text-income';
+  if (amount < 0) return 'text-expense';
   return 'text-muted-foreground';
 }

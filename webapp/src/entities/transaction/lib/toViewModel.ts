@@ -16,7 +16,7 @@ export function transactionToViewModel(transaction: Transaction): TransactionVie
     _formattedDate: formatTransactionDate(transaction.date),
     _categoryIcon: getCategoryIcon(transaction.category),
     _categoryColor: getCategoryColor(transaction.category),
-    _amountColor: isIncome ? 'text-green-600' : 'text-red-600',
+    _amountColor: isIncome ? 'text-income' : 'text-expense',
     _typeLabel: isIncome ? 'Доход' : 'Расход',
   };
 }

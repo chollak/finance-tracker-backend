@@ -20,7 +20,7 @@ export function TopNav() {
   const location = useLocation();
 
   return (
-    <header className="sticky top-0 z-50 hidden border-b bg-background md:block">
+    <header className="sticky top-0 z-50 hidden border-b bg-background dark:bg-card dark:border-border md:block">
       <div className="container mx-auto flex h-14 items-center px-4">
         {/* Logo */}
         <Link to={ROUTES.HOME} className="mr-8 font-semibold">
