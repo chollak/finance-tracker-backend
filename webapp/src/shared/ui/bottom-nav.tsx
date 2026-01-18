@@ -1,7 +1,14 @@
 import { Link, useLocation } from 'react-router-dom';
 import { Home, Receipt, Wallet, BarChart3 } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/shared/lib/utils';
 import { ROUTES } from '@/shared/lib/constants/routes';
+import { useUserStore } from '@/entities/user/model/store';
+import { transactionKeys } from '@/entities/transaction/api/keys';
+import { budgetKeys } from '@/entities/budget/api/keys';
+import { dashboardKeys } from '@/entities/dashboard/api/keys';
+import { apiClient } from '@/shared/api';
+import { API_ENDPOINTS } from '@/shared/lib/constants';
 
 const navItems = [
   {
@@ -29,9 +36,69 @@ const navItems = [
 /**
  * Bottom navigation for mobile devices
  * Hidden on desktop (md:hidden)
+ * Optimized: Prefetches data on hover/focus for instant navigation
  */
 export function BottomNav() {
   const location = useLocation();
+  const queryClient = useQueryClient();
+  const userId = useUserStore((state) => state.userId);
+
+  // Prefetch functions for each page
+  const prefetchForRoute = (href: string) => {
+    if (!userId) return;
+
+    // Don't prefetch if data is fresh (stale time not exceeded)
+    const staleTime = 30000; // 30 seconds
+
+    switch (href) {
+      case ROUTES.HOME:
+        queryClient.prefetchQuery({
+          queryKey: dashboardKeys.insights(userId),
+          queryFn: async () => {
+            const response = await apiClient.get(`/dashboard/${userId}`);
+            return response.data;
+          },
+          staleTime,
+        });
+        break;
+
+      case ROUTES.TRANSACTIONS:
+        queryClient.prefetchQuery({
+          queryKey: transactionKeys.list(userId),
+          queryFn: async () => {
+            const response = await apiClient.get(API_ENDPOINTS.TRANSACTIONS.LIST(userId));
+            return response.data;
+          },
+          staleTime,
+        });
+        break;
+
+      case ROUTES.BUDGETS:
+        queryClient.prefetchQuery({
+          queryKey: budgetKeys.summaries(userId),
+          queryFn: async () => {
+            const response = await apiClient.get(API_ENDPOINTS.BUDGETS.SUMMARIES(userId));
+            return response.data;
+          },
+          staleTime,
+        });
+        break;
+
+      case ROUTES.ANALYTICS:
+        // Analytics uses transaction data
+        queryClient.prefetchQuery({
+          queryKey: transactionKeys.analytics(userId),
+          queryFn: async () => {
+            const response = await apiClient.get(
+              API_ENDPOINTS.TRANSACTIONS.ANALYTICS.SUMMARY(userId)
+            );
+            return response.data;
+          },
+          staleTime,
+        });
+        break;
+    }
+  };
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background dark:bg-card dark:border-border md:hidden">
@@ -44,6 +111,9 @@ export function BottomNav() {
             <Link
               key={item.href}
               to={item.href}
+              onMouseEnter={() => prefetchForRoute(item.href)}
+              onFocus={() => prefetchForRoute(item.href)}
+              onTouchStart={() => prefetchForRoute(item.href)}
               className={cn(
                 'flex flex-1 flex-col items-center justify-center gap-1 py-2 text-xs transition-colors',
                 isActive

@@ -1,15 +1,17 @@
 import { Card, CardContent } from '@/shared/ui/card';
 import { Skeleton } from '@/shared/ui/skeleton';
-import { useQuickStats } from '@/entities/dashboard';
+import { useDashboardInsights } from '@/entities/dashboard';
 import { useUserStore } from '@/entities/user/model/store';
 
 /**
  * Quick stats widget
  * Shows active budgets count, alerts count, and savings rate
+ * Optimized: Uses shared dashboard data instead of separate API call
  */
 export function QuickStats() {
   const userId = useUserStore((state) => state.userId);
-  const { data: stats, isLoading } = useQuickStats(userId);
+  // Use same query as BalanceCard - data is shared via React Query cache
+  const { data: dashboard, isLoading } = useDashboardInsights(userId);
 
   if (isLoading) {
     return (
@@ -25,9 +27,10 @@ export function QuickStats() {
     );
   }
 
-  const activeBudgets = stats?.activeBudgets ?? 0;
-  const alertsCount = stats?.alertsCount ?? 0;
-  const savingsRate = stats?.savingsRate ?? 0;
+  // Extract data from dashboard response (same data, no extra API call)
+  const activeBudgets = dashboard?.insights?.budgetOverview?.activeBudgets ?? 0;
+  const alertsCount = dashboard?.alerts?.summary?.total ?? 0;
+  const savingsRate = dashboard?.insights?.insights?.savingsRate ?? 0;
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

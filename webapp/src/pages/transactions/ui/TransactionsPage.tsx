@@ -85,8 +85,9 @@ export function TransactionsPage() {
   );
 
   const handleArchive = async (id: string) => {
+    if (!userId) return;
     try {
-      await archiveMutation.mutateAsync(id);
+      await archiveMutation.mutateAsync({ id, userId });
       toast.success('Транзакция архивирована');
     } catch {
       toast.error('Не удалось архивировать транзакцию');
@@ -94,8 +95,9 @@ export function TransactionsPage() {
   };
 
   const handleUnarchive = async (id: string) => {
+    if (!userId) return;
     try {
-      await unarchiveMutation.mutateAsync(id);
+      await unarchiveMutation.mutateAsync({ id, userId });
       toast.success('Транзакция восстановлена');
     } catch {
       toast.error('Не удалось восстановить транзакцию');

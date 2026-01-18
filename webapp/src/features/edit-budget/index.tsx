@@ -58,10 +58,10 @@ export function EditBudget() {
   };
 
   const handleDelete = async () => {
-    if (!id) return;
+    if (!id || !budget) return;
 
     try {
-      await deleteBudget.mutateAsync(id);
+      await deleteBudget.mutateAsync({ id, userId: budget.userId });
       toast.success('Бюджет удален');
       navigate(ROUTES.BUDGETS);
     } catch (error) {

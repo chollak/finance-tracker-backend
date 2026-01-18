@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useDeleteTransaction } from '@/entities/transaction';
+import { useUserStore } from '@/entities/user/model/store';
 import { DeleteConfirmation } from './ui/DeleteConfirmation';
 import { toast } from 'sonner';
 
@@ -17,6 +18,7 @@ export function useDeleteTransactionDialog({ onSuccess }: UseDeleteTransactionDi
     description?: string;
   } | null>(null);
 
+  const userId = useUserStore((state) => state.userId);
   const deleteTransaction = useDeleteTransaction();
 
   const openDialog = (id: string, description?: string) => {
@@ -25,10 +27,10 @@ export function useDeleteTransactionDialog({ onSuccess }: UseDeleteTransactionDi
   };
 
   const handleConfirm = async () => {
-    if (!transactionToDelete) return;
+    if (!transactionToDelete || !userId) return;
 
     try {
-      await deleteTransaction.mutateAsync(transactionToDelete.id);
+      await deleteTransaction.mutateAsync({ id: transactionToDelete.id, userId });
       toast.success('Транзакция удалена');
       setOpen(false);
       setTransactionToDelete(null);
