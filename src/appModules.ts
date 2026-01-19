@@ -6,6 +6,8 @@ import { BudgetModule } from './modules/budget/budgetModule';
 import { DebtModule } from './modules/debt/debtModule';
 import { createOpenAIUsageModule } from './modules/openai-usage/openAIUsageModule';
 import { UserModule } from './modules/user/userModule';
+import { SubscriptionModule } from './modules/subscription/subscriptionModule';
+import { RepositoryFactory } from './shared/infrastructure/database/repositoryFactory';
 
 export function createModules() {
   const transactionModule = TransactionModule.create();
@@ -17,5 +19,18 @@ export function createModules() {
   const openAIUsageModule = createOpenAIUsageModule();
   const userModule = UserModule.create();
 
-  return { transactionModule, budgetModule, debtModule, voiceModule, openAIUsageModule, userModule };
+  // Create SubscriptionModule with repositories
+  const subscriptionRepository = RepositoryFactory.createSubscriptionRepository();
+  const usageLimitRepository = RepositoryFactory.createUsageLimitRepository();
+  const subscriptionModule = new SubscriptionModule(subscriptionRepository, usageLimitRepository);
+
+  return {
+    transactionModule,
+    budgetModule,
+    debtModule,
+    voiceModule,
+    openAIUsageModule,
+    userModule,
+    subscriptionModule,
+  };
 }

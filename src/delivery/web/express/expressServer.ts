@@ -6,12 +6,14 @@ import { BudgetModule } from '../../../modules/budget/budgetModule';
 import { DebtModule } from '../../../modules/debt/debtModule';
 import { OpenAIUsageModule } from '../../../modules/openai-usage/openAIUsageModule';
 import { UserModule } from '../../../modules/user/userModule';
+import { SubscriptionModule } from '../../../modules/subscription/subscriptionModule';
 import { createTransactionRouter } from '../../../modules/transaction/presentation/controllers/transactionController';
 import { createVoiceProcessingRouter } from '../../../modules/voiceProcessing/presentation/controllers/voiceProcessingController';
 import { createBudgetRouter } from '../../../modules/budget/interfaces/budgetRoutes';
 import { createDebtRouter } from '../../../modules/debt/presentation/controllers/debtRoutes';
 import { createDashboardRouter } from './routes/dashboardRoutes';
 import { createUserController } from '../../../modules/user/presentation/controllers/userController';
+import { createSubscriptionRoutes } from './routes/subscriptionRoutes';
 import {
   errorHandler,
   notFoundHandler,
@@ -27,7 +29,8 @@ export function buildServer(
   budgetModule: BudgetModule,
   debtModule: DebtModule,
   openAIUsageModule: OpenAIUsageModule,
-  userModule?: UserModule
+  userModule?: UserModule,
+  subscriptionModule?: SubscriptionModule
 ) {
   const router = Router();
   
@@ -105,6 +108,14 @@ export function buildServer(
     router.use(
       '/users',
       createUserController(userModule)
+    );
+  }
+
+  // Subscription routes (optional - only if subscriptionModule is provided)
+  if (subscriptionModule) {
+    router.use(
+      '/subscription',
+      createSubscriptionRoutes(subscriptionModule)
     );
   }
 

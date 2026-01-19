@@ -1,13 +1,13 @@
 import { DataSource } from 'typeorm';
 import path from 'path';
 import { AppConfig } from '../config/appConfig';
-import { Transaction, Budget, Debt, DebtPayment } from './entities';
+import { Transaction, Budget, Debt, DebtPayment, User, Subscription, UsageLimit } from './entities';
 import { initializeSupabase } from './supabase.config';
 
 export const AppDataSource = new DataSource({
   type: 'sqlite',
   database: path.join(process.cwd(), 'data', 'database.sqlite'),
-  entities: [Transaction, Budget, Debt, DebtPayment],
+  entities: [Transaction, Budget, Debt, DebtPayment, User, Subscription, UsageLimit],
   synchronize: process.env.DB_SYNCHRONIZE === 'true' || AppConfig.NODE_ENV === 'development',
   logging: AppConfig.NODE_ENV === 'development',
 });

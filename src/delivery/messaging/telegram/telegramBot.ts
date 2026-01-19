@@ -5,10 +5,14 @@ import { AppConfig } from '../../../shared/infrastructure/config/appConfig';
 import { VoiceProcessingModule } from '../../../modules/voiceProcessing/voiceProcessingModule';
 import { TransactionModule } from '../../../modules/transaction/transactionModule';
 import { BudgetModule } from '../../../modules/budget/budgetModule';
+import { UserModule } from '../../../modules/user/userModule';
+import { SubscriptionModule } from '../../../modules/subscription/subscriptionModule';
+import { TelegramPaymentService } from '../../../modules/subscription/infrastructure/TelegramPaymentService';
 import { BotContext, BotModules, UserSession } from './types';
 import { registerCommandHandlers } from './handlers/commandHandlers';
 import { registerMessageHandlers } from './handlers/messageHandlers';
 import { registerCallbackHandlers } from './handlers/callbackHandlers';
+import { registerPaymentHandlers } from './handlers/paymentHandlers';
 
 /**
  * Creates initial session for a user
@@ -26,11 +30,15 @@ function createInitialSession(userId: string, userName: string): UserSession {
  * @param voiceModule - Voice processing module for text/voice input
  * @param transactionModule - Transaction module for CRUD operations
  * @param budgetModule - Budget module for budget management
+ * @param userModule - User module for user management
+ * @param subscriptionModule - Subscription module for premium features
  */
 export function startTelegramBot(
   voiceModule: VoiceProcessingModule,
   transactionModule: TransactionModule,
-  budgetModule: BudgetModule
+  budgetModule: BudgetModule,
+  userModule: UserModule,
+  subscriptionModule?: SubscriptionModule
 ) {
   try {
     // Check if bot token is configured
@@ -47,6 +55,8 @@ export function startTelegramBot(
       voiceModule,
       transactionModule,
       budgetModule,
+      userModule,
+      subscriptionModule,
     };
 
     // Ensure downloads directory exists
@@ -71,6 +81,25 @@ export function startTelegramBot(
       if (ctx.from) {
         ctx.session.userId = String(ctx.from.id);
         ctx.session.userName = ctx.from.first_name || 'Guest';
+      }
+      return next();
+    });
+
+    // Ensure user exists in database (getOrCreate)
+    bot.use(async (ctx, next) => {
+      if (ctx.from) {
+        try {
+          await userModule.getGetOrCreateUserUseCase().execute({
+            telegramId: String(ctx.from.id),
+            userName: ctx.from.username,
+            firstName: ctx.from.first_name,
+            lastName: ctx.from.last_name,
+            languageCode: ctx.from.language_code,
+          });
+        } catch (error) {
+          console.error('Failed to getOrCreate user:', error);
+          // Don't block the request, just log the error
+        }
       }
       return next();
     });
@@ -102,6 +131,13 @@ export function startTelegramBot(
 
     // Callback handlers: inline keyboard actions
     registerCallbackHandlers(bot);
+
+    // Payment handlers: /premium, pre_checkout_query, successful_payment
+    if (subscriptionModule) {
+      const paymentService = new TelegramPaymentService(bot.telegram);
+      registerPaymentHandlers(bot, subscriptionModule, paymentService);
+      console.log('✅ Payment handlers registered');
+    }
 
     // ===== LAUNCH BOT =====
 

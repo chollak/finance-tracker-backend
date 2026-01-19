@@ -4,45 +4,9 @@
 
 import { Repository } from 'typeorm';
 import { AppDataSource } from '../../../../shared/infrastructure/database/database.config';
-import { User, CreateUserDTO, UpdateUserDTO } from '../../domain/userEntity';
+import { User as UserDomain, CreateUserDTO, UpdateUserDTO } from '../../domain/userEntity';
 import { UserRepository } from '../../domain/userRepository';
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
-
-@Entity('users')
-export class UserEntity {
-  @PrimaryGeneratedColumn('uuid')
-  id!: string;
-
-  @Column({ name: 'telegram_id', unique: true })
-  telegramId!: string;
-
-  @Column({ name: 'user_name', nullable: true })
-  userName?: string;
-
-  @Column({ name: 'first_name', nullable: true })
-  firstName?: string;
-
-  @Column({ name: 'last_name', nullable: true })
-  lastName?: string;
-
-  @Column({ name: 'language_code', default: 'ru' })
-  languageCode!: string;
-
-  @Column({ name: 'default_currency', default: 'UZS' })
-  defaultCurrency!: string;
-
-  @Column({ default: 'Asia/Tashkent' })
-  timezone!: string;
-
-  @CreateDateColumn({ name: 'created_at' })
-  createdAt!: Date;
-
-  @UpdateDateColumn({ name: 'updated_at' })
-  updatedAt!: Date;
-
-  @Column({ name: 'last_seen_at', type: 'datetime', nullable: true })
-  lastSeenAt?: Date;
-}
+import { User as UserEntity } from '../../../../shared/infrastructure/database/entities/User';
 
 export class SqliteUserRepository implements UserRepository {
   private repository: Repository<UserEntity>;
@@ -51,17 +15,17 @@ export class SqliteUserRepository implements UserRepository {
     this.repository = AppDataSource.getRepository(UserEntity);
   }
 
-  async findById(id: string): Promise<User | null> {
+  async findById(id: string): Promise<UserDomain | null> {
     const entity = await this.repository.findOne({ where: { id } });
     return entity ? this.mapToUser(entity) : null;
   }
 
-  async findByTelegramId(telegramId: string): Promise<User | null> {
+  async findByTelegramId(telegramId: string): Promise<UserDomain | null> {
     const entity = await this.repository.findOne({ where: { telegramId } });
     return entity ? this.mapToUser(entity) : null;
   }
 
-  async create(dto: CreateUserDTO): Promise<User> {
+  async create(dto: CreateUserDTO): Promise<UserDomain> {
     const entity = this.repository.create({
       telegramId: dto.telegramId,
       userName: dto.userName,
@@ -74,7 +38,7 @@ export class SqliteUserRepository implements UserRepository {
     return this.mapToUser(saved);
   }
 
-  async update(id: string, dto: UpdateUserDTO): Promise<User> {
+  async update(id: string, dto: UpdateUserDTO): Promise<UserDomain> {
     await this.repository.update(id, {
       ...(dto.userName !== undefined && { userName: dto.userName }),
       ...(dto.firstName !== undefined && { firstName: dto.firstName }),
@@ -99,7 +63,7 @@ export class SqliteUserRepository implements UserRepository {
     await this.repository.delete(id);
   }
 
-  async getOrCreate(dto: CreateUserDTO): Promise<User> {
+  async getOrCreate(dto: CreateUserDTO): Promise<UserDomain> {
     const existing = await this.findByTelegramId(dto.telegramId);
     if (existing) {
       await this.updateLastSeen(existing.id);
@@ -108,7 +72,7 @@ export class SqliteUserRepository implements UserRepository {
     return this.create(dto);
   }
 
-  private mapToUser(entity: UserEntity): User {
+  private mapToUser(entity: UserEntity): UserDomain {
     return {
       id: entity.id,
       telegramId: entity.telegramId,

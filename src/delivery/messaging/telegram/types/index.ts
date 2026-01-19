@@ -3,6 +3,8 @@ import { Message, Update, CallbackQuery } from 'telegraf/types';
 import { VoiceProcessingModule } from '../../../../modules/voiceProcessing/voiceProcessingModule';
 import { TransactionModule } from '../../../../modules/transaction/transactionModule';
 import { BudgetModule } from '../../../../modules/budget/budgetModule';
+import { UserModule } from '../../../../modules/user/userModule';
+import { SubscriptionModule } from '../../../../modules/subscription/subscriptionModule';
 
 /**
  * Modules available in bot context
@@ -11,6 +13,8 @@ export interface BotModules {
   voiceModule: VoiceProcessingModule;
   transactionModule: TransactionModule;
   budgetModule: BudgetModule;
+  userModule: UserModule;
+  subscriptionModule?: SubscriptionModule;
 }
 
 /**

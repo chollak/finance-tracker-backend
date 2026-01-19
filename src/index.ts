@@ -31,10 +31,10 @@ async function startApplication() {
     // Initialize database first
     await initializeDatabase();
     
-    const { transactionModule, budgetModule, debtModule, voiceModule, openAIUsageModule, userModule } = createModules();
+    const { transactionModule, budgetModule, debtModule, voiceModule, openAIUsageModule, userModule, subscriptionModule } = createModules();
     const app = express();
 
-    app.use('/api', buildServer(transactionModule, voiceModule, budgetModule, debtModule, openAIUsageModule, userModule));
+    app.use('/api', buildServer(transactionModule, voiceModule, budgetModule, debtModule, openAIUsageModule, userModule, subscriptionModule));
 
     const buildPath = path.join(__dirname, '../public/webapp');
     
@@ -58,7 +58,7 @@ async function startApplication() {
     app.listen(port, () => {
       console.log(`🚀 Server running on port ${port}`);
       // Start Telegram bot after HTTP server is ready
-      startTelegramBot(voiceModule, transactionModule, budgetModule);
+      startTelegramBot(voiceModule, transactionModule, budgetModule, userModule, subscriptionModule);
     });
 
     // Handle graceful shutdown

@@ -1,6 +1,6 @@
 # Module System
 
-Система организована в 6 самодостаточных модулей, каждый с четко определенной ответственностью.
+Система организована в 7 самодостаточных модулей, каждый с четко определенной ответственностью.
 
 ## Module Dependencies
 
@@ -12,6 +12,7 @@ graph TD
     VM[VoiceProcessingModule<br/>Voice/Text Processing]
     OM[OpenAIUsageModule<br/>Usage Monitoring]
     DM[DashboardModule<br/>Data Aggregation]
+    SM[SubscriptionModule<br/>Premium + Payments]
 
     BM -->|depends on| TM
     DeM -->|depends on| TM
@@ -25,6 +26,7 @@ graph TD
     style VM fill:#FF9800,stroke:#E65100,color:#fff
     style OM fill:#9C27B0,stroke:#6A1B9A,color:#fff
     style DM fill:#F44336,stroke:#C62828,color:#fff
+    style SM fill:#FFD700,stroke:#B8860B,color:#000
 ```
 
 ## Module Overview
@@ -37,6 +39,7 @@ graph TD
 | **VoiceProcessingModule** | AI обработка голоса/текста | TransactionModule | `voiceProcessingModule.ts` |
 | **OpenAIUsageModule** | Мониторинг OpenAI costs | Независимый | `openAIUsageModule.ts` |
 | **DashboardModule** | Агрегация insights | Transaction + Budget | `dashboardModule.ts` |
+| **SubscriptionModule** | Premium подписки + Telegram Stars | Независимый | `subscriptionModule.ts` |
 
 ---
 
@@ -138,6 +141,69 @@ new CreateDebtUseCase(
 
 ---
 
+## 4. SubscriptionModule
+
+**Файл:** [`src/modules/subscription/subscriptionModule.ts`](../../../src/modules/subscription/subscriptionModule.ts)
+
+### Назначение
+Freemium модель с Telegram Stars: лимиты для free tier, безлимит для premium.
+
+### Tier System
+
+| Tier | Транзакции | Голосовые | Долги | Аналитика |
+|------|------------|-----------|-------|-----------|
+| **Free** | 50/месяц | 10/месяц | 5 активных | Скрыта |
+| **Premium** | ∞ | ∞ | ∞ | Полная |
+
+### Subscription Sources
+- `payment` - оплата через Telegram Stars (100 Stars/месяц)
+- `trial` - 14-дневный пробный период
+- `gift` - подарок от админа (на определенный период)
+- `lifetime` - пожизненный доступ
+
+### Use Cases
+- `CreateSubscriptionUseCase` - создание подписки после оплаты
+- `GetSubscriptionUseCase` - получение статуса подписки с лимитами
+- `CheckLimitUseCase` - проверка лимита перед действием
+- `IncrementUsageUseCase` - увеличение счетчика после действия
+- `GrantPremiumUseCase` - выдача premium админом
+- `StartTrialUseCase` - запуск trial для нового пользователя
+- `CancelSubscriptionUseCase` - отмена подписки
+
+### Services
+- `SubscriptionService` - проверка premium статуса, обработка истекших подписок
+
+### Entities
+- `Subscription` - подписка с tier, source, status, payment info
+- `UsageLimit` - счетчики использования для free tier
+
+### Repository
+- Interface: `subscriptionRepository.ts`, `usageLimitRepository.ts`
+- Implementations: SQLite + Supabase
+
+### Telegram Stars Integration
+```typescript
+// Отправка invoice
+await telegram.sendInvoice(chatId, {
+  title: 'Premium',
+  payload: JSON.stringify({ userId, type: 'premium' }),
+  provider_token: '', // ПУСТАЯ СТРОКА для Stars!
+  currency: 'XTR',
+  prices: [{ label: 'Premium', amount: 100 }],
+});
+
+// КРИТИЧНО: ответить в течение 10 сек!
+bot.on('pre_checkout_query', async (ctx) => {
+  await ctx.answerPreCheckoutQuery(true);
+});
+```
+
+### Middleware
+- Express: `checkLimit`, `incrementUsage`, `requirePremium`
+- Telegram: `createTelegramCheckLimitMiddleware`, `createTelegramIncrementUsageMiddleware`
+
+---
+
 ## 5. VoiceProcessingModule
 
 **Файл:** [`src/modules/voiceProcessing/voiceProcessingModule.ts`](../../../src/modules/voiceProcessing/voiceProcessingModule.ts)
@@ -220,20 +286,28 @@ export function createModules() {
   // 1. Независимые модули
   const transactionModule = TransactionModule.create();
   const openAIUsageModule = createOpenAIUsageModule();
+  const userModule = UserModule.create();
 
   // 2. Модули с зависимостями
   const budgetModule = BudgetModule.create(transactionModule);
   const debtModule = DebtModule.create(transactionModule);
 
   const openAIService = new OpenAITranscriptionService(AppConfig.OPENAI_API_KEY);
-  const voiceModule = new VoiceProcessingModule(openAIService, transactionModule);
+  const voiceModule = new VoiceProcessingModule(openAIService, transactionModule, debtModule);
+
+  // 3. SubscriptionModule с repositories
+  const subscriptionRepository = RepositoryFactory.createSubscriptionRepository();
+  const usageLimitRepository = RepositoryFactory.createUsageLimitRepository();
+  const subscriptionModule = new SubscriptionModule(subscriptionRepository, usageLimitRepository);
 
   return {
     transactionModule,
     budgetModule,
     debtModule,
     voiceModule,
-    openAIUsageModule
+    openAIUsageModule,
+    userModule,
+    subscriptionModule,
   };
 }
 ```
