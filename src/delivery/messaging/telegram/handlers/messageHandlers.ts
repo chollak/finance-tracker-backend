@@ -1,7 +1,7 @@
 import { Telegraf } from 'telegraf';
 import { message } from 'telegraf/filters';
 import { BotContext, ProcessedTransaction, StatsSummary } from '../types';
-import { RU } from '../i18n/ru';
+import { RU, formatAmount } from '../i18n/ru';
 import { formatTransactionMessage } from '../formatters';
 import {
   transactionConfirmationKeyboard,
@@ -10,6 +10,7 @@ import {
 } from '../keyboards';
 import { downloadVoiceFile, cleanupFile } from '../utils';
 import { AppError } from '../../../../shared/domain/errors/AppError';
+import { DetectedDebt } from '../../../../modules/voiceProcessing/domain/processedTransaction';
 
 const CONFIDENCE_THRESHOLD = 0.6;
 
@@ -77,7 +78,7 @@ async function handleTextMessage(ctx: BotContext) {
     // Process text input
     const result = await voiceModule.getProcessTextInputUseCase().execute(text, userId, userName);
 
-    if (result.transactions.length === 0) {
+    if (result.transactions.length === 0 && (!result.debts || result.debts.length === 0)) {
       await ctx.reply(RU.transaction.noTransactions);
       return;
     }
@@ -89,6 +90,13 @@ async function handleTextMessage(ctx: BotContext) {
     for (const tx of result.transactions) {
       setLastTransactionId(userId, tx.id);
       await sendTransactionResponse(ctx, tx as ProcessedTransaction, result.text, userId, false, summary);
+    }
+
+    // Process each debt
+    if (result.debts && result.debts.length > 0) {
+      for (const debt of result.debts) {
+        await sendDebtResponse(ctx, debt, false);
+      }
     }
   } catch (error) {
     console.error('Text message error:', {
@@ -140,7 +148,7 @@ async function handleVoiceMessage(ctx: BotContext) {
       userName,
     });
 
-    if (result.transactions.length === 0) {
+    if (result.transactions.length === 0 && (!result.debts || result.debts.length === 0)) {
       await ctx.reply(`🎤 ${RU.transaction.noTransactions}`);
       return;
     }
@@ -152,6 +160,13 @@ async function handleVoiceMessage(ctx: BotContext) {
     for (const tx of result.transactions) {
       setLastTransactionId(userId, tx.id);
       await sendTransactionResponse(ctx, tx as ProcessedTransaction, result.text, userId, true, summary);
+    }
+
+    // Process each debt
+    if (result.debts && result.debts.length > 0) {
+      for (const debt of result.debts) {
+        await sendDebtResponse(ctx, debt, true);
+      }
     }
   } catch (error) {
     console.error('Voice message error:', {
@@ -326,4 +341,35 @@ async function handleQuickAddAmount(
       await ctx.reply(RU.errors.generic);
     }
   }
+}
+
+/**
+ * Send debt response message
+ */
+async function sendDebtResponse(
+  ctx: BotContext,
+  debt: DetectedDebt,
+  isVoice: boolean
+) {
+  const isOwedToMe = debt.debtType === 'owed_to_me';
+  const icon = isVoice ? '🎤 ' : '';
+
+  let message = `${icon}${RU.debt.created}\n\n`;
+  message += `<b>${isOwedToMe ? RU.debt.owedToMe : RU.debt.iOwe}</b>\n`;
+  message += `👤 ${isOwedToMe ? RU.debt.personFrom : RU.debt.person}: <b>${debt.personName}</b>\n`;
+  message += `💰 ${RU.debt.amount}: <b>${formatAmount(debt.amount)}</b>\n`;
+
+  if (debt.dueDate) {
+    const dueDateFormatted = new Date(debt.dueDate).toLocaleDateString('ru-RU', {
+      day: 'numeric',
+      month: 'long',
+    });
+    message += `📅 ${RU.debt.dueDate}: <b>${dueDateFormatted}</b>\n`;
+  }
+
+  if (debt.linkedTransactionId) {
+    message += `\n<i>${RU.debt.withTransaction}</i>`;
+  }
+
+  await ctx.reply(message, { parse_mode: 'HTML' });
 }

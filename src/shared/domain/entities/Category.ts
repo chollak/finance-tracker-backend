@@ -373,3 +373,34 @@ ${expenseLines.join('\n')}
 КАТЕГОРИИ ДОХОДОВ (используй ТОЛЬКО ID):
 ${incomeLines.join('\n')}`;
 }
+
+/**
+ * Генерировать инструкции для распознавания долгов
+ */
+export function generateDebtPrompt(): string {
+  return `РАСПОЗНАВАНИЕ ДОЛГОВ:
+
+КЛЮЧЕВЫЕ ФРАЗЫ (intent = "debt"):
+  Я ОДОЛЖИЛ (debtType = "owed_to_me" - мне должны вернуть):
+    - "одолжил [кому]" → деньги ушли от меня, мне вернут
+    - "дал в долг [кому]"
+    - "занял [кому]" (в контексте "я занял другу")
+
+  МНЕ ОДОЛЖИЛИ (debtType = "i_owe" - я должен вернуть):
+    - "взял в долг у [кого]"
+    - "занял у [кого]" (в контексте "я занял у друга")
+    - "одолжил у [кого]"
+    - "[кто] одолжил мне"
+
+ИЗВЛЕКАЕМЫЕ ДАННЫЕ:
+  - personName: имя/отношение (друг, брат, Саша, коллега)
+  - amount: сумма
+  - dueDate: дата возврата (если указана)
+  - description: описание (если есть)
+  - moneyTransferred: true (деньги уже переданы)
+
+ПРИМЕРЫ:
+  "Одолжил другу 10000" → { intent: "debt", debtType: "owed_to_me", personName: "друг", amount: 10000, moneyTransferred: true }
+  "Взял в долг у брата 50000, верну 25го" → { intent: "debt", debtType: "i_owe", personName: "брат", amount: 50000, dueDate: "2025-01-25", moneyTransferred: true }
+  "Саша должен мне 20000" → { intent: "debt", debtType: "owed_to_me", personName: "Саша", amount: 20000, moneyTransferred: false }`;
+}

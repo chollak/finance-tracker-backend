@@ -7,7 +7,17 @@ jest.mock('../src/modules/voiceProcessing/infrastructure/openAITranscriptionServ
 describe('ProcessTextInputUseCase', () => {
   it('creates transaction from text analysis', async () => {
     const openAIService = {
-      analyzeTransactions: jest.fn().mockResolvedValue([{ amount: 5, category: 'Food', type: 'expense', date: '2024-01-01' }]),
+      analyzeInput: jest.fn().mockResolvedValue({
+        transactions: [{
+          intent: 'transaction',
+          amount: 5,
+          category: 'Food',
+          type: 'expense',
+          date: '2024-01-01'
+        }],
+        debts: []
+      }),
+      analyzeTransactions: jest.fn(),
       transcribe: jest.fn()
     } as unknown as TranscriptionService;
 
@@ -19,27 +29,32 @@ describe('ProcessTextInputUseCase', () => {
     const result = await useCase.execute('test', 'user1');
 
     expect(createTransactionUseCase.execute).toHaveBeenCalled();
-    expect(result).toEqual({ 
-      text: 'test', 
-      transactions: [{ 
-        id: '42', 
-        amount: 5, 
-        category: 'Food', 
-        type: 'expense', 
+    expect(result).toEqual({
+      text: 'test',
+      transactions: [{
+        id: '42',
+        amount: 5,
+        category: 'Food',
+        type: 'expense',
         date: '2024-01-01',
         merchant: undefined,
         confidence: undefined,
         description: 'test'
-      }] 
+      }],
+      debts: []
     });
   });
 
   it('creates multiple transactions when text has more than one entry', async () => {
     const openAIService = {
-      analyzeTransactions: jest.fn().mockResolvedValue([
-        { amount: 5, category: 'Food', type: 'expense', date: '2024-01-01' },
-        { amount: 40, category: 'Debt', type: 'expense', date: '2024-01-01' }
-      ]),
+      analyzeInput: jest.fn().mockResolvedValue({
+        transactions: [
+          { intent: 'transaction', amount: 5, category: 'Food', type: 'expense', date: '2024-01-01' },
+          { intent: 'transaction', amount: 40, category: 'Debt', type: 'expense', date: '2024-01-01' }
+        ],
+        debts: []
+      }),
+      analyzeTransactions: jest.fn(),
       transcribe: jest.fn()
     } as unknown as TranscriptionService;
 
@@ -57,27 +72,28 @@ describe('ProcessTextInputUseCase', () => {
     expect(result).toEqual({
       text: 'text',
       transactions: [
-        { 
-          id: '1', 
-          amount: 5, 
-          category: 'Food', 
-          type: 'expense', 
+        {
+          id: '1',
+          amount: 5,
+          category: 'Food',
+          type: 'expense',
           date: '2024-01-01',
           merchant: undefined,
           confidence: undefined,
           description: 'text'
         },
-        { 
-          id: '2', 
-          amount: 40, 
-          category: 'Debt', 
-          type: 'expense', 
+        {
+          id: '2',
+          amount: 40,
+          category: 'Debt',
+          type: 'expense',
           date: '2024-01-01',
           merchant: undefined,
           confidence: undefined,
           description: 'text'
         }
-      ]
+      ],
+      debts: []
     });
   });
 });

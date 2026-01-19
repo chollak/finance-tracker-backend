@@ -106,6 +106,20 @@ export const RU = {
     monthSummary: (amount: string) => `Месяц: ${amount}`,
   },
 
+  // Debt messages
+  debt: {
+    created: '🤝 Долг записан',
+    iOwe: 'Я должен',
+    owedToMe: 'Мне должны',
+    person: 'Кому',
+    personFrom: 'Кто',
+    amount: 'Сумма',
+    dueDate: 'Вернуть до',
+    noDueDate: 'без срока',
+    withTransaction: '+ транзакция создана',
+    noDebts: 'Долгов не найдено',
+  },
+
   // Buttons
   buttons: {
     confirm: 'Подтвердить',

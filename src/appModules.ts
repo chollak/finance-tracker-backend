@@ -12,7 +12,8 @@ export function createModules() {
   const budgetModule = BudgetModule.create(transactionModule);
   const debtModule = DebtModule.create(transactionModule);
   const openAIService = new OpenAITranscriptionService(AppConfig.OPENAI_API_KEY);
-  const voiceModule = new VoiceProcessingModule(openAIService, transactionModule);
+  // VoiceProcessingModule now handles both transactions and debts
+  const voiceModule = new VoiceProcessingModule(openAIService, transactionModule, debtModule);
   const openAIUsageModule = createOpenAIUsageModule();
   const userModule = UserModule.create();
 
