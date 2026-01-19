@@ -80,6 +80,7 @@ export const INCOME_CATEGORIES: Category[] = [
 
 export const UNIVERSAL_CATEGORIES: Category[] = [
   { id: 'transfer', name: 'Перевод', type: 'both', icon: '💸' },
+  { id: 'debt', name: 'Долг', type: 'both', icon: '🤝' },
 ];
 
 // =============================================================================

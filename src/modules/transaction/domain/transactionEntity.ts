@@ -20,4 +20,9 @@ export interface Transaction {
     };
     // Archive support
     isArchived?: boolean;
+    // Debt-related fields
+    isDebtRelated?: boolean;
+    relatedDebtId?: string;
+    // Split expenses support (for future)
+    splitGroupId?: string;
 }

@@ -3,11 +3,13 @@ import cors from 'cors';
 import { TransactionModule } from '../../../modules/transaction/transactionModule';
 import { VoiceProcessingModule } from '../../../modules/voiceProcessing/voiceProcessingModule';
 import { BudgetModule } from '../../../modules/budget/budgetModule';
+import { DebtModule } from '../../../modules/debt/debtModule';
 import { OpenAIUsageModule } from '../../../modules/openai-usage/openAIUsageModule';
 import { UserModule } from '../../../modules/user/userModule';
 import { createTransactionRouter } from '../../../modules/transaction/presentation/controllers/transactionController';
 import { createVoiceProcessingRouter } from '../../../modules/voiceProcessing/presentation/controllers/voiceProcessingController';
 import { createBudgetRouter } from '../../../modules/budget/interfaces/budgetRoutes';
+import { createDebtRouter } from '../../../modules/debt/presentation/controllers/debtRoutes';
 import { createDashboardRouter } from './routes/dashboardRoutes';
 import { createUserController } from '../../../modules/user/presentation/controllers/userController';
 import {
@@ -23,6 +25,7 @@ export function buildServer(
   transactionModule: TransactionModule,
   voiceModule: VoiceProcessingModule,
   budgetModule: BudgetModule,
+  debtModule: DebtModule,
   openAIUsageModule: OpenAIUsageModule,
   userModule?: UserModule
 ) {
@@ -77,6 +80,11 @@ export function buildServer(
   router.use(
     '/budgets',
     createBudgetRouter(budgetModule)
+  );
+
+  router.use(
+    '/debts',
+    createDebtRouter(debtModule)
   );
 
   router.use(

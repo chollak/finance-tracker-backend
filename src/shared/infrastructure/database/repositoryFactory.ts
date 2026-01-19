@@ -2,12 +2,15 @@ import { AppConfig } from '../config/appConfig';
 import { TransactionRepository } from '../../../modules/transaction/domain/transactionRepository';
 import { BudgetRepository } from '../../../modules/budget/domain/budgetRepository';
 import { UserRepository } from '../../../modules/user/domain/userRepository';
+import { DebtRepository } from '../../../modules/debt/domain/debtRepository';
 import { SqliteTransactionRepository } from '../../../modules/transaction/infrastructure/persistence/SqliteTransactionRepository';
 import { SupabaseTransactionRepository } from '../../../modules/transaction/infrastructure/persistence/SupabaseTransactionRepository';
 import { SqliteBudgetRepository } from '../../../modules/budget/infrastructure/sqliteBudgetRepository';
 import { SupabaseBudgetRepository } from '../../../modules/budget/infrastructure/SupabaseBudgetRepository';
 import { SqliteUserRepository } from '../../../modules/user/infrastructure/persistence/SqliteUserRepository';
 import { SupabaseUserRepository } from '../../../modules/user/infrastructure/persistence/SupabaseUserRepository';
+import { SqliteDebtRepository } from '../../../modules/debt/infrastructure/SqliteDebtRepository';
+import { SupabaseDebtRepository } from '../../../modules/debt/infrastructure/SupabaseDebtRepository';
 
 export class RepositoryFactory {
   static createTransactionRepository(): TransactionRepository {
@@ -29,5 +32,12 @@ export class RepositoryFactory {
       return new SupabaseUserRepository();
     }
     return new SqliteUserRepository();
+  }
+
+  static createDebtRepository(): DebtRepository {
+    if (AppConfig.DATABASE_TYPE === 'supabase') {
+      return new SupabaseDebtRepository();
+    }
+    return new SqliteDebtRepository();
   }
 }

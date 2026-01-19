@@ -12,6 +12,11 @@ export const ROUTES = {
   ADD_BUDGET: '/budgets/add',
   EDIT_BUDGET: (id: string) => `/budgets/${id}/edit`,
 
+  // Debts
+  DEBTS: '/debts',
+  ADD_DEBT: '/debts/add',
+  DEBT_DETAILS: (id: string) => `/debts/${id}`,
+
   // Analytics
   ANALYTICS: '/analytics',
 } as const;
@@ -77,5 +82,25 @@ export const API_ENDPOINTS = {
   VOICE: {
     TEXT_INPUT: '/voice/text-input',
     VOICE_INPUT: '/voice/voice-input',
+  },
+
+  // Debts
+  DEBTS: {
+    LIST: (userId: string, status?: string, type?: string) => {
+      const query = new URLSearchParams();
+      if (status) query.append('status', status);
+      if (type) query.append('type', type);
+      return `/debts/user/${userId}${query.toString() ? `?${query}` : ''}`;
+    },
+    CREATE: (userId: string) => `/debts/user/${userId}`,
+    DETAIL: (debtId: string) => `/debts/${debtId}`,
+    WITH_PAYMENTS: (debtId: string) => `/debts/${debtId}?withPayments=true`,
+    UPDATE: (debtId: string) => `/debts/${debtId}`,
+    DELETE: (debtId: string) => `/debts/${debtId}`,
+    CANCEL: (debtId: string) => `/debts/${debtId}/cancel`,
+    PAY: (debtId: string) => `/debts/${debtId}/pay`,
+    PAY_FULL: (debtId: string) => `/debts/${debtId}/pay-full`,
+    DELETE_PAYMENT: (paymentId: string) => `/debts/payments/${paymentId}`,
+    SUMMARY: (userId: string) => `/debts/user/${userId}/summary`,
   },
 } as const;

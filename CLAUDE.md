@@ -54,7 +54,7 @@ For detailed documentation, see **[docs/knowledge-base/](docs/knowledge-base/)**
 
 - **[Architecture](docs/knowledge-base/01-architecture/)** - Clean Architecture, modules, design patterns
   - [Overview](docs/knowledge-base/01-architecture/overview.md) - Layers and dependency flow
-  - [Modules](docs/knowledge-base/01-architecture/modules.md) - 5 модулей системы
+  - [Modules](docs/knowledge-base/01-architecture/modules.md) - 6 модулей системы
   - [Patterns](docs/knowledge-base/01-architecture/patterns.md) - Repository, DI, Factory, Use Case
 - **[Data Flow](docs/knowledge-base/07-data-flow/)** - How data moves through the system
   - [Voice → Transaction](docs/knowledge-base/07-data-flow/voice-to-transaction.md) - AI-powered voice processing
@@ -76,13 +76,14 @@ This project follows **Clean Architecture** principles with clear separation bet
 
 ### Module System
 
-The application is organized into **5 main modules** created in `src/appModules.ts`:
+The application is organized into **6 main modules** created in `src/appModules.ts`:
 
 1. **TransactionModule** - CRUD operations for transactions + analytics
 2. **BudgetModule** - Budget management (depends on TransactionModule)
-3. **VoiceProcessingModule** - AI-powered voice/text processing (depends on TransactionModule)
-4. **OpenAIUsageModule** - OpenAI API usage monitoring
-5. **DashboardModule** - Aggregates insights from other modules
+3. **DebtModule** - Debt management with payment history (depends on TransactionModule)
+4. **VoiceProcessingModule** - AI-powered voice/text processing (depends on TransactionModule)
+5. **OpenAIUsageModule** - OpenAI API usage monitoring
+6. **DashboardModule** - Aggregates insights from other modules
 
 ### Module Dependencies
 
@@ -90,6 +91,7 @@ The application is organized into **5 main modules** created in `src/appModules.
 TransactionModule (core)
     ↑
     ├─── BudgetModule (для расчета spent)
+    ├─── DebtModule (для создания linked транзакций)
     ├─── VoiceProcessingModule (CreateTransactionUseCase)
     └─── DashboardModule (analytics aggregation)
 ```

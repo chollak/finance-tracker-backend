@@ -88,12 +88,13 @@
 
 ## Модули системы
 
-Система состоит из 5 основных модулей:
+Система состоит из 6 основных модулей:
 
 | Модуль | Назначение | Зависимости |
 |--------|------------|-------------|
 | **TransactionModule** | CRUD операций транзакций + analytics | Независимый |
 | **BudgetModule** | Управление бюджетами | TransactionModule (для расчета spent) |
+| **DebtModule** | Управление долгами (кто кому должен) | TransactionModule (для linked транзакций) |
 | **VoiceProcessingModule** | Обработка голоса/текста | TransactionModule (CreateTransactionUseCase) |
 | **OpenAIUsageModule** | Мониторинг использования OpenAI API | Независимый |
 | **DashboardModule** | Агрегация данных из всех модулей | TransactionModule, BudgetModule |

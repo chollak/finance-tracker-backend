@@ -1,5 +1,6 @@
 import { Card } from '@/shared/ui/card';
 import type { TransactionViewModel } from '../model/types';
+import { getCategoryName } from '@/entities/category/model/categories';
 
 interface TransactionCardProps {
   transaction: TransactionViewModel;
@@ -33,7 +34,7 @@ export function TransactionCard({ transaction, onClick }: TransactionCardProps) 
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <span>{transaction._formattedDate}</span>
               <span>•</span>
-              <span>{transaction.category}</span>
+              <span>{getCategoryName(transaction.category)}</span>
             </div>
           </div>
         </div>

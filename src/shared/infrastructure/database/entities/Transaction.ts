@@ -54,4 +54,15 @@ export class Transaction {
   // Archive support - archived transactions are excluded from analytics
   @Column({ default: false })
   isArchived!: boolean;
+
+  // Debt-related fields
+  @Column({ default: false })
+  isDebtRelated!: boolean; // True if this transaction is related to a debt
+
+  @Column({ nullable: true })
+  relatedDebtId?: string; // Link to the debt entity
+
+  // Split expenses support (for future)
+  @Column({ nullable: true })
+  splitGroupId?: string; // Group ID for split expenses
 }

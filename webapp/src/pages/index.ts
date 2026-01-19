@@ -6,4 +6,7 @@ export * from './edit-transaction';
 export * from './budgets';
 export * from './add-budget';
 export * from './edit-budget';
+export * from './debts';
+export * from './add-debt';
+export * from './debt-details';
 export * from './analytics';

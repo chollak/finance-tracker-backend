@@ -31,10 +31,10 @@ async function startApplication() {
     // Initialize database first
     await initializeDatabase();
     
-    const { transactionModule, budgetModule, voiceModule, openAIUsageModule, userModule } = createModules();
+    const { transactionModule, budgetModule, debtModule, voiceModule, openAIUsageModule, userModule } = createModules();
     const app = express();
 
-    app.use('/api', buildServer(transactionModule, voiceModule, budgetModule, openAIUsageModule, userModule));
+    app.use('/api', buildServer(transactionModule, voiceModule, budgetModule, debtModule, openAIUsageModule, userModule));
 
     const buildPath = path.join(__dirname, '../public/webapp');
     

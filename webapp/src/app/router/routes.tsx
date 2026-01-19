@@ -11,6 +11,9 @@ const EditTransactionPage = lazy(() => import('@/pages').then(m => ({ default: m
 const BudgetsPage = lazy(() => import('@/pages').then(m => ({ default: m.BudgetsPage })));
 const AddBudgetPage = lazy(() => import('@/pages').then(m => ({ default: m.AddBudgetPage })));
 const EditBudgetPage = lazy(() => import('@/pages').then(m => ({ default: m.EditBudgetPage })));
+const DebtsPage = lazy(() => import('@/pages').then(m => ({ default: m.DebtsPage })));
+const AddDebtPage = lazy(() => import('@/pages').then(m => ({ default: m.AddDebtPage })));
+const DebtDetailsPage = lazy(() => import('@/pages').then(m => ({ default: m.DebtDetailsPage })));
 const AnalyticsPage = lazy(() => import('@/pages').then(m => ({ default: m.AnalyticsPage })));
 
 // Wrapper component with Suspense
@@ -45,6 +48,10 @@ export const router = createBrowserRouter([
         element: <PageLoader><BudgetsPage /></PageLoader>,
       },
       {
+        path: '/debts',
+        element: <PageLoader><DebtsPage /></PageLoader>,
+      },
+      {
         path: '/analytics',
         element: <PageLoader><AnalyticsPage /></PageLoader>,
       },
@@ -67,6 +74,14 @@ export const router = createBrowserRouter([
     path: '/budgets/:id/edit',
     element: <PageLoader><EditBudgetPage /></PageLoader>,
   },
+  {
+    path: '/debts/add',
+    element: <PageLoader><AddDebtPage /></PageLoader>,
+  },
+  {
+    path: '/debts/:id',
+    element: <PageLoader><DebtDetailsPage /></PageLoader>,
+  },
 ]);
 
 // Route constants for type-safe navigation
@@ -78,5 +93,8 @@ export const ROUTES = {
   BUDGETS: '/budgets',
   ADD_BUDGET: '/budgets/add',
   EDIT_BUDGET: (id: string) => `/budgets/${id}/edit`,
+  DEBTS: '/debts',
+  ADD_DEBT: '/debts/add',
+  DEBT_DETAILS: (id: string) => `/debts/${id}`,
   ANALYTICS: '/analytics',
 } as const;

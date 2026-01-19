@@ -9,6 +9,7 @@ const navItems = [
   { href: ROUTES.HOME, label: 'Главная' },
   { href: ROUTES.TRANSACTIONS, label: 'Транзакции' },
   { href: ROUTES.BUDGETS, label: 'Бюджеты' },
+  { href: ROUTES.DEBTS, label: 'Долги' },
   { href: ROUTES.ANALYTICS, label: 'Аналитика' },
 ];
 

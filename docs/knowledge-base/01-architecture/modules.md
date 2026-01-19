@@ -1,6 +1,6 @@
 # Module System
 
-Система организована в 5 самодостаточных модулей, каждый с четко определенной ответственностью.
+Система организована в 6 самодостаточных модулей, каждый с четко определенной ответственностью.
 
 ## Module Dependencies
 
@@ -8,17 +8,20 @@
 graph TD
     TM[TransactionModule<br/>CRUD + Analytics]
     BM[BudgetModule<br/>Budget Management]
+    DeM[DebtModule<br/>Debt Management]
     VM[VoiceProcessingModule<br/>Voice/Text Processing]
     OM[OpenAIUsageModule<br/>Usage Monitoring]
     DM[DashboardModule<br/>Data Aggregation]
 
     BM -->|depends on| TM
+    DeM -->|depends on| TM
     VM -->|depends on| TM
     DM -->|depends on| TM
     DM -->|depends on| BM
 
     style TM fill:#4CAF50,stroke:#2E7D32,color:#fff
     style BM fill:#2196F3,stroke:#1565C0,color:#fff
+    style DeM fill:#FF5722,stroke:#BF360C,color:#fff
     style VM fill:#FF9800,stroke:#E65100,color:#fff
     style OM fill:#9C27B0,stroke:#6A1B9A,color:#fff
     style DM fill:#F44336,stroke:#C62828,color:#fff
@@ -30,6 +33,7 @@ graph TD
 |--------|------|-------------|----------------|
 | **TransactionModule** | Core: транзакции и аналитика | Независимый | `transactionModule.ts` |
 | **BudgetModule** | Управление бюджетами | TransactionModule | `budgetModule.ts` |
+| **DebtModule** | Управление долгами | TransactionModule | `debtModule.ts` |
 | **VoiceProcessingModule** | AI обработка голоса/текста | TransactionModule | `voiceProcessingModule.ts` |
 | **OpenAIUsageModule** | Мониторинг OpenAI costs | Независимый | `openAIUsageModule.ts` |
 | **DashboardModule** | Агрегация insights | Transaction + Budget | `dashboardModule.ts` |
@@ -97,7 +101,44 @@ new BudgetService(
 
 ---
 
-## 3. VoiceProcessingModule
+## 3. DebtModule
+
+**Файл:** [`src/modules/debt/debtModule.ts`](../../../src/modules/debt/debtModule.ts)
+
+### Назначение
+Управление долгами (кто кому должен) с историей погашений.
+
+### Use Cases
+- `CreateDebtUseCase` - создание долга (+ опциональная транзакция)
+- `GetDebtsUseCase` - получение долгов пользователя, summary
+- `UpdateDebtUseCase` - обновление и отмена долга
+- `DeleteDebtUseCase` - удаление долга
+- `PayDebtUseCase` - частичное/полное погашение долга
+
+### Entities
+- `Debt` - долг с типом (i_owe / owed_to_me), суммой, статусом
+- `DebtPayment` - запись о платеже по долгу
+
+### Key Dependency
+```typescript
+new CreateDebtUseCase(
+  debtRepository,
+  transactionModule.getCreateTransactionUseCase() // Для создания linked транзакции
+)
+```
+
+**Почему зависимость?**
+При создании долга с флагом `moneyTransferred=true` создается связанная транзакция (income/expense) для отражения реального движения денег.
+
+### Hybrid Approach
+- Долги как отдельная сущность (не транзакции)
+- При передаче денег создается linked транзакция
+- Баланс отражает реальность
+- Долги не загрязняют бюджетную аналитику
+
+---
+
+## 5. VoiceProcessingModule
 
 **Файл:** [`src/modules/voiceProcessing/voiceProcessingModule.ts`](../../../src/modules/voiceProcessing/voiceProcessingModule.ts)
 
@@ -124,7 +165,7 @@ new ProcessVoiceInputUseCase(
 
 ---
 
-## 4. OpenAIUsageModule
+## 6. OpenAIUsageModule
 
 **Файл:** [`src/modules/openai-usage/openAIUsageModule.ts`](../../../src/modules/openai-usage/openAIUsageModule.ts)
 
@@ -144,7 +185,7 @@ new ProcessVoiceInputUseCase(
 
 ---
 
-## 5. DashboardModule
+## 7. DashboardModule
 
 **Файл:** [`src/modules/dashboard/dashboardModule.ts`](../../../src/modules/dashboard/dashboardModule.ts)
 
@@ -182,6 +223,7 @@ export function createModules() {
 
   // 2. Модули с зависимостями
   const budgetModule = BudgetModule.create(transactionModule);
+  const debtModule = DebtModule.create(transactionModule);
 
   const openAIService = new OpenAITranscriptionService(AppConfig.OPENAI_API_KEY);
   const voiceModule = new VoiceProcessingModule(openAIService, transactionModule);
@@ -189,6 +231,7 @@ export function createModules() {
   return {
     transactionModule,
     budgetModule,
+    debtModule,
     voiceModule,
     openAIUsageModule
   };

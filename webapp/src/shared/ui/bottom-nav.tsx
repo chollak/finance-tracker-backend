@@ -1,11 +1,12 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Home, Receipt, Wallet, BarChart3 } from 'lucide-react';
+import { Home, Receipt, Wallet, BarChart3, HandCoins } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/shared/lib/utils';
 import { ROUTES } from '@/shared/lib/constants/routes';
 import { useUserStore } from '@/entities/user/model/store';
 import { transactionKeys } from '@/entities/transaction/api/keys';
 import { budgetKeys } from '@/entities/budget/api/keys';
+import { debtKeys } from '@/entities/debt/api/keys';
 import { dashboardKeys } from '@/entities/dashboard/api/keys';
 import { apiClient } from '@/shared/api';
 import { API_ENDPOINTS } from '@/shared/lib/constants';
@@ -25,6 +26,11 @@ const navItems = [
     href: ROUTES.BUDGETS,
     label: 'Бюджеты',
     icon: Wallet,
+  },
+  {
+    href: ROUTES.DEBTS,
+    label: 'Долги',
+    icon: HandCoins,
   },
   {
     href: ROUTES.ANALYTICS,
@@ -78,6 +84,17 @@ export function BottomNav() {
           queryKey: budgetKeys.summaries(userId),
           queryFn: async () => {
             const response = await apiClient.get(API_ENDPOINTS.BUDGETS.SUMMARIES(userId));
+            return response.data;
+          },
+          staleTime,
+        });
+        break;
+
+      case ROUTES.DEBTS:
+        queryClient.prefetchQuery({
+          queryKey: debtKeys.list(userId, { status: 'active' }),
+          queryFn: async () => {
+            const response = await apiClient.get(API_ENDPOINTS.DEBTS.LIST(userId, 'active'));
             return response.data;
           },
           staleTime,

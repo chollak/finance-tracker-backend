@@ -7,6 +7,7 @@ import {
 import type { TransactionViewModel } from '../model/types';
 import { TransactionActions } from './TransactionActions';
 import { parseISO, format } from 'date-fns';
+import { getCategoryName } from '@/entities/category/model/categories';
 
 interface TransactionListItemProps {
   transaction: TransactionViewModel;
@@ -61,7 +62,7 @@ export function TransactionListItem({
         ) : (
           <p className="font-medium truncate">{transaction.description}</p>
         )}
-        <p className="text-sm text-muted-foreground">{transaction.category}</p>
+        <p className="text-sm text-muted-foreground">{getCategoryName(transaction.category)}</p>
       </div>
 
       {/* Amount & Time */}

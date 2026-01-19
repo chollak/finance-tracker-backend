@@ -46,6 +46,7 @@ const CATEGORY_ICONS: Record<string, string> = {
   // Other
   other: '📦',
   transfer: '💸',
+  debt: '🤝',
 };
 
 /**
