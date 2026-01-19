@@ -140,7 +140,8 @@ export function startTelegramBot(
     registerCallbackHandlers(bot);
 
     // Message handlers: text and voice (LAST - catches remaining messages)
-    registerMessageHandlers(bot);
+    // Pass subscription module for limit checking
+    registerMessageHandlers(bot, subscriptionModule, userModule);
 
     // ===== LAUNCH BOT =====
 

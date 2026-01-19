@@ -5,12 +5,14 @@
 
 import { Request, Response, NextFunction } from 'express';
 import { SubscriptionModule } from '../../../../modules/subscription/subscriptionModule';
+import { UserModule } from '../../../../modules/user/userModule';
 import { LimitType } from '../../../../modules/subscription/domain/usageLimit';
 
 // Extend Express Request to include user and subscription info
 declare global {
   namespace Express {
     interface Request {
+      userUUID?: string; // Resolved UUID from telegram_id
       subscriptionInfo?: {
         isPremium: boolean;
         allowed: boolean;
@@ -23,26 +25,64 @@ declare global {
 }
 
 /**
+ * Helper to get userId from request (params, query, or body)
+ */
+function getUserIdFromRequest(req: Request): string | undefined {
+  return (
+    (req.params?.userId as string) ||
+    (req.query?.userId as string) ||
+    req.body?.userId
+  );
+}
+
+/**
+ * Helper to resolve telegram_id to UUID
+ */
+async function resolveUserUUID(
+  telegramId: string,
+  userModule: UserModule
+): Promise<string | null> {
+  try {
+    const user = await userModule.getGetOrCreateUserUseCase().execute({
+      telegramId,
+    });
+    return user.id;
+  } catch (error) {
+    console.error('Failed to resolve user UUID:', error);
+    return null;
+  }
+}
+
+/**
  * Factory function to create limit-checking middleware
  */
 export function createCheckLimitMiddleware(
   subscriptionModule: SubscriptionModule,
+  userModule: UserModule,
   limitType: LimitType
 ) {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      // Get userId from query, body, or params
-      const userId = req.query.userId as string ||
-        req.body?.userId ||
-        req.params?.userId;
+      const telegramId = getUserIdFromRequest(req);
 
-      if (!userId) {
+      if (!telegramId) {
         res.status(400).json({
           error: 'userId is required',
           code: 'MISSING_USER_ID',
         });
         return;
       }
+
+      // Resolve telegram_id to UUID
+      const userId = await resolveUserUUID(telegramId, userModule);
+      if (!userId) {
+        // If user doesn't exist, allow action (fail open)
+        next();
+        return;
+      }
+
+      // Store resolved UUID for downstream handlers
+      req.userUUID = userId;
 
       const result = await subscriptionModule
         .getCheckLimitUseCase()
@@ -85,6 +125,7 @@ export function createCheckLimitMiddleware(
  */
 export function createIncrementUsageMiddleware(
   subscriptionModule: SubscriptionModule,
+  userModule: UserModule,
   limitType: LimitType
 ) {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -94,17 +135,27 @@ export function createIncrementUsageMiddleware(
     res.json = function (body: unknown): Response {
       // Only increment on successful responses
       if (res.statusCode >= 200 && res.statusCode < 300) {
-        const userId = req.query.userId as string ||
-          req.body?.userId ||
-          req.params?.userId;
+        // Use already resolved UUID if available, otherwise resolve
+        const resolveAndIncrement = async () => {
+          let userId = req.userUUID;
+          if (!userId) {
+            const telegramId = getUserIdFromRequest(req);
+            if (telegramId) {
+              userId = await resolveUserUUID(telegramId, userModule) ?? undefined;
+            }
+          }
 
-        if (userId) {
-          // Fire and forget - don't block response
-          subscriptionModule
-            .getIncrementUsageUseCase()
-            .execute({ userId, limitType })
-            .catch(error => console.error('Failed to increment usage:', error));
-        }
+          if (userId) {
+            await subscriptionModule
+              .getIncrementUsageUseCase()
+              .execute({ userId, limitType });
+          }
+        };
+
+        // Fire and forget - don't block response
+        resolveAndIncrement().catch(error =>
+          console.error('Failed to increment usage:', error)
+        );
       }
 
       return originalJson(body);
@@ -117,20 +168,35 @@ export function createIncrementUsageMiddleware(
 /**
  * Middleware to require premium access
  */
-export function createRequirePremiumMiddleware(subscriptionModule: SubscriptionModule) {
+export function createRequirePremiumMiddleware(
+  subscriptionModule: SubscriptionModule,
+  userModule: UserModule
+) {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const userId = req.query.userId as string ||
-        req.body?.userId ||
-        req.params?.userId;
+      const telegramId = getUserIdFromRequest(req);
 
-      if (!userId) {
+      if (!telegramId) {
         res.status(400).json({
           error: 'userId is required',
           code: 'MISSING_USER_ID',
         });
         return;
       }
+
+      // Resolve telegram_id to UUID
+      const userId = await resolveUserUUID(telegramId, userModule);
+      if (!userId) {
+        // User doesn't exist - not premium
+        res.status(403).json({
+          error: 'Premium subscription required',
+          code: 'PREMIUM_REQUIRED',
+        });
+        return;
+      }
+
+      // Store resolved UUID for downstream handlers
+      req.userUUID = userId;
 
       const isPremium = await subscriptionModule
         .getSubscriptionService()

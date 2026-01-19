@@ -1,4 +1,4 @@
-import { Telegraf } from 'telegraf';
+import { Telegraf, Composer } from 'telegraf';
 import { message } from 'telegraf/filters';
 import { BotContext, ProcessedTransaction, StatsSummary } from '../types';
 import { RU, formatAmount } from '../i18n/ru';
@@ -11,6 +11,12 @@ import {
 import { downloadVoiceFile, cleanupFile } from '../utils';
 import { AppError } from '../../../../shared/domain/errors/AppError';
 import { DetectedDebt } from '../../../../modules/voiceProcessing/domain/processedTransaction';
+import { SubscriptionModule } from '../../../../modules/subscription/subscriptionModule';
+import { UserModule } from '../../../../modules/user/userModule';
+import {
+  createTelegramCheckLimitMiddleware,
+  createTelegramIncrementUsageMiddleware,
+} from '../middleware/subscriptionMiddleware';
 
 const CONFIDENCE_THRESHOLD = 0.6;
 
@@ -39,14 +45,57 @@ export function clearLastTransactionId(userId: string): void {
 }
 
 /**
- * Register message handlers
+ * Register message handlers with subscription limit checks
  */
-export function registerMessageHandlers(bot: Telegraf<BotContext>) {
-  // Text message handler
-  bot.on(message('text'), handleTextMessage);
+export function registerMessageHandlers(
+  bot: Telegraf<BotContext>,
+  subscriptionModule?: SubscriptionModule,
+  userModule?: UserModule
+) {
+  // If subscription module is provided, apply limit checking middleware
+  if (subscriptionModule && userModule) {
+    const checkTransactionLimit = createTelegramCheckLimitMiddleware(
+      subscriptionModule,
+      userModule,
+      'transactions'
+    );
+    const incrementTransactionUsage = createTelegramIncrementUsageMiddleware(
+      subscriptionModule,
+      userModule,
+      'transactions'
+    );
+    const checkVoiceLimit = createTelegramCheckLimitMiddleware(
+      subscriptionModule,
+      userModule,
+      'voice_inputs'
+    );
+    const incrementVoiceUsage = createTelegramIncrementUsageMiddleware(
+      subscriptionModule,
+      userModule,
+      'voice_inputs'
+    );
 
-  // Voice message handler
-  bot.on(message('voice'), handleVoiceMessage);
+    // Text message handler with limit check
+    // Composer.compose chains middleware: check limit -> handle -> increment usage
+    bot.on(
+      message('text'),
+      checkTransactionLimit,
+      handleTextMessage,
+      incrementTransactionUsage
+    );
+
+    // Voice message handler with limit check
+    bot.on(
+      message('voice'),
+      checkVoiceLimit,
+      handleVoiceMessage,
+      incrementVoiceUsage
+    );
+  } else {
+    // Fallback without subscription checks
+    bot.on(message('text'), handleTextMessage);
+    bot.on(message('voice'), handleVoiceMessage);
+  }
 }
 
 /**

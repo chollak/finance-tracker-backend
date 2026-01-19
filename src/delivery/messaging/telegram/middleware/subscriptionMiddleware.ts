@@ -5,6 +5,7 @@
 
 import { Context, Middleware } from 'telegraf';
 import { SubscriptionModule } from '../../../../modules/subscription/subscriptionModule';
+import { UserModule } from '../../../../modules/user/userModule';
 import { LimitType } from '../../../../modules/subscription/domain/usageLimit';
 import { SUBSCRIPTION_PRICE_STARS } from '../../../../modules/subscription/domain/subscription';
 
@@ -20,10 +21,32 @@ interface SubscriptionContext extends Context {
 }
 
 /**
+ * Helper to get user UUID from telegram context
+ */
+async function getUserUUID(ctx: Context, userModule: UserModule): Promise<string | null> {
+  if (!ctx.from) return null;
+
+  try {
+    const user = await userModule.getGetOrCreateUserUseCase().execute({
+      telegramId: String(ctx.from.id),
+      userName: ctx.from.username,
+      firstName: ctx.from.first_name,
+      lastName: ctx.from.last_name,
+      languageCode: ctx.from.language_code,
+    });
+    return user.id;
+  } catch (error) {
+    console.error('Failed to get user UUID:', error);
+    return null;
+  }
+}
+
+/**
  * Create middleware to check limit before action
  */
 export function createTelegramCheckLimitMiddleware(
   subscriptionModule: SubscriptionModule,
+  userModule: UserModule,
   limitType: LimitType
 ): Middleware<SubscriptionContext> {
   return async (ctx, next) => {
@@ -31,7 +54,10 @@ export function createTelegramCheckLimitMiddleware(
       return next();
     }
 
-    const userId = String(ctx.from.id);
+    const userId = await getUserUUID(ctx, userModule);
+    if (!userId) {
+      return next(); // Fail open if can't get user
+    }
 
     try {
       const result = await subscriptionModule
@@ -82,6 +108,7 @@ export function createTelegramCheckLimitMiddleware(
  */
 export function createTelegramIncrementUsageMiddleware(
   subscriptionModule: SubscriptionModule,
+  userModule: UserModule,
   limitType: LimitType
 ): Middleware<SubscriptionContext> {
   return async (ctx, next) => {
@@ -90,13 +117,15 @@ export function createTelegramIncrementUsageMiddleware(
 
     // Then increment usage (fire and forget)
     if (ctx.from) {
-      const userId = String(ctx.from.id);
-      try {
-        await subscriptionModule
-          .getIncrementUsageUseCase()
-          .execute({ userId, limitType });
-      } catch (error) {
-        console.error('Failed to increment usage in telegram middleware:', error);
+      const userId = await getUserUUID(ctx, userModule);
+      if (userId) {
+        try {
+          await subscriptionModule
+            .getIncrementUsageUseCase()
+            .execute({ userId, limitType });
+        } catch (error) {
+          console.error('Failed to increment usage in telegram middleware:', error);
+        }
       }
     }
   };
@@ -106,14 +135,18 @@ export function createTelegramIncrementUsageMiddleware(
  * Middleware to check if user has premium before analytics
  */
 export function createTelegramRequirePremiumMiddleware(
-  subscriptionModule: SubscriptionModule
+  subscriptionModule: SubscriptionModule,
+  userModule: UserModule
 ): Middleware<SubscriptionContext> {
   return async (ctx, next) => {
     if (!ctx.from) {
       return next();
     }
 
-    const userId = String(ctx.from.id);
+    const userId = await getUserUUID(ctx, userModule);
+    if (!userId) {
+      return next(); // Fail open if can't get user
+    }
 
     try {
       const isPremium = await subscriptionModule
@@ -158,7 +191,8 @@ export function createTelegramRequirePremiumMiddleware(
  * Show remaining usage warning after action (optional)
  */
 export function createUsageWarningMiddleware(
-  subscriptionModule: SubscriptionModule,
+  _subscriptionModule: SubscriptionModule,
+  _userModule: UserModule,
   limitType: LimitType,
   warningThreshold: number = 5 // Show warning when remaining <= threshold
 ): Middleware<SubscriptionContext> {

@@ -94,7 +94,9 @@ export function buildServer(
     '/dashboard',
     createDashboardRouter(
       transactionModule.getAnalyticsService(),
-      budgetModule.budgetService
+      budgetModule.budgetService,
+      subscriptionModule,
+      userModule
     )
   );
 
