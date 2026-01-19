@@ -32,13 +32,19 @@ export function registerPaymentHandlers(
 ): void {
   // Command to show subscription info and buy button
   bot.command('premium', async (ctx) => {
+    console.log('[/premium] Command received from:', ctx.from?.id);
+
     try {
       // Get user UUID from telegram ID
+      console.log('[/premium] Getting user UUID...');
       const userId = await getUserId(ctx);
+      console.log('[/premium] User UUID:', userId);
 
+      console.log('[/premium] Getting subscription status...');
       const status = await subscriptionModule
         .getGetSubscriptionUseCase()
         .execute(userId);
+      console.log('[/premium] Status:', JSON.stringify(status, null, 2));
 
       if (status.isPremium) {
         let message = '⭐ *У вас Premium подписка!*\n\n';
@@ -94,10 +100,13 @@ export function registerPaymentHandlers(
         });
       }
     } catch (error) {
-      console.error('Error in /premium command:', error);
+      console.error('[/premium] ERROR:', error);
+      console.error('[/premium] Stack:', error instanceof Error ? error.stack : 'no stack');
       await ctx.reply('Произошла ошибка. Попробуйте позже.');
     }
   });
+
+  console.log('✅ /premium command handler registered');
 
   // Callback for buy button
   bot.action('buy_premium', async (ctx) => {
