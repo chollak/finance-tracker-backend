@@ -122,22 +122,25 @@ export function startTelegramBot(
     });
 
     // ===== REGISTER HANDLERS =====
+    // IMPORTANT: Order matters! Command handlers must be registered before message handlers
+    // because bot.on(message('text')) catches all text including commands
 
     // Command handlers: /start, /today, /stats, /budget, /help, /settings
     registerCommandHandlers(bot);
 
-    // Message handlers: text and voice
-    registerMessageHandlers(bot);
-
-    // Callback handlers: inline keyboard actions
-    registerCallbackHandlers(bot);
-
     // Payment handlers: /premium, pre_checkout_query, successful_payment
+    // Must be registered BEFORE message handlers to avoid being caught by text handler
     if (subscriptionModule) {
       const paymentService = new TelegramPaymentService(bot.telegram);
       registerPaymentHandlers(bot, subscriptionModule, paymentService);
       console.log('✅ Payment handlers registered');
     }
+
+    // Callback handlers: inline keyboard actions
+    registerCallbackHandlers(bot);
+
+    // Message handlers: text and voice (LAST - catches remaining messages)
+    registerMessageHandlers(bot);
 
     // ===== LAUNCH BOT =====
 
