@@ -10,6 +10,21 @@ import { TelegramPaymentService } from '../../../../modules/subscription/infrast
 import { SUBSCRIPTION_PRICE_STARS } from '../../../../modules/subscription/domain/subscription';
 import { BotContext } from '../types';
 
+/**
+ * Helper to get user UUID from telegram ID
+ */
+async function getUserId(ctx: BotContext): Promise<string> {
+  const telegramId = String(ctx.from!.id);
+  const user = await ctx.modules.userModule.getGetOrCreateUserUseCase().execute({
+    telegramId,
+    userName: ctx.from?.username,
+    firstName: ctx.from?.first_name,
+    lastName: ctx.from?.last_name,
+    languageCode: ctx.from?.language_code,
+  });
+  return user.id;
+}
+
 export function registerPaymentHandlers(
   bot: Telegraf<BotContext>,
   subscriptionModule: SubscriptionModule,
@@ -17,12 +32,13 @@ export function registerPaymentHandlers(
 ): void {
   // Command to show subscription info and buy button
   bot.command('premium', async (ctx) => {
-    const telegramId = String(ctx.from.id);
-
     try {
+      // Get user UUID from telegram ID
+      const userId = await getUserId(ctx);
+
       const status = await subscriptionModule
         .getGetSubscriptionUseCase()
-        .execute(telegramId);
+        .execute(userId);
 
       if (status.isPremium) {
         let message = '⭐ *У вас Premium подписка!*\n\n';
@@ -56,7 +72,7 @@ export function registerPaymentHandlers(
         message += `📝 Транзакции: ${limits.transactions.used}/${limits.transactions.limit}\n`;
         message += `🎤 Голосовые: ${limits.voiceInputs.used}/${limits.voiceInputs.limit}\n`;
         message += `💰 Активные долги: ${limits.activeDebts.used}/${limits.activeDebts.limit}\n`;
-        message += '\n⭐ *Premium (${SUBSCRIPTION_PRICE_STARS} Stars/мес):*\n';
+        message += `\n⭐ *Premium (${SUBSCRIPTION_PRICE_STARS} Stars/мес):*\n`;
         message += '✅ Безлимитные транзакции\n';
         message += '✅ Безлимитные голосовые\n';
         message += '✅ Безлимитные долги\n';
@@ -87,13 +103,15 @@ export function registerPaymentHandlers(
   bot.action('buy_premium', async (ctx) => {
     await ctx.answerCbQuery();
 
-    const telegramId = String(ctx.from!.id);
     const chatId = ctx.chat!.id;
 
     try {
+      // Get user UUID for payment payload
+      const userId = await getUserId(ctx);
+
       await paymentService.sendPremiumInvoice({
         chatId,
-        userId: telegramId,
+        userId,
       });
     } catch (error) {
       console.error('Error sending invoice:', error);
@@ -130,7 +148,6 @@ export function registerPaymentHandlers(
   bot.on(message('successful_payment'), async (ctx) => {
     try {
       const payment = ctx.message.successful_payment;
-      const telegramId = String(ctx.from.id);
 
       const payload = paymentService.parsePayload(payment.invoice_payload);
 
@@ -140,6 +157,9 @@ export function registerPaymentHandlers(
         return;
       }
 
+      // Get user UUID
+      const userId = await getUserId(ctx);
+
       // CRITICAL: Save charge IDs for potential refunds
       const telegramPaymentChargeId = payment.telegram_payment_charge_id;
       const providerPaymentChargeId = payment.provider_payment_charge_id;
@@ -148,7 +168,7 @@ export function registerPaymentHandlers(
       const subscription = await subscriptionModule
         .getCreateSubscriptionUseCase()
         .execute({
-          userId: telegramId,
+          userId,
           tier: 'premium',
           source: 'payment',
           priceStars: payment.total_amount,
@@ -156,7 +176,7 @@ export function registerPaymentHandlers(
           providerPaymentChargeId,
         });
 
-      console.log(`Subscription created for user ${telegramId}:`, subscription.id);
+      console.log(`Subscription created for user ${userId}:`, subscription.id);
 
       await ctx.reply(
         '🎉 *Спасибо за покупку Premium!*\n\n' +
@@ -179,12 +199,13 @@ export function registerPaymentHandlers(
 
   // Command to cancel subscription
   bot.command('cancel_subscription', async (ctx) => {
-    const telegramId = String(ctx.from.id);
-
     try {
+      // Get user UUID
+      const userId = await getUserId(ctx);
+
       const result = await subscriptionModule
         .getCancelSubscriptionUseCase()
-        .execute({ userId: telegramId });
+        .execute({ userId });
 
       await ctx.reply(result.message);
     } catch (error) {
