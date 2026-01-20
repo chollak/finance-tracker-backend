@@ -4,8 +4,8 @@ import { Skeleton } from '@/shared/ui/skeleton';
 import { useSubscription, UsageBar } from '@/entities/subscription';
 import { useUserStore } from '@/entities/user/model/store';
 
-// Bot username for premium upgrade deeplink
-const BOT_USERNAME = 'moliyachi_bot';
+// Bot username from environment variable
+const BOT_USERNAME = import.meta.env.VITE_TG_BOT_USERNAME || 'FinanceTrackerAppBot';
 
 /**
  * Usage limits card widget
