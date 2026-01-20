@@ -270,6 +270,43 @@ Error: No speech detected
 
 ---
 
+## Subscription API Issues
+
+### Invalid UUID Error
+
+**Error:**
+```
+Failed to create usage limit: invalid input syntax for type uuid: "131184740"
+```
+
+**Cause:**
+API получает telegram_id (числовой) или guest_id вместо UUID. Это происходит когда:
+- Webapp передает telegram_id напрямую
+- Guest user (без Telegram аутентификации) делает запрос
+
+**Solution:**
+Controller должен резолвить telegram_id → UUID через UserModule:
+
+```typescript
+// В SubscriptionController
+if (this.isGuestUser(userId)) {
+  return this.createGuestUserResponse(userId); // Free tier без БД
+}
+const userUUID = await this.resolveUserId(userId); // telegram_id → UUID
+```
+
+**Files:**
+- `src/modules/subscription/presentation/subscriptionController.ts`
+- `src/delivery/web/express/routes/subscriptionRoutes.ts`
+
+**После исправления:** Rebuild Docker container:
+```bash
+docker compose down
+docker compose up -d --build
+```
+
+---
+
 ## Telegram Bot Issues
 
 ### Bot Not Responding
@@ -403,6 +440,7 @@ Expected response:
 | Slow requests | Add indexes, optimize queries |
 | SSH auth failed | Update `SSH_HOST` with new IP, configure Elastic IP |
 | Git pull fails | Switch to HTTPS or regenerate SSH keys |
+| Subscription UUID error | Resolve telegram_id → UUID in controller |
 
 ---
 

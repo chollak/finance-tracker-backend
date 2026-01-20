@@ -113,11 +113,11 @@ export function buildServer(
     );
   }
 
-  // Subscription routes (optional - only if subscriptionModule is provided)
-  if (subscriptionModule) {
+  // Subscription routes (optional - only if subscriptionModule and userModule are provided)
+  if (subscriptionModule && userModule) {
     router.use(
       '/subscription',
-      createSubscriptionRoutes(subscriptionModule)
+      createSubscriptionRoutes(subscriptionModule, userModule)
     );
   }
 

@@ -1,6 +1,6 @@
 # Module System
 
-Система организована в 7 самодостаточных модулей, каждый с четко определенной ответственностью.
+Система организована в 8 самодостаточных модулей, каждый с четко определенной ответственностью.
 
 ## Module Dependencies
 
@@ -13,12 +13,14 @@ graph TD
     OM[OpenAIUsageModule<br/>Usage Monitoring]
     DM[DashboardModule<br/>Data Aggregation]
     SM[SubscriptionModule<br/>Premium + Payments]
+    UM[UserModule<br/>User Management]
 
     BM -->|depends on| TM
     DeM -->|depends on| TM
     VM -->|depends on| TM
     DM -->|depends on| TM
     DM -->|depends on| BM
+    SM -.->|controller uses| UM
 
     style TM fill:#4CAF50,stroke:#2E7D32,color:#fff
     style BM fill:#2196F3,stroke:#1565C0,color:#fff
@@ -27,6 +29,7 @@ graph TD
     style OM fill:#9C27B0,stroke:#6A1B9A,color:#fff
     style DM fill:#F44336,stroke:#C62828,color:#fff
     style SM fill:#FFD700,stroke:#B8860B,color:#000
+    style UM fill:#00BCD4,stroke:#00838F,color:#fff
 ```
 
 ## Module Overview
@@ -39,7 +42,8 @@ graph TD
 | **VoiceProcessingModule** | AI обработка голоса/текста | TransactionModule | `voiceProcessingModule.ts` |
 | **OpenAIUsageModule** | Мониторинг OpenAI costs | Независимый | `openAIUsageModule.ts` |
 | **DashboardModule** | Агрегация insights | Transaction + Budget | `dashboardModule.ts` |
-| **SubscriptionModule** | Premium подписки + Telegram Stars | Независимый | `subscriptionModule.ts` |
+| **SubscriptionModule** | Premium подписки + Telegram Stars | UserModule (controller) | `subscriptionModule.ts` |
+| **UserModule** | Управление пользователями | Независимый | `userModule.ts` |
 
 ---
 
@@ -180,6 +184,33 @@ Freemium модель с Telegram Stars: лимиты для free tier, безл
 ### Repository
 - Interface: `subscriptionRepository.ts`, `usageLimitRepository.ts`
 - Implementations: SQLite + Supabase
+
+### Key Dependency (Controller Layer)
+```typescript
+// SubscriptionController получает UserModule для резолва telegram_id → UUID
+new SubscriptionController(subscriptionModule, userModule)
+```
+
+**Почему зависимость?**
+API принимает telegram_id (например, `131184740`), но БД использует UUID. Controller резолвит ID через `GetOrCreateUserUseCase`.
+
+### User ID Resolution
+
+Controller обрабатывает 3 типа user ID:
+
+| ID Type | Пример | Обработка |
+|---------|--------|-----------|
+| **Guest** | `guest_abc123-...` | Default free tier (без обращения к БД) |
+| **Telegram ID** | `131184740` | Резолв через UserModule → UUID |
+| **UUID** | `6c7c7a0e-...` | Прямой запрос к БД |
+
+```typescript
+// В SubscriptionController
+if (this.isGuestUser(userId)) {
+  return this.createGuestUserResponse(userId); // Free tier по умолчанию
+}
+const userUUID = await this.resolveUserId(userId); // telegram_id → UUID
+```
 
 ### Telegram Stars Integration
 ```typescript

@@ -5,11 +5,15 @@
 
 import { Router } from 'express';
 import { SubscriptionModule } from '../../../../modules/subscription/subscriptionModule';
+import { UserModule } from '../../../../modules/user/userModule';
 import { SubscriptionController } from '../../../../modules/subscription/presentation/subscriptionController';
 
-export function createSubscriptionRoutes(subscriptionModule: SubscriptionModule): Router {
+export function createSubscriptionRoutes(
+  subscriptionModule: SubscriptionModule,
+  userModule: UserModule
+): Router {
   const router = Router();
-  const controller = new SubscriptionController(subscriptionModule);
+  const controller = new SubscriptionController(subscriptionModule, userModule);
 
   // GET /api/subscription/:userId - Get subscription status
   router.get('/:userId', (req, res) => controller.getSubscriptionStatus(req, res));

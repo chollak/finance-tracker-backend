@@ -29,7 +29,22 @@ export function QuickStats() {
 
   // Extract data from dashboard response (same data, no extra API call)
   const activeBudgets = dashboard?.insights?.budgetOverview?.activeBudgets ?? 0;
-  const savingsRate = dashboard?.insights?.insights?.savingsRate ?? 0;
+  const rawSavingsRate = dashboard?.insights?.insights?.savingsRate ?? 0;
+  const totalIncome = dashboard?.insights?.financialSummary?.totalIncome ?? 0;
+
+  // Format savings rate for display
+  // If no income, show "–" instead of 0%
+  // Clamp extreme values to -99% to 999% for reasonable display
+  const formatSavingsRate = (): string => {
+    if (totalIncome === 0) return '–';
+    if (rawSavingsRate < -99) return '<-99';
+    if (rawSavingsRate > 999) return '>999';
+    return String(Math.round(rawSavingsRate));
+  };
+
+  const savingsRateDisplay = formatSavingsRate();
+  const isPositive = rawSavingsRate > 0;
+  const isNeutral = totalIncome === 0;
 
   return (
     <div className="grid grid-cols-2 gap-4">
@@ -47,8 +62,8 @@ export function QuickStats() {
       <Card>
         <CardContent className="pt-6">
           <div className="text-center">
-            <p className={`text-2xl sm:text-3xl font-bold ${savingsRate > 0 ? 'text-success' : 'text-warning'}`}>
-              {savingsRate}%
+            <p className={`text-2xl sm:text-3xl font-bold ${isNeutral ? 'text-muted-foreground' : isPositive ? 'text-success' : 'text-warning'}`}>
+              {savingsRateDisplay}{savingsRateDisplay !== '–' && '%'}
             </p>
             <p className="text-xs sm:text-sm text-muted-foreground mt-1">Накопления</p>
           </div>
