@@ -7,6 +7,7 @@ import { CreateTransactionUseCase } from '../../transaction/application/createTr
 import { CreateDebtUseCase } from '../../debt/application/createDebt';
 import { Transaction } from '../../transaction/domain/transactionEntity';
 import { DebtType } from '../../debt/domain/debtEntity';
+import { DebtLimitExceededError } from '../../debt/domain/errors';
 import { ErrorFactory } from '../../../shared/domain/errors/AppError';
 import { Validators } from '../../../shared/application/validation/validators';
 
@@ -178,9 +179,17 @@ export class ProcessVoiceInputUseCase {
                 linkedTransactionId: d.moneyTransferred ? result.data.id : undefined,
               });
             } else {
+              // Re-throw DebtLimitExceededError to show user-friendly message
+              if (result.error instanceof DebtLimitExceededError) {
+                throw result.error;
+              }
               console.error('Failed to create debt:', result.error.message);
             }
           } catch (debtError) {
+            // Re-throw DebtLimitExceededError to show user-friendly message
+            if (debtError instanceof DebtLimitExceededError) {
+              throw debtError;
+            }
             console.error('Failed to create debt from voice input:', {
               error: debtError,
               debtData: d,

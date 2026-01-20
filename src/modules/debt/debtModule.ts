@@ -6,6 +6,8 @@ import { DeleteDebtUseCase } from './application/deleteDebt';
 import { PayDebtUseCase } from './application/payDebt';
 import { RepositoryFactory } from '../../shared/infrastructure/database/repositoryFactory';
 import { TransactionModule } from '../transaction/transactionModule';
+import { SubscriptionModule } from '../subscription/subscriptionModule';
+import { UserModule } from '../user/userModule';
 
 export class DebtModule {
   readonly repository: DebtRepository;
@@ -15,26 +17,42 @@ export class DebtModule {
   readonly deleteDebtUseCase: DeleteDebtUseCase;
   readonly payDebtUseCase: PayDebtUseCase;
 
-  constructor(transactionModule: TransactionModule) {
+  constructor(
+    transactionModule: TransactionModule,
+    subscriptionModule?: SubscriptionModule,
+    userModule?: UserModule
+  ) {
     // Infrastructure
     this.repository = RepositoryFactory.createDebtRepository();
 
     // Application layer - Use Cases
     this.createDebtUseCase = new CreateDebtUseCase(
       this.repository,
-      transactionModule.getCreateTransactionUseCase()
+      transactionModule.getCreateTransactionUseCase(),
+      subscriptionModule,
+      userModule
     );
     this.getDebtsUseCase = new GetDebtsUseCase(this.repository);
     this.updateDebtUseCase = new UpdateDebtUseCase(this.repository);
-    this.deleteDebtUseCase = new DeleteDebtUseCase(this.repository);
+    this.deleteDebtUseCase = new DeleteDebtUseCase(
+      this.repository,
+      subscriptionModule,
+      userModule
+    );
     this.payDebtUseCase = new PayDebtUseCase(
       this.repository,
-      transactionModule.getCreateTransactionUseCase()
+      transactionModule.getCreateTransactionUseCase(),
+      subscriptionModule,
+      userModule
     );
   }
 
-  static create(transactionModule: TransactionModule): DebtModule {
-    return new DebtModule(transactionModule);
+  static create(
+    transactionModule: TransactionModule,
+    subscriptionModule?: SubscriptionModule,
+    userModule?: UserModule
+  ): DebtModule {
+    return new DebtModule(transactionModule, subscriptionModule, userModule);
   }
 
   getRepository(): DebtRepository {

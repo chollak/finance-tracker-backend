@@ -10,19 +10,23 @@ import { SubscriptionModule } from './modules/subscription/subscriptionModule';
 import { RepositoryFactory } from './shared/infrastructure/database/repositoryFactory';
 
 export function createModules() {
+  // Core modules (no dependencies on subscription)
   const transactionModule = TransactionModule.create();
   const budgetModule = BudgetModule.create(transactionModule);
-  const debtModule = DebtModule.create(transactionModule);
-  const openAIService = new OpenAITranscriptionService(AppConfig.OPENAI_API_KEY);
-  // VoiceProcessingModule now handles both transactions and debts
-  const voiceModule = new VoiceProcessingModule(openAIService, transactionModule, debtModule);
-  const openAIUsageModule = createOpenAIUsageModule();
   const userModule = UserModule.create();
+  const openAIUsageModule = createOpenAIUsageModule();
 
   // Create SubscriptionModule with repositories
   const subscriptionRepository = RepositoryFactory.createSubscriptionRepository();
   const usageLimitRepository = RepositoryFactory.createUsageLimitRepository();
   const subscriptionModule = new SubscriptionModule(subscriptionRepository, usageLimitRepository);
+
+  // DebtModule needs subscription for limit checking
+  const debtModule = DebtModule.create(transactionModule, subscriptionModule, userModule);
+
+  // VoiceProcessingModule now handles both transactions and debts
+  const openAIService = new OpenAITranscriptionService(AppConfig.OPENAI_API_KEY);
+  const voiceModule = new VoiceProcessingModule(openAIService, transactionModule, debtModule);
 
   return {
     transactionModule,

@@ -4,6 +4,7 @@ import { CreateTransactionUseCase } from '../../transaction/application/createTr
 import { CreateDebtUseCase } from '../../debt/application/createDebt';
 import { Transaction } from '../../transaction/domain/transactionEntity';
 import { DebtType } from '../../debt/domain/debtEntity';
+import { DebtLimitExceededError } from '../../debt/domain/errors';
 
 export class ProcessTextInputUseCase {
   constructor(
@@ -92,9 +93,17 @@ export class ProcessTextInputUseCase {
               linkedTransactionId: d.moneyTransferred ? result.data.id : undefined,
             });
           } else {
+            // Re-throw DebtLimitExceededError to show user-friendly message
+            if (result.error instanceof DebtLimitExceededError) {
+              throw result.error;
+            }
             console.error('Failed to create debt:', result.error.message);
           }
         } catch (error) {
+          // Re-throw DebtLimitExceededError to show user-friendly message
+          if (error instanceof DebtLimitExceededError) {
+            throw error;
+          }
           console.error('Failed to create debt from text input:', {
             error,
             debtData: d,

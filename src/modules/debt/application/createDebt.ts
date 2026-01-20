@@ -1,8 +1,11 @@
 import { DebtRepository } from '../domain/debtRepository';
-import { DebtEntity, CreateDebtData, DebtType } from '../domain/debtEntity';
+import { DebtEntity, CreateDebtData, DebtType, DebtStatus } from '../domain/debtEntity';
 import { Result, ResultHelper } from '../../../shared/domain/types/Result';
 import { ValidationError, BusinessLogicError } from '../../../shared/domain/errors/AppError';
 import { CreateTransactionUseCase } from '../../transaction/application/createTransaction';
+import { DebtLimitExceededError } from '../domain/errors';
+import { SubscriptionModule } from '../../subscription/subscriptionModule';
+import { UserModule } from '../../user/userModule';
 
 // Debt-related category for transactions
 const DEBT_CATEGORY = 'debt';
@@ -10,7 +13,9 @@ const DEBT_CATEGORY = 'debt';
 export class CreateDebtUseCase {
   constructor(
     private debtRepository: DebtRepository,
-    private createTransactionUseCase: CreateTransactionUseCase
+    private createTransactionUseCase: CreateTransactionUseCase,
+    private subscriptionModule?: SubscriptionModule,
+    private userModule?: UserModule
   ) {}
 
   async execute(data: CreateDebtData): Promise<Result<DebtEntity>> {
@@ -18,6 +23,16 @@ export class CreateDebtUseCase {
       const validation = this.validate(data);
       if (!validation.isValid) {
         return ResultHelper.failure(new ValidationError(validation.error!));
+      }
+
+      // Check debt limit for free users
+      if (this.subscriptionModule && this.userModule) {
+        const limitCheckResult = await this.checkDebtLimit(data.userId);
+        if (!limitCheckResult.allowed) {
+          return ResultHelper.failure(
+            new DebtLimitExceededError(limitCheckResult.limit!, limitCheckResult.currentUsage)
+          );
+        }
       }
 
       // Create the debt first
@@ -77,5 +92,50 @@ export class CreateDebtUseCase {
     }
 
     return { isValid: true };
+  }
+
+  /**
+   * Check if user can create a new debt based on their subscription tier
+   * Free users: max 5 active debts
+   * Premium users: unlimited
+   */
+  private async checkDebtLimit(telegramId: string): Promise<{
+    allowed: boolean;
+    currentUsage: number;
+    limit: number | null;
+  }> {
+    try {
+      // Resolve telegram_id to UUID
+      const user = await this.userModule!.getGetOrCreateUserUseCase().execute({
+        telegramId,
+      });
+      const userId = user.id;
+
+      // Get actual count of active debts from repository
+      const activeDebts = await this.debtRepository.getByUserId(userId, DebtStatus.ACTIVE);
+      const currentCount = activeDebts.length;
+
+      // Sync the count in usage_limits table
+      await this.subscriptionModule!.getSetActiveDebtsCountUseCase().execute({
+        userId,
+        count: currentCount,
+      });
+
+      // Now check the limit (with synced count)
+      const limitCheck = await this.subscriptionModule!.getCheckLimitUseCase().execute({
+        userId,
+        limitType: 'debts',
+      });
+
+      return {
+        allowed: limitCheck.allowed,
+        currentUsage: limitCheck.currentUsage,
+        limit: limitCheck.limit,
+      };
+    } catch (error) {
+      console.error('Error checking debt limit:', error);
+      // Fail open - allow if we can't check (graceful degradation)
+      return { allowed: true, currentUsage: 0, limit: null };
+    }
   }
 }

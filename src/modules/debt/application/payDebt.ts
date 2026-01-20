@@ -3,6 +3,8 @@ import { DebtPaymentEntity, PayDebtData, DebtStatus, DebtType } from '../domain/
 import { Result, ResultHelper } from '../../../shared/domain/types/Result';
 import { ValidationError, BusinessLogicError, NotFoundError } from '../../../shared/domain/errors/AppError';
 import { CreateTransactionUseCase } from '../../transaction/application/createTransaction';
+import { SubscriptionModule } from '../../subscription/subscriptionModule';
+import { UserModule } from '../../user/userModule';
 
 // Debt-related category for transactions
 const DEBT_CATEGORY = 'debt';
@@ -10,7 +12,9 @@ const DEBT_CATEGORY = 'debt';
 export class PayDebtUseCase {
   constructor(
     private debtRepository: DebtRepository,
-    private createTransactionUseCase: CreateTransactionUseCase
+    private createTransactionUseCase: CreateTransactionUseCase,
+    private subscriptionModule?: SubscriptionModule,
+    private userModule?: UserModule
   ) {}
 
   /**
@@ -44,6 +48,12 @@ export class PayDebtUseCase {
 
       // Add the payment
       const payment = await this.debtRepository.addPayment(data);
+
+      // Check if debt became fully paid and update active count
+      const updatedDebt = await this.debtRepository.getById(data.debtId);
+      if (updatedDebt && updatedDebt.status === DebtStatus.PAID) {
+        await this.updateActiveDebtsCount(debt.userId);
+      }
 
       // Create linked transaction if requested
       if (createTransaction) {
@@ -132,5 +142,35 @@ export class PayDebtUseCase {
     }
 
     return { isValid: true };
+  }
+
+  /**
+   * Update active debts count in usage_limits after debt status change
+   */
+  private async updateActiveDebtsCount(telegramId: string): Promise<void> {
+    if (!this.subscriptionModule || !this.userModule) {
+      return;
+    }
+
+    try {
+      // Resolve telegram_id to UUID
+      const user = await this.userModule.getGetOrCreateUserUseCase().execute({
+        telegramId,
+      });
+      const userId = user.id;
+
+      // Get actual count of active debts
+      const activeDebts = await this.debtRepository.getByUserId(userId, DebtStatus.ACTIVE);
+      const currentCount = activeDebts.length;
+
+      // Sync the count
+      await this.subscriptionModule.getSetActiveDebtsCountUseCase().execute({
+        userId,
+        count: currentCount,
+      });
+    } catch (error) {
+      console.error('Error updating active debts count:', error);
+      // Non-critical - don't fail the main operation
+    }
   }
 }
