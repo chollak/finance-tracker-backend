@@ -4,7 +4,6 @@ import { UsageLimitsCard } from '@/widgets/usage-limits';
 import { RecentTransactions } from '@/widgets/recent-transactions';
 import { BudgetOverview } from '@/widgets/budget-overview';
 import { Button } from '@/shared/ui/button';
-import { ThemeToggle } from '@/shared/ui/theme-toggle';
 import { Plus } from 'lucide-react';
 import { QuickAddSheet } from '@/features/quick-add';
 import { GuestModeBanner } from '@/features/auth';
@@ -26,7 +25,6 @@ export function HomePage() {
         {/* Actions - visible on mobile (hidden on desktop via TopNav) */}
         <div className="flex items-center gap-2 md:hidden">
           <SyncButton />
-          <ThemeToggle />
         </div>
       </div>
 

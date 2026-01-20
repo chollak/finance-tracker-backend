@@ -95,19 +95,18 @@ export function GuestModeBanner({ className }: { className?: string }) {
     <div
       className={cn(
         'relative overflow-hidden rounded-xl border border-border/50 bg-gradient-to-r from-muted/50 to-muted/30 p-4',
-        'dark:from-muted/20 dark:to-muted/10',
         className
       )}
     >
       {/* Subtle background pattern */}
-      <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05]">
+      <div className="absolute inset-0 opacity-[0.03]">
         <div className="absolute -right-4 -top-4 h-24 w-24 rounded-full bg-[#0088cc]" />
         <div className="absolute -bottom-2 -left-2 h-16 w-16 rounded-full bg-[#0088cc]" />
       </div>
 
       <div className="relative flex flex-col sm:flex-row sm:items-center gap-4">
         {/* Icon */}
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted dark:bg-muted/50">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted">
           <CloudOff className="h-5 w-5 text-muted-foreground" />
         </div>
 

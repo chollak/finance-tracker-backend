@@ -4,6 +4,7 @@
 /* ========================================
    FINANCE TRACKER DESIGN SYSTEM
    Minimal & Clean | Inter | Green Accent
+   Light Theme Only
    ======================================== */
 
 /* Override react-day-picker selection colors to match shadcn */
@@ -31,24 +32,6 @@
 .rdp-focused .rdp-day_button {
   outline: none !important;
   box-shadow: none !important;
-}
-
-/* Dark mode react-day-picker overrides */
-.dark .rdp-selected .rdp-day_button,
-.dark .rdp-day_button[data-selected="true"],
-.dark .rdp-day_button[aria-selected="true"] {
-  background-color: oklch(30% 0.005 260) !important;
-  color: oklch(95% 0 0) !important;
-  border-color: oklch(30% 0.005 260) !important;
-}
-
-.dark .rdp-today:not(.rdp-selected) .rdp-day_button {
-  background-color: oklch(25% 0.005 260) !important;
-  color: oklch(95% 0 0) !important;
-}
-
-.dark .rdp-day_button:hover {
-  background-color: oklch(28% 0.005 260) !important;
 }
 
 @theme inline {
@@ -142,112 +125,6 @@
   /* ===== SPACING (Touch Targets) ===== */
   --touch-target: 2.75rem;    /* 44px minimum */
   --touch-target-lg: 3rem;    /* 48px preferred */
-}
-
-/* ===== DARK THEME =====
-   Premium dark theme inspired by Linear/Revolut
-   Soft charcoal backgrounds, not pure black
-   ======================== */
-
-.dark,
-:root.dark,
-html.dark {
-  /* Softer dark backgrounds - not pure black */
-  --color-background: oklch(13% 0.005 260) !important;
-  --color-foreground: oklch(95% 0 0) !important;
-
-  /* Card with subtle elevation */
-  --color-card: oklch(17% 0.005 260) !important;
-  --color-card-foreground: oklch(95% 0 0) !important;
-
-  /* Popover/Sheet - slightly lighter than cards for layering */
-  --color-popover: oklch(17% 0.005 260) !important;
-  --color-popover-foreground: oklch(95% 0 0) !important;
-
-  /* Primary - elevated dark surface for buttons, light text */
-  --color-primary: oklch(30% 0.005 260) !important;
-  --color-primary-foreground: oklch(95% 0 0) !important;
-
-  /* Secondary - elevated surface */
-  --color-secondary: oklch(22% 0.005 260) !important;
-  --color-secondary-foreground: oklch(90% 0 0) !important;
-
-  /* Muted - for backgrounds and disabled states */
-  --color-muted: oklch(22% 0.005 260) !important;
-  --color-muted-foreground: oklch(60% 0 0) !important;
-
-  /* Accent - subtle highlight */
-  --color-accent: oklch(22% 0.005 260) !important;
-  --color-accent-foreground: oklch(95% 0 0) !important;
-
-  /* Destructive */
-  --color-destructive: oklch(60% 0.22 25) !important;
-  --color-destructive-foreground: oklch(98% 0 0) !important;
-
-  /* Borders - subtle but visible */
-  --color-border: oklch(28% 0.005 260) !important;
-  --color-input: oklch(28% 0.005 260) !important;
-  --color-ring: oklch(50% 0.1 145) !important;
-
-  /* Semantic finance colors (dark mode - vibrant for visibility) */
-  --color-income: oklch(70% 0.2 145) !important;
-  --color-income-foreground: oklch(15% 0.05 145) !important;
-  --color-income-muted: oklch(25% 0.1 145) !important;
-
-  --color-expense: oklch(68% 0.22 25) !important;
-  --color-expense-foreground: oklch(98% 0 0) !important;
-  --color-expense-muted: oklch(25% 0.1 25) !important;
-
-  --color-warning: oklch(75% 0.15 70) !important;
-  --color-warning-foreground: oklch(20% 0.05 70) !important;
-  --color-warning-muted: oklch(28% 0.08 70) !important;
-
-  --color-success: oklch(70% 0.2 145) !important;
-  --color-success-foreground: oklch(15% 0.05 145) !important;
-  --color-success-muted: oklch(25% 0.1 145) !important;
-
-  /* Chart colors (dark mode - vibrant) */
-  --color-chart-1: oklch(70% 0.2 145) !important;
-  --color-chart-2: oklch(70% 0.15 250) !important;
-  --color-chart-3: oklch(70% 0.15 320) !important;
-  --color-chart-4: oklch(75% 0.15 70) !important;
-  --color-chart-5: oklch(70% 0.15 195) !important;
-  --color-chart-6: oklch(68% 0.22 25) !important;
-}
-
-/* Auto dark mode based on system preference */
-@media (prefers-color-scheme: dark) {
-  :root:not(.light) {
-    --color-background: oklch(13% 0.005 260);
-    --color-foreground: oklch(95% 0 0);
-    --color-card: oklch(17% 0.005 260);
-    --color-card-foreground: oklch(95% 0 0);
-    --color-popover: oklch(17% 0.005 260);
-    --color-popover-foreground: oklch(95% 0 0);
-    --color-primary: oklch(30% 0.005 260);
-    --color-primary-foreground: oklch(95% 0 0);
-    --color-secondary: oklch(22% 0.005 260);
-    --color-secondary-foreground: oklch(90% 0 0);
-    --color-muted: oklch(22% 0.005 260);
-    --color-muted-foreground: oklch(60% 0 0);
-    --color-accent: oklch(22% 0.005 260);
-    --color-accent-foreground: oklch(95% 0 0);
-    --color-destructive: oklch(60% 0.22 25);
-    --color-destructive-foreground: oklch(98% 0 0);
-    --color-border: oklch(28% 0.005 260);
-    --color-input: oklch(28% 0.005 260);
-    --color-ring: oklch(50% 0.1 145);
-
-    /* Semantic finance colors */
-    --color-income: oklch(70% 0.2 145);
-    --color-income-muted: oklch(25% 0.1 145);
-    --color-expense: oklch(68% 0.22 25);
-    --color-expense-muted: oklch(25% 0.1 25);
-    --color-warning: oklch(75% 0.15 70);
-    --color-warning-muted: oklch(28% 0.08 70);
-    --color-success: oklch(70% 0.2 145);
-    --color-success-muted: oklch(25% 0.1 145);
-  }
 }
 
 
@@ -401,10 +278,6 @@ html.dark {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
-.dark .card-hover:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-}
-
 /* Button press effect */
 .btn-press {
   transition: transform var(--duration-fast) var(--ease-out);
@@ -431,7 +304,7 @@ html.dark {
   background: linear-gradient(
     90deg,
     transparent 0%,
-    rgba(255, 255, 255, 0.1) 50%,
+    rgba(255, 255, 255, 0.4) 50%,
     transparent 100%
   );
   animation: shimmer 1.5s infinite;
@@ -509,182 +382,5 @@ html.dark {
       animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;
     }
-  }
-
-  /* ===== DARK MODE COMPONENT OVERRIDES ===== */
-
-  /* Background colors */
-  .dark .bg-background {
-    background-color: var(--color-background) !important;
-  }
-
-  .dark .bg-card {
-    background-color: var(--color-card) !important;
-  }
-
-  .dark .bg-popover {
-    background-color: var(--color-popover) !important;
-  }
-
-  .dark .bg-muted {
-    background-color: var(--color-muted) !important;
-  }
-
-  .dark .bg-secondary {
-    background-color: var(--color-secondary) !important;
-  }
-
-  .dark .bg-accent {
-    background-color: var(--color-accent) !important;
-  }
-
-  /* Text colors */
-  .dark .text-foreground {
-    color: var(--color-foreground) !important;
-  }
-
-  .dark .text-muted-foreground {
-    color: var(--color-muted-foreground) !important;
-  }
-
-  .dark .text-card-foreground {
-    color: var(--color-card-foreground) !important;
-  }
-
-  .dark .text-popover-foreground {
-    color: var(--color-popover-foreground) !important;
-  }
-
-  /* Border colors */
-  .dark .border-border {
-    border-color: var(--color-border) !important;
-  }
-
-  .dark .border-input {
-    border-color: var(--color-input) !important;
-  }
-
-  /* Input fields - explicit dark mode styling */
-  .dark input,
-  .dark textarea,
-  .dark select {
-    background-color: var(--color-secondary) !important;
-    border-color: var(--color-border) !important;
-    color: var(--color-foreground) !important;
-  }
-
-  .dark input::placeholder,
-  .dark textarea::placeholder {
-    color: var(--color-muted-foreground) !important;
-  }
-
-  .dark input:focus,
-  .dark textarea:focus,
-  .dark select:focus {
-    border-color: var(--color-ring) !important;
-    ring-color: var(--color-ring) !important;
-  }
-
-  /* Sheet/Dialog/Popover - explicit dark backgrounds */
-  .dark [data-radix-popper-content-wrapper] > *,
-  .dark [role="dialog"],
-  .dark [data-state="open"][role="dialog"] {
-    background-color: var(--color-card) !important;
-    border-color: var(--color-border) !important;
-  }
-
-  /* Radix Select portal - renders at document root, needs html.dark selector */
-  html.dark [data-radix-select-content],
-  html.dark [role="listbox"] {
-    background-color: var(--color-card) !important;
-    border-color: var(--color-border) !important;
-    color: var(--color-foreground) !important;
-  }
-
-  html.dark [data-radix-select-item],
-  html.dark [role="option"] {
-    color: var(--color-foreground) !important;
-  }
-
-  html.dark [data-radix-select-item]:focus,
-  html.dark [data-radix-select-item][data-highlighted],
-  html.dark [role="option"]:focus,
-  html.dark [role="option"][data-highlighted] {
-    background-color: var(--color-accent) !important;
-    color: var(--color-accent-foreground) !important;
-  }
-
-  html.dark [data-radix-select-item][data-state="checked"] {
-    background-color: var(--color-accent) !important;
-  }
-
-  /* Progress bar track visibility */
-  .dark [role="progressbar"] {
-    background-color: var(--color-muted) !important;
-  }
-
-  /* Button ghost/outline variants in dark mode */
-  .dark .hover\:bg-accent:hover {
-    background-color: var(--color-accent) !important;
-  }
-
-  /* Semantic colors in dark mode */
-  .dark .text-income {
-    color: var(--color-income) !important;
-  }
-
-  .dark .text-expense {
-    color: var(--color-expense) !important;
-  }
-
-  .dark .text-success {
-    color: var(--color-success) !important;
-  }
-
-  .dark .text-warning {
-    color: var(--color-warning) !important;
-  }
-
-  .dark .bg-income {
-    background-color: var(--color-income) !important;
-  }
-
-  .dark .bg-expense {
-    background-color: var(--color-expense) !important;
-  }
-
-  .dark .bg-income-muted {
-    background-color: var(--color-income-muted) !important;
-  }
-
-  .dark .bg-expense-muted {
-    background-color: var(--color-expense-muted) !important;
-  }
-
-  .dark .bg-success-muted {
-    background-color: var(--color-success-muted) !important;
-  }
-
-  .dark .bg-warning-muted {
-    background-color: var(--color-warning-muted) !important;
-  }
-
-  /* Primary color - ensure visibility in dark mode */
-  .dark .text-primary {
-    color: var(--color-primary) !important;
-  }
-
-  .dark .bg-primary {
-    background-color: var(--color-primary) !important;
-  }
-
-  /* SVG icons inherit color */
-  .dark svg {
-    color: inherit;
-  }
-
-  /* Lucide icons in dark mode */
-  .dark .lucide {
-    color: currentColor;
   }
 }
