@@ -13,13 +13,33 @@ import { ArchiveAllByUserUseCase } from './application/archiveAllByUser';
 import { GetArchivedTransactionsUseCase } from './application/getArchivedTransactions';
 import { TransactionRepository } from './domain/transactionRepository';
 import { RepositoryFactory } from '../../shared/infrastructure/database/repositoryFactory';
+import { SubscriptionModule } from '../subscription/subscriptionModule';
+import { UserModule } from '../user/userModule';
 
 export class TransactionModule {
-  constructor(private repository: TransactionRepository) {}
+  private deleteTransactionUseCase: DeleteTransactionUseCase;
+
+  constructor(private repository: TransactionRepository) {
+    this.deleteTransactionUseCase = new DeleteTransactionUseCase(repository);
+  }
 
   static create(): TransactionModule {
     const repository = RepositoryFactory.createTransactionRepository();
     return new TransactionModule(repository);
+  }
+
+  /**
+   * Set subscription dependencies for usage tracking
+   * Called after all modules are created to avoid circular dependencies
+   */
+  setSubscriptionDependencies(
+    subscriptionModule: SubscriptionModule,
+    userModule: UserModule
+  ): void {
+    this.deleteTransactionUseCase.setSubscriptionDependencies(
+      subscriptionModule,
+      userModule
+    );
   }
 
   getCreateTransactionUseCase(): CreateTransactionUseCase {
@@ -39,7 +59,7 @@ export class TransactionModule {
   }
 
   getDeleteTransactionUseCase(): DeleteTransactionUseCase {
-    return new DeleteTransactionUseCase(this.repository);
+    return this.deleteTransactionUseCase;
   }
 
   getUpdateTransactionUseCase(): UpdateTransactionUseCase {

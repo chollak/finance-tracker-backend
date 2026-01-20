@@ -62,25 +62,34 @@ export class SupabaseUsageLimitRepository implements UsageLimitRepository {
   }
 
   async incrementCounter(userId: string, limitType: LimitType): Promise<UsageLimit> {
-    const usageLimit = await this.findOrCreateForCurrentPeriod(userId);
+    // Ensure record exists first
+    await this.findOrCreateForCurrentPeriod(userId);
 
-    let columnName: string;
-    let newValue: number;
+    const columnName = this.getColumnName(limitType);
 
-    switch (limitType) {
-      case 'transactions':
-        columnName = 'transactions_count';
-        newValue = usageLimit.transactionsCount + 1;
-        break;
-      case 'voice_inputs':
-        columnName = 'voice_inputs_count';
-        newValue = usageLimit.voiceInputsCount + 1;
-        break;
-      case 'debts':
-        columnName = 'active_debts_count';
-        newValue = usageLimit.activeDebtsCount + 1;
-        break;
+    // Try atomic increment via RPC function first
+    const { data: rpcData, error: rpcError } = await this.supabase.rpc(
+      'increment_usage_counter',
+      {
+        p_user_id: userId,
+        p_column_name: columnName,
+      }
+    );
+
+    if (!rpcError && rpcData) {
+      return this.mapToUsageLimit(rpcData);
     }
+
+    // Fallback: non-atomic update (for backwards compatibility)
+    console.warn(
+      'RPC increment_usage_counter not available, using fallback. Consider running migration.'
+    );
+    const usageLimit = await this.findByUserId(userId);
+    if (!usageLimit) {
+      throw new Error('UsageLimit not found');
+    }
+
+    const newValue = this.getCurrentValue(usageLimit, limitType) + 1;
 
     const { data, error } = await this.supabase
       .from('usage_limits')
@@ -94,25 +103,34 @@ export class SupabaseUsageLimitRepository implements UsageLimitRepository {
   }
 
   async decrementCounter(userId: string, limitType: LimitType): Promise<UsageLimit> {
-    const usageLimit = await this.findOrCreateForCurrentPeriod(userId);
+    // Ensure record exists first
+    await this.findOrCreateForCurrentPeriod(userId);
 
-    let columnName: string;
-    let newValue: number;
+    const columnName = this.getColumnName(limitType);
 
-    switch (limitType) {
-      case 'transactions':
-        columnName = 'transactions_count';
-        newValue = Math.max(0, usageLimit.transactionsCount - 1);
-        break;
-      case 'voice_inputs':
-        columnName = 'voice_inputs_count';
-        newValue = Math.max(0, usageLimit.voiceInputsCount - 1);
-        break;
-      case 'debts':
-        columnName = 'active_debts_count';
-        newValue = Math.max(0, usageLimit.activeDebtsCount - 1);
-        break;
+    // Try atomic decrement via RPC function first
+    const { data: rpcData, error: rpcError } = await this.supabase.rpc(
+      'decrement_usage_counter',
+      {
+        p_user_id: userId,
+        p_column_name: columnName,
+      }
+    );
+
+    if (!rpcError && rpcData) {
+      return this.mapToUsageLimit(rpcData);
     }
+
+    // Fallback: non-atomic update (for backwards compatibility)
+    console.warn(
+      'RPC decrement_usage_counter not available, using fallback. Consider running migration.'
+    );
+    const usageLimit = await this.findByUserId(userId);
+    if (!usageLimit) {
+      throw new Error('UsageLimit not found');
+    }
+
+    const newValue = Math.max(0, this.getCurrentValue(usageLimit, limitType) - 1);
 
     const { data, error } = await this.supabase
       .from('usage_limits')
@@ -162,6 +180,34 @@ export class SupabaseUsageLimitRepository implements UsageLimitRepository {
     }
 
     return this.create({ userId });
+  }
+
+  /**
+   * Get Supabase column name for limit type
+   */
+  private getColumnName(limitType: LimitType): string {
+    switch (limitType) {
+      case 'transactions':
+        return 'transactions_count';
+      case 'voice_inputs':
+        return 'voice_inputs_count';
+      case 'debts':
+        return 'active_debts_count';
+    }
+  }
+
+  /**
+   * Get current value from UsageLimit for limit type
+   */
+  private getCurrentValue(usageLimit: UsageLimit, limitType: LimitType): number {
+    switch (limitType) {
+      case 'transactions':
+        return usageLimit.transactionsCount;
+      case 'voice_inputs':
+        return usageLimit.voiceInputsCount;
+      case 'debts':
+        return usageLimit.activeDebtsCount;
+    }
   }
 
   private mapToUsageLimit(data: Record<string, unknown>): UsageLimit {

@@ -6,6 +6,7 @@ import type { TransactionViewModel } from '../model/types';
 import { transactionKeys } from './keys';
 import { budgetKeys } from '@/entities/budget/api/keys';
 import { dashboardKeys } from '@/entities/dashboard/api/keys';
+import { subscriptionKeys } from '@/entities/subscription/api/keys';
 import { transactionToViewModel } from '../lib/toViewModel';
 
 /**
@@ -17,11 +18,13 @@ export function useCreateTransaction() {
 
   return useMutation({
     mutationFn: async (data: CreateTransactionDTO) => {
-      const response = await apiClient.post<Transaction>(
+      const response = await apiClient.post<{ id: string; transaction: Transaction }>(
         API_ENDPOINTS.TRANSACTIONS.CREATE,
         data
       );
-      return response.data;
+      // API returns {id, transaction}, extract the transaction with id
+      const { id, transaction } = response.data;
+      return { ...transaction, id } as Transaction;
     },
     onSuccess: (newTransaction, variables) => {
       const userId = variables.userId;
@@ -44,6 +47,8 @@ export function useCreateTransaction() {
       queryClient.invalidateQueries({ queryKey: transactionKeys.analytics(userId) });
       queryClient.invalidateQueries({ queryKey: transactionKeys.categorySummary(userId) });
       queryClient.invalidateQueries({ queryKey: transactionKeys.trends(userId) });
+      // Invalidate subscription to refresh usage limits (transaction count increased)
+      queryClient.invalidateQueries({ queryKey: subscriptionKeys.status(userId) });
     },
   });
 }
@@ -131,6 +136,8 @@ export function useDeleteTransaction() {
       queryClient.invalidateQueries({ queryKey: transactionKeys.analytics(userId) });
       queryClient.invalidateQueries({ queryKey: transactionKeys.categorySummary(userId) });
       queryClient.invalidateQueries({ queryKey: transactionKeys.trends(userId) });
+      // Invalidate subscription to refresh usage limits (transaction count decreased)
+      queryClient.invalidateQueries({ queryKey: subscriptionKeys.status(userId) });
     },
   });
 }

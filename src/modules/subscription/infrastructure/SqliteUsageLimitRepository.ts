@@ -59,23 +59,20 @@ export class SqliteUsageLimitRepository implements UsageLimitRepository {
   }
 
   async incrementCounter(userId: string, limitType: LimitType): Promise<UsageLimit> {
-    const usageLimit = await this.findOrCreateForCurrentPeriod(userId);
+    // Ensure record exists first
+    await this.findOrCreateForCurrentPeriod(userId);
 
-    const updateData: Partial<UsageLimitEntity> = {};
+    const columnName = this.getColumnName(limitType);
 
-    switch (limitType) {
-      case 'transactions':
-        updateData.transactionsCount = usageLimit.transactionsCount + 1;
-        break;
-      case 'voice_inputs':
-        updateData.voiceInputsCount = usageLimit.voiceInputsCount + 1;
-        break;
-      case 'debts':
-        updateData.activeDebtsCount = usageLimit.activeDebtsCount + 1;
-        break;
-    }
-
-    await this.repository.update({ userId }, updateData);
+    // Use atomic increment via QueryBuilder to prevent race conditions
+    await this.repository
+      .createQueryBuilder()
+      .update(UsageLimitEntity)
+      .set({
+        [columnName]: () => `${columnName} + 1`,
+      })
+      .where('userId = :userId', { userId })
+      .execute();
 
     const updated = await this.findByUserId(userId);
     if (!updated) {
@@ -85,29 +82,40 @@ export class SqliteUsageLimitRepository implements UsageLimitRepository {
   }
 
   async decrementCounter(userId: string, limitType: LimitType): Promise<UsageLimit> {
-    const usageLimit = await this.findOrCreateForCurrentPeriod(userId);
+    // Ensure record exists first
+    await this.findOrCreateForCurrentPeriod(userId);
 
-    const updateData: Partial<UsageLimitEntity> = {};
+    const columnName = this.getColumnName(limitType);
 
-    switch (limitType) {
-      case 'transactions':
-        updateData.transactionsCount = Math.max(0, usageLimit.transactionsCount - 1);
-        break;
-      case 'voice_inputs':
-        updateData.voiceInputsCount = Math.max(0, usageLimit.voiceInputsCount - 1);
-        break;
-      case 'debts':
-        updateData.activeDebtsCount = Math.max(0, usageLimit.activeDebtsCount - 1);
-        break;
-    }
-
-    await this.repository.update({ userId }, updateData);
+    // Use atomic decrement with floor at 0 to prevent race conditions
+    await this.repository
+      .createQueryBuilder()
+      .update(UsageLimitEntity)
+      .set({
+        [columnName]: () => `MAX(0, ${columnName} - 1)`,
+      })
+      .where('userId = :userId', { userId })
+      .execute();
 
     const updated = await this.findByUserId(userId);
     if (!updated) {
       throw new Error('UsageLimit not found after decrement');
     }
     return updated;
+  }
+
+  /**
+   * Get database column name for limit type
+   */
+  private getColumnName(limitType: LimitType): string {
+    switch (limitType) {
+      case 'transactions':
+        return 'transactionsCount';
+      case 'voice_inputs':
+        return 'voiceInputsCount';
+      case 'debts':
+        return 'activeDebtsCount';
+    }
   }
 
   async setActiveDebtsCount(userId: string, count: number): Promise<UsageLimit> {

@@ -1,5 +1,5 @@
 // API
-export { useSubscription } from './api/queries';
+export { useSubscription, useInvalidateSubscription } from './api/queries';
 export { subscriptionKeys } from './api/keys';
 
 // Types

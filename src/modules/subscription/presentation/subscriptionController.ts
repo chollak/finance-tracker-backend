@@ -8,6 +8,7 @@ import { SubscriptionModule } from '../subscriptionModule';
 import { UserModule } from '../../user/userModule';
 import { FREE_TIER_LIMITS, getCurrentMonthPeriod } from '../domain/usageLimit';
 import { SubscriptionStatus } from '../application/getSubscription';
+import { handleControllerSuccess, handleControllerError } from '../../../shared/infrastructure/utils/controllerHelpers';
 
 export class SubscriptionController {
   constructor(
@@ -91,7 +92,7 @@ export class SubscriptionController {
 
       // Guest users get default free tier response
       if (this.isGuestUser(userId)) {
-        res.json(this.createGuestUserResponse(userId));
+        handleControllerSuccess(this.createGuestUserResponse(userId), res);
         return;
       }
 
@@ -102,10 +103,9 @@ export class SubscriptionController {
         .getGetSubscriptionUseCase()
         .execute(userUUID);
 
-      res.json(status);
+      handleControllerSuccess(status, res);
     } catch (error) {
-      console.error('Error getting subscription status:', error);
-      res.status(500).json({ error: 'Failed to get subscription status' });
+      handleControllerError(error, res);
     }
   }
 

@@ -68,7 +68,9 @@ export function buildServer(
       transactionModule.getUnarchiveTransactionUseCase(),
       transactionModule.getArchiveMultipleTransactionsUseCase(),
       transactionModule.getArchiveAllByUserUseCase(),
-      transactionModule.getGetArchivedTransactionsUseCase()
+      transactionModule.getGetArchivedTransactionsUseCase(),
+      subscriptionModule,
+      userModule
     )
   );
 

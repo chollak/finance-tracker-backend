@@ -1,11 +1,12 @@
 import { Progress } from '@/shared/ui/progress';
 import { cn } from '@/shared/lib/utils';
+import type { ReactNode } from 'react';
 
 interface UsageBarProps {
   label: string;
   used: number;
   limit: number | null;
-  icon: string;
+  icon: ReactNode;
 }
 
 /**
@@ -23,8 +24,18 @@ export function UsageBar({ label, used, limit, icon }: UsageBarProps) {
   return (
     <div className="space-y-1.5">
       <div className="flex justify-between text-sm">
-        <span className="text-muted-foreground">
-          {icon} {label}
+        <span className="text-muted-foreground flex items-center gap-1.5">
+          <span
+            className={cn(
+              'w-5 h-5 rounded-md flex items-center justify-center',
+              isExceeded && 'bg-expense/10 text-expense',
+              isWarning && !isExceeded && 'bg-amber-500/10 text-amber-500',
+              !isWarning && 'bg-muted text-muted-foreground'
+            )}
+          >
+            {icon}
+          </span>
+          {label}
         </span>
         <span
           className={cn(

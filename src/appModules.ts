@@ -21,6 +21,9 @@ export function createModules() {
   const usageLimitRepository = RepositoryFactory.createUsageLimitRepository();
   const subscriptionModule = new SubscriptionModule(subscriptionRepository, usageLimitRepository);
 
+  // Set subscription dependencies for TransactionModule (for decrementing on delete)
+  transactionModule.setSubscriptionDependencies(subscriptionModule, userModule);
+
   // DebtModule needs subscription for limit checking
   const debtModule = DebtModule.create(transactionModule, subscriptionModule, userModule);
 

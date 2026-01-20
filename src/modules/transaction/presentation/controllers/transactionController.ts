@@ -17,6 +17,9 @@ import { TransactionValidator } from '../../../../shared/application/validation/
 import { handleControllerError, handleControllerSuccess, getStringParam } from '../../../../shared/infrastructure/utils/controllerHelpers';
 import { ErrorFactory } from '../../../../shared/domain/errors/AppError';
 import { SUCCESS_MESSAGES } from '../../../../shared/domain/constants/messages';
+import { SubscriptionModule } from '../../../subscription/subscriptionModule';
+import { UserModule } from '../../../user/userModule';
+import { createIncrementUsageMiddleware } from '../../../../delivery/web/express/middleware/subscriptionMiddleware';
 
 export function createTransactionRouter(
   createUseCase: CreateTransactionUseCase,
@@ -31,9 +34,16 @@ export function createTransactionRouter(
   unarchiveUseCase: UnarchiveTransactionUseCase,
   archiveMultipleUseCase: ArchiveMultipleTransactionsUseCase,
   archiveAllByUserUseCase: ArchiveAllByUserUseCase,
-  getArchivedUseCase: GetArchivedTransactionsUseCase
+  getArchivedUseCase: GetArchivedTransactionsUseCase,
+  subscriptionModule?: SubscriptionModule,
+  userModule?: UserModule
 ): Router {
   const router = Router();
+
+  // Create increment middleware if subscription modules are available
+  const incrementTransactionMiddleware = subscriptionModule && userModule
+    ? createIncrementUsageMiddleware(subscriptionModule, userModule, 'transactions')
+    : null;
 
   router.get('/analytics', async (req, res) => {
     try {
@@ -144,11 +154,16 @@ export function createTransactionRouter(
     }
   });
 
-  router.post('/', async (req, res) => {
+  // Build middleware chain for POST - add increment middleware if available
+  const postMiddlewares = incrementTransactionMiddleware
+    ? [incrementTransactionMiddleware]
+    : [];
+
+  router.post('/', ...postMiddlewares, async (req, res) => {
     try {
       // Validate input using our new validation system
       const validationResult = TransactionValidator.validate(req.body);
-      
+
       if (!validationResult.success) {
         // Return validation errors in standardized format
         const validationError = ErrorFactory.validation(
@@ -159,11 +174,11 @@ export function createTransactionRouter(
 
       const transaction = validationResult.data;
       const createdId = await createUseCase.execute(transaction);
-      
+
       handleControllerSuccess(
-        { id: createdId, transaction }, 
-        res, 
-        201, 
+        { id: createdId, transaction },
+        res,
+        201,
         SUCCESS_MESSAGES.TRANSACTION_CREATED
       );
     } catch (error) {

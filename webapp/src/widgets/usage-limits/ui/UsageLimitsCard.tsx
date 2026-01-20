@@ -3,6 +3,8 @@ import { Button } from '@/shared/ui/button';
 import { Skeleton } from '@/shared/ui/skeleton';
 import { useSubscription, UsageBar } from '@/entities/subscription';
 import { useUserStore } from '@/entities/user/model/store';
+import { PremiumStatusCard } from './PremiumStatusCard';
+import { CreditCard, Mic, Wallet } from 'lucide-react';
 
 // Bot username from environment variable
 const BOT_USERNAME = import.meta.env.VITE_TG_BOT_USERNAME || 'FinanceTrackerAppBot';
@@ -10,7 +12,7 @@ const BOT_USERNAME = import.meta.env.VITE_TG_BOT_USERNAME || 'FinanceTrackerAppB
 /**
  * Usage limits card widget
  * Shows current usage vs limits for free users
- * Hidden for premium users
+ * Shows premium status card for premium users
  */
 export function UsageLimitsCard() {
   const userId = useUserStore((state) => state.userId);
@@ -19,7 +21,7 @@ export function UsageLimitsCard() {
   // Loading state
   if (isLoading) {
     return (
-      <Card>
+      <Card className="rounded-3xl">
         <CardHeader className="pb-2">
           <Skeleton className="h-5 w-24" />
         </CardHeader>
@@ -32,9 +34,9 @@ export function UsageLimitsCard() {
     );
   }
 
-  // Don't show for premium users
+  // Show premium status card for premium users
   if (subscription?.isPremium) {
-    return null;
+    return <PremiumStatusCard subscription={subscription} />;
   }
 
   // Handle upgrade button click - open Telegram bot
@@ -44,36 +46,54 @@ export function UsageLimitsCard() {
 
   const limits = subscription?.limits;
 
+  // Defensive rendering: if limits is undefined, show loading message
+  if (!limits) {
+    return (
+      <Card className="rounded-3xl">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base font-medium">Лимиты</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Загрузка информации о лимитах...
+          </p>
+          <Button
+            onClick={handleUpgrade}
+            variant="outline"
+            className="w-full"
+            size="sm"
+          >
+            Снять лимиты
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
-    <Card>
+    <Card className="rounded-3xl">
       <CardHeader className="pb-2">
-        <CardTitle className="text-base font-medium">
-          Лимиты
-        </CardTitle>
+        <CardTitle className="text-base font-medium">Лимиты</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        {limits && (
-          <>
-            <UsageBar
-              label="Транзакции"
-              icon="💳"
-              used={limits.transactions.used}
-              limit={limits.transactions.limit}
-            />
-            <UsageBar
-              label="Голосовые"
-              icon="🎤"
-              used={limits.voiceInputs.used}
-              limit={limits.voiceInputs.limit}
-            />
-            <UsageBar
-              label="Активные долги"
-              icon="💰"
-              used={limits.activeDebts.used}
-              limit={limits.activeDebts.limit}
-            />
-          </>
-        )}
+        <UsageBar
+          label="Транзакции"
+          icon={<CreditCard className="w-3.5 h-3.5" />}
+          used={limits.transactions.used}
+          limit={limits.transactions.limit}
+        />
+        <UsageBar
+          label="Голосовые"
+          icon={<Mic className="w-3.5 h-3.5" />}
+          used={limits.voiceInputs.used}
+          limit={limits.voiceInputs.limit}
+        />
+        <UsageBar
+          label="Активные долги"
+          icon={<Wallet className="w-3.5 h-3.5" />}
+          used={limits.activeDebts.used}
+          limit={limits.activeDebts.limit}
+        />
 
         <Button
           onClick={handleUpgrade}
