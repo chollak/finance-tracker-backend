@@ -21,7 +21,6 @@ export * from './tabs';
 
 // Custom components
 export * from './autocomplete-input';
-export * from './theme-toggle';
 export * from './empty-state';
 
 // Navigation components
