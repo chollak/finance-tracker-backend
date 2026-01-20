@@ -1,5 +1,6 @@
 import { BalanceCard } from '@/widgets/balance-card';
 import { QuickStats } from '@/widgets/quick-stats';
+import { UsageLimitsCard } from '@/widgets/usage-limits';
 import { RecentTransactions } from '@/widgets/recent-transactions';
 import { BudgetOverview } from '@/widgets/budget-overview';
 import { Button } from '@/shared/ui/button';
@@ -42,6 +43,11 @@ export function HomePage() {
         {/* Quick Stats - Grid */}
         <div className="animate-fade-in-up stagger-1">
           <QuickStats />
+        </div>
+
+        {/* Usage Limits - Only for Free users */}
+        <div className="animate-fade-in-up stagger-1">
+          <UsageLimitsCard />
         </div>
 
         {/* Two Column Layout on Desktop */}

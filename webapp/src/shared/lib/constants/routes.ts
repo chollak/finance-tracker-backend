@@ -103,4 +103,9 @@ export const API_ENDPOINTS = {
     DELETE_PAYMENT: (paymentId: string) => `/debts/payments/${paymentId}`,
     SUMMARY: (userId: string) => `/debts/user/${userId}/summary`,
   },
+
+  // Subscription
+  SUBSCRIPTION: {
+    STATUS: (userId: string) => `/subscription/${userId}`,
+  },
 } as const;

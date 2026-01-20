@@ -4,6 +4,8 @@ import { ROUTES } from '@/shared/lib/constants/routes';
 import { ThemeToggle } from './theme-toggle';
 import { SyncButton } from '@/features/sync';
 import { TelegramLoginButton } from '@/features/auth';
+import { useSubscription, PremiumBadge } from '@/entities/subscription';
+import { useUserStore } from '@/entities/user/model/store';
 
 const navItems = [
   { href: ROUTES.HOME, label: 'Главная' },
@@ -19,6 +21,8 @@ const navItems = [
  */
 export function TopNav() {
   const location = useLocation();
+  const userId = useUserStore((state) => state.userId);
+  const { data: subscription, isLoading } = useSubscription(userId);
 
   return (
     <header className="sticky top-0 z-50 hidden border-b bg-background dark:bg-card dark:border-border md:block">
@@ -50,6 +54,8 @@ export function TopNav() {
 
         {/* Actions */}
         <div className="flex items-center gap-2">
+          {/* Premium Badge */}
+          <PremiumBadge subscription={subscription} isLoading={isLoading} />
           {/* Sync Button - for Telegram users */}
           <SyncButton showLabel />
           {/* Login Button - for guest users */}
