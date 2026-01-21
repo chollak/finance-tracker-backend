@@ -42,6 +42,18 @@ const CATEGORY_COLORS: Record<string, string> = {
   freelance: 'bg-green-100 text-green-600',
   investment: 'bg-green-100 text-green-600',
   gift: 'bg-green-100 text-green-600',
+  refund: 'bg-green-100 text-green-600',
+  bonus: 'bg-green-100 text-green-600',
+  'other-income': 'bg-green-100 text-green-600',
+
+  // Subscriptions - Violet
+  subscriptions: 'bg-violet-100 text-violet-600',
+
+  // Gifts (expense) - Rose
+  'gifts-expense': 'bg-rose-100 text-rose-600',
+
+  // Debt - Amber
+  debt: 'bg-amber-100 text-amber-600',
 
   // Other - Gray
   other: 'bg-gray-100 text-gray-600',

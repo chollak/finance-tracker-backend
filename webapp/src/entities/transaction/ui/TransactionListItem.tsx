@@ -45,7 +45,7 @@ export function TransactionListItem({
       onClick={onClick}
     >
       {/* Category Icon */}
-      <div className="flex-shrink-0 w-10 h-10 rounded-full bg-muted flex items-center justify-center">
+      <div className={`flex-shrink-0 w-10 h-10 rounded-full ${transaction._categoryColor || 'bg-muted text-muted-foreground'} flex items-center justify-center`}>
         <span className="text-lg">{transaction._categoryIcon}</span>
       </div>
 
@@ -70,7 +70,7 @@ export function TransactionListItem({
 
       {/* Amount & Time */}
       <div className="flex-shrink-0 text-right">
-        <p className={`font-semibold ${transaction._amountColor}`}>
+        <p className={`font-semibold ${transaction._amountColor || 'text-foreground'}`}>
           {transaction._formattedAmount}
         </p>
         <p className="text-xs text-muted-foreground">{time}</p>

@@ -1,4 +1,4 @@
-import { createBrowserRouter, Outlet } from 'react-router-dom';
+import { createBrowserRouter, Outlet, ScrollRestoration } from 'react-router-dom';
 import { lazy, Suspense } from 'react';
 import { Loading } from '@/shared/ui/loading';
 import { Layout } from '@/shared/ui/layout';
@@ -25,6 +25,7 @@ function PageLoader({ children }: { children: React.ReactNode }) {
 function LayoutWrapper() {
   return (
     <Layout>
+      <ScrollRestoration />
       <Outlet />
     </Layout>
   );
