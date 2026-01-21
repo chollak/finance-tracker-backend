@@ -7,6 +7,7 @@ import { BudgetService } from '../../../../modules/budget/application/budgetServ
 import { SubscriptionModule } from '../../../../modules/subscription/subscriptionModule';
 import { UserModule } from '../../../../modules/user/userModule';
 import { createRequirePremiumMiddleware } from '../middleware/subscriptionMiddleware';
+import { createUserResolutionMiddleware } from '../middleware/userResolutionMiddleware';
 
 export function createDashboardRouter(
   analyticsService: AnalyticsService,
@@ -19,27 +20,32 @@ export function createDashboardRouter(
   // Initialize services
   const dashboardService = new DashboardService(analyticsService, budgetService);
   const alertService = new AlertService(budgetService, analyticsService);
-  const controller = new DashboardController(dashboardService, alertService, userModule);
+  const controller = new DashboardController(dashboardService, alertService);
+
+  // User resolution middleware (resolves telegramId to UUID)
+  const resolveUser = userModule
+    ? createUserResolutionMiddleware(userModule)
+    : (_req: any, _res: any, next: any) => next();
 
   // Premium middleware (only if subscription module is available)
   const requirePremium = subscriptionModule && userModule
     ? createRequirePremiumMiddleware(subscriptionModule, userModule)
-    : (_req: any, _res: any, next: any) => next(); // No-op if no subscription module
+    : (_req: any, _res: any, next: any) => next();
 
   // Dashboard insights endpoints - PREMIUM ONLY
-  router.get('/insights/:userId', requirePremium, controller.getDashboardInsights);
-  router.get('/insights/:userId/weekly', requirePremium, controller.getWeeklyInsights);
-  router.get('/insights/:userId/health-score', requirePremium, controller.getFinancialHealthScore);
+  router.get('/insights/:userId', resolveUser, requirePremium, controller.getDashboardInsights);
+  router.get('/insights/:userId/weekly', resolveUser, requirePremium, controller.getWeeklyInsights);
+  router.get('/insights/:userId/health-score', resolveUser, requirePremium, controller.getFinancialHealthScore);
 
   // Alert endpoints - FREE (alerts help users)
-  router.get('/alerts/:userId', controller.getAlerts);
-  router.get('/alerts/:userId/summary', controller.getAlertSummary);
+  router.get('/alerts/:userId', resolveUser, controller.getAlerts);
+  router.get('/alerts/:userId/summary', resolveUser, controller.getAlertSummary);
 
   // Combined dashboard endpoint - FREE (basic overview)
-  router.get('/:userId', controller.getCompleteDashboard);
+  router.get('/:userId', resolveUser, controller.getCompleteDashboard);
 
   // Quick stats for widgets - FREE
-  router.get('/:userId/quick-stats', controller.getQuickStats);
+  router.get('/:userId/quick-stats', resolveUser, controller.getQuickStats);
 
   return router;
 }

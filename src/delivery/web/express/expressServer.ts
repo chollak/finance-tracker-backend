@@ -21,6 +21,7 @@ import {
   corsHeaders,
   securityHeaders
 } from './middleware/errorMiddleware';
+import { createUserResolutionMiddleware } from './middleware/userResolutionMiddleware';
 import { AppConfig } from '../../../shared/infrastructure/config/appConfig';
 
 export function buildServer(
@@ -41,6 +42,10 @@ export function buildServer(
   router.use(express.json({ limit: '10mb' }));
   router.use(express.urlencoded({ extended: true, limit: '10mb' }));
   router.use(cors<Request>());
+
+  // Note: User resolution middleware is applied at route level, not globally.
+  // This ensures req.params is available when middleware runs.
+  // Each router receives userModule and applies middleware to routes with :userId param.
 
   // Health check endpoint for Docker health monitoring
   router.get('/health', (_req, res) => {
@@ -85,7 +90,7 @@ export function buildServer(
 
   router.use(
     '/budgets',
-    createBudgetRouter(budgetModule)
+    createBudgetRouter(budgetModule, userModule)
   );
 
   router.use(
@@ -116,7 +121,7 @@ export function buildServer(
     );
   }
 
-  // Subscription routes (optional - only if subscriptionModule and userModule are provided)
+  // Subscription routes (optional - only if both modules are provided)
   if (subscriptionModule && userModule) {
     router.use(
       '/subscription',

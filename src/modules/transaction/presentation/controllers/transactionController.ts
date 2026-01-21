@@ -20,7 +20,7 @@ import { SUCCESS_MESSAGES } from '../../../../shared/domain/constants/messages';
 import { SubscriptionModule } from '../../../subscription/subscriptionModule';
 import { UserModule } from '../../../user/userModule';
 import { createIncrementUsageMiddleware } from '../../../../delivery/web/express/middleware/subscriptionMiddleware';
-import { resolveUserIdToUUID } from '../../../../shared/application/helpers/userIdResolver';
+import { createUserResolutionMiddleware } from '../../../../delivery/web/express/middleware/userResolutionMiddleware';
 
 export function createTransactionRouter(
   createUseCase: CreateTransactionUseCase,
@@ -40,6 +40,11 @@ export function createTransactionRouter(
   userModule?: UserModule
 ): Router {
   const router = Router();
+
+  // User resolution middleware (resolves telegramId to UUID)
+  const resolveUser = userModule
+    ? createUserResolutionMiddleware(userModule)
+    : (_req: any, _res: any, next: any) => next();
 
   // Create increment middleware if subscription modules are available
   const incrementTransactionMiddleware = subscriptionModule && userModule
@@ -62,15 +67,11 @@ export function createTransactionRouter(
   });
 
   // Enhanced analytics endpoints with time filtering
-  router.get('/analytics/summary/:userId', async (req, res) => {
+  router.get('/analytics/summary/:userId', resolveUser, async (req, res) => {
     try {
-      let userId = req.params.userId;
+      // Use resolved UUID from middleware (falls back to raw param if not resolved)
+      const userId = req.resolvedUser?.id || req.params.userId;
       const { startDate, endDate } = req.query;
-
-      // Resolve telegramId to UUID if userModule is available
-      if (userModule) {
-        userId = await resolveUserIdToUUID(userId, userModule);
-      }
 
       let timeRange = undefined;
       if (startDate && endDate) {
@@ -87,15 +88,11 @@ export function createTransactionRouter(
     }
   });
 
-  router.get('/analytics/categories/:userId', async (req, res) => {
+  router.get('/analytics/categories/:userId', resolveUser, async (req, res) => {
     try {
-      let userId = req.params.userId;
+      // Use resolved UUID from middleware
+      const userId = req.resolvedUser?.id || req.params.userId;
       const { startDate, endDate } = req.query;
-
-      // Resolve telegramId to UUID if userModule is available
-      if (userModule) {
-        userId = await resolveUserIdToUUID(userId, userModule);
-      }
 
       let timeRange = undefined;
       if (startDate && endDate) {
@@ -112,15 +109,11 @@ export function createTransactionRouter(
     }
   });
 
-  router.get('/analytics/trends/:userId', async (req, res) => {
+  router.get('/analytics/trends/:userId', resolveUser, async (req, res) => {
     try {
-      let userId = req.params.userId;
+      // Use resolved UUID from middleware
+      const userId = req.resolvedUser?.id || req.params.userId;
       const months = req.query.months ? parseInt(req.query.months as string) : 12;
-
-      // Resolve telegramId to UUID if userModule is available
-      if (userModule) {
-        userId = await resolveUserIdToUUID(userId, userModule);
-      }
 
       const trends = await analyticsService.getMonthlyTrends(userId, months);
       handleControllerSuccess(trends, res);
@@ -129,15 +122,11 @@ export function createTransactionRouter(
     }
   });
 
-  router.get('/analytics/patterns/:userId', async (req, res) => {
+  router.get('/analytics/patterns/:userId', resolveUser, async (req, res) => {
     try {
-      let userId = req.params.userId;
+      // Use resolved UUID from middleware
+      const userId = req.resolvedUser?.id || req.params.userId;
       const { startDate, endDate } = req.query;
-
-      // Resolve telegramId to UUID if userModule is available
-      if (userModule) {
-        userId = await resolveUserIdToUUID(userId, userModule);
-      }
 
       let timeRange = undefined;
       if (startDate && endDate) {
@@ -154,15 +143,11 @@ export function createTransactionRouter(
     }
   });
 
-  router.get('/analytics/top-categories/:userId', async (req, res) => {
+  router.get('/analytics/top-categories/:userId', resolveUser, async (req, res) => {
     try {
-      let userId = req.params.userId;
+      // Use resolved UUID from middleware
+      const userId = req.resolvedUser?.id || req.params.userId;
       const { startDate, endDate, limit } = req.query;
-
-      // Resolve telegramId to UUID if userModule is available
-      if (userModule) {
-        userId = await resolveUserIdToUUID(userId, userModule);
-      }
 
       let timeRange = undefined;
       if (startDate && endDate) {
@@ -187,9 +172,9 @@ export function createTransactionRouter(
 
   router.post('/', ...postMiddlewares, async (req, res) => {
     try {
-      // Resolve telegramId to UUID if userModule is available
-      if (userModule && req.body.userId) {
-        req.body.userId = await resolveUserIdToUUID(req.body.userId, userModule);
+      // Use resolved UUID from middleware (for body.userId)
+      if (req.resolvedUser?.id && req.body.userId) {
+        req.body.userId = req.resolvedUser.id;
       }
 
       // Validate input using our new validation system
@@ -226,18 +211,14 @@ export function createTransactionRouter(
     }
   });
 
-  router.get('/user/:userId', async (req, res) => {
+  router.get('/user/:userId', resolveUser, async (req, res) => {
     try {
-      let userId = getStringParam(req, 'userId');
+      // Use resolved UUID from middleware
+      const userId = req.resolvedUser?.id || getStringParam(req, 'userId');
 
       if (!userId) {
         const error = ErrorFactory.validation('User ID is required');
         return handleControllerError(error, res);
-      }
-
-      // Resolve telegramId to UUID if userModule is available
-      if (userModule) {
-        userId = await resolveUserIdToUUID(userId, userModule);
       }
 
       const transactions = await getUserUseCase.execute(userId);
@@ -408,18 +389,14 @@ export function createTransactionRouter(
     }
   });
 
-  router.post('/archive/all/:userId', async (req, res) => {
+  router.post('/archive/all/:userId', resolveUser, async (req, res) => {
     try {
-      let userId = getStringParam(req, 'userId');
+      // Use resolved UUID from middleware
+      const userId = req.resolvedUser?.id || getStringParam(req, 'userId');
 
       if (!userId) {
         const error = ErrorFactory.validation('User ID is required');
         return handleControllerError(error, res);
-      }
-
-      // Resolve telegramId to UUID if userModule is available
-      if (userModule) {
-        userId = await resolveUserIdToUUID(userId, userModule);
       }
 
       const result = await archiveAllByUserUseCase.execute(userId);
@@ -429,19 +406,15 @@ export function createTransactionRouter(
     }
   });
 
-  router.get('/archived/user/:userId', async (req, res) => {
+  router.get('/archived/user/:userId', resolveUser, async (req, res) => {
     try {
-      let userId = getStringParam(req, 'userId');
+      // Use resolved UUID from middleware
+      const userId = req.resolvedUser?.id || getStringParam(req, 'userId');
       const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
 
       if (!userId) {
         const error = ErrorFactory.validation('User ID is required');
         return handleControllerError(error, res);
-      }
-
-      // Resolve telegramId to UUID if userModule is available
-      if (userModule) {
-        userId = await resolveUserIdToUUID(userId, userModule);
       }
 
       const transactions = await getArchivedUseCase.execute(userId, limit);

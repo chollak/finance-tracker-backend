@@ -4,6 +4,11 @@ import { CreateBudgetData, UpdateBudgetData, BudgetPeriod } from '../domain/budg
 import { handleControllerError, handleControllerSuccess } from '../../../shared/infrastructure/utils/controllerHelpers';
 import { ResultHelper } from '../../../shared/domain/types/Result';
 
+/**
+ * BudgetController
+ * Note: userId resolution (telegramId → UUID) is handled by userResolutionMiddleware.
+ * All methods use req.resolvedUser.id (always UUID) or fallback to req.params.userId.
+ */
 export class BudgetController {
   private budgetModule: BudgetModule;
 
@@ -14,7 +19,8 @@ export class BudgetController {
   createBudget = async (req: Request, res: Response) => {
     try {
       const { name, amount, period, startDate, endDate, categoryIds, description } = req.body;
-      const { userId } = req.params;
+      // Use resolved UUID from middleware, fallback to raw param
+      const userId = req.resolvedUser?.id || req.params.userId;
 
       if (!userId) {
         return handleControllerError(new Error('User ID is required'), res);
@@ -28,7 +34,7 @@ export class BudgetController {
         endDate,
         categoryIds,
         description,
-        userId: userId // Now directly using telegramId
+        userId // Always UUID after middleware resolution
       };
 
       const result = await this.budgetModule.createBudgetUseCase.execute(budgetData);
@@ -45,7 +51,8 @@ export class BudgetController {
 
   getBudgets = async (req: Request, res: Response) => {
     try {
-      const { userId } = req.params;
+      // Use resolved UUID from middleware, fallback to raw param
+      const userId = req.resolvedUser?.id || req.params.userId;
       const { active } = req.query;
 
       if (!userId) {
@@ -88,7 +95,8 @@ export class BudgetController {
 
   getBudgetSummaries = async (req: Request, res: Response) => {
     try {
-      const { userId } = req.params;
+      // Use resolved UUID from middleware, fallback to raw param
+      const userId = req.resolvedUser?.id || req.params.userId;
 
       if (!userId) {
         return handleControllerError(new Error('User ID is required'), res);
@@ -161,7 +169,8 @@ export class BudgetController {
 
   getBudgetAlerts = async (req: Request, res: Response) => {
     try {
-      const { userId } = req.params;
+      // Use resolved UUID from middleware, fallback to raw param
+      const userId = req.resolvedUser?.id || req.params.userId;
       const { threshold } = req.query;
 
       if (!userId) {

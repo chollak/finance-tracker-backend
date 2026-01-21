@@ -2,41 +2,24 @@ import { Request, Response } from 'express';
 import { DebtModule } from '../../debtModule';
 import { CreateDebtData, UpdateDebtData, DebtType, DebtStatus } from '../../domain/debtEntity';
 import { handleControllerError, handleControllerSuccess } from '../../../../shared/infrastructure/utils/controllerHelpers';
-import { UserModule } from '../../../user/userModule';
-import { resolveUserIdToUUID, isGuestUser } from '../../../../shared/application/helpers/userIdResolver';
 
 export class DebtController {
-  constructor(
-    private debtModule: DebtModule,
-    private userModule?: UserModule
-  ) {}
-
-  /**
-   * Resolve userId (telegramId or UUID) to UUID
-   */
-  private async resolveUserId(userId: string): Promise<string> {
-    if (!this.userModule || isGuestUser(userId)) {
-      return userId;
-    }
-    return resolveUserIdToUUID(userId, this.userModule);
-  }
+  constructor(private debtModule: DebtModule) {}
 
   // ==================== DEBT CRUD ====================
 
   createDebt = async (req: Request, res: Response) => {
     try {
-      const { userId } = req.params;
+      // Use resolved UUID from middleware
+      const userId = req.resolvedUser?.id || req.params.userId;
       const { type, personName, amount, currency, description, dueDate, moneyTransferred } = req.body;
 
       if (!userId) {
         return handleControllerError(new Error('User ID is required'), res);
       }
 
-      // Resolve telegramId to UUID
-      const resolvedUserId = await this.resolveUserId(userId);
-
       const data: CreateDebtData = {
-        userId: resolvedUserId,
+        userId,
         type: type as DebtType,
         personName,
         amount: parseFloat(amount),
@@ -60,26 +43,24 @@ export class DebtController {
 
   getDebts = async (req: Request, res: Response) => {
     try {
-      const { userId } = req.params;
+      // Use resolved UUID from middleware
+      const userId = req.resolvedUser?.id || req.params.userId;
       const { status, type } = req.query;
 
       if (!userId) {
         return handleControllerError(new Error('User ID is required'), res);
       }
 
-      // Resolve telegramId to UUID
-      const resolvedUserId = await this.resolveUserId(userId);
-
       let result;
 
       if (type) {
         result = await this.debtModule.getDebtsUseCase.executeGetByType(
-          resolvedUserId,
+          userId,
           type as DebtType
         );
       } else {
         result = await this.debtModule.getDebtsUseCase.executeGetAll(
-          resolvedUserId,
+          userId,
           status as DebtStatus | undefined
         );
       }
@@ -260,16 +241,14 @@ export class DebtController {
 
   getSummary = async (req: Request, res: Response) => {
     try {
-      const { userId } = req.params;
+      // Use resolved UUID from middleware
+      const userId = req.resolvedUser?.id || req.params.userId;
 
       if (!userId) {
         return handleControllerError(new Error('User ID is required'), res);
       }
 
-      // Resolve telegramId to UUID
-      const resolvedUserId = await this.resolveUserId(userId);
-
-      const result = await this.debtModule.getDebtsUseCase.executeGetSummary(resolvedUserId);
+      const result = await this.debtModule.getDebtsUseCase.executeGetSummary(userId);
 
       if (!result.success) {
         return handleControllerError(result.error, res);

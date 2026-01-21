@@ -5,16 +5,12 @@
 
 import { Request, Response } from 'express';
 import { SubscriptionModule } from '../subscriptionModule';
-import { UserModule } from '../../user/userModule';
 import { FREE_TIER_LIMITS, getCurrentMonthPeriod } from '../domain/usageLimit';
 import { SubscriptionStatus } from '../application/getSubscription';
 import { handleControllerSuccess, handleControllerError } from '../../../shared/infrastructure/utils/controllerHelpers';
 
 export class SubscriptionController {
-  constructor(
-    private subscriptionModule: SubscriptionModule,
-    private userModule: UserModule
-  ) {}
+  constructor(private subscriptionModule: SubscriptionModule) {}
 
   /**
    * Check if userId is a guest user (webapp anonymous user)
@@ -66,24 +62,15 @@ export class SubscriptionController {
   }
 
   /**
-   * Resolve telegram_id to UUID
-   */
-  private async resolveUserId(telegramId: string): Promise<string> {
-    const user = await this.userModule.getGetOrCreateUserUseCase().execute({
-      telegramId,
-    });
-    return user.id;
-  }
-
-  /**
    * GET /api/subscription/:userId
    * Get subscription status for a user
-   * Note: userId param can be telegram_id, will be resolved to UUID
+   * Note: userId is resolved to UUID by middleware
    * Guest users (starting with "guest_") get default free tier response
    */
   async getSubscriptionStatus(req: Request, res: Response): Promise<void> {
     try {
-      const { userId } = req.params;
+      // Use resolved UUID from middleware, fallback to raw param
+      const userId = req.resolvedUser?.id || req.params.userId;
 
       if (!userId) {
         res.status(400).json({ error: 'userId is required' });
@@ -91,17 +78,14 @@ export class SubscriptionController {
       }
 
       // Guest users get default free tier response
-      if (this.isGuestUser(userId)) {
+      if (req.resolvedUser?.isGuest || this.isGuestUser(userId)) {
         handleControllerSuccess(this.createGuestUserResponse(userId), res);
         return;
       }
 
-      // Resolve telegram_id to UUID
-      const userUUID = await this.resolveUserId(userId);
-
       const status = await this.subscriptionModule
         .getGetSubscriptionUseCase()
-        .execute(userUUID);
+        .execute(userId);
 
       handleControllerSuccess(status, res);
     } catch (error) {
@@ -115,7 +99,9 @@ export class SubscriptionController {
    */
   async checkLimit(req: Request, res: Response): Promise<void> {
     try {
-      const { userId, limitType } = req.body;
+      const { limitType } = req.body;
+      // Use resolved UUID from middleware, fallback to body.userId
+      const userId = req.resolvedUser?.id || req.body.userId;
 
       if (!userId || !limitType) {
         res.status(400).json({ error: 'userId and limitType are required' });
@@ -130,12 +116,9 @@ export class SubscriptionController {
         return;
       }
 
-      // Resolve telegramId to UUID (skip guest users)
-      const resolvedUserId = this.isGuestUser(userId) ? userId : await this.resolveUserId(userId);
-
       const result = await this.subscriptionModule
         .getCheckLimitUseCase()
-        .execute({ userId: resolvedUserId, limitType });
+        .execute({ userId, limitType });
 
       res.json(result);
     } catch (error) {
@@ -150,20 +133,19 @@ export class SubscriptionController {
    */
   async grantPremium(req: Request, res: Response): Promise<void> {
     try {
-      const { userId, grantedBy, grantNote, isLifetime, durationDays } = req.body;
+      const { grantedBy, grantNote, isLifetime, durationDays } = req.body;
+      // Use resolved UUID from middleware, fallback to body.userId
+      const userId = req.resolvedUser?.id || req.body.userId;
 
       if (!userId || !grantedBy) {
         res.status(400).json({ error: 'userId and grantedBy are required' });
         return;
       }
 
-      // Resolve telegramId to UUID (skip guest users)
-      const resolvedUserId = this.isGuestUser(userId) ? userId : await this.resolveUserId(userId);
-
       const subscription = await this.subscriptionModule
         .getGrantPremiumUseCase()
         .execute({
-          userId: resolvedUserId,
+          userId,
           grantedBy,
           grantNote,
           isLifetime: isLifetime || false,
@@ -183,19 +165,18 @@ export class SubscriptionController {
    */
   async cancelSubscription(req: Request, res: Response): Promise<void> {
     try {
-      const { userId, reason } = req.body;
+      const { reason } = req.body;
+      // Use resolved UUID from middleware, fallback to body.userId
+      const userId = req.resolvedUser?.id || req.body.userId;
 
       if (!userId) {
         res.status(400).json({ error: 'userId is required' });
         return;
       }
 
-      // Resolve telegramId to UUID (skip guest users)
-      const resolvedUserId = this.isGuestUser(userId) ? userId : await this.resolveUserId(userId);
-
       const result = await this.subscriptionModule
         .getCancelSubscriptionUseCase()
-        .execute({ userId: resolvedUserId, reason });
+        .execute({ userId, reason });
 
       res.json(result);
     } catch (error) {
@@ -210,19 +191,17 @@ export class SubscriptionController {
    */
   async startTrial(req: Request, res: Response): Promise<void> {
     try {
-      const { userId } = req.body;
+      // Use resolved UUID from middleware, fallback to body.userId
+      const userId = req.resolvedUser?.id || req.body.userId;
 
       if (!userId) {
         res.status(400).json({ error: 'userId is required' });
         return;
       }
 
-      // Resolve telegramId to UUID (skip guest users)
-      const resolvedUserId = this.isGuestUser(userId) ? userId : await this.resolveUserId(userId);
-
       const subscription = await this.subscriptionModule
         .getStartTrialUseCase()
-        .execute({ userId: resolvedUserId });
+        .execute({ userId });
 
       if (!subscription) {
         res.json({
