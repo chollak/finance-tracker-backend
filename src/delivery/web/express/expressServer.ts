@@ -90,7 +90,7 @@ export function buildServer(
 
   router.use(
     '/debts',
-    createDebtRouter(debtModule)
+    createDebtRouter(debtModule, userModule)
   );
 
   router.use(

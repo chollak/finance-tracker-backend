@@ -1,10 +1,11 @@
 import { Router } from 'express';
 import { DebtController } from './debtController';
 import { DebtModule } from '../../debtModule';
+import { UserModule } from '../../../user/userModule';
 
-export function createDebtRouter(debtModule: DebtModule): Router {
+export function createDebtRouter(debtModule: DebtModule, userModule?: UserModule): Router {
   const router = Router();
-  const controller = new DebtController(debtModule);
+  const controller = new DebtController(debtModule, userModule);
 
   // ==================== USER-SCOPED ROUTES ====================
   // Debts for a specific user (consistent with /transactions/user/:userId pattern)
