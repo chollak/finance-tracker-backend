@@ -7,6 +7,7 @@ import { Request, Response, NextFunction } from 'express';
 import { SubscriptionModule } from '../../../../modules/subscription/subscriptionModule';
 import { UserModule } from '../../../../modules/user/userModule';
 import { LimitType } from '../../../../modules/subscription/domain/usageLimit';
+import { resolveUserIdToUUID, isGuestUser } from '../../../../shared/application/helpers/userIdResolver';
 
 // Extend Express Request to include user and subscription info
 declare global {
@@ -37,16 +38,19 @@ function getUserIdFromRequest(req: Request): string | undefined {
 
 /**
  * Helper to resolve telegram_id to UUID
+ * Uses shared resolveUserIdToUUID which properly handles UUIDs
  */
 async function resolveUserUUID(
-  telegramId: string,
+  userId: string,
   userModule: UserModule
 ): Promise<string | null> {
   try {
-    const user = await userModule.getGetOrCreateUserUseCase().execute({
-      telegramId,
-    });
-    return user.id;
+    // Skip guest users
+    if (isGuestUser(userId)) {
+      return null;
+    }
+    // Use shared resolver which checks isUUID first
+    return await resolveUserIdToUUID(userId, userModule);
   } catch (error) {
     console.error('Failed to resolve user UUID:', error);
     return null;
