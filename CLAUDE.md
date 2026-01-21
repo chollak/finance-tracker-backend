@@ -41,6 +41,9 @@ Required environment variables in `.env` file:
 **For Supabase (when DATABASE_TYPE=supabase):**
 - `SUPABASE_URL` - Supabase project URL
 - `SUPABASE_ANON_KEY` - Supabase anonymous key
+- **Supabase Project ID:** `cttsquvkvkwtxsfrgsrs` (for MCP tools and dashboard access)
+- **Test User telegramId:** `597843119` (Konan) - use for testing on Supabase, safe to modify/delete data
+- **Production Domain:** `https://sapaev.uz`
 
 **Legacy Notion support (deprecated):**
 - `NOTION_API_KEY` - For database operations
