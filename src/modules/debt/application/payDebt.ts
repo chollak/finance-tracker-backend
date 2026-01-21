@@ -5,6 +5,7 @@ import { ValidationError, BusinessLogicError, NotFoundError } from '../../../sha
 import { CreateTransactionUseCase } from '../../transaction/application/createTransaction';
 import { SubscriptionModule } from '../../subscription/subscriptionModule';
 import { UserModule } from '../../user/userModule';
+import { isUUID } from '../../../shared/application/helpers/userIdResolver';
 
 // Debt-related category for transactions
 const DEBT_CATEGORY = 'debt';
@@ -145,19 +146,32 @@ export class PayDebtUseCase {
   }
 
   /**
+   * Resolve userId to UUID - handles both telegramId and UUID inputs
+   */
+  private async resolveToUUID(userIdOrTelegramId: string): Promise<string> {
+    // If already UUID, return as-is
+    if (isUUID(userIdOrTelegramId)) {
+      return userIdOrTelegramId;
+    }
+
+    // Otherwise resolve telegramId to UUID
+    const user = await this.userModule!.getGetOrCreateUserUseCase().execute({
+      telegramId: userIdOrTelegramId,
+    });
+    return user.id;
+  }
+
+  /**
    * Update active debts count in usage_limits after debt status change
    */
-  private async updateActiveDebtsCount(telegramId: string): Promise<void> {
+  private async updateActiveDebtsCount(userIdOrTelegramId: string): Promise<void> {
     if (!this.subscriptionModule || !this.userModule) {
       return;
     }
 
     try {
-      // Resolve telegram_id to UUID
-      const user = await this.userModule.getGetOrCreateUserUseCase().execute({
-        telegramId,
-      });
-      const userId = user.id;
+      // Resolve to UUID (handles both telegramId and UUID)
+      const userId = await this.resolveToUUID(userIdOrTelegramId);
 
       // Get actual count of active debts
       const activeDebts = await this.debtRepository.getByUserId(userId, DebtStatus.ACTIVE);

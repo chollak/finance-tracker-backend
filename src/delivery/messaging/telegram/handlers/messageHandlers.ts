@@ -15,9 +15,9 @@ import { SubscriptionModule } from '../../../../modules/subscription/subscriptio
 import { UserModule } from '../../../../modules/user/userModule';
 import {
   createTelegramCheckLimitMiddleware,
-  createTelegramIncrementUsageMiddleware,
 } from '../middleware/subscriptionMiddleware';
 import { resolveUserIdToUUID } from '../../../../shared/application/helpers/userIdResolver';
+import { LimitType } from '../../../../modules/subscription/domain/usageLimit';
 
 const CONFIDENCE_THRESHOLD = 0.6;
 
@@ -46,6 +46,23 @@ export function clearLastTransactionId(userId: string): void {
 }
 
 /**
+ * Helper to increment usage counter (fire and forget)
+ */
+async function incrementUsage(
+  subscriptionModule: SubscriptionModule | undefined,
+  userId: string,
+  limitType: LimitType
+): Promise<void> {
+  if (!subscriptionModule) return;
+
+  try {
+    await subscriptionModule.getIncrementUsageUseCase().execute({ userId, limitType });
+  } catch (error) {
+    console.error(`Failed to increment ${limitType} usage:`, error);
+  }
+}
+
+/**
  * Register message handlers with subscription limit checks
  */
 export function registerMessageHandlers(
@@ -53,18 +70,13 @@ export function registerMessageHandlers(
   subscriptionModule?: SubscriptionModule,
   userModule?: UserModule
 ) {
-  // Create handlers with userModule closure for userId resolution
-  const textHandler = createTextMessageHandler(userModule);
-  const voiceHandler = createVoiceMessageHandler(userModule);
+  // Create handlers with subscriptionModule for direct increment after success
+  const textHandler = createTextMessageHandler(userModule, subscriptionModule);
+  const voiceHandler = createVoiceMessageHandler(userModule, subscriptionModule);
 
   // If subscription module is provided, apply limit checking middleware
   if (subscriptionModule && userModule) {
     const checkTransactionLimit = createTelegramCheckLimitMiddleware(
-      subscriptionModule,
-      userModule,
-      'transactions'
-    );
-    const incrementTransactionUsage = createTelegramIncrementUsageMiddleware(
       subscriptionModule,
       userModule,
       'transactions'
@@ -74,27 +86,21 @@ export function registerMessageHandlers(
       userModule,
       'voice_inputs'
     );
-    const incrementVoiceUsage = createTelegramIncrementUsageMiddleware(
-      subscriptionModule,
-      userModule,
-      'voice_inputs'
-    );
 
     // Text message handler with limit check
-    // Composer.compose chains middleware: check limit -> handle -> increment usage
+    // Note: Increment happens inside handler after successful processing
     bot.on(
       message('text'),
       checkTransactionLimit,
-      textHandler,
-      incrementTransactionUsage
+      textHandler
     );
 
     // Voice message handler with limit check
+    // Note: Increment happens inside handler after successful processing
     bot.on(
       message('voice'),
       checkVoiceLimit,
-      voiceHandler,
-      incrementVoiceUsage
+      voiceHandler
     );
   } else {
     // Fallback without subscription checks
@@ -106,7 +112,7 @@ export function registerMessageHandlers(
 /**
  * Create text message handler with userModule for userId resolution
  */
-function createTextMessageHandler(userModule?: UserModule) {
+function createTextMessageHandler(userModule?: UserModule, subscriptionModule?: SubscriptionModule) {
   return async function handleTextMessage(ctx: BotContext) {
     const text = ctx.message && 'text' in ctx.message ? ctx.message.text : '';
 
@@ -129,7 +135,7 @@ function createTextMessageHandler(userModule?: UserModule) {
     try {
       // Handle Quick Add - awaiting amount after category selection
       if (ctx.session?.pendingAction?.type === 'awaiting_amount') {
-        await handleQuickAddAmount(ctx, text, userId, userName);
+        await handleQuickAddAmount(ctx, text, userId, userName, subscriptionModule);
         return;
       }
 
@@ -163,6 +169,12 @@ function createTextMessageHandler(userModule?: UserModule) {
           await sendDebtResponse(ctx, debt, false);
         }
       }
+
+      // Increment transactions usage after successful processing (fire and forget)
+      if (result.transactions.length > 0) {
+        // Increment once per message, not per transaction
+        incrementUsage(subscriptionModule, userId, 'transactions').catch(() => {});
+      }
     } catch (error) {
       console.error('Text message error:', {
         error: error instanceof Error ? error.message : error,
@@ -182,7 +194,7 @@ function createTextMessageHandler(userModule?: UserModule) {
 /**
  * Create voice message handler with userModule for userId resolution
  */
-function createVoiceMessageHandler(userModule?: UserModule) {
+function createVoiceMessageHandler(userModule?: UserModule, subscriptionModule?: SubscriptionModule) {
   return async function handleVoiceMessage(ctx: BotContext) {
     const telegramId = String(ctx.from?.id ?? 'unknown');
     const userName = `${ctx.from?.first_name || ''} ${ctx.from?.last_name || ''}`.trim() || 'User';
@@ -244,6 +256,14 @@ function createVoiceMessageHandler(userModule?: UserModule) {
         for (const debt of result.debts) {
           await sendDebtResponse(ctx, debt, true);
         }
+      }
+
+      // Increment voice_inputs usage after successful processing (fire and forget)
+      incrementUsage(subscriptionModule, userId, 'voice_inputs').catch(() => {});
+
+      // Also increment transactions if any were created
+      if (result.transactions.length > 0) {
+        incrementUsage(subscriptionModule, userId, 'transactions').catch(() => {});
       }
     } catch (error) {
       console.error('Voice message error:', {
@@ -343,7 +363,8 @@ async function handleQuickAddAmount(
   ctx: BotContext,
   text: string,
   userId: string,
-  userName: string
+  userName: string,
+  subscriptionModule?: SubscriptionModule
 ) {
   const category = ctx.session.pendingAction?.type === 'awaiting_amount'
     ? ctx.session.pendingAction.category
@@ -411,6 +432,9 @@ async function handleQuickAddAmount(
       false,
       summary
     );
+
+    // Increment transactions usage after successful creation (fire and forget)
+    incrementUsage(subscriptionModule, userId, 'transactions').catch(() => {});
   } catch (error) {
     console.error('Quick add error:', error);
     if (error instanceof AppError) {
