@@ -9,6 +9,7 @@ export {
   ALL_CATEGORIES,
   getCategoryById,
   getCategoriesByType,
+  getCategoryName,
 } from './model/categories';
 
 // Lib

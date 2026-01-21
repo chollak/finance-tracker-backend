@@ -270,6 +270,7 @@ export function QuickAddForm({
                       <Input
                         placeholder="Описание (авто-заполнится если пусто)"
                         {...field}
+                        value={field.value || ''}
                       />
                     </FormControl>
                     <FormMessage />

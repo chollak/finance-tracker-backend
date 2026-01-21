@@ -18,9 +18,11 @@ import { UserModule } from '../user/userModule';
 
 export class TransactionModule {
   private deleteTransactionUseCase: DeleteTransactionUseCase;
+  private createTransactionUseCase: CreateTransactionUseCase;
 
   constructor(private repository: TransactionRepository) {
     this.deleteTransactionUseCase = new DeleteTransactionUseCase(repository);
+    this.createTransactionUseCase = new CreateTransactionUseCase(repository);
   }
 
   static create(): TransactionModule {
@@ -40,10 +42,14 @@ export class TransactionModule {
       subscriptionModule,
       userModule
     );
+    this.createTransactionUseCase.setSubscriptionDependencies(
+      subscriptionModule,
+      userModule
+    );
   }
 
   getCreateTransactionUseCase(): CreateTransactionUseCase {
-    return new CreateTransactionUseCase(this.repository);
+    return this.createTransactionUseCase;
   }
 
   getGetTransactionsUseCase(): GetTransactionsUseCase {

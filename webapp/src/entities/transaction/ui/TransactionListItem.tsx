@@ -32,7 +32,10 @@ export function TransactionListItem({
 }: TransactionListItemProps) {
   const isLongDescription = transaction.description && transaction.description.length > 40;
   const isClickable = !!onClick;
-  const time = format(parseISO(transaction.date), 'HH:mm');
+  // Use createdAt for actual time, fallback to date (which shows 00:00 for date-only)
+  const time = transaction.createdAt
+    ? format(parseISO(transaction.createdAt), 'HH:mm')
+    : format(parseISO(transaction.date), 'HH:mm');
 
   return (
     <div

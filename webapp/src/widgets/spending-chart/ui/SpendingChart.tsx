@@ -10,7 +10,7 @@ import {
 import { useCategoryBreakdown } from '@/entities/transaction';
 import { useUserStore } from '@/entities/user/model/store';
 import { PieChart, Pie, Cell } from 'recharts';
-import { getCategoryIcon } from '@/entities/category';
+import { getCategoryIcon, getCategoryName } from '@/entities/category';
 import { useMemo } from 'react';
 
 /**
@@ -57,7 +57,7 @@ export function SpendingChart() {
 
     return categories.reduce((config, cat, index) => {
       config[cat.category] = {
-        label: cat.category,
+        label: getCategoryName(cat.category),
         color: CHART_COLORS[index % CHART_COLORS.length],
       };
       return config;
@@ -77,7 +77,7 @@ export function SpendingChart() {
       const visualValue = (visualPercent / 100) * totalValue;
 
       return {
-        name: cat.category,
+        name: getCategoryName(cat.category),
         value: visualValue,
         actualValue: cat.total,
         percentage: actualPercent,
@@ -199,7 +199,7 @@ export function SpendingChart() {
 
                     {/* Category name with percentage */}
                     <div className="flex-1 min-w-0 flex items-center gap-2">
-                      <span className="text-sm font-medium truncate">{cat.category}</span>
+                      <span className="text-sm font-medium truncate">{getCategoryName(cat.category)}</span>
                       <span className="text-xs text-muted-foreground flex-shrink-0">
                         {cat.percentage.toFixed(1)}%
                       </span>

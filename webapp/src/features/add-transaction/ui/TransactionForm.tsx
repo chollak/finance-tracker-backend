@@ -42,6 +42,10 @@ export function TransactionForm({ onSubmit, isLoading, defaultValues }: Transact
     defaultValues: {
       type: 'expense',
       date: format(new Date(), 'yyyy-MM-dd'),
+      amount: undefined,
+      category: '',
+      description: '',
+      merchant: '',
       ...defaultValues,
     },
   });
@@ -59,7 +63,7 @@ export function TransactionForm({ onSubmit, isLoading, defaultValues }: Transact
           render={({ field }) => (
             <FormItem>
               <FormLabel>Тип транзакции</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
+              <Select onValueChange={field.onChange} value={field.value || ''}>
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder="Выберите тип" />
@@ -87,7 +91,8 @@ export function TransactionForm({ onSubmit, isLoading, defaultValues }: Transact
                   type="number"
                   placeholder="50000"
                   {...field}
-                  onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                  value={field.value ?? ''}
+                  onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)}
                 />
               </FormControl>
               <FormDescription>Введите сумму в узбекских сумах</FormDescription>
@@ -103,7 +108,7 @@ export function TransactionForm({ onSubmit, isLoading, defaultValues }: Transact
           render={({ field }) => (
             <FormItem>
               <FormLabel>Категория</FormLabel>
-              <Select onValueChange={field.onChange} value={field.value}>
+              <Select onValueChange={field.onChange} value={field.value || ''}>
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder="Выберите категорию" />
@@ -130,7 +135,7 @@ export function TransactionForm({ onSubmit, isLoading, defaultValues }: Transact
             <FormItem>
               <FormLabel>Описание</FormLabel>
               <FormControl>
-                <Input placeholder="Обед в ресторане" {...field} />
+                <Input placeholder="Обед в ресторане" {...field} value={field.value || ''} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -185,7 +190,7 @@ export function TransactionForm({ onSubmit, isLoading, defaultValues }: Transact
             <FormItem>
               <FormLabel>Место (необязательно)</FormLabel>
               <FormControl>
-                <Input placeholder="Название магазина или заведения" {...field} />
+                <Input placeholder="Название магазина или заведения" {...field} value={field.value || ''} />
               </FormControl>
               <FormMessage />
             </FormItem>

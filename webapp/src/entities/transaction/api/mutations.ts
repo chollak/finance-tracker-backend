@@ -56,20 +56,22 @@ export function useCreateTransaction() {
 /**
  * Hook to update an existing transaction
  * Optimized: Updates item in cache + targeted invalidation
+ * Accepts userId parameter for reliable cache targeting
  */
 export function useUpdateTransaction() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: UpdateTransactionDTO }) => {
+    mutationFn: async ({ id, data }: { id: string; userId: string; data: UpdateTransactionDTO }) => {
       const response = await apiClient.put<Transaction>(
         API_ENDPOINTS.TRANSACTIONS.UPDATE(id),
         data
       );
       return response.data;
     },
-    onSuccess: (updatedTransaction) => {
-      const userId = updatedTransaction.userId;
+    onSuccess: (updatedTransaction, variables) => {
+      // Use userId from variables for reliable cache key targeting
+      const userId = variables.userId;
 
       // 1. Update transaction in list cache (NO HTTP request)
       queryClient.setQueryData<TransactionViewModel[]>(

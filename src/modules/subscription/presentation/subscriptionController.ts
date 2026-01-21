@@ -122,8 +122,11 @@ export class SubscriptionController {
         return;
       }
 
-      if (!['transactions', 'voice_inputs', 'debts'].includes(limitType)) {
-        res.status(400).json({ error: 'Invalid limitType' });
+      const validLimitTypes = ['transactions', 'voice_inputs', 'debts'];
+      if (!validLimitTypes.includes(limitType)) {
+        res.status(400).json({
+          error: `Invalid limitType: "${limitType}". Valid values are: ${validLimitTypes.join(', ')}`,
+        });
         return;
       }
 

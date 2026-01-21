@@ -17,6 +17,7 @@ import {
   createTelegramCheckLimitMiddleware,
   createTelegramIncrementUsageMiddleware,
 } from '../middleware/subscriptionMiddleware';
+import { resolveUserIdToUUID } from '../../../../shared/application/helpers/userIdResolver';
 
 const CONFIDENCE_THRESHOLD = 0.6;
 
@@ -52,6 +53,10 @@ export function registerMessageHandlers(
   subscriptionModule?: SubscriptionModule,
   userModule?: UserModule
 ) {
+  // Create handlers with userModule closure for userId resolution
+  const textHandler = createTextMessageHandler(userModule);
+  const voiceHandler = createVoiceMessageHandler(userModule);
+
   // If subscription module is provided, apply limit checking middleware
   if (subscriptionModule && userModule) {
     const checkTransactionLimit = createTelegramCheckLimitMiddleware(
@@ -80,7 +85,7 @@ export function registerMessageHandlers(
     bot.on(
       message('text'),
       checkTransactionLimit,
-      handleTextMessage,
+      textHandler,
       incrementTransactionUsage
     );
 
@@ -88,153 +93,177 @@ export function registerMessageHandlers(
     bot.on(
       message('voice'),
       checkVoiceLimit,
-      handleVoiceMessage,
+      voiceHandler,
       incrementVoiceUsage
     );
   } else {
     // Fallback without subscription checks
-    bot.on(message('text'), handleTextMessage);
-    bot.on(message('voice'), handleVoiceMessage);
+    bot.on(message('text'), textHandler);
+    bot.on(message('voice'), voiceHandler);
   }
 }
 
 /**
- * Handle text messages - parse and create transactions
+ * Create text message handler with userModule for userId resolution
  */
-async function handleTextMessage(ctx: BotContext) {
-  const text = ctx.message && 'text' in ctx.message ? ctx.message.text : '';
+function createTextMessageHandler(userModule?: UserModule) {
+  return async function handleTextMessage(ctx: BotContext) {
+    const text = ctx.message && 'text' in ctx.message ? ctx.message.text : '';
 
-  // Skip commands
-  if (text.startsWith('/')) return;
+    // Skip commands
+    if (text.startsWith('/')) return;
 
-  const userId = String(ctx.from?.id ?? 'unknown');
-  const userName = `${ctx.from?.first_name || ''} ${ctx.from?.last_name || ''}`.trim() || 'User';
+    const telegramId = String(ctx.from?.id ?? 'unknown');
+    const userName = `${ctx.from?.first_name || ''} ${ctx.from?.last_name || ''}`.trim() || 'User';
 
-  try {
-    // Handle Quick Add - awaiting amount after category selection
-    if (ctx.session?.pendingAction?.type === 'awaiting_amount') {
-      await handleQuickAddAmount(ctx, text, userId, userName);
-      return;
-    }
-
-    if (!text || text.trim().length === 0) {
-      await ctx.reply(RU.errors.emptyMessage);
-      return;
-    }
-
-    const { voiceModule, transactionModule } = ctx.modules;
-
-    // Process text input
-    const result = await voiceModule.getProcessTextInputUseCase().execute(text, userId, userName);
-
-    if (result.transactions.length === 0 && (!result.debts || result.debts.length === 0)) {
-      await ctx.reply(RU.transaction.noTransactions);
-      return;
-    }
-
-    // Get summary for context
-    const summary = await getTodaySummary(transactionModule, userId);
-
-    // Process each transaction
-    for (const tx of result.transactions) {
-      setLastTransactionId(userId, tx.id);
-      await sendTransactionResponse(ctx, tx as ProcessedTransaction, result.text, userId, false, summary);
-    }
-
-    // Process each debt
-    if (result.debts && result.debts.length > 0) {
-      for (const debt of result.debts) {
-        await sendDebtResponse(ctx, debt, false);
+    // Resolve telegramId to UUID if userModule is available
+    let userId = telegramId;
+    if (userModule) {
+      try {
+        userId = await resolveUserIdToUUID(telegramId, userModule);
+      } catch (error) {
+        console.error('Failed to resolve userId in text handler:', error);
       }
     }
-  } catch (error) {
-    console.error('Text message error:', {
-      error: error instanceof Error ? error.message : error,
-      userId,
-      text: text.substring(0, 50),
-    });
 
-    if (error instanceof AppError) {
-      await ctx.reply(`❌ ${error.message}`);
-    } else {
-      await ctx.reply(RU.errors.generic);
+    try {
+      // Handle Quick Add - awaiting amount after category selection
+      if (ctx.session?.pendingAction?.type === 'awaiting_amount') {
+        await handleQuickAddAmount(ctx, text, userId, userName);
+        return;
+      }
+
+      if (!text || text.trim().length === 0) {
+        await ctx.reply(RU.errors.emptyMessage);
+        return;
+      }
+
+      const { voiceModule, transactionModule } = ctx.modules;
+
+      // Process text input
+      const result = await voiceModule.getProcessTextInputUseCase().execute(text, userId, userName);
+
+      if (result.transactions.length === 0 && (!result.debts || result.debts.length === 0)) {
+        await ctx.reply(RU.transaction.noTransactions);
+        return;
+      }
+
+      // Get summary for context
+      const summary = await getTodaySummary(transactionModule, userId);
+
+      // Process each transaction
+      for (const tx of result.transactions) {
+        setLastTransactionId(userId, tx.id);
+        await sendTransactionResponse(ctx, tx as ProcessedTransaction, result.text, userId, false, summary);
+      }
+
+      // Process each debt
+      if (result.debts && result.debts.length > 0) {
+        for (const debt of result.debts) {
+          await sendDebtResponse(ctx, debt, false);
+        }
+      }
+    } catch (error) {
+      console.error('Text message error:', {
+        error: error instanceof Error ? error.message : error,
+        userId,
+        text: text.substring(0, 50),
+      });
+
+      if (error instanceof AppError) {
+        await ctx.reply(`❌ ${error.message}`);
+      } else {
+        await ctx.reply(RU.errors.generic);
+      }
     }
-  }
+  };
 }
 
 /**
- * Handle voice messages - transcribe and create transactions
+ * Create voice message handler with userModule for userId resolution
  */
-async function handleVoiceMessage(ctx: BotContext) {
-  const userId = String(ctx.from?.id ?? 'unknown');
-  const userName = `${ctx.from?.first_name || ''} ${ctx.from?.last_name || ''}`.trim() || 'User';
-  let filePath: string | undefined;
+function createVoiceMessageHandler(userModule?: UserModule) {
+  return async function handleVoiceMessage(ctx: BotContext) {
+    const telegramId = String(ctx.from?.id ?? 'unknown');
+    const userName = `${ctx.from?.first_name || ''} ${ctx.from?.last_name || ''}`.trim() || 'User';
+    let filePath: string | undefined;
 
-  const voice = ctx.message && 'voice' in ctx.message ? ctx.message.voice : null;
-  if (!voice) {
-    await ctx.reply(RU.errors.voiceProcessing);
-    return;
-  }
-
-  try {
-    // Get file link from Telegram
-    const fileLink = await ctx.telegram.getFileLink(voice.file_id);
-
-    if (!fileLink?.href) {
-      await ctx.reply(`🎤 ${RU.errors.voiceProcessing}`);
-      return;
-    }
-
-    // Download voice file
-    filePath = await downloadVoiceFile(fileLink.href, voice.file_id);
-
-    const { voiceModule, transactionModule } = ctx.modules;
-
-    // Process voice input
-    const result = await voiceModule.getProcessVoiceInputUseCase().execute({
-      filePath,
-      userId,
-      userName,
-    });
-
-    if (result.transactions.length === 0 && (!result.debts || result.debts.length === 0)) {
-      await ctx.reply(`🎤 ${RU.transaction.noTransactions}`);
-      return;
-    }
-
-    // Get summary for context
-    const summary = await getTodaySummary(transactionModule, userId);
-
-    // Process each transaction
-    for (const tx of result.transactions) {
-      setLastTransactionId(userId, tx.id);
-      await sendTransactionResponse(ctx, tx as ProcessedTransaction, result.text, userId, true, summary);
-    }
-
-    // Process each debt
-    if (result.debts && result.debts.length > 0) {
-      for (const debt of result.debts) {
-        await sendDebtResponse(ctx, debt, true);
+    // Resolve telegramId to UUID if userModule is available
+    let userId = telegramId;
+    if (userModule) {
+      try {
+        userId = await resolveUserIdToUUID(telegramId, userModule);
+      } catch (error) {
+        console.error('Failed to resolve userId in voice handler:', error);
       }
     }
-  } catch (error) {
-    console.error('Voice message error:', {
-      error: error instanceof Error ? error.message : error,
-      userId,
-      fileId: voice.file_id,
-    });
 
-    if (error instanceof AppError) {
-      await ctx.reply(`🎤❌ ${error.message}`);
-    } else {
-      await ctx.reply(`🎤 ${RU.errors.voiceProcessing}`);
+    const voice = ctx.message && 'voice' in ctx.message ? ctx.message.voice : null;
+    if (!voice) {
+      await ctx.reply(RU.errors.voiceProcessing);
+      return;
     }
-  } finally {
-    // Clean up downloaded file
-    if (filePath) {
-      await cleanupFile(filePath);
+
+    try {
+      // Get file link from Telegram
+      const fileLink = await ctx.telegram.getFileLink(voice.file_id);
+
+      if (!fileLink?.href) {
+        await ctx.reply(`🎤 ${RU.errors.voiceProcessing}`);
+        return;
+      }
+
+      // Download voice file
+      filePath = await downloadVoiceFile(fileLink.href, voice.file_id);
+
+      const { voiceModule, transactionModule } = ctx.modules;
+
+      // Process voice input
+      const result = await voiceModule.getProcessVoiceInputUseCase().execute({
+        filePath,
+        userId,
+        userName,
+      });
+
+      if (result.transactions.length === 0 && (!result.debts || result.debts.length === 0)) {
+        await ctx.reply(`🎤 ${RU.transaction.noTransactions}`);
+        return;
+      }
+
+      // Get summary for context
+      const summary = await getTodaySummary(transactionModule, userId);
+
+      // Process each transaction
+      for (const tx of result.transactions) {
+        setLastTransactionId(userId, tx.id);
+        await sendTransactionResponse(ctx, tx as ProcessedTransaction, result.text, userId, true, summary);
+      }
+
+      // Process each debt
+      if (result.debts && result.debts.length > 0) {
+        for (const debt of result.debts) {
+          await sendDebtResponse(ctx, debt, true);
+        }
+      }
+    } catch (error) {
+      console.error('Voice message error:', {
+        error: error instanceof Error ? error.message : error,
+        userId,
+        fileId: voice.file_id,
+      });
+
+      if (error instanceof AppError) {
+        await ctx.reply(`🎤❌ ${error.message}`);
+      } else {
+        await ctx.reply(`🎤 ${RU.errors.voiceProcessing}`);
+      }
+    } finally {
+      // Clean up downloaded file
+      if (filePath) {
+        await cleanupFile(filePath);
+      }
     }
-  }
+  };
 }
 
 /**

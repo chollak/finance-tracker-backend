@@ -76,7 +76,7 @@ This project follows **Clean Architecture** principles with clear separation bet
 
 ### Module System
 
-The application is organized into **7 main modules** created in `src/appModules.ts`:
+The application is organized into **8 main modules** created in `src/appModules.ts`:
 
 1. **TransactionModule** - CRUD operations for transactions + analytics
 2. **BudgetModule** - Budget management (depends on TransactionModule)
@@ -85,6 +85,7 @@ The application is organized into **7 main modules** created in `src/appModules.
 5. **OpenAIUsageModule** - OpenAI API usage monitoring
 6. **DashboardModule** - Aggregates insights from other modules
 7. **SubscriptionModule** - Premium subscriptions with Telegram Stars payments
+8. **UserModule** - User management (telegramId → UUID resolution)
 
 ### Module Dependencies
 

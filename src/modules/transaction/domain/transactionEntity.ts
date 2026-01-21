@@ -7,6 +7,8 @@ export interface Transaction {
     type: 'income' | 'expense';  // Тип транзакции
     userId: string;
     userName?: string;
+    // Timestamps
+    createdAt?: string; // ISO datetime string for time display
     // Enhanced fields for learning
     merchant?: string;
     confidence?: number;

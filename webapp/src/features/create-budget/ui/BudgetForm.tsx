@@ -43,10 +43,13 @@ export function BudgetForm({ onSubmit, isLoading, defaultValues, submitButtonTex
   const form = useForm<CreateBudgetFormData>({
     resolver: zodResolver(createBudgetSchema),
     defaultValues: {
+      name: '',
+      amount: undefined,
       period: BudgetPeriod.MONTHLY,
       startDate: format(new Date(), 'yyyy-MM-dd'),
       endDate: format(addMonths(new Date(), 1), 'yyyy-MM-dd'),
       categoryIds: [],
+      description: '',
       ...defaultValues,
     },
   });
@@ -92,7 +95,7 @@ export function BudgetForm({ onSubmit, isLoading, defaultValues, submitButtonTex
             <FormItem>
               <FormLabel>Название бюджета</FormLabel>
               <FormControl>
-                <Input placeholder="Продукты" {...field} />
+                <Input placeholder="Продукты" {...field} value={field.value || ''} />
               </FormControl>
               <FormDescription>Краткое название для бюджета</FormDescription>
               <FormMessage />
@@ -112,7 +115,8 @@ export function BudgetForm({ onSubmit, isLoading, defaultValues, submitButtonTex
                   type="number"
                   placeholder="1000000"
                   {...field}
-                  onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                  value={field.value ?? ''}
+                  onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)}
                 />
               </FormControl>
               <FormDescription>Максимальная сумма для этого бюджета</FormDescription>
@@ -128,7 +132,7 @@ export function BudgetForm({ onSubmit, isLoading, defaultValues, submitButtonTex
           render={({ field }) => (
             <FormItem>
               <FormLabel>Период</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
+              <Select onValueChange={field.onChange} value={field.value || ''}>
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder="Выберите период" />
@@ -159,7 +163,7 @@ export function BudgetForm({ onSubmit, isLoading, defaultValues, submitButtonTex
               <FormControl>
                 <div className="flex flex-wrap gap-2 pt-2">
                   {EXPENSE_CATEGORIES.map((category) => {
-                    const isSelected = field.value?.includes(category.name) ?? false;
+                    const isSelected = field.value?.includes(category.id) ?? false;
                     return (
                       <button
                         key={category.id}
@@ -167,9 +171,9 @@ export function BudgetForm({ onSubmit, isLoading, defaultValues, submitButtonTex
                         onClick={() => {
                           const current = field.value ?? [];
                           if (isSelected) {
-                            field.onChange(current.filter((c) => c !== category.name));
+                            field.onChange(current.filter((c) => c !== category.id));
                           } else {
-                            field.onChange([...current, category.name]);
+                            field.onChange([...current, category.id]);
                           }
                         }}
                         className={cn(
@@ -245,7 +249,7 @@ export function BudgetForm({ onSubmit, isLoading, defaultValues, submitButtonTex
             <FormItem>
               <FormLabel>Описание (необязательно)</FormLabel>
               <FormControl>
-                <Input placeholder="Дополнительная информация о бюджете" {...field} />
+                <Input placeholder="Дополнительная информация о бюджете" {...field} value={field.value || ''} />
               </FormControl>
               <FormMessage />
             </FormItem>

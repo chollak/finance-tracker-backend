@@ -17,11 +17,12 @@ export function EditTransaction() {
   const updateTransaction = useUpdateTransaction();
 
   const handleSubmit = async (data: AddTransactionFormData) => {
-    if (!id) return;
+    if (!id || !transaction?.userId) return;
 
     try {
       await updateTransaction.mutateAsync({
         id,
+        userId: transaction.userId,
         data: {
           amount: data.amount,
           category: data.category,

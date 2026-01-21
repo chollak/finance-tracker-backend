@@ -163,7 +163,8 @@ export class SupabaseTransactionRepository implements TransactionRepository {
       originalParsing: row.original_parsing ? JSON.parse(row.original_parsing) : undefined,
       category: row.category || 'Другое',
       userName: undefined, // We'll get this from User entity later if needed
-      isArchived: row.is_archived ?? false
+      isArchived: row.is_archived ?? false,
+      createdAt: row.created_at
     };
   }
 

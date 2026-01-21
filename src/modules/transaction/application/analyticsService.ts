@@ -203,6 +203,11 @@ export class AnalyticsService {
         let totalExpense = 0;
 
         for (const transaction of transactions) {
+            // Skip debt-related transactions from balance calculation
+            if (transaction.isDebtRelated) {
+                continue;
+            }
+
             if (transaction.type === "income") {
                 totalIncome += transaction.amount;
             } else if (transaction.type === "expense") {

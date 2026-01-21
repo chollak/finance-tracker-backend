@@ -164,12 +164,14 @@ curl -X POST http://localhost:3000/api/transactions \
   -d '{
     "amount": 500,
     "type": "expense",
-    "category": "Продукты",
+    "category": "groceries",
     "description": "Хлеб",
-    "date": "2026-01-09",
     "userId": "test-user"
   }'
 ```
+
+> **Note:** `date` is optional and defaults to today. `category` uses English IDs (e.g., "food", "transport", "groceries", "utilities").
+> See `src/shared/domain/entities/Category.ts` for full list.
 
 ---
 

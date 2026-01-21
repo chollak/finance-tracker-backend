@@ -78,7 +78,8 @@ export function buildServer(
     '/voice',
     createVoiceProcessingRouter(
       voiceModule.getProcessVoiceInputUseCase(),
-      voiceModule.getProcessTextInputUseCase()
+      voiceModule.getProcessTextInputUseCase(),
+      userModule
     )
   );
 

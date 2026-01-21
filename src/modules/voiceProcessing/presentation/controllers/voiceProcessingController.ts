@@ -5,10 +5,13 @@ import { ProcessTextInputUseCase } from '../../application/processTextInput';
 import { handleControllerError, handleControllerSuccess } from '../../../../shared/infrastructure/utils/controllerHelpers';
 import { ErrorFactory, AppError } from '../../../../shared/domain/errors/AppError';
 import { SUCCESS_MESSAGES, ERROR_MESSAGES } from '../../../../shared/domain/constants/messages';
+import { UserModule } from '../../../user/userModule';
+import { resolveUserIdToUUID } from '../../../../shared/application/helpers/userIdResolver';
 
 export function createVoiceProcessingRouter(
   voiceUseCase: ProcessVoiceInputUseCase,
-  textUseCase: ProcessTextInputUseCase
+  textUseCase: ProcessTextInputUseCase,
+  userModule?: UserModule
 ): Router {
   const router = Router();
   const upload = multer({ dest: 'uploads/' });
@@ -32,10 +35,16 @@ export function createVoiceProcessingRouter(
         return handleControllerError(error, res);
       }
 
+      // Resolve telegramId to UUID if userModule is available
+      let userId = req.body.userId;
+      if (userModule) {
+        userId = await resolveUserIdToUUID(userId, userModule);
+      }
+
       // Process voice input
       const result = await voiceUseCase.execute({
         filePath: req.file.path,
-        userId: req.body.userId,
+        userId,
         userName: req.body.userName || 'Unknown User',
       });
 
@@ -65,8 +74,13 @@ export function createVoiceProcessingRouter(
       }
 
       // Default userId if not provided (for backward compatibility)
-      const userId = req.body.userId || '1';
+      let userId = req.body.userId || '1';
       const userName = req.body.userName || 'Unknown User';
+
+      // Resolve telegramId to UUID if userModule is available
+      if (userModule) {
+        userId = await resolveUserIdToUUID(userId, userModule);
+      }
 
       // Process text input
       const result = await textUseCase.execute(req.body.text.trim(), userId, userName);

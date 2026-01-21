@@ -116,7 +116,8 @@ export class SqliteTransactionRepository implements TransactionRepository {
       originalParsing: entity.originalParsing ? JSON.parse(entity.originalParsing) : undefined,
       category: entity.category || 'Другое',
       userName: undefined, // We'll get this from User entity later
-      isArchived: entity.isArchived ?? false
+      isArchived: entity.isArchived ?? false,
+      createdAt: entity.createdAt?.toISOString()
     };
   }
 

@@ -88,7 +88,11 @@ export class CreateDebtUseCase {
     }
 
     if (!data.type || !Object.values(DebtType).includes(data.type)) {
-      return { isValid: false, error: 'Invalid debt type' };
+      const validTypes = Object.values(DebtType).join(', ');
+      return {
+        isValid: false,
+        error: `Invalid debt type: "${data.type}". Valid types are: ${validTypes}`,
+      };
     }
 
     return { isValid: true };

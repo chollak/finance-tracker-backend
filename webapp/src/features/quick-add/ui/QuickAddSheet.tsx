@@ -39,8 +39,14 @@ export function QuickAddSheet({
     }
 
     try {
+      // Combine selected date with current time for proper timestamp
+      const selectedDate = new Date(data.date);
+      const now = new Date();
+      selectedDate.setHours(now.getHours(), now.getMinutes(), now.getSeconds());
+
       await createTransaction.mutateAsync({
         ...data,
+        date: selectedDate.toISOString(), // Full ISO string with time
         description: data.description || data.category, // Fallback to category name
         userId,
         userName: userName || undefined,
@@ -61,6 +67,7 @@ export function QuickAddSheet({
       <SheetContent
         side="bottom"
         className="h-[85vh] rounded-t-3xl pb-safe"
+        aria-describedby={undefined}
       >
         <SheetHeader className="pb-4">
           <SheetTitle className="text-center">Быстрое добавление</SheetTitle>
@@ -106,8 +113,14 @@ export function ControlledQuickAddSheet({
     }
 
     try {
+      // Combine selected date with current time for proper timestamp
+      const selectedDate = new Date(data.date);
+      const now = new Date();
+      selectedDate.setHours(now.getHours(), now.getMinutes(), now.getSeconds());
+
       await createTransaction.mutateAsync({
         ...data,
+        date: selectedDate.toISOString(), // Full ISO string with time
         description: data.description || data.category,
         userId,
         userName: userName || undefined,
@@ -127,6 +140,7 @@ export function ControlledQuickAddSheet({
       <SheetContent
         side="bottom"
         className="h-[85vh] rounded-t-3xl pb-safe"
+        aria-describedby={undefined}
       >
         <SheetHeader className="pb-4">
           <SheetTitle className="text-center">Быстрое добавление</SheetTitle>

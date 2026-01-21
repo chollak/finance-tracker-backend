@@ -10,10 +10,13 @@ import { getCategoryIcon, getCategoryColor } from '../../category/lib';
 export function transactionToViewModel(transaction: Transaction): TransactionViewModel {
   const isIncome = transaction.type === 'income';
 
+  // Use createdAt for formatted date (includes time), fallback to date
+  const dateForFormatting = transaction.createdAt || transaction.date;
+
   return {
     ...transaction,
     _formattedAmount: formatTransactionAmount(transaction.amount, transaction.type),
-    _formattedDate: formatTransactionDate(transaction.date),
+    _formattedDate: formatTransactionDate(dateForFormatting),
     _categoryIcon: getCategoryIcon(transaction.category),
     _categoryColor: getCategoryColor(transaction.category),
     _amountColor: isIncome ? 'text-income' : 'text-expense',
