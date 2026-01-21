@@ -9,6 +9,7 @@ import {
   budgetKeyboard,
   todayKeyboard
 } from '../keyboards';
+import { resolveUserIdToUUID } from '../../../../shared/application/helpers/userIdResolver';
 
 /**
  * Register all command handlers
@@ -72,8 +73,11 @@ async function handleStart(ctx: BotContext) {
  */
 async function handleToday(ctx: BotContext) {
   try {
-    const userId = String(ctx.from?.id);
-    const { transactionModule } = ctx.modules;
+    const telegramId = String(ctx.from?.id);
+    const { transactionModule, userModule } = ctx.modules;
+
+    // Resolve telegramId to UUID
+    const userId = await resolveUserIdToUUID(telegramId, userModule);
 
     // Get today's date range
     const today = new Date();
@@ -130,7 +134,7 @@ async function handleToday(ctx: BotContext) {
       .sort((a, b) => b.amount - a.amount);
 
     const message = formatTodayStats(summary, categories);
-    const keyboard = todayKeyboard(userId);
+    const keyboard = todayKeyboard(telegramId);
 
     await ctx.reply(message, {
       parse_mode: 'HTML',
@@ -147,8 +151,11 @@ async function handleToday(ctx: BotContext) {
  */
 async function handleStats(ctx: BotContext) {
   try {
-    const userId = String(ctx.from?.id);
-    const { transactionModule } = ctx.modules;
+    const telegramId = String(ctx.from?.id);
+    const { transactionModule, userModule } = ctx.modules;
+
+    // Resolve telegramId to UUID
+    const userId = await resolveUserIdToUUID(telegramId, userModule);
 
     // Get current month date range
     const now = new Date();
@@ -205,7 +212,7 @@ async function handleStats(ctx: BotContext) {
       .slice(0, 5);
 
     const message = formatMonthStats(summary, topCategories, now);
-    const keyboard = statsKeyboard(userId);
+    const keyboard = statsKeyboard(telegramId);
 
     await ctx.reply(message, {
       parse_mode: 'HTML',
@@ -222,14 +229,17 @@ async function handleStats(ctx: BotContext) {
  */
 async function handleBudget(ctx: BotContext) {
   try {
-    const userId = String(ctx.from?.id);
-    const { budgetModule } = ctx.modules;
+    const telegramId = String(ctx.from?.id);
+    const { budgetModule, userModule } = ctx.modules;
+
+    // Resolve telegramId to UUID
+    const userId = await resolveUserIdToUUID(telegramId, userModule);
 
     // Get budget summaries with spent calculations
     const summaries = await budgetModule.budgetService.getBudgetSummaries(userId);
 
     if (summaries.length === 0) {
-      const keyboard = budgetKeyboard(userId, false);
+      const keyboard = budgetKeyboard(telegramId, false);
       await ctx.reply(`💰 <b>${RU.commands.budget.title}</b>\n\n${RU.commands.budget.noBudgets}`, {
         parse_mode: 'HTML',
         ...(keyboard || {}),
@@ -250,7 +260,7 @@ async function handleBudget(ctx: BotContext) {
     }));
 
     const message = formatBudgetStatus(budgets);
-    const keyboard = budgetKeyboard(userId, true);
+    const keyboard = budgetKeyboard(telegramId, true);
 
     await ctx.reply(message, {
       parse_mode: 'HTML',
