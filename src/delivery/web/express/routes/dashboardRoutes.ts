@@ -19,7 +19,7 @@ export function createDashboardRouter(
   // Initialize services
   const dashboardService = new DashboardService(analyticsService, budgetService);
   const alertService = new AlertService(budgetService, analyticsService);
-  const controller = new DashboardController(dashboardService, alertService);
+  const controller = new DashboardController(dashboardService, alertService, userModule);
 
   // Premium middleware (only if subscription module is available)
   const requirePremium = subscriptionModule && userModule

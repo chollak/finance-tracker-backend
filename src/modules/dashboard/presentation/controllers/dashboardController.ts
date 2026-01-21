@@ -2,12 +2,25 @@ import { Request, Response } from 'express';
 import { DashboardService } from '../../application/services/dashboardService';
 import { AlertService, AlertType, AlertSeverity } from '../../../../shared/application/services/alertService';
 import { handleControllerError, handleControllerSuccess } from '../../../../shared/infrastructure/utils/controllerHelpers';
+import { UserModule } from '../../../user/userModule';
+import { resolveUserIdToUUID, isGuestUser } from '../../../../shared/application/helpers/userIdResolver';
 
 export class DashboardController {
   constructor(
     private dashboardService: DashboardService,
-    private alertService: AlertService
+    private alertService: AlertService,
+    private userModule?: UserModule
   ) {}
+
+  /**
+   * Resolve userId (telegramId or UUID) to UUID
+   */
+  private async resolveUserId(userId: string): Promise<string> {
+    if (!this.userModule || isGuestUser(userId)) {
+      return userId;
+    }
+    return resolveUserIdToUUID(userId, this.userModule);
+  }
 
   getDashboardInsights = async (req: Request, res: Response) => {
     try {
@@ -18,6 +31,9 @@ export class DashboardController {
         return handleControllerError(new Error('User ID is required'), res);
       }
 
+      // Resolve telegramId to UUID
+      const resolvedUserId = await this.resolveUserId(userId);
+
       let timeRange = undefined;
       if (startDate && endDate) {
         timeRange = {
@@ -26,7 +42,7 @@ export class DashboardController {
         };
       }
 
-      const insights = await this.dashboardService.getDashboardInsights(userId, timeRange);
+      const insights = await this.dashboardService.getDashboardInsights(resolvedUserId, timeRange);
       return handleControllerSuccess(insights, res, 200, 'Dashboard insights retrieved successfully');
     } catch (error) {
       return handleControllerError(error, res);
@@ -42,7 +58,10 @@ export class DashboardController {
         return handleControllerError(new Error('User ID is required'), res);
       }
 
-      const insights = await this.dashboardService.getWeeklyInsights(userId, weeks);
+      // Resolve telegramId to UUID
+      const resolvedUserId = await this.resolveUserId(userId);
+
+      const insights = await this.dashboardService.getWeeklyInsights(resolvedUserId, weeks);
       return handleControllerSuccess(insights, res, 200, 'Weekly insights retrieved successfully');
     } catch (error) {
       return handleControllerError(error, res);
@@ -57,7 +76,10 @@ export class DashboardController {
         return handleControllerError(new Error('User ID is required'), res);
       }
 
-      const healthScore = await this.dashboardService.calculateFinancialHealthScore(userId);
+      // Resolve telegramId to UUID
+      const resolvedUserId = await this.resolveUserId(userId);
+
+      const healthScore = await this.dashboardService.calculateFinancialHealthScore(resolvedUserId);
       return handleControllerSuccess(healthScore, res, 200, 'Financial health score calculated successfully');
     } catch (error) {
       return handleControllerError(error, res);
@@ -74,13 +96,16 @@ export class DashboardController {
         return handleControllerError(new Error('User ID is required'), res);
       }
 
+      // Resolve telegramId to UUID
+      const resolvedUserId = await this.resolveUserId(userId);
+
       let alerts;
       if (type && Object.values(AlertType).includes(type as AlertType)) {
-        alerts = await this.alertService.getAlertsByType(userId, type as AlertType);
+        alerts = await this.alertService.getAlertsByType(resolvedUserId, type as AlertType);
       } else if (severity && Object.values(AlertSeverity).includes(severity as AlertSeverity)) {
-        alerts = await this.alertService.getAlertsBySeverity(userId, severity as AlertSeverity);
+        alerts = await this.alertService.getAlertsBySeverity(resolvedUserId, severity as AlertSeverity);
       } else {
-        alerts = await this.alertService.getActiveAlerts(userId);
+        alerts = await this.alertService.getActiveAlerts(resolvedUserId);
       }
 
       return handleControllerSuccess(alerts, res, 200, 'Alerts retrieved successfully');
@@ -97,7 +122,10 @@ export class DashboardController {
         return handleControllerError(new Error('User ID is required'), res);
       }
 
-      const summary = await this.alertService.getAlertSummary(userId);
+      // Resolve telegramId to UUID
+      const resolvedUserId = await this.resolveUserId(userId);
+
+      const summary = await this.alertService.getAlertSummary(resolvedUserId);
       return handleControllerSuccess(summary, res, 200, 'Alert summary retrieved successfully');
     } catch (error) {
       return handleControllerError(error, res);
@@ -113,6 +141,9 @@ export class DashboardController {
       if (!userId) {
         return handleControllerError(new Error('User ID is required'), res);
       }
+
+      // Resolve telegramId to UUID
+      const resolvedUserId = await this.resolveUserId(userId);
 
       let timeRange = undefined;
       if (startDate && endDate) {
@@ -130,11 +161,11 @@ export class DashboardController {
         healthScore,
         weeklyInsights
       ] = await Promise.all([
-        this.dashboardService.getDashboardInsights(userId, timeRange),
-        this.alertService.getActiveAlerts(userId),
-        this.alertService.getAlertSummary(userId),
-        this.dashboardService.calculateFinancialHealthScore(userId),
-        this.dashboardService.getWeeklyInsights(userId, 4)
+        this.dashboardService.getDashboardInsights(resolvedUserId, timeRange),
+        this.alertService.getActiveAlerts(resolvedUserId),
+        this.alertService.getAlertSummary(resolvedUserId),
+        this.dashboardService.calculateFinancialHealthScore(resolvedUserId),
+        this.dashboardService.getWeeklyInsights(resolvedUserId, 4)
       ]);
 
       const completeDashboard = {
@@ -163,9 +194,12 @@ export class DashboardController {
         return handleControllerError(new Error('User ID is required'), res);
       }
 
+      // Resolve telegramId to UUID
+      const resolvedUserId = await this.resolveUserId(userId);
+
       const [insights, alertSummary] = await Promise.all([
-        this.dashboardService.getDashboardInsights(userId),
-        this.alertService.getAlertSummary(userId)
+        this.dashboardService.getDashboardInsights(resolvedUserId),
+        this.alertService.getAlertSummary(resolvedUserId)
       ]);
 
       const quickStats = {

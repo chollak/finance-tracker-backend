@@ -130,9 +130,12 @@ export class SubscriptionController {
         return;
       }
 
+      // Resolve telegramId to UUID (skip guest users)
+      const resolvedUserId = this.isGuestUser(userId) ? userId : await this.resolveUserId(userId);
+
       const result = await this.subscriptionModule
         .getCheckLimitUseCase()
-        .execute({ userId, limitType });
+        .execute({ userId: resolvedUserId, limitType });
 
       res.json(result);
     } catch (error) {
@@ -154,10 +157,13 @@ export class SubscriptionController {
         return;
       }
 
+      // Resolve telegramId to UUID (skip guest users)
+      const resolvedUserId = this.isGuestUser(userId) ? userId : await this.resolveUserId(userId);
+
       const subscription = await this.subscriptionModule
         .getGrantPremiumUseCase()
         .execute({
-          userId,
+          userId: resolvedUserId,
           grantedBy,
           grantNote,
           isLifetime: isLifetime || false,
@@ -184,9 +190,12 @@ export class SubscriptionController {
         return;
       }
 
+      // Resolve telegramId to UUID (skip guest users)
+      const resolvedUserId = this.isGuestUser(userId) ? userId : await this.resolveUserId(userId);
+
       const result = await this.subscriptionModule
         .getCancelSubscriptionUseCase()
-        .execute({ userId, reason });
+        .execute({ userId: resolvedUserId, reason });
 
       res.json(result);
     } catch (error) {
@@ -208,9 +217,12 @@ export class SubscriptionController {
         return;
       }
 
+      // Resolve telegramId to UUID (skip guest users)
+      const resolvedUserId = this.isGuestUser(userId) ? userId : await this.resolveUserId(userId);
+
       const subscription = await this.subscriptionModule
         .getStartTrialUseCase()
-        .execute({ userId });
+        .execute({ userId: resolvedUserId });
 
       if (!subscription) {
         res.json({
