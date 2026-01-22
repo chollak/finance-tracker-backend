@@ -8,9 +8,7 @@ import { SubscriptionModule } from '../subscriptionModule';
 import { FREE_TIER_LIMITS, getCurrentMonthPeriod } from '../domain/usageLimit';
 import { SubscriptionStatus } from '../application/getSubscription';
 import { handleControllerSuccess, handleControllerError } from '../../../shared/infrastructure/utils/controllerHelpers';
-import { createLogger, LogCategory } from '../../../shared/infrastructure/logging';
-
-const logger = createLogger(LogCategory.SUBSCRIPTION);
+import { ErrorFactory } from '../../../shared/domain/errors/AppError';
 
 export class SubscriptionController {
   constructor(private subscriptionModule: SubscriptionModule) {}
@@ -76,8 +74,7 @@ export class SubscriptionController {
       const userId = req.resolvedUser?.id || req.params.userId;
 
       if (!userId) {
-        res.status(400).json({ error: 'userId is required' });
-        return;
+        return handleControllerError(ErrorFactory.validation('userId is required'), res);
       }
 
       // Guest users get default free tier response
@@ -107,26 +104,29 @@ export class SubscriptionController {
       const userId = req.resolvedUser?.id || req.body.userId;
 
       if (!userId || !limitType) {
-        res.status(400).json({ error: 'userId and limitType are required' });
-        return;
+        return handleControllerError(
+          ErrorFactory.validation('userId and limitType are required'),
+          res
+        );
       }
 
       const validLimitTypes = ['transactions', 'voice_inputs', 'debts'];
       if (!validLimitTypes.includes(limitType)) {
-        res.status(400).json({
-          error: `Invalid limitType: "${limitType}". Valid values are: ${validLimitTypes.join(', ')}`,
-        });
-        return;
+        return handleControllerError(
+          ErrorFactory.validation(
+            `Invalid limitType: "${limitType}". Valid values are: ${validLimitTypes.join(', ')}`
+          ),
+          res
+        );
       }
 
       const result = await this.subscriptionModule
         .getCheckLimitUseCase()
         .execute({ userId, limitType });
 
-      res.json(result);
+      handleControllerSuccess(result, res);
     } catch (error) {
-      logger.error('Error checking limit', error as Error);
-      res.status(500).json({ error: 'Failed to check limit' });
+      handleControllerError(error, res);
     }
   }
 
@@ -141,8 +141,10 @@ export class SubscriptionController {
       const userId = req.resolvedUser?.id || req.body.userId;
 
       if (!userId || !grantedBy) {
-        res.status(400).json({ error: 'userId and grantedBy are required' });
-        return;
+        return handleControllerError(
+          ErrorFactory.validation('userId and grantedBy are required'),
+          res
+        );
       }
 
       const subscription = await this.subscriptionModule
@@ -155,10 +157,9 @@ export class SubscriptionController {
           durationDays,
         });
 
-      res.json({ success: true, subscription });
+      handleControllerSuccess({ subscription }, res);
     } catch (error) {
-      logger.error('Error granting premium', error as Error);
-      res.status(500).json({ error: 'Failed to grant premium' });
+      handleControllerError(error, res);
     }
   }
 
@@ -173,18 +174,16 @@ export class SubscriptionController {
       const userId = req.resolvedUser?.id || req.body.userId;
 
       if (!userId) {
-        res.status(400).json({ error: 'userId is required' });
-        return;
+        return handleControllerError(ErrorFactory.validation('userId is required'), res);
       }
 
       const result = await this.subscriptionModule
         .getCancelSubscriptionUseCase()
         .execute({ userId, reason });
 
-      res.json(result);
+      handleControllerSuccess(result, res);
     } catch (error) {
-      logger.error('Error cancelling subscription', error as Error);
-      res.status(500).json({ error: 'Failed to cancel subscription' });
+      handleControllerError(error, res);
     }
   }
 
@@ -198,8 +197,7 @@ export class SubscriptionController {
       const userId = req.resolvedUser?.id || req.body.userId;
 
       if (!userId) {
-        res.status(400).json({ error: 'userId is required' });
-        return;
+        return handleControllerError(ErrorFactory.validation('userId is required'), res);
       }
 
       const subscription = await this.subscriptionModule
@@ -207,17 +205,16 @@ export class SubscriptionController {
         .execute({ userId });
 
       if (!subscription) {
-        res.json({
-          success: false,
-          message: 'User already has subscription history, trial not available',
-        });
+        handleControllerSuccess(
+          { available: false, message: 'User already has subscription history, trial not available' },
+          res
+        );
         return;
       }
 
-      res.json({ success: true, subscription });
+      handleControllerSuccess({ available: true, subscription }, res);
     } catch (error) {
-      logger.error('Error starting trial', error as Error);
-      res.status(500).json({ error: 'Failed to start trial' });
+      handleControllerError(error, res);
     }
   }
 }
