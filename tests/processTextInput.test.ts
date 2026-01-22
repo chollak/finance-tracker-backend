@@ -21,8 +21,9 @@ describe('ProcessTextInputUseCase', () => {
       transcribe: jest.fn()
     } as unknown as TranscriptionService;
 
+    // Return Result<string> pattern
     const createTransactionUseCase = {
-      execute: jest.fn().mockResolvedValue('42')
+      execute: jest.fn().mockResolvedValue({ success: true, data: '42' })
     } as unknown as CreateTransactionUseCase;
 
     const useCase = new ProcessTextInputUseCase(openAIService, createTransactionUseCase);
@@ -58,11 +59,12 @@ describe('ProcessTextInputUseCase', () => {
       transcribe: jest.fn()
     } as unknown as TranscriptionService;
 
+    // Return Result<string> pattern
     const createTransactionUseCase = {
       execute: jest
         .fn()
-        .mockResolvedValueOnce('1')
-        .mockResolvedValueOnce('2')
+        .mockResolvedValueOnce({ success: true, data: '1' })
+        .mockResolvedValueOnce({ success: true, data: '2' })
     } as unknown as CreateTransactionUseCase;
 
     const useCase = new ProcessTextInputUseCase(openAIService, createTransactionUseCase);
@@ -95,5 +97,34 @@ describe('ProcessTextInputUseCase', () => {
       ],
       debts: []
     });
+  });
+
+  it('handles failed transaction creation gracefully', async () => {
+    const openAIService = {
+      analyzeInput: jest.fn().mockResolvedValue({
+        transactions: [{
+          intent: 'transaction',
+          amount: 5,
+          category: 'Food',
+          type: 'expense',
+          date: '2024-01-01'
+        }],
+        debts: []
+      }),
+      analyzeTransactions: jest.fn(),
+      transcribe: jest.fn()
+    } as unknown as TranscriptionService;
+
+    // Return failure Result
+    const createTransactionUseCase = {
+      execute: jest.fn().mockResolvedValue({ success: false, error: new Error('DB error') })
+    } as unknown as CreateTransactionUseCase;
+
+    const useCase = new ProcessTextInputUseCase(openAIService, createTransactionUseCase);
+    const result = await useCase.execute('test', 'user1');
+
+    expect(createTransactionUseCase.execute).toHaveBeenCalled();
+    // Should return empty transactions when creation fails
+    expect(result.transactions).toHaveLength(0);
   });
 });

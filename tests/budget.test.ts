@@ -3,7 +3,7 @@ import { GetBudgetsUseCase } from '../src/modules/budget/application/getBudgets'
 import { UpdateBudgetUseCase } from '../src/modules/budget/application/updateBudget';
 import { DeleteBudgetUseCase } from '../src/modules/budget/application/deleteBudget';
 import { BudgetService } from '../src/modules/budget/application/budgetService';
-import { SqliteBudgetRepository } from '../src/modules/budget/infrastructure/sqliteBudgetRepository';
+import { SqliteBudgetRepository } from '../src/modules/budget/infrastructure/SqliteBudgetRepository';
 import { SqliteTransactionRepository } from '../src/modules/transaction/infrastructure/persistence/SqliteTransactionRepository';
 import { BudgetPeriod } from '../src/modules/budget/domain/budgetEntity';
 import { CreateBudgetData, UpdateBudgetData } from '../src/modules/budget/domain/budgetEntity';
@@ -71,9 +71,9 @@ describe('Budget System', () => {
     // Create mock repository with all necessary methods
     budgetRepository = {
       create: jest.fn(),
-      getById: jest.fn(),
-      getByUserId: jest.fn(),
-      getActiveBudgetsByUserId: jest.fn(),
+      findById: jest.fn(),
+      findByUserId: jest.fn(),
+      findActiveByUserId: jest.fn(),
       update: jest.fn(),
       delete: jest.fn(),
       getBudgetSummary: jest.fn(),
@@ -156,7 +156,7 @@ describe('Budget System', () => {
 
   describe('GetBudgetsUseCase', () => {
     it('should get all budgets for a user', async () => {
-      (budgetRepository.getByUserId as jest.Mock).mockResolvedValue([mockBudgetEntity]);
+      (budgetRepository.findByUserId as jest.Mock).mockResolvedValue([mockBudgetEntity]);
 
       const result = await getBudgetsUseCase.executeGetAll('user-123');
 
@@ -168,7 +168,7 @@ describe('Budget System', () => {
     });
 
     it('should get active budgets for a user', async () => {
-      (budgetRepository.getActiveBudgetsByUserId as jest.Mock).mockResolvedValue([mockBudgetEntity]);
+      (budgetRepository.findActiveByUserId as jest.Mock).mockResolvedValue([mockBudgetEntity]);
 
       const result = await getBudgetsUseCase.executeGetActive('user-123');
 
@@ -200,7 +200,7 @@ describe('Budget System', () => {
         amount: 600
       };
 
-      (budgetRepository.getById as jest.Mock).mockResolvedValue(mockBudgetEntity);
+      (budgetRepository.findById as jest.Mock).mockResolvedValue(mockBudgetEntity);
       (budgetRepository.update as jest.Mock).mockResolvedValue({
         ...mockBudgetEntity,
         ...updateData
@@ -216,7 +216,7 @@ describe('Budget System', () => {
     });
 
     it('should fail when budget is not found', async () => {
-      (budgetRepository.getById as jest.Mock).mockResolvedValue(null);
+      (budgetRepository.findById as jest.Mock).mockResolvedValue(null);
 
       const result = await updateBudgetUseCase.execute('budget-123', { name: 'Updated' });
 
@@ -229,7 +229,7 @@ describe('Budget System', () => {
 
   describe('DeleteBudgetUseCase', () => {
     it('should delete budget successfully', async () => {
-      (budgetRepository.getById as jest.Mock).mockResolvedValue(mockBudgetEntity);
+      (budgetRepository.findById as jest.Mock).mockResolvedValue(mockBudgetEntity);
       (budgetRepository.delete as jest.Mock).mockResolvedValue(undefined);
 
       const result = await deleteBudgetUseCase.execute('budget-123');
@@ -239,7 +239,7 @@ describe('Budget System', () => {
     });
 
     it('should fail when budget is not found', async () => {
-      (budgetRepository.getById as jest.Mock).mockResolvedValue(null);
+      (budgetRepository.findById as jest.Mock).mockResolvedValue(null);
 
       const result = await deleteBudgetUseCase.execute('budget-123');
 

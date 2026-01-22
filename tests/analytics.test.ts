@@ -63,7 +63,7 @@ describe('Enhanced Analytics Service', () => {
 
   beforeEach(() => {
     mockRepository = {
-      save: jest.fn(),
+      create: jest.fn(),
       getAll: jest.fn(),
       findById: jest.fn(),
       findByUserId: jest.fn(),
