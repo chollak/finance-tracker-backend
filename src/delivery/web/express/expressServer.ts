@@ -1,5 +1,5 @@
-import express, { Request, Router } from 'express';
-import cors from 'cors';
+import express, { Router } from 'express';
+// Note: Using custom corsHeaders middleware instead of cors package for security
 import { TransactionModule } from '../../../modules/transaction/transactionModule';
 import { VoiceProcessingModule } from '../../../modules/voiceProcessing/voiceProcessingModule';
 import { BudgetModule } from '../../../modules/budget/budgetModule';
@@ -41,7 +41,7 @@ export function buildServer(
   router.use(corsHeaders);
   router.use(express.json({ limit: '10mb' }));
   router.use(express.urlencoded({ extended: true, limit: '10mb' }));
-  router.use(cors<Request>());
+  // Note: Using custom corsHeaders middleware (applied above) for secure CORS handling
 
   // Note: User resolution middleware is applied at route level, not globally.
   // This ensures req.params is available when middleware runs.

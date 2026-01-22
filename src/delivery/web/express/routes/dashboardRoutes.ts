@@ -8,6 +8,8 @@ import { SubscriptionModule } from '../../../../modules/subscription/subscriptio
 import { UserModule } from '../../../../modules/user/userModule';
 import { createRequirePremiumMiddleware } from '../middleware/subscriptionMiddleware';
 import { createUserResolutionMiddleware } from '../middleware/userResolutionMiddleware';
+import { allowGuestMode, verifyOwnership } from '../middleware/authMiddleware';
+import { readOnlyRateLimiter } from '../middleware/rateLimitMiddleware';
 
 export function createDashboardRouter(
   analyticsService: AnalyticsService,
@@ -16,6 +18,9 @@ export function createDashboardRouter(
   userModule?: UserModule
 ): Router {
   const router = Router();
+
+  // Apply rate limiting to all dashboard routes (read-only, more generous limits)
+  router.use(readOnlyRateLimiter);
 
   // Initialize services
   const dashboardService = new DashboardService(analyticsService, budgetService);
@@ -33,19 +38,20 @@ export function createDashboardRouter(
     : (_req: any, _res: any, next: any) => next();
 
   // Dashboard insights endpoints - PREMIUM ONLY
-  router.get('/insights/:userId', resolveUser, requirePremium, controller.getDashboardInsights);
-  router.get('/insights/:userId/weekly', resolveUser, requirePremium, controller.getWeeklyInsights);
-  router.get('/insights/:userId/health-score', resolveUser, requirePremium, controller.getFinancialHealthScore);
+  // Protected with auth + ownership verification (guests allowed)
+  router.get('/insights/:userId', allowGuestMode, resolveUser, verifyOwnership, requirePremium, controller.getDashboardInsights);
+  router.get('/insights/:userId/weekly', allowGuestMode, resolveUser, verifyOwnership, requirePremium, controller.getWeeklyInsights);
+  router.get('/insights/:userId/health-score', allowGuestMode, resolveUser, verifyOwnership, requirePremium, controller.getFinancialHealthScore);
 
   // Alert endpoints - FREE (alerts help users)
-  router.get('/alerts/:userId', resolveUser, controller.getAlerts);
-  router.get('/alerts/:userId/summary', resolveUser, controller.getAlertSummary);
+  router.get('/alerts/:userId', allowGuestMode, resolveUser, verifyOwnership, controller.getAlerts);
+  router.get('/alerts/:userId/summary', allowGuestMode, resolveUser, verifyOwnership, controller.getAlertSummary);
 
   // Combined dashboard endpoint - FREE (basic overview)
-  router.get('/:userId', resolveUser, controller.getCompleteDashboard);
+  router.get('/:userId', allowGuestMode, resolveUser, verifyOwnership, controller.getCompleteDashboard);
 
   // Quick stats for widgets - FREE
-  router.get('/:userId/quick-stats', resolveUser, controller.getQuickStats);
+  router.get('/:userId/quick-stats', allowGuestMode, resolveUser, verifyOwnership, controller.getQuickStats);
 
   return router;
 }

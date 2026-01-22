@@ -138,29 +138,102 @@ export function requestLogger(req: Request, res: Response, next: NextFunction): 
 }
 
 /**
+ * Allowed CORS origins
+ * In production, only allow specific domains
+ */
+function getAllowedOrigins(): string[] {
+  const origins: string[] = [];
+
+  // Production domain
+  if (process.env.WEB_APP_URL) {
+    origins.push(process.env.WEB_APP_URL);
+  }
+
+  // Telegram Web App (t.me embedded webview)
+  origins.push('https://web.telegram.org');
+  origins.push('https://telegram.org');
+
+  // Development origins
+  if (process.env.NODE_ENV === 'development') {
+    origins.push('http://localhost:5173'); // Vite dev server
+    origins.push('http://localhost:3000'); // Backend
+    origins.push('http://127.0.0.1:5173');
+    origins.push('http://127.0.0.1:3000');
+
+    // Ngrok for testing
+    if (process.env.NGROK_URL) {
+      origins.push(process.env.NGROK_URL);
+    }
+  }
+
+  return origins;
+}
+
+/**
  * CORS headers middleware
+ * Only allows requests from whitelisted origins
  */
 export function corsHeaders(req: Request, res: Response, next: NextFunction): void {
-  res.header('Access-Control-Allow-Origin', '*');
+  const origin = req.headers.origin;
+  const allowedOrigins = getAllowedOrigins();
+
+  // Check if origin is allowed
+  if (origin && allowedOrigins.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+  } else if (!origin) {
+    // Allow requests without origin (same-origin, curl, Postman in dev)
+    if (process.env.NODE_ENV === 'development') {
+      res.header('Access-Control-Allow-Origin', '*');
+    }
+    // In production, no origin header = no CORS header (blocks cross-origin)
+  }
+  // If origin is not in whitelist, don't set Access-Control-Allow-Origin
+  // Browser will block the request
+
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-  
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Max-Age', '86400'); // Cache preflight for 24 hours
+
   if (req.method === 'OPTIONS') {
     res.sendStatus(200);
     return;
   }
-  
+
   next();
 }
 
 /**
  * Security headers middleware
+ * Implements OWASP security headers recommendations
  */
 export function securityHeaders(req: Request, res: Response, next: NextFunction): void {
+  // Prevent MIME type sniffing
   res.header('X-Content-Type-Options', 'nosniff');
+
+  // Prevent clickjacking
   res.header('X-Frame-Options', 'DENY');
+
+  // XSS protection (legacy, but still useful)
   res.header('X-XSS-Protection', '1; mode=block');
+
+  // Control referrer information
   res.header('Referrer-Policy', 'strict-origin-when-cross-origin');
-  
+
+  // Content Security Policy (for API responses)
+  res.header('Content-Security-Policy', "default-src 'none'; frame-ancestors 'none'");
+
+  // HSTS - enforce HTTPS (only in production)
+  if (process.env.NODE_ENV === 'production') {
+    res.header('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
+  }
+
+  // Prevent browser from caching sensitive responses
+  if (req.path.includes('/api/')) {
+    res.header('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.header('Pragma', 'no-cache');
+    res.header('Expires', '0');
+  }
+
   next();
 }

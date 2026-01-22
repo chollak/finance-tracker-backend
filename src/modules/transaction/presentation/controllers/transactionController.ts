@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, Request } from 'express';
 import { CreateTransactionUseCase } from '../../application/createTransaction';
 import { GetTransactionsUseCase } from '../../application/getTransactions';
 import { AnalyticsService } from '../../application/analyticsService';
@@ -21,6 +21,37 @@ import { SubscriptionModule } from '../../../subscription/subscriptionModule';
 import { UserModule } from '../../../user/userModule';
 import { createIncrementUsageMiddleware } from '../../../../delivery/web/express/middleware/subscriptionMiddleware';
 import { createUserResolutionMiddleware } from '../../../../delivery/web/express/middleware/userResolutionMiddleware';
+import { allowGuestMode, verifyOwnership, requireAdmin } from '../../../../delivery/web/express/middleware/authMiddleware';
+import { standardRateLimiter, readOnlyRateLimiter } from '../../../../delivery/web/express/middleware/rateLimitMiddleware';
+import { verifyResourceOwnership } from '../../../../shared/infrastructure/utils/ownershipVerification';
+// Import for type extensions on Express.Request
+import '../../../../delivery/web/express/middleware/authMiddleware';
+import '../../../../delivery/web/express/middleware/userResolutionMiddleware';
+
+/**
+ * Fetch transaction and verify ownership
+ * Uses shared verifyResourceOwnership helper for consistent behavior
+ * Guest users (guest_*) are allowed without verification
+ */
+async function verifyTransactionOwnership(
+  req: Request,
+  transactionId: string,
+  getByIdUseCase: GetTransactionByIdUseCase,
+  userModule?: UserModule
+): Promise<Transaction> {
+  const transaction = await getByIdUseCase.execute(transactionId);
+
+  if (!transaction) {
+    throw ErrorFactory.notFound('Transaction not found');
+  }
+
+  await verifyResourceOwnership(req, transaction, userModule, {
+    resourceType: 'transaction',
+    allowGuest: true,
+  });
+
+  return transaction;
+}
 
 export function createTransactionRouter(
   createUseCase: CreateTransactionUseCase,
@@ -51,11 +82,15 @@ export function createTransactionRouter(
     ? createIncrementUsageMiddleware(subscriptionModule, userModule, 'transactions')
     : null;
 
-  router.get('/analytics', async (req, res) => {
+  // Apply rate limiting to all routes
+  router.use(standardRateLimiter);
+
+  // Global analytics - ADMIN ONLY (returns data for all users)
+  router.get('/analytics', requireAdmin, async (req, res) => {
     try {
       const summary = await analyticsService.getSummary();
       const categoryBreakdown = await analyticsService.getCategoryBreakdown();
-      
+
       handleControllerSuccess({
         totalIncome: summary.totalIncome,
         totalExpense: summary.totalExpense,
@@ -67,7 +102,8 @@ export function createTransactionRouter(
   });
 
   // Enhanced analytics endpoints with time filtering
-  router.get('/analytics/summary/:userId', resolveUser, async (req, res) => {
+  // Protected with auth + ownership verification
+  router.get('/analytics/summary/:userId', allowGuestMode, resolveUser, verifyOwnership, async (req, res) => {
     try {
       // Use resolved UUID from middleware (falls back to raw param if not resolved)
       const userId = req.resolvedUser?.id || req.params.userId;
@@ -88,7 +124,7 @@ export function createTransactionRouter(
     }
   });
 
-  router.get('/analytics/categories/:userId', resolveUser, async (req, res) => {
+  router.get('/analytics/categories/:userId', allowGuestMode, resolveUser, verifyOwnership, async (req, res) => {
     try {
       // Use resolved UUID from middleware
       const userId = req.resolvedUser?.id || req.params.userId;
@@ -109,7 +145,7 @@ export function createTransactionRouter(
     }
   });
 
-  router.get('/analytics/trends/:userId', resolveUser, async (req, res) => {
+  router.get('/analytics/trends/:userId', allowGuestMode, resolveUser, verifyOwnership, async (req, res) => {
     try {
       // Use resolved UUID from middleware
       const userId = req.resolvedUser?.id || req.params.userId;
@@ -122,7 +158,7 @@ export function createTransactionRouter(
     }
   });
 
-  router.get('/analytics/patterns/:userId', resolveUser, async (req, res) => {
+  router.get('/analytics/patterns/:userId', allowGuestMode, resolveUser, verifyOwnership, async (req, res) => {
     try {
       // Use resolved UUID from middleware
       const userId = req.resolvedUser?.id || req.params.userId;
@@ -143,7 +179,7 @@ export function createTransactionRouter(
     }
   });
 
-  router.get('/analytics/top-categories/:userId', resolveUser, async (req, res) => {
+  router.get('/analytics/top-categories/:userId', allowGuestMode, resolveUser, verifyOwnership, async (req, res) => {
     try {
       // Use resolved UUID from middleware
       const userId = req.resolvedUser?.id || req.params.userId;
@@ -202,7 +238,8 @@ export function createTransactionRouter(
     }
   });
 
-  router.get('/', async (req, res) => {
+  // Get ALL transactions - ADMIN ONLY (returns data for all users)
+  router.get('/', requireAdmin, async (req, res) => {
     try {
       const transactions = await getUseCase.execute();
       handleControllerSuccess(transactions, res);
@@ -211,7 +248,7 @@ export function createTransactionRouter(
     }
   });
 
-  router.get('/user/:userId', resolveUser, async (req, res) => {
+  router.get('/user/:userId', allowGuestMode, resolveUser, verifyOwnership, async (req, res) => {
     try {
       // Use resolved UUID from middleware
       const userId = req.resolvedUser?.id || getStringParam(req, 'userId');
@@ -228,7 +265,8 @@ export function createTransactionRouter(
     }
   });
 
-  router.get('/:id', async (req, res) => {
+  // Transaction by ID routes - require auth + ownership verification
+  router.get('/:id', allowGuestMode, async (req, res) => {
     try {
       const transactionId = getStringParam(req, 'id');
 
@@ -237,21 +275,25 @@ export function createTransactionRouter(
         return handleControllerError(error, res);
       }
 
-      const transaction = await getByIdUseCase.execute(transactionId);
+      // Verify ownership before returning transaction
+      const transaction = await verifyTransactionOwnership(req, transactionId, getByIdUseCase, userModule);
       handleControllerSuccess(transaction, res);
     } catch (error) {
       handleControllerError(error, res);
     }
   });
 
-  router.delete('/:id', async (req, res) => {
+  router.delete('/:id', allowGuestMode, async (req, res) => {
     try {
       const transactionId = getStringParam(req, 'id');
-      
+
       if (!transactionId) {
         const error = ErrorFactory.validation('Transaction ID is required');
         return handleControllerError(error, res);
       }
+
+      // Verify ownership before deleting
+      await verifyTransactionOwnership(req, transactionId, getByIdUseCase, userModule);
 
       await deleteUseCase.execute(transactionId);
       handleControllerSuccess(
@@ -265,14 +307,17 @@ export function createTransactionRouter(
     }
   });
 
-  router.put('/:id', async (req, res) => {
+  router.put('/:id', allowGuestMode, async (req, res) => {
     try {
       const transactionId = getStringParam(req, 'id');
-      
+
       if (!transactionId) {
         const error = ErrorFactory.validation('Transaction ID is required');
         return handleControllerError(error, res);
       }
+
+      // Verify ownership before updating
+      await verifyTransactionOwnership(req, transactionId, getByIdUseCase, userModule);
 
       // Validate the update data - allow partial updates
       const allowedFields = ['amount', 'category', 'description', 'date', 'type', 'merchant'];
@@ -332,8 +377,8 @@ export function createTransactionRouter(
     }
   });
 
-  // Archive endpoints
-  router.post('/:id/archive', async (req, res) => {
+  // Archive endpoints - require ownership verification
+  router.post('/:id/archive', allowGuestMode, async (req, res) => {
     try {
       const transactionId = getStringParam(req, 'id');
 
@@ -341,6 +386,9 @@ export function createTransactionRouter(
         const error = ErrorFactory.validation('Transaction ID is required');
         return handleControllerError(error, res);
       }
+
+      // Verify ownership before archiving
+      await verifyTransactionOwnership(req, transactionId, getByIdUseCase, userModule);
 
       await archiveUseCase.execute(transactionId);
       handleControllerSuccess(
@@ -353,7 +401,7 @@ export function createTransactionRouter(
     }
   });
 
-  router.post('/:id/unarchive', async (req, res) => {
+  router.post('/:id/unarchive', allowGuestMode, async (req, res) => {
     try {
       const transactionId = getStringParam(req, 'id');
 
@@ -361,6 +409,9 @@ export function createTransactionRouter(
         const error = ErrorFactory.validation('Transaction ID is required');
         return handleControllerError(error, res);
       }
+
+      // Verify ownership before unarchiving
+      await verifyTransactionOwnership(req, transactionId, getByIdUseCase, userModule);
 
       await unarchiveUseCase.execute(transactionId);
       handleControllerSuccess(
@@ -373,13 +424,18 @@ export function createTransactionRouter(
     }
   });
 
-  router.post('/archive/batch', async (req, res) => {
+  router.post('/archive/batch', allowGuestMode, async (req, res) => {
     try {
       const { ids } = req.body;
 
       if (!ids || !Array.isArray(ids) || ids.length === 0) {
         const error = ErrorFactory.validation('Array of transaction IDs is required');
         return handleControllerError(error, res);
+      }
+
+      // Verify ownership for ALL transactions before archiving any
+      for (const transactionId of ids) {
+        await verifyTransactionOwnership(req, transactionId, getByIdUseCase, userModule);
       }
 
       const result = await archiveMultipleUseCase.execute(ids);
@@ -389,7 +445,7 @@ export function createTransactionRouter(
     }
   });
 
-  router.post('/archive/all/:userId', resolveUser, async (req, res) => {
+  router.post('/archive/all/:userId', allowGuestMode, resolveUser, verifyOwnership, async (req, res) => {
     try {
       // Use resolved UUID from middleware
       const userId = req.resolvedUser?.id || getStringParam(req, 'userId');
@@ -406,7 +462,7 @@ export function createTransactionRouter(
     }
   });
 
-  router.get('/archived/user/:userId', resolveUser, async (req, res) => {
+  router.get('/archived/user/:userId', allowGuestMode, resolveUser, verifyOwnership, async (req, res) => {
     try {
       // Use resolved UUID from middleware
       const userId = req.resolvedUser?.id || getStringParam(req, 'userId');

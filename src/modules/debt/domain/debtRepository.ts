@@ -29,6 +29,7 @@ export interface DebtRepository {
 
   // Payments
   addPayment(data: PayDebtData): Promise<DebtPaymentEntity>;
+  getPaymentById(paymentId: string): Promise<DebtPaymentEntity | null>;
   getPaymentsByDebtId(debtId: string): Promise<DebtPaymentEntity[]>;
   deletePayment(paymentId: string): Promise<void>;
 

@@ -4,22 +4,40 @@ import { API_ENDPOINTS } from '@/shared/lib/constants';
 import type { Transaction } from '@/shared/types';
 import { transactionToViewModel } from '../lib/toViewModel';
 import { transactionKeys } from './keys';
+import { transactionDataSource } from '@/shared/lib/db';
+import type { LocalTransaction } from '@/shared/lib/db/schema';
+
+/**
+ * Convert LocalTransaction to Transaction format
+ */
+function localToTransaction(local: LocalTransaction): Transaction {
+  return {
+    id: local.serverId || local.id,
+    date: local.date,
+    category: local.category,
+    description: local.description,
+    amount: local.amount,
+    type: local.type,
+    userId: local.userId,
+    merchant: local.merchant,
+    createdAt: new Date(local.localCreatedAt).toISOString(),
+    isArchived: local.isArchived,
+  };
+}
 
 /**
  * Hook to fetch all transactions for a user
- * Returns TransactionViewModels with formatted fields
+ * Offline-first: reads from IndexedDB for guest, hybrid mode for authenticated
  */
 export function useTransactions(userId: string | null) {
   return useQuery({
     queryKey: transactionKeys.list(userId || ''),
     queryFn: async () => {
-      const response = await apiClient.get<Transaction[]>(
-        API_ENDPOINTS.TRANSACTIONS.LIST(userId!)
-      );
+      // Use dataSource - handles guest (local only) vs telegram (hybrid) modes
+      const localTransactions = await transactionDataSource.getAll();
 
-      const transactions = response.data || [];
-
-      // Transform to ViewModels (backend returns sorted by date DESC)
+      // Convert to Transaction format, then to ViewModels
+      const transactions = localTransactions.map(localToTransaction);
       return transactions.map(transactionToViewModel);
     },
     enabled: !!userId,

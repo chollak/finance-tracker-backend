@@ -197,6 +197,21 @@ export class SupabaseDebtRepository implements DebtRepository {
     return this.mapPaymentToEntity(payment);
   }
 
+  async getPaymentById(paymentId: string): Promise<DebtPaymentEntity | null> {
+    const { data, error } = await this.supabase
+      .from('debt_payments')
+      .select('*')
+      .eq('id', paymentId)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') return null;
+      throw new Error(`Failed to get payment: ${error.message}`);
+    }
+
+    return data ? this.mapPaymentToEntity(data) : null;
+  }
+
   async getPaymentsByDebtId(debtId: string): Promise<DebtPaymentEntity[]> {
     const { data, error } = await this.supabase
       .from('debt_payments')

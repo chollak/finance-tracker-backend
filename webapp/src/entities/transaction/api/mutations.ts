@@ -8,23 +8,47 @@ import { budgetKeys } from '@/entities/budget/api/keys';
 import { dashboardKeys } from '@/entities/dashboard/api/keys';
 import { subscriptionKeys } from '@/entities/subscription/api/keys';
 import { transactionToViewModel } from '../lib/toViewModel';
+import { transactionDataSource } from '@/shared/lib/db';
+import type { LocalTransaction } from '@/shared/lib/db/schema';
+
+/**
+ * Convert LocalTransaction to Transaction format for React Query cache
+ */
+function localToTransaction(local: LocalTransaction): Transaction {
+  return {
+    id: local.serverId || local.id, // Use serverId if synced, otherwise local id
+    date: local.date,
+    category: local.category,
+    description: local.description,
+    amount: local.amount,
+    type: local.type,
+    userId: local.userId,
+    merchant: local.merchant,
+    createdAt: new Date(local.localCreatedAt).toISOString(),
+    isArchived: local.isArchived,
+  };
+}
 
 /**
  * Hook to create a new transaction
- * Optimized: Uses setQueryData to update list immediately + targeted invalidation
+ * Offline-first: saves to IndexedDB, syncs to server for authenticated users
  */
 export function useCreateTransaction() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (data: CreateTransactionDTO) => {
-      const response = await apiClient.post<{ id: string; transaction: Transaction }>(
-        API_ENDPOINTS.TRANSACTIONS.CREATE,
-        data
-      );
-      // API returns {id, transaction}, extract the transaction with id
-      const { id, transaction } = response.data;
-      return { ...transaction, id } as Transaction;
+      // Use dataSource - handles guest (local only) vs telegram (hybrid) modes
+      const localTx = await transactionDataSource.create({
+        date: data.date,
+        category: data.category,
+        description: data.description,
+        amount: data.amount,
+        type: data.type,
+        userId: data.userId,
+        merchant: data.merchant,
+      });
+      return localToTransaction(localTx);
     },
     onSuccess: (newTransaction, variables) => {
       const userId = variables.userId;
@@ -55,19 +79,26 @@ export function useCreateTransaction() {
 
 /**
  * Hook to update an existing transaction
- * Optimized: Updates item in cache + targeted invalidation
- * Accepts userId parameter for reliable cache targeting
+ * Offline-first: updates IndexedDB, syncs to server for authenticated users
  */
 export function useUpdateTransaction() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({ id, data }: { id: string; userId: string; data: UpdateTransactionDTO }) => {
-      const response = await apiClient.put<Transaction>(
-        API_ENDPOINTS.TRANSACTIONS.UPDATE(id),
-        data
-      );
-      return response.data;
+      // Use dataSource - handles guest (local only) vs telegram (hybrid) modes
+      const localTx = await transactionDataSource.update(id, {
+        date: data.date,
+        category: data.category,
+        description: data.description,
+        amount: data.amount,
+        type: data.type,
+        merchant: data.merchant,
+      });
+      if (!localTx) {
+        throw new Error('Transaction not found');
+      }
+      return localToTransaction(localTx);
     },
     onSuccess: (updatedTransaction, variables) => {
       // Use userId from variables for reliable cache key targeting
@@ -103,18 +134,16 @@ export function useUpdateTransaction() {
 
 /**
  * Hook to delete a transaction
- * Optimized: Removes from cache + targeted invalidation
- * Now accepts { id, userId } for proper cache targeting
+ * Offline-first: deletes from IndexedDB, syncs to server for authenticated users
  */
 export function useDeleteTransaction() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({ id }: { id: string; userId: string }) => {
-      const response = await apiClient.delete<{ success: boolean }>(
-        API_ENDPOINTS.TRANSACTIONS.DELETE(id)
-      );
-      return response.data;
+      // Use dataSource - handles guest (local only) vs telegram (hybrid) modes
+      const success = await transactionDataSource.delete(id);
+      return { success };
     },
     onSuccess: (_, variables) => {
       const { id, userId } = variables;
@@ -146,8 +175,7 @@ export function useDeleteTransaction() {
 
 /**
  * Hook to archive a single transaction
- * Optimized: Moves item between lists + targeted invalidation
- * Now accepts { id, userId } for proper cache targeting
+ * Note: Archive operations still use API as they're not critical for offline-first
  */
 export function useArchiveTransaction() {
   const queryClient = useQueryClient();
@@ -201,8 +229,7 @@ export function useArchiveTransaction() {
 
 /**
  * Hook to unarchive a single transaction
- * Optimized: Moves item between lists + targeted invalidation
- * Now accepts { id, userId } for proper cache targeting
+ * Note: Archive operations still use API as they're not critical for offline-first
  */
 export function useUnarchiveTransaction() {
   const queryClient = useQueryClient();
@@ -260,7 +287,7 @@ export function useUnarchiveTransaction() {
 
 /**
  * Hook to archive all transactions for a user
- * Optimized: Moves all items to archived list + targeted invalidation
+ * Note: Archive operations still use API as they're not critical for offline-first
  */
 export function useArchiveAllTransactions() {
   const queryClient = useQueryClient();

@@ -134,6 +134,11 @@ export class SqliteDebtRepository implements DebtRepository {
     return this.mapPaymentToEntity(savedPayment);
   }
 
+  async getPaymentById(paymentId: string): Promise<DebtPaymentEntity | null> {
+    const payment = await this.paymentRepository.findOne({ where: { id: paymentId } });
+    return payment ? this.mapPaymentToEntity(payment) : null;
+  }
+
   async getPaymentsByDebtId(debtId: string): Promise<DebtPaymentEntity[]> {
     const payments = await this.paymentRepository.find({
       where: { debtId },

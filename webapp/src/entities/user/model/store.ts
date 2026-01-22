@@ -76,8 +76,16 @@ export const useUserStore = create<UserState>()(
 
       /**
        * Initialize as guest user
+       * Idempotent: won't create duplicate if guest already exists
        */
       initGuest: () => {
+        // Prevent duplicate guest creation (StrictMode double-invoke)
+        const currentState = get();
+        if (currentState.userId && currentState.userType === 'guest') {
+          console.log('[UserStore] Guest already exists, skipping:', currentState.userId);
+          return;
+        }
+
         const guestId = generateGuestId();
         console.log('[UserStore] Initializing guest user:', guestId);
 

@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import multer from 'multer';
+import multer, { FileFilterCallback } from 'multer';
 import { ProcessVoiceInputUseCase } from '../../application/processVoiceInput';
 import { ProcessTextInputUseCase } from '../../application/processTextInput';
 import { handleControllerError, handleControllerSuccess } from '../../../../shared/infrastructure/utils/controllerHelpers';
@@ -7,6 +7,33 @@ import { ErrorFactory, AppError } from '../../../../shared/domain/errors/AppErro
 import { SUCCESS_MESSAGES, ERROR_MESSAGES } from '../../../../shared/domain/constants/messages';
 import { UserModule } from '../../../user/userModule';
 import { resolveUserIdToUUID } from '../../../../shared/application/helpers/userIdResolver';
+import { allowGuestMode } from '../../../../delivery/web/express/middleware/authMiddleware';
+import { aiRateLimiter } from '../../../../delivery/web/express/middleware/rateLimitMiddleware';
+
+// Allowed audio MIME types
+const ALLOWED_AUDIO_TYPES = [
+  'audio/ogg',
+  'audio/mpeg',
+  'audio/mp3',
+  'audio/wav',
+  'audio/webm',
+  'audio/x-wav',
+  'audio/mp4',
+  'audio/m4a',
+];
+
+// File filter for audio uploads
+const audioFileFilter = (
+  req: Request,
+  file: Express.Multer.File,
+  cb: FileFilterCallback
+): void => {
+  if (ALLOWED_AUDIO_TYPES.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error(`Invalid file type: ${file.mimetype}. Allowed types: ${ALLOWED_AUDIO_TYPES.join(', ')}`));
+  }
+};
 
 export function createVoiceProcessingRouter(
   voiceUseCase: ProcessVoiceInputUseCase,
@@ -14,9 +41,20 @@ export function createVoiceProcessingRouter(
   userModule?: UserModule
 ): Router {
   const router = Router();
-  const upload = multer({ dest: 'uploads/' });
 
-  router.post('/voice-input', upload.single('audio'), async (req: Request, res: Response) => {
+  // Multer configuration with file type and size validation
+  const upload = multer({
+    dest: 'uploads/',
+    limits: {
+      fileSize: 25 * 1024 * 1024, // 25MB max (Telegram voice limit)
+    },
+    fileFilter: audioFileFilter,
+  });
+
+  // Apply AI rate limiting to all voice/text processing routes
+  router.use(aiRateLimiter);
+
+  router.post('/voice-input', allowGuestMode, upload.single('audio'), async (req: Request, res: Response) => {
     try {
       // Input validation
       if (!req.file) {
@@ -59,7 +97,7 @@ export function createVoiceProcessingRouter(
     }
   });
 
-  router.post('/text-input', async (req: Request, res: Response) => {
+  router.post('/text-input', allowGuestMode, async (req: Request, res: Response) => {
     try {
       // Input validation
       if (!req.body.text || typeof req.body.text !== 'string' || req.body.text.trim().length === 0) {

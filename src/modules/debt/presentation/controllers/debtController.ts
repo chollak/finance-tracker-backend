@@ -1,10 +1,37 @@
 import { Request, Response } from 'express';
 import { DebtModule } from '../../debtModule';
-import { CreateDebtData, UpdateDebtData, DebtType, DebtStatus } from '../../domain/debtEntity';
+import { CreateDebtData, UpdateDebtData, DebtType, DebtStatus, DebtEntity } from '../../domain/debtEntity';
 import { handleControllerError, handleControllerSuccess } from '../../../../shared/infrastructure/utils/controllerHelpers';
+import { ErrorFactory } from '../../../../shared/domain/errors/AppError';
+import { UserModule } from '../../../user/userModule';
+import { verifyResourceOwnership } from '../../../../shared/infrastructure/utils/ownershipVerification';
+// Import for type extensions on Express.Request (telegramUser, resolvedUser)
+import '../../../../delivery/web/express/middleware/authMiddleware';
+import '../../../../delivery/web/express/middleware/userResolutionMiddleware';
 
 export class DebtController {
-  constructor(private debtModule: DebtModule) {}
+  private userModule?: UserModule;
+
+  constructor(private debtModule: DebtModule, userModule?: UserModule) {
+    this.userModule = userModule;
+  }
+
+  /**
+   * Fetch debt and verify ownership
+   * Uses shared verifyResourceOwnership helper for consistent behavior
+   */
+  private async verifyDebtOwnership(req: Request, debtId: string): Promise<DebtEntity> {
+    const result = await this.debtModule.getDebtsUseCase.executeGetById(debtId);
+
+    if (!result.success || !result.data) {
+      throw ErrorFactory.notFound('Debt not found');
+    }
+
+    const debt = result.data;
+    await verifyResourceOwnership(req, debt, this.userModule, { resourceType: 'debt' });
+
+    return debt;
+  }
 
   // ==================== DEBT CRUD ====================
 
@@ -84,6 +111,9 @@ export class DebtController {
         return handleControllerError(new Error('Debt ID is required'), res);
       }
 
+      // Verify ownership first
+      await this.verifyDebtOwnership(req, debtId);
+
       const result = withPayments === 'true'
         ? await this.debtModule.getDebtsUseCase.executeGetWithPayments(debtId)
         : await this.debtModule.getDebtsUseCase.executeGetById(debtId);
@@ -111,6 +141,9 @@ export class DebtController {
         return handleControllerError(new Error('Debt ID is required'), res);
       }
 
+      // Verify ownership first
+      await this.verifyDebtOwnership(req, debtId);
+
       const result = await this.debtModule.updateDebtUseCase.execute(debtId, updateData);
 
       if (!result.success) {
@@ -131,6 +164,9 @@ export class DebtController {
         return handleControllerError(new Error('Debt ID is required'), res);
       }
 
+      // Verify ownership first
+      await this.verifyDebtOwnership(req, debtId);
+
       const result = await this.debtModule.deleteDebtUseCase.execute(debtId);
 
       if (!result.success) {
@@ -150,6 +186,9 @@ export class DebtController {
       if (!debtId) {
         return handleControllerError(new Error('Debt ID is required'), res);
       }
+
+      // Verify ownership first
+      await this.verifyDebtOwnership(req, debtId);
 
       const result = await this.debtModule.updateDebtUseCase.executeCancel(debtId);
 
@@ -173,6 +212,9 @@ export class DebtController {
       if (!debtId) {
         return handleControllerError(new Error('Debt ID is required'), res);
       }
+
+      // Verify ownership first
+      await this.verifyDebtOwnership(req, debtId);
 
       // Default to true - create transaction unless explicitly set to false
       const shouldCreateTransaction = createTransaction !== false && createTransaction !== 'false';
@@ -202,6 +244,9 @@ export class DebtController {
         return handleControllerError(new Error('Debt ID is required'), res);
       }
 
+      // Verify ownership first
+      await this.verifyDebtOwnership(req, debtId);
+
       // Default to true - create transaction unless explicitly set to false
       const shouldCreateTransaction = createTransaction !== false && createTransaction !== 'false';
 
@@ -224,6 +269,15 @@ export class DebtController {
       if (!paymentId) {
         return handleControllerError(new Error('Payment ID is required'), res);
       }
+
+      // Get payment to find associated debt
+      const paymentResult = await this.debtModule.payDebtUseCase.executeGetPaymentById(paymentId);
+      if (!paymentResult.success || !paymentResult.data) {
+        return handleControllerError(ErrorFactory.notFound('Payment not found'), res);
+      }
+
+      // Verify ownership of the associated debt
+      await this.verifyDebtOwnership(req, paymentResult.data.debtId);
 
       const result = await this.debtModule.payDebtUseCase.executeDeletePayment(paymentId);
 

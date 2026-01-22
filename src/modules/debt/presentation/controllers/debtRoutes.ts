@@ -3,13 +3,18 @@ import { DebtController } from './debtController';
 import { DebtModule } from '../../debtModule';
 import { UserModule } from '../../../user/userModule';
 import { createUserResolutionMiddleware } from '../../../../delivery/web/express/middleware/userResolutionMiddleware';
+import { allowGuestMode, requireAuth, verifyOwnership } from '../../../../delivery/web/express/middleware/authMiddleware';
+import { standardRateLimiter } from '../../../../delivery/web/express/middleware/rateLimitMiddleware';
 
 export function createDebtRouter(
   debtModule: DebtModule,
   userModule?: UserModule
 ): Router {
   const router = Router();
-  const controller = new DebtController(debtModule);
+  const controller = new DebtController(debtModule, userModule);
+
+  // Apply rate limiting to all debt routes
+  router.use(standardRateLimiter);
 
   // User resolution middleware (resolves telegramId to UUID)
   const resolveUser = userModule
@@ -18,24 +23,26 @@ export function createDebtRouter(
 
   // ==================== USER-SCOPED ROUTES ====================
   // Debts for a specific user (consistent with /transactions/user/:userId pattern)
-  router.post('/user/:userId', resolveUser, controller.createDebt);
-  router.get('/user/:userId', resolveUser, controller.getDebts);
-  router.get('/user/:userId/summary', resolveUser, controller.getSummary);
+  // Protected with auth + ownership verification (guests allowed)
+  router.post('/user/:userId', allowGuestMode, resolveUser, verifyOwnership, controller.createDebt);
+  router.get('/user/:userId', allowGuestMode, resolveUser, verifyOwnership, controller.getDebts);
+  router.get('/user/:userId/summary', allowGuestMode, resolveUser, verifyOwnership, controller.getSummary);
 
   // ==================== DEBT-SCOPED ROUTES ====================
-  // Single debt operations - no user resolution needed
-  router.get('/:debtId', controller.getDebt);
-  router.put('/:debtId', controller.updateDebt);
-  router.delete('/:debtId', controller.deleteDebt);
-  router.post('/:debtId/cancel', controller.cancelDebt);
+  // Single debt operations - require auth
+  // Ownership verification is done in controller by fetching debt and checking userId
+  router.get('/:debtId', requireAuth, controller.getDebt);
+  router.put('/:debtId', requireAuth, controller.updateDebt);
+  router.delete('/:debtId', requireAuth, controller.deleteDebt);
+  router.post('/:debtId/cancel', requireAuth, controller.cancelDebt);
 
   // ==================== PAYMENT ROUTES ====================
-  // Payment operations on a debt
-  router.post('/:debtId/pay', controller.payDebt);
-  router.post('/:debtId/pay-full', controller.payDebtFull);
+  // Payment operations on a debt - require auth
+  router.post('/:debtId/pay', requireAuth, controller.payDebt);
+  router.post('/:debtId/pay-full', requireAuth, controller.payDebtFull);
 
-  // Delete a specific payment
-  router.delete('/payments/:paymentId', controller.deletePayment);
+  // Delete a specific payment - require auth
+  router.delete('/payments/:paymentId', requireAuth, controller.deletePayment);
 
   return router;
 }

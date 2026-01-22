@@ -117,6 +117,27 @@ export class PayDebtUseCase {
   }
 
   /**
+   * Get a payment by ID (for ownership verification)
+   */
+  async executeGetPaymentById(paymentId: string): Promise<Result<DebtPaymentEntity>> {
+    try {
+      if (!paymentId?.trim()) {
+        return ResultHelper.failure(new ValidationError('Payment ID is required'));
+      }
+
+      const payment = await this.debtRepository.getPaymentById(paymentId);
+      if (!payment) {
+        return ResultHelper.failure(new NotFoundError('Payment not found'));
+      }
+
+      return ResultHelper.success(payment);
+    } catch (error) {
+      console.error('Error getting payment:', error);
+      return ResultHelper.failure(new BusinessLogicError('Failed to get payment'));
+    }
+  }
+
+  /**
    * Delete a payment and restore the amount to the debt
    */
   async executeDeletePayment(paymentId: string): Promise<Result<void>> {

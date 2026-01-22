@@ -7,17 +7,31 @@ import { Router } from 'express';
 import { UserModule } from '../../userModule';
 import { handleControllerError, handleControllerSuccess } from '../../../../shared/infrastructure/utils/controllerHelpers';
 import { ErrorFactory } from '../../../../shared/domain/errors/AppError';
+// Import auth middleware (also extends Express.Request with telegramUser)
+import { requireAuth } from '../../../../delivery/web/express/middleware/authMiddleware';
+import { standardRateLimiter } from '../../../../delivery/web/express/middleware/rateLimitMiddleware';
 
 export function createUserController(userModule: UserModule): Router {
   const router = Router();
 
+  // Apply rate limiting to all routes
+  router.use(standardRateLimiter);
+
   /**
    * GET /api/users/:telegramId
    * Get user by Telegram ID
+   * Protected: requires auth, user can only get their own info
    */
-  router.get('/:telegramId', async (req, res) => {
+  router.get('/:telegramId', requireAuth, async (req, res) => {
     try {
       const { telegramId } = req.params;
+
+      // Verify user can only access their own data
+      const authenticatedTelegramId = req.telegramUser?.id?.toString();
+      if (authenticatedTelegramId && authenticatedTelegramId !== telegramId) {
+        throw ErrorFactory.authorization('You can only access your own user data');
+      }
+
       const user = await userModule.getGetUserUseCase().executeByTelegramId(telegramId);
 
       if (!user) {
@@ -33,13 +47,20 @@ export function createUserController(userModule: UserModule): Router {
   /**
    * POST /api/users
    * Create or get existing user
+   * Protected: requires Telegram auth, user can only create/get themselves
    */
-  router.post('/', async (req, res) => {
+  router.post('/', requireAuth, async (req, res) => {
     try {
       const { telegramId, userName, firstName, lastName, languageCode } = req.body;
 
       if (!telegramId) {
         throw ErrorFactory.validation('telegramId is required');
+      }
+
+      // Verify user can only create/get their own account
+      const authenticatedTelegramId = req.telegramUser?.id?.toString();
+      if (authenticatedTelegramId && authenticatedTelegramId !== telegramId) {
+        throw ErrorFactory.authorization('You can only create/access your own user account');
       }
 
       const user = await userModule.getGetOrCreateUserUseCase().execute({
@@ -59,11 +80,24 @@ export function createUserController(userModule: UserModule): Router {
   /**
    * PUT /api/users/:id
    * Update user settings
+   * Protected: requires auth + ownership
    */
-  router.put('/:id', async (req, res) => {
+  router.put('/:id', requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
       const { userName, firstName, lastName, languageCode, defaultCurrency, timezone } = req.body;
+
+      // Verify user can only update their own account
+      // First, get the user to check their telegramId
+      const existingUser = await userModule.getGetUserUseCase().executeById(id);
+      if (!existingUser) {
+        throw ErrorFactory.notFound('User not found');
+      }
+
+      const authenticatedTelegramId = req.telegramUser?.id?.toString();
+      if (authenticatedTelegramId && existingUser.telegramId !== authenticatedTelegramId) {
+        throw ErrorFactory.authorization('You can only update your own user settings');
+      }
 
       const user = await userModule.getUpdateUserUseCase().execute(id, {
         userName,

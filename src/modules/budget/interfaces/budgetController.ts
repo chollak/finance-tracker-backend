@@ -1,8 +1,13 @@
 import { Request, Response } from 'express';
 import { BudgetModule } from '../budgetModule';
-import { CreateBudgetData, UpdateBudgetData, BudgetPeriod } from '../domain/budgetEntity';
+import { CreateBudgetData, UpdateBudgetData, BudgetPeriod, BudgetEntity } from '../domain/budgetEntity';
 import { handleControllerError, handleControllerSuccess } from '../../../shared/infrastructure/utils/controllerHelpers';
-import { ResultHelper } from '../../../shared/domain/types/Result';
+import { ErrorFactory } from '../../../shared/domain/errors/AppError';
+import { UserModule } from '../../user/userModule';
+import { verifyResourceOwnership } from '../../../shared/infrastructure/utils/ownershipVerification';
+// Import for type extensions on Express.Request (telegramUser, resolvedUser)
+import '../../../delivery/web/express/middleware/authMiddleware';
+import '../../../delivery/web/express/middleware/userResolutionMiddleware';
 
 /**
  * BudgetController
@@ -11,9 +16,28 @@ import { ResultHelper } from '../../../shared/domain/types/Result';
  */
 export class BudgetController {
   private budgetModule: BudgetModule;
+  private userModule?: UserModule;
 
-  constructor(budgetModule: BudgetModule) {
+  constructor(budgetModule: BudgetModule, userModule?: UserModule) {
     this.budgetModule = budgetModule;
+    this.userModule = userModule;
+  }
+
+  /**
+   * Fetch budget and verify ownership
+   * Uses shared verifyResourceOwnership helper for consistent behavior
+   */
+  private async verifyBudgetOwnership(req: Request, budgetId: string): Promise<BudgetEntity> {
+    const result = await this.budgetModule.getBudgetsUseCase.executeGetById(budgetId);
+
+    if (!result.success || !result.data) {
+      throw ErrorFactory.notFound('Budget not found');
+    }
+
+    const budget = result.data;
+    await verifyResourceOwnership(req, budget, this.userModule, { resourceType: 'budget' });
+
+    return budget;
   }
 
   createBudget = async (req: Request, res: Response) => {
@@ -77,17 +101,10 @@ export class BudgetController {
     try {
       const { budgetId } = req.params;
 
-      const result = await this.budgetModule.getBudgetsUseCase.executeGetById(budgetId);
+      // Verify ownership before returning budget
+      const budget = await this.verifyBudgetOwnership(req, budgetId);
 
-      if (!result.success) {
-        return handleControllerError(result.error, res);
-      }
-
-      if (!result.data) {
-        return handleControllerError(new Error('Budget not found'), res);
-      }
-
-      return handleControllerSuccess(result.data, res, 200, 'Budget retrieved successfully');
+      return handleControllerSuccess(budget, res, 200, 'Budget retrieved successfully');
     } catch (error) {
       return handleControllerError(error, res);
     }
@@ -122,6 +139,9 @@ export class BudgetController {
       const { budgetId } = req.params;
       const updateData: UpdateBudgetData = req.body;
 
+      // Verify ownership before updating
+      await this.verifyBudgetOwnership(req, budgetId);
+
       // Convert amount to number if provided
       if (updateData.amount !== undefined) {
         updateData.amount = parseFloat(updateData.amount as any);
@@ -143,6 +163,9 @@ export class BudgetController {
     try {
       const { budgetId } = req.params;
 
+      // Verify ownership before deleting
+      await this.verifyBudgetOwnership(req, budgetId);
+
       const result = await this.budgetModule.deleteBudgetUseCase.execute(budgetId);
 
       if (!result.success) {
@@ -158,6 +181,9 @@ export class BudgetController {
   recalculateBudgetSpending = async (req: Request, res: Response) => {
     try {
       const { budgetId } = req.params;
+
+      // Verify ownership before recalculating
+      await this.verifyBudgetOwnership(req, budgetId);
 
       await this.budgetModule.budgetService.recalculateBudgetSpending(budgetId);
 

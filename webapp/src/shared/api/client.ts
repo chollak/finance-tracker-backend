@@ -1,6 +1,34 @@
 import { env } from '@/shared/config/env';
 import type { ApiResponse, ApiError } from './types';
 
+/**
+ * Get Telegram Web App initData for authentication
+ * Returns null if not running in Telegram or no initData available
+ */
+function getTelegramInitData(): string | null {
+  if (typeof window === 'undefined') return null;
+
+  const telegram = window.Telegram?.WebApp;
+  if (!telegram?.initData) return null;
+
+  return telegram.initData;
+}
+
+/**
+ * Build authorization headers for API requests
+ * Adds Telegram Mini App authentication if available
+ */
+function getAuthHeaders(): Record<string, string> {
+  const headers: Record<string, string> = {};
+
+  const initData = getTelegramInitData();
+  if (initData) {
+    headers['Authorization'] = `tma ${initData}`;
+  }
+
+  return headers;
+}
+
 class ApiClient {
   private baseUrl: string;
 
@@ -19,6 +47,7 @@ class ApiClient {
         ...options,
         headers: {
           'Content-Type': 'application/json',
+          ...getAuthHeaders(),
           ...options.headers,
         },
       });
@@ -79,7 +108,10 @@ class ApiClient {
       const response = await fetch(url, {
         method: 'POST',
         body: formData,
-        // Don't set Content-Type for FormData - browser will set it with boundary
+        headers: {
+          // Don't set Content-Type for FormData - browser will set it with boundary
+          ...getAuthHeaders(),
+        },
       });
 
       if (!response.ok) {

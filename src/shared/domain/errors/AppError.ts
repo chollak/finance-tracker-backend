@@ -75,6 +75,15 @@ export class BusinessLogicError extends AppError {
   }
 }
 
+export class AuthorizationError extends AppError {
+  readonly code = 'AUTHORIZATION_ERROR';
+  readonly statusCode = 403;
+
+  constructor(message: string, context?: Record<string, any>) {
+    super(message, context);
+  }
+}
+
 // Error factory
 export class ErrorFactory {
   static validation(message: string, field?: string): ValidationError {
@@ -95,5 +104,9 @@ export class ErrorFactory {
 
   static businessLogic(message: string, context?: Record<string, any>): BusinessLogicError {
     return new BusinessLogicError(message, context);
+  }
+
+  static authorization(message: string, context?: Record<string, any>): AuthorizationError {
+    return new AuthorizationError(message, context);
   }
 }
