@@ -197,6 +197,25 @@ class GetBudgetSummaryUseCase {
 }
 ```
 
+### Допустимые исключения (Legacy)
+
+**Query Use Cases** могут объединять несколько read-only методов, если:
+- Все методы - read-only (не изменяют состояние)
+- Логически связаны одной entity
+- Нет side effects
+
+```typescript
+// ⚠️ ДОПУСТИМО для legacy code (не рекомендуется для нового кода)
+class GetDebtsUseCase {
+  async executeGetAll(userId: string, status?: DebtStatus): Promise<Result<Debt[]>> { }
+  async executeGetById(debtId: string): Promise<Result<Debt | null>> { }
+  async executeGetWithPayments(debtId: string): Promise<Result<DebtWithPayments | null>> { }
+  async executeGetSummary(userId: string): Promise<Result<DebtSummary>> { }
+}
+```
+
+При создании **нового кода** - используй отдельные Use Cases.
+
 ### Input/Output Types
 
 ```typescript

@@ -32,13 +32,13 @@ export function createUserController(userModule: UserModule): Router {
         throw ErrorFactory.authorization('You can only access your own user data');
       }
 
-      const user = await userModule.getGetUserUseCase().executeByTelegramId(telegramId);
+      const userResult = await userModule.getGetUserUseCase().execute({ telegramId });
 
-      if (!user) {
+      if (!userResult.success || !userResult.data) {
         throw ErrorFactory.notFound('User not found');
       }
 
-      handleControllerSuccess(user, res);
+      handleControllerSuccess(userResult.data, res);
     } catch (error) {
       handleControllerError(error, res);
     }
@@ -89,11 +89,12 @@ export function createUserController(userModule: UserModule): Router {
 
       // Verify user can only update their own account
       // First, get the user to check their telegramId
-      const existingUser = await userModule.getGetUserUseCase().executeById(id);
-      if (!existingUser) {
+      const existingUserResult = await userModule.getGetUserUseCase().execute({ id });
+      if (!existingUserResult.success || !existingUserResult.data) {
         throw ErrorFactory.notFound('User not found');
       }
 
+      const existingUser = existingUserResult.data;
       const authenticatedTelegramId = req.telegramUser?.id?.toString();
       if (authenticatedTelegramId && existingUser.telegramId !== authenticatedTelegramId) {
         throw ErrorFactory.authorization('You can only update your own user settings');

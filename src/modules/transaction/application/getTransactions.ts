@@ -1,15 +1,10 @@
-// src/application/getTransactions.ts
-
 import { TransactionRepository } from '../domain/transactionRepository';
+import { Transaction } from '../domain/transactionEntity';
 
 export class GetTransactionsUseCase {
-    private repository: TransactionRepository;
+  constructor(private repository: TransactionRepository) {}
 
-    constructor(repository: TransactionRepository) {
-        this.repository = repository;
-    }
-
-    async execute(): Promise<any> {
-        return this.repository.getAll();
-    }
+  async execute(): Promise<Transaction[]> {
+    return this.repository.getAll();
+  }
 }

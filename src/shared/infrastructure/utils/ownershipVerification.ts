@@ -70,9 +70,9 @@ export async function verifyResourceOwnership<T extends OwnedResource>(
   }
 
   // Resolve telegramId to UUID and verify ownership
-  const user = await userModule.getGetUserUseCase().executeByTelegramId(telegramUser.id.toString());
+  const userResult = await userModule.getGetUserUseCase().execute({ telegramId: telegramUser.id.toString() });
 
-  if (!user || resource.userId !== user.id) {
+  if (!userResult.success || !userResult.data || resource.userId !== userResult.data.id) {
     throw ErrorFactory.authorization(`You do not have permission to access this ${resourceType}`);
   }
 }
