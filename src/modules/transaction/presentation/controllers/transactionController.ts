@@ -204,10 +204,10 @@ export function createTransactionRouter(
     }
   });
 
-  // Build middleware chain for POST - add increment middleware if available
+  // Build middleware chain for POST - resolveUser + increment middleware
   const postMiddlewares = incrementTransactionMiddleware
-    ? [incrementTransactionMiddleware]
-    : [];
+    ? [resolveUser, incrementTransactionMiddleware]
+    : [resolveUser];
 
   router.post('/', ...postMiddlewares, async (req, res) => {
     try {
