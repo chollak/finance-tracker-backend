@@ -406,7 +406,13 @@ async function handleQuickAddAmount(
       date: new Date().toISOString(),
     };
 
-    const transactionId = await transactionModule.getCreateTransactionUseCase().execute(transactionData);
+    const createResult = await transactionModule.getCreateTransactionUseCase().execute(transactionData);
+
+    if (!createResult.success) {
+      throw createResult.error;
+    }
+
+    const transactionId = createResult.data;
 
     // Track for delete functionality
     setLastTransactionId(userId, transactionId);

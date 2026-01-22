@@ -35,25 +35,29 @@ const logger = createLogger(LogCategory.TRANSACTION);
  * Fetch transaction and verify ownership
  * Uses shared verifyResourceOwnership helper for consistent behavior
  * Guest users (guest_*) are allowed without verification
+ * Returns null if transaction not found or ownership verification fails
  */
-async function verifyTransactionOwnership(
+async function verifyTransactionOwnershipWithResult(
   req: Request,
   transactionId: string,
   getByIdUseCase: GetTransactionByIdUseCase,
   userModule?: UserModule
-): Promise<Transaction> {
-  const transaction = await getByIdUseCase.execute(transactionId);
+): Promise<{ success: true; transaction: Transaction } | { success: false; error: Error }> {
+  const result = await getByIdUseCase.execute(transactionId);
 
-  if (!transaction) {
-    throw ErrorFactory.notFound('Transaction not found');
+  if (!result.success) {
+    return { success: false, error: result.error };
   }
 
-  await verifyResourceOwnership(req, transaction, userModule, {
-    resourceType: 'transaction',
-    allowGuest: true,
-  });
-
-  return transaction;
+  try {
+    await verifyResourceOwnership(req, result.data, userModule, {
+      resourceType: 'transaction',
+      allowGuest: true,
+    });
+    return { success: true, transaction: result.data };
+  } catch (error) {
+    return { success: false, error: error as Error };
+  }
 }
 
 export function createTransactionRouter(
@@ -228,10 +232,14 @@ export function createTransactionRouter(
       }
 
       const transaction = validationResult.data;
-      const createdId = await createUseCase.execute(transaction);
+      const createResult = await createUseCase.execute(transaction);
+
+      if (!createResult.success) {
+        return handleControllerError(createResult.error, res);
+      }
 
       handleControllerSuccess(
-        { id: createdId, transaction },
+        { id: createResult.data, transaction },
         res,
         201,
         SUCCESS_MESSAGES.TRANSACTION_CREATED
@@ -279,8 +287,12 @@ export function createTransactionRouter(
       }
 
       // Verify ownership before returning transaction
-      const transaction = await verifyTransactionOwnership(req, transactionId, getByIdUseCase, userModule);
-      handleControllerSuccess(transaction, res);
+      const ownershipResult = await verifyTransactionOwnershipWithResult(req, transactionId, getByIdUseCase, userModule);
+      if (!ownershipResult.success) {
+        return handleControllerError(ownershipResult.error, res);
+      }
+
+      handleControllerSuccess(ownershipResult.transaction, res);
     } catch (error) {
       handleControllerError(error, res);
     }
@@ -296,9 +308,16 @@ export function createTransactionRouter(
       }
 
       // Verify ownership before deleting
-      await verifyTransactionOwnership(req, transactionId, getByIdUseCase, userModule);
+      const ownershipResult = await verifyTransactionOwnershipWithResult(req, transactionId, getByIdUseCase, userModule);
+      if (!ownershipResult.success) {
+        return handleControllerError(ownershipResult.error, res);
+      }
 
-      await deleteUseCase.execute(transactionId);
+      const deleteResult = await deleteUseCase.execute({ id: transactionId });
+      if (!deleteResult.success) {
+        return handleControllerError(deleteResult.error, res);
+      }
+
       handleControllerSuccess(
         { message: SUCCESS_MESSAGES.TRANSACTION_DELETED },
         res,
@@ -320,12 +339,15 @@ export function createTransactionRouter(
       }
 
       // Verify ownership before updating
-      await verifyTransactionOwnership(req, transactionId, getByIdUseCase, userModule);
+      const ownershipResult = await verifyTransactionOwnershipWithResult(req, transactionId, getByIdUseCase, userModule);
+      if (!ownershipResult.success) {
+        return handleControllerError(ownershipResult.error, res);
+      }
 
       // Validate the update data - allow partial updates
       const allowedFields = ['amount', 'category', 'description', 'date', 'type', 'merchant'];
-      const updates: any = {};
-      
+      const updates: Record<string, unknown> = {};
+
       for (const field of allowedFields) {
         if (req.body[field] !== undefined) {
           updates[field] = req.body[field];
@@ -340,7 +362,7 @@ export function createTransactionRouter(
 
       // Check if we have learning context
       const hasLearningContext = req.body.userId && req.body.originalText && req.body.originalParsing;
-      
+
       logger.debug('Transaction update request', {
         transactionId,
         hasLearningContext,
@@ -348,11 +370,11 @@ export function createTransactionRouter(
         updates: Object.keys(updates)
       });
 
-      let updatedTransaction;
+      let updateResult;
       if (hasLearningContext) {
         logger.debug('Using learning-enabled update');
         // Use learning-enabled update
-        updatedTransaction = await updateWithLearningUseCase.execute({
+        updateResult = await updateWithLearningUseCase.execute({
           id: transactionId,
           ...updates,
           userId: req.body.userId,
@@ -362,14 +384,18 @@ export function createTransactionRouter(
       } else {
         logger.debug('Using regular update (no learning context)');
         // Use regular update
-        updatedTransaction = await updateUseCase.execute({
+        updateResult = await updateUseCase.execute({
           id: transactionId,
           ...updates
         });
       }
 
+      if (!updateResult.success) {
+        return handleControllerError(updateResult.error, res);
+      }
+
       handleControllerSuccess(
-        updatedTransaction,
+        updateResult.data,
         res,
         200,
         SUCCESS_MESSAGES.TRANSACTION_UPDATED
@@ -390,9 +416,16 @@ export function createTransactionRouter(
       }
 
       // Verify ownership before archiving
-      await verifyTransactionOwnership(req, transactionId, getByIdUseCase, userModule);
+      const ownershipResult = await verifyTransactionOwnershipWithResult(req, transactionId, getByIdUseCase, userModule);
+      if (!ownershipResult.success) {
+        return handleControllerError(ownershipResult.error, res);
+      }
 
-      await archiveUseCase.execute(transactionId);
+      const archiveResult = await archiveUseCase.execute(transactionId);
+      if (!archiveResult.success) {
+        return handleControllerError(archiveResult.error, res);
+      }
+
       handleControllerSuccess(
         { message: 'Transaction archived successfully' },
         res,
@@ -413,9 +446,16 @@ export function createTransactionRouter(
       }
 
       // Verify ownership before unarchiving
-      await verifyTransactionOwnership(req, transactionId, getByIdUseCase, userModule);
+      const ownershipResult = await verifyTransactionOwnershipWithResult(req, transactionId, getByIdUseCase, userModule);
+      if (!ownershipResult.success) {
+        return handleControllerError(ownershipResult.error, res);
+      }
 
-      await unarchiveUseCase.execute(transactionId);
+      const unarchiveResult = await unarchiveUseCase.execute(transactionId);
+      if (!unarchiveResult.success) {
+        return handleControllerError(unarchiveResult.error, res);
+      }
+
       handleControllerSuccess(
         { message: 'Transaction unarchived successfully' },
         res,
@@ -437,7 +477,10 @@ export function createTransactionRouter(
 
       // Verify ownership for ALL transactions before archiving any
       for (const transactionId of ids) {
-        await verifyTransactionOwnership(req, transactionId, getByIdUseCase, userModule);
+        const ownershipResult = await verifyTransactionOwnershipWithResult(req, transactionId, getByIdUseCase, userModule);
+        if (!ownershipResult.success) {
+          return handleControllerError(ownershipResult.error, res);
+        }
       }
 
       const result = await archiveMultipleUseCase.execute(ids);

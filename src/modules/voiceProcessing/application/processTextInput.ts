@@ -46,17 +46,21 @@ export class ProcessTextInputUseCase {
           },
         };
 
-        const id = await this.createTransactionUseCase.execute(transaction);
-        transactionResults.push({
-          id,
-          amount: transaction.amount,
-          category: transaction.category,
-          type: transaction.type,
-          date: transaction.date,
-          merchant: transaction.merchant,
-          confidence: transaction.confidence,
-          description: transaction.description,
-        });
+        const createResult = await this.createTransactionUseCase.execute(transaction);
+        if (createResult.success) {
+          transactionResults.push({
+            id: createResult.data,
+            amount: transaction.amount,
+            category: transaction.category,
+            type: transaction.type,
+            date: transaction.date,
+            merchant: transaction.merchant,
+            confidence: transaction.confidence,
+            description: transaction.description,
+          });
+        } else {
+          logger.error('Failed to create transaction', null, { error: createResult.error?.message });
+        }
       } catch (error) {
         logger.error('Failed to create transaction from text input', error as Error, {
           transactionData: p,

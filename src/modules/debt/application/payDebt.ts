@@ -71,7 +71,7 @@ export class PayDebtUseCase {
           ? `Вернул долг: ${debt.personName}`
           : `Получил возврат долга от: ${debt.personName}`;
 
-        await this.createTransactionUseCase.execute({
+        const transactionResult = await this.createTransactionUseCase.execute({
           userId: debt.userId,
           amount: data.amount,
           type: isExpense ? 'expense' : 'income',
@@ -81,6 +81,13 @@ export class PayDebtUseCase {
           isDebtRelated: true,
           relatedDebtId: debt.id
         });
+
+        if (!transactionResult.success) {
+          logger.warn('Failed to create linked transaction for debt payment', {
+            debtId: data.debtId,
+            error: transactionResult.error?.message
+          });
+        }
       }
 
       return ResultHelper.success(payment);

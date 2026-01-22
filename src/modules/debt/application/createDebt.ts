@@ -58,7 +58,7 @@ export class CreateDebtUseCase {
     }
   }
 
-  private async createLinkedTransaction(debt: DebtEntity, data: CreateDebtData): Promise<string> {
+  private async createLinkedTransaction(debt: DebtEntity, data: CreateDebtData): Promise<void> {
     // Determine transaction type based on debt type:
     // - "I owe someone" = I received money from them = income (but it's a debt)
     // - "Someone owes me" = I gave money to them = expense (but it's recoverable)
@@ -69,7 +69,7 @@ export class CreateDebtUseCase {
       ? `Дал в долг: ${debt.personName}`
       : `Взял в долг у: ${debt.personName}`;
 
-    return this.createTransactionUseCase.execute({
+    const transactionResult = await this.createTransactionUseCase.execute({
       userId: debt.userId,
       amount: debt.originalAmount,
       type: isExpense ? 'expense' : 'income',
@@ -79,6 +79,13 @@ export class CreateDebtUseCase {
       isDebtRelated: true,
       relatedDebtId: debt.id
     });
+
+    if (!transactionResult.success) {
+      logger.warn('Failed to create linked transaction for debt', {
+        debtId: debt.id,
+        error: transactionResult.error?.message
+      });
+    }
   }
 
   private validate(data: CreateDebtData): { isValid: boolean; error?: string } {
