@@ -10,9 +10,9 @@ import { DebtType } from '../../debt/domain/debtEntity';
 import { DebtLimitExceededError } from '../../debt/domain/errors';
 import { ErrorFactory } from '../../../shared/domain/errors/AppError';
 import { Validators } from '../../../shared/application/validation/validators';
-import { createLogger, LogCategory } from '../../../shared/infrastructure/logging';
+import { getLogger, LogCategory } from '../../../shared/application/logging';
 
-const logger = createLogger(LogCategory.OPENAI);
+const logger = getLogger(LogCategory.OPENAI);
 
 function convertOggToMp3(input: string, output: string): Promise<void> {
   return new Promise((resolve, reject) => {

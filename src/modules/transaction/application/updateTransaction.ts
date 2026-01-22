@@ -2,9 +2,9 @@ import { Transaction } from '../domain/transactionEntity';
 import { TransactionRepository } from '../domain/transactionRepository';
 import { Result, ResultHelper } from '../../../shared/domain/types/Result';
 import { ValidationError, NotFoundError, BusinessLogicError } from '../../../shared/domain/errors/AppError';
-import { createLogger, LogCategory } from '../../../shared/infrastructure/logging';
+import { getLogger, LogCategory } from '../../../shared/application/logging';
 
-const logger = createLogger(LogCategory.TRANSACTION);
+const logger = getLogger(LogCategory.TRANSACTION);
 
 export interface UpdateTransactionRequest {
   id: string;

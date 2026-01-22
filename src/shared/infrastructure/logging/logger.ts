@@ -1,6 +1,8 @@
 /**
  * Winston-based structured logging module.
  *
+ * This is the Infrastructure implementation of the ILogger port.
+ *
  * Features:
  * - JSON format in production (for ELK/CloudWatch/Datadog)
  * - Pretty colored output in development
@@ -10,44 +12,10 @@
  */
 
 import winston from 'winston';
+import { LogCategory, type LogCategoryType, type ILogger } from '../../domain/ports/Logger';
 
-/**
- * Log categories for filtering and grouping logs
- */
-export const LogCategory = {
-  // System
-  SYSTEM: 'SYSTEM',
-  CONFIG: 'CONFIG',
-  DATABASE: 'DATABASE',
-
-  // Security
-  AUTH: 'AUTH',
-  RATE_LIMIT: 'RATE_LIMIT',
-  SECURITY: 'SECURITY',
-
-  // Business Logic
-  TRANSACTION: 'TRANSACTION',
-  DEBT: 'DEBT',
-  BUDGET: 'BUDGET',
-  SUBSCRIPTION: 'SUBSCRIPTION',
-  USER: 'USER',
-  LEARNING: 'LEARNING',
-  DASHBOARD: 'DASHBOARD',
-
-  // External Services
-  OPENAI: 'OPENAI',
-  TELEGRAM: 'TELEGRAM',
-  SUPABASE: 'SUPABASE',
-
-  // Request Handling
-  HTTP: 'HTTP',
-  TELEGRAM_MSG: 'TELEGRAM_MSG',
-
-  // Performance
-  PERFORMANCE: 'PERFORMANCE',
-} as const;
-
-export type LogCategoryType = (typeof LogCategory)[keyof typeof LogCategory];
+// Re-export from domain for backward compatibility
+export { LogCategory, type LogCategoryType, type ILogger };
 
 /**
  * Fields that should be redacted from logs
@@ -131,16 +99,6 @@ const winstonLogger = winston.createLogger({
   // Prevent unhandled rejections from crashing the app
   exitOnError: false,
 });
-
-/**
- * Logger interface for type safety
- */
-export interface ILogger {
-  debug(message: string, context?: Record<string, unknown>): void;
-  info(message: string, context?: Record<string, unknown>): void;
-  warn(message: string, context?: Record<string, unknown>): void;
-  error(message: string, error?: Error | null, context?: Record<string, unknown>): void;
-}
 
 /**
  * Create a category-specific logger

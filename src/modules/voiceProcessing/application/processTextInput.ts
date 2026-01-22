@@ -5,9 +5,9 @@ import { CreateDebtUseCase } from '../../debt/application/createDebt';
 import { Transaction } from '../../transaction/domain/transactionEntity';
 import { DebtType } from '../../debt/domain/debtEntity';
 import { DebtLimitExceededError } from '../../debt/domain/errors';
-import { createLogger, LogCategory } from '../../../shared/infrastructure/logging';
+import { getLogger, LogCategory } from '../../../shared/application/logging';
 
-const logger = createLogger(LogCategory.OPENAI);
+const logger = getLogger(LogCategory.OPENAI);
 
 export class ProcessTextInputUseCase {
   constructor(

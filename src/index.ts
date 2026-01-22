@@ -8,6 +8,11 @@ import { AppConfig } from './shared/infrastructure/config/appConfig';
 import { ConfigurationError } from './shared/domain/errors/AppError';
 import { initializeDatabase, closeDatabase } from './shared/infrastructure/database/database.config';
 import { createLogger, LogCategory } from './shared/infrastructure/logging';
+import { registerLoggerFactory } from './shared/application/logging';
+
+// Register infrastructure logger for application layer use
+// This is the composition root - where we wire up dependencies
+registerLoggerFactory(createLogger);
 
 const logger = createLogger(LogCategory.SYSTEM);
 

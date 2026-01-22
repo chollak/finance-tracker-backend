@@ -7,9 +7,9 @@ import { SubscriptionRepository } from '../domain/subscriptionRepository';
 import { UsageLimitRepository } from '../domain/usageLimitRepository';
 import { Subscription, isSubscriptionActive, FREE_TIER_LIMITS } from '../domain/subscription';
 import { LimitType } from '../domain/usageLimit';
-import { createLogger, LogCategory } from '../../../shared/infrastructure/logging';
+import { getLogger, LogCategory } from '../../../shared/application/logging';
 
-const logger = createLogger(LogCategory.SUBSCRIPTION);
+const logger = getLogger(LogCategory.SUBSCRIPTION);
 
 export class SubscriptionService {
   constructor(

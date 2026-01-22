@@ -1,9 +1,9 @@
 import { BudgetRepository } from '../domain/budgetRepository';
 import { Result, ResultHelper } from '../../../shared/domain/types/Result';
 import { ValidationError, BusinessLogicError, NotFoundError } from '../../../shared/domain/errors/AppError';
-import { createLogger, LogCategory } from '../../../shared/infrastructure/logging';
+import { getLogger, LogCategory } from '../../../shared/application/logging';
 
-const logger = createLogger(LogCategory.BUDGET);
+const logger = getLogger(LogCategory.BUDGET);
 
 export class DeleteBudgetUseCase {
   private budgetRepository: BudgetRepository;

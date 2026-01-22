@@ -2,9 +2,9 @@ import { DebtRepository } from '../domain/debtRepository';
 import { DebtEntity, UpdateDebtData, DebtStatus } from '../domain/debtEntity';
 import { Result, ResultHelper } from '../../../shared/domain/types/Result';
 import { ValidationError, BusinessLogicError, NotFoundError } from '../../../shared/domain/errors/AppError';
-import { createLogger, LogCategory } from '../../../shared/infrastructure/logging';
+import { getLogger, LogCategory } from '../../../shared/application/logging';
 
-const logger = createLogger(LogCategory.DEBT);
+const logger = getLogger(LogCategory.DEBT);
 
 export class UpdateDebtUseCase {
   constructor(private debtRepository: DebtRepository) {}

@@ -6,9 +6,9 @@ import { CreateTransactionUseCase } from '../../transaction/application/createTr
 import { SubscriptionModule } from '../../subscription/subscriptionModule';
 import { UserModule } from '../../user/userModule';
 import { isUUID } from '../../../shared/application/helpers/userIdResolver';
-import { createLogger, LogCategory } from '../../../shared/infrastructure/logging';
+import { getLogger, LogCategory } from '../../../shared/application/logging';
 
-const logger = createLogger(LogCategory.DEBT);
+const logger = getLogger(LogCategory.DEBT);
 
 // Debt-related category for transactions
 const DEBT_CATEGORY = 'debt';

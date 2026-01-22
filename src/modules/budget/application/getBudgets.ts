@@ -2,9 +2,9 @@ import { BudgetRepository } from '../domain/budgetRepository';
 import { BudgetEntity, BudgetSummary } from '../domain/budgetEntity';
 import { Result, ResultHelper } from '../../../shared/domain/types/Result';
 import { ValidationError, BusinessLogicError } from '../../../shared/domain/errors/AppError';
-import { createLogger, LogCategory } from '../../../shared/infrastructure/logging';
+import { getLogger, LogCategory } from '../../../shared/application/logging';
 
-const logger = createLogger(LogCategory.BUDGET);
+const logger = getLogger(LogCategory.BUDGET);
 
 export class GetBudgetsUseCase {
   private budgetRepository: BudgetRepository;

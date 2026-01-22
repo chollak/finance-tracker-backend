@@ -3,9 +3,9 @@ import { TransactionRepository } from '../domain/transactionRepository';
 import { Result, ResultHelper } from '../../../shared/domain/types/Result';
 import { ValidationError, NotFoundError, BusinessLogicError } from '../../../shared/domain/errors/AppError';
 import { transactionLearning } from '../../../shared/application/learning/transactionLearning';
-import { createLogger, LogCategory } from '../../../shared/infrastructure/logging';
+import { getLogger, LogCategory } from '../../../shared/application/logging';
 
-const logger = createLogger(LogCategory.LEARNING);
+const logger = getLogger(LogCategory.LEARNING);
 
 export interface UpdateTransactionWithLearningRequest {
   id: string;
