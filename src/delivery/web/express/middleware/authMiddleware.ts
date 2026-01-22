@@ -10,6 +10,9 @@
 import { Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
 import { AppConfig } from '../../../../shared/infrastructure/config/appConfig';
+import { createLogger, LogCategory } from '../../../../shared/infrastructure/logging';
+
+const logger = createLogger(LogCategory.AUTH);
 
 /**
  * Parsed Telegram Web App init data
@@ -54,7 +57,7 @@ function validateTelegramWebAppData(initData: string, botToken: string): Telegra
     const hash = params.get('hash');
 
     if (!hash) {
-      console.warn('[Auth] No hash in initData');
+      logger.warn('No hash in initData');
       return null;
     }
 
@@ -85,7 +88,7 @@ function validateTelegramWebAppData(initData: string, botToken: string): Telegra
 
     // Compare hashes (timing-safe comparison)
     if (!crypto.timingSafeEqual(Buffer.from(hash), Buffer.from(calculatedHash))) {
-      console.warn('[Auth] Hash mismatch - invalid initData');
+      logger.warn('Hash mismatch - invalid initData');
       return null;
     }
 
@@ -98,7 +101,7 @@ function validateTelegramWebAppData(initData: string, botToken: string): Telegra
     const maxAge = 3600; // 1 hour
 
     if (now - authDate > maxAge) {
-      console.warn('[Auth] initData expired:', { authDate, now, age: now - authDate });
+      logger.warn('initData expired', { authDate, now, age: now - authDate });
       return null;
     }
 
@@ -109,7 +112,7 @@ function validateTelegramWebAppData(initData: string, botToken: string): Telegra
       hash,
     };
   } catch (error) {
-    console.error('[Auth] Error validating initData:', error);
+    logger.error('Error validating initData', error as Error);
     return null;
   }
 }
@@ -159,7 +162,7 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
   const botToken = AppConfig.TG_BOT_API_KEY;
 
   if (!botToken) {
-    console.error('[Auth] TG_BOT_API_KEY not configured');
+    logger.error('TG_BOT_API_KEY not configured');
     res.status(500).json({
       success: false,
       error: 'Server authentication not configured',
@@ -201,7 +204,7 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
  * Validates auth if present, but allows unauthenticated requests.
  * Useful for endpoints that work with or without auth (e.g., guest mode).
  */
-export function optionalAuth(req: Request, res: Response, next: NextFunction): void {
+export function optionalAuth(req: Request, _res: Response, next: NextFunction): void {
   const authHeader = req.headers.authorization;
 
   // No auth header - continue without authentication
@@ -282,7 +285,7 @@ export function verifyOwnership(req: Request, res: Response, next: NextFunction)
   if (req.resolvedUser) {
     // If we have resolvedUser, compare telegramIds
     if (req.resolvedUser.telegramId && req.resolvedUser.telegramId !== authTelegramId) {
-      console.warn('[Auth] Ownership mismatch:', {
+      logger.warn('Ownership mismatch', {
         authTelegramId,
         targetTelegramId: req.resolvedUser.telegramId,
         targetUserId,
@@ -302,7 +305,7 @@ export function verifyOwnership(req: Request, res: Response, next: NextFunction)
 
     // Allow if target looks like telegramId and matches
     if (/^\d+$/.test(targetStr) && targetStr !== authTelegramId) {
-      console.warn('[Auth] Ownership mismatch (raw):', {
+      logger.warn('Ownership mismatch (raw)', {
         authTelegramId,
         targetUserId: targetStr,
       });
@@ -343,7 +346,7 @@ export function requireAdmin(req: Request, res: Response, next: NextFunction): v
   const userTelegramId = req.telegramUser.id.toString();
 
   if (!adminIds.includes(userTelegramId)) {
-    console.warn('[Auth] Non-admin access attempt:', {
+    logger.warn('Non-admin access attempt', {
       telegramId: userTelegramId,
       path: req.path,
     });

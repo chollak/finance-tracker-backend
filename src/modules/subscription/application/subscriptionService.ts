@@ -7,6 +7,9 @@ import { SubscriptionRepository } from '../domain/subscriptionRepository';
 import { UsageLimitRepository } from '../domain/usageLimitRepository';
 import { Subscription, isSubscriptionActive, FREE_TIER_LIMITS } from '../domain/subscription';
 import { LimitType } from '../domain/usageLimit';
+import { createLogger, LogCategory } from '../../../shared/infrastructure/logging';
+
+const logger = createLogger(LogCategory.SUBSCRIPTION);
 
 export class SubscriptionService {
   constructor(
@@ -64,7 +67,7 @@ export class SubscriptionService {
         await this.subscriptionRepository.markAsExpired(subscription.id);
         processed++;
       } catch (error) {
-        console.error(`Failed to expire subscription ${subscription.id}:`, error);
+        logger.error(`Failed to expire subscription ${subscription.id}`, error as Error);
       }
     }
 

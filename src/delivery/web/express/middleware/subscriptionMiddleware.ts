@@ -8,6 +8,9 @@ import { SubscriptionModule } from '../../../../modules/subscription/subscriptio
 import { UserModule } from '../../../../modules/user/userModule';
 import { LimitType } from '../../../../modules/subscription/domain/usageLimit';
 import { resolveUserIdToUUID, isGuestUser } from '../../../../shared/application/helpers/userIdResolver';
+import { createLogger, LogCategory } from '../../../../shared/infrastructure/logging';
+
+const logger = createLogger(LogCategory.SUBSCRIPTION);
 
 // Extend Express Request to include user and subscription info
 declare global {
@@ -52,7 +55,7 @@ async function resolveUserUUID(
     // Use shared resolver which checks isUUID first
     return await resolveUserIdToUUID(userId, userModule);
   } catch (error) {
-    console.error('Failed to resolve user UUID:', error);
+    logger.error('Failed to resolve user UUID', error as Error);
     return null;
   }
 }
@@ -115,7 +118,7 @@ export function createCheckLimitMiddleware(
 
       next();
     } catch (error) {
-      console.error('Error in subscription middleware:', error);
+      logger.error('Error in subscription middleware', error as Error);
       res.status(500).json({
         error: 'Failed to check subscription limit',
         code: 'SUBSCRIPTION_CHECK_ERROR',
@@ -158,7 +161,7 @@ export function createIncrementUsageMiddleware(
 
         // Fire and forget - don't block response
         resolveAndIncrement().catch(error =>
-          console.error('Failed to increment usage:', error)
+          logger.error('Failed to increment usage', error as Error)
         );
       }
 
@@ -216,7 +219,7 @@ export function createRequirePremiumMiddleware(
 
       next();
     } catch (error) {
-      console.error('Error in require premium middleware:', error);
+      logger.error('Error in require premium middleware', error as Error);
       res.status(500).json({
         error: 'Failed to check premium status',
         code: 'PREMIUM_CHECK_ERROR',

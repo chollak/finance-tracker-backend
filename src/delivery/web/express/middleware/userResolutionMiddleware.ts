@@ -13,6 +13,9 @@
 import { Request, Response, NextFunction } from 'express';
 import { UserModule } from '../../../../modules/user/userModule';
 import { resolveUserIdToUUID, isUUID, isGuestUser } from '../../../../shared/application/helpers/userIdResolver';
+import { createLogger, LogCategory } from '../../../../shared/infrastructure/logging';
+
+const logger = createLogger(LogCategory.USER);
 
 /**
  * Resolved user info attached to request
@@ -141,7 +144,7 @@ export function createUserResolutionMiddleware(
 
       next();
     } catch (error) {
-      console.error('Error in userResolutionMiddleware:', error);
+      logger.error('Error in userResolutionMiddleware', error as Error);
       res.status(500).json({
         error: 'Failed to resolve user',
         code: 'USER_RESOLUTION_ERROR',

@@ -5,6 +5,9 @@
 import { getSupabaseClient } from '../../../../shared/infrastructure/database/supabase.config';
 import { User, CreateUserDTO, UpdateUserDTO } from '../../domain/userEntity';
 import { UserRepository } from '../../domain/userRepository';
+import { createLogger, LogCategory } from '../../../../shared/infrastructure/logging';
+
+const logger = createLogger(LogCategory.USER);
 
 export class SupabaseUserRepository implements UserRepository {
   private supabase = getSupabaseClient();
@@ -90,7 +93,7 @@ export class SupabaseUserRepository implements UserRepository {
       .eq('id', id);
 
     if (error) {
-      console.error(`Failed to update last seen: ${error.message}`);
+      logger.error(`Failed to update last seen: ${error.message}`);
     }
   }
 

@@ -6,6 +6,9 @@
  */
 
 import { UserModule } from '../../../modules/user/userModule';
+import { createLogger, LogCategory } from '../../infrastructure/logging';
+
+const logger = createLogger(LogCategory.USER);
 
 /**
  * UUID v4 regex pattern
@@ -67,7 +70,7 @@ export async function resolveUserIdToUUID(
     });
     return user.id;
   } catch (error) {
-    console.error(`Failed to resolve userId "${trimmedId}" to UUID:`, error);
+    logger.error(`Failed to resolve userId "${trimmedId}" to UUID`, error as Error);
     // Return original if resolution fails (fail-open for backwards compatibility)
     return trimmedId;
   }

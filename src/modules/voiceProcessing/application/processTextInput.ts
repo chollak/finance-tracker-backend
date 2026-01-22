@@ -5,6 +5,9 @@ import { CreateDebtUseCase } from '../../debt/application/createDebt';
 import { Transaction } from '../../transaction/domain/transactionEntity';
 import { DebtType } from '../../debt/domain/debtEntity';
 import { DebtLimitExceededError } from '../../debt/domain/errors';
+import { createLogger, LogCategory } from '../../../shared/infrastructure/logging';
+
+const logger = createLogger(LogCategory.OPENAI);
 
 export class ProcessTextInputUseCase {
   constructor(
@@ -55,8 +58,7 @@ export class ProcessTextInputUseCase {
           description: transaction.description,
         });
       } catch (error) {
-        console.error('Failed to create transaction from text input:', {
-          error,
+        logger.error('Failed to create transaction from text input', error as Error, {
           transactionData: p,
           userId,
         });
@@ -97,15 +99,14 @@ export class ProcessTextInputUseCase {
             if (result.error instanceof DebtLimitExceededError) {
               throw result.error;
             }
-            console.error('Failed to create debt:', result.error.message);
+            logger.error('Failed to create debt', null, { error: result.error.message });
           }
         } catch (error) {
           // Re-throw DebtLimitExceededError to show user-friendly message
           if (error instanceof DebtLimitExceededError) {
             throw error;
           }
-          console.error('Failed to create debt from text input:', {
-            error,
+          logger.error('Failed to create debt from text input', error as Error, {
             debtData: d,
             userId,
           });

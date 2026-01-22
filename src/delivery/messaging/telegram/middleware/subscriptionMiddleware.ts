@@ -8,6 +8,9 @@ import { SubscriptionModule } from '../../../../modules/subscription/subscriptio
 import { UserModule } from '../../../../modules/user/userModule';
 import { LimitType } from '../../../../modules/subscription/domain/usageLimit';
 import { SUBSCRIPTION_PRICE_STARS } from '../../../../modules/subscription/domain/subscription';
+import { createLogger, LogCategory } from '../../../../shared/infrastructure/logging';
+
+const logger = createLogger(LogCategory.SUBSCRIPTION);
 
 // Extend Context to include subscription info
 interface SubscriptionContext extends Context {
@@ -36,7 +39,7 @@ async function getUserUUID(ctx: Context, userModule: UserModule): Promise<string
     });
     return user.id;
   } catch (error) {
-    console.error('Failed to get user UUID:', error);
+    logger.error('Failed to get user UUID', error as Error);
     return null;
   }
 }
@@ -96,7 +99,7 @@ export function createTelegramCheckLimitMiddleware(
 
       return next();
     } catch (error) {
-      console.error('Error in telegram subscription middleware:', error);
+      logger.error('Error in telegram subscription middleware', error as Error);
       // Allow action on error (fail open)
       return next();
     }
@@ -124,7 +127,7 @@ export function createTelegramIncrementUsageMiddleware(
             .getIncrementUsageUseCase()
             .execute({ userId, limitType });
         } catch (error) {
-          console.error('Failed to increment usage in telegram middleware:', error);
+          logger.error('Failed to increment usage in telegram middleware', error as Error);
         }
       }
     }
@@ -180,7 +183,7 @@ export function createTelegramRequirePremiumMiddleware(
 
       return next();
     } catch (error) {
-      console.error('Error in telegram premium middleware:', error);
+      logger.error('Error in telegram premium middleware', error as Error);
       // Allow action on error (fail open)
       return next();
     }

@@ -10,6 +10,9 @@ import {
   todayKeyboard
 } from '../keyboards';
 import { resolveUserIdToUUID } from '../../../../shared/application/helpers/userIdResolver';
+import { createLogger, LogCategory } from '../../../../shared/infrastructure/logging';
+
+const logger = createLogger(LogCategory.TELEGRAM);
 
 /**
  * Register all command handlers
@@ -63,7 +66,7 @@ async function handleStart(ctx: BotContext) {
     // Send quick category keyboard
     await ctx.reply(RU.quickCategories.title, quickCategoryKeyboard());
   } catch (error) {
-    console.error('/start command error:', error);
+    logger.error('/start command error', error as Error);
     await ctx.reply(RU.errors.generic);
   }
 }
@@ -141,7 +144,7 @@ async function handleToday(ctx: BotContext) {
       ...(keyboard || {}),
     });
   } catch (error) {
-    console.error('/today command error:', error);
+    logger.error('/today command error', error as Error);
     await ctx.reply(RU.errors.generic);
   }
 }
@@ -219,7 +222,7 @@ async function handleStats(ctx: BotContext) {
       ...(keyboard || {}),
     });
   } catch (error) {
-    console.error('/stats command error:', error);
+    logger.error('/stats command error', error as Error);
     await ctx.reply(RU.errors.generic);
   }
 }
@@ -267,7 +270,7 @@ async function handleBudget(ctx: BotContext) {
       ...(keyboard || {}),
     });
   } catch (error) {
-    console.error('/budget command error:', error);
+    logger.error('/budget command error', error as Error);
     await ctx.reply(RU.errors.generic);
   }
 }
@@ -284,7 +287,7 @@ async function handleHelp(ctx: BotContext) {
     // Also send quick categories for convenience
     await ctx.reply(RU.quickCategories.title, quickCategoryKeyboard());
   } catch (error) {
-    console.error('/help command error:', error);
+    logger.error('/help command error', error as Error);
     await ctx.reply(RU.errors.generic);
   }
 }
@@ -303,7 +306,7 @@ async function handleTransactions(ctx: BotContext) {
       await ctx.reply(RU.errors.webAppNotConfigured);
     }
   } catch (error) {
-    console.error('/transactions command error:', error);
+    logger.error('/transactions command error', error as Error);
     await ctx.reply(RU.errors.generic);
   }
 }

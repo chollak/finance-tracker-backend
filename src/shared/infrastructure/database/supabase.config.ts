@@ -1,5 +1,8 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { AppConfig } from '../config/appConfig';
+import { createLogger, LogCategory } from '../logging';
+
+const logger = createLogger(LogCategory.DATABASE);
 
 let supabaseClient: SupabaseClient | null = null;
 
@@ -12,8 +15,8 @@ export function initializeSupabase(): SupabaseClient {
     throw new Error('SUPABASE_ANON_KEY is required');
   }
 
-  console.log('🔗 Initializing Supabase client...');
-  
+  logger.info('Initializing Supabase client');
+
   supabaseClient = createClient(
     AppConfig.SUPABASE_URL,
     AppConfig.SUPABASE_ANON_KEY,
@@ -24,7 +27,7 @@ export function initializeSupabase(): SupabaseClient {
     }
   );
 
-  console.log('✅ Supabase client initialized successfully');
+  logger.info('Supabase client initialized successfully');
   return supabaseClient;
 }
 

@@ -4,6 +4,9 @@ import { Transaction } from '../domain/transactionEntity';
 import { TransactionRepository } from '../domain/transactionRepository';
 import { SubscriptionModule } from '../../subscription/subscriptionModule';
 import { UserModule } from '../../user/userModule';
+import { createLogger, LogCategory } from '../../../shared/infrastructure/logging';
+
+const logger = createLogger(LogCategory.TRANSACTION);
 
 export class CreateTransactionUseCase {
     private primaryRepository: TransactionRepository;
@@ -37,7 +40,7 @@ export class CreateTransactionUseCase {
 
             return id;
         } catch (error) {
-            console.error('Error creating transaction:', error);
+            logger.error('Error creating transaction', error as Error);
             throw error;
         }
     }
@@ -59,7 +62,7 @@ export class CreateTransactionUseCase {
             });
         } catch (error) {
             // Log but don't fail the transaction creation
-            console.error('Failed to increment transaction count:', error);
+            logger.error('Failed to increment transaction count', error as Error);
         }
     }
 }

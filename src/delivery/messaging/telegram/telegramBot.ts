@@ -13,6 +13,9 @@ import { registerCommandHandlers } from './handlers/commandHandlers';
 import { registerMessageHandlers } from './handlers/messageHandlers';
 import { registerCallbackHandlers } from './handlers/callbackHandlers';
 import { registerPaymentHandlers } from './handlers/paymentHandlers';
+import { createLogger, LogCategory } from '../../../shared/infrastructure/logging';
+
+const logger = createLogger(LogCategory.TELEGRAM);
 
 /**
  * Creates initial session for a user
@@ -43,7 +46,7 @@ export function startTelegramBot(
   try {
     // Check if bot token is configured
     if (!AppConfig.TG_BOT_API_KEY) {
-      console.warn('TG_BOT_API_KEY is not set, Telegram bot disabled');
+      logger.warn('TG_BOT_API_KEY is not set, Telegram bot disabled');
       return;
     }
 
@@ -97,7 +100,7 @@ export function startTelegramBot(
             languageCode: ctx.from.language_code,
           });
         } catch (error) {
-          console.error('Failed to getOrCreate user:', error);
+          logger.error('Failed to getOrCreate user', error as Error);
           // Don't block the request, just log the error
         }
       }
@@ -107,9 +110,7 @@ export function startTelegramBot(
     // ===== ERROR HANDLING =====
 
     bot.catch((err, ctx) => {
-      console.error('Telegram bot error:', {
-        error: err instanceof Error ? err.message : String(err),
-        stack: err instanceof Error ? err.stack : undefined,
+      logger.error('Telegram bot error', err instanceof Error ? err : new Error(String(err)), {
         userId: ctx?.from?.id,
         updateType: ctx?.updateType,
       });
@@ -117,7 +118,7 @@ export function startTelegramBot(
       // Try to send error message to user
       if (ctx?.reply) {
         ctx.reply('Произошла ошибка. Попробуйте снова.')
-          .catch(replyErr => console.error('Failed to send error message:', replyErr));
+          .catch(replyErr => logger.error('Failed to send error message', replyErr as Error));
       }
     });
 
@@ -133,7 +134,7 @@ export function startTelegramBot(
     if (subscriptionModule) {
       const paymentService = new TelegramPaymentService(bot.telegram);
       registerPaymentHandlers(bot, subscriptionModule, paymentService);
-      console.log('✅ Payment handlers registered');
+      logger.info('Payment handlers registered');
     }
 
     // Callback handlers: inline keyboard actions
@@ -146,25 +147,22 @@ export function startTelegramBot(
     // ===== LAUNCH BOT =====
 
     bot.launch();
-    console.log('✅ Telegram бот запущен');
+    logger.info('Telegram bot started');
 
     // Graceful shutdown handlers
     process.once('SIGINT', () => {
-      console.log('SIGINT received, stopping bot...');
+      logger.info('SIGINT received, stopping bot...');
       bot.stop('SIGINT');
     });
     process.once('SIGTERM', () => {
-      console.log('SIGTERM received, stopping bot...');
+      logger.info('SIGTERM received, stopping bot...');
       bot.stop('SIGTERM');
     });
 
   } catch (error) {
-    console.error('Failed to start Telegram bot:', {
-      error: error instanceof Error ? error.message : error,
-      stack: error instanceof Error ? error.stack : undefined,
-    });
+    logger.error('Failed to start Telegram bot', error instanceof Error ? error : new Error(String(error)));
 
     // Don't throw - let the application continue without bot
-    console.warn('⚠️ Application will continue without Telegram bot functionality');
+    logger.warn('Application will continue without Telegram bot functionality');
   }
 }

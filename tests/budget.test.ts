@@ -7,8 +7,6 @@ import { SqliteBudgetRepository } from '../src/modules/budget/infrastructure/sql
 import { SqliteTransactionRepository } from '../src/modules/transaction/infrastructure/persistence/SqliteTransactionRepository';
 import { BudgetPeriod } from '../src/modules/budget/domain/budgetEntity';
 import { CreateBudgetData, UpdateBudgetData } from '../src/modules/budget/domain/budgetEntity';
-import { initializeDatabase, closeDatabase } from '../src/shared/infrastructure/database/database.config';
-import { ResultHelper } from '../src/shared/domain/types/Result';
 
 // Mock TypeORM
 jest.mock('typeorm', () => ({

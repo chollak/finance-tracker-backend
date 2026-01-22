@@ -121,29 +121,49 @@ export class DashboardService {
     startDate.setDate(endDate.getDate() - (weeks * 7));
 
     const timeRange = { startDate, endDate };
-    const transactions = await this.analyticsService.getAnalyticsSummary(userId, timeRange);
-    const categoryBreakdown = await this.analyticsService.getDetailedCategoryBreakdown(userId, timeRange);
-    
-    // This is a simplified version - in a real implementation, you'd calculate week-by-week data
+
+    // OPTIMIZED: Load all transactions once instead of 2*N queries
+    const allTransactions = await this.analyticsService.getTransactionsForUser(userId, timeRange);
+
     const weeklyInsights: WeeklyInsight[] = [];
-    
+
     for (let i = 0; i < weeks; i++) {
       const weekStart = new Date(startDate);
       weekStart.setDate(startDate.getDate() + (i * 7));
       const weekEnd = new Date(weekStart);
       weekEnd.setDate(weekStart.getDate() + 6);
 
-      const weekRange = { startDate: weekStart, endDate: weekEnd };
-      const weekSummary = await this.analyticsService.getAnalyticsSummary(userId, weekRange);
-      const topCategoryThisWeek = await this.analyticsService.getTopCategories(userId, weekRange, 1);
+      // Filter transactions for this week in memory (no DB query)
+      const weekTransactions = allTransactions.filter(t => {
+        const tDate = new Date(t.date);
+        return tDate >= weekStart && tDate <= weekEnd;
+      });
+
+      // Calculate summary in memory
+      let income = 0;
+      let expenses = 0;
+      const categoryAmounts: Record<string, number> = {};
+
+      for (const t of weekTransactions) {
+        if (t.type === 'income') {
+          income += t.amount;
+        } else if (t.type === 'expense') {
+          expenses += t.amount;
+          categoryAmounts[t.category] = (categoryAmounts[t.category] || 0) + t.amount;
+        }
+      }
+
+      // Find top category
+      const topCategory = Object.entries(categoryAmounts)
+        .sort((a, b) => b[1] - a[1])[0]?.[0] || 'N/A';
 
       weeklyInsights.push({
         week: `${weekStart.toLocaleDateString()} - ${weekEnd.toLocaleDateString()}`,
-        income: weekSummary.totalIncome,
-        expenses: weekSummary.totalExpense,
-        net: weekSummary.netIncome,
+        income: Math.round(income * 100) / 100,
+        expenses: Math.round(expenses * 100) / 100,
+        net: Math.round((income - expenses) * 100) / 100,
         budgetPerformance: 75, // Simplified - would calculate based on actual budgets
-        topCategory: topCategoryThisWeek[0]?.category || 'N/A'
+        topCategory
       });
     }
 
@@ -270,7 +290,7 @@ export class DashboardService {
   }
 
   private generateRecommendations(
-    budgets: BudgetSummary[],
+    _budgets: BudgetSummary[],
     nearLimit: BudgetSummary[],
     overBudget: BudgetSummary[],
     insights: any

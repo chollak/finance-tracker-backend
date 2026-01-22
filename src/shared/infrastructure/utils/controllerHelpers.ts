@@ -1,12 +1,15 @@
 import { Request, Response } from 'express';
 import { AppError } from '../../domain/errors/AppError';
-import { ERROR_MESSAGES, SUCCESS_MESSAGES, HTTP_STATUS_MESSAGES } from '../../domain/constants/messages';
+import { ERROR_MESSAGES } from '../../domain/constants/messages';
+import { createLogger, LogCategory } from '../logging';
+
+const logger = createLogger(LogCategory.HTTP);
 
 /**
  * Standardized error response handler for controllers
  */
 export function handleControllerError(error: unknown, res: Response): void {
-  console.error('Controller error:', error);
+  logger.error('Controller error', error instanceof Error ? error : new Error(String(error)));
 
   if (error instanceof AppError) {
     res.status(error.statusCode).json({

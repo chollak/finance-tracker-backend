@@ -1,6 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
 import { AppError, ValidationError, ExternalServiceError, ConfigurationError } from '../../../../shared/domain/errors/AppError';
-import { ERROR_MESSAGES, HTTP_STATUS_MESSAGES } from '../../../../shared/domain/constants/messages';
+import { ERROR_MESSAGES } from '../../../../shared/domain/constants/messages';
+import { createLogger, LogCategory } from '../../../../shared/infrastructure/logging';
+
+const logger = createLogger(LogCategory.HTTP);
 
 /**
  * Global error handling middleware
@@ -10,17 +13,13 @@ export function errorHandler(
   error: Error,
   req: Request,
   res: Response,
-  next: NextFunction
+  _next: NextFunction
 ): void {
   // Log error for debugging
-  console.error('Express error handler:', {
-    error: error.message,
-    stack: error.stack,
+  logger.error('Express error handler', error, {
     url: req.url,
     method: req.method,
-    body: req.method !== 'GET' ? req.body : undefined,
     userId: req.body?.userId || req.params?.userId || 'unknown',
-    timestamp: new Date().toISOString()
   });
 
   // Handle our custom errors
@@ -110,26 +109,25 @@ export function notFoundHandler(req: Request, res: Response): void {
  */
 export function requestLogger(req: Request, res: Response, next: NextFunction): void {
   const start = Date.now();
-  
+
   // Log incoming request
-  console.log(`${req.method} ${req.url}`, {
+  logger.debug(`${req.method} ${req.url}`, {
     userAgent: req.get('User-Agent'),
     ip: req.ip,
-    timestamp: new Date().toISOString()
   });
 
   // Log response when finished
   res.on('finish', () => {
     const duration = Date.now() - start;
-    console.log(`${req.method} ${req.url} - ${res.statusCode} (${duration}ms)`);
-    
+    logger.debug(`${req.method} ${req.url} - ${res.statusCode} (${duration}ms)`);
+
     // Log slow requests
     if (duration > 5000) {
-      console.warn('Slow request detected:', {
+      logger.warn('Slow request detected', {
         method: req.method,
         url: req.url,
         duration,
-        statusCode: res.statusCode
+        statusCode: res.statusCode,
       });
     }
   });

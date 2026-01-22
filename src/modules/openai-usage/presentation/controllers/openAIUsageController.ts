@@ -1,7 +1,9 @@
 import { Request, Response } from 'express';
 import { GetOpenAIUsage } from '../../application/getOpenAIUsage';
-import { Result } from '../../../../shared/domain/types/Result';
 import { handleControllerError, handleControllerSuccess } from '../../../../shared/infrastructure/utils/controllerHelpers';
+import { createLogger, LogCategory } from '../../../../shared/infrastructure/logging';
+
+const logger = createLogger(LogCategory.OPENAI);
 
 export class OpenAIUsageController {
   constructor(private readonly getOpenAIUsage: GetOpenAIUsage) {}
@@ -25,12 +27,12 @@ export class OpenAIUsageController {
 
       handleControllerSuccess(result.data, res, 200, 'OpenAI usage data retrieved successfully');
     } catch (error) {
-      console.error('Error in OpenAI usage controller:', error);
+      logger.error('Error in OpenAI usage controller', error as Error);
       handleControllerError(error, res);
     }
   }
 
-  async getUsageSummary(req: Request, res: Response): Promise<void> {
+  async getUsageSummary(_req: Request, res: Response): Promise<void> {
     try {
       const result = await this.getOpenAIUsage.execute({ forceRefresh: false });
 
@@ -48,12 +50,12 @@ export class OpenAIUsageController {
 
       handleControllerSuccess(summary, res, 200, 'OpenAI usage summary retrieved successfully');
     } catch (error) {
-      console.error('Error in OpenAI usage summary controller:', error);
+      logger.error('Error in OpenAI usage summary controller', error as Error);
       handleControllerError(error, res);
     }
   }
 
-  async refreshUsage(req: Request, res: Response): Promise<void> {
+  async refreshUsage(_req: Request, res: Response): Promise<void> {
     try {
       const result = await this.getOpenAIUsage.execute({ forceRefresh: true });
 
@@ -64,7 +66,7 @@ export class OpenAIUsageController {
 
       handleControllerSuccess(result.data, res, 200, 'OpenAI usage data refreshed successfully');
     } catch (error) {
-      console.error('Error in OpenAI usage refresh controller:', error);
+      logger.error('Error in OpenAI usage refresh controller', error as Error);
       handleControllerError(error, res);
     }
   }

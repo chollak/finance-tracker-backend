@@ -2,7 +2,7 @@
  * SQLite Subscription Repository Implementation
  */
 
-import { Repository, LessThan, MoreThan } from 'typeorm';
+import { Repository, LessThan } from 'typeorm';
 import { AppDataSource } from '../../../shared/infrastructure/database/database.config';
 import { Subscription as SubscriptionEntity } from '../../../shared/infrastructure/database/entities/Subscription';
 import {

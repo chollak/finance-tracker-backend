@@ -1,4 +1,7 @@
 import { transactionLearning } from './transactionLearning';
+import { createLogger, LogCategory } from '../../infrastructure/logging';
+
+const logger = createLogger(LogCategory.LEARNING);
 
 /**
  * Create initial seed patterns for better AI performance
@@ -71,8 +74,8 @@ export async function createSeedPatterns() {
       0.3
     );
 
-    console.log('🌱 LEARNING: Seed patterns created successfully');
+    logger.info('Seed patterns created successfully');
   } catch (error) {
-    console.error('❌ LEARNING: Failed to create seed patterns:', error);
+    logger.error('Failed to create seed patterns', error as Error);
   }
 }

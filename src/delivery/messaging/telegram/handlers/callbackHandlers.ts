@@ -1,5 +1,5 @@
 import { Telegraf } from 'telegraf';
-import { BotContext, CallbackContext } from '../types';
+import { BotContext } from '../types';
 import { RU } from '../i18n/ru';
 import { formatConfirmedMessage } from '../formatters';
 import {
@@ -10,10 +10,12 @@ import {
 import { createWebAppUrl } from '../utils';
 import {
   getLastTransactionId,
-  clearLastTransactionId,
-  setLastTransactionId
+  clearLastTransactionId
 } from './messageHandlers';
 import { AppError } from '../../../../shared/domain/errors/AppError';
+import { createLogger, LogCategory } from '../../../../shared/infrastructure/logging';
+
+const logger = createLogger(LogCategory.TELEGRAM);
 
 /**
  * Register callback query handlers
@@ -59,7 +61,7 @@ async function handleConfirm(ctx: BotContext) {
       ...transactionConfirmedKeyboard(transactionId),
     });
   } catch (error) {
-    console.error('Confirm callback error:', error);
+    logger.error('Confirm callback error', error as Error);
     await ctx.answerCbQuery(RU.errors.generic);
   }
 }
@@ -80,7 +82,7 @@ async function handleEdit(ctx: BotContext) {
     const userId = String(ctx.from?.id ?? 'unknown');
 
     try {
-      const url = createWebAppUrl(userId, { edit: transactionId });
+      createWebAppUrl(userId, { edit: transactionId }); // Validate URL creation
 
       await ctx.answerCbQuery(`✏️ ${RU.buttons.edit}...`);
 
@@ -90,7 +92,7 @@ async function handleEdit(ctx: BotContext) {
       await ctx.answerCbQuery(RU.errors.webAppNotConfigured);
     }
   } catch (error) {
-    console.error('Edit callback error:', error);
+    logger.error('Edit callback error', error as Error);
     await ctx.answerCbQuery(RU.errors.generic);
   }
 }
@@ -126,8 +128,7 @@ async function handleDelete(ctx: BotContext) {
     await ctx.editMessageReplyMarkup(undefined);
     await ctx.answerCbQuery(`✅ ${RU.transaction.deleted}`);
   } catch (error) {
-    console.error('Delete callback error:', {
-      error: error instanceof Error ? error.message : error,
+    logger.error('Delete callback error', error as Error, {
       userId: ctx.from?.id,
       transactionId: (ctx as any).match?.[1],
     });
@@ -175,7 +176,7 @@ async function handleQuickAdd(ctx: BotContext) {
       };
     }
   } catch (error) {
-    console.error('Quick add callback error:', error);
+    logger.error('Quick add callback error', error as Error);
     await ctx.answerCbQuery(RU.errors.generic);
   }
 }

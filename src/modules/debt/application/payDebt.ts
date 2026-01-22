@@ -6,6 +6,9 @@ import { CreateTransactionUseCase } from '../../transaction/application/createTr
 import { SubscriptionModule } from '../../subscription/subscriptionModule';
 import { UserModule } from '../../user/userModule';
 import { isUUID } from '../../../shared/application/helpers/userIdResolver';
+import { createLogger, LogCategory } from '../../../shared/infrastructure/logging';
+
+const logger = createLogger(LogCategory.DEBT);
 
 // Debt-related category for transactions
 const DEBT_CATEGORY = 'debt';
@@ -82,7 +85,7 @@ export class PayDebtUseCase {
 
       return ResultHelper.success(payment);
     } catch (error) {
-      console.error('Error paying debt:', error);
+      logger.error('Error paying debt', error as Error);
       return ResultHelper.failure(new BusinessLogicError('Failed to process payment'));
     }
   }
@@ -111,7 +114,7 @@ export class PayDebtUseCase {
         note: note || 'Full payment'
       }, createTransaction);
     } catch (error) {
-      console.error('Error paying full debt:', error);
+      logger.error('Error paying full debt', error as Error);
       return ResultHelper.failure(new BusinessLogicError('Failed to process full payment'));
     }
   }
@@ -132,7 +135,7 @@ export class PayDebtUseCase {
 
       return ResultHelper.success(payment);
     } catch (error) {
-      console.error('Error getting payment:', error);
+      logger.error('Error getting payment', error as Error);
       return ResultHelper.failure(new BusinessLogicError('Failed to get payment'));
     }
   }
@@ -149,7 +152,7 @@ export class PayDebtUseCase {
       await this.debtRepository.deletePayment(paymentId);
       return ResultHelper.success(undefined);
     } catch (error) {
-      console.error('Error deleting payment:', error);
+      logger.error('Error deleting payment', error as Error);
       return ResultHelper.failure(new BusinessLogicError('Failed to delete payment'));
     }
   }
@@ -204,7 +207,7 @@ export class PayDebtUseCase {
         count: currentCount,
       });
     } catch (error) {
-      console.error('Error updating active debts count:', error);
+      logger.error('Error updating active debts count', error as Error);
       // Non-critical - don't fail the main operation
     }
   }

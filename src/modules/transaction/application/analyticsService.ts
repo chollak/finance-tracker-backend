@@ -176,7 +176,7 @@ export class AnalyticsService {
 
     async getTopCategories(userId: string, timeRange?: TimeRange, limit: number = 5): Promise<Array<{ category: string; amount: number; percentage: number }>> {
         const breakdown = await this.getDetailedCategoryBreakdown(userId, timeRange);
-        
+
         return Object.entries(breakdown)
             .map(([category, data]) => ({
                 category,
@@ -187,12 +187,20 @@ export class AnalyticsService {
             .slice(0, limit);
     }
 
+    /**
+     * Get transactions for a user within a time range.
+     * Use this method when you need to process transactions in bulk (e.g., weekly insights)
+     * to avoid N+1 query problems.
+     */
+    async getTransactionsForUser(userId: string, timeRange?: TimeRange): Promise<Transaction[]> {
+        return this.getTransactionsInRange(userId, timeRange);
+    }
+
     // Helper methods
     private async getTransactionsInRange(userId: string, timeRange?: TimeRange): Promise<Transaction[]> {
         if (!timeRange) {
-            // Get all transactions for the user
-            const allTransactions = await this.repository.getAll();
-            return allTransactions.filter(t => t.userId === userId);
+            // Use findByUserId instead of getAll() + filter to avoid N+1 query problem
+            return await this.repository.findByUserId(userId);
         }
 
         return await this.repository.getByUserIdAndDateRange(userId, timeRange.startDate, timeRange.endDate);

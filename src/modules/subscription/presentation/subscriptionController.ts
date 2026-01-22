@@ -8,6 +8,9 @@ import { SubscriptionModule } from '../subscriptionModule';
 import { FREE_TIER_LIMITS, getCurrentMonthPeriod } from '../domain/usageLimit';
 import { SubscriptionStatus } from '../application/getSubscription';
 import { handleControllerSuccess, handleControllerError } from '../../../shared/infrastructure/utils/controllerHelpers';
+import { createLogger, LogCategory } from '../../../shared/infrastructure/logging';
+
+const logger = createLogger(LogCategory.SUBSCRIPTION);
 
 export class SubscriptionController {
   constructor(private subscriptionModule: SubscriptionModule) {}
@@ -122,7 +125,7 @@ export class SubscriptionController {
 
       res.json(result);
     } catch (error) {
-      console.error('Error checking limit:', error);
+      logger.error('Error checking limit', error as Error);
       res.status(500).json({ error: 'Failed to check limit' });
     }
   }
@@ -154,7 +157,7 @@ export class SubscriptionController {
 
       res.json({ success: true, subscription });
     } catch (error) {
-      console.error('Error granting premium:', error);
+      logger.error('Error granting premium', error as Error);
       res.status(500).json({ error: 'Failed to grant premium' });
     }
   }
@@ -180,7 +183,7 @@ export class SubscriptionController {
 
       res.json(result);
     } catch (error) {
-      console.error('Error cancelling subscription:', error);
+      logger.error('Error cancelling subscription', error as Error);
       res.status(500).json({ error: 'Failed to cancel subscription' });
     }
   }
@@ -213,7 +216,7 @@ export class SubscriptionController {
 
       res.json({ success: true, subscription });
     } catch (error) {
-      console.error('Error starting trial:', error);
+      logger.error('Error starting trial', error as Error);
       res.status(500).json({ error: 'Failed to start trial' });
     }
   }

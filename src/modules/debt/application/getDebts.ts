@@ -8,6 +8,9 @@ import {
 } from '../domain/debtEntity';
 import { Result, ResultHelper } from '../../../shared/domain/types/Result';
 import { ValidationError, BusinessLogicError } from '../../../shared/domain/errors/AppError';
+import { createLogger, LogCategory } from '../../../shared/infrastructure/logging';
+
+const logger = createLogger(LogCategory.DEBT);
 
 export class GetDebtsUseCase {
   constructor(private debtRepository: DebtRepository) {}
@@ -21,7 +24,7 @@ export class GetDebtsUseCase {
       const debts = await this.debtRepository.getByUserId(userId, status);
       return ResultHelper.success(debts);
     } catch (error) {
-      console.error('Error getting debts:', error);
+      logger.error('Error getting debts', error as Error);
       return ResultHelper.failure(new BusinessLogicError('Failed to get debts'));
     }
   }
@@ -35,7 +38,7 @@ export class GetDebtsUseCase {
       const debt = await this.debtRepository.getById(debtId);
       return ResultHelper.success(debt);
     } catch (error) {
-      console.error('Error getting debt:', error);
+      logger.error('Error getting debt', error as Error);
       return ResultHelper.failure(new BusinessLogicError('Failed to get debt'));
     }
   }
@@ -49,7 +52,7 @@ export class GetDebtsUseCase {
       const debt = await this.debtRepository.getWithPayments(debtId);
       return ResultHelper.success(debt);
     } catch (error) {
-      console.error('Error getting debt with payments:', error);
+      logger.error('Error getting debt with payments', error as Error);
       return ResultHelper.failure(new BusinessLogicError('Failed to get debt with payments'));
     }
   }
@@ -67,7 +70,7 @@ export class GetDebtsUseCase {
       const debts = await this.debtRepository.getByType(userId, type);
       return ResultHelper.success(debts);
     } catch (error) {
-      console.error('Error getting debts by type:', error);
+      logger.error('Error getting debts by type', error as Error);
       return ResultHelper.failure(new BusinessLogicError('Failed to get debts by type'));
     }
   }
@@ -81,7 +84,7 @@ export class GetDebtsUseCase {
       const summary = await this.debtRepository.getSummary(userId);
       return ResultHelper.success(summary);
     } catch (error) {
-      console.error('Error getting debt summary:', error);
+      logger.error('Error getting debt summary', error as Error);
       return ResultHelper.failure(new BusinessLogicError('Failed to get debt summary'));
     }
   }

@@ -1,6 +1,5 @@
 import { BudgetService } from '../../../modules/budget/application/budgetService';
 import { AnalyticsService } from '../../../modules/transaction/application/analyticsService';
-import { BudgetSummary } from '../../../modules/budget/domain/budgetEntity';
 
 export enum AlertType {
   BUDGET_EXCEEDED = 'BUDGET_EXCEEDED',
@@ -140,7 +139,7 @@ export class AlertService {
     const startDate = new Date();
     startDate.setDate(endDate.getDate() - 30); // Last 30 days
 
-    const [recentSummary, monthlyTrends, topCategories] = await Promise.all([
+    const [_recentSummary, monthlyTrends, topCategories] = await Promise.all([
       this.analyticsService.getAnalyticsSummary(userId, { startDate, endDate }),
       this.analyticsService.getMonthlyTrends(userId, 3),
       this.analyticsService.getTopCategories(userId, { startDate, endDate }, 3)

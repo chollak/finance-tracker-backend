@@ -6,6 +6,9 @@ import os from 'os';
 import { pipeline } from 'stream/promises';
 import { AppConfig } from '../../../../shared/infrastructure/config/appConfig';
 import { ErrorFactory } from '../../../../shared/domain/errors/AppError';
+import { createLogger, LogCategory } from '../../../../shared/infrastructure/logging';
+
+const logger = createLogger(LogCategory.TELEGRAM);
 
 const DOWNLOAD_TIMEOUT = 30000; // 30 seconds
 
@@ -24,8 +27,7 @@ export async function downloadFile(url: string, dest: string): Promise<string> {
 
     return new Promise((resolve, reject) => {
       const handleError = async (err: Error) => {
-        console.error('Download error:', {
-          error: err.message,
+        logger.error('Download error', err, {
           url: url.substring(0, 100), // Truncate for security
           dest,
         });
@@ -64,8 +66,7 @@ export async function downloadFile(url: string, dest: string): Promise<string> {
       });
     });
   } catch (error) {
-    console.error('Download setup error:', {
-      error: error instanceof Error ? error.message : String(error),
+    logger.error('Download setup error', error instanceof Error ? error : new Error(String(error)), {
       url: url.substring(0, 100),
       dest,
     });
@@ -104,8 +105,9 @@ export async function downloadVoiceFile(fileUrl: string, fileId: string): Promis
     await downloadFile(fileUrl, filePath);
     return filePath;
   } catch (primaryError) {
-    console.warn('Cannot write to downloads directory, using temp directory:',
-      primaryError instanceof Error ? primaryError.message : String(primaryError));
+    logger.warn('Cannot write to downloads directory, using temp directory', {
+      error: primaryError instanceof Error ? primaryError.message : String(primaryError)
+    });
 
     // Fallback to temp directory
     const filePath = path.join(getTempDir(), `voice_${fileId}`);

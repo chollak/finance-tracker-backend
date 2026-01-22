@@ -2,6 +2,9 @@ import { Result, ResultHelper } from '../../../shared/domain/types/Result';
 import { AppConfig } from '../../../shared/infrastructure/config/appConfig';
 import { OpenAIUsageRepository } from '../domain/usageRepository';
 import { UsageData, CostData, BillingLimits, OpenAIUsageEntity } from '../domain/usageEntity';
+import { createLogger, LogCategory } from '../../../shared/infrastructure/logging';
+
+const logger = createLogger(LogCategory.OPENAI);
 
 export class OpenAIUsageRepositoryImpl implements OpenAIUsageRepository {
   private readonly baseUrl = 'https://api.openai.com/v1';
@@ -9,14 +12,14 @@ export class OpenAIUsageRepositoryImpl implements OpenAIUsageRepository {
 
   constructor() {
     if (!AppConfig.OPENAI_API_KEY) {
-      console.warn('OpenAI API key not configured - usage monitoring will be disabled');
+      logger.warn('OpenAI API key not configured - usage monitoring will be disabled');
     }
   }
 
   async getUsageData(startDate?: Date, endDate?: Date): Promise<Result<UsageData>> {
     try {
       if (!AppConfig.OPENAI_API_KEY) {
-        console.warn('OpenAI API key not configured, returning mock data');
+        logger.warn('OpenAI API key not configured, returning mock data');
         return this.getMockUsageData();
       }
 
@@ -41,7 +44,7 @@ export class OpenAIUsageRepositoryImpl implements OpenAIUsageRepository {
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.warn(`OpenAI Usage API not available: ${response.status} - ${errorText}`);
+        logger.warn('OpenAI Usage API not available', { status: response.status, error: errorText });
         // Fallback to mock data if API is not available
         return this.getMockUsageData();
       }
@@ -49,7 +52,7 @@ export class OpenAIUsageRepositoryImpl implements OpenAIUsageRepository {
       const data: UsageData = await response.json();
       return ResultHelper.success(data);
     } catch (error) {
-      console.warn('OpenAI Usage API error, falling back to mock data:', error);
+      logger.warn('OpenAI Usage API error, falling back to mock data', { error: (error as Error).message });
       return this.getMockUsageData();
     }
   }
@@ -57,7 +60,7 @@ export class OpenAIUsageRepositoryImpl implements OpenAIUsageRepository {
   async getCostData(startDate?: Date, endDate?: Date): Promise<Result<CostData>> {
     try {
       if (!AppConfig.OPENAI_API_KEY) {
-        console.warn('OpenAI API key not configured, returning mock data');
+        logger.warn('OpenAI API key not configured, returning mock cost data');
         return this.getMockCostData();
       }
 
@@ -81,14 +84,14 @@ export class OpenAIUsageRepositoryImpl implements OpenAIUsageRepository {
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.warn(`OpenAI Cost API not available: ${response.status} - ${errorText}`);
+        logger.warn('OpenAI Cost API not available', { status: response.status, error: errorText });
         return this.getMockCostData();
       }
 
       const data: CostData = await response.json();
       return ResultHelper.success(data);
     } catch (error) {
-      console.warn('OpenAI Cost API error, falling back to mock data:', error);
+      logger.warn('OpenAI Cost API error, falling back to mock data', { error: (error as Error).message });
       return this.getMockCostData();
     }
   }
@@ -96,7 +99,7 @@ export class OpenAIUsageRepositoryImpl implements OpenAIUsageRepository {
   async getBillingLimits(): Promise<Result<BillingLimits>> {
     try {
       if (!AppConfig.OPENAI_API_KEY) {
-        console.warn('OpenAI API key not configured, returning mock data');
+        logger.warn('OpenAI API key not configured, returning mock billing limits');
         return this.getMockBillingLimits();
       }
 
@@ -121,7 +124,10 @@ export class OpenAIUsageRepositoryImpl implements OpenAIUsageRepository {
       if (!subscriptionResponse.ok || !creditGrantsResponse.ok) {
         const subError = !subscriptionResponse.ok ? await subscriptionResponse.text() : '';
         const creditError = !creditGrantsResponse.ok ? await creditGrantsResponse.text() : '';
-        console.warn(`OpenAI Billing API not available: subscription: ${subscriptionResponse.status} - ${subError}, credits: ${creditGrantsResponse.status} - ${creditError}`);
+        logger.warn('OpenAI Billing API not available', {
+          subscription: { status: subscriptionResponse.status, error: subError },
+          credits: { status: creditGrantsResponse.status, error: creditError }
+        });
         return this.getMockBillingLimits();
       }
 
@@ -140,7 +146,7 @@ export class OpenAIUsageRepositoryImpl implements OpenAIUsageRepository {
 
       return ResultHelper.success(billingLimits);
     } catch (error) {
-      console.warn('OpenAI Billing Limits API error, falling back to mock data:', error);
+      logger.warn('OpenAI Billing Limits API error, falling back to mock data', { error: (error as Error).message });
       return this.getMockBillingLimits();
     }
   }
@@ -229,7 +235,7 @@ export class OpenAIUsageRepositoryImpl implements OpenAIUsageRepository {
   async getCreditBalance(): Promise<Result<{ available: number; total: number; used: number }>> {
     try {
       if (!AppConfig.OPENAI_API_KEY) {
-        console.warn('OpenAI API key not configured, returning mock credit data');
+        logger.warn('OpenAI API key not configured, returning mock credit data');
         return ResultHelper.success({
           available: 2.82,
           total: 120.00,
@@ -247,10 +253,10 @@ export class OpenAIUsageRepositoryImpl implements OpenAIUsageRepository {
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.warn(`OpenAI Credit Balance API not available: ${response.status} - ${errorText}`);
+        logger.warn('OpenAI Credit Balance API not available', { status: response.status, error: errorText });
         return ResultHelper.success({
           available: 2.82,
-          total: 120.00, 
+          total: 120.00,
           used: 117.18
         });
       }
@@ -266,7 +272,7 @@ export class OpenAIUsageRepositoryImpl implements OpenAIUsageRepository {
         used: totalUsed
       });
     } catch (error) {
-      console.warn('OpenAI Credit Balance API error, falling back to mock data:', error);
+      logger.warn('OpenAI Credit Balance API error, falling back to mock data', { error: (error as Error).message });
       return ResultHelper.success({
         available: 2.82,
         total: 120.00,

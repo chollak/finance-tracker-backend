@@ -7,6 +7,9 @@
 
 import rateLimit, { RateLimitRequestHandler } from 'express-rate-limit';
 import { Request, Response } from 'express';
+import { createLogger, LogCategory } from '../../../../shared/infrastructure/logging';
+
+const logger = createLogger(LogCategory.RATE_LIMIT);
 
 /**
  * Standard API rate limiter
@@ -31,7 +34,7 @@ export const standardRateLimiter: RateLimitRequestHandler = rateLimit({
     return req.path === '/health';
   },
   handler: (req: Request, res: Response): void => {
-    console.warn('[RateLimit] Rate limit exceeded:', {
+    logger.warn('Rate limit exceeded', {
       ip: req.ip,
       path: req.path,
       userId: req.resolvedUser?.id || 'anonymous',
@@ -62,7 +65,7 @@ export const strictRateLimiter: RateLimitRequestHandler = rateLimit({
   legacyHeaders: false,
   // Use default keyGenerator (IP-based, IPv6 safe)
   handler: (req: Request, res: Response): void => {
-    console.warn('[RateLimit] Strict rate limit exceeded:', {
+    logger.warn('Strict rate limit exceeded', {
       ip: req.ip,
       path: req.path,
     });
@@ -111,7 +114,7 @@ export const aiRateLimiter: RateLimitRequestHandler = rateLimit({
   legacyHeaders: false,
   // Use default keyGenerator (IP-based, IPv6 safe)
   handler: (req: Request, res: Response): void => {
-    console.warn('[RateLimit] AI rate limit exceeded:', {
+    logger.warn('AI rate limit exceeded', {
       ip: req.ip,
       path: req.path,
       userId: req.resolvedUser?.id || 'anonymous',

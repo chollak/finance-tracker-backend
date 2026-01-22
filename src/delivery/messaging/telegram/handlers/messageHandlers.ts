@@ -1,6 +1,6 @@
-import { Telegraf, Composer } from 'telegraf';
+import { Telegraf } from 'telegraf';
 import { message } from 'telegraf/filters';
-import { BotContext, ProcessedTransaction, StatsSummary } from '../types';
+import { BotContext, ProcessedTransaction } from '../types';
 import { RU, formatAmount } from '../i18n/ru';
 import { formatTransactionMessage } from '../formatters';
 import {
@@ -18,6 +18,9 @@ import {
 } from '../middleware/subscriptionMiddleware';
 import { resolveUserIdToUUID } from '../../../../shared/application/helpers/userIdResolver';
 import { LimitType } from '../../../../modules/subscription/domain/usageLimit';
+import { createLogger, LogCategory } from '../../../../shared/infrastructure/logging';
+
+const logger = createLogger(LogCategory.TELEGRAM_MSG);
 
 const CONFIDENCE_THRESHOLD = 0.6;
 
@@ -58,7 +61,7 @@ async function incrementUsage(
   try {
     await subscriptionModule.getIncrementUsageUseCase().execute({ userId, limitType });
   } catch (error) {
-    console.error(`Failed to increment ${limitType} usage:`, error);
+    logger.error(`Failed to increment ${limitType} usage`, error as Error);
   }
 }
 
@@ -128,7 +131,7 @@ function createTextMessageHandler(userModule?: UserModule, subscriptionModule?: 
       try {
         userId = await resolveUserIdToUUID(telegramId, userModule);
       } catch (error) {
-        console.error('Failed to resolve userId in text handler:', error);
+        logger.error('Failed to resolve userId in text handler', error as Error);
       }
     }
 
@@ -176,8 +179,7 @@ function createTextMessageHandler(userModule?: UserModule, subscriptionModule?: 
         incrementUsage(subscriptionModule, userId, 'transactions').catch(() => {});
       }
     } catch (error) {
-      console.error('Text message error:', {
-        error: error instanceof Error ? error.message : error,
+      logger.error('Text message error', error instanceof Error ? error : new Error(String(error)), {
         userId,
         text: text.substring(0, 50),
       });
@@ -206,7 +208,7 @@ function createVoiceMessageHandler(userModule?: UserModule, subscriptionModule?:
       try {
         userId = await resolveUserIdToUUID(telegramId, userModule);
       } catch (error) {
-        console.error('Failed to resolve userId in voice handler:', error);
+        logger.error('Failed to resolve userId in voice handler', error as Error);
       }
     }
 
@@ -266,8 +268,7 @@ function createVoiceMessageHandler(userModule?: UserModule, subscriptionModule?:
         incrementUsage(subscriptionModule, userId, 'transactions').catch(() => {});
       }
     } catch (error) {
-      console.error('Voice message error:', {
-        error: error instanceof Error ? error.message : error,
+      logger.error('Voice message error', error instanceof Error ? error : new Error(String(error)), {
         userId,
         fileId: voice.file_id,
       });
@@ -436,7 +437,7 @@ async function handleQuickAddAmount(
     // Increment transactions usage after successful creation (fire and forget)
     incrementUsage(subscriptionModule, userId, 'transactions').catch(() => {});
   } catch (error) {
-    console.error('Quick add error:', error);
+    logger.error('Quick add error', error as Error);
     if (error instanceof AppError) {
       await ctx.reply(`❌ ${error.message}`);
     } else {

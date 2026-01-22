@@ -10,6 +10,9 @@ import { DebtType } from '../../debt/domain/debtEntity';
 import { DebtLimitExceededError } from '../../debt/domain/errors';
 import { ErrorFactory } from '../../../shared/domain/errors/AppError';
 import { Validators } from '../../../shared/application/validation/validators';
+import { createLogger, LogCategory } from '../../../shared/infrastructure/logging';
+
+const logger = createLogger(LogCategory.OPENAI);
 
 function convertOggToMp3(input: string, output: string): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -74,7 +77,7 @@ export class ProcessVoiceInputUseCase {
         await convertOggToMp3(input.filePath, newFilePath);
         conversionAttempted = true;
       } catch (ffmpegError) {
-        console.warn('FFmpeg conversion failed, trying fallback rename:', ffmpegError);
+        logger.warn('FFmpeg conversion failed, trying fallback rename', { error: (ffmpegError as Error).message });
         try {
           await fs.rename(input.filePath, newFilePath);
         } catch (renameError) {
@@ -100,7 +103,7 @@ export class ProcessVoiceInputUseCase {
 
       // Log if nothing found
       if (parsed.transactions.length === 0 && parsed.debts.length === 0) {
-        console.warn('No transactions or debts found in voice input:', {
+        logger.warn('No transactions or debts found in voice input', {
           recognizedText: recognizedText.substring(0, 100),
         });
         return { text: recognizedText, transactions: [], debts: [] };
@@ -141,8 +144,7 @@ export class ProcessVoiceInputUseCase {
             description: transaction.description,
           });
         } catch (transactionError) {
-          console.error('Failed to create transaction from voice input:', {
-            error: transactionError,
+          logger.error('Failed to create transaction from voice input', transactionError as Error, {
             transactionData: p,
             userId: input.userId,
           });
@@ -183,15 +185,14 @@ export class ProcessVoiceInputUseCase {
               if (result.error instanceof DebtLimitExceededError) {
                 throw result.error;
               }
-              console.error('Failed to create debt:', result.error.message);
+              logger.error('Failed to create debt', null, { error: result.error.message });
             }
           } catch (debtError) {
             // Re-throw DebtLimitExceededError to show user-friendly message
             if (debtError instanceof DebtLimitExceededError) {
               throw debtError;
             }
-            console.error('Failed to create debt from voice input:', {
-              error: debtError,
+            logger.error('Failed to create debt from voice input', debtError as Error, {
               debtData: d,
               userId: input.userId,
             });
@@ -218,7 +219,7 @@ export class ProcessVoiceInputUseCase {
           await fs.unlink(input.filePath).catch(() => {});
         }
       } catch (cleanupError) {
-        console.warn('Failed to cleanup voice files:', cleanupError);
+        logger.warn('Failed to cleanup voice files', { error: (cleanupError as Error).message });
       }
     }
   }

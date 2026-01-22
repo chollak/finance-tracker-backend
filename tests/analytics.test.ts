@@ -84,7 +84,7 @@ describe('Enhanced Analytics Service', () => {
 
   describe('getAnalyticsSummary', () => {
     it('should calculate analytics summary with all transactions', async () => {
-      mockRepository.getAll.mockResolvedValue(mockTransactions);
+      mockRepository.findByUserId.mockResolvedValue(mockTransactions);
 
       const summary = await analyticsService.getAnalyticsSummary('user-123');
 
@@ -117,7 +117,7 @@ describe('Enhanced Analytics Service', () => {
 
   describe('getDetailedCategoryBreakdown', () => {
     it('should calculate detailed category breakdown with percentages', async () => {
-      mockRepository.getAll.mockResolvedValue(mockTransactions);
+      mockRepository.findByUserId.mockResolvedValue(mockTransactions);
 
       const breakdown = await analyticsService.getDetailedCategoryBreakdown('user-123');
 
@@ -160,7 +160,7 @@ describe('Enhanced Analytics Service', () => {
   describe('getSpendingPatterns', () => {
     it('should calculate spending patterns by day of week', async () => {
       // Mock dates: 2024-01-15 is Monday, 2024-01-16 is Tuesday, 2024-02-15 is Thursday
-      mockRepository.getAll.mockResolvedValue(mockTransactions);
+      mockRepository.findByUserId.mockResolvedValue(mockTransactions);
 
       const patterns = await analyticsService.getSpendingPatterns('user-123');
 
@@ -187,7 +187,7 @@ describe('Enhanced Analytics Service', () => {
 
   describe('getTopCategories', () => {
     it('should return top categories sorted by amount', async () => {
-      mockRepository.getAll.mockResolvedValue(mockTransactions);
+      mockRepository.findByUserId.mockResolvedValue(mockTransactions);
 
       const topCategories = await analyticsService.getTopCategories('user-123', undefined, 3);
 
@@ -203,7 +203,7 @@ describe('Enhanced Analytics Service', () => {
     });
 
     it('should limit results to specified number', async () => {
-      mockRepository.getAll.mockResolvedValue(mockTransactions);
+      mockRepository.findByUserId.mockResolvedValue(mockTransactions);
 
       const topCategories = await analyticsService.getTopCategories('user-123', undefined, 2);
 

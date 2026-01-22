@@ -1,17 +1,14 @@
 import { Repository } from 'typeorm';
 import { AppDataSource } from '../../../shared/infrastructure/database/database.config';
 import { Budget } from '../../../shared/infrastructure/database/entities/Budget';
-import { Transaction } from '../../../shared/infrastructure/database/entities/Transaction';
 import { BudgetRepository } from '../domain/budgetRepository';
 import { BudgetEntity, CreateBudgetData, UpdateBudgetData, BudgetSummary } from '../domain/budgetEntity';
 
 export class SqliteBudgetRepository implements BudgetRepository {
   private budgetRepository: Repository<Budget>;
-  private transactionRepository: Repository<Transaction>;
 
   constructor() {
     this.budgetRepository = AppDataSource.getRepository(Budget);
-    this.transactionRepository = AppDataSource.getRepository(Transaction);
   }
 
   async create(budgetData: CreateBudgetData): Promise<BudgetEntity> {

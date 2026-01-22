@@ -7,21 +7,23 @@ import { createModules } from './appModules';
 import { AppConfig } from './shared/infrastructure/config/appConfig';
 import { ConfigurationError } from './shared/domain/errors/AppError';
 import { initializeDatabase, closeDatabase } from './shared/infrastructure/database/database.config';
+import { createLogger, LogCategory } from './shared/infrastructure/logging';
+
+const logger = createLogger(LogCategory.SYSTEM);
 
 // Environment validation function
 function validateEnv(): void {
   const validation = AppConfig.validate();
   
   if (!validation.isValid) {
-    console.error('Configuration validation failed:');
-    validation.errors.forEach(error => console.error(`- ${error}`));
-    
+    logger.error('Configuration validation failed', null, { errors: validation.errors });
+
     throw new ConfigurationError(
       `Missing required configuration: ${validation.errors.join(', ')}`
     );
   }
 
-  console.log('✓ Configuration validated successfully');
+  logger.info('Configuration validated successfully');
 }
 
 async function startApplication() {
@@ -60,26 +62,26 @@ async function startApplication() {
     const port = process.env.PORT || 3000;
     
     app.listen(port, () => {
-      console.log(`🚀 Server running on port ${port}`);
+      logger.info('Server started', { port });
       // Start Telegram bot after HTTP server is ready
       startTelegramBot(voiceModule, transactionModule, budgetModule, userModule, subscriptionModule);
     });
 
     // Handle graceful shutdown
     process.on('SIGTERM', async () => {
-      console.log('🔄 Received SIGTERM, shutting down gracefully...');
+      logger.info('Received SIGTERM, shutting down gracefully...');
       await closeDatabase();
       process.exit(0);
     });
 
     process.on('SIGINT', async () => {
-      console.log('🔄 Received SIGINT, shutting down gracefully...');
+      logger.info('Received SIGINT, shutting down gracefully...');
       await closeDatabase();
       process.exit(0);
     });
 
   } catch (error) {
-    console.error('❌ Application startup failed:', error);
+    logger.error('Application startup failed', error as Error);
     process.exit(1);
   }
 }

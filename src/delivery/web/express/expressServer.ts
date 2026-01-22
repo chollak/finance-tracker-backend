@@ -21,7 +21,6 @@ import {
   corsHeaders,
   securityHeaders
 } from './middleware/errorMiddleware';
-import { createUserResolutionMiddleware } from './middleware/userResolutionMiddleware';
 import { AppConfig } from '../../../shared/infrastructure/config/appConfig';
 
 export function buildServer(

@@ -71,6 +71,7 @@ describe('Dashboard Service', () => {
       getMonthlyTrends: jest.fn(),
       getSpendingPatterns: jest.fn(),
       getDetailedCategoryBreakdown: jest.fn(),
+      getTransactionsForUser: jest.fn(),
     } as any;
 
     mockBudgetService = {
@@ -208,7 +209,19 @@ describe('Dashboard Service', () => {
 
   describe('getWeeklyInsights', () => {
     it('should return weekly insights', async () => {
-      mockAnalyticsService.getAnalyticsSummary.mockImplementation((userId, timeRange) => {
+      // Mock transactions for weekly insights calculation
+      // Create dates for first week (14-7 days ago for 2-week range)
+      const firstWeekDate = new Date();
+      firstWeekDate.setDate(firstWeekDate.getDate() - 10); // 10 days ago falls in first week
+
+      const mockTransactions = [
+        { id: '1', type: 'income' as const, amount: 250, category: 'Salary', description: 'Monthly salary', date: firstWeekDate.toISOString(), userId: 'user-123' },
+        { id: '2', type: 'expense' as const, amount: 120, category: 'Food', description: 'Groceries', date: firstWeekDate.toISOString(), userId: 'user-123' },
+        { id: '3', type: 'expense' as const, amount: 60, category: 'Transportation', description: 'Gas', date: firstWeekDate.toISOString(), userId: 'user-123' }
+      ];
+      mockAnalyticsService.getTransactionsForUser.mockResolvedValue(mockTransactions);
+
+      mockAnalyticsService.getAnalyticsSummary.mockImplementation((_userId, timeRange) => {
         // Mock different data based on date range
         if (timeRange) {
           return Promise.resolve({

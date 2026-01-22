@@ -1,6 +1,9 @@
 import { BudgetRepository } from '../domain/budgetRepository';
 import { Result, ResultHelper } from '../../../shared/domain/types/Result';
 import { ValidationError, BusinessLogicError, NotFoundError } from '../../../shared/domain/errors/AppError';
+import { createLogger, LogCategory } from '../../../shared/infrastructure/logging';
+
+const logger = createLogger(LogCategory.BUDGET);
 
 export class DeleteBudgetUseCase {
   private budgetRepository: BudgetRepository;
@@ -26,7 +29,7 @@ export class DeleteBudgetUseCase {
       
       return ResultHelper.success(undefined);
     } catch (error) {
-      console.error('Error deleting budget:', error);
+      logger.error('Error deleting budget', error as Error);
       return ResultHelper.failure(new BusinessLogicError('Failed to delete budget'));
     }
   }

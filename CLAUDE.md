@@ -45,11 +45,35 @@ Required environment variables in `.env` file:
 - **Test User telegramId:** `597843119` (Konan) - use for testing on Supabase, safe to modify/delete data
 - **Production Domain:** `https://sapaev.uz`
 
+**Logging:**
+- `LOG_LEVEL` - Log level: `error`, `warn`, `info` (default), `debug`
+
 **Legacy Notion support (deprecated):**
 - `NOTION_API_KEY` - For database operations
 - `NOTION_DATABASE_ID` - Target Notion database ID
 
 The application validates these on startup and will exit with descriptive errors if required variables are missing.
+
+## Logging
+
+The application uses **Winston** for structured logging with category-based filtering.
+
+**Location:** `src/shared/infrastructure/logging/`
+
+**Usage:**
+```typescript
+import { createLogger, LogCategory } from '../shared/infrastructure/logging';
+
+const logger = createLogger(LogCategory.TRANSACTION);
+logger.info('Transaction created', { id: '123', amount: 100 });
+logger.error('Failed to save', error);
+```
+
+**Log Categories:** `SYSTEM`, `AUTH`, `RATE_LIMIT`, `TRANSACTION`, `DEBT`, `BUDGET`, `OPENAI`, `TELEGRAM`, `HTTP`, `LEARNING`
+
+**Output Format:**
+- Development: Colorized, human-readable
+- Production: JSON (for log aggregators)
 
 ## Documentation
 

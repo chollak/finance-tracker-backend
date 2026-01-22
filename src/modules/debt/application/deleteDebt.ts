@@ -5,6 +5,9 @@ import { ValidationError, BusinessLogicError, NotFoundError } from '../../../sha
 import { SubscriptionModule } from '../../subscription/subscriptionModule';
 import { UserModule } from '../../user/userModule';
 import { isUUID } from '../../../shared/application/helpers/userIdResolver';
+import { createLogger, LogCategory } from '../../../shared/infrastructure/logging';
+
+const logger = createLogger(LogCategory.DEBT);
 
 export class DeleteDebtUseCase {
   constructor(
@@ -37,7 +40,7 @@ export class DeleteDebtUseCase {
 
       return ResultHelper.success(undefined);
     } catch (error) {
-      console.error('Error deleting debt:', error);
+      logger.error('Error deleting debt', error as Error);
       return ResultHelper.failure(new BusinessLogicError('Failed to delete debt'));
     }
   }
@@ -80,7 +83,7 @@ export class DeleteDebtUseCase {
         count: currentCount,
       });
     } catch (error) {
-      console.error('Error updating active debts count:', error);
+      logger.error('Error updating active debts count', error as Error);
       // Non-critical - don't fail the main operation
     }
   }

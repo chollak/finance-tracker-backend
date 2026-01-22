@@ -2,6 +2,9 @@ import { BudgetRepository } from '../domain/budgetRepository';
 import { CreateBudgetData, BudgetEntity, BudgetPeriod } from '../domain/budgetEntity';
 import { Result, ResultHelper } from '../../../shared/domain/types/Result';
 import { ValidationError, BusinessLogicError } from '../../../shared/domain/errors/AppError';
+import { createLogger, LogCategory } from '../../../shared/infrastructure/logging';
+
+const logger = createLogger(LogCategory.BUDGET);
 
 /**
  * Calculate start and end dates based on period type
@@ -88,7 +91,7 @@ export class CreateBudgetUseCase {
 
       return ResultHelper.success(budget);
     } catch (error) {
-      console.error('Error creating budget:', error);
+      logger.error('Error creating budget', error as Error);
       return ResultHelper.failure(new BusinessLogicError('Failed to create budget'));
     }
   }

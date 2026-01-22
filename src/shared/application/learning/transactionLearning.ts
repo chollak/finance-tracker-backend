@@ -1,5 +1,8 @@
 import fs from 'fs/promises';
 import path from 'path';
+import { createLogger, LogCategory } from '../../infrastructure/logging';
+
+const logger = createLogger(LogCategory.LEARNING);
 
 export interface LearningData {
   originalText: string;
@@ -75,8 +78,8 @@ export class TransactionLearningService {
 
       await this.saveLearningData(existingData);
       await this.updatePatterns(learningEntry);
-      
-      console.log('✅ LEARNING: Data recorded successfully', {
+
+      logger.info('Learning data recorded successfully', {
         text: originalText.substring(0, 50),
         correction: userCorrection,
         userId: userId.substring(0, 8),
@@ -85,8 +88,7 @@ export class TransactionLearningService {
         totalEntries: existingData.length
       });
     } catch (error) {
-      console.error('❌ LEARNING: Failed to record learning data:', error);
-      console.error('❌ LEARNING: Context:', {
+      logger.error('Failed to record learning data', error as Error, {
         dataPath: this.learningDataPath,
         patternsPath: this.patternsPath,
         originalText: originalText.substring(0, 50),
@@ -136,7 +138,7 @@ export class TransactionLearningService {
 
       return basePrompt + enhancement;
     } catch (error) {
-      console.error('Failed to enhance prompts:', error);
+      logger.error('Failed to enhance prompts', error as Error);
       return basePrompt;
     }
   }
@@ -226,7 +228,7 @@ export class TransactionLearningService {
       await fs.mkdir(dir, { recursive: true });
       await fs.writeFile(this.learningDataPath, JSON.stringify(data, null, 2));
     } catch (error) {
-      console.error('Failed to save learning data:', error);
+      logger.error('Failed to save learning data', error as Error);
     }
   }
 
@@ -245,7 +247,7 @@ export class TransactionLearningService {
       await fs.mkdir(dir, { recursive: true });
       await fs.writeFile(this.patternsPath, JSON.stringify(patterns, null, 2));
     } catch (error) {
-      console.error('Failed to save patterns:', error);
+      logger.error('Failed to save patterns', error as Error);
     }
   }
 }

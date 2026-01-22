@@ -3,6 +3,9 @@ import { TransactionRepository } from '../domain/transactionRepository';
 import { ErrorFactory } from '../../../shared/domain/errors/AppError';
 import { Validators } from '../../../shared/application/validation/validators';
 import { transactionLearning } from '../../../shared/application/learning/transactionLearning';
+import { createLogger, LogCategory } from '../../../shared/infrastructure/logging';
+
+const logger = createLogger(LogCategory.LEARNING);
 
 export interface UpdateTransactionWithLearningRequest {
     id: string;
@@ -106,7 +109,7 @@ export class UpdateTransactionWithLearningUseCase {
     private async recordLearningData(
         request: UpdateTransactionWithLearningRequest,
         originalTransaction: Transaction,
-        updatedTransaction: Transaction
+        _updatedTransaction: Transaction
     ): Promise<void> {
         try {
             const userCorrection: any = {};
@@ -138,14 +141,14 @@ export class UpdateTransactionWithLearningUseCase {
                     request.originalParsing!.confidence || 0.8
                 );
                 
-                console.log('Learning recorded for transaction update:', {
+                logger.info('Learning recorded for transaction update', {
                     transactionId: request.id,
                     corrections: Object.keys(userCorrection),
                     userId: request.userId?.substring(0, 8)
                 });
             }
         } catch (error) {
-            console.error('Failed to record learning data:', error);
+            logger.error('Failed to record learning data', error as Error);
             // Don't throw - learning failure shouldn't break transaction updates
         }
     }

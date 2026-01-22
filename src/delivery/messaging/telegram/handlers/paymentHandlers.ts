@@ -9,6 +9,9 @@ import { SubscriptionModule } from '../../../../modules/subscription/subscriptio
 import { TelegramPaymentService } from '../../../../modules/subscription/infrastructure/TelegramPaymentService';
 import { SUBSCRIPTION_PRICE_STARS } from '../../../../modules/subscription/domain/subscription';
 import { BotContext } from '../types';
+import { createLogger, LogCategory } from '../../../../shared/infrastructure/logging';
+
+const logger = createLogger(LogCategory.TELEGRAM);
 
 /**
  * Helper to get user UUID from telegram ID
@@ -92,7 +95,7 @@ export function registerPaymentHandlers(
         });
       }
     } catch (error) {
-      console.error('Error in /premium command:', error);
+      logger.error('/premium command error', error as Error);
       await ctx.reply('Произошла ошибка. Попробуйте позже.');
     }
   });
@@ -112,7 +115,7 @@ export function registerPaymentHandlers(
         userId,
       });
     } catch (error) {
-      console.error('Error sending invoice:', error);
+      logger.error('Error sending invoice', error as Error);
       await ctx.reply('Не удалось создать счет. Попробуйте позже.');
     }
   });
@@ -136,7 +139,7 @@ export function registerPaymentHandlers(
       // All checks passed, approve the payment
       await ctx.answerPreCheckoutQuery(true);
     } catch (error) {
-      console.error('Error in pre_checkout_query:', error);
+      logger.error('pre_checkout_query error', error as Error);
       // CRITICAL: Always respond, even on error
       await ctx.answerPreCheckoutQuery(false, 'Ошибка обработки платежа');
     }
@@ -150,7 +153,7 @@ export function registerPaymentHandlers(
       const payload = paymentService.parsePayload(payment.invoice_payload);
 
       if (!payload) {
-        console.error('Failed to parse successful_payment payload');
+        logger.error('Failed to parse successful_payment payload');
         await ctx.reply('Платеж получен, но произошла ошибка активации. Обратитесь в поддержку.');
         return;
       }
@@ -174,7 +177,7 @@ export function registerPaymentHandlers(
           providerPaymentChargeId,
         });
 
-      console.log(`Subscription created for user ${userId}:`, subscription.id);
+      logger.info('Subscription created', { userId, subscriptionId: subscription.id });
 
       await ctx.reply(
         '🎉 *Спасибо за покупку Premium!*\n\n' +
@@ -187,7 +190,7 @@ export function registerPaymentHandlers(
         { parse_mode: 'Markdown' }
       );
     } catch (error) {
-      console.error('Error processing successful payment:', error);
+      logger.error('Error processing successful payment', error as Error);
       await ctx.reply(
         'Платеж получен, но произошла ошибка активации подписки. ' +
           'Пожалуйста, обратитесь в поддержку с ID платежа.'
@@ -207,7 +210,7 @@ export function registerPaymentHandlers(
 
       await ctx.reply(result.message);
     } catch (error) {
-      console.error('Error cancelling subscription:', error);
+      logger.error('Error cancelling subscription', error as Error);
       await ctx.reply('Произошла ошибка при отмене подписки.');
     }
   });

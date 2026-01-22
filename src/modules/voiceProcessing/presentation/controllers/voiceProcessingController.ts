@@ -3,8 +3,8 @@ import multer, { FileFilterCallback } from 'multer';
 import { ProcessVoiceInputUseCase } from '../../application/processVoiceInput';
 import { ProcessTextInputUseCase } from '../../application/processTextInput';
 import { handleControllerError, handleControllerSuccess } from '../../../../shared/infrastructure/utils/controllerHelpers';
-import { ErrorFactory, AppError } from '../../../../shared/domain/errors/AppError';
-import { SUCCESS_MESSAGES, ERROR_MESSAGES } from '../../../../shared/domain/constants/messages';
+import { ErrorFactory } from '../../../../shared/domain/errors/AppError';
+import { SUCCESS_MESSAGES } from '../../../../shared/domain/constants/messages';
 import { UserModule } from '../../../user/userModule';
 import { resolveUserIdToUUID } from '../../../../shared/application/helpers/userIdResolver';
 import { allowGuestMode } from '../../../../delivery/web/express/middleware/authMiddleware';
@@ -24,7 +24,7 @@ const ALLOWED_AUDIO_TYPES = [
 
 // File filter for audio uploads
 const audioFileFilter = (
-  req: Request,
+  _req: Request,
   file: Express.Multer.File,
   cb: FileFilterCallback
 ): void => {

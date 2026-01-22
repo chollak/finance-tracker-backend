@@ -3,6 +3,9 @@ import path from 'path';
 import { AppConfig } from '../config/appConfig';
 import { Transaction, Budget, Debt, DebtPayment, User, Subscription, UsageLimit } from './entities';
 import { initializeSupabase } from './supabase.config';
+import { createLogger, LogCategory } from '../logging';
+
+const logger = createLogger(LogCategory.DATABASE);
 
 export const AppDataSource = new DataSource({
   type: 'sqlite',
@@ -15,22 +18,22 @@ export const AppDataSource = new DataSource({
 export async function initializeDatabase(): Promise<DataSource | null> {
   try {
     if (AppConfig.DATABASE_TYPE === 'supabase') {
-      console.log('🔗 Initializing Supabase database...');
+      logger.info('Initializing Supabase database...');
       initializeSupabase();
-      console.log('✅ Supabase database connected successfully');
+      logger.info('Supabase database connected successfully');
       return null; // Supabase doesn't use TypeORM DataSource
     } else {
-      console.log('🔗 Initializing SQLite database...');
-      
+      logger.info('Initializing SQLite database...');
+
       if (!AppDataSource.isInitialized) {
         await AppDataSource.initialize();
-        console.log('✅ SQLite database connected successfully');
+        logger.info('SQLite database connected successfully');
       }
-      
+
       return AppDataSource;
     }
   } catch (error) {
-    console.error('❌ Database connection failed:', error);
+    logger.error('Database connection failed', error as Error);
     throw new Error(`Database initialization failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
@@ -38,8 +41,8 @@ export async function initializeDatabase(): Promise<DataSource | null> {
 export async function closeDatabase(): Promise<void> {
   if (AppConfig.DATABASE_TYPE === 'sqlite' && AppDataSource.isInitialized) {
     await AppDataSource.destroy();
-    console.log('🔌 SQLite database connection closed');
+    logger.info('SQLite database connection closed');
   } else if (AppConfig.DATABASE_TYPE === 'supabase') {
-    console.log('🔌 Supabase connection closed (handled by client)');
+    logger.info('Supabase connection closed (handled by client)');
   }
 }

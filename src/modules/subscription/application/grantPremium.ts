@@ -4,7 +4,7 @@
  */
 
 import { SubscriptionRepository } from '../domain/subscriptionRepository';
-import { Subscription, SUBSCRIPTION_PRICE_STARS } from '../domain/subscription';
+import { Subscription } from '../domain/subscription';
 
 export interface GrantPremiumInput {
   userId: string;

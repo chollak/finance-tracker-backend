@@ -2,6 +2,9 @@ import { BudgetRepository } from '../domain/budgetRepository';
 import { UpdateBudgetData, BudgetEntity } from '../domain/budgetEntity';
 import { Result, ResultHelper } from '../../../shared/domain/types/Result';
 import { ValidationError, BusinessLogicError, NotFoundError } from '../../../shared/domain/errors/AppError';
+import { createLogger, LogCategory } from '../../../shared/infrastructure/logging';
+
+const logger = createLogger(LogCategory.BUDGET);
 
 export class UpdateBudgetUseCase {
   private budgetRepository: BudgetRepository;
@@ -33,7 +36,7 @@ export class UpdateBudgetUseCase {
       
       return ResultHelper.success(updatedBudget);
     } catch (error) {
-      console.error('Error updating budget:', error);
+      logger.error('Error updating budget', error as Error);
       return ResultHelper.failure(new BusinessLogicError('Failed to update budget'));
     }
   }

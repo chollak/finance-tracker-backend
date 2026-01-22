@@ -11,6 +11,9 @@ import {
   getCurrentMonthPeriod,
   isPeriodExpired,
 } from '../domain/usageLimit';
+import { createLogger, LogCategory } from '../../../shared/infrastructure/logging';
+
+const logger = createLogger(LogCategory.SUBSCRIPTION);
 
 export class SupabaseUsageLimitRepository implements UsageLimitRepository {
   private supabase = getSupabaseClient();
@@ -81,9 +84,7 @@ export class SupabaseUsageLimitRepository implements UsageLimitRepository {
     }
 
     // Fallback: non-atomic update (for backwards compatibility)
-    console.warn(
-      'RPC increment_usage_counter not available, using fallback. Consider running migration.'
-    );
+    logger.warn('RPC increment_usage_counter not available, using fallback. Consider running migration.');
     const usageLimit = await this.findByUserId(userId);
     if (!usageLimit) {
       throw new Error('UsageLimit not found');
@@ -122,9 +123,7 @@ export class SupabaseUsageLimitRepository implements UsageLimitRepository {
     }
 
     // Fallback: non-atomic update (for backwards compatibility)
-    console.warn(
-      'RPC decrement_usage_counter not available, using fallback. Consider running migration.'
-    );
+    logger.warn('RPC decrement_usage_counter not available, using fallback. Consider running migration.');
     const usageLimit = await this.findByUserId(userId);
     if (!usageLimit) {
       throw new Error('UsageLimit not found');

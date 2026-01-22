@@ -3,6 +3,9 @@ import { ErrorFactory } from '../../../shared/domain/errors/AppError';
 import { Validators } from '../../../shared/application/validation/validators';
 import { SubscriptionModule } from '../../subscription/subscriptionModule';
 import { UserModule } from '../../user/userModule';
+import { createLogger, LogCategory } from '../../../shared/infrastructure/logging';
+
+const logger = createLogger(LogCategory.TRANSACTION);
 
 export class DeleteTransactionUseCase {
     private subscriptionModule?: SubscriptionModule;
@@ -80,7 +83,7 @@ export class DeleteTransactionUseCase {
             });
         } catch (error) {
             // Non-critical error - log but don't fail the deletion
-            console.error('Error decrementing transaction count:', error);
+            logger.error('Error decrementing transaction count', error as Error);
         }
     }
 }

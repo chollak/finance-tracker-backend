@@ -5,6 +5,9 @@
 
 import { Telegram } from 'telegraf';
 import { SUBSCRIPTION_PRICE_STARS, MONTHLY_DURATION_DAYS } from '../domain/subscription';
+import { createLogger, LogCategory } from '../../../shared/infrastructure/logging';
+
+const logger = createLogger(LogCategory.TELEGRAM);
 
 export interface InvoicePayload {
   userId: string;
@@ -56,7 +59,7 @@ export class TelegramPaymentService {
     try {
       return JSON.parse(payloadString) as InvoicePayload;
     } catch {
-      console.error('Failed to parse invoice payload:', payloadString);
+      logger.error('Failed to parse invoice payload', undefined, { payload: payloadString });
       return null;
     }
   }
@@ -80,7 +83,7 @@ export class TelegramPaymentService {
       );
       return true;
     } catch (error) {
-      console.error('Failed to refund payment:', error);
+      logger.error('Failed to refund payment', error as Error);
       return false;
     }
   }

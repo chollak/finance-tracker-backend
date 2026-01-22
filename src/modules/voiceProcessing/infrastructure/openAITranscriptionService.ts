@@ -6,13 +6,15 @@ import {
   ParsedTransaction,
   ParsedDebt,
   AnalysisResult,
-  ParsedItem,
 } from '../domain/transcriptionService';
 import { AppConfig } from '../../../shared/infrastructure/config/appConfig';
 import { ExternalServiceError, ErrorFactory } from '../../../shared/domain/errors/AppError';
 import { OPENAI_PROMPTS, ERROR_MESSAGES } from '../../../shared/domain/constants/messages';
 import { transactionLearning } from '../../../shared/application/learning/transactionLearning';
 import { normalizeCategory } from '../../../shared/domain/entities/Category';
+import { createLogger, LogCategory } from '../../../shared/infrastructure/logging';
+
+const logger = createLogger(LogCategory.OPENAI);
 
 export class OpenAITranscriptionService implements TranscriptionService {
   private openai: OpenAI;
@@ -156,7 +158,7 @@ export class OpenAITranscriptionService implements TranscriptionService {
 
       return { transactions, debts };
     } catch (error) {
-      console.error('Failed to parse OpenAI response:', cleanContent);
+      logger.error('Failed to parse OpenAI response', error as Error, { content: cleanContent.substring(0, 200) });
       throw ErrorFactory.externalService(
         'OpenAI Response Parser',
         new Error(

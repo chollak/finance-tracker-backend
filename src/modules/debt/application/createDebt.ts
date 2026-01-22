@@ -7,6 +7,9 @@ import { DebtLimitExceededError } from '../domain/errors';
 import { SubscriptionModule } from '../../subscription/subscriptionModule';
 import { UserModule } from '../../user/userModule';
 import { isUUID } from '../../../shared/application/helpers/userIdResolver';
+import { createLogger, LogCategory } from '../../../shared/infrastructure/logging';
+
+const logger = createLogger(LogCategory.DEBT);
 
 // Debt-related category for transactions
 const DEBT_CATEGORY = 'debt';
@@ -50,7 +53,7 @@ export class CreateDebtUseCase {
 
       return ResultHelper.success(debt);
     } catch (error) {
-      console.error('Error creating debt:', error);
+      logger.error('Error creating debt', error as Error);
       return ResultHelper.failure(new BusinessLogicError('Failed to create debt'));
     }
   }
@@ -154,7 +157,7 @@ export class CreateDebtUseCase {
         limit: limitCheck.limit,
       };
     } catch (error) {
-      console.error('Error checking debt limit:', error);
+      logger.error('Error checking debt limit', error as Error);
       // Fail open - allow if we can't check (graceful degradation)
       return { allowed: true, currentUsage: 0, limit: null };
     }
@@ -183,7 +186,7 @@ export class CreateDebtUseCase {
         count: currentCount,
       });
     } catch (error) {
-      console.error('Error updating active debts count:', error);
+      logger.error('Error updating active debts count', error as Error);
       // Non-critical - don't fail the main operation
     }
   }

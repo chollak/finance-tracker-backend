@@ -2,6 +2,9 @@ import { DebtRepository } from '../domain/debtRepository';
 import { DebtEntity, UpdateDebtData, DebtStatus } from '../domain/debtEntity';
 import { Result, ResultHelper } from '../../../shared/domain/types/Result';
 import { ValidationError, BusinessLogicError, NotFoundError } from '../../../shared/domain/errors/AppError';
+import { createLogger, LogCategory } from '../../../shared/infrastructure/logging';
+
+const logger = createLogger(LogCategory.DEBT);
 
 export class UpdateDebtUseCase {
   constructor(private debtRepository: DebtRepository) {}
@@ -26,7 +29,7 @@ export class UpdateDebtUseCase {
       const updated = await this.debtRepository.update(debtId, data);
       return ResultHelper.success(updated);
     } catch (error) {
-      console.error('Error updating debt:', error);
+      logger.error('Error updating debt', error as Error);
       return ResultHelper.failure(new BusinessLogicError('Failed to update debt'));
     }
   }
@@ -48,7 +51,7 @@ export class UpdateDebtUseCase {
 
       return ResultHelper.success(updated);
     } catch (error) {
-      console.error('Error cancelling debt:', error);
+      logger.error('Error cancelling debt', error as Error);
       return ResultHelper.failure(new BusinessLogicError('Failed to cancel debt'));
     }
   }

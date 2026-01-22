@@ -1,4 +1,3 @@
-import { OpenAITranscriptionService } from './infrastructure/openAITranscriptionService';
 import { TranscriptionService } from './domain/transcriptionService';
 import { ProcessVoiceInputUseCase } from './application/processVoiceInput';
 import { ProcessTextInputUseCase } from './application/processTextInput';

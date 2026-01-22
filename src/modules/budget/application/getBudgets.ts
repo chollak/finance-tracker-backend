@@ -2,6 +2,9 @@ import { BudgetRepository } from '../domain/budgetRepository';
 import { BudgetEntity, BudgetSummary } from '../domain/budgetEntity';
 import { Result, ResultHelper } from '../../../shared/domain/types/Result';
 import { ValidationError, BusinessLogicError } from '../../../shared/domain/errors/AppError';
+import { createLogger, LogCategory } from '../../../shared/infrastructure/logging';
+
+const logger = createLogger(LogCategory.BUDGET);
 
 export class GetBudgetsUseCase {
   private budgetRepository: BudgetRepository;
@@ -19,7 +22,7 @@ export class GetBudgetsUseCase {
       const budgets = await this.budgetRepository.getByUserId(userId);
       return ResultHelper.success(budgets);
     } catch (error) {
-      console.error('Error getting budgets:', error);
+      logger.error('Error getting budgets', error as Error);
       return ResultHelper.failure(new BusinessLogicError('Failed to get budgets'));
     }
   }
@@ -33,7 +36,7 @@ export class GetBudgetsUseCase {
       const budgets = await this.budgetRepository.getActiveBudgetsByUserId(userId);
       return ResultHelper.success(budgets);
     } catch (error) {
-      console.error('Error getting active budgets:', error);
+      logger.error('Error getting active budgets', error as Error);
       return ResultHelper.failure(new BusinessLogicError('Failed to get active budgets'));
     }
   }
@@ -47,7 +50,7 @@ export class GetBudgetsUseCase {
       const budget = await this.budgetRepository.getById(budgetId);
       return ResultHelper.success(budget);
     } catch (error) {
-      console.error('Error getting budget:', error);
+      logger.error('Error getting budget', error as Error);
       return ResultHelper.failure(new BusinessLogicError('Failed to get budget'));
     }
   }
@@ -61,7 +64,7 @@ export class GetBudgetsUseCase {
       const summaries = await this.budgetRepository.getBudgetSummaries(userId);
       return ResultHelper.success(summaries);
     } catch (error) {
-      console.error('Error getting budget summaries:', error);
+      logger.error('Error getting budget summaries', error as Error);
       return ResultHelper.failure(new BusinessLogicError('Failed to get budget summaries'));
     }
   }
