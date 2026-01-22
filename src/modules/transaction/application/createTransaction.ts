@@ -31,14 +31,14 @@ export class CreateTransactionUseCase {
 
     async execute(transaction: Transaction): Promise<string> {
         try {
-            const id = await this.primaryRepository.save(transaction);
+            const created = await this.primaryRepository.create(transaction);
 
-            // Increment usage counter after successful save
+            // Increment usage counter after successful create
             if (this.subscriptionModule && this.userModule && transaction.userId) {
                 await this.incrementTransactionCount(transaction.userId);
             }
 
-            return id;
+            return created.id!;
         } catch (error) {
             logger.error('Error creating transaction', error as Error);
             throw error;

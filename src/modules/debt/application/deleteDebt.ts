@@ -23,7 +23,7 @@ export class DeleteDebtUseCase {
       }
 
       // Check if debt exists
-      const existing = await this.debtRepository.getById(debtId);
+      const existing = await this.debtRepository.findById(debtId);
       if (!existing) {
         return ResultHelper.failure(new NotFoundError('Debt not found'));
       }
@@ -74,7 +74,7 @@ export class DeleteDebtUseCase {
       const userId = await this.resolveToUUID(userIdOrTelegramId);
 
       // Get actual count of active debts
-      const activeDebts = await this.debtRepository.getByUserId(userId, DebtStatus.ACTIVE);
+      const activeDebts = await this.debtRepository.findByUserId(userId, DebtStatus.ACTIVE);
       const currentCount = activeDebts.length;
 
       // Sync the count

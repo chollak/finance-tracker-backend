@@ -12,7 +12,7 @@ export class BudgetService {
   }
 
   async recalculateBudgetSpending(budgetId: string): Promise<void> {
-    const budget = await this.budgetRepository.getById(budgetId);
+    const budget = await this.budgetRepository.findById(budgetId);
     if (!budget) return;
 
     // Get transactions within budget period
@@ -40,7 +40,7 @@ export class BudgetService {
   }
 
   async recalculateAllUserBudgets(userId: string): Promise<void> {
-    const budgets = await this.budgetRepository.getActiveBudgetsByUserId(userId);
+    const budgets = await this.budgetRepository.findActiveByUserId(userId);
     
     for (const budget of budgets) {
       await this.recalculateBudgetSpending(budget.id);

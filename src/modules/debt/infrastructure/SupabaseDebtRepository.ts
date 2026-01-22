@@ -41,7 +41,7 @@ export class SupabaseDebtRepository implements DebtRepository {
     return this.mapToEntity(debt);
   }
 
-  async getById(id: string): Promise<DebtEntity | null> {
+  async findById(id: string): Promise<DebtEntity | null> {
     const { data, error } = await this.supabase
       .from('debts')
       .select('*')
@@ -50,13 +50,13 @@ export class SupabaseDebtRepository implements DebtRepository {
 
     if (error) {
       if (error.code === 'PGRST116') return null;
-      throw new Error(`Failed to get debt: ${error.message}`);
+      throw new Error(`Failed to find debt: ${error.message}`);
     }
 
     return data ? this.mapToEntity(data) : null;
   }
 
-  async getByUserId(userId: string, status?: DebtStatus): Promise<DebtEntity[]> {
+  async findByUserId(userId: string, status?: DebtStatus): Promise<DebtEntity[]> {
     let query = this.supabase
       .from('debts')
       .select('*')
@@ -69,13 +69,13 @@ export class SupabaseDebtRepository implements DebtRepository {
     const { data, error } = await query.order('created_at', { ascending: false });
 
     if (error) {
-      throw new Error(`Failed to get debts: ${error.message}`);
+      throw new Error(`Failed to find debts: ${error.message}`);
     }
 
     return (data || []).map(row => this.mapToEntity(row));
   }
 
-  async getByType(userId: string, type: DebtType): Promise<DebtEntity[]> {
+  async findByType(userId: string, type: DebtType): Promise<DebtEntity[]> {
     const { data, error } = await this.supabase
       .from('debts')
       .select('*')
@@ -84,7 +84,7 @@ export class SupabaseDebtRepository implements DebtRepository {
       .order('created_at', { ascending: false });
 
     if (error) {
-      throw new Error(`Failed to get debts by type: ${error.message}`);
+      throw new Error(`Failed to find debts by type: ${error.message}`);
     }
 
     return (data || []).map(row => this.mapToEntity(row));
@@ -123,7 +123,7 @@ export class SupabaseDebtRepository implements DebtRepository {
     }
   }
 
-  async getWithPayments(id: string): Promise<DebtWithPayments | null> {
+  async findWithPayments(id: string): Promise<DebtWithPayments | null> {
     const { data: debt, error: debtError } = await this.supabase
       .from('debts')
       .select('*')
@@ -132,7 +132,7 @@ export class SupabaseDebtRepository implements DebtRepository {
 
     if (debtError) {
       if (debtError.code === 'PGRST116') return null;
-      throw new Error(`Failed to get debt: ${debtError.message}`);
+      throw new Error(`Failed to find debt: ${debtError.message}`);
     }
 
     const { data: payments, error: paymentsError } = await this.supabase
@@ -142,7 +142,7 @@ export class SupabaseDebtRepository implements DebtRepository {
       .order('paid_at', { ascending: false });
 
     if (paymentsError) {
-      throw new Error(`Failed to get payments: ${paymentsError.message}`);
+      throw new Error(`Failed to find payments: ${paymentsError.message}`);
     }
 
     return {
@@ -197,7 +197,7 @@ export class SupabaseDebtRepository implements DebtRepository {
     return this.mapPaymentToEntity(payment);
   }
 
-  async getPaymentById(paymentId: string): Promise<DebtPaymentEntity | null> {
+  async findPaymentById(paymentId: string): Promise<DebtPaymentEntity | null> {
     const { data, error } = await this.supabase
       .from('debt_payments')
       .select('*')
@@ -206,13 +206,13 @@ export class SupabaseDebtRepository implements DebtRepository {
 
     if (error) {
       if (error.code === 'PGRST116') return null;
-      throw new Error(`Failed to get payment: ${error.message}`);
+      throw new Error(`Failed to find payment: ${error.message}`);
     }
 
     return data ? this.mapPaymentToEntity(data) : null;
   }
 
-  async getPaymentsByDebtId(debtId: string): Promise<DebtPaymentEntity[]> {
+  async findPaymentsByDebtId(debtId: string): Promise<DebtPaymentEntity[]> {
     const { data, error } = await this.supabase
       .from('debt_payments')
       .select('*')
@@ -220,7 +220,7 @@ export class SupabaseDebtRepository implements DebtRepository {
       .order('paid_at', { ascending: false });
 
     if (error) {
-      throw new Error(`Failed to get payments: ${error.message}`);
+      throw new Error(`Failed to find payments: ${error.message}`);
     }
 
     return (data || []).map(p => this.mapPaymentToEntity(p));

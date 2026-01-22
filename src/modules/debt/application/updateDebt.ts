@@ -16,7 +16,7 @@ export class UpdateDebtUseCase {
       }
 
       // Check if debt exists
-      const existing = await this.debtRepository.getById(debtId);
+      const existing = await this.debtRepository.findById(debtId);
       if (!existing) {
         return ResultHelper.failure(new NotFoundError('Debt not found'));
       }
@@ -40,7 +40,7 @@ export class UpdateDebtUseCase {
         return ResultHelper.failure(new ValidationError('Debt ID is required'));
       }
 
-      const existing = await this.debtRepository.getById(debtId);
+      const existing = await this.debtRepository.findById(debtId);
       if (!existing) {
         return ResultHelper.failure(new NotFoundError('Debt not found'));
       }

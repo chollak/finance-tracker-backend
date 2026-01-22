@@ -26,7 +26,7 @@ export class UpdateBudgetUseCase {
       }
 
       // Check if budget exists
-      const existingBudget = await this.budgetRepository.getById(budgetId);
+      const existingBudget = await this.budgetRepository.findById(budgetId);
       if (!existingBudget) {
         return ResultHelper.failure(new NotFoundError('Budget', budgetId));
       }

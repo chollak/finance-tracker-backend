@@ -41,12 +41,12 @@ export class SqliteDebtRepository implements DebtRepository {
     return this.mapToEntity(savedDebt);
   }
 
-  async getById(id: string): Promise<DebtEntity | null> {
+  async findById(id: string): Promise<DebtEntity | null> {
     const debt = await this.debtRepository.findOne({ where: { id } });
     return debt ? this.mapToEntity(debt) : null;
   }
 
-  async getByUserId(userId: string, status?: DebtStatus): Promise<DebtEntity[]> {
+  async findByUserId(userId: string, status?: DebtStatus): Promise<DebtEntity[]> {
     const whereClause: any = { userId };
     if (status) {
       whereClause.status = status;
@@ -60,7 +60,7 @@ export class SqliteDebtRepository implements DebtRepository {
     return debts.map(debt => this.mapToEntity(debt));
   }
 
-  async getByType(userId: string, type: DebtType): Promise<DebtEntity[]> {
+  async findByType(userId: string, type: DebtType): Promise<DebtEntity[]> {
     const debts = await this.debtRepository.find({
       where: { userId, type },
       order: { createdAt: 'DESC' }
@@ -91,7 +91,7 @@ export class SqliteDebtRepository implements DebtRepository {
     await this.debtRepository.delete(id);
   }
 
-  async getWithPayments(id: string): Promise<DebtWithPayments | null> {
+  async findWithPayments(id: string): Promise<DebtWithPayments | null> {
     const debt = await this.debtRepository.findOne({
       where: { id },
       relations: ['payments']
@@ -134,12 +134,12 @@ export class SqliteDebtRepository implements DebtRepository {
     return this.mapPaymentToEntity(savedPayment);
   }
 
-  async getPaymentById(paymentId: string): Promise<DebtPaymentEntity | null> {
+  async findPaymentById(paymentId: string): Promise<DebtPaymentEntity | null> {
     const payment = await this.paymentRepository.findOne({ where: { id: paymentId } });
     return payment ? this.mapPaymentToEntity(payment) : null;
   }
 
-  async getPaymentsByDebtId(debtId: string): Promise<DebtPaymentEntity[]> {
+  async findPaymentsByDebtId(debtId: string): Promise<DebtPaymentEntity[]> {
     const payments = await this.paymentRepository.find({
       where: { debtId },
       order: { paidAt: 'DESC' }

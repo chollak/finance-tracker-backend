@@ -34,7 +34,7 @@ export class PayDebtUseCase {
       }
 
       // Check if debt exists and is active
-      const debt = await this.debtRepository.getById(data.debtId);
+      const debt = await this.debtRepository.findById(data.debtId);
       if (!debt) {
         return ResultHelper.failure(new NotFoundError('Debt not found'));
       }
@@ -54,7 +54,7 @@ export class PayDebtUseCase {
       const payment = await this.debtRepository.addPayment(data);
 
       // Check if debt became fully paid and update active count
-      const updatedDebt = await this.debtRepository.getById(data.debtId);
+      const updatedDebt = await this.debtRepository.findById(data.debtId);
       if (updatedDebt && updatedDebt.status === DebtStatus.PAID) {
         await this.updateActiveDebtsCount(debt.userId);
       }
@@ -99,7 +99,7 @@ export class PayDebtUseCase {
         return ResultHelper.failure(new ValidationError('Debt ID is required'));
       }
 
-      const debt = await this.debtRepository.getById(debtId);
+      const debt = await this.debtRepository.findById(debtId);
       if (!debt) {
         return ResultHelper.failure(new NotFoundError('Debt not found'));
       }
@@ -128,7 +128,7 @@ export class PayDebtUseCase {
         return ResultHelper.failure(new ValidationError('Payment ID is required'));
       }
 
-      const payment = await this.debtRepository.getPaymentById(paymentId);
+      const payment = await this.debtRepository.findPaymentById(paymentId);
       if (!payment) {
         return ResultHelper.failure(new NotFoundError('Payment not found'));
       }
@@ -198,7 +198,7 @@ export class PayDebtUseCase {
       const userId = await this.resolveToUUID(userIdOrTelegramId);
 
       // Get actual count of active debts
-      const activeDebts = await this.debtRepository.getByUserId(userId, DebtStatus.ACTIVE);
+      const activeDebts = await this.debtRepository.findByUserId(userId, DebtStatus.ACTIVE);
       const currentCount = activeDebts.length;
 
       // Sync the count

@@ -7,7 +7,7 @@ import { SubscriptionRepository } from '../../../modules/subscription/domain/sub
 import { UsageLimitRepository } from '../../../modules/subscription/domain/usageLimitRepository';
 import { SqliteTransactionRepository } from '../../../modules/transaction/infrastructure/persistence/SqliteTransactionRepository';
 import { SupabaseTransactionRepository } from '../../../modules/transaction/infrastructure/persistence/SupabaseTransactionRepository';
-import { SqliteBudgetRepository } from '../../../modules/budget/infrastructure/sqliteBudgetRepository';
+import { SqliteBudgetRepository } from '../../../modules/budget/infrastructure/SqliteBudgetRepository';
 import { SupabaseBudgetRepository } from '../../../modules/budget/infrastructure/SupabaseBudgetRepository';
 import { SqliteUserRepository } from '../../../modules/user/infrastructure/persistence/SqliteUserRepository';
 import { SupabaseUserRepository } from '../../../modules/user/infrastructure/persistence/SupabaseUserRepository';

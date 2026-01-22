@@ -21,7 +21,7 @@ export class GetDebtsUseCase {
         return ResultHelper.failure(new ValidationError('User ID is required'));
       }
 
-      const debts = await this.debtRepository.getByUserId(userId, status);
+      const debts = await this.debtRepository.findByUserId(userId, status);
       return ResultHelper.success(debts);
     } catch (error) {
       logger.error('Error getting debts', error as Error);
@@ -35,7 +35,7 @@ export class GetDebtsUseCase {
         return ResultHelper.failure(new ValidationError('Debt ID is required'));
       }
 
-      const debt = await this.debtRepository.getById(debtId);
+      const debt = await this.debtRepository.findById(debtId);
       return ResultHelper.success(debt);
     } catch (error) {
       logger.error('Error getting debt', error as Error);
@@ -49,7 +49,7 @@ export class GetDebtsUseCase {
         return ResultHelper.failure(new ValidationError('Debt ID is required'));
       }
 
-      const debt = await this.debtRepository.getWithPayments(debtId);
+      const debt = await this.debtRepository.findWithPayments(debtId);
       return ResultHelper.success(debt);
     } catch (error) {
       logger.error('Error getting debt with payments', error as Error);
@@ -67,7 +67,7 @@ export class GetDebtsUseCase {
         return ResultHelper.failure(new ValidationError('Invalid debt type'));
       }
 
-      const debts = await this.debtRepository.getByType(userId, type);
+      const debts = await this.debtRepository.findByType(userId, type);
       return ResultHelper.success(debts);
     } catch (error) {
       logger.error('Error getting debts by type', error as Error);

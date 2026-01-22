@@ -96,6 +96,8 @@ For detailed documentation, see **[docs/knowledge-base/](docs/knowledge-base/)**
   - [UI/UX Analysis](docs/knowledge-base/09-ux-improvements/ui-ux-analysis.md) - Complete analysis and recommendations
 - **[Design Guidelines](docs/knowledge-base/10-design-guidelines/)** - Frontend design rules (MUST FOLLOW)
   - [Design Guidelines](docs/knowledge-base/10-design-guidelines/design-guidelines.md) - Complete design system rules
+- **[Backend Standards](docs/BACKEND_STANDARDS.md)** - Backend coding standards (MUST FOLLOW)
+  - Error handling, Repository patterns, Use Cases, Controllers, Naming conventions
 
 ## Architecture Overview
 

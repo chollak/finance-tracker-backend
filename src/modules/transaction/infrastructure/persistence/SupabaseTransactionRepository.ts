@@ -5,7 +5,7 @@ import { Transaction } from '../../domain/transactionEntity';
 export class SupabaseTransactionRepository implements TransactionRepository {
   private supabase = getSupabaseClient();
 
-  async save(transaction: Transaction): Promise<string> {
+  async create(transaction: Transaction): Promise<Transaction> {
     const insertData = {
       amount: transaction.amount,
       type: transaction.type,
@@ -23,18 +23,18 @@ export class SupabaseTransactionRepository implements TransactionRepository {
     const { data, error } = await this.supabase
       .from('transactions')
       .insert(insertData)
-      .select('id')
+      .select('*')
       .single();
 
     if (error) {
-      throw new Error(`Failed to save transaction: ${error.message}`);
+      throw new Error(`Failed to create transaction: ${error.message}`);
     }
 
     if (!data) {
       throw new Error('No data returned from transaction insert');
     }
 
-    return data.id;
+    return this.mapToTransaction(data);
   }
 
   async getAll(): Promise<Transaction[]> {

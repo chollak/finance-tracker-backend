@@ -11,7 +11,7 @@ export class SqliteTransactionRepository implements TransactionRepository {
     this.repository = AppDataSource.getRepository(TransactionEntity);
   }
 
-  async save(transaction: Transaction): Promise<string> {
+  async create(transaction: Transaction): Promise<Transaction> {
     const entity = this.repository.create({
       amount: transaction.amount,
       type: transaction.type === 'income' ? TransactionType.INCOME : TransactionType.EXPENSE,
@@ -27,7 +27,7 @@ export class SqliteTransactionRepository implements TransactionRepository {
     });
 
     const saved = await this.repository.save(entity);
-    return saved.id;
+    return this.mapToTransaction(saved);
   }
 
   async getAll(): Promise<Transaction[]> {

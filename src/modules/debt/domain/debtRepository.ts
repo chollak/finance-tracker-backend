@@ -18,19 +18,19 @@ import {
 export interface DebtRepository {
   // Debt CRUD
   create(data: CreateDebtData): Promise<DebtEntity>;
-  getById(id: string): Promise<DebtEntity | null>;
-  getByUserId(userId: string, status?: DebtStatus): Promise<DebtEntity[]>;
-  getByType(userId: string, type: DebtType): Promise<DebtEntity[]>;
+  findById(id: string): Promise<DebtEntity | null>;
+  findByUserId(userId: string, status?: DebtStatus): Promise<DebtEntity[]>;
+  findByType(userId: string, type: DebtType): Promise<DebtEntity[]>;
   update(id: string, data: UpdateDebtData): Promise<DebtEntity>;
   delete(id: string): Promise<void>;
 
   // Debt with payments
-  getWithPayments(id: string): Promise<DebtWithPayments | null>;
+  findWithPayments(id: string): Promise<DebtWithPayments | null>;
 
   // Payments
   addPayment(data: PayDebtData): Promise<DebtPaymentEntity>;
-  getPaymentById(paymentId: string): Promise<DebtPaymentEntity | null>;
-  getPaymentsByDebtId(debtId: string): Promise<DebtPaymentEntity[]>;
+  findPaymentById(paymentId: string): Promise<DebtPaymentEntity | null>;
+  findPaymentsByDebtId(debtId: string): Promise<DebtPaymentEntity[]>;
   deletePayment(paymentId: string): Promise<void>;
 
   // Summary

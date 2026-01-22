@@ -19,7 +19,7 @@ export class GetBudgetsUseCase {
         return ResultHelper.failure(new ValidationError('User ID is required'));
       }
 
-      const budgets = await this.budgetRepository.getByUserId(userId);
+      const budgets = await this.budgetRepository.findByUserId(userId);
       return ResultHelper.success(budgets);
     } catch (error) {
       logger.error('Error getting budgets', error as Error);
@@ -33,7 +33,7 @@ export class GetBudgetsUseCase {
         return ResultHelper.failure(new ValidationError('User ID is required'));
       }
 
-      const budgets = await this.budgetRepository.getActiveBudgetsByUserId(userId);
+      const budgets = await this.budgetRepository.findActiveByUserId(userId);
       return ResultHelper.success(budgets);
     } catch (error) {
       logger.error('Error getting active budgets', error as Error);
@@ -47,7 +47,7 @@ export class GetBudgetsUseCase {
         return ResultHelper.failure(new ValidationError('Budget ID is required'));
       }
 
-      const budget = await this.budgetRepository.getById(budgetId);
+      const budget = await this.budgetRepository.findById(budgetId);
       return ResultHelper.success(budget);
     } catch (error) {
       logger.error('Error getting budget', error as Error);

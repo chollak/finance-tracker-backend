@@ -23,12 +23,12 @@ export class SqliteBudgetRepository implements BudgetRepository {
     return this.mapToEntity(savedBudget);
   }
 
-  async getById(id: string): Promise<BudgetEntity | null> {
+  async findById(id: string): Promise<BudgetEntity | null> {
     const budget = await this.budgetRepository.findOne({ where: { id } });
     return budget ? this.mapToEntity(budget) : null;
   }
 
-  async getByUserId(userId: string): Promise<BudgetEntity[]> {
+  async findByUserId(userId: string): Promise<BudgetEntity[]> {
     const budgets = await this.budgetRepository.find({
       where: { userId },
       order: { createdAt: 'DESC' }
@@ -36,7 +36,7 @@ export class SqliteBudgetRepository implements BudgetRepository {
     return budgets.map(budget => this.mapToEntity(budget));
   }
 
-  async getActiveBudgetsByUserId(userId: string): Promise<BudgetEntity[]> {
+  async findActiveByUserId(userId: string): Promise<BudgetEntity[]> {
     const budgets = await this.budgetRepository.find({
       where: { userId, isActive: true },
       order: { createdAt: 'DESC' }

@@ -2,7 +2,7 @@
 import { Transaction } from "./transactionEntity";
 
 export interface TransactionRepository {
-    save(transaction: Transaction): Promise<string>;
+    create(transaction: Transaction): Promise<Transaction>;
     getAll(): Promise<Transaction[]>;
     findById(id: string): Promise<Transaction | null>;
     findByUserId(userId: string, limit?: number): Promise<Transaction[]>;

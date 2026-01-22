@@ -136,7 +136,7 @@ export class CreateDebtUseCase {
       const userId = await this.resolveToUUID(userIdOrTelegramId);
 
       // Get actual count of active debts from repository
-      const activeDebts = await this.debtRepository.getByUserId(userId, DebtStatus.ACTIVE);
+      const activeDebts = await this.debtRepository.findByUserId(userId, DebtStatus.ACTIVE);
       const currentCount = activeDebts.length;
 
       // Sync the count in usage_limits table (before creation)
@@ -177,7 +177,7 @@ export class CreateDebtUseCase {
       const userId = await this.resolveToUUID(userIdOrTelegramId);
 
       // Get actual count of active debts from repository (now includes the new debt)
-      const activeDebts = await this.debtRepository.getByUserId(userId, DebtStatus.ACTIVE);
+      const activeDebts = await this.debtRepository.findByUserId(userId, DebtStatus.ACTIVE);
       const currentCount = activeDebts.length;
 
       // Sync the count in usage_limits table

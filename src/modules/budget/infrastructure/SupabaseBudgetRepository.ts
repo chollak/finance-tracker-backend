@@ -36,7 +36,7 @@ export class SupabaseBudgetRepository implements BudgetRepository {
     return this.mapToEntity(data);
   }
 
-  async getById(id: string): Promise<BudgetEntity | null> {
+  async findById(id: string): Promise<BudgetEntity | null> {
     const { data, error } = await this.supabase
       .from('budgets')
       .select('*')
@@ -54,7 +54,7 @@ export class SupabaseBudgetRepository implements BudgetRepository {
     return data ? this.mapToEntity(data) : null;
   }
 
-  async getByUserId(userId: string): Promise<BudgetEntity[]> {
+  async findByUserId(userId: string): Promise<BudgetEntity[]> {
     const { data, error } = await this.supabase
       .from('budgets')
       .select('*')
@@ -62,13 +62,13 @@ export class SupabaseBudgetRepository implements BudgetRepository {
       .order('created_at', { ascending: false });
 
     if (error) {
-      throw new Error(`Failed to get budgets by user id: ${error.message}`);
+      throw new Error(`Failed to find budgets by user id: ${error.message}`);
     }
 
     return (data || []).map(row => this.mapToEntity(row));
   }
 
-  async getActiveBudgetsByUserId(userId: string): Promise<BudgetEntity[]> {
+  async findActiveByUserId(userId: string): Promise<BudgetEntity[]> {
     const { data, error } = await this.supabase
       .from('budgets')
       .select('*')
@@ -77,7 +77,7 @@ export class SupabaseBudgetRepository implements BudgetRepository {
       .order('created_at', { ascending: false });
 
     if (error) {
-      throw new Error(`Failed to get active budgets by user id: ${error.message}`);
+      throw new Error(`Failed to find active budgets by user id: ${error.message}`);
     }
 
     return (data || []).map(row => this.mapToEntity(row));
