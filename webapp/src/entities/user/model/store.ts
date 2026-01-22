@@ -12,6 +12,9 @@ interface UserState {
   userType: UserType;
   telegramId: string | null;
 
+  // Hydration state (not persisted)
+  _hasHydrated: boolean;
+
   // Sync state
   isOnline: boolean;
   lastSyncAt: number | null;
@@ -22,6 +25,7 @@ interface UserState {
   clearUser: () => void;
   initGuest: () => void;
   setTelegramUser: (telegramId: string, userName?: string) => void;
+  setHasHydrated: (state: boolean) => void;
 
   // Sync actions
   setOnlineStatus: (isOnline: boolean) => void;
@@ -43,10 +47,20 @@ export const useUserStore = create<UserState>()(
       userType: null,
       telegramId: null,
 
+      // Hydration state
+      _hasHydrated: false,
+
       // Sync state
       isOnline: navigator.onLine,
       lastSyncAt: null,
       pendingChangesCount: 0,
+
+      /**
+       * Set hydration state (called by persist middleware)
+       */
+      setHasHydrated: (state: boolean) => {
+        set({ _hasHydrated: state });
+      },
 
       /**
        * Set user (legacy - for backwards compatibility)
@@ -161,16 +175,28 @@ export const useUserStore = create<UserState>()(
     {
       name: 'finance-tracker-user',
       partialize: (state) => ({
-        // Only persist these fields
+        // Only persist these fields (exclude _hasHydrated)
         userId: state.userId,
         userName: state.userName,
         userType: state.userType,
         telegramId: state.telegramId,
         lastSyncAt: state.lastSyncAt,
       }),
+      onRehydrateStorage: () => (state) => {
+        // Called after rehydration completes
+        state?.setHasHydrated(true);
+      },
     }
   )
 );
+
+/**
+ * Hook to check if store has been hydrated from localStorage
+ * Use this to prevent rendering with stale initial state
+ */
+export function useHasHydrated(): boolean {
+  return useUserStore((state) => state._hasHydrated);
+}
 
 /**
  * Hook to check if user is in guest mode
