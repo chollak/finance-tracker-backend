@@ -3,7 +3,7 @@ import { DebtController } from './debtController';
 import { DebtModule } from '../../debtModule';
 import { UserModule } from '../../../user/userModule';
 import { createUserResolutionMiddleware } from '../../../../delivery/web/express/middleware/userResolutionMiddleware';
-import { allowGuestMode, requireAuth, verifyOwnership } from '../../../../delivery/web/express/middleware/authMiddleware';
+import { allowGuestMode, optionalAuth, verifyOwnership } from '../../../../delivery/web/express/middleware/authMiddleware';
 import { standardRateLimiter } from '../../../../delivery/web/express/middleware/rateLimitMiddleware';
 
 export function createDebtRouter(
@@ -29,20 +29,21 @@ export function createDebtRouter(
   router.get('/user/:userId/summary', allowGuestMode, resolveUser, verifyOwnership, controller.getSummary);
 
   // ==================== DEBT-SCOPED ROUTES ====================
-  // Single debt operations - require auth
+  // Single debt operations
+  // optionalAuth: validates auth if present, allows unauthenticated for guest resources
   // Ownership verification is done in controller by fetching debt and checking userId
-  router.get('/:debtId', requireAuth, controller.getDebt);
-  router.put('/:debtId', requireAuth, controller.updateDebt);
-  router.delete('/:debtId', requireAuth, controller.deleteDebt);
-  router.post('/:debtId/cancel', requireAuth, controller.cancelDebt);
+  router.get('/:debtId', optionalAuth, controller.getDebt);
+  router.put('/:debtId', optionalAuth, controller.updateDebt);
+  router.delete('/:debtId', optionalAuth, controller.deleteDebt);
+  router.post('/:debtId/cancel', optionalAuth, controller.cancelDebt);
 
   // ==================== PAYMENT ROUTES ====================
-  // Payment operations on a debt - require auth
-  router.post('/:debtId/pay', requireAuth, controller.payDebt);
-  router.post('/:debtId/pay-full', requireAuth, controller.payDebtFull);
+  // Payment operations on a debt
+  router.post('/:debtId/pay', optionalAuth, controller.payDebt);
+  router.post('/:debtId/pay-full', optionalAuth, controller.payDebtFull);
 
-  // Delete a specific payment - require auth
-  router.delete('/payments/:paymentId', requireAuth, controller.deletePayment);
+  // Delete a specific payment
+  router.delete('/payments/:paymentId', optionalAuth, controller.deletePayment);
 
   return router;
 }

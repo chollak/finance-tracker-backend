@@ -1,6 +1,7 @@
 /**
  * Local Transaction Repository
  * CRUD operations for transactions stored in IndexedDB
+ * Used for guest users only (offline-first)
  */
 
 import { db } from './indexedDB';
@@ -8,7 +9,6 @@ import type {
   LocalTransaction,
   CreateLocalTransactionDTO,
   UpdateLocalTransactionDTO,
-  SyncStatus,
 } from './schema';
 
 /**
@@ -20,7 +20,7 @@ function generateUUID(): string {
 
 /**
  * Local Transaction Repository
- * Provides offline-first CRUD operations
+ * Provides offline-first CRUD operations for guest users
  */
 export const localTransactionRepo = {
   /**
@@ -31,7 +31,6 @@ export const localTransactionRepo = {
     const transaction: LocalTransaction = {
       id: generateUUID(),
       ...dto,
-      syncStatus: 'local',
       localCreatedAt: now,
       localUpdatedAt: now,
       isArchived: false,
@@ -60,11 +59,7 @@ export const localTransactionRepo = {
    * Get all transactions for a user (including archived)
    */
   async getAllByUserId(userId: string): Promise<LocalTransaction[]> {
-    return db.transactions
-      .where('userId')
-      .equals(userId)
-      .reverse()
-      .sortBy('date');
+    return db.transactions.where('userId').equals(userId).reverse().sortBy('date');
   },
 
   /**
@@ -72,13 +67,6 @@ export const localTransactionRepo = {
    */
   async getById(id: string): Promise<LocalTransaction | undefined> {
     return db.transactions.get(id);
-  },
-
-  /**
-   * Get a transaction by server ID
-   */
-  async getByServerId(serverId: string): Promise<LocalTransaction | undefined> {
-    return db.transactions.where('serverId').equals(serverId).first();
   },
 
   /**
@@ -98,9 +86,6 @@ export const localTransactionRepo = {
       ...existing,
       ...updates,
       localUpdatedAt: Date.now(),
-      // Mark for sync if it was previously synced
-      syncStatus:
-        existing.syncStatus === 'synced' ? 'pending_upload' : existing.syncStatus,
     };
 
     await db.transactions.put(updatedTransaction);
@@ -109,7 +94,7 @@ export const localTransactionRepo = {
   },
 
   /**
-   * Delete a transaction (soft delete - mark for deletion)
+   * Delete a transaction
    */
   async delete(id: string): Promise<boolean> {
     const existing = await db.transactions.get(id);
@@ -117,26 +102,9 @@ export const localTransactionRepo = {
       return false;
     }
 
-    if (existing.syncStatus === 'local') {
-      // Never synced - just delete locally
-      await db.transactions.delete(id);
-      console.log('[LocalRepo] Transaction deleted (local):', id);
-    } else {
-      // Was synced - mark for deletion on next sync
-      await db.transactions.update(id, {
-        syncStatus: 'pending_delete' as SyncStatus,
-        localUpdatedAt: Date.now(),
-      });
-      console.log('[LocalRepo] Transaction marked for deletion:', id);
-    }
-    return true;
-  },
-
-  /**
-   * Hard delete a transaction (used after successful server deletion)
-   */
-  async hardDelete(id: string): Promise<void> {
     await db.transactions.delete(id);
+    console.log('[LocalRepo] Transaction deleted:', id);
+    return true;
   },
 
   /**
@@ -148,90 +116,6 @@ export const localTransactionRepo = {
       localUpdatedAt: Date.now(),
     });
     return count > 0;
-  },
-
-  /**
-   * Get pending uploads (local or pending_upload status)
-   */
-  async getPendingUploads(userId: string): Promise<LocalTransaction[]> {
-    return db.transactions
-      .where('[userId+syncStatus]')
-      .anyOf([
-        [userId, 'local'],
-        [userId, 'pending_upload'],
-      ])
-      .toArray();
-  },
-
-  /**
-   * Get pending deletions
-   */
-  async getPendingDeletions(userId: string): Promise<LocalTransaction[]> {
-    return db.transactions
-      .where('[userId+syncStatus]')
-      .equals([userId, 'pending_delete'])
-      .toArray();
-  },
-
-  /**
-   * Mark transaction as synced
-   */
-  async markSynced(localId: string, serverId: string): Promise<void> {
-    await db.transactions.update(localId, {
-      serverId,
-      syncStatus: 'synced' as SyncStatus,
-      serverUpdatedAt: new Date().toISOString(),
-    });
-    console.log('[LocalRepo] Transaction marked as synced:', localId, '->', serverId);
-  },
-
-  /**
-   * Bulk insert transactions (for sync download)
-   */
-  async bulkInsert(transactions: LocalTransaction[]): Promise<void> {
-    await db.transactions.bulkPut(transactions);
-    console.log('[LocalRepo] Bulk inserted:', transactions.length, 'transactions');
-  },
-
-  /**
-   * Get transaction count by user
-   */
-  async getCount(userId: string): Promise<number> {
-    return db.transactions.where('userId').equals(userId).count();
-  },
-
-  /**
-   * Get pending changes count
-   */
-  async getPendingCount(userId: string): Promise<number> {
-    return db.transactions
-      .where('userId')
-      .equals(userId)
-      .and(
-        (tx) =>
-          tx.syncStatus === 'local' ||
-          tx.syncStatus === 'pending_upload' ||
-          tx.syncStatus === 'pending_delete'
-      )
-      .count();
-  },
-
-  /**
-   * Update user ID for all transactions (used when linking guest to Telegram)
-   */
-  async updateUserId(oldUserId: string, newUserId: string): Promise<number> {
-    const transactions = await db.transactions.where('userId').equals(oldUserId).toArray();
-
-    const updated = transactions.map((tx) => ({
-      ...tx,
-      userId: newUserId,
-      syncStatus: 'pending_upload' as SyncStatus,
-      localUpdatedAt: Date.now(),
-    }));
-
-    await db.transactions.bulkPut(updated);
-    console.log('[LocalRepo] Updated userId for', updated.length, 'transactions');
-    return updated.length;
   },
 
   /**
@@ -262,7 +146,7 @@ export const localTransactionRepo = {
     balance: number;
     transactionCount: number;
   }> {
-    let query = db.transactions.where('userId').equals(userId);
+    const query = db.transactions.where('userId').equals(userId);
 
     const transactions = await query
       .and((tx) => {
@@ -316,6 +200,25 @@ export const localTransactionRepo = {
       },
       {} as Record<string, number>
     );
+  },
+
+  /**
+   * Get transaction count by user
+   */
+  async getCount(userId: string): Promise<number> {
+    return db.transactions.where('userId').equals(userId).count();
+  },
+
+  /**
+   * Clear all transactions for a user
+   * Used when switching from guest to Telegram mode
+   */
+  async clearForUser(userId: string): Promise<number> {
+    const transactions = await db.transactions.where('userId').equals(userId).toArray();
+    const ids = transactions.map((tx) => tx.id);
+    await db.transactions.bulkDelete(ids);
+    console.log('[LocalRepo] Cleared', ids.length, 'transactions for user:', userId);
+    return ids.length;
   },
 };
 

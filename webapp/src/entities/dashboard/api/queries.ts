@@ -123,11 +123,24 @@ export function useDashboardInsights(userId: string | null) {
 
 /**
  * Fetch quick stats for dashboard
+ * Guest users: returns empty stats (no server call)
  */
 export function useQuickStats(userId: string | null) {
+  const userType = useUserStore((state) => state.userType);
+  const isGuest = userType === 'guest';
+
   return useQuery({
     queryKey: dashboardKeys.quickStats(userId || ''),
     queryFn: async () => {
+      // Guest mode: return empty stats (no budgets/alerts for guests)
+      if (isGuest) {
+        return {
+          activeBudgets: 0,
+          alertsCount: 0,
+          savingsRate: 0,
+        };
+      }
+
       const response = await apiClient.get<{
         activeBudgets: number;
         alertsCount: number;
@@ -135,6 +148,6 @@ export function useQuickStats(userId: string | null) {
       }>(`/dashboard/${userId}/quick-stats`);
       return response.data;
     },
-    enabled: !!userId,
+    enabled: !!userId && !isGuest,
   });
 }

@@ -7,7 +7,6 @@ import { Button } from '@/shared/ui/button';
 import { Plus } from 'lucide-react';
 import { QuickAddSheet } from '@/features/quick-add';
 import { GuestModeBanner } from '@/features/auth';
-import { SyncButton } from '@/features/sync';
 
 /**
  * Home Page (Dashboard)
@@ -16,16 +15,10 @@ import { SyncButton } from '@/features/sync';
 export function HomePage() {
   return (
     <div className="container mx-auto px-4 py-6">
-      {/* Page Title with Theme Toggle */}
-      <div className="mb-6 flex items-start justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Главная</h1>
-          <p className="text-muted-foreground mt-1">Обзор ваших финансов</p>
-        </div>
-        {/* Actions - visible on mobile (hidden on desktop via TopNav) */}
-        <div className="flex items-center gap-2 md:hidden">
-          <SyncButton />
-        </div>
+      {/* Page Title */}
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold">Главная</h1>
+        <p className="text-muted-foreground mt-1">Обзор ваших финансов</p>
       </div>
 
       {/* Guest Mode Banner */}

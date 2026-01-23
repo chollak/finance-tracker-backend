@@ -2,18 +2,36 @@ import { SpendingChart } from '@/widgets/spending-chart';
 import { FinancialHealth } from '@/widgets/financial-health';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card';
 import { useMonthlyTrends } from '@/entities/transaction';
-import { useUserStore } from '@/entities/user/model/store';
+import { useUserStore, useIsGuest } from '@/entities/user/model/store';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { formatCurrency } from '@/shared/lib/formatters';
 import { Skeleton } from '@/shared/ui/skeleton';
+import { GuestFeatureBlock } from '@/features/auth';
 
 /**
  * Analytics Page
  * Shows spending charts, trends, and financial health
+ * Guest users see login prompt
  */
 export function AnalyticsPage() {
   const userId = useUserStore((state) => state.userId);
+  const isGuest = useIsGuest();
   const { data: trends, isLoading: trendsLoading } = useMonthlyTrends(userId, 6);
+
+  // Guest users: show login prompt
+  if (isGuest) {
+    return (
+      <div className="container mx-auto px-4 py-6">
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold">Аналитика</h1>
+        </div>
+        <GuestFeatureBlock
+          title="Аналитика доступна после входа"
+          description="Просматривайте графики расходов, тренды по месяцам и оценку финансового здоровья."
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto px-4 py-6">

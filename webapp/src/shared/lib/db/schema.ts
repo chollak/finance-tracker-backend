@@ -1,17 +1,14 @@
 /**
  * IndexedDB Schema Types
- * Defines local storage structure for offline-first functionality
+ * Defines local storage structure for guest mode (offline-first)
  */
-
-export type SyncStatus = 'local' | 'synced' | 'pending_upload' | 'pending_delete';
 
 /**
  * Local transaction stored in IndexedDB
- * Extended with sync metadata for offline/online synchronization
+ * Used for guest users only
  */
 export interface LocalTransaction {
-  id: string;                    // Local UUID
-  serverId?: string;             // Server ID (populated after sync)
+  id: string; // Local UUID
 
   // Core transaction data
   date: string;
@@ -19,14 +16,12 @@ export interface LocalTransaction {
   description: string;
   amount: number;
   type: 'income' | 'expense';
-  userId: string;                // guest_UUID or Telegram ID
+  userId: string; // guest_UUID
   merchant?: string;
 
-  // Sync metadata
-  syncStatus: SyncStatus;
-  localCreatedAt: number;        // Unix timestamp
-  localUpdatedAt: number;        // Unix timestamp
-  serverUpdatedAt?: string;      // ISO string from server
+  // Timestamps
+  localCreatedAt: number; // Unix timestamp
+  localUpdatedAt: number; // Unix timestamp
 
   // Archive support
   isArchived?: boolean;
@@ -36,21 +31,11 @@ export interface LocalTransaction {
  * Local user stored in IndexedDB
  */
 export interface LocalUser {
-  id: string;                    // guest_UUID or Telegram ID
+  id: string; // guest_UUID or Telegram ID
   type: 'guest' | 'telegram';
   telegramId?: string;
   userName?: string;
   createdAt: number;
-  lastSyncAt?: number;
-}
-
-/**
- * Sync metadata for tracking synchronization state
- */
-export interface SyncMeta {
-  key: string;                   // 'lastSync'
-  lastSyncTimestamp: number;
-  pendingChanges: number;
 }
 
 /**
@@ -76,6 +61,5 @@ export interface UpdateLocalTransactionDTO {
   amount?: number;
   type?: 'income' | 'expense';
   merchant?: string;
-  syncStatus?: SyncStatus;
   isArchived?: boolean;
 }

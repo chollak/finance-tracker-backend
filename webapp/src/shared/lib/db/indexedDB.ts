@@ -1,10 +1,10 @@
 /**
  * IndexedDB Database using Dexie.js
- * Provides offline-first storage for Finance Tracker
+ * Provides offline-first storage for guest users
  */
 
 import Dexie, { type EntityTable } from 'dexie';
-import type { LocalTransaction, LocalUser, SyncMeta } from './schema';
+import type { LocalTransaction, LocalUser } from './schema';
 
 /**
  * Finance Tracker IndexedDB Database
@@ -12,13 +12,34 @@ import type { LocalTransaction, LocalUser, SyncMeta } from './schema';
 class FinanceTrackerDB extends Dexie {
   transactions!: EntityTable<LocalTransaction, 'id'>;
   users!: EntityTable<LocalUser, 'id'>;
-  syncMeta!: EntityTable<SyncMeta, 'key'>;
 
   constructor() {
     super('FinanceTrackerDB');
 
-    this.version(1).stores({
+    // Version 2: Simplified schema without sync metadata
+    this.version(2).stores({
       // Transactions table with indexes
+      transactions: [
+        'id',
+        'userId',
+        'date',
+        'category',
+        'type',
+        'localCreatedAt',
+        'localUpdatedAt',
+        '[userId+date]',
+        '[userId+isArchived]',
+      ].join(', '),
+
+      // Users table
+      users: 'id, type, telegramId',
+
+      // Remove syncMeta table from previous version
+      syncMeta: null,
+    });
+
+    // Keep version 1 for migration
+    this.version(1).stores({
       transactions: [
         'id',
         'serverId',
@@ -33,11 +54,7 @@ class FinanceTrackerDB extends Dexie {
         '[userId+syncStatus]',
         '[userId+isArchived]',
       ].join(', '),
-
-      // Users table
       users: 'id, type, telegramId',
-
-      // Sync metadata
       syncMeta: 'key',
     });
   }
@@ -67,7 +84,6 @@ export async function initDatabase(): Promise<void> {
 export async function clearDatabase(): Promise<void> {
   await db.transactions.clear();
   await db.users.clear();
-  await db.syncMeta.clear();
   console.log('[IndexedDB] Database cleared');
 }
 
@@ -77,15 +93,13 @@ export async function clearDatabase(): Promise<void> {
 export async function getDatabaseStats(): Promise<{
   transactionsCount: number;
   usersCount: number;
-  pendingUploads: number;
 }> {
-  const [transactionsCount, usersCount, pendingUploads] = await Promise.all([
+  const [transactionsCount, usersCount] = await Promise.all([
     db.transactions.count(),
     db.users.count(),
-    db.transactions.where('syncStatus').equals('pending_upload').count(),
   ]);
 
-  return { transactionsCount, usersCount, pendingUploads };
+  return { transactionsCount, usersCount };
 }
 
 export default db;

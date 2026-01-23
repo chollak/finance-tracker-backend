@@ -1,7 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/shared/lib/utils';
 import { ROUTES } from '@/shared/lib/constants/routes';
-import { SyncButton } from '@/features/sync';
 import { TelegramLoginButton } from '@/features/auth';
 import { useSubscription, PremiumBadge } from '@/entities/subscription';
 import { useUserStore } from '@/entities/user/model/store';
@@ -55,8 +54,6 @@ export function TopNav() {
         <div className="flex items-center gap-2">
           {/* Premium Badge */}
           <PremiumBadge subscription={subscription} isLoading={isLoading} />
-          {/* Sync Button - for Telegram users */}
-          <SyncButton showLabel />
           {/* Login Button - for guest users */}
           <TelegramLoginButton variant="outline" size="sm" />
         </div>

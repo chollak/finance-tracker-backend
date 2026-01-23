@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { generateGuestId, isGuestId } from '@/shared/lib/utils/guestId';
-import { db, localTransactionRepo } from '@/shared/lib/db';
+import { db, clearDatabase } from '@/shared/lib/db';
 
 export type UserType = 'guest' | 'telegram' | null;
 
@@ -15,22 +15,12 @@ interface UserState {
   // Hydration state (not persisted)
   _hasHydrated: boolean;
 
-  // Sync state
-  isOnline: boolean;
-  lastSyncAt: number | null;
-  pendingChangesCount: number;
-
   // Actions
   setUser: (userId: string, userName?: string) => void;
   clearUser: () => void;
   initGuest: () => void;
-  setTelegramUser: (telegramId: string, userName?: string) => void;
+  setTelegramUser: (telegramId: string, userName?: string) => Promise<void>;
   setHasHydrated: (state: boolean) => void;
-
-  // Sync actions
-  setOnlineStatus: (isOnline: boolean) => void;
-  updatePendingCount: () => Promise<void>;
-  setLastSyncAt: (timestamp: number) => void;
 }
 
 /**
@@ -49,11 +39,6 @@ export const useUserStore = create<UserState>()(
 
       // Hydration state
       _hasHydrated: false,
-
-      // Sync state
-      isOnline: navigator.onLine,
-      lastSyncAt: null,
-      pendingChangesCount: 0,
 
       /**
        * Set hydration state (called by persist middleware)
@@ -84,8 +69,6 @@ export const useUserStore = create<UserState>()(
           userName: null,
           userType: null,
           telegramId: null,
-          lastSyncAt: null,
-          pendingChangesCount: 0,
         }),
 
       /**
@@ -116,25 +99,27 @@ export const useUserStore = create<UserState>()(
           userName: 'Guest',
           userType: 'guest',
           telegramId: null,
-          lastSyncAt: null,
-          pendingChangesCount: 0,
         });
       },
 
       /**
        * Set Telegram user (after authentication)
+       * Clears any existing guest data from IndexedDB
        */
-      setTelegramUser: (telegramId: string, userName?: string) => {
-        console.log('[UserStore] Setting Telegram user:', telegramId);
+      setTelegramUser: async (telegramId: string, userName?: string) => {
+        const currentState = get();
 
-        // Save Telegram user to IndexedDB
-        db.users.put({
-          id: telegramId,
-          type: 'telegram',
-          telegramId,
-          userName: userName || undefined,
-          createdAt: Date.now(),
-        });
+        // Clear guest data from IndexedDB when switching to Telegram
+        if (currentState.userType === 'guest' && currentState.userId) {
+          console.log('[UserStore] Clearing guest data before Telegram switch');
+          try {
+            await clearDatabase();
+          } catch (error) {
+            console.error('[UserStore] Failed to clear guest data:', error);
+          }
+        }
+
+        console.log('[UserStore] Setting Telegram user:', telegramId);
 
         set({
           userId: telegramId,
@@ -142,34 +127,6 @@ export const useUserStore = create<UserState>()(
           userType: 'telegram',
           telegramId,
         });
-      },
-
-      /**
-       * Update online status
-       */
-      setOnlineStatus: (isOnline: boolean) => {
-        set({ isOnline });
-      },
-
-      /**
-       * Update pending changes count from IndexedDB
-       */
-      updatePendingCount: async () => {
-        const { userId } = get();
-        if (!userId) {
-          set({ pendingChangesCount: 0 });
-          return;
-        }
-
-        const count = await localTransactionRepo.getPendingCount(userId);
-        set({ pendingChangesCount: count });
-      },
-
-      /**
-       * Set last sync timestamp
-       */
-      setLastSyncAt: (timestamp: number) => {
-        set({ lastSyncAt: timestamp });
       },
     }),
     {
@@ -180,7 +137,6 @@ export const useUserStore = create<UserState>()(
         userName: state.userName,
         userType: state.userType,
         telegramId: state.telegramId,
-        lastSyncAt: state.lastSyncAt,
       }),
       onRehydrateStorage: () => (state) => {
         // Called after rehydration completes
@@ -210,17 +166,4 @@ export function useIsGuest(): boolean {
  */
 export function useIsTelegramUser(): boolean {
   return useUserStore((state) => state.userType === 'telegram');
-}
-
-/**
- * Setup online/offline listeners
- */
-if (typeof window !== 'undefined') {
-  window.addEventListener('online', () => {
-    useUserStore.getState().setOnlineStatus(true);
-  });
-
-  window.addEventListener('offline', () => {
-    useUserStore.getState().setOnlineStatus(false);
-  });
 }

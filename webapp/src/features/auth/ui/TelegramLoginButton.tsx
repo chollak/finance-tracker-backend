@@ -87,7 +87,6 @@ export function TelegramLoginButton({
  */
 export function GuestModeBanner({ className }: { className?: string }) {
   const isGuest = useIsGuest();
-  const { pendingChangesCount } = useUserStore();
 
   if (!isGuest) return null;
 
@@ -113,21 +112,15 @@ export function GuestModeBanner({ className }: { className?: string }) {
         {/* Content */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <h3 className="font-medium text-foreground">
-              Гостевой режим
-            </h3>
+            <h3 className="font-medium text-foreground">Гостевой режим</h3>
             <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
               <Smartphone className="mr-1 h-3 w-3" />
               Локально
             </span>
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
-            Данные хранятся только на этом устройстве.
-            {pendingChangesCount > 0 && (
-              <span className="text-foreground font-medium">
-                {' '}У вас {pendingChangesCount} {pendingChangesCount === 1 ? 'транзакция' : pendingChangesCount < 5 ? 'транзакции' : 'транзакций'} для синхронизации.
-              </span>
-            )}
+            Данные хранятся только на этом устройстве. Войдите через Telegram для
+            синхронизации.
           </p>
         </div>
 

@@ -10,13 +10,24 @@ import { subscriptionKeys } from '@/entities/subscription/api/keys';
 import { transactionToViewModel } from '../lib/toViewModel';
 import { transactionDataSource } from '@/shared/lib/db';
 import type { LocalTransaction } from '@/shared/lib/db/schema';
+import { isGuestId } from '@/shared/lib/utils/guestId';
+
+/**
+ * Error thrown when guest user tries to access server features
+ */
+export class GuestAccessError extends Error {
+  constructor(feature: string) {
+    super(`Для ${feature} необходимо войти через Telegram`);
+    this.name = 'GuestAccessError';
+  }
+}
 
 /**
  * Convert LocalTransaction to Transaction format for React Query cache
  */
 function localToTransaction(local: LocalTransaction): Transaction {
   return {
-    id: local.serverId || local.id, // Use serverId if synced, otherwise local id
+    id: local.id,
     date: local.date,
     category: local.category,
     description: local.description,
@@ -31,14 +42,14 @@ function localToTransaction(local: LocalTransaction): Transaction {
 
 /**
  * Hook to create a new transaction
- * Offline-first: saves to IndexedDB, syncs to server for authenticated users
+ * Guest: IndexedDB, Telegram: Server API
  */
 export function useCreateTransaction() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (data: CreateTransactionDTO) => {
-      // Use dataSource - handles guest (local only) vs telegram (hybrid) modes
+      // Use dataSource - handles guest (IndexedDB) vs telegram (server API)
       const localTx = await transactionDataSource.create({
         date: data.date,
         category: data.category,
@@ -79,14 +90,14 @@ export function useCreateTransaction() {
 
 /**
  * Hook to update an existing transaction
- * Offline-first: updates IndexedDB, syncs to server for authenticated users
+ * Guest: IndexedDB, Telegram: Server API
  */
 export function useUpdateTransaction() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({ id, data }: { id: string; userId: string; data: UpdateTransactionDTO }) => {
-      // Use dataSource - handles guest (local only) vs telegram (hybrid) modes
+      // Use dataSource - handles guest (IndexedDB) vs telegram (server API)
       const localTx = await transactionDataSource.update(id, {
         date: data.date,
         category: data.category,
@@ -134,14 +145,14 @@ export function useUpdateTransaction() {
 
 /**
  * Hook to delete a transaction
- * Offline-first: deletes from IndexedDB, syncs to server for authenticated users
+ * Guest: IndexedDB, Telegram: Server API
  */
 export function useDeleteTransaction() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({ id }: { id: string; userId: string }) => {
-      // Use dataSource - handles guest (local only) vs telegram (hybrid) modes
+      // Use dataSource - handles guest (IndexedDB) vs telegram (server API)
       const success = await transactionDataSource.delete(id);
       return { success };
     },
@@ -175,13 +186,16 @@ export function useDeleteTransaction() {
 
 /**
  * Hook to archive a single transaction
- * Note: Archive operations still use API as they're not critical for offline-first
+ * Guest users: throws GuestAccessError
  */
 export function useArchiveTransaction() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id }: { id: string; userId: string }) => {
+    mutationFn: async ({ id, userId }: { id: string; userId: string }) => {
+      if (isGuestId(userId)) {
+        throw new GuestAccessError('архивации транзакций');
+      }
       const response = await apiClient.post<{ message: string }>(
         API_ENDPOINTS.TRANSACTIONS.ARCHIVE.ONE(id)
       );
@@ -229,13 +243,16 @@ export function useArchiveTransaction() {
 
 /**
  * Hook to unarchive a single transaction
- * Note: Archive operations still use API as they're not critical for offline-first
+ * Guest users: throws GuestAccessError
  */
 export function useUnarchiveTransaction() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id }: { id: string; userId: string }) => {
+    mutationFn: async ({ id, userId }: { id: string; userId: string }) => {
+      if (isGuestId(userId)) {
+        throw new GuestAccessError('разархивации транзакций');
+      }
       const response = await apiClient.post<{ message: string }>(
         API_ENDPOINTS.TRANSACTIONS.ARCHIVE.UNARCHIVE(id)
       );
@@ -287,13 +304,16 @@ export function useUnarchiveTransaction() {
 
 /**
  * Hook to archive all transactions for a user
- * Note: Archive operations still use API as they're not critical for offline-first
+ * Guest users: throws GuestAccessError
  */
 export function useArchiveAllTransactions() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (userId: string) => {
+      if (isGuestId(userId)) {
+        throw new GuestAccessError('архивации транзакций');
+      }
       const response = await apiClient.post<{ archivedCount: number }>(
         API_ENDPOINTS.TRANSACTIONS.ARCHIVE.ALL(userId)
       );

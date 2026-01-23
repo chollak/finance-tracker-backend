@@ -3,7 +3,7 @@ import { BudgetController } from './budgetController';
 import { BudgetModule } from '../budgetModule';
 import { UserModule } from '../../user/userModule';
 import { createUserResolutionMiddleware } from '../../../delivery/web/express/middleware/userResolutionMiddleware';
-import { allowGuestMode, requireAuth, verifyOwnership } from '../../../delivery/web/express/middleware/authMiddleware';
+import { allowGuestMode, optionalAuth, verifyOwnership } from '../../../delivery/web/express/middleware/authMiddleware';
 import { standardRateLimiter } from '../../../delivery/web/express/middleware/rateLimitMiddleware';
 
 export function createBudgetRouter(
@@ -32,12 +32,13 @@ export function createBudgetRouter(
 
   // Budget CRUD operations (budget-scoped)
   // Ownership verification is done in controller by fetching budget and checking userId
-  router.get('/:budgetId', requireAuth, controller.getBudget);
-  router.put('/:budgetId', requireAuth, controller.updateBudget);
-  router.delete('/:budgetId', requireAuth, controller.deleteBudget);
+  // optionalAuth: validates auth if present, allows unauthenticated for guest resources
+  router.get('/:budgetId', optionalAuth, controller.getBudget);
+  router.put('/:budgetId', optionalAuth, controller.updateBudget);
+  router.delete('/:budgetId', optionalAuth, controller.deleteBudget);
 
   // Budget utilities
-  router.post('/:budgetId/recalculate', requireAuth, controller.recalculateBudgetSpending);
+  router.post('/:budgetId/recalculate', optionalAuth, controller.recalculateBudgetSpending);
 
   return router;
 }
