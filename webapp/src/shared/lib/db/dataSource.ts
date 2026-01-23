@@ -93,14 +93,15 @@ export const transactionDataSource = {
    * Delete a transaction
    */
   async delete(id: string): Promise<boolean> {
-    const { userType } = useUserStore.getState();
+    const { userId, userType } = useUserStore.getState();
 
     if (userType === 'guest') {
       return localTransactionRepo.delete(id);
     }
 
     // Telegram users: server only
-    await apiClient.delete(`/transactions/${id}`);
+    // Pass userId in query for auth middleware to verify ownership
+    await apiClient.delete(`/transactions/${id}?userId=${userId}`);
     return true;
   },
 

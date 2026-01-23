@@ -1,6 +1,9 @@
 import { getSupabaseClient } from '../../../../shared/infrastructure/database/supabase.config';
 import { TransactionRepository } from '../../domain/transactionRepository';
 import { Transaction } from '../../domain/transactionEntity';
+import { createLogger, LogCategory } from '../../../../shared/infrastructure/logging';
+
+const logger = createLogger(LogCategory.TRANSACTION);
 
 export class SupabaseTransactionRepository implements TransactionRepository {
   private supabase = getSupabaseClient();
@@ -71,14 +74,33 @@ export class SupabaseTransactionRepository implements TransactionRepository {
   }
 
   async delete(id: string): Promise<void> {
-    const { error } = await this.supabase
+    logger.info('Deleting transaction from Supabase', { transactionId: id });
+
+    const { data, error } = await this.supabase
       .from('transactions')
       .delete()
-      .eq('id', id);
+      .eq('id', id)
+      .select('id');
+
+    logger.debug('Supabase delete response', {
+      transactionId: id,
+      data,
+      error: error?.message,
+      deletedCount: data?.length || 0
+    });
 
     if (error) {
+      logger.error('Supabase delete error', new Error(error.message), { transactionId: id });
       throw new Error(`Failed to delete transaction: ${error.message}`);
     }
+
+    // Supabase doesn't error when RLS blocks delete - check if anything was deleted
+    if (!data || data.length === 0) {
+      logger.warn('Transaction not found for delete', { transactionId: id });
+      throw new Error(`Transaction not found or access denied: ${id}`);
+    }
+
+    logger.info('Transaction deleted successfully', { transactionId: id });
   }
 
   async update(id: string, updates: Partial<Transaction>): Promise<Transaction> {
