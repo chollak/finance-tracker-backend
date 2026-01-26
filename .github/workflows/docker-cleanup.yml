@@ -1,0 +1,49 @@
+name: Docker Cleanup
+
+on:
+  schedule:
+    # Каждый день в 4:00 UTC (9:00 по Ташкенту)
+    - cron: '0 4 * * *'
+  # Ручной запуск из GitHub
+  workflow_dispatch:
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Docker cleanup on server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          port: 22
+          timeout: 60s
+          command_timeout: 5m
+          script: |
+            echo "=========================================="
+            echo "🕐 Docker Cleanup: $(date '+%Y-%m-%d %H:%M:%S')"
+            echo "=========================================="
+
+            echo ""
+            echo "📊 BEFORE cleanup:"
+            echo "------------------------------------------"
+            docker system df
+            df -h / | tail -1
+
+            echo ""
+            echo "🧹 Running cleanup..."
+            echo "------------------------------------------"
+            docker system prune -af
+            docker builder prune -af
+
+            echo ""
+            echo "📊 AFTER cleanup:"
+            echo "------------------------------------------"
+            docker system df
+            df -h / | tail -1
+
+            echo ""
+            echo "✅ Cleanup complete!"
+            echo "=========================================="
