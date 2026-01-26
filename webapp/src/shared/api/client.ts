@@ -17,6 +17,7 @@ function getTelegramInitData(): string | null {
 /**
  * Build authorization headers for API requests
  * Adds Telegram Mini App authentication if available
+ * In development mode without Telegram, uses X-Dev-User-Id header
  */
 function getAuthHeaders(): Record<string, string> {
   const headers: Record<string, string> = {};
@@ -24,6 +25,9 @@ function getAuthHeaders(): Record<string, string> {
   const initData = getTelegramInitData();
   if (initData) {
     headers['Authorization'] = `tma ${initData}`;
+  } else if (env.isDevelopment && env.mockUserId) {
+    // Development mode: use mock user ID header
+    headers['X-Dev-User-Id'] = env.mockUserId;
   }
 
   return headers;

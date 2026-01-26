@@ -134,6 +134,21 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
     return;
   }
 
+  // Development mode bypass: allow X-Dev-User-Id header
+  if (process.env.NODE_ENV !== 'production') {
+    const devUserId = req.headers['x-dev-user-id'];
+    if (devUserId && typeof devUserId === 'string') {
+      logger.debug('Development auth bypass', { devUserId });
+      req.telegramUser = {
+        id: parseInt(devUserId, 10),
+        first_name: 'Dev User',
+      };
+      req.isAuthenticated = true;
+      next();
+      return;
+    }
+  }
+
   // Get Authorization header
   const authHeader = req.headers.authorization;
 

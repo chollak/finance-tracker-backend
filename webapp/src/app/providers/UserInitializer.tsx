@@ -1,14 +1,16 @@
 import { useEffect } from 'react';
 import { useUserStore } from '@/entities/user/model/store';
 import { initDatabase } from '@/shared/lib/db';
+import { env } from '@/shared/config/env';
 
 /**
  * Initializes user data and database on app mount
  *
- * Handles three scenarios:
+ * Handles four scenarios:
  * 1. Telegram WebApp - authenticate with Telegram user (server-only mode)
- * 2. Existing session - restore from localStorage
- * 3. New visitor - create guest user (IndexedDB mode)
+ * 2. Development mode - use mock user from env (server mode)
+ * 3. Existing session - restore from localStorage
+ * 4. New visitor - create guest user (IndexedDB mode)
  *
  * Architecture:
  * - Telegram users use server API directly (no local storage)
@@ -40,7 +42,14 @@ export function UserInitializer() {
         }
       }
 
-      // 2. Check if we already have a user session
+      // 2. Development mode: use mock user from env
+      if (env.isDevelopment && env.mockUserId && env.mockUserId !== '123456789') {
+        console.log('[UserInitializer] Development mode - using mock user:', env.mockUserId);
+        await state.setTelegramUser(env.mockUserId, env.mockUserName);
+        return;
+      }
+
+      // 3. Check if we already have a user session
       if (state.userId && state.userType) {
         console.log('[UserInitializer] Restored session:', {
           userId: state.userId,
@@ -59,7 +68,7 @@ export function UserInitializer() {
         return;
       }
 
-      // 3. Create guest user for new visitors
+      // 4. Create guest user for new visitors
       console.log('[UserInitializer] Creating guest user');
 
       // Initialize IndexedDB for guest users
