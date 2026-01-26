@@ -4,6 +4,7 @@ import { API_ENDPOINTS } from '@/shared/lib/constants';
 import type { Debt, CreateDebtDTO, UpdateDebtDTO, PayDebtDTO, DebtPayment } from '@/shared/types';
 import { debtKeys } from './keys';
 import { isGuestId } from '@/shared/lib/utils/guestId';
+import { haptic } from '@/shared/lib/haptic';
 
 /**
  * Error thrown when guest user tries to access server features
@@ -36,6 +37,7 @@ export function useCreateDebt(userId: string) {
       return response.data;
     },
     onSuccess: () => {
+      haptic.success();
       queryClient.invalidateQueries({ queryKey: debtKeys.lists() });
       queryClient.invalidateQueries({ queryKey: debtKeys.summary(userId) });
     },
@@ -57,6 +59,7 @@ export function useUpdateDebt() {
       return response.data;
     },
     onSuccess: (_, { debtId }) => {
+      haptic.success();
       queryClient.invalidateQueries({ queryKey: debtKeys.lists() });
       queryClient.invalidateQueries({ queryKey: debtKeys.detail(debtId) });
     },
@@ -78,6 +81,7 @@ export function useDeleteDebt(userId: string) {
       await apiClient.delete(API_ENDPOINTS.DEBTS.DELETE(debtId));
     },
     onSuccess: () => {
+      haptic.warning();
       queryClient.invalidateQueries({ queryKey: debtKeys.lists() });
       queryClient.invalidateQueries({ queryKey: debtKeys.summary(userId) });
     },
@@ -102,6 +106,7 @@ export function useCancelDebt(userId: string) {
       return response.data;
     },
     onSuccess: (_, debtId) => {
+      haptic.warning();
       queryClient.invalidateQueries({ queryKey: debtKeys.lists() });
       queryClient.invalidateQueries({ queryKey: debtKeys.detail(debtId) });
       queryClient.invalidateQueries({ queryKey: debtKeys.summary(userId) });
@@ -128,6 +133,7 @@ export function usePayDebt(userId: string) {
       return response.data;
     },
     onSuccess: (_, { debtId }) => {
+      haptic.success();
       queryClient.invalidateQueries({ queryKey: debtKeys.lists() });
       queryClient.invalidateQueries({ queryKey: debtKeys.detail(debtId) });
       queryClient.invalidateQueries({ queryKey: debtKeys.withPayments(debtId) });
@@ -155,6 +161,7 @@ export function usePayDebtFull(userId: string) {
       return response.data;
     },
     onSuccess: (_, { debtId }) => {
+      haptic.success();
       queryClient.invalidateQueries({ queryKey: debtKeys.lists() });
       queryClient.invalidateQueries({ queryKey: debtKeys.detail(debtId) });
       queryClient.invalidateQueries({ queryKey: debtKeys.withPayments(debtId) });
@@ -178,6 +185,7 @@ export function useDeletePayment(userId: string, debtId: string) {
       await apiClient.delete(API_ENDPOINTS.DEBTS.DELETE_PAYMENT(paymentId));
     },
     onSuccess: () => {
+      haptic.warning();
       queryClient.invalidateQueries({ queryKey: debtKeys.lists() });
       queryClient.invalidateQueries({ queryKey: debtKeys.detail(debtId) });
       queryClient.invalidateQueries({ queryKey: debtKeys.withPayments(debtId) });

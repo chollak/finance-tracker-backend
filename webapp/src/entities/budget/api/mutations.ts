@@ -5,6 +5,7 @@ import type { Budget, BudgetSummary, CreateBudgetDTO, UpdateBudgetDTO } from '@/
 import { budgetKeys } from './keys';
 import { dashboardKeys } from '@/entities/dashboard/api/keys';
 import { isGuestId } from '@/shared/lib/utils/guestId';
+import { haptic } from '@/shared/lib/haptic';
 
 /**
  * Error thrown when guest user tries to access server features
@@ -37,6 +38,7 @@ export function useCreateBudget() {
       return response.data;
     },
     onSuccess: (_, variables) => {
+      haptic.success();
       const userId = variables.userId;
 
       // Invalidate budget summaries (need recalculation from server)
@@ -65,6 +67,7 @@ export function useUpdateBudget() {
       return response.data;
     },
     onSuccess: (updatedBudget) => {
+      haptic.success();
       const userId = updatedBudget.userId;
 
       // Update detail cache
@@ -103,6 +106,7 @@ export function useDeleteBudget() {
       return response.data;
     },
     onSuccess: (_, variables) => {
+      haptic.warning();
       const { id, userId } = variables;
 
       // Remove from summaries cache

@@ -10,6 +10,7 @@ import { debtKeys } from '@/entities/debt/api/keys';
 import { dashboardKeys } from '@/entities/dashboard/api/keys';
 import { apiClient } from '@/shared/api';
 import { API_ENDPOINTS } from '@/shared/lib/constants';
+import { haptic } from '@/shared/lib/haptic';
 
 const navItems = [
   {
@@ -128,6 +129,12 @@ export function BottomNav() {
             <Link
               key={item.href}
               to={item.href}
+              onClick={() => {
+                // Only trigger haptic if navigating to different page
+                if (!isActive) {
+                  haptic.tabChanged();
+                }
+              }}
               onMouseEnter={() => prefetchForRoute(item.href)}
               onFocus={() => prefetchForRoute(item.href)}
               onTouchStart={() => prefetchForRoute(item.href)}

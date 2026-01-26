@@ -11,6 +11,7 @@ import { transactionToViewModel } from '../lib/toViewModel';
 import { transactionDataSource } from '@/shared/lib/db';
 import type { LocalTransaction } from '@/shared/lib/db/schema';
 import { isGuestId } from '@/shared/lib/utils/guestId';
+import { haptic } from '@/shared/lib/haptic';
 
 /**
  * Error thrown when guest user tries to access server features
@@ -62,6 +63,9 @@ export function useCreateTransaction() {
       return localToTransaction(localTx);
     },
     onSuccess: (newTransaction, variables) => {
+      // Haptic feedback for successful creation
+      haptic.success();
+
       const userId = variables.userId;
 
       // 1. Add to transaction list immediately (NO HTTP request)
@@ -112,6 +116,9 @@ export function useUpdateTransaction() {
       return localToTransaction(localTx);
     },
     onSuccess: (updatedTransaction, variables) => {
+      // Haptic feedback for successful update
+      haptic.success();
+
       // Use userId from variables for reliable cache key targeting
       const userId = variables.userId;
 
@@ -157,6 +164,9 @@ export function useDeleteTransaction() {
       return { success };
     },
     onSuccess: (_, variables) => {
+      // Haptic feedback for deletion (warning - destructive action)
+      haptic.warning();
+
       const { id, userId } = variables;
 
       // 1. Remove from transaction list cache (NO HTTP request)
@@ -202,6 +212,9 @@ export function useArchiveTransaction() {
       return response.data;
     },
     onSuccess: (_, variables) => {
+      // Haptic feedback for archive
+      haptic.success();
+
       const { id, userId } = variables;
 
       // 1. Get the transaction from active list before removing
@@ -259,6 +272,9 @@ export function useUnarchiveTransaction() {
       return response.data;
     },
     onSuccess: (_, variables) => {
+      // Haptic feedback for unarchive
+      haptic.success();
+
       const { id, userId } = variables;
 
       // 1. Get the transaction from archived list before removing
@@ -320,6 +336,9 @@ export function useArchiveAllTransactions() {
       return response.data;
     },
     onSuccess: (_, userId) => {
+      // Haptic feedback for archive all
+      haptic.success();
+
       // 1. Get all active transactions before clearing
       const activeList = queryClient.getQueryData<TransactionViewModel[]>(
         transactionKeys.list(userId)
