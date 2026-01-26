@@ -384,6 +384,145 @@ interface Category {
 
 ---
 
+## GitHub Workflow (MUST FOLLOW)
+
+**IMPORTANT**: Используй GitHub как основной инструмент для управления задачами, документацией и кодом.
+
+### GitHub Issues
+
+**Когда создавать Issues:**
+- Технический долг и рефакторинг → лейбл `tech-debt`
+- Новые фичи → лейбл `feature`
+- Баги → лейбл `bug`
+- Долгосрочные планы (из `.claude/plans/`) → переносить в Issues для хранения
+
+**Формат Issue:**
+```markdown
+## Summary
+Краткое описание задачи
+
+## Problem / Motivation
+Почему это нужно сделать
+
+## Proposed Solution
+Как планируется решить
+
+## Files to Modify
+- `path/to/file1.ts`
+- `path/to/file2.ts`
+
+## Estimated Effort
+~X hours
+```
+
+**Доступные лейблы:**
+- `tech-debt` - Технический долг
+- `refactoring` - Рефакторинг кода
+- `feature` - Новая функциональность
+- `bug` - Баг/ошибка
+- `documentation` - Документация
+- `priority:high` / `priority:low` - Приоритет
+
+### Commits
+
+**Формат коммитов:**
+```
+type(scope): краткое описание
+
+[опционально: подробное описание]
+
+[опционально: fixes #123, closes #123]
+```
+
+**Types:**
+- `feat` - Новая функциональность
+- `fix` - Исправление бага
+- `refactor` - Рефакторинг без изменения функциональности
+- `docs` - Документация
+- `test` - Тесты
+- `chore` - Обслуживание (deps, configs)
+
+**Примеры:**
+```bash
+feat(transaction): add bulk archive endpoint
+fix(auth): resolve telegram webapp validation
+refactor(repository): extract base class for Supabase repos
+docs: update CLAUDE.md with GitHub workflow
+```
+
+**Связь с Issues:**
+- Всегда ссылаться на issue если он есть: `fixes #70`, `closes #70`, `refs #70`
+- В PR описании указывать связанные issues
+
+### Pull Requests
+
+**Когда создавать PR:**
+- Значительные изменения (новые фичи, рефакторинг)
+- Изменения требующие review
+- Работа над issue
+
+**Формат PR:**
+```markdown
+## Summary
+- Краткие буллеты что изменено
+
+## Related Issues
+Fixes #123
+
+## Test Plan
+- [ ] Unit tests pass
+- [ ] Manual testing done
+- [ ] Tested on SQLite
+- [ ] Tested on Supabase
+
+## Screenshots (if UI changes)
+```
+
+### Работа с Issues в Claude Code
+
+**Просмотр issues:**
+```bash
+gh issue list                    # Все открытые
+gh issue list --label tech-debt  # По лейблу
+gh issue view 70                 # Конкретный issue
+```
+
+**Создание issue:**
+```bash
+gh issue create --title "Title" --label "tech-debt" --body "Description"
+```
+
+**Закрытие через коммит:**
+```bash
+git commit -m "refactor(repo): extract base class
+
+fixes #70"
+```
+
+### Приоритеты хранения информации
+
+| Тип информации | Где хранить |
+|----------------|-------------|
+| Долгосрочные задачи | GitHub Issues |
+| Планы рефакторинга | GitHub Issues + `.claude/plans/` (локально) |
+| Архитектурные решения | `docs/knowledge-base/` |
+| API документация | CLAUDE.md или `docs/` |
+| Временные заметки | `.claude/plans/` (локально, не в git) |
+
+### Автоматизация
+
+**После завершения большой задачи:**
+1. Создать PR (если нужен review)
+2. Ссылаться на issues в коммитах
+3. Закрыть связанные issues
+4. Обновить документацию если нужно
+
+**После планирования:**
+1. Если план долгосрочный → создать GitHub Issue
+2. Локальный план в `.claude/plans/` → для текущей сессии
+
+---
+
 ## Design System (WebApp Frontend)
 
 **IMPORTANT: All frontend changes MUST follow the [Design Guidelines](docs/knowledge-base/10-design-guidelines/design-guidelines.md)**
