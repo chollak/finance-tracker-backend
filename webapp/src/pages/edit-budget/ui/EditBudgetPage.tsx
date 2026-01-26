@@ -21,6 +21,10 @@ export function EditBudgetPage() {
         >
           <ArrowLeft className="h-5 w-5" />
         </Button>
+        <div>
+          <h1 className="text-3xl font-bold">Редактирование</h1>
+          <p className="text-muted-foreground mt-1">Измените данные бюджета</p>
+        </div>
       </div>
 
       {/* Edit Budget Feature (handles loading, errors, form) */}

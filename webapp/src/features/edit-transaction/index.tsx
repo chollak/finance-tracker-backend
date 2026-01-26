@@ -43,8 +43,7 @@ export function EditTransaction() {
 
   if (isLoading) {
     return (
-      <div className="container max-w-2xl py-6 space-y-6">
-        <Skeleton className="h-8 w-64" />
+      <div className="space-y-6">
         <Skeleton className="h-10 w-full" />
         <Skeleton className="h-10 w-full" />
         <Skeleton className="h-10 w-full" />
@@ -54,19 +53,14 @@ export function EditTransaction() {
 
   if (!transaction) {
     return (
-      <div className="container max-w-2xl py-6">
+      <div>
         <p className="text-muted-foreground">Транзакция не найдена</p>
       </div>
     );
   }
 
   return (
-    <div className="container max-w-2xl py-6">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold">Редактировать транзакцию</h1>
-        <p className="text-muted-foreground">Измените детали транзакции</p>
-      </div>
-
+    <div>
       <TransactionForm
         onSubmit={handleSubmit}
         isLoading={updateTransaction.isPending}

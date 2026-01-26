@@ -72,8 +72,7 @@ export function EditBudget() {
 
   if (isLoading) {
     return (
-      <div className="container max-w-2xl py-6 space-y-6">
-        <Skeleton className="h-8 w-64" />
+      <div className="space-y-6">
         <Skeleton className="h-10 w-full" />
         <Skeleton className="h-10 w-full" />
         <Skeleton className="h-10 w-full" />
@@ -83,23 +82,21 @@ export function EditBudget() {
 
   if (!budget) {
     return (
-      <div className="container max-w-2xl py-6">
+      <div>
         <p className="text-muted-foreground">Бюджет не найден</p>
       </div>
     );
   }
 
   return (
-    <div className="container max-w-2xl py-6">
-      <div className="mb-6 flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Редактировать бюджет</h1>
-          <p className="text-muted-foreground">Измените параметры бюджета</p>
-        </div>
+    <div>
+      {/* Delete Button */}
+      <div className="mb-6 flex justify-end">
         <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
           <AlertDialogTrigger asChild>
-            <Button variant="destructive" size="icon">
+            <Button variant="destructive" size="sm" className="gap-2">
               <Trash2 className="h-4 w-4" />
+              Удалить
             </Button>
           </AlertDialogTrigger>
           <AlertDialogContent>

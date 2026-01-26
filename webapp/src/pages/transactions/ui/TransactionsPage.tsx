@@ -118,12 +118,12 @@ export function TransactionsPage() {
   const totalCount = activeTab === 'active' ? (transactions?.length || 0) : (archivedTransactions?.length || 0);
 
   return (
-    <div className="container mx-auto px-4 sm:px-6 py-6">
+    <div className="container mx-auto px-4 py-6">
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold">Транзакции</h1>
-          <p className="text-muted-foreground mt-1 text-sm" role="status" aria-live="polite">
+          <h1 className="text-3xl font-bold">Транзакции</h1>
+          <p className="text-muted-foreground mt-1" role="status" aria-live="polite">
             {currentTransactions.length} из {totalCount}{' '}
             {activeTab === 'active' ? 'активных' : 'в архиве'}
           </p>

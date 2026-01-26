@@ -127,8 +127,8 @@ export function DebtDetailsPage() {
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div className="flex-1">
-          <h1 className="text-2xl font-bold">{debt.personName}</h1>
-          <p className="text-muted-foreground">{debt._typeLabel}</p>
+          <h1 className="text-3xl font-bold">{debt.personName}</h1>
+          <p className="text-muted-foreground mt-1">{debt._typeLabel}</p>
         </div>
         <span className={cn('text-sm px-3 py-1 rounded-full', debt._statusColor, 'bg-current/10')}>
           {debt._statusLabel}
