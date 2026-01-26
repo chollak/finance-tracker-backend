@@ -5,11 +5,15 @@ import { cn } from '@/shared/lib/utils';
 import { ROUTES } from '@/shared/lib/constants/routes';
 import { useUserStore } from '@/entities/user/model/store';
 import { transactionKeys } from '@/entities/transaction/api/keys';
+import { transactionToViewModel } from '@/entities/transaction/lib/toViewModel';
 import { budgetKeys } from '@/entities/budget/api/keys';
+import { budgetToViewModel } from '@/entities/budget/lib/toViewModel';
 import { debtKeys } from '@/entities/debt/api/keys';
+import { debtToViewModel } from '@/entities/debt/lib/toViewModel';
 import { dashboardKeys } from '@/entities/dashboard/api/keys';
 import { apiClient } from '@/shared/api';
 import { API_ENDPOINTS } from '@/shared/lib/constants';
+import type { Transaction, BudgetSummary, Debt } from '@/shared/types';
 import { haptic } from '@/shared/lib/haptic';
 
 const navItems = [
@@ -73,8 +77,9 @@ export function BottomNav() {
         queryClient.prefetchQuery({
           queryKey: transactionKeys.list(userId),
           queryFn: async () => {
-            const response = await apiClient.get(API_ENDPOINTS.TRANSACTIONS.LIST(userId));
-            return response.data;
+            const response = await apiClient.get<Transaction[]>(API_ENDPOINTS.TRANSACTIONS.LIST(userId));
+            // IMPORTANT: Transform to ViewModel to match useTransactions queryFn
+            return (response.data || []).map(transactionToViewModel);
           },
           staleTime,
         });
@@ -84,8 +89,9 @@ export function BottomNav() {
         queryClient.prefetchQuery({
           queryKey: budgetKeys.summaries(userId),
           queryFn: async () => {
-            const response = await apiClient.get(API_ENDPOINTS.BUDGETS.SUMMARIES(userId));
-            return response.data;
+            const response = await apiClient.get<BudgetSummary[]>(API_ENDPOINTS.BUDGETS.SUMMARIES(userId));
+            // IMPORTANT: Transform to ViewModel to match useBudgetSummaries queryFn
+            return (response.data || []).map(budgetToViewModel);
           },
           staleTime,
         });
@@ -95,8 +101,9 @@ export function BottomNav() {
         queryClient.prefetchQuery({
           queryKey: debtKeys.list(userId, { status: 'active' }),
           queryFn: async () => {
-            const response = await apiClient.get(API_ENDPOINTS.DEBTS.LIST(userId, 'active'));
-            return response.data;
+            const response = await apiClient.get<Debt[]>(API_ENDPOINTS.DEBTS.LIST(userId, 'active'));
+            // IMPORTANT: Transform to ViewModel to match useDebts queryFn
+            return (response.data || []).map(debtToViewModel);
           },
           staleTime,
         });
