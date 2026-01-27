@@ -403,11 +403,33 @@ interface Category {
 | v1.2 — Analytics & Insights | Analytics v2, UX фиксы, Drawer, Tabs |
 | v1.3 — Growth & Monetization | Multi-currency, Savings, Onboarding, Telegram insights |
 
-### GitHub Wiki
+### GitHub Wiki (MUST FOLLOW)
 
 - **URL:** https://github.com/chollak/finance-tracker-backend/wiki
-- Архитектура, API Reference, Design Guidelines, Roadmap, Product Decisions, Competitors
-- Обновлять Wiki при значимых архитектурных или продуктовых изменениях
+- **Repo:** клонировать `finance-tracker-backend.wiki.git` в `/tmp/finance-tracker-wiki` для редактирования
+
+**Страницы Wiki:**
+
+| Страница | Содержание | Когда обновлять |
+|----------|-----------|-----------------|
+| Home | Навигация по wiki | При добавлении новых страниц |
+| Architecture Overview | Clean Architecture, слои, data flow | При изменении архитектуры |
+| Module System | 8 модулей, зависимости | При добавлении/удалении модуля |
+| Design Patterns | Repository, Use Case, Result, DI | При использовании нового паттерна |
+| Quick Start | Установка, запуск, env vars | При изменении процесса запуска |
+| API Reference | Все endpoints | При добавлении/изменении endpoint |
+| Environment Variables | Все env vars | При добавлении новой переменной |
+| Design Guidelines | Цвета, шрифты, правила UI | При изменении design system |
+| Roadmap | Milestones, ICE scores, план | При создании/закрытии milestones |
+| Product Decisions | Лог ключевых решений | При каждом значимом решении |
+| Competitors | Анализ конкурентов, gap analysis | При competitive research |
+
+**Процесс обновления Wiki:**
+1. `git clone https://github.com/chollak/finance-tracker-backend.wiki.git /tmp/finance-tracker-wiki`
+2. Редактировать `.md` файлы (имена через дефис: `Module-System.md`)
+3. `cd /tmp/finance-tracker-wiki && git add -A && git commit -m "docs: ..." && git push`
+
+**ВАЖНО:** При каждом значимом изменении (новый модуль, endpoint, env var, архитектурное решение) — обновить соответствующую Wiki страницу и сообщить пользователю что обновлено.
 
 ### GitHub Issues
 
