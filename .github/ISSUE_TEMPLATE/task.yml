@@ -1,0 +1,38 @@
+name: Task
+description: Техническая задача или рефакторинг
+title: "chore: "
+labels: ["tech-debt"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Описание задачи
+      description: Что нужно сделать?
+    validations:
+      required: true
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Зачем?
+      description: Почему это важно сделать?
+    validations:
+      required: true
+  - type: textarea
+    id: files
+    attributes:
+      label: Files to Modify
+      description: Какие файлы затронет изменение?
+      placeholder: |
+        - `src/modules/...`
+        - `webapp/src/...`
+    validations:
+      required: false
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Done Criteria
+      value: |
+        - [ ] Критерий 1
+        - [ ] Критерий 2
+    validations:
+      required: true

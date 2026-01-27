@@ -1,0 +1,50 @@
+name: Bug Report
+description: Сообщить об ошибке
+title: "fix: "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Описание бага
+      description: Что произошло?
+      placeholder: Кратко опишите проблему
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Шаги воспроизведения
+      description: Как воспроизвести баг?
+      value: |
+        1. Перейти на '...'
+        2. Нажать на '...'
+        3. Увидеть ошибку
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Ожидаемое поведение
+      description: Что должно было произойти?
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Область
+      options:
+        - Backend (API)
+        - Frontend (WebApp)
+        - Telegram Bot
+        - Database
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Скриншоты / Логи
+      description: Если есть — приложите скриншоты или логи ошибки
+    validations:
+      required: false

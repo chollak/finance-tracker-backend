@@ -384,9 +384,30 @@ interface Category {
 
 ---
 
-## GitHub Workflow (MUST FOLLOW)
+## GitHub-first Workflow (MUST FOLLOW)
 
-**IMPORTANT**: Используй GitHub как основной инструмент для управления задачами, документацией и кодом.
+**IMPORTANT**: GitHub — единственный центр управления проектом: задачи, планирование, документация, код, wiki.
+
+### GitHub Project Board
+
+- **Project:** "Finance Tracker Development" — https://github.com/users/chollak/projects/1
+- **Колонки:** Backlog → In Progress → Review → Done
+- **Все задачи должны быть на доске** — перед началом работы перенести issue в "In Progress"
+- При создании PR привязывать к issue (`fixes #XX`)
+
+### Milestones
+
+| Milestone | Фокус |
+|-----------|-------|
+| v1.1 — Core Features | Recurring, Export, Quick-add |
+| v1.2 — Analytics & Insights | Analytics v2, UX фиксы, Drawer, Tabs |
+| v1.3 — Growth & Monetization | Multi-currency, Savings, Onboarding, Telegram insights |
+
+### GitHub Wiki
+
+- **URL:** https://github.com/chollak/finance-tracker-backend/wiki
+- Архитектура, API Reference, Design Guidelines, Roadmap, Product Decisions, Competitors
+- Обновлять Wiki при значимых архитектурных или продуктовых изменениях
 
 ### GitHub Issues
 
@@ -394,26 +415,8 @@ interface Category {
 - Технический долг и рефакторинг → лейбл `tech-debt`
 - Новые фичи → лейбл `feature`
 - Баги → лейбл `bug`
-- Долгосрочные планы (из `.claude/plans/`) → переносить в Issues для хранения
-
-**Формат Issue:**
-```markdown
-## Summary
-Краткое описание задачи
-
-## Problem / Motivation
-Почему это нужно сделать
-
-## Proposed Solution
-Как планируется решить
-
-## Files to Modify
-- `path/to/file1.ts`
-- `path/to/file2.ts`
-
-## Estimated Effort
-~X hours
-```
+- Долгосрочные планы → Issues + привязка к milestone
+- **Используй Issue Templates** (Bug Report, Feature Request, Task) — они в `.github/ISSUE_TEMPLATE/`
 
 **Доступные лейблы:**
 - `tech-debt` - Технический долг
@@ -421,7 +424,18 @@ interface Category {
 - `feature` - Новая функциональность
 - `bug` - Баг/ошибка
 - `documentation` - Документация
-- `priority:high` / `priority:low` - Приоритет
+- `priority:high` / `priority:medium` / `priority:low` - Приоритет
+- `backend` / `frontend` - Область
+- `growth` / `ux` / `analytics` / `monetization` - Категория
+- `blocked` - Заблокировано зависимостью
+
+### Рабочий процесс (MUST FOLLOW)
+
+1. **Перед началом работы:** найти или создать issue, привязать к milestone
+2. **Начало работы:** перенести issue в "In Progress" на доске
+3. **Разработка:** коммиты ссылаются на issue (`refs #XX`)
+4. **Завершение:** PR с `fixes #XX`, привязать к project board
+5. **После merge:** обновить Wiki/docs если нужно, записать решение в Product Decisions
 
 ### Commits
 
@@ -503,23 +517,12 @@ fixes #70"
 
 | Тип информации | Где хранить |
 |----------------|-------------|
-| Долгосрочные задачи | GitHub Issues |
-| Планы рефакторинга | GitHub Issues + `.claude/plans/` (локально) |
-| Архитектурные решения | `docs/knowledge-base/` |
-| API документация | CLAUDE.md или `docs/` |
-| Временные заметки | `.claude/plans/` (локально, не в git) |
-
-### Автоматизация
-
-**После завершения большой задачи:**
-1. Создать PR (если нужен review)
-2. Ссылаться на issues в коммитах
-3. Закрыть связанные issues
-4. Обновить документацию если нужно
-
-**После планирования:**
-1. Если план долгосрочный → создать GitHub Issue
-2. Локальный план в `.claude/plans/` → для текущей сессии
+| Задачи, баги, фичи | GitHub Issues + Project Board |
+| Roadmap, план развития | GitHub Milestones + Wiki (Roadmap) |
+| Архитектурные решения | GitHub Wiki (Product Decisions) + `docs/knowledge-base/` |
+| API документация | GitHub Wiki (API Reference) |
+| Конкурентный анализ | GitHub Wiki (Competitors) |
+| Временные заметки сессии | `.claude/plans/` (локально, не в git) |
 
 ---
 

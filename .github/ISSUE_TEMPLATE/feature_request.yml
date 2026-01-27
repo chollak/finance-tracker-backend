@@ -1,0 +1,68 @@
+name: Feature Request
+description: Предложить новую фичу
+title: "feat: "
+labels: ["feature"]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: Краткое описание фичи и её ценности
+    validations:
+      required: true
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Problem / Motivation
+      description: Какую проблему решает? Почему это нужно?
+    validations:
+      required: true
+  - type: textarea
+    id: user-story
+    attributes:
+      label: User Story
+      description: "Формат: Как [пользователь], я хочу [действие], чтобы [ценность]"
+      placeholder: "Как пользователь, я хочу ..., чтобы ..."
+    validations:
+      required: false
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: Как планируется решить?
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance Criteria
+      description: Чеклист критериев готовности
+      value: |
+        - [ ] Критерий 1
+        - [ ] Критерий 2
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Область
+      options:
+        - Backend
+        - Frontend
+        - Backend + Frontend
+        - Telegram Bot
+        - Infrastructure
+    validations:
+      required: true
+  - type: dropdown
+    id: category
+    attributes:
+      label: Категория
+      options:
+        - Core Value
+        - Growth
+        - UX
+        - Monetization
+        - Technical
+    validations:
+      required: false
