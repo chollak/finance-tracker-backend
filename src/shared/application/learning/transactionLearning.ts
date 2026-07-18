@@ -1,6 +1,6 @@
 import fs from 'fs/promises';
 import path from 'path';
-import { createLogger, LogCategory } from '../../infrastructure/logging';
+import { createLogger, LogCategory } from '../logging';
 
 const logger = createLogger(LogCategory.LEARNING);
 

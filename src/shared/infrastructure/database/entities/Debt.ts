@@ -6,7 +6,15 @@ import {
   UpdateDateColumn,
   OneToMany
 } from 'typeorm';
-import { DebtPayment } from './DebtPayment';
+
+type DebtPaymentRelation = {
+  id: string;
+  debtId: string;
+  amount: number;
+  note?: string;
+  paidAt: Date;
+  createdAt: Date;
+};
 
 export enum DebtType {
   I_OWE = 'i_owe',
@@ -74,6 +82,6 @@ export class Debt {
   @Column({ nullable: true })
   splitExpenseId?: string; // Original expense that was split
 
-  @OneToMany(() => DebtPayment, (payment) => payment.debt)
-  payments!: DebtPayment[];
+  @OneToMany('DebtPayment', 'debt')
+  payments!: DebtPaymentRelation[];
 }

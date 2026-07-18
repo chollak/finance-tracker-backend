@@ -26,7 +26,7 @@
 
 ### FT-000: Normalize line endings and restore clean git baseline
 
-Status: review
+Status: done
 Priority: high
 Owner: Hermes
 Type: repo-hygiene
@@ -38,7 +38,7 @@ Definition of Done:
 - [x] Confirm that changes are line-ending-only
 - [x] Add `.gitattributes` to enforce LF for text files
 - [x] Restore meaningful `git status` baseline
-- [ ] Decide whether to commit `.gitattributes`
+- [x] Commit `.gitattributes` with local workflow files
 
 Verification:
 - `git diff --ignore-cr-at-eol --quiet` returned `exit=0`
@@ -48,7 +48,7 @@ Verification:
 
 ### FT-001: Audit current project state
 
-Status: in_progress
+Status: review
 Priority: high
 Owner: Hermes
 Type: audit
@@ -68,13 +68,13 @@ Verification so far:
 - `npm run build` — passed
 - `npm test -- --runInBand` — passed, 7 suites / 35 tests
 - `npm run build:webapp` — passed
-- `npm run analyze` — failed with dependency-cruiser violations
+- `npm run analyze` — initially failed with dependency-cruiser violations; passed after FT-002
 
 ---
 
 ### FT-002: Fix dependency-cruiser architecture violations
 
-Status: ready
+Status: done
 Priority: high
 Owner: Claude Code
 Type: tech-debt
@@ -92,14 +92,25 @@ Observed violations:
    - `src/shared/application/helpers/userIdResolver.ts → src/shared/infrastructure/logging/index.ts`
 
 Definition of Done:
-- `npm run analyze` passes
-- Existing tests still pass
-- `npm run build` passes
-- Fix respects Clean Architecture rules in `CLAUDE.md` and `docs/BACKEND_STANDARDS.md`
-- No unrelated refactor
+- [x] `npm run analyze` passes
+- [x] Existing tests still pass
+- [x] `npm run build` passes
+- [x] Fix respects Clean Architecture rules in `CLAUDE.md` and `docs/BACKEND_STANDARDS.md`
+- [x] No unrelated refactor
+
+Verification:
+- `npm run analyze` — passed
+- `npm run build` — passed
+- `npm test -- --runInBand` — passed, 7 suites / 35 tests
+- `npm run build:webapp` — passed
+
+Implementation notes:
+- Application-layer files now import logging from `src/shared/application/logging`, not infrastructure logging.
+- TypeORM Debt/DebtPayment relation cycle was broken by using string relation targets and structural relation types instead of runtime cross-imports.
+- `SqliteDebtRepository.mapPaymentToEntity` now accepts the structural fields it actually needs.
 
 Suggested Claude Code instruction:
-Investigate and fix only the dependency-cruiser violations. Prefer moving shared abstractions to the correct layer or using existing domain/application logging ports instead of importing infrastructure from application layer.
+Completed. Original instruction was to fix only the dependency-cruiser violations without unrelated refactors.
 
 ---
 

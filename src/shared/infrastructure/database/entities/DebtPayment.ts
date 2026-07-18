@@ -6,7 +6,10 @@ import {
   ManyToOne,
   JoinColumn
 } from 'typeorm';
-import { Debt } from './Debt';
+
+type DebtRelation = {
+  id: string;
+};
 
 @Entity('debt_payments')
 export class DebtPayment {
@@ -28,7 +31,7 @@ export class DebtPayment {
   @CreateDateColumn()
   createdAt!: Date;
 
-  @ManyToOne(() => Debt, (debt) => debt.payments, { onDelete: 'CASCADE' })
+  @ManyToOne('Debt', 'payments', { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'debtId' })
-  debt!: Debt;
+  debt!: DebtRelation;
 }

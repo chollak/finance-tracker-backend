@@ -226,7 +226,7 @@ export class SqliteDebtRepository implements DebtRepository {
     };
   }
 
-  private mapPaymentToEntity(payment: DebtPayment): DebtPaymentEntity {
+  private mapPaymentToEntity(payment: Pick<DebtPayment, 'id' | 'debtId' | 'amount' | 'note' | 'paidAt' | 'createdAt'>): DebtPaymentEntity {
     return {
       id: payment.id,
       debtId: payment.debtId,

@@ -6,7 +6,7 @@
  */
 
 import { UserModule } from '../../../modules/user/userModule';
-import { createLogger, LogCategory } from '../../infrastructure/logging';
+import { createLogger, LogCategory } from '../logging';
 
 const logger = createLogger(LogCategory.USER);
 

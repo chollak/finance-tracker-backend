@@ -1,5 +1,5 @@
 import { transactionLearning } from './transactionLearning';
-import { createLogger, LogCategory } from '../../infrastructure/logging';
+import { createLogger, LogCategory } from '../logging';
 
 const logger = createLogger(LogCategory.LEARNING);
 
