@@ -1,0 +1,16 @@
+# Normalize text files to LF in repository and working tree.
+* text=auto eol=lf
+
+# Keep common binary assets untouched.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.pdf binary
+*.sqlite binary
+*.db binary
+
+# Shell scripts must stay LF for WSL/Linux execution.
+*.sh text eol=lf
