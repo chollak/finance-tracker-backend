@@ -48,7 +48,7 @@ Verification:
 
 ### FT-001: Audit current project state
 
-Status: review
+Status: done
 Priority: high
 Owner: Hermes
 Type: audit
@@ -59,12 +59,19 @@ Understand the current state of backend, Telegram bot, webapp, docs, tests, CI, 
 Definition of Done:
 - [x] Read `CLAUDE.md`, `README.md`, `package.json`, `webapp/package.json`
 - [x] Run baseline checks: backend build, backend tests, webapp build, architecture analyze
-- [ ] Summarize actual architecture and product state
-- [ ] Identify stale docs vs current implementation
-- [ ] Identify first safe development tasks for Claude Code
-- [ ] Produce short roadmap
+- [x] Summarize actual architecture and product state
+- [x] Identify stale docs vs current implementation
+- [x] Identify first safe development tasks for Claude Code
+- [x] Produce short roadmap
 
-Verification so far:
+Audit summary:
+- Actual implementation has 8 modules: transaction, budget, debt, voiceProcessing, openai-usage, dashboard, subscription, user.
+- Main delivery surfaces: Express REST API, Telegram bot, React/Vite Telegram Mini App.
+- Current architecture checks are stable after FT-002.
+- `docs/VISION.md` is stale: it marks DebtModule and SubscriptionModule as TODO, while source code and architecture docs show both modules exist.
+- Best next step is documentation reconciliation before more feature work, so future agents do not follow stale roadmap text.
+
+Verification:
 - `npm run build` — passed
 - `npm test -- --runInBand` — passed, 7 suites / 35 tests
 - `npm run build:webapp` — passed
@@ -116,19 +123,27 @@ Completed. Original instruction was to fix only the dependency-cruiser violation
 
 ### FT-003: Reconcile stale docs with actual implementation
 
-Status: backlog
+Status: ready
 Priority: medium
-Owner: Hermes + Claude Code
+Owner: Claude Code, QA by Hermes
 Type: docs
 
 Context:
-Some docs appear stale. Example: `docs/VISION.md` marks DebtModule and SubscriptionModule as TODO, while `CLAUDE.md` and source code show those modules already exist.
+Some docs are stale. `docs/VISION.md` marks DebtModule and SubscriptionModule as TODO, while `CLAUDE.md`, source code, and `docs/knowledge-base/01-architecture/modules.md` show those modules already exist.
+
+Goal:
+Make project docs match actual implementation before feature development, so agents do not follow outdated roadmap information.
 
 Definition of Done:
-- Identify stale sections across `docs/`, `README.md`, `CLAUDE.md`, `AUDIT.md`
-- Update docs to match actual code state
-- Preserve useful Claude Code guidance
-- Add clear “current status” and “next roadmap” sections
+- [ ] Identify stale sections across `docs/`, `README.md`, `CLAUDE.md`, `AUDIT.md`
+- [ ] Update docs to match actual code state
+- [ ] Preserve useful Claude Code guidance
+- [ ] Add clear “current status” and “next roadmap” sections
+- [ ] Do not modify source code
+- [ ] `npm run build`, `npm test -- --runInBand`, `npm run build:webapp`, and `npm run analyze` still pass
+
+Suggested Claude Code instruction:
+Documentation-only task. Reconcile stale documentation with actual implementation. Do not change source code. Focus first on `docs/VISION.md`, then check `README.md`, `CLAUDE.md`, `AUDIT.md`, and `docs/knowledge-base/` for contradictions. Update task status in `TASKS.md` when finished, but do not mark done — Hermes is the QA gate.
 
 ---
 

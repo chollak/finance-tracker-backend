@@ -153,3 +153,62 @@ Result: passed.
 ### Notes
 
 Claude Code was useful for the implementation pass, but Hermes remained the final QA gate and caught the incomplete circular dependency fix before accepting the task.
+
+## 2026-07-19 — FT-001 audit closed
+
+### Goal
+
+Close the baseline audit and decide the next safe development step before giving Claude Code more product work.
+
+### Actual Project State
+
+The project is an AI-powered personal finance tracker with two delivery surfaces:
+
+- Express REST API + Telegram bot backend.
+- React/Vite Telegram Mini App frontend under `webapp/`.
+
+The current module set is larger than the older product vision document suggests. Actual backend modules:
+
+1. TransactionModule
+2. BudgetModule
+3. DebtModule
+4. VoiceProcessingModule
+5. OpenAIUsageModule
+6. DashboardModule
+7. SubscriptionModule
+8. UserModule
+
+### Stale Documentation Found
+
+`docs/VISION.md` still marks these as launch blockers/TODO:
+
+- DebtModule
+- SubscriptionModule
+
+But source code and `docs/knowledge-base/01-architecture/modules.md` show both modules already exist, with entities/use cases/repositories and integration details. This stale roadmap creates a risk that future agents will rebuild or duplicate existing functionality.
+
+### Next Safe Task
+
+FT-003 should be the next Claude Code task: reconcile stale docs with actual implementation.
+
+Scope should be documentation-only:
+
+- Update `docs/VISION.md` to reflect current module state.
+- Reconcile `README.md`, `CLAUDE.md`, `AUDIT.md`, and docs under `docs/knowledge-base/` where they disagree.
+- Preserve useful implementation guidance.
+- Do not modify source code.
+
+### Roadmap Recommendation
+
+After docs are reconciled, choose product direction via FT-004 with Shukur. Candidate vectors remain:
+
+- Improve personal weekly finance review workflow.
+- Stabilize core transaction/userId model.
+- Improve Telegram bot UX.
+- Improve Telegram Mini App UX.
+- Import bank/card statements or CSV.
+- Production readiness and CI/CD.
+
+### Verification
+
+No code changes were made in FT-001 closeout. Repo was clean before the documentation-board update.
