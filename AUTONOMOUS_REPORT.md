@@ -1041,3 +1041,47 @@ Result: passed. API route test file: 12 tests. Full suite: 12 suites / 141 tests
 ### FT-014 Result
 
 FT-014 is complete. Safety coverage now includes debt, subscription/limits/trial, user resolution/guest behavior, and critical API route/middleware behavior.
+
+
+## 2026-07-19 — FT-015 runtime/process mode decision
+
+### Goal
+
+Decide how API, Telegram bot, and future worker/scheduler responsibilities should be separated before implementing any background jobs.
+
+### Discovery
+
+- `src/index.ts` is the current composition root.
+- Current runtime starts API/static webapp and Telegram bot in one process.
+- `SubscriptionService.processExpiredSubscriptions()` exists and is tested, but no scheduler invokes it.
+- Shukur explicitly paused subscription expiry automation for now.
+
+### Changes
+
+- Added `docs/knowledge-base/01-architecture/runtime-process-mode.md`.
+- Linked it from architecture documentation indexes (`README.md`, `CLAUDE.md`, knowledge-base README).
+- Updated `TASKS.md`.
+
+### Decision
+
+Keep the current single process for now.
+
+Recommended future implementation, when the first approved background job arrives:
+
+```text
+APP_MODE=all|api|bot|worker
+```
+
+Default should remain `APP_MODE=all` to preserve current behavior. Scheduler/background jobs should run only in `APP_MODE=worker` or an explicitly single-instance worker process.
+
+### Non-Goals
+
+No scheduler was implemented. No subscription expiry automation was started. No Docker/runtime behavior changed.
+
+### Verification
+
+```bash
+npm run verify
+```
+
+Result: passed. No code behavior changed. Full suite: 12 suites / 141 tests. Backend build, webapp build, dependency-cruiser, and circular dependency scan passed.

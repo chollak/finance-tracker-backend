@@ -89,6 +89,7 @@ For detailed documentation, see **[docs/knowledge-base/](docs/knowledge-base/)**
   - [Overview](docs/knowledge-base/01-architecture/overview.md) - Layers and dependency flow
   - [Modules](docs/knowledge-base/01-architecture/modules.md) - 8 модулей системы
   - [Patterns](docs/knowledge-base/01-architecture/patterns.md) - Repository, DI, Factory, Use Case
+  - [Runtime / Process Mode](docs/knowledge-base/01-architecture/runtime-process-mode.md) - API/Bot/Worker process-mode decision
 - **[Data Flow](docs/knowledge-base/07-data-flow/)** - How data moves through the system
   - [Voice → Transaction](docs/knowledge-base/07-data-flow/voice-to-transaction.md) - AI-powered voice processing
   - [API Lifecycle](docs/knowledge-base/07-data-flow/api-lifecycle.md) - HTTP request flow

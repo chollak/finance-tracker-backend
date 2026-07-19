@@ -495,7 +495,7 @@ Progress:
 
 ### FT-015: Runtime/process mode decision document
 
-Status: pending
+Status: done
 Priority: medium
 Owner: Hermes
 Type: foundation/architecture
@@ -504,9 +504,14 @@ Goal:
 Decide how API, Telegram bot, and future worker should run before implementing background jobs.
 
 Definition of Done:
-- [ ] Options documented: single process vs `APP_MODE=all|api|bot|worker` vs split entrypoints
-- [ ] Recommendation recorded
-- [ ] No scheduler/product automation implemented yet
+- [x] Options documented: single process vs `APP_MODE=all|api|bot|worker` vs split entrypoints
+- [x] Recommendation recorded
+- [x] No scheduler/product automation implemented yet
+
+Implementation notes:
+- Added `docs/knowledge-base/01-architecture/runtime-process-mode.md`.
+- Decision: keep current single-process runtime for now; when the first real background job is approved, implement `APP_MODE=all|api|bot|worker` first and run jobs only in worker mode.
+- No scheduler/product automation was implemented.
 
 ---
 
