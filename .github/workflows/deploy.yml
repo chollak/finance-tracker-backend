@@ -5,7 +5,7 @@ on:
     branches: [main]
 
 jobs:
-  test:
+  quality-gate:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout repository
@@ -20,14 +20,11 @@ jobs:
     - name: Install dependencies
       run: npm ci
 
-    - name: Run tests
-      run: npm test
-
-    - name: Build webapp
-      run: npm run build:webapp
+    - name: Run full verification
+      run: npm run verify
 
   deploy:
-    needs: test
+    needs: quality-gate
     runs-on: ubuntu-latest
     if: success()
 

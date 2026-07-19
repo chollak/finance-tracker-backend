@@ -737,3 +737,34 @@ Saved detailed roadmap:
 
 - Subscription expiry automation remains a known product/business gap, but it is intentionally deferred.
 - Current target is to make future feature work safer: CI, scripts, env clarity, tests, and workflow.
+
+
+## 2026-07-19 — FT-011/FT-012 CI and verify foundation
+
+### Goal
+
+Create one reliable verification command and make GitHub Actions use it before deploy.
+
+### Changes
+
+- Added npm scripts:
+  - `typecheck`: alias for backend TypeScript build
+  - `test:ci`: serial Jest run (`jest --runInBand`)
+  - `verify`: backend build + serial tests + webapp build + architecture checks
+- Updated `.github/workflows/deploy.yml`:
+  - renamed the pre-deploy job to `quality-gate`
+  - replaced separate partial checks with `npm run verify`
+  - deploy now depends on `quality-gate`
+- Updated docs:
+  - `README.md`
+  - `CLAUDE.md`
+  - `docs/knowledge-base/08-development/quick-start.md`
+- Updated `TASKS.md` foundation statuses.
+
+### Verification
+
+```bash
+npm run verify
+```
+
+Result: passed. Gate covered backend build, `jest --runInBand` (8 suites / 37 tests), webapp production build, dependency-cruiser, and circular dependency scan.

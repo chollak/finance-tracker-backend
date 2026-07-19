@@ -242,6 +242,7 @@ docker compose down
 
 ```bash
 npm test                  # Run all tests
+npm run test:ci           # Run tests serially for CI/Hermes verification
 npm test -- --watch      # Watch mode
 npm test -- --verbose    # Detailed output
 npm test budget          # Run specific test file
@@ -254,7 +255,10 @@ npm run format           # Format code with Prettier
 npm run check:deps       # Check dependency rules
 npm run check:circular   # Find circular dependencies
 npm run analyze          # Run both checks
+npm run verify           # Full pre-commit gate: build, test:ci, webapp build, analyze
 ```
+
+Before committing or pushing, use `npm run verify` as the single source of truth.
 
 ### Database
 

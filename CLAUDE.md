@@ -19,6 +19,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Testing:**
 - `npm test` - Run Jest tests (located in `tests/` folder)
+- `npm run test:ci` - Run Jest tests serially for CI/Hermes verification
+- `npm run analyze` - Run dependency-cruiser and circular dependency checks
+- `npm run verify` - Full pre-commit/pre-push gate: backend build, serial tests, webapp build, architecture checks
 - Tests use ts-jest preset and target Node.js environment
 
 **Web App (React + Vite):**

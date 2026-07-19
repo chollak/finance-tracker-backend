@@ -393,7 +393,7 @@ Shukur clarified that we should **not** implement subscription expiry automation
 
 ### FT-011: CI quality gate consolidation
 
-Status: pending
+Status: done
 Priority: high
 Owner: Hermes
 Type: foundation/ci
@@ -402,16 +402,16 @@ Goal:
 Make GitHub Actions match Hermes local verification before deploy. Existing deploy workflow runs tests and webapp build, but not backend build/analyze.
 
 Definition of Done:
-- [ ] CI runs backend build, tests, webapp build, and architecture checks
-- [ ] Deploy depends on passing gates
-- [ ] No secrets printed
-- [ ] Local verification passes before commit/push
+- [x] CI runs backend build, tests, webapp build, and architecture checks
+- [x] Deploy depends on passing gates
+- [x] No secrets printed
+- [x] Local verification passes before commit/push
 
 ---
 
 ### FT-012: Standardize project command surface
 
-Status: pending
+Status: done
 Priority: high
 Owner: Hermes
 Type: foundation/scripts
@@ -420,9 +420,14 @@ Goal:
 Add one obvious command for agents/CI/local work, likely `npm run verify`.
 
 Definition of Done:
-- [ ] `npm run verify` runs build, test:ci, webapp build, analyze
-- [ ] Docs tell Hermes/Claude/users to use it before commit/push
-- [ ] Existing scripts keep working
+- [x] `npm run verify` runs build, test:ci, webapp build, analyze
+- [x] Docs tell Hermes/Claude/users to use it before commit/push
+- [x] Existing scripts keep working
+
+Implementation notes:
+- Added `typecheck`, `test:ci`, and `verify` scripts to `package.json`.
+- Updated `deploy.yml` to run `npm run verify` in `quality-gate` before deploy.
+- Updated `README.md`, `CLAUDE.md`, and quick-start docs to use `npm run verify` as the pre-commit/pre-push gate.
 
 ---
 
