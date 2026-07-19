@@ -1348,3 +1348,44 @@ npm run verify
 ```
 
 Result: passed. User resolution tests passed, TypeScript build passed, and full verify passed (12 suites / 142 tests, backend build, webapp build, dependency-cruiser, circular dependency scan).
+
+
+## 2026-07-20 — FT-017D resolver fail-open decision
+
+### Goal
+
+Audit `resolveUserIdToUUID()` callers and decide whether to globally change fail-open behavior.
+
+### Caller Audit
+
+- Telegram text/voice handlers catch resolver failures and continue with original Telegram ID.
+- Telegram stats/today/budget commands rely on resolver with normal `ctx.from.id` input.
+- Subscription middleware catches resolver failures and explicitly fail-opens limits when no UUID is available.
+- Voice API controller maps thrown resolver errors through controller error handling.
+- `userResolutionMiddleware` is closer to a strict API boundary and maps resolver errors to `USER_RESOLUTION_ERROR`.
+
+### Decision
+
+Do not globally change `resolveUserIdToUUID()` from fail-open to fail-closed yet. This would mix compatibility, product-limit, and security semantics in one silent global behavior change.
+
+Future direction: split resolver behavior explicitly:
+
+```ts
+resolveUserIdToUUIDLoose(...)
+resolveUserIdToUUIDStrict(...)
+```
+
+Then migrate security-sensitive/ownership/API boundaries to strict behavior endpoint by endpoint.
+
+### Changes
+
+- Updated FT-017 cleanup plan and `TASKS.md` only.
+- No production code change.
+
+### Verification
+
+```bash
+npm run verify
+```
+
+Result: passed. Docs-only change; full verify passed (12 suites / 142 tests, backend build, webapp build, dependency-cruiser, circular dependency scan).

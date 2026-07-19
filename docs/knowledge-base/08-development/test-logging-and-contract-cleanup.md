@@ -164,21 +164,42 @@ Definition of Done:
 
 Risk: medium-low after caller audit.
 
-### FT-017D — Decide resolver fail-open vs fail-closed
+### FT-017D — Resolver fail-open vs fail-closed decision
+
+Status: decision recorded; no global behavior change yet.
 
 Goal: decide whether `resolveUserIdToUUID` should return original ID on resolver failure.
 
-Options:
+Caller audit summary:
 
-- Keep fail-open for backward compatibility.
-- Fail-closed for security-sensitive flows and handle errors explicitly.
-- Split APIs:
-  - `resolveUserIdToUUIDLoose(...)`
-  - `resolveUserIdToUUIDStrict(...)`
+- Telegram text/voice handlers catch resolver failures and continue with the original Telegram ID. This is compatibility-oriented and not a direct ownership gate.
+- Telegram stats/today/budget commands do not catch resolver errors, but normal input is `ctx.from.id`; resolver failure currently falls back to original ID.
+- Subscription middleware catches resolver failures and explicitly fail-opens limits by calling `next()` when no UUID is available. This is a business/product decision area.
+- Voice API controller uses resolver inside controller try/catch; failures map to controller errors only if the resolver throws.
+- `userResolutionMiddleware` catches errors and returns `USER_RESOLUTION_ERROR`; this is closer to a strict boundary.
 
-Recommended future direction: strict behavior for ownership/security-sensitive API paths, loose behavior only where backward compatibility is explicitly needed.
+Decision:
 
-Risk: high if changed globally without auditing callers.
+- Do **not** globally change `resolveUserIdToUUID()` from fail-open to fail-closed yet.
+- Keep the current loose behavior for compatibility flows.
+- Treat strict resolution as a separate future helper/API, not a silent behavior change.
+
+Recommended future direction:
+
+```ts
+resolveUserIdToUUIDLoose(...)  // current compatibility behavior
+resolveUserIdToUUIDStrict(...) // throws on resolver failure
+```
+
+Use strict behavior for ownership/security-sensitive API paths. Keep loose behavior only where backward compatibility is explicitly needed.
+
+Definition of Done:
+
+- [x] Caller audit recorded.
+- [x] Decision recorded.
+- [x] No risky global behavior change made.
+
+Risk: high if changed globally without deeper endpoint-by-endpoint behavior review.
 
 ### FT-017E — Validate empty userId early
 
@@ -230,7 +251,7 @@ Risk: low.
 3. ✅ FT-017C — normalize `UpdateUserUseCase` Result contract
 4. ✅ FT-017E — empty userId validation
 5. ✅ FT-017B — normalize `GetUserUseCase` not-found convention
-6. FT-017D — resolver fail-open/fail-closed decision
+6. ✅ FT-017D — resolver fail-open/fail-closed decision recorded
 
 Reasoning:
 

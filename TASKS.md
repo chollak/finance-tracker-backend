@@ -545,6 +545,7 @@ Implementation notes:
 - FT-017C user update Result contract completed: `UpdateUserUseCase.execute()` returns `Result<User>` and controller unwraps it.
 - FT-017E empty userId validation completed: `resolveUserIdToUUID()` rejects empty/whitespace-only IDs before user creation.
 - FT-017B user not-found contract completed: `GetUserUseCase` now returns `Result.failure(NotFoundError)` for missing users.
+- FT-017D resolver fail-open decision recorded: do not globally flip loose resolver to fail-closed yet; future strict resolver should be introduced per security-sensitive path.
 - No broader API/user resolver contract changes were made.
 
 ---
