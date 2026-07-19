@@ -97,9 +97,10 @@ export function errorHandler(
  * 404 handler for unmatched routes
  */
 export function notFoundHandler(req: Request, res: Response): void {
+  const path = req.originalUrl || req.url || req.path;
   res.status(404).json({
     success: false,
-    error: `Route ${req.method} ${req.path} not found`,
+    error: `Route ${req.method} ${path} not found`,
     code: 'NOT_FOUND'
   });
 }

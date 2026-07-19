@@ -1161,3 +1161,34 @@ npm run verify
 ```
 
 Result: passed. Targeted noisy suites passed (5 suites / 58 tests) with quiet output, and full verify passed (12 suites / 141 tests) with substantially quieter test output.
+
+
+## 2026-07-20 — FT-017F API 404 path message
+
+### Goal
+
+Fix the low-risk API 404 message gap found during FT-014D while preserving status and response shape.
+
+### TDD Cycle
+
+1. Updated `tests/apiRoutes.test.ts` to expect the actual unmatched path (`/api/does-not-exist`).
+2. Ran `npm test -- apiRoutes --runInBand`; test failed with current `Route GET / not found` behavior.
+3. Updated `notFoundHandler` to use `req.originalUrl || req.url || req.path`.
+4. Re-ran `npm test -- apiRoutes --runInBand`; test passed.
+
+### Changes
+
+- `src/delivery/web/express/middleware/errorMiddleware.ts`
+  - 404 handler now reports original URL.
+- `tests/apiRoutes.test.ts`
+  - 404 characterization now expects `Route GET /api/does-not-exist not found`.
+- Updated FT-017 cleanup plan and `TASKS.md`.
+
+### Verification
+
+```bash
+npm test -- apiRoutes --runInBand
+npm run verify
+```
+
+Result: passed. API route tests passed and full verify passed (12 suites / 141 tests, backend build, webapp build, dependency-cruiser, circular dependency scan).

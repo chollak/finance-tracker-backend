@@ -541,6 +541,7 @@ Implementation notes:
   - FT-017E validate empty userId early
   - FT-017F fix API 404 path message
 - FT-017A quiet test logging completed: app/Winston/env-load logs are silent under `NODE_ENV=test` unless `TEST_LOGS=true`.
+- FT-017F API 404 path message completed: `notFoundHandler` reports `req.originalUrl` so unknown routes include the actual path.
 - No API/user contract changes were made.
 
 ---

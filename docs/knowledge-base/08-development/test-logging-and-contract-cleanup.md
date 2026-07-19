@@ -182,16 +182,19 @@ Risk: medium because some current tests document empty-string behavior.
 
 ### FT-017F — Fix API 404 path message
 
+Status: done.
+
 Goal: preserve 404 status/shape but report the actual unmatched path.
 
-Likely approach:
+Implemented approach:
 
-- Replace `router.use('*', notFoundHandler)` with a mount that does not rewrite `req.path`, or have the handler use `req.originalUrl`.
+- `notFoundHandler` now uses `req.originalUrl || req.url || req.path`, so wildcard-mounted middleware still reports the actual original request URL.
+- API route test now expects `/api/does-not-exist` in the 404 message.
 
 Definition of Done:
 
-- Unknown route response reports useful path.
-- API route tests updated intentionally.
+- [x] Unknown route response reports useful path.
+- [x] API route tests updated intentionally.
 
 Risk: low.
 

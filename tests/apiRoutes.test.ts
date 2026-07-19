@@ -134,12 +134,7 @@ describe('API routes and middleware (characterization)', () => {
         success: false,
         code: 'NOT_FOUND',
       });
-      // NOTE (behavior gap): `router.use('*', notFoundHandler)` is a wildcard-pattern
-      // middleware mount, which causes Express to rewrite req.path to '/' for the
-      // handler. So the message is always "Route GET / not found" regardless of the
-      // actual unmatched path/method combination — it never reflects the real request
-      // path. See final report for details.
-      expect(body.error).toBe('Route GET / not found');
+      expect(body.error).toBe('Route GET /api/does-not-exist not found');
     });
   });
 
