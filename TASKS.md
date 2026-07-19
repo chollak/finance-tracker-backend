@@ -457,7 +457,7 @@ Implementation notes:
 
 ### FT-014: Test safety net for core modules
 
-Status: pending
+Status: done
 Priority: high
 Owner: Hermes + Claude Code
 Type: foundation/tests
@@ -469,8 +469,8 @@ Definition of Done:
 - [x] Debt module core behavior tested
 - [x] Subscription/limits/trial behavior tested
 - [x] User resolution/guest behavior tested
-- [ ] Critical API route behavior tested where practical
-- [ ] TDD followed for new tests/behavior
+- [x] Critical API route behavior tested where practical
+- [x] TDD followed for new tests/behavior
 
 Progress:
 - FT-014A debt safety tests completed by Claude Code and QAed by Hermes.
@@ -485,6 +485,11 @@ Progress:
 - Added `tests/userResolution.test.ts` with 39 tests covering user get/create/update, UUID/telegramId/guest resolution, fail-open resolver behavior, and ownership verification/guest bypass behavior.
 - Verification passed: `npm test -- userResolution --runInBand`, `npm run verify`.
 - Full test suite after FT-014C: 11 suites / 129 tests.
+- FT-014D critical API route safety tests completed by Claude Code and QAed by Hermes.
+- Added `tests/apiRoutes.test.ts` with 12 tests covering health, 404, CORS preflight, JSON parsing, guest/auth behavior for voice/debt routes, dev auth bypass, and global error handler mapping.
+- Verification passed: `npm test -- apiRoutes --runInBand`, `npm run verify`.
+- Full test suite after FT-014D: 12 suites / 141 tests.
+- Finding recorded: wildcard-mounted `notFoundHandler` currently reports `Route GET / not found` instead of the actual unmatched path.
 
 ---
 

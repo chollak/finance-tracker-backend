@@ -986,3 +986,58 @@ Result: passed. User resolution test file: 39 tests. Full suite: 11 suites / 129
 ### Notes
 
 The tests intentionally document current contracts that may be revisited later: `GetUserUseCase` returns success with `data: null` on not-found, `UpdateUserUseCase` throws on missing user, and `resolveUserIdToUUID` fails open by returning the original id if resolution throws.
+
+
+## 2026-07-19 — FT-014D critical API route safety tests
+
+### Goal
+
+Complete FT-014 by adding a safety net around critical Express API route/middleware behavior before product feature development.
+
+### Developer
+
+Claude Code implemented the test file. Hermes reviewed the diff and re-ran verification.
+
+### Changes
+
+- Added `tests/apiRoutes.test.ts`.
+- Built a minimal in-memory Express app using the real middleware/router factories in the same order as `expressServer.ts` where practical.
+- No production source code was changed.
+- No package/env/migration/deploy files were changed.
+
+### Behaviors Covered
+
+- Health route returns healthy JSON.
+- Unmatched API route returns 404 JSON.
+- CORS preflight `OPTIONS` request short-circuits with 200.
+- Voice text-input route:
+  - JSON body parsing reaches mocked use case
+  - guest user can call without auth
+  - non-guest without auth is rejected
+  - missing text maps to validation error
+- Debt route:
+  - guest user can create debt without auth
+  - non-guest without auth is rejected
+  - `X-Dev-User-Id` development bypass reaches controller
+- Global error handler:
+  - `ValidationError` -> 400
+  - generic `Error` -> 500 `INTERNAL_ERROR`
+  - malformed JSON -> 400 `INVALID_JSON`
+
+### Verification
+
+```bash
+npm test -- apiRoutes --runInBand
+npm run verify
+```
+
+Result: passed. API route test file: 12 tests. Full suite: 12 suites / 141 tests. Backend build, webapp build, dependency-cruiser, and circular dependency scan passed.
+
+### Findings
+
+- Wildcard-mounted `router.use('*', notFoundHandler)` currently makes Express rewrite the path seen by `notFoundHandler` to `/`, so unmatched requests report `Route GET / not found` instead of the actual unmatched path (for example `/does-not-exist`). This is not blocking, but should be included in a later API polish/error-shape cleanup.
+- Test output is noisy because request/error logging writes during expected error-path tests. This reinforces the earlier foundation candidate for a silent test logger.
+
+### FT-014 Result
+
+FT-014 is complete. Safety coverage now includes debt, subscription/limits/trial, user resolution/guest behavior, and critical API route/middleware behavior.
