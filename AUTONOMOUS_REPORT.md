@@ -1192,3 +1192,41 @@ npm run verify
 ```
 
 Result: passed. API route tests passed and full verify passed (12 suites / 141 tests, backend build, webapp build, dependency-cruiser, circular dependency scan).
+
+
+## 2026-07-20 — FT-016 task workflow decision
+
+### Goal
+
+Decide whether local `TASKS.md` remains the task source of truth or whether the project should migrate backlog items to GitHub Issues now.
+
+### Discovery
+
+- `TASKS.md` already declares itself as the current local source of truth.
+- `gh` is not installed in this environment.
+- Shukur has not explicitly chosen GitHub Issues as the primary planning UI.
+- The project is still transitioning from foundation cleanup to product-feature backlog.
+
+### Decision
+
+Keep `TASKS.md` as the source of truth for now. Do not create GitHub Issues yet.
+
+### Changes
+
+- Added `docs/knowledge-base/08-development/task-workflow.md`.
+- Updated documentation navigation (`README.md`, `CLAUDE.md`, knowledge-base README).
+- Marked FT-016 done in `TASKS.md`.
+
+### Future Migration Criteria
+
+Move to GitHub Issues when Shukur wants GitHub UI as the primary task surface, product backlog is stable, tasks are independently shippable, and GitHub tooling/auth is available.
+
+Suggested labels later: `foundation`, `feature`, `bug`, `tech-debt`, `docs`, `test`, `blocked`.
+
+### Verification
+
+```bash
+npm run verify
+```
+
+Result: passed. Docs-only change; full suite remains 12 suites / 141 tests. Backend build, webapp build, dependency-cruiser, and circular dependency scan passed.

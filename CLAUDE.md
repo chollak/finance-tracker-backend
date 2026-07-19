@@ -100,6 +100,7 @@ For detailed documentation, see **[docs/knowledge-base/](docs/knowledge-base/)**
   - [Database Guide](docs/knowledge-base/08-development/database-guide.md) - SQLite vs Supabase
   - [Troubleshooting](docs/knowledge-base/08-development/troubleshooting.md) - Common issues
   - [Test Logging & Contract Cleanup](docs/knowledge-base/08-development/test-logging-and-contract-cleanup.md) - FT-017 findings and cleanup plan
+  - [Task Workflow](docs/knowledge-base/08-development/task-workflow.md) - TASKS.md vs GitHub Issues decision
 - **[UX Improvements](docs/knowledge-base/09-ux-improvements/)** - UI/UX enhancement tracking
   - [UI/UX Analysis](docs/knowledge-base/09-ux-improvements/ui-ux-analysis.md) - Complete analysis and recommendations
 - **[Design Guidelines](docs/knowledge-base/10-design-guidelines/)** - Frontend design rules (MUST FOLLOW)

@@ -548,7 +548,7 @@ Implementation notes:
 
 ### FT-016: GitHub task workflow foundation
 
-Status: pending
+Status: done
 Priority: medium
 Owner: Hermes
 Type: foundation/workflow
@@ -557,9 +557,15 @@ Goal:
 Decide whether to keep local `TASKS.md` as source of truth or migrate FT-011..FT-016 to GitHub Issues.
 
 Definition of Done:
-- [ ] Decision recorded
-- [ ] If GitHub Issues are created, labels are simple and useful
-- [ ] `TASKS.md` remains high-level dashboard
+- [x] Decision recorded
+- [x] If GitHub Issues are created, labels are simple and useful
+- [x] `TASKS.md` remains high-level dashboard
+
+Implementation notes:
+- Added `docs/knowledge-base/08-development/task-workflow.md`.
+- Decision: keep `TASKS.md` as source of truth for now; do not create GitHub Issues yet.
+- Reason: Shukur has not explicitly chosen GitHub UI, product backlog is still being shaped, and `gh` is not installed locally.
+- Recommended future labels if/when migrating: `foundation`, `feature`, `bug`, `tech-debt`, `docs`, `test`, `blocked`.
 
 ---
 
