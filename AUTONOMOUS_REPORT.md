@@ -927,3 +927,62 @@ Result: passed. Subscription test file: 32 tests. Full suite: 10 suites / 90 tes
 ### Notes
 
 These are characterization/safety tests for existing behavior. They use use-case/service classes with in-memory fake repositories, not TypeORM/SQLite, so they are fast and deterministic.
+
+
+## 2026-07-19 — FT-014C user resolution and guest safety tests
+
+### Goal
+
+Continue FT-014 by adding a safety net around user resolution, guest ids, and ownership checks before product feature development.
+
+### Developer
+
+Claude Code implemented the test file. Hermes reviewed the diff and re-ran verification.
+
+### Changes
+
+- Added `tests/userResolution.test.ts` with an in-memory `UserRepository` fake and mocked `UserModule` slices where appropriate.
+- No production source code was changed.
+- No package/env/migration/deploy files were changed.
+
+### Behaviors Covered
+
+- `GetOrCreateUserUseCase`:
+  - creates user for unknown telegramId
+  - returns existing user without duplicate creation and updates last seen through repository contract
+- `GetUserUseCase`:
+  - validation failure when neither id nor telegramId is provided
+  - lookup success by id and telegramId
+  - current not-found contract returns success with `data: null`
+- `UpdateUserUseCase`:
+  - updates mutable fields
+  - current missing-user contract throws repository error
+  - updateLastSeen delegation
+- `userIdResolver`:
+  - UUID and guest classification
+  - sync resolver shortcuts
+  - UUID/guest passthrough
+  - whitespace trimming
+  - telegramId to UUID resolution with deduplication
+  - fail-open behavior when resolution throws
+  - empty-string current behavior
+- `ownershipVerification`:
+  - guest bypass when explicitly allowed
+  - fail-closed guest behavior when not allowed
+  - unauthenticated and missing-userModule errors
+  - mismatch and unresolvable-user errors
+  - success for matching ownership
+  - `verifyAndGetResource` not-found and happy-path behavior
+
+### Verification
+
+```bash
+npm test -- userResolution --runInBand
+npm run verify
+```
+
+Result: passed. User resolution test file: 39 tests. Full suite: 11 suites / 129 tests. Backend build, webapp build, dependency-cruiser, and circular dependency scan passed.
+
+### Notes
+
+The tests intentionally document current contracts that may be revisited later: `GetUserUseCase` returns success with `data: null` on not-found, `UpdateUserUseCase` throws on missing user, and `resolveUserIdToUUID` fails open by returning the original id if resolution throws.

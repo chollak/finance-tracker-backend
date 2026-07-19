@@ -468,7 +468,7 @@ Add tests around debt, subscription, user, and critical API route behavior befor
 Definition of Done:
 - [x] Debt module core behavior tested
 - [x] Subscription/limits/trial behavior tested
-- [ ] User resolution/guest behavior tested
+- [x] User resolution/guest behavior tested
 - [ ] Critical API route behavior tested where practical
 - [ ] TDD followed for new tests/behavior
 
@@ -481,6 +481,10 @@ Progress:
 - Added `tests/subscription.test.ts` with 32 tests covering trial, free/premium limits, usage counters, grant premium, create/replace subscription, status lookup, cancel, and subscription service behavior.
 - Verification passed: `npm test -- subscription --runInBand`, `npm run verify`.
 - Full test suite after FT-014B: 10 suites / 90 tests.
+- FT-014C user resolution/guest safety tests completed by Claude Code and QAed by Hermes.
+- Added `tests/userResolution.test.ts` with 39 tests covering user get/create/update, UUID/telegramId/guest resolution, fail-open resolver behavior, and ownership verification/guest bypass behavior.
+- Verification passed: `npm test -- userResolution --runInBand`, `npm run verify`.
+- Full test suite after FT-014C: 11 suites / 129 tests.
 
 ---
 
