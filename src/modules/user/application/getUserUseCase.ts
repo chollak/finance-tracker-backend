@@ -1,7 +1,7 @@
 import { User } from '../domain/userEntity';
 import { UserRepository } from '../domain/userRepository';
 import { Result, ResultHelper } from '../../../shared/domain/types/Result';
-import { ValidationError } from '../../../shared/domain/errors/AppError';
+import { NotFoundError, ValidationError } from '../../../shared/domain/errors/AppError';
 
 export interface GetUserRequest {
   id?: string;
@@ -20,11 +20,17 @@ export class GetUserUseCase {
 
     if (id) {
       const user = await this.userRepository.findById(id);
+      if (!user) {
+        return ResultHelper.failure(new NotFoundError('User', id));
+      }
       return ResultHelper.success(user);
     }
 
     if (telegramId) {
       const user = await this.userRepository.findByTelegramId(telegramId);
+      if (!user) {
+        return ResultHelper.failure(new NotFoundError('User', telegramId));
+      }
       return ResultHelper.success(user);
     }
 

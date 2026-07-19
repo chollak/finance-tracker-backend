@@ -151,12 +151,12 @@ describe('User module', () => {
       }
     });
 
-    it('succeeds with null data when id is not found (current Result contract has no not-found failure)', async () => {
+    it('fails with NotFoundError when id is not found', async () => {
       const result = await getUserUseCase.execute({ id: 'missing-id' });
 
-      expect(result.success).toBe(true);
-      if (result.success) {
-        expect(result.data).toBeNull();
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.message).toBe('User not found: missing-id');
       }
     });
 
@@ -171,12 +171,12 @@ describe('User module', () => {
       }
     });
 
-    it('succeeds with null data when telegramId is not found', async () => {
+    it('fails with NotFoundError when telegramId is not found', async () => {
       const result = await getUserUseCase.execute({ telegramId: 'unknown-tg-id' });
 
-      expect(result.success).toBe(true);
-      if (result.success) {
-        expect(result.data).toBeNull();
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.message).toBe('User not found: unknown-tg-id');
       }
     });
   });

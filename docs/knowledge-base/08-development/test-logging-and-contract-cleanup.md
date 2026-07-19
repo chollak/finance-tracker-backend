@@ -229,7 +229,7 @@ Risk: low.
 2. ✅ FT-017F — fix 404 path message
 3. ✅ FT-017C — normalize `UpdateUserUseCase` Result contract
 4. ✅ FT-017E — empty userId validation
-5. FT-017B — decide `GetUserUseCase` not-found convention
+5. ✅ FT-017B — normalize `GetUserUseCase` not-found convention
 6. FT-017D — resolver fail-open/fail-closed decision
 
 Reasoning:

@@ -544,6 +544,7 @@ Implementation notes:
 - FT-017F API 404 path message completed: `notFoundHandler` reports `req.originalUrl` so unknown routes include the actual path.
 - FT-017C user update Result contract completed: `UpdateUserUseCase.execute()` returns `Result<User>` and controller unwraps it.
 - FT-017E empty userId validation completed: `resolveUserIdToUUID()` rejects empty/whitespace-only IDs before user creation.
+- FT-017B user not-found contract completed: `GetUserUseCase` now returns `Result.failure(NotFoundError)` for missing users.
 - No broader API/user resolver contract changes were made.
 
 ---

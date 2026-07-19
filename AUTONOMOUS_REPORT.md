@@ -1310,3 +1310,41 @@ npm run verify
 ```
 
 Result: passed. User resolver tests passed, TypeScript build passed, and full verify passed (12 suites / 142 tests, backend build, webapp build, dependency-cruiser, circular dependency scan).
+
+
+## 2026-07-20 — FT-017B GetUserUseCase not-found contract
+
+### Goal
+
+Normalize `GetUserUseCase` not-found behavior. It previously returned `success: true, data: null`, while nearby resource lookup use cases generally return `Result.failure(NotFoundError)`.
+
+### Caller Audit
+
+- `userController` checks `!userResult.success || !userResult.data`, so missing users still map to not-found handling.
+- `ownershipVerification` checks `!userResult.success || !userResult.data`, so missing users still fail closed.
+- Transaction/debt by-id use cases use `Result.failure(NotFoundError)` for missing resources, so this improves consistency.
+
+### TDD Cycle
+
+1. Updated `tests/userResolution.test.ts` to expect `Result.failure(NotFoundError)` for missing id/telegramId.
+2. Ran `npm test -- userResolution --runInBand`; tests failed because current behavior returned `success: true`.
+3. Updated `GetUserUseCase` to return `NotFoundError` failures for missing users.
+4. Re-ran `npm test -- userResolution --runInBand && npm run build`; both passed.
+
+### Changes
+
+- `src/modules/user/application/getUserUseCase.ts`
+  - missing id/telegramId now returns `Result.failure(new NotFoundError('User', idOrTelegramId))`.
+- `tests/userResolution.test.ts`
+  - not-found characterization updated to desired Result failure contract.
+- Updated FT-017 cleanup plan and `TASKS.md`.
+
+### Verification
+
+```bash
+npm test -- userResolution --runInBand
+npm run build
+npm run verify
+```
+
+Result: passed. User resolution tests passed, TypeScript build passed, and full verify passed (12 suites / 142 tests, backend build, webapp build, dependency-cruiser, circular dependency scan).
