@@ -90,12 +90,21 @@ function getLogLevel(): string {
 }
 
 /**
+ * Keep Jest output focused on assertion failures. Production/development logging
+ * stays unchanged unless TEST_LOGS=true is explicitly set for debugging tests.
+ */
+function isTestLoggingDisabled(): boolean {
+  return process.env.NODE_ENV === 'test' && process.env.TEST_LOGS !== 'true';
+}
+
+/**
  * Main Winston logger instance
  */
 const winstonLogger = winston.createLogger({
   level: getLogLevel(),
   format: process.env.NODE_ENV === 'production' ? prodFormat : devFormat,
   transports: [new winston.transports.Console()],
+  silent: isTestLoggingDisabled(),
   // Prevent unhandled rejections from crashing the app
   exitOnError: false,
 });

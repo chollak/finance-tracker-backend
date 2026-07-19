@@ -100,19 +100,24 @@ Status and shape are correct (`404`, `NOT_FOUND`), but the message is inaccurate
 
 ### FT-017A — Quiet test logging
 
+Status: done.
+
 Goal: make expected-error tests easier to read without hiding real test failures.
 
-Recommended approach:
+Implemented approach:
 
-1. Add a test-only logger behavior or Jest setup that silences known application logs when `NODE_ENV === 'test'`.
-2. Prefer preserving explicit assertions for error responses instead of relying on console output.
-3. Do not silence unexpected thrown errors from Jest itself.
+1. Winston infrastructure logger is silent when `NODE_ENV === 'test'` unless `TEST_LOGS=true`.
+2. Application-layer fallback logger is silent under the same test-only condition.
+3. `AppConfig` env-file load messages are suppressed under the same test-only condition.
+4. Explicit test assertions for error responses remain unchanged.
+5. Unexpected Jest assertion/runtime failures are not silenced.
 
 Definition of Done:
 
-- `npm run verify` output is substantially quieter.
-- All tests still pass.
-- No production logging behavior changes.
+- [x] `npm run verify` output is substantially quieter.
+- [x] All tests still pass.
+- [x] No production logging behavior changes.
+- [x] Developers can opt back into test logs with `TEST_LOGS=true`.
 
 Risk: low.
 
@@ -192,7 +197,7 @@ Risk: low.
 
 ## Recommended Order
 
-1. FT-017A — quiet test logging
+1. ✅ FT-017A — quiet test logging
 2. FT-017F — fix 404 path message
 3. FT-017B/C — decide user use-case Result contracts
 4. FT-017E — empty userId validation

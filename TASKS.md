@@ -540,7 +540,8 @@ Implementation notes:
   - FT-017D decide resolver fail-open vs fail-closed
   - FT-017E validate empty userId early
   - FT-017F fix API 404 path message
-- No code/contract changes were made.
+- FT-017A quiet test logging completed: app/Winston/env-load logs are silent under `NODE_ENV=test` unless `TEST_LOGS=true`.
+- No API/user contract changes were made.
 
 ---
 

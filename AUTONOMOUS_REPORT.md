@@ -1127,3 +1127,37 @@ npm run verify
 ```
 
 Result: passed. Docs-only change; full suite remains 12 suites / 141 tests. Backend build, webapp build, dependency-cruiser, and circular dependency scan passed.
+
+
+## 2026-07-20 — FT-017A quiet test logging
+
+### Goal
+
+Make `npm run verify` easier to scan by suppressing expected application logs during Jest runs, without changing production/development logging behavior.
+
+### Changes
+
+- `src/shared/infrastructure/logging/logger.ts`:
+  - Winston logger now uses `silent: true` when `NODE_ENV === 'test'` unless `TEST_LOGS=true`.
+- `src/shared/application/logging/index.ts`:
+  - fallback console logger becomes a no-op under the same test-only condition.
+- `src/shared/infrastructure/config/appConfig.ts`:
+  - env-file loading messages are suppressed under the same test-only condition.
+- Updated FT-017 cleanup plan and `TASKS.md`.
+
+### Behavior
+
+Production/development logging is unchanged. Developers can opt into verbose test logs with:
+
+```bash
+TEST_LOGS=true npm test
+```
+
+### Verification
+
+```bash
+npm test -- apiRoutes userResolution processTextInput transactionLearning createTransaction --runInBand
+npm run verify
+```
+
+Result: passed. Targeted noisy suites passed (5 suites / 58 tests) with quiet output, and full verify passed (12 suites / 141 tests) with substantially quieter test output.

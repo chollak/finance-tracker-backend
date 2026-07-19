@@ -36,6 +36,15 @@ let loggerFactory: LoggerFactory | null = null;
  * This ensures the application doesn't crash if logging isn't configured
  */
 function createConsoleLogger(category: LogCategoryType | string): ILogger {
+  if (process.env.NODE_ENV === 'test' && process.env.TEST_LOGS !== 'true') {
+    return {
+      debug: () => undefined,
+      info: () => undefined,
+      warn: () => undefined,
+      error: () => undefined,
+    };
+  }
+
   const prefix = `[${category}]`;
   return {
     debug: (message, context) => console.debug(prefix, message, context ?? ''),

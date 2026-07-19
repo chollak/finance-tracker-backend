@@ -13,11 +13,14 @@ import path from 'path';
 const loadEnvironment = () => {
   const localEnvPath = path.resolve(process.cwd(), '.env.local');
   const envPath = path.resolve(process.cwd(), '.env');
+  const shouldLogEnvLoading = process.env.NODE_ENV !== 'test' || process.env.TEST_LOGS === 'true';
 
   if (fs.existsSync(localEnvPath)) {
     const result = dotenv.config({ path: localEnvPath });
     if (!result.error) {
-      console.log('Environment variables loaded from .env.local');
+      if (shouldLogEnvLoading) {
+        console.log('Environment variables loaded from .env.local');
+      }
       return;
     }
   }
@@ -25,12 +28,18 @@ const loadEnvironment = () => {
   if (fs.existsSync(envPath)) {
     const result = dotenv.config({ path: envPath });
     if (result.error) {
-      console.warn('Failed to load .env file');
+      if (shouldLogEnvLoading) {
+        console.warn('Failed to load .env file');
+      }
     } else {
-      console.log('Environment variables loaded from .env');
+      if (shouldLogEnvLoading) {
+        console.log('Environment variables loaded from .env');
+      }
     }
   } else {
-    console.warn('No .env.local or .env file found, using process environment variables');
+    if (shouldLogEnvLoading) {
+      console.warn('No .env.local or .env file found, using process environment variables');
+    }
   }
 };
 
