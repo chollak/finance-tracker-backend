@@ -123,7 +123,7 @@ Completed. Original instruction was to fix only the dependency-cruiser violation
 
 ### FT-003: Reconcile stale docs with actual implementation
 
-Status: review
+Status: done
 Priority: medium
 Owner: Claude Code, QA by Hermes
 Type: docs
@@ -158,8 +158,13 @@ Implementation notes:
 - `AUDIT.md` (2026-01-20 snapshot) had marked its own "module count mismatch" doc issue as fixed, but it wasn't — appended an addendum noting this so the report isn't taken at face value again.
 - Not touched (out of the explicit FT-003 scope, flagged for follow-up instead): `PROJECT_DOCUMENTATION.md` still says "5 main modules" and is missing Debt/Subscription/User sections entirely; `docs/knowledge-base/07-data-flow/*.md` use Russian category display names (e.g. "Продукты") in example payloads instead of category IDs (e.g. "groceries"), inconsistent with the ID-vs-display-name rule in `CLAUDE.md`.
 
+Hermes QA closeout:
+- [x] Verified changed files are documentation/process files only
+- [x] Confirmed FT-003 changes are already committed and pushed to GitHub
+- [x] Accepted remaining doc uncertainties as follow-up scope, not blockers
+
 Suggested Claude Code instruction:
-Completed. Original instruction was documentation-only reconciliation; do not mark `done` — Hermes is the QA gate.
+Completed. Original instruction was documentation-only reconciliation; Hermes QA accepted and marked done.
 
 ---
 
