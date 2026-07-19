@@ -710,3 +710,30 @@ npx madge --orphans --extensions ts src
 ```
 
 All project checks passed. `madge --orphans` now reports only `index.ts`, the expected runtime entrypoint.
+
+
+## 2026-07-19 — Development foundation roadmap
+
+### Direction
+
+Shukur clarified: do not implement subscription expiry automation yet. Focus on preparing the foundation for development.
+
+### Plan
+
+Saved detailed roadmap:
+
+- `.hermes/plans/2026-07-19_173252-development-foundation-roadmap.md`
+
+### Prioritized Foundation Backlog
+
+1. FT-011 — CI quality gate consolidation
+2. FT-012 — Standardize project command surface (`npm run verify`)
+3. FT-013 — Environment/config cleanup
+4. FT-014 — Test safety net for core modules
+5. FT-015 — Runtime/process mode decision document
+6. FT-016 — GitHub task workflow foundation
+
+### Notes
+
+- Subscription expiry automation remains a known product/business gap, but it is intentionally deferred.
+- Current target is to make future feature work safer: CI, scripts, env clarity, tests, and workflow.

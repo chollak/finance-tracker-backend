@@ -220,7 +220,7 @@ Completed. Original instruction was documentation-only cleanup; Hermes QA accept
 
 ### FT-006: Deep project audit and simplification plan
 
-Status: in_progress
+Status: done
 Priority: high
 Owner: Hermes, optional Claude Code research support
 Type: audit/architecture
@@ -241,9 +241,9 @@ Definition of Done:
 - [x] Current project map is documented
 - [x] Dead-code / unused / obsolete candidates are listed with evidence
 - [x] Architecture and infrastructure risks are listed with evidence
-- [ ] Proposed cleanup/refactor backlog is created and prioritized
-- [ ] No destructive changes made without explicit approval
-- [ ] AUTONOMOUS_REPORT.md contains audit summary and next recommended steps
+- [x] Proposed cleanup/refactor backlog is created and prioritized
+- [x] No destructive changes made without explicit approval
+- [x] AUTONOMOUS_REPORT.md contains audit summary and next recommended steps
 
 
 Initial findings:
@@ -317,7 +317,7 @@ Verification:
 
 ### FT-009: Dependency and obsolete migration script cleanup
 
-Status: in_progress
+Status: done
 Priority: high
 Owner: Hermes
 Type: cleanup/dependencies
@@ -378,6 +378,121 @@ Verification:
 - [x] `npm run build:webapp` passed
 - [x] `npm run analyze` passed
 - [x] `npx madge --orphans --extensions ts src` reports only `index.ts`
+
+---
+
+### Foundation Roadmap before feature work
+
+Status: active
+Owner: Hermes
+Plan: `.hermes/plans/2026-07-19_173252-development-foundation-roadmap.md`
+
+Shukur clarified that we should **not** implement subscription expiry automation yet. Priority is preparing the development foundation: reliable CI, standard commands, env/config clarity, stronger tests, and task workflow.
+
+---
+
+### FT-011: CI quality gate consolidation
+
+Status: pending
+Priority: high
+Owner: Hermes
+Type: foundation/ci
+
+Goal:
+Make GitHub Actions match Hermes local verification before deploy. Existing deploy workflow runs tests and webapp build, but not backend build/analyze.
+
+Definition of Done:
+- [ ] CI runs backend build, tests, webapp build, and architecture checks
+- [ ] Deploy depends on passing gates
+- [ ] No secrets printed
+- [ ] Local verification passes before commit/push
+
+---
+
+### FT-012: Standardize project command surface
+
+Status: pending
+Priority: high
+Owner: Hermes
+Type: foundation/scripts
+
+Goal:
+Add one obvious command for agents/CI/local work, likely `npm run verify`.
+
+Definition of Done:
+- [ ] `npm run verify` runs build, test:ci, webapp build, analyze
+- [ ] Docs tell Hermes/Claude/users to use it before commit/push
+- [ ] Existing scripts keep working
+
+---
+
+### FT-013: Environment/config cleanup
+
+Status: pending
+Priority: medium
+Owner: Hermes
+Type: foundation/config
+
+Goal:
+Clarify `.env`, `.env.local`, and `.env.development` behavior without exposing secrets.
+
+Definition of Done:
+- [ ] Env loading rules are documented
+- [ ] Example env remains safe
+- [ ] App startup behavior is clear
+
+---
+
+### FT-014: Test safety net for core modules
+
+Status: pending
+Priority: high
+Owner: Hermes + Claude Code
+Type: foundation/tests
+
+Goal:
+Add tests around debt, subscription, user, and critical API route behavior before product features.
+
+Definition of Done:
+- [ ] Debt module core behavior tested
+- [ ] Subscription/limits/trial behavior tested
+- [ ] User resolution/guest behavior tested
+- [ ] Critical API route behavior tested where practical
+- [ ] TDD followed for new tests/behavior
+
+---
+
+### FT-015: Runtime/process mode decision document
+
+Status: pending
+Priority: medium
+Owner: Hermes
+Type: foundation/architecture
+
+Goal:
+Decide how API, Telegram bot, and future worker should run before implementing background jobs.
+
+Definition of Done:
+- [ ] Options documented: single process vs `APP_MODE=all|api|bot|worker` vs split entrypoints
+- [ ] Recommendation recorded
+- [ ] No scheduler/product automation implemented yet
+
+---
+
+### FT-016: GitHub task workflow foundation
+
+Status: pending
+Priority: medium
+Owner: Hermes
+Type: foundation/workflow
+
+Goal:
+Decide whether to keep local `TASKS.md` as source of truth or migrate FT-011..FT-016 to GitHub Issues.
+
+Definition of Done:
+- [ ] Decision recorded
+- [ ] If GitHub Issues are created, labels are simple and useful
+- [ ] `TASKS.md` remains high-level dashboard
 
 ---
 
