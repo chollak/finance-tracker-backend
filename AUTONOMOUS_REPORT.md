@@ -529,10 +529,45 @@ npx madge --orphans --extensions ts src
 
 ### Proposed Cleanup Backlog Draft
 
-1. Remove or repair obsolete Notion migration surface (`migrate:notion`, docker migration profile, DEPLOYMENT.md references).
+1. ✅ Done in FT-007: removed obsolete legacy migration surface from package scripts, Docker Compose, deployment docs, env examples, and stale constants.
 2. Decide whether `scripts/migrate-userId.ts` is still needed; either add `better-sqlite3` or archive/remove the script.
 3. Remove confirmed unused deps (`cors`, `@types/cors`, maybe `shadcn`) after a package-lock update and full verification.
 4. Decide policy for tracked `data/*.json` learning files: keep as seed fixtures or move runtime data to ignored local files.
 5. Add scheduler/worker for `processExpiredSubscriptions()` or explicitly document that expiry is manual.
 6. Review likely unused barrel/helper files and remove only confirmed dead files.
 7. Add tests for debt, subscription, user, and critical API routes before major feature work.
+
+
+## 2026-07-19 — FT-007 legacy migration surface removed
+
+### Decision
+
+Shukur confirmed the legacy migration path is no longer needed. Hermes removed the active broken migration surface.
+
+### Changes
+
+- Removed broken migration npm script from `package.json`.
+- Removed broken Docker Compose migration profile from `docker-compose.yml`.
+- Removed deprecated migration env variables from `.env.example` and tracked `.env.development`.
+- Removed matching local `.env` lines without printing secret values.
+- Removed stale migration references from:
+  - `README.md`
+  - `CLAUDE.md`
+  - `PROJECT_DOCUMENTATION.md`
+  - `DEPLOYMENT.md`
+- Removed stale external-service error constant from `src/shared/domain/constants/messages.ts`.
+
+### Verification
+
+```bash
+npm run build
+npm test -- --runInBand
+npm run build:webapp
+npm run analyze
+```
+
+All passed. Test result: 7 suites / 35 tests. Architecture checks: no dependency violations and no circular dependencies.
+
+### Notes
+
+Historical mentions remain in `TASKS.md` and `AUTONOMOUS_REPORT.md` as audit history, but no active package script, Docker profile, deployment instruction, config example, or source constant points to the removed migration path.

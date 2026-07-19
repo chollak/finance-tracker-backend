@@ -51,8 +51,6 @@ Create a `.env` file with these required variables:
 ```bash
 # Required - Application will fail without these
 OPENAI_API_KEY=your_openai_api_key
-NOTION_API_KEY=your_notion_key  # Legacy - still required
-NOTION_DATABASE_ID=your_database_id  # Legacy - still required
 
 # Optional
 TG_BOT_API_KEY=your_telegram_bot_token
@@ -425,7 +423,6 @@ npm run analyze           # Run both dependency checks
 npm run format            # Format code with Prettier
 
 # Database operations
-npm run migrate:notion    # Legacy Notion migration
 node scripts/init-database.js     # Initialize fresh database
 node scripts/create-backup.js     # Backup current database
 ```
@@ -551,8 +548,6 @@ npm run serve
 **Solution**: Check `.env` file has required variables:
 ```bash
 OPENAI_API_KEY=sk-...
-NOTION_API_KEY=secret_...
-NOTION_DATABASE_ID=...
 ```
 
 #### 2. Database Connection Issues

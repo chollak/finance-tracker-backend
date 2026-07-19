@@ -23,7 +23,6 @@ export const ERROR_MESSAGES = {
   
   // External services
   OPENAI_ERROR: 'OpenAI service unavailable',
-  NOTION_ERROR: 'Notion service unavailable',
   TELEGRAM_ERROR: 'Telegram service unavailable',
   
   // File processing

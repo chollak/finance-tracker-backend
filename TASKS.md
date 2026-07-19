@@ -259,6 +259,33 @@ Initial findings:
 
 ---
 
+### FT-007: Remove obsolete legacy migration surface
+
+Status: done
+Priority: high
+Owner: Hermes
+Type: cleanup
+
+Context:
+FT-006 found a broken legacy migration path: `package.json` and `docker-compose.yml` referenced a missing migration artifact, and deployment/docs/env examples still mentioned deprecated migration variables. Shukur confirmed this legacy path is no longer needed.
+
+Changes:
+- Removed the broken migration npm script from `package.json`.
+- Removed the broken Docker Compose migration profile.
+- Removed deprecated migration variables from `.env.example` and `.env.development`.
+- Removed stale migration references from `README.md`, `CLAUDE.md`, `PROJECT_DOCUMENTATION.md`, and `DEPLOYMENT.md`.
+- Removed stale external-service error constant from `src/shared/domain/constants/messages.ts`.
+- Removed matching local `.env` lines without printing secret values.
+
+Verification:
+- [x] `npm run build` passed
+- [x] `npm test -- --runInBand` passed, 7 suites / 35 tests
+- [x] `npm run build:webapp` passed
+- [x] `npm run analyze` passed
+- [x] Active repository search no longer finds legacy migration references outside historical audit logs
+
+---
+
 ### FT-004: Decide first product vector after stabilization
 
 Status: blocked

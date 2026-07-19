@@ -15,7 +15,6 @@
     "install:webapp": "cd webapp && npm install",
     "build:webapp": "cd webapp && npm run build",
     "postinstall": "npm run install:webapp && npm run build:webapp",
-    "migrate:notion": "node dist/scripts/migrate-from-notion.js",
     "format": "prettier --write src/**/*.ts",
     "check:deps": "dependency-cruiser --validate .dependency-cruiser.js src",
     "check:circular": "madge --circular --extensions ts src",

@@ -28,9 +28,6 @@ npm install
 - `DATABASE_TYPE=sqlite` (default, no additional config needed)
 - `DATABASE_TYPE=supabase` (requires SUPABASE_URL and SUPABASE_ANON_KEY)
 
-**Optional (Notion support deprecated):**
-- `NOTION_API_KEY` and `NOTION_DATABASE_ID` - Legacy support only
-
 See `.env.example` for full configuration options.
 
 ## Build and Run

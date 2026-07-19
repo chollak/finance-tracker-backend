@@ -48,10 +48,6 @@ Required environment variables in `.env` file:
 **Logging:**
 - `LOG_LEVEL` - Log level: `error`, `warn`, `info` (default), `debug`
 
-**Legacy Notion support (deprecated):**
-- `NOTION_API_KEY` - For database operations
-- `NOTION_DATABASE_ID` - Target Notion database ID
-
 The application validates these on startup and will exit with descriptive errors if required variables are missing.
 
 ## Logging
@@ -755,7 +751,7 @@ See: [Adding Features Guide](docs/knowledge-base/08-development/adding-features.
 
 ## Integration Points
 
-- **Notion**: Primary database using @notionhq/client
+- **Database**: SQLite for local/default storage, Supabase for production/cloud storage
 - **OpenAI**: Voice transcription using openai package
 - **Telegram**: Bot interface using telegraf package
 - **Express**: HTTP server with cors and multer for file uploads
