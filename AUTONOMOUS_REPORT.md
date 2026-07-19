@@ -857,3 +857,73 @@ Result: passed. Debt test file: 21 tests. Full suite: 9 suites / 58 tests. Backe
 ### Notes
 
 These are characterization/safety tests for existing behavior. They use use-case classes with an in-memory fake repository, not TypeORM/SQLite, so they are fast and deterministic.
+
+
+## 2026-07-19 — FT-014B subscription safety tests
+
+### Goal
+
+Continue FT-014 by adding a safety net around subscription, usage limits, trial, and premium behavior before product feature development.
+
+### Developer
+
+Claude Code implemented the test file. Hermes reviewed the diff and re-ran verification.
+
+### Changes
+
+- Added `tests/subscription.test.ts` with in-memory fakes for `SubscriptionRepository` and `UsageLimitRepository`.
+- No production source code was changed.
+- No package/env/migration/deploy files were changed.
+
+### Behaviors Covered
+
+- `StartTrialUseCase`:
+  - starts 14-day trial for new user
+  - refuses additional trial when subscription history exists
+- `CheckLimitUseCase`:
+  - free-tier allow/block paths
+  - remaining usage calculation
+  - unlimited active premium path
+  - expired premium falls back to free tier
+  - active debts limit handled independently
+- Usage counter use cases:
+  - increment selected counter
+  - decrement clamped at zero
+  - set active debt count clamped at zero
+  - monthly reset clears monthly counters while preserving active debt count
+- `GrantPremiumUseCase`:
+  - lifetime premium
+  - default 30-day gift
+  - custom-duration gift
+  - prior active subscription is expired before new grant
+- `CreateSubscriptionUseCase`:
+  - payment replaces active trial
+  - payment replaces active payment subscription
+  - default price and auto-renew behavior
+- `GetSubscriptionUseCase`:
+  - free-tier status defaults
+  - trial days-left
+  - expired trial days-left clamped to zero
+  - lifetime subscription days-left is null
+- `CancelSubscriptionUseCase`:
+  - paid subscription cancel success
+  - no active subscription path
+  - lifetime/gift refusal paths
+- `SubscriptionService`:
+  - premium status
+  - limit blocking
+  - remaining usage
+  - expired subscription processing
+
+### Verification
+
+```bash
+npm test -- subscription --runInBand
+npm run verify
+```
+
+Result: passed. Subscription test file: 32 tests. Full suite: 10 suites / 90 tests. Backend build, webapp build, dependency-cruiser, and circular dependency scan passed.
+
+### Notes
+
+These are characterization/safety tests for existing behavior. They use use-case/service classes with in-memory fake repositories, not TypeORM/SQLite, so they are fast and deterministic.
