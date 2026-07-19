@@ -806,3 +806,54 @@ npm run verify
 ```
 
 Result: passed. Backend build, serial tests (8 suites / 37 tests), webapp build, and architecture checks passed.
+
+
+## 2026-07-19 — FT-014A debt safety tests
+
+### Goal
+
+Start FT-014 by adding a safety net around the Debt module before product feature development.
+
+### Developer
+
+Claude Code implemented the test file. Hermes reviewed the diff and re-ran verification.
+
+### Changes
+
+- Added `tests/debt.test.ts` with an in-memory `DebtRepository` fake and a mocked `CreateTransactionUseCase`.
+- No production source code was changed.
+- No package/env/migration/deploy files were changed.
+
+### Behaviors Covered
+
+- `CreateDebtUseCase`:
+  - creates debt with expected fields/defaults/status
+  - creates linked transaction only when `moneyTransferred=true`
+  - validates missing person name, non-positive amount, invalid type
+- `PayDebtUseCase`:
+  - partial payment decreases remaining amount and records payment
+  - full payment marks debt paid and remaining amount zero
+  - linked transaction is created by default and can be skipped
+  - rejects overpayment, non-active debt, unknown debt, invalid payment input
+- `UpdateDebtUseCase`:
+  - updates mutable fields
+  - not-found path
+  - cancel path
+- `DeleteDebtUseCase`:
+  - delete success and not-found path
+- `GetDebtsUseCase`:
+  - user/status filtering
+  - missing user validation
+
+### Verification
+
+```bash
+npm test -- debt --runInBand
+npm run verify
+```
+
+Result: passed. Debt test file: 21 tests. Full suite: 9 suites / 58 tests. Backend build, webapp build, dependency-cruiser, and circular dependency scan passed.
+
+### Notes
+
+These are characterization/safety tests for existing behavior. They use use-case classes with an in-memory fake repository, not TypeORM/SQLite, so they are fast and deterministic.

@@ -466,11 +466,17 @@ Goal:
 Add tests around debt, subscription, user, and critical API route behavior before product features.
 
 Definition of Done:
-- [ ] Debt module core behavior tested
+- [x] Debt module core behavior tested
 - [ ] Subscription/limits/trial behavior tested
 - [ ] User resolution/guest behavior tested
 - [ ] Critical API route behavior tested where practical
 - [ ] TDD followed for new tests/behavior
+
+Progress:
+- FT-014A debt safety tests completed by Claude Code and QAed by Hermes.
+- Added `tests/debt.test.ts` with 21 tests covering create, pay partial/full, linked transaction behavior, validation/errors, update/cancel, delete, and get/filter behavior.
+- Verification passed: `npm test -- debt --runInBand`, `npm run verify`.
+- Full test suite is now 9 suites / 58 tests.
 
 ---
 
