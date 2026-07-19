@@ -19,7 +19,7 @@ export async function createSeedPatterns() {
       },
       {
         amount: 35000,
-        category: 'food',
+        category: 'restaurants',
         merchant: 'Evos'
       },
       'system-seed',
@@ -67,7 +67,7 @@ export async function createSeedPatterns() {
         confidence: 0.3
       },
       {
-        category: 'food',
+        category: 'restaurants',
         merchant: 'MaxWay'
       },
       'system-seed',

@@ -8,20 +8,27 @@
         "купил",
         "maxway"
       ],
-      "category": "Еда",
+      "category": "restaurants",
       "confidence": 0.7,
       "usageCount": 2
     },
     {
       "keywords": [
         "заправился",
-        "азс",
+        "азс"
+      ],
+      "category": "fuel",
+      "confidence": 0.7,
+      "usageCount": 1
+    },
+    {
+      "keywords": [
         "такси",
         "yandex"
       ],
-      "category": "Транспорт",
+      "category": "taxi",
       "confidence": 0.7,
-      "usageCount": 2
+      "usageCount": 1
     }
   ],
   "merchants": []

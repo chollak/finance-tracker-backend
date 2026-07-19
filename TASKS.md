@@ -286,6 +286,35 @@ Verification:
 
 ---
 
+### FT-008: Separate learning seed data from runtime data
+
+Status: done
+Priority: high
+Owner: Hermes
+Type: cleanup/data-policy
+
+Context:
+FT-006 found that `data/learning-data.json` and `data/patterns.json` were tracked even though `TransactionLearningService` writes to these files at runtime. That can create noisy diffs and accidental user-learning-data commits.
+
+Changes:
+- Added tracked seed files:
+  - `data/learning-data.seed.json`
+  - `data/patterns.seed.json`
+- Removed tracked runtime files:
+  - `data/learning-data.json`
+  - `data/patterns.json`
+- Added `.gitignore` rules for runtime learning files while keeping `data/*.seed.json` trackable.
+- Updated `TransactionLearningService` to load seed files when runtime files are missing, but only write to ignored runtime files.
+- Added tests covering seed fallback and runtime file creation.
+- Updated learning docs to describe seed vs runtime data policy.
+
+Verification:
+- [x] Watched new `transactionLearning` tests fail before implementation
+- [x] `npm test -- transactionLearning --runInBand` passed
+- [x] Full build/test/webapp/analyze passed
+
+---
+
 ### FT-004: Decide first product vector after stabilization
 
 Status: blocked

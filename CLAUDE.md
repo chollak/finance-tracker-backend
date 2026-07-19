@@ -162,7 +162,7 @@ HTTP API → Controller → Use Case → Repository → Database
 ### Machine Learning System
 - Система обучается на пользовательских исправлениях транзакций
 - Улучшает категоризацию и распознавание merchant names со временем
-- Хранит learned patterns в `data/patterns.json`
+- Loads seed patterns from `data/patterns.seed.json` and writes runtime learned patterns to ignored `data/patterns.json`
 - Enhances OpenAI prompts с historical data
 
 ---

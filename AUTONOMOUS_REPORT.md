@@ -532,7 +532,7 @@ npx madge --orphans --extensions ts src
 1. ✅ Done in FT-007: removed obsolete legacy migration surface from package scripts, Docker Compose, deployment docs, env examples, and stale constants.
 2. Decide whether `scripts/migrate-userId.ts` is still needed; either add `better-sqlite3` or archive/remove the script.
 3. Remove confirmed unused deps (`cors`, `@types/cors`, maybe `shadcn`) after a package-lock update and full verification.
-4. Decide policy for tracked `data/*.json` learning files: keep as seed fixtures or move runtime data to ignored local files.
+4. ✅ Done in FT-008: tracked learning examples moved to `data/*.seed.json`; runtime `data/learning-data.json` and `data/patterns.json` are ignored.
 5. Add scheduler/worker for `processExpiredSubscriptions()` or explicitly document that expiry is manual.
 6. Review likely unused barrel/helper files and remove only confirmed dead files.
 7. Add tests for debt, subscription, user, and critical API routes before major feature work.
@@ -571,3 +571,42 @@ All passed. Test result: 7 suites / 35 tests. Architecture checks: no dependency
 ### Notes
 
 Historical mentions remain in `TASKS.md` and `AUTONOMOUS_REPORT.md` as audit history, but no active package script, Docker profile, deployment instruction, config example, or source constant points to the removed migration path.
+
+
+## 2026-07-19 — FT-008 learning seed/runtime policy
+
+### Decision
+
+Treat learning examples as seed fixtures and runtime learning data as local generated data. This keeps the repository reproducible while preventing future user corrections from being accidentally committed.
+
+### TDD
+
+Added `tests/transactionLearning.test.ts` first and verified it failed because `TransactionLearningService` did not accept a test root directory and did not support seed fallback. Then implemented the minimal behavior and watched the tests pass.
+
+### Changes
+
+- Added tracked seed files:
+  - `data/learning-data.seed.json`
+  - `data/patterns.seed.json`
+- Removed tracked runtime files:
+  - `data/learning-data.json`
+  - `data/patterns.json`
+- Updated `.gitignore` to ignore runtime learning files but allow `data/*.seed.json`.
+- Updated `TransactionLearningService`:
+  - accepts an optional root directory for testing; default remains `process.cwd()`
+  - reads `data/learning-data.seed.json` and `data/patterns.seed.json` when runtime files are absent
+  - continues writing only to runtime `data/learning-data.json` and `data/patterns.json`
+- Updated `seedPatterns.ts` to use canonical category IDs (`restaurants`, `fuel`, `taxi`).
+- Updated learning docs in `CLAUDE.md` and `docs/knowledge-base/`.
+
+### Verification
+
+```bash
+npm test -- transactionLearning --runInBand
+npm run build
+npm test -- --runInBand
+npm run build:webapp
+npm run analyze
+```
+
+All passed. The full test suite now has 8 suites / 37 tests.

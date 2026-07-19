@@ -40,11 +40,15 @@ export interface MerchantPattern {
 export class TransactionLearningService {
   private learningDataPath: string;
   private patternsPath: string;
+  private learningDataSeedPath: string;
+  private patternsSeedPath: string;
 
-  constructor() {
-    const dataDir = path.join(process.cwd(), 'data');
+  constructor(rootDir: string = process.cwd()) {
+    const dataDir = path.join(rootDir, 'data');
     this.learningDataPath = path.join(dataDir, 'learning-data.json');
     this.patternsPath = path.join(dataDir, 'patterns.json');
+    this.learningDataSeedPath = path.join(dataDir, 'learning-data.seed.json');
+    this.patternsSeedPath = path.join(dataDir, 'patterns.seed.json');
   }
 
   /**
@@ -218,6 +222,15 @@ export class TransactionLearningService {
       const data = await fs.readFile(this.learningDataPath, 'utf-8');
       return JSON.parse(data);
     } catch (error) {
+      return this.loadSeedLearningData();
+    }
+  }
+
+  private async loadSeedLearningData(): Promise<LearningData[]> {
+    try {
+      const data = await fs.readFile(this.learningDataSeedPath, 'utf-8');
+      return JSON.parse(data);
+    } catch (error) {
       return [];
     }
   }
@@ -235,6 +248,15 @@ export class TransactionLearningService {
   private async loadPatterns(): Promise<{categories: CategoryPattern[], merchants: MerchantPattern[]}> {
     try {
       const data = await fs.readFile(this.patternsPath, 'utf-8');
+      return JSON.parse(data);
+    } catch (error) {
+      return this.loadSeedPatterns();
+    }
+  }
+
+  private async loadSeedPatterns(): Promise<{categories: CategoryPattern[], merchants: MerchantPattern[]}> {
+    try {
+      const data = await fs.readFile(this.patternsSeedPath, 'utf-8');
       return JSON.parse(data);
     } catch (error) {
       return { categories: [], merchants: [] };

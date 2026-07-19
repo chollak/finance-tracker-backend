@@ -97,7 +97,7 @@ const transcription = await openai.audio.transcriptions.create({
 **Service:** `TransactionLearningService.getEnhancedPrompts()`
 
 **Система обучения:**
-- Читает паттерны из `data/patterns.json`
+- Читает runtime-паттерны из ignored `data/patterns.json`; если файла нет, использует tracked seed `data/patterns.seed.json`
 - Добавляет learned category keywords
 - Добавляет merchant aliases
 - Улучшает точность парсинга на основе прошлых исправлений
@@ -293,7 +293,7 @@ if (description.length < 3) confidence -= 0.05;
    - Original parsing (что AI распознал)
    - User correction (что пользователь исправил)
    - Timestamp и userId
-3. `updatePatterns()` обновляет `data/patterns.json`
+3. `updatePatterns()` обновляет ignored runtime-файл `data/patterns.json`; tracked seed остаётся неизменным
 4. Следующие парсинги используют улучшенные patterns
 
 ---

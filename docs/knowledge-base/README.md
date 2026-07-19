@@ -120,7 +120,7 @@ docker compose up -d --build
 ### Machine Learning System
 - Система обучается на пользовательских исправлениях
 - Улучшает категоризацию и распознавание мерчантов
-- Хранит паттерны в `data/patterns.json`
+- Хранит seed-паттерны в `data/patterns.seed.json`, а runtime-паттерны пишет в ignored `data/patterns.json`
 
 ---
 
