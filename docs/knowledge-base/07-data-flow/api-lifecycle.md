@@ -81,12 +81,7 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 ```
 
-#### E. CORS (cors package)
-```typescript
-app.use(cors());
-```
-
-**Файл:** [`src/delivery/web/express/middleware/`](../../../src/delivery/web/express/middleware/)
+**Файл:** [`src/delivery/web/express/middleware/errorMiddleware.ts`](../../../src/delivery/web/express/middleware/errorMiddleware.ts)
 
 ---
 
@@ -344,10 +339,9 @@ function errorHandler(err, req, res, next) {
 3. corsHeaders          - CORS
 4. express.json()       - Body parsing
 5. express.urlencoded() - Form parsing
-6. cors()               - Additional CORS
-7. Routes               - Application routes
-8. notFoundHandler      - 404 handling
-9. errorHandler         - Error handling
+6. Routes               - Application routes
+7. notFoundHandler      - 404 handling
+8. errorHandler         - Error handling
 ```
 
 **Порядок критичен:** body parsers должны быть до routes!

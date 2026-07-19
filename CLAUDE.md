@@ -754,4 +754,4 @@ See: [Adding Features Guide](docs/knowledge-base/08-development/adding-features.
 - **Database**: SQLite for local/default storage, Supabase for production/cloud storage
 - **OpenAI**: Voice transcription using openai package
 - **Telegram**: Bot interface using telegraf package
-- **Express**: HTTP server with cors and multer for file uploads
+- **Express**: HTTP server with custom CORS headers and multer for file uploads

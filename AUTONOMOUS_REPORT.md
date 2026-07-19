@@ -531,7 +531,7 @@ npx madge --orphans --extensions ts src
 
 1. ✅ Done in FT-007: removed obsolete legacy migration surface from package scripts, Docker Compose, deployment docs, env examples, and stale constants.
 2. Decide whether `scripts/migrate-userId.ts` is still needed; either add `better-sqlite3` or archive/remove the script.
-3. Remove confirmed unused deps (`cors`, `@types/cors`, maybe `shadcn`) after a package-lock update and full verification.
+3. ✅ Done in FT-009: removed unused root deps `cors`, `@types/cors`, and root `shadcn`; removed obsolete `migrate-userId` scripts that required undeclared `better-sqlite3`.
 4. ✅ Done in FT-008: tracked learning examples moved to `data/*.seed.json`; runtime `data/learning-data.json` and `data/patterns.json` are ignored.
 5. Add scheduler/worker for `processExpiredSubscriptions()` or explicitly document that expiry is manual.
 6. Review likely unused barrel/helper files and remove only confirmed dead files.
@@ -610,3 +610,58 @@ npm run analyze
 ```
 
 All passed. The full test suite now has 8 suites / 37 tests.
+
+
+## 2026-07-19 — FT-009 started: dependency/script cleanup
+
+### Goal
+
+Clean up confirmed dependency/script issues from FT-006:
+
+- `cors` and `@types/cors` are unused because the project uses custom CORS middleware.
+- root `shadcn` CLI is unused by scripts/source.
+- `scripts/migrate-userId.ts` imports `better-sqlite3`, which is not declared; the migration is an obsolete one-off script from a past userId transition.
+
+### Rules
+
+- Do not touch runtime data or databases.
+- Use npm to update `package-lock.json`.
+- Keep `dependency-cruiser` even if depcheck reports it: it is used by `npm run check:deps`.
+
+
+## 2026-07-19 — FT-009 dependency/script cleanup completed
+
+### Changes
+
+- Removed unused root dependencies via npm:
+  - `cors`
+  - `@types/cors`
+  - `shadcn`
+- Removed obsolete one-off migration scripts:
+  - `scripts/migrate-userId.ts`
+  - `scripts/migrate-userId.sql`
+- Updated docs that still described the removed `cors` package:
+  - `docs/knowledge-base/07-data-flow/api-lifecycle.md`
+  - `CLAUDE.md`
+
+### Evidence
+
+- `depcheck` after cleanup reports:
+  - no unused runtime dependencies
+  - no missing dependencies
+  - only `dependency-cruiser` as a known false-positive unused dev dependency; keep it because `npm run check:deps` calls it
+  - one known parser warning for commented `tsconfig.json`, not related to dependency cleanup.
+- `scripts/migrate-userId.ts` was not referenced by npm scripts and required undeclared `better-sqlite3`.
+- `scripts/migrate-userId.sql` was a historical/test-user-specific one-off migration.
+
+### Verification
+
+```bash
+npm run build
+npm test -- --runInBand
+npm run build:webapp
+npm run analyze
+npx --yes depcheck --json
+```
+
+Full build/test/analyze passed. Depcheck cleanup items are resolved.

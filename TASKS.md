@@ -315,6 +315,40 @@ Verification:
 
 ---
 
+### FT-009: Dependency and obsolete migration script cleanup
+
+Status: in_progress
+Priority: high
+Owner: Hermes
+Type: cleanup/dependencies
+
+Context:
+FT-006 found unused dependency candidates (`cors`, `@types/cors`, `shadcn`) and a missing dependency (`better-sqlite3`) used only by obsolete `scripts/migrate-userId.ts`.
+
+Goal:
+Remove confirmed unused dependencies and obsolete one-off migration scripts without changing product runtime behavior.
+
+Scope:
+- Root `package.json` / `package-lock.json`
+- Obsolete migration scripts under `scripts/`
+- `TASKS.md` / `AUTONOMOUS_REPORT.md`
+
+Definition of Done:
+- [x] Confirm no source imports `cors` or root `shadcn`
+- [x] Remove unused deps and update lockfile through npm
+- [x] Remove obsolete `migrate-userId` script(s)
+- [x] `depcheck` no longer reports these confirmed cleanup items, except known false-positive `dependency-cruiser`
+- [x] Full build/test/webapp/analyze passes
+- [x] Commit and push
+
+Implementation notes:
+- Removed `cors`, `@types/cors`, and root `shadcn` through `npm uninstall`, updating `package-lock.json`.
+- Removed obsolete one-off `scripts/migrate-userId.ts` and `scripts/migrate-userId.sql`; the TypeScript script required undeclared `better-sqlite3`, and the SQL script was test-user-specific historical migration code.
+- Updated API lifecycle docs and `CLAUDE.md` to describe custom CORS headers instead of the removed `cors` package.
+- `depcheck` now reports no unused runtime deps and no missing deps; `dependency-cruiser` remains a known depcheck false-positive because it is used by `npm run check:deps`.
+
+---
+
 ### FT-004: Decide first product vector after stabilization
 
 Status: blocked
