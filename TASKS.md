@@ -218,6 +218,47 @@ Completed. Original instruction was documentation-only cleanup; Hermes QA accept
 
 ---
 
+### FT-006: Deep project audit and simplification plan
+
+Status: in_progress
+Priority: high
+Owner: Hermes, optional Claude Code research support
+Type: audit/architecture
+
+Context:
+Before new product feature work, Shukur wants to understand the current project deeply and tune the project to our workflow. We need to identify unnecessary parts, dead code, outdated infrastructure, architecture smells, and unclear ownership boundaries.
+
+Goal:
+Produce a grounded audit of the current codebase/infrastructure and a safe cleanup/refactor plan. Do not make broad code changes during the audit phase.
+
+Scope:
+- Map source architecture, modules, delivery surfaces, scripts, infra, docs, generated artifacts.
+- Identify candidates for dead/unused code, stale scripts, obsolete docs, duplicate concepts, weak test coverage, risky config, and architecture/infrastructure issues.
+- Prefer evidence from real commands and file inspection.
+- Record findings with confidence levels: confirmed / likely / needs validation.
+
+Definition of Done:
+- [x] Current project map is documented
+- [x] Dead-code / unused / obsolete candidates are listed with evidence
+- [x] Architecture and infrastructure risks are listed with evidence
+- [ ] Proposed cleanup/refactor backlog is created and prioritized
+- [ ] No destructive changes made without explicit approval
+- [ ] AUTONOMOUS_REPORT.md contains audit summary and next recommended steps
+
+
+Initial findings:
+- Project has 8 backend modules, 149 tracked `src/**/*.ts` files, 193 `webapp/src` files, 7 test files.
+- Runtime delivery surfaces: Express REST API under `/api`, Telegram bot, React/Vite webapp served from `public/webapp`.
+- Static checks currently pass: `npm run analyze`, `npm run build`.
+- Confirmed obsolete/broken script: `npm run migrate:notion` points to missing `dist/scripts/migrate-from-notion.js`; docker-compose migration profile points to the same missing artifact.
+- Confirmed dependency cleanup candidates from depcheck: `cors`, `@types/cors`, `shadcn`; investigate before removal. `dependency-cruiser` is used by npm scripts though depcheck reports it as unused.
+- Confirmed suspicious script dependency: `scripts/migrate-userId.ts` imports `better-sqlite3`, but package.json does not declare it.
+- Confirmed scheduler gap: `SubscriptionService.processExpiredSubscriptions()` exists but is not invoked by any scheduler/cron in source.
+- Likely dead/barrel files from import graph: `delivery/messaging/telegram/handlers/index.ts`, `modules/subscription/{application,domain,presentation}/index.ts`, `shared/domain/ports/index.ts`; `seedPatterns.ts` exports `createSeedPatterns()` but is not called.
+- Test coverage is narrow: current tests cover transaction/budget/dashboard/voice text path; no direct debt/subscription/user/Telegram/payment/API route integration tests.
+
+---
+
 ### FT-004: Decide first product vector after stabilization
 
 Status: blocked

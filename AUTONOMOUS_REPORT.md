@@ -423,3 +423,116 @@ All passed. Test result: 7 suites / 35 tests. Architecture checks: no dependency
 ### Decision
 
 FT-005 is accepted and marked `done`. The missing Debt/Subscription/User entries in `PROJECT_DOCUMENTATION.md`'s API endpoint reference are a real follow-up opportunity, but not a blocker for this docs-consistency task.
+
+
+## 2026-07-19 — FT-006 started: deep project audit
+
+### Goal
+
+Before feature development, perform a deeper project audit to understand current architecture, infrastructure, dead/unused code candidates, generated artifacts, stale scripts, and cleanup opportunities.
+
+### Approach
+
+Hermes will lead this audit directly. Claude Code may be used later for narrow research tasks, but Hermes remains the source of truth and QA gate.
+
+### Rules
+
+- No broad code changes during audit.
+- No deletion/reset of files without explicit approval.
+- Findings must be evidence-backed by commands/file inspection.
+- Classify findings as confirmed / likely / needs validation.
+
+
+## 2026-07-19 — FT-006 initial audit findings
+
+### Current Project Map
+
+- Backend: Node.js 20, TypeScript, Express, Telegraf, TypeORM, SQLite/Supabase, OpenAI.
+- Frontend: React/Vite Telegram Mini App under `webapp/`, built into ignored `public/webapp/`.
+- Backend modules: transaction, budget, debt, voiceProcessing, openai-usage, dashboard, subscription, user.
+- Tracked source size:
+  - `src`: 149 TypeScript files
+  - `tests`: 7 TypeScript files
+  - `webapp/src`: 193 source files
+  - `scripts`: 15 files
+  - `migrations`: 8 SQL files
+  - `docs`: 18 markdown files
+- Runtime entrypoints:
+  - `src/index.ts` initializes config, DB, modules, Express API, static webapp, and Telegram bot.
+  - `src/appModules.ts` is the composition root for module wiring.
+  - Express API is mounted under `/api`.
+
+### Commands Run
+
+```bash
+npm run analyze
+npm run build
+npx --yes depcheck --json
+npx --yes ts-prune --project tsconfig.json
+npx madge --orphans --extensions ts src
+```
+
+### Green Baseline
+
+- `npm run analyze` passed: no dependency-cruiser violations and no circular dependencies.
+- `npm run build` passed.
+
+### Confirmed Findings
+
+1. **Broken legacy Notion migration path**
+   - `package.json` has `migrate:notion: node dist/scripts/migrate-from-notion.js`.
+   - `docker-compose.yml` migration profile calls `dist/scripts/migrate-from-notion.js`.
+   - No tracked `scripts/migrate-from-notion.ts/js` source exists, and `dist/scripts/migrate-from-notion.js` is missing.
+   - `DEPLOYMENT.md` still references Notion migration commands under old paths.
+
+2. **Unused dependency candidates**
+   - `depcheck` reported `cors`, `@types/cors`, and `shadcn` as unused.
+   - `expressServer.ts` explicitly says custom CORS middleware is used instead of the `cors` package.
+   - `dependency-cruiser` was reported by depcheck, but it is used in npm scripts (`check:deps`) — keep it.
+
+3. **Missing dependency for script**
+   - `depcheck` reported `better-sqlite3` missing in `scripts/migrate-userId.ts`.
+   - This script may be obsolete or package.json is incomplete. Needs decision before running that migration.
+
+4. **Subscription expiry scheduler gap**
+   - `SubscriptionService.processExpiredSubscriptions()` exists and docs say cron should call it.
+   - Search found no scheduler/cron/interval invoking it in source.
+   - Trial/premium expiry downgrade likely does not happen automatically.
+
+5. **Likely unused source/barrel files**
+   Import graph and `madge --orphans` consistently flag:
+   - `delivery/messaging/telegram/handlers/index.ts`
+   - `modules/subscription/application/index.ts`
+   - `modules/subscription/domain/index.ts`
+   - `modules/subscription/presentation/index.ts`
+   - `shared/domain/ports/index.ts`
+   - `shared/application/learning/seedPatterns.ts`
+
+   These are candidates, not deletion approvals. Barrel files may be intentional public API; `seedPatterns.ts` may be a manual setup utility.
+
+6. **Tracked mutable learning data**
+   - `data/learning-data.json` and `data/patterns.json` are tracked.
+   - The app has a learning service that writes under `data/`. Runtime learning data being tracked can create noisy diffs and accidental personal-data commits.
+
+7. **Test coverage gap**
+   - Current tests: 7 files / 35 tests.
+   - Existing coverage is mostly transaction, budget, dashboard, and text input.
+   - No direct tests found for debt module, subscription/payment/trial limits, user module, Telegram handlers, or API route integration.
+
+### Likely Architecture / Infrastructure Issues
+
+- `src/index.ts` starts both HTTP server and Telegram bot in the same process. Simple for MVP, but it couples web API lifecycle with bot polling; later we may want explicit mode flags (`api`, `bot`, `worker`) or separate processes.
+- Module boundaries pass around concrete modules in the composition root; acceptable for this project now, but some cross-module dependencies (`TransactionModule` knows `SubscriptionModule`, Debt uses Transaction+Subscription+User) should be kept deliberate.
+- `postinstall` installs and builds the webapp every time. Convenient for deployment, but slow/noisy for backend-only installs and CI.
+- Docker production image copies `scripts/`, but some docker-compose commands reference missing/obsolete migration artifacts.
+- `AppConfig` loads `.env.local` then `.env`, while `.env.development` is tracked but not loaded by default; env-file story needs simplification.
+
+### Proposed Cleanup Backlog Draft
+
+1. Remove or repair obsolete Notion migration surface (`migrate:notion`, docker migration profile, DEPLOYMENT.md references).
+2. Decide whether `scripts/migrate-userId.ts` is still needed; either add `better-sqlite3` or archive/remove the script.
+3. Remove confirmed unused deps (`cors`, `@types/cors`, maybe `shadcn`) after a package-lock update and full verification.
+4. Decide policy for tracked `data/*.json` learning files: keep as seed fixtures or move runtime data to ignored local files.
+5. Add scheduler/worker for `processExpiredSubscriptions()` or explicitly document that expiry is manual.
+6. Review likely unused barrel/helper files and remove only confirmed dead files.
+7. Add tests for debt, subscription, user, and critical API routes before major feature work.
