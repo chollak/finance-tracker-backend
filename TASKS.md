@@ -349,6 +349,38 @@ Implementation notes:
 
 ---
 
+### FT-010: Review orphan/barrel files
+
+Status: done
+Priority: medium
+Owner: Hermes
+Type: cleanup/dead-code
+
+Context:
+FT-006 found several likely unused source/barrel files. These were not deleted until import graph and search evidence confirmed they had no consumers.
+
+Removed files:
+- `src/delivery/messaging/telegram/handlers/index.ts`
+- `src/modules/subscription/application/index.ts`
+- `src/modules/subscription/domain/index.ts`
+- `src/modules/subscription/presentation/index.ts`
+- `src/shared/domain/ports/index.ts`
+- `src/shared/application/learning/seedPatterns.ts`
+
+Rationale:
+- Barrel files had no imports anywhere in source/docs scripts except historical audit logs.
+- `seedPatterns.ts` was superseded by tracked `data/*.seed.json` files in FT-008 and was never called.
+- `npx madge --orphans --extensions ts src` now reports only `index.ts`, the runtime entrypoint.
+
+Verification:
+- [x] `npm run build` passed after deletion
+- [x] `npm test -- --runInBand` passed
+- [x] `npm run build:webapp` passed
+- [x] `npm run analyze` passed
+- [x] `npx madge --orphans --extensions ts src` reports only `index.ts`
+
+---
+
 ### FT-004: Decide first product vector after stabilization
 
 Status: blocked

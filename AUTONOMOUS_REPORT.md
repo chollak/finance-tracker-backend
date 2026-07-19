@@ -534,7 +534,7 @@ npx madge --orphans --extensions ts src
 3. ✅ Done in FT-009: removed unused root deps `cors`, `@types/cors`, and root `shadcn`; removed obsolete `migrate-userId` scripts that required undeclared `better-sqlite3`.
 4. ✅ Done in FT-008: tracked learning examples moved to `data/*.seed.json`; runtime `data/learning-data.json` and `data/patterns.json` are ignored.
 5. Add scheduler/worker for `processExpiredSubscriptions()` or explicitly document that expiry is manual.
-6. Review likely unused barrel/helper files and remove only confirmed dead files.
+6. ✅ Done in FT-010: removed confirmed unused barrel/helper files; `madge --orphans` now only reports runtime entrypoint `index.ts`.
 7. Add tests for debt, subscription, user, and critical API routes before major feature work.
 
 
@@ -665,3 +665,48 @@ npx --yes depcheck --json
 ```
 
 Full build/test/analyze passed. Depcheck cleanup items are resolved.
+
+
+## 2026-07-19 — FT-010 orphan/barrel cleanup completed
+
+### Goal
+
+Review likely unused source/barrel files from FT-006 and remove only confirmed dead files.
+
+### Evidence
+
+Before cleanup, `npx madge --orphans --extensions ts src` reported:
+
+- `delivery/messaging/telegram/handlers/index.ts`
+- `modules/subscription/application/index.ts`
+- `modules/subscription/domain/index.ts`
+- `modules/subscription/presentation/index.ts`
+- `shared/application/learning/seedPatterns.ts`
+- `shared/domain/ports/index.ts`
+
+Search confirmed these files had no active consumers. The runtime root `src/index.ts` was also reported by madge, but this is expected because it is the application entrypoint, not dead code.
+
+### Changes
+
+Removed confirmed unused files:
+
+- `src/delivery/messaging/telegram/handlers/index.ts`
+- `src/modules/subscription/application/index.ts`
+- `src/modules/subscription/domain/index.ts`
+- `src/modules/subscription/presentation/index.ts`
+- `src/shared/domain/ports/index.ts`
+- `src/shared/application/learning/seedPatterns.ts`
+
+`seedPatterns.ts` was superseded by the FT-008 seed-file policy (`data/*.seed.json`).
+
+### Verification
+
+```bash
+npm run build
+npm test -- --runInBand
+npm run build:webapp
+npm run analyze
+npx madge --orphans --extensions ts src
+```
+
+All project checks passed. `madge --orphans` now reports only `index.ts`, the expected runtime entrypoint.
