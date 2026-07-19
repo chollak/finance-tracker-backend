@@ -310,3 +310,116 @@ Hermes reviewed the FT-003 documentation reconciliation output and accepted it.
 ### Decision
 
 FT-003 is accepted and marked `done`. Remaining documentation uncertainty (`PROJECT_DOCUMENTATION.md` and category display-name examples in data-flow docs) is follow-up work, not a blocker for closing FT-003.
+
+
+## 2026-07-19 — FT-005 started: remaining documentation consistency
+
+### Goal
+
+Close the two documentation consistency follow-ups intentionally left out of FT-003:
+
+1. `PROJECT_DOCUMENTATION.md` still describes the system as having 5 modules and lacks Debt/Subscription/User sections.
+2. Data-flow docs under `docs/knowledge-base/07-data-flow/` use Russian category display names in example payload/store values where canonical category IDs should be used.
+
+### Scope
+
+Documentation-only. No source code, config, package, migration, or environment file changes.
+
+### Planned Executor
+
+Claude Code will perform the documentation update. Hermes will independently review the diff, run verification, update reports, commit, and push only after QA passes.
+
+## 2026-07-19 — FT-005 documentation cleanup completed, set to review
+
+### Goal
+
+Close the two documentation consistency follow-ups intentionally left out of FT-003 (see above).
+
+### Files Changed (docs only)
+
+- `PROJECT_DOCUMENTATION.md`
+- `docs/knowledge-base/07-data-flow/api-lifecycle.md`
+- `docs/knowledge-base/07-data-flow/budget-calculation.md`
+- `docs/knowledge-base/07-data-flow/voice-to-transaction.md`
+- `TASKS.md`
+
+### What Was Fixed
+
+- `PROJECT_DOCUMENTATION.md` said "5 main modules" and only documented Transaction, VoiceProcessing,
+  Budget, OpenAIUsage, and Dashboard. Renumbered the Module System section 1-8
+  (Transaction, Budget, Debt, VoiceProcessing, OpenAIUsage, Dashboard, Subscription, User) to match
+  `CLAUDE.md` and `docs/knowledge-base/01-architecture/modules.md`, and added DebtModule,
+  SubscriptionModule, and UserModule write-ups (use cases, dependencies, infrastructure) that were
+  missing entirely. Also updated VoiceProcessingModule's dependency line, since `appModules.ts`
+  wires it to both `TransactionModule` and `DebtModule`.
+- `docs/knowledge-base/07-data-flow/voice-to-transaction.md`, `api-lifecycle.md`,
+  `budget-calculation.md` used Russian category display names (`Продукты`, `Кафе`, `Другое`) as
+  example payload/stored values (GPT parse output, API request/response JSON bodies, SQL `INSERT`,
+  `categoryIds` arrays, a confidence-scoring code snippet). Replaced these with the canonical
+  category IDs from `src/shared/domain/entities/Category.ts` (`groceries`, `restaurants`, `other`),
+  matching the ID-vs-display-name rule in `CLAUDE.md` (DB/API/OpenAI payloads store IDs; only UI
+  shows localized names).
+
+### Explicitly Left Alone
+
+- The two Telegram bot reply-message examples in `voice-to-transaction.md`
+  (`📂 Category: Продукты`) — these are genuine UI display text shown to the end user in a chat
+  message, not stored/payload values, so they correctly keep the Russian display name per the
+  ID-vs-display-name rule.
+- `PROJECT_DOCUMENTATION.md`'s `API Endpoints` section still has no routes listed for
+  Debt/Subscription/User modules. This is a real gap, but it's an endpoint reference list rather
+  than a "module overview" doc, which was this task's named scope — flagged here as a further
+  follow-up rather than fixed.
+
+### Verification
+
+```bash
+git diff --stat
+```
+6 files changed (`AUTONOMOUS_REPORT.md`, `PROJECT_DOCUMENTATION.md`, `TASKS.md`,
+`docs/knowledge-base/07-data-flow/{api-lifecycle,budget-calculation,voice-to-transaction}.md`) — no
+`src/`, `tests/`, `webapp/src/`, migration, package, or env files touched.
+
+```bash
+npm run build             # passed
+npm test -- --runInBand   # passed, 7 suites / 35 tests
+npm run build:webapp      # passed (public/webapp build output is untracked; no unintended diff)
+npm run analyze           # passed (no dependency violations, no circular deps)
+```
+
+### Task Board
+
+`TASKS.md` FT-005 checklist items are all checked. Hermes QA accepted the documentation cleanup and marked FT-005 as `done`.
+
+
+## 2026-07-19 — FT-005 Hermes QA closeout
+
+### Result
+
+Hermes reviewed the FT-005 documentation cleanup output and accepted it.
+
+### QA Evidence
+
+Changed files were documentation/process files only:
+
+- `PROJECT_DOCUMENTATION.md`
+- `docs/knowledge-base/07-data-flow/api-lifecycle.md`
+- `docs/knowledge-base/07-data-flow/budget-calculation.md`
+- `docs/knowledge-base/07-data-flow/voice-to-transaction.md`
+- `TASKS.md`
+- `AUTONOMOUS_REPORT.md`
+
+Hermes independently re-ran:
+
+```bash
+npm run build
+npm test -- --runInBand
+npm run build:webapp
+npm run analyze
+```
+
+All passed. Test result: 7 suites / 35 tests. Architecture checks: no dependency violations and no circular dependencies.
+
+### Decision
+
+FT-005 is accepted and marked `done`. The missing Debt/Subscription/User entries in `PROJECT_DOCUMENTATION.md`'s API endpoint reference are a real follow-up opportunity, but not a blocker for this docs-consistency task.

@@ -23,7 +23,7 @@ Content-Type: application/json
 {
   "amount": 500,
   "type": "expense",
-  "category": "Продукты",
+  "category": "groceries",
   "description": "Хлеб",
   "date": "2026-01-09",
   "userId": "131184740"
@@ -227,7 +227,7 @@ INSERT INTO transactions (
   category, user_id, created_at
 ) VALUES (
   500, 'expense', 'Хлеб', '2026-01-09',
-  'Продукты', '131184740', NOW()
+  'groceries', '131184740', NOW()
 ) RETURNING id;
 ```
 
@@ -254,7 +254,7 @@ function handleControllerSuccess(data, res, statusCode = 200) {
     "id": "123",
     "amount": 500,
     "type": "expense",
-    "category": "Продукты",
+    "category": "groceries",
     "description": "Хлеб",
     "date": "2026-01-09",
     "userId": "131184740"

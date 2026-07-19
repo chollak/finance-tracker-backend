@@ -14,7 +14,7 @@ flowchart TD
     E --> F[Transcribed Text<br/>Купил хлеб за 500 рублей]
     F --> G[Enhanced Prompt<br/>+ Learning Patterns]
     G --> H[OpenAI GPT-4 API]
-    H --> I[Parsed Transaction<br/>amount: 500, category: Продукты]
+    H --> I[Parsed Transaction<br/>amount: 500, category: groceries]
     I --> J{Confidence Score}
     J -->|>= 0.6| K[Auto-save Transaction]
     J -->|< 0.6| L[Ask User Confirmation]
@@ -108,7 +108,7 @@ You are a financial assistant. Parse this text into transaction.
 Today is 2026-01-09.
 
 Learned patterns:
-- "хлеб", "молоко" → category "Продукты"
+- "хлеб", "молоко" → category "groceries"
 - "Пятерочка", "5ка" → merchant "Пятёрочка"
 
 Text: "Купил хлеб в магазине Пятерочка за пятьсот рублей"
@@ -137,7 +137,7 @@ const response = await openai.chat.completions.create({
   "transactions": [{
     "amount": 500,
     "type": "expense",
-    "category": "Продукты",
+    "category": "groceries",
     "description": "Хлеб",
     "merchant": "Пятёрочка",
     "date": "2026-01-09",
@@ -157,7 +157,7 @@ let confidence = 0.95; // Base confidence
 
 // Снижение за отсутствующие поля
 if (!merchant) confidence -= 0.1;
-if (!category || category === 'Другое') confidence -= 0.15;
+if (!category || category === 'other') confidence -= 0.15;
 if (description.length < 3) confidence -= 0.05;
 
 // Confidence range: 0.0 - 1.0

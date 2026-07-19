@@ -168,6 +168,56 @@ Completed. Original instruction was documentation-only reconciliation; Hermes QA
 
 ---
 
+### FT-005: Clean up remaining documentation inconsistencies
+
+Status: done
+Priority: medium
+Owner: Claude Code, QA by Hermes
+Type: docs
+
+Context:
+FT-003 reconciled the main stale documentation, but intentionally left two broader consistency issues as follow-up scope:
+
+1. `PROJECT_DOCUMENTATION.md` still describes "5 main modules" and lacks Debt/Subscription/User sections.
+2. `docs/knowledge-base/07-data-flow/*.md` examples use Russian category display names (for example, `Продукты`) where project rules prefer category IDs (for example, `groceries`).
+
+Goal:
+Make remaining developer docs consistent with the current 8-module implementation and category ID conventions, without changing source code.
+
+Scope:
+- Documentation/process files only.
+- Allowed likely files:
+  - `PROJECT_DOCUMENTATION.md`
+  - `docs/knowledge-base/07-data-flow/api-lifecycle.md`
+  - `docs/knowledge-base/07-data-flow/budget-calculation.md`
+  - `docs/knowledge-base/07-data-flow/voice-to-transaction.md`
+  - `TASKS.md`
+  - `AUTONOMOUS_REPORT.md`
+
+Definition of Done:
+- [x] `PROJECT_DOCUMENTATION.md` reflects 8 modules and no longer says "5 main modules"
+- [x] DebtModule, SubscriptionModule, and UserModule are represented where module overview docs list modules
+- [x] Data-flow examples use canonical category IDs where payloads/store values are shown
+- [x] Russian display names are kept only where clearly presented as UI labels/display values
+- [x] No source code/config/package/migration/env changes
+- [x] `npm run build`, `npm test -- --runInBand`, `npm run build:webapp`, and `npm run analyze` pass
+
+Implementation notes:
+- `PROJECT_DOCUMENTATION.md` Module System section renumbered 1-8 (Transaction, Budget, Debt, VoiceProcessing, OpenAIUsage, Dashboard, Subscription, User), matching `CLAUDE.md` and `docs/knowledge-base/01-architecture/modules.md`. Added DebtModule, SubscriptionModule, UserModule blurbs (use cases, dependencies, infrastructure) that weren't there before.
+- `docs/knowledge-base/07-data-flow/voice-to-transaction.md`, `api-lifecycle.md`, `budget-calculation.md`: replaced Russian category display names (`Продукты`, `Кафе`, `Другое`) with canonical IDs (`groceries`, `restaurants`, `other`) in all payload/store-value examples (GPT output, API request/response JSON, SQL INSERT, `categoryIds` arrays, confidence-scoring code). Left the two Telegram bot reply-message examples using `Продукты` as-is — those are genuine UI display labels shown to the end user, not stored/payload values.
+- `PROJECT_DOCUMENTATION.md`'s `API Endpoints` section still has no routes listed for Debt/Subscription/User — left untouched since it's an endpoint list, not a "module overview" doc, which is what this task's scope covered; flagged as a further follow-up if wanted.
+
+Hermes QA closeout:
+- [x] Verified changed files are documentation/process files only
+- [x] Re-ran build/test/webapp build/analyze successfully
+- [x] Accepted missing Debt/Subscription/User API endpoint reference as follow-up scope, not a blocker
+- [x] Marked FT-005 done after QA
+
+Suggested Claude Code instruction:
+Completed. Original instruction was documentation-only cleanup; Hermes QA accepted and marked done.
+
+---
+
 ### FT-004: Decide first product vector after stabilization
 
 Status: blocked

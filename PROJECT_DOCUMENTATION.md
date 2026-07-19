@@ -130,7 +130,7 @@ Infrastructure → Application → Domain
 
 ## Module System
 
-The application is organized into 5 main modules, created in `src/appModules.ts`:
+The application is organized into 8 main modules, created in `src/appModules.ts`:
 
 ### 1. TransactionModule
 **Purpose**: Core transaction CRUD operations and analytics
@@ -145,18 +145,7 @@ The application is organized into 5 main modules, created in `src/appModules.ts`
 
 **Infrastructure**: `SqliteTransactionRepository` - SQLite persistence
 
-### 2. VoiceProcessingModule
-**Purpose**: Convert voice/text input to structured transactions
-
-**Dependencies**: Depends on TransactionModule's `CreateTransactionUseCase`
-
-**Use Cases**:
-- `ProcessVoiceInputUseCase` - Convert audio → text → transaction
-- `ProcessTextInputUseCase` - Parse text → transaction
-
-**Infrastructure**: `OpenAITranscriptionService` - OpenAI integration
-
-### 3. BudgetModule
+### 2. BudgetModule
 **Purpose**: Budget creation, monitoring, and alerts
 
 **Dependencies**: Uses TransactionModule for spending analysis
@@ -167,14 +156,39 @@ The application is organized into 5 main modules, created in `src/appModules.ts`
 - `UpdateBudgetUseCase` - Modify budget parameters
 - `DeleteBudgetUseCase` - Remove budgets
 
-### 4. OpenAIUsageModule
+### 3. DebtModule
+**Purpose**: Debt management (who owes whom) with payment history
+
+**Dependencies**: Depends on TransactionModule's `CreateTransactionUseCase` for the optional linked transaction created when money actually changes hands
+
+**Use Cases**:
+- `CreateDebtUseCase` - Create a debt (+ optional linked transaction)
+- `GetDebtsUseCase` - Fetch user debts and summary
+- `UpdateDebtUseCase` - Update or cancel a debt
+- `DeleteDebtUseCase` - Remove a debt
+- `PayDebtUseCase` - Partial/full debt repayment
+
+**Infrastructure**: `SqliteDebtRepository` / `SupabaseDebtRepository`
+
+### 4. VoiceProcessingModule
+**Purpose**: Convert voice/text input to structured transactions
+
+**Dependencies**: Depends on TransactionModule's `CreateTransactionUseCase` and DebtModule
+
+**Use Cases**:
+- `ProcessVoiceInputUseCase` - Convert audio → text → transaction
+- `ProcessTextInputUseCase` - Parse text → transaction
+
+**Infrastructure**: `OpenAITranscriptionService` - OpenAI integration
+
+### 5. OpenAIUsageModule
 **Purpose**: Track and monitor OpenAI API costs
 
 **Use Cases**:
 - `GetOpenAIUsageUseCase` - Fetch usage statistics
 - Cost tracking and money formatting utilities
 
-### 5. DashboardModule
+### 6. DashboardModule
 **Purpose**: Aggregate insights across modules
 
 **Dependencies**: Uses AnalyticsService and BudgetService
@@ -184,6 +198,32 @@ The application is organized into 5 main modules, created in `src/appModules.ts`
 - Weekly spending insights
 - Budget alerts and warnings
 - Complete dashboard views
+
+### 7. SubscriptionModule
+**Purpose**: Freemium premium subscriptions with Telegram Stars payments (usage limits for free tier, unlimited for premium)
+
+**Dependencies**: Controller depends on UserModule to resolve `telegramId` → internal UUID
+
+**Use Cases**:
+- `CreateSubscriptionUseCase` - Create subscription after payment
+- `GetSubscriptionUseCase` - Fetch subscription status with limits
+- `CheckLimitUseCase` - Check usage limit before an action
+- `IncrementUsageUseCase` - Increment usage counter after an action
+- `GrantPremiumUseCase` - Admin-granted premium
+- `StartTrialUseCase` - Start 14-day trial for a new user
+- `CancelSubscriptionUseCase` - Cancel subscription
+
+**Infrastructure**: `TelegramPaymentService` - Telegram Stars payment integration
+
+### 8. UserModule
+**Purpose**: User management — resolves Telegram numeric IDs to internal UUIDs
+
+**Use Cases**:
+- `GetOrCreateUserUseCase` - Find or create a user by `telegramId`
+- `GetUserUseCase` - Fetch a user
+- `UpdateUserUseCase` - Update user profile fields
+
+**Infrastructure**: `SqliteUserRepository` / `SupabaseUserRepository`
 
 ---
 

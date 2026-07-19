@@ -163,7 +163,7 @@ if (budget.categoryIds && budget.categoryIds.length > 0) {
 ```
 
 **Example:**
-- Budget: `categoryIds = ["Продукты", "Кафе"]`
+- Budget: `categoryIds = ["groceries", "restaurants"]`
 - Только транзакции с этими категориями учитываются
 
 ---
@@ -179,9 +179,9 @@ const spent = relevantTransactions.reduce(
 
 **Example:**
 ```
-Transaction 1: 500 (Продукты)
-Transaction 2: 300 (Продукты)
-Transaction 3: 1000 (Кафе)
+Transaction 1: 500 (groceries)
+Transaction 2: 300 (groceries)
+Transaction 3: 1000 (restaurants)
 ---------------
 Total spent: 1800
 ```
@@ -359,17 +359,17 @@ if (transactions.length === 0) {
 ## Example Scenario
 
 **User Setup:**
-- Budget: "Groceries" (Продукты)
+- Budget: "Groceries" (category: groceries, displayed to user as "Продукты")
 - Amount: 30000
 - Period: monthly (2026-01-01 to 2026-01-31)
-- CategoryIds: ["Продукты"]
+- CategoryIds: ["groceries"]
 
 **Transactions:**
 ```
-2026-01-05: 5000 (Продукты)
-2026-01-10: 3500 (Продукты)
-2026-01-15: 2000 (Кафе) ← Not counted (different category)
-2026-01-20: 7500 (Продукты)
+2026-01-05: 5000 (groceries)
+2026-01-10: 3500 (groceries)
+2026-01-15: 2000 (restaurants) ← Not counted (different category)
+2026-01-20: 7500 (groceries)
 ```
 
 **Calculation:**
