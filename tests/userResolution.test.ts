@@ -23,7 +23,8 @@ const VALID_UUID = 'a1b2c3d4-e5f6-4a1b-8c2d-1234567890ab';
 /**
  * In-memory fake mirroring SqliteUserRepository's getOrCreate()/update() contract:
  * getOrCreate finds by telegramId and touches lastSeenAt on hit, creates otherwise;
- * update() throws if the user doesn't exist (matching "User not found after update").
+ * update() throws if the user doesn't exist, so UpdateUserUseCase can normalize
+ * repository errors into Result failures.
  */
 class InMemoryUserRepository implements UserRepository {
   private usersById = new Map<string, User>();
@@ -184,16 +185,22 @@ describe('User module', () => {
     it('updates mutable fields on an existing user', async () => {
       const created = await getOrCreateUserUseCase.execute({ telegramId: '555' });
 
-      const updated = await updateUserUseCase.execute(created.id, { userName: 'newname', timezone: 'UTC' });
+      const result = await updateUserUseCase.execute(created.id, { userName: 'newname', timezone: 'UTC' });
 
-      expect(updated.userName).toBe('newname');
-      expect(updated.timezone).toBe('UTC');
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.userName).toBe('newname');
+        expect(result.data.timezone).toBe('UTC');
+      }
     });
 
-    it('rejects when updating a non-existent user (current contract throws, no Result)', async () => {
-      await expect(updateUserUseCase.execute('missing-id', { userName: 'x' })).rejects.toThrow(
-        'User not found after update'
-      );
+    it('returns Result failure when updating a non-existent user', async () => {
+      const result = await updateUserUseCase.execute('missing-id', { userName: 'x' });
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.message).toBe('User not found after update');
+      }
     });
 
     it('delegates updateLastSeen to the repository', async () => {

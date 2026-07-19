@@ -1230,3 +1230,45 @@ npm run verify
 ```
 
 Result: passed. Docs-only change; full suite remains 12 suites / 141 tests. Backend build, webapp build, dependency-cruiser, and circular dependency scan passed.
+
+
+## 2026-07-20 — FT-017C UpdateUserUseCase Result contract
+
+### Goal
+
+Normalize the low-risk user update contract found during FT-014C: `UpdateUserUseCase.execute()` previously returned a raw `User` and propagated repository exceptions, unlike nearby Result-returning use cases.
+
+### Caller Audit
+
+- Direct HTTP caller: `src/modules/user/presentation/controllers/userController.ts`.
+- Controller already fetches the existing user before update and maps not-found to HTTP 404.
+- Update failure after pre-check should still flow through standard controller error handling.
+- `updateLastSeen()` remains a void side-effect helper and was not changed.
+
+### TDD Cycle
+
+1. Updated `tests/userResolution.test.ts` so update success expects `Result.success(User)` and missing-user expects `Result.failure(error)`.
+2. Ran `npm test -- userResolution --runInBand`; compile failed because production contract still returned raw `User`.
+3. Updated `UpdateUserUseCase.execute()` to return `Result<User>` and normalize thrown repository errors.
+4. Updated `userController` to unwrap the Result and route failures through existing controller error handling.
+5. Re-ran `npm test -- userResolution --runInBand && npm run build`; both passed.
+
+### Changes
+
+- `src/modules/user/application/updateUserUseCase.ts`
+  - `execute()` now returns `Promise<Result<User>>`.
+- `src/modules/user/presentation/controllers/userController.ts`
+  - unwraps `userResult` and throws `userResult.error` on failure.
+- `tests/userResolution.test.ts`
+  - updated UpdateUserUseCase tests to verify Result success/failure.
+- Updated FT-017 cleanup plan and `TASKS.md`.
+
+### Verification
+
+```bash
+npm test -- userResolution --runInBand
+npm run build
+npm run verify
+```
+
+Result: passed. User resolution tests passed, TypeScript build passed, and full verify passed (12 suites / 141 tests, backend build, webapp build, dependency-cruiser, circular dependency scan).

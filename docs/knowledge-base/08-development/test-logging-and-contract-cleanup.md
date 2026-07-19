@@ -139,19 +139,30 @@ Risk: medium because API response contracts may change.
 
 ### FT-017C — Normalize `UpdateUserUseCase` error handling
 
+Status: done.
+
 Goal: make missing-user behavior consistent with the project Result pattern.
 
-Recommended approach:
+Caller audit:
 
-- Convert `UpdateUserUseCase.execute(...)` to return `Result<User>` only if controllers/callers can be updated together.
-- Otherwise document that it throws and keep behavior stable.
+- `userController` is the only direct HTTP caller found.
+- Controller already verifies the user exists before update, so this is mostly a defensive consistency change.
+- `updateLastSeen()` remains unchanged because it is a side-effect helper, not a Result-returning command endpoint.
+
+Implemented behavior:
+
+- `UpdateUserUseCase.execute(...)` now returns `Result<User>`.
+- Repository update exceptions are normalized into `Result.failure(error)`.
+- `userController` unwraps the Result and throws `userResult.error` into existing controller error handling.
+- `tests/userResolution.test.ts` verifies Result success/failure instead of raw user / thrown promise rejection.
 
 Definition of Done:
 
-- Either behavior is explicitly documented, or code/tests are updated together.
-- No uncaught controller path introduced.
+- [x] Behavior is explicitly documented.
+- [x] Code/tests were updated together using RED → GREEN.
+- [x] No uncaught controller path introduced.
 
-Risk: medium.
+Risk: medium-low after caller audit.
 
 ### FT-017D — Decide resolver fail-open vs fail-closed
 

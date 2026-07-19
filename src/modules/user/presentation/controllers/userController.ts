@@ -100,7 +100,7 @@ export function createUserController(userModule: UserModule): Router {
         throw ErrorFactory.authorization('You can only update your own user settings');
       }
 
-      const user = await userModule.getUpdateUserUseCase().execute(id, {
+      const userResult = await userModule.getUpdateUserUseCase().execute(id, {
         userName,
         firstName,
         lastName,
@@ -109,7 +109,11 @@ export function createUserController(userModule: UserModule): Router {
         timezone,
       });
 
-      handleControllerSuccess(user, res);
+      if (!userResult.success) {
+        throw userResult.error;
+      }
+
+      handleControllerSuccess(userResult.data, res);
     } catch (error) {
       handleControllerError(error, res);
     }
