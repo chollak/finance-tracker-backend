@@ -7,6 +7,7 @@
 
 import { UserModule } from '../../../modules/user/userModule';
 import { createLogger, LogCategory } from '../logging';
+import { ValidationError } from '../../domain/errors/AppError';
 
 const logger = createLogger(LogCategory.USER);
 
@@ -52,6 +53,10 @@ export async function resolveUserIdToUUID(
 ): Promise<string> {
   // Trim whitespace
   const trimmedId = userId.trim();
+
+  if (!trimmedId) {
+    throw new ValidationError('userId is required', 'userId');
+  }
 
   // Guest users don't need resolution
   if (isGuestUser(trimmedId)) {

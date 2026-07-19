@@ -1272,3 +1272,41 @@ npm run verify
 ```
 
 Result: passed. User resolution tests passed, TypeScript build passed, and full verify passed (12 suites / 141 tests, backend build, webapp build, dependency-cruiser, circular dependency scan).
+
+
+## 2026-07-20 — FT-017E empty userId validation
+
+### Goal
+
+Close the low-risk resolver gap found during FT-014C: empty user IDs could previously flow into `getOrCreate({ telegramId: '' })`.
+
+### Caller Audit
+
+- Telegram handlers pass `ctx.from.id.toString()`, so empty IDs should not occur in normal Telegram flows.
+- Resolver-level validation is still useful because API and helper callers should not be able to create empty-ID users accidentally.
+- `tryResolveUserIdSync('')` remains `null`; it is a sync shortcut helper, not the async validation boundary.
+
+### TDD Cycle
+
+1. Updated `tests/userResolution.test.ts` to expect empty/whitespace user IDs to reject with `userId is required` and to verify no user is created for empty ID.
+2. Ran `npm test -- userResolution --runInBand`; tests failed because current behavior created/resolved an empty telegramId.
+3. Added early trimmed-input validation in `resolveUserIdToUUID()`.
+4. Re-ran `npm test -- userResolution --runInBand && npm run build`; both passed.
+
+### Changes
+
+- `src/shared/application/helpers/userIdResolver.ts`
+  - throws `ValidationError('userId is required', 'userId')` for empty/whitespace-only IDs.
+- `tests/userResolution.test.ts`
+  - empty-ID resolver behavior updated from characterization to desired contract.
+- Updated FT-017 cleanup plan and `TASKS.md`.
+
+### Verification
+
+```bash
+npm test -- userResolution --runInBand
+npm run build
+npm run verify
+```
+
+Result: passed. User resolver tests passed, TypeScript build passed, and full verify passed (12 suites / 142 tests, backend build, webapp build, dependency-cruiser, circular dependency scan).

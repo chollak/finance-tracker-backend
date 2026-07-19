@@ -182,14 +182,28 @@ Risk: high if changed globally without auditing callers.
 
 ### FT-017E — Validate empty userId early
 
+Status: done.
+
 Goal: prevent empty IDs from reaching user creation/resolution.
 
-Recommended approach:
+Caller audit:
 
-- Add validation at API/use-case boundaries first.
-- Consider adding guard in resolver after caller audit.
+- Telegram handlers pass `ctx.from.id.toString()`, so empty IDs should not occur in normal Telegram flows.
+- API and helper callers still benefit from resolver-level validation because empty IDs are never valid identifiers.
+- `tryResolveUserIdSync('')` remains `null`, because it only reports whether a value can be resolved synchronously.
 
-Risk: medium because some current tests document empty-string behavior.
+Implemented approach:
+
+- `resolveUserIdToUUID()` trims input and throws `ValidationError('userId is required', 'userId')` for empty/whitespace-only IDs.
+- Validation happens before guest/UUID/telegram resolution.
+- Empty input can no longer reach `getOrCreate({ telegramId: '' })`.
+
+Definition of Done:
+
+- [x] Empty string cannot create a user.
+- [x] Tests cover resolver behavior.
+
+Risk: medium-low after caller audit.
 
 ### FT-017F — Fix API 404 path message
 
@@ -212,10 +226,11 @@ Risk: low.
 ## Recommended Order
 
 1. ✅ FT-017A — quiet test logging
-2. FT-017F — fix 404 path message
-3. FT-017B/C — decide user use-case Result contracts
-4. FT-017E — empty userId validation
-5. FT-017D — resolver fail-open/fail-closed decision
+2. ✅ FT-017F — fix 404 path message
+3. ✅ FT-017C — normalize `UpdateUserUseCase` Result contract
+4. ✅ FT-017E — empty userId validation
+5. FT-017B — decide `GetUserUseCase` not-found convention
+6. FT-017D — resolver fail-open/fail-closed decision
 
 Reasoning:
 

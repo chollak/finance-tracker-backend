@@ -338,13 +338,18 @@ describe('userIdResolver', () => {
       expect(result).toBe('555555555');
     });
 
-    it('treats an empty string as a telegramId and attempts resolution (current behavior, not validated)', async () => {
-      const result = await resolveUserIdToUUID('', userModule);
-
-      // Not a guest id, not a UUID -> falls through to getOrCreate({ telegramId: '' }).
-      const stored = await repo.findByTelegramId('');
-      expect(stored?.id).toBe(result);
+    it('rejects an empty userId before attempting async resolution', async () => {
+      await expect(resolveUserIdToUUID('', userModule)).rejects.toThrow('userId is required');
+      await expect(resolveUserIdToUUID('   ', userModule)).rejects.toThrow('userId is required');
     });
+
+    it('does not create a user for an empty userId', async () => {
+      await expect(resolveUserIdToUUID('', userModule)).rejects.toThrow('userId is required');
+
+      const stored = await repo.findByTelegramId('');
+      expect(stored).toBeNull();
+    });
+
   });
 });
 
