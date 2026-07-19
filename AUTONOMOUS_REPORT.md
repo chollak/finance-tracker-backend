@@ -212,3 +212,76 @@ After docs are reconciled, choose product direction via FT-004 with Shukur. Cand
 ### Verification
 
 No code changes were made in FT-001 closeout. Repo was clean before the documentation-board update.
+
+## 2026-07-19 — FT-003 stale docs reconciled with actual implementation
+
+### Goal
+
+Reconcile stale documentation with the actual 8-module implementation before resuming feature
+work, so future agents don't rebuild or duplicate DebtModule/SubscriptionModule thinking they're
+still TODO.
+
+### Files Changed (docs only)
+
+- `docs/VISION.md`
+- `CLAUDE.md`
+- `README.md`
+- `AUDIT.md`
+- `docs/knowledge-base/README.md`
+- `docs/knowledge-base/01-architecture/overview.md`
+- `TASKS.md`
+
+### What Was Stale
+
+- `docs/VISION.md` listed DebtModule, SubscriptionModule, Payment Integration, and Free Trial as
+  🚧 TODO launch blockers, and its "План выхода на прод" described building all four from scratch.
+  All four are fully implemented in source: `src/modules/debt/`, `src/modules/subscription/`,
+  `src/modules/subscription/infrastructure/TelegramPaymentService.ts` +
+  `src/delivery/messaging/telegram/handlers/paymentHandlers.ts` (Telegram Stars payments), and
+  `StartTrialUseCase` in `src/modules/subscription/application/grantPremium.ts` (14-day trial).
+- `CLAUDE.md` said "7 модулей системы"; `docs/knowledge-base/README.md` said "5 модулей системы";
+  `docs/knowledge-base/01-architecture/overview.md` had a 6-row module table missing
+  `SubscriptionModule` and `UserModule`. All now say/show 8, matching
+  `docs/knowledge-base/01-architecture/modules.md` (which was already correct).
+- `README.md` referenced a nonexistent `src/framework/express` path — actual path is
+  `src/delivery/web/express/`.
+- `AUDIT.md` (2026-01-20) had marked its own "module count mismatch" documentation issue as
+  "✅ Fixed", but the fix was never applied — CLAUDE.md and the knowledge-base still had stale
+  counts months later. Appended an addendum rather than rewriting the historical report, so the
+  audit stays a truthful point-in-time record with a visible correction note.
+
+### One Real Gap Found During Verification
+
+`SubscriptionService.processExpiredSubscriptions()` exists and is documented as "called by cron
+job," but no scheduler/cron actually invokes it anywhere in the codebase — subscription expiry
+(trial → free downgrade) doesn't currently happen automatically. Recorded as a small follow-up
+item in `docs/VISION.md`'s Next Roadmap rather than as a launch blocker.
+
+### Explicitly Not Touched (flagged, not fixed)
+
+- `PROJECT_DOCUMENTATION.md` still describes "5 main modules" and has no sections for
+  Debt/Subscription/User modules at all — out of FT-003's named scope, left for a follow-up task.
+- `docs/knowledge-base/07-data-flow/*.md` (api-lifecycle, budget-calculation,
+  voice-to-transaction) use Russian display names like "Продукты" as example category values
+  instead of category IDs like "groceries" — inconsistent with the ID-vs-display-name rule in
+  `CLAUDE.md`, but this is a pre-existing, broader inconsistency unrelated to the Debt/Subscription
+  staleness this task targeted, so it was left alone rather than rewriting several example flows.
+
+### Verification
+
+```bash
+git diff --stat
+```
+7 files changed, only docs (no `src/`, `tests/`, `webapp/src/`, migrations, package, or env files).
+
+```bash
+npm run build        # passed
+npm test -- --runInBand   # passed, 7 suites / 35 tests
+npm run build:webapp # passed
+npm run analyze      # passed (no dependency violations, no circular deps)
+```
+
+### Task Board
+
+`TASKS.md` FT-003 checklist items are all checked, status set to `review` (not `done`) —
+Hermes remains the QA gate per the workflow rules.

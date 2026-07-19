@@ -67,17 +67,36 @@
 | Analytics (категории, тренды) | ✅ Ready |
 | Telegram Mini App | ✅ Ready |
 | Supabase Production | ✅ Ready |
+| Долги (DebtModule, кто кому должен) | ✅ Ready |
+| Premium подписка + лимиты (SubscriptionModule) | ✅ Ready |
+| Оплата Telegram Stars | ✅ Ready |
+| 14-дневный Free Trial | ✅ Ready |
 
 ---
 
-## Блокеры для запуска
+## Текущий статус (обновлено 2026-07-19)
 
-| # | Модуль | Статус | Описание |
-|---|--------|--------|----------|
-| 1 | DebtModule | 🚧 TODO | Кто кому должен |
-| 2 | SubscriptionModule | 🚧 TODO | Free/Premium + лимиты |
-| 3 | Payment Integration | 🚧 TODO | Telegram Payments |
-| 4 | Free Trial | 🚧 TODO | 14 дней Premium |
+Все 8 модулей backend уже реализованы и покрыты кодом: `TransactionModule`, `BudgetModule`,
+`DebtModule`, `VoiceProcessingModule`, `OpenAIUsageModule`, `DashboardModule`,
+`SubscriptionModule`, `UserModule`. Подробности и зависимости — в
+[docs/knowledge-base/01-architecture/modules.md](knowledge-base/01-architecture/modules.md).
+
+Ранее этот документ отмечал DebtModule и SubscriptionModule (а также Payment Integration и
+Free Trial) как TODO-блокеры запуска. Это устарело: аудит FT-001/FT-003 подтвердил, что весь
+код для них уже существует:
+
+| # | Что считалось блокером | Фактический статус | Где реализовано |
+|---|------------------------|--------------------|------------------|
+| 1 | DebtModule | ✅ Done | `src/modules/debt/` |
+| 2 | SubscriptionModule (Free/Premium + лимиты) | ✅ Done | `src/modules/subscription/` |
+| 3 | Payment Integration (Telegram Stars) | ✅ Done | `src/modules/subscription/infrastructure/TelegramPaymentService.ts`, `src/delivery/messaging/telegram/handlers/paymentHandlers.ts` |
+| 4 | Free Trial (14 дней) | ✅ Done | `StartTrialUseCase` в `src/modules/subscription/application/grantPremium.ts` |
+
+**Известный незакрытый пробел:** `SubscriptionService.processExpiredSubscriptions()`
+(`src/modules/subscription/application/subscriptionService.ts`) реализован и рассчитан на вызов
+из cron job, но нигде в коде не подключён к планировщику — автоматический downgrade подписки
+после истечения trial/premium сейчас не запускается сам по себе. Это не блокер запуска "с нуля",
+а небольшая доработка (см. Next Roadmap ниже).
 
 ---
 
@@ -91,44 +110,29 @@
 
 ---
 
-## План выхода на прод
+## Next Roadmap (после реконсиляции документации)
 
-### Фаза 1: DebtModule
-- Создать DebtModule (domain, application, infrastructure, presentation)
-- Entity: Debt + DebtPayment
-- Use Cases: CreateDebt, GetDebts, PayDebt, DeleteDebt
-- API endpoints: /debts
-- Frontend: страница долгов, форма создания, детали
+Фазы 1–4 старого "Плана выхода на прод" (DebtModule, Subscription System, Payment Integration,
+Free Trial) уже выполнены и удалены из плана. Осталось:
 
-### Фаза 2: Subscription System
-- SubscriptionModule
-- Entity: Subscription + UsageLimit
-- Free/Premium разделение фич
-- Middleware для проверки подписки
-- Frontend: страница подписки, paywall UI
+### Фаза A: Автоматизация подписок (небольшая доработка)
+- Подключить `SubscriptionService.processExpiredSubscriptions()` к scheduler (cron/interval)
+- Уведомления об окончании trial/premium
 
-### Фаза 3: Payment Integration
-- Интегрировать Telegram Payments
-- Webhook для обработки платежей
-- Тестовые платежи
-
-### Фаза 4: Free Trial
-- Логика активации trial при регистрации
-- Автоматический downgrade после окончания
-- Уведомления об окончании trial
-
-### Фаза 5: Pre-launch Testing
-- Тест полного flow: регистрация → trial → использование → оплата
+### Фаза B: Pre-launch Testing
+- Тест полного flow: регистрация → trial → использование → оплата → истечение
 - Bug fixes
 
-### Фаза 6: Soft Launch
+### Фаза C: Soft Launch
 - Пригласить 5-10 друзей/родственников
 - Собрать feedback
 - Итерации по UX
 
-### Фаза 7: Public Launch
+### Фаза D: Public Launch
 - Опубликовать бота в Telegram Directory
 - Начать собирать MAU и revenue метрики
+
+Выбор конкретного следующего вектора работы — предмет отдельной задачи (см. `TASKS.md`, FT-004).
 
 ---
 
@@ -140,4 +144,4 @@
 ---
 
 *Документ создан: 2026-01-18*
-*Последнее обновление: 2026-01-18*
+*Последнее обновление: 2026-07-19 (FT-003: реконсиляция с фактической реализацией)*

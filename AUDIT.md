@@ -317,3 +317,19 @@ During audit, the following test data was created:
 
 **Audit completed:** 2026-01-20
 **Auditor:** Claude Code
+
+---
+
+## Addendum (2026-07-19, FT-003 doc reconciliation)
+
+Issue #16 ("Module count mismatch: CLAUDE.md says 7 modules, modules.md says 8 modules") was
+marked "✅ Fixed" above, but a later audit (FT-001) found the fix was never actually applied:
+`CLAUDE.md` still said "7 модулей системы" and `docs/knowledge-base/README.md` still said "5
+модулей системы". `docs/VISION.md` also still listed `DebtModule` and `SubscriptionModule` as
+TODO launch blockers even though both were fully implemented in source.
+
+FT-003 corrected all of these (module counts in `CLAUDE.md`, `docs/knowledge-base/README.md`,
+and `docs/knowledge-base/01-architecture/overview.md`; launch-blocker status in
+`docs/VISION.md`). Treat "Fixed" checkmarks in this report as the intent at the time, not a
+guarantee the doc-only follow-ups were carried out — verify against current file contents rather
+than this table when in doubt.

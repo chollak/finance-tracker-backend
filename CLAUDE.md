@@ -81,7 +81,7 @@ For detailed documentation, see **[docs/knowledge-base/](docs/knowledge-base/)**
 
 - **[Architecture](docs/knowledge-base/01-architecture/)** - Clean Architecture, modules, design patterns
   - [Overview](docs/knowledge-base/01-architecture/overview.md) - Layers and dependency flow
-  - [Modules](docs/knowledge-base/01-architecture/modules.md) - 7 модулей системы
+  - [Modules](docs/knowledge-base/01-architecture/modules.md) - 8 модулей системы
   - [Patterns](docs/knowledge-base/01-architecture/patterns.md) - Repository, DI, Factory, Use Case
 - **[Data Flow](docs/knowledge-base/07-data-flow/)** - How data moves through the system
   - [Voice → Transaction](docs/knowledge-base/07-data-flow/voice-to-transaction.md) - AI-powered voice processing

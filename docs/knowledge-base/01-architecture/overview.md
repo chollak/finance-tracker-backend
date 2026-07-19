@@ -88,7 +88,7 @@
 
 ## Модули системы
 
-Система состоит из 6 основных модулей:
+Система состоит из 8 основных модулей:
 
 | Модуль | Назначение | Зависимости |
 |--------|------------|-------------|
@@ -98,6 +98,8 @@
 | **VoiceProcessingModule** | Обработка голоса/текста | TransactionModule (CreateTransactionUseCase) |
 | **OpenAIUsageModule** | Мониторинг использования OpenAI API | Независимый |
 | **DashboardModule** | Агрегация данных из всех модулей | TransactionModule, BudgetModule |
+| **SubscriptionModule** | Free/Premium подписки, лимиты, Telegram Stars | UserModule (на уровне контроллера) |
+| **UserModule** | Управление пользователями (telegramId → UUID) | Независимый |
 
 Подробнее: [Modules](modules.md)
 

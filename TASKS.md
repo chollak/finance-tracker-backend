@@ -123,7 +123,7 @@ Completed. Original instruction was to fix only the dependency-cruiser violation
 
 ### FT-003: Reconcile stale docs with actual implementation
 
-Status: ready
+Status: review
 Priority: medium
 Owner: Claude Code, QA by Hermes
 Type: docs
@@ -135,15 +135,31 @@ Goal:
 Make project docs match actual implementation before feature development, so agents do not follow outdated roadmap information.
 
 Definition of Done:
-- [ ] Identify stale sections across `docs/`, `README.md`, `CLAUDE.md`, `AUDIT.md`
-- [ ] Update docs to match actual code state
-- [ ] Preserve useful Claude Code guidance
-- [ ] Add clear “current status” and “next roadmap” sections
-- [ ] Do not modify source code
-- [ ] `npm run build`, `npm test -- --runInBand`, `npm run build:webapp`, and `npm run analyze` still pass
+- [x] Identify stale sections across `docs/`, `README.md`, `CLAUDE.md`, `AUDIT.md`
+- [x] Update docs to match actual code state
+- [x] Preserve useful Claude Code guidance
+- [x] Add clear "current status" and "next roadmap" sections
+- [x] Do not modify source code
+- [x] `npm run build`, `npm test -- --runInBand`, `npm run build:webapp`, and `npm run analyze` still pass
+
+Verification:
+- `git diff --stat` — 7 doc files changed, no `src/`/`tests/`/`webapp/src/`/config/migration files touched
+- `npm run build` — passed
+- `npm test -- --runInBand` — passed, 7 suites / 35 tests
+- `npm run build:webapp` — passed
+- `npm run analyze` — passed (no dependency violations, no circular deps)
+
+Implementation notes:
+- `docs/VISION.md` — DebtModule, SubscriptionModule, Payment Integration, and Free Trial were all marked TODO but are fully implemented (`src/modules/debt/`, `src/modules/subscription/`, `TelegramPaymentService`, `StartTrialUseCase`). Rewrote "Готовые фичи", replaced "Блокеры для запуска" with a "Текущий статус" section reflecting reality, and replaced phases 1-4 of "План выхода на прод" with a "Next Roadmap" section. Flagged one real gap found during verification: `SubscriptionService.processExpiredSubscriptions()` exists but isn't wired to any scheduler.
+- `CLAUDE.md` and `docs/knowledge-base/README.md` said 7 and 5 modules respectively; both corrected to 8, matching `docs/knowledge-base/01-architecture/modules.md`.
+- `docs/knowledge-base/01-architecture/overview.md` module table was missing `SubscriptionModule` and `UserModule` rows (said "6 modules"); added.
+- `docs/knowledge-base/README.md` "Module Dependencies" diagram and "Module Structure" file list only covered 3-4 of the 8 modules; expanded.
+- `README.md` referenced a nonexistent `src/framework/express` path (actual: `src/delivery/web/express/`); fixed and pointed to the module docs instead of duplicating the list.
+- `AUDIT.md` (2026-01-20 snapshot) had marked its own "module count mismatch" doc issue as fixed, but it wasn't — appended an addendum noting this so the report isn't taken at face value again.
+- Not touched (out of the explicit FT-003 scope, flagged for follow-up instead): `PROJECT_DOCUMENTATION.md` still says "5 main modules" and is missing Debt/Subscription/User sections entirely; `docs/knowledge-base/07-data-flow/*.md` use Russian category display names (e.g. "Продукты") in example payloads instead of category IDs (e.g. "groceries"), inconsistent with the ID-vs-display-name rule in `CLAUDE.md`.
 
 Suggested Claude Code instruction:
-Documentation-only task. Reconcile stale documentation with actual implementation. Do not change source code. Focus first on `docs/VISION.md`, then check `README.md`, `CLAUDE.md`, `AUDIT.md`, and `docs/knowledge-base/` for contradictions. Update task status in `TASKS.md` when finished, but do not mark done — Hermes is the QA gate.
+Completed. Original instruction was documentation-only reconciliation; do not mark `done` — Hermes is the QA gate.
 
 ---
 

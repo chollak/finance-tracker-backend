@@ -127,11 +127,13 @@ The `deploy` workflow in `.github/workflows/deploy.yml` runs on pushes to the `m
 
 ## Project Structure
 
-The code follows Clean Architecture principles with layers for `domain`, `application`, `infrastructure`, and `interfaces`. Express configuration lives under `src/framework/express`.
+The code follows Clean Architecture principles with layers for `domain`, `application`, `infrastructure`, and `presentation`. Express configuration lives under `src/delivery/web/express/`; the Telegram bot lives under `src/delivery/messaging/telegram/`.
 
 ### Module interactions
 
-The `voiceProcessing` module depends on the `transaction` module through the `CreateTransactionUseCase`. Voice commands are transcribed and immediately recorded as transactions. Both modules are instantiated once in `createModules()` and shared between the HTTP server and the Telegram bot.
+The application is organized into 8 modules (`TransactionModule`, `BudgetModule`, `DebtModule`, `VoiceProcessingModule`, `OpenAIUsageModule`, `DashboardModule`, `SubscriptionModule`, `UserModule`), created once in `createModules()` (`src/appModules.ts`) and shared between the HTTP server and the Telegram bot. For example, `voiceProcessing` depends on `transaction` through `CreateTransactionUseCase` — voice commands are transcribed and immediately recorded as transactions.
+
+See [docs/knowledge-base/01-architecture/modules.md](docs/knowledge-base/01-architecture/modules.md) for the full module dependency graph.
 
 ### Database Architecture
 
