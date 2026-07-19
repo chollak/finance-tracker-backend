@@ -21,6 +21,8 @@ WEB_APP_URL=https://your-domain.example
 DATABASE_TYPE=sqlite # or supabase
 ```
 
+For deployment, keep real values in untracked `.env`; do not commit `.env`, `.env.local`, or `.env.development`. Docker Compose reads `.env`.
+
 For Supabase:
 
 ```bash

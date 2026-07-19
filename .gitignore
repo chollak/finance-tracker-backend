@@ -7,6 +7,7 @@ public/webapp/
 # Environment variables
 .env
 .env.local
+.env.development
 .env.*.local
 
 # BUT allow webapp production env (no secrets, just config)

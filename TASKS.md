@@ -433,7 +433,7 @@ Implementation notes:
 
 ### FT-013: Environment/config cleanup
 
-Status: pending
+Status: done
 Priority: medium
 Owner: Hermes
 Type: foundation/config
@@ -442,9 +442,16 @@ Goal:
 Clarify `.env`, `.env.local`, and `.env.development` behavior without exposing secrets.
 
 Definition of Done:
-- [ ] Env loading rules are documented
-- [ ] Example env remains safe
-- [ ] App startup behavior is clear
+- [x] Env loading rules are documented
+- [x] Example env remains safe
+- [x] App startup behavior is clear
+
+Implementation notes:
+- Removed tracked `.env.development` and added it to `.gitignore`; use `.env.local` for machine-specific local config.
+- Clarified `AppConfig` policy: existing `process.env` values stay highest priority; app loads `.env.local` if present, otherwise `.env`.
+- Refreshed `.env.example` as the only tracked safe template.
+- Updated README, CLAUDE.md, DEPLOYMENT.md, and quick-start docs.
+- Verified local `.env` still exists but was never printed with real values.
 
 ---
 

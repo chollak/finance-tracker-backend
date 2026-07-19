@@ -30,6 +30,18 @@ npm install
 
 See `.env.example` for full configuration options.
 
+### Environment file policy
+
+Tracked in Git:
+- `.env.example` — safe template only
+
+Ignored / local only:
+- `.env` — default local and Docker Compose env file
+- `.env.local` — machine-specific overrides; loaded before `.env`
+- `.env.development` — ignored legacy/local name; not loaded by the app
+
+`AppConfig` keeps existing `process.env` values as highest priority, then loads `.env.local` if present, otherwise `.env`.
+
 ## Build and Run
 
 To compile the TypeScript sources and start the application:

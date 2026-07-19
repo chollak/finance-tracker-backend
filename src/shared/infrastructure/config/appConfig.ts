@@ -2,21 +2,26 @@ import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
 
-// Load environment variables with priority: .env.local > .env > environment
+/**
+ * Environment policy:
+ * - Real secrets/config live in untracked `.env` or `.env.local`.
+ * - `.env.local` is preferred for machine-specific local overrides.
+ * - `.env` is the default local/docker env file.
+ * - Existing process.env values keep highest priority because dotenv does not override by default.
+ * - `.env.development` is intentionally not loaded; use `.env.local` instead.
+ */
 const loadEnvironment = () => {
   const localEnvPath = path.resolve(process.cwd(), '.env.local');
   const envPath = path.resolve(process.cwd(), '.env');
-  
-  // First try .env.local for local development
+
   if (fs.existsSync(localEnvPath)) {
     const result = dotenv.config({ path: localEnvPath });
     if (!result.error) {
-      console.log('Environment variables loaded from .env.local (development mode)');
+      console.log('Environment variables loaded from .env.local');
       return;
     }
   }
-  
-  // Fallback to .env
+
   if (fs.existsSync(envPath)) {
     const result = dotenv.config({ path: envPath });
     if (result.error) {
@@ -25,7 +30,7 @@ const loadEnvironment = () => {
       console.log('Environment variables loaded from .env');
     }
   } else {
-    console.warn('No .env file found, using environment variables');
+    console.warn('No .env.local or .env file found, using process environment variables');
   }
 };
 
@@ -36,7 +41,7 @@ export class AppConfig {
   static readonly NODE_ENV = process.env.NODE_ENV || 'development';
   static readonly PORT = parseInt(process.env.PORT || '3000', 10);
   static readonly IS_DEVELOPMENT = process.env.NODE_ENV === 'development';
-  
+
   // API Keys
   static readonly OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
   static readonly OPENAI_ORG_ID = process.env.OPENAI_ORG_ID || '';
@@ -47,21 +52,21 @@ export class AppConfig {
   // Development settings
   static readonly ENABLE_TELEGRAM_POLLING = process.env.ENABLE_TELEGRAM_POLLING === 'true';
   static readonly WEBHOOK_MODE = process.env.WEBHOOK_MODE === 'true';
-  
+
   // OpenAI Configuration
   static readonly OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4-turbo';
   static readonly WHISPER_MODEL = process.env.WHISPER_MODEL || 'whisper-1';
   static readonly DEFAULT_LANGUAGE = process.env.DEFAULT_LANGUAGE || 'ru';
-  
+
   // File Processing
   static readonly DOWNLOADS_PATH = process.env.DOWNLOADS_PATH || './downloads';
-  
+
   // Database Configuration
   static readonly DATABASE_TYPE = process.env.DATABASE_TYPE || 'sqlite'; // 'sqlite' or 'supabase'
   static readonly SUPABASE_URL = process.env.SUPABASE_URL || '';
   static readonly SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || '';
   static readonly SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-  
+
   // Get the appropriate web app URL for current environment
   static getWebAppUrl(): string {
     if (this.IS_DEVELOPMENT && this.NGROK_URL) {
@@ -69,7 +74,7 @@ export class AppConfig {
     }
     return this.WEB_APP_URL;
   }
-  
+
   static validate(): { isValid: boolean; errors: string[] } {
     const errors: string[] = [];
 

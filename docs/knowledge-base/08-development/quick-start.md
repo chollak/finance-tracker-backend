@@ -60,6 +60,14 @@ PORT=3000
 OPENAI_API_KEY=sk-...
 ```
 
+### Environment File Policy
+
+- `.env.example` is the only tracked env template.
+- `.env` is ignored and used as the default local/Docker env file.
+- `.env.local` is ignored and preferred for machine-specific overrides.
+- `.env.development` is ignored legacy/local naming; the app does not load it.
+- Loading order: existing `process.env` values stay highest priority; then `.env.local` if present; otherwise `.env`.
+
 **Получить OpenAI API Key:**
 1. Перейти на [platform.openai.com](https://platform.openai.com/)
 2. Sign up / Login

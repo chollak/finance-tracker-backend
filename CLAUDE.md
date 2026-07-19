@@ -53,6 +53,13 @@ Required environment variables in `.env` file:
 
 The application validates these on startup and will exit with descriptive errors if required variables are missing.
 
+**Environment file policy:**
+- Tracked: `.env.example` only.
+- Ignored/local: `.env`, `.env.local`, `.env.development`, `.env.*.local`.
+- `AppConfig` loads `.env.local` if present, otherwise `.env`; existing `process.env` values remain highest priority.
+- `.env.development` is ignored for backwards compatibility but is not loaded by the app. Use `.env.local` for machine-specific local values.
+- Never print real env values in logs/reports; list keys only with values redacted.
+
 ## Logging
 
 The application uses **Winston** for structured logging with category-based filtering.

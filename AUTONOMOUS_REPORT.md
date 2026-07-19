@@ -768,3 +768,41 @@ npm run verify
 ```
 
 Result: passed. Gate covered backend build, `jest --runInBand` (8 suites / 37 tests), webapp production build, dependency-cruiser, and circular dependency scan.
+
+
+## 2026-07-19 — FT-013 environment/config cleanup
+
+### Goal
+
+Clarify env file policy and remove ambiguity around `.env`, `.env.local`, and tracked `.env.development` without exposing secrets.
+
+### Discovery
+
+- `AppConfig` loaded `.env.local` if present, otherwise `.env`.
+- `.env.development` was tracked but not loaded by the app.
+- Local `.env` exists and remains untracked. Keys were inspected with values redacted only.
+
+### Changes
+
+- Removed tracked `.env.development` from the repository.
+- Added `.env.development` to `.gitignore` as an ignored local/legacy env filename.
+- Updated `AppConfig` comments and startup messages to document the real policy:
+  - existing `process.env` values stay highest priority
+  - `.env.local` is loaded first when present
+  - otherwise `.env` is loaded
+  - `.env.development` is intentionally not loaded
+- Refreshed `.env.example` as the single tracked safe template.
+- Updated env docs in:
+  - `README.md`
+  - `CLAUDE.md`
+  - `DEPLOYMENT.md`
+  - `docs/knowledge-base/08-development/quick-start.md`
+  - `TASKS.md`
+
+### Verification
+
+```bash
+npm run verify
+```
+
+Result: passed. Backend build, serial tests (8 suites / 37 tests), webapp build, and architecture checks passed.
