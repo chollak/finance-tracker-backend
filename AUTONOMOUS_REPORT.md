@@ -1085,3 +1085,45 @@ npm run verify
 ```
 
 Result: passed. No code behavior changed. Full suite: 12 suites / 141 tests. Backend build, webapp build, dependency-cruiser, and circular dependency scan passed.
+
+
+## 2026-07-19 — FT-017 cleanup plan for logs and contracts
+
+### Goal
+
+Preserve findings from FT-014 and define a safe follow-up path without changing production behavior.
+
+### Changes
+
+- Added `docs/knowledge-base/08-development/test-logging-and-contract-cleanup.md`.
+- Linked it from development documentation navigation (`README.md`, `CLAUDE.md`, knowledge-base README).
+- Added FT-017 to `TASKS.md`.
+
+### Findings Captured
+
+- Noisy test output from expected error-path tests and infrastructure logs.
+- `GetUserUseCase` not-found currently returns `success: true, data: null`.
+- `UpdateUserUseCase` missing user currently throws.
+- `resolveUserIdToUUID` currently fails open when resolution throws.
+- Empty string currently reaches user resolution as a telegramId.
+- Wildcard-mounted API not-found handler reports `/` instead of the actual unmatched path.
+
+### Recommended Order
+
+1. Quiet test logging.
+2. Fix API 404 path message.
+3. Decide user Result/error contracts.
+4. Validate empty user IDs.
+5. Decide resolver fail-open/fail-closed behavior after caller audit.
+
+### Non-Goals
+
+No production code changed. No API contract changed. No scheduler/background automation implemented.
+
+### Verification
+
+```bash
+npm run verify
+```
+
+Result: passed. Docs-only change; full suite remains 12 suites / 141 tests. Backend build, webapp build, dependency-cruiser, and circular dependency scan passed.

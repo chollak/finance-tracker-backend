@@ -53,6 +53,7 @@ Finance Tracker Backend — это backend система для управле�
 - [**Adding Features**](08-development/adding-features.md) - Как добавлять use cases, endpoints, модули
 - [**Database Guide**](08-development/database-guide.md) - SQLite vs Supabase, миграции
 - [**Troubleshooting**](08-development/troubleshooting.md) - Частые проблемы и решения
+- [**Test Logging & Contract Cleanup**](08-development/test-logging-and-contract-cleanup.md) - FT-017 findings and cleanup plan
 
 ---
 

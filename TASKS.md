@@ -515,6 +515,35 @@ Implementation notes:
 
 ---
 
+### FT-017: Test logging and error contract cleanup plan
+
+Status: done
+Priority: medium
+Owner: Hermes
+Type: foundation/quality
+
+Goal:
+Preserve findings from FT-014 and define a safe cleanup order for noisy test logs and behavior-contract decisions.
+
+Definition of Done:
+- [x] Findings documented from FT-014
+- [x] Follow-up subtasks split by risk
+- [x] No production behavior changed
+- [x] Recommended order recorded
+
+Implementation notes:
+- Added `docs/knowledge-base/08-development/test-logging-and-contract-cleanup.md`.
+- Captured follow-ups:
+  - FT-017A quiet test logging
+  - FT-017B decide `GetUserUseCase` not-found convention
+  - FT-017C normalize/document `UpdateUserUseCase` missing-user behavior
+  - FT-017D decide resolver fail-open vs fail-closed
+  - FT-017E validate empty userId early
+  - FT-017F fix API 404 path message
+- No code/contract changes were made.
+
+---
+
 ### FT-016: GitHub task workflow foundation
 
 Status: pending
