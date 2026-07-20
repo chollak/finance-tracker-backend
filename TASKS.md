@@ -651,6 +651,30 @@ Implementation notes:
 
 ---
 
+### FT-024: Auth/user resolution boundary matrix
+
+Status: done
+Priority: medium
+Owner: Hermes
+Type: foundation/security-architecture
+
+Goal:
+Document current auth, guest, ownership, and userId-resolution boundaries before strict resolver implementation.
+
+Definition of Done:
+- [x] Middleware semantics documented
+- [x] Route family boundary matrix recorded
+- [x] Strict vs loose resolver recommendations captured
+- [x] Stop conditions documented
+- [x] `npm run verify` passed
+
+Implementation notes:
+- Added `docs/knowledge-base/01-architecture/auth-user-resolution-boundary-matrix.md`.
+- Decision: keep current loose resolver behavior globally; introduce strict resolver separately before migrating security-sensitive paths.
+- Stop before changing subscription fail-open, voice missing-userId, guest access policy, or production auth behavior.
+
+---
+
 ### FT-004: Decide first product vector after stabilization
 
 Status: blocked

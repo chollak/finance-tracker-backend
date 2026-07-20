@@ -1518,3 +1518,60 @@ npm run verify
 ```
 
 Result: passed. Docs-only change; full verify passed (12 suites / 143 tests, backend build, webapp build, dependency-cruiser, circular dependency scan).
+
+
+## 2026-07-20 — FT-024 auth/user resolution boundary matrix
+
+### Goal
+
+Document current auth, guest, ownership, and userId-resolution boundaries before implementing strict resolver behavior.
+
+### Output
+
+Added:
+
+```text
+docs/knowledge-base/01-architecture/auth-user-resolution-boundary-matrix.md
+```
+
+### Summary
+
+Documented semantics for:
+
+- `requireAuth`
+- `optionalAuth`
+- `allowGuestMode`
+- `verifyOwnership`
+- `verifyResourceOwnership`
+- `createUserResolutionMiddleware`
+- `resolveUserIdToUUID`
+
+Route families were classified by auth mode, resolver behavior, ownership guard, guest allowance, and strictness.
+
+### Decision
+
+Do not globally change the loose resolver. Future strict behavior should be explicit:
+
+```ts
+resolveUserIdToUUIDLoose(...)
+resolveUserIdToUUIDStrict(...)
+```
+
+Then migrate security-sensitive paths one route family at a time.
+
+### Stop Conditions
+
+Stop before changing:
+
+- subscription fail-open/fail-closed behavior
+- voice text-input missing userId behavior
+- guest access policy for debt/budget/transaction resources
+- production auth behavior
+
+### Verification
+
+```bash
+npm run verify
+```
+
+Result: passed. Docs-only change; full verify passed (12 suites / 143 tests, backend build, webapp build, dependency-cruiser, circular dependency scan).
