@@ -627,6 +627,30 @@ Implementation notes:
 
 ---
 
+### FT-022: API route coverage matrix
+
+Status: done
+Priority: medium
+Owner: Hermes
+Type: foundation/tests
+
+Goal:
+Inventory current API route-level coverage and identify high-value next route tests before controller refactors.
+
+Definition of Done:
+- [x] Route family coverage matrix documented
+- [x] Existing tested route behaviors listed
+- [x] High-value next route test slices proposed
+- [x] No broad route test expansion
+- [x] `npm run verify` passed
+
+Implementation notes:
+- Added `docs/knowledge-base/08-development/api-route-coverage-matrix.md`.
+- Recommendation: add transaction route ownership/validation coverage before splitting/refactoring `transactionController.ts`.
+- Avoid testing every route mechanically; prioritize auth/ownership/validation/response-shape boundaries.
+
+---
+
 ### FT-004: Decide first product vector after stabilization
 
 Status: blocked

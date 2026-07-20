@@ -56,6 +56,7 @@ Finance Tracker Backend — это backend система для управле�
 - [**Troubleshooting**](08-development/troubleshooting.md) - Частые проблемы и решения
 - [**Test Logging & Contract Cleanup**](08-development/test-logging-and-contract-cleanup.md) - FT-017 findings and cleanup plan
 - [**Task Workflow**](08-development/task-workflow.md) - TASKS.md vs GitHub Issues decision
+- [**API Route Coverage Matrix**](08-development/api-route-coverage-matrix.md) - FT-022 route coverage audit
 
 ---
 

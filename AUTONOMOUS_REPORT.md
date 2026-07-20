@@ -1480,3 +1480,41 @@ npm run verify
 ```
 
 Result: passed. Targeted API route tests passed, TypeScript build passed, and full verify passed (12 suites / 143 tests, backend build, webapp build, dependency-cruiser, circular dependency scan).
+
+
+## 2026-07-20 — FT-022 API route coverage matrix
+
+### Goal
+
+Create a route-family coverage matrix before adding more API tests or refactoring controllers.
+
+### Output
+
+Added:
+
+```text
+docs/knowledge-base/08-development/api-route-coverage-matrix.md
+```
+
+### Summary
+
+Current route-level tests cover high-value critical wiring only: health, 404, CORS, malformed JSON, voice text-input guest/auth/validation, selected debt route behavior, and global error mapping.
+
+Missing/high-value future coverage areas:
+
+- Transaction route ownership/validation slice before transaction controller split/refactor.
+- Budget/debt raw validation error slices.
+- Subscription route validation and guest/free-tier mapping.
+- User route auth/self-access if `/api/users` becomes active frontend surface.
+
+### Recommendation
+
+Do not test every route mechanically. Prioritize route tests for auth/guest/ownership, validation-vs-500 mapping, response-shape contracts, and multi-middleware route wiring.
+
+### Verification
+
+```bash
+npm run verify
+```
+
+Result: passed. Docs-only change; full verify passed (12 suites / 143 tests, backend build, webapp build, dependency-cruiser, circular dependency scan).
