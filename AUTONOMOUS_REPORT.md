@@ -1448,3 +1448,35 @@ npm run verify
 ```
 
 Result: passed. Docs-only audit; full verify passed (12 suites / 142 tests, backend build, webapp build, dependency-cruiser, circular dependency scan).
+
+
+## 2026-07-20 — FT-020A debt controller raw error normalization
+
+### Goal
+
+Start addressing FT-018 Finding F2 with a small TDD slice: prevent a controller resource-not-found path from mapping to 500 due raw `new Error(...)`.
+
+### TDD Cycle
+
+1. Added an API route regression test for `GET /api/debts/debt-1?withPayments=true` where ownership verification succeeds but `executeGetWithPayments()` returns `success: true, data: null`.
+2. Ran `npm test -- apiRoutes --runInBand`; test failed with 500 instead of expected 404.
+3. Updated `DebtController.getDebt` to return `ErrorFactory.notFound('Debt', debtId)` instead of raw `new Error('Debt not found')` for this branch.
+4. Re-ran `npm test -- apiRoutes --runInBand && npm run build`; both passed.
+
+### Changes
+
+- `tests/apiRoutes.test.ts`
+  - added 404 regression coverage for null debt lookup after ownership verification.
+- `src/modules/debt/presentation/controllers/debtController.ts`
+  - normalized defensive null-data branch to `NotFoundError`.
+- Updated `TASKS.md` and FT-018 audit doc.
+
+### Verification
+
+```bash
+npm test -- apiRoutes --runInBand
+npm run build
+npm run verify
+```
+
+Result: passed. Targeted API route tests passed, TypeScript build passed, and full verify passed (12 suites / 143 tests, backend build, webapp build, dependency-cruiser, circular dependency scan).

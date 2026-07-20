@@ -603,6 +603,30 @@ Implementation notes:
 
 ---
 
+### FT-020: Normalize controller raw Error mapping
+
+Status: done
+Priority: medium
+Owner: Hermes
+Type: foundation/api
+
+Goal:
+Start normalizing controller paths where raw `new Error(...)` maps client/resource errors to 500. Keep scope to a small TDD slice.
+
+Definition of Done:
+- [x] Failing route test added first
+- [x] One raw-error path normalized to `AppError`/proper status
+- [x] Targeted test and build passed
+- [x] `npm run verify` passed
+
+Implementation notes:
+- Added API route regression coverage for `GET /api/debts/:debtId?withPayments=true` when ownership verification succeeds but the with-payments lookup returns `success: true, data: null`.
+- Before fix, route returned 500 due raw `new Error('Debt not found')`.
+- After fix, controller returns `ErrorFactory.notFound('Debt', debtId)` and API responds 404.
+- This is a first slice only; other raw validation errors remain listed in FT-018.
+
+---
+
 ### FT-004: Decide first product vector after stabilization
 
 Status: blocked

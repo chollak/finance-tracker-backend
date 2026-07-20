@@ -126,7 +126,7 @@ export class DebtController {
       }
 
       if (!result.data) {
-        return handleControllerError(new Error('Debt not found'), res);
+        return handleControllerError(ErrorFactory.notFound('Debt', debtId), res);
       }
 
       return handleControllerSuccess(result.data, res, 200, 'Debt retrieved successfully');

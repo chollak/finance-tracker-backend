@@ -245,6 +245,24 @@ describe('API routes and middleware (characterization)', () => {
       expect(body.success).toBe(true);
       expect(mocks.debtModule.getDebtsUseCase.executeGetAll).toHaveBeenCalledWith('555111', undefined);
     });
+
+    it('maps a null debt lookup after ownership verification to a 404, not a 500', async () => {
+      (mocks.debtModule.getDebtsUseCase.executeGetById as jest.Mock).mockResolvedValue({
+        success: true,
+        data: { id: 'debt-1', userId: 'guest_abc123' },
+      });
+      (mocks.debtModule.getDebtsUseCase.executeGetWithPayments as jest.Mock).mockResolvedValue({
+        success: true,
+        data: null,
+      });
+
+      const res = await fetch(`${baseUrl}/api/debts/debt-1?withPayments=true`);
+
+      expect(res.status).toBe(404);
+      const body = await res.json();
+      expect(body.success).toBe(false);
+      expect(body.error).toMatchObject({ code: 'NOT_FOUND' });
+    });
   });
 
   describe('global error handler', () => {
