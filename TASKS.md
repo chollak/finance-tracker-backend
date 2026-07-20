@@ -573,6 +573,36 @@ Implementation notes:
 
 ---
 
+### FT-018: API/domain consistency audit
+
+Status: done
+Priority: high
+Owner: Hermes
+Type: foundation/architecture
+
+Goal:
+Audit API/controller/use-case consistency after foundation cleanup and split the next safe architecture tasks.
+
+Definition of Done:
+- [x] Controller/use-case inventory completed
+- [x] Result/error/userId consistency findings recorded
+- [x] Risk-ranked next tasks proposed
+- [x] No broad source behavior changes made
+- [x] `npm run verify` passed
+
+Implementation notes:
+- Added `docs/knowledge-base/01-architecture/api-domain-consistency-audit.md`.
+- Main findings:
+  - Controller Result unwrapping is repetitive.
+  - Some validation paths use raw `new Error(...)`, which maps to 500 instead of 400.
+  - Use-case return conventions vary by module; document before enforcing globally.
+  - `transactionController.ts` is large and should not be split until route coverage improves.
+  - Guest/auth/ownership behavior needs a boundary matrix before strict resolver migration.
+  - Subscription limit fail-open and voice text-input default userId are product-policy questions, not automatic refactors.
+- Recommended autonomous next tasks: FT-019, FT-020, FT-022, FT-024.
+
+---
+
 ### FT-004: Decide first product vector after stabilization
 
 Status: blocked

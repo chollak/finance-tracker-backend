@@ -1389,3 +1389,62 @@ npm run verify
 ```
 
 Result: passed. Docs-only change; full verify passed (12 suites / 142 tests, backend build, webapp build, dependency-cruiser, circular dependency scan).
+
+
+## 2026-07-20 — FT-018 API/domain consistency audit
+
+### Goal
+
+Audit API/controller/use-case consistency after foundation cleanup and split safe autonomous architecture follow-up tasks.
+
+### Discovery
+
+Inspected Express composition, route mounts, controllers, application use cases, Result/error conventions, and userId/guest/ownership flows.
+
+Controller inventory highlights:
+
+- `transactionController.ts` is the largest controller (~530 lines) and combines analytics, CRUD, archive, validation, ownership, and learning-update logic.
+- Debt/budget/user/transaction controllers repeat manual Result unwrapping.
+- Dashboard/budget/debt controllers contain some raw `new Error(...)` validation branches.
+- Subscription and voice processing use service-style/raw return conventions rather than Result pattern.
+
+### Output
+
+Added:
+
+```text
+docs/knowledge-base/01-architecture/api-domain-consistency-audit.md
+```
+
+### Main Findings
+
+1. Controller Result unwrapping is repetitive and not helper-driven.
+2. Some client validation paths use raw `new Error(...)`, which maps to 500 `INTERNAL_ERROR`.
+3. Use-case return conventions vary; force-normalizing everything would be too broad.
+4. `transactionController.ts` needs coverage before any split.
+5. Guest/auth/ownership behavior should be captured as a boundary matrix before strict resolver implementation.
+6. Subscription limit fail-open behavior is a product/security policy decision.
+7. Voice text-input missing `userId` fallback to `'1'` is a product/data correctness policy decision.
+
+### Recommended Next Tasks
+
+Safe autonomous tasks:
+
+- FT-019: Standardize controller Result handling helper, one slice first.
+- FT-020: Normalize raw validation errors in controllers, one route family first.
+- FT-022: API route coverage matrix.
+- FT-024: Auth/user resolution boundary matrix.
+
+Stop for Shukur decision before:
+
+- FT-025: Subscription limit fail-open policy change.
+- FT-026: Voice text-input missing userId default change.
+- Any transaction/debt accounting semantics change.
+
+### Verification
+
+```bash
+npm run verify
+```
+
+Result: passed. Docs-only audit; full verify passed (12 suites / 142 tests, backend build, webapp build, dependency-cruiser, circular dependency scan).
