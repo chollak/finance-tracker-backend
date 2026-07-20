@@ -21,7 +21,7 @@ import { SubscriptionModule } from '../../../subscription/subscriptionModule';
 import { UserModule } from '../../../user/userModule';
 import { createIncrementUsageMiddleware } from '../../../../delivery/web/express/middleware/subscriptionMiddleware';
 import { createUserResolutionMiddleware } from '../../../../delivery/web/express/middleware/userResolutionMiddleware';
-import { allowGuestMode, verifyOwnership, requireAdmin } from '../../../../delivery/web/express/middleware/authMiddleware';
+import { allowGuestMode, optionalAuth, verifyOwnership, requireAdmin } from '../../../../delivery/web/express/middleware/authMiddleware';
 import { standardRateLimiter } from '../../../../delivery/web/express/middleware/rateLimitMiddleware';
 import { verifyResourceOwnership } from '../../../../shared/infrastructure/utils/ownershipVerification';
 import { createLogger, LogCategory } from '../../../../shared/infrastructure/logging';
@@ -277,7 +277,7 @@ export function createTransactionRouter(
   });
 
   // Transaction by ID routes - require auth + ownership verification
-  router.get('/:id', allowGuestMode, async (req, res) => {
+  router.get('/:id', optionalAuth, async (req, res) => {
     try {
       const transactionId = getStringParam(req, 'id');
 
@@ -298,7 +298,7 @@ export function createTransactionRouter(
     }
   });
 
-  router.delete('/:id', allowGuestMode, async (req, res) => {
+  router.delete('/:id', optionalAuth, async (req, res) => {
     try {
       const transactionId = getStringParam(req, 'id');
 
@@ -329,7 +329,7 @@ export function createTransactionRouter(
     }
   });
 
-  router.put('/:id', allowGuestMode, async (req, res) => {
+  router.put('/:id', optionalAuth, async (req, res) => {
     try {
       const transactionId = getStringParam(req, 'id');
 
@@ -406,7 +406,7 @@ export function createTransactionRouter(
   });
 
   // Archive endpoints - require ownership verification
-  router.post('/:id/archive', allowGuestMode, async (req, res) => {
+  router.post('/:id/archive', optionalAuth, async (req, res) => {
     try {
       const transactionId = getStringParam(req, 'id');
 
@@ -436,7 +436,7 @@ export function createTransactionRouter(
     }
   });
 
-  router.post('/:id/unarchive', allowGuestMode, async (req, res) => {
+  router.post('/:id/unarchive', optionalAuth, async (req, res) => {
     try {
       const transactionId = getStringParam(req, 'id');
 
@@ -466,7 +466,7 @@ export function createTransactionRouter(
     }
   });
 
-  router.post('/archive/batch', allowGuestMode, async (req, res) => {
+  router.post('/archive/batch', optionalAuth, async (req, res) => {
     try {
       const { ids } = req.body;
 

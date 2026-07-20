@@ -675,6 +675,33 @@ Implementation notes:
 
 ---
 
+### FT-022A: Transaction route ownership/validation tests
+
+Status: done
+Priority: high
+Owner: Hermes
+Type: foundation/tests
+
+Goal:
+Add route-level safety coverage for transaction by-id ownership/validation behavior before future transaction controller refactors.
+
+Definition of Done:
+- [x] Transaction route test harness added
+- [x] Missing transaction maps to 404
+- [x] Non-guest resource without auth fails closed
+- [x] Guest-owned resource can be read without auth
+- [x] Empty guest update body maps to 400 and does not call update use case
+- [x] Any exposed behavior bug fixed with TDD
+- [x] `npm run verify` passed
+
+Implementation notes:
+- Added `tests/transactionRoutes.test.ts` with 4 route-boundary tests.
+- RED exposed that transaction by-id/resource routes used `allowGuestMode`, which blocks requests without `userId` before resource ownership can be checked.
+- Updated transaction resource-scoped routes (`/:id`, delete/update/archive/unarchive/batch archive) to use `optionalAuth`, matching Budget/Debt resource-scoped patterns.
+- Controller-level `verifyResourceOwnership` still fails closed for non-guest resources and allows guest-owned resources.
+
+---
+
 ### FT-004: Decide first product vector after stabilization
 
 Status: blocked

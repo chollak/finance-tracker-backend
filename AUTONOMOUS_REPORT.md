@@ -1575,3 +1575,36 @@ npm run verify
 ```
 
 Result: passed. Docs-only change; full verify passed (12 suites / 143 tests, backend build, webapp build, dependency-cruiser, circular dependency scan).
+
+
+## 2026-07-20 — FT-022A transaction route ownership/validation tests
+
+### Goal
+
+Add focused route-level safety coverage for transaction by-id/resource behavior before any transaction controller refactor.
+
+### TDD Cycle
+
+1. Added `tests/transactionRoutes.test.ts` with a minimal Express app mounting the real `createTransactionRouter()` and mocked use cases.
+2. Added route tests for missing transaction 404, non-guest resource fail-closed behavior, guest-owned resource read access, and empty update body validation.
+3. Ran `npm test -- transactionRoutes --runInBand`; tests failed with 401 for by-id routes because `allowGuestMode` requires a userId before controller/resource ownership can run.
+4. Updated transaction resource-scoped routes to use `optionalAuth`, matching Budget/Debt by-id route patterns.
+5. Re-ran `npm test -- transactionRoutes --runInBand && npm run build`; both passed.
+
+### Changes
+
+- `tests/transactionRoutes.test.ts`
+  - new transaction route-boundary test suite.
+- `src/modules/transaction/presentation/controllers/transactionController.ts`
+  - by-id/resource-scoped routes now use `optionalAuth` so controller-level `verifyResourceOwnership` can decide guest/non-guest access based on the fetched resource.
+- Updated route coverage matrix and `TASKS.md`.
+
+### Verification
+
+```bash
+npm test -- transactionRoutes --runInBand
+npm run build
+npm run verify
+```
+
+Result: passed. Transaction route tests passed, TypeScript build passed, and full verify passed (13 suites / 147 tests, backend build, webapp build, dependency-cruiser, circular dependency scan).

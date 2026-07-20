@@ -37,7 +37,7 @@ Prefer unit/use-case tests for pure business logic and route tests for HTTP/midd
 | Health / global middleware | `GET /api/health`, 404, CORS, malformed JSON, global error handler | partial/high-value covered | low | Keep current coverage. |
 | Voice | `POST /api/voice/text-input`, `POST /api/voice/voice-input` | text-input covered for JSON parsing, guest, auth, validation | medium | Add voice upload coverage only if endpoint changes; avoid heavy file tests for now. |
 | Debt | `POST /api/debts/user/:userId`, `GET /api/debts/user/:userId`, `GET /api/debts/:debtId`, pay/cancel/delete | create/list auth covered; null getDebt not-found covered | high | Next route tests should cover pay debt auth/ownership and validation errors. |
-| Transaction | CRUD, analytics, archive, batch archive | not covered at route level except indirectly via use-case tests | high | Add focused coverage before any transaction controller split/refactor. |
+| Transaction | CRUD, analytics, archive, batch archive | resource by-id ownership/404/update validation covered; broader CRUD/archive gaps remain | high | Add more focused coverage before any transaction controller split/refactor. |
 | Budget | user budgets, summaries, alerts, by-id update/delete/recalculate | not covered at route level | medium | Add missing-user validation and ownership route tests before controller cleanup. |
 | Subscription | status, check-limit, grant, cancel, start-trial | covered at use-case level, not route level | medium-high | Add route tests around guest status/check-limit and invalid limitType. |
 | User | get/create/update user | covered at use-case/helper level, not route level | medium | Add auth/self-access tests if user routes become active frontend surface. |
@@ -70,13 +70,21 @@ From `tests/apiRoutes.test.ts`:
 
 ### FT-022A — Transaction route ownership / validation slice
 
+Status: done.
+
 **Why:** `transactionController.ts` is the largest and riskiest controller. Before splitting/refactoring it, add focused route coverage.
 
-Candidate tests:
+Implemented tests:
 
 - `GET /api/transactions/:id` returns 404 when use case returns `NotFoundError`.
-- `DELETE /api/transactions/:id` rejects non-owner / unauthenticated non-guest.
-- `PUT /api/transactions/:id` rejects empty update body with 400 validation.
+- `GET /api/transactions/:id` fails closed with 403 for non-guest resource without auth.
+- `GET /api/transactions/:id` allows guest-owned resource without auth.
+- `PUT /api/transactions/:id` rejects empty guest update body with 400 validation and does not call update use cases.
+
+Behavior fix discovered via RED → GREEN:
+
+- Transaction resource-scoped routes used `allowGuestMode`, which requires a `userId` in params/body/query before allowing guest mode. By-id routes only have transaction IDs, so they returned 401 before resource ownership could be checked.
+- Updated transaction resource-scoped routes to use `optionalAuth`, matching Budget/Debt resource-scoped route pattern. Controller-level `verifyResourceOwnership` still fails closed for non-guest resources and allows guest-owned resources.
 
 ### FT-022B — Budget/debt raw validation error slices
 
