@@ -248,22 +248,15 @@ Keep for now, but later consider an audit/event log or warning surface if transa
 
 ### FT-021A — Fix voice linkedTransactionId contract
 
-Risk: medium-low.
+Status: done.
 
-Goal:
+Implemented:
 
-- Add tests proving voice/text debt response currently reports `linkedTransactionId` incorrectly.
-- Decide desired response:
-  - return `debtId` only, or
-  - return actual linked transaction ID.
+- Added a regression test proving the text-input debt response must not report the debt ID as `linkedTransactionId` when no actual transaction ID is available.
+- `ProcessTextInputUseCase` and `ProcessVoiceInputUseCase` now set `linkedTransactionId` from `result.data.relatedTransactionId` only.
+- Since current debt creation does not populate `relatedTransactionId`, the field is omitted instead of lying with the debt ID.
 
-Safer path:
-
-```text
-Rename/clarify response field to debtId unless actual transaction ID is available.
-```
-
-Stop if frontend/Telegram clients rely on the old field.
+Follow-up remains: decide whether to populate `Debt.relatedTransactionId` or remove/deprecate that field.
 
 ### FT-021B — Decide analytics modes
 

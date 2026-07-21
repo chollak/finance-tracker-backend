@@ -848,6 +848,30 @@ Implementation notes:
 
 ---
 
+### FT-021A: Voice debt linkedTransactionId contract
+
+Status: done
+Priority: medium
+Owner: Hermes
+Type: foundation/domain-contract
+
+Goal:
+Stop voice/text debt responses from reporting a debt ID as `linkedTransactionId` when no actual transaction ID is available.
+
+Definition of Done:
+- [x] RED test proves `linkedTransactionId` should not equal debt ID when debt has no transaction ID
+- [x] Text input debt response uses actual `Debt.relatedTransactionId` only
+- [x] Voice input debt response uses actual `Debt.relatedTransactionId` only
+- [x] Targeted tests and TypeScript build passed
+- [x] `npm run verify` passed
+
+Implementation notes:
+- Added a regression test in `tests/processTextInput.test.ts`.
+- Updated `ProcessTextInputUseCase` and `ProcessVoiceInputUseCase`.
+- This does not yet populate `Debt.relatedTransactionId`; it only prevents a misleading response field.
+
+---
+
 ### FT-004: Decide first product vector after stabilization
 
 Status: blocked

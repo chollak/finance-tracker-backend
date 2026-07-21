@@ -1,6 +1,8 @@
 import { ProcessTextInputUseCase } from '../src/modules/voiceProcessing/application/processTextInput';
 import { TranscriptionService } from '../src/modules/voiceProcessing/domain/transcriptionService';
 import { CreateTransactionUseCase } from '../src/modules/transaction/application/createTransaction';
+import { CreateDebtUseCase } from '../src/modules/debt/application/createDebt';
+import { DebtStatus, DebtType } from '../src/modules/debt/domain/debtEntity';
 
 jest.mock('../src/modules/voiceProcessing/infrastructure/openAITranscriptionService');
 
@@ -126,5 +128,56 @@ describe('ProcessTextInputUseCase', () => {
     expect(createTransactionUseCase.execute).toHaveBeenCalled();
     // Should return empty transactions when creation fails
     expect(result.transactions).toHaveLength(0);
+  });
+
+  it('does not report the debt id as linkedTransactionId when the debt result has no transaction id', async () => {
+    const openAIService = {
+      analyzeInput: jest.fn().mockResolvedValue({
+        transactions: [],
+        debts: [{
+          debtType: 'owed_to_me',
+          personName: 'Bob',
+          amount: 100,
+          dueDate: null,
+          description: 'lent Bob 100',
+          moneyTransferred: true,
+          confidence: 0.9,
+        }],
+      }),
+      analyzeTransactions: jest.fn(),
+      transcribe: jest.fn(),
+    } as unknown as TranscriptionService;
+
+    const createTransactionUseCase = {
+      execute: jest.fn(),
+    } as unknown as CreateTransactionUseCase;
+    const createDebtUseCase = {
+      execute: jest.fn().mockResolvedValue({
+        success: true,
+        data: {
+          id: 'debt-1',
+          userId: 'user1',
+          type: DebtType.OWED_TO_ME,
+          personName: 'Bob',
+          originalAmount: 100,
+          remainingAmount: 100,
+          currency: 'UZS',
+          status: DebtStatus.ACTIVE,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      }),
+    } as unknown as CreateDebtUseCase;
+
+    const useCase = new ProcessTextInputUseCase(openAIService, createTransactionUseCase, createDebtUseCase);
+
+    const result = await useCase.execute('lent Bob 100', 'user1');
+
+    expect(result.debts).toEqual([
+      expect.objectContaining({
+        id: 'debt-1',
+        linkedTransactionId: undefined,
+      }),
+    ]);
   });
 });

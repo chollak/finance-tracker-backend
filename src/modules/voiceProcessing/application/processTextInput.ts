@@ -95,8 +95,8 @@ export class ProcessTextInputUseCase {
               dueDate: d.dueDate,
               description: d.description,
               confidence: d.confidence,
-              // Transaction is created internally, we get the debt back
-              linkedTransactionId: d.moneyTransferred ? result.data.id : undefined,
+              // Only report a real linked transaction id when the debt result provides one.
+              linkedTransactionId: result.data.relatedTransactionId,
             });
           } else {
             // Re-throw DebtLimitExceededError to show user-friendly message

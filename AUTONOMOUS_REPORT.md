@@ -1809,3 +1809,34 @@ npm run verify
 ```
 
 Result: passed. Docs-only change; full verify passed (17 suites / 160 tests, backend build, webapp build, dependency-cruiser, circular dependency scan).
+
+
+## 2026-07-20 — FT-021A voice debt linkedTransactionId contract
+
+### Goal
+
+Fix the response-contract issue found in FT-021: voice/text debt responses reported the debt ID as `linkedTransactionId` even though no actual transaction ID was available.
+
+### TDD Cycle
+
+1. Added a regression test to `tests/processTextInput.test.ts`.
+2. Ran `npm test -- processTextInput --runInBand`; test failed because `linkedTransactionId` was `debt-1`.
+3. Updated text and voice input use cases to set `linkedTransactionId` from `result.data.relatedTransactionId` only.
+4. Re-ran `npm test -- processTextInput --runInBand && npm run build`; both passed.
+
+### Changes
+
+- `tests/processTextInput.test.ts`
+- `src/modules/voiceProcessing/application/processTextInput.ts`
+- `src/modules/voiceProcessing/application/processVoiceInput.ts`
+- Updated FT-021 audit doc and `TASKS.md`.
+
+### Verification
+
+```bash
+npm test -- processTextInput --runInBand
+npm run build
+npm run verify
+```
+
+Result: passed. processTextInput tests, TypeScript build, and full verify passed (17 suites / 161 tests, backend build, webapp build, dependency-cruiser, circular dependency scan).
