@@ -50,7 +50,7 @@ export class BudgetController {
       const userId = req.resolvedUser?.id || req.params.userId;
 
       if (!userId) {
-        return handleControllerError(new Error('User ID is required'), res);
+        return handleControllerError(ErrorFactory.validation('User ID is required'), res);
       }
 
       const budgetData: CreateBudgetData = {
@@ -83,7 +83,7 @@ export class BudgetController {
       const { active } = req.query;
 
       if (!userId) {
-        return handleControllerError(new Error('User ID is required'), res);
+        return handleControllerError(ErrorFactory.validation('User ID is required'), res);
       }
 
       const result = active === 'true' 
@@ -119,7 +119,7 @@ export class BudgetController {
       const userId = req.resolvedUser?.id || req.params.userId;
 
       if (!userId) {
-        return handleControllerError(new Error('User ID is required'), res);
+        return handleControllerError(ErrorFactory.validation('User ID is required'), res);
       }
 
       // Recalculate spent amounts before returning summaries
@@ -203,7 +203,7 @@ export class BudgetController {
       const { threshold } = req.query;
 
       if (!userId) {
-        return handleControllerError(new Error('User ID is required'), res);
+        return handleControllerError(ErrorFactory.validation('User ID is required'), res);
       }
 
       // Recalculate spent amounts before checking alerts

@@ -1640,3 +1640,35 @@ npm run verify
 ```
 
 Result: passed. Dashboard controller tests passed, TypeScript build passed, and full verify passed (14 suites / 149 tests, backend build, webapp build, dependency-cruiser, circular dependency scan).
+
+
+## 2026-07-20 — FT-020C budget validation error normalization
+
+### Goal
+
+Continue FT-020 raw controller error cleanup with a budget controller TDD slice.
+
+### TDD Cycle
+
+1. Added `tests/budgetController.test.ts` for missing `userId` branches on create budget and budget alerts.
+2. Ran `npm test -- budgetController --runInBand`; both tests failed because raw `new Error('User ID is required')` mapped to 500.
+3. Replaced all budget missing-userId raw errors with `ErrorFactory.validation('User ID is required')`.
+4. Re-ran `npm test -- budgetController --runInBand && npm run build`; both passed.
+
+### Changes
+
+- `tests/budgetController.test.ts`
+  - added defensive controller validation regression coverage.
+- `src/modules/budget/interfaces/budgetController.ts`
+  - all missing-userId branches now return `ValidationError`/400 instead of raw `Error`/500.
+- Updated FT-018 audit doc and `TASKS.md`.
+
+### Verification
+
+```bash
+npm test -- budgetController --runInBand
+npm run build
+npm run verify
+```
+
+Result: passed. Budget controller tests passed, TypeScript build passed, and full verify passed (15 suites / 151 tests, backend build, webapp build, dependency-cruiser, circular dependency scan).

@@ -169,6 +169,8 @@ FT-020A completed: debt `getDebt(...?withPayments=true)` now maps a defensive nu
 
 FT-020B completed: dashboard missing-userId controller branches now use `ErrorFactory.validation(...)` and map to 400 instead of raw `Error`/500, with controller regression tests.
 
+FT-020C completed: budget missing-userId controller branches now use `ErrorFactory.validation(...)` and map to 400 instead of raw `Error`/500, with controller regression tests.
+
 Good first slice:
 
 - budget/debt/dashboard missing `userId` branches

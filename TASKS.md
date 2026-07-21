@@ -725,6 +725,29 @@ Implementation notes:
 
 ---
 
+### FT-020C: Budget validation error normalization
+
+Status: done
+Priority: medium
+Owner: Hermes
+Type: foundation/api
+
+Goal:
+Normalize budget controller missing-userId errors from raw `Error`/500 to `ValidationError`/400.
+
+Definition of Done:
+- [x] RED controller tests prove raw missing-userId errors mapped to 500
+- [x] Budget missing-userId branches use `ErrorFactory.validation(...)`
+- [x] Targeted tests and TypeScript build passed
+- [x] `npm run verify` passed
+
+Implementation notes:
+- Added `tests/budgetController.test.ts` for create budget and budget alerts missing-userId branches.
+- Replaced all budget controller `new Error('User ID is required')` branches with `ErrorFactory.validation('User ID is required')`.
+- This is defensive controller-level cleanup; current route definitions still include `:userId` on user-scoped budget routes.
+
+---
+
 ### FT-004: Decide first product vector after stabilization
 
 Status: blocked
