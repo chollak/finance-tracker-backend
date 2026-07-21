@@ -872,6 +872,31 @@ Implementation notes:
 
 ---
 
+### FT-023: DTO/schema validation consistency audit
+
+Status: done
+Priority: medium
+Owner: Hermes
+Type: foundation/architecture
+
+Goal:
+Audit validation layering and decide whether to introduce a schema library or continue with current helpers.
+
+Definition of Done:
+- [x] Controller/use-case/shared-validator layers documented
+- [x] Existing shared validation helpers documented
+- [x] Risks around parseFloat/parseInt/message churn documented
+- [x] Decision recorded: no new schema dependency now
+- [x] `npm run verify` passed
+
+Implementation notes:
+- Added `docs/knowledge-base/01-architecture/dto-schema-validation-audit.md`.
+- Decision: keep controller/use-case validation split; do not add Zod/Yup/Joi yet.
+- Use existing `Validators` / `TransactionValidator` opportunistically in small TDD slices.
+- Avoid global validation message churn because it can break clients/tests.
+
+---
+
 ### FT-004: Decide first product vector after stabilization
 
 Status: blocked

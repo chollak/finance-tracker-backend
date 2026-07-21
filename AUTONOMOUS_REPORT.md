@@ -1840,3 +1840,41 @@ npm run verify
 ```
 
 Result: passed. processTextInput tests, TypeScript build, and full verify passed (17 suites / 161 tests, backend build, webapp build, dependency-cruiser, circular dependency scan).
+
+
+## 2026-07-20 — FT-023 DTO/schema validation consistency audit
+
+### Goal
+
+Audit validation layering after FT-020 cleanup and decide whether a schema library is needed before more controller refactors.
+
+### Output
+
+Added:
+
+```text
+docs/knowledge-base/01-architecture/dto-schema-validation-audit.md
+```
+
+### Decision
+
+Do not add a new schema dependency now.
+
+Keep this split:
+
+```text
+Controller: HTTP shape / request parsing / route params
+Use case: business invariants / domain rules
+Shared validators: reusable primitive/domain validators
+Repository: persistence errors only
+```
+
+Adopt existing `Validators` / `TransactionValidator` opportunistically in small TDD slices.
+
+### Verification
+
+```bash
+npm run verify
+```
+
+Result: passed. Docs-only change; full verify passed (17 suites / 161 tests, backend build, webapp build, dependency-cruiser, circular dependency scan).

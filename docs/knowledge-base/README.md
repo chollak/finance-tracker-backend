@@ -39,6 +39,7 @@ Finance Tracker Backend — это backend система для управле�
 - [**API / Domain Consistency Audit**](01-architecture/api-domain-consistency-audit.md) - FT-018 controller/use-case/API contract audit
 - [**Auth / User Resolution Boundary Matrix**](01-architecture/auth-user-resolution-boundary-matrix.md) - FT-024 auth/guest/ownership boundaries
 - [**Transaction / Debt Relationship Audit**](01-architecture/transaction-debt-relationship-audit.md) - FT-021 debt/transaction accounting semantics
+- [**DTO / Schema Validation Consistency Audit**](01-architecture/dto-schema-validation-audit.md) - FT-023 validation layering policy
 
 ### 🔄 [Data Flow](07-data-flow/)
 
