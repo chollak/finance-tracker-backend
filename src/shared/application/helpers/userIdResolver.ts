@@ -7,7 +7,7 @@
 
 import { UserModule } from '../../../modules/user/userModule';
 import { createLogger, LogCategory } from '../logging';
-import { ValidationError } from '../../domain/errors/AppError';
+import { BusinessLogicError, ValidationError } from '../../domain/errors/AppError';
 
 const logger = createLogger(LogCategory.USER);
 
@@ -78,6 +78,43 @@ export async function resolveUserIdToUUID(
     logger.error(`Failed to resolve userId "${trimmedId}" to UUID`, error as Error);
     // Return original if resolution fails (fail-open for backwards compatibility)
     return trimmedId;
+  }
+}
+
+/**
+ * Resolve any userId format to UUID and fail closed if async resolution fails.
+ *
+ * Use this for future security-sensitive HTTP/API boundaries where silently
+ * falling back to a raw telegramId would be unsafe. The existing
+ * `resolveUserIdToUUID()` helper remains fail-open for backwards-compatible
+ * Telegram/guest flows until individual routes are explicitly migrated.
+ */
+export async function resolveUserIdToUUIDStrict(
+  userId: string,
+  userModule: UserModule
+): Promise<string> {
+  const trimmedId = userId.trim();
+
+  if (!trimmedId) {
+    throw new ValidationError('userId is required', 'userId');
+  }
+
+  if (isGuestUser(trimmedId)) {
+    return trimmedId;
+  }
+
+  if (isUUID(trimmedId)) {
+    return trimmedId;
+  }
+
+  try {
+    const user = await userModule.getGetOrCreateUserUseCase().execute({
+      telegramId: trimmedId,
+    });
+    return user.id;
+  } catch (error) {
+    logger.error(`Strict userId resolution failed for "${trimmedId}"`, error as Error);
+    throw new BusinessLogicError('Failed to resolve userId to UUID', { userId: trimmedId });
   }
 }
 

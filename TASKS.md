@@ -770,6 +770,31 @@ Implementation notes:
 
 ---
 
+### FT-024A: Strict userId resolver helper
+
+Status: done
+Priority: medium
+Owner: Hermes
+Type: foundation/security-architecture
+
+Goal:
+Add a strict userId resolver helper for future security-sensitive API boundaries without migrating existing routes yet.
+
+Definition of Done:
+- [x] `resolveUserIdToUUIDStrict(...)` added
+- [x] Existing loose `resolveUserIdToUUID(...)` behavior unchanged
+- [x] Tests cover UUID/guest passthrough, telegramId resolution, empty-id validation, and fail-closed resolver errors
+- [x] No route migration performed in this task
+- [x] `npm run verify` passed
+
+Implementation notes:
+- Added `resolveUserIdToUUIDStrict(...)` in `src/shared/application/helpers/userIdResolver.ts`.
+- Strict resolver throws `BusinessLogicError('Failed to resolve userId to UUID')` when telegramId resolution fails.
+- Kept current fail-open resolver for backwards-compatible Telegram/guest flows.
+- Extended `tests/userResolution.test.ts` from 40 to 44 tests.
+
+---
+
 ### FT-004: Decide first product vector after stabilization
 
 Status: blocked

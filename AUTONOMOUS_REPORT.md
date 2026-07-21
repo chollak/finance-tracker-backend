@@ -1705,3 +1705,36 @@ npm run verify
 ```
 
 Result: passed. Debt controller tests passed, TypeScript build passed, and full verify passed (16 suites / 154 tests, backend build, webapp build, dependency-cruiser, circular dependency scan).
+
+
+## 2026-07-20 — FT-024A strict userId resolver helper
+
+### Goal
+
+Add an explicit fail-closed userId resolver helper for future security-sensitive API boundaries without changing existing route behavior.
+
+### TDD Cycle
+
+1. Added tests to `tests/userResolution.test.ts` for `resolveUserIdToUUIDStrict(...)`.
+2. Initial targeted test run failed because the strict helper did not exist.
+3. Implemented `resolveUserIdToUUIDStrict(...)` in `userIdResolver.ts`.
+4. Re-ran `npm test -- userResolution --runInBand && npm run build`; both passed.
+
+### Changes
+
+- `src/shared/application/helpers/userIdResolver.ts`
+  - added `resolveUserIdToUUIDStrict(...)`; existing `resolveUserIdToUUID(...)` remains fail-open.
+- `tests/userResolution.test.ts`
+  - added strict resolver coverage: UUID/guest passthrough, telegramId resolution, fail-closed errors, empty-id validation.
+- `docs/knowledge-base/01-architecture/auth-user-resolution-boundary-matrix.md`
+  - marked FT-024A done and recorded no route migration yet.
+
+### Verification
+
+```bash
+npm test -- userResolution --runInBand
+npm run build
+npm run verify
+```
+
+Result: passed. User resolution tests passed, TypeScript build passed, and full verify passed (16 suites / 158 tests, backend build, webapp build, dependency-cruiser, circular dependency scan).

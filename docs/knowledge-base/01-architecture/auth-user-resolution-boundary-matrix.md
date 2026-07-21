@@ -152,7 +152,7 @@ Recommended future API:
 
 ```ts
 resolveUserIdToUUIDLoose(...)  // current behavior
-resolveUserIdToUUIDStrict(...) // throws on resolver failure
+resolveUserIdToUUIDStrict(...) // implemented; throws on resolver failure
 ```
 
 Do not silently change the current helper globally.
@@ -188,12 +188,16 @@ Do not change without product/security decision.
 
 ### FT-024A — Add strict resolver helper without migrating routes
 
-Risk: low-medium.
+Status: done.
 
-- Add `resolveUserIdToUUIDStrict(...)` as a wrapper/new helper.
-- Keep `resolveUserIdToUUID(...)` behavior unchanged or rename only if safe.
-- Add focused tests for strict failure behavior.
-- Do not migrate routes yet.
+Implemented:
+
+- Added `resolveUserIdToUUIDStrict(...)`.
+- Kept `resolveUserIdToUUID(...)` fail-open behavior unchanged.
+- Added focused tests for UUID/guest passthrough, telegramId resolution, empty-id validation, and fail-closed resolver errors.
+- No routes were migrated yet.
+
+Use strict resolver only after selecting a specific security-sensitive boundary and adding route/middleware coverage.
 
 ### FT-024B — Migrate one strict route boundary
 
