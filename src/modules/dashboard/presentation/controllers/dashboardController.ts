@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { DashboardService } from '../../application/services/dashboardService';
 import { AlertService, AlertType, AlertSeverity } from '../../../../shared/application/services/alertService';
 import { handleControllerError, handleControllerSuccess } from '../../../../shared/infrastructure/utils/controllerHelpers';
+import { ErrorFactory } from '../../../../shared/domain/errors/AppError';
 
 export class DashboardController {
   constructor(
@@ -16,7 +17,7 @@ export class DashboardController {
       const { startDate, endDate } = req.query;
 
       if (!userId) {
-        return handleControllerError(new Error('User ID is required'), res);
+        return handleControllerError(ErrorFactory.validation('User ID is required'), res);
       }
 
       let timeRange = undefined;
@@ -41,7 +42,7 @@ export class DashboardController {
       const weeks = req.query.weeks ? parseInt(req.query.weeks as string) : 4;
 
       if (!userId) {
-        return handleControllerError(new Error('User ID is required'), res);
+        return handleControllerError(ErrorFactory.validation('User ID is required'), res);
       }
 
       const insights = await this.dashboardService.getWeeklyInsights(userId, weeks);
@@ -57,7 +58,7 @@ export class DashboardController {
       const userId = req.resolvedUser?.id || req.params.userId;
 
       if (!userId) {
-        return handleControllerError(new Error('User ID is required'), res);
+        return handleControllerError(ErrorFactory.validation('User ID is required'), res);
       }
 
       const healthScore = await this.dashboardService.calculateFinancialHealthScore(userId);
@@ -75,7 +76,7 @@ export class DashboardController {
       const { type, severity } = req.query;
 
       if (!userId) {
-        return handleControllerError(new Error('User ID is required'), res);
+        return handleControllerError(ErrorFactory.validation('User ID is required'), res);
       }
 
       let alerts;
@@ -99,7 +100,7 @@ export class DashboardController {
       const userId = req.resolvedUser?.id || req.params.userId;
 
       if (!userId) {
-        return handleControllerError(new Error('User ID is required'), res);
+        return handleControllerError(ErrorFactory.validation('User ID is required'), res);
       }
 
       const summary = await this.alertService.getAlertSummary(userId);
@@ -117,7 +118,7 @@ export class DashboardController {
       const { startDate, endDate } = req.query;
 
       if (!userId) {
-        return handleControllerError(new Error('User ID is required'), res);
+        return handleControllerError(ErrorFactory.validation('User ID is required'), res);
       }
 
       let timeRange = undefined;
@@ -167,7 +168,7 @@ export class DashboardController {
       const userId = req.resolvedUser?.id || req.params.userId;
 
       if (!userId) {
-        return handleControllerError(new Error('User ID is required'), res);
+        return handleControllerError(ErrorFactory.validation('User ID is required'), res);
       }
 
       const [insights, alertSummary] = await Promise.all([

@@ -702,6 +702,29 @@ Implementation notes:
 
 ---
 
+### FT-020B: Dashboard validation error normalization
+
+Status: done
+Priority: medium
+Owner: Hermes
+Type: foundation/api
+
+Goal:
+Normalize dashboard controller missing-userId errors from raw `Error`/500 to `ValidationError`/400.
+
+Definition of Done:
+- [x] RED controller tests prove raw missing-userId errors mapped to 500
+- [x] Dashboard missing-userId branches use `ErrorFactory.validation(...)`
+- [x] Targeted tests and TypeScript build passed
+- [x] `npm run verify` passed
+
+Implementation notes:
+- Added `tests/dashboardController.test.ts` for missing userId on insights and quick stats.
+- Replaced all dashboard `new Error('User ID is required')` branches with `ErrorFactory.validation('User ID is required')`.
+- Route patterns still require `:userId`; this covers defensive/controller-level behavior and prevents future helper reuse from mapping validation to 500.
+
+---
+
 ### FT-004: Decide first product vector after stabilization
 
 Status: blocked

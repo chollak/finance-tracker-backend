@@ -167,6 +167,8 @@ FT-020: Normalize controller validation errors
 
 FT-020A completed: debt `getDebt(...?withPayments=true)` now maps a defensive null-data lookup to `NotFoundError`/404 instead of raw `Error`/500, with an API route regression test.
 
+FT-020B completed: dashboard missing-userId controller branches now use `ErrorFactory.validation(...)` and map to 400 instead of raw `Error`/500, with controller regression tests.
+
 Good first slice:
 
 - budget/debt/dashboard missing `userId` branches
