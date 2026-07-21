@@ -1672,3 +1672,36 @@ npm run verify
 ```
 
 Result: passed. Budget controller tests passed, TypeScript build passed, and full verify passed (15 suites / 151 tests, backend build, webapp build, dependency-cruiser, circular dependency scan).
+
+
+## 2026-07-20 — FT-020D debt validation error normalization
+
+### Goal
+
+Continue FT-020 raw controller error cleanup with a debt controller TDD slice.
+
+### TDD Cycle
+
+1. Scanned remaining raw controller errors; `DebtController` was the remaining high-density presentation-layer source.
+2. Added `tests/debtController.test.ts` for missing `userId`, `debtId`, and `paymentId` branches.
+3. Ran `npm test -- debtController --runInBand`; tests failed because raw `new Error(...)` mapped to 500.
+4. Replaced all debt controller missing-id raw errors with `ErrorFactory.validation(...)`.
+5. Re-ran `npm test -- debtController --runInBand && npm run build`; both passed.
+
+### Changes
+
+- `tests/debtController.test.ts`
+  - added defensive controller validation regression coverage.
+- `src/modules/debt/presentation/controllers/debtController.ts`
+  - missing userId/debtId/paymentId branches now return `ValidationError`/400 instead of raw `Error`/500.
+- Updated FT-018 audit doc and `TASKS.md`.
+
+### Verification
+
+```bash
+npm test -- debtController --runInBand
+npm run build
+npm run verify
+```
+
+Result: passed. Debt controller tests passed, TypeScript build passed, and full verify passed (16 suites / 154 tests, backend build, webapp build, dependency-cruiser, circular dependency scan).

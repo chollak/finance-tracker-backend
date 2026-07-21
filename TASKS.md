@@ -748,6 +748,28 @@ Implementation notes:
 
 ---
 
+### FT-020D: Debt validation error normalization
+
+Status: done
+Priority: medium
+Owner: Hermes
+Type: foundation/api
+
+Goal:
+Normalize debt controller missing-id errors from raw `Error`/500 to `ValidationError`/400.
+
+Definition of Done:
+- [x] RED controller tests prove raw missing-id errors mapped to 500
+- [x] Debt missing userId/debtId/paymentId branches use `ErrorFactory.validation(...)`
+- [x] Targeted tests and TypeScript build passed
+- [x] `npm run verify` passed
+
+Implementation notes:
+- Added `tests/debtController.test.ts` for create debt, pay debt full, and delete payment missing-id branches.
+- Replaced debt controller `new Error('User ID is required')`, `new Error('Debt ID is required')`, and `new Error('Payment ID is required')` branches with `ErrorFactory.validation(...)`.
+
+---
+
 ### FT-004: Decide first product vector after stabilization
 
 Status: blocked

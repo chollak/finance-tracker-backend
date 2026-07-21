@@ -45,7 +45,7 @@ export class DebtController {
       const { type, personName, amount, currency, description, dueDate, moneyTransferred } = req.body;
 
       if (!userId) {
-        return handleControllerError(new Error('User ID is required'), res);
+        return handleControllerError(ErrorFactory.validation('User ID is required'), res);
       }
 
       const data: CreateDebtData = {
@@ -78,7 +78,7 @@ export class DebtController {
       const { status, type } = req.query;
 
       if (!userId) {
-        return handleControllerError(new Error('User ID is required'), res);
+        return handleControllerError(ErrorFactory.validation('User ID is required'), res);
       }
 
       let result;
@@ -111,7 +111,7 @@ export class DebtController {
       const { withPayments } = req.query;
 
       if (!debtId) {
-        return handleControllerError(new Error('Debt ID is required'), res);
+        return handleControllerError(ErrorFactory.validation('Debt ID is required'), res);
       }
 
       // Verify ownership first
@@ -141,7 +141,7 @@ export class DebtController {
       const updateData: UpdateDebtData = req.body;
 
       if (!debtId) {
-        return handleControllerError(new Error('Debt ID is required'), res);
+        return handleControllerError(ErrorFactory.validation('Debt ID is required'), res);
       }
 
       // Verify ownership first
@@ -164,7 +164,7 @@ export class DebtController {
       const { debtId } = req.params;
 
       if (!debtId) {
-        return handleControllerError(new Error('Debt ID is required'), res);
+        return handleControllerError(ErrorFactory.validation('Debt ID is required'), res);
       }
 
       // Verify ownership first
@@ -187,7 +187,7 @@ export class DebtController {
       const { debtId } = req.params;
 
       if (!debtId) {
-        return handleControllerError(new Error('Debt ID is required'), res);
+        return handleControllerError(ErrorFactory.validation('Debt ID is required'), res);
       }
 
       // Verify ownership first
@@ -213,7 +213,7 @@ export class DebtController {
       const { amount, note, createTransaction } = req.body;
 
       if (!debtId) {
-        return handleControllerError(new Error('Debt ID is required'), res);
+        return handleControllerError(ErrorFactory.validation('Debt ID is required'), res);
       }
 
       // Verify ownership first
@@ -244,7 +244,7 @@ export class DebtController {
       const { note, createTransaction } = req.body;
 
       if (!debtId) {
-        return handleControllerError(new Error('Debt ID is required'), res);
+        return handleControllerError(ErrorFactory.validation('Debt ID is required'), res);
       }
 
       // Verify ownership first
@@ -270,7 +270,7 @@ export class DebtController {
       const { paymentId } = req.params;
 
       if (!paymentId) {
-        return handleControllerError(new Error('Payment ID is required'), res);
+        return handleControllerError(ErrorFactory.validation('Payment ID is required'), res);
       }
 
       // Get payment to find associated debt
@@ -302,7 +302,7 @@ export class DebtController {
       const userId = req.resolvedUser?.id || req.params.userId;
 
       if (!userId) {
-        return handleControllerError(new Error('User ID is required'), res);
+        return handleControllerError(ErrorFactory.validation('User ID is required'), res);
       }
 
       const result = await this.debtModule.getDebtsUseCase.executeGetSummary(userId);
