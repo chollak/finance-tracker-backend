@@ -1763,3 +1763,49 @@ npm run verify
 ```
 
 Result: passed. Controller helper tests, budget controller tests, TypeScript build, and full verify passed (17 suites / 160 tests, backend build, webapp build, dependency-cruiser, circular dependency scan).
+
+
+## 2026-07-20 — FT-021 transaction/debt relationship audit
+
+### Goal
+
+Audit current debt ↔ transaction behavior and record money-semantics ambiguities before implementing finance analytics/product features.
+
+### Output
+
+Added:
+
+```text
+docs/knowledge-base/01-architecture/transaction-debt-relationship-audit.md
+```
+
+### Summary
+
+Current model:
+
+```text
+Debt = obligation state
+Debt-related Transaction = cash movement
+```
+
+Documented:
+
+- `moneyTransferred=false` creates debt only.
+- `moneyTransferred=true` creates debt plus `isDebtRelated` transaction.
+- Debt payments can create repayment transactions.
+- Transaction side uses `relatedDebtId`; debt side has `relatedTransactionId` but current create flow does not populate it.
+- Analytics excludes at least some debt-related transactions.
+
+### Findings
+
+- Voice debt response likely reports `linkedTransactionId` as debt ID, not actual transaction ID.
+- Future analytics needs separate operating vs cash-flow semantics.
+- Do not change money semantics automatically without product decision.
+
+### Verification
+
+```bash
+npm run verify
+```
+
+Result: passed. Docs-only change; full verify passed (17 suites / 160 tests, backend build, webapp build, dependency-cruiser, circular dependency scan).

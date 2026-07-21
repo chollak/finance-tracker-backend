@@ -820,6 +820,34 @@ Implementation notes:
 
 ---
 
+### FT-021: Transaction/debt relationship audit
+
+Status: done
+Priority: high
+Owner: Hermes
+Type: foundation/domain-audit
+
+Goal:
+Document current debt ↔ transaction behavior and accounting ambiguities before changing money semantics.
+
+Definition of Done:
+- [x] Current create debt and payment transaction flows documented
+- [x] Debt/transaction link fields documented
+- [x] Analytics implications documented
+- [x] Ambiguous accounting/product decisions listed
+- [x] No behavior change made
+- [x] `npm run verify` passed
+
+Implementation notes:
+- Added `docs/knowledge-base/01-architecture/transaction-debt-relationship-audit.md`.
+- Current model: Debt records obligation state; debt-related transactions record cash movement.
+- Finding: `DebtEntity.relatedTransactionId` exists but is not populated by current create flow; transaction side uses `Transaction.relatedDebtId`.
+- Finding: voice debt response appears to set `linkedTransactionId` to debt ID because actual transaction ID is unavailable.
+- Finding: analytics excludes at least some debt-related transactions; future analytics should distinguish operating spend/income vs cash-flow.
+- No money semantics were changed in this task.
+
+---
+
 ### FT-004: Decide first product vector after stabilization
 
 Status: blocked
