@@ -795,6 +795,31 @@ Implementation notes:
 
 ---
 
+### FT-019A: Controller Result helper budget slice
+
+Status: done
+Priority: medium
+Owner: Hermes
+Type: foundation/api
+
+Goal:
+Start standardizing repetitive controller Result handling with a small, verified BudgetController slice.
+
+Definition of Done:
+- [x] Existing `handleResultResponse(...)` behavior covered by tests
+- [x] Helper accepts generic use-case errors and forwards them through `handleControllerError(...)`
+- [x] One controller slice adopts the helper without broad API-shape changes
+- [x] Targeted tests and TypeScript build passed
+- [x] `npm run verify` passed
+
+Implementation notes:
+- Added `tests/controllerHelpers.test.ts`.
+- Broadened `handleResult(...)` / `handleResultResponse(...)` error typing from `AppError` to `unknown`, matching actual use-case Result failures while preserving runtime behavior.
+- Refactored BudgetController create/list/summaries/update Result-response branches to use `handleResultResponse(...)`.
+- Kept BudgetController delete branch explicit to preserve existing `data: null` response shape.
+
+---
+
 ### FT-004: Decide first product vector after stabilization
 
 Status: blocked

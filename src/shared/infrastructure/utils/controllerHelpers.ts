@@ -107,7 +107,7 @@ export function getQueryParam(req: Request, paramName: string): string | null {
  * Returns data if success, or sends error response and returns null
  */
 export function handleResult<T>(
-  result: { success: boolean; data?: T; error?: AppError },
+  result: { success: boolean; data?: T; error?: unknown },
   res: Response
 ): T | null {
   if (!result.success) {
@@ -122,7 +122,7 @@ export function handleResult<T>(
  * For use cases where we want to immediately respond with the result
  */
 export function handleResultResponse<T>(
-  result: { success: boolean; data?: T; error?: AppError },
+  result: { success: boolean; data?: T; error?: unknown },
   res: Response,
   statusCode: number = 200,
   message?: string

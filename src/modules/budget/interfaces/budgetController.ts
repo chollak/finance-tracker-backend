@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { BudgetModule } from '../budgetModule';
 import { CreateBudgetData, UpdateBudgetData, BudgetPeriod, BudgetEntity } from '../domain/budgetEntity';
-import { handleControllerError, handleControllerSuccess } from '../../../shared/infrastructure/utils/controllerHelpers';
+import { handleControllerError, handleControllerSuccess, handleResultResponse } from '../../../shared/infrastructure/utils/controllerHelpers';
 import { ErrorFactory } from '../../../shared/domain/errors/AppError';
 import { UserModule } from '../../user/userModule';
 import { verifyResourceOwnership } from '../../../shared/infrastructure/utils/ownershipVerification';
@@ -66,11 +66,8 @@ export class BudgetController {
 
       const result = await this.budgetModule.createBudgetUseCase.execute(budgetData);
 
-      if (!result.success) {
-        return handleControllerError(result.error, res);
-      }
-
-      return handleControllerSuccess(result.data, res, 201, 'Budget created successfully');
+      handleResultResponse(result, res, 201, 'Budget created successfully');
+      return;
     } catch (error) {
       return handleControllerError(error, res);
     }
@@ -90,11 +87,8 @@ export class BudgetController {
         ? await this.budgetModule.getBudgetsUseCase.executeGetActive(userId)
         : await this.budgetModule.getBudgetsUseCase.executeGetAll(userId);
 
-      if (!result.success) {
-        return handleControllerError(result.error, res);
-      }
-
-      return handleControllerSuccess(result.data, res, 200, 'Budgets retrieved successfully');
+      handleResultResponse(result, res, 200, 'Budgets retrieved successfully');
+      return;
     } catch (error) {
       return handleControllerError(error, res);
     }
@@ -127,11 +121,8 @@ export class BudgetController {
 
       const result = await this.budgetModule.getBudgetsUseCase.executeGetSummaries(userId);
 
-      if (!result.success) {
-        return handleControllerError(result.error, res);
-      }
-
-      return handleControllerSuccess(result.data, res, 200, 'Budget summaries retrieved successfully');
+      handleResultResponse(result, res, 200, 'Budget summaries retrieved successfully');
+      return;
     } catch (error) {
       return handleControllerError(error, res);
     }
@@ -152,11 +143,8 @@ export class BudgetController {
 
       const result = await this.budgetModule.updateBudgetUseCase.execute(budgetId, updateData);
 
-      if (!result.success) {
-        return handleControllerError(result.error, res);
-      }
-
-      return handleControllerSuccess(result.data, res, 200, 'Budget updated successfully');
+      handleResultResponse(result, res, 200, 'Budget updated successfully');
+      return;
     } catch (error) {
       return handleControllerError(error, res);
     }

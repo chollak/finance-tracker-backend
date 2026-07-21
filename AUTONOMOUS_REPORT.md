@@ -1738,3 +1738,28 @@ npm run verify
 ```
 
 Result: passed. User resolution tests passed, TypeScript build passed, and full verify passed (16 suites / 158 tests, backend build, webapp build, dependency-cruiser, circular dependency scan).
+
+
+## 2026-07-20 — FT-019A controller Result helper budget slice
+
+### Goal
+
+Start standardizing repetitive controller Result handling without a broad refactor.
+
+### Work
+
+- Added direct tests for `handleResultResponse(...)`.
+- Broadened helper error typing from `AppError` to `unknown` so it can handle actual use-case Result failures and delegate status mapping to `handleControllerError(...)`.
+- Refactored BudgetController create/list/summaries/update success/error handling to use `handleResultResponse(...)`.
+- Left delete explicit to preserve current `data: null` response shape.
+
+### Verification
+
+```bash
+npm test -- controllerHelpers --runInBand
+npm test -- budgetController --runInBand
+npm run build
+npm run verify
+```
+
+Result: passed. Controller helper tests, budget controller tests, TypeScript build, and full verify passed (17 suites / 160 tests, backend build, webapp build, dependency-cruiser, circular dependency scan).

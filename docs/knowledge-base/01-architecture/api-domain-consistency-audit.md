@@ -461,3 +461,8 @@ any change to transaction/debt accounting semantics
 2. Should `/api/voice/text-input` still default missing `userId` to `'1'`, or should it require explicit `userId` / guest id?
 3. Should API error envelopes be made fully uniform now, or later after Mini App/product direction is clearer?
 4. Should transaction controller be split after route coverage improves?
+
+
+## FT-019A Controller Result Helper Slice
+
+FT-019A completed: `handleResultResponse(...)` now has direct helper tests, accepts `unknown` errors so it can safely forward any use-case `Result` failure to `handleControllerError(...)`, and BudgetController uses it for create/list/summaries/update result-response branches. Delete remains explicit to preserve the existing `data: null` response shape.
