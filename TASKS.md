@@ -1037,6 +1037,69 @@ Implementation notes:
 
 ---
 
+
+---
+
+### FT-027: UI/product improvement roadmap
+
+Status: in_progress
+Priority: high
+Owner: Hermes + Claude Code
+Type: frontend-ui/product
+
+Context:
+Design review found that the Mini App works, but the UI is still more module-dashboard than financial assistant. The next product direction is to make the app insight-first: how much was spent, where limits are close/over, and what needs attention now.
+
+Roadmap:
+- `.hermes/plans/2026-07-22_175141-ui-product-improvements.md`
+
+Subtasks:
+- [x] FT-027A — Insight-first home and balance terminology
+- [ ] FT-027B — Actionable budget remaining UX
+- [ ] FT-027C — Mobile add CTA and bottom navigation review
+- [ ] FT-027D — Simplify transaction archive surface
+- [ ] FT-027E — Browser/screenshot UI QA
+
+Delegation policy:
+- Claude Code implements one slice at a time.
+- Claude Code must not commit/push.
+- Hermes reviews diff, runs `npm run build:webapp` / `npm run verify`, updates docs, then commits/pushes.
+
+---
+
+### FT-027A: Insight-first home and balance terminology
+
+Status: done
+Priority: high
+Owner: Claude Code, QA by Hermes
+Type: frontend-ui
+
+Problem:
+`BalanceCard` currently presents `netIncome` as `Баланс`, which can imply a real card/account balance. Home is data-first instead of answering what matters financially now.
+
+Scope:
+- `webapp/src/pages/home/ui/HomePage.tsx`
+- `webapp/src/widgets/balance-card/**`
+- small shared formatting/helper files if needed
+
+Definition of Done:
+- [x] User-facing text no longer implies `netIncome` is real card balance
+- [x] Home first screen is more insight-first using existing dashboard data
+- [x] Quick add income/expense remains available
+- [x] No backend/API/schema/env/package/deploy changes
+- [x] `npm run build:webapp` passes
+- [x] `npm run verify` passes before commit/push
+- [x] Hermes reviewed Claude Code diff
+
+Implementation notes:
+- `BalanceCard` now labels `netIncome` as `Чистый поток за месяц` and explains it is income minus expenses, not account/card balance.
+- Added `AttentionSummary` widget on Home using existing dashboard fields: over-budget count, near-limit budget count, and top spending category.
+- No backend/API/schema/env/package/deploy changes.
+
+Verification:
+- `npm run build:webapp` — passed.
+- `npm run verify` — passed: 18 suites / 166 tests, backend build, webapp build, dependency-cruiser, and madge.
+
 ### FT-004: Decide first product vector after stabilization
 
 Status: blocked

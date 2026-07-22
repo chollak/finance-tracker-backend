@@ -30,7 +30,7 @@ export function BalanceCard() {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Баланс</CardTitle>
+          <CardTitle>Чистый поток за месяц</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <Skeleton className="h-16 w-full" />
@@ -53,8 +53,8 @@ export function BalanceCard() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-lg font-medium">Баланс</CardTitle>
-        <CardDescription>Текущее состояние счета</CardDescription>
+        <CardTitle className="text-lg font-medium">Чистый поток за месяц</CardTitle>
+        <CardDescription>Доходы минус расходы за период — не остаток на счете</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         {/* Balance Amount */}

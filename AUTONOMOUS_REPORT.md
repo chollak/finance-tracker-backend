@@ -1995,3 +1995,53 @@ Result: passed. Full verify: 18 suites / 165 tests, backend build, webapp build,
 ### Notes
 
 This is intentionally conservative. More quick-add formats can be added later after observing real usage, but complex language and debts remain OpenAI-backed.
+
+## 2026-07-22 — FT-027A insight-first home and balance terminology
+
+### Goal
+
+Improve the Mini App Home screen after design review by shifting it from generic module dashboard toward a financial-assistant view. Also remove misleading `Баланс` copy because the displayed value is `netIncome`, not a real card/account balance.
+
+### Execution
+
+Hermes wrote the UI improvement roadmap and delegated FT-027A to Claude Code with a narrow frontend-only scope. Claude Code implemented the UI slice without committing or pushing. Hermes reviewed the diff and reran verification independently.
+
+### Files Changed
+
+- `.hermes/plans/2026-07-22_175141-ui-product-improvements.md`
+- `TASKS.md`
+- `AUTONOMOUS_REPORT.md`
+- `webapp/src/pages/home/ui/HomePage.tsx`
+- `webapp/src/widgets/balance-card/ui/BalanceCard.tsx`
+- `webapp/src/widgets/attention-summary/index.tsx`
+- `webapp/src/widgets/attention-summary/ui/AttentionSummary.tsx`
+
+### Product Changes
+
+- `BalanceCard` title changed from `Баланс` to `Чистый поток за месяц`.
+- Description now clarifies: `Доходы минус расходы за период — не остаток на счете`.
+- Added `AttentionSummary` under the top card on Home. It surfaces:
+  - over-budget count;
+  - near-limit budget count;
+  - top spending category and amount.
+
+### Verification
+
+Hermes ran:
+
+```bash
+npm run build:webapp
+npm run verify
+```
+
+Result:
+
+- backend TypeScript build passed;
+- Jest passed: 18 suites / 166 tests;
+- webapp build passed;
+- dependency-cruiser passed;
+- madge circular dependency scan passed.
+
+### Follow-up
+
+Continue with FT-027B: actionable budget remaining UX.

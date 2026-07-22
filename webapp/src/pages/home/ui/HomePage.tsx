@@ -1,4 +1,5 @@
 import { BalanceCard } from '@/widgets/balance-card';
+import { AttentionSummary } from '@/widgets/attention-summary';
 import { QuickStats } from '@/widgets/quick-stats';
 import { UsageLimitsCard } from '@/widgets/usage-limits';
 import { RecentTransactions } from '@/widgets/recent-transactions';
@@ -29,6 +30,11 @@ export function HomePage() {
         {/* Balance Card - Full Width */}
         <div className="animate-fade-in-up">
           <BalanceCard />
+        </div>
+
+        {/* Attention Summary - what needs a decision right now */}
+        <div className="animate-fade-in-up stagger-1">
+          <AttentionSummary />
         </div>
 
         {/* Quick Stats - Grid */}
