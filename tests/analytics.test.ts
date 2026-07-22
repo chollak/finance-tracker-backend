@@ -191,15 +191,14 @@ describe('Enhanced Analytics Service', () => {
 
       const topCategories = await analyticsService.getTopCategories('user-123', undefined, 3);
 
-      expect(topCategories).toHaveLength(3);
-      expect(topCategories[0].category).toBe('Income');
-      expect(topCategories[0].amount).toBe(200);
+      expect(topCategories).toHaveLength(2);
+      expect(topCategories[0].category).toBe('Food');
+      expect(topCategories[0].amount).toBe(150);
+      expect(topCategories[0].percentage).toBe(66.67);
       
-      expect(topCategories[1].category).toBe('Food');
-      expect(topCategories[1].amount).toBe(150);
-      
-      expect(topCategories[2].category).toBe('Transportation');
-      expect(topCategories[2].amount).toBe(75);
+      expect(topCategories[1].category).toBe('Transportation');
+      expect(topCategories[1].amount).toBe(75);
+      expect(topCategories[1].percentage).toBe(33.33);
     });
 
     it('should limit results to specified number', async () => {
@@ -208,8 +207,8 @@ describe('Enhanced Analytics Service', () => {
       const topCategories = await analyticsService.getTopCategories('user-123', undefined, 2);
 
       expect(topCategories).toHaveLength(2);
-      expect(topCategories[0].category).toBe('Income');
-      expect(topCategories[1].category).toBe('Food');
+      expect(topCategories[0].category).toBe('Food');
+      expect(topCategories[1].category).toBe('Transportation');
     });
   });
 

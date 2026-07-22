@@ -1350,6 +1350,37 @@ Changes:
 - [x] Production screenshot captured: `/tmp/ft027g-prod-home-390.png`
 - [x] `npm run verify` passed
 
+
+---
+
+### FT-027J: Immediate UI regression cleanup after real-user review
+
+Status: done
+Priority: critical
+Owner: Hermes
+Type: frontend-ui/backend-analytics/hotfix
+
+Context:
+Shukur reported multiple UI regressions: neutral-white nav `+` became too subtle, Transactions page heading was incorrectly centered, transaction tabs looked compressed, Home showed `Зарплата` as the top spending category, recent transactions clipped/failed to scroll, and Debts still had a competing mobile floating FAB.
+
+Changes:
+- [x] Bottom-nav center `+` changed to visible neutral primary (`bg-primary`), not semantic green and not low-contrast white
+- [x] Transactions header restored to left alignment
+- [x] Transactions tabs height increased to reduce compressed feel
+- [x] Dashboard top categories now use expense-only, non-debt transactions so income categories like `Зарплата` cannot appear as top spending
+- [x] Attention summary copy changed to `Крупнее всего расходы` and supports wrapping
+- [x] Recent transactions on Home no longer uses nested fixed-height scroll; shows 5 rows inline and hides row action menu in the widget
+- [x] Transaction list amount column made truncation-safe on narrow screens
+- [x] Debts mobile floating FAB removed; desktop fixed button preserved
+- [x] Analytics tests updated for expense-only top categories
+- [x] `npm run verify` passed
+
+Verification evidence:
+- `/tmp/ft027j-audit-home-390.png`
+- `/tmp/ft027j-audit-transactions-390.png`
+- `/tmp/ft027j-audit-debts-390.png`
+- `npm run verify`: 18 suites / 166 tests passed, backend build, webapp build, dependency-cruiser, madge.
+
 ### FT-004: Decide first product vector after stabilization
 
 Status: blocked

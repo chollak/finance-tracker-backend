@@ -74,12 +74,12 @@ export function AttentionSummary() {
         )}
 
         {hasTopCategory && (
-          <div className="flex items-center justify-between rounded-xl bg-muted px-4 py-3">
-            <span className="flex items-center gap-2 text-sm font-medium">
-              <TrendingDown className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-              Больше всего потрачено: {getCategoryName(topCategory.category)}
+          <div className="flex items-start justify-between gap-3 rounded-xl bg-muted px-4 py-3">
+            <span className="flex min-w-0 items-start gap-2 text-sm font-medium">
+              <TrendingDown className="mt-0.5 h-4 w-4 flex-shrink-0 text-muted-foreground" aria-hidden="true" />
+              <span>Крупнее всего расходы: {getCategoryName(topCategory.category)}</span>
             </span>
-            <span className="text-sm font-semibold">{formatCurrency(topCategory.amount)}</span>
+            <span className="flex-shrink-0 text-sm font-semibold">{formatCurrency(topCategory.amount)}</span>
           </div>
         )}
       </CardContent>

@@ -174,7 +174,7 @@ export function BottomNav() {
               type="button"
               onClick={() => haptic.press()}
               aria-label="Добавить транзакцию"
-              className="-translate-y-3 flex h-12 w-12 items-center justify-center rounded-2xl border bg-background text-foreground shadow-md shadow-black/10 ring-4 ring-background transition-transform active:scale-95"
+              className="-translate-y-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-md shadow-black/15 ring-4 ring-background transition-transform active:scale-95"
             >
               <Plus className="h-5 w-5" aria-hidden="true" />
             </button>

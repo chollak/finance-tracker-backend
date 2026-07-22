@@ -175,13 +175,20 @@ export class AnalyticsService {
     }
 
     async getTopCategories(userId: string, timeRange?: TimeRange, limit: number = 5): Promise<Array<{ category: string; amount: number; percentage: number }>> {
-        const breakdown = await this.getDetailedCategoryBreakdown(userId, timeRange);
+        const transactions = await this.getTransactionsInRange(userId, timeRange);
+        const expenseTransactions = transactions.filter(t => t.type === 'expense' && !t.isDebtRelated);
+        const totalExpenseAmount = expenseTransactions.reduce((sum, t) => sum + t.amount, 0);
+        const categoryTotals: Record<string, number> = {};
 
-        return Object.entries(breakdown)
-            .map(([category, data]) => ({
+        for (const transaction of expenseTransactions) {
+            categoryTotals[transaction.category] = (categoryTotals[transaction.category] || 0) + transaction.amount;
+        }
+
+        return Object.entries(categoryTotals)
+            .map(([category, amount]) => ({
                 category,
-                amount: data.amount,
-                percentage: data.percentage
+                amount: Math.round(amount * 100) / 100,
+                percentage: totalExpenseAmount > 0 ? Math.round((amount / totalExpenseAmount) * 10000) / 100 : 0
             }))
             .sort((a, b) => b.amount - a.amount)
             .slice(0, limit);

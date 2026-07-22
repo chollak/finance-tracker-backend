@@ -61,6 +61,17 @@ export function DebtsPage() {
         </p>
       </div>
 
+      {/* Mobile create action — avoid a competing FAB above the global bottom nav */}
+      {!isLoading && debts && debts.length > 0 && (
+        <Button
+          className="mb-6 w-full gap-2 rounded-2xl md:hidden"
+          onClick={() => navigate(ROUTES.ADD_DEBT)}
+        >
+          <Plus className="h-4 w-4" aria-hidden="true" />
+          Добавить долг
+        </Button>
+      )}
+
       {/* Summary Cards */}
       {summary && (
         <div className="grid grid-cols-2 gap-4 mb-6">
@@ -160,10 +171,10 @@ export function DebtsPage() {
         )}
       </div>
 
-      {/* Floating Action Button - Add Debt (safe-area aware to clear the bottom nav) */}
+      {/* Desktop create action — mobile uses in-page/empty-state CTA */}
       <Button
         size="lg"
-        className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] md:bottom-6 right-6 h-14 w-14 rounded-full shadow-lg md:h-auto md:w-auto md:rounded-md md:px-6"
+        className="hidden md:fixed md:bottom-6 md:right-6 md:flex md:h-auto md:w-auto md:rounded-md md:px-6 md:shadow-lg"
         onClick={() => navigate(ROUTES.ADD_DEBT)}
         aria-label="Добавить долг"
       >

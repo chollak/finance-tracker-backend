@@ -69,8 +69,8 @@ export function TransactionListItem({
       </div>
 
       {/* Amount & Time */}
-      <div className="flex-shrink-0 text-right">
-        <p className={`font-semibold ${transaction._amountColor || 'text-foreground'}`}>
+      <div className="ml-2 max-w-[8.5rem] flex-shrink-0 text-right">
+        <p className={`truncate font-semibold ${transaction._amountColor || 'text-foreground'}`}>
           {transaction._formattedAmount}
         </p>
         <p className="text-xs text-muted-foreground">{time}</p>

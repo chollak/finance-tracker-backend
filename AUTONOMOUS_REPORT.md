@@ -2411,3 +2411,52 @@ Results:
 
 - `npm run verify` passed: 18 suites / 166 tests, backend build, webapp build, dependency-cruiser, madge.
 - Production screenshot at `/tmp/ft027g-prod-home-390.png` confirmed the centered `+` remains at viewport center and no devtools overlay is present.
+
+## 2026-07-22 — FT-027J immediate UI regression cleanup after real-user review
+
+### Goal
+
+Address Shukur's direct UI critique and fix concrete regressions introduced during the previous navigation/design iterations.
+
+### Issues fixed
+
+- The center bottom-nav `+` was too low-contrast when changed to a white/neutral surface. It is now a visible neutral-primary action (`bg-primary`), not green success.
+- Transactions page title was incorrectly centered; restored left alignment.
+- Transactions tabs looked compressed; increased segmented control height and trigger vertical padding.
+- Home attention summary could show income category `Зарплата` as top spending; backend top categories now calculate expense-only, non-debt categories.
+- Recent transactions widget used nested fixed-height scrolling and could clip content; replaced with a simple inline list of 5 rows and no row action menu in the Home widget.
+- Transaction list amount column is now truncation-safe on narrow screens.
+- Debts page still had a mobile floating FAB; removed mobile FAB and preserved desktop fixed action.
+
+### Files changed
+
+- `src/modules/transaction/application/analyticsService.ts`
+- `tests/analytics.test.ts`
+- `webapp/src/shared/ui/bottom-nav.tsx`
+- `webapp/src/pages/transactions/ui/TransactionsPage.tsx`
+- `webapp/src/pages/debts/ui/DebtsPage.tsx`
+- `webapp/src/widgets/attention-summary/ui/AttentionSummary.tsx`
+- `webapp/src/widgets/recent-transactions/ui/RecentTransactions.tsx`
+- `webapp/src/entities/transaction/ui/TransactionListItem.tsx`
+- `TASKS.md`
+- `AUTONOMOUS_REPORT.md`
+
+### Verification
+
+Hermes ran:
+
+```bash
+npm run build:webapp
+npm run build
+npm run verify
+node /tmp/ft027j_page_audit.js
+```
+
+Results:
+
+- `npm run verify` passed: 18 suites / 166 tests, backend build, webapp build, dependency-cruiser, madge.
+- Screenshot audit paths:
+  - `/tmp/ft027j-audit-home-390.png`
+  - `/tmp/ft027j-audit-transactions-390.png`
+  - `/tmp/ft027j-audit-debts-390.png`
+- Visual review confirmed Transactions header is left-aligned, tabs are less compressed, Debts mobile FAB is gone, and bottom-nav center `+` remains centered and visible.
