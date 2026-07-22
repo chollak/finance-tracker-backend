@@ -49,6 +49,39 @@ describe('ProcessTextInputUseCase', () => {
     jest.useRealTimers();
   });
 
+  it('falls back to OpenAI for complex multi-item text instead of using the simple parser', async () => {
+    const openAIService = {
+      analyzeInput: jest.fn().mockResolvedValue({
+        transactions: [
+          { intent: 'transaction', amount: 480000, category: 'groceries', type: 'expense', date: '2026-07-22', merchant: 'мясо' },
+          { intent: 'transaction', amount: 35000, category: 'groceries', type: 'expense', date: '2026-07-22', merchant: 'яблоки' }
+        ],
+        debts: []
+      }),
+      analyzeTransactions: jest.fn(),
+      transcribe: jest.fn()
+    } as unknown as TranscriptionService;
+
+    const createTransactionUseCase = {
+      execute: jest
+        .fn()
+        .mockResolvedValueOnce({ success: true, data: 'meat-1' })
+        .mockResolvedValueOnce({ success: true, data: 'apples-1' })
+    } as unknown as CreateTransactionUseCase;
+
+    const useCase = new ProcessTextInputUseCase(openAIService, createTransactionUseCase);
+
+    const result = await useCase.execute('Купил мясо 4кг по 120000 за 1кг. И яблоки за 35000 сум', 'user1');
+
+    expect(openAIService.analyzeInput).toHaveBeenCalledTimes(1);
+    expect(createTransactionUseCase.execute).toHaveBeenCalledTimes(2);
+    expect(result.transactions).toEqual([
+      expect.objectContaining({ id: 'meat-1', amount: 480000, merchant: 'мясо' }),
+      expect.objectContaining({ id: 'apples-1', amount: 35000, merchant: 'яблоки' })
+    ]);
+  });
+
+
   it('creates transaction from text analysis', async () => {
     const openAIService = {
       analyzeInput: jest.fn().mockResolvedValue({

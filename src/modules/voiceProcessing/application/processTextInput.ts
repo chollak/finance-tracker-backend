@@ -24,8 +24,17 @@ function parseSimpleTextTransaction(text: string): AnalysisResult | null {
   const label = match[1].trim();
   const amount = Number(match[2].replace(/[\s,]/g, ''));
   const debtKeywords = /\b(lent|borrowed|owe|debt|loan)\b|долг|должен|одолжил|одолжила|занял|заняла|қарз|qarz/i;
+  const numberMatches = normalizedText.match(/\d[\d\s.,]*/g) || [];
+  const complexTextMarkers = /[.!?;]|\b(и|and|за|по|купил|купила|купить|взял|взяла)\b/i;
 
-  if (!label || debtKeywords.test(normalizedText) || !Number.isFinite(amount) || amount <= 0) {
+  if (
+    !label
+    || numberMatches.length !== 1
+    || complexTextMarkers.test(normalizedText)
+    || debtKeywords.test(normalizedText)
+    || !Number.isFinite(amount)
+    || amount <= 0
+  ) {
     return null;
   }
 
