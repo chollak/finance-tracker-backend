@@ -129,7 +129,7 @@ FT-027D result:
 
 ### FT-027E — Browser/screenshot UI QA
 
-Status: ready
+Status: done
 Owner: Claude Code or Hermes, QA by Hermes
 Priority: P2
 Type: qa
@@ -142,6 +142,12 @@ Required checks:
 - Console/network errors.
 - Visual hierarchy, bottom nav, keyboard/safe area issues.
 - Report screenshots or blocker if browser tooling unavailable.
+
+FT-027E result:
+- Browser QA passed on dev and production builds for target screens.
+- 15 screenshots saved under `/tmp/finance-ft027e-screenshots/`.
+- Full report: `/tmp/finance-ft027e-ui-qa-report.md`.
+- No P0/P1 UI defects found; only non-blocking P2/P3 notes recorded in `TASKS.md` / `AUTONOMOUS_REPORT.md`.
 
 ## Delegation policy
 

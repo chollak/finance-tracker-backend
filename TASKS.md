@@ -1216,6 +1216,40 @@ Verification:
 - `npm run build:webapp` — passed.
 - `npm run verify` — passed: 18 suites / 166 tests, backend build, webapp build, dependency-cruiser, and madge.
 
+
+---
+
+### FT-027E: Browser/screenshot UI QA
+
+Status: done
+Priority: medium
+Owner: Claude Code, QA by Hermes
+Type: frontend-ui/qa
+
+Problem:
+FT-027A-D were verified by code review and builds, but still need browser-level mobile UI QA for visual hierarchy, nav/FAB overlap, and console/network issues.
+
+Scope:
+- QA/report only unless a tiny frontend-only fix is clearly necessary and safe.
+- Target screens: Home, Transactions, Budgets, Add Transaction, Add Budget.
+
+Definition of Done:
+- [x] Mobile viewport browser smoke attempted
+- [x] Console/network/API errors reported
+- [x] Visual issues around bottom nav, central CTA, FABs, and safe area assessed
+- [x] Screenshots or a precise tooling blocker captured
+- [x] Report saved under `/tmp`
+- [x] No backend/API/schema/env/package/deploy changes
+
+QA notes:
+- Report saved to `/tmp/finance-ft027e-ui-qa-report.md`.
+- Screenshots saved under `/tmp/finance-ft027e-screenshots/` (15 PNGs).
+- Dev and production passes covered Home, Transactions, Budgets, Add Transaction, and Add Budget at 390×844.
+- No console errors, page errors, or unexpected 4xx/5xx responses were found.
+- No P0/P1 UI defects found.
+- P2 doc/process finding: `/webapp/*` legacy redirect/docs wording are stale relative to root routing.
+- P3 dev-only finding: TanStack Query Devtools icon overlaps Save button in dev screenshot only; production is unaffected.
+
 ### FT-004: Decide first product vector after stabilization
 
 Status: blocked

@@ -2189,3 +2189,51 @@ Result:
 ### Follow-up
 
 Continue with FT-027E: browser/screenshot UI QA.
+
+## 2026-07-22 — FT-027E browser/screenshot UI QA
+
+### Goal
+
+Run browser-level mobile QA after FT-027A–D to verify visual hierarchy, bottom navigation / central CTA behavior, FAB safe-area spacing, console/network cleanliness, and target screen rendering.
+
+### Execution
+
+Claude Code ran a QA-only browser pass using cached Playwright tooling without modifying source files. Hermes inspected the report and screenshot directory.
+
+### Report Artifacts
+
+- Report: `/tmp/finance-ft027e-ui-qa-report.md`
+- Screenshots: `/tmp/finance-ft027e-screenshots/` — 15 PNG files
+
+### Screens Tested
+
+- Home: `/`
+- Transactions: `/transactions`
+- Budgets: `/budgets`
+- Add Transaction: `/transactions/add`
+- Add Budget: `/budgets/add`
+
+Each screen was tested on both:
+
+- Vite dev server: `http://localhost:5173`
+- Express-served production build: `http://localhost:3000`
+
+### Result
+
+Overall: PASS.
+
+- No console errors.
+- No page errors.
+- No unexpected network 4xx/5xx responses.
+- No P0/P1 visual defects.
+- Bottom nav / central `+` and FAB safe-area behavior passed viewport checks.
+
+### Non-blocking Findings
+
+- P2 docs/process: legacy `/webapp/*` redirect works, but some docs still imply the app is served under `/webapp`; current routing is root-level.
+- P3 dev-only: TanStack Query Devtools icon overlaps the Save button in a dev-server screenshot only; production build is unaffected.
+- Limitation: guest-mode browser QA could not visually exercise populated budget/transaction states; it verified empty/gated screens and cross-checked source logic.
+
+### Files Changed
+
+No source files were changed by the QA run. Hermes updated only task/report docs to close FT-027E.
