@@ -923,6 +923,32 @@ Implementation notes:
 
 ---
 
+### QA-BUG-2: Friendly SPA 404 page
+
+Status: done
+Priority: medium
+Owner: Hermes
+Type: bug/webapp-ux
+
+Context:
+Claude Code local browser QA found that unknown Mini App routes showed React Router's raw developer error page in both dev and production static builds.
+
+Goal:
+Render a branded/user-friendly 404/route error state instead of React Router's default developer error page.
+
+Definition of Done:
+- [x] Unknown nested SPA routes render a friendly 404 page
+- [x] Router errors render a branded fallback
+- [x] Webapp build passed
+- [x] `npm run verify` passed
+
+Implementation notes:
+- Updated `webapp/src/app/router/routes.tsx`.
+- Added `NotFoundPage` using existing `EmptyState` and `Button` components.
+- Added `RouterErrorPage` via `errorElement` and a catch-all `path: '*'` child route.
+
+---
+
 ### FT-004: Decide first product vector after stabilization
 
 Status: blocked

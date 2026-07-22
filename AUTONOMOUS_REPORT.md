@@ -1906,3 +1906,30 @@ npm run verify
 ```
 
 Result: passed. Telegram bot regression test, TypeScript build, and full verify passed (18 suites / 162 tests, backend build, webapp build, dependency-cruiser, circular dependency scan).
+
+
+## 2026-07-22 — QA-BUG-2 friendly SPA 404 page
+
+### Source
+
+Claude Code local browser QA report: `/tmp/finance-local-browser-qa-report.md`.
+
+### Problem
+
+Unknown SPA routes showed React Router's raw developer error page instead of a user-friendly Mini App 404 state. Confirmed by QA in both Vite dev and production static build.
+
+### Changes
+
+- Updated `webapp/src/app/router/routes.tsx`.
+- Added `NotFoundPage` with existing `EmptyState` + `Button` UI.
+- Added `RouterErrorPage` as `errorElement` for router errors.
+- Added catch-all `path: '*'` under the main layout.
+
+### Verification
+
+```bash
+npm run build:webapp
+npm run verify
+```
+
+Result: passed. Full verify passed (18 suites / 162 tests, backend build, webapp build, dependency-cruiser, circular dependency scan).

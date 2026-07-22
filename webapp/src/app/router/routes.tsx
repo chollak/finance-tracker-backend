@@ -1,5 +1,7 @@
-import { createBrowserRouter, Outlet, ScrollRestoration } from 'react-router-dom';
+import { createBrowserRouter, Link, Outlet, ScrollRestoration, useRouteError } from 'react-router-dom';
 import { lazy, Suspense } from 'react';
+import { Button } from '@/shared/ui/button';
+import { EmptyState } from '@/shared/ui/empty-state';
 import { Loading } from '@/shared/ui/loading';
 import { Layout } from '@/shared/ui/layout';
 
@@ -31,10 +33,57 @@ function LayoutWrapper() {
   );
 }
 
+function NotFoundPage() {
+  return (
+    <div className="container mx-auto px-4 py-10">
+      <div className="rounded-2xl border border-dashed bg-card">
+        <EmptyState
+          icon="🧭"
+          title="Страница не найдена"
+          description="Похоже, ссылка устарела или адрес введён с ошибкой. Вернитесь на главную и продолжите работу с финансами."
+          action={
+            <Button asChild>
+              <Link to="/">На главную</Link>
+            </Button>
+          }
+          size="lg"
+        />
+      </div>
+    </div>
+  );
+}
+
+function RouterErrorPage() {
+  const error = useRouteError();
+
+  if (error && typeof error === 'object' && 'status' in error && error.status === 404) {
+    return <NotFoundPage />;
+  }
+
+  return (
+    <div className="container mx-auto px-4 py-10">
+      <div className="rounded-2xl border border-dashed bg-card">
+        <EmptyState
+          icon="⚠️"
+          title="Что-то пошло не так"
+          description="Не удалось открыть страницу. Попробуйте вернуться на главную или обновить приложение."
+          action={
+            <Button asChild>
+              <Link to="/">На главную</Link>
+            </Button>
+          }
+          size="lg"
+        />
+      </div>
+    </div>
+  );
+}
+
 export const router = createBrowserRouter([
   {
     // Main pages with navigation layout
     element: <LayoutWrapper />,
+    errorElement: <Layout><RouterErrorPage /></Layout>,
     children: [
       {
         path: '/',
@@ -55,6 +104,10 @@ export const router = createBrowserRouter([
       {
         path: '/analytics',
         element: <PageLoader><AnalyticsPage /></PageLoader>,
+      },
+      {
+        path: '*',
+        element: <NotFoundPage />,
       },
     ],
   },
