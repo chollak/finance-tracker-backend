@@ -50,6 +50,16 @@ export function startTelegramBot(
       return;
     }
 
+    if (!AppConfig.ENABLE_TELEGRAM_POLLING) {
+      logger.warn('ENABLE_TELEGRAM_POLLING=false, Telegram bot polling disabled');
+      return;
+    }
+
+    if (AppConfig.WEBHOOK_MODE) {
+      logger.warn('WEBHOOK_MODE=true, Telegram bot polling disabled');
+      return;
+    }
+
     // Create bot instance with custom context
     const bot = new Telegraf<BotContext>(AppConfig.TG_BOT_API_KEY);
 

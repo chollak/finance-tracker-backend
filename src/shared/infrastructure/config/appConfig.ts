@@ -59,7 +59,8 @@ export class AppConfig {
   static readonly NGROK_URL = process.env.NGROK_URL || '';
 
   // Development settings
-  static readonly ENABLE_TELEGRAM_POLLING = process.env.ENABLE_TELEGRAM_POLLING === 'true';
+  // Telegram polling is enabled by default unless explicitly disabled.
+  static readonly ENABLE_TELEGRAM_POLLING = process.env.ENABLE_TELEGRAM_POLLING !== 'false';
   static readonly WEBHOOK_MODE = process.env.WEBHOOK_MODE === 'true';
 
   // OpenAI Configuration

@@ -1933,3 +1933,34 @@ npm run verify
 ```
 
 Result: passed. Full verify passed (18 suites / 162 tests, backend build, webapp build, dependency-cruiser, circular dependency scan).
+
+
+## 2026-07-22 — QA-BUG-3 Telegram polling config flags
+
+### Source
+
+Claude Code local browser QA report: `/tmp/finance-local-browser-qa-report.md`.
+
+### Problem
+
+`ENABLE_TELEGRAM_POLLING` and `WEBHOOK_MODE` were defined in `AppConfig`/env template but Telegram bot startup did not honor them. The app always attempted polling when `TG_BOT_API_KEY` existed.
+
+### Root cause
+
+`startTelegramBot` only checked token presence before constructing and launching Telegraf. Runtime mode flags were never read at the delivery boundary.
+
+### Changes
+
+- Updated `AppConfig.ENABLE_TELEGRAM_POLLING` to default to enabled unless explicitly set to `false`.
+- Updated `startTelegramBot` to skip Telegraf creation/launch when polling is disabled or webhook mode is enabled.
+- Expanded `tests/telegramBot.test.ts` with regression coverage for both flags.
+- Documented flag behavior in `.env.example` and quick start docs.
+
+### Verification
+
+```bash
+npm test -- telegramBot --runInBand
+npm run verify
+```
+
+Result: passed.

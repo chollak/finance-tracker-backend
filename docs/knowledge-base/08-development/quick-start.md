@@ -46,6 +46,10 @@ OPENAI_API_KEY=sk-your-openai-api-key
 # Optional Telegram Bot
 TG_BOT_API_KEY=your-telegram-bot-token
 WEB_APP_URL=http://localhost:3000
+# Set false to run API without Telegram polling
+ENABLE_TELEGRAM_POLLING=true
+# Reserved for webhook deployments; skips polling when true
+WEBHOOK_MODE=false
 
 # Database Type (default: sqlite)
 DATABASE_TYPE=sqlite

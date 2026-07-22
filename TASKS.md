@@ -949,6 +949,33 @@ Implementation notes:
 
 ---
 
+### QA-BUG-3: Telegram polling config flags
+
+Status: done
+Priority: low
+Owner: Hermes
+Type: bug/config
+
+Context:
+Claude Code local QA found `ENABLE_TELEGRAM_POLLING` and `WEBHOOK_MODE` were defined in `AppConfig` but not honored by Telegram bot startup.
+
+Goal:
+Make Telegram bot polling runtime flags explicit and covered by regression tests.
+
+Definition of Done:
+- [x] `ENABLE_TELEGRAM_POLLING=false` prevents Telegram polling startup
+- [x] `WEBHOOK_MODE=true` prevents polling startup for webhook deployments
+- [x] Telegram launch rejection handler regression remains covered
+- [x] Env template/docs mention the flags
+- [x] Targeted Telegram bot tests passed
+- [x] `npm run verify` passed
+
+Implementation notes:
+- `ENABLE_TELEGRAM_POLLING` now defaults to enabled unless explicitly set to `false`.
+- `startTelegramBot` returns before creating/launching Telegraf when polling is disabled or webhook mode is enabled.
+
+---
+
 ### FT-004: Decide first product vector after stabilization
 
 Status: blocked
