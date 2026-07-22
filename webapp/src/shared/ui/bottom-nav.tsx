@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Home, Receipt, Wallet, BarChart3, HandCoins, Plus } from 'lucide-react';
+import { Home, Receipt, Wallet, MoreHorizontal, Plus } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/shared/lib/utils';
 import { ROUTES } from '@/shared/lib/constants/routes';
@@ -17,7 +17,7 @@ import type { Transaction, BudgetSummary, Debt } from '@/shared/types';
 import { haptic } from '@/shared/lib/haptic';
 import { QuickAddSheet } from '@/features/quick-add';
 
-// Split around the center Add action: 2 items left, 3 items right
+// True center layout: 2 items left, central Add action, 2 items right
 const leftNavItems = [
   {
     href: ROUTES.HOME,
@@ -38,14 +38,9 @@ const rightNavItems = [
     icon: Wallet,
   },
   {
-    href: ROUTES.DEBTS,
-    label: 'Долги',
-    icon: HandCoins,
-  },
-  {
-    href: ROUTES.ANALYTICS,
-    label: 'Аналитика',
-    icon: BarChart3,
+    href: ROUTES.MORE,
+    label: 'Ещё',
+    icon: MoreHorizontal,
   },
 ];
 
@@ -133,7 +128,10 @@ export function BottomNav() {
   };
 
   const renderNavItem = (item: (typeof navItems)[number]) => {
-    const isActive = location.pathname === item.href;
+    const moreRoutes: string[] = [ROUTES.MORE, ROUTES.DEBTS, ROUTES.ANALYTICS];
+    const isActive = item.href === ROUTES.MORE
+      ? moreRoutes.includes(location.pathname)
+      : location.pathname === item.href;
     const Icon = item.icon;
 
     return (
@@ -164,11 +162,13 @@ export function BottomNav() {
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-50 border-t bg-background/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_20px_rgba(0,0,0,0.06)] backdrop-blur md:hidden">
-      <div className="flex h-[4.5rem] items-center justify-around px-1">
-        {leftNavItems.map((item) => renderNavItem(item))}
+      <div className="grid h-[4.5rem] grid-cols-[1fr_auto_1fr] items-center px-1">
+        <div className="flex min-w-0 items-center justify-around">
+          {leftNavItems.map((item) => renderNavItem(item))}
+        </div>
 
         {/* Central elevated Add Transaction action — the core mobile CTA */}
-        <div className="flex flex-[0.85] items-center justify-center">
+        <div className="flex items-center justify-center px-2">
           <QuickAddSheet>
             <button
               type="button"
@@ -181,7 +181,9 @@ export function BottomNav() {
           </QuickAddSheet>
         </div>
 
-        {rightNavItems.map((item) => renderNavItem(item))}
+        <div className="flex min-w-0 items-center justify-around">
+          {rightNavItems.map((item) => renderNavItem(item))}
+        </div>
       </div>
     </nav>
   );

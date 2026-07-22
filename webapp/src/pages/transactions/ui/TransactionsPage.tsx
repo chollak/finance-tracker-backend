@@ -120,8 +120,8 @@ export function TransactionsPage() {
   return (
     <div className="container mx-auto px-4 py-6">
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold">Транзакции</h1>
+      <div className="mb-6 text-center md:text-left">
+        <h1 className="text-3xl font-bold tracking-tight">Транзакции</h1>
         <p className="text-muted-foreground mt-1" role="status" aria-live="polite">
           {currentTransactions.length} из {totalCount}{' '}
           {activeTab === 'active' ? 'текущих' : 'скрытых'}
@@ -130,8 +130,8 @@ export function TransactionsPage() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'active' | 'archived')}>
-        <TabsList className="mb-4">
-          <TabsTrigger value="active" className="gap-2">
+        <TabsList className="mb-4 grid h-11 w-full grid-cols-2 rounded-2xl p-1">
+          <TabsTrigger value="active" className="gap-2 rounded-xl">
             Текущие
             {transactions && transactions.length > 0 && (
               <span className="text-xs bg-primary/10 px-1.5 py-0.5 rounded">
@@ -139,7 +139,7 @@ export function TransactionsPage() {
               </span>
             )}
           </TabsTrigger>
-          <TabsTrigger value="archived" className="gap-2">
+          <TabsTrigger value="archived" className="gap-2 rounded-xl">
             Скрытые
             {archivedTransactions && archivedTransactions.length > 0 && (
               <span className="text-xs bg-muted-foreground/20 px-1.5 py-0.5 rounded">
@@ -181,7 +181,7 @@ export function TransactionsPage() {
                     </Button>
                   }
                   size="md"
-                  className="pb-32 md:pb-10"
+                  className="px-2 pt-16 pb-32 md:pb-10"
                 />
               )
             ) : (

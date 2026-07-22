@@ -17,6 +17,7 @@ const DebtsPage = lazy(() => import('@/pages').then(m => ({ default: m.DebtsPage
 const AddDebtPage = lazy(() => import('@/pages').then(m => ({ default: m.AddDebtPage })));
 const DebtDetailsPage = lazy(() => import('@/pages').then(m => ({ default: m.DebtDetailsPage })));
 const AnalyticsPage = lazy(() => import('@/pages').then(m => ({ default: m.AnalyticsPage })));
+const MorePage = lazy(() => import('@/pages').then(m => ({ default: m.MorePage })));
 
 // Wrapper component with Suspense
 function PageLoader({ children }: { children: React.ReactNode }) {
@@ -106,6 +107,10 @@ export const router = createBrowserRouter([
         element: <PageLoader><AnalyticsPage /></PageLoader>,
       },
       {
+        path: '/more',
+        element: <PageLoader><MorePage /></PageLoader>,
+      },
+      {
         path: '*',
         element: <NotFoundPage />,
       },
@@ -151,4 +156,5 @@ export const ROUTES = {
   ADD_DEBT: '/debts/add',
   DEBT_DETAILS: (id: string) => `/debts/${id}`,
   ANALYTICS: '/analytics',
+  MORE: '/more',
 } as const;

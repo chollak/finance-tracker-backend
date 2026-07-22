@@ -1276,6 +1276,36 @@ Verification:
 - Playwright mobile viewport screenshot captured with no console/network errors.
 - `npm run verify` passed: 18 suites / 166 tests, backend build, webapp build, dependency-cruiser, and madge.
 
+
+---
+
+### FT-027G: True-center mobile bottom nav and transactions alignment
+
+Status: done
+Priority: high
+Owner: Hermes
+Type: frontend-ui/hotfix
+
+Context:
+Real Telegram Mini App screenshots showed that the mobile bottom-nav `+` button was visually off-center. Claude Code review confirmed the root cause: 2 left items + center + 3 right items made the button sit at ~41.5% of screen width instead of 50%. Transactions page also had an inconsistent container/max-width strategy that made the page feel visually off.
+
+Changes:
+- [x] Bottom nav IA changed to `Главная | История | + | Бюджеты | Ещё`
+- [x] `Долги` and `Аналитика` moved behind a new `/more` page
+- [x] Bottom nav layout changed from asymmetric flex to `grid-cols-[1fr_auto_1fr]`
+- [x] `Ещё` tab is highlighted when on `/more`, `/debts`, or `/analytics`
+- [x] Transactions page root width simplified to `container mx-auto px-4 py-6`
+- [x] Transactions tabs made full-width and empty state spacing adjusted
+- [x] Production screenshots captured for nav and transactions
+- [x] `npm run build:webapp` passed
+- [x] `npm run verify` passed
+
+Verification evidence:
+- `/tmp/ft027g-prod-home-390.png`
+- `/tmp/ft027g-prod-transactions-390.png`
+- `/tmp/ft027g-visual-check.json`: center button equals viewport center at 375/390/412px
+- `npm run verify`: 18 suites / 166 tests passed, backend build, webapp build, dependency-cruiser, madge.
+
 ### FT-004: Decide first product vector after stabilization
 
 Status: blocked

@@ -2285,3 +2285,53 @@ Result:
 - madge circular dependency scan passed;
 - mobile screenshot captured at `/tmp/ft027f-nav-after.png`;
 - screenshot script reported no console errors and no bad network responses.
+
+## 2026-07-22 — FT-027G true-center bottom nav and transactions alignment
+
+### Goal
+
+Fix the real visual issue reported by Shukur: the bottom-nav add button was not centered and the Transactions page felt visually off.
+
+### Root cause
+
+The previous bottom nav had 2 items on the left and 3 on the right around the `+` button. With flex-grow layout this placed the button center at about 41.5% of the screen width instead of 50%.
+
+### Product changes
+
+- Bottom nav is now: `Главная | История | + | Бюджеты | Ещё`.
+- `Долги` and `Аналитика` moved to a new `/more` page.
+- The center CTA is now inside a `grid-cols-[1fr_auto_1fr]` layout, so its center is mathematically locked to screen center.
+- `Ещё` remains active for `/more`, `/debts`, and `/analytics`.
+- Transactions page uses the same root width strategy as sibling list pages and has full-width mobile tabs.
+
+### Files changed
+
+- `webapp/src/shared/ui/bottom-nav.tsx`
+- `webapp/src/shared/lib/constants/routes.ts`
+- `webapp/src/app/router/routes.tsx`
+- `webapp/src/pages/index.ts`
+- `webapp/src/pages/more/index.tsx`
+- `webapp/src/pages/more/ui/MorePage.tsx`
+- `webapp/src/pages/transactions/ui/TransactionsPage.tsx`
+- `TASKS.md`
+- `AUTONOMOUS_REPORT.md`
+
+### Verification
+
+Hermes ran:
+
+```bash
+npm run build:webapp
+npm run verify
+node /tmp/ft027g_visual_check.js
+node /tmp/ft027g_prod_visual_check.js
+node /tmp/ft027g_prod_transactions_check.js
+```
+
+Results:
+
+- `npm run verify` passed: 18 suites / 166 tests, backend build, webapp build, dependency-cruiser, madge.
+- Production screenshot check at 390px: add button `centerX = 195`, viewport center `195`.
+- Multi-width dev screenshot check at 375/390/412px: button center exactly matched viewport center.
+- Transactions screenshot check at 390px: root/tabs center matched viewport center.
+- Production screenshots: `/tmp/ft027g-prod-home-390.png`, `/tmp/ft027g-prod-transactions-390.png`.

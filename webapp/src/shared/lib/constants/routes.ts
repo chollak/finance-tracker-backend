@@ -19,6 +19,9 @@ export const ROUTES = {
 
   // Analytics
   ANALYTICS: '/analytics',
+
+  // More
+  MORE: '/more',
 } as const;
 
 // API endpoints
