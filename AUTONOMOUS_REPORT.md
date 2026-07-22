@@ -1964,3 +1964,34 @@ npm run verify
 ```
 
 Result: passed.
+
+
+## 2026-07-22 — FT-025 fast simple text transaction parser
+
+### Source
+
+Live dev-bot test after restoring `@FinanceTrackerDevBot` and OpenAI config: text input worked but simple quick-add messages felt slow because they went through OpenAI.
+
+### Problem
+
+`ProcessTextInputUseCase` always called `openAIService.analyzeInput(text)`, even for deterministic quick-add messages such as `кофе 15000 сум`. This added avoidable network latency and OpenAI cost.
+
+### Changes
+
+- Added a local fast path in `src/modules/voiceProcessing/application/processTextInput.ts` for simple text transaction format: `<label> <amount> [сум|sum|uzs]`.
+- The fast parser normalizes category aliases through the existing category source of truth (`normalizeCategory`).
+- Debt-like phrases (`lent`, `debt`, `долг`, `должен`, `одолжил`, etc.) intentionally bypass the fast path and fall back to OpenAI to preserve debt extraction semantics.
+- Added TDD regression coverage in `tests/processTextInput.test.ts` proving `кофе 15000 сум` creates a `coffee` expense transaction without calling OpenAI.
+
+### Verification
+
+```bash
+npm test -- processTextInput --runInBand
+npm run verify
+```
+
+Result: passed. Full verify: 18 suites / 165 tests, backend build, webapp build, dependency-cruiser, circular dependency scan.
+
+### Notes
+
+This is intentionally conservative. More quick-add formats can be added later after observing real usage, but complex language and debts remain OpenAI-backed.

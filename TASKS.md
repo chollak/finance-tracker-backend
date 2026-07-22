@@ -976,6 +976,39 @@ Implementation notes:
 
 ---
 
+### FT-025: Fast simple text transaction parser
+
+Status: done
+Priority: high
+Owner: Hermes
+Type: ux/performance
+
+Context:
+Live dev-bot testing showed simple messages like `кофе 15000 сум` worked after OpenAI configuration was fixed, but response latency was noticeably high because every text input went through OpenAI.
+
+Goal:
+Handle simple quick-add text transactions locally before falling back to OpenAI for complex natural language and debts.
+
+Scope:
+- Simple format only: `<label> <amount> [сум|sum|uzs]`
+- Expense transactions only
+- Use canonical category IDs via existing category alias normalization
+- Keep OpenAI fallback for complex phrases and debt phrases
+
+Definition of Done:
+- [x] Regression test proves `кофе 15000 сум` creates a transaction without calling OpenAI
+- [x] Simple parser maps label aliases to category IDs (`кофе` → `coffee`)
+- [x] Debt-like phrases still fall back to OpenAI
+- [x] Targeted `processTextInput` tests pass
+- [x] `npm run verify` passes
+
+Implementation notes:
+- Updated `src/modules/voiceProcessing/application/processTextInput.ts`.
+- Added a local `parseSimpleTextTransaction` fast path before `openAIService.analyzeInput`.
+- Updated `tests/processTextInput.test.ts` with TDD coverage for OpenAI bypass.
+
+---
+
 ### FT-004: Decide first product vector after stabilization
 
 Status: blocked

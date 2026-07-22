@@ -6,8 +6,42 @@ import { Transaction } from '../../transaction/domain/transactionEntity';
 import { DebtType } from '../../debt/domain/debtEntity';
 import { DebtLimitExceededError } from '../../debt/domain/errors';
 import { getLogger, LogCategory } from '../../../shared/application/logging';
+import { normalizeCategory } from '../../../shared/domain/entities/Category';
+import { AnalysisResult, ParsedTransaction } from '../domain/transcriptionService';
 
 const logger = getLogger(LogCategory.OPENAI);
+
+const SIMPLE_TRANSACTION_PATTERN = /^(.+?)\s+([+-]?\d[\d\s.,]*)\s*(?:сум|sum|uzs)?\s*$/i;
+
+function parseSimpleTextTransaction(text: string): AnalysisResult | null {
+  const normalizedText = text.trim().replace(/\s+/g, ' ');
+  const match = normalizedText.match(SIMPLE_TRANSACTION_PATTERN);
+
+  if (!match) {
+    return null;
+  }
+
+  const label = match[1].trim();
+  const amount = Number(match[2].replace(/[\s,]/g, ''));
+  const debtKeywords = /\b(lent|borrowed|owe|debt|loan)\b|долг|должен|одолжил|одолжила|занял|заняла|қарз|qarz/i;
+
+  if (!label || debtKeywords.test(normalizedText) || !Number.isFinite(amount) || amount <= 0) {
+    return null;
+  }
+
+  const transaction: ParsedTransaction = {
+    intent: 'transaction',
+    amount,
+    category: normalizeCategory(label),
+    type: 'expense',
+    date: new Date().toISOString().split('T')[0],
+    merchant: label,
+    confidence: 1,
+    description: label,
+  };
+
+  return { transactions: [transaction], debts: [] };
+}
 
 export class ProcessTextInputUseCase {
   constructor(
@@ -17,8 +51,9 @@ export class ProcessTextInputUseCase {
   ) {}
 
   async execute(text: string, userId: string, userName?: string): Promise<ProcessedTransaction> {
-    // Use new analyzeInput method that returns both transactions and debts
-    const parsed = await this.openAIService.analyzeInput(text);
+    const parsed = parseSimpleTextTransaction(text)
+      // Fall back to OpenAI for complex/natural-language inputs and debts.
+      || await this.openAIService.analyzeInput(text);
 
     const transactionResults: DetectedTransaction[] = [];
     const debtResults: DetectedDebt[] = [];

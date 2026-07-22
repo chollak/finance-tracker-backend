@@ -7,6 +7,48 @@ import { DebtStatus, DebtType } from '../src/modules/debt/domain/debtEntity';
 jest.mock('../src/modules/voiceProcessing/infrastructure/openAITranscriptionService');
 
 describe('ProcessTextInputUseCase', () => {
+  it('creates simple text transaction locally without calling OpenAI', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-07-22T09:00:00.000Z'));
+
+    const openAIService = {
+      analyzeInput: jest.fn(),
+      analyzeTransactions: jest.fn(),
+      transcribe: jest.fn()
+    } as unknown as TranscriptionService;
+
+    const createTransactionUseCase = {
+      execute: jest.fn().mockResolvedValue({ success: true, data: 'fast-1' })
+    } as unknown as CreateTransactionUseCase;
+
+    const useCase = new ProcessTextInputUseCase(openAIService, createTransactionUseCase);
+
+    const result = await useCase.execute('кофе 15000 сум', 'user1', 'Shukur');
+
+    expect(openAIService.analyzeInput).not.toHaveBeenCalled();
+    expect(createTransactionUseCase.execute).toHaveBeenCalledWith(expect.objectContaining({
+      amount: 15000,
+      category: 'coffee',
+      type: 'expense',
+      date: '2026-07-22',
+      merchant: 'кофе',
+      description: 'кофе',
+      userId: 'user1',
+      userName: 'Shukur',
+      originalText: 'кофе 15000 сум',
+    }));
+    expect(result.transactions).toEqual([
+      expect.objectContaining({
+        id: 'fast-1',
+        amount: 15000,
+        category: 'coffee',
+        merchant: 'кофе',
+        description: 'кофе',
+      })
+    ]);
+
+    jest.useRealTimers();
+  });
+
   it('creates transaction from text analysis', async () => {
     const openAIService = {
       analyzeInput: jest.fn().mockResolvedValue({
