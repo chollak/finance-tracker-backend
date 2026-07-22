@@ -976,6 +976,34 @@ Implementation notes:
 
 ---
 
+### FT-026: Recurring budget periods
+
+Status: ready
+Priority: high
+Owner: Hermes
+Type: product/backend+ui
+
+Context:
+Current budgets are fixed date ranges (`startDate`/`endDate`). Users expect `period: monthly` budgets to roll over automatically each month, but current behavior can keep showing the old period or accumulate spending across the selected fixed range.
+
+Goal:
+Make budgets behave like recurring rules: e.g. `Коммунальные — 2 000 000 / month` should calculate spending for the current monthly cycle and reset the displayed spent amount each new period without requiring manual budget recreation.
+
+Scope:
+- Add/define `BudgetPeriodCalculator` for current daily/weekly/monthly/quarterly/yearly cycle from an anchor date.
+- Budget summaries should calculate `spent`, `remaining`, `percentageUsed`, and `daysRemaining` for the current cycle.
+- Preserve old `startDate` as the anchor for existing budgets.
+- UI should clearly show current cycle label/date range (e.g. `Июль 2026`, `01.07–31.07`).
+- Add regression tests: monthly budget must not include previous-month expenses in the new month.
+
+Definition of Done:
+- [ ] Backend tests cover monthly rollover/reset behavior.
+- [ ] Budget summaries use current period date range.
+- [ ] UI shows current budget period clearly.
+- [ ] `npm run verify` passes.
+
+---
+
 ### FT-025: Fast simple text transaction parser
 
 Status: done
