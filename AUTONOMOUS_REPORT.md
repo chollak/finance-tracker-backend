@@ -2094,3 +2094,52 @@ Result:
 ### Follow-up
 
 Continue with FT-027C: mobile add CTA and bottom navigation review.
+
+## 2026-07-22 — FT-027C mobile add CTA and bottom navigation
+
+### Goal
+
+Make the core add-transaction action easier to discover on mobile and reduce FAB overlap with bottom navigation / Telegram safe areas.
+
+### Execution
+
+Hermes delegated FT-027C to Claude Code with a frontend-only scope. Claude Code implemented a central mobile bottom-nav `+` action and safe-area-aware spacing. Hermes reviewed the diff and reran verification independently.
+
+### Files Changed
+
+- `.hermes/plans/2026-07-22_175141-ui-product-improvements.md`
+- `TASKS.md`
+- `AUTONOMOUS_REPORT.md`
+- `webapp/src/shared/ui/bottom-nav.tsx`
+- `webapp/src/shared/ui/layout.tsx`
+- `webapp/src/pages/transactions/ui/TransactionsPage.tsx`
+- `webapp/src/pages/budgets/ui/BudgetsPage.tsx`
+- `webapp/src/pages/debts/ui/DebtsPage.tsx`
+
+### Product Changes
+
+- Mobile bottom nav now has a raised central `+` button that opens `QuickAddSheet`.
+- Transactions page no longer duplicates the mobile add-transaction FAB; desktop still keeps the add button.
+- Budget and debt page FABs use safe-area-aware bottom spacing to clear bottom nav.
+- Main layout bottom padding is safe-area aware.
+
+### Verification
+
+Hermes ran:
+
+```bash
+npm run build:webapp
+npm run verify
+```
+
+Result:
+
+- backend TypeScript build passed;
+- Jest passed: 18 suites / 166 tests;
+- webapp build passed;
+- dependency-cruiser passed;
+- madge circular dependency scan passed.
+
+### Follow-up
+
+Continue with FT-027D: simplify transaction archive surface.

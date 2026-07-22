@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Home, Receipt, Wallet, BarChart3, HandCoins } from 'lucide-react';
+import { Home, Receipt, Wallet, BarChart3, HandCoins, Plus } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/shared/lib/utils';
 import { ROUTES } from '@/shared/lib/constants/routes';
@@ -15,8 +15,10 @@ import { apiClient } from '@/shared/api';
 import { API_ENDPOINTS } from '@/shared/lib/constants';
 import type { Transaction, BudgetSummary, Debt } from '@/shared/types';
 import { haptic } from '@/shared/lib/haptic';
+import { QuickAddSheet } from '@/features/quick-add';
 
-const navItems = [
+// Split around the center Add action: 2 items left, 3 items right
+const leftNavItems = [
   {
     href: ROUTES.HOME,
     label: 'Главная',
@@ -27,6 +29,9 @@ const navItems = [
     label: 'Транзакции',
     icon: Receipt,
   },
+];
+
+const rightNavItems = [
   {
     href: ROUTES.BUDGETS,
     label: 'Бюджеты',
@@ -43,6 +48,8 @@ const navItems = [
     icon: BarChart3,
   },
 ];
+
+const navItems = [...leftNavItems, ...rightNavItems];
 
 /**
  * Bottom navigation for mobile devices
@@ -125,38 +132,56 @@ export function BottomNav() {
     }
   };
 
-  return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background md:hidden">
-      <div className="flex h-16 items-center justify-around">
-        {navItems.map((item) => {
-          const isActive = location.pathname === item.href;
-          const Icon = item.icon;
+  const renderNavItem = (item: (typeof navItems)[number]) => {
+    const isActive = location.pathname === item.href;
+    const Icon = item.icon;
 
-          return (
-            <Link
-              key={item.href}
-              to={item.href}
-              onClick={() => {
-                // Only trigger haptic if navigating to different page
-                if (!isActive) {
-                  haptic.tabChanged();
-                }
-              }}
-              onMouseEnter={() => prefetchForRoute(item.href)}
-              onFocus={() => prefetchForRoute(item.href)}
-              onTouchStart={() => prefetchForRoute(item.href)}
-              className={cn(
-                'flex flex-1 flex-col items-center justify-center gap-1 py-2 text-xs transition-colors',
-                isActive
-                  ? 'text-foreground'
-                  : 'text-muted-foreground hover:text-foreground'
-              )}
+    return (
+      <Link
+        key={item.href}
+        to={item.href}
+        onClick={() => {
+          // Only trigger haptic if navigating to different page
+          if (!isActive) {
+            haptic.tabChanged();
+          }
+        }}
+        onMouseEnter={() => prefetchForRoute(item.href)}
+        onFocus={() => prefetchForRoute(item.href)}
+        onTouchStart={() => prefetchForRoute(item.href)}
+        className={cn(
+          'flex flex-1 flex-col items-center justify-center gap-1 py-2 text-xs transition-colors',
+          isActive
+            ? 'text-foreground'
+            : 'text-muted-foreground hover:text-foreground'
+        )}
+      >
+        <Icon className={cn('h-5 w-5', isActive ? 'text-foreground' : '')} />
+        <span>{item.label}</span>
+      </Link>
+    );
+  };
+
+  return (
+    <nav className="fixed inset-x-0 bottom-0 z-50 border-t bg-background pb-[env(safe-area-inset-bottom)] md:hidden">
+      <div className="flex h-16 items-center justify-around">
+        {leftNavItems.map((item) => renderNavItem(item))}
+
+        {/* Central elevated Add Transaction action — the core mobile CTA */}
+        <div className="flex flex-1 items-center justify-center">
+          <QuickAddSheet>
+            <button
+              type="button"
+              onClick={() => haptic.press()}
+              aria-label="Добавить транзакцию"
+              className="-translate-y-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform active:scale-95"
             >
-              <Icon className={cn('h-5 w-5', isActive ? 'text-foreground' : '')} />
-              <span>{item.label}</span>
-            </Link>
-          );
-        })}
+              <Plus className="h-6 w-6" aria-hidden="true" />
+            </button>
+          </QuickAddSheet>
+        </div>
+
+        {rightNavItems.map((item) => renderNavItem(item))}
       </div>
     </nav>
   );

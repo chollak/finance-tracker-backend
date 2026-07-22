@@ -1138,6 +1138,47 @@ Verification:
 - `npm run build:webapp` — passed.
 - `npm run verify` — passed: 18 suites / 166 tests, backend build, webapp build, dependency-cruiser, and madge.
 
+
+---
+
+### FT-027C: Mobile add CTA and bottom navigation review
+
+Status: done
+Priority: high
+Owner: Claude Code, QA by Hermes
+Type: frontend-ui
+
+Problem:
+Adding a transaction is the core action, but current UI uses separate FAB patterns across Home/Transactions/Budgets/Debts. On mobile this can overlap bottom navigation and Telegram safe areas.
+
+Scope:
+- `webapp/src/shared/ui/bottom-nav.tsx`
+- `webapp/src/pages/home/ui/HomePage.tsx`
+- `webapp/src/pages/transactions/ui/TransactionsPage.tsx`
+- `webapp/src/pages/budgets/ui/BudgetsPage.tsx`
+- `webapp/src/pages/debts/ui/DebtsPage.tsx` if needed for consistent FAB behavior
+- small shared component/helper under `webapp/src/shared/ui` or `webapp/src/features/quick-add` if useful
+
+Definition of Done:
+- [x] Mobile add transaction CTA is easier to discover
+- [x] FABs avoid bottom nav/safe-area overlap
+- [x] Desktop behavior remains reasonable
+- [x] Existing routes and quick-add behavior remain stable
+- [x] No backend/API/schema/env/package/deploy changes
+- [x] `npm run build:webapp` passes
+- [x] `npm run verify` passes before commit/push
+- [x] Hermes reviewed Claude Code diff
+
+Implementation notes:
+- Bottom navigation now has a central elevated add transaction action that opens `QuickAddSheet`.
+- Transactions page hides the duplicate mobile add-transaction FAB; desktop keeps the existing add button.
+- Budget/debt page FAB spacing is safe-area aware and clears the bottom nav.
+- Layout bottom padding is safe-area aware.
+
+Verification:
+- `npm run build:webapp` — passed.
+- `npm run verify` — passed: 18 suites / 166 tests, backend build, webapp build, dependency-cruiser, and madge.
+
 ### FT-004: Decide first product vector after stabilization
 
 Status: blocked

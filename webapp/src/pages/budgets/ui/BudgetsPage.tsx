@@ -90,10 +90,10 @@ export function BudgetsPage() {
         )}
       </div>
 
-      {/* Floating Action Button - Add Budget */}
+      {/* Floating Action Button - Add Budget (safe-area aware to clear the bottom nav) */}
       <Button
         size="lg"
-        className="fixed bottom-20 md:bottom-6 right-6 h-14 w-14 rounded-full shadow-lg md:h-auto md:w-auto md:rounded-md md:px-6"
+        className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] md:bottom-6 right-6 h-14 w-14 rounded-full shadow-lg md:h-auto md:w-auto md:rounded-md md:px-6"
         onClick={() => navigate(ROUTES.ADD_BUDGET)}
         aria-label="Создать бюджет"
       >

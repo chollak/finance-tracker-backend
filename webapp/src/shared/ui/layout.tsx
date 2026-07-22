@@ -19,7 +19,7 @@ export function Layout({ children }: LayoutProps) {
       <TopNav />
 
       {/* Main Content */}
-      <main className="pb-20 md:pb-0">{children}</main>
+      <main className="pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-0">{children}</main>
 
       {/* Mobile Navigation */}
       <BottomNav />

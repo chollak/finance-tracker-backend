@@ -290,12 +290,12 @@ export function TransactionsPage() {
         </TabsContent>
       </Tabs>
 
-      {/* Floating Action Button - Quick Add Transaction (only on active tab) */}
+      {/* Add Transaction - desktop only; mobile uses the central bottom-nav action */}
       {activeTab === 'active' && transactions && transactions.length > 0 && (
         <QuickAddSheet>
           <Button
             size="lg"
-            className="fixed bottom-20 md:bottom-6 right-6 h-14 w-14 rounded-full shadow-lg md:h-auto md:w-auto md:rounded-md md:px-6"
+            className="hidden md:fixed md:bottom-6 md:right-6 md:flex h-14 w-14 rounded-full shadow-lg md:h-auto md:w-auto md:rounded-md md:px-6"
             aria-label="Добавить транзакцию"
           >
             <Plus className="h-6 w-6 md:mr-2" aria-hidden="true" />

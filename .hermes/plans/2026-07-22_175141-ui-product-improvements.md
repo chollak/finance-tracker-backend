@@ -87,7 +87,7 @@ FT-027B result:
 
 ### FT-027C — Mobile add CTA and bottom navigation review
 
-Status: ready
+Status: done
 Owner: Claude Code, QA by Hermes
 Priority: P1
 Type: frontend-ui
@@ -99,6 +99,12 @@ Required changes:
 - Propose/implement a consistent mobile CTA pattern.
 - Avoid FAB overlap with bottom nav/safe area.
 - Keep routes stable unless necessary.
+
+FT-027C result:
+- Bottom nav has a central elevated `+` quick-add action on mobile.
+- Duplicate mobile transaction FAB is hidden; desktop add button remains.
+- Budget/debt FABs and layout padding are safe-area aware.
+- Verification passed via `npm run build:webapp` and `npm run verify`.
 
 ### FT-027D — Simplify transaction archive surface
 
