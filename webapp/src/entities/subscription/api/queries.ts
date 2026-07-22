@@ -40,7 +40,7 @@ export function useSubscription(userId: string | null) {
 
       return response.data;
     },
-    enabled: !!userId && !isGuest,
+    enabled: !!userId,
     staleTime: 2 * 60 * 1000, // 2 minutes cache (reduced for fresher data)
     refetchOnWindowFocus: true, // Refetch when user returns to tab
   });

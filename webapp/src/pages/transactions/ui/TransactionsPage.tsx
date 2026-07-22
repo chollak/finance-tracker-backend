@@ -208,7 +208,8 @@ export function TransactionsPage() {
                       Добавить первую транзакцию
                     </Button>
                   }
-                  size="lg"
+                  size="md"
+                  className="pb-32 md:pb-10"
                 />
               )
             ) : (
@@ -290,7 +291,7 @@ export function TransactionsPage() {
       </Tabs>
 
       {/* Floating Action Button - Quick Add Transaction (only on active tab) */}
-      {activeTab === 'active' && (
+      {activeTab === 'active' && transactions && transactions.length > 0 && (
         <QuickAddSheet>
           <Button
             size="lg"

@@ -27,6 +27,7 @@ transactions.json
 # Testing artifacts
 playwright-screenshots/
 .playwright-mcp/
+.hermes/ui-qa/
 
 # Database files
 data/database.sqlite

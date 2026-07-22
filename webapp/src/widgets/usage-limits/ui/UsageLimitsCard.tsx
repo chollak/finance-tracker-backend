@@ -46,6 +46,36 @@ export function UsageLimitsCard() {
 
   const limits = subscription?.limits;
 
+  const hasUnlimitedLocalLimits = Boolean(
+    limits &&
+      limits.transactions.limit === null &&
+      limits.voiceInputs.limit === null &&
+      limits.activeDebts.limit === null
+  );
+
+  if (hasUnlimitedLocalLimits) {
+    return (
+      <Card className="rounded-3xl">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base font-medium">Лимиты</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            В гостевом режиме локальные транзакции не расходуют облачные лимиты.
+          </p>
+          <Button
+            onClick={handleUpgrade}
+            variant="outline"
+            className="w-full"
+            size="sm"
+          >
+            Войти через Telegram
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
   // Defensive rendering: if limits is undefined, show loading message
   if (!limits) {
     return (
