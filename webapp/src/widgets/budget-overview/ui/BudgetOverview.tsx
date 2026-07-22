@@ -3,14 +3,8 @@ import { Progress } from '@/shared/ui/progress';
 import { Badge } from '@/shared/ui/badge';
 import { Skeleton } from '@/shared/ui/skeleton';
 import { Button, EmptyState } from '@/shared/ui';
-import { useBudgetSummaries } from '@/entities/budget';
+import { useBudgetSummaries, budgetToViewModel } from '@/entities/budget';
 import { useUserStore } from '@/entities/user/model/store';
-import { formatCurrency } from '@/shared/lib/formatters';
-import {
-  calculateProgress,
-  getBudgetStatus,
-  getStatusColor,
-} from '../lib/calculateProgress';
 import { Link, useNavigate } from 'react-router-dom';
 import { ROUTES } from '@/shared/lib/constants/routes';
 
@@ -78,29 +72,34 @@ export function BudgetOverview() {
       </CardHeader>
       <CardContent className="space-y-4">
         {budgets.slice(0, 3).map((budget) => {
-          const progress = calculateProgress(budget);
-          const status = getBudgetStatus(budget);
-          const statusColor = getStatusColor(budget);
+          const vm = budgetToViewModel(budget);
 
           return (
             <div key={budget.id} className="space-y-2">
               {/* Budget Name & Status */}
               <div className="flex items-center justify-between">
                 <p className="font-medium">{budget.name}</p>
-                <Badge variant="outline" className={statusColor}>
-                  {status}
+                <Badge variant="outline" className={vm._statusColor}>
+                  {vm._statusText}
                 </Badge>
               </div>
 
-              {/* Progress Bar */}
-              <Progress value={Math.min(progress, 100)} className="h-2" />
+              {/* Actionable headline */}
+              <p className={`text-lg font-bold ${vm._remainingColor}`}>
+                {vm._remainingLabel} {vm._remainingAmountText}
+              </p>
 
-              {/* Spent / Amount */}
-              <div className="flex items-center justify-between text-sm text-muted-foreground">
+              {/* Progress Bar (secondary: spent/total + percentage) */}
+              <Progress
+                value={Math.min(vm.percentageUsed, 100)}
+                className="h-2"
+                indicatorClassName={vm._progressColor}
+              />
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
                 <span>
-                  {formatCurrency(budget.spent)} / {formatCurrency(budget.amount)}
+                  {vm._formattedSpent} / {vm._formattedAmount}
                 </span>
-                <span>{progress}%</span>
+                <span>{vm._percentageText}</span>
               </div>
             </div>
           );

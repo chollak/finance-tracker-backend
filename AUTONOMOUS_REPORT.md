@@ -2045,3 +2045,52 @@ Result:
 ### Follow-up
 
 Continue with FT-027B: actionable budget remaining UX.
+
+## 2026-07-22 — FT-027B actionable budget remaining UX
+
+### Goal
+
+Make budget UI more actionable by showing the primary meaning of each budget first: remaining amount or overspend, with time context for the current period.
+
+### Execution
+
+Hermes delegated FT-027B to Claude Code with a frontend-only scope. Claude Code changed budget view-model formatting and card presentation without committing or pushing. Hermes reviewed the diff and reran verification independently.
+
+### Files Changed
+
+- `.hermes/plans/2026-07-22_175141-ui-product-improvements.md`
+- `TASKS.md`
+- `AUTONOMOUS_REPORT.md`
+- `webapp/src/entities/budget/lib/toViewModel.ts`
+- `webapp/src/entities/budget/model/types.ts`
+- `webapp/src/entities/budget/ui/BudgetCard.tsx`
+- `webapp/src/widgets/budget-overview/ui/BudgetOverview.tsx`
+
+### Product Changes
+
+- Budget cards now show a prominent headline: `Осталось {amount}` or `Перерасход {amount}`.
+- Over-budget amount is calculated as `Math.max(0, spent - amount)` instead of showing `0 сўм`.
+- Time context now reads like `До конца месяца • 5 дней осталось`, using existing `period` and `daysRemaining`.
+- Spent/total and percentage remain visible but secondary.
+- `BudgetOverview` now reuses `budgetToViewModel` for consistency.
+
+### Verification
+
+Hermes ran:
+
+```bash
+npm run build:webapp
+npm run verify
+```
+
+Result:
+
+- backend TypeScript build passed;
+- Jest passed: 18 suites / 166 tests;
+- webapp build passed;
+- dependency-cruiser passed;
+- madge circular dependency scan passed.
+
+### Follow-up
+
+Continue with FT-027C: mobile add CTA and bottom navigation review.

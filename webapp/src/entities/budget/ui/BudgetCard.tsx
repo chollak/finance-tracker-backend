@@ -28,38 +28,33 @@ export function BudgetCard({ budget, onClick }: BudgetCardProps) {
       </CardHeader>
 
       <CardContent className="space-y-4">
-        {/* Progress Bar */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">
-              Потрачено: {budget._formattedSpent}
-            </span>
-            <span className="font-medium">{budget._percentageText}</span>
-          </div>
+        {/* Actionable headline: what the user can do right now */}
+        <div>
+          <p className={`text-3xl font-bold tracking-tight ${budget._remainingColor}`}>
+            {budget._remainingLabel} {budget._remainingAmountText}
+          </p>
+          <p className="text-sm text-muted-foreground mt-1">
+            {budget._timeContextText}
+          </p>
+        </div>
 
+        {/* Progress Bar (secondary: spent/total + percentage) */}
+        <div className="space-y-2">
           <Progress
             value={Math.min(budget.percentageUsed, 100)}
             className="h-2"
             indicatorClassName={budget._progressColor}
           />
-        </div>
 
-        {/* Budget Details */}
-        <div className="flex items-center justify-between text-sm">
-          <div>
-            <p className="text-muted-foreground">Осталось</p>
-            <p className="font-semibold text-lg">
-              {budget.isOverBudget ? '0 сўм' : budget._formattedRemaining}
-            </p>
-          </div>
-
-          <div className="text-right">
-            <p className="text-muted-foreground">Бюджет</p>
-            <p className="font-semibold text-lg">{budget._formattedAmount}</p>
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span>
+              {budget._formattedSpent} / {budget._formattedAmount}
+            </span>
+            <span>{budget._percentageText}</span>
           </div>
         </div>
 
-        {/* Days Remaining & Velocity Prediction */}
+        {/* Velocity Prediction */}
         <Separator />
         <div className="flex items-center justify-between text-xs">
           <span className="text-muted-foreground">

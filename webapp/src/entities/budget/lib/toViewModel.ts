@@ -72,6 +72,22 @@ function formatDaysRemaining(days: number): string {
 }
 
 /**
+ * Formats period + days remaining into a single actionable time-context line
+ * e.g. "До конца месяца • 5 дней осталось"
+ */
+function formatTimeContext(period: BudgetPeriod, daysRemaining: number): string {
+  const PERIOD_END_LABELS: Record<string, string> = {
+    weekly: 'недели',
+    monthly: 'месяца',
+    quarterly: 'квартала',
+    yearly: 'года',
+  };
+
+  const label = PERIOD_END_LABELS[period] || 'периода';
+  return `До конца ${label} • ${formatDaysRemaining(daysRemaining)}`;
+}
+
+/**
  * Get total days in budget period
  */
 function getPeriodTotalDays(period: BudgetPeriod): number {
@@ -169,6 +185,13 @@ export function budgetToViewModel(budget: BudgetSummary): BudgetViewModel {
   const status = getStatus(budget.percentageUsed, budget.isOverBudget);
   const velocity = calculateVelocityPrediction(budget);
 
+  // Actionable headline: what the user can do right now
+  const overspentAmount = Math.max(0, budget.spent - budget.amount);
+  const remainingLabel = budget.isOverBudget ? 'Перерасход' : 'Осталось';
+  const remainingAmountText = formatCurrency(
+    budget.isOverBudget ? overspentAmount : Math.max(0, budget.remaining)
+  );
+
   return {
     ...budget,
     _formattedAmount: formatCurrency(budget.amount),
@@ -180,6 +203,11 @@ export function budgetToViewModel(budget: BudgetSummary): BudgetViewModel {
     _statusColor: status.color,
     _daysRemainingText: formatDaysRemaining(budget.daysRemaining),
     _periodText: formatPeriod(budget.period),
+    // Actionable headline
+    _remainingLabel: remainingLabel,
+    _remainingAmountText: remainingAmountText,
+    _remainingColor: status.color,
+    _timeContextText: formatTimeContext(budget.period, budget.daysRemaining),
     // Velocity prediction
     _dailySpendingRate: velocity.dailyRate,
     _projectedRunoutDate: velocity.runoutDate,

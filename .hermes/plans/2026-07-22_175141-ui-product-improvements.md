@@ -66,7 +66,7 @@ Result:
 
 ### FT-027B — Actionable budget remaining UX
 
-Status: ready
+Status: done
 Owner: Claude Code, QA by Hermes
 Priority: P1
 Type: frontend-ui
@@ -78,6 +78,12 @@ Required changes:
 - Show `Осталось X` or `Перерасход X` prominently.
 - For period-aware budgets, prefer copy like `до конца недели/месяца` where data already exists.
 - Do not invent recurring-budget backend logic; use current fields only.
+
+FT-027B result:
+- Budget cards now emphasize `Осталось X` or `Перерасход X`.
+- Time context uses existing period/daysRemaining fields.
+- `BudgetOverview` reuses the same budget view model.
+- Verification passed via `npm run build:webapp` and `npm run verify`.
 
 ### FT-027C — Mobile add CTA and bottom navigation review
 

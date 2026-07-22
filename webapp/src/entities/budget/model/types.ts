@@ -22,6 +22,12 @@ export interface BudgetViewModel extends BudgetSummary {
   _daysRemainingText: string;       // "5 дней осталось"
   _periodText: string;              // "Месячный", "Недельный"
 
+  // Actionable headline fields (main answer: what can I do now?)
+  _remainingLabel: string;          // "Осталось" or "Перерасход"
+  _remainingAmountText: string;     // "250 000 сўм" (remaining, or overspent amount if over budget)
+  _remainingColor: string;          // "text-success", "text-warning", "text-expense"
+  _timeContextText: string;         // "До конца месяца • 5 дней осталось"
+
   // Velocity prediction fields
   _dailySpendingRate: number;       // Daily spending rate
   _projectedRunoutDate: string | null; // "25 янв" - when budget will run out

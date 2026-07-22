@@ -1100,6 +1100,44 @@ Verification:
 - `npm run build:webapp` — passed.
 - `npm run verify` — passed: 18 suites / 166 tests, backend build, webapp build, dependency-cruiser, and madge.
 
+
+---
+
+### FT-027B: Actionable budget remaining UX
+
+Status: done
+Priority: high
+Owner: Claude Code, QA by Hermes
+Type: frontend-ui
+
+Problem:
+Budget cards show progress percentage and raw remaining amount, but should more directly tell the user what this means: `Осталось X`, `Перерасход X`, and how long until the period ends.
+
+Scope:
+- `webapp/src/entities/budget/ui/BudgetCard.tsx`
+- `webapp/src/entities/budget/lib/toViewModel.ts`
+- `webapp/src/entities/budget/model/types.ts` if new formatted fields are needed
+- `webapp/src/widgets/budget-overview/ui/BudgetOverview.tsx` if needed for consistency
+
+Definition of Done:
+- [x] Budget cards emphasize `Осталось X` or `Перерасход X`
+- [x] Budget period/time remaining is clear
+- [x] Progress percentage remains available but secondary
+- [x] No backend/API/schema/env/package/deploy changes
+- [x] `npm run build:webapp` passes
+- [x] `npm run verify` passes before commit/push
+- [x] Hermes reviewed Claude Code diff
+
+Implementation notes:
+- `budgetToViewModel` now exposes actionable headline fields: remaining/overspent label, amount, color, and time context.
+- `BudgetCard` promotes `Осталось X` / `Перерасход X` as the primary card message.
+- `BudgetOverview` now reuses `budgetToViewModel` for consistent compact budget summaries.
+- Overspend is calculated as `Math.max(0, spent - amount)`.
+
+Verification:
+- `npm run build:webapp` — passed.
+- `npm run verify` — passed: 18 suites / 166 tests, backend build, webapp build, dependency-cruiser, and madge.
+
 ### FT-004: Decide first product vector after stabilization
 
 Status: blocked
