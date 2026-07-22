@@ -2460,3 +2460,56 @@ Results:
   - `/tmp/ft027j-audit-transactions-390.png`
   - `/tmp/ft027j-audit-debts-390.png`
 - Visual review confirmed Transactions header is left-aligned, tabs are less compressed, Debts mobile FAB is gone, and bottom-nav center `+` remains centered and visible.
+
+## 2026-07-22 — FT-028 full mobile UI audit and regression cleanup
+
+### Goal
+
+Run a mobile UI audit after Shukur reported multiple visual regressions and inconsistent design decisions.
+
+### Audit artifacts
+
+- Report: `/tmp/ft028-ui-audit/report.md`
+- Metrics: `/tmp/ft028-ui-audit/metrics.json`
+- Screenshots: `/tmp/ft028-ui-audit/screenshots/*.png`
+
+### Screens audited
+
+- Home
+- Transactions
+- Budgets
+- Debts
+- More
+- Add Transaction
+- Add Budget
+- Add Debt
+- Analytics
+
+### Immediate fixes
+
+- Bottom nav center `+`: visible neutral-primary, not semantic green and not low-contrast white.
+- Transactions: left-aligned header and taller segmented tabs.
+- Dashboard top spending: top categories now use expense-only, non-debt transactions, so income categories such as `Зарплата` do not appear as spending.
+- Home Recent Transactions: removed nested fixed-height scroll; now shows 5 inline rows and hides row action menu in the widget.
+- Transaction list items: amount column now truncation-safe on narrow screens.
+- Debts: removed mobile floating FAB and preserved desktop fixed action.
+
+### Verification
+
+Hermes ran:
+
+```bash
+npm run build:webapp
+npm run build
+npm run verify
+node /tmp/ft028_ui_audit_capture.js
+```
+
+Result:
+
+- `npm run verify` passed: 18 suites / 166 tests, backend build, webapp build, dependency-cruiser, madge.
+- Screenshot audit produced the artifacts listed above.
+
+### Recommendation
+
+Next slice should be FT-029 shared mobile page templates: `PageHeader`, `SegmentedTabs`, empty-state rules, form header/back consistency, and repeatable screenshot QA.

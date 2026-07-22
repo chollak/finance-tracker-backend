@@ -1381,6 +1381,38 @@ Verification evidence:
 - `/tmp/ft027j-audit-debts-390.png`
 - `npm run verify`: 18 suites / 166 tests passed, backend build, webapp build, dependency-cruiser, madge.
 
+
+---
+
+### FT-028: Full mobile UI audit and regression cleanup
+
+Status: done
+Priority: critical
+Owner: Hermes
+Type: frontend-ui/design-audit
+
+Context:
+Shukur reported that the app design had regressed after several isolated UI fixes. The task was to audit core mobile pages and bring urgent problems back toward a unified standard.
+
+Audit artifacts:
+- `/tmp/ft028-ui-audit/report.md`
+- `/tmp/ft028-ui-audit/metrics.json`
+- `/tmp/ft028-ui-audit/screenshots/*.png`
+
+Immediate fixes applied:
+- [x] Center bottom-nav `+` is visible neutral-primary (`bg-primary`), not green and not low-contrast white
+- [x] Transactions page header restored to left alignment
+- [x] Transactions segmented tabs made less compressed
+- [x] Home top spending uses expense-only, non-debt categories
+- [x] Recent transactions widget uses inline rows instead of nested fixed-height scroll
+- [x] Transaction list item amount column is truncation-safe on mobile
+- [x] Debts mobile floating FAB removed
+- [x] Analytics tests updated for expense-only top categories
+- [x] `npm run verify` passed
+
+Follow-up recommended:
+- FT-029 shared mobile page templates: `PageHeader`, `SegmentedTabs`, empty-state rules, form-page header/back pattern, repeatable screenshot QA.
+
 ### FT-004: Decide first product vector after stabilization
 
 Status: blocked
