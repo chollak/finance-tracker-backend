@@ -2335,3 +2335,36 @@ Results:
 - Multi-width dev screenshot check at 375/390/412px: button center exactly matched viewport center.
 - Transactions screenshot check at 390px: root/tabs center matched viewport center.
 - Production screenshots: `/tmp/ft027g-prod-home-390.png`, `/tmp/ft027g-prod-transactions-390.png`.
+
+## 2026-07-22 — FT-027H remove competing mobile budget FAB
+
+### Goal
+
+Clean up the Budget page after Shukur noticed the separate floating create-budget button. With the global bottom-nav center `+`, another mobile FAB on a tab page created visual competition and could feel like a duplicate primary action.
+
+### Product change
+
+- Removed the mobile floating budget FAB.
+- Preserved the desktop fixed `Создать бюджет` action.
+- Added an in-page mobile `Создать бюджет` CTA for non-empty budget lists.
+- Kept the existing empty-state CTA for first-budget creation.
+
+### File changed
+
+- `webapp/src/pages/budgets/ui/BudgetsPage.tsx`
+
+### Verification
+
+Hermes ran:
+
+```bash
+npm run build:webapp
+npm run verify
+node /tmp/ft027h_budget_auth_screenshot.js
+```
+
+Results:
+
+- `npm run verify` passed: 18 suites / 166 tests, backend build, webapp build, dependency-cruiser, madge.
+- Production mobile screenshot: `/tmp/ft027h-prod-budgets-auth-390.png`.
+- DOM check confirmed the desktop create-budget button is hidden on mobile and no separate budget FAB appears above the bottom nav.

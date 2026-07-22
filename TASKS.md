@@ -1306,6 +1306,27 @@ Verification evidence:
 - `/tmp/ft027g-visual-check.json`: center button equals viewport center at 375/390/412px
 - `npm run verify`: 18 suites / 166 tests passed, backend build, webapp build, dependency-cruiser, madge.
 
+
+---
+
+### FT-027H: Remove competing mobile budget FAB
+
+Status: done
+Priority: high
+Owner: Hermes
+Type: frontend-ui/hotfix
+
+Context:
+After centering the global bottom-nav `+`, the budget page still had its own mobile floating `+` button for creating budgets. This competed visually with the global center CTA and could confuse the hierarchy.
+
+Changes:
+- [x] Budget creation no longer uses a mobile floating FAB
+- [x] Desktop fixed `Создать бюджет` button preserved
+- [x] Mobile budget creation moved in-page for non-empty budget lists
+- [x] Empty-state budget CTA preserved
+- [x] Production mobile screenshot captured: `/tmp/ft027h-prod-budgets-auth-390.png`
+- [x] `npm run verify` passed
+
 ### FT-004: Decide first product vector after stabilization
 
 Status: blocked

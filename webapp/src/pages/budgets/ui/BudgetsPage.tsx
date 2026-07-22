@@ -47,6 +47,17 @@ export function BudgetsPage() {
         </p>
       </div>
 
+      {/* Mobile create action — keep budget creation in-page, not as a competing bottom FAB */}
+      {!isLoading && budgetViewModels.length > 0 && (
+        <Button
+          className="mb-6 w-full gap-2 rounded-2xl md:hidden"
+          onClick={() => navigate(ROUTES.ADD_BUDGET)}
+        >
+          <Plus className="h-4 w-4" aria-hidden="true" />
+          Создать бюджет
+        </Button>
+      )}
+
       {/* Budget Overview Widget */}
       <div className="mb-6">
         <BudgetOverview />
@@ -90,10 +101,10 @@ export function BudgetsPage() {
         )}
       </div>
 
-      {/* Floating Action Button - Add Budget (safe-area aware to clear the bottom nav) */}
+      {/* Desktop create action — mobile uses the in-page CTA above to avoid competing with bottom nav */}
       <Button
         size="lg"
-        className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] md:bottom-6 right-6 h-14 w-14 rounded-full shadow-lg md:h-auto md:w-auto md:rounded-md md:px-6"
+        className="hidden md:fixed md:bottom-6 md:right-6 md:flex md:h-auto md:w-auto md:rounded-md md:px-6 md:shadow-lg"
         onClick={() => navigate(ROUTES.ADD_BUDGET)}
         aria-label="Создать бюджет"
       >
