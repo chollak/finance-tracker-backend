@@ -26,7 +26,7 @@ const leftNavItems = [
   },
   {
     href: ROUTES.TRANSACTIONS,
-    label: 'Транзакции',
+    label: 'История',
     icon: Receipt,
   },
 ];
@@ -150,33 +150,33 @@ export function BottomNav() {
         onFocus={() => prefetchForRoute(item.href)}
         onTouchStart={() => prefetchForRoute(item.href)}
         className={cn(
-          'flex flex-1 flex-col items-center justify-center gap-1 py-2 text-xs transition-colors',
+          'flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 px-1 py-1.5 text-[11px] leading-none transition-colors',
           isActive
-            ? 'text-foreground'
+            ? 'font-medium text-success'
             : 'text-muted-foreground hover:text-foreground'
         )}
       >
-        <Icon className={cn('h-5 w-5', isActive ? 'text-foreground' : '')} />
-        <span>{item.label}</span>
+        <Icon className={cn('h-5 w-5', isActive ? 'text-success' : '')} />
+        <span className="max-w-full truncate">{item.label}</span>
       </Link>
     );
   };
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-50 border-t bg-background pb-[env(safe-area-inset-bottom)] md:hidden">
-      <div className="flex h-16 items-center justify-around">
+    <nav className="fixed inset-x-0 bottom-0 z-50 border-t bg-background/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_20px_rgba(0,0,0,0.06)] backdrop-blur md:hidden">
+      <div className="flex h-[4.5rem] items-center justify-around px-1">
         {leftNavItems.map((item) => renderNavItem(item))}
 
         {/* Central elevated Add Transaction action — the core mobile CTA */}
-        <div className="flex flex-1 items-center justify-center">
+        <div className="flex flex-[0.85] items-center justify-center">
           <QuickAddSheet>
             <button
               type="button"
               onClick={() => haptic.press()}
               aria-label="Добавить транзакцию"
-              className="-translate-y-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform active:scale-95"
+              className="-translate-y-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-success text-success-foreground shadow-md shadow-success/25 ring-4 ring-background transition-transform active:scale-95"
             >
-              <Plus className="h-6 w-6" aria-hidden="true" />
+              <Plus className="h-5 w-5" aria-hidden="true" />
             </button>
           </QuickAddSheet>
         </div>

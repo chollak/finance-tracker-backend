@@ -2237,3 +2237,51 @@ Overall: PASS.
 ### Files Changed
 
 No source files were changed by the QA run. Hermes updated only task/report docs to close FT-027E.
+
+## 2026-07-22 — FT-027F bottom navigation visual polish
+
+### Goal
+
+Fix the bottom navigation aesthetics after Shukur shared a real Telegram Mini App screenshot showing that the FT-027C nav was technically usable but visually too heavy and awkward.
+
+### Issue
+
+The browser QA passed overlap/console/network checks, but it missed aesthetic quality. The actual Telegram screenshot showed:
+
+- oversized black center `+` button;
+- cramped `Транзакции` label;
+- active state not aligned with the finance green accent;
+- visually heavy nav compared with the rest of the clean rounded UI.
+
+### Files Changed
+
+- `webapp/src/shared/ui/bottom-nav.tsx`
+- `TASKS.md`
+- `AUTONOMOUS_REPORT.md`
+
+### Product Changes
+
+- `Транзакции` nav label shortened to `История`.
+- Active nav item now uses `text-success`.
+- Center add CTA changed from a 56px black circle to a calmer 48px green rounded-square button.
+- Nav bar gained subtle backdrop/shadow polish and tighter label spacing.
+
+### Verification
+
+Hermes ran:
+
+```bash
+npm run build:webapp
+npm run verify
+node /tmp/ft027f_nav_screenshot.js
+```
+
+Result:
+
+- backend TypeScript build passed;
+- Jest passed: 18 suites / 166 tests;
+- webapp build passed;
+- dependency-cruiser passed;
+- madge circular dependency scan passed;
+- mobile screenshot captured at `/tmp/ft027f-nav-after.png`;
+- screenshot script reported no console errors and no bad network responses.

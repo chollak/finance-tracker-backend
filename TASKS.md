@@ -1250,6 +1250,32 @@ QA notes:
 - P2 doc/process finding: `/webapp/*` legacy redirect/docs wording are stale relative to root routing.
 - P3 dev-only finding: TanStack Query Devtools icon overlaps Save button in dev screenshot only; production is unaffected.
 
+
+---
+
+### FT-027F: Bottom navigation visual polish after Telegram screenshot
+
+Status: done
+Priority: high
+Owner: Hermes
+Type: frontend-ui/hotfix
+
+Context:
+Shukur shared a real Telegram Mini App screenshot showing that the FT-027C bottom navigation was functionally correct but visually ugly: the central black circular `+` looked too heavy, labels were cramped, and active state did not match the finance green accent.
+
+Changes:
+- [x] Changed `Транзакции` nav label to shorter `История` to reduce crowding
+- [x] Made active nav item use finance green accent
+- [x] Reduced central `+` from 56px black circle to calmer 48px green rounded-square action
+- [x] Added nav backdrop/shadow polish and tighter label spacing
+- [x] Captured post-fix mobile screenshot: `/tmp/ft027f-nav-after.png`
+- [x] `npm run build:webapp` passed
+- [x] `npm run verify` passed
+
+Verification:
+- Playwright mobile viewport screenshot captured with no console/network errors.
+- `npm run verify` passed: 18 suites / 166 tests, backend build, webapp build, dependency-cruiser, and madge.
+
 ### FT-004: Decide first product vector after stabilization
 
 Status: blocked
