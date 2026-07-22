@@ -2143,3 +2143,49 @@ Result:
 ### Follow-up
 
 Continue with FT-027D: simplify transaction archive surface.
+
+## 2026-07-22 — FT-027D simplified transaction archive surface
+
+### Goal
+
+Reduce the prominence and technical feel of archive functionality on the Transactions screen while keeping the functionality available and safe.
+
+### Execution
+
+Hermes delegated FT-027D to Claude Code with a frontend-only scope. Claude Code updated copy and moved the bulk archive action out of the header. Hermes reviewed the diff, refined terminology from `баланс` to `текущие итоги`, and reran verification independently.
+
+### Files Changed
+
+- `.hermes/plans/2026-07-22_175141-ui-product-improvements.md`
+- `TASKS.md`
+- `AUTONOMOUS_REPORT.md`
+- `webapp/src/pages/transactions/ui/TransactionsPage.tsx`
+
+### Product Changes
+
+- Tabs changed from `Активные` / `Архив` to `Текущие` / `Скрытые`.
+- Header no longer shows a prominent bulk archive action.
+- Bulk action is now a quiet ghost button below the active transaction list: `Скрыть все текущие`.
+- Confirmation dialog clarifies that nothing is deleted and transactions can be restored.
+- Empty state for hidden transactions uses less technical copy.
+
+### Verification
+
+Hermes ran:
+
+```bash
+npm run build:webapp
+npm run verify
+```
+
+Result:
+
+- backend TypeScript build passed;
+- Jest passed: 18 suites / 166 tests;
+- webapp build passed;
+- dependency-cruiser passed;
+- madge circular dependency scan passed.
+
+### Follow-up
+
+Continue with FT-027E: browser/screenshot UI QA.

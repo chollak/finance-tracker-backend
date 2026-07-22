@@ -88,9 +88,9 @@ export function TransactionsPage() {
     if (!userId) return;
     try {
       await archiveMutation.mutateAsync({ id, userId });
-      toast.success('Транзакция архивирована');
+      toast.success('Транзакция скрыта');
     } catch {
-      toast.error('Не удалось архивировать транзакцию');
+      toast.error('Не удалось скрыть транзакцию');
     }
   };
 
@@ -108,9 +108,9 @@ export function TransactionsPage() {
     if (!userId) return;
     try {
       const result = await archiveAllMutation.mutateAsync(userId);
-      toast.success(`Архивировано ${result.archivedCount} транзакций`);
+      toast.success(`Скрыто транзакций: ${result.archivedCount}`);
     } catch {
-      toast.error('Не удалось архивировать транзакции');
+      toast.error('Не удалось скрыть транзакции');
     }
   };
 
@@ -120,47 +120,19 @@ export function TransactionsPage() {
   return (
     <div className="container mx-auto px-4 py-6">
       {/* Header */}
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Транзакции</h1>
-          <p className="text-muted-foreground mt-1" role="status" aria-live="polite">
-            {currentTransactions.length} из {totalCount}{' '}
-            {activeTab === 'active' ? 'активных' : 'в архиве'}
-          </p>
-        </div>
-        {activeTab === 'active' && transactions && transactions.length > 0 && (
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-2">
-                <Archive className="h-4 w-4" />
-                <span className="hidden sm:inline">Архивировать все</span>
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Архивировать все транзакции?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Все ваши текущие транзакции будут перемещены в архив.
-                  Они не будут учитываться в балансе и аналитике.
-                  Вы сможете восстановить их в любой момент.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Отмена</AlertDialogCancel>
-                <AlertDialogAction onClick={handleArchiveAll}>
-                  Архивировать
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        )}
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold">Транзакции</h1>
+        <p className="text-muted-foreground mt-1" role="status" aria-live="polite">
+          {currentTransactions.length} из {totalCount}{' '}
+          {activeTab === 'active' ? 'текущих' : 'скрытых'}
+        </p>
       </div>
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'active' | 'archived')}>
         <TabsList className="mb-4">
           <TabsTrigger value="active" className="gap-2">
-            Активные
+            Текущие
             {transactions && transactions.length > 0 && (
               <span className="text-xs bg-primary/10 px-1.5 py-0.5 rounded">
                 {transactions.length}
@@ -168,7 +140,7 @@ export function TransactionsPage() {
             )}
           </TabsTrigger>
           <TabsTrigger value="archived" className="gap-2">
-            Архив
+            Скрытые
             {archivedTransactions && archivedTransactions.length > 0 && (
               <span className="text-xs bg-muted-foreground/20 px-1.5 py-0.5 rounded">
                 {archivedTransactions.length}
@@ -236,6 +208,35 @@ export function TransactionsPage() {
               ))
             )}
           </div>
+
+          {/* Bulk hide action - intentionally quiet, not a primary header action */}
+          {transactions && transactions.length > 0 && (
+            <div className="mt-8 flex justify-center">
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground">
+                    <Archive className="h-3.5 w-3.5" />
+                    Скрыть все текущие
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Скрыть все текущие транзакции?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Они переместятся во вкладку «Скрытые» и перестанут учитываться в текущих итогах и аналитике.
+                      Ничего не удаляется — вы сможете вернуть их обратно в любой момент.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Отмена</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleArchiveAll}>
+                      Скрыть все
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="archived">
@@ -258,9 +259,9 @@ export function TransactionsPage() {
               ) : (
                 <EmptyState
                   icon="📦"
-                  title="Архив пуст"
-                  description="Здесь будут храниться архивированные транзакции"
-                  tip="Архивируйте старые транзакции, чтобы они не учитывались в текущем балансе"
+                  title="Здесь пока пусто"
+                  description="Транзакции, которые вы скроете, окажутся тут"
+                  tip="Скрывайте старые транзакции, чтобы они не учитывались в текущих итогах"
                   size="md"
                 />
               )

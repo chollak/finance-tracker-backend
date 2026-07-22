@@ -1179,6 +1179,43 @@ Verification:
 - `npm run build:webapp` — passed.
 - `npm run verify` — passed: 18 suites / 166 tests, backend build, webapp build, dependency-cruiser, and madge.
 
+
+---
+
+### FT-027D: Simplify transaction archive surface
+
+Status: done
+Priority: medium
+Owner: Claude Code, QA by Hermes
+Type: frontend-ui
+
+Problem:
+The Transactions screen exposes `Архив`, `Активные`, and `Архивировать все` as prominent concepts. This is useful functionality, but can feel too technical/risky for MVP users compared with the main job: review and add transactions.
+
+Scope:
+- `webapp/src/pages/transactions/ui/TransactionsPage.tsx`
+- small shared UI imports if already present/needed
+
+Definition of Done:
+- [x] Archive functionality remains available
+- [x] Bulk archive action is less visually prominent / safer
+- [x] User-facing copy is clearer and less technical where possible
+- [x] Main transaction review flow remains simple
+- [x] No backend/API/schema/env/package/deploy changes
+- [x] `npm run build:webapp` passes
+- [x] `npm run verify` passes before commit/push
+- [x] Hermes reviewed Claude Code diff
+
+Implementation notes:
+- Transactions tabs now use `Текущие` / `Скрытые` copy instead of prominent archive jargon.
+- Bulk action moved out of the header into a quiet `Скрыть все текущие` action below the active list.
+- Confirmation dialog emphasizes that nothing is deleted and the transactions can be restored.
+- Hermes adjusted wording from `баланс` to `текущие итоги` to stay consistent with FT-027A terminology.
+
+Verification:
+- `npm run build:webapp` — passed.
+- `npm run verify` — passed: 18 suites / 166 tests, backend build, webapp build, dependency-cruiser, and madge.
+
 ### FT-004: Decide first product vector after stabilization
 
 Status: blocked

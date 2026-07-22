@@ -108,7 +108,7 @@ FT-027C result:
 
 ### FT-027D — Simplify transaction archive surface
 
-Status: ready
+Status: done
 Owner: Claude Code, QA by Hermes
 Priority: P2
 Type: frontend-ui
@@ -120,6 +120,12 @@ Required changes:
 - Keep functionality if already implemented.
 - Reduce visual prominence or move dangerous/bulk action lower.
 - Improve copy if needed.
+
+FT-027D result:
+- Transactions tabs now read `Текущие` / `Скрытые`.
+- Bulk hide action moved to a quiet position below the list.
+- Confirmation copy clarifies the action is non-destructive.
+- Verification passed via `npm run build:webapp` and `npm run verify`.
 
 ### FT-027E — Browser/screenshot UI QA
 
