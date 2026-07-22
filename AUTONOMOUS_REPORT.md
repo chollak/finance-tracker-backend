@@ -1878,3 +1878,31 @@ npm run verify
 ```
 
 Result: passed. Docs-only change; full verify passed (17 suites / 161 tests, backend build, webapp build, dependency-cruiser, circular dependency scan).
+
+
+## 2026-07-22 — QA-BUG-1 Telegram bot launch failure
+
+### Source
+
+Claude Code local browser QA report: `/tmp/finance-local-browser-qa-report.md`.
+
+### Problem
+
+With invalid/expired `TG_BOT_API_KEY`, `bot.launch()` rejected asynchronously and crashed the whole backend process. The surrounding synchronous `try/catch` did not catch the rejected promise.
+
+### TDD Cycle
+
+1. Added `tests/telegramBot.test.ts` with a mocked Telegraf instance.
+2. Initial test failed because `bot.launch()` had no rejection handler.
+3. Updated `telegramBot.ts` to attach `.then(...).catch(...)` to `bot.launch()`.
+4. Re-ran `npm test -- telegramBot --runInBand && npm run build`; both passed.
+
+### Verification
+
+```bash
+npm test -- telegramBot --runInBand
+npm run build
+npm run verify
+```
+
+Result: passed. Telegram bot regression test, TypeScript build, and full verify passed (18 suites / 162 tests, backend build, webapp build, dependency-cruiser, circular dependency scan).

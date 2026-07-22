@@ -146,8 +146,17 @@ export function startTelegramBot(
 
     // ===== LAUNCH BOT =====
 
-    bot.launch();
-    logger.info('Telegram bot started');
+    bot.launch()
+      .then(() => {
+        logger.info('Telegram bot started');
+      })
+      .catch((error) => {
+        logger.error(
+          'Failed to launch Telegram bot',
+          error instanceof Error ? error : new Error(String(error))
+        );
+        logger.warn('Application will continue without Telegram bot functionality');
+      });
 
     // Graceful shutdown handlers
     process.once('SIGINT', () => {

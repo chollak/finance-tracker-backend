@@ -897,6 +897,32 @@ Implementation notes:
 
 ---
 
+### QA-BUG-1: Telegram bot launch failure must not crash API
+
+Status: done
+Priority: high
+Owner: Hermes
+Type: bug/runtime
+
+Context:
+Claude Code local browser QA found that an invalid/expired `TG_BOT_API_KEY` caused `bot.launch()` to reject asynchronously and crash the entire backend process after startup.
+
+Goal:
+Telegram bot startup failures should disable bot functionality but not bring down the Express API/webapp process.
+
+Definition of Done:
+- [x] Regression test proves `bot.launch()` has a rejection handler
+- [x] `bot.launch()` async rejection logs error/warning instead of becoming unhandled
+- [x] Targeted test and TypeScript build passed
+- [x] `npm run verify` passed
+
+Implementation notes:
+- Added `tests/telegramBot.test.ts`.
+- Updated `src/delivery/messaging/telegram/telegramBot.ts` to attach `.then(...).catch(...)` to `bot.launch()`.
+- Preserves current behavior when bot launches successfully; failure path now matches existing comment: application continues without Telegram bot functionality.
+
+---
+
 ### FT-004: Decide first product vector after stabilization
 
 Status: blocked
