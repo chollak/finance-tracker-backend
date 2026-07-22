@@ -1327,6 +1327,29 @@ Changes:
 - [x] Production mobile screenshot captured: `/tmp/ft027h-prod-budgets-auth-390.png`
 - [x] `npm run verify` passed
 
+
+---
+
+### FT-027I: Neutralize primary action styling and define design direction
+
+Status: done
+Priority: high
+Owner: Hermes
+Type: frontend-ui/design-system
+
+Context:
+The center bottom-nav `+` had been changed to green as a quick visual fix, but Shukur agreed this was semantically wrong: green is a financial success/income color, while adding a transaction is a generic primary action and may often be an expense.
+
+Changes:
+- [x] Center bottom-nav `+` changed from green success fill to neutral surface/border/foreground icon
+- [x] Bottom-nav active state changed from green to neutral foreground
+- [x] More page row icons changed from success green to neutral secondary surface
+- [x] Added `docs/knowledge-base/10-design-guidelines/style-direction.md`
+- [x] Updated design guidelines color rules to reserve green/red/orange for semantic money states
+- [x] Updated `globals.css` design-system header away from “Green Accent”
+- [x] Production screenshot captured: `/tmp/ft027g-prod-home-390.png`
+- [x] `npm run verify` passed
+
 ### FT-004: Decide first product vector after stabilization
 
 Status: blocked

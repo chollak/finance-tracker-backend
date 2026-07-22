@@ -2368,3 +2368,46 @@ Results:
 - `npm run verify` passed: 18 suites / 166 tests, backend build, webapp build, dependency-cruiser, madge.
 - Production mobile screenshot: `/tmp/ft027h-prod-budgets-auth-390.png`.
 - DOM check confirmed the desktop create-budget button is hidden on mobile and no separate budget FAB appears above the bottom nav.
+
+## 2026-07-22 — FT-027I neutral primary actions and style direction
+
+### Goal
+
+Correct the color semantics mistake in the mobile bottom nav and establish a clearer style direction for the finance UI.
+
+### Decision
+
+Finance Tracker should use a neutral UI shell with semantic money colors. Green/red/orange are reserved for financial states: income, expense, warning, healthy/remaining budgets. Generic primary actions should use neutral/brand tokens, not success green.
+
+### Product/UI changes
+
+- Center bottom-nav `+` changed from green success fill to a neutral surface with border, foreground icon, and subtle shadow.
+- Bottom-nav active state changed from green to neutral foreground.
+- More page icons changed from success-green chips to neutral secondary chips.
+- Added style direction doc: `docs/knowledge-base/10-design-guidelines/style-direction.md`.
+- Updated existing design guidelines to make color semantics explicit.
+
+### Files changed
+
+- `webapp/src/shared/ui/bottom-nav.tsx`
+- `webapp/src/pages/more/ui/MorePage.tsx`
+- `webapp/src/app/styles/globals.css`
+- `docs/knowledge-base/10-design-guidelines/design-guidelines.md`
+- `docs/knowledge-base/10-design-guidelines/style-direction.md`
+- `TASKS.md`
+- `AUTONOMOUS_REPORT.md`
+
+### Verification
+
+Hermes ran:
+
+```bash
+npm run build:webapp
+npm run verify
+node /tmp/ft027g_prod_visual_check.js
+```
+
+Results:
+
+- `npm run verify` passed: 18 suites / 166 tests, backend build, webapp build, dependency-cruiser, madge.
+- Production screenshot at `/tmp/ft027g-prod-home-390.png` confirmed the centered `+` remains at viewport center and no devtools overlay is present.

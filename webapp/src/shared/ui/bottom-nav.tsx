@@ -150,11 +150,11 @@ export function BottomNav() {
         className={cn(
           'flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 px-1 py-1.5 text-[11px] leading-none transition-colors',
           isActive
-            ? 'font-medium text-success'
+            ? 'font-medium text-foreground'
             : 'text-muted-foreground hover:text-foreground'
         )}
       >
-        <Icon className={cn('h-5 w-5', isActive ? 'text-success' : '')} />
+        <Icon className={cn('h-5 w-5', isActive ? 'text-foreground' : '')} />
         <span className="max-w-full truncate">{item.label}</span>
       </Link>
     );
@@ -174,7 +174,7 @@ export function BottomNav() {
               type="button"
               onClick={() => haptic.press()}
               aria-label="Добавить транзакцию"
-              className="-translate-y-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-success text-success-foreground shadow-md shadow-success/25 ring-4 ring-background transition-transform active:scale-95"
+              className="-translate-y-3 flex h-12 w-12 items-center justify-center rounded-2xl border bg-background text-foreground shadow-md shadow-black/10 ring-4 ring-background transition-transform active:scale-95"
             >
               <Plus className="h-5 w-5" aria-hidden="true" />
             </button>

@@ -36,7 +36,7 @@ export function MorePage() {
             <Link key={item.href} to={item.href} className="block">
               <Card className="p-4 transition-colors active:bg-muted/60 hover:bg-muted/40">
                 <div className="flex items-center gap-4">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-success-muted text-success">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-secondary text-secondary-foreground">
                     <Icon className="h-5 w-5" aria-hidden="true" />
                   </div>
                   <div className="min-w-0 flex-1">

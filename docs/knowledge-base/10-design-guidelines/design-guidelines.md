@@ -113,10 +113,10 @@
 ```
 
 ### Color Usage Rules
-1. **One accent color only** — used sparingly for CTAs and highlights
-2. **Semantic colors for data** — green=income, red=expense, always consistent
-3. **Gray scale for UI** — navigation, borders, backgrounds
-4. **Never mix accent colors** — if you need variety, use opacity
+1. **Neutral UI chrome first** — navigation, tabs, cards, borders, and generic primary actions use neutral/brand tokens (`primary`, `foreground`, `background`, `muted`).
+2. **Semantic colors for money/data only** — green=income/success/healthy budget, red=expense/destructive, orange=warning/near limit.
+3. **Do not use green just because an action is important** — `+ expense` is a primary action, not a success state.
+4. **One accent feeling per view** — if a view needs emphasis, use neutral hierarchy first; semantic color appears only where it explains financial meaning.
 
 ### Dark Mode
 ```css
