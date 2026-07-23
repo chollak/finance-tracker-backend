@@ -19,7 +19,7 @@ export function AddTransactionPage() {
       />
 
       {/* Add Transaction Feature */}
-      <AddTransaction onSuccess={() => navigate(ROUTES.HOME)} />
+      <AddTransaction onSuccess={() => navigate(ROUTES.HOME)} showHeader={false} />
     </div>
   );
 }

@@ -2887,3 +2887,66 @@ Backend was rebuilt and restarted so the local Mini App/tunnel can exercise the 
 ### Next
 
 Commit/push FT-031B. Continue with FT-031C: Mini App recent transactions / add-flow polish.
+
+## 2026-07-23 — FT-031C Mini App recent/add-flow polish
+
+### Goal
+
+Continue FT-031 after the auth/testability slice by making the everyday Mini App loop more useful: recent transactions should be actionable, and the add form should feel less repetitive.
+
+### Changes
+
+- Home `RecentTransactions` card:
+  - added a visible `Добавить` button in the card header;
+  - changed subtitle to `Нажмите строку, чтобы изменить`;
+  - made recent rows clickable to open the edit transaction route;
+  - kept the all-transactions link and made its count explicit.
+- Dedicated Add Transaction page:
+  - removed the duplicate inner `Добавить транзакцию` header below `Новая транзакция`;
+  - added `showHeader` prop to `AddTransaction` so the feature can compose cleanly in page contexts.
+
+### Visual QA
+
+Before:
+
+```text
+/tmp/ft031c-before/screenshots/home-390.png
+/tmp/ft031c-before/screenshots/transactions-390.png
+/tmp/ft031c-before/screenshots/add-transaction-390.png
+```
+
+After:
+
+```text
+/tmp/ft031c-after/screenshots/home-390.png
+/tmp/ft031c-after/screenshots/transactions-390.png
+/tmp/ft031c-after/screenshots/add-transaction-390.png
+/tmp/ft031c-after-bottom/screenshots/home-390.png
+```
+
+Focused authenticated audit:
+
+```bash
+BASE_URL=https://hoped-physics-partnerships-shares.trycloudflare.com AUTH_MODE=telegram TELEGRAM_USER_ID=131184740 VIEWPORT_WIDTH=390 VIEWPORT_HEIGHT=844 OUT_DIR=/tmp/ft031c-after ROUTES=/,/transactions,/transactions/add npm run design:audit
+```
+
+Result: `issueCount: 0`.
+
+The add page now fits in the audited 390x844 viewport without the duplicate title block. The Recent Transactions card shows the add action and edit hint; bottom nav remains fixed and centered.
+
+### Verification
+
+```bash
+npm run build:webapp
+npm run verify
+```
+
+Result: passed — 18 suites / 167 tests, backend build, webapp build, dependency-cruiser, and madge circular scan.
+
+### Runtime
+
+Backend was rebuilt and restarted so the current tunnel can serve the updated Mini App bundle.
+
+### Next
+
+Continue with FT-031D: improve Telegram bot response after expense creation.

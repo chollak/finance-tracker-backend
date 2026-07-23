@@ -8,13 +8,14 @@ import { toast } from 'sonner';
 
 interface AddTransactionProps {
   onSuccess?: () => void;
+  showHeader?: boolean;
 }
 
 /**
  * AddTransaction feature
  * Handles transaction creation logic and navigation
  */
-export function AddTransaction({ onSuccess }: AddTransactionProps = {}) {
+export function AddTransaction({ onSuccess, showHeader = true }: AddTransactionProps = {}) {
   const navigate = useNavigate();
   const userId = useUserStore((state) => state.userId);
   const userName = useUserStore((state) => state.userName);
@@ -47,11 +48,13 @@ export function AddTransaction({ onSuccess }: AddTransactionProps = {}) {
   };
 
   return (
-    <div className="container max-w-2xl py-6">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold">Добавить транзакцию</h1>
-        <p className="text-muted-foreground">Запишите новый доход или расход</p>
-      </div>
+    <div className="container max-w-2xl py-2">
+      {showHeader && (
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold">Добавить транзакцию</h1>
+          <p className="text-muted-foreground">Запишите новый доход или расход</p>
+        </div>
+      )}
 
       <TransactionForm onSubmit={handleSubmit} isLoading={createTransaction.isPending} />
     </div>

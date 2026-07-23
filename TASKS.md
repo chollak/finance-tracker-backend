@@ -1741,6 +1741,42 @@ Verification:
 Follow-up:
 - FT-031C: Mini App recent transactions / add-flow polish using the now-testable edit/delete path.
 
+
+---
+
+### FT-031C: Mini App recent transactions / add-flow polish
+
+Status: done
+Priority: high
+Owner: Hermes
+Type: frontend-ui/product-ux
+
+Context:
+Continue FT-031 by improving the daily Mini App loop after FT-031B made browser/API edit-delete QA reliable. Focus on small safe UI polish: make recent transactions more actionable from the home screen and reduce duplicated title noise in the dedicated add form.
+
+Changes:
+- [x] Home Recent Transactions card now has a clear `Добавить` action in the card header
+- [x] Recent transaction rows on Home are clickable and navigate to edit transaction
+- [x] Recent card description now tells the user: `Нажмите строку, чтобы изменить`
+- [x] The `Все ... транзакций` link shows total count and remains available
+- [x] Dedicated Add Transaction page no longer repeats the second `Добавить транзакцию` title block under `Новая транзакция`
+- [x] Add Transaction feature now accepts `showHeader={false}` for page composition while keeping default header behavior for other contexts
+
+Visual QA:
+- [x] Before screenshots captured in `/tmp/ft031c-before`
+- [x] After screenshots captured in `/tmp/ft031c-after`
+- [x] Bottom-scroll home screenshot captured in `/tmp/ft031c-after-bottom`
+- [x] `issueCount: 0` on focused authenticated audit for `/`, `/transactions`, `/transactions/add`
+- [x] Add Transaction page now fits in 390x844 without duplicate title and without scrolling in the audited state
+- [x] Home Recent Transactions card shows Add + edit hint; bottom nav remains fixed and centered
+
+Verification:
+- [x] `npm run build:webapp` passed
+- [x] `npm run verify` passed — 18 suites / 167 tests, backend build, webapp build, dependency-cruiser, madge circular scan
+
+Follow-up:
+- FT-031D: improve Telegram bot response after adding an expense so the next action is clearer and daily summary is more useful.
+
 ---
 
 ## GitHub Issues Migration Criteria
