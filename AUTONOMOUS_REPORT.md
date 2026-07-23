@@ -2609,3 +2609,46 @@ Results:
 ### Next
 
 FT-029E should move the screenshot audit script from `/tmp` into the repo as a reusable design QA gate. FT-029F should add keyboard-open/small-height form checks.
+
+## 2026-07-23 — FT-029E reusable mobile screenshot audit gate
+
+### Goal
+
+Continue FT-029 autonomous design-system cleanup by moving the one-off mobile screenshot audit into the repository as a repeatable QA command.
+
+### Changes
+
+- Added `scripts/mobile-ui-audit.js`, a Playwright-based route audit for core mobile Mini App pages.
+- Added `npm run design:audit`.
+- Added root `playwright` dev dependency so the audit command resolves from project dependencies instead of a Hermes-local cache.
+- The script captures screenshots and `metrics.json`, records h1/tab/nav coordinates, and exits non-zero when console errors or bad network responses are detected.
+
+### Verification
+
+Hermes ran:
+
+```bash
+npm run build:webapp
+BASE_URL=http://127.0.0.1:5175 OUT_DIR=/tmp/ft029e-mobile-ui-audit npm run design:audit
+```
+
+Result:
+
+- `npm run build:webapp` passed.
+- `npm run design:audit` passed with `issueCount: 0`.
+- Audit artifacts:
+  - `/tmp/ft029e-mobile-ui-audit/metrics.json`
+  - `/tmp/ft029e-mobile-ui-audit/screenshots/*.png`
+- 390px metrics confirm: center nav `+` is exactly centered (`centerX=195`, `viewportCenterX=195`), list-page headers remain at `h1.x=16`, and form-page headers remain at `h1.x=68`.
+
+### Full gate
+
+```bash
+npm run verify
+```
+
+Result: passed — 18 suites / 166 tests, backend build, webapp build, dependency-cruiser, and madge circular scan.
+
+### Next
+
+Commit/push FT-029E. Continue with FT-029F: keyboard-open / small-height form screenshots for Add Transaction/Budget/Debt.

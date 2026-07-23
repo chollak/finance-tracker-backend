@@ -1499,6 +1499,38 @@ Follow-up:
 - FT-029E: move screenshot capture script into repo as a reusable design QA gate.
 - FT-029F: keyboard-open / small-height form screenshots for Add Transaction/Budget/Debt.
 
+---
+
+### FT-029E: Reusable mobile screenshot audit gate
+
+Status: done
+Priority: high
+Owner: Hermes
+Type: frontend-ui/design-qa
+
+Context:
+Continue autonomous FT-029 cleanup by turning the one-off `/tmp` screenshot capture into a repo-local command that future UI slices can rerun consistently.
+
+Changes:
+- [x] Added `scripts/mobile-ui-audit.js` Playwright-based mobile route audit
+- [x] Added `npm run design:audit`
+- [x] Added root `playwright` dev dependency so the script does not rely on a Hermes-local npx cache
+- [x] Script captures screenshots and `metrics.json` for Home, Transactions, Budgets, Debts, More, add forms, and Analytics
+- [x] Script reports h1/tab/nav metrics and fails when console errors or bad network responses are detected
+- [x] `npm run design:audit` passed against local Vite app at 390×844
+- [x] `npm run verify` passed
+
+Evidence:
+- `/tmp/ft029e-mobile-ui-audit/metrics.json`
+- `/tmp/ft029e-mobile-ui-audit/screenshots/*.png`
+- Center nav `+`: `centerX=195`, `viewportCenterX=195` at 390px
+- List-page headers: `h1.x=16`; form-page headers: `h1.x=68`
+
+Follow-up:
+- FT-029F: keyboard-open / small-height form screenshots for Add Transaction/Budget/Debt.
+
+---
+
 ### FT-004: Decide first product vector after stabilization
 
 Status: blocked
