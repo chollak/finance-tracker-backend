@@ -1,6 +1,6 @@
 import { useDebts, useDebtSummary, DebtCard } from '@/entities/debt';
 import { useUserStore, useIsGuest } from '@/entities/user/model/store';
-import { Button, EmptyState, PageHeader } from '@/shared/ui';
+import { Button, EmptyState, PageHeader, SegmentedButtonGroup } from '@/shared/ui';
 import { Skeleton } from '@/shared/ui/skeleton';
 import { Card } from '@/shared/ui/card';
 import { Plus } from 'lucide-react';
@@ -109,23 +109,13 @@ export function DebtsPage() {
         </Card>
       )}
 
-      {/* Filter Tabs */}
-      <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
-        {tabs.map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className={cn(
-              'px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors',
-              activeTab === tab.key
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-muted hover:bg-muted/80'
-            )}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      <SegmentedButtonGroup
+        options={tabs.map((tab) => ({ value: tab.key, label: tab.label }))}
+        value={activeTab}
+        onChange={setActiveTab}
+        className="grid-cols-3"
+        ariaLabel="Фильтр долгов"
+      />
 
       {/* Debts List */}
       <div className="space-y-4">

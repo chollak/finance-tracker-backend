@@ -22,7 +22,9 @@ export * from './tabs';
 // Custom components
 export * from './autocomplete-input';
 export * from './empty-state';
+export * from './form-page-header';
 export * from './page-header';
+export * from './segmented-button-group';
 export * from './segmented-tabs';
 
 // Navigation components

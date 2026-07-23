@@ -1442,6 +1442,33 @@ Follow-up:
 - FT-029B: create shared segmented control for non-Radix filter tabs, starting with Debts filters.
 - FT-029C: standardize empty states and form-page headers/back actions.
 
+
+---
+
+### FT-029B/C: Shared segmented controls and form-page headers
+
+Status: done
+Priority: high
+Owner: Hermes
+Type: frontend-ui/design-system
+
+Context:
+Continue the autonomous FT-029 design-system cleanup. FT-029A introduced shared list-page headers and Radix tab wrappers. This slice adds shared non-Radix segmented controls and standardizes form-page headers.
+
+Changes:
+- [x] Added `SegmentedButtonGroup` for local state filter controls
+- [x] Migrated Debts filter buttons (`Все / Я должен / Мне должны`) to `SegmentedButtonGroup`
+- [x] Added `FormPageHeader` for pages outside bottom-nav layout
+- [x] Migrated Add Transaction header to `FormPageHeader`
+- [x] Migrated Add Budget guest/authenticated headers to `FormPageHeader`
+- [x] Migrated Add Debt guest/authenticated headers to `FormPageHeader`
+- [x] Exported new primitives from `shared/ui`
+- [x] Screenshot audit rerun after migration
+- [x] `npm run verify` passed
+
+Follow-up:
+- FT-029D: empty-state normalization and form submit visibility/keyboard-open audit.
+
 ### FT-004: Decide first product vector after stabilization
 
 Status: blocked

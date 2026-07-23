@@ -1,6 +1,5 @@
 import { AddTransaction } from '@/features/add-transaction';
-import { Button } from '@/shared/ui/button';
-import { ArrowLeft } from 'lucide-react';
+import { FormPageHeader } from '@/shared/ui';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '@/shared/lib/constants/routes';
 
@@ -13,20 +12,11 @@ export function AddTransactionPage() {
 
   return (
     <div className="container mx-auto max-w-2xl px-4 py-6">
-      {/* Header */}
-      <div className="mb-6 flex items-center gap-4">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => navigate(-1)}
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <div>
-          <h1 className="text-3xl font-bold">Новая транзакция</h1>
-          <p className="text-muted-foreground mt-1">Добавьте доход или расход</p>
-        </div>
-      </div>
+      <FormPageHeader
+        title="Новая транзакция"
+        subtitle="Добавьте доход или расход"
+        onBack={() => navigate(-1)}
+      />
 
       {/* Add Transaction Feature */}
       <AddTransaction onSuccess={() => navigate(ROUTES.HOME)} />

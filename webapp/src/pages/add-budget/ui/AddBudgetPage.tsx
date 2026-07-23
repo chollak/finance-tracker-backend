@@ -1,6 +1,5 @@
 import { CreateBudget } from '@/features/create-budget';
-import { Button } from '@/shared/ui/button';
-import { ArrowLeft } from 'lucide-react';
+import { FormPageHeader } from '@/shared/ui';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '@/shared/lib/constants/routes';
 import { useIsGuest } from '@/entities/user/model/store';
@@ -19,12 +18,7 @@ export function AddBudgetPage() {
   if (isGuest) {
     return (
       <div className="container mx-auto max-w-2xl px-4 py-6">
-        <div className="mb-6 flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <h1 className="text-3xl font-bold">Новый бюджет</h1>
-        </div>
+        <FormPageHeader title="Новый бюджет" onBack={() => navigate(-1)} />
         <GuestFeatureBlock
           title="Бюджеты доступны после входа"
           description="Войдите через Telegram, чтобы создавать бюджеты и отслеживать лимиты."
@@ -35,20 +29,11 @@ export function AddBudgetPage() {
 
   return (
     <div className="container mx-auto max-w-2xl px-4 py-6">
-      {/* Header */}
-      <div className="mb-6 flex items-center gap-4">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => navigate(-1)}
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <div>
-          <h1 className="text-3xl font-bold">Новый бюджет</h1>
-          <p className="text-muted-foreground mt-1">Создайте план расходов</p>
-        </div>
-      </div>
+      <FormPageHeader
+        title="Новый бюджет"
+        subtitle="Создайте план расходов"
+        onBack={() => navigate(-1)}
+      />
 
       {/* Create Budget Feature */}
       <CreateBudget onSuccess={() => navigate(ROUTES.BUDGETS)} />

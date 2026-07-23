@@ -2547,3 +2547,36 @@ Results:
 ### Next
 
 Continue with FT-029B: shared segmented control for non-Radix filter tabs, then FT-029C: empty-state and form-page header/back standards.
+
+## 2026-07-22 — FT-029B/C shared segmented controls and form-page headers
+
+### Goal
+
+Continue autonomous FT-029 design-system hardening by replacing page-specific controls with shared primitives.
+
+### Changes
+
+- Added `webapp/src/shared/ui/segmented-button-group.tsx` for non-Radix local state segmented controls.
+- Migrated Debts filter buttons (`Все / Я должен / Мне должны`) to `SegmentedButtonGroup`.
+- Added `webapp/src/shared/ui/form-page-header.tsx` for form/detail pages outside the bottom-nav layout.
+- Migrated Add Transaction, Add Budget, and Add Debt headers to `FormPageHeader` including guest states.
+- Exported new primitives from `webapp/src/shared/ui/index.ts`.
+
+### Verification
+
+Hermes ran:
+
+```bash
+npm run build:webapp
+npm run verify
+node /tmp/ft028_ui_audit_capture.js
+```
+
+Results:
+
+- `npm run verify` passed: 18 suites / 166 tests, backend build, webapp build, dependency-cruiser, madge.
+- Screenshot metrics show list page headers remain aligned at x=16 and form headers start at x=68 after the back button, consistently across add pages.
+
+### Next
+
+FT-029D should normalize empty-state variants and audit form submit visibility with keyboard-open / small-height mobile screenshots.
