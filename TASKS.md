@@ -1531,6 +1531,36 @@ Follow-up:
 
 ---
 
+### FT-029F: Small-height form screenshot audit
+
+Status: done
+Priority: high
+Owner: Hermes
+Type: frontend-ui/design-qa
+
+Context:
+Validate the add-form pages on a shorter mobile viewport as a proxy for keyboard-open / constrained Telegram Mini App height. Extend the reusable audit command where needed instead of relying on one-off scripts.
+
+Changes:
+- [x] Added `AUTH_MODE=telegram` support to `scripts/mobile-ui-audit.js` for authenticated-only form pages
+- [x] Added `ROUTES=...` filter support for focused audits without unrelated API noise
+- [x] Added `SCROLL_TO=bottom` support for submit-button visibility checks
+- [x] Captured authenticated top screenshots for Add Transaction/Budget/Debt at 390×667
+- [x] Captured authenticated bottom-scroll screenshots for Add Transaction/Budget/Debt at 390×667
+- [x] Confirmed issueCount=0 for focused form audits
+- [x] `npm run verify` passed
+
+Evidence:
+- Top screenshots: `/tmp/ft029f-small-height-auth-forms/screenshots/*.png`
+- Bottom screenshots: `/tmp/ft029f-small-height-auth-forms-bottom/screenshots/*.png`
+- Metrics: `/tmp/ft029f-small-height-auth-forms/metrics.json`, `/tmp/ft029f-small-height-auth-forms-bottom/metrics.json`
+- Form header alignment remains `h1.x=68`; submit buttons are reachable after scroll.
+
+Follow-up:
+- No immediate form layout code change needed from this slice.
+
+---
+
 ### FT-004: Decide first product vector after stabilization
 
 Status: blocked

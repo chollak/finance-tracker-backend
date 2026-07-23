@@ -5,6 +5,9 @@
  * Usage:
  *   BASE_URL=http://127.0.0.1:3000 npm run design:audit
  *   VIEWPORT_WIDTH=390 VIEWPORT_HEIGHT=844 npm run design:audit
+ *   AUTH_MODE=telegram npm run design:audit
+ *   ROUTES=/transactions/add,/budgets/add,/debts/add npm run design:audit
+ *   SCROLL_TO=bottom npm run design:audit
  *
  * The script expects a running app. It does not start servers.
  * Playwright is resolved from project deps, PLAYWRIGHT_REQUIRE_PATH, or Hermes' npx cache.
@@ -38,9 +41,11 @@ const { chromium } = loadPlaywright();
 const baseUrl = process.env.BASE_URL || 'http://127.0.0.1:3000';
 const width = Number(process.env.VIEWPORT_WIDTH || 390);
 const height = Number(process.env.VIEWPORT_HEIGHT || 844);
+const authMode = process.env.AUTH_MODE || 'guest';
+const scrollTo = process.env.SCROLL_TO || 'top';
 const outDir = process.env.OUT_DIR || path.resolve(process.cwd(), 'tmp/mobile-ui-audit');
 
-const routes = [
+const defaultRoutes = [
   { name: 'home', path: '/' },
   { name: 'transactions', path: '/transactions' },
   { name: 'budgets', path: '/budgets' },
@@ -51,6 +56,19 @@ const routes = [
   { name: 'add-debt', path: '/debts/add' },
   { name: 'analytics', path: '/analytics' },
 ];
+
+const requestedPaths = (process.env.ROUTES || '')
+  .split(',')
+  .map((routePath) => routePath.trim())
+  .filter(Boolean);
+const routes = requestedPaths.length
+  ? defaultRoutes.filter((route) => requestedPaths.includes(route.path) || requestedPaths.includes(route.name))
+  : defaultRoutes;
+
+if (requestedPaths.length && routes.length !== requestedPaths.length) {
+  const known = defaultRoutes.flatMap((route) => [route.path, route.name]).join(', ');
+  throw new Error(`Unknown ROUTES entry. Requested: ${requestedPaths.join(', ')}. Known: ${known}`);
+}
 
 function rect(el) {
   if (!el) return null;
@@ -77,6 +95,23 @@ function rect(el) {
       hasTouch: true,
     });
 
+    if (authMode === 'telegram') {
+      await page.addInitScript(() => {
+        window.localStorage.setItem(
+          'finance-tracker-user',
+          JSON.stringify({
+            state: {
+              userId: '597843119',
+              userName: 'Design QA',
+              userType: 'telegram',
+              telegramId: '597843119',
+            },
+            version: 0,
+          })
+        );
+      });
+    }
+
     const consoleErrors = [];
     const badResponses = [];
 
@@ -94,6 +129,13 @@ function rect(el) {
     const url = `${baseUrl}${route.path}`;
     await page.goto(url, { waitUntil: 'networkidle', timeout: 30000 });
     await page.waitForTimeout(700);
+
+    if (scrollTo === 'bottom') {
+      await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+      await page.waitForTimeout(300);
+    } else if (scrollTo !== 'top') {
+      throw new Error(`Unsupported SCROLL_TO value: ${scrollTo}`);
+    }
 
     const screenshot = path.join(outDir, 'screenshots', `${route.name}-${width}.png`);
     await page.screenshot({ path: screenshot, fullPage: false });
@@ -175,7 +217,7 @@ function rect(el) {
     0
   );
 
-  console.log(JSON.stringify({ baseUrl, viewport: { width, height }, outDir, metricsPath, issueCount, summary }, null, 2));
+  console.log(JSON.stringify({ baseUrl, viewport: { width, height }, authMode, scrollTo, outDir, metricsPath, issueCount, summary }, null, 2));
 
   if (issueCount > 0) {
     process.exitCode = 1;

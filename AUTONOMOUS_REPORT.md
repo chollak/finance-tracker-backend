@@ -2652,3 +2652,39 @@ Result: passed — 18 suites / 166 tests, backend build, webapp build, dependenc
 ### Next
 
 Commit/push FT-029E. Continue with FT-029F: keyboard-open / small-height form screenshots for Add Transaction/Budget/Debt.
+
+## 2026-07-23 — FT-029F small-height form audit
+
+### Goal
+
+Validate add-form pages on a constrained mobile height as a proxy for Telegram Mini App keyboard-open / small viewport behavior.
+
+### Changes
+
+- Extended `scripts/mobile-ui-audit.js` with `AUTH_MODE=telegram` so authenticated-only forms can be audited without manual browser setup.
+- Added `ROUTES=...` filtering for focused design checks.
+- Added `SCROLL_TO=bottom` so submit-button visibility can be checked after scrolling.
+
+### Verification
+
+Hermes ran focused form audits against a local Vite app at 390×667:
+
+```bash
+BASE_URL=http://127.0.0.1:5175 VIEWPORT_WIDTH=390 VIEWPORT_HEIGHT=667 AUTH_MODE=telegram ROUTES=/transactions/add,/budgets/add,/debts/add OUT_DIR=/tmp/ft029f-small-height-auth-forms npm run design:audit
+BASE_URL=http://127.0.0.1:5175 VIEWPORT_WIDTH=390 VIEWPORT_HEIGHT=667 AUTH_MODE=telegram ROUTES=/transactions/add,/budgets/add,/debts/add SCROLL_TO=bottom OUT_DIR=/tmp/ft029f-small-height-auth-forms-bottom npm run design:audit
+npm run build:webapp
+npm run verify
+```
+
+Results:
+
+- Both focused `design:audit` runs passed with `issueCount: 0`.
+- Top screenshots: `/tmp/ft029f-small-height-auth-forms/screenshots/*.png`.
+- Bottom-scroll screenshots: `/tmp/ft029f-small-height-auth-forms-bottom/screenshots/*.png`.
+- Metrics confirm form headers remain aligned at `h1.x=68`.
+- Bottom-scroll screenshots confirm submit buttons are reachable/usable on Add Transaction, Add Budget, and Add Debt at 390×667.
+- `npm run verify` passed: 18 suites / 166 tests, backend build, webapp build, dependency-cruiser, and madge circular scan.
+
+### Decision
+
+No immediate form-layout code change was needed in this slice. The reusable audit command is now stronger for future design QA.
