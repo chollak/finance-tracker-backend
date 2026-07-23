@@ -126,6 +126,7 @@ export const RU = {
     edit: 'Изменить',
     delete: 'Удалить',
     viewAll: 'Все транзакции',
+    addTransaction: 'Добавить транзакцию',
     openApp: 'Открыть приложение',
     back: 'Назад',
     cancel: 'Отмена',

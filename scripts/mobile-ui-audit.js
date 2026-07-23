@@ -5,7 +5,7 @@
  * Usage:
  *   BASE_URL=http://127.0.0.1:3000 npm run design:audit
  *   VIEWPORT_WIDTH=390 VIEWPORT_HEIGHT=844 npm run design:audit
- *   AUTH_MODE=telegram npm run design:audit
+ *   AUTH_MODE=telegram TELEGRAM_USER_ID=131184740 npm run design:audit
  *   ROUTES=/transactions/add,/budgets/add,/debts/add npm run design:audit
  *   SCROLL_TO=bottom npm run design:audit
  *
@@ -42,6 +42,8 @@ const baseUrl = process.env.BASE_URL || 'http://127.0.0.1:3000';
 const width = Number(process.env.VIEWPORT_WIDTH || 390);
 const height = Number(process.env.VIEWPORT_HEIGHT || 844);
 const authMode = process.env.AUTH_MODE || 'guest';
+const telegramUserId = process.env.TELEGRAM_USER_ID || '597843119';
+const telegramUserName = process.env.TELEGRAM_USER_NAME || 'Design QA';
 const scrollTo = process.env.SCROLL_TO || 'top';
 const outDir = process.env.OUT_DIR || path.resolve(process.cwd(), 'tmp/mobile-ui-audit');
 
@@ -96,19 +98,32 @@ function rect(el) {
     });
 
     if (authMode === 'telegram') {
-      await page.addInitScript(() => {
+      await page.addInitScript(({ userId, userName }) => {
         window.localStorage.setItem(
           'finance-tracker-user',
           JSON.stringify({
             state: {
-              userId: '597843119',
-              userName: 'Design QA',
+              userId,
+              userName,
               userType: 'telegram',
-              telegramId: '597843119',
+              telegramId: userId,
             },
             version: 0,
           })
         );
+      }, { userId: telegramUserId, userName: telegramUserName });
+
+      // Browser screenshots run outside Telegram, so there is no real initData.
+      // Add the dev auth header at the network layer to avoid false 401s while
+      // still keeping the token out of logs and screenshots.
+      await page.route('**/api/**', async (routeRequest) => {
+        const request = routeRequest.request();
+        await routeRequest.continue({
+          headers: {
+            ...request.headers(),
+            'x-dev-user-id': telegramUserId,
+          },
+        });
       });
     }
 

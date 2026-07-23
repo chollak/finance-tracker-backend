@@ -43,13 +43,17 @@ export function transactionAutoSavedKeyboard(transactionId: string, userId: stri
     ],
   ];
 
-  // Add Web App button if configured
+  // Add focused daily-use Web App buttons if configured
   if (isWebAppConfigured()) {
     try {
-      const url = createWebAppUrl(userId);
-      buttons.push([Markup.button.webApp(`📊 ${RU.buttons.openApp}`, url)]);
+      const transactionsUrl = createWebAppUrl(userId, { path: 'transactions' });
+      const addUrl = createWebAppUrl(userId, { path: 'transactions/add' });
+      buttons.push([
+        Markup.button.webApp(`🧾 ${RU.buttons.viewAll}`, transactionsUrl),
+        Markup.button.webApp(`➕ ${RU.buttons.addTransaction}`, addUrl),
+      ]);
     } catch {
-      // Skip web app button if URL creation fails
+      // Skip web app buttons if URL creation fails
     }
   }
 

@@ -2771,3 +2771,65 @@ FT-031 will audit and later clean up the everyday finance tracking loop:
 - `FT-004` product-vector decision marked `done`.
 - `FT-031` added as `backlog`.
 - No product implementation started.
+
+## 2026-07-23 — FT-031A daily flow audit + Telegram quick actions
+
+### Goal
+
+Begin FT-031 autonomously by auditing the everyday entry points and applying the first safe daily-use cleanup.
+
+### Audit
+
+Hermes checked the running local Mini App/bot processes, reviewed Telegram command/message/keyboards and key Mini App pages/widgets, and captured mobile screenshots at 390x844.
+
+Screenshot artifacts:
+
+```text
+/tmp/ft031a-daily-audit-after/screenshots/home-390.png
+/tmp/ft031a-daily-audit-after/screenshots/transactions-390.png
+/tmp/ft031a-daily-audit-after/screenshots/add-transaction-390.png
+```
+
+Design audit command:
+
+```bash
+BASE_URL=https://markets-upc-usb-inquiry.trycloudflare.com AUTH_MODE=telegram TELEGRAM_USER_ID=131184740 VIEWPORT_WIDTH=390 VIEWPORT_HEIGHT=844 OUT_DIR=/tmp/ft031a-daily-audit-after ROUTES=/,/transactions,/transactions/add npm run design:audit
+```
+
+Result: passed with `issueCount: 0`.
+
+API daily-flow probe:
+
+- create transaction: HTTP 201
+- list transactions: HTTP 200 and created transaction found
+- update/delete with only `X-Dev-User-Id`: HTTP 403 due `optionalAuth` not accepting the dev header
+- audit transaction cleanup: local SQLite cleanup verified count `0`
+
+The 403 is recorded as dev-test friction, not a confirmed real Telegram Mini App blocker, because real Mini App requests use `Authorization: tma <initData>`.
+
+### Changes
+
+- Improved `/start` keyboard from a single generic app button to daily actions:
+  - Open app
+  - Add transaction
+  - All transactions
+  - Detailed analytics
+- Improved auto-saved transaction keyboard:
+  - Edit/Delete remain first
+  - Follow-up actions are now All transactions + Add transaction
+- Improved repo-local mobile screenshot audit:
+  - supports `TELEGRAM_USER_ID` and `TELEGRAM_USER_NAME`
+  - injects `X-Dev-User-Id` on `/api/**` when `AUTH_MODE=telegram`, avoiding false 401s in browser screenshot QA
+
+### Verification
+
+```bash
+npm run build
+npm run verify
+```
+
+Result: passed — 18 suites / 166 tests, backend build, webapp build, dependency-cruiser, and madge circular scan.
+
+### Next
+
+Commit/push FT-031A and restart `npm run serve` so the new Telegram keyboard code is active locally.

@@ -1661,6 +1661,54 @@ Non-goals for this task:
 - Production deployment/domain migration
 - Broad architecture refactor
 
+
+---
+
+### FT-031A: Daily flow audit + Telegram quick actions
+
+Status: done
+Priority: high
+Owner: Hermes
+Type: product/telegram-bot-ux/design-qa
+
+Context:
+Start FT-031 by exercising the daily loop and removing the first obvious friction in Telegram entry points. The Mini App itself is usable, but the `/start` entry was too shallow for daily usage: one generic app button plus a separate quick category prompt.
+
+Audit evidence:
+- [x] Current local Mini App processes checked
+- [x] Public tunnel and backend were already running for manual testing
+- [x] API create/list/update/delete daily-flow probe run with `X-Dev-User-Id` without printing secrets
+- [x] Temporary FT-031 audit transaction was cleaned from local SQLite
+- [x] Mobile screenshots captured at 390x844:
+  - `/tmp/ft031a-daily-audit-after/screenshots/home-390.png`
+  - `/tmp/ft031a-daily-audit-after/screenshots/transactions-390.png`
+  - `/tmp/ft031a-daily-audit-after/screenshots/add-transaction-390.png`
+- [x] `BASE_URL=https://markets-upc-usb-inquiry.trycloudflare.com AUTH_MODE=telegram TELEGRAM_USER_ID=131184740 VIEWPORT_WIDTH=390 VIEWPORT_HEIGHT=844 OUT_DIR=/tmp/ft031a-daily-audit-after ROUTES=/,/transactions,/transactions/add npm run design:audit` passed with `issueCount: 0`
+
+Findings:
+- Home and transactions pages render without guest banner/no-auth errors when the audit uses a Telegram user fixture with dev auth headers.
+- Bottom nav center `+` is centered and usable.
+- Transactions list is readable and edit/delete are discoverable via the row overflow menu.
+- Add Transaction form is usable on 390x844; submit is visible at bottom in the audited state.
+- API create/list works in dev, but direct API update/delete with only `X-Dev-User-Id` returned 403 because those endpoints use `optionalAuth`; this does not block real Telegram Mini App auth but remains a dev-test friction to revisit if browser-only edit/delete testing is needed.
+
+Changes:
+- [x] `/start` Mini App keyboard now includes focused daily actions:
+  - Open app
+  - Add transaction
+  - All transactions
+  - Detailed analytics
+- [x] Auto-saved transaction keyboard now links to All transactions + Add transaction, instead of only generic Open app
+- [x] `scripts/mobile-ui-audit.js` now supports `TELEGRAM_USER_ID` / `TELEGRAM_USER_NAME` and injects `X-Dev-User-Id` for `/api/**` requests in `AUTH_MODE=telegram`, preventing false 401s in browser screenshot QA
+
+Verification:
+- [x] `npm run build` passed
+- [x] `npm run verify` passed — 18 suites / 166 tests, backend build, webapp build, dependency-cruiser, madge circular scan
+
+Follow-up:
+- FT-031B: decide whether to make browser-only dev edit/delete testing work through `optionalAuth` + `X-Dev-User-Id`, or test edit/delete only with real Telegram initData.
+- FT-031C: daily Mini App polish after using the new quick actions for real.
+
 ---
 
 ## GitHub Issues Migration Criteria

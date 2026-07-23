@@ -11,9 +11,18 @@ export function mainMenuKeyboard(userId: string) {
   }
 
   try {
-    const url = createWebAppUrl(userId);
+    const homeUrl = createWebAppUrl(userId);
+    const addUrl = createWebAppUrl(userId, { path: 'transactions/add' });
+    const transactionsUrl = createWebAppUrl(userId, { path: 'transactions' });
+    const analyticsUrl = createWebAppUrl(userId, { path: 'analytics' });
+
     return Markup.inlineKeyboard([
-      [Markup.button.webApp(`📊 ${RU.welcome.openApp}`, url)],
+      [Markup.button.webApp(`📊 ${RU.welcome.openApp}`, homeUrl)],
+      [Markup.button.webApp(`➕ ${RU.buttons.addTransaction}`, addUrl)],
+      [
+        Markup.button.webApp(`🧾 ${RU.buttons.viewAll}`, transactionsUrl),
+        Markup.button.webApp(`📈 ${RU.buttons.moreStats}`, analyticsUrl),
+      ],
     ]);
   } catch {
     return undefined;
