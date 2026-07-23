@@ -2688,3 +2688,62 @@ Results:
 ### Decision
 
 No immediate form-layout code change was needed in this slice. The reusable audit command is now stronger for future design QA.
+
+## 2026-07-23 — FT-030 stable local Telegram Mini App launch flow
+
+### Goal
+
+Make local Telegram Mini App testing repeatable after the real failure where the backend/tunnel worked but Telegram's persistent menu button still pointed to a dead quick-tunnel URL.
+
+### Root cause from incident
+
+- `WEB_APP_URL` in `.env` had been updated only after the tunnel changed.
+- Old inline `/start` buttons keep their embedded `web_app` URL and do not update automatically.
+- Telegram's persistent chat menu button is stored separately via Bot API `setChatMenuButton`; it was still pointing at the stale `joel-russia-gcc-jews.trycloudflare.com` URL.
+
+### Changes
+
+- Added `scripts/dev-miniapp.js`.
+- Added npm commands:
+  - `npm run dev:miniapp -- --chat-id=<telegram_chat_id>`
+  - `npm run miniapp:menu -- status --chat-id=<telegram_chat_id>`
+  - `npm run miniapp:menu -- set --url=<https_url> --chat-id=<telegram_chat_id>`
+- Helper behavior:
+  - creates a Cloudflare quick tunnel when no `--url` is supplied;
+  - validates Mini App URL is HTTPS;
+  - updates ignored local `.env` `WEB_APP_URL`;
+  - updates Telegram persistent menu button safely without printing the bot token;
+  - can build and start `npm run serve` for stable phone testing;
+  - probes the public Mini App URL.
+- Updated README and CLAUDE.md with the phone/Mini App testing flow and stale Telegram button caveat.
+- Added optional `MINIAPP_CHAT_ID` to `.env.example`.
+
+### Verification so far
+
+Hermes ran:
+
+```bash
+node --check scripts/dev-miniapp.js
+npm run miniapp:menu -- status --chat-id=131184740
+node scripts/dev-miniapp.js run --url=https://mice-adds-growing-surfing.trycloudflare.com --chat-id=131184740 --skip-build --no-serve
+npm run build
+```
+
+Results:
+
+- Script syntax check passed.
+- Status command showed `TG_BOT_API_KEY=present` without printing the secret and verified the current Telegram menu URL.
+- Existing-tunnel run updated `.env`, updated Telegram menu button to `https://mice-adds-growing-surfing.trycloudflare.com/?userId=131184740`, and public app probe returned HTTP 200.
+- Backend TypeScript build passed.
+
+### Full verification
+
+```bash
+npm run verify
+```
+
+Result: passed — 18 suites / 166 tests, backend build, webapp build, dependency-cruiser, and madge circular scan.
+
+### Next
+
+Commit/push FT-030.

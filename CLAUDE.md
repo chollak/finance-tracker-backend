@@ -9,10 +9,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npm run serve` - Run the compiled application from `dist/index.js`
 
 **Development (Choose one):**
-- `npm run dev:full` - 🚀 **RECOMMENDED**: Full-stack development with hot reload
+- `npm run dev:full` - Full-stack development with hot reload
   - Backend: http://localhost:3000 (API + static files)
   - Frontend: http://localhost:5173 (React dev server with hot reload)
   - API calls automatically proxy from frontend to backend
+- `npm run dev:miniapp -- --chat-id=<telegram_chat_id>` - 🚀 **RECOMMENDED for phone/Mini App testing**: starts a Cloudflare quick tunnel, updates local `WEB_APP_URL`, updates the Telegram persistent menu button, builds, and runs `npm run serve`
+- `npm run miniapp:menu -- status --chat-id=<telegram_chat_id>` - safely inspect current `WEB_APP_URL` + Telegram menu button without printing the bot token
+- `npm run miniapp:menu -- set --url=<https_url> --chat-id=<telegram_chat_id>` - update `.env` `WEB_APP_URL` and Telegram menu button for an existing tunnel
 - `npm run dev` - Backend only (serves static production build)
 - `npm run dev:frontend` - Frontend only (requires backend running separately)
 - `npm run dev:backend` - Backend only (same as `npm run dev`)

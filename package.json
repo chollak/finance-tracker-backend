@@ -25,7 +25,9 @@
     "supabase:setup": "npx ts-node scripts/create-tables.ts",
     "supabase:test": "npx ts-node scripts/test-supabase.ts",
     "seed:test": "npx ts-node scripts/seed-test-data.ts",
-    "design:audit": "node scripts/mobile-ui-audit.js"
+    "design:audit": "node scripts/mobile-ui-audit.js",
+    "miniapp:menu": "node scripts/dev-miniapp.js",
+    "dev:miniapp": "node scripts/dev-miniapp.js run"
   },
   "keywords": [],
   "author": "",

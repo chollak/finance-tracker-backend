@@ -1559,6 +1559,40 @@ Evidence:
 Follow-up:
 - No immediate form layout code change needed from this slice.
 
+
+---
+
+### FT-030: Stable local Telegram Mini App launch flow
+
+Status: done
+Priority: high
+Owner: Hermes
+Type: developer-experience/telegram-mini-app
+
+Context:
+After FT-029, Mini App opening failed because the Cloudflare quick tunnel changed but Telegram's persistent menu button still pointed to the stale tunnel. `/start` inline buttons also embed URLs at message creation time, so local development needs a repeatable flow that keeps the tunnel, `.env` `WEB_APP_URL`, backend/bot process, and Telegram menu button in sync.
+
+Changes:
+- [x] Added `scripts/dev-miniapp.js` local Mini App helper
+- [x] Added `npm run dev:miniapp -- --chat-id=<telegram_chat_id>` for end-to-end phone/Mini App testing
+- [x] Added `npm run miniapp:menu -- status --chat-id=<telegram_chat_id>` for safe status inspection without printing the bot token
+- [x] Added `npm run miniapp:menu -- set --url=<https_url> --chat-id=<telegram_chat_id>` for existing tunnels
+- [x] Helper updates ignored local `.env` `WEB_APP_URL`
+- [x] Helper updates and verifies Telegram persistent menu button via Bot API without printing `TG_BOT_API_KEY`
+- [x] Helper can create a Cloudflare quick tunnel, build, run `npm run serve`, and probe the public Mini App URL
+- [x] README and CLAUDE.md document the Mini App phone-testing flow and stale-button pitfall
+- [x] `.env.example` documents optional `MINIAPP_CHAT_ID`
+
+Verification:
+- [x] `node --check scripts/dev-miniapp.js` passed
+- [x] `npm run miniapp:menu -- status --chat-id=131184740` showed current menu URL safely
+- [x] `node scripts/dev-miniapp.js run --url=https://mice-adds-growing-surfing.trycloudflare.com --chat-id=131184740 --skip-build --no-serve` updated `.env` + Telegram menu and probed public app with HTTP 200
+- [x] `npm run build` passed
+- [x] `npm run verify` passed
+
+Follow-up:
+- Consider a named/stable Cloudflare tunnel or production domain flow later; FT-030 only stabilizes local dev.
+
 ---
 
 ### FT-004: Decide first product vector after stabilization

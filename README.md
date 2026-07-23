@@ -88,11 +88,36 @@ the `/api` prefix.
 
 ### Development
 
+For regular frontend-only work:
+
 ```bash
 cd webapp
 npm install
 npm run dev
 ```
+
+For Telegram Mini App testing on a phone, use the repo-local helper so the public HTTPS tunnel, `.env` `WEB_APP_URL`, and Telegram persistent menu button stay in sync:
+
+```bash
+# Replace with your Telegram chat/user id.
+npm run dev:miniapp -- --chat-id=131184740
+```
+
+Useful focused commands:
+
+```bash
+# Inspect current WEB_APP_URL and Telegram menu button without printing the bot token.
+npm run miniapp:menu -- status --chat-id=131184740
+
+# If you already have a public HTTPS tunnel, update .env + Telegram menu button.
+npm run miniapp:menu -- set --url=https://example.trycloudflare.com --chat-id=131184740
+```
+
+Notes:
+
+- Telegram Mini Apps require a public HTTPS URL on a phone; `localhost` is not enough.
+- Old `/start` inline buttons keep their embedded URL. After a tunnel changes, send `/start` again and press a fresh button.
+- The bottom/menu Mini App button is persisted in Telegram via `setChatMenuButton`; update it whenever the tunnel URL changes.
 
 ### Building for production
 
