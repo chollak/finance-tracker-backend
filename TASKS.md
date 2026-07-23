@@ -1709,6 +1709,38 @@ Follow-up:
 - FT-031B: decide whether to make browser-only dev edit/delete testing work through `optionalAuth` + `X-Dev-User-Id`, or test edit/delete only with real Telegram initData.
 - FT-031C: daily Mini App polish after using the new quick actions for real.
 
+
+---
+
+### FT-031B: Dev edit/delete auth path for daily-flow QA
+
+Status: done
+Priority: high
+Owner: Hermes
+Type: backend/auth/testability
+
+Context:
+FT-031A found that direct browser/API daily-flow QA could create/list transactions with `X-Dev-User-Id`, but update/delete returned 403 because those routes use `optionalAuth` and did not recognize the same development auth bypass as `requireAuth`. This blocked reliable browser-only edit/delete QA even though production Telegram Mini App uses `Authorization: tma <initData>`.
+
+Root cause:
+- `requireAuth` supports `X-Dev-User-Id` in non-production.
+- `optionalAuth` ignored `X-Dev-User-Id`, left `req.telegramUser` unset, and ownership verification failed closed for non-guest transactions.
+
+Changes:
+- [x] Added a regression test proving update/delete work with `X-Dev-User-Id` when ownership matches
+- [x] Updated `optionalAuth` to accept `X-Dev-User-Id` only when `NODE_ENV !== 'production'`
+- [x] Kept production path unchanged: real Telegram Mini App requests still use `Authorization: tma <initData>`
+
+Verification:
+- [x] RED: `npm run test:ci -- tests/transactionRoutes.test.ts` failed with update 403 before the fix
+- [x] GREEN: targeted transaction route test passed after the fix
+- [x] Live API probe after rebuild/restart: create 201, update 200, delete 200, list 200, deleted transaction absent
+- [x] Temporary FT-031B probe/repro transactions cleaned from local SQLite
+- [x] `npm run verify` passed — 18 suites / 167 tests, backend build, webapp build, dependency-cruiser, madge circular scan
+
+Follow-up:
+- FT-031C: Mini App recent transactions / add-flow polish using the now-testable edit/delete path.
+
 ---
 
 ## GitHub Issues Migration Criteria

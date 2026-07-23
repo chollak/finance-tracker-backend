@@ -24,8 +24,9 @@ import { ArchiveMultipleTransactionsUseCase } from '../src/modules/transaction/a
 import { ArchiveAllByUserUseCase } from '../src/modules/transaction/application/archiveAllByUser';
 import { GetArchivedTransactionsUseCase } from '../src/modules/transaction/application/getArchivedTransactions';
 import { NotFoundError } from '../src/shared/domain/errors/AppError';
+import { UserModule } from '../src/modules/user/userModule';
 
-function buildTransactionTestApp() {
+function buildTransactionTestApp(options: { userModule?: UserModule } = {}) {
   const router = express.Router();
 
   router.use(requestLogger);
@@ -69,7 +70,9 @@ function buildTransactionTestApp() {
     unarchiveUseCase,
     archiveMultipleUseCase,
     archiveAllByUserUseCase,
-    getArchivedUseCase
+    getArchivedUseCase,
+    undefined,
+    options.userModule
   ));
 
   router.use('*', notFoundHandler);
@@ -155,6 +158,57 @@ describe('Transaction API route boundaries', () => {
     const body = await res.json();
     expect(body.success).toBe(true);
     expect(body.data).toEqual(transaction);
+  });
+
+  it('allows local development update and delete with X-Dev-User-Id when ownership matches', async () => {
+    const userUuid = '02c5718f-b6db-4990-894e-3fc080bb2a83';
+    const telegramId = '131184740';
+    const userModule = {
+      getGetOrCreateUserUseCase: () => ({
+        execute: jest.fn().mockResolvedValue({ id: userUuid, telegramId }),
+      }),
+      getGetUserUseCase: () => ({
+        execute: jest.fn().mockResolvedValue({
+          success: true,
+          data: { id: userUuid, telegramId },
+        }),
+      }),
+    } as unknown as UserModule;
+
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    mocks = buildTransactionTestApp({ userModule });
+    await new Promise<void>((resolve) => {
+      server = mocks.app.listen(0, () => {
+        const { port } = server.address() as AddressInfo;
+        baseUrl = `http://127.0.0.1:${port}`;
+        resolve();
+      });
+    });
+
+    (mocks.getByIdUseCase.execute as jest.Mock).mockResolvedValue({
+      success: true,
+      data: { id: 'tx-1', userId: userUuid, amount: 100, category: 'food', type: 'expense' },
+    });
+    (mocks.updateUseCase.execute as jest.Mock).mockResolvedValue({
+      success: true,
+      data: { id: 'tx-1', userId: userUuid, amount: 150 },
+    });
+    (mocks.deleteUseCase.execute as jest.Mock).mockResolvedValue({ success: true });
+
+    const updateRes = await fetch(`${baseUrl}/api/transactions/tx-1`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'X-Dev-User-Id': telegramId },
+      body: JSON.stringify({ amount: 150 }),
+    });
+    expect(updateRes.status).toBe(200);
+    expect(mocks.updateUseCase.execute).toHaveBeenCalledWith({ id: 'tx-1', amount: 150 });
+
+    const deleteRes = await fetch(`${baseUrl}/api/transactions/tx-1?userId=${telegramId}`, {
+      method: 'DELETE',
+      headers: { 'X-Dev-User-Id': telegramId },
+    });
+    expect(deleteRes.status).toBe(200);
+    expect(mocks.deleteUseCase.execute).toHaveBeenCalledWith({ id: 'tx-1' });
   });
 
   it('validates empty guest transaction update bodies before calling update use cases', async () => {

@@ -2833,3 +2833,57 @@ Result: passed — 18 suites / 166 tests, backend build, webapp build, dependenc
 ### Next
 
 Commit/push FT-031A and restart `npm run serve` so the new Telegram keyboard code is active locally.
+
+## 2026-07-23 — FT-031B dev edit/delete auth path
+
+### Goal
+
+Continue FT-031 by removing the daily-flow QA blocker found in FT-031A: direct browser/API edit/delete probes with `X-Dev-User-Id` returned 403 while create/list worked.
+
+### Root cause
+
+The transaction update/delete routes use `optionalAuth`, then verify resource ownership. `requireAuth` supported the local development `X-Dev-User-Id` bypass, but `optionalAuth` did not. Therefore `req.telegramUser` remained unset and ownership verification failed closed for non-guest transactions.
+
+This was a dev-testability bug, not a production auth relaxation: production Telegram Mini App still uses `Authorization: tma <initData>`.
+
+### TDD loop
+
+RED:
+
+```bash
+npm run test:ci -- tests/transactionRoutes.test.ts
+```
+
+Result before fix: the new regression test failed because update returned 403 instead of 200.
+
+GREEN:
+
+- Added non-production `X-Dev-User-Id` handling to `optionalAuth`, matching `requireAuth` behavior.
+- Targeted test passed.
+
+### Live probe after rebuild/restart
+
+Hermes ran a local API daily-flow probe with `X-Dev-User-Id`:
+
+- create: 201
+- update: 200
+- delete: 200
+- list after delete: 200, deleted transaction absent
+
+Temporary FT-031B repro/probe transactions were cleaned from local SQLite; remaining count matched `0`.
+
+### Verification
+
+```bash
+npm run verify
+```
+
+Result: passed — 18 suites / 167 tests, backend build, webapp build, dependency-cruiser, and madge circular scan.
+
+### Runtime
+
+Backend was rebuilt and restarted so the local Mini App/tunnel can exercise the new auth behavior.
+
+### Next
+
+Commit/push FT-031B. Continue with FT-031C: Mini App recent transactions / add-flow polish.

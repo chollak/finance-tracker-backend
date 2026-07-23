@@ -220,6 +220,23 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
  * Useful for endpoints that work with or without auth (e.g., guest mode).
  */
 export function optionalAuth(req: Request, _res: Response, next: NextFunction): void {
+  // Development mode bypass: allow the same local dev header as requireAuth.
+  // This keeps browser-only Mini App QA working for routes that allow guest mode
+  // but still need ownership checks for real user resources.
+  if (process.env.NODE_ENV !== 'production') {
+    const devUserId = req.headers['x-dev-user-id'];
+    if (devUserId && typeof devUserId === 'string') {
+      logger.debug('Development optional auth bypass', { devUserId });
+      req.telegramUser = {
+        id: parseInt(devUserId, 10),
+        first_name: 'Dev User',
+      };
+      req.isAuthenticated = true;
+      next();
+      return;
+    }
+  }
+
   const authHeader = req.headers.authorization;
 
   // No auth header - continue without authentication
