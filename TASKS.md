@@ -1413,6 +1413,35 @@ Immediate fixes applied:
 Follow-up recommended:
 - FT-029 shared mobile page templates: `PageHeader`, `SegmentedTabs`, empty-state rules, form-page header/back pattern, repeatable screenshot QA.
 
+
+---
+
+### FT-029A: Shared mobile page header and segmented tabs foundation
+
+Status: done
+Priority: high
+Owner: Hermes
+Type: frontend-ui/design-system
+
+Context:
+Start the shared mobile page template cleanup recommended by FT-028. Goal is to stop per-page header/tab drift by introducing shared primitives and migrating the main list/utility pages.
+
+Changes:
+- [x] Added `PageHeader` shared component for mobile-first list/overview pages
+- [x] Added `SegmentedTabsList` and `SegmentedTabsTrigger` wrappers for consistent Radix tab styling
+- [x] Migrated Transactions page to `PageHeader` + segmented tab wrappers
+- [x] Migrated Budgets page guest and authenticated headers to `PageHeader`
+- [x] Migrated Debts page guest and authenticated headers to `PageHeader`
+- [x] Migrated More page to `PageHeader`
+- [x] Migrated Analytics page guest and authenticated headers to `PageHeader`
+- [x] Exported new primitives from `shared/ui`
+- [x] Screenshot metrics confirm list-page h1 alignment at x=16 and transactions tabs 358×48 at 390px viewport
+- [x] `npm run verify` passed
+
+Follow-up:
+- FT-029B: create shared segmented control for non-Radix filter tabs, starting with Debts filters.
+- FT-029C: standardize empty states and form-page headers/back actions.
+
 ### FT-004: Decide first product vector after stabilization
 
 Status: blocked

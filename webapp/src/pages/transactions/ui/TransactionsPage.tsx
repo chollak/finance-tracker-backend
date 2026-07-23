@@ -12,9 +12,9 @@ import { useUserStore } from '@/entities/user/model/store';
 import { FilterBar, useTransactionFiltersStore, filterTransactions } from '@/features/filter-transactions';
 import { useDeleteTransactionDialog } from '@/features/delete-transaction';
 import { QuickAddSheet } from '@/features/quick-add';
-import { Button, EmptyState } from '@/shared/ui';
+import { Button, EmptyState, PageHeader, SegmentedTabsList, SegmentedTabsTrigger } from '@/shared/ui';
 import { Skeleton } from '@/shared/ui/skeleton';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/ui/tabs';
+import { Tabs, TabsContent } from '@/shared/ui/tabs';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -119,35 +119,36 @@ export function TransactionsPage() {
 
   return (
     <div className="container mx-auto px-4 py-6">
-      {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold tracking-tight">Транзакции</h1>
-        <p className="text-muted-foreground mt-1" role="status" aria-live="polite">
-          {currentTransactions.length} из {totalCount}{' '}
-          {activeTab === 'active' ? 'текущих' : 'скрытых'}
-        </p>
-      </div>
+      <PageHeader
+        title="Транзакции"
+        subtitle={(
+          <>
+            {currentTransactions.length} из {totalCount}{' '}
+            {activeTab === 'active' ? 'текущих' : 'скрытых'}
+          </>
+        )}
+      />
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'active' | 'archived')}>
-        <TabsList className="mb-4 grid h-12 w-full grid-cols-2 rounded-2xl p-1">
-          <TabsTrigger value="active" className="gap-2 rounded-xl py-2">
+        <SegmentedTabsList className="grid-cols-2">
+          <SegmentedTabsTrigger value="active">
             Текущие
             {transactions && transactions.length > 0 && (
               <span className="text-xs bg-primary/10 px-1.5 py-0.5 rounded">
                 {transactions.length}
               </span>
             )}
-          </TabsTrigger>
-          <TabsTrigger value="archived" className="gap-2 rounded-xl py-2">
+          </SegmentedTabsTrigger>
+          <SegmentedTabsTrigger value="archived">
             Скрытые
             {archivedTransactions && archivedTransactions.length > 0 && (
               <span className="text-xs bg-muted-foreground/20 px-1.5 py-0.5 rounded">
                 {archivedTransactions.length}
               </span>
             )}
-          </TabsTrigger>
-        </TabsList>
+          </SegmentedTabsTrigger>
+        </SegmentedTabsList>
 
         {/* Filter Bar */}
         <FilterBar />

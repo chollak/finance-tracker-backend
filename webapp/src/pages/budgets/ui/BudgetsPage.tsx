@@ -1,7 +1,7 @@
 import { useBudgetSummaries, BudgetCard, budgetToViewModel } from '@/entities/budget';
 import { useUserStore, useIsGuest } from '@/entities/user/model/store';
 import { BudgetOverview } from '@/widgets/budget-overview';
-import { Button, EmptyState } from '@/shared/ui';
+import { Button, EmptyState, PageHeader } from '@/shared/ui';
 import { Skeleton } from '@/shared/ui/skeleton';
 import { Plus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -23,9 +23,7 @@ export function BudgetsPage() {
   if (isGuest) {
     return (
       <div className="container mx-auto px-4 py-6">
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold">Бюджеты</h1>
-        </div>
+        <PageHeader title="Бюджеты" />
         <GuestFeatureBlock
           title="Бюджеты доступны после входа"
           description="Создавайте бюджеты по категориям, отслеживайте лимиты и получайте уведомления о перерасходе."
@@ -39,13 +37,10 @@ export function BudgetsPage() {
 
   return (
     <div className="container mx-auto px-4 py-6">
-      {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold">Бюджеты</h1>
-        <p className="text-muted-foreground mt-1" role="status" aria-live="polite">
-          {budgetViewModels.length} {budgetViewModels.length === 1 ? 'бюджет' : 'бюджетов'}
-        </p>
-      </div>
+      <PageHeader
+        title="Бюджеты"
+        subtitle={`${budgetViewModels.length} ${budgetViewModels.length === 1 ? 'бюджет' : 'бюджетов'}`}
+      />
 
       {/* Mobile create action — keep budget creation in-page, not as a competing bottom FAB */}
       {!isLoading && budgetViewModels.length > 0 && (

@@ -6,6 +6,7 @@ import { useUserStore, useIsGuest } from '@/entities/user/model/store';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { formatCurrency } from '@/shared/lib/formatters';
 import { Skeleton } from '@/shared/ui/skeleton';
+import { PageHeader } from '@/shared/ui';
 import { GuestFeatureBlock } from '@/features/auth';
 
 /**
@@ -22,9 +23,7 @@ export function AnalyticsPage() {
   if (isGuest) {
     return (
       <div className="container mx-auto px-4 py-6">
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold">Аналитика</h1>
-        </div>
+        <PageHeader title="Аналитика" />
         <GuestFeatureBlock
           title="Аналитика доступна после входа"
           description="Просматривайте графики расходов, тренды по месяцам и оценку финансового здоровья."
@@ -35,11 +34,7 @@ export function AnalyticsPage() {
 
   return (
     <div className="container mx-auto px-4 py-6">
-      {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold">Аналитика</h1>
-        <p className="text-muted-foreground mt-1">Анализ ваших финансов</p>
-      </div>
+      <PageHeader title="Аналитика" subtitle="Анализ ваших финансов" />
 
       {/* Content */}
       <div className="space-y-6">

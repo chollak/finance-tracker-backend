@@ -1,6 +1,6 @@
 import { useDebts, useDebtSummary, DebtCard } from '@/entities/debt';
 import { useUserStore, useIsGuest } from '@/entities/user/model/store';
-import { Button, EmptyState } from '@/shared/ui';
+import { Button, EmptyState, PageHeader } from '@/shared/ui';
 import { Skeleton } from '@/shared/ui/skeleton';
 import { Card } from '@/shared/ui/card';
 import { Plus } from 'lucide-react';
@@ -34,9 +34,7 @@ export function DebtsPage() {
   if (isGuest) {
     return (
       <div className="container mx-auto px-4 py-6">
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold">Долги</h1>
-        </div>
+        <PageHeader title="Долги" />
         <GuestFeatureBlock
           title="Долги доступны после входа"
           description="Отслеживайте кто вам должен и кому должны вы. Фиксируйте платежи и получайте напоминания."
@@ -53,13 +51,7 @@ export function DebtsPage() {
 
   return (
     <div className="container mx-auto px-4 py-6">
-      {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold">Долги</h1>
-        <p className="text-muted-foreground mt-1" role="status" aria-live="polite">
-          {debts?.length || 0} активных долгов
-        </p>
-      </div>
+      <PageHeader title="Долги" subtitle={`${debts?.length || 0} активных долгов`} />
 
       {/* Mobile create action — avoid a competing FAB above the global bottom nav */}
       {!isLoading && debts && debts.length > 0 && (

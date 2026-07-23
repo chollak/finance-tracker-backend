@@ -2513,3 +2513,37 @@ Result:
 ### Recommendation
 
 Next slice should be FT-029 shared mobile page templates: `PageHeader`, `SegmentedTabs`, empty-state rules, form header/back consistency, and repeatable screenshot QA.
+
+## 2026-07-22 — FT-029A shared mobile page header and segmented tabs foundation
+
+### Goal
+
+Start the design-system cleanup recommended by FT-028 by introducing shared mobile page primitives instead of continuing per-page styling drift.
+
+### Changes
+
+- Added `webapp/src/shared/ui/page-header.tsx` for standard list/overview page headers.
+- Added `webapp/src/shared/ui/segmented-tabs.tsx` for consistent Radix segmented tabs.
+- Exported both from `webapp/src/shared/ui/index.ts`.
+- Migrated headers on Transactions, Budgets, Debts, More, and Analytics pages.
+- Migrated Transactions Radix tabs to the new segmented wrappers.
+
+### Verification
+
+Hermes ran:
+
+```bash
+npm run build:webapp
+npm run verify
+node /tmp/ft028_ui_audit_capture.js
+```
+
+Results:
+
+- `npm run verify` passed: 18 suites / 166 tests, backend build, webapp build, dependency-cruiser, madge.
+- Screenshot metrics at 390px confirm list-page H1 positions are aligned at `x=16` for Transactions, Budgets, Debts, More.
+- Transactions segmented tabs remain full-width at `x=16`, `w=358`, `h=48`.
+
+### Next
+
+Continue with FT-029B: shared segmented control for non-Radix filter tabs, then FT-029C: empty-state and form-page header/back standards.

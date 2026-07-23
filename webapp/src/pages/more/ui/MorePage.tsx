@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { BarChart3, ChevronRight, HandCoins } from 'lucide-react';
-import { Card } from '@/shared/ui/card';
+import { Card, PageHeader } from '@/shared/ui';
 import { ROUTES } from '@/shared/lib/constants/routes';
 
 const moreItems = [
@@ -21,12 +21,10 @@ const moreItems = [
 export function MorePage() {
   return (
     <div className="container mx-auto px-4 py-6">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold tracking-tight">Ещё</h1>
-        <p className="mt-1 text-muted-foreground">
-          Дополнительные разделы, которые нужны не каждый день
-        </p>
-      </div>
+      <PageHeader
+        title="Ещё"
+        subtitle="Дополнительные разделы, которые нужны не каждый день"
+      />
 
       <div className="space-y-3">
         {moreItems.map((item) => {
