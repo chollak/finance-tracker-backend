@@ -54,9 +54,11 @@ export function BudgetsPage() {
       )}
 
       {/* Budget Overview Widget */}
-      <div className="mb-6">
-        <BudgetOverview />
-      </div>
+      {(isLoading || budgetViewModels.length > 0) && (
+        <div className="mb-6">
+          <BudgetOverview />
+        </div>
+      )}
 
       {/* All Budgets List */}
       <div className="space-y-4">

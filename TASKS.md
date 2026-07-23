@@ -1469,6 +1469,36 @@ Changes:
 Follow-up:
 - FT-029D: empty-state normalization and form submit visibility/keyboard-open audit.
 
+
+---
+
+### FT-029D: Empty-state dedupe and post-template screenshot audit
+
+Status: done
+Priority: high
+Owner: Hermes
+Type: frontend-ui/design-system
+
+Context:
+Continue autonomous FT-029 cleanup after shared headers and controls. Focus: remove duplicate budget empty states and rerun screenshot audit over form/list pages.
+
+Changes:
+- [x] Budget page no longer renders BudgetOverview empty state when there are no budgets, avoiding duplicate budget empty states
+- [x] Add form pages now share `FormPageHeader` from FT-029B/C
+- [x] Screenshot audit rerun for budgets, debts, transactions add, budgets add, debts add
+- [x] `npm run verify` passed
+
+Evidence:
+- `/tmp/ft028-ui-audit/screenshots/budgets-390.png`
+- `/tmp/ft028-ui-audit/screenshots/debts-390.png`
+- `/tmp/ft028-ui-audit/screenshots/add-transaction-390.png`
+- `/tmp/ft028-ui-audit/screenshots/add-budget-390.png`
+- `/tmp/ft028-ui-audit/screenshots/add-debt-390.png`
+
+Follow-up:
+- FT-029E: move screenshot capture script into repo as a reusable design QA gate.
+- FT-029F: keyboard-open / small-height form screenshots for Add Transaction/Budget/Debt.
+
 ### FT-004: Decide first product vector after stabilization
 
 Status: blocked

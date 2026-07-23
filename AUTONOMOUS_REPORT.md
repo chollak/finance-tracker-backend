@@ -2580,3 +2580,32 @@ Results:
 ### Next
 
 FT-029D should normalize empty-state variants and audit form submit visibility with keyboard-open / small-height mobile screenshots.
+
+## 2026-07-22 — FT-029D empty-state dedupe and post-template screenshot audit
+
+### Goal
+
+Continue autonomous design-system stabilization after shared headers/segmented controls by removing duplicated budget empty states and rerunning screenshot checks.
+
+### Changes
+
+- Budget page no longer renders the BudgetOverview empty state when there are no budgets; this removes repeated budget empty states on the same mobile screen.
+- Form pages already migrated to `FormPageHeader` were re-audited at mobile 390×844.
+
+### Verification
+
+Hermes ran:
+
+```bash
+npm run verify
+node /tmp/ft028_ui_audit_capture.js
+```
+
+Results:
+
+- `npm run verify` passed: 18 suites / 166 tests, backend build, webapp build, dependency-cruiser, madge.
+- Screenshot audit confirms budgets/debts list pages have no fixed page-level mobile FABs and form headers align consistently at x=68 after the back button.
+
+### Next
+
+FT-029E should move the screenshot audit script from `/tmp` into the repo as a reusable design QA gate. FT-029F should add keyboard-open/small-height form checks.
