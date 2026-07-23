@@ -1597,7 +1597,7 @@ Follow-up:
 
 ### FT-004: Decide first product vector after stabilization
 
-Status: blocked
+Status: done
 Priority: high
 Owner: Shukur + Hermes
 Type: product
@@ -1605,7 +1605,7 @@ Type: product
 Context:
 After repo hygiene and audit, choose the next product direction.
 
-Candidate vectors:
+Candidate vectors considered:
 - Improve personal weekly finance review workflow
 - Stabilize core transaction/userId model
 - Improve Telegram bot UX
@@ -1613,9 +1613,53 @@ Candidate vectors:
 - Import bank/card statements or CSV
 - Production readiness and CI/CD
 
-Blocked by:
-- Completion of FT-001 audit
-- Shukur's product preference
+Decision:
+- Next product vector is daily usage UX: first audit and then improve the everyday bot/Mini App flow before weekly review or import features.
+- Shukur explicitly asked to record this task but not start implementation yet.
+
+---
+
+### FT-031: Daily usage UX audit and cleanup
+
+Status: backlog
+Priority: high
+Owner: Hermes
+Type: product/frontend-ui/telegram-bot-ux
+
+Context:
+After stabilizing the local Mini App launch flow in FT-030, the next product step is to make the app useful for everyday finance tracking. The goal is not to add a large new feature immediately, but to audit and clean up the daily loop so Shukur can reliably record and review transactions each day.
+
+Scope:
+- Audit the full daily user flow:
+  - open Mini App from Telegram menu and fresh `/start` button;
+  - add expense through Telegram text;
+  - add transaction through Mini App quick add / form;
+  - view recent transactions;
+  - edit/delete a transaction;
+  - verify data lands under the correct Telegram user.
+- Identify friction in Telegram bot UX:
+  - `/start` message usefulness and length;
+  - button destinations;
+  - response after transaction creation;
+  - quick access to today/history/add flows.
+- Identify Mini App daily-use issues:
+  - Recent Transactions visibility;
+  - quick add clarity;
+  - edit/delete discoverability;
+  - empty/loading/error states with real data.
+- Split fixes into small follow-up slices (`FT-031A`, `FT-031B`, etc.) after the audit.
+
+Definition of Done:
+- [ ] Real daily flow is exercised against local dev Mini App/bot without printing secrets
+- [ ] Findings are recorded with evidence: commands, logs, screenshots where useful
+- [ ] Small safe implementation slices are listed and prioritized
+- [ ] No implementation work is started until Shukur asks to proceed
+
+Non-goals for this task:
+- Weekly finance review automation
+- Bank/card statement import
+- Production deployment/domain migration
+- Broad architecture refactor
 
 ---
 

@@ -2747,3 +2747,27 @@ Result: passed — 18 suites / 166 tests, backend build, webapp build, dependenc
 ### Next
 
 Commit/push FT-030.
+
+## 2026-07-23 — FT-031 recorded for later
+
+### Decision
+
+Shukur selected the next product vector after FT-030: daily usage UX. Hermes recorded `FT-031: Daily usage UX audit and cleanup` in `TASKS.md` but did not start implementation, per Shukur's instruction.
+
+### Scope captured
+
+FT-031 will audit and later clean up the everyday finance tracking loop:
+
+- open Mini App from Telegram;
+- add expense through bot text;
+- add transaction through Mini App;
+- view recent transactions;
+- edit/delete;
+- verify correct Telegram user ownership;
+- identify `/start`, button, quick-add, recent-list, and empty/error-state friction.
+
+### Status
+
+- `FT-004` product-vector decision marked `done`.
+- `FT-031` added as `backlog`.
+- No product implementation started.
