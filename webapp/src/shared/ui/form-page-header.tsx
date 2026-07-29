@@ -7,13 +7,14 @@ interface FormPageHeaderProps {
   title: string;
   subtitle?: ReactNode;
   onBack: () => void;
+  action?: ReactNode;
   className?: string;
 }
 
 /**
  * Standard header for form/detail pages that sit outside the bottom-nav layout.
  */
-export function FormPageHeader({ title, subtitle, onBack, className }: FormPageHeaderProps) {
+export function FormPageHeader({ title, subtitle, onBack, action, className }: FormPageHeaderProps) {
   return (
     <div className={cn('mb-6 flex items-start gap-4', className)}>
       <Button
@@ -26,9 +27,10 @@ export function FormPageHeader({ title, subtitle, onBack, className }: FormPageH
         <ArrowLeft className="h-5 w-5" aria-hidden="true" />
       </Button>
       <div className="min-w-0 flex-1">
-        <h1 className="text-3xl font-bold tracking-tight">{title}</h1>
-        {subtitle && <p className="mt-1 text-muted-foreground">{subtitle}</p>}
+        <h1 className="text-[1.7rem] font-bold leading-tight tracking-[-0.035em] sm:text-3xl">{title}</h1>
+        {subtitle && <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{subtitle}</p>}
       </div>
+      {action && <div className="flex-shrink-0">{action}</div>}
     </div>
   );
 }

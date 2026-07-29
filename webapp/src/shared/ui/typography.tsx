@@ -13,11 +13,17 @@ const toneTextClass: Record<Tone, string> = {
   success: 'text-success',
 };
 
-export function PageShell({ children, className }: { children: ReactNode; className?: string }) {
+interface PageShellProps {
+  children: ReactNode;
+  className?: string;
+  as?: 'div' | 'main';
+}
+
+export function PageShell({ children, className, as: Component = 'div' }: PageShellProps) {
   return (
-    <main className={cn('mx-auto w-full max-w-3xl px-4 py-5 pb-28 md:py-6', className)}>
+    <Component className={cn('mx-auto w-full max-w-3xl px-4 py-5 md:py-6', className)}>
       {children}
-    </main>
+    </Component>
   );
 }
 

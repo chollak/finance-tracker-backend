@@ -1995,6 +1995,52 @@ Follow-ups:
 
 ---
 
+### FT-036: Claude-assisted UI design-system audit and shell cleanup
+
+Status: done
+Priority: high
+Owner: Hermes + Claude Code
+Type: frontend-ui/design-system
+
+Context:
+Shukur asked to try Claude and run a deep audit of all UI components and the design system. Claude Code was used as an implementation/audit agent; Hermes remained QA gatekeeper.
+
+Completed:
+- Ran Claude Code deep UI audit and saved it to `.hermes/plans/2026-07-29-ui-design-system-audit.md`.
+- Claude audit findings:
+  - P0: `PageShell` nested `<main>` inside `Layout` and doubled mobile bottom padding.
+  - P1: page wrapper drift across core/form/detail pages.
+  - P1: `FormPageHeader` partially adopted; edit/detail pages still had hand-rolled headers.
+  - P1/P2 follow-ups: hardcoded debt/premium colors, global card radius/doc drift.
+- Implemented the safest first slice:
+  - `PageShell` is now a flexible shell that defaults to `div` inside `Layout`, with `as="main"` for standalone form/detail pages.
+  - Removed large extra `PageShell` bottom padding; `Layout` remains the single owner of bottom-nav clearance.
+  - Migrated Debts and Analytics pages to `PageShell`/`SectionStack`.
+  - Migrated AddTransaction/AddBudget/AddDebt wrappers to `PageShell as="main"`.
+  - Migrated EditTransaction/EditBudget/DebtDetails to `FormPageHeader` and `PageShell as="main"`.
+  - Standardized `FormPageHeader` title/subtitle scale to match `PageHeader`.
+- Independent Claude diff review was run; Hermes addressed the reviewer’s accessibility concern by adding `PageShell as="main"` for standalone pages and verified one `<main>` per audited route.
+
+Validation:
+- `npm run build:webapp` passed.
+- `npm run verify` passed: 20 suites / 171 tests, backend build, webapp build, dependency-cruiser, madge circular scan.
+- Screenshot audit passed with `issueCount: 0` at 375/390/412 px across:
+  - `/`, `/transactions`, `/budgets`, `/more`, `/debts`, `/analytics`, `/transactions/add`, `/budgets/add`, `/debts/add`.
+- Landmark validation passed:
+  - core nav routes: `mainCount=1`, `navPresent=true`.
+  - standalone form routes: `mainCount=1`, `navPresent=false`.
+- Final screenshot set:
+  - `/tmp/ft036-claude-system-final-390/screenshots/home-390.png`
+  - `/tmp/ft036-claude-system-final-390/screenshots/debts-390.png`
+  - `/tmp/ft036-claude-system-final-390/screenshots/add-debt-390.png`
+
+Follow-ups:
+- Separate slice for hardcoded red/purple color cleanup in debt/premium UI.
+- Separate visual-review slice for global `Card` radius (`rounded-3xl` vs documented `rounded-2xl`).
+- Update stale design-system docs/CLAUDE.md references to removed button variants.
+
+---
+
 ## GitHub Issues Migration Criteria
 
 - There are at least 5–10 stable backlog tasks

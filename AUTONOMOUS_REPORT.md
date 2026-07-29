@@ -3337,3 +3337,96 @@ Result: passed — 20 suites / 171 tests, backend build, webapp build, dependenc
 ### Next
 
 Commit/push FT-035 and restart the local backend so the Telegram Mini App serves the updated static bundle.
+
+## 2026-07-29 — FT-036 Claude-assisted UI design-system audit and shell cleanup
+
+### Goal
+
+Use Claude Code as a dedicated UI audit/implementation agent for a deeper design-system pass, while Hermes remains reviewer and QA gatekeeper.
+
+### Claude audit
+
+Claude Code ran a deep static audit across `webapp/src/shared/ui`, pages, widgets, entities, and features.
+
+Audit artifact:
+
+- `.hermes/plans/2026-07-29-ui-design-system-audit.md`
+
+Key findings:
+
+- P0: `PageShell` created nested `<main>` landmarks when used inside `Layout` and stacked its `pb-28` with `Layout` bottom padding.
+- P1: page root wrappers had drifted into four patterns: core tabs, legacy containers, form pages, and fully hand-rolled detail/edit pages.
+- P1: `FormPageHeader` adoption was incomplete: add pages used it, edit/detail pages still hand-rolled equivalent headers.
+- P1/P2 follow-ups: hardcoded debt/premium colors, global card-radius mismatch, stale design docs.
+
+### Implementation
+
+Claude Code implemented the first safe slice. Hermes then manually resolved the remaining `DebtDetailsPage` build issue and addressed the independent reviewer’s accessibility concern.
+
+Changed:
+
+- `PageShell` now supports `as?: 'div' | 'main'`:
+  - default `div` for pages rendered inside `Layout`;
+  - `as="main"` for standalone form/detail routes.
+- Removed extra `PageShell pb-28`; `Layout` remains the single owner of dock-clearance bottom padding.
+- Migrated wrapper patterns in:
+  - `DebtsPage`
+  - `AnalyticsPage`
+  - `AddTransactionPage`
+  - `AddBudgetPage`
+  - `AddDebtPage`
+  - `EditTransactionPage`
+  - `EditBudgetPage`
+  - `DebtDetailsPage`
+- Replaced hand-rolled edit/detail headers with `FormPageHeader`.
+- Standardized `FormPageHeader` typography to match `PageHeader`.
+
+### Review
+
+Independent Claude diff review flagged two potential blockers around `PageShell` semantics and bottom padding. Hermes verified and addressed them:
+
+- Main/core routes are inside `Layout`, so `PageShell` must not render a second `<main>` there.
+- Standalone form/detail routes now use `PageShell as="main"`, so they keep a landmark.
+- Bottom-nav clearance remains owned by `Layout`; visual audit showed no dock/content collision.
+
+### Verification
+
+Build and full gate:
+
+```bash
+npm run build:webapp
+npm run verify
+```
+
+Result:
+
+- 20 suites / 171 tests passed.
+- backend build passed.
+- webapp build passed.
+- dependency-cruiser passed.
+- madge circular scan passed.
+
+Screenshot QA:
+
+```bash
+BASE_URL=http://127.0.0.1:3000 VIEWPORT_WIDTH=390 VIEWPORT_HEIGHT=844 OUT_DIR=/tmp/ft036-claude-system-final-390 ROUTES=/,/transactions,/budgets,/more,/debts,/analytics,/transactions/add,/budgets/add,/debts/add npm run design:audit
+```
+
+Also repeated at 375 and 412 px.
+
+Result:
+
+- `issueCount: 0` at 375/390/412 px.
+- `mainCount=1` on all audited routes.
+- core nav routes: `navPresent=true`.
+- standalone form routes: `navPresent=false`.
+
+Screenshots:
+
+- `/tmp/ft036-claude-system-final-390/screenshots/home-390.png`
+- `/tmp/ft036-claude-system-final-390/screenshots/debts-390.png`
+- `/tmp/ft036-claude-system-final-390/screenshots/add-debt-390.png`
+
+### Next
+
+Commit/push FT-036 and restart backend runtime.

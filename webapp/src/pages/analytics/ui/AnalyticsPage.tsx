@@ -6,7 +6,7 @@ import { useUserStore, useIsGuest } from '@/entities/user/model/store';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { formatCurrency } from '@/shared/lib/formatters';
 import { Skeleton } from '@/shared/ui/skeleton';
-import { PageHeader } from '@/shared/ui';
+import { PageHeader, PageShell, SectionStack } from '@/shared/ui';
 import { GuestFeatureBlock } from '@/features/auth';
 
 /**
@@ -22,22 +22,22 @@ export function AnalyticsPage() {
   // Guest users: show login prompt
   if (isGuest) {
     return (
-      <div className="container mx-auto px-4 py-6">
+      <PageShell>
         <PageHeader title="Аналитика" />
         <GuestFeatureBlock
           title="Аналитика доступна после входа"
           description="Просматривайте графики расходов, тренды по месяцам и оценку финансового здоровья."
         />
-      </div>
+      </PageShell>
     );
   }
 
   return (
-    <div className="container mx-auto px-4 py-6">
+    <PageShell>
       <PageHeader title="Аналитика" subtitle="Анализ ваших финансов" />
 
       {/* Content */}
-      <div className="space-y-6">
+      <SectionStack>
         {/* Financial Health */}
         <FinancialHealth />
 
@@ -86,7 +86,7 @@ export function AnalyticsPage() {
             </CardContent>
           </Card>
         </div>
-      </div>
-    </div>
+      </SectionStack>
+    </PageShell>
   );
 }

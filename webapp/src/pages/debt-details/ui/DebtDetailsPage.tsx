@@ -6,6 +6,7 @@ import { Card } from '@/shared/ui/card';
 import { Progress } from '@/shared/ui/progress';
 import { Skeleton } from '@/shared/ui/skeleton';
 import { Input } from '@/shared/ui/input';
+import { FormPageHeader, PageShell } from '@/shared/ui';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,7 +18,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/shared/ui/alert-dialog';
-import { ArrowLeft, Trash2, Ban, CreditCard, CheckCircle } from 'lucide-react';
+import { Trash2, Ban, CreditCard, CheckCircle } from 'lucide-react';
 import { ROUTES } from '@/shared/lib/constants/routes';
 import { formatCurrency } from '@/shared/lib/formatters';
 import { formatRelativeDate } from '@/shared/lib/formatters';
@@ -45,22 +46,22 @@ export function DebtDetailsPage() {
 
   if (isLoading) {
     return (
-      <div className="container mx-auto max-w-2xl px-4 py-6">
+      <PageShell as="main" className="max-w-2xl">
         <Skeleton className="h-8 w-32 mb-6" />
         <Skeleton className="h-48 w-full mb-4" />
         <Skeleton className="h-32 w-full" />
-      </div>
+      </PageShell>
     );
   }
 
   if (!debtData) {
     return (
-      <div className="container mx-auto max-w-2xl px-4 py-6 text-center">
+      <PageShell as="main" className="max-w-2xl text-center">
         <p className="text-muted-foreground">Долг не найден</p>
         <Button onClick={() => navigate(ROUTES.DEBTS)} className="mt-4">
           Вернуться к списку
         </Button>
-      </div>
+      </PageShell>
     );
   }
 
@@ -116,24 +117,17 @@ export function DebtDetailsPage() {
   };
 
   return (
-    <div className="container mx-auto max-w-2xl px-4 py-6">
-      {/* Header */}
-      <div className="mb-6 flex items-center gap-4">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => navigate(-1)}
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <div className="flex-1">
-          <h1 className="text-3xl font-bold">{debt.personName}</h1>
-          <p className="text-muted-foreground mt-1">{debt._typeLabel}</p>
-        </div>
-        <span className={cn('text-sm px-3 py-1 rounded-full', debt._statusColor, 'bg-current/10')}>
-          {debt._statusLabel}
-        </span>
-      </div>
+    <PageShell as="main" className="max-w-2xl">
+      <FormPageHeader
+        title={debt.personName}
+        subtitle={debt._typeLabel}
+        onBack={() => navigate(-1)}
+        action={(
+          <span className={cn('rounded-full px-3 py-1 text-sm', debt._statusColor, 'bg-current/10')}>
+            {debt._statusLabel}
+          </span>
+        )}
+      />
 
       {/* Main Info Card */}
       <Card className={cn(
@@ -308,6 +302,6 @@ export function DebtDetailsPage() {
           </AlertDialog>
         </div>
       </Card>
-    </div>
+    </PageShell>
   );
 }
