@@ -3097,3 +3097,69 @@ Result: passed — 20 suites / 171 tests, backend build, webapp build, dependenc
 ### Next
 
 Commit/push FT-032 and restart the local backend so the Telegram Mini App serves the updated static bundle.
+
+## 2026-07-29 — FT-033 Dock-style mobile bottom navigation
+
+### Goal
+
+Replace the previous expanding bottom navigation with the new 21st.dev dock reference Shukur provided: compact, icon-only, floating, with separators and an active pill.
+
+### Changes
+
+- Added `webapp/src/shared/ui/dock.tsx` with `Dock`, `DockItem`, and `DockSeparator`.
+- Installed `motion` in the webapp to support the active-pill layout animation from the reference component.
+- Rewired `BottomNav` to use the dock pattern instead of `ModernMobileMenu`.
+- Preserved the Finance Tracker IA: `Главная | История | + | Бюджеты | Ещё`.
+- Kept the central `+` as the global Quick Add entry point via `ControlledQuickAddSheet`.
+- Preserved symmetric nav layout around the center action: `2 route icons | separator | + | separator | 2 route icons`.
+- Removed the unused `modern-mobile-menu.tsx` export/component.
+
+### Verification
+
+Focused structural RED/GREEN check:
+
+```bash
+test -f webapp/src/shared/ui/dock.tsx && grep -q 'export function Dock' webapp/src/shared/ui/dock.tsx && grep -q 'DockItem' webapp/src/shared/ui/bottom-nav.tsx
+```
+
+- Before implementation: failed, because dock did not exist.
+- After implementation: passed.
+
+Build and full gate:
+
+```bash
+npm run build:webapp
+npm run verify
+```
+
+Result: passed — 20 suites / 171 tests, backend build, webapp build, dependency-cruiser, and madge circular scan.
+
+Note: adding `motion` increased the main webapp chunk enough to trigger Vite's `Some chunks are larger than 600 kB` warning. The build still succeeds.
+
+### Visual QA
+
+Focused `/more` audits passed with `issueCount: 0`:
+
+```bash
+BASE_URL=http://127.0.0.1:3000 VIEWPORT_WIDTH=375 VIEWPORT_HEIGHT=812 OUT_DIR=/tmp/ft033-dock-nav-375 ROUTES=/more npm run design:audit
+BASE_URL=http://127.0.0.1:3000 VIEWPORT_WIDTH=390 VIEWPORT_HEIGHT=844 OUT_DIR=/tmp/ft033-dock-nav-390 ROUTES=/more npm run design:audit
+BASE_URL=http://127.0.0.1:3000 VIEWPORT_WIDTH=412 VIEWPORT_HEIGHT=915 OUT_DIR=/tmp/ft033-dock-nav-412 ROUTES=/more npm run design:audit
+```
+
+Screenshot evidence:
+
+- `/tmp/ft033-dock-nav-375/screenshots/more-375.png`
+- `/tmp/ft033-dock-nav-390/screenshots/more-390.png`
+- `/tmp/ft033-dock-nav-412/screenshots/more-412.png`
+
+Center `+` metrics:
+
+- 375px: `centerX=187.5`, `viewportCenterX=187.5`
+- 390px: `centerX=195`, `viewportCenterX=195`
+- 412px: `centerX=206`, `viewportCenterX=206`
+
+Visual judgment: the dock is much closer to the provided reference than the prior expanding nav. It is compact, balanced, and the central `+` is exactly centered. It is a little more visually “techy” than a standard tab bar, but still acceptable for the current clean finance UI.
+
+### Next
+
+Commit/push FT-033 and restart the local backend so the Telegram Mini App serves the updated static bundle.

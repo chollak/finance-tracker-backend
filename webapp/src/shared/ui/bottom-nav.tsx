@@ -16,7 +16,7 @@ import { API_ENDPOINTS } from '@/shared/lib/constants';
 import type { Transaction, BudgetSummary, Debt } from '@/shared/types';
 import { haptic } from '@/shared/lib/haptic';
 import { ControlledQuickAddSheet } from '@/features/quick-add';
-import { ModernMobileMenu, type ModernMobileMenuItem } from './modern-mobile-menu';
+import { Dock, DockItem, DockSeparator } from './dock';
 
 const routeNavItems = [
   {
@@ -131,46 +131,51 @@ export function BottomNav() {
       : location.pathname === href;
   };
 
-  const menuItems: ModernMobileMenuItem[] = [
-    ...routeNavItems.slice(0, 2).map((item) => ({
-      label: item.label,
-      icon: item.icon,
-      active: isRouteActive(item.href),
-      onPrefetch: () => prefetchForRoute(item.href),
-      onSelect: () => {
-        if (!isRouteActive(item.href)) {
-          haptic.tabChanged();
-          navigate(item.href);
-        }
-      },
-    })),
-    {
-      label: 'Добавить',
-      icon: Plus,
-      variant: 'primary',
-      ariaLabel: 'Добавить транзакцию',
-      onSelect: () => {
-        haptic.press();
-        setQuickAddOpen(true);
-      },
-    },
-    ...routeNavItems.slice(2).map((item) => ({
-      label: item.label,
-      icon: item.icon,
-      active: isRouteActive(item.href),
-      onPrefetch: () => prefetchForRoute(item.href),
-      onSelect: () => {
-        if (!isRouteActive(item.href)) {
-          haptic.tabChanged();
-          navigate(item.href);
-        }
-      },
-    })),
-  ];
+  const renderDockItem = (item: (typeof routeNavItems)[number]) => {
+    const Icon = item.icon;
+    const active = isRouteActive(item.href);
+
+    return (
+      <DockItem
+        key={item.href}
+        active={active}
+        aria-label={item.label}
+        onPrefetch={() => prefetchForRoute(item.href)}
+        onClick={() => {
+          if (!active) {
+            haptic.tabChanged();
+            navigate(item.href);
+          }
+        }}
+      >
+        <Icon className="h-5 w-5" aria-hidden="true" />
+      </DockItem>
+    );
+  };
 
   return (
     <>
-      <ModernMobileMenu items={menuItems} />
+      <nav
+        aria-label="Основная навигация"
+        className="fixed inset-x-0 bottom-0 z-50 flex justify-center px-3 pb-[calc(env(safe-area-inset-bottom)+0.7rem)] md:hidden"
+      >
+        <Dock size={46} className="max-w-[calc(100vw-1.5rem)] rounded-[1.65rem]">
+          {routeNavItems.slice(0, 2).map((item) => renderDockItem(item))}
+          <DockSeparator />
+          <DockItem
+            variant="primary"
+            aria-label="Добавить транзакцию"
+            onClick={() => {
+              haptic.press();
+              setQuickAddOpen(true);
+            }}
+          >
+            <Plus className="h-5 w-5" aria-hidden="true" />
+          </DockItem>
+          <DockSeparator />
+          {routeNavItems.slice(2).map((item) => renderDockItem(item))}
+        </Dock>
+      </nav>
       <ControlledQuickAddSheet open={quickAddOpen} onOpenChange={setQuickAddOpen} />
     </>
   );

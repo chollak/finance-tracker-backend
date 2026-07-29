@@ -1863,6 +1863,45 @@ Verification:
 
 ---
 
+### FT-033: Dock-style mobile bottom navigation
+
+Status: done
+Priority: high
+Owner: Hermes
+Type: frontend-ui/design-system
+
+Context:
+Shukur disliked the previous 21st-style expanding mobile nav and provided a new `21st.dev` dock reference/prompt. The requested direction is an icon-only floating dock with separators and a compact active pill.
+
+Changes:
+- [x] Added shared `Dock`, `DockItem`, and `DockSeparator` component in `webapp/src/shared/ui/dock.tsx`.
+- [x] Installed `motion` for the shared active-pill layout animation used by the dock reference.
+- [x] Replaced the expanding `ModernMobileMenu` bottom nav with the new dock pattern.
+- [x] Kept Finance Tracker IA: `Главная | История | + | Бюджеты | Ещё`.
+- [x] Kept the center `+` as the global Quick Add trigger via `ControlledQuickAddSheet`.
+- [x] Kept symmetric layout: `2 route icons | separator | + | separator | 2 route icons`.
+- [x] Removed the now-unused `modern-mobile-menu.tsx` component/export.
+
+Visual QA:
+- [x] Focused screenshot audits for `/more` passed with `issueCount: 0`.
+- [x] Screenshot evidence:
+  - `/tmp/ft033-dock-nav-375/screenshots/more-375.png`
+  - `/tmp/ft033-dock-nav-390/screenshots/more-390.png`
+  - `/tmp/ft033-dock-nav-412/screenshots/more-412.png`
+- [x] Center `+` metrics confirm exact viewport centering:
+  - 375px: `centerX=187.5`, `viewportCenterX=187.5`
+  - 390px: `centerX=195`, `viewportCenterX=195`
+  - 412px: `centerX=206`, `viewportCenterX=206`
+- [x] Screenshot-backed visual judgment: dock matches the provided reference direction better than the previous expanding nav; center action is balanced and unclipped.
+
+Verification:
+- [x] Focused structural check failed before the dock existed, then passed after implementation.
+- [x] `npm run build:webapp` passed.
+- [x] `npm run verify` passed — 20 suites / 171 tests, backend build, webapp build, dependency-cruiser, madge circular scan.
+- [ ] Note: adding `motion` increased the main webapp chunk enough to trigger Vite's >600 kB warning; build still passed.
+
+---
+
 ## GitHub Issues Migration Criteria
 
 Move this board to GitHub Issues when:
