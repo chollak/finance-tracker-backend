@@ -1,7 +1,7 @@
 import { useBudgetSummaries, BudgetCard, budgetToViewModel } from '@/entities/budget';
 import { useUserStore, useIsGuest } from '@/entities/user/model/store';
 import { BudgetOverview } from '@/widgets/budget-overview';
-import { Button, EmptyState, PageHeader } from '@/shared/ui';
+import { Button, EmptyState, PageHeader, PageShell, SectionStack } from '@/shared/ui';
 import { Skeleton } from '@/shared/ui/skeleton';
 import { Plus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -22,13 +22,13 @@ export function BudgetsPage() {
   // Guest users: show login prompt
   if (isGuest) {
     return (
-      <div className="container mx-auto px-4 py-6">
+      <PageShell>
         <PageHeader title="Бюджеты" />
         <GuestFeatureBlock
           title="Бюджеты доступны после входа"
           description="Создавайте бюджеты по категориям, отслеживайте лимиты и получайте уведомления о перерасходе."
         />
-      </div>
+      </PageShell>
     );
   }
 
@@ -36,11 +36,13 @@ export function BudgetsPage() {
   const budgetViewModels = budgets ? budgets.map(budgetToViewModel) : [];
 
   return (
-    <div className="container mx-auto px-4 py-6">
+    <PageShell>
       <PageHeader
         title="Бюджеты"
         subtitle={`${budgetViewModels.length} ${budgetViewModels.length === 1 ? 'бюджет' : 'бюджетов'}`}
       />
+
+      <SectionStack>
 
       {/* Mobile create action — keep budget creation in-page, not as a competing bottom FAB */}
       {!isLoading && budgetViewModels.length > 0 && (
@@ -98,6 +100,8 @@ export function BudgetsPage() {
         )}
       </div>
 
+      </SectionStack>
+
       {/* Desktop create action — mobile uses the in-page CTA above to avoid competing with bottom nav */}
       <Button
         size="lg"
@@ -108,6 +112,6 @@ export function BudgetsPage() {
         <Plus className="h-6 w-6 md:mr-2" aria-hidden="true" />
         <span className="hidden md:inline">Создать бюджет</span>
       </Button>
-    </div>
+    </PageShell>
   );
 }

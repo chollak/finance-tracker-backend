@@ -22,7 +22,7 @@ export function AttentionSummary() {
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg font-medium">Что важно сейчас</CardTitle>
+          <CardTitle>Что важно сейчас</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <Skeleton className="h-12 w-full" />
@@ -44,7 +44,7 @@ export function AttentionSummary() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-lg font-medium">Что важно сейчас</CardTitle>
+        <CardTitle>Что важно сейчас</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         {overBudgetCount > 0 && (

@@ -12,7 +12,7 @@ import { useUserStore } from '@/entities/user/model/store';
 import { FilterBar, useTransactionFiltersStore, filterTransactions } from '@/features/filter-transactions';
 import { useDeleteTransactionDialog } from '@/features/delete-transaction';
 import { QuickAddSheet } from '@/features/quick-add';
-import { Button, EmptyState, PageHeader, SegmentedTabsList, SegmentedTabsTrigger } from '@/shared/ui';
+import { Button, EmptyState, PageHeader, PageShell, SegmentedTabsList, SegmentedTabsTrigger } from '@/shared/ui';
 import { Skeleton } from '@/shared/ui/skeleton';
 import { Tabs, TabsContent } from '@/shared/ui/tabs';
 import {
@@ -118,7 +118,7 @@ export function TransactionsPage() {
   const totalCount = activeTab === 'active' ? (transactions?.length || 0) : (archivedTransactions?.length || 0);
 
   return (
-    <div className="container mx-auto px-4 py-6">
+    <PageShell>
       <PageHeader
         title="Транзакции"
         subtitle={(
@@ -308,6 +308,6 @@ export function TransactionsPage() {
 
       {/* Delete Confirmation Dialog */}
       {DialogComponent}
-    </div>
+    </PageShell>
   );
 }

@@ -157,9 +157,10 @@ export function BottomNav() {
     <>
       <nav
         aria-label="Основная навигация"
-        className="fixed inset-x-0 bottom-0 z-50 flex justify-center px-3 pb-[calc(env(safe-area-inset-bottom)+0.7rem)] md:hidden"
+        className="pointer-events-none fixed inset-x-0 bottom-0 z-50 flex justify-center px-3 pb-[calc(env(safe-area-inset-bottom)+0.7rem)] pt-8 md:hidden"
       >
-        <Dock size={46} className="max-w-[calc(100vw-1.5rem)] rounded-[1.65rem]">
+        <div className="absolute inset-x-0 bottom-0 -z-10 h-28 bg-gradient-to-t from-background via-background/95 to-transparent" aria-hidden="true" />
+        <Dock size={46} className="pointer-events-auto max-w-[calc(100vw-1.5rem)] rounded-[1.65rem]">
           {routeNavItems.slice(0, 2).map((item) => renderDockItem(item))}
           <DockSeparator />
           <DockItem

@@ -5,6 +5,7 @@ import { UsageLimitsCard } from '@/widgets/usage-limits';
 import { RecentTransactions } from '@/widgets/recent-transactions';
 import { BudgetOverview } from '@/widgets/budget-overview';
 import { Button } from '@/shared/ui/button';
+import { PageHeader, PageShell, SectionStack } from '@/shared/ui';
 import { Plus } from 'lucide-react';
 import { QuickAddSheet } from '@/features/quick-add';
 import { GuestModeBanner } from '@/features/auth';
@@ -15,18 +16,14 @@ import { GuestModeBanner } from '@/features/auth';
  */
 export function HomePage() {
   return (
-    <div className="container mx-auto px-4 py-6">
-      {/* Page Title */}
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold">Главная</h1>
-        <p className="text-muted-foreground mt-1">Обзор ваших финансов</p>
-      </div>
+    <PageShell>
+      <PageHeader title="Главная" subtitle="Обзор ваших финансов" />
 
       {/* Guest Mode Banner */}
-      <GuestModeBanner className="mb-6" />
+      <GuestModeBanner className="mb-4" />
 
       {/* Main Content */}
-      <div className="space-y-6">
+      <SectionStack>
         {/* Balance Card - Full Width */}
         <div className="animate-fade-in-up">
           <BalanceCard />
@@ -48,7 +45,7 @@ export function HomePage() {
         </div>
 
         {/* Two Column Layout on Desktop */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           {/* Budget Overview */}
           <div className="animate-fade-in-up stagger-2">
             <BudgetOverview />
@@ -59,7 +56,7 @@ export function HomePage() {
             <RecentTransactions />
           </div>
         </div>
-      </div>
+      </SectionStack>
 
       {/* Floating Action Button - Quick Add Transaction */}
       <QuickAddSheet>
@@ -72,6 +69,6 @@ export function HomePage() {
           <span className="hidden md:inline">Добавить транзакцию</span>
         </Button>
       </QuickAddSheet>
-    </div>
+    </PageShell>
   );
 }

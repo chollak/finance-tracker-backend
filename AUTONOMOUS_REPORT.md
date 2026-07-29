@@ -3254,3 +3254,86 @@ Result: passed — 20 suites / 171 tests, backend build, webapp build, dependenc
 ### Next
 
 Commit/push FT-034 and restart the local backend so the Telegram Mini App serves the updated static bundle.
+
+## 2026-07-29 — FT-035 Mobile design-system cleanup
+
+### Goal
+
+Fix the visually heavy BalanceCard block and establish a small shared mobile design-system layer so typography, spacing, cards, and finance amounts stop drifting screen-by-screen.
+
+### Design review findings
+
+The user-provided BalanceCard screenshot looked unpolished because:
+
+- the main amount was too large and visually aggressive;
+- `UZS` used the same visual weight as the amount;
+- income/expense actions were too tall and heavy, with loud outlines;
+- income/expense monthly stats were visually loose instead of structured;
+- page/card spacing was inconsistent across Home, Transactions, Budgets, and More;
+- fixed bottom dock could visually collide with scrolled content underneath.
+
+### Changes
+
+- Added shared primitives in `webapp/src/shared/ui/typography.tsx`:
+  - `PageShell`
+  - `SectionStack`
+  - `AmountText`
+  - `MetricStat`
+- Exported the new primitives from `webapp/src/shared/ui/index.ts`.
+- Refined `webapp/src/shared/ui/card.tsx` defaults:
+  - calmer `rounded-3xl` cards;
+  - consistent border/shadow;
+  - tighter header/content padding;
+  - consistent `CardTitle` / `CardDescription` scale.
+- Refined `webapp/src/shared/ui/page-header.tsx`:
+  - consistent mobile title scale;
+  - subtitle rhythm and line-height.
+- Rebuilt `webapp/src/widgets/balance-card/ui/BalanceCard.tsx`:
+  - `Чистый поток` header with month pill;
+  - amount in a muted metric panel;
+  - smaller `UZS` suffix via `AmountText`;
+  - compact income/expense action row;
+  - equal two-column monthly stats via `MetricStat`.
+- Applied shared shells/rhythm to:
+  - `HomePage`
+  - `TransactionsPage`
+  - `BudgetsPage`
+  - `MorePage`
+- Refined `QuickStats` numeric cards to match the same scale.
+- Added a bottom-nav gradient scrim in `BottomNav` so the fixed dock does not visually fight with content behind it.
+
+### Visual QA
+
+Screenshot audit passed for `/`, `/transactions`, `/budgets`, `/more` at 375, 390, and 412 px.
+
+Final 390 px screenshots:
+
+- `/tmp/ft035-system-final-390/screenshots/home-390.png`
+- `/tmp/ft035-system-final-390/screenshots/transactions-390.png`
+- `/tmp/ft035-system-final-390/screenshots/budgets-390.png`
+- `/tmp/ft035-system-final-390/screenshots/more-390.png`
+
+Metrics:
+
+- `issueCount: 0`
+- bottom dock center button at 390 px: `centerX=195`, `viewportCenterX=195`
+
+Visual judgment:
+
+- BalanceCard is significantly calmer and more structured than the original screenshot.
+- Header, card, and stat spacing now feel more intentional.
+- Transactions and More pages share the same left inset, title scale, and bottom nav behavior.
+- Remaining subjective follow-up: GuestModeBanner is still visually large, and deeper entities (`BudgetCard`, `DebtCard`, `TransactionListItem`, form pages, `EmptyState`) can be standardized in a second slice.
+
+### Verification
+
+```bash
+npm run build:webapp
+npm run verify
+```
+
+Result: passed — 20 suites / 171 tests, backend build, webapp build, dependency-cruiser, and madge circular scan.
+
+### Next
+
+Commit/push FT-035 and restart the local backend so the Telegram Mini App serves the updated static bundle.

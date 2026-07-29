@@ -14,11 +14,11 @@ interface PageHeaderProps {
  */
 export function PageHeader({ title, subtitle, action, className }: PageHeaderProps) {
   return (
-    <div className={cn('mb-6 flex items-start justify-between gap-4', className)}>
+    <div className={cn('mb-5 flex items-start justify-between gap-4', className)}>
       <div className="min-w-0 flex-1">
-        <h1 className="text-3xl font-bold tracking-tight">{title}</h1>
+        <h1 className="text-[1.7rem] font-bold leading-tight tracking-[-0.035em] sm:text-3xl">{title}</h1>
         {subtitle && (
-          <p className="mt-1 text-muted-foreground" role="status" aria-live="polite">
+          <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground" role="status" aria-live="polite">
             {subtitle}
           </p>
         )}

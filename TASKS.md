@@ -1946,9 +1946,56 @@ Recommendation / next slice:
 
 ---
 
-## GitHub Issues Migration Criteria
+### FT-035: Mobile design-system cleanup
 
-Move this board to GitHub Issues when:
+Status: done
+Priority: high
+Owner: Hermes
+Type: frontend-ui/design-system
+
+Context:
+Shukur reported that the BalanceCard block looked ugly and then requested a proper design system so fonts, spacing, cards, and hierarchy stop drifting screen-by-screen.
+
+Completed:
+- Added shared design-system UI primitives in `webapp/src/shared/ui/typography.tsx`:
+  - `PageShell` for consistent mobile page width/padding/bottom safe area.
+  - `SectionStack` for consistent vertical rhythm.
+  - `AmountText` for tabular money amounts with smaller `UZS` suffix.
+  - `MetricStat` for two-column finance metrics.
+- Refined shared `Card` defaults:
+  - larger, calmer radius;
+  - consistent border/shadow;
+  - tighter default header/content padding;
+  - consistent card title/description scale.
+- Refined `PageHeader` typography/spacing for mobile pages.
+- Rebuilt `BalanceCard`:
+  - smaller, calmer main amount;
+  - `UZS` suffix no longer competes with amount digits;
+  - income/expense actions are compact and softer;
+  - income/expense monthly stats are equal two-column metric blocks;
+  - removed dynamic huge font sizing and break-all visual heaviness.
+- Applied shared shell/rhythm to top-level Home, Transactions, Budgets, and More pages.
+- Refined QuickStats cards to match the new numeric scale.
+- Added bottom-nav gradient scrim so fixed dock no longer visually clashes with scrolling content underneath.
+
+Validation:
+- `npm run build:webapp` passed.
+- `npm run verify` passed: 20 suites / 171 tests, backend build, webapp build, dependency-cruiser, madge circular scan.
+- Mobile screenshot audit passed with `issueCount: 0` on `/`, `/transactions`, `/budgets`, `/more` at 375, 390, 412 px.
+- Final screenshot set:
+  - `/tmp/ft035-system-final-390/screenshots/home-390.png`
+  - `/tmp/ft035-system-final-390/screenshots/transactions-390.png`
+  - `/tmp/ft035-system-final-390/screenshots/budgets-390.png`
+  - `/tmp/ft035-system-final-390/screenshots/more-390.png`
+- Dock center action remained exactly centered at 390 px: `centerX=195`, `viewportCenterX=195`.
+
+Follow-ups:
+- Consider a second slice for deeper component cleanup: `BudgetCard`, `DebtCard`, `TransactionListItem`, form pages, and `EmptyState` typography.
+- Consider adding a lint/audit rule later for forbidden ad-hoc typography classes in product components.
+
+---
+
+## GitHub Issues Migration Criteria
 
 - There are at least 5–10 stable backlog tasks
 - Task types are consistent: `bug`, `feature`, `tech-debt`, `docs`, `design`
