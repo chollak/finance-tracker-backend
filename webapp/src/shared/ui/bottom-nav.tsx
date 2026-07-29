@@ -1,7 +1,7 @@
-import { Link, useLocation } from 'react-router-dom';
+import { useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Home, Receipt, Wallet, MoreHorizontal, Plus } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
-import { cn } from '@/shared/lib/utils';
 import { ROUTES } from '@/shared/lib/constants/routes';
 import { useUserStore } from '@/entities/user/model/store';
 import { transactionKeys } from '@/entities/transaction/api/keys';
@@ -15,10 +15,10 @@ import { apiClient } from '@/shared/api';
 import { API_ENDPOINTS } from '@/shared/lib/constants';
 import type { Transaction, BudgetSummary, Debt } from '@/shared/types';
 import { haptic } from '@/shared/lib/haptic';
-import { QuickAddSheet } from '@/features/quick-add';
+import { ControlledQuickAddSheet } from '@/features/quick-add';
+import { ModernMobileMenu, type ModernMobileMenuItem } from './modern-mobile-menu';
 
-// True center layout: 2 items left, central Add action, 2 items right
-const leftNavItems = [
+const routeNavItems = [
   {
     href: ROUTES.HOME,
     label: 'Главная',
@@ -29,9 +29,6 @@ const leftNavItems = [
     label: 'История',
     icon: Receipt,
   },
-];
-
-const rightNavItems = [
   {
     href: ROUTES.BUDGETS,
     label: 'Бюджеты',
@@ -44,8 +41,6 @@ const rightNavItems = [
   },
 ];
 
-const navItems = [...leftNavItems, ...rightNavItems];
-
 /**
  * Bottom navigation for mobile devices
  * Hidden on desktop (md:hidden)
@@ -53,8 +48,10 @@ const navItems = [...leftNavItems, ...rightNavItems];
  */
 export function BottomNav() {
   const location = useLocation();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const userId = useUserStore((state) => state.userId);
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
 
   // Prefetch functions for each page
   const prefetchForRoute = (href: string) => {
@@ -127,64 +124,54 @@ export function BottomNav() {
     }
   };
 
-  const renderNavItem = (item: (typeof navItems)[number]) => {
+  const isRouteActive = (href: string) => {
     const moreRoutes: string[] = [ROUTES.MORE, ROUTES.DEBTS, ROUTES.ANALYTICS];
-    const isActive = item.href === ROUTES.MORE
+    return href === ROUTES.MORE
       ? moreRoutes.includes(location.pathname)
-      : location.pathname === item.href;
-    const Icon = item.icon;
-
-    return (
-      <Link
-        key={item.href}
-        to={item.href}
-        onClick={() => {
-          // Only trigger haptic if navigating to different page
-          if (!isActive) {
-            haptic.tabChanged();
-          }
-        }}
-        onMouseEnter={() => prefetchForRoute(item.href)}
-        onFocus={() => prefetchForRoute(item.href)}
-        onTouchStart={() => prefetchForRoute(item.href)}
-        className={cn(
-          'flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 px-1 py-1.5 text-[11px] leading-none transition-colors',
-          isActive
-            ? 'font-medium text-foreground'
-            : 'text-muted-foreground hover:text-foreground'
-        )}
-      >
-        <Icon className={cn('h-5 w-5', isActive ? 'text-foreground' : '')} />
-        <span className="max-w-full truncate">{item.label}</span>
-      </Link>
-    );
+      : location.pathname === href;
   };
 
+  const menuItems: ModernMobileMenuItem[] = [
+    ...routeNavItems.slice(0, 2).map((item) => ({
+      label: item.label,
+      icon: item.icon,
+      active: isRouteActive(item.href),
+      onPrefetch: () => prefetchForRoute(item.href),
+      onSelect: () => {
+        if (!isRouteActive(item.href)) {
+          haptic.tabChanged();
+          navigate(item.href);
+        }
+      },
+    })),
+    {
+      label: 'Добавить',
+      icon: Plus,
+      variant: 'primary',
+      ariaLabel: 'Добавить транзакцию',
+      onSelect: () => {
+        haptic.press();
+        setQuickAddOpen(true);
+      },
+    },
+    ...routeNavItems.slice(2).map((item) => ({
+      label: item.label,
+      icon: item.icon,
+      active: isRouteActive(item.href),
+      onPrefetch: () => prefetchForRoute(item.href),
+      onSelect: () => {
+        if (!isRouteActive(item.href)) {
+          haptic.tabChanged();
+          navigate(item.href);
+        }
+      },
+    })),
+  ];
+
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-50 border-t bg-background/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_20px_rgba(0,0,0,0.06)] backdrop-blur md:hidden">
-      <div className="grid h-[4.5rem] grid-cols-[1fr_auto_1fr] items-center px-1">
-        <div className="flex min-w-0 items-center justify-around">
-          {leftNavItems.map((item) => renderNavItem(item))}
-        </div>
-
-        {/* Central elevated Add Transaction action — the core mobile CTA */}
-        <div className="flex items-center justify-center px-2">
-          <QuickAddSheet>
-            <button
-              type="button"
-              onClick={() => haptic.press()}
-              aria-label="Добавить транзакцию"
-              className="-translate-y-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-md shadow-black/15 ring-4 ring-background transition-transform active:scale-95"
-            >
-              <Plus className="h-5 w-5" aria-hidden="true" />
-            </button>
-          </QuickAddSheet>
-        </div>
-
-        <div className="flex min-w-0 items-center justify-around">
-          {rightNavItems.map((item) => renderNavItem(item))}
-        </div>
-      </div>
-    </nav>
+    <>
+      <ModernMobileMenu items={menuItems} />
+      <ControlledQuickAddSheet open={quickAddOpen} onOpenChange={setQuickAddOpen} />
+    </>
   );
 }

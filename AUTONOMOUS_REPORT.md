@@ -3045,3 +3045,55 @@ Result: passed — 20 suites / 171 tests, backend build, webapp build, dependenc
 ### Next
 
 Commit/push FT-031E and restart the local backend so the running Telegram bot picks up the updated handler.
+
+## 2026-07-29 — FT-032 Modern mobile bottom navigation
+
+### Goal
+
+Adapt the modern mobile menu pattern Shukur shared from 21st.dev into the Finance Tracker Mini App bottom navigation, without losing the finance app's existing route structure or central add-transaction affordance.
+
+### Changes
+
+- Added `webapp/src/shared/ui/modern-mobile-menu.tsx` as a shared mobile nav primitive inspired by the 21st.dev interactive menu pattern.
+- Replaced the old mobile bottom navigation with a floating rounded pill menu.
+- Kept the IA: `Главная | История | + | Бюджеты | Ещё`.
+- Kept `+` as the neutral primary action and wired it to the existing controlled `QuickAddSheet`.
+- Active route items now expand to show the label and underline, while inactive route items stay icon-focused.
+- Added `iconBounce` keyframes and `.animate-icon-bounce` utility in `globals.css`.
+- Exported `ModernMobileMenu` from `shared/ui`.
+
+### Visual QA
+
+Focused screenshot audits were run on `/more` to avoid unrelated authenticated API noise and evaluate the nav itself:
+
+```bash
+BASE_URL=http://127.0.0.1:3000 VIEWPORT_WIDTH=390 VIEWPORT_HEIGHT=844 OUT_DIR=/tmp/ft031f-modern-nav-more ROUTES=/more npm run design:audit
+BASE_URL=http://127.0.0.1:3000 VIEWPORT_WIDTH=375 VIEWPORT_HEIGHT=812 OUT_DIR=/tmp/ft031f-modern-nav-375 ROUTES=/more npm run design:audit
+BASE_URL=http://127.0.0.1:3000 VIEWPORT_WIDTH=412 VIEWPORT_HEIGHT=915 OUT_DIR=/tmp/ft031f-modern-nav-412 ROUTES=/more npm run design:audit
+```
+
+Results:
+
+- `issueCount: 0` for the focused visual audits.
+- Screenshot evidence:
+  - `/tmp/ft031f-modern-nav-more/screenshots/more-390.png`
+  - `/tmp/ft031f-modern-nav-375/screenshots/more-375.png`
+  - `/tmp/ft031f-modern-nav-412/screenshots/more-412.png`
+- Center `+` metrics:
+  - 375px: `centerX=187.5`, `viewportCenterX=187.5`
+  - 390px: `centerX=195`, `viewportCenterX=195`
+  - 412px: `centerX=206`, `viewportCenterX=206`
+- Visual judgment: the nav reads as a modern floating mobile menu; the center `+` is exactly centered and not overlapped.
+
+### Verification
+
+```bash
+npm run build:webapp
+npm run verify
+```
+
+Result: passed — 20 suites / 171 tests, backend build, webapp build, dependency-cruiser, and madge circular scan.
+
+### Next
+
+Commit/push FT-032 and restart the local backend so the Telegram Mini App serves the updated static bundle.

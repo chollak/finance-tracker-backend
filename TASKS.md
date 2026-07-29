@@ -1829,6 +1829,40 @@ Verification:
 
 ---
 
+### FT-032: Modern mobile bottom navigation
+
+Status: done
+Priority: high
+Owner: Hermes
+Type: frontend-ui/design-system
+
+Context:
+Shukur liked the `21st.dev` modern mobile menu pattern and asked to adapt that style for the Finance Tracker Mini App bottom navigation.
+
+Changes:
+- [x] Added shared `ModernMobileMenu` component inspired by the 21st.dev interactive menu pattern.
+- [x] Replaced the old mobile bottom nav with a floating rounded pill menu.
+- [x] Kept Finance Tracker information architecture: `Главная | История | + | Бюджеты | Ещё`.
+- [x] Kept the central `+` as a neutral primary action that opens `QuickAddSheet`.
+- [x] Active nav items now expand with label + underline; inactive items stay icon-focused.
+- [x] Added `iconBounce` animation utility for active icon feedback.
+- [x] Exported the new shared nav primitive from `shared/ui`.
+
+Visual QA:
+- [x] Screenshot captured at `/tmp/ft031f-modern-nav-more/screenshots/more-390.png`.
+- [x] Additional screenshots captured at `/tmp/ft031f-modern-nav-375/screenshots/more-375.png` and `/tmp/ft031f-modern-nav-412/screenshots/more-412.png`.
+- [x] Center `+` metrics confirm exact viewport centering:
+  - 375px: `centerX=187.5`, `viewportCenterX=187.5`
+  - 390px: `centerX=195`, `viewportCenterX=195`
+  - 412px: `centerX=206`, `viewportCenterX=206`
+- [x] Focused visual audits for `/more` passed with `issueCount: 0`.
+
+Verification:
+- [x] `npm run build:webapp` passed.
+- [x] `npm run verify` passed — 20 suites / 171 tests, backend build, webapp build, dependency-cruiser, madge circular scan.
+
+---
+
 ## GitHub Issues Migration Criteria
 
 Move this board to GitHub Issues when:

@@ -26,6 +26,7 @@ export * from './form-page-header';
 export * from './page-header';
 export * from './segmented-button-group';
 export * from './segmented-tabs';
+export * from './modern-mobile-menu';
 
 // Navigation components
 export * from './bottom-nav';
