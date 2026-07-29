@@ -2950,3 +2950,48 @@ Backend was rebuilt and restarted so the current tunnel can serve the updated Mi
 ### Next
 
 Continue with FT-031D: improve Telegram bot response after expense creation.
+
+## 2026-07-29 — FT-031D Telegram saved-transaction response polish
+
+### Goal
+
+Continue the daily-use UX cleanup by making the Telegram bot response after a saved transaction more useful and self-explanatory.
+
+### TDD loop
+
+RED:
+
+```bash
+npm run test:ci -- tests/telegramFormatters.test.ts
+```
+
+Initial result: the new formatter test failed because the old message omitted the currency label, description line, and next-action hint.
+
+GREEN:
+
+- Added `tests/telegramFormatters.test.ts` coverage for auto-saved and low-confidence confirmation messages.
+- Auto-saved transaction messages now render amount/today/month totals with `UZS`.
+- Transaction description is shown when available.
+- Auto-saved messages now include: `Дальше: можно изменить, удалить или добавить ещё одну транзакцию кнопками ниже.`
+- Low-confidence confirmation messages intentionally do not show the next-action hint before confirmation.
+
+Targeted result:
+
+```bash
+npm run test:ci -- tests/telegramFormatters.test.ts
+```
+
+Passed: 1 suite / 2 tests.
+
+### Verification
+
+```bash
+npm run build
+npm run verify
+```
+
+Result: passed — 19 suites / 169 tests, backend build, webapp build, dependency-cruiser, and madge circular scan.
+
+### Next
+
+Commit/push FT-031D. If continuing FT-031, the next likely slice is a real Telegram `/start` / text-add smoke after restarting the local backend so the updated bot formatter is active.

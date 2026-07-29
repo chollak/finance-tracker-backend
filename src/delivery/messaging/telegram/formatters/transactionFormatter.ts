@@ -1,6 +1,10 @@
 import { ProcessedTransaction } from '../types';
 import { RU, formatAmount } from '../i18n/ru';
 
+function formatAmountWithCurrency(amount: number): string {
+  return `${formatAmount(amount).replace(/\s/g, ' ')} UZS`;
+}
+
 /**
  * Format a transaction message for display in Telegram
  * @param tx - Transaction data
@@ -31,10 +35,14 @@ export function formatTransactionMessage(
     status,
     `📝 ${originalText}`,
     '',
-    `${typeEmoji} ${RU.transaction.amount}: <b>${formatAmount(tx.amount)}</b>`,
+    `${typeEmoji} ${RU.transaction.amount}: <b>${formatAmountWithCurrency(tx.amount)}</b>`,
     `📂 ${RU.transaction.category}: ${tx.category}`,
     `📊 ${RU.transaction.type}: ${typeLabel}`,
   ];
+
+  if (tx.description) {
+    lines.push(`🧾 Описание: ${tx.description}`);
+  }
 
   if (tx.merchant) {
     lines.push(`🏪 ${RU.transaction.merchant}: ${tx.merchant}`);
@@ -51,12 +59,17 @@ export function formatTransactionMessage(
     lines.push('');
     const summaryParts: string[] = [];
     if (todayTotal !== undefined) {
-      summaryParts.push(RU.transaction.todaySummary(formatAmount(todayTotal)));
+      summaryParts.push(RU.transaction.todaySummary(formatAmountWithCurrency(todayTotal)));
     }
     if (monthTotal !== undefined) {
-      summaryParts.push(RU.transaction.monthSummary(formatAmount(monthTotal)));
+      summaryParts.push(RU.transaction.monthSummary(formatAmountWithCurrency(monthTotal)));
     }
     lines.push(summaryParts.join(' | '));
+  }
+
+  if (!needsConfirmation) {
+    lines.push('');
+    lines.push('Дальше: можно изменить, удалить или добавить ещё одну транзакцию кнопками ниже.');
   }
 
   return lines.join('\n');

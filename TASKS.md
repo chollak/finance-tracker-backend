@@ -1779,6 +1779,31 @@ Follow-up:
 
 ---
 
+### FT-031D: Telegram saved-transaction response polish
+
+Status: done
+Priority: high
+Owner: Hermes
+Type: product/telegram-bot-ux
+
+Context:
+Continue FT-031 daily-use cleanup by making the Telegram bot response after a saved transaction more actionable. Previously the message showed amount/category/type and optional totals, but the next action was not explicit and amounts had no currency label.
+
+Changes:
+- [x] Auto-saved transaction messages now show amounts and daily/monthly totals with `UZS`.
+- [x] Transaction description is shown when available.
+- [x] Auto-saved messages include a clear next-action hint: edit, delete, or add another transaction via buttons.
+- [x] Low-confidence confirmation messages do not show the next-action hint before the user confirms.
+- [x] Added regression coverage in `tests/telegramFormatters.test.ts`.
+
+Verification:
+- [x] RED: formatter test initially failed against the old message shape.
+- [x] GREEN: `npm run test:ci -- tests/telegramFormatters.test.ts` passed.
+- [x] `npm run build` passed.
+- [x] `npm run verify` passed — 19 suites / 169 tests, backend build, webapp build, dependency-cruiser, madge circular scan.
+
+---
+
 ## GitHub Issues Migration Criteria
 
 Move this board to GitHub Issues when:
