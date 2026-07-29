@@ -2041,6 +2041,49 @@ Follow-ups:
 
 ---
 
+### FT-037: Close remaining design-system audit findings
+
+Status: done
+Priority: high
+Owner: Claude Code + Hermes QA
+Type: frontend-ui/design-system/docs
+
+Context:
+After FT-036, Shukur asked to close all remaining UI/design-system audit moments with Claude doing the implementation and Hermes verifying. Remaining items were semantic raw-color cleanup, shared card radius alignment, and stale design-system docs.
+
+Completed:
+- Claude Code implemented the remaining follow-ups; Hermes reviewed and completed the last missed raw `amber-*` cases manually.
+- Removed raw Tailwind palette classes from `webapp/src` product UI for the audited color families:
+  - debt overdue/danger UI now uses `destructive` tokens.
+  - usage warning/progress UI now uses `warning` tokens.
+  - subscription/premium trial UI no longer uses `purple-*`/`amber-*` direct palette classes.
+- Preserved visual distinction between paid Premium and Trial after Claude review:
+  - paid Premium badge uses neutral/secondary style.
+  - Trial badge uses warning style.
+- Changed default shared `Card` radius from `rounded-3xl` to documented standard `rounded-2xl`.
+- Rewrote stale docs to current design-system source of truth:
+  - `CLAUDE.md`
+  - `docs/DESIGN_SYSTEM_SUMMARY.md`
+  - `docs/knowledge-base/08-development/design-system.md`
+  - `webapp/README.md`
+- Independent Claude diff review found no blockers; Hermes addressed the non-blocking Premium/Trial visual-collapse concern.
+
+Validation:
+- `npm run verify` passed: 20 suites / 171 tests, backend build, webapp build, dependency-cruiser, madge circular scan.
+- Raw palette class search in `webapp/src/**/*.tsx` returned zero matches for direct red/purple/violet/pink/lime/amber/orange/yellow/green/blue/etc. product classes.
+- Screenshot audit passed with `issueCount: 0` at 375/390/412 px across:
+  - `/`, `/transactions`, `/budgets`, `/more`, `/debts`, `/analytics`, `/transactions/add`, `/budgets/add`, `/debts/add`.
+- Final screenshots:
+  - `/tmp/ft037-design-system-closeout-390/screenshots/home-390.png`
+  - `/tmp/ft037-design-system-closeout-390/screenshots/debts-390.png`
+  - `/tmp/ft037-design-system-closeout-390/screenshots/add-debt-390.png`
+
+Notes:
+- `UsageLimitsCard` and `PremiumStatusCard` deliberately keep explicit `rounded-3xl` because they are feature/status cards, while default `Card` is now standard `rounded-2xl`.
+- Remaining mentions of removed palettes in docs are only negative rules inside `CLAUDE.md` (do not use those palettes), not sanctioned examples.
+
+---
+
 ## GitHub Issues Migration Criteria
 
 - There are at least 5–10 stable backlog tasks

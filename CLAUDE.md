@@ -589,94 +589,67 @@ fixes #70"
 - Font weights 500 (use 400 or 700)
 - Decorative borders on cards
 
-The webapp uses a **custom design system** built with Tailwind CSS and React TypeScript components, implementing a modern, mobile-first finance tracker interface.
+The webapp uses a **shadcn/ui-based design system** (Radix primitives + Tailwind CSS + `class-variance-authority`), implementing a modern, mobile-first finance tracker interface. There is no separate `design-system/` package — shared primitives live directly in `shared/ui/` (Feature-Sliced Design layout: `app/entities/features/pages/shared/widgets`).
 
 ### Design System Structure
 
-**Location:** `webapp/src/design-system/`
+**Location:** `webapp/src/shared/ui/`
 
-```
-webapp/src/design-system/
-├── tokens.ts                    # Design tokens (colors, spacing, typography)
-├── components/
-│   ├── Button/                  # Button component with variants
-│   ├── Card/                    # Card container component
-│   ├── Avatar/                  # User avatar component
-│   ├── Badge/                   # Status badge component
-│   ├── Modal/                   # Modal dialog component
-│   └── index.ts                 # Barrel export
-```
+Shared primitives (`button.tsx`, `card.tsx`, `badge.tsx`, `input.tsx`, `dialog.tsx`, `alert-dialog.tsx`, `progress.tsx`, `skeleton.tsx`, `dock.tsx`, etc.), plus page-shell helpers in `layout.tsx` and `typography.tsx` (`PageShell`, `SectionStack`, `PageHeader`, `FormPageHeader`, `AmountText`, `MetricStat`).
 
 ### Design Tokens
 
-**File:** `webapp/src/design-system/tokens.ts`
+**File:** `webapp/src/app/styles/globals.css` (`@theme inline` block)
 
-Centralized design constants:
-- **Colors:** App background, card dark, lime, lavender, income/expense colors
-- **Spacing:** Consistent padding/margin values
-- **Typography:** Font families, sizes, weights
-- **Shadows:** Card shadows, modal shadows
-- **Border Radius:** Rounded corners (2xl, 3xl, 4xl, etc.)
+Centralized CSS variables:
+- **Base colors:** `background`, `foreground`, `card`, `primary`, `secondary`, `muted`, `accent`, `destructive`, `border`, `input`, `ring`
+- **Semantic finance colors:** `income` (green), `expense` (red), `warning` (orange), `success` (green) — each with `-foreground` and `-muted` variants
+- **Border radius scale:** `sm` 8px, `md` 12px, `lg` 16px, `xl` 20px, `2xl` 24px (standard cards), `3xl` 32px (modals/feature cards only), `full` pill
+- **Animation timing:** `duration-fast/normal/slow`, `ease-out/in-out/spring`
 
-### Color Palette
-
-```typescript
-'app-bg': '#F5F5F7',        // Light gray background
-'card-dark': '#1C1C1E',     // Dark cards/navigation
-'lime': '#D4F14D',          // Primary accent (Transfer button)
-'lavender': '#D4CFED',      // Secondary accent (Request button)
-'green-income': '#00D68F',  // Income amounts
-'red-expense': '#FF6B6B',   // Expense amounts
-```
+There are no `lime`/`lavender` accent colors — those were removed as part of the design-system cleanup. **One accent per view**: neutral UI chrome (`primary`/`secondary`/`muted`) for structure, semantic tokens (`income`/`expense`/`warning`/`success`/`destructive`) only where they explain financial meaning. Never hardcode raw Tailwind palette colors (`red-*`, `purple-*`, etc.) for UI state — use the semantic tokens above.
 
 ### UI Components
 
 **Import pattern:**
 ```typescript
-import { Button, Card, Avatar, Badge, Modal } from './design-system/components';
+import { Button } from '@/shared/ui/button';
+import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/shared/ui/card';
+import { Badge } from '@/shared/ui/badge';
 ```
 
-**Button variants:**
-- `primary` - Dark background (default actions)
-- `secondary` - Light gray background
-- `outline` - Bordered button
-- `ghost` - Transparent background
-- `lime` - Lime accent (transfers)
-- `lavender` - Lavender accent (requests)
+**Button variants:** `default` (dark, primary actions) · `destructive` · `outline` · `secondary` · `ghost` · `link` · `income` · `expense`
 
-**Card variants:**
-- `white` - White background (default)
-- `dark` - Dark background (balance card)
-- `gradient` - Lime to lavender gradient
+**Badge variants:** `default` · `secondary` · `destructive` · `outline` · `income` · `expense` · `warning` · `success`
+
+**Card:** single primitive, `rounded-2xl` (24px, standard card radius) by default — pass an explicit `rounded-3xl` only for modals/feature cards that intentionally opt into the larger radius.
 
 **Example usage:**
-```typescript
-<Button variant="lime" size="lg" leftIcon="💸">
-  Transfer
+```tsx
+<Button variant="income" size="lg">
+  Add Income
 </Button>
 
-<Card variant="dark" rounded="4xl" padding="lg">
-  <h2>Balance Card</h2>
+<Card className="p-5">
+  <CardHeader><CardTitle>Balance</CardTitle></CardHeader>
+  <CardContent>...</CardContent>
 </Card>
 ```
 
 ### Key Features
 
-1. **Dynamic Font Sizing** - BalanceCard automatically scales text based on amount magnitude
+1. **Dynamic Font Sizing** - `AmountText`/`BalanceCard` scale text based on amount magnitude
 2. **Responsive Design** - Mobile-first with breakpoints (md: 768px, lg: 1024px)
-3. **Hybrid Navigation** - BottomNav (mobile) + TopNav (desktop)
-4. **Consistent Animations** - Fade-in, slide-up, bubble-in, ripple effects
+3. **Hybrid Navigation** - `Dock` (mobile bottom nav) + top nav (desktop)
+4. **Consistent Animations** - Fade-in, slide-up, stagger effects (see Animation Classes below)
 5. **TypeScript Typed** - Full type safety for all components
 
-### Custom Components
+### Feature Components
 
-**Location:** `webapp/src/components/`
-
-- **BalanceCard** - Dark card showing balance with dynamic font sizing
-- **TransactionItem** - Transaction list item with category icon
-- **BudgetCard** - Budget progress card with alerts
-- **Navigation** - Top navigation (desktop only)
-- **BottomNav** - Bottom navigation (mobile only)
+- **`widgets/balance-card/`** - Dark card showing balance with dynamic font sizing
+- **`entities/transaction/ui/`** - `TransactionCard`, `TransactionListItem`, `TransactionActions`
+- **`entities/budget/ui/BudgetCard.tsx`** - Budget progress card with alerts
+- **`shared/ui/dock.tsx`** - Bottom navigation (mobile) with centered `+` action
 
 ### Responsive Breakpoints
 
@@ -689,26 +662,24 @@ lg: desktop (≥ 1024px)
 
 ### Animation Classes
 
-Available in `webapp/src/index.css`:
-- `.fade-in` - Fade in with slight upward movement
-- `.slide-up` - Slide up from bottom
-- `.bubble-in` - Scale up bubble effect
-- `.animate-ripple` - Ripple effect for active nav items
+Available in `webapp/src/app/styles/globals.css`:
+- `.animate-fade-in` / `.animate-fade-in-up` - Fade in with slight upward movement
+- `.animate-slide-in-up` - Slide up from bottom
+- `.animate-scale-in` - Scale-up entrance
+- `.stagger-1` … `.stagger-8` - 50ms-increment stagger delays for list items
 
 ### Adding New Components
 
-1. Create folder in `webapp/src/design-system/components/ComponentName/`
-2. Create `ComponentName.tsx` with component implementation
-3. Create `ComponentName.types.ts` for TypeScript interfaces (optional)
-4. Create `index.ts` with barrel export
-5. Add export to `webapp/src/design-system/components/index.ts`
-6. Use design tokens from `tokens.ts` for consistency
+1. Create `ComponentName.tsx` in `webapp/src/shared/ui/` (shared primitive) or the relevant `entities/`/`widgets/`/`features/` slice (feature-specific component)
+2. Use `cva` for variant-based components (see `button.tsx`/`badge.tsx` for the pattern)
+3. Reference design tokens (`globals.css` CSS variables) for colors, spacing, radius — never hardcode raw Tailwind palette colors
+4. Export via the slice's `index.ts` barrel
 
 ### Styling Guidelines
 
-- Use Tailwind utility classes (configured in `tailwind.config.js`)
+- Use Tailwind utility classes (configured via `@theme inline` in `globals.css`, no `tailwind.config.js` color overrides needed)
 - Reference design tokens for colors, spacing, shadows
-- Maintain 4xl/5xl border radius for cards (modern, rounded aesthetic)
+- Standard cards: `rounded-2xl` (24px); reserve `rounded-3xl` (32px) for modals/feature cards
 - Use `overflow-hidden` to prevent text overflow
 - Apply `break-all` for long numbers/text that needs wrapping
 - Include hover states for interactive elements

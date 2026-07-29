@@ -17,7 +17,7 @@ export function DebtCard({ debt, onClick, className }: DebtCardProps) {
     <Card
       className={cn(
         'p-4 cursor-pointer transition-all hover:shadow-md',
-        debt._isOverdue && 'border-red-200 bg-red-50/50',
+        debt._isOverdue && 'border-destructive/20 bg-destructive/5',
         className
       )}
       onClick={onClick}
@@ -70,7 +70,7 @@ export function DebtCard({ debt, onClick, className }: DebtCardProps) {
       <div className="flex items-center justify-between text-sm text-muted-foreground">
         <span>Создан: {debt._formattedDate}</span>
         {debt.dueDate && (
-          <span className={cn(debt._isOverdue && 'text-red-600 font-medium')}>
+          <span className={cn(debt._isOverdue && 'text-destructive font-medium')}>
             {debt._isOverdue ? 'Просрочено' : `До: ${debt._formattedDueDate}`}
           </span>
         )}

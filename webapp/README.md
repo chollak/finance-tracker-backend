@@ -123,8 +123,8 @@ interface TransactionViewModel extends Transaction {
   _formattedAmount: string;      // "-$500" или "+$2,000"
   _formattedDate: string;        // "Today" или "Mar 15"
   _categoryIcon: string;         // "🍔"
-  _categoryColor: string;        // "bg-orange-100"
-  _amountColor: string;          // "text-red-600" или "text-green-600"
+  _categoryColor: string;        // semantic token class, e.g. "bg-warning-muted"
+  _amountColor: string;          // semantic token class, e.g. "text-expense" or "text-income"
 }
 
 // UI просто рендерит готовые значения

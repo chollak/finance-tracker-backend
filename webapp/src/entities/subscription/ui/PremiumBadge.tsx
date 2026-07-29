@@ -24,7 +24,7 @@ export function PremiumBadge({ subscription, isLoading }: PremiumBadgeProps) {
   // Premium (not trial)
   if (subscription.isPremium && !subscription.isTrialActive) {
     return (
-      <Badge className="bg-amber-500/20 text-amber-600 border-amber-500/30">
+      <Badge variant="secondary">
         Premium
       </Badge>
     );
@@ -33,7 +33,7 @@ export function PremiumBadge({ subscription, isLoading }: PremiumBadgeProps) {
   // Trial active
   if (subscription.isTrialActive && subscription.trialDaysLeft !== null) {
     return (
-      <Badge className="bg-purple-500/20 text-purple-600 border-purple-500/30">
+      <Badge variant="warning">
         Trial: {subscription.trialDaysLeft}d
       </Badge>
     );

@@ -3430,3 +3430,107 @@ Screenshots:
 ### Next
 
 Commit/push FT-036 and restart backend runtime.
+
+## 2026-07-29 — FT-037 Close remaining design-system audit findings
+
+### Goal
+
+Close the remaining Claude audit follow-ups: semantic token cleanup, standard card radius, and stale design-system docs. Claude Code performed the main implementation; Hermes reviewed, fixed missed cases, verified, and shipped.
+
+### Claude implementation
+
+Claude Code was asked to implement:
+
+- Semantic color cleanup in:
+  - `DebtCard.tsx`
+  - `DebtDetailsPage.tsx`
+  - `PremiumBadge.tsx`
+  - `PremiumStatusCard.tsx`
+- Shared `Card` radius alignment with documented standard card radius.
+- Docs cleanup for stale design-system references.
+
+Claude reached max turns but produced a valid diff and `npm run build:webapp` passed.
+
+### Hermes review and fixes
+
+Hermes review found remaining raw `amber-*` direct palette classes in:
+
+- `PremiumBadge.tsx`
+- `UsageBar.tsx`
+- `PremiumStatusCard.tsx`
+
+Hermes converted them to semantic tokens:
+
+- warning/progress/trial state → `warning` / `warning-muted`
+- paid Premium badge → `secondary`
+- destructive/overdue debt state → `destructive`
+
+Independent Claude diff review found no blockers. It suggested preserving visual distinction between paid Premium and Trial, so Hermes changed paid Premium to neutral/secondary while keeping Trial warning.
+
+### Changes
+
+- Default shared `Card` radius changed from `rounded-3xl` to `rounded-2xl`.
+- Raw product UI palette classes removed from `webapp/src/**/*.tsx` for audited color families.
+- Stale design-system docs rewritten/updated:
+  - `CLAUDE.md`
+  - `docs/DESIGN_SYSTEM_SUMMARY.md`
+  - `docs/knowledge-base/08-development/design-system.md`
+  - `webapp/README.md`
+- Updated TASKS with FT-037 summary.
+
+### Verification
+
+```bash
+npm run verify
+```
+
+Result:
+
+- 20 suites / 171 tests passed.
+- backend build passed.
+- webapp build passed.
+- dependency-cruiser passed.
+- madge circular scan passed.
+
+Raw class search:
+
+```bash
+search webapp/src/**/*.tsx for direct palette classes
+```
+
+Result: zero matches for direct red/purple/violet/pink/lime/amber/orange/yellow/green/blue/etc. product classes.
+
+Screenshot QA:
+
+- 375 px: `issueCount: 0`
+- 390 px: `issueCount: 0`
+- 412 px: `issueCount: 0`
+
+Routes audited:
+
+- `/`
+- `/transactions`
+- `/budgets`
+- `/more`
+- `/debts`
+- `/analytics`
+- `/transactions/add`
+- `/budgets/add`
+- `/debts/add`
+
+Final screenshot examples:
+
+- `/tmp/ft037-design-system-closeout-390/screenshots/home-390.png`
+- `/tmp/ft037-design-system-closeout-390/screenshots/debts-390.png`
+- `/tmp/ft037-design-system-closeout-390/screenshots/add-debt-390.png`
+
+### Visual judgment
+
+- Home still looks polished after `Card` radius reduced to `rounded-2xl`; the UI feels slightly cleaner and less inflated.
+- Debts/add-debt pages remain consistent with the unified shell/header system.
+- No dock/content collision was observed.
+- Premium/trial colors no longer use raw palettes and still remain distinguishable.
+
+### Next
+
+Commit/push FT-037 and restart backend runtime.

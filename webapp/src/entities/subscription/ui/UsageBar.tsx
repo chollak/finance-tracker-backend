@@ -29,7 +29,7 @@ export function UsageBar({ label, used, limit, icon }: UsageBarProps) {
             className={cn(
               'w-5 h-5 rounded-md flex items-center justify-center',
               isExceeded && 'bg-expense/10 text-expense',
-              isWarning && !isExceeded && 'bg-amber-500/10 text-amber-500',
+              isWarning && !isExceeded && 'bg-warning-muted text-warning',
               !isWarning && 'bg-muted text-muted-foreground'
             )}
           >
@@ -41,7 +41,7 @@ export function UsageBar({ label, used, limit, icon }: UsageBarProps) {
           className={cn(
             'font-medium',
             isExceeded && 'text-expense',
-            isWarning && !isExceeded && 'text-amber-500'
+            isWarning && !isExceeded && 'text-warning'
           )}
         >
           {used}/{limit}
@@ -52,11 +52,11 @@ export function UsageBar({ label, used, limit, icon }: UsageBarProps) {
         className={cn(
           'h-2',
           isExceeded && 'bg-expense/20',
-          isWarning && !isExceeded && 'bg-amber-500/20'
+          isWarning && !isExceeded && 'bg-warning-muted'
         )}
         indicatorClassName={cn(
           isExceeded && 'bg-expense',
-          isWarning && !isExceeded && 'bg-amber-500',
+          isWarning && !isExceeded && 'bg-warning',
           !isWarning && 'bg-primary'
         )}
       />

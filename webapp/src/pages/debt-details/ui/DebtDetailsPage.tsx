@@ -132,7 +132,7 @@ export function DebtDetailsPage() {
       {/* Main Info Card */}
       <Card className={cn(
         'p-6 mb-6',
-        debt._isOverdue && 'border-red-200 bg-red-50/50'
+        debt._isOverdue && 'border-destructive/20 bg-destructive/5'
       )}>
         <div className="text-center mb-4">
           <div className="text-4xl mb-2">{debt._typeIcon}</div>
@@ -172,7 +172,7 @@ export function DebtDetailsPage() {
           {debt.dueDate && (
             <div className="flex justify-between">
               <span className="text-muted-foreground">Срок:</span>
-              <span className={cn(debt._isOverdue && 'text-red-600 font-medium')}>
+              <span className={cn(debt._isOverdue && 'text-destructive font-medium')}>
                 {debt._isOverdue ? 'Просрочено!' : debt._formattedDueDate}
               </span>
             </div>
@@ -250,8 +250,8 @@ export function DebtDetailsPage() {
       )}
 
       {/* Danger Zone */}
-      <Card className="p-4 border-red-200">
-        <h2 className="font-semibold text-red-600 mb-4">Действия</h2>
+      <Card className="p-4 border-destructive/20">
+        <h2 className="font-semibold text-destructive mb-4">Действия</h2>
         <div className="flex gap-2">
           {isActive && (
             <AlertDialog>
