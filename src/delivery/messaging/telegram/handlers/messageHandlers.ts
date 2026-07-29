@@ -27,6 +27,14 @@ const CONFIDENCE_THRESHOLD = 0.6;
 // Track last transaction per user for delete functionality
 const lastTransactions: Record<string, string> = {};
 
+async function sendProcessingFeedback(ctx: BotContext): Promise<void> {
+  try {
+    await ctx.sendChatAction('typing');
+  } catch {
+    // Best-effort UX feedback only; processing must continue even if Telegram rejects chat action.
+  }
+}
+
 /**
  * Get last transaction ID for a user
  */
@@ -115,7 +123,7 @@ export function registerMessageHandlers(
 /**
  * Create text message handler with userModule for userId resolution
  */
-function createTextMessageHandler(userModule?: UserModule, subscriptionModule?: SubscriptionModule) {
+export function createTextMessageHandler(userModule?: UserModule, subscriptionModule?: SubscriptionModule) {
   return async function handleTextMessage(ctx: BotContext) {
     const text = ctx.message && 'text' in ctx.message ? ctx.message.text : '';
 
@@ -138,6 +146,7 @@ function createTextMessageHandler(userModule?: UserModule, subscriptionModule?: 
     try {
       // Handle Quick Add - awaiting amount after category selection
       if (ctx.session?.pendingAction?.type === 'awaiting_amount') {
+        await sendProcessingFeedback(ctx);
         await handleQuickAddAmount(ctx, text, userId, userName, subscriptionModule);
         return;
       }
@@ -148,6 +157,8 @@ function createTextMessageHandler(userModule?: UserModule, subscriptionModule?: 
       }
 
       const { voiceModule, transactionModule } = ctx.modules;
+
+      await sendProcessingFeedback(ctx);
 
       // Process text input
       const result = await voiceModule.getProcessTextInputUseCase().execute(text, userId, userName);
@@ -196,7 +207,7 @@ function createTextMessageHandler(userModule?: UserModule, subscriptionModule?: 
 /**
  * Create voice message handler with userModule for userId resolution
  */
-function createVoiceMessageHandler(userModule?: UserModule, subscriptionModule?: SubscriptionModule) {
+export function createVoiceMessageHandler(userModule?: UserModule, subscriptionModule?: SubscriptionModule) {
   return async function handleVoiceMessage(ctx: BotContext) {
     const telegramId = String(ctx.from?.id ?? 'unknown');
     const userName = `${ctx.from?.first_name || ''} ${ctx.from?.last_name || ''}`.trim() || 'User';
@@ -219,6 +230,8 @@ function createVoiceMessageHandler(userModule?: UserModule, subscriptionModule?:
     }
 
     try {
+      await sendProcessingFeedback(ctx);
+
       // Get file link from Telegram
       const fileLink = await ctx.telegram.getFileLink(voice.file_id);
 

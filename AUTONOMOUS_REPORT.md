@@ -2995,3 +2995,53 @@ Result: passed — 19 suites / 169 tests, backend build, webapp build, dependenc
 ### Next
 
 Commit/push FT-031D. If continuing FT-031, the next likely slice is a real Telegram `/start` / text-add smoke after restarting the local backend so the updated bot formatter is active.
+
+## 2026-07-29 — FT-031E Telegram processing feedback
+
+### Goal
+
+Make Telegram bot input feel responsive immediately after the user sends text or voice. Shukur reported that it was unclear whether the bot received the message or was processing it.
+
+### UX decision
+
+Use Telegram's native `typing` chat action as a lightweight loading indicator instead of sending an extra `⏳ Обрабатываю...` message for every transaction. This avoids clutter while still showing that the bot is alive and processing.
+
+### TDD loop
+
+RED:
+
+```bash
+npm run test:ci -- tests/telegramMessageHandlers.test.ts
+```
+
+Initial result: failed because the text handler was not exported for direct testing and no processing chat action existed.
+
+GREEN:
+
+- Added `sendProcessingFeedback(ctx)` best-effort helper.
+- Text input now sends `typing` before finance parsing.
+- Pending quick-add amount flow now sends `typing` before saving.
+- Voice input now sends `typing` before file download/transcription processing.
+- If Telegram rejects the chat action, processing continues and the user still gets the final success/error response.
+- Added `tests/telegramMessageHandlers.test.ts` coverage for action-before-processing and failure-tolerant behavior.
+
+Targeted result:
+
+```bash
+npm run test:ci -- tests/telegramMessageHandlers.test.ts
+```
+
+Passed: 1 suite / 2 tests.
+
+### Verification
+
+```bash
+npm run build
+npm run verify
+```
+
+Result: passed — 20 suites / 171 tests, backend build, webapp build, dependency-cruiser, and madge circular scan.
+
+### Next
+
+Commit/push FT-031E and restart the local backend so the running Telegram bot picks up the updated handler.

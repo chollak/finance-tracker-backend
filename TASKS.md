@@ -1804,6 +1804,31 @@ Verification:
 
 ---
 
+### FT-031E: Telegram processing feedback for text and voice input
+
+Status: done
+Priority: high
+Owner: Hermes
+Type: product/telegram-bot-ux
+
+Context:
+Shukur noticed that after sending a message to the bot it was unclear whether the bot had received the request or was still processing it. Text parsing may go through OpenAI, so the user needs immediate feedback before the final saved/confirmation response.
+
+Changes:
+- [x] Text-message handling now sends Telegram `typing` chat action before finance input processing.
+- [x] Quick-add pending amount flow also sends the processing action before saving.
+- [x] Voice-message handling sends the processing action before file download/transcription processing.
+- [x] Chat action failures are best-effort and do not block transaction/debt processing.
+- [x] Added regression coverage in `tests/telegramMessageHandlers.test.ts`.
+
+Verification:
+- [x] RED: message handler test initially failed because `createTextMessageHandler` was not exported and no processing action was sent.
+- [x] GREEN: `npm run test:ci -- tests/telegramMessageHandlers.test.ts` passed.
+- [x] `npm run build` passed.
+- [x] `npm run verify` passed — 20 suites / 171 tests, backend build, webapp build, dependency-cruiser, madge circular scan.
+
+---
+
 ## GitHub Issues Migration Criteria
 
 Move this board to GitHub Issues when:
