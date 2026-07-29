@@ -134,6 +134,7 @@ export function BottomNav() {
   const renderDockItem = (item: (typeof routeNavItems)[number]) => {
     const Icon = item.icon;
     const active = isRouteActive(item.href);
+    const isCurrentRoute = location.pathname === item.href;
 
     return (
       <DockItem
@@ -142,7 +143,7 @@ export function BottomNav() {
         aria-label={item.label}
         onPrefetch={() => prefetchForRoute(item.href)}
         onClick={() => {
-          if (!active) {
+          if (!isCurrentRoute) {
             haptic.tabChanged();
             navigate(item.href);
           }
