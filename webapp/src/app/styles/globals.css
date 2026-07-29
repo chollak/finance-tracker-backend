@@ -3,7 +3,7 @@
 
 /* ========================================
    FINANCE TRACKER DESIGN SYSTEM
-   Minimal & Clean | Inter | Neutral UI + Semantic Finance Colors
+   Minimal & Clean | Onest | Neutral UI + Semantic Finance Colors
    Light Theme Only
    ======================================== */
 
@@ -36,7 +36,7 @@
 
 @theme inline {
   /* ===== TYPOGRAPHY ===== */
-  --font-family-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-family-sans: 'Onest', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 
   /* ===== BASE COLORS (Light Theme) ===== */
   --color-background: oklch(100% 0 0);
@@ -378,21 +378,23 @@
     scroll-behavior: smooth;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
   }
 
   body {
     font-family: var(--font-family-sans);
     font-weight: 400;
     line-height: 1.5;
+    font-synthesis-weight: none;
     background-color: var(--color-background);
     color: var(--color-foreground);
   }
 
-  /* Typography - High contrast weights (400 vs 700, never 500) */
+  /* Typography - compact mobile finance hierarchy */
   h1, h2, h3, h4, h5, h6 {
     font-weight: 700;
-    line-height: 1.2;
-    letter-spacing: -0.02em;
+    line-height: 1.12;
+    letter-spacing: -0.025em;
   }
 
   /* Remove animation for users who prefer reduced motion */

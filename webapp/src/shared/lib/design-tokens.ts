@@ -4,7 +4,7 @@
  * TypeScript constants for programmatic use (charts, dynamic styles).
  * CSS variables are defined in globals.css - this file mirrors them for JS usage.
  *
- * Design System: Minimal & Clean | Inter | Green Accent
+ * Design System: Minimal & Clean | Onest | Neutral Accent
  */
 
 /**
@@ -111,11 +111,13 @@ export const spacing = {
  * Typography
  */
 export const typography = {
-  fontFamily: "'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif",
+  fontFamily: "'Onest', ui-sans-serif, system-ui, -apple-system, sans-serif",
   weights: {
     normal: 400,
+    medium: 500,
     semibold: 600,
     bold: 700,
+    extraBold: 800,
   },
 } as const;
 

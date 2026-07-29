@@ -1902,6 +1902,50 @@ Verification:
 
 ---
 
+### FT-034: Typography foundation cleanup
+
+Status: done
+Priority: medium
+Owner: Hermes
+Type: frontend-ui/design-system
+
+Context:
+Shukur reported that the current Mini App typography feels inconsistent — “как будто все по разному” — and asked for a review plus improvement proposal.
+
+Findings:
+- [x] Current system used Inter but only loaded weights `400`, `600`, `700` while many components use `font-medium` (`500`), causing synthesized/inconsistent weight rendering.
+- [x] Many screens mix `font-medium`, `font-semibold`, `font-bold`, arbitrary sizes, and inconsistent title scales.
+- [x] Screenshots showed the biggest perceived inconsistency in page titles vs body/subtitles, empty states, CTA labels, and large money amounts.
+
+Changes:
+- [x] Switched the webapp font family from `Inter` to `Onest`.
+- [x] Loaded Onest weights `400..800` from Google Fonts so `font-medium`, `font-semibold`, and `font-bold` render as real weights.
+- [x] Updated CSS typography token `--font-family-sans`.
+- [x] Updated TypeScript design tokens to mirror the new font family and weight scale.
+- [x] Added base typography rendering improvements: `text-rendering: optimizeLegibility` and `font-synthesis-weight: none`.
+- [x] Tightened heading line-height/letter-spacing for a more cohesive mobile finance feel.
+
+Visual QA:
+- [x] Baseline screenshots captured before change at `/tmp/ft034-font-audit/screenshots/`.
+- [x] Post-change screenshots captured at `/tmp/ft034-onest-fonts/screenshots/`.
+- [x] Focused visual audit passed with `issueCount: 0` for `/`, `/transactions`, `/more`.
+- [x] Visual judgment: Onest looks more cohesive and Cyrillic-friendly than the previous Inter setup; text feels warmer and less “mixed”. Remaining inconsistency mostly comes from component-level type scale choices, not the font family itself.
+
+Verification:
+- [x] Verified Onest CSS availability from Google Fonts: HTTP 200, 5 `@font-face` entries.
+- [x] `npm run build:webapp` passed.
+- [x] `npm run verify` passed — 20 suites / 171 tests, backend build, webapp build, dependency-cruiser, madge circular scan.
+- [ ] Existing Vite chunk-size warning remains from the earlier `motion` dependency, unrelated to the typography change.
+
+Recommendation / next slice:
+- Standardize page typography components next instead of ad-hoc class tuning:
+  - `PageHeader`: one mobile title/subtitle scale.
+  - `CardTitle`: consistent `text-base/semibold` for cards and `text-lg/semibold` only for major cards.
+  - Money amounts: define `amount-display`, `amount-md`, `amount-sm` helpers with tabular numerals.
+  - Body/caption: reduce random `text-[0.8rem]` / `text-[11px]` usage.
+
+---
+
 ## GitHub Issues Migration Criteria
 
 Move this board to GitHub Issues when:

@@ -3163,3 +3163,94 @@ Visual judgment: the dock is much closer to the provided reference than the prio
 ### Next
 
 Commit/push FT-033 and restart the local backend so the Telegram Mini App serves the updated static bundle.
+
+## 2026-07-29 — FT-034 Typography foundation cleanup
+
+### Goal
+
+Review and improve the Mini App typography after Shukur reported that the current font felt inconsistent — “как будто все по разному”.
+
+### Findings
+
+- The app used Inter, but only loaded weights `400`, `600`, `700`.
+- Many components use `font-medium` (`500`), so the browser had to synthesize that weight or approximate it.
+- The screenshots showed perceived inconsistency around:
+  - very heavy page titles vs softer subtitles;
+  - `font-medium`/`font-semibold`/`font-bold` mixed across cards and empty states;
+  - large money amounts using heavy display scale;
+  - random small sizes like `text-[11px]` and `text-[0.8rem]`.
+
+### Recommendation
+
+Use a Cyrillic-friendly UI font as the base and make this a two-step typography cleanup:
+
+1. **Foundation now:** replace the font family and make all common weights real.
+2. **Component scale later:** standardize `PageHeader`, `CardTitle`, body/caption, and money amount classes.
+
+I chose **Onest** for the foundation because it is readable in Russian, feels softer than Inter, and suits a personal finance assistant better than a colder developer/SaaS font.
+
+### Changes
+
+- Switched the webapp Google Font from Inter to Onest:
+  - `Onest:wght@400..800`
+- Updated `--font-family-sans` in `globals.css`.
+- Updated TypeScript design tokens to mirror Onest and expose weights `400`, `500`, `600`, `700`, `800`.
+- Added base rendering improvements:
+  - `text-rendering: optimizeLegibility`
+  - `font-synthesis-weight: none`
+- Tightened heading rhythm:
+  - `line-height: 1.12`
+  - `letter-spacing: -0.025em`
+
+### Visual QA
+
+Baseline screenshots before change:
+
+- `/tmp/ft034-font-audit/screenshots/home-390.png`
+- `/tmp/ft034-font-audit/screenshots/transactions-390.png`
+- `/tmp/ft034-font-audit/screenshots/more-390.png`
+
+Post-change screenshots:
+
+- `/tmp/ft034-onest-fonts/screenshots/home-390.png`
+- `/tmp/ft034-onest-fonts/screenshots/transactions-390.png`
+- `/tmp/ft034-onest-fonts/screenshots/more-390.png`
+
+Focused audit command:
+
+```bash
+BASE_URL=http://127.0.0.1:3000 VIEWPORT_WIDTH=390 VIEWPORT_HEIGHT=844 OUT_DIR=/tmp/ft034-onest-fonts ROUTES=/,/transactions,/more npm run design:audit
+```
+
+Result: `issueCount: 0`.
+
+Visual judgment: Onest makes the UI feel more cohesive and Cyrillic-native. The biggest remaining typography inconsistency is no longer the font family; it is component-level type scale usage.
+
+### Verification
+
+Font availability:
+
+```bash
+python3 - <<'PY'
+import urllib.request
+url='https://fonts.googleapis.com/css2?family=Onest:wght@400..800&display=swap'
+with urllib.request.urlopen(urllib.request.Request(url, headers={'User-Agent':'Mozilla/5.0'}), timeout=20) as r:
+    text=r.read().decode('utf-8')
+print('Onest CSS status OK, @font-face count:', text.count('@font-face'))
+PY
+```
+
+Result: `Onest CSS status OK, @font-face count: 5`.
+
+Build and full gate:
+
+```bash
+npm run build:webapp
+npm run verify
+```
+
+Result: passed — 20 suites / 171 tests, backend build, webapp build, dependency-cruiser, and madge circular scan.
+
+### Next
+
+Commit/push FT-034 and restart the local backend so the Telegram Mini App serves the updated static bundle.
