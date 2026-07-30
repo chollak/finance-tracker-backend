@@ -57,6 +57,7 @@ export function FilterBar() {
           <SelectItem value="all">Все</SelectItem>
           <SelectItem value="income">Доходы</SelectItem>
           <SelectItem value="expense">Расходы</SelectItem>
+          <SelectItem value="not_expense">Не расходы</SelectItem>
         </SelectContent>
       </Select>
 

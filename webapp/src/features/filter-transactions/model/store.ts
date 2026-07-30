@@ -2,7 +2,7 @@ import { create } from 'zustand';
 
 interface TransactionFiltersState {
   searchQuery: string;
-  typeFilter: 'all' | 'income' | 'expense';
+  typeFilter: 'all' | 'income' | 'expense' | 'not_expense';
   categoryFilter: string | null;
   dateRange: {
     start: Date | null;
@@ -11,7 +11,7 @@ interface TransactionFiltersState {
 
   // Actions
   setSearchQuery: (query: string) => void;
-  setTypeFilter: (type: 'all' | 'income' | 'expense') => void;
+  setTypeFilter: (type: 'all' | 'income' | 'expense' | 'not_expense') => void;
   setCategoryFilter: (category: string | null) => void;
   setDateRange: (start: Date | null, end: Date | null) => void;
   resetFilters: () => void;

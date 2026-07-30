@@ -2,7 +2,7 @@ import type { TransactionViewModel } from '@/entities/transaction';
 
 interface FilterOptions {
   searchQuery: string;
-  typeFilter: 'all' | 'income' | 'expense';
+  typeFilter: 'all' | 'income' | 'expense' | 'not_expense';
   categoryFilter: string | null;
 }
 
@@ -17,7 +17,11 @@ export function filterTransactions(
 
   return transactions.filter((transaction) => {
     // Type filter
-    if (typeFilter !== 'all' && transaction.type !== typeFilter) {
+    if (typeFilter === 'not_expense') {
+      if (!transaction._isNonExpenseMovement) {
+        return false;
+      }
+    } else if (typeFilter !== 'all' && transaction.type !== typeFilter) {
       return false;
     }
 
@@ -26,7 +30,7 @@ export function filterTransactions(
       return false;
     }
 
-    // Search query (searches in description, category, and merchant)
+    // Search query (searches in description, category, merchant, and semantic type label)
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       const matchesDescription = transaction.description
@@ -38,8 +42,11 @@ export function filterTransactions(
       const matchesMerchant = transaction.merchant
         ?.toLowerCase()
         .includes(query);
+      const matchesSemanticType = transaction._semanticTypeLabel
+        ?.toLowerCase()
+        .includes(query);
 
-      if (!matchesDescription && !matchesCategory && !matchesMerchant) {
+      if (!matchesDescription && !matchesCategory && !matchesMerchant && !matchesSemanticType) {
         return false;
       }
     }
