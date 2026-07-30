@@ -1,7 +1,7 @@
 // Transaction entity barrel export
 
 // Types
-export type { Transaction, CreateTransactionDTO, UpdateTransactionDTO, TransactionViewModel } from './model/types';
+export type { Transaction, CreateTransactionDTO, UpdateTransactionDTO, TransactionViewModel, TransactionSemanticType } from './model/types';
 export type { DateGroup } from './lib/groupByDate';
 
 // View Model
@@ -9,6 +9,7 @@ export { transactionToViewModel } from './lib/toViewModel';
 
 // Utils
 export { groupTransactionsByDate } from './lib/groupByDate';
+export { getSemanticTypeLabel, getSemanticTypeBadgeVariant, isNonExpenseMovement } from './lib/semanticType';
 
 // API
 export { transactionKeys } from './api/keys';

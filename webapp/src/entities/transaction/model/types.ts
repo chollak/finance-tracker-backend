@@ -3,9 +3,11 @@ export type {
   Transaction,
   CreateTransactionDTO,
   UpdateTransactionDTO,
+  TransactionSemanticType,
 } from '@/shared/types';
 
 import type { Transaction } from '@/shared/types';
+import type { BadgeProps } from '@/shared/ui/badge';
 
 // ViewModel with formatted fields for UI
 export interface TransactionViewModel extends Transaction {
@@ -16,4 +18,7 @@ export interface TransactionViewModel extends Transaction {
   _categoryColor: string;        // "bg-orange-100 text-orange-600"
   _amountColor: string;          // "text-income" or "text-expense"
   _typeLabel: string;            // "Доход" or "Расход"
+  _semanticTypeLabel: string;            // "Долг", "Перевод себе", ...
+  _semanticTypeBadgeVariant: NonNullable<BadgeProps['variant']>;
+  _isNonExpenseMovement: boolean;        // true for movements excluded from expense/budget analytics
 }

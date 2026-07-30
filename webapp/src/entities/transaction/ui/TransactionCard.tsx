@@ -1,4 +1,5 @@
 import { Card } from '@/shared/ui/card';
+import { Badge } from '@/shared/ui/badge';
 import type { TransactionViewModel } from '../model/types';
 import { getCategoryName } from '@/entities/category/model/categories';
 
@@ -31,10 +32,16 @@ export function TransactionCard({ transaction, onClick }: TransactionCardProps) 
             <p className="font-medium text-foreground truncate">
               {transaction.description}
             </p>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
               <span>{transaction._formattedDate}</span>
               <span>•</span>
               <span>{getCategoryName(transaction.category)}</span>
+              <Badge variant={transaction._semanticTypeBadgeVariant} className="px-2 py-0 text-[11px]">
+                {transaction._semanticTypeLabel}
+              </Badge>
+              {transaction._isNonExpenseMovement && (
+                <span className="text-xs text-muted-foreground">Не входит в расходы</span>
+              )}
             </div>
           </div>
         </div>
