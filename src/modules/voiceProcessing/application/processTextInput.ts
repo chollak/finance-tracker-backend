@@ -7,6 +7,7 @@ import { DebtType } from '../../debt/domain/debtEntity';
 import { DebtLimitExceededError } from '../../debt/domain/errors';
 import { getLogger, LogCategory } from '../../../shared/application/logging';
 import { normalizeCategory } from '../../../shared/domain/entities/Category';
+import { normalizeSemanticType } from '../../transaction/domain/transactionSemanticType';
 import { AnalysisResult, ParsedTransaction } from '../domain/transcriptionService';
 
 const logger = getLogger(LogCategory.OPENAI);
@@ -43,6 +44,7 @@ function parseSimpleTextTransaction(text: string): AnalysisResult | null {
     amount,
     category: normalizeCategory(label),
     type: 'expense',
+    semanticType: 'expense',
     date: new Date().toISOString().split('T')[0],
     merchant: label,
     confidence: 1,
@@ -70,12 +72,15 @@ export class ProcessTextInputUseCase {
     // Process transactions
     for (const p of parsed.transactions) {
       try {
+        const type = p.type || 'expense';
+        const semanticType = normalizeSemanticType(p.semanticType, type);
         const transaction: Transaction = {
           date: p.date || new Date().toISOString().split('T')[0],
           category: p.category || 'other',
           description: p.description || text,
           amount: p.amount || 0,
-          type: p.type || 'expense',
+          type,
+          semanticType,
           userId,
           userName,
           merchant: p.merchant,
@@ -84,7 +89,8 @@ export class ProcessTextInputUseCase {
           originalParsing: {
             amount: p.amount || 0,
             category: p.category || 'other',
-            type: p.type || 'expense',
+            type,
+            semanticType,
             merchant: p.merchant,
             confidence: p.confidence,
           },
@@ -97,6 +103,7 @@ export class ProcessTextInputUseCase {
             amount: transaction.amount,
             category: transaction.category,
             type: transaction.type,
+            semanticType: transaction.semanticType,
             date: transaction.date,
             merchant: transaction.merchant,
             confidence: transaction.confidence,

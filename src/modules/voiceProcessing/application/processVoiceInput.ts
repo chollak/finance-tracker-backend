@@ -11,6 +11,7 @@ import { DebtLimitExceededError } from '../../debt/domain/errors';
 import { ErrorFactory } from '../../../shared/domain/errors/AppError';
 import { Validators } from '../../../shared/application/validation/validators';
 import { getLogger, LogCategory } from '../../../shared/application/logging';
+import { normalizeSemanticType } from '../../transaction/domain/transactionSemanticType';
 
 const logger = getLogger(LogCategory.OPENAI);
 
@@ -112,12 +113,15 @@ export class ProcessVoiceInputUseCase {
       // Process transactions
       for (const p of parsed.transactions) {
         try {
+          const type = p.type === 'income' ? 'income' : 'expense';
+          const semanticType = normalizeSemanticType(p.semanticType, type);
           const transaction: Transaction = {
             date: p.date || new Date().toISOString().split('T')[0],
             category: p.category || 'other',
             description: p.description || recognizedText.substring(0, 500),
             amount: p.amount || 0,
-            type: p.type === 'income' ? 'income' : 'expense',
+            type,
+            semanticType,
             userId: input.userId.trim(),
             userName: input.userName?.trim() || input.userId.trim(),
             merchant: p.merchant,
@@ -126,7 +130,8 @@ export class ProcessVoiceInputUseCase {
             originalParsing: {
               amount: p.amount || 0,
               category: p.category || 'other',
-              type: p.type === 'income' ? 'income' : 'expense',
+              type,
+              semanticType,
               merchant: p.merchant,
               confidence: p.confidence,
             },
@@ -139,6 +144,7 @@ export class ProcessVoiceInputUseCase {
               amount: transaction.amount,
               category: transaction.category,
               type: transaction.type,
+              semanticType: transaction.semanticType,
               date: transaction.date,
               merchant: transaction.merchant,
               confidence: transaction.confidence,

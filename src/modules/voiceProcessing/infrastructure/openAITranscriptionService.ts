@@ -12,6 +12,7 @@ import { ExternalServiceError, ErrorFactory } from '../../../shared/domain/error
 import { OPENAI_PROMPTS, ERROR_MESSAGES } from '../../../shared/domain/constants/messages';
 import { transactionLearning } from '../../../shared/application/learning/transactionLearning';
 import { normalizeCategory } from '../../../shared/domain/entities/Category';
+import { normalizeSemanticType } from '../../transaction/domain/transactionSemanticType';
 import { createLogger, LogCategory } from '../../../shared/infrastructure/logging';
 
 const logger = createLogger(LogCategory.OPENAI);
@@ -217,11 +218,14 @@ export class OpenAITranscriptionService implements TranscriptionService {
     if (!merchant && !item.merchant) confidence = Math.min(confidence, 0.6);
     confidence = Math.max(0.1, Math.min(1.0, confidence));
 
+    const type = item.type === 'income' || item.type === 'expense' ? item.type : 'expense';
+
     return {
       intent: 'transaction',
       amount,
       category,
-      type: item.type === 'income' || item.type === 'expense' ? item.type : 'expense',
+      type,
+      semanticType: normalizeSemanticType(item.semanticType, type),
       date: String(item.date || new Date().toISOString().split('T')[0]),
       merchant,
       confidence,

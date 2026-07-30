@@ -73,6 +73,7 @@ ${generateCategoryPrompt()}
             "dueDate": "YYYY-MM-DD" | null, "description": "описание", "moneyTransferred": true/false, "confidence": число },
           // Для ТРАНЗАКЦИИ:
           { "intent": "transaction", "amount": число, "category": "category_id", "type": "income" | "expense",
+            "semanticType": "expense" | "income" | "own_transfer" | "saving_deposit" | "debt" | "reimbursement" | "cash_withdrawal" | "group_payment",
             "date": "YYYY-MM-DD", "merchant": "название", "confidence": число, "description": "описание" }
         ]
       }
@@ -80,6 +81,17 @@ ${generateCategoryPrompt()}
       ПРАВИЛА ОПРЕДЕЛЕНИЯ INTENT:
       - "одолжил", "дал в долг", "взял в долг", "занял у", "должен" → intent: "debt"
       - Остальное (покупки, оплаты, зарплата) → intent: "transaction"
+
+      ПРАВИЛА ОПРЕДЕЛЕНИЯ SEMANTICTYPE (смысл транзакции, обязательное поле):
+      - "expense" — обычная трата (покупки, еда, такси и т.д.)
+      - "income" — обычный доход (зарплата, подарок)
+      - "own_transfer" — перевод между своими счетами/картами
+      - "saving_deposit" — перевод в накопления/сбережения
+      - "debt" — движение денег, связанное с долгом (сама транзакция, а не intent "debt")
+      - "reimbursement" — возврат денег, компенсация
+      - "cash_withdrawal" — снятие наличных
+      - "group_payment" — оплата за компанию/группу с последующим разделением
+      - Если не уверен — используй "expense" для расходов или "income" для доходов
 
       ПРАВИЛА ДАТ:
       - "вчера" = вчерашняя дата
@@ -125,8 +137,20 @@ ${generateCategoryPrompt()}
       CRITICAL: In the "category" field, return ONLY English IDs (food, taxi, utilities, salary, etc.), NOT Russian names!
 
       RESPONSE FORMAT:
-      [{"amount": number, "category": "category_id", "type": "income" | "expense", "date": "YYYY-MM-DD",
-        "merchant": "normalized name", "confidence": number, "description": "brief description"}]
+      [{"amount": number, "category": "category_id", "type": "income" | "expense",
+        "semanticType": "expense" | "income" | "own_transfer" | "saving_deposit" | "debt" | "reimbursement" | "cash_withdrawal" | "group_payment",
+        "date": "YYYY-MM-DD", "merchant": "normalized name", "confidence": number, "description": "brief description"}]
+
+      SEMANTIC TYPE RULES (required field, meaning of the transaction):
+      - "expense" — a regular purchase/spend
+      - "income" — regular income (salary, gift)
+      - "own_transfer" — transfer between the user's own accounts/cards
+      - "saving_deposit" — money moved into savings
+      - "debt" — a money movement tied to debt (the transaction itself, not intent "debt")
+      - "reimbursement" — money returned/refunded to the user
+      - "cash_withdrawal" — cash withdrawal from ATM/bank
+      - "group_payment" — paying for a group, to be split later
+      - If unsure, use "expense" for spending or "income" for income
 
       DATE RULES:
       - "yesterday" = yesterday's date from today

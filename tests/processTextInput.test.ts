@@ -29,24 +29,93 @@ describe('ProcessTextInputUseCase', () => {
       amount: 15000,
       category: 'coffee',
       type: 'expense',
+      semanticType: 'expense',
       date: '2026-07-22',
       merchant: 'кофе',
       description: 'кофе',
       userId: 'user1',
       userName: 'Shukur',
       originalText: 'кофе 15000 сум',
+      originalParsing: expect.objectContaining({ semanticType: 'expense' }),
     }));
     expect(result.transactions).toEqual([
       expect.objectContaining({
         id: 'fast-1',
         amount: 15000,
         category: 'coffee',
+        semanticType: 'expense',
         merchant: 'кофе',
         description: 'кофе',
       })
     ]);
 
     jest.useRealTimers();
+  });
+
+  it('passes through a semanticType returned by OpenAI into the create payload and response', async () => {
+    const openAIService = {
+      analyzeInput: jest.fn().mockResolvedValue({
+        transactions: [{
+          intent: 'transaction',
+          amount: 200000,
+          category: 'other',
+          type: 'expense',
+          semanticType: 'own_transfer',
+          date: '2026-07-22',
+          merchant: 'card to card',
+        }],
+        debts: []
+      }),
+      analyzeTransactions: jest.fn(),
+      transcribe: jest.fn()
+    } as unknown as TranscriptionService;
+
+    const createTransactionUseCase = {
+      execute: jest.fn().mockResolvedValue({ success: true, data: 'transfer-1' })
+    } as unknown as CreateTransactionUseCase;
+
+    const useCase = new ProcessTextInputUseCase(openAIService, createTransactionUseCase);
+    const result = await useCase.execute('перевёл себе на карту 200000!', 'user1');
+
+    expect(createTransactionUseCase.execute).toHaveBeenCalledWith(expect.objectContaining({
+      semanticType: 'own_transfer',
+      originalParsing: expect.objectContaining({ semanticType: 'own_transfer' }),
+    }));
+    expect(result.transactions).toEqual([
+      expect.objectContaining({ id: 'transfer-1', semanticType: 'own_transfer' })
+    ]);
+  });
+
+  it('normalizes a missing/invalid semanticType from OpenAI based on the legacy type', async () => {
+    const openAIService = {
+      analyzeInput: jest.fn().mockResolvedValue({
+        transactions: [{
+          intent: 'transaction',
+          amount: 50000,
+          category: 'salary',
+          type: 'income',
+          // semanticType intentionally omitted
+          date: '2026-07-22',
+        }],
+        debts: []
+      }),
+      analyzeTransactions: jest.fn(),
+      transcribe: jest.fn()
+    } as unknown as TranscriptionService;
+
+    const createTransactionUseCase = {
+      execute: jest.fn().mockResolvedValue({ success: true, data: 'income-1' })
+    } as unknown as CreateTransactionUseCase;
+
+    const useCase = new ProcessTextInputUseCase(openAIService, createTransactionUseCase);
+    const result = await useCase.execute('получил зарплату 50000!', 'user1');
+
+    expect(createTransactionUseCase.execute).toHaveBeenCalledWith(expect.objectContaining({
+      semanticType: 'income',
+    }));
+    expect(result.transactions).toEqual([
+      expect.objectContaining({ id: 'income-1', semanticType: 'income' })
+    ]);
   });
 
   it('falls back to OpenAI for complex multi-item text instead of using the simple parser', async () => {
@@ -114,6 +183,7 @@ describe('ProcessTextInputUseCase', () => {
         amount: 5,
         category: 'Food',
         type: 'expense',
+        semanticType: 'expense',
         date: '2024-01-01',
         merchant: undefined,
         confidence: undefined,
@@ -156,6 +226,7 @@ describe('ProcessTextInputUseCase', () => {
           amount: 5,
           category: 'Food',
           type: 'expense',
+          semanticType: 'expense',
           date: '2024-01-01',
           merchant: undefined,
           confidence: undefined,
@@ -166,6 +237,7 @@ describe('ProcessTextInputUseCase', () => {
           amount: 40,
           category: 'Debt',
           type: 'expense',
+          semanticType: 'expense',
           date: '2024-01-01',
           merchant: undefined,
           confidence: undefined,
