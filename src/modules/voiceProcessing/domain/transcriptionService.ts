@@ -1,3 +1,5 @@
+import { TransactionSemanticType } from '../../transaction/domain/transactionSemanticType';
+
 /**
  * Parsed transaction from voice/text input
  */
@@ -6,6 +8,7 @@ export interface ParsedTransaction {
   amount: number;
   category: string;
   type: 'income' | 'expense';
+  semanticType?: TransactionSemanticType;
   date: string;
   merchant?: string;
   confidence?: number;

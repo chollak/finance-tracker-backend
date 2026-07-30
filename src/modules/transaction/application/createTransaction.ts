@@ -2,6 +2,7 @@ import { Transaction } from '../domain/transactionEntity';
 import { TransactionRepository } from '../domain/transactionRepository';
 import { Result, ResultHelper } from '../../../shared/domain/types/Result';
 import { ValidationError, BusinessLogicError } from '../../../shared/domain/errors/AppError';
+import { normalizeSemanticType } from '../domain/transactionSemanticType';
 import { SubscriptionModule } from '../../subscription/subscriptionModule';
 import { UserModule } from '../../user/userModule';
 import { getLogger, LogCategory } from '../../../shared/application/logging';
@@ -42,6 +43,8 @@ export class CreateTransactionUseCase {
     if (!transaction.type || !['income', 'expense'].includes(transaction.type)) {
       return ResultHelper.failure(new ValidationError('Type must be "income" or "expense"'));
     }
+
+    transaction.semanticType = normalizeSemanticType(transaction.semanticType, transaction.type);
 
     try {
       const created = await this.primaryRepository.create(transaction);

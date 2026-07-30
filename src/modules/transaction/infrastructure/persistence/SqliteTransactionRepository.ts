@@ -3,6 +3,7 @@ import { AppDataSource } from '../../../../shared/infrastructure/database/databa
 import { Transaction as TransactionEntity, TransactionType } from '../../../../shared/infrastructure/database/entities/Transaction';
 import { TransactionRepository } from '../../domain/transactionRepository';
 import { Transaction } from '../../domain/transactionEntity';
+import { normalizeSemanticType } from '../../domain/transactionSemanticType';
 
 export class SqliteTransactionRepository implements TransactionRepository {
   private repository: Repository<TransactionEntity>;
@@ -15,6 +16,7 @@ export class SqliteTransactionRepository implements TransactionRepository {
     const entity = this.repository.create({
       amount: transaction.amount,
       type: transaction.type === 'income' ? TransactionType.INCOME : TransactionType.EXPENSE,
+      semanticType: normalizeSemanticType(transaction.semanticType, transaction.type),
       description: transaction.description,
       date: transaction.date,
       merchant: transaction.merchant,
@@ -58,6 +60,9 @@ export class SqliteTransactionRepository implements TransactionRepository {
     if (updates.amount !== undefined) updateData.amount = updates.amount;
     if (updates.type !== undefined) {
       updateData.type = updates.type === 'income' ? TransactionType.INCOME : TransactionType.EXPENSE;
+    }
+    if (updates.semanticType !== undefined) {
+      updateData.semanticType = normalizeSemanticType(updates.semanticType, updates.type ?? 'expense');
     }
     if (updates.description !== undefined) updateData.description = updates.description;
     if (updates.date !== undefined) updateData.date = updates.date;
@@ -107,6 +112,7 @@ export class SqliteTransactionRepository implements TransactionRepository {
       id: entity.id,
       amount: Number(entity.amount),
       type: entity.type === TransactionType.INCOME ? 'income' : 'expense',
+      semanticType: normalizeSemanticType(entity.semanticType, entity.type === TransactionType.INCOME ? 'income' : 'expense'),
       description: entity.description,
       date: entity.date,
       userId: entity.userId,

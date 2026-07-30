@@ -2,6 +2,7 @@ import { Transaction } from '../../../modules/transaction/domain/transactionEnti
 import { Result, ResultHelper } from '../../domain/types/Result';
 import { ValidationError } from '../../domain/errors/AppError';
 import { Validators, ValidationChain } from './validators';
+import { normalizeSemanticType } from '../../../modules/transaction/domain/transactionSemanticType';
 
 export class TransactionValidator {
   static validate(data: any): Result<Transaction, ValidationError[]> {
@@ -35,6 +36,11 @@ export class TransactionValidator {
       chain.validate(Validators.string(data.merchant, 'merchant'));
     }
 
+    // Optional semanticType validation - only checked when explicitly provided
+    if (data.semanticType !== undefined && data.semanticType !== null) {
+      chain.validate(Validators.transactionSemanticType(data.semanticType));
+    }
+
     const validationResult = chain.getResult();
     if (!validationResult.success) {
       return ResultHelper.failure(validationResult.error);
@@ -49,6 +55,7 @@ export class TransactionValidator {
       category: String(data.category).trim(),
       description: String(data.description).trim(),
       type: data.type as 'income' | 'expense',
+      semanticType: normalizeSemanticType(data.semanticType, data.type as 'income' | 'expense'),
       userId: String(data.userId).trim(),
       userName: data.userName ? String(data.userName).trim() : undefined,
       date: data.date ? String(data.date).trim() : defaultDate,
@@ -94,6 +101,10 @@ export class TransactionValidator {
       chain.validate(Validators.string(data.merchant, 'merchant'));
     }
 
+    if (data.semanticType !== undefined) {
+      chain.validate(Validators.transactionSemanticType(data.semanticType));
+    }
+
     const validationResult = chain.getResult();
     if (!validationResult.success) {
       return ResultHelper.failure(validationResult.error);
@@ -106,6 +117,7 @@ export class TransactionValidator {
     if (data.category !== undefined) partialTransaction.category = String(data.category).trim();
     if (data.description !== undefined) partialTransaction.description = String(data.description).trim();
     if (data.type !== undefined) partialTransaction.type = data.type;
+    if (data.semanticType !== undefined) partialTransaction.semanticType = data.semanticType;
     if (data.userId !== undefined) partialTransaction.userId = String(data.userId).trim();
     if (data.date !== undefined) partialTransaction.date = String(data.date).trim();
     if (data.userName !== undefined) partialTransaction.userName = String(data.userName).trim();

@@ -232,4 +232,73 @@ describe('Transaction API route boundaries', () => {
     });
     expect(mocks.updateUseCase.execute).not.toHaveBeenCalled();
   });
+
+  it('accepts a valid semanticType on create and passes it to the create use case', async () => {
+    (mocks.createUseCase.execute as jest.Mock).mockResolvedValue({
+      success: true,
+      data: 'tx-new',
+    });
+
+    const res = await fetch(`${baseUrl}/api/transactions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        amount: 500000,
+        category: 'transfer',
+        description: 'TBC -> Alif',
+        type: 'expense',
+        semanticType: 'own_transfer',
+        userId: 'user-1',
+      }),
+    });
+
+    expect(res.status).toBe(201);
+    expect(mocks.createUseCase.execute).toHaveBeenCalledWith(
+      expect.objectContaining({ semanticType: 'own_transfer' })
+    );
+  });
+
+  it('rejects an invalid semanticType on create with 400 and does not call the create use case', async () => {
+    const res = await fetch(`${baseUrl}/api/transactions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        amount: 100,
+        category: 'food',
+        description: 'Lunch',
+        type: 'expense',
+        semanticType: 'crypto_trade',
+        userId: 'user-1',
+      }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.success).toBe(false);
+    expect(body.error.code).toBe('VALIDATION_ERROR');
+    expect(mocks.createUseCase.execute).not.toHaveBeenCalled();
+  });
+
+  it('passes semanticType through to the update use case on PUT', async () => {
+    (mocks.getByIdUseCase.execute as jest.Mock).mockResolvedValue({
+      success: true,
+      data: { id: 'tx-guest', userId: 'guest_abc123', amount: 100 },
+    });
+    (mocks.updateUseCase.execute as jest.Mock).mockResolvedValue({
+      success: true,
+      data: { id: 'tx-guest', userId: 'guest_abc123', amount: 100, semanticType: 'saving_deposit' },
+    });
+
+    const res = await fetch(`${baseUrl}/api/transactions/tx-guest`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ semanticType: 'saving_deposit' }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(mocks.updateUseCase.execute).toHaveBeenCalledWith({
+      id: 'tx-guest',
+      semanticType: 'saving_deposit',
+    });
+  });
 });

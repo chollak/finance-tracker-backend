@@ -3,6 +3,7 @@ import { TransactionRepository } from '../domain/transactionRepository';
 import { Result, ResultHelper } from '../../../shared/domain/types/Result';
 import { ValidationError, NotFoundError, BusinessLogicError } from '../../../shared/domain/errors/AppError';
 import { getLogger, LogCategory } from '../../../shared/application/logging';
+import { isTransactionSemanticType, TransactionSemanticType } from '../domain/transactionSemanticType';
 
 const logger = getLogger(LogCategory.TRANSACTION);
 
@@ -13,13 +14,14 @@ export interface UpdateTransactionRequest {
   description?: string;
   date?: string;
   type?: 'income' | 'expense';
+  semanticType?: TransactionSemanticType;
 }
 
 export class UpdateTransactionUseCase {
   constructor(private repository: TransactionRepository) {}
 
   async execute(request: UpdateTransactionRequest): Promise<Result<Transaction>> {
-    const { id, amount, category, description, date, type } = request;
+    const { id, amount, category, description, date, type, semanticType } = request;
 
     // Validate ID
     if (!id?.trim()) {
@@ -43,6 +45,10 @@ export class UpdateTransactionUseCase {
       return ResultHelper.failure(new ValidationError('Type must be "income" or "expense"'));
     }
 
+    if (semanticType !== undefined && !isTransactionSemanticType(semanticType)) {
+      return ResultHelper.failure(new ValidationError('Invalid semanticType'));
+    }
+
     try {
       // Check if transaction exists
       const existing = await this.repository.findById(id.trim());
@@ -56,6 +62,7 @@ export class UpdateTransactionUseCase {
         description,
         date,
         type,
+        semanticType,
       });
 
       logger.info('Transaction updated', { transactionId: id });

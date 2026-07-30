@@ -1,5 +1,10 @@
 import { ValidationError } from '../../domain/errors/AppError';
 import { Result, ResultHelper } from '../../domain/types/Result';
+import {
+  isTransactionSemanticType,
+  TransactionSemanticType,
+  TRANSACTION_SEMANTIC_TYPES,
+} from '../../../modules/transaction/domain/transactionSemanticType';
 
 export interface ValidationResult {
   isValid: boolean;
@@ -118,6 +123,18 @@ export class Validators {
 
   static transactionType(value: any): Result<'income' | 'expense', ValidationError> {
     return this.oneOf(value, ['income', 'expense'] as const, 'type');
+  }
+
+  static transactionSemanticType(value: any): Result<TransactionSemanticType, ValidationError> {
+    if (!isTransactionSemanticType(value)) {
+      return ResultHelper.failure(
+        new ValidationError(
+          `semanticType must be one of: ${TRANSACTION_SEMANTIC_TYPES.join(', ')}`,
+          'semanticType'
+        )
+      );
+    }
+    return ResultHelper.success(value);
   }
 }
 

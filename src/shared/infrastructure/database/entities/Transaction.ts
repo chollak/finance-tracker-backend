@@ -16,6 +16,9 @@ export class Transaction {
   @Column()
   type!: 'income' | 'expense';
 
+  @Column({ default: 'expense' })
+  semanticType!: string;
+
   @Column()
   description!: string;
 

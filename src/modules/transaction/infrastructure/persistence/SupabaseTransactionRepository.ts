@@ -1,6 +1,7 @@
 import { getSupabaseClient } from '../../../../shared/infrastructure/database/supabase.config';
 import { TransactionRepository } from '../../domain/transactionRepository';
 import { Transaction } from '../../domain/transactionEntity';
+import { normalizeSemanticType } from '../../domain/transactionSemanticType';
 import { createLogger, LogCategory } from '../../../../shared/infrastructure/logging';
 
 const logger = createLogger(LogCategory.TRANSACTION);
@@ -12,6 +13,7 @@ export class SupabaseTransactionRepository implements TransactionRepository {
     const insertData = {
       amount: transaction.amount,
       type: transaction.type,
+      semantic_type: normalizeSemanticType(transaction.semanticType, transaction.type),
       description: transaction.description,
       date: transaction.date,
       merchant: transaction.merchant,
@@ -108,6 +110,9 @@ export class SupabaseTransactionRepository implements TransactionRepository {
     
     if (updates.amount !== undefined) updateData.amount = updates.amount;
     if (updates.type !== undefined) updateData.type = updates.type;
+    if (updates.semanticType !== undefined) {
+      updateData.semantic_type = normalizeSemanticType(updates.semanticType, updates.type ?? 'expense');
+    }
     if (updates.description !== undefined) updateData.description = updates.description;
     if (updates.date !== undefined) updateData.date = updates.date;
     if (updates.merchant !== undefined) updateData.merchant = updates.merchant;
@@ -176,6 +181,7 @@ export class SupabaseTransactionRepository implements TransactionRepository {
       id: row.id,
       amount: Number(row.amount),
       type: row.type,
+      semanticType: normalizeSemanticType(row.semantic_type, row.type),
       description: row.description,
       date: row.date,
       userId: row.user_id,

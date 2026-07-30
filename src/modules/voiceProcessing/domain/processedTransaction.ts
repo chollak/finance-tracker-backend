@@ -1,8 +1,11 @@
+import { TransactionSemanticType } from '../../transaction/domain/transactionSemanticType';
+
 export interface DetectedTransaction {
   id: string;
   amount: number;
   category: string;
   type: 'income' | 'expense';
+  semanticType?: TransactionSemanticType;
   date: string;
   merchant?: string;
   confidence?: number;
