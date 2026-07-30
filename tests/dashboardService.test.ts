@@ -249,5 +249,28 @@ describe('Dashboard Service', () => {
       expect(weeklyInsights[0].topCategory).toBe('Food');
       expect(weeklyInsights[0].week).toContain('-'); // Should contain date range
     });
+
+    it('excludes non-expense/income semanticTypes from weekly income/expense totals', async () => {
+      const firstWeekDate = new Date();
+      firstWeekDate.setDate(firstWeekDate.getDate() - 3); // within the single requested week
+
+      const mockTransactions = [
+        { id: '1', type: 'expense' as const, semanticType: 'expense' as const, amount: 40, category: 'Food', description: 'Groceries', date: firstWeekDate.toISOString(), userId: 'user-123' },
+        { id: '2', type: 'expense' as const, semanticType: 'own_transfer' as const, amount: 500, category: 'Transfer', description: 'Move to savings', date: firstWeekDate.toISOString(), userId: 'user-123' },
+        { id: '3', type: 'expense' as const, semanticType: 'saving_deposit' as const, amount: 300, category: 'Savings', description: 'Deposit', date: firstWeekDate.toISOString(), userId: 'user-123' },
+        { id: '4', type: 'expense' as const, semanticType: 'debt' as const, amount: 200, category: 'Debt', description: 'Lent to friend', date: firstWeekDate.toISOString(), userId: 'user-123' },
+        { id: '5', type: 'income' as const, semanticType: 'reimbursement' as const, amount: 80, category: 'Refund', description: 'Refund', date: firstWeekDate.toISOString(), userId: 'user-123' },
+        { id: '6', type: 'expense' as const, semanticType: 'cash_withdrawal' as const, amount: 100, category: 'Cash', description: 'ATM', date: firstWeekDate.toISOString(), userId: 'user-123' },
+        { id: '7', type: 'expense' as const, semanticType: 'group_payment' as const, amount: 150, category: 'Group', description: 'Split bill', date: firstWeekDate.toISOString(), userId: 'user-123' },
+      ];
+      mockAnalyticsService.getTransactionsForUser.mockResolvedValue(mockTransactions);
+
+      const weeklyInsights = await dashboardService.getWeeklyInsights('user-123', 1);
+
+      expect(weeklyInsights).toHaveLength(1);
+      expect(weeklyInsights[0].expenses).toBe(40);
+      expect(weeklyInsights[0].income).toBe(0);
+      expect(weeklyInsights[0].topCategory).toBe('Food');
+    });
   });
 });

@@ -280,6 +280,58 @@ describe('Budget System', () => {
       expect(overBudgets[0].isOverBudget).toBe(true);
     });
 
+    it('should count only semanticType "expense" transactions when recalculating spending (no category filter)', async () => {
+      (budgetRepository.findById as jest.Mock).mockResolvedValue({
+        ...mockBudgetEntity,
+        categoryIds: undefined,
+      });
+      (transactionRepository.getByUserIdAndDateRange as jest.Mock).mockResolvedValue([
+        { id: 't1', amount: 50, type: 'expense', semanticType: 'expense', description: 'Groceries', date: '2024-01-05', category: 'food', userId: 'user-123' },
+        { id: 't2', amount: 500, type: 'expense', semanticType: 'own_transfer', description: 'To savings acct', date: '2024-01-06', category: 'transfer', userId: 'user-123' },
+        { id: 't3', amount: 300, type: 'expense', semanticType: 'saving_deposit', description: 'Deposit', date: '2024-01-07', category: 'savings', userId: 'user-123' },
+        { id: 't4', amount: 200, type: 'expense', semanticType: 'debt', description: 'Lent to friend', date: '2024-01-08', category: 'debt', userId: 'user-123' },
+        { id: 't5', amount: 80, type: 'income', semanticType: 'reimbursement', description: 'Refund', date: '2024-01-09', category: 'refund', userId: 'user-123' },
+        { id: 't6', amount: 100, type: 'expense', semanticType: 'cash_withdrawal', description: 'ATM', date: '2024-01-10', category: 'cash', userId: 'user-123' },
+        { id: 't7', amount: 150, type: 'expense', semanticType: 'group_payment', description: 'Split bill', date: '2024-01-11', category: 'group', userId: 'user-123' },
+      ]);
+
+      await budgetService.recalculateBudgetSpending('budget-123');
+
+      expect(budgetRepository.updateSpentAmount).toHaveBeenCalledWith('budget-123', 50);
+    });
+
+    it('should count only semanticType "expense" transactions when a category filter is set', async () => {
+      (budgetRepository.findById as jest.Mock).mockResolvedValue({
+        ...mockBudgetEntity,
+        categoryIds: ['food', 'transfer', 'debt'],
+      });
+      (transactionRepository.getByUserIdAndDateRange as jest.Mock).mockResolvedValue([
+        { id: 't1', amount: 50, type: 'expense', semanticType: 'expense', description: 'Groceries', date: '2024-01-05', category: 'food', userId: 'user-123' },
+        { id: 't2', amount: 500, type: 'expense', semanticType: 'own_transfer', description: 'To savings acct', date: '2024-01-06', category: 'transfer', userId: 'user-123' },
+        { id: 't4', amount: 200, type: 'expense', semanticType: 'debt', description: 'Lent to friend', date: '2024-01-08', category: 'debt', userId: 'user-123' },
+      ]);
+
+      await budgetService.recalculateBudgetSpending('budget-123');
+
+      // Only the 'food' transaction is both in-category and semanticType 'expense'
+      expect(budgetRepository.updateSpentAmount).toHaveBeenCalledWith('budget-123', 50);
+    });
+
+    it('preserves legacy fallback: transactions without semanticType still count as spending when type is expense', async () => {
+      (budgetRepository.findById as jest.Mock).mockResolvedValue({
+        ...mockBudgetEntity,
+        categoryIds: undefined,
+      });
+      (transactionRepository.getByUserIdAndDateRange as jest.Mock).mockResolvedValue([
+        { id: 't1', amount: 50, type: 'expense', description: 'Groceries', date: '2024-01-05', category: 'food', userId: 'user-123' },
+        { id: 't2', amount: 200, type: 'income', description: 'Salary', date: '2024-01-06', category: 'income', userId: 'user-123' },
+      ]);
+
+      await budgetService.recalculateBudgetSpending('budget-123');
+
+      expect(budgetRepository.updateSpentAmount).toHaveBeenCalledWith('budget-123', 50);
+    });
+
     it('should generate budget period dates', () => {
       const startDate = new Date('2024-01-01');
       const monthlyDates = budgetService.generateBudgetPeriodDates(BudgetPeriod.MONTHLY, startDate);

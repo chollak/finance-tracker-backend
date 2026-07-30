@@ -1,5 +1,6 @@
 import { TransactionRepository } from "../domain/transactionRepository";
 import { Transaction } from "../domain/transactionEntity";
+import { countsAsIncome, countsAsRealExpense, normalizeSemanticType } from "../domain/transactionSemanticType";
 
 export interface TimeRange {
   startDate: Date;
@@ -132,9 +133,10 @@ export class AnalyticsService {
             const data = monthlyData[monthKey];
             data.transactionCount++;
 
-            if (transaction.type === 'income') {
+            const semanticType = normalizeSemanticType(transaction.semanticType, transaction.type);
+            if (countsAsIncome(semanticType)) {
                 data.income += transaction.amount;
-            } else {
+            } else if (countsAsRealExpense(semanticType)) {
                 data.expenses += transaction.amount;
             }
             data.net = data.income - data.expenses;
@@ -148,8 +150,10 @@ export class AnalyticsService {
 
     async getSpendingPatterns(userId: string, timeRange?: TimeRange): Promise<SpendingPattern[]> {
         const transactions = await this.getTransactionsInRange(userId, timeRange);
-        const expenseTransactions = transactions.filter(t => t.type === 'expense');
-        
+        const expenseTransactions = transactions.filter(t =>
+            countsAsRealExpense(normalizeSemanticType(t.semanticType, t.type))
+        );
+
         const dayData: { [key: string]: { total: number; count: number } } = {};
         const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -176,7 +180,9 @@ export class AnalyticsService {
 
     async getTopCategories(userId: string, timeRange?: TimeRange, limit: number = 5): Promise<Array<{ category: string; amount: number; percentage: number }>> {
         const transactions = await this.getTransactionsInRange(userId, timeRange);
-        const expenseTransactions = transactions.filter(t => t.type === 'expense' && !t.isDebtRelated);
+        const expenseTransactions = transactions.filter(t =>
+            countsAsRealExpense(normalizeSemanticType(t.semanticType, t.type)) && !t.isDebtRelated
+        );
         const totalExpenseAmount = expenseTransactions.reduce((sum, t) => sum + t.amount, 0);
         const categoryTotals: Record<string, number> = {};
 
@@ -223,9 +229,10 @@ export class AnalyticsService {
                 continue;
             }
 
-            if (transaction.type === "income") {
+            const semanticType = normalizeSemanticType(transaction.semanticType, transaction.type);
+            if (countsAsIncome(semanticType)) {
                 totalIncome += transaction.amount;
-            } else if (transaction.type === "expense") {
+            } else if (countsAsRealExpense(semanticType)) {
                 totalExpense += transaction.amount;
             }
         }

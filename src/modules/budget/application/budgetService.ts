@@ -1,6 +1,7 @@
 import { BudgetRepository } from '../domain/budgetRepository';
 import { TransactionRepository } from '../../transaction/domain/transactionRepository';
 import { BudgetSummary, BudgetPeriod } from '../domain/budgetEntity';
+import { countsAsBudgetSpending, normalizeSemanticType } from '../../transaction/domain/transactionSemanticType';
 
 export class BudgetService {
   private budgetRepository: BudgetRepository;
@@ -23,16 +24,19 @@ export class BudgetService {
     );
 
     let totalSpent = 0;
-    
+
+    const budgetSpendingTransactions = transactions.filter(t =>
+      countsAsBudgetSpending(normalizeSemanticType(t.semanticType, t.type))
+    );
+
     // Filter by categories if specified
     if (budget.categoryIds && budget.categoryIds.length > 0) {
-      totalSpent = transactions
-        .filter(t => t.type === 'expense' && budget.categoryIds!.includes(t.category))
+      totalSpent = budgetSpendingTransactions
+        .filter(t => budget.categoryIds!.includes(t.category))
         .reduce((sum, t) => sum + t.amount, 0);
     } else {
-      // Include all expenses if no categories specified
-      totalSpent = transactions
-        .filter(t => t.type === 'expense')
+      // Include all budget-counted spending if no categories specified
+      totalSpent = budgetSpendingTransactions
         .reduce((sum, t) => sum + t.amount, 0);
     }
 

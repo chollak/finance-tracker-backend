@@ -1,6 +1,7 @@
 import { AnalyticsService, TimeRange, MonthlyTrend } from '../../../transaction/application/analyticsService';
 import { BudgetService } from '../../../budget/application/budgetService';
 import { BudgetSummary } from '../../../budget/domain/budgetEntity';
+import { countsAsIncome, countsAsRealExpense, normalizeSemanticType } from '../../../transaction/domain/transactionSemanticType';
 
 export interface DashboardInsights {
   financialSummary: {
@@ -145,9 +146,10 @@ export class DashboardService {
       const categoryAmounts: Record<string, number> = {};
 
       for (const t of weekTransactions) {
-        if (t.type === 'income') {
+        const semanticType = normalizeSemanticType(t.semanticType, t.type);
+        if (countsAsIncome(semanticType)) {
           income += t.amount;
-        } else if (t.type === 'expense') {
+        } else if (countsAsRealExpense(semanticType)) {
           expenses += t.amount;
           categoryAmounts[t.category] = (categoryAmounts[t.category] || 0) + t.amount;
         }

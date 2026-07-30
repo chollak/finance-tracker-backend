@@ -212,6 +212,76 @@ describe('Enhanced Analytics Service', () => {
     });
   });
 
+  describe('semanticType-aware spending calculations', () => {
+    // A normal expense plus one transaction of every non-expense semantic type,
+    // each tagged with a legacy `type` that would previously have inflated totals.
+    const semanticTransactions: Transaction[] = [
+      { id: 'sem-1', amount: 50, type: 'expense', semanticType: 'expense', description: 'Groceries', date: '2024-03-04', category: 'Food', userId: 'user-123' }, // Monday
+      { id: 'sem-2', amount: 500, type: 'expense', semanticType: 'own_transfer', description: 'Move to savings account', date: '2024-03-05', category: 'Transfer', userId: 'user-123' },
+      { id: 'sem-3', amount: 300, type: 'expense', semanticType: 'saving_deposit', description: 'Deposit', date: '2024-03-06', category: 'Savings', userId: 'user-123' },
+      { id: 'sem-4', amount: 200, type: 'expense', semanticType: 'debt', description: 'Lent money to a friend', date: '2024-03-07', category: 'Debt', userId: 'user-123' },
+      { id: 'sem-5', amount: 80, type: 'income', semanticType: 'reimbursement', description: 'Refund from friend', date: '2024-03-08', category: 'Refund', userId: 'user-123' },
+      { id: 'sem-6', amount: 100, type: 'expense', semanticType: 'cash_withdrawal', description: 'ATM withdrawal', date: '2024-03-09', category: 'Cash', userId: 'user-123' },
+      { id: 'sem-7', amount: 150, type: 'expense', semanticType: 'group_payment', description: 'Split restaurant bill', date: '2024-03-10', category: 'Group', userId: 'user-123' },
+    ];
+
+    it('getAnalyticsSummary counts only real expense/income semanticTypes, not transfers/savings/debt/reimbursement/withdrawals/group payments', async () => {
+      mockRepository.findByUserId.mockResolvedValue(semanticTransactions);
+
+      const summary = await analyticsService.getAnalyticsSummary('user-123');
+
+      expect(summary.totalExpense).toBe(50); // only sem-1
+      expect(summary.totalIncome).toBe(0); // reimbursement does not count as income
+      expect(summary.transactionCount).toBe(7); // all transactions still counted
+    });
+
+    it('getSpendingPatterns excludes non-expense semanticTypes from day-of-week totals', async () => {
+      mockRepository.findByUserId.mockResolvedValue(semanticTransactions);
+
+      const patterns = await analyticsService.getSpendingPatterns('user-123');
+
+      const mondayPattern = patterns.find(p => p.dayOfWeek === 'Monday');
+      expect(mondayPattern?.averageAmount).toBe(50);
+      expect(mondayPattern?.transactionCount).toBe(1);
+
+      const otherDaysTotal = patterns
+        .filter(p => p.dayOfWeek !== 'Monday')
+        .reduce((sum, p) => sum + p.transactionCount, 0);
+      expect(otherDaysTotal).toBe(0);
+    });
+
+    it('getTopCategories excludes non-expense semanticTypes', async () => {
+      mockRepository.findByUserId.mockResolvedValue(semanticTransactions);
+
+      const topCategories = await analyticsService.getTopCategories('user-123');
+
+      expect(topCategories).toHaveLength(1);
+      expect(topCategories[0].category).toBe('Food');
+      expect(topCategories[0].amount).toBe(50);
+    });
+
+    it('getMonthlyTrends counts only real expense/income semanticTypes', async () => {
+      mockRepository.getByUserIdAndDateRange.mockResolvedValue(semanticTransactions);
+
+      const trends = await analyticsService.getMonthlyTrends('user-123', 3);
+
+      const marchTrend = trends.find(t => t.month === 'Mar' && t.year === 2024);
+      expect(marchTrend?.expenses).toBe(50);
+      expect(marchTrend?.income).toBe(0);
+      expect(marchTrend?.transactionCount).toBe(7);
+    });
+
+    it('preserves legacy fallback: transactions without semanticType still count by their raw type', async () => {
+      // mockTransactions (defined above) has no semanticType field on any entry
+      mockRepository.findByUserId.mockResolvedValue(mockTransactions);
+
+      const summary = await analyticsService.getAnalyticsSummary('user-123');
+
+      expect(summary.totalExpense).toBe(225); // 50 + 100 + 75, same as legacy behavior
+      expect(summary.totalIncome).toBe(200);
+    });
+  });
+
   describe('backward compatibility', () => {
     it('should maintain getSummary method for existing code', async () => {
       mockRepository.getAll.mockResolvedValue(mockTransactions);
