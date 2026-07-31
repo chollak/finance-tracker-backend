@@ -1000,7 +1000,7 @@ Definition of Done:
 - [ ] Backend tests cover monthly rollover/reset behavior.
 - [ ] Budget summaries use current period date range.
 - [ ] UI shows current budget period clearly.
-- [ ] `npm run verify` passes.
+- [x] `npm run verify` passes.
 
 ---
 
@@ -2174,7 +2174,7 @@ Verification:
 
 ### FT-SEM-004: Redesign readiness QA
 
-Status: ready
+Status: done
 Priority: medium
 Owner: Hermes, optional Claude Code browser QA
 Type: qa
@@ -2183,8 +2183,40 @@ Goal:
 Before applying the final visual redesign, verify that semantic contracts, correction foundation, and weekly summary foundation are green and documented.
 
 Definition of Done:
-- [ ] `npm run verify` passes
-- [ ] Mini App build passes
-- [ ] Current Telegram Mini App can be opened via tunnel
-- [ ] Remaining redesign-only tasks are separated from foundation blockers
+- [x] `npm run verify` passes
+- [x] Mini App build passes
+- [x] Current Telegram Mini App can be opened via tunnel
+- [x] Remaining redesign-only tasks are separated from foundation blockers
 
+
+
+---
+
+### FT-SEM-005: Finalized totals respect needsReview
+
+Status: done
+Priority: high
+Owner: Claude Code, QA by Hermes
+Type: feature-consistency
+
+Goal:
+Make analytics, budgets, Home trust formula, and AI prompts consistent with the weekly-review trust rule: `needsReview` transactions are excluded from finalized totals until corrected.
+
+Definition of Done:
+- [x] Analytics totals/category/trends/spending patterns exclude `needsReview`
+- [x] Budget spending excludes `needsReview`
+- [x] HomeTrustSummary excludes `needsReview` from finalized formula/chips
+- [x] English AI prompt includes `needsReview` rules matching Russian prompt
+- [x] Focused tests added/updated
+- [x] `npm run verify` passes
+
+Verification:
+- `npm test -- tests/analytics.test.ts tests/budget.test.ts tests/dashboardService.test.ts tests/weeklyReviewService.test.ts --runInBand` — passed, 4 suites / 51 tests.
+- `npm run verify` — passed, 24 suites / 227 tests.
+- Mini App tunnel probe — `root:200`, `health:200`.
+
+
+FT-SEM-004 verification:
+- Claude Code readiness QA report: `/tmp/finance-redesign-readiness-report.md`
+- Local `.env` uses `DATABASE_TYPE=sqlite`; Supabase migrations 007/008 remain a pre-production/prod-deploy action, not a local redesign blocker.
+- Current tunnel/menu status verified: `root:200`, `health:200`, `menu.type=web_app`.

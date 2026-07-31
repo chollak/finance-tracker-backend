@@ -282,6 +282,68 @@ describe('Enhanced Analytics Service', () => {
     });
   });
 
+  describe('needsReview exclusion from finalized totals', () => {
+    const needsReviewTransactions: Transaction[] = [
+      { id: 'nr-1', amount: 50, type: 'expense', semanticType: 'expense', description: 'Groceries', date: '2024-04-01', category: 'Food', userId: 'user-123' }, // Monday
+      { id: 'nr-2', amount: 300, type: 'expense', semanticType: 'expense', description: 'Uncertain purchase', date: '2024-04-02', category: 'Food', userId: 'user-123', needsReview: true },
+      { id: 'nr-3', amount: 200, type: 'income', semanticType: 'income', description: 'Uncertain income', date: '2024-04-03', category: 'Income', userId: 'user-123', needsReview: true },
+      { id: 'nr-4', amount: 100, type: 'income', semanticType: 'income', description: 'Salary', date: '2024-04-04', category: 'Income', userId: 'user-123' },
+    ];
+
+    it('getAnalyticsSummary excludes needsReview transactions from totalExpense/totalIncome', async () => {
+      mockRepository.findByUserId.mockResolvedValue(needsReviewTransactions);
+
+      const summary = await analyticsService.getAnalyticsSummary('user-123');
+
+      expect(summary.totalExpense).toBe(50); // nr-1 only, nr-2 excluded
+      expect(summary.totalIncome).toBe(100); // nr-4 only, nr-3 excluded
+    });
+
+    it('getDetailedCategoryBreakdown excludes needsReview transactions', async () => {
+      mockRepository.findByUserId.mockResolvedValue(needsReviewTransactions);
+
+      const breakdown = await analyticsService.getDetailedCategoryBreakdown('user-123');
+
+      expect(breakdown.Food.amount).toBe(50);
+      expect(breakdown.Food.count).toBe(1);
+      expect(breakdown.Income.amount).toBe(100);
+      expect(breakdown.Income.count).toBe(1);
+    });
+
+    it('getTopCategories excludes needsReview transactions', async () => {
+      mockRepository.findByUserId.mockResolvedValue(needsReviewTransactions);
+
+      const topCategories = await analyticsService.getTopCategories('user-123');
+
+      expect(topCategories).toHaveLength(1);
+      expect(topCategories[0].category).toBe('Food');
+      expect(topCategories[0].amount).toBe(50);
+    });
+
+    it('getMonthlyTrends excludes needsReview transactions from income/expenses', async () => {
+      mockRepository.getByUserIdAndDateRange.mockResolvedValue(needsReviewTransactions);
+
+      const trends = await analyticsService.getMonthlyTrends('user-123', 3);
+
+      const aprilTrend = trends.find(t => t.month === 'Apr' && t.year === 2024);
+      expect(aprilTrend?.expenses).toBe(50);
+      expect(aprilTrend?.income).toBe(100);
+    });
+
+    it('getSpendingPatterns excludes needsReview transactions', async () => {
+      mockRepository.findByUserId.mockResolvedValue(needsReviewTransactions);
+
+      const patterns = await analyticsService.getSpendingPatterns('user-123');
+
+      const mondayPattern = patterns.find(p => p.dayOfWeek === 'Monday');
+      expect(mondayPattern?.averageAmount).toBe(50);
+      expect(mondayPattern?.transactionCount).toBe(1);
+
+      const tuesdayPattern = patterns.find(p => p.dayOfWeek === 'Tuesday'); // nr-2's date
+      expect(tuesdayPattern?.transactionCount).toBe(0);
+    });
+  });
+
   describe('backward compatibility', () => {
     it('should maintain getSummary method for existing code', async () => {
       mockRepository.getAll.mockResolvedValue(mockTransactions);

@@ -39,7 +39,9 @@ export function HomeTrustSummary() {
   }
 
   const monthStart = startOfCurrentMonth();
-  const monthTransactions = transactions.filter((transaction) => transaction.date >= monthStart);
+  const monthTransactions = transactions
+    .filter((transaction) => transaction.date >= monthStart)
+    .filter((transaction) => transaction._needsReview !== true && transaction.needsReview !== true);
   const outgoingTotal = monthTransactions
     .filter((transaction) => transaction.type === 'expense')
     .reduce((sum, transaction) => sum + transaction.amount, 0);

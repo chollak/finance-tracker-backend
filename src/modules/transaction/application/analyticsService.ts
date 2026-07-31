@@ -79,11 +79,12 @@ export class AnalyticsService {
     }
 
     async getDetailedCategoryBreakdown(userId: string, timeRange?: TimeRange): Promise<CategoryBreakdown> {
-        const transactions = await this.getTransactionsInRange(userId, timeRange);
+        const transactions = (await this.getTransactionsInRange(userId, timeRange))
+            .filter(t => !t.needsReview);
         const totalAmount = transactions.reduce((sum, t) => sum + t.amount, 0);
-        
+
         const breakdown: { [key: string]: { amount: number; count: number } } = {};
-        
+
         for (const transaction of transactions) {
             if (!breakdown[transaction.category]) {
                 breakdown[transaction.category] = { amount: 0, count: 0 };
@@ -114,6 +115,10 @@ export class AnalyticsService {
         const monthlyData: { [key: string]: MonthlyTrend } = {};
 
         for (const transaction of transactions) {
+            if (transaction.needsReview) {
+                continue;
+            }
+
             const date = new Date(transaction.date);
             const monthKey = `${date.getFullYear()}-${date.getMonth()}`;
             const monthName = date.toLocaleDateString('en-US', { month: 'short' });
@@ -151,7 +156,7 @@ export class AnalyticsService {
     async getSpendingPatterns(userId: string, timeRange?: TimeRange): Promise<SpendingPattern[]> {
         const transactions = await this.getTransactionsInRange(userId, timeRange);
         const expenseTransactions = transactions.filter(t =>
-            countsAsRealExpense(normalizeSemanticType(t.semanticType, t.type))
+            !t.needsReview && countsAsRealExpense(normalizeSemanticType(t.semanticType, t.type))
         );
 
         const dayData: { [key: string]: { total: number; count: number } } = {};
@@ -181,7 +186,7 @@ export class AnalyticsService {
     async getTopCategories(userId: string, timeRange?: TimeRange, limit: number = 5): Promise<Array<{ category: string; amount: number; percentage: number }>> {
         const transactions = await this.getTransactionsInRange(userId, timeRange);
         const expenseTransactions = transactions.filter(t =>
-            countsAsRealExpense(normalizeSemanticType(t.semanticType, t.type)) && !t.isDebtRelated
+            !t.needsReview && countsAsRealExpense(normalizeSemanticType(t.semanticType, t.type)) && !t.isDebtRelated
         );
         const totalExpenseAmount = expenseTransactions.reduce((sum, t) => sum + t.amount, 0);
         const categoryTotals: Record<string, number> = {};
@@ -226,6 +231,11 @@ export class AnalyticsService {
         for (const transaction of transactions) {
             // Skip debt-related transactions from balance calculation
             if (transaction.isDebtRelated) {
+                continue;
+            }
+
+            // Skip transactions flagged for review from finalized totals
+            if (transaction.needsReview) {
                 continue;
             }
 

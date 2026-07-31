@@ -3699,3 +3699,58 @@ npm run verify
 
 Result: passed — 24 suites / 221 tests, backend build, webapp build, dependency-cruiser, and madge circular check.
 
+## 2026-07-31 — FT-SEM-004/005 redesign readiness closed
+
+### Goal
+
+Close the pre-redesign gate after weekly review foundation by checking consistency gaps and verifying the current Mini App can still open.
+
+### Execution
+
+Claude Code ran a read-only readiness QA and wrote `/tmp/finance-redesign-readiness-report.md`. It found two non-migration consistency gaps:
+
+1. English AI prompt omitted `needsReview` instructions.
+2. Analytics/budget/Home finalized totals still counted `needsReview` transactions.
+
+Hermes delegated both fixes back to Claude Code in small slices. Claude Code added RED tests for analytics/budget, implemented backend exclusions, updated HomeTrustSummary, and updated the English prompt. Hermes did not manually implement code in these slices; Hermes reviewed diffs and ran verification.
+
+### Files changed
+
+- `src/modules/transaction/application/analyticsService.ts`
+- `src/modules/budget/application/budgetService.ts`
+- `src/shared/domain/constants/messages.ts`
+- `webapp/src/widgets/home-trust-summary/ui/HomeTrustSummary.tsx`
+- `tests/analytics.test.ts`
+- `tests/budget.test.ts`
+- `TASKS.md`
+- `AUTONOMOUS_REPORT.md`
+
+### Verification
+
+```bash
+npm test -- tests/analytics.test.ts tests/budget.test.ts tests/dashboardService.test.ts tests/weeklyReviewService.test.ts --runInBand
+```
+
+Result: passed — 4 suites / 51 tests.
+
+```bash
+npm run verify
+```
+
+Result: passed — 24 suites / 227 tests, backend build, webapp build, dependency-cruiser, and madge circular check.
+
+Mini App tunnel/menu check:
+
+- `root:200`
+- `health:200`
+- `menu.type=web_app`
+- URL: `https://employers-nasa-wondering-pointing.trycloudflare.com/?userId=131184740`
+
+### Remaining non-code gate
+
+Local `.env` currently uses `DATABASE_TYPE=sqlite`, so Supabase migrations 007/008 are not a local redesign blocker. Before any Supabase/prod run, migrations 007 and 008 must be applied/confirmed explicitly.
+
+### Redesign readiness verdict
+
+Ready for redesign on local/dev code foundation. The next safe redesign slice is visual redesign of transaction list/cards and Home summary using existing `semanticType`, `needsReview`, correction chips, and weekly-review summary foundation.
+

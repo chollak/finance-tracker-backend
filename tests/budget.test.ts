@@ -332,6 +332,21 @@ describe('Budget System', () => {
       expect(budgetRepository.updateSpentAmount).toHaveBeenCalledWith('budget-123', 50);
     });
 
+    it('excludes needsReview transactions from budget spending', async () => {
+      (budgetRepository.findById as jest.Mock).mockResolvedValue({
+        ...mockBudgetEntity,
+        categoryIds: undefined,
+      });
+      (transactionRepository.getByUserIdAndDateRange as jest.Mock).mockResolvedValue([
+        { id: 't1', amount: 50, type: 'expense', semanticType: 'expense', description: 'Groceries', date: '2024-01-05', category: 'food', userId: 'user-123' },
+        { id: 't2', amount: 300, type: 'expense', semanticType: 'expense', description: 'Uncertain purchase', date: '2024-01-06', category: 'food', userId: 'user-123', needsReview: true },
+      ]);
+
+      await budgetService.recalculateBudgetSpending('budget-123');
+
+      expect(budgetRepository.updateSpentAmount).toHaveBeenCalledWith('budget-123', 50);
+    });
+
     it('should generate budget period dates', () => {
       const startDate = new Date('2024-01-01');
       const monthlyDates = budgetService.generateBudgetPeriodDates(BudgetPeriod.MONTHLY, startDate);

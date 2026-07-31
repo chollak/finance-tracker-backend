@@ -26,7 +26,7 @@ export class BudgetService {
     let totalSpent = 0;
 
     const budgetSpendingTransactions = transactions.filter(t =>
-      countsAsBudgetSpending(normalizeSemanticType(t.semanticType, t.type))
+      !t.needsReview && countsAsBudgetSpending(normalizeSemanticType(t.semanticType, t.type))
     );
 
     // Filter by categories if specified

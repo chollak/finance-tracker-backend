@@ -145,6 +145,7 @@ ${generateCategoryPrompt()}
       RESPONSE FORMAT:
       [{"amount": number, "category": "category_id", "type": "income" | "expense",
         "semanticType": "expense" | "income" | "own_transfer" | "saving_deposit" | "debt" | "reimbursement" | "cash_withdrawal" | "group_payment",
+        "needsReview": true | false,
         "date": "YYYY-MM-DD", "merchant": "normalized name", "confidence": number, "description": "brief description"}]
 
       SEMANTIC TYPE RULES (required field, meaning of the transaction):
@@ -156,7 +157,12 @@ ${generateCategoryPrompt()}
       - "reimbursement" — money returned/refunded to the user
       - "cash_withdrawal" — cash withdrawal from ATM/bank
       - "group_payment" — paying for a group, to be split later
-      - If unsure, use "expense" for spending or "income" for income
+      - If unsure, use "expense" for spending or "income" for income and set "needsReview": true
+
+      NEEDSREVIEW RULES:
+      - "needsReview": false — when the meaning of the transaction is confidently clear
+      - "needsReview": true — when the transaction is ambiguous (could be own_transfer/saving_deposit/debt/cash_withdrawal/group_payment) but the text doesn't clearly indicate which
+      - Do NOT invent a semanticType "unknown": ambiguity is expressed only through needsReview
 
       DATE RULES:
       - "yesterday" = yesterday's date from today
