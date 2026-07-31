@@ -3534,3 +3534,38 @@ Final screenshot examples:
 ### Next
 
 Commit/push FT-037 and restart backend runtime.
+
+## 2026-07-31 — Autonomous pre-redesign continuation started
+
+### Goal
+
+Continue autonomously with Claude Code as implementation developer and Hermes as QA gatekeeper. Focus is no longer broad design polish; it is preparing the product foundation for redesign: semantic trust, needs-review, correction contracts, and weekly-review primitives.
+
+### Latest design artifact
+
+Received and extracted latest Claude Design artifact:
+
+- Source: `/home/shukur/.hermes/cache/documents/doc_3c2e5d5c979a_Telegram Finance Tracker Prototype.zip`
+- Extracted: `/tmp/claude-design-finance-latest/`
+- Main file: `/tmp/claude-design-finance-latest/Finance Tracker.dc.html`
+
+Relevant product cues from artifact:
+
+- `Нужно проверить` is a trust feature, not an error.
+- Uncertain transactions should stay out of final totals until corrected.
+- Correction chips should update semantic type and teach future similar operations.
+- Group payments should count only the user's share later; full amount should not inflate real expenses.
+
+### Planned autonomous sequence
+
+1. FT-SEM-001 — add `needsReview` foundation.
+2. FT-SEM-002 — add semantic correction foundation.
+3. FT-SEM-003 — add weekly review foundation.
+4. FT-SEM-004 — final verify + redesign readiness report.
+
+### Constraints
+
+- Claude Code may implement but must not commit/push/deploy/edit env/print secrets.
+- Hermes reviews diff and runs focused tests + `npm run verify` before each commit.
+- Supabase migration files may be created, but migrations are not executed without explicit approval.
+

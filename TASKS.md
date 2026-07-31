@@ -2091,3 +2091,86 @@ Notes:
 - We have completed 1–2 successful Hermes → Claude Code → Hermes QA iterations
 - CI/build/test gates are reliable
 - Shukur wants GitHub UI as primary tracking surface
+
+---
+
+### FT-SEM-001: Add needsReview transaction foundation
+
+Status: in_progress
+Priority: high
+Owner: Claude Code, QA by Hermes
+Type: feature-foundation
+
+Context:
+Semantic transaction types are already stored and used by analytics/budgets/UI. The next pre-redesign blocker is trust/correction flow: uncertain transactions must be explicitly marked as needing review so analytics and future UI can avoid silently lying.
+
+Goal:
+Add a `needsReview` boolean foundation across backend domain/API/persistence and voice/text parsing. This is a data/contract slice only; avoid broad redesign.
+
+Definition of Done:
+- [ ] Transaction domain/entity/API DTOs support optional `needsReview` with default `false`
+- [ ] SQLite/TypeORM/Supabase persistence maps `needsReview`
+- [ ] New migration file is created but not executed against production/Supabase
+- [ ] OpenAI parsing contract can return `needsReview`
+- [ ] Text/voice processing passes `needsReview` into transaction creation
+- [ ] Fast-path/simple manual quick add defaults to `needsReview: false`
+- [ ] Focused tests cover default false, explicit true, parser propagation
+- [ ] Hermes runs focused tests and `npm run verify` before marking done
+
+Verification:
+- Pending.
+
+---
+
+### FT-SEM-002: Add semantic correction foundation
+
+Status: ready
+Priority: high
+Owner: Claude Code, QA by Hermes
+Type: feature-foundation
+
+Goal:
+Allow users/frontends to update `semanticType` and clear `needsReview` safely, so future redesign can implement correction chips without inventing backend contracts.
+
+Definition of Done:
+- [ ] Existing update transaction flow supports `semanticType` and `needsReview`
+- [ ] API validation rejects invalid semantic types and accepts valid correction payloads
+- [ ] Tests cover correcting an uncertain transaction and analytics recalculation after correction
+- [ ] No broad UI redesign
+
+---
+
+### FT-SEM-003: Weekly review foundation
+
+Status: ready
+Priority: medium
+Owner: Claude Code, QA by Hermes
+Type: feature-foundation
+
+Goal:
+Create backend/application-level weekly summary primitives that separate real expenses, income, excluded movements, reimbursements, and needs-review transactions. Do not implement final redesign yet.
+
+Definition of Done:
+- [ ] Weekly summary use case/service exists behind testable application code
+- [ ] Summary separates real expenses from non-expense movements
+- [ ] Needs-review transactions are exposed separately
+- [ ] Tests cover own transfers, saving deposits, reimbursements, debts, cash withdrawals, and group payments
+
+---
+
+### FT-SEM-004: Redesign readiness QA
+
+Status: ready
+Priority: medium
+Owner: Hermes, optional Claude Code browser QA
+Type: qa
+
+Goal:
+Before applying the final visual redesign, verify that semantic contracts, correction foundation, and weekly summary foundation are green and documented.
+
+Definition of Done:
+- [ ] `npm run verify` passes
+- [ ] Mini App build passes
+- [ ] Current Telegram Mini App can be opened via tunnel
+- [ ] Remaining redesign-only tasks are separated from foundation blockers
+
