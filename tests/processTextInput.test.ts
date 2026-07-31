@@ -52,6 +52,197 @@ describe('ProcessTextInputUseCase', () => {
     jest.useRealTimers();
   });
 
+  it('classifies an obvious own-transfer phrase locally without calling OpenAI', async () => {
+    const openAIService = {
+      analyzeInput: jest.fn(),
+      analyzeTransactions: jest.fn(),
+      transcribe: jest.fn()
+    } as unknown as TranscriptionService;
+
+    const createTransactionUseCase = {
+      execute: jest.fn().mockResolvedValue({ success: true, data: 'transfer-fast-1' })
+    } as unknown as CreateTransactionUseCase;
+
+    const useCase = new ProcessTextInputUseCase(openAIService, createTransactionUseCase);
+
+    const result = await useCase.execute('перевел 500000 на Alif', 'user1');
+
+    expect(openAIService.analyzeInput).not.toHaveBeenCalled();
+    expect(createTransactionUseCase.execute).toHaveBeenCalledWith(expect.objectContaining({
+      amount: 500000,
+      type: 'expense',
+      semanticType: 'own_transfer',
+      needsReview: false,
+    }));
+    expect(result.transactions).toEqual([
+      expect.objectContaining({ id: 'transfer-fast-1', semanticType: 'own_transfer', needsReview: false })
+    ]);
+  });
+
+  it('classifies an obvious savings-deposit phrase locally without calling OpenAI', async () => {
+    const openAIService = {
+      analyzeInput: jest.fn(),
+      analyzeTransactions: jest.fn(),
+      transcribe: jest.fn()
+    } as unknown as TranscriptionService;
+
+    const createTransactionUseCase = {
+      execute: jest.fn().mockResolvedValue({ success: true, data: 'saving-fast-1' })
+    } as unknown as CreateTransactionUseCase;
+
+    const useCase = new ProcessTextInputUseCase(openAIService, createTransactionUseCase);
+
+    const result = await useCase.execute('положил 2000000 на вклад', 'user1');
+
+    expect(openAIService.analyzeInput).not.toHaveBeenCalled();
+    expect(createTransactionUseCase.execute).toHaveBeenCalledWith(expect.objectContaining({
+      amount: 2000000,
+      type: 'expense',
+      semanticType: 'saving_deposit',
+      needsReview: false,
+    }));
+    expect(result.transactions).toEqual([
+      expect.objectContaining({ id: 'saving-fast-1', semanticType: 'saving_deposit', needsReview: false })
+    ]);
+  });
+
+  it('classifies an obvious cash-withdrawal phrase locally without calling OpenAI', async () => {
+    const openAIService = {
+      analyzeInput: jest.fn(),
+      analyzeTransactions: jest.fn(),
+      transcribe: jest.fn()
+    } as unknown as TranscriptionService;
+
+    const createTransactionUseCase = {
+      execute: jest.fn().mockResolvedValue({ success: true, data: 'cash-fast-1' })
+    } as unknown as CreateTransactionUseCase;
+
+    const useCase = new ProcessTextInputUseCase(openAIService, createTransactionUseCase);
+
+    const result = await useCase.execute('снял наличку 1000000', 'user1');
+
+    expect(openAIService.analyzeInput).not.toHaveBeenCalled();
+    expect(createTransactionUseCase.execute).toHaveBeenCalledWith(expect.objectContaining({
+      amount: 1000000,
+      type: 'expense',
+      semanticType: 'cash_withdrawal',
+      needsReview: false,
+    }));
+    expect(result.transactions).toEqual([
+      expect.objectContaining({ id: 'cash-fast-1', semanticType: 'cash_withdrawal', needsReview: false })
+    ]);
+  });
+
+  it('classifies an obvious salary/income phrase locally without calling OpenAI', async () => {
+    const openAIService = {
+      analyzeInput: jest.fn(),
+      analyzeTransactions: jest.fn(),
+      transcribe: jest.fn()
+    } as unknown as TranscriptionService;
+
+    const createTransactionUseCase = {
+      execute: jest.fn().mockResolvedValue({ success: true, data: 'income-fast-1' })
+    } as unknown as CreateTransactionUseCase;
+
+    const useCase = new ProcessTextInputUseCase(openAIService, createTransactionUseCase);
+
+    const result = await useCase.execute('зарплата 7000000', 'user1');
+
+    expect(openAIService.analyzeInput).not.toHaveBeenCalled();
+    expect(createTransactionUseCase.execute).toHaveBeenCalledWith(expect.objectContaining({
+      amount: 7000000,
+      type: 'income',
+      category: 'salary',
+      semanticType: 'income',
+      needsReview: false,
+    }));
+    expect(result.transactions).toEqual([
+      expect.objectContaining({ id: 'income-fast-1', semanticType: 'income', needsReview: false })
+    ]);
+  });
+
+  it('falls back to OpenAI for a group-payment phrase instead of guessing a semantic type', async () => {
+    const openAIService = {
+      analyzeInput: jest.fn().mockResolvedValue({
+        transactions: [{
+          intent: 'transaction',
+          amount: 400000,
+          category: 'food',
+          type: 'expense',
+          semanticType: 'group_payment',
+          date: '2026-07-22',
+          needsReview: true,
+        }],
+        debts: []
+      }),
+      analyzeTransactions: jest.fn(),
+      transcribe: jest.fn()
+    } as unknown as TranscriptionService;
+
+    const createTransactionUseCase = {
+      execute: jest.fn().mockResolvedValue({ success: true, data: 'group-1' })
+    } as unknown as CreateTransactionUseCase;
+
+    const useCase = new ProcessTextInputUseCase(openAIService, createTransactionUseCase);
+
+    const result = await useCase.execute('оплатил за всех ужин 400000', 'user1');
+
+    expect(openAIService.analyzeInput).toHaveBeenCalledTimes(1);
+    expect(result.transactions).toEqual([
+      expect.objectContaining({ id: 'group-1', semanticType: 'group_payment', needsReview: true })
+    ]);
+  });
+
+  it('falls back to OpenAI for debt-language text instead of using a fast path', async () => {
+    const openAIService = {
+      analyzeInput: jest.fn().mockResolvedValue({
+        transactions: [],
+        debts: [{
+          debtType: 'i_owe',
+          personName: 'друг',
+          amount: 50000,
+          dueDate: null,
+          description: 'занял у друга 50000',
+          moneyTransferred: true,
+          confidence: 0.9,
+        }],
+      }),
+      analyzeTransactions: jest.fn(),
+      transcribe: jest.fn()
+    } as unknown as TranscriptionService;
+
+    const createTransactionUseCase = {
+      execute: jest.fn(),
+    } as unknown as CreateTransactionUseCase;
+    const createDebtUseCase = {
+      execute: jest.fn().mockResolvedValue({
+        success: true,
+        data: {
+          id: 'debt-fast-1',
+          userId: 'user1',
+          type: DebtType.I_OWE,
+          personName: 'друг',
+          originalAmount: 50000,
+          remainingAmount: 50000,
+          currency: 'UZS',
+          status: DebtStatus.ACTIVE,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      }),
+    } as unknown as CreateDebtUseCase;
+
+    const useCase = new ProcessTextInputUseCase(openAIService, createTransactionUseCase, createDebtUseCase);
+
+    const result = await useCase.execute('занял у друга 50000', 'user1');
+
+    expect(openAIService.analyzeInput).toHaveBeenCalledTimes(1);
+    expect(result.debts).toEqual([
+      expect.objectContaining({ id: 'debt-fast-1', personName: 'друг' })
+    ]);
+  });
+
+
   it('passes through a semanticType returned by OpenAI into the create payload and response', async () => {
     const openAIService = {
       analyzeInput: jest.fn().mockResolvedValue({

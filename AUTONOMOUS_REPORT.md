@@ -3823,3 +3823,52 @@ Verification:
 - `npm run build:webapp` — passed.
 - `npx tsc --noEmit` — passed.
 - `npm run verify` — passed: 24 suites / 229 tests, backend build, webapp build, dependency-cruiser, madge.
+
+
+## 2026-07-31 — FT-038 semantic text-input fast paths
+
+### Goal
+
+Improve the daily Telegram text flow so obvious single-amount operations are classified semantically before falling back to OpenAI.
+
+### Execution
+
+Hermes scoped FT-038A/B as a semantic parser acceptance slice. Claude Code was attempted after the user reported the subscription should work, but the print-mode process produced no output for several minutes and was killed to avoid a stuck concurrent editor. Hermes continued directly with TDD and QA.
+
+The implementation adds a conservative `parseObviousSemanticTransaction` fast path before the existing simple expense parser. It classifies only unambiguous single-amount phrases:
+
+- `перевел 500000 на Alif` → `own_transfer`
+- `положил 2000000 на вклад` → `saving_deposit`
+- `снял наличку 1000000` → `cash_withdrawal`
+- `зарплата 7000000` → `income`
+
+Ambiguous or higher-risk text still falls through to OpenAI, including group-payment examples like `оплатил за всех ужин 400000` and debt-language examples like `занял у друга 50000`.
+
+### Files changed
+
+- `src/modules/voiceProcessing/application/processTextInput.ts`
+- `tests/processTextInput.test.ts`
+- `TASKS.md`
+- `AUTONOMOUS_REPORT.md`
+
+### Verification
+
+```bash
+npm test -- tests/processTextInput.test.ts tests/semanticTransactionParsing.test.ts --runInBand
+```
+
+Result: passed — 2 suites / 25 tests.
+
+```bash
+npx tsc --noEmit
+```
+
+Result: passed.
+
+```bash
+npm run verify
+```
+
+Result: passed — 24 suites / 235 tests, backend build, webapp build, dependency-cruiser, and madge circular check.
+
+Runtime smoke against the active Cloudflare tunnel called `/api/voice/text-input` with the four fast-path examples above. Each returned the expected `semanticType`/`type`/`needsReview: false`, and Hermes deleted all temporary transactions afterward.

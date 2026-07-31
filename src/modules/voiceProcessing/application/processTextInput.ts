@@ -7,12 +7,114 @@ import { DebtType } from '../../debt/domain/debtEntity';
 import { DebtLimitExceededError } from '../../debt/domain/errors';
 import { getLogger, LogCategory } from '../../../shared/application/logging';
 import { normalizeCategory } from '../../../shared/domain/entities/Category';
-import { normalizeSemanticType } from '../../transaction/domain/transactionSemanticType';
+import { normalizeSemanticType, TransactionSemanticType } from '../../transaction/domain/transactionSemanticType';
 import { AnalysisResult, ParsedTransaction } from '../domain/transcriptionService';
 
 const logger = getLogger(LogCategory.OPENAI);
 
 const SIMPLE_TRANSACTION_PATTERN = /^(.+?)\s+([+-]?\d[\d\s.,]*)\s*(?:сум|sum|uzs)?\s*$/i;
+
+// \b relies on \w, which only covers ASCII — it silently fails to bound Cyrillic words
+// (e.g. "\bперевел\b" never matches). Build boundaries from Unicode letter/number classes instead.
+function conservativeKeywordPattern(alternatives: string[]): RegExp {
+  return new RegExp(`(?<![\\p{L}\\p{N}_])(?:${alternatives.join('|')})(?![\\p{L}\\p{N}_])`, 'iu');
+}
+
+const DEBT_KEYWORDS_PATTERN = /\b(lent|borrowed|owe|debt|loan)\b|долг|должен|одолжил|одолжила|занял|заняла|қарз|qarz/i;
+const COMPLEX_TEXT_MARKERS_PATTERN = /[.!?;]/;
+const COMPLEX_TEXT_WORDS_PATTERN = conservativeKeywordPattern([
+  'и', 'and', 'за', 'по', 'купил\\p{L}*', 'взял\\p{L}*', 'всех', 'компани\\p{L}*', 'поровну', 'скинул\\p{L}*', 'split',
+]);
+const CURRENCY_WORDS_PATTERN = /\b(сум|sum|uzs)\b/gi;
+
+const SAVING_DEPOSIT_KEYWORDS_PATTERN = conservativeKeywordPattern([
+  'вклад\\p{L}*', 'накоплени\\p{L}*', 'сбережени\\p{L}*', "jamg'?or\\p{L}*",
+]);
+const CASH_WITHDRAWAL_VERB_PATTERN = conservativeKeywordPattern(['снял\\p{L}*', 'yechib oldim', 'yechdim']);
+const CASH_WITHDRAWAL_STANDALONE_PATTERN = conservativeKeywordPattern(['обналичил\\p{L}*']);
+const CASH_INDICATOR_PATTERN = conservativeKeywordPattern(['налич\\p{L}*', 'нал', 'cash', 'nakd']);
+const TRANSFER_VERB_PATTERN = conservativeKeywordPattern([
+  'перевел\\p{L}*', 'перевёл\\p{L}*', 'перекинул\\p{L}*', 'kochirdim', "o'?tkazdim", 'otkazdim', 'transferred',
+]);
+const OWN_ACCOUNT_TARGET_PATTERN = conservativeKeywordPattern([
+  'себе', 'карт\\p{L}*', 'счет', 'счёт', 'alif', 'payme', 'click', 'uzcard', 'humo',
+]);
+const INCOME_KEYWORDS_PATTERN = conservativeKeywordPattern(['зарплат\\p{L}*', 'зп', 'аванс', 'оклад', 'salary', 'maosh']);
+
+/**
+ * Conservative fast path for obvious single-amount phrases whose semantic meaning
+ * (transfer/savings/cash withdrawal/income) is unambiguous, so OpenAI is only used
+ * for genuinely ambiguous or multi-item text.
+ */
+function parseObviousSemanticTransaction(text: string): AnalysisResult | null {
+  const normalizedText = text.trim().replace(/\s+/g, ' ');
+  const numberMatches = normalizedText.match(/\d[\d\s.,]*/g) || [];
+
+  if (
+    numberMatches.length !== 1
+    || COMPLEX_TEXT_MARKERS_PATTERN.test(normalizedText)
+    || COMPLEX_TEXT_WORDS_PATTERN.test(normalizedText)
+    || DEBT_KEYWORDS_PATTERN.test(normalizedText)
+  ) {
+    return null;
+  }
+
+  const amount = Number(numberMatches[0].replace(/[\s,]/g, ''));
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return null;
+  }
+
+  const remainder = normalizedText
+    .replace(numberMatches[0], ' ')
+    .replace(CURRENCY_WORDS_PATTERN, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!remainder) {
+    return null;
+  }
+
+  let type: 'income' | 'expense' = 'expense';
+  let semanticType: TransactionSemanticType | null = null;
+  let category = 'other';
+
+  if (SAVING_DEPOSIT_KEYWORDS_PATTERN.test(remainder)) {
+    semanticType = 'saving_deposit';
+    category = 'transfer';
+  } else if (
+    CASH_WITHDRAWAL_STANDALONE_PATTERN.test(remainder)
+    || (CASH_WITHDRAWAL_VERB_PATTERN.test(remainder) && CASH_INDICATOR_PATTERN.test(remainder))
+  ) {
+    semanticType = 'cash_withdrawal';
+    category = 'transfer';
+  } else if (TRANSFER_VERB_PATTERN.test(remainder) && OWN_ACCOUNT_TARGET_PATTERN.test(remainder)) {
+    semanticType = 'own_transfer';
+    category = 'transfer';
+  } else if (INCOME_KEYWORDS_PATTERN.test(remainder)) {
+    type = 'income';
+    semanticType = 'income';
+    category = normalizeCategory(remainder);
+  }
+
+  if (!semanticType) {
+    return null;
+  }
+
+  const transaction: ParsedTransaction = {
+    intent: 'transaction',
+    amount,
+    category,
+    type,
+    semanticType,
+    needsReview: false,
+    date: new Date().toISOString().split('T')[0],
+    merchant: remainder,
+    confidence: 1,
+    description: remainder,
+  };
+
+  return { transactions: [transaction], debts: [] };
+}
 
 function parseSimpleTextTransaction(text: string): AnalysisResult | null {
   const normalizedText = text.trim().replace(/\s+/g, ' ');
@@ -24,15 +126,14 @@ function parseSimpleTextTransaction(text: string): AnalysisResult | null {
 
   const label = match[1].trim();
   const amount = Number(match[2].replace(/[\s,]/g, ''));
-  const debtKeywords = /\b(lent|borrowed|owe|debt|loan)\b|долг|должен|одолжил|одолжила|занял|заняла|қарз|qarz/i;
   const numberMatches = normalizedText.match(/\d[\d\s.,]*/g) || [];
-  const complexTextMarkers = /[.!?;]|\b(и|and|за|по|купил|купила|купить|взял|взяла)\b/i;
 
   if (
     !label
     || numberMatches.length !== 1
-    || complexTextMarkers.test(normalizedText)
-    || debtKeywords.test(normalizedText)
+    || COMPLEX_TEXT_MARKERS_PATTERN.test(normalizedText)
+    || COMPLEX_TEXT_WORDS_PATTERN.test(normalizedText)
+    || DEBT_KEYWORDS_PATTERN.test(normalizedText)
     || !Number.isFinite(amount)
     || amount <= 0
   ) {
@@ -63,7 +164,8 @@ export class ProcessTextInputUseCase {
   ) {}
 
   async execute(text: string, userId: string, userName?: string): Promise<ProcessedTransaction> {
-    const parsed = parseSimpleTextTransaction(text)
+    const parsed = parseObviousSemanticTransaction(text)
+      || parseSimpleTextTransaction(text)
       // Fall back to OpenAI for complex/natural-language inputs and debts.
       || await this.openAIService.analyzeInput(text);
 

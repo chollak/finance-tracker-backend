@@ -24,6 +24,36 @@
 
 ## Current Tasks
 
+### FT-038: Semantic text-input fast paths for daily Telegram flow
+
+Status: done
+Priority: high
+Owner: Claude Code + Hermes
+Type: product-correctness
+
+Context:
+Daily Telegram messages for obvious single-amount operations should not wait for OpenAI when the semantic meaning is unambiguous. The previous local fast path only classified `label amount` as a regular expense, so obvious transfers/savings/cash withdrawals/income either needed OpenAI or risked being visually treated as real expenses.
+
+Definition of Done:
+- [x] Preserve existing simple expense fast path (`кофе 15000 сум`).
+- [x] Add conservative local semantic fast paths for own transfers, saving deposits, cash withdrawals, and salary/income.
+- [x] Keep ambiguous group-payment/debt/multi-item text on the OpenAI path.
+- [x] Add regression tests for fast-path and fallback behavior.
+- [x] Run focused tests, TypeScript check, full verify, and public tunnel `/voice/text-input` smoke with cleanup.
+
+Verification:
+- `npm test -- tests/processTextInput.test.ts tests/semanticTransactionParsing.test.ts --runInBand` — passed, 25 tests.
+- `npx tsc --noEmit` — passed.
+- `npm run verify` — passed, 24 suites / 235 tests, backend build, webapp build, dependency-cruiser, madge.
+- Public tunnel smoke via `/api/voice/text-input` classified and then deleted temporary transactions for: `own_transfer`, `saving_deposit`, `cash_withdrawal`, `income`.
+
+Implementation notes:
+- Added Unicode-aware conservative keyword boundaries because `\b` does not safely bound Cyrillic words.
+- New fast path only accepts exactly one amount and rejects punctuation, known complex/group markers, and debt language.
+- `оплатил за всех ужин 400000` remains OpenAI/needs-review territory instead of being guessed locally.
+
+---
+
 ### FT-000: Normalize line endings and restore clean git baseline
 
 Status: done
