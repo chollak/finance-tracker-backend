@@ -22,6 +22,7 @@ export interface Transaction {
   amount: number;
   type: 'income' | 'expense';
   semanticType?: TransactionSemanticType;
+  needsReview?: boolean;
   userId: string;
   userName?: string;
   // Timestamps
@@ -49,6 +50,7 @@ export interface CreateTransactionDTO {
   amount: number;
   type: 'income' | 'expense';
   semanticType?: TransactionSemanticType;
+  needsReview?: boolean;
   userId: string;
   userName?: string;
   merchant?: string;
@@ -61,5 +63,6 @@ export interface UpdateTransactionDTO {
   date?: string;
   type?: 'income' | 'expense';
   semanticType?: TransactionSemanticType;
+  needsReview?: boolean;
   merchant?: string;
 }

@@ -1,7 +1,10 @@
+import type { MouseEvent } from 'react';
 import { Card } from '@/shared/ui/card';
 import { Badge } from '@/shared/ui/badge';
 import type { TransactionViewModel } from '../model/types';
 import { getCategoryName } from '@/entities/category/model/categories';
+import { useUpdateTransaction } from '../api/mutations';
+import { NEEDS_REVIEW_LABEL, NEEDS_REVIEW_CORRECTION_TYPES, getSemanticTypeLabel } from '../lib/semanticType';
 
 interface TransactionCardProps {
   transaction: TransactionViewModel;
@@ -13,6 +16,18 @@ interface TransactionCardProps {
  * Uses ViewModel with pre-formatted fields - no logic in UI!
  */
 export function TransactionCard({ transaction, onClick }: TransactionCardProps) {
+  const updateTransaction = useUpdateTransaction();
+
+  const handleCorrect = (e: MouseEvent, semanticType: TransactionViewModel['semanticType']) => {
+    e.stopPropagation();
+    if (!transaction.id || !transaction.userId) return;
+    updateTransaction.mutate({
+      id: transaction.id,
+      userId: transaction.userId,
+      data: { semanticType, needsReview: false },
+    });
+  };
+
   return (
     <Card
       className="cursor-pointer hover:bg-accent/50 transition-colors p-4"
@@ -42,6 +57,11 @@ export function TransactionCard({ transaction, onClick }: TransactionCardProps) 
               {transaction._isNonExpenseMovement && (
                 <span className="text-xs text-muted-foreground">Не входит в расходы</span>
               )}
+              {transaction._needsReview && (
+                <Badge variant="warning" className="px-2 py-0 text-[11px]">
+                  {NEEDS_REVIEW_LABEL}
+                </Badge>
+              )}
             </div>
           </div>
         </div>
@@ -56,6 +76,23 @@ export function TransactionCard({ transaction, onClick }: TransactionCardProps) 
           </p>
         </div>
       </div>
+
+      {/* Correction chips — shown only while the transaction needs review */}
+      {transaction._needsReview && (
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {NEEDS_REVIEW_CORRECTION_TYPES.map((semanticType) => (
+            <button
+              key={semanticType}
+              type="button"
+              disabled={updateTransaction.isPending}
+              onClick={(e) => handleCorrect(e, semanticType)}
+              className="rounded-full border border-border px-2.5 py-1 text-[11px] font-medium text-foreground hover:bg-accent disabled:opacity-50 disabled:pointer-events-none transition-colors"
+            >
+              {getSemanticTypeLabel(semanticType)}
+            </button>
+          ))}
+        </div>
+      )}
     </Card>
   );
 }

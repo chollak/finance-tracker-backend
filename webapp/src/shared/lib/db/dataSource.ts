@@ -154,6 +154,7 @@ function serverTxToLocal(serverTx: any): LocalTransaction {
     amount: Number(serverTx.amount),
     type: serverTx.type,
     semanticType: serverTx.semanticType,
+    needsReview: serverTx.needsReview ?? false,
     userId: serverTx.userId,
     merchant: serverTx.merchant,
     localCreatedAt: new Date(serverTx.createdAt || Date.now()).getTime(),

@@ -3609,3 +3609,44 @@ Result: passed — 23 suites / 213 tests, backend build, webapp build, dependenc
 - `needsReview` defaults to false when omitted or non-boolean in parser normalization.
 - OpenAI prompt now explicitly asks for `needsReview` and forbids inventing `unknown` semanticType.
 
+## 2026-07-31 — FT-SEM-002 semantic correction foundation completed
+
+### Goal
+
+Prepare current Mini App for redesign by wiring `needsReview` into frontend transaction types, local/server mapping, view model, search, and a minimal correction-chip UI.
+
+### Execution
+
+Claude Code implemented the slice and exited with `error_max_turns`, but the resulting diff was self-contained and verified green by Hermes. Per Shukur's direction, Hermes did not manually modify code after this Claude run.
+
+### Files changed
+
+- `webapp/src/shared/types/transaction.ts`
+- `webapp/src/shared/lib/db/schema.ts`
+- `webapp/src/shared/lib/db/dataSource.ts`
+- `webapp/src/entities/transaction/api/{queries,mutations}.ts`
+- `webapp/src/entities/transaction/lib/{semanticType,toViewModel}.ts`
+- `webapp/src/entities/transaction/model/types.ts`
+- `webapp/src/entities/transaction/ui/TransactionCard.tsx`
+- `webapp/src/features/filter-transactions/lib/filterTransactions.ts`
+
+### Verification
+
+```bash
+npm run build:webapp
+```
+
+Result: passed.
+
+```bash
+npm run verify
+```
+
+Result: passed — 23 suites / 213 tests, backend build, webapp build, dependency-cruiser, and madge circular check.
+
+### Notes
+
+- This is a minimal functional correction foundation, not final redesign.
+- `TransactionCard` shows `Нужно проверить` and semantic correction chips when `_needsReview` is true.
+- Clicking a chip uses the existing update mutation to send `{ semanticType, needsReview: false }`.
+

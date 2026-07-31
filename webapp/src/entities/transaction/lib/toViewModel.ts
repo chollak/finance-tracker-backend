@@ -28,5 +28,6 @@ export function transactionToViewModel(transaction: Transaction): TransactionVie
     _semanticTypeLabel: getSemanticTypeLabel(semanticType),
     _semanticTypeBadgeVariant: getSemanticTypeBadgeVariant(semanticType),
     _isNonExpenseMovement: isNonExpenseMovement(semanticType),
+    _needsReview: transaction.needsReview === true,
   };
 }

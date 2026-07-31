@@ -1,4 +1,5 @@
 import type { TransactionViewModel } from '@/entities/transaction';
+import { matchesNeedsReviewQuery } from '@/entities/transaction';
 
 interface FilterOptions {
   searchQuery: string;
@@ -45,8 +46,15 @@ export function filterTransactions(
       const matchesSemanticType = transaction._semanticTypeLabel
         ?.toLowerCase()
         .includes(query);
+      const matchesNeedsReview = matchesNeedsReviewQuery(transaction._needsReview, query);
 
-      if (!matchesDescription && !matchesCategory && !matchesMerchant && !matchesSemanticType) {
+      if (
+        !matchesDescription &&
+        !matchesCategory &&
+        !matchesMerchant &&
+        !matchesSemanticType &&
+        !matchesNeedsReview
+      ) {
         return false;
       }
     }

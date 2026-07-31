@@ -9,7 +9,14 @@ export { transactionToViewModel } from './lib/toViewModel';
 
 // Utils
 export { groupTransactionsByDate } from './lib/groupByDate';
-export { getSemanticTypeLabel, getSemanticTypeBadgeVariant, isNonExpenseMovement } from './lib/semanticType';
+export {
+  getSemanticTypeLabel,
+  getSemanticTypeBadgeVariant,
+  isNonExpenseMovement,
+  NEEDS_REVIEW_LABEL,
+  NEEDS_REVIEW_CORRECTION_TYPES,
+  matchesNeedsReviewQuery,
+} from './lib/semanticType';
 
 // API
 export { transactionKeys } from './api/keys';

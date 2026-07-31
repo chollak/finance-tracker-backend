@@ -2125,7 +2125,7 @@ Verification:
 
 ### FT-SEM-002: Add semantic correction foundation
 
-Status: ready
+Status: done
 Priority: high
 Owner: Claude Code, QA by Hermes
 Type: feature-foundation
@@ -2134,10 +2134,16 @@ Goal:
 Allow users/frontends to update `semanticType` and clear `needsReview` safely, so future redesign can implement correction chips without inventing backend contracts.
 
 Definition of Done:
-- [ ] Existing update transaction flow supports `semanticType` and `needsReview`
-- [ ] API validation rejects invalid semantic types and accepts valid correction payloads
-- [ ] Tests cover correcting an uncertain transaction and analytics recalculation after correction
-- [ ] No broad UI redesign
+- [x] Existing update transaction flow supports `semanticType` and `needsReview`
+- [x] API validation rejects invalid semantic types and accepts valid correction payloads
+- [x] Tests cover correcting an uncertain transaction and analytics recalculation after correction
+- [x] No broad UI redesign
+
+---
+
+Verification:
+- `npm run build:webapp` — passed.
+- `npm run verify` — passed, 23 suites / 213 tests.
 
 ---
 

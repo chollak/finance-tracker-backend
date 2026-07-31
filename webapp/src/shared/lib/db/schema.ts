@@ -19,6 +19,7 @@ export interface LocalTransaction {
   amount: number;
   type: 'income' | 'expense';
   semanticType?: TransactionSemanticType;
+  needsReview?: boolean;
   userId: string; // guest_UUID
   merchant?: string;
 
@@ -51,6 +52,7 @@ export interface CreateLocalTransactionDTO {
   amount: number;
   type: 'income' | 'expense';
   semanticType?: TransactionSemanticType;
+  needsReview?: boolean;
   userId: string;
   merchant?: string;
 }
@@ -65,6 +67,7 @@ export interface UpdateLocalTransactionDTO {
   amount?: number;
   type?: 'income' | 'expense';
   semanticType?: TransactionSemanticType;
+  needsReview?: boolean;
   merchant?: string;
   isArchived?: boolean;
 }
