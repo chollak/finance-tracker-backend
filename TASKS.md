@@ -1054,7 +1054,7 @@ Implementation notes:
 
 ### FT-027: UI/product improvement roadmap
 
-Status: in_progress
+Status: done
 Priority: high
 Owner: Hermes + Claude Code
 Type: frontend-ui/product
@@ -1067,10 +1067,10 @@ Roadmap:
 
 Subtasks:
 - [x] FT-027A — Insight-first home and balance terminology
-- [ ] FT-027B — Actionable budget remaining UX
-- [ ] FT-027C — Mobile add CTA and bottom navigation review
-- [ ] FT-027D — Simplify transaction archive surface
-- [ ] FT-027E — Browser/screenshot UI QA
+- [x] FT-027B — Actionable budget remaining UX
+- [x] FT-027C — Mobile add CTA and bottom navigation review
+- [x] FT-027D — Simplify transaction archive surface
+- [x] FT-027E — Browser/screenshot UI QA
 
 Delegation policy:
 - Claude Code implements one slice at a time.
@@ -1633,7 +1633,7 @@ Decision:
 
 ### FT-031: Daily usage UX audit and cleanup
 
-Status: backlog
+Status: done
 Priority: high
 Owner: Hermes
 Type: product/frontend-ui/telegram-bot-ux
@@ -1662,10 +1662,10 @@ Scope:
 - Split fixes into small follow-up slices (`FT-031A`, `FT-031B`, etc.) after the audit.
 
 Definition of Done:
-- [ ] Real daily flow is exercised against local dev Mini App/bot without printing secrets
-- [ ] Findings are recorded with evidence: commands, logs, screenshots where useful
-- [ ] Small safe implementation slices are listed and prioritized
-- [ ] No implementation work is started until Shukur asks to proceed
+- [x] Real daily flow is exercised against local dev Mini App/bot without printing secrets
+- [x] Findings are recorded with evidence: commands, logs, screenshots where useful
+- [x] Small safe implementation slices are listed and prioritized
+- [x] Implementation work started only after Shukur asked to proceed
 
 Non-goals for this task:
 - Weekly finance review automation
@@ -1910,7 +1910,7 @@ Verification:
 - [x] Focused structural check failed before the dock existed, then passed after implementation.
 - [x] `npm run build:webapp` passed.
 - [x] `npm run verify` passed — 20 suites / 171 tests, backend build, webapp build, dependency-cruiser, madge circular scan.
-- [ ] Note: adding `motion` increased the main webapp chunk enough to trigger Vite's >600 kB warning; build still passed.
+Note: adding `motion` increased the main webapp chunk enough to trigger Vite's >600 kB warning; build still passed.
 
 ---
 
@@ -1947,7 +1947,7 @@ Verification:
 - [x] Verified Onest CSS availability from Google Fonts: HTTP 200, 5 `@font-face` entries.
 - [x] `npm run build:webapp` passed.
 - [x] `npm run verify` passed — 20 suites / 171 tests, backend build, webapp build, dependency-cruiser, madge circular scan.
-- [ ] Existing Vite chunk-size warning remains from the earlier `motion` dependency, unrelated to the typography change.
+Note: existing Vite chunk-size warning remains from the earlier `motion` dependency, unrelated to the typography change.
 
 Recommendation / next slice:
 - Standardize page typography components next instead of ad-hoc class tuning:
