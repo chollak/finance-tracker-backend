@@ -2149,7 +2149,7 @@ Verification:
 
 ### FT-SEM-003: Weekly review foundation
 
-Status: ready
+Status: done
 Priority: medium
 Owner: Claude Code, QA by Hermes
 Type: feature-foundation
@@ -2158,10 +2158,17 @@ Goal:
 Create backend/application-level weekly summary primitives that separate real expenses, income, excluded movements, reimbursements, and needs-review transactions. Do not implement final redesign yet.
 
 Definition of Done:
-- [ ] Weekly summary use case/service exists behind testable application code
-- [ ] Summary separates real expenses from non-expense movements
-- [ ] Needs-review transactions are exposed separately
-- [ ] Tests cover own transfers, saving deposits, reimbursements, debts, cash withdrawals, and group payments
+- [x] Weekly summary use case/service exists behind testable application code
+- [x] Summary separates real expenses from non-expense movements
+- [x] Needs-review transactions are exposed separately
+- [x] Tests cover own transfers, saving deposits, reimbursements, debts, cash withdrawals, and group payments
+
+---
+
+Verification:
+- `npm test -- tests/weeklyReviewService.test.ts --runInBand` — passed, 1 suite / 8 tests.
+- `npm run build` — passed.
+- `npm run verify` — passed, 24 suites / 221 tests.
 
 ---
 

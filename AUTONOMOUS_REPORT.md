@@ -3650,3 +3650,52 @@ Result: passed — 23 suites / 213 tests, backend build, webapp build, dependenc
 - `TransactionCard` shows `Нужно проверить` and semantic correction chips when `_needsReview` is true.
 - Clicking a chip uses the existing update mutation to send `{ semanticType, needsReview: false }`.
 
+## 2026-07-31 — FT-SEM-003 weekly review foundation completed
+
+### Goal
+
+Create a backend/application weekly review summary primitive that can power the future redesign without implementing UI, Telegram scheduling, or Obsidian export yet.
+
+### Execution
+
+Claude Code created `summarizeWeeklyReview()` and focused tests. Hermes reviewed the diff and found that `needsReview` transactions were initially included in categorized totals. Per Shukur's direction, Hermes did not patch code manually; a narrow Claude Code continuation fixed the behavior.
+
+### Files changed
+
+- `src/modules/transaction/application/weeklyReviewService.ts`
+- `tests/weeklyReviewService.test.ts`
+- `TASKS.md`
+- `AUTONOMOUS_REPORT.md`
+
+### Behavior
+
+Weekly summary now separates:
+
+- finalized real expenses;
+- finalized income;
+- excluded/non-expense movements by semantic type;
+- needs-review transactions as a separate trust queue;
+- top categories from finalized real expenses only.
+
+Transactions with `needsReview === true` are excluded from real expenses, income, excluded movement totals, and top categories until corrected.
+
+### Verification
+
+```bash
+npm test -- tests/weeklyReviewService.test.ts --runInBand
+```
+
+Result: passed — 1 suite / 8 tests.
+
+```bash
+npm run build
+```
+
+Result: passed.
+
+```bash
+npm run verify
+```
+
+Result: passed — 24 suites / 221 tests, backend build, webapp build, dependency-cruiser, and madge circular check.
+
