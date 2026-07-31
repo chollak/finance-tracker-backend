@@ -1,5 +1,31 @@
 import { StatsSummary, CategoryBreakdown, BudgetStatus } from '../types';
 import { RU, formatAmount, getMonthName } from '../i18n/ru';
+import {
+  ExcludedMovementSemanticType,
+  WeeklyReviewSummary,
+} from '../../../../modules/transaction/application/weeklyReviewService';
+
+const WEEKLY_REVIEW_MOVEMENT_LABELS: Record<ExcludedMovementSemanticType, string> = {
+  own_transfer: 'Перевод себе',
+  saving_deposit: 'Вклад / накопление',
+  debt: 'Долг',
+  reimbursement: 'Возврат',
+  cash_withdrawal: 'Наличные',
+  group_payment: 'Групповой платёж',
+};
+
+function formatDateRange(startDate: Date, endDate: Date): string {
+  const format = (date: Date) => date.toLocaleDateString('ru-RU', {
+    day: '2-digit',
+    month: '2-digit',
+    timeZone: 'UTC',
+  });
+  return `${format(startDate)}–${format(endDate)}`;
+}
+
+function formatWeeklyAmount(amount: number, showPlus = false): string {
+  return formatAmount(amount, showPlus).replace(/\s/g, ' ');
+}
 
 /**
  * Format today's statistics message
@@ -18,15 +44,15 @@ export function formatTodayStats(
   ];
 
   if (summary.totalIncome > 0) {
-    lines.push(`💚 ${RU.commands.today.income(formatAmount(summary.totalIncome))}`);
+    lines.push(`💚 ${RU.commands.today.income(formatWeeklyAmount(summary.totalIncome))}`);
   }
 
   if (summary.totalExpense > 0) {
-    lines.push(`💸 ${RU.commands.today.expense(formatAmount(summary.totalExpense))}`);
+    lines.push(`💸 ${RU.commands.today.expense(formatWeeklyAmount(summary.totalExpense))}`);
   }
 
   lines.push('');
-  lines.push(`💰 ${RU.commands.today.total(formatAmount(summary.netIncome, true))}`);
+  lines.push(`💰 ${RU.commands.today.total(formatWeeklyAmount(summary.netIncome, true))}`);
   lines.push(`📊 ${RU.commands.today.count(summary.transactionCount)}`);
 
   // Add category breakdown if available
@@ -34,7 +60,7 @@ export function formatTodayStats(
     lines.push('');
     lines.push('<b>По категориям:</b>');
     for (const cat of categories.slice(0, 5)) {
-      lines.push(`  • ${cat.category}: ${formatAmount(cat.amount)}`);
+      lines.push(`  • ${cat.category}: ${formatWeeklyAmount(cat.amount)}`);
     }
   }
 
@@ -58,9 +84,9 @@ export function formatMonthStats(
   const lines = [
     `📊 <b>${RU.commands.stats.title(monthName)}</b>`,
     '',
-    `💚 ${RU.commands.stats.income}: ${formatAmount(summary.totalIncome)}`,
-    `💸 ${RU.commands.stats.expenses}: ${formatAmount(summary.totalExpense)}`,
-    `💰 ${RU.commands.stats.balance}: ${formatAmount(summary.netIncome, true)}`,
+    `💚 ${RU.commands.stats.income}: ${formatWeeklyAmount(summary.totalIncome)}`,
+    `💸 ${RU.commands.stats.expenses}: ${formatWeeklyAmount(summary.totalExpense)}`,
+    `💰 ${RU.commands.stats.balance}: ${formatWeeklyAmount(summary.netIncome, true)}`,
     `📈 ${RU.commands.stats.transactions}: ${summary.transactionCount}`,
   ];
 
@@ -69,7 +95,7 @@ export function formatMonthStats(
     lines.push('');
     lines.push(`<b>${RU.commands.stats.topCategories}:</b>`);
     for (const cat of topCategories.slice(0, 5)) {
-      lines.push(`  • ${cat.category}: ${formatAmount(cat.amount)} (${cat.percentage}%)`);
+      lines.push(`  • ${cat.category}: ${formatWeeklyAmount(cat.amount)} (${cat.percentage}%)`);
     }
   }
 
@@ -104,17 +130,68 @@ export function formatBudgetStatus(budgets: BudgetStatus[]): string {
       `${statusEmoji} <b>${budget.name}</b> ${statusLabel}`
     );
     lines.push(
-      `   ${formatAmount(budget.spent)} / ${formatAmount(budget.limit)} (${budget.percentage}%)`
+      `   ${formatWeeklyAmount(budget.spent)} / ${formatWeeklyAmount(budget.limit)} (${budget.percentage}%)`
     );
 
     if (budget.remaining > 0) {
-      lines.push(`   ${RU.commands.budget.remaining(formatAmount(budget.remaining))}`);
+      lines.push(`   ${RU.commands.budget.remaining(formatWeeklyAmount(budget.remaining))}`);
     }
 
     lines.push('');
   }
 
   return lines.join('\n').trim();
+}
+
+export function formatWeeklyReviewSummary(summary: WeeklyReviewSummary): string {
+  const hasAnySignal = summary.realExpenses > 0
+    || summary.income > 0
+    || summary.excludedMovementsTotal > 0
+    || summary.needsReview.count > 0;
+
+  const lines = [
+    '🗓️ <b>Еженедельный обзор</b>',
+    `Период: ${formatDateRange(summary.range.startDate, summary.range.endDate)}`,
+    '',
+  ];
+
+  if (!hasAnySignal) {
+    lines.push('За неделю нет транзакций для итогов.');
+    lines.push('Можно продолжать добавлять расходы и переводы в Telegram.');
+    return lines.join('\n');
+  }
+
+  lines.push(`💸 Реальные расходы: ${formatWeeklyAmount(summary.realExpenses)}`);
+
+  if (summary.income > 0) {
+    lines.push(`💚 Доходы: ${formatWeeklyAmount(summary.income)}`);
+  }
+
+  if (summary.excludedMovementsTotal > 0) {
+    lines.push(`↔️ Не расходы: ${formatWeeklyAmount(summary.excludedMovementsTotal)}`);
+    for (const [semanticType, amount] of Object.entries(summary.excludedMovementsBreakdown)) {
+      if (!amount) continue;
+      const label = WEEKLY_REVIEW_MOVEMENT_LABELS[semanticType as ExcludedMovementSemanticType] ?? semanticType;
+      lines.push(`  • ${label}: ${formatWeeklyAmount(amount)}`);
+    }
+  }
+
+  if (summary.needsReview.count > 0) {
+    lines.push(`⚠️ Нужно проверить: ${summary.needsReview.count} операции на ${formatWeeklyAmount(summary.needsReview.total)}`);
+  }
+
+  if (summary.topCategories.length > 0) {
+    lines.push('');
+    lines.push('<b>Топ расходов:</b>');
+    for (const category of summary.topCategories.slice(0, 5)) {
+      lines.push(`  • ${category.category}: ${formatWeeklyAmount(category.amount)}`);
+    }
+  }
+
+  lines.push('');
+  lines.push('Открой Mini App, чтобы исправить операции на проверке и посмотреть детали.');
+
+  return lines.join('\n');
 }
 
 /**

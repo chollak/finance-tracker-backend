@@ -24,6 +24,36 @@
 
 ## Current Tasks
 
+### FT-041: Telegram weekly review command
+
+Status: done
+Priority: high
+Owner: Hermes
+Type: product-ux
+
+Context:
+The backend already had semantic weekly-review summary primitives, but the user had no direct Telegram UX to request a weekly review. Weekly review is a core target workflow for separating real expenses from transfers/savings/debts/reimbursements/group payments and `needsReview` items.
+
+Definition of Done:
+- [x] Add previous-week date range helper (Monday 00:00 through Sunday 23:59:59.999 UTC).
+- [x] Add Telegram weekly review formatter in Russian.
+- [x] Register `/week` and `/weekly` commands.
+- [x] Command resolves Telegram id to UUID, summarizes previous week, and replies with semantic sections.
+- [x] Include `/week` in start/help command copy.
+- [x] Add regression tests for range, formatter, and command behavior.
+- [x] Run focused tests, TypeScript check, and full verify.
+
+Verification:
+- `npm test -- tests/weeklyReviewService.test.ts tests/weeklyReviewFormatter.test.ts tests/telegramWeeklyCommand.test.ts tests/telegramBot.test.ts --runInBand` — passed, 17 tests.
+- `npx tsc --noEmit` — passed.
+- `npm run verify` — passed, 28 suites / 249 tests.
+
+Implementation notes:
+- `/week` and `/weekly` summarize the previous full week, not the current partial week.
+- Weekly review output includes real expenses, income, non-expense movements with semantic breakdown, `needsReview`, top real-expense categories, and a Mini App next-action hint.
+
+---
+
 ### FT-040: Home semantic monthly summary consistency
 
 Status: done

@@ -1,4 +1,4 @@
-import { summarizeWeeklyReview } from '../src/modules/transaction/application/weeklyReviewService';
+import { getPreviousWeekRange, summarizeWeeklyReview } from '../src/modules/transaction/application/weeklyReviewService';
 import { Transaction } from '../src/modules/transaction/domain/transactionEntity';
 
 function tx(overrides: Partial<Transaction>): Transaction {
@@ -140,5 +140,22 @@ describe('summarizeWeeklyReview', () => {
     expect(summary.excludedMovementsBreakdown).toEqual({});
     expect(summary.needsReview).toEqual({ count: 0, total: 0, transactions: [] });
     expect(summary.topCategories).toEqual([]);
+  });
+});
+
+
+describe('getPreviousWeekRange', () => {
+  it('returns Monday through Sunday of the previous ISO week', () => {
+    const range = getPreviousWeekRange(new Date('2026-07-31T12:00:00.000Z'));
+
+    expect(range.startDate.toISOString()).toBe('2026-07-20T00:00:00.000Z');
+    expect(range.endDate.toISOString()).toBe('2026-07-26T23:59:59.999Z');
+  });
+
+  it('works when today is Monday', () => {
+    const range = getPreviousWeekRange(new Date('2026-07-27T09:00:00.000Z'));
+
+    expect(range.startDate.toISOString()).toBe('2026-07-20T00:00:00.000Z');
+    expect(range.endDate.toISOString()).toBe('2026-07-26T23:59:59.999Z');
   });
 });

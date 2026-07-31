@@ -6,5 +6,6 @@ export {
 export {
   formatTodayStats,
   formatMonthStats,
-  formatBudgetStatus
+  formatBudgetStatus,
+  formatWeeklyReviewSummary
 } from './statsFormatter';

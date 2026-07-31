@@ -3971,3 +3971,58 @@ Visual QA:
 - `/tmp/ft040-home-final-audit/screenshots/home-390.png`
 - `issueCount: 0`, no console errors, no bad responses.
 - The screenshot shows BalanceCard and HomeTrustSummary aligned: `Расходы 1 011 999`, formula `1 511 999 − 500 000 = 1 011 999`, and net flow `+6 388 000`.
+
+
+## 2026-07-31 — FT-041 Telegram weekly review command
+
+### Goal
+
+Expose the semantic weekly review foundation through Telegram so the user can request a Russian summary of the previous week without opening the Mini App.
+
+### Execution
+
+Hermes added a previous-week range helper (`getPreviousWeekRange`) and Telegram formatter (`formatWeeklyReviewSummary`). `registerCommandHandlers` now registers both `/week` and `/weekly`.
+
+The command resolves the Telegram id to the internal UUID, loads the user's transactions, summarizes the previous full ISO-style week (Monday through Sunday), and replies in Russian with:
+
+- real expenses;
+- income;
+- excluded movements (`own_transfer`, `saving_deposit`, `debt`, `reimbursement`, `cash_withdrawal`, `group_payment`);
+- `needsReview` count/total;
+- top real-expense categories;
+- a next-action hint to open Mini App for corrections/details.
+
+The start/help text now lists `/week`.
+
+### Files changed
+
+- `src/modules/transaction/application/weeklyReviewService.ts`
+- `src/delivery/messaging/telegram/formatters/statsFormatter.ts`
+- `src/delivery/messaging/telegram/formatters/index.ts`
+- `src/delivery/messaging/telegram/handlers/commandHandlers.ts`
+- `src/delivery/messaging/telegram/i18n/ru.ts`
+- `tests/weeklyReviewService.test.ts`
+- `tests/weeklyReviewFormatter.test.ts`
+- `tests/telegramWeeklyCommand.test.ts`
+- `TASKS.md`
+- `AUTONOMOUS_REPORT.md`
+
+### Verification
+
+```bash
+npm test -- tests/weeklyReviewService.test.ts tests/weeklyReviewFormatter.test.ts tests/telegramWeeklyCommand.test.ts tests/telegramBot.test.ts --runInBand
+```
+
+Result: passed — 4 suites / 17 tests.
+
+```bash
+npx tsc --noEmit
+```
+
+Result: passed.
+
+```bash
+npm run verify
+```
+
+Result: passed — 28 suites / 249 tests, backend build, webapp build, dependency-cruiser, and madge circular check.

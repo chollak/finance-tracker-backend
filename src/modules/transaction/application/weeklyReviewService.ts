@@ -43,6 +43,27 @@ export interface WeeklyReviewSummary {
   topCategories: WeeklyReviewCategoryTotal[];
 }
 
+export function getPreviousWeekRange(now = new Date()): DateRange {
+  const day = now.getUTCDay();
+  const daysSinceMonday = (day + 6) % 7;
+  const currentWeekMonday = new Date(Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate() - daysSinceMonday
+  ));
+  const previousWeekMonday = new Date(currentWeekMonday);
+  previousWeekMonday.setUTCDate(currentWeekMonday.getUTCDate() - 7);
+
+  const previousWeekSunday = new Date(previousWeekMonday);
+  previousWeekSunday.setUTCDate(previousWeekMonday.getUTCDate() + 6);
+  previousWeekSunday.setUTCHours(23, 59, 59, 999);
+
+  return {
+    startDate: previousWeekMonday,
+    endDate: previousWeekSunday,
+  };
+}
+
 function round2(value: number): number {
   return Math.round(value * 100) / 100;
 }

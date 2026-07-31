@@ -1,7 +1,7 @@
 import { Telegraf } from 'telegraf';
 import { BotContext, StatsSummary, CategoryBreakdown, BudgetStatus } from '../types';
 import { RU } from '../i18n/ru';
-import { formatTodayStats, formatMonthStats, formatBudgetStatus } from '../formatters';
+import { formatTodayStats, formatMonthStats, formatBudgetStatus, formatWeeklyReviewSummary } from '../formatters';
 import {
   mainMenuKeyboard,
   quickCategoryKeyboard,
@@ -11,6 +11,7 @@ import {
 } from '../keyboards';
 import { resolveUserIdToUUID } from '../../../../shared/application/helpers/userIdResolver';
 import { createLogger, LogCategory } from '../../../../shared/infrastructure/logging';
+import { getPreviousWeekRange, summarizeWeeklyReview } from '../../../../modules/transaction/application/weeklyReviewService';
 
 const logger = createLogger(LogCategory.TELEGRAM);
 
@@ -30,11 +31,35 @@ export function registerCommandHandlers(bot: Telegraf<BotContext>) {
   // /budget - Budget status
   bot.command('budget', handleBudget);
 
+  // /week, /weekly - Previous week semantic review
+  bot.command('week', handleWeeklyReview);
+  bot.command('weekly', handleWeeklyReview);
+
   // /help - Help command
   bot.command('help', handleHelp);
 
   // Legacy /transactions command - redirect to webapp
   bot.command('transactions', handleTransactions);
+}
+
+async function handleWeeklyReview(ctx: BotContext) {
+  try {
+    const telegramId = String(ctx.from?.id);
+    const { transactionModule, userModule } = ctx.modules;
+    const userId = await resolveUserIdToUUID(telegramId, userModule);
+    const transactions = await transactionModule
+      .getGetUserTransactionsUseCase()
+      .execute(userId);
+    const summary = summarizeWeeklyReview(transactions, getPreviousWeekRange());
+
+    await ctx.reply(formatWeeklyReviewSummary(summary), {
+      parse_mode: 'HTML',
+      ...(todayKeyboard(telegramId) || {}),
+    });
+  } catch (error) {
+    logger.error('/week command error', error as Error);
+    await ctx.reply(RU.errors.generic);
+  }
 }
 
 /**
