@@ -3872,3 +3872,46 @@ npm run verify
 Result: passed — 24 suites / 235 tests, backend build, webapp build, dependency-cruiser, and madge circular check.
 
 Runtime smoke against the active Cloudflare tunnel called `/api/voice/text-input` with the four fast-path examples above. Each returned the expected `semanticType`/`type`/`needsReview: false`, and Hermes deleted all temporary transactions afterward.
+
+
+## 2026-07-31 — FT-039 Telegram semantic confirmation UX
+
+### Goal
+
+Make the semantic meaning visible in Telegram confirmations, not only in the Mini App, and prevent Telegram daily/month totals from counting transfers/needs-review movements as real expenses.
+
+### Execution
+
+Hermes continued with a small UX-correctness slice after FT-038. The transaction formatter now maps `semanticType` to Russian labels and explanatory hints. Non-expense movements explicitly say they do not count as expenses. `needsReview` transactions tell the user to check/correct them in the Mini App.
+
+The Telegram text handler's summary calculation now uses `normalizeSemanticType` + `countsAsRealExpense` and skips `needsReview`, aligning Telegram totals with analytics/budget/weekly-review semantics.
+
+### Files changed
+
+- `src/delivery/messaging/telegram/formatters/transactionFormatter.ts`
+- `src/delivery/messaging/telegram/handlers/messageHandlers.ts`
+- `src/delivery/messaging/telegram/types/index.ts`
+- `tests/telegramFormatters.test.ts`
+- `tests/telegramMessageHandlers.test.ts`
+- `TASKS.md`
+- `AUTONOMOUS_REPORT.md`
+
+### Verification
+
+```bash
+npm test -- tests/telegramFormatters.test.ts tests/telegramMessageHandlers.test.ts --runInBand
+```
+
+Result: passed — 2 suites / 7 tests.
+
+```bash
+npx tsc --noEmit
+```
+
+Result: passed.
+
+```bash
+npm run verify
+```
+
+Result: passed — 24 suites / 238 tests, backend build, webapp build, dependency-cruiser, and madge circular check.

@@ -24,6 +24,34 @@
 
 ## Current Tasks
 
+### FT-039: Telegram confirmations surface transaction meaning
+
+Status: done
+Priority: high
+Owner: Hermes
+Type: product-ux-correctness
+
+Context:
+After semantic parsing and Mini App badges, the Telegram confirmation still made transfers/savings/cash movements look like ordinary expense messages. The daily/month summary in Telegram also counted every `type: expense` movement, which could include own transfers and needs-review items.
+
+Definition of Done:
+- [x] Telegram transaction confirmations show `Смысл` for semantic types.
+- [x] Non-expense movements explicitly say they do not count as expenses.
+- [x] `needsReview` confirmations tell the user to check/correct in Mini App.
+- [x] Telegram daily/month summary excludes semantic non-expenses and `needsReview` rows.
+- [x] Formatter and handler regression tests cover semantic labels and summary totals.
+
+Verification:
+- `npm test -- tests/telegramFormatters.test.ts tests/telegramMessageHandlers.test.ts --runInBand` — passed, 7 tests.
+- `npx tsc --noEmit` — passed.
+- `npm run verify` — passed, 24 suites / 238 tests, backend build, webapp build, dependency-cruiser, madge.
+
+Implementation notes:
+- Telegram now shows labels such as `Перевод себе`, `Вклад / накопление`, `Наличные`, and `Групповой платёж`.
+- Telegram totals now use the same semantic real-expense rule as the rest of the product.
+
+---
+
 ### FT-038: Semantic text-input fast paths for daily Telegram flow
 
 Status: done

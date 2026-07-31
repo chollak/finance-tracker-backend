@@ -19,6 +19,7 @@ import {
 import { resolveUserIdToUUID } from '../../../../shared/application/helpers/userIdResolver';
 import { LimitType } from '../../../../modules/subscription/domain/usageLimit';
 import { createLogger, LogCategory } from '../../../../shared/infrastructure/logging';
+import { countsAsRealExpense, normalizeSemanticType } from '../../../../modules/transaction/domain/transactionSemanticType';
 
 const logger = createLogger(LogCategory.TELEGRAM_MSG);
 
@@ -353,7 +354,8 @@ async function getTodaySummary(
     let monthTotal = 0;
 
     for (const tx of transactions) {
-      if (tx.type === 'expense') {
+      const semanticType = normalizeSemanticType(tx.semanticType, tx.type);
+      if (!tx.needsReview && countsAsRealExpense(semanticType)) {
         const txDate = new Date(tx.date);
         if (txDate >= startOfMonth) {
           monthTotal += tx.amount;

@@ -5,6 +5,7 @@ import { TransactionModule } from '../../../../modules/transaction/transactionMo
 import { BudgetModule } from '../../../../modules/budget/budgetModule';
 import { UserModule } from '../../../../modules/user/userModule';
 import { SubscriptionModule } from '../../../../modules/subscription/subscriptionModule';
+import { TransactionSemanticType } from '../../../../modules/transaction/domain/transactionSemanticType';
 
 /**
  * Modules available in bot context
@@ -67,6 +68,8 @@ export interface ProcessedTransaction {
   amount: number;
   category: string;
   type: 'income' | 'expense';
+  semanticType?: TransactionSemanticType;
+  needsReview?: boolean;
   merchant?: string;
   confidence?: number;
   description?: string;

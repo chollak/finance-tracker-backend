@@ -1,8 +1,33 @@
 import { ProcessedTransaction } from '../types';
 import { RU, formatAmount } from '../i18n/ru';
+import { normalizeSemanticType } from '../../../../modules/transaction/domain/transactionSemanticType';
 
 function formatAmountWithCurrency(amount: number): string {
   return `${formatAmount(amount).replace(/\s/g, ' ')} UZS`;
+}
+
+function getSemanticLabel(tx: ProcessedTransaction): { emoji: string; label: string; hint?: string } {
+  const semanticType = normalizeSemanticType(tx.semanticType, tx.type);
+
+  switch (semanticType) {
+    case 'income':
+      return { emoji: '💚', label: 'Доход' };
+    case 'own_transfer':
+      return { emoji: '↔️', label: 'Перевод себе', hint: 'Не входит в расходы' };
+    case 'saving_deposit':
+      return { emoji: '🏦', label: 'Вклад / накопление', hint: 'Не входит в расходы' };
+    case 'debt':
+      return { emoji: '🤝', label: 'Долг', hint: 'Не входит в обычные расходы' };
+    case 'reimbursement':
+      return { emoji: '↩️', label: 'Возврат', hint: 'Отдельно от расходов' };
+    case 'cash_withdrawal':
+      return { emoji: '💵', label: 'Наличные', hint: 'Не входит в расходы до фактической траты' };
+    case 'group_payment':
+      return { emoji: '👥', label: 'Групповой платёж', hint: 'Проверь свою долю' };
+    case 'expense':
+    default:
+      return { emoji: '💸', label: 'Расход' };
+  }
 }
 
 /**
@@ -28,7 +53,6 @@ export function formatTransactionMessage(
     ? `${voicePrefix}🤔 <b>${RU.transaction.confirmRequired}</b>`
     : `${voicePrefix}✅ <b>${RU.transaction.autoSaved}</b>`;
 
-  const typeLabel = tx.type === 'income' ? RU.transaction.income : RU.transaction.expense;
   const typeEmoji = tx.type === 'income' ? '💚' : '💸';
 
   const lines = [
@@ -37,8 +61,17 @@ export function formatTransactionMessage(
     '',
     `${typeEmoji} ${RU.transaction.amount}: <b>${formatAmountWithCurrency(tx.amount)}</b>`,
     `📂 ${RU.transaction.category}: ${tx.category}`,
-    `📊 ${RU.transaction.type}: ${typeLabel}`,
   ];
+
+  const semantic = getSemanticLabel(tx);
+  lines.push(`${semantic.emoji} Смысл: ${semantic.label}`);
+  if (semantic.hint) {
+    lines.push(`ℹ️ ${semantic.hint}`);
+  }
+
+  if (tx.needsReview) {
+    lines.push('⚠️ Нужно проверить в Mini App');
+  }
 
   if (tx.description) {
     lines.push(`🧾 Описание: ${tx.description}`);
