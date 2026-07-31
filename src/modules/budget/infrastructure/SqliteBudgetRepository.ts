@@ -3,6 +3,7 @@ import { AppDataSource } from '../../../shared/infrastructure/database/database.
 import { Budget } from '../../../shared/infrastructure/database/entities/Budget';
 import { BudgetRepository } from '../domain/budgetRepository';
 import { BudgetEntity, CreateBudgetData, UpdateBudgetData, BudgetSummary } from '../domain/budgetEntity';
+import { BudgetPeriodCalculator } from '../application/budgetPeriodCalculator';
 
 export class SqliteBudgetRepository implements BudgetRepository {
   private budgetRepository: Repository<Budget>;
@@ -110,10 +111,8 @@ export class SqliteBudgetRepository implements BudgetRepository {
     const remaining = budget.amount - budget.spent;
     const percentageUsed = budget.amount > 0 ? (budget.spent / budget.amount) * 100 : 0;
     const isOverBudget = budget.spent > budget.amount;
-    
-    const today = new Date();
-    const endDate = new Date(budget.endDate);
-    const daysRemaining = Math.max(0, Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)));
+    const currentPeriod = BudgetPeriodCalculator.getCurrentRange(budget.period as any, budget.startDate);
+    const daysRemaining = BudgetPeriodCalculator.getDaysRemaining(currentPeriod.endDate);
 
     return {
       id: budget.id,
@@ -124,6 +123,8 @@ export class SqliteBudgetRepository implements BudgetRepository {
       percentageUsed: Math.round(percentageUsed * 100) / 100,
       isOverBudget,
       period: budget.period as any,
+      startDate: currentPeriod.startDate,
+      endDate: currentPeriod.endDate,
       daysRemaining
     };
   }

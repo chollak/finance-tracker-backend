@@ -3807,3 +3807,19 @@ Metrics summary: 4 semantic rows rendered at each width, 0 console errors, 0 bad
 ### Visual verdict
 
 Ready to commit. Rows now communicate: real expense red, own transfer/deposit neutral, semantic badges visible, `needsReview` badge visible, correction chips present and wrapped. At 375 px some long descriptions truncate as expected, but no clipping/blocker was observed.
+
+## 2026-07-31 — FT-026 recurring budget periods
+
+Status: done.
+
+What changed:
+- Added current recurring budget period calculation from the original `startDate` anchor.
+- Budget spending recalculation now uses the current cycle range instead of the stale stored fixed range.
+- Budget summaries include the current cycle `startDate`/`endDate`; Mini App budget cards show the current period label.
+- Added regression coverage for monthly rollover/reset: February recalculation excludes January transactions.
+
+Verification:
+- `npm test -- tests/budget.test.ts --runInBand` — passed.
+- `npm run build:webapp` — passed.
+- `npx tsc --noEmit` — passed.
+- `npm run verify` — passed: 24 suites / 229 tests, backend build, webapp build, dependency-cruiser, madge.

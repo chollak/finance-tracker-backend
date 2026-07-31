@@ -33,9 +33,9 @@ export interface BudgetSummary {
   percentageUsed: number;
   isOverBudget: boolean;
   period: BudgetPeriod;
+  startDate?: string;
+  endDate?: string;
   daysRemaining: number;
-  startDate: string;
-  endDate: string;
   categoryIds?: string[];
   description?: string;
 }

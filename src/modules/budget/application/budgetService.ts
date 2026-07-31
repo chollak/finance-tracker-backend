@@ -2,12 +2,17 @@ import { BudgetRepository } from '../domain/budgetRepository';
 import { TransactionRepository } from '../../transaction/domain/transactionRepository';
 import { BudgetSummary, BudgetPeriod } from '../domain/budgetEntity';
 import { countsAsBudgetSpending, normalizeSemanticType } from '../../transaction/domain/transactionSemanticType';
+import { BudgetPeriodCalculator } from './budgetPeriodCalculator';
 
 export class BudgetService {
   private budgetRepository: BudgetRepository;
   private transactionRepository: TransactionRepository;
 
-  constructor(budgetRepository: BudgetRepository, transactionRepository: TransactionRepository) {
+  constructor(
+    budgetRepository: BudgetRepository,
+    transactionRepository: TransactionRepository,
+    private readonly nowProvider: () => Date = () => new Date()
+  ) {
     this.budgetRepository = budgetRepository;
     this.transactionRepository = transactionRepository;
   }
@@ -16,11 +21,17 @@ export class BudgetService {
     const budget = await this.budgetRepository.findById(budgetId);
     if (!budget) return;
 
-    // Get transactions within budget period
+    const currentPeriod = BudgetPeriodCalculator.getCurrentRange(
+      budget.period,
+      budget.startDate,
+      this.nowProvider()
+    );
+
+    // Get transactions within the current recurring budget period
     const transactions = await this.transactionRepository.getByUserIdAndDateRange(
       budget.userId,
-      new Date(budget.startDate),
-      new Date(budget.endDate)
+      new Date(currentPeriod.startDate),
+      new Date(currentPeriod.endDate)
     );
 
     let totalSpent = 0;
@@ -70,34 +81,6 @@ export class BudgetService {
   }
 
   generateBudgetPeriodDates(period: BudgetPeriod, startDate?: Date): { startDate: string; endDate: string } {
-    const start = startDate || new Date();
-    let end: Date;
-
-    switch (period) {
-      case BudgetPeriod.WEEKLY:
-        end = new Date(start);
-        end.setDate(start.getDate() + 7);
-        break;
-      case BudgetPeriod.MONTHLY:
-        end = new Date(start);
-        end.setMonth(start.getMonth() + 1);
-        break;
-      case BudgetPeriod.QUARTERLY:
-        end = new Date(start);
-        end.setMonth(start.getMonth() + 3);
-        break;
-      case BudgetPeriod.YEARLY:
-        end = new Date(start);
-        end.setFullYear(start.getFullYear() + 1);
-        break;
-      default:
-        end = new Date(start);
-        end.setMonth(start.getMonth() + 1);
-    }
-
-    return {
-      startDate: start.toISOString().split('T')[0],
-      endDate: end.toISOString().split('T')[0]
-    };
+    return BudgetPeriodCalculator.getCurrentRange(period, startDate || this.nowProvider(), startDate || this.nowProvider());
   }
 }

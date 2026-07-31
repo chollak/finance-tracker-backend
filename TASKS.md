@@ -978,7 +978,7 @@ Implementation notes:
 
 ### FT-026: Recurring budget periods
 
-Status: ready
+Status: done
 Priority: high
 Owner: Hermes
 Type: product/backend+ui
@@ -997,10 +997,22 @@ Scope:
 - Add regression tests: monthly budget must not include previous-month expenses in the new month.
 
 Definition of Done:
-- [ ] Backend tests cover monthly rollover/reset behavior.
-- [ ] Budget summaries use current period date range.
-- [ ] UI shows current budget period clearly.
+- [x] Backend tests cover monthly rollover/reset behavior.
+- [x] Budget summaries use current period date range.
+- [x] UI shows current budget period clearly.
 - [x] `npm run verify` passes.
+
+Implementation notes:
+- Added `BudgetPeriodCalculator` for current recurring daily/weekly/monthly/quarterly/yearly cycles from the original budget `startDate` anchor.
+- `BudgetService.recalculateBudgetSpending` now queries transactions for the current recurring cycle, so monthly budgets reset spending when the calendar moves to the next cycle.
+- Budget summaries expose the current cycle `startDate`/`endDate`; Mini App budget cards show the current period label (for example `Месячный • февраль 2024`).
+- Regression tests cover monthly rollover and preserve semantic spending exclusions (`needsReview` and non-expense movements stay excluded).
+
+Verification:
+- `npm test -- tests/budget.test.ts --runInBand` — passed.
+- `npm run build:webapp` — passed.
+- `npx tsc --noEmit` — passed.
+- `npm run verify` — passed: 24 suites / 229 tests, backend build, webapp build, dependency-cruiser, and madge.
 
 ---
 

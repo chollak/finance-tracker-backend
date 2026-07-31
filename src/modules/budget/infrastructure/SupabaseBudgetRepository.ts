@@ -1,6 +1,7 @@
 import { getSupabaseClient } from '../../../shared/infrastructure/database/supabase.config';
 import { BudgetRepository } from '../domain/budgetRepository';
 import { BudgetEntity, CreateBudgetData, UpdateBudgetData, BudgetSummary } from '../domain/budgetEntity';
+import { BudgetPeriodCalculator } from '../application/budgetPeriodCalculator';
 
 export class SupabaseBudgetRepository implements BudgetRepository {
   private supabase = getSupabaseClient();
@@ -196,10 +197,8 @@ export class SupabaseBudgetRepository implements BudgetRepository {
     const remaining = amount - spent;
     const percentageUsed = amount > 0 ? (spent / amount) * 100 : 0;
     const isOverBudget = spent > amount;
-    
-    const today = new Date();
-    const endDate = new Date(row.end_date);
-    const daysRemaining = Math.max(0, Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)));
+    const currentPeriod = BudgetPeriodCalculator.getCurrentRange(row.period as any, row.start_date);
+    const daysRemaining = BudgetPeriodCalculator.getDaysRemaining(currentPeriod.endDate);
 
     return {
       id: row.id,
@@ -210,6 +209,8 @@ export class SupabaseBudgetRepository implements BudgetRepository {
       percentageUsed: Math.round(percentageUsed * 100) / 100,
       isOverBudget,
       period: row.period as any,
+      startDate: currentPeriod.startDate,
+      endDate: currentPeriod.endDate,
       daysRemaining
     };
   }

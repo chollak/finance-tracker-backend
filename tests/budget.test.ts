@@ -3,6 +3,7 @@ import { GetBudgetsUseCase } from '../src/modules/budget/application/getBudgets'
 import { UpdateBudgetUseCase } from '../src/modules/budget/application/updateBudget';
 import { DeleteBudgetUseCase } from '../src/modules/budget/application/deleteBudget';
 import { BudgetService } from '../src/modules/budget/application/budgetService';
+import { BudgetPeriodCalculator } from '../src/modules/budget/application/budgetPeriodCalculator';
 import { SqliteBudgetRepository } from '../src/modules/budget/infrastructure/SqliteBudgetRepository';
 import { SqliteTransactionRepository } from '../src/modules/transaction/infrastructure/persistence/SqliteTransactionRepository';
 import { BudgetPeriod } from '../src/modules/budget/domain/budgetEntity';
@@ -251,6 +252,45 @@ describe('Budget System', () => {
   });
 
   describe('BudgetService', () => {
+    it('calculates the current monthly budget period from the original anchor date', () => {
+      const currentPeriod = BudgetPeriodCalculator.getCurrentRange(
+        BudgetPeriod.MONTHLY,
+        '2024-01-01',
+        new Date('2024-02-15T12:00:00.000Z')
+      );
+
+      expect(currentPeriod).toEqual({
+        startDate: '2024-02-01',
+        endDate: '2024-03-01',
+      });
+    });
+
+    it('uses the current monthly cycle when recalculating spending', async () => {
+      budgetService = new BudgetService(
+        budgetRepository,
+        transactionRepository,
+        () => new Date('2024-02-15T12:00:00.000Z')
+      );
+      (budgetRepository.findById as jest.Mock).mockResolvedValue({
+        ...mockBudgetEntity,
+        startDate: '2024-01-01',
+        endDate: '2024-01-31',
+        categoryIds: undefined,
+      });
+      (transactionRepository.getByUserIdAndDateRange as jest.Mock).mockResolvedValue([
+        { id: 'feb', amount: 75, type: 'expense', semanticType: 'expense', description: 'February groceries', date: '2024-02-10', category: 'food', userId: 'user-123' },
+      ]);
+
+      await budgetService.recalculateBudgetSpending('budget-123');
+
+      expect(transactionRepository.getByUserIdAndDateRange).toHaveBeenCalledWith(
+        'user-123',
+        new Date('2024-02-01'),
+        new Date('2024-03-01')
+      );
+      expect(budgetRepository.updateSpentAmount).toHaveBeenCalledWith('budget-123', 75);
+    });
+
     it('should get budget summaries', async () => {
       (budgetRepository.getBudgetSummaries as jest.Mock).mockResolvedValue([mockBudgetSummary]);
 

@@ -61,6 +61,23 @@ function formatPeriod(period: BudgetPeriod): string {
   return PERIOD_LABELS[period] || period;
 }
 
+function formatCurrentPeriodRange(budget: BudgetSummary): string {
+  if (!budget.startDate || !budget.endDate) return formatPeriod(budget.period);
+
+  const start = new Date(budget.startDate);
+  const end = new Date(budget.endDate);
+
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+    return formatPeriod(budget.period);
+  }
+
+  if (budget.period === 'monthly') {
+    return format(start, 'LLLL yyyy', { locale: ru });
+  }
+
+  return `${format(start, 'dd.MM', { locale: ru })}–${format(end, 'dd.MM', { locale: ru })}`;
+}
+
 /**
  * Formats days remaining text
  */
@@ -202,7 +219,7 @@ export function budgetToViewModel(budget: BudgetSummary): BudgetViewModel {
     _statusText: status.text,
     _statusColor: status.color,
     _daysRemainingText: formatDaysRemaining(budget.daysRemaining),
-    _periodText: formatPeriod(budget.period),
+    _periodText: `${formatPeriod(budget.period)} • ${formatCurrentPeriodRange(budget)}`,
     // Actionable headline
     _remainingLabel: remainingLabel,
     _remainingAmountText: remainingAmountText,
