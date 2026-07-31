@@ -46,6 +46,47 @@ describe('OpenAITranscriptionService transaction parsing - semanticType', () => 
   });
 });
 
+describe('OpenAITranscriptionService transaction parsing - needsReview', () => {
+  const service = new OpenAITranscriptionService('test-api-key') as unknown as {
+    parseTransactionItem(item: any): { needsReview?: boolean } | null;
+  };
+
+  it('normalizes needsReview: true returned by OpenAI', () => {
+    const result = service.parseTransactionItem({
+      intent: 'transaction',
+      amount: 100000,
+      category: 'other',
+      type: 'expense',
+      needsReview: true,
+    });
+
+    expect(result?.needsReview).toBe(true);
+  });
+
+  it('defaults needsReview to false when missing', () => {
+    const result = service.parseTransactionItem({
+      intent: 'transaction',
+      amount: 100000,
+      category: 'other',
+      type: 'expense',
+    });
+
+    expect(result?.needsReview).toBe(false);
+  });
+
+  it('defaults needsReview to false for a non-boolean value', () => {
+    const result = service.parseTransactionItem({
+      intent: 'transaction',
+      amount: 100000,
+      category: 'other',
+      type: 'expense',
+      needsReview: 'true',
+    });
+
+    expect(result?.needsReview).toBe(false);
+  });
+});
+
 describe('ProcessVoiceInputUseCase - semanticType flow-through', () => {
   const filePath = '/tmp/semantic-voice-test-input.ogg';
 
@@ -120,6 +161,38 @@ describe('ProcessVoiceInputUseCase - semanticType flow-through', () => {
     }));
     expect(result.transactions).toEqual([
       expect.objectContaining({ id: 'salary-1', semanticType: 'income' }),
+    ]);
+  });
+
+  it('propagates needsReview: true from the transcription service into the create payload and response', async () => {
+    const openAIService = {
+      transcribe: jest.fn().mockResolvedValue('непонятная транзакция 40000'),
+      analyzeInput: jest.fn().mockResolvedValue({
+        transactions: [{
+          intent: 'transaction',
+          amount: 40000,
+          category: 'other',
+          type: 'expense',
+          date: '2026-07-22',
+          needsReview: true,
+        }],
+        debts: [],
+      }),
+      analyzeTransactions: jest.fn(),
+    } as unknown as TranscriptionService;
+
+    const createTransactionUseCase = {
+      execute: jest.fn().mockResolvedValue({ success: true, data: 'uncertain-1' }),
+    } as unknown as CreateTransactionUseCase;
+
+    const useCase = new ProcessVoiceInputUseCase(openAIService, createTransactionUseCase);
+    const result = await useCase.execute({ filePath, userId: 'user1' });
+
+    expect(createTransactionUseCase.execute).toHaveBeenCalledWith(expect.objectContaining({
+      needsReview: true,
+    }));
+    expect(result.transactions).toEqual([
+      expect.objectContaining({ id: 'uncertain-1', needsReview: true }),
     ]);
   });
 });

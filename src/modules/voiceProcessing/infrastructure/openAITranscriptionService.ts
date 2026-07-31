@@ -226,6 +226,7 @@ export class OpenAITranscriptionService implements TranscriptionService {
       category,
       type,
       semanticType: normalizeSemanticType(item.semanticType, type),
+      needsReview: item.needsReview === true,
       date: String(item.date || new Date().toISOString().split('T')[0]),
       merchant,
       confidence,

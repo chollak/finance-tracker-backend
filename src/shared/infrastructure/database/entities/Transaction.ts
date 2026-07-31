@@ -19,6 +19,9 @@ export class Transaction {
   @Column({ default: 'expense' })
   semanticType!: string;
 
+  @Column({ default: false })
+  needsReview!: boolean;
+
   @Column()
   description!: string;
 

@@ -40,6 +40,73 @@ describe('CreateTransactionUseCase', () => {
     expect(create).toHaveBeenCalled();
   });
 
+  it('defaults needsReview to false when omitted', async () => {
+    const transaction: Transaction = {
+      date: '2024-01-01',
+      category: 'Food',
+      description: 'Lunch',
+      amount: 10,
+      type: 'expense',
+      userId: 'user1'
+    };
+
+    const create = jest.fn().mockResolvedValue({ ...transaction, id: '1' });
+    const repo: TransactionRepository = {
+      create,
+      getAll: jest.fn(),
+      delete: jest.fn(),
+      findById: jest.fn(),
+      findByUserId: jest.fn(),
+      update: jest.fn(),
+      getByUserIdAndDateRange: jest.fn(),
+      archive: jest.fn(),
+      unarchive: jest.fn(),
+      archiveMultiple: jest.fn(),
+      archiveAllByUserId: jest.fn(),
+      findArchivedByUserId: jest.fn(),
+      findByIdIncludingArchived: jest.fn(),
+    } as any;
+
+    const useCase = new CreateTransactionUseCase(repo);
+    await useCase.execute(transaction);
+
+    expect(create).toHaveBeenCalledWith(expect.objectContaining({ needsReview: false }));
+  });
+
+  it('passes through an explicit needsReview: true', async () => {
+    const transaction: Transaction = {
+      date: '2024-01-01',
+      category: 'Food',
+      description: 'Lunch',
+      amount: 10,
+      type: 'expense',
+      userId: 'user1',
+      needsReview: true
+    };
+
+    const create = jest.fn().mockResolvedValue({ ...transaction, id: '1' });
+    const repo: TransactionRepository = {
+      create,
+      getAll: jest.fn(),
+      delete: jest.fn(),
+      findById: jest.fn(),
+      findByUserId: jest.fn(),
+      update: jest.fn(),
+      getByUserIdAndDateRange: jest.fn(),
+      archive: jest.fn(),
+      unarchive: jest.fn(),
+      archiveMultiple: jest.fn(),
+      archiveAllByUserId: jest.fn(),
+      findArchivedByUserId: jest.fn(),
+      findByIdIncludingArchived: jest.fn(),
+    } as any;
+
+    const useCase = new CreateTransactionUseCase(repo);
+    await useCase.execute(transaction);
+
+    expect(create).toHaveBeenCalledWith(expect.objectContaining({ needsReview: true }));
+  });
+
   it('returns failure Result when validation fails', async () => {
     const transaction: Transaction = {
       date: '2024-01-01',

@@ -41,6 +41,11 @@ export class TransactionValidator {
       chain.validate(Validators.transactionSemanticType(data.semanticType));
     }
 
+    // Optional needsReview validation - only checked when explicitly provided
+    if (data.needsReview !== undefined && data.needsReview !== null) {
+      chain.validate(Validators.boolean(data.needsReview, 'needsReview'));
+    }
+
     const validationResult = chain.getResult();
     if (!validationResult.success) {
       return ResultHelper.failure(validationResult.error);
@@ -56,6 +61,7 @@ export class TransactionValidator {
       description: String(data.description).trim(),
       type: data.type as 'income' | 'expense',
       semanticType: normalizeSemanticType(data.semanticType, data.type as 'income' | 'expense'),
+      needsReview: data.needsReview === true,
       userId: String(data.userId).trim(),
       userName: data.userName ? String(data.userName).trim() : undefined,
       date: data.date ? String(data.date).trim() : defaultDate,
@@ -105,6 +111,10 @@ export class TransactionValidator {
       chain.validate(Validators.transactionSemanticType(data.semanticType));
     }
 
+    if (data.needsReview !== undefined) {
+      chain.validate(Validators.boolean(data.needsReview, 'needsReview'));
+    }
+
     const validationResult = chain.getResult();
     if (!validationResult.success) {
       return ResultHelper.failure(validationResult.error);
@@ -118,6 +128,7 @@ export class TransactionValidator {
     if (data.description !== undefined) partialTransaction.description = String(data.description).trim();
     if (data.type !== undefined) partialTransaction.type = data.type;
     if (data.semanticType !== undefined) partialTransaction.semanticType = data.semanticType;
+    if (data.needsReview !== undefined) partialTransaction.needsReview = data.needsReview;
     if (data.userId !== undefined) partialTransaction.userId = String(data.userId).trim();
     if (data.date !== undefined) partialTransaction.date = String(data.date).trim();
     if (data.userName !== undefined) partialTransaction.userName = String(data.userName).trim();

@@ -2096,7 +2096,7 @@ Notes:
 
 ### FT-SEM-001: Add needsReview transaction foundation
 
-Status: in_progress
+Status: done
 Priority: high
 Owner: Claude Code, QA by Hermes
 Type: feature-foundation
@@ -2108,17 +2108,18 @@ Goal:
 Add a `needsReview` boolean foundation across backend domain/API/persistence and voice/text parsing. This is a data/contract slice only; avoid broad redesign.
 
 Definition of Done:
-- [ ] Transaction domain/entity/API DTOs support optional `needsReview` with default `false`
-- [ ] SQLite/TypeORM/Supabase persistence maps `needsReview`
-- [ ] New migration file is created but not executed against production/Supabase
-- [ ] OpenAI parsing contract can return `needsReview`
-- [ ] Text/voice processing passes `needsReview` into transaction creation
-- [ ] Fast-path/simple manual quick add defaults to `needsReview: false`
-- [ ] Focused tests cover default false, explicit true, parser propagation
-- [ ] Hermes runs focused tests and `npm run verify` before marking done
+- [x] Transaction domain/entity/API DTOs support optional `needsReview` with default `false`
+- [x] SQLite/TypeORM/Supabase persistence maps `needsReview`
+- [x] New migration file is created but not executed against production/Supabase
+- [x] OpenAI parsing contract can return `needsReview`
+- [x] Text/voice processing passes `needsReview` into transaction creation
+- [x] Fast-path/simple manual quick add defaults to `needsReview: false`
+- [x] Focused tests cover default false, explicit true, parser propagation
+- [x] Hermes runs focused tests and `npm run verify` before marking done
 
 Verification:
-- Pending.
+- `npm test -- tests/transactionRoutes.test.ts tests/semanticTransactionParsing.test.ts tests/processTextInput.test.ts tests/createTransaction.test.ts tests/updateTransaction.test.ts --runInBand` — passed, 5 suites / 37 tests.
+- `npm run verify` — passed, 23 suites / 213 tests, webapp build, dependency-cruiser, and madge circular check.
 
 ---
 

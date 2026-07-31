@@ -301,4 +301,97 @@ describe('Transaction API route boundaries', () => {
       semanticType: 'saving_deposit',
     });
   });
+
+  it('defaults needsReview to false on create when omitted', async () => {
+    (mocks.createUseCase.execute as jest.Mock).mockResolvedValue({
+      success: true,
+      data: 'tx-new',
+    });
+
+    const res = await fetch(`${baseUrl}/api/transactions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        amount: 100,
+        category: 'food',
+        description: 'Lunch',
+        type: 'expense',
+        userId: 'user-1',
+      }),
+    });
+
+    expect(res.status).toBe(201);
+    expect(mocks.createUseCase.execute).toHaveBeenCalledWith(
+      expect.objectContaining({ needsReview: false })
+    );
+  });
+
+  it('accepts an explicit needsReview: true on create and passes it to the create use case', async () => {
+    (mocks.createUseCase.execute as jest.Mock).mockResolvedValue({
+      success: true,
+      data: 'tx-new',
+    });
+
+    const res = await fetch(`${baseUrl}/api/transactions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        amount: 100,
+        category: 'food',
+        description: 'Lunch',
+        type: 'expense',
+        needsReview: true,
+        userId: 'user-1',
+      }),
+    });
+
+    expect(res.status).toBe(201);
+    expect(mocks.createUseCase.execute).toHaveBeenCalledWith(
+      expect.objectContaining({ needsReview: true })
+    );
+  });
+
+  it('rejects a non-boolean needsReview on create with 400 and does not call the create use case', async () => {
+    const res = await fetch(`${baseUrl}/api/transactions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        amount: 100,
+        category: 'food',
+        description: 'Lunch',
+        type: 'expense',
+        needsReview: 'yes',
+        userId: 'user-1',
+      }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.success).toBe(false);
+    expect(body.error.code).toBe('VALIDATION_ERROR');
+    expect(mocks.createUseCase.execute).not.toHaveBeenCalled();
+  });
+
+  it('passes needsReview through to the update use case on PUT', async () => {
+    (mocks.getByIdUseCase.execute as jest.Mock).mockResolvedValue({
+      success: true,
+      data: { id: 'tx-guest', userId: 'guest_abc123', amount: 100 },
+    });
+    (mocks.updateUseCase.execute as jest.Mock).mockResolvedValue({
+      success: true,
+      data: { id: 'tx-guest', userId: 'guest_abc123', amount: 100, needsReview: true },
+    });
+
+    const res = await fetch(`${baseUrl}/api/transactions/tx-guest`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ needsReview: true }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(mocks.updateUseCase.execute).toHaveBeenCalledWith({
+      id: 'tx-guest',
+      needsReview: true,
+    });
+  });
 });

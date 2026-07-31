@@ -4,6 +4,7 @@ import { Transaction as TransactionEntity, TransactionType } from '../../../../s
 import { TransactionRepository } from '../../domain/transactionRepository';
 import { Transaction } from '../../domain/transactionEntity';
 import { normalizeSemanticType } from '../../domain/transactionSemanticType';
+import { normalizeNeedsReview } from '../../domain/transactionEntity';
 
 export class SqliteTransactionRepository implements TransactionRepository {
   private repository: Repository<TransactionEntity>;
@@ -17,6 +18,7 @@ export class SqliteTransactionRepository implements TransactionRepository {
       amount: transaction.amount,
       type: transaction.type === 'income' ? TransactionType.INCOME : TransactionType.EXPENSE,
       semanticType: normalizeSemanticType(transaction.semanticType, transaction.type),
+      needsReview: normalizeNeedsReview(transaction.needsReview),
       description: transaction.description,
       date: transaction.date,
       merchant: transaction.merchant,
@@ -64,6 +66,7 @@ export class SqliteTransactionRepository implements TransactionRepository {
     if (updates.semanticType !== undefined) {
       updateData.semanticType = normalizeSemanticType(updates.semanticType, updates.type ?? 'expense');
     }
+    if (updates.needsReview !== undefined) updateData.needsReview = updates.needsReview;
     if (updates.description !== undefined) updateData.description = updates.description;
     if (updates.date !== undefined) updateData.date = updates.date;
     if (updates.merchant !== undefined) updateData.merchant = updates.merchant;
@@ -113,6 +116,7 @@ export class SqliteTransactionRepository implements TransactionRepository {
       amount: Number(entity.amount),
       type: entity.type === TransactionType.INCOME ? 'income' : 'expense',
       semanticType: normalizeSemanticType(entity.semanticType, entity.type === TransactionType.INCOME ? 'income' : 'expense'),
+      needsReview: entity.needsReview ?? false,
       description: entity.description,
       date: entity.date,
       userId: entity.userId,

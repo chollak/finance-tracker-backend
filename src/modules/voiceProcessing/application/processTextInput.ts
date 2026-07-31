@@ -45,6 +45,7 @@ function parseSimpleTextTransaction(text: string): AnalysisResult | null {
     category: normalizeCategory(label),
     type: 'expense',
     semanticType: 'expense',
+    needsReview: false,
     date: new Date().toISOString().split('T')[0],
     merchant: label,
     confidence: 1,
@@ -74,6 +75,7 @@ export class ProcessTextInputUseCase {
       try {
         const type = p.type || 'expense';
         const semanticType = normalizeSemanticType(p.semanticType, type);
+        const needsReview = p.needsReview === true;
         const transaction: Transaction = {
           date: p.date || new Date().toISOString().split('T')[0],
           category: p.category || 'other',
@@ -81,6 +83,7 @@ export class ProcessTextInputUseCase {
           amount: p.amount || 0,
           type,
           semanticType,
+          needsReview,
           userId,
           userName,
           merchant: p.merchant,
@@ -91,6 +94,7 @@ export class ProcessTextInputUseCase {
             category: p.category || 'other',
             type,
             semanticType,
+            needsReview,
             merchant: p.merchant,
             confidence: p.confidence,
           },
@@ -104,6 +108,7 @@ export class ProcessTextInputUseCase {
             category: transaction.category,
             type: transaction.type,
             semanticType: transaction.semanticType,
+            needsReview: transaction.needsReview,
             date: transaction.date,
             merchant: transaction.merchant,
             confidence: transaction.confidence,

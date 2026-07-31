@@ -9,6 +9,7 @@ export interface ParsedTransaction {
   category: string;
   type: 'income' | 'expense';
   semanticType?: TransactionSemanticType;
+  needsReview?: boolean;
   date: string;
   merchant?: string;
   confidence?: number;

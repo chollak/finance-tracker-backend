@@ -74,6 +74,7 @@ ${generateCategoryPrompt()}
           // Для ТРАНЗАКЦИИ:
           { "intent": "transaction", "amount": число, "category": "category_id", "type": "income" | "expense",
             "semanticType": "expense" | "income" | "own_transfer" | "saving_deposit" | "debt" | "reimbursement" | "cash_withdrawal" | "group_payment",
+            "needsReview": true | false,
             "date": "YYYY-MM-DD", "merchant": "название", "confidence": число, "description": "описание" }
         ]
       }
@@ -91,7 +92,12 @@ ${generateCategoryPrompt()}
       - "reimbursement" — возврат денег, компенсация
       - "cash_withdrawal" — снятие наличных
       - "group_payment" — оплата за компанию/группу с последующим разделением
-      - Если не уверен — используй "expense" для расходов или "income" для доходов
+      - Если не уверен — используй "expense" для расходов или "income" для доходов и поставь "needsReview": true
+
+      ПРАВИЛА NEEDSREVIEW:
+      - "needsReview": false — когда смысл операции понятен уверенно
+      - "needsReview": true — когда операция неоднозначна, возможно это перевод себе/вклад/долг/наличные/групповой платёж, но из текста нельзя уверенно определить
+      - Не придумывай semanticType "unknown": неопределённость отражается только через needsReview
 
       ПРАВИЛА ДАТ:
       - "вчера" = вчерашняя дата

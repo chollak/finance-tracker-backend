@@ -15,13 +15,14 @@ export interface UpdateTransactionRequest {
   date?: string;
   type?: 'income' | 'expense';
   semanticType?: TransactionSemanticType;
+  needsReview?: boolean;
 }
 
 export class UpdateTransactionUseCase {
   constructor(private repository: TransactionRepository) {}
 
   async execute(request: UpdateTransactionRequest): Promise<Result<Transaction>> {
-    const { id, amount, category, description, date, type, semanticType } = request;
+    const { id, amount, category, description, date, type, semanticType, needsReview } = request;
 
     // Validate ID
     if (!id?.trim()) {
@@ -49,6 +50,10 @@ export class UpdateTransactionUseCase {
       return ResultHelper.failure(new ValidationError('Invalid semanticType'));
     }
 
+    if (needsReview !== undefined && typeof needsReview !== 'boolean') {
+      return ResultHelper.failure(new ValidationError('needsReview must be a boolean'));
+    }
+
     try {
       // Check if transaction exists
       const existing = await this.repository.findById(id.trim());
@@ -63,6 +68,7 @@ export class UpdateTransactionUseCase {
         date,
         type,
         semanticType,
+        needsReview,
       });
 
       logger.info('Transaction updated', { transactionId: id });

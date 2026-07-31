@@ -125,6 +125,13 @@ export class Validators {
     return this.oneOf(value, ['income', 'expense'] as const, 'type');
   }
 
+  static boolean(value: any, fieldName: string): Result<boolean, ValidationError> {
+    if (typeof value !== 'boolean') {
+      return ResultHelper.failure(new ValidationError(`${fieldName} must be a boolean`, fieldName));
+    }
+    return ResultHelper.success(value);
+  }
+
   static transactionSemanticType(value: any): Result<TransactionSemanticType, ValidationError> {
     if (!isTransactionSemanticType(value)) {
       return ResultHelper.failure(

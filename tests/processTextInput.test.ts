@@ -118,6 +118,69 @@ describe('ProcessTextInputUseCase', () => {
     ]);
   });
 
+  it('passes through needsReview: true returned by OpenAI into the create payload and response', async () => {
+    const openAIService = {
+      analyzeInput: jest.fn().mockResolvedValue({
+        transactions: [{
+          intent: 'transaction',
+          amount: 40000,
+          category: 'other',
+          type: 'expense',
+          date: '2026-07-22',
+          needsReview: true,
+        }],
+        debts: []
+      }),
+      analyzeTransactions: jest.fn(),
+      transcribe: jest.fn()
+    } as unknown as TranscriptionService;
+
+    const createTransactionUseCase = {
+      execute: jest.fn().mockResolvedValue({ success: true, data: 'uncertain-1' })
+    } as unknown as CreateTransactionUseCase;
+
+    const useCase = new ProcessTextInputUseCase(openAIService, createTransactionUseCase);
+    const result = await useCase.execute('непонятная транзакция 40000!', 'user1');
+
+    expect(createTransactionUseCase.execute).toHaveBeenCalledWith(expect.objectContaining({
+      needsReview: true,
+    }));
+    expect(result.transactions).toEqual([
+      expect.objectContaining({ id: 'uncertain-1', needsReview: true })
+    ]);
+  });
+
+  it('defaults needsReview to false when omitted from the OpenAI response', async () => {
+    const openAIService = {
+      analyzeInput: jest.fn().mockResolvedValue({
+        transactions: [{
+          intent: 'transaction',
+          amount: 40000,
+          category: 'other',
+          type: 'expense',
+          date: '2026-07-22',
+        }],
+        debts: []
+      }),
+      analyzeTransactions: jest.fn(),
+      transcribe: jest.fn()
+    } as unknown as TranscriptionService;
+
+    const createTransactionUseCase = {
+      execute: jest.fn().mockResolvedValue({ success: true, data: 'certain-1' })
+    } as unknown as CreateTransactionUseCase;
+
+    const useCase = new ProcessTextInputUseCase(openAIService, createTransactionUseCase);
+    const result = await useCase.execute('обычная транзакция 40000!', 'user1');
+
+    expect(createTransactionUseCase.execute).toHaveBeenCalledWith(expect.objectContaining({
+      needsReview: false,
+    }));
+    expect(result.transactions).toEqual([
+      expect.objectContaining({ id: 'certain-1', needsReview: false })
+    ]);
+  });
+
   it('falls back to OpenAI for complex multi-item text instead of using the simple parser', async () => {
     const openAIService = {
       analyzeInput: jest.fn().mockResolvedValue({
@@ -187,7 +250,8 @@ describe('ProcessTextInputUseCase', () => {
         date: '2024-01-01',
         merchant: undefined,
         confidence: undefined,
-        description: 'test'
+        description: 'test',
+        needsReview: false
       }],
       debts: []
     });
@@ -230,7 +294,8 @@ describe('ProcessTextInputUseCase', () => {
           date: '2024-01-01',
           merchant: undefined,
           confidence: undefined,
-          description: 'text'
+          description: 'text',
+          needsReview: false
         },
         {
           id: '2',
@@ -241,7 +306,8 @@ describe('ProcessTextInputUseCase', () => {
           date: '2024-01-01',
           merchant: undefined,
           confidence: undefined,
-          description: 'text'
+          description: 'text',
+          needsReview: false
         }
       ],
       debts: []

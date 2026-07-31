@@ -115,6 +115,7 @@ export class ProcessVoiceInputUseCase {
         try {
           const type = p.type === 'income' ? 'income' : 'expense';
           const semanticType = normalizeSemanticType(p.semanticType, type);
+          const needsReview = p.needsReview === true;
           const transaction: Transaction = {
             date: p.date || new Date().toISOString().split('T')[0],
             category: p.category || 'other',
@@ -122,6 +123,7 @@ export class ProcessVoiceInputUseCase {
             amount: p.amount || 0,
             type,
             semanticType,
+            needsReview,
             userId: input.userId.trim(),
             userName: input.userName?.trim() || input.userId.trim(),
             merchant: p.merchant,
@@ -132,6 +134,7 @@ export class ProcessVoiceInputUseCase {
               category: p.category || 'other',
               type,
               semanticType,
+              needsReview,
               merchant: p.merchant,
               confidence: p.confidence,
             },
@@ -145,6 +148,7 @@ export class ProcessVoiceInputUseCase {
               category: transaction.category,
               type: transaction.type,
               semanticType: transaction.semanticType,
+              needsReview: transaction.needsReview,
               date: transaction.date,
               merchant: transaction.merchant,
               confidence: transaction.confidence,

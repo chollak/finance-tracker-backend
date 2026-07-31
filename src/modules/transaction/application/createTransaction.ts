@@ -3,6 +3,7 @@ import { TransactionRepository } from '../domain/transactionRepository';
 import { Result, ResultHelper } from '../../../shared/domain/types/Result';
 import { ValidationError, BusinessLogicError } from '../../../shared/domain/errors/AppError';
 import { normalizeSemanticType } from '../domain/transactionSemanticType';
+import { normalizeNeedsReview } from '../domain/transactionEntity';
 import { SubscriptionModule } from '../../subscription/subscriptionModule';
 import { UserModule } from '../../user/userModule';
 import { getLogger, LogCategory } from '../../../shared/application/logging';
@@ -45,6 +46,7 @@ export class CreateTransactionUseCase {
     }
 
     transaction.semanticType = normalizeSemanticType(transaction.semanticType, transaction.type);
+    transaction.needsReview = normalizeNeedsReview(transaction.needsReview);
 
     try {
       const created = await this.primaryRepository.create(transaction);

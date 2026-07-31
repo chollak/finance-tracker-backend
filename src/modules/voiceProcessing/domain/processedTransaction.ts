@@ -6,6 +6,7 @@ export interface DetectedTransaction {
   category: string;
   type: 'income' | 'expense';
   semanticType?: TransactionSemanticType;
+  needsReview?: boolean;
   date: string;
   merchant?: string;
   confidence?: number;

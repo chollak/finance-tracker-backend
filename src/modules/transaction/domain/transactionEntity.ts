@@ -8,6 +8,7 @@ export interface Transaction {
     amount: number;
     type: 'income' | 'expense';  // Тип транзакции (направление cashflow, legacy)
     semanticType?: TransactionSemanticType; // Смысл транзакции (для учёта расходов/бюджета)
+    needsReview?: boolean; // Uncertain parsing/categorization, flagged for user correction
     userId: string;
     userName?: string;
     // Timestamps
@@ -21,6 +22,7 @@ export interface Transaction {
         category: string;
         type: 'income' | 'expense';
         semanticType?: TransactionSemanticType;
+        needsReview?: boolean;
         merchant?: string;
         confidence?: number;
     };
@@ -31,4 +33,8 @@ export interface Transaction {
     relatedDebtId?: string;
     // Split expenses support (for future)
     splitGroupId?: string;
+}
+
+export function normalizeNeedsReview(value: unknown): boolean {
+    return value === true;
 }

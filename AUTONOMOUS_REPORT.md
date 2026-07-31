@@ -3569,3 +3569,43 @@ Relevant product cues from artifact:
 - Hermes reviews diff and runs focused tests + `npm run verify` before each commit.
 - Supabase migration files may be created, but migrations are not executed without explicit approval.
 
+## 2026-07-31 — FT-SEM-001 needsReview foundation completed
+
+### Goal
+
+Add `needsReview` as the trust/correction foundation before redesign. Uncertainty is represented as `needsReview: true`, not by adding an `unknown` semantic type.
+
+### Execution
+
+Claude Code implemented most of the slice but exited with `error_max_turns`. Hermes inspected the partial diff, fixed missing voice/text propagation and parser normalization, updated the OpenAI prompt contract, then ran focused and full verification.
+
+### Files changed
+
+- `migrations/008_add_transaction_needs_review.sql`
+- `src/modules/transaction/**` domain/application/controller/repository mapping files
+- `src/modules/voiceProcessing/**` parsed transaction, text/voice flow, OpenAI response parser
+- `src/shared/application/validation/**`
+- `src/shared/domain/constants/messages.ts`
+- `src/shared/infrastructure/database/entities/Transaction.ts`
+- focused tests for create/update/routes/text/voice semantic parsing
+
+### Verification
+
+```bash
+npm test -- tests/transactionRoutes.test.ts tests/semanticTransactionParsing.test.ts tests/processTextInput.test.ts tests/createTransaction.test.ts tests/updateTransaction.test.ts --runInBand
+```
+
+Result: passed — 5 suites / 37 tests.
+
+```bash
+npm run verify
+```
+
+Result: passed — 23 suites / 213 tests, backend build, webapp build, dependency-cruiser, and madge circular check.
+
+### Notes
+
+- Supabase migration file was created but not executed.
+- `needsReview` defaults to false when omitted or non-boolean in parser normalization.
+- OpenAI prompt now explicitly asks for `needsReview` and forbids inventing `unknown` semanticType.
+
