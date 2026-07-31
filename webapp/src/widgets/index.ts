@@ -5,3 +5,4 @@ export * from './recent-transactions';
 export * from './financial-health';
 export * from './spending-chart';
 export * from './quick-stats';
+export * from './home-trust-summary';

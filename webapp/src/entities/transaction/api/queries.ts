@@ -19,6 +19,7 @@ function localToTransaction(local: LocalTransaction): Transaction {
     description: local.description,
     amount: local.amount,
     type: local.type,
+    semanticType: local.semanticType,
     userId: local.userId,
     merchant: local.merchant,
     createdAt: new Date(local.localCreatedAt).toISOString(),

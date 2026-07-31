@@ -4,6 +4,7 @@ import { QuickStats } from '@/widgets/quick-stats';
 import { UsageLimitsCard } from '@/widgets/usage-limits';
 import { RecentTransactions } from '@/widgets/recent-transactions';
 import { BudgetOverview } from '@/widgets/budget-overview';
+import { HomeTrustSummary } from '@/widgets/home-trust-summary';
 import { Button } from '@/shared/ui/button';
 import { PageHeader, PageShell, SectionStack } from '@/shared/ui';
 import { Plus } from 'lucide-react';
@@ -27,6 +28,11 @@ export function HomePage() {
         {/* Balance Card - Full Width */}
         <div className="animate-fade-in-up">
           <BalanceCard />
+        </div>
+
+        {/* Semantic trust formula - explains why real expenses differ from outgoing cashflow */}
+        <div className="animate-fade-in-up stagger-1">
+          <HomeTrustSummary />
         </div>
 
         {/* Attention Summary - what needs a decision right now */}

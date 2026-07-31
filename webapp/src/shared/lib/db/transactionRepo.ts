@@ -18,6 +18,18 @@ function generateUUID(): string {
   return crypto.randomUUID();
 }
 
+function semanticTypeOrLegacy(tx: LocalTransaction): string {
+  return tx.semanticType ?? (tx.type === 'income' ? 'income' : 'expense');
+}
+
+function countsAsLocalIncome(tx: LocalTransaction): boolean {
+  return semanticTypeOrLegacy(tx) === 'income';
+}
+
+function countsAsLocalExpense(tx: LocalTransaction): boolean {
+  return semanticTypeOrLegacy(tx) === 'expense';
+}
+
 /**
  * Local Transaction Repository
  * Provides offline-first CRUD operations for guest users
@@ -158,11 +170,11 @@ export const localTransactionRepo = {
       .toArray();
 
     const totalIncome = transactions
-      .filter((tx) => tx.type === 'income')
+      .filter(countsAsLocalIncome)
       .reduce((sum, tx) => sum + tx.amount, 0);
 
     const totalExpense = transactions
-      .filter((tx) => tx.type === 'expense')
+      .filter(countsAsLocalExpense)
       .reduce((sum, tx) => sum + tx.amount, 0);
 
     return {

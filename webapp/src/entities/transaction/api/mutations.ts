@@ -34,6 +34,7 @@ function localToTransaction(local: LocalTransaction): Transaction {
     description: local.description,
     amount: local.amount,
     type: local.type,
+    semanticType: local.semanticType,
     userId: local.userId,
     merchant: local.merchant,
     createdAt: new Date(local.localCreatedAt).toISOString(),
@@ -57,6 +58,7 @@ export function useCreateTransaction() {
         description: data.description,
         amount: data.amount,
         type: data.type,
+        semanticType: data.semanticType,
         userId: data.userId,
         merchant: data.merchant,
       });
@@ -108,6 +110,7 @@ export function useUpdateTransaction() {
         description: data.description,
         amount: data.amount,
         type: data.type,
+        semanticType: data.semanticType,
         merchant: data.merchant,
       });
       if (!localTx) {

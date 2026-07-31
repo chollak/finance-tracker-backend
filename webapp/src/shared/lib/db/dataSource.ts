@@ -153,6 +153,7 @@ function serverTxToLocal(serverTx: any): LocalTransaction {
     description: serverTx.description,
     amount: Number(serverTx.amount),
     type: serverTx.type,
+    semanticType: serverTx.semanticType,
     userId: serverTx.userId,
     merchant: serverTx.merchant,
     localCreatedAt: new Date(serverTx.createdAt || Date.now()).getTime(),

@@ -3,6 +3,8 @@
  * Defines local storage structure for guest mode (offline-first)
  */
 
+import type { TransactionSemanticType } from '@/shared/types';
+
 /**
  * Local transaction stored in IndexedDB
  * Used for guest users only
@@ -16,6 +18,7 @@ export interface LocalTransaction {
   description: string;
   amount: number;
   type: 'income' | 'expense';
+  semanticType?: TransactionSemanticType;
   userId: string; // guest_UUID
   merchant?: string;
 
@@ -47,6 +50,7 @@ export interface CreateLocalTransactionDTO {
   description: string;
   amount: number;
   type: 'income' | 'expense';
+  semanticType?: TransactionSemanticType;
   userId: string;
   merchant?: string;
 }
@@ -60,6 +64,7 @@ export interface UpdateLocalTransactionDTO {
   description?: string;
   amount?: number;
   type?: 'income' | 'expense';
+  semanticType?: TransactionSemanticType;
   merchant?: string;
   isArchived?: boolean;
 }

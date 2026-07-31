@@ -48,6 +48,7 @@ export function QuickAddSheet({
         ...data,
         date: selectedDate.toISOString(), // Full ISO string with time
         description: data.description || data.category, // Fallback to category name
+        semanticType: data.type,
         userId,
         userName: userName || undefined,
       });
@@ -122,6 +123,7 @@ export function ControlledQuickAddSheet({
         ...data,
         date: selectedDate.toISOString(), // Full ISO string with time
         description: data.description || data.category,
+        semanticType: data.type,
         userId,
         userName: userName || undefined,
       });
