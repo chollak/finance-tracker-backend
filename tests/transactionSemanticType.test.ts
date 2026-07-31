@@ -38,6 +38,10 @@ describe('normalizeSemanticType', () => {
     expect(normalizeSemanticType('crypto_trade', 'income')).toBe('income');
   });
 
+  it('coerces legacy income transactions away from a stale expense semantic type', () => {
+    expect(normalizeSemanticType('expense', 'income')).toBe('income');
+  });
+
   it('defaults to "expense" when no fallbackType is provided and value is unknown', () => {
     expect(normalizeSemanticType(undefined)).toBe('expense');
   });

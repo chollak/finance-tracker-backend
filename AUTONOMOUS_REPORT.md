@@ -3915,3 +3915,59 @@ npm run verify
 ```
 
 Result: passed — 24 suites / 238 tests, backend build, webapp build, dependency-cruiser, and madge circular check.
+
+
+## 2026-07-31 — FT-040 Home semantic monthly summary consistency
+
+### Goal
+
+Make Home's top-level monthly numbers consistent with the semantic accounting model: finalized real expenses exclude own transfers, saving deposits, cash withdrawals, debts/reimbursements/group payments, and needs-review rows.
+
+### Execution
+
+Hermes added a tested `calculateHomeTrustSummary` helper for the Home trust card. The widget now shows the explicit formula:
+
+```text
+Исходящие операции − Не расходы − Нужно проверить = Реальные расходы
+```
+
+`needsReview` rows are deducted separately and surfaced with an action hint to correct them in Mini App.
+
+During visual QA Hermes found a related consistency gap: the BalanceCard said `Месяц`, but `useDashboardInsights` fetched dashboard data without a date range, so the card could show all-time totals. Hermes added a tested current-month range helper and passes `startDate`/`endDate` to the dashboard endpoint.
+
+Hermes also found legacy local data where old income rows had `type: income` but stale `semanticType: expense`. `normalizeSemanticType('expense', 'income')` now coerces to `income`, preventing old income rows from being treated as expenses at read/calculation time.
+
+### Files changed
+
+- `src/modules/transaction/domain/transactionSemanticType.ts`
+- `tests/transactionSemanticType.test.ts`
+- `webapp/src/entities/dashboard/api/monthRange.ts`
+- `webapp/src/entities/dashboard/api/queries.ts`
+- `webapp/src/widgets/home-trust-summary/lib/calculateHomeTrustSummary.ts`
+- `webapp/src/widgets/home-trust-summary/ui/HomeTrustSummary.tsx`
+- `tests/dashboardMonthRange.test.ts`
+- `tests/homeTrustSummary.test.ts`
+- `TASKS.md`
+- `AUTONOMOUS_REPORT.md`
+
+### Verification
+
+```bash
+npm test -- tests/homeTrustSummary.test.ts tests/dashboardMonthRange.test.ts --runInBand
+npm test -- tests/transactionSemanticType.test.ts tests/homeTrustSummary.test.ts tests/dashboardMonthRange.test.ts --runInBand
+npm run verify
+```
+
+Result: passed — full verify reported 26 suites / 243 tests, backend build, webapp build, dependency-cruiser, and madge circular check.
+
+Runtime probes after restart:
+
+- `local /api/health` — 200
+- `public /api/health` — 200
+- Dashboard month query returned `totalIncome: 7399999`, `totalExpense: 1011999`, `netIncome: 6388000` for July 2026.
+
+Visual QA:
+
+- `/tmp/ft040-home-final-audit/screenshots/home-390.png`
+- `issueCount: 0`, no console errors, no bad responses.
+- The screenshot shows BalanceCard and HomeTrustSummary aligned: `Расходы 1 011 999`, formula `1 511 999 − 500 000 = 1 011 999`, and net flow `+6 388 000`.

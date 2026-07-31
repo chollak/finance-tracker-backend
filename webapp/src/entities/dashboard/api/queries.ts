@@ -4,6 +4,7 @@ import type { DashboardData } from '@/shared/types';
 import { dashboardKeys } from './keys';
 import { useUserStore } from '@/entities/user/model/store';
 import { transactionDataSource } from '@/shared/lib/db';
+import { getCurrentMonthDashboardRange } from './monthRange';
 
 /**
  * Build minimal DashboardData from local analytics for guest mode
@@ -113,8 +114,12 @@ export function useDashboardInsights(userId: string | null) {
         });
       }
 
-      // Telegram mode: use API
-      const response = await apiClient.get<DashboardData>(`/dashboard/${userId}`);
+      // Telegram mode: Home dashboard is month-scoped; pass an explicit
+      // range so widgets labelled "Месяц" do not accidentally render all-time totals.
+      const range = getCurrentMonthDashboardRange();
+      const response = await apiClient.get<DashboardData>(
+        `/dashboard/${userId}?startDate=${range.startDate}&endDate=${range.endDate}`
+      );
       return response.data;
     },
     enabled: !!userId,

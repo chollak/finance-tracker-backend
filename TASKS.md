@@ -24,6 +24,36 @@
 
 ## Current Tasks
 
+### FT-040: Home semantic monthly summary consistency
+
+Status: done
+Priority: high
+Owner: Hermes
+Type: product-ux-correctness
+
+Context:
+Home needed to make the product's semantic accounting obvious at a glance. The existing trust card explained non-expense movements, but did not explicitly subtract `needsReview` rows. Visual QA also exposed a bigger consistency issue: the BalanceCard was labelled `Месяц` but the dashboard query returned all-time totals, and legacy income rows with stale `semanticType: expense` could make income look like expense.
+
+Definition of Done:
+- [x] Home trust formula separates outgoing cashflow, non-expense movements, `needsReview`, and finalized real expenses.
+- [x] Home shows an explicit `Нужно проверить` deduction and action hint when review rows exist.
+- [x] Dashboard Home query uses the current month range for widgets labelled `Месяц`.
+- [x] Legacy `type: income` rows with stale `semanticType: expense` normalize to `income` at read/calc time.
+- [x] Add regression tests for Home formula, month range, and semantic normalization.
+- [x] Run full verify and screenshot-backed mobile QA.
+
+Verification:
+- `npm test -- tests/homeTrustSummary.test.ts tests/dashboardMonthRange.test.ts --runInBand` — passed.
+- `npm test -- tests/transactionSemanticType.test.ts tests/homeTrustSummary.test.ts tests/dashboardMonthRange.test.ts --runInBand` — passed.
+- `npm run verify` — passed, 26 suites / 243 tests.
+- Visual QA: `/tmp/ft040-home-final-audit/screenshots/home-390.png`, issueCount 0.
+
+Implementation notes:
+- BalanceCard now receives dashboard data for the current month explicitly.
+- The final visual check showed monthly income `7 399 999`, real expenses `1 011 999`, and positive net flow `+6 388 000`, matching the Home semantic formula.
+
+---
+
 ### FT-039: Telegram confirmations surface transaction meaning
 
 Status: done

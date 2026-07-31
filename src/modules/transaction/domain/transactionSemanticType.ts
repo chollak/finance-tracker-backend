@@ -20,6 +20,7 @@ export function normalizeSemanticType(
   value: unknown,
   fallbackType: 'income' | 'expense' = 'expense'
 ): TransactionSemanticType {
+  if (fallbackType === 'income' && value === 'expense') return 'income';
   if (isTransactionSemanticType(value)) return value;
   return fallbackType === 'income' ? 'income' : 'expense';
 }

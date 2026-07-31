@@ -1,10 +1,10 @@
-import { ArrowDown, Equal, Info, Minus } from 'lucide-react';
+import { AlertTriangle, ArrowDown, Equal, Info, Minus } from 'lucide-react';
 import { useTransactions } from '@/entities/transaction/api/queries';
 import { useUserStore } from '@/entities/user/model/store';
-import { isNonExpenseMovement } from '@/entities/transaction';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card';
 import { Skeleton } from '@/shared/ui/skeleton';
 import { formatCurrency } from '@/shared/lib/formatters';
+import { calculateHomeTrustSummary } from '../lib/calculateHomeTrustSummary';
 
 function startOfCurrentMonth(): string {
   const now = new Date();
@@ -38,31 +38,14 @@ export function HomeTrustSummary() {
     );
   }
 
-  const monthStart = startOfCurrentMonth();
-  const monthTransactions = transactions
-    .filter((transaction) => transaction.date >= monthStart)
-    .filter((transaction) => transaction._needsReview !== true && transaction.needsReview !== true);
-  const outgoingTotal = monthTransactions
-    .filter((transaction) => transaction.type === 'expense')
-    .reduce((sum, transaction) => sum + transaction.amount, 0);
-  const excludedTotal = monthTransactions
-    .filter(
-      (transaction) =>
-        transaction.type === 'expense' && isNonExpenseMovement(transaction.semanticType ?? 'expense')
-    )
-    .reduce((sum, transaction) => sum + transaction.amount, 0);
-  const realExpenseTotal = Math.max(0, outgoingTotal - excludedTotal);
-
-  const excludedLabels = Array.from(
-    new Set(
-      monthTransactions
-        .filter(
-          (transaction) =>
-            transaction.type === 'expense' && isNonExpenseMovement(transaction.semanticType ?? 'expense')
-        )
-        .map((transaction) => transaction._semanticTypeLabel)
-    )
-  ).slice(0, 4);
+  const {
+    outgoingTotal,
+    excludedTotal,
+    needsReviewTotal,
+    needsReviewCount,
+    realExpenseTotal,
+    excludedLabels,
+  } = calculateHomeTrustSummary(transactions, startOfCurrentMonth());
 
   return (
     <Card className="overflow-hidden border-primary/10 bg-gradient-to-br from-card to-primary/5">
@@ -93,6 +76,15 @@ export function HomeTrustSummary() {
               </span>
               <span className="font-semibold tabular-nums text-primary">−{formatSum(excludedTotal)}</span>
             </div>
+            {needsReviewTotal > 0 && (
+              <div className="flex items-center justify-between gap-3">
+                <span className="inline-flex items-center gap-2 text-muted-foreground">
+                  <AlertTriangle className="h-3.5 w-3.5 text-warning" />
+                  Нужно проверить
+                </span>
+                <span className="font-semibold tabular-nums text-warning">−{formatSum(needsReviewTotal)}</span>
+              </div>
+            )}
             <div className="border-t border-border/70 pt-3">
               <div className="flex items-center justify-between gap-3">
                 <span className="inline-flex items-center gap-2 font-medium text-foreground">
@@ -124,8 +116,20 @@ export function HomeTrustSummary() {
           )}
         </div>
 
+        {needsReviewCount > 0 && (
+          <div className="rounded-[1.1rem] border border-warning/20 bg-warning-muted p-3.5">
+            <div className="mb-1.5 flex items-center gap-2 text-sm font-semibold text-warning">
+              <AlertTriangle className="h-4 w-4" />
+              Требуют решения: {needsReviewCount}
+            </div>
+            <p className="text-xs leading-relaxed text-warning/80">
+              Эти операции пока не входят в финальные расходы. Откройте транзакции и уточните смысл через chips.
+            </p>
+          </div>
+        )}
+
         <p className="text-xs leading-relaxed text-muted-foreground">
-          Почему? Деньги могли просто переехать между вашими счетами — например, с TBC на Alif или в копилку.
+          Формула: исходящие − не расходы − нужно проверить = реальные расходы.
         </p>
       </CardContent>
     </Card>
