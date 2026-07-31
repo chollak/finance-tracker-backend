@@ -16,7 +16,7 @@ export interface TransactionViewModel extends Transaction {
   _formattedDate: string;        // "Сегодня, 15:30" or "14 янв, 15:30"
   _categoryIcon: string;         // "🍔"
   _categoryColor: string;        // "bg-orange-100 text-orange-600"
-  _amountColor: string;          // "text-income" or "text-expense"
+  _amountColor: string;          // "text-income", "text-expense", or "text-muted-foreground" for non-expense movements
   _typeLabel: string;            // "Доход" or "Расход"
   _semanticTypeLabel: string;            // "Долг", "Перевод себе", ...
   _semanticTypeBadgeVariant: NonNullable<BadgeProps['variant']>;

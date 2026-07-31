@@ -3754,3 +3754,56 @@ Local `.env` currently uses `DATABASE_TYPE=sqlite`, so Supabase migrations 007/0
 
 Ready for redesign on local/dev code foundation. The next safe redesign slice is visual redesign of transaction list/cards and Home summary using existing `semanticType`, `needsReview`, correction chips, and weekly-review summary foundation.
 
+## 2026-07-31 — FT-SEM-006 semantic transaction list UI slice
+
+### Goal
+
+Start actual semantic redesign with the transaction list/card vertical slice after pre-redesign foundation was green.
+
+### Execution
+
+Hermes scoped a narrow UI task and delegated implementation to Claude Code. Claude Code added semantic badges and one-tap correction chips to transaction rows and extracted a shared `TransactionCorrectionChips` component. Hermes reviewed the diff, ran build/verify, then performed screenshot-backed mobile visual QA with seeded guest transactions at 375, 390, and 412 px.
+
+Hermes found one visual/product issue in the first pass: non-expense movements such as own transfers and saving deposits still rendered large red negative amounts because `_amountColor` was based only on `type: 'expense'`. Hermes delegated a smaller continuation to Claude Code, which centralized the fix in the transaction view-model mapper: non-expense movements now use neutral `text-muted-foreground` while real expenses stay `text-expense` and income stays `text-income`.
+
+### Files changed
+
+- `webapp/src/entities/transaction/lib/toViewModel.ts`
+- `webapp/src/entities/transaction/model/types.ts`
+- `webapp/src/entities/transaction/ui/TransactionCard.tsx`
+- `webapp/src/entities/transaction/ui/TransactionCorrectionChips.tsx`
+- `webapp/src/entities/transaction/ui/TransactionListItem.tsx`
+- `TASKS.md`
+- `AUTONOMOUS_REPORT.md`
+
+### Verification
+
+```bash
+npm run build:webapp
+```
+
+Result: passed. Vite emitted the existing >600 kB chunk-size warning only.
+
+```bash
+npm run verify
+```
+
+Result: passed — 24 suites / 227 tests, backend build, webapp build, dependency-cruiser, and madge circular check.
+
+Local server probe:
+
+- `root:200`
+- `health:200`
+
+Screenshot QA artifacts:
+
+- `/tmp/ft-semantic-transaction-ui-sample/transactions-375.png`
+- `/tmp/ft-semantic-transaction-ui-sample/transactions-390.png`
+- `/tmp/ft-semantic-transaction-ui-sample/transactions-412.png`
+- `/tmp/ft-semantic-transaction-ui-sample/metrics.json`
+
+Metrics summary: 4 semantic rows rendered at each width, 0 console errors, 0 bad responses.
+
+### Visual verdict
+
+Ready to commit. Rows now communicate: real expense red, own transfer/deposit neutral, semantic badges visible, `needsReview` badge visible, correction chips present and wrapped. At 375 px some long descriptions truncate as expected, but no clipping/blocker was observed.

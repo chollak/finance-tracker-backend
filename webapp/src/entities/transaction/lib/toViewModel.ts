@@ -23,7 +23,11 @@ export function transactionToViewModel(transaction: Transaction): TransactionVie
     _formattedDate: formatTransactionDate(dateForFormatting),
     _categoryIcon: getCategoryIcon(transaction.category),
     _categoryColor: getCategoryColor(transaction.category),
-    _amountColor: isIncome ? 'text-income' : 'text-expense',
+    _amountColor: isIncome
+      ? 'text-income'
+      : isNonExpenseMovement(semanticType)
+        ? 'text-muted-foreground'
+        : 'text-expense',
     _typeLabel: isIncome ? 'Доход' : 'Расход',
     _semanticTypeLabel: getSemanticTypeLabel(semanticType),
     _semanticTypeBadgeVariant: getSemanticTypeBadgeVariant(semanticType),

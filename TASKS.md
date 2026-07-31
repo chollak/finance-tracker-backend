@@ -2220,3 +2220,39 @@ FT-SEM-004 verification:
 - Claude Code readiness QA report: `/tmp/finance-redesign-readiness-report.md`
 - Local `.env` uses `DATABASE_TYPE=sqlite`; Supabase migrations 007/008 remain a pre-production/prod-deploy action, not a local redesign blocker.
 - Current tunnel/menu status verified: `root:200`, `health:200`, `menu.type=web_app`.
+
+---
+
+### FT-SEM-006: Semantic transaction list UI slice
+
+Status: done
+Priority: high
+Owner: Claude Code, QA by Hermes
+Type: frontend-ui/semantic-redesign
+
+Goal:
+Start the visual redesign on the safest vertical slice: transaction rows/cards should explain semantic meaning directly in the list, including real expenses, non-expense movements, and transactions that need review.
+
+Definition of Done:
+- [x] Transaction list rows show semantic badges via existing `semanticType` view-model fields
+- [x] `needsReview` rows show a prominent “Нужно проверить” badge
+- [x] One-tap correction chips update `{ semanticType, needsReview: false }` without breaking row click-to-edit
+- [x] Non-expense movement amounts render neutral instead of expense-red
+- [x] Shared correction chip component is reused by list rows and transaction card
+- [x] `npm run build:webapp` passes
+- [x] `npm run verify` passes
+- [x] Mobile screenshot QA passes at 375/390/412 px with sample semantic transactions
+
+Verification:
+- `npm run build:webapp` — passed.
+- `npm run verify` — passed, 24 suites / 227 tests, backend build, webapp build, dependency-cruiser, and madge circular check.
+- Local health probe — `root:200`, `health:200`.
+- Visual QA sample screenshots:
+  - `/tmp/ft-semantic-transaction-ui-sample/transactions-375.png`
+  - `/tmp/ft-semantic-transaction-ui-sample/transactions-390.png`
+  - `/tmp/ft-semantic-transaction-ui-sample/transactions-412.png`
+- Visual QA metrics: `/tmp/ft-semantic-transaction-ui-sample/metrics.json` — 4 rows rendered, 0 console errors, 0 bad responses at each width.
+
+Notes:
+- Browser QA with `AUTH_MODE=telegram` produced expected local auth 401 noise outside real Telegram initData; final visual QA used guest IndexedDB fixture with safe sample data.
+- Existing Vite >600 kB chunk-size warning remains unrelated to this slice.
