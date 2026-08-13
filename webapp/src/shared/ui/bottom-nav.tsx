@@ -16,6 +16,7 @@ import { API_ENDPOINTS } from '@/shared/lib/constants';
 import type { Transaction, BudgetSummary, Debt } from '@/shared/types';
 import { haptic } from '@/shared/lib/haptic';
 import { ControlledQuickAddSheet } from '@/features/quick-add';
+import { MoreSheet, isMoreSectionActive } from '@/features/more-menu';
 import { Dock, DockItem, DockSeparator } from './dock';
 
 const routeNavItems = [
@@ -34,11 +35,6 @@ const routeNavItems = [
     label: 'Бюджеты',
     icon: Wallet,
   },
-  {
-    href: ROUTES.MORE,
-    label: 'Ещё',
-    icon: MoreHorizontal,
-  },
 ];
 
 /**
@@ -52,6 +48,7 @@ export function BottomNav() {
   const queryClient = useQueryClient();
   const userId = useUserStore((state) => state.userId);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
 
   // Prefetch functions for each page
   const prefetchForRoute = (href: string) => {
@@ -124,17 +121,10 @@ export function BottomNav() {
     }
   };
 
-  const isRouteActive = (href: string) => {
-    const moreRoutes: string[] = [ROUTES.MORE, ROUTES.DEBTS, ROUTES.ANALYTICS];
-    return href === ROUTES.MORE
-      ? moreRoutes.includes(location.pathname)
-      : location.pathname === href;
-  };
-
   const renderDockItem = (item: (typeof routeNavItems)[number]) => {
     const Icon = item.icon;
-    const active = isRouteActive(item.href);
-    const isCurrentRoute = location.pathname === item.href;
+    const active = location.pathname === item.href;
+    const isCurrentRoute = active;
 
     return (
       <DockItem
@@ -176,9 +166,20 @@ export function BottomNav() {
           </DockItem>
           <DockSeparator />
           {routeNavItems.slice(2).map((item) => renderDockItem(item))}
+          <DockItem
+            active={isMoreSectionActive(location.pathname) || moreOpen}
+            aria-label="Ещё"
+            onClick={() => {
+              haptic.press();
+              setMoreOpen(true);
+            }}
+          >
+            <MoreHorizontal className="h-5 w-5" aria-hidden="true" />
+          </DockItem>
         </Dock>
       </nav>
       <ControlledQuickAddSheet open={quickAddOpen} onOpenChange={setQuickAddOpen} />
+      <MoreSheet open={moreOpen} onOpenChange={setMoreOpen} onPrefetch={prefetchForRoute} />
     </>
   );
 }

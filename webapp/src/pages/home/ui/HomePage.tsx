@@ -1,7 +1,6 @@
 import { BalanceCard } from '@/widgets/balance-card';
 import { AttentionSummary } from '@/widgets/attention-summary';
 import { QuickStats } from '@/widgets/quick-stats';
-import { UsageLimitsCard } from '@/widgets/usage-limits';
 import { RecentTransactions } from '@/widgets/recent-transactions';
 import { BudgetOverview } from '@/widgets/budget-overview';
 import { HomeTrustSummary } from '@/widgets/home-trust-summary';
@@ -45,10 +44,8 @@ export function HomePage() {
           <QuickStats />
         </div>
 
-        {/* Usage Limits - Only for Free users */}
-        <div className="animate-fade-in-up stagger-1">
-          <UsageLimitsCard />
-        </div>
+        {/* Usage limits moved to the More sheet: subscription quotas are not a
+            daily concern and were crowding the most frequently opened screen. */}
 
         {/* Two Column Layout on Desktop */}
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">

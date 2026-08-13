@@ -1,23 +1,13 @@
 import { Link } from 'react-router-dom';
-import { BarChart3, ChevronRight, HandCoins } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import { Card, PageHeader, PageShell, SectionStack } from '@/shared/ui';
-import { ROUTES } from '@/shared/lib/constants/routes';
+import { UsageLimitsCard } from '@/widgets/usage-limits';
+import { MORE_DESTINATIONS } from '@/features/more-menu';
 
-const moreItems = [
-  {
-    href: ROUTES.DEBTS,
-    title: 'Долги',
-    description: 'Кому должны вы и кто должен вам',
-    icon: HandCoins,
-  },
-  {
-    href: ROUTES.ANALYTICS,
-    title: 'Аналитика',
-    description: 'Категории, тренды и финансовые отчёты',
-    icon: BarChart3,
-  },
-];
-
+/**
+ * Desktop and direct-link view of the same sections the mobile bottom
+ * navigation opens as a sheet. The list itself lives in one place.
+ */
 export function MorePage() {
   return (
     <PageShell>
@@ -27,7 +17,7 @@ export function MorePage() {
       />
 
       <SectionStack className="space-y-3">
-        {moreItems.map((item) => {
+        {MORE_DESTINATIONS.map((item) => {
           const Icon = item.icon;
 
           return (
@@ -47,6 +37,8 @@ export function MorePage() {
             </Link>
           );
         })}
+
+        <UsageLimitsCard />
       </SectionStack>
     </PageShell>
   );
