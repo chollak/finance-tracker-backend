@@ -60,7 +60,7 @@
 
 ### FT-065: Transaction edit is blocked by an optional field
 
-Status: review
+Status: done
 Priority: high
 Owner: Claude Code, QA by Hermes
 Type: bug
@@ -96,7 +96,7 @@ Definition of Done:
 
 ### FT-066: Archived transactions cannot be restored
 
-Status: review
+Status: done
 Priority: high
 Owner: Claude Code, QA by Hermes
 Type: bug
