@@ -111,8 +111,7 @@ For detailed documentation, see **[docs/knowledge-base/](docs/knowledge-base/)**
   - [API Route Coverage Matrix](docs/knowledge-base/08-development/api-route-coverage-matrix.md) - FT-022 route coverage audit
 - **[UX Improvements](docs/knowledge-base/09-ux-improvements/)** - UI/UX enhancement tracking
   - [UI/UX Analysis](docs/knowledge-base/09-ux-improvements/ui-ux-analysis.md) - Complete analysis and recommendations
-- **[Design Guidelines](docs/knowledge-base/10-design-guidelines/)** - Frontend design rules (MUST FOLLOW)
-  - [Design Guidelines](docs/knowledge-base/10-design-guidelines/design-guidelines.md) - Complete design system rules
+- **[Design System](docs/knowledge-base/10-design-guidelines/design-system.md)** - Единственный действующий документ по дизайну (MUST FOLLOW). Источник правды по значениям — токены в `webapp/src/app/styles/globals.css`
 - **[Backend Standards](docs/BACKEND_STANDARDS.md)** - Backend coding standards (MUST FOLLOW)
   - Error handling, Repository patterns, Use Cases, Controllers, Naming conventions
 
@@ -567,14 +566,16 @@ fixes #70"
 
 ## Design System (WebApp Frontend)
 
-**IMPORTANT: All frontend changes MUST follow the [Design Guidelines](docs/knowledge-base/10-design-guidelines/design-guidelines.md)**
+**IMPORTANT: All frontend changes MUST follow the [Design System](docs/knowledge-base/10-design-guidelines/design-system.md)**
+
+Значения (шрифт, цвета, радиусы, тайминги, тач-таргеты) заданы токенами в `webapp/src/app/styles/globals.css` — это источник правды. Документ объясняет смысл и причины; при расхождении прав код.
 
 ### Quick Reference (MUST FOLLOW)
 
 | Aspect | Rule |
 |--------|------|
 | **Style** | Minimal & Clean — lots of whitespace, no decorative elements |
-| **Font** | Inter (400/600/700 weights only) |
+| **Font** | Onest (weights 400–800), loaded via `--font-family-sans` |
 | **Colors** | Neutral grays + ONE accent color (green for finance) |
 | **Border Radius** | Cards: 24px, Buttons/Inputs: 12px, Pills: full |
 | **Animations** | Fade-in 300ms, Hover 150ms, Stagger 50ms |
@@ -586,7 +587,6 @@ fixes #70"
 - Multiple accent colors
 - Heavy shadows
 - Animations longer than 600ms
-- Font weights 500 (use 400 or 700)
 - Decorative borders on cards
 
 The webapp uses a **shadcn/ui-based design system** (Radix primitives + Tailwind CSS + `class-variance-authority`), implementing a modern, mobile-first finance tracker interface. There is no separate `design-system/` package — shared primitives live directly in `shared/ui/` (Feature-Sliced Design layout: `app/entities/features/pages/shared/widgets`).
@@ -685,7 +685,7 @@ Available in `webapp/src/app/styles/globals.css`:
 - Include hover states for interactive elements
 - Add active states with `active:scale-95` for touch feedback
 
-For detailed component documentation, see: [Design System Guide](docs/knowledge-base/08-development/design-system.md)
+For detailed component documentation, see: [Design System](docs/knowledge-base/10-design-guidelines/design-system.md)
 
 ---
 
