@@ -17,12 +17,41 @@ const path = require('path');
 const { spawn, spawnSync } = require('child_process');
 
 const root = path.resolve(__dirname, '..');
-const DEFAULT_ENV_FILE = path.join(root, '.env');
+
+// AppConfig loads .env.local when it exists and falls back to .env. Writing to
+// the other file would update a value the app never reads.
+const DEFAULT_ENV_FILE = fs.existsSync(path.join(root, '.env.local'))
+  ? path.join(root, '.env.local')
+  : path.join(root, '.env');
+
 const DEFAULT_PORT = 3000;
 const DEFAULT_MENU_TEXT = 'Finance DEV';
 
+/**
+ * Finds the cloudflared binary. Explicit override first, then the manual
+ * install location, then whatever is on PATH (Homebrew puts it there).
+ */
+function resolveCloudflared() {
+  const candidates = [
+    process.env.CLOUDFLARED_BIN,
+    path.join(process.env.HOME || '', '.local/bin/cloudflared'),
+  ].filter(Boolean);
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) return candidate;
+  }
+
+  const found = spawnSync('command', ['-v', 'cloudflared'], { encoding: 'utf8', shell: true });
+  const onPath = (found.stdout || '').trim().split('\n')[0];
+  if (onPath && fs.existsSync(onPath)) return onPath;
+
+  throw new Error(
+    'cloudflared not found. Install it (brew install cloudflared) or set CLOUDFLARED_BIN.'
+  );
+}
+
 function printHelp() {
-  console.log(`Finance Tracker Telegram Mini App helper\n\nUsage:\n  npm run dev:miniapp -- --chat-id=<telegram_chat_id> [--skip-build]\n  npm run miniapp:menu -- status --chat-id=<telegram_chat_id>\n  npm run miniapp:menu -- set --url=<https_url> --chat-id=<telegram_chat_id>\n\nOptions:\n  --chat-id, --chatId       Telegram chat/user id for the persistent menu button\n  --url                    Public HTTPS Mini App URL for set/status checks\n  --env-file               Env file to update (default: .env)\n  --menu-text              Telegram menu button text (default: Finance DEV)\n  --port                   Backend port (default: 3000)\n  --skip-build             Skip npm run build:webapp && npm run build before serve\n  --no-serve               Only create/update tunnel/menu; do not start npm run serve\n  --no-menu                Do not call Telegram setChatMenuButton\n  --help                   Show help\n\nNotes:\n  - For Telegram Mini App on a phone, WEB_APP_URL must be public HTTPS.\n  - Old inline buttons keep their embedded URL; send /start after a tunnel change.\n  - The persistent chat menu button must be updated separately; this helper does it.\n`);
+  console.log(`Finance Tracker Telegram Mini App helper\n\nUsage:\n  npm run dev:miniapp -- --chat-id=<telegram_chat_id> [--skip-build]\n  npm run miniapp:menu -- status --chat-id=<telegram_chat_id>\n  npm run miniapp:menu -- set --url=<https_url> --chat-id=<telegram_chat_id>\n\nOptions:\n  --chat-id, --chatId       Telegram chat/user id for the persistent menu button\n  --url                    Public HTTPS Mini App URL for set/status checks\n  --env-file               Env file to update (default: .env.local if present, else .env)\n  --menu-text              Telegram menu button text (default: Finance DEV)\n  --port                   Backend port (default: 3000)\n  --skip-build             Skip npm run build:webapp && npm run build before serve\n  --no-serve               Only create/update tunnel/menu; do not start npm run serve\n  --no-menu                Do not call Telegram setChatMenuButton\n  --help                   Show help\n\nNotes:\n  - For Telegram Mini App on a phone, WEB_APP_URL must be public HTTPS.\n  - Old inline buttons keep their embedded URL; send /start after a tunnel change.\n  - The persistent chat menu button must be updated separately; this helper does it.\n`);
 }
 
 function parseArgs(argv) {
@@ -264,8 +293,7 @@ async function commandRun({ flags }) {
   const children = [];
 
   if (!flags.url) {
-    const cloudflared = process.env.CLOUDFLARED_BIN || path.join(process.env.HOME || '', '.local/bin/cloudflared');
-    if (!fs.existsSync(cloudflared)) throw new Error(`cloudflared not found at ${cloudflared}; set CLOUDFLARED_BIN`);
+    const cloudflared = resolveCloudflared();
     console.log(`Starting Cloudflare tunnel to http://127.0.0.1:${port} ...`);
     const tunnel = spawn(cloudflared, ['tunnel', '--url', `http://127.0.0.1:${port}`], { cwd: root, stdio: ['ignore', 'pipe', 'pipe'] });
     children.push(tunnel);
