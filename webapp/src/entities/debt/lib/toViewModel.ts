@@ -25,7 +25,13 @@ export function debtToViewModel(debt: Debt): DebtViewModel {
     _typeLabel: isIOwe ? 'Я должен' : 'Мне должны',
     _typeIcon: isIOwe ? '📤' : '📥',
     _statusLabel: isPaid ? 'Погашен' : isCancelled ? 'Отменён' : 'Активен',
-    _statusColor: isPaid ? 'text-green-600' : isCancelled ? 'text-gray-500' : 'text-blue-600',
+    // Semantic roles only. An active debt is an ordinary state, so it stays
+    // neutral; blue is not one of the roles the design system defines.
+    _statusColor: isPaid
+      ? 'text-success'
+      : isCancelled
+        ? 'text-muted-foreground'
+        : 'text-foreground',
     _progressPercent: progressPercent,
     _isOverdue: isOverdue || false,
     _amountColor: isIOwe ? 'text-expense' : 'text-income',

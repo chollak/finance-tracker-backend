@@ -10,22 +10,9 @@ import {
 import { useCategoryBreakdown } from '@/entities/transaction';
 import { useUserStore } from '@/entities/user/model/store';
 import { PieChart, Pie, Cell } from 'recharts';
-import { getCategoryIcon, getCategoryName } from '@/entities/category';
+import { getCategoryIcon } from '@/entities/category';
 import { useMemo } from 'react';
-
-/**
- * Color palette for pie chart (using CSS HSL values for shadcn compatibility)
- */
-const CHART_COLORS = [
-  'hsl(0 84% 60%)',      // Red
-  'hsl(174 62% 47%)',    // Teal
-  'hsl(48 96% 61%)',     // Yellow
-  'hsl(134 50% 50%)',    // Green
-  'hsl(263 70% 76%)',    // Purple
-  'hsl(25 95% 53%)',     // Orange
-  'hsl(330 81% 60%)',    // Pink
-  'hsl(217 91% 60%)',    // Blue
-];
+import { prepareChartSlices } from '../lib/prepareChartSlices';
 
 /**
  * Format large numbers compactly (e.g., 1.4M, 500K)
@@ -51,40 +38,17 @@ export function SpendingChart() {
   const userId = useUserStore((state) => state.userId);
   const { data: categories, isLoading } = useCategoryBreakdown(userId);
 
-  // Build dynamic chart config based on categories
-  const chartConfig = useMemo<ChartConfig>(() => {
-    if (!categories) return {};
+  // Slices, colours and the collapsed tail all come from one place.
+  const chartData = useMemo(() => prepareChartSlices(categories), [categories]);
 
-    return categories.reduce((config, cat, index) => {
-      config[cat.category] = {
-        label: getCategoryName(cat.category),
-        color: CHART_COLORS[index % CHART_COLORS.length],
-      };
-      return config;
-    }, {} as ChartConfig);
-  }, [categories]);
-
-  // Transform data for recharts with minimum visual size
-  const chartData = useMemo(() => {
-    if (!categories) return [];
-
-    const MIN_VISUAL_PERCENT = 5;
-    const totalValue = categories.reduce((sum, cat) => sum + cat.total, 0);
-
-    return categories.map((cat, index) => {
-      const actualPercent = cat.percentage;
-      const visualPercent = Math.max(actualPercent, MIN_VISUAL_PERCENT);
-      const visualValue = (visualPercent / 100) * totalValue;
-
-      return {
-        name: getCategoryName(cat.category),
-        value: visualValue,
-        actualValue: cat.total,
-        percentage: actualPercent,
-        fill: CHART_COLORS[index % CHART_COLORS.length],
-      };
-    });
-  }, [categories]);
+  const chartConfig = useMemo<ChartConfig>(
+    () =>
+      chartData.reduce((config, slice) => {
+        config[slice.category] = { label: slice.name, color: slice.fill };
+        return config;
+      }, {} as ChartConfig),
+    [chartData]
+  );
 
   if (isLoading) {
     return (
@@ -179,13 +143,13 @@ export function SpendingChart() {
           {/* Category List - Grid Layout */}
           <div className="w-full flex-1 min-w-0">
             <div className="grid gap-2">
-              {categories.slice(0, 5).map((cat, index) => {
-                const icon = getCategoryIcon(cat.category);
-                const color = CHART_COLORS[index % CHART_COLORS.length];
+              {chartData.map((slice) => {
+                const icon = getCategoryIcon(slice.category);
+                const color = slice.fill;
 
                 return (
                   <div
-                    key={cat.category}
+                    key={slice.category}
                     className="flex items-center gap-3 py-1.5 px-2 rounded-lg hover:bg-muted/50 transition-colors"
                   >
                     {/* Color indicator */}
@@ -199,27 +163,22 @@ export function SpendingChart() {
 
                     {/* Category name with percentage */}
                     <div className="flex-1 min-w-0 flex items-center gap-2">
-                      <span className="text-sm font-medium truncate">{getCategoryName(cat.category)}</span>
+                      <span className="text-sm font-medium truncate">{slice.name}</span>
                       <span className="text-xs text-muted-foreground flex-shrink-0">
-                        {cat.percentage.toFixed(1)}%
+                        {slice.percentage.toFixed(1)}%
                       </span>
                     </div>
 
                     {/* Amount - compact format */}
                     <span className="text-sm font-semibold tabular-nums flex-shrink-0">
-                      {formatCompactAmount(cat.total)} UZS
+                      {formatCompactAmount(slice.actualValue)} UZS
                     </span>
                   </div>
                 );
               })}
             </div>
-
-            {/* Show more indicator if there are more categories */}
-            {categories.length > 5 && (
-              <p className="text-xs text-muted-foreground mt-3 text-center">
-                +{categories.length - 5} ещё
-              </p>
-            )}
+            {/* No "+N more": the tail is folded into the "Другое" slice above,
+                so the legend already accounts for every category. */}
           </div>
         </div>
       </CardContent>
