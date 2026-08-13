@@ -9,7 +9,7 @@ export const SegmentedTabsList = forwardRef<
 >(({ className, ...props }, ref) => (
   <TabsList
     ref={ref}
-    className={cn('mb-4 grid h-12 w-full rounded-2xl p-1', className)}
+    className={cn('mb-4 grid w-full rounded-2xl p-1', className)}
     {...props}
   />
 ));
@@ -21,7 +21,7 @@ export const SegmentedTabsTrigger = forwardRef<
 >(({ className, ...props }, ref) => (
   <TabsTrigger
     ref={ref}
-    className={cn('gap-2 rounded-xl py-2', className)}
+    className={cn('min-h-[var(--touch-target)] gap-2 rounded-xl py-2', className)}
     {...props}
   />
 ));

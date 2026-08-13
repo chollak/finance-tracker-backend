@@ -59,7 +59,7 @@ export function FinancialHealth() {
         {/* How it's calculated - collapsible */}
         <button
           onClick={() => setShowExplanation(!showExplanation)}
-          className="w-full flex items-center justify-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors pt-2"
+          className="flex min-h-[var(--touch-target)] w-full items-center justify-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
         >
           Как рассчитывается?
           {showExplanation ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}

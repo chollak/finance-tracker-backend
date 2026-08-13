@@ -33,7 +33,7 @@ export function TransactionCorrectionChips({ transaction, className = '' }: Tran
           type="button"
           disabled={updateTransaction.isPending}
           onClick={(e) => handleCorrect(e, semanticType)}
-          className="rounded-full border border-border px-2.5 py-1 text-[11px] font-medium text-foreground hover:bg-accent disabled:opacity-50 disabled:pointer-events-none transition-colors"
+          className="inline-flex min-h-[var(--touch-target)] items-center rounded-full border border-border px-2.5 py-1 text-[11px] font-medium text-foreground hover:bg-accent disabled:opacity-50 disabled:pointer-events-none transition-colors"
         >
           {getSemanticTypeLabel(semanticType)}
         </button>

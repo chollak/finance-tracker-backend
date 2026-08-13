@@ -74,7 +74,7 @@ export function BalanceCard() {
             type="button"
             variant="outline"
             size="sm"
-            className="h-10 border-income/20 bg-income-muted/40 text-income shadow-none hover:border-income/30 hover:bg-income-muted"
+            className="border-income/20 bg-income-muted/40 text-income shadow-none hover:border-income/30 hover:bg-income-muted"
             onClick={() => openQuickAdd('income')}
           >
             <Plus className="h-4 w-4" />
@@ -84,7 +84,7 @@ export function BalanceCard() {
             type="button"
             variant="outline"
             size="sm"
-            className="h-10 border-expense/20 bg-expense-muted/40 text-expense shadow-none hover:border-expense/30 hover:bg-expense-muted"
+            className="border-expense/20 bg-expense-muted/40 text-expense shadow-none hover:border-expense/30 hover:bg-expense-muted"
             onClick={() => openQuickAdd('expense')}
           >
             <Minus className="h-4 w-4" />

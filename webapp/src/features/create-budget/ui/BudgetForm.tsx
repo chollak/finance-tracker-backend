@@ -178,7 +178,7 @@ export function BudgetForm({ onSubmit, isLoading, defaultValues, submitButtonTex
                           }
                         }}
                         className={cn(
-                          'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-all',
+                          'inline-flex min-h-[var(--touch-target)] items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-all',
                           isSelected
                             ? 'bg-primary text-primary-foreground shadow-sm'
                             : 'bg-muted text-muted-foreground hover:bg-muted/80'

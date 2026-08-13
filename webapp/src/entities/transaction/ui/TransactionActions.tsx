@@ -34,7 +34,7 @@ export function TransactionActions({
         <Button
           variant="ghost"
           size="icon"
-          className="h-8 w-8 flex-shrink-0"
+          className="flex-shrink-0"
           disabled={disabled}
           onClick={(e) => e.stopPropagation()}
         >

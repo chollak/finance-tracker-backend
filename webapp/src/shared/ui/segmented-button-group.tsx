@@ -26,7 +26,7 @@ export function SegmentedButtonGroup<T extends string>({
 }: SegmentedButtonGroupProps<T>) {
   return (
     <div
-      className={cn('mb-4 grid h-12 w-full rounded-2xl bg-muted p-1 text-muted-foreground', className)}
+      className={cn('mb-4 grid w-full rounded-2xl bg-muted p-1 text-muted-foreground', className)}
       role="tablist"
       aria-label={ariaLabel}
     >
@@ -41,7 +41,7 @@ export function SegmentedButtonGroup<T extends string>({
             aria-selected={isActive}
             onClick={() => onChange(option.value)}
             className={cn(
-              'inline-flex items-center justify-center whitespace-nowrap rounded-xl px-3 py-2 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+              'inline-flex min-h-[var(--touch-target)] items-center justify-center whitespace-nowrap rounded-xl px-3 py-2 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
               isActive
                 ? 'bg-background text-foreground shadow'
                 : 'hover:text-foreground'
