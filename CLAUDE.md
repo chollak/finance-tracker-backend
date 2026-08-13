@@ -86,6 +86,8 @@ logger.error('Failed to save', error);
 
 ## Documentation
 
+**[Продуктовые инварианты](docs/knowledge-base/00-product-invariants.md) — стержень проекта.** Утверждения, которые обязаны быть верны всегда. Нарушение — баг, а не предмет обсуждения. Закреплены сторожами в `tests/productInvariants.test.ts`. Читать до того, как менять что-либо, касающееся денег.
+
 For detailed documentation, see **[docs/knowledge-base/](docs/knowledge-base/)**:
 
 - **[Architecture](docs/knowledge-base/01-architecture/)** - Clean Architecture, modules, design patterns
