@@ -30,6 +30,7 @@ export function AddTransaction({ onSuccess, showHeader = true }: AddTransactionP
     try {
       await createTransaction.mutateAsync({
         ...data,
+        merchant: data.merchant ?? undefined,
         userId,
         userName: userName || undefined,
       });

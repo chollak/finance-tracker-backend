@@ -29,7 +29,7 @@ export function EditTransaction() {
           description: data.description,
           date: data.date,
           type: data.type,
-          merchant: data.merchant,
+          merchant: data.merchant ?? undefined,
         },
       });
 

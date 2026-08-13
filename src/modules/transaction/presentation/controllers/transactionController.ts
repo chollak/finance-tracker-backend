@@ -41,9 +41,10 @@ async function verifyTransactionOwnershipWithResult(
   req: Request,
   transactionId: string,
   getByIdUseCase: GetTransactionByIdUseCase,
-  userModule?: UserModule
+  userModule?: UserModule,
+  options?: { includeArchived?: boolean }
 ): Promise<{ success: true; transaction: Transaction } | { success: false; error: Error }> {
-  const result = await getByIdUseCase.execute(transactionId);
+  const result = await getByIdUseCase.execute(transactionId, options);
 
   if (!result.success) {
     return { success: false, error: result.error };
@@ -445,8 +446,15 @@ export function createTransactionRouter(
         return handleControllerError(error, res);
       }
 
-      // Verify ownership before unarchiving
-      const ownershipResult = await verifyTransactionOwnershipWithResult(req, transactionId, getByIdUseCase, userModule);
+      // Verify ownership before unarchiving. The transaction is archived by
+      // definition here, so the lookup has to include archived rows.
+      const ownershipResult = await verifyTransactionOwnershipWithResult(
+        req,
+        transactionId,
+        getByIdUseCase,
+        userModule,
+        { includeArchived: true }
+      );
       if (!ownershipResult.success) {
         return handleControllerError(ownershipResult.error, res);
       }

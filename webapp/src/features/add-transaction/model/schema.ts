@@ -21,7 +21,9 @@ export const addTransactionSchema = z.object({
 
   date: z.string({ message: 'Дата обязательна' }),
 
-  merchant: z.string().optional(),
+  // The API returns null for a merchant that was never filled in, and the edit
+  // form seeds its fields straight from that response.
+  merchant: z.string().nullable().optional(),
 });
 
 export type AddTransactionFormData = z.infer<typeof addTransactionSchema>;

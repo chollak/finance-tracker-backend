@@ -21,13 +21,14 @@
     "check:deps": "dependency-cruiser --validate .dependency-cruiser.js src",
     "check:circular": "madge --circular --extensions ts src",
     "analyze": "npm run check:deps && npm run check:circular",
-    "verify": "npm run build && npm run test:ci && npm run build:webapp && npm run analyze",
+    "verify": "npm run build && npm run test:ci && npm run test:webapp && npm run build:webapp && npm run analyze",
     "supabase:setup": "npx ts-node scripts/create-tables.ts",
     "supabase:test": "npx ts-node scripts/test-supabase.ts",
     "seed:test": "npx ts-node scripts/seed-test-data.ts",
     "design:audit": "node scripts/mobile-ui-audit.js",
     "miniapp:menu": "node scripts/dev-miniapp.js",
-    "dev:miniapp": "node scripts/dev-miniapp.js run"
+    "dev:miniapp": "node scripts/dev-miniapp.js run",
+    "test:webapp": "cd webapp && npm run test"
   },
   "keywords": [],
   "author": "",
