@@ -10,6 +10,7 @@ import { formatCurrency } from '@/shared/lib/formatters';
 import { useState } from 'react';
 import { cn } from '@/shared/lib/utils';
 import { GuestFeatureBlock } from '@/features/auth';
+import { pluralWithCount, PLURALS } from '@/shared/lib/plural';
 
 type FilterTab = 'all' | 'i_owe' | 'owed_to_me';
 
@@ -51,7 +52,7 @@ export function DebtsPage() {
 
   return (
     <PageShell>
-      <PageHeader title="Долги" subtitle={`${debts?.length || 0} активных долгов`} />
+      <PageHeader title="Долги" subtitle={`${pluralWithCount(debts?.length || 0, PLURALS.debt)} в работе`} />
 
       <SectionStack>
         {/* Mobile create action — avoid a competing FAB above the global bottom nav */}
@@ -74,7 +75,7 @@ export function DebtsPage() {
                 {formatCurrency(summary.totalIOwe)}
               </div>
               <div className="text-xs text-muted-foreground">
-                {summary.iOweCount} долгов
+                {pluralWithCount(summary.iOweCount, PLURALS.debt)}
               </div>
             </Card>
             <Card className="p-4">
@@ -83,7 +84,7 @@ export function DebtsPage() {
                 {formatCurrency(summary.totalOwedToMe)}
               </div>
               <div className="text-xs text-muted-foreground">
-                {summary.owedToMeCount} долгов
+                {pluralWithCount(summary.owedToMeCount, PLURALS.debt)}
               </div>
             </Card>
           </div>

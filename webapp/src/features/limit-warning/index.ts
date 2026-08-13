@@ -1,5 +1,6 @@
 import { toast } from 'sonner';
 import type { SubscriptionStatus } from '@/entities/subscription';
+import { plural, PLURALS } from '@/shared/lib/plural';
 
 // Bot username from environment variable
 const BOT_USERNAME = import.meta.env.VITE_TG_BOT_USERNAME || 'FinanceTrackerAppBot';
@@ -92,49 +93,17 @@ function getLimitExceededMessage(type: LimitType): string {
 function getLimitWarningMessage(type: LimitType, remaining: number): string {
   switch (type) {
     case 'transactions':
-      return `Осталось ${remaining} ${getTransactionsWord(remaining)} в этом месяце`;
+      return `Осталось ${remaining} ${pluralOf_transaction(remaining)} в этом месяце`;
     case 'voiceInputs':
-      return `Осталось ${remaining} ${getVoiceInputsWord(remaining)}`;
+      return `Осталось ${remaining} ${pluralOf_voiceInput(remaining)}`;
     case 'activeDebts':
-      return `Можно добавить ещё ${remaining} ${getDebtsWord(remaining)}`;
+      return `Можно добавить ещё ${remaining} ${pluralOf_debt(remaining)}`;
   }
 }
 
-/**
- * Get correct Russian word form for transactions
- */
-function getTransactionsWord(n: number): string {
-  const lastTwo = n % 100;
-  const lastOne = n % 10;
 
-  if (lastTwo >= 11 && lastTwo <= 14) return 'транзакций';
-  if (lastOne === 1) return 'транзакция';
-  if (lastOne >= 2 && lastOne <= 4) return 'транзакции';
-  return 'транзакций';
-}
 
-/**
- * Get correct Russian word form for voice inputs
- */
-function getVoiceInputsWord(n: number): string {
-  const lastTwo = n % 100;
-  const lastOne = n % 10;
 
-  if (lastTwo >= 11 && lastTwo <= 14) return 'голосовых сообщений';
-  if (lastOne === 1) return 'голосовое сообщение';
-  if (lastOne >= 2 && lastOne <= 4) return 'голосовых сообщения';
-  return 'голосовых сообщений';
-}
-
-/**
- * Get correct Russian word form for debts
- */
-function getDebtsWord(n: number): string {
-  const lastTwo = n % 100;
-  const lastOne = n % 10;
-
-  if (lastTwo >= 11 && lastTwo <= 14) return 'долгов';
-  if (lastOne === 1) return 'долг';
-  if (lastOne >= 2 && lastOne <= 4) return 'долга';
-  return 'долгов';
-}
+const pluralOf_transaction = (n: number) => plural(n, PLURALS.transaction);
+const pluralOf_voiceInput = (n: number) => plural(n, PLURALS.voiceInput);
+const pluralOf_debt = (n: number) => plural(n, PLURALS.debt);

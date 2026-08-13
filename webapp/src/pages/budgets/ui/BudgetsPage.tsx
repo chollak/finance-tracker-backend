@@ -7,6 +7,7 @@ import { Plus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '@/shared/lib/constants/routes';
 import { GuestFeatureBlock } from '@/features/auth';
+import { pluralWithCount, PLURALS } from '@/shared/lib/plural';
 
 /**
  * Budgets Page
@@ -39,7 +40,7 @@ export function BudgetsPage() {
     <PageShell>
       <PageHeader
         title="Бюджеты"
-        subtitle={`${budgetViewModels.length} ${budgetViewModels.length === 1 ? 'бюджет' : 'бюджетов'}`}
+        subtitle={pluralWithCount(budgetViewModels.length, PLURALS.budget)}
       />
 
       <SectionStack>

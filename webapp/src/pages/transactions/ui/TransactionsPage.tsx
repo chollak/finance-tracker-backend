@@ -30,6 +30,7 @@ import { Plus, Archive } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '@/shared/lib/constants/routes';
 import { toast } from 'sonner';
+import { pluralWithCount, PLURALS } from '@/shared/lib/plural';
 
 /**
  * Transactions Page
@@ -108,7 +109,7 @@ export function TransactionsPage() {
     if (!userId) return;
     try {
       const result = await archiveAllMutation.mutateAsync(userId);
-      toast.success(`Скрыто транзакций: ${result.archivedCount}`);
+      toast.success(`Скрыто: ${pluralWithCount(result.archivedCount, PLURALS.transaction)}`);
     } catch {
       toast.error('Не удалось скрыть транзакции');
     }
