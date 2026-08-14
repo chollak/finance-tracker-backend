@@ -12,10 +12,10 @@ describe('startTelegramBot', () => {
   });
 
   async function loadBotWithMocks() {
-    const launchCatch = jest.fn();
-    const launchThen = jest.fn(() => ({ catch: launchCatch }));
-    const launchResult = { then: launchThen };
-    const launch = jest.fn(() => launchResult);
+    // A launch that fails the way a 409 conflict does: a rejected promise
+    // rather than a synchronous throw.
+    const launchRejection = new Error('409: Conflict: terminated by other getUpdates request');
+    const launch = jest.fn(() => Promise.reject(launchRejection));
     const use = jest.fn();
     const catchHandler = jest.fn();
     const stop = jest.fn();
@@ -61,19 +61,26 @@ describe('startTelegramBot', () => {
       start,
       Telegraf,
       launch,
-      launchCatch,
+      launchRejection,
       processOnce,
     };
   }
 
-  it('attaches a rejection handler to bot.launch so launch failures do not become unhandled rejections', async () => {
-    const { start, launch, launchCatch } = await loadBotWithMocks();
+  it('survives a failing launch without an unhandled rejection or a thrown error', async () => {
+    const { start, launch } = await loadBotWithMocks();
 
-    start();
+    const unhandled = jest.fn();
+    process.on('unhandledRejection', unhandled);
 
+    // Startup must not throw even though polling cannot begin: the API is
+    // expected to keep serving without the bot (QA-BUG-1).
+    expect(() => start()).not.toThrow();
     expect(launch).toHaveBeenCalledTimes(1);
-    expect(launchCatch).toHaveBeenCalledTimes(1);
-    expect(launchCatch.mock.calls[0][0]).toEqual(expect.any(Function));
+
+    await new Promise((resolve) => setImmediate(resolve));
+    process.off('unhandledRejection', unhandled);
+
+    expect(unhandled).not.toHaveBeenCalled();
   });
 
   it('does not create or launch a Telegram bot when polling is explicitly disabled', async () => {

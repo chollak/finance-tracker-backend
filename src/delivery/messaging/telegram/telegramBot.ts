@@ -14,6 +14,7 @@ import { registerMessageHandlers } from './handlers/messageHandlers';
 import { registerCallbackHandlers } from './handlers/callbackHandlers';
 import { registerPaymentHandlers } from './handlers/paymentHandlers';
 import { createLogger, LogCategory } from '../../../shared/infrastructure/logging';
+import { launchWithRecovery } from './launchWithRecovery';
 
 const logger = createLogger(LogCategory.TELEGRAM);
 
@@ -156,17 +157,10 @@ export function startTelegramBot(
 
     // ===== LAUNCH BOT =====
 
-    bot.launch()
-      .then(() => {
-        logger.info('Telegram bot started');
-      })
-      .catch((error) => {
-        logger.error(
-          'Failed to launch Telegram bot',
-          error instanceof Error ? error : new Error(String(error))
-        );
-        logger.warn('Application will continue without Telegram bot functionality');
-      });
+    // A single conflicting getUpdates used to disable the bot until restart:
+    // launch() rejected, it was logged as a warning, and /api/health kept
+    // answering 200 — so the product looked fine while being deaf.
+    launchWithRecovery({ launch: () => bot.launch() });
 
     // Graceful shutdown handlers
     process.once('SIGINT', () => {
