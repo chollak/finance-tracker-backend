@@ -9,10 +9,10 @@ import { getLogger, LogCategory } from '../../../shared/application/logging';
 import { normalizeCategory } from '../../../shared/domain/entities/Category';
 import { normalizeSemanticType, TransactionSemanticType } from '../../transaction/domain/transactionSemanticType';
 import { AnalysisResult, ParsedTransaction } from '../domain/transcriptionService';
+import { parseAmount } from './parseAmount';
 
 const logger = getLogger(LogCategory.OPENAI);
 
-const SIMPLE_TRANSACTION_PATTERN = /^(.+?)\s+([+-]?\d[\d\s.,]*)\s*(?:сум|sum|uzs)?\s*$/i;
 
 // \b relies on \w, which only covers ASCII — it silently fails to bound Cyrillic words
 // (e.g. "\bперевел\b" never matches). Build boundaries from Unicode letter/number classes instead.
@@ -25,7 +25,6 @@ const COMPLEX_TEXT_MARKERS_PATTERN = /[.!?;]/;
 const COMPLEX_TEXT_WORDS_PATTERN = conservativeKeywordPattern([
   'и', 'and', 'за', 'по', 'купил\\p{L}*', 'взял\\p{L}*', 'всех', 'компани\\p{L}*', 'поровну', 'скинул\\p{L}*', 'split',
 ]);
-const CURRENCY_WORDS_PATTERN = /\b(сум|sum|uzs)\b/gi;
 
 const SAVING_DEPOSIT_KEYWORDS_PATTERN = conservativeKeywordPattern([
   'вклад\\p{L}*', 'накоплени\\p{L}*', 'сбережени\\p{L}*', "jamg'?or\\p{L}*",
@@ -48,31 +47,24 @@ const INCOME_KEYWORDS_PATTERN = conservativeKeywordPattern(['зарплат\\p{L
  */
 function parseObviousSemanticTransaction(text: string): AnalysisResult | null {
   const normalizedText = text.trim().replace(/\s+/g, ' ');
-  const numberMatches = normalizedText.match(/\d[\d\s.,]*/g) || [];
 
   if (
-    numberMatches.length !== 1
-    || COMPLEX_TEXT_MARKERS_PATTERN.test(normalizedText)
+    COMPLEX_TEXT_MARKERS_PATTERN.test(normalizedText)
     || COMPLEX_TEXT_WORDS_PATTERN.test(normalizedText)
     || DEBT_KEYWORDS_PATTERN.test(normalizedText)
   ) {
     return null;
   }
 
-  const amount = Number(numberMatches[0].replace(/[\s,]/g, ''));
-  if (!Number.isFinite(amount) || amount <= 0) {
+  // parseAmount declines rather than guessing when something is attached to
+  // the number, so a magnitude word can no longer be dropped in silence.
+  const parsedAmount = parseAmount(normalizedText);
+  if (!parsedAmount) {
     return null;
   }
 
-  const remainder = normalizedText
-    .replace(numberMatches[0], ' ')
-    .replace(CURRENCY_WORDS_PATTERN, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-
-  if (!remainder) {
-    return null;
-  }
+  const { amount } = parsedAmount;
+  const remainder = parsedAmount.remainder;
 
   let type: 'income' | 'expense' = 'expense';
   let semanticType: TransactionSemanticType | null = null;
@@ -118,25 +110,24 @@ function parseObviousSemanticTransaction(text: string): AnalysisResult | null {
 
 function parseSimpleTextTransaction(text: string): AnalysisResult | null {
   const normalizedText = text.trim().replace(/\s+/g, ' ');
-  const match = normalizedText.match(SIMPLE_TRANSACTION_PATTERN);
 
-  if (!match) {
+  if (
+    COMPLEX_TEXT_MARKERS_PATTERN.test(normalizedText)
+    || COMPLEX_TEXT_WORDS_PATTERN.test(normalizedText)
+    || DEBT_KEYWORDS_PATTERN.test(normalizedText)
+  ) {
     return null;
   }
 
-  const label = match[1].trim();
-  const amount = Number(match[2].replace(/[\s,]/g, ''));
-  const numberMatches = normalizedText.match(/\d[\d\s.,]*/g) || [];
+  // Same guard as the semantic path: nothing attached to the number is ignored.
+  const parsedAmount = parseAmount(normalizedText);
+  if (!parsedAmount) {
+    return null;
+  }
 
-  if (
-    !label
-    || numberMatches.length !== 1
-    || COMPLEX_TEXT_MARKERS_PATTERN.test(normalizedText)
-    || COMPLEX_TEXT_WORDS_PATTERN.test(normalizedText)
-    || DEBT_KEYWORDS_PATTERN.test(normalizedText)
-    || !Number.isFinite(amount)
-    || amount <= 0
-  ) {
+  const { amount } = parsedAmount;
+  const label = parsedAmount.remainder;
+  if (!label) {
     return null;
   }
 
