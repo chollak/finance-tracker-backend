@@ -8,7 +8,7 @@ import { addTransactionSchema } from './schema';
 describe('addTransactionSchema optional fields', () => {
   const base = {
     amount: 33000,
-    type: 'expense' as const,
+    semanticType: 'expense' as const,
     category: 'food',
     description: 'Обед',
     date: '2026-08-13',

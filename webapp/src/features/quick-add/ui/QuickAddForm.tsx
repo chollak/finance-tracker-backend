@@ -25,6 +25,8 @@ import { useTransactions } from '@/entities/transaction';
 import { useUserStore } from '@/entities/user/model/store';
 
 import { quickAddSchema, DEFAULT_DESCRIPTIONS, type QuickAddFormData } from '../model/schema';
+import { deriveTransactionType, MANUAL_SEMANTIC_TYPES } from '@/entities/transaction/lib/deriveTransactionType';
+import { getSemanticTypeLabel } from '@/entities/transaction/lib/semanticType';
 
 interface QuickAddFormProps {
   onSubmit: (data: QuickAddFormData) => void;
@@ -50,14 +52,16 @@ export function QuickAddForm({
   const form = useForm<QuickAddFormData>({
     resolver: zodResolver(quickAddSchema),
     defaultValues: {
-      type: defaultType,
+      semanticType: defaultType,
       date: format(new Date(), 'yyyy-MM-dd'),
       description: '',
       merchant: '',
     },
   });
 
-  const transactionType = form.watch('type');
+  const semanticType = form.watch('semanticType');
+  const transactionType = deriveTransactionType(semanticType);
+  const [showOtherTypes, setShowOtherTypes] = useState(false);
   const selectedCategory = form.watch('category');
   const categories = getCategoriesByType(transactionType);
 
@@ -129,27 +133,60 @@ export function QuickAddForm({
         <div className="flex gap-2">
           <Button
             type="button"
-            variant={transactionType === 'expense' ? 'expense' : 'outline'}
+            variant={semanticType === 'expense' ? 'expense' : 'outline'}
             className="flex-1 transition-all"
             onClick={() => {
-              form.setValue('type', 'expense');
-              form.setValue('category', ''); // Reset category on type change
+              setShowOtherTypes(false);
+              form.setValue('semanticType', 'expense');
+              form.setValue('category', '');
             }}
           >
             Расход
           </Button>
           <Button
             type="button"
-            variant={transactionType === 'income' ? 'income' : 'outline'}
+            variant={semanticType === 'income' ? 'income' : 'outline'}
             className="flex-1 transition-all"
             onClick={() => {
-              form.setValue('type', 'income');
-              form.setValue('category', ''); // Reset category on type change
+              setShowOtherTypes(false);
+              form.setValue('semanticType', 'income');
+              form.setValue('category', '');
             }}
           >
             Доход
           </Button>
+          {/* The everyday path stays two taps; the movements that are not
+              ordinary spending live one tap deeper rather than crowding it. */}
+          <Button
+            type="button"
+            variant={showOtherTypes || !['expense', 'income'].includes(semanticType) ? 'secondary' : 'outline'}
+            className="px-3 transition-all"
+            aria-label="Другое движение"
+            aria-expanded={showOtherTypes}
+            onClick={() => setShowOtherTypes((open) => !open)}
+          >
+            Другое
+          </Button>
         </div>
+
+        {(showOtherTypes || !['expense', 'income'].includes(semanticType)) && (
+          <div className="flex flex-wrap gap-1.5">
+            {MANUAL_SEMANTIC_TYPES.filter((t) => !['expense', 'income'].includes(t)).map((t) => (
+              <Button
+                key={t}
+                type="button"
+                size="sm"
+                variant={semanticType === t ? 'secondary' : 'outline'}
+                onClick={() => {
+                  form.setValue('semanticType', t);
+                  form.setValue('category', '');
+                }}
+              >
+                {getSemanticTypeLabel(t)}
+              </Button>
+            ))}
+          </div>
+        )}
 
         {/* Amount Input - Large, centered */}
         <FormField

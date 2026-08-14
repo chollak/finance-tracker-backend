@@ -25,6 +25,10 @@ import { getCategoriesByType, type Category } from '@/entities/category';
 import { addTransactionSchema, type AddTransactionFormData } from '../model/schema';
 import { CalendarIcon } from 'lucide-react';
 import { cn } from '@/shared/lib';
+import { MANUAL_SEMANTIC_TYPES } from '@/entities/transaction/lib/deriveTransactionType';
+import { getSemanticTypeLabel } from '@/entities/transaction/lib/semanticType';
+import type { TransactionSemanticType } from '@/shared/types';
+import { deriveTransactionType } from '@/entities/transaction/lib/deriveTransactionType';
 
 interface TransactionFormProps {
   onSubmit: (data: AddTransactionFormData) => void;
@@ -40,7 +44,7 @@ export function TransactionForm({ onSubmit, isLoading, defaultValues }: Transact
   const form = useForm<AddTransactionFormData>({
     resolver: zodResolver(addTransactionSchema),
     defaultValues: {
-      type: 'expense',
+      semanticType: 'expense',
       date: format(new Date(), 'yyyy-MM-dd'),
       amount: undefined,
       category: '',
@@ -50,30 +54,40 @@ export function TransactionForm({ onSubmit, isLoading, defaultValues }: Transact
     },
   });
 
-  const transactionType = form.watch('type');
-  const categories = getCategoriesByType(transactionType);
+  // Categories are offered by direction, which the chosen movement determines.
+  const semanticType = form.watch('semanticType');
+  const categories = getCategoriesByType(deriveTransactionType(semanticType));
 
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        {/* Type Selection */}
+        {/* One question about the kind of movement; direction follows from it. */}
         <FormField
           control={form.control}
-          name="type"
+          name="semanticType"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Тип транзакции</FormLabel>
-              <Select onValueChange={field.onChange} value={field.value || ''}>
+              <FormLabel>Тип операции</FormLabel>
+              <Select
+                onValueChange={(value) => field.onChange(value as TransactionSemanticType)}
+                value={field.value || ''}
+              >
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder="Выберите тип" />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  <SelectItem value="expense">Расход</SelectItem>
-                  <SelectItem value="income">Доход</SelectItem>
+                  {MANUAL_SEMANTIC_TYPES.map((semanticType) => (
+                    <SelectItem key={semanticType} value={semanticType}>
+                      {getSemanticTypeLabel(semanticType)}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
+              <FormDescription>
+                Переводы себе, вклады и снятие наличных не попадают в расходы
+              </FormDescription>
               <FormMessage />
             </FormItem>
           )}

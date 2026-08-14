@@ -5,6 +5,7 @@ import { TransactionForm } from './ui/TransactionForm';
 import { ROUTES } from '@/shared/lib/constants';
 import type { AddTransactionFormData } from './model/schema';
 import { toast } from 'sonner';
+import { deriveTransactionType } from '@/entities/transaction/lib/deriveTransactionType';
 
 interface AddTransactionProps {
   onSuccess?: () => void;
@@ -30,6 +31,7 @@ export function AddTransaction({ onSuccess, showHeader = true }: AddTransactionP
     try {
       await createTransaction.mutateAsync({
         ...data,
+        type: deriveTransactionType(data.semanticType),
         merchant: data.merchant ?? undefined,
         userId,
         userName: userName || undefined,

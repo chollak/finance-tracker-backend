@@ -1,3 +1,4 @@
+import { TRANSACTION_SEMANTIC_TYPES } from '@/shared/types';
 import { z } from 'zod';
 
 /**
@@ -9,7 +10,8 @@ export const quickAddSchema = z.object({
     .number({ message: 'Введите сумму' })
     .positive('Сумма должна быть больше нуля'),
 
-  type: z.enum(['income', 'expense']),
+  // Same single question as the full form; direction is derived from it.
+  semanticType: z.enum(TRANSACTION_SEMANTIC_TYPES),
 
   category: z
     .string({ message: 'Выберите категорию' })

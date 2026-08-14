@@ -5,6 +5,7 @@ import type { AddTransactionFormData } from '../add-transaction/model/schema';
 import { ROUTES } from '@/shared/lib/constants';
 import { toast } from 'sonner';
 import { Skeleton } from '@/shared/ui/skeleton';
+import { deriveTransactionType } from '@/entities/transaction/lib/deriveTransactionType';
 
 /**
  * EditTransaction feature
@@ -28,7 +29,8 @@ export function EditTransaction() {
           category: data.category,
           description: data.description,
           date: data.date,
-          type: data.type,
+          type: deriveTransactionType(data.semanticType),
+          semanticType: data.semanticType,
           merchant: data.merchant ?? undefined,
         },
       });
@@ -66,10 +68,10 @@ export function EditTransaction() {
         isLoading={updateTransaction.isPending}
         defaultValues={{
           amount: transaction.amount,
-          type: transaction.type,
           category: transaction.category,
           description: transaction.description,
           date: transaction.date,
+          semanticType: transaction.semanticType ?? 'expense',
           merchant: transaction.merchant,
         }}
       />

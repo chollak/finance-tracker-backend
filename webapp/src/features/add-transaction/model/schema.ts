@@ -1,3 +1,4 @@
+import { TRANSACTION_SEMANTIC_TYPES } from '@/shared/types';
 import { z } from 'zod';
 
 /**
@@ -8,7 +9,9 @@ export const addTransactionSchema = z.object({
     .number({ message: 'Введите корректную сумму' })
     .positive('Сумма должна быть больше нуля'),
 
-  type: z.enum(['income', 'expense'], { message: 'Выберите тип транзакции' }),
+  // What kind of movement this is. Direction (income/expense) is derived from
+  // it, so the form never asks the same question twice.
+  semanticType: z.enum(TRANSACTION_SEMANTIC_TYPES, { message: 'Выберите тип операции' }),
 
   category: z
     .string({ message: 'Выберите категорию' })

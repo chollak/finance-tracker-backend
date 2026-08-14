@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 
 import { QuickAddForm } from './QuickAddForm';
 import type { QuickAddFormData } from '../model/schema';
+import { deriveTransactionType } from '@/entities/transaction/lib/deriveTransactionType';
 
 interface QuickAddSheetProps {
   children: React.ReactNode;
@@ -48,7 +49,7 @@ export function QuickAddSheet({
         ...data,
         date: selectedDate.toISOString(), // Full ISO string with time
         description: data.description || data.category, // Fallback to category name
-        semanticType: data.type,
+        type: deriveTransactionType(data.semanticType),
         userId,
         userName: userName || undefined,
       });
@@ -123,7 +124,7 @@ export function ControlledQuickAddSheet({
         ...data,
         date: selectedDate.toISOString(), // Full ISO string with time
         description: data.description || data.category,
-        semanticType: data.type,
+        type: deriveTransactionType(data.semanticType),
         userId,
         userName: userName || undefined,
       });
