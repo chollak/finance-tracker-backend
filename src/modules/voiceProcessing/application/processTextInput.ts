@@ -31,7 +31,13 @@ const SAVING_DEPOSIT_KEYWORDS_PATTERN = conservativeKeywordPattern([
 ]);
 const CASH_WITHDRAWAL_VERB_PATTERN = conservativeKeywordPattern(['снял\\p{L}*', 'yechib oldim', 'yechdim']);
 const CASH_WITHDRAWAL_STANDALONE_PATTERN = conservativeKeywordPattern(['обналичил\\p{L}*']);
-const CASH_INDICATOR_PATTERN = conservativeKeywordPattern(['налич\\p{L}*', 'нал', 'cash', 'nakd']);
+// Where the cash comes from counts as saying "cash" — "снял в банкомате" is
+// how people actually phrase it, and it was landing in real expenses.
+const CASH_INDICATOR_PATTERN = conservativeKeywordPattern([
+  'налич\\p{L}*', 'нал', 'cash', 'nakd',
+  'банкомат\\p{L}*', 'atm', 'bankomat\\p{L}*',
+  'карт\\p{L}*', 'счет', 'счёт', 'karta\\p{L}*',
+]);
 const TRANSFER_VERB_PATTERN = conservativeKeywordPattern([
   'перевел\\p{L}*', 'перевёл\\p{L}*', 'перекинул\\p{L}*', 'kochirdim', "o'?tkazdim", 'otkazdim', 'transferred',
 ]);
