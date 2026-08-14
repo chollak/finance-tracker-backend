@@ -28,7 +28,8 @@
     "design:audit": "node scripts/mobile-ui-audit.js",
     "miniapp:menu": "node scripts/dev-miniapp.js",
     "dev:miniapp": "node scripts/dev-miniapp.js run",
-    "test:webapp": "cd webapp && npm run test"
+    "test:webapp": "cd webapp && npm run test",
+    "smoke:semantics": "npx ts-node scripts/smoke-semantics.ts"
   },
   "keywords": [],
   "author": "",

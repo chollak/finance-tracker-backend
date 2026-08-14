@@ -1,398 +1,206 @@
-/**
- * Seed script for creating test data in local SQLite database
+#!/usr/bin/env node
+/*
+ * Seeds a local dev database with a deterministic fixture.
  *
- * Creates:
- * - 1 test user (telegramId: test_user_dev)
- * - ~50 transactions (various categories, income/expense)
- * - 3 budgets (Food, Transport, Entertainment)
+ * Goes through the running API rather than writing SQL directly. The previous
+ * version spoke to the schema of January 2026 — `telegramId` against a column
+ * now called `telegram_id`, a telegram id where a user UUID belongs, and no
+ * semantic columns at all — so it failed on its first query. Through the API
+ * it cannot drift from the schema, and everything it writes passes the same
+ * validation a real user's input does.
  *
- * Usage: npm run seed:test
+ * The fixture is deliberately fixed rather than random: it covers every
+ * semantic type once, so the numbers it produces can be asserted.
+ *
+ * Usage:
+ *   npm run dev                     # in another terminal
+ *   npm run seed:test               # add the fixture
+ *   npm run seed:test -- --reset    # remove this user's data first
+ *   npm run seed:test -- --user=131184740 --base=http://127.0.0.1:3000
  */
 
-import path from 'path';
-import { randomUUID } from 'crypto';
-import sqlite3 from 'sqlite3';
+const DEFAULT_BASE = process.env.SEED_BASE_URL || 'http://127.0.0.1:3000';
+const DEFAULT_USER = process.env.SEED_TELEGRAM_ID || '131184740';
 
-const DB_PATH = path.join(process.cwd(), 'data', 'database.sqlite');
-
-// Test user configuration
-const TEST_USER = {
-  telegramId: 'test_user_dev',
-  username: 'testuser',
-  firstName: 'Test',
-  lastName: 'Developer',
-  language: 'ru',
-  currency: 'UZS',
-};
-
-// Categories for transactions
-const EXPENSE_CATEGORIES = [
-  'Еда', 'Продукты', 'Рестораны', 'Кофе',
-  'Транспорт', 'Такси', 'Бензин',
-  'Покупки', 'Одежда', 'Электроника',
-  'Развлечения', 'Кино', 'Подписки',
-  'Счета', 'Интернет', 'Коммунальные',
-  'Здоровье', 'Аптека',
-];
-
-const INCOME_CATEGORIES = ['Зарплата', 'Фриланс', 'Перевод', 'Подарок'];
-
-// Merchants for realistic data
-const MERCHANTS: Record<string, string[]> = {
-  'Еда': ['Evos', 'Oqtepa Lavash', 'KFC', 'Burger King'],
-  'Продукты': ['Makro', 'Korzinka', 'Havas'],
-  'Рестораны': ['Caravan', 'Milliy Taomlar', 'The Ramen'],
-  'Кофе': ['Brew Spot', 'Coffee Boom', 'Starbucks'],
-  'Транспорт': ['Yandex Go', 'MyTaxi', 'Uzum Taxi'],
-  'Такси': ['Yandex Go', 'MyTaxi'],
-  'Бензин': ['АЗС Лукойл', 'АЗС UNG', 'Qozoq АЗС'],
-  'Покупки': ['Uzum Market', 'Wildberries'],
-  'Одежда': ['LC Waikiki', 'Zara', 'H&M'],
-  'Электроника': ['Texnomart', 'MediaPark', 'Olcha'],
-  'Развлечения': ['Netflix', 'Spotify', 'YouTube Premium'],
-  'Кино': ['Magic Cinema', 'Chaplin Cinemas'],
-  'Подписки': ['Netflix', 'Spotify', 'ChatGPT Plus'],
-  'Счета': ['Uzmobile', 'Ucell'],
-  'Интернет': ['Uztelecom', 'TuronTelecom'],
-  'Коммунальные': ['Тошкент шахар газ', 'Электр энергия'],
-  'Здоровье': ['Dori-Darmon', 'Akfa Medline'],
-  'Аптека': ['Dori-Darmon', 'Фармация'],
-};
-
-// Generate random date within last N days
-function randomDate(daysBack: number): string {
-  const date = new Date();
-  date.setDate(date.getDate() - Math.floor(Math.random() * daysBack));
-  return date.toISOString().split('T')[0];
-}
-
-// Generate random amount based on category
-function randomAmount(category: string, type: 'income' | 'expense'): number {
-  if (type === 'income') {
-    const ranges: Record<string, [number, number]> = {
-      'Зарплата': [5000000, 15000000],
-      'Фриланс': [500000, 3000000],
-      'Перевод': [100000, 1000000],
-      'Подарок': [50000, 500000],
-    };
-    const [min, max] = ranges[category] || [100000, 1000000];
-    return Math.floor(Math.random() * (max - min) + min);
-  }
-
-  const ranges: Record<string, [number, number]> = {
-    'Еда': [20000, 80000],
-    'Продукты': [50000, 300000],
-    'Рестораны': [80000, 250000],
-    'Кофе': [15000, 40000],
-    'Транспорт': [10000, 50000],
-    'Такси': [15000, 80000],
-    'Бензин': [100000, 300000],
-    'Покупки': [50000, 500000],
-    'Одежда': [100000, 800000],
-    'Электроника': [200000, 2000000],
-    'Развлечения': [30000, 150000],
-    'Кино': [50000, 150000],
-    'Подписки': [50000, 200000],
-    'Счета': [50000, 200000],
-    'Интернет': [80000, 150000],
-    'Коммунальные': [100000, 500000],
-    'Здоровье': [50000, 500000],
-    'Аптека': [20000, 200000],
-  };
-  const [min, max] = ranges[category] || [20000, 100000];
-  return Math.floor(Math.random() * (max - min) + min);
-}
-
-// Generate description based on category
-function generateDescription(category: string, merchant: string | undefined, type: 'income' | 'expense'): string {
-  if (type === 'income') {
-    const descriptions: Record<string, string[]> = {
-      'Зарплата': ['Зарплата за месяц', 'Аванс', 'Зарплата'],
-      'Фриланс': ['Проект для клиента', 'Фриланс работа', 'Консультация'],
-      'Перевод': ['Перевод от друга', 'Возврат долга', 'Перевод'],
-      'Подарок': ['Подарок на день рождения', 'Подарок', 'Кэшбэк'],
-    };
-    const options = descriptions[category] || ['Доход'];
-    return options[Math.floor(Math.random() * options.length)];
-  }
-
-  if (merchant) {
-    return `${category} - ${merchant}`;
-  }
-  return category;
-}
-
-interface TransactionData {
-  id: string;
-  userId: string;
+interface SeedTransaction {
   amount: number;
   type: 'income' | 'expense';
+  semanticType: string;
   category: string;
-  merchant: string | null;
   description: string;
   date: string;
-  confidence: number;
+  needsReview?: boolean;
 }
 
-// Generate test transactions
-function generateTransactions(userId: string): TransactionData[] {
-  const transactions: TransactionData[] = [];
+/** One of every semantic type, with amounts that are easy to check by eye. */
+const TRANSACTIONS: SeedTransaction[] = [
+  { amount: 32_000, type: 'expense', semanticType: 'expense', category: 'coffee', description: 'Кофе и завтрак', date: '2026-08-11' },
+  { amount: 145_000, type: 'expense', semanticType: 'expense', category: 'groceries', description: 'Продукты на неделю', date: '2026-08-10' },
+  { amount: 25_000, type: 'expense', semanticType: 'expense', category: 'taxi', description: 'Яндекс такси', date: '2026-08-12' },
+  { amount: 890_000, type: 'expense', semanticType: 'expense', category: 'utilities', description: 'Коммуналка за июль', date: '2026-08-05' },
+  { amount: 240_000, type: 'expense', semanticType: 'expense', category: 'entertainment', description: 'Кино с друзьями', date: '2026-08-09' },
+  { amount: 1_200_000, type: 'expense', semanticType: 'expense', category: 'shopping', description: 'Кроссовки', date: '2026-08-03' },
 
-  // Generate ~40 expenses
-  for (let i = 0; i < 40; i++) {
-    const category = EXPENSE_CATEGORIES[Math.floor(Math.random() * EXPENSE_CATEGORIES.length)];
-    const merchantList = MERCHANTS[category] || [];
-    const merchant = merchantList.length > 0
-      ? merchantList[Math.floor(Math.random() * merchantList.length)]
-      : null;
+  { amount: 12_000_000, type: 'income', semanticType: 'income', category: 'salary', description: 'Зарплата за июль', date: '2026-08-05' },
 
-    transactions.push({
-      id: randomUUID(),
-      userId,
-      amount: randomAmount(category, 'expense'),
-      type: 'expense',
-      category,
-      merchant,
-      description: generateDescription(category, merchant || undefined, 'expense'),
-      date: randomDate(30),
-      confidence: 0.85 + Math.random() * 0.15,
-    });
+  { amount: 3_000_000, type: 'expense', semanticType: 'own_transfer', category: 'transfer', description: 'Перевод с TBC на Alif', date: '2026-08-06' },
+  { amount: 5_000_000, type: 'expense', semanticType: 'saving_deposit', category: 'transfer', description: 'Положил на вклад', date: '2026-08-05' },
+  { amount: 1_000_000, type: 'expense', semanticType: 'cash_withdrawal', category: 'transfer', description: 'Снял наличные в банкомате', date: '2026-08-08' },
+  { amount: 450_000, type: 'income', semanticType: 'reimbursement', category: 'taxi', description: 'Вернули за такси', date: '2026-08-11' },
+  { amount: 2_000_000, type: 'expense', semanticType: 'debt', category: 'other', description: 'Одолжил Азизу', date: '2026-08-07' },
+
+  { amount: 680_000, type: 'expense', semanticType: 'group_payment', category: 'restaurants', description: 'Оплатил счёт за всех', date: '2026-08-09', needsReview: true },
+  { amount: 150_000, type: 'expense', semanticType: 'expense', category: 'other', description: 'Не помню что это', date: '2026-08-04', needsReview: true },
+];
+
+const BUDGETS = [
+  { name: 'Еда', categoryIds: ['coffee', 'groceries', 'restaurants'], amount: 400_000, period: 'monthly' },
+  { name: 'Транспорт', categoryIds: ['taxi'], amount: 150_000, period: 'monthly' },
+  { name: 'Развлечения', categoryIds: ['entertainment'], amount: 500_000, period: 'monthly' },
+];
+
+const DEBTS = [
+  { personName: 'Азиз', amount: 2_000_000, type: 'owed_to_me', description: 'Одолжил до зарплаты', date: '2026-07-28' },
+  { personName: 'Джамшид', amount: 750_000, type: 'i_owe', description: 'Занял на ремонт', date: '2026-08-01' },
+];
+
+/**
+ * Sums the fixture the way the product does, so a smoke run has something to
+ * compare against without re-deriving the rule by hand.
+ */
+export const EXPECTED = {
+  realExpense: TRANSACTIONS
+    .filter((t) => t.semanticType === 'expense' && !t.needsReview)
+    .reduce((sum, t) => sum + t.amount, 0),
+  income: TRANSACTIONS
+    .filter((t) => t.semanticType === 'income' && !t.needsReview)
+    .reduce((sum, t) => sum + t.amount, 0),
+  awaitingReview: TRANSACTIONS.filter((t) => t.needsReview).length,
+};
+
+function parseFlags(argv: string[]) {
+  const flags: Record<string, string | boolean> = {};
+  for (const token of argv) {
+    if (!token.startsWith('--')) continue;
+    const [key, value] = token.slice(2).split('=');
+    flags[key] = value ?? true;
+  }
+  return flags;
+}
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Seeding is a burst of writes, which is exactly what the rate limiter exists
+ * to stop. Backing off is honest here — the limit is doing its job, the script
+ * just has to wait rather than die halfway through a fixture.
+ */
+async function call(
+  base: string,
+  user: string,
+  method: string,
+  path: string,
+  body?: unknown,
+  attempt = 1
+): Promise<any> {
+  const response = await fetch(`${base}/api${path}`, {
+    method,
+    headers: { 'Content-Type': 'application/json', 'x-dev-user-id': user },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+
+  const text = await response.text();
+  let parsed: any = null;
+  try { parsed = JSON.parse(text); } catch { /* keep the raw body for the error */ }
+
+  if (response.status === 429) {
+    if (attempt > 3) {
+      throw new Error(
+        `${method} ${path} → упёрлись в лимит запросов и после трёх пауз он не отпустил. ` +
+        'Перезапусти сервер: счётчик живёт в памяти процесса.'
+      );
+    }
+    const waitMs = attempt * 20_000;
+    console.log(`   лимит запросов исчерпан, пауза ${waitMs / 1000}с (попытка ${attempt}/3)`);
+    await sleep(waitMs);
+    return call(base, user, method, path, body, attempt + 1);
   }
 
-  // Generate ~10 incomes
-  for (let i = 0; i < 10; i++) {
-    const category = INCOME_CATEGORIES[Math.floor(Math.random() * INCOME_CATEGORIES.length)];
-
-    transactions.push({
-      id: randomUUID(),
-      userId,
-      amount: randomAmount(category, 'income'),
-      type: 'income',
-      category,
-      merchant: null,
-      description: generateDescription(category, undefined, 'income'),
-      date: randomDate(30),
-      confidence: 0.9 + Math.random() * 0.1,
-    });
+  if (!response.ok) {
+    throw new Error(`${method} ${path} → ${response.status}: ${text.slice(0, 200)}`);
   }
-
-  return transactions;
+  return parsed;
 }
 
-interface BudgetData {
-  id: string;
-  userId: string;
-  name: string;
-  amount: number;
-  period: string;
-  startDate: string;
-  endDate: string;
-  categoryIds: string;
-  isActive: number;
-  spent: number;
-  description: string;
+async function reset(base: string, user: string) {
+  const transactions = (await call(base, user, 'GET', `/transactions/user/${user}`))?.data ?? [];
+  for (const transaction of transactions) {
+    await call(base, user, 'DELETE', `/transactions/${transaction.id}`);
+  }
+  console.log(`   транзакций: ${transactions.length}`);
+
+  const budgets = (await call(base, user, 'GET', `/budgets/users/${user}/budgets`))?.data ?? [];
+  for (const budget of budgets) {
+    await call(base, user, 'DELETE', `/budgets/${budget.id}`);
+  }
+  console.log(`   бюджетов: ${budgets.length}`);
+
+  // Debts count against the free-tier limit, so leaving them behind makes a
+  // second run fail with DEBT_LIMIT_EXCEEDED rather than reseeding cleanly.
+  const debts = (await call(base, user, 'GET', `/debts/user/${user}`))?.data ?? [];
+  for (const debt of debts) {
+    await call(base, user, 'DELETE', `/debts/${debt.id}`);
+  }
+  console.log(`   долгов: ${debts.length}`);
 }
 
-// Generate test budgets
-function generateBudgets(userId: string): BudgetData[] {
-  const now = new Date();
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+async function main() {
+  const flags = parseFlags(process.argv.slice(2));
+  const base = String(flags.base ?? DEFAULT_BASE);
+  const user = String(flags.user ?? DEFAULT_USER);
 
-  return [
-    {
-      id: randomUUID(),
-      userId,
-      name: 'Еда на месяц',
-      amount: 1500000,
-      period: 'monthly',
-      startDate: startOfMonth.toISOString().split('T')[0],
-      endDate: endOfMonth.toISOString().split('T')[0],
-      categoryIds: JSON.stringify(['Еда', 'Продукты', 'Рестораны', 'Кофе']),
-      isActive: 1,
-      spent: 0,
-      description: 'Бюджет на еду и рестораны',
-    },
-    {
-      id: randomUUID(),
-      userId,
-      name: 'Транспорт',
-      amount: 500000,
-      period: 'monthly',
-      startDate: startOfMonth.toISOString().split('T')[0],
-      endDate: endOfMonth.toISOString().split('T')[0],
-      categoryIds: JSON.stringify(['Транспорт', 'Такси', 'Бензин']),
-      isActive: 1,
-      spent: 0,
-      description: 'Бюджет на транспорт',
-    },
-    {
-      id: randomUUID(),
-      userId,
-      name: 'Развлечения',
-      amount: 300000,
-      period: 'monthly',
-      startDate: startOfMonth.toISOString().split('T')[0],
-      endDate: endOfMonth.toISOString().split('T')[0],
-      categoryIds: JSON.stringify(['Развлечения', 'Кино', 'Подписки']),
-      isActive: 1,
-      spent: 0,
-      description: 'Бюджет на развлечения',
-    },
-  ];
-}
-
-// Helper to run db queries as promises
-function dbRun(db: sqlite3.Database, sql: string, params: any[] = []): Promise<void> {
-  return new Promise((resolve, reject) => {
-    db.run(sql, params, (err) => {
-      if (err) reject(err);
-      else resolve();
-    });
-  });
-}
-
-function dbGet<T>(db: sqlite3.Database, sql: string, params: any[] = []): Promise<T | undefined> {
-  return new Promise((resolve, reject) => {
-    db.get(sql, params, (err, row) => {
-      if (err) reject(err);
-      else resolve(row as T | undefined);
-    });
-  });
-}
-
-async function seed() {
-  console.log('🌱 Starting seed script...\n');
-
-  const db = new sqlite3.Database(DB_PATH);
-  console.log('✅ Database connected\n');
+  console.log(`Сидер: ${base}, пользователь ${user}`);
 
   try {
-    // Check if test user already exists
-    const existingUser = await dbGet<{ telegramId: string }>(
-      db,
-      'SELECT * FROM users WHERE telegramId = ?',
-      [TEST_USER.telegramId]
-    );
-
-    if (existingUser) {
-      console.log(`⚠️  Test user "${TEST_USER.telegramId}" already exists`);
-      console.log('   To recreate, delete existing data first.\n');
-
-      // Show current stats
-      const txCount = await dbGet<{ count: number }>(
-        db,
-        'SELECT COUNT(*) as count FROM transactions WHERE userId = ?',
-        [TEST_USER.telegramId]
-      );
-
-      const budgetCount = await dbGet<{ count: number }>(
-        db,
-        'SELECT COUNT(*) as count FROM budgets WHERE userId = ?',
-        [TEST_USER.telegramId]
-      );
-
-      console.log(`📊 Current data for test user:`);
-      console.log(`   - Transactions: ${txCount?.count || 0}`);
-      console.log(`   - Budgets: ${budgetCount?.count || 0}`);
-
-      db.close();
-      return;
-    }
-
-    // Create test user
-    console.log('👤 Creating test user...');
-    await dbRun(
-      db,
-      `INSERT INTO users (telegramId, username, firstName, lastName, language, currency)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [
-        TEST_USER.telegramId,
-        TEST_USER.username,
-        TEST_USER.firstName,
-        TEST_USER.lastName,
-        TEST_USER.language,
-        TEST_USER.currency,
-      ]
-    );
-    console.log(`   ✅ User created: ${TEST_USER.firstName} ${TEST_USER.lastName} (${TEST_USER.telegramId})\n`);
-
-    // Create transactions
-    console.log('💳 Creating transactions...');
-    const transactions = generateTransactions(TEST_USER.telegramId);
-
-    for (const tx of transactions) {
-      await dbRun(
-        db,
-        `INSERT INTO transactions (id, userId, amount, type, category, merchant, description, date, confidence)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [tx.id, tx.userId, tx.amount, tx.type, tx.category, tx.merchant, tx.description, tx.date, tx.confidence]
-      );
-    }
-
-    const incomeCount = transactions.filter((t) => t.type === 'income').length;
-    const expenseCount = transactions.filter((t) => t.type === 'expense').length;
-    console.log(`   ✅ Created ${transactions.length} transactions (${incomeCount} income, ${expenseCount} expense)\n`);
-
-    // Create budgets
-    console.log('📊 Creating budgets...');
-    const budgets = generateBudgets(TEST_USER.telegramId);
-
-    for (const budget of budgets) {
-      await dbRun(
-        db,
-        `INSERT INTO budgets (id, userId, name, amount, period, startDate, endDate, categoryIds, isActive, spent, description)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          budget.id,
-          budget.userId,
-          budget.name,
-          budget.amount,
-          budget.period,
-          budget.startDate,
-          budget.endDate,
-          budget.categoryIds,
-          budget.isActive,
-          budget.spent,
-          budget.description,
-        ]
-      );
-    }
-    console.log(`   ✅ Created ${budgets.length} budgets\n`);
-
-    // Calculate and update spent amounts for budgets
-    console.log('🧮 Calculating budget spent amounts...');
-    for (const budget of budgets) {
-      const categoryIds = JSON.parse(budget.categoryIds);
-
-      // Calculate spent from transactions
-      const spent = transactions
-        .filter(
-          (t) =>
-            t.type === 'expense' &&
-            categoryIds.includes(t.category) &&
-            t.date >= budget.startDate &&
-            t.date <= budget.endDate
-        )
-        .reduce((sum, t) => sum + t.amount, 0);
-
-      await dbRun(db, 'UPDATE budgets SET spent = ? WHERE id = ?', [spent, budget.id]);
-      console.log(`   - ${budget.name}: ${spent.toLocaleString()} / ${budget.amount.toLocaleString()} UZS`);
-    }
-
-    console.log('\n✅ Seed completed successfully!');
-    console.log('\n📋 Summary:');
-    console.log(`   User ID: ${TEST_USER.telegramId}`);
-    console.log(`   Transactions: ${transactions.length}`);
-    console.log(`   Budgets: ${budgets.length}`);
-    console.log('\n💡 Use this telegramId in the webapp to see test data.');
-
-    db.close();
-  } catch (error) {
-    console.error('❌ Seed failed:', error);
-    db.close();
+    await call(base, user, 'GET', '/health');
+  } catch {
+    console.error(`\nСервер не отвечает на ${base}. Запусти его в другом терминале:\n  DATABASE_TYPE=sqlite ENABLE_TELEGRAM_POLLING=false npm run dev\n`);
     process.exit(1);
   }
+
+  if (flags.reset) {
+    console.log('\nОчистка:');
+    await reset(base, user);
+  }
+
+  console.log('\nТранзакции:');
+  for (const transaction of TRANSACTIONS) {
+    await call(base, user, 'POST', '/transactions', { userId: user, ...transaction });
+    const mark = transaction.needsReview ? ' (нужно проверить)' : '';
+    console.log(`   ${transaction.description}${mark}`);
+  }
+
+  console.log('\nБюджеты:');
+  for (const budget of BUDGETS) {
+    await call(base, user, 'POST', `/budgets/users/${user}/budgets`, budget);
+    console.log(`   ${budget.name}`);
+  }
+
+  console.log('\nДолги:');
+  for (const debt of DEBTS) {
+    await call(base, user, 'POST', `/debts/user/${user}`, debt);
+    console.log(`   ${debt.personName}`);
+  }
+
+  console.log('\nОжидаемые итоги по этой фикстуре:');
+  console.log(`   реальные расходы:   ${EXPECTED.realExpense.toLocaleString('ru-RU')}`);
+  console.log(`   доходы:             ${EXPECTED.income.toLocaleString('ru-RU')}`);
+  console.log(`   ждут решения:       ${EXPECTED.awaitingReview}`);
 }
 
-seed();
+if (require.main === module) {
+  main().catch((error) => {
+    console.error(`\nОшибка: ${error instanceof Error ? error.message : String(error)}`);
+    process.exit(1);
+  });
+}
