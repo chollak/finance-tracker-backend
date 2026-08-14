@@ -54,12 +54,10 @@ export function BudgetCard({ budget, onClick }: BudgetCardProps) {
           </div>
         </div>
 
-        {/* Velocity Prediction */}
-        <Separator />
-        <div className="flex items-center justify-between text-xs">
-          <span className="text-muted-foreground">
-            {budget._daysRemainingText}
-          </span>
+        {/* Velocity Prediction — the remaining days are already stated above
+            in the time-context line, so only the forecast goes here. */}
+        {budget._velocityText && <Separator />}
+        <div className="flex items-center justify-end text-xs">
           {budget._velocityText && (
             <span
               className={

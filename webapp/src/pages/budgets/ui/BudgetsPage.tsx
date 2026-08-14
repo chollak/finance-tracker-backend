@@ -1,6 +1,5 @@
 import { useBudgetSummaries, BudgetCard, budgetToViewModel } from '@/entities/budget';
 import { useUserStore, useIsGuest } from '@/entities/user/model/store';
-import { BudgetOverview } from '@/widgets/budget-overview';
 import { Button, EmptyState, PageHeader, PageShell, SectionStack } from '@/shared/ui';
 import { Skeleton } from '@/shared/ui/skeleton';
 import { Plus } from 'lucide-react';
@@ -56,17 +55,10 @@ export function BudgetsPage() {
         </Button>
       )}
 
-      {/* Budget Overview Widget */}
-      {(isLoading || budgetViewModels.length > 0) && (
-        <div className="mb-6">
-          <BudgetOverview />
-        </div>
-      )}
+      {/* BudgetOverview belongs to the home screen: here it listed the very
+          same budgets the section below already shows, twice on one page. */}
 
-      {/* All Budgets List */}
       <div className="space-y-4">
-        <h2 className="text-xl font-semibold">Все бюджеты</h2>
-
         {isLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {[1, 2, 3, 4].map((i) => (

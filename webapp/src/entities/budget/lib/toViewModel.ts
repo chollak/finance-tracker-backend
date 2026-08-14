@@ -61,18 +61,26 @@ function formatPeriod(period: BudgetPeriod): string {
   return PERIOD_LABELS[period] || period;
 }
 
-function formatCurrentPeriodRange(budget: BudgetSummary): string {
-  if (!budget.startDate || !budget.endDate) return formatPeriod(budget.period);
+/**
+ * Names the window a budget actually covers.
+ *
+ * A monthly budget started on the 31st runs almost entirely through the next
+ * month, so labelling it by its start date points at the wrong month. The
+ * midpoint names the month that owns most of the spending.
+ */
+function formatCurrentPeriodRange(budget: BudgetSummary): string | null {
+  if (!budget.startDate || !budget.endDate) return null;
 
   const start = new Date(budget.startDate);
   const end = new Date(budget.endDate);
 
   if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
-    return formatPeriod(budget.period);
+    return null;
   }
 
   if (budget.period === 'monthly') {
-    return format(start, 'LLLL yyyy', { locale: ru });
+    const midpoint = new Date((start.getTime() + end.getTime()) / 2);
+    return format(midpoint, 'LLLL yyyy', { locale: ru });
   }
 
   return `${format(start, 'dd.MM', { locale: ru })}–${format(end, 'dd.MM', { locale: ru })}`;
@@ -175,10 +183,10 @@ function calculateVelocityPrediction(budget: BudgetSummary): {
     const daysDiff = differenceInDays(endDate, projectedRunoutDate);
     if (daysDiff > 3) {
       velocityStatus = 'danger';
-      velocityText = `Закончится ${runoutDateStr}`;
+      velocityText = `Такими темпами хватит до ${runoutDateStr}`;
     } else {
       velocityStatus = 'warning';
-      velocityText = `Закончится ${runoutDateStr}`;
+      velocityText = `Такими темпами хватит до ${runoutDateStr}`;
     }
   } else {
     // On track to finish within budget
@@ -201,6 +209,7 @@ function calculateVelocityPrediction(budget: BudgetSummary): {
 export function budgetToViewModel(budget: BudgetSummary): BudgetViewModel {
   const status = getStatus(budget.percentageUsed, budget.isOverBudget);
   const velocity = calculateVelocityPrediction(budget);
+  const periodRange = formatCurrentPeriodRange(budget);
 
   // Actionable headline: what the user can do right now
   const overspentAmount = Math.max(0, budget.spent - budget.amount);
@@ -219,7 +228,9 @@ export function budgetToViewModel(budget: BudgetSummary): BudgetViewModel {
     _statusText: status.text,
     _statusColor: status.color,
     _daysRemainingText: formatDaysRemaining(budget.daysRemaining),
-    _periodText: `${formatPeriod(budget.period)} • ${formatCurrentPeriodRange(budget)}`,
+    _periodText: periodRange
+      ? `${formatPeriod(budget.period)} • ${periodRange}`
+      : formatPeriod(budget.period),
     // Actionable headline
     _remainingLabel: remainingLabel,
     _remainingAmountText: remainingAmountText,
