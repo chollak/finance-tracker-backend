@@ -51,6 +51,17 @@ export function isNonExpenseMovement(semanticType: TransactionSemanticType): boo
   return NON_EXPENSE_MOVEMENT_TYPES.has(semanticType);
 }
 
+/**
+ * Whether the row should carry a semantic badge.
+ *
+ * A plain expense or income is already told by the amount's colour and sign,
+ * so labelling it adds nothing and repeats on every row. Only movements that
+ * are neither earn a badge.
+ */
+export function shouldShowSemanticBadge(semanticType: TransactionSemanticType): boolean {
+  return isNonExpenseMovement(semanticType);
+}
+
 // Semantic types offered as one-tap correction chips when a transaction needsReview.
 // Excludes 'income' — an uncertain movement is corrected among expense/transfer-like types.
 export const NEEDS_REVIEW_CORRECTION_TYPES: TransactionSemanticType[] =

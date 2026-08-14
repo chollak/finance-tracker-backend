@@ -1,14 +1,7 @@
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/shared/ui/tooltip';
 import { Badge } from '@/shared/ui/badge';
 import type { TransactionViewModel } from '../model/types';
 import { TransactionActions } from './TransactionActions';
 import { TransactionCorrectionChips } from './TransactionCorrectionChips';
-import { parseISO, format } from 'date-fns';
 import { getCategoryName } from '@/entities/category/model/categories';
 import { NEEDS_REVIEW_LABEL } from '../lib/semanticType';
 
@@ -33,12 +26,7 @@ export function TransactionListItem({
   onDelete,
   showActions = true,
 }: TransactionListItemProps) {
-  const isLongDescription = transaction.description && transaction.description.length > 40;
   const isClickable = !!onClick;
-  // Use createdAt for actual time, fallback to date (which shows 00:00 for date-only)
-  const time = transaction.createdAt
-    ? format(parseISO(transaction.createdAt), 'HH:mm')
-    : format(parseISO(transaction.date), 'HH:mm');
 
   return (
     <div
@@ -55,25 +43,14 @@ export function TransactionListItem({
 
         {/* Details */}
         <div className="flex-1 min-w-0">
-          {isLongDescription ? (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <p className="font-medium truncate">{transaction.description}</p>
-                </TooltipTrigger>
-                <TooltipContent side="top" className="max-w-[300px]">
-                  <p className="text-sm">{transaction.description}</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          ) : (
-            <p className="font-medium truncate">{transaction.description}</p>
-          )}
+          <p className="font-medium line-clamp-2">{transaction.description}</p>
           <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
             <span className="text-sm text-muted-foreground truncate">{getCategoryName(transaction.category)}</span>
-            <Badge variant={transaction._semanticTypeBadgeVariant} className="px-1.5 py-0 text-[10px]">
-              {transaction._semanticTypeLabel}
-            </Badge>
+            {transaction._showSemanticBadge && (
+              <Badge variant={transaction._semanticTypeBadgeVariant} className="px-1.5 py-0 text-[10px]">
+                {transaction._semanticTypeLabel}
+              </Badge>
+            )}
             {transaction._needsReview && (
               <Badge variant="warning" className="px-1.5 py-0 text-[10px]">
                 {NEEDS_REVIEW_LABEL}
@@ -90,7 +67,6 @@ export function TransactionListItem({
           <p className={`truncate font-semibold ${transaction._amountColor || 'text-foreground'}`}>
             {transaction._formattedAmount}
           </p>
-          <p className="text-xs text-muted-foreground">{time}</p>
         </div>
 
         {/* Actions Menu */}

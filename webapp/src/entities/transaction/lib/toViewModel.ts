@@ -2,7 +2,7 @@ import type { Transaction, TransactionSemanticType } from '@/shared/types';
 import type { TransactionViewModel } from '../model/types';
 import { formatTransactionAmount, formatTransactionDate } from '@/shared/lib/formatters';
 import { getCategoryIcon, getCategoryColor } from '../../category/lib';
-import { getSemanticTypeLabel, getSemanticTypeBadgeVariant, isNonExpenseMovement } from './semanticType';
+import { getSemanticTypeLabel, getSemanticTypeBadgeVariant, isNonExpenseMovement, shouldShowSemanticBadge } from './semanticType';
 
 /**
  * Transforms Transaction to TransactionViewModel
@@ -32,6 +32,7 @@ export function transactionToViewModel(transaction: Transaction): TransactionVie
     _semanticTypeLabel: getSemanticTypeLabel(semanticType),
     _semanticTypeBadgeVariant: getSemanticTypeBadgeVariant(semanticType),
     _isNonExpenseMovement: isNonExpenseMovement(semanticType),
+    _showSemanticBadge: shouldShowSemanticBadge(semanticType),
     _needsReview: transaction.needsReview === true,
   };
 }
