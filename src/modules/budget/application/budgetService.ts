@@ -62,11 +62,17 @@ export class BudgetService {
     }
   }
 
+  /**
+   * @param threshold Fraction of the limit, matching the public contract
+   *   (`?threshold=0.8`). Summaries report `percentageUsed` on a 0..100 scale,
+   *   so it is converted here rather than compared across scales.
+   */
   async getBudgetsNearLimit(userId: string, threshold: number = 0.8): Promise<BudgetSummary[]> {
     const summaries = await this.budgetRepository.getBudgetSummaries(userId);
-    
-    return summaries.filter(summary => 
-      summary.percentageUsed >= threshold && !summary.isOverBudget
+    const thresholdPercent = threshold * 100;
+
+    return summaries.filter(summary =>
+      summary.percentageUsed >= thresholdPercent && !summary.isOverBudget
     );
   }
 

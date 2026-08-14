@@ -121,17 +121,19 @@ describe('Enhanced Analytics Service', () => {
 
       const breakdown = await analyticsService.getDetailedCategoryBreakdown('user-123');
 
+      // A breakdown of expenses holds expenses only, and its percentages are
+      // shares of expense, not of turnover. This test previously asserted the
+      // opposite — income inside the breakdown at 47% — which documented the
+      // defect fixed in FT-052 rather than the intended behaviour.
       expect(breakdown.Food.amount).toBe(150); // 50 + 100
       expect(breakdown.Food.count).toBe(2);
-      expect(breakdown.Food.percentage).toBeCloseTo(35.29, 1); // 150 / (150 + 200 + 75) * 100
+      expect(breakdown.Food.percentage).toBeCloseTo(66.67, 1); // 150 / (150 + 75) * 100
 
       expect(breakdown.Transportation.amount).toBe(75);
       expect(breakdown.Transportation.count).toBe(1);
-      expect(breakdown.Transportation.percentage).toBeCloseTo(17.65, 1);
+      expect(breakdown.Transportation.percentage).toBeCloseTo(33.33, 1);
 
-      expect(breakdown.Income.amount).toBe(200);
-      expect(breakdown.Income.count).toBe(1);
-      expect(breakdown.Income.percentage).toBeCloseTo(47.06, 1);
+      expect(breakdown.Income).toBeUndefined();
     });
   });
 
@@ -306,8 +308,7 @@ describe('Enhanced Analytics Service', () => {
 
       expect(breakdown.Food.amount).toBe(50);
       expect(breakdown.Food.count).toBe(1);
-      expect(breakdown.Income.amount).toBe(100);
-      expect(breakdown.Income.count).toBe(1);
+      expect(breakdown.Income).toBeUndefined();
     });
 
     it('getTopCategories excludes needsReview transactions', async () => {

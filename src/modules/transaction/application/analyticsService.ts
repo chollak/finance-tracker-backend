@@ -79,8 +79,13 @@ export class AnalyticsService {
     }
 
     async getDetailedCategoryBreakdown(userId: string, timeRange?: TimeRange): Promise<CategoryBreakdown> {
+        // Only real expenses belong in a breakdown of expenses. Income, transfers,
+        // deposits and cash withdrawals are movements, not spending, and counting
+        // them here contradicts every other surface (see product invariants И-1/И-3).
         const transactions = (await this.getTransactionsInRange(userId, timeRange))
-            .filter(t => !t.needsReview);
+            .filter(t =>
+                !t.needsReview && countsAsRealExpense(normalizeSemanticType(t.semanticType, t.type))
+            );
         const totalAmount = transactions.reduce((sum, t) => sum + t.amount, 0);
 
         const breakdown: { [key: string]: { amount: number; count: number } } = {};

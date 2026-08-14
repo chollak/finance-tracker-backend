@@ -79,9 +79,8 @@ describe('И-1 / И-3: только реальные расходы попада
     expect(budgetRepository.updateSpentAmount).toHaveBeenCalledWith('b1', REAL_EXPENSE_TOTAL);
   });
 
-  // Нарушено: FT-052. getDetailedCategoryBreakdown фильтрует только needsReview,
-  // поэтому в «расходы по категориям» попадают доходы, переводы, вклады и снятия.
-  test.failing('разбор по категориям содержит только реальные расходы', async () => {
+  // Починено в FT-052: разбор фильтрует по countsAsRealExpense, как и остальные поверхности.
+  it('разбор по категориям содержит только реальные расходы', async () => {
     const service = new AnalyticsService(repoWith(LEDGER));
     const breakdown = await service.getDetailedCategoryBreakdown('u1');
 
@@ -152,9 +151,8 @@ describe('И-4: порядок величины суммы не теряется
 });
 
 describe('И-7: одно число — один источник', () => {
-  // Нарушено: FT-053. percentageUsed измеряется в процентах (0..100),
-  // а threshold — в долях (0.8), поэтому «близко к лимиту» срабатывает с 0.8%.
-  test.failing('бюджет на 48 процентов не считается близким к лимиту', async () => {
+  // Починено в FT-053: порог конвертируется в проценты внутри сервиса.
+  it('бюджет на 48 процентов не считается близким к лимиту', async () => {
     const summaries = [
       { id: 'b1', name: 'Еда', amount: 500_000, spent: 240_000, percentageUsed: 48, isOverBudget: false },
     ];
