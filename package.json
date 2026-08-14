@@ -29,7 +29,8 @@
     "miniapp:menu": "node scripts/dev-miniapp.js",
     "dev:miniapp": "node scripts/dev-miniapp.js run",
     "test:webapp": "cd webapp && npm run test",
-    "smoke:semantics": "npx ts-node scripts/smoke-semantics.ts"
+    "smoke:semantics": "npx ts-node scripts/smoke-semantics.ts",
+    "backfill:preview": "npx ts-node scripts/backfill-preview.ts"
   },
   "keywords": [],
   "author": "",

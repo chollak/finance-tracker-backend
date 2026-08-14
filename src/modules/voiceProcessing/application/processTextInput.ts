@@ -7,9 +7,10 @@ import { DebtType } from '../../debt/domain/debtEntity';
 import { DebtLimitExceededError } from '../../debt/domain/errors';
 import { getLogger, LogCategory } from '../../../shared/application/logging';
 import { normalizeCategory } from '../../../shared/domain/entities/Category';
-import { normalizeSemanticType, TransactionSemanticType } from '../../transaction/domain/transactionSemanticType';
+import { normalizeSemanticType } from '../../transaction/domain/transactionSemanticType';
 import { AnalysisResult, ParsedTransaction } from '../domain/transcriptionService';
 import { parseAmount } from './parseAmount';
+import { classifyByText, DEBT_KEYWORDS_PATTERN } from './classifyByText';
 
 const logger = getLogger(LogCategory.OPENAI);
 
@@ -20,31 +21,11 @@ function conservativeKeywordPattern(alternatives: string[]): RegExp {
   return new RegExp(`(?<![\\p{L}\\p{N}_])(?:${alternatives.join('|')})(?![\\p{L}\\p{N}_])`, 'iu');
 }
 
-const DEBT_KEYWORDS_PATTERN = /\b(lent|borrowed|owe|debt|loan)\b|долг|должен|одолжил|одолжила|занял|заняла|қарз|qarz/i;
 const COMPLEX_TEXT_MARKERS_PATTERN = /[.!?;]/;
 const COMPLEX_TEXT_WORDS_PATTERN = conservativeKeywordPattern([
   'и', 'and', 'за', 'по', 'купил\\p{L}*', 'взял\\p{L}*', 'всех', 'компани\\p{L}*', 'поровну', 'скинул\\p{L}*', 'split',
 ]);
 
-const SAVING_DEPOSIT_KEYWORDS_PATTERN = conservativeKeywordPattern([
-  'вклад\\p{L}*', 'накоплени\\p{L}*', 'сбережени\\p{L}*', "jamg'?or\\p{L}*",
-]);
-const CASH_WITHDRAWAL_VERB_PATTERN = conservativeKeywordPattern(['снял\\p{L}*', 'yechib oldim', 'yechdim']);
-const CASH_WITHDRAWAL_STANDALONE_PATTERN = conservativeKeywordPattern(['обналичил\\p{L}*']);
-// Where the cash comes from counts as saying "cash" — "снял в банкомате" is
-// how people actually phrase it, and it was landing in real expenses.
-const CASH_INDICATOR_PATTERN = conservativeKeywordPattern([
-  'налич\\p{L}*', 'нал', 'cash', 'nakd',
-  'банкомат\\p{L}*', 'atm', 'bankomat\\p{L}*',
-  'карт\\p{L}*', 'счет', 'счёт', 'karta\\p{L}*',
-]);
-const TRANSFER_VERB_PATTERN = conservativeKeywordPattern([
-  'перевел\\p{L}*', 'перевёл\\p{L}*', 'перекинул\\p{L}*', 'kochirdim', "o'?tkazdim", 'otkazdim', 'transferred',
-]);
-const OWN_ACCOUNT_TARGET_PATTERN = conservativeKeywordPattern([
-  'себе', 'карт\\p{L}*', 'счет', 'счёт', 'alif', 'payme', 'click', 'uzcard', 'humo',
-]);
-const INCOME_KEYWORDS_PATTERN = conservativeKeywordPattern(['зарплат\\p{L}*', 'зп', 'аванс', 'оклад', 'salary', 'maosh']);
 
 /**
  * Conservative fast path for obvious single-amount phrases whose semantic meaning
@@ -72,31 +53,15 @@ function parseObviousSemanticTransaction(text: string): AnalysisResult | null {
   const { amount } = parsedAmount;
   const remainder = parsedAmount.remainder;
 
-  let type: 'income' | 'expense' = 'expense';
-  let semanticType: TransactionSemanticType | null = null;
-  let category = 'other';
-
-  if (SAVING_DEPOSIT_KEYWORDS_PATTERN.test(remainder)) {
-    semanticType = 'saving_deposit';
-    category = 'transfer';
-  } else if (
-    CASH_WITHDRAWAL_STANDALONE_PATTERN.test(remainder)
-    || (CASH_WITHDRAWAL_VERB_PATTERN.test(remainder) && CASH_INDICATOR_PATTERN.test(remainder))
-  ) {
-    semanticType = 'cash_withdrawal';
-    category = 'transfer';
-  } else if (TRANSFER_VERB_PATTERN.test(remainder) && OWN_ACCOUNT_TARGET_PATTERN.test(remainder)) {
-    semanticType = 'own_transfer';
-    category = 'transfer';
-  } else if (INCOME_KEYWORDS_PATTERN.test(remainder)) {
-    type = 'income';
-    semanticType = 'income';
-    category = normalizeCategory(remainder);
-  }
-
+  // One classifier, shared with the backfill preview, so a proposal about an
+  // old row is exactly what the parser would produce for the same wording.
+  const semanticType = classifyByText(remainder);
   if (!semanticType) {
     return null;
   }
+
+  const type: 'income' | 'expense' = semanticType === 'income' ? 'income' : 'expense';
+  const category = semanticType === 'income' ? normalizeCategory(remainder) : 'transfer';
 
   const transaction: ParsedTransaction = {
     intent: 'transaction',
