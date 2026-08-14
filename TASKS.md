@@ -739,9 +739,7 @@ Definition of Done:
 
 ### FT-044: Semantic smoke scenarios on live input
 
-Перед прогоном почистить локальный SQLite: в нём около 45 тестовых записей, наложенных поверх трёх исходных. Реальных данных там никогда не было — они в Supabase, который на паузе.
-
-Status: ready
+Status: done
 Priority: high
 Owner: Claude Code, QA by Hermes
 Type: qa
