@@ -1,4 +1,6 @@
 import { Card } from '@/shared/ui/card';
+import { useState } from 'react';
+import { ChevronDown } from 'lucide-react';
 import { Badge } from '@/shared/ui/badge';
 import type { TransactionViewModel } from '../model/types';
 import { getCategoryName } from '@/entities/category/model/categories';
@@ -15,6 +17,7 @@ interface TransactionCardProps {
  * Uses ViewModel with pre-formatted fields - no logic in UI!
  */
 export function TransactionCard({ transaction, onClick }: TransactionCardProps) {
+  const [showCorrection, setShowCorrection] = useState(false);
   return (
     <Card
       className="cursor-pointer hover:bg-accent/50 transition-colors p-4"
@@ -38,16 +41,32 @@ export function TransactionCard({ transaction, onClick }: TransactionCardProps) 
               <span>{transaction._formattedDate}</span>
               <span>•</span>
               <span>{getCategoryName(transaction.category)}</span>
-              <Badge variant={transaction._semanticTypeBadgeVariant} className="px-2 py-0 text-[11px]">
-                {transaction._semanticTypeLabel}
-              </Badge>
+              {transaction._showSemanticBadge && (
+                <Badge variant={transaction._semanticTypeBadgeVariant} className="px-2 py-0 text-[11px]">
+                  {transaction._semanticTypeLabel}
+                </Badge>
+              )}
               {transaction._isNonExpenseMovement && (
                 <span className="text-xs text-muted-foreground">Не входит в расходы</span>
               )}
               {transaction._needsReview && (
-                <Badge variant="warning" className="px-2 py-0 text-[11px]">
-                  {NEEDS_REVIEW_LABEL}
-                </Badge>
+                <button
+                  type="button"
+                  aria-expanded={showCorrection}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowCorrection((open) => !open);
+                  }}
+                  className="inline-flex min-h-[var(--touch-target)] items-center"
+                >
+                  <Badge variant="warning" className="gap-1 px-2 py-0 text-[11px]">
+                    {NEEDS_REVIEW_LABEL}
+                    <ChevronDown
+                      className={`h-3 w-3 transition-transform ${showCorrection ? 'rotate-180' : ''}`}
+                      aria-hidden="true"
+                    />
+                  </Badge>
+                </button>
               )}
             </div>
           </div>
@@ -64,8 +83,8 @@ export function TransactionCard({ transaction, onClick }: TransactionCardProps) 
         </div>
       </div>
 
-      {/* Correction chips — shown only while the transaction needs review */}
-      {transaction._needsReview && (
+      {/* Correction chips stay behind the badge — see TransactionListItem */}
+      {transaction._needsReview && showCorrection && (
         <TransactionCorrectionChips transaction={transaction} className="mt-3" />
       )}
     </Card>

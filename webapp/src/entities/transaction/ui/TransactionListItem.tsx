@@ -1,9 +1,11 @@
+import { useState } from 'react';
 import { Badge } from '@/shared/ui/badge';
 import type { TransactionViewModel } from '../model/types';
 import { TransactionActions } from './TransactionActions';
 import { TransactionCorrectionChips } from './TransactionCorrectionChips';
 import { getCategoryName } from '@/entities/category/model/categories';
 import { NEEDS_REVIEW_LABEL } from '../lib/semanticType';
+import { ChevronDown } from 'lucide-react';
 
 interface TransactionListItemProps {
   transaction: TransactionViewModel;
@@ -27,6 +29,7 @@ export function TransactionListItem({
   showActions = true,
 }: TransactionListItemProps) {
   const isClickable = !!onClick;
+  const [showCorrection, setShowCorrection] = useState(false);
 
   return (
     <div
@@ -52,9 +55,23 @@ export function TransactionListItem({
               </Badge>
             )}
             {transaction._needsReview && (
-              <Badge variant="warning" className="px-1.5 py-0 text-[10px]">
-                {NEEDS_REVIEW_LABEL}
-              </Badge>
+              <button
+                type="button"
+                aria-expanded={showCorrection}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowCorrection((open) => !open);
+                }}
+                className="inline-flex min-h-[var(--touch-target)] items-center"
+              >
+                <Badge variant="warning" className="gap-1 px-1.5 py-0 text-[10px]">
+                  {NEEDS_REVIEW_LABEL}
+                  <ChevronDown
+                    className={`h-3 w-3 transition-transform ${showCorrection ? 'rotate-180' : ''}`}
+                    aria-hidden="true"
+                  />
+                </Badge>
+              </button>
             )}
           </div>
           {transaction._isNonExpenseMovement && (
@@ -81,8 +98,9 @@ export function TransactionListItem({
         )}
       </div>
 
-      {/* One-tap correction chips */}
-      {transaction._needsReview && (
+      {/* Correction chips stay behind the badge: a row of seven would triple
+          the height of every doubtful row, and needsReview is meant to pile up. */}
+      {transaction._needsReview && showCorrection && (
         <TransactionCorrectionChips transaction={transaction} className="pb-3 pr-3 pl-[3.25rem]" />
       )}
     </div>
