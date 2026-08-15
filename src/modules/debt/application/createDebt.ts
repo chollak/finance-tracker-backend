@@ -73,6 +73,10 @@ export class CreateDebtUseCase {
       userId: debt.userId,
       amount: debt.originalAmount,
       type: isExpense ? 'expense' : 'income',
+      // Direction says where the money went; semantics say what it meant.
+      // Lending is not spending and borrowing is not income (И-1), so every
+      // surface reading countsAsRealExpense/countsAsIncome sees the truth.
+      semanticType: 'debt',
       category: DEBT_CATEGORY,
       description: data.description || description,
       date: new Date().toISOString().split('T')[0],

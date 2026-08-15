@@ -75,6 +75,8 @@ export class PayDebtUseCase {
           userId: debt.userId,
           amount: data.amount,
           type: isExpense ? 'expense' : 'income',
+          // Settling an obligation is neither new spending nor new income (И-1).
+          semanticType: 'debt',
           category: DEBT_CATEGORY,
           description: data.note || description,
           date: new Date().toISOString().split('T')[0],

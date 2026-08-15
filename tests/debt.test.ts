@@ -226,6 +226,10 @@ describe('Debt module', () => {
       expect(callArg.amount).toBe(500);
       // OWED_TO_ME = user gave money away = recorded as an expense
       expect(callArg.type).toBe('expense');
+      // Direction and meaning are different questions. Lending money leaves the
+      // account, but it is not spending — И-1. Without this the category
+      // breakdown lists money lent as one of the largest expenses.
+      expect(callArg.semanticType).toBe('debt');
     });
 
     it('fails validation when person name is missing', async () => {
@@ -319,6 +323,8 @@ describe('Debt module', () => {
       // I_OWE debt being paid back by the user = expense
       expect(callArg.type).toBe('expense');
       expect(callArg.isDebtRelated).toBe(true);
+      // Repaying a debt settles an obligation; it is not new spending.
+      expect(callArg.semanticType).toBe('debt');
     });
 
     it('skips creating a transaction when createTransaction=false', async () => {
