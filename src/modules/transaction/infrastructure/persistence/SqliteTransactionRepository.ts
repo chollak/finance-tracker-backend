@@ -27,7 +27,11 @@ export class SqliteTransactionRepository implements TransactionRepository {
       originalParsing: transaction.originalParsing ? JSON.stringify(transaction.originalParsing) : undefined,
       userId: transaction.userId,
       category: transaction.category || 'Другое',
-      isArchived: transaction.isArchived ?? false
+      isArchived: transaction.isArchived ?? false,
+      // Analytics excludes debt movements by this flag, so losing it here makes
+      // lending money look like spending.
+      isDebtRelated: transaction.isDebtRelated ?? false,
+      relatedDebtId: transaction.relatedDebtId
     });
 
     const saved = await this.repository.save(entity);
@@ -71,6 +75,9 @@ export class SqliteTransactionRepository implements TransactionRepository {
     if (updates.date !== undefined) updateData.date = updates.date;
     if (updates.merchant !== undefined) updateData.merchant = updates.merchant;
     if (updates.confidence !== undefined) updateData.confidence = updates.confidence;
+    // Supabase has always written this one; without it here a category
+    // correction reported success and changed nothing.
+    if (updates.category !== undefined) updateData.category = updates.category;
 
     await this.repository.update(id, updateData);
     
@@ -127,6 +134,8 @@ export class SqliteTransactionRepository implements TransactionRepository {
       category: entity.category || 'Другое',
       userName: undefined, // We'll get this from User entity later
       isArchived: entity.isArchived ?? false,
+      isDebtRelated: entity.isDebtRelated ?? false,
+      relatedDebtId: entity.relatedDebtId,
       createdAt: entity.createdAt?.toISOString()
     };
   }

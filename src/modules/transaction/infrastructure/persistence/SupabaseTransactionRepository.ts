@@ -24,7 +24,11 @@ export class SupabaseTransactionRepository implements TransactionRepository {
       original_parsing: transaction.originalParsing ? JSON.stringify(transaction.originalParsing) : undefined,
       user_id: transaction.userId,
       category: transaction.category || 'Другое',
-      is_archived: transaction.isArchived ?? false
+      is_archived: transaction.isArchived ?? false,
+      // Analytics excludes debt movements by this flag, so losing it here makes
+      // lending money look like spending.
+      is_debt_related: transaction.isDebtRelated ?? false,
+      related_debt_id: transaction.relatedDebtId
     };
 
     const { data, error } = await this.supabase
@@ -196,6 +200,8 @@ export class SupabaseTransactionRepository implements TransactionRepository {
       category: row.category || 'Другое',
       userName: undefined, // We'll get this from User entity later if needed
       isArchived: row.is_archived ?? false,
+      isDebtRelated: row.is_debt_related ?? false,
+      relatedDebtId: row.related_debt_id || undefined,
       createdAt: row.created_at
     };
   }
