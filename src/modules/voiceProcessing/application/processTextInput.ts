@@ -12,12 +12,10 @@ import { AnalysisResult, ParsedTransaction } from '../domain/transcriptionServic
 
 const logger = getLogger(LogCategory.OPENAI);
 
-const SIMPLE_TRANSACTION_PATTERN = /^(.+?)\s+([+-]?\d[\d\s.,]*)\s*(?:сум|sum|uzs)?\s*$/i;
-
 // \b relies on \w, which only covers ASCII — it silently fails to bound Cyrillic words
 // (e.g. "\bперевел\b" never matches). Build boundaries from Unicode letter/number classes instead.
-function conservativeKeywordPattern(alternatives: string[]): RegExp {
-  return new RegExp(`(?<![\\p{L}\\p{N}_])(?:${alternatives.join('|')})(?![\\p{L}\\p{N}_])`, 'iu');
+function conservativeKeywordPattern(alternatives: string[], flags = 'iu'): RegExp {
+  return new RegExp(`(?<![\\p{L}\\p{N}_])(?:${alternatives.join('|')})(?![\\p{L}\\p{N}_])`, flags);
 }
 
 const DEBT_KEYWORDS_PATTERN = /\b(lent|borrowed|owe|debt|loan)\b|долг|должен|одолжил|одолжила|занял|заняла|қарз|qarz/i;
@@ -25,7 +23,80 @@ const COMPLEX_TEXT_MARKERS_PATTERN = /[.!?;]/;
 const COMPLEX_TEXT_WORDS_PATTERN = conservativeKeywordPattern([
   'и', 'and', 'за', 'по', 'купил\\p{L}*', 'взял\\p{L}*', 'всех', 'компани\\p{L}*', 'поровну', 'скинул\\p{L}*', 'split',
 ]);
-const CURRENCY_WORDS_PATTERN = /\b(сум|sum|uzs)\b/gi;
+const CURRENCY_WORDS_PATTERN = conservativeKeywordPattern(['сум', 'sum', 'uzs'], 'giu');
+
+const AMOUNT_TOKEN_PATTERN = /[+-]?\d[\d\s.,]*/g;
+
+// Magnitude words directly after an amount: "12 млн", "25 тыс", "15к". A bare "к"/"k" only counts
+// when glued to the digits, so the preposition ("500000 к маме") and units ("4кг") stay untouched.
+const MAGNITUDE_SUFFIX_SOURCE =
+  "(?:\\s?(?:млрд|миллиард\\p{L}*|mlrd|млн|миллион\\p{L}*|mln|тысяч\\p{L}*|тыщ\\p{L}*|тыс|ming)|[кk])(?![\\p{L}\\p{N}_])";
+const MAGNITUDE_SUFFIX_PATTERN = new RegExp(`^${MAGNITUDE_SUFFIX_SOURCE}`, 'iu');
+// A decimal point inside a magnitude amount ("3.5 млн") is not sentence punctuation.
+const MAGNITUDE_DECIMAL_POINT_PATTERN = new RegExp(`(\\d)\\.(\\d+${MAGNITUDE_SUFFIX_SOURCE})`, 'giu');
+
+const MAGNITUDE_FACTORS: Array<[RegExp, number]> = [
+  [/^(?:млрд|миллиард|mlrd)/iu, 1_000_000_000],
+  [/^(?:млн|миллион|mln)/iu, 1_000_000],
+  [/^(?:тыс|тыщ|ming|к|k)/iu, 1_000],
+];
+
+function magnitudeFactor(suffix: string): number {
+  const word = suffix.trim().toLowerCase();
+  if (!word) {
+    return 1;
+  }
+
+  const factor = MAGNITUDE_FACTORS.find(([pattern]) => pattern.test(word));
+  return factor ? factor[1] : 1;
+}
+
+interface ParsedAmount {
+  amount: number;
+  textBefore: string;
+  textAfter: string;
+}
+
+/**
+ * Reads the single amount of a phrase together with its magnitude word, and reports the text
+ * left on either side of it so callers never keep "млн" in a description or merchant.
+ * Returns null when the phrase does not hold exactly one usable amount.
+ */
+function parseSingleAmount(normalizedText: string): ParsedAmount | null {
+  const matches = [...normalizedText.matchAll(AMOUNT_TOKEN_PATTERN)];
+  if (matches.length !== 1) {
+    return null;
+  }
+
+  const match = matches[0];
+  const start = match.index ?? 0;
+  // Separators swallowed at the end of the loose token belong to the text, not to the number.
+  const token = match[0].replace(/[\s.,]+$/, '');
+  const tokenEnd = start + token.length;
+
+  const suffix = MAGNITUDE_SUFFIX_PATTERN.exec(normalizedText.slice(tokenEnd))?.[0] ?? '';
+  // "1,5 млн" reads as either 1.5 or 15 million; hand such phrases to OpenAI rather than pick one.
+  if (suffix && token.includes(',')) {
+    return null;
+  }
+
+  const amount = Number(token.replace(/[\s,]/g, '')) * magnitudeFactor(suffix);
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return null;
+  }
+
+  return {
+    amount,
+    textBefore: normalizedText.slice(0, start),
+    textAfter: normalizedText.slice(tokenEnd + suffix.length),
+  };
+}
+
+function isComplexText(normalizedText: string): boolean {
+  return COMPLEX_TEXT_MARKERS_PATTERN.test(normalizedText.replace(MAGNITUDE_DECIMAL_POINT_PATTERN, '$1$2'))
+    || COMPLEX_TEXT_WORDS_PATTERN.test(normalizedText)
+    || DEBT_KEYWORDS_PATTERN.test(normalizedText);
+}
 
 const SAVING_DEPOSIT_KEYWORDS_PATTERN = conservativeKeywordPattern([
   'вклад\\p{L}*', 'накоплени\\p{L}*', 'сбережени\\p{L}*', "jamg'?or\\p{L}*",
@@ -48,24 +119,36 @@ const INCOME_KEYWORDS_PATTERN = conservativeKeywordPattern(['зарплат\\p{L
  */
 function parseObviousSemanticTransaction(text: string): AnalysisResult | null {
   const normalizedText = text.trim().replace(/\s+/g, ' ');
-  const numberMatches = normalizedText.match(/\d[\d\s.,]*/g) || [];
 
+  if (isComplexText(normalizedText)) {
+    return null;
+  }
+
+  const parsedAmount = parseSingleAmount(normalizedText);
+  if (!parsedAmount) {
+    return null;
+  }
+
+  const { amount } = parsedAmount;
+  const trailingAfterAmount = parsedAmount.textAfter.replace(CURRENCY_WORDS_PATTERN, ' ').trim();
+  const leadingBeforeAmount = parsedAmount.textBefore.trim();
+
+  // For one-sided semantic fast paths like income/savings, words after the amount are often
+  // unrecognized magnitude slang (e.g. "зарплата 12 лямов"). Do not save the bare number
+  // with confidence=1; ask OpenAI instead. Own-transfer phrases are excluded because
+  // "перевел 500000 на Alif" legitimately carries the target after the amount.
   if (
-    numberMatches.length !== 1
-    || COMPLEX_TEXT_MARKERS_PATTERN.test(normalizedText)
-    || COMPLEX_TEXT_WORDS_PATTERN.test(normalizedText)
-    || DEBT_KEYWORDS_PATTERN.test(normalizedText)
+    trailingAfterAmount
+    && (
+      INCOME_KEYWORDS_PATTERN.test(leadingBeforeAmount)
+      || SAVING_DEPOSIT_KEYWORDS_PATTERN.test(leadingBeforeAmount)
+      || CASH_WITHDRAWAL_STANDALONE_PATTERN.test(leadingBeforeAmount)
+    )
   ) {
     return null;
   }
 
-  const amount = Number(numberMatches[0].replace(/[\s,]/g, ''));
-  if (!Number.isFinite(amount) || amount <= 0) {
-    return null;
-  }
-
-  const remainder = normalizedText
-    .replace(numberMatches[0], ' ')
+  const remainder = `${parsedAmount.textBefore} ${parsedAmount.textAfter}`
     .replace(CURRENCY_WORDS_PATTERN, ' ')
     .replace(/\s+/g, ' ')
     .trim();
@@ -118,25 +201,22 @@ function parseObviousSemanticTransaction(text: string): AnalysisResult | null {
 
 function parseSimpleTextTransaction(text: string): AnalysisResult | null {
   const normalizedText = text.trim().replace(/\s+/g, ' ');
-  const match = normalizedText.match(SIMPLE_TRANSACTION_PATTERN);
 
-  if (!match) {
+  if (isComplexText(normalizedText)) {
     return null;
   }
 
-  const label = match[1].trim();
-  const amount = Number(match[2].replace(/[\s,]/g, ''));
-  const numberMatches = normalizedText.match(/\d[\d\s.,]*/g) || [];
+  const parsedAmount = parseSingleAmount(normalizedText);
+  if (!parsedAmount) {
+    return null;
+  }
 
-  if (
-    !label
-    || numberMatches.length !== 1
-    || COMPLEX_TEXT_MARKERS_PATTERN.test(normalizedText)
-    || COMPLEX_TEXT_WORDS_PATTERN.test(normalizedText)
-    || DEBT_KEYWORDS_PATTERN.test(normalizedText)
-    || !Number.isFinite(amount)
-    || amount <= 0
-  ) {
+  // The simple form is "<label> <amount>[ currency]": only a currency word may follow the amount.
+  const { amount } = parsedAmount;
+  const label = parsedAmount.textBefore.trim();
+  const trailing = parsedAmount.textAfter.replace(CURRENCY_WORDS_PATTERN, ' ').trim();
+
+  if (!label || trailing || !/\s$/.test(parsedAmount.textBefore)) {
     return null;
   }
 

@@ -534,6 +534,230 @@ describe('ProcessTextInputUseCase', () => {
     expect(result.transactions).toHaveLength(0);
   });
 
+  describe('amount magnitude words', () => {
+    function makeDeps(createdId = 'magnitude-1') {
+      const openAIService = {
+        analyzeInput: jest.fn().mockResolvedValue({ transactions: [], debts: [] }),
+        analyzeTransactions: jest.fn(),
+        transcribe: jest.fn()
+      } as unknown as TranscriptionService;
+
+      const createTransactionUseCase = {
+        execute: jest.fn().mockResolvedValue({ success: true, data: createdId })
+      } as unknown as CreateTransactionUseCase;
+
+      return {
+        openAIService,
+        createTransactionUseCase,
+        useCase: new ProcessTextInputUseCase(openAIService, createTransactionUseCase),
+      };
+    }
+
+    it('parses "зарплата 12 млн" as 12 000 000 without leaving "млн" in the text fields', async () => {
+      const { openAIService, createTransactionUseCase, useCase } = makeDeps('salary-mln');
+
+      const result = await useCase.execute('зарплата 12 млн', 'user1');
+
+      expect(openAIService.analyzeInput).not.toHaveBeenCalled();
+      expect(createTransactionUseCase.execute).toHaveBeenCalledWith(expect.objectContaining({
+        amount: 12000000,
+        type: 'income',
+        semanticType: 'income',
+        description: 'зарплата',
+        merchant: 'зарплата',
+      }));
+      expect(result.transactions).toEqual([
+        expect.objectContaining({ id: 'salary-mln', amount: 12000000, description: 'зарплата' })
+      ]);
+    });
+
+    it('parses "зарплата 12 миллионов" as 12 000 000', async () => {
+      const { createTransactionUseCase, useCase } = makeDeps();
+
+      await useCase.execute('зарплата 12 миллионов', 'user1');
+
+      expect(createTransactionUseCase.execute).toHaveBeenCalledWith(expect.objectContaining({
+        amount: 12000000,
+        type: 'income',
+        description: 'зарплата',
+        merchant: 'зарплата',
+      }));
+    });
+
+    it('parses "такси 3.5 млн" as 3 500 000', async () => {
+      const { createTransactionUseCase, useCase } = makeDeps();
+
+      await useCase.execute('такси 3.5 млн', 'user1');
+
+      expect(createTransactionUseCase.execute).toHaveBeenCalledWith(expect.objectContaining({
+        amount: 3500000,
+        type: 'expense',
+        description: 'такси',
+        merchant: 'такси',
+      }));
+    });
+
+    it('parses "кофе 25 тыс" as 25 000', async () => {
+      const { createTransactionUseCase, useCase } = makeDeps();
+
+      await useCase.execute('кофе 25 тыс', 'user1');
+
+      expect(createTransactionUseCase.execute).toHaveBeenCalledWith(expect.objectContaining({
+        amount: 25000,
+        description: 'кофе',
+        merchant: 'кофе',
+      }));
+    });
+
+    it('parses "кофе 25 тысяч" as 25 000', async () => {
+      const { createTransactionUseCase, useCase } = makeDeps();
+
+      await useCase.execute('кофе 25 тысяч', 'user1');
+
+      expect(createTransactionUseCase.execute).toHaveBeenCalledWith(expect.objectContaining({
+        amount: 25000,
+        description: 'кофе',
+        merchant: 'кофе',
+      }));
+    });
+
+    it('parses "кофе 15к" as 15 000', async () => {
+      const { createTransactionUseCase, useCase } = makeDeps();
+
+      await useCase.execute('кофе 15к', 'user1');
+
+      expect(createTransactionUseCase.execute).toHaveBeenCalledWith(expect.objectContaining({
+        amount: 15000,
+        description: 'кофе',
+        merchant: 'кофе',
+      }));
+    });
+
+    it('parses "кофе 50 тыщ" as 50 000', async () => {
+      const { createTransactionUseCase, useCase } = makeDeps();
+
+      await useCase.execute('кофе 50 тыщ', 'user1');
+
+      expect(createTransactionUseCase.execute).toHaveBeenCalledWith(expect.objectContaining({
+        amount: 50000,
+        description: 'кофе',
+        merchant: 'кофе',
+      }));
+    });
+
+    it('parses "такси 2 млн сум" as 2 000 000 and drops both the multiplier and the currency word', async () => {
+      const { createTransactionUseCase, useCase } = makeDeps();
+
+      await useCase.execute('такси 2 млн сум', 'user1');
+
+      expect(createTransactionUseCase.execute).toHaveBeenCalledWith(expect.objectContaining({
+        amount: 2000000,
+        description: 'такси',
+        merchant: 'такси',
+      }));
+    });
+
+    it('keeps parsing a plain "1000000" amount without a magnitude word', async () => {
+      const { openAIService, createTransactionUseCase, useCase } = makeDeps();
+
+      await useCase.execute('кофе 1000000 сум', 'user1');
+
+      expect(openAIService.analyzeInput).not.toHaveBeenCalled();
+      expect(createTransactionUseCase.execute).toHaveBeenCalledWith(expect.objectContaining({
+        amount: 1000000,
+        description: 'кофе',
+        merchant: 'кофе',
+      }));
+    });
+
+    it('never stores a magnitude phrase with a lost order of magnitude when it falls back to OpenAI', async () => {
+      const { openAIService, createTransactionUseCase, useCase } = makeDeps();
+      (openAIService.analyzeInput as jest.Mock).mockResolvedValue({
+        transactions: [{
+          intent: 'transaction',
+          amount: 12000000,
+          category: 'other',
+          type: 'expense',
+          date: '2026-08-16',
+        }],
+        debts: []
+      });
+
+      await useCase.execute('12 млн', 'user1');
+
+      expect(openAIService.analyzeInput).toHaveBeenCalledTimes(1);
+      expect(createTransactionUseCase.execute).toHaveBeenCalledWith(expect.objectContaining({
+        amount: 12000000,
+      }));
+    });
+
+    it('sends an ambiguous comma decimal like "зарплата 1,5 млн" to OpenAI instead of guessing the magnitude', async () => {
+      const { openAIService, createTransactionUseCase, useCase } = makeDeps();
+      (openAIService.analyzeInput as jest.Mock).mockResolvedValue({
+        transactions: [{
+          intent: 'transaction',
+          amount: 1500000,
+          category: 'salary',
+          type: 'income',
+          date: '2026-08-16',
+        }],
+        debts: []
+      });
+
+      await useCase.execute('зарплата 1,5 млн', 'user1');
+
+      expect(openAIService.analyzeInput).toHaveBeenCalledTimes(1);
+      expect(createTransactionUseCase.execute).toHaveBeenCalledWith(expect.objectContaining({
+        amount: 1500000,
+      }));
+    });
+
+    it('does not read a unit like "кг" as a thousands multiplier', async () => {
+      const { openAIService, createTransactionUseCase, useCase } = makeDeps();
+      (openAIService.analyzeInput as jest.Mock).mockResolvedValue({
+        transactions: [{
+          intent: 'transaction',
+          amount: 120000,
+          category: 'groceries',
+          type: 'expense',
+          date: '2026-08-16',
+        }],
+        debts: []
+      });
+
+      await useCase.execute('мясо 4кг', 'user1');
+
+      expect(openAIService.analyzeInput).toHaveBeenCalledTimes(1);
+      expect(createTransactionUseCase.execute).not.toHaveBeenCalledWith(expect.objectContaining({
+        amount: 4000,
+      }));
+    });
+
+    it('sends income phrases with unrecognized words after the amount to OpenAI instead of storing the bare number', async () => {
+      const { openAIService, createTransactionUseCase, useCase } = makeDeps();
+      (openAIService.analyzeInput as jest.Mock).mockResolvedValue({
+        transactions: [{
+          intent: 'transaction',
+          amount: 12000000,
+          category: 'salary',
+          type: 'income',
+          date: '2026-08-16',
+        }],
+        debts: []
+      });
+
+      await useCase.execute('зарплата 12 лямов', 'user1');
+
+      expect(openAIService.analyzeInput).toHaveBeenCalledTimes(1);
+      expect(createTransactionUseCase.execute).toHaveBeenCalledWith(expect.objectContaining({
+        amount: 12000000,
+      }));
+      expect(createTransactionUseCase.execute).not.toHaveBeenCalledWith(expect.objectContaining({
+        amount: 12,
+      }));
+    });
+  });
+
   it('does not report the debt id as linkedTransactionId when the debt result has no transaction id', async () => {
     const openAIService = {
       analyzeInput: jest.fn().mockResolvedValue({

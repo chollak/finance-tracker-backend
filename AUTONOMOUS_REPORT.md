@@ -4137,3 +4137,26 @@ Bring project documentation back in line with what the code actually does, after
 
 - Historical files (`AUDIT.md`, `PROJECT_DOCUMENTATION.md`, `SUPABASE_MIGRATION.md`) still contain stale details in their bodies by design — banners flag them rather than rewriting the snapshots.
 - GitHub Wiki was not touched — that remains FT-049 scope.
+
+## 2026-08-16 — FT-067 amount magnitude words fixed
+
+### Goal
+
+Prevent the local text parser from silently dropping amount magnitude words, e.g. storing `зарплата 12 млн` as `12` with confidence 1.
+
+### Changes
+
+- Added focused regression coverage in `tests/processTextInput.test.ts` for `млн`, `миллионов`, `тыс`, `тысяч`, `к`, `тыщ`, `2 млн сум`, plain `1000000`, ambiguous comma decimals, `кг`, and unrecognized post-amount slang.
+- Replaced the simple amount extraction in `processTextInput.ts` with a shared `parseSingleAmount()` helper that returns amount plus text before/after the amount.
+- The fast parser now applies safe multipliers, removes multiplier/currency words from `description`/`merchant`, and falls back to OpenAI for ambiguous comma decimals or unsafe one-sided semantic phrases like `зарплата 12 лямов` instead of saving the bare number.
+
+### Verification
+
+- RED: `npm test -- tests/processTextInput.test.ts --runInBand -t "unrecognized words after the amount"` failed before the guard, proving the regression test caught the lost-magnitude path.
+- GREEN: same targeted test passed after the guard.
+- `npm test -- tests/processTextInput.test.ts --runInBand` — passed, 29 tests.
+- `npm run verify` — passed: backend build, 29 Jest suites / 265 tests, 1 webapp Vitest suite / 4 tests, webapp build, dependency-cruiser, and madge circular check.
+
+### Notes
+
+Claude Code implemented the main parser/test slice; Hermes reviewed the diff, ran an independent Claude Code review, added the final unsafe-trailing-word guard, reran targeted and full verification, and marked FT-067 done in `TASKS.md`.
