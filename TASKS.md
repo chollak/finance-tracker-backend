@@ -54,6 +54,8 @@
 
 Веха 1.5 идёт следом: пока аналитика противоречит главному экрану, пользоваться продуктом как источником правды нельзя.
 
+Ревизия Hermes 2026-08-16: подтянут свежий `origin/main`; активный план 2026-08-12/13 уже новее старого локального backlog. Старые предложения Hermes `FT-042..FT-047` из июльского контекста не возвращать: AWS/prod-срез отменён или переопределён, subscription expiry остаётся отложенным до решения о живом проде. Ближайшие рабочие задачи остаются в текущей вехе 0/1: `FT-067`, `FT-068`, затем `FT-043..FT-045`.
+
 ---
 
 ## Current Tasks
@@ -1241,11 +1243,13 @@ Verification:
 
 ### Foundation Roadmap before feature work
 
-Status: active
+Status: done/superseded
 Owner: Hermes
 Plan: `.hermes/plans/2026-07-19_173252-development-foundation-roadmap.md`
 
 Shukur clarified that we should **not** implement subscription expiry automation yet. Priority is preparing the development foundation: reliable CI, standard commands, env/config clarity, stronger tests, and task workflow.
+
+2026-08-16 update: this foundation roadmap is complete/superseded by later semantic-product work. The live source of truth for next tasks is the current snapshot at the top of this file.
 
 ---
 

@@ -4026,3 +4026,42 @@ npm run verify
 ```
 
 Result: passed — 28 suites / 249 tests, backend build, webapp build, dependency-cruiser, and madge circular check.
+
+## 2026-08-16 — Task board refresh after pulling Shukur/Claude Code updates
+
+### Goal
+
+Refresh the local project task board after Shukur continued development with Claude Code, then integrate the newer remote task plan without overwriting it.
+
+### Discovery
+
+- Remote `origin/main` had newer task-board commits; initial push was rejected and Hermes rebased onto `origin/main`.
+- The newer `TASKS.md` already contained a more current relaunch plan from 2026-08-12/13, including cancellation of the AWS/prod-focused slices and completion of FT-065/FT-066.
+- During conflict resolution, Hermes kept the newer active plan and did **not** resurrect the stale July backlog suggestions.
+- Repo-local `tmp/mobile-ui-audit/` screenshot artifacts were the only noisy local untracked files; they are now ignored by `.gitignore`.
+
+### Changes
+
+- Added a 2026-08-16 revision note to the active plan in `TASKS.md` explaining that `origin/main` is the newer source of truth.
+- Confirmed the immediate task order remains the active relaunch plan: `FT-067`, `FT-068`, then `FT-043..FT-045`.
+- Added `tmp/` to `.gitignore` for local QA artifacts.
+
+### Verification
+
+Pre-rebase verification on the local base:
+
+```bash
+npm run verify
+```
+
+Result: passed — 28 suites / 249 tests, backend build, webapp build, dependency-cruiser, and madge circular check.
+
+Post-rebase verification:
+
+```bash
+npm run verify
+```
+
+Result: passed — 29 backend Jest suites / 253 tests, 1 webapp Vitest suite / 4 tests, backend build, webapp build, dependency-cruiser, and madge circular check.
+
+Note: the first post-rebase verify exposed that `webapp/node_modules` was stale/missing `vitest`; `cd webapp && npm install` restored local dependencies without package file changes, then verify passed.

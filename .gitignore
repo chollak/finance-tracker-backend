@@ -28,6 +28,7 @@ transactions.json
 playwright-screenshots/
 .playwright-mcp/
 .hermes/ui-qa/
+tmp/
 
 # Database files
 data/database.sqlite
