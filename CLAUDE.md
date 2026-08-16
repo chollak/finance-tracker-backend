@@ -2,6 +2,20 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Current Operating Mode — READ FIRST
+
+**Goal now:** довести существующий Telegram-first finance tracker до состояния «одной кнопкой поднял и пользуюсь сам локально». Do not rebuild broad product areas or revive old production/AWS plans.
+
+**Source of truth for current work:** `TASKS.md` Active Plan. GitHub Issues/Wiki may contain stale January-era planning; use them only when a task explicitly asks to reconcile them.
+
+**Runtime target now:** local WSL + SQLite + Telegram polling + Cloudflare quick tunnel for Mini App phone testing. Production/AWS is intentionally parked; `sapaev.uz` and Supabase are not the active dev path.
+
+**Current implementation queue:** `FT-067 → FT-068 → FT-053 → FT-052 → FT-064 → FT-043 → FT-070 → FT-044`. Work one FT task at a time. `FT-067` and `FT-068` both touch `processTextInput.ts`, so do not implement them in parallel.
+
+**Stop/ask before:** production deploys, Supabase SQL/migrations, billing/subscription policy changes, rate-limit policy changes, broad Home/product IA decisions, destructive branch deletion, force dependency upgrades (`npm audit fix --force`).
+
+**Role split:** Claude Code implements narrow TDD slices; Hermes reviews diff, runs verification, updates board/report, commits and pushes.
+
 ## Development Commands
 
 **Build and Run:**
@@ -24,7 +38,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npm test` - Run Jest tests (located in `tests/` folder)
 - `npm run test:ci` - Run Jest tests serially for CI/Hermes verification
 - `npm run analyze` - Run dependency-cruiser and circular dependency checks
-- `npm run verify` - Full pre-commit/pre-push gate: backend build, serial tests, webapp build, architecture checks
+- `npm run verify` - Full pre-commit/pre-push gate: backend build, serial Jest tests, webapp Vitest tests, webapp build, architecture checks
 - Tests use ts-jest preset and target Node.js environment
 
 **Web App (React + Vite):**
@@ -47,9 +61,9 @@ Required environment variables in `.env` file:
 **For Supabase (when DATABASE_TYPE=supabase):**
 - `SUPABASE_URL` - Supabase project URL
 - `SUPABASE_ANON_KEY` - Supabase anonymous key
-- **Supabase Project ID:** `cttsquvkvkwtxsfrgsrs` (for MCP tools and dashboard access)
-- **Test User telegramId:** `597843119` (Konan) - use for testing on Supabase, safe to modify/delete data
-- **Production Domain:** `https://sapaev.uz`
+- **Supabase Project ID:** `cttsquvkvkwtxsfrgsrs` (historical value; verify before use — current local work uses SQLite and Supabase is paused)
+- **Test User telegramId:** `597843119` (Konan) - only for approved Supabase testing; do not modify Supabase without explicit permission
+- **Production Domain:** `https://sapaev.uz` (owned by Shukur but not an active deployment target as of 2026-08-13)
 
 **Logging:**
 - `LOG_LEVEL` - Log level: `error`, `warn`, `info` (default), `debug`
@@ -401,16 +415,24 @@ interface Category {
 
 ---
 
-## GitHub-first Workflow (MUST FOLLOW)
+## Task Workflow — Current Source of Truth (MUST FOLLOW)
 
-**IMPORTANT**: GitHub — единственный центр управления проектом: задачи, планирование, документация, код, wiki.
+**Current decision (2026-08-16):** `TASKS.md` is the active source of truth for the relaunch/local-daily-use plan. GitHub Issues/Project/Wiki are useful but may be stale; do not create/move/close issues unless the active task explicitly asks for GitHub reconciliation (for example FT-049).
 
-### GitHub Project Board
+### Local Task Board
+
+- Read `TASKS.md` Active Plan before starting work.
+- Work on exactly one FT task at a time.
+- Claude Code may implement and run tests, but Hermes is the final QA gate and marks tasks `done`.
+- Before `done`, Hermes verifies real output: diff, targeted tests, `npm run verify`, and screenshot/API smoke when relevant.
+- Do not force push, reset, delete branches/files, deploy, or apply external DB migrations without explicit permission.
+
+### GitHub Project Board (currently secondary / reconcile via FT-049)
 
 - **Project:** "Finance Tracker Development" — https://github.com/users/chollak/projects/1
 - **Колонки:** Backlog → In Progress → Review → Done
-- **Все задачи должны быть на доске** — перед началом работы перенести issue в "In Progress"
-- При создании PR привязывать к issue (`fixes #XX`)
+- Treat GitHub task state as potentially stale until FT-049 reconciles it with `TASKS.md`.
+- If an issue is already known and relevant, reference it in commits/PRs; otherwise do not block local FT work on issue creation.
 
 ### Milestones
 
@@ -420,7 +442,7 @@ interface Category {
 | v1.2 — Analytics & Insights | Analytics v2, UX фиксы, Drawer, Tabs |
 | v1.3 — Growth & Monetization | Multi-currency, Savings, Onboarding, Telegram insights |
 
-### GitHub Wiki (MUST FOLLOW)
+### GitHub Wiki (secondary unless task asks for it)
 
 - **URL:** https://github.com/chollak/finance-tracker-backend/wiki
 - **Repo:** клонировать `finance-tracker-backend.wiki.git` в `/tmp/finance-tracker-wiki` для редактирования
@@ -446,7 +468,7 @@ interface Category {
 2. Редактировать `.md` файлы (имена через дефис: `Module-System.md`)
 3. `cd /tmp/finance-tracker-wiki && git add -A && git commit -m "docs: ..." && git push`
 
-**ВАЖНО:** При каждом значимом изменении (новый модуль, endpoint, env var, архитектурное решение) — обновить соответствующую Wiki страницу и сообщить пользователю что обновлено.
+**Current rule:** update repo docs (`CLAUDE.md`, `docs/knowledge-base/`, `TASKS.md`, `AUTONOMOUS_REPORT.md`) first. Update GitHub Wiki only when the task explicitly includes Wiki/GitHub reconciliation or Shukur asks for it.
 
 ### GitHub Issues
 
@@ -468,13 +490,13 @@ interface Category {
 - `growth` / `ux` / `analytics` / `monetization` - Категория
 - `blocked` - Заблокировано зависимостью
 
-### Рабочий процесс (MUST FOLLOW)
+### GitHub Reconciliation Workflow (only when doing FT-049 or explicit GitHub work)
 
-1. **Перед началом работы:** найти или создать issue, привязать к milestone
-2. **Начало работы:** перенести issue в "In Progress" на доске
-3. **Разработка:** коммиты ссылаются на issue (`refs #XX`)
-4. **Завершение:** PR с `fixes #XX`, привязать к project board
-5. **После merge:** обновить Wiki/docs если нужно, записать решение в Product Decisions
+1. Inspect existing issues/project state.
+2. Mark each open issue as done / still actual / re-scoped / obsolete.
+3. Update `TASKS.md` and `CLAUDE.md` so agents have one source-of-truth rule.
+4. Only then create/move/close issues or update Project Board.
+5. For normal local FT tasks, skip this GitHub workflow unless explicitly requested.
 
 ### Commits
 
@@ -556,8 +578,8 @@ fixes #70"
 
 | Тип информации | Где хранить |
 |----------------|-------------|
-| Задачи, баги, фичи | GitHub Issues + Project Board |
-| Roadmap, план развития | GitHub Milestones + Wiki (Roadmap) |
+| Текущие задачи relaunch/local daily use | `TASKS.md` |
+| Будущая GitHub-синхронизация | FT-049, then GitHub Issues/Project if Shukur confirms |
 | Архитектурные решения | GitHub Wiki (Product Decisions) + `docs/knowledge-base/` |
 | API документация | GitHub Wiki (API Reference) |
 | Конкурентный анализ | GitHub Wiki (Competitors) |
@@ -574,20 +596,22 @@ fixes #70"
 | Aspect | Rule |
 |--------|------|
 | **Style** | Minimal & Clean — lots of whitespace, no decorative elements |
-| **Font** | Inter (400/600/700 weights only) |
-| **Colors** | Neutral grays + ONE accent color (green for finance) |
-| **Border Radius** | Cards: 24px, Buttons/Inputs: 12px, Pills: full |
+| **Font** | Onest, Cyrillic-friendly; follow current tokens/docs before changing weights |
+| **Colors** | Neutral UI chrome; green/red/orange only for semantic money/status roles |
+| **Border Radius** | Shared `Card` default is `rounded-2xl`; feature/status cards may opt into larger radius intentionally |
 | **Animations** | Fade-in 300ms, Hover 150ms, Stagger 50ms |
 | **Touch Targets** | Minimum 44x44px, prefer 48x48px |
 | **Approach** | Mobile-first, then scale up |
 
 ### Design Anti-Patterns (AVOID)
 - Purple/violet gradients (AI slop aesthetic)
-- Multiple accent colors
+- Colorful dashboard treatment where colors do not carry semantic meaning
 - Heavy shadows
 - Animations longer than 600ms
-- Font weights 500 (use 400 or 700)
+- Introducing new ad-hoc font sizes/weights instead of shared tokens/components
 - Decorative borders on cards
+
+For current visual direction, read `docs/knowledge-base/10-design-guidelines/style-direction.md` before UI work. Some older guideline text may still be reconciled under FT-059; prefer the active implementation + style-direction doc when they conflict.
 
 The webapp uses a **shadcn/ui-based design system** (Radix primitives + Tailwind CSS + `class-variance-authority`), implementing a modern, mobile-first finance tracker interface. There is no separate `design-system/` package — shared primitives live directly in `shared/ui/` (Feature-Sliced Design layout: `app/entities/features/pages/shared/widgets`).
 

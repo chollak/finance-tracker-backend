@@ -4065,3 +4065,34 @@ npm run verify
 Result: passed — 29 backend Jest suites / 253 tests, 1 webapp Vitest suite / 4 tests, backend build, webapp build, dependency-cruiser, and madge circular check.
 
 Note: the first post-rebase verify exposed that `webapp/node_modules` was stale/missing `vitest`; `cd webapp && npm install` restored local dependencies without package file changes, then verify passed.
+
+## 2026-08-16 — Board and LLM operating context pinned
+
+### Goal
+
+Make the project direction unambiguous for Hermes/Claude Code/LLM agents before implementation resumes.
+
+### Input
+
+- Shukur asked to review the task board together and actively use Claude Code after upgrading the subscription.
+- Claude Code Max was used for an independent read-only review of `TASKS.md`, `CLAUDE.md`, and `package.json`.
+
+### Decisions recorded
+
+- Current source of truth: `TASKS.md` Active Plan, not stale GitHub Issues/Wiki state.
+- Current target: local WSL + SQLite + Telegram polling + Cloudflare tunnel; AWS/prod/Supabase are parked unless explicitly approved.
+- Current implementation order: `FT-067 → FT-068 → FT-053 → FT-052 → FT-064 → FT-043 → FT-070 → FT-044`.
+- Do not run `FT-067` and `FT-068` in parallel because both modify `processTextInput.ts`.
+- Product/external-effect tasks remain blocked/frozen until Shukur decides: `FT-054`, `FT-062`, `FT-063`, `FT-069`, `FT-071`, `FT-046`, `FT-048`.
+
+### Changes
+
+- Updated `TASKS.md` milestones, priorities, statuses, and clarification notes for `FT-043`, `FT-052`, `FT-048`, and `FT-049`.
+- Added a top-level `Current Operating Mode — READ FIRST` section to `CLAUDE.md` so future Claude Code sessions understand the project goal, source of truth, runtime target, stop conditions, and role split.
+- Reconciled stale GitHub-first wording in `CLAUDE.md`: GitHub is secondary until `FT-049`; local FT work should not block on issue creation.
+- Updated `CLAUDE.md` verification text to include webapp Vitest and adjusted the design quick reference away from stale Inter/green-accent rules.
+
+### Verification
+
+- `git diff --check` — passed.
+- `npm run verify` — passed: backend build, 29 Jest suites / 253 tests, 1 webapp Vitest suite / 4 tests, webapp build, dependency-cruiser, and madge circular check.

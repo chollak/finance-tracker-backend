@@ -41,20 +41,23 @@
 
 | Веха | Смысл | Задачи |
 |------|-------|--------|
-| 0. Сломанные основы | Операции, которые просто не работают (тест-прогон 2026-08-13) | FT-065, FT-066, FT-067 |
-| 1. «Могу пользоваться» | Рабочий локальный контур с реальным вводом | FT-043, FT-044, FT-045 |
-| 1.5. Доверие к цифрам | UI не противоречит семантике (ревью 2026-08-13) | FT-052, FT-053, FT-054, FT-068 |
-| 2. Качество ежедневного экрана | Список и бюджеты читаются и не врут | FT-055, FT-056, FT-057, FT-058 |
-| 3. Порядок в трекинге и тулинге | Один источник правды, рабочие скрипты | FT-049, FT-050, FT-064, FT-048, FT-070 |
-| 4. Полировка под гайдлайны | Цвет, шрифт, язык | FT-059, FT-060, FT-061 |
-| 5. Структура и продукт P1 | Приоритеты разделов, система внимания | FT-062, FT-063, FT-069, FT-071, FT-051 |
-| — отложено | Требует живого прода | FT-046 |
+| 0. Сломанные основы | Операции, которые портят данные или ломают базовую работу | FT-065 ✅, FT-066 ✅, FT-067, FT-068 |
+| 1. Доверие к цифрам | Главная, аналитика и бюджеты говорят одним языком | FT-053, FT-052 |
+| 2. «Могу пользоваться» локально | Воспроизводимый локальный контур с живым вводом | FT-064, FT-043, FT-070, FT-044 |
+| 3. Исторические данные | Безопасный read-only разбор старых `semanticType=expense` записей | FT-045 |
+| 4. Ежедневный экран | Список, бюджеты и review queue читаются и не мешают | FT-055, FT-056, FT-057, FT-058 |
+| 5. Порядок в трекинге и repo | Один источник правды, зависимости, ветки | FT-049, FT-050, FT-048 |
+| 6. Полировка под гайдлайны | Цвет, шрифт, язык | FT-059, FT-060, FT-061 |
+| 7. Продукт P1 / решения | Приоритеты разделов, premium, лимиты, внимание | FT-054, FT-062, FT-063, FT-069, FT-071, FT-051 |
+| — frozen | Требует живого прода / Supabase | FT-046 |
 
 Веха 0 появилась после сквозного тестирования: редактирование транзакции и возврат из архива не работают вовсе, а суммы вида «12 млн» сохраняются как 12. Это ломает работу с данными раньше, чем начинаются вопросы к их интерпретации.
 
-Веха 1.5 идёт следом: пока аналитика противоречит главному экрану, пользоваться продуктом как источником правды нельзя.
+Веха 1 идёт следом: пока аналитика и бюджеты противоречат главному экрану, пользоваться продуктом как источником правды нельзя.
 
-Ревизия Hermes 2026-08-16: подтянут свежий `origin/main`; активный план 2026-08-12/13 уже новее старого локального backlog. Старые предложения Hermes `FT-042..FT-047` из июльского контекста не возвращать: AWS/prod-срез отменён или переопределён, subscription expiry остаётся отложенным до решения о живом проде. Ближайшие рабочие задачи остаются в текущей вехе 0/1: `FT-067`, `FT-068`, затем `FT-043..FT-045`.
+Ревизия Hermes 2026-08-16: подтянут свежий `origin/main`; активный план 2026-08-12/13 уже новее старого локального backlog. Старые предложения Hermes `FT-042..FT-047` из июльского контекста не возвращать: AWS/prod-срез отменён или переопределён, subscription expiry остаётся отложенным до решения о живом проде.
+
+Ревизия Hermes + Claude Code 2026-08-16: цель для LLM/агентов — не «строить новый продукт», а довести существующий Telegram-first finance tracker до надёжного локального daily-use контура. Текущий порядок реализации: **FT-067 → FT-068 → FT-053 → FT-052 → FT-064 → FT-043 → FT-070 → FT-044**. Не начинать параллельно FT-067 и FT-068: обе меняют быстрый текстовый парсер `processTextInput.ts`. Задачи с продуктовым решением (`FT-054`, `FT-062`, `FT-063`, `FT-069`, `FT-071`) держать blocked/backlog до явного решения Шукура. Задачи с внешним эффектом (`FT-046`, применение Supabase SQL) не выполнять без отдельного явного разрешения.
 
 ---
 
@@ -160,7 +163,7 @@ Definition of Done:
 ### FT-068: Cash withdrawal wording is misclassified as a real expense
 
 Status: ready
-Priority: medium
+Priority: high
 Owner: Claude Code
 Type: bug
 
@@ -181,8 +184,8 @@ Definition of Done:
 
 ### FT-069: Premium boundary is incoherent and bypassable
 
-Status: ready
-Priority: medium
+Status: blocked
+Priority: low
 Owner: Hermes
 Type: product
 
@@ -206,7 +209,7 @@ Definition of Done:
 ### FT-070: Telegram bot never recovers after a polling conflict
 
 Status: ready
-Priority: medium
+Priority: high
 Owner: Claude Code
 Type: reliability
 
@@ -248,7 +251,7 @@ Definition of Done:
 
 ---
 
-### FT-052: Analytics must respect semantic transaction types
+### FT-052: Analytics detailed category breakdown must respect semantic transaction types
 
 Status: ready
 Priority: high
@@ -259,6 +262,9 @@ Context:
 Главный экран считает: исходящие 12 555 000 − не расходы 9 000 000 − нужно проверить 830 000 = реальные расходы 2 725 000. Вкладка «Аналитика» на тех же данных показывает в «Расходах по категориям» строку «Другое — 9.4M UZS, 39.1%», то есть ровно те переводы, вклад и снятие наличных, которые главная вычла. Знаменатель процентов — весь оборот около 24 млн, включая зарплату 12 млн. Диаграмма с заголовком «Расходы» содержит и доходы, и не-расходы.
 
 Это прямое противоречие ядру продукта: главный дифференциатор работает на одном экране и опровергается на соседнем.
+
+Clarification 2026-08-16:
+Claude Code review found that `getMonthlyTrends`, `getSpendingPatterns`, and `getTopCategories` already use semantic filters. Scope this task to the API category breakdown path (`getDetailedCategoryBreakdown` / `/transactions/analytics/categories/:userId`) and its percentage denominator; do not broad-refactor already-correct analytics code.
 
 Definition of Done:
 - [ ] «Расходы по категориям» включают только `type=expense` с `countsAsBudgetSpending(semanticType)` и без `needsReview`
@@ -308,7 +314,7 @@ Definition of Done:
 
 ### FT-054: Semantic type in manual transaction form
 
-Status: ready
+Status: blocked
 Priority: high
 Owner: Hermes
 Type: product-ux
@@ -516,7 +522,7 @@ Definition of Done:
 ### FT-064: Repair broken dev tooling
 
 Status: ready
-Priority: medium
+Priority: high
 Owner: Claude Code, QA by Hermes
 Type: tooling
 
@@ -551,7 +557,7 @@ Type: infra-research
 
 ---
 
-### FT-043: Local end-to-end run without production
+### FT-043: Document and verify local end-to-end run without production
 
 Status: ready
 Priority: high
@@ -560,6 +566,9 @@ Type: dev-experience
 
 Context:
 Пока прод выключен, единственный способ пользоваться продуктом и получать обратную связь — локальный контур. Бот умеет работать по polling (см. QA-BUG-3), Mini App требует публичный HTTPS-URL, то есть туннель.
+
+Clarification 2026-08-16:
+Most implementation already exists via FT-030: `npm run dev:miniapp` uses Cloudflare tunnel, updates local `WEB_APP_URL`, updates Telegram menu, builds, and serves the app. Do not build a second launcher. This task is now documentation + clean verification of the existing flow.
 
 Definition of Done:
 - [ ] Локальный запуск на SQLite поднимает API, бот и Mini App одной командой
@@ -617,8 +626,8 @@ Definition of Done:
 
 ### FT-046: Apply Supabase migrations 007 and 008
 
-Status: blocked
-Priority: high
+Status: frozen
+Priority: low
 Owner: Shukur + Hermes
 Type: infra
 
@@ -688,13 +697,15 @@ Notes:
 
 ### FT-048: Upgrade sqlite3 to v6
 
-Status: ready
-Priority: medium
+Status: blocked
+Priority: low
 Owner: Claude Code
 Type: tech-debt
 
 Context:
-После `npm audit fix` осталось 7 уязвимостей, все в цепочке `sqlite3@5.1.7` → `node-gyp` → `tar` (critical) + `cacache`. Закрывается только мажорным апгрейдом. В проде используется Supabase, поэтому риск ограничен локальной разработкой, но critical висеть не должен.
+После `npm audit fix` осталось 7 уязвимостей, все в цепочке `sqlite3@5.1.7` → `node-gyp` → `tar` (critical) + `cacache`. Закрывается только мажорным апгрейдом. После ревизии 2026-08-13 локальный SQLite — основной рабочий контур, поэтому major upgrade может сломать именно то, чем сейчас пользуемся.
+
+Status note 2026-08-16: blocked until Shukur explicitly approves `npm audit fix --force` / major sqlite3 upgrade. Do not run force dependency upgrades autonomously.
 
 Definition of Done:
 - [ ] `npm audit fix --force` поднимает `sqlite3` до v6
@@ -707,12 +718,14 @@ Definition of Done:
 ### FT-049: Reconcile task board with GitHub Issues
 
 Status: ready
-Priority: medium
+Priority: high
 Owner: Hermes
 Type: process
 
 Context:
 Два трекера разошлись. 14 открытых Issues созданы 26–27 января, до всей работы февраля–июля. Часть уже сделана под другими номерами, и невозможно понять, что реально открыто.
+
+Clarification 2026-08-16: this is not just issue hygiene. `TASKS.md` says local board is source of truth, while older `CLAUDE.md` said GitHub-first workflow is mandatory. Until this is reconciled, LLM agents receive conflicting instructions. First slice: make the source-of-truth rule explicit in repo docs; full GitHub issue cleanup can follow.
 
 Definition of Done:
 - [ ] Каждое открытое Issue помечено: сделано / актуально / переосмыслено
