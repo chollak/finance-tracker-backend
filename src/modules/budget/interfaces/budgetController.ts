@@ -18,6 +18,15 @@ export class BudgetController {
   private budgetModule: BudgetModule;
   private userModule?: UserModule;
 
+  private static normalizeNearLimitThreshold(raw: unknown): number {
+    const parsed = typeof raw === 'string' ? parseFloat(raw) : NaN;
+    const percent = Number.isFinite(parsed)
+      ? (parsed <= 1 ? parsed * 100 : parsed)
+      : 80;
+
+    return percent >= 0 && percent <= 100 ? percent : 80;
+  }
+
   constructor(budgetModule: BudgetModule, userModule?: UserModule) {
     this.budgetModule = budgetModule;
     this.userModule = userModule;
@@ -197,17 +206,18 @@ export class BudgetController {
       // Recalculate spent amounts before checking alerts
       await this.budgetModule.budgetService.recalculateAllUserBudgets(userId);
 
-      const thresholdValue = threshold ? parseFloat(threshold as string) : 0.8;
+      const thresholdPercent = BudgetController.normalizeNearLimitThreshold(threshold);
 
       const [nearLimit, overBudget] = await Promise.all([
-        this.budgetModule.budgetService.getBudgetsNearLimit(userId, thresholdValue),
+        this.budgetModule.budgetService.getBudgetsNearLimit(userId, thresholdPercent),
         this.budgetModule.budgetService.getOverBudgets(userId)
       ]);
 
       const alerts = {
         nearLimit,
         overBudget,
-        totalAlerts: nearLimit.length + overBudget.length
+        totalAlerts: nearLimit.length + overBudget.length,
+        thresholdPercent
       };
 
       return handleControllerSuccess(alerts, res, 200, 'Budget alerts retrieved successfully');

@@ -88,7 +88,7 @@ export class DashboardService {
 
     // Get budget alerts
     const [nearLimit, overBudget] = await Promise.all([
-      this.budgetService.getBudgetsNearLimit(userId, 0.8),
+      this.budgetService.getBudgetsNearLimit(userId, 80),
       this.budgetService.getOverBudgets(userId)
     ]);
 

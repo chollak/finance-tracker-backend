@@ -4185,3 +4185,31 @@ Stop obvious cash-withdrawal wording such as `снял в банкомате 300
 ### Review notes
 
 Independent Claude Code review found no blocker after tests passed. Non-blocking follow-up: `OWN_ACCOUNT_TARGET_PATTERN` is broader now (`счет\p{L}*`); future parser hardening can add more negative transfer-vs-bill examples if needed.
+
+## 2026-08-16 — FT-053 budget near-limit threshold fixed
+
+### Goal
+
+Fix false near-limit budget alerts caused by comparing `percentageUsed` (0–100) with a fractional default threshold (`0.8`).
+
+### Changes
+
+- Standardized internal near-limit scale to percent values: default `getBudgetsNearLimit(..., 80)`.
+- Kept the public `alerts?threshold=` legacy fraction contract: `0.8` still means 80%; values above 1 are treated as percent.
+- Added threshold normalization/clamping in `BudgetController`; unparsable or out-of-range values fall back to 80%.
+- Updated `DashboardService` to request 80%, not 0.8%.
+- Updated WebApp budget view model so the card badge marks 80%+ as `Близко к лимиту`, matching backend/Home near-limit semantics.
+- Added backend and webapp regression tests for 48%, 85%, 79/80/81 boundaries, endpoint threshold normalization, and dashboard service usage.
+- Marked FT-053 done in `TASKS.md`.
+
+### Verification
+
+- RED: `npm test -- tests/budgetNearLimitThreshold.test.ts tests/dashboardService.test.ts --runInBand` failed before implementation: 48% was near-limit and callers passed 0.8.
+- RED: `cd webapp && npm run test -- src/entities/budget/lib/toViewModel.test.ts` failed before implementation: 80/85% cards still showed `Внимание`.
+- GREEN: backend targeted tests passed, 19 tests.
+- GREEN: webapp targeted tests passed, 4 tests.
+- `npm run verify` — passed: backend build, 30 Jest suites / 293 tests, 2 webapp Vitest suites / 8 tests, webapp build, dependency-cruiser, and madge circular check.
+
+### Review notes
+
+Independent Claude Code review found the main scale fix correct. Hermes added explicit threshold clamping/range tests after review feedback.

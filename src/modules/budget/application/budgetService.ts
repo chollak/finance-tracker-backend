@@ -62,7 +62,7 @@ export class BudgetService {
     }
   }
 
-  async getBudgetsNearLimit(userId: string, threshold: number = 0.8): Promise<BudgetSummary[]> {
+  async getBudgetsNearLimit(userId: string, threshold: number = 80): Promise<BudgetSummary[]> {
     const summaries = await this.budgetRepository.getBudgetSummaries(userId);
     
     return summaries.filter(summary => 

@@ -144,6 +144,22 @@ describe('Dashboard Service', () => {
       expect(insights.insights.budgetUtilization).toBe(0);
       expect(insights.budgetAlerts.recommendations.length).toBeGreaterThanOrEqual(0);
     });
+
+    // FT-053: percentageUsed is a percent, so the near-limit threshold must be one too.
+    it('asks for near-limit budgets on the percent scale (80), not the 0-1 fraction', async () => {
+      mockAnalyticsService.getAnalyticsSummary.mockResolvedValue(mockAnalyticsSummary);
+      mockAnalyticsService.getTopCategories.mockResolvedValue(mockTopCategories);
+      mockAnalyticsService.getMonthlyTrends.mockResolvedValue(mockMonthlyTrends);
+      mockAnalyticsService.getSpendingPatterns.mockResolvedValue(mockSpendingPatterns);
+
+      mockBudgetService.getBudgetSummaries.mockResolvedValue(mockBudgetSummaries);
+      mockBudgetService.getBudgetsNearLimit.mockResolvedValue([]);
+      mockBudgetService.getOverBudgets.mockResolvedValue([]);
+
+      await dashboardService.getDashboardInsights('user-123');
+
+      expect(mockBudgetService.getBudgetsNearLimit).toHaveBeenCalledWith('user-123', 80);
+    });
   });
 
   describe('calculateFinancialHealthScore', () => {

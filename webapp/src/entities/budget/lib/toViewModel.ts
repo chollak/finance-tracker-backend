@@ -27,7 +27,7 @@ function getStatus(percentageUsed: number, isOverBudget: boolean) {
     };
   }
 
-  if (percentageUsed >= 90) {
+  if (percentageUsed >= 80) {
     return {
       text: 'Близко к лимиту',
       color: 'text-expense',
