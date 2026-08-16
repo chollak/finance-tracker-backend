@@ -33,7 +33,7 @@ Finance Tracker Backend — это backend система для управле�
 Как устроена система, модули, паттерны проектирования:
 
 - [**Overview**](01-architecture/overview.md) - Clean Architecture layers, dependency flow
-- [**Modules**](01-architecture/modules.md) - 8 модулей системы, их зависимости
+- [**Modules**](01-architecture/modules.md) - 7 модулей системы, их зависимости
 - [**Patterns**](01-architecture/patterns.md) - Repository, DI, Factory, Use Case, Result Pattern
 - [**Runtime / Process Mode**](01-architecture/runtime-process-mode.md) - API/Bot/Worker process-mode decision
 - [**API / Domain Consistency Audit**](01-architecture/api-domain-consistency-audit.md) - FT-018 controller/use-case/API contract audit
@@ -75,9 +75,13 @@ Finance Tracker Backend — это backend система для управле�
 - [`src/modules/debt/debtModule.ts`](../../src/modules/debt/debtModule.ts) - Debt Module
 - [`src/modules/voiceProcessing/voiceProcessingModule.ts`](../../src/modules/voiceProcessing/voiceProcessingModule.ts) - Voice Processing Module
 - [`src/modules/openai-usage/openAIUsageModule.ts`](../../src/modules/openai-usage/openAIUsageModule.ts) - OpenAI Usage Module
-- [`src/modules/dashboard/dashboardModule.ts`](../../src/modules/dashboard/dashboardModule.ts) - Dashboard Module
 - [`src/modules/subscription/subscriptionModule.ts`](../../src/modules/subscription/subscriptionModule.ts) - Subscription Module
 - [`src/modules/user/userModule.ts`](../../src/modules/user/userModule.ts) - User Module
+
+### Dashboard (не модуль)
+- [`src/modules/dashboard/application/services/dashboardService.ts`](../../src/modules/dashboard/application/services/dashboardService.ts) - Dashboard Service
+- [`src/modules/dashboard/presentation/controllers/dashboardController.ts`](../../src/modules/dashboard/presentation/controllers/dashboardController.ts) - Dashboard Controller
+- [`src/delivery/web/express/routes/dashboardRoutes.ts`](../../src/delivery/web/express/routes/dashboardRoutes.ts) - сборка сервиса в Express-слое
 
 ### Infrastructure
 - [`src/shared/infrastructure/database/repositoryFactory.ts`](../../src/shared/infrastructure/database/repositoryFactory.ts) - Repository Factory (SQLite/Supabase)
@@ -138,15 +142,17 @@ docker compose up -d --build
 TransactionModule (independent)
     ↑
     ├─── BudgetModule (нужен для расчета spent)
-    ├─── DebtModule (linked-транзакции при передаче денег)
-    ├─── VoiceProcessingModule (использует CreateTransactionUseCase)
-    └─── DashboardModule (агрегирует analytics, зависит и от BudgetModule)
+    ├─── DebtModule (linked-транзакции при передаче денег; + Subscription, User)
+    └─── VoiceProcessingModule (использует CreateTransactionUseCase; + DebtModule)
 
 OpenAIUsageModule, UserModule — независимые модули
 SubscriptionModule — использует UserModule на уровне контроллера (telegram_id → UUID)
+
+DashboardService — не модуль: собирается в createDashboardRouter() из
+AnalyticsService (Transaction) и BudgetService (Budget)
 ```
 
-Полная схема с 8 модулями и mermaid-диаграммой — в [Modules](01-architecture/modules.md).
+Полная схема с 7 модулями и mermaid-диаграммой — в [Modules](01-architecture/modules.md).
 
 ---
 

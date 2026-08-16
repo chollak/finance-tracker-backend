@@ -1,6 +1,8 @@
 # Module System
 
-Система организована в 8 самодостаточных модулей, каждый с четко определенной ответственностью.
+`createModules()` (`src/appModules.ts`) возвращает **7 модулей приложения**, каждый с чётко определённой ответственностью.
+
+Dashboard модулем не является: в `src/modules/dashboard/` лежат только `DashboardService` и `DashboardController`, файла `dashboardModule.ts` нет. Сборка происходит в Express-слое — см. [Dashboard: сервис, а не модуль](#dashboard-сервис-а-не-модуль).
 
 ## Module Dependencies
 
@@ -11,39 +13,48 @@ graph TD
     DeM[DebtModule<br/>Debt Management]
     VM[VoiceProcessingModule<br/>Voice/Text Processing]
     OM[OpenAIUsageModule<br/>Usage Monitoring]
-    DM[DashboardModule<br/>Data Aggregation]
     SM[SubscriptionModule<br/>Premium + Payments]
     UM[UserModule<br/>User Management]
+    DS[DashboardService<br/>не модуль, собирается в Express]
 
     BM -->|depends on| TM
     DeM -->|depends on| TM
+    DeM -->|depends on| SM
+    DeM -->|depends on| UM
     VM -->|depends on| TM
-    DM -->|depends on| TM
-    DM -->|depends on| BM
+    VM -->|depends on| DeM
+    TM -.->|setSubscriptionDependencies| SM
     SM -.->|controller uses| UM
+    DS -.->|AnalyticsService| TM
+    DS -.->|BudgetService| BM
 
     style TM fill:#4CAF50,stroke:#2E7D32,color:#fff
     style BM fill:#2196F3,stroke:#1565C0,color:#fff
     style DeM fill:#FF5722,stroke:#BF360C,color:#fff
     style VM fill:#FF9800,stroke:#E65100,color:#fff
     style OM fill:#9C27B0,stroke:#6A1B9A,color:#fff
-    style DM fill:#F44336,stroke:#C62828,color:#fff
     style SM fill:#FFD700,stroke:#B8860B,color:#000
     style UM fill:#00BCD4,stroke:#00838F,color:#fff
+    style DS fill:#ECEFF1,stroke:#90A4AE,color:#000,stroke-dasharray: 4 4
 ```
 
 ## Module Overview
 
 | Модуль | Роль | Зависимости | Ключевые файлы |
 |--------|------|-------------|----------------|
-| **TransactionModule** | Core: транзакции и аналитика | Независимый | `transactionModule.ts` |
+| **TransactionModule** | Core: транзакции и аналитика | Независимый при создании; позже получает Subscription + User через `setSubscriptionDependencies()` | `transactionModule.ts` |
 | **BudgetModule** | Управление бюджетами | TransactionModule | `budgetModule.ts` |
-| **DebtModule** | Управление долгами | TransactionModule | `debtModule.ts` |
-| **VoiceProcessingModule** | AI обработка голоса/текста | TransactionModule | `voiceProcessingModule.ts` |
+| **DebtModule** | Управление долгами | TransactionModule, SubscriptionModule, UserModule | `debtModule.ts` |
+| **VoiceProcessingModule** | AI обработка голоса/текста | TransactionModule, DebtModule | `voiceProcessingModule.ts` |
 | **OpenAIUsageModule** | Мониторинг OpenAI costs | Независимый | `openAIUsageModule.ts` |
-| **DashboardModule** | Агрегация insights | Transaction + Budget | `dashboardModule.ts` |
 | **SubscriptionModule** | Premium подписки + Telegram Stars | UserModule (controller) | `subscriptionModule.ts` |
 | **UserModule** | Управление пользователями | Независимый | `userModule.ts` |
+
+Отдельно, **не как модуль**:
+
+| Компонент | Роль | Зависимости | Ключевые файлы |
+|-----------|------|-------------|----------------|
+| `DashboardService` / `DashboardController` | Агрегация insights для dashboard-эндпоинтов | AnalyticsService (Transaction) + BudgetService (Budget) | `src/modules/dashboard/application/services/dashboardService.ts`, `src/modules/dashboard/presentation/controllers/dashboardController.ts` |
 
 ---
 
@@ -282,9 +293,24 @@ new ProcessVoiceInputUseCase(
 
 ---
 
-## 7. DashboardModule
+## 7. UserModule
 
-**Файл:** [`src/modules/dashboard/dashboardModule.ts`](../../../src/modules/dashboard/dashboardModule.ts)
+**Файл:** [`src/modules/user/userModule.ts`](../../../src/modules/user/userModule.ts)
+
+### Назначение
+Управление пользователями и резолв внешних идентификаторов (`telegramId` → внутренний UUID).
+
+### Использование
+`SubscriptionController` и роутеры транзакций/бюджетов/долгов используют модуль, чтобы принять `telegram_id` во внешнем API и работать с UUID внутри.
+
+---
+
+## Dashboard: сервис, а не модуль
+
+**Файлы:**
+- [`src/modules/dashboard/application/services/dashboardService.ts`](../../../src/modules/dashboard/application/services/dashboardService.ts)
+- [`src/modules/dashboard/presentation/controllers/dashboardController.ts`](../../../src/modules/dashboard/presentation/controllers/dashboardController.ts)
+- [`src/delivery/web/express/routes/dashboardRoutes.ts`](../../../src/delivery/web/express/routes/dashboardRoutes.ts)
 
 ### Назначение
 Агрегация данных из множества источников для dashboard view.
@@ -296,15 +322,32 @@ new ProcessVoiceInputUseCase(
   - Insights (savings rate, trends, рекомендации)
   - Financial Health Score (0-100)
 
-### Key Dependencies
+### Где собирается
+
+Файла `dashboardModule.ts` **нет**, и `createModules()` не возвращает `dashboardModule`. Сервис и контроллер создаются в Express-слое, внутри `createDashboardRouter()`:
+
 ```typescript
-new DashboardService(
-  transactionModule.getAnalyticsService(),
-  budgetModule.getBudgetService()
-)
+// src/delivery/web/express/routes/dashboardRoutes.ts
+const dashboardService = new DashboardService(analyticsService, budgetService);
+const alertService = new AlertService(budgetService, analyticsService);
+const controller = new DashboardController(dashboardService, alertService);
 ```
 
-**Особенность:** Нет собственных use cases, только service для агрегации.
+А `expressServer.ts` передаёт туда зависимости уже из готовых модулей:
+
+```typescript
+router.use(
+  '/dashboard',
+  createDashboardRouter(
+    transactionModule.getAnalyticsService(),
+    budgetModule.budgetService,
+    subscriptionModule,
+    userModule
+  )
+);
+```
+
+**Особенность:** нет собственных use cases и нет модуля — только service для агрегации, поднимаемый delivery-слоем.
 
 ---
 
@@ -314,22 +357,25 @@ new DashboardService(
 
 ```typescript
 export function createModules() {
-  // 1. Независимые модули
+  // 1. Core модули без зависимости от subscription
   const transactionModule = TransactionModule.create();
-  const openAIUsageModule = createOpenAIUsageModule();
-  const userModule = UserModule.create();
-
-  // 2. Модули с зависимостями
   const budgetModule = BudgetModule.create(transactionModule);
-  const debtModule = DebtModule.create(transactionModule);
+  const userModule = UserModule.create();
+  const openAIUsageModule = createOpenAIUsageModule();
 
-  const openAIService = new OpenAITranscriptionService(AppConfig.OPENAI_API_KEY);
-  const voiceModule = new VoiceProcessingModule(openAIService, transactionModule, debtModule);
-
-  // 3. SubscriptionModule с repositories
+  // 2. SubscriptionModule с repositories
   const subscriptionRepository = RepositoryFactory.createSubscriptionRepository();
   const usageLimitRepository = RepositoryFactory.createUsageLimitRepository();
   const subscriptionModule = new SubscriptionModule(subscriptionRepository, usageLimitRepository);
+
+  // 3. Обратная связь: транзакциям нужен subscription для декремента при удалении
+  transactionModule.setSubscriptionDependencies(subscriptionModule, userModule);
+
+  // 4. Модули, которым нужны subscription/limits
+  const debtModule = DebtModule.create(transactionModule, subscriptionModule, userModule);
+
+  const openAIService = new OpenAITranscriptionService(AppConfig.OPENAI_API_KEY);
+  const voiceModule = new VoiceProcessingModule(openAIService, transactionModule, debtModule);
 
   return {
     transactionModule,
@@ -344,8 +390,9 @@ export function createModules() {
 ```
 
 **Порядок важен:**
-1. Сначала создаются независимые модули
-2. Затем модули с зависимостями, получая нужные модули как параметры
+1. Сначала создаются модули без зависимости от subscription
+2. Затем `SubscriptionModule`, после чего `transactionModule.setSubscriptionDependencies()` замыкает обратную связь
+3. Затем модули, которым нужны лимиты (`DebtModule`) и уже готовые модули (`VoiceProcessingModule`)
 
 ---
 

@@ -4096,3 +4096,44 @@ Make the project direction unambiguous for Hermes/Claude Code/LLM agents before 
 
 - `git diff --check` — passed.
 - `npm run verify` — passed: backend build, 29 Jest suites / 253 tests, 1 webapp Vitest suite / 4 tests, webapp build, dependency-cruiser, and madge circular check.
+
+## 2026-08-16 — Documentation reconciled with actual repo state
+
+### Goal
+
+Bring project documentation back in line with what the code actually does, after the board and operating context were pinned. Markdown only — no source, package, workflow, env, or generated-asset changes.
+
+### Drift found
+
+- **Module count.** Docs claimed 8 modules including a `DashboardModule`. `createModules()` (`src/appModules.ts`) returns 7: transaction, budget, debt, voice, openAIUsage, user, subscription. `src/modules/dashboard/` holds only `DashboardService` and `DashboardController`; `dashboardModule.ts` does not exist. The dashboard is assembled in the Express layer by `createDashboardRouter()` from `transactionModule.getAnalyticsService()` and `budgetModule.budgetService`.
+- **Webapp routes.** Docs advertised `/dashboard` and `/stats`, neither of which exists. Actual routes in `webapp/src/app/router/routes.tsx`: `/`, `/transactions`, `/transactions/add`, `/transactions/:id/edit`, `/budgets`, `/budgets/add`, `/budgets/:id/edit`, `/debts`, `/debts/add`, `/debts/:id`, `/analytics`, `/more`.
+- **Deployment.** README/DEPLOYMENT described an automatic SSH deploy on every push. `.github/workflows/deploy.yml` runs `quality-gate` on push, while `deploy` is gated behind `if: github.event_name == 'workflow_dispatch'` since the prod host was parked (FT-047).
+- **Quick start.** No mention of the recommended phone/Mini App flow; Docker base image listed as Node 18 Alpine while the Dockerfile uses `node:20-alpine`; `npm run verify` described without `test:webapp`.
+- **Logging.** CLAUDE.md carried a hand-maintained category list that had drifted from `LogCategory` in `src/shared/domain/ports/Logger.ts`.
+
+### Changes
+
+- `CLAUDE.md` — 7 app modules + dashboard-is-not-a-module note; dependency diagram corrected; log categories now point at `Logger.ts` as source of truth; wiki table row 8 → 7.
+- `README.md` — route table replacing the 5-page/`/dashboard`/`/stats` list; explicit `npm run verify` step list; GitHub Actions section rewritten to describe `quality-gate` vs manual-only `deploy`; module paragraph corrected.
+- `USER_GUIDE.md` — web app sections rewritten around real routes (Home, Transactions, Budgets, Debts, Analytics, More); stray "Dashboard"/"Stats" references retargeted.
+- `docs/knowledge-base/01-architecture/modules.md` — header, mermaid graph, overview table, and `appModules.ts` snippet corrected; the `DashboardModule` section was replaced by a `UserModule` section (previously undocumented) plus a "Dashboard: сервис, а не модуль" section showing the Express assembly.
+- `docs/knowledge-base/01-architecture/overview.md` — module table corrected, dashboard note added.
+- `docs/knowledge-base/README.md` — module file list, dependency sketch, and module count corrected; dashboard files listed under a non-module heading.
+- `docs/VISION.md` — 8 modules → 7 + dashboard note.
+- `docs/knowledge-base/08-development/quick-start.md` — `npm run dev:miniapp -- --chat-id=<id>` documented as the recommended phone/Mini App flow (Cloudflare quick tunnel, `.env` `WEB_APP_URL`, `setChatMenuButton`, no token printing); Docker base image corrected to `node:20-alpine`; `verify` step list includes `test:webapp`; `DB_SYNCHRONIZE` documented exactly as implemented in `database.config.ts` (`DB_SYNCHRONIZE === 'true' || NODE_ENV === 'development'`, read straight from `process.env`, absent from `.env.example`).
+- `DEPLOYMENT.md` — "not the active path" banner; verification section uses `npm run verify`; GitHub Actions section describes both jobs and how to restore automatic deploys.
+- `PROJECT_DOCUMENTATION.md`, `AUDIT.md`, `SUPABASE_MIGRATION.md` — historical / not-active banners pointing at `TASKS.md` and `CLAUDE.md`; no content deleted. The Supabase banner restates that SQL/migrations need explicit permission.
+- `docs/knowledge-base/10-design-guidelines/design-guidelines.md` — note that the current implementation wins where this file conflicts, naming the Inter-vs-Onest and accent-color conflicts, reconciliation tracked as FT-059. Onest and the neutral + semantic color direction were kept as current; nothing reverted to Inter/green-primary.
+- `webapp/README.md` — old `webapp-v2`/`public/webapp-v2`/React 18/Vite 5 text replaced with current React 19, Vite 7, real routes, build path `../public/webapp/`, and Mini App notes.
+- `docs/BACKEND_STANDARDS.md` — future recommendation no longer says to create `DashboardModule`; dashboard remains service/controller unless a new architecture decision is made.
+- `TASKS.md` — docs-reconciliation note in the Active Plan; implementation queue untouched.
+
+### Verification
+
+- `git diff --check` — passed.
+- `npm run verify` — passed: backend build, 29 Jest suites / 253 tests, 1 webapp Vitest suite / 4 tests, webapp build, dependency-cruiser, and madge circular check.
+
+### Known caveats
+
+- Historical files (`AUDIT.md`, `PROJECT_DOCUMENTATION.md`, `SUPABASE_MIGRATION.md`) still contain stale details in their bodies by design — banners flag them rather than rewriting the snapshots.
+- GitHub Wiki was not touched — that remains FT-049 scope.

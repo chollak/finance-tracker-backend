@@ -1,5 +1,12 @@
 # Deployment Guide
 
+> **⚠️ Not the active path (as of 2026-08-16).** Production/AWS deployment is parked: the prod host was removed from the active plan on 2026-08-13, and `sapaev.uz` / Supabase are not current targets. Current work is local-only — WSL + SQLite + Telegram polling + Cloudflare quick tunnel for phone testing.
+>
+> Source of truth for current work: [TASKS.md](TASKS.md) Active Plan and [CLAUDE.md](CLAUDE.md).
+> For local setup, use [docs/knowledge-base/08-development/quick-start.md](docs/knowledge-base/08-development/quick-start.md).
+>
+> The Docker/Node sections below describe the current packaging commands, but server-side deployment remains parked until a host comes back.
+
 ## Overview
 
 Finance Tracker can run directly with Node.js or through Docker Compose. The app serves:
@@ -79,11 +86,10 @@ npm run supabase:test
 
 ```bash
 curl http://localhost:3000/api/health
-npm run build
-npm test -- --runInBand
-npm run build:webapp
-npm run analyze
+npm run verify
 ```
+
+`npm run verify` runs backend build → `test:ci` (Jest serially) → `test:webapp` (Vitest) → `build:webapp` → `analyze` (dependency-cruiser + madge).
 
 ## Logs
 
@@ -94,4 +100,11 @@ docker compose logs -f
 
 ## GitHub Actions
 
-Deployment workflow lives in `.github/workflows/deploy.yml`. Required GitHub secrets include SSH host/user/key and any deployment-specific environment secrets configured by the workflow.
+`.github/workflows/deploy.yml` has two jobs:
+
+- **`quality-gate`** — runs on every push to `main` and on manual dispatch: Node.js 20, `npm ci`, `npm run verify`. Within `deploy.yml`, this is the only job that runs on push, and it needs no server.
+- **`deploy`** — SSH deploy via `docker compose`, guarded by `if: github.event_name == 'workflow_dispatch'`, so it never runs automatically.
+
+The deploy job was parked on 2026-08-13: automatic deploys had failed on every push since the last successful one on 2026-01-27 (`dial tcp ***:22: i/o timeout`).
+
+To restore automatic deploys: stand up a host, re-check the `SSH_HOST` / `SSH_USER` / `SSH_KEY` repository secrets against its real address, trigger the workflow manually once and confirm a green run, then remove the `if` condition from the `deploy` job.

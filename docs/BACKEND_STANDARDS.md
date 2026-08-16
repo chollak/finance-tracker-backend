@@ -798,7 +798,7 @@ if (errors.length > 0) {
 2. **Repository Methods** - переименовать save→create, getById→findById
 3. **Use Case Signatures** - разбить multiple methods на отдельные классы
 4. **Controller Responses** - заменить прямые res.json на helpers
-5. **Module System** - создать DashboardModule, убрать setSubscriptionDependencies
+5. **Module System** - убрать `setSubscriptionDependencies`; если когда-нибудь выделять dashboard в отдельный модуль, сначала зафиксировать это как новое архитектурное решение (сейчас dashboard — сервис/контроллер, не module factory)
 6. **Telegram** - унифицировать handlers
 
 ---

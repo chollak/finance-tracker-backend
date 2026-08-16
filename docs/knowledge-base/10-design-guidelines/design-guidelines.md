@@ -2,6 +2,14 @@
 
 > Based on user preferences and Claude's frontend design best practices
 
+> **⚠️ Partially superseded — reconciliation tracked as FT-059 (note added 2026-08-16).** Where this document conflicts with [style-direction.md](style-direction.md) or the current implementation, **the current implementation wins**.
+>
+> Known conflicts in this file:
+> - **Font:** the sections below recommend Inter. The app actually uses **Onest** (loaded globally, weights 400–800) via `--font-family-sans` in `webapp/src/app/styles/globals.css`. Do not migrate back to Inter.
+> - **Color:** the app uses neutral UI chrome (`primary`/`secondary`/`muted`) plus semantic finance tokens (`income`/`expense`/`warning`/`success`/`destructive`). Green is reserved for income/success meaning and is not a generic accent or CTA color. There are no `lime`/`lavender` accents.
+>
+> The structural guidance here (whitespace, hierarchy, radius scale, animation timing, touch targets, mobile-first) is still current.
+
 ## Design Profile Summary
 
 | Aspect | Choice |

@@ -57,38 +57,40 @@ After creating a transaction, you'll see buttons:
 
 #### Web App Features
 
-**Transactions Page:**
+**Home (`/`):**
+- Current balance overview
+- Recent transactions and budget snapshot
+- Quick access to the main sections
+
+**Transactions (`/transactions`):**
 - Search by description or category
 - Filter by type (Income/Expense) or specific categories
-- Edit any transaction (amount, category, description, date)
+- Edit any transaction via `/transactions/:id/edit`
+- Add a transaction via `/transactions/add`
 - Delete transactions with confirmation
 - Auto-grouped by date (Today, Yesterday, This Week, Earlier)
 
-**Dashboard Page:**
-- Financial Health Score (0-100)
-- Key metrics: Net Income, Budget Utilization, Savings Rate
-- Alerts for over-budget or near-limit budgets
-- Monthly trends chart
-- Weekly spending patterns
-- Top spending categories
-- OpenAI API usage monitor
-
-**Budgets Page:**
-- Create budgets (name, amount, period, date range)
+**Budgets (`/budgets`):**
+- Create budgets via `/budgets/add` (name, amount, period, date range)
 - Track spending progress with visual progress bars
 - Budget alerts (Over Budget, Near Limit, Ending Soon)
-- Edit budget details
+- Edit budget details via `/budgets/:id/edit`
 - Delete budgets
 - Filter by categories
 
-**Stats Page:**
-- Total balance calculation
-- Monthly breakdown (Income, Expenses, Net)
-- Navigate between months
+**Debts (`/debts`):**
+- List of debts (who owes whom) with status
+- Create a debt via `/debts/add`
+- Debt details and payment history via `/debts/:id`
 
-**Home Page:**
-- Current balance overview
-- Quick access to main features
+**Analytics (`/analytics`):**
+- Financial Health Score (0-100)
+- Key metrics: Net Income, Budget Utilization, Savings Rate
+- Alerts for over-budget or near-limit budgets
+- Monthly trends, weekly spending patterns, top categories
+
+**More (`/more`):**
+- Settings, subscription status, and secondary sections
 
 ### 5. Budget Management
 
@@ -163,13 +165,13 @@ Send voice/text messages throughout the day:
 #### Monthly Budget Tracking
 1. Create monthly budgets for each category
 2. Add transactions as you spend
-3. Check Dashboard for alerts
-4. Review Stats at month-end
+3. Check Budgets for alerts
+4. Review Analytics at month-end
 
 #### Salary Management
 ```
 "Зарплата 200000" → Income recorded
-Check balance on Dashboard
+Check balance on Home
 Set budgets for the month
 ```
 
@@ -184,12 +186,12 @@ Set budgets for the month
 - Start with 3-5 main budgets (Food, Transport, Entertainment)
 - Set realistic amounts based on past spending
 - Review Budget Alerts weekly
-- Adjust budgets monthly based on Dashboard insights
+- Adjust budgets monthly based on Analytics insights
 
 **Efficient Workflow:**
 - Use voice for quick logging on-the-go
 - Use web app for detailed review and editing
-- Check Dashboard weekly for financial health
+- Check Analytics weekly for financial health
 
 ### 10. Troubleshooting
 

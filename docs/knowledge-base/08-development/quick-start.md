@@ -85,7 +85,7 @@ OPENAI_API_KEY=sk-...
 **SQLite (default):**
 - Database автоматически создается при первом запуске
 - Location: `data/database.sqlite`
-- Migrations: Auto-sync в development
+- Schema sync: `src/shared/infrastructure/database/database.config.ts` включает TypeORM `synchronize`, если `DB_SYNCHRONIZE=true` **или** `NODE_ENV=development`. То есть в локальной разработке схема синхронизируется сама; `DB_SYNCHRONIZE=true` нужен только чтобы включить её вне development. Значение можно задать через обычные `.env` / `.env.local` (после dotenv-загрузки оно попадает в `process.env`); в `.env.example` переменная намеренно не указана как обязательная.
 
 **Supabase (optional):**
 
@@ -95,7 +95,39 @@ OPENAI_API_KEY=sk-...
 
 ## Running the Application
 
-### Development Mode (RECOMMENDED)
+### Phone / Telegram Mini App (RECOMMENDED для текущего режима работы)
+
+```bash
+# Подставьте свой Telegram chat/user id.
+npm run dev:miniapp -- --chat-id=<telegram_chat_id>
+```
+
+Что делает команда (`scripts/dev-miniapp.js`):
+
+1. Поднимает Cloudflare quick tunnel и получает публичный HTTPS-адрес.
+2. Записывает этот адрес в локальный `.env` как `WEB_APP_URL`.
+3. Обновляет постоянную menu-кнопку бота в Telegram через `setChatMenuButton`.
+4. Собирает проект и запускает `npm run serve`.
+
+Точечные команды, если туннель уже поднят:
+
+```bash
+# Посмотреть текущие WEB_APP_URL и menu-кнопку. Токен бота не печатается.
+npm run miniapp:menu -- status --chat-id=<telegram_chat_id>
+
+# Указать свой готовый HTTPS-адрес: обновит .env и menu-кнопку.
+npm run miniapp:menu -- set --url=https://example.trycloudflare.com --chat-id=<telegram_chat_id>
+```
+
+Важно:
+
+- Telegram Mini App на телефоне требует публичный HTTPS-адрес; `localhost` не подойдёт.
+- Старые inline-кнопки из `/start` хранят прежний URL. После смены туннеля отправьте `/start` заново и нажмите свежую кнопку.
+- Скрипты не выводят значение `TG_BOT_API_KEY` — не вставляйте токен в логи и отчёты вручную.
+
+---
+
+### Full-stack Development Mode
 
 **Full-stack с hot reload:**
 ```bash
@@ -241,7 +273,7 @@ docker compose down
 ```
 
 **Docker Config:**
-- Base image: Node.js 18 Alpine
+- Base image: `node:20-alpine` (multi-stage build: `builder` → `production`)
 - Ports: 3000 (backend)
 - Volume: `./data` (for SQLite database)
 - Environment: From `.env` file
@@ -267,8 +299,17 @@ npm run format           # Format code with Prettier
 npm run check:deps       # Check dependency rules
 npm run check:circular   # Find circular dependencies
 npm run analyze          # Run both checks
-npm run verify           # Full pre-commit gate: build, test:ci, webapp build, analyze
+npm run test:webapp      # Webapp Vitest tests
+npm run verify           # Full pre-commit gate (see below)
 ```
+
+`npm run verify` runs, in order:
+
+1. `npm run build` — backend TypeScript build
+2. `npm run test:ci` — Jest serially (`jest --runInBand`)
+3. `npm run test:webapp` — webapp Vitest tests
+4. `npm run build:webapp` — webapp production build
+5. `npm run analyze` — `dependency-cruiser` + `madge` circular scan
 
 Before committing or pushing, use `npm run verify` as the single source of truth.
 
@@ -307,7 +348,8 @@ SELECT * FROM transaction LIMIT 10;
 | `PORT` | `3000` | Server port |
 | `DATABASE_TYPE` | `sqlite` | `sqlite` or `supabase` |
 | `TG_BOT_API_KEY` | - | Telegram bot token |
-| `WEB_APP_URL` | `http://localhost:3000` | Public URL |
+| `WEB_APP_URL` | `http://localhost:3000` | Public URL (перезаписывается `npm run dev:miniapp`) |
+| `DB_SYNCHRONIZE` | - | `true` включает TypeORM schema sync для SQLite вне `NODE_ENV=development` |
 
 ### Supabase (if DATABASE_TYPE=supabase)
 
@@ -378,9 +420,11 @@ npm run build:webapp
 
 ```bash
 # Development
+npm run dev:miniapp -- --chat-id=<id>   # Phone/Mini App: tunnel + WEB_APP_URL + menu + serve
 npm run dev:full         # Full-stack с hot reload
 npm run dev              # Backend only
 npm test                 # Run tests
+npm run verify           # Full gate before commit/push
 
 # Production
 npm run build            # Compile TypeScript

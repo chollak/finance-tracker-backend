@@ -88,18 +88,19 @@
 
 ## Модули системы
 
-Система состоит из 8 основных модулей:
+`createModules()` (`src/appModules.ts`) возвращает 7 модулей приложения:
 
 | Модуль | Назначение | Зависимости |
 |--------|------------|-------------|
-| **TransactionModule** | CRUD операций транзакций + analytics | Независимый |
+| **TransactionModule** | CRUD операций транзакций + analytics | Независимый при создании; Subscription + User доинжектируются через `setSubscriptionDependencies()` |
 | **BudgetModule** | Управление бюджетами | TransactionModule (для расчета spent) |
-| **DebtModule** | Управление долгами (кто кому должен) | TransactionModule (для linked транзакций) |
-| **VoiceProcessingModule** | Обработка голоса/текста | TransactionModule (CreateTransactionUseCase) |
+| **DebtModule** | Управление долгами (кто кому должен) | TransactionModule (linked транзакции), SubscriptionModule (лимиты), UserModule |
+| **VoiceProcessingModule** | Обработка голоса/текста | TransactionModule (CreateTransactionUseCase), DebtModule |
 | **OpenAIUsageModule** | Мониторинг использования OpenAI API | Независимый |
-| **DashboardModule** | Агрегация данных из всех модулей | TransactionModule, BudgetModule |
-| **SubscriptionModule** | Free/Premium подписки, лимиты, Telegram Stars | UserModule (на уровне контроллера) |
 | **UserModule** | Управление пользователями (telegramId → UUID) | Независимый |
+| **SubscriptionModule** | Free/Premium подписки, лимиты, Telegram Stars | UserModule (на уровне контроллера) |
+
+**Dashboard — не модуль.** В `src/modules/dashboard/` есть только `DashboardService` и `DashboardController`; `dashboardModule.ts` отсутствует, и `createModules()` не возвращает `dashboardModule`. Сборка идёт в Express-слое: `createDashboardRouter()` строит `DashboardService` из `transactionModule.getAnalyticsService()` и `budgetModule.budgetService`.
 
 Подробнее: [Modules](modules.md)
 

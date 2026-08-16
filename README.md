@@ -131,13 +131,24 @@ backend.
 
 ## Web App Features
 
-The React frontend provides 5 main pages:
+Routes are defined in `webapp/src/app/router/routes.tsx`:
 
-- **HomePage** (`/`) - Balance overview and quick access
-- **Dashboard** (`/dashboard`) - Financial health score, alerts, analytics
-- **Transactions** (`/transactions`) - Search, filter, edit, delete transactions
-- **Budgets** (`/budgets`) - Create/edit budgets, track spending, alerts
-- **Stats** (`/stats`) - Monthly income/expense statistics
+| Route | Page |
+|-------|------|
+| `/` | Home — balance overview, quick access |
+| `/transactions` | Transactions list — search, filter, edit, delete |
+| `/transactions/add` | Add transaction form |
+| `/transactions/:id/edit` | Edit transaction form |
+| `/budgets` | Budgets — progress, alerts |
+| `/budgets/add` | Create budget form |
+| `/budgets/:id/edit` | Edit budget form |
+| `/debts` | Debts list |
+| `/debts/add` | Create debt form |
+| `/debts/:id` | Debt details and payments |
+| `/analytics` | Analytics and insights |
+| `/more` | Settings and secondary sections |
+
+There is no `/dashboard` or `/stats` route in the webapp; dashboard data is an API concern (`/api/dashboard/:userId`) consumed by the Home and Analytics pages.
 
 See [USER_GUIDE.md](USER_GUIDE.md) for detailed usage instructions.
 
@@ -155,18 +166,24 @@ Before committing or pushing changes, run the full verification gate:
 npm run verify
 ```
 
-This runs backend TypeScript build, serial Jest tests, webapp production build,
-and architecture checks (`dependency-cruiser` + circular dependency scan).
+`npm run verify` runs, in order:
+
+1. `npm run build` — backend TypeScript build
+2. `npm run test:ci` — Jest tests serially (`jest --runInBand`)
+3. `npm run test:webapp` — webapp Vitest tests
+4. `npm run build:webapp` — webapp production build
+5. `npm run analyze` — `dependency-cruiser` + `madge` circular dependency scan
 
 ## GitHub Actions
 
-The `deploy` workflow in `.github/workflows/deploy.yml` runs on pushes to the `main` branch and performs the following steps:
+`.github/workflows/deploy.yml` contains two jobs:
 
-1. Sets up Node.js 20 using `actions/setup-node`.
-2. Installs dependencies with `npm ci`.
-3. Runs `npm run verify` as the quality gate.
-4. Deploys the application to your server over SSH only after the quality gate passes, where the container is built using `docker compose`.
-5. Ensure that the repository secrets `SSH_HOST`, `SSH_USER` and `SSH_KEY` are configured with your server details so the SSH deployment step can connect.
+- **`quality-gate`** — runs on every push to `main` (and on manual dispatch). Sets up Node.js 20, installs with `npm ci`, and runs `npm run verify`. Within `deploy.yml`, this is the only job that actually runs on push, and it does not depend on any server.
+- **`deploy`** — SSH deploy over `docker compose`, gated behind `if: github.event_name == 'workflow_dispatch'`, so it only runs when triggered manually.
+
+The deploy job was parked on 2026-08-13 because the production host was removed from the active plan; automatic deploys had been failing on every push since 2026-01-27. Current work is local-only (WSL + SQLite + Telegram polling), see [TASKS.md](TASKS.md) and [CLAUDE.md](CLAUDE.md).
+
+To bring automatic deploys back: stand up a host, re-check the `SSH_HOST` / `SSH_USER` / `SSH_KEY` repository secrets, run the workflow manually once, then remove the `if` condition from the `deploy` job.
 
 ## Project Structure
 
@@ -174,7 +191,9 @@ The code follows Clean Architecture principles with layers for `domain`, `applic
 
 ### Module interactions
 
-The application is organized into 8 modules (`TransactionModule`, `BudgetModule`, `DebtModule`, `VoiceProcessingModule`, `OpenAIUsageModule`, `DashboardModule`, `SubscriptionModule`, `UserModule`), created once in `createModules()` (`src/appModules.ts`) and shared between the HTTP server and the Telegram bot. For example, `voiceProcessing` depends on `transaction` through `CreateTransactionUseCase` — voice commands are transcribed and immediately recorded as transactions.
+The application is organized into 7 app modules (`TransactionModule`, `BudgetModule`, `DebtModule`, `VoiceProcessingModule`, `OpenAIUsageModule`, `UserModule`, `SubscriptionModule`), created once in `createModules()` (`src/appModules.ts`) and shared between the HTTP server and the Telegram bot. For example, `voiceProcessing` depends on `transaction` through `CreateTransactionUseCase` — voice commands are transcribed and immediately recorded as transactions.
+
+Dashboard is not one of these modules: `src/modules/dashboard/` ships only `DashboardService` and `DashboardController`, which the Express layer assembles in `createDashboardRouter()` from the Transaction analytics service and the Budget service.
 
 See [docs/knowledge-base/01-architecture/modules.md](docs/knowledge-base/01-architecture/modules.md) for the full module dependency graph.
 
