@@ -17,6 +17,37 @@ import { createLogger, LogCategory } from '../../../shared/infrastructure/loggin
 
 const logger = createLogger(LogCategory.TELEGRAM);
 
+export type TelegramBotRuntimeState = 'disabled' | 'starting' | 'running' | 'retrying' | 'failed';
+
+export interface TelegramBotRuntimeStatus {
+  state: TelegramBotRuntimeState;
+  attempts: number;
+  lastError?: string;
+  nextRetryAt?: string;
+}
+
+const MAX_POLLING_RETRY_ATTEMPTS = Number(process.env.TELEGRAM_POLLING_MAX_RETRIES || 5);
+const POLLING_RETRY_BASE_DELAY_MS = Number(process.env.TELEGRAM_POLLING_RETRY_BASE_MS || 5_000);
+let telegramBotStatus: TelegramBotRuntimeStatus = { state: 'disabled', attempts: 0 };
+
+export function getTelegramBotStatus(): TelegramBotRuntimeStatus {
+  return { ...telegramBotStatus };
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function isPollingConflict(error: unknown): boolean {
+  const message = errorMessage(error);
+  return message.includes('409') || /conflict/i.test(message);
+}
+
+function retryDelay(attempt: number): number {
+  return POLLING_RETRY_BASE_DELAY_MS * Math.pow(2, Math.max(0, attempt - 1));
+}
+
+
 /**
  * Creates initial session for a user
  */
@@ -46,16 +77,19 @@ export function startTelegramBot(
   try {
     // Check if bot token is configured
     if (!AppConfig.TG_BOT_API_KEY) {
+      telegramBotStatus = { state: 'disabled', attempts: 0, lastError: 'TG_BOT_API_KEY missing' };
       logger.warn('TG_BOT_API_KEY is not set, Telegram bot disabled');
       return;
     }
 
     if (!AppConfig.ENABLE_TELEGRAM_POLLING) {
+      telegramBotStatus = { state: 'disabled', attempts: 0, lastError: 'ENABLE_TELEGRAM_POLLING=false' };
       logger.warn('ENABLE_TELEGRAM_POLLING=false, Telegram bot polling disabled');
       return;
     }
 
     if (AppConfig.WEBHOOK_MODE) {
+      telegramBotStatus = { state: 'disabled', attempts: 0, lastError: 'WEBHOOK_MODE=true' };
       logger.warn('WEBHOOK_MODE=true, Telegram bot polling disabled');
       return;
     }
@@ -156,17 +190,37 @@ export function startTelegramBot(
 
     // ===== LAUNCH BOT =====
 
-    bot.launch()
-      .then(() => {
-        logger.info('Telegram bot started');
-      })
-      .catch((error) => {
+    const launchWithRetry = (attempt: number) => {
+      telegramBotStatus = { state: 'starting', attempts: attempt };
+      logger.info('Starting Telegram bot long polling', { attempt });
+
+      const launchPromise = bot.launch();
+      telegramBotStatus = { state: 'running', attempts: attempt };
+      logger.info('Telegram bot long polling launch requested', { attempt });
+
+      launchPromise.catch((error) => {
+        const message = errorMessage(error);
+
+        if (isPollingConflict(error) && attempt < MAX_POLLING_RETRY_ATTEMPTS) {
+          const delayMs = retryDelay(attempt);
+          const nextRetryAt = new Date(Date.now() + delayMs).toISOString();
+          telegramBotStatus = { state: 'retrying', attempts: attempt, lastError: message, nextRetryAt };
+          logger.warn('Telegram polling conflict; retrying bot launch', { attempt, delayMs, nextRetryAt });
+          setTimeout(() => launchWithRetry(attempt + 1), delayMs).unref?.();
+          return;
+        }
+
+        telegramBotStatus = { state: 'failed', attempts: attempt, lastError: message };
         logger.error(
-          'Failed to launch Telegram bot',
-          error instanceof Error ? error : new Error(String(error))
+          'Telegram bot polling failed permanently',
+          error instanceof Error ? error : new Error(String(error)),
+          { attempts: attempt }
         );
         logger.warn('Application will continue without Telegram bot functionality');
       });
+    };
+
+    launchWithRetry(1);
 
     // Graceful shutdown handlers
     process.once('SIGINT', () => {

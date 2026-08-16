@@ -22,6 +22,7 @@ import {
   securityHeaders
 } from './middleware/errorMiddleware';
 import { AppConfig } from '../../../shared/infrastructure/config/appConfig';
+import { getTelegramBotStatus } from '../../messaging/telegram/telegramBot';
 
 export function buildServer(
   transactionModule: TransactionModule,
@@ -53,7 +54,8 @@ export function buildServer(
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
       version: process.env.npm_package_version || '1.0.0',
-      environment: AppConfig.NODE_ENV
+      environment: AppConfig.NODE_ENV,
+      telegramBot: getTelegramBotStatus()
     });
   });
 

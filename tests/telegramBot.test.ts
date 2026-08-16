@@ -13,8 +13,7 @@ describe('startTelegramBot', () => {
 
   async function loadBotWithMocks() {
     const launchCatch = jest.fn();
-    const launchThen = jest.fn(() => ({ catch: launchCatch }));
-    const launchResult = { then: launchThen };
+    const launchResult = { catch: launchCatch };
     const launch = jest.fn(() => launchResult);
     const use = jest.fn();
     const catchHandler = jest.fn();
@@ -74,6 +73,32 @@ describe('startTelegramBot', () => {
     expect(launch).toHaveBeenCalledTimes(1);
     expect(launchCatch).toHaveBeenCalledTimes(1);
     expect(launchCatch.mock.calls[0][0]).toEqual(expect.any(Function));
+  });
+
+  it('marks the bot as running immediately after requesting long polling launch', async () => {
+    const { start } = await loadBotWithMocks();
+    const { getTelegramBotStatus } = await import('../src/delivery/messaging/telegram/telegramBot');
+
+    start();
+
+    expect(getTelegramBotStatus()).toEqual(expect.objectContaining({ state: 'running', attempts: 1 }));
+  });
+
+  it('retries polling conflicts instead of staying disabled until process restart', async () => {
+    jest.useFakeTimers();
+    const { start, launch, launchCatch } = await loadBotWithMocks();
+    const { getTelegramBotStatus } = await import('../src/delivery/messaging/telegram/telegramBot');
+
+    start();
+    launchCatch.mock.calls[0][0](new Error('409: Conflict: terminated by other getUpdates request'));
+
+    expect(getTelegramBotStatus()).toEqual(expect.objectContaining({ state: 'retrying', attempts: 1 }));
+
+    jest.advanceTimersByTime(5000);
+
+    expect(launch).toHaveBeenCalledTimes(2);
+    expect(getTelegramBotStatus()).toEqual(expect.objectContaining({ state: 'running', attempts: 2 }));
+    jest.useRealTimers();
   });
 
   it('does not create or launch a Telegram bot when polling is explicitly disabled', async () => {

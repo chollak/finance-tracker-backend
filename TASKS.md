@@ -210,7 +210,7 @@ Definition of Done:
 
 ### FT-070: Telegram bot never recovers after a polling conflict
 
-Status: ready
+Status: done
 Priority: high
 Owner: Claude Code
 Type: reliability
@@ -223,11 +223,11 @@ Context:
 Отдельно: `bot.launch().then(...)` пишет «Telegram bot started» в `then`, но у Telegraf этот промис резолвится при **остановке** поллинга, а не при старте. Поэтому успешный запуск не логируется никогда, и понять из логов, жив ли бот, невозможно.
 
 Definition of Done:
-- [ ] После 409 бот пытается переподключиться с нарастающей паузой
-- [ ] Успешный запуск логируется в момент запуска, а не остановки
-- [ ] Состояние бота видно снаружи: в `/api/health` или отдельной проверке
-- [ ] Исчерпание попыток логируется как ошибка, а не как обычное предупреждение
-- [ ] Тест на восстановление после разрыва
+- [x] После 409 бот пытается переподключиться с нарастающей паузой
+- [x] Успешный запуск логируется в момент запуска, а не остановки
+- [x] Состояние бота видно снаружи: в `/api/health` или отдельной проверке
+- [x] Исчерпание попыток логируется как ошибка, а не как обычное предупреждение
+- [x] Тест на восстановление после разрыва
 
 ---
 
@@ -561,7 +561,7 @@ Type: infra-research
 
 ### FT-043: Document and verify local end-to-end run without production
 
-Status: ready
+Status: done
 Priority: high
 Owner: Claude Code, QA by Hermes
 Type: dev-experience
@@ -573,11 +573,11 @@ Clarification 2026-08-16:
 Most implementation already exists via FT-030: `npm run dev:miniapp` uses Cloudflare tunnel, updates local `WEB_APP_URL`, updates Telegram menu, builds, and serves the app. Do not build a second launcher. This task is now documentation + clean verification of the existing flow.
 
 Definition of Done:
-- [ ] Локальный запуск на SQLite поднимает API, бот и Mini App одной командой
-- [ ] Бот работает по polling без вебхука и без публичного хоста
-- [ ] Mini App открывается через туннель, `WEB_APP_URL` подставляется автоматически или описан ручной шаг
-- [ ] Инструкция записана в `docs/knowledge-base/08-development/quick-start.md`
-- [ ] Явно указано, какие переменные окружения обязательны для этого режима
+- [x] Локальный запуск на SQLite поднимает API, бот и Mini App одной командой
+- [x] Бот работает по polling без вебхука и без публичного хоста
+- [x] Mini App открывается через туннель, `WEB_APP_URL` подставляется автоматически или описан ручной шаг
+- [x] Инструкция записана в `docs/knowledge-base/08-development/quick-start.md`
+- [x] Явно указано, какие переменные окружения обязательны для этого режима
 
 Open questions:
 - Чем поднимать туннель — cloudflared, ngrok или что-то уже используемое. Решить в начале задачи.

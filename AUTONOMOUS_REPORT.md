@@ -4269,3 +4269,36 @@ Repair local tooling that agents rely on: `seed:test` and mobile screenshot audi
 ### Notes
 
 Local `data/database.sqlite` changed during seed verification but is ignored and not committed.
+
+## 2026-08-16 — FT-070 Telegram polling recovery and FT-043 local Mini App E2E verified
+
+### Goal
+
+Use the newly allowed Telegram external actions to verify the local-only Mini App path, then fix the bot polling failure observed during that run.
+
+### Changes
+
+- Added Telegram bot runtime status tracking in `telegramBot.ts` (`disabled`, `starting`, `running`, `retrying`, `failed`).
+- Polling conflicts (`409 Conflict: terminated by other getUpdates request`) now schedule exponential-backoff retries instead of disabling the bot until process restart.
+- Startup is logged when long polling launch is requested, not in the Telegraf promise resolution path that only fires when polling stops.
+- Permanent polling failure after max retries is logged as an error.
+- `/api/health` now exposes `telegramBot` status so the API can reveal when the bot is retrying/failed.
+- Marked FT-070 and FT-043 done in `TASKS.md` after runtime verification.
+
+### External verification
+
+- `npm run dev:miniapp -- --chat-id=131184740` built webapp/backend, started a Cloudflare quick tunnel, updated `.env` `WEB_APP_URL`, updated Telegram persistent menu button, served the app, and returned public probe HTTP 200.
+- The run reproduced the original 409 polling conflict. After the fix, logs showed retry attempts with increasing pauses: attempt 1 → 5s, attempt 2 → 10s, attempt 3 → 20s, then attempt 4 running.
+- `GET http://127.0.0.1:3000/api/health` returned HTTP 200 with `telegramBot.state=running` and `attempts=4`.
+- `npm run miniapp:menu -- status --chat-id=131184740` showed `.env` and Telegram menu aligned on the same Cloudflare tunnel URL.
+- `BASE_URL=<tunnel> AUTH_MODE=telegram TELEGRAM_USER_ID=131184740 ROUTES=/,/transactions,/budgets,/analytics npm run design:audit` passed with `issueCount: 0`, no console errors, no bad responses, and no auth failures.
+
+### Automated verification
+
+- `npm test -- tests/telegramBot.test.ts --runInBand` — passed, 5 tests.
+- `npm test -- tests/apiRoutes.test.ts --runInBand` — passed, 13 tests.
+- `npm run verify` — passed: backend build, 30 Jest suites / 299 tests, 2 webapp Vitest suites / 8 tests, webapp build, dependency-cruiser, and madge circular check.
+
+### Notes
+
+The local dev process was stopped before commit. Current tunnel/menu URL is external and temporary by nature.
