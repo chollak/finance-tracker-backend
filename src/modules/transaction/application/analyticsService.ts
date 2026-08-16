@@ -1,6 +1,6 @@
 import { TransactionRepository } from "../domain/transactionRepository";
 import { Transaction } from "../domain/transactionEntity";
-import { countsAsIncome, countsAsRealExpense, normalizeSemanticType } from "../domain/transactionSemanticType";
+import { countsAsBudgetSpending, countsAsIncome, countsAsRealExpense, normalizeSemanticType } from "../domain/transactionSemanticType";
 
 export interface TimeRange {
   startDate: Date;
@@ -79,13 +79,21 @@ export class AnalyticsService {
     }
 
     async getDetailedCategoryBreakdown(userId: string, timeRange?: TimeRange): Promise<CategoryBreakdown> {
-        const transactions = (await this.getTransactionsInRange(userId, timeRange))
-            .filter(t => !t.needsReview);
-        const totalAmount = transactions.reduce((sum, t) => sum + t.amount, 0);
+        // This breakdown backs the "Расходы по категориям" chart, so it must hold the
+        // same real-spending set as the home screen and budgets: no income, no own
+        // transfers/savings/withdrawals/debt, nothing still awaiting review.
+        const expenseTransactions = (await this.getTransactionsInRange(userId, timeRange))
+            .filter(t =>
+                !t.needsReview
+                && t.type === 'expense'
+                && countsAsBudgetSpending(normalizeSemanticType(t.semanticType, t.type))
+            );
+        // Percentages are shares of real spending, not of total turnover.
+        const totalAmount = expenseTransactions.reduce((sum, t) => sum + t.amount, 0);
 
         const breakdown: { [key: string]: { amount: number; count: number } } = {};
 
-        for (const transaction of transactions) {
+        for (const transaction of expenseTransactions) {
             if (!breakdown[transaction.category]) {
                 breakdown[transaction.category] = { amount: 0, count: 0 };
             }

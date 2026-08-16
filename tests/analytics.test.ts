@@ -116,22 +116,21 @@ describe('Enhanced Analytics Service', () => {
   });
 
   describe('getDetailedCategoryBreakdown', () => {
-    it('should calculate detailed category breakdown with percentages', async () => {
+    it('should calculate detailed category breakdown with percentages of real expenses only', async () => {
       mockRepository.findByUserId.mockResolvedValue(mockTransactions);
 
       const breakdown = await analyticsService.getDetailedCategoryBreakdown('user-123');
 
       expect(breakdown.Food.amount).toBe(150); // 50 + 100
       expect(breakdown.Food.count).toBe(2);
-      expect(breakdown.Food.percentage).toBeCloseTo(35.29, 1); // 150 / (150 + 200 + 75) * 100
+      expect(breakdown.Food.percentage).toBeCloseTo(66.67, 1); // 150 / (150 + 75) * 100
 
       expect(breakdown.Transportation.amount).toBe(75);
       expect(breakdown.Transportation.count).toBe(1);
-      expect(breakdown.Transportation.percentage).toBeCloseTo(17.65, 1);
+      expect(breakdown.Transportation.percentage).toBeCloseTo(33.33, 1);
 
-      expect(breakdown.Income.amount).toBe(200);
-      expect(breakdown.Income.count).toBe(1);
-      expect(breakdown.Income.percentage).toBeCloseTo(47.06, 1);
+      // Income is not spending and must not appear in the expense breakdown
+      expect(breakdown.Income).toBeUndefined();
     });
   });
 
@@ -306,8 +305,7 @@ describe('Enhanced Analytics Service', () => {
 
       expect(breakdown.Food.amount).toBe(50);
       expect(breakdown.Food.count).toBe(1);
-      expect(breakdown.Income.amount).toBe(100);
-      expect(breakdown.Income.count).toBe(1);
+      expect(breakdown.Income).toBeUndefined(); // income is excluded from the expense breakdown
     });
 
     it('getTopCategories excludes needsReview transactions', async () => {
@@ -341,6 +339,67 @@ describe('Enhanced Analytics Service', () => {
 
       const tuesdayPattern = patterns.find(p => p.dayOfWeek === 'Tuesday'); // nr-2's date
       expect(tuesdayPattern?.transactionCount).toBe(0);
+    });
+  });
+
+  describe('FT-052: detailed category breakdown counts only real expenses', () => {
+    // Mirrors the live data that made "Расходы по категориям" disagree with the
+    // home screen: transfers/deposits/withdrawals inflated "Другое" and salary
+    // inflated the percentage denominator.
+    const mixedTransactions: Transaction[] = [
+      { id: 'mix-1', amount: 325000, type: 'expense', semanticType: 'expense', description: 'Groceries', date: '2024-05-01', category: 'food', userId: 'user-123' },
+      { id: 'mix-2', amount: 5000000, type: 'expense', semanticType: 'own_transfer', description: 'Transfer to my other card', date: '2024-05-02', category: 'other', userId: 'user-123' },
+      { id: 'mix-3', amount: 3000000, type: 'expense', semanticType: 'saving_deposit', description: 'Deposit', date: '2024-05-03', category: 'other', userId: 'user-123' },
+      { id: 'mix-4', amount: 1000000, type: 'expense', semanticType: 'cash_withdrawal', description: 'ATM', date: '2024-05-04', category: 'other', userId: 'user-123' },
+      { id: 'mix-5', amount: 830000, type: 'expense', semanticType: 'expense', description: 'Unclear purchase', date: '2024-05-05', category: 'shopping', userId: 'user-123', needsReview: true },
+      { id: 'mix-6', amount: 12000000, type: 'income', semanticType: 'income', description: 'Salary', date: '2024-05-06', category: 'salary', userId: 'user-123' },
+    ];
+
+    it('returns only the real expense, with the percentage based on real expenses', async () => {
+      mockRepository.findByUserId.mockResolvedValue(mixedTransactions);
+
+      const breakdown = await analyticsService.getDetailedCategoryBreakdown('user-123');
+
+      expect(Object.keys(breakdown)).toEqual(['food']);
+      expect(breakdown.food.amount).toBe(325000);
+      expect(breakdown.food.count).toBe(1);
+      expect(breakdown.food.percentage).toBe(100);
+    });
+
+    it('agrees with the analytics summary total expense', async () => {
+      mockRepository.findByUserId.mockResolvedValue(mixedTransactions);
+
+      const [breakdown, summary] = await Promise.all([
+        analyticsService.getDetailedCategoryBreakdown('user-123'),
+        analyticsService.getAnalyticsSummary('user-123')
+      ]);
+
+      const breakdownTotal = Object.values(breakdown).reduce((sum, entry) => sum + entry.amount, 0);
+      expect(breakdownTotal).toBe(summary.totalExpense);
+    });
+
+    it('keeps percentages summing to 100 across several real expense categories', async () => {
+      mockRepository.findByUserId.mockResolvedValue([
+        ...mixedTransactions,
+        { id: 'mix-7', amount: 175000, type: 'expense', semanticType: 'expense', description: 'Taxi', date: '2024-05-07', category: 'transport', userId: 'user-123' },
+      ]);
+
+      const breakdown = await analyticsService.getDetailedCategoryBreakdown('user-123');
+
+      expect(breakdown.food.percentage).toBe(65);
+      expect(breakdown.transport.percentage).toBe(35);
+    });
+
+    it('falls back to raw type for legacy rows without semanticType', async () => {
+      mockRepository.findByUserId.mockResolvedValue([
+        { id: 'legacy-1', amount: 100, type: 'expense', description: 'Legacy expense', date: '2024-05-08', category: 'food', userId: 'user-123' },
+        { id: 'legacy-2', amount: 900, type: 'income', description: 'Legacy income', date: '2024-05-09', category: 'salary', userId: 'user-123' },
+      ]);
+
+      const breakdown = await analyticsService.getDetailedCategoryBreakdown('user-123');
+
+      expect(Object.keys(breakdown)).toEqual(['food']);
+      expect(breakdown.food.percentage).toBe(100);
     });
   });
 

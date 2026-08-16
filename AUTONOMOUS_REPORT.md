@@ -4213,3 +4213,28 @@ Fix false near-limit budget alerts caused by comparing `percentageUsed` (0–100
 ### Review notes
 
 Independent Claude Code review found the main scale fix correct. Hermes added explicit threshold clamping/range tests after review feedback.
+
+## 2026-08-16 — FT-052 analytics category breakdown semantic filter fixed
+
+### Goal
+
+Make the `Расходы по категориям` analytics breakdown match the Home real-expense model instead of mixing income, own transfers, savings deposits, cash withdrawals, and review-needed transactions into expense categories and the percentage denominator.
+
+### Changes
+
+- Updated `AnalyticsService.getDetailedCategoryBreakdown()` to use the same semantic filter as budgets/Home: `type=expense`, `countsAsBudgetSpending(normalizeSemanticType(...))`, and `!needsReview`.
+- Percentages are now computed from the sum of real expenses only, not total turnover.
+- Existing category breakdown tests were updated to exclude income from expense breakdowns.
+- Added FT-052 regression tests with a mixed dataset containing ordinary expense, own transfer, saving deposit, cash withdrawal, `needsReview`, and income.
+- Added tests that the category breakdown total equals `getAnalyticsSummary().totalExpense`, percentage splits sum to real spending, and legacy rows without `semanticType` still fall back to raw `type`.
+- Marked FT-052 done in `TASKS.md`.
+
+### Verification
+
+- RED: new analytics tests would fail against the old implementation because income/non-expense semantic rows were included and percentages used total turnover.
+- `npm test -- tests/analytics.test.ts --runInBand` — passed, 23 tests.
+- `npm run verify` — passed: backend build, 30 Jest suites / 297 tests, 2 webapp Vitest suites / 8 tests, webapp build, dependency-cruiser, and madge circular check.
+
+### Notes
+
+Scope stayed limited to `getDetailedCategoryBreakdown()` as planned. `getMonthlyTrends`, `getSpendingPatterns`, and `getTopCategories` already had semantic filters and were not broad-refactored.

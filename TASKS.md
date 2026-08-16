@@ -255,7 +255,7 @@ Definition of Done:
 
 ### FT-052: Analytics detailed category breakdown must respect semantic transaction types
 
-Status: ready
+Status: done
 Priority: high
 Owner: Claude Code, QA by Hermes
 Type: correctness
@@ -269,12 +269,12 @@ Clarification 2026-08-16:
 Claude Code review found that `getMonthlyTrends`, `getSpendingPatterns`, and `getTopCategories` already use semantic filters. Scope this task to the API category breakdown path (`getDetailedCategoryBreakdown` / `/transactions/analytics/categories/:userId`) and its percentage denominator; do not broad-refactor already-correct analytics code.
 
 Definition of Done:
-- [ ] «Расходы по категориям» включают только `type=expense` с `countsAsBudgetSpending(semanticType)` и без `needsReview`
-- [ ] Доходы исключены из диаграммы расходов
-- [ ] Проценты считаются от суммы реальных расходов, а не от общего оборота
-- [ ] «Тренды по месяцам» используют тот же фильтр
-- [ ] Итог аналитики сходится с «реальными расходами» главного экрана до сума
-- [ ] Регрессионный тест: набор из перевода, вклада, снятия, `needsReview` и обычной траты даёт в аналитике только обычную трату
+- [x] «Расходы по категориям» включают только `type=expense` с `countsAsBudgetSpending(semanticType)` и без `needsReview`
+- [x] Доходы исключены из диаграммы расходов
+- [x] Проценты считаются от суммы реальных расходов, а не от общего оборота
+- [x] «Тренды по месяцам» используют тот же фильтр
+- [x] Итог аналитики сходится с «реальными расходами» главного экрана до сума
+- [x] Регрессионный тест: набор из перевода, вклада, снятия, `needsReview` и обычной траты даёт в аналитике только обычную трату
 
 Подтверждено на уровне API 2026-08-13. `GET /transactions/analytics/categories/:userId` на тестовых данных возвращает:
 
