@@ -39,6 +39,7 @@ function loadPlaywright() {
 const { chromium } = loadPlaywright();
 
 const baseUrl = process.env.BASE_URL || 'http://127.0.0.1:3000';
+const baseOrigin = new URL(baseUrl).origin;
 const width = Number(process.env.VIEWPORT_WIDTH || 390);
 const height = Number(process.env.VIEWPORT_HEIGHT || 844);
 const authMode = process.env.AUTH_MODE || 'guest';
@@ -118,17 +119,27 @@ function rect(el) {
       // still keeping the token out of logs and screenshots.
       await page.route('**/api/**', async (routeRequest) => {
         const request = routeRequest.request();
-        await routeRequest.continue({
+        const requestUrl = new URL(request.url());
+
+        if (requestUrl.origin !== baseOrigin) {
+          await routeRequest.continue();
+          return;
+        }
+
+        const response = await routeRequest.fetch({
           headers: {
             ...request.headers(),
             'x-dev-user-id': telegramUserId,
           },
         });
+
+        await routeRequest.fulfill({ response });
       });
     }
 
     const consoleErrors = [];
     const badResponses = [];
+    const authFailures = [];
 
     page.on('console', (msg) => {
       if (msg.type() === 'error') consoleErrors.push(msg.text());
@@ -138,6 +149,7 @@ function rect(el) {
       const url = res.url();
       if (res.status() >= 400 && !url.includes('favicon') && !url.includes('manifest')) {
         badResponses.push(`${res.status()} ${url}`);
+        if (res.status() === 401) authFailures.push(`401 ${url}`);
       }
     });
 
@@ -207,7 +219,7 @@ function rect(el) {
       };
     }, route.name);
 
-    results.push({ route, url, screenshot, consoleErrors, badResponses, metrics });
+    results.push({ route, url, screenshot, consoleErrors, badResponses, authFailures, metrics });
     await page.close();
   }
 
@@ -221,6 +233,7 @@ function rect(el) {
     screenshot: result.screenshot,
     consoleErrors: result.consoleErrors.length,
     badResponses: result.badResponses,
+    authFailures: result.authFailures,
     h1: result.metrics.h1,
     tabList: result.metrics.tabList,
     navButton: result.metrics.navButton,
@@ -228,7 +241,7 @@ function rect(el) {
   }));
 
   const issueCount = results.reduce(
-    (count, result) => count + result.consoleErrors.length + result.badResponses.length,
+    (count, result) => count + result.consoleErrors.length + result.badResponses.length + result.authFailures.length,
     0
   );
 

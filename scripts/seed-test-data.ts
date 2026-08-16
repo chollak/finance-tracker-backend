@@ -17,6 +17,7 @@ const DB_PATH = path.join(process.cwd(), 'data', 'database.sqlite');
 
 // Test user configuration
 const TEST_USER = {
+  id: randomUUID(),
   telegramId: 'test_user_dev',
   username: 'testuser',
   firstName: 'Test',
@@ -269,9 +270,9 @@ async function seed() {
 
   try {
     // Check if test user already exists
-    const existingUser = await dbGet<{ telegramId: string }>(
+    const existingUser = await dbGet<{ id: string; telegram_id: string }>(
       db,
-      'SELECT * FROM users WHERE telegramId = ?',
+      'SELECT id, telegram_id FROM users WHERE telegram_id = ?',
       [TEST_USER.telegramId]
     );
 
@@ -283,13 +284,13 @@ async function seed() {
       const txCount = await dbGet<{ count: number }>(
         db,
         'SELECT COUNT(*) as count FROM transactions WHERE userId = ?',
-        [TEST_USER.telegramId]
+        [existingUser.id]
       );
 
       const budgetCount = await dbGet<{ count: number }>(
         db,
         'SELECT COUNT(*) as count FROM budgets WHERE userId = ?',
-        [TEST_USER.telegramId]
+        [existingUser.id]
       );
 
       console.log(`📊 Current data for test user:`);
@@ -304,9 +305,10 @@ async function seed() {
     console.log('👤 Creating test user...');
     await dbRun(
       db,
-      `INSERT INTO users (telegramId, username, firstName, lastName, language, currency)
-       VALUES (?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO users (id, telegram_id, user_name, first_name, last_name, language_code, default_currency)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [
+        TEST_USER.id,
         TEST_USER.telegramId,
         TEST_USER.username,
         TEST_USER.firstName,
@@ -319,7 +321,7 @@ async function seed() {
 
     // Create transactions
     console.log('💳 Creating transactions...');
-    const transactions = generateTransactions(TEST_USER.telegramId);
+    const transactions = generateTransactions(TEST_USER.id);
 
     for (const tx of transactions) {
       await dbRun(
@@ -336,7 +338,7 @@ async function seed() {
 
     // Create budgets
     console.log('📊 Creating budgets...');
-    const budgets = generateBudgets(TEST_USER.telegramId);
+    const budgets = generateBudgets(TEST_USER.id);
 
     for (const budget of budgets) {
       await dbRun(

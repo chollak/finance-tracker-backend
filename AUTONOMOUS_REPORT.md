@@ -4238,3 +4238,34 @@ Make the `Расходы по категориям` analytics breakdown match th
 ### Notes
 
 Scope stayed limited to `getDetailedCategoryBreakdown()` as planned. `getMonthlyTrends`, `getSpendingPatterns`, and `getTopCategories` already had semantic filters and were not broad-refactored.
+
+## 2026-08-16 — FT-064 dev tooling repaired
+
+### Goal
+
+Repair local tooling that agents rely on: `seed:test` and mobile screenshot audit in Telegram auth mode.
+
+### Changes
+
+- Updated `scripts/seed-test-data.ts` for the current SQLite schema:
+  - users table uses `telegram_id`, `user_name`, `first_name`, `last_name`, `language_code`, `default_currency`;
+  - seed now generates a UUID user id and stores transactions/budgets under that UUID, while preserving `telegram_id=test_user_dev` for local auth.
+- Updated `scripts/mobile-ui-audit.js` Telegram auth injection:
+  - same-origin API requests use `route.fetch()` + `route.fulfill()` with `x-dev-user-id`;
+  - cross-origin API requests are continued without the dev auth header;
+  - 401 responses are surfaced in `authFailures` and make the audit exit non-zero instead of false-green screenshots.
+- Marked FT-064 done in `TASKS.md`.
+
+### Verification
+
+- `npm run seed:test` — passed on first run, created test user, 50 transactions, and 3 budgets in local ignored SQLite DB.
+- `npm run seed:test` — passed on second run, detected existing `test_user_dev` and reported 50 transactions / 3 budgets using the UUID-backed `userId`.
+- `node --check scripts/mobile-ui-audit.js` — passed.
+- `npm run build` — passed, validating the TypeScript seed script under project config.
+- Mock Mini App audit with `AUTH_MODE=telegram`, same-origin `/api/data`, and expected `x-dev-user-id` — passed with `issueCount: 0`.
+- Mock Mini App audit with `AUTH_MODE=guest` against the same 401 API — exited non-zero and reported `authFailures`.
+- `npm run verify` — passed: backend build, 30 Jest suites / 297 tests, 2 webapp Vitest suites / 8 tests, webapp build, dependency-cruiser, and madge circular check.
+
+### Notes
+
+Local `data/database.sqlite` changed during seed verification but is ignored and not committed.
