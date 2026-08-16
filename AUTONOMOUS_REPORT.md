@@ -4160,3 +4160,28 @@ Prevent the local text parser from silently dropping amount magnitude words, e.g
 ### Notes
 
 Claude Code implemented the main parser/test slice; Hermes reviewed the diff, ran an independent Claude Code review, added the final unsafe-trailing-word guard, reran targeted and full verification, and marked FT-067 done in `TASKS.md`.
+
+## 2026-08-16 — FT-068 cash withdrawal wording fixed
+
+### Goal
+
+Stop obvious cash-withdrawal wording such as `снял в банкомате 300000` from falling through to the simple expense parser.
+
+### Changes
+
+- Added `isObviousCashWithdrawal()` and `mentionsCashWithdrawal()` helpers in `processTextInput.ts`.
+- Expanded cash indicators/sources to include ATM/card/account wording plus `naqd` Uzbek spelling.
+- Ambiguous withdrawal phrases (`снял 300000`, `снял квартиру 3000000`, unsafe magnitude slang) now fall back to OpenAI instead of becoming `semanticType=expense` silently.
+- Added regression coverage for Russian and Uzbek withdrawal phrases and an own-transfer guard.
+- Marked FT-068 done in `TASKS.md`.
+
+### Verification
+
+- RED: `npm test -- tests/processTextInput.test.ts --runInBand -t "cash withdrawal wording"` failed on `снял со счета 500000` before the `счет\p{L}*` fix.
+- GREEN: same targeted test passed after the pattern fix.
+- `npm test -- tests/processTextInput.test.ts --runInBand` — passed, 43 tests.
+- `npm run verify` — passed: backend build, 29 Jest suites / 280 tests, 1 webapp Vitest suite / 4 tests, webapp build, dependency-cruiser, and madge circular check.
+
+### Review notes
+
+Independent Claude Code review found no blocker after tests passed. Non-blocking follow-up: `OWN_ACCOUNT_TARGET_PATTERN` is broader now (`счет\p{L}*`); future parser hardening can add more negative transfer-vs-bill examples if needed.

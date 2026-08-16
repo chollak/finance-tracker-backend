@@ -103,14 +103,38 @@ const SAVING_DEPOSIT_KEYWORDS_PATTERN = conservativeKeywordPattern([
 ]);
 const CASH_WITHDRAWAL_VERB_PATTERN = conservativeKeywordPattern(['снял\\p{L}*', 'yechib oldim', 'yechdim']);
 const CASH_WITHDRAWAL_STANDALONE_PATTERN = conservativeKeywordPattern(['обналичил\\p{L}*']);
-const CASH_INDICATOR_PATTERN = conservativeKeywordPattern(['налич\\p{L}*', 'нал', 'cash', 'nakd']);
+const CASH_INDICATOR_PATTERN = conservativeKeywordPattern(['налич\\p{L}*', 'нал', 'cash', 'nakd', 'naqd']);
+// Where the cash came from. "снял в банкомате 300000" names no cash word at all, so without these
+// the phrase used to fall through to the simple parser and become a real expense.
+const CASH_SOURCE_PATTERN = conservativeKeywordPattern(['банкомат\\p{L}*', 'bankomat\\p{L}*', 'atm', 'kart\\p{L}*']);
 const TRANSFER_VERB_PATTERN = conservativeKeywordPattern([
   'перевел\\p{L}*', 'перевёл\\p{L}*', 'перекинул\\p{L}*', 'kochirdim', "o'?tkazdim", 'otkazdim', 'transferred',
 ]);
 const OWN_ACCOUNT_TARGET_PATTERN = conservativeKeywordPattern([
-  'себе', 'карт\\p{L}*', 'счет', 'счёт', 'alif', 'payme', 'click', 'uzcard', 'humo',
+  'себе', 'карт\\p{L}*', 'счет\\p{L}*', 'счёт\\p{L}*', 'alif', 'payme', 'click', 'uzcard', 'humo',
 ]);
 const INCOME_KEYWORDS_PATTERN = conservativeKeywordPattern(['зарплат\\p{L}*', 'зп', 'аванс', 'оклад', 'salary', 'maosh']);
+
+/**
+ * A withdrawal is obvious only when the phrase says both that money was taken out and where from
+ * (cash, an ATM, a card or an own account). A bare "снял 300000" stays ambiguous — it may be rent
+ * ("снял квартиру") — and is left to OpenAI rather than guessed.
+ */
+function isObviousCashWithdrawal(text: string): boolean {
+  return CASH_WITHDRAWAL_STANDALONE_PATTERN.test(text)
+    || (
+      CASH_WITHDRAWAL_VERB_PATTERN.test(text)
+      && (
+        CASH_INDICATOR_PATTERN.test(text)
+        || CASH_SOURCE_PATTERN.test(text)
+        || OWN_ACCOUNT_TARGET_PATTERN.test(text)
+      )
+    );
+}
+
+function mentionsCashWithdrawal(text: string): boolean {
+  return CASH_WITHDRAWAL_VERB_PATTERN.test(text) || CASH_WITHDRAWAL_STANDALONE_PATTERN.test(text);
+}
 
 /**
  * Conservative fast path for obvious single-amount phrases whose semantic meaning
@@ -142,7 +166,7 @@ function parseObviousSemanticTransaction(text: string): AnalysisResult | null {
     && (
       INCOME_KEYWORDS_PATTERN.test(leadingBeforeAmount)
       || SAVING_DEPOSIT_KEYWORDS_PATTERN.test(leadingBeforeAmount)
-      || CASH_WITHDRAWAL_STANDALONE_PATTERN.test(leadingBeforeAmount)
+      || isObviousCashWithdrawal(leadingBeforeAmount)
     )
   ) {
     return null;
@@ -164,10 +188,7 @@ function parseObviousSemanticTransaction(text: string): AnalysisResult | null {
   if (SAVING_DEPOSIT_KEYWORDS_PATTERN.test(remainder)) {
     semanticType = 'saving_deposit';
     category = 'transfer';
-  } else if (
-    CASH_WITHDRAWAL_STANDALONE_PATTERN.test(remainder)
-    || (CASH_WITHDRAWAL_VERB_PATTERN.test(remainder) && CASH_INDICATOR_PATTERN.test(remainder))
-  ) {
+  } else if (isObviousCashWithdrawal(remainder)) {
     semanticType = 'cash_withdrawal';
     category = 'transfer';
   } else if (TRANSFER_VERB_PATTERN.test(remainder) && OWN_ACCOUNT_TARGET_PATTERN.test(remainder)) {
@@ -217,6 +238,12 @@ function parseSimpleTextTransaction(text: string): AnalysisResult | null {
   const trailing = parsedAmount.textAfter.replace(CURRENCY_WORDS_PATTERN, ' ').trim();
 
   if (!label || trailing || !/\s$/.test(parsedAmount.textBefore)) {
+    return null;
+  }
+
+  // Withdrawal wording that the semantic parser did not find obvious ("снял 300000") is ambiguous,
+  // not a plain expense: hand it to OpenAI instead of silently inflating real spending.
+  if (mentionsCashWithdrawal(normalizedText)) {
     return null;
   }
 

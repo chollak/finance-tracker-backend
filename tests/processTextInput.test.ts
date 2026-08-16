@@ -758,6 +758,95 @@ describe('ProcessTextInputUseCase', () => {
     });
   });
 
+  describe('cash withdrawal wording', () => {
+    function makeDeps(createdId = 'cash-1') {
+      const openAIService = {
+        analyzeInput: jest.fn().mockResolvedValue({ transactions: [], debts: [] }),
+        analyzeTransactions: jest.fn(),
+        transcribe: jest.fn()
+      } as unknown as TranscriptionService;
+
+      const createTransactionUseCase = {
+        execute: jest.fn().mockResolvedValue({ success: true, data: createdId })
+      } as unknown as CreateTransactionUseCase;
+
+      return {
+        openAIService,
+        createTransactionUseCase,
+        useCase: new ProcessTextInputUseCase(openAIService, createTransactionUseCase),
+      };
+    }
+
+    const withdrawalPhrases: Array<[string, number]> = [
+      ['снял в банкомате 300000', 300000],
+      ['снял 300000 в банкомате', 300000],
+      ['снял с карты 300000', 300000],
+      ['снял со счета 500000', 500000],
+      ['обналичил 300000', 300000],
+      ['снял наличные 200000', 200000],
+      // Uzbek formulations already present in the parser keywords
+      ['bankomatdan 300000 yechdim', 300000],
+      ['kartadan 500000 yechib oldim', 500000],
+      ['nakd 200000 yechdim', 200000],
+      ['naqd 200000 yechdim', 200000],
+    ];
+
+    it.each(withdrawalPhrases)('classifies "%s" as cash_withdrawal without calling OpenAI', async (phrase, amount) => {
+      const { openAIService, createTransactionUseCase, useCase } = makeDeps('cash-fast');
+
+      const result = await useCase.execute(phrase, 'user1');
+
+      expect(openAIService.analyzeInput).not.toHaveBeenCalled();
+      expect(createTransactionUseCase.execute).toHaveBeenCalledWith(expect.objectContaining({
+        amount,
+        category: 'transfer',
+        semanticType: 'cash_withdrawal',
+        needsReview: false,
+      }));
+      expect(result.transactions).toEqual([
+        expect.objectContaining({ id: 'cash-fast', amount, semanticType: 'cash_withdrawal' })
+      ]);
+    });
+
+    const ambiguousPhrases = [
+      'снял 300000',
+      'снял квартиру 3000000',
+      'снял с карты 12 лямов',
+    ];
+
+    it.each(ambiguousPhrases)('sends the ambiguous phrase "%s" to OpenAI instead of storing an expense', async (phrase) => {
+      const { openAIService, createTransactionUseCase, useCase } = makeDeps();
+      (openAIService.analyzeInput as jest.Mock).mockResolvedValue({
+        transactions: [{
+          intent: 'transaction',
+          amount: 300000,
+          category: 'other',
+          type: 'expense',
+          semanticType: 'cash_withdrawal',
+          date: '2026-08-16',
+        }],
+        debts: []
+      });
+
+      await useCase.execute(phrase, 'user1');
+
+      expect(openAIService.analyzeInput).toHaveBeenCalledTimes(1);
+      expect(createTransactionUseCase.execute).not.toHaveBeenCalledWith(expect.objectContaining({
+        semanticType: 'expense',
+      }));
+    });
+
+    it('does not treat an own-transfer phrase as a cash withdrawal', async () => {
+      const { createTransactionUseCase, useCase } = makeDeps();
+
+      await useCase.execute('перевел 500000 на карту', 'user1');
+
+      expect(createTransactionUseCase.execute).toHaveBeenCalledWith(expect.objectContaining({
+        semanticType: 'own_transfer',
+      }));
+    });
+  });
+
   it('does not report the debt id as linkedTransactionId when the debt result has no transaction id', async () => {
     const openAIService = {
       analyzeInput: jest.fn().mockResolvedValue({
