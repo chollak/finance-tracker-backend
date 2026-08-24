@@ -4302,3 +4302,59 @@ Use the newly allowed Telegram external actions to verify the local-only Mini Ap
 ### Notes
 
 The local dev process was stopped before commit. Current tunnel/menu URL is external and temporary by nature.
+
+
+## 2026-08-24 — Task board актуализирован после работы через Claude Code
+
+### Goal
+
+Shukur вернулся после паузы и сообщил, что сам продолжал проект через Claude Code. Hermes должен был подтянуть фактическое состояние `finance-tracker-backend`, понять что изменилось, проверить проект и актуализировать локальную очередь задач.
+
+### Discovery
+
+- `git fetch origin --prune` показал, что `main` синхронизирован с `origin/main` (`0	0` divergence).
+- После предыдущего Hermes-коммита `c1316d6` в `main` появились новые Claude Code/Hermes commits:
+  - `770c94f` npm audit lockfile fixes;
+  - `e5596a7`, `b975345`, `030f363`, `c0ba18f`, `6ac2ef1`, `ee76615`, `ac60890` task/docs reconciliation;
+  - `d5c74d6` transaction edit + unarchive fixes;
+  - `3fbb31d`, `f4bbe0c` parser amount magnitude and cash-withdrawal fixes;
+  - `d448f57`, `1081988` budget/analytics semantic consistency fixes;
+  - `4b567fe` seed/mobile-audit tooling repair;
+  - `2b377e1` Telegram polling conflict recovery.
+- Working tree was clean before this docs update.
+
+### Current board state after review
+
+Done/verified in the latest batch:
+
+- FT-067 — amount magnitude words;
+- FT-068 — cash withdrawal wording;
+- FT-053 — budget near-limit threshold;
+- FT-052 — analytics category breakdown semantic filter;
+- FT-064 — seed and mobile audit tooling;
+- FT-043 — local Mini App / Telegram end-to-end run documented and verified;
+- FT-070 — Telegram polling conflict recovery.
+
+Still open and safe next queue:
+
+1. FT-044 — semantic smoke scenarios on live input;
+2. FT-045 — historical semantic backfill preview (read-only only);
+3. FT-055 → FT-058 — daily screen UX/readability slices;
+4. FT-049 → FT-050 — GitHub issue/branch hygiene after product-critical local flow;
+5. FT-059 → FT-061 — design/i18n/performance polish.
+
+Still blocked/backlog by product or external-effect decisions: FT-054, FT-062, FT-063, FT-069, FT-071, FT-046, FT-048.
+
+### Verification
+
+```bash
+npm run verify
+```
+
+Result: passed — backend build, 30 Jest suites / 299 tests, 2 webapp Vitest suites / 8 tests, webapp build, dependency-cruiser, and madge circular check.
+
+### Changes
+
+- Updated `TASKS.md` Active Plan revision/date, milestone checkmarks, and next implementation queue.
+- Updated `CLAUDE.md` `Current Operating Mode` queue so future Claude Code sessions do not restart already-completed FT-067/068/053/052/064/043/070 work.
+- Appended this report entry.
