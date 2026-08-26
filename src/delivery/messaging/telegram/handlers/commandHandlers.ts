@@ -22,27 +22,22 @@ export function registerCommandHandlers(bot: Telegraf<BotContext>) {
   // /start - Welcome and onboarding
   bot.command('start', handleStart);
 
-  // /today - Today's expenses
-  bot.command('today', handleToday);
-
-  // /stats - Monthly statistics
-  bot.command('stats', handleStats);
-
-  // /budget - Budget status
-  bot.command('budget', handleBudget);
-
-  // /week, /weekly - Previous week semantic review
-  bot.command('week', handleWeeklyReview);
-  bot.command('weekly', handleWeeklyReview);
-
-  // /help - Help command
-  bot.command('help', handleHelp);
-
-  // Legacy /transactions command - redirect to webapp
-  bot.command('transactions', handleTransactions);
+  // ЗАМОРОЖЕНО 2026-08-26, см. src/frozen.ts.
+  //
+  // bot.command('today', handleToday);            // расходы за сегодня
+  // bot.command('stats', handleStats);            // статистика за месяц
+  // bot.command('budget', handleBudget);          // бюджеты (модуль заморожен)
+  // bot.command('week', handleWeeklyReview);      // еженедельный обзор
+  // bot.command('weekly', handleWeeklyReview);
+  // bot.command('help', handleHelp);              // рекламировал команды выше
+  // bot.command('transactions', handleTransactions);
+  //
+  // Продукт сжат до захвата: бот принимает голос и текст, всё остальное живёт
+  // в мини-аппе. Обработчики намеренно оставлены в файле и продолжают
+  // покрываться тестами — они вызываются напрямую, минуя регистрацию.
 }
 
-async function handleWeeklyReview(ctx: BotContext) {
+export async function handleWeeklyReview(ctx: BotContext) {
   try {
     const telegramId = String(ctx.from?.id);
     const { transactionModule, userModule } = ctx.modules;
@@ -99,7 +94,7 @@ async function handleStart(ctx: BotContext) {
 /**
  * /today - Show today's expenses summary
  */
-async function handleToday(ctx: BotContext) {
+export async function handleToday(ctx: BotContext) {
   try {
     const telegramId = String(ctx.from?.id);
     const { transactionModule, userModule } = ctx.modules;
@@ -177,7 +172,7 @@ async function handleToday(ctx: BotContext) {
 /**
  * /stats - Show monthly statistics
  */
-async function handleStats(ctx: BotContext) {
+export async function handleStats(ctx: BotContext) {
   try {
     const telegramId = String(ctx.from?.id);
     const { transactionModule, userModule } = ctx.modules;
@@ -255,7 +250,7 @@ async function handleStats(ctx: BotContext) {
 /**
  * /budget - Show budget status
  */
-async function handleBudget(ctx: BotContext) {
+export async function handleBudget(ctx: BotContext) {
   try {
     const telegramId = String(ctx.from?.id);
     const { budgetModule, userModule } = ctx.modules;
@@ -303,7 +298,7 @@ async function handleBudget(ctx: BotContext) {
 /**
  * /help - Show help with quick categories
  */
-async function handleHelp(ctx: BotContext) {
+export async function handleHelp(ctx: BotContext) {
   try {
     await ctx.reply(RU.commands.help.content, {
       parse_mode: 'HTML',
@@ -320,7 +315,7 @@ async function handleHelp(ctx: BotContext) {
 /**
  * /transactions - Legacy command, redirect to webapp
  */
-async function handleTransactions(ctx: BotContext) {
+export async function handleTransactions(ctx: BotContext) {
   try {
     const userId = String(ctx.from?.id);
     const keyboard = todayKeyboard(userId);

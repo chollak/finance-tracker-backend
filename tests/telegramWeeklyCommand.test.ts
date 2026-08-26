@@ -1,4 +1,4 @@
-import { registerCommandHandlers } from '../src/delivery/messaging/telegram/handlers/commandHandlers';
+import { registerCommandHandlers, handleWeeklyReview } from '../src/delivery/messaging/telegram/handlers/commandHandlers';
 
 describe('Telegram weekly review command', () => {
   function registerCommands() {
@@ -10,17 +10,19 @@ describe('Telegram weekly review command', () => {
     return { bot, commands };
   }
 
-  it('registers /week and /weekly commands', () => {
+  // Заморожено 2026-08-26 (src/frozen.ts): в боте остался только /start.
+  // Обработчик живёт дальше и проверяется напрямую — см. следующий тест.
+  it('does not register /week and /weekly while the product is frozen to capture', () => {
     const { commands } = registerCommands();
 
-    expect(commands.has('week')).toBe(true);
-    expect(commands.has('weekly')).toBe(true);
+    expect(commands.has('week')).toBe(false);
+    expect(commands.has('weekly')).toBe(false);
+    expect([...commands.keys()]).toEqual(['start']);
   });
 
   it('replies with previous-week semantic review for the Telegram user', async () => {
     jest.useFakeTimers().setSystemTime(new Date('2026-07-31T12:00:00.000Z'));
 
-    const { commands } = registerCommands();
     const reply = jest.fn().mockResolvedValue(undefined);
     const execute = jest.fn().mockResolvedValue([
       { amount: 50000, category: 'coffee', type: 'expense', semanticType: 'expense', needsReview: false, date: '2026-07-21', userId: 'uuid-1' },
@@ -41,7 +43,7 @@ describe('Telegram weekly review command', () => {
       },
     };
 
-    await commands.get('week')!(ctx as any);
+    await handleWeeklyReview(ctx as any);
 
     expect(execute).toHaveBeenCalledWith('uuid-1');
     expect(reply).toHaveBeenCalledWith(

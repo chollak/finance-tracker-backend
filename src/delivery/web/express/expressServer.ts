@@ -15,6 +15,10 @@ import {
   securityHeaders
 } from './middleware/errorMiddleware';
 import { AppConfig } from '../../../shared/infrastructure/config/appConfig';
+import { FROZEN_ROUTES, isRouteFrozen } from '../../../frozen';
+import { createLogger, LogCategory } from '../../../shared/infrastructure/logging';
+
+const logger = createLogger(LogCategory.SYSTEM);
 
 /**
  * Маршруты из FROZEN_ROUTES (src/frozen.ts) намеренно не регистрируются.
@@ -28,7 +32,22 @@ export function buildServer(
   subscriptionModule?: SubscriptionModule
 ) {
   const router = Router();
-  
+
+  // Список заморозки — исполняемый, а не комментарий: каждый регистрируемый путь
+  // сверяется с ним, поэтому вернуть маршрут, забыв убрать его из FROZEN_ROUTES,
+  // не получится молча.
+  const register = (path: string, handler: Router): void => {
+    if (isRouteFrozen(path)) {
+      throw new Error(
+        `Маршрут ${path} числится замороженным в src/frozen.ts, но его пытаются зарегистрировать. ` +
+        'Убери путь из FROZEN_ROUTES, если размораживаешь осознанно.'
+      );
+    }
+    router.use(path, handler);
+  };
+
+  logger.info('Заморожены маршруты', { routes: [...FROZEN_ROUTES] });
+
   // Apply middleware in correct order
   router.use(requestLogger);
   router.use(securityHeaders);
@@ -52,7 +71,7 @@ export function buildServer(
     });
   });
 
-  router.use(
+  register(
     '/transactions',
     createTransactionRouter(
       transactionModule.getCreateTransactionUseCase(),
@@ -73,7 +92,7 @@ export function buildServer(
     )
   );
 
-  router.use(
+  register(
     '/voice',
     createVoiceProcessingRouter(
       voiceModule.getProcessVoiceInputUseCase(),
@@ -88,7 +107,7 @@ export function buildServer(
 
   // User routes (optional - only if userModule is provided)
   if (userModule) {
-    router.use(
+    register(
       '/users',
       createUserController(userModule)
     );
