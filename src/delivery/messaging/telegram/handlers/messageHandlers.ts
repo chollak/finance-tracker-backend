@@ -9,7 +9,7 @@ import {
   getCategoryDisplay
 } from '../keyboards';
 import { downloadVoiceFile, cleanupFile } from '../utils';
-import { AppError } from '../../../../shared/domain/errors/AppError';
+import { AppError, ExternalServiceError } from '../../../../shared/domain/errors/AppError';
 import { DetectedDebt } from '../../../../modules/voiceProcessing/domain/processedTransaction';
 import { SubscriptionModule } from '../../../../modules/subscription/subscriptionModule';
 import { UserModule } from '../../../../modules/user/userModule';
@@ -55,6 +55,26 @@ export function setLastTransactionId(userId: string, transactionId: string): voi
  */
 export function clearLastTransactionId(userId: string): void {
   delete lastTransactions[userId];
+}
+
+/**
+ * Текст ошибки для пользователя.
+ *
+ * Сообщения AppError написаны для разработчика ('External service error: OpenAI
+ * Transcription'), поэтому наружу они не идут. Отказ внешнего сервиса — самый
+ * вероятный случай после того, как у клиента OpenAI появился потолок ожидания
+ * в 25 секунд, и он заслуживает отдельной формулировки.
+ */
+export function userFacingMessage(error: unknown): string {
+  if (error instanceof ExternalServiceError) {
+    return `❌ ${RU.errors.aiUnavailable}`;
+  }
+
+  if (error instanceof AppError) {
+    return `❌ ${error.message}`;
+  }
+
+  return RU.errors.generic;
 }
 
 /**
@@ -196,11 +216,7 @@ export function createTextMessageHandler(userModule?: UserModule, subscriptionMo
         text: text.substring(0, 50),
       });
 
-      if (error instanceof AppError) {
-        await ctx.reply(`❌ ${error.message}`);
-      } else {
-        await ctx.reply(RU.errors.generic);
-      }
+      await ctx.reply(userFacingMessage(error));
     }
   };
 }
@@ -287,7 +303,9 @@ export function createVoiceMessageHandler(userModule?: UserModule, subscriptionM
         fileId: voice.file_id,
       });
 
-      if (error instanceof AppError) {
+      if (error instanceof ExternalServiceError) {
+        await ctx.reply(`🎤❌ ${RU.errors.aiUnavailable}`);
+      } else if (error instanceof AppError) {
         await ctx.reply(`🎤❌ ${error.message}`);
       } else {
         await ctx.reply(`🎤 ${RU.errors.voiceProcessing}`);

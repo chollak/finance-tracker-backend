@@ -17,6 +17,16 @@ import { createLogger, LogCategory } from '../../../shared/infrastructure/loggin
 
 const logger = createLogger(LogCategory.OPENAI);
 
+/**
+ * Потолок ожидания одного запроса к OpenAI.
+ *
+ * Транскрипция голосового и разбор текста лежат на критическом пути ответа бота,
+ * поэтому предел выбран по терпению человека, а не по возможностям сети.
+ * Худший случай — 25 с × 2 попытки = 50 с, после чего пользователь получает ошибку.
+ */
+const OPENAI_REQUEST_TIMEOUT_MS = 25_000;
+const OPENAI_MAX_RETRIES = 1;
+
 export class OpenAITranscriptionService implements TranscriptionService {
   private openai: OpenAI;
 
@@ -25,7 +35,14 @@ export class OpenAITranscriptionService implements TranscriptionService {
     if (!key) {
       throw ErrorFactory.configuration('OpenAI API key is required');
     }
-    this.openai = new OpenAI({ apiKey: key });
+    // Дефолты SDK — timeout 600000 мс (десять минут) и maxRetries 2, то есть
+    // до получаса молчания в патологии. Человек, ждущий ответа на «такси 18 тысяч»,
+    // столько не ждёт: лучше честная ошибка через полминуты, чем тишина.
+    this.openai = new OpenAI({
+      apiKey: key,
+      timeout: OPENAI_REQUEST_TIMEOUT_MS,
+      maxRetries: OPENAI_MAX_RETRIES,
+    });
   }
 
   async transcribe(filePath: string): Promise<string> {
