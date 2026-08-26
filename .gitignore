@@ -44,3 +44,4 @@ data/patterns.json
 .DS_Store
 Thumbs.db
 data/finance.db
+.superpowers/
