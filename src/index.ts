@@ -38,17 +38,18 @@ async function startApplication() {
     // Initialize database first
     await initializeDatabase();
     
-    // debtModule и openAIUsageModule намеренно не разбираются здесь: их маршруты
-    // заморожены (src/frozen.ts). Сами модули createModules по-прежнему создаёт —
-    // debtModule нужен voiceModule, иначе фразы про долги перестанут распознаваться.
-    const { transactionModule, budgetModule, voiceModule, userModule, subscriptionModule } = createModules();
+    // debtModule, openAIUsageModule и subscriptionModule намеренно не разбираются
+    // здесь: они заморожены (src/frozen.ts). Сами модули createModules по-прежнему
+    // создаёт — debtModule нужен voiceModule, иначе фразы про долги перестанут
+    // распознаваться, а subscriptionModule нужен debtModule.
+    const { transactionModule, budgetModule, voiceModule, userModule } = createModules();
     const app = express();
 
     // Trust first proxy (nginx/docker) - required for correct IP detection in rate limiting
     // See: https://expressjs.com/en/guide/behind-proxies.html
     app.set('trust proxy', 1);
 
-    app.use('/api', buildServer(transactionModule, voiceModule, userModule, subscriptionModule));
+    app.use('/api', buildServer(transactionModule, voiceModule, userModule));
 
     const buildPath = path.join(__dirname, '../public/webapp');
     
@@ -72,7 +73,10 @@ async function startApplication() {
     app.listen(port, () => {
       logger.info('Server started', { port });
       // Start Telegram bot after HTTP server is ready
-      startTelegramBot(voiceModule, transactionModule, budgetModule, userModule, subscriptionModule);
+      // subscriptionModule не передаётся: заморожен (src/frozen.ts). Внутри есть
+      // готовая ветка без него — registerMessageHandlers:117-121 вешает обработчики
+      // без проверки лимитов, а incrementUsage:69 выходит сразу.
+      startTelegramBot(voiceModule, transactionModule, budgetModule, userModule);
     });
 
     // Handle graceful shutdown
