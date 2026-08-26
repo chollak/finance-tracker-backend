@@ -3,7 +3,7 @@ import { TransactionRepository } from '../domain/transactionRepository';
 import { Result, ResultHelper } from '../../../shared/domain/types/Result';
 import { ValidationError, BusinessLogicError } from '../../../shared/domain/errors/AppError';
 import { normalizeSemanticType } from '../domain/transactionSemanticType';
-import { normalizeNeedsReview } from '../domain/transactionEntity';
+import { normalizeNeedsReview, normalizeTransactionDate } from '../domain/transactionEntity';
 import { SubscriptionModule } from '../../subscription/subscriptionModule';
 import { UserModule } from '../../user/userModule';
 import { getLogger, LogCategory } from '../../../shared/application/logging';
@@ -47,6 +47,10 @@ export class CreateTransactionUseCase {
 
     transaction.semanticType = normalizeSemanticType(transaction.semanticType, transaction.type);
     transaction.needsReview = normalizeNeedsReview(transaction.needsReview);
+    // Единственный вход для всех создающих путей, поэтому формат даты приводится здесь.
+    // Быстрое добавление в боте кладёт полный ISO (messageHandlers.ts:421), остальные —
+    // YYYY-MM-DD; в SQL колонка сравнивается как строка, и ISO выпадает из диапазонов.
+    transaction.date = normalizeTransactionDate(transaction.date);
 
     try {
       const created = await this.primaryRepository.create(transaction);
