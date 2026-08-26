@@ -2,18 +2,11 @@ import express, { Router } from 'express';
 // Note: Using custom corsHeaders middleware instead of cors package for security
 import { TransactionModule } from '../../../modules/transaction/transactionModule';
 import { VoiceProcessingModule } from '../../../modules/voiceProcessing/voiceProcessingModule';
-import { BudgetModule } from '../../../modules/budget/budgetModule';
-import { DebtModule } from '../../../modules/debt/debtModule';
-import { OpenAIUsageModule } from '../../../modules/openai-usage/openAIUsageModule';
 import { UserModule } from '../../../modules/user/userModule';
 import { SubscriptionModule } from '../../../modules/subscription/subscriptionModule';
 import { createTransactionRouter } from '../../../modules/transaction/presentation/controllers/transactionController';
 import { createVoiceProcessingRouter } from '../../../modules/voiceProcessing/presentation/controllers/voiceProcessingController';
-import { createBudgetRouter } from '../../../modules/budget/interfaces/budgetRoutes';
-import { createDebtRouter } from '../../../modules/debt/presentation/controllers/debtRoutes';
-import { createDashboardRouter } from './routes/dashboardRoutes';
 import { createUserController } from '../../../modules/user/presentation/controllers/userController';
-import { createSubscriptionRoutes } from './routes/subscriptionRoutes';
 import {
   errorHandler,
   notFoundHandler,
@@ -23,12 +16,14 @@ import {
 } from './middleware/errorMiddleware';
 import { AppConfig } from '../../../shared/infrastructure/config/appConfig';
 
+/**
+ * Маршруты из FROZEN_ROUTES (src/frozen.ts) намеренно не регистрируются.
+ * Модули при этом продолжают конструироваться в appModules.ts — от них
+ * зависят живые части, см. комментарий в src/frozen.ts.
+ */
 export function buildServer(
   transactionModule: TransactionModule,
   voiceModule: VoiceProcessingModule,
-  budgetModule: BudgetModule,
-  debtModule: DebtModule,
-  openAIUsageModule: OpenAIUsageModule,
   userModule?: UserModule,
   subscriptionModule?: SubscriptionModule
 ) {
@@ -87,44 +82,15 @@ export function buildServer(
     )
   );
 
-  router.use(
-    '/budgets',
-    createBudgetRouter(budgetModule, userModule)
-  );
 
-  router.use(
-    '/debts',
-    createDebtRouter(debtModule, userModule)
-  );
 
-  router.use(
-    '/dashboard',
-    createDashboardRouter(
-      transactionModule.getAnalyticsService(),
-      budgetModule.budgetService,
-      subscriptionModule,
-      userModule
-    )
-  );
 
-  router.use(
-    '/openai',
-    openAIUsageModule.routes
-  );
 
   // User routes (optional - only if userModule is provided)
   if (userModule) {
     router.use(
       '/users',
       createUserController(userModule)
-    );
-  }
-
-  // Subscription routes (optional - only if both modules are provided)
-  if (subscriptionModule && userModule) {
-    router.use(
-      '/subscription',
-      createSubscriptionRoutes(subscriptionModule, userModule)
     );
   }
 

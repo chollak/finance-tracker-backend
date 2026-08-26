@@ -38,14 +38,17 @@ async function startApplication() {
     // Initialize database first
     await initializeDatabase();
     
-    const { transactionModule, budgetModule, debtModule, voiceModule, openAIUsageModule, userModule, subscriptionModule } = createModules();
+    // debtModule и openAIUsageModule намеренно не разбираются здесь: их маршруты
+    // заморожены (src/frozen.ts). Сами модули createModules по-прежнему создаёт —
+    // debtModule нужен voiceModule, иначе фразы про долги перестанут распознаваться.
+    const { transactionModule, budgetModule, voiceModule, userModule, subscriptionModule } = createModules();
     const app = express();
 
     // Trust first proxy (nginx/docker) - required for correct IP detection in rate limiting
     // See: https://expressjs.com/en/guide/behind-proxies.html
     app.set('trust proxy', 1);
 
-    app.use('/api', buildServer(transactionModule, voiceModule, budgetModule, debtModule, openAIUsageModule, userModule, subscriptionModule));
+    app.use('/api', buildServer(transactionModule, voiceModule, userModule, subscriptionModule));
 
     const buildPath = path.join(__dirname, '../public/webapp');
     
