@@ -103,13 +103,18 @@ export function startTelegramBot(
     bot.use(async (ctx, next) => {
       if (ctx.from) {
         try {
-          await userModule.getGetOrCreateUserUseCase().execute({
+          // Результат кладём в контекст, а не выбрасываем: обработчики ниже
+          // переиспользуют его вместо повторного резолва того же пользователя.
+          // На Supabase каждый getOrCreate — два round-trip (findByTelegramId
+          // и updateLastSeen), то есть раньше два из них уходили впустую.
+          const user = await userModule.getGetOrCreateUserUseCase().execute({
             telegramId: String(ctx.from.id),
             userName: ctx.from.username,
             firstName: ctx.from.first_name,
             lastName: ctx.from.last_name,
             languageCode: ctx.from.language_code,
           });
+          ctx.userUuid = user.id;
         } catch (error) {
           logger.error('Failed to getOrCreate user', error as Error);
           // Don't block the request, just log the error

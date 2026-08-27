@@ -43,6 +43,15 @@ export type PendingAction =
 export interface BotContext extends Context {
   modules: BotModules;
   session: UserSession;
+  /**
+   * UUID пользователя, полученный глобальным middleware в telegramBot.ts.
+   *
+   * Раньше middleware делал getOrCreateUser и выбрасывал результат, а обработчик
+   * резолвил того же пользователя заново. На Supabase это два лишних сетевых
+   * round-trip на каждое сообщение. Обработчики читают его через
+   * resolveUserIdForContext(), который умеет обойтись и без него.
+   */
+  userUuid?: string;
 }
 
 /**

@@ -78,6 +78,33 @@ export function userFacingMessage(error: unknown): string {
 }
 
 /**
+ * UUID пользователя для обработчика.
+ *
+ * Глобальный middleware (telegramBot.ts) уже сделал getOrCreateUser и положил
+ * результат в ctx.userUuid, поэтому обычный путь не ходит в базу вовсе.
+ * Резолв остаётся запасным вариантом: middleware мог не отработать, а часть
+ * обработчиков вызывается напрямую из тестов.
+ *
+ * Отказ резолва не роняет обработку — возвращается telegramId, как было раньше.
+ */
+export async function resolveUserIdForContext(
+  ctx: BotContext,
+  userModule?: UserModule
+): Promise<string> {
+  const telegramId = String(ctx.from?.id ?? 'unknown');
+
+  if (ctx.userUuid) return ctx.userUuid;
+  if (!userModule) return telegramId;
+
+  try {
+    return await resolveUserIdToUUID(telegramId, userModule);
+  } catch (error) {
+    logger.error('Failed to resolve userId in handler', error as Error);
+    return telegramId;
+  }
+}
+
+/**
  * Helper to increment usage counter (fire and forget)
  */
 async function incrementUsage(
@@ -151,18 +178,9 @@ export function createTextMessageHandler(userModule?: UserModule, subscriptionMo
     // Skip commands
     if (text.startsWith('/')) return;
 
-    const telegramId = String(ctx.from?.id ?? 'unknown');
     const userName = `${ctx.from?.first_name || ''} ${ctx.from?.last_name || ''}`.trim() || 'User';
 
-    // Resolve telegramId to UUID if userModule is available
-    let userId = telegramId;
-    if (userModule) {
-      try {
-        userId = await resolveUserIdToUUID(telegramId, userModule);
-      } catch (error) {
-        logger.error('Failed to resolve userId in text handler', error as Error);
-      }
-    }
+    const userId = await resolveUserIdForContext(ctx, userModule);
 
     try {
       // Handle Quick Add - awaiting amount after category selection
@@ -226,19 +244,10 @@ export function createTextMessageHandler(userModule?: UserModule, subscriptionMo
  */
 export function createVoiceMessageHandler(userModule?: UserModule, subscriptionModule?: SubscriptionModule) {
   return async function handleVoiceMessage(ctx: BotContext) {
-    const telegramId = String(ctx.from?.id ?? 'unknown');
     const userName = `${ctx.from?.first_name || ''} ${ctx.from?.last_name || ''}`.trim() || 'User';
     let filePath: string | undefined;
 
-    // Resolve telegramId to UUID if userModule is available
-    let userId = telegramId;
-    if (userModule) {
-      try {
-        userId = await resolveUserIdToUUID(telegramId, userModule);
-      } catch (error) {
-        logger.error('Failed to resolve userId in voice handler', error as Error);
-      }
-    }
+    const userId = await resolveUserIdForContext(ctx, userModule);
 
     const voice = ctx.message && 'voice' in ctx.message ? ctx.message.voice : null;
     if (!voice) {
