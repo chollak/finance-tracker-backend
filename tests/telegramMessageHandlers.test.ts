@@ -9,7 +9,9 @@ describe('Telegram message handlers', () => {
     });
     const reply = jest.fn().mockResolvedValue(undefined);
     const sendChatAction = jest.fn().mockResolvedValue(undefined);
-    const getUserTransactionsExecute = jest.fn().mockResolvedValue([]);
+    // Сводка ходит через getRepository().getByUserIdAndDateRange — весь месяц
+    // одним запросом вместо всей истории (tests/todaySummaryScope.test.ts).
+    const getByUserIdAndDateRange = jest.fn().mockResolvedValue([]);
 
     const ctx = {
       message: { text: 'кофе 15000' },
@@ -22,13 +24,13 @@ describe('Telegram message handlers', () => {
           getProcessTextInputUseCase: () => ({ execute }),
         },
         transactionModule: {
-          getGetUserTransactionsUseCase: () => ({ execute: getUserTransactionsExecute }),
+          getRepository: () => ({ getByUserIdAndDateRange }),
         },
       },
       ...overrides,
     };
 
-    return { ctx, execute, reply, sendChatAction, getUserTransactionsExecute };
+    return { ctx, execute, reply, sendChatAction, getByUserIdAndDateRange };
   }
 
   it('shows Telegram typing action before processing a text finance message', async () => {
@@ -71,7 +73,9 @@ describe('Telegram message handlers', () => {
       }],
       debts: [],
     });
-    const getUserTransactionsExecute = jest.fn().mockResolvedValue([
+    // Сводка берёт транзакции через getRepository().getByUserIdAndDateRange:
+    // весь месяц одним запросом вместо всей истории (см. tests/todaySummaryScope.test.ts).
+    const getByUserIdAndDateRange = jest.fn().mockResolvedValue([
       { amount: 45000, type: 'expense', semanticType: 'expense', needsReview: false, date: '2026-07-31T10:00:00.000Z' },
       { amount: 500000, type: 'expense', semanticType: 'own_transfer', needsReview: false, date: '2026-07-31T11:00:00.000Z' },
       { amount: 400000, type: 'expense', semanticType: 'expense', needsReview: true, date: '2026-07-31T11:30:00.000Z' },
@@ -83,7 +87,7 @@ describe('Telegram message handlers', () => {
           getProcessTextInputUseCase: () => ({ execute }),
         },
         transactionModule: {
-          getGetUserTransactionsUseCase: () => ({ execute: getUserTransactionsExecute }),
+          getRepository: () => ({ getByUserIdAndDateRange }),
         },
       },
     });
