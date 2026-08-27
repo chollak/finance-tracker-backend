@@ -4,7 +4,9 @@ import { BotContext, ProcessedTransaction } from '../types';
 import { RU, formatAmount } from '../i18n/ru';
 import { formatTransactionMessage } from '../formatters';
 import {
-  transactionConfirmationKeyboard,
+  // transactionConfirmationKeyboard больше не используется: подтверждение снято
+  // (см. sendTransactionResponse). Сама клавиатура оставлена в keyboards/ —
+  // она пригодится, если решение придётся отыграть назад.
   transactionAutoSavedKeyboard,
   getCategoryDisplay
 } from '../keyboards';
@@ -335,7 +337,7 @@ export function createVoiceMessageHandler(userModule?: UserModule, subscriptionM
 /**
  * Send transaction response with appropriate keyboard
  */
-async function sendTransactionResponse(
+export async function sendTransactionResponse(
   ctx: BotContext,
   tx: ProcessedTransaction,
   originalText: string,
@@ -355,9 +357,14 @@ async function sendTransactionResponse(
     summary?.monthTotal
   );
 
-  const keyboard = needsConfirmation
-    ? transactionConfirmationKeyboard(tx.id, userId)
-    : transactionAutoSavedKeyboard(tx.id, userId);
+  // Подтверждение снято намеренно. Транзакция уже сохранена к этому моменту —
+  // и при высокой уверенности, и при низкой, — поэтому кнопка «подтвердить»
+  // добавляла действие, ничего не меняя. Один лишний шаг в каждом неуверенном
+  // случае стоит дороже, чем ошибки, которые он ловил.
+  //
+  // Сигнал не потерян: needsConfirmation по-прежнему уходит в
+  // formatTransactionMessage и подсвечивает низкую уверенность в тексте карточки.
+  const keyboard = transactionAutoSavedKeyboard(tx.id, userId);
 
   await ctx.reply(message, {
     parse_mode: 'HTML',
