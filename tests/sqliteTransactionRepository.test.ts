@@ -96,6 +96,34 @@ describe('SqliteTransactionRepository.create', () => {
   });
 });
 
+describe('SqliteTransactionRepository и канал захвата', () => {
+  it('сохраняет source и читает его обратно', async () => {
+    const repository = new SqliteTransactionRepository();
+
+    const created = await repository.create({
+      amount: 18000,
+      type: 'expense',
+      description: 'Такси',
+      date: '2026-08-27',
+      category: 'taxi',
+      userId: 'u-1',
+      source: 'shortcut',
+    } as any);
+
+    expect(created.source).toBe('shortcut');
+  });
+
+  it('не ломается на строках, созданных до появления поля', async () => {
+    const repository = new SqliteTransactionRepository();
+
+    // В store фикстура без source — так выглядят все записи до 2026-08-27.
+    const found = await repository.findById('tx-1');
+
+    expect(found).not.toBeNull();
+    expect(found!.source).toBeUndefined();
+  });
+});
+
 describe('SqliteTransactionRepository.update', () => {
   it('persists a corrected category', async () => {
     const repository = new SqliteTransactionRepository();

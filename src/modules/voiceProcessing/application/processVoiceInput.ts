@@ -126,6 +126,7 @@ export class ProcessVoiceInputUseCase {
             needsReview,
             userId: input.userId.trim(),
             userName: input.userName?.trim() || input.userId.trim(),
+            source: input.source ?? 'telegram',
             merchant: p.merchant,
             confidence: p.confidence,
             originalText: recognizedText,

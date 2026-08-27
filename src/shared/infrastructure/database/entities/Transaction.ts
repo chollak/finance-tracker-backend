@@ -28,6 +28,11 @@ export class Transaction {
   @Column({ type: 'date' })
   date!: string;
 
+  // Канал захвата: telegram | shortcut | webapp. Nullable — у строк, созданных
+  // до появления поля, его нет, и это нормально.
+  @Column({ nullable: true })
+  source?: string;
+
   @Column({ nullable: true })
   merchant?: string;
 

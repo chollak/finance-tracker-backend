@@ -100,6 +100,44 @@ describe('SupabaseTransactionRepository column mapping', () => {
     expect(inserted).not.toHaveProperty('userId');
   });
 
+  it('пишет канал захвата в ту же колонку, что и SQLite', async () => {
+    nextResult = { data: { ...ROW, source: 'shortcut' }, error: null };
+    const repository = new SupabaseTransactionRepository();
+
+    await repository.create({
+      amount: 18000,
+      type: 'expense',
+      description: 'Такси',
+      date: '2026-08-27',
+      category: 'taxi',
+      userId: 'u-1',
+      source: 'shortcut',
+    } as any);
+
+    const [, inserted] = callsOf('insert')[0] as [string, Record<string, unknown>];
+    // Колонку добавляет migrations/009_add_transaction_source.sql. Пока она
+    // не применена, вставка в Supabase упадёт — это записано в самой миграции.
+    expect(inserted.source).toBe('shortcut');
+  });
+
+  it('читает канал захвата обратно в доменную форму', async () => {
+    nextResult = { data: { ...ROW, source: 'webapp' }, error: null };
+    const repository = new SupabaseTransactionRepository();
+
+    const found = await repository.findById('tx-1');
+
+    expect(found!.source).toBe('webapp');
+  });
+
+  it('оставляет source пустым у строк, созданных до появления колонки', async () => {
+    nextResult = { data: ROW, error: null };
+    const repository = new SupabaseTransactionRepository();
+
+    const found = await repository.findById('tx-1');
+
+    expect(found!.source).toBeUndefined();
+  });
+
   it('writes the debt link both repositories are expected to keep', async () => {
     nextResult = { data: ROW, error: null };
     const repository = new SupabaseTransactionRepository();

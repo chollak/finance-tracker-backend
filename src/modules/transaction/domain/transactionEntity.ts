@@ -1,5 +1,15 @@
 import { TransactionSemanticType } from './transactionSemanticType';
 
+/**
+ * Канал, через который транзакция попала в систему.
+ *
+ * Единственное поле, добавленное отрезком «сжатие до ядра захвата»: остальное
+ * (originalText, confidence, originalParsing, needsReview, merchant, semanticType)
+ * в сущности уже было. Нужно, чтобы отличать каналы, когда рядом с ботом появится
+ * Apple Shortcut, а позже — возможно, нативное приложение.
+ */
+export type TransactionSource = 'telegram' | 'shortcut' | 'webapp';
+
 export interface Transaction {
     id?: string;
     date: string;
@@ -13,6 +23,8 @@ export interface Transaction {
     userName?: string;
     // Timestamps
     createdAt?: string; // ISO datetime string for time display
+    /** Откуда пришла запись. По умолчанию telegram — исторически единственный канал. */
+    source?: TransactionSource;
     // Enhanced fields for learning
     merchant?: string;
     confidence?: number;

@@ -2,7 +2,7 @@ import { ProcessedTransaction, DetectedTransaction, DetectedDebt } from '../doma
 import { TranscriptionService } from '../domain/transcriptionService';
 import { CreateTransactionUseCase } from '../../transaction/application/createTransaction';
 import { CreateDebtUseCase } from '../../debt/application/createDebt';
-import { Transaction } from '../../transaction/domain/transactionEntity';
+import { Transaction, TransactionSource } from '../../transaction/domain/transactionEntity';
 import { DebtType } from '../../debt/domain/debtEntity';
 import { DebtLimitExceededError } from '../../debt/domain/errors';
 import { getLogger, LogCategory } from '../../../shared/application/logging';
@@ -172,7 +172,12 @@ export class ProcessTextInputUseCase {
     private createDebtUseCase?: CreateDebtUseCase
   ) {}
 
-  async execute(text: string, userId: string, userName?: string): Promise<ProcessedTransaction> {
+  async execute(
+    text: string,
+    userId: string,
+    userName?: string,
+    source: TransactionSource = 'telegram'
+  ): Promise<ProcessedTransaction> {
     const fastParsed = parseObviousSemanticTransaction(text) || parseSimpleTextTransaction(text);
 
     // Сырьё для будущего решения о стоп-словах. Само по себе ничего не меняет:
@@ -204,6 +209,7 @@ export class ProcessTextInputUseCase {
           needsReview,
           userId,
           userName,
+          source,
           merchant: p.merchant,
           confidence: p.confidence,
           originalText: text,
