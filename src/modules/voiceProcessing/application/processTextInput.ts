@@ -118,6 +118,53 @@ function parseSimpleTextTransaction(text: string): AnalysisResult | null {
   return { transactions: [transaction], debts: [] };
 }
 
+/**
+ * Почему фраза не прошла быстрым путём и ушла в OpenAI.
+ *
+ * Только наблюдение: ничего не решает и на разбор не влияет. Нужно, чтобы
+ * решение о сужении стоп-слов принималось по данным, а не на глаз — знать долю
+ * ухода в сеть мало, надо знать, какой именно гард её создаёт.
+ *
+ * Гарды перечислены в том же порядке, в каком их проверяют оба быстрых парсера.
+ */
+export type FastPathBlocker =
+  /** Любой из символов .!?; — реагирует и на точку в конце, из-за чего сюда попадают транскрипты Whisper. */
+  | 'punctuation'
+  /** Стоп-слова COMPLEX_TEXT_WORDS_PATTERN: за, по, и, купил, взял и прочие частые слова. */
+  | 'complex-words'
+  /** Фраза похожа на долг — быстрый путь их намеренно не разбирает. */
+  | 'debt-keywords'
+  /** В тексте вообще нет цифр. */
+  | 'no-number'
+  /** Число есть, но parseAmount отказался: ему нужно ещё и описание рядом ('5000', '200 тысяч'). */
+  | 'amount-without-label'
+  /** Гарды пройдены и сумма разобрана, но ни один быстрый парсер не собрал транзакцию. */
+  | 'not-classified';
+
+export function describeFastPathBlocker(text: string): FastPathBlocker | null {
+  const normalizedText = text.trim().replace(/\s+/g, ' ');
+
+  if (COMPLEX_TEXT_MARKERS_PATTERN.test(normalizedText)) return 'punctuation';
+  if (COMPLEX_TEXT_WORDS_PATTERN.test(normalizedText)) return 'complex-words';
+  if (DEBT_KEYWORDS_PATTERN.test(normalizedText)) return 'debt-keywords';
+
+  const parsedAmount = parseAmount(normalizedText);
+  if (!parsedAmount) {
+    // Оговорка: суммы прописью ('двести тысяч') попадут в no-number, потому что
+    // проверка простая. Для решения о стоп-словах это не мешает — важна доля
+    // punctuation и complex-words, а они определяются точно.
+    return /\d/.test(normalizedText) ? 'amount-without-label' : 'no-number';
+  }
+
+  // Сумма есть и гарды пройдены, но ни семантический, ни простой парсер не собрал
+  // транзакцию — например, после числа не осталось текста для категории.
+  if (!parseObviousSemanticTransaction(text) && !parseSimpleTextTransaction(text)) {
+    return 'not-classified';
+  }
+
+  return null;
+}
+
 export class ProcessTextInputUseCase {
   constructor(
     private openAIService: TranscriptionService,
@@ -126,10 +173,17 @@ export class ProcessTextInputUseCase {
   ) {}
 
   async execute(text: string, userId: string, userName?: string): Promise<ProcessedTransaction> {
-    const parsed = parseObviousSemanticTransaction(text)
-      || parseSimpleTextTransaction(text)
-      // Fall back to OpenAI for complex/natural-language inputs and debts.
-      || await this.openAIService.analyzeInput(text);
+    const fastParsed = parseObviousSemanticTransaction(text) || parseSimpleTextTransaction(text);
+
+    // Сырьё для будущего решения о стоп-словах. Само по себе ничего не меняет:
+    // доля ухода в сеть плюс причина, по которой быстрый путь оказался закрыт.
+    logger.info('Разбор текста', {
+      path: fastParsed ? 'fast' : 'openai',
+      blocker: fastParsed ? undefined : describeFastPathBlocker(text),
+    });
+
+    // Fall back to OpenAI for complex/natural-language inputs and debts.
+    const parsed = fastParsed || await this.openAIService.analyzeInput(text);
 
     const transactionResults: DetectedTransaction[] = [];
     const debtResults: DetectedDebt[] = [];
