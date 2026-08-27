@@ -178,6 +178,11 @@ export function createTextMessageHandler(userModule?: UserModule, subscriptionMo
     // Skip commands
     if (text.startsWith('/')) return;
 
+    // Индикатор — до резолва пользователя и до любых обращений к базе.
+    // Общее время он не меняет, но пауза «бот меня вообще услышал?» равна
+    // не всей задержке, а первым сотням миллисекунд, в которые ничего не видно.
+    await sendProcessingFeedback(ctx);
+
     const userName = `${ctx.from?.first_name || ''} ${ctx.from?.last_name || ''}`.trim() || 'User';
 
     const userId = await resolveUserIdForContext(ctx, userModule);
@@ -185,7 +190,6 @@ export function createTextMessageHandler(userModule?: UserModule, subscriptionMo
     try {
       // Handle Quick Add - awaiting amount after category selection
       if (ctx.session?.pendingAction?.type === 'awaiting_amount') {
-        await sendProcessingFeedback(ctx);
         await handleQuickAddAmount(ctx, text, userId, userName, subscriptionModule);
         return;
       }
@@ -196,8 +200,6 @@ export function createTextMessageHandler(userModule?: UserModule, subscriptionMo
       }
 
       const { voiceModule, transactionModule } = ctx.modules;
-
-      await sendProcessingFeedback(ctx);
 
       // Process text input
       const result = await voiceModule.getProcessTextInputUseCase().execute(text, userId, userName);
@@ -244,20 +246,22 @@ export function createTextMessageHandler(userModule?: UserModule, subscriptionMo
  */
 export function createVoiceMessageHandler(userModule?: UserModule, subscriptionModule?: SubscriptionModule) {
   return async function handleVoiceMessage(ctx: BotContext) {
-    const userName = `${ctx.from?.first_name || ''} ${ctx.from?.last_name || ''}`.trim() || 'User';
-    let filePath: string | undefined;
-
-    const userId = await resolveUserIdForContext(ctx, userModule);
-
     const voice = ctx.message && 'voice' in ctx.message ? ctx.message.voice : null;
     if (!voice) {
       await ctx.reply(RU.errors.voiceProcessing);
       return;
     }
 
-    try {
-      await sendProcessingFeedback(ctx);
+    // Индикатор — сразу после дешёвой проверки и до резолва пользователя.
+    // У голоса путь ещё длиннее: скачивание файла, ffmpeg, Whisper, разбор.
+    await sendProcessingFeedback(ctx);
 
+    const userName = `${ctx.from?.first_name || ''} ${ctx.from?.last_name || ''}`.trim() || 'User';
+    let filePath: string | undefined;
+
+    const userId = await resolveUserIdForContext(ctx, userModule);
+
+    try {
       // Get file link from Telegram
       const fileLink = await ctx.telegram.getFileLink(voice.file_id);
 
