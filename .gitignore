@@ -49,3 +49,5 @@ data/finance.db
 # Сборка нового мини-аппа; переключение на public/webapp — задача 12 фазы 2
 public/webapp-next/
 webapp-next/node_modules/
+webapp-next/.env.local
+webapp-next/.env
