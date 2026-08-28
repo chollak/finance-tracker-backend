@@ -219,7 +219,7 @@ describe('Transaction API route boundaries', () => {
 
     const res = await fetch(`${baseUrl}/api/transactions/tx-guest`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Dev-User-Id': '131184740' },
       body: JSON.stringify({}),
     });
 
@@ -241,7 +241,7 @@ describe('Transaction API route boundaries', () => {
 
     const res = await fetch(`${baseUrl}/api/transactions`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Dev-User-Id': '131184740' },
       body: JSON.stringify({
         amount: 500000,
         category: 'transfer',
@@ -261,7 +261,7 @@ describe('Transaction API route boundaries', () => {
   it('rejects an invalid semanticType on create with 400 and does not call the create use case', async () => {
     const res = await fetch(`${baseUrl}/api/transactions`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Dev-User-Id': '131184740' },
       body: JSON.stringify({
         amount: 100,
         category: 'food',
@@ -291,7 +291,7 @@ describe('Transaction API route boundaries', () => {
 
     const res = await fetch(`${baseUrl}/api/transactions/tx-guest`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Dev-User-Id': '131184740' },
       body: JSON.stringify({ semanticType: 'saving_deposit' }),
     });
 
@@ -310,7 +310,7 @@ describe('Transaction API route boundaries', () => {
 
     const res = await fetch(`${baseUrl}/api/transactions`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Dev-User-Id': '131184740' },
       body: JSON.stringify({
         amount: 100,
         category: 'food',
@@ -334,7 +334,7 @@ describe('Transaction API route boundaries', () => {
 
     const res = await fetch(`${baseUrl}/api/transactions`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Dev-User-Id': '131184740' },
       body: JSON.stringify({
         amount: 100,
         category: 'food',
@@ -354,7 +354,7 @@ describe('Transaction API route boundaries', () => {
   it('rejects a non-boolean needsReview on create with 400 and does not call the create use case', async () => {
     const res = await fetch(`${baseUrl}/api/transactions`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Dev-User-Id': '131184740' },
       body: JSON.stringify({
         amount: 100,
         category: 'food',
@@ -384,7 +384,7 @@ describe('Transaction API route boundaries', () => {
 
     const res = await fetch(`${baseUrl}/api/transactions/tx-guest`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Dev-User-Id': '131184740' },
       body: JSON.stringify({ needsReview: true }),
     });
 

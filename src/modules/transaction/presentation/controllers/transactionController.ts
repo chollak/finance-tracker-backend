@@ -25,6 +25,7 @@ import { allowGuestMode, optionalAuth, verifyOwnership, requireAdmin } from '../
 import { standardRateLimiter } from '../../../../delivery/web/express/middleware/rateLimitMiddleware';
 import { verifyResourceOwnership } from '../../../../shared/infrastructure/utils/ownershipVerification';
 import { createLogger, LogCategory } from '../../../../shared/infrastructure/logging';
+import { resolveUserIdToUUID } from '../../../../shared/application/helpers/userIdResolver';
 // Import for type extensions on Express.Request
 import '../../../../delivery/web/express/middleware/authMiddleware';
 import '../../../../delivery/web/express/middleware/userResolutionMiddleware';
@@ -209,16 +210,39 @@ export function createTransactionRouter(
     }
   });
 
-  // Build middleware chain for POST - resolveUser + increment middleware
+  // Цепочка для POST. allowGuestMode обязателен: без него маршрут не проверял
+  // вообще ничего — стоял один resolveUser, который просто резолвит userId
+  // из тела и пропускает дальше, поэтому анонимный запрос с чужим userId
+  // создавал запись в чужом аккаунте.
   const postMiddlewares = incrementTransactionMiddleware
-    ? [resolveUser, incrementTransactionMiddleware]
-    : [resolveUser];
+    ? [allowGuestMode, resolveUser, incrementTransactionMiddleware]
+    : [allowGuestMode, resolveUser];
 
   router.post('/', ...postMiddlewares, async (req, res) => {
     try {
-      // Use resolved UUID from middleware (for body.userId)
-      if (req.resolvedUser?.id && req.body.userId) {
+      // Личность берётся из initData, а не из тела. userId, присланный клиентом,
+      // не является утверждением о том, кто он.
+      //
+      // Одной проверки владения тут мало: verifyOwnership сравнивает
+      // resolvedUser.telegramId с аутентифицированным, но при UUID в теле
+      // userResolutionMiddleware:128 ставит telegramId: null, и условие
+      // на authMiddleware:320 становится ложным — подставленный чужой UUID
+      // проходит насквозь. Поэтому значение не проверяется, а перезаписывается.
+      if (req.telegramUser) {
+        const authTelegramId = String(req.telegramUser.id);
+        req.body.userId = userModule
+          ? await resolveUserIdToUUID(authTelegramId, userModule)
+          : authTelegramId;
+      } else if (req.resolvedUser?.isGuest) {
+        // Гость работает со своими локальными данными, чужого аккаунта у него нет.
         req.body.userId = req.resolvedUser.id;
+      } else {
+        // allowGuestMode гарантирует одно из двух выше. Сюда попасть нельзя,
+        // но если попали — отказываем, а не создаём запись неизвестно кому.
+        return handleControllerError(
+          ErrorFactory.validation('Не удалось определить пользователя'),
+          res
+        );
       }
 
       // Validate input using our new validation system
