@@ -1,0 +1,78 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&display=swap">
+  <style>
+    body { margin: 0; font-family: 'Onest', system-ui, -apple-system, sans-serif; }
+    a { color: oklch(9.6% 0 0); } a:hover { color: oklch(40% 0 0); }
+    .num { font-variant-numeric: tabular-nums; }
+    .row { display: flex; align-items: center; min-height: 58px; padding: 0 18px; gap: 12px; }
+    .k { font-size: 16px; letter-spacing: -0.01em; }
+    .v { font-size: 16px; color: oklch(53.2% 0 0); letter-spacing: -0.01em; }
+    .hr { height: 1px; background: oklch(92% 0 0); margin-left: 18px; }
+  </style>
+</helmet>
+
+<div style="width: 390px; height: 844px; background: oklch(95% 0 0); color: oklch(9.6% 0 0); display: flex; flex-direction: column; overflow: hidden;">
+
+  <div style="height: 52px; flex-shrink: 0;"></div>
+
+  <!-- Шапка листа: отмена слева, действие справа. Как в форме, которая тебе нравится -->
+  <div style="display: flex; align-items: center; justify-content: space-between; padding: 0 18px; height: 52px; flex-shrink: 0;">
+    <div style="min-width: 44px; height: 44px; display: flex; align-items: center; font-size: 16px; color: oklch(53.2% 0 0);">Отмена</div>
+    <div style="font-size: 16.5px; font-weight: 700; letter-spacing: -0.01em;">Трата</div>
+    <div style="min-width: 44px; height: 44px; display: flex; align-items: center; justify-content: flex-end; font-size: 16px; font-weight: 700;">Готово</div>
+  </div>
+
+  <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 22px; padding: 18px 16px 0;">
+
+    <!-- Сгруппированный список. Поля ровно те, что у продукта есть.
+         «Payment» из SyncSpend нет: способов оплаты в продукте не существует -->
+    <div style="background: oklch(100% 0 0); border-radius: 16px; overflow: hidden;">
+      <div class="row">
+        <div class="k" style="flex-grow: 1;">Корзинка</div>
+      </div>
+      <div class="hr"></div>
+      <div class="row">
+        <div class="k" style="flex-grow: 1;">Сумма</div>
+        <!-- Без копеек: у сума их на практике нет, а число и так длинное -->
+        <div class="num" style="font-size: 16px; font-weight: 700; letter-spacing: -0.015em;">450 000</div>
+        <div class="v" style="font-size: 14px;">сум</div>
+      </div>
+      <div class="hr"></div>
+      <div class="row">
+        <div class="k" style="flex-grow: 1;">Категория</div>
+        <div class="v">Продукты</div>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="oklch(65% 0 0)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 9l4-4 4 4"></path><path d="M16 15l-4 4-4-4"></path></svg>
+      </div>
+      <div class="hr"></div>
+      <div class="row">
+        <div class="k" style="flex-grow: 1;">Дата</div>
+        <div style="padding: 7px 13px; border-radius: 9999px; background: oklch(93% 0 0); font-size: 15px; font-weight: 500;">27 авг 2026</div>
+      </div>
+    </div>
+
+    <!-- Исходная фраза: видно, из чего парсер вывел категорию -->
+    <div style="background: oklch(100% 0 0); border-radius: 16px; padding: 15px 18px; display: flex; flex-direction: column; gap: 4px;">
+      <div style="font-size: 12.5px; color: oklch(60% 0 0);">Записано с фразы</div>
+      <div style="font-size: 15.5px; letter-spacing: -0.01em;">«корзинка 450 тысяч»</div>
+    </div>
+
+    <div style="background: oklch(100% 0 0); border-radius: 16px; overflow: hidden;">
+      <div class="row">
+        <div style="flex-grow: 1; font-size: 16px; color: oklch(48% 0.16 25);">Удалить трату</div>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>

@@ -1,0 +1,124 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&display=swap">
+  <style>
+    body { margin: 0; font-family: 'Onest', system-ui, -apple-system, sans-serif; }
+    a { color: oklch(9.6% 0 0); } a:hover { color: oklch(40% 0 0); }
+    .num { font-variant-numeric: tabular-nums; font-feature-settings: 'tnum'; }
+    .phone { width: 390px; background: oklch(96.5% 0 0); border-radius: 26px; overflow: hidden; border: 1px solid oklch(89% 0 0); padding-bottom: 22px; }
+    .card { background: oklch(100% 0 0); border-radius: 24px; padding: 20px 20px 16px; margin: 0 16px; display: flex; flex-direction: column; gap: 18px; }
+    .lbl { font-size: 13px; font-weight: 600; color: oklch(53.2% 0 0); letter-spacing: 0.02em; }
+    .cap { font-size: 12.5px; line-height: 1.5; color: oklch(53.2% 0 0); max-width: 390px; }
+    .cap-title { font-size: 13.5px; font-weight: 500; color: oklch(53.2% 0 0); }
+    .row { display: flex; align-items: center; gap: 12px; min-height: 56px; }
+    .ico { width: 38px; height: 38px; flex-shrink: 0; border-radius: 11px; background: oklch(95.3% 0 0); }
+    .nm { flex-grow: 1; font-size: 15px; font-weight: 700; letter-spacing: -0.01em; }
+    .am { font-size: 15px; font-weight: 700; white-space: nowrap; letter-spacing: -0.015em; }
+    .sep { height: 1px; background: oklch(93% 0 0); margin-left: 50px; }
+    .feed { background: oklch(100% 0 0); border-radius: 20px; padding: 4px 14px; margin: 0 16px; }
+    .grid { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: space-between; }
+    .gl { height: 1px; background: oklch(92% 0 0); }
+    .bars { position: absolute; inset: 0; display: flex; align-items: flex-end; gap: 9px; padding: 0 2px; }
+    .bar { flex-grow: 1; background: oklch(9.6% 0 0); border-radius: 3px; }
+    .axis { width: 34px; flex-shrink: 0; height: 92px; display: flex; flex-direction: column; justify-content: space-between; font-size: 10.5px; color: oklch(64% 0 0); text-align: right; }
+    .days { display: flex; gap: 9px; padding-right: 44px; font-size: 11px; font-weight: 500; color: oklch(64% 0 0); }
+    .day { flex-grow: 1; text-align: center; }
+  </style>
+</helmet>
+
+<div style="width: 900px; padding: 40px; background: oklch(100% 0 0); display: flex; flex-direction: column; gap: 26px; box-sizing: border-box; color: oklch(9.6% 0 0);">
+
+  <div style="display: flex; flex-direction: column; gap: 6px;">
+    <div style="font-size: 19px; font-weight: 700; letter-spacing: -0.02em;">Проверка на разбросе величин</div>
+    <div class="cap" style="max-width: 780px;">Суммы в сумах занимают до тринадцати знаков с разделителями — против шести у долларовых приложений. Композиция обязана держать оба края без переносов и без прыжков вёрстки. Ось графика подписана компактно, иначе «6 000 000» съедает четверть карточки.</div>
+  </div>
+
+  <div style="display: flex; gap: 40px;">
+
+    <div style="display: flex; flex-direction: column; gap: 12px;">
+      <div class="lbl">Начало месяца · 6 знаков</div>
+      <div class="phone">
+        <div style="height: 36px;"></div>
+        <div class="card">
+          <div style="display: flex; flex-direction: column; gap: 5px;">
+            <div class="cap-title">Потрачено в августе</div>
+            <div style="display: flex; align-items: baseline; gap: 6px;">
+              <div class="num" style="font-size: 52px; font-weight: 800; letter-spacing: -0.035em; line-height: 1.05;">57 000</div>
+              <div style="font-size: 16px; font-weight: 500; color: oklch(53.2% 0 0);">сум</div>
+            </div>
+          </div>
+          <div style="display: flex; gap: 10px;">
+            <div style="flex-grow: 1; position: relative; height: 92px;">
+              <div class="grid"><div class="gl"></div><div class="gl"></div><div class="gl"></div><div class="gl"></div></div>
+              <div class="bars">
+                <div class="bar" style="height: 0%;"></div><div class="bar" style="height: 0%;"></div><div class="bar" style="height: 0%;"></div><div class="bar" style="height: 0%;"></div>
+                <div class="bar" style="height: 44%;"></div><div class="bar" style="height: 4%;"></div><div class="bar" style="height: 82%;"></div>
+              </div>
+            </div>
+            <div class="num axis"><div style="transform: translateY(-5px);">45К</div><div style="transform: translateY(-5px);">30К</div><div style="transform: translateY(-5px);">15К</div><div style="transform: translateY(-5px);">0</div></div>
+          </div>
+          <div class="days"><div class="day">Пн</div><div class="day">Вт</div><div class="day">Ср</div><div class="day">Чт</div><div class="day">Пт</div><div class="day">Сб</div><div class="day">Вс</div></div>
+        </div>
+        <div style="height: 22px;"></div>
+        <div style="font-size: 14px; font-weight: 500; color: oklch(53.2% 0 0); padding-left: 20px; margin-bottom: 9px;">Сегодня</div>
+        <div class="feed">
+          <div class="row"><div class="ico"></div><div class="nm">Кофе</div><div class="num am">25 000</div></div>
+          <div class="sep"></div>
+          <div class="row"><div class="ico"></div><div class="nm">Метро</div><div class="num am">2 000</div></div>
+        </div>
+      </div>
+      <div class="cap">Знаков мало — цифра встаёт на 52px. Пустые дни остаются пустыми: ложных столбиков не рисуем, иначе неделя выглядит прожитой, когда она только началась.</div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 12px;">
+      <div class="lbl">Конец месяца · 13 знаков</div>
+      <div class="phone">
+        <div style="height: 36px;"></div>
+        <div class="card">
+          <div style="display: flex; flex-direction: column; gap: 5px;">
+            <div class="cap-title">Потрачено в августе</div>
+            <div style="display: flex; align-items: baseline; gap: 6px;">
+              <div class="num" style="font-size: 40px; font-weight: 800; letter-spacing: -0.03em; line-height: 1.05;">54 124 654</div>
+              <div style="font-size: 15px; font-weight: 500; color: oklch(53.2% 0 0);">сум</div>
+            </div>
+          </div>
+          <div style="display: flex; gap: 10px;">
+            <div style="flex-grow: 1; position: relative; height: 92px;">
+              <div class="grid"><div class="gl"></div><div class="gl"></div><div class="gl"></div><div class="gl"></div></div>
+              <div class="bars">
+                <div class="bar" style="height: 30%;"></div><div class="bar" style="height: 55%;"></div><div class="bar" style="height: 20%;"></div><div class="bar" style="height: 79%;"></div>
+                <div class="bar" style="height: 42%;"></div><div class="bar" style="height: 8%;"></div><div class="bar" style="height: 63%;"></div>
+              </div>
+            </div>
+            <div class="num axis"><div style="transform: translateY(-5px);">6М</div><div style="transform: translateY(-5px);">4М</div><div style="transform: translateY(-5px);">2М</div><div style="transform: translateY(-5px);">0</div></div>
+          </div>
+          <div class="days"><div class="day">Пн</div><div class="day">Вт</div><div class="day">Ср</div><div class="day">Чт</div><div class="day">Пт</div><div class="day">Сб</div><div class="day">Вс</div></div>
+        </div>
+        <div style="height: 22px;"></div>
+        <div style="font-size: 14px; font-weight: 500; color: oklch(53.2% 0 0); padding-left: 20px; margin-bottom: 9px;">Сегодня</div>
+        <div class="feed">
+          <div class="row"><div class="ico"></div><div class="nm">Ремонт машины</div><div class="num am">4 500 000</div></div>
+          <div class="sep"></div>
+          <div class="row"><div class="ico"></div><div class="nm">Аренда квартиры</div><div class="num am">12 000 000</div></div>
+        </div>
+      </div>
+      <div class="cap">Знаков много — цифра сходит до 40px и всё ещё вдвое крупнее следующего элемента. Суммы в строках выровнены табличными цифрами, поэтому «25 000» и «12 000 000» не пляшут по вертикали.</div>
+    </div>
+
+  </div>
+
+  <div style="padding: 18px 20px; background: oklch(96.5% 0 0); border-radius: 16px; max-width: 820px;">
+    <div style="font-size: 13.5px; line-height: 1.6;"><strong style="font-weight: 700;">Правило для кода.</strong> Размер герой-цифры выбирается по числу знаков, а не подгоняется на глаз: до 7 знаков — 52px, до 10 — 46px, дальше — 40px, ниже не опускаться. Подписи оси — компактные: тысячи как «45К», миллионы как «6М».</div>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>
