@@ -163,10 +163,13 @@ describe('API routes and middleware (characterization)', () => {
       const body = await res.json();
       expect(body.success).toBe(true);
       expect(body.data).toEqual({ text: 'coffee 5', transactions: [], debts: [] });
+      // Четвёртым аргументом идёт канал захвата. Тело запроса его не содержит,
+      // поэтому дефолт — 'telegram' (tests/captureSourceFromApi.test.ts).
       expect(mocks.textUseCase.execute).toHaveBeenCalledWith(
         'coffee 5',
         'guest_abc123',
-        'Unknown User'
+        'Unknown User',
+        'telegram'
       );
     });
 
