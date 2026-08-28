@@ -1,18 +1,16 @@
 import { useEffect, useState } from 'react';
 import { openTelegramSession, applyTelegramTheme } from './lib/telegram';
+import { Home } from './screens/Home';
 
 /**
- * Экраны появятся в задачах 7–9. Здесь — только вход в сессию.
- *
- * Роутера намеренно нет: экранов три, а «назад» всё равно даёт Telegram
- * своей нативной кнопкой, которой управляют руками. Роутер добавится,
- * когда появится боль от его отсутствия.
+ * Роутера намеренно нет: экранов немного, а «назад» всё равно даёт Telegram
+ * своей нативной кнопкой, которой управляют руками. Роутер добавится, когда
+ * появится боль от его отсутствия.
  *
  * ПОРЯДОК ОБРАЩЕНИЙ К API. Первым обязан идти список транзакций: он резолвит
  * telegramId через getOrCreateUser и тем самым создаёт пользователя в базе.
  * Правка и удаление ходят через GetUserUseCase, который не создаёт, и вернут
- * 403 для пользователя, которого ещё нет. Порядок неочевидный, поэтому записан
- * здесь, а не только в плане.
+ * 403 для пользователя, которого ещё нет.
  */
 export function App() {
   // ready() и expand() идемпотентны, повторный вызов в StrictMode безвреден.
@@ -22,23 +20,18 @@ export function App() {
     applyTelegramTheme();
   }, []);
 
-  if (!session) {
-    return <OutsideTelegram />;
-  }
+  if (!session) return <OutsideTelegram />;
 
   return (
-    <div className="flex min-h-full flex-col gap-5 p-4 pt-14">
-      <div className="rounded-[var(--radius-card)] bg-surface p-5">
-        <div className="text-[13.5px] text-muted">Потрачено в августе</div>
-        <div className="num mt-1 text-[40px] font-extrabold leading-[1.05] tracking-[-0.03em]">
-          54 124 654
-        </div>
-      </div>
-
-      <div className="rounded-[var(--radius-group)] bg-surface px-4 py-3 text-[13.5px] text-muted">
-        {session.userName}, сессия открыта. Экраны — задачи 7–9.
-      </div>
-    </div>
+    <Home
+      telegramId={session.telegramId}
+      onAdd={() => {
+        // Экран добавления — задача 8.
+      }}
+      onSelect={() => {
+        // Экран правки — задача 9.
+      }}
+    />
   );
 }
 
