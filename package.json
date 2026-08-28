@@ -30,7 +30,9 @@
     "dev:miniapp": "node scripts/dev-miniapp.js run",
     "test:webapp": "cd webapp && npm run test",
     "smoke:semantics": "npx ts-node scripts/smoke-semantics.ts",
-    "backfill:preview": "npx ts-node scripts/backfill-preview.ts"
+    "backfill:preview": "npx ts-node scripts/backfill-preview.ts",
+    "test:webapp-next": "cd webapp-next && npm run test",
+    "build:webapp-next": "cd webapp-next && npm run build"
   },
   "keywords": [],
   "author": "",
