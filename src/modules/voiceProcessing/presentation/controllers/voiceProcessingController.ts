@@ -9,6 +9,13 @@ import { UserModule } from '../../../user/userModule';
 import { resolveUserIdToUUID } from '../../../../shared/application/helpers/userIdResolver';
 import { allowGuestMode } from '../../../../delivery/web/express/middleware/authMiddleware';
 import { aiRateLimiter } from '../../../../delivery/web/express/middleware/rateLimitMiddleware';
+import type { TransactionSource } from '../../../transaction/domain/transactionEntity';
+
+const CAPTURE_SOURCES: readonly TransactionSource[] = ['telegram', 'shortcut', 'webapp'];
+
+function isCaptureSource(value: unknown): value is TransactionSource {
+  return typeof value === 'string' && (CAPTURE_SOURCES as readonly string[]).includes(value);
+}
 
 // Allowed audio MIME types
 const ALLOWED_AUDIO_TYPES = [
@@ -120,8 +127,22 @@ export function createVoiceProcessingRouter(
         userId = await resolveUserIdToUUID(userId, userModule);
       }
 
+      // Канал захвата приходит от клиента. Значение проверяется по списку:
+      // незнакомая строка уехала бы прямиком в базу и испортила бы аналитику
+      // каналов ровно тогда, когда её захотят посмотреть.
+      const rawSource = req.body.source;
+      if (rawSource !== undefined && !isCaptureSource(rawSource)) {
+        return handleControllerError(
+          ErrorFactory.validation(
+            `Неизвестный канал захвата: ${String(rawSource)}. Допустимы: ${CAPTURE_SOURCES.join(', ')}`
+          ),
+          res
+        );
+      }
+      const source: TransactionSource = isCaptureSource(rawSource) ? rawSource : 'telegram';
+
       // Process text input
-      const result = await textUseCase.execute(req.body.text.trim(), userId, userName);
+      const result = await textUseCase.execute(req.body.text.trim(), userId, userName, source);
 
       handleControllerSuccess(
         result,
