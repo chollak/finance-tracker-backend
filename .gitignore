@@ -45,3 +45,7 @@ data/patterns.json
 Thumbs.db
 data/finance.db
 .superpowers/
+
+# Сборка нового мини-аппа; переключение на public/webapp — задача 12 фазы 2
+public/webapp-next/
+webapp-next/node_modules/
