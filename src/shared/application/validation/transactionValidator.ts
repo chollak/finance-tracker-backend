@@ -3,6 +3,13 @@ import { Result, ResultHelper } from '../../domain/types/Result';
 import { ValidationError } from '../../domain/errors/AppError';
 import { Validators, ValidationChain } from './validators';
 import { normalizeSemanticType } from '../../../modules/transaction/domain/transactionSemanticType';
+import type { TransactionSource } from '../../../modules/transaction/domain/transactionEntity';
+
+const CAPTURE_SOURCES: readonly TransactionSource[] = ['telegram', 'shortcut', 'webapp'];
+
+function isCaptureSource(value: unknown): value is TransactionSource {
+  return typeof value === 'string' && (CAPTURE_SOURCES as readonly string[]).includes(value);
+}
 
 export class TransactionValidator {
   static validate(data: any): Result<Transaction, ValidationError[]> {
@@ -46,6 +53,19 @@ export class TransactionValidator {
       chain.validate(Validators.boolean(data.needsReview, 'needsReview'));
     }
 
+    // Канал захвата. Незнакомая строка не должна доехать до базы: она испортит
+    // разбор каналов ровно тогда, когда его захотят посмотреть.
+    if (data.source !== undefined && data.source !== null && !isCaptureSource(data.source)) {
+      chain.validate(
+        ResultHelper.failure(
+          new ValidationError(
+            `Неизвестный канал захвата: ${String(data.source)}. Допустимы: ${CAPTURE_SOURCES.join(', ')}`,
+            'source'
+          )
+        )
+      );
+    }
+
     const validationResult = chain.getResult();
     if (!validationResult.success) {
       return ResultHelper.failure(validationResult.error);
@@ -65,7 +85,9 @@ export class TransactionValidator {
       userId: String(data.userId).trim(),
       userName: data.userName ? String(data.userName).trim() : undefined,
       date: data.date ? String(data.date).trim() : defaultDate,
-      merchant: data.merchant ? String(data.merchant).trim() : undefined
+      merchant: data.merchant ? String(data.merchant).trim() : undefined,
+      // Без канала остаётся undefined: врать про источник хуже, чем молчать.
+      source: isCaptureSource(data.source) ? data.source : undefined
     };
 
     return ResultHelper.success(transaction);

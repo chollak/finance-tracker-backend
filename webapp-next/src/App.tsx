@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { openTelegramSession, applyTelegramTheme } from './lib/telegram';
 import { Home } from './screens/Home';
+import { Add } from './screens/Add';
 
 /**
  * Роутера намеренно нет: экранов немного, а «назад» всё равно даёт Telegram
@@ -15,6 +16,7 @@ import { Home } from './screens/Home';
 export function App() {
   // ready() и expand() идемпотентны, повторный вызов в StrictMode безвреден.
   const [session] = useState(() => openTelegramSession());
+  const [screen, setScreen] = useState<'home' | 'add'>('home');
 
   useEffect(() => {
     applyTelegramTheme();
@@ -22,12 +24,21 @@ export function App() {
 
   if (!session) return <OutsideTelegram />;
 
+  if (screen === 'add') {
+    return (
+      <Add
+        telegramId={session.telegramId}
+        userName={session.userName}
+        onDone={() => setScreen('home')}
+        onCancel={() => setScreen('home')}
+      />
+    );
+  }
+
   return (
     <Home
       telegramId={session.telegramId}
-      onAdd={() => {
-        // Экран добавления — задача 8.
-      }}
+      onAdd={() => setScreen('add')}
       onSelect={() => {
         // Экран правки — задача 9.
       }}

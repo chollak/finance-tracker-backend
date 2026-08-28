@@ -69,6 +69,8 @@ export interface CreateTransactionInput {
   date?: string;
   merchant?: string;
   semanticType?: SemanticType;
+  /** Канал захвата. Без него запись из формы неотличима от ботовой. */
+  source?: TransactionSource;
 }
 
 /**
