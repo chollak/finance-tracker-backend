@@ -7,8 +7,10 @@ import { DebtModule } from '../../../modules/debt/debtModule';
 import { OpenAIUsageModule } from '../../../modules/openai-usage/openAIUsageModule';
 import { UserModule } from '../../../modules/user/userModule';
 import { SubscriptionModule } from '../../../modules/subscription/subscriptionModule';
+import { QuickCaptureModule } from '../../../modules/quickCapture/quickCaptureModule';
 import { createTransactionRouter } from '../../../modules/transaction/presentation/controllers/transactionController';
 import { createVoiceProcessingRouter } from '../../../modules/voiceProcessing/presentation/controllers/voiceProcessingController';
+import { createQuickCaptureRouter } from '../../../modules/quickCapture/presentation/controllers/quickCaptureController';
 import { createBudgetRouter } from '../../../modules/budget/interfaces/budgetRoutes';
 import { createDebtRouter } from '../../../modules/debt/presentation/controllers/debtRoutes';
 import { createDashboardRouter } from './routes/dashboardRoutes';
@@ -31,7 +33,9 @@ export function buildServer(
   debtModule: DebtModule,
   openAIUsageModule: OpenAIUsageModule,
   userModule?: UserModule,
-  subscriptionModule?: SubscriptionModule
+  subscriptionModule?: SubscriptionModule,
+  // Kept last and optional: existing callers pass a subset of these positional arguments.
+  quickCaptureModule?: QuickCaptureModule
 ) {
   const router = Router();
   
@@ -88,6 +92,14 @@ export function buildServer(
       userModule
     )
   );
+
+  // Public route: POST /api/quick-capture (the /api prefix is added in src/index.ts)
+  if (quickCaptureModule) {
+    router.use(
+      '/quick-capture',
+      createQuickCaptureRouter(quickCaptureModule.getQuickCaptureService(), userModule)
+    );
+  }
 
   router.use(
     '/budgets',

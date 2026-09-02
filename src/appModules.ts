@@ -2,6 +2,7 @@ import { AppConfig } from './shared/infrastructure/config/appConfig';
 import { TransactionModule } from './modules/transaction/transactionModule';
 import { OpenAITranscriptionService } from './modules/voiceProcessing/infrastructure/openAITranscriptionService';
 import { VoiceProcessingModule } from './modules/voiceProcessing/voiceProcessingModule';
+import { QuickCaptureModule } from './modules/quickCapture/quickCaptureModule';
 import { BudgetModule } from './modules/budget/budgetModule';
 import { DebtModule } from './modules/debt/debtModule';
 import { createOpenAIUsageModule } from './modules/openai-usage/openAIUsageModule';
@@ -31,11 +32,15 @@ export function createModules() {
   const openAIService = new OpenAITranscriptionService(AppConfig.OPENAI_API_KEY);
   const voiceModule = new VoiceProcessingModule(openAIService, transactionModule, debtModule);
 
+  // Shared quick-capture boundary: wraps the existing text pipeline for API/Telegram/Mini App clients
+  const quickCaptureModule = QuickCaptureModule.create(voiceModule);
+
   return {
     transactionModule,
     budgetModule,
     debtModule,
     voiceModule,
+    quickCaptureModule,
     openAIUsageModule,
     userModule,
     subscriptionModule,
