@@ -536,22 +536,29 @@ Question from Shukur:
 
 Decision:
 
-> **Use Claude Design first for concept direction, then Hermes converts it into repo-safe implementation slices and verifies with screenshots/tests.**
+> **Development must use Claude Code. Hermes is the orchestrator and QA gatekeeper, not the implementer.**
+
+Design workflow decision:
+
+> **Use Claude Design first for concept direction when visual exploration is needed; then Claude Code implements repo-safe slices; Hermes verifies with diff review, tests, and screenshots.**
 
 Reasoning:
+- Shukur wants development to always use Claude Code;
 - Claude Design is useful for fast visual exploration and a polished artifact direction;
+- Claude Code is the implementation agent for actual code changes;
 - Hermes should not blindly copy a Claude Design output into the app;
 - the app already has Tailwind/CSS variables/shared UI primitives, so the final design must become an internal design system, not a pasted prototype;
-- Hermes can implement/refactor it, but the safest path is: concept → tokens/primitives → page slices → screenshot QA.
+- the safest path is: concept → Claude Code implementation slice → Hermes QA → commit/push.
 
 Recommended design workflow:
 
-1. Create a **Claude Design prompt/artifact** for 2–3 SyncSpend/Qalta-inspired mobile concepts:
+1. Hermes writes a **Claude Design prompt/artifact brief** for 2–3 SyncSpend/Qalta-inspired mobile concepts:
    - light mode minimal;
    - dark mode Qalta-like;
    - hybrid Telegram Mini App daily capture.
-2. Pick one direction.
-3. Convert the chosen direction into repo primitives:
+2. Shukur picks one direction.
+3. Hermes writes a narrow Claude Code implementation brief.
+4. Claude Code converts the chosen direction into repo primitives:
    - `PageShell`;
    - `QuickCaptureCard`;
    - `BottomActionDock`;
@@ -559,16 +566,17 @@ Recommended design workflow:
    - `TransactionRow`;
    - `VoiceCaptureButton`;
    - `CapturePreviewCard`.
-4. Implement only the first screen/slice.
-5. Verify with actual screenshots at 375/390/412 px.
+5. Claude Code implements only the first screen/slice.
+6. Hermes verifies actual diff, build/tests, and screenshots at 375/390/412 px.
+7. Hermes commits/pushes only after verification.
 
 Important constraint:
 - do not do pixel-perfect clone of SyncSpend/Qalta;
 - copy the philosophy and interaction model, not copyrighted assets/screens.
 
-Hermes-only fallback:
-- If Shukur wants speed over visual exploration, Hermes can implement the design directly from the spec.
-- But for “make it feel like SyncSpend/Qalta”, a quick Claude Design concept pass is better before coding.
+Fallback rule:
+- If Claude Code is unavailable, stop and report the blocker.
+- Do not switch to Hermes implementation unless Shukur explicitly allows it for that specific task.
 
 ---
 
