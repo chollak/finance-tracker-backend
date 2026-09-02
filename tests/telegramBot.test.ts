@@ -54,7 +54,7 @@ describe('startTelegramBot', () => {
       getGetOrCreateUserUseCase: () => ({ execute: jest.fn() }),
     } as any;
 
-    const start = () => startTelegramBot({} as any, {} as any, {} as any, userModule);
+    const start = () => startTelegramBot({} as any, {} as any, {} as any, userModule, {} as any);
 
     return {
       start,

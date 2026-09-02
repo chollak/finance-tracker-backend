@@ -2,7 +2,7 @@ import { Telegraf } from 'telegraf';
 import { message } from 'telegraf/filters';
 import { BotContext, ProcessedTransaction } from '../types';
 import { RU, formatAmount } from '../i18n/ru';
-import { formatTransactionMessage } from '../formatters';
+import { formatCaptureMessage, formatTransactionMessage } from '../formatters';
 import {
   transactionConfirmationKeyboard,
   transactionAutoSavedKeyboard,
@@ -20,6 +20,8 @@ import { resolveUserIdToUUID } from '../../../../shared/application/helpers/user
 import { LimitType } from '../../../../modules/subscription/domain/usageLimit';
 import { createLogger, LogCategory } from '../../../../shared/infrastructure/logging';
 import { countsAsRealExpense, normalizeSemanticType } from '../../../../modules/transaction/domain/transactionSemanticType';
+import { buildCaptureAck } from '../../../../modules/quickCapture/application/buildCaptureAck';
+import { CapturedTransaction } from '../../../../modules/quickCapture/domain/quickCaptureTypes';
 
 const logger = createLogger(LogCategory.TELEGRAM_MSG);
 
@@ -157,14 +159,20 @@ export function createTextMessageHandler(userModule?: UserModule, subscriptionMo
         return;
       }
 
-      const { voiceModule, transactionModule } = ctx.modules;
+      const { quickCaptureModule, transactionModule } = ctx.modules;
 
       await sendProcessingFeedback(ctx);
 
-      // Process text input
-      const result = await voiceModule.getProcessTextInputUseCase().execute(text, userId, userName);
+      // Telegram is a client of the shared capture boundary; parsing, the conservative
+      // semantic safeguards and persistence all stay inside it.
+      const result = await quickCaptureModule.getQuickCaptureService().capture({
+        text,
+        userId,
+        userName,
+        source: 'telegram',
+      });
 
-      if (result.transactions.length === 0 && (!result.debts || result.debts.length === 0)) {
+      if (result.transactions.length === 0 && result.debts.length === 0) {
         await ctx.reply(RU.transaction.noTransactions);
         return;
       }
@@ -175,14 +183,12 @@ export function createTextMessageHandler(userModule?: UserModule, subscriptionMo
       // Process each transaction
       for (const tx of result.transactions) {
         setLastTransactionId(userId, tx.id);
-        await sendTransactionResponse(ctx, tx as ProcessedTransaction, result.text, userId, false, summary);
+        await sendCaptureResponse(ctx, tx, userId, summary);
       }
 
       // Process each debt
-      if (result.debts && result.debts.length > 0) {
-        for (const debt of result.debts) {
-          await sendDebtResponse(ctx, debt, false);
-        }
+      for (const debt of result.debts) {
+        await sendDebtResponse(ctx, debt, false);
       }
 
       // Increment transactions usage after successful processing (fire and forget)
@@ -320,6 +326,38 @@ async function sendTransactionResponse(
     originalText,
     needsConfirmation,
     isVoice,
+    summary?.todayTotal,
+    summary?.monthTotal
+  );
+
+  const keyboard = needsConfirmation
+    ? transactionConfirmationKeyboard(tx.id, userId)
+    : transactionAutoSavedKeyboard(tx.id, userId);
+
+  await ctx.reply(message, {
+    parse_mode: 'HTML',
+    ...keyboard,
+  });
+}
+
+/**
+ * Send a quick-capture result using the shared ack, one message per captured transaction so
+ * each keeps its own edit/delete keyboard.
+ */
+async function sendCaptureResponse(
+  ctx: BotContext,
+  tx: CapturedTransaction,
+  userId: string,
+  summary?: { todayTotal: number; monthTotal: number }
+) {
+  const confidence = tx.confidence ?? 0.8;
+  const needsConfirmation = confidence < CONFIDENCE_THRESHOLD;
+
+  const message = formatCaptureMessage(
+    tx,
+    buildCaptureAck([tx]),
+    needsConfirmation,
+    false,
     summary?.todayTotal,
     summary?.monthTotal
   );

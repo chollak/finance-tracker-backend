@@ -69,7 +69,7 @@ async function startApplication() {
     app.listen(port, () => {
       logger.info('Server started', { port });
       // Start Telegram bot after HTTP server is ready
-      startTelegramBot(voiceModule, transactionModule, budgetModule, userModule, subscriptionModule);
+      startTelegramBot(voiceModule, transactionModule, budgetModule, userModule, quickCaptureModule, subscriptionModule);
     });
 
     // Handle graceful shutdown

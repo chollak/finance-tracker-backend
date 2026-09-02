@@ -1,6 +1,7 @@
 import { ProcessedTransaction } from '../types';
 import { RU, formatAmount } from '../i18n/ru';
 import { normalizeSemanticType } from '../../../../modules/transaction/domain/transactionSemanticType';
+import { CaptureAck, CapturedTransaction } from '../../../../modules/quickCapture/domain/quickCaptureTypes';
 
 function formatAmountWithCurrency(amount: number): string {
   return `${formatAmount(amount).replace(/\s/g, ' ')} UZS`;
@@ -103,6 +104,71 @@ export function formatTransactionMessage(
   if (!needsConfirmation) {
     lines.push('');
     lines.push('Дальше: можно изменить, удалить или добавить ещё одну транзакцию кнопками ниже.');
+  }
+
+  return lines.join('\n');
+}
+
+function formatTotalsLine(todayTotal?: number, monthTotal?: number): string | undefined {
+  if (todayTotal === undefined && monthTotal === undefined) return undefined;
+
+  const parts: string[] = [];
+  if (todayTotal !== undefined) {
+    parts.push(RU.transaction.todaySummary(formatAmountWithCurrency(todayTotal)));
+  }
+  if (monthTotal !== undefined) {
+    parts.push(RU.transaction.monthSummary(formatAmountWithCurrency(monthTotal)));
+  }
+
+  return parts.join(' | ');
+}
+
+/**
+ * Render a quick-capture result for Telegram.
+ *
+ * The title/summary come from the shared `CaptureAck`, so Telegram, the Mini App and a future
+ * Shortcut all confirm a capture with the same words. Everything below the summary is Telegram's
+ * own chrome: the semantic hint that keeps transfers/savings/withdrawals from reading as real
+ * spending, and the today/month totals the bot has always shown.
+ *
+ * @param needsConfirmation - low parse confidence, which drives the confirm keyboard. This is a
+ * separate signal from `tx.needsReview` (parse quality) and the two must not be conflated.
+ */
+export function formatCaptureMessage(
+  tx: CapturedTransaction,
+  ack: CaptureAck,
+  needsConfirmation: boolean,
+  isVoice = false,
+  todayTotal?: number,
+  monthTotal?: number
+): string {
+  const voicePrefix = isVoice ? '🎤' : '';
+
+  const status = needsConfirmation
+    ? `${voicePrefix}🤔 <b>${RU.transaction.confirmRequired}</b>`
+    : `${voicePrefix}${tx.needsReview ? '⚠️' : '✅'} <b>${ack.title}</b>`;
+
+  const lines = [status, ack.summary];
+
+  // Only non-plain semantics carry a hint, so a normal expense/income stays a two-line ack.
+  const semantic = getSemanticLabel(tx);
+  if (semantic.hint) {
+    lines.push(`${semantic.emoji} ${semantic.label} · ${semantic.hint}`);
+  }
+
+  if (tx.needsReview) {
+    lines.push('⚠️ Нужно проверить в Mini App');
+  }
+
+  if (needsConfirmation && tx.confidence !== undefined) {
+    lines.push('');
+    lines.push(`⚠️ ${RU.transaction.confidence(Math.round(tx.confidence * 100))}`);
+  }
+
+  const totals = formatTotalsLine(todayTotal, monthTotal);
+  if (totals) {
+    lines.push('');
+    lines.push(totals);
   }
 
   return lines.join('\n');

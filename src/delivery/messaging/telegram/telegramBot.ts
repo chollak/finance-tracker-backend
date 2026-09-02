@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { AppConfig } from '../../../shared/infrastructure/config/appConfig';
 import { VoiceProcessingModule } from '../../../modules/voiceProcessing/voiceProcessingModule';
+import { QuickCaptureModule } from '../../../modules/quickCapture/quickCaptureModule';
 import { TransactionModule } from '../../../modules/transaction/transactionModule';
 import { BudgetModule } from '../../../modules/budget/budgetModule';
 import { UserModule } from '../../../modules/user/userModule';
@@ -65,6 +66,7 @@ function createInitialSession(userId: string, userName: string): UserSession {
  * @param transactionModule - Transaction module for CRUD operations
  * @param budgetModule - Budget module for budget management
  * @param userModule - User module for user management
+ * @param quickCaptureModule - Shared capture boundary used by the text handler
  * @param subscriptionModule - Subscription module for premium features
  */
 export function startTelegramBot(
@@ -72,6 +74,7 @@ export function startTelegramBot(
   transactionModule: TransactionModule,
   budgetModule: BudgetModule,
   userModule: UserModule,
+  quickCaptureModule: QuickCaptureModule,
   subscriptionModule?: SubscriptionModule
 ) {
   try {
@@ -100,6 +103,7 @@ export function startTelegramBot(
     // Prepare modules for context injection
     const modules: BotModules = {
       voiceModule,
+      quickCaptureModule,
       transactionModule,
       budgetModule,
       userModule,

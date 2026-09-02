@@ -6,6 +6,7 @@ import { buildCaptureAck } from './buildCaptureAck';
 import {
   CaptureReviewReason,
   CaptureSource,
+  CapturedDebt,
   CapturedTransaction,
   QuickCaptureRequest,
   QuickCaptureResult,
@@ -45,7 +46,7 @@ export class QuickCaptureService {
 
     // Blank input never reaches the parser: no OpenAI call, no write.
     if (!text) {
-      return buildResult('', request.source, [], 0);
+      return buildResult('', request.source, [], []);
     }
 
     const processed = await this.processTextInputUseCase.execute(text, request.userId, request.userName);
@@ -53,7 +54,7 @@ export class QuickCaptureService {
       text,
       request.source,
       processed.transactions.map(toCapturedTransaction),
-      processed.debts.length
+      processed.debts
     );
 
     // Captured text is user content, so only counts and routing metadata are logged.
@@ -72,22 +73,23 @@ function buildResult(
   text: string,
   source: CaptureSource | undefined,
   transactions: CapturedTransaction[],
-  debtsDetected: number
+  debts: CapturedDebt[]
 ): QuickCaptureResult {
   const reasons: CaptureReviewReason[] = [];
   if (transactions.some(transaction => transaction.needsReview)) {
     reasons.push('transaction_needs_review');
   }
-  if (debtsDetected > 0) {
+  if (debts.length > 0) {
     reasons.push('debt_detected');
   }
 
   return {
-    status: resolveStatus(transactions, debtsDetected),
+    status: resolveStatus(transactions, debts.length),
     text,
     source,
     transactions,
-    ack: buildCaptureAck(transactions, { debtsDetected }),
+    debts,
+    ack: buildCaptureAck(transactions, { debtsDetected: debts.length }),
     review: { reasons },
   };
 }

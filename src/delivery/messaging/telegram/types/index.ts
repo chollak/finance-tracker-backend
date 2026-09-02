@@ -1,6 +1,7 @@
 import { Context, NarrowedContext } from 'telegraf';
 import { Message, Update, CallbackQuery } from 'telegraf/types';
 import { VoiceProcessingModule } from '../../../../modules/voiceProcessing/voiceProcessingModule';
+import { QuickCaptureModule } from '../../../../modules/quickCapture/quickCaptureModule';
 import { TransactionModule } from '../../../../modules/transaction/transactionModule';
 import { BudgetModule } from '../../../../modules/budget/budgetModule';
 import { UserModule } from '../../../../modules/user/userModule';
@@ -12,6 +13,8 @@ import { TransactionSemanticType } from '../../../../modules/transaction/domain/
  */
 export interface BotModules {
   voiceModule: VoiceProcessingModule;
+  /** Shared capture boundary — the text handler goes through this, not through the parser directly. */
+  quickCaptureModule: QuickCaptureModule;
   transactionModule: TransactionModule;
   budgetModule: BudgetModule;
   userModule: UserModule;

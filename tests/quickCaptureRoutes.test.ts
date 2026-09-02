@@ -41,6 +41,7 @@ const SAVED_RESULT: QuickCaptureResult = {
     needsReview: false,
     countsAsRealExpense: true,
   }],
+  debts: [],
   ack: {
     title: 'Записал',
     summary: 'Такси · 18 000 сум · Транспорт',

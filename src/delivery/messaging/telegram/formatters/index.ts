@@ -1,5 +1,6 @@
 export {
   formatTransactionMessage,
+  formatCaptureMessage,
   formatConfirmedMessage
 } from './transactionFormatter';
 

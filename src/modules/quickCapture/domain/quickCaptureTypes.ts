@@ -1,4 +1,5 @@
 import { TransactionSemanticType } from '../../transaction/domain/transactionSemanticType';
+import { DetectedDebt } from '../../voiceProcessing/domain/processedTransaction';
 
 /**
  * Quick Capture is the shared application boundary every client (Telegram, Mini App,
@@ -43,6 +44,12 @@ export interface CapturedTransaction {
   countsAsRealExpense: boolean;
 }
 
+/**
+ * Debts are persisted by the same text pipeline, so they travel with the capture result.
+ * Aliased rather than restated so the two shapes cannot drift apart.
+ */
+export type CapturedDebt = DetectedDebt;
+
 export type CaptureAckAction = 'edit' | 'delete' | 'review';
 
 export interface CaptureAck {
@@ -63,6 +70,7 @@ export interface QuickCaptureResult {
   text: string;
   source?: CaptureSource;
   transactions: CapturedTransaction[];
+  debts: CapturedDebt[];
   ack: CaptureAck;
   review: CaptureReview;
 }
