@@ -5,8 +5,12 @@ export { useQuickCapture, CaptureTextError } from './api/mutations';
 export type { QuickCaptureInput } from './api/mutations';
 export { quickCaptureInvalidationKeys } from './api/invalidation';
 
+export { TextQuickCaptureCard } from './ui/TextQuickCaptureCard';
+
 export { toCaptureFeedback } from './model/toCaptureFeedback';
 export type { CaptureFeedback, CaptureFeedbackTone } from './model/toCaptureFeedback';
+export { toCaptureErrorFeedback } from './model/toCaptureErrorFeedback';
+export type { CaptureErrorFeedback } from './model/toCaptureErrorFeedback';
 export {
   validateCaptureText,
   captureTextRejectionMessage,

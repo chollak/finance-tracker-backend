@@ -9,6 +9,7 @@ import { Button } from '@/shared/ui/button';
 import { PageHeader, PageShell, SectionStack } from '@/shared/ui';
 import { Plus } from 'lucide-react';
 import { QuickAddSheet } from '@/features/quick-add';
+import { TextQuickCaptureCard } from '@/features/quick-capture';
 import { GuestModeBanner } from '@/features/auth';
 
 /**
@@ -28,6 +29,11 @@ export function HomePage() {
         {/* Balance Card - Full Width */}
         <div className="animate-fade-in-up">
           <BalanceCard />
+        </div>
+
+        {/* Quick Capture - one line of text through the same boundary the Telegram bot uses */}
+        <div className="animate-fade-in-up stagger-1">
+          <TextQuickCaptureCard />
         </div>
 
         {/* Semantic trust formula - explains why real expenses differ from outgoing cashflow */}
