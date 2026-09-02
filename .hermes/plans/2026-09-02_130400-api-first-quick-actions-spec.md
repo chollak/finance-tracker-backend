@@ -674,7 +674,41 @@ Preferred slice order:
 
 ---
 
-## 13. Suggested implementation phases
+## 13. Chosen design artifact
+
+Claude Design artifact received from Shukur and saved in repo:
+
+```text
+.hermes/design/finance-tracker-1b-prototype.dc.html
+.hermes/design/finance-tracker-capture-directions.dc.html
+.hermes/design/support.js
+```
+
+Chosen direction:
+
+> **1b · Say it — saved**
+
+Why this is the preferred direction:
+- closest to Qalta/SyncSpend philosophy;
+- voice-first and action-first;
+- no dashboard-first feel;
+- strong dark mobile utility identity;
+- still practical enough for Telegram Mini App implementation.
+
+Important design details to preserve in Claude Code implementation:
+- dark-first theme with light pair;
+- huge primary voice capture button/card;
+- bottom action dock: `Scan / Voice / Manual`;
+- natural text input fallback;
+- large `spent today` numeric feedback;
+- compact recent transaction log;
+- Qalta-like AI draft bottom sheet;
+- partial save behavior: confident items can save, uncertain items go to review;
+- hidden old features under `More` as off/disabled, not primary navigation.
+
+---
+
+## 14. Suggested implementation phases
 
 ### Phase 0 — Approve this spec
 
@@ -768,7 +802,7 @@ Definition of Done:
 
 ---
 
-## 14. Testing and verification
+## 15. Testing and verification
 
 Backend:
 
@@ -801,7 +835,7 @@ Real iPhone QA:
 
 ---
 
-## 15. Final Definition of Done
+## 16. Final Definition of Done
 
 This direction is done when:
 
@@ -818,7 +852,7 @@ This direction is done when:
 
 ---
 
-## 16. Key correction from previous spec
+## 17. Key correction from previous spec
 
 Previous spec still kept Aurum as a longer-term domain reference. This corrected spec intentionally removes that from current focus.
 

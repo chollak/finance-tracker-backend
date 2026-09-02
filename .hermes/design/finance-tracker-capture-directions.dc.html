@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#EFEDE8;font-family:Manrope,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+.dv-turn{padding:44px 48px 36px;border-bottom:1px solid rgba(0,0,0,.08)}
+.dv-thd{display:flex;align-items:baseline;gap:10px;margin:0 0 8px}
+.dv-tid{font:600 10px ui-monospace,Menlo,monospace;padding:3px 7px;background:#1a1a1a;color:#fff;border-radius:4px;text-decoration:none}
+.dv-tname{font:700 13px/1.2 Manrope,sans-serif;color:#1a1a1a}
+.dv-opts{display:flex;flex-wrap:wrap;gap:36px;align-items:flex-start}
+.dv-opt{flex:none;display:flex;flex-direction:column;gap:12px;scroll-margin-top:16px}
+.dv-oid{font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(0,0,0,.08);color:#1a1a1a;border-radius:5px;text-decoration:none}
+.dv-olabel{display:flex;align-items:baseline;gap:8px;font:500 11.5px/1.3 Manrope,sans-serif;color:rgba(0,0,0,.55)}
+.dv-opt:target .dv-oid{background:#14151A;color:#fff}
+.dv-next{margin:26px 0 0;font:12px/1.6 Manrope,sans-serif;color:rgba(0,0,0,.5)}
+a{color:#14151A}
+a:hover{color:#000}
+@keyframes fthalo{0%,100%{transform:scale(1);opacity:.32}50%{transform:scale(1.6);opacity:0}}
+@keyframes ftbar{0%,100%{transform:scaleY(.18)}50%{transform:scaleY(1)}}
+@keyframes ftrise{from{transform:translateY(14px);opacity:0}to{transform:translateY(0);opacity:1}}
+</style>
+</helmet>
+
+<section class="dv-turn" id="t1">
+<div class="dv-thd"><a class="dv-tid" href="#t1">1</a><span class="dv-tname">Finance Tracker · AI Quick Capture — три направления</span></div>
+<p style="margin:0 0 6px;max-width:760px;font:400 12.5px/1.65 Manrope,sans-serif;color:rgba(0,0,0,.58);text-wrap:pretty">Допущения: Telegram Mini App, iPhone-first, 390px (адаптив 375/412). Основная валюта — сум, подписки в долларах. Экран — <strong>командная поверхность</strong>: первый viewport = захват, история — вторична, аналитики нет. У каждого направления: Home/Capture (интерактивный — нажмите микрофон) + состояние AI-разбора. Тумблеры сверху: ширина устройства, спецификации, автодемо.</p>
+<div class="dv-opts">
+
+<div class="dv-opt" id="1a">
+<div class="dv-olabel"><a class="dv-oid" href="#1a">1a</a>Conservative · «Ledger Light» — светлое, низкий риск</div>
+<div style="display:flex;gap:24px;align-items:flex-start;background:#fff;border:1px solid rgba(0,0,0,.08);border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,.06);padding:24px">
+
+<div data-phone data-screen-label="1a Home" style="width:390px;height:844px;flex:none;position:relative;overflow:hidden;border-radius:46px;background:#F7F6F3;border:1px solid #E1DED7;box-shadow:0 18px 40px rgba(20,21,26,.14);font-family:Manrope,system-ui,sans-serif;color:#14151A">
+  <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 30px 4px;font-size:14px;font-weight:700;letter-spacing:.2px">
+    <span>9:41</span>
+    <div style="display:flex;gap:5px;align-items:center">
+      <div style="width:16px;height:9px;border-radius:2px;background:#14151A"></div>
+      <div style="width:22px;height:10px;border:1.5px solid #14151A;border-radius:3px;padding:1.5px;box-sizing:border-box"><div style="width:100%;height:100%;background:#14151A;border-radius:1px"></div></div>
+    </div>
+  </div>
+
+  <div style="padding:14px 20px 0;display:flex;flex-direction:column;gap:16px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-end">
+      <div>
+        <div style="font-size:11px;font-weight:600;letter-spacing:.9px;text-transform:uppercase;color:#9B9A94">Вторник, 2 сентября</div>
+        <div style="font-size:22px;font-weight:800;letter-spacing:-.4px;margin-top:3px">Записать расход</div>
+      </div>
+      <div style="width:34px;height:34px;border-radius:17px;background:#fff;border:1px solid #E7E5E0;display:flex;align-items:center;justify-content:center">
+        <div style="display:flex;gap:3px"><div style="width:3.5px;height:3.5px;border-radius:2px;background:#14151A"></div><div style="width:3.5px;height:3.5px;border-radius:2px;background:#14151A"></div><div style="width:3.5px;height:3.5px;border-radius:2px;background:#14151A"></div></div>
+      </div>
+    </div>
+
+    <div style="background:#fff;border:1px solid #E7E5E0;border-radius:22px;padding:22px 20px 20px;box-shadow:0 1px 2px rgba(16,18,20,.05);display:flex;flex-direction:column;gap:16px">
+      <div style="display:flex;align-items:center;gap:14px">
+        <button onClick="{{ aMic }}" style="width:66px;height:66px;flex:none;border:none;border-radius:33px;background:#14151A;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 6px 16px rgba(20,21,26,.24)" style-active="transform:scale(.96)">
+          <div style="position:relative;width:20px;height:26px">
+            <div style="position:absolute;top:0;left:5.5px;width:9px;height:13px;border-radius:5px;background:#fff"></div>
+            <div style="position:absolute;bottom:5px;left:1px;width:18px;height:8px;border:2px solid #fff;border-top:none;border-radius:0 0 10px 10px;box-sizing:border-box"></div>
+            <div style="position:absolute;bottom:0;left:9px;width:2px;height:5px;background:#fff"></div>
+          </div>
+        </button>
+        <div style="flex:1">
+          <div style="font-size:16.5px;font-weight:700;letter-spacing:-.2px">Скажите — сохранено</div>
+          <div style="font-size:13px;line-height:1.45;color:#71747B;margin-top:3px">«такси 18к» · «кофе 35000» · «Netflix 10 долларов каждый месяц»</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;background:#F4F3EF;border:1px solid #E7E5E0;border-radius:14px;padding:13px 14px">
+        <div style="width:15px;height:15px;flex:none;border-radius:4px;border:1.5px solid #A8A7A1;position:relative"><div style="position:absolute;left:3px;top:6.5px;width:7px;height:1.5px;background:#A8A7A1"></div></div>
+        <span style="font-size:14.5px;color:#8B8A84;flex:1">Или напишите текстом…</span>
+        <span style="font-size:12px;font-weight:700;color:#1F7A4C">AI</span>
+      </div>
+    </div>
+
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:0 4px">
+      <span style="font-size:13px;color:#71747B">Потрачено сегодня</span>
+      <span style="font-size:16px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-.2px">173 000 <span style="font-size:12px;font-weight:600;color:#9B9A94">сум</span></span>
+    </div>
+
+    <div style="background:#fff;border:1px solid #E7E5E0;border-radius:22px;overflow:hidden;box-shadow:0 1px 2px rgba(16,18,20,.05)">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:15px 18px 11px">
+        <span style="font-size:12px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:#9B9A94">Последние</span>
+        <span style="font-size:12.5px;font-weight:700;color:#1F7A4C">Всё</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;padding:12px 18px;border-top:1px solid #F0EEE9">
+        <div style="width:32px;height:32px;flex:none;border-radius:11px;background:#F4F3EF;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#71747B">ТК</div>
+        <div style="flex:1;min-width:0"><div style="font-size:14.5px;font-weight:600">Такси</div><div style="font-size:11.5px;color:#9B9A94;margin-top:1px">Голос · 14:20</div></div>
+        <div style="font-size:15px;font-weight:700;font-variant-numeric:tabular-nums">−18 000</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;padding:12px 18px;border-top:1px solid #F0EEE9">
+        <div style="width:32px;height:32px;flex:none;border-radius:11px;background:#F4F3EF;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#71747B">КФ</div>
+        <div style="flex:1;min-width:0"><div style="font-size:14.5px;font-weight:600">Кофе</div><div style="font-size:11.5px;color:#9B9A94;margin-top:1px">Telegram · 11:05</div></div>
+        <div style="font-size:15px;font-weight:700;font-variant-numeric:tabular-nums">−35 000</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;padding:12px 18px;border-top:1px solid #F0EEE9">
+        <div style="width:32px;height:32px;flex:none;border-radius:11px;background:#F4F3EF;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#71747B">ПР</div>
+        <div style="flex:1;min-width:0"><div style="font-size:14.5px;font-weight:600">Продукты</div><div style="font-size:11.5px;color:#9B9A94;margin-top:1px">Korzinka · 09:40</div></div>
+        <div style="font-size:15px;font-weight:700;font-variant-numeric:tabular-nums">−120 000</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;padding:12px 18px;border-top:1px solid #F0EEE9">
+        <div style="width:32px;height:32px;flex:none;border-radius:11px;background:#EAF3ED;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#1F7A4C">ЗП</div>
+        <div style="flex:1;min-width:0"><div style="font-size:14.5px;font-weight:600">Зарплата</div><div style="font-size:11.5px;color:#9B9A94;margin-top:1px">Вчера · 18:02</div></div>
+        <div style="font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;color:#1F7A4C">+12 000 000</div>
+      </div>
+    </div>
+  </div>
+
+  <sc-if value="{{ aListen }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;inset:0;background:rgba(20,21,26,.34);display:flex;flex-direction:column;justify-content:flex-end">
+      <div style="background:#fff;border-radius:30px 30px 46px 46px;padding:30px 24px 34px;animation:ftrise .22s ease-out">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:18px">
+          <div style="position:relative;width:74px;height:74px;display:flex;align-items:center;justify-content:center">
+            <div style="position:absolute;inset:0;border-radius:37px;background:#14151A;animation:fthalo 1.6s ease-out infinite"></div>
+            <div style="position:relative;width:66px;height:66px;border-radius:33px;background:#14151A;display:flex;align-items:center;justify-content:center">
+              <div style="display:flex;gap:3px;align-items:center;height:26px">
+                <div style="width:3px;height:26px;border-radius:2px;background:#fff;animation:ftbar .9s ease-in-out infinite"></div>
+                <div style="width:3px;height:26px;border-radius:2px;background:#fff;animation:ftbar .9s ease-in-out .12s infinite"></div>
+                <div style="width:3px;height:26px;border-radius:2px;background:#fff;animation:ftbar .9s ease-in-out .24s infinite"></div>
+                <div style="width:3px;height:26px;border-radius:2px;background:#fff;animation:ftbar .9s ease-in-out .36s infinite"></div>
+              </div>
+            </div>
+          </div>
+          <div style="font-size:19px;font-weight:700;letter-spacing:-.3px">Слушаю…</div>
+          <div style="font-size:14.5px;color:#71747B;text-align:center;line-height:1.5">«кофе 35 тысяч и такси 18к»</div>
+          <button onClick="{{ aCancel }}" style="border:1px solid #E7E5E0;background:#fff;border-radius:14px;padding:12px 26px;font:600 14.5px Manrope,sans-serif;color:#71747B;cursor:pointer">Отмена</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ aSaved }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;left:20px;right:20px;bottom:112px;background:#14151A;border-radius:18px;padding:14px 18px;display:flex;align-items:center;gap:12px;box-shadow:0 12px 28px rgba(20,21,26,.3);animation:ftrise .2s ease-out">
+      <div style="width:22px;height:22px;flex:none;border-radius:11px;background:#4CC38A;display:flex;align-items:center;justify-content:center"><div style="width:8px;height:4px;border-left:2px solid #0B2E1E;border-bottom:2px solid #0B2E1E;transform:rotate(-45deg);margin-top:-2px"></div></div>
+      <span style="flex:1;color:#fff;font-size:14.5px;font-weight:600">Сохранено · 2 операции</span>
+      <span style="color:#9B9A94;font-size:13px;font-weight:700">Отменить</span>
+    </div>
+  </sc-if>
+
+  <div style="position:absolute;left:0;right:0;bottom:0;padding:12px 26px 22px;background:rgba(247,246,243,.92);border-top:1px solid #E7E5E0;backdrop-filter:blur(10px);display:flex;align-items:center;justify-content:space-between">
+    <button style="border:none;background:none;display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;padding:0">
+      <div style="width:20px;height:20px;border:2px solid #14151A;border-radius:6px;position:relative;box-sizing:border-box"><div style="position:absolute;left:2px;right:2px;top:7px;height:2px;background:#14151A"></div></div>
+      <span style="font:600 10.5px Manrope,sans-serif;color:#71747B">Скан</span>
+    </button>
+    <button onClick="{{ aMic }}" style="width:62px;height:62px;border:none;border-radius:31px;background:#14151A;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 8px 20px rgba(20,21,26,.28);margin-top:-26px" style-active="transform:scale(.95)">
+      <div style="position:relative;width:19px;height:25px">
+        <div style="position:absolute;top:0;left:5px;width:9px;height:12px;border-radius:5px;background:#fff"></div>
+        <div style="position:absolute;bottom:5px;left:.5px;width:18px;height:8px;border:2px solid #fff;border-top:none;border-radius:0 0 10px 10px;box-sizing:border-box"></div>
+        <div style="position:absolute;bottom:0;left:8.5px;width:2px;height:5px;background:#fff"></div>
+      </div>
+    </button>
+    <button style="border:none;background:none;display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;padding:0">
+      <div style="width:20px;height:20px;position:relative"><div style="position:absolute;top:9px;left:0;width:20px;height:2px;background:#14151A"></div><div style="position:absolute;left:9px;top:0;width:2px;height:20px;background:#14151A"></div></div>
+      <span style="font:600 10.5px Manrope,sans-serif;color:#71747B">Добавить</span>
+    </button>
+  </div>
+</div>
+
+<div data-phone data-screen-label="1a AI-разбор" style="width:390px;height:844px;flex:none;position:relative;overflow:hidden;border-radius:46px;background:#F7F6F3;border:1px solid #E1DED7;box-shadow:0 18px 40px rgba(20,21,26,.14);font-family:Manrope,system-ui,sans-serif;color:#14151A">
+  <div style="position:absolute;inset:0;background:rgba(20,21,26,.3)"></div>
+  <div style="position:absolute;left:0;right:0;bottom:0;background:#fff;border-radius:30px 30px 46px 46px;padding:22px 20px 26px;display:flex;flex-direction:column;gap:14px;box-shadow:0 -12px 40px rgba(20,21,26,.18)">
+    <div style="width:38px;height:4px;border-radius:2px;background:#E1DED7;align-self:center"></div>
+    <div>
+      <div style="font-size:11px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:#9B9A94">Распознано · 3 операции</div>
+      <div style="font-size:15px;line-height:1.5;color:#71747B;margin-top:6px;font-style:italic">«Had breakfast $12, OpenAI subscription $19.90 per month, and transferred $1000 from wallet to bank»</div>
+    </div>
+
+    <div style="border:1px solid #E7E5E0;border-radius:18px;overflow:hidden">
+      <div style="display:flex;align-items:center;gap:12px;padding:14px 16px">
+        <div style="width:34px;height:34px;flex:none;border-radius:12px;background:#F4F3EF;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#71747B">ЕД</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:15px;font-weight:700">Завтрак</div>
+          <div style="display:flex;gap:6px;margin-top:4px"><span style="font:600 10.5px Manrope,sans-serif;color:#71747B;background:#F4F3EF;border-radius:6px;padding:3px 7px">Еда</span><span style="font:600 10.5px Manrope,sans-serif;color:#71747B;background:#F4F3EF;border-radius:6px;padding:3px 7px">Карта</span></div>
+        </div>
+        <div style="text-align:right"><div style="font-size:16px;font-weight:800;font-variant-numeric:tabular-nums">−$12.00</div><div style="font-size:11px;color:#9B9A94;margin-top:1px">≈ 151 000 сум</div></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-top:1px solid #F0EEE9">
+        <div style="width:34px;height:34px;flex:none;border-radius:12px;background:#F4F3EF;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#71747B">ПД</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:15px;font-weight:700">OpenAI</div>
+          <div style="display:flex;gap:6px;margin-top:4px"><span style="font:600 10.5px Manrope,sans-serif;color:#71747B;background:#F4F3EF;border-radius:6px;padding:3px 7px">Подписка</span><span style="font:600 10.5px Manrope,sans-serif;color:#1F7A4C;background:#EAF3ED;border-radius:6px;padding:3px 7px">Ежемесячно</span></div>
+        </div>
+        <div style="text-align:right"><div style="font-size:16px;font-weight:800;font-variant-numeric:tabular-nums">−$19.90</div><div style="font-size:11px;color:#9B9A94;margin-top:1px">2-го числа</div></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-top:1px solid #F0EEE9;background:#FDF8EE">
+        <div style="width:34px;height:34px;flex:none;border-radius:12px;background:#F7ECD5;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#B07714">ПВ</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:15px;font-weight:700">Кошелёк → Банк</div>
+          <div style="display:flex;gap:6px;margin-top:4px"><span style="font:600 10.5px Manrope,sans-serif;color:#B07714;background:#F7ECD5;border-radius:6px;padding:3px 7px">Уточнить счёт</span></div>
+        </div>
+        <div style="text-align:right"><div style="font-size:16px;font-weight:800;font-variant-numeric:tabular-nums">$1 000</div><div style="font-size:11px;color:#B07714;margin-top:1px;font-weight:700">Перевод</div></div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:10px">
+      <button style="flex:none;border:1px solid #E7E5E0;background:#fff;border-radius:16px;padding:15px 20px;font:700 15px Manrope,sans-serif;color:#71747B;cursor:pointer">Отмена</button>
+      <button style="flex:none;border:1px solid #E7E5E0;background:#fff;border-radius:16px;padding:15px 20px;font:700 15px Manrope,sans-serif;color:#14151A;cursor:pointer">Правки</button>
+      <button style="flex:1;border:none;background:#14151A;border-radius:16px;padding:15px 12px;font:700 15px Manrope,sans-serif;color:#fff;cursor:pointer;box-shadow:0 6px 16px rgba(20,21,26,.22)">Сохранить всё</button>
+    </div>
+    <div style="text-align:center;font-size:11.5px;color:#9B9A94">Свайп вниз — отменить · Enter — сохранить</div>
+  </div>
+</div>
+
+<sc-if value="{{ specs }}" hint-placeholder-val="{{ true }}">
+<div style="width:280px;flex:none;display:flex;flex-direction:column;gap:16px;font:400 12px/1.6 Manrope,sans-serif;color:#3D3F45">
+  <div><div style="font:800 11px Manrope,sans-serif;letter-spacing:.9px;text-transform:uppercase;color:#9B9A94;margin-bottom:6px">Обоснование</div>Знакомая финансовая раскладка, но капча-карта занимает первый экран, а не баланс. Ноль графиков. Риск минимальный: выглядит как обычное банковское приложение, поэтому доверие высокое, а обучение не нужно.</div>
+  <div><div style="font:800 11px Manrope,sans-serif;letter-spacing:.9px;text-transform:uppercase;color:#9B9A94;margin-bottom:6px">Токены</div>
+    <div style="display:flex;gap:6px;margin-bottom:8px">
+      <div style="width:26px;height:26px;border-radius:8px;background:#F7F6F3;border:1px solid #E1DED7"></div>
+      <div style="width:26px;height:26px;border-radius:8px;background:#fff;border:1px solid #E1DED7"></div>
+      <div style="width:26px;height:26px;border-radius:8px;background:#14151A"></div>
+      <div style="width:26px;height:26px;border-radius:8px;background:#1F7A4C"></div>
+      <div style="width:26px;height:26px;border-radius:8px;background:#C4453B"></div>
+      <div style="width:26px;height:26px;border-radius:8px;background:#C77A17"></div>
+    </div>
+    bg #F7F6F3 · card #FFF · hairline #E7E5E0<br>ink #14151A · muted #71747B<br>income #1F7A4C · expense #C4453B · review #C77A17<br>radius 22 карта / 16 кнопка / 11 иконка<br>spacing 4·8·12·16·20 (gutter 20)<br>shadow 0 1px 2px rgba(16,18,20,.05) + 0 8px 20px под FAB<br>тип Manrope 600/700/800, суммы tabular-nums</div>
+  <div><div style="font:800 11px Manrope,sans-serif;letter-spacing:.9px;text-transform:uppercase;color:#9B9A94;margin-bottom:6px">Почему быстро</div>Микрофон дублирован: в карте и в доке (большой палец). Ввод текстом — одно касание. Подтверждение — тост с «Отменить» вместо экрана.</div>
+  <div><div style="font:800 11px Manrope,sans-serif;letter-spacing:.9px;text-transform:uppercase;color:#9B9A94;margin-bottom:6px">Что делать первым</div>PageShell + QuickCaptureCard + TransactionRow + тост. Скан — заглушка.</div>
+</div>
+</sc-if>
+</div>
+</div>
+
+<div class="dv-opt" id="1b">
+<div class="dv-olabel"><a class="dv-oid" href="#1b">1b</a>Strong-fit · «Say it — saved» — тёмное, рекомендую</div>
+<div style="display:flex;gap:24px;align-items:flex-start;background:#fff;border:1px solid rgba(0,0,0,.08);border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,.06);padding:24px">
+
+<div data-phone data-screen-label="1b Home" style="width:390px;height:844px;flex:none;position:relative;overflow:hidden;border-radius:46px;background:#0A0A0B;border:1px solid #26262A;box-shadow:0 18px 46px rgba(0,0,0,.3);font-family:'IBM Plex Sans',system-ui,sans-serif;color:#F5F5F6">
+  <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 30px 4px;font-size:14px;font-weight:600">
+    <span>9:41</span>
+    <div style="display:flex;gap:5px;align-items:center">
+      <div style="width:16px;height:9px;border-radius:2px;background:#F5F5F6"></div>
+      <div style="width:22px;height:10px;border:1.5px solid #F5F5F6;border-radius:3px;padding:1.5px;box-sizing:border-box"><div style="width:100%;height:100%;background:#F5F5F6;border-radius:1px"></div></div>
+    </div>
+  </div>
+
+  <div style="padding:18px 20px 0;display:flex;flex-direction:column;gap:18px">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div style="display:flex;align-items:baseline;gap:8px">
+        <span style="font:600 13px 'IBM Plex Mono',monospace;color:#8C8D93">02.09</span>
+        <span style="font-size:13px;color:#5E5F65">вторник</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;background:#141417;border:1px solid rgba(255,255,255,.08);border-radius:999px;padding:6px 11px">
+        <div style="width:6px;height:6px;border-radius:3px;background:#4CC38A"></div>
+        <span style="font:500 11.5px 'IBM Plex Mono',monospace;color:#8C8D93">API · Telegram</span>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;align-items:center;gap:14px;padding:14px 0 2px">
+      <div style="font:500 13px 'IBM Plex Mono',monospace;letter-spacing:.4px;color:#5E5F65;text-transform:uppercase">потрачено сегодня</div>
+      <div style="display:flex;align-items:baseline;gap:8px">
+        <span style="font:600 52px/1 'IBM Plex Mono',monospace;letter-spacing:-2px;font-variant-numeric:tabular-nums">173 000</span>
+        <span style="font-size:16px;font-weight:500;color:#5E5F65">сум</span>
+      </div>
+      <div style="font-size:13px;color:#5E5F65">4 операции · последняя 2 мин назад</div>
+    </div>
+
+    <button onClick="{{ bMic }}" style="border:1px solid rgba(255,255,255,.08);background:linear-gradient(#17181B,#121214);border-radius:28px;padding:26px 20px 24px;display:flex;flex-direction:column;align-items:center;gap:16px;cursor:pointer;font-family:'IBM Plex Sans',sans-serif" style-active="transform:scale(.99)">
+      <div style="position:relative;width:96px;height:96px;display:flex;align-items:center;justify-content:center">
+        <div style="position:absolute;inset:0;border-radius:48px;background:#F5F5F6;animation:fthalo 2.4s ease-out infinite"></div>
+        <div style="position:relative;width:88px;height:88px;border-radius:44px;background:#F5F5F6;display:flex;align-items:center;justify-content:center;box-shadow:0 10px 30px rgba(255,255,255,.14)">
+          <div style="position:relative;width:26px;height:34px">
+            <div style="position:absolute;top:0;left:7px;width:12px;height:17px;border-radius:6px;background:#0A0A0B"></div>
+            <div style="position:absolute;bottom:6px;left:1px;width:24px;height:11px;border:2.5px solid #0A0A0B;border-top:none;border-radius:0 0 13px 13px;box-sizing:border-box"></div>
+            <div style="position:absolute;bottom:0;left:11.5px;width:3px;height:7px;background:#0A0A0B"></div>
+          </div>
+        </div>
+      </div>
+      <div style="text-align:center">
+        <div style="font-size:19px;font-weight:600;letter-spacing:-.3px">Скажите — сохранено</div>
+        <div style="font-size:13.5px;color:#8C8D93;margin-top:4px">Удерживайте или нажмите один раз</div>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center">
+        <span style="font:500 11.5px 'IBM Plex Mono',monospace;color:#8C8D93;background:#1C1D21;border-radius:8px;padding:5px 9px">такси 18к</span>
+        <span style="font:500 11.5px 'IBM Plex Mono',monospace;color:#8C8D93;background:#1C1D21;border-radius:8px;padding:5px 9px">кофе 35000</span>
+        <span style="font:500 11.5px 'IBM Plex Mono',monospace;color:#8C8D93;background:#1C1D21;border-radius:8px;padding:5px 9px">зарплата 12 млн</span>
+      </div>
+    </button>
+
+    <div style="display:flex;align-items:center;gap:10px;background:#141417;border:1px solid rgba(255,255,255,.08);border-radius:18px;padding:15px 16px">
+      <span style="font:600 14px 'IBM Plex Mono',monospace;color:#4CC38A">&gt;</span>
+      <span style="flex:1;font-size:14.5px;color:#5E5F65">Напишите: «продукты 120000»</span>
+      <div style="display:flex;gap:2px;align-items:center;background:#1C1D21;border-radius:6px;padding:4px 7px"><span style="font:500 10.5px 'IBM Plex Mono',monospace;color:#8C8D93">⌘K</span></div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:2px">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:0 4px 8px">
+        <span style="font:500 11.5px 'IBM Plex Mono',monospace;letter-spacing:.5px;text-transform:uppercase;color:#5E5F65">последние</span>
+        <span style="font-size:12.5px;font-weight:600;color:#8C8D93">История</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;padding:11px 4px">
+        <div style="width:6px;height:6px;flex:none;border-radius:3px;background:#F2725E"></div>
+        <div style="flex:1;min-width:0"><div style="font-size:15px;font-weight:500">Такси</div></div>
+        <div style="font:500 12px 'IBM Plex Mono',monospace;color:#5E5F65">14:20</div>
+        <div style="font:600 15px 'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums;min-width:96px;text-align:right">−18 000</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;padding:11px 4px;border-top:1px solid rgba(255,255,255,.06)">
+        <div style="width:6px;height:6px;flex:none;border-radius:3px;background:#F2725E"></div>
+        <div style="flex:1;min-width:0"><div style="font-size:15px;font-weight:500">Кофе</div></div>
+        <div style="font:500 12px 'IBM Plex Mono',monospace;color:#5E5F65">11:05</div>
+        <div style="font:600 15px 'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums;min-width:96px;text-align:right">−35 000</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;padding:11px 4px;border-top:1px solid rgba(255,255,255,.06)">
+        <div style="width:6px;height:6px;flex:none;border-radius:3px;background:#E8A33D"></div>
+        <div style="flex:1;min-width:0"><div style="font-size:15px;font-weight:500">Продукты <span style="font:500 10.5px 'IBM Plex Mono',monospace;color:#E8A33D;border:1px solid rgba(232,163,61,.35);border-radius:6px;padding:2px 6px;margin-left:6px">проверить</span></div></div>
+        <div style="font:500 12px 'IBM Plex Mono',monospace;color:#5E5F65">09:40</div>
+        <div style="font:600 15px 'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums;min-width:96px;text-align:right">−120 000</div>
+      </div>
+    </div>
+  </div>
+
+  <sc-if value="{{ bListen }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;inset:0;background:rgba(6,6,7,.72);backdrop-filter:blur(6px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:26px">
+      <div style="display:flex;gap:5px;align-items:center;height:64px">
+        <div style="width:5px;height:64px;border-radius:3px;background:#F5F5F6;animation:ftbar .8s ease-in-out infinite"></div>
+        <div style="width:5px;height:64px;border-radius:3px;background:#F5F5F6;animation:ftbar .8s ease-in-out .1s infinite"></div>
+        <div style="width:5px;height:64px;border-radius:3px;background:#F5F5F6;animation:ftbar .8s ease-in-out .2s infinite"></div>
+        <div style="width:5px;height:64px;border-radius:3px;background:#4CC38A;animation:ftbar .8s ease-in-out .3s infinite"></div>
+        <div style="width:5px;height:64px;border-radius:3px;background:#F5F5F6;animation:ftbar .8s ease-in-out .4s infinite"></div>
+        <div style="width:5px;height:64px;border-radius:3px;background:#F5F5F6;animation:ftbar .8s ease-in-out .5s infinite"></div>
+      </div>
+      <div style="font:500 13px 'IBM Plex Mono',monospace;letter-spacing:.6px;text-transform:uppercase;color:#8C8D93">слушаю</div>
+      <div style="max-width:280px;text-align:center;font-size:22px;font-weight:500;line-height:1.35;letter-spacing:-.4px">«такси 18к, кофе 35 тысяч»</div>
+      <button onClick="{{ bCancel }}" style="border:1px solid rgba(255,255,255,.14);background:transparent;border-radius:999px;padding:12px 28px;font:600 14.5px 'IBM Plex Sans',sans-serif;color:#8C8D93;cursor:pointer">Отмена</button>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ bPrev }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;inset:0;background:rgba(6,6,7,.6);display:flex;flex-direction:column;justify-content:flex-end">
+      <div style="background:#141417;border:1px solid rgba(255,255,255,.08);border-bottom:none;border-radius:30px 30px 46px 46px;padding:20px 18px 26px;animation:ftrise .22s ease-out;display:flex;flex-direction:column;gap:14px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="font:500 11.5px 'IBM Plex Mono',monospace;letter-spacing:.5px;text-transform:uppercase;color:#5E5F65">разобрано · 2</span>
+          <span style="font:500 11.5px 'IBM Plex Mono',monospace;color:#4CC38A">уверенность 0.96</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;background:#1C1D21;border-radius:16px;padding:14px 15px">
+          <div style="width:6px;height:6px;border-radius:3px;background:#F2725E"></div>
+          <div style="flex:1"><div style="font-size:15.5px;font-weight:500">Такси</div><div style="font-size:12px;color:#5E5F65;margin-top:2px">Транспорт · наличные</div></div>
+          <div style="font:600 17px 'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums">−18 000</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;background:#1C1D21;border-radius:16px;padding:14px 15px">
+          <div style="width:6px;height:6px;border-radius:3px;background:#F2725E"></div>
+          <div style="flex:1"><div style="font-size:15.5px;font-weight:500">Кофе</div><div style="font-size:12px;color:#5E5F65;margin-top:2px">Кафе · карта</div></div>
+          <div style="font:600 17px 'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums">−35 000</div>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:2px">
+          <button onClick="{{ bCancel }}" style="flex:none;border:1px solid rgba(255,255,255,.12);background:transparent;border-radius:999px;padding:15px 22px;font:600 15px 'IBM Plex Sans',sans-serif;color:#8C8D93;cursor:pointer">Отмена</button>
+          <button style="flex:none;border:1px solid rgba(255,255,255,.12);background:transparent;border-radius:999px;padding:15px 22px;font:600 15px 'IBM Plex Sans',sans-serif;color:#F5F5F6;cursor:pointer">Правки</button>
+          <button onClick="{{ bSave }}" style="flex:1;border:none;background:#F5F5F6;border-radius:999px;padding:15px 12px;font:700 15px 'IBM Plex Sans',sans-serif;color:#0A0A0B;cursor:pointer">Сохранить</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ bSaved }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;left:20px;right:20px;bottom:116px;background:#1C1D21;border:1px solid rgba(76,195,138,.3);border-radius:16px;padding:14px 16px;display:flex;align-items:center;gap:12px;animation:ftrise .2s ease-out">
+      <div style="width:20px;height:20px;flex:none;border-radius:10px;background:#4CC38A;display:flex;align-items:center;justify-content:center"><div style="width:7px;height:3.5px;border-left:2px solid #06170F;border-bottom:2px solid #06170F;transform:rotate(-45deg);margin-top:-2px"></div></div>
+      <span style="flex:1;font-size:14.5px;font-weight:500">Сохранено · −53 000 сум</span>
+      <span style="font:500 12.5px 'IBM Plex Mono',monospace;color:#8C8D93">отменить</span>
+    </div>
+  </sc-if>
+
+  <div style="position:absolute;left:0;right:0;bottom:0;padding:10px 22px 20px;background:rgba(10,10,11,.9);border-top:1px solid rgba(255,255,255,.07);backdrop-filter:blur(12px);display:flex;align-items:center;gap:10px">
+    <button style="flex:1;border:1px solid rgba(255,255,255,.08);background:#141417;border-radius:18px;padding:13px 0;display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer">
+      <div style="width:19px;height:19px;border:2px solid #8C8D93;border-radius:6px;position:relative;box-sizing:border-box"><div style="position:absolute;left:2px;right:2px;top:6.5px;height:2px;background:#8C8D93"></div></div>
+      <span style="font:500 10.5px 'IBM Plex Mono',monospace;color:#8C8D93">СКАН</span>
+    </button>
+    <button onClick="{{ bMic }}" style="flex:1.4;border:none;background:#F5F5F6;border-radius:18px;padding:13px 0;display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;box-shadow:0 6px 18px rgba(255,255,255,.1)" style-active="transform:scale(.97)">
+      <div style="position:relative;width:19px;height:25px">
+        <div style="position:absolute;top:0;left:5px;width:9px;height:12px;border-radius:5px;background:#0A0A0B"></div>
+        <div style="position:absolute;bottom:5px;left:.5px;width:18px;height:8px;border:2px solid #0A0A0B;border-top:none;border-radius:0 0 10px 10px;box-sizing:border-box"></div>
+        <div style="position:absolute;bottom:0;left:8.5px;width:2px;height:5px;background:#0A0A0B"></div>
+      </div>
+      <span style="font:700 10.5px 'IBM Plex Mono',monospace;color:#0A0A0B">ГОЛОС</span>
+    </button>
+    <button style="flex:1;border:1px solid rgba(255,255,255,.08);background:#141417;border-radius:18px;padding:13px 0;display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer">
+      <div style="width:19px;height:19px;position:relative"><div style="position:absolute;top:8.5px;left:0;width:19px;height:2px;background:#8C8D93"></div><div style="position:absolute;left:8.5px;top:0;width:2px;height:19px;background:#8C8D93"></div></div>
+      <span style="font:500 10.5px 'IBM Plex Mono',monospace;color:#8C8D93">ВРУЧНУЮ</span>
+    </button>
+  </div>
+</div>
+
+<div data-phone data-screen-label="1b AI-разбор" style="width:390px;height:844px;flex:none;position:relative;overflow:hidden;border-radius:46px;background:#0A0A0B;border:1px solid #26262A;box-shadow:0 18px 46px rgba(0,0,0,.3);font-family:'IBM Plex Sans',system-ui,sans-serif;color:#F5F5F6">
+  <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 30px 4px;font-size:14px;font-weight:600;opacity:.5"><span>9:41</span><div style="width:22px;height:10px;border:1.5px solid #F5F5F6;border-radius:3px"></div></div>
+  <div style="padding:26px 20px;opacity:.28;display:flex;flex-direction:column;align-items:center;gap:10px">
+    <div style="font:500 12px 'IBM Plex Mono',monospace;color:#8C8D93">ПОТРАЧЕНО СЕГОДНЯ</div>
+    <div style="font:600 46px/1 'IBM Plex Mono',monospace;letter-spacing:-2px">173 000</div>
+  </div>
+  <div style="position:absolute;inset:0;background:rgba(6,6,7,.66)"></div>
+  <div style="position:absolute;left:0;right:0;bottom:0;background:#141417;border:1px solid rgba(255,255,255,.08);border-bottom:none;border-radius:30px 30px 46px 46px;padding:20px 18px 26px;display:flex;flex-direction:column;gap:14px">
+    <div style="width:38px;height:4px;border-radius:2px;background:#2A2B30;align-self:center"></div>
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <span style="font:500 11.5px 'IBM Plex Mono',monospace;letter-spacing:.5px;text-transform:uppercase;color:#5E5F65">разобрано · 3 операции</span>
+      <span style="font:500 11.5px 'IBM Plex Mono',monospace;color:#E8A33D">1 к проверке</span>
+    </div>
+    <div style="background:#0E0F11;border:1px solid rgba(255,255,255,.06);border-radius:14px;padding:13px 14px;font-size:14px;line-height:1.5;color:#8C8D93">«Had breakfast $12, OpenAI subscription $19.90 per month, and transferred $1000 from wallet to bank»</div>
+
+    <div style="display:flex;align-items:center;gap:12px;background:#1C1D21;border-radius:16px;padding:14px 15px">
+      <div style="width:6px;height:6px;border-radius:3px;background:#F2725E"></div>
+      <div style="flex:1"><div style="font-size:15.5px;font-weight:500">Завтрак</div><div style="font-size:12px;color:#5E5F65;margin-top:2px">Еда · карта · ≈151 000 сум</div></div>
+      <div style="font:600 17px 'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums">−$12.00</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;background:#1C1D21;border-radius:16px;padding:14px 15px">
+      <div style="width:6px;height:6px;border-radius:3px;background:#F2725E"></div>
+      <div style="flex:1"><div style="font-size:15.5px;font-weight:500">OpenAI <span style="font:500 10px 'IBM Plex Mono',monospace;color:#4CC38A;border:1px solid rgba(76,195,138,.32);border-radius:6px;padding:2px 6px;margin-left:5px">ЕЖЕМЕС.</span></div><div style="font-size:12px;color:#5E5F65;margin-top:2px">Подписка · 2-го числа</div></div>
+      <div style="font:600 17px 'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums">−$19.90</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;background:#231D12;border:1px solid rgba(232,163,61,.28);border-radius:16px;padding:14px 15px">
+      <div style="width:6px;height:6px;border-radius:3px;background:#E8A33D"></div>
+      <div style="flex:1"><div style="font-size:15.5px;font-weight:500">Кошелёк → Банк</div><div style="font-size:12px;color:#E8A33D;margin-top:2px">Какой банковский счёт?</div></div>
+      <div style="font:600 17px 'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums">$1 000</div>
+    </div>
+
+    <div style="display:flex;gap:10px;margin-top:2px">
+      <button style="flex:none;border:1px solid rgba(255,255,255,.12);background:transparent;border-radius:999px;padding:15px 22px;font:600 15px 'IBM Plex Sans',sans-serif;color:#8C8D93;cursor:pointer">Отмена</button>
+      <button style="flex:none;border:1px solid rgba(232,163,61,.4);background:rgba(232,163,61,.1);border-radius:999px;padding:15px 20px;font:600 15px 'IBM Plex Sans',sans-serif;color:#E8A33D;cursor:pointer">Уточнить</button>
+      <button style="flex:1;border:none;background:#F5F5F6;border-radius:999px;padding:15px 12px;font:700 15px 'IBM Plex Sans',sans-serif;color:#0A0A0B;cursor:pointer">Сохранить 2</button>
+    </div>
+    <div style="text-align:center;font:500 11.5px 'IBM Plex Mono',monospace;color:#5E5F65">2 сохраняются сразу · 1 ждёт уточнения</div>
+  </div>
+</div>
+
+<sc-if value="{{ specs }}" hint-placeholder-val="{{ true }}">
+<div style="width:280px;flex:none;display:flex;flex-direction:column;gap:16px;font:400 12px/1.6 Manrope,sans-serif;color:#3D3F45">
+  <div><div style="font:800 11px Manrope,sans-serif;letter-spacing:.9px;text-transform:uppercase;color:#9B9A94;margin-bottom:6px">Обоснование</div>Один экран = одно действие. Крупная светлая кнопка на чёрном — единственный светлый объект в интерфейсе, поэтому цель очевидна за &lt;1 сек. Сумма дня — не дашборд, а обратная связь. Моношрифт для цифр даёт «инструмент», а не «SaaS». Частичное сохранение: уверенные позиции пишутся сразу, спорная уходит в проверку.</div>
+  <div><div style="font:800 11px Manrope,sans-serif;letter-spacing:.9px;text-transform:uppercase;color:#9B9A94;margin-bottom:6px">Токены</div>
+    <div style="display:flex;gap:6px;margin-bottom:8px">
+      <div style="width:26px;height:26px;border-radius:8px;background:#0A0A0B"></div>
+      <div style="width:26px;height:26px;border-radius:8px;background:#141417"></div>
+      <div style="width:26px;height:26px;border-radius:8px;background:#1C1D21"></div>
+      <div style="width:26px;height:26px;border-radius:8px;background:#F5F5F6;border:1px solid #E1DED7"></div>
+      <div style="width:26px;height:26px;border-radius:8px;background:#4CC38A"></div>
+      <div style="width:26px;height:26px;border-radius:8px;background:#F2725E"></div>
+      <div style="width:26px;height:26px;border-radius:8px;background:#E8A33D"></div>
+    </div>
+    bg #0A0A0B · surface #141417 · raised #1C1D21<br>hairline rgba(255,255,255,.08)<br>text #F5F5F6 · muted #8C8D93 · dim #5E5F65<br>income #4CC38A · expense #F2725E · review #E8A33D<br>radius 28 капча / 18 док / 16 строка / 999 кнопка<br>spacing 2·6·10·14·18·20 (gutter 20)<br>без тени на карточках, только glow под primary<br>IBM Plex Sans 500/600 + IBM Plex Mono для сумм (52/17/15, tabular)</div>
+  <div><div style="font:800 11px Manrope,sans-serif;letter-spacing:.9px;text-transform:uppercase;color:#9B9A94;margin-bottom:6px">Почему быстро</div>Тап по всей карте = запись. Док с тремя тактильными кнопками под большим палецем. ⌘K/текст для набора. Черновик открывается только при неуверенности.</div>
+  <div><div style="font:800 11px Manrope,sans-serif;letter-spacing:.9px;text-transform:uppercase;color:#9B9A94;margin-bottom:6px">Что делать первым</div>PageShell → VoiceCaptureButton → CapturePreviewCard → TransactionRow → ReviewBadge. Скан и «Уточнить» — во второй итерации.</div>
+</div>
+</sc-if>
+</div>
+</div>
+
+<div class="dv-opt" id="1c">
+<div class="dv-olabel"><a class="dv-oid" href="#1c">1c</a>Divergent · «Command» — голос-первый, лента как подтверждение</div>
+<div style="display:flex;gap:24px;align-items:flex-start;background:#fff;border:1px solid rgba(0,0,0,.08);border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,.06);padding:24px">
+
+<div data-phone data-screen-label="1c Home" style="width:390px;height:844px;flex:none;position:relative;overflow:hidden;border-radius:46px;background:#0E0D0B;border:1px solid #2A2823;box-shadow:0 18px 46px rgba(0,0,0,.3);font-family:'JetBrains Mono',monospace;color:#F2EFE7">
+  <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 30px 4px;font-size:13px;font-weight:500">
+    <span>9:41</span>
+    <div style="width:22px;height:10px;border:1.5px solid #F2EFE7;border-radius:3px;padding:1.5px;box-sizing:border-box"><div style="width:100%;height:100%;background:#F2EFE7;border-radius:1px"></div></div>
+  </div>
+
+  <div style="padding:22px 22px 0;display:flex;flex-direction:column;gap:22px">
+    <div style="display:flex;justify-content:space-between;align-items:center;font-size:11.5px;letter-spacing:.8px;color:#6B675E">
+      <span>FT · CAPTURE</span>
+      <span>02.09 · 173 000 UZS</span>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div style="font-size:11.5px;letter-spacing:1.2px;color:#6B675E">ГОТОВ К ВВОДУ</div>
+      <div style="font-family:Manrope,sans-serif;font-size:34px;font-weight:800;line-height:1.15;letter-spacing:-1.2px;color:#F2EFE7;text-wrap:pretty">Скажите<br>трату —<br><span style="color:#E3A83C">сохранено.</span></div>
+      <div style="font-size:12.5px;line-height:1.7;color:#8A857A">такси 18к<br>получил зарплату 12 млн<br>перевёл 500к на копилку</div>
+    </div>
+
+    <div style="height:1px;background:rgba(242,239,231,.1)"></div>
+
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div style="font-size:11.5px;letter-spacing:1.2px;color:#6B675E">ЛОГ</div>
+      <div style="display:flex;gap:12px;align-items:baseline;font-size:13.5px">
+        <span style="color:#6B675E;min-width:44px">14:20</span>
+        <span style="flex:1;font-family:Manrope,sans-serif;font-weight:600;font-size:15px">такси</span>
+        <span style="font-weight:600;font-variant-numeric:tabular-nums;color:#F0836C">−18 000</span>
+      </div>
+      <div style="display:flex;gap:12px;align-items:baseline;font-size:13.5px">
+        <span style="color:#6B675E;min-width:44px">11:05</span>
+        <span style="flex:1;font-family:Manrope,sans-serif;font-weight:600;font-size:15px">кофе</span>
+        <span style="font-weight:600;font-variant-numeric:tabular-nums;color:#F0836C">−35 000</span>
+      </div>
+      <div style="display:flex;gap:12px;align-items:baseline;font-size:13.5px">
+        <span style="color:#6B675E;min-width:44px">09:40</span>
+        <span style="flex:1;font-family:Manrope,sans-serif;font-weight:600;font-size:15px">продукты</span>
+        <span style="font-weight:600;font-variant-numeric:tabular-nums;color:#F0836C">−120 000</span>
+      </div>
+      <div style="display:flex;gap:12px;align-items:baseline;font-size:13.5px">
+        <span style="color:#6B675E;min-width:44px">вчера</span>
+        <span style="flex:1;font-family:Manrope,sans-serif;font-weight:600;font-size:15px">зарплата</span>
+        <span style="font-weight:600;font-variant-numeric:tabular-nums;color:#7FCB9B">+12 000 000</span>
+      </div>
+      <div style="font-size:12px;color:#6B675E;padding-top:2px">потянуть вверх — вся история</div>
+    </div>
+  </div>
+
+  <sc-if value="{{ cListen }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;inset:0;background:#0E0D0B;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:30px;padding:0 30px">
+      <div style="display:flex;gap:4px;align-items:center;height:110px">
+        <div style="width:4px;height:110px;border-radius:2px;background:#E3A83C;animation:ftbar .7s ease-in-out infinite"></div>
+        <div style="width:4px;height:110px;border-radius:2px;background:#E3A83C;animation:ftbar .7s ease-in-out .08s infinite"></div>
+        <div style="width:4px;height:110px;border-radius:2px;background:#E3A83C;animation:ftbar .7s ease-in-out .16s infinite"></div>
+        <div style="width:4px;height:110px;border-radius:2px;background:#E3A83C;animation:ftbar .7s ease-in-out .24s infinite"></div>
+        <div style="width:4px;height:110px;border-radius:2px;background:#E3A83C;animation:ftbar .7s ease-in-out .32s infinite"></div>
+        <div style="width:4px;height:110px;border-radius:2px;background:#E3A83C;animation:ftbar .7s ease-in-out .4s infinite"></div>
+        <div style="width:4px;height:110px;border-radius:2px;background:#E3A83C;animation:ftbar .7s ease-in-out .48s infinite"></div>
+      </div>
+      <div style="font-family:Manrope,sans-serif;font-size:26px;font-weight:700;line-height:1.3;letter-spacing:-.6px;text-align:center">«кофе 35 тысяч<br>и такси 18к»</div>
+      <div style="font-size:11.5px;letter-spacing:1.2px;color:#6B675E">ОТПУСТИТЕ — РАЗБОР</div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ cPrev }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;inset:0;background:rgba(14,13,11,.55);display:flex;flex-direction:column;justify-content:flex-end">
+      <div style="background:#F2EFE7;color:#14130F;border-radius:26px 26px 46px 46px;padding:22px 20px 26px;animation:ftrise .22s ease-out;display:flex;flex-direction:column;gap:16px">
+        <div style="display:flex;justify-content:space-between;font-size:11px;letter-spacing:1px;color:#7A756A"><span>ЧЕРНОВИК · 2</span><span>0.96</span></div>
+        <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-family:Manrope,sans-serif;font-size:19px;font-weight:700">кофе</span><span style="font-size:22px;font-weight:700;font-variant-numeric:tabular-nums">−35 000</span></div>
+        <div style="height:1px;background:rgba(20,19,15,.12)"></div>
+        <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-family:Manrope,sans-serif;font-size:19px;font-weight:700">такси</span><span style="font-size:22px;font-weight:700;font-variant-numeric:tabular-nums">−18 000</span></div>
+        <div style="display:flex;gap:10px;margin-top:4px">
+          <button onClick="{{ cCancel }}" style="flex:1;border:1px solid rgba(20,19,15,.18);background:transparent;border-radius:16px;padding:15px 0;font:600 14px 'JetBrains Mono',monospace;color:#7A756A;cursor:pointer">ОТМЕНА</button>
+          <button onClick="{{ cSave }}" style="flex:2;border:none;background:#14130F;border-radius:16px;padding:15px 0;font:700 14px 'JetBrains Mono',monospace;color:#F2EFE7;cursor:pointer">СОХРАНИТЬ</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ cSaved }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;left:22px;right:22px;bottom:186px;background:#E3A83C;border-radius:14px;padding:13px 16px;display:flex;align-items:center;gap:10px;animation:ftrise .2s ease-out">
+      <span style="font:700 12px 'JetBrains Mono',monospace;color:#241A06">СОХРАНЕНО · 2</span>
+      <span style="flex:1"></span>
+      <span style="font:500 12px 'JetBrains Mono',monospace;color:#4A3810">ОТМЕНИТЬ</span>
+    </div>
+  </sc-if>
+
+  <div style="position:absolute;left:0;right:0;bottom:0;padding:18px 22px 24px;background:linear-gradient(rgba(14,13,11,0),#0E0D0B 32%);display:flex;flex-direction:column;gap:12px">
+    <button onClick="{{ cMic }}" style="border:none;border-radius:26px;background:#E3A83C;padding:24px 0 22px;display:flex;flex-direction:column;align-items:center;gap:10px;cursor:pointer;box-shadow:0 10px 30px rgba(227,168,60,.24)" style-active="transform:scale(.98)">
+      <div style="position:relative;width:24px;height:31px">
+        <div style="position:absolute;top:0;left:6.5px;width:11px;height:15px;border-radius:6px;background:#241A06"></div>
+        <div style="position:absolute;bottom:5px;left:1px;width:22px;height:10px;border:2.5px solid #241A06;border-top:none;border-radius:0 0 12px 12px;box-sizing:border-box"></div>
+        <div style="position:absolute;bottom:0;left:10.5px;width:3px;height:6px;background:#241A06"></div>
+      </div>
+      <span style="font:700 13px 'JetBrains Mono',monospace;letter-spacing:1.4px;color:#241A06">УДЕРЖИВАТЬ</span>
+    </button>
+    <div style="display:flex;gap:10px">
+      <button style="flex:1;border:1px solid rgba(242,239,231,.14);background:transparent;border-radius:16px;padding:13px 0;font:500 11.5px 'JetBrains Mono',monospace;letter-spacing:1px;color:#8A857A;cursor:pointer">ТЕКСТ</button>
+      <button style="flex:1;border:1px solid rgba(242,239,231,.14);background:transparent;border-radius:16px;padding:13px 0;font:500 11.5px 'JetBrains Mono',monospace;letter-spacing:1px;color:#8A857A;cursor:pointer">СКАН</button>
+      <button style="flex:1;border:1px solid rgba(242,239,231,.14);background:transparent;border-radius:16px;padding:13px 0;font:500 11.5px 'JetBrains Mono',monospace;letter-spacing:1px;color:#8A857A;cursor:pointer">+ ВРУЧНУЮ</button>
+    </div>
+  </div>
+</div>
+
+<div data-phone data-screen-label="1c AI-разбор" style="width:390px;height:844px;flex:none;position:relative;overflow:hidden;border-radius:46px;background:#0E0D0B;border:1px solid #2A2823;box-shadow:0 18px 46px rgba(0,0,0,.3);font-family:'JetBrains Mono',monospace;color:#F2EFE7">
+  <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 30px 4px;font-size:13px;opacity:.45"><span>9:41</span><div style="width:22px;height:10px;border:1.5px solid #F2EFE7;border-radius:3px"></div></div>
+  <div style="padding:22px 22px;opacity:.22;font-family:Manrope,sans-serif;font-size:34px;font-weight:800;line-height:1.15;letter-spacing:-1.2px">Скажите<br>трату —<br>сохранено.</div>
+  <div style="position:absolute;inset:0;background:rgba(14,13,11,.6)"></div>
+  <div style="position:absolute;left:0;right:0;bottom:0;background:#F2EFE7;color:#14130F;border-radius:26px 26px 46px 46px;padding:22px 20px 26px;display:flex;flex-direction:column;gap:14px">
+    <div style="display:flex;justify-content:space-between;font-size:11px;letter-spacing:1px;color:#7A756A"><span>ЧЕРНОВИК · 3 ОПЕРАЦИИ</span><span style="color:#A8681A">1 ПРОВЕРИТЬ</span></div>
+    <div style="font-family:Manrope,sans-serif;font-size:13.5px;line-height:1.5;color:#5C574C;font-style:italic">«Had breakfast $12, OpenAI subscription $19.90 per month, and transferred $1000 from wallet to bank»</div>
+
+    <div style="display:flex;flex-direction:column;gap:4px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;padding:12px 0">
+        <div><div style="font-family:Manrope,sans-serif;font-size:19px;font-weight:700">завтрак</div><div style="font-size:11px;letter-spacing:.6px;color:#7A756A;margin-top:3px">ЕДА · КАРТА</div></div>
+        <div style="text-align:right"><div style="font-size:21px;font-weight:700;font-variant-numeric:tabular-nums">−$12.00</div><div style="font-size:11px;color:#7A756A;margin-top:3px">≈151 000</div></div>
+      </div>
+      <div style="height:1px;background:rgba(20,19,15,.12)"></div>
+      <div style="display:flex;justify-content:space-between;align-items:baseline;padding:12px 0">
+        <div><div style="font-family:Manrope,sans-serif;font-size:19px;font-weight:700">openai</div><div style="font-size:11px;letter-spacing:.6px;color:#7A756A;margin-top:3px">ПОДПИСКА · ЕЖЕМЕС.</div></div>
+        <div style="text-align:right"><div style="font-size:21px;font-weight:700;font-variant-numeric:tabular-nums">−$19.90</div><div style="font-size:11px;color:#7A756A;margin-top:3px">2-го числа</div></div>
+      </div>
+      <div style="height:1px;background:rgba(20,19,15,.12)"></div>
+      <div style="display:flex;justify-content:space-between;align-items:baseline;padding:12px 0;background:rgba(227,168,60,.16);margin:0 -20px;padding-left:20px;padding-right:20px">
+        <div><div style="font-family:Manrope,sans-serif;font-size:19px;font-weight:700">кошелёк → банк</div><div style="font-size:11px;letter-spacing:.6px;color:#A8681A;margin-top:3px">КАКОЙ СЧЁТ?</div></div>
+        <div style="font-size:21px;font-weight:700;font-variant-numeric:tabular-nums">$1 000</div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:10px;margin-top:2px">
+      <button style="flex:1;border:1px solid rgba(20,19,15,.18);background:transparent;border-radius:16px;padding:15px 0;font:600 13px 'JetBrains Mono',monospace;color:#7A756A;cursor:pointer">ОТМЕНА</button>
+      <button style="flex:1;border:1px solid rgba(168,104,26,.5);background:rgba(227,168,60,.18);border-radius:16px;padding:15px 0;font:700 13px 'JetBrains Mono',monospace;color:#8A5510;cursor:pointer">УТОЧНИТЬ</button>
+      <button style="flex:1.4;border:none;background:#14130F;border-radius:16px;padding:15px 0;font:700 13px 'JetBrains Mono',monospace;color:#F2EFE7;cursor:pointer">СОХРАНИТЬ 2</button>
+    </div>
+  </div>
+</div>
+
+<sc-if value="{{ specs }}" hint-placeholder-val="{{ true }}">
+<div style="width:280px;flex:none;display:flex;flex-direction:column;gap:16px;font:400 12px/1.6 Manrope,sans-serif;color:#3D3F45">
+  <div><div style="font:800 11px Manrope,sans-serif;letter-spacing:.9px;text-transform:uppercase;color:#9B9A94;margin-bottom:6px">Обоснование</div>Приложение как терминал: нижняя треть — тактильный «удерживать», верх — инструкция и лог. Никаких карточек: лента — это просто строки, чтобы взгляд не искал. Бумажный лист черновика (светлый на тёмном) физически отделяет «то, что я сказал» от «то, что записано». Смелее и запоминается, но выше риск для консервативного пользователя.</div>
+  <div><div style="font:800 11px Manrope,sans-serif;letter-spacing:.9px;text-transform:uppercase;color:#9B9A94;margin-bottom:6px">Токены</div>
+    <div style="display:flex;gap:6px;margin-bottom:8px">
+      <div style="width:26px;height:26px;border-radius:8px;background:#0E0D0B"></div>
+      <div style="width:26px;height:26px;border-radius:8px;background:#F2EFE7;border:1px solid #E1DED7"></div>
+      <div style="width:26px;height:26px;border-radius:8px;background:#E3A83C"></div>
+      <div style="width:26px;height:26px;border-radius:8px;background:#7FCB9B"></div>
+      <div style="width:26px;height:26px;border-radius:8px;background:#F0836C"></div>
+    </div>
+    bg #0E0D0B · paper #F2EFE7 · accent #E3A83C<br>muted #8A857A · dim #6B675E<br>income #7FCB9B · expense #F0836C · review #E3A83C/#A8681A<br>radius 26 лист / 16 кнопка · без иконочных плиток<br>spacing 4·10·14·22 (gutter 22)<br>тень только под accent: 0 10px 30px rgba(227,168,60,.24)<br>JetBrains Mono (метки, суммы, кнопки) + Manrope 700/800 (заголовки, названия)</div>
+  <div><div style="font:800 11px Manrope,sans-serif;letter-spacing:.9px;text-transform:uppercase;color:#9B9A94;margin-bottom:6px">Почему быстро</div>Кнопка удержания — 90px высотой, попадаешь не глядя. Отпустил — разбор. Черновик на весь низ, «Сохранить» вдвое шире отмены.</div>
+  <div><div style="font:800 11px Manrope,sans-serif;letter-spacing:.9px;text-transform:uppercase;color:#9B9A94;margin-bottom:6px">Что делать первым</div>Hold-to-talk pad + лог строками + бумажный CapturePreviewCard. Скан/текст — только заглушки кнопок.</div>
+</div>
+</sc-if>
+</div>
+</div>
+
+<div class="dv-opt" id="1d">
+<div class="dv-olabel"><a class="dv-oid" href="#1d">1d</a>Остальные состояния в стиле <a class="dv-oid" href="#1b">1b</a> — история, пусто, нужна проверка, ещё</div>
+<div style="display:flex;gap:24px;align-items:flex-start;background:#fff;border:1px solid rgba(0,0,0,.08);border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,.06);padding:24px">
+
+<div data-phone data-screen-label="1d История" style="width:390px;height:844px;flex:none;position:relative;overflow:hidden;border-radius:46px;background:#0A0A0B;border:1px solid #26262A;box-shadow:0 18px 46px rgba(0,0,0,.3);font-family:'IBM Plex Sans',system-ui,sans-serif;color:#F5F5F6">
+  <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 30px 4px;font-size:14px;font-weight:600"><span>9:41</span><div style="width:22px;height:10px;border:1.5px solid #F5F5F6;border-radius:3px;padding:1.5px;box-sizing:border-box"><div style="width:100%;height:100%;background:#F5F5F6;border-radius:1px"></div></div></div>
+  <div style="padding:18px 20px 0;display:flex;flex-direction:column;gap:16px">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:22px;font-weight:600;letter-spacing:-.5px">История</span>
+      <div style="display:flex;gap:6px">
+        <span style="font:500 11.5px 'IBM Plex Mono',monospace;color:#0A0A0B;background:#F5F5F6;border-radius:999px;padding:6px 11px">7 дней</span>
+        <span style="font:500 11.5px 'IBM Plex Mono',monospace;color:#8C8D93;background:#141417;border:1px solid rgba(255,255,255,.08);border-radius:999px;padding:6px 11px">месяц</span>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;background:#141417;border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:12px 14px">
+      <div style="width:13px;height:13px;border:1.6px solid #5E5F65;border-radius:7px;box-sizing:border-box"></div>
+      <span style="font-size:14px;color:#5E5F65">Поиск: «такси», «120000», «Netflix»</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:baseline;padding:0 4px">
+      <span style="font:500 11.5px 'IBM Plex Mono',monospace;letter-spacing:.5px;text-transform:uppercase;color:#5E5F65">сегодня · 2 сент</span>
+      <span style="font:600 13px 'IBM Plex Mono',monospace;color:#8C8D93">−173 000</span>
+    </div>
+    <div style="display:flex;flex-direction:column">
+      <div style="display:flex;align-items:center;gap:12px;padding:12px 4px"><div style="width:6px;height:6px;border-radius:3px;background:#F2725E"></div><div style="flex:1"><div style="font-size:15px;font-weight:500">Такси</div><div style="font-size:11.5px;color:#5E5F65;margin-top:1px">Транспорт · голос</div></div><div style="font:600 15px 'IBM Plex Mono',monospace">−18 000</div></div>
+      <div style="display:flex;align-items:center;gap:12px;padding:12px 4px;border-top:1px solid rgba(255,255,255,.06)"><div style="width:6px;height:6px;border-radius:3px;background:#F2725E"></div><div style="flex:1"><div style="font-size:15px;font-weight:500">Кофе</div><div style="font-size:11.5px;color:#5E5F65;margin-top:1px">Кафе · Telegram</div></div><div style="font:600 15px 'IBM Plex Mono',monospace">−35 000</div></div>
+      <div style="display:flex;align-items:center;gap:12px;padding:12px 4px;border-top:1px solid rgba(255,255,255,.06)"><div style="width:6px;height:6px;border-radius:3px;background:#E8A33D"></div><div style="flex:1"><div style="font-size:15px;font-weight:500">Продукты</div><div style="font-size:11.5px;color:#E8A33D;margin-top:1px">Категория не уверена</div></div><div style="font:600 15px 'IBM Plex Mono',monospace">−120 000</div></div>
+      <div style="display:flex;align-items:center;gap:12px;padding:12px 4px;border-top:1px solid rgba(255,255,255,.06)"><div style="width:6px;height:6px;border-radius:3px;background:#8C8D93"></div><div style="flex:1"><div style="font-size:15px;font-weight:500">Копилка</div><div style="font-size:11.5px;color:#5E5F65;margin-top:1px">Перевод · кошелёк → копилка</div></div><div style="font:600 15px 'IBM Plex Mono',monospace;color:#8C8D93">500 000</div></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:baseline;padding:6px 4px 0;border-top:1px solid rgba(255,255,255,.06)">
+      <span style="font:500 11.5px 'IBM Plex Mono',monospace;letter-spacing:.5px;text-transform:uppercase;color:#5E5F65">1 сент</span>
+      <span style="font:600 13px 'IBM Plex Mono',monospace;color:#4CC38A">+11 910 000</span>
+    </div>
+    <div style="display:flex;flex-direction:column">
+      <div style="display:flex;align-items:center;gap:12px;padding:12px 4px"><div style="width:6px;height:6px;border-radius:3px;background:#4CC38A"></div><div style="flex:1"><div style="font-size:15px;font-weight:500">Зарплата</div><div style="font-size:11.5px;color:#5E5F65;margin-top:1px">Доход · банк</div></div><div style="font:600 15px 'IBM Plex Mono',monospace;color:#4CC38A">+12 000 000</div></div>
+      <div style="display:flex;align-items:center;gap:12px;padding:12px 4px;border-top:1px solid rgba(255,255,255,.06)"><div style="width:6px;height:6px;border-radius:3px;background:#F2725E"></div><div style="flex:1"><div style="font-size:15px;font-weight:500">Netflix</div><div style="font-size:11.5px;color:#5E5F65;margin-top:1px">Подписка · ежемесячно</div></div><div style="font:600 15px 'IBM Plex Mono',monospace">−$10.00</div></div>
+    </div>
+  </div>
+  <div style="position:absolute;left:0;right:0;bottom:0;padding:10px 22px 20px;background:rgba(10,10,11,.92);border-top:1px solid rgba(255,255,255,.07);display:flex;align-items:center;gap:10px">
+    <button style="flex:1;border:1px solid rgba(255,255,255,.08);background:#141417;border-radius:18px;padding:13px 0;font:500 10.5px 'IBM Plex Mono',monospace;color:#8C8D93;cursor:pointer">СКАН</button>
+    <button style="flex:1.4;border:none;background:#F5F5F6;border-radius:18px;padding:13px 0;font:700 10.5px 'IBM Plex Mono',monospace;color:#0A0A0B;cursor:pointer">ГОЛОС</button>
+    <button style="flex:1;border:1px solid rgba(255,255,255,.08);background:#141417;border-radius:18px;padding:13px 0;font:500 10.5px 'IBM Plex Mono',monospace;color:#8C8D93;cursor:pointer">ВРУЧНУЮ</button>
+  </div>
+</div>
+
+<div data-phone data-screen-label="1d Пусто" style="width:390px;height:844px;flex:none;position:relative;overflow:hidden;border-radius:46px;background:#0A0A0B;border:1px solid #26262A;box-shadow:0 18px 46px rgba(0,0,0,.3);font-family:'IBM Plex Sans',system-ui,sans-serif;color:#F5F5F6">
+  <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 30px 4px;font-size:14px;font-weight:600"><span>9:41</span><div style="width:22px;height:10px;border:1.5px solid #F5F5F6;border-radius:3px;padding:1.5px;box-sizing:border-box"><div style="width:100%;height:100%;background:#F5F5F6;border-radius:1px"></div></div></div>
+  <div style="padding:18px 20px 0;display:flex;flex-direction:column;gap:18px">
+    <div style="display:flex;align-items:baseline;gap:8px"><span style="font:600 13px 'IBM Plex Mono',monospace;color:#8C8D93">02.09</span><span style="font-size:13px;color:#5E5F65">вторник</span></div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:12px;padding:16px 0 0">
+      <div style="font:500 13px 'IBM Plex Mono',monospace;letter-spacing:.4px;text-transform:uppercase;color:#5E5F65">потрачено сегодня</div>
+      <div style="display:flex;align-items:baseline;gap:8px"><span style="font:600 52px/1 'IBM Plex Mono',monospace;letter-spacing:-2px;color:#3A3B40">0</span><span style="font-size:16px;color:#3A3B40">сум</span></div>
+      <div style="font-size:13px;color:#5E5F65">Ещё ничего не записано</div>
+    </div>
+    <div style="border:1px solid rgba(255,255,255,.08);background:linear-gradient(#17181B,#121214);border-radius:28px;padding:26px 20px 24px;display:flex;flex-direction:column;align-items:center;gap:16px">
+      <div style="position:relative;width:96px;height:96px;display:flex;align-items:center;justify-content:center">
+        <div style="position:absolute;inset:0;border-radius:48px;background:#F5F5F6;animation:fthalo 2.4s ease-out infinite"></div>
+        <div style="position:relative;width:88px;height:88px;border-radius:44px;background:#F5F5F6;display:flex;align-items:center;justify-content:center">
+          <div style="position:relative;width:26px;height:34px">
+            <div style="position:absolute;top:0;left:7px;width:12px;height:17px;border-radius:6px;background:#0A0A0B"></div>
+            <div style="position:absolute;bottom:6px;left:1px;width:24px;height:11px;border:2.5px solid #0A0A0B;border-top:none;border-radius:0 0 13px 13px;box-sizing:border-box"></div>
+            <div style="position:absolute;bottom:0;left:11.5px;width:3px;height:7px;background:#0A0A0B"></div>
+          </div>
+        </div>
+      </div>
+      <div style="text-align:center"><div style="font-size:19px;font-weight:600;letter-spacing:-.3px">Начните с одной фразы</div><div style="font-size:13.5px;color:#8C8D93;margin-top:5px;line-height:1.45">Скажите «кофе 35000» — остальное<br>сделает разбор</div></div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div style="font:500 11.5px 'IBM Plex Mono',monospace;letter-spacing:.5px;text-transform:uppercase;color:#5E5F65">попробуйте так</div>
+      <div style="display:flex;align-items:center;gap:10px;background:#141417;border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:13px 14px"><span style="font:600 13px 'IBM Plex Mono',monospace;color:#4CC38A">&gt;</span><span style="flex:1;font-size:14.5px">такси 18к</span><span style="font:500 11px 'IBM Plex Mono',monospace;color:#5E5F65">расход</span></div>
+      <div style="display:flex;align-items:center;gap:10px;background:#141417;border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:13px 14px"><span style="font:600 13px 'IBM Plex Mono',monospace;color:#4CC38A">&gt;</span><span style="flex:1;font-size:14.5px">получил зарплату 12 млн</span><span style="font:500 11px 'IBM Plex Mono',monospace;color:#5E5F65">доход</span></div>
+      <div style="display:flex;align-items:center;gap:10px;background:#141417;border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:13px 14px"><span style="font:600 13px 'IBM Plex Mono',monospace;color:#4CC38A">&gt;</span><span style="flex:1;font-size:14.5px">Netflix 10 долларов каждый месяц</span><span style="font:500 11px 'IBM Plex Mono',monospace;color:#5E5F65">подписка</span></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;padding:2px 4px"><div style="width:6px;height:6px;border-radius:3px;background:#4CC38A"></div><span style="font-size:12.5px;color:#5E5F65">Можно писать боту в Telegram или через Ярлык на iPhone</span></div>
+  </div>
+  <div style="position:absolute;left:0;right:0;bottom:0;padding:10px 22px 20px;background:rgba(10,10,11,.92);border-top:1px solid rgba(255,255,255,.07);display:flex;align-items:center;gap:10px">
+    <button style="flex:1;border:1px solid rgba(255,255,255,.08);background:#141417;border-radius:18px;padding:13px 0;font:500 10.5px 'IBM Plex Mono',monospace;color:#8C8D93;cursor:pointer">СКАН</button>
+    <button style="flex:1.4;border:none;background:#F5F5F6;border-radius:18px;padding:13px 0;font:700 10.5px 'IBM Plex Mono',monospace;color:#0A0A0B;cursor:pointer">ГОЛОС</button>
+    <button style="flex:1;border:1px solid rgba(255,255,255,.08);background:#141417;border-radius:18px;padding:13px 0;font:500 10.5px 'IBM Plex Mono',monospace;color:#8C8D93;cursor:pointer">ВРУЧНУЮ</button>
+  </div>
+</div>
+
+<div data-phone data-screen-label="1d Нужна проверка" style="width:390px;height:844px;flex:none;position:relative;overflow:hidden;border-radius:46px;background:#0A0A0B;border:1px solid #26262A;box-shadow:0 18px 46px rgba(0,0,0,.3);font-family:'IBM Plex Sans',system-ui,sans-serif;color:#F5F5F6">
+  <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 30px 4px;font-size:14px;font-weight:600"><span>9:41</span><div style="width:22px;height:10px;border:1.5px solid #F5F5F6;border-radius:3px;padding:1.5px;box-sizing:border-box"><div style="width:100%;height:100%;background:#F5F5F6;border-radius:1px"></div></div></div>
+  <div style="padding:18px 20px 0;display:flex;flex-direction:column;gap:16px">
+    <div style="display:flex;align-items:center;gap:10px"><div style="width:26px;height:26px;border-radius:13px;border:1.6px solid rgba(232,163,61,.5);display:flex;align-items:center;justify-content:center;font:700 13px 'IBM Plex Mono',monospace;color:#E8A33D">!</div><span style="font-size:20px;font-weight:600;letter-spacing:-.4px">Нужна проверка</span></div>
+    <div style="background:#231D12;border:1px solid rgba(232,163,61,.28);border-radius:20px;padding:18px;display:flex;flex-direction:column;gap:14px">
+      <div style="font-size:14.5px;line-height:1.5;color:#E8C89A">Не удалось понять сумму. Похоже на «18» — но 18 000 или 18 000 000?</div>
+      <div style="background:#0E0F11;border-radius:12px;padding:12px 14px;font:500 14px 'IBM Plex Mono',monospace;color:#8C8D93">«такси восемнадцать»</div>
+      <div style="display:flex;gap:8px">
+        <button style="flex:1;border:1px solid rgba(255,255,255,.14);background:#1C1D21;border-radius:14px;padding:14px 0;font:600 15px 'IBM Plex Mono',monospace;color:#F5F5F6;cursor:pointer">18 000</button>
+        <button style="flex:1;border:1px solid rgba(255,255,255,.14);background:#1C1D21;border-radius:14px;padding:14px 0;font:600 15px 'IBM Plex Mono',monospace;color:#F5F5F6;cursor:pointer">180 000</button>
+        <button style="flex:1;border:1px solid rgba(255,255,255,.14);background:#1C1D21;border-radius:14px;padding:14px 0;font:600 13px 'IBM Plex Sans',sans-serif;color:#8C8D93;cursor:pointer">Ввести</button>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div style="font:500 11.5px 'IBM Plex Mono',monospace;letter-spacing:.5px;text-transform:uppercase;color:#5E5F65">ждут уточнения · 2</div>
+      <div style="display:flex;align-items:center;gap:12px;background:#141417;border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:14px 15px">
+        <div style="width:6px;height:6px;border-radius:3px;background:#E8A33D"></div>
+        <div style="flex:1"><div style="font-size:15px;font-weight:500">Кошелёк → Банк</div><div style="font-size:12px;color:#E8A33D;margin-top:2px">Какой счёт зачисления?</div></div>
+        <div style="font:600 15px 'IBM Plex Mono',monospace">$1 000</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;background:#141417;border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:14px 15px">
+        <div style="width:6px;height:6px;border-radius:3px;background:#E8A33D"></div>
+        <div style="flex:1"><div style="font-size:15px;font-weight:500">Продукты</div><div style="font-size:12px;color:#E8A33D;margin-top:2px">Категория: продукты или дом?</div></div>
+        <div style="font:600 15px 'IBM Plex Mono',monospace">−120 000</div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;background:#141417;border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:14px 15px">
+      <div style="width:6px;height:6px;border-radius:3px;background:#F2725E"></div>
+      <div style="flex:1"><div style="font-size:15px;font-weight:500">Сеть недоступна</div><div style="font-size:12px;color:#8C8D93;margin-top:2px">1 запись в очереди — отправится сама</div></div>
+      <span style="font:500 12px 'IBM Plex Mono',monospace;color:#8C8D93">повтор</span>
+    </div>
+    <div style="text-align:center;font-size:12.5px;color:#5E5F65;padding-top:4px">Ничего не потеряно: черновики хранятся локально</div>
+  </div>
+  <div style="position:absolute;left:0;right:0;bottom:0;padding:10px 22px 20px;background:rgba(10,10,11,.92);border-top:1px solid rgba(255,255,255,.07);display:flex;align-items:center;gap:10px">
+    <button style="flex:1;border:1px solid rgba(255,255,255,.08);background:#141417;border-radius:18px;padding:13px 0;font:500 10.5px 'IBM Plex Mono',monospace;color:#8C8D93;cursor:pointer">СКАН</button>
+    <button style="flex:1.4;border:none;background:#F5F5F6;border-radius:18px;padding:13px 0;font:700 10.5px 'IBM Plex Mono',monospace;color:#0A0A0B;cursor:pointer">ГОЛОС</button>
+    <button style="flex:1;border:1px solid rgba(255,255,255,.08);background:#141417;border-radius:18px;padding:13px 0;font:500 10.5px 'IBM Plex Mono',monospace;color:#8C8D93;cursor:pointer">ВРУЧНУЮ</button>
+  </div>
+</div>
+
+<div data-phone data-screen-label="1d Ещё" style="width:390px;height:844px;flex:none;position:relative;overflow:hidden;border-radius:46px;background:#0A0A0B;border:1px solid #26262A;box-shadow:0 18px 46px rgba(0,0,0,.3);font-family:'IBM Plex Sans',system-ui,sans-serif;color:#F5F5F6">
+  <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 30px 4px;font-size:14px;font-weight:600"><span>9:41</span><div style="width:22px;height:10px;border:1.5px solid #F5F5F6;border-radius:3px;padding:1.5px;box-sizing:border-box"><div style="width:100%;height:100%;background:#F5F5F6;border-radius:1px"></div></div></div>
+  <div style="padding:18px 20px 0;display:flex;flex-direction:column;gap:16px">
+    <span style="font-size:22px;font-weight:600;letter-spacing:-.5px">Ещё</span>
+    <div style="background:#141417;border:1px solid rgba(255,255,255,.08);border-radius:20px;overflow:hidden">
+      <div style="display:flex;align-items:center;gap:12px;padding:15px 16px"><span style="flex:1;font-size:15px">Валюта по умолчанию</span><span style="font:600 13px 'IBM Plex Mono',monospace;color:#8C8D93">UZS</span></div>
+      <div style="display:flex;align-items:center;gap:12px;padding:15px 16px;border-top:1px solid rgba(255,255,255,.06)"><span style="flex:1;font-size:15px">Язык распознавания</span><span style="font:600 13px 'IBM Plex Mono',monospace;color:#8C8D93">RU · UZ · EN</span></div>
+      <div style="display:flex;align-items:center;gap:12px;padding:15px 16px;border-top:1px solid rgba(255,255,255,.06)"><span style="flex:1;font-size:15px">Сохранять без подтверждения</span><div style="width:44px;height:26px;border-radius:13px;background:#4CC38A;padding:2px;box-sizing:border-box;display:flex;justify-content:flex-end"><div style="width:22px;height:22px;border-radius:11px;background:#fff"></div></div></div>
+      <div style="display:flex;align-items:center;gap:12px;padding:15px 16px;border-top:1px solid rgba(255,255,255,.06)"><span style="flex:1;font-size:15px">Тёмная тема</span><span style="font:600 13px 'IBM Plex Mono',monospace;color:#8C8D93">Как в системе</span></div>
+    </div>
+    <div style="font:500 11.5px 'IBM Plex Mono',monospace;letter-spacing:.5px;text-transform:uppercase;color:#5E5F65;padding:4px 4px 0">каналы записи</div>
+    <div style="background:#141417;border:1px solid rgba(255,255,255,.08);border-radius:20px;overflow:hidden">
+      <div style="display:flex;align-items:center;gap:12px;padding:15px 16px"><div style="width:6px;height:6px;border-radius:3px;background:#4CC38A"></div><span style="flex:1;font-size:15px">Telegram-бот</span><span style="font:500 12.5px 'IBM Plex Mono',monospace;color:#4CC38A">подключён</span></div>
+      <div style="display:flex;align-items:center;gap:12px;padding:15px 16px;border-top:1px solid rgba(255,255,255,.06)"><div style="width:6px;height:6px;border-radius:3px;background:#4CC38A"></div><span style="flex:1;font-size:15px">Ярлык на iPhone</span><span style="font:500 12.5px 'IBM Plex Mono',monospace;color:#4CC38A">кнопка действия</span></div>
+      <div style="display:flex;align-items:center;gap:12px;padding:15px 16px;border-top:1px solid rgba(255,255,255,.06)"><div style="width:6px;height:6px;border-radius:3px;background:#5E5F65"></div><span style="flex:1;font-size:15px">API-ключ</span><span style="font:500 12.5px 'IBM Plex Mono',monospace;color:#8C8D93">создать</span></div>
+      <div style="display:flex;align-items:center;gap:12px;padding:15px 16px;border-top:1px solid rgba(255,255,255,.06)"><div style="width:6px;height:6px;border-radius:3px;background:#5E5F65"></div><span style="flex:1;font-size:15px">Импорт выписки</span><span style="font:500 12.5px 'IBM Plex Mono',monospace;color:#8C8D93">скоро</span></div>
+    </div>
+    <div style="font:500 11.5px 'IBM Plex Mono',monospace;letter-spacing:.5px;text-transform:uppercase;color:#5E5F65;padding:4px 4px 0">спрятано намеренно</div>
+    <div style="background:#0E0F11;border:1px solid rgba(255,255,255,.06);border-radius:20px;padding:15px 16px;display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:center"><span style="flex:1;font-size:14.5px;color:#8C8D93">Бюджеты</span><span style="font:500 12px 'IBM Plex Mono',monospace;color:#5E5F65">выкл</span></div>
+      <div style="display:flex;align-items:center"><span style="flex:1;font-size:14.5px;color:#8C8D93">Долги</span><span style="font:500 12px 'IBM Plex Mono',monospace;color:#5E5F65">выкл</span></div>
+      <div style="display:flex;align-items:center"><span style="flex:1;font-size:14.5px;color:#8C8D93">Отчёты и графики</span><span style="font:500 12px 'IBM Plex Mono',monospace;color:#5E5F65">выкл</span></div>
+      <div style="font-size:12px;line-height:1.5;color:#5E5F65">Старые финансовые функции живут здесь и не мешают записи.</div>
+    </div>
+  </div>
+  <div style="position:absolute;left:0;right:0;bottom:0;padding:10px 22px 20px;background:rgba(10,10,11,.92);border-top:1px solid rgba(255,255,255,.07);display:flex;align-items:center;gap:10px">
+    <button style="flex:1;border:1px solid rgba(255,255,255,.08);background:#141417;border-radius:18px;padding:13px 0;font:500 10.5px 'IBM Plex Mono',monospace;color:#8C8D93;cursor:pointer">СКАН</button>
+    <button style="flex:1.4;border:none;background:#F5F5F6;border-radius:18px;padding:13px 0;font:700 10.5px 'IBM Plex Mono',monospace;color:#0A0A0B;cursor:pointer">ГОЛОС</button>
+    <button style="flex:1;border:1px solid rgba(255,255,255,.08);background:#141417;border-radius:18px;padding:13px 0;font:500 10.5px 'IBM Plex Mono',monospace;color:#8C8D93;cursor:pointer">ВРУЧНУЮ</button>
+  </div>
+</div>
+</div>
+</div>
+
+</div>
+<p class="dv-next">Дальше можно: «разверни <a class="dv-oid" href="#1b">1b</a> в полный прототип с рабочим вводом текста» · «сделай светлую версию <a class="dv-oid" href="#1b">1b</a>» · «возьми лог из <a class="dv-oid" href="#1c">1c</a> и вставь в <a class="dv-oid" href="#1b">1b</a>» · «добавь состояние скана чека»</p>
+
+<div style="margin-top:26px;max-width:900px;background:#fff;border:1px solid rgba(0,0,0,.08);border-radius:10px;padding:22px 24px;font:400 12.5px/1.7 Manrope,sans-serif;color:#3D3F45">
+<div style="font:800 11px Manrope,sans-serif;letter-spacing:.9px;text-transform:uppercase;color:#9B9A94;margin-bottom:10px">Самоаудит</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 28px">
+<div><strong>Action-first?</strong> Да — в каждом направлении первый экран без баланса-героя и без графиков; единственный яркий/светлый объект — захват.</div>
+<div><strong>Запись за секунды?</strong> Тап или удержание → авто-сохранение при уверенности; черновик только при неоднозначности.</div>
+<div><strong>Спокойно и надёжно?</strong> Максимум 2 фона, тонкие 1px границы, тени только под primary, суммы табличными цифрами.</div>
+<div><strong>Старые функции спрятаны?</strong> Бюджеты, долги, отчёты — в «Ещё», выключены по умолчанию (<a class="dv-oid" href="#1d">1d</a>).</div>
+<div><strong>Не копия SyncSpend/Qalta?</strong> Взяты только принципы (низкое трение, голос, быстрые действия). Своя типографика, палитра, док и логика частичного сохранения.</div>
+<div><strong>Без AI-слопа?</strong> Ни синих/фиолетовых градиентов, ни стекла, ни «магических» частиц. Уверенность модели показана числом, а не свечением.</div>
+</div>
+</div>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;showSpecs&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Просмотр&quot;},&quot;phoneWidth&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;375&quot;,&quot;390&quot;,&quot;412&quot;],&quot;default&quot;:&quot;390&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Просмотр&quot;},&quot;autoDemo&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Просмотр&quot;}}">
+class Component extends DCLogic {
+  state = { a: 0, b: 0, c: 0 };
+  componentDidMount() { this.applyWidth(); if (this.props.autoDemo) this.demo(); }
+  componentDidUpdate(p) { this.applyWidth(); if (this.props.autoDemo && !p.autoDemo) this.demo(); }
+  applyWidth() {
+    const w = this.props.phoneWidth || "390";
+    document.querySelectorAll("[data-phone]").forEach(el => { el.style.width = w + "px"; });
+  }
+  demo() {
+    const step = (k, v, t) => setTimeout(() => this.setState({ [k]: v }), t);
+    const run = () => {
+      ["a", "b", "c"].forEach((k, i) => {
+        const o = i * 400;
+        step(k, 1, o); step(k, 2, o + 1600); step(k, 3, o + 3400); step(k, 0, o + 5200);
+      });
+    };
+    run();
+    this.timer = setInterval(() => { if (this.props.autoDemo) run(); }, 7000);
+  }
+  componentWillUnmount() { clearInterval(this.timer); }
+  set(k, v) { this.setState({ [k]: v }); }
+  mic(k) {
+    this.set(k, 1);
+    setTimeout(() => this.setState(s => (s[k] === 1 ? { [k]: 2 } : null)), 1500);
+  }
+  save(k) {
+    this.set(k, 3);
+    setTimeout(() => this.setState(s => (s[k] === 3 ? { [k]: 0 } : null)), 2400);
+  }
+  renderVals() {
+    const { a, b, c } = this.state;
+    return {
+      specs: this.props.showSpecs !== false,
+      aListen: a === 1 || a === 2, aSaved: a === 3,
+      bListen: b === 1, bPrev: b === 2, bSaved: b === 3,
+      cListen: c === 1, cPrev: c === 2, cSaved: c === 3,
+      aMic: () => (this.state.a === 2 ? this.save("a") : this.mic("a")),
+      aCancel: () => this.set("a", 0),
+      bMic: () => this.mic("b"), bSave: () => this.save("b"), bCancel: () => this.set("b", 0),
+      cMic: () => this.mic("c"), cSave: () => this.save("c"), cCancel: () => this.set("c", 0)
+    };
+  }
+}
+</script>
+</body>
+</html>

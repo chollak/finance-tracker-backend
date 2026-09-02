@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#EFEDE8;font-family:Manrope,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#14151A}a:hover{color:#000}
+input{font-family:'IBM Plex Sans',sans-serif}
+@keyframes fthalo{0%,100%{transform:scale(1);opacity:.3}50%{transform:scale(1.6);opacity:0}}
+@keyframes ftbar{0%,100%{transform:scaleY(.16)}50%{transform:scaleY(1)}}
+@keyframes ftrise{from{transform:translateY(16px);opacity:0}to{transform:translateY(0);opacity:1}}
+@keyframes ftfade{from{opacity:0}to{opacity:1}}
+</style>
+</helmet>
+
+<div style="display:flex;gap:34px;align-items:flex-start;padding:40px 44px 56px">
+
+<div style="width:216px;flex:none;display:flex;flex-direction:column;gap:22px;position:sticky;top:24px">
+  <div>
+    <div style="font:800 15px Manrope,sans-serif;letter-spacing:-.2px;color:#14151A">Finance Tracker</div>
+    <div style="font:500 11.5px 'IBM Plex Mono',monospace;color:rgba(0,0,0,.45);margin-top:3px">1b · SAY IT — SAVED</div>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:7px">
+    <div style="font:800 10px Manrope,sans-serif;letter-spacing:1px;text-transform:uppercase;color:rgba(0,0,0,.4)">Тема</div>
+    <div style="display:flex;gap:6px">
+      <button onClick="{{ setDark }}" style="flex:1;border:1px solid rgba(0,0,0,.12);border-radius:10px;padding:9px 0;font:700 11.5px Manrope,sans-serif;cursor:pointer;background:{{ darkBtnBg }};color:{{ darkBtnFg }}">Dark</button>
+      <button onClick="{{ setLight }}" style="flex:1;border:1px solid rgba(0,0,0,.12);border-radius:10px;padding:9px 0;font:700 11.5px Manrope,sans-serif;cursor:pointer;background:{{ lightBtnBg }};color:{{ lightBtnFg }}">Light</button>
+    </div>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:7px">
+    <div style="font:800 10px Manrope,sans-serif;letter-spacing:1px;text-transform:uppercase;color:rgba(0,0,0,.4)">Ширина</div>
+    <div style="display:flex;gap:6px">
+      <button onClick="{{ w375 }}" style="flex:1;border:1px solid rgba(0,0,0,.12);border-radius:10px;padding:8px 0;font:600 11px 'IBM Plex Mono',monospace;cursor:pointer;background:{{ w375bg }};color:{{ w375fg }}">375</button>
+      <button onClick="{{ w390 }}" style="flex:1;border:1px solid rgba(0,0,0,.12);border-radius:10px;padding:8px 0;font:600 11px 'IBM Plex Mono',monospace;cursor:pointer;background:{{ w390bg }};color:{{ w390fg }}">390</button>
+      <button onClick="{{ w412 }}" style="flex:1;border:1px solid rgba(0,0,0,.12);border-radius:10px;padding:8px 0;font:600 11px 'IBM Plex Mono',monospace;cursor:pointer;background:{{ w412bg }};color:{{ w412fg }}">412</button>
+    </div>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:7px">
+    <div style="font:800 10px Manrope,sans-serif;letter-spacing:1px;text-transform:uppercase;color:rgba(0,0,0,.4)">Состояния</div>
+    <button onClick="{{ goCapture }}" style="text-align:left;border:1px solid rgba(0,0,0,.1);border-radius:10px;padding:10px 12px;font:600 12.5px Manrope,sans-serif;cursor:pointer;background:{{ navCapture }};color:{{ navCaptureFg }}">1 · Home / Capture</button>
+    <button onClick="{{ goListen }}" style="text-align:left;border:1px solid rgba(0,0,0,.1);border-radius:10px;padding:10px 12px;font:600 12.5px Manrope,sans-serif;cursor:pointer;background:{{ navListen }};color:{{ navListenFg }}">2 · Слушаю (голос)</button>
+    <button onClick="{{ goDraft }}" style="text-align:left;border:1px solid rgba(0,0,0,.1);border-radius:10px;padding:10px 12px;font:600 12.5px Manrope,sans-serif;cursor:pointer;background:{{ navDraft }};color:{{ navDraftFg }}">3 · AI-черновик</button>
+    <button onClick="{{ goSaved }}" style="text-align:left;border:1px solid rgba(0,0,0,.1);border-radius:10px;padding:10px 12px;font:600 12.5px Manrope,sans-serif;cursor:pointer;background:{{ navSaved }};color:{{ navSavedFg }}">4 · Сохранено</button>
+    <button onClick="{{ goReview }}" style="text-align:left;border:1px solid rgba(0,0,0,.1);border-radius:10px;padding:10px 12px;font:600 12.5px Manrope,sans-serif;cursor:pointer;background:{{ navReview }};color:{{ navReviewFg }}">5 · Нужна проверка</button>
+    <button onClick="{{ goHistory }}" style="text-align:left;border:1px solid rgba(0,0,0,.1);border-radius:10px;padding:10px 12px;font:600 12.5px Manrope,sans-serif;cursor:pointer;background:{{ navHistory }};color:{{ navHistoryFg }}">6 · История</button>
+    <button onClick="{{ goEmpty }}" style="text-align:left;border:1px solid rgba(0,0,0,.1);border-radius:10px;padding:10px 12px;font:600 12.5px Manrope,sans-serif;cursor:pointer;background:{{ navEmpty }};color:{{ navEmptyFg }}">7 · Пустое состояние</button>
+    <button onClick="{{ goError }}" style="text-align:left;border:1px solid rgba(0,0,0,.1);border-radius:10px;padding:10px 12px;font:600 12.5px Manrope,sans-serif;cursor:pointer;background:{{ navError }};color:{{ navErrorFg }}">8 · Нет сети / очередь</button>
+    <button onClick="{{ goMore }}" style="text-align:left;border:1px solid rgba(0,0,0,.1);border-radius:10px;padding:10px 12px;font:600 12.5px Manrope,sans-serif;cursor:pointer;background:{{ navMore }};color:{{ navMoreFg }}">9 · Ещё</button>
+  </div>
+
+  <div style="font:400 11.5px/1.6 Manrope,sans-serif;color:rgba(0,0,0,.5);border-top:1px solid rgba(0,0,0,.1);padding-top:14px">
+    Прототип живой: микрофон запускает разбор, поле ввода реально парсит текст («такси 18к», «зарплата 12 млн», «Netflix 10 долларов каждый месяц»), записи попадают в список и историю.
+  </div>
+</div>
+
+<div style="flex:none;display:flex;flex-direction:column;gap:12px;align-items:center">
+<div id="ftphone" style="width:390px;height:844px;flex:none;position:relative;overflow:hidden;border-radius:46px;box-shadow:0 24px 56px rgba(20,21,26,.22);background:#0A0A0B"></div>
+</div>
+
+<div style="width:340px;flex:none;display:flex;flex-direction:column;gap:18px;font:400 12px/1.65 Manrope,sans-serif;color:#3D3F45">
+
+<div style="background:#fff;border:1px solid rgba(0,0,0,.08);border-radius:10px;padding:18px 18px 20px">
+  <div style="font:800 10.5px Manrope,sans-serif;letter-spacing:1px;text-transform:uppercase;color:#9B9A94;margin-bottom:10px">Токены · dark</div>
+  <div style="display:flex;gap:5px;margin-bottom:10px">
+    <div style="width:24px;height:24px;border-radius:7px;background:#0A0A0B"></div>
+    <div style="width:24px;height:24px;border-radius:7px;background:#141417"></div>
+    <div style="width:24px;height:24px;border-radius:7px;background:#1C1D21"></div>
+    <div style="width:24px;height:24px;border-radius:7px;background:#F5F5F6;border:1px solid #E1DED7"></div>
+    <div style="width:24px;height:24px;border-radius:7px;background:#4CC38A"></div>
+    <div style="width:24px;height:24px;border-radius:7px;background:#F2725E"></div>
+    <div style="width:24px;height:24px;border-radius:7px;background:#E8A33D"></div>
+  </div>
+  <div style="font:500 11.5px/1.75 'IBM Plex Mono',monospace;color:#4A4C52">
+  bg #0A0A0B · surface #141417 · raised #1C1D21<br>
+  inset #0E0F11 · hairline rgba(255,255,255,.08)<br>
+  hairline-soft rgba(255,255,255,.06)<br>
+  text #F5F5F6 · muted #8C8D93 · dim #5E5F65<br>
+  primary-fill #F5F5F6 / on-primary #0A0A0B<br>
+  income #4CC38A · expense #F2725E<br>
+  review #E8A33D (bg #231D12, ring 28%)
+  </div>
+</div>
+
+<div style="background:#fff;border:1px solid rgba(0,0,0,.08);border-radius:10px;padding:18px 18px 20px">
+  <div style="font:800 10.5px Manrope,sans-serif;letter-spacing:1px;text-transform:uppercase;color:#9B9A94;margin-bottom:10px">Токены · light</div>
+  <div style="display:flex;gap:5px;margin-bottom:10px">
+    <div style="width:24px;height:24px;border-radius:7px;background:#F7F6F3;border:1px solid #E1DED7"></div>
+    <div style="width:24px;height:24px;border-radius:7px;background:#FFFFFF;border:1px solid #E1DED7"></div>
+    <div style="width:24px;height:24px;border-radius:7px;background:#F4F3EF"></div>
+    <div style="width:24px;height:24px;border-radius:7px;background:#14151A"></div>
+    <div style="width:24px;height:24px;border-radius:7px;background:#1F7A4C"></div>
+    <div style="width:24px;height:24px;border-radius:7px;background:#C4453B"></div>
+    <div style="width:24px;height:24px;border-radius:7px;background:#C77A17"></div>
+  </div>
+  <div style="font:500 11.5px/1.75 'IBM Plex Mono',monospace;color:#4A4C52">
+  bg #F7F6F3 · surface #FFFFFF · raised #F4F3EF<br>
+  inset #F4F3EF · hairline #E7E5E0 · soft #F0EEE9<br>
+  text #14151A · muted #71747B · dim #9B9A94<br>
+  primary-fill #14151A / on-primary #FFFFFF<br>
+  income #1F7A4C · expense #C4453B<br>
+  review #C77A17 (bg #FDF8EE, ring #F7ECD5)
+  </div>
+</div>
+
+<div style="background:#fff;border:1px solid rgba(0,0,0,.08);border-radius:10px;padding:18px 18px 20px">
+  <div style="font:800 10.5px Manrope,sans-serif;letter-spacing:1px;text-transform:uppercase;color:#9B9A94;margin-bottom:10px">Тип · радиусы · сетка</div>
+  <div style="font:500 11.5px/1.75 'IBM Plex Mono',monospace;color:#4A4C52">
+  UI: IBM Plex Sans 400/500/600<br>
+  Numbers: IBM Plex Mono 500/600, tabular-nums<br>
+  hero-amount 52/1 · -2px tracking<br>
+  title 22/600 · body 15/500 · row 15/500<br>
+  meta 12–13 · label 11.5 mono, +0.5px, uppercase<br>
+  min font 11.5 · строка 15 (не мельче)<br><br>
+  radius: capture 28 · dock-btn 18 · sheet 30/46<br>
+  radius: row 16 · chip 8 · pill 999<br>
+  spacing scale 2·6·10·14·18·20·26<br>
+  gutter 20 · dock 10/22/20 · hit ≥ 44<br><br>
+  elevation-0 карточки: только 1px hairline<br>
+  elevation-1 primary: 0 6px 18px rgba(255,255,255,.10)<br>
+  elevation-1 light: 0 6px 16px rgba(20,21,26,.22)<br>
+  sheet: 0 -12px 40px rgba(0,0,0,.35)<br>
+  motion: sheet 220ms ease-out (ftrise),<br>
+  halo 2.4s, waveform 800ms, toast 200ms
+  </div>
+</div>
+
+<div style="background:#fff;border:1px solid rgba(0,0,0,.08);border-radius:10px;padding:18px 18px 20px">
+  <div style="font:800 10.5px Manrope,sans-serif;letter-spacing:1px;text-transform:uppercase;color:#9B9A94;margin-bottom:10px">Правила компонентов</div>
+  <strong>TransactionRow</strong> — 6px точка семантики, название 15/500, мета 11.5 dim, время mono 12, сумма mono 15/600 tabular, min-width 96 справа, разделитель hairline-soft, без иконок-плиток, высота 44–48, свайп влево = удалить, тап = правка.<br><br>
+  <strong>BottomActionDock</strong> — 3 кнопки, центральная flex 1.4 и залита primary-fill, боковые surface + hairline; подписи mono 10.5 uppercase; фон dock 92% + blur 12; safe-area 20px.<br><br>
+  <strong>VoiceCaptureButton</strong> — 88px круг primary-fill, halo-пульс, вся QuickCaptureCard кликабельна; в доке дубль 44×44+.<br><br>
+  <strong>CapturePreviewCard</strong> — bottom sheet, заголовок «разобрано · N» + уверенность числом, строки raised-16, кнопки: Отмена (ghost) · Уточнить (review, если есть) · Сохранить (primary, flex 1).<br><br>
+  <strong>AmountText</strong> — mono, tabular, знак впереди, пробел-разделитель тысяч, валюта на 2 ступени меньше и dim.
+</div>
+
+<div style="background:#fff;border:1px solid rgba(0,0,0,.08);border-radius:10px;padding:18px 18px 20px">
+  <div style="font:800 10.5px Manrope,sans-serif;letter-spacing:1px;text-transform:uppercase;color:#9B9A94;margin-bottom:10px">Для Claude Code</div>
+  <strong>Компоненты:</strong> PageShell · ThemeProvider(tokens) · QuickCaptureCard · VoiceCaptureButton · TextCaptureInput · BottomActionDock · CapturePreviewCard · TransactionRow · AmountText · ReviewBadge · CompactToast · EmptyState · OfflineBanner · SectionLabel · MoreList.<br><br>
+  <strong>Порядок:</strong> 1) Home/Capture (единственный экран, который должен быть идеальным) → 2) Listening + Draft → 3) Toast + undo → 4) История → 5) Проверка/офлайн → 6) Ещё.<br><br>
+  <strong>P0:</strong> голосовой захват, парсинг текста, авто-сохранение при confidence ≥ 0.9, черновик при &lt; 0.9 или multi-item, toast с undo (5 сек), список последних 4, локальная очередь при офлайне, Telegram MainButton/haptics.<br>
+  <strong>P1:</strong> скан документов, уточнение счёта перевода, поиск в истории, повторяющиеся подписки, API-ключ, iOS Shortcut/Action Button.<br>
+  <strong>P2 (спрятано):</strong> бюджеты, долги, отчёты — фиче-флаги, выключены.<br><br>
+  <strong>Visual QA 375 / 390 / 412:</strong><br>
+  · hero-сумма не переносится на 375 (clamp 40–52px, до 9 знаков)<br>
+  · dock: 3 кнопки, зазор 10, каждая ≥ 44 высотой и ≥ 96 шириной на 375<br>
+  · сумма в строке не сжимает название: title truncate, amount min-width 96<br>
+  · sheet не выше 78% высоты, внутри скролл, кнопки закреплены<br>
+  · «Сохранить» остаётся flex 1 и не уходит на 2-ю строку при 3 кнопках на 375<br>
+  · safe-area bottom ≥ 20, ничего под home-indicator<br>
+  · Telegram viewport: проверить 100dvh и раскрытый/свёрнутый Mini App<br>
+  · RU/UZ строки на 375 без обрезки («ВРУЧНУЮ», «Категория не уверена»)<br>
+  · контраст: muted #8C8D93 на #0A0A0B = 5.4:1, dim #5E5F65 только для не-текстовой меты<br>
+  · тёмная/светлая: проверить оба режима в одном прогоне QA
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;dark&quot;,&quot;light&quot;],&quot;default&quot;:&quot;dark&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Прототип&quot;},&quot;phoneWidth&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;375&quot;,&quot;390&quot;,&quot;412&quot;],&quot;default&quot;:&quot;390&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Прототип&quot;},&quot;autoSaveConfident&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Прототип&quot;}}">
+const D = {
+  bg:"#0A0A0B", surf:"#141417", raised:"#1C1D21", inset:"#0E0F11",
+  line:"rgba(255,255,255,.08)", soft:"rgba(255,255,255,.06)",
+  text:"#F5F5F6", muted:"#8C8D93", dim:"#5E5F65",
+  fill:"#F5F5F6", onFill:"#0A0A0B",
+  inc:"#4CC38A", exp:"#F2725E", rev:"#E8A33D",
+  revBg:"#231D12", revLine:"rgba(232,163,61,.28)",
+  frame:"#26262A", dockBg:"rgba(10,10,11,.92)", scrim:"rgba(6,6,7,.66)",
+  glow:"0 6px 18px rgba(255,255,255,.10)", ghost:"rgba(255,255,255,.12)"
+};
+const L = {
+  bg:"#F7F6F3", surf:"#FFFFFF", raised:"#F4F3EF", inset:"#F4F3EF",
+  line:"#E7E5E0", soft:"#F0EEE9",
+  text:"#14151A", muted:"#71747B", dim:"#9B9A94",
+  fill:"#14151A", onFill:"#FFFFFF",
+  inc:"#1F7A4C", exp:"#C4453B", rev:"#C77A17",
+  revBg:"#FDF8EE", revLine:"#F7ECD5",
+  frame:"#E1DED7", dockBg:"rgba(247,246,243,.94)", scrim:"rgba(20,21,26,.34)",
+  glow:"0 6px 16px rgba(20,21,26,.22)", ghost:"rgba(20,21,26,.14)"
+};
+const SEED = [
+  {id:1, title:"Такси", cat:"Транспорт · голос", amt:-18000, cur:"UZS", t:"14:20", day:0},
+  {id:2, title:"Кофе", cat:"Кафе · Telegram", amt:-35000, cur:"UZS", t:"11:05", day:0},
+  {id:3, title:"Продукты", cat:"Категория не уверена", amt:-120000, cur:"UZS", t:"09:40", day:0, review:true},
+  {id:4, title:"Копилка", cat:"Перевод · кошелёк → копилка", amt:500000, cur:"UZS", t:"09:12", day:0, transfer:true},
+  {id:5, title:"Зарплата", cat:"Доход · банк", amt:12000000, cur:"UZS", t:"18:02", day:1},
+  {id:6, title:"Netflix", cat:"Подписка · ежемесячно", amt:-10, cur:"USD", t:"09:00", day:1}
+];
+const PHRASES = [
+  {said:"такси 18к, кофе 35 тысяч", conf:0.96,
+   items:[{title:"Такси", cat:"Транспорт · наличные", amt:-18000, cur:"UZS"},
+          {title:"Кофе", cat:"Кафе · карта", amt:-35000, cur:"UZS"}]},
+  {said:"получил зарплату 12 млн", conf:0.98,
+   items:[{title:"Зарплата", cat:"Доход · банк", amt:12000000, cur:"UZS"}]},
+  {said:"Had breakfast $12, OpenAI subscription $19.90 per month, and transferred $1000 from wallet to bank", conf:0.82,
+   items:[{title:"Завтрак", cat:"Еда · карта · ≈151 000 сум", amt:-12, cur:"USD"},
+          {title:"OpenAI", cat:"Подписка · 2-го числа", amt:-19.9, cur:"USD", monthly:true},
+          {title:"Кошелёк → Банк", cat:"Какой банковский счёт?", amt:1000, cur:"USD", review:true, transfer:true}]}
+];
+
+class Component extends DCLogic {
+  state = {
+    theme: "dark", screen: "capture", ov: 0, w: 390,
+    tx: SEED, draft: null, said: "", conf: 0, input: "", pi: 0, savedInfo: ""
+  };
+  componentDidMount() {
+    const st = {};
+    if (this.props.theme === "light") st.theme = "light";
+    if (this.props.phoneWidth) st.w = parseInt(this.props.phoneWidth, 10);
+    this.prevW = this.props.phoneWidth;
+    this.prevTheme = this.props.theme;
+    if (Object.keys(st).length) this.setState(st);
+    this.paint();
+  }
+  componentDidUpdate() {
+    if (this.props.phoneWidth !== this.prevW) {
+      this.prevW = this.props.phoneWidth;
+      if (this.props.phoneWidth) { this.setState({w: parseInt(this.props.phoneWidth, 10)}); return; }
+    }
+    if (this.props.theme !== this.prevTheme) {
+      this.prevTheme = this.props.theme;
+      if (this.props.theme) { this.setState({theme: this.props.theme}); return; }
+    }
+    this.paint();
+  }
+  componentWillUnmount() { clearTimeout(this.t1); clearTimeout(this.t2); }
+
+  // ---------- helpers ----------
+  fmt(n, cur) {
+    const a = Math.abs(n);
+    if (cur === "USD") return "$" + a.toLocaleString("en-US", {minimumFractionDigits: a % 1 ? 2 : 0, maximumFractionDigits: 2});
+    return a.toLocaleString("ru-RU").replace(/\u00A0/g, " ");
+  }
+  amtText(it) {
+    const s = it.transfer ? "" : (it.amt > 0 ? "+" : "−");
+    return s + this.fmt(it.amt, it.cur);
+  }
+  amtColor(it, T) {
+    if (it.transfer) return T.muted;
+    return it.amt > 0 ? T.inc : T.text;
+  }
+  dotColor(it, T) {
+    if (it.review) return T.rev;
+    if (it.transfer) return T.muted;
+    return it.amt > 0 ? T.inc : T.exp;
+  }
+  todayTotal() {
+    return this.state.tx.filter(x => x.day === 0 && !x.transfer && x.amt < 0 && x.cur === "UZS")
+      .reduce((s, x) => s + Math.abs(x.amt), 0);
+  }
+  parse(str) {
+    const segs = str.split(/[,;]|\sи\s/).map(s => s.trim()).filter(Boolean);
+    const out = [];
+    segs.forEach(seg => {
+      const usd = /\$|доллар|usd/i.test(seg);
+      const m = seg.match(/(\d+[\d\s.,]*)\s*(к|k|тыс[а-я.]*|млн|million|m)?/i);
+      let amt = null;
+      if (m) {
+        amt = parseFloat(m[1].replace(/[\s,]/g, "").replace(/\.(?=\d{3}\b)/g, ""));
+        const mult = (m[2] || "").toLowerCase();
+        if (/^(к|k|тыс)/.test(mult)) amt *= 1000;
+        if (/^(млн|m)/.test(mult)) amt *= 1000000;
+      }
+      let title = seg.replace(/\$?\d+[\d\s.,]*\s*(к|k|тыс[а-я.]*|млн|доллар[а-я]*|сум|usd)?/gi, "").trim();
+      title = title.replace(/^(получил|потратил|заплатил|перевел|перевёл|had|paid)\s+/i, "").trim();
+      if (!title) title = "Без названия";
+      const income = /зарплат|получил|доход|премия|salary|income/i.test(seg);
+      const transfer = /перевел|перевёл|перевод|копилк|transfer/i.test(seg);
+      const monthly = /кажд|месяц|month|подписк|subscription/i.test(seg);
+      out.push({
+        title: title.charAt(0).toUpperCase() + title.slice(1),
+        cat: transfer ? "Перевод · уточнить счёт" : monthly ? "Подписка · ежемесячно" : income ? "Доход" : "Расход · авто-категория",
+        amt: amt == null ? 0 : (income || transfer ? amt : -amt),
+        cur: usd ? "USD" : "UZS",
+        review: amt == null, transfer, monthly
+      });
+    });
+    return out;
+  }
+
+  // ---------- actions ----------
+  setTheme(theme) { this.setState({theme}); }
+  go(screen) { this.setState({screen, ov: 0}); }
+  mic = () => {
+    const p = PHRASES[this.state.pi % PHRASES.length];
+    this.setState({ov: 1, said: p.said, conf: p.conf, draft: p.items, screen: this.state.screen === "history" || this.state.screen === "more" ? "capture" : this.state.screen, pi: this.state.pi + 1});
+    clearTimeout(this.t1);
+    this.t1 = setTimeout(() => this.setState(s => {
+      if (s.ov !== 1) return null;
+      const auto = s.conf >= 0.9 && this.props.autoSaveConfident !== false;
+      return auto ? this.commit(s.draft, s) : {ov: 2};
+    }), 1600);
+  };
+  commit(items, s) {
+    const ok = items.filter(i => !i.review);
+    const rev = items.filter(i => i.review);
+    const now = new Date();
+    const t = String(now.getHours()).padStart(2, "0") + ":" + String(now.getMinutes()).padStart(2, "0");
+    const add = ok.concat(rev).map((i, k) => Object.assign({}, i, {id: Date.now() + k, t, day: 0}));
+    const sum = ok.filter(i => i.cur === "UZS" && !i.transfer).reduce((a, i) => a + Math.abs(i.amt), 0);
+    clearTimeout(this.t2);
+    this.t2 = setTimeout(() => this.setState(x => (x.ov === 3 ? {ov: 0} : null)), 2600);
+    return {
+      ov: 3, tx: add.concat((s || this.state).tx),
+      savedInfo: rev.length
+        ? "Сохранено " + ok.length + " · " + rev.length + " к проверке"
+        : "Сохранено · −" + this.fmt(sum, "UZS") + " сум"
+    };
+  }
+  save = () => this.setState(s => this.commit(s.draft, s));
+  cancel = () => this.setState({ov: 0});
+  onInput = e => this.setState({input: e.target.value});
+  onKey = e => {
+    if (e.key !== "Enter" || !this.state.input.trim()) return;
+    const items = this.parse(this.state.input);
+    const conf = items.some(i => i.review) ? 0.74 : items.length > 1 ? 0.88 : 0.95;
+    this.setState({input: "", said: this.state.input, conf, draft: items, ov: 2});
+  };
+
+  // ---------- painting the phone (kept in one imperative tree: theme + 9 states) ----------
+  paint() {
+    const host = document.getElementById("ftphone");
+    if (!host) return;
+    const s = this.state, T = s.theme === "light" ? L : D;
+    const w = s.w;
+    host.style.width = w + "px";
+    host.style.background = T.bg;
+    host.style.border = "1px solid " + T.frame;
+    host.style.display = "flex";
+    host.style.flexDirection = "column";
+    host.style.fontFamily = "'IBM Plex Sans', system-ui, sans-serif";
+    host.style.color = T.text;
+    host.innerHTML = this.html(T, w);
+    host.querySelectorAll("[data-act]").forEach(el => {
+      el.onclick = () => {
+        const a = el.getAttribute("data-act");
+        if (a === "mic") this.mic();
+        else if (a === "save") this.save();
+        else if (a === "cancel") this.cancel();
+        else if (a.indexOf("go:") === 0) this.go(a.slice(3));
+      };
+    });
+    const inp = host.querySelector("[data-input]");
+    if (inp) {
+      inp.value = s.input;
+      inp.oninput = this.onInput;
+      inp.onkeydown = this.onKey;
+    }
+  }
+  statusBar(T) {
+    return '<div style="flex:none;display:flex;justify-content:space-between;align-items:center;padding:16px 30px 4px;font-size:14px;font-weight:600">' +
+      '<span>9:41</span><div style="display:flex;gap:5px;align-items:center">' +
+      '<div style="width:16px;height:9px;border-radius:2px;background:' + T.text + '"></div>' +
+      '<div style="width:22px;height:10px;border:1.5px solid ' + T.text + ';border-radius:3px;padding:1.5px;box-sizing:border-box"><div style="width:100%;height:100%;background:' + T.text + ';border-radius:1px"></div></div>' +
+      '</div></div>';
+  }
+  micGlyph(c, sc) {
+    const k = sc || 1;
+    return '<div style="position:relative;width:' + 19 * k + 'px;height:' + 25 * k + 'px">' +
+      '<div style="position:absolute;top:0;left:' + 5 * k + 'px;width:' + 9 * k + 'px;height:' + 12.5 * k + 'px;border-radius:' + 5 * k + 'px;background:' + c + '"></div>' +
+      '<div style="position:absolute;bottom:' + 5 * k + 'px;left:' + 0.5 * k + 'px;width:' + 18 * k + 'px;height:' + 8 * k + 'px;border:' + 2 * k + 'px solid ' + c + ';border-top:none;border-radius:0 0 ' + 10 * k + 'px ' + 10 * k + 'px;box-sizing:border-box"></div>' +
+      '<div style="position:absolute;bottom:0;left:' + 8.5 * k + 'px;width:' + 2 * k + 'px;height:' + 5 * k + 'px;background:' + c + '"></div></div>';
+  }
+  label(T, txt) {
+    return '<span style="font:500 11.5px \'IBM Plex Mono\',monospace;letter-spacing:.5px;text-transform:uppercase;color:' + T.dim + '">' + txt + '</span>';
+  }
+  row(T, it, flat) {
+    return '<div style="display:flex;align-items:center;gap:12px;padding:12px 4px;' + (flat ? "" : "border-top:1px solid " + T.soft) + '">' +
+      '<div style="width:6px;height:6px;flex:none;border-radius:3px;background:' + this.dotColor(it, T) + '"></div>' +
+      '<div style="flex:1;min-width:0"><div style="font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + it.title + '</div>' +
+      '<div style="font-size:11.5px;margin-top:1px;color:' + (it.review ? T.rev : T.dim) + '">' + it.cat + '</div></div>' +
+      '<div style="font:500 12px \'IBM Plex Mono\',monospace;color:' + T.dim + '">' + it.t + '</div>' +
+      '<div style="font:600 15px \'IBM Plex Mono\',monospace;font-variant-numeric:tabular-nums;min-width:96px;text-align:right;color:' + this.amtColor(it, T) + '">' + this.amtText(it) + '</div></div>';
+  }
+  dock(T, active) {
+    const side = (act, txt, glyph) =>
+      '<button data-act="' + act + '" style="flex:1;min-height:52px;border:1px solid ' + T.line + ';background:' + T.surf + ';border-radius:18px;padding:11px 0;display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer">' +
+      glyph + '<span style="font:500 10.5px \'IBM Plex Mono\',monospace;color:' + T.muted + '">' + txt + '</span></button>';
+    const scan = '<div style="width:19px;height:19px;border:2px solid ' + T.muted + ';border-radius:6px;position:relative;box-sizing:border-box"><div style="position:absolute;left:2px;right:2px;top:6.5px;height:2px;background:' + T.muted + '"></div></div>';
+    const plus = '<div style="width:19px;height:19px;position:relative"><div style="position:absolute;top:8.5px;left:0;width:19px;height:2px;background:' + T.muted + '"></div><div style="position:absolute;left:8.5px;top:0;width:2px;height:19px;background:' + T.muted + '"></div></div>';
+    return '<div style="position:absolute;left:0;right:0;bottom:0;padding:10px 20px 20px;background:' + T.dockBg + ';border-top:1px solid ' + T.line + ';backdrop-filter:blur(12px);display:flex;align-items:center;gap:10px">' +
+      side("go:capture", "СКАН", scan) +
+      '<button data-act="mic" style="flex:1.4;min-height:52px;border:none;background:' + T.fill + ';border-radius:18px;padding:11px 0;display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;box-shadow:' + T.glow + '">' +
+      this.micGlyph(T.onFill) + '<span style="font:700 10.5px \'IBM Plex Mono\',monospace;color:' + T.onFill + '">ГОЛОС</span></button>' +
+      side("go:" + (active === "history" ? "more" : "history"), active === "history" ? "ЕЩЁ" : "ВРУЧНУЮ", plus) +
+      '</div>';
+  }
+  captureCard(T, empty) {
+    const grad = T === D ? "linear-gradient(#17181B,#121214)" : "#FFFFFF";
+    const chips = ["такси 18к", "кофе 35000", "зарплата 12 млн"].map(c =>
+      '<span style="font:500 11.5px \'IBM Plex Mono\',monospace;color:' + T.muted + ';background:' + T.raised + ';border-radius:8px;padding:5px 9px">' + c + '</span>').join("");
+    return '<button data-act="mic" style="width:100%;border:1px solid ' + T.line + ';background:' + grad + ';border-radius:28px;padding:24px 18px 22px;display:flex;flex-direction:column;align-items:center;gap:15px;cursor:pointer;font-family:inherit;color:inherit">' +
+      '<div style="position:relative;width:96px;height:96px;display:flex;align-items:center;justify-content:center">' +
+      '<div style="position:absolute;inset:0;border-radius:48px;background:' + T.fill + ';animation:fthalo 2.4s ease-out infinite"></div>' +
+      '<div style="position:relative;width:88px;height:88px;border-radius:44px;background:' + T.fill + ';display:flex;align-items:center;justify-content:center;box-shadow:' + T.glow + '">' + this.micGlyph(T.onFill, 1.36) + '</div></div>' +
+      '<div style="text-align:center"><div style="font-size:19px;font-weight:600;letter-spacing:-.3px">' + (empty ? "Начните с одной фразы" : "Скажите — сохранено") + '</div>' +
+      '<div style="font-size:13.5px;color:' + T.muted + ';margin-top:4px">' + (empty ? "Скажите «кофе 35000» — остальное сделает разбор" : "Удерживайте или нажмите один раз") + '</div></div>' +
+      '<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center">' + chips + '</div></button>';
+  }
+  textInput(T) {
+    return '<div style="display:flex;align-items:center;gap:10px;background:' + T.surf + ';border:1px solid ' + T.line + ';border-radius:18px;padding:14px 15px">' +
+      '<span style="font:600 14px \'IBM Plex Mono\',monospace;color:' + T.inc + '">&gt;</span>' +
+      '<input data-input placeholder="Напишите: «продукты 120000» + Enter" style="flex:1;min-width:0;border:none;outline:none;background:transparent;font-size:14.5px;color:' + T.text + '">' +
+      '<span style="font:500 10.5px \'IBM Plex Mono\',monospace;color:' + T.muted + ';background:' + T.raised + ';border-radius:6px;padding:4px 7px">AI</span></div>';
+  }
+  hero(T, empty) {
+    const v = empty ? "0" : this.fmt(this.todayTotal(), "UZS");
+    const c = empty ? T.dim : T.text;
+    const n = this.state.tx.filter(x => x.day === 0).length;
+    return '<div style="display:flex;flex-direction:column;align-items:center;gap:10px;padding:10px 0 2px">' +
+      '<div style="font:500 12.5px \'IBM Plex Mono\',monospace;letter-spacing:.4px;text-transform:uppercase;color:' + T.dim + '">потрачено сегодня</div>' +
+      '<div style="display:flex;align-items:baseline;gap:8px"><span style="font:600 clamp(40px,12vw,52px)/1 \'IBM Plex Mono\',monospace;letter-spacing:-2px;font-variant-numeric:tabular-nums;color:' + c + '">' + v + '</span>' +
+      '<span style="font-size:16px;font-weight:500;color:' + (empty ? T.dim : T.muted) + '">сум</span></div>' +
+      '<div style="font-size:13px;color:' + T.dim + '">' + (empty ? "Ещё ничего не записано" : n + " операции · последняя " + this.state.tx[0].t) + '</div></div>';
+  }
+  header(T) {
+    return '<div style="display:flex;justify-content:space-between;align-items:center">' +
+      '<div style="display:flex;align-items:baseline;gap:8px"><span style="font:600 13px \'IBM Plex Mono\',monospace;color:' + T.muted + '">02.09</span><span style="font-size:13px;color:' + T.dim + '">вторник</span></div>' +
+      '<button data-act="go:more" style="display:flex;align-items:center;gap:6px;background:' + T.surf + ';border:1px solid ' + T.line + ';border-radius:999px;padding:6px 11px;cursor:pointer">' +
+      '<div style="width:6px;height:6px;border-radius:3px;background:' + T.inc + '"></div>' +
+      '<span style="font:500 11.5px \'IBM Plex Mono\',monospace;color:' + T.muted + '">API · Telegram</span></button></div>';
+  }
+  overlays(T) {
+    const s = this.state;
+    let h = "";
+    if (s.ov === 1) {
+      const bars = [0, .1, .2, .3, .4, .5].map((d, i) =>
+        '<div style="width:5px;height:64px;border-radius:3px;background:' + (i === 3 ? T.inc : T.text) + ';animation:ftbar .8s ease-in-out ' + d + 's infinite"></div>').join("");
+      h += '<div style="position:absolute;inset:0;background:' + (T === D ? "rgba(6,6,7,.78)" : "rgba(247,246,243,.92)") + ';backdrop-filter:blur(6px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;padding:0 30px;animation:ftfade .18s ease-out">' +
+        '<div style="display:flex;gap:5px;align-items:center;height:64px">' + bars + '</div>' +
+        '<div style="font:500 12.5px \'IBM Plex Mono\',monospace;letter-spacing:.6px;text-transform:uppercase;color:' + T.dim + '">слушаю</div>' +
+        '<div style="max-width:290px;text-align:center;font-size:21px;font-weight:500;line-height:1.35;letter-spacing:-.4px">«' + s.said + '»</div>' +
+        '<button data-act="cancel" style="border:1px solid ' + T.ghost + ';background:transparent;border-radius:999px;padding:12px 28px;font:600 14.5px inherit;color:' + T.muted + ';cursor:pointer">Отмена</button></div>';
+    }
+    if (s.ov === 2 && s.draft) {
+      const rev = s.draft.filter(i => i.review).length;
+      const rows = s.draft.map(i =>
+        '<div style="display:flex;align-items:center;gap:12px;background:' + (i.review ? T.revBg : T.raised) + ';border:1px solid ' + (i.review ? T.revLine : "transparent") + ';border-radius:16px;padding:14px 15px">' +
+        '<div style="width:6px;height:6px;flex:none;border-radius:3px;background:' + this.dotColor(i, T) + '"></div>' +
+        '<div style="flex:1;min-width:0"><div style="font-size:15.5px;font-weight:500">' + i.title +
+        (i.monthly ? ' <span style="font:500 10px \'IBM Plex Mono\',monospace;color:' + T.inc + ';border:1px solid ' + T.inc + '55;border-radius:6px;padding:2px 6px;margin-left:5px">ЕЖЕМЕС.</span>' : "") +
+        '</div><div style="font-size:12px;margin-top:2px;color:' + (i.review ? T.rev : T.dim) + '">' + i.cat + '</div></div>' +
+        '<div style="font:600 17px \'IBM Plex Mono\',monospace;font-variant-numeric:tabular-nums;color:' + this.amtColor(i, T) + '">' + this.amtText(i) + '</div></div>').join("");
+      h += '<div style="position:absolute;inset:0;background:' + T.scrim + ';display:flex;flex-direction:column;justify-content:flex-end">' +
+        '<div style="background:' + T.surf + ';border:1px solid ' + T.line + ';border-bottom:none;border-radius:30px 30px 46px 46px;padding:18px 18px 24px;max-height:78%;overflow:auto;box-shadow:0 -12px 40px rgba(0,0,0,.35);animation:ftrise .22s ease-out;display:flex;flex-direction:column;gap:12px">' +
+        '<div style="width:38px;height:4px;border-radius:2px;background:' + T.raised + ';align-self:center"></div>' +
+        '<div style="display:flex;justify-content:space-between;align-items:center">' + this.label(T, "разобрано · " + s.draft.length) +
+        '<span style="font:500 11.5px \'IBM Plex Mono\',monospace;color:' + (s.conf >= 0.9 ? T.inc : T.rev) + '">уверенность ' + s.conf.toFixed(2) + '</span></div>' +
+        '<div style="background:' + T.inset + ';border:1px solid ' + T.soft + ';border-radius:14px;padding:12px 14px;font-size:13.5px;line-height:1.5;color:' + T.muted + '">«' + s.said + '»</div>' +
+        rows +
+        '<div style="display:flex;gap:8px;margin-top:2px">' +
+        '<button data-act="cancel" style="flex:none;min-height:48px;border:1px solid ' + T.ghost + ';background:transparent;border-radius:999px;padding:14px 20px;font:600 15px inherit;color:' + T.muted + ';cursor:pointer">Отмена</button>' +
+        (rev ? '<button data-act="cancel" style="flex:none;min-height:48px;border:1px solid ' + T.rev + '66;background:' + T.rev + '1A;border-radius:999px;padding:14px 18px;font:600 15px inherit;color:' + T.rev + ';cursor:pointer">Уточнить</button>' : "") +
+        '<button data-act="save" style="flex:1;min-height:48px;border:none;background:' + T.fill + ';border-radius:999px;padding:14px 10px;font:700 15px inherit;color:' + T.onFill + ';cursor:pointer">Сохранить' + (rev ? " " + (s.draft.length - rev) : "") + '</button></div>' +
+        '<div style="text-align:center;font:500 11.5px \'IBM Plex Mono\',monospace;color:' + T.dim + '">' + (rev ? "уверенные сохраняются сразу · " + rev + " ждёт уточнения" : "свайп вниз — отменить") + '</div></div></div>';
+    }
+    if (s.ov === 3) {
+      h += '<div style="position:absolute;left:20px;right:20px;bottom:108px;background:' + (T === D ? T.raised : T.fill) + ';border:1px solid ' + T.inc + '4D;border-radius:16px;padding:14px 16px;display:flex;align-items:center;gap:12px;animation:ftrise .2s ease-out;box-shadow:0 12px 28px rgba(0,0,0,.28)">' +
+        '<div style="width:20px;height:20px;flex:none;border-radius:10px;background:' + T.inc + ';display:flex;align-items:center;justify-content:center"><div style="width:7px;height:3.5px;border-left:2px solid #06170F;border-bottom:2px solid #06170F;transform:rotate(-45deg);margin-top:-2px"></div></div>' +
+        '<span style="flex:1;font-size:14.5px;font-weight:500;color:' + (T === D ? T.text : T.onFill) + '">' + s.savedInfo + '</span>' +
+        '<span style="font:500 12.5px \'IBM Plex Mono\',monospace;color:' + (T === D ? T.muted : "#B8B8BC") + '">отменить</span></div>';
+    }
+    return h;
+  }
+  html(T, w) {
+    const s = this.state, pad = w < 380 ? 16 : 20;
+    const open = '<div style="flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px ' + pad + 'px 108px;display:flex;flex-direction:column;gap:16px;box-sizing:border-box">';
+
+    if (s.screen === "history") {
+      const today = s.tx.filter(x => x.day === 0), earlier = s.tx.filter(x => x.day > 0);
+      const sum = today.filter(x => !x.transfer && x.cur === "UZS").reduce((a, x) => a + x.amt, 0);
+      return this.statusBar(T) + open +
+        '<div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:22px;font-weight:600;letter-spacing:-.5px">История</span>' +
+        '<div style="display:flex;gap:6px"><span style="font:500 11.5px \'IBM Plex Mono\',monospace;color:' + T.onFill + ';background:' + T.fill + ';border-radius:999px;padding:6px 11px">7 дней</span>' +
+        '<span style="font:500 11.5px \'IBM Plex Mono\',monospace;color:' + T.muted + ';background:' + T.surf + ';border:1px solid ' + T.line + ';border-radius:999px;padding:6px 11px">месяц</span></div></div>' +
+        '<div style="display:flex;align-items:center;gap:10px;background:' + T.surf + ';border:1px solid ' + T.line + ';border-radius:14px;padding:12px 14px">' +
+        '<div style="width:13px;height:13px;border:1.6px solid ' + T.dim + ';border-radius:7px;box-sizing:border-box"></div>' +
+        '<span style="font-size:14px;color:' + T.dim + '">Поиск: «такси», «120000», «Netflix»</span></div>' +
+        '<div style="display:flex;justify-content:space-between;align-items:baseline;padding:0 4px">' + this.label(T, "сегодня · 2 сент") +
+        '<span style="font:600 13px \'IBM Plex Mono\',monospace;color:' + T.muted + '">' + (sum < 0 ? "−" : "+") + this.fmt(sum, "UZS") + '</span></div>' +
+        '<div style="display:flex;flex-direction:column">' + today.map((it, i) => this.row(T, it, i === 0)).join("") + '</div>' +
+        '<div style="display:flex;justify-content:space-between;align-items:baseline;padding:4px 4px 0;border-top:1px solid ' + T.soft + '">' + this.label(T, "1 сент") +
+        '<span style="font:600 13px \'IBM Plex Mono\',monospace;color:' + T.inc + '">+11 910 000</span></div>' +
+        '<div style="display:flex;flex-direction:column">' + earlier.map((it, i) => this.row(T, it, i === 0)).join("") + '</div>' +
+        '</div>' + this.overlays(T) + this.dock(T, "history");
+    }
+
+    if (s.screen === "more") {
+      const item = (l, r, last) => '<div style="display:flex;align-items:center;gap:12px;padding:15px 16px;' + (last ? "" : "border-bottom:1px solid " + T.soft) + '"><span style="flex:1;font-size:15px">' + l + '</span>' + r + '</div>';
+      const mono = (t, c) => '<span style="font:600 12.5px \'IBM Plex Mono\',monospace;color:' + (c || T.muted) + '">' + t + '</span>';
+      const off = l => '<div style="display:flex;align-items:center;padding:4px 0"><span style="flex:1;font-size:14.5px;color:' + T.muted + '">' + l + '</span>' + mono("выкл", T.dim) + '</div>';
+      return this.statusBar(T) + open +
+        '<span style="font-size:22px;font-weight:600;letter-spacing:-.5px">Ещё</span>' +
+        '<div style="background:' + T.surf + ';border:1px solid ' + T.line + ';border-radius:20px;overflow:hidden">' +
+        item("Валюта по умолчанию", mono("UZS")) + item("Язык распознавания", mono("RU · UZ · EN")) +
+        item("Сохранять без подтверждения", '<div style="width:44px;height:26px;border-radius:13px;background:' + T.inc + ';padding:2px;box-sizing:border-box;display:flex;justify-content:flex-end"><div style="width:22px;height:22px;border-radius:11px;background:#fff"></div></div>') +
+        item("Тёмная тема", mono("Как в системе"), true) + '</div>' +
+        '<div style="padding:2px 4px">' + this.label(T, "каналы записи") + '</div>' +
+        '<div style="background:' + T.surf + ';border:1px solid ' + T.line + ';border-radius:20px;overflow:hidden">' +
+        item("Telegram-бот", mono("подключён", T.inc)) + item("Ярлык на iPhone", mono("кнопка действия", T.inc)) +
+        item("API-ключ", mono("создать")) + item("Импорт выписки", mono("скоро"), true) + '</div>' +
+        '<div style="padding:2px 4px">' + this.label(T, "спрятано намеренно") + '</div>' +
+        '<div style="background:' + T.inset + ';border:1px solid ' + T.soft + ';border-radius:20px;padding:14px 16px">' +
+        off("Бюджеты") + off("Долги") + off("Отчёты и графики") +
+        '<div style="font-size:12px;line-height:1.5;color:' + T.dim + ';margin-top:8px">Фиче-флаги выключены: эти экраны не должны конкурировать с записью.</div></div>' +
+        '</div>' + this.overlays(T) + this.dock(T, "more");
+    }
+
+    if (s.screen === "review") {
+      const pending = s.tx.filter(x => x.review);
+      return this.statusBar(T) + open +
+        '<div style="display:flex;align-items:center;gap:10px"><div style="width:26px;height:26px;border-radius:13px;border:1.6px solid ' + T.rev + '80;display:flex;align-items:center;justify-content:center;font:700 13px \'IBM Plex Mono\',monospace;color:' + T.rev + '">!</div>' +
+        '<span style="font-size:20px;font-weight:600;letter-spacing:-.4px">Нужна проверка</span></div>' +
+        '<div style="background:' + T.revBg + ';border:1px solid ' + T.revLine + ';border-radius:20px;padding:18px;display:flex;flex-direction:column;gap:14px">' +
+        '<div style="font-size:14.5px;line-height:1.5;color:' + (T === D ? "#E8C89A" : "#8A5510") + '">Не удалось понять сумму. Похоже на «18» — но 18 000 или 18 000 000?</div>' +
+        '<div style="background:' + T.inset + ';border-radius:12px;padding:12px 14px;font:500 14px \'IBM Plex Mono\',monospace;color:' + T.muted + '">«такси восемнадцать»</div>' +
+        '<div style="display:flex;gap:8px">' +
+        '<button data-act="go:capture" style="flex:1;min-height:48px;border:1px solid ' + T.ghost + ';background:' + T.raised + ';border-radius:14px;font:600 15px \'IBM Plex Mono\',monospace;color:' + T.text + ';cursor:pointer">18 000</button>' +
+        '<button data-act="go:capture" style="flex:1;min-height:48px;border:1px solid ' + T.ghost + ';background:' + T.raised + ';border-radius:14px;font:600 15px \'IBM Plex Mono\',monospace;color:' + T.text + ';cursor:pointer">180 000</button>' +
+        '<button data-act="go:capture" style="flex:1;min-height:48px;border:1px solid ' + T.ghost + ';background:' + T.raised + ';border-radius:14px;font:600 13px inherit;color:' + T.muted + ';cursor:pointer">Ввести</button></div></div>' +
+        '<div style="padding:2px 4px">' + this.label(T, "ждут уточнения · " + Math.max(pending.length, 1)) + '</div>' +
+        (pending.length ? pending : [{title: "Продукты", cat: "Категория: продукты или дом?", amt: -120000, cur: "UZS", review: true, t: "09:40"}])
+          .map(i => '<div style="display:flex;align-items:center;gap:12px;background:' + T.surf + ';border:1px solid ' + T.line + ';border-radius:16px;padding:14px 15px">' +
+            '<div style="width:6px;height:6px;flex:none;border-radius:3px;background:' + T.rev + '"></div>' +
+            '<div style="flex:1;min-width:0"><div style="font-size:15px;font-weight:500">' + i.title + '</div><div style="font-size:12px;color:' + T.rev + ';margin-top:2px">' + i.cat + '</div></div>' +
+            '<div style="font:600 15px \'IBM Plex Mono\',monospace">' + this.amtText(i) + '</div></div>').join("") +
+        '<div style="text-align:center;font-size:12.5px;color:' + T.dim + ';margin-top:auto">Ничего не потеряно: черновики хранятся локально</div>' +
+        '</div>' + this.overlays(T) + this.dock(T);
+    }
+
+    if (s.screen === "error") {
+      return this.statusBar(T) + open + this.header(T) +
+        '<div style="display:flex;align-items:center;gap:12px;background:' + T.revBg + ';border:1px solid ' + T.revLine + ';border-radius:16px;padding:13px 15px">' +
+        '<div style="width:6px;height:6px;flex:none;border-radius:3px;background:' + T.rev + '"></div>' +
+        '<div style="flex:1"><div style="font-size:14.5px;font-weight:500">Нет сети — пишем локально</div>' +
+        '<div style="font-size:12px;color:' + T.rev + ';margin-top:2px">2 записи в очереди · отправятся сами</div></div>' +
+        '<span style="font:500 12px \'IBM Plex Mono\',monospace;color:' + T.rev + '">повтор</span></div>' +
+        this.captureCard(T) + this.textInput(T) +
+        '<div style="padding:2px 4px">' + this.label(T, "очередь · 2") + '</div>' +
+        '<div style="display:flex;flex-direction:column">' +
+        this.row(T, {title: "Такси", cat: "Ожидает отправки", amt: -18000, cur: "UZS", t: "14:20"}, true) +
+        this.row(T, {title: "Кофе", cat: "Ожидает отправки", amt: -35000, cur: "UZS", t: "11:05"}) + '</div>' +
+        '<div style="text-align:center;font-size:12.5px;color:' + T.dim + '">Запись всегда работает офлайн — разбор догонит позже</div>' +
+        '</div>' + this.overlays(T) + this.dock(T);
+    }
+
+    // capture / empty
+    const empty = s.screen === "empty";
+    const recent = s.tx.slice(0, 3);
+    const list = empty
+      ? '<div style="display:flex;flex-direction:column;gap:9px">' +
+        ["такси 18к|расход", "получил зарплату 12 млн|доход", "Netflix 10 долларов каждый месяц|подписка"].map(x => {
+          const p = x.split("|");
+          return '<div style="display:flex;align-items:center;gap:10px;background:' + T.surf + ';border:1px solid ' + T.line + ';border-radius:14px;padding:13px 14px">' +
+            '<span style="font:600 13px \'IBM Plex Mono\',monospace;color:' + T.inc + '">&gt;</span>' +
+            '<span style="flex:1;font-size:14.5px">' + p[0] + '</span>' +
+            '<span style="font:500 11px \'IBM Plex Mono\',monospace;color:' + T.dim + '">' + p[1] + '</span></div>';
+        }).join("") + '</div>'
+      : '<div style="display:flex;flex-direction:column"><div style="display:flex;justify-content:space-between;align-items:center;padding:0 4px 6px">' + this.label(T, "последние") +
+        '<button data-act="go:history" style="border:none;background:none;font:600 12.5px inherit;color:' + T.muted + ';cursor:pointer;padding:0">История →</button></div>' +
+        recent.map((it, i) => this.row(T, it, i === 0)).join("") + '</div>';
+
+    return this.statusBar(T) + open + this.header(T) + this.hero(T, empty) + this.captureCard(T, empty) + this.textInput(T) + list +
+      (empty ? '<div style="display:flex;align-items:center;gap:10px;padding:2px 4px"><div style="width:6px;height:6px;border-radius:3px;background:' + T.inc + '"></div><span style="font-size:12.5px;color:' + T.dim + '">Можно писать боту в Telegram или через Ярлык на iPhone</span></div>' : "") +
+      '</div>' + this.overlays(T) + this.dock(T);
+  }
+
+  renderVals() {
+    const s = this.state, dark = s.theme === "dark";
+    const on = "#14151A", onFg = "#fff", off = "#fff", offFg = "#3D3F45";
+    const w = s.w;
+    const navOn = (k) => (s.screen === k ? on : off), navFg = (k) => (s.screen === k ? onFg : offFg);
+    const ovOn = (k) => (s.ov === k ? on : off), ovFg = (k) => (s.ov === k ? onFg : offFg);
+    return {
+      setDark: () => this.setTheme("dark"), setLight: () => this.setTheme("light"),
+      darkBtnBg: dark ? on : off, darkBtnFg: dark ? onFg : offFg,
+      lightBtnBg: dark ? off : on, lightBtnFg: dark ? offFg : onFg,
+      w375: () => this.setState({w: 375}), w390: () => this.setState({w: 390}), w412: () => this.setState({w: 412}),
+      w375bg: w === 375 ? on : off, w375fg: w === 375 ? onFg : offFg,
+      w390bg: w === 390 ? on : off, w390fg: w === 390 ? onFg : offFg,
+      w412bg: w === 412 ? on : off, w412fg: w === 412 ? onFg : offFg,
+      goCapture: () => this.go("capture"), goHistory: () => this.go("history"),
+      goMore: () => this.go("more"), goReview: () => this.go("review"),
+      goEmpty: () => this.go("empty"), goError: () => this.go("error"),
+      goListen: () => this.mic(),
+      goDraft: () => { const p = PHRASES[2]; this.setState({ov: 2, said: p.said, conf: p.conf, draft: p.items, screen: "capture"}); },
+      goSaved: () => this.setState({ov: 3, savedInfo: "Сохранено · −53 000 сум", screen: "capture"}),
+      navCapture: s.screen === "capture" && !s.ov ? on : off, navCaptureFg: s.screen === "capture" && !s.ov ? onFg : offFg,
+      navListen: ovOn(1), navListenFg: ovFg(1),
+      navDraft: ovOn(2), navDraftFg: ovFg(2),
+      navSaved: ovOn(3), navSavedFg: ovFg(3),
+      navReview: navOn("review"), navReviewFg: navFg("review"),
+      navHistory: navOn("history"), navHistoryFg: navFg("history"),
+      navEmpty: navOn("empty"), navEmptyFg: navFg("empty"),
+      navError: navOn("error"), navErrorFg: navFg("error"),
+      navMore: navOn("more"), navMoreFg: navFg("more")
+    };
+  }
+}
+</script>
+</body>
+</html>
