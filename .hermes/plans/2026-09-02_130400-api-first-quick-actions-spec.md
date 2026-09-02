@@ -433,8 +433,9 @@ AI parsed:
 ```
 
 Visual QA acceptance:
-- screenshots must be captured at 375, 390/393, and 412 px;
-- Hermes must inspect actual screenshots, not only build success;
+- Claude Code must capture screenshots at 375, 390/393, and 412 px;
+- Claude Code must perform the first QA pass: build/tests/screenshots/visual review;
+- Hermes performs final verification of Claude Code's report, diff, and key screenshots before commit/push;
 - primary action must be obvious in the first viewport;
 - UI should feel like a lightweight iPhone app, not a Telegram admin dashboard;
 - old features must not visually compete with Quick Capture.
@@ -536,19 +537,19 @@ Question from Shukur:
 
 Decision:
 
-> **Development must use Claude Code. Hermes is the orchestrator and QA gatekeeper, not the implementer.**
+> **Development and QA must use Claude Code. Hermes is the orchestrator and final verifier, not the implementer or primary QA executor.**
 
 Design workflow decision:
 
-> **Use Claude Design first for concept direction when visual exploration is needed; then Claude Code implements repo-safe slices; Hermes verifies with diff review, tests, and screenshots.**
+> **Use Claude Design first for concept direction when visual exploration is needed; then Claude Code implements and QA's repo-safe slices; Hermes verifies Claude Code's report/diff before commit/push.**
 
 Reasoning:
-- Shukur wants development to always use Claude Code;
+- Shukur wants development and QA to always use Claude Code;
 - Claude Design is useful for fast visual exploration and a polished artifact direction;
 - Claude Code is the implementation agent for actual code changes;
 - Hermes should not blindly copy a Claude Design output into the app;
 - the app already has Tailwind/CSS variables/shared UI primitives, so the final design must become an internal design system, not a pasted prototype;
-- the safest path is: concept → Claude Code implementation slice → Hermes QA → commit/push.
+- the safest path is: concept → Claude Code implementation+QA slice → Hermes final verification → commit/push.
 
 Recommended design workflow:
 
@@ -567,16 +568,16 @@ Recommended design workflow:
    - `VoiceCaptureButton`;
    - `CapturePreviewCard`.
 5. Claude Code implements only the first screen/slice.
-6. Hermes verifies actual diff, build/tests, and screenshots at 375/390/412 px.
-7. Hermes commits/pushes only after verification.
+6. Claude Code runs QA: actual diff self-review, build/tests, and screenshots at 375/390/412 px.
+7. Hermes final-checks Claude Code's QA evidence and commits/pushes only after verification.
 
 Important constraint:
 - do not do pixel-perfect clone of SyncSpend/Qalta;
 - copy the philosophy and interaction model, not copyrighted assets/screens.
 
 Fallback rule:
-- If Claude Code is unavailable, stop and report the blocker.
-- Do not switch to Hermes implementation unless Shukur explicitly allows it for that specific task.
+- If Claude Code is unavailable for either implementation or QA, stop and report the blocker.
+- Do not switch to Hermes implementation or Hermes-primary QA unless Shukur explicitly allows it for that specific task.
 
 ---
 
