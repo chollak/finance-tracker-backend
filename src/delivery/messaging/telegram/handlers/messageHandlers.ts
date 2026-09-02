@@ -21,6 +21,7 @@ import { LimitType } from '../../../../modules/subscription/domain/usageLimit';
 import { createLogger, LogCategory } from '../../../../shared/infrastructure/logging';
 import { countsAsRealExpense, normalizeSemanticType } from '../../../../modules/transaction/domain/transactionSemanticType';
 import { buildCaptureAck } from '../../../../modules/quickCapture/application/buildCaptureAck';
+import { toCapturedTransaction } from '../../../../modules/quickCapture/application/toCapturedTransaction';
 import { CapturedTransaction } from '../../../../modules/quickCapture/domain/quickCaptureTypes';
 
 const logger = createLogger(LogCategory.TELEGRAM_MSG);
@@ -267,10 +268,11 @@ export function createVoiceMessageHandler(userModule?: UserModule, subscriptionM
       // Get summary for context
       const summary = await getTodaySummary(transactionModule, userId);
 
-      // Process each transaction
+      // Transcription stays in the voice use case, but the confirmation is the shared capture ack,
+      // so a voice capture reads exactly like a text one apart from the 🎤 prefix.
       for (const tx of result.transactions) {
         setLastTransactionId(userId, tx.id);
-        await sendTransactionResponse(ctx, tx as ProcessedTransaction, result.text, userId, true, summary);
+        await sendCaptureResponse(ctx, toCapturedTransaction(tx), userId, summary, true);
       }
 
       // Process each debt
@@ -342,13 +344,15 @@ async function sendTransactionResponse(
 
 /**
  * Send a quick-capture result using the shared ack, one message per captured transaction so
- * each keeps its own edit/delete keyboard.
+ * each keeps its own edit/delete keyboard. Shared by the text and voice paths; `isVoice` only
+ * adds the 🎤 prefix so both channels confirm a capture with the same words.
  */
 async function sendCaptureResponse(
   ctx: BotContext,
   tx: CapturedTransaction,
   userId: string,
-  summary?: { todayTotal: number; monthTotal: number }
+  summary?: { todayTotal: number; monthTotal: number },
+  isVoice = false
 ) {
   const confidence = tx.confidence ?? 0.8;
   const needsConfirmation = confidence < CONFIDENCE_THRESHOLD;
@@ -357,7 +361,7 @@ async function sendCaptureResponse(
     tx,
     buildCaptureAck([tx]),
     needsConfirmation,
-    false,
+    isVoice,
     summary?.todayTotal,
     summary?.monthTotal
   );

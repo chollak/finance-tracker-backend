@@ -1,8 +1,7 @@
 import { ProcessTextInputUseCase } from '../../voiceProcessing/application/processTextInput';
-import { DetectedTransaction } from '../../voiceProcessing/domain/processedTransaction';
-import { countsAsRealExpense, normalizeSemanticType } from '../../transaction/domain/transactionSemanticType';
 import { getLogger, LogCategory } from '../../../shared/application/logging';
 import { buildCaptureAck } from './buildCaptureAck';
+import { toCapturedTransaction } from './toCapturedTransaction';
 import {
   CaptureReviewReason,
   CaptureSource,
@@ -14,24 +13,6 @@ import {
 } from '../domain/quickCaptureTypes';
 
 const logger = getLogger(LogCategory.TRANSACTION);
-
-function toCapturedTransaction(detected: DetectedTransaction): CapturedTransaction {
-  const semanticType = normalizeSemanticType(detected.semanticType, detected.type);
-
-  return {
-    id: detected.id,
-    amount: detected.amount,
-    type: detected.type,
-    semanticType,
-    category: detected.category,
-    description: detected.description,
-    merchant: detected.merchant,
-    date: detected.date,
-    confidence: detected.confidence,
-    needsReview: detected.needsReview === true,
-    countsAsRealExpense: countsAsRealExpense(semanticType),
-  };
-}
 
 /**
  * The shared quick-capture boundary. It owns the client-facing contract (status + ack)
