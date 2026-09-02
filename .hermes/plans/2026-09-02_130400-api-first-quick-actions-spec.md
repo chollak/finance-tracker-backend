@@ -698,13 +698,37 @@ Why this is the preferred direction:
 Important design details to preserve in Claude Code implementation:
 - dark-first theme with light pair;
 - huge primary voice capture button/card;
-- bottom action dock: `Scan / Voice / Manual`;
+- bottom dock: `Scan / Voice / Manual`;
 - natural text input fallback;
+- **text input active state** with keyboard-safe layout;
+- **text submitting/parsing state** with no fake save before API result;
+- **manual add fallback** as a secondary/reserve flow;
+- **microphone permission denied** fallback to text;
 - large `spent today` numeric feedback;
 - compact recent transaction log;
 - Qalta-like AI draft bottom sheet;
 - partial save behavior: confident items can save, uncertain items go to review;
 - hidden old features under `More` as off/disabled, not primary navigation.
+
+Updated artifact state coverage:
+
+```text
+01. Home / Capture
+02. Voice listening
+03. AI draft / parsed preview
+04. Saved confirmation
+05. Needs review
+06. History
+07. Empty state
+08. Offline / queue
+09. More / Settings
+10. Text input active / keyboard
+11. Text submitting / parsing
+12. Manual add fallback
+13. Microphone permission denied
+```
+
+For current stage, Claude Design work is complete. Next session should start with Claude Code read-only audit, not implementation.
 
 ---
 

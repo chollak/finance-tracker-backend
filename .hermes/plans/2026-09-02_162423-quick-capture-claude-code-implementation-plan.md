@@ -996,7 +996,105 @@ The full pivot plan is ready when:
 
 ---
 
-## 18. Important non-goals repeated
+## 18. Next session handoff
+
+Use this section when Shukur starts a new Hermes session.
+
+### Current status
+
+```text
+Planning/design stage complete.
+Do not start implementation unless Shukur explicitly says to begin.
+```
+
+Completed and saved in repo:
+
+```text
+.hermes/plans/2026-09-02_130400-api-first-quick-actions-spec.md
+.hermes/plans/2026-09-02_162423-quick-capture-claude-code-implementation-plan.md
+.hermes/design/finance-tracker-1b-prototype.dc.html
+.hermes/design/finance-tracker-capture-directions.dc.html
+.hermes/design/support.js
+```
+
+Latest design artifact includes 13 states:
+
+```text
+01. Home / Capture
+02. Voice listening
+03. AI draft / parsed preview
+04. Saved confirmation
+05. Needs review
+06. History
+07. Empty state
+08. Offline / queue
+09. More / Settings
+10. Text input active / keyboard
+11. Text submitting / parsing
+12. Manual add fallback
+13. Microphone permission denied
+```
+
+### Locked workflow
+
+```text
+Claude Code = implementation + QA/tests/screenshots.
+Hermes = orchestrator + final verifier + commit/push.
+```
+
+Hermes must not implement code directly unless Shukur explicitly allows it.
+
+### First thing to do when implementation starts
+
+Start with a Claude Code **read-only audit**:
+
+```text
+Phase A / Task A1 — Current implementation audit
+```
+
+Claude Code should read the repo/spec/design artifacts and return a precise implementation map. It must not edit code in that first audit.
+
+### Suggested first prompt for Claude Code
+
+```text
+You are working in /home/shukur/dev/projects/finance-tracker-backend.
+
+READ-ONLY TASK. Do not edit files. Do not run git commit/push.
+
+Goal: audit the current repo for implementing the API-first AI Quick Capture pivot.
+
+Read:
+- .hermes/plans/2026-09-02_130400-api-first-quick-actions-spec.md
+- .hermes/plans/2026-09-02_162423-quick-capture-claude-code-implementation-plan.md
+- .hermes/design/finance-tracker-1b-prototype.dc.html
+- .hermes/design/finance-tracker-capture-directions.dc.html
+- backend files around Express, voiceProcessing, transaction creation, Telegram handlers
+- webapp files around Home, quick-add, bottom nav, design tokens, routes
+
+Return a report with:
+1. Proposed exact backend files to create/modify for quickCapture boundary.
+2. Proposed exact frontend files to create/modify for 1b Home/Capture UI.
+3. Existing tests that can be extended.
+4. New tests needed.
+5. Risks/blockers.
+6. Recommended first coding slice, small enough for one commit.
+
+Do not change code.
+```
+
+### Defaults if Shukur does not decide otherwise
+
+```text
+Endpoint: POST /api/quick-capture
+Theme: dark-first P0, light pair P1 if cheap
+Scan: visible disabled/soon placeholder only if honest
+Auto-save: obvious Telegram inputs can auto-save; ambiguous/multi-item inputs preview/review
+Direct Shortcut API: P2 after auth/token decision
+```
+
+---
+
+## 19. Important non-goals repeated
 
 Do not let future tasks drift into:
 
