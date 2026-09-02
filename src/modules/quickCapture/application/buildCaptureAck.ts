@@ -34,24 +34,38 @@ function capitalize(value: string): string {
   return value.charAt(0).toLocaleUpperCase('ru-RU') + value.slice(1);
 }
 
+function sameLabel(a: string, b: string): boolean {
+  return a.trim().toLocaleLowerCase('ru-RU') === b.trim().toLocaleLowerCase('ru-RU');
+}
+
 /**
  * `withCategory` is dropped for multi-item acks so each line stays scannable, and it is
- * also dropped when the only label we have *is* the category name (no "Транспорт · Транспорт").
+ * also dropped when the label we have *is* the category name (no "Транспорт · Транспорт"),
+ * including when the parser echoes it in another case ("кофе" for "Кофе").
  */
 function summaryLine(transaction: CapturedTransaction, withCategory: boolean): string {
   const name = categoryName(transaction.category);
   const label = transaction.description?.trim() || transaction.merchant?.trim() || '';
 
   const parts = [capitalize(label || name), formatAmountWithCurrency(transaction)];
-  if (withCategory && label) {
+  if (withCategory && label && !sameLabel(label, name)) {
     parts.push(name);
   }
 
   return parts.join(' · ');
 }
 
+/**
+ * The parser emits both plain `YYYY-MM-DD` and full ISO timestamps, so compare and render
+ * the calendar day only. Anything else (a free-form date) is passed through untouched.
+ */
+function calendarDay(date: string): string {
+  return /^\d{4}-\d{2}-\d{2}T/.test(date) ? date.slice(0, 10) : date;
+}
+
 function detailsFor(transaction: CapturedTransaction, today: string): string {
-  const dateLabel = transaction.date === today ? 'Сегодня' : transaction.date;
+  const day = calendarDay(transaction.date);
+  const dateLabel = day === calendarDay(today) ? 'Сегодня' : day;
   // Income is not a real expense either, but saying so would be noise; the hint is for
   // transfers/savings/withdrawals, where users expect the money to show up as spending.
   const hint = !transaction.countsAsRealExpense && transaction.type !== 'income'

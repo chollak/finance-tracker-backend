@@ -50,7 +50,8 @@ describe('buildCaptureAck', () => {
         { today: TODAY }
       );
 
-      expect(ack.summary).toBe('Зарплата · +12 000 000 сум · Зарплата');
+      // The category is "Зарплата" too, so it is deduped away — see the label/category test below.
+      expect(ack.summary).toBe('Зарплата · +12 000 000 сум');
       expect(ack.details).toBe('Сегодня');
     });
 
@@ -75,6 +76,42 @@ describe('buildCaptureAck', () => {
       const ack = buildCaptureAck([captured({ date: '2026-08-30' })], { today: TODAY });
 
       expect(ack.details).toBe('2026-08-30');
+    });
+
+    it('recognises today when the parser emits a full ISO timestamp', () => {
+      expect(buildCaptureAck([captured({ date: `${TODAY}T14:33:00.000Z` })], { today: TODAY }).details)
+        .toBe('Сегодня');
+
+      expect(buildCaptureAck([captured({ date: `${TODAY}T09:05:00` })], { today: TODAY }).details)
+        .toBe('Сегодня');
+    });
+
+    it('shows only the calendar day when an older transaction carries an ISO timestamp', () => {
+      const ack = buildCaptureAck([captured({ date: '2026-08-30T21:15:00.000Z' })], { today: TODAY });
+
+      expect(ack.details).toBe('2026-08-30');
+    });
+
+    it('keeps a non-ISO date untouched instead of guessing', () => {
+      const ack = buildCaptureAck([captured({ date: 'вчера' })], { today: TODAY });
+
+      expect(ack.details).toBe('вчера');
+    });
+
+    it('does not repeat the category when the label already is the category name', () => {
+      expect(buildCaptureAck([captured({ category: 'coffee', description: 'кофе', amount: 35000 })], { today: TODAY }).summary)
+        .toBe('Кофе · 35 000 сум');
+
+      expect(buildCaptureAck([captured({ category: 'coffee', description: '  КОФЕ  ', amount: 35000 })], { today: TODAY }).summary)
+        .toBe('КОФЕ · 35 000 сум');
+
+      expect(buildCaptureAck([captured({ category: 'coffee', description: undefined, merchant: 'Кофе', amount: 35000 })], { today: TODAY }).summary)
+        .toBe('Кофе · 35 000 сум');
+    });
+
+    it('still shows the category when the label only differs from it', () => {
+      expect(buildCaptureAck([captured({ category: 'coffee', description: 'кофе с собой', amount: 35000 })], { today: TODAY }).summary)
+        .toBe('Кофе с собой · 35 000 сум · Кофе');
     });
 
     it('falls back to the merchant, then to the category name, for the label', () => {
