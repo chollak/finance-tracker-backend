@@ -87,6 +87,9 @@ export const API_ENDPOINTS = {
     VOICE_INPUT: '/voice/voice-input',
   },
 
+  // Quick Capture — one line of natural text → saved transactions/debts (docs/QUICK_CAPTURE_API.md)
+  QUICK_CAPTURE: '/quick-capture',
+
   // Debts
   DEBTS: {
     LIST: (userId: string, status?: string, type?: string) => {
