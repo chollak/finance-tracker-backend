@@ -4358,3 +4358,62 @@ Result: passed — backend build, 30 Jest suites / 299 tests, 2 webapp Vitest su
 - Updated `TASKS.md` Active Plan revision/date, milestone checkmarks, and next implementation queue.
 - Updated `CLAUDE.md` `Current Operating Mode` queue so future Claude Code sessions do not restart already-completed FT-067/068/053/052/064/043/070 work.
 - Appended this report entry.
+
+
+## 2026-09-03 — FT-044 live semantic smoke
+
+### Goal
+
+Run the live semantic smoke from `TASKS.md` against the local WSL + SQLite + Telegram/Mini App API runtime, without fixing discrepancies inline.
+
+### Smoke scenarios
+
+Executed through `POST /api/quick-capture` with `source=telegram` and disposable records:
+
+| Input | Result | Status |
+|---|---|---|
+| `кофе 25000` | transaction `semanticType=expense`, `countsAsRealExpense=true`, amount 25 000 | pass |
+| `перевел с TBC на Alif 500000` | transaction `semanticType=own_transfer`, `countsAsRealExpense=false` | pass |
+| `положил на вклад 1000000` | transaction `semanticType=saving_deposit`, `countsAsRealExpense=false` | pass |
+| `одолжил Азизу 200000` | debt `owed_to_me` created, but an extra linked transaction is persisted as `semanticType=expense` | mismatch → FT-072 |
+
+### Analytics / budget evidence
+
+Expected dashboard monthly expense delta for the full smoke was only the real coffee expense:
+
+```text
+expected: 25 000
+actual:   225 000
+```
+
+The extra 200 000 comes from the hidden debt-linked transaction. Coffee budget spending delta was correct at 25 000, so the new bug was scoped to debt-linked transaction semantics/dashboard expenses and recorded as `FT-072`.
+
+### Weekly review check
+
+Created previous-week disposable rows and ran the real `summarizeWeeklyReview` + `formatWeeklyReviewSummary` path for the `/week` output shape. Result:
+
+```text
+realExpenses: 25 000
+excludedMovementsTotal: 1 500 000
+own_transfer: 500 000
+saving_deposit: 1 000 000
+```
+
+The formatted message contains `Еженедельный обзор`, `Реальные расходы`, `Не расходы`, `Перевод себе`, and `Вклад / накопление`.
+
+### Cleanup
+
+All disposable transactions and debts created by the smoke were deleted with HTTP 200. During the first failed assertion run, three leaked disposable debt-linked transactions were also found and deleted.
+
+### Evidence
+
+Full machine-readable report:
+
+```text
+/tmp/ft044-semantic-smoke-report.json
+```
+
+### Board changes
+
+- Marked `FT-044` done as a QA task.
+- Added `FT-072` as the next high-priority correctness task before `FT-045`.

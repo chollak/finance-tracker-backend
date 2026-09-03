@@ -43,7 +43,7 @@
 |------|-------|--------|
 | 0. Сломанные основы | Операции, которые портят данные или ломают базовую работу | FT-065 ✅, FT-066 ✅, FT-067 ✅, FT-068 ✅ |
 | 1. Доверие к цифрам | Главная, аналитика и бюджеты говорят одним языком | FT-053 ✅, FT-052 ✅ |
-| 2. «Могу пользоваться» локально | Воспроизводимый локальный контур с живым вводом | FT-064 ✅, FT-043 ✅, FT-070 ✅, FT-044 |
+| 2. «Могу пользоваться» локально | Воспроизводимый локальный контур с живым вводом | FT-064 ✅, FT-043 ✅, FT-070 ✅, FT-044 ✅, FT-072 |
 | 3. Исторические данные | Безопасный read-only разбор старых `semanticType=expense` записей | FT-045 |
 | 4. Ежедневный экран | Список, бюджеты и review queue читаются и не мешают | FT-055, FT-056, FT-057, FT-058 |
 | 5. Порядок в трекинге и repo | Один источник правды, зависимости, ветки | FT-049, FT-050, FT-048 |
@@ -61,7 +61,7 @@ Docs-сверка 2026-08-16 (только Markdown, очередь задач �
 
 Ревизия Hermes + Claude Code 2026-08-16: цель для LLM/агентов — не «строить новый продукт», а довести существующий Telegram-first finance tracker до надёжного локального daily-use контура. Первый батч реализации был: **FT-067 → FT-068 → FT-053 → FT-052 → FT-064 → FT-043 → FT-070 → FT-044**; на 2026-08-24 все задачи этого батча, кроме FT-044, уже закрыты. Задачи с продуктовым решением (`FT-054`, `FT-062`, `FT-063`, `FT-069`, `FT-071`) держать blocked/backlog до явного решения Шукура. Задачи с внешним эффектом (`FT-046`, применение Supabase SQL) не выполнять без отдельного явного разрешения.
 
-Ревизия Hermes 2026-08-24 после работы Шукура через Claude Code: подтянут свежий `origin/main`, рабочее дерево чистое, `npm run verify` зелёный. Закрыты и подтверждены: FT-067, FT-068, FT-053, FT-052, FT-064, FT-043, FT-070. Ближайший безопасный порядок теперь: **FT-044 → FT-045 → FT-055 → FT-056 → FT-057 → FT-058 → FT-049 → FT-050 → FT-059 → FT-060 → FT-061**. FT-044 первым, потому что он проверяет живой Telegram/Mini App контур и должен породить отдельные bug-задачи, если smoke найдёт расхождения. FT-045 остаётся read-only preview; не применять backfill без отдельного разрешения. FT-049 остаётся открытым, потому что GitHub Issues ещё не сверены, хотя локальные docs/CLAUDE/TASKS уже приведены к одному источнику правды.
+Ревизия Hermes 2026-08-24 после работы Шукура через Claude Code: подтянут свежий `origin/main`, рабочее дерево чистое, `npm run verify` зелёный. Закрыты и подтверждены: FT-067, FT-068, FT-053, FT-052, FT-064, FT-043, FT-070. Ближайший безопасный порядок теперь: **FT-072 → FT-045 → FT-055 → FT-056 → FT-057 → FT-058 → FT-049 → FT-050 → FT-059 → FT-060 → FT-061**. FT-044 выполнен как live smoke и нашёл один новый bug: debt quick-capture создаёт скрытую linked transaction с `semanticType=expense`, из-за чего lent money попадает в dashboard expenses. Поэтому FT-072 идёт перед historical backfill. FT-045 остаётся read-only preview; не применять backfill без отдельного разрешения. FT-049 остаётся открытым, потому что GitHub Issues ещё не сверены, хотя локальные docs/CLAUDE/TASKS уже приведены к одному источнику правды.
 
 
 ---
@@ -253,6 +253,39 @@ Definition of Done:
 - [ ] Решение зафиксировано здесь: числа оставляем или меняем и почему
 - [ ] Если оставляем — пользователь видит понятное сообщение с моментом, когда лимит отпустит
 - [ ] Проверено, что упирание в лимит не выглядит как поломка приложения
+
+---
+
+### FT-072: Debt quick-capture creates a real-expense linked transaction
+
+Status: ready
+Priority: high
+Owner: Claude Code, QA by Hermes
+Type: correctness
+
+Context:
+FT-044 live smoke found a semantic accounting bug in the debt flow. `POST /api/quick-capture` for `одолжил Азизу 200000` returns only a debt result (`debtType=owed_to_me`, `transactions=[]`), but the live transaction list gains an extra linked row:
+
+```text
+description: одолжил Азизу 200000
+category: debt
+type: expense
+semanticType: expense
+needsReview: false
+amount: 200000
+```
+
+Because this hidden linked transaction is plain `semanticType=expense`, dashboard monthly `totalExpense` increases by 200000. In the full smoke set (`кофе 25000`, transfer 500000, deposit 1000000, debt 200000), expected dashboard expense delta was 25000, actual delta was 225000. Coffee budget delta was correct at 25000, so the bug is specifically the debt-linked transaction semantics/dashboard path.
+
+Definition of Done:
+- [ ] Debt quick-capture may create/keep a linked transaction only if it is `semanticType=debt` and excluded from real expenses/budget spending
+- [ ] `одолжил Азизу 200000` does not increase dashboard real expenses
+- [ ] Debt flow still creates the debt entity with `debtType=owed_to_me`
+- [ ] Existing `занял у ...` / repayment cases remain correct
+- [ ] Regression test covers hidden linked transaction semantics and dashboard/budget totals
+- [ ] Live disposable smoke is rerun and all created records are cleaned up
+
+Source evidence: `/tmp/ft044-semantic-smoke-report.json` from Hermes live smoke.
 
 ---
 
@@ -589,7 +622,7 @@ Open questions:
 
 ### FT-044: Semantic smoke scenarios on live input
 
-Status: ready
+Status: done
 Priority: high
 Owner: Claude Code, QA by Hermes
 Type: qa
@@ -598,13 +631,21 @@ Context:
 Семантические типы (FT-SEM-001…006) покрыты юнит-тестами, но ни разу не проверялись сквозным вводом живого пользователя. План семантики описывает ручной сценарий проверки — его нужно прогнать и зафиксировать результат.
 
 Definition of Done:
-- [ ] `кофе 25000` → `Расход`, попадает в месячные траты
-- [ ] `перевел с TBC на Alif 500000` → `Перевод себе`, НЕ попадает в расходы
-- [ ] `положил на вклад 1000000` → `Вклад / накопление`, НЕ попадает в расходы
-- [ ] `одолжил Азизу 200000` → долговой флоу цел, в обычные траты не попадает
-- [ ] Аналитика, бюджеты и дашборд не включают переводы, вклады и долги
-- [ ] `/week` в Telegram выдаёт корректный разбор за прошлую неделю
-- [ ] Расхождения оформлены отдельными задачами, а не правятся по ходу
+- [x] `кофе 25000` → `Расход`, попадает в месячные траты
+- [x] `перевел с TBC на Alif 500000` → `Перевод себе`, НЕ попадает в расходы
+- [x] `положил на вклад 1000000` → `Вклад / накопление`, НЕ попадает в расходы
+- [x] `одолжил Азизу 200000` → долговой флоу создаёт debt `owed_to_me`; обнаружено, что linked transaction ошибочно попадает в ordinary expenses — вынесено в FT-072
+- [x] Аналитика, бюджеты и дашборд проверены: переводы/вклады не включаются; debt mismatch вынесен в FT-072
+- [x] `/week` formatter/summary выдаёт корректный разбор за прошлую неделю
+- [x] Расхождения оформлены отдельными задачами, а не правятся по ходу
+
+Verification 2026-09-03:
+- `POST /api/quick-capture` live smoke: `кофе 25000` → `semanticType=expense`, `countsAsRealExpense=true`; transfer → `own_transfer`, `countsAsRealExpense=false`; deposit → `saving_deposit`, `countsAsRealExpense=false`; debt → `debtType=owed_to_me`.
+- Dashboard/budget delta: expected real expense delta 25 000; actual dashboard delta 225 000 because debt linked transaction is saved as plain expense. Coffee budget delta was 25 000.
+- `/week` check with previous-week disposable rows: real expenses 25 000; excluded movements 1 500 000 (`own_transfer` 500 000 + `saving_deposit` 1 000 000).
+- All disposable records from smoke were deleted with HTTP 200.
+
+Evidence: `/tmp/ft044-semantic-smoke-report.json`.
 
 Depends on: FT-043
 
