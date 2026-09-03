@@ -19,6 +19,8 @@ interface Feedback {
   tone: CaptureFeedbackTone;
   title: string;
   description?: string;
+  /** Server ack's secondary line — date, "Не входит в расходы", "Проверьте в разделе долгов". */
+  details?: string;
   /** Where to fix the saved row — text only, this endpoint implements no actions. */
   actionHint?: string;
 }
@@ -83,7 +85,8 @@ export function TextQuickCaptureCard({ className }: TextQuickCaptureCardProps) {
         tone: captureFeedback.tone,
         title: captureFeedback.title,
         description: captureFeedback.description,
-        actionHint: toCaptureActionHint(captureFeedback.actions),
+        details: captureFeedback.details,
+        actionHint: toCaptureActionHint(captureFeedback),
       });
 
       // Keep the text when nothing was written — the user still has to fix or retry it.
@@ -174,6 +177,11 @@ export function TextQuickCaptureCard({ className }: TextQuickCaptureCardProps) {
             {feedback.description && (
               <p className="mt-1 whitespace-pre-line text-sm leading-relaxed text-muted-foreground">
                 {feedback.description}
+              </p>
+            )}
+            {feedback.details && (
+              <p className="mt-1 whitespace-pre-line text-sm leading-relaxed text-muted-foreground">
+                {feedback.details}
               </p>
             )}
             {feedback.actionHint && (

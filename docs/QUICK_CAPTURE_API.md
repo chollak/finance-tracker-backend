@@ -346,8 +346,9 @@ curl -sS -X POST https://<tunnel-host>/api/quick-capture \
    per-user and cannot be tuned separately for capture.
 5. **No `occurredAt`.** The transaction date comes from the parser/server, so a client cannot backdate a capture through
    this endpoint.
-6. **The Mini App does not call this endpoint yet.** The current HTTP clients are manual/curl and any future Shortcut;
-   `webapp/` still uses the older transaction/voice routes.
+6. **The Mini App Home quick-capture card calls this endpoint.** Authenticated Telegram Mini App users submit
+   one-line captures through `POST /api/quick-capture`; guest mode keeps data in browser-local IndexedDB, so
+   server-side quick capture is intentionally disabled for guests.
 7. **No Shortcut/token auth.** See [Auth](#auth) — direct iPhone Shortcut use requires the deferred token decision.
 8. **Blank-text guard exists in two places.** The route rejects blank text with `400`; the service additionally
    short-circuits blank input to `no_transaction` without calling the parser. The service-level path is only reachable

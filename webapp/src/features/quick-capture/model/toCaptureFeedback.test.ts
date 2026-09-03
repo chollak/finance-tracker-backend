@@ -42,6 +42,7 @@ describe('toCaptureFeedback', () => {
     expect(feedback.tone).toBe('success');
     expect(feedback.title).toBe('Записал');
     expect(feedback.description).toBe('Такси · 18 000 сум · Транспорт');
+    expect(feedback.details).toBeUndefined();
     expect(feedback.savedTransactionCount).toBe(1);
     expect(feedback.savedDebtCount).toBe(0);
     expect(feedback.didPersist).toBe(true);
@@ -67,6 +68,9 @@ describe('toCaptureFeedback', () => {
 
     expect(feedback.tone).toBe('warning');
     expect(feedback.title).toBe('Нужно проверить');
+    // The date and the "not a real expense" note only exist in `details`; dropping them
+    // would hide the reason this capture is flagged.
+    expect(feedback.details).toBe('Сегодня · Не входит в расходы');
     expect(feedback.didPersist).toBe(true);
     expect(feedback.needsAttention).toBe(true);
     expect(feedback.reviewReasons).toEqual(['transaction_needs_review']);
@@ -79,7 +83,12 @@ describe('toCaptureFeedback', () => {
         text: 'занял 200к у Алишера',
         transactions: [],
         debts: [{ id: 'debt-1', debtType: 'i_owe', personName: 'Алишер', amount: 200000 }],
-        ack: { title: 'Записал долг', summary: 'Алишер · 200 000 сум', actions: ['review'] },
+        ack: {
+          title: 'Записал долг',
+          summary: 'Долгов записано: 1',
+          details: 'Проверьте в разделе долгов',
+          actions: ['review'],
+        },
         review: { reasons: ['debt_detected'] },
       })
     );
@@ -88,6 +97,9 @@ describe('toCaptureFeedback', () => {
     expect(feedback.savedDebtCount).toBe(1);
     expect(feedback.didPersist).toBe(true);
     expect(feedback.needsAttention).toBe(true);
+    // Nothing landed in the transaction list, so this line is the only thing telling the
+    // user where the debt actually went — it must survive into the UI.
+    expect(feedback.details).toBe('Проверьте в разделе долгов');
   });
 
   it('never claims a save when nothing was recognized', () => {
@@ -124,6 +136,19 @@ describe('toCaptureFeedback', () => {
 
     expect(feedback.savedTransactionCount).toBe(2);
     expect(feedback.description).toBe('Такси · 18 000 сум\nКофе · 35 000 сум');
+    // Multi-item acks carry no details line.
+    expect(feedback.details).toBeUndefined();
+  });
+
+  it('drops an empty details line instead of rendering a blank row', () => {
+    const feedback = toCaptureFeedback(
+      result({
+        transactions: [savedTransaction],
+        ack: { title: 'Записал', summary: 'Такси · 18 000 сум', details: '', actions: ['edit'] },
+      })
+    );
+
+    expect(feedback.details).toBeUndefined();
   });
 });
 
