@@ -4,6 +4,14 @@ import type { BadgeProps } from '@/shared/ui/badge';
 // Label shown when a transaction is flagged for user correction (needsReview).
 export const NEEDS_REVIEW_LABEL = 'Нужно проверить';
 
+// Question above the one-tap correction chips — turns the chip row into a choice
+// the user is asked to make, not a decorative list of types.
+export const NEEDS_REVIEW_PROMPT = 'Что это было?';
+
+// Shown on movements that leave the wallet but are not spending: the row still
+// carries a minus sign, so the list has to say out loud that it is not an expense.
+export const NON_EXPENSE_MOVEMENT_HINT = 'Не считается расходом';
+
 // Human-readable Russian labels for each semantic transaction type.
 const SEMANTIC_TYPE_LABELS: Record<TransactionSemanticType, string> = {
   expense: 'Расход',
