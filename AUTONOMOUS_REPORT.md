@@ -4620,3 +4620,66 @@ Visual notes: aggregate card no longer duplicates individual budgets; `Кофе`
 ### Next
 
 Next implementation queue item is FT-056: transaction row readability.
+
+
+## 2026-09-03 — FT-056 transaction row readability
+
+### Goal
+
+Improve mobile transaction-list readability: make descriptions visible more often, remove misleading insertion-time display, and remove the redundant `Расход` badge while keeping semantic non-expense signals.
+
+### Changes
+
+- `webapp/src/entities/transaction/ui/TransactionListItem.tsx`
+  - descriptions now use two-line clamp with word breaks instead of one-line truncation;
+  - category icon/gaps are slightly reduced;
+  - amount column no longer reserves extra fixed width for a time row;
+  - createdAt/insertion time is removed;
+  - ordinary expenses skip the `Расход` badge;
+  - non-expense badges/hints and `needsReview` controls remain.
+- `webapp/src/entities/transaction/lib/transactionRowDisplay.ts`
+  - added pure display rules for badge visibility and description tooltip threshold.
+- `webapp/src/entities/transaction/lib/toViewModel.ts` / model types
+  - added `_showSemanticTypeBadge` flag.
+- `webapp/src/entities/transaction/lib/transactionRowDisplay.test.ts`
+  - covers ordinary expense badge removal, non-expense badge preservation, needsReview independence, and 10/25/40+ character description thresholds.
+
+### Verification
+
+Targeted webapp checks:
+
+```bash
+npm run test:webapp
+npm run build:webapp
+```
+
+Result: 9 webapp test files / 59 tests passed; webapp build passed.
+
+Full gate:
+
+```bash
+npm run verify
+```
+
+Result: 34 Jest suites / 424 tests passed, 9 webapp Vitest files / 59 tests passed, backend build passed, webapp build passed, dependency-cruiser passed, madge circular check passed.
+
+### Screenshot QA
+
+Disposable FT056 transactions were created for short/medium/long descriptions and an own-transfer row, then deleted after screenshots. Cleanup: 4/4 DELETE calls returned HTTP 200; leak check returned `leak_count=0`.
+
+Screenshots:
+
+```text
+/tmp/ft056-transactions-audit-content/screenshots/transactions-375.png
+/tmp/ft056-transactions-audit-content/screenshots/transactions-390.png
+/tmp/ft056-transactions-audit-content/screenshots/transactions-412.png
+/tmp/ft056-transactions-audit-content/metrics.json
+```
+
+Metrics: authenticated audit `issueCount=0`; no `HH:mm` insertion-time text; ordinary expense badge count `0`; own-transfer badge and `Не считается расходом` hint present; center CTA remained aligned at 375/390/412.
+
+Visual notes: 10-character descriptions fit; medium/long rows now get up to two lines; ordinary expense rows are cleaner; non-expense transfer remains understandable.
+
+### Next
+
+Next implementation queue item is FT-057: collapse semantic correction chips.

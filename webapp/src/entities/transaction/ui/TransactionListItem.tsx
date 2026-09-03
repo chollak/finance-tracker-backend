@@ -9,9 +9,9 @@ import { Badge } from '@/shared/ui/badge';
 import type { TransactionViewModel } from '../model/types';
 import { TransactionActions } from './TransactionActions';
 import { TransactionCorrectionChips } from './TransactionCorrectionChips';
-import { parseISO, format } from 'date-fns';
 import { getCategoryName } from '@/entities/category/model/categories';
 import { NEEDS_REVIEW_LABEL, NON_EXPENSE_MOVEMENT_HINT } from '../lib/semanticType';
+import { shouldShowDescriptionTooltip } from '../lib/transactionRowDisplay';
 
 interface TransactionListItemProps {
   transaction: TransactionViewModel;
@@ -34,13 +34,12 @@ export function TransactionListItem({
   onDelete,
   showActions = true,
 }: TransactionListItemProps) {
-  const isLongDescription = transaction.description && transaction.description.length > 40;
+  // Only descriptions that stay clipped after two lines need the full text on hover.
+  const isLongDescription = shouldShowDescriptionTooltip(transaction.description);
   const isClickable = !!onClick;
   const needsReview = transaction._needsReview;
-  // Use createdAt for actual time, fallback to date (which shows 00:00 for date-only)
-  const time = transaction.createdAt
-    ? format(parseISO(transaction.createdAt), 'HH:mm')
-    : format(parseISO(transaction.date), 'HH:mm');
+  // No time on the row: rows are already grouped by date headers, and createdAt is
+  // the insertion moment, not the moment of the operation (FT-056).
 
   return (
     <div
@@ -50,19 +49,19 @@ export function TransactionListItem({
       } ${isClickable ? 'cursor-pointer active:scale-[0.99]' : ''}`}
       onClick={onClick}
     >
-      <div className="flex items-start gap-3 p-3">
+      <div className="flex items-start gap-2.5 px-3 py-2.5">
         {/* Category Icon */}
-        <div className={`flex-shrink-0 w-10 h-10 rounded-full ${transaction._categoryColor || 'bg-muted text-muted-foreground'} flex items-center justify-center`}>
-          <span className="text-lg">{transaction._categoryIcon}</span>
+        <div className={`flex-shrink-0 w-9 h-9 rounded-full ${transaction._categoryColor || 'bg-muted text-muted-foreground'} flex items-center justify-center`}>
+          <span className="text-base">{transaction._categoryIcon}</span>
         </div>
 
-        {/* Details */}
+        {/* Details — takes every pixel the amount and the menu do not need */}
         <div className="flex-1 min-w-0">
           {isLongDescription ? (
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <p className="font-medium truncate">{transaction.description}</p>
+                  <p className="font-medium leading-snug line-clamp-2 break-words">{transaction.description}</p>
                 </TooltipTrigger>
                 <TooltipContent side="top" className="max-w-[300px]">
                   <p className="text-sm">{transaction.description}</p>
@@ -70,16 +69,19 @@ export function TransactionListItem({
               </Tooltip>
             </TooltipProvider>
           ) : (
-            <p className="font-medium truncate">{transaction.description}</p>
+            <p className="font-medium leading-snug line-clamp-2 break-words">{transaction.description}</p>
           )}
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1">
             <span className="text-sm text-muted-foreground truncate">{getCategoryName(transaction.category)}</span>
-            <Badge
-              variant={transaction._semanticTypeBadgeVariant}
-              className="px-2 py-0.5 text-[11px] leading-tight"
-            >
-              {transaction._semanticTypeLabel}
-            </Badge>
+            {/* Ordinary expenses skip the badge — the red amount already says it */}
+            {transaction._showSemanticTypeBadge && (
+              <Badge
+                variant={transaction._semanticTypeBadgeVariant}
+                className="px-2 py-0.5 text-[11px] leading-tight"
+              >
+                {transaction._semanticTypeLabel}
+              </Badge>
+            )}
           </div>
           {needsReview && (
             <Badge variant="warning" className="mt-1.5 gap-1 px-2 py-1 text-[11px] leading-tight">
@@ -92,12 +94,11 @@ export function TransactionListItem({
           )}
         </div>
 
-        {/* Amount & Time */}
-        <div className="ml-1 max-w-[7.5rem] flex-shrink-0 text-right">
+        {/* Amount — intrinsic width, no fixed column stealing space from the description */}
+        <div className="flex-shrink-0 max-w-[45%] text-right">
           <p className={`truncate text-sm font-semibold tabular-nums ${transaction._amountColor || 'text-foreground'}`}>
             {transaction._formattedAmount}
           </p>
-          <p className="text-xs text-muted-foreground tabular-nums">{time}</p>
         </div>
 
         {/* Actions Menu */}

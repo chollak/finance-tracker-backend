@@ -3,6 +3,7 @@ import type { TransactionViewModel } from '../model/types';
 import { formatTransactionAmount, formatTransactionDate } from '@/shared/lib/formatters';
 import { getCategoryIcon, getCategoryColor } from '../../category/lib';
 import { getSemanticTypeLabel, getSemanticTypeBadgeVariant, isNonExpenseMovement } from './semanticType';
+import { shouldShowSemanticTypeBadge } from './transactionRowDisplay';
 
 /**
  * Transforms Transaction to TransactionViewModel
@@ -31,6 +32,7 @@ export function transactionToViewModel(transaction: Transaction): TransactionVie
     _typeLabel: isIncome ? 'Доход' : 'Расход',
     _semanticTypeLabel: getSemanticTypeLabel(semanticType),
     _semanticTypeBadgeVariant: getSemanticTypeBadgeVariant(semanticType),
+    _showSemanticTypeBadge: shouldShowSemanticTypeBadge(semanticType),
     _isNonExpenseMovement: isNonExpenseMovement(semanticType),
     _needsReview: transaction.needsReview === true,
   };
