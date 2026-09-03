@@ -49,7 +49,9 @@
 | 5. Порядок в трекинге и repo | Один источник правды, зависимости, ветки | FT-049, FT-050, FT-048 |
 | 6. Полировка под гайдлайны | Цвет, шрифт, язык | FT-059, FT-060, FT-061 |
 | 7. Продукт P1 / решения | Приоритеты разделов, premium, лимиты, внимание | FT-054, FT-062, FT-063, FT-069, FT-071, FT-051 |
+| 8. Quick capture first | Главный экран = быстрый ввод, остальное ниже/в «Ещё» | FT-073 ✅, FT-074 |
 | — frozen | Требует живого прода / Supabase | FT-046 |
+| — blocked | Нужно решение Шукура по auth/лимитам | FT-075 |
 
 Веха 0 появилась после сквозного тестирования: редактирование транзакции и возврат из архива не работают вовсе, а суммы вида «12 млн» сохраняются как 12. Это ломает работу с данными раньше, чем начинаются вопросы к их интерпретации.
 
@@ -501,6 +503,33 @@ Verification 2026-09-04:
 - Fixed: transaction `⋮` actions, Radix tabs, debt segmented tabs, budget category chips, quick-add category/date buttons, home quick income/expense buttons, recent/budget overview links, correction toggle/chips.
 - Touch audit script `/tmp/ft058_touch_audit.js` checked `/transactions`, `/debts`, `/budgets/add`, `/` at 390×844 with authenticated dev header. Result: `issueCount=0`, `smallCount=0` on all four routes. Metrics: `/tmp/ft058-touch-audit/metrics.json`; screenshots under `/tmp/ft058-touch-audit/screenshots/`.
 - Webapp tests/build passed, then full `npm run verify` passed: 34 Jest suites / 424 tests, 9 webapp Vitest files / 61 tests, backend build, webapp build, dependency-cruiser, madge.
+
+---
+
+### FT-073: Minimal Home/Capture primary UX
+
+Status: done
+Priority: high
+Owner: Claude Code, QA by Hermes
+Type: quick-capture-ux
+
+Context:
+Quick capture pivot means the Home first flow should not feel like a broad finance dashboard. The primary screen should show fast capture, recent transactions, and only real attention signals; budgets, analytics, premium/usage, stats, and trust formula must not compete with capture.
+
+Definition of Done:
+- [x] Home first flow is quick capture + recent transactions, not dashboard-first
+- [x] Balance, budgets, premium/usage, stats, and trust formula are removed from Home primary flow without deleting routes/code
+- [x] Secondary features remain reachable under More/direct routes
+- [x] Screenshot QA at 375 / 390 / 412
+- [x] Full verify passed
+
+Verification 2026-09-04:
+- Claude Code changed only `webapp/src/pages/home/ui/HomePage.tsx` for implementation: kept `HomeHeader`, `GuestModeBanner`, `TextQuickCaptureCard`, `RecentTransactions`, and `AttentionSummary` only.
+- Removed `BalanceCard` and the collapsed dashboard details block (`HomeTrustSummary`, `QuickStats`, `UsageLimitsCard`, `BudgetOverview`) from Home; components/routes were not deleted.
+- `npm run test:webapp` — 9 files / 61 tests passed.
+- `npm run build:webapp` — passed.
+- `npm run verify` — 34 Jest suites / 424 tests, 9 webapp files / 61 tests, backend build, webapp build, dependency-cruiser, madge passed.
+- Screenshot QA: `/tmp/qc-home-minimal-audit/screenshots/home-375.png`, `home-390.png`, `home-412.png`; `navCenterDelta=0`; quick capture/recent present; budget/trust/usage primary blocks absent. Audit console had non-blocking external resource `ERR_FAILED` noise only, no app API 4xx/5xx.
 
 ---
 

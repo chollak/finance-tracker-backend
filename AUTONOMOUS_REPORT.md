@@ -4794,3 +4794,48 @@ Visual QA: transaction rows still look calm; debt tabs remain balanced; budget c
 ### Next
 
 Next implementation queue item is FT-049: iPhone Shortcut endpoint/auth decision and implementation.
+
+
+## 2026-09-04 — FT-073 minimal Home/Capture primary UX
+
+### Goal
+
+Return to the quick-capture plan: remove dashboard-heavy UI from the primary Home flow so the Mini App feels like fast capture first, not a finance admin dashboard.
+
+### Claude Code implementation
+
+Claude Code implemented the slice with `acceptEdits` and no commit/push. Files changed:
+
+```text
+webapp/src/pages/home/ui/HomePage.tsx
+```
+
+Home now renders: `HomeHeader`, `GuestModeBanner`, `TextQuickCaptureCard`, `RecentTransactions`, and `AttentionSummary` only. `BalanceCard`, `HomeTrustSummary`, `QuickStats`, `UsageLimitsCard`, and `BudgetOverview` were removed from the Home primary flow, but their components/routes were not deleted.
+
+### Hermes verification
+
+```bash
+git diff --check
+npm run verify
+node /tmp/qc_home_audit.js
+```
+
+Results:
+
+- `npm run verify`: 34 Jest suites / 424 tests passed, 9 webapp Vitest files / 61 tests passed, backend build passed, webapp build passed, dependency-cruiser passed, madge passed.
+- Screenshot QA at 375/390/412 confirmed quick capture + recent transactions dominate the first screen; budgets/analytics/premium/trust blocks are absent from primary Home.
+- Nav center metric: `navCenterDelta=0`.
+- Screenshot audit saw non-blocking external resource `ERR_FAILED` console noise only; no app API 4xx/5xx and no hidden-primary-block regressions.
+
+Artifacts:
+
+```text
+/tmp/qc-home-minimal-audit/metrics.json
+/tmp/qc-home-minimal-audit/screenshots/home-375.png
+/tmp/qc-home-minimal-audit/screenshots/home-390.png
+/tmp/qc-home-minimal-audit/screenshots/home-412.png
+```
+
+### Next
+
+Continue quick-capture plan with FT-074: align the bottom action dock/voice/manual capture states with the minimal capture-first product. Direct iPhone Shortcut API remains blocked until auth/token/rate-limit decisions.
