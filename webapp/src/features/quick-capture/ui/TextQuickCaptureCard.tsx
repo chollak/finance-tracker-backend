@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Loader2, Send } from 'lucide-react';
 
 import { Button } from '@/shared/ui/button';
@@ -10,6 +10,8 @@ import { isGuestId } from '@/shared/lib/utils/guestId';
 import { useQuickCapture } from '../api/mutations';
 import { toCaptureFeedback } from '../model/toCaptureFeedback';
 import { toCaptureErrorFeedback } from '../model/toCaptureErrorFeedback';
+import { toCaptureActionHint } from '../model/toCaptureActionHint';
+import { CAPTURE_EXAMPLES } from '../model/captureExamples';
 import { MAX_CAPTURE_TEXT_LENGTH } from '../model/validateCaptureText';
 import type { CaptureFeedbackTone } from '../model/toCaptureFeedback';
 
@@ -17,6 +19,8 @@ interface Feedback {
   tone: CaptureFeedbackTone;
   title: string;
   description?: string;
+  /** Where to fix the saved row — text only, this endpoint implements no actions. */
+  actionHint?: string;
 }
 
 const TONE_STYLES: Record<CaptureFeedbackTone, string> = {
@@ -39,12 +43,27 @@ interface TextQuickCaptureCardProps {
 export function TextQuickCaptureCard({ className }: TextQuickCaptureCardProps) {
   const [text, setText] = useState('');
   const [feedback, setFeedback] = useState<Feedback | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const userId = useUserStore((state) => state.userId);
   const userName = useUserStore((state) => state.userName);
   const capture = useQuickCapture();
 
   const isGuest = !!userId && isGuestId(userId);
+
+  /**
+   * An example is a starting point, not a shortcut: it replaces the text and hands focus back
+   * so the amount can be corrected before sending. It never submits — a capture writes to the
+   * database immediately, and nobody should save a row by tapping a suggestion.
+   */
+  const applyExample = (example: string) => {
+    if (capture.isPending) return;
+
+    setText(example);
+    // The old ack described the old text; picking an example starts a different capture.
+    setFeedback(null);
+    textareaRef.current?.focus();
+  };
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -64,6 +83,7 @@ export function TextQuickCaptureCard({ className }: TextQuickCaptureCardProps) {
         tone: captureFeedback.tone,
         title: captureFeedback.title,
         description: captureFeedback.description,
+        actionHint: toCaptureActionHint(captureFeedback.actions),
       });
 
       // Keep the text when nothing was written — the user still has to fix or retry it.
@@ -89,12 +109,13 @@ export function TextQuickCaptureCard({ className }: TextQuickCaptureCardProps) {
             напишите операцию боту или добавьте её вручную.
           </p>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-3">
+          <form onSubmit={handleSubmit} className="space-y-3" aria-busy={capture.isPending}>
             <label htmlFor="quick-capture-text" className="sr-only">
               Операция текстом
             </label>
             <textarea
               id="quick-capture-text"
+              ref={textareaRef}
               value={text}
               onChange={(event) => setText(event.target.value)}
               rows={2}
@@ -103,6 +124,20 @@ export function TextQuickCaptureCard({ className }: TextQuickCaptureCardProps) {
               placeholder="такси 18к, кофе 35к"
               className="flex w-full resize-none rounded-xl border border-input bg-background px-4 py-3 text-base shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             />
+
+            <div className="flex flex-wrap gap-2" role="group" aria-label="Примеры операций">
+              {CAPTURE_EXAMPLES.map((example) => (
+                <button
+                  key={example}
+                  type="button"
+                  onClick={() => applyExample(example)}
+                  disabled={capture.isPending}
+                  className="min-h-11 rounded-full border border-input bg-background px-4 text-sm text-muted-foreground shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {example}
+                </button>
+              ))}
+            </div>
 
             <div className="flex items-center justify-between gap-3">
               <p className="text-xs leading-relaxed text-muted-foreground">
@@ -139,6 +174,11 @@ export function TextQuickCaptureCard({ className }: TextQuickCaptureCardProps) {
             {feedback.description && (
               <p className="mt-1 whitespace-pre-line text-sm leading-relaxed text-muted-foreground">
                 {feedback.description}
+              </p>
+            )}
+            {feedback.actionHint && (
+              <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                {feedback.actionHint}
               </p>
             )}
           </div>

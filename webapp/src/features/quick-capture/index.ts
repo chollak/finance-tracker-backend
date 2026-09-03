@@ -11,6 +11,9 @@ export { toCaptureFeedback } from './model/toCaptureFeedback';
 export type { CaptureFeedback, CaptureFeedbackTone } from './model/toCaptureFeedback';
 export { toCaptureErrorFeedback } from './model/toCaptureErrorFeedback';
 export type { CaptureErrorFeedback } from './model/toCaptureErrorFeedback';
+export { toCaptureActionHint } from './model/toCaptureActionHint';
+export { CAPTURE_EXAMPLES } from './model/captureExamples';
+export type { CaptureExample } from './model/captureExamples';
 export {
   validateCaptureText,
   captureTextRejectionMessage,

@@ -1,4 +1,4 @@
-import type { CaptureReviewReason, QuickCaptureResult } from './types';
+import type { CaptureAckAction, CaptureReviewReason, QuickCaptureResult } from './types';
 
 export type CaptureFeedbackTone = 'success' | 'warning' | 'info';
 
@@ -13,6 +13,8 @@ export interface CaptureFeedback {
   didPersist: boolean;
   needsAttention: boolean;
   reviewReasons: CaptureReviewReason[];
+  /** Ack hints (`edit`/`delete`/`review`). Not implemented here — see `toCaptureActionHint()`. */
+  actions: CaptureAckAction[];
 }
 
 /**
@@ -38,5 +40,6 @@ export function toCaptureFeedback(result: QuickCaptureResult): CaptureFeedback {
     didPersist,
     needsAttention: result.status === 'needs_review',
     reviewReasons: result.review.reasons,
+    actions: result.ack.actions,
   };
 }
