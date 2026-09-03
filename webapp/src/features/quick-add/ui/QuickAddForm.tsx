@@ -199,7 +199,7 @@ export function QuickAddForm({
                   type="button"
                   variant={isSelected ? (transactionType === 'expense' ? 'expense' : 'income') : 'outline'}
                   size="sm"
-                  className="transition-all"
+                  className="min-h-11 transition-all"
                   onClick={() => form.setValue('category', catId)}
                 >
                   {cat.icon} {cat.name}
@@ -227,7 +227,7 @@ export function QuickAddForm({
                           type="button"
                           variant={isSelected ? (transactionType === 'expense' ? 'expense' : 'income') : 'ghost'}
                           size="sm"
-                          className="justify-start text-xs h-8"
+                          className="min-h-11 justify-start text-xs"
                           onClick={() => form.setValue('category', cat.id)}
                         >
                           {cat.icon} {cat.name}

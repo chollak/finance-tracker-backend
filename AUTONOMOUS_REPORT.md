@@ -4746,3 +4746,51 @@ Visual notes: collapsed state is visibly marked and scannable; expanded state is
 ### Next
 
 Next implementation queue item is FT-058: touch target compliance.
+
+
+## 2026-09-04 — FT-058 touch target compliance
+
+### Goal
+
+Bring compact mobile controls to at least 44×44px hit targets without visually bloating the Mini App.
+
+### Changes
+
+- `Button` small size is now 44px tall.
+- Transaction action menu trigger is 44×44 instead of 32×32.
+- Radix tabs and debt segmented controls now produce 44px-tall tap areas.
+- Budget category chips and quick-add compact category/date buttons now use 44px minimum height.
+- Home quick income/expense buttons and recent/budget overview links now have 44px touch areas.
+- Semantic correction toggle and expanded correction chips now use 44px minimum height.
+
+### Verification
+
+```bash
+npm run test:webapp
+npm run build:webapp
+npm run verify
+node /tmp/ft058_touch_audit.js
+```
+
+Results:
+
+- `npm run test:webapp`: 9 files / 61 tests passed.
+- `npm run build:webapp`: passed.
+- `npm run verify`: 34 Jest suites / 424 tests passed, 9 webapp Vitest files / 61 tests passed, backend build passed, webapp build passed, dependency-cruiser passed, madge circular check passed.
+- Touch audit: authenticated 390×844 check on `/transactions`, `/debts`, `/budgets/add`, `/`; `issueCount=0`; `smallCount=0` for all four routes.
+
+Artifacts:
+
+```text
+/tmp/ft058-touch-audit/metrics.json
+/tmp/ft058-touch-audit/screenshots/_transactions.png
+/tmp/ft058-touch-audit/screenshots/_debts.png
+/tmp/ft058-touch-audit/screenshots/_budgets_add.png
+/tmp/ft058-touch-audit/screenshots/_.png
+```
+
+Visual QA: transaction rows still look calm; debt tabs remain balanced; budget category chips are easier to tap but not visually oversized; home quick controls still fit the first viewport.
+
+### Next
+
+Next implementation queue item is FT-049: iPhone Shortcut endpoint/auth decision and implementation.

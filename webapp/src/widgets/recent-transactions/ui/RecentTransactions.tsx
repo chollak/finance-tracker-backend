@@ -68,14 +68,14 @@ export function RecentTransactions() {
             <CardTitle>Последние транзакции</CardTitle>
             <CardDescription>Нажмите строку, чтобы изменить</CardDescription>
           </div>
-          <Button size="sm" className="h-9 gap-1.5" onClick={() => navigate(ROUTES.ADD_TRANSACTION)}>
+          <Button size="sm" className="min-h-11 gap-1.5" onClick={() => navigate(ROUTES.ADD_TRANSACTION)}>
             <Plus className="h-4 w-4" aria-hidden="true" />
             Добавить
           </Button>
         </div>
         <Link
           to={ROUTES.TRANSACTIONS}
-          className="text-sm text-primary hover:underline"
+          className="inline-flex min-h-11 items-center text-sm text-primary hover:underline"
         >
           Все {transactions.length} транзакций →
         </Link>

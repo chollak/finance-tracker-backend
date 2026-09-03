@@ -26,7 +26,7 @@ export function SegmentedButtonGroup<T extends string>({
 }: SegmentedButtonGroupProps<T>) {
   return (
     <div
-      className={cn('mb-4 grid h-12 w-full rounded-2xl bg-muted p-1 text-muted-foreground', className)}
+      className={cn('mb-4 grid h-[52px] w-full rounded-2xl bg-muted p-1 text-muted-foreground', className)}
       role="tablist"
       aria-label={ariaLabel}
     >

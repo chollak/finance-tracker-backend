@@ -58,7 +58,7 @@ export function TransactionCorrectionChips({ transaction, className = '' }: Tran
             e.stopPropagation();
             setIsExpanded((current) => !current);
           }}
-          className="inline-flex min-h-9 flex-shrink-0 items-center rounded-full border border-warning/30 bg-warning-muted px-3 py-1 text-xs font-semibold text-warning transition-colors hover:bg-warning-muted/80 active:scale-95 disabled:pointer-events-none disabled:opacity-50"
+          className="inline-flex min-h-11 flex-shrink-0 items-center rounded-full border border-warning/30 bg-warning-muted px-3 py-1 text-xs font-semibold text-warning transition-colors hover:bg-warning-muted/80 active:scale-95 disabled:pointer-events-none disabled:opacity-50"
         >
           {getCorrectionToggleLabel(isExpanded)}
         </button>
@@ -75,7 +75,7 @@ export function TransactionCorrectionChips({ transaction, className = '' }: Tran
                 aria-pressed={isCurrent}
                 disabled={updateTransaction.isPending}
                 onClick={(e) => void handleCorrect(e, semanticType)}
-                className={`inline-flex min-h-8 items-center rounded-full border px-3 py-1 text-xs font-medium transition-colors active:scale-95 disabled:opacity-50 disabled:pointer-events-none ${
+                className={`inline-flex min-h-11 items-center rounded-full border px-3 py-1 text-xs font-medium transition-colors active:scale-95 disabled:opacity-50 disabled:pointer-events-none ${
                   isCurrent
                     ? 'border-warning/50 bg-warning-muted text-foreground'
                     : 'border-border bg-background text-foreground hover:bg-accent'

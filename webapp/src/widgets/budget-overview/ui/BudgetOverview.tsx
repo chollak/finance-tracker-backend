@@ -65,7 +65,7 @@ export function BudgetOverview() {
         </div>
         <Link
           to={ROUTES.BUDGETS}
-          className="text-sm text-primary hover:underline"
+          className="inline-flex min-h-11 min-w-[44px] items-center justify-center text-sm text-primary hover:underline"
         >
           Все →
         </Link>
