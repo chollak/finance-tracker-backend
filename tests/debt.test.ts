@@ -228,6 +228,43 @@ describe('Debt module', () => {
       expect(callArg.type).toBe('expense');
     });
 
+    it('marks the linked transaction as semanticType "debt" for both debt directions', async () => {
+      const owedToMe = await createDebtUseCase.execute({
+        userId: 'user-1',
+        type: DebtType.OWED_TO_ME,
+        personName: 'Bob',
+        amount: 500,
+        moneyTransferred: true,
+      });
+      expect(owedToMe.success).toBe(true);
+
+      const iOwe = await createDebtUseCase.execute({
+        userId: 'user-1',
+        type: DebtType.I_OWE,
+        personName: 'Carol',
+        amount: 700,
+        moneyTransferred: true,
+      });
+      expect(iOwe.success).toBe(true);
+
+      const calls = (createTransactionUseCase.execute as jest.Mock).mock.calls;
+      expect(calls).toHaveLength(2);
+
+      const [owedToMeArg] = calls[0];
+      expect(owedToMeArg.semanticType).toBe('debt');
+      expect(owedToMeArg.needsReview).toBe(false);
+      expect(owedToMeArg.type).toBe('expense');
+      expect(owedToMeArg.isDebtRelated).toBe(true);
+      expect(owedToMeArg.relatedDebtId).toBeTruthy();
+
+      const [iOweArg] = calls[1];
+      expect(iOweArg.semanticType).toBe('debt');
+      expect(iOweArg.needsReview).toBe(false);
+      expect(iOweArg.type).toBe('income');
+      expect(iOweArg.isDebtRelated).toBe(true);
+      expect(iOweArg.relatedDebtId).toBeTruthy();
+    });
+
     it('fails validation when person name is missing', async () => {
       const result = await createDebtUseCase.execute({
         userId: 'user-1',
@@ -319,6 +356,60 @@ describe('Debt module', () => {
       // I_OWE debt being paid back by the user = expense
       expect(callArg.type).toBe('expense');
       expect(callArg.isDebtRelated).toBe(true);
+    });
+
+    it('marks a partial-payment linked transaction as semanticType "debt" for both debt directions', async () => {
+      const iOwe = await createActiveDebt({ type: DebtType.I_OWE, personName: 'Alice', amount: 1000 });
+      await payDebtUseCase.execute({ debtId: iOwe.id, amount: 400 });
+
+      const owedToMe = await createActiveDebt({ type: DebtType.OWED_TO_ME, personName: 'Bob', amount: 800 });
+      await payDebtUseCase.execute({ debtId: owedToMe.id, amount: 300 });
+
+      const calls = (createTransactionUseCase.execute as jest.Mock).mock.calls;
+      expect(calls).toHaveLength(2);
+
+      const [iOweArg] = calls[0];
+      expect(iOweArg.semanticType).toBe('debt');
+      expect(iOweArg.needsReview).toBe(false);
+      // I_OWE repaid by the user = money leaving = expense
+      expect(iOweArg.type).toBe('expense');
+      expect(iOweArg.isDebtRelated).toBe(true);
+      expect(iOweArg.relatedDebtId).toBe(iOwe.id);
+
+      const [owedToMeArg] = calls[1];
+      expect(owedToMeArg.semanticType).toBe('debt');
+      expect(owedToMeArg.needsReview).toBe(false);
+      // OWED_TO_ME repaid to the user = money coming back = income
+      expect(owedToMeArg.type).toBe('income');
+      expect(owedToMeArg.isDebtRelated).toBe(true);
+      expect(owedToMeArg.relatedDebtId).toBe(owedToMe.id);
+    });
+
+    it('marks a full-payment linked transaction as semanticType "debt" for both debt directions', async () => {
+      const iOwe = await createActiveDebt({ type: DebtType.I_OWE, personName: 'Alice', amount: 500 });
+      await payDebtUseCase.executePayFull(iOwe.id);
+
+      const owedToMe = await createActiveDebt({ type: DebtType.OWED_TO_ME, personName: 'Bob', amount: 700 });
+      await payDebtUseCase.executePayFull(owedToMe.id);
+
+      const calls = (createTransactionUseCase.execute as jest.Mock).mock.calls;
+      expect(calls).toHaveLength(2);
+
+      const [iOweArg] = calls[0];
+      expect(iOweArg.semanticType).toBe('debt');
+      expect(iOweArg.needsReview).toBe(false);
+      expect(iOweArg.type).toBe('expense');
+      expect(iOweArg.amount).toBe(500);
+      expect(iOweArg.isDebtRelated).toBe(true);
+      expect(iOweArg.relatedDebtId).toBe(iOwe.id);
+
+      const [owedToMeArg] = calls[1];
+      expect(owedToMeArg.semanticType).toBe('debt');
+      expect(owedToMeArg.needsReview).toBe(false);
+      expect(owedToMeArg.type).toBe('income');
+      expect(owedToMeArg.amount).toBe(700);
+      expect(owedToMeArg.isDebtRelated).toBe(true);
+      expect(owedToMeArg.relatedDebtId).toBe(owedToMe.id);
     });
 
     it('skips creating a transaction when createTransaction=false', async () => {

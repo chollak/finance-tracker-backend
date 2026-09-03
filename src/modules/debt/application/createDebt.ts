@@ -76,6 +76,9 @@ export class CreateDebtUseCase {
       category: DEBT_CATEGORY,
       description: data.description || description,
       date: new Date().toISOString().split('T')[0],
+      // Debt movements are not real spending/income — keep them out of expense/income totals
+      semanticType: 'debt',
+      needsReview: false,
       isDebtRelated: true,
       relatedDebtId: debt.id
     });

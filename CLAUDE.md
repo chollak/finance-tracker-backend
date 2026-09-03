@@ -10,7 +10,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Runtime target now:** local WSL + SQLite + Telegram polling + Cloudflare quick tunnel for Mini App phone testing. Production/AWS is intentionally parked; `sapaev.uz` and Supabase are not the active dev path.
 
-**Current implementation queue (2026-09-03):** `FT-072 → FT-045 → FT-055 → FT-056 → FT-057 → FT-058 → FT-049 → FT-050 → FT-059 → FT-060 → FT-061`. Work one FT task at a time. The live semantic smoke (`FT-044`) is done and found `FT-072`: debt quick-capture creates a hidden linked transaction with `semanticType=expense`, so fix that correctness bug before historical backfill. Do not perform data backfills, GitHub issue closures, branch deletion, production/Supabase actions, or product-policy changes without the explicit stop/ask rules below.
+**Current implementation queue (2026-09-03):** `FT-045 → FT-055 → FT-056 → FT-057 → FT-058 → FT-049 → FT-050 → FT-059 → FT-060 → FT-061`. Work one FT task at a time. The live semantic smoke (`FT-044`) is done, and its debt-linked transaction bug (`FT-072`) is fixed/verified locally. Next is read-only historical semantic backfill preview; do not apply data backfills, close GitHub issues, delete branches, touch production/Supabase, or change product-policy without the explicit stop/ask rules below.
 
 **Stop/ask before:** production deploys, Supabase SQL/migrations, billing/subscription policy changes, rate-limit policy changes, broad Home/product IA decisions, destructive branch deletion, force dependency upgrades (`npm audit fix --force`).
 

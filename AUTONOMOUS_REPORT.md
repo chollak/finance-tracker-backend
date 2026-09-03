@@ -4417,3 +4417,68 @@ Full machine-readable report:
 
 - Marked `FT-044` done as a QA task.
 - Added `FT-072` as the next high-priority correctness task before `FT-045`.
+
+
+## 2026-09-03 — FT-072 debt-linked transaction semantics
+
+### Goal
+
+Fix the bug found by FT-044: `одолжил Азизу 200000` created a debt but also persisted a hidden linked transaction as plain `semanticType=expense`, inflating dashboard real expenses by 200 000.
+
+### Changes
+
+- `src/modules/debt/application/createDebt.ts`
+  - linked debt creation transactions now include `semanticType: 'debt'` and `needsReview: false`.
+- `src/modules/debt/application/payDebt.ts`
+  - partial/full debt payment linked transactions now also include `semanticType: 'debt'` and `needsReview: false`.
+- `tests/debt.test.ts`
+  - added regression coverage for both debt directions (`OWED_TO_ME`, `I_OWE`) at creation time;
+  - added regression coverage for partial and full payment linked transactions.
+
+### TDD evidence
+
+Claude Code first added a regression test and ran it before the production-code change. RED failure:
+
+```text
+Expected: "debt"
+Received: undefined
+Tests: 1 failed, 21 passed, 22 total
+```
+
+After implementation, targeted `tests/debt.test.ts` passed.
+
+### Verification
+
+Targeted gate:
+
+```bash
+npm test -- tests/debt.test.ts tests/processTextInput.test.ts tests/analytics.test.ts tests/dashboardService.test.ts --runInBand
+```
+
+Result: 4 suites / 120 tests passed.
+
+Full gate:
+
+```bash
+npm run verify
+```
+
+Result: 33 Jest suites / 393 tests passed, 7 webapp Vitest files / 40 tests passed, backend build passed, webapp build passed, dependency-cruiser passed, madge circular check passed.
+
+### Live smoke after restart
+
+After rebuild and restarting `npm run dev:miniapp`, ran disposable smoke:
+
+```text
+input: одолжил Азизу 200000
+debt: type=owed_to_me, amount=200000
+linked transaction: type=expense, semanticType=debt, category=debt
+dashboard monthly totalExpense delta: 0
+cleanup: debt 200, transaction 200
+```
+
+Evidence: `/tmp/ft072-live-smoke-report.json`.
+
+### Next
+
+FT-045 remains next: historical semantic backfill preview, read-only only.

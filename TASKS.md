@@ -43,7 +43,7 @@
 |------|-------|--------|
 | 0. Сломанные основы | Операции, которые портят данные или ломают базовую работу | FT-065 ✅, FT-066 ✅, FT-067 ✅, FT-068 ✅ |
 | 1. Доверие к цифрам | Главная, аналитика и бюджеты говорят одним языком | FT-053 ✅, FT-052 ✅ |
-| 2. «Могу пользоваться» локально | Воспроизводимый локальный контур с живым вводом | FT-064 ✅, FT-043 ✅, FT-070 ✅, FT-044 ✅, FT-072 |
+| 2. «Могу пользоваться» локально | Воспроизводимый локальный контур с живым вводом | FT-064 ✅, FT-043 ✅, FT-070 ✅, FT-044 ✅, FT-072 ✅ |
 | 3. Исторические данные | Безопасный read-only разбор старых `semanticType=expense` записей | FT-045 |
 | 4. Ежедневный экран | Список, бюджеты и review queue читаются и не мешают | FT-055, FT-056, FT-057, FT-058 |
 | 5. Порядок в трекинге и repo | Один источник правды, зависимости, ветки | FT-049, FT-050, FT-048 |
@@ -61,7 +61,7 @@ Docs-сверка 2026-08-16 (только Markdown, очередь задач �
 
 Ревизия Hermes + Claude Code 2026-08-16: цель для LLM/агентов — не «строить новый продукт», а довести существующий Telegram-first finance tracker до надёжного локального daily-use контура. Первый батч реализации был: **FT-067 → FT-068 → FT-053 → FT-052 → FT-064 → FT-043 → FT-070 → FT-044**; на 2026-08-24 все задачи этого батча, кроме FT-044, уже закрыты. Задачи с продуктовым решением (`FT-054`, `FT-062`, `FT-063`, `FT-069`, `FT-071`) держать blocked/backlog до явного решения Шукура. Задачи с внешним эффектом (`FT-046`, применение Supabase SQL) не выполнять без отдельного явного разрешения.
 
-Ревизия Hermes 2026-08-24 после работы Шукура через Claude Code: подтянут свежий `origin/main`, рабочее дерево чистое, `npm run verify` зелёный. Закрыты и подтверждены: FT-067, FT-068, FT-053, FT-052, FT-064, FT-043, FT-070. Ближайший безопасный порядок теперь: **FT-072 → FT-045 → FT-055 → FT-056 → FT-057 → FT-058 → FT-049 → FT-050 → FT-059 → FT-060 → FT-061**. FT-044 выполнен как live smoke и нашёл один новый bug: debt quick-capture создаёт скрытую linked transaction с `semanticType=expense`, из-за чего lent money попадает в dashboard expenses. Поэтому FT-072 идёт перед historical backfill. FT-045 остаётся read-only preview; не применять backfill без отдельного разрешения. FT-049 остаётся открытым, потому что GitHub Issues ещё не сверены, хотя локальные docs/CLAUDE/TASKS уже приведены к одному источнику правды.
+Ревизия Hermes 2026-08-24 после работы Шукура через Claude Code: подтянут свежий `origin/main`, рабочее дерево чистое, `npm run verify` зелёный. Закрыты и подтверждены: FT-067, FT-068, FT-053, FT-052, FT-064, FT-043, FT-070. Ближайший безопасный порядок теперь: **FT-045 → FT-055 → FT-056 → FT-057 → FT-058 → FT-049 → FT-050 → FT-059 → FT-060 → FT-061**. FT-044 live smoke найденный bug FT-072 закрыт: debt-linked transactions теперь сохраняются как `semanticType=debt` и не попадают в dashboard real expenses. FT-045 остаётся read-only preview; не применять backfill без отдельного разрешения. FT-049 остаётся открытым, потому что GitHub Issues ещё не сверены, хотя локальные docs/CLAUDE/TASKS уже приведены к одному источнику правды.
 
 
 ---
@@ -258,7 +258,7 @@ Definition of Done:
 
 ### FT-072: Debt quick-capture creates a real-expense linked transaction
 
-Status: ready
+Status: done
 Priority: high
 Owner: Claude Code, QA by Hermes
 Type: correctness
@@ -286,6 +286,18 @@ Definition of Done:
 - [ ] Live disposable smoke is rerun and all created records are cleaned up
 
 Source evidence: `/tmp/ft044-semantic-smoke-report.json` from Hermes live smoke.
+
+Implemented 2026-09-03:
+- `CreateDebtUseCase.createLinkedTransaction()` now passes `semanticType: 'debt'` and `needsReview: false` into the linked transaction payload.
+- `PayDebtUseCase.execute()` now does the same for partial/full payment linked transactions.
+- Regression tests added for both debt directions and both payment paths.
+
+Verification:
+- RED observed before implementation: new `tests/debt.test.ts` assertion received `semanticType === undefined`.
+- Targeted: `npm test -- tests/debt.test.ts tests/processTextInput.test.ts tests/analytics.test.ts tests/dashboardService.test.ts --runInBand` — 4 suites / 120 tests passed.
+- Full: `npm run verify` — 33 Jest suites / 393 tests, 7 webapp files / 40 tests, backend build, webapp build, dependency-cruiser, madge passed.
+- Live smoke after rebuild/restart: `одолжил Азизу 200000` created debt `owed_to_me` and linked transaction `semanticType=debt`; dashboard monthly `totalExpense` delta was `0`; disposable debt+transaction deleted with HTTP 200.
+- Evidence: `/tmp/ft072-live-smoke-report.json`.
 
 ---
 
