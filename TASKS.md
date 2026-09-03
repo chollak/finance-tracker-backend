@@ -49,7 +49,7 @@
 | 5. Порядок в трекинге и repo | Один источник правды, зависимости, ветки | FT-049, FT-050, FT-048 |
 | 6. Полировка под гайдлайны | Цвет, шрифт, язык | FT-059, FT-060, FT-061 |
 | 7. Продукт P1 / решения | Приоритеты разделов, premium, лимиты, внимание | FT-054, FT-062, FT-063, FT-069, FT-071, FT-051 |
-| 8. Quick capture first | Главный экран = быстрый ввод, остальное ниже/в «Ещё» | FT-073 ✅, FT-074 |
+| 8. Quick capture first | Главный экран = быстрый ввод, остальное ниже/в «Ещё» | FT-073 ✅, FT-074 ✅ |
 | — frozen | Требует живого прода / Supabase | FT-046 |
 | — blocked | Нужно решение Шукура по auth/лимитам | FT-075 |
 
@@ -64,6 +64,8 @@ Docs-сверка 2026-08-16 (только Markdown, очередь задач �
 Ревизия Hermes + Claude Code 2026-08-16: цель для LLM/агентов — не «строить новый продукт», а довести существующий Telegram-first finance tracker до надёжного локального daily-use контура. Первый батч реализации был: **FT-067 → FT-068 → FT-053 → FT-052 → FT-064 → FT-043 → FT-070 → FT-044**; на 2026-08-24 все задачи этого батча, кроме FT-044, уже закрыты. Задачи с продуктовым решением (`FT-054`, `FT-062`, `FT-063`, `FT-069`, `FT-071`) держать blocked/backlog до явного решения Шукура. Задачи с внешним эффектом (`FT-046`, применение Supabase SQL) не выполнять без отдельного явного разрешения.
 
 Ревизия Hermes 2026-08-24 после работы Шукура через Claude Code: подтянут свежий `origin/main`, рабочее дерево чистое, `npm run verify` зелёный. Закрыты и подтверждены: FT-067, FT-068, FT-053, FT-052, FT-064, FT-043, FT-070. Ближайший безопасный порядок теперь: **FT-049 → FT-050 → FT-059 → FT-060 → FT-061**. FT-044 live smoke найденный bug FT-072 закрыт: debt-linked transactions теперь сохраняются как `semanticType=debt` и не попадают в dashboard real expenses. FT-045 read-only preview закрыт: есть безопасный отчёт без записи в БД; реальный backfill всё ещё требует отдельного решения Шукура. FT-055 закрыт: `/budgets` больше не дублирует карточки бюджетов и показывает ясные периоды/прогнозы. FT-056 закрыт: transaction rows читаются лучше, без createdAt-времени и без дублирующего бейджа `Расход`. FT-057 закрыт: correction chips раскрываются только по действию, а collapsed `needsReview` остаётся заметным. FT-058 закрыт: основные mobile touch targets на `/transactions`, `/debts`, `/budgets/add` и `/` проходят 44×44 замер. FT-045 остаётся read-only preview; не применять backfill без отдельного разрешения. FT-049 остаётся открытым, потому что GitHub Issues ещё не сверены, хотя локальные docs/CLAUDE/TASKS уже приведены к одному источнику правды.
+
+Ревизия Hermes 2026-09-04 после FT-073 и FT-074: quick-capture срез закрыт — Home первого экрана и карточка ввода приведены к capture-first виду. Дальше безопасная очередь: **FT-059 → FT-060 → FT-061** (полировка под гайдлайны), либо документационный «гайд по способам записи» без нового API. FT-049/FT-050 требуют явного разрешения на внешние действия (GitHub, ветки), FT-075 остаётся blocked до решения по auth/токенам и rate limit.
 
 
 ---
@@ -530,6 +532,59 @@ Verification 2026-09-04:
 - `npm run build:webapp` — passed.
 - `npm run verify` — 34 Jest suites / 424 tests, 9 webapp files / 61 tests, backend build, webapp build, dependency-cruiser, madge passed.
 - Screenshot QA: `/tmp/qc-home-minimal-audit/screenshots/home-375.png`, `home-390.png`, `home-412.png`; `navCenterDelta=0`; quick capture/recent present; budget/trust/usage primary blocks absent. Audit console had non-blocking external resource `ERR_FAILED` noise only, no app API 4xx/5xx.
+
+---
+
+### FT-074: Quick capture action row and voice/manual states
+
+Status: done
+Priority: high
+Owner: Claude Code, QA by Hermes
+Type: quick-capture-ux
+
+Context:
+После FT-073 карточка ввода осталась единственным входом в запись операции, но не объясняла остальные способы. Нужно показать все три входа — чек, голос, текст — и быть честным про то, что реально работает: сканирование чека не сделано нигде, голос работает только в чате бота, текст работает здесь. Отдельно: quick capture пишет операцию на сервер (`POST /api/quick-capture`) и не имеет офлайн-очереди, поэтому без сети нельзя делать вид, что запись принята.
+
+Definition of Done:
+- [x] Action row из трёх плиток (`Чек` / `Голос` / `Текстом`) в `TextQuickCaptureCard`
+- [x] Недоступное действие помечено визуально и копией (`Скоро`), но остаётся полностью нажимаемым и объясняет рабочую альтернативу (без `aria-disabled`; измерено `scanAriaDisabled=null`)
+- [x] Голос даёт честную подсказку про Telegram, а не имитирует запись с микрофона в Mini App
+- [x] Офлайн блокирует отправку с явным нотисом и сохранением набранного текста
+- [x] Решения вынесены в чистые функции с тестами, без DOM
+- [x] Screenshot QA at 375 / 390 / 412
+- [x] Full verify passed
+
+Реализация (только `webapp/src/features/quick-capture/`):
+- `model/captureActions.ts` + тест — `CAPTURE_ACTIONS`, `nextActiveCaptureAction`, `captureActionHintFor`; `manual` не открывает панель, повторное нажатие активной плитки закрывает подсказку.
+- `model/toCaptureOfflineNotice.ts` + тест — копия нотиса и правило «только явный `navigator.onLine === false` считается офлайном».
+- `model/useIsOnline.ts` — `useSyncExternalStore` поверх событий `online`/`offline`, оптимистичный server snapshot.
+- `ui/TextQuickCaptureCard.tsx`, `index.ts` — рендер row/подсказок/нотиса и экспорт нового API фичи.
+
+Verification 2026-09-04:
+- `npm run test:webapp` — 11 файлов / 83 теста passed.
+- `npm run build:webapp` — passed.
+- `npm run verify` — 34 Jest suites / 424 tests, 11 webapp Vitest files / 83 теста, backend build, webapp build, dependency-cruiser, madge passed.
+- Screenshot QA: `/tmp/qc-home-minimal-audit/screenshots/home-375.png`, `home-390.png`, `home-412.png`. Три плитки помещаются в ряд на всех трёх ширинах, голос читается как честная Telegram-подсказка, скан помечен `Скоро`, `navCenterDelta=0`.
+- Interaction audit `/tmp/ft074_capture_actions_audit.js` — passed: `voiceHintOk`/`scanHintOk`/`manualFocusOk` = true, `smallButtons` пуст (нет таргетов меньше минимума), `scanAriaDisabled=null` (скан остаётся нажимаемым и объясняет альтернативу). Скриншоты: `/tmp/ft074-capture-actions-audit/home-actions.png`, `voice-hint.png`, `scan-hint.png`.
+
+---
+
+### FT-075: Direct iPhone Shortcut capture API
+
+Status: blocked
+Priority: medium
+Owner: Shukur (решение), затем Claude Code
+Type: quick-capture-api
+
+Context:
+Прямой вызов capture-эндпоинта из iPhone Shortcut минует Telegram-авторизацию Mini App, поэтому требует отдельного решения: как выдавать и отзывать токен, как считать лимиты и что делать при утечке токена. До решения записывать через Shortcut можно только отправкой сообщения боту в Telegram.
+
+Blocked on (решение Шукура):
+- Модель auth: персональный токен, срок жизни, отзыв.
+- Rate limit для не-Telegram источника.
+- Нужен ли отдельный публичный эндпоинт или достаточно Telegram-канала.
+
+Пока blocked: не создавать новые публичные эндпоинты и не менять auth. Безопасный шаг без решения — документационный гайд «как записывать операции» (текст в Mini App, голос/текст в боте, Shortcut через отправку сообщения боту).
 
 ---
 

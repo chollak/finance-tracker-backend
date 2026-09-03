@@ -15,6 +15,16 @@ export { toCaptureActionHint } from './model/toCaptureActionHint';
 export { CAPTURE_EXAMPLES } from './model/captureExamples';
 export type { CaptureExample } from './model/captureExamples';
 export {
+  CAPTURE_ACTIONS,
+  captureActionAccessibleLabel,
+  captureActionHintFor,
+  nextActiveCaptureAction,
+} from './model/captureActions';
+export type { CaptureAction, CaptureActionId } from './model/captureActions';
+export { toCaptureOfflineNotice, readOnlineStatus } from './model/toCaptureOfflineNotice';
+export type { CaptureOfflineNotice } from './model/toCaptureOfflineNotice';
+export { useIsOnline } from './model/useIsOnline';
+export {
   validateCaptureText,
   captureTextRejectionMessage,
   MAX_CAPTURE_TEXT_LENGTH,

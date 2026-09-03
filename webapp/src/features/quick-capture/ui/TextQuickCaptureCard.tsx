@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Loader2, Send } from 'lucide-react';
+import { Loader2, Send, WifiOff } from 'lucide-react';
 
 import { Button } from '@/shared/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card';
@@ -13,6 +13,15 @@ import { toCaptureErrorFeedback } from '../model/toCaptureErrorFeedback';
 import { toCaptureActionHint } from '../model/toCaptureActionHint';
 import { CAPTURE_EXAMPLES } from '../model/captureExamples';
 import { MAX_CAPTURE_TEXT_LENGTH } from '../model/validateCaptureText';
+import {
+  CAPTURE_ACTIONS,
+  captureActionAccessibleLabel,
+  captureActionHintFor,
+  nextActiveCaptureAction,
+} from '../model/captureActions';
+import type { CaptureAction, CaptureActionId } from '../model/captureActions';
+import { toCaptureOfflineNotice } from '../model/toCaptureOfflineNotice';
+import { useIsOnline } from '../model/useIsOnline';
 import type { CaptureFeedbackTone } from '../model/toCaptureFeedback';
 
 interface Feedback {
@@ -35,23 +44,97 @@ interface TextQuickCaptureCardProps {
   className?: string;
 }
 
+interface CaptureActionTileProps {
+  action: CaptureAction;
+  isActive: boolean;
+  isEmphasized: boolean;
+  onPress: (id: CaptureActionId) => void;
+}
+
+/**
+ * One entry point in the action row.
+ *
+ * An unavailable action carries no disabled state at all — neither `disabled` nor
+ * `aria-disabled`. The tile is fully operable, because pressing it is the only way to read why
+ * the action is unavailable and what to do instead; a disabled marker would tell a screen
+ * reader (and anything driving the page) not to touch the one control that explains itself.
+ * "Unavailable" lives in the accessible name, the `Скоро` badge and the muted/dashed styling,
+ * which is where a user can actually perceive it.
+ */
+function CaptureActionTile({ action, isActive, isEmphasized, onPress }: CaptureActionTileProps) {
+  const Icon = action.icon;
+
+  return (
+    <button
+      type="button"
+      onClick={() => onPress(action.id)}
+      // Any tile with a panel is a toggle, available or not — pressing it opens and closes the
+      // same hint, so the pressed state is real and worth announcing.
+      aria-pressed={action.hint ? isActive : undefined}
+      aria-label={captureActionAccessibleLabel(action)}
+      // Hover/long-press affordance on top of the badge; the same copy the panel shows.
+      title={action.isAvailable ? undefined : action.hint}
+      data-unavailable={action.isAvailable ? undefined : 'true'}
+      className={cn(
+        'flex min-h-16 flex-col items-center justify-center gap-1 rounded-xl border px-2 py-2 text-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 active:scale-[0.98]',
+        action.isAvailable
+          ? 'border-input bg-background hover:bg-accent hover:text-accent-foreground'
+          : 'border-dashed border-input bg-muted/40 text-muted-foreground',
+        isEmphasized && action.isAvailable && 'border-primary/40 bg-secondary',
+        isActive && 'ring-2 ring-ring ring-offset-2'
+      )}
+    >
+      <Icon
+        className={cn('h-5 w-5', action.isAvailable ? 'text-foreground' : 'text-muted-foreground')}
+        aria-hidden="true"
+      />
+      <span className="text-sm font-medium leading-none">{action.label}</span>
+      <span className="text-[11px] leading-none text-muted-foreground">
+        {action.badge ?? action.caption}
+      </span>
+    </button>
+  );
+}
+
 /**
  * Home quick capture — one line of text → POST /api/quick-capture.
  *
  * The same boundary the Telegram bot uses, so a capture is confirmed with the same Russian
  * wording in both channels. Feedback comes from the server ack via `toCaptureFeedback()`:
  * `no_transaction` never claims a save, and the text is kept so it can be rewritten.
+ *
+ * The action row above the input names the three entry points the product is heading for —
+ * scan, voice, type — but only claims what exists today: typing runs here, voice runs in the
+ * Telegram chat, scanning is not built. Pressing scan or voice opens a hint, never a recorder.
  */
 export function TextQuickCaptureCard({ className }: TextQuickCaptureCardProps) {
   const [text, setText] = useState('');
   const [feedback, setFeedback] = useState<Feedback | null>(null);
+  const [activeAction, setActiveAction] = useState<CaptureActionId | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const userId = useUserStore((state) => state.userId);
   const userName = useUserStore((state) => state.userName);
   const capture = useQuickCapture();
+  const isOnline = useIsOnline();
 
   const isGuest = !!userId && isGuestId(userId);
+  const offlineNotice = toCaptureOfflineNotice(isOnline);
+  const activeActionHint = captureActionHintFor(activeAction);
+  const canSubmit = !!userId && isOnline && !capture.isPending && text.trim().length > 0;
+
+  /**
+   * Scan and voice open their hint; manual hands focus to the textarea, which is the capture
+   * this card actually performs. Nothing here starts a recording or a scan — there is none to
+   * start, so a tap only ever changes what is explained on screen.
+   */
+  const handleActionPress = (id: CaptureActionId) => {
+    setActiveAction((current) => nextActiveCaptureAction(current, id));
+
+    if (id === 'manual') {
+      textareaRef.current?.focus();
+    }
+  };
 
   /**
    * An example is a starting point, not a shortcut: it replaces the text and hands focus back
@@ -69,7 +152,9 @@ export function TextQuickCaptureCard({ className }: TextQuickCaptureCardProps) {
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!userId || capture.isPending) return;
+    // `isOnline` blocks the send rather than letting it fail: the request would only produce a
+    // network error, and this card has nowhere to keep a pending capture.
+    if (!userId || capture.isPending || !isOnline) return;
 
     setFeedback(null);
 
@@ -113,6 +198,38 @@ export function TextQuickCaptureCard({ className }: TextQuickCaptureCardProps) {
           </p>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-3" aria-busy={capture.isPending}>
+            {offlineNotice && (
+              <div role="status" className="flex gap-3 rounded-xl border border-warning/50 bg-warning-muted px-4 py-3">
+                <WifiOff className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                <div>
+                  <p className="text-sm font-medium leading-tight">{offlineNotice.title}</p>
+                  <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                    {offlineNotice.description}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <div className="grid grid-cols-3 gap-2" role="group" aria-label="Способы записи">
+              {CAPTURE_ACTIONS.map((action) => (
+                <CaptureActionTile
+                  key={action.id}
+                  action={action}
+                  isActive={activeAction === action.id}
+                  // Voice is the fastest way to capture today — it just happens in the Telegram
+                  // chat, not here, which is what the tile's caption says.
+                  isEmphasized={action.id === 'voice'}
+                  onPress={handleActionPress}
+                />
+              ))}
+            </div>
+
+            {activeActionHint && (
+              <p role="status" className="rounded-xl border border-border bg-muted px-4 py-3 text-sm leading-relaxed text-muted-foreground">
+                {activeActionHint}
+              </p>
+            )}
+
             <label htmlFor="quick-capture-text" className="sr-only">
               Операция текстом
             </label>
@@ -150,7 +267,7 @@ export function TextQuickCaptureCard({ className }: TextQuickCaptureCardProps) {
                 type="submit"
                 size="sm"
                 className="min-h-11 shrink-0 px-4"
-                disabled={capture.isPending || !userId || text.trim().length === 0}
+                disabled={!canSubmit}
               >
                 {capture.isPending ? (
                   <>

@@ -4839,3 +4839,61 @@ Artifacts:
 ### Next
 
 Continue quick-capture plan with FT-074: align the bottom action dock/voice/manual capture states with the minimal capture-first product. Direct iPhone Shortcut API remains blocked until auth/token/rate-limit decisions.
+
+
+## 2026-09-04 — FT-074 quick capture action row and voice/manual states
+
+### Goal
+
+Make all three capture entry points visible on the capture card — receipt, voice, text — while staying honest about what each one can actually do today, and stop pretending a capture can be accepted with no network.
+
+### Claude Code implementation
+
+Claude Code implemented the slice TDD-first with `acceptEdits` and no commit/push. Files changed, all inside `webapp/src/features/quick-capture/`:
+
+```text
+model/captureActions.ts
+model/captureActions.test.ts
+model/toCaptureOfflineNotice.ts
+model/toCaptureOfflineNotice.test.ts
+model/useIsOnline.ts
+ui/TextQuickCaptureCard.tsx
+index.ts
+```
+
+- `CAPTURE_ACTIONS` renders three tiles: `Чек` (`Скоро`, `aria-disabled` but still tappable so it can explain the alternative), `Голос` (points at the Telegram chat, where dictation actually works), `Текстом` (works here).
+- `nextActiveCaptureAction` / `captureActionHintFor` keep panel state as pure functions: `manual` never opens a panel, pressing the active tile again closes it.
+- `toCaptureOfflineNotice` + `useIsOnline` block submit offline with an explicit notice and keep the typed text. Only an explicit `navigator.onLine === false` counts as offline, since a false positive would disable the button for no reason.
+
+### Hermes verification
+
+```bash
+npm run test:webapp
+npm run build:webapp
+npm run verify
+node /tmp/ft074_capture_actions_audit.js
+```
+
+Results:
+
+- `npm run test:webapp`: 11 files / 83 tests passed.
+- `npm run build:webapp`: passed.
+- `npm run verify`: 34 Jest suites / 424 tests passed, 11 webapp Vitest files / 83 tests passed, backend build passed, webapp build passed, dependency-cruiser passed, madge passed.
+- Interaction audit: passed — `voiceHintOk`, `scanHintOk`, `manualFocusOk` all true; `smallButtons` empty (no undersized touch targets); `scanAriaDisabled` null, so the scan tile stays tappable and explains the working alternative instead of being inert.
+
+Artifacts:
+
+```text
+/tmp/qc-home-minimal-audit/screenshots/home-375.png
+/tmp/qc-home-minimal-audit/screenshots/home-390.png
+/tmp/qc-home-minimal-audit/screenshots/home-412.png
+/tmp/ft074-capture-actions-audit/home-actions.png
+/tmp/ft074-capture-actions-audit/voice-hint.png
+/tmp/ft074-capture-actions-audit/scan-hint.png
+```
+
+Visual QA: the three action tiles fit on one row at 375/390/412 without wrapping or shrinking the label; voice reads as an honest Telegram hint rather than a fake recorder; scan is clearly marked `Скоро`; `navCenterDelta=0`.
+
+### Next
+
+Quick capture has reached the point where the remaining steps need Shukur's decisions. Safe queue is now FT-059 → FT-060 → FT-061 (design-guideline polish), or a documentation-only guide on how to record operations (text in the Mini App, voice/text in the bot, Shortcut via sending the bot a message). The direct iPhone Shortcut API (FT-075) remains blocked on auth/token and rate-limit decisions; FT-049/FT-050 need explicit permission for external GitHub/branch actions.
