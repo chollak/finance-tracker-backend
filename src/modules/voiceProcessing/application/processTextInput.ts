@@ -23,7 +23,14 @@ const COMPLEX_TEXT_MARKERS_PATTERN = /[.!?;]/;
 const COMPLEX_TEXT_WORDS_PATTERN = conservativeKeywordPattern([
   'и', 'and', 'за', 'по', 'купил\\p{L}*', 'взял\\p{L}*', 'всех', 'компани\\p{L}*', 'поровну', 'скинул\\p{L}*', 'split',
 ]);
-const CURRENCY_WORDS_PATTERN = conservativeKeywordPattern(['сум', 'sum', 'uzs'], 'giu');
+const CURRENCY_WORD_ALTERNATIVES = ['сум', 'sum', 'uzs'];
+const CURRENCY_WORDS_PATTERN = conservativeKeywordPattern(CURRENCY_WORD_ALTERNATIVES, 'giu');
+// The same currency words, but only where they directly follow an amount ("1234 сум"),
+// which is what makes that number the one the user marked as money.
+const CURRENCY_UNIT_AFTER_AMOUNT_PATTERN = new RegExp(
+  `^\\s?(?:${CURRENCY_WORD_ALTERNATIVES.join('|')})(?![\\p{L}\\p{N}_])`,
+  'iu'
+);
 
 const AMOUNT_TOKEN_PATTERN = /[+-]?\d[\d\s.,]*/g;
 
@@ -89,6 +96,76 @@ function parseSingleAmount(normalizedText: string): ParsedAmount | null {
     amount,
     textBefore: normalizedText.slice(0, start),
     textAfter: normalizedText.slice(tokenEnd + suffix.length),
+  };
+}
+
+interface TextAmount {
+  value: number;
+  currencyMarked: boolean;
+}
+
+/**
+ * Every number the phrase actually spells out, each tagged with whether a currency word follows it.
+ * Unlike parseSingleAmount this never gives up on multi-number text — it is used to check an
+ * already-parsed amount against the text, not to pick one.
+ */
+function readTextAmounts(text: string): TextAmount[] {
+  const normalizedText = text.trim().replace(/\s+/g, ' ');
+
+  return [...normalizedText.matchAll(AMOUNT_TOKEN_PATTERN)].flatMap(match => {
+    const start = match.index ?? 0;
+    const token = match[0].replace(/[\s.,]+$/, '');
+    const afterToken = normalizedText.slice(start + token.length);
+    const suffix = MAGNITUDE_SUFFIX_PATTERN.exec(afterToken)?.[0] ?? '';
+
+    const value = Number(token.replace(/[\s,]/g, '')) * magnitudeFactor(suffix);
+    if (!Number.isFinite(value) || value <= 0) {
+      return [];
+    }
+
+    return [{
+      value,
+      currencyMarked: CURRENCY_UNIT_AFTER_AMOUNT_PATTERN.test(afterToken.slice(suffix.length)),
+    }];
+  });
+}
+
+/**
+ * OpenAI sometimes reads a bare trailing number — an order id, a note, a phone number — as the
+ * amount even though the phrase marks a different number with a currency word
+ * ("кофе 1234 сум 1788405366" saved as 1 788 405 366). Only that exact misread is corrected: the
+ * chosen amount has to be another number literally written in the same text, so a computed total
+ * ("2 билета по 50000 сум" → 100000) is left untouched. When the text marks a single amount the
+ * transaction is pulled back onto it; with several marked amounts nothing is guessed. Either way
+ * the capture is flagged for review, because the parse demonstrably picked the wrong number.
+ */
+function reconcileAmountWithCurrencyMarkedText(
+  transaction: ParsedTransaction,
+  text: string
+): ParsedTransaction {
+  const amounts = readTextAmounts(text);
+  const markedAmounts = [...new Set(amounts.filter(amount => amount.currencyMarked).map(amount => amount.value))];
+
+  if (markedAmounts.length === 0 || markedAmounts.includes(transaction.amount)) {
+    return transaction;
+  }
+
+  const isUnmarkedNumberFromText = amounts.some(
+    amount => !amount.currencyMarked && amount.value === transaction.amount
+  );
+  if (!isUnmarkedNumberFromText) {
+    return transaction;
+  }
+
+  logger.warn('Parsed amount ignored a currency-marked number in the same text', {
+    markedAmounts: markedAmounts.length,
+    corrected: markedAmounts.length === 1,
+  });
+
+  return {
+    ...transaction,
+    amount: markedAmounts.length === 1 ? markedAmounts[0] : transaction.amount,
+    needsReview: true,
   };
 }
 
@@ -276,11 +353,18 @@ export class ProcessTextInputUseCase {
       // Fall back to OpenAI for complex/natural-language inputs and debts.
       || await this.openAIService.analyzeInput(text);
 
+    // Only a single-transaction parse is checked against the text's currency markers. In
+    // multi-item text ("продукты 12000 сум и такси 30000") each number belongs to its own
+    // transaction, so an unmarked amount there is expected rather than a misread.
+    const transactions = parsed.transactions.length === 1 && parsed.debts.length === 0
+      ? [reconcileAmountWithCurrencyMarkedText(parsed.transactions[0], text)]
+      : parsed.transactions;
+
     const transactionResults: DetectedTransaction[] = [];
     const debtResults: DetectedDebt[] = [];
 
     // Process transactions
-    for (const p of parsed.transactions) {
+    for (const p of transactions) {
       try {
         const type = p.type || 'expense';
         const semanticType = normalizeSemanticType(p.semanticType, type);

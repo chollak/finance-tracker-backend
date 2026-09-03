@@ -758,6 +758,145 @@ describe('ProcessTextInputUseCase', () => {
     });
   });
 
+  describe('numbers next to a currency-marked amount', () => {
+    function makeDeps(createdId = 'anchored-1') {
+      const openAIService = {
+        analyzeInput: jest.fn().mockResolvedValue({ transactions: [], debts: [] }),
+        analyzeTransactions: jest.fn(),
+        transcribe: jest.fn()
+      } as unknown as TranscriptionService;
+
+      const createTransactionUseCase = {
+        execute: jest.fn().mockResolvedValue({ success: true, data: createdId })
+      } as unknown as CreateTransactionUseCase;
+
+      return {
+        openAIService,
+        createTransactionUseCase,
+        useCase: new ProcessTextInputUseCase(openAIService, createTransactionUseCase),
+      };
+    }
+
+    it('does not store a trailing unmarked number as the amount when the text marks one with a currency word', async () => {
+      const { openAIService, createTransactionUseCase, useCase } = makeDeps('anchored-coffee');
+      (openAIService.analyzeInput as jest.Mock).mockResolvedValue({
+        transactions: [{
+          intent: 'transaction',
+          amount: 1788405366,
+          category: 'coffee',
+          type: 'expense',
+          date: '2026-09-03',
+          merchant: 'hermes',
+          description: 'кофе 1234 сум',
+        }],
+        debts: []
+      });
+
+      await useCase.execute('тест hermes кофе 1234 сум 1788405366', 'user1');
+
+      expect(createTransactionUseCase.execute).not.toHaveBeenCalledWith(expect.objectContaining({
+        amount: 1788405366,
+      }));
+      expect(createTransactionUseCase.execute).toHaveBeenCalledWith(expect.objectContaining({
+        amount: 1234,
+        needsReview: true,
+      }));
+    });
+
+    it('keeps the amount OpenAI chose when it is the currency-marked one', async () => {
+      const { openAIService, createTransactionUseCase, useCase } = makeDeps('anchored-ok');
+      (openAIService.analyzeInput as jest.Mock).mockResolvedValue({
+        transactions: [{
+          intent: 'transaction',
+          amount: 1234,
+          category: 'coffee',
+          type: 'expense',
+          date: '2026-09-03',
+          merchant: 'hermes',
+        }],
+        debts: []
+      });
+
+      await useCase.execute('тест hermes кофе 1234 сум 1788405366', 'user1');
+
+      expect(createTransactionUseCase.execute).toHaveBeenCalledWith(expect.objectContaining({
+        amount: 1234,
+        needsReview: false,
+      }));
+    });
+
+    it('leaves a computed total alone when it is not one of the numbers written in the text', async () => {
+      const { openAIService, createTransactionUseCase, useCase } = makeDeps('anchored-total');
+      (openAIService.analyzeInput as jest.Mock).mockResolvedValue({
+        transactions: [{
+          intent: 'transaction',
+          amount: 100000,
+          category: 'other',
+          type: 'expense',
+          date: '2026-09-03',
+        }],
+        debts: []
+      });
+
+      await useCase.execute('2 билета по 50000 сум', 'user1');
+
+      expect(createTransactionUseCase.execute).toHaveBeenCalledWith(expect.objectContaining({
+        amount: 100000,
+        needsReview: false,
+      }));
+    });
+
+    it('leaves multi-item text alone where each number belongs to its own transaction', async () => {
+      const { openAIService, createTransactionUseCase, useCase } = makeDeps('anchored-multi');
+      (openAIService.analyzeInput as jest.Mock).mockResolvedValue({
+        transactions: [
+          {
+            intent: 'transaction',
+            amount: 12000,
+            category: 'groceries',
+            type: 'expense',
+            date: '2026-09-03',
+          },
+          {
+            intent: 'transaction',
+            amount: 30000,
+            category: 'taxi',
+            type: 'expense',
+            date: '2026-09-03',
+          },
+        ],
+        debts: []
+      });
+
+      await useCase.execute('продукты 12000 сум и такси 30000', 'user1');
+
+      expect(createTransactionUseCase.execute).toHaveBeenCalledWith(expect.objectContaining({
+        amount: 30000,
+        needsReview: false,
+      }));
+    });
+
+    it('flags the capture for review without guessing when the text marks several different amounts', async () => {
+      const { openAIService, createTransactionUseCase, useCase } = makeDeps('anchored-many');
+      (openAIService.analyzeInput as jest.Mock).mockResolvedValue({
+        transactions: [{
+          intent: 'transaction',
+          amount: 777,
+          category: 'other',
+          type: 'expense',
+          date: '2026-09-03',
+        }],
+        debts: []
+      });
+
+      await useCase.execute('кофе 1234 сум обед 5000 сум 777', 'user1');
+
+      expect(createTransactionUseCase.execute).toHaveBeenCalledWith(expect.objectContaining({
+        needsReview: true,
+      }));
+    });
+  });
+
   describe('cash withdrawal wording', () => {
     function makeDeps(createdId = 'cash-1') {
       const openAIService = {
