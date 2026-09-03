@@ -1,3 +1,4 @@
+import { ChevronDown, Plus } from 'lucide-react';
 import { BalanceCard } from '@/widgets/balance-card';
 import { AttentionSummary } from '@/widgets/attention-summary';
 import { QuickStats } from '@/widgets/quick-stats';
@@ -5,72 +6,73 @@ import { UsageLimitsCard } from '@/widgets/usage-limits';
 import { RecentTransactions } from '@/widgets/recent-transactions';
 import { BudgetOverview } from '@/widgets/budget-overview';
 import { HomeTrustSummary } from '@/widgets/home-trust-summary';
+import { HomeHeader } from '@/widgets/home-header';
 import { Button } from '@/shared/ui/button';
-import { PageHeader, PageShell, SectionStack } from '@/shared/ui';
-import { Plus } from 'lucide-react';
+import { PageShell, SectionStack } from '@/shared/ui';
 import { QuickAddSheet } from '@/features/quick-add';
 import { TextQuickCaptureCard } from '@/features/quick-capture';
 import { GuestModeBanner } from '@/features/auth';
 
 /**
- * Home Page (Dashboard)
- * Main entry point showing overview of finances
+ * Home Page — quick capture first.
+ *
+ * Order is deliberate: date/status, then the one-line capture card, then the
+ * numbers a capture immediately changes (month summary, recent transactions).
+ * The older dashboard blocks (budgets, AI usage limits, semantic trust formula,
+ * savings stats) are kept — nothing is deleted and every route still works —
+ * but they now live below the fold in a collapsed section so they do not
+ * compete with capture for the first viewport.
  */
 export function HomePage() {
   return (
     <PageShell>
-      <PageHeader title="Главная" subtitle="Обзор ваших финансов" />
+      <HomeHeader />
 
       {/* Guest Mode Banner */}
       <GuestModeBanner className="mb-4" />
 
       {/* Main Content */}
       <SectionStack>
-        {/* Balance Card - Full Width */}
-        <div className="animate-fade-in-up">
-          <BalanceCard />
-        </div>
-
         {/* Quick Capture - one line of text through the same boundary the Telegram bot uses */}
-        <div className="animate-fade-in-up stagger-1">
+        <div className="animate-fade-in-up">
           <TextQuickCaptureCard />
         </div>
 
-        {/* Semantic trust formula - explains why real expenses differ from outgoing cashflow */}
+        {/* Month summary - the number a capture just changed */}
         <div className="animate-fade-in-up stagger-1">
-          <HomeTrustSummary />
+          <BalanceCard />
         </div>
 
-        {/* Attention Summary - what needs a decision right now */}
-        <div className="animate-fade-in-up stagger-1">
+        {/* Recent Transactions - fast correction of what was just captured */}
+        <div className="animate-fade-in-up stagger-2">
+          <RecentTransactions />
+        </div>
+
+        {/* Attention Summary - renders nothing unless there is a real signal */}
+        <div className="animate-fade-in-up stagger-3">
           <AttentionSummary />
         </div>
 
-        {/* Quick Stats - Grid */}
-        <div className="animate-fade-in-up stagger-1">
-          <QuickStats />
-        </div>
+        {/* Secondary dashboard blocks - preserved, but collapsed by default */}
+        <details className="group animate-fade-in-up stagger-4">
+          <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 rounded-2xl bg-muted/50 px-4 py-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted [&::-webkit-details-marker]:hidden">
+            <span>Бюджеты, лимиты и объяснение цифр</span>
+            <ChevronDown
+              className="h-4 w-4 shrink-0 transition-transform duration-200 group-open:rotate-180"
+              aria-hidden="true"
+            />
+          </summary>
 
-        {/* Usage Limits - Only for Free users */}
-        <div className="animate-fade-in-up stagger-1">
-          <UsageLimitsCard />
-        </div>
-
-        {/* Two Column Layout on Desktop */}
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          {/* Budget Overview */}
-          <div className="animate-fade-in-up stagger-2">
+          <div className="mt-4 space-y-4 md:space-y-5">
+            <HomeTrustSummary />
+            <QuickStats />
+            <UsageLimitsCard />
             <BudgetOverview />
           </div>
-
-          {/* Recent Transactions */}
-          <div className="animate-fade-in-up stagger-3">
-            <RecentTransactions />
-          </div>
-        </div>
+        </details>
       </SectionStack>
 
-      {/* Floating Action Button - Quick Add Transaction */}
+      {/* Floating Action Button - Quick Add Transaction (desktop only) */}
       <QuickAddSheet>
         <Button
           size="lg"

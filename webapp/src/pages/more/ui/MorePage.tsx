@@ -1,9 +1,15 @@
 import { Link } from 'react-router-dom';
-import { BarChart3, ChevronRight, HandCoins } from 'lucide-react';
+import { BarChart3, ChevronRight, HandCoins, Wallet } from 'lucide-react';
 import { Card, PageHeader, PageShell, SectionStack } from '@/shared/ui';
 import { ROUTES } from '@/shared/lib/constants/routes';
 
 const moreItems = [
+  {
+    href: ROUTES.BUDGETS,
+    title: 'Бюджеты',
+    description: 'Лимиты по категориям и прогресс месяца',
+    icon: Wallet,
+  },
   {
     href: ROUTES.DEBTS,
     title: 'Долги',

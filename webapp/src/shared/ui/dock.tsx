@@ -133,6 +133,36 @@ export function DockItem({
   );
 }
 
+export interface DockSplitProps {
+  left: ReactNode;
+  center: ReactNode;
+  right: ReactNode;
+  className?: string;
+}
+
+/**
+ * Symmetric dock layout: two equal-width side zones (`1fr`) around an
+ * intrinsically sized center slot.
+ *
+ * The center action therefore sits on the container's horizontal axis whatever
+ * the side item counts are, so adding or hiding a tab cannot push it off centre.
+ * Requires a definite width on the parent `Dock` (e.g. `w-full max-w-xs`).
+ */
+export function DockSplit({ left, center, right, className }: DockSplitProps) {
+  return (
+    <div
+      className={cn(
+        'grid w-full grid-cols-[1fr_auto_1fr] items-center gap-1.5',
+        className
+      )}
+    >
+      <div className="flex items-center justify-around">{left}</div>
+      <div className="flex items-center gap-1.5">{center}</div>
+      <div className="flex items-center justify-around">{right}</div>
+    </div>
+  );
+}
+
 export function DockSeparator({ className }: { className?: string }) {
   return (
     <span

@@ -6,3 +6,4 @@ export * from './financial-health';
 export * from './spending-chart';
 export * from './quick-stats';
 export * from './home-trust-summary';
+export * from './home-header';
