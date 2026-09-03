@@ -9,23 +9,19 @@ import { getLogger, LogCategory } from '../../../shared/application/logging';
 import { normalizeCategory } from '../../../shared/domain/entities/Category';
 import { normalizeSemanticType, TransactionSemanticType } from '../../transaction/domain/transactionSemanticType';
 import { AnalysisResult, ParsedTransaction } from '../domain/transcriptionService';
+import {
+  conservativeKeywordPattern,
+  DEBT_KEYWORDS_PATTERN,
+  REPAYMENT_KEYWORDS_PATTERN,
+  SAVING_DEPOSIT_KEYWORDS_PATTERN,
+  INCOME_KEYWORDS_PATTERN,
+  isObviousCashWithdrawal,
+  isObviousOwnTransfer,
+  mentionsCashWithdrawal,
+} from '../../../shared/domain/semantics/semanticKeywords';
 
 const logger = getLogger(LogCategory.OPENAI);
 
-// \b relies on \w, which only covers ASCII — it silently fails to bound Cyrillic words
-// (e.g. "\bперевел\b" never matches). Build boundaries from Unicode letter/number classes instead.
-function conservativeKeywordPattern(alternatives: string[], flags = 'iu'): RegExp {
-  return new RegExp(`(?<![\\p{L}\\p{N}_])(?:${alternatives.join('|')})(?![\\p{L}\\p{N}_])`, flags);
-}
-
-const DEBT_KEYWORDS_PATTERN = /\b(lent|borrowed|owe|debt|loan)\b|долг|должен|одолжил|одолжила|занял|заняла|қарз|qarz/i;
-// Money being given back — a debt repayment, a refund, a reimbursement — is never ordinary
-// consumption. Exact verb forms only, so "вернулся домой" and "вернусь" stay out of it.
-const REPAYMENT_KEYWORDS_PATTERN = conservativeKeywordPattern([
-  // "отдал" is deliberately absent: it reads as plain paying just as often ("отдал 50000 за ремонт").
-  'вернул', 'вернула', 'вернули', 'верну', 'вернуть', 'возврат\\p{L}*', 'refund',
-  'qaytardim', 'qaytardi', 'qaytarishdi',
-]);
 const COMPLEX_TEXT_MARKERS_PATTERN = /[.!?;]/;
 const COMPLEX_TEXT_WORDS_PATTERN = conservativeKeywordPattern([
   'и', 'and', 'за', 'по', 'купил\\p{L}*', 'взял\\p{L}*', 'всех', 'компани\\p{L}*', 'поровну', 'скинул\\p{L}*', 'split',
@@ -224,44 +220,6 @@ function isUnambiguousLendingPhrase(text: string): boolean {
   return LENDING_VERB_PATTERN.test(text) && !BORROWING_MARKER_PATTERN.test(text);
 }
 
-const SAVING_DEPOSIT_KEYWORDS_PATTERN = conservativeKeywordPattern([
-  'вклад\\p{L}*', 'накоплени\\p{L}*', 'сбережени\\p{L}*', "jamg'?or\\p{L}*",
-]);
-const CASH_WITHDRAWAL_VERB_PATTERN = conservativeKeywordPattern(['снял\\p{L}*', 'yechib oldim', 'yechdim']);
-const CASH_WITHDRAWAL_STANDALONE_PATTERN = conservativeKeywordPattern(['обналичил\\p{L}*']);
-const CASH_INDICATOR_PATTERN = conservativeKeywordPattern(['налич\\p{L}*', 'нал', 'cash', 'nakd', 'naqd']);
-// Where the cash came from. "снял в банкомате 300000" names no cash word at all, so without these
-// the phrase used to fall through to the simple parser and become a real expense.
-const CASH_SOURCE_PATTERN = conservativeKeywordPattern(['банкомат\\p{L}*', 'bankomat\\p{L}*', 'atm', 'kart\\p{L}*']);
-const TRANSFER_VERB_PATTERN = conservativeKeywordPattern([
-  'перевел\\p{L}*', 'перевёл\\p{L}*', 'перекинул\\p{L}*', 'kochirdim', "o'?tkazdim", 'otkazdim', 'transferred',
-]);
-const OWN_ACCOUNT_TARGET_PATTERN = conservativeKeywordPattern([
-  'себе', 'карт\\p{L}*', 'счет\\p{L}*', 'счёт\\p{L}*', 'alif', 'payme', 'click', 'uzcard', 'humo',
-]);
-const INCOME_KEYWORDS_PATTERN = conservativeKeywordPattern(['зарплат\\p{L}*', 'зп', 'аванс', 'оклад', 'salary', 'maosh']);
-
-/**
- * A withdrawal is obvious only when the phrase says both that money was taken out and where from
- * (cash, an ATM, a card or an own account). A bare "снял 300000" stays ambiguous — it may be rent
- * ("снял квартиру") — and is left to OpenAI rather than guessed.
- */
-function isObviousCashWithdrawal(text: string): boolean {
-  return CASH_WITHDRAWAL_STANDALONE_PATTERN.test(text)
-    || (
-      CASH_WITHDRAWAL_VERB_PATTERN.test(text)
-      && (
-        CASH_INDICATOR_PATTERN.test(text)
-        || CASH_SOURCE_PATTERN.test(text)
-        || OWN_ACCOUNT_TARGET_PATTERN.test(text)
-      )
-    );
-}
-
-function mentionsCashWithdrawal(text: string): boolean {
-  return CASH_WITHDRAWAL_VERB_PATTERN.test(text) || CASH_WITHDRAWAL_STANDALONE_PATTERN.test(text);
-}
-
 /**
  * Conservative fast path for obvious single-amount phrases whose semantic meaning
  * (transfer/savings/cash withdrawal/income) is unambiguous, so OpenAI is only used
@@ -317,7 +275,7 @@ function parseObviousSemanticTransaction(text: string): AnalysisResult | null {
   } else if (isObviousCashWithdrawal(remainder)) {
     semanticType = 'cash_withdrawal';
     category = 'transfer';
-  } else if (TRANSFER_VERB_PATTERN.test(remainder) && OWN_ACCOUNT_TARGET_PATTERN.test(remainder)) {
+  } else if (isObviousOwnTransfer(remainder)) {
     semanticType = 'own_transfer';
     category = 'transfer';
   } else if (INCOME_KEYWORDS_PATTERN.test(remainder)) {

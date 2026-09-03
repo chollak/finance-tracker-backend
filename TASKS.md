@@ -44,7 +44,7 @@
 | 0. Сломанные основы | Операции, которые портят данные или ломают базовую работу | FT-065 ✅, FT-066 ✅, FT-067 ✅, FT-068 ✅ |
 | 1. Доверие к цифрам | Главная, аналитика и бюджеты говорят одним языком | FT-053 ✅, FT-052 ✅ |
 | 2. «Могу пользоваться» локально | Воспроизводимый локальный контур с живым вводом | FT-064 ✅, FT-043 ✅, FT-070 ✅, FT-044 ✅, FT-072 ✅ |
-| 3. Исторические данные | Безопасный read-only разбор старых `semanticType=expense` записей | FT-045 |
+| 3. Исторические данные | Безопасный read-only разбор старых `semanticType=expense` записей | FT-045 ✅ |
 | 4. Ежедневный экран | Список, бюджеты и review queue читаются и не мешают | FT-055, FT-056, FT-057, FT-058 |
 | 5. Порядок в трекинге и repo | Один источник правды, зависимости, ветки | FT-049, FT-050, FT-048 |
 | 6. Полировка под гайдлайны | Цвет, шрифт, язык | FT-059, FT-060, FT-061 |
@@ -61,7 +61,7 @@ Docs-сверка 2026-08-16 (только Markdown, очередь задач �
 
 Ревизия Hermes + Claude Code 2026-08-16: цель для LLM/агентов — не «строить новый продукт», а довести существующий Telegram-first finance tracker до надёжного локального daily-use контура. Первый батч реализации был: **FT-067 → FT-068 → FT-053 → FT-052 → FT-064 → FT-043 → FT-070 → FT-044**; на 2026-08-24 все задачи этого батча, кроме FT-044, уже закрыты. Задачи с продуктовым решением (`FT-054`, `FT-062`, `FT-063`, `FT-069`, `FT-071`) держать blocked/backlog до явного решения Шукура. Задачи с внешним эффектом (`FT-046`, применение Supabase SQL) не выполнять без отдельного явного разрешения.
 
-Ревизия Hermes 2026-08-24 после работы Шукура через Claude Code: подтянут свежий `origin/main`, рабочее дерево чистое, `npm run verify` зелёный. Закрыты и подтверждены: FT-067, FT-068, FT-053, FT-052, FT-064, FT-043, FT-070. Ближайший безопасный порядок теперь: **FT-045 → FT-055 → FT-056 → FT-057 → FT-058 → FT-049 → FT-050 → FT-059 → FT-060 → FT-061**. FT-044 live smoke найденный bug FT-072 закрыт: debt-linked transactions теперь сохраняются как `semanticType=debt` и не попадают в dashboard real expenses. FT-045 остаётся read-only preview; не применять backfill без отдельного разрешения. FT-049 остаётся открытым, потому что GitHub Issues ещё не сверены, хотя локальные docs/CLAUDE/TASKS уже приведены к одному источнику правды.
+Ревизия Hermes 2026-08-24 после работы Шукура через Claude Code: подтянут свежий `origin/main`, рабочее дерево чистое, `npm run verify` зелёный. Закрыты и подтверждены: FT-067, FT-068, FT-053, FT-052, FT-064, FT-043, FT-070. Ближайший безопасный порядок теперь: **FT-055 → FT-056 → FT-057 → FT-058 → FT-049 → FT-050 → FT-059 → FT-060 → FT-061**. FT-044 live smoke найденный bug FT-072 закрыт: debt-linked transactions теперь сохраняются как `semanticType=debt` и не попадают в dashboard real expenses. FT-045 read-only preview закрыт: есть безопасный отчёт без записи в БД; реальный backfill всё ещё требует отдельного решения Шукура. FT-045 остаётся read-only preview; не применять backfill без отдельного разрешения. FT-049 остаётся открытым, потому что GitHub Issues ещё не сверены, хотя локальные docs/CLAUDE/TASKS уже приведены к одному источнику правды.
 
 
 ---
@@ -665,7 +665,7 @@ Depends on: FT-043
 
 ### FT-045: Historical semantic backfill preview
 
-Status: ready
+Status: done
 Priority: medium
 Owner: Claude Code, QA by Hermes
 Type: data
@@ -674,11 +674,21 @@ Context:
 Все транзакции, созданные до FT-SEM-001, лежат с `semanticType = expense`. План семантики сознательно запретил автоматический backfill: неверный вывод типа портит доверие к данным сильнее, чем их отсутствие. Нужен сначала предпросмотр.
 
 Definition of Done:
-- [ ] Скрипт анализирует историю и предлагает `semanticType` по описанию
-- [ ] Режим только для чтения: ни одной записи в БД
-- [ ] Вывод показывает счётчики по предполагаемым типам и список спорных случаев
-- [ ] Низкая уверенность помечается как кандидат в `needsReview`, а не переписывается молча
-- [ ] Решение о реальном применении принимает Шукур отдельно, после просмотра отчёта
+- [x] Скрипт анализирует историю и предлагает `semanticType` по описанию
+- [x] Режим только для чтения: ни одной записи в БД
+- [x] Вывод показывает счётчики по предполагаемым типам и список спорных случаев
+- [x] Низкая уверенность помечается как кандидат в `needsReview`, а не переписывается молча
+- [x] Решение о реальном применении принимает Шукур отдельно, после просмотра отчёта
+
+Verification 2026-09-03:
+- Added `npm run preview:semantic` / `scripts/preview-semantic-backfill.ts`; SQLite opens with `OPEN_READONLY` and the script only issues `PRAGMA table_info` + `SELECT`.
+- Added pure classifier/report tests in `tests/semanticBackfillSuggestion.test.ts`.
+- Local preview output saved to `/tmp/ft045-semantic-preview.md` and `/tmp/ft045-semantic-preview.json`.
+- DB checksum before/after preview was identical: `85412dceb5f033175e6ba63a9dc44d25eeae267da14dd655b9f6b491afb97c9b`.
+- Current local preview: 80 scanned, 74 candidates, 14 confident, 1 needsReview, 59 unmatched; suggested types: `income=10`, `debt=4`, `own_transfer=1`.
+- Targeted tests: `npm test -- tests/semanticBackfillSuggestion.test.ts tests/semanticTransactionParsing.test.ts tests/processTextInput.test.ts --runInBand` — 3 suites / 106 tests passed.
+- Script typecheck: `npm run typecheck:scripts` — passed.
+- Full gate: `npm run verify` — 34 Jest suites / 424 tests, 7 webapp files / 40 tests, backend build, webapp build, dependency-cruiser, madge passed.
 
 ---
 

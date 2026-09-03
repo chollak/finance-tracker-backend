@@ -4482,3 +4482,79 @@ Evidence: `/tmp/ft072-live-smoke-report.json`.
 ### Next
 
 FT-045 remains next: historical semantic backfill preview, read-only only.
+
+
+## 2026-09-03 — FT-045 historical semantic backfill preview
+
+### Goal
+
+Build a safe preview for old rows stuck on the legacy `semanticType=expense` default, without applying any real backfill.
+
+### Changes
+
+- Added `scripts/preview-semantic-backfill.ts` and `npm run preview:semantic`.
+  - SQLite is opened with `OPEN_READONLY`.
+  - The script avoids TypeORM because the local datasource may synchronize schema just by connecting.
+  - SQL is limited to `PRAGMA table_info(transactions)` and `SELECT ... FROM transactions`.
+- Added `src/modules/transaction/domain/semanticBackfillSuggestion.ts`.
+  - Pure deterministic suggestion logic for legacy candidate rows.
+  - Confident suggestions: debt-linked rows, debt wording, savings wording, obvious cash withdrawal, obvious own transfer, legacy income rows.
+  - Ambiguous wording becomes `needsReview` candidates instead of silent rewrites.
+- Added `src/modules/transaction/application/previewSemanticBackfill.ts`.
+  - Produces counters, groups, examples and disputed rows.
+- Extracted shared semantic keyword vocabulary to `src/shared/domain/semantics/semanticKeywords.ts` and reused it from the live text parser to avoid rule drift.
+- Added `tests/semanticBackfillSuggestion.test.ts`.
+
+### Local preview evidence
+
+Command:
+
+```bash
+npm run --silent preview:semantic -- --format=json --examples=3 --disputed=10 > /tmp/ft045-semantic-preview.json
+npm run --silent preview:semantic -- --examples=2 --disputed=5 > /tmp/ft045-semantic-preview.md
+```
+
+Read-only proof:
+
+```text
+before=85412dceb5f033175e6ba63a9dc44d25eeae267da14dd655b9f6b491afb97c9b
+after=85412dceb5f033175e6ba63a9dc44d25eeae267da14dd655b9f6b491afb97c9b
+```
+
+Current local result:
+
+```text
+scanned=80
+alreadyTyped=6
+candidates=74
+confident=14
+needsReview=1
+unmatched=59
+bySuggestedType: income=10, debt=4, own_transfer=1
+```
+
+The one disputed row was an ambiguous transfer phrase, correctly reported as a `needsReview` candidate rather than a safe rewrite.
+
+### Verification
+
+Targeted:
+
+```bash
+npm test -- tests/semanticBackfillSuggestion.test.ts tests/semanticTransactionParsing.test.ts tests/processTextInput.test.ts --runInBand
+npm run build
+npm run typecheck:scripts
+```
+
+Results: 3 Jest suites / 106 tests passed, backend build passed, script typecheck passed.
+
+Full gate:
+
+```bash
+npm run verify
+```
+
+Result: 34 Jest suites / 424 tests passed, 7 webapp Vitest files / 40 tests passed, backend build passed, webapp build passed, dependency-cruiser passed, madge circular check passed.
+
+### Next
+
+Do not apply any backfill automatically. FT-045 only provides evidence for a later user-approved backfill decision. Next implementation queue item is FT-055.
