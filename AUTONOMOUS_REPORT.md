@@ -4897,3 +4897,49 @@ Visual QA: the three action tiles fit on one row at 375/390/412 without wrapping
 ### Next
 
 Quick capture has reached the point where the remaining steps need Shukur's decisions. Safe queue is now FT-059 → FT-060 → FT-061 (design-guideline polish), or a documentation-only guide on how to record operations (text in the Mini App, voice/text in the bot, Shortcut via sending the bot a message). The direct iPhone Shortcut API (FT-075) remains blocked on auth/token and rate-limit decisions; FT-049/FT-050 need explicit permission for external GitHub/branch actions.
+
+
+## 2026-09-04 — FT-076 iPhone Action Button guide via Telegram (docs only)
+
+### Goal
+
+Close the last quick-capture step that needs no product decision: a setup guide for capturing an expense from the iPhone Action Button without opening the app, using only the Telegram path that already works — no new endpoint, no token, no code change.
+
+### Claude Code implementation
+
+Docs-only slice, no commit/push. Files changed:
+
+```text
+docs/IOS_SHORTCUT_ACTION_BUTTON.md   (new)
+TASKS.md
+CLAUDE.md
+AUTONOMOUS_REPORT.md
+```
+
+The documented MVP: Action Button runs a Shortcut → it asks «Что потратил?» → user dictates or types → Shortcut copies the text and opens the bot chat (`tg://resolve?domain=<BOT_USERNAME>`, `https://t.me/<BOT_USERNAME>` as fallback) → user pastes and sends → the existing Telegram text/voice quick capture handles the rest. Variant B uses the system Share sheet; variant C (`&text=` prefill) is flagged as an unverifiable-from-WSL experiment.
+
+Two claims in the guide are code-derived rather than assumed:
+
+- `?start=<payload>` deep links cannot create a transaction: the payload arrives as a command and the capture handler skips anything starting with `/` (`src/delivery/messaging/telegram/handlers/messageHandlers.ts:135`).
+- The limitations section (no `occurredAt`, no idempotency, per-IP AI rate limit shared with `/api/voice/*`, date equals processing time) follows the shipped contract in `docs/QUICK_CAPTURE_API.md`.
+
+Security boundary stated explicitly: never place `TG_BOT_API_KEY`, `OPENAI_API_KEY`, `X-Dev-User-Id`, or Mini App `initData` in a Shortcut; direct `POST /api/quick-capture` from a Shortcut stays blocked pending the FT-075 auth/token/revocation/rate-limit decision. The only placeholder Shukur fills is `<BOT_USERNAME>`.
+
+The guide separates what is verified from the repo from what only a real device can confirm: iOS menu wording, `tg://` deep-link and prefill behavior in the current Telegram build, Action Button availability on the model, Siri dictation quality for Russian amounts.
+
+### Verification
+
+```bash
+grep -nE "sk-[A-Za-z0-9]|bot[0-9]{6,}:|Bearer [A-Za-z0-9]|(TOKEN|KEY|SECRET)=[^<]" docs/IOS_SHORTCUT_ACTION_BUTTON.md
+git diff --check
+```
+
+Results:
+
+- Secret scan: no matches — the file contains only the `<BOT_USERNAME>` placeholder and env-var *names* in prohibiting sentences, no values.
+- `git diff --check`: clean, no whitespace errors.
+- No build/test run: the change touches Markdown only and cannot affect code. Device-side steps are unverifiable from WSL by construction and are marked as such in the document, with an 11-step checklist for Shukur to run on the iPhone.
+
+### Next
+
+Safe queue returns to FT-059 → FT-060 → FT-061 (design-guideline polish). Quick capture has no remaining safe steps: everything further in that direction needs the FT-075 decision on auth model, token revocation, and rate-limit policy for a non-Telegram source. FT-049/FT-050 still need explicit permission for external GitHub/branch actions.
