@@ -1,4 +1,5 @@
 import type { MouseEvent } from 'react';
+import { toast } from 'sonner';
 import type { TransactionViewModel, TransactionSemanticType } from '../model/types';
 import { useUpdateTransaction } from '../api/mutations';
 import {
@@ -19,14 +20,24 @@ interface TransactionCorrectionChipsProps {
 export function TransactionCorrectionChips({ transaction, className = '' }: TransactionCorrectionChipsProps) {
   const updateTransaction = useUpdateTransaction();
 
-  const handleCorrect = (e: MouseEvent, semanticType: TransactionSemanticType) => {
+  const handleCorrect = async (e: MouseEvent, semanticType: TransactionSemanticType) => {
     e.stopPropagation();
     if (!transaction.id || !transaction.userId) return;
-    updateTransaction.mutate({
-      id: transaction.id,
-      userId: transaction.userId,
-      data: { semanticType, needsReview: false },
-    });
+    try {
+      await updateTransaction.mutateAsync({
+        id: transaction.id,
+        userId: transaction.userId,
+        data: { semanticType, needsReview: false },
+      });
+      // The chip row disappears once needsReview clears, so the toast is the only
+      // confirmation the user gets — it also explains why the totals shift.
+      toast.success('Тип обновлён', {
+        description: `${getSemanticTypeLabel(semanticType)} — итоги пересчитаются`,
+      });
+    } catch (error) {
+      toast.error('Не удалось обновить тип');
+      console.error('Failed to correct transaction semantic type:', error);
+    }
   };
 
   return (
@@ -43,7 +54,7 @@ export function TransactionCorrectionChips({ transaction, className = '' }: Tran
               type="button"
               aria-pressed={isCurrent}
               disabled={updateTransaction.isPending}
-              onClick={(e) => handleCorrect(e, semanticType)}
+              onClick={(e) => void handleCorrect(e, semanticType)}
               className={`inline-flex min-h-8 items-center rounded-full border px-3 py-1 text-xs font-medium transition-colors active:scale-95 disabled:opacity-50 disabled:pointer-events-none ${
                 isCurrent
                   ? 'border-warning/50 bg-warning-muted text-foreground'
