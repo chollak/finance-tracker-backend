@@ -24,3 +24,7 @@ export const DESCRIPTION_VISIBLE_CHARS = 44;
 export function shouldShowDescriptionTooltip(description?: string | null): boolean {
   return (description?.length ?? 0) > DESCRIPTION_VISIBLE_CHARS;
 }
+
+export function getCorrectionToggleLabel(isExpanded: boolean): string {
+  return isExpanded ? 'Скрыть варианты' : 'Исправить тип';
+}

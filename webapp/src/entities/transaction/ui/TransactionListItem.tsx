@@ -84,10 +84,13 @@ export function TransactionListItem({
             )}
           </div>
           {needsReview && (
-            <Badge variant="warning" className="mt-1.5 gap-1 px-2 py-1 text-[11px] leading-tight">
-              <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" aria-hidden="true" />
-              {NEEDS_REVIEW_LABEL}
-            </Badge>
+            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+              <Badge variant="warning" className="gap-1 px-2 py-1 text-[11px] leading-tight">
+                <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" aria-hidden="true" />
+                {NEEDS_REVIEW_LABEL}
+              </Badge>
+              <TransactionCorrectionChips transaction={transaction} />
+            </div>
           )}
           {transaction._isNonExpenseMovement && (
             <p className="mt-1 text-xs font-medium text-muted-foreground">{NON_EXPENSE_MOVEMENT_HINT}</p>
@@ -113,13 +116,7 @@ export function TransactionListItem({
         )}
       </div>
 
-      {/* One-tap correction chips — full row width so seven chips wrap cleanly on 375px */}
-      {needsReview && (
-        <TransactionCorrectionChips
-          transaction={transaction}
-          className="border-t border-warning/30 px-3 pb-3 pt-2"
-        />
-      )}
+      {/* Correction choices stay collapsed by default and expand inline from the review badge. */}
     </div>
   );
 }

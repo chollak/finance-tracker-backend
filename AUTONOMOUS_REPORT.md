@@ -4683,3 +4683,66 @@ Visual notes: 10-character descriptions fit; medium/long rows now get up to two 
 ### Next
 
 Next implementation queue item is FT-057: collapse semantic correction chips.
+
+
+## 2026-09-04 — FT-057 collapse semantic correction chips
+
+### Goal
+
+Keep `needsReview` rows scannable when several uncertain transactions accumulate: hide the seven semantic correction chips by default while preserving a clear review action.
+
+### Changes
+
+- `webapp/src/entities/transaction/ui/TransactionCorrectionChips.tsx`
+  - starts collapsed;
+  - shows compact `Исправить тип` action;
+  - expands to correction choices only on user action;
+  - keeps `stopPropagation` so row edit navigation is not triggered.
+- `webapp/src/entities/transaction/ui/TransactionListItem.tsx`
+  - keeps `Нужно проверить` visible;
+  - places the collapsed correction action next to the review badge instead of rendering seven chips in a full-width footer.
+- `webapp/src/entities/transaction/lib/transactionRowDisplay.ts` / `.test.ts`
+  - added tested copy helper for collapsed/expanded correction labels.
+
+### Verification
+
+Targeted webapp checks:
+
+```bash
+npm run test:webapp
+npm run build:webapp
+```
+
+Result: 9 webapp test files / 61 tests passed; webapp build passed.
+
+Full gate:
+
+```bash
+npm run verify
+```
+
+Result: 34 Jest suites / 424 tests passed, 9 webapp Vitest files / 61 tests passed, backend build passed, webapp build passed, dependency-cruiser passed, madge circular check passed.
+
+### Screenshot QA
+
+Created five disposable `needsReview` transactions, captured authenticated `/transactions` screenshots, then deleted all fixtures. Cleanup: 5/5 DELETE calls returned HTTP 200; leak check returned `leak_count=0`.
+
+Screenshots:
+
+```text
+/tmp/ft057-corrections-audit-content/screenshots/transactions-375-collapsed.png
+/tmp/ft057-corrections-audit-content/screenshots/transactions-390-collapsed.png
+/tmp/ft057-corrections-audit-content/screenshots/transactions-412-collapsed.png
+/tmp/ft057-corrections-audit-content/screenshots/transactions-375-expanded-first.png
+/tmp/ft057-corrections-audit-content/screenshots/transactions-390-expanded-first.png
+/tmp/ft057-corrections-audit-content/screenshots/transactions-412-expanded-first.png
+/tmp/ft057-corrections-audit-content/metrics.json
+```
+
+Metrics: authenticated audit `issueCount=0`; collapsed state had five `Нужно проверить` badges and five `Исправить тип` actions; expanding the first row showed correction choices while the rest stayed collapsed.
+
+Visual notes: collapsed state is visibly marked and scannable; expanded state is intentionally taller only for the selected row.
+
+### Next
+
+Next implementation queue item is FT-058: touch target compliance.

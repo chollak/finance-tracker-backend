@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { TRANSACTION_SEMANTIC_TYPES, type Transaction } from '@/shared/types';
 import {
   DESCRIPTION_VISIBLE_CHARS,
+  getCorrectionToggleLabel,
   shouldShowDescriptionTooltip,
   shouldShowSemanticTypeBadge,
 } from './transactionRowDisplay';
@@ -51,6 +52,16 @@ describe('shouldShowDescriptionTooltip', () => {
   it('treats missing description as fitting', () => {
     expect(shouldShowDescriptionTooltip(undefined)).toBe(false);
     expect(shouldShowDescriptionTooltip('')).toBe(false);
+  });
+});
+
+describe('getCorrectionToggleLabel', () => {
+  it('keeps the collapsed needs-review call to action compact and obvious', () => {
+    expect(getCorrectionToggleLabel(false)).toBe('Исправить тип');
+  });
+
+  it('labels the expanded state as collapsible', () => {
+    expect(getCorrectionToggleLabel(true)).toBe('Скрыть варианты');
   });
 });
 
