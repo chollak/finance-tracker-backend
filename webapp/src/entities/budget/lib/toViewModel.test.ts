@@ -25,8 +25,12 @@ describe('budgetToViewModel status badge', () => {
     expect(budgetToViewModel(summary(48))._statusText).toBe('На пути');
   });
 
-  it('marks 85% as near limit', () => {
-    expect(budgetToViewModel(summary(85))._statusText).toBe('Близко к лимиту');
+  it('marks 85% as near limit without using red text for a forecast/risk state', () => {
+    const viewModel = budgetToViewModel(summary(85));
+
+    expect(viewModel._statusText).toBe('Близко к лимиту');
+    expect(viewModel._statusColor).toBe('text-warning');
+    expect(viewModel._progressColor).toBe('bg-warning');
   });
 
   it('uses 80% as the inclusive near-limit boundary (79 / 80 / 81)', () => {
@@ -36,6 +40,44 @@ describe('budgetToViewModel status badge', () => {
   });
 
   it('marks an over-budget budget as exceeded', () => {
-    expect(budgetToViewModel(summary(120, { isOverBudget: true }))._statusText).toBe('Превышен');
+    const viewModel = budgetToViewModel(summary(120, { isOverBudget: true }));
+
+    expect(viewModel._statusText).toBe('Превышен');
+    expect(viewModel._statusColor).toBe('text-expense');
+    expect(viewModel._forecastText).toBe('Лимит превышен');
+    expect(viewModel._forecastStatus).toBe('exceeded');
+  });
+});
+
+describe('budgetToViewModel period and forecast copy', () => {
+  it('labels a shifted monthly window by the spending month and shows the exact range', () => {
+    const viewModel = budgetToViewModel(summary(40, {
+      startDate: '2026-07-31',
+      endDate: '2026-08-30',
+      daysRemaining: 19,
+    }));
+
+    expect(viewModel._periodText).toBe('Август 2026 • 31.07–30.08');
+    expect(viewModel._timeContextText).toBe('Ещё 19 дней до 30 августа');
+  });
+
+  it('uses forecast wording instead of a deadline-looking "Закончится" label', () => {
+    const viewModel = budgetToViewModel(summary(90, {
+      amount: 1000,
+      spent: 900,
+      remaining: 100,
+      daysRemaining: 10,
+      isOverBudget: false,
+    }));
+
+    expect(viewModel._forecastText).toMatch(/^Риск: лимит закончится /);
+    expect(viewModel._forecastStatus).toBe('risk');
+  });
+
+  it('keeps days remaining in one dedicated card line', () => {
+    const viewModel = budgetToViewModel(summary(30, { daysRemaining: 1 }));
+
+    expect(viewModel._daysRemainingText).toBe('1 день остался');
+    expect(viewModel._timeContextText).toBe('Ещё 1 день до конца месяца');
   });
 });

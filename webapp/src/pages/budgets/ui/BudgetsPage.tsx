@@ -1,6 +1,6 @@
 import { useBudgetSummaries, BudgetCard, budgetToViewModel } from '@/entities/budget';
 import { useUserStore, useIsGuest } from '@/entities/user/model/store';
-import { BudgetOverview } from '@/widgets/budget-overview';
+import { BudgetTotals } from '@/widgets/budget-overview';
 import { Button, EmptyState, PageHeader, PageShell, SectionStack } from '@/shared/ui';
 import { Skeleton } from '@/shared/ui/skeleton';
 import { Plus } from 'lucide-react';
@@ -55,12 +55,16 @@ export function BudgetsPage() {
         </Button>
       )}
 
-      {/* Budget Overview Widget */}
-      {(isLoading || budgetViewModels.length > 0) && (
+      {/* Totals only — every budget itself is listed once below (FT-055) */}
+      {isLoading ? (
         <div className="mb-6">
-          <BudgetOverview />
+          <Skeleton className="h-40 w-full" />
         </div>
-      )}
+      ) : budgets && budgets.length > 0 ? (
+        <div className="mb-6">
+          <BudgetTotals budgets={budgets} />
+        </div>
+      ) : null}
 
       {/* All Budgets List */}
       <div className="space-y-4">

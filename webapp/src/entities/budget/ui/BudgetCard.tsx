@@ -9,6 +9,16 @@ interface BudgetCardProps {
 }
 
 /**
+ * Forecast colors. Red is reserved for a budget that is actually exceeded —
+ * a projection that the limit may run out early is a warning, not a deadline.
+ */
+const FORECAST_COLORS: Record<'on-track' | 'risk' | 'exceeded', string> = {
+  'on-track': 'text-muted-foreground',
+  risk: 'text-warning font-medium',
+  exceeded: 'text-expense font-medium',
+};
+
+/**
  * Budget card component with progress bar
  * Uses ViewModel - no formatting logic in UI!
  */
@@ -54,26 +64,16 @@ export function BudgetCard({ budget, onClick }: BudgetCardProps) {
           </div>
         </div>
 
-        {/* Velocity Prediction */}
-        <Separator />
-        <div className="flex items-center justify-between text-xs">
-          <span className="text-muted-foreground">
-            {budget._daysRemainingText}
-          </span>
-          {budget._velocityText && (
-            <span
-              className={
-                budget._velocityStatus === 'danger'
-                  ? 'text-expense font-medium'
-                  : budget._velocityStatus === 'warning'
-                  ? 'text-warning font-medium'
-                  : 'text-success'
-              }
-            >
-              {budget._velocityText}
-            </span>
-          )}
-        </div>
+        {/* Burn-down forecast — days remaining already live in the time context
+            line above, so this row carries only the projection */}
+        {budget._forecastText && (
+          <>
+            <Separator />
+            <p className={`text-xs ${FORECAST_COLORS[budget._forecastStatus ?? 'on-track']}`}>
+              {budget._forecastText}
+            </p>
+          </>
+        )}
       </CardContent>
     </Card>
   );

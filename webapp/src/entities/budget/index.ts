@@ -8,10 +8,13 @@ export type {
   CreateBudgetDTO,
   UpdateBudgetDTO,
   BudgetViewModel,
+  BudgetForecastStatus,
 } from './model/types';
+export type { BudgetTotalsViewModel } from './lib/toTotals';
 
 // View Model
 export { budgetToViewModel } from './lib/toViewModel';
+export { budgetsToTotals } from './lib/toTotals';
 
 // API
 export { budgetKeys } from './api/keys';

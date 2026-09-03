@@ -4558,3 +4558,65 @@ Result: 34 Jest suites / 424 tests passed, 7 webapp Vitest files / 40 tests pass
 ### Next
 
 Do not apply any backfill automatically. FT-045 only provides evidence for a later user-approved backfill decision. Next implementation queue item is FT-055.
+
+
+## 2026-09-03 — FT-055 budgets page duplication and period labelling
+
+### Goal
+
+Make `/budgets` readable on mobile: remove duplicate per-budget cards, clarify period/date labels, avoid duplicated days-left text, and reserve red for actual overspend rather than forecast risk.
+
+### Changes
+
+- `webapp/src/pages/budgets/ui/BudgetsPage.tsx`
+  - replaced the full `BudgetOverview` widget with an aggregate-only `BudgetTotals` card on `/budgets`; individual budgets now appear only once in `Все бюджеты`.
+- `webapp/src/widgets/budget-overview/ui/BudgetTotals.tsx` + `webapp/src/entities/budget/lib/toTotals.ts`
+  - added aggregate totals card for all budgets without per-budget rows.
+- `webapp/src/entities/budget/lib/toViewModel.ts`
+  - monthly labels now use spending month plus exact range, e.g. `Сентябрь 2026 • 01.09–01.10`;
+  - days-left copy is a single explicit line, e.g. `Ещё 3 дня до 6 сентября`;
+  - burn-down wording is now `Прогноз:` / `Риск:`; red is only for actual exceeded budgets.
+- `webapp/src/entities/budget/lib/plural.ts`
+  - added small Russian plural helper for days/budgets.
+- Tests updated/added:
+  - `webapp/src/entities/budget/lib/toViewModel.test.ts`;
+  - `webapp/src/entities/budget/lib/toTotals.test.ts`.
+
+### Verification
+
+Targeted webapp checks:
+
+```bash
+npm run test:webapp
+npm run build:webapp
+```
+
+Result: 8 webapp test files / 45 tests passed; webapp build passed.
+
+Full gate:
+
+```bash
+npm run verify
+```
+
+Result: 34 Jest suites / 424 tests passed, 8 webapp Vitest files / 45 tests passed, backend build passed, webapp build passed, dependency-cruiser passed, madge circular check passed.
+
+### Screenshot QA
+
+Authenticated mobile screenshots were captured at the required widths:
+
+```text
+/tmp/ft055-budgets-audit-content/screenshots/budgets-375.png
+/tmp/ft055-budgets-audit-content/screenshots/budgets-390.png
+/tmp/ft055-budgets-audit-content/screenshots/budgets-412.png
+/tmp/ft055-budgets-audit-content/screenshots/budgets-390-bottom.png
+/tmp/ft055-budgets-audit-content/metrics.json
+```
+
+Metrics: authenticated audit `issueCount=0`; center CTA remained aligned at 375/390/412 (`centerX == viewportCenterX`: 187.5 / 195 / 206).
+
+Visual notes: aggregate card no longer duplicates individual budgets; `Кофе` and `Коммунальные` appear as list cards once; period labels are explicit; days-left appears once per card; bottom-scroll screenshot confirms the last card content is reachable above the dock.
+
+### Next
+
+Next implementation queue item is FT-056: transaction row readability.

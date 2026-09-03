@@ -45,7 +45,7 @@
 | 1. Доверие к цифрам | Главная, аналитика и бюджеты говорят одним языком | FT-053 ✅, FT-052 ✅ |
 | 2. «Могу пользоваться» локально | Воспроизводимый локальный контур с живым вводом | FT-064 ✅, FT-043 ✅, FT-070 ✅, FT-044 ✅, FT-072 ✅ |
 | 3. Исторические данные | Безопасный read-only разбор старых `semanticType=expense` записей | FT-045 ✅ |
-| 4. Ежедневный экран | Список, бюджеты и review queue читаются и не мешают | FT-055, FT-056, FT-057, FT-058 |
+| 4. Ежедневный экран | Список, бюджеты и review queue читаются и не мешают | FT-055 ✅, FT-056, FT-057, FT-058 |
 | 5. Порядок в трекинге и repo | Один источник правды, зависимости, ветки | FT-049, FT-050, FT-048 |
 | 6. Полировка под гайдлайны | Цвет, шрифт, язык | FT-059, FT-060, FT-061 |
 | 7. Продукт P1 / решения | Приоритеты разделов, premium, лимиты, внимание | FT-054, FT-062, FT-063, FT-069, FT-071, FT-051 |
@@ -61,7 +61,7 @@ Docs-сверка 2026-08-16 (только Markdown, очередь задач �
 
 Ревизия Hermes + Claude Code 2026-08-16: цель для LLM/агентов — не «строить новый продукт», а довести существующий Telegram-first finance tracker до надёжного локального daily-use контура. Первый батч реализации был: **FT-067 → FT-068 → FT-053 → FT-052 → FT-064 → FT-043 → FT-070 → FT-044**; на 2026-08-24 все задачи этого батча, кроме FT-044, уже закрыты. Задачи с продуктовым решением (`FT-054`, `FT-062`, `FT-063`, `FT-069`, `FT-071`) держать blocked/backlog до явного решения Шукура. Задачи с внешним эффектом (`FT-046`, применение Supabase SQL) не выполнять без отдельного явного разрешения.
 
-Ревизия Hermes 2026-08-24 после работы Шукура через Claude Code: подтянут свежий `origin/main`, рабочее дерево чистое, `npm run verify` зелёный. Закрыты и подтверждены: FT-067, FT-068, FT-053, FT-052, FT-064, FT-043, FT-070. Ближайший безопасный порядок теперь: **FT-055 → FT-056 → FT-057 → FT-058 → FT-049 → FT-050 → FT-059 → FT-060 → FT-061**. FT-044 live smoke найденный bug FT-072 закрыт: debt-linked transactions теперь сохраняются как `semanticType=debt` и не попадают в dashboard real expenses. FT-045 read-only preview закрыт: есть безопасный отчёт без записи в БД; реальный backfill всё ещё требует отдельного решения Шукура. FT-045 остаётся read-only preview; не применять backfill без отдельного разрешения. FT-049 остаётся открытым, потому что GitHub Issues ещё не сверены, хотя локальные docs/CLAUDE/TASKS уже приведены к одному источнику правды.
+Ревизия Hermes 2026-08-24 после работы Шукура через Claude Code: подтянут свежий `origin/main`, рабочее дерево чистое, `npm run verify` зелёный. Закрыты и подтверждены: FT-067, FT-068, FT-053, FT-052, FT-064, FT-043, FT-070. Ближайший безопасный порядок теперь: **FT-056 → FT-057 → FT-058 → FT-049 → FT-050 → FT-059 → FT-060 → FT-061**. FT-044 live smoke найденный bug FT-072 закрыт: debt-linked transactions теперь сохраняются как `semanticType=debt` и не попадают в dashboard real expenses. FT-045 read-only preview закрыт: есть безопасный отчёт без записи в БД; реальный backfill всё ещё требует отдельного решения Шукура. FT-055 закрыт: `/budgets` больше не дублирует карточки бюджетов и показывает ясные периоды/прогнозы. FT-045 остаётся read-only preview; не применять backfill без отдельного разрешения. FT-049 остаётся открытым, потому что GitHub Issues ещё не сверены, хотя локальные docs/CLAUDE/TASKS уже приведены к одному источнику правды.
 
 
 ---
@@ -392,7 +392,7 @@ Depends on: FT-052 (иначе созданное вручную не-расхо
 
 ### FT-055: Budgets page duplication and period labelling
 
-Status: ready
+Status: done
 Priority: medium
 Owner: Claude Code, QA by Hermes
 Type: ux
@@ -403,12 +403,21 @@ Context:
 В карточке бюджета три конфликтующих временных сигнала: подпись «Месячный • июль 2026» при окне 31.07–30.08 и августовских тратах; «19 дней осталось» напечатано дважды в одной карточке; рядом красным «Закончится 17 авг.» — по трём разным датам у трёх бюджетов видно, что это прогноз выгорания, но слово и красный цвет читаются как дедлайн периода.
 
 Definition of Done:
-- [ ] На странице бюджетов каждый бюджет показан один раз
-- [ ] Период подписан месяцем, к которому относятся траты
-- [ ] «Осталось N дней» встречается в карточке один раз
-- [ ] Прогноз выгорания либо переформулирован однозначно, либо убран
-- [ ] Красный используется только для превышения, не для прогноза
-- [ ] Скриншот-проверка на 375 / 390 / 412
+- [x] На странице бюджетов каждый бюджет показан один раз
+- [x] Период подписан месяцем, к которому относятся траты
+- [x] «Осталось N дней» встречается в карточке один раз
+- [x] Прогноз выгорания либо переформулирован однозначно, либо убран
+- [x] Красный используется только для превышения, не для прогноза
+- [x] Скриншот-проверка на 375 / 390 / 412
+
+Verification 2026-09-03:
+- `/budgets` now renders aggregate `Итого по бюджетам` once, then per-budget cards once in `Все бюджеты`; the old `BudgetOverview` list duplication is not used on this page.
+- Monthly period labels use the spending month plus exact range, e.g. `Сентябрь 2026 • 01.09–01.10`; weekly labels keep the exact range.
+- Budget cards show a single days-left line such as `Ещё 3 дня до 6 сентября`.
+- Forecast wording uses `Прогноз:` / `Риск:` and red is reserved for actual exceeded budgets; near-limit/risk uses warning.
+- Webapp tests: `npm run test:webapp` — 8 files / 45 tests passed.
+- Full gate: `npm run verify` — 34 Jest suites / 424 tests, 8 webapp files / 45 tests, backend build, webapp build, dependency-cruiser, madge passed.
+- Screenshot QA: `/tmp/ft055-budgets-audit-content/screenshots/budgets-375.png`, `budgets-390.png`, `budgets-412.png`, plus `budgets-390-bottom.png`; authenticated metrics had `issueCount=0` and centered nav button at 187.5/195/206px respectively.
 
 ---
 
