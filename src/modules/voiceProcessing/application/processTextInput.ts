@@ -19,6 +19,13 @@ function conservativeKeywordPattern(alternatives: string[], flags = 'iu'): RegEx
 }
 
 const DEBT_KEYWORDS_PATTERN = /\b(lent|borrowed|owe|debt|loan)\b|долг|должен|одолжил|одолжила|занял|заняла|қарз|qarz/i;
+// Money being given back — a debt repayment, a refund, a reimbursement — is never ordinary
+// consumption. Exact verb forms only, so "вернулся домой" and "вернусь" stay out of it.
+const REPAYMENT_KEYWORDS_PATTERN = conservativeKeywordPattern([
+  // "отдал" is deliberately absent: it reads as plain paying just as often ("отдал 50000 за ремонт").
+  'вернул', 'вернула', 'вернули', 'верну', 'вернуть', 'возврат\\p{L}*', 'refund',
+  'qaytardim', 'qaytardi', 'qaytarishdi',
+]);
 const COMPLEX_TEXT_MARKERS_PATTERN = /[.!?;]/;
 const COMPLEX_TEXT_WORDS_PATTERN = conservativeKeywordPattern([
   'и', 'and', 'за', 'по', 'купил\\p{L}*', 'взял\\p{L}*', 'всех', 'компани\\p{L}*', 'поровну', 'скинул\\p{L}*', 'split',
@@ -172,7 +179,49 @@ function reconcileAmountWithCurrencyMarkedText(
 function isComplexText(normalizedText: string): boolean {
   return COMPLEX_TEXT_MARKERS_PATTERN.test(normalizedText.replace(MAGNITUDE_DECIMAL_POINT_PATTERN, '$1$2'))
     || COMPLEX_TEXT_WORDS_PATTERN.test(normalizedText)
-    || DEBT_KEYWORDS_PATTERN.test(normalizedText);
+    || DEBT_KEYWORDS_PATTERN.test(normalizedText)
+    // "мне вернули 100000" reads to the simple parser as the label "мне вернули" plus an amount,
+    // so without this it silently became a real expense. Returned money is never a fast path.
+    || REPAYMENT_KEYWORDS_PATTERN.test(normalizedText);
+}
+
+/**
+ * Money that is handed back is a repayment, refund or reimbursement — not consumption. When the
+ * parse still comes back as an ordinary expense/income, that ordinary label is the part the text
+ * contradicts, so the capture is flagged for review rather than silently counted as real spending
+ * or real income. A parse that already named a non-ordinary meaning (debt, reimbursement,
+ * own_transfer, …) is trusted and left untouched.
+ */
+function flagRepaymentWording(transaction: ParsedTransaction, text: string): ParsedTransaction {
+  if (transaction.needsReview === true || !REPAYMENT_KEYWORDS_PATTERN.test(text)) {
+    return transaction;
+  }
+
+  const semanticType = normalizeSemanticType(transaction.semanticType, transaction.type || 'expense');
+  if (semanticType !== 'expense' && semanticType !== 'income') {
+    return transaction;
+  }
+
+  logger.warn('Returned-money wording parsed as an ordinary transaction', { semanticType });
+
+  return { ...transaction, needsReview: true };
+}
+
+const LENDING_VERB_PATTERN = conservativeKeywordPattern([
+  'одолжил', 'одолжила', 'дал в долг', 'дала в долг', 'даю в долг', 'lent',
+]);
+// "у <кого>" names where the money came from and "мне" names who received it; either one means the
+// user was the borrower, whatever verb the phrase uses.
+const BORROWING_MARKER_PATTERN = conservativeKeywordPattern(['у', 'мне']);
+
+/**
+ * "одолжил Азизу 300000" was being stored as `i_owe`, i.e. with the debt pointing the wrong way.
+ * Only that misread is corrected: a lending verb with no borrowing marker can only mean the user
+ * gave the money away. Phrases that do name a source or a receiver ("занял 200000 у Алишера",
+ * "мне одолжил Азиз") no longer pin the direction on wording alone and are left to the parser.
+ */
+function isUnambiguousLendingPhrase(text: string): boolean {
+  return LENDING_VERB_PATTERN.test(text) && !BORROWING_MARKER_PATTERN.test(text);
 }
 
 const SAVING_DEPOSIT_KEYWORDS_PATTERN = conservativeKeywordPattern([
@@ -356,9 +405,19 @@ export class ProcessTextInputUseCase {
     // Only a single-transaction parse is checked against the text's currency markers. In
     // multi-item text ("продукты 12000 сум и такси 30000") each number belongs to its own
     // transaction, so an unmarked amount there is expected rather than a misread.
-    const transactions = parsed.transactions.length === 1 && parsed.debts.length === 0
+    const reconciled = parsed.transactions.length === 1 && parsed.debts.length === 0
       ? [reconcileAmountWithCurrencyMarkedText(parsed.transactions[0], text)]
       : parsed.transactions;
+    // Repayment wording, on the other hand, casts doubt on the whole capture: which item of a
+    // multi-item text the returned money belongs to is exactly what is unclear, so each one is
+    // flagged rather than guessed at.
+    const transactions = reconciled.map(transaction => flagRepaymentWording(transaction, text));
+
+    // Debt direction is read back from the text only where the wording leaves no room for doubt,
+    // and only for a single-debt parse, so a multi-debt text keeps each debt's own direction.
+    const debts = parsed.debts.length === 1 && isUnambiguousLendingPhrase(text)
+      ? [{ ...parsed.debts[0], debtType: 'owed_to_me' as const }]
+      : parsed.debts;
 
     const transactionResults: DetectedTransaction[] = [];
     const debtResults: DetectedDebt[] = [];
@@ -419,8 +478,8 @@ export class ProcessTextInputUseCase {
     }
 
     // Process debts (if DebtModule is available)
-    if (this.createDebtUseCase && parsed.debts.length > 0) {
-      for (const d of parsed.debts) {
+    if (this.createDebtUseCase && debts.length > 0) {
+      for (const d of debts) {
         try {
           const debtType = d.debtType === 'i_owe' ? DebtType.I_OWE : DebtType.OWED_TO_ME;
 

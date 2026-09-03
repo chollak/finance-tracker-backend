@@ -1036,4 +1036,236 @@ describe('ProcessTextInputUseCase', () => {
       }),
     ]);
   });
+
+  describe('repayment wording', () => {
+    function makeDeps(createdId = 'repayment-1') {
+      const openAIService = {
+        analyzeInput: jest.fn().mockResolvedValue({ transactions: [], debts: [] }),
+        analyzeTransactions: jest.fn(),
+        transcribe: jest.fn()
+      } as unknown as TranscriptionService;
+
+      const createTransactionUseCase = {
+        execute: jest.fn().mockResolvedValue({ success: true, data: createdId })
+      } as unknown as CreateTransactionUseCase;
+
+      return {
+        openAIService,
+        createTransactionUseCase,
+        useCase: new ProcessTextInputUseCase(openAIService, createTransactionUseCase),
+      };
+    }
+
+    const repaymentPhrases = [
+      'мне вернули 100000',
+      'я вернул 50000',
+      'вернул Азизу 50000',
+      'возврат 70000',
+      'qarzni qaytardim 50000',
+    ];
+
+    it.each(repaymentPhrases)('does not store "%s" as a plain expense through a fast path', async (phrase) => {
+      const { openAIService, createTransactionUseCase, useCase } = makeDeps();
+
+      await useCase.execute(phrase, 'user1');
+
+      expect(openAIService.analyzeInput).toHaveBeenCalledTimes(1);
+      expect(createTransactionUseCase.execute).not.toHaveBeenCalled();
+    });
+
+    it('flags a returned-money capture that OpenAI read as an ordinary expense', async () => {
+      const { openAIService, createTransactionUseCase, useCase } = makeDeps('repay-1');
+      (openAIService.analyzeInput as jest.Mock).mockResolvedValue({
+        transactions: [{
+          intent: 'transaction',
+          amount: 50000,
+          category: 'other',
+          type: 'expense',
+          semanticType: 'expense',
+          needsReview: false,
+          date: '2026-09-03',
+        }],
+        debts: []
+      });
+
+      const result = await useCase.execute('я вернул 50000', 'user1');
+
+      expect(createTransactionUseCase.execute).toHaveBeenCalledWith(expect.objectContaining({
+        semanticType: 'expense',
+        needsReview: true,
+        originalParsing: expect.objectContaining({ needsReview: true }),
+      }));
+      expect(result.transactions).toEqual([
+        expect.objectContaining({ id: 'repay-1', needsReview: true })
+      ]);
+    });
+
+    it('flags returned money that OpenAI read as ordinary income', async () => {
+      const { openAIService, createTransactionUseCase, useCase } = makeDeps('repay-2');
+      (openAIService.analyzeInput as jest.Mock).mockResolvedValue({
+        transactions: [{
+          intent: 'transaction',
+          amount: 100000,
+          category: 'other-income',
+          type: 'income',
+          semanticType: 'income',
+          needsReview: false,
+          date: '2026-09-03',
+        }],
+        debts: []
+      });
+
+      const result = await useCase.execute('мне вернули 100000', 'user1');
+
+      expect(createTransactionUseCase.execute).toHaveBeenCalledWith(expect.objectContaining({
+        needsReview: true,
+      }));
+      expect(result.transactions).toEqual([
+        expect.objectContaining({ id: 'repay-2', needsReview: true })
+      ]);
+    });
+
+    it('leaves a repayment that OpenAI already labelled as reimbursement untouched', async () => {
+      const { openAIService, createTransactionUseCase, useCase } = makeDeps('repay-3');
+      (openAIService.analyzeInput as jest.Mock).mockResolvedValue({
+        transactions: [{
+          intent: 'transaction',
+          amount: 100000,
+          category: 'other-income',
+          type: 'income',
+          semanticType: 'reimbursement',
+          needsReview: false,
+          date: '2026-09-03',
+        }],
+        debts: []
+      });
+
+      await useCase.execute('мне вернули 100000', 'user1');
+
+      expect(createTransactionUseCase.execute).toHaveBeenCalledWith(expect.objectContaining({
+        semanticType: 'reimbursement',
+        needsReview: false,
+      }));
+    });
+
+    // "вернулся" is not a repayment: the guard must bound the verb, not match its stem.
+    // Its category stays 'other' because the whole label is categorized, which is existing behavior.
+    const unrelatedPhrases: Array<[string, string, number]> = [
+      ['вернулся домой такси 30000', 'other', 30000],
+      ['продукты 50000', 'groceries', 50000],
+    ];
+
+    it.each(unrelatedPhrases)('still parses "%s" locally as an ordinary expense', async (phrase, category, amount) => {
+      const { openAIService, createTransactionUseCase, useCase } = makeDeps('plain-1');
+
+      await useCase.execute(phrase, 'user1');
+
+      expect(openAIService.analyzeInput).not.toHaveBeenCalled();
+      expect(createTransactionUseCase.execute).toHaveBeenCalledWith(expect.objectContaining({
+        amount,
+        category,
+        semanticType: 'expense',
+        needsReview: false,
+      }));
+    });
+  });
+
+  describe('debt direction wording', () => {
+    function makeDeps(parsedDebtType: 'i_owe' | 'owed_to_me', personName: string) {
+      const openAIService = {
+        analyzeInput: jest.fn().mockResolvedValue({
+          transactions: [],
+          debts: [{
+            intent: 'debt',
+            debtType: parsedDebtType,
+            personName,
+            amount: 300000,
+            dueDate: null,
+            moneyTransferred: true,
+            confidence: 0.9,
+          }],
+        }),
+        analyzeTransactions: jest.fn(),
+        transcribe: jest.fn()
+      } as unknown as TranscriptionService;
+
+      const createTransactionUseCase = {
+        execute: jest.fn(),
+      } as unknown as CreateTransactionUseCase;
+
+      const createDebtUseCase = {
+        execute: jest.fn().mockResolvedValue({
+          success: true,
+          data: {
+            id: 'debt-direction-1',
+            userId: 'user1',
+            type: DebtType.OWED_TO_ME,
+            personName,
+            originalAmount: 300000,
+            remainingAmount: 300000,
+            currency: 'UZS',
+            status: DebtStatus.ACTIVE,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+        }),
+      } as unknown as CreateDebtUseCase;
+
+      return {
+        createDebtUseCase,
+        useCase: new ProcessTextInputUseCase(openAIService, createTransactionUseCase, createDebtUseCase),
+      };
+    }
+
+    const lendingPhrases = [
+      'одолжил Азизу 300000',
+      'одолжила Азизу 300000',
+      'дал в долг Азизу 300000',
+    ];
+
+    it.each(lendingPhrases)('records "%s" as owed_to_me even when the parse says i_owe', async (phrase) => {
+      const { createDebtUseCase, useCase } = makeDeps('i_owe', 'Азиз');
+
+      const result = await useCase.execute(phrase, 'user1');
+
+      expect(createDebtUseCase.execute).toHaveBeenCalledWith(expect.objectContaining({
+        type: DebtType.OWED_TO_ME,
+        personName: 'Азиз',
+        amount: 300000,
+      }));
+      expect(result.debts).toEqual([
+        expect.objectContaining({ debtType: 'owed_to_me' })
+      ]);
+    });
+
+    const borrowingPhrases = [
+      'занял 200000 у Алишера',
+      'одолжил у Азиза 300000',
+      'мне одолжил Азиз 300000',
+      'взял в долг у Азиза 300000',
+    ];
+
+    it.each(borrowingPhrases)('keeps "%s" as the parsed i_owe direction', async (phrase) => {
+      const { createDebtUseCase, useCase } = makeDeps('i_owe', 'Азиз');
+
+      const result = await useCase.execute(phrase, 'user1');
+
+      expect(createDebtUseCase.execute).toHaveBeenCalledWith(expect.objectContaining({
+        type: DebtType.I_OWE,
+      }));
+      expect(result.debts).toEqual([
+        expect.objectContaining({ debtType: 'i_owe' })
+      ]);
+    });
+
+    it('leaves a debt phrase without a lending verb to the parser', async () => {
+      const { createDebtUseCase, useCase } = makeDeps('i_owe', 'Азиз');
+
+      await useCase.execute('долг Азизу 300000', 'user1');
+
+      expect(createDebtUseCase.execute).toHaveBeenCalledWith(expect.objectContaining({
+        type: DebtType.I_OWE,
+      }));
+    });
+  });
 });

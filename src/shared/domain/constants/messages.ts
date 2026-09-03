@@ -89,7 +89,9 @@ ${generateCategoryPrompt()}
       - "own_transfer" — перевод между своими счетами/картами
       - "saving_deposit" — перевод в накопления/сбережения
       - "debt" — движение денег, связанное с долгом (сама транзакция, а не intent "debt")
+        Пример: "я вернул 50000" (я отдаю долг) → type "expense", semanticType "debt"
       - "reimbursement" — возврат денег, компенсация
+        Пример: "мне вернули 100000" (деньги вернулись мне) → type "income", semanticType "reimbursement"
       - "cash_withdrawal" — снятие наличных
       - "group_payment" — оплата за компанию/группу с последующим разделением
       - Если не уверен — используй "expense" для расходов или "income" для доходов и поставь "needsReview": true
