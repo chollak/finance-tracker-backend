@@ -6,6 +6,7 @@ import { Skeleton } from '@/shared/ui/skeleton';
 import { Plus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '@/shared/lib/constants/routes';
+import { pluralBudgets } from '@/shared/lib/plural';
 import { GuestFeatureBlock } from '@/features/auth';
 
 /**
@@ -39,7 +40,7 @@ export function BudgetsPage() {
     <PageShell>
       <PageHeader
         title="Бюджеты"
-        subtitle={`${budgetViewModels.length} ${budgetViewModels.length === 1 ? 'бюджет' : 'бюджетов'}`}
+        subtitle={`${budgetViewModels.length} ${pluralBudgets(budgetViewModels.length)}`}
       />
 
       <SectionStack>

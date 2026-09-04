@@ -10,6 +10,10 @@ export { transactionToViewModel } from './lib/toViewModel';
 // Utils
 export { groupTransactionsByDate } from './lib/groupByDate';
 export {
+  formatAllTransactionsLabel,
+  formatTransactionsScopeLabel,
+} from './lib/transactionCountLabels';
+export {
   getSemanticTypeLabel,
   getSemanticTypeBadgeVariant,
   isNonExpenseMovement,

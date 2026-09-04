@@ -4972,7 +4972,7 @@ CLAUDE.md
 AUTONOMOUS_REPORT.md
 ```
 
-- **Chart palette:** `colors.chart` is now exactly 6 identity colours (blue, teal, purple, amber, indigo, gray) that deliberately skip the income-green and expense-red hue ranges, so a spending slice can never read as income or as an error. `--color-chart-1..6` in `globals.css` mirrors it, and `design-tokens.test.ts` asserts the two stay in sync. `SpendingChart.tsx` lost its local 8-colour `CHART_COLORS` (red/pink included) and now calls `getCategoryColorByIndex(index)`.
+- **Chart palette:** `colors.chart` is now exactly 6 identity colours (blue, teal, purple, amber, indigo, gray) that deliberately skip the income-green and expense-red hue ranges, so a spending slice can never read as income or as an error. `--color-chart-1..6` in `globals.css` mirrors it. `design-tokens.test.ts` does not read the CSS file: it asserts the palette constraints in `design-tokens.ts` (exactly 6 colours, no reuse of `income`/`expense`/`success`/`warning`, no saturated red/green hues, no duplicates, index cycling) and pins `cssVars` to expose exactly one `chartN` → `var(--color-chart-N)` entry per palette slot. `SpendingChart.tsx` lost its local 8-colour `CHART_COLORS` (red/pink included) and now calls `getCategoryColorByIndex(index)`.
 - **Health score:** `getHealthScoreInfo()` moved out of the component into `widgets/financial-health/lib/healthScore.ts` and returns `barColor` alongside `color`, so the number, the label and the `Progress` indicator (`indicatorClassName={barColor}`) all encode the same value with one role. «Хорошо» (60–79) became neutral `primary` instead of `warning` — warning now starts at 40–59, where the copy actually asks for attention.
 - **Debt status:** `_statusColor` maps onto existing roles only — paid `text-success`, cancelled `text-muted-foreground`, active neutral `text-foreground`. The blue is gone; overdue stays signalled separately by the card.
 - **Docs:** the Inter recommendation is replaced by Onest 400–800 with the token-mirrored weight list, and the 500-weight rule is now explicit — forbidden as a *hierarchy* step (use 400 vs 600/700), legitimate for captions and control labels (buttons, tabs, chips, list rows). The chart-colours section points at the single token source instead of an inline palette; the stale "Font" conflict note at the top was dropped since it no longer conflicts.
@@ -4991,3 +4991,57 @@ Results:
 ### Next
 
 FT-060 (Russian numeral agreement), then FT-061. FT-049/FT-050 still need explicit permission for external GitHub/branch actions; FT-075 production auth remains Shukur's decision, not a blocker for local use.
+
+
+## 2026-09-04 — FT-060 Russian numeral agreement
+
+### Goal
+
+Fix counters that ignore the numeral they follow («3 бюджетов», «1 долгов», «Все 1 транзакций»), and collapse the four independent copies of the Russian plural rule that had drifted apart into one shared helper.
+
+### Claude Code implementation
+
+Files changed:
+
+```text
+webapp/src/shared/lib/plural.ts                              (new)
+webapp/src/shared/lib/plural.test.ts                         (new)
+webapp/src/shared/lib/index.ts
+webapp/src/entities/budget/lib/plural.ts                     (deleted)
+webapp/src/entities/budget/lib/toTotals.ts
+webapp/src/entities/budget/lib/toViewModel.ts
+webapp/src/entities/transaction/lib/transactionCountLabels.ts       (new)
+webapp/src/entities/transaction/lib/transactionCountLabels.test.ts  (new)
+webapp/src/entities/transaction/index.ts
+webapp/src/features/limit-warning/index.ts
+webapp/src/features/create-budget/ui/BudgetForm.tsx
+webapp/src/pages/budgets/ui/BudgetsPage.tsx
+webapp/src/pages/debts/ui/DebtsPage.tsx
+webapp/src/pages/transactions/ui/TransactionsPage.tsx
+webapp/src/widgets/recent-transactions/ui/RecentTransactions.tsx
+webapp/src/widgets/usage-limits/ui/PremiumStatusCard.tsx
+TASKS.md
+CLAUDE.md
+AUTONOMOUS_REPORT.md
+```
+
+- **One helper:** `webapp/src/shared/lib/plural.ts` owns the one/few/many rule (`pluralRu`), the `count + word` shorthand (`pluralWithCount`), and the named forms actually used in the UI — days, budgets, transactions, debts, active debts, categories, voice inputs. The 11–14 exception is checked first instead of being bolted onto each branch, so `11/111 транзакций` and `21/101 транзакция` both come out right.
+- **Copies removed:** `entities/budget/lib/plural.ts` and the three private `get*Word()` functions in `features/limit-warning` and `PremiumStatusCard` are gone; every caller now imports from `@/shared/lib/plural`.
+- **Counters fixed:** `/budgets` header (`3 бюджета`), `/debts` header and both summary cards (`1 активный долг`, `2 долга`), `/transactions` subtitle (`5 из 12 текущих`, adjective agreeing with the total rather than the shown count), Home's "show all" link, and the budget form's «Выбрано: N категорий».
+- **Two special cases kept explicit:** `entities/transaction/lib/transactionCountLabels.ts` holds them rather than hiding them in JSX — a single transaction reads as «Все транзакции» without the numeral, and the transactions subtitle agrees the scope word with `total`, not `shown`.
+
+### Verification
+
+```bash
+npm run verify
+```
+
+Results:
+
+- Passed: 34 Jest suites / 433 tests, 16 webapp Vitest files / 117 tests, backend build, webapp build, dependency-cruiser and circular-dependency checks.
+- New unit tests cover 1, 2, 5, 11, 21, 101 forms plus the label special cases.
+- Visual QA at 390px width: `/tmp/ft060-plural-audit/screenshots/debts-390.png`, `budgets-390.png`, `transactions-390.png`, `home-390.png`. The audit's `suspicious` list came back empty (`suspicious=[]`) across all inspected routes — no counter left disagreeing with its numeral.
+
+### Next
+
+FT-061. FT-049/FT-050 still need explicit permission for external GitHub/branch actions; FT-075 production auth remains Shukur's decision, not a blocker for local use.

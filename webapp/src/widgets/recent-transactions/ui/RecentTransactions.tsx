@@ -7,6 +7,7 @@ import { useUserStore } from '@/entities/user/model/store';
 import { Link, useNavigate } from 'react-router-dom';
 import { ROUTES } from '@/shared/lib/constants/routes';
 import { Fragment } from 'react';
+import { formatAllTransactionsLabel } from '@/entities/transaction';
 import { Plus } from 'lucide-react';
 
 /**
@@ -77,7 +78,7 @@ export function RecentTransactions() {
           to={ROUTES.TRANSACTIONS}
           className="inline-flex min-h-11 items-center text-sm text-primary hover:underline"
         >
-          Все {transactions.length} транзакций →
+          {formatAllTransactionsLabel(transactions.length)} →
         </Link>
       </CardHeader>
       <CardContent className="space-y-0">

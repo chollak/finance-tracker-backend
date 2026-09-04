@@ -3,7 +3,7 @@ import { ru } from 'date-fns/locale';
 import type { BudgetSummary, BudgetPeriod } from '@/shared/types';
 import type { BudgetViewModel, BudgetForecastStatus } from '../model/types';
 import { formatCurrency, formatBudgetUsage } from '@/shared/lib/formatters';
-import { pluralDays } from './plural';
+import { pluralDays } from '@/shared/lib/plural';
 
 /**
  * Genitive period labels used in "до конца ..." phrases

@@ -30,6 +30,7 @@ import { Plus, Archive } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '@/shared/lib/constants/routes';
 import { toast } from 'sonner';
+import { formatTransactionsScopeLabel } from '@/entities/transaction';
 
 /**
  * Transactions Page
@@ -121,12 +122,7 @@ export function TransactionsPage() {
     <PageShell>
       <PageHeader
         title="Транзакции"
-        subtitle={(
-          <>
-            {currentTransactions.length} из {totalCount}{' '}
-            {activeTab === 'active' ? 'текущих' : 'скрытых'}
-          </>
-        )}
+        subtitle={formatTransactionsScopeLabel(currentTransactions.length, totalCount, activeTab)}
       />
 
       {/* Tabs */}

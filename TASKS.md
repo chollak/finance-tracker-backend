@@ -71,6 +71,7 @@ Docs-сверка 2026-08-16 (только Markdown, очередь задач �
 
 Ревизия 2026-09-04 после FT-075 (dev/test): прямой вызов `POST /api/quick-capture` из iPhone Shortcut реализован **только для локального dev/test контура**. Заголовок `X-Shortcut-User-Id` задаёт владельца записи и принудительно ставит `source=ios_shortcut`; опциональный общий токен `SHORTCUT_CAPTURE_TOKEN` проверяется через `X-Shortcut-Capture-Token`; при `NODE_ENV=production` весь обход отвергается с 403 `SHORTCUT_CAPTURE_DISABLED`. Это **не продовая auth-модель** и не отменяет вопросы из блокирующего списка — просто они больше не блокируют локальное использование. Безопасный план quick-capture закрыт полностью (FT-073, FT-074, FT-076, FT-075 dev/test). Оставшийся продовый токен (выдача, срок жизни, отзыв, rate limit для не-Telegram источника) — будущее решение Шукура, а не текущий блокер. Активная очередь остаётся **FT-059 → FT-060 → FT-061**.
 
+Ревизия 2026-09-04 после FT-060: русская плюрализация сведена в один хелпер `webapp/src/shared/lib/plural.ts`; четыре локальные копии правила (limit-warning, premium status, budget lib) удалены, счётчики на `/debts`, `/budgets`, `/transactions`, Home и в форме бюджета согласованы с числительным. Активная очередь — **FT-061**.
 
 ---
 
@@ -683,7 +684,7 @@ Verification 2026-09-04:
 
 ### FT-060: Russian numeral agreement
 
-Status: ready
+Status: done
 Priority: low
 Owner: Claude Code
 Type: i18n
@@ -692,9 +693,21 @@ Context:
 Счётчики не согласуются с числительным: «3 бюджетов», «1 долгов». Правильно — «3 бюджета», «1 долг».
 
 Definition of Done:
-- [ ] Введена общая функция плюрализации для русского (1 / 2–4 / 5+)
-- [ ] Заменены все счётчики сущностей в webapp
-- [ ] Тест на формах 1, 2, 5, 11, 21, 101
+- [x] Введена общая функция плюрализации для русского (1 / 2–4 / 5+)
+- [x] Заменены все счётчики сущностей в webapp
+- [x] Тест на формах 1, 2, 5, 11, 21, 101
+
+Implementation 2026-09-04:
+- `webapp/src/shared/lib/plural.ts` (new) + `plural.test.ts` (new): общий хелпер `pluralRu(count, one, few, many)` с правилом 1 / 2–4 / 5+ и исключением 11–14, `pluralWithCount()` (число + форма) и доменные обёртки `pluralDays`, `pluralBudgets`, `pluralTransactions`, `pluralDebts`, `pluralActiveDebts`, `pluralCategories`, `pluralVoiceInputs`. Экспортируется из барреля `webapp/src/shared/lib/index.ts`.
+- `webapp/src/entities/budget/lib/plural.ts` удалён: локальный хелпер бюджетов (только `pluralDays`/`pluralBudgets`) заменён общим; `toTotals.ts` и `toViewModel.ts` импортируют из `@/shared/lib/plural`.
+- `webapp/src/entities/transaction/lib/transactionCountLabels.ts` (new) + тест: `formatAllTransactionsLabel()` (для одной транзакции числительное убирается — «Все транзакции», иначе «Все 2 транзакции») и `formatTransactionsScopeLabel(shown, total, tab)` («3 из 21 текущей» — прилагательное согласуется с общим числом, а не с показанным). Обе функции экспортируются из `entities/transaction/index.ts`.
+- Заменены счётчики: `pages/debts/ui/DebtsPage.tsx` (шапка «N активных долгов» через `pluralWithCount` + две карточки сумм), `pages/budgets/ui/BudgetsPage.tsx` (тернарник `бюджет`/`бюджетов` → `pluralBudgets`), `pages/transactions/ui/TransactionsPage.tsx` (подзаголовок → `formatTransactionsScopeLabel`), `widgets/recent-transactions/ui/RecentTransactions.tsx` (ссылка «Все N транзакций» → `formatAllTransactionsLabel`), `features/create-budget/ui/BudgetForm.tsx` («Выбрано: N категорий» → `pluralCategories`).
+- Удалены три локальные копии правила: `getTransactionsWord`/`getVoiceInputsWord`/`getDebtsWord` в `features/limit-warning/index.ts` и `getDaysWord` в `widgets/usage-limits/ui/PremiumStatusCard.tsx` — оба файла теперь используют общие хелперы. Правило плюрализации живёт в одном месте.
+
+Verification 2026-09-04:
+- `npm run verify` — passed: 34 Jest suites / 433 tests, 16 webapp Vitest files / 117 tests, backend build, webapp build, dependency-cruiser/circular checks.
+- Тесты покрывают требуемый набор форм 1, 2, 5, 11, 21, 101 для каждой доменной обёртки, плюс 11–14 / 111–114 и отрицательные значения.
+- Visual QA (390px): `/tmp/ft060-plural-audit/screenshots/debts-390.png`, `budgets-390.png`, `transactions-390.png`, `home-390.png`; метрика подозрительных счётчиков — `suspicious=[]` на всех проверенных маршрутах.
 
 ---
 

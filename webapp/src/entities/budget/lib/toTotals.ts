@@ -1,6 +1,6 @@
 import type { BudgetSummary } from '@/shared/types';
 import { formatCurrency, formatBudgetUsage } from '@/shared/lib/formatters';
-import { pluralBudgets } from './plural';
+import { pluralBudgets } from '@/shared/lib/plural';
 
 /**
  * Aggregate over all budgets.

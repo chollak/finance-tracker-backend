@@ -7,6 +7,7 @@ import { Plus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '@/shared/lib/constants/routes';
 import { formatCurrency } from '@/shared/lib/formatters';
+import { pluralDebts, pluralWithCount } from '@/shared/lib/plural';
 import { useState } from 'react';
 import { cn } from '@/shared/lib/utils';
 import { GuestFeatureBlock } from '@/features/auth';
@@ -51,7 +52,15 @@ export function DebtsPage() {
 
   return (
     <PageShell>
-      <PageHeader title="Долги" subtitle={`${debts?.length || 0} активных долгов`} />
+      <PageHeader
+        title="Долги"
+        subtitle={pluralWithCount(
+          debts?.length || 0,
+          'активный долг',
+          'активных долга',
+          'активных долгов'
+        )}
+      />
 
       <SectionStack>
         {/* Mobile create action — avoid a competing FAB above the global bottom nav */}
@@ -74,7 +83,7 @@ export function DebtsPage() {
                 {formatCurrency(summary.totalIOwe)}
               </div>
               <div className="text-xs text-muted-foreground">
-                {summary.iOweCount} долгов
+                {summary.iOweCount} {pluralDebts(summary.iOweCount)}
               </div>
             </Card>
             <Card className="p-4">
@@ -83,7 +92,7 @@ export function DebtsPage() {
                 {formatCurrency(summary.totalOwedToMe)}
               </div>
               <div className="text-xs text-muted-foreground">
-                {summary.owedToMeCount} долгов
+                {summary.owedToMeCount} {pluralDebts(summary.owedToMeCount)}
               </div>
             </Card>
           </div>

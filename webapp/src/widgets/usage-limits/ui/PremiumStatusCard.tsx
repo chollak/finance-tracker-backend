@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card';
 import { Badge } from '@/shared/ui/badge';
 import { Crown, Infinity, Sparkles } from 'lucide-react';
 import type { SubscriptionStatus } from '@/entities/subscription';
+import { pluralDays } from '@/shared/lib/plural';
 
 interface PremiumStatusCardProps {
   subscription: SubscriptionStatus;
@@ -66,7 +67,7 @@ export function PremiumStatusCard({ subscription }: PremiumStatusCardProps) {
           <p className="text-xs text-warning pt-1">
             {isTrial ? 'Trial истекает' : 'Истекает'} через{' '}
             <span className="font-medium text-warning">
-              {daysLeft} {getDaysWord(daysLeft)}
+              {daysLeft} {pluralDays(daysLeft)}
             </span>
           </p>
         )}
@@ -87,17 +88,4 @@ function BenefitRow({ label }: { label: string }) {
       <span className="text-foreground/80">{label}</span>
     </div>
   );
-}
-
-/**
- * Get correct Russian word form for days
- */
-function getDaysWord(n: number): string {
-  const lastTwo = n % 100;
-  const lastOne = n % 10;
-
-  if (lastTwo >= 11 && lastTwo <= 14) return 'дней';
-  if (lastOne === 1) return 'день';
-  if (lastOne >= 2 && lastOne <= 4) return 'дня';
-  return 'дней';
 }

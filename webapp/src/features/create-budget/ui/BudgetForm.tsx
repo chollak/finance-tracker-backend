@@ -27,6 +27,7 @@ import { CalendarIcon } from 'lucide-react';
 import { cn } from '@/shared/lib';
 import { useEffect } from 'react';
 import { EXPENSE_CATEGORIES } from '@/entities/category';
+import { pluralCategories } from '@/shared/lib/plural';
 
 interface BudgetFormProps {
   onSubmit: (data: CreateBudgetFormData) => void;
@@ -192,7 +193,7 @@ export function BudgetForm({ onSubmit, isLoading, defaultValues, submitButtonTex
               </FormControl>
               {field.value && field.value.length > 0 && (
                 <p className="text-xs text-muted-foreground mt-2">
-                  Выбрано: {field.value.length} категорий
+                  Выбрано: {field.value.length} {pluralCategories(field.value.length)}
                 </p>
               )}
               <FormMessage />
