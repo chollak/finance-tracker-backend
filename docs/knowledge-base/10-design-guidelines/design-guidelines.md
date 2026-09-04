@@ -55,13 +55,21 @@
 
 ### Font
 
-**Onest** is the app font — Cyrillic-friendly geometric sans, loaded globally at weights **400–800** via `--font-family-sans` in `webapp/src/app/styles/globals.css`. Do not introduce a second family or migrate to Inter.
+**Onest** is the app font — Cyrillic-friendly geometric sans, applied globally at weights **400–800** via `--font-family-sans` in `webapp/src/app/styles/globals.css`. Do not introduce a second family or migrate to Inter.
 
 ```css
 --font-family-sans: 'Onest', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 ```
 
 Available weights, mirrored in `typography.weights` (`webapp/src/shared/lib/design-tokens.ts`): 400 `normal`, 500 `medium`, 600 `semibold`, 700 `bold`, 800 `extraBold`.
+
+**Onest is self-hosted, not loaded from Google Fonts** (FT-061). The font files come from the `@fontsource-variable/onest` npm package and are declared in `webapp/src/app/styles/fonts.css`, which `globals.css` imports; Vite fingerprints the woff2 files into `assets/` and our own Express server serves them. There are no `fonts.googleapis.com` / `fonts.gstatic.com` requests, and `webapp/index.html` carries no font `<link>` tags.
+
+- **Subsets:** `latin` + `cyrillic` only, each with its own `unicode-range` so subsets download lazily. `latin-ext`, `cyrillic-ext`, `vietnamese`, `math` and `symbols` are deliberately omitted — characters from those ranges (e.g. the arrow `→`, U+2192) fall back to the system font, exactly as they already did on Google Fonts.
+- **Weights:** one variable file per subset declared as `font-weight: 400 800`, covering the 400/500/600/700/800 the design system uses and clamping stray values back into the scale.
+- **`font-display: swap`:** the font is same-origin and the service worker caches woff2 CacheFirst, so repeat Mini App opens have no swap flash; on a cold slow load `swap` keeps a data-dense finance screen readable from first paint. `optional` was rejected — it would strand a whole cold session on system-font metrics the layout is not built for.
+
+`npm run check:fonts` (part of `npm run verify`, see `scripts/check-selfhosted-fonts.js`) enforces all of the above and fails if a Google Fonts CDN reference reappears in the webapp source or the build output. Changing subsets or weights means updating that check in the same diff — that is intentional, so bundle-size decisions show up in review.
 
 ### Type Scale
 | Element | Size | Weight | Use |
@@ -469,7 +477,7 @@ chart: [
 
 ```
 STYLE:        Minimal & Clean (Linear/Revolut vibe)
-FONT:         Onest 400–800 (500 for captions/controls, 600/700 for hierarchy)
+FONT:         Onest 400–800, self-hosted (500 for captions/controls, 600/700 for hierarchy)
 COLORS:       Neutral grays + ONE accent (green recommended)
 RADIUS:       Cards 24px, Buttons 12px, Inputs 12px
 ANIMATIONS:   Fade-in 300ms, Stagger 50ms, Hover 150ms

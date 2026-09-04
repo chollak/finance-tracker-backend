@@ -5045,3 +5045,46 @@ Results:
 ### Next
 
 FT-061. FT-049/FT-050 still need explicit permission for external GitHub/branch actions; FT-075 production auth remains Shukur's decision, not a blocker for local use.
+
+## 2026-09-04 — FT-061 Self-hosted Onest
+
+### Goal
+
+Drop the Google Fonts CDN dependency and serve Onest from the app's own origin, with a check that keeps the CDN from creeping back in.
+
+### Claude Code implementation
+
+Files changed:
+
+```text
+webapp/src/app/styles/fonts.css        (new)
+webapp/src/app/styles/globals.css
+webapp/index.html
+webapp/package.json
+package.json
+scripts/check-selfhosted-fonts.js      (new)
+TASKS.md
+CLAUDE.md
+AUTONOMOUS_REPORT.md
+```
+
+- **Self-hosted font:** Onest now comes from `@fontsource-variable/onest`; `webapp/src/app/styles/fonts.css` declares the faces and is imported by `globals.css`.
+- **CDN removed:** the `preconnect`/stylesheet links to Google Fonts are gone from `webapp/index.html`.
+- **Regression guard:** `scripts/check-selfhosted-fonts.js` is wired as `npm run check:fonts` and runs inside the root `npm run verify`, so a reintroduced CDN reference fails the gate instead of shipping quietly.
+
+### Verification
+
+```bash
+npm run verify
+npm run check:fonts
+```
+
+Results:
+
+- `npm run verify` passed.
+- `check:fonts`: Onest source audit passed — 2 font files, 48.5 KB total (cyrillic 15.5 KB, latin 33.0 KB), no Google Fonts CDN references in source or build.
+- Playwright check on the running app: `googleFontRequests=[]`, all `onestRequests` same-origin. Screenshot: `/tmp/ft061-font-audit/screenshots/home-390.png`.
+
+### Next
+
+No safe active local polish tasks remain. Everything left is external or needs a decision: FT-049/FT-050 (GitHub reconciliation, branch cleanup) need explicit permission for external actions; FT-075 production auth, FT-045 backfill application, and the product-policy items (FT-048, FT-051, FT-054, FT-062, FT-063, FT-069, FT-071) are Shukur's calls.

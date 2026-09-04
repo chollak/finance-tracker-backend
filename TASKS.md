@@ -47,7 +47,7 @@
 | 3. Исторические данные | Безопасный read-only разбор старых `semanticType=expense` записей | FT-045 ✅ |
 | 4. Ежедневный экран | Список, бюджеты и review queue читаются и не мешают | FT-055 ✅, FT-056 ✅, FT-057 ✅, FT-058 ✅ |
 | 5. Порядок в трекинге и repo | Один источник правды, зависимости, ветки | FT-049, FT-050, FT-048 |
-| 6. Полировка под гайдлайны | Цвет, шрифт, язык | FT-059, FT-060, FT-061 |
+| 6. Полировка под гайдлайны | Цвет, шрифт, язык | FT-059 ✅, FT-060 ✅, FT-061 ✅ |
 | 7. Продукт P1 / решения | Приоритеты разделов, premium, лимиты, внимание | FT-054, FT-062, FT-063, FT-069, FT-071, FT-051 |
 | 8. Quick capture first | Главный экран = быстрый ввод, остальное ниже/в «Ещё» | FT-073 ✅, FT-074 ✅, FT-076 ✅, FT-075 ✅ (dev/test) |
 | — frozen | Требует живого прода / Supabase | FT-046 |
@@ -72,6 +72,8 @@ Docs-сверка 2026-08-16 (только Markdown, очередь задач �
 Ревизия 2026-09-04 после FT-075 (dev/test): прямой вызов `POST /api/quick-capture` из iPhone Shortcut реализован **только для локального dev/test контура**. Заголовок `X-Shortcut-User-Id` задаёт владельца записи и принудительно ставит `source=ios_shortcut`; опциональный общий токен `SHORTCUT_CAPTURE_TOKEN` проверяется через `X-Shortcut-Capture-Token`; при `NODE_ENV=production` весь обход отвергается с 403 `SHORTCUT_CAPTURE_DISABLED`. Это **не продовая auth-модель** и не отменяет вопросы из блокирующего списка — просто они больше не блокируют локальное использование. Безопасный план quick-capture закрыт полностью (FT-073, FT-074, FT-076, FT-075 dev/test). Оставшийся продовый токен (выдача, срок жизни, отзыв, rate limit для не-Telegram источника) — будущее решение Шукура, а не текущий блокер. Активная очередь остаётся **FT-059 → FT-060 → FT-061**.
 
 Ревизия 2026-09-04 после FT-060: русская плюрализация сведена в один хелпер `webapp/src/shared/lib/plural.ts`; четыре локальные копии правила (limit-warning, premium status, budget lib) удалены, счётчики на `/debts`, `/budgets`, `/transactions`, Home и в форме бюджета согласованы с числительным. Активная очередь — **FT-061**.
+
+Ревизия 2026-09-04 после FT-061: Onest больше не тянется с Google Fonts — шрифт приходит из npm-пакета `@fontsource-variable/onest`, объявлен в `webapp/src/app/styles/fonts.css` и отдаётся своим Express-сервером; в `npm run verify` добавлен `npm run check:fonts`, который падает при возврате CDN-ссылок. Веха 6 «Полировка под гайдлайны» закрыта целиком (FT-059, FT-060, FT-061). **Безопасных активных задач локальной полировки не осталось.** Дальше — только то, что требует решения или разрешения Шукура: `FT-049`/`FT-050` (внешние действия с GitHub и ветками), продовая auth-модель Shortcut из `FT-075`, применение backfill из `FT-045`, и продуктовые решения из вехи 7 (`FT-054`, `FT-062`, `FT-063`, `FT-069`, `FT-071`, `FT-051`) плюс `FT-048`. Не начинать их без явного запроса.
 
 ---
 
@@ -713,7 +715,7 @@ Verification 2026-09-04:
 
 ### FT-061: Self-host the Onest font
 
-Status: ready
+Status: done
 Priority: low
 Owner: Claude Code
 Type: performance
@@ -722,11 +724,25 @@ Context:
 `webapp/index.html:20` грузит Onest с `fonts.googleapis.com`. В Telegram Mini App на слабой сети первый экран уедет на системный фолбэк, а вёрстка на метриках Onest этого не ожидает. Плюс внешняя зависимость там, где её можно не иметь.
 
 Definition of Done:
-- [ ] Шрифт лежит в проекте и отдаётся своим сервером
-- [ ] Подключены только используемые веса
-- [ ] `font-display` выбран осознанно и обоснован здесь
-- [ ] Запросов к `fonts.googleapis.com` и `fonts.gstatic.com` не остаётся
-- [ ] Замерено влияние на размер бандла
+- [x] Шрифт лежит в проекте и отдаётся своим сервером
+- [x] Подключены только используемые веса
+- [x] `font-display` выбран осознанно и обоснован здесь
+- [x] Запросов к `fonts.googleapis.com` и `fonts.gstatic.com` не остаётся
+- [x] Замерено влияние на размер бандла
+
+Implementation 2026-09-04:
+- `webapp/package.json`: добавлена зависимость `@fontsource-variable/onest` — бинарники шрифта приходят из npm, а не из репозитория и не из CDN.
+- `webapp/src/app/styles/fonts.css` (new): два `@font-face` (`latin`, `cyrillic`) на variable-файлы пакета с `unicode-range`, чтобы подсеты грузились лениво. Импортируется первым в `webapp/src/app/styles/globals.css`; Vite фингерпринтит woff2 в `assets/`, и их отдаёт наш Express.
+- Веса: `font-weight: 400 800` — ровно тот диапазон, который использует дизайн-система (400/500/600/700/800). Variable-файл физически несёт всю ось 100–900 (это ось самого шрифта, урезать её без ресабсеттинга бинарника нельзя), но объявленный диапазон клампит случайные `100`/`900` обратно в шкалу.
+- Подсеты: только `latin` и `cyrillic`. UI русский, суммы в UZS («сўм», U+045E входит в cyrillic). `latin-ext`, `cyrillic-ext`, `vietnamese`, `math`, `symbols` не подключены осознанно — символы из этих диапазонов (например `→`, U+2192) уходят на системный фолбэк, ровно как это уже было на Google Fonts.
+- `font-display: swap` — обоснование записано в шапке `fonts.css`: шрифт теперь same-origin (нет DNS/TLS до двух чужих хостов до старта запроса), service worker кэширует woff2 CacheFirst, поэтому на повторных открытиях (доминирующий сценарий Mini App) swap-вспышки нет; на холодной медленной загрузке `swap` оставляет плотный финансовый экран читаемым с первой отрисовки. `optional` отвергнут: он посадил бы целую холодную сессию на метрики системного шрифта, под которые вёрстка не рассчитана.
+- `webapp/index.html`: удалены `preconnect` на `fonts.googleapis.com`/`fonts.gstatic.com` и `<link>` на стилевой файл Google Fonts; на их месте комментарий со ссылкой на `fonts.css`.
+- `scripts/check-selfhosted-fonts.js` (new) + `npm run check:fonts`, встроенный в `npm run verify` перед `analyze`. Проверяет оба конца: в исходниках — наличие `@font-face`, диапазон весов, набор подсетов, `unicode-range` и `font-display` на каждом правиле, импорт `fonts.css` в `globals.css`, токен `--font-family-sans`; в собранном бандле — что woff2 присутствуют и на них ссылается собранный CSS, и что ни один текстовый файл сборки не содержит CDN-хостов. Проверка живёт в Node, а не в Vitest, потому что Vitest по умолчанию не обрабатывает CSS и `import css from './fonts.css?raw'` дал бы пустую строку — ассерты прошли бы по пустоте.
+
+Verification 2026-09-04:
+- `npm run verify` — passed: 34 Jest suites / 433 tests, 16 webapp Vitest files / 117 tests, backend build, webapp build, `check:fonts`, dependency-cruiser/circular checks.
+- `npm run check:fonts` — размер бандла шрифта замерен: 2 файла, 48.5 KB суммарно (`onest-cyrillic` 15.5 KB, `onest-latin` 33.0 KB); CDN-ссылок нет ни в исходниках, ни в сборке.
+- Playwright-замер на живом приложении: `googleFontRequests=[]`, все `onestRequests` идут same-origin на `/assets/onest-*.woff2`. Скриншот: `/tmp/ft061-font-audit/screenshots/home-390.png`.
 
 ---
 
