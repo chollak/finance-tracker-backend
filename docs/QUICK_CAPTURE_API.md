@@ -1,6 +1,7 @@
 # Quick Capture API
 
-> **Status:** describes the **shipped** implementation as of 2026-09-02 (commits `50d84ef` → `03a39a3`).
+> **Status:** describes the **shipped** implementation as of 2026-09-04 (commits `50d84ef` → `03a39a3`, plus the
+> dev/test-only iOS Shortcut header auth from `FT-075`).
 > This document is derived from the code and tests listed under [Source of truth](#source-of-truth), **not** from the
 > earlier speculative spec in `.hermes/plans/2026-09-02_130400-api-first-quick-actions-spec.md`. Where the old spec and
 > the shipped contract disagree, the shipped contract wins; the differences are listed in
@@ -39,16 +40,68 @@ The route uses `allowGuestMode` (`src/delivery/web/express/middleware/authMiddle
 | `userId` starts with `guest_` | No auth header needed. `req.isAuthenticated = false`, request proceeds. |
 | Any other `userId` | Full `requireAuth`: `Authorization: tma <initData>` (Telegram Mini App initData, HMAC-validated, max age 1 hour). |
 | Local dev only (`NODE_ENV !== 'production'`) | `X-Dev-User-Id: <telegramId>` header bypasses auth. |
+| Local dev only (`NODE_ENV !== 'production'`) | `X-Shortcut-User-Id: <ownerId>` header — the iPhone Shortcut path, see [below](#ios-shortcut-capture-devtest-only). |
 
 Notes:
 
 - `allowGuestMode` reads `req.body.userId`, so the guest check happens **before** the handler's own validation. A
   non-guest request with no auth header gets `401` even if `text` is missing.
-- There is **no** production API token, no per-user Shortcut token, and no API-key auth. An iPhone Shortcut cannot call
-  this endpoint directly today unless it can produce valid Telegram `initData` or the server runs in non-production mode
-  with `X-Dev-User-Id`. Phase I of the plan (`docs`-level: token auth for Shortcuts) is not implemented.
+- There is **no** production API token and no API-key auth. In production the only way in is valid Telegram `initData`
+  (or a `guest_*` id). The Shortcut header below is explicitly refused when `NODE_ENV=production`.
 - The route does **not** apply `verifyOwnership`. Ownership is effectively enforced by `requireAuth` for non-guest ids,
   not by comparing `userId` against the authenticated Telegram user.
+
+### iOS Shortcut capture (dev/test only)
+
+> **Scope:** local development and testing only (`FT-075`). This is **not** a production auth model — there is no
+> per-user token issuance, no expiry, no revocation and no per-source rate limit. Those decisions are still open.
+
+An iPhone Shortcut cannot produce Telegram initData, so for local testing it identifies itself with headers instead
+(`allowShortcutCapture`, `src/delivery/web/express/middleware/authMiddleware.ts`):
+
+| Header | Required | Meaning |
+|---|---|---|
+| `X-Shortcut-User-Id` | yes (activates the flow) | Owner id the capture is written for — a Telegram id (`597843119`), a user UUID, or a `guest_*` id. Goes through the same `resolveUserIdToUUID()` as `body.userId`. |
+| `X-Shortcut-Capture-Token` | only when `SHORTCUT_CAPTURE_TOKEN` is set | Must equal `SHORTCUT_CAPTURE_TOKEN` (compared in constant time). When the env var is empty/unset, no token is required. |
+
+Behavior when `X-Shortcut-User-Id` is present and non-blank:
+
+1. `NODE_ENV=production` → **`403 SHORTCUT_CAPTURE_DISABLED`**. The header is refused loudly, never silently ignored,
+   so a misconfigured Shortcut cannot fall through to some other auth path in production.
+2. `SHORTCUT_CAPTURE_TOKEN` set and the token header is missing or wrong → **`401 INVALID_SHORTCUT_TOKEN`**.
+3. Otherwise the request is accepted: `req.body.userId` is **overridden** with the header id and `req.body.source` is
+   **forced** to `ios_shortcut`, so the Shortcut body only has to carry `text`. A `userId`/`source` sent in the body is
+   ignored — the header is the authoritative identity for this flow.
+
+A blank or absent `X-Shortcut-User-Id` changes nothing: the request goes through `allowGuestMode` exactly as before, so
+Mini App and guest callers are unaffected.
+
+`req.telegramUser` is deliberately **not** fabricated for shortcut requests — the bypass proves nothing about a Telegram
+identity, so `verifyOwnership`/`requireAdmin` stay fail-closed if they are ever added to this route.
+
+```bash
+# no token configured (SHORTCUT_CAPTURE_TOKEN empty)
+curl -sS -X POST http://localhost:3000/api/quick-capture \
+  -H 'Content-Type: application/json' \
+  -H 'X-Shortcut-User-Id: <TELEGRAM_ID>' \
+  -d '{"text":"такси 18к"}'
+
+# token configured
+curl -sS -X POST http://localhost:3000/api/quick-capture \
+  -H 'Content-Type: application/json' \
+  -H 'X-Shortcut-User-Id: <TELEGRAM_ID>' \
+  -H 'X-Shortcut-Capture-Token: <SHORTCUT_CAPTURE_TOKEN>' \
+  -d '{"text":"такси 18к"}'
+```
+
+The response is the ordinary Quick Capture envelope with `data.source: "ios_shortcut"`.
+
+Known gaps of this dev/test flow (unchanged from the blocked decision list):
+
+- One shared token for the whole server, not per-user; no expiry, no revocation, no audit trail. A leaked token is
+  fixed only by editing `.env` and restarting.
+- The rate limit is still the shared per-IP AI limiter (see below); there is no separate budget for the Shortcut source.
+- No idempotency: a retried Shortcut run creates a duplicate transaction.
 
 ### User id resolution
 
@@ -223,6 +276,8 @@ Auth and rate-limit middleware answer earlier in the chain and use a **flat** sh
 | 400 | `VALIDATION_ERROR` | `User ID is required` — `userId` missing or not a string |
 | 400 | `INVALID_JSON` | Malformed JSON body (global error handler) |
 | 401 | `MISSING_AUTH_HEADER` | Non-guest `userId` with no `Authorization` header |
+| 401 | `INVALID_SHORTCUT_TOKEN` | `X-Shortcut-User-Id` sent while `SHORTCUT_CAPTURE_TOKEN` is configured, with a missing/wrong `X-Shortcut-Capture-Token` |
+| 403 | `SHORTCUT_CAPTURE_DISABLED` | `X-Shortcut-User-Id` sent while `NODE_ENV=production` |
 | 401 | `INVALID_AUTH_FORMAT` | `Authorization` header not in `tma <initData>` form |
 | 401 | `INVALID_AUTH` | initData hash mismatch or older than 1 hour |
 | 401 | `MISSING_USER_DATA` | Valid initData without a `user` payload |
@@ -349,7 +404,9 @@ curl -sS -X POST https://<tunnel-host>/api/quick-capture \
 6. **The Mini App Home quick-capture card calls this endpoint.** Authenticated Telegram Mini App users submit
    one-line captures through `POST /api/quick-capture`; guest mode keeps data in browser-local IndexedDB, so
    server-side quick capture is intentionally disabled for guests.
-7. **No Shortcut/token auth.** See [Auth](#auth) — direct iPhone Shortcut use requires the deferred token decision.
+7. **Shortcut auth is dev/test only.** See [iOS Shortcut capture](#ios-shortcut-capture-devtest-only) — one shared
+   optional token, refused in production, no issuance/expiry/revocation. Production Shortcut use still requires the
+   deferred auth decision (`FT-075`).
 8. **Blank-text guard exists in two places.** The route rejects blank text with `400`; the service additionally
    short-circuits blank input to `no_transaction` without calling the parser. The service-level path is only reachable
    by in-process callers such as the Telegram handler.
@@ -366,7 +423,7 @@ Referenced in the earlier plans/spec, absent from the shipped contract:
 | `error` status in the response body | same, §5.2 | Not implemented — errors are HTTP status codes. |
 | Singular `transaction` field | same, §5.2 | Shipped as the array `transactions` (multi-item input is supported). |
 | `change_category` ack action | same, §5.2 | Not implemented; actions are `edit` / `delete` / `review`. |
-| Per-user Shortcut token auth | implementation plan, Phase I | Deferred pending an explicit auth/security decision. |
+| Per-user Shortcut token auth | implementation plan, Phase I | Not implemented. A **dev/test-only** shared-token/header bypass shipped instead (`FT-075`, see [Auth](#ios-shortcut-capture-devtest-only)); per-user issuance, expiry and revocation are still deferred. |
 
 ---
 
@@ -379,6 +436,7 @@ Read these before changing the contract:
 - `src/modules/quickCapture/application/buildCaptureAck.ts` — ack wording
 - `src/modules/quickCapture/application/toCapturedTransaction.ts` — shared transaction mapping (also used by voice)
 - `src/modules/quickCapture/presentation/controllers/quickCaptureController.ts` — HTTP validation, auth, rate limit
+- `src/delivery/web/express/middleware/authMiddleware.ts` — `allowGuestMode` / `allowShortcutCapture` (dev/test Shortcut headers)
 - `src/delivery/web/express/expressServer.ts` + `src/index.ts` — mount path
 - `src/delivery/messaging/telegram/handlers/messageHandlers.ts` — Telegram as a client
 

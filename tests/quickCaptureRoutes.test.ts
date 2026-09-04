@@ -9,6 +9,7 @@ import {
   corsHeaders,
   securityHeaders,
 } from '../src/delivery/web/express/middleware/errorMiddleware';
+import { aiRateLimiter } from '../src/delivery/web/express/middleware/rateLimitMiddleware';
 import { createQuickCaptureRouter } from '../src/modules/quickCapture/presentation/controllers/quickCaptureController';
 import { QuickCaptureService } from '../src/modules/quickCapture/application/quickCaptureService';
 import { QuickCaptureResult } from '../src/modules/quickCapture/domain/quickCaptureTypes';
@@ -86,6 +87,11 @@ describe('POST /api/quick-capture', () => {
   }
 
   beforeEach((done) => {
+    // aiRateLimiter is a single module-level instance shared by every test in this file (20 req /
+    // 15 min per IP). Reset the loopback key so test count never silently turns into 429s.
+    aiRateLimiter.resetKey('127.0.0.1');
+    aiRateLimiter.resetKey('::ffff:127.0.0.1');
+
     mocks = buildTestApp();
     server = mocks.app.listen(0, () => {
       const { port } = server.address() as AddressInfo;
@@ -167,6 +173,147 @@ describe('POST /api/quick-capture', () => {
       expect(res.status).toBe(401);
       const body = await res.json();
       expect(body).toMatchObject({ success: false, code: 'MISSING_AUTH_HEADER' });
+      expect(mocks.quickCaptureService.capture).not.toHaveBeenCalled();
+    });
+
+    it('leaves the Mini App path untouched when no shortcut header is sent', async () => {
+      (mocks.quickCaptureService.capture as jest.Mock).mockResolvedValue(SAVED_RESULT);
+
+      const res = await post(
+        { userId: '555111', text: 'кофе 35000', source: 'miniapp' },
+        { 'X-Dev-User-Id': '555111' }
+      );
+
+      expect(res.status).toBe(200);
+      expect(mocks.quickCaptureService.capture).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: '555111', source: 'miniapp' })
+      );
+    });
+  });
+
+  // FT-075: dev/test-only direct capture for an iPhone Shortcut, which cannot produce initData.
+  describe('ios shortcut capture (dev/test only)', () => {
+    const ORIGINAL_NODE_ENV = process.env.NODE_ENV;
+    const ORIGINAL_TOKEN = process.env.SHORTCUT_CAPTURE_TOKEN;
+
+    afterEach(() => {
+      process.env.NODE_ENV = ORIGINAL_NODE_ENV;
+      if (ORIGINAL_TOKEN === undefined) {
+        delete process.env.SHORTCUT_CAPTURE_TOKEN;
+      } else {
+        process.env.SHORTCUT_CAPTURE_TOKEN = ORIGINAL_TOKEN;
+      }
+    });
+
+    it('accepts a shortcut capture and forces source ios_shortcut with the header owner id', async () => {
+      delete process.env.SHORTCUT_CAPTURE_TOKEN;
+      (mocks.quickCaptureService.capture as jest.Mock).mockResolvedValue({
+        ...SAVED_RESULT,
+        source: 'ios_shortcut',
+      });
+
+      const res = await post({ text: 'такси 18к' }, { 'X-Shortcut-User-Id': '597843119' });
+
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.success).toBe(true);
+      expect(mocks.quickCaptureService.capture).toHaveBeenCalledWith({
+        text: 'такси 18к',
+        userId: '597843119',
+        userName: undefined,
+        source: 'ios_shortcut',
+      });
+    });
+
+    it('lets the header owner id win over a body userId/source', async () => {
+      delete process.env.SHORTCUT_CAPTURE_TOKEN;
+      (mocks.quickCaptureService.capture as jest.Mock).mockResolvedValue(SAVED_RESULT);
+
+      const res = await post(
+        { text: 'такси 18к', userId: 'guest_someone_else', source: 'miniapp' },
+        { 'X-Shortcut-User-Id': '597843119' }
+      );
+
+      expect(res.status).toBe(200);
+      expect(mocks.quickCaptureService.capture).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: '597843119', source: 'ios_shortcut' })
+      );
+    });
+
+    it('rejects the shortcut bypass in production (403), instead of silently ignoring it', async () => {
+      process.env.NODE_ENV = 'production';
+      delete process.env.SHORTCUT_CAPTURE_TOKEN;
+
+      const res = await post({ text: 'такси 18к' }, { 'X-Shortcut-User-Id': '597843119' });
+
+      expect(res.status).toBe(403);
+      const body = await res.json();
+      expect(body).toMatchObject({ success: false, code: 'SHORTCUT_CAPTURE_DISABLED' });
+      expect(mocks.quickCaptureService.capture).not.toHaveBeenCalled();
+    });
+
+    it('rejects a missing token when SHORTCUT_CAPTURE_TOKEN is configured (401)', async () => {
+      process.env.SHORTCUT_CAPTURE_TOKEN = 'test-token-value';
+
+      const res = await post({ text: 'такси 18к' }, { 'X-Shortcut-User-Id': '597843119' });
+
+      expect(res.status).toBe(401);
+      const body = await res.json();
+      expect(body).toMatchObject({ success: false, code: 'INVALID_SHORTCUT_TOKEN' });
+      expect(mocks.quickCaptureService.capture).not.toHaveBeenCalled();
+    });
+
+    it('rejects a wrong token when SHORTCUT_CAPTURE_TOKEN is configured (401)', async () => {
+      process.env.SHORTCUT_CAPTURE_TOKEN = 'test-token-value';
+
+      const res = await post(
+        { text: 'такси 18к' },
+        { 'X-Shortcut-User-Id': '597843119', 'X-Shortcut-Capture-Token': 'wrong-token' }
+      );
+
+      expect(res.status).toBe(401);
+      const body = await res.json();
+      expect(body).toMatchObject({ success: false, code: 'INVALID_SHORTCUT_TOKEN' });
+      expect(mocks.quickCaptureService.capture).not.toHaveBeenCalled();
+    });
+
+    it('accepts the matching token when SHORTCUT_CAPTURE_TOKEN is configured', async () => {
+      process.env.SHORTCUT_CAPTURE_TOKEN = 'test-token-value';
+      (mocks.quickCaptureService.capture as jest.Mock).mockResolvedValue({
+        ...SAVED_RESULT,
+        source: 'ios_shortcut',
+      });
+
+      const res = await post(
+        { text: 'такси 18к' },
+        { 'X-Shortcut-User-Id': '597843119', 'X-Shortcut-Capture-Token': 'test-token-value' }
+      );
+
+      expect(res.status).toBe(200);
+      expect(mocks.quickCaptureService.capture).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: '597843119', source: 'ios_shortcut' })
+      );
+    });
+
+    it('falls back to the normal auth path when the shortcut header is blank', async () => {
+      delete process.env.SHORTCUT_CAPTURE_TOKEN;
+
+      const res = await post({ text: 'такси 18к', userId: '555111' }, { 'X-Shortcut-User-Id': '  ' });
+
+      expect(res.status).toBe(401);
+      const body = await res.json();
+      expect(body).toMatchObject({ success: false, code: 'MISSING_AUTH_HEADER' });
+      expect(mocks.quickCaptureService.capture).not.toHaveBeenCalled();
+    });
+
+    it('still requires text for a shortcut capture', async () => {
+      delete process.env.SHORTCUT_CAPTURE_TOKEN;
+
+      const res = await post({}, { 'X-Shortcut-User-Id': '597843119' });
+
+      expect(res.status).toBe(400);
+      const body = await res.json();
+      expect(body.error).toMatchObject({ code: 'VALIDATION_ERROR' });
       expect(mocks.quickCaptureService.capture).not.toHaveBeenCalled();
     });
   });

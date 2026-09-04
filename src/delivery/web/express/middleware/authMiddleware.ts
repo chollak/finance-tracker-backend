@@ -394,6 +394,89 @@ export function requireAdmin(req: Request, res: Response, next: NextFunction): v
   next();
 }
 
+/** Header carrying the owner id an iPhone Shortcut captures for (dev/test only). */
+export const SHORTCUT_USER_ID_HEADER = 'x-shortcut-user-id';
+/** Header carrying the shared capture token, required when SHORTCUT_CAPTURE_TOKEN is configured. */
+export const SHORTCUT_TOKEN_HEADER = 'x-shortcut-capture-token';
+
+/**
+ * Constant-time string comparison.
+ *
+ * Hashing first keeps timingSafeEqual from throwing on length mismatch (it requires equal-length
+ * buffers) and avoids leaking the expected token's length through the error path.
+ */
+function safeTokenEquals(provided: string, expected: string): boolean {
+  const providedHash = crypto.createHash('sha256').update(provided).digest();
+  const expectedHash = crypto.createHash('sha256').update(expected).digest();
+  return crypto.timingSafeEqual(providedHash, expectedHash);
+}
+
+/**
+ * Shortcut capture middleware — DEV/TEST ONLY (FT-075)
+ *
+ * An iPhone Shortcut cannot produce Telegram Mini App initData, so for local testing it identifies
+ * itself with `X-Shortcut-User-Id` (plus `X-Shortcut-Capture-Token` when SHORTCUT_CAPTURE_TOKEN is
+ * set). The header id becomes the capture owner and the source is forced to `ios_shortcut`, so the
+ * Shortcut body only has to carry `text`.
+ *
+ * Production is guarded loudly, not silently: a shortcut header in production is refused with 403
+ * rather than ignored, so a misconfigured Shortcut fails visibly instead of falling back to another
+ * auth path. Requests without the header are untouched and go through `allowGuestMode` as before.
+ *
+ * `req.telegramUser` is deliberately NOT fabricated here: this bypass proves nothing about a
+ * Telegram identity, so ownership-sensitive middleware (`verifyOwnership`, `requireAdmin`) stays
+ * fail-closed for shortcut requests.
+ */
+export function allowShortcutCapture(req: Request, res: Response, next: NextFunction): void {
+  const rawShortcutUserId = req.headers[SHORTCUT_USER_ID_HEADER];
+  const shortcutUserId = typeof rawShortcutUserId === 'string' ? rawShortcutUserId.trim() : '';
+
+  // Not a Shortcut request — behavior is exactly what it was before FT-075.
+  if (!shortcutUserId) {
+    allowGuestMode(req, res, next);
+    return;
+  }
+
+  if (process.env.NODE_ENV === 'production') {
+    logger.warn('Shortcut capture rejected in production');
+    res.status(403).json({
+      success: false,
+      error: 'Shortcut capture is disabled in production',
+      code: 'SHORTCUT_CAPTURE_DISABLED',
+    });
+    return;
+  }
+
+  const expectedToken = (process.env.SHORTCUT_CAPTURE_TOKEN || '').trim();
+
+  if (expectedToken) {
+    const rawToken = req.headers[SHORTCUT_TOKEN_HEADER];
+    const providedToken = typeof rawToken === 'string' ? rawToken.trim() : '';
+
+    if (!providedToken || !safeTokenEquals(providedToken, expectedToken)) {
+      logger.warn('Shortcut capture token rejected', { shortcutUserId });
+      res.status(401).json({
+        success: false,
+        error: 'Invalid or missing shortcut capture token',
+        code: 'INVALID_SHORTCUT_TOKEN',
+      });
+      return;
+    }
+  }
+
+  logger.debug('Shortcut capture accepted', { shortcutUserId, tokenRequired: Boolean(expectedToken) });
+
+  req.isAuthenticated = true;
+
+  // The header is the authoritative owner id for this flow, so it overrides whatever the body said.
+  if (req.body && typeof req.body === 'object') {
+    req.body.userId = shortcutUserId;
+    req.body.source = 'ios_shortcut';
+  }
+
+  next();
+}
+
 /**
  * Guest mode middleware
  *

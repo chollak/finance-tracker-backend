@@ -5,7 +5,7 @@ import { handleControllerError, handleControllerSuccess } from '../../../../shar
 import { ErrorFactory } from '../../../../shared/domain/errors/AppError';
 import { UserModule } from '../../../user/userModule';
 import { resolveUserIdToUUID } from '../../../../shared/application/helpers/userIdResolver';
-import { allowGuestMode } from '../../../../delivery/web/express/middleware/authMiddleware';
+import { allowShortcutCapture } from '../../../../delivery/web/express/middleware/authMiddleware';
 import { aiRateLimiter } from '../../../../delivery/web/express/middleware/rateLimitMiddleware';
 
 const MAX_TEXT_LENGTH = 2000;
@@ -22,7 +22,9 @@ export function createQuickCaptureRouter(
   // Capture can reach OpenAI, so it shares the AI rate limit with /voice.
   router.use(aiRateLimiter);
 
-  router.post('/', allowGuestMode, async (req: Request, res: Response) => {
+  // allowShortcutCapture handles the dev/test iPhone Shortcut header (FT-075) and otherwise
+  // delegates to allowGuestMode, so Mini App and guest callers keep the exact same auth path.
+  router.post('/', allowShortcutCapture, async (req: Request, res: Response) => {
     try {
       const { text, source, userId, userName } = req.body ?? {};
 
