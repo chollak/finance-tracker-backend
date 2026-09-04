@@ -50,7 +50,7 @@
 | 6. Полировка под гайдлайны | Цвет, шрифт, язык | FT-059 ✅, FT-060 ✅, FT-061 ✅ |
 | 7. Продукт P1 / решения | Приоритеты разделов, premium, лимиты, внимание | FT-054, FT-062, FT-063, FT-069, FT-071, FT-051 |
 | 8. Quick capture first | Главный экран = быстрый ввод, остальное ниже/в «Ещё» | FT-073 ✅, FT-074 ✅, FT-076 ✅, FT-075 ✅ (dev/test) |
-| 9. Quick action UI redesign | Полный редизайн Mini App вокруг быстрого действия; старые фичи вторичны | FT-077 ✅, FT-078, FT-079, FT-080, FT-081, FT-082, FT-083, FT-084, FT-085 |
+| 9. Quick action UI redesign | Полный редизайн Mini App вокруг быстрого действия; старые фичи вторичны | FT-077 ✅, FT-078 ✅, FT-079, FT-080, FT-081, FT-082, FT-083, FT-084, FT-085 |
 | — backlog | Требует живого прода / Supabase; не текущий фокус | FT-046 |
 | — backlog / future decision | Продовая auth-модель для Shortcut (токен, отзыв, rate limit) — не блокер локального quick action dogfood | FT-075 (prod-часть) |
 
@@ -689,22 +689,35 @@ Verification 2026-09-04:
 
 ### FT-078: Quick Capture card visual redesign
 
-Status: backlog
+Status: done
 Priority: high
 Owner: Claude Code, QA by Hermes
 Type: quick-action-ui
 
 Context:
-`TextQuickCaptureCard` is correct functionally but still reads like a long explanatory form. Redesign it so the primary capture action feels fast and dominant while preserving honest limitations: no scanner, no Mini App recorder, no offline queue.
+`TextQuickCaptureCard` was correct functionally but still read like a long explanatory form. It now behaves more like a command composer: input + send first, compact examples, then honest secondary channel tiles.
 
 Definition of Done:
-- [ ] Capture card visually dominates as the primary action without becoming wordy
-- [ ] Text input remains the working Mini App capture path
-- [ ] Scan and Mini App voice are represented honestly as unavailable/Telegram-only
-- [ ] Server ack details remain visible but compact
-- [ ] Offline/guest states remain truthful and do not fake persistence
-- [ ] Screenshot QA: Home at 375 / 390 / 412
-- [ ] `npm run verify` passes
+- [x] Capture card visually dominates as the primary action without becoming wordy
+- [x] Text input remains the working Mini App capture path
+- [x] Scan and Mini App voice are represented honestly as unavailable/Telegram-only
+- [x] Server ack details remain visible but compact
+- [x] Offline/guest states remain truthful and do not fake persistence
+- [x] Screenshot QA: Home at 375 / 390 / 412
+- [x] `npm run verify` passes
+
+Implementation 2026-09-04:
+- Reordered `TextQuickCaptureCard`: composer field + submit first, feedback directly below, horizontal example chips, then capture channel tiles.
+- Title changed from generic “Быстрая запись” to command-oriented “Запишите одной строкой”.
+- Channel tiles remain honest: `Чек / Скоро`, `Голос / В Telegram`, `Текстом / Здесь`.
+- Added `.scrollbar-none` utility for horizontal chip rows.
+
+Verification 2026-09-04:
+- `npm run test:webapp` — 17 Vitest files / 138 tests passed.
+- `npm run build:webapp` — passed; existing chunk-size/Browserslist warnings only.
+- `npm run verify` — backend build, 34 Jest suites / 433 tests, webapp tests/build, font check, dependency-cruiser and madge all passed.
+- Screenshot QA via Playwright: `/tmp/ft078-home-final/screenshots/home-375.png`, `home-390.png`, `home-412.png`; console errors and bad responses empty; card shows `Запишите одной строкой`, scan `Скоро`, voice `В Telegram`, text `Здесь`.
+- Visual caveat: the horizontal example row intentionally shows partial next chip as a scroll affordance.
 
 ---
 

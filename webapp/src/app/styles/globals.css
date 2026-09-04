@@ -372,6 +372,19 @@
   animation: fadeInUp var(--duration-normal) var(--ease-out);
 }
 
+/*
+ * Horizontal chip rows (capture examples) scroll by swipe on the phone this app targets;
+ * the scrollbar itself is desktop chrome that only adds a line under the chips.
+ */
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
 @layer base {
   * {
     border-color: var(--color-border);

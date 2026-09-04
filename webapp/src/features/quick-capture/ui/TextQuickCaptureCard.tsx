@@ -47,12 +47,16 @@ interface TextQuickCaptureCardProps {
 interface CaptureActionTileProps {
   action: CaptureAction;
   isActive: boolean;
-  isEmphasized: boolean;
   onPress: (id: CaptureActionId) => void;
 }
 
 /**
- * One entry point in the action row.
+ * One entry point in the channel row under the input.
+ *
+ * The row sits below the command field on purpose: typing is the capture this card performs, so
+ * the other channels are an answer to "как ещё?", not a choice to make before writing. Each tile
+ * still names where its capture actually happens, so a glance is enough to see that scanning is
+ * not built and voice runs in the Telegram chat.
  *
  * An unavailable action carries no disabled state at all — neither `disabled` nor
  * `aria-disabled`. The tile is fully operable, because pressing it is the only way to read why
@@ -61,7 +65,7 @@ interface CaptureActionTileProps {
  * "Unavailable" lives in the accessible name, the `Скоро` badge and the muted/dashed styling,
  * which is where a user can actually perceive it.
  */
-function CaptureActionTile({ action, isActive, isEmphasized, onPress }: CaptureActionTileProps) {
+function CaptureActionTile({ action, isActive, onPress }: CaptureActionTileProps) {
   const Icon = action.icon;
 
   return (
@@ -76,19 +80,23 @@ function CaptureActionTile({ action, isActive, isEmphasized, onPress }: CaptureA
       title={action.isAvailable ? undefined : action.hint}
       data-unavailable={action.isAvailable ? undefined : 'true'}
       className={cn(
-        'flex min-h-16 flex-col items-center justify-center gap-1 rounded-xl border px-2 py-2 text-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 active:scale-[0.98]',
+        'flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-xl border px-2 py-1.5 text-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 active:scale-[0.98]',
         action.isAvailable
           ? 'border-input bg-background hover:bg-accent hover:text-accent-foreground'
           : 'border-dashed border-input bg-muted/40 text-muted-foreground',
-        isEmphasized && action.isAvailable && 'border-primary/40 bg-secondary',
         isActive && 'ring-2 ring-ring ring-offset-2'
       )}
     >
-      <Icon
-        className={cn('h-5 w-5', action.isAvailable ? 'text-foreground' : 'text-muted-foreground')}
-        aria-hidden="true"
-      />
-      <span className="text-sm font-medium leading-none">{action.label}</span>
+      <span className="flex items-center gap-1.5">
+        <Icon
+          className={cn(
+            'h-4 w-4 shrink-0',
+            action.isAvailable ? 'text-foreground' : 'text-muted-foreground'
+          )}
+          aria-hidden="true"
+        />
+        <span className="text-sm font-medium leading-none">{action.label}</span>
+      </span>
       <span className="text-[11px] leading-none text-muted-foreground">
         {action.badge ?? action.caption}
       </span>
@@ -103,9 +111,12 @@ function CaptureActionTile({ action, isActive, isEmphasized, onPress }: CaptureA
  * wording in both channels. Feedback comes from the server ack via `toCaptureFeedback()`:
  * `no_transaction` never claims a save, and the text is kept so it can be rewritten.
  *
- * The action row above the input names the three entry points the product is heading for —
- * scan, voice, type — but only claims what exists today: typing runs here, voice runs in the
- * Telegram chat, scanning is not built. Pressing scan or voice opens a hint, never a recorder.
+ * The card is ordered as a command surface, not as a form to read through: the input and its
+ * send button come first, the ack lands directly under them, and the supporting rows — example
+ * phrasings, then the other capture channels — sit below in decreasing weight. The channel row
+ * names all three entry points the product is heading for (scan, voice, type) but only claims
+ * what exists today: typing runs here, voice runs in the Telegram chat, scanning is not built.
+ * Pressing scan or voice opens a hint, never a recorder.
  */
 export function TextQuickCaptureCard({ className }: TextQuickCaptureCardProps) {
   const [text, setText] = useState('');
@@ -185,11 +196,11 @@ export function TextQuickCaptureCard({ className }: TextQuickCaptureCardProps) {
 
   return (
     <Card className={cn('overflow-hidden', className)}>
-      <CardHeader>
-        <CardTitle>Быстрая запись</CardTitle>
+      <CardHeader className="p-4 pb-3">
+        <CardTitle>Запишите одной строкой</CardTitle>
       </CardHeader>
 
-      <CardContent className="space-y-3">
+      <CardContent className="space-y-3 p-4 pt-0">
         {isGuest ? (
           <p className="text-sm leading-relaxed text-muted-foreground">
             В гостевом режиме быстрая запись текстом недоступна: она сохраняет операции на
@@ -210,15 +221,105 @@ export function TextQuickCaptureCard({ className }: TextQuickCaptureCardProps) {
               </div>
             )}
 
+            {/*
+              Input and send read as one field: the button lives inside the same bordered
+              surface, so the whole thing behaves like a composer rather than a labelled form
+              control with a detached submit somewhere below.
+            */}
+            <div
+              className={cn(
+                'rounded-2xl border border-input bg-background shadow-sm transition-colors focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2',
+                capture.isPending && 'opacity-70'
+              )}
+            >
+              <label htmlFor="quick-capture-text" className="sr-only">
+                Операция текстом
+              </label>
+              <textarea
+                id="quick-capture-text"
+                ref={textareaRef}
+                value={text}
+                onChange={(event) => setText(event.target.value)}
+                rows={2}
+                maxLength={MAX_CAPTURE_TEXT_LENGTH}
+                disabled={capture.isPending}
+                placeholder="такси 18к, кофе 35к"
+                className="block w-full resize-none rounded-t-2xl bg-transparent px-4 pb-1 pt-3 text-base leading-snug outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed"
+              />
+              <div className="flex items-center justify-between gap-2 px-3 pb-3">
+                {/* The format claim belongs next to the input it describes, not in a header. */}
+                <p className="min-w-0 truncate pl-1 text-xs text-muted-foreground">
+                  Одной строкой, как боту
+                </p>
+                <Button type="submit" className="shrink-0 px-5" disabled={!canSubmit}>
+                  {capture.isPending ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                      Записываю…
+                    </>
+                  ) : (
+                    <>
+                      <Send className="h-4 w-4" aria-hidden="true" />
+                      Записать
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+
+            {/* The ack sits under the field it answers, not at the far end of the card. */}
+            {feedback && (
+              <div
+                role={feedback.tone === 'warning' ? 'alert' : 'status'}
+                className={cn('rounded-xl border px-4 py-3', TONE_STYLES[feedback.tone])}
+              >
+                <p className="text-sm font-medium leading-tight">{feedback.title}</p>
+                {feedback.description && (
+                  <p className="mt-1 whitespace-pre-line text-sm leading-relaxed text-muted-foreground">
+                    {feedback.description}
+                  </p>
+                )}
+                {feedback.details && (
+                  <p className="mt-1 whitespace-pre-line text-sm leading-relaxed text-muted-foreground">
+                    {feedback.details}
+                  </p>
+                )}
+                {feedback.actionHint && (
+                  <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                    {feedback.actionHint}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/*
+              Examples scroll sideways instead of wrapping: four of them wrapped cost two rows
+              of card height for copy nobody rereads, and the touch target stays 44px either way.
+            */}
+            <div
+              className="scrollbar-none -mx-1 flex gap-2 overflow-x-auto px-1 py-1"
+              role="group"
+              aria-label="Примеры операций"
+            >
+              {CAPTURE_EXAMPLES.map((example) => (
+                <button
+                  key={example}
+                  type="button"
+                  onClick={() => applyExample(example)}
+                  disabled={capture.isPending}
+                  className="min-h-11 shrink-0 rounded-full border border-input bg-background px-4 text-sm text-muted-foreground shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {example}
+                </button>
+              ))}
+            </div>
+
             <div className="grid grid-cols-3 gap-2" role="group" aria-label="Способы записи">
               {CAPTURE_ACTIONS.map((action) => (
                 <CaptureActionTile
                   key={action.id}
                   action={action}
                   isActive={activeAction === action.id}
-                  // Voice is the fastest way to capture today — it just happens in the Telegram
-                  // chat, not here, which is what the tile's caption says.
-                  isEmphasized={action.id === 'voice'}
                   onPress={handleActionPress}
                 />
               ))}
@@ -229,84 +330,7 @@ export function TextQuickCaptureCard({ className }: TextQuickCaptureCardProps) {
                 {activeActionHint}
               </p>
             )}
-
-            <label htmlFor="quick-capture-text" className="sr-only">
-              Операция текстом
-            </label>
-            <textarea
-              id="quick-capture-text"
-              ref={textareaRef}
-              value={text}
-              onChange={(event) => setText(event.target.value)}
-              rows={2}
-              maxLength={MAX_CAPTURE_TEXT_LENGTH}
-              disabled={capture.isPending}
-              placeholder="такси 18к, кофе 35к"
-              className="flex w-full resize-none rounded-xl border border-input bg-background px-4 py-3 text-base shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-            />
-
-            <div className="flex flex-wrap gap-2" role="group" aria-label="Примеры операций">
-              {CAPTURE_EXAMPLES.map((example) => (
-                <button
-                  key={example}
-                  type="button"
-                  onClick={() => applyExample(example)}
-                  disabled={capture.isPending}
-                  className="min-h-11 rounded-full border border-input bg-background px-4 text-sm text-muted-foreground shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {example}
-                </button>
-              ))}
-            </div>
-
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-xs leading-relaxed text-muted-foreground">
-                Одной строкой, как боту в Telegram
-              </p>
-              <Button
-                type="submit"
-                size="sm"
-                className="min-h-11 shrink-0 px-4"
-                disabled={!canSubmit}
-              >
-                {capture.isPending ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
-                    Записываю…
-                  </>
-                ) : (
-                  <>
-                    <Send className="mr-2 h-4 w-4" aria-hidden="true" />
-                    Записать
-                  </>
-                )}
-              </Button>
-            </div>
           </form>
-        )}
-
-        {feedback && (
-          <div
-            role={feedback.tone === 'warning' ? 'alert' : 'status'}
-            className={cn('rounded-xl border px-4 py-3', TONE_STYLES[feedback.tone])}
-          >
-            <p className="text-sm font-medium leading-tight">{feedback.title}</p>
-            {feedback.description && (
-              <p className="mt-1 whitespace-pre-line text-sm leading-relaxed text-muted-foreground">
-                {feedback.description}
-              </p>
-            )}
-            {feedback.details && (
-              <p className="mt-1 whitespace-pre-line text-sm leading-relaxed text-muted-foreground">
-                {feedback.details}
-              </p>
-            )}
-            {feedback.actionHint && (
-              <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-                {feedback.actionHint}
-              </p>
-            )}
-          </div>
         )}
       </CardContent>
     </Card>
