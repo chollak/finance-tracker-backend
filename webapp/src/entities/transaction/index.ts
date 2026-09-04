@@ -44,4 +44,5 @@ export {
 // UI Components
 export { TransactionCard } from './ui/TransactionCard';
 export { TransactionListItem } from './ui/TransactionListItem';
+export { CompactTransactionRow } from './ui/CompactTransactionRow';
 export { TransactionActions } from './ui/TransactionActions';

@@ -50,7 +50,7 @@
 | 6. Полировка под гайдлайны | Цвет, шрифт, язык | FT-059 ✅, FT-060 ✅, FT-061 ✅ |
 | 7. Продукт P1 / решения | Приоритеты разделов, premium, лимиты, внимание | FT-054, FT-062, FT-063, FT-069, FT-071, FT-051 |
 | 8. Quick capture first | Главный экран = быстрый ввод, остальное ниже/в «Ещё» | FT-073 ✅, FT-074 ✅, FT-076 ✅, FT-075 ✅ (dev/test) |
-| 9. Quick action UI redesign | Полный редизайн Mini App вокруг быстрого действия; старые фичи вторичны | FT-077 ✅, FT-078 ✅, FT-079 ✅, FT-080, FT-081, FT-082, FT-083, FT-084, FT-085 |
+| 9. Quick action UI redesign | Полный редизайн Mini App вокруг быстрого действия; старые фичи вторичны | FT-077 ✅, FT-078 ✅, FT-079 ✅, FT-080 ✅, FT-081, FT-082, FT-083, FT-084, FT-085 |
 | — backlog | Требует живого прода / Supabase; не текущий фокус | FT-046 |
 | — backlog / future decision | Продовая auth-модель для Shortcut (токен, отзыв, rate limit) — не блокер локального quick action dogfood | FT-075 (prod-часть) |
 
@@ -759,21 +759,34 @@ Verification 2026-09-04:
 
 ### FT-080: Compact transaction rows for recent list
 
-Status: backlog
+Status: done
 Priority: medium
 Owner: Claude Code, QA by Hermes
 Type: quick-action-ui
 
 Context:
-Recent transactions should feel like a quick correction log after capture, not a heavy management list. Current rows use large icon tiles and badges; the redesign should move toward compact scan-friendly rows with semantic money styling.
+Recent transactions now feel like a quick correction log after capture, not a heavy management list. Rows are denser, amount stays right-aligned, category/semantic/date context is collapsed into one meta line, and full History remains the management surface.
 
 Definition of Done:
-- [ ] Recent rows are compact and easy to scan on 375px
-- [ ] Semantic financial meaning drives amount color and badge visibility
-- [ ] Review/edit/delete affordances remain reachable
-- [ ] No full `/transactions` page rewrite in this slice
-- [ ] Screenshot QA: Home recent list at 375 / 390 / 412
-- [ ] `npm run verify` passes
+- [x] Recent rows are compact and easy to scan on 375px
+- [x] Semantic financial meaning drives amount color and badge visibility
+- [x] Review/edit/delete affordances remain reachable
+- [x] No full `/transactions` page rewrite in this slice
+- [x] Screenshot QA: Home recent list at 375 / 390 / 412
+- [x] `npm run verify` passes
+
+Implementation 2026-09-04:
+- Added `CompactTransactionRow` for Home recent list; `TransactionListItem` remains for History.
+- Added compact display helpers/tests: day labels, meta line, aria label, semantic badge rules.
+- Updated `RecentTransactions` to show uppercase `ПОСЛЕДНИЕ`, quiet “Все N транзакций” link, compact rows, and no competing `Добавить` CTA.
+- Preserved tap-to-edit and inline needs-review correction chips.
+
+Verification 2026-09-04:
+- Fixed one timezone/business-date test failure by parsing operation date as business date, not instant time.
+- `npm run test:webapp` — 18 Vitest files / 157 tests passed.
+- `npm run build:webapp` — passed; existing chunk-size/Browserslist warnings only.
+- `npm run verify` — backend build, 34 Jest suites / 433 tests, webapp tests/build, font check, dependency-cruiser and madge all passed.
+- Screenshot QA via `npm run design:audit`: Home at 375/390/412 under `/tmp/ft080-final/{375,390,412}/screenshots/`; issueCount `0`.
 
 ---
 
