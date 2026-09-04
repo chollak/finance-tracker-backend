@@ -4943,3 +4943,51 @@ Results:
 ### Next
 
 Safe queue returns to FT-059 → FT-060 → FT-061 (design-guideline polish). Quick capture has no remaining safe steps: everything further in that direction needs the FT-075 decision on auth model, token revocation, and rate-limit policy for a non-Telegram source. FT-049/FT-050 still need explicit permission for external GitHub/branch actions.
+
+
+## 2026-09-04 — FT-059 Close design-guideline drift
+
+### Goal
+
+Remove the four documented conflicts between `docs/knowledge-base/10-design-guidelines/` and the shipped UI: a 7-colour category chart that reused income-green and expense-red, a health score coloured orange while its progress bar was black, a blue debt status badge outside the four semantic roles, and guideline text still prescribing Inter 400/600/700.
+
+### Claude Code implementation
+
+Files changed:
+
+```text
+webapp/src/shared/lib/design-tokens.ts
+webapp/src/shared/lib/design-tokens.test.ts            (new)
+webapp/src/app/styles/globals.css
+webapp/src/widgets/spending-chart/ui/SpendingChart.tsx
+webapp/src/widgets/financial-health/lib/healthScore.ts       (new)
+webapp/src/widgets/financial-health/lib/healthScore.test.ts  (new)
+webapp/src/widgets/financial-health/ui/FinancialHealth.tsx
+webapp/src/entities/debt/lib/toViewModel.ts
+webapp/src/entities/debt/lib/toViewModel.test.ts       (new)
+webapp/src/entities/debt/model/types.ts
+docs/knowledge-base/10-design-guidelines/design-guidelines.md
+TASKS.md
+CLAUDE.md
+AUTONOMOUS_REPORT.md
+```
+
+- **Chart palette:** `colors.chart` is now exactly 6 identity colours (blue, teal, purple, amber, indigo, gray) that deliberately skip the income-green and expense-red hue ranges, so a spending slice can never read as income or as an error. `--color-chart-1..6` in `globals.css` mirrors it, and `design-tokens.test.ts` asserts the two stay in sync. `SpendingChart.tsx` lost its local 8-colour `CHART_COLORS` (red/pink included) and now calls `getCategoryColorByIndex(index)`.
+- **Health score:** `getHealthScoreInfo()` moved out of the component into `widgets/financial-health/lib/healthScore.ts` and returns `barColor` alongside `color`, so the number, the label and the `Progress` indicator (`indicatorClassName={barColor}`) all encode the same value with one role. «Хорошо» (60–79) became neutral `primary` instead of `warning` — warning now starts at 40–59, where the copy actually asks for attention.
+- **Debt status:** `_statusColor` maps onto existing roles only — paid `text-success`, cancelled `text-muted-foreground`, active neutral `text-foreground`. The blue is gone; overdue stays signalled separately by the card.
+- **Docs:** the Inter recommendation is replaced by Onest 400–800 with the token-mirrored weight list, and the 500-weight rule is now explicit — forbidden as a *hierarchy* step (use 400 vs 600/700), legitimate for captions and control labels (buttons, tabs, chips, list rows). The chart-colours section points at the single token source instead of an inline palette; the stale "Font" conflict note at the top was dropped since it no longer conflicts.
+
+### Verification
+
+```bash
+npm run verify
+```
+
+Results:
+
+- Passed: 34 Jest suites / 433 tests, 14 webapp Vitest files / 99 tests, backend build, webapp build, dependency-cruiser and circular-dependency checks.
+- Visual QA at 390px width: `/tmp/ft059-design-audit/screenshots/analytics-390.png`, `analytics-full-390.png`, `debts-390.png`, `home-390.png`.
+
+### Next
+
+FT-060 (Russian numeral agreement), then FT-061. FT-049/FT-050 still need explicit permission for external GitHub/branch actions; FT-075 production auth remains Shukur's decision, not a blocker for local use.

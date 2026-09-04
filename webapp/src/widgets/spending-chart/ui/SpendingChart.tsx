@@ -11,21 +11,8 @@ import { useCategoryBreakdown } from '@/entities/transaction';
 import { useUserStore } from '@/entities/user/model/store';
 import { PieChart, Pie, Cell } from 'recharts';
 import { getCategoryIcon, getCategoryName } from '@/entities/category';
+import { getCategoryColorByIndex } from '@/shared/lib/design-tokens';
 import { useMemo } from 'react';
-
-/**
- * Color palette for pie chart (using CSS HSL values for shadcn compatibility)
- */
-const CHART_COLORS = [
-  'hsl(0 84% 60%)',      // Red
-  'hsl(174 62% 47%)',    // Teal
-  'hsl(48 96% 61%)',     // Yellow
-  'hsl(134 50% 50%)',    // Green
-  'hsl(263 70% 76%)',    // Purple
-  'hsl(25 95% 53%)',     // Orange
-  'hsl(330 81% 60%)',    // Pink
-  'hsl(217 91% 60%)',    // Blue
-];
 
 /**
  * Format large numbers compactly (e.g., 1.4M, 500K)
@@ -58,7 +45,7 @@ export function SpendingChart() {
     return categories.reduce((config, cat, index) => {
       config[cat.category] = {
         label: getCategoryName(cat.category),
-        color: CHART_COLORS[index % CHART_COLORS.length],
+        color: getCategoryColorByIndex(index),
       };
       return config;
     }, {} as ChartConfig);
@@ -81,7 +68,7 @@ export function SpendingChart() {
         value: visualValue,
         actualValue: cat.total,
         percentage: actualPercent,
-        fill: CHART_COLORS[index % CHART_COLORS.length],
+        fill: getCategoryColorByIndex(index),
       };
     });
   }, [categories]);
@@ -181,7 +168,7 @@ export function SpendingChart() {
             <div className="grid gap-2">
               {categories.slice(0, 5).map((cat, index) => {
                 const icon = getCategoryIcon(cat.category);
-                const color = CHART_COLORS[index % CHART_COLORS.length];
+                const color = getCategoryColorByIndex(index);
 
                 return (
                   <div

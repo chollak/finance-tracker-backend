@@ -92,13 +92,16 @@
   --color-success-foreground: oklch(98% 0 0);
   --color-success-muted: oklch(95% 0.05 145);
 
-  /* ===== CHART COLORS ===== */
-  --color-chart-1: oklch(55% 0.2 145);    /* Primary green (income) */
-  --color-chart-2: oklch(55% 0.15 250);   /* Blue */
+  /* ===== CHART COLORS =====
+     Category identity palette only — mirrors `colors.chart` in
+     webapp/src/shared/lib/design-tokens.ts. Deliberately skips the income-green
+     and expense-red hues so a category slice never reads as money meaning. */
+  --color-chart-1: oklch(55% 0.15 250);   /* Blue */
+  --color-chart-2: oklch(55% 0.15 195);   /* Teal */
   --color-chart-3: oklch(55% 0.15 320);   /* Purple */
-  --color-chart-4: oklch(65% 0.15 55);    /* Orange */
-  --color-chart-5: oklch(55% 0.15 195);   /* Teal */
-  --color-chart-6: oklch(55% 0.22 25);    /* Red (expense) */
+  --color-chart-4: oklch(70% 0.13 75);    /* Amber */
+  --color-chart-5: oklch(42% 0.1 265);    /* Indigo */
+  --color-chart-6: oklch(60% 0.01 250);   /* Gray */
 
   /* ===== BORDER RADIUS SCALE ===== */
   --radius-sm: 0.5rem;    /* 8px - Badges, chips */
@@ -351,7 +354,7 @@
 /* Success state */
 .success-pulse {
   animation: pulse 0.5s ease-in-out;
-  color: var(--color-chart-4);
+  color: var(--color-success);
 }
 
 /* Sheet/Dialog animations */

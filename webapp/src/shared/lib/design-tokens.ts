@@ -18,14 +18,17 @@ export const colors = {
   warning: 'oklch(65% 0.18 55)',
   success: 'oklch(55% 0.2 145)',
 
-  // Chart palette (6 colors for pie charts, etc.)
+  // Category chart palette — max 6 colors, identity only (FT-059).
+  // These colors say "which category", not "good" or "bad", so the palette deliberately
+  // skips the income-green and expense-red hue ranges: a spending slice must never read
+  // as income or as an error. Money meaning stays with income/expense/warning above.
   chart: [
-    'oklch(55% 0.2 145)',   // Green (income/primary)
     'oklch(55% 0.15 250)',  // Blue
-    'oklch(55% 0.15 320)',  // Purple
-    'oklch(65% 0.15 55)',   // Orange
     'oklch(55% 0.15 195)',  // Teal
-    'oklch(55% 0.22 25)',   // Red (expense)
+    'oklch(55% 0.15 320)',  // Purple
+    'oklch(70% 0.13 75)',   // Amber
+    'oklch(42% 0.1 265)',   // Indigo
+    'oklch(60% 0.01 250)',  // Gray
   ],
 
   // Neutral palette

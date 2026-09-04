@@ -24,7 +24,7 @@ export interface DebtViewModel extends Debt {
   _typeLabel: string;                 // "Я должен" or "Мне должны"
   _typeIcon: string;                  // "📤" or "📥"
   _statusLabel: string;               // "Активен", "Погашен", "Отменён"
-  _statusColor: string;               // "text-green-600", etc.
+  _statusColor: string;               // semantic role class: "text-success" | "text-muted-foreground" | "text-foreground"
   _progressPercent: number;           // 0-100
   _isOverdue: boolean;                // true if past due date
   _amountColor: string;               // "text-expense" or "text-income"

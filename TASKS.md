@@ -648,7 +648,7 @@ Definition of Done:
 
 ### FT-059: Close design-guideline drift
 
-Status: ready
+Status: done
 Priority: low
 Owner: Claude Code
 Type: design-system
@@ -662,11 +662,22 @@ Context:
 - Гайдлайн предписывает Inter 400/600/700 и запрещает вес 500, приложение использует Onest 400..800. В `webapp/index.html:17` выбор Onest прокомментирован как осознанный — значит устарела документация, а не код.
 
 Definition of Done:
-- [ ] Палитра диаграмм приведена к гайдлайну
-- [ ] Цвет оценки здоровья согласован со смыслом значения
-- [ ] Бейдж статуса долга переведён в существующие роли
-- [ ] Документация обновлена под Onest, диапазон весов зафиксирован явно
-- [ ] Решено и записано, разрешён ли вес 500 при переходе на Onest
+- [x] Палитра диаграмм приведена к гайдлайну
+- [x] Цвет оценки здоровья согласован со смыслом значения
+- [x] Бейдж статуса долга переведён в существующие роли
+- [x] Документация обновлена под Onest, диапазон весов зафиксирован явно
+- [x] Решено и записано, разрешён ли вес 500 при переходе на Onest
+
+Implementation 2026-09-04:
+- `webapp/src/shared/lib/design-tokens.ts` + `webapp/src/app/styles/globals.css`: палитра категорий — ровно 6 цветов (blue, teal, purple, amber, indigo, gray), без зелёного дохода и красного расхода; `--color-chart-1..6` синхронизированы с `colors.chart` (проверяется тестом `design-tokens.test.ts`).
+- `webapp/src/widgets/spending-chart/ui/SpendingChart.tsx`: локальный `CHART_COLORS` (8 цветов, включая red/pink) удалён, используется `getCategoryColorByIndex(index)` из общих токенов.
+- `webapp/src/widgets/financial-health/lib/healthScore.ts` (+ тест): вынесен хелпер, число/подпись/прогресс-бар кодируются одной ролью (`indicatorClassName={barColor}`); «Хорошо» стало нейтральным `primary`, warning начинается с 40–59.
+- `webapp/src/entities/debt/lib/toViewModel.ts` + `model/types.ts`: синий статус убран — «Погашен» = `text-success`, «Отменён» = `text-muted-foreground`, «Активен» = нейтральный `text-foreground`.
+- `docs/knowledge-base/10-design-guidelines/design-guidelines.md`: Inter заменён на Onest 400–800; вес 500 явно разрешён для подписей и контролов (кнопки, табы, чипы, лейблы строк) и запрещён как шаг иерархии (там 400 против 600/700); секция chart colors переписана под единый источник токенов.
+
+Verification 2026-09-04:
+- `npm run verify` — passed: 34 Jest suites / 433 tests, 14 webapp Vitest files / 99 tests, backend build, webapp build, dependency-cruiser/circular checks.
+- Visual QA (390px): `/tmp/ft059-design-audit/screenshots/analytics-390.png`, `analytics-full-390.png`, `debts-390.png`, `home-390.png`.
 
 ---
 

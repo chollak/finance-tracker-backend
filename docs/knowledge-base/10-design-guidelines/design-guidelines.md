@@ -5,7 +5,6 @@
 > **⚠️ Partially superseded — reconciliation tracked as FT-059 (note added 2026-08-16).** Where this document conflicts with [style-direction.md](style-direction.md) or the current implementation, **the current implementation wins**.
 >
 > Known conflicts in this file:
-> - **Font:** the sections below recommend Inter. The app actually uses **Onest** (loaded globally, weights 400–800) via `--font-family-sans` in `webapp/src/app/styles/globals.css`. Do not migrate back to Inter.
 > - **Color:** the app uses neutral UI chrome (`primary`/`secondary`/`muted`) plus semantic finance tokens (`income`/`expense`/`warning`/`success`/`destructive`). Green is reserved for income/success meaning and is not a generic accent or CTA color. There are no `lime`/`lavender` accents.
 >
 > The structural guidance here (whitespace, hierarchy, radius scale, animation timing, touch targets, mobile-first) is still current.
@@ -54,15 +53,15 @@
 
 ## 2. Typography: Geometric Sans
 
-### Recommended Fonts
-1. **Inter** (primary choice) — clean, highly readable
-2. **Plus Jakarta Sans** — slightly warmer alternative
-3. **Outfit** — geometric with personality
+### Font
 
-### Font Import
+**Onest** is the app font — Cyrillic-friendly geometric sans, loaded globally at weights **400–800** via `--font-family-sans` in `webapp/src/app/styles/globals.css`. Do not introduce a second family or migrate to Inter.
+
 ```css
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+--font-family-sans: 'Onest', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 ```
+
+Available weights, mirrored in `typography.weights` (`webapp/src/shared/lib/design-tokens.ts`): 400 `normal`, 500 `medium`, 600 `semibold`, 700 `bold`, 800 `extraBold`.
 
 ### Type Scale
 | Element | Size | Weight | Use |
@@ -72,10 +71,12 @@
 | H3 (Card Title) | 16-18px | 600 | Card headers |
 | Body | 14-16px | 400 | Main content |
 | Caption | 12-13px | 400/500 | Labels, hints |
+| Control label | 13-14px | 500 | Buttons, tabs, chips, list labels |
 | Balance Display | 36-48px | 700 | Main balance number |
 
 ### Typography Rules
-- **High contrast weight pairing**: Use 400 vs 700 (not 400 vs 500)
+- **Contrast where hierarchy matters**: for heading-vs-body separation use 400 vs 600/700, not 400 vs 500 — 500 is too subtle to carry a level change.
+- **500 is legitimate for captions and controls**: button labels, tab/chip text, and list-row labels use `font-medium` (500) to read as interactive without becoming a heading. This is a texture weight, not a hierarchy step.
 - **Size jumps**: At least 1.5x between hierarchy levels
 - **Line height**: 1.4-1.6 for body, 1.2 for headings
 - **Letter spacing**: Tight (-0.02em) for large text, normal for body
@@ -308,22 +309,21 @@
 ## 7. Data Visualization
 
 ### Chart Colors
-```typescript
-const chartColors = {
-  primary: 'oklch(55% 0.2 145)',      // Main data series
-  secondary: 'oklch(55% 0.15 250)',   // Comparison
-  tertiary: 'oklch(55% 0.1 45)',      // Additional data
 
-  // Category breakdown (max 6 colors)
-  categories: [
-    'oklch(60% 0.15 145)',  // Green
-    'oklch(60% 0.15 250)',  // Blue
-    'oklch(60% 0.15 320)',  // Purple
-    'oklch(65% 0.15 85)',   // Orange
-    'oklch(60% 0.15 195)',  // Teal
-    'oklch(55% 0.1 0)',     // Gray
-  ]
-};
+Category colors are **identity only** — they answer "which category", never "good" or "bad". The palette therefore skips the income-green and expense-red hue ranges so a spending slice can never be misread as income or as an error. Money meaning stays with the `income`/`expense`/`warning` semantic tokens.
+
+Single source of truth: `colors.chart` in `webapp/src/shared/lib/design-tokens.ts`, mirrored as `--color-chart-1..6` in `globals.css` (a test asserts the two stay in sync). Never define a local palette in a chart component — import `getCategoryColorByIndex(index)` or `getChartColors(count)`.
+
+```typescript
+// Category breakdown — max 6 colors, cycles beyond that
+chart: [
+  'oklch(55% 0.15 250)',  // Blue
+  'oklch(55% 0.15 195)',  // Teal
+  'oklch(55% 0.15 320)',  // Purple
+  'oklch(70% 0.13 75)',   // Amber
+  'oklch(42% 0.1 265)',   // Indigo
+  'oklch(60% 0.01 250)',  // Gray
+]
 ```
 
 ### Chart Guidelines
@@ -443,9 +443,10 @@ const chartColors = {
 ## 10. Anti-Patterns to Avoid
 
 ### Typography
-- Inter with 500 weight (too subtle) — use 400 or 700
+- Weight 500 as a *hierarchy* step (heading vs body) — too subtle; use 600/700 against 400. It is fine for captions and control labels.
 - Purple/violet as primary color (AI slop)
-- Multiple font families on one screen
+- Multiple font families on one screen — Onest only
+- Ad-hoc font sizes/weights instead of shared tokens and typography components
 
 ### Colors
 - Gradient backgrounds on cards
@@ -468,7 +469,7 @@ const chartColors = {
 
 ```
 STYLE:        Minimal & Clean (Linear/Revolut vibe)
-FONT:         Inter 400/600/700
+FONT:         Onest 400–800 (500 for captions/controls, 600/700 for hierarchy)
 COLORS:       Neutral grays + ONE accent (green recommended)
 RADIUS:       Cards 24px, Buttons 12px, Inputs 12px
 ANIMATIONS:   Fade-in 300ms, Stagger 50ms, Hover 150ms

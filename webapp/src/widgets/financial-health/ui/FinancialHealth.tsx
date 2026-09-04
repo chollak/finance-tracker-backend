@@ -5,42 +5,7 @@ import { Skeleton } from '@/shared/ui/skeleton';
 import { useDashboardInsights } from '@/entities/dashboard';
 import { useUserStore } from '@/entities/user/model/store';
 import { ChevronDown, ChevronUp } from 'lucide-react';
-
-/**
- * Get health score color and label
- */
-function getHealthScoreInfo(score: number) {
-  if (score >= 80) {
-    return {
-      color: 'text-success',
-      bgColor: 'bg-success',
-      label: 'Отлично',
-      description: 'Ваше финансовое здоровье в отличном состоянии',
-    };
-  }
-  if (score >= 60) {
-    return {
-      color: 'text-warning',
-      bgColor: 'bg-warning',
-      label: 'Хорошо',
-      description: 'Финансовое состояние стабильное, но есть куда расти',
-    };
-  }
-  if (score >= 40) {
-    return {
-      color: 'text-warning',
-      bgColor: 'bg-warning',
-      label: 'Средне',
-      description: 'Рекомендуем пересмотреть расходы и увеличить накопления',
-    };
-  }
-  return {
-    color: 'text-expense',
-    bgColor: 'bg-expense',
-    label: 'Требует внимания',
-    description: 'Финансовое здоровье нуждается в улучшении',
-  };
-}
+import { getHealthScoreInfo } from '../lib/healthScore';
 
 /**
  * Financial health widget
@@ -67,7 +32,7 @@ export function FinancialHealth() {
 
   // Use healthScore from API (0-100 scale)
   const healthScore = Math.max(0, Math.min(100, dashboard?.healthScore?.score ?? 0));
-  const { color, label, description } = getHealthScoreInfo(healthScore);
+  const { color, barColor, label, description } = getHealthScoreInfo(healthScore);
 
   return (
     <Card>
@@ -83,7 +48,7 @@ export function FinancialHealth() {
         </div>
 
         {/* Progress Bar */}
-        <Progress value={healthScore} className="h-3" />
+        <Progress value={healthScore} className="h-3" indicatorClassName={barColor} />
 
         {/* Label & Description */}
         <div className="text-center space-y-2">

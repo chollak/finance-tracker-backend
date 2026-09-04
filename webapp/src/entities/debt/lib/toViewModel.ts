@@ -25,7 +25,9 @@ export function debtToViewModel(debt: Debt): DebtViewModel {
     _typeLabel: isIOwe ? 'Я должен' : 'Мне должны',
     _typeIcon: isIOwe ? '📤' : '📥',
     _statusLabel: isPaid ? 'Погашен' : isCancelled ? 'Отменён' : 'Активен',
-    _statusColor: isPaid ? 'text-green-600' : isCancelled ? 'text-gray-500' : 'text-blue-600',
+    // Status maps onto existing semantic roles only: paid = success, cancelled = muted,
+    // active = neutral chrome. Overdue is signalled separately by the card (FT-059).
+    _statusColor: isPaid ? 'text-success' : isCancelled ? 'text-muted-foreground' : 'text-foreground',
     _progressPercent: progressPercent,
     _isOverdue: isOverdue || false,
     _amountColor: isIOwe ? 'text-expense' : 'text-income',
