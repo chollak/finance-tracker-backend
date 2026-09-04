@@ -1,9 +1,10 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Loader2, Send, WifiOff } from 'lucide-react';
 
 import { Button } from '@/shared/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card';
 import { cn } from '@/shared/lib/utils';
+import { subscribeToCaptureFocus } from '@/shared/lib/captureFocus';
 import { useUserStore } from '@/entities/user/model/store';
 import { isGuestId } from '@/shared/lib/utils/guestId';
 
@@ -123,6 +124,7 @@ export function TextQuickCaptureCard({ className }: TextQuickCaptureCardProps) {
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [activeAction, setActiveAction] = useState<CaptureActionId | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
 
   const userId = useUserStore((state) => state.userId);
   const userName = useUserStore((state) => state.userName);
@@ -133,6 +135,24 @@ export function TextQuickCaptureCard({ className }: TextQuickCaptureCardProps) {
   const offlineNotice = toCaptureOfflineNotice(isOnline);
   const activeActionHint = captureActionHintFor(activeAction);
   const canSubmit = !!userId && isOnline && !capture.isPending && text.trim().length > 0;
+
+  /**
+   * The dock's `Записать` asks for this card; this is where that request is answered.
+   *
+   * The card is scrolled into view before focusing because on Home it can sit under the fold once
+   * a few recent rows are rendered, and a focus ring the user cannot see is not feedback. In guest
+   * mode there is no textarea — the card still scrolls into view, so the press lands on the
+   * explanation of why text capture is unavailable rather than on nothing at all.
+   */
+  useEffect(
+    () =>
+      subscribeToCaptureFocus(() => {
+        const field = textareaRef.current;
+        (field ?? cardRef.current)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        field?.focus({ preventScroll: true });
+      }),
+    []
+  );
 
   /**
    * Scan and voice open their hint; manual hands focus to the textarea, which is the capture
@@ -195,7 +215,7 @@ export function TextQuickCaptureCard({ className }: TextQuickCaptureCardProps) {
   };
 
   return (
-    <Card className={cn('overflow-hidden', className)}>
+    <Card ref={cardRef} className={cn('overflow-hidden', className)}>
       <CardHeader className="p-4 pb-3">
         <CardTitle>Запишите одной строкой</CardTitle>
       </CardHeader>

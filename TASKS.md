@@ -50,7 +50,7 @@
 | 6. Полировка под гайдлайны | Цвет, шрифт, язык | FT-059 ✅, FT-060 ✅, FT-061 ✅ |
 | 7. Продукт P1 / решения | Приоритеты разделов, premium, лимиты, внимание | FT-054, FT-062, FT-063, FT-069, FT-071, FT-051 |
 | 8. Quick capture first | Главный экран = быстрый ввод, остальное ниже/в «Ещё» | FT-073 ✅, FT-074 ✅, FT-076 ✅, FT-075 ✅ (dev/test) |
-| 9. Quick action UI redesign | Полный редизайн Mini App вокруг быстрого действия; старые фичи вторичны | FT-077 ✅, FT-078 ✅, FT-079, FT-080, FT-081, FT-082, FT-083, FT-084, FT-085 |
+| 9. Quick action UI redesign | Полный редизайн Mini App вокруг быстрого действия; старые фичи вторичны | FT-077 ✅, FT-078 ✅, FT-079 ✅, FT-080, FT-081, FT-082, FT-083, FT-084, FT-085 |
 | — backlog | Требует живого прода / Supabase; не текущий фокус | FT-046 |
 | — backlog / future decision | Продовая auth-модель для Shortcut (токен, отзыв, rate limit) — не блокер локального quick action dogfood | FT-075 (prod-часть) |
 
@@ -723,22 +723,37 @@ Verification 2026-09-04:
 
 ### FT-079: Capture-first bottom dock
 
-Status: backlog
+Status: done
 Priority: high
 Owner: Claude Code, QA by Hermes
 Type: quick-action-ui
 
 Context:
-The current mobile dock is navigation with a central `+` that opens the old manual `QuickAddSheet`. For a quick-action product, the most prominent global control must lead to the fastest capture flow, not the slowest manual form.
+The mobile dock used to be navigation with a central `+` that opened the old manual `QuickAddSheet`. For quick-action product, the most prominent global control now leads to fast capture: `Записать` focuses the quick-capture textarea on Home, or navigates Home and then focuses it from other routes.
 
 Definition of Done:
-- [ ] Dock becomes action-first or otherwise makes quick capture the most prominent action
-- [ ] Recommended labels: `Чек` (`Скоро`) / `Записать` / `Вручную`
-- [ ] History and More remain reachable without route deletion
-- [ ] Manual form is demoted to explicit fallback
-- [ ] No fake scan/voice implementation is implied
-- [ ] Hit targets remain >= 44px and center alignment is measured at 375 / 390 / 412
-- [ ] `npm run verify` passes
+- [x] Dock becomes action-first or otherwise makes quick capture the most prominent action
+- [x] Recommended labels: center `Записать`; manual form is demoted to non-center fallback
+- [x] History and More remain reachable without route deletion
+- [x] Manual form is demoted to explicit fallback via ordinary `+` dock item / aria label
+- [x] No fake scan/voice implementation is implied
+- [x] Hit targets remain >= 44px and center alignment is measured at 375 / 390 / 412
+- [x] `npm run verify` passes
+
+Implementation 2026-09-04:
+- Added `webapp/src/shared/ui/capture-dock.tsx` with labelled primary `Записать` pill.
+- Added `webapp/src/shared/lib/captureFocus.ts` latch so dock press on `/transactions` or `/more` navigates Home and focuses the mounted capture textarea.
+- Updated `BottomNav`: left side Home/History, center `Записать`, right side manual fallback `+` and More.
+- Updated `TextQuickCaptureCard` to subscribe to capture focus requests and scroll/focus the textarea/card.
+- Updated `scripts/mobile-ui-audit.js` so Telegram-mode screenshots inject the dev user header and measure `[data-dock-center]` instead of the old add button.
+
+Verification 2026-09-04:
+- `npm run test:webapp` — 18 Vitest files / 143 tests passed, including `captureFocus` tests.
+- `npm run build:webapp` — passed; existing chunk-size/Browserslist warnings only.
+- `npm run verify` — backend build, 34 Jest suites / 433 tests, webapp tests/build, font check, dependency-cruiser and madge all passed.
+- Screenshot QA via `npm run design:audit`: Home / Transactions / More at 375, 390, 412 under `/tmp/ft079-final/{375,390,412}/screenshots/`; issueCount `0` after audit header fix.
+- Center measurement: 390 and 412 exactly centered; 375 center delta `+2px`, acceptable visual tolerance with labelled pill.
+- Interaction smoke: clicking `Записать операцию` from `/transactions` navigates to `/`, focuses `#quick-capture-text`, no console errors or bad responses.
 
 ---
 

@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { Home, Receipt, MoreHorizontal, Plus } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { ROUTES } from '@/shared/lib/constants/routes';
+import { requestCaptureFocus } from '@/shared/lib/captureFocus';
 import { useUserStore } from '@/entities/user/model/store';
 import { transactionKeys } from '@/entities/transaction/api/keys';
 import { transactionToViewModel } from '@/entities/transaction/lib/toViewModel';
@@ -17,6 +18,7 @@ import type { Transaction, BudgetSummary, Debt } from '@/shared/types';
 import { haptic } from '@/shared/lib/haptic';
 import { ControlledQuickAddSheet } from '@/features/quick-add';
 import { Dock, DockItem, DockSeparator, DockSplit } from './dock';
+import { CaptureDockAction } from './capture-dock';
 
 const routeNavItems = [
   {
@@ -36,16 +38,26 @@ const routeNavItems = [
   },
 ];
 
-// Side zones of the dock. They are laid out as equal-width columns, so an
-// uneven split (2 / 1 since Budgets moved under "Ещё") still keeps the centre
-// action on the viewport axis.
+// Side zones of the dock. They are laid out as equal-width columns, so the
+// centre action stays on the viewport axis whatever sits beside it. Left holds
+// the two routes a capture concerns (where you write, where you correct); right
+// holds the manual fallback and everything non-daily.
 const LEFT_NAV_ITEMS = routeNavItems.slice(0, 2);
-const RIGHT_NAV_ITEMS = routeNavItems.slice(2);
+const MORE_NAV_ITEM = routeNavItems[2];
+
+/** Dock item size in px — also the minimum touch target the dock has to keep. */
+const DOCK_ITEM_SIZE = 46;
 
 /**
  * Bottom navigation for mobile devices
  * Hidden on desktop (md:hidden)
  * Optimized: Prefetches data on hover/focus for instant navigation
+ *
+ * The dock is capture-first: the centre is `Записать`, which hands focus to the quick-capture
+ * field, not the manual transaction form. The manual form used to own that centre `+`, which
+ * pointed the app's most prominent control at its slowest flow. It is still here — as `Вручную`,
+ * at ordinary nav weight — because it is the fallback when a sentence cannot be parsed or the
+ * user is a guest. Routes are untouched: Главная, История and Ещё all still reach their pages.
  */
 export function BottomNav() {
   const location = useLocation();
@@ -157,6 +169,23 @@ export function BottomNav() {
     );
   };
 
+  /**
+   * Centre press = "I want to write something down".
+   *
+   * On Home the capture field is already mounted, so the request lands straight away. Anywhere
+   * else the dock navigates Home first; `requestCaptureFocus()` is latched, so the card picks the
+   * request up when it mounts rather than the press being swallowed by the route change.
+   */
+  const handleCapturePress = () => {
+    haptic.press();
+
+    if (location.pathname !== ROUTES.HOME) {
+      navigate(ROUTES.HOME);
+    }
+
+    requestCaptureFocus();
+  };
+
   return (
     <>
       <nav
@@ -164,26 +193,33 @@ export function BottomNav() {
         className="pointer-events-none fixed inset-x-0 bottom-0 z-50 flex justify-center px-3 pb-[calc(env(safe-area-inset-bottom)+0.7rem)] pt-8 md:hidden"
       >
         <div className="absolute inset-x-0 bottom-0 -z-10 h-28 bg-gradient-to-t from-background via-background/95 to-transparent" aria-hidden="true" />
-        <Dock size={46} className="pointer-events-auto w-full max-w-xs rounded-[1.65rem]">
+        {/*
+          `max-w-sm` rather than the old `max-w-xs`: the centre is now a labelled pill instead of
+          a 46px circle, and the side zones still have to hold two 46px targets each at 375px.
+        */}
+        <Dock size={DOCK_ITEM_SIZE} className="pointer-events-auto w-full max-w-sm rounded-[1.65rem]">
           <DockSplit
             left={LEFT_NAV_ITEMS.map((item) => renderDockItem(item))}
             center={
               <>
                 <DockSeparator />
-                <DockItem
-                  variant="primary"
-                  aria-label="Добавить транзакцию"
-                  onClick={() => {
-                    haptic.press();
-                    setQuickAddOpen(true);
-                  }}
-                >
-                  <Plus className="h-5 w-5" aria-hidden="true" />
-                </DockItem>
+                <CaptureDockAction size={DOCK_ITEM_SIZE} onClick={handleCapturePress} />
                 <DockSeparator />
               </>
             }
-            right={RIGHT_NAV_ITEMS.map((item) => renderDockItem(item))}
+            right={[
+              <DockItem
+                key="manual"
+                aria-label="Вручную — форма транзакции"
+                onClick={() => {
+                  haptic.press();
+                  setQuickAddOpen(true);
+                }}
+              >
+                <Plus className="h-5 w-5" aria-hidden="true" />
+              </DockItem>,
+              renderDockItem(MORE_NAV_ITEM),
+            ]}
           />
         </Dock>
       </nav>

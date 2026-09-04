@@ -99,6 +99,8 @@ function rect(el) {
     });
 
     if (authMode === 'telegram') {
+      await page.setExtraHTTPHeaders({ 'X-Dev-User-Id': telegramUserId });
+
       await page.addInitScript(({ userId, userName }) => {
         window.localStorage.setItem(
           'finance-tracker-user',
@@ -180,8 +182,12 @@ function rect(el) {
         };
       };
 
-      const navButton = document.querySelector('nav button[aria-label="Добавить транзакцию"]');
-      const navButtonRect = navButton ? rectOf('nav button[aria-label="Добавить транзакцию"]') : null;
+      // The dock's primary action carries `data-dock-center` so this metric survives label
+      // changes; the old aria-label is kept as a fallback for pre-FT-079 builds.
+      const centerSelector = document.querySelector('nav [data-dock-center]')
+        ? 'nav [data-dock-center]'
+        : 'nav button[aria-label="Добавить транзакцию"]';
+      const navButtonRect = rectOf(centerSelector);
 
       const actions = [...document.querySelectorAll('button,a')].map((el) => {
         const r = el.getBoundingClientRect();

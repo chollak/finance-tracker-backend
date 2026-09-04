@@ -28,6 +28,7 @@ export * from './segmented-button-group';
 export * from './segmented-tabs';
 export * from './typography';
 export * from './dock';
+export * from './capture-dock';
 
 // Navigation components
 export * from './bottom-nav';
