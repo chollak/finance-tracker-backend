@@ -50,6 +50,7 @@
 | 6. Полировка под гайдлайны | Цвет, шрифт, язык | FT-059 ✅, FT-060 ✅, FT-061 ✅ |
 | 7. Продукт P1 / решения | Приоритеты разделов, premium, лимиты, внимание | FT-054, FT-062, FT-063, FT-069, FT-071, FT-051 |
 | 8. Quick capture first | Главный экран = быстрый ввод, остальное ниже/в «Ещё» | FT-073 ✅, FT-074 ✅, FT-076 ✅, FT-075 ✅ (dev/test) |
+| 9. Quick action UI redesign | Полный редизайн Mini App вокруг быстрого действия; старые фичи вторичны | FT-077 ✅, FT-078, FT-079, FT-080, FT-081, FT-082, FT-083, FT-084, FT-085 |
 | — backlog | Требует живого прода / Supabase; не текущий фокус | FT-046 |
 | — backlog / future decision | Продовая auth-модель для Shortcut (токен, отзыв, rate limit) — не блокер локального quick action dogfood | FT-075 (prod-часть) |
 
@@ -74,6 +75,8 @@ Docs-сверка 2026-08-16 (только Markdown, очередь задач �
 Ревизия 2026-09-04 после FT-060: русская плюрализация сведена в один хелпер `webapp/src/shared/lib/plural.ts`; четыре локальные копии правила (limit-warning, premium status, budget lib) удалены, счётчики на `/debts`, `/budgets`, `/transactions`, Home и в форме бюджета согласованы с числительным. Активная очередь — **FT-061**.
 
 Ревизия 2026-09-04 после FT-061: Onest больше не тянется с Google Fonts — шрифт приходит из npm-пакета `@fontsource-variable/onest`, объявлен в `webapp/src/app/styles/fonts.css` и отдаётся своим Express-сервером; в `npm run verify` добавлен `npm run check:fonts`, который падает при возврате CDN-ссылок. Веха 6 «Полировка под гайдлайны» закрыта целиком (FT-059, FT-060, FT-061). **Безопасных активных задач локальной полировки не осталось.** Шукур явно перенёс все оставшиеся не-quick-action задачи в backlog: `FT-049`/`FT-050` (GitHub/ветки), продовая auth-модель Shortcut из `FT-075`, применение backfill из `FT-045`, продуктовые решения вехи 7 (`FT-054`, `FT-062`, `FT-063`, `FT-069`, `FT-071`, `FT-051`), `FT-048` и замороженный ранее `FT-046`. Главный текущий фокус — dogfood и развитие quick action; к backlog можно вернуться позже только по явному запросу.
+
+Ревизия 2026-09-04 UI redesign: после отдельного read-only аудита Claude Code и screenshot review текущий фокус расширен до **полного редизайна Mini App вокруг quick action**. План: `.hermes/plans/2026-09-04_173401-quick-action-ui-redesign-roadmap.md`. Новая веха 9 добавлена как incremental slices: сначала `FT-077` today-spend hero, затем `FT-078` capture card, `FT-079` action dock, `FT-080` compact recent rows, `FT-081` History, `FT-082` More, `FT-083` убрать dashboard dependency с Home, `FT-084` saved toast/real undo, `FT-085` dark theme pair. Не возвращать бюджеты/долги/аналитику/premium в primary UX; они остаются вторичными/под More.
 
 ---
 
@@ -648,6 +651,203 @@ Definition of Done:
 - Сборка/тесты не запускались: изменения только в Markdown, кода они не касаются.
 
 ---
+
+### FT-077: Home today-spend hero
+
+Status: done
+Priority: high
+Owner: Claude Code, QA by Hermes
+Type: quick-action-ui
+
+Context:
+Quick-action redesign needs a daily feedback anchor before the capture card. Current Home showed date/status and then a form-like quick capture card; it did not answer “сколько я сегодня реально потратил?” in the first viewport. The chosen design direction (`1b · Say it — saved`) and new roadmap `.hermes/plans/2026-09-04_173401-quick-action-ui-redesign-roadmap.md` both require a large “spent today” number.
+
+Definition of Done:
+- [x] Home shows a compact “Потрачено сегодня” hero above Quick Capture
+- [x] The total counts only real expenses for the local day
+- [x] Own transfers, savings deposits, cash withdrawals, debt movements, archived rows and `needsReview` rows are excluded
+- [x] No new backend endpoint; derive from existing transaction data in the webapp
+- [x] Existing budgets/debts/analytics/premium remain absent from Home primary flow
+- [x] Tests cover real-expense filtering and date boundary logic
+- [x] Screenshot QA: Home at 375 / 390 / 412 with realistic data
+- [x] `npm run verify` passes
+
+Implementation 2026-09-04:
+- Added `webapp/src/widgets/today-total/` with pure `calculateTodayTotal()` / `formatTodayTotalMeta()` helpers, tests, widget UI and barrel export.
+- `TodayTotal` reuses `useTransactions(userId)` and React Query instead of a new backend/dashboard endpoint.
+- Home renders the today-spend hero above `TextQuickCaptureCard`; the old dashboard/budget/premium blocks remain absent.
+- Hermes fixed Claude Code’s unverified draft (`ReactNode` import and positive amount summing) before final QA.
+
+Verification 2026-09-04:
+- `npm run test:webapp` — 17 Vitest files / 138 tests passed.
+- `npm run build:webapp` — passed; existing chunk-size/Browserslist warnings only.
+- `npm run verify` — backend build, 34 Jest suites / 433 tests, 17 Vitest files / 138 tests, webapp build, `check:fonts`, dependency-cruiser and madge all passed.
+- Screenshot QA via Playwright with `X-Dev-User-Id: 131184740`: `/tmp/ft077-home-final/screenshots/home-375.png`, `home-390.png`, `home-412.png`; console errors and bad responses empty; nav center delta `0`; Home shows `ПОТРАЧЕНО СЕГОДНЯ` with real data (`235 000 UZS`, 13 operations, last 14:32).
+- Visual caveat: the old “Добавить” CTA and center `+` still compete with quick capture; intentionally deferred to `FT-079`/`FT-080`.
+
+---
+
+### FT-078: Quick Capture card visual redesign
+
+Status: backlog
+Priority: high
+Owner: Claude Code, QA by Hermes
+Type: quick-action-ui
+
+Context:
+`TextQuickCaptureCard` is correct functionally but still reads like a long explanatory form. Redesign it so the primary capture action feels fast and dominant while preserving honest limitations: no scanner, no Mini App recorder, no offline queue.
+
+Definition of Done:
+- [ ] Capture card visually dominates as the primary action without becoming wordy
+- [ ] Text input remains the working Mini App capture path
+- [ ] Scan and Mini App voice are represented honestly as unavailable/Telegram-only
+- [ ] Server ack details remain visible but compact
+- [ ] Offline/guest states remain truthful and do not fake persistence
+- [ ] Screenshot QA: Home at 375 / 390 / 412
+- [ ] `npm run verify` passes
+
+---
+
+### FT-079: Capture-first bottom dock
+
+Status: backlog
+Priority: high
+Owner: Claude Code, QA by Hermes
+Type: quick-action-ui
+
+Context:
+The current mobile dock is navigation with a central `+` that opens the old manual `QuickAddSheet`. For a quick-action product, the most prominent global control must lead to the fastest capture flow, not the slowest manual form.
+
+Definition of Done:
+- [ ] Dock becomes action-first or otherwise makes quick capture the most prominent action
+- [ ] Recommended labels: `Чек` (`Скоро`) / `Записать` / `Вручную`
+- [ ] History and More remain reachable without route deletion
+- [ ] Manual form is demoted to explicit fallback
+- [ ] No fake scan/voice implementation is implied
+- [ ] Hit targets remain >= 44px and center alignment is measured at 375 / 390 / 412
+- [ ] `npm run verify` passes
+
+---
+
+### FT-080: Compact transaction rows for recent list
+
+Status: backlog
+Priority: medium
+Owner: Claude Code, QA by Hermes
+Type: quick-action-ui
+
+Context:
+Recent transactions should feel like a quick correction log after capture, not a heavy management list. Current rows use large icon tiles and badges; the redesign should move toward compact scan-friendly rows with semantic money styling.
+
+Definition of Done:
+- [ ] Recent rows are compact and easy to scan on 375px
+- [ ] Semantic financial meaning drives amount color and badge visibility
+- [ ] Review/edit/delete affordances remain reachable
+- [ ] No full `/transactions` page rewrite in this slice
+- [ ] Screenshot QA: Home recent list at 375 / 390 / 412
+- [ ] `npm run verify` passes
+
+---
+
+### FT-081: History page daily-correction redesign
+
+Status: backlog
+Priority: medium
+Owner: Claude Code, QA by Hermes
+Type: quick-action-ui
+
+Context:
+`/transactions` should become a quick History/correction surface: recent-first, day groups, day totals, compact rows. Archive and bulk actions are still useful but should not define the primary daily UX.
+
+Definition of Done:
+- [ ] History reads as daily correction/review, not admin management
+- [ ] Search/filter are quieter and do not dominate the empty state
+- [ ] Archive/bulk actions remain available but secondary
+- [ ] Compact row component is reused or aligned with Home recent rows
+- [ ] Screenshot QA: History at 375 / 390 / 412, empty and populated states
+- [ ] `npm run verify` passes
+
+---
+
+### FT-082: More page quick-action hub
+
+Status: backlog
+Priority: medium
+Owner: Claude Code, QA by Hermes
+Type: quick-action-ui
+
+Context:
+More currently only lists old feature pages. It should become the secondary hub for capture channels/settings plus non-daily sections. Working budgets/debts/analytics must not be presented as broken; they are just not primary.
+
+Definition of Done:
+- [ ] More groups capture channels, actual settings, and “not daily” sections
+- [ ] Telegram bot / iPhone Shortcut / Mini App text capture are represented clearly
+- [ ] Budgets, debts and analytics remain reachable as secondary links
+- [ ] No fake toggles/settings that do not persist
+- [ ] Screenshot QA: More at 375 / 390 / 412
+- [ ] `npm run verify` passes
+
+---
+
+### FT-083: Remove dashboard dependency from Home
+
+Status: backlog
+Priority: medium
+Owner: Claude Code, QA by Hermes
+Type: quick-action-ui/performance
+
+Context:
+Home visually hides dashboard blocks but `AttentionSummary` and dock prefetch still depend on dashboard/budget/analytics-shaped data. Quick-action Home should avoid heavy dashboard dependencies unless a real signal is needed.
+
+Definition of Done:
+- [ ] Home no longer fetches dashboard data only for daily capture chrome
+- [ ] Review/attention signal is derived from transaction/review data already needed by Home, or deferred if not available
+- [ ] Budgets/analytics do not leak back into Home via attention copy
+- [ ] No backend change unless separately approved
+- [ ] `npm run verify` passes
+
+---
+
+### FT-084: Saved toast and real undo decision
+
+Status: backlog
+Priority: medium
+Owner: Claude Code, QA by Hermes
+Type: quick-action-ui
+
+Context:
+Speed-first capture needs fast feedback. A saved toast is useful; Undo is only acceptable if it calls a real delete path and updates caches. Do not render decorative Undo.
+
+Definition of Done:
+- [ ] Capture success shows compact, non-blocking saved feedback
+- [ ] `needsReview` and `no_transaction` remain clearly distinct
+- [ ] Undo is either omitted or wired to real delete + cache update
+- [ ] No fake action hints
+- [ ] Tests cover feedback/action behavior
+- [ ] Screenshot QA: saved, needs-review and error states
+- [ ] `npm run verify` passes
+
+---
+
+### FT-085: Dark theme pair for quick-action UI
+
+Status: backlog
+Priority: low
+Owner: Claude Code, QA by Hermes
+Type: design-system
+
+Context:
+The chosen Claude Design direction is dark-first, but the repo is currently light-only. Dark theme should be a separate, explicit slice after the quick-action posture is working.
+
+Definition of Done:
+- [ ] `.dark` tokens or equivalent theme pair implemented deliberately
+- [ ] Onest remains self-hosted; no Google Fonts/CDN regression
+- [ ] Telegram theme behavior is decided and implemented if in scope
+- [ ] Light and dark screenshots at 375 / 390 / 412 pass visual QA
+- [ ] `npm run verify` passes
+
+---
+
 
 ### FT-059: Close design-guideline drift
 
