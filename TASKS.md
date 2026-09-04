@@ -50,8 +50,8 @@
 | 6. Полировка под гайдлайны | Цвет, шрифт, язык | FT-059 ✅, FT-060 ✅, FT-061 ✅ |
 | 7. Продукт P1 / решения | Приоритеты разделов, premium, лимиты, внимание | FT-054, FT-062, FT-063, FT-069, FT-071, FT-051 |
 | 8. Quick capture first | Главный экран = быстрый ввод, остальное ниже/в «Ещё» | FT-073 ✅, FT-074 ✅, FT-076 ✅, FT-075 ✅ (dev/test) |
-| — frozen | Требует живого прода / Supabase | FT-046 |
-| — future decision | Продовая auth-модель для Shortcut (токен, отзыв, rate limit) — не блокер локального контура | FT-075 (prod-часть) |
+| — backlog | Требует живого прода / Supabase; не текущий фокус | FT-046 |
+| — backlog / future decision | Продовая auth-модель для Shortcut (токен, отзыв, rate limit) — не блокер локального quick action dogfood | FT-075 (prod-часть) |
 
 Веха 0 появилась после сквозного тестирования: редактирование транзакции и возврат из архива не работают вовсе, а суммы вида «12 млн» сохраняются как 12. Это ломает работу с данными раньше, чем начинаются вопросы к их интерпретации.
 
@@ -73,7 +73,7 @@ Docs-сверка 2026-08-16 (только Markdown, очередь задач �
 
 Ревизия 2026-09-04 после FT-060: русская плюрализация сведена в один хелпер `webapp/src/shared/lib/plural.ts`; четыре локальные копии правила (limit-warning, premium status, budget lib) удалены, счётчики на `/debts`, `/budgets`, `/transactions`, Home и в форме бюджета согласованы с числительным. Активная очередь — **FT-061**.
 
-Ревизия 2026-09-04 после FT-061: Onest больше не тянется с Google Fonts — шрифт приходит из npm-пакета `@fontsource-variable/onest`, объявлен в `webapp/src/app/styles/fonts.css` и отдаётся своим Express-сервером; в `npm run verify` добавлен `npm run check:fonts`, который падает при возврате CDN-ссылок. Веха 6 «Полировка под гайдлайны» закрыта целиком (FT-059, FT-060, FT-061). **Безопасных активных задач локальной полировки не осталось.** Дальше — только то, что требует решения или разрешения Шукура: `FT-049`/`FT-050` (внешние действия с GitHub и ветками), продовая auth-модель Shortcut из `FT-075`, применение backfill из `FT-045`, и продуктовые решения из вехи 7 (`FT-054`, `FT-062`, `FT-063`, `FT-069`, `FT-071`, `FT-051`) плюс `FT-048`. Не начинать их без явного запроса.
+Ревизия 2026-09-04 после FT-061: Onest больше не тянется с Google Fonts — шрифт приходит из npm-пакета `@fontsource-variable/onest`, объявлен в `webapp/src/app/styles/fonts.css` и отдаётся своим Express-сервером; в `npm run verify` добавлен `npm run check:fonts`, который падает при возврате CDN-ссылок. Веха 6 «Полировка под гайдлайны» закрыта целиком (FT-059, FT-060, FT-061). **Безопасных активных задач локальной полировки не осталось.** Шукур явно перенёс все оставшиеся не-quick-action задачи в backlog: `FT-049`/`FT-050` (GitHub/ветки), продовая auth-модель Shortcut из `FT-075`, применение backfill из `FT-045`, продуктовые решения вехи 7 (`FT-054`, `FT-062`, `FT-063`, `FT-069`, `FT-071`, `FT-051`), `FT-048` и замороженный ранее `FT-046`. Главный текущий фокус — dogfood и развитие quick action; к backlog можно вернуться позже только по явному запросу.
 
 ---
 
@@ -200,7 +200,7 @@ Definition of Done:
 
 ### FT-069: Premium boundary is incoherent and bypassable
 
-Status: blocked
+Status: backlog
 Priority: low
 Owner: Hermes
 Type: product
@@ -375,7 +375,7 @@ Definition of Done:
 
 ### FT-054: Semantic type in manual transaction form
 
-Status: blocked
+Status: backlog
 Priority: high
 Owner: Hermes
 Type: product-ux
@@ -909,7 +909,7 @@ Verification 2026-09-03:
 
 ### FT-046: Apply Supabase migrations 007 and 008
 
-Status: frozen
+Status: backlog
 Priority: low
 Owner: Shukur + Hermes
 Type: infra
@@ -980,7 +980,7 @@ Notes:
 
 ### FT-048: Upgrade sqlite3 to v6
 
-Status: blocked
+Status: backlog
 Priority: low
 Owner: Claude Code
 Type: tech-debt
@@ -1000,7 +1000,7 @@ Definition of Done:
 
 ### FT-049: Reconcile task board with GitHub Issues
 
-Status: ready
+Status: backlog
 Priority: high
 Owner: Hermes
 Type: process
@@ -1022,7 +1022,7 @@ Definition of Done:
 
 ### FT-050: Prune stale branches
 
-Status: ready
+Status: backlog
 Priority: low
 Owner: Claude Code
 Type: repo-hygiene
