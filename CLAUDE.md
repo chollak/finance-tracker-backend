@@ -4,9 +4,26 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Current Operating Mode — READ FIRST
 
+> ### ⚠️ 2026-09-06 — доска задач разделена
+>
+> `TASKS.md` больше не содержит закрытые задачи. В нём только текущий фокус, задача в работе,
+> очередь и таблица backlog — 176 строк вместо 3767.
+>
+> | Что | Где |
+> |---|---|
+> | Задача в работе, очередь, таблица backlog | `TASKS.md` |
+> | Отложенные задачи с описаниями | `docs/tasks/backlog.md` |
+> | 102 закрытые задачи с отчётами | `docs/tasks/archive/` |
+> | Лог решений по плану, новые сверху | `docs/tasks/decisions.md` |
+> | Правила доски, статусы, роли, формат задачи | `docs/tasks/README.md` |
+>
+> **Закрывая задачу, переноси её тело целиком в нужный файл `docs/tasks/archive/` — не оставляй
+> её в доске со `Status: done`.** Снимая с очереди — переноси в `docs/tasks/backlog.md`, в доске
+> оставляй строку таблицы. Подробности и причина: `docs/tasks/decisions.md`, запись 2026-09-06.
+
 **Goal now:** довести существующий Telegram-first finance tracker до состояния «одной кнопкой поднял и пользуюсь сам локально». Do not rebuild broad product areas or revive old production/AWS plans.
 
-**Source of truth for current work:** `TASKS.md` Active Plan. GitHub Issues/Wiki may contain stale January-era planning; use them only when a task explicitly asks to reconcile them.
+**Source of truth for current work:** `TASKS.md` — секция «Текущий фокус» и раздел «В работе» (раскладку см. в блоке выше). GitHub Issues/Wiki may contain stale January-era planning; use them only when a task explicitly asks to reconcile them.
 
 **Runtime target now:** local WSL + SQLite + Telegram polling + Cloudflare quick tunnel for Mini App phone testing. Production/AWS is intentionally parked; `sapaev.uz` and Supabase are not the active dev path.
 
@@ -428,7 +445,9 @@ interface Category {
 
 ### Local Task Board
 
-- Read `TASKS.md` Active Plan before starting work.
+- Read the «Текущий фокус» section of `TASKS.md` before starting work; the task to implement is under «В работе».
+- Layout: `TASKS.md` (в работе + очередь + таблица backlog) · [`docs/tasks/README.md`](docs/tasks/README.md) (правила, статусы, роли) · [`docs/tasks/decisions.md`](docs/tasks/decisions.md) (лог решений, новые сверху) · [`docs/tasks/backlog.md`](docs/tasks/backlog.md) (отложенные задачи) · [`docs/tasks/archive/`](docs/tasks/archive/) (закрытые задачи с отчётами).
+- When Hermes closes a task, move its whole body to the matching file in `docs/tasks/archive/` — do not keep `done` tasks on the board.
 - Work on exactly one FT task at a time.
 - Claude Code may implement and run tests, but Hermes is the final QA gate and marks tasks `done`.
 - Before `done`, Hermes verifies real output: diff, targeted tests, `npm run verify`, and screenshot/API smoke when relevant.
@@ -585,7 +604,10 @@ fixes #70"
 
 | Тип информации | Где хранить |
 |----------------|-------------|
-| Текущие задачи relaunch/local daily use | `TASKS.md` |
+| Задача в работе и очередь | `TASKS.md` |
+| Отложенные задачи | `docs/tasks/backlog.md` |
+| Закрытые задачи с отчётами | `docs/tasks/archive/` |
+| Решения, менявшие направление | `docs/tasks/decisions.md` |
 | Будущая GitHub-синхронизация | FT-049, then GitHub Issues/Project if Shukur confirms |
 | Архитектурные решения | GitHub Wiki (Product Decisions) + `docs/knowledge-base/` |
 | API документация | GitHub Wiki (API Reference) |

@@ -20,10 +20,14 @@ The project is still transitioning from foundation cleanup into product feature 
 
 ## Current Source of Truth
 
-Primary task board:
+Primary task board (разделён 2026-09-06):
 
 ```text
-TASKS.md
+TASKS.md                  # только живая работа: в работе + очередь + таблица backlog
+docs/tasks/README.md      # правила, статусы, роли, формат задачи
+docs/tasks/decisions.md   # лог решений по плану, новые сверху
+docs/tasks/backlog.md     # отложенные задачи с полными описаниями
+docs/tasks/archive/       # закрытые задачи с отчётами «Реализовано / Проверка»
 ```
 
 Execution/report log:
@@ -42,6 +46,10 @@ docs/knowledge-base/
 ## How to Use `TASKS.md`
 
 `TASKS.md` should remain a high-level dashboard, not a raw activity log.
+
+Правило разделения: в `TASKS.md` живёт только то, над чем идёт или пойдёт работа. Закрытая задача
+переносится целиком в соответствующий файл `docs/tasks/archive/`, а не остаётся в доске с пометкой
+`done`; снятая с очереди — в `docs/tasks/backlog.md`, в доске от неё остаётся строка таблицы.
 
 Use it for:
 

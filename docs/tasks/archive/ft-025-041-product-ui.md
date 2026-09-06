@@ -1,0 +1,1214 @@
+# Архив задач — Продукт и UI: дизайн-система, мобильная вёрстка, семантика ввода
+
+Отрезок про то, как продукт выглядит и как в него попадают данные: UI-аудиты, дизайн-система, нижняя навигация, типографика, быстрые текстовые пути ввода. Задачи FT-025…FT-041 и их подзадачи.
+
+Закрыто задач: **36**. Это архив: задачи здесь не переоткрываются и не редактируются.
+Активная доска — [`TASKS.md`](../../../TASKS.md), решения по плану — [`decisions.md`](../decisions.md).
+
+---
+
+### FT-025: Fast simple text transaction parser
+
+Status: done
+Priority: high
+Owner: Hermes
+Type: ux/performance
+
+Context:
+Live dev-bot testing showed simple messages like `кофе 15000 сум` worked after OpenAI configuration was fixed, but response latency was noticeably high because every text input went through OpenAI.
+
+Goal:
+Handle simple quick-add text transactions locally before falling back to OpenAI for complex natural language and debts.
+
+Scope:
+- Simple format only: `<label> <amount> [сум|sum|uzs]`
+- Expense transactions only
+- Use canonical category IDs via existing category alias normalization
+- Keep OpenAI fallback for complex phrases and debt phrases
+
+Definition of Done:
+- [x] Regression test proves `кофе 15000 сум` creates a transaction without calling OpenAI
+- [x] Simple parser maps label aliases to category IDs (`кофе` → `coffee`)
+- [x] Debt-like phrases still fall back to OpenAI
+- [x] Targeted `processTextInput` tests pass
+- [x] `npm run verify` passes
+
+Implementation notes:
+- Updated `src/modules/voiceProcessing/application/processTextInput.ts`.
+- Added a local `parseSimpleTextTransaction` fast path before `openAIService.analyzeInput`.
+- Updated `tests/processTextInput.test.ts` with TDD coverage for OpenAI bypass.
+
+---
+
+---
+
+### FT-026: Recurring budget periods
+
+Status: done
+Priority: high
+Owner: Hermes
+Type: product/backend+ui
+
+Context:
+Current budgets are fixed date ranges (`startDate`/`endDate`). Users expect `period: monthly` budgets to roll over automatically each month, but current behavior can keep showing the old period or accumulate spending across the selected fixed range.
+
+Goal:
+Make budgets behave like recurring rules: e.g. `Коммунальные — 2 000 000 / month` should calculate spending for the current monthly cycle and reset the displayed spent amount each new period without requiring manual budget recreation.
+
+Scope:
+- Add/define `BudgetPeriodCalculator` for current daily/weekly/monthly/quarterly/yearly cycle from an anchor date.
+- Budget summaries should calculate `spent`, `remaining`, `percentageUsed`, and `daysRemaining` for the current cycle.
+- Preserve old `startDate` as the anchor for existing budgets.
+- UI should clearly show current cycle label/date range (e.g. `Июль 2026`, `01.07–31.07`).
+- Add regression tests: monthly budget must not include previous-month expenses in the new month.
+
+Definition of Done:
+- [x] Backend tests cover monthly rollover/reset behavior.
+- [x] Budget summaries use current period date range.
+- [x] UI shows current budget period clearly.
+- [x] `npm run verify` passes.
+
+Implementation notes:
+- Added `BudgetPeriodCalculator` for current recurring daily/weekly/monthly/quarterly/yearly cycles from the original budget `startDate` anchor.
+- `BudgetService.recalculateBudgetSpending` now queries transactions for the current recurring cycle, so monthly budgets reset spending when the calendar moves to the next cycle.
+- Budget summaries expose the current cycle `startDate`/`endDate`; Mini App budget cards show the current period label (for example `Месячный • февраль 2024`).
+- Regression tests cover monthly rollover and preserve semantic spending exclusions (`needsReview` and non-expense movements stay excluded).
+
+Verification:
+- `npm test -- tests/budget.test.ts --runInBand` — passed.
+- `npm run build:webapp` — passed.
+- `npx tsc --noEmit` — passed.
+- `npm run verify` — passed: 24 suites / 229 tests, backend build, webapp build, dependency-cruiser, and madge.
+
+---
+
+### FT-027: UI/product improvement roadmap
+
+Status: done
+Priority: high
+Owner: Hermes + Claude Code
+Type: frontend-ui/product
+
+Context:
+Design review found that the Mini App works, but the UI is still more module-dashboard than financial assistant. The next product direction is to make the app insight-first: how much was spent, where limits are close/over, and what needs attention now.
+
+Roadmap:
+- `.hermes/plans/2026-07-22_175141-ui-product-improvements.md`
+
+Subtasks:
+- [x] FT-027A — Insight-first home and balance terminology
+- [x] FT-027B — Actionable budget remaining UX
+- [x] FT-027C — Mobile add CTA and bottom navigation review
+- [x] FT-027D — Simplify transaction archive surface
+- [x] FT-027E — Browser/screenshot UI QA
+
+Delegation policy:
+- Claude Code implements one slice at a time.
+- Claude Code must not commit/push.
+- Hermes reviews diff, runs `npm run build:webapp` / `npm run verify`, updates docs, then commits/pushes.
+
+---
+
+### FT-027A: Insight-first home and balance terminology
+
+Status: done
+Priority: high
+Owner: Claude Code, QA by Hermes
+Type: frontend-ui
+
+Problem:
+`BalanceCard` currently presents `netIncome` as `Баланс`, which can imply a real card/account balance. Home is data-first instead of answering what matters financially now.
+
+Scope:
+- `webapp/src/pages/home/ui/HomePage.tsx`
+- `webapp/src/widgets/balance-card/**`
+- small shared formatting/helper files if needed
+
+Definition of Done:
+- [x] User-facing text no longer implies `netIncome` is real card balance
+- [x] Home first screen is more insight-first using existing dashboard data
+- [x] Quick add income/expense remains available
+- [x] No backend/API/schema/env/package/deploy changes
+- [x] `npm run build:webapp` passes
+- [x] `npm run verify` passes before commit/push
+- [x] Hermes reviewed Claude Code diff
+
+Implementation notes:
+- `BalanceCard` now labels `netIncome` as `Чистый поток за месяц` and explains it is income minus expenses, not account/card balance.
+- Added `AttentionSummary` widget on Home using existing dashboard fields: over-budget count, near-limit budget count, and top spending category.
+- No backend/API/schema/env/package/deploy changes.
+
+Verification:
+- `npm run build:webapp` — passed.
+- `npm run verify` — passed: 18 suites / 166 tests, backend build, webapp build, dependency-cruiser, and madge.
+
+---
+
+### FT-027B: Actionable budget remaining UX
+
+Status: done
+Priority: high
+Owner: Claude Code, QA by Hermes
+Type: frontend-ui
+
+Problem:
+Budget cards show progress percentage and raw remaining amount, but should more directly tell the user what this means: `Осталось X`, `Перерасход X`, and how long until the period ends.
+
+Scope:
+- `webapp/src/entities/budget/ui/BudgetCard.tsx`
+- `webapp/src/entities/budget/lib/toViewModel.ts`
+- `webapp/src/entities/budget/model/types.ts` if new formatted fields are needed
+- `webapp/src/widgets/budget-overview/ui/BudgetOverview.tsx` if needed for consistency
+
+Definition of Done:
+- [x] Budget cards emphasize `Осталось X` or `Перерасход X`
+- [x] Budget period/time remaining is clear
+- [x] Progress percentage remains available but secondary
+- [x] No backend/API/schema/env/package/deploy changes
+- [x] `npm run build:webapp` passes
+- [x] `npm run verify` passes before commit/push
+- [x] Hermes reviewed Claude Code diff
+
+Implementation notes:
+- `budgetToViewModel` now exposes actionable headline fields: remaining/overspent label, amount, color, and time context.
+- `BudgetCard` promotes `Осталось X` / `Перерасход X` as the primary card message.
+- `BudgetOverview` now reuses `budgetToViewModel` for consistent compact budget summaries.
+- Overspend is calculated as `Math.max(0, spent - amount)`.
+
+Verification:
+- `npm run build:webapp` — passed.
+- `npm run verify` — passed: 18 suites / 166 tests, backend build, webapp build, dependency-cruiser, and madge.
+
+---
+
+### FT-027C: Mobile add CTA and bottom navigation review
+
+Status: done
+Priority: high
+Owner: Claude Code, QA by Hermes
+Type: frontend-ui
+
+Problem:
+Adding a transaction is the core action, but current UI uses separate FAB patterns across Home/Transactions/Budgets/Debts. On mobile this can overlap bottom navigation and Telegram safe areas.
+
+Scope:
+- `webapp/src/shared/ui/bottom-nav.tsx`
+- `webapp/src/pages/home/ui/HomePage.tsx`
+- `webapp/src/pages/transactions/ui/TransactionsPage.tsx`
+- `webapp/src/pages/budgets/ui/BudgetsPage.tsx`
+- `webapp/src/pages/debts/ui/DebtsPage.tsx` if needed for consistent FAB behavior
+- small shared component/helper under `webapp/src/shared/ui` or `webapp/src/features/quick-add` if useful
+
+Definition of Done:
+- [x] Mobile add transaction CTA is easier to discover
+- [x] FABs avoid bottom nav/safe-area overlap
+- [x] Desktop behavior remains reasonable
+- [x] Existing routes and quick-add behavior remain stable
+- [x] No backend/API/schema/env/package/deploy changes
+- [x] `npm run build:webapp` passes
+- [x] `npm run verify` passes before commit/push
+- [x] Hermes reviewed Claude Code diff
+
+Implementation notes:
+- Bottom navigation now has a central elevated add transaction action that opens `QuickAddSheet`.
+- Transactions page hides the duplicate mobile add-transaction FAB; desktop keeps the existing add button.
+- Budget/debt page FAB spacing is safe-area aware and clears the bottom nav.
+- Layout bottom padding is safe-area aware.
+
+Verification:
+- `npm run build:webapp` — passed.
+- `npm run verify` — passed: 18 suites / 166 tests, backend build, webapp build, dependency-cruiser, and madge.
+
+---
+
+### FT-027D: Simplify transaction archive surface
+
+Status: done
+Priority: medium
+Owner: Claude Code, QA by Hermes
+Type: frontend-ui
+
+Problem:
+The Transactions screen exposes `Архив`, `Активные`, and `Архивировать все` as prominent concepts. This is useful functionality, but can feel too technical/risky for MVP users compared with the main job: review and add transactions.
+
+Scope:
+- `webapp/src/pages/transactions/ui/TransactionsPage.tsx`
+- small shared UI imports if already present/needed
+
+Definition of Done:
+- [x] Archive functionality remains available
+- [x] Bulk archive action is less visually prominent / safer
+- [x] User-facing copy is clearer and less technical where possible
+- [x] Main transaction review flow remains simple
+- [x] No backend/API/schema/env/package/deploy changes
+- [x] `npm run build:webapp` passes
+- [x] `npm run verify` passes before commit/push
+- [x] Hermes reviewed Claude Code diff
+
+Implementation notes:
+- Transactions tabs now use `Текущие` / `Скрытые` copy instead of prominent archive jargon.
+- Bulk action moved out of the header into a quiet `Скрыть все текущие` action below the active list.
+- Confirmation dialog emphasizes that nothing is deleted and the transactions can be restored.
+- Hermes adjusted wording from `баланс` to `текущие итоги` to stay consistent with FT-027A terminology.
+
+Verification:
+- `npm run build:webapp` — passed.
+- `npm run verify` — passed: 18 suites / 166 tests, backend build, webapp build, dependency-cruiser, and madge.
+
+---
+
+### FT-027E: Browser/screenshot UI QA
+
+Status: done
+Priority: medium
+Owner: Claude Code, QA by Hermes
+Type: frontend-ui/qa
+
+Problem:
+FT-027A-D were verified by code review and builds, but still need browser-level mobile UI QA for visual hierarchy, nav/FAB overlap, and console/network issues.
+
+Scope:
+- QA/report only unless a tiny frontend-only fix is clearly necessary and safe.
+- Target screens: Home, Transactions, Budgets, Add Transaction, Add Budget.
+
+Definition of Done:
+- [x] Mobile viewport browser smoke attempted
+- [x] Console/network/API errors reported
+- [x] Visual issues around bottom nav, central CTA, FABs, and safe area assessed
+- [x] Screenshots or a precise tooling blocker captured
+- [x] Report saved under `/tmp`
+- [x] No backend/API/schema/env/package/deploy changes
+
+QA notes:
+- Report saved to `/tmp/finance-ft027e-ui-qa-report.md`.
+- Screenshots saved under `/tmp/finance-ft027e-screenshots/` (15 PNGs).
+- Dev and production passes covered Home, Transactions, Budgets, Add Transaction, and Add Budget at 390×844.
+- No console errors, page errors, or unexpected 4xx/5xx responses were found.
+- No P0/P1 UI defects found.
+- P2 doc/process finding: `/webapp/*` legacy redirect/docs wording are stale relative to root routing.
+- P3 dev-only finding: TanStack Query Devtools icon overlaps Save button in dev screenshot only; production is unaffected.
+
+---
+
+### FT-027F: Bottom navigation visual polish after Telegram screenshot
+
+Status: done
+Priority: high
+Owner: Hermes
+Type: frontend-ui/hotfix
+
+Context:
+Shukur shared a real Telegram Mini App screenshot showing that the FT-027C bottom navigation was functionally correct but visually ugly: the central black circular `+` looked too heavy, labels were cramped, and active state did not match the finance green accent.
+
+Changes:
+- [x] Changed `Транзакции` nav label to shorter `История` to reduce crowding
+- [x] Made active nav item use finance green accent
+- [x] Reduced central `+` from 56px black circle to calmer 48px green rounded-square action
+- [x] Added nav backdrop/shadow polish and tighter label spacing
+- [x] Captured post-fix mobile screenshot: `/tmp/ft027f-nav-after.png`
+- [x] `npm run build:webapp` passed
+- [x] `npm run verify` passed
+
+Verification:
+- Playwright mobile viewport screenshot captured with no console/network errors.
+- `npm run verify` passed: 18 suites / 166 tests, backend build, webapp build, dependency-cruiser, and madge.
+
+---
+
+### FT-027G: True-center mobile bottom nav and transactions alignment
+
+Status: done
+Priority: high
+Owner: Hermes
+Type: frontend-ui/hotfix
+
+Context:
+Real Telegram Mini App screenshots showed that the mobile bottom-nav `+` button was visually off-center. Claude Code review confirmed the root cause: 2 left items + center + 3 right items made the button sit at ~41.5% of screen width instead of 50%. Transactions page also had an inconsistent container/max-width strategy that made the page feel visually off.
+
+Changes:
+- [x] Bottom nav IA changed to `Главная | История | + | Бюджеты | Ещё`
+- [x] `Долги` and `Аналитика` moved behind a new `/more` page
+- [x] Bottom nav layout changed from asymmetric flex to `grid-cols-[1fr_auto_1fr]`
+- [x] `Ещё` tab is highlighted when on `/more`, `/debts`, or `/analytics`
+- [x] Transactions page root width simplified to `container mx-auto px-4 py-6`
+- [x] Transactions tabs made full-width and empty state spacing adjusted
+- [x] Production screenshots captured for nav and transactions
+- [x] `npm run build:webapp` passed
+- [x] `npm run verify` passed
+
+Verification evidence:
+- `/tmp/ft027g-prod-home-390.png`
+- `/tmp/ft027g-prod-transactions-390.png`
+- `/tmp/ft027g-visual-check.json`: center button equals viewport center at 375/390/412px
+- `npm run verify`: 18 suites / 166 tests passed, backend build, webapp build, dependency-cruiser, madge.
+
+---
+
+### FT-027H: Remove competing mobile budget FAB
+
+Status: done
+Priority: high
+Owner: Hermes
+Type: frontend-ui/hotfix
+
+Context:
+After centering the global bottom-nav `+`, the budget page still had its own mobile floating `+` button for creating budgets. This competed visually with the global center CTA and could confuse the hierarchy.
+
+Changes:
+- [x] Budget creation no longer uses a mobile floating FAB
+- [x] Desktop fixed `Создать бюджет` button preserved
+- [x] Mobile budget creation moved in-page for non-empty budget lists
+- [x] Empty-state budget CTA preserved
+- [x] Production mobile screenshot captured: `/tmp/ft027h-prod-budgets-auth-390.png`
+- [x] `npm run verify` passed
+
+---
+
+### FT-027I: Neutralize primary action styling and define design direction
+
+Status: done
+Priority: high
+Owner: Hermes
+Type: frontend-ui/design-system
+
+Context:
+The center bottom-nav `+` had been changed to green as a quick visual fix, but Shukur agreed this was semantically wrong: green is a financial success/income color, while adding a transaction is a generic primary action and may often be an expense.
+
+Changes:
+- [x] Center bottom-nav `+` changed from green success fill to neutral surface/border/foreground icon
+- [x] Bottom-nav active state changed from green to neutral foreground
+- [x] More page row icons changed from success green to neutral secondary surface
+- [x] Added `docs/knowledge-base/10-design-guidelines/style-direction.md`
+- [x] Updated design guidelines color rules to reserve green/red/orange for semantic money states
+- [x] Updated `globals.css` design-system header away from “Green Accent”
+- [x] Production screenshot captured: `/tmp/ft027g-prod-home-390.png`
+- [x] `npm run verify` passed
+
+---
+
+### FT-027J: Immediate UI regression cleanup after real-user review
+
+Status: done
+Priority: critical
+Owner: Hermes
+Type: frontend-ui/backend-analytics/hotfix
+
+Context:
+Shukur reported multiple UI regressions: neutral-white nav `+` became too subtle, Transactions page heading was incorrectly centered, transaction tabs looked compressed, Home showed `Зарплата` as the top spending category, recent transactions clipped/failed to scroll, and Debts still had a competing mobile floating FAB.
+
+Changes:
+- [x] Bottom-nav center `+` changed to visible neutral primary (`bg-primary`), not semantic green and not low-contrast white
+- [x] Transactions header restored to left alignment
+- [x] Transactions tabs height increased to reduce compressed feel
+- [x] Dashboard top categories now use expense-only, non-debt transactions so income categories like `Зарплата` cannot appear as top spending
+- [x] Attention summary copy changed to `Крупнее всего расходы` and supports wrapping
+- [x] Recent transactions on Home no longer uses nested fixed-height scroll; shows 5 rows inline and hides row action menu in the widget
+- [x] Transaction list amount column made truncation-safe on narrow screens
+- [x] Debts mobile floating FAB removed; desktop fixed button preserved
+- [x] Analytics tests updated for expense-only top categories
+- [x] `npm run verify` passed
+
+Verification evidence:
+- `/tmp/ft027j-audit-home-390.png`
+- `/tmp/ft027j-audit-transactions-390.png`
+- `/tmp/ft027j-audit-debts-390.png`
+- `npm run verify`: 18 suites / 166 tests passed, backend build, webapp build, dependency-cruiser, madge.
+
+---
+
+### FT-028: Full mobile UI audit and regression cleanup
+
+Status: done
+Priority: critical
+Owner: Hermes
+Type: frontend-ui/design-audit
+
+Context:
+Shukur reported that the app design had regressed after several isolated UI fixes. The task was to audit core mobile pages and bring urgent problems back toward a unified standard.
+
+Audit artifacts:
+- `/tmp/ft028-ui-audit/report.md`
+- `/tmp/ft028-ui-audit/metrics.json`
+- `/tmp/ft028-ui-audit/screenshots/*.png`
+
+Immediate fixes applied:
+- [x] Center bottom-nav `+` is visible neutral-primary (`bg-primary`), not green and not low-contrast white
+- [x] Transactions page header restored to left alignment
+- [x] Transactions segmented tabs made less compressed
+- [x] Home top spending uses expense-only, non-debt categories
+- [x] Recent transactions widget uses inline rows instead of nested fixed-height scroll
+- [x] Transaction list item amount column is truncation-safe on mobile
+- [x] Debts mobile floating FAB removed
+- [x] Analytics tests updated for expense-only top categories
+- [x] `npm run verify` passed
+
+Follow-up recommended:
+- FT-029 shared mobile page templates: `PageHeader`, `SegmentedTabs`, empty-state rules, form-page header/back pattern, repeatable screenshot QA.
+
+---
+
+### FT-029A: Shared mobile page header and segmented tabs foundation
+
+Status: done
+Priority: high
+Owner: Hermes
+Type: frontend-ui/design-system
+
+Context:
+Start the shared mobile page template cleanup recommended by FT-028. Goal is to stop per-page header/tab drift by introducing shared primitives and migrating the main list/utility pages.
+
+Changes:
+- [x] Added `PageHeader` shared component for mobile-first list/overview pages
+- [x] Added `SegmentedTabsList` and `SegmentedTabsTrigger` wrappers for consistent Radix tab styling
+- [x] Migrated Transactions page to `PageHeader` + segmented tab wrappers
+- [x] Migrated Budgets page guest and authenticated headers to `PageHeader`
+- [x] Migrated Debts page guest and authenticated headers to `PageHeader`
+- [x] Migrated More page to `PageHeader`
+- [x] Migrated Analytics page guest and authenticated headers to `PageHeader`
+- [x] Exported new primitives from `shared/ui`
+- [x] Screenshot metrics confirm list-page h1 alignment at x=16 and transactions tabs 358×48 at 390px viewport
+- [x] `npm run verify` passed
+
+Follow-up:
+- FT-029B: create shared segmented control for non-Radix filter tabs, starting with Debts filters.
+- FT-029C: standardize empty states and form-page headers/back actions.
+
+---
+
+### FT-029B/C: Shared segmented controls and form-page headers
+
+Status: done
+Priority: high
+Owner: Hermes
+Type: frontend-ui/design-system
+
+Context:
+Continue the autonomous FT-029 design-system cleanup. FT-029A introduced shared list-page headers and Radix tab wrappers. This slice adds shared non-Radix segmented controls and standardizes form-page headers.
+
+Changes:
+- [x] Added `SegmentedButtonGroup` for local state filter controls
+- [x] Migrated Debts filter buttons (`Все / Я должен / Мне должны`) to `SegmentedButtonGroup`
+- [x] Added `FormPageHeader` for pages outside bottom-nav layout
+- [x] Migrated Add Transaction header to `FormPageHeader`
+- [x] Migrated Add Budget guest/authenticated headers to `FormPageHeader`
+- [x] Migrated Add Debt guest/authenticated headers to `FormPageHeader`
+- [x] Exported new primitives from `shared/ui`
+- [x] Screenshot audit rerun after migration
+- [x] `npm run verify` passed
+
+Follow-up:
+- FT-029D: empty-state normalization and form submit visibility/keyboard-open audit.
+
+---
+
+### FT-029D: Empty-state dedupe and post-template screenshot audit
+
+Status: done
+Priority: high
+Owner: Hermes
+Type: frontend-ui/design-system
+
+Context:
+Continue autonomous FT-029 cleanup after shared headers and controls. Focus: remove duplicate budget empty states and rerun screenshot audit over form/list pages.
+
+Changes:
+- [x] Budget page no longer renders BudgetOverview empty state when there are no budgets, avoiding duplicate budget empty states
+- [x] Add form pages now share `FormPageHeader` from FT-029B/C
+- [x] Screenshot audit rerun for budgets, debts, transactions add, budgets add, debts add
+- [x] `npm run verify` passed
+
+Evidence:
+- `/tmp/ft028-ui-audit/screenshots/budgets-390.png`
+- `/tmp/ft028-ui-audit/screenshots/debts-390.png`
+- `/tmp/ft028-ui-audit/screenshots/add-transaction-390.png`
+- `/tmp/ft028-ui-audit/screenshots/add-budget-390.png`
+- `/tmp/ft028-ui-audit/screenshots/add-debt-390.png`
+
+Follow-up:
+- FT-029E: move screenshot capture script into repo as a reusable design QA gate.
+- FT-029F: keyboard-open / small-height form screenshots for Add Transaction/Budget/Debt.
+
+---
+
+### FT-029E: Reusable mobile screenshot audit gate
+
+Status: done
+Priority: high
+Owner: Hermes
+Type: frontend-ui/design-qa
+
+Context:
+Continue autonomous FT-029 cleanup by turning the one-off `/tmp` screenshot capture into a repo-local command that future UI slices can rerun consistently.
+
+Changes:
+- [x] Added `scripts/mobile-ui-audit.js` Playwright-based mobile route audit
+- [x] Added `npm run design:audit`
+- [x] Added root `playwright` dev dependency so the script does not rely on a Hermes-local npx cache
+- [x] Script captures screenshots and `metrics.json` for Home, Transactions, Budgets, Debts, More, add forms, and Analytics
+- [x] Script reports h1/tab/nav metrics and fails when console errors or bad network responses are detected
+- [x] `npm run design:audit` passed against local Vite app at 390×844
+- [x] `npm run verify` passed
+
+Evidence:
+- `/tmp/ft029e-mobile-ui-audit/metrics.json`
+- `/tmp/ft029e-mobile-ui-audit/screenshots/*.png`
+- Center nav `+`: `centerX=195`, `viewportCenterX=195` at 390px
+- List-page headers: `h1.x=16`; form-page headers: `h1.x=68`
+
+Follow-up:
+- FT-029F: keyboard-open / small-height form screenshots for Add Transaction/Budget/Debt.
+
+---
+
+### FT-029F: Small-height form screenshot audit
+
+Status: done
+Priority: high
+Owner: Hermes
+Type: frontend-ui/design-qa
+
+Context:
+Validate the add-form pages on a shorter mobile viewport as a proxy for keyboard-open / constrained Telegram Mini App height. Extend the reusable audit command where needed instead of relying on one-off scripts.
+
+Changes:
+- [x] Added `AUTH_MODE=telegram` support to `scripts/mobile-ui-audit.js` for authenticated-only form pages
+- [x] Added `ROUTES=...` filter support for focused audits without unrelated API noise
+- [x] Added `SCROLL_TO=bottom` support for submit-button visibility checks
+- [x] Captured authenticated top screenshots for Add Transaction/Budget/Debt at 390×667
+- [x] Captured authenticated bottom-scroll screenshots for Add Transaction/Budget/Debt at 390×667
+- [x] Confirmed issueCount=0 for focused form audits
+- [x] `npm run verify` passed
+
+Evidence:
+- Top screenshots: `/tmp/ft029f-small-height-auth-forms/screenshots/*.png`
+- Bottom screenshots: `/tmp/ft029f-small-height-auth-forms-bottom/screenshots/*.png`
+- Metrics: `/tmp/ft029f-small-height-auth-forms/metrics.json`, `/tmp/ft029f-small-height-auth-forms-bottom/metrics.json`
+- Form header alignment remains `h1.x=68`; submit buttons are reachable after scroll.
+
+Follow-up:
+- No immediate form layout code change needed from this slice.
+
+---
+
+### FT-030: Stable local Telegram Mini App launch flow
+
+Status: done
+Priority: high
+Owner: Hermes
+Type: developer-experience/telegram-mini-app
+
+Context:
+After FT-029, Mini App opening failed because the Cloudflare quick tunnel changed but Telegram's persistent menu button still pointed to the stale tunnel. `/start` inline buttons also embed URLs at message creation time, so local development needs a repeatable flow that keeps the tunnel, `.env` `WEB_APP_URL`, backend/bot process, and Telegram menu button in sync.
+
+Changes:
+- [x] Added `scripts/dev-miniapp.js` local Mini App helper
+- [x] Added `npm run dev:miniapp -- --chat-id=<telegram_chat_id>` for end-to-end phone/Mini App testing
+- [x] Added `npm run miniapp:menu -- status --chat-id=<telegram_chat_id>` for safe status inspection without printing the bot token
+- [x] Added `npm run miniapp:menu -- set --url=<https_url> --chat-id=<telegram_chat_id>` for existing tunnels
+- [x] Helper updates ignored local `.env` `WEB_APP_URL`
+- [x] Helper updates and verifies Telegram persistent menu button via Bot API without printing `TG_BOT_API_KEY`
+- [x] Helper can create a Cloudflare quick tunnel, build, run `npm run serve`, and probe the public Mini App URL
+- [x] README and CLAUDE.md document the Mini App phone-testing flow and stale-button pitfall
+- [x] `.env.example` documents optional `MINIAPP_CHAT_ID`
+
+Verification:
+- [x] `node --check scripts/dev-miniapp.js` passed
+- [x] `npm run miniapp:menu -- status --chat-id=131184740` showed current menu URL safely
+- [x] `node scripts/dev-miniapp.js run --url=https://mice-adds-growing-surfing.trycloudflare.com --chat-id=131184740 --skip-build --no-serve` updated `.env` + Telegram menu and probed public app with HTTP 200
+- [x] `npm run build` passed
+- [x] `npm run verify` passed
+
+Follow-up:
+- Consider a named/stable Cloudflare tunnel or production domain flow later; FT-030 only stabilizes local dev.
+
+---
+
+### FT-031: Daily usage UX audit and cleanup
+
+Status: done
+Priority: high
+Owner: Hermes
+Type: product/frontend-ui/telegram-bot-ux
+
+Context:
+After stabilizing the local Mini App launch flow in FT-030, the next product step is to make the app useful for everyday finance tracking. The goal is not to add a large new feature immediately, but to audit and clean up the daily loop so Shukur can reliably record and review transactions each day.
+
+Scope:
+- Audit the full daily user flow:
+  - open Mini App from Telegram menu and fresh `/start` button;
+  - add expense through Telegram text;
+  - add transaction through Mini App quick add / form;
+  - view recent transactions;
+  - edit/delete a transaction;
+  - verify data lands under the correct Telegram user.
+- Identify friction in Telegram bot UX:
+  - `/start` message usefulness and length;
+  - button destinations;
+  - response after transaction creation;
+  - quick access to today/history/add flows.
+- Identify Mini App daily-use issues:
+  - Recent Transactions visibility;
+  - quick add clarity;
+  - edit/delete discoverability;
+  - empty/loading/error states with real data.
+- Split fixes into small follow-up slices (`FT-031A`, `FT-031B`, etc.) after the audit.
+
+Definition of Done:
+- [x] Real daily flow is exercised against local dev Mini App/bot without printing secrets
+- [x] Findings are recorded with evidence: commands, logs, screenshots where useful
+- [x] Small safe implementation slices are listed and prioritized
+- [x] Implementation work started only after Shukur asked to proceed
+
+Non-goals for this task:
+- Weekly finance review automation
+- Bank/card statement import
+- Production deployment/domain migration
+- Broad architecture refactor
+
+---
+
+### FT-031A: Daily flow audit + Telegram quick actions
+
+Status: done
+Priority: high
+Owner: Hermes
+Type: product/telegram-bot-ux/design-qa
+
+Context:
+Start FT-031 by exercising the daily loop and removing the first obvious friction in Telegram entry points. The Mini App itself is usable, but the `/start` entry was too shallow for daily usage: one generic app button plus a separate quick category prompt.
+
+Audit evidence:
+- [x] Current local Mini App processes checked
+- [x] Public tunnel and backend were already running for manual testing
+- [x] API create/list/update/delete daily-flow probe run with `X-Dev-User-Id` without printing secrets
+- [x] Temporary FT-031 audit transaction was cleaned from local SQLite
+- [x] Mobile screenshots captured at 390x844:
+  - `/tmp/ft031a-daily-audit-after/screenshots/home-390.png`
+  - `/tmp/ft031a-daily-audit-after/screenshots/transactions-390.png`
+  - `/tmp/ft031a-daily-audit-after/screenshots/add-transaction-390.png`
+- [x] `BASE_URL=https://markets-upc-usb-inquiry.trycloudflare.com AUTH_MODE=telegram TELEGRAM_USER_ID=131184740 VIEWPORT_WIDTH=390 VIEWPORT_HEIGHT=844 OUT_DIR=/tmp/ft031a-daily-audit-after ROUTES=/,/transactions,/transactions/add npm run design:audit` passed with `issueCount: 0`
+
+Findings:
+- Home and transactions pages render without guest banner/no-auth errors when the audit uses a Telegram user fixture with dev auth headers.
+- Bottom nav center `+` is centered and usable.
+- Transactions list is readable and edit/delete are discoverable via the row overflow menu.
+- Add Transaction form is usable on 390x844; submit is visible at bottom in the audited state.
+- API create/list works in dev, but direct API update/delete with only `X-Dev-User-Id` returned 403 because those endpoints use `optionalAuth`; this does not block real Telegram Mini App auth but remains a dev-test friction to revisit if browser-only edit/delete testing is needed.
+
+Changes:
+- [x] `/start` Mini App keyboard now includes focused daily actions:
+  - Open app
+  - Add transaction
+  - All transactions
+  - Detailed analytics
+- [x] Auto-saved transaction keyboard now links to All transactions + Add transaction, instead of only generic Open app
+- [x] `scripts/mobile-ui-audit.js` now supports `TELEGRAM_USER_ID` / `TELEGRAM_USER_NAME` and injects `X-Dev-User-Id` for `/api/**` requests in `AUTH_MODE=telegram`, preventing false 401s in browser screenshot QA
+
+Verification:
+- [x] `npm run build` passed
+- [x] `npm run verify` passed — 18 suites / 166 tests, backend build, webapp build, dependency-cruiser, madge circular scan
+
+Follow-up:
+- FT-031B: decide whether to make browser-only dev edit/delete testing work through `optionalAuth` + `X-Dev-User-Id`, or test edit/delete only with real Telegram initData.
+- FT-031C: daily Mini App polish after using the new quick actions for real.
+
+---
+
+### FT-031B: Dev edit/delete auth path for daily-flow QA
+
+Status: done
+Priority: high
+Owner: Hermes
+Type: backend/auth/testability
+
+Context:
+FT-031A found that direct browser/API daily-flow QA could create/list transactions with `X-Dev-User-Id`, but update/delete returned 403 because those routes use `optionalAuth` and did not recognize the same development auth bypass as `requireAuth`. This blocked reliable browser-only edit/delete QA even though production Telegram Mini App uses `Authorization: tma <initData>`.
+
+Root cause:
+- `requireAuth` supports `X-Dev-User-Id` in non-production.
+- `optionalAuth` ignored `X-Dev-User-Id`, left `req.telegramUser` unset, and ownership verification failed closed for non-guest transactions.
+
+Changes:
+- [x] Added a regression test proving update/delete work with `X-Dev-User-Id` when ownership matches
+- [x] Updated `optionalAuth` to accept `X-Dev-User-Id` only when `NODE_ENV !== 'production'`
+- [x] Kept production path unchanged: real Telegram Mini App requests still use `Authorization: tma <initData>`
+
+Verification:
+- [x] RED: `npm run test:ci -- tests/transactionRoutes.test.ts` failed with update 403 before the fix
+- [x] GREEN: targeted transaction route test passed after the fix
+- [x] Live API probe after rebuild/restart: create 201, update 200, delete 200, list 200, deleted transaction absent
+- [x] Temporary FT-031B probe/repro transactions cleaned from local SQLite
+- [x] `npm run verify` passed — 18 suites / 167 tests, backend build, webapp build, dependency-cruiser, madge circular scan
+
+Follow-up:
+- FT-031C: Mini App recent transactions / add-flow polish using the now-testable edit/delete path.
+
+---
+
+### FT-031C: Mini App recent transactions / add-flow polish
+
+Status: done
+Priority: high
+Owner: Hermes
+Type: frontend-ui/product-ux
+
+Context:
+Continue FT-031 by improving the daily Mini App loop after FT-031B made browser/API edit-delete QA reliable. Focus on small safe UI polish: make recent transactions more actionable from the home screen and reduce duplicated title noise in the dedicated add form.
+
+Changes:
+- [x] Home Recent Transactions card now has a clear `Добавить` action in the card header
+- [x] Recent transaction rows on Home are clickable and navigate to edit transaction
+- [x] Recent card description now tells the user: `Нажмите строку, чтобы изменить`
+- [x] The `Все ... транзакций` link shows total count and remains available
+- [x] Dedicated Add Transaction page no longer repeats the second `Добавить транзакцию` title block under `Новая транзакция`
+- [x] Add Transaction feature now accepts `showHeader={false}` for page composition while keeping default header behavior for other contexts
+
+Visual QA:
+- [x] Before screenshots captured in `/tmp/ft031c-before`
+- [x] After screenshots captured in `/tmp/ft031c-after`
+- [x] Bottom-scroll home screenshot captured in `/tmp/ft031c-after-bottom`
+- [x] `issueCount: 0` on focused authenticated audit for `/`, `/transactions`, `/transactions/add`
+- [x] Add Transaction page now fits in 390x844 without duplicate title and without scrolling in the audited state
+- [x] Home Recent Transactions card shows Add + edit hint; bottom nav remains fixed and centered
+
+Verification:
+- [x] `npm run build:webapp` passed
+- [x] `npm run verify` passed — 18 suites / 167 tests, backend build, webapp build, dependency-cruiser, madge circular scan
+
+Follow-up:
+- FT-031D: improve Telegram bot response after adding an expense so the next action is clearer and daily summary is more useful.
+
+---
+
+### FT-031D: Telegram saved-transaction response polish
+
+Status: done
+Priority: high
+Owner: Hermes
+Type: product/telegram-bot-ux
+
+Context:
+Continue FT-031 daily-use cleanup by making the Telegram bot response after a saved transaction more actionable. Previously the message showed amount/category/type and optional totals, but the next action was not explicit and amounts had no currency label.
+
+Changes:
+- [x] Auto-saved transaction messages now show amounts and daily/monthly totals with `UZS`.
+- [x] Transaction description is shown when available.
+- [x] Auto-saved messages include a clear next-action hint: edit, delete, or add another transaction via buttons.
+- [x] Low-confidence confirmation messages do not show the next-action hint before the user confirms.
+- [x] Added regression coverage in `tests/telegramFormatters.test.ts`.
+
+Verification:
+- [x] RED: formatter test initially failed against the old message shape.
+- [x] GREEN: `npm run test:ci -- tests/telegramFormatters.test.ts` passed.
+- [x] `npm run build` passed.
+- [x] `npm run verify` passed — 19 suites / 169 tests, backend build, webapp build, dependency-cruiser, madge circular scan.
+
+---
+
+### FT-031E: Telegram processing feedback for text and voice input
+
+Status: done
+Priority: high
+Owner: Hermes
+Type: product/telegram-bot-ux
+
+Context:
+Shukur noticed that after sending a message to the bot it was unclear whether the bot had received the request or was still processing it. Text parsing may go through OpenAI, so the user needs immediate feedback before the final saved/confirmation response.
+
+Changes:
+- [x] Text-message handling now sends Telegram `typing` chat action before finance input processing.
+- [x] Quick-add pending amount flow also sends the processing action before saving.
+- [x] Voice-message handling sends the processing action before file download/transcription processing.
+- [x] Chat action failures are best-effort and do not block transaction/debt processing.
+- [x] Added regression coverage in `tests/telegramMessageHandlers.test.ts`.
+
+Verification:
+- [x] RED: message handler test initially failed because `createTextMessageHandler` was not exported and no processing action was sent.
+- [x] GREEN: `npm run test:ci -- tests/telegramMessageHandlers.test.ts` passed.
+- [x] `npm run build` passed.
+- [x] `npm run verify` passed — 20 suites / 171 tests, backend build, webapp build, dependency-cruiser, madge circular scan.
+
+---
+
+### FT-032: Modern mobile bottom navigation
+
+Status: done
+Priority: high
+Owner: Hermes
+Type: frontend-ui/design-system
+
+Context:
+Shukur liked the `21st.dev` modern mobile menu pattern and asked to adapt that style for the Finance Tracker Mini App bottom navigation.
+
+Changes:
+- [x] Added shared `ModernMobileMenu` component inspired by the 21st.dev interactive menu pattern.
+- [x] Replaced the old mobile bottom nav with a floating rounded pill menu.
+- [x] Kept Finance Tracker information architecture: `Главная | История | + | Бюджеты | Ещё`.
+- [x] Kept the central `+` as a neutral primary action that opens `QuickAddSheet`.
+- [x] Active nav items now expand with label + underline; inactive items stay icon-focused.
+- [x] Added `iconBounce` animation utility for active icon feedback.
+- [x] Exported the new shared nav primitive from `shared/ui`.
+
+Visual QA:
+- [x] Screenshot captured at `/tmp/ft031f-modern-nav-more/screenshots/more-390.png`.
+- [x] Additional screenshots captured at `/tmp/ft031f-modern-nav-375/screenshots/more-375.png` and `/tmp/ft031f-modern-nav-412/screenshots/more-412.png`.
+- [x] Center `+` metrics confirm exact viewport centering:
+  - 375px: `centerX=187.5`, `viewportCenterX=187.5`
+  - 390px: `centerX=195`, `viewportCenterX=195`
+  - 412px: `centerX=206`, `viewportCenterX=206`
+- [x] Focused visual audits for `/more` passed with `issueCount: 0`.
+
+Verification:
+- [x] `npm run build:webapp` passed.
+- [x] `npm run verify` passed — 20 suites / 171 tests, backend build, webapp build, dependency-cruiser, madge circular scan.
+
+---
+
+### FT-033: Dock-style mobile bottom navigation
+
+Status: done
+Priority: high
+Owner: Hermes
+Type: frontend-ui/design-system
+
+Context:
+Shukur disliked the previous 21st-style expanding mobile nav and provided a new `21st.dev` dock reference/prompt. The requested direction is an icon-only floating dock with separators and a compact active pill.
+
+Changes:
+- [x] Added shared `Dock`, `DockItem`, and `DockSeparator` component in `webapp/src/shared/ui/dock.tsx`.
+- [x] Installed `motion` for the shared active-pill layout animation used by the dock reference.
+- [x] Replaced the expanding `ModernMobileMenu` bottom nav with the new dock pattern.
+- [x] Kept Finance Tracker IA: `Главная | История | + | Бюджеты | Ещё`.
+- [x] Kept the center `+` as the global Quick Add trigger via `ControlledQuickAddSheet`.
+- [x] Kept symmetric layout: `2 route icons | separator | + | separator | 2 route icons`.
+- [x] Removed the now-unused `modern-mobile-menu.tsx` component/export.
+
+Visual QA:
+- [x] Focused screenshot audits for `/more` passed with `issueCount: 0`.
+- [x] Screenshot evidence:
+  - `/tmp/ft033-dock-nav-375/screenshots/more-375.png`
+  - `/tmp/ft033-dock-nav-390/screenshots/more-390.png`
+  - `/tmp/ft033-dock-nav-412/screenshots/more-412.png`
+- [x] Center `+` metrics confirm exact viewport centering:
+  - 375px: `centerX=187.5`, `viewportCenterX=187.5`
+  - 390px: `centerX=195`, `viewportCenterX=195`
+  - 412px: `centerX=206`, `viewportCenterX=206`
+- [x] Screenshot-backed visual judgment: dock matches the provided reference direction better than the previous expanding nav; center action is balanced and unclipped.
+
+Verification:
+- [x] Focused structural check failed before the dock existed, then passed after implementation.
+- [x] `npm run build:webapp` passed.
+- [x] `npm run verify` passed — 20 suites / 171 tests, backend build, webapp build, dependency-cruiser, madge circular scan.
+Note: adding `motion` increased the main webapp chunk enough to trigger Vite's >600 kB warning; build still passed.
+
+---
+
+### FT-034: Typography foundation cleanup
+
+Status: done
+Priority: medium
+Owner: Hermes
+Type: frontend-ui/design-system
+
+Context:
+Shukur reported that the current Mini App typography feels inconsistent — “как будто все по разному” — and asked for a review plus improvement proposal.
+
+Findings:
+- [x] Current system used Inter but only loaded weights `400`, `600`, `700` while many components use `font-medium` (`500`), causing synthesized/inconsistent weight rendering.
+- [x] Many screens mix `font-medium`, `font-semibold`, `font-bold`, arbitrary sizes, and inconsistent title scales.
+- [x] Screenshots showed the biggest perceived inconsistency in page titles vs body/subtitles, empty states, CTA labels, and large money amounts.
+
+Changes:
+- [x] Switched the webapp font family from `Inter` to `Onest`.
+- [x] Loaded Onest weights `400..800` from Google Fonts so `font-medium`, `font-semibold`, and `font-bold` render as real weights.
+- [x] Updated CSS typography token `--font-family-sans`.
+- [x] Updated TypeScript design tokens to mirror the new font family and weight scale.
+- [x] Added base typography rendering improvements: `text-rendering: optimizeLegibility` and `font-synthesis-weight: none`.
+- [x] Tightened heading line-height/letter-spacing for a more cohesive mobile finance feel.
+
+Visual QA:
+- [x] Baseline screenshots captured before change at `/tmp/ft034-font-audit/screenshots/`.
+- [x] Post-change screenshots captured at `/tmp/ft034-onest-fonts/screenshots/`.
+- [x] Focused visual audit passed with `issueCount: 0` for `/`, `/transactions`, `/more`.
+- [x] Visual judgment: Onest looks more cohesive and Cyrillic-friendly than the previous Inter setup; text feels warmer and less “mixed”. Remaining inconsistency mostly comes from component-level type scale choices, not the font family itself.
+
+Verification:
+- [x] Verified Onest CSS availability from Google Fonts: HTTP 200, 5 `@font-face` entries.
+- [x] `npm run build:webapp` passed.
+- [x] `npm run verify` passed — 20 suites / 171 tests, backend build, webapp build, dependency-cruiser, madge circular scan.
+Note: existing Vite chunk-size warning remains from the earlier `motion` dependency, unrelated to the typography change.
+
+Recommendation / next slice:
+- Standardize page typography components next instead of ad-hoc class tuning:
+  - `PageHeader`: one mobile title/subtitle scale.
+  - `CardTitle`: consistent `text-base/semibold` for cards and `text-lg/semibold` only for major cards.
+  - Money amounts: define `amount-display`, `amount-md`, `amount-sm` helpers with tabular numerals.
+  - Body/caption: reduce random `text-[0.8rem]` / `text-[11px]` usage.
+
+---
+
+### FT-035: Mobile design-system cleanup
+
+Status: done
+Priority: high
+Owner: Hermes
+Type: frontend-ui/design-system
+
+Context:
+Shukur reported that the BalanceCard block looked ugly and then requested a proper design system so fonts, spacing, cards, and hierarchy stop drifting screen-by-screen.
+
+Completed:
+- Added shared design-system UI primitives in `webapp/src/shared/ui/typography.tsx`:
+  - `PageShell` for consistent mobile page width/padding/bottom safe area.
+  - `SectionStack` for consistent vertical rhythm.
+  - `AmountText` for tabular money amounts with smaller `UZS` suffix.
+  - `MetricStat` for two-column finance metrics.
+- Refined shared `Card` defaults:
+  - larger, calmer radius;
+  - consistent border/shadow;
+  - tighter default header/content padding;
+  - consistent card title/description scale.
+- Refined `PageHeader` typography/spacing for mobile pages.
+- Rebuilt `BalanceCard`:
+  - smaller, calmer main amount;
+  - `UZS` suffix no longer competes with amount digits;
+  - income/expense actions are compact and softer;
+  - income/expense monthly stats are equal two-column metric blocks;
+  - removed dynamic huge font sizing and break-all visual heaviness.
+- Applied shared shell/rhythm to top-level Home, Transactions, Budgets, and More pages.
+- Refined QuickStats cards to match the new numeric scale.
+- Added bottom-nav gradient scrim so fixed dock no longer visually clashes with scrolling content underneath.
+
+Validation:
+- `npm run build:webapp` passed.
+- `npm run verify` passed: 20 suites / 171 tests, backend build, webapp build, dependency-cruiser, madge circular scan.
+- Mobile screenshot audit passed with `issueCount: 0` on `/`, `/transactions`, `/budgets`, `/more` at 375, 390, 412 px.
+- Final screenshot set:
+  - `/tmp/ft035-system-final-390/screenshots/home-390.png`
+  - `/tmp/ft035-system-final-390/screenshots/transactions-390.png`
+  - `/tmp/ft035-system-final-390/screenshots/budgets-390.png`
+  - `/tmp/ft035-system-final-390/screenshots/more-390.png`
+- Dock center action remained exactly centered at 390 px: `centerX=195`, `viewportCenterX=195`.
+
+Follow-ups:
+- Consider a second slice for deeper component cleanup: `BudgetCard`, `DebtCard`, `TransactionListItem`, form pages, and `EmptyState` typography.
+- Consider adding a lint/audit rule later for forbidden ad-hoc typography classes in product components.
+
+---
+
+### FT-036: Claude-assisted UI design-system audit and shell cleanup
+
+Status: done
+Priority: high
+Owner: Hermes + Claude Code
+Type: frontend-ui/design-system
+
+Context:
+Shukur asked to try Claude and run a deep audit of all UI components and the design system. Claude Code was used as an implementation/audit agent; Hermes remained QA gatekeeper.
+
+Completed:
+- Ran Claude Code deep UI audit and saved it to `.hermes/plans/2026-07-29-ui-design-system-audit.md`.
+- Claude audit findings:
+  - P0: `PageShell` nested `<main>` inside `Layout` and doubled mobile bottom padding.
+  - P1: page wrapper drift across core/form/detail pages.
+  - P1: `FormPageHeader` partially adopted; edit/detail pages still had hand-rolled headers.
+  - P1/P2 follow-ups: hardcoded debt/premium colors, global card radius/doc drift.
+- Implemented the safest first slice:
+  - `PageShell` is now a flexible shell that defaults to `div` inside `Layout`, with `as="main"` for standalone form/detail pages.
+  - Removed large extra `PageShell` bottom padding; `Layout` remains the single owner of bottom-nav clearance.
+  - Migrated Debts and Analytics pages to `PageShell`/`SectionStack`.
+  - Migrated AddTransaction/AddBudget/AddDebt wrappers to `PageShell as="main"`.
+  - Migrated EditTransaction/EditBudget/DebtDetails to `FormPageHeader` and `PageShell as="main"`.
+  - Standardized `FormPageHeader` title/subtitle scale to match `PageHeader`.
+- Independent Claude diff review was run; Hermes addressed the reviewer’s accessibility concern by adding `PageShell as="main"` for standalone pages and verified one `<main>` per audited route.
+
+Validation:
+- `npm run build:webapp` passed.
+- `npm run verify` passed: 20 suites / 171 tests, backend build, webapp build, dependency-cruiser, madge circular scan.
+- Screenshot audit passed with `issueCount: 0` at 375/390/412 px across:
+  - `/`, `/transactions`, `/budgets`, `/more`, `/debts`, `/analytics`, `/transactions/add`, `/budgets/add`, `/debts/add`.
+- Landmark validation passed:
+  - core nav routes: `mainCount=1`, `navPresent=true`.
+  - standalone form routes: `mainCount=1`, `navPresent=false`.
+- Final screenshot set:
+  - `/tmp/ft036-claude-system-final-390/screenshots/home-390.png`
+  - `/tmp/ft036-claude-system-final-390/screenshots/debts-390.png`
+  - `/tmp/ft036-claude-system-final-390/screenshots/add-debt-390.png`
+
+Follow-ups:
+- Separate slice for hardcoded red/purple color cleanup in debt/premium UI.
+- Separate visual-review slice for global `Card` radius (`rounded-3xl` vs documented `rounded-2xl`).
+- Update stale design-system docs/CLAUDE.md references to removed button variants.
+
+---
+
+### FT-037: Close remaining design-system audit findings
+
+Status: done
+Priority: high
+Owner: Claude Code + Hermes QA
+Type: frontend-ui/design-system/docs
+
+Context:
+After FT-036, Shukur asked to close all remaining UI/design-system audit moments with Claude doing the implementation and Hermes verifying. Remaining items were semantic raw-color cleanup, shared card radius alignment, and stale design-system docs.
+
+Completed:
+- Claude Code implemented the remaining follow-ups; Hermes reviewed and completed the last missed raw `amber-*` cases manually.
+- Removed raw Tailwind palette classes from `webapp/src` product UI for the audited color families:
+  - debt overdue/danger UI now uses `destructive` tokens.
+  - usage warning/progress UI now uses `warning` tokens.
+  - subscription/premium trial UI no longer uses `purple-*`/`amber-*` direct palette classes.
+- Preserved visual distinction between paid Premium and Trial after Claude review:
+  - paid Premium badge uses neutral/secondary style.
+  - Trial badge uses warning style.
+- Changed default shared `Card` radius from `rounded-3xl` to documented standard `rounded-2xl`.
+- Rewrote stale docs to current design-system source of truth:
+  - `CLAUDE.md`
+  - `docs/DESIGN_SYSTEM_SUMMARY.md`
+  - `docs/knowledge-base/08-development/design-system.md`
+  - `webapp/README.md`
+- Independent Claude diff review found no blockers; Hermes addressed the non-blocking Premium/Trial visual-collapse concern.
+
+Validation:
+- `npm run verify` passed: 20 suites / 171 tests, backend build, webapp build, dependency-cruiser, madge circular scan.
+- Raw palette class search in `webapp/src/**/*.tsx` returned zero matches for direct red/purple/violet/pink/lime/amber/orange/yellow/green/blue/etc. product classes.
+- Screenshot audit passed with `issueCount: 0` at 375/390/412 px across:
+  - `/`, `/transactions`, `/budgets`, `/more`, `/debts`, `/analytics`, `/transactions/add`, `/budgets/add`, `/debts/add`.
+- Final screenshots:
+  - `/tmp/ft037-design-system-closeout-390/screenshots/home-390.png`
+  - `/tmp/ft037-design-system-closeout-390/screenshots/debts-390.png`
+  - `/tmp/ft037-design-system-closeout-390/screenshots/add-debt-390.png`
+
+Notes:
+- `UsageLimitsCard` and `PremiumStatusCard` deliberately keep explicit `rounded-3xl` because they are feature/status cards, while default `Card` is now standard `rounded-2xl`.
+- Remaining mentions of removed palettes in docs are only negative rules inside `CLAUDE.md` (do not use those palettes), not sanctioned examples.
+
+---
+
+## GitHub Issues Migration Criteria
+
+- There are at least 5–10 stable backlog tasks
+- Task types are consistent: `bug`, `feature`, `tech-debt`, `docs`, `design`
+- We have completed 1–2 successful Hermes → Claude Code → Hermes QA iterations
+- CI/build/test gates are reliable
+- Shukur wants GitHub UI as primary tracking surface
+
+---
+
+### FT-038: Semantic text-input fast paths for daily Telegram flow
+
+Status: done
+Priority: high
+Owner: Claude Code + Hermes
+Type: product-correctness
+
+Context:
+Daily Telegram messages for obvious single-amount operations should not wait for OpenAI when the semantic meaning is unambiguous. The previous local fast path only classified `label amount` as a regular expense, so obvious transfers/savings/cash withdrawals/income either needed OpenAI or risked being visually treated as real expenses.
+
+Definition of Done:
+- [x] Preserve existing simple expense fast path (`кофе 15000 сум`).
+- [x] Add conservative local semantic fast paths for own transfers, saving deposits, cash withdrawals, and salary/income.
+- [x] Keep ambiguous group-payment/debt/multi-item text on the OpenAI path.
+- [x] Add regression tests for fast-path and fallback behavior.
+- [x] Run focused tests, TypeScript check, full verify, and public tunnel `/voice/text-input` smoke with cleanup.
+
+Verification:
+- `npm test -- tests/processTextInput.test.ts tests/semanticTransactionParsing.test.ts --runInBand` — passed, 25 tests.
+- `npx tsc --noEmit` — passed.
+- `npm run verify` — passed, 24 suites / 235 tests, backend build, webapp build, dependency-cruiser, madge.
+- Public tunnel smoke via `/api/voice/text-input` classified and then deleted temporary transactions for: `own_transfer`, `saving_deposit`, `cash_withdrawal`, `income`.
+
+Implementation notes:
+- Added Unicode-aware conservative keyword boundaries because `\b` does not safely bound Cyrillic words.
+- New fast path only accepts exactly one amount and rejects punctuation, known complex/group markers, and debt language.
+- `оплатил за всех ужин 400000` remains OpenAI/needs-review territory instead of being guessed locally.
+
+---
+
+### FT-039: Telegram confirmations surface transaction meaning
+
+Status: done
+Priority: high
+Owner: Hermes
+Type: product-ux-correctness
+
+Context:
+After semantic parsing and Mini App badges, the Telegram confirmation still made transfers/savings/cash movements look like ordinary expense messages. The daily/month summary in Telegram also counted every `type: expense` movement, which could include own transfers and needs-review items.
+
+Definition of Done:
+- [x] Telegram transaction confirmations show `Смысл` for semantic types.
+- [x] Non-expense movements explicitly say they do not count as expenses.
+- [x] `needsReview` confirmations tell the user to check/correct in Mini App.
+- [x] Telegram daily/month summary excludes semantic non-expenses and `needsReview` rows.
+- [x] Formatter and handler regression tests cover semantic labels and summary totals.
+
+Verification:
+- `npm test -- tests/telegramFormatters.test.ts tests/telegramMessageHandlers.test.ts --runInBand` — passed, 7 tests.
+- `npx tsc --noEmit` — passed.
+- `npm run verify` — passed, 24 suites / 238 tests, backend build, webapp build, dependency-cruiser, madge.
+
+Implementation notes:
+- Telegram now shows labels such as `Перевод себе`, `Вклад / накопление`, `Наличные`, and `Групповой платёж`.
+- Telegram totals now use the same semantic real-expense rule as the rest of the product.
+
+---
+
+### FT-040: Home semantic monthly summary consistency
+
+Status: done
+Priority: high
+Owner: Hermes
+Type: product-ux-correctness
+
+Context:
+Home needed to make the product's semantic accounting obvious at a glance. The existing trust card explained non-expense movements, but did not explicitly subtract `needsReview` rows. Visual QA also exposed a bigger consistency issue: the BalanceCard was labelled `Месяц` but the dashboard query returned all-time totals, and legacy income rows with stale `semanticType: expense` could make income look like expense.
+
+Definition of Done:
+- [x] Home trust formula separates outgoing cashflow, non-expense movements, `needsReview`, and finalized real expenses.
+- [x] Home shows an explicit `Нужно проверить` deduction and action hint when review rows exist.
+- [x] Dashboard Home query uses the current month range for widgets labelled `Месяц`.
+- [x] Legacy `type: income` rows with stale `semanticType: expense` normalize to `income` at read/calc time.
+- [x] Add regression tests for Home formula, month range, and semantic normalization.
+- [x] Run full verify and screenshot-backed mobile QA.
+
+Verification:
+- `npm test -- tests/homeTrustSummary.test.ts tests/dashboardMonthRange.test.ts --runInBand` — passed.
+- `npm test -- tests/transactionSemanticType.test.ts tests/homeTrustSummary.test.ts tests/dashboardMonthRange.test.ts --runInBand` — passed.
+- `npm run verify` — passed, 26 suites / 243 tests.
+- Visual QA: `/tmp/ft040-home-final-audit/screenshots/home-390.png`, issueCount 0.
+
+Implementation notes:
+- BalanceCard now receives dashboard data for the current month explicitly.
+- The final visual check showed monthly income `7 399 999`, real expenses `1 011 999`, and positive net flow `+6 388 000`, matching the Home semantic formula.
+
+---
+
+### FT-041: Telegram weekly review command
+
+Status: done
+Priority: high
+Owner: Hermes
+Type: product-ux
+
+Context:
+The backend already had semantic weekly-review summary primitives, but the user had no direct Telegram UX to request a weekly review. Weekly review is a core target workflow for separating real expenses from transfers/savings/debts/reimbursements/group payments and `needsReview` items.
+
+Definition of Done:
+- [x] Add previous-week date range helper (Monday 00:00 through Sunday 23:59:59.999 UTC).
+- [x] Add Telegram weekly review formatter in Russian.
+- [x] Register `/week` and `/weekly` commands.
+- [x] Command resolves Telegram id to UUID, summarizes previous week, and replies with semantic sections.
+- [x] Include `/week` in start/help command copy.
+- [x] Add regression tests for range, formatter, and command behavior.
+- [x] Run focused tests, TypeScript check, and full verify.
+
+Verification:
+- `npm test -- tests/weeklyReviewService.test.ts tests/weeklyReviewFormatter.test.ts tests/telegramWeeklyCommand.test.ts tests/telegramBot.test.ts --runInBand` — passed, 17 tests.
+- `npx tsc --noEmit` — passed.
+- `npm run verify` — passed, 28 suites / 249 tests.
+
+Implementation notes:
+- `/week` and `/weekly` summarize the previous full week, not the current partial week.
+- Weekly review output includes real expenses, income, non-expense movements with semantic breakdown, `needsReview`, top real-expense categories, and a Mini App next-action hint.
+
+---

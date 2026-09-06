@@ -2,7 +2,7 @@
 
 > **⚠️ Historical document — verify before relying on it (banner added 2026-08-16).** This file is kept as a broad reference snapshot and is not maintained per change. Known drift: the Module System section below lists 8 modules including a `DashboardModule`, but `createModules()` (`src/appModules.ts`) returns **7** modules and there is no `dashboardModule.ts` — dashboard is a `DashboardService`/`DashboardController` pair assembled in the Express layer.
 >
-> Current sources of truth: [TASKS.md](TASKS.md) (Active Plan), [CLAUDE.md](CLAUDE.md) (operating mode and commands), and [docs/knowledge-base/](docs/knowledge-base/) (architecture and development guides).
+> Current sources of truth: [TASKS.md](TASKS.md) (текущий фокус), [CLAUDE.md](CLAUDE.md) (operating mode and commands), and [docs/knowledge-base/](docs/knowledge-base/) (architecture and development guides).
 
 ## Table of Contents
 1. [Project Overview](#project-overview)
