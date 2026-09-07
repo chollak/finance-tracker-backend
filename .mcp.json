@@ -1,10 +1,10 @@
 {
   "mcpServers": {
     "shadcn": {
-      "command": "npx",
+      "command": "sh",
       "args": [
-        "shadcn@latest",
-        "mcp"
+        "-c",
+        "cd \"$CLAUDE_PROJECT_DIR/webapp\" && exec npx -y shadcn@latest mcp"
       ]
     }
   }
