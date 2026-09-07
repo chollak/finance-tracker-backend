@@ -19,7 +19,12 @@ export function Layout({ children }: LayoutProps) {
       <TopNav />
 
       {/* Main Content */}
-      <main className="pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-0">{children}</main>
+      {/*
+        Exactly the flush bar's height (a 58px slot row) plus the home-indicator inset. The old
+        `5rem` was a guess against a floating dock and left content sliding through the gap
+        beneath it; a flush bar reserves precisely what it occupies.
+      */}
+      <main className="pb-[calc(3.625rem+env(safe-area-inset-bottom))] md:pb-0">{children}</main>
 
       {/* Mobile Navigation */}
       <BottomNav />

@@ -3,25 +3,27 @@ import { cn } from '@/shared/lib/utils';
 
 export interface CaptureDockActionProps {
   onClick: () => void;
-  /** Matches the surrounding `Dock` item size so the pill lines up with the nav row. */
+  /** Matches the surrounding `Dock` item size so the slot lines up with the nav row. */
   size?: number;
   className?: string;
 }
 
 /**
- * The dock's primary action: start a quick capture.
+ * The dock's capture action, as the third of four equal slots.
  *
- * It is a labelled pill rather than another round icon because the label is the point — the
- * previous centre action was a bare `+` that opened the manual transaction form, i.e. the
- * slowest flow wearing the most prominent control. `Записать` names what this app is for, and
- * pressing it lands the user in the capture field instead of a form with six inputs.
+ * It was a wide filled pill in the middle of a floating dock — the loudest thing on the screen
+ * after the day's amount. That was backwards: capture is what the app is for, but *navigation*
+ * is not, and the pill spent its prominence on the chrome rather than on the number and the
+ * input field the product is actually about. The design guidelines say the same thing from the
+ * other side — nav chrome uses neutral tokens, and a screen's creation action does not float
+ * over the bottom nav.
  *
- * It claims nothing it cannot do: no recorder, no scanner. It only moves focus to the text
- * capture that already works, on Home. The manual form stays in the dock beside it, demoted to
- * ordinary nav weight (`Вручную`).
+ * So the action keeps its position and its name and gives up its size: one filled disc the width
+ * of an icon, a label like every other slot. Filled, so it still reads as the one thing here
+ * that does rather than goes.
  *
- * `data-dock-center` is the stable hook the screenshot audit uses to measure centring
- * (`scripts/mobile-ui-audit.js`) — keep it if the label or icon changes.
+ * `data-dock-center` is the stable hook the screenshot audit uses (`scripts/mobile-ui-audit.js`)
+ * — keep it if the label or icon changes.
  */
 export function CaptureDockAction({ onClick, size = 44, className }: CaptureDockActionProps) {
   return (
@@ -30,17 +32,18 @@ export function CaptureDockAction({ onClick, size = 44, className }: CaptureDock
       onClick={onClick}
       data-dock-center="capture"
       aria-label="Записать операцию"
-      style={{ height: size, minWidth: size }}
+      style={{ minHeight: size + 12 }}
       className={cn(
-        'relative flex shrink-0 items-center justify-center gap-1.5 rounded-full border-0 px-4',
-        'bg-primary text-primary-foreground shadow-sm shadow-black/15',
-        'cursor-pointer outline-none transition-colors active:scale-95',
-        'focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+        'relative flex w-full flex-col items-center justify-center gap-1 rounded-2xl border-0 px-1 py-2',
+        'cursor-pointer text-foreground outline-none transition-colors active:scale-95',
+        'focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset',
         className
       )}
     >
-      <PenLine className="h-[18px] w-[18px] shrink-0" aria-hidden="true" />
-      <span className="text-sm font-medium leading-none">Записать</span>
+      <span className="flex h-[26px] w-[26px] items-center justify-center rounded-full bg-primary text-primary-foreground">
+        <PenLine className="h-[15px] w-[15px]" aria-hidden="true" />
+      </span>
+      <span className="max-w-full truncate text-[10px] font-semibold leading-none">Записать</span>
     </button>
   );
 }

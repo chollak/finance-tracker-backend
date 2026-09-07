@@ -7,6 +7,7 @@ import {
   type CSSProperties,
   type ReactNode,
 } from 'react';
+import { Link } from 'react-router-dom';
 import { cn } from '@/shared/lib/utils';
 
 const SPRING_LAYOUT = {
@@ -29,6 +30,18 @@ export interface DockProps {
   size?: number;
 }
 
+/**
+ * The bottom navigation bar, built to the shape `design-guidelines.md` specifies for it:
+ * flush to the bottom edge, full width, a hairline top border, translucent card fill over a
+ * blur, and `pb-safe` for the home indicator.
+ *
+ * It used to be a floating rounded card — `max-w-sm`, a 26px radius and a drop shadow, sitting
+ * 11px above the bottom edge over a gradient scrim. That shape had two costs the guidelines
+ * name directly: content stayed visible through and beside it (the scrim only faded, it never
+ * covered), and nav plus scrim occupied about an eighth of the viewport, near the document's
+ * own ">15% of mobile viewport" limit for permanent chrome. A flush bar has nothing to show
+ * through and reserves exactly its own height.
+ */
 export function Dock({ children, size = 44, className }: DockProps) {
   const pillLayoutId = useId();
 
@@ -41,11 +54,20 @@ export function Dock({ children, size = 44, className }: DockProps) {
     <DockContext.Provider value={ctx}>
       <div
         className={cn(
-          'inline-flex h-auto items-end gap-1.5 rounded-2xl border border-border bg-card/85 px-2 py-1 shadow-2xl shadow-black/20 backdrop-blur-xl',
+          // A deliberate departure from the guidelines' `bg-card/80 backdrop-blur-lg`: frosted
+          // glass needs something worth frosting behind it. Here `card` and `background` are
+          // both pure white, so any alpha renders a transaction row as ghost text under the
+          // navigation — measured legible at 85% and still at 95%. Opaque serves the same
+          // guideline's stated intent ("no visual noise") better than its literal token does,
+          // and with no translucency the blur has nothing left to do.
+          'w-full border-t border-border bg-card',
+          'pb-[env(safe-area-inset-bottom)]',
           className
         )}
       >
-        {children}
+        <div className="mx-auto grid w-full max-w-md grid-cols-4 items-stretch px-1">
+          {children}
+        </div>
       </div>
     </DockContext.Provider>
   );
@@ -56,8 +78,19 @@ export interface DockItemProps {
   className?: string;
   onClick?: () => void;
   active?: boolean;
+  /**
+   * Route this item navigates to. Given one, the item renders as a real `<Link>` — a tab that
+   * goes somewhere is a link, not a button: `<button onClick={navigate}>` loses Ctrl/⌘-click,
+   * middle-click and "open in new tab", and announces itself as a toggle rather than as the
+   * page you are on.
+   */
+  href?: string;
+  /**
+   * Caption under the icon. Without it the whole dock is unlabelled glyphs and the only way to
+   * tell tabs apart is guessing the pictogram.
+   */
+  label?: string;
   'aria-label'?: string;
-  variant?: 'default' | 'primary';
   onPrefetch?: () => void;
 }
 
@@ -66,7 +99,8 @@ export function DockItem({
   className,
   onClick,
   active,
-  variant = 'default',
+  href,
+  label,
   onPrefetch,
   ...rest
 }: DockItemProps) {
@@ -75,32 +109,77 @@ export function DockItem({
 
   const size = dock?.size ?? 44;
   const pillLayoutId = dock?.pillLayoutId ?? 'dock-pill';
-  const isPrimary = variant === 'primary';
 
+  // No negative z-index. The highlight used to be `-z-10`, which only stayed visible because
+  // `backdrop-blur` on the bar happened to create a stacking context that trapped it; once the
+  // bar became opaque and lost the blur, the highlight escaped behind the bar's own background
+  // and the active tab lost its marker entirely. It now paints in normal order — below the
+  // content span, which is positioned and therefore drawn after it.
   const pill = active ? (
     <motion.span
       layoutId={pillLayoutId}
       transition={reduce ? { duration: 0 } : SPRING_LAYOUT}
-      className={cn(
-        'absolute inset-0.5 -z-10 rounded-xl',
-        isPrimary ? 'bg-primary/12' : 'bg-primary/5'
-      )}
+      className="absolute inset-x-1 inset-y-1 rounded-2xl bg-primary/10"
     />
   ) : null;
 
-  const sharedStyle: CSSProperties = {
-    width: size,
-    height: size,
-  };
+  // Every slot fills its grid column, so the four of them are equal by construction and the
+  // 44px touch floor is met by height alone.
+  const sharedStyle: CSSProperties = label ? { minHeight: size + 12 } : { width: size, height: size };
 
   const sharedClass = cn(
-    'relative flex shrink-0 items-center justify-center rounded-full transition-colors active:scale-95',
-    isPrimary
-      ? 'bg-primary text-primary-foreground shadow-sm shadow-black/15'
-      : 'text-muted-foreground hover:text-foreground',
-    active && !isPrimary && 'text-foreground',
+    'relative flex items-center justify-center transition-colors active:scale-95',
+    label ? 'w-full rounded-2xl px-1 py-2' : 'shrink-0 rounded-full',
+    'text-muted-foreground hover:text-foreground',
+    active && 'text-foreground',
     className
   );
+
+  const interactiveClass = cn(
+    sharedClass,
+    'cursor-pointer border-0 outline-none',
+    !label && 'p-0',
+    'focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset'
+  );
+
+  const content = (
+    <>
+      {pill}
+      <span className="relative flex max-w-full flex-col items-center gap-1">
+        {children}
+        {label && (
+          <span
+            className={cn(
+              'max-w-full truncate text-[10px] leading-none',
+              active ? 'font-semibold' : 'font-medium'
+            )}
+          >
+            {label}
+          </span>
+        )}
+      </span>
+    </>
+  );
+
+  if (href) {
+    return (
+      <Link
+        to={href}
+        onClick={onClick}
+        aria-label={rest['aria-label']}
+        // The accurate state for a tab pointing at the current page. `aria-pressed` said
+        // "toggle button", which is not what a destination is.
+        aria-current={active ? 'page' : undefined}
+        onMouseEnter={onPrefetch}
+        onFocus={onPrefetch}
+        onTouchStart={onPrefetch}
+        style={sharedStyle}
+        className={interactiveClass}
+      >
+        {content}
+      </Link>
+    );
+  }
 
   if (onClick) {
     return (
@@ -113,61 +192,16 @@ export function DockItem({
         onFocus={onPrefetch}
         onTouchStart={onPrefetch}
         style={sharedStyle}
-        className={cn(
-          sharedClass,
-          'cursor-pointer border-0 p-0 outline-none',
-          'focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background'
-        )}
+        className={interactiveClass}
       >
-        {pill}
-        {children}
+        {content}
       </button>
     );
   }
 
   return (
     <div style={sharedStyle} className={sharedClass}>
-      {pill}
-      {children}
+      {content}
     </div>
-  );
-}
-
-export interface DockSplitProps {
-  left: ReactNode;
-  center: ReactNode;
-  right: ReactNode;
-  className?: string;
-}
-
-/**
- * Symmetric dock layout: two equal-width side zones (`1fr`) around an
- * intrinsically sized center slot.
- *
- * The center action therefore sits on the container's horizontal axis whatever
- * the side item counts are, so adding or hiding a tab cannot push it off centre.
- * Requires a definite width on the parent `Dock` (e.g. `w-full max-w-xs`).
- */
-export function DockSplit({ left, center, right, className }: DockSplitProps) {
-  return (
-    <div
-      className={cn(
-        'grid w-full grid-cols-[1fr_auto_1fr] items-center gap-1.5',
-        className
-      )}
-    >
-      <div className="flex items-center justify-around">{left}</div>
-      <div className="flex items-center gap-1.5">{center}</div>
-      <div className="flex items-center justify-around">{right}</div>
-    </div>
-  );
-}
-
-export function DockSeparator({ className }: { className?: string }) {
-  return (
-    <span
-      aria-hidden
-      className={cn('mx-0.5 h-6 w-px self-center bg-border', className)}
-    />
   );
 }
