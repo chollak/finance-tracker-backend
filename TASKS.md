@@ -8,7 +8,7 @@
 | Как устроена доска, статусы, роли | [`docs/tasks/README.md`](docs/tasks/README.md) |
 | Почему план такой — лог решений | [`docs/tasks/decisions.md`](docs/tasks/decisions.md) |
 | Отложенные задачи, полные описания (10) | [`docs/tasks/backlog.md`](docs/tasks/backlog.md) |
-| Закрытые задачи с отчётами (102) | [`docs/tasks/archive/`](docs/tasks/archive/) |
+| Закрытые задачи с отчётами (103) | [`docs/tasks/archive/`](docs/tasks/archive/) |
 
 ---
 
@@ -19,7 +19,34 @@
 Бюджеты, долги, аналитика и premium остаются вторичными и живут под «Ещё» — не возвращать их в primary UX.
 Все не-quick-action задачи Шукур перенёс в backlog 2026-09-04; не начинать их без явного запроса.
 
-Прогресс вехи: FT-077 ✅ · FT-078 ✅ · FT-079 ✅ · FT-080 ✅ · **FT-081 в работе** · FT-082 · FT-083 · FT-084 · FT-085
+Прогресс вехи: FT-077 ✅ · FT-078 ✅ · FT-079 ✅ · FT-080 ✅ · FT-081 ✅ · **FT-086 на проверке** · **FT-082 на проверке** · FT-083 · FT-084 · FT-085
+
+FT-086 добавлена 2026-09-07 по запросу Шукура: мобильная навигация не была запланирована в вехе 9,
+но док мешает тому же quick-action флоу, ради которого веха и делается. Идёт перед FT-082, потому
+что задаёт, что вообще попадает в «Ещё».
+
+### Где мы по дизайну навигации (2026-09-07)
+
+Канвас с вариантами: https://claude.ai/code/artifact/f47bd089-ccbf-4fd5-9c62-a04ae055deea
+(текущий док + четыре варианта A–D, у каждого мотив и цена).
+
+Выбран **B** — четыре равных слота в прижатом баре, реализован в `FT-086`. Как к нему пришли:
+
+- **C (FAB над баром) вычеркнут брифом.** `style-direction.md` прямо запрещает creation actions,
+  плавающие над нижним навом.
+- **F (без глобального действия) вычеркнут брифом.** Тот же документ требует «One global mobile
+  primary action».
+- **A/E (нативная кнопка Telegram) остаются открытыми.** A не убирает дубль «Записать»: на
+  главной у карточки ввода есть своя кнопка отправки, и нативная либо дублирует её, либо
+  исчезает — и тогда действие перестаёт быть в постоянном месте. E решает это, отдавая
+  отправку нативной кнопке целиком, но трогает карточку из `FT-078` и требует запасного пути
+  вне Telegram. **E снимается с текущего бара без переделки** — он надстройка, не альтернатива.
+
+Скилл `frontend-design` установлен (`~/.claude/skills/frontend-design/`, из
+`anthropics/claude-code`). В сессии, где он поставлен, не регистрируется — нужен перезапуск.
+
+Открытые вопросы записаны в `docs/knowledge-base/10-design-guidelines/style-direction.md`,
+раздел «Open design questions».
 
 ### Постоянный контекст
 
@@ -31,59 +58,107 @@
 
 ## В работе
 
-### FT-081: History page daily-correction redesign
+Обе задачи ниже реализованы и ждут проверки Шукура. В `done` и в архив уходят по его слову.
 
-Status: in_progress
+### FT-086: Mobile dock — навигация отдельно от действия
+
+Status: review
 Priority: medium
-Owner: Claude Code, QA by Hermes
+Owner: Claude Code, QA by Шукур
 Type: quick-action-ui
 
 Context:
-`/transactions` should become a quick History/correction surface: recent-first, day groups, day totals, compact rows. Archive and bulk actions are still useful but should not define the primary daily UX.
+Док смешал навигацию и действие в одном ряду, и от этого страдают оба. Замеры на живой странице
+(375/390/412): пять целей, подписана одна; `+` (ручная форма) стоит вплотную к `Записать`, то есть
+два «создать» рядом, причём медленный флоу носит самый универсальный знак «добавить»; иконка
+Истории — `Receipt`, тот же «чек», что и недоступный канал записи в карточке ввода; активная
+вкладка — `bg-primary/5`, то есть 5% чёрного, читается только по оттенку иконки; вся навигация
+сделана `<button>` + `navigate()` (`links: 0`, `aria-pressed` вместо `aria-current`); тень
+`shadow-2xl` при том, что «Heavy shadows» — антипаттерн в `design-guidelines.md`; нав плюс
+градиентный скрим занимают 99px + 112px, ~13% экрана на 844px.
+
+Задача про **мобильный док**. Десктопный `TopNav` показывает другую IA (Бюджеты/Долги/Аналитика
+первым уровнем вопреки вехе 9) — это отдельное продуктовое решение, в этот срез не входит.
+
+`+` — единственный вход в ручную форму на мобильном: FAB на Home и History оба `hidden md:flex`.
+Поэтому убрать его можно только вместе с новым входом.
 
 Definition of Done:
-- [ ] History reads as daily correction/review, not admin management
-- [ ] Search/filter are quieter and do not dominate the empty state
-- [ ] Archive/bulk actions remain available but secondary
-- [ ] Compact row component is reused or aligned with Home recent rows
-- [ ] Screenshot QA: History at 375 / 390 / 412, empty and populated states
-- [ ] `npm run verify` passes
+- [x] `+` убран из дока, ручная форма остаётся достижимой с мобильного
+- [x] Вкладки подписаны: Главная / История / Ещё
+- [x] Активное состояние читается без подписи-догадки
+- [x] Вкладки — ссылки (`<Link>`), работает Ctrl/средний клик; `aria-current="page"` вместо `aria-pressed`
+- [x] Иконка Истории больше не совпадает с каналом записи «Чек»
+- [x] Разделители убраны, тень в рамках гайдлайнов, скрим ниже
+- [x] Тач-таргеты >= 44px на 375/390/412
+- [x] Скриншот-QA дока на 375/390/412, активное состояние на каждом маршруте
+- [x] `npm run verify` проходит
 
-Незакоммиченные изменения в рабочем дереве на 2026-09-06:
+Пересмотр 2026-09-07 — плавающий док заменён прижатым баром:
 
-- `webapp/src/entities/transaction/lib/dayGroupSummary.ts` (+ тест)
-- `webapp/src/pages/transactions/ui/HistoryDayGroup.tsx`
-- `webapp/src/entities/transaction/lib/transactionRowDisplay.ts` (+ тест)
-- `webapp/src/entities/transaction/lib/transactionCountLabels.ts` (+ тест)
-- `webapp/src/entities/transaction/ui/CompactTransactionRow.tsx`
-- `webapp/src/features/filter-transactions/ui/FilterBar.tsx`
-- `webapp/src/entities/transaction/index.ts`
+Первая версия оставляла док плавающей карточкой и лечила симптомы. Разбор по методу
+`frontend-design` показал, что форма была неверной с самого начала: в
+`docs/knowledge-base/10-design-guidelines/design-guidelines.md` **лежит собственная спека
+нижней навигации** — прижатый к низу бар во всю ширину, `border-t`, `justify-around`, стопка
+«иконка + подпись». Плавающая карточка с `max-w-sm`, радиусом 26px и тенью была отступлением
+от неё, а не следованием.
+
+Итог: 4 равных слота (Главная · История · Записать · Ещё) в глухом баре, прижатом к низу.
+Действие сохранило место и имя, но отдало размер — из широкой чёрной пилюли стало залитым
+диском 26px с подписью, как у остальных. Причина в принципе «трать смелость в одном месте»:
+смелость этого приложения уже потрачена на сумму дня и карточку ввода, а док забирал её себе.
+
+Замеры до → после:
+
+| | было | стало |
+|---|---|---|
+| Высота нава | 95px + скрим 80px (~13% экрана) | 59px (~7%) |
+| Слоты | 2 + пилюля + 1, перекос влево | 4 равных, 92×58 |
+| Просвечивание | контент читался под доком | глухой бар, скрим удалён |
+
+Осознанное отступление от гайдлайна: спека предписывает `bg-card/80 backdrop-blur-lg`, но
+`card` и `background` в проекте оба чисто белые — фростить нечего, и контент читался сквозь бар
+и на 85%, и на 95%. Бар сделан глухим, блюр убран. Это служит той же цели документа
+(«no visual noise»), но расходится с его буквой; причина записана в `dock.tsx`.
+
+Побочно: когда бар стал непрозрачным, активная вкладка потеряла подложку — она была `-z-10`, и
+её удерживал только `backdrop-blur`, случайно создававший контекст наложения. Перестроено без
+опоры на негативный z. `DockSplit` и `DockSeparator` удалены: они существовали ради удержания
+центра на оси, а в четырёх равных слотах центрировать нечего.
+
+Не входило в срез: десктопный `TopNav` по-прежнему показывает другую IA
+(Бюджеты/Долги/Аналитика первым уровнем вопреки вехе 9) — отдельное продуктовое решение.
 
 ---
 
-## Очередь
-
-Порядок обязателен: следующая берётся только после того, как Hermes закрыл предыдущую.
-
 ### FT-082: More page quick-action hub
 
-Status: backlog
+Status: review
 Priority: medium
-Owner: Claude Code, QA by Hermes
+Owner: Claude Code, QA by Шукур
 Type: quick-action-ui
 
 Context:
 More currently only lists old feature pages. It should become the secondary hub for capture channels/settings plus non-daily sections. Working budgets/debts/analytics must not be presented as broken; they are just not primary.
 
 Definition of Done:
-- [ ] More groups capture channels, actual settings, and “not daily” sections
-- [ ] Telegram bot / iPhone Shortcut / Mini App text capture are represented clearly
-- [ ] Budgets, debts and analytics remain reachable as secondary links
-- [ ] No fake toggles/settings that do not persist
-- [ ] Screenshot QA: More at 375 / 390 / 412
-- [ ] `npm run verify` passes
+- [x] More groups capture channels, actual settings, and “not daily” sections
+- [x] Telegram bot / iPhone Shortcut / Mini App text capture are represented clearly
+- [x] Budgets, debts and analytics remain reachable as secondary links
+- [x] No fake toggles/settings that do not persist
+- [x] Screenshot QA: More at 375 / 390 / 412
+- [x] `npm run verify` passes
+
+Замечание по DoD: пункт про «actual settings» закрыт тем, что **настроек в приложении нет** — ни
+маршрута, ни сохраняемых значений. Группа «Настройки» не сделана намеренно: пустой раздел или
+тумблер, забывающий себя при перезагрузке, — это ровно та фейковая возможность, которую веха
+запрещает. Вместо неё есть «Аккаунт» с реальным состоянием (кто вы / гостевой режим + вход).
 
 ---
+
+## Очередь
+
+Порядок обязателен: следующая берётся только после того, как задача перед ней закрыта.
 
 ### FT-083: Remove dashboard dependency from Home
 
@@ -165,7 +240,7 @@ Definition of Done:
 
 ## Что уже закрыто
 
-102 задачи: вехи 0–8 и весь отрезок до того, как появились вехи. Полные отчёты «Реализовано / Проверка» — в архиве.
+103 задачи: вехи 0–8 и весь отрезок до того, как появились вехи. Полные отчёты «Реализовано / Проверка» — в архиве.
 
 | Отрезок | Задачи | Файл |
 |---|---|---|
@@ -173,4 +248,4 @@ Definition of Done:
 | Продукт и UI: дизайн-система, вёрстка, ввод | FT-025…FT-041 | [`ft-025-041-product-ui.md`](docs/tasks/archive/ft-025-041-product-ui.md) |
 | Семантические транзакции | FT-SEM-001…006 | [`ft-sem-semantic-transactions.md`](docs/tasks/archive/ft-sem-semantic-transactions.md) |
 | Relaunch: локальный контур и доверие к цифрам | FT-042…FT-072 | [`ft-042-072-relaunch.md`](docs/tasks/archive/ft-042-072-relaunch.md) |
-| Quick capture и первые срезы редизайна | FT-073…FT-080 | [`ft-073-080-quick-action.md`](docs/tasks/archive/ft-073-080-quick-action.md) |
+| Quick capture и первые срезы редизайна | FT-073…FT-081 | [`ft-073-081-quick-action.md`](docs/tasks/archive/ft-073-081-quick-action.md) |

@@ -1,8 +1,8 @@
 # Архив задач — Quick capture и quick action redesign
 
-Вехи 8–9: главный экран как быстрый ввод и первые срезы редизайна Mini App вокруг quick action. Задачи FT-073…FT-080.
+Вехи 8–9: главный экран как быстрый ввод и первые срезы редизайна Mini App вокруг quick action. Задачи FT-073…FT-081.
 
-Закрыто задач: **8**. Это архив: задачи здесь не переоткрываются и не редактируются.
+Закрыто задач: **9**. Это архив: задачи здесь не переоткрываются и не редактируются.
 Активная доска — [`TASKS.md`](../../../TASKS.md), решения по плану — [`decisions.md`](../decisions.md).
 
 ---
@@ -276,5 +276,79 @@ Verification 2026-09-04:
 - `npm run build:webapp` — passed; existing chunk-size/Browserslist warnings only.
 - `npm run verify` — backend build, 34 Jest suites / 433 tests, webapp tests/build, font check, dependency-cruiser and madge all passed.
 - Screenshot QA via `npm run design:audit`: Home at 375/390/412 under `/tmp/ft080-final/{375,390,412}/screenshots/`; issueCount `0`.
+
+---
+
+### FT-081: History page daily-correction redesign
+
+Status: done
+Priority: medium
+Owner: Claude Code, QA by Шукур
+Type: quick-action-ui
+
+Context:
+`/transactions` should become a quick History/correction surface: recent-first, day groups, day totals, compact rows. Archive and bulk actions are still useful but should not define the primary daily UX.
+
+Definition of Done:
+- [x] History reads as daily correction/review, not admin management
+- [x] Search/filter are quieter and do not dominate the empty state
+- [x] Archive/bulk actions remain available but secondary
+- [x] Compact row component is reused or aligned with Home recent rows
+- [x] Screenshot QA: History at 375 / 390 / 412, empty and populated states
+- [x] `npm run verify` passes
+
+Реализовано 2026-09-07:
+
+Задача была начата ранее, но подключена не была: в дереве лежали готовые `HistoryDayGroup`,
+`formatHistorySubtitle`, `FilterBar autoFocus` и `CompactTransactionRow showDayLabel` — и ни один
+из них ничего не использовало. `TransactionsPage.tsx` оставался нетронутым. Красный тест был
+симптомом, реальная работа — связать заготовки со страницей.
+
+- `dayGroupSummary.test.ts`: ожидания приведены к реальному выводу `Intl.NumberFormat('ru-RU')` —
+  U+00A0 и между тысячами, и перед кодом валюты. Введена именованная константа `NBSP`, чтобы
+  невидимый символ был виден в исходнике. Форматтер не менялся: его вывод типографически верный,
+  а `formatCurrency` — общий и живёт ещё на ~15 поверхностях.
+- `TransactionsPage.tsx` переписан: «Транзакции» → «История», дни через `HistoryDayGroup`,
+  `CompactTransactionRow` вместо `TransactionListItem`, подзаголовок через `formatHistorySubtitle`.
+- Поиск/фильтр убраны из постоянной вёрстки за кнопку в шапке. Кнопка не рендерится, когда искать
+  нечего, поэтому пустой экран остаётся пустым.
+- Закрытие поиска сбрасывает фильтры: скрытая панель не должна молча резать список.
+- Кнопка поиска не исчезает, пока панель открыта, — иначе переход на пустой скоуп оставлял
+  пользователя с открытым поиском и без способа его закрыть.
+- Под фильтром итог дня не показывается: «Расходы» над отфильтрованными строками назвал бы дату,
+  а посчитал только совпадения (114 000 вместо реальных 235 000).
+- В `HistoryDayGroup` расщеплены `showSummary` и новый `dimmed`: раньше отключение итога заодно
+  красило карточку серым, и результаты поиска выглядели бы как скрытые.
+- `HistoryDayGroup` sticky-заголовок получил `md:top-14` — уезжал под десктопный `TopNav`.
+- `FilterBar`: убран `eslint-disable jsx-a11y/no-autofocus` — плагин в конфиге не подключён,
+  комментарий сам по себе был lint-error.
+- `top-nav.tsx`: «Транзакции» → «История», согласовано с доком (FT-079).
+
+Проверка 2026-09-07:
+- `npm run verify` — exit 0: сборка бэкенда, 34 Jest-сьюта / 433 теста, 19 Vitest-файлов /
+  178 тестов, сборка webapp, self-hosted-шрифты, dependency-cruiser (177 модулей, 0 нарушений),
+  madge (0 циклов).
+- `npx tsc -b` и `eslint` по изменённым областям — чисто. Остаются 2 pre-existing
+  `react-refresh/only-export-components` в `features/filter-transactions/index.tsx` (файл не
+  менялся; линт в `verify` не входит).
+- Скриншот-QA 375/390/412: populated, empty, отфильтрованный поиск, sticky-заголовок в скролле,
+  скоуп «Скрытые» — `/tmp/ft081-audit/`.
+- Машинные проверки в скролле/взаимодействии: 8 дневных групп, 2 заголовка закреплены при
+  скролле; фокус после раскрытия поиска — `INPUT`; после закрытия поиска снова 8 групп (фильтр
+  сброшен); меню архивной строки — `["Восстановить","Удалить"]`; console errors — ноль.
+- Populated-«Скрытые» снят со стабом ответа на сетевом уровне: в локальной БД нет скрытых строк,
+  в базу ничего не писалось. Побочно выяснилось, что service worker VitePWA проходит мимо
+  `page.route` — нужен `serviceWorkers: 'block'`.
+
+Открыто после закрытия задачи (не блокирует, решение Шукура):
+- Итог дня завышен на старых строках: `hermes` −300 000 и `перевел` −500 000 имеют
+  `semanticType='expense'` при категории `debt`/`other`. Считается по тем же правилам, что и
+  «Потрачено сегодня» на Home, поэтому History и Home друг другу не противоречат — но обе цифры
+  завышены, пока не применён backfill (FT-045).
+- Формулировка в `CLAUDE.md` «Все исторические транзакции имеют `semanticType = expense`»
+  устарела: в базе есть `own_transfer` (2), `saving_deposit` (1), `income` (5).
+- `TransactionListItem` больше нигде не используется, но остаётся в барреле `entities/transaction`.
+- `formatHistorySubtitle` даёт «3 скрытых записи»; для женского рода после 2–4 обычнее
+  «3 скрытые записи».
 
 ---

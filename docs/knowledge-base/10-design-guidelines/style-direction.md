@@ -33,20 +33,34 @@ This avoids a common finance-app mistake: using green for every important button
 
 ## Navigation principles
 
-- Bottom nav has 4 destinations plus one centered action:
-  - `Главная`
-  - `История`
-  - `+`
-  - `Бюджеты`
-  - `Ещё`
-- The center `+` is a generic primary action, not a financial success state.
-- `+` should use a neutral/brand treatment: surface, border, subtle shadow, foreground icon.
-- Green should not be used merely because an element is important.
-- Extra sections like `Долги` and `Аналитика` belong in `Ещё` unless usage data proves they are primary daily destinations.
+Updated 2026-09-07 (`FT-086`). The earlier version of this section described five items —
+`Главная / История / + / Бюджеты / Ещё` — which milestone 9 superseded: budgets moved under
+`Ещё` (`FT-073`), the centre `+` became `Записать` (`FT-079`), and the manual form left the bar
+entirely (`FT-086`).
+
+- Bottom nav is a bar flush with the bottom edge, full width, `border-t`, opaque, `pb-safe`.
+  It is not a floating card: a floating dock leaves a gap that content scrolls through, and
+  costs roughly twice the vertical space for the same targets.
+- Four equal slots, in the order the day runs:
+  - `Главная` — where you look
+  - `История` — where you correct
+  - `Записать` — the one slot that writes rather than goes
+  - `Ещё` — everything that is not daily
+- The action slot is the same size as a tab. It is marked by a filled disc behind its icon, not
+  by extra width: navigation is chrome, and chrome does not get to be the loudest thing on the
+  screen. The bold element on any screen is the amount or the capture field.
+- The action uses neutral/brand tokens, never green — green carries income/success meaning.
+- Tabs are `<Link>`s with `aria-current="page"`, so modified clicks work and the current page is
+  announced as a page rather than as a pressed toggle.
+- Every slot carries a caption. Unlabelled glyphs make the tabs a guessing game, and the icon
+  set has to stay distinct from meaning used elsewhere (History is a clock, not a receipt —
+  the receipt glyph already means the `Чек` capture channel).
+- Extra sections like `Долги` and `Аналитика` belong in `Ещё` unless usage data proves they are
+  primary daily destinations.
 
 ## CTA hierarchy
 
-1. One global mobile primary action: center `+` for adding a transaction.
+1. One global mobile primary action: the `Записать` slot, which hands focus to quick capture.
 2. Screen-specific creation actions should be in-page on mobile, not floating over the bottom nav.
 3. Desktop may use fixed action buttons because there is no mobile bottom nav conflict.
 4. Empty states may contain their own CTA because they explain the first action in context.
@@ -70,7 +84,26 @@ Before calling UI work done:
 
 ## Current decisions
 
-- Bottom nav center `+` is neutral, not green.
+- Bottom nav action slot is neutral, not green.
 - Active nav items are neutral foreground, not green.
 - Green remains available for income/success/healthy budget states.
 - Budget page has no mobile floating create-budget FAB; creation is in-page or in empty state.
+- The nav bar is opaque, not the `bg-card/80` frosted glass this document's component snippet
+  shows. Both `card` and `background` resolve to pure white here, so any alpha renders a
+  transaction row as ghost text under the navigation — measured legible at 85% and at 95%.
+  Opaque serves this document's own "no visual noise" intent; the snippet's frosted treatment
+  is right only where there is something worth frosting behind it.
+
+## Open design questions
+
+Raised 2026-09-07 while working through the `frontend-design` skill; none decided.
+
+- **Uppercase eyebrow labels.** `ПОТРАЧЕНО СЕГОДНЯ`, `ПОСЛЕДНИЕ`, `КАК ЗАПИСАТЬ` and meta lines
+  joined with middle dots (`Другое · Вчера`) are both named in that skill as the commonest tells
+  of generated design. They may still be the right call here — this document's direction wins
+  over a general heuristic — but nobody has decided it deliberately.
+- **Telegram's native bottom button.** `useTelegramMainButton` exists in
+  `webapp/src/shared/hooks/useTelegram.ts` and is used nowhere. Handing `Записать` to it would
+  make the action native and let the bar drop to three tabs; it would also need a browser
+  fallback and would touch the capture card's own submit. Sketched as variant E on the design
+  canvas (see `TASKS.md`).
