@@ -7,7 +7,7 @@ import { useUserStore } from '@/entities/user/model/store';
 
 const navItems = [
   { href: ROUTES.HOME, label: 'Главная' },
-  { href: ROUTES.TRANSACTIONS, label: 'Транзакции' },
+  { href: ROUTES.TRANSACTIONS, label: 'История' },
   { href: ROUTES.BUDGETS, label: 'Бюджеты' },
   { href: ROUTES.DEBTS, label: 'Долги' },
   { href: ROUTES.ANALYTICS, label: 'Аналитика' },

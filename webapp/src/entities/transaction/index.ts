@@ -3,6 +3,7 @@
 // Types
 export type { Transaction, CreateTransactionDTO, UpdateTransactionDTO, TransactionViewModel, TransactionSemanticType } from './model/types';
 export type { DateGroup } from './lib/groupByDate';
+export type { DayGroupSummary, DayGroupTransaction } from './lib/dayGroupSummary';
 
 // View Model
 export { transactionToViewModel } from './lib/toViewModel';
@@ -11,8 +12,15 @@ export { transactionToViewModel } from './lib/toViewModel';
 export { groupTransactionsByDate } from './lib/groupByDate';
 export {
   formatAllTransactionsLabel,
+  formatHistorySubtitle,
   formatTransactionsScopeLabel,
 } from './lib/transactionCountLabels';
+export {
+  DAY_EXPENSE_TOTAL_LABEL,
+  formatDayGroupExpenseTotal,
+  formatDayGroupNote,
+  summarizeDayGroup,
+} from './lib/dayGroupSummary';
 export {
   getSemanticTypeLabel,
   getSemanticTypeBadgeVariant,

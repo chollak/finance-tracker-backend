@@ -1,12 +1,16 @@
-import { useState, useMemo } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
+import { Archive, Plus, Search, X } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import {
   useTransactions,
   useArchivedTransactions,
   useArchiveTransaction,
   useUnarchiveTransaction,
   useArchiveAllTransactions,
-  TransactionListItem,
   groupTransactionsByDate,
+  formatHistorySubtitle,
+  type DateGroup,
 } from '@/entities/transaction';
 import { useUserStore } from '@/entities/user/model/store';
 import { FilterBar, useTransactionFiltersStore, filterTransactions } from '@/features/filter-transactions';
@@ -26,20 +30,102 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/shared/ui/alert-dialog';
-import { Plus, Archive } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '@/shared/lib/constants/routes';
-import { toast } from 'sonner';
-import { formatTransactionsScopeLabel } from '@/entities/transaction';
+import { HistoryDayGroup } from './HistoryDayGroup';
+
+function HistoryListSkeleton() {
+  return (
+    <div className="space-y-2" aria-hidden="true">
+      {[1, 2, 3, 4, 5].map((i) => (
+        <Skeleton key={i} className="h-[52px] w-full rounded-xl" />
+      ))}
+    </div>
+  );
+}
+
+interface HistoryListProps {
+  isLoading: boolean;
+  groups: DateGroup[];
+  /** Rows in this scope before filtering — tells an empty search from an empty history. */
+  hasAnyRows: boolean;
+  isFiltered: boolean;
+  emptyState: ReactNode;
+  showSummary?: boolean;
+  dimmed?: boolean;
+  onOpen?: (id: string) => void;
+  onArchive?: (id: string) => void;
+  onUnarchive?: (id: string) => void;
+  onDelete: (id: string) => void;
+}
+
+function HistoryList({
+  isLoading,
+  groups,
+  hasAnyRows,
+  isFiltered,
+  emptyState,
+  showSummary,
+  dimmed,
+  onOpen,
+  onArchive,
+  onUnarchive,
+  onDelete,
+}: HistoryListProps) {
+  if (isLoading) {
+    return <HistoryListSkeleton />;
+  }
+
+  if (groups.length === 0) {
+    // A filter that hides everything is a different situation from an empty history,
+    // and the way out of it is different too — say which one the user is in.
+    return isFiltered && hasAnyRows ? (
+      <EmptyState
+        icon="🔍"
+        title="Ничего не найдено"
+        description="Измените запрос или сбросьте фильтр"
+        size="md"
+      />
+    ) : (
+      emptyState
+    );
+  }
+
+  return (
+    <div className="space-y-5">
+      {groups.map((group) => (
+        <HistoryDayGroup
+          key={group.label}
+          group={group}
+          showSummary={showSummary}
+          dimmed={dimmed}
+          onOpen={onOpen}
+          onArchive={onArchive}
+          onUnarchive={onUnarchive}
+          onDelete={onDelete}
+        />
+      ))}
+    </div>
+  );
+}
 
 /**
- * Transactions Page
- * Shows list of all transactions grouped by date with filtering and archive capabilities
+ * History — the correction surface of the quick-action loop (FT-081).
+ *
+ * The page answers «что я записал и что из этого надо поправить», so it is built as a
+ * dated log rather than a management console: days in reverse order, each with its own
+ * real-expense total, and the same `CompactTransactionRow` the Home recent list uses —
+ * a capture looks identical wherever the user checks it.
+ *
+ * The management affordances did not go anywhere, they just stopped setting the tone.
+ * Search/filter live behind one press instead of occupying the space above the list
+ * (and above an empty one); archive, restore and delete live in each row's menu; bulk
+ * hide stays a quiet ghost button under the list.
  */
 export function TransactionsPage() {
   const navigate = useNavigate();
   const userId = useUserStore((state) => state.userId);
   const [activeTab, setActiveTab] = useState<'active' | 'archived'>('active');
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
 
   // Active transactions
   const { data: transactions, isLoading: isLoadingActive } = useTransactions(userId);
@@ -54,25 +140,23 @@ export function TransactionsPage() {
   const archiveAllMutation = useArchiveAllTransactions();
 
   // Filters from Zustand store
-  const { searchQuery, typeFilter, categoryFilter } = useTransactionFiltersStore();
+  const { searchQuery, typeFilter, categoryFilter, resetFilters } = useTransactionFiltersStore();
+  const isFiltered = searchQuery !== '' || typeFilter !== 'all' || categoryFilter !== null;
 
-  // Apply filters to active transactions
-  const filteredTransactions = transactions
-    ? filterTransactions(transactions, {
-        searchQuery,
-        typeFilter,
-        categoryFilter,
-      })
-    : [];
+  const filters = useMemo(
+    () => ({ searchQuery, typeFilter, categoryFilter }),
+    [searchQuery, typeFilter, categoryFilter]
+  );
 
-  // Apply filters to archived transactions
-  const filteredArchivedTransactions = archivedTransactions
-    ? filterTransactions(archivedTransactions, {
-        searchQuery,
-        typeFilter,
-        categoryFilter,
-      })
-    : [];
+  const filteredTransactions = useMemo(
+    () => (transactions ? filterTransactions(transactions, filters) : []),
+    [transactions, filters]
+  );
+
+  const filteredArchivedTransactions = useMemo(
+    () => (archivedTransactions ? filterTransactions(archivedTransactions, filters) : []),
+    [archivedTransactions, filters]
+  );
 
   // Group transactions by date
   const groupedTransactions = useMemo(
@@ -115,14 +199,59 @@ export function TransactionsPage() {
     }
   };
 
-  const currentTransactions = activeTab === 'active' ? filteredTransactions : filteredArchivedTransactions;
-  const totalCount = activeTab === 'active' ? (transactions?.length || 0) : (archivedTransactions?.length || 0);
+  const scopeTransactions = activeTab === 'active' ? transactions : archivedTransactions;
+  const scopeShownCount =
+    activeTab === 'active' ? filteredTransactions.length : filteredArchivedTransactions.length;
+  const scopeTotalCount = scopeTransactions?.length ?? 0;
+
+  const needsReviewCount = useMemo(
+    () => (scopeTransactions ?? []).filter((transaction) => transaction._needsReview).length,
+    [scopeTransactions]
+  );
+
+  const toggleSearch = () => {
+    // Collapsing clears the filters as well: a filter left running behind a hidden bar
+    // would keep trimming History with nothing on screen to explain the missing rows.
+    if (isSearchOpen) resetFilters();
+    setIsSearchOpen(!isSearchOpen);
+  };
 
   return (
     <PageShell>
       <PageHeader
-        title="Транзакции"
-        subtitle={formatTransactionsScopeLabel(currentTransactions.length, totalCount, activeTab)}
+        title="История"
+        subtitle={formatHistorySubtitle({
+          scope: activeTab,
+          shown: scopeShownCount,
+          total: scopeTotalCount,
+          needsReviewCount,
+          isFiltered,
+        })}
+        action={
+          // Nothing to search through yet — an empty history does not need the control
+          // that would otherwise be the loudest thing on the screen. Once the bar is
+          // open the button stays regardless: switching to an empty scope must not
+          // strand the user with a search bar and no way to close it.
+          scopeTotalCount > 0 || isSearchOpen ? (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleSearch}
+              // Stable QA hook, like the dock's `data-dock-center`: screenshot runs
+              // must not break when the label or the icon changes.
+              data-history-search-toggle
+              aria-expanded={isSearchOpen}
+              aria-label={isSearchOpen ? 'Закрыть поиск' : 'Искать по записям'}
+              title={isSearchOpen ? 'Закрыть поиск' : 'Искать по записям'}
+            >
+              {isSearchOpen ? (
+                <X className="h-4 w-4" aria-hidden="true" />
+              ) : (
+                <Search className="h-4 w-4" aria-hidden="true" />
+              )}
+            </Button>
+          ) : undefined
+        }
       />
 
       {/* Tabs */}
@@ -146,65 +275,42 @@ export function TransactionsPage() {
           </SegmentedTabsTrigger>
         </SegmentedTabsList>
 
-        {/* Filter Bar */}
-        <FilterBar />
-
-        <TabsContent value="active">
-          {/* Active Transactions List - Grouped by Date */}
-          <div className="mt-6 space-y-6">
-            {isLoadingActive ? (
-              <div className="space-y-3">
-                {[1, 2, 3, 4, 5].map((i) => (
-                  <Skeleton key={i} className="h-16 w-full rounded-lg" />
-                ))}
-              </div>
-            ) : filteredTransactions.length === 0 ? (
-              transactions && transactions.length > 0 ? (
-                <EmptyState
-                  icon="🔍"
-                  title="Ничего не найдено"
-                  description="Попробуйте изменить параметры поиска или сбросить фильтры"
-                  size="md"
-                />
-              ) : (
-                <EmptyState
-                  icon="📝"
-                  title="Нет транзакций"
-                  description="Начните записывать свои расходы и доходы, чтобы видеть полную картину финансов"
-                  tip="Попробуйте голосовой ввод — просто скажите 'Обед 50 тысяч' в Telegram боте!"
-                  action={
-                    <Button onClick={() => navigate(ROUTES.ADD_TRANSACTION)}>
-                      Добавить первую транзакцию
-                    </Button>
-                  }
-                  size="md"
-                  className="px-2 pt-16 pb-32 md:pb-10"
-                />
-              )
-            ) : (
-              groupedTransactions.map((group) => (
-                <section key={group.label}>
-                  {/* Date Header */}
-                  <h3 className="sticky top-0 z-10 bg-background py-2 text-sm font-medium text-muted-foreground border-b mb-2">
-                    {group.label}
-                  </h3>
-
-                  {/* Transactions in Group */}
-                  <div className="space-y-1">
-                    {group.transactions.map((transaction) => (
-                      <TransactionListItem
-                        key={transaction.id}
-                        transaction={transaction}
-                        onClick={() => transaction.id && navigate(ROUTES.EDIT_TRANSACTION(transaction.id))}
-                        onArchive={transaction.id ? () => handleArchive(transaction.id!) : undefined}
-                        onDelete={transaction.id ? () => openDialog(transaction.id!) : undefined}
-                      />
-                    ))}
-                  </div>
-                </section>
-              ))
-            )}
+        {/* Filter Bar — revealed on demand, so the daily list starts at the list */}
+        {isSearchOpen && (
+          <div className="mb-4">
+            <FilterBar autoFocus />
           </div>
+        )}
+
+        <TabsContent value="active" className="mt-4">
+          <HistoryList
+            isLoading={isLoadingActive}
+            groups={groupedTransactions}
+            hasAnyRows={(transactions?.length ?? 0) > 0}
+            isFiltered={isFiltered}
+            // A filtered list is a search result, not a day report: «Расходы» over the
+            // rows that survived a query would name the day but count only the matches,
+            // and 114 000 would sit under a date whose real total is 235 000.
+            showSummary={!isFiltered}
+            onOpen={(id) => navigate(ROUTES.EDIT_TRANSACTION(id))}
+            onArchive={handleArchive}
+            onDelete={openDialog}
+            emptyState={
+              <EmptyState
+                icon="📝"
+                title="Пока ничего не записано"
+                description="Записи из Telegram-бота и из Mini App появляются здесь сразу после сохранения"
+                tip="Голосом — в чате бота: скажите «Обед 50 тысяч», и запись окажется тут"
+                action={
+                  <Button variant="outline" onClick={() => navigate(ROUTES.ADD_TRANSACTION)}>
+                    Добавить вручную
+                  </Button>
+                }
+                size="md"
+                className="px-2 pt-16 pb-32 md:pb-10"
+              />
+            }
+          />
 
           {/* Bulk hide action - intentionally quiet, not a primary header action */}
           {transactions && transactions.length > 0 && (
@@ -236,55 +342,27 @@ export function TransactionsPage() {
           )}
         </TabsContent>
 
-        <TabsContent value="archived">
-          {/* Archived Transactions List - Grouped by Date */}
-          <div className="mt-6 space-y-6">
-            {isLoadingArchived ? (
-              <div className="space-y-3">
-                {[1, 2, 3, 4, 5].map((i) => (
-                  <Skeleton key={i} className="h-16 w-full rounded-lg" />
-                ))}
-              </div>
-            ) : filteredArchivedTransactions.length === 0 ? (
-              archivedTransactions && archivedTransactions.length > 0 ? (
-                <EmptyState
-                  icon="🔍"
-                  title="Ничего не найдено"
-                  description="Попробуйте изменить параметры поиска или сбросить фильтры"
-                  size="md"
-                />
-              ) : (
-                <EmptyState
-                  icon="📦"
-                  title="Здесь пока пусто"
-                  description="Транзакции, которые вы скроете, окажутся тут"
-                  tip="Скрывайте старые транзакции, чтобы они не учитывались в текущих итогах"
-                  size="md"
-                />
-              )
-            ) : (
-              groupedArchivedTransactions.map((group) => (
-                <section key={group.label} className="opacity-75">
-                  {/* Date Header */}
-                  <h3 className="sticky top-0 z-10 bg-background py-2 text-sm font-medium text-muted-foreground border-b mb-2">
-                    {group.label}
-                  </h3>
-
-                  {/* Transactions in Group */}
-                  <div className="space-y-1">
-                    {group.transactions.map((transaction) => (
-                      <TransactionListItem
-                        key={transaction.id}
-                        transaction={transaction}
-                        onUnarchive={transaction.id ? () => handleUnarchive(transaction.id!) : undefined}
-                        onDelete={transaction.id ? () => openDialog(transaction.id!) : undefined}
-                      />
-                    ))}
-                  </div>
-                </section>
-              ))
-            )}
-          </div>
+        <TabsContent value="archived" className="mt-4">
+          <HistoryList
+            isLoading={isLoadingArchived}
+            groups={groupedArchivedTransactions}
+            hasAnyRows={(archivedTransactions?.length ?? 0) > 0}
+            isFiltered={isFiltered}
+            // Hidden rows are deliberately outside every total the app reports, so a
+            // «Расходы …» line over a group of them would contradict what hiding means.
+            showSummary={false}
+            dimmed
+            onUnarchive={handleUnarchive}
+            onDelete={openDialog}
+            emptyState={
+              <EmptyState
+                icon="📦"
+                title="Здесь пока пусто"
+                description="Скрытая запись остаётся в базе, но перестаёт попадать в итоги и аналитику"
+                size="md"
+              />
+            }
+          />
         </TabsContent>
       </Tabs>
 

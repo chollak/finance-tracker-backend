@@ -75,6 +75,15 @@ export function formatCompactRowDayLabel(date: string | Date, now: Date): string
   return format(parsed, 'd MMM yyyy', { locale: ru });
 }
 
+export interface CompactRowMetaOptions {
+  /**
+   * `false` for a list that already groups rows under a dated header (History) —
+   * repeating «Вчера» on every row under a «Вчера» heading is noise, and it costs
+   * the description the width it needs at 375px.
+   */
+  includeDayLabel?: boolean;
+}
+
 /**
  * The one secondary line of a compact row: category, what kind of movement it was,
  * and when — in that order, because the category identifies the row and the day only
@@ -86,8 +95,12 @@ export function formatCompactRowDayLabel(date: string | Date, now: Date): string
  * expense or income says it already through the amount's sign and colour, so
  * repeating «Расход»/«Доход» would cost the width the description needs.
  */
-export function formatCompactRowMeta(transaction: TransactionViewModel, now: Date): string {
-  const dayLabel = formatCompactRowDayLabel(transaction.date, now);
+export function formatCompactRowMeta(
+  transaction: TransactionViewModel,
+  now: Date,
+  { includeDayLabel = true }: CompactRowMetaOptions = {}
+): string {
+  const dayLabel = includeDayLabel ? formatCompactRowDayLabel(transaction.date, now) : null;
 
   return [
     getCategoryName(transaction.category),

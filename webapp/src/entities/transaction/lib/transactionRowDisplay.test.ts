@@ -163,6 +163,13 @@ describe('formatCompactRowMeta', () => {
     expect(formatCompactRowMeta(vm, NOW)).toBe('Еда · Наличные · Вчера');
   });
 
+  it('drops the day when the list already groups rows under a dated header', () => {
+    const vm = transactionToViewModel(
+      makeTransaction({ date: '2026-09-03', semanticType: 'cash_withdrawal' })
+    );
+    expect(formatCompactRowMeta(vm, NOW, { includeDayLabel: false })).toBe('Еда · Наличные');
+  });
+
   it('falls back to the raw category id for an unknown category', () => {
     const vm = transactionToViewModel(
       makeTransaction({ date: '2026-09-04', category: 'quantum-snacks' })

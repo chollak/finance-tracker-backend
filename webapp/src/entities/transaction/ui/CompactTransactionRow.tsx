@@ -14,6 +14,11 @@ interface CompactTransactionRowProps {
   onUnarchive?: () => void;
   onDelete?: () => void;
   showActions?: boolean;
+  /**
+   * `false` inside a list that already has dated day headers (History) — the row's
+   * own «Вчера» would only repeat the heading above it.
+   */
+  showDayLabel?: boolean;
   /** Injected in tests/previews; production rows read the current day. */
   now?: Date;
 }
@@ -34,7 +39,8 @@ interface CompactTransactionRowProps {
  * correction stays a warning surface with its one-tap chips — the only affordance
  * that is allowed to add a second line, because it is the point of the list.
  *
- * `TransactionListItem` stays as it is for the History page; that page is FT-081.
+ * History reuses the same row (FT-081) with `showActions` and without the per-row day
+ * label, so a capture looks identical wherever the user checks it.
  */
 export function CompactTransactionRow({
   transaction,
@@ -43,11 +49,14 @@ export function CompactTransactionRow({
   onUnarchive,
   onDelete,
   showActions = false,
+  showDayLabel = true,
   now,
 }: CompactTransactionRowProps) {
   const isClickable = !!onClick;
   const needsReview = transaction._needsReview;
-  const meta = formatCompactRowMeta(transaction, now ?? new Date());
+  const meta = formatCompactRowMeta(transaction, now ?? new Date(), {
+    includeDayLabel: showDayLabel,
+  });
   const hasActions = showActions && !!(onArchive || onUnarchive || onDelete);
 
   // The row is the tap target, so it has to answer the keyboard too — a pointer-only

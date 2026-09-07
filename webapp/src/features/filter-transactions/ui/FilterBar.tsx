@@ -12,11 +12,19 @@ import { Search, X } from 'lucide-react';
 import { useDebounce } from '@/shared/hooks';
 import { useEffect, useState } from 'react';
 
+interface FilterBarProps {
+  /**
+   * `true` when the bar was just revealed by an explicit press (History) — the user
+   * asked for search, so the keyboard should already be up.
+   */
+  autoFocus?: boolean;
+}
+
 /**
  * Transaction filter bar
  * Includes search, type filter, and reset
  */
-export function FilterBar() {
+export function FilterBar({ autoFocus = false }: FilterBarProps) {
   const {
     searchQuery,
     typeFilter,
@@ -36,45 +44,52 @@ export function FilterBar() {
   const hasActiveFilters = searchQuery || typeFilter !== 'all';
 
   return (
-    <div className="flex flex-col sm:flex-row gap-3">
+    <div className="flex flex-col gap-2 sm:flex-row sm:gap-3">
       {/* Search Input */}
+      {/* The autofocus is safe here because the bar never renders on load: it only
+          appears after an explicit press, so focus follows the press instead of
+          stealing it. */}
       <div className="relative flex-1">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
-          placeholder="Поиск транзакций..."
+          autoFocus={autoFocus}
+          placeholder="Поиск по записям..."
           value={localSearch}
           onChange={(e) => setLocalSearch(e.target.value)}
           className="pl-9"
         />
       </div>
 
-      {/* Type Filter */}
-      <Select value={typeFilter} onValueChange={setTypeFilter}>
-        <SelectTrigger className="w-full sm:w-[160px]">
-          <SelectValue placeholder="Тип" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">Все</SelectItem>
-          <SelectItem value="income">Доходы</SelectItem>
-          <SelectItem value="expense">Расходы</SelectItem>
-          <SelectItem value="not_expense">Не расходы</SelectItem>
-        </SelectContent>
-      </Select>
+      <div className="flex gap-2">
+        {/* Type Filter */}
+        <Select value={typeFilter} onValueChange={setTypeFilter}>
+          <SelectTrigger className="flex-1 sm:w-[160px] sm:flex-none">
+            <SelectValue placeholder="Тип" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Все</SelectItem>
+            <SelectItem value="income">Доходы</SelectItem>
+            <SelectItem value="expense">Расходы</SelectItem>
+            <SelectItem value="not_expense">Не расходы</SelectItem>
+          </SelectContent>
+        </Select>
 
-      {/* Reset Button */}
-      {hasActiveFilters && (
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={() => {
-            resetFilters();
-            setLocalSearch('');
-          }}
-          title="Сбросить фильтры"
-        >
-          <X className="h-4 w-4" />
-        </Button>
-      )}
+        {/* Reset Button */}
+        {hasActiveFilters && (
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => {
+              resetFilters();
+              setLocalSearch('');
+            }}
+            aria-label="Сбросить фильтры"
+            title="Сбросить фильтры"
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        )}
+      </div>
     </div>
   );
 }
