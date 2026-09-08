@@ -1,0 +1,107 @@
+<h2>Сколько «ясности» попадает в v1?</h2>
+<p class="subtitle">Единственный экран мини-аппа. Ты выбрал «захват сейчас, ясность потом» — вопрос в том, где именно провести черту. Три варианта плотности, одинаковый визуальный язык.</p>
+
+<style>
+  .phone{width:230px;background:#fff;border-radius:26px;padding:16px 14px;color:#111;
+         border:1px solid rgba(0,0,0,.10);box-shadow:0 6px 24px rgba(0,0,0,.10);font-size:13px}
+  .ph-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;font-size:11px;opacity:.45}
+  .ph-card{background:#f4f4f5;border-radius:18px;padding:14px;margin-bottom:12px}
+  .ph-amt{font-size:27px;font-weight:800;letter-spacing:-.5px;line-height:1.1}
+  .ph-lbl{font-size:11px;opacity:.5;margin-bottom:5px}
+  .ph-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid rgba(0,0,0,.06)}
+  .ph-row:last-child{border-bottom:none}
+  .ph-nm{font-weight:650;font-size:12.5px}
+  .ph-sub{font-size:10.5px;opacity:.45}
+  .ph-val{font-weight:700;font-size:12.5px;white-space:nowrap}
+  .ph-sect{font-size:10.5px;opacity:.42;margin:14px 0 4px;text-transform:uppercase;letter-spacing:.6px}
+  .ph-bars{display:flex;align-items:flex-end;gap:6px;height:56px;margin-top:12px}
+  .ph-bar{flex:1;background:#111;border-radius:3px}
+  .ph-days{display:flex;gap:6px;margin-top:5px;font-size:9px;opacity:.4}
+  .ph-days span{flex:1;text-align:center}
+  .ph-fab{position:absolute;right:22px;bottom:20px;width:42px;height:42px;border-radius:50%;
+          background:#111;color:#fff;display:flex;align-items:center;justify-content:center;font-size:21px}
+</style>
+
+<div class="options">
+
+  <div class="option" data-choice="list-only" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Только список — чистая записывалка</h3>
+      <p style="margin-bottom:14px">Никаких сумм и агрегатов. Экран существует, чтобы проверить, что парсер не наврал, и поправить.</p>
+      <div style="position:relative;display:inline-block">
+        <div class="phone">
+          <div class="ph-top"><span>Траты</span><span>⚙</span></div>
+          <div class="ph-sect">Сегодня</div>
+          <div class="ph-row"><div><div class="ph-nm">Korzinka</div><div class="ph-sub">Продукты</div></div><div class="ph-val">45 000</div></div>
+          <div class="ph-row"><div><div class="ph-nm">Yandex Go</div><div class="ph-sub">Такси</div></div><div class="ph-val">18 000</div></div>
+          <div class="ph-sect">Вчера</div>
+          <div class="ph-row"><div><div class="ph-nm">Evos</div><div class="ph-sub">Кафе</div></div><div class="ph-val">62 000</div></div>
+          <div class="ph-row"><div><div class="ph-nm">АЗС</div><div class="ph-sub">Топливо</div></div><div class="ph-val">120 000</div></div>
+          <div style="height:26px"></div>
+        </div>
+        <div class="ph-fab">+</div>
+      </div>
+      <p style="margin-top:12px;font-size:13px;opacity:.7">Максимально честно относительно «ясность потом». Риск — открывать нечего, петля обратной связи отсутствует.</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="one-number" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Одно число + список</h3>
+      <p style="margin-bottom:14px">Сколько потрачено за месяц, и что записалось. Ничего больше.</p>
+      <div style="position:relative;display:inline-block">
+        <div class="phone">
+          <div class="ph-top"><span>Траты</span><span>⚙</span></div>
+          <div class="ph-card">
+            <div class="ph-lbl">Потрачено в августе</div>
+            <div class="ph-amt">2 845 000</div>
+          </div>
+          <div class="ph-sect">Сегодня</div>
+          <div class="ph-row"><div><div class="ph-nm">Korzinka</div><div class="ph-sub">Продукты</div></div><div class="ph-val">45 000</div></div>
+          <div class="ph-row"><div><div class="ph-nm">Yandex Go</div><div class="ph-sub">Такси</div></div><div class="ph-val">18 000</div></div>
+          <div class="ph-sect">Вчера</div>
+          <div class="ph-row"><div><div class="ph-nm">Evos</div><div class="ph-sub">Кафе</div></div><div class="ph-val">62 000</div></div>
+          <div style="height:26px"></div>
+        </div>
+        <div class="ph-fab">+</div>
+      </div>
+      <p style="margin-top:12px;font-size:13px;opacity:.7">Число растёт от каждой записи — появляется смысл вносить. Одна агрегация, один SQL-запрос.</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="chart" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Число + недельный график + список</h3>
+      <p style="margin-bottom:14px">Ровно как у SyncSpend: сумма, столбики по дням недели, лента трат.</p>
+      <div style="position:relative;display:inline-block">
+        <div class="phone">
+          <div class="ph-top"><span>Траты</span><span>⚙</span></div>
+          <div class="ph-card">
+            <div class="ph-lbl">Потрачено в августе</div>
+            <div class="ph-amt">2 845 000</div>
+            <div class="ph-bars">
+              <div class="ph-bar" style="height:38%"></div>
+              <div class="ph-bar" style="height:62%"></div>
+              <div class="ph-bar" style="height:24%"></div>
+              <div class="ph-bar" style="height:88%"></div>
+              <div class="ph-bar" style="height:46%"></div>
+              <div class="ph-bar" style="height:12%"></div>
+              <div class="ph-bar" style="height:70%"></div>
+            </div>
+            <div class="ph-days"><span>Пн</span><span>Вт</span><span>Ср</span><span>Чт</span><span>Пт</span><span>Сб</span><span>Вс</span></div>
+          </div>
+          <div class="ph-sect">Сегодня</div>
+          <div class="ph-row"><div><div class="ph-nm">Korzinka</div><div class="ph-sub">Продукты</div></div><div class="ph-val">45 000</div></div>
+          <div class="ph-row"><div><div class="ph-nm">Yandex Go</div><div class="ph-sub">Такси</div></div><div class="ph-val">18 000</div></div>
+          <div style="height:26px"></div>
+        </div>
+        <div class="ph-fab">+</div>
+      </div>
+      <p style="margin-top:12px;font-size:13px;opacity:.7">Приятнее всего выглядит. Но график без бюджета не отвечает ни на один вопрос — он декоративный.</p>
+    </div>
+  </div>
+
+</div>

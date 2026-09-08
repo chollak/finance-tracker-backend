@@ -1,0 +1,131 @@
+<h2>Что сейчас построено — и что переживёт чистку</h2>
+<p class="subtitle">33 415 строк · 8 модулей · 44 use case'а · 13 страниц · 10 виджетов. Ниже — вся поверхность продукта. Отметь то, что остаётся в первой версии после чистки.</p>
+
+<div class="section">
+  <div class="label">Текущая поверхность</div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px;margin-top:12px">
+
+    <div style="border:1px solid var(--border,#333);border-radius:14px;padding:14px">
+      <div style="font-weight:700;margin-bottom:8px">Экраны мини-аппа · 13</div>
+      <div style="font-size:13px;line-height:1.8;opacity:.75">
+        home · transactions · add-transaction · edit-transaction · analytics · budgets · add-budget · edit-budget · debts · add-debt · debt-details · more
+      </div>
+    </div>
+
+    <div style="border:1px solid var(--border,#333);border-radius:14px;padding:14px">
+      <div style="font-weight:700;margin-bottom:8px">Виджеты главной · 10</div>
+      <div style="font-size:13px;line-height:1.8;opacity:.75">
+        balance-card · spending-chart · budget-overview · recent-transactions · quick-stats · financial-health · attention-summary · home-trust-summary · usage-limits
+      </div>
+    </div>
+
+    <div style="border:1px solid var(--border,#333);border-radius:14px;padding:14px">
+      <div style="font-weight:700;margin-bottom:8px">Модули бэкенда · 8</div>
+      <div style="font-size:13px;line-height:1.8;opacity:.75">
+        transaction · budget · debt · voiceProcessing · dashboard · subscription · openai-usage · user
+      </div>
+    </div>
+
+    <div style="border:1px solid var(--border,#333);border-radius:14px;padding:14px">
+      <div style="font-weight:700;margin-bottom:8px">Telegram-бот</div>
+      <div style="font-size:13px;line-height:1.8;opacity:.75">
+        команды · callback-хендлеры · клавиатуры категорий · подтверждения · навигация · платежи Stars · i18n · middleware лимитов
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="section">
+  <div class="label">Решение</div>
+  <h3 style="margin-top:8px">Что остаётся в v1 после чистки?</h3>
+  <p class="subtitle">Ядро — захват. Всё, что не служит захвату напрямую, обязано доказать, почему оно живёт. Можно выбрать несколько.</p>
+
+  <div class="options" data-multiselect>
+
+    <div class="option" data-choice="capture" onclick="toggleSelect(this)">
+      <div class="letter">1</div>
+      <div class="content">
+        <h3>Захват голосом и текстом</h3>
+        <p>voiceProcessing: Whisper → парсинг → транзакция. Это ядро, без него продукта нет.</p>
+      </div>
+    </div>
+
+    <div class="option" data-choice="list" onclick="toggleSelect(this)">
+      <div class="letter">2</div>
+      <div class="content">
+        <h3>Список трат + правка</h3>
+        <p>Посмотреть, что записалось, и исправить ошибку парсера. Минимальная петля доверия.</p>
+      </div>
+    </div>
+
+    <div class="option" data-choice="categories" onclick="toggleSelect(this)">
+      <div class="letter">3</div>
+      <div class="content">
+        <h3>Категории</h3>
+        <p>Проставляются автоматически при захвате. Вопрос — нужны ли они пользователю в v1 или это внутренняя механика.</p>
+      </div>
+    </div>
+
+    <div class="option" data-choice="learning" onclick="toggleSelect(this)">
+      <div class="letter">4</div>
+      <div class="content">
+        <h3>Обучение на исправлениях</h3>
+        <p>patterns.json: система запоминает твои правки и точнее парсит в следующий раз. Прямо снижает трение со временем.</p>
+      </div>
+    </div>
+
+    <div class="option" data-choice="analytics" onclick="toggleSelect(this)">
+      <div class="letter">5</div>
+      <div class="content">
+        <h3>Аналитика и графики</h3>
+        <p>dashboard, тренды, spending-chart, financial-health. Самая большая поверхность после захвата.</p>
+      </div>
+    </div>
+
+    <div class="option" data-choice="budgets" onclick="toggleSelect(this)">
+      <div class="letter">6</div>
+      <div class="content">
+        <h3>Бюджеты с лимитами</h3>
+        <p>BudgetModule целиком. Это «ясность», которую ты отложил на потом — но код уже написан.</p>
+      </div>
+    </div>
+
+    <div class="option" data-choice="debts" onclick="toggleSelect(this)">
+      <div class="letter">7</div>
+      <div class="content">
+        <h3>Долги</h3>
+        <p>DebtModule: кто кому должен, платежи по долгу, связанные транзакции. Отдельная предметная область.</p>
+      </div>
+    </div>
+
+    <div class="option" data-choice="subscription" onclick="toggleSelect(this)">
+      <div class="letter">8</div>
+      <div class="content">
+        <h3>Подписки, лимиты, Stars</h3>
+        <p>SubscriptionModule + middleware лимитов + оплата. Монетизация при нулевой аудитории.</p>
+      </div>
+    </div>
+
+    <div class="option" data-choice="archive" onclick="toggleSelect(this)">
+      <div class="letter">9</div>
+      <div class="content">
+        <h3>Архив транзакций</h3>
+        <p>archive / unarchive / archiveAll / archiveMultiple — четыре use case'а вокруг «скрыть с глаз».</p>
+      </div>
+    </div>
+
+    <div class="option" data-choice="miniapp" onclick="toggleSelect(this)">
+      <div class="letter">10</div>
+      <div class="content">
+        <h3>Мини-апп как поверхность просмотра</h3>
+        <p>Остаётся ли веб-интерфейс вообще, или в v1 всё живёт в ответах бота и уведомлениях Shortcut.</p>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="section">
+  <p class="subtitle" style="margin-top:20px">Напоминание: «убрать» ≠ «удалить безвозвратно». Код остаётся в git и его можно вернуть. Речь о том, что видит пользователь и что ты обязан поддерживать.</p>
+</div>

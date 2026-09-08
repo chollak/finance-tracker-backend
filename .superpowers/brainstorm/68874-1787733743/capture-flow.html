@@ -1,0 +1,63 @@
+<h2>Момент захвата: сколько действий до записанной траты?</h2>
+<p class="subtitle">Ты сказал «Action Button → голос → записано». Вопрос в том, что происходит с категорией. Три варианта — от нуля лишних действий до текущего состояния.</p>
+
+<div class="options">
+
+  <div class="option" data-choice="silent" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Парсер решает молча</h3>
+      <p style="margin-bottom:14px">Категория проставляется автоматически. В момент захвата пользователь её не видит и не трогает. Поменять можно потом, в списке.</p>
+      <div style="border:1px solid var(--border,#333);border-radius:12px;padding:12px;font-size:13px;line-height:2;font-family:ui-monospace,monospace">
+        <div>1 · зажал Action Button</div>
+        <div>2 · «сорок пять тысяч продукты»</div>
+        <div>3 · отпустил</div>
+        <div style="opacity:.55;padding-top:6px;border-top:1px dashed var(--border,#333);margin-top:6px">↓ уведомление</div>
+        <div style="font-weight:700">✓ 45 000 · Продукты</div>
+      </div>
+      <p style="margin-top:12px;font-size:13px;opacity:.7"><strong>3 действия.</strong> Самый быстрый. Цена — иногда категория неверная, и ты узнаёшь об этом позже.</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="confirm" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Парсер решает, показывает, даёт поправить</h3>
+      <p style="margin-bottom:14px">Категория проставлена, но видна сразу. Если верно — ничего не делаешь. Если нет — один тап на исправление.</p>
+      <div style="border:1px solid var(--border,#333);border-radius:12px;padding:12px;font-size:13px;line-height:2;font-family:ui-monospace,monospace">
+        <div>1 · зажал Action Button</div>
+        <div>2 · «сорок пять тысяч продукты»</div>
+        <div>3 · отпустил</div>
+        <div style="opacity:.55;padding-top:6px;border-top:1px dashed var(--border,#333);margin-top:6px">↓ карточка</div>
+        <div style="font-weight:700">45 000 · Продукты</div>
+        <div style="opacity:.7">[ ок ]   [ поменять ]</div>
+      </div>
+      <p style="margin-top:12px;font-size:13px;opacity:.7"><strong>3 действия, если верно. 4–5, если нет.</strong> Компромисс: скорость сохраняется, но ошибка ловится сразу.</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="pick" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Пользователь выбирает категорию — как сейчас</h3>
+      <p style="margin-bottom:14px">После диктовки выпадает клавиатура категорий, надо ткнуть. Так работает твой бот сегодня.</p>
+      <div style="border:1px solid var(--border,#333);border-radius:12px;padding:12px;font-size:13px;line-height:2;font-family:ui-monospace,monospace">
+        <div>1 · открыл Telegram</div>
+        <div>2 · нашёл бота</div>
+        <div>3 · зажал микрофон</div>
+        <div>4 · «сорок пять тысяч продукты»</div>
+        <div>5 · отпустил, ждёшь</div>
+        <div>6 · выбрал категорию</div>
+        <div>7 · подтвердил</div>
+        <div style="font-weight:700;padding-top:6px;border-top:1px dashed var(--border,#333);margin-top:6px">✓ записано</div>
+      </div>
+      <p style="margin-top:12px;font-size:13px;opacity:.7"><strong>7 действий.</strong> Максимум точности. И ровно то состояние, из-за которого тебе лень вносить.</p>
+    </div>
+  </div>
+
+</div>
+
+<div class="section" style="margin-top:24px">
+  <div class="label">Зависимость, о которой стоит помнить</div>
+  <p class="subtitle" style="margin-top:8px">Вариант A держится только на том, что парсер угадывает достаточно часто. Ты не взял «обучение на исправлениях» в список выживших — а именно оно превращает твои правки в рост точности. Без него A остаётся одинаково неточным и на первой, и на трёхсотой транзакции.</p>
+</div>

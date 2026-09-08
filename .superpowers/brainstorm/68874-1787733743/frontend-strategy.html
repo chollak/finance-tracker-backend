@@ -1,0 +1,71 @@
+<h2>Что делаем со старым фронтом</h2>
+<p class="subtitle">~16 000 строк в webapp/src. Часть из них к дизайну отношения не имеет и переписывать её незачем. Часть — это ровно тот визуал, который тебе надоел.</p>
+
+<div class="section">
+  <div class="label">Разбор по слоям</div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px">
+
+    <div style="border:1px solid var(--border,#333);border-left:3px solid #27ae60;border-radius:12px;padding:15px">
+      <div style="font-weight:700;margin-bottom:10px">Оставить как есть · ~1 800 строк</div>
+      <div style="font-size:12.5px;line-height:1.9;opacity:.82">
+        <div><code>app/providers/</code> — инициализация Telegram WebApp, React Query, гидратация</div>
+        <div><code>shared/api/</code> — HTTP-клиент</div>
+        <div><code>shared/types/</code> — типы транзакций</div>
+        <div><code>shared/lib/</code>, <code>shared/hooks/</code>, <code>shared/config/</code></div>
+        <div>vite, сборка в <code>public/webapp/</code></div>
+      </div>
+      <p style="font-size:12px;opacity:.65;margin-top:11px;margin-bottom:0">Это водопровод. Он работает, он невидим, и переписывать его — чистая потеря времени.</p>
+    </div>
+
+    <div style="border:1px solid var(--border,#333);border-left:3px solid #c0392b;border-radius:12px;padding:15px">
+      <div style="font-weight:700;margin-bottom:10px">Писать заново · ~14 000 строк уходит</div>
+      <div style="font-size:12.5px;line-height:1.9;opacity:.82">
+        <div><code>app/styles/globals.css</code> — токены заново, под одну иерархию</div>
+        <div><code>shared/ui/</code> — из 37 примитивов остаются 4–5</div>
+        <div><code>widgets/</code> — все 10 в заморозку</div>
+        <div><code>features/</code>, <code>entities/*/ui/</code> — заново под два экрана</div>
+        <div><code>pages/</code> — 13 страниц → 2</div>
+      </div>
+      <p style="font-size:12px;opacity:.65;margin-top:11px;margin-bottom:0">Это и есть визуальный слой, который приелся. Он же — источник ощущения перегруженности.</p>
+    </div>
+
+  </div>
+</div>
+
+<div class="section" style="margin-top:26px">
+  <div class="label">Сколько компонентов нужно на самом деле</div>
+  <p class="subtitle" style="margin-top:8px">Главный экран в варианте C, разложенный на части:</p>
+
+  <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:14px">
+    <span style="border:1px solid var(--border,#333);border-radius:16px;padding:6px 14px;font-size:12.5px">SummaryCard — цифра-герой</span>
+    <span style="border:1px solid var(--border,#333);border-radius:16px;padding:6px 14px;font-size:12.5px">WeekBars — семь столбиков</span>
+    <span style="border:1px solid var(--border,#333);border-radius:16px;padding:6px 14px;font-size:12.5px">TransactionRow — строка ленты</span>
+    <span style="border:1px solid var(--border,#333);border-radius:16px;padding:6px 14px;font-size:12.5px">DayGroup — заголовок дня</span>
+    <span style="border:1px solid var(--border,#333);border-radius:16px;padding:6px 14px;font-size:12.5px">AddButton — FAB</span>
+  </div>
+
+  <p style="font-size:12.5px;opacity:.72;margin-top:14px">
+    Пять компонентов. Плюс экран правки: поле суммы, выбор категории, кнопка сохранения. Написать их с нуля быстрее, чем приспосабливать существующие виджеты — и результат будет ровно таким, каким ты его задумал, без наследования старых решений.
+  </p>
+</div>
+
+<div class="section" style="margin-top:26px">
+  <div class="label">Почему приелось — диагноз</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:12px">
+    <div style="border:1px solid var(--border,#333);border-radius:12px;padding:15px">
+      <div style="font-weight:700;margin-bottom:9px;font-size:13.5px">Сейчас</div>
+      <div style="font-size:12.5px;line-height:1.85;opacity:.8">
+        10 виджетов на одном экране · 4 семантических цвета · каждый блок — скруглённая карточка · ни один элемент не главный
+      </div>
+      <p style="font-size:12px;opacity:.6;margin-top:10px;margin-bottom:0">Всё одинаково важное = всё одинаково неважное. Глазу не за что зацепиться.</p>
+    </div>
+    <div style="border:1px solid var(--border,#333);border-radius:12px;padding:15px">
+      <div style="font-weight:700;margin-bottom:9px;font-size:13.5px">Становится</div>
+      <div style="font-size:12.5px;line-height:1.85;opacity:.8">
+        3 зоны · монохром плюс один акцент · одна крупная цифра-герой · остальное отступает в серый
+      </div>
+      <p style="font-size:12px;opacity:.6;margin-top:10px;margin-bottom:0">Иерархия появляется не от красоты, а от того, что убрано лишнее.</p>
+    </div>
+  </div>
+</div>

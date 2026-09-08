@@ -1,0 +1,90 @@
+<h2>Обучение на исправлениях: что там внутри</h2>
+<p class="subtitle">Файл <code>src/shared/application/learning/transactionLearning.ts</code>, 280 строк. Замысел — петля. Реально петля разорвана в трёх местах.</p>
+
+<div class="section">
+  <div class="label">Как задумано</div>
+  <div style="display:flex;flex-wrap:wrap;align-items:stretch;gap:8px;margin-top:14px">
+
+    <div style="flex:1;min-width:150px;border:1px solid var(--border,#333);border-radius:12px;padding:12px">
+      <div style="font-weight:700;font-size:14px">1 · Захват</div>
+      <div style="font-size:13px;opacity:.7;margin-top:6px">«потратил 45 тысяч в evos» → GPT возвращает категорию <em>fastfood</em></div>
+    </div>
+
+    <div style="display:flex;align-items:center;opacity:.4;font-size:20px">→</div>
+
+    <div style="flex:1;min-width:150px;border:1px solid var(--border,#333);border-radius:12px;padding:12px">
+      <div style="font-weight:700;font-size:14px">2 · Правка</div>
+      <div style="font-size:13px;opacity:.7;margin-top:6px">Ты меняешь на <em>restaurants</em>. Клиент шлёт <code>originalText</code> + <code>originalParsing</code></div>
+    </div>
+
+    <div style="display:flex;align-items:center;opacity:.4;font-size:20px">→</div>
+
+    <div style="flex:1;min-width:150px;border:1px solid var(--border,#333);border-radius:12px;padding:12px">
+      <div style="font-weight:700;font-size:14px">3 · Запись паттерна</div>
+      <div style="font-size:13px;opacity:.7;margin-top:6px">Слова из текста падают в <code>data/patterns.json</code> как ключевые для <em>restaurants</em></div>
+    </div>
+
+    <div style="display:flex;align-items:center;opacity:.4;font-size:20px">→</div>
+
+    <div style="flex:1;min-width:150px;border:1px solid var(--border,#333);border-radius:12px;padding:12px">
+      <div style="font-weight:700;font-size:14px">4 · Подмешивание в промпт</div>
+      <div style="font-size:13px;opacity:.7;margin-top:6px">При следующем захвате паттерны дописываются в промпт GPT</div>
+    </div>
+
+  </div>
+</div>
+
+<div class="section" style="margin-top:28px">
+  <div class="label">Где разорвано</div>
+
+  <div style="margin-top:14px;display:flex;flex-direction:column;gap:10px">
+
+    <div style="border:1px solid var(--border,#333);border-left:3px solid #c0392b;border-radius:12px;padding:14px">
+      <div style="font-weight:700;margin-bottom:6px">Разрыв 1 — мини-апп не шлёт контекст</div>
+      <div style="font-size:13px;opacity:.8;line-height:1.7">
+        Контроллер ждёт <code>userId</code> + <code>originalText</code> + <code>originalParsing</code>, иначе тихо уходит на обычный update. В <code>webapp/</code> эти поля <strong>объявлены в типах и никогда не отправляются</strong>. То есть правка через мини-апп не обучает ничему.
+      </div>
+    </div>
+
+    <div style="border:1px solid var(--border,#333);border-left:3px solid #c0392b;border-radius:12px;padding:14px">
+      <div style="font-weight:700;margin-bottom:6px">Разрыв 2 — накопленного файла не существует</div>
+      <div style="font-size:13px;opacity:.8;line-height:1.7">
+        В <code>data/</code> лежат только <code>patterns.seed.json</code> и <code>learning-data.seed.json</code>. Рантайм-файла <code>patterns.json</code> нет. Система всегда падает на сид из 3 паттернов. За всё время не накоплено ни одного.
+      </div>
+    </div>
+
+    <div style="border:1px solid var(--border,#333);border-left:3px solid #c0392b;border-radius:12px;padding:14px">
+      <div style="font-weight:700;margin-bottom:6px">Разрыв 3 — фильтр съедает и сид тоже</div>
+      <div style="font-size:13px;opacity:.8;line-height:1.7">
+        <code>getEnhancedPrompts</code> берёт только паттерны с <code>usageCount >= 2</code>. В сиде: restaurants = 2, fuel = 1, taxi = 1. В промпт доходит <strong>ровно одна строка из трёх</strong>.
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="section" style="margin-top:28px">
+  <div class="label">Два дефекта в самом замысле</div>
+
+  <div style="margin-top:14px;display:flex;flex-direction:column;gap:10px">
+
+    <div style="border:1px solid var(--border,#333);border-left:3px solid #d68910;border-radius:12px;padding:14px">
+      <div style="font-weight:700;margin-bottom:6px">Мусорные ключевые слова</div>
+      <div style="font-size:13px;opacity:.8;line-height:1.7">
+        При правке в паттерн падают <strong>все</strong> слова длиннее двух букв. Посмотри свой же сид:
+        <div style="font-family:ui-monospace,monospace;background:rgba(128,128,128,.12);border-radius:8px;padding:10px;margin-top:8px">
+          "потратил", "деньги", "evos", "купил", "maxway" → restaurants
+        </div>
+        <div style="margin-top:8px">«потратил», «деньги», «купил» встречаются в <em>каждой</em> фразе. Обучившись, система начнёт тянуть всё подряд в restaurants. Это не рост точности, это её деградация.</div>
+      </div>
+    </div>
+
+    <div style="border:1px solid var(--border,#333);border-left:3px solid #d68910;border-radius:12px;padding:14px">
+      <div style="font-weight:700;margin-bottom:6px">Паттерны общие на всех пользователей</div>
+      <div style="font-size:13px;opacity:.8;line-height:1.7">
+        <code>recordCorrection</code> принимает <code>userId</code>, но <code>updatePatterns</code> его <strong>не использует</strong>. Один файл на всех: твоя правка меняет промпт для любого другого пользователя. Плюс это запись в файл на диске — при двух инстансах или на Supabase-деплое работать не будет.
+      </div>
+    </div>
+
+  </div>
+</div>
