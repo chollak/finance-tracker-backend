@@ -1,9 +1,11 @@
 /**
  * User Module
- * Manages user profiles and authentication
+ * Manages user profiles, authentication and per-user settings (FT-098)
  */
 
 import { UserRepository } from './domain/userRepository';
+import { UserSettingsRepository } from './domain/userSettingsRepository';
+import { GetUserSettingsUseCase, UpdateUserSettingsUseCase } from './application/userSettingsUseCases';
 import { GetOrCreateUserUseCase } from './application/getOrCreateUserUseCase';
 import { GetUserUseCase } from './application/getUserUseCase';
 import { UpdateUserUseCase } from './application/updateUserUseCase';
@@ -14,17 +16,25 @@ export class UserModule {
   private getOrCreateUserUseCase: GetOrCreateUserUseCase;
   private getUserUseCase: GetUserUseCase;
   private updateUserUseCase: UpdateUserUseCase;
+  private getUserSettingsUseCase?: GetUserSettingsUseCase;
+  private updateUserSettingsUseCase?: UpdateUserSettingsUseCase;
 
-  constructor(repository: UserRepository) {
+  constructor(repository: UserRepository, settingsRepository?: UserSettingsRepository) {
     this.repository = repository;
     this.getOrCreateUserUseCase = new GetOrCreateUserUseCase(repository);
     this.getUserUseCase = new GetUserUseCase(repository);
     this.updateUserUseCase = new UpdateUserUseCase(repository);
+    if (settingsRepository) {
+      this.getUserSettingsUseCase = new GetUserSettingsUseCase(settingsRepository);
+      this.updateUserSettingsUseCase = new UpdateUserSettingsUseCase(settingsRepository);
+    }
   }
 
   static create(): UserModule {
-    const repository = RepositoryFactory.createUserRepository();
-    return new UserModule(repository);
+    return new UserModule(
+      RepositoryFactory.createUserRepository(),
+      RepositoryFactory.createUserSettingsRepository()
+    );
   }
 
   // Use Cases
@@ -38,6 +48,16 @@ export class UserModule {
 
   getUpdateUserUseCase(): UpdateUserUseCase {
     return this.updateUserUseCase;
+  }
+
+  getGetUserSettingsUseCase(): GetUserSettingsUseCase {
+    if (!this.getUserSettingsUseCase) throw new Error('UserModule was created without a settings repository');
+    return this.getUserSettingsUseCase;
+  }
+
+  getUpdateUserSettingsUseCase(): UpdateUserSettingsUseCase {
+    if (!this.updateUserSettingsUseCase) throw new Error('UserModule was created without a settings repository');
+    return this.updateUserSettingsUseCase;
   }
 
   // Repository (for direct access if needed)

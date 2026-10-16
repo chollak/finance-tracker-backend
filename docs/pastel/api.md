@@ -1,0 +1,50 @@
+# API вехи 10
+
+Маршруты, которые добавляет фаза 2 (модель денег). Схема и правила — [money-model.md](money-model.md).
+Документ растёт вместе с задачами: каждая задача дописывает свои маршруты.
+
+## Общие правила
+
+- **Пользователь — только из авторизации.** Заголовок `Authorization: tma <initData>` (вне production —
+  `X-Dev-User-Id: <telegram id>`). Ни путь, ни query, ни тело не задают, чьи это данные. Middleware
+  `createCurrentUserMiddleware` переводит Telegram id во внутренний UUID и создаёт пользователя при первом
+  обращении. Без авторизации — `401`.
+- **Ответ** — как у всего API: `{ success: true, data, timestamp }`; ошибка — `{ success: false, error: { code, message } }`
+  с кодом `400` (валидация), `403`, `404`, `409`, `500`.
+- **Суммы** — целые в сотых долях: `*Minor` (тийины для сумов, центы для долларов). Старые маршруты
+  на переходный период принимают и `amount` в сумах, а отвечают обоими полями (FT-097).
+- **Даты** — `YYYY-MM-DD`; моменты времени — ISO 8601.
+
+## Записи: суммы (FT-097)
+
+`POST /api/transactions`, `PUT /api/transactions/:id`
+
+| Поле | Что |
+|---|---|
+| `amountMinor` | целое, ≥ 1, ≤ 100 000 000 000 (1 млрд в сумах или долларах) |
+| `amount` | старое поле, сумы числом; переводится в `amountMinor` |
+
+Можно прислать одно из двух или оба; оба должны совпадать, иначе `400 amount and amountMinor disagree`.
+Записи в ответах содержат `amountMinor` и `amount`.
+
+## Настройки (FT-098)
+
+`GET /api/settings` → настройки; пользователь, который ничего не менял, получает значения по умолчанию
+(строка в базе не создаётся).
+
+`PATCH /api/settings` — одно или несколько полей; неизвестное поле — `400`.
+
+| Поле | Значения | По умолчанию |
+|---|---|---|
+| `theme` | `telegram`, `light`, `dark` | `telegram` |
+| `dailySummaryEnabled` | `true`, `false` | `true` |
+| `dailySummaryTime` | `20:00`, `21:00`, `22:00`, `23:00` | `21:00` |
+| `auditEnabled` | `true`, `false` | `true` |
+| `auditTime` | `09:00`, `10:00`, `12:00`, `19:00` (1-го числа) | `10:00` |
+| `goalAlertsEnabled` | `true`, `false` | `true` |
+| `onboardedAt` | ISO-момент или `null` | `null` — показать первый запуск |
+| `receiptTipsSeen` | 0…3 | 0 |
+| `auditInviteSnoozedUntil` | `YYYY-MM-DD` или `null` | `null` |
+
+Только для чтения в FT-098: `userId`, `fxOwnRateMinor`, `fxOwnSince` (меняются в FT-102),
+`defaultAccountId` (FT-101).

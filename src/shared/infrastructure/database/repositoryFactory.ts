@@ -1,12 +1,14 @@
 import { TransactionRepository } from '../../../modules/transaction/domain/transactionRepository';
 import { BudgetRepository } from '../../../modules/budget/domain/budgetRepository';
 import { UserRepository } from '../../../modules/user/domain/userRepository';
+import { UserSettingsRepository } from '../../../modules/user/domain/userSettingsRepository';
 import { DebtRepository } from '../../../modules/debt/domain/debtRepository';
 import { SubscriptionRepository } from '../../../modules/subscription/domain/subscriptionRepository';
 import { UsageLimitRepository } from '../../../modules/subscription/domain/usageLimitRepository';
 import { SqliteTransactionRepository } from '../../../modules/transaction/infrastructure/persistence/SqliteTransactionRepository';
 import { SqliteBudgetRepository } from '../../../modules/budget/infrastructure/SqliteBudgetRepository';
 import { SqliteUserRepository } from '../../../modules/user/infrastructure/persistence/SqliteUserRepository';
+import { SqliteUserSettingsRepository } from '../../../modules/user/infrastructure/persistence/SqliteUserSettingsRepository';
 import { SqliteDebtRepository } from '../../../modules/debt/infrastructure/SqliteDebtRepository';
 import { SqliteSubscriptionRepository } from '../../../modules/subscription/infrastructure/SqliteSubscriptionRepository';
 import { SqliteUsageLimitRepository } from '../../../modules/subscription/infrastructure/SqliteUsageLimitRepository';
@@ -27,6 +29,10 @@ export class RepositoryFactory {
 
   static createUserRepository(): UserRepository {
     return new SqliteUserRepository();
+  }
+
+  static createUserSettingsRepository(): UserSettingsRepository {
+    return new SqliteUserSettingsRepository();
   }
 
   static createDebtRepository(): DebtRepository {

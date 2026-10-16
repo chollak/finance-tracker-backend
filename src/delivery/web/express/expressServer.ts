@@ -15,6 +15,7 @@ import { createBudgetRouter } from '../../../modules/budget/interfaces/budgetRou
 import { createDebtRouter } from '../../../modules/debt/presentation/controllers/debtRoutes';
 import { createDashboardRouter } from './routes/dashboardRoutes';
 import { createUserController } from '../../../modules/user/presentation/controllers/userController';
+import { createSettingsRoutes } from '../../../modules/user/presentation/controllers/settingsController';
 import { createSubscriptionRoutes } from './routes/subscriptionRoutes';
 import {
   errorHandler,
@@ -132,6 +133,8 @@ export function buildServer(
       '/users',
       createUserController(userModule)
     );
+    // Milestone 10 routes take the user from authentication, never from the path
+    router.use('/settings', createSettingsRoutes(userModule));
   }
 
   // Subscription routes (optional - only if both modules are provided)

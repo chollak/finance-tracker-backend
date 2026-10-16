@@ -2,7 +2,7 @@ import fs from 'fs';
 import { DataSource } from 'typeorm';
 import path from 'path';
 import { AppConfig } from '../config/appConfig';
-import { Transaction, Budget, Debt, DebtPayment, User, Subscription, UsageLimit } from './entities';
+import { Transaction, Budget, Debt, DebtPayment, User, Subscription, UsageLimit, UserSettings } from './entities';
 import { MIGRATIONS } from './migrations';
 import { findSchemaDrift, runMigrationsWithBackup } from './migrationRunner';
 import { createLogger, LogCategory } from '../logging';
@@ -12,7 +12,7 @@ const logger = createLogger(LogCategory.DATABASE);
 export const DATABASE_FILE = path.join(process.cwd(), 'data', 'database.sqlite');
 export const DATABASE_BACKUP_DIR = path.join(process.cwd(), 'data', 'backups');
 
-export const DATABASE_ENTITIES = [Transaction, Budget, Debt, DebtPayment, User, Subscription, UsageLimit];
+export const DATABASE_ENTITIES = [Transaction, Budget, Debt, DebtPayment, User, Subscription, UsageLimit, UserSettings];
 
 /**
  * One database path: TypeORM over SQLite, schema changed only by migrations (decision Д6, FT-090).

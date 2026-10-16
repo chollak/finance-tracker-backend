@@ -5,3 +5,4 @@ export { DebtPayment } from './DebtPayment';
 export { User } from './User';
 export { Subscription } from './Subscription';
 export { UsageLimit } from './UsageLimit';
+export { UserSettings } from './UserSettings';
