@@ -28,7 +28,8 @@ const logger = createLogger(LogCategory.TELEGRAM_MSG);
 
 const CONFIDENCE_THRESHOLD = 0.6;
 
-// Track last transaction per user for delete functionality
+// Track the last transaction per Telegram user for the «Удалить» button. Keyed by the Telegram id
+// (`ctx.from.id`), because that is all the callback query knows about the user.
 const lastTransactions: Record<string, string> = {};
 
 async function sendProcessingFeedback(ctx: BotContext): Promise<void> {
@@ -40,24 +41,24 @@ async function sendProcessingFeedback(ctx: BotContext): Promise<void> {
 }
 
 /**
- * Get last transaction ID for a user
+ * Get last transaction ID for a Telegram user
  */
-export function getLastTransactionId(userId: string): string | undefined {
-  return lastTransactions[userId];
+export function getLastTransactionId(telegramId: string): string | undefined {
+  return lastTransactions[telegramId];
 }
 
 /**
- * Set last transaction ID for a user
+ * Set last transaction ID for a Telegram user
  */
-export function setLastTransactionId(userId: string, transactionId: string): void {
-  lastTransactions[userId] = transactionId;
+export function setLastTransactionId(telegramId: string, transactionId: string): void {
+  lastTransactions[telegramId] = transactionId;
 }
 
 /**
- * Clear last transaction ID for a user
+ * Clear last transaction ID for a Telegram user
  */
-export function clearLastTransactionId(userId: string): void {
-  delete lastTransactions[userId];
+export function clearLastTransactionId(telegramId: string): void {
+  delete lastTransactions[telegramId];
 }
 
 /**
@@ -85,7 +86,8 @@ export function registerMessageHandlers(
   subscriptionModule?: SubscriptionModule,
   userModule?: UserModule
 ) {
-  // Create handlers with subscriptionModule for direct increment after success
+  // Voice inputs are counted inside the voice handler; created transactions are counted by
+  // CreateTransactionUseCase.
   const textHandler = createTextMessageHandler(userModule, subscriptionModule);
   const voiceHandler = createVoiceMessageHandler(userModule, subscriptionModule);
 
@@ -103,7 +105,6 @@ export function registerMessageHandlers(
     );
 
     // Text message handler with limit check
-    // Note: Increment happens inside handler after successful processing
     bot.on(
       message('text'),
       checkTransactionLimit,
@@ -111,7 +112,6 @@ export function registerMessageHandlers(
     );
 
     // Voice message handler with limit check
-    // Note: Increment happens inside handler after successful processing
     bot.on(
       message('voice'),
       checkVoiceLimit,
@@ -127,7 +127,9 @@ export function registerMessageHandlers(
 /**
  * Create text message handler with userModule for userId resolution
  */
-export function createTextMessageHandler(userModule?: UserModule, subscriptionModule?: SubscriptionModule) {
+// Text capture no longer counts usage itself (CreateTransactionUseCase does); the second parameter is
+// kept so the handler factories share one signature.
+export function createTextMessageHandler(userModule?: UserModule, _subscriptionModule?: SubscriptionModule) {
   return async function handleTextMessage(ctx: BotContext) {
     const text = ctx.message && 'text' in ctx.message ? ctx.message.text : '';
 
@@ -151,7 +153,7 @@ export function createTextMessageHandler(userModule?: UserModule, subscriptionMo
       // Handle Quick Add - awaiting amount after category selection
       if (ctx.session?.pendingAction?.type === 'awaiting_amount') {
         await sendProcessingFeedback(ctx);
-        await handleQuickAddAmount(ctx, text, userId, userName, subscriptionModule);
+        await handleQuickAddAmount(ctx, text, userId, userName);
         return;
       }
 
@@ -183,7 +185,7 @@ export function createTextMessageHandler(userModule?: UserModule, subscriptionMo
 
       // Process each transaction
       for (const tx of result.transactions) {
-        setLastTransactionId(userId, tx.id);
+        setLastTransactionId(telegramId, tx.id);
         await sendCaptureResponse(ctx, tx, userId, summary);
       }
 
@@ -192,11 +194,8 @@ export function createTextMessageHandler(userModule?: UserModule, subscriptionMo
         await sendDebtResponse(ctx, debt, false);
       }
 
-      // Increment transactions usage after successful processing (fire and forget)
-      if (result.transactions.length > 0) {
-        // Increment once per message, not per transaction
-        incrementUsage(subscriptionModule, userId, 'transactions').catch(() => {});
-      }
+      // Transactions are counted against the free limit by CreateTransactionUseCase, once per
+      // created transaction; counting here as well doubled the usage.
     } catch (error) {
       logger.error('Text message error', error instanceof Error ? error : new Error(String(error)), {
         userId,
@@ -271,7 +270,7 @@ export function createVoiceMessageHandler(userModule?: UserModule, subscriptionM
       // Transcription stays in the voice use case, but the confirmation is the shared capture ack,
       // so a voice capture reads exactly like a text one apart from the 🎤 prefix.
       for (const tx of result.transactions) {
-        setLastTransactionId(userId, tx.id);
+        setLastTransactionId(telegramId, tx.id);
         await sendCaptureResponse(ctx, toCapturedTransaction(tx), userId, summary, true);
       }
 
@@ -282,13 +281,9 @@ export function createVoiceMessageHandler(userModule?: UserModule, subscriptionM
         }
       }
 
-      // Increment voice_inputs usage after successful processing (fire and forget)
+      // Increment voice_inputs usage after successful processing (fire and forget).
+      // Created transactions are counted by CreateTransactionUseCase.
       incrementUsage(subscriptionModule, userId, 'voice_inputs').catch(() => {});
-
-      // Also increment transactions if any were created
-      if (result.transactions.length > 0) {
-        incrementUsage(subscriptionModule, userId, 'transactions').catch(() => {});
-      }
     } catch (error) {
       logger.error('Voice message error', error instanceof Error ? error : new Error(String(error)), {
         userId,
@@ -421,8 +416,7 @@ async function handleQuickAddAmount(
   ctx: BotContext,
   text: string,
   userId: string,
-  userName: string,
-  subscriptionModule?: SubscriptionModule
+  userName: string
 ) {
   const category = ctx.session.pendingAction?.type === 'awaiting_amount'
     ? ctx.session.pendingAction.category
@@ -472,7 +466,7 @@ async function handleQuickAddAmount(
     const transactionId = createResult.data;
 
     // Track for delete functionality
-    setLastTransactionId(userId, transactionId);
+    setLastTransactionId(String(ctx.from?.id ?? 'unknown'), transactionId);
 
     // Get summary for context
     const summary = await getTodaySummary(transactionModule, userId);
@@ -497,8 +491,6 @@ async function handleQuickAddAmount(
       summary
     );
 
-    // Increment transactions usage after successful creation (fire and forget)
-    incrementUsage(subscriptionModule, userId, 'transactions').catch(() => {});
   } catch (error) {
     logger.error('Quick add error', error as Error);
     if (error instanceof AppError) {
