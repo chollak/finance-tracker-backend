@@ -8,17 +8,39 @@
     <link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512x512.png" />
     <link rel="manifest" href="/manifest.json" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-    <meta name="theme-color" content="#1C1C1E" />
+    <meta name="theme-color" content="#f3f3f5" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="Finance" />
-    <title>Finance Tracker</title>
+    <meta name="apple-mobile-web-app-title" content="Daftar" />
+    <title>Daftar</title>
 
-    <!-- Onest is self-hosted, not loaded from Google Fonts.
+    <!-- Manrope is self-hosted, not loaded from Google Fonts.
          See webapp/src/app/styles/fonts.css for subsets, weights and font-display. -->
 
     <!-- Telegram WebApp Script -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+    <!-- Theme before first paint (FT-092): same rule as resolveTheme(), so the page never flashes
+         light in a dark Telegram. ThemeController takes over once React loads. -->
+    <script>
+      (function () {
+        var preference = 'telegram';
+        try {
+          var stored = JSON.parse(localStorage.getItem('daftar-theme') || 'null');
+          var value = stored && stored.state && stored.state.preference;
+          if (value === 'light' || value === 'dark' || value === 'telegram') preference = value;
+        } catch (e) {}
+        var theme = preference;
+        if (preference === 'telegram') {
+          var scheme = window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.colorScheme;
+          theme = scheme === 'dark' || scheme === 'light'
+            ? scheme
+            : (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        }
+        document.documentElement.dataset.theme = theme;
+        if (theme === 'dark') document.documentElement.classList.add('dark');
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
