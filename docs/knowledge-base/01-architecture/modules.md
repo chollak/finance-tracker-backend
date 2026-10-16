@@ -1,6 +1,6 @@
 # Module System
 
-`createModules()` (`src/appModules.ts`) возвращает **7 модулей приложения**, каждый с чётко определённой ответственностью.
+`createModules()` (`src/appModules.ts`) возвращает **9 модулей приложения**, каждый с чётко определённой ответственностью. `CategoryModule` добавлен в FT-099, `QuickCaptureModule` — обёртка над текстовым разбором для `POST /api/quick-capture`.
 
 Dashboard модулем не является: в `src/modules/dashboard/` лежат только `DashboardService` и `DashboardController`, файла `dashboardModule.ts` нет. Сборка происходит в Express-слое — см. [Dashboard: сервис, а не модуль](#dashboard-сервис-а-не-модуль).
 
@@ -14,7 +14,9 @@ graph TD
     VM[VoiceProcessingModule<br/>Voice/Text Processing]
     OM[OpenAIUsageModule<br/>Usage Monitoring]
     SM[SubscriptionModule<br/>Premium + Payments]
-    UM[UserModule<br/>User Management]
+    UM[UserModule<br/>Users + Settings]
+    CM[CategoryModule<br/>User Categories]
+    QM[QuickCaptureModule<br/>Quick capture API]
     DS[DashboardService<br/>не модуль, собирается в Express]
 
     BM -->|depends on| TM
@@ -24,6 +26,9 @@ graph TD
     VM -->|depends on| TM
     VM -->|depends on| DeM
     TM -.->|setSubscriptionDependencies| SM
+    TM -.->|setCategoryResolver| CM
+    VM -.->|categories for the prompt| CM
+    QM -->|depends on| VM
     SM -.->|controller uses| UM
     DS -.->|AnalyticsService| TM
     DS -.->|BudgetService| BM
@@ -35,6 +40,8 @@ graph TD
     style OM fill:#9C27B0,stroke:#6A1B9A,color:#fff
     style SM fill:#FFD700,stroke:#B8860B,color:#000
     style UM fill:#00BCD4,stroke:#00838F,color:#fff
+    style CM fill:#8BC34A,stroke:#558B2F,color:#fff
+    style QM fill:#FFB74D,stroke:#E65100,color:#000
     style DS fill:#ECEFF1,stroke:#90A4AE,color:#000,stroke-dasharray: 4 4
 ```
 
@@ -45,10 +52,12 @@ graph TD
 | **TransactionModule** | Core: транзакции и аналитика | Независимый при создании; позже получает Subscription + User через `setSubscriptionDependencies()` | `transactionModule.ts` |
 | **BudgetModule** | Управление бюджетами | TransactionModule | `budgetModule.ts` |
 | **DebtModule** | Управление долгами | TransactionModule, SubscriptionModule, UserModule | `debtModule.ts` |
-| **VoiceProcessingModule** | AI обработка голоса/текста | TransactionModule, DebtModule | `voiceProcessingModule.ts` |
+| **VoiceProcessingModule** | AI обработка голоса/текста | TransactionModule, DebtModule (не используется с Д2), категории пользователя для промпта | `voiceProcessingModule.ts` |
+| **QuickCaptureModule** | `POST /api/quick-capture` поверх текстового разбора | VoiceProcessingModule | `quickCaptureModule.ts` |
+| **CategoryModule** | Категории пользователя (FT-099): 8 + 8 стартовых, переименование, цвет, скрытие; разрешение категории записи | Независимый; TransactionModule получает его как `CategoryResolver` | `categoryModule.ts` |
 | **OpenAIUsageModule** | Мониторинг OpenAI costs | Независимый | `openAIUsageModule.ts` |
 | **SubscriptionModule** | Premium подписки + Telegram Stars | UserModule (controller) | `subscriptionModule.ts` |
-| **UserModule** | Управление пользователями | Независимый | `userModule.ts` |
+| **UserModule** | Пользователи и их настройки (FT-098) | Независимый | `userModule.ts` |
 
 Отдельно, **не как модуль**:
 
@@ -299,7 +308,27 @@ new ProcessVoiceInputUseCase(
 Управление пользователями и резолв внешних идентификаторов (`telegramId` → внутренний UUID).
 
 ### Использование
-`SubscriptionController` и роутеры транзакций/бюджетов/долгов используют модуль, чтобы принять `telegram_id` во внешнем API и работать с UUID внутри.
+`SubscriptionController` и роутеры транзакций/бюджетов/долгов используют модуль, чтобы принять `telegram_id` во внешнем API и работать с UUID внутри. Маршруты вехи 10 берут пользователя только из авторизации через `createCurrentUserMiddleware(userModule)`.
+
+### Настройки (FT-098)
+`GetUserSettingsUseCase`, `UpdateUserSettingsUseCase` и таблица `user_settings`; маршрут `GET/PATCH /api/settings`. Контракт — [`docs/pastel/api.md`](../../pastel/api.md).
+
+---
+
+## 8. CategoryModule
+
+**Файл:** [`src/modules/category/categoryModule.ts`](../../../src/modules/category/categoryModule.ts)
+
+### Назначение
+Категории пользователя (FT-099, решение Д5). У каждого 8 расходных и 8 доходных стартовых категорий из дизайна; их можно переименовать, перекрасить в один из 8 пастельных цветов, скрыть («Другое» не скрывается) и добавить свои. Запись хранит `category_id`.
+
+### Состав
+- `CategoryCatalog` — создаёт стартовый набор при первом обращении, реализует порт `CategoryResolver` модуля транзакций и `UserCategorySource` модуля разбора.
+- `categoryPresets.ts` — стартовые категории и перевод старых 26 + 7 id, названий и синонимов в новые с учётом типа записи.
+- `ListCategoriesUseCase`, `CreateCategoryUseCase`, `UpdateCategoryUseCase` — `GET/POST /api/categories`, `PATCH /api/categories/:id`.
+
+### Как запись получает категорию
+`CreateTransactionUseCase` и обновление спрашивают `CategoryResolver`: id категории (новые клиенты) → своё название без учёта регистра → старый id, название или синоним через стартовую категорию → «Другое» того же типа. Автоматические пути (ИИ, быстрый разбор текста) не кладут запись в скрытую категорию. Смена типа без новой категории переносит запись в одноимённую категорию другого типа или в его «Другое».
 
 ---
 
@@ -356,39 +385,33 @@ router.use(
 ```typescript
 export function createModules() {
   // 1. Core модули без зависимости от subscription
+  const categoryModule = CategoryModule.create();
   const transactionModule = TransactionModule.create();
+  transactionModule.setCategoryResolver(categoryModule.getCatalog()); // FT-099
   const budgetModule = BudgetModule.create(transactionModule);
   const userModule = UserModule.create();
   const openAIUsageModule = createOpenAIUsageModule();
 
   // 2. SubscriptionModule с repositories
-  const subscriptionRepository = RepositoryFactory.createSubscriptionRepository();
-  const usageLimitRepository = RepositoryFactory.createUsageLimitRepository();
-  const subscriptionModule = new SubscriptionModule(subscriptionRepository, usageLimitRepository);
+  const subscriptionModule = new SubscriptionModule(subscriptionRepository, usageLimitRepository, {
+    freeLimitsEnabled: AppConfig.FREE_LIMITS_ENABLED,
+  });
 
   // 3. Обратная связь: транзакциям нужен subscription для декремента при удалении
   transactionModule.setSubscriptionDependencies(subscriptionModule, userModule);
 
-  // 4. Модули, которым нужны subscription/limits
+  // 4. Модули, которым нужны subscription/limits и категории
   const debtModule = DebtModule.create(transactionModule, subscriptionModule, userModule);
+  const voiceModule = new VoiceProcessingModule(openAIService, transactionModule, debtModule, categoryModule.getCatalog());
+  const quickCaptureModule = QuickCaptureModule.create(voiceModule);
 
-  const openAIService = new OpenAITranscriptionService(AppConfig.OPENAI_API_KEY);
-  const voiceModule = new VoiceProcessingModule(openAIService, transactionModule, debtModule);
-
-  return {
-    transactionModule,
-    budgetModule,
-    debtModule,
-    voiceModule,
-    openAIUsageModule,
-    userModule,
-    subscriptionModule,
-  };
+  return { categoryModule, transactionModule, budgetModule, debtModule, voiceModule, quickCaptureModule,
+    openAIUsageModule, userModule, subscriptionModule };
 }
 ```
 
 **Порядок важен:**
-1. Сначала создаются модули без зависимости от subscription
+1. Сначала создаются модули без зависимости от subscription; категории подключаются к транзакциям сразу
 2. Затем `SubscriptionModule`, после чего `transactionModule.setSubscriptionDependencies()` замыкает обратную связь
 3. Затем модули, которым нужны лимиты (`DebtModule`) и уже готовые модули (`VoiceProcessingModule`)
 

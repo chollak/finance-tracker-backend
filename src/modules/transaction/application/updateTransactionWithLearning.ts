@@ -6,6 +6,8 @@ import { transactionLearning } from '../../../shared/application/learning/transa
 import { getLogger, LogCategory } from '../../../shared/application/logging';
 import { Validators } from '../../../shared/application/validation/validators';
 import { fromMinor, minorOf } from '../../../shared/domain/money/money';
+import { CategoryResolver, ResolvedCategory } from '../domain/categoryResolver';
+import { resolveCategoryForUpdate } from './resolveCategoryForUpdate';
 
 const logger = getLogger(LogCategory.LEARNING);
 
@@ -14,7 +16,9 @@ export interface UpdateTransactionWithLearningRequest {
   /** Legacy amount in сум; converted to amountMinor (FT-097). */
   amount?: number;
   amountMinor?: number;
+  /** Legacy: old id, name or alias; resolved to categoryId (FT-099). */
   category?: string;
+  categoryId?: string;
   description?: string;
   date?: string;
   type?: 'income' | 'expense';
@@ -32,7 +36,7 @@ export interface UpdateTransactionWithLearningRequest {
 }
 
 export class UpdateTransactionWithLearningUseCase {
-  constructor(private repository: TransactionRepository) {}
+  constructor(private repository: TransactionRepository, private categoryResolver?: CategoryResolver) {}
 
   async execute(request: UpdateTransactionWithLearningRequest): Promise<Result<Transaction>> {
     const { id, category, date, type } = request;
@@ -71,12 +75,23 @@ export class UpdateTransactionWithLearningUseCase {
         return ResultHelper.failure(new NotFoundError('Transaction', id));
       }
 
+      const categoryResult = await resolveCategoryForUpdate(this.categoryResolver, originalTransaction, request);
+      if (!categoryResult.success) {
+        return ResultHelper.failure(categoryResult.error);
+      }
+
       // Update the transaction
-      const updatedTransaction = await this.repository.update(id.trim(), { ...request, amount: undefined, amountMinor });
+      const updatedTransaction = await this.repository.update(id.trim(), {
+        ...request,
+        amount: undefined,
+        amountMinor,
+        category: undefined,
+        categoryId: categoryResult.data?.id,
+      });
 
       // Record learning data if we have the necessary context
       if (request.userId && request.originalText && request.originalParsing) {
-        await this.recordLearningData(request, amountMinor, originalTransaction, updatedTransaction);
+        await this.recordLearningData(request, amountMinor, categoryResult.data, originalTransaction, updatedTransaction);
       }
 
       logger.info('Transaction updated with learning', { transactionId: id });
@@ -99,6 +114,7 @@ export class UpdateTransactionWithLearningUseCase {
   private async recordLearningData(
     request: UpdateTransactionWithLearningRequest,
     amountMinor: number | undefined,
+    category: ResolvedCategory | undefined,
     originalTransaction: Transaction,
     _updatedTransaction: Transaction
   ): Promise<void> {
@@ -111,8 +127,10 @@ export class UpdateTransactionWithLearningUseCase {
         userCorrection.amount = fromMinor(amountMinor);
       }
 
-      if (request.category !== undefined && request.category !== originalTransaction.category) {
-        userCorrection.category = request.category;
+      // Learned patterns are shared by all users, so they keep the starter key — stable across renames.
+      // A move into a user's own category teaches nothing global.
+      if (category && category.id !== originalTransaction.categoryId && category.presetKey) {
+        userCorrection.category = category.presetKey;
       }
 
       if (request.type !== undefined && request.type !== originalTransaction.type) {

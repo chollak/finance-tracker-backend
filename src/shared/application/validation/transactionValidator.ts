@@ -12,11 +12,19 @@ export class TransactionValidator {
     // Amount: new writers send amountMinor (integer minor units), old ones amount in сум (FT-097)
     const amountMinor = Validators.moneyAmount(data);
 
+    // Category: new writers send categoryId, old ones a category id/name (FT-099)
+    const hasCategoryId = data.categoryId !== undefined && data.categoryId !== null && data.categoryId !== '';
+    if (hasCategoryId) {
+      chain.validate(Validators.string(data.categoryId, 'categoryId'));
+    } else {
+      chain
+        .validate(Validators.required(data.category, 'category'))
+        .validate(Validators.category(data.category));
+    }
+
     // Validate required fields
     chain
       .validate(amountMinor)
-      .validate(Validators.required(data.category, 'category'))
-      .validate(Validators.category(data.category))
       .validate(Validators.required(data.description, 'description'))
       .validate(Validators.description(data.description))
       .validate(Validators.required(data.type, 'type'))
@@ -64,7 +72,8 @@ export class TransactionValidator {
     const transaction: Transaction = {
       amountMinor: amountMinor.data,
       amount: fromMinor(amountMinor.data),
-      category: String(data.category).trim(),
+      category: hasCategoryId ? '' : String(data.category).trim(),
+      categoryId: hasCategoryId ? String(data.categoryId).trim() : undefined,
       description: String(data.description).trim(),
       type: data.type as 'income' | 'expense',
       semanticType: normalizeSemanticType(data.semanticType, data.type as 'income' | 'expense'),
@@ -137,6 +146,7 @@ export class TransactionValidator {
       partialTransaction.amount = fromMinor(amountMinor.data);
     }
     if (data.category !== undefined) partialTransaction.category = String(data.category).trim();
+    if (data.categoryId !== undefined) partialTransaction.categoryId = String(data.categoryId).trim();
     if (data.description !== undefined) partialTransaction.description = String(data.description).trim();
     if (data.type !== undefined) partialTransaction.type = data.type;
     if (data.semanticType !== undefined) partialTransaction.semanticType = data.semanticType;

@@ -12,6 +12,7 @@ import { ArchiveMultipleTransactionsUseCase } from './application/archiveMultipl
 import { ArchiveAllByUserUseCase } from './application/archiveAllByUser';
 import { GetArchivedTransactionsUseCase } from './application/getArchivedTransactions';
 import { TransactionRepository } from './domain/transactionRepository';
+import { CategoryResolver } from './domain/categoryResolver';
 import { RepositoryFactory } from '../../shared/infrastructure/database/repositoryFactory';
 import { SubscriptionModule } from '../subscription/subscriptionModule';
 import { UserModule } from '../user/userModule';
@@ -19,6 +20,7 @@ import { UserModule } from '../user/userModule';
 export class TransactionModule {
   private deleteTransactionUseCase: DeleteTransactionUseCase;
   private createTransactionUseCase: CreateTransactionUseCase;
+  private categoryResolver?: CategoryResolver;
 
   constructor(private repository: TransactionRepository) {
     this.deleteTransactionUseCase = new DeleteTransactionUseCase(repository);
@@ -48,6 +50,12 @@ export class TransactionModule {
     );
   }
 
+  /** Categories live in the category module (FT-099); wired by createModules(). */
+  setCategoryResolver(categoryResolver: CategoryResolver): void {
+    this.categoryResolver = categoryResolver;
+    this.createTransactionUseCase.setCategoryResolver(categoryResolver);
+  }
+
   getCreateTransactionUseCase(): CreateTransactionUseCase {
     return this.createTransactionUseCase;
   }
@@ -69,11 +77,11 @@ export class TransactionModule {
   }
 
   getUpdateTransactionUseCase(): UpdateTransactionUseCase {
-    return new UpdateTransactionUseCase(this.repository);
+    return new UpdateTransactionUseCase(this.repository, this.categoryResolver);
   }
 
   getUpdateTransactionWithLearningUseCase(): UpdateTransactionWithLearningUseCase {
-    return new UpdateTransactionWithLearningUseCase(this.repository);
+    return new UpdateTransactionWithLearningUseCase(this.repository, this.categoryResolver);
   }
 
   getAnalyticsService(): AnalyticsService {

@@ -5,6 +5,8 @@ import { ValidationError, NotFoundError, BusinessLogicError } from '../../../sha
 import { getLogger, LogCategory } from '../../../shared/application/logging';
 import { isTransactionSemanticType, TransactionSemanticType } from '../domain/transactionSemanticType';
 import { Validators } from '../../../shared/application/validation/validators';
+import { CategoryResolver } from '../domain/categoryResolver';
+import { resolveCategoryForUpdate } from './resolveCategoryForUpdate';
 
 const logger = getLogger(LogCategory.TRANSACTION);
 
@@ -13,7 +15,9 @@ export interface UpdateTransactionRequest {
   /** Legacy amount in сум; converted to amountMinor (FT-097). */
   amount?: number;
   amountMinor?: number;
+  /** Legacy: old id, name or alias; resolved to categoryId (FT-099). */
   category?: string;
+  categoryId?: string;
   description?: string;
   date?: string;
   type?: 'income' | 'expense';
@@ -22,7 +26,7 @@ export interface UpdateTransactionRequest {
 }
 
 export class UpdateTransactionUseCase {
-  constructor(private repository: TransactionRepository) {}
+  constructor(private repository: TransactionRepository, private categoryResolver?: CategoryResolver) {}
 
   async execute(request: UpdateTransactionRequest): Promise<Result<Transaction>> {
     const { id, category, description, date, type, semanticType, needsReview } = request;
@@ -69,9 +73,14 @@ export class UpdateTransactionUseCase {
         return ResultHelper.failure(new NotFoundError('Transaction', id));
       }
 
+      const categoryResult = await resolveCategoryForUpdate(this.categoryResolver, existing, request);
+      if (!categoryResult.success) {
+        return ResultHelper.failure(categoryResult.error);
+      }
+
       const updatedTransaction = await this.repository.update(id.trim(), {
         amountMinor,
-        category,
+        categoryId: categoryResult.data?.id,
         description,
         date,
         type,

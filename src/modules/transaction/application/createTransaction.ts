@@ -9,6 +9,12 @@ import { UserModule } from '../../user/userModule';
 import { getLogger, LogCategory } from '../../../shared/application/logging';
 import { Validators } from '../../../shared/application/validation/validators';
 import { fromMinor } from '../../../shared/domain/money/money';
+import { CategoryResolver } from '../domain/categoryResolver';
+
+export interface CreateTransactionOptions {
+  /** Automatic paths (AI parser, text fast paths) never write into a hidden category. */
+  visibleCategoriesOnly?: boolean;
+}
 
 const logger = getLogger(LogCategory.TRANSACTION);
 
@@ -16,9 +22,16 @@ export class CreateTransactionUseCase {
   private primaryRepository: TransactionRepository;
   private subscriptionModule?: SubscriptionModule;
   private userModule?: UserModule;
+  private categoryResolver?: CategoryResolver;
 
-  constructor(primaryRepository: TransactionRepository) {
+  constructor(primaryRepository: TransactionRepository, categoryResolver?: CategoryResolver) {
     this.primaryRepository = primaryRepository;
+    this.categoryResolver = categoryResolver;
+  }
+
+  /** Wired after modules are created; see createModules(). */
+  setCategoryResolver(categoryResolver: CategoryResolver): void {
+    this.categoryResolver = categoryResolver;
   }
 
   /**
@@ -33,7 +46,7 @@ export class CreateTransactionUseCase {
     this.userModule = userModule;
   }
 
-  async execute(transaction: Transaction): Promise<Result<string>> {
+  async execute(transaction: Transaction, options: CreateTransactionOptions = {}): Promise<Result<string>> {
     // Basic validation
     if (!transaction.userId?.trim()) {
       return ResultHelper.failure(new ValidationError('User ID is required'));
@@ -54,6 +67,22 @@ export class CreateTransactionUseCase {
 
     transaction.semanticType = normalizeSemanticType(transaction.semanticType, transaction.type);
     transaction.needsReview = normalizeNeedsReview(transaction.needsReview);
+
+    // The category: an id from new clients, or an old id / name / alias from old ones (FT-099)
+    if (this.categoryResolver) {
+      const resolved = await this.categoryResolver.resolveForRecord({
+        userId: transaction.userId,
+        type: transaction.type,
+        categoryId: transaction.categoryId,
+        category: transaction.category,
+        visibleOnly: options.visibleCategoriesOnly,
+      });
+      if (!resolved.success) {
+        return ResultHelper.failure(resolved.error);
+      }
+      transaction.categoryId = resolved.data.id;
+      transaction.category = resolved.data.name;
+    }
 
     try {
       const created = await this.primaryRepository.create(transaction);

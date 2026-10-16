@@ -12,6 +12,8 @@ import { ErrorFactory } from '../../../shared/domain/errors/AppError';
 import { Validators } from '../../../shared/application/validation/validators';
 import { getLogger, LogCategory } from '../../../shared/application/logging';
 import { normalizeSemanticType } from '../../transaction/domain/transactionSemanticType';
+import { UserCategorySource } from '../domain/categoryPrompt';
+import { analysisContextFor } from './processTextInput';
 
 const logger = getLogger(LogCategory.OPENAI);
 
@@ -46,7 +48,9 @@ export class ProcessVoiceInputUseCase {
   constructor(
     private openAIService: TranscriptionService,
     private createTransactionUseCase: CreateTransactionUseCase,
-    private createDebtUseCase?: CreateDebtUseCase
+    // Debt parsing is off (decision Д2): the parser no longer reports debts
+    private createDebtUseCase?: CreateDebtUseCase,
+    private categorySource?: UserCategorySource
   ) {}
 
   async execute(input: VoiceInput): Promise<ProcessedTransaction> {
@@ -96,8 +100,11 @@ export class ProcessVoiceInputUseCase {
         throw ErrorFactory.externalService('Voice Transcription', new Error('No speech detected in audio'));
       }
 
-      // Analyze text for transactions AND debts
-      const parsed = await this.openAIService.analyzeInput(recognizedText);
+      // Analyze the text with the user's categories (FT-099)
+      const parsed = await this.openAIService.analyzeInput(
+        recognizedText,
+        await analysisContextFor(this.categorySource, input.userId.trim())
+      );
 
       const transactionResults: DetectedTransaction[] = [];
       const debtResults: DetectedDebt[] = [];
@@ -118,7 +125,7 @@ export class ProcessVoiceInputUseCase {
           const needsReview = p.needsReview === true;
           const transaction: Transaction = {
             date: p.date || new Date().toISOString().split('T')[0],
-            category: p.category || 'other',
+            category: p.category || 'Другое',
             description: p.description || recognizedText.substring(0, 500),
             amount: p.amount || 0,
             type,
@@ -131,7 +138,7 @@ export class ProcessVoiceInputUseCase {
             originalText: recognizedText,
             originalParsing: {
               amount: p.amount || 0,
-              category: p.category || 'other',
+              category: p.category || 'Другое',
               type,
               semanticType,
               needsReview,
@@ -140,7 +147,8 @@ export class ProcessVoiceInputUseCase {
             },
           };
 
-          const createResult = await this.createTransactionUseCase.execute(transaction);
+          // The parser chooses the category automatically, so never a hidden one (FT-099)
+          const createResult = await this.createTransactionUseCase.execute(transaction, { visibleCategoriesOnly: true });
           if (createResult.success) {
             transactionResults.push({
               id: createResult.data,

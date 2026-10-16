@@ -1,73 +1,68 @@
 import { SqliteTransactionRepository } from '../src/modules/transaction/infrastructure/persistence/SqliteTransactionRepository';
-import { AppDataSource } from '../src/shared/infrastructure/database/database.config';
+import { SqliteCategoryRepository } from '../src/modules/category/infrastructure/SqliteCategoryRepository';
+import { CategoryCatalog } from '../src/modules/category/application/categoryCatalog';
+import { Category } from '../src/modules/category/domain/category';
+import { openMigratedDatabase, TestDatabase } from './helpers/testDatabase';
 
-// TypeORM decorators and the data source are replaced so the repository can be exercised
-// without a native sqlite3 binding: the test checks what the repository asks TypeORM to write.
-jest.mock('typeorm', () => ({
-  DataSource: jest.fn(),
-  Entity: () => () => {},
-  PrimaryGeneratedColumn: () => () => {},
-  Column: () => () => {},
-  CreateDateColumn: () => () => {},
-  UpdateDateColumn: () => () => {},
-  ManyToOne: () => () => {},
-  OneToMany: () => () => {},
-  JoinColumn: () => () => {},
-}));
-
-jest.mock('../src/shared/infrastructure/database/database.config', () => ({
-  AppDataSource: {
-    getRepository: jest.fn(),
-  },
-}));
-
+/** What SqliteTransactionRepository.update writes, on a real SQLite file (FT-087, FT-097, FT-099). */
 describe('SqliteTransactionRepository.update', () => {
-  function setup(stored: Record<string, unknown>) {
-    const update = jest.fn().mockResolvedValue(undefined);
-    const findOne = jest.fn().mockResolvedValue(stored);
-    (AppDataSource.getRepository as jest.Mock).mockReturnValue({ update, findOne });
-    return { repository: new SqliteTransactionRepository(), update };
+  let db: TestDatabase;
+  let repository: SqliteTransactionRepository;
+  let categories: Category[];
+
+  beforeEach(async () => {
+    db = await openMigratedDatabase();
+    repository = new SqliteTransactionRepository(db.dataSource);
+    categories = await new CategoryCatalog(new SqliteCategoryRepository(db.dataSource)).listForUser('user-1');
+  });
+
+  afterEach(async () => {
+    await db.close();
+  });
+
+  const category = (name: string) => categories.find(item => item.name === name && item.type === 'expense')!;
+
+  async function stored() {
+    return repository.create({
+      userId: 'user-1', amount: 25000, type: 'expense', category: 'Кафе', categoryId: category('Кафе').id,
+      description: 'Кофе', date: '2026-10-14',
+    });
   }
 
-  const stored = {
-    id: 'tx-1',
-    amountMinor: 2500000,
-    type: 'expense',
-    semanticType: 'expense',
-    needsReview: false,
-    description: 'Кофе',
-    date: '2026-10-14',
-    userId: 'user-1',
-    category: 'coffee',
-    isArchived: false,
-    createdAt: new Date('2026-10-14T09:00:00Z'),
-  };
+  it('writes a category change and reads back its name', async () => {
+    const tx = await stored();
 
-  it('writes a category change', async () => {
-    const { repository, update } = setup(stored);
+    const updated = await repository.update(tx.id!, { categoryId: category('Продукты').id });
 
-    await repository.update('tx-1', { category: 'groceries' });
-
-    expect(update).toHaveBeenCalledWith('tx-1', { category: 'groceries' });
+    expect(updated).toMatchObject({ categoryId: category('Продукты').id, category: 'Продукты' });
   });
 
   it('writes the category together with other corrected fields', async () => {
-    const { repository, update } = setup(stored);
+    const tx = await stored();
 
-    await repository.update('tx-1', { category: 'groceries', amount: 28000, needsReview: false });
+    const updated = await repository.update(tx.id!, { categoryId: category('Продукты').id, amount: 28000, needsReview: false });
 
-    expect(update).toHaveBeenCalledWith('tx-1', {
-      category: 'groceries',
-      amountMinor: 2800000,
-      needsReview: false,
-    });
+    expect(updated).toMatchObject({ category: 'Продукты', amountMinor: 2800000, amount: 28000, needsReview: false });
   });
 
   it('leaves the category alone when the update does not mention it', async () => {
-    const { repository, update } = setup(stored);
+    const tx = await stored();
 
-    await repository.update('tx-1', { description: 'Капучино' });
+    const updated = await repository.update(tx.id!, { description: 'Капучино' });
 
-    expect(update).toHaveBeenCalledWith('tx-1', { description: 'Капучино' });
+    expect(updated).toMatchObject({ description: 'Капучино', category: 'Кафе', categoryId: category('Кафе').id });
+  });
+
+  it('shows the category under its current name after a rename', async () => {
+    const tx = await stored();
+    await new SqliteCategoryRepository(db.dataSource).update(category('Кафе').id, { name: 'Рестораны' });
+
+    expect((await repository.findById(tx.id!))?.category).toBe('Рестораны');
+  });
+
+  it('refuses to create a record without a resolved category', async () => {
+    await expect(repository.create({
+      userId: 'user-1', amount: 1, type: 'expense', category: 'Кафе', description: 'x', date: '2026-10-14',
+    })).rejects.toThrow(/categoryId/);
   });
 });

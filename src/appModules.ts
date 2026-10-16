@@ -9,10 +9,14 @@ import { createOpenAIUsageModule } from './modules/openai-usage/openAIUsageModul
 import { UserModule } from './modules/user/userModule';
 import { SubscriptionModule } from './modules/subscription/subscriptionModule';
 import { RepositoryFactory } from './shared/infrastructure/database/repositoryFactory';
+import { CategoryModule } from './modules/category/categoryModule';
 
 export function createModules() {
   // Core modules (no dependencies on subscription)
+  const categoryModule = CategoryModule.create();
   const transactionModule = TransactionModule.create();
+  // Records point at the user's categories (FT-099)
+  transactionModule.setCategoryResolver(categoryModule.getCatalog());
   const budgetModule = BudgetModule.create(transactionModule);
   const userModule = UserModule.create();
   const openAIUsageModule = createOpenAIUsageModule();
@@ -32,12 +36,13 @@ export function createModules() {
 
   // VoiceProcessingModule now handles both transactions and debts
   const openAIService = new OpenAITranscriptionService(AppConfig.OPENAI_API_KEY);
-  const voiceModule = new VoiceProcessingModule(openAIService, transactionModule, debtModule);
+  const voiceModule = new VoiceProcessingModule(openAIService, transactionModule, debtModule, categoryModule.getCatalog());
 
   // Shared quick-capture boundary: wraps the existing text pipeline for API/Telegram/Mini App clients
   const quickCaptureModule = QuickCaptureModule.create(voiceModule);
 
   return {
+    categoryModule,
     transactionModule,
     budgetModule,
     debtModule,

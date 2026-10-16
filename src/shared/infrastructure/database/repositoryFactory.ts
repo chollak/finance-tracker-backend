@@ -5,6 +5,8 @@ import { UserSettingsRepository } from '../../../modules/user/domain/userSetting
 import { DebtRepository } from '../../../modules/debt/domain/debtRepository';
 import { SubscriptionRepository } from '../../../modules/subscription/domain/subscriptionRepository';
 import { UsageLimitRepository } from '../../../modules/subscription/domain/usageLimitRepository';
+import { CategoryRepository } from '../../../modules/category/domain/categoryRepository';
+import { SqliteCategoryRepository } from '../../../modules/category/infrastructure/SqliteCategoryRepository';
 import { SqliteTransactionRepository } from '../../../modules/transaction/infrastructure/persistence/SqliteTransactionRepository';
 import { SqliteBudgetRepository } from '../../../modules/budget/infrastructure/SqliteBudgetRepository';
 import { SqliteUserRepository } from '../../../modules/user/infrastructure/persistence/SqliteUserRepository';
@@ -41,6 +43,10 @@ export class RepositoryFactory {
 
   static createSubscriptionRepository(): SubscriptionRepository {
     return new SqliteSubscriptionRepository();
+  }
+
+  static createCategoryRepository(): CategoryRepository {
+    return new SqliteCategoryRepository();
   }
 
   static createUsageLimitRepository(): UsageLimitRepository {

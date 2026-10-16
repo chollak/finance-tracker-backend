@@ -1,5 +1,6 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
 import { bigintNumber } from '../transformers';
+import { Category } from './Category';
 
 export enum TransactionType {
   INCOME = 'income',
@@ -55,9 +56,18 @@ export class Transaction {
   @Column()
   userId!: string;
 
-  // Category name (simplified, no foreign key)
-  @Column({ nullable: true, default: 'Другое' })
-  category?: string;
+  /** The user's category (FT-099). Integrity is kept by the application; there is no FK constraint. */
+  @Column({ name: 'category_id' })
+  categoryId!: string;
+
+  /** Loaded with the record so its current name can be shown. */
+  @ManyToOne(() => Category, { createForeignKeyConstraints: false })
+  @JoinColumn({ name: 'category_id' })
+  categoryRef?: Category;
+
+  /** The pre-FT-099 category string (old id or name), kept until FT-136 for the migration report. */
+  @Column('varchar', { name: 'legacy_category', nullable: true })
+  legacyCategory?: string | null;
 
   // Archive support - archived transactions are excluded from analytics
   @Column({ default: false })

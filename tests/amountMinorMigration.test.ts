@@ -10,6 +10,8 @@ import { findSchemaDrift, runMigrationsWithBackup } from '../src/shared/infrastr
 import { SqliteTransactionRepository } from '../src/modules/transaction/infrastructure/persistence/SqliteTransactionRepository';
 import { CreateTransactionUseCase } from '../src/modules/transaction/application/createTransaction';
 import { Transaction } from '../src/modules/transaction/domain/transactionEntity';
+import { CategoryCatalog } from '../src/modules/category/application/categoryCatalog';
+import { SqliteCategoryRepository } from '../src/modules/category/infrastructure/SqliteCategoryRepository';
 
 /** FT-097 on real SQLite files: existing amounts convert exactly, and 250 000 000 сум survive a round trip. */
 describe('FT-097 amount_minor migration', () => {
@@ -101,7 +103,7 @@ describe('FT-097 amount_minor migration', () => {
   it('saves 250 000 000 сум without loss, from the old amount and from amountMinor', async () => {
     const ds = await migrated(path.join(dir, 'new.sqlite'));
     const repository = new SqliteTransactionRepository(ds);
-    const create = new CreateTransactionUseCase(repository);
+    const create = new CreateTransactionUseCase(repository, new CategoryCatalog(new SqliteCategoryRepository(ds)));
 
     const legacy = await create.execute({
       userId: 'user-a', amount: 250000000, type: 'expense', category: 'other', description: 'Квартира', date: '2026-10-16',

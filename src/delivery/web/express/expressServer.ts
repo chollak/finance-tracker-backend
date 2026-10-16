@@ -16,6 +16,13 @@ import { createDebtRouter } from '../../../modules/debt/presentation/controllers
 import { createDashboardRouter } from './routes/dashboardRoutes';
 import { createUserController } from '../../../modules/user/presentation/controllers/userController';
 import { createSettingsRoutes } from '../../../modules/user/presentation/controllers/settingsController';
+import { CategoryModule } from '../../../modules/category/categoryModule';
+import { createCategoryRoutes } from '../../../modules/category/presentation/categoryController';
+
+/** Modules of the money model (milestone 10, phase 2); their routes take the user from auth only. */
+export interface MoneyModules {
+  categoryModule?: CategoryModule;
+}
 import { createSubscriptionRoutes } from './routes/subscriptionRoutes';
 import {
   errorHandler,
@@ -36,7 +43,8 @@ export function buildServer(
   userModule?: UserModule,
   subscriptionModule?: SubscriptionModule,
   // Kept last and optional: existing callers pass a subset of these positional arguments.
-  quickCaptureModule?: QuickCaptureModule
+  quickCaptureModule?: QuickCaptureModule,
+  moneyModules: MoneyModules = {}
 ) {
   const router = Router();
   
@@ -135,6 +143,9 @@ export function buildServer(
     );
     // Milestone 10 routes take the user from authentication, never from the path
     router.use('/settings', createSettingsRoutes(userModule));
+    if (moneyModules.categoryModule) {
+      router.use('/categories', createCategoryRoutes(moneyModules.categoryModule, userModule));
+    }
   }
 
   // Subscription routes (optional - only if both modules are provided)

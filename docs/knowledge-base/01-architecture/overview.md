@@ -88,7 +88,7 @@
 
 ## Модули системы
 
-`createModules()` (`src/appModules.ts`) возвращает 7 модулей приложения:
+`createModules()` (`src/appModules.ts`) возвращает 9 модулей приложения:
 
 | Модуль | Назначение | Зависимости |
 |--------|------------|-------------|
@@ -97,7 +97,9 @@
 | **DebtModule** | Управление долгами (кто кому должен) | TransactionModule (linked транзакции), SubscriptionModule (лимиты), UserModule |
 | **VoiceProcessingModule** | Обработка голоса/текста | TransactionModule (CreateTransactionUseCase), DebtModule |
 | **OpenAIUsageModule** | Мониторинг использования OpenAI API | Независимый |
-| **UserModule** | Управление пользователями (telegramId → UUID) | Независимый |
+| **UserModule** | Пользователи (telegramId → UUID) и их настройки (FT-098) | Независимый |
+| **CategoryModule** | Категории пользователя (FT-099); разрешает категорию записи | Независимый; TransactionModule получает его как `CategoryResolver` |
+| **QuickCaptureModule** | `POST /api/quick-capture` поверх текстового разбора | VoiceProcessingModule |
 | **SubscriptionModule** | Free/Premium подписки, лимиты, Telegram Stars | UserModule (на уровне контроллера) |
 
 **Dashboard — не модуль.** В `src/modules/dashboard/` есть только `DashboardService` и `DashboardController`; `dashboardModule.ts` отсутствует, и `createModules()` не возвращает `dashboardModule`. Сборка идёт в Express-слое: `createDashboardRouter()` строит `DashboardService` из `transactionModule.getAnalyticsService()` и `budgetModule.budgetService`.

@@ -6,7 +6,7 @@ import { Transaction } from '../../transaction/domain/transactionEntity';
 import { DebtType } from '../../debt/domain/debtEntity';
 import { DebtLimitExceededError } from '../../debt/domain/errors';
 import { getLogger, LogCategory } from '../../../shared/application/logging';
-import { normalizeCategory } from '../../../shared/domain/entities/Category';
+import { AnalysisContext, UserCategorySource } from '../domain/categoryPrompt';
 import { normalizeSemanticType, TransactionSemanticType } from '../../transaction/domain/transactionSemanticType';
 import { AnalysisResult, ParsedTransaction } from '../domain/transcriptionService';
 import {
@@ -281,7 +281,8 @@ function parseObviousSemanticTransaction(text: string): AnalysisResult | null {
   } else if (INCOME_KEYWORDS_PATTERN.test(remainder)) {
     type = 'income';
     semanticType = 'income';
-    category = normalizeCategory(remainder);
+    // «зарплата», «аванс» — resolved to the user's income category on create (FT-099)
+    category = remainder;
   }
 
   if (!semanticType) {
@@ -334,7 +335,8 @@ function parseSimpleTextTransaction(text: string): AnalysisResult | null {
   const transaction: ParsedTransaction = {
     intent: 'transaction',
     amount,
-    category: normalizeCategory(label),
+    // The label itself — «такси», «кофе», a renamed category — is resolved to the user's category on create
+    category: label,
     type: 'expense',
     semanticType: 'expense',
     needsReview: false,
@@ -347,18 +349,33 @@ function parseSimpleTextTransaction(text: string): AnalysisResult | null {
   return { transactions: [transaction], debts: [] };
 }
 
+/** The user's categories for the parser prompt; the starter set if they cannot be read. */
+export async function analysisContextFor(source: UserCategorySource | undefined, userId: string): Promise<AnalysisContext> {
+  if (!source) return {};
+  try {
+    const [categories, presetNames] = await Promise.all([source.promptCategories(userId), source.presetNames(userId)]);
+    return { categories, presetNames };
+  } catch (error) {
+    logger.error('Failed to read categories for the parser prompt', error as Error);
+    return {};
+  }
+}
+
 export class ProcessTextInputUseCase {
   constructor(
     private openAIService: TranscriptionService,
     private createTransactionUseCase: CreateTransactionUseCase,
-    private createDebtUseCase?: CreateDebtUseCase
+    // Debt parsing is off (decision Д2): the parser no longer reports debts, so this stays unused
+    // until the debt module is removed.
+    private createDebtUseCase?: CreateDebtUseCase,
+    private categorySource?: UserCategorySource
   ) {}
 
   async execute(text: string, userId: string, userName?: string): Promise<ProcessedTransaction> {
     const parsed = parseObviousSemanticTransaction(text)
       || parseSimpleTextTransaction(text)
-      // Fall back to OpenAI for complex/natural-language inputs and debts.
-      || await this.openAIService.analyzeInput(text);
+      // Fall back to OpenAI for complex/natural-language inputs, with the user's categories
+      || await this.openAIService.analyzeInput(text, await analysisContextFor(this.categorySource, userId));
 
     // Only a single-transaction parse is checked against the text's currency markers. In
     // multi-item text ("продукты 12000 сум и такси 30000") each number belongs to its own
@@ -388,7 +405,7 @@ export class ProcessTextInputUseCase {
         const needsReview = p.needsReview === true;
         const transaction: Transaction = {
           date: p.date || new Date().toISOString().split('T')[0],
-          category: p.category || 'other',
+          category: p.category || 'Другое',
           description: p.description || text,
           amount: p.amount || 0,
           type,
@@ -401,7 +418,7 @@ export class ProcessTextInputUseCase {
           originalText: text,
           originalParsing: {
             amount: p.amount || 0,
-            category: p.category || 'other',
+            category: p.category || 'Другое',
             type,
             semanticType,
             needsReview,
@@ -410,7 +427,8 @@ export class ProcessTextInputUseCase {
           },
         };
 
-        const createResult = await this.createTransactionUseCase.execute(transaction);
+        // Text paths choose a category automatically, so never a hidden one (FT-099)
+        const createResult = await this.createTransactionUseCase.execute(transaction, { visibleCategoriesOnly: true });
         if (createResult.success) {
           transactionResults.push({
             id: createResult.data,

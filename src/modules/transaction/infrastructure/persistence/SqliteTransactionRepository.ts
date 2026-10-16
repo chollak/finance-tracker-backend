@@ -1,4 +1,5 @@
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, Repository, SelectQueryBuilder } from 'typeorm';
+import { QueryDeepPartialEntity } from 'typeorm/query-builder/QueryPartialEntity';
 import { AppDataSource } from '../../../../shared/infrastructure/database/database.config';
 import { Transaction as TransactionEntity, TransactionType } from '../../../../shared/infrastructure/database/entities/Transaction';
 import { TransactionRepository } from '../../domain/transactionRepository';
@@ -14,7 +15,16 @@ export class SqliteTransactionRepository implements TransactionRepository {
     this.repository = dataSource.getRepository(TransactionEntity);
   }
 
+  /** Records come with their category, so readers get its current name. */
+  private query(): SelectQueryBuilder<TransactionEntity> {
+    return this.repository.createQueryBuilder('transaction')
+      .leftJoinAndSelect('transaction.categoryRef', 'category');
+  }
+
   async create(transaction: Transaction): Promise<Transaction> {
+    if (!transaction.categoryId) {
+      throw new Error('A transaction needs categoryId; resolve the category before creating it (FT-099)');
+    }
     const entity = this.repository.create({
       amountMinor: minorOf(transaction),
       type: transaction.type === 'income' ? TransactionType.INCOME : TransactionType.EXPENSE,
@@ -27,30 +37,32 @@ export class SqliteTransactionRepository implements TransactionRepository {
       originalText: transaction.originalText,
       originalParsing: transaction.originalParsing ? JSON.stringify(transaction.originalParsing) : undefined,
       userId: transaction.userId,
-      category: transaction.category || 'Другое',
+      categoryId: transaction.categoryId,
       isArchived: transaction.isArchived ?? false
     });
 
     const saved = await this.repository.save(entity);
-    return this.mapToTransaction(saved);
+    const stored = await this.findByIdIncludingArchived(saved.id);
+    if (!stored) throw new Error(`Transaction ${saved.id} not found after create`);
+    return stored;
   }
 
   async getAll(): Promise<Transaction[]> {
-    const entities = await this.repository.find({
-      where: { isArchived: false },
-      order: { createdAt: 'DESC' }
-    });
+    const entities = await this.query()
+      .where('transaction.isArchived = :isArchived', { isArchived: false })
+      .orderBy('transaction.createdAt', 'DESC')
+      .getMany();
 
     return entities.map(entity => this.mapToTransaction(entity));
   }
 
   async findById(id: string): Promise<Transaction | null> {
-    const entity = await this.repository.findOne({
-      where: { id, isArchived: false }
-    });
+    const entity = await this.query()
+      .where('transaction.id = :id', { id })
+      .andWhere('transaction.isArchived = :isArchived', { isArchived: false })
+      .getOne();
 
-    if (!entity) return null;
-    return this.mapToTransaction(entity);
+    return entity ? this.mapToTransaction(entity) : null;
   }
 
   async delete(id: string): Promise<void> {
@@ -58,8 +70,8 @@ export class SqliteTransactionRepository implements TransactionRepository {
   }
 
   async update(id: string, updates: Partial<Transaction>): Promise<Transaction> {
-    const updateData: any = {};
-    
+    const updateData: QueryDeepPartialEntity<TransactionEntity> = {};
+
     if (updates.amountMinor !== undefined) updateData.amountMinor = updates.amountMinor;
     else if (updates.amount !== undefined) updateData.amountMinor = toMinor(updates.amount);
     if (updates.type !== undefined) {
@@ -70,23 +82,26 @@ export class SqliteTransactionRepository implements TransactionRepository {
     }
     if (updates.needsReview !== undefined) updateData.needsReview = updates.needsReview;
     if (updates.description !== undefined) updateData.description = updates.description;
-    if (updates.category !== undefined) updateData.category = updates.category;
+    // A category arrives resolved to its id (FT-099); a bare name is not written
+    if (updates.categoryId !== undefined) updateData.categoryId = updates.categoryId;
     if (updates.date !== undefined) updateData.date = updates.date;
     if (updates.merchant !== undefined) updateData.merchant = updates.merchant;
     if (updates.confidence !== undefined) updateData.confidence = updates.confidence;
 
-    await this.repository.update(id, updateData);
-    
+    if (Object.keys(updateData).length > 0) {
+      await this.repository.update(id, updateData);
+    }
+
     const updated = await this.findById(id);
     if (!updated) {
       throw new Error(`Transaction with id ${id} not found after update`);
     }
-    
+
     return updated;
   }
 
   async getByUserIdAndDateRange(userId: string, startDate: Date, endDate: Date): Promise<Transaction[]> {
-    const entities = await this.repository.createQueryBuilder('transaction')
+    const entities = await this.query()
       .where('transaction.userId = :userId', { userId })
       .andWhere('transaction.isArchived = :isArchived', { isArchived: false })
       .andWhere('transaction.date >= :startDate', { startDate: startDate.toISOString().split('T')[0] })
@@ -97,16 +112,15 @@ export class SqliteTransactionRepository implements TransactionRepository {
     return entities.map(entity => this.mapToTransaction(entity));
   }
 
-  // Additional methods for SQLite-specific functionality
   async findByUserId(userId: string, limit?: number): Promise<Transaction[]> {
-    const queryBuilder = this.repository.createQueryBuilder('transaction')
+    const queryBuilder = this.query()
       .where('transaction.userId = :userId', { userId })
       .andWhere('transaction.isArchived = :isArchived', { isArchived: false })
       .orderBy('transaction.date', 'DESC')
       .addOrderBy('transaction.createdAt', 'DESC');
 
     if (limit) {
-      queryBuilder.limit(limit);
+      queryBuilder.take(limit);
     }
 
     const entities = await queryBuilder.getMany();
@@ -128,7 +142,8 @@ export class SqliteTransactionRepository implements TransactionRepository {
       confidence: entity.confidence ? Number(entity.confidence) : undefined,
       originalText: entity.originalText,
       originalParsing: entity.originalParsing ? JSON.parse(entity.originalParsing) : undefined,
-      category: entity.category || 'Другое',
+      categoryId: entity.categoryId,
+      category: entity.categoryRef?.name ?? entity.legacyCategory ?? 'Другое',
       userName: undefined, // We'll get this from User entity later
       isArchived: entity.isArchived ?? false,
       createdAt: entity.createdAt?.toISOString()
@@ -166,14 +181,14 @@ export class SqliteTransactionRepository implements TransactionRepository {
   }
 
   async findArchivedByUserId(userId: string, limit?: number): Promise<Transaction[]> {
-    const queryBuilder = this.repository.createQueryBuilder('transaction')
+    const queryBuilder = this.query()
       .where('transaction.userId = :userId', { userId })
       .andWhere('transaction.isArchived = :isArchived', { isArchived: true })
       .orderBy('transaction.date', 'DESC')
       .addOrderBy('transaction.createdAt', 'DESC');
 
     if (limit) {
-      queryBuilder.limit(limit);
+      queryBuilder.take(limit);
     }
 
     const entities = await queryBuilder.getMany();
@@ -181,11 +196,10 @@ export class SqliteTransactionRepository implements TransactionRepository {
   }
 
   async findByIdIncludingArchived(id: string): Promise<Transaction | null> {
-    const entity = await this.repository.findOne({
-      where: { id }
-    });
+    const entity = await this.query()
+      .where('transaction.id = :id', { id })
+      .getOne();
 
-    if (!entity) return null;
-    return this.mapToTransaction(entity);
+    return entity ? this.mapToTransaction(entity) : null;
   }
 }
