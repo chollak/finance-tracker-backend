@@ -3,6 +3,7 @@ import { AmountMinor1760700000000 } from './1760700000000-AmountMinor';
 import { UserSettings1760800000000 } from './1760800000000-UserSettings';
 import { Categories1760900000000 } from './1760900000000-Categories';
 import { Accounts1761000000000 } from './1761000000000-Accounts';
+import { FxRates1761100000000 } from './1761100000000-FxRates';
 
 /**
  * Every schema change is a migration listed here, in order. Classes are listed explicitly instead of
@@ -14,4 +15,5 @@ export const MIGRATIONS = [
   UserSettings1760800000000,
   Categories1760900000000,
   Accounts1761000000000,
+  FxRates1761100000000,
 ];

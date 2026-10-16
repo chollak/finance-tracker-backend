@@ -38,14 +38,17 @@ async function startApplication() {
     // Initialize database first
     await initializeDatabase();
     
-    const { categoryModule, accountModule, transactionModule, budgetModule, debtModule, voiceModule, quickCaptureModule, openAIUsageModule, userModule, subscriptionModule } = createModules();
+    const { categoryModule, accountModule, fxModule, transactionModule, budgetModule, debtModule, voiceModule, quickCaptureModule, openAIUsageModule, userModule, subscriptionModule } = createModules();
     const app = express();
 
     // Trust first proxy (nginx/docker) - required for correct IP detection in rate limiting
     // See: https://expressjs.com/en/guide/behind-proxies.html
     app.set('trust proxy', 1);
 
-    app.use('/api', buildServer(transactionModule, voiceModule, budgetModule, debtModule, openAIUsageModule, userModule, subscriptionModule, quickCaptureModule, { categoryModule, accountModule }));
+    app.use('/api', buildServer(transactionModule, voiceModule, budgetModule, debtModule, openAIUsageModule, userModule, subscriptionModule, quickCaptureModule, { categoryModule, accountModule, fxModule }));
+
+    // The Central Bank USD rate: at start, then until today's rate is in (FT-102)
+    fxModule.getService().startDailyRefresh();
 
     const buildPath = path.join(__dirname, '../public/webapp');
     

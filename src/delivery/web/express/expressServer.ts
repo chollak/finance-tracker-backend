@@ -20,11 +20,14 @@ import { CategoryModule } from '../../../modules/category/categoryModule';
 import { createCategoryRoutes } from '../../../modules/category/presentation/categoryController';
 import { AccountModule } from '../../../modules/account/accountModule';
 import { createAccountRoutes } from '../../../modules/account/presentation/accountController';
+import { FxModule } from '../../../modules/fx/fxModule';
+import { createFxRoutes } from '../../../modules/fx/presentation/fxController';
 
 /** Modules of the money model (milestone 10, phase 2); their routes take the user from auth only. */
 export interface MoneyModules {
   categoryModule?: CategoryModule;
   accountModule?: AccountModule;
+  fxModule?: FxModule;
 }
 import { createSubscriptionRoutes } from './routes/subscriptionRoutes';
 import {
@@ -151,6 +154,9 @@ export function buildServer(
     }
     if (moneyModules.accountModule) {
       router.use('/accounts', createAccountRoutes(moneyModules.accountModule, userModule));
+    }
+    if (moneyModules.fxModule) {
+      router.use('/rates', createFxRoutes(moneyModules.fxModule.getService(), userModule));
     }
   }
 

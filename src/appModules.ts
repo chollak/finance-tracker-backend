@@ -11,6 +11,7 @@ import { SubscriptionModule } from './modules/subscription/subscriptionModule';
 import { RepositoryFactory } from './shared/infrastructure/database/repositoryFactory';
 import { CategoryModule } from './modules/category/categoryModule';
 import { AccountModule } from './modules/account/accountModule';
+import { FxModule } from './modules/fx/fxModule';
 
 export function createModules() {
   // Core modules (no dependencies on subscription)
@@ -26,6 +27,13 @@ export function createModules() {
   transactionModule.setAccountResolver(accountModule.getBook());
   accountModule.getBook().setDefaultAccountSource(userId => userModule.defaultAccountId(userId));
   userModule.setAccountCheck((userId, accountId) => accountModule.getBook().isVisibleAccount(userId, accountId));
+
+  // USD rate (FT-102): the user's own rate from settings, else the Central Bank's
+  const fxModule = FxModule.create({
+    get: userId => userModule.ownUsdRate(userId),
+    set: (userId, rate) => userModule.setOwnUsdRate(userId, rate),
+  });
+  accountModule.getBook().setRateProvider(fxModule.getService());
   const openAIUsageModule = createOpenAIUsageModule();
 
   // Create SubscriptionModule with repositories
@@ -51,6 +59,7 @@ export function createModules() {
   return {
     categoryModule,
     accountModule,
+    fxModule,
     transactionModule,
     budgetModule,
     debtModule,

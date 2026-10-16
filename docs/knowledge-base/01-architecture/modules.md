@@ -1,6 +1,6 @@
 # Module System
 
-`createModules()` (`src/appModules.ts`) возвращает **10 модулей приложения**, каждый с чётко определённой ответственностью. `CategoryModule` добавлен в FT-099, `AccountModule` — в FT-101, `QuickCaptureModule` — обёртка над текстовым разбором для `POST /api/quick-capture`.
+`createModules()` (`src/appModules.ts`) возвращает **11 модулей приложения**, каждый с чётко определённой ответственностью. `CategoryModule` добавлен в FT-099, `AccountModule` — в FT-101, `FxModule` — в FT-102, `QuickCaptureModule` — обёртка над текстовым разбором для `POST /api/quick-capture`.
 
 Dashboard модулем не является: в `src/modules/dashboard/` лежат только `DashboardService` и `DashboardController`, файла `dashboardModule.ts` нет. Сборка происходит в Express-слое — см. [Dashboard: сервис, а не модуль](#dashboard-сервис-а-не-модуль).
 
@@ -17,6 +17,7 @@ graph TD
     UM[UserModule<br/>Users + Settings]
     CM[CategoryModule<br/>User Categories]
     AM[AccountModule<br/>Accounts + Balances]
+    FM[FxModule<br/>USD rate]
     QM[QuickCaptureModule<br/>Quick capture API]
     DS[DashboardService<br/>не модуль, собирается в Express]
 
@@ -30,6 +31,8 @@ graph TD
     TM -.->|setCategoryResolver| CM
     TM -.->|setAccountResolver| AM
     AM -.->|default account| UM
+    AM -.->|setRateProvider| FM
+    FM -.->|own rate in settings| UM
     VM -.->|categories for the prompt| CM
     QM -->|depends on| VM
     SM -.->|controller uses| UM
@@ -58,6 +61,7 @@ graph TD
 | **VoiceProcessingModule** | AI обработка голоса/текста | TransactionModule, DebtModule (не используется с Д2), категории пользователя для промпта | `voiceProcessingModule.ts` |
 | **QuickCaptureModule** | `POST /api/quick-capture` поверх текстового разбора | VoiceProcessingModule | `quickCaptureModule.ts` |
 | **AccountModule** | Счета (FT-101): остатки на чтении, итог в сумах, счёт новой записи | Независимый; TransactionModule получает его как `AccountResolver`; счёт по умолчанию — из настроек UserModule | `accountModule.ts` |
+| **FxModule** | Курс доллара (FT-102): ЦБ по датам, свой курс, действующий курс | Свой курс хранится в настройках UserModule; AccountModule получает его как `EffectiveRateProvider` | `fxModule.ts` |
 | **CategoryModule** | Категории пользователя (FT-099): 8 + 8 стартовых, переименование, цвет, скрытие; разрешение категории записи | Независимый; TransactionModule получает его как `CategoryResolver` | `categoryModule.ts` |
 | **OpenAIUsageModule** | Мониторинг OpenAI costs | Независимый | `openAIUsageModule.ts` |
 | **SubscriptionModule** | Premium подписки + Telegram Stars | UserModule (controller) | `subscriptionModule.ts` |
@@ -347,6 +351,20 @@ new ProcessVoiceInputUseCase(
 - `AccountBook` — создаёт «Карту» при первом обращении, считает остатки (`summary`) и итог видимых счетов в сумах (доллары — через порт `EffectiveRateProvider`, FT-102), реализует порт `AccountResolver` модуля транзакций: выбранный счёт → счёт по умолчанию из настроек → первый видимый. Скрытый счёт для новой записи не выбирается.
 - `SqliteAccountRepository.balanceChanges` — остаток считается на чтении одним запросом, без кэша.
 - `ListAccountsUseCase`, `CreateAccountUseCase`, `UpdateAccountUseCase` — `GET/POST /api/accounts`, `PATCH /api/accounts/:id`.
+
+---
+
+## 10. FxModule
+
+**Файл:** [`src/modules/fx/fxModule.ts`](../../../src/modules/fx/fxModule.ts)
+
+### Назначение
+Курс доллара (FT-102). Курс ЦБ Узбекистана хранится по датам в `fx_rates`, загружается при старте и раз в час, пока нет курса на сегодня; без ответа действует последний известный. Свой курс пользователя — в `user_settings` (`fx_own_rate_minor`, `fx_own_since`) — действует вместо курса ЦБ.
+
+### Состав
+- `FxRateService` — `refreshUsd`, `cbuRateOn(date)` (для обменов FT-104), `effectiveUsdRate(userId)` (порт `EffectiveRateProvider` модуля счетов), `setOwnRate`.
+- `HttpCbuClient` — запрос к ЦБ с таймаутом 10 с; любая ошибка — «нет ответа», без падения.
+- `GET /api/rates/usd`, `PUT` и `DELETE /api/rates/usd/own`.
 
 ---
 

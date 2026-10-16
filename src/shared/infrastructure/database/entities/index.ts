@@ -8,3 +8,4 @@ export { UsageLimit } from './UsageLimit';
 export { UserSettings } from './UserSettings';
 export { Category } from './Category';
 export { Account } from './Account';
+export { FxRate } from './FxRate';

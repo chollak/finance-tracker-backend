@@ -5,6 +5,7 @@
 
 import { UserRepository } from './domain/userRepository';
 import { UserSettingsRepository } from './domain/userSettingsRepository';
+import { defaultUserSettings } from './domain/userSettings';
 import { AccountCheck, GetUserSettingsUseCase, UpdateUserSettingsUseCase } from './application/userSettingsUseCases';
 import { GetOrCreateUserUseCase } from './application/getOrCreateUserUseCase';
 import { GetUserUseCase } from './application/getUserUseCase';
@@ -19,7 +20,7 @@ export class UserModule {
   private getUserSettingsUseCase?: GetUserSettingsUseCase;
   private updateUserSettingsUseCase?: UpdateUserSettingsUseCase;
 
-  constructor(repository: UserRepository, settingsRepository?: UserSettingsRepository) {
+  constructor(repository: UserRepository, private settingsRepository?: UserSettingsRepository) {
     this.repository = repository;
     this.getOrCreateUserUseCase = new GetOrCreateUserUseCase(repository);
     this.getUserUseCase = new GetUserUseCase(repository);
@@ -53,6 +54,25 @@ export class UserModule {
   /** The default account setting must name a visible account (FT-101); wired by createModules(). */
   setAccountCheck(check: AccountCheck): void {
     this.updateUserSettingsUseCase?.setAccountCheck(check);
+  }
+
+  /** The user's own USD rate (FT-102), or null when the Central Bank rate applies. */
+  async ownUsdRate(userId: string): Promise<{ rateMinor: number; since: string } | null> {
+    if (!this.getUserSettingsUseCase) return null;
+    const result = await this.getUserSettingsUseCase.execute({ userId });
+    if (!result.success || result.data.fxOwnRateMinor === null || !result.data.fxOwnSince) return null;
+    return { rateMinor: result.data.fxOwnRateMinor, since: result.data.fxOwnSince };
+  }
+
+  /** Set the own USD rate, or clear it with null. The value is checked by the rates module. */
+  async setOwnUsdRate(userId: string, rate: { rateMinor: number; since: string } | null): Promise<void> {
+    if (!this.settingsRepository) throw new Error('UserModule was created without a settings repository');
+    const current = (await this.settingsRepository.findByUserId(userId)) ?? defaultUserSettings(userId);
+    await this.settingsRepository.upsert({
+      ...current,
+      fxOwnRateMinor: rate ? rate.rateMinor : null,
+      fxOwnSince: rate ? rate.since : null,
+    });
   }
 
   /** The user's default account from settings, or null. */
