@@ -6,9 +6,9 @@ import { formatCaptureMessage, formatTransactionMessage } from '../formatters';
 import {
   transactionConfirmationKeyboard,
   transactionAutoSavedKeyboard,
-  getCategoryDisplay
 } from '../keyboards';
 import { downloadVoiceFile, cleanupFile } from '../utils';
+import { quickAddCategory } from '../utils/userCategories';
 import { AppError } from '../../../../shared/domain/errors/AppError';
 import { DetectedDebt } from '../../../../modules/voiceProcessing/domain/processedTransaction';
 import { SubscriptionModule } from '../../../../modules/subscription/subscriptionModule';
@@ -444,16 +444,19 @@ async function handleQuickAddAmount(
   ctx.session.pendingAction = undefined;
 
   const { transactionModule } = ctx.modules;
-  const categoryDisplay = getCategoryDisplay(category);
 
   try {
+    // The button's category: a category id, or an old static id from a message sent before FT-099
+    const picked = await quickAddCategory(ctx, userId, category);
+    const categoryDisplay = picked.name;
+
     // Create transaction directly without AI parsing
     const transactionData = {
-      id: `tx_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       userId,
       userName,
       amount,
-      category,
+      category: picked.category,
+      categoryId: picked.categoryId,
       type: 'expense' as const,
       description: categoryDisplay,
       date: new Date().toISOString(),
@@ -477,7 +480,7 @@ async function handleQuickAddAmount(
     const processedTx: ProcessedTransaction = {
       id: transactionId,
       amount,
-      category,
+      category: categoryDisplay,
       type: 'expense',
       description: categoryDisplay,
       confidence: 1.0, // High confidence for manual quick add

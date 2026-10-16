@@ -1,7 +1,6 @@
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTransaction, useUpdateTransaction } from '@/entities/transaction';
-import { TransactionForm } from '../add-transaction/ui/TransactionForm';
-import type { AddTransactionFormData } from '../add-transaction/model/schema';
+import { TransactionForm, type TransactionFormResult } from '../add-transaction/ui/TransactionForm';
 import { ROUTES } from '@/shared/lib/constants';
 import { toast } from 'sonner';
 import { Skeleton } from '@/shared/ui/skeleton';
@@ -16,7 +15,7 @@ export function EditTransaction() {
   const { data: transaction, isLoading } = useTransaction(id || null);
   const updateTransaction = useUpdateTransaction();
 
-  const handleSubmit = async (data: AddTransactionFormData) => {
+  const handleSubmit = async (data: TransactionFormResult) => {
     if (!id || !transaction?.userId) return;
 
     try {
@@ -26,6 +25,7 @@ export function EditTransaction() {
         data: {
           amount: data.amount,
           category: data.category,
+          categoryId: data.categoryId,
           description: data.description,
           date: data.date,
           type: data.type,
@@ -67,7 +67,8 @@ export function EditTransaction() {
         defaultValues={{
           amount: transaction.amount,
           type: transaction.type,
-          category: transaction.category,
+          // The form matches a name to the user's category when there is no id (guest records)
+          category: transaction.categoryId ?? transaction.category,
           description: transaction.description,
           date: transaction.date,
           merchant: transaction.merchant,

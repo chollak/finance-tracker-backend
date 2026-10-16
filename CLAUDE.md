@@ -238,11 +238,14 @@ HTTP API → Controller → Use Case → Repository → Database
 **Принцип:** Каждый тип данных должен иметь единственное место определения.
 
 **Примеры:**
-- **Categories**: `src/shared/domain/entities/Category.ts` - единственный источник категорий
-  - OpenAI prompts используют `generateCategoryPrompt()` из этого файла
-  - Frontend копирует структуру (без aliases) в `webapp/src/entities/category/model/categories.ts`
-  - Telegram bot импортирует из shared entity
-- **Transactions**: Entity в `src/modules/transaction/domain/Transaction.ts`
+- **Categories**: таблица `categories` — у каждого пользователя свои (FT-099). Источник — `CategoryModule`
+  (`src/modules/category/`): стартовые 8 + 8 в `categoryPresets.ts`, остальное — в базе
+  - Webapp читает `GET /api/categories` (`useCategories()` в `webapp/src/entities/category`), копии списка нет
+  - Бот строит клавиатуры из категорий пользователя (`utils/userCategories.ts`)
+  - Промпт ИИ перечисляет видимые категории пользователя (`buildCategoryPrompt`)
+  - `src/shared/domain/entities/Category.ts` — только словарь старых 26 + 7 id и синонимов для перевода
+    старых значений; новые категории туда не добавляются
+- **Transactions**: Entity в `src/modules/transaction/domain/transactionEntity.ts`
 - **Budgets**: Entity в `src/modules/budget/domain/Budget.ts`
 
 **Антипаттерн:** Дублирование данных в разных файлах без синхронизации.
@@ -253,12 +256,13 @@ HTTP API → Controller → Use Case → Repository → Database
 
 | Слой | Формат | Пример |
 |------|--------|--------|
-| Database | ID | `"utilities"`, `"food"` |
-| API Response | ID | `{ category: "utilities" }` |
-| OpenAI Input/Output | ID | `category: "food"` |
-| UI Display | Localized name | `"Коммунальные"`, `"Еда"` |
+| Database | id категории пользователя | `transactions.category_id = "3f1c…"` |
+| API Response | id + текущее название | `{ categoryId: "3f1c…", category: "Кафе" }` |
+| OpenAI Input/Output | название из списка пользователя | `category: "Кафе"` → `CategoryResolver` → id |
+| UI Display | название и цвет категории | по `categoryId` из `useCategories()` |
 
-**Конвертация:** Используй `getCategoryById(id)?.name` для отображения.
+**Конвертация:** запись получает категорию через `CategoryResolver` (id → своё название → старый id или
+синоним → «Другое»); показывать — название и цвет из списка категорий пользователя.
 
 ### 3. Normalization at Input
 
@@ -277,8 +281,8 @@ const category = normalizeCategory(rawCategory); // всегда ID
 **Принцип:** Начинать с простого решения, расширять при необходимости.
 
 **Пример (Categories):**
-- **MVP**: Статические категории в коде
-- **Будущее**: Динамические из БД + пользовательские
+- **Было (MVP)**: статические категории в коде
+- **Стало (FT-099)**: категории пользователя в базе, стартовый набор 8 + 8 из дизайна
 
 **Как применять:**
 - Когда пользователь предлагает сложное решение, спросить: "Это нужно для MVP?"
@@ -305,30 +309,31 @@ const category = normalizeCategory(rawCategory); // всегда ID
 
 ## Shared Entities
 
-### Category Entity
+### Categories (FT-099, FT-100)
 
-**Location:** `src/shared/domain/entities/Category.ts`
+**Где:** `src/modules/category/` — домен (`category.ts`, `categoryPresets.ts`), `CategoryCatalog`,
+`GET/POST /api/categories`, `PATCH /api/categories/:id`. Контракт — `docs/pastel/api.md`.
 
-**Структура:**
 ```typescript
 interface Category {
-  id: string;        // English ID: "food", "utilities"
-  name: string;      // Russian name: "Еда", "Коммунальные"
-  type: 'income' | 'expense' | 'both';
-  icon: string;      // Emoji: "🍔", "💡"
-  aliases: string[]; // Для matching: ["еда", "ресторан", "кафе"]
+  id: string;            // uuid
+  userId: string;
+  type: 'expense' | 'income';
+  name: string;          // «Кафе»; уникально у пользователя в пределах типа, без учёта регистра и ё
+  color: CategoryColor;  // один из 8 пастельных токенов
+  isHidden: boolean;
+  isOther: boolean;      // «Другое» — не скрывается
+  sortOrder: number;
+  presetKey: string | null; // ключ стартовой категории ('cafe'); у своих null
 }
 ```
 
-**Использование:**
-- `getCategoryById(id)` - получить по ID
-- `getCategoryByAlias(text)` - найти по русскому тексту
-- `normalizeCategory(input)` - всегда вернуть ID
-- `generateCategoryPrompt()` - для OpenAI prompts
-
-**Синхронизация Frontend:**
-- Frontend имеет копию без `aliases` в `webapp/src/entities/category/model/categories.ts`
-- При изменении категорий - обновить оба файла
+**Правила:**
+- Запись хранит `category_id`; категорию для записи даёт `CategoryResolver` (порт модуля транзакций).
+- Ввод текстом и голосом выбирает только видимые категории; нераспознанное — «Другое» того же типа.
+- Выученные паттерны хранят `presetKey`, а не названия: названия у каждого пользователя свои.
+- Старый словарь `src/shared/domain/entities/Category.ts` нужен только для перевода старых значений
+  (старые записи, кнопки бота в старых сообщениях, синонимы — подсказки ИИ). Список в webapp удалён.
 
 ## Documentation Maintenance Rules
 

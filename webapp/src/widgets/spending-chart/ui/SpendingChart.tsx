@@ -10,7 +10,7 @@ import {
 import { useCategoryBreakdown } from '@/entities/transaction';
 import { useUserStore } from '@/entities/user/model/store';
 import { PieChart, Pie, Cell } from 'recharts';
-import { getCategoryIcon, getCategoryName } from '@/entities/category';
+import { categoryInitial } from '@/entities/category';
 import { getCategoryColorByIndex } from '@/shared/lib/design-tokens';
 import { useMemo } from 'react';
 
@@ -44,7 +44,7 @@ export function SpendingChart() {
 
     return categories.reduce((config, cat, index) => {
       config[cat.category] = {
-        label: getCategoryName(cat.category),
+        label: cat.category,
         color: getCategoryColorByIndex(index),
       };
       return config;
@@ -64,7 +64,7 @@ export function SpendingChart() {
       const visualValue = (visualPercent / 100) * totalValue;
 
       return {
-        name: getCategoryName(cat.category),
+        name: cat.category,
         value: visualValue,
         actualValue: cat.total,
         percentage: actualPercent,
@@ -167,7 +167,7 @@ export function SpendingChart() {
           <div className="w-full flex-1 min-w-0">
             <div className="grid gap-2">
               {categories.slice(0, 5).map((cat, index) => {
-                const icon = getCategoryIcon(cat.category);
+                const icon = categoryInitial(cat.category);
                 const color = getCategoryColorByIndex(index);
 
                 return (
@@ -186,7 +186,7 @@ export function SpendingChart() {
 
                     {/* Category name with percentage */}
                     <div className="flex-1 min-w-0 flex items-center gap-2">
-                      <span className="text-sm font-medium truncate">{getCategoryName(cat.category)}</span>
+                      <span className="text-sm font-medium truncate">{cat.category}</span>
                       <span className="text-xs text-muted-foreground flex-shrink-0">
                         {cat.percentage.toFixed(1)}%
                       </span>

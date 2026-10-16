@@ -10,6 +10,7 @@ import { getLogger, LogCategory } from '../../../shared/application/logging';
 import { Validators } from '../../../shared/application/validation/validators';
 import { fromMinor } from '../../../shared/domain/money/money';
 import { CategoryResolver } from '../domain/categoryResolver';
+import { toDateOnly } from '../../../shared/domain/dates/dateOnly';
 
 export interface CreateTransactionOptions {
   /** Automatic paths (AI parser, text fast paths) never write into a hidden category. */
@@ -67,6 +68,8 @@ export class CreateTransactionUseCase {
 
     transaction.semanticType = normalizeSemanticType(transaction.semanticType, transaction.type);
     transaction.needsReview = normalizeNeedsReview(transaction.needsReview);
+    // A full ISO moment (the bot's quick-add sends one) becomes the Tashkent calendar day
+    if (transaction.date) transaction.date = toDateOnly(transaction.date);
 
     // The category: an id from new clients, or an old id / name / alias from old ones (FT-099)
     if (this.categoryResolver) {

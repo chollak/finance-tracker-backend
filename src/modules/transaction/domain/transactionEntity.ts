@@ -10,6 +10,8 @@ export interface Transaction {
     category: string;
     /** The user's category (FT-099). Always set on records read from the repository. */
     categoryId?: string;
+    /** Pastel colour of the category, read with the record so old screens need no lookup (FT-100). */
+    categoryColor?: string;
     description: string;
     /**
      * Legacy amount in major units (сумы). Old writers send it and old screens read it; it is derived

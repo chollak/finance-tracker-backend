@@ -14,8 +14,8 @@ export interface TransactionViewModel extends Transaction {
   // Formatted fields with _ prefix (View Model Pattern)
   _formattedAmount: string;      // "-50 000 сўм" or "+2 000 000 сўм"
   _formattedDate: string;        // "Сегодня, 15:30" or "14 янв, 15:30"
-  _categoryIcon: string;         // "🍔"
-  _categoryColor: string;        // "bg-orange-100 text-orange-600"
+  _categoryIcon: string;         // "К" — first letter of the category name
+  _categoryColor: string;        // "bg-pastel-rose text-pastel-ink"
   _amountColor: string;          // "text-income", "text-expense", or "text-muted-foreground" for non-expense movements
   _typeLabel: string;            // "Доход" or "Расход"
   _semanticTypeLabel: string;            // "Долг", "Перевод себе", ...

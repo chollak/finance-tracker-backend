@@ -10,6 +10,7 @@ import {
   todayKeyboard
 } from '../keyboards';
 import { resolveUserIdToUUID } from '../../../../shared/application/helpers/userIdResolver';
+import { botUserId, quickAddCategories } from '../utils/userCategories';
 import { createLogger, LogCategory } from '../../../../shared/infrastructure/logging';
 import { getPreviousWeekRange, summarizeWeeklyReview } from '../../../../modules/transaction/application/weeklyReviewService';
 import { fromMinor, minorOf, percentOf } from '../../../../shared/domain/money/money';
@@ -89,8 +90,8 @@ async function handleStart(ctx: BotContext) {
       ...(keyboard || {}),
     });
 
-    // Send quick category keyboard
-    await ctx.reply(RU.quickCategories.title, quickCategoryKeyboard());
+    // Quick-add keyboard from the user's own categories (FT-100)
+    await sendQuickCategories(ctx);
   } catch (error) {
     logger.error('/start command error', error as Error);
     await ctx.reply(RU.errors.generic);
@@ -309,6 +310,14 @@ async function handleBudget(ctx: BotContext) {
   }
 }
 
+/** The quick-add keyboard, built from the user's visible expense categories; nothing without them. */
+async function sendQuickCategories(ctx: BotContext) {
+  const categories = await quickAddCategories(ctx, await botUserId(ctx));
+  if (categories.length > 0) {
+    await ctx.reply(RU.quickCategories.title, quickCategoryKeyboard(categories));
+  }
+}
+
 /**
  * /help - Show help with quick categories
  */
@@ -319,7 +328,7 @@ async function handleHelp(ctx: BotContext) {
     });
 
     // Also send quick categories for convenience
-    await ctx.reply(RU.quickCategories.title, quickCategoryKeyboard());
+    await sendQuickCategories(ctx);
   } catch (error) {
     logger.error('/help command error', error as Error);
     await ctx.reply(RU.errors.generic);

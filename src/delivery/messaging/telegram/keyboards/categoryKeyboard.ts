@@ -1,37 +1,24 @@
 import { Markup } from 'telegraf';
-import { RU } from '../i18n/ru';
+
+/** A category button: the user's own category, shown by name (no emoji in «Пастель»). */
+export interface CategoryButton {
+  id: string;
+  name: string;
+}
+
+const BUTTONS_PER_ROW = 3;
 
 /**
- * Creates an inline keyboard with quick category buttons
- * Categories are arranged in rows of 4
+ * Quick-add keyboard from the user's visible expense categories (FT-100). Callback data is
+ * `quickadd:<categoryId>`; buttons in old messages carry the static ids of before FT-099 and still
+ * work — the category resolver maps them.
  */
-export function quickCategoryKeyboard() {
-  const categories = RU.quickCategories.categories;
-
-  // Create rows of 4 buttons each
+export function quickCategoryKeyboard(categories: CategoryButton[]) {
   const rows = [];
-  for (let i = 0; i < categories.length; i += 4) {
+  for (let i = 0; i < categories.length; i += BUTTONS_PER_ROW) {
     rows.push(
-      categories.slice(i, i + 4).map(cat =>
-        Markup.button.callback(`${cat.emoji} ${cat.name}`, `quickadd:${cat.id}`)
-      )
+      categories.slice(i, i + BUTTONS_PER_ROW).map(category => Markup.button.callback(category.name, `quickadd:${category.id}`))
     );
   }
-
   return Markup.inlineKeyboard(rows);
-}
-
-/**
- * Get category info by id
- */
-export function getCategoryById(id: string) {
-  return RU.quickCategories.categories.find(cat => cat.id === id);
-}
-
-/**
- * Get category display text (emoji + name)
- */
-export function getCategoryDisplay(id: string): string {
-  const cat = getCategoryById(id);
-  return cat ? `${cat.emoji} ${cat.name}` : id;
 }

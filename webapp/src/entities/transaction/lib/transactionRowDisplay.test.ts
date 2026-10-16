@@ -15,7 +15,8 @@ function makeTransaction(overrides: Partial<Transaction> = {}): Transaction {
   return {
     id: 'tx-1',
     date: '2026-09-01',
-    category: 'food',
+    // The API sends the category's current name (FT-099)
+    category: 'Еда',
     description: 'Обед в столовой',
     amount: 50000,
     type: 'expense',
@@ -143,7 +144,7 @@ describe('formatCompactRowMeta', () => {
 
   it('shows only the category for income — the green plus already says «доход»', () => {
     const vm = transactionToViewModel(
-      makeTransaction({ date: '2026-09-04', type: 'income', category: 'salary', semanticType: 'income' })
+      makeTransaction({ date: '2026-09-04', type: 'income', category: 'Зарплата', semanticType: 'income' })
     );
     expect(formatCompactRowMeta(vm, NOW)).toBe('Зарплата');
   });
@@ -170,11 +171,11 @@ describe('formatCompactRowMeta', () => {
     expect(formatCompactRowMeta(vm, NOW, { includeDayLabel: false })).toBe('Еда · Наличные');
   });
 
-  it('falls back to the raw category id for an unknown category', () => {
+  it('shows a renamed or added category under the name the API sends', () => {
     const vm = transactionToViewModel(
-      makeTransaction({ date: '2026-09-04', category: 'quantum-snacks' })
+      makeTransaction({ date: '2026-09-04', category: 'Дети' })
     );
-    expect(formatCompactRowMeta(vm, NOW)).toBe('quantum-snacks');
+    expect(formatCompactRowMeta(vm, NOW)).toBe('Дети');
   });
 });
 

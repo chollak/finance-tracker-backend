@@ -26,7 +26,7 @@ import { createBudgetSchema, type CreateBudgetFormData } from '../model/schema';
 import { CalendarIcon } from 'lucide-react';
 import { cn } from '@/shared/lib';
 import { useEffect } from 'react';
-import { EXPENSE_CATEGORIES } from '@/entities/category';
+import { pickableCategories, useCategories } from '@/entities/category';
 import { pluralCategories } from '@/shared/lib/plural';
 
 interface BudgetFormProps {
@@ -41,6 +41,9 @@ interface BudgetFormProps {
  * Auto-calculates end date based on period
  */
 export function BudgetForm({ onSubmit, isLoading, defaultValues, submitButtonText = 'Создать бюджет' }: BudgetFormProps) {
+  // Budgets match records by category id since FT-099 (budgets leave the interface per Д2)
+  const { data: categories } = useCategories();
+  const expenseCategories = pickableCategories(categories, 'expense');
   const form = useForm<CreateBudgetFormData>({
     resolver: zodResolver(createBudgetSchema),
     defaultValues: {
@@ -163,7 +166,7 @@ export function BudgetForm({ onSubmit, isLoading, defaultValues, submitButtonTex
               </FormDescription>
               <FormControl>
                 <div className="flex flex-wrap gap-2 pt-2">
-                  {EXPENSE_CATEGORIES.map((category) => {
+                  {expenseCategories.map((category) => {
                     const isSelected = field.value?.includes(category.id) ?? false;
                     return (
                       <button
@@ -184,7 +187,6 @@ export function BudgetForm({ onSubmit, isLoading, defaultValues, submitButtonTex
                             : 'bg-muted text-muted-foreground hover:bg-muted/80'
                         )}
                       >
-                        <span>{category.icon}</span>
                         <span>{category.name}</span>
                       </button>
                     );

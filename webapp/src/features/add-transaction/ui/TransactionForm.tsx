@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { format } from 'date-fns';
@@ -21,20 +22,25 @@ import {
 } from '@/shared/ui/form';
 import { Calendar } from '@/shared/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/shared/ui/popover';
-import { getCategoriesByType, type Category } from '@/entities/category';
+import { findCategory, pickableCategories, useCategories, type Category } from '@/entities/category';
 import { addTransactionSchema, type AddTransactionFormData } from '../model/schema';
 import { CalendarIcon } from 'lucide-react';
 import { cn } from '@/shared/lib';
 
+/** What the form submits: `category` is the category's name, `categoryId` its id (FT-100). */
+export type TransactionFormResult = AddTransactionFormData & { categoryId?: string };
+
 interface TransactionFormProps {
-  onSubmit: (data: AddTransactionFormData) => void;
+  onSubmit: (data: TransactionFormResult) => void;
   isLoading?: boolean;
+  /** `category` may be a category id or a name; a name is matched to the user's category. */
   defaultValues?: Partial<AddTransactionFormData>;
 }
 
 /**
  * Transaction form component
- * Used for both adding and editing transactions
+ * Used for both adding and editing transactions. The category field holds the id of one of the
+ * user's categories from the API.
  */
 export function TransactionForm({ onSubmit, isLoading, defaultValues }: TransactionFormProps) {
   const form = useForm<AddTransactionFormData>({
@@ -51,11 +57,26 @@ export function TransactionForm({ onSubmit, isLoading, defaultValues }: Transact
   });
 
   const transactionType = form.watch('type');
-  const categories = getCategoriesByType(transactionType);
+  const selected = form.watch('category');
+  const { data: allCategories } = useCategories();
+  const categories = pickableCategories(allCategories, transactionType);
+
+  // An edited record may arrive with its category's name (guest mode) or with a category of the
+  // other type after a type switch: pick the matching id, or clear the field.
+  useEffect(() => {
+    if (!allCategories || !selected || findCategory(categories, selected)) return;
+    const byName = categories.find((category) => category.name === selected);
+    form.setValue('category', byName?.id ?? '');
+  }, [allCategories, categories, selected, form]);
+
+  const submit = (data: AddTransactionFormData) => {
+    const category = findCategory(categories, data.category);
+    onSubmit({ ...data, category: category?.name ?? data.category, categoryId: category?.id });
+  };
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+      <form onSubmit={form.handleSubmit(submit)} className="space-y-6">
         {/* Type Selection */}
         <FormField
           control={form.control}
@@ -117,7 +138,7 @@ export function TransactionForm({ onSubmit, isLoading, defaultValues }: Transact
                 <SelectContent>
                   {categories.map((category: Category) => (
                     <SelectItem key={category.id} value={category.id}>
-                      {category.icon} {category.name}
+                      {category.name}
                     </SelectItem>
                   ))}
                 </SelectContent>

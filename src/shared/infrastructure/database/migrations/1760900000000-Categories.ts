@@ -93,7 +93,7 @@ export class Categories1760900000000 implements MigrationInterface {
     if (rows.length > 0) {
       logger.info('FT-099: records moved to the new categories', {
         users: users.length,
-        report: rows.map(row => `${row.type}: ${row.legacy} → ${row.category} (${row.count})`),
+        report: rows.map(row => `${row.type}: ${row.legacy} → ${row.category} (${row.count})`).join('; '),
       });
     }
   }

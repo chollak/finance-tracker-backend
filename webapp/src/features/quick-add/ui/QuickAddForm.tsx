@@ -16,18 +16,17 @@ import {
   FormItem,
   FormMessage,
 } from '@/shared/ui/form';
-import {
-  getCategoriesByType,
-  type Category,
-  ALL_CATEGORIES,
-} from '@/entities/category';
+import { findCategory, pickableCategories, useCategories } from '@/entities/category';
 import { useTransactions } from '@/entities/transaction';
 import { useUserStore } from '@/entities/user/model/store';
 
-import { quickAddSchema, DEFAULT_DESCRIPTIONS, type QuickAddFormData } from '../model/schema';
+import { quickAddSchema, type QuickAddFormData } from '../model/schema';
+
+/** What the form submits: `category` is the category's name, `categoryId` its id (FT-100). */
+export type QuickAddResult = QuickAddFormData & { categoryId?: string };
 
 interface QuickAddFormProps {
-  onSubmit: (data: QuickAddFormData) => void;
+  onSubmit: (data: QuickAddResult) => void;
   isLoading?: boolean;
   defaultType?: 'income' | 'expense';
   onClose?: () => void;
@@ -59,7 +58,11 @@ export function QuickAddForm({
 
   const transactionType = form.watch('type');
   const selectedCategory = form.watch('category');
-  const categories = getCategoriesByType(transactionType);
+  const { data: allCategories } = useCategories();
+  const categories = useMemo(
+    () => pickableCategories(allCategories, transactionType),
+    [allCategories, transactionType]
+  );
 
   // Auto-focus amount input on mount
   useEffect(() => {
@@ -69,31 +72,18 @@ export function QuickAddForm({
     return () => clearTimeout(timer);
   }, []);
 
-  // Get recent categories from transaction history
+  // Recent categories from the history, topped up with the first ones in the user's order
   const recentCategories = useMemo(() => {
-    if (!transactions || transactions.length === 0) {
-      // Default popular categories if no history
-      return transactionType === 'expense'
-        ? ['food', 'transport', 'shopping', 'coffee', 'restaurants']
-        : ['salary', 'freelance', 'gift'];
-    }
-
-    // Get categories from recent transactions of same type
-    const recentCats = transactions
-      .filter((t) => t.type === transactionType)
+    const recentIds = (transactions ?? [])
+      .filter((t) => t.type === transactionType && t.categoryId)
       .slice(0, 20)
-      .map((t) => t.category)
-      .filter((cat, idx, arr) => arr.indexOf(cat) === idx) // unique
+      .map((t) => t.categoryId!);
+    const ids = [...new Set([...recentIds, ...categories.map((category) => category.id)])];
+    return ids
+      .map((id) => findCategory(categories, id))
+      .filter((category): category is NonNullable<typeof category> => category !== undefined)
       .slice(0, 5);
-
-    // If not enough recent, add defaults
-    const defaults =
-      transactionType === 'expense'
-        ? ['food', 'transport', 'shopping']
-        : ['salary', 'freelance'];
-
-    return [...new Set([...recentCats, ...defaults])].slice(0, 5);
-  }, [transactions, transactionType]);
+  }, [transactions, transactionType, categories]);
 
   // Get unique merchants from transaction history for auto-suggest
   const recentMerchants = useMemo(() => {
@@ -106,20 +96,16 @@ export function QuickAddForm({
       .slice(0, 20); // limit to 20 recent merchants
   }, [transactions]);
 
-  // Handle form submission
+  // Handle form submission: the category's name doubles as the description when none is given
   const handleSubmit = (data: QuickAddFormData) => {
-    // Auto-generate description if empty
-    const finalData = {
+    const category = findCategory(categories, data.category);
+    const name = category?.name ?? data.category;
+    onSubmit({
       ...data,
-      description:
-        data.description?.trim() || DEFAULT_DESCRIPTIONS[data.category] || data.category,
-    };
-    onSubmit(finalData);
-  };
-
-  // Get category info
-  const getCategoryInfo = (catId: string): Category | undefined => {
-    return ALL_CATEGORIES.find((c) => c.id === catId);
+      category: name,
+      categoryId: category?.id,
+      description: data.description?.trim() || name,
+    });
   };
 
   return (
@@ -189,20 +175,18 @@ export function QuickAddForm({
         <div className="space-y-2">
           <p className="text-sm text-muted-foreground">Недавние категории</p>
           <div className="flex flex-wrap gap-2">
-            {recentCategories.map((catId) => {
-              const cat = getCategoryInfo(catId);
-              if (!cat) return null;
-              const isSelected = selectedCategory === catId;
+            {recentCategories.map((cat) => {
+              const isSelected = selectedCategory === cat.id;
               return (
                 <Button
-                  key={catId}
+                  key={cat.id}
                   type="button"
                   variant={isSelected ? (transactionType === 'expense' ? 'expense' : 'income') : 'outline'}
                   size="sm"
                   className="min-h-11 transition-all"
-                  onClick={() => form.setValue('category', catId)}
+                  onClick={() => form.setValue('category', cat.id)}
                 >
-                  {cat.icon} {cat.name}
+                  {cat.name}
                 </Button>
               );
             })}
@@ -230,7 +214,7 @@ export function QuickAddForm({
                           className="min-h-11 justify-start text-xs"
                           onClick={() => form.setValue('category', cat.id)}
                         >
-                          {cat.icon} {cat.name}
+                          {cat.name}
                         </Button>
                       );
                     })}

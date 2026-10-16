@@ -17,9 +17,16 @@ export type TransactionSemanticType = typeof TRANSACTION_SEMANTIC_TYPES[number];
 export interface Transaction {
   id?: string;
   date: string;
+  /** Current name of the record's category (the API returns names since FT-099). */
   category: string;
+  /** The user's category (FT-099); missing only for guest-mode records. */
+  categoryId?: string;
+  /** Pastel colour token of the category (FT-100). */
+  categoryColor?: string;
   description: string;
   amount: number;
+  /** Integer minor units (FT-097); `amount` is the same value in сум. */
+  amountMinor?: number;
   type: 'income' | 'expense';
   semanticType?: TransactionSemanticType;
   needsReview?: boolean;
@@ -45,7 +52,9 @@ export interface Transaction {
 // DTO types for API calls
 export interface CreateTransactionDTO {
   date: string;
+  /** Category name; `categoryId` decides on the server when given. */
   category: string;
+  categoryId?: string;
   description: string;
   amount: number;
   type: 'income' | 'expense';
@@ -59,6 +68,7 @@ export interface CreateTransactionDTO {
 export interface UpdateTransactionDTO {
   amount?: number;
   category?: string;
+  categoryId?: string;
   description?: string;
   date?: string;
   type?: 'income' | 'expense';
