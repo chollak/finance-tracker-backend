@@ -27,6 +27,8 @@ export function createModules() {
   transactionModule.setAccountResolver(accountModule.getBook());
   accountModule.getBook().setDefaultAccountSource(userId => userModule.defaultAccountId(userId));
   userModule.setAccountCheck((userId, accountId) => accountModule.getBook().isVisibleAccount(userId, accountId));
+  // The account screen lists the account's records next to its moves (FT-104)
+  accountModule.setRecordSource({ recordsOf: (userId, accountId) => transactionModule.recordsOfAccount(userId, accountId) });
 
   // USD rate (FT-102): the user's own rate from settings, else the Central Bank's
   const fxModule = FxModule.create({
@@ -34,6 +36,7 @@ export function createModules() {
     set: (userId, rate) => userModule.setOwnUsdRate(userId, rate),
   });
   accountModule.getBook().setRateProvider(fxModule.getService());
+  accountModule.setCbuRates(fxModule.getService());
   transactionModule.setUsdRateSource(fxModule.getService());
   const openAIUsageModule = createOpenAIUsageModule();
 

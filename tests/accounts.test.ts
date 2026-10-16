@@ -86,7 +86,7 @@ describe('accounts and balances (FT-101)', () => {
     });
 
     async function account(name: string, currency: 'UZS' | 'USD', openingBalanceMinor = 0, openingDate = '2026-10-01') {
-      const created = await new AccountModule(records.accountRepository).getCreateAccountUseCase().execute({
+      const created = await new AccountModule(records.accountRepository, undefined, records.moveRepository).getCreateAccountUseCase().execute({
         userId: 'user-1',
         body: { name, kind: name === 'Наличные' ? 'cash' : 'card', currency, openingBalanceMinor, openingDate },
       });
@@ -150,7 +150,7 @@ describe('accounts and balances (FT-101)', () => {
         const cash = await account('Наличные', 'UZS', toMinorSum(300000));
         await account('Доллары', 'USD', 5500); // 55.00 USD
         const hidden = await account('Старая карта', 'UZS', toMinorSum(999999));
-        await new AccountModule(records.accountRepository).getUpdateAccountUseCase().execute({
+        await new AccountModule(records.accountRepository, undefined, records.moveRepository).getUpdateAccountUseCase().execute({
           userId: 'user-1', accountId: hidden.id, body: { isHidden: true },
         });
         records.book.setRateProvider(rate(1285037)); // 12 850.37
@@ -213,7 +213,7 @@ describe('accounts and balances (FT-101)', () => {
       let server: TestServer;
 
       beforeEach(async () => {
-        const accountModule = new AccountModule(new SqliteAccountRepository(db.dataSource));
+        const accountModule = new AccountModule(new SqliteAccountRepository(db.dataSource), undefined, records.moveRepository);
         const userModule = new UserModule(new SqliteUserRepository(db.dataSource), new SqliteUserSettingsRepository(db.dataSource));
         accountModule.getBook().setDefaultAccountSource(userId => userModule.defaultAccountId(userId));
         userModule.setAccountCheck((userId, accountId) => accountModule.getBook().isVisibleAccount(userId, accountId));

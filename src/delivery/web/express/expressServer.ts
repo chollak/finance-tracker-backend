@@ -20,6 +20,7 @@ import { CategoryModule } from '../../../modules/category/categoryModule';
 import { createCategoryRoutes } from '../../../modules/category/presentation/categoryController';
 import { AccountModule } from '../../../modules/account/accountModule';
 import { createAccountRoutes } from '../../../modules/account/presentation/accountController';
+import { createMoveRoutes } from '../../../modules/account/presentation/moveController';
 import { FxModule } from '../../../modules/fx/fxModule';
 import { createFxRoutes } from '../../../modules/fx/presentation/fxController';
 
@@ -154,6 +155,7 @@ export function buildServer(
     }
     if (moneyModules.accountModule) {
       router.use('/accounts', createAccountRoutes(moneyModules.accountModule, userModule));
+      router.use('/moves', createMoveRoutes(moneyModules.accountModule, userModule));
     }
     if (moneyModules.fxModule) {
       router.use('/rates', createFxRoutes(moneyModules.fxModule.getService(), userModule));

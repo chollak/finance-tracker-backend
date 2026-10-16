@@ -11,3 +11,8 @@ export interface EffectiveRate {
 export interface EffectiveRateProvider {
   effectiveUsdRate(userId: string): Promise<EffectiveRate | null>;
 }
+
+/** Port to the rates module: the Central Bank rate on a date, for an exchange (FT-104). */
+export interface CbuRateOnDate {
+  cbuRateOn(date: string): Promise<{ rateMinor: number } | null>;
+}

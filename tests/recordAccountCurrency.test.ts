@@ -26,7 +26,7 @@ describe('account and currency of every record (FT-103)', () => {
   });
 
   async function account(name: string, kind: 'cash' | 'card', currency: 'UZS' | 'USD' = 'UZS') {
-    const created = await new AccountModule(records.accountRepository).getCreateAccountUseCase().execute({
+    const created = await new AccountModule(records.accountRepository, undefined, records.moveRepository).getCreateAccountUseCase().execute({
       userId: 'user-1', body: { name, kind, currency, openingDate: '2026-10-01' },
     });
     if (!created.success) throw created.error;

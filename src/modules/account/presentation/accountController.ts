@@ -5,14 +5,32 @@ import { standardRateLimiter } from '../../../delivery/web/express/middleware/ra
 import { UserModule } from '../../user/userModule';
 import { AccountModule } from '../accountModule';
 import { CreateAccountUseCase, ListAccountsUseCase, UpdateAccountUseCase } from '../application/accountUseCases';
+import { GetAccountOperationsUseCase } from '../application/accountOperations';
 
 /** GET/POST /api/accounts, PATCH /api/accounts/:id (FT-101). */
 export class AccountController {
   constructor(
     private list: ListAccountsUseCase,
     private create: CreateAccountUseCase,
-    private update: UpdateAccountUseCase
+    private update: UpdateAccountUseCase,
+    private operations: GetAccountOperationsUseCase
   ) {}
+
+  /** GET /api/accounts/:id/operations?from&to — records and moves of the account by day (FT-104). */
+  getOperations = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const result = await this.operations.execute({
+        userId: currentUserId(req),
+        accountId: String(req.params.id),
+        from: req.query.from,
+        to: req.query.to,
+      });
+      if (!result.success) return handleControllerError(result.error, res);
+      handleControllerSuccess(result.data, res);
+    } catch (error) {
+      handleControllerError(error, res);
+    }
+  };
 
   getAll = async (req: Request, res: Response): Promise<void> => {
     try {
@@ -54,7 +72,8 @@ export function createAccountRoutes(accountModule: AccountModule, userModule: Us
   const controller = new AccountController(
     accountModule.getListAccountsUseCase(),
     accountModule.getCreateAccountUseCase(),
-    accountModule.getUpdateAccountUseCase()
+    accountModule.getUpdateAccountUseCase(),
+    accountModule.getAccountOperationsUseCase()
   );
   const router = Router();
   router.use(standardRateLimiter);
@@ -62,5 +81,6 @@ export function createAccountRoutes(accountModule: AccountModule, userModule: Us
   router.get('/', controller.getAll);
   router.post('/', controller.post);
   router.patch('/:id', controller.patch);
+  router.get('/:id/operations', controller.getOperations);
   return router;
 }

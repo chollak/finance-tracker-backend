@@ -21,3 +21,11 @@ export function toDateOnly(value: string, timeZone: string = DEFAULT_TIME_ZONE):
 export function todayDateOnly(now: Date = new Date(), timeZone: string = DEFAULT_TIME_ZONE): string {
   return toDateOnly(now.toISOString(), timeZone);
 }
+
+/** Whether the value is a real calendar date written as YYYY-MM-DD («2026-02-30» is not). */
+export function isValidDateOnly(value: unknown): value is string {
+  if (typeof value !== 'string' || !DATE_ONLY.test(value)) return false;
+  const [year, month, day] = value.split('-').map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+}

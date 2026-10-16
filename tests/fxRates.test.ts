@@ -8,6 +8,7 @@ import { SqliteUserRepository } from '../src/modules/user/infrastructure/persist
 import { SqliteUserSettingsRepository } from '../src/modules/user/infrastructure/persistence/SqliteUserSettingsRepository';
 import { AccountModule } from '../src/modules/account/accountModule';
 import { SqliteAccountRepository } from '../src/modules/account/infrastructure/SqliteAccountRepository';
+import { SqliteAccountMoveRepository } from '../src/modules/account/infrastructure/SqliteAccountMoveRepository';
 import { createAccountRoutes } from '../src/modules/account/presentation/accountController';
 import { todayDateOnly } from '../src/shared/domain/dates/dateOnly';
 import { openMigratedDatabase, TestDatabase } from './helpers/testDatabase';
@@ -134,7 +135,7 @@ describe('USD rate (FT-102)', () => {
         get: userId => userModule.ownUsdRate(userId),
         set: (userId, rate) => userModule.setOwnUsdRate(userId, rate),
       });
-      const accounts = new AccountModule(new SqliteAccountRepository(db.dataSource));
+      const accounts = new AccountModule(new SqliteAccountRepository(db.dataSource), undefined, new SqliteAccountMoveRepository(db.dataSource));
       accounts.getBook().setRateProvider(fx);
       const server = await startTestServer({
         '/rates': createFxRoutes(fx, userModule),

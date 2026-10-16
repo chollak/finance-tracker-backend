@@ -15,6 +15,7 @@ import { TransactionRepository } from './domain/transactionRepository';
 import { CategoryResolver } from './domain/categoryResolver';
 import { AccountResolver } from './domain/accountResolver';
 import { PeriodTotalsService, UsdRateSource } from './application/periodTotalsService';
+import { Transaction } from './domain/transactionEntity';
 import { RepositoryFactory } from '../../shared/infrastructure/database/repositoryFactory';
 import { SubscriptionModule } from '../subscription/subscriptionModule';
 import { UserModule } from '../user/userModule';
@@ -78,6 +79,11 @@ export class TransactionModule {
 
   getCreateTransactionUseCase(): CreateTransactionUseCase {
     return this.createTransactionUseCase;
+  }
+
+  /** Records written to one of the user's accounts, for the account screen (FT-104). */
+  async recordsOfAccount(userId: string, accountId: string): Promise<Transaction[]> {
+    return (await this.repository.findByUserId(userId)).filter(record => record.accountId === accountId);
   }
 
   getGetTransactionsUseCase(): GetTransactionsUseCase {

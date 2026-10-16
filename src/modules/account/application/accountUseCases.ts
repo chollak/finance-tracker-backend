@@ -3,7 +3,7 @@ import { Result, ResultHelper } from '../../../shared/domain/types/Result';
 import { BusinessLogicError, ConflictError, NotFoundError, ValidationError } from '../../../shared/domain/errors/AppError';
 import { getLogger, LogCategory } from '../../../shared/application/logging';
 import { isMinorInteger } from '../../../shared/domain/money/money';
-import { todayDateOnly } from '../../../shared/domain/dates/dateOnly';
+import { isValidDateOnly, todayDateOnly } from '../../../shared/domain/dates/dateOnly';
 import {
   ACCOUNT_KINDS,
   ACCOUNT_NAME_MAX_LENGTH,
@@ -17,7 +17,6 @@ import { AccountRepository } from '../domain/accountRepository';
 import { AccountBook, AccountsSummary } from './accountBook';
 
 const logger = getLogger(LogCategory.TRANSACTION);
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 function checkName(value: unknown): Result<string, ValidationError> {
   const name = typeof value === 'string' ? value.trim().replace(/\s+/g, ' ') : '';
@@ -31,13 +30,6 @@ function checkName(value: unknown): Result<string, ValidationError> {
 function nameTaken(accounts: Account[], name: string, exceptId?: string): Account | undefined {
   const key = accountNameKey(name);
   return accounts.find(account => account.id !== exceptId && accountNameKey(account.name) === key);
-}
-
-function isValidDate(value: string): boolean {
-  if (!ISO_DATE.test(value)) return false;
-  const [year, month, day] = value.split('-').map(Number);
-  const date = new Date(Date.UTC(year, month - 1, day));
-  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
 }
 
 export class ListAccountsUseCase {
@@ -75,7 +67,7 @@ export class CreateAccountUseCase {
       return ResultHelper.failure(new ValidationError('openingBalanceMinor must be an integer number of minor units', 'openingBalanceMinor'));
     }
     const openingDate = body.openingDate ?? todayDateOnly();
-    if (typeof openingDate !== 'string' || !isValidDate(openingDate)) {
+    if (!isValidDateOnly(openingDate)) {
       return ResultHelper.failure(new ValidationError('openingDate must be a date YYYY-MM-DD', 'openingDate'));
     }
 

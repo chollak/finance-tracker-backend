@@ -132,7 +132,57 @@
 
 Ошибки: имя пустое или длиннее 40, `kind`/`currency` не из списка, остаток не целый, дата не `YYYY-MM-DD`,
 скрыть последний видимый счёт — `400`; имя уже есть (без учёта регистра) или смена валюты у счёта с
-операциями — `409`; чужой счёт — `404`.
+операциями — `409`; чужой счёт — `404`. Операции — записи и перемещения, удалённые перемещения тоже
+(их можно восстановить).
+
+## Перемещения: перевод, обмен, корректировка (FT-104)
+
+Перемещение меняет остатки и только их: в доходы, расходы, аналитику, итоги дня, ревизию и цели оно
+не попадает. Хранится в `account_moves`.
+
+`POST /api/moves` → `201` и перемещение:
+
+| `kind` | Тело | Что сохраняется |
+|---|---|---|
+| `transfer` | `fromAccountId`, `toAccountId` (одна валюта), `amountMinor`, `date?`, `note?` | `fromAmountMinor` = `toAmountMinor` |
+| `exchange` | `fromAccountId`, `toAccountId` (разные валюты), `fromAmountMinor` (отдал), `toAmountMinor` (получил), `date?`, `note?` | `dealRateMinor` — курс сделки (сумы×100 за $1, из двух сумм, округление половины вверх); `cbuRateMinor` — курс ЦБ на дату или `null`, если его нет |
+| `adjustment` | `accountId`, `balanceMinor` — сколько на счёте на самом деле, `note?` | `toAmountMinor` — разница с посчитанным остатком со знаком; дата — сегодня |
+
+```json
+{ "id": "…", "kind": "exchange", "fromAccountId": "…", "toAccountId": "…",
+  "fromAmountMinor": 10000, "toAmountMinor": 126000000, "dealRateMinor": 1260000, "cbuRateMinor": 1265000,
+  "date": "2026-10-12", "note": null, "createdAt": "…", "deletedAt": null, "userId": "…" }
+```
+
+Ошибки `400`: у пользователя один видимый счёт — «A transfer needs a second visible account: add one first»
+(`field: toAccountId`); счёт скрыт; счета совпадают; валюты разные у перевода («that is an exchange») или
+одинаковые у обмена («that is a transfer»); сумма не целое положительное; дата не `YYYY-MM-DD` или раньше
+даты открытия одного из счетов; заметка длиннее 200; корректировка до того же остатка («The balance already
+matches»). Чужой счёт — `404`. Денег на счёте сервер не проверяет: остаток может уйти в минус, форма
+предупреждает сама.
+
+`DELETE /api/moves/:id` — мягкое удаление, остатки обоих счетов возвращаются; `POST /api/moves/:id/restore`
+— обратно. Оба отвечают перемещением (`deletedAt` — дата или `null`), повтор ничего не меняет. Чужое — `404`.
+
+`GET /api/accounts/:id/operations?from&to` — экран счёта: счёт с остатком и операции по дням, новые сверху,
+внутри дня — по времени создания.
+
+```json
+{
+  "account": { "id": "…", "name": "Карта", "balanceMinor": -32500000, "…": "…" },
+  "days": [
+    { "date": "2026-10-12", "operations": [
+      { "type": "move", "id": "…", "kind": "transfer", "amountMinor": -30000000, "countsInBalance": true,
+        "counterpart": { "id": "…", "name": "Наличные", "currency": "UZS" }, "move": { "…": "…" } },
+      { "type": "record", "id": "…", "amountMinor": -2500000, "countsInBalance": true, "record": { "…": "…" } }
+    ] }
+  ]
+}
+```
+
+`amountMinor` — изменение остатка этого счёта со знаком. `countsInBalance: false` — операция раньше даты
+открытия счёта или запись в другой валюте («55$» на сумовом счёте). `record` — запись в том же виде, что в
+истории; `counterpart` — второй счёт перевода или обмена (`null` у корректировки).
 
 ## Курс доллара (FT-102)
 

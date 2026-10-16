@@ -39,25 +39,45 @@ export class SqliteAccountRepository implements AccountRepository {
   /**
    * How much each account changed since its opening date (money-model «Остаток счёта»): every record
    * that is not archived counts by its type — whatever its semanticType and even while it awaits review,
-   * because the money did leave or reach the account. Records dated before the opening date do not count,
-   * nor do records in another currency than the account's — a «55$» parked on a сум account for lack
-   * of a dollar account waits for review (FT-103) and counts once it is moved.
+   * because the money did leave or reach the account — and every move that is not deleted (FT-104):
+   * what arrived adds, what left subtracts, an adjustment adds its signed difference. Records and moves
+   * dated before the opening date do not count, nor do records in another currency than the account's —
+   * a «55$» parked on a сум account for lack of a dollar account waits for review (FT-103) and counts
+   * once it is moved.
    */
   async balanceChanges(userId: string): Promise<Map<string, number>> {
     const rows: Array<{ accountId: string; change: number | string }> = await this.dataSource.query(
-      `SELECT t."account_id" AS "accountId",
-              SUM(CASE WHEN t."type" = 'income' THEN t."amount_minor" ELSE -t."amount_minor" END) AS "change"
-       FROM "transactions" t
-       JOIN "accounts" a ON a."id" = t."account_id"
-       WHERE a."user_id" = ? AND t."isArchived" = 0 AND t."date" >= a."opening_date" AND t."currency" = a."currency"
-       GROUP BY t."account_id"`,
-      [userId]
+      `SELECT "accountId", SUM("change") AS "change" FROM (
+         SELECT t."account_id" AS "accountId",
+                CASE WHEN t."type" = 'income' THEN t."amount_minor" ELSE -t."amount_minor" END AS "change"
+         FROM "transactions" t
+         JOIN "accounts" a ON a."id" = t."account_id"
+         WHERE a."user_id" = ? AND t."isArchived" = 0 AND t."date" >= a."opening_date" AND t."currency" = a."currency"
+         UNION ALL
+         SELECT m."to_account_id", m."to_amount_minor"
+         FROM "account_moves" m
+         JOIN "accounts" a ON a."id" = m."to_account_id"
+         WHERE a."user_id" = ? AND m."deleted_at" IS NULL AND m."date" >= a."opening_date"
+         UNION ALL
+         SELECT m."from_account_id", -m."from_amount_minor"
+         FROM "account_moves" m
+         JOIN "accounts" a ON a."id" = m."from_account_id"
+         WHERE a."user_id" = ? AND m."deleted_at" IS NULL AND m."date" >= a."opening_date"
+       ) GROUP BY "accountId"`,
+      [userId, userId, userId]
     );
     return new Map(rows.map(row => [row.accountId, Number(row.change)]));
   }
 
+  /** Deleted moves count too: «Отменить» can bring them back. */
   async hasOperations(accountId: string): Promise<boolean> {
-    const rows = await this.dataSource.query(`SELECT 1 FROM "transactions" WHERE "account_id" = ? LIMIT 1`, [accountId]);
+    const rows = await this.dataSource.query(
+      `SELECT 1 FROM "transactions" WHERE "account_id" = ?
+       UNION ALL
+       SELECT 1 FROM "account_moves" WHERE "from_account_id" = ? OR "to_account_id" = ?
+       LIMIT 1`,
+      [accountId, accountId, accountId]
+    );
     return rows.length > 0;
   }
 

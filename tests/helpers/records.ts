@@ -6,6 +6,7 @@ import { CategoryCatalog } from '../../src/modules/category/application/category
 import { SqliteCategoryRepository } from '../../src/modules/category/infrastructure/SqliteCategoryRepository';
 import { AccountBook } from '../../src/modules/account/application/accountBook';
 import { SqliteAccountRepository } from '../../src/modules/account/infrastructure/SqliteAccountRepository';
+import { SqliteAccountMoveRepository } from '../../src/modules/account/infrastructure/SqliteAccountMoveRepository';
 
 /** Records wired the way createModules() wires them, on a test data source. */
 export function recordsOn(dataSource: DataSource) {
@@ -18,6 +19,7 @@ export function recordsOn(dataSource: DataSource) {
     catalog,
     book,
     accountRepository,
+    moveRepository: new SqliteAccountMoveRepository(dataSource),
     create: new CreateTransactionUseCase(repository, catalog, book),
     update: new UpdateTransactionUseCase(repository, catalog, book),
   };

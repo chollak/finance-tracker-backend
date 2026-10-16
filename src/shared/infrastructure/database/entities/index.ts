@@ -9,3 +9,4 @@ export { UserSettings } from './UserSettings';
 export { Category } from './Category';
 export { Account } from './Account';
 export { FxRate } from './FxRate';
+export { AccountMove } from './AccountMove';

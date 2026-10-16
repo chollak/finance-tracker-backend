@@ -9,6 +9,8 @@ import { CategoryRepository } from '../../../modules/category/domain/categoryRep
 import { SqliteCategoryRepository } from '../../../modules/category/infrastructure/SqliteCategoryRepository';
 import { AccountRepository } from '../../../modules/account/domain/accountRepository';
 import { SqliteAccountRepository } from '../../../modules/account/infrastructure/SqliteAccountRepository';
+import { AccountMoveRepository } from '../../../modules/account/domain/accountMoveRepository';
+import { SqliteAccountMoveRepository } from '../../../modules/account/infrastructure/SqliteAccountMoveRepository';
 import { FxRateRepository } from '../../../modules/fx/domain/fxRateRepository';
 import { SqliteFxRateRepository } from '../../../modules/fx/infrastructure/SqliteFxRateRepository';
 import { SqliteTransactionRepository } from '../../../modules/transaction/infrastructure/persistence/SqliteTransactionRepository';
@@ -55,6 +57,10 @@ export class RepositoryFactory {
 
   static createAccountRepository(): AccountRepository {
     return new SqliteAccountRepository();
+  }
+
+  static createAccountMoveRepository(): AccountMoveRepository {
+    return new SqliteAccountMoveRepository();
   }
 
   static createFxRateRepository(): FxRateRepository {
