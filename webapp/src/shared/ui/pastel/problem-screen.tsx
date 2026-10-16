@@ -16,14 +16,16 @@ interface ProblemScreenProps {
   secondary?: { label: string; onClick: () => void };
   /** «Отмена» or the logo. */
   header?: ReactNode;
+  /** A whole screen (default) or embedded, e.g. in the component showcase. */
+  fullScreen?: boolean;
 }
 
 /** One template for everything that went wrong (docs/pastel/components/ProblemScreen.md). */
-export function ProblemScreen({ icon, title, text, steps, action, secondary, header }: ProblemScreenProps) {
+export function ProblemScreen({ icon, title, text, steps, action, secondary, header, fullScreen = true }: ProblemScreenProps) {
   return (
-    <div className="flex min-h-dvh flex-col bg-bg px-4 pb-6 pt-3">
+    <div className={fullScreen ? 'flex min-h-dvh flex-col bg-bg px-4 pb-6 pt-3' : 'flex flex-col bg-bg px-4 pb-6 pt-3'}>
       {header && <div className="flex min-h-touch items-center">{header}</div>}
-      <div className="flex flex-1 flex-col gap-4 pt-10">
+      <div className={fullScreen ? 'flex flex-1 flex-col gap-4 pt-10' : 'flex flex-col gap-4 pt-4'}>
         <span
           aria-hidden="true"
           className="flex size-16 items-center justify-center rounded-pill bg-track text-ink [&_svg]:size-7"

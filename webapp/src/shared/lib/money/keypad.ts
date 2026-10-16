@@ -33,11 +33,21 @@ export function keypadFromMinor(minor: number, currency: Currency): KeypadState 
   return { text: cents === 0 ? String(whole) : `${whole},${String(cents).padStart(2, '0')}`, pristine: true };
 }
 
+/**
+ * When the account changes currency the number stays (the design system offers a recalculation
+ * separately), but сумы have no fractions: «420,5» becomes «420».
+ */
+export function keypadForCurrency(state: KeypadState, currency: Currency): KeypadState {
+  if (currency === 'USD' || !state.text.includes(',')) return state;
+  return { ...state, text: state.text.split(',')[0].replace(/^0+/, '') };
+}
+
 export function pressKey(state: KeypadState, key: KeypadKey, currency: Currency): KeypadState {
-  const current = state.pristine ? '' : state.text;
+  const normalized = keypadForCurrency(state, currency);
+  const current = normalized.pristine ? '' : normalized.text;
 
   if (key === 'del') {
-    return { text: state.pristine ? '' : current.slice(0, -1), pristine: false };
+    return { text: normalized.pristine ? '' : current.slice(0, -1), pristine: false };
   }
 
   if (key === ',' || (key === '000' && currency === 'USD')) {
@@ -63,11 +73,13 @@ export function pressKey(state: KeypadState, key: KeypadKey, currency: Currency)
 
 /** Integer minor units, or null when nothing is entered (the save button then asks for an amount). */
 export function keypadToMinor(state: KeypadState, currency: Currency): number | null {
-  if (state.text === '' || state.text === '0,' ) return null;
-  if (currency === 'UZS') return Number(state.text) * 100;
-  const [whole, fraction = ''] = state.text.split(',');
-  const minor = Number(whole || '0') * 100 + Number(fraction.padEnd(2, '0').slice(0, 2));
-  return minor === 0 ? null : minor;
+  const { text } = keypadForCurrency(state, currency);
+  if (text === '' || text === '0,') return null;
+  const [whole, fraction = ''] = text.split(',');
+  const minor = currency === 'UZS'
+    ? Number(whole) * 100
+    : Number(whole || '0') * 100 + Number(fraction.padEnd(2, '0').slice(0, 2));
+  return Number.isFinite(minor) && minor > 0 ? minor : null;
 }
 
 /** What the amount line shows: «186 400», «420,5». */

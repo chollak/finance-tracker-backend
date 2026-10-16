@@ -29,7 +29,7 @@ export function Sheet({ open, onOpenChange, title, subtitle, children, footer, c
   const sheetOpened = useUndoToastStore((state) => state.sheetOpened);
   const sheetClosed = useUndoToastStore((state) => state.sheetClosed);
   const [dragY, setDragY] = useState(0);
-  const dragStart = useRef<number | null>(null);
+  const drag = useRef<{ startY: number; pointerId: number; dy: number; captured: boolean } | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -37,26 +37,36 @@ export function Sheet({ open, onOpenChange, title, subtitle, children, footer, c
     return () => sheetClosed();
   }, [open, sheetOpened, sheetClosed]);
 
+  // Dragging starts on the grabber/title area but never on its buttons, and the pointer is captured
+  // only once it really moves — otherwise a mouse click on «Закрыть» would land on the header.
   const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
-    dragStart.current = event.clientY;
-    event.currentTarget.setPointerCapture(event.pointerId);
+    if ((event.target as HTMLElement).closest('button, a')) return;
+    drag.current = { startY: event.clientY, pointerId: event.pointerId, dy: 0, captured: false };
   };
   const onPointerMove = (event: PointerEvent<HTMLDivElement>) => {
-    if (dragStart.current === null) return;
-    setDragY(Math.max(0, event.clientY - dragStart.current));
+    const state = drag.current;
+    if (!state) return;
+    state.dy = Math.max(0, event.clientY - state.startY);
+    if (!state.captured && state.dy > 4) {
+      event.currentTarget.setPointerCapture(state.pointerId);
+      state.captured = true;
+    }
+    if (state.captured) setDragY(state.dy);
   };
   const onPointerUp = () => {
-    if (dragStart.current === null) return;
-    dragStart.current = null;
-    if (dragY > CLOSE_DRAG_PX) onOpenChange(false);
+    const state = drag.current;
+    drag.current = null;
+    if (!state) return;
+    if (state.dy > CLOSE_DRAG_PX) onOpenChange(false);
     setDragY(0);
   };
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-50 bg-scrim animate-fade-in" />
+        <Dialog.Overlay data-pastel="" className="fixed inset-0 z-50 bg-scrim animate-fade-in" />
         <Dialog.Content
+          data-pastel=""
           aria-describedby={undefined}
           className={cn(
             'fixed inset-x-0 bottom-0 z-50 mx-auto flex max-h-[calc(100dvh-64px)] w-full max-w-md flex-col',

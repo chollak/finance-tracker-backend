@@ -10,8 +10,8 @@ interface UndoToastState {
   /** Open sheets; while any is open the toast is hidden (it would sit on top of the sheet). */
   openSheets: number;
   push: (entry: NewEntry) => string;
-  /** Undo the visible action; resolves after its undo ran. */
-  undoVisible: () => Promise<void>;
+  /** Undo the visible action (only if it is still the one with this id); resolves after its undo ran. */
+  undoVisible: (id?: string) => Promise<void>;
   sheetOpened: () => void;
   sheetClosed: () => void;
   clear: () => void;
@@ -30,15 +30,17 @@ export const useUndoToastStore = create<UndoToastState>()((set, get) => ({
     set((state) => ({ stack: [...pruneExpired(state.stack, now), { ...entry, id, createdAt: now }], now }));
     return id;
   },
-  undoVisible: async () => {
+  undoVisible: async (id) => {
     const now = Date.now();
     const { entry, rest } = popVisible(get().stack, now);
+    if (!entry || (id && entry.id !== id)) return;
     set({ stack: rest, now });
-    if (!entry?.undo) return;
+    if (!entry.undo) return;
     try {
       await entry.undo();
     } catch {
-      get().push({ kind: 'info', title: 'Не получилось отменить', detail: 'Проверьте связь и попробуйте ещё раз' });
+      // Put it back with the same undo, so «Отменить» really retries.
+      get().push({ kind: entry.kind, title: 'Не получилось отменить', detail: 'Проверьте связь и нажмите ещё раз', undo: entry.undo });
     }
   },
   sheetOpened: () => set((state) => ({ openSheets: state.openSheets + 1 })),

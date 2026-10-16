@@ -50,6 +50,7 @@
   --mint-ink: #14532d;
   --peach-ink: #7a2e0e;
   --shadow-seg: 0 1px 3px rgba(0, 0, 0, 0.1);
+  color-scheme: light;
 }
 
 [data-theme="dark"] {

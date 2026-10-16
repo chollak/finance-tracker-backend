@@ -53,8 +53,8 @@ export function CategoryTile({ name, color, selected = false, guessed = false, o
         'flex min-h-key min-w-0 items-center justify-center rounded-tile px-1 py-1 text-center text-[13px] font-bold leading-[1.15] text-pastel-ink transition-shadow duration-150',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-bg',
         pastelBgClass[color],
-        selected && 'ring-2 ring-ink ring-offset-2 ring-offset-bg',
-        guessed && !selected && 'outline-2 outline-dashed outline-offset-2 outline-ink',
+        // An unconfirmed AI guess is dashed even when it is the current choice; the ring means confirmed.
+        guessed ? 'outline-2 outline-dashed outline-offset-2 outline-ink' : selected && 'ring-2 ring-ink ring-offset-2 ring-offset-bg',
         className
       )}
     >

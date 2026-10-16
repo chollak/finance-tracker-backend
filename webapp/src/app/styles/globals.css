@@ -39,6 +39,28 @@
   box-shadow: none !important;
 }
 
+/* Colours that only screens not yet redesigned use. Old screens put ink, muted or income text on
+   these tints, so in the dark theme they must be dark tints, not the light pastels (which are only
+   for pastel-ink text). Values: 20% income / 16% pastel over the dark card. */
+:root,
+[data-theme="light"] {
+  --legacy-income-muted: var(--pastel-mint);
+  --legacy-expense-muted: var(--pastel-peach);
+  --legacy-warning-muted: var(--pastel-butter);
+  --legacy-warning: oklch(52% 0.15 50);
+  --legacy-destructive: oklch(55% 0.2 25);
+  --legacy-chart-5: oklch(42% 0.1 265);
+}
+
+[data-theme="dark"] {
+  --legacy-income-muted: #2c4138;
+  --legacy-expense-muted: #3f3b3a;
+  --legacy-warning-muted: #3f3e37;
+  --legacy-warning: oklch(78% 0.14 70);
+  --legacy-destructive: oklch(70% 0.17 25);
+  --legacy-chart-5: oklch(66% 0.12 265);
+}
+
 @theme inline {
   /* ===== TYPOGRAPHY ===== */
   --font-family-sans: 'Manrope', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -99,7 +121,7 @@
   --color-accent-foreground: var(--ink);
 
   /* Pastel has no red: deleting is a secondary text button with undo. Kept for old screens. */
-  --color-destructive: oklch(60% 0.2 25);
+  --color-destructive: var(--legacy-destructive);
   --color-destructive-foreground: oklch(98% 0 0);
 
   --color-border: var(--line);
@@ -110,19 +132,19 @@
      Income is green text with «+»; expenses are ink with «−». Tiles: mint and peach pastel. */
   --color-income: var(--income);
   --color-income-foreground: var(--on-primary);
-  --color-income-muted: var(--pastel-mint);
+  --color-income-muted: var(--legacy-income-muted);
 
   --color-expense: var(--ink);
   --color-expense-foreground: var(--on-primary);
-  --color-expense-muted: var(--pastel-peach);
+  --color-expense-muted: var(--legacy-expense-muted);
 
-  --color-warning: oklch(65% 0.18 55);
+  --color-warning: var(--legacy-warning);
   --color-warning-foreground: var(--pastel-ink);
-  --color-warning-muted: var(--pastel-butter);
+  --color-warning-muted: var(--legacy-warning-muted);
 
   --color-success: var(--income);
   --color-success-foreground: var(--on-primary);
-  --color-success-muted: var(--pastel-mint);
+  --color-success-muted: var(--legacy-income-muted);
 
   /* ===== CHART COLORS =====
      Category identity palette only — mirrors `colors.chart` in
@@ -132,7 +154,7 @@
   --color-chart-2: oklch(55% 0.15 195);   /* Teal */
   --color-chart-3: oklch(55% 0.15 320);   /* Purple */
   --color-chart-4: oklch(70% 0.13 75);    /* Amber */
-  --color-chart-5: oklch(42% 0.1 265);    /* Indigo */
+  --color-chart-5: var(--legacy-chart-5); /* Indigo */
   --color-chart-6: oklch(60% 0.01 250);   /* Gray */
 
   /* ===== BORDER RADIUS SCALE ===== */
@@ -402,11 +424,12 @@
 }
 
 /* Sheet/Dialog animations */
-[data-state="open"] {
+/* Old shadcn popups only; Pastel sheets (data-pastel) have their own slide-in. */
+[data-state="open"]:not([data-pastel]) {
   animation: fadeIn var(--duration-normal) var(--ease-out);
 }
 
-[data-state="closed"] {
+[data-state="closed"]:not([data-pastel]) {
   animation: fadeIn var(--duration-fast) var(--ease-out) reverse;
 }
 
@@ -430,7 +453,8 @@
 
 @layer base {
   * {
-    border-color: var(--color-border);
+    /* --line directly (not --color-border) so a subtree with its own data-theme gets its own lines */
+    border-color: var(--line);
   }
 
   html {

@@ -85,6 +85,7 @@ function build(tokens) {
     ':root,',
     '[data-theme="light"] {',
     ...light,
+    '  color-scheme: light;',
     '}',
     '',
     '[data-theme="dark"] {',

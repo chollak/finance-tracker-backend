@@ -32,13 +32,17 @@
         } catch (e) {}
         var theme = preference;
         if (preference === 'telegram') {
-          var scheme = window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.colorScheme;
+          // colorScheme counts only inside Telegram (initData present); a plain browser follows the system
+          var webApp = window.Telegram && window.Telegram.WebApp;
+          var scheme = webApp && webApp.initData ? webApp.colorScheme : null;
           theme = scheme === 'dark' || scheme === 'light'
             ? scheme
             : (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
         }
         document.documentElement.dataset.theme = theme;
         if (theme === 'dark') document.documentElement.classList.add('dark');
+        var meta = document.querySelector('meta[name="theme-color"]');
+        if (meta) meta.setAttribute('content', theme === 'dark' ? '#111214' : '#f3f3f5');
       })();
     </script>
   </head>

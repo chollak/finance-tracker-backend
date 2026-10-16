@@ -68,8 +68,7 @@ export function CategoryPicker({ open, onOpenChange, title, groups, selectedId, 
       {allOption && (
         <button
           type="button"
-          role="radio"
-          aria-checked={allOption.selected}
+          aria-pressed={allOption.selected}
           onClick={() => {
             allOption.onSelect();
             onOpenChange(false);

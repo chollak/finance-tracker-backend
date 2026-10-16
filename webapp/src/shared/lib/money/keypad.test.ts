@@ -3,6 +3,7 @@ import {
   amountFontSize,
   emptyKeypad,
   keypadDisplay,
+  keypadForCurrency,
   keypadFromMinor,
   keypadIsPlaceholder,
   keypadToMinor,
@@ -60,6 +61,16 @@ describe('keypad (USD)', () => {
     expect(type([',', '5', ','], 'USD').text).toBe('0,5');
     expect(keypadToMinor(type([',', '5'], 'USD'), 'USD')).toBe(50);
     expect(keypadToMinor(type([','], 'USD'), 'USD')).toBeNull();
+  });
+});
+
+describe('switching the account currency', () => {
+  it('keeps the number but drops a dollar fraction for сумы', () => {
+    const usd = type(['4', '2', '0', ',', '5'], 'USD');
+    expect(keypadToMinor(usd, 'UZS')).toBe(42_000);
+    expect(keypadForCurrency(usd, 'UZS').text).toBe('420');
+    expect(pressKey(usd, '7', 'UZS').text).toBe('4207');
+    expect(keypadForCurrency(usd, 'USD')).toBe(usd);
   });
 });
 

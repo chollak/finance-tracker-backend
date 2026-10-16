@@ -58,7 +58,7 @@ export function UndoToast({ bottom = 16 }: UndoToastProps) {
           {entry.undo && (
             <button
               type="button"
-              onClick={() => void undoVisible()}
+              onClick={() => void undoVisible(entry.id)}
               className="h-touch shrink-0 rounded-pill px-3 text-[14px] font-extrabold underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-on-primary"
             >
               Отменить

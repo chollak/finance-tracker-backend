@@ -2,8 +2,14 @@ import { useEffect } from 'react';
 import { pastelColors } from '@/shared/config/pastelTokens';
 import { resolveTheme, useThemeStore, type ResolvedTheme } from '@/shared/lib/theme';
 
+/**
+ * Telegram's SDK reports colorScheme 'light' even in a plain browser, so it counts only when the page
+ * really runs inside Telegram (initData is present); otherwise the system setting decides.
+ */
 function telegramScheme(): ResolvedTheme | null {
-  const scheme = window.Telegram?.WebApp?.colorScheme;
+  const telegram = window.Telegram?.WebApp;
+  if (!telegram?.initData) return null;
+  const scheme = telegram.colorScheme;
   return scheme === 'dark' || scheme === 'light' ? scheme : null;
 }
 

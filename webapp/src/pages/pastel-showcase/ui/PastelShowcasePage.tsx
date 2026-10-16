@@ -9,6 +9,7 @@ import {
   CategoryTile,
   ChoiceChips,
   Keypad,
+  ProblemScreen,
   Segmented,
   SettingsRow,
   SettingsSection,
@@ -219,7 +220,7 @@ function Panel({ theme, long }: { theme: 'light' | 'dark'; long: boolean }) {
             />
           ))}
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {CATEGORIES.map((c) => <CategoryDot key={c.name} name={c.name} color={c.color} />)}
         </div>
       </Block>
@@ -251,12 +252,18 @@ function Panel({ theme, long }: { theme: 'light' | 'dark'; long: boolean }) {
         </div>
       </Block>
 
-      <Block title="ProblemScreen (фрагмент)">
-        <div className="flex flex-col gap-3 rounded-card bg-card p-4">
-          <span className="flex size-16 items-center justify-center rounded-pill bg-track [&_svg]:size-7"><MicOff strokeWidth={1.9} /></span>
-          <p className="text-[27px] font-extrabold leading-tight">Нет доступа к микрофону</p>
-          <p className="text-[16px] font-medium text-ink-muted">Telegram не может слушать. Включите доступ в настройках телефона или напишите текстом.</p>
-          <Button>Написать текстом</Button>
+      <Block title="ProblemScreen">
+        <div className="overflow-hidden rounded-card border border-line">
+          <ProblemScreen
+            fullScreen={false}
+            header={<Button variant="text">Отмена</Button>}
+            icon={<MicOff strokeWidth={1.9} />}
+            title="Нет доступа к микрофону"
+            text="Telegram не может слушать. Включите доступ в настройках телефона или напишите текстом."
+            steps={['Откройте настройки телефона', 'Telegram → Микрофон', 'Включите доступ и вернитесь сюда']}
+            action={{ label: 'Написать текстом', onClick: () => {} }}
+            secondary={{ label: 'Доступ включён — попробовать снова', onClick: () => {} }}
+          />
         </div>
       </Block>
 
@@ -281,7 +288,10 @@ export function PastelShowcasePage() {
   return (
     <main className="min-h-dvh bg-bg">
       <div className="flex items-center justify-between gap-3 px-4 py-3">
-        <h1 className="type-section text-ink">«Пастель» · компоненты</h1>
+        <div className="flex flex-col">
+          <h1 className="type-section text-ink">«Пастель» · компоненты</h1>
+          <p className="type-label text-ink-muted">Шторки и уведомления — в теме страницы: смените тему системы</p>
+        </div>
         <label className="flex items-center gap-2 text-[13px] font-bold text-ink">
           <input type="checkbox" checked={long} onChange={(event) => setLong(event.target.checked)} />
           +30% подписи

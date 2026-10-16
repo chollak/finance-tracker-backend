@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
 import {
   addDays,
+  dayMonth,
   monthGrid,
   monthNavigation,
   monthTitle,
@@ -98,16 +99,16 @@ function CalendarContent({ value, today, onChoose }: { value: LocalDate; today: 
         <div className="grid grid-cols-7 text-center type-axis text-ink-muted" aria-hidden="true">
           {WEEKDAYS_SHORT.map((day) => <span key={day} className="py-1">{day}</span>)}
         </div>
-        <div role="grid" aria-label={monthTitle(view.year, view.month)} className="flex flex-col gap-1">
+        <div className="flex flex-col gap-1">
           {weeks.map((week, weekIndex) => (
-            <div role="row" key={weekIndex} className="grid grid-cols-7 justify-items-center">
+            <div key={weekIndex} className="grid grid-cols-7 justify-items-center">
               {week.map((cell, dayIndex) =>
                 cell ? (
                   <button
                     key={cell.date}
                     type="button"
-                    role="gridcell"
-                    aria-selected={cell.date === value}
+                    aria-label={`${dayMonth(cell.date)} ${view.year}${cell.isToday ? ', сегодня' : ''}`}
+                    aria-pressed={cell.date === value}
                     aria-current={cell.isToday ? 'date' : undefined}
                     disabled={cell.isFuture}
                     onClick={() => choose(cell.date)}
