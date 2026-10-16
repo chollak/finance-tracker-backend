@@ -53,6 +53,10 @@ async function restoreData(filePath, dataType = 'auto') {
           });
           
           if (!existing) {
+            // Dumps made before FT-097 carry amount in сум; the table stores integer minor units.
+            if (transaction.amountMinor === undefined && transaction.amount !== undefined) {
+              transaction.amountMinor = Math.round(Number(transaction.amount) * 100);
+            }
             await transactionRepo.save(transaction);
             restoredCount++;
           } else {

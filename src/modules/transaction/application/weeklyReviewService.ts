@@ -5,6 +5,7 @@ import {
   countsAsRealExpense,
   normalizeSemanticType,
 } from '../domain/transactionSemanticType';
+import { fromMinor, minorOf } from '../../../shared/domain/money/money';
 
 export interface DateRange {
   startDate: Date;
@@ -64,10 +65,6 @@ export function getPreviousWeekRange(now = new Date()): DateRange {
   };
 }
 
-function round2(value: number): number {
-  return Math.round(value * 100) / 100;
-}
-
 function isWithinRange(dateStr: string, range: DateRange): boolean {
   const date = new Date(dateStr);
   return date >= range.startDate && date <= range.endDate;
@@ -84,6 +81,7 @@ function isExcludedMovementType(
  * (real expense vs income vs excluded movement). Transactions flagged
  * needsReview are excluded from all categorized totals and surfaced
  * separately in summary.needsReview until corrected.
+ * Sums are integer minor units (FT-097); the summary reports сум.
  */
 export function summarizeWeeklyReview(transactions: Transaction[], range: DateRange): WeeklyReviewSummary {
   const inRange = transactions.filter(transaction => isWithinRange(transaction.date, range));
@@ -91,50 +89,56 @@ export function summarizeWeeklyReview(transactions: Transaction[], range: DateRa
   let realExpenses = 0;
   let income = 0;
   let excludedMovementsTotal = 0;
-  const excludedMovementsBreakdown: Partial<Record<ExcludedMovementSemanticType, number>> = {};
+  const excludedMinor: Partial<Record<ExcludedMovementSemanticType, number>> = {};
   const needsReviewTransactions: Transaction[] = [];
   let needsReviewTotal = 0;
   const categoryTotals: Record<string, number> = {};
 
   for (const transaction of inRange) {
+    const minor = minorOf(transaction);
     if (transaction.needsReview === true) {
       needsReviewTransactions.push(transaction);
-      needsReviewTotal += transaction.amount;
+      needsReviewTotal += minor;
       continue;
     }
 
     const semanticType = normalizeSemanticType(transaction.semanticType, transaction.type);
 
     if (countsAsIncome(semanticType)) {
-      income += transaction.amount;
+      income += minor;
       continue;
     }
 
     if (countsAsRealExpense(semanticType)) {
-      realExpenses += transaction.amount;
-      categoryTotals[transaction.category] = (categoryTotals[transaction.category] || 0) + transaction.amount;
+      realExpenses += minor;
+      categoryTotals[transaction.category] = (categoryTotals[transaction.category] || 0) + minor;
       continue;
     }
 
     if (isExcludedMovementType(semanticType)) {
-      excludedMovementsTotal += transaction.amount;
-      excludedMovementsBreakdown[semanticType] = (excludedMovementsBreakdown[semanticType] || 0) + transaction.amount;
+      excludedMovementsTotal += minor;
+      excludedMinor[semanticType] = (excludedMinor[semanticType] || 0) + minor;
     }
   }
 
   const topCategories = Object.entries(categoryTotals)
-    .map(([category, amount]) => ({ category, amount: round2(amount) }))
-    .sort((a, b) => b.amount - a.amount);
+    .sort((a, b) => b[1] - a[1])
+    .map(([category, minor]) => ({ category, amount: fromMinor(minor) }));
+
+  const excludedMovementsBreakdown: Partial<Record<ExcludedMovementSemanticType, number>> = {};
+  for (const [semanticType, minor] of Object.entries(excludedMinor) as Array<[ExcludedMovementSemanticType, number]>) {
+    excludedMovementsBreakdown[semanticType] = fromMinor(minor);
+  }
 
   return {
     range,
-    realExpenses: round2(realExpenses),
-    income: round2(income),
-    excludedMovementsTotal: round2(excludedMovementsTotal),
+    realExpenses: fromMinor(realExpenses),
+    income: fromMinor(income),
+    excludedMovementsTotal: fromMinor(excludedMovementsTotal),
     excludedMovementsBreakdown,
     needsReview: {
       count: needsReviewTransactions.length,
-      total: round2(needsReviewTotal),
+      total: fromMinor(needsReviewTotal),
       transactions: needsReviewTransactions,
     },
     topCategories,

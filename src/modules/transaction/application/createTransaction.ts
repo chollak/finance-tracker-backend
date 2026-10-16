@@ -7,6 +7,8 @@ import { normalizeNeedsReview } from '../domain/transactionEntity';
 import { SubscriptionModule } from '../../subscription/subscriptionModule';
 import { UserModule } from '../../user/userModule';
 import { getLogger, LogCategory } from '../../../shared/application/logging';
+import { Validators } from '../../../shared/application/validation/validators';
+import { fromMinor } from '../../../shared/domain/money/money';
 
 const logger = getLogger(LogCategory.TRANSACTION);
 
@@ -37,9 +39,14 @@ export class CreateTransactionUseCase {
       return ResultHelper.failure(new ValidationError('User ID is required'));
     }
 
-    if (!transaction.amount || transaction.amount <= 0) {
-      return ResultHelper.failure(new ValidationError('Amount must be greater than 0'));
+    // Writers send amountMinor (integer minor units) or the legacy amount in сум (FT-097):
+    // the bot quick-add, the AI parser, debts and old webapp forms still send `amount`.
+    const amountMinor = Validators.moneyAmount(transaction);
+    if (!amountMinor.success) {
+      return ResultHelper.failure(new ValidationError(amountMinor.error.message, 'amount'));
     }
+    transaction.amountMinor = amountMinor.data;
+    transaction.amount = fromMinor(amountMinor.data);
 
     if (!transaction.type || !['income', 'expense'].includes(transaction.type)) {
       return ResultHelper.failure(new ValidationError('Type must be "income" or "expense"'));

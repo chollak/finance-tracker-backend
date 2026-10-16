@@ -12,6 +12,7 @@ import {
 import { resolveUserIdToUUID } from '../../../../shared/application/helpers/userIdResolver';
 import { createLogger, LogCategory } from '../../../../shared/infrastructure/logging';
 import { getPreviousWeekRange, summarizeWeeklyReview } from '../../../../modules/transaction/application/weeklyReviewService';
+import { fromMinor, minorOf, percentOf } from '../../../../shared/domain/money/money';
 
 const logger = createLogger(LogCategory.TELEGRAM);
 
@@ -132,32 +133,36 @@ async function handleToday(ctx: BotContext) {
       transactionCount: todayTransactions.length,
     };
 
+    // Integer minor units while summing (FT-097); сум only for the message
     const categoryMap = new Map<string, { amount: number; count: number }>();
+    let incomeMinor = 0;
+    let expenseMinor = 0;
 
     for (const tx of todayTransactions) {
+      const minor = minorOf(tx);
       if (tx.type === 'income') {
-        summary.totalIncome += tx.amount;
+        incomeMinor += minor;
       } else {
-        summary.totalExpense += tx.amount;
+        expenseMinor += minor;
         // Track expense categories
         const existing = categoryMap.get(tx.category) || { amount: 0, count: 0 };
         categoryMap.set(tx.category, {
-          amount: existing.amount + tx.amount,
+          amount: existing.amount + minor,
           count: existing.count + 1,
         });
       }
     }
-    summary.netIncome = summary.totalIncome - summary.totalExpense;
+    summary.totalIncome = fromMinor(incomeMinor);
+    summary.totalExpense = fromMinor(expenseMinor);
+    summary.netIncome = fromMinor(incomeMinor - expenseMinor);
 
     // Convert category map to array
     const categories: CategoryBreakdown[] = Array.from(categoryMap.entries())
       .map(([category, data]) => ({
         category,
-        amount: data.amount,
+        amount: fromMinor(data.amount),
         count: data.count,
-        percentage: summary.totalExpense > 0
-          ? Math.round((data.amount / summary.totalExpense) * 100)
-          : 0,
+        percentage: percentOf(data.amount, expenseMinor, 0),
       }))
       .sort((a, b) => b.amount - a.amount);
 
@@ -209,32 +214,36 @@ async function handleStats(ctx: BotContext) {
       transactionCount: monthTransactions.length,
     };
 
+    // Integer minor units while summing (FT-097); сум only for the message
     const categoryMap = new Map<string, { amount: number; count: number }>();
+    let incomeMinor = 0;
+    let expenseMinor = 0;
 
     for (const tx of monthTransactions) {
+      const minor = minorOf(tx);
       if (tx.type === 'income') {
-        summary.totalIncome += tx.amount;
+        incomeMinor += minor;
       } else {
-        summary.totalExpense += tx.amount;
+        expenseMinor += minor;
         // Track expense categories
         const existing = categoryMap.get(tx.category) || { amount: 0, count: 0 };
         categoryMap.set(tx.category, {
-          amount: existing.amount + tx.amount,
+          amount: existing.amount + minor,
           count: existing.count + 1,
         });
       }
     }
-    summary.netIncome = summary.totalIncome - summary.totalExpense;
+    summary.totalIncome = fromMinor(incomeMinor);
+    summary.totalExpense = fromMinor(expenseMinor);
+    summary.netIncome = fromMinor(incomeMinor - expenseMinor);
 
     // Convert to top categories array
     const topCategories: CategoryBreakdown[] = Array.from(categoryMap.entries())
       .map(([category, data]) => ({
         category,
-        amount: data.amount,
+        amount: fromMinor(data.amount),
         count: data.count,
-        percentage: summary.totalExpense > 0
-          ? Math.round((data.amount / summary.totalExpense) * 100)
-          : 0,
+        percentage: percentOf(data.amount, expenseMinor, 0),
       }))
       .sort((a, b) => b.amount - a.amount)
       .slice(0, 5);

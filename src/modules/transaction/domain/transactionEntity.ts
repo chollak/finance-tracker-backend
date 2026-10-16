@@ -5,7 +5,13 @@ export interface Transaction {
     date: string;
     category: string;
     description: string;
+    /**
+     * Legacy amount in major units (сумы). Old writers send it and old screens read it; it is derived
+     * from `amountMinor` on every read and removed in FT-136. New code works with `amountMinor`.
+     */
     amount: number;
+    /** Integer minor units (FT-097) — the stored amount. Always set on records read from the repository. */
+    amountMinor?: number;
     type: 'income' | 'expense';  // Тип транзакции (направление cashflow, legacy)
     semanticType?: TransactionSemanticType; // Смысл транзакции (для учёта расходов/бюджета)
     needsReview?: boolean; // Uncertain parsing/categorization, flagged for user correction

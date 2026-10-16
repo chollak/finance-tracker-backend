@@ -1,6 +1,9 @@
 import { TransactionRepository } from "../domain/transactionRepository";
 import { Transaction } from "../domain/transactionEntity";
 import { countsAsBudgetSpending, countsAsIncome, countsAsRealExpense, normalizeSemanticType } from "../domain/transactionSemanticType";
+import { fromMinor, minorOf, percentOf } from "../../../shared/domain/money/money";
+
+// Sums are integer minor units (FT-097); responses keep сум for the screens that read them.
 
 export interface TimeRange {
   startDate: Date;
@@ -61,19 +64,18 @@ export class AnalyticsService {
     async getAnalyticsSummary(userId: string, timeRange?: TimeRange): Promise<AnalyticsSummary> {
         const transactions = await this.getTransactionsInRange(userId, timeRange);
         
-        const { totalIncome, totalExpense } = this.calculateBasicSummary(transactions);
-        const netIncome = totalIncome - totalExpense;
+        const { incomeMinor, expenseMinor } = this.sumIncomeAndExpense(transactions);
         const transactionCount = transactions.length;
-        const averageTransactionAmount = transactionCount > 0 
-            ? (totalIncome + totalExpense) / transactionCount 
+        const averageMinor = transactionCount > 0
+            ? Math.round((incomeMinor + expenseMinor) / transactionCount)
             : 0;
 
         return {
-            totalIncome,
-            totalExpense,
-            netIncome,
+            totalIncome: fromMinor(incomeMinor),
+            totalExpense: fromMinor(expenseMinor),
+            netIncome: fromMinor(incomeMinor - expenseMinor),
             transactionCount,
-            averageTransactionAmount: Math.round(averageTransactionAmount * 100) / 100,
+            averageTransactionAmount: fromMinor(averageMinor),
             period: this.formatPeriod(timeRange)
         };
     }
@@ -89,24 +91,24 @@ export class AnalyticsService {
                 && countsAsBudgetSpending(normalizeSemanticType(t.semanticType, t.type))
             );
         // Percentages are shares of real spending, not of total turnover.
-        const totalAmount = expenseTransactions.reduce((sum, t) => sum + t.amount, 0);
+        const totalMinor = expenseTransactions.reduce((sum, t) => sum + minorOf(t), 0);
 
-        const breakdown: { [key: string]: { amount: number; count: number } } = {};
+        const breakdown: { [key: string]: { minor: number; count: number } } = {};
 
         for (const transaction of expenseTransactions) {
             if (!breakdown[transaction.category]) {
-                breakdown[transaction.category] = { amount: 0, count: 0 };
+                breakdown[transaction.category] = { minor: 0, count: 0 };
             }
-            breakdown[transaction.category].amount += transaction.amount;
+            breakdown[transaction.category].minor += minorOf(transaction);
             breakdown[transaction.category].count++;
         }
 
         const result: CategoryBreakdown = {};
         for (const [category, data] of Object.entries(breakdown)) {
             result[category] = {
-                amount: Math.round(data.amount * 100) / 100,
+                amount: fromMinor(data.minor),
                 count: data.count,
-                percentage: totalAmount > 0 ? Math.round((data.amount / totalAmount) * 10000) / 100 : 0
+                percentage: percentOf(data.minor, totalMinor)
             };
         }
 
@@ -120,7 +122,7 @@ export class AnalyticsService {
 
         const transactions = await this.getTransactionsInRange(userId, { startDate, endDate });
         
-        const monthlyData: { [key: string]: MonthlyTrend } = {};
+        const monthlyData: { [key: string]: MonthlyTrend & { incomeMinor: number; expensesMinor: number } } = {};
 
         for (const transaction of transactions) {
             if (transaction.needsReview) {
@@ -139,7 +141,9 @@ export class AnalyticsService {
                     income: 0,
                     expenses: 0,
                     net: 0,
-                    transactionCount: 0
+                    transactionCount: 0,
+                    incomeMinor: 0,
+                    expensesMinor: 0
                 };
             }
 
@@ -148,14 +152,19 @@ export class AnalyticsService {
 
             const semanticType = normalizeSemanticType(transaction.semanticType, transaction.type);
             if (countsAsIncome(semanticType)) {
-                data.income += transaction.amount;
+                data.incomeMinor += minorOf(transaction);
             } else if (countsAsRealExpense(semanticType)) {
-                data.expenses += transaction.amount;
+                data.expensesMinor += minorOf(transaction);
             }
-            data.net = data.income - data.expenses;
         }
 
         return Object.values(monthlyData)
+            .map(({ incomeMinor, expensesMinor, ...trend }) => ({
+                ...trend,
+                income: fromMinor(incomeMinor),
+                expenses: fromMinor(expensesMinor),
+                net: fromMinor(incomeMinor - expensesMinor)
+            }))
             .sort((a, b) => (a.year === b.year ? 
                 new Date(`${a.month} 1, ${a.year}`).getMonth() - new Date(`${b.month} 1, ${b.year}`).getMonth() :
                 a.year - b.year));
@@ -178,14 +187,14 @@ export class AnalyticsService {
                 dayData[dayName] = { total: 0, count: 0 };
             }
 
-            dayData[dayName].total += transaction.amount;
+            dayData[dayName].total += minorOf(transaction);
             dayData[dayName].count++;
         }
 
         return dayNames.map(dayName => ({
             dayOfWeek: dayName,
-            averageAmount: dayData[dayName] 
-                ? Math.round((dayData[dayName].total / dayData[dayName].count) * 100) / 100 
+            averageAmount: dayData[dayName]
+                ? fromMinor(Math.round(dayData[dayName].total / dayData[dayName].count))
                 : 0,
             transactionCount: dayData[dayName]?.count || 0
         }));
@@ -196,18 +205,18 @@ export class AnalyticsService {
         const expenseTransactions = transactions.filter(t =>
             !t.needsReview && countsAsRealExpense(normalizeSemanticType(t.semanticType, t.type)) && !t.isDebtRelated
         );
-        const totalExpenseAmount = expenseTransactions.reduce((sum, t) => sum + t.amount, 0);
+        const totalExpenseMinor = expenseTransactions.reduce((sum, t) => sum + minorOf(t), 0);
         const categoryTotals: Record<string, number> = {};
 
         for (const transaction of expenseTransactions) {
-            categoryTotals[transaction.category] = (categoryTotals[transaction.category] || 0) + transaction.amount;
+            categoryTotals[transaction.category] = (categoryTotals[transaction.category] || 0) + minorOf(transaction);
         }
 
         return Object.entries(categoryTotals)
-            .map(([category, amount]) => ({
+            .map(([category, minor]) => ({
                 category,
-                amount: Math.round(amount * 100) / 100,
-                percentage: totalExpenseAmount > 0 ? Math.round((amount / totalExpenseAmount) * 10000) / 100 : 0
+                amount: fromMinor(minor),
+                percentage: percentOf(minor, totalExpenseMinor)
             }))
             .sort((a, b) => b.amount - a.amount)
             .slice(0, limit);
@@ -233,8 +242,13 @@ export class AnalyticsService {
     }
 
     private calculateBasicSummary(transactions: Transaction[]): { totalIncome: number; totalExpense: number } {
-        let totalIncome = 0;
-        let totalExpense = 0;
+        const { incomeMinor, expenseMinor } = this.sumIncomeAndExpense(transactions);
+        return { totalIncome: fromMinor(incomeMinor), totalExpense: fromMinor(expenseMinor) };
+    }
+
+    private sumIncomeAndExpense(transactions: Transaction[]): { incomeMinor: number; expenseMinor: number } {
+        let incomeMinor = 0;
+        let expenseMinor = 0;
 
         for (const transaction of transactions) {
             // Skip debt-related transactions from balance calculation
@@ -249,20 +263,25 @@ export class AnalyticsService {
 
             const semanticType = normalizeSemanticType(transaction.semanticType, transaction.type);
             if (countsAsIncome(semanticType)) {
-                totalIncome += transaction.amount;
+                incomeMinor += minorOf(transaction);
             } else if (countsAsRealExpense(semanticType)) {
-                totalExpense += transaction.amount;
+                expenseMinor += minorOf(transaction);
             }
         }
 
-        return { totalIncome, totalExpense };
+        return { incomeMinor, expenseMinor };
     }
 
     private calculateSimpleCategoryBreakdown(transactions: Transaction[]): { [category: string]: number } {
-        return transactions.reduce((acc, transaction) => {
-            acc[transaction.category] = (acc[transaction.category] || 0) + transaction.amount;
+        const minorByCategory = transactions.reduce((acc, transaction) => {
+            acc[transaction.category] = (acc[transaction.category] || 0) + minorOf(transaction);
             return acc;
         }, {} as { [category: string]: number });
+        const result: { [category: string]: number } = {};
+        for (const [category, minor] of Object.entries(minorByCategory)) {
+            result[category] = fromMinor(minor);
+        }
+        return result;
     }
 
     private formatPeriod(timeRange?: TimeRange): string {

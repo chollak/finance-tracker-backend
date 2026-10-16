@@ -338,7 +338,7 @@ export function createTransactionRouter(
       }
 
       // Validate the update data - allow partial updates
-      const allowedFields = ['amount', 'category', 'description', 'date', 'type', 'semanticType', 'needsReview', 'merchant'];
+      const allowedFields = ['amount', 'amountMinor', 'category', 'description', 'date', 'type', 'semanticType', 'needsReview', 'merchant'];
       const updates: Record<string, unknown> = {};
 
       for (const field of allowedFields) {

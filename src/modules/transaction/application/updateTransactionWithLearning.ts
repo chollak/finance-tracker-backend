@@ -4,12 +4,16 @@ import { Result, ResultHelper } from '../../../shared/domain/types/Result';
 import { ValidationError, NotFoundError, BusinessLogicError } from '../../../shared/domain/errors/AppError';
 import { transactionLearning } from '../../../shared/application/learning/transactionLearning';
 import { getLogger, LogCategory } from '../../../shared/application/logging';
+import { Validators } from '../../../shared/application/validation/validators';
+import { fromMinor, minorOf } from '../../../shared/domain/money/money';
 
 const logger = getLogger(LogCategory.LEARNING);
 
 export interface UpdateTransactionWithLearningRequest {
   id: string;
+  /** Legacy amount in сум; converted to amountMinor (FT-097). */
   amount?: number;
+  amountMinor?: number;
   category?: string;
   description?: string;
   date?: string;
@@ -31,7 +35,7 @@ export class UpdateTransactionWithLearningUseCase {
   constructor(private repository: TransactionRepository) {}
 
   async execute(request: UpdateTransactionWithLearningRequest): Promise<Result<Transaction>> {
-    const { id, amount, category, date, type } = request;
+    const { id, category, date, type } = request;
 
     // Validate ID
     if (!id?.trim()) {
@@ -39,8 +43,13 @@ export class UpdateTransactionWithLearningUseCase {
     }
 
     // Validate update fields if provided
-    if (amount !== undefined && amount <= 0) {
-      return ResultHelper.failure(new ValidationError('Amount must be greater than 0'));
+    let amountMinor: number | undefined;
+    if (request.amount !== undefined || request.amountMinor !== undefined) {
+      const resolved = Validators.moneyAmount(request);
+      if (!resolved.success) {
+        return ResultHelper.failure(new ValidationError(resolved.error.message, 'amount'));
+      }
+      amountMinor = resolved.data;
     }
 
     if (category !== undefined && !category.trim()) {
@@ -63,11 +72,11 @@ export class UpdateTransactionWithLearningUseCase {
       }
 
       // Update the transaction
-      const updatedTransaction = await this.repository.update(id.trim(), request);
+      const updatedTransaction = await this.repository.update(id.trim(), { ...request, amount: undefined, amountMinor });
 
       // Record learning data if we have the necessary context
       if (request.userId && request.originalText && request.originalParsing) {
-        await this.recordLearningData(request, originalTransaction, updatedTransaction);
+        await this.recordLearningData(request, amountMinor, originalTransaction, updatedTransaction);
       }
 
       logger.info('Transaction updated with learning', { transactionId: id });
@@ -89,6 +98,7 @@ export class UpdateTransactionWithLearningUseCase {
 
   private async recordLearningData(
     request: UpdateTransactionWithLearningRequest,
+    amountMinor: number | undefined,
     originalTransaction: Transaction,
     _updatedTransaction: Transaction
   ): Promise<void> {
@@ -96,8 +106,9 @@ export class UpdateTransactionWithLearningUseCase {
       const userCorrection: Record<string, unknown> = {};
 
       // Detect what the user changed
-      if (request.amount !== undefined && request.amount !== originalTransaction.amount) {
-        userCorrection.amount = request.amount;
+      // Learning data keeps amounts in сум, like the parser output it corrects
+      if (amountMinor !== undefined && amountMinor !== minorOf(originalTransaction)) {
+        userCorrection.amount = fromMinor(amountMinor);
       }
 
       if (request.category !== undefined && request.category !== originalTransaction.category) {

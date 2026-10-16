@@ -31,7 +31,7 @@ describe('SqliteTransactionRepository.update', () => {
 
   const stored = {
     id: 'tx-1',
-    amount: '25000',
+    amountMinor: 2500000,
     type: 'expense',
     semanticType: 'expense',
     needsReview: false,
@@ -58,7 +58,7 @@ describe('SqliteTransactionRepository.update', () => {
 
     expect(update).toHaveBeenCalledWith('tx-1', {
       category: 'groceries',
-      amount: 28000,
+      amountMinor: 2800000,
       needsReview: false,
     });
   });

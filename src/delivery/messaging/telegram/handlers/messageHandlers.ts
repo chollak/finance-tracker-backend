@@ -20,6 +20,7 @@ import { resolveUserIdToUUID } from '../../../../shared/application/helpers/user
 import { LimitType } from '../../../../modules/subscription/domain/usageLimit';
 import { createLogger, LogCategory } from '../../../../shared/infrastructure/logging';
 import { countsAsRealExpense, normalizeSemanticType } from '../../../../modules/transaction/domain/transactionSemanticType';
+import { fromMinor, minorOf } from '../../../../shared/domain/money/money';
 import { buildCaptureAck } from '../../../../modules/quickCapture/application/buildCaptureAck';
 import { toCapturedTransaction } from '../../../../modules/quickCapture/application/toCapturedTransaction';
 import { CapturedTransaction } from '../../../../modules/quickCapture/domain/quickCaptureTypes';
@@ -387,6 +388,7 @@ async function getTodaySummary(
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
+    // Integer minor units while summing (FT-097)
     let todayTotal = 0;
     let monthTotal = 0;
 
@@ -395,15 +397,15 @@ async function getTodaySummary(
       if (!tx.needsReview && countsAsRealExpense(semanticType)) {
         const txDate = new Date(tx.date);
         if (txDate >= startOfMonth) {
-          monthTotal += tx.amount;
+          monthTotal += minorOf(tx);
           if (txDate >= today) {
-            todayTotal += tx.amount;
+            todayTotal += minorOf(tx);
           }
         }
       }
     }
 
-    return { todayTotal, monthTotal };
+    return { todayTotal: fromMinor(todayTotal), monthTotal: fromMinor(monthTotal) };
   } catch {
     return undefined;
   }

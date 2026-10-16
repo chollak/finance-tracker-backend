@@ -5,9 +5,9 @@ import path from 'path';
 import { DataSource } from 'typeorm';
 import {
   createAppDataSource,
-  DATABASE_ENTITIES,
 } from '../src/shared/infrastructure/database/database.config';
-import { baselineColumns } from '../src/shared/infrastructure/database/migrations/1760600000000-Baseline';
+import { BASELINE_TABLES, baselineColumns } from '../src/shared/infrastructure/database/migrations/1760600000000-Baseline';
+import { MIGRATIONS } from '../src/shared/infrastructure/database/migrations';
 import {
   backupDatabaseFile,
   findSchemaDrift,
@@ -40,10 +40,16 @@ describe('database migrations (FT-090)', () => {
     return ds;
   }
 
-  /** A database the way the app created it before FT-090: `synchronize`, no migrations table. */
+  const ALL_MIGRATIONS = MIGRATIONS.map(migration => new migration().name);
+
+  /**
+   * A database the way the app created it before FT-090: `synchronize`, no migrations table. The baseline
+   * SQL is exactly what `synchronize` produced for the entities of that time.
+   */
   async function legacyDatabase(file: string): Promise<void> {
-    const ds = new DataSource({ type: 'sqlite', database: file, entities: DATABASE_ENTITIES, synchronize: true });
+    const ds = new DataSource({ type: 'sqlite', database: file });
     await ds.initialize();
+    for (const sql of BASELINE_TABLES) await ds.query(sql);
     await ds.query(
       `INSERT INTO transactions (id, amount, type, description, date, userId, category)
        VALUES ('tx-1', 25000, 'expense', 'Кофе', '2026-10-14', 'user-1', 'coffee')`
@@ -60,7 +66,7 @@ describe('database migrations (FT-090)', () => {
 
     const result = await runMigrationsWithBackup(ds, file, path.join(dir, 'backups'));
 
-    expect(result.applied).toEqual(['Baseline1760600000000']);
+    expect(result.applied).toEqual(ALL_MIGRATIONS);
     expect(await tables(ds)).toEqual(expect.arrayContaining([
       'budgets', 'debt_payments', 'debts', 'migrations', 'subscriptions', 'transactions', 'usage_limits', 'users',
     ]));
@@ -74,7 +80,7 @@ describe('database migrations (FT-090)', () => {
 
     const result = await runMigrationsWithBackup(ds, file, path.join(dir, 'backups'));
 
-    expect(result.applied).toEqual(['Baseline1760600000000']);
+    expect(result.applied).toEqual(ALL_MIGRATIONS);
     expect(result.backupPath).toBeDefined();
     expect(fs.existsSync(result.backupPath!)).toBe(true);
     expect(await ds.query('SELECT id, description FROM transactions')).toEqual([{ id: 'tx-1', description: 'Кофе' }]);
@@ -128,11 +134,20 @@ describe('database migrations (FT-090)', () => {
     expect((await findSchemaDrift(ds)).length).toBeGreaterThan(0);
   });
 
-  it('refuses to revert the baseline, which would drop all data', async () => {
+  it('reverts every later migration step by step, then refuses to revert the baseline', async () => {
     const file = path.join(dir, 'revert.sqlite');
+    await legacyDatabase(file);
     const ds = await appDataSource(file);
     await runMigrationsWithBackup(ds, file, path.join(dir, 'backups'));
 
+    for (let i = ALL_MIGRATIONS.length - 1; i > 0; i -= 1) {
+      await ds.undoLastMigration({ transaction: 'each' });
+    }
+
+    // Back at the baseline schema, with the row intact
+    expect(await ds.query('SELECT id, amount, description FROM transactions')).toEqual([
+      { id: 'tx-1', amount: 25000, description: 'Кофе' },
+    ]);
     await expect(ds.undoLastMigration()).rejects.toThrow(/cannot be reverted/);
   });
 

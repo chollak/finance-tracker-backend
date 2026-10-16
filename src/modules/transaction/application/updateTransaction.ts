@@ -4,12 +4,15 @@ import { Result, ResultHelper } from '../../../shared/domain/types/Result';
 import { ValidationError, NotFoundError, BusinessLogicError } from '../../../shared/domain/errors/AppError';
 import { getLogger, LogCategory } from '../../../shared/application/logging';
 import { isTransactionSemanticType, TransactionSemanticType } from '../domain/transactionSemanticType';
+import { Validators } from '../../../shared/application/validation/validators';
 
 const logger = getLogger(LogCategory.TRANSACTION);
 
 export interface UpdateTransactionRequest {
   id: string;
+  /** Legacy amount in сум; converted to amountMinor (FT-097). */
   amount?: number;
+  amountMinor?: number;
   category?: string;
   description?: string;
   date?: string;
@@ -22,7 +25,7 @@ export class UpdateTransactionUseCase {
   constructor(private repository: TransactionRepository) {}
 
   async execute(request: UpdateTransactionRequest): Promise<Result<Transaction>> {
-    const { id, amount, category, description, date, type, semanticType, needsReview } = request;
+    const { id, category, description, date, type, semanticType, needsReview } = request;
 
     // Validate ID
     if (!id?.trim()) {
@@ -30,8 +33,13 @@ export class UpdateTransactionUseCase {
     }
 
     // Validate update fields if provided
-    if (amount !== undefined && amount <= 0) {
-      return ResultHelper.failure(new ValidationError('Amount must be greater than 0'));
+    let amountMinor: number | undefined;
+    if (request.amount !== undefined || request.amountMinor !== undefined) {
+      const resolved = Validators.moneyAmount(request);
+      if (!resolved.success) {
+        return ResultHelper.failure(new ValidationError(resolved.error.message, 'amount'));
+      }
+      amountMinor = resolved.data;
     }
 
     if (category !== undefined && !category.trim()) {
@@ -62,7 +70,7 @@ export class UpdateTransactionUseCase {
       }
 
       const updatedTransaction = await this.repository.update(id.trim(), {
-        amount,
+        amountMinor,
         category,
         description,
         date,

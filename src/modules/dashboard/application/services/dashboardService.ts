@@ -2,6 +2,7 @@ import { AnalyticsService, TimeRange, MonthlyTrend } from '../../../transaction/
 import { BudgetService } from '../../../budget/application/budgetService';
 import { BudgetSummary } from '../../../budget/domain/budgetEntity';
 import { countsAsIncome, countsAsRealExpense, normalizeSemanticType } from '../../../transaction/domain/transactionSemanticType';
+import { fromMinor, minorOf } from '../../../../shared/domain/money/money';
 
 export interface DashboardInsights {
   financialSummary: {
@@ -140,7 +141,7 @@ export class DashboardService {
         return tDate >= weekStart && tDate <= weekEnd;
       });
 
-      // Calculate summary in memory
+      // Calculate summary in memory, in integer minor units (FT-097)
       let income = 0;
       let expenses = 0;
       const categoryAmounts: Record<string, number> = {};
@@ -148,10 +149,10 @@ export class DashboardService {
       for (const t of weekTransactions) {
         const semanticType = normalizeSemanticType(t.semanticType, t.type);
         if (countsAsIncome(semanticType)) {
-          income += t.amount;
+          income += minorOf(t);
         } else if (countsAsRealExpense(semanticType)) {
-          expenses += t.amount;
-          categoryAmounts[t.category] = (categoryAmounts[t.category] || 0) + t.amount;
+          expenses += minorOf(t);
+          categoryAmounts[t.category] = (categoryAmounts[t.category] || 0) + minorOf(t);
         }
       }
 
@@ -161,9 +162,9 @@ export class DashboardService {
 
       weeklyInsights.push({
         week: `${weekStart.toLocaleDateString()} - ${weekEnd.toLocaleDateString()}`,
-        income: Math.round(income * 100) / 100,
-        expenses: Math.round(expenses * 100) / 100,
-        net: Math.round((income - expenses) * 100) / 100,
+        income: fromMinor(income),
+        expenses: fromMinor(expenses),
+        net: fromMinor(income - expenses),
         budgetPerformance: 75, // Simplified - would calculate based on actual budgets
         topCategory
       });

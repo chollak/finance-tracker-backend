@@ -1,4 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { bigintNumber } from '../transformers';
 
 export enum TransactionType {
   INCOME = 'income',
@@ -10,8 +11,9 @@ export class Transaction {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
-  @Column('decimal', { precision: 10, scale: 2 })
-  amount!: number;
+  /** Integer minor units: тийины for UZS, cents for USD (FT-097). Replaced `amount decimal(10,2)`. */
+  @Column('bigint', { name: 'amount_minor', transformer: bigintNumber })
+  amountMinor!: number;
 
   @Column()
   type!: 'income' | 'expense';

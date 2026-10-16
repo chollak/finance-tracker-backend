@@ -1,21 +1,22 @@
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { AppDataSource } from '../../../../shared/infrastructure/database/database.config';
 import { Transaction as TransactionEntity, TransactionType } from '../../../../shared/infrastructure/database/entities/Transaction';
 import { TransactionRepository } from '../../domain/transactionRepository';
 import { Transaction } from '../../domain/transactionEntity';
 import { normalizeSemanticType } from '../../domain/transactionSemanticType';
 import { normalizeNeedsReview } from '../../domain/transactionEntity';
+import { fromMinor, minorOf, toMinor } from '../../../../shared/domain/money/money';
 
 export class SqliteTransactionRepository implements TransactionRepository {
   private repository: Repository<TransactionEntity>;
 
-  constructor() {
-    this.repository = AppDataSource.getRepository(TransactionEntity);
+  constructor(dataSource: DataSource = AppDataSource) {
+    this.repository = dataSource.getRepository(TransactionEntity);
   }
 
   async create(transaction: Transaction): Promise<Transaction> {
     const entity = this.repository.create({
-      amount: transaction.amount,
+      amountMinor: minorOf(transaction),
       type: transaction.type === 'income' ? TransactionType.INCOME : TransactionType.EXPENSE,
       semanticType: normalizeSemanticType(transaction.semanticType, transaction.type),
       needsReview: normalizeNeedsReview(transaction.needsReview),
@@ -59,7 +60,8 @@ export class SqliteTransactionRepository implements TransactionRepository {
   async update(id: string, updates: Partial<Transaction>): Promise<Transaction> {
     const updateData: any = {};
     
-    if (updates.amount !== undefined) updateData.amount = updates.amount;
+    if (updates.amountMinor !== undefined) updateData.amountMinor = updates.amountMinor;
+    else if (updates.amount !== undefined) updateData.amountMinor = toMinor(updates.amount);
     if (updates.type !== undefined) {
       updateData.type = updates.type === 'income' ? TransactionType.INCOME : TransactionType.EXPENSE;
     }
@@ -114,7 +116,8 @@ export class SqliteTransactionRepository implements TransactionRepository {
   private mapToTransaction(entity: TransactionEntity): Transaction {
     return {
       id: entity.id,
-      amount: Number(entity.amount),
+      amountMinor: Number(entity.amountMinor),
+      amount: fromMinor(Number(entity.amountMinor)),
       type: entity.type === TransactionType.INCOME ? 'income' : 'expense',
       semanticType: normalizeSemanticType(entity.semanticType, entity.type === TransactionType.INCOME ? 'income' : 'expense'),
       needsReview: entity.needsReview ?? false,

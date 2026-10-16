@@ -326,9 +326,9 @@ async function seed() {
     for (const tx of transactions) {
       await dbRun(
         db,
-        `INSERT INTO transactions (id, userId, amount, type, category, merchant, description, date, confidence)
+        `INSERT INTO transactions (id, userId, amount_minor, type, category, merchant, description, date, confidence)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [tx.id, tx.userId, tx.amount, tx.type, tx.category, tx.merchant, tx.description, tx.date, tx.confidence]
+        [tx.id, tx.userId, Math.round(tx.amount * 100), tx.type, tx.category, tx.merchant, tx.description, tx.date, tx.confidence]
       );
     }
 
