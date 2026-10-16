@@ -4,6 +4,7 @@ import { UserInitializer } from './UserInitializer';
 import { HydrationGate } from './HydrationGate';
 import { ErrorBoundary } from '@/shared/ui/error-boundary';
 import { Toaster } from '@/shared/ui/sonner';
+import { ThemeController } from './ThemeController';
 
 interface AppProvidersProps {
   children: ReactNode;
@@ -12,6 +13,7 @@ interface AppProvidersProps {
 export function AppProviders({ children }: AppProvidersProps) {
   return (
     <ErrorBoundary>
+      <ThemeController />
       <QueryProvider>
         <HydrationGate>
           <UserInitializer />

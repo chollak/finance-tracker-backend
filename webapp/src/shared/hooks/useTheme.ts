@@ -1,21 +1,18 @@
-import { useEffect } from 'react';
+import { useThemeStore } from '@/shared/lib/theme';
 
 /**
- * Hook for theme management
- * Currently only supports light theme for stability in Telegram WebApp
+ * Current theme of «Пастель» and the user's choice (FT-092).
+ * The theme itself is applied by ThemeController (app/providers); this hook only reads and sets it.
  */
 export function useTheme() {
-  // Always apply light theme on mount
-  useEffect(() => {
-    const root = document.documentElement;
-    root.classList.add('light');
-    root.classList.remove('dark');
-  }, []);
+  const preference = useThemeStore((state) => state.preference);
+  const resolvedTheme = useThemeStore((state) => state.resolved);
+  const setPreference = useThemeStore((state) => state.setPreference);
 
   return {
-    theme: 'light' as const,
-    setTheme: () => {}, // No-op - only light theme supported
-    resolvedTheme: 'light' as const,
-    isDark: false,
+    preference,
+    setPreference,
+    resolvedTheme,
+    isDark: resolvedTheme === 'dark',
   };
 }

@@ -1,32 +1,36 @@
 @import "tailwindcss";
 @import "react-day-picker/style.css";
 @import "./fonts.css";
+@import "./pastel-tokens.css";
 
 /* ========================================
-   FINANCE TRACKER DESIGN SYSTEM
-   Minimal & Clean | Onest | Neutral UI + Semantic Finance Colors
-   Light Theme Only
+   DAFTAR · «ПАСТЕЛЬ» (FT-092)
+   Manrope | neutral base, pastel categories, one contrast accent | light + dark
+   Raw tokens: pastel-tokens.css, generated from docs/pastel/tokens.json.
+   Rules: docs/pastel/design-system.md and docs/pastel/components/.
+   The shadcn names below point at Pastel tokens so screens not yet redesigned
+   follow the theme too.
    ======================================== */
 
 /* Override react-day-picker selection colors to match shadcn */
 .rdp-selected .rdp-day_button,
 .rdp-day_button[data-selected="true"],
 .rdp-day_button[aria-selected="true"] {
-  background-color: oklch(14.5% 0 0) !important;
-  color: oklch(98.2% 0 0) !important;
-  border-color: oklch(14.5% 0 0) !important;
-  border-radius: 0.375rem !important;
+  background-color: var(--primary) !important;
+  color: var(--on-primary) !important;
+  border-color: var(--primary) !important;
+  border-radius: 9999px !important;
 }
 
 .rdp-selected .rdp-day_button:hover,
 .rdp-day_button[data-selected="true"]:hover {
-  background-color: oklch(14.5% 0 0) !important;
-  color: oklch(98.2% 0 0) !important;
+  background-color: var(--primary) !important;
+  color: var(--on-primary) !important;
 }
 
 .rdp-today:not(.rdp-selected) .rdp-day_button {
-  background-color: oklch(95.3% 0 0);
-  color: oklch(14.5% 0 0);
+  background-color: var(--track);
+  color: var(--ink);
 }
 
 /* Remove default focus ring styling */
@@ -35,63 +39,112 @@
   box-shadow: none !important;
 }
 
+/* Colours that only screens not yet redesigned use. Old screens put ink, muted or income text on
+   these tints, so in the dark theme they must be dark tints, not the light pastels (which are only
+   for pastel-ink text). Values: 20% income / 16% pastel over the dark card. */
+:root,
+[data-theme="light"] {
+  --legacy-income-muted: var(--pastel-mint);
+  --legacy-expense-muted: var(--pastel-peach);
+  --legacy-warning-muted: var(--pastel-butter);
+  --legacy-warning: oklch(52% 0.15 50);
+  --legacy-destructive: oklch(55% 0.2 25);
+  --legacy-chart-5: oklch(42% 0.1 265);
+}
+
+[data-theme="dark"] {
+  --legacy-income-muted: #2c4138;
+  --legacy-expense-muted: #3f3b3a;
+  --legacy-warning-muted: #3f3e37;
+  --legacy-warning: oklch(78% 0.14 70);
+  --legacy-destructive: oklch(70% 0.17 25);
+  --legacy-chart-5: oklch(66% 0.12 265);
+}
+
 @theme inline {
   /* ===== TYPOGRAPHY ===== */
-  --font-family-sans: 'Onest', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-family-sans: 'Manrope', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-sans: 'Manrope', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
 
-  /* ===== BASE COLORS (Light Theme) ===== */
-  --color-background: oklch(100% 0 0);
-  --color-foreground: oklch(9.6% 0 0);
-  --color-card: oklch(100% 0 0);
-  --color-card-foreground: oklch(9.6% 0 0);
-  --color-popover: oklch(100% 0 0);
-  --color-popover-foreground: oklch(9.6% 0 0);
+  /* ===== PASTEL COLORS (both themes via pastel-tokens.css) =====
+     bg-bg, text-ink, text-ink-muted, bg-track, bg-pastel-mint, … */
+  --color-bg: var(--bg);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--muted);
+  --color-track: var(--track);
+  --color-seg-on: var(--seg-on);
+  --color-seg-off: var(--seg-off);
+  --color-sheet: var(--sheet);
+  --color-sheet-card: var(--sheet-card);
+  --color-sheet-track: var(--sheet-track);
+  --color-line: var(--line);
+  --color-scrim: var(--scrim);
+  --color-grabber: var(--grabber);
+  --color-chart-dim: var(--chart-dim);
+  --color-bar-track: var(--bar-track);
+  --color-on-primary: var(--on-primary);
+  --color-on-primary-muted: var(--on-primary-muted);
+  --color-hero-track: var(--hero-track);
+  --color-hero-fill: var(--hero-fill);
+  --color-pastel-ink: var(--pastel-ink);
+  --color-pastel-mint: var(--pastel-mint);
+  --color-pastel-peach: var(--pastel-peach);
+  --color-pastel-sky: var(--pastel-sky);
+  --color-pastel-lilac: var(--pastel-lilac);
+  --color-pastel-butter: var(--pastel-butter);
+  --color-pastel-rose: var(--pastel-rose);
+  --color-pastel-sand: var(--pastel-sand);
+  --color-pastel-mist: var(--pastel-mist);
+  --color-mint-ink: var(--mint-ink);
+  --color-peach-ink: var(--peach-ink);
+  --shadow-segment: var(--shadow-seg);
 
-  /* Primary - Neutral (shadcn new-york) */
-  --color-primary: oklch(14.5% 0 0);
-  --color-primary-foreground: oklch(98.2% 0 0);
+  /* ===== SHADCN NAMES → PASTEL =====
+     Kept so existing shadcn components and old screens follow the theme until they are replaced. */
+  --color-background: var(--bg);
+  --color-foreground: var(--ink);
+  --color-card: var(--card);
+  --color-card-foreground: var(--ink);
+  --color-popover: var(--sheet-card);
+  --color-popover-foreground: var(--ink);
 
-  /* Secondary */
-  --color-secondary: oklch(95.3% 0 0);
-  --color-secondary-foreground: oklch(14.5% 0 0);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--on-primary);
 
-  /* Muted */
-  --color-muted: oklch(95.3% 0 0);
-  --color-muted-foreground: oklch(53.2% 0 0);
+  --color-secondary: var(--track);
+  --color-secondary-foreground: var(--ink);
 
-  /* Accent */
-  --color-accent: oklch(95.3% 0 0);
-  --color-accent-foreground: oklch(14.5% 0 0);
+  --color-muted: var(--track);
+  --color-muted-foreground: var(--muted);
 
-  /* Destructive */
-  --color-destructive: oklch(60% 0.2 25);
+  --color-accent: var(--track);
+  --color-accent-foreground: var(--ink);
+
+  /* Pastel has no red: deleting is a secondary text button with undo. Kept for old screens. */
+  --color-destructive: var(--legacy-destructive);
   --color-destructive-foreground: oklch(98% 0 0);
 
-  /* Borders & Inputs */
-  --color-border: oklch(88.1% 0 0);
-  --color-input: oklch(88.1% 0 0);
-  --color-ring: oklch(9.6% 0 0);
+  --color-border: var(--line);
+  --color-input: var(--line);
+  --color-ring: var(--ink);
 
-  /* ===== SEMANTIC FINANCE COLORS ===== */
-  /* Income (Green) */
-  --color-income: oklch(55% 0.2 145);
-  --color-income-foreground: oklch(98% 0 0);
-  --color-income-muted: oklch(95% 0.05 145);
+  /* ===== MONEY =====
+     Income is green text with «+»; expenses are ink with «−». Tiles: mint and peach pastel. */
+  --color-income: var(--income);
+  --color-income-foreground: var(--on-primary);
+  --color-income-muted: var(--legacy-income-muted);
 
-  /* Expense (Red) */
-  --color-expense: oklch(55% 0.22 25);
-  --color-expense-foreground: oklch(98% 0 0);
-  --color-expense-muted: oklch(95% 0.04 25);
+  --color-expense: var(--ink);
+  --color-expense-foreground: var(--on-primary);
+  --color-expense-muted: var(--legacy-expense-muted);
 
-  /* Warning (Orange) */
-  --color-warning: oklch(65% 0.18 55);
-  --color-warning-foreground: oklch(20% 0.05 55);
-  --color-warning-muted: oklch(95% 0.05 55);
+  --color-warning: var(--legacy-warning);
+  --color-warning-foreground: var(--pastel-ink);
+  --color-warning-muted: var(--legacy-warning-muted);
 
-  /* Success (same as income) */
-  --color-success: oklch(55% 0.2 145);
-  --color-success-foreground: oklch(98% 0 0);
-  --color-success-muted: oklch(95% 0.05 145);
+  --color-success: var(--income);
+  --color-success-foreground: var(--on-primary);
+  --color-success-muted: var(--legacy-income-muted);
 
   /* ===== CHART COLORS =====
      Category identity palette only — mirrors `colors.chart` in
@@ -101,7 +154,7 @@
   --color-chart-2: oklch(55% 0.15 195);   /* Teal */
   --color-chart-3: oklch(55% 0.15 320);   /* Purple */
   --color-chart-4: oklch(70% 0.13 75);    /* Amber */
-  --color-chart-5: oklch(42% 0.1 265);    /* Indigo */
+  --color-chart-5: var(--legacy-chart-5); /* Indigo */
   --color-chart-6: oklch(60% 0.01 250);   /* Gray */
 
   /* ===== BORDER RADIUS SCALE ===== */
@@ -125,6 +178,9 @@
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* Skeleton pulse of «Пастель»: opacity 1 → 0.55, 1.6s (docs/pastel/components/Skeleton.md) */
+  --animate-pastel-pulse: pastelPulse 1.6s ease-in-out infinite;
 
   /* ===== SPACING (Touch Targets) ===== */
   --touch-target: 2.75rem;    /* 44px minimum */
@@ -194,6 +250,15 @@
   }
   50% {
     opacity: 0.5;
+  }
+}
+
+@keyframes pastelPulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
   }
 }
 
@@ -359,11 +424,12 @@
 }
 
 /* Sheet/Dialog animations */
-[data-state="open"] {
+/* Old shadcn popups only; Pastel sheets (data-pastel) have their own slide-in. */
+[data-state="open"]:not([data-pastel]) {
   animation: fadeIn var(--duration-normal) var(--ease-out);
 }
 
-[data-state="closed"] {
+[data-state="closed"]:not([data-pastel]) {
   animation: fadeIn var(--duration-fast) var(--ease-out) reverse;
 }
 
@@ -387,7 +453,8 @@
 
 @layer base {
   * {
-    border-color: var(--color-border);
+    /* --line directly (not --color-border) so a subtree with its own data-theme gets its own lines */
+    border-color: var(--line);
   }
 
   html {
@@ -400,8 +467,10 @@
 
   body {
     font-family: var(--font-family-sans);
-    font-weight: 400;
+    font-weight: 500;
     line-height: 1.5;
+    /* «Цифры всегда табличные» — amounts line up in lists and do not jump while typing */
+    font-variant-numeric: tabular-nums;
     font-synthesis-weight: none;
     background-color: var(--color-background);
     color: var(--color-foreground);

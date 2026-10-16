@@ -20,6 +20,8 @@ const AnalyticsPage = lazy(() => import('@/pages').then(m => ({ default: m.Analy
 const MorePage = lazy(() => import('@/pages').then(m => ({ default: m.MorePage })));
 // FT-088 spike page: not linked from the app, opened by URL inside Telegram on each device
 const VoiceCheckPage = lazy(() => import('@/pages').then(m => ({ default: m.VoiceCheckPage })));
+// Pastel component showcase in both themes (FT-093), not linked from the app
+const PastelShowcasePage = lazy(() => import('@/pages').then(m => ({ default: m.PastelShowcasePage })));
 
 // Wrapper component with Suspense
 function PageLoader({ children }: { children: React.ReactNode }) {
@@ -119,6 +121,10 @@ export const router = createBrowserRouter([
     ],
   },
   // Form pages without navigation layout (have their own back button)
+  {
+    path: '/dev/pastel',
+    element: <PageLoader><PastelShowcasePage /></PageLoader>,
+  },
   {
     path: '/dev/voice-check',
     element: <PageLoader><VoiceCheckPage /></PageLoader>,

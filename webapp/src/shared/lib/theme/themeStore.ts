@@ -1,0 +1,56 @@
+import { create } from 'zustand';
+import { createJSONStorage, persist, type StateStorage } from 'zustand/middleware';
+import { THEME_STORAGE_KEY, type ResolvedTheme, type ThemePreference } from './resolveTheme';
+
+/**
+ * localStorage can be missing or throw inside some WebViews and private windows; the theme then
+ * simply is not remembered between opens, and the app still renders.
+ * (FT-125 moves the preference to the server settings so it follows the user across devices.)
+ */
+const safeStorage: StateStorage = {
+  getItem: (name) => {
+    try {
+      return window.localStorage.getItem(name);
+    } catch {
+      return null;
+    }
+  },
+  setItem: (name, value) => {
+    try {
+      window.localStorage.setItem(name, value);
+    } catch {
+      // not remembered — acceptable
+    }
+  },
+  removeItem: (name) => {
+    try {
+      window.localStorage.removeItem(name);
+    } catch {
+      // nothing to remove
+    }
+  },
+};
+
+interface ThemeState {
+  preference: ThemePreference;
+  /** What is on screen now; set by ThemeController. */
+  resolved: ResolvedTheme;
+  setPreference: (preference: ThemePreference) => void;
+  setResolved: (theme: ResolvedTheme) => void;
+}
+
+export const useThemeStore = create<ThemeState>()(
+  persist(
+    (set) => ({
+      preference: 'telegram',
+      resolved: 'light',
+      setPreference: (preference) => set({ preference }),
+      setResolved: (resolved) => set({ resolved }),
+    }),
+    {
+      name: THEME_STORAGE_KEY,
+      storage: createJSONStorage(() => safeStorage),
+      partialize: (state) => ({ preference: state.preference }),
+    }
+  )
+);
