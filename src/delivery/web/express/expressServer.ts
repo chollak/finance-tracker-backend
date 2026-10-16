@@ -83,7 +83,7 @@ export function buildServer(
     '/transactions',
     createTransactionRouter(
       transactionModule.getCreateTransactionUseCase(),
-      transactionModule.getGetTransactionsUseCase(),
+      transactionModule.getTransactionHistoryUseCase(),
       transactionModule.getAnalyticsService(),
       transactionModule.getGetUserTransactionsUseCase(),
       transactionModule.getGetTransactionByIdUseCase(),

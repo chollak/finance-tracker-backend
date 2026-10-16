@@ -1,5 +1,5 @@
 import { CreateTransactionUseCase } from './application/createTransaction';
-import { GetTransactionsUseCase } from './application/getTransactions';
+import { GetTransactionHistoryUseCase } from './application/getTransactionHistory';
 import { GetUserTransactionsUseCase } from './application/getUserTransactions';
 import { GetTransactionByIdUseCase } from './application/getTransactionById';
 import { DeleteTransactionUseCase, RestoreTransactionUseCase } from './application/deleteTransaction';
@@ -95,8 +95,8 @@ export class TransactionModule {
     return (await this.repository.findByUserId(userId)).filter(record => record.accountId === accountId);
   }
 
-  getGetTransactionsUseCase(): GetTransactionsUseCase {
-    return new GetTransactionsUseCase(this.repository);
+  getTransactionHistoryUseCase(): GetTransactionHistoryUseCase {
+    return new GetTransactionHistoryUseCase(this.repository);
   }
 
   getGetUserTransactionsUseCase(): GetUserTransactionsUseCase {

@@ -1,6 +1,6 @@
 import { Router, Request } from 'express';
 import { CreateTransactionUseCase } from '../../application/createTransaction';
-import { GetTransactionsUseCase } from '../../application/getTransactions';
+import { GetTransactionHistoryUseCase } from '../../application/getTransactionHistory';
 import { AnalyticsService } from '../../application/analyticsService';
 import { GetUserTransactionsUseCase } from '../../application/getUserTransactions';
 import { GetTransactionByIdUseCase } from '../../application/getTransactionById';
@@ -22,6 +22,7 @@ import { UserModule } from '../../../user/userModule';
 import { createUserResolutionMiddleware } from '../../../../delivery/web/express/middleware/userResolutionMiddleware';
 import { allowGuestMode, optionalAuth, verifyOwnership, requireAdmin } from '../../../../delivery/web/express/middleware/authMiddleware';
 import { standardRateLimiter } from '../../../../delivery/web/express/middleware/rateLimitMiddleware';
+import { createCurrentUserMiddleware, currentUserId } from '../../../../delivery/web/express/middleware/currentUserMiddleware';
 import { verifyResourceOwnership } from '../../../../shared/infrastructure/utils/ownershipVerification';
 import { createLogger, LogCategory } from '../../../../shared/infrastructure/logging';
 // Import for type extensions on Express.Request
@@ -62,7 +63,7 @@ async function verifyTransactionOwnershipWithResult(
 
 export function createTransactionRouter(
   createUseCase: CreateTransactionUseCase,
-  getUseCase: GetTransactionsUseCase,
+  historyUseCase: GetTransactionHistoryUseCase,
   analyticsService: AnalyticsService,
   getUserUseCase: GetUserTransactionsUseCase,
   getByIdUseCase: GetTransactionByIdUseCase,
@@ -248,15 +249,19 @@ export function createTransactionRouter(
     }
   });
 
-  // Get ALL transactions - ADMIN ONLY (returns data for all users)
-  router.get('/', requireAdmin, async (_req, res) => {
-    try {
-      const transactions = await getUseCase.execute();
-      handleControllerSuccess(transactions, res);
-    } catch (error) {
-      handleControllerError(error, res);
-    }
-  });
+  // History with search and filters (FT-107): the user from authentication, never from the query.
+  // Replaces the admin list of everyone's records.
+  if (userModule) {
+    router.get('/', ...createCurrentUserMiddleware(userModule), async (req, res) => {
+      try {
+        const result = await historyUseCase.execute({ userId: currentUserId(req), query: req.query as Record<string, unknown> });
+        if (!result.success) return handleControllerError(result.error, res);
+        handleControllerSuccess(result.data, res);
+      } catch (error) {
+        handleControllerError(error, res);
+      }
+    });
+  }
 
   router.get('/user/:userId', allowGuestMode, resolveUser, verifyOwnership, async (req, res) => {
     try {

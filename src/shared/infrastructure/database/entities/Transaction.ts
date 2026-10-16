@@ -95,6 +95,10 @@ export class Transaction {
   @Column('datetime', { name: 'deleted_at', nullable: true })
   deletedAt?: Date | null;
 
+  /** Note and merchant as searched (FT-107): `recordSearchText`, kept in step on every write. */
+  @Column('varchar', { name: 'search_text', default: '' })
+  searchText!: string;
+
   /** The client's id for the record (FT-106), unique per user: a repeated create returns this record. */
   @Column('varchar', { name: 'client_id', nullable: true })
   clientId?: string | null;

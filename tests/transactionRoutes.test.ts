@@ -11,7 +11,7 @@ import {
 } from '../src/delivery/web/express/middleware/errorMiddleware';
 import { createTransactionRouter } from '../src/modules/transaction/presentation/controllers/transactionController';
 import { CreateTransactionUseCase } from '../src/modules/transaction/application/createTransaction';
-import { GetTransactionsUseCase } from '../src/modules/transaction/application/getTransactions';
+import { GetTransactionHistoryUseCase } from '../src/modules/transaction/application/getTransactionHistory';
 import { AnalyticsService } from '../src/modules/transaction/application/analyticsService';
 import { GetUserTransactionsUseCase } from '../src/modules/transaction/application/getUserTransactions';
 import { GetTransactionByIdUseCase } from '../src/modules/transaction/application/getTransactionById';
@@ -36,7 +36,7 @@ function buildTransactionTestApp(options: { userModule?: UserModule } = {}) {
   router.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
   const createUseCase = { execute: jest.fn() } as unknown as CreateTransactionUseCase;
-  const getUseCase = { execute: jest.fn() } as unknown as GetTransactionsUseCase;
+  const getUseCase = { execute: jest.fn() } as unknown as GetTransactionHistoryUseCase;
   const analyticsService = {
     getSummary: jest.fn(),
     getCategoryBreakdown: jest.fn(),

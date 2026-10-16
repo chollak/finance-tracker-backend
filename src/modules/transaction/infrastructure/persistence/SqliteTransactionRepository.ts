@@ -8,6 +8,15 @@ import { normalizeSemanticType } from '../../domain/transactionSemanticType';
 import { normalizeNeedsReview } from '../../domain/transactionEntity';
 import { fromMinor, minorOf, toMinor } from '../../../../shared/domain/money/money';
 import { isRecordCurrency, isRecordSource } from '../../domain/recordSource';
+import { HistoryCursor, HistoryFilters, HistoryPage, recordSearchText } from '../../domain/transactionHistory';
+
+/** «50%» is searched as text: LIKE wildcards in the query are escaped. */
+function likeContains(key: string): string {
+  return `%${key.replace(/[\\%_]/g, char => `\\${char}`)}%`;
+}
+
+/** createdAt as SQLite stores it and as an ISO cursor carries it, compared in one format. */
+const CREATED_AT = "strftime('%Y-%m-%d %H:%M:%f', transaction.createdAt)";
 
 export class SqliteTransactionRepository implements TransactionRepository {
   private repository: Repository<TransactionEntity>;
@@ -42,6 +51,7 @@ export class SqliteTransactionRepository implements TransactionRepository {
       description: transaction.description,
       date: transaction.date,
       merchant: transaction.merchant,
+      searchText: recordSearchText(transaction),
       confidence: transaction.confidence,
       originalText: transaction.originalText,
       originalParsing: transaction.originalParsing ? JSON.stringify(transaction.originalParsing) : undefined,
@@ -102,6 +112,53 @@ export class SqliteTransactionRepository implements TransactionRepository {
     return entities.map(entity => this.mapToTransaction(entity)).sort((a, b) => index(a) - index(b));
   }
 
+  /**
+   * One page of history (FT-107). The query matches the note or merchant (`search_text`) or the
+   * category's current name (`name_key`, kept by the category module), so a renamed category is found
+   * by its new name at once. Ordered by date, creation time and id, newest first; the cursor is where
+   * the previous page ended.
+   */
+  async findHistory(userId: string, filters: HistoryFilters, cursor: HistoryCursor | null, limit: number): Promise<HistoryPage> {
+    const builder = this.query()
+      .andWhere('transaction.userId = :userId', { userId })
+      .andWhere('transaction.isArchived = :isArchived', { isArchived: false });
+
+    if (filters.q) {
+      builder.andWhere("(transaction.searchText LIKE :pattern ESCAPE '\\' OR category.nameKey LIKE :pattern ESCAPE '\\')", {
+        pattern: likeContains(filters.q),
+      });
+    }
+    if (filters.categoryIds?.length) builder.andWhere('transaction.categoryId IN (:...categoryIds)', { categoryIds: filters.categoryIds });
+    if (filters.accountIds?.length) builder.andWhere('transaction.accountId IN (:...accountIds)', { accountIds: filters.accountIds });
+    if (filters.type) {
+      builder.andWhere('transaction.type = :type', { type: filters.type === 'income' ? TransactionType.INCOME : TransactionType.EXPENSE });
+    }
+    if (filters.from) builder.andWhere('transaction.date >= :from', { from: filters.from });
+    if (filters.to) builder.andWhere('transaction.date <= :to', { to: filters.to });
+    if (cursor) {
+      builder.andWhere(
+        `(transaction.date < :cursorDate
+          OR (transaction.date = :cursorDate AND ${CREATED_AT} < strftime('%Y-%m-%d %H:%M:%f', :cursorCreatedAt))
+          OR (transaction.date = :cursorDate AND ${CREATED_AT} = strftime('%Y-%m-%d %H:%M:%f', :cursorCreatedAt) AND transaction.id < :cursorId))`,
+        { cursorDate: cursor.date, cursorCreatedAt: cursor.createdAt, cursorId: cursor.id }
+      );
+    }
+
+    const entities = await builder
+      .orderBy('transaction.date', 'DESC')
+      .addOrderBy('transaction.createdAt', 'DESC')
+      .addOrderBy('transaction.id', 'DESC')
+      .limit(limit + 1)
+      .getMany();
+
+    const items = entities.slice(0, limit).map(entity => this.mapToTransaction(entity));
+    const last = items[items.length - 1];
+    const next = entities.length > limit && last
+      ? { date: last.date, createdAt: last.createdAt!, id: last.id! }
+      : null;
+    return { items, next };
+  }
+
   /** A record by id even if it is deleted — to restore it, or to answer a repeated create (FT-106). */
   async findByIdIncludingDeleted(id: string): Promise<Transaction | null> {
     const entity = await this.query({ includeDeleted: true })
@@ -130,6 +187,14 @@ export class SqliteTransactionRepository implements TransactionRepository {
     if (updates.date !== undefined) updateData.date = updates.date;
     if (updates.merchant !== undefined) updateData.merchant = updates.merchant;
     if (updates.confidence !== undefined) updateData.confidence = updates.confidence;
+    // The search text follows the note and the merchant (FT-107)
+    if (updates.description !== undefined || updates.merchant !== undefined) {
+      const current = await this.repository.findOne({ where: { id } });
+      updateData.searchText = recordSearchText({
+        description: updates.description ?? current?.description,
+        merchant: updates.merchant ?? current?.merchant,
+      });
+    }
 
     if (Object.keys(updateData).length > 0) {
       await this.repository.update(id, updateData);

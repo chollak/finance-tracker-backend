@@ -11,7 +11,7 @@ import {
 } from '../src/delivery/web/express/middleware/errorMiddleware';
 import { createTransactionRouter } from '../src/modules/transaction/presentation/controllers/transactionController';
 import { CreateTransactionUseCase } from '../src/modules/transaction/application/createTransaction';
-import { GetTransactionsUseCase } from '../src/modules/transaction/application/getTransactions';
+import { GetTransactionHistoryUseCase } from '../src/modules/transaction/application/getTransactionHistory';
 import { AnalyticsService } from '../src/modules/transaction/application/analyticsService';
 import { GetUserTransactionsUseCase } from '../src/modules/transaction/application/getUserTransactions';
 import { GetTransactionByIdUseCase } from '../src/modules/transaction/application/getTransactionById';
@@ -97,7 +97,7 @@ function buildApp() {
 
   router.use('/transactions', createTransactionRouter(
     noop as unknown as CreateTransactionUseCase,
-    noop as unknown as GetTransactionsUseCase,
+    noop as unknown as GetTransactionHistoryUseCase,
     {
       getSummary: jest.fn(),
       getCategoryBreakdown: jest.fn(),
@@ -162,7 +162,7 @@ describe('POST /transactions/:id/unarchive', () => {
     router.use(express.json());
     router.use('/transactions', createTransactionRouter(
       { execute: jest.fn() } as unknown as CreateTransactionUseCase,
-      { execute: jest.fn() } as unknown as GetTransactionsUseCase,
+      { execute: jest.fn() } as unknown as GetTransactionHistoryUseCase,
       {} as unknown as AnalyticsService,
       { execute: jest.fn() } as unknown as GetUserTransactionsUseCase,
       new GetTransactionByIdUseCase(repository),
