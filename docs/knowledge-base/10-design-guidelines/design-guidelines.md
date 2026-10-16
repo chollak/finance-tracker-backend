@@ -1,5 +1,8 @@
 # Finance Tracker Design Guidelines
 
+> **Архив (2026-10-16, FT-096).** Это прежнее направление (Onest, нейтральный shadcn, нижний бар). Действующая дизайн-система — «Пастель»: [`docs/pastel/design-system.md`](../../pastel/design-system.md) и [`docs/pastel/components/`](../../pastel/components/). Не использовать для новых экранов.
+
+
 > Based on user preferences and Claude's frontend design best practices
 
 > **⚠️ Partially superseded — reconciliation tracked as FT-059 (note added 2026-08-16).** Where this document conflicts with [style-direction.md](style-direction.md) or the current implementation, **the current implementation wins**.

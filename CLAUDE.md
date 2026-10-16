@@ -148,8 +148,8 @@ For detailed documentation, see **[docs/knowledge-base/](docs/knowledge-base/)**
   - [API Route Coverage Matrix](docs/knowledge-base/08-development/api-route-coverage-matrix.md) - FT-022 route coverage audit
 - **[UX Improvements](docs/knowledge-base/09-ux-improvements/)** - UI/UX enhancement tracking
   - [UI/UX Analysis](docs/knowledge-base/09-ux-improvements/ui-ux-analysis.md) - Complete analysis and recommendations
-- **[Design Guidelines](docs/knowledge-base/10-design-guidelines/)** - Frontend design rules (MUST FOLLOW)
-  - [Design Guidelines](docs/knowledge-base/10-design-guidelines/design-guidelines.md) - Complete design system rules
+- **[Design Guidelines](docs/knowledge-base/10-design-guidelines/)** - archived; frontend rules are in [docs/pastel/](docs/pastel/README.md) (MUST FOLLOW)
+  - [Design Guidelines](docs/knowledge-base/10-design-guidelines/design-guidelines.md) - archived; the design system is «Пастель», see [docs/pastel/design-system.md](docs/pastel/design-system.md)
 - **[Backend Standards](docs/BACKEND_STANDARDS.md)** - Backend coding standards (MUST FOLLOW)
   - Error handling, Repository patterns, Use Cases, Controllers, Naming conventions
 - **[Quick Capture API](docs/QUICK_CAPTURE_API.md)** - Shipped `POST /api/quick-capture` contract, auth, limits
@@ -618,131 +618,31 @@ fixes #70"
 
 ---
 
-## Design System (WebApp Frontend)
+## Design System (WebApp Frontend) — «Пастель»
 
-**IMPORTANT: All frontend changes MUST follow the [Design Guidelines](docs/knowledge-base/10-design-guidelines/design-guidelines.md)**
+**IMPORTANT: All frontend work follows the design system «Пастель» (milestone 10).** Rules: [`docs/pastel/design-system.md`](docs/pastel/design-system.md); one spec per component: [`docs/pastel/components/`](docs/pastel/components/); screens: the canvas linked from [`docs/pastel/README.md`](docs/pastel/README.md). The older guides in `docs/knowledge-base/10-design-guidelines/` are archived.
 
 ### Quick Reference (MUST FOLLOW)
 
 | Aspect | Rule |
 |--------|------|
-| **Style** | Minimal & Clean — lots of whitespace, no decorative elements |
-| **Font** | Onest, Cyrillic-friendly; follow current tokens/docs before changing weights |
-| **Colors** | Neutral UI chrome; green/red/orange only for semantic money/status roles |
-| **Border Radius** | Shared `Card` default is `rounded-2xl`; feature/status cards may opt into larger radius intentionally |
-| **Animations** | Fade-in 300ms, Hover 150ms, Stagger 50ms |
-| **Touch Targets** | Minimum 44x44px, prefer 48x48px |
-| **Approach** | Mobile-first, then scale up |
+| **Font** | Manrope 500–800, self-hosted (`@fontsource-variable/manrope`, `fonts.css`). The design system names Google Fonts — we self-host on purpose; `npm run check:fonts` fails on any font CDN |
+| **Colour** | Neutral base, one contrast accent (`primary`), pastel only as backgrounds of category tiles/dots and month tiles, text on pastel always `pastel-ink`. Income green with «+», expenses `ink` with «−». No gradients, no card shadows, no emoji |
+| **Themes** | Light and dark from the same tokens. Theme: «как в Telegram» (`colorScheme`), light or dark (`ThemeController`, `useTheme`) |
+| **Numbers** | Integer minor units in code; shown with sign, unit and non-breaking groups via `formatMinor()`; tabular figures everywhere |
+| **Shape** | Everything pressable is a pill or circle; cards `rounded-card` (24px), balance card and sheets `rounded-hero` (28px) |
+| **Touch** | At least 44px (`size-touch`); main button and quick input 56px (`h-button`) |
+| **Popups** | Only the bottom `Sheet`; deleting has no confirm dialog — a toast with «Отменить» (`showUndoToast` with a real undo) |
+| **Copy** | Russian, short, verbs on buttons; labels must survive +30% (Uzbek) |
 
-### Design Anti-Patterns (AVOID)
-- Purple/violet gradients (AI slop aesthetic)
-- Colorful dashboard treatment where colors do not carry semantic meaning
-- Heavy shadows
-- Animations longer than 600ms
-- Introducing new ad-hoc font sizes/weights instead of shared tokens/components
-- Decorative borders on cards
+### Where things are
 
-For current visual direction, read `docs/knowledge-base/10-design-guidelines/style-direction.md` before UI work. FT-059 reconciled the font (Onest 400–800; weight 500 allowed for captions/controls, not as a hierarchy step) and the chart palette; where any older guideline text still conflicts, prefer the active implementation + style-direction doc.
-
-The webapp uses a **shadcn/ui-based design system** (Radix primitives + Tailwind CSS + `class-variance-authority`), implementing a modern, mobile-first finance tracker interface. There is no separate `design-system/` package — shared primitives live directly in `shared/ui/` (Feature-Sliced Design layout: `app/entities/features/pages/shared/widgets`).
-
-### Design System Structure
-
-**Location:** `webapp/src/shared/ui/`
-
-Shared primitives (`button.tsx`, `card.tsx`, `badge.tsx`, `input.tsx`, `dialog.tsx`, `alert-dialog.tsx`, `progress.tsx`, `skeleton.tsx`, `dock.tsx`, etc.), plus page-shell helpers in `layout.tsx` and `typography.tsx` (`PageShell`, `SectionStack`, `PageHeader`, `FormPageHeader`, `AmountText`, `MetricStat`).
-
-### Design Tokens
-
-**File:** `webapp/src/app/styles/globals.css` (`@theme inline` block)
-
-Centralized CSS variables:
-- **Base colors:** `background`, `foreground`, `card`, `primary`, `secondary`, `muted`, `accent`, `destructive`, `border`, `input`, `ring`
-- **Semantic finance colors:** `income` (green), `expense` (red), `warning` (orange), `success` (green) — each with `-foreground` and `-muted` variants
-- **Border radius scale:** `sm` 8px, `md` 12px, `lg` 16px, `xl` 20px, `2xl` 24px (standard cards), `3xl` 32px (modals/feature cards only), `full` pill
-- **Animation timing:** `duration-fast/normal/slow`, `ease-out/in-out/spring`
-
-There are no `lime`/`lavender` accent colors — those were removed as part of the design-system cleanup. **One accent per view**: neutral UI chrome (`primary`/`secondary`/`muted`) for structure, semantic tokens (`income`/`expense`/`warning`/`success`/`destructive`) only where they explain financial meaning. Never hardcode raw Tailwind palette colors (`red-*`, `purple-*`, etc.) for UI state — use the semantic tokens above.
-
-### UI Components
-
-**Import pattern:**
-```typescript
-import { Button } from '@/shared/ui/button';
-import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/shared/ui/card';
-import { Badge } from '@/shared/ui/badge';
-```
-
-**Button variants:** `default` (dark, primary actions) · `destructive` · `outline` · `secondary` · `ghost` · `link` · `income` · `expense`
-
-**Badge variants:** `default` · `secondary` · `destructive` · `outline` · `income` · `expense` · `warning` · `success`
-
-**Card:** single primitive, `rounded-2xl` (24px, standard card radius) by default — pass an explicit `rounded-3xl` only for modals/feature cards that intentionally opt into the larger radius.
-
-**Example usage:**
-```tsx
-<Button variant="income" size="lg">
-  Add Income
-</Button>
-
-<Card className="p-5">
-  <CardHeader><CardTitle>Balance</CardTitle></CardHeader>
-  <CardContent>...</CardContent>
-</Card>
-```
-
-### Key Features
-
-1. **Dynamic Font Sizing** - `AmountText`/`BalanceCard` scale text based on amount magnitude
-2. **Responsive Design** - Mobile-first with breakpoints (md: 768px, lg: 1024px)
-3. **Hybrid Navigation** - `Dock` (mobile bottom nav) + top nav (desktop)
-4. **Consistent Animations** - Fade-in, slide-up, stagger effects (see Animation Classes below)
-5. **TypeScript Typed** - Full type safety for all components
-
-### Feature Components
-
-- **`widgets/balance-card/`** - Dark card showing balance with dynamic font sizing
-- **`entities/transaction/ui/`** - `TransactionCard`, `TransactionListItem`, `TransactionActions`
-- **`entities/budget/ui/BudgetCard.tsx`** - Budget progress card with alerts
-- **`shared/ui/dock.tsx`** - Bottom navigation (mobile) with centered `+` action
-
-### Responsive Breakpoints
-
-```css
-/* Mobile-first approach */
-default: mobile (< 768px)
-md: tablet (≥ 768px)
-lg: desktop (≥ 1024px)
-```
-
-### Animation Classes
-
-Available in `webapp/src/app/styles/globals.css`:
-- `.animate-fade-in` / `.animate-fade-in-up` - Fade in with slight upward movement
-- `.animate-slide-in-up` - Slide up from bottom
-- `.animate-scale-in` - Scale-up entrance
-- `.stagger-1` … `.stagger-8` - 50ms-increment stagger delays for list items
-
-### Adding New Components
-
-1. Create `ComponentName.tsx` in `webapp/src/shared/ui/` (shared primitive) or the relevant `entities/`/`widgets/`/`features/` slice (feature-specific component)
-2. Use `cva` for variant-based components (see `button.tsx`/`badge.tsx` for the pattern)
-3. Reference design tokens (`globals.css` CSS variables) for colors, spacing, radius — never hardcode raw Tailwind palette colors
-4. Export via the slice's `index.ts` barrel
-
-### Styling Guidelines
-
-- Use Tailwind utility classes (configured via `@theme inline` in `globals.css`, no `tailwind.config.js` color overrides needed)
-- Reference design tokens for colors, spacing, shadows
-- Standard cards: `rounded-2xl` (24px); reserve `rounded-3xl` (32px) for modals/feature cards
-- Use `overflow-hidden` to prevent text overflow
-- Apply `break-all` for long numbers/text that needs wrapping
-- Include hover states for interactive elements
-- Add active states with `active:scale-95` for touch feedback
-
-For detailed component documentation, see: [Design System Guide](docs/knowledge-base/08-development/design-system.md)
-
----
+- **Tokens:** `docs/pastel/tokens.json` → `npm run tokens:pastel` → `webapp/src/app/styles/pastel-tokens.css` and `webapp/src/shared/config/pastelTokens.ts` (generated, never edit; `npm run check:tokens` is part of verify).
+- **Tailwind names:** Pastel colours `bg-bg`, `text-ink`, `text-ink-muted`, `bg-track`, `bg-sheet`, `bg-sheet-card`, `border-line`, `bg-pastel-mint`…; radii `rounded-tile|control|card|hero|pill`; sizes `h-touch|key|control|button|row`; text styles `type-balance`, `type-section`, `type-label`, `type-body`, `type-body-strong`, `type-button`… The shadcn names (`bg-background`, `text-muted-foreground`, `bg-primary`…) map to Pastel tokens so not-yet-redesigned screens follow the theme.
+- **Components:** `webapp/src/shared/ui/pastel/` — `Button`, `Segmented`, `SwitchRow`, `ChoiceChips`, `SettingsSection`/`SettingsRow`, `CategoryDot`, `CategoryTile`, `ProblemScreen`, `SkeletonBlock`, `Keypad`, `UndoToast`, `Sheet`, `CategoryPicker`, `AccountPicker`, `CalendarSheet`. New screens use these; shadcn primitives in `shared/ui` stay only for screens not yet redesigned and go away with them.
+- **Logic helpers:** `shared/lib/money` (format, keypad), `shared/lib/undo` (toast stack), `shared/lib/dates` (local dates, calendar), `shared/lib/theme`, `shared/lib/pastel` (category colours).
+- **Showcase:** `/dev/pastel` renders every component in both themes, with a +30% label switch. Check new components there before using them on screens.
+- **Acceptance:** a screen is compared by screenshot with its canvas board (task field `Design`), light and dark, at 390px.
 
 ## Common Development Tasks
 
