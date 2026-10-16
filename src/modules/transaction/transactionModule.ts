@@ -2,7 +2,7 @@ import { CreateTransactionUseCase } from './application/createTransaction';
 import { GetTransactionsUseCase } from './application/getTransactions';
 import { GetUserTransactionsUseCase } from './application/getUserTransactions';
 import { GetTransactionByIdUseCase } from './application/getTransactionById';
-import { DeleteTransactionUseCase } from './application/deleteTransaction';
+import { DeleteTransactionUseCase, RestoreTransactionUseCase } from './application/deleteTransaction';
 import { UpdateTransactionUseCase } from './application/updateTransaction';
 import { UpdateTransactionWithLearningUseCase } from './application/updateTransactionWithLearning';
 import { AnalyticsService } from './application/analyticsService';
@@ -27,8 +27,11 @@ export class TransactionModule {
   private accountResolver?: AccountResolver;
   private periodTotals = new PeriodTotalsService();
 
+  private restoreTransactionUseCase: RestoreTransactionUseCase;
+
   constructor(private repository: TransactionRepository) {
     this.deleteTransactionUseCase = new DeleteTransactionUseCase(repository);
+    this.restoreTransactionUseCase = new RestoreTransactionUseCase(repository);
     this.createTransactionUseCase = new CreateTransactionUseCase(repository);
   }
 
@@ -49,6 +52,7 @@ export class TransactionModule {
       subscriptionModule,
       userModule
     );
+    this.restoreTransactionUseCase.setSubscriptionDependencies(subscriptionModule, userModule);
     this.createTransactionUseCase.setSubscriptionDependencies(
       subscriptionModule,
       userModule
@@ -96,6 +100,10 @@ export class TransactionModule {
 
   getGetTransactionByIdUseCase(): GetTransactionByIdUseCase {
     return new GetTransactionByIdUseCase(this.repository);
+  }
+
+  getRestoreTransactionUseCase(): RestoreTransactionUseCase {
+    return this.restoreTransactionUseCase;
   }
 
   getDeleteTransactionUseCase(): DeleteTransactionUseCase {

@@ -38,7 +38,7 @@ export class SqliteAccountRepository implements AccountRepository {
 
   /**
    * How much each account changed since its opening date (money-model «Остаток счёта»): every record
-   * that is not archived counts by its type — whatever its semanticType and even while it awaits review,
+   * that is not archived or deleted (FT-105) counts by its type — whatever its semanticType and even while it awaits review,
    * because the money did leave or reach the account — and every move that is not deleted (FT-104):
    * what arrived adds, what left subtracts, an adjustment adds its signed difference. Records and moves
    * dated before the opening date do not count, nor do records in another currency than the account's —
@@ -52,7 +52,8 @@ export class SqliteAccountRepository implements AccountRepository {
                 CASE WHEN t."type" = 'income' THEN t."amount_minor" ELSE -t."amount_minor" END AS "change"
          FROM "transactions" t
          JOIN "accounts" a ON a."id" = t."account_id"
-         WHERE a."user_id" = ? AND t."isArchived" = 0 AND t."date" >= a."opening_date" AND t."currency" = a."currency"
+         WHERE a."user_id" = ? AND t."isArchived" = 0 AND t."deleted_at" IS NULL
+           AND t."date" >= a."opening_date" AND t."currency" = a."currency"
          UNION ALL
          SELECT m."to_account_id", m."to_amount_minor"
          FROM "account_moves" m
@@ -69,7 +70,7 @@ export class SqliteAccountRepository implements AccountRepository {
     return new Map(rows.map(row => [row.accountId, Number(row.change)]));
   }
 
-  /** Deleted moves count too: «Отменить» can bring them back. */
+  /** Deleted records and moves count too: «Отменить» can bring them back. */
   async hasOperations(accountId: string): Promise<boolean> {
     const rows = await this.dataSource.query(
       `SELECT 1 FROM "transactions" WHERE "account_id" = ?

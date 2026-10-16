@@ -4,7 +4,7 @@ import { GetTransactionsUseCase } from '../../application/getTransactions';
 import { AnalyticsService } from '../../application/analyticsService';
 import { GetUserTransactionsUseCase } from '../../application/getUserTransactions';
 import { GetTransactionByIdUseCase } from '../../application/getTransactionById';
-import { DeleteTransactionUseCase } from '../../application/deleteTransaction';
+import { DeleteTransactionUseCase, RestoreTransactionUseCase } from '../../application/deleteTransaction';
 import { UpdateTransactionUseCase } from '../../application/updateTransaction';
 import { UpdateTransactionWithLearningUseCase } from '../../application/updateTransactionWithLearning';
 import { ArchiveTransactionUseCase } from '../../application/archiveTransaction';
@@ -41,7 +41,7 @@ async function verifyTransactionOwnershipWithResult(
   transactionId: string,
   getByIdUseCase: GetTransactionByIdUseCase,
   userModule?: UserModule,
-  options?: { includeArchived?: boolean }
+  options?: { includeArchived?: boolean; includeDeleted?: boolean }
 ): Promise<{ success: true; transaction: Transaction } | { success: false; error: Error }> {
   const result = await getByIdUseCase.execute(transactionId, options);
 
@@ -76,7 +76,8 @@ export function createTransactionRouter(
   getArchivedUseCase: GetArchivedTransactionsUseCase,
   // Kept for the router's call signature; usage is counted in CreateTransactionUseCase.
   _subscriptionModule?: SubscriptionModule,
-  userModule?: UserModule
+  userModule?: UserModule,
+  restoreUseCase?: RestoreTransactionUseCase
 ): Router {
   const router = Router();
 
@@ -311,8 +312,9 @@ export function createTransactionRouter(
         return handleControllerError(deleteResult.error, res);
       }
 
+      // Deleted softly (FT-105): POST /:id/restore brings it back
       handleControllerSuccess(
-        { message: SUCCESS_MESSAGES.TRANSACTION_DELETED },
+        { message: SUCCESS_MESSAGES.TRANSACTION_DELETED, id: transactionId },
         res,
         200,
         SUCCESS_MESSAGES.TRANSACTION_DELETED
@@ -321,6 +323,31 @@ export function createTransactionRouter(
       handleControllerError(error, res);
     }
   });
+
+  if (restoreUseCase) {
+    /** «Отменить» after a delete (FT-105): the record comes back to lists, balances and totals. */
+    router.post('/:id/restore', optionalAuth, async (req, res) => {
+      try {
+        const transactionId = getStringParam(req, 'id');
+        if (!transactionId) {
+          return handleControllerError(ErrorFactory.validation('Transaction ID is required'), res);
+        }
+
+        const ownershipResult = await verifyTransactionOwnershipWithResult(
+          req, transactionId, getByIdUseCase, userModule, { includeDeleted: true }
+        );
+        if (!ownershipResult.success) {
+          return handleControllerError(ownershipResult.error, res);
+        }
+
+        const result = await restoreUseCase.execute({ id: transactionId });
+        if (!result.success) return handleControllerError(result.error, res);
+        handleControllerSuccess(result.data, res);
+      } catch (error) {
+        handleControllerError(error, res);
+      }
+    });
+  }
 
   router.put('/:id', optionalAuth, async (req, res) => {
     try {

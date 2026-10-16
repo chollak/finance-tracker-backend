@@ -87,6 +87,13 @@ export class Transaction {
   @Column({ default: false })
   isArchived!: boolean;
 
+  /**
+   * Deleted softly (FT-105): «Отменить» brings the record back. The repository leaves deleted records
+   * out of every read unless asked for them by id.
+   */
+  @Column('datetime', { name: 'deleted_at', nullable: true })
+  deletedAt?: Date | null;
+
   // Debt-related fields
   @Column({ default: false })
   isDebtRelated!: boolean; // True if this transaction is related to a debt

@@ -4,9 +4,14 @@ import { Transaction } from "./transactionEntity";
 export interface TransactionRepository {
     create(transaction: Transaction): Promise<Transaction>;
     getAll(): Promise<Transaction[]>;
+    /** Reads leave deleted records out (FT-105); only the *IncludingDeleted lookup sees them. */
     findById(id: string): Promise<Transaction | null>;
     findByUserId(userId: string, limit?: number): Promise<Transaction[]>;
+    /** Deletes softly (FT-105). */
     delete(id: string): Promise<void>;
+    /** Brings a softly deleted record back. */
+    restore(id: string): Promise<Transaction>;
+    findByIdIncludingDeleted(id: string): Promise<Transaction | null>;
     update(id: string, updates: Partial<Transaction>): Promise<Transaction>;
     getByUserIdAndDateRange(userId: string, startDate: Date, endDate: Date): Promise<Transaction[]>;
 

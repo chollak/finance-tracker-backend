@@ -16,10 +16,15 @@ export class SqliteTransactionRepository implements TransactionRepository {
     this.repository = dataSource.getRepository(TransactionEntity);
   }
 
-  /** Records come with their category, so readers get its current name. */
-  private query(): SelectQueryBuilder<TransactionEntity> {
-    return this.repository.createQueryBuilder('transaction')
+  /**
+   * Records come with their category, so readers get its current name. Deleted records (FT-105) are
+   * left out unless asked for: every reader — history, balances, analytics, the bot, the weekly
+   * review, export, learning — goes through here.
+   */
+  private query(options: { includeDeleted?: boolean } = {}): SelectQueryBuilder<TransactionEntity> {
+    const builder = this.repository.createQueryBuilder('transaction')
       .leftJoinAndSelect('transaction.categoryRef', 'category');
+    return options.includeDeleted ? builder.where('1 = 1') : builder.where('transaction.deletedAt IS NULL');
   }
 
   async create(transaction: Transaction): Promise<Transaction> {
@@ -56,7 +61,7 @@ export class SqliteTransactionRepository implements TransactionRepository {
 
   async getAll(): Promise<Transaction[]> {
     const entities = await this.query()
-      .where('transaction.isArchived = :isArchived', { isArchived: false })
+      .andWhere('transaction.isArchived = :isArchived', { isArchived: false })
       .orderBy('transaction.createdAt', 'DESC')
       .getMany();
 
@@ -65,15 +70,31 @@ export class SqliteTransactionRepository implements TransactionRepository {
 
   async findById(id: string): Promise<Transaction | null> {
     const entity = await this.query()
-      .where('transaction.id = :id', { id })
+      .andWhere('transaction.id = :id', { id })
       .andWhere('transaction.isArchived = :isArchived', { isArchived: false })
       .getOne();
 
     return entity ? this.mapToTransaction(entity) : null;
   }
 
+  /** Deletes softly (FT-105); `restore` brings the record back. */
   async delete(id: string): Promise<void> {
-    await this.repository.delete(id);
+    await this.repository.update(id, { deletedAt: new Date() });
+  }
+
+  async restore(id: string): Promise<Transaction> {
+    await this.repository.update(id, { deletedAt: null });
+    const restored = await this.findByIdIncludingArchived(id);
+    if (!restored) throw new Error(`Transaction ${id} not found after restore`);
+    return restored;
+  }
+
+  /** A record by id even if it is deleted — to restore it, or to answer a repeated create (FT-106). */
+  async findByIdIncludingDeleted(id: string): Promise<Transaction | null> {
+    const entity = await this.query({ includeDeleted: true })
+      .andWhere('transaction.id = :id', { id })
+      .getOne();
+    return entity ? this.mapToTransaction(entity) : null;
   }
 
   async update(id: string, updates: Partial<Transaction>): Promise<Transaction> {
@@ -111,7 +132,7 @@ export class SqliteTransactionRepository implements TransactionRepository {
 
   async getByUserIdAndDateRange(userId: string, startDate: Date, endDate: Date): Promise<Transaction[]> {
     const entities = await this.query()
-      .where('transaction.userId = :userId', { userId })
+      .andWhere('transaction.userId = :userId', { userId })
       .andWhere('transaction.isArchived = :isArchived', { isArchived: false })
       .andWhere('transaction.date >= :startDate', { startDate: startDate.toISOString().split('T')[0] })
       .andWhere('transaction.date <= :endDate', { endDate: endDate.toISOString().split('T')[0] })
@@ -123,7 +144,7 @@ export class SqliteTransactionRepository implements TransactionRepository {
 
   async findByUserId(userId: string, limit?: number): Promise<Transaction[]> {
     const queryBuilder = this.query()
-      .where('transaction.userId = :userId', { userId })
+      .andWhere('transaction.userId = :userId', { userId })
       .andWhere('transaction.isArchived = :isArchived', { isArchived: false })
       .orderBy('transaction.date', 'DESC')
       .addOrderBy('transaction.createdAt', 'DESC');
@@ -159,7 +180,9 @@ export class SqliteTransactionRepository implements TransactionRepository {
       source: isRecordSource(entity.source) ? entity.source : undefined,
       userName: undefined, // We'll get this from User entity later
       isArchived: entity.isArchived ?? false,
-      createdAt: entity.createdAt?.toISOString()
+      createdAt: entity.createdAt?.toISOString(),
+      // Only deleted records carry it, so live records keep their shape
+      ...(entity.deletedAt ? { deletedAt: new Date(entity.deletedAt).toISOString() } : {}),
     };
   }
 
@@ -195,7 +218,7 @@ export class SqliteTransactionRepository implements TransactionRepository {
 
   async findArchivedByUserId(userId: string, limit?: number): Promise<Transaction[]> {
     const queryBuilder = this.query()
-      .where('transaction.userId = :userId', { userId })
+      .andWhere('transaction.userId = :userId', { userId })
       .andWhere('transaction.isArchived = :isArchived', { isArchived: true })
       .orderBy('transaction.date', 'DESC')
       .addOrderBy('transaction.createdAt', 'DESC');
@@ -210,7 +233,7 @@ export class SqliteTransactionRepository implements TransactionRepository {
 
   async findByIdIncludingArchived(id: string): Promise<Transaction | null> {
     const entity = await this.query()
-      .where('transaction.id = :id', { id })
+      .andWhere('transaction.id = :id', { id })
       .getOne();
 
     return entity ? this.mapToTransaction(entity) : null;

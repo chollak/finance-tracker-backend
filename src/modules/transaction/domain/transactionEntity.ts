@@ -49,6 +49,8 @@ export interface Transaction {
     };
     // Archive support
     isArchived?: boolean;
+    /** ISO moment of a soft delete (FT-105); only on deleted records, which reads leave out. */
+    deletedAt?: string;
     // Debt-related fields
     isDebtRelated?: boolean;
     relatedDebtId?: string;
