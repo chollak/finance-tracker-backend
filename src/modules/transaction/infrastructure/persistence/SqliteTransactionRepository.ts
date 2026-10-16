@@ -68,6 +68,7 @@ export class SqliteTransactionRepository implements TransactionRepository {
     }
     if (updates.needsReview !== undefined) updateData.needsReview = updates.needsReview;
     if (updates.description !== undefined) updateData.description = updates.description;
+    if (updates.category !== undefined) updateData.category = updates.category;
     if (updates.date !== undefined) updateData.date = updates.date;
     if (updates.merchant !== undefined) updateData.merchant = updates.merchant;
     if (updates.confidence !== undefined) updateData.confidence = updates.confidence;

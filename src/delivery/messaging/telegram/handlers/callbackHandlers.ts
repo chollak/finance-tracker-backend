@@ -110,19 +110,25 @@ async function handleDelete(ctx: BotContext) {
       return;
     }
 
-    const userId = String(ctx.from?.id ?? 'unknown');
+    // The last transaction is tracked by Telegram id — the only identity a callback query carries.
+    const telegramId = String(ctx.from?.id ?? 'unknown');
 
     // Security check - only allow deleting last transaction
-    if (getLastTransactionId(userId) !== transactionId) {
+    if (getLastTransactionId(telegramId) !== transactionId) {
       await ctx.answerCbQuery(RU.errors.cannotDelete);
       return;
     }
 
     const { transactionModule } = ctx.modules;
 
-    // Delete the transaction
-    await transactionModule.getDeleteTransactionUseCase().execute(transactionId);
-    clearLastTransactionId(userId);
+    // Delete the transaction; the use case looks up the owner itself to decrement usage.
+    const result = await transactionModule.getDeleteTransactionUseCase().execute({ id: transactionId });
+    if (!result.success) {
+      logger.error('Delete callback failed', result.error, { transactionId });
+      await ctx.answerCbQuery(RU.errors.generic);
+      return;
+    }
+    clearLastTransactionId(telegramId);
 
     // Remove inline keyboard from message
     await ctx.editMessageReplyMarkup(undefined);

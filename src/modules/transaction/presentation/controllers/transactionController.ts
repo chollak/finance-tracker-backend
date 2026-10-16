@@ -19,7 +19,6 @@ import { ErrorFactory } from '../../../../shared/domain/errors/AppError';
 import { SUCCESS_MESSAGES } from '../../../../shared/domain/constants/messages';
 import { SubscriptionModule } from '../../../subscription/subscriptionModule';
 import { UserModule } from '../../../user/userModule';
-import { createIncrementUsageMiddleware } from '../../../../delivery/web/express/middleware/subscriptionMiddleware';
 import { createUserResolutionMiddleware } from '../../../../delivery/web/express/middleware/userResolutionMiddleware';
 import { allowGuestMode, optionalAuth, verifyOwnership, requireAdmin } from '../../../../delivery/web/express/middleware/authMiddleware';
 import { standardRateLimiter } from '../../../../delivery/web/express/middleware/rateLimitMiddleware';
@@ -75,7 +74,8 @@ export function createTransactionRouter(
   archiveMultipleUseCase: ArchiveMultipleTransactionsUseCase,
   archiveAllByUserUseCase: ArchiveAllByUserUseCase,
   getArchivedUseCase: GetArchivedTransactionsUseCase,
-  subscriptionModule?: SubscriptionModule,
+  // Kept for the router's call signature; usage is counted in CreateTransactionUseCase.
+  _subscriptionModule?: SubscriptionModule,
   userModule?: UserModule
 ): Router {
   const router = Router();
@@ -84,11 +84,6 @@ export function createTransactionRouter(
   const resolveUser = userModule
     ? createUserResolutionMiddleware(userModule)
     : (_req: any, _res: any, next: any) => next();
-
-  // Create increment middleware if subscription modules are available
-  const incrementTransactionMiddleware = subscriptionModule && userModule
-    ? createIncrementUsageMiddleware(subscriptionModule, userModule, 'transactions')
-    : null;
 
   // Apply rate limiting to all routes
   router.use(standardRateLimiter);
@@ -209,12 +204,9 @@ export function createTransactionRouter(
     }
   });
 
-  // Build middleware chain for POST - resolveUser + increment middleware
-  const postMiddlewares = incrementTransactionMiddleware
-    ? [resolveUser, incrementTransactionMiddleware]
-    : [resolveUser];
-
-  router.post('/', ...postMiddlewares, async (req, res) => {
+  // Usage is counted by CreateTransactionUseCase, once per created transaction — a route-level
+  // increment here counted every POST twice.
+  router.post('/', resolveUser, async (req, res) => {
     try {
       // Use resolved UUID from middleware (for body.userId)
       if (req.resolvedUser?.id && req.body.userId) {
