@@ -11,3 +11,4 @@ export * from './add-debt';
 export * from './debt-details';
 export * from './analytics';
 export * from './more';
+export * from './voice-check';
