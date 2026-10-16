@@ -56,8 +56,16 @@ export async function runMigrationsWithBackup(
     backupPath = backupDatabaseFile(databaseFile, backupDir);
   }
 
-  const applied = await dataSource.runMigrations({ transaction: 'each' });
-  return { applied: applied.map(migration => migration.name), backupPath };
+  try {
+    const applied = await dataSource.runMigrations({ transaction: 'each' });
+    return { applied: applied.map(migration => migration.name), backupPath };
+  } catch (error) {
+    // Say where the copy is, so restoring it does not depend on finding the right file by time.
+    if (backupPath && error instanceof Error) {
+      error.message = `${error.message} [backup before migrations: ${backupPath}]`;
+    }
+    throw error;
+  }
 }
 
 /**

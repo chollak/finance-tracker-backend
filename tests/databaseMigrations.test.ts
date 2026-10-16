@@ -7,6 +7,7 @@ import {
   createAppDataSource,
   DATABASE_ENTITIES,
 } from '../src/shared/infrastructure/database/database.config';
+import { baselineColumns } from '../src/shared/infrastructure/database/migrations/1760600000000-Baseline';
 import {
   backupDatabaseFile,
   findSchemaDrift,
@@ -85,6 +86,25 @@ describe('database migrations (FT-090)', () => {
     expect(await backup.query('SELECT id FROM transactions')).toEqual([{ id: 'tx-1' }]);
   });
 
+  it('refuses to adopt a database whose tables miss baseline columns, and changes nothing', async () => {
+    const file = path.join(dir, 'old.sqlite');
+    const old = new DataSource({ type: 'sqlite', database: file });
+    await old.initialize();
+    await old.query(
+      `CREATE TABLE "transactions" ("id" varchar PRIMARY KEY NOT NULL, "amount" decimal(10,2) NOT NULL, "type" varchar NOT NULL,
+        "description" varchar NOT NULL, "date" date NOT NULL, "userId" varchar NOT NULL, "category" varchar)`
+    );
+    await old.query(`INSERT INTO transactions (id, amount, type, description, date, userId) VALUES ('tx-1', 1, 'expense', 'x', '2026-10-14', 'u')`);
+    await old.destroy();
+    const ds = await appDataSource(file);
+
+    await expect(runMigrationsWithBackup(ds, file, path.join(dir, 'backups'))).rejects.toThrow(/semanticType, needsReview/);
+
+    expect(await ds.query("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'users'")).toEqual([]);
+    expect(await ds.query('SELECT id FROM transactions')).toEqual([{ id: 'tx-1' }]);
+    expect(fs.readdirSync(path.join(dir, 'backups'))).toHaveLength(1);
+  });
+
   it('does nothing and takes no backup when no migration is pending', async () => {
     const file = path.join(dir, 'current.sqlite');
     const ds = await appDataSource(file);
@@ -114,6 +134,13 @@ describe('database migrations (FT-090)', () => {
     await runMigrationsWithBackup(ds, file, path.join(dir, 'backups'));
 
     await expect(ds.undoLastMigration()).rejects.toThrow(/cannot be reverted/);
+  });
+
+  it('reads the baseline column list from its own SQL', () => {
+    const columns = baselineColumns();
+    expect(Object.keys(columns).sort()).toEqual(['budgets', 'debt_payments', 'debts', 'subscriptions', 'transactions', 'usage_limits', 'users']);
+    expect(columns.transactions).toEqual(expect.arrayContaining(['id', 'amount', 'semanticType', 'needsReview', 'category', 'splitGroupId']));
+    expect(columns.transactions).toHaveLength(20);
   });
 
   it('names backups by time and never overwrites an earlier one', () => {

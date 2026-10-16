@@ -1,5 +1,6 @@
 import { env } from '@/shared/config/env';
 import type { ApiResponse, ApiError } from './types';
+import { readServerError } from './readServerError';
 
 /**
  * Get Telegram Web App initData for authentication
@@ -62,6 +63,7 @@ class ApiClient {
           message: errorData.message || 'Request failed',
           statusCode: response.status,
           errors: errorData.errors,
+          ...readServerError(errorData),
         } as ApiError;
       }
 
@@ -123,6 +125,7 @@ class ApiClient {
         throw {
           message: errorData.message || 'Upload failed',
           statusCode: response.status,
+          ...readServerError(errorData),
         } as ApiError;
       }
 

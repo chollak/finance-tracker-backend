@@ -8,8 +8,8 @@
  * Read-only by construction, not by convention:
  *   - the SQLite file is opened with `OPEN_READONLY`, so the driver itself rejects any write;
  *   - the only statements issued are `PRAGMA table_info` and one `SELECT`;
- *   - TypeORM is deliberately not used — `AppDataSource` runs with `synchronize: true` in
- *     development and would alter the schema just by connecting.
+ *   - TypeORM is deliberately not used — connecting `AppDataSource` would apply pending migrations
+ *     (FT-090), and a read-only preview must not change the schema.
  *
  * Usage:
  *   npm run preview:semantic

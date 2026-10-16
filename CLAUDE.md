@@ -769,7 +769,7 @@ See: [Adding Features Guide](docs/knowledge-base/08-development/adding-features.
 1. Change the entity in `src/shared/infrastructure/database/entities/`
 2. Add a migration class in `src/shared/infrastructure/database/migrations/` and list it in `migrations/index.ts`
 3. Test it on a real SQLite file in a temp dir (see `tests/databaseMigrations.test.ts`): data kept, `findSchemaDrift()` empty
-4. `npm run migration:show` shows pending migrations and any entity/schema drift
+4. `npm run migration:show` shows pending migrations and any entity/schema drift; `npm run migration:run` applies them after a backup (the app also does this on start); `npm run migration:revert` undoes the last one after a backup
 
 Never turn `synchronize` back on. See: [Database Guide](docs/knowledge-base/08-development/database-guide.md)
 

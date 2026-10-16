@@ -18,10 +18,38 @@ const BASELINE_TABLES = [
   `CREATE TABLE IF NOT EXISTS "users" ("id" varchar PRIMARY KEY NOT NULL, "telegram_id" varchar NOT NULL, "user_name" varchar, "first_name" varchar, "last_name" varchar, "language_code" varchar NOT NULL DEFAULT ('ru'), "default_currency" varchar NOT NULL DEFAULT ('UZS'), "timezone" varchar NOT NULL DEFAULT ('Asia/Tashkent'), "created_at" datetime NOT NULL DEFAULT (datetime('now')), "updated_at" datetime NOT NULL DEFAULT (datetime('now')), "last_seen_at" datetime, CONSTRAINT "UQ_1a1e4649fd31ea6ec6b025c7bfc" UNIQUE ("telegram_id"))`,
 ];
 
+/** Table → column names, read from the statements above so the two cannot disagree. */
+export function baselineColumns(): Record<string, string[]> {
+  const result: Record<string, string[]> = {};
+  for (const sql of BASELINE_TABLES) {
+    const table = /CREATE TABLE IF NOT EXISTS "(\w+)"/.exec(sql)![1];
+    result[table] = [...sql.matchAll(/"(\w+)" (?:varchar|decimal|boolean|date|datetime|text|integer)/g)].map(match => match[1]);
+  }
+  return result;
+}
+
 export class Baseline1760600000000 implements MigrationInterface {
   name = 'Baseline1760600000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
+    // A database created by an older schema (for example one that ran without synchronize) must not be
+    // adopted silently: later migrations are written against this baseline and would fail half-way.
+    const missing: string[] = [];
+    for (const [table, columns] of Object.entries(baselineColumns())) {
+      const existing: Array<{ name: string }> = await queryRunner.query(`PRAGMA table_info("${table}")`);
+      if (existing.length === 0) continue; // the table will be created below
+      const present = new Set(existing.map(column => column.name));
+      const absent = columns.filter(column => !present.has(column));
+      if (absent.length > 0) missing.push(`${table}: ${absent.join(', ')}`);
+    }
+    if (missing.length > 0) {
+      throw new Error(
+        `The database does not match the baseline schema, so it cannot be adopted automatically. ` +
+        `Missing columns — ${missing.join('; ')}. The database was not changed; a copy is in data/backups/. ` +
+        `Add the columns (see docs/knowledge-base/08-development/database-guide.md) and start again.`
+      );
+    }
+
     for (const sql of BASELINE_TABLES) {
       await queryRunner.query(sql);
     }

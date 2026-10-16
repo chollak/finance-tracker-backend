@@ -29,7 +29,9 @@ export interface SubscriptionStatus {
 export class GetSubscriptionUseCase {
   constructor(
     private subscriptionRepository: SubscriptionRepository,
-    private usageLimitRepository: UsageLimitRepository
+    private usageLimitRepository: UsageLimitRepository,
+    /** When free-tier limits are off (FT-091), limits are reported as null, like for premium. */
+    private options: { limitsEnabled: boolean } = { limitsEnabled: true }
   ) {}
 
   async execute(userId: string): Promise<SubscriptionStatus> {
@@ -49,10 +51,11 @@ export class GetSubscriptionUseCase {
     const trialDaysLeft = this.calculateDaysLeft(subscription?.trialEndsAt);
     const subscriptionDaysLeft = this.calculateDaysLeft(subscription?.endDate);
 
-    // Calculate limits based on tier
-    const txLimit = isPremium ? null : FREE_TIER_LIMITS.transactions;
-    const voiceLimit = isPremium ? null : FREE_TIER_LIMITS.voiceInputs;
-    const debtLimit = isPremium ? null : FREE_TIER_LIMITS.activeDebts;
+    // Calculate limits based on tier; no limits for premium or while free-tier limits are switched off
+    const unlimited = isPremium || !this.options.limitsEnabled;
+    const txLimit = unlimited ? null : FREE_TIER_LIMITS.transactions;
+    const voiceLimit = unlimited ? null : FREE_TIER_LIMITS.voiceInputs;
+    const debtLimit = unlimited ? null : FREE_TIER_LIMITS.activeDebts;
 
     return {
       subscription,

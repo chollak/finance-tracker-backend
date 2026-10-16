@@ -50,6 +50,8 @@ export function VoiceCheckPage() {
   const [recording, setRecording] = useState<{ blob: Blob; mimeType: string; url: string } | null>(null);
   const [copied, setCopied] = useState(false);
   const urlRef = useRef<string | null>(null);
+  const reportRef = useRef<HTMLPreElement | null>(null);
+  const userType = useUserStore(state => state.userType);
 
   useEffect(() => () => {
     if (urlRef.current) URL.revokeObjectURL(urlRef.current);
@@ -72,8 +74,8 @@ export function VoiceCheckPage() {
       return;
     }
 
-    const mimeType = pickRecordingMimeType(type => MediaRecorder.isTypeSupported(type));
     try {
+      const mimeType = pickRecordingMimeType(type => MediaRecorder.isTypeSupported(type));
       const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
       const chunks: Blob[] = [];
       const started = performance.now();
@@ -83,20 +85,27 @@ export function VoiceCheckPage() {
       const stopped = new Promise<void>(resolve => {
         recorder.onstop = () => resolve();
       });
-      recorder.start();
+      // A timeslice makes WebKit deliver data during recording instead of only at stop.
+      recorder.start(250);
       for (let left = RECORD_SECONDS; left > 0; left -= 1) {
         setSecondsLeft(left);
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
       recorder.stop();
       await stopped;
-      const actualType = recorder.mimeType || mimeType || 'audio/webm';
-      const blob = new Blob(chunks, { type: actualType });
+      // Report what the recorder said, even if it said nothing; upload falls back to the picked type.
+      const reportedType = recorder.mimeType || '';
+      const blob = new Blob(chunks, { type: reportedType || mimeType || 'audio/webm' });
+      const seconds = (performance.now() - started) / 1000;
+      if (blob.size === 0) {
+        addStep({ step: 'recording', ok: false, mimeType: reportedType, detail: 'запись пустая: 0 байт' });
+        return;
+      }
       const url = URL.createObjectURL(blob);
       if (urlRef.current) URL.revokeObjectURL(urlRef.current);
       urlRef.current = url;
-      setRecording({ blob, mimeType: actualType, url });
-      addStep({ step: 'recording', ok: true, mimeType: actualType, bytes: blob.size, seconds: (performance.now() - started) / 1000 });
+      setRecording({ blob, mimeType: blob.type, url });
+      addStep({ step: 'recording', ok: true, mimeType: reportedType, bytes: blob.size, seconds });
     } catch (error) {
       addStep({ step: 'recording', ok: false, detail: error instanceof Error ? `${error.name}: ${error.message}` : String(error) });
     } finally {
@@ -119,8 +128,9 @@ export function VoiceCheckPage() {
       const payload = response.data ?? response;
       addStep({ step: 'upload', ok: true, recognizedText: payload.text ?? '', transactions: payload.transactions?.length ?? 0 });
     } catch (error) {
-      const apiError = error as { statusCode?: number; message?: string };
-      addStep({ step: 'upload', ok: false, status: apiError.statusCode, detail: apiError.message });
+      const apiError = error as { statusCode?: number; message?: string; serverMessage?: string; code?: string };
+      const detail = [apiError.code, apiError.serverMessage ?? apiError.message].filter(Boolean).join(': ');
+      addStep({ step: 'upload', ok: false, status: apiError.statusCode, detail });
     } finally {
       setBusy(null);
     }
@@ -128,10 +138,20 @@ export function VoiceCheckPage() {
 
   async function copyReport() {
     try {
+      if (!navigator.clipboard) throw new Error('clipboard unavailable');
       await navigator.clipboard.writeText(report);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
+      // Some Telegram WebViews have no clipboard API: select the text so the system menu can copy it.
+      const node = reportRef.current;
+      if (node) {
+        const range = document.createRange();
+        range.selectNodeContents(node);
+        const selection = window.getSelection();
+        selection?.removeAllRanges();
+        selection?.addRange(range);
+      }
       setCopied(false);
     }
   }
@@ -146,7 +166,7 @@ export function VoiceCheckPage() {
         </p>
       </header>
 
-      <Button size="lg" onClick={record} disabled={busy !== null || !env.hasMediaDevices}>
+      <Button size="lg" onClick={record} disabled={busy !== null || !env.hasMediaDevices || !env.hasMediaRecorder}>
         {busy === 'recording' ? `Записываю… ${secondsLeft}` : `1. Записать ${RECORD_SECONDS} секунд`}
       </Button>
 
@@ -157,11 +177,15 @@ export function VoiceCheckPage() {
       <Button size="lg" variant="secondary" onClick={upload} disabled={busy !== null || !recording || !userId}>
         {busy === 'uploading' ? 'Распознаю…' : '2. Отправить на распознавание'}
       </Button>
-      {!userId && <p className="text-sm text-muted-foreground">Нет пользователя — откройте страницу из Telegram.</p>}
+      {(!userId || userType === 'guest') && (
+        <p className="text-sm text-muted-foreground">
+          {userId ? 'Вы не в Telegram: запись уйдёт от гостя. Для проверки откройте страницу кнопкой меню бота.' : 'Нет пользователя — откройте страницу из Telegram.'}
+        </p>
+      )}
 
       <section className="flex flex-col gap-2">
         <h2 className="text-base font-bold">Отчёт</h2>
-        <pre className="whitespace-pre-wrap break-words rounded-2xl bg-card p-4 text-xs leading-relaxed">{report}</pre>
+        <pre ref={reportRef} className="select-text whitespace-pre-wrap break-words rounded-2xl bg-card p-4 text-xs leading-relaxed">{report}</pre>
         <Button variant="outline" onClick={copyReport}>{copied ? 'Скопировано' : 'Скопировать отчёт'}</Button>
       </section>
     </main>

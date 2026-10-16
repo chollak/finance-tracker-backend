@@ -31,7 +31,8 @@ const audioFileFilter = (
   if (ALLOWED_AUDIO_TYPES.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(new Error(`Invalid file type: ${file.mimetype}. Allowed types: ${ALLOWED_AUDIO_TYPES.join(', ')}`));
+    // A validation error, so the client gets 400 with the reason instead of a generic 500.
+    cb(ErrorFactory.validation(`Invalid file type: ${file.mimetype}. Allowed types: ${ALLOWED_AUDIO_TYPES.join(', ')}`, 'audio'));
   }
 };
 

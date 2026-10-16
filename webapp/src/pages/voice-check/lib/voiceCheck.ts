@@ -3,14 +3,16 @@
  * file must be labelled for the server's MIME whitelist, and the plain-text report Shukur pastes back.
  */
 
-/** Candidates in order of preference. Whisper accepts all of them; the server whitelist strips nothing. */
+/**
+ * Candidates in order of preference. Each base type is in the server's ALLOWED_AUDIO_TYPES; the server
+ * converts every upload to mp3 with ffmpeg before Whisper.
+ */
 export const RECORDING_MIME_CANDIDATES = [
   'audio/webm;codecs=opus',
   'audio/webm',
   'audio/mp4',
   'audio/ogg;codecs=opus',
   'audio/ogg',
-  'audio/aac',
 ] as const;
 
 export function pickRecordingMimeType(isTypeSupported: (type: string) => boolean): string | null {
@@ -70,7 +72,7 @@ export function buildVoiceCheckReport(env: VoiceCheckEnvironment, steps: VoiceCh
       lines.push(`Доступ к микрофону: ${step.ok ? 'дан' : 'нет'}${step.detail ? ` (${step.detail})` : ''}`);
     } else if (step.step === 'recording') {
       lines.push(step.ok
-        ? `Запись: ${step.mimeType} · ${step.bytes} байт · ${step.seconds?.toFixed(1)} с`
+        ? `Запись: ${step.mimeType || 'тип не сообщён'} · ${step.bytes} байт · ${step.seconds?.toFixed(1)} с`
         : `Запись: не удалась${step.detail ? ` (${step.detail})` : ''}`);
     } else {
       lines.push(step.ok

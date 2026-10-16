@@ -43,12 +43,26 @@ async function run(): Promise<void> {
 }
 
 async function revert(): Promise<void> {
-  if (fs.existsSync(DATABASE_FILE)) {
-    const backupPath = backupDatabaseFile(DATABASE_FILE, DATABASE_BACKUP_DIR);
-    console.log(`Backup: ${path.relative(process.cwd(), backupPath)}`);
+  const tableExists = (await AppDataSource.query(
+    "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'migrations'"
+  )).length > 0;
+  const last: Array<{ name: string }> = tableExists
+    ? await AppDataSource.query('SELECT name FROM migrations ORDER BY id DESC LIMIT 1')
+    : [];
+  if (last.length === 0) {
+    console.log('Nothing to revert: no migration has been applied.');
+    return;
   }
+  if (last[0].name === MIGRATIONS[0].name) {
+    console.log('The last applied migration is the baseline; it cannot be reverted (it would drop all data).');
+    process.exitCode = 1;
+    return;
+  }
+
+  const backupPath = backupDatabaseFile(DATABASE_FILE, DATABASE_BACKUP_DIR);
+  console.log(`Backup: ${path.relative(process.cwd(), backupPath)}`);
   await AppDataSource.undoLastMigration({ transaction: 'each' });
-  console.log('Reverted the last applied migration.');
+  console.log(`Reverted ${last[0].name}.`);
 }
 
 async function main(): Promise<void> {

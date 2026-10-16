@@ -24,6 +24,14 @@ describe('voice check helpers (FT-088)', () => {
     expect(fileExtensionFor('audio/x-unknown')).toBe('audio');
   });
 
+  it('says so when the recorder did not report a type', () => {
+    const report = buildVoiceCheckReport(
+      { telegramPlatform: 'ios', telegramVersion: '8.0', userAgent: 'UA', hasMediaDevices: true, hasMediaRecorder: true, supportedTypes: [] },
+      [{ step: 'recording', ok: true, mimeType: '', bytes: 1200, seconds: 5 }]
+    );
+    expect(report).toContain('Запись: тип не сообщён · 1200 байт');
+  });
+
   it('builds a report that can be pasted back as text', () => {
     const report = buildVoiceCheckReport(
       {

@@ -625,8 +625,7 @@ src/modules/{module}/
 │   ├── get{Entity}s.ts          # GetAllUseCase
 │   └── {entity}Service.ts       # Service (если нужна сложная логика)
 ├── infrastructure/
-│   ├── Sqlite{Entity}Repository.ts
-│   └── Supabase{Entity}Repository.ts
+│   └── Sqlite{Entity}Repository.ts   # TypeORM; tables come from a migration
 ├── presentation/
 │   ├── {entity}Controller.ts
 │   └── {entity}Routes.ts

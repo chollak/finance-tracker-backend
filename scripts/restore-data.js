@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
-const { AppDataSource } = require('../dist/shared/infrastructure/database/database.config');
+const { AppDataSource, DATABASE_FILE, DATABASE_BACKUP_DIR } = require('../dist/shared/infrastructure/database/database.config');
+const { runMigrationsWithBackup } = require('../dist/shared/infrastructure/database/migrationRunner');
 const fs = require('fs');
 const path = require('path');
 
@@ -13,6 +14,8 @@ async function restoreData(filePath, dataType = 'auto') {
       await AppDataSource.initialize();
       console.log('✅ Database connected');
     }
+    // Tables come from migrations (FT-090); a fresh database has none until they run.
+    await runMigrationsWithBackup(AppDataSource, DATABASE_FILE, DATABASE_BACKUP_DIR);
 
     // Read dump file
     console.log(`📥 Reading dump file: ${filePath}`);
