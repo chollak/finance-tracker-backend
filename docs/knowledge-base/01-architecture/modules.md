@@ -78,9 +78,7 @@ Core module системы — управление финансовыми тр�
 
 ### Repository
 - Interface: `src/modules/transaction/domain/transactionRepository.ts`
-- Implementations:
-  - `SqliteTransactionRepository`
-  - `SupabaseTransactionRepository`
+- Implementation: `SqliteTransactionRepository` (TypeORM)
 
 ### Module Creation
 ```typescript
@@ -194,7 +192,7 @@ Freemium модель с Telegram Stars: лимиты для free tier, безл
 
 ### Repository
 - Interface: `subscriptionRepository.ts`, `usageLimitRepository.ts`
-- Implementations: SQLite + Supabase
+- Implementations: TypeORM (SQLite)
 
 ### Key Dependency (Controller Layer)
 ```typescript
@@ -446,17 +444,14 @@ class TransactionModule {
 **Файл:** [`src/shared/infrastructure/database/repositoryFactory.ts`](../../../src/shared/infrastructure/database/repositoryFactory.ts)
 
 ```typescript
+// Один путь к базе — TypeORM (FT-090); фабрика остаётся единственным местом создания репозиториев
 class RepositoryFactory {
   static createTransactionRepository(): TransactionRepository {
-    return AppConfig.DATABASE_TYPE === 'supabase'
-      ? new SupabaseTransactionRepository()
-      : new SqliteTransactionRepository();
+    return new SqliteTransactionRepository();
   }
 
   static createBudgetRepository(): BudgetRepository {
-    return AppConfig.DATABASE_TYPE === 'supabase'
-      ? new SupabaseBudgetRepository()
-      : new SqliteBudgetRepository();
+    return new SqliteBudgetRepository();
   }
 }
 ```

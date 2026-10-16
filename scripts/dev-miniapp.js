@@ -22,7 +22,7 @@ const DEFAULT_PORT = 3000;
 const DEFAULT_MENU_TEXT = 'Finance DEV';
 
 function printHelp() {
-  console.log(`Finance Tracker Telegram Mini App helper\n\nUsage:\n  npm run dev:miniapp -- --chat-id=<telegram_chat_id> [--skip-build]\n  npm run miniapp:menu -- status --chat-id=<telegram_chat_id>\n  npm run miniapp:menu -- set --url=<https_url> --chat-id=<telegram_chat_id>\n\nOptions:\n  --chat-id, --chatId       Telegram chat/user id for the persistent menu button\n  --url                    Public HTTPS Mini App URL for set/status checks\n  --env-file               Env file to update (default: .env)\n  --menu-text              Telegram menu button text (default: Finance DEV)\n  --port                   Backend port (default: 3000)\n  --skip-build             Skip npm run build:webapp && npm run build before serve\n  --no-serve               Only create/update tunnel/menu; do not start npm run serve\n  --no-menu                Do not call Telegram setChatMenuButton\n  --help                   Show help\n\nNotes:\n  - For Telegram Mini App on a phone, WEB_APP_URL must be public HTTPS.\n  - Old inline buttons keep their embedded URL; send /start after a tunnel change.\n  - The persistent chat menu button must be updated separately; this helper does it.\n`);
+  console.log(`Finance Tracker Telegram Mini App helper\n\nUsage:\n  npm run dev:miniapp -- --chat-id=<telegram_chat_id> [--skip-build]\n  npm run miniapp:menu -- status --chat-id=<telegram_chat_id>\n  npm run miniapp:menu -- set --url=<https_url> --chat-id=<telegram_chat_id>\n\nOptions:\n  --chat-id, --chatId       Telegram chat/user id for the persistent menu button\n  --url                    Public HTTPS Mini App URL for set/status checks\n  --path                   set only: open this page from the menu button (e.g. /dev/voice-check); WEB_APP_URL is not changed\n  --env-file               Env file to update (default: .env)\n  --menu-text              Telegram menu button text (default: Finance DEV)\n  --port                   Backend port (default: 3000)\n  --skip-build             Skip npm run build:webapp && npm run build before serve\n  --no-serve               Only create/update tunnel/menu; do not start npm run serve\n  --no-menu                Do not call Telegram setChatMenuButton\n  --help                   Show help\n\nNotes:\n  - For Telegram Mini App on a phone, WEB_APP_URL must be public HTTPS.\n  - Old inline buttons keep their embedded URL; send /start after a tunnel change.\n  - The persistent chat menu button must be updated separately; this helper does it.\n`);
 }
 
 function parseArgs(argv) {
@@ -92,8 +92,8 @@ function normalizeBaseUrl(url) {
   return parsed.origin + parsed.pathname.replace(/\/$/, '');
 }
 
-function urlForChat(baseUrl, chatId) {
-  const url = new URL('/', normalizeBaseUrl(baseUrl));
+function urlForChat(baseUrl, chatId, menuPath = '/') {
+  const url = new URL(menuPath, normalizeBaseUrl(baseUrl));
   if (chatId) url.searchParams.set('userId', String(chatId));
   return url.toString();
 }
@@ -145,8 +145,8 @@ async function getMenu(token, chatId) {
   return telegramCall(token, 'getChatMenuButton', chatId ? { chat_id: chatId } : null);
 }
 
-async function setMenu(token, chatId, baseUrl, text) {
-  const appUrl = urlForChat(baseUrl, chatId);
+async function setMenu(token, chatId, baseUrl, text, menuPath = '/') {
+  const appUrl = urlForChat(baseUrl, chatId, menuPath);
   const menuButton = {
     type: 'web_app',
     text,
@@ -243,15 +243,22 @@ async function commandSet({ flags }) {
   if (!baseUrl) throw new Error('Missing --url (or WEB_APP_URL)');
 
   const normalized = normalizeBaseUrl(baseUrl);
-  writeEnvValue(envFile, 'WEB_APP_URL', normalized);
-  console.log(`Updated ${path.relative(root, envFile)} WEB_APP_URL=${normalized}`);
+  // --path points only the menu button at another page (e.g. /dev/voice-check); WEB_APP_URL stays
+  // the app root so links the bot builds keep working.
+  const menuPath = typeof flags.path === 'string' ? flags.path : '/';
+  if (menuPath === '/') {
+    writeEnvValue(envFile, 'WEB_APP_URL', normalized);
+    console.log(`Updated ${path.relative(root, envFile)} WEB_APP_URL=${normalized}`);
+  } else {
+    console.log(`WEB_APP_URL unchanged; only the menu button opens ${menuPath}`);
+  }
 
   if (flags['no-menu']) {
     console.log('Skipped Telegram menu update (--no-menu).');
     return;
   }
 
-  const menu = await setMenu(env.TG_BOT_API_KEY, chatId, normalized, menuText);
+  const menu = await setMenu(env.TG_BOT_API_KEY, chatId, normalized, menuText, menuPath);
   console.log(`Telegram menu updated: type=${menu.type} url=${menu.web_app?.url || 'n/a'}`);
 }
 

@@ -18,6 +18,8 @@ const AddDebtPage = lazy(() => import('@/pages').then(m => ({ default: m.AddDebt
 const DebtDetailsPage = lazy(() => import('@/pages').then(m => ({ default: m.DebtDetailsPage })));
 const AnalyticsPage = lazy(() => import('@/pages').then(m => ({ default: m.AnalyticsPage })));
 const MorePage = lazy(() => import('@/pages').then(m => ({ default: m.MorePage })));
+// FT-088 spike page: not linked from the app, opened by URL inside Telegram on each device
+const VoiceCheckPage = lazy(() => import('@/pages').then(m => ({ default: m.VoiceCheckPage })));
 
 // Wrapper component with Suspense
 function PageLoader({ children }: { children: React.ReactNode }) {
@@ -117,6 +119,10 @@ export const router = createBrowserRouter([
     ],
   },
   // Form pages without navigation layout (have their own back button)
+  {
+    path: '/dev/voice-check',
+    element: <PageLoader><VoiceCheckPage /></PageLoader>,
+  },
   {
     path: '/transactions/add',
     element: <PageLoader><AddTransactionPage /></PageLoader>,

@@ -20,7 +20,9 @@ export function createModules() {
   // Create SubscriptionModule with repositories
   const subscriptionRepository = RepositoryFactory.createSubscriptionRepository();
   const usageLimitRepository = RepositoryFactory.createUsageLimitRepository();
-  const subscriptionModule = new SubscriptionModule(subscriptionRepository, usageLimitRepository);
+  const subscriptionModule = new SubscriptionModule(subscriptionRepository, usageLimitRepository, {
+    freeLimitsEnabled: AppConfig.FREE_LIMITS_ENABLED,
+  });
 
   // Set subscription dependencies for TransactionModule (for decrementing on delete)
   transactionModule.setSubscriptionDependencies(subscriptionModule, userModule);
