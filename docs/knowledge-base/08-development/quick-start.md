@@ -346,6 +346,7 @@ SELECT * FROM transaction LIMIT 10;
 | `NODE_ENV` | `development` | Environment mode |
 | `PORT` | `3000` | Server port |
 | `DATABASE_TYPE` | `sqlite` | только `sqlite`; любое другое значение — ошибка запуска |
+| `FREE_LIMITS_ENABLED` | `false` | `true` включает лимиты бесплатного тарифа. На время вехи 10 выключены (решение Д3); использование всё равно считается |
 | `TG_BOT_API_KEY` | - | Telegram bot token |
 | `WEB_APP_URL` | `http://localhost:3000` | Public URL (перезаписывается `npm run dev:miniapp`) |
 

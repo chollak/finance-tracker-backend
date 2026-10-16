@@ -25,10 +25,19 @@ export interface CheckLimitResult {
   message?: string;
 }
 
+export interface CheckLimitOptions {
+  /**
+   * When false, every action is allowed regardless of the free-tier limits; usage is still counted.
+   * Switched off for milestone 10 by decision Д3 (FT-091) via FREE_LIMITS_ENABLED.
+   */
+  limitsEnabled: boolean;
+}
+
 export class CheckLimitUseCase {
   constructor(
     private subscriptionRepository: SubscriptionRepository,
-    private usageLimitRepository: UsageLimitRepository
+    private usageLimitRepository: UsageLimitRepository,
+    private options: CheckLimitOptions = { limitsEnabled: true }
   ) {}
 
   async execute(input: CheckLimitInput): Promise<CheckLimitResult> {
@@ -48,6 +57,17 @@ export class CheckLimitUseCase {
       return {
         allowed: true,
         isPremium: true,
+        currentUsage: this.getCurrentUsage(usageLimit, limitType),
+        limit: null,
+        remaining: null,
+      };
+    }
+
+    // Limits switched off: allow, but still report the real usage
+    if (!this.options.limitsEnabled) {
+      return {
+        allowed: true,
+        isPremium: false,
         currentUsage: this.getCurrentUsage(usageLimit, limitType),
         limit: null,
         remaining: null,

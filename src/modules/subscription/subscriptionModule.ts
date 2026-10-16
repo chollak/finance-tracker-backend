@@ -18,6 +18,11 @@ import { GrantPremiumUseCase, StartTrialUseCase } from './application/grantPremi
 import { CancelSubscriptionUseCase } from './application/cancelSubscription';
 import { SubscriptionService } from './application/subscriptionService';
 
+export interface SubscriptionModuleOptions {
+  /** Enforce free-tier limits. Defaults to true; the app passes AppConfig.FREE_LIMITS_ENABLED. */
+  freeLimitsEnabled?: boolean;
+}
+
 export class SubscriptionModule {
   private createSubscriptionUseCase: CreateSubscriptionUseCase;
   private getSubscriptionUseCase: GetSubscriptionUseCase;
@@ -32,7 +37,8 @@ export class SubscriptionModule {
 
   constructor(
     subscriptionRepository: SubscriptionRepository,
-    usageLimitRepository: UsageLimitRepository
+    usageLimitRepository: UsageLimitRepository,
+    options: SubscriptionModuleOptions = {}
   ) {
     // Initialize use cases
     this.createSubscriptionUseCase = new CreateSubscriptionUseCase(subscriptionRepository);
@@ -42,7 +48,8 @@ export class SubscriptionModule {
     );
     this.checkLimitUseCase = new CheckLimitUseCase(
       subscriptionRepository,
-      usageLimitRepository
+      usageLimitRepository,
+      { limitsEnabled: options.freeLimitsEnabled ?? true }
     );
     this.incrementUsageUseCase = new IncrementUsageUseCase(usageLimitRepository);
     this.decrementUsageUseCase = new DecrementUsageUseCase(usageLimitRepository);

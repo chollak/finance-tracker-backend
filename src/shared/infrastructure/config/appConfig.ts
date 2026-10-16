@@ -71,6 +71,10 @@ export class AppConfig {
   // File Processing
   static readonly DOWNLOADS_PATH = process.env.DOWNLOADS_PATH || './downloads';
 
+  // Free-tier limits (50 records and 10 voice inputs a month). Off unless FREE_LIMITS_ENABLED=true:
+  // switched off for milestone 10 by decision Д3 (FT-091). Usage is counted either way.
+  static readonly FREE_LIMITS_ENABLED = process.env.FREE_LIMITS_ENABLED === 'true';
+
   // Database Configuration: SQLite through TypeORM is the only path (decision Д6, FT-090).
   static readonly DATABASE_TYPE = process.env.DATABASE_TYPE || 'sqlite';
 

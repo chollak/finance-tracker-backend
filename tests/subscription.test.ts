@@ -1,3 +1,4 @@
+import { SubscriptionModule } from '../src/modules/subscription/subscriptionModule';
 import { CreateSubscriptionUseCase } from '../src/modules/subscription/application/createSubscription';
 import { GetSubscriptionUseCase } from '../src/modules/subscription/application/getSubscription';
 import { GrantPremiumUseCase, StartTrialUseCase } from '../src/modules/subscription/application/grantPremium';
@@ -285,6 +286,33 @@ describe('Subscription module', () => {
   });
 
   describe('CheckLimitUseCase', () => {
+    it('allows everything while free-tier limits are switched off, and keeps counting usage', async () => {
+      const useCase = new CheckLimitUseCase(subscriptionRepo, usageLimitRepo, { limitsEnabled: false });
+      for (let i = 0; i < FREE_TIER_LIMITS.transactions + 5; i++) {
+        await usageLimitRepo.incrementCounter('user-1', 'transactions');
+      }
+
+      const result = await useCase.execute({ userId: 'user-1', limitType: 'transactions' });
+
+      expect(result.allowed).toBe(true);
+      expect(result.isPremium).toBe(false);
+      expect(result.currentUsage).toBe(FREE_TIER_LIMITS.transactions + 5);
+      expect(result.limit).toBeNull();
+      expect(result.remaining).toBeNull();
+      expect(result.message).toBeUndefined();
+    });
+
+    it('SubscriptionModule passes the switch to the limit check', async () => {
+      const module = new SubscriptionModule(subscriptionRepo, usageLimitRepo, { freeLimitsEnabled: false });
+      for (let i = 0; i < FREE_TIER_LIMITS.voiceInputs; i++) {
+        await usageLimitRepo.incrementCounter('user-1', 'voice_inputs');
+      }
+
+      const result = await module.getCheckLimitUseCase().execute({ userId: 'user-1', limitType: 'voice_inputs' });
+
+      expect(result.allowed).toBe(true);
+    });
+
     it('allows usage below the free-tier transaction limit and reports remaining count', async () => {
       const useCase = new CheckLimitUseCase(subscriptionRepo, usageLimitRepo);
       for (let i = 0; i < 10; i++) {

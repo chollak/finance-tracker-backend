@@ -80,6 +80,7 @@ Required environment variables in `.env` file:
 - `OPENAI_API_KEY` - For voice transcription and transaction parsing
 - `TG_BOT_API_KEY` - Telegram bot token
 - `WEB_APP_URL` - Public URL for the web application
+- `FREE_LIMITS_ENABLED` - optional; `true` enforces free-tier limits (50 records, 10 voice inputs a month). Off by default during milestone 10 (decision Д3, FT-091); usage is still counted
 - `DATABASE_TYPE` - optional; only `sqlite` is supported (any other value fails startup). The `supabase-js` path was removed in FT-090 (decision Д6)
 
 **Historical, not active:**
