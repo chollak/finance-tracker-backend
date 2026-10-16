@@ -157,6 +157,9 @@
   --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 
+  /* Skeleton pulse of «Пастель»: opacity 1 → 0.55, 1.6s (docs/pastel/components/Skeleton.md) */
+  --animate-pastel-pulse: pastelPulse 1.6s ease-in-out infinite;
+
   /* ===== SPACING (Touch Targets) ===== */
   --touch-target: 2.75rem;    /* 44px minimum */
   --touch-target-lg: 3rem;    /* 48px preferred */
@@ -225,6 +228,15 @@
   }
   50% {
     opacity: 0.5;
+  }
+}
+
+@keyframes pastelPulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
   }
 }
 

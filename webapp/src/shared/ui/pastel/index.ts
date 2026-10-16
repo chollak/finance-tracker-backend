@@ -1,0 +1,10 @@
+// Components of the design system «Пастель» (docs/pastel/components/). New screens use these;
+// the shadcn primitives in shared/ui stay only for screens that have not been redesigned yet.
+export { Button, type ButtonProps } from './button';
+export { Segmented, type SegmentedOption } from './segmented';
+export { SwitchRow } from './switch-row';
+export { ChoiceChips } from './choice-chips';
+export { SettingsSection, SettingsRow } from './settings-list';
+export { CategoryDot, CategoryTile } from './category';
+export { ProblemScreen } from './problem-screen';
+export { SkeletonBlock } from './skeleton-block';

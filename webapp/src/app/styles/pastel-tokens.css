@@ -13,9 +13,10 @@
   --spacing-row: 60px;
 }
 
-/* Light theme is the default; [data-theme] on <html> is set by the theme controller (FT-092). */
+/* Light theme is the default; [data-theme] on <html> is set by the theme controller (FT-092).
+   Any element can pin a theme for its subtree with data-theme (used by the component showcase). */
 :root,
-:root[data-theme="light"] {
+[data-theme="light"] {
   --bg: #f3f3f5;
   --card: #ffffff;
   --track: #e7e7ec;
@@ -51,7 +52,7 @@
   --shadow-seg: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
-:root[data-theme="dark"] {
+[data-theme="dark"] {
   --bg: #111214;
   --card: #1b1c1f;
   --track: #26272b;
