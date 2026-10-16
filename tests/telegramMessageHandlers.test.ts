@@ -553,7 +553,7 @@ describe('Telegram message handlers', () => {
       expect(lastReplyText(reply)).toBe('🎤 Транзакций не найдено');
     });
 
-    it('increments voice and transaction usage after a successful capture', async () => {
+    it('counts the voice input; created transactions are counted by the create use case', async () => {
       const { ctx, subscriptionModule, incrementUsageExecute } = createVoiceContext();
       const handler = createVoiceMessageHandler(undefined, subscriptionModule as any);
 
@@ -561,7 +561,7 @@ describe('Telegram message handlers', () => {
       await Promise.resolve();
 
       expect(incrementUsageExecute).toHaveBeenCalledWith({ userId: '131184740', limitType: 'voice_inputs' });
-      expect(incrementUsageExecute).toHaveBeenCalledWith({ userId: '131184740', limitType: 'transactions' });
+      expect(incrementUsageExecute).not.toHaveBeenCalledWith({ userId: '131184740', limitType: 'transactions' });
     });
 
     it('still transcribes and acknowledges if the Telegram typing action fails', async () => {
