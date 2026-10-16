@@ -124,6 +124,24 @@ describe('history with search and filters (FT-107)', () => {
     expect((await search({ limit: '1', cursor: page.nextCursor })).items[0].description).toBe('earlier');
   });
 
+  it('pages through older records whose date keeps a full moment', async () => {
+    const legacy = await record({ description: 'old', date: '2026-10-14' });
+    await record({ description: 'new', date: '2026-10-15' });
+    await record({ description: 'older', date: '2026-10-13' });
+    await db.dataSource.query(`UPDATE transactions SET date = '2026-10-14T05:30:00.000Z' WHERE id = ?`, [legacy]);
+
+    const seen: string[] = [];
+    let cursor: string | undefined;
+    do {
+      const page = await search({ limit: '1', ...(cursor ? { cursor } : {}) });
+      seen.push(...page.items.map(item => item.description));
+      cursor = page.nextCursor ?? undefined;
+    } while (cursor);
+
+    expect(seen).toEqual(['new', 'old', 'older']);
+    expect(await descriptions({ from: '2026-10-14', to: '2026-10-14' })).toEqual(['old']);
+  });
+
   it('refuses what it cannot read', async () => {
     for (const query of [
       { q: 'x'.repeat(101) }, { type: 'transfer' }, { from: '2026-13-01' }, { from: '2026-10-20', to: '2026-10-01' },

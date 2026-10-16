@@ -21,9 +21,25 @@ const logger = getLogger(LogCategory.TRANSACTION);
  * persistence all stay inside ProcessTextInputUseCase, which this service only wraps.
  */
 export class QuickCaptureService {
+  /** Captures with a clientId still being parsed, so a retry waits for them instead of parsing again. */
+  private inFlight = new Map<string, Promise<QuickCaptureResult>>();
+
   constructor(private processTextInputUseCase: ProcessTextInputUseCase, private replay?: CaptureReplay) {}
 
   async capture(request: QuickCaptureRequest): Promise<QuickCaptureResult> {
+    if (!request.clientId) return this.captureOnce(request);
+
+    // A retry that arrives while the first request is still with the parser (a client timeout) waits
+    // for it: two parses of one text may differ, and their records must not mix (FT-106)
+    const key = `${request.userId}\u0000${request.clientId}`;
+    const running = this.inFlight.get(key);
+    if (running) return { ...(await running), repeated: true };
+    const capture = this.captureOnce(request).finally(() => this.inFlight.delete(key));
+    this.inFlight.set(key, capture);
+    return capture;
+  }
+
+  private async captureOnce(request: QuickCaptureRequest): Promise<QuickCaptureResult> {
     const text = request.text.trim();
 
     // Blank input never reaches the parser: no OpenAI call, no write.

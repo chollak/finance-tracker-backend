@@ -11,6 +11,8 @@ import { pluralWithCount } from '@/shared/lib/plural';
  */
 export interface TodayTotalTransaction {
   amount: number;
+  /** Dollars are not added to the сум total (FT-103). */
+  currency?: 'UZS' | 'USD';
   type: 'income' | 'expense';
   semanticType?: TransactionSemanticType;
   needsReview?: boolean;
@@ -86,7 +88,9 @@ export function calculateTodayTotal(
     // treats them as ordinary expenses, so the same fallback applies here.
     const semanticType = transaction.semanticType ?? 'expense';
 
-    if (transaction.needsReview === true || isNonExpenseMovement(semanticType)) {
+    // Dollar records are not added to сум as they are (FT-103); until Home converts them at the rate,
+    // they are shown as not counted
+    if (transaction.needsReview === true || isNonExpenseMovement(semanticType) || (transaction.currency ?? 'UZS') !== 'UZS') {
       excludedCount += 1;
       continue;
     }

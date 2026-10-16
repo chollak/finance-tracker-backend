@@ -58,7 +58,12 @@ export class AmountMinor1760700000000 implements MigrationInterface {
   }
 }
 
-/** Row by row: amount_minor = round(amount × 100); then the same totals per user. Throws on any difference. */
+/**
+ * Row by row: amount_minor = round(amount × 100); then, per user, the converted total equals the sum of
+ * the expected rows, and lies within half a tiyin per row of the old total — amounts with more than two
+ * decimals (33333.333) round row by row, so the totals may differ by that much and no more. Throws on
+ * any other difference.
+ */
 export function verifyConversion(before: OldRow[], after: NewRow[]): void {
   const converted = new Map(after.map(row => [row.id, Number(row.amount_minor)]));
   if (converted.size !== before.length) {
@@ -66,22 +71,26 @@ export function verifyConversion(before: OldRow[], after: NewRow[]): void {
   }
 
   const mismatched: string[] = [];
-  const totalsBefore = new Map<string, number>();
-  const totalsAfter = new Map<string, number>();
+  const users = new Map<string, { before: number; expected: number; after: number; rows: number }>();
   for (const row of before) {
     const amount = Number(row.amount);
     const expected = Math.round(amount * 100);
     const actual = converted.get(row.id);
     if (actual !== expected) mismatched.push(`${row.id}: ${amount} → ${String(actual)}`);
-    totalsBefore.set(row.userId, (totalsBefore.get(row.userId) ?? 0) + amount);
-    totalsAfter.set(row.userId, (totalsAfter.get(row.userId) ?? 0) + (actual ?? 0));
+    const totals = users.get(row.userId) ?? { before: 0, expected: 0, after: 0, rows: 0 };
+    totals.before += amount;
+    totals.expected += expected;
+    totals.after += actual ?? 0;
+    totals.rows += 1;
+    users.set(row.userId, totals);
   }
   if (mismatched.length > 0) {
     throw new Error(`FT-097: ${mismatched.length} amount(s) did not convert exactly: ${mismatched.slice(0, 10).join('; ')}`);
   }
-  for (const [userId, total] of totalsBefore) {
-    if (Math.round(total * 100) !== totalsAfter.get(userId)) {
-      throw new Error(`FT-097: totals differ for user ${userId}: ${total} before, ${String(totalsAfter.get(userId))} minor after.`);
+  for (const [userId, totals] of users) {
+    const drift = Math.abs(totals.before * 100 - totals.after);
+    if (totals.after !== totals.expected || drift > totals.rows * 0.5 + 1e-6 * Math.abs(totals.before * 100)) {
+      throw new Error(`FT-097: totals differ for user ${userId}: ${totals.before} before, ${totals.after} minor after.`);
     }
   }
 }

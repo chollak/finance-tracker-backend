@@ -12,6 +12,7 @@ const logger = getLogger(LogCategory.TRANSACTION);
 export const HISTORY_PAGE_DEFAULT = 50;
 export const HISTORY_PAGE_MAX = 100;
 const QUERY_MAX_LENGTH = 100;
+const STORED_DATE = /^\d{4}-\d{2}-\d{2}(?:T[\d:.]+Z?)?$/;
 const IDS_MAX = 50;
 
 export interface TransactionHistory {
@@ -31,7 +32,8 @@ function decodeCursor(value: string): HistoryCursor | null {
     const parsed: unknown = JSON.parse(Buffer.from(value, 'base64url').toString('utf8'));
     if (!Array.isArray(parsed) || parsed.length !== 3 || !parsed.every(part => typeof part === 'string')) return null;
     const [date, createdAt, id] = parsed as string[];
-    if (!isValidDateOnly(date) || Number.isNaN(Date.parse(createdAt)) || !id) return null;
+    // The date as stored: records written before FT-100 may keep a full moment («2026-10-14T05:30:00.000Z»)
+    if (!STORED_DATE.test(date) || Number.isNaN(Date.parse(createdAt)) || !id) return null;
     return { date, createdAt, id };
   } catch {
     return null;

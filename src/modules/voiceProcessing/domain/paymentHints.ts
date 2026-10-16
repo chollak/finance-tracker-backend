@@ -11,7 +11,8 @@ export interface PaymentHints {
 }
 
 const USD_WORDS = ['долл\\p{L}*', 'usd', 'бакс\\p{L}*', 'dollar\\p{L}*'];
-const CASH_WORDS = ['нал', 'налом', 'наличн\\p{L}*', 'наличк\\p{L}*', 'кэш\\p{L}*', 'naqd\\p{L}*', 'nakd\\p{L}*', 'cash'];
+// «кэш», «кэшем», but not «кэшбэк» — that is a category of income, not a way to pay
+const CASH_WORDS = ['нал', 'налом', 'наличн\\p{L}*', 'наличк\\p{L}*', 'к[эе]ш(?:а|ем|ом|у)?', 'naqd\\p{L}*', 'nakd\\p{L}*', 'cash'];
 const CARD_WORDS = [
   'карт(?:а|ой|е|у|ы|очк\\p{L}*)', 'uzcard', 'узкард\\p{L}*', 'humo', 'хумо', 'card', 'kart(?:a|adan|aga|ada)',
 ];

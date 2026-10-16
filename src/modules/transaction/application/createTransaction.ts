@@ -174,12 +174,15 @@ export class CreateTransactionUseCase {
       return ResultHelper.success(created.id!);
     } catch (error) {
       // Two copies of one request at once: the unique (user, clientId) index lets one in; the other
-      // answers with that record
-      if (transaction.clientId) {
-        const repeat = await this.findRepeat(transaction.userId, transaction.clientId).catch(() => null);
-        if (repeat) {
-          options.onRepeat?.(repeat);
-          return ResultHelper.success(repeat.id!);
+      // answers with that record — once the first one's write is done, so it is looked for a few times
+      if (transaction.clientId && /UNIQUE/i.test((error as Error)?.message ?? '')) {
+        for (let attempt = 1; attempt <= 5; attempt += 1) {
+          const repeat = await this.findRepeat(transaction.userId, transaction.clientId).catch(() => null);
+          if (repeat) {
+            options.onRepeat?.(repeat);
+            return ResultHelper.success(repeat.id!);
+          }
+          await new Promise(resolve => setTimeout(resolve, 20 * attempt));
         }
       }
       logger.error('Error creating transaction', error as Error);

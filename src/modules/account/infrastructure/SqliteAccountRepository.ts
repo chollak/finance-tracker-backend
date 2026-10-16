@@ -21,9 +21,12 @@ export class SqliteAccountRepository implements AccountRepository {
     return entity ? this.toDomain(entity) : null;
   }
 
+  /** Inserts, never overwrites: a second create with the same id fails on the key. */
   async create(account: Account): Promise<Account> {
-    const saved = await this.repository.save(this.repository.create({ ...account }));
-    return this.toDomain(saved);
+    await this.repository.insert(this.repository.create({ ...account }));
+    const created = await this.findById(account.id);
+    if (!created) throw new Error(`Account ${account.id} not found after create`);
+    return created;
   }
 
   async update(

@@ -75,6 +75,23 @@ describe('account and currency of every record (FT-103)', () => {
       expect(full.transactions[0].assumptions!.some(a => a.kind === 'thousands')).toBe(false);
     });
 
+    it('«кэшбэк 870» is 870 сум of income on the default account, not cash and not thousands', async () => {
+      await account('Наличные', 'cash');
+
+      const result = await capture.execute('кэшбэк 870', 'user-1');
+
+      expect(result.transactions[0]).toMatchObject({ type: 'income', amount: 870, category: 'Кэшбэк', accountName: 'Карта' });
+    });
+
+    it('moving own money («перевел 500000 на Humo») stays on the default account', async () => {
+      await records.book.listForUser('user-1');
+      await account('Humo', 'card');
+
+      const result = await capture.execute('перевел 500000 на Humo', 'user-1');
+
+      expect(result.transactions[0]).toMatchObject({ semanticType: 'own_transfer', accountName: 'Карта' });
+    });
+
     it('«наушники 55$» is 55.00 USD on the dollar account', async () => {
       await account('Доллары', 'cash', 'USD');
 

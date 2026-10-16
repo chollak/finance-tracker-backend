@@ -64,7 +64,9 @@ export class SqliteTransactionRepository implements TransactionRepository {
       isArchived: transaction.isArchived ?? false
     });
 
-    const saved = await this.repository.save(entity);
+    // One INSERT, not wrapped in BEGIN…COMMIT: SQLite gives TypeORM one connection, so a concurrent
+    // create that fails (a repeated clientId, FT-106) and rolls back would roll this insert back too
+    const saved = await this.repository.save(entity, { transaction: false });
     const stored = await this.findByIdIncludingArchived(saved.id);
     if (!stored) throw new Error(`Transaction ${saved.id} not found after create`);
     return stored;
@@ -133,8 +135,9 @@ export class SqliteTransactionRepository implements TransactionRepository {
     if (filters.type) {
       builder.andWhere('transaction.type = :type', { type: filters.type === 'income' ? TransactionType.INCOME : TransactionType.EXPENSE });
     }
-    if (filters.from) builder.andWhere('transaction.date >= :from', { from: filters.from });
-    if (filters.to) builder.andWhere('transaction.date <= :to', { to: filters.to });
+    // By the day: older records may keep a full moment in `date` (written before FT-100)
+    if (filters.from) builder.andWhere('substr(transaction.date, 1, 10) >= :from', { from: filters.from });
+    if (filters.to) builder.andWhere('substr(transaction.date, 1, 10) <= :to', { to: filters.to });
     if (cursor) {
       builder.andWhere(
         `(transaction.date < :cursorDate

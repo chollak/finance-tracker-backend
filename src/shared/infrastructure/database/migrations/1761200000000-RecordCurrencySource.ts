@@ -12,7 +12,15 @@ export class RecordCurrencySource1761200000000 implements MigrationInterface {
     await queryRunner.query(`ALTER TABLE "transactions" ADD COLUMN "source" varchar`);
   }
 
+  /** Before FT-103 every amount was in сум: dollar records cannot go back without becoming сум. */
   public async down(queryRunner: QueryRunner): Promise<void> {
+    const [{ count }] = await queryRunner.query(`SELECT COUNT(*) AS "count" FROM "transactions" WHERE "currency" <> 'UZS'`);
+    if (Number(count) > 0) {
+      throw new Error(
+        `FT-103: ${count} record(s) are in dollars; without the currency column they would read as сум. ` +
+        'Move or delete them first. Nothing was changed.'
+      );
+    }
     await queryRunner.query(`ALTER TABLE "transactions" DROP COLUMN "source"`);
     await queryRunner.query(`ALTER TABLE "transactions" DROP COLUMN "currency"`);
   }

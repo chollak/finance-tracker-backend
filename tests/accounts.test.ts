@@ -108,6 +108,14 @@ describe('accounts and balances (FT-101)', () => {
     const balanceOf = async (id: string) =>
       (await records.book.summary('user-1')).accounts.find(item => item.id === id)!.balanceMinor;
 
+    it('gives a new user one «Карта» even when the first requests come at once', async () => {
+      await Promise.all([
+        records.book.listForUser('user-new'), records.book.summary('user-new'), records.book.listForUser('user-new'),
+      ]);
+
+      expect(await db.dataSource.query(`SELECT name FROM accounts WHERE user_id = 'user-new'`)).toEqual([{ name: 'Карта' }]);
+    });
+
     describe('balance', () => {
       it('is the opening balance plus income minus expenses from the opening date', async () => {
         const cash = await account('Наличные', 'UZS', toMinorSum(500000));

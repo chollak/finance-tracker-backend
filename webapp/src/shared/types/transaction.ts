@@ -24,9 +24,14 @@ export interface Transaction {
   /** Pastel colour token of the category (FT-100). */
   categoryColor?: string;
   description: string;
+  /** In the record's `currency`, major units: сум, or dollars for a USD record (FT-103). */
   amount: number;
-  /** Integer minor units (FT-097); `amount` is the same value in сум. */
+  /** Integer minor units (FT-097) of the record's currency. */
   amountMinor?: number;
+  /** UZS unless the record is in dollars (FT-103); older records and guest mode have none — сум. */
+  currency?: 'UZS' | 'USD';
+  /** The account the money moved on (FT-101). */
+  accountId?: string;
   type: 'income' | 'expense';
   semanticType?: TransactionSemanticType;
   needsReview?: boolean;

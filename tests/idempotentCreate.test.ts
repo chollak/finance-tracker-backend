@@ -158,6 +158,22 @@ describe('idempotent create for the offline queue (FT-106)', () => {
       expect(afterDelete.transactions[0].deletedAt).toBeUndefined();
     });
 
+    it('a retry while the first capture is still being parsed waits for it instead of parsing again', async () => {
+      let finish: (value: unknown) => void = () => undefined;
+      openAI.analyzeInput.mockReturnValue(new Promise(resolve => { finish = resolve; }));
+      const request = { text: 'обедали с коллегами. Вышло 45000', userId: 'user-1', clientId: CLIENT_ID };
+
+      const first = service.capture(request);
+      const retry = service.capture(request);
+      finish({ transactions: [{ intent: 'transaction', amount: 45000, category: 'Кафе', type: 'expense', date: '2026-10-16' }], debts: [] });
+      const [a, b] = await Promise.all([first, retry]);
+
+      expect(openAI.analyzeInput).toHaveBeenCalledTimes(1);
+      expect(b.repeated).toBe(true);
+      expect(b.transactions.map(t => t.id)).toEqual(a.transactions.map(t => t.id));
+      expect(await count()).toBe(1);
+    });
+
     it('without a clientId every capture is new', async () => {
       await service.capture({ text: 'кофе 25000', userId: 'user-1' });
       await service.capture({ text: 'кофе 25000', userId: 'user-1' });

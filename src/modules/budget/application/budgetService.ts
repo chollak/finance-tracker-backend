@@ -36,8 +36,10 @@ export class BudgetService {
 
     let totalSpent = 0;
 
+    // Budgets are in сум; dollar records (FT-103) are left out rather than added as сум — budgets leave
+    // the interface (decision Д2), so they get no rate conversion
     const budgetSpendingTransactions = transactions.filter(t =>
-      !t.needsReview && countsAsBudgetSpending(normalizeSemanticType(t.semanticType, t.type))
+      !t.needsReview && (t.currency ?? 'UZS') === 'UZS' && countsAsBudgetSpending(normalizeSemanticType(t.semanticType, t.type))
     );
 
     // Filter by categories if specified

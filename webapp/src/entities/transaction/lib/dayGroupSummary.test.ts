@@ -26,6 +26,17 @@ function income(amount: number, overrides: Partial<DayGroupTransaction> = {}): D
 }
 
 describe('summarizeDayGroup', () => {
+  it('leaves a dollar record out of the сум totals (FT-103)', () => {
+    const summary = summarizeDayGroup([
+      { amount: 25_000, type: 'expense', semanticType: 'expense' },
+      { amount: 55, currency: 'USD', type: 'expense', semanticType: 'expense' },
+    ]);
+
+    expect(summary.realExpenseTotal).toBe(25_000);
+    expect(summary.realExpenseCount).toBe(1);
+    expect(summary.excludedCount).toBe(1);
+  });
+
   it('sums ordinary expenses', () => {
     const summary = summarizeDayGroup([expense(50000), expense(135000)]);
 

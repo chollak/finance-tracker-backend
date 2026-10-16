@@ -151,6 +151,21 @@ describe('database migrations (FT-090)', () => {
     await expect(ds.undoLastMigration()).rejects.toThrow(/cannot be reverted/);
   });
 
+  it('will not revert FT-103 while dollar records exist, and changes nothing', async () => {
+    const file = path.join(dir, 'usd.sqlite');
+    await legacyDatabase(file);
+    const ds = await appDataSource(file);
+    await runMigrationsWithBackup(ds, file, path.join(dir, 'backups'));
+    await ds.query(`UPDATE transactions SET currency = 'USD'`);
+
+    // Undo everything after FT-103, then FT-103 itself is refused
+    while ((await ds.query(`SELECT name FROM migrations ORDER BY id DESC LIMIT 1`))[0].name !== 'RecordCurrencySource1761200000000') {
+      await ds.undoLastMigration({ transaction: 'each' });
+    }
+    await expect(ds.undoLastMigration({ transaction: 'each' })).rejects.toThrow(/in dollars/);
+    expect(await ds.query(`SELECT currency FROM transactions`)).toEqual([{ currency: 'USD' }]);
+  });
+
   it('reads the baseline column list from its own SQL', () => {
     const columns = baselineColumns();
     expect(Object.keys(columns).sort()).toEqual(['budgets', 'debt_payments', 'debts', 'subscriptions', 'transactions', 'usage_limits', 'users']);

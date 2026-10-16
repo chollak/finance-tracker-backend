@@ -1,3 +1,5 @@
+import { createHash } from 'crypto';
+
 /**
  * Accounts (FT-101, docs/pastel/money-model.md → `accounts`).
  *
@@ -41,6 +43,16 @@ export function isCurrency(value: unknown): value is Currency {
 
 export function accountNameKey(name: string): string {
   return name.trim().replace(/\s+/g, ' ').toLocaleLowerCase('ru-RU').replace(/ё/g, 'е');
+}
+
+/**
+ * The id of the «Карта» created for a user on first need: derived from the user, so two first requests
+ * at once (the bot and the Mini App) cannot create two — the second insert hits the primary key.
+ * Accounts made by the FT-101 migration keep their random ids.
+ */
+export function starterAccountId(userId: string): string {
+  const hex = createHash('sha256').update(`starter-account:${userId}`).digest('hex');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
 }
 
 /** The account every user starts with; the history of before FT-101 moved onto it. */

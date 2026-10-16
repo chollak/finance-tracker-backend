@@ -29,6 +29,13 @@ describe('calculateTodayTotal', () => {
     expect(summary.excludedCount).toBe(0);
   });
 
+  it('does not add dollars to сум: a USD record is not counted', () => {
+    const summary = calculateTodayTotal([tx({ amount: 66_000 }), tx({ amount: 55, currency: 'USD' })], NOW);
+
+    expect(summary.total).toBe(66_000);
+    expect(summary.excludedCount).toBe(1);
+  });
+
   it('sums several real expenses of the same day', () => {
     const summary = calculateTodayTotal(
       [tx({ amount: 66_000 }), tx({ amount: 11_000 }), tx({ amount: 5_000 })],

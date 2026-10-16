@@ -64,8 +64,10 @@ export class GetAccountOperationsUseCase {
       const account = summary.accounts.find(candidate => candidate.id === input.accountId);
       if (!account) return ResultHelper.failure(new NotFoundError('Account', input.accountId));
 
-      const inRange = (date: string) =>
-        (input.from === undefined || date >= (input.from as string)) && (input.to === undefined || date <= (input.to as string));
+      const inRange = (stored: string) => {
+        const date = stored.slice(0, 10);
+        return (input.from === undefined || date >= (input.from as string)) && (input.to === undefined || date <= (input.to as string));
+      };
       const counts = (date: string) => date >= account.openingDate;
       const names = new Map(summary.accounts.map(candidate => [candidate.id, candidate]));
 
@@ -102,9 +104,11 @@ export class GetAccountOperationsUseCase {
 
       const byDay = new Map<string, AccountOperation[]>();
       for (const operation of [...recordOperations, ...moveOperations]) {
-        const day = byDay.get(operation.date) ?? [];
+        // Older records may keep a full moment in `date` (written before FT-100); they belong to its day
+        const date = operation.date.slice(0, 10);
+        const day = byDay.get(date) ?? [];
         day.push(operation);
-        byDay.set(operation.date, day);
+        byDay.set(date, day);
       }
       const days = [...byDay.entries()]
         .sort(([a], [b]) => (a < b ? 1 : a > b ? -1 : 0))

@@ -1,10 +1,9 @@
-import { randomUUID } from 'crypto';
 import { Result, ResultHelper } from '../../../shared/domain/types/Result';
 import { NotFoundError, ValidationError } from '../../../shared/domain/errors/AppError';
 import { convertUsdToUzsMinor } from '../../../shared/domain/money/money';
 import { todayDateOnly } from '../../../shared/domain/dates/dateOnly';
 import { AccountResolutionInput, AccountResolver, ResolvedAccount } from '../../transaction/domain/accountResolver';
-import { Account, AccountWithBalance, DEFAULT_ACCOUNT, accountNameKey } from '../domain/account';
+import { Account, AccountWithBalance, DEFAULT_ACCOUNT, accountNameKey, starterAccountId } from '../domain/account';
 import { AccountRepository } from '../domain/accountRepository';
 import { EffectiveRate, EffectiveRateProvider } from '../domain/fxRate';
 
@@ -51,19 +50,28 @@ export class AccountBook implements AccountResolver {
     this.defaultAccount = source;
   }
 
-  /** All of the user's accounts, hidden included; «Карта» is created for a user without any. */
+  /**
+   * All of the user's accounts, hidden included; «Карта» is created for a user without any. Its id comes
+   * from the user (`starterAccountId`), so concurrent first requests end up with one «Карта»: the
+   * insert that loses the race fails on the key and is ignored.
+   */
   async listForUser(userId: string): Promise<Account[]> {
     const accounts = await this.repository.findByUserId(userId);
     if (accounts.length > 0) return accounts;
-    await this.repository.create({
-      id: randomUUID(),
-      userId,
-      ...DEFAULT_ACCOUNT,
-      openingBalanceMinor: 0,
-      openingDate: todayDateOnly(),
-      isHidden: false,
-      sortOrder: 10,
-    });
+    try {
+      await this.repository.create({
+        id: starterAccountId(userId),
+        userId,
+        ...DEFAULT_ACCOUNT,
+        openingBalanceMinor: 0,
+        openingDate: todayDateOnly(),
+        isHidden: false,
+        sortOrder: 10,
+      });
+    } catch (error) {
+      const created = await this.repository.findById(starterAccountId(userId));
+      if (!created) throw error;
+    }
     return this.repository.findByUserId(userId);
   }
 

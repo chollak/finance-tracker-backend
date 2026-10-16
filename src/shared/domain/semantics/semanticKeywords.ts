@@ -50,8 +50,9 @@ export const OWN_ACCOUNT_TARGET_PATTERN = conservativeKeywordPattern([
   'себе', 'карт\\p{L}*', 'счет\\p{L}*', 'счёт\\p{L}*', 'alif', 'payme', 'click', 'uzcard', 'humo',
 ]);
 
+// «Кэшбэк» is a starter income category (FT-099): «кэшбэк 870» is money in, not a purchase
 export const INCOME_KEYWORDS_PATTERN = conservativeKeywordPattern([
-  'зарплат\\p{L}*', 'зп', 'аванс', 'оклад', 'salary', 'maosh',
+  'зарплат\\p{L}*', 'зп', 'аванс', 'оклад', 'salary', 'maosh', 'к[эе]шб[эе]к\\p{L}*', 'cashback',
 ]);
 
 // Paying for a group and splitting it afterwards. Only used to *raise a question* about a stored

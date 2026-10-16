@@ -97,6 +97,18 @@ describe('FT-097 amount_minor migration', () => {
     ])).not.toThrow();
   });
 
+  it('accepts amounts with more than two decimals, rounded row by row', () => {
+    const before = [
+      { id: 'a', userId: 'u', amount: 33333.333, kind: 'real' },
+      { id: 'b', userId: 'u', amount: 33333.333, kind: 'real' },
+      { id: 'c', userId: 'u', amount: 33333.333, kind: 'real' },
+      { id: 'd', userId: 'v', amount: 10.005, kind: 'real' },
+      { id: 'e', userId: 'v', amount: 10.005, kind: 'real' },
+    ];
+    const after = before.map(row => ({ id: row.id, amount_minor: Math.round(row.amount * 100) }));
+    expect(() => verifyConversion(before, after)).not.toThrow();
+  });
+
   it('saves 250 000 000 сум without loss, from the old amount and from amountMinor', async () => {
     const ds = await migrated(path.join(dir, 'new.sqlite'));
     const { repository, create } = recordsOn(ds);
