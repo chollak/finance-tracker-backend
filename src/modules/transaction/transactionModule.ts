@@ -14,6 +14,7 @@ import { GetArchivedTransactionsUseCase } from './application/getArchivedTransac
 import { TransactionRepository } from './domain/transactionRepository';
 import { CategoryResolver } from './domain/categoryResolver';
 import { AccountResolver } from './domain/accountResolver';
+import { PeriodTotalsService, UsdRateSource } from './application/periodTotalsService';
 import { RepositoryFactory } from '../../shared/infrastructure/database/repositoryFactory';
 import { SubscriptionModule } from '../subscription/subscriptionModule';
 import { UserModule } from '../user/userModule';
@@ -23,6 +24,7 @@ export class TransactionModule {
   private createTransactionUseCase: CreateTransactionUseCase;
   private categoryResolver?: CategoryResolver;
   private accountResolver?: AccountResolver;
+  private periodTotals = new PeriodTotalsService();
 
   constructor(private repository: TransactionRepository) {
     this.deleteTransactionUseCase = new DeleteTransactionUseCase(repository);
@@ -56,6 +58,16 @@ export class TransactionModule {
   setCategoryResolver(categoryResolver: CategoryResolver): void {
     this.categoryResolver = categoryResolver;
     this.createTransactionUseCase.setCategoryResolver(categoryResolver);
+  }
+
+  /** Dollars in totals convert at the user's effective rate (FT-103); wired by createModules(). */
+  setUsdRateSource(rates: UsdRateSource): void {
+    this.periodTotals.setRateSource(rates);
+  }
+
+  /** The one place period totals are computed (FT-103). */
+  getPeriodTotalsService(): PeriodTotalsService {
+    return this.periodTotals;
   }
 
   /** Accounts live in the account module (FT-101); wired by createModules(). */
@@ -93,7 +105,7 @@ export class TransactionModule {
   }
 
   getAnalyticsService(): AnalyticsService {
-    return new AnalyticsService(this.repository);
+    return new AnalyticsService(this.repository, this.periodTotals);
   }
 
   getRepository(): TransactionRepository {

@@ -39,7 +39,9 @@ export class SqliteAccountRepository implements AccountRepository {
   /**
    * How much each account changed since its opening date (money-model «Остаток счёта»): every record
    * that is not archived counts by its type — whatever its semanticType and even while it awaits review,
-   * because the money did leave or reach the account. Records dated before the opening date do not count.
+   * because the money did leave or reach the account. Records dated before the opening date do not count,
+   * nor do records in another currency than the account's — a «55$» parked on a сум account for lack
+   * of a dollar account waits for review (FT-103) and counts once it is moved.
    */
   async balanceChanges(userId: string): Promise<Map<string, number>> {
     const rows: Array<{ accountId: string; change: number | string }> = await this.dataSource.query(
@@ -47,7 +49,7 @@ export class SqliteAccountRepository implements AccountRepository {
               SUM(CASE WHEN t."type" = 'income' THEN t."amount_minor" ELSE -t."amount_minor" END) AS "change"
        FROM "transactions" t
        JOIN "accounts" a ON a."id" = t."account_id"
-       WHERE a."user_id" = ? AND t."isArchived" = 0 AND t."date" >= a."opening_date"
+       WHERE a."user_id" = ? AND t."isArchived" = 0 AND t."date" >= a."opening_date" AND t."currency" = a."currency"
        GROUP BY t."account_id"`,
       [userId]
     );

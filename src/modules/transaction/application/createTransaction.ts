@@ -9,13 +9,26 @@ import { UserModule } from '../../user/userModule';
 import { getLogger, LogCategory } from '../../../shared/application/logging';
 import { Validators } from '../../../shared/application/validation/validators';
 import { fromMinor } from '../../../shared/domain/money/money';
-import { CategoryResolver } from '../domain/categoryResolver';
-import { AccountResolver } from '../domain/accountResolver';
+import { CategoryResolver, ResolvedCategory } from '../domain/categoryResolver';
+import { AccountResolver, ResolvedAccount } from '../domain/accountResolver';
 import { toDateOnly } from '../../../shared/domain/dates/dateOnly';
 
 export interface CreateTransactionOptions {
   /** Automatic paths (AI parser, text fast paths) never write into a hidden category. */
   visibleCategoriesOnly?: boolean;
+  /**
+   * What the wording said about the account (FT-103): the text to look for account names in, and
+   * cash or card.
+   */
+  accountHint?: { text?: string; kind?: 'cash' | 'card' };
+  /**
+   * Automatic paths may write an amount whose currency no visible account has («55$» without a dollar
+   * account): the record keeps its currency on the default account and is flagged for review. Explicit
+   * writers get a validation error instead.
+   */
+  allowCurrencyMismatch?: boolean;
+  /** Told where the record went, for the parse response's assumptions. */
+  onResolved?: (resolved: { category?: ResolvedCategory; account?: ResolvedAccount }) => void;
 }
 
 const logger = getLogger(LogCategory.TRANSACTION);
@@ -80,6 +93,8 @@ export class CreateTransactionUseCase {
     if (transaction.date) transaction.date = toDateOnly(transaction.date);
 
     // The category: an id from new clients, or an old id / name / alias from old ones (FT-099)
+    let resolvedCategory: ResolvedCategory | undefined;
+    let resolvedAccount: ResolvedAccount | undefined;
     if (this.categoryResolver) {
       const resolved = await this.categoryResolver.resolveForRecord({
         userId: transaction.userId,
@@ -93,19 +108,41 @@ export class CreateTransactionUseCase {
       }
       transaction.categoryId = resolved.data.id;
       transaction.category = resolved.data.name;
+      resolvedCategory = resolved.data;
     }
 
-    // The account: the one picked, else the user's default (FT-101)
+    // The account and the currency (FT-101, FT-103). An amount is in сум unless the writer says
+    // otherwise; a picked account brings its own currency.
     if (this.accountResolver) {
       const account = await this.accountResolver.resolveForRecord({
         userId: transaction.userId,
         accountId: transaction.accountId,
+        text: options.accountHint?.text,
+        kind: options.accountHint?.kind,
+        currency: transaction.accountId ? undefined : transaction.currency ?? 'UZS',
       });
       if (!account.success) {
         return ResultHelper.failure(account.error);
       }
       transaction.accountId = account.data.id;
+      resolvedAccount = account.data;
+
+      const currency = transaction.currency ?? account.data.currency;
+      if (currency !== account.data.currency) {
+        if (!options.allowCurrencyMismatch) {
+          return ResultHelper.failure(new ValidationError(
+            `The amount is in ${currency}, the account «${account.data.name}» is in ${account.data.currency}`,
+            'currency'
+          ));
+        }
+        // «55$» without a dollar account: keep the dollars, ask the user to sort it out
+        transaction.needsReview = true;
+      }
+      transaction.currency = currency;
     }
+    transaction.currency = transaction.currency ?? 'UZS';
+    transaction.source = transaction.source ?? 'manual';
+    options.onResolved?.({ category: resolvedCategory, account: resolvedAccount });
 
     try {
       const created = await this.primaryRepository.create(transaction);

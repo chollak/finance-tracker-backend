@@ -4,8 +4,8 @@ import { ProcessVoiceInputUseCase } from '../src/modules/voiceProcessing/applica
 import { TranscriptionService } from '../src/modules/voiceProcessing/domain/transcriptionService';
 import { CreateTransactionUseCase } from '../src/modules/transaction/application/createTransaction';
 
-/** Text and voice paths choose categories automatically, so never a hidden one (FT-099). */
-const AUTOMATIC = { visibleCategoriesOnly: true };
+/** Text and voice paths choose categories and accounts automatically (FT-099, FT-103). */
+const AUTOMATIC = expect.objectContaining({ visibleCategoriesOnly: true, allowCurrencyMismatch: true });
 
 describe('OpenAITranscriptionService transaction parsing - semanticType', () => {
   // Access the private parseTransactionItem method directly; no network calls are made.

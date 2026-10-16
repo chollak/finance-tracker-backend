@@ -4,7 +4,7 @@ import { NotFoundError, ValidationError } from '../../../shared/domain/errors/Ap
 import { convertUsdToUzsMinor } from '../../../shared/domain/money/money';
 import { todayDateOnly } from '../../../shared/domain/dates/dateOnly';
 import { AccountResolutionInput, AccountResolver, ResolvedAccount } from '../../transaction/domain/accountResolver';
-import { Account, AccountWithBalance, DEFAULT_ACCOUNT } from '../domain/account';
+import { Account, AccountWithBalance, DEFAULT_ACCOUNT, accountNameKey } from '../domain/account';
 import { AccountRepository } from '../domain/accountRepository';
 import { EffectiveRate, EffectiveRateProvider } from '../domain/fxRate';
 
@@ -21,8 +21,16 @@ export interface AccountsSummary {
   missingRate: boolean;
 }
 
-function toResolved(account: Account): ResolvedAccount {
-  return { id: account.id, name: account.name, currency: account.currency };
+function toResolved(account: Account, matchedBy: ResolvedAccount['matchedBy']): ResolvedAccount {
+  return { id: account.id, name: account.name, currency: account.currency, matchedBy };
+}
+
+/** Whether the account's name stands in the text as a word or phrase («с Humo», «Наличные»). */
+function namedIn(text: string, account: Account): boolean {
+  const name = accountNameKey(account.name);
+  if (!name) return false;
+  const haystack = ` ${accountNameKey(text).replace(/[^\p{L}\p{N}]+/gu, ' ')} `;
+  return haystack.includes(` ${name.replace(/[^\p{L}\p{N}]+/gu, ' ')} `);
 }
 
 /**
@@ -80,7 +88,13 @@ export class AccountBook implements AccountResolver {
     return { accounts: withBalances, totalMinor, rate, missingRate: hasUsd && !rate };
   }
 
-  /** The account a new record is written to: the one picked, else the default from settings, else the first visible. */
+  /**
+   * The account a new record is written to (FT-101, FT-103): the one picked; else, among visible
+   * accounts in the record's currency, one named in the text, then one of the kind the text names
+   * («нал», «картой»), preferring the default; else the default account, else the first visible.
+   * Without an account in the currency («55$» and no dollar account) the default is returned and the
+   * caller sees the mismatch.
+   */
   async resolveForRecord(input: AccountResolutionInput): Promise<Result<ResolvedAccount>> {
     const accounts = await this.listForUser(input.userId);
 
@@ -90,16 +104,29 @@ export class AccountBook implements AccountResolver {
       if (picked.isHidden) {
         return ResultHelper.failure(new ValidationError(`Account «${picked.name}» is hidden`, 'accountId'));
       }
-      return ResultHelper.success(toResolved(picked));
+      return ResultHelper.success(toResolved(picked, 'picked'));
     }
 
     const visible = accounts.filter(account => !account.isHidden);
     const defaultId = this.defaultAccount ? await this.defaultAccount(input.userId) : null;
-    const chosen = visible.find(account => account.id === defaultId) ?? visible[0];
-    if (!chosen) {
+    const fallback = visible.find(account => account.id === defaultId) ?? visible[0];
+    if (!fallback) {
       return ResultHelper.failure(new ValidationError('No visible account to record into', 'accountId'));
     }
-    return ResultHelper.success(toResolved(chosen));
+
+    const inCurrency = input.currency ? visible.filter(account => account.currency === input.currency) : visible;
+    const preferDefault = (candidates: Account[]) => candidates.find(account => account.id === fallback.id) ?? candidates[0];
+
+    const byName = input.text ? inCurrency.find(account => namedIn(input.text!, account)) : undefined;
+    if (byName) return ResultHelper.success(toResolved(byName, 'name'));
+
+    const ofKind = input.kind ? inCurrency.filter(account => account.kind === input.kind) : [];
+    if (ofKind.length > 0) return ResultHelper.success(toResolved(preferDefault(ofKind), 'kind'));
+
+    if (input.currency && inCurrency.length > 0 && !inCurrency.includes(fallback)) {
+      return ResultHelper.success(toResolved(preferDefault(inCurrency), 'currency'));
+    }
+    return ResultHelper.success(toResolved(fallback, 'default'));
   }
 
   /** Whether the id is one of the user's visible accounts — for the default account setting. */

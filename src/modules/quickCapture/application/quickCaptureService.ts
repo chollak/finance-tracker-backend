@@ -30,7 +30,10 @@ export class QuickCaptureService {
       return buildResult('', request.source, [], []);
     }
 
-    const processed = await this.processTextInputUseCase.execute(text, request.userId, request.userName);
+    // The source is now stored on every record (FT-103); a client that does not say is the Mini App
+    const processed = await this.processTextInputUseCase.execute(text, request.userId, request.userName, {
+      source: request.source ?? 'miniapp',
+    });
     const result = buildResult(
       text,
       request.source,

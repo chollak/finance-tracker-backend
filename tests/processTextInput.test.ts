@@ -4,8 +4,8 @@ import { CreateTransactionUseCase } from '../src/modules/transaction/application
 import { CreateDebtUseCase } from '../src/modules/debt/application/createDebt';
 import { DebtStatus, DebtType } from '../src/modules/debt/domain/debtEntity';
 
-/** Text and voice paths choose categories automatically, so never a hidden one (FT-099). */
-const AUTOMATIC = { visibleCategoriesOnly: true };
+/** Text and voice paths choose categories and accounts automatically (FT-099, FT-103). */
+const AUTOMATIC = expect.objectContaining({ visibleCategoriesOnly: true, allowCurrencyMismatch: true });
 
 jest.mock('../src/modules/voiceProcessing/infrastructure/openAITranscriptionService');
 
@@ -439,6 +439,9 @@ describe('ProcessTextInputUseCase', () => {
       transactions: [{
         id: '42',
         amount: 5,
+        currency: 'UZS',
+        // The category is not named in the text, so it is reported as a guess (FT-103)
+        assumptions: [{ kind: 'category', name: 'Food' }],
         category: 'Food',
         type: 'expense',
         semanticType: 'expense',
@@ -483,6 +486,8 @@ describe('ProcessTextInputUseCase', () => {
         {
           id: '1',
           amount: 5,
+          currency: 'UZS',
+          assumptions: [{ kind: 'category', name: 'Food' }],
           category: 'Food',
           type: 'expense',
           semanticType: 'expense',
@@ -495,6 +500,8 @@ describe('ProcessTextInputUseCase', () => {
         {
           id: '2',
           amount: 40,
+          currency: 'UZS',
+          assumptions: [{ kind: 'category', name: 'Debt' }],
           category: 'Debt',
           type: 'expense',
           semanticType: 'expense',

@@ -1,4 +1,5 @@
 import { TransactionSemanticType } from './transactionSemanticType';
+import { RecordCurrency, RecordSource } from './recordSource';
 
 export interface Transaction {
     id?: string;
@@ -14,6 +15,10 @@ export interface Transaction {
     categoryColor?: string;
     /** The account the money moved on (FT-101). Always set on records read from the repository. */
     accountId?: string;
+    /** Currency of the amount (FT-103): the account's when written; UZS for older records. */
+    currency?: RecordCurrency;
+    /** Where the record came from (FT-103); undefined for records written before. */
+    source?: RecordSource;
     description: string;
     /**
      * Legacy amount in major units (сумы). Old writers send it and old screens read it; it is derived

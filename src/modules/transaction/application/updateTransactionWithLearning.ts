@@ -9,6 +9,7 @@ import { fromMinor, minorOf } from '../../../shared/domain/money/money';
 import { CategoryResolver, ResolvedCategory } from '../domain/categoryResolver';
 import { resolveCategoryForUpdate } from './resolveCategoryForUpdate';
 import { AccountResolver } from '../domain/accountResolver';
+import { resolveAccountForUpdate } from './resolveAccountForUpdate';
 
 const logger = getLogger(LogCategory.LEARNING);
 
@@ -22,6 +23,8 @@ export interface UpdateTransactionWithLearningRequest {
   categoryId?: string;
   /** Move the record to another of the user's visible accounts (FT-101). */
   accountId?: string;
+  /** Only together with accountId: the record's currency must be the new account's (FT-103). */
+  currency?: 'UZS' | 'USD';
   description?: string;
   date?: string;
   type?: 'income' | 'expense';
@@ -87,12 +90,9 @@ export class UpdateTransactionWithLearningUseCase {
         return ResultHelper.failure(categoryResult.error);
       }
 
-      let accountId: string | undefined;
-      if (request.accountId !== undefined && this.accountResolver) {
-        const account = await this.accountResolver.resolveForRecord({ userId: originalTransaction.userId, accountId: request.accountId });
-        if (!account.success) return ResultHelper.failure(account.error);
-        accountId = account.data.id;
-      }
+      const moved = await resolveAccountForUpdate(this.accountResolver, originalTransaction, request);
+      if (!moved.success) return ResultHelper.failure(moved.error);
+      const { accountId, currency } = moved.data;
 
       // Update the transaction
       const updatedTransaction = await this.repository.update(id.trim(), {
@@ -102,6 +102,7 @@ export class UpdateTransactionWithLearningUseCase {
         category: undefined,
         categoryId: categoryResult.data?.id,
         accountId,
+        currency,
       });
 
       // Record learning data if we have the necessary context

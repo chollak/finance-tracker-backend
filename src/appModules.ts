@@ -34,6 +34,7 @@ export function createModules() {
     set: (userId, rate) => userModule.setOwnUsdRate(userId, rate),
   });
   accountModule.getBook().setRateProvider(fxModule.getService());
+  transactionModule.setUsdRateSource(fxModule.getService());
   const openAIUsageModule = createOpenAIUsageModule();
 
   // Create SubscriptionModule with repositories

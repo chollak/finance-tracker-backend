@@ -1,5 +1,5 @@
 import { TransactionSemanticType } from '../../transaction/domain/transactionSemanticType';
-import { DetectedDebt } from '../../voiceProcessing/domain/processedTransaction';
+import { CaptureAssumption, DetectedDebt } from '../../voiceProcessing/domain/processedTransaction';
 
 /**
  * Quick Capture is the shared application boundary every client (Telegram, Mini App,
@@ -25,13 +25,19 @@ export interface QuickCaptureRequest {
   text: string;
   userId: string;
   userName?: string;
-  /** Accepted and echoed back for client-side routing. Not persisted — the Transaction entity has no source column. */
+  /** Echoed back for client-side routing and stored on every record (FT-103); `miniapp` when absent. */
   source?: CaptureSource;
 }
 
 export interface CapturedTransaction {
   id: string;
+  /** In the record's currency, major units. Additive fields below (FT-103) leave the contract intact. */
   amount: number;
+  currency?: 'UZS' | 'USD';
+  accountId?: string;
+  accountName?: string;
+  /** What the parse assumed: «45» as 45 000, a guessed category, the account, dollars without a dollar account. */
+  assumptions?: CaptureAssumption[];
   type: 'income' | 'expense';
   semanticType: TransactionSemanticType;
   category: string;

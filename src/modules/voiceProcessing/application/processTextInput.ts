@@ -7,6 +7,12 @@ import { DebtType } from '../../debt/domain/debtEntity';
 import { DebtLimitExceededError } from '../../debt/domain/errors';
 import { getLogger, LogCategory } from '../../../shared/application/logging';
 import { AnalysisContext, UserCategorySource } from '../domain/categoryPrompt';
+import { detectPaymentHints, stripPaymentWords } from '../domain/paymentHints';
+import { RecordSource } from '../../transaction/domain/recordSource';
+import { ResolvedAccount } from '../../transaction/domain/accountResolver';
+import { captureAssumptions } from './captureAssumptions';
+import { captureMoneyOf } from './captureMoney';
+import { fromMinor } from '../../../shared/domain/money/money';
 import { normalizeSemanticType, TransactionSemanticType } from '../../transaction/domain/transactionSemanticType';
 import { AnalysisResult, ParsedTransaction } from '../domain/transcriptionService';
 import {
@@ -306,7 +312,9 @@ function parseObviousSemanticTransaction(text: string): AnalysisResult | null {
 }
 
 function parseSimpleTextTransaction(text: string): AnalysisResult | null {
-  const normalizedText = text.trim().replace(/\s+/g, ' ');
+  // «такси 18000 наличными», «наушники 55$» parse like «такси 18000» — the payment words are read
+  // separately as account and currency hints (FT-103)
+  const normalizedText = stripPaymentWords(text.trim().replace(/\s+/g, ' '));
 
   if (isComplexText(normalizedText)) {
     return null;
@@ -349,6 +357,11 @@ function parseSimpleTextTransaction(text: string): AnalysisResult | null {
   return { transactions: [transaction], debts: [] };
 }
 
+export interface TextInputOptions {
+  /** Where the text came from; recorded on every record (FT-103). */
+  source?: RecordSource;
+}
+
 /** The user's categories for the parser prompt; the starter set if they cannot be read. */
 export async function analysisContextFor(source: UserCategorySource | undefined, userId: string): Promise<AnalysisContext> {
   if (!source) return {};
@@ -371,7 +384,11 @@ export class ProcessTextInputUseCase {
     private categorySource?: UserCategorySource
   ) {}
 
-  async execute(text: string, userId: string, userName?: string): Promise<ProcessedTransaction> {
+  async execute(text: string, userId: string, userName?: string, options: TextInputOptions = {}): Promise<ProcessedTransaction> {
+    const source: RecordSource = options.source ?? 'miniapp';
+    // «нал», «картой», «$» in the text: which account and currency (FT-103)
+    const hints = detectPaymentHints(text);
+
     const parsed = parseObviousSemanticTransaction(text)
       || parseSimpleTextTransaction(text)
       // Fall back to OpenAI for complex/natural-language inputs, with the user's categories
@@ -403,11 +420,15 @@ export class ProcessTextInputUseCase {
         const type = p.type || 'expense';
         const semanticType = normalizeSemanticType(p.semanticType, type);
         const needsReview = p.needsReview === true;
+        const money = captureMoneyOf(p, text, hints, transactions.length, semanticType);
+        const { currency } = money;
         const transaction: Transaction = {
           date: p.date || new Date().toISOString().split('T')[0],
           category: p.category || 'Другое',
           description: p.description || text,
-          amount: p.amount || 0,
+          amount: money.amount,
+          currency,
+          source,
           type,
           semanticType,
           needsReview,
@@ -417,7 +438,7 @@ export class ProcessTextInputUseCase {
           confidence: p.confidence,
           originalText: text,
           originalParsing: {
-            amount: p.amount || 0,
+            amount: money.amount,
             category: p.category || 'Другое',
             type,
             semanticType,
@@ -427,12 +448,30 @@ export class ProcessTextInputUseCase {
           },
         };
 
-        // Text paths choose a category automatically, so never a hidden one (FT-099)
-        const createResult = await this.createTransactionUseCase.execute(transaction, { visibleCategoriesOnly: true });
+        // Text paths choose a category automatically, so never a hidden one (FT-099), and read the
+        // account from the wording (FT-103). Moving money is not paid «налом»: no kind hint for it.
+        let account: ResolvedAccount | undefined;
+        const createResult = await this.createTransactionUseCase.execute(transaction, {
+          visibleCategoriesOnly: true,
+          accountHint: { text: money.accountText, kind: money.kind },
+          allowCurrencyMismatch: true,
+          onResolved: resolved => { account = resolved.account; },
+        });
         if (createResult.success) {
           transactionResults.push({
             id: createResult.data,
-            amount: transaction.amount,
+            amount: transaction.amountMinor !== undefined ? fromMinor(transaction.amountMinor) : transaction.amount,
+            amountMinor: transaction.amountMinor,
+            currency: transaction.currency,
+            accountId: transaction.accountId,
+            accountName: account?.name,
+            assumptions: captureAssumptions({
+              text,
+              amount: transaction.amount,
+              categoryName: transaction.category,
+              account,
+              currency,
+            }),
             category: transaction.category,
             type: transaction.type,
             semanticType: transaction.semanticType,

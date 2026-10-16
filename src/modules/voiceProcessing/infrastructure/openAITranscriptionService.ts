@@ -210,11 +210,14 @@ export class OpenAITranscriptionService implements TranscriptionService {
     confidence = Math.max(0.1, Math.min(1.0, confidence));
 
     const type = item.type === 'income' || item.type === 'expense' ? item.type : 'expense';
+    const paymentKind = item.account === 'cash' || item.account === 'card' ? item.account : undefined;
 
     return {
       intent: 'transaction',
       amount,
       category,
+      currency: String(item.currency ?? '').toUpperCase() === 'USD' ? 'USD' : 'UZS',
+      paymentKind,
       type,
       semanticType: normalizeSemanticType(item.semanticType, type),
       needsReview: item.needsReview === true,

@@ -7,6 +7,7 @@ import { Transaction } from '../../domain/transactionEntity';
 import { normalizeSemanticType } from '../../domain/transactionSemanticType';
 import { normalizeNeedsReview } from '../../domain/transactionEntity';
 import { fromMinor, minorOf, toMinor } from '../../../../shared/domain/money/money';
+import { isRecordCurrency, isRecordSource } from '../../domain/recordSource';
 
 export class SqliteTransactionRepository implements TransactionRepository {
   private repository: Repository<TransactionEntity>;
@@ -42,6 +43,8 @@ export class SqliteTransactionRepository implements TransactionRepository {
       userId: transaction.userId,
       categoryId: transaction.categoryId,
       accountId: transaction.accountId,
+      currency: transaction.currency ?? 'UZS',
+      source: transaction.source ?? null,
       isArchived: transaction.isArchived ?? false
     });
 
@@ -89,6 +92,7 @@ export class SqliteTransactionRepository implements TransactionRepository {
     // A category arrives resolved to its id (FT-099); a bare name is not written
     if (updates.categoryId !== undefined) updateData.categoryId = updates.categoryId;
     if (updates.accountId !== undefined) updateData.accountId = updates.accountId;
+    if (updates.currency !== undefined) updateData.currency = updates.currency;
     if (updates.date !== undefined) updateData.date = updates.date;
     if (updates.merchant !== undefined) updateData.merchant = updates.merchant;
     if (updates.confidence !== undefined) updateData.confidence = updates.confidence;
@@ -151,6 +155,8 @@ export class SqliteTransactionRepository implements TransactionRepository {
       category: entity.categoryRef?.name ?? entity.legacyCategory ?? 'Другое',
       categoryColor: entity.categoryRef?.color,
       accountId: entity.accountId,
+      currency: isRecordCurrency(entity.currency) ? entity.currency : 'UZS',
+      source: isRecordSource(entity.source) ? entity.source : undefined,
       userName: undefined, // We'll get this from User entity later
       isArchived: entity.isArchived ?? false,
       createdAt: entity.createdAt?.toISOString()

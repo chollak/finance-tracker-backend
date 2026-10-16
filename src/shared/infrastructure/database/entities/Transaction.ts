@@ -71,6 +71,14 @@ export class Transaction {
   @Column({ name: 'account_id' })
   accountId!: string;
 
+  /** Currency of the amount: the account's at the time of writing (FT-103). */
+  @Column({ default: 'UZS' })
+  currency!: string;
+
+  /** Where the record came from: telegram, miniapp, ios_shortcut, receipt, manual (FT-103); null for older records. */
+  @Column('varchar', { nullable: true })
+  source?: string | null;
+
   /** The pre-FT-099 category string (old id or name), kept until FT-136 for the migration report. */
   @Column('varchar', { name: 'legacy_category', nullable: true })
   legacyCategory?: string | null;

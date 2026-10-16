@@ -72,6 +72,7 @@ describe('Dashboard Service', () => {
       getSpendingPatterns: jest.fn(),
       getDetailedCategoryBreakdown: jest.fn(),
       getTransactionsForUser: jest.fn(),
+      usdRateFor: jest.fn().mockResolvedValue(null),
     } as any;
 
     mockBudgetService = {

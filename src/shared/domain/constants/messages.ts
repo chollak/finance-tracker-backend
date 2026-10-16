@@ -64,7 +64,8 @@ ${categoryPrompt}
       ФОРМАТ ОТВЕТА (JSON):
       {
         "items": [
-          { "intent": "transaction", "amount": число, "category": "название категории из списка", "type": "income" | "expense",
+          { "intent": "transaction", "amount": число, "currency": "UZS" | "USD", "account": "cash" | "card" | null,
+            "category": "название категории из списка", "type": "income" | "expense",
             "semanticType": "expense" | "income" | "own_transfer" | "saving_deposit" | "debt" | "reimbursement" | "cash_withdrawal" | "group_payment",
             "needsReview": true | false,
             "date": "YYYY-MM-DD", "merchant": "название", "confidence": число, "description": "описание" }
@@ -99,6 +100,10 @@ ${categoryPrompt}
       - "25го", "25 числа" = 25-е число текущего/следующего месяца
       - "на прошлой неделе" = примерно 7 дней назад
       - Если дата не указана — сегодня
+
+      ВАЛЮТА И СЧЁТ:
+      - "$", "долл", "доллар", "usd" → "currency": "USD", сумма в долларах как написано (55, 9.99); иначе "UZS"
+      - "нал", "наличными" → "account": "cash"; "картой", "по карте", "uzcard", "humo" → "account": "card"; иначе null
 
       ПРАВИЛА СУММ:
       - Записывай числа как есть (50000, 100, 25.5)

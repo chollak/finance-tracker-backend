@@ -10,6 +10,7 @@ import {
   ProcessedTransaction,
 } from '../src/modules/voiceProcessing/domain/processedTransaction';
 import { downloadVoiceFile, cleanupFile } from '../src/delivery/messaging/telegram/utils';
+import { PeriodTotalsService } from '../src/modules/transaction/application/periodTotalsService';
 
 // The voice path must not touch the filesystem or Telegram's CDN in tests; transcription itself
 // stays mocked at the use-case level, so no OpenAI call is ever made.
@@ -90,6 +91,7 @@ describe('Telegram message handlers', () => {
         },
         transactionModule: {
           getGetUserTransactionsUseCase: () => ({ execute: getUserTransactionsExecute }),
+          getPeriodTotalsService: () => new PeriodTotalsService(),
         },
       },
       ...overrides,
@@ -282,6 +284,7 @@ describe('Telegram message handlers', () => {
           voiceModule: { getProcessTextInputUseCase: () => ({ execute: jest.fn() }) },
           transactionModule: {
             getGetUserTransactionsUseCase: () => ({ execute: getUserTransactionsExecute }),
+            getPeriodTotalsService: () => new PeriodTotalsService(),
           },
         },
       });
@@ -353,6 +356,7 @@ describe('Telegram message handlers', () => {
           },
           transactionModule: {
             getGetUserTransactionsUseCase: () => ({ execute: getUserTransactionsExecute }),
+            getPeriodTotalsService: () => new PeriodTotalsService(),
           },
         },
         ...overrides,
@@ -394,6 +398,7 @@ describe('Telegram message handlers', () => {
         filePath: '/tmp/voice/voice-file-1.ogg',
         userId: '131184740',
         userName: 'Shukur',
+        source: 'telegram',
       });
       expect(capture).not.toHaveBeenCalled();
     });
@@ -510,6 +515,7 @@ describe('Telegram message handlers', () => {
                 { amount: 500000, type: 'expense', semanticType: 'own_transfer', needsReview: false, date: '2026-07-31T11:00:00.000Z' },
               ]),
             }),
+            getPeriodTotalsService: () => new PeriodTotalsService(),
           },
         },
       });

@@ -52,6 +52,11 @@ export class TransactionValidator {
       chain.validate(Validators.string(data.accountId, 'accountId'));
     }
 
+    // Optional currency (FT-103); must be the account's. Without it: the picked account's, else сум
+    if (data.currency !== undefined && data.currency !== null) {
+      chain.validate(Validators.oneOf(data.currency, ['UZS', 'USD'], 'currency'));
+    }
+
     // Optional semanticType validation - only checked when explicitly provided
     if (data.semanticType !== undefined && data.semanticType !== null) {
       chain.validate(Validators.transactionSemanticType(data.semanticType));
@@ -80,6 +85,9 @@ export class TransactionValidator {
       category: hasCategoryId ? '' : String(data.category).trim(),
       categoryId: hasCategoryId ? String(data.categoryId).trim() : undefined,
       accountId: data.accountId ? String(data.accountId).trim() : undefined,
+      currency: data.currency === 'USD' || data.currency === 'UZS' ? data.currency : undefined,
+      // Records written through the API by hand; capture paths set their own source
+      source: 'manual',
       description: String(data.description).trim(),
       type: data.type as 'income' | 'expense',
       semanticType: normalizeSemanticType(data.semanticType, data.type as 'income' | 'expense'),

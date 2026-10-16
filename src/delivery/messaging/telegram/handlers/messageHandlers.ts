@@ -19,8 +19,7 @@ import {
 import { resolveUserIdToUUID } from '../../../../shared/application/helpers/userIdResolver';
 import { LimitType } from '../../../../modules/subscription/domain/usageLimit';
 import { createLogger, LogCategory } from '../../../../shared/infrastructure/logging';
-import { countsAsRealExpense, normalizeSemanticType } from '../../../../modules/transaction/domain/transactionSemanticType';
-import { fromMinor, minorOf } from '../../../../shared/domain/money/money';
+import { fromMinor } from '../../../../shared/domain/money/money';
 import { buildCaptureAck } from '../../../../modules/quickCapture/application/buildCaptureAck';
 import { toCapturedTransaction } from '../../../../modules/quickCapture/application/toCapturedTransaction';
 import { CapturedTransaction } from '../../../../modules/quickCapture/domain/quickCaptureTypes';
@@ -258,6 +257,7 @@ export function createVoiceMessageHandler(userModule?: UserModule, subscriptionM
         filePath,
         userId,
         userName,
+        source: 'telegram',
       });
 
       if (result.transactions.length === 0 && (!result.debts || result.debts.length === 0)) {
@@ -387,25 +387,15 @@ async function getTodaySummary(
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const thisMonth = transactions.filter(tx => new Date(tx.date) >= startOfMonth);
+    const thisDay = thisMonth.filter(tx => new Date(tx.date) >= today);
 
-    // Integer minor units while summing (FT-097)
-    let todayTotal = 0;
-    let monthTotal = 0;
+    // Real expenses through the shared period totals (FT-103): dollars at the effective rate
+    const totals = transactionModule.getPeriodTotalsService();
+    const month = await totals.summarize(userId, thisMonth);
+    const day = await totals.summarize(userId, thisDay);
 
-    for (const tx of transactions) {
-      const semanticType = normalizeSemanticType(tx.semanticType, tx.type);
-      if (!tx.needsReview && countsAsRealExpense(semanticType)) {
-        const txDate = new Date(tx.date);
-        if (txDate >= startOfMonth) {
-          monthTotal += minorOf(tx);
-          if (txDate >= today) {
-            todayTotal += minorOf(tx);
-          }
-        }
-      }
-    }
-
-    return { todayTotal: fromMinor(todayTotal), monthTotal: fromMinor(monthTotal) };
+    return { todayTotal: fromMinor(day.expenseMinor), monthTotal: fromMinor(month.expenseMinor) };
   } catch {
     return undefined;
   }
@@ -455,6 +445,7 @@ async function handleQuickAddAmount(
       userId,
       userName,
       amount,
+      source: 'telegram' as const,
       category: picked.category,
       categoryId: picked.categoryId,
       type: 'expense' as const,

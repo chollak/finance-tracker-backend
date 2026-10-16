@@ -9,6 +9,10 @@ export interface ParsedTransaction {
   amount: number;
   /** A category name as the parser saw it; resolved to the user's category on create (FT-099). */
   category: string;
+  /** Dollars when the text says so («$», «долл», «usd»); сум otherwise (FT-103). */
+  currency?: 'UZS' | 'USD';
+  /** «нал» → cash, «картой» → card, when the parser tells it per item (FT-103). */
+  paymentKind?: 'cash' | 'card';
   type: 'income' | 'expense';
   semanticType?: TransactionSemanticType;
   needsReview?: boolean;

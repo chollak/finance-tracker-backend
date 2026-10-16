@@ -13,7 +13,7 @@ import { resolveUserIdToUUID } from '../../../../shared/application/helpers/user
 import { botUserId, quickAddCategories } from '../utils/userCategories';
 import { createLogger, LogCategory } from '../../../../shared/infrastructure/logging';
 import { getPreviousWeekRange, summarizeWeeklyReview } from '../../../../modules/transaction/application/weeklyReviewService';
-import { fromMinor, minorOf, percentOf } from '../../../../shared/domain/money/money';
+import { fromMinor } from '../../../../shared/domain/money/money';
 
 const logger = createLogger(LogCategory.TELEGRAM);
 
@@ -52,7 +52,8 @@ async function handleWeeklyReview(ctx: BotContext) {
     const transactions = await transactionModule
       .getGetUserTransactionsUseCase()
       .execute(userId);
-    const summary = summarizeWeeklyReview(transactions, getPreviousWeekRange());
+    const usdRateMinor = await transactionModule.getPeriodTotalsService().usdRateFor(userId, transactions);
+    const summary = summarizeWeeklyReview(transactions, getPreviousWeekRange(), { usdRateMinor });
 
     await ctx.reply(formatWeeklyReviewSummary(summary), {
       parse_mode: 'HTML',
@@ -126,46 +127,23 @@ async function handleToday(ctx: BotContext) {
       return txDate >= today && txDate <= endOfDay;
     });
 
-    // Calculate summary
+    // The shared period totals (FT-103): real income and expenses, records awaiting review apart,
+    // dollars at the user's effective rate
+    const totals = await transactionModule.getPeriodTotalsService().summarize(userId, todayTransactions);
     const summary: StatsSummary = {
-      totalIncome: 0,
-      totalExpense: 0,
-      netIncome: 0,
+      totalIncome: fromMinor(totals.incomeMinor),
+      totalExpense: fromMinor(totals.expenseMinor),
+      netIncome: fromMinor(totals.netMinor),
       transactionCount: todayTransactions.length,
     };
 
-    // Integer minor units while summing (FT-097); сум only for the message
-    const categoryMap = new Map<string, { amount: number; count: number }>();
-    let incomeMinor = 0;
-    let expenseMinor = 0;
-
-    for (const tx of todayTransactions) {
-      const minor = minorOf(tx);
-      if (tx.type === 'income') {
-        incomeMinor += minor;
-      } else {
-        expenseMinor += minor;
-        // Track expense categories
-        const existing = categoryMap.get(tx.category) || { amount: 0, count: 0 };
-        categoryMap.set(tx.category, {
-          amount: existing.amount + minor,
-          count: existing.count + 1,
-        });
-      }
-    }
-    summary.totalIncome = fromMinor(incomeMinor);
-    summary.totalExpense = fromMinor(expenseMinor);
-    summary.netIncome = fromMinor(incomeMinor - expenseMinor);
-
     // Convert category map to array
-    const categories: CategoryBreakdown[] = Array.from(categoryMap.entries())
-      .map(([category, data]) => ({
-        category,
-        amount: fromMinor(data.amount),
-        count: data.count,
-        percentage: percentOf(data.amount, expenseMinor, 0),
-      }))
-      .sort((a, b) => b.amount - a.amount);
+    const categories: CategoryBreakdown[] = totals.categories.map(category => ({
+      category: category.category,
+      amount: fromMinor(category.amountMinor),
+      count: category.count,
+      percentage: Math.round(category.percentage),
+    }));
 
     const message = formatTodayStats(summary, categories);
     const keyboard = todayKeyboard(telegramId);
@@ -207,47 +185,23 @@ async function handleStats(ctx: BotContext) {
       return txDate >= startOfMonth && txDate <= endOfMonth;
     });
 
-    // Calculate summary
+    // The shared period totals (FT-103): real income and expenses, records awaiting review apart,
+    // dollars at the user's effective rate
+    const totals = await transactionModule.getPeriodTotalsService().summarize(userId, monthTransactions);
     const summary: StatsSummary = {
-      totalIncome: 0,
-      totalExpense: 0,
-      netIncome: 0,
+      totalIncome: fromMinor(totals.incomeMinor),
+      totalExpense: fromMinor(totals.expenseMinor),
+      netIncome: fromMinor(totals.netMinor),
       transactionCount: monthTransactions.length,
     };
 
-    // Integer minor units while summing (FT-097); сум only for the message
-    const categoryMap = new Map<string, { amount: number; count: number }>();
-    let incomeMinor = 0;
-    let expenseMinor = 0;
-
-    for (const tx of monthTransactions) {
-      const minor = minorOf(tx);
-      if (tx.type === 'income') {
-        incomeMinor += minor;
-      } else {
-        expenseMinor += minor;
-        // Track expense categories
-        const existing = categoryMap.get(tx.category) || { amount: 0, count: 0 };
-        categoryMap.set(tx.category, {
-          amount: existing.amount + minor,
-          count: existing.count + 1,
-        });
-      }
-    }
-    summary.totalIncome = fromMinor(incomeMinor);
-    summary.totalExpense = fromMinor(expenseMinor);
-    summary.netIncome = fromMinor(incomeMinor - expenseMinor);
-
     // Convert to top categories array
-    const topCategories: CategoryBreakdown[] = Array.from(categoryMap.entries())
-      .map(([category, data]) => ({
-        category,
-        amount: fromMinor(data.amount),
-        count: data.count,
-        percentage: percentOf(data.amount, expenseMinor, 0),
-      }))
-      .sort((a, b) => b.amount - a.amount)
-      .slice(0, 5);
+    const topCategories: CategoryBreakdown[] = totals.categories.slice(0, 5).map(category => ({
+      category: category.category,
+      amount: fromMinor(category.amountMinor),
+      count: category.count,
+      percentage: Math.round(category.percentage),
+    }));
 
     const message = formatMonthStats(summary, topCategories, now);
     const keyboard = statsKeyboard(telegramId);

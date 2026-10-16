@@ -1,9 +1,12 @@
 import { TransactionRepository } from "../domain/transactionRepository";
 import { Transaction } from "../domain/transactionEntity";
-import { countsAsBudgetSpending, countsAsIncome, countsAsRealExpense, normalizeSemanticType } from "../domain/transactionSemanticType";
-import { fromMinor, minorOf, percentOf } from "../../../shared/domain/money/money";
+import { countsAsIncome, countsAsRealExpense, normalizeSemanticType } from "../domain/transactionSemanticType";
+import { fromMinor, minorOf } from "../../../shared/domain/money/money";
+import { PeriodTotals, summarizePeriod, uzsMinorOf } from "../domain/periodTotals";
+import { PeriodTotalsService } from "./periodTotalsService";
 
-// Sums are integer minor units (FT-097); responses keep сум for the screens that read them.
+// Sums are integer minor units (FT-097) through the shared period totals (FT-103): dollars at the
+// user's effective rate, never added to сум as is. Responses keep сум for the screens that read them.
 
 export interface TimeRange {
   startDate: Date;
@@ -44,12 +47,23 @@ export interface SpendingPattern {
 
 export class AnalyticsService {
     private repository: TransactionRepository;
+    private periodTotals: PeriodTotalsService;
 
-    constructor(repository: TransactionRepository) {
+    constructor(repository: TransactionRepository, periodTotals: PeriodTotalsService = new PeriodTotalsService()) {
         this.repository = repository;
+        this.periodTotals = periodTotals;
     }
 
-    // Original methods for backward compatibility
+    /** The rate dollars in these records convert at for this user, or null. */
+    async usdRateFor(userId: string, transactions: Transaction[]): Promise<number | null> {
+        return this.periodTotals.usdRateFor(userId, transactions);
+    }
+
+    private totals(userId: string, transactions: Transaction[]): Promise<PeriodTotals> {
+        return this.periodTotals.summarize(userId, transactions);
+    }
+
+    // Original methods for backward compatibility (admin, all users: dollars cannot share one rate and are left out)
     async getSummary(): Promise<{ totalIncome: number; totalExpense: number }> {
         const transactions = await this.repository.getAll();
         return this.calculateBasicSummary(transactions);
@@ -63,8 +77,8 @@ export class AnalyticsService {
     // Enhanced methods with time filtering
     async getAnalyticsSummary(userId: string, timeRange?: TimeRange): Promise<AnalyticsSummary> {
         const transactions = await this.getTransactionsInRange(userId, timeRange);
-        
-        const { incomeMinor, expenseMinor } = this.sumIncomeAndExpense(transactions);
+
+        const { incomeMinor, expenseMinor } = await this.totals(userId, transactions);
         const transactionCount = transactions.length;
         const averageMinor = transactionCount > 0
             ? Math.round((incomeMinor + expenseMinor) / transactionCount)
@@ -84,31 +98,16 @@ export class AnalyticsService {
         // This breakdown backs the "Расходы по категориям" chart, so it must hold the
         // same real-spending set as the home screen and budgets: no income, no own
         // transfers/savings/withdrawals/debt, nothing still awaiting review.
-        const expenseTransactions = (await this.getTransactionsInRange(userId, timeRange))
-            .filter(t =>
-                !t.needsReview
-                && t.type === 'expense'
-                && countsAsBudgetSpending(normalizeSemanticType(t.semanticType, t.type))
-            );
         // Percentages are shares of real spending, not of total turnover.
-        const totalMinor = expenseTransactions.reduce((sum, t) => sum + minorOf(t), 0);
-
-        const breakdown: { [key: string]: { minor: number; count: number } } = {};
-
-        for (const transaction of expenseTransactions) {
-            if (!breakdown[transaction.category]) {
-                breakdown[transaction.category] = { minor: 0, count: 0 };
-            }
-            breakdown[transaction.category].minor += minorOf(transaction);
-            breakdown[transaction.category].count++;
-        }
+        const transactions = (await this.getTransactionsInRange(userId, timeRange)).filter(t => t.type === 'expense');
+        const { categories } = await this.totals(userId, transactions);
 
         const result: CategoryBreakdown = {};
-        for (const [category, data] of Object.entries(breakdown)) {
-            result[category] = {
-                amount: fromMinor(data.minor),
-                count: data.count,
-                percentage: percentOf(data.minor, totalMinor)
+        for (const category of categories) {
+            result[category.category] = {
+                amount: fromMinor(category.amountMinor),
+                count: category.count,
+                percentage: category.percentage
             };
         }
 
@@ -121,7 +120,8 @@ export class AnalyticsService {
         startDate.setMonth(endDate.getMonth() - months);
 
         const transactions = await this.getTransactionsInRange(userId, { startDate, endDate });
-        
+        const rate = await this.usdRateFor(userId, transactions);
+
         const monthlyData: { [key: string]: MonthlyTrend & { incomeMinor: number; expensesMinor: number } } = {};
 
         for (const transaction of transactions) {
@@ -151,10 +151,11 @@ export class AnalyticsService {
             data.transactionCount++;
 
             const semanticType = normalizeSemanticType(transaction.semanticType, transaction.type);
+            const minor = uzsMinorOf(transaction, rate) ?? 0;
             if (countsAsIncome(semanticType)) {
-                data.incomeMinor += minorOf(transaction);
+                data.incomeMinor += minor;
             } else if (countsAsRealExpense(semanticType)) {
-                data.expensesMinor += minorOf(transaction);
+                data.expensesMinor += minor;
             }
         }
 
@@ -172,8 +173,9 @@ export class AnalyticsService {
 
     async getSpendingPatterns(userId: string, timeRange?: TimeRange): Promise<SpendingPattern[]> {
         const transactions = await this.getTransactionsInRange(userId, timeRange);
+        const rate = await this.usdRateFor(userId, transactions);
         const expenseTransactions = transactions.filter(t =>
-            !t.needsReview && countsAsRealExpense(normalizeSemanticType(t.semanticType, t.type))
+            !t.needsReview && countsAsRealExpense(normalizeSemanticType(t.semanticType, t.type)) && uzsMinorOf(t, rate) !== null
         );
 
         const dayData: { [key: string]: { total: number; count: number } } = {};
@@ -187,7 +189,7 @@ export class AnalyticsService {
                 dayData[dayName] = { total: 0, count: 0 };
             }
 
-            dayData[dayName].total += minorOf(transaction);
+            dayData[dayName].total += uzsMinorOf(transaction, rate) ?? 0;
             dayData[dayName].count++;
         }
 
@@ -202,23 +204,14 @@ export class AnalyticsService {
 
     async getTopCategories(userId: string, timeRange?: TimeRange, limit: number = 5): Promise<Array<{ category: string; amount: number; percentage: number }>> {
         const transactions = await this.getTransactionsInRange(userId, timeRange);
-        const expenseTransactions = transactions.filter(t =>
-            !t.needsReview && countsAsRealExpense(normalizeSemanticType(t.semanticType, t.type)) && !t.isDebtRelated
-        );
-        const totalExpenseMinor = expenseTransactions.reduce((sum, t) => sum + minorOf(t), 0);
-        const categoryTotals: Record<string, number> = {};
+        const { categories } = await this.totals(userId, transactions);
 
-        for (const transaction of expenseTransactions) {
-            categoryTotals[transaction.category] = (categoryTotals[transaction.category] || 0) + minorOf(transaction);
-        }
-
-        return Object.entries(categoryTotals)
-            .map(([category, minor]) => ({
-                category,
-                amount: fromMinor(minor),
-                percentage: percentOf(minor, totalExpenseMinor)
+        return categories
+            .map(category => ({
+                category: category.category,
+                amount: fromMinor(category.amountMinor),
+                percentage: category.percentage
             }))
-            .sort((a, b) => b.amount - a.amount)
             .slice(0, limit);
     }
 
@@ -242,38 +235,13 @@ export class AnalyticsService {
     }
 
     private calculateBasicSummary(transactions: Transaction[]): { totalIncome: number; totalExpense: number } {
-        const { incomeMinor, expenseMinor } = this.sumIncomeAndExpense(transactions);
+        const { incomeMinor, expenseMinor } = summarizePeriod(transactions, { usdRateMinor: null });
         return { totalIncome: fromMinor(incomeMinor), totalExpense: fromMinor(expenseMinor) };
-    }
-
-    private sumIncomeAndExpense(transactions: Transaction[]): { incomeMinor: number; expenseMinor: number } {
-        let incomeMinor = 0;
-        let expenseMinor = 0;
-
-        for (const transaction of transactions) {
-            // Skip debt-related transactions from balance calculation
-            if (transaction.isDebtRelated) {
-                continue;
-            }
-
-            // Skip transactions flagged for review from finalized totals
-            if (transaction.needsReview) {
-                continue;
-            }
-
-            const semanticType = normalizeSemanticType(transaction.semanticType, transaction.type);
-            if (countsAsIncome(semanticType)) {
-                incomeMinor += minorOf(transaction);
-            } else if (countsAsRealExpense(semanticType)) {
-                expenseMinor += minorOf(transaction);
-            }
-        }
-
-        return { incomeMinor, expenseMinor };
     }
 
     private calculateSimpleCategoryBreakdown(transactions: Transaction[]): { [category: string]: number } {
         const minorByCategory = transactions.reduce((acc, transaction) => {
+            if (transaction.currency === 'USD') return acc; // no common rate across users
             acc[transaction.category] = (acc[transaction.category] || 0) + minorOf(transaction);
             return acc;
         }, {} as { [category: string]: number });

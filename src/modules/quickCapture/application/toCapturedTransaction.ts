@@ -15,6 +15,10 @@ export function toCapturedTransaction(detected: DetectedTransaction): CapturedTr
   return {
     id: detected.id,
     amount: detected.amount,
+    currency: detected.currency,
+    accountId: detected.accountId,
+    accountName: detected.accountName,
+    assumptions: detected.assumptions,
     type: detected.type,
     semanticType,
     category: detected.category,
