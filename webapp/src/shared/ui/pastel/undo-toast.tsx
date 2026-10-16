@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { Check, Info, Trash2 } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
 import { msUntilChange, useUndoToastStore, visibleEntry } from '@/shared/lib/undo';
@@ -17,18 +17,16 @@ export function UndoToast({ bottom = 16 }: UndoToastProps) {
   const stack = useUndoToastStore((state) => state.stack);
   const openSheets = useUndoToastStore((state) => state.openSheets);
   const undoVisible = useUndoToastStore((state) => state.undoVisible);
-  const [now, setNow] = useState(() => Date.now());
+  const now = useUndoToastStore((state) => state.now);
+  const tick = useUndoToastStore((state) => state.tick);
 
-  useEffect(() => {
-    setNow(Date.now());
-  }, [stack]);
-
+  // Redraw exactly when the visible toast runs out (the previous one may show again).
   useEffect(() => {
     const wait = msUntilChange(stack, now);
     if (wait === null) return;
-    const timer = window.setTimeout(() => setNow(Date.now()), wait + 20);
+    const timer = window.setTimeout(tick, wait + 20);
     return () => window.clearTimeout(timer);
-  }, [stack, now]);
+  }, [stack, now, tick]);
 
   const entry = openSheets > 0 ? null : visibleEntry(stack, now);
 

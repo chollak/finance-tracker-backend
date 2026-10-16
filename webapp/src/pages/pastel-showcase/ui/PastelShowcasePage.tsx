@@ -1,7 +1,10 @@
 import { useState, type ReactNode } from 'react';
 import { ArrowUp, Bell, Download, FileText, Mic, MicOff, Palette, PenLine, User, Wallet } from 'lucide-react';
 import {
+  AccountPicker,
   Button,
+  CalendarSheet,
+  CategoryPicker,
   CategoryDot,
   CategoryTile,
   ChoiceChips,
@@ -25,6 +28,7 @@ import {
   type Currency,
 } from '@/shared/lib/money';
 import { showUndoToast } from '@/shared/lib/undo';
+import { relativeDayLabel, toLocalDate } from '@/shared/lib/dates';
 
 /** Labels about 30% longer, the way Uzbek ones will be. */
 const LONG: Record<string, string> = {
@@ -65,6 +69,10 @@ function Panel({ theme, long }: { theme: 'light' | 'dark'; long: boolean }) {
   const [currency, setCurrency] = useState<Currency>('UZS');
   const [keypad, setKeypad] = useState(() => keypadFromMinor(14_500_000, 'UZS'));
   const minor = keypadToMinor(keypad, currency);
+  const [sheet, setSheet] = useState<'category' | 'filter' | 'account' | 'date' | null>(null);
+  const [accountId, setAccountId] = useState('card');
+  const today = toLocalDate(new Date());
+  const [date, setDate] = useState(today);
   const display = keypadDisplay(keypad);
 
   return (
@@ -132,6 +140,54 @@ function Panel({ theme, long }: { theme: 'light' | 'dark'; long: boolean }) {
         >
           Удалить операцию
         </Button>
+      </Block>
+
+      <Block title="Sheet · Picker · Calendar">
+        <div className="flex flex-wrap gap-2">
+          <Button variant="text" onClick={() => setSheet('category')}>Категория: {category}</Button>
+          <Button variant="text" onClick={() => setSheet('filter')}>Фильтр</Button>
+          <Button variant="text" onClick={() => setSheet('account')}>Счёт: {accountId}</Button>
+          <Button variant="text" onClick={() => setSheet('date')}>Дата: {relativeDayLabel(date, today)}</Button>
+        </div>
+        <CategoryPicker
+          open={sheet === 'category'}
+          onOpenChange={(open) => setSheet(open ? 'category' : null)}
+          title="Категория расхода"
+          groups={[{ categories: CATEGORIES.map((c) => ({ id: c.name, name: t(c.name), color: c.color })) }]}
+          selectedId={category}
+          guessedId="Покупки"
+          onSelect={(picked) => setCategory(picked.id)}
+          context={{ text: `«Кофе» · ${formatMinor(-2_500_000, 'UZS')}`, onOpenOperation: () => setSheet(null) }}
+        />
+        <CategoryPicker
+          open={sheet === 'filter'}
+          onOpenChange={(open) => setSheet(open ? 'filter' : null)}
+          title="Фильтр по категории"
+          allOption={{ label: 'Все категории', selected: true, onSelect: () => {} }}
+          groups={[
+            { label: 'Расходы', categories: CATEGORIES.map((c) => ({ id: c.name, name: t(c.name), color: c.color })) },
+            { label: 'Доходы', categories: [{ id: 'salary', name: 'Зарплата', color: 'mint' }, { id: 'gift', name: 'Подарки', color: 'rose' }] },
+          ]}
+          onSelect={() => {}}
+        />
+        <AccountPicker
+          open={sheet === 'account'}
+          onOpenChange={(open) => setSheet(open ? 'account' : null)}
+          accounts={[
+            { id: 'cash', name: 'Наличные', balance: formatMinor(125_000_000, 'UZS') },
+            { id: 'card', name: 'Карта', balance: formatMinor(318_000_000, 'UZS') },
+            { id: 'usd', name: 'Доллары', balance: formatMinor(42_000, 'USD') },
+          ]}
+          selectedId={accountId}
+          onSelect={(account) => setAccountId(account.id)}
+        />
+        <CalendarSheet
+          open={sheet === 'date'}
+          onOpenChange={(open) => setSheet(open ? 'date' : null)}
+          value={date}
+          today={today}
+          onSelect={setDate}
+        />
       </Block>
 
       <Block title="Switch">
