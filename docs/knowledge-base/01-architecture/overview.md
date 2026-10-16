@@ -35,9 +35,9 @@
 Реализация технических деталей и интеграций с внешним миром.
 
 **Содержит:**
-- Repository Implementations (SqliteTransactionRepository, SupabaseBudgetRepository)
+- Repository Implementations (SqliteTransactionRepository, SqliteBudgetRepository)
 - External Services (OpenAITranscriptionService)
-- Database Configuration (database.config.ts, supabase.config.ts)
+- Database Configuration (database.config.ts, migrations/)
 - File System Operations
 
 **Зависимости:** Domain Layer (через интерфейсы)
@@ -140,7 +140,7 @@
 ### Почему Repository Pattern?
 ✅ **Abstraction** - бизнес-логика не знает о деталях БД
 ✅ **Testability** - легко мокировать доступ к данным
-✅ **Flexibility** - легко переключаться между SQLite и Supabase
+✅ **Flexibility** - смена хранилища затрагивает только инфраструктурный слой
 
 ## Критичные файлы
 

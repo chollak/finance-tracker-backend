@@ -85,11 +85,10 @@ OPENAI_API_KEY=sk-...
 **SQLite (default):**
 - Database автоматически создается при первом запуске
 - Location: `data/database.sqlite`
-- Schema sync: `src/shared/infrastructure/database/database.config.ts` включает TypeORM `synchronize`, если `DB_SYNCHRONIZE=true` **или** `NODE_ENV=development`. То есть в локальной разработке схема синхронизируется сама; `DB_SYNCHRONIZE=true` нужен только чтобы включить её вне development. Значение можно задать через обычные `.env` / `.env.local` (после dotenv-загрузки оно попадает в `process.env`); в `.env.example` переменная намеренно не указана как обязательная.
+- Схема меняется только миграциями TypeORM (FT-090). При старте приложение само применяет недостающие миграции, предварительно копируя базу в `data/backups/`. `synchronize` выключен, `DB_SYNCHRONIZE` больше не используется.
+- Вручную: `npm run migration:show`, `npm run migration:run`, `npm run migration:revert`. Подробности — [Database Guide](database-guide.md).
 
-**Supabase (optional):**
-
-См. [Database Guide](database-guide.md) для инструкций по миграции.
+Supabase как отдельный путь к базе убран (решение Д6 вехи 10).
 
 ---
 
@@ -346,17 +345,9 @@ SELECT * FROM transaction LIMIT 10;
 |----------|---------|-------------|
 | `NODE_ENV` | `development` | Environment mode |
 | `PORT` | `3000` | Server port |
-| `DATABASE_TYPE` | `sqlite` | `sqlite` or `supabase` |
+| `DATABASE_TYPE` | `sqlite` | только `sqlite`; любое другое значение — ошибка запуска |
 | `TG_BOT_API_KEY` | - | Telegram bot token |
 | `WEB_APP_URL` | `http://localhost:3000` | Public URL (перезаписывается `npm run dev:miniapp`) |
-| `DB_SYNCHRONIZE` | - | `true` включает TypeORM schema sync для SQLite вне `NODE_ENV=development` |
-
-### Supabase (if DATABASE_TYPE=supabase)
-
-| Variable | Description |
-|----------|-------------|
-| `SUPABASE_URL` | Project URL |
-| `SUPABASE_ANON_KEY` | Anonymous key |
 
 ---
 
@@ -410,7 +401,7 @@ npm run build:webapp
 ## Next Steps
 
 - [Adding Features](adding-features.md) - Как добавить новый use case/endpoint
-- [Database Guide](database-guide.md) - SQLite vs Supabase
+- [Database Guide](database-guide.md) - SQLite, TypeORM и миграции
 - [Troubleshooting](troubleshooting.md) - Решение проблем
 - [Architecture Overview](../01-architecture/overview.md) - Понимание структуры
 

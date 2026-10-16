@@ -53,6 +53,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npm run dev:frontend` - Frontend only (requires backend running separately)
 - `npm run dev:backend` - Backend only (same as `npm run dev`)
 
+**Database migrations (FT-090):**
+- `npm run migration:show` - Applied/pending migrations and whether the schema matches the entities
+- `npm run migration:run` - Back up `data/database.sqlite` to `data/backups/`, then apply pending migrations (the app also does this on start)
+- `npm run migration:revert` - Back up, then undo the last migration
+
 **Testing:**
 - `npm test` - Run Jest tests (located in `tests/` folder)
 - `npm run test:ci` - Run Jest tests serially for CI/Hermes verification
@@ -75,13 +80,11 @@ Required environment variables in `.env` file:
 - `OPENAI_API_KEY` - For voice transcription and transaction parsing
 - `TG_BOT_API_KEY` - Telegram bot token
 - `WEB_APP_URL` - Public URL for the web application
-- `DATABASE_TYPE` - Database type: `sqlite` (default) or `supabase`
+- `DATABASE_TYPE` - optional; only `sqlite` is supported (any other value fails startup). The `supabase-js` path was removed in FT-090 (decision Д6)
 
-**For Supabase (when DATABASE_TYPE=supabase):**
-- `SUPABASE_URL` - Supabase project URL
-- `SUPABASE_ANON_KEY` - Supabase anonymous key
-- **Supabase Project ID:** `cttsquvkvkwtxsfrgsrs` (historical value; verify before use — current local work uses SQLite and Supabase is paused)
-- **Test User telegramId:** `597843119` (Konan) - only for approved Supabase testing; do not modify Supabase without explicit permission
+**Historical, not active:**
+- **Supabase Project ID:** `cttsquvkvkwtxsfrgsrs` — project paused; the app no longer talks to Supabase. Do not modify it without explicit permission
+- **Test User telegramId:** `597843119` (Konan)
 - **Production Domain:** `https://sapaev.uz` (owned by Shukur but not an active deployment target as of 2026-08-13)
 
 **Logging:**
@@ -137,7 +140,7 @@ For detailed documentation, see **[docs/knowledge-base/](docs/knowledge-base/)**
 - **[Development Guide](docs/knowledge-base/08-development/)** - Quick start, adding features
   - [Quick Start](docs/knowledge-base/08-development/quick-start.md) - Setup and running
   - [Adding Features](docs/knowledge-base/08-development/adding-features.md) - Use cases, endpoints, modules
-  - [Database Guide](docs/knowledge-base/08-development/database-guide.md) - SQLite vs Supabase
+  - [Database Guide](docs/knowledge-base/08-development/database-guide.md) - SQLite, TypeORM, migrations
   - [Troubleshooting](docs/knowledge-base/08-development/troubleshooting.md) - Common issues
   - [Test Logging & Contract Cleanup](docs/knowledge-base/08-development/test-logging-and-contract-cleanup.md) - FT-017 findings and cleanup plan
   - [Task Workflow](docs/knowledge-base/08-development/task-workflow.md) - TASKS.md vs GitHub Issues decision
@@ -200,7 +203,7 @@ The application has two main delivery mechanisms:
 
 ### Data Flow
 
-Voice commands → OpenAI Whisper → GPT-4 Parsing → Transaction Creation → Database (SQLite/Supabase)
+Voice commands → OpenAI Whisper → GPT-4 Parsing → Transaction Creation → Database (SQLite via TypeORM)
 Text input → GPT-4 Parsing → Transaction Creation → Database
 HTTP API → Controller → Use Case → Repository → Database
 
@@ -209,14 +212,13 @@ HTTP API → Controller → Use Case → Repository → Database
 ### Why Clean Architecture?
 - **Testability** - легко мокировать зависимости и тестировать бизнес-логику изолированно
 - **Maintainability** - изменения в одном слое не влияют на другие
-- **Flexibility** - легко менять технологии (например, переключаться между SQLite и Supabase)
+- **Flexibility** - смена технологии затрагивает только инфраструктурный слой
 - **Scalability** - модульная структура позволяет системе расти постепенно
 
-### Why Dual Database Support?
-- **Development** - SQLite для быстрого старта без облачных зависимостей
-- **Production** - Supabase для масштабирования и real-time возможностей
-- **Migration Path** - постепенный переход от MVP к production-ready solution
-- **Implementation** - Repository Pattern + Factory для seamless switching
+### Why One Database Path?
+- **One implementation per repository** - TypeORM over SQLite; the `supabase-js` repositories were removed in FT-090 (decision Д6), so every new table is written once
+- **Migrations, not synchronize** - schema changes are TypeORM migrations applied on start after a backup to `data/backups/`; `synchronize` is off because it cannot convert types or move data
+- **Postgres later** - if needed, it becomes another TypeORM `DataSource` behind the same repositories, not a second set of repositories
 
 ### Machine Learning System
 - Система обучается на пользовательских исправлениях транзакций
@@ -574,7 +576,6 @@ Fixes #123
 - [ ] Unit tests pass
 - [ ] Manual testing done
 - [ ] Tested on SQLite
-- [ ] Tested on Supabase
 
 ## Screenshots (if UI changes)
 ```
@@ -764,23 +765,19 @@ See: [Adding Features Guide](docs/knowledge-base/08-development/adding-features.
 
 ### Changing Database Schema
 
-**SQLite:**
-- Modify entity в `src/shared/infrastructure/database/entities/`
-- Auto-sync in development (`synchronize: true`)
+1. Change the entity in `src/shared/infrastructure/database/entities/`
+2. Add a migration class in `src/shared/infrastructure/database/migrations/` and list it in `migrations/index.ts`
+3. Test it on a real SQLite file in a temp dir (see `tests/databaseMigrations.test.ts`): data kept, `findSchemaDrift()` empty
+4. `npm run migration:show` shows pending migrations and any entity/schema drift
 
-**Supabase:**
-- Write migration SQL в `migrations/` folder
-- Execute в Supabase SQL Editor
-- Update repository implementations if needed
-
-See: [Database Guide](docs/knowledge-base/08-development/database-guide.md)
+Never turn `synchronize` back on. See: [Database Guide](docs/knowledge-base/08-development/database-guide.md)
 
 ### Adding a New Module
 
 1. Create folder structure: `src/modules/{module}/{domain,application,infrastructure,presentation}/`
 2. Define domain entities и repository interfaces
 3. Implement use cases и services
-4. Create repository implementations (SQLite + Supabase)
+4. Create the repository implementation (TypeORM) and a migration for its tables
 5. Add module class with factory method
 6. Register в `src/appModules.ts`
 7. Add routes if needed
@@ -796,7 +793,7 @@ See: [Adding Features Guide](docs/knowledge-base/08-development/adding-features.
 
 ## Integration Points
 
-- **Database**: SQLite for local/default storage, Supabase for production/cloud storage
+- **Database**: SQLite via TypeORM, schema managed by migrations
 - **OpenAI**: Voice transcription using openai package
 - **Telegram**: Bot interface using telegraf package
 - **Express**: HTTP server with custom CORS headers and multer for file uploads
