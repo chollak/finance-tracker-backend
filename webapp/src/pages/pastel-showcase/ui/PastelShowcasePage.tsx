@@ -5,13 +5,26 @@ import {
   CategoryDot,
   CategoryTile,
   ChoiceChips,
+  Keypad,
   Segmented,
   SettingsRow,
   SettingsSection,
   SkeletonBlock,
   SwitchRow,
+  UndoToast,
 } from '@/shared/ui/pastel';
 import type { PastelColor } from '@/shared/lib/pastel/categoryColors';
+import {
+  amountFontSize,
+  emptyKeypad,
+  formatMinor,
+  keypadDisplay,
+  keypadFromMinor,
+  keypadIsPlaceholder,
+  keypadToMinor,
+  type Currency,
+} from '@/shared/lib/money';
+import { showUndoToast } from '@/shared/lib/undo';
 
 /** Labels about 30% longer, the way Uzbek ones will be. */
 const LONG: Record<string, string> = {
@@ -49,6 +62,10 @@ function Panel({ theme, long }: { theme: 'light' | 'dark'; long: boolean }) {
   const [summary, setSummary] = useState(true);
   const [time, setTime] = useState<'20:00' | '21:00' | '22:00' | '23:00'>('21:00');
   const [category, setCategory] = useState('Кафе');
+  const [currency, setCurrency] = useState<Currency>('UZS');
+  const [keypad, setKeypad] = useState(() => keypadFromMinor(14_500_000, 'UZS'));
+  const minor = keypadToMinor(keypad, currency);
+  const display = keypadDisplay(keypad);
 
   return (
     <div data-theme={theme} className="flex flex-1 flex-col gap-6 bg-bg p-4 text-ink">
@@ -72,6 +89,49 @@ function Panel({ theme, long }: { theme: 'light' | 'dark'; long: boolean }) {
           onChange={setKind}
           options={[{ value: 'expense', label: t('Расход') }, { value: 'income', label: t('Доход') }]}
         />
+      </Block>
+
+      <Block title="Keypad · Toast">
+        <Segmented
+          ariaLabel="Валюта"
+          value={currency}
+          onChange={(next) => {
+            setCurrency(next);
+            setKeypad(emptyKeypad());
+          }}
+          options={[{ value: 'UZS', label: 'Сум' }, { value: 'USD', label: 'USD' }]}
+        />
+        <p
+          className={keypadIsPlaceholder(keypad) ? 'text-ink-muted' : 'text-ink'}
+          style={{ fontSize: amountFontSize(display), fontWeight: 700, letterSpacing: '-1.8px', lineHeight: 1.1 }}
+        >
+          {display} <span className="text-[17px] font-bold tracking-normal text-ink-muted">{currency === 'UZS' ? 'сум' : 'USD'}</span>
+        </p>
+        <Keypad currency={currency} state={keypad} onChange={setKeypad} />
+        <Button
+          disabled={minor === null}
+          onClick={() => {
+            const saved = minor ?? 0;
+            showUndoToast({
+              kind: 'saved',
+              title: 'Записано',
+              detail: `${t('Кафе')} · ${formatMinor(-saved, currency)} · Карта`,
+              undo: () => {
+                setKeypad(keypadFromMinor(saved, currency));
+                showUndoToast({ kind: 'info', title: 'Запись отменена' });
+              },
+            });
+            setKeypad(emptyKeypad());
+          }}
+        >
+          {minor === null ? 'Введите сумму' : t('Сохранить расход')}
+        </Button>
+        <Button
+          variant="text"
+          onClick={() => showUndoToast({ kind: 'deleted', title: 'Удалено', detail: `Кафе · ${formatMinor(-14_500_000, 'UZS')}`, undo: () => {} })}
+        >
+          Удалить операцию
+        </Button>
       </Block>
 
       <Block title="Switch">
@@ -175,6 +235,7 @@ export function PastelShowcasePage() {
         <Panel theme="light" long={long} />
         <Panel theme="dark" long={long} />
       </div>
+      <UndoToast />
     </main>
   );
 }
