@@ -336,6 +336,22 @@ describe('POST /api/quick-capture', () => {
       });
     });
 
+    it('passes a clientId through and refuses a malformed one (FT-106)', async () => {
+      (mocks.quickCaptureService.capture as jest.Mock).mockResolvedValue(SAVED_RESULT);
+
+      const ok = await post({ userId: 'guest_abc123', text: 'такси 18к', clientId: '6f1c2b3a-4d5e-4f60-8a7b-9c0d1e2f3a4b' });
+      expect(ok.status).toBe(200);
+      expect(mocks.quickCaptureService.capture).toHaveBeenCalledWith(expect.objectContaining({
+        clientId: '6f1c2b3a-4d5e-4f60-8a7b-9c0d1e2f3a4b',
+      }));
+
+      for (const clientId of ['a:1', '', 'x'.repeat(65), 42]) {
+        const bad = await post({ userId: 'guest_abc123', text: 'такси 18к', clientId });
+        expect(bad.status).toBe(400);
+      }
+      expect(mocks.quickCaptureService.capture).toHaveBeenCalledTimes(1);
+    });
+
     it('accepts a capture without a source', async () => {
       (mocks.quickCaptureService.capture as jest.Mock).mockResolvedValue({
         ...SAVED_RESULT,

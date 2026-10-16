@@ -1,4 +1,5 @@
 import { TransactionSemanticType } from '../../transaction/domain/transactionSemanticType';
+import { Transaction } from '../../transaction/domain/transactionEntity';
 import { CaptureAssumption, DetectedDebt } from '../../voiceProcessing/domain/processedTransaction';
 
 /**
@@ -27,6 +28,16 @@ export interface QuickCaptureRequest {
   userName?: string;
   /** Echoed back for client-side routing and stored on every record (FT-103); `miniapp` when absent. */
   source?: CaptureSource;
+  /**
+   * The client's id for this capture (FT-106). A repeat returns the records the first request created —
+   * deleted ones with `deletedAt` — without parsing the text again.
+   */
+  clientId?: string;
+}
+
+/** Port to the transaction module: the records a capture with this client id created (FT-106). */
+export interface CaptureReplay {
+  findByClientId(userId: string, clientId: string): Promise<Transaction[]>;
 }
 
 export interface CapturedTransaction {
@@ -48,6 +59,8 @@ export interface CapturedTransaction {
   needsReview: boolean;
   /** Mirrors `countsAsRealExpense()` so clients never have to re-derive transfer/savings semantics. */
   countsAsRealExpense: boolean;
+  /** Only on a repeated capture whose record was deleted since (FT-106). */
+  deletedAt?: string;
 }
 
 /**
@@ -79,4 +92,6 @@ export interface QuickCaptureResult {
   debts: CapturedDebt[];
   ack: CaptureAck;
   review: CaptureReview;
+  /** True when this answers a repeated `clientId` (FT-106): nothing new was written. */
+  repeated?: boolean;
 }

@@ -12,6 +12,7 @@ import { RecordSource } from '../../transaction/domain/recordSource';
 import { ResolvedAccount } from '../../transaction/domain/accountResolver';
 import { captureAssumptions } from './captureAssumptions';
 import { captureMoneyOf } from './captureMoney';
+import { itemClientId } from '../../transaction/domain/clientId';
 import { fromMinor } from '../../../shared/domain/money/money';
 import { normalizeSemanticType, TransactionSemanticType } from '../../transaction/domain/transactionSemanticType';
 import { AnalysisResult, ParsedTransaction } from '../domain/transcriptionService';
@@ -360,6 +361,8 @@ function parseSimpleTextTransaction(text: string): AnalysisResult | null {
 export interface TextInputOptions {
   /** Where the text came from; recorded on every record (FT-103). */
   source?: RecordSource;
+  /** The client's id for the capture (FT-106); its records get «<id>», «<id>:1», … */
+  clientId?: string;
 }
 
 /** The user's categories for the parser prompt; the starter set if they cannot be read. */
@@ -415,7 +418,7 @@ export class ProcessTextInputUseCase {
     const debtResults: DetectedDebt[] = [];
 
     // Process transactions
-    for (const p of transactions) {
+    for (const [index, p] of transactions.entries()) {
       try {
         const type = p.type || 'expense';
         const semanticType = normalizeSemanticType(p.semanticType, type);
@@ -429,6 +432,7 @@ export class ProcessTextInputUseCase {
           amount: money.amount,
           currency,
           source,
+          ...(options.clientId ? { clientId: itemClientId(options.clientId, index) } : {}),
           type,
           semanticType,
           needsReview,

@@ -10,6 +10,7 @@ export enum TransactionType {
 @Entity('transactions')
 @Index('IDX_transactions_user_date', ['userId', 'date'])
 @Index('IDX_transactions_account', ['accountId'])
+@Index('IDX_transactions_user_client', ['userId', 'clientId'], { unique: true })
 export class Transaction {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
@@ -93,6 +94,10 @@ export class Transaction {
    */
   @Column('datetime', { name: 'deleted_at', nullable: true })
   deletedAt?: Date | null;
+
+  /** The client's id for the record (FT-106), unique per user: a repeated create returns this record. */
+  @Column('varchar', { name: 'client_id', nullable: true })
+  clientId?: string | null;
 
   // Debt-related fields
   @Column({ default: false })

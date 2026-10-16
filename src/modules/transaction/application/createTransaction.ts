@@ -12,6 +12,7 @@ import { fromMinor } from '../../../shared/domain/money/money';
 import { CategoryResolver, ResolvedCategory } from '../domain/categoryResolver';
 import { AccountResolver, ResolvedAccount } from '../domain/accountResolver';
 import { toDateOnly } from '../../../shared/domain/dates/dateOnly';
+import { isStoredClientId } from '../domain/clientId';
 
 export interface CreateTransactionOptions {
   /** Automatic paths (AI parser, text fast paths) never write into a hidden category. */
@@ -29,6 +30,11 @@ export interface CreateTransactionOptions {
   allowCurrencyMismatch?: boolean;
   /** Told where the record went, for the parse response's assumptions. */
   onResolved?: (resolved: { category?: ResolvedCategory; account?: ResolvedAccount }) => void;
+  /**
+   * Told when the client already sent this `clientId` (FT-106): nothing is created and the id of the
+   * earlier record — possibly deleted — is returned.
+   */
+  onRepeat?: (existing: Transaction) => void;
 }
 
 const logger = getLogger(LogCategory.TRANSACTION);
@@ -72,6 +78,18 @@ export class CreateTransactionUseCase {
     // Basic validation
     if (!transaction.userId?.trim()) {
       return ResultHelper.failure(new ValidationError('User ID is required'));
+    }
+
+    // A repeat from the offline queue returns the record it created the first time (FT-106)
+    if (transaction.clientId !== undefined) {
+      if (!isStoredClientId(transaction.clientId)) {
+        return ResultHelper.failure(new ValidationError('clientId must be up to 64 letters, digits or «-»', 'clientId'));
+      }
+      const repeat = await this.findRepeat(transaction.userId, transaction.clientId);
+      if (repeat) {
+        options.onRepeat?.(repeat);
+        return ResultHelper.success(repeat.id!);
+      }
     }
 
     // Writers send amountMinor (integer minor units) or the legacy amount in сум (FT-097):
@@ -155,11 +173,25 @@ export class CreateTransactionUseCase {
 
       return ResultHelper.success(created.id!);
     } catch (error) {
+      // Two copies of one request at once: the unique (user, clientId) index lets one in; the other
+      // answers with that record
+      if (transaction.clientId) {
+        const repeat = await this.findRepeat(transaction.userId, transaction.clientId).catch(() => null);
+        if (repeat) {
+          options.onRepeat?.(repeat);
+          return ResultHelper.success(repeat.id!);
+        }
+      }
       logger.error('Error creating transaction', error as Error);
       return ResultHelper.failure(
         new BusinessLogicError('Failed to create transaction', { userId: transaction.userId })
       );
     }
+  }
+
+  private async findRepeat(userId: string, clientId: string): Promise<Transaction | null> {
+    const records = await this.primaryRepository.findByClientId(userId, clientId);
+    return records.find(record => record.clientId === clientId) ?? null;
   }
 
   /**

@@ -7,6 +7,7 @@ import { FxRates1761100000000 } from './1761100000000-FxRates';
 import { RecordCurrencySource1761200000000 } from './1761200000000-RecordCurrencySource';
 import { AccountMoves1761300000000 } from './1761300000000-AccountMoves';
 import { TransactionDeletedAt1761400000000 } from './1761400000000-TransactionDeletedAt';
+import { TransactionClientId1761500000000 } from './1761500000000-TransactionClientId';
 
 /**
  * Every schema change is a migration listed here, in order. Classes are listed explicitly instead of
@@ -22,4 +23,5 @@ export const MIGRATIONS = [
   RecordCurrencySource1761200000000,
   AccountMoves1761300000000,
   TransactionDeletedAt1761400000000,
+  TransactionClientId1761500000000,
 ];

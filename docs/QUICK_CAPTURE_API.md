@@ -146,9 +146,11 @@ so even rejected requests consume budget.
 | `userName` | `string` | no | Passed to the parser/user pipeline. A non-string value is silently treated as absent. |
 | `source` | `"telegram" \| "miniapp" \| "ios_shortcut"` | no | Validated against the enum and echoed back. Since FT-103 it is **stored on every created record** (`transactions.source`); without it the records get `miniapp`. |
 
-Unknown extra fields are ignored (the handler destructures only the four fields above).
+| `clientId` | `string` | no | FT-106. The client's id for this capture: letters, digits and `-`, up to 64. A repeat returns the records of the first capture (`repeated: true`) without parsing again; see [docs/pastel/api.md](pastel/api.md#повтор-из-офлайн-очереди-ft-106). |
 
-Validation order inside the handler: `text` present/non-blank → `text` length → `source` enum → `userId` present.
+Unknown extra fields are ignored (the handler destructures only the five fields above).
+
+Validation order inside the handler: `text` present/non-blank → `text` length → `source` enum → `clientId` format → `userId` present.
 
 ---
 
@@ -406,8 +408,8 @@ curl -sS -X POST https://<tunnel-host>/api/quick-capture \
 2. **No parse-without-save / draft.** Every successful capture writes immediately. There is no
    `/parse` + `/commit` split and no `draft` status; a client confirmation sheet would have to edit or delete an
    already-saved row.
-3. **No idempotency.** `clientRequestId` is not accepted and no deduplication exists — a retried request creates
-   duplicate transactions.
+3. **Idempotency only with `clientId`.** Since FT-106 a request with a `clientId` is safe to retry; without one a
+   retried request still creates duplicate transactions.
 4. **Rate limit is coarse.** The AI limiter is per-IP and its 20/15min budget is *shared* with `/api/voice/*`; it is not
    per-user and cannot be tuned separately for capture.
 5. **No `occurredAt`.** The transaction date comes from the parser/server, so a client cannot backdate a capture through

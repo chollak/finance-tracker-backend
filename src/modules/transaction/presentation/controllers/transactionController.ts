@@ -226,12 +226,17 @@ export function createTransactionRouter(
       }
 
       const transaction = validationResult.data;
-      const createResult = await createUseCase.execute(transaction);
+      // A repeat of a clientId the user already sent answers 200 with that record, deleted or not (FT-106)
+      let repeat: Transaction | undefined;
+      const createResult = await createUseCase.execute(transaction, { onRepeat: existing => { repeat = existing; } });
 
       if (!createResult.success) {
         return handleControllerError(createResult.error, res);
       }
 
+      if (repeat) {
+        return handleControllerSuccess({ id: repeat.id, transaction: repeat, repeated: true }, res, 200);
+      }
       handleControllerSuccess(
         { id: createResult.data, transaction },
         res,

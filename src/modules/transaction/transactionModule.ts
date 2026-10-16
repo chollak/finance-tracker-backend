@@ -85,6 +85,11 @@ export class TransactionModule {
     return this.createTransactionUseCase;
   }
 
+  /** The records a client sent under this id, deleted ones too (FT-106). */
+  findByClientId(userId: string, clientId: string): Promise<Transaction[]> {
+    return this.repository.findByClientId(userId, clientId);
+  }
+
   /** Records written to one of the user's accounts, for the account screen (FT-104). */
   async recordsOfAccount(userId: string, accountId: string): Promise<Transaction[]> {
     return (await this.repository.findByUserId(userId)).filter(record => record.accountId === accountId);

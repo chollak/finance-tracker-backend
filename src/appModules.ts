@@ -58,7 +58,8 @@ export function createModules() {
   const voiceModule = new VoiceProcessingModule(openAIService, transactionModule, debtModule, categoryModule.getCatalog());
 
   // Shared quick-capture boundary: wraps the existing text pipeline for API/Telegram/Mini App clients
-  const quickCaptureModule = QuickCaptureModule.create(voiceModule);
+  // A repeated clientId returns the records the first capture wrote (FT-106)
+  const quickCaptureModule = QuickCaptureModule.create(voiceModule, transactionModule);
 
   return {
     categoryModule,

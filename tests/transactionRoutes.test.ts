@@ -254,7 +254,8 @@ describe('Transaction API route boundaries', () => {
 
     expect(res.status).toBe(201);
     expect(mocks.createUseCase.execute).toHaveBeenCalledWith(
-      expect.objectContaining({ semanticType: 'own_transfer' })
+      expect.objectContaining({ semanticType: 'own_transfer' }),
+      expect.objectContaining({ onRepeat: expect.any(Function) })
     );
   });
 
@@ -354,7 +355,8 @@ describe('Transaction API route boundaries', () => {
 
     expect(res.status).toBe(201);
     expect(mocks.createUseCase.execute).toHaveBeenCalledWith(
-      expect.objectContaining({ needsReview: false })
+      expect.objectContaining({ needsReview: false }),
+      expect.objectContaining({ onRepeat: expect.any(Function) })
     );
   });
 
@@ -379,7 +381,8 @@ describe('Transaction API route boundaries', () => {
 
     expect(res.status).toBe(201);
     expect(mocks.createUseCase.execute).toHaveBeenCalledWith(
-      expect.objectContaining({ needsReview: true })
+      expect.objectContaining({ needsReview: true }),
+      expect.objectContaining({ onRepeat: expect.any(Function) })
     );
   });
 

@@ -12,6 +12,11 @@ export interface TransactionRepository {
     /** Brings a softly deleted record back. */
     restore(id: string): Promise<Transaction>;
     findByIdIncludingDeleted(id: string): Promise<Transaction | null>;
+    /**
+     * The records the client sent under this id (FT-106), deleted ones too: the record with exactly
+     * this client id and the further records of the same quick capture («<id>:1», …), in order.
+     */
+    findByClientId(userId: string, clientId: string): Promise<Transaction[]>;
     update(id: string, updates: Partial<Transaction>): Promise<Transaction>;
     getByUserIdAndDateRange(userId: string, startDate: Date, endDate: Date): Promise<Transaction[]>;
 

@@ -4,6 +4,7 @@ import { ValidationError } from '../../domain/errors/AppError';
 import { Validators, ValidationChain } from './validators';
 import { normalizeSemanticType } from '../../../modules/transaction/domain/transactionSemanticType';
 import { fromMinor } from '../../domain/money/money';
+import { isClientId } from '../../../modules/transaction/domain/clientId';
 
 export class TransactionValidator {
   static validate(data: any): Result<Transaction, ValidationError[]> {
@@ -57,6 +58,11 @@ export class TransactionValidator {
       chain.validate(Validators.oneOf(data.currency, ['UZS', 'USD'], 'currency'));
     }
 
+    // Optional client id for the offline queue (FT-106): a repeat returns the same record
+    if (data.clientId !== undefined && data.clientId !== null && !isClientId(data.clientId)) {
+      chain.validate(ResultHelper.failure(new ValidationError('clientId must be up to 64 letters, digits or «-»', 'clientId')));
+    }
+
     // Optional semanticType validation - only checked when explicitly provided
     if (data.semanticType !== undefined && data.semanticType !== null) {
       chain.validate(Validators.transactionSemanticType(data.semanticType));
@@ -95,7 +101,8 @@ export class TransactionValidator {
       userId: String(data.userId).trim(),
       userName: data.userName ? String(data.userName).trim() : undefined,
       date: data.date ? String(data.date).trim() : defaultDate,
-      merchant: data.merchant ? String(data.merchant).trim() : undefined
+      merchant: data.merchant ? String(data.merchant).trim() : undefined,
+      ...(isClientId(data.clientId) ? { clientId: data.clientId } : {}),
     };
 
     return ResultHelper.success(transaction);

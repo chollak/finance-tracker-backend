@@ -50,6 +50,7 @@ export class SqliteTransactionRepository implements TransactionRepository {
       accountId: transaction.accountId,
       currency: transaction.currency ?? 'UZS',
       source: transaction.source ?? null,
+      clientId: transaction.clientId ?? null,
       isArchived: transaction.isArchived ?? false
     });
 
@@ -87,6 +88,18 @@ export class SqliteTransactionRepository implements TransactionRepository {
     const restored = await this.findByIdIncludingArchived(id);
     if (!restored) throw new Error(`Transaction ${id} not found after restore`);
     return restored;
+  }
+
+  async findByClientId(userId: string, clientId: string): Promise<Transaction[]> {
+    const prefix = `${clientId}:`;
+    const entities = await this.query({ includeDeleted: true })
+      .andWhere('transaction.userId = :userId', { userId })
+      .andWhere('(transaction.clientId = :clientId OR substr(transaction.clientId, 1, :length) = :prefix)', {
+        clientId, prefix, length: prefix.length,
+      })
+      .getMany();
+    const index = (record: Transaction) => Number(record.clientId === clientId ? 0 : record.clientId!.slice(prefix.length));
+    return entities.map(entity => this.mapToTransaction(entity)).sort((a, b) => index(a) - index(b));
   }
 
   /** A record by id even if it is deleted — to restore it, or to answer a repeated create (FT-106). */
@@ -181,8 +194,9 @@ export class SqliteTransactionRepository implements TransactionRepository {
       userName: undefined, // We'll get this from User entity later
       isArchived: entity.isArchived ?? false,
       createdAt: entity.createdAt?.toISOString(),
-      // Only deleted records carry it, so live records keep their shape
+      // Only deleted records and records sent with a client id carry these, so others keep their shape
       ...(entity.deletedAt ? { deletedAt: new Date(entity.deletedAt).toISOString() } : {}),
+      ...(entity.clientId ? { clientId: entity.clientId } : {}),
     };
   }
 

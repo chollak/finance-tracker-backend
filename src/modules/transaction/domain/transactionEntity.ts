@@ -51,6 +51,8 @@ export interface Transaction {
     isArchived?: boolean;
     /** ISO moment of a soft delete (FT-105); only on deleted records, which reads leave out. */
     deletedAt?: string;
+    /** The client's id for this record (FT-106): a repeated create returns the record instead of a new one. */
+    clientId?: string;
     // Debt-related fields
     isDebtRelated?: boolean;
     relatedDebtId?: string;
