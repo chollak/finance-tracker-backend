@@ -7,6 +7,7 @@ import { isTransactionSemanticType, TransactionSemanticType } from '../domain/tr
 import { Validators } from '../../../shared/application/validation/validators';
 import { CategoryResolver } from '../domain/categoryResolver';
 import { resolveCategoryForUpdate } from './resolveCategoryForUpdate';
+import { AccountResolver } from '../domain/accountResolver';
 
 const logger = getLogger(LogCategory.TRANSACTION);
 
@@ -18,6 +19,8 @@ export interface UpdateTransactionRequest {
   /** Legacy: old id, name or alias; resolved to categoryId (FT-099). */
   category?: string;
   categoryId?: string;
+  /** Move the record to another of the user's visible accounts (FT-101). */
+  accountId?: string;
   description?: string;
   date?: string;
   type?: 'income' | 'expense';
@@ -26,7 +29,11 @@ export interface UpdateTransactionRequest {
 }
 
 export class UpdateTransactionUseCase {
-  constructor(private repository: TransactionRepository, private categoryResolver?: CategoryResolver) {}
+  constructor(
+    private repository: TransactionRepository,
+    private categoryResolver?: CategoryResolver,
+    private accountResolver?: AccountResolver
+  ) {}
 
   async execute(request: UpdateTransactionRequest): Promise<Result<Transaction>> {
     const { id, category, description, date, type, semanticType, needsReview } = request;
@@ -78,9 +85,17 @@ export class UpdateTransactionUseCase {
         return ResultHelper.failure(categoryResult.error);
       }
 
+      let accountId: string | undefined;
+      if (request.accountId !== undefined && this.accountResolver) {
+        const account = await this.accountResolver.resolveForRecord({ userId: existing.userId, accountId: request.accountId });
+        if (!account.success) return ResultHelper.failure(account.error);
+        accountId = account.data.id;
+      }
+
       const updatedTransaction = await this.repository.update(id.trim(), {
         amountMinor,
         categoryId: categoryResult.data?.id,
+        accountId,
         description,
         date,
         type,

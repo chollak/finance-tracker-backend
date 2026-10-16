@@ -25,6 +25,9 @@ export class SqliteTransactionRepository implements TransactionRepository {
     if (!transaction.categoryId) {
       throw new Error('A transaction needs categoryId; resolve the category before creating it (FT-099)');
     }
+    if (!transaction.accountId) {
+      throw new Error('A transaction needs accountId; resolve the account before creating it (FT-101)');
+    }
     const entity = this.repository.create({
       amountMinor: minorOf(transaction),
       type: transaction.type === 'income' ? TransactionType.INCOME : TransactionType.EXPENSE,
@@ -38,6 +41,7 @@ export class SqliteTransactionRepository implements TransactionRepository {
       originalParsing: transaction.originalParsing ? JSON.stringify(transaction.originalParsing) : undefined,
       userId: transaction.userId,
       categoryId: transaction.categoryId,
+      accountId: transaction.accountId,
       isArchived: transaction.isArchived ?? false
     });
 
@@ -84,6 +88,7 @@ export class SqliteTransactionRepository implements TransactionRepository {
     if (updates.description !== undefined) updateData.description = updates.description;
     // A category arrives resolved to its id (FT-099); a bare name is not written
     if (updates.categoryId !== undefined) updateData.categoryId = updates.categoryId;
+    if (updates.accountId !== undefined) updateData.accountId = updates.accountId;
     if (updates.date !== undefined) updateData.date = updates.date;
     if (updates.merchant !== undefined) updateData.merchant = updates.merchant;
     if (updates.confidence !== undefined) updateData.confidence = updates.confidence;
@@ -145,6 +150,7 @@ export class SqliteTransactionRepository implements TransactionRepository {
       categoryId: entity.categoryId,
       category: entity.categoryRef?.name ?? entity.legacyCategory ?? 'Другое',
       categoryColor: entity.categoryRef?.color,
+      accountId: entity.accountId,
       userName: undefined, // We'll get this from User entity later
       isArchived: entity.isArchived ?? false,
       createdAt: entity.createdAt?.toISOString()

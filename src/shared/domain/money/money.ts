@@ -118,3 +118,20 @@ export function resolveAmountMinor(input: { amountMinor?: unknown; amount?: unkn
   if (fromMajor !== undefined) return { ok: true, amountMinor: fromMajor };
   return { ok: false, message: 'amount is required' };
 }
+
+/**
+ * Dollars → сум at a rate given in minor units (сум×100 per 1 USD, e.g. 1285000 for 12 850.00). The
+ * result is rounded to whole сум (money-model: «округлением до целых сум») and returned in tiyin.
+ * BigInt keeps the product exact however large the balance.
+ */
+export function convertUsdToUzsMinor(usdMinor: number, rateMinor: number): number {
+  const product = BigInt(usdMinor) * BigInt(rateMinor); // tiyin × 100
+  const divisor = BigInt(MINOR_PER_MAJOR * MINOR_PER_MAJOR); // → whole сум
+  const negative = product < BigInt(0);
+  const magnitude = negative ? -product : product;
+  // Round half away from zero to whole сум
+  let sum = magnitude / divisor;
+  if ((magnitude % divisor) * BigInt(2) >= divisor) sum += BigInt(1);
+  const tiyin = Number(sum) * MINOR_PER_MAJOR;
+  return negative ? -tiyin : tiyin;
+}

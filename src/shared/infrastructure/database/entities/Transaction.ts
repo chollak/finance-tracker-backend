@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, Index } from 'typeorm';
 import { bigintNumber } from '../transformers';
 import { Category } from './Category';
 
@@ -8,6 +8,8 @@ export enum TransactionType {
 }
 
 @Entity('transactions')
+@Index('IDX_transactions_user_date', ['userId', 'date'])
+@Index('IDX_transactions_account', ['accountId'])
 export class Transaction {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
@@ -64,6 +66,10 @@ export class Transaction {
   @ManyToOne(() => Category, { createForeignKeyConstraints: false })
   @JoinColumn({ name: 'category_id' })
   categoryRef?: Category;
+
+  /** The account the money moved on (FT-101). Integrity is kept by the application. */
+  @Column({ name: 'account_id' })
+  accountId!: string;
 
   /** The pre-FT-099 category string (old id or name), kept until FT-136 for the migration report. */
   @Column('varchar', { name: 'legacy_category', nullable: true })

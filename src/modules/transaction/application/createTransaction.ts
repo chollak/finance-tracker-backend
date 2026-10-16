@@ -10,6 +10,7 @@ import { getLogger, LogCategory } from '../../../shared/application/logging';
 import { Validators } from '../../../shared/application/validation/validators';
 import { fromMinor } from '../../../shared/domain/money/money';
 import { CategoryResolver } from '../domain/categoryResolver';
+import { AccountResolver } from '../domain/accountResolver';
 import { toDateOnly } from '../../../shared/domain/dates/dateOnly';
 
 export interface CreateTransactionOptions {
@@ -24,10 +25,17 @@ export class CreateTransactionUseCase {
   private subscriptionModule?: SubscriptionModule;
   private userModule?: UserModule;
   private categoryResolver?: CategoryResolver;
+  private accountResolver?: AccountResolver;
 
-  constructor(primaryRepository: TransactionRepository, categoryResolver?: CategoryResolver) {
+  constructor(primaryRepository: TransactionRepository, categoryResolver?: CategoryResolver, accountResolver?: AccountResolver) {
     this.primaryRepository = primaryRepository;
     this.categoryResolver = categoryResolver;
+    this.accountResolver = accountResolver;
+  }
+
+  /** Wired after modules are created; see createModules(). */
+  setAccountResolver(accountResolver: AccountResolver): void {
+    this.accountResolver = accountResolver;
   }
 
   /** Wired after modules are created; see createModules(). */
@@ -85,6 +93,18 @@ export class CreateTransactionUseCase {
       }
       transaction.categoryId = resolved.data.id;
       transaction.category = resolved.data.name;
+    }
+
+    // The account: the one picked, else the user's default (FT-101)
+    if (this.accountResolver) {
+      const account = await this.accountResolver.resolveForRecord({
+        userId: transaction.userId,
+        accountId: transaction.accountId,
+      });
+      if (!account.success) {
+        return ResultHelper.failure(account.error);
+      }
+      transaction.accountId = account.data.id;
     }
 
     try {

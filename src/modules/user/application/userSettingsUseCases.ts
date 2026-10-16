@@ -35,14 +35,16 @@ const boolean: FieldRule = value => (typeof value === 'boolean' ? null : 'must b
 const dateOrNull: FieldRule = value => (value === null || isIsoDate(value) ? null : 'must be a date YYYY-MM-DD or null');
 const dateTimeOrNull: FieldRule = value =>
   value === null || isIsoDateTime(value) ? null : 'must be an ISO date-time or null';
+const idOrNull: FieldRule = value =>
+  value === null || (typeof value === 'string' && value.trim().length > 0) ? null : 'must be an id or null';
 const tipsCount: FieldRule = value =>
   Number.isInteger(value) && (value as number) >= 0 && (value as number) <= RECEIPT_TIPS_LIMIT
     ? null
     : `must be an integer from 0 to ${RECEIPT_TIPS_LIMIT}`;
 
 /**
- * Fields PATCH /api/settings accepts and how each is checked. `defaultAccountId` (FT-101) and the own
- * USD rate (FT-102) are added by those tasks together with the data they refer to.
+ * Fields PATCH /api/settings accepts and how each is checked. `defaultAccountId` must also be one of
+ * the user's visible accounts (checked in the use case); the own USD rate is set through FT-102.
  */
 const RULES: Record<string, FieldRule> = {
   theme: oneOf(THEME_PREFERENCES),
@@ -54,6 +56,7 @@ const RULES: Record<string, FieldRule> = {
   onboardedAt: dateTimeOrNull,
   receiptTipsSeen: tipsCount,
   auditInviteSnoozedUntil: dateOrNull,
+  defaultAccountId: idOrNull,
 };
 
 /** Check a PATCH body: an object with at least one known field, each value valid. Unknown fields are refused. */
@@ -99,14 +102,28 @@ export class GetUserSettingsUseCase {
   }
 }
 
+/** Whether an id is one of the user's visible accounts; provided by the account module (FT-101). */
+export type AccountCheck = (userId: string, accountId: string) => Promise<boolean>;
+
 export class UpdateUserSettingsUseCase {
+  private accountCheck?: AccountCheck;
+
   constructor(private repository: UserSettingsRepository) {}
+
+  setAccountCheck(check: AccountCheck): void {
+    this.accountCheck = check;
+  }
 
   async execute(input: { userId: string; patch: unknown }): Promise<Result<UserSettings>> {
     const validated = validateSettingsPatch(input.patch);
     if (!validated.success) return validated;
 
     try {
+      const accountId = validated.data.defaultAccountId;
+      if (typeof accountId === 'string' && !(this.accountCheck && (await this.accountCheck(input.userId, accountId)))) {
+        return ResultHelper.failure(new ValidationError('defaultAccountId must be one of your visible accounts', 'defaultAccountId'));
+      }
+
       const current = (await this.repository.findByUserId(input.userId)) ?? defaultUserSettings(input.userId);
       const saved = await this.repository.upsert({ ...current, ...validated.data, userId: input.userId });
       return ResultHelper.success(saved);

@@ -7,3 +7,4 @@ export { Subscription } from './Subscription';
 export { UsageLimit } from './UsageLimit';
 export { UserSettings } from './UserSettings';
 export { Category } from './Category';
+export { Account } from './Account';

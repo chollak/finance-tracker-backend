@@ -14,9 +14,7 @@ import { presetForLegacyCategory } from '../src/modules/category/domain/category
 import { categoryNameKey } from '../src/modules/category/domain/category';
 import { UserModule } from '../src/modules/user/userModule';
 import { SqliteUserRepository } from '../src/modules/user/infrastructure/persistence/SqliteUserRepository';
-import { SqliteTransactionRepository } from '../src/modules/transaction/infrastructure/persistence/SqliteTransactionRepository';
-import { CreateTransactionUseCase } from '../src/modules/transaction/application/createTransaction';
-import { UpdateTransactionUseCase } from '../src/modules/transaction/application/updateTransaction';
+import { recordsOn } from './helpers/records';
 import { ProcessTextInputUseCase } from '../src/modules/voiceProcessing/application/processTextInput';
 import { TranscriptionService } from '../src/modules/voiceProcessing/domain/transcriptionService';
 import { buildCategoryPrompt } from '../src/modules/voiceProcessing/domain/categoryPrompt';
@@ -221,9 +219,7 @@ describe('categories in the database (FT-099)', () => {
 
     describe('records', () => {
       it('are created and edited with categoryId or with an old value, and a type change moves the category', async () => {
-        const repository = new SqliteTransactionRepository(db.dataSource);
-        const create = new CreateTransactionUseCase(repository, catalog);
-        const update = new UpdateTransactionUseCase(repository, catalog);
+        const { repository, create, update } = recordsOn(db.dataSource);
         const categories = await catalog.listForUser('user-1');
         const health = categories.find(c => c.name === 'Здоровье')!;
 
@@ -247,8 +243,7 @@ describe('categories in the database (FT-099)', () => {
       });
 
       it('from text: the label is matched to the user\'s visible categories', async () => {
-        const repository = new SqliteTransactionRepository(db.dataSource);
-        const create = new CreateTransactionUseCase(repository, catalog);
+        const { create } = recordsOn(db.dataSource);
         const openAI = { analyzeInput: jest.fn() } as unknown as TranscriptionService;
         const useCase = new ProcessTextInputUseCase(openAI, create, undefined, catalog);
 
@@ -268,7 +263,7 @@ describe('categories in the database (FT-099)', () => {
         const openAI = {
           analyzeInput: jest.fn().mockResolvedValue({ transactions: [], debts: [] }),
         } as unknown as TranscriptionService;
-        const create = new CreateTransactionUseCase(new SqliteTransactionRepository(db.dataSource), catalog);
+        const { create } = recordsOn(db.dataSource);
 
         await new ProcessTextInputUseCase(openAI, create, undefined, catalog).execute('вчера ужин с друзьями и такси домой', 'user-1');
 

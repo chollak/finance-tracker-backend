@@ -13,6 +13,7 @@ import { ArchiveAllByUserUseCase } from './application/archiveAllByUser';
 import { GetArchivedTransactionsUseCase } from './application/getArchivedTransactions';
 import { TransactionRepository } from './domain/transactionRepository';
 import { CategoryResolver } from './domain/categoryResolver';
+import { AccountResolver } from './domain/accountResolver';
 import { RepositoryFactory } from '../../shared/infrastructure/database/repositoryFactory';
 import { SubscriptionModule } from '../subscription/subscriptionModule';
 import { UserModule } from '../user/userModule';
@@ -21,6 +22,7 @@ export class TransactionModule {
   private deleteTransactionUseCase: DeleteTransactionUseCase;
   private createTransactionUseCase: CreateTransactionUseCase;
   private categoryResolver?: CategoryResolver;
+  private accountResolver?: AccountResolver;
 
   constructor(private repository: TransactionRepository) {
     this.deleteTransactionUseCase = new DeleteTransactionUseCase(repository);
@@ -56,6 +58,12 @@ export class TransactionModule {
     this.createTransactionUseCase.setCategoryResolver(categoryResolver);
   }
 
+  /** Accounts live in the account module (FT-101); wired by createModules(). */
+  setAccountResolver(accountResolver: AccountResolver): void {
+    this.accountResolver = accountResolver;
+    this.createTransactionUseCase.setAccountResolver(accountResolver);
+  }
+
   getCreateTransactionUseCase(): CreateTransactionUseCase {
     return this.createTransactionUseCase;
   }
@@ -77,11 +85,11 @@ export class TransactionModule {
   }
 
   getUpdateTransactionUseCase(): UpdateTransactionUseCase {
-    return new UpdateTransactionUseCase(this.repository, this.categoryResolver);
+    return new UpdateTransactionUseCase(this.repository, this.categoryResolver, this.accountResolver);
   }
 
   getUpdateTransactionWithLearningUseCase(): UpdateTransactionWithLearningUseCase {
-    return new UpdateTransactionWithLearningUseCase(this.repository, this.categoryResolver);
+    return new UpdateTransactionWithLearningUseCase(this.repository, this.categoryResolver, this.accountResolver);
   }
 
   getAnalyticsService(): AnalyticsService {

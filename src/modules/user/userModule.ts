@@ -5,7 +5,7 @@
 
 import { UserRepository } from './domain/userRepository';
 import { UserSettingsRepository } from './domain/userSettingsRepository';
-import { GetUserSettingsUseCase, UpdateUserSettingsUseCase } from './application/userSettingsUseCases';
+import { AccountCheck, GetUserSettingsUseCase, UpdateUserSettingsUseCase } from './application/userSettingsUseCases';
 import { GetOrCreateUserUseCase } from './application/getOrCreateUserUseCase';
 import { GetUserUseCase } from './application/getUserUseCase';
 import { UpdateUserUseCase } from './application/updateUserUseCase';
@@ -48,6 +48,18 @@ export class UserModule {
 
   getUpdateUserUseCase(): UpdateUserUseCase {
     return this.updateUserUseCase;
+  }
+
+  /** The default account setting must name a visible account (FT-101); wired by createModules(). */
+  setAccountCheck(check: AccountCheck): void {
+    this.updateUserSettingsUseCase?.setAccountCheck(check);
+  }
+
+  /** The user's default account from settings, or null. */
+  async defaultAccountId(userId: string): Promise<string | null> {
+    if (!this.getUserSettingsUseCase) return null;
+    const result = await this.getUserSettingsUseCase.execute({ userId });
+    return result.success ? result.data.defaultAccountId : null;
   }
 
   getGetUserSettingsUseCase(): GetUserSettingsUseCase {

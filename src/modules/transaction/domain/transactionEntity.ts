@@ -12,6 +12,8 @@ export interface Transaction {
     categoryId?: string;
     /** Pastel colour of the category, read with the record so old screens need no lookup (FT-100). */
     categoryColor?: string;
+    /** The account the money moved on (FT-101). Always set on records read from the repository. */
+    accountId?: string;
     description: string;
     /**
      * Legacy amount in major units (сумы). Old writers send it and old screens read it; it is derived

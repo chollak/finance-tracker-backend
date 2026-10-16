@@ -1,4 +1,5 @@
 import {
+  convertUsdToUzsMinor,
   fromMinor,
   minorOf,
   percentOf,
@@ -74,6 +75,24 @@ describe('Money (FT-097)', () => {
       expect(resolveAmountMinor({ amountMinor: '100' })).toMatchObject({ ok: false });
       expect(resolveAmountMinor({})).toEqual({ ok: false, message: 'amount is required' });
       expect(resolveAmountMinor({ amount: 'много' })).toEqual({ ok: false, message: 'amount must be a number' });
+    });
+  });
+
+  describe('convertUsdToUzsMinor', () => {
+    it('converts at a rate in minor units and rounds to whole сум', () => {
+      // 55.00 USD × 12 850.00 = 706 750 сум
+      expect(convertUsdToUzsMinor(5500, 1285000)).toBe(70675000);
+      // 0.01 USD × 12 850.37 = 128.5037 сум → 129 сум
+      expect(convertUsdToUzsMinor(1, 1285037)).toBe(12900);
+      // 0.01 USD × 12 849.00 = 128.49 сум → 128 сум
+      expect(convertUsdToUzsMinor(1, 1284900)).toBe(12800);
+      expect(convertUsdToUzsMinor(-5500, 1285000)).toBe(-70675000);
+      expect(convertUsdToUzsMinor(0, 1285000)).toBe(0);
+    });
+
+    it('stays exact for a large balance', () => {
+      // 10 000 000.00 USD × 12 850.55 = 128 505 500 000 сум
+      expect(convertUsdToUzsMinor(1_000_000_000, 1285055)).toBe(12_850_550_000_000);
     });
   });
 });

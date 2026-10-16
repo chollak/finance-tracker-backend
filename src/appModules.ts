@@ -10,6 +10,7 @@ import { UserModule } from './modules/user/userModule';
 import { SubscriptionModule } from './modules/subscription/subscriptionModule';
 import { RepositoryFactory } from './shared/infrastructure/database/repositoryFactory';
 import { CategoryModule } from './modules/category/categoryModule';
+import { AccountModule } from './modules/account/accountModule';
 
 export function createModules() {
   // Core modules (no dependencies on subscription)
@@ -19,6 +20,12 @@ export function createModules() {
   transactionModule.setCategoryResolver(categoryModule.getCatalog());
   const budgetModule = BudgetModule.create(transactionModule);
   const userModule = UserModule.create();
+
+  // Records are written to the user's accounts (FT-101); the default account comes from settings
+  const accountModule = AccountModule.create();
+  transactionModule.setAccountResolver(accountModule.getBook());
+  accountModule.getBook().setDefaultAccountSource(userId => userModule.defaultAccountId(userId));
+  userModule.setAccountCheck((userId, accountId) => accountModule.getBook().isVisibleAccount(userId, accountId));
   const openAIUsageModule = createOpenAIUsageModule();
 
   // Create SubscriptionModule with repositories
@@ -43,6 +50,7 @@ export function createModules() {
 
   return {
     categoryModule,
+    accountModule,
     transactionModule,
     budgetModule,
     debtModule,

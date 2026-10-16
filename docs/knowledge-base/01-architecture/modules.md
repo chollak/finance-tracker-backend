@@ -1,6 +1,6 @@
 # Module System
 
-`createModules()` (`src/appModules.ts`) возвращает **9 модулей приложения**, каждый с чётко определённой ответственностью. `CategoryModule` добавлен в FT-099, `QuickCaptureModule` — обёртка над текстовым разбором для `POST /api/quick-capture`.
+`createModules()` (`src/appModules.ts`) возвращает **10 модулей приложения**, каждый с чётко определённой ответственностью. `CategoryModule` добавлен в FT-099, `AccountModule` — в FT-101, `QuickCaptureModule` — обёртка над текстовым разбором для `POST /api/quick-capture`.
 
 Dashboard модулем не является: в `src/modules/dashboard/` лежат только `DashboardService` и `DashboardController`, файла `dashboardModule.ts` нет. Сборка происходит в Express-слое — см. [Dashboard: сервис, а не модуль](#dashboard-сервис-а-не-модуль).
 
@@ -16,6 +16,7 @@ graph TD
     SM[SubscriptionModule<br/>Premium + Payments]
     UM[UserModule<br/>Users + Settings]
     CM[CategoryModule<br/>User Categories]
+    AM[AccountModule<br/>Accounts + Balances]
     QM[QuickCaptureModule<br/>Quick capture API]
     DS[DashboardService<br/>не модуль, собирается в Express]
 
@@ -27,6 +28,8 @@ graph TD
     VM -->|depends on| DeM
     TM -.->|setSubscriptionDependencies| SM
     TM -.->|setCategoryResolver| CM
+    TM -.->|setAccountResolver| AM
+    AM -.->|default account| UM
     VM -.->|categories for the prompt| CM
     QM -->|depends on| VM
     SM -.->|controller uses| UM
@@ -54,6 +57,7 @@ graph TD
 | **DebtModule** | Управление долгами | TransactionModule, SubscriptionModule, UserModule | `debtModule.ts` |
 | **VoiceProcessingModule** | AI обработка голоса/текста | TransactionModule, DebtModule (не используется с Д2), категории пользователя для промпта | `voiceProcessingModule.ts` |
 | **QuickCaptureModule** | `POST /api/quick-capture` поверх текстового разбора | VoiceProcessingModule | `quickCaptureModule.ts` |
+| **AccountModule** | Счета (FT-101): остатки на чтении, итог в сумах, счёт новой записи | Независимый; TransactionModule получает его как `AccountResolver`; счёт по умолчанию — из настроек UserModule | `accountModule.ts` |
 | **CategoryModule** | Категории пользователя (FT-099): 8 + 8 стартовых, переименование, цвет, скрытие; разрешение категории записи | Независимый; TransactionModule получает его как `CategoryResolver` | `categoryModule.ts` |
 | **OpenAIUsageModule** | Мониторинг OpenAI costs | Независимый | `openAIUsageModule.ts` |
 | **SubscriptionModule** | Premium подписки + Telegram Stars | UserModule (controller) | `subscriptionModule.ts` |
@@ -329,6 +333,20 @@ new ProcessVoiceInputUseCase(
 
 ### Как запись получает категорию
 `CreateTransactionUseCase` и обновление спрашивают `CategoryResolver`: id категории (новые клиенты) → своё название без учёта регистра → старый id, название или синоним через стартовую категорию → «Другое» того же типа. Автоматические пути (ИИ, быстрый разбор текста) не кладут запись в скрытую категорию. Смена типа без новой категории переносит запись в одноимённую категорию другого типа или в его «Другое».
+
+---
+
+## 9. AccountModule
+
+**Файл:** [`src/modules/account/accountModule.ts`](../../../src/modules/account/accountModule.ts)
+
+### Назначение
+Счета пользователя (FT-101): наличные, карта, доллары. Счёт скрывают, а не удаляют. Пользователю без счетов создаётся «Карта» (UZS); при миграции на неё переехала вся история.
+
+### Состав
+- `AccountBook` — создаёт «Карту» при первом обращении, считает остатки (`summary`) и итог видимых счетов в сумах (доллары — через порт `EffectiveRateProvider`, FT-102), реализует порт `AccountResolver` модуля транзакций: выбранный счёт → счёт по умолчанию из настроек → первый видимый. Скрытый счёт для новой записи не выбирается.
+- `SqliteAccountRepository.balanceChanges` — остаток считается на чтении одним запросом, без кэша.
+- `ListAccountsUseCase`, `CreateAccountUseCase`, `UpdateAccountUseCase` — `GET/POST /api/accounts`, `PATCH /api/accounts/:id`.
 
 ---
 

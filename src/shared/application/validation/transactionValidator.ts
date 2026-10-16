@@ -47,6 +47,11 @@ export class TransactionValidator {
       chain.validate(Validators.string(data.merchant, 'merchant'));
     }
 
+    // Optional account (FT-101); without it the record goes to the default account
+    if (data.accountId !== undefined && data.accountId !== null) {
+      chain.validate(Validators.string(data.accountId, 'accountId'));
+    }
+
     // Optional semanticType validation - only checked when explicitly provided
     if (data.semanticType !== undefined && data.semanticType !== null) {
       chain.validate(Validators.transactionSemanticType(data.semanticType));
@@ -74,6 +79,7 @@ export class TransactionValidator {
       amount: fromMinor(amountMinor.data),
       category: hasCategoryId ? '' : String(data.category).trim(),
       categoryId: hasCategoryId ? String(data.categoryId).trim() : undefined,
+      accountId: data.accountId ? String(data.accountId).trim() : undefined,
       description: String(data.description).trim(),
       type: data.type as 'income' | 'expense',
       semanticType: normalizeSemanticType(data.semanticType, data.type as 'income' | 'expense'),

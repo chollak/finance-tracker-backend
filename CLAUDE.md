@@ -127,7 +127,7 @@ For detailed documentation, see **[docs/knowledge-base/](docs/knowledge-base/)**
 
 - **[Architecture](docs/knowledge-base/01-architecture/)** - Clean Architecture, modules, design patterns
   - [Overview](docs/knowledge-base/01-architecture/overview.md) - Layers and dependency flow
-  - [Modules](docs/knowledge-base/01-architecture/modules.md) - 9 модулей системы
+  - [Modules](docs/knowledge-base/01-architecture/modules.md) - 10 модулей системы
   - [Patterns](docs/knowledge-base/01-architecture/patterns.md) - Repository, DI, Factory, Use Case
   - [Runtime / Process Mode](docs/knowledge-base/01-architecture/runtime-process-mode.md) - API/Bot/Worker process-mode decision
   - [API / Domain Consistency Audit](docs/knowledge-base/01-architecture/api-domain-consistency-audit.md) - FT-018 controller/use-case/API contract audit
@@ -161,7 +161,7 @@ This project follows **Clean Architecture** principles with clear separation bet
 
 ### Module System
 
-`createModules()` in `src/appModules.ts` returns **9 app modules**:
+`createModules()` in `src/appModules.ts` returns **10 app modules**:
 
 1. **TransactionModule** - CRUD operations for transactions + analytics; gets its categories through the `CategoryResolver` port
 2. **BudgetModule** - Budget management (depends on TransactionModule; leaves the UI per decision Д2)
@@ -172,6 +172,7 @@ This project follows **Clean Architecture** principles with clear separation bet
 7. **OpenAIUsageModule** - OpenAI API usage monitoring
 8. **UserModule** - User management (telegramId → UUID resolution) and settings (FT-098)
 9. **SubscriptionModule** - Premium subscriptions with Telegram Stars payments
+10. **AccountModule** - Accounts (FT-101): balances on read, the total in сум, the account of every new record
 
 **Dashboard is not an app module.** `src/modules/dashboard/` contains only `DashboardService` and `DashboardController`; there is no `dashboardModule.ts` and `createModules()` does not return a `dashboardModule`. The dashboard is assembled in the Express delivery layer: `createDashboardRouter()` (`src/delivery/web/express/routes/dashboardRoutes.ts`) builds `DashboardService` from `transactionModule.getAnalyticsService()` and `budgetModule.budgetService`.
 
@@ -489,7 +490,7 @@ interface Category {
 |----------|-----------|-----------------|
 | Home | Навигация по wiki | При добавлении новых страниц |
 | Architecture Overview | Clean Architecture, слои, data flow | При изменении архитектуры |
-| Module System | 9 модулей, зависимости | При добавлении/удалении модуля |
+| Module System | 10 модулей, зависимости | При добавлении/удалении модуля |
 | Design Patterns | Repository, Use Case, Result, DI | При использовании нового паттерна |
 | Quick Start | Установка, запуск, env vars | При изменении процесса запуска |
 | API Reference | Все endpoints | При добавлении/изменении endpoint |

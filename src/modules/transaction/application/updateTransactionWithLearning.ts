@@ -8,6 +8,7 @@ import { Validators } from '../../../shared/application/validation/validators';
 import { fromMinor, minorOf } from '../../../shared/domain/money/money';
 import { CategoryResolver, ResolvedCategory } from '../domain/categoryResolver';
 import { resolveCategoryForUpdate } from './resolveCategoryForUpdate';
+import { AccountResolver } from '../domain/accountResolver';
 
 const logger = getLogger(LogCategory.LEARNING);
 
@@ -19,6 +20,8 @@ export interface UpdateTransactionWithLearningRequest {
   /** Legacy: old id, name or alias; resolved to categoryId (FT-099). */
   category?: string;
   categoryId?: string;
+  /** Move the record to another of the user's visible accounts (FT-101). */
+  accountId?: string;
   description?: string;
   date?: string;
   type?: 'income' | 'expense';
@@ -36,7 +39,11 @@ export interface UpdateTransactionWithLearningRequest {
 }
 
 export class UpdateTransactionWithLearningUseCase {
-  constructor(private repository: TransactionRepository, private categoryResolver?: CategoryResolver) {}
+  constructor(
+    private repository: TransactionRepository,
+    private categoryResolver?: CategoryResolver,
+    private accountResolver?: AccountResolver
+  ) {}
 
   async execute(request: UpdateTransactionWithLearningRequest): Promise<Result<Transaction>> {
     const { id, category, date, type } = request;
@@ -80,6 +87,13 @@ export class UpdateTransactionWithLearningUseCase {
         return ResultHelper.failure(categoryResult.error);
       }
 
+      let accountId: string | undefined;
+      if (request.accountId !== undefined && this.accountResolver) {
+        const account = await this.accountResolver.resolveForRecord({ userId: originalTransaction.userId, accountId: request.accountId });
+        if (!account.success) return ResultHelper.failure(account.error);
+        accountId = account.data.id;
+      }
+
       // Update the transaction
       const updatedTransaction = await this.repository.update(id.trim(), {
         ...request,
@@ -87,6 +101,7 @@ export class UpdateTransactionWithLearningUseCase {
         amountMinor,
         category: undefined,
         categoryId: categoryResult.data?.id,
+        accountId,
       });
 
       // Record learning data if we have the necessary context
