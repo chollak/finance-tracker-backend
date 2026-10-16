@@ -1,12 +1,15 @@
 # Веха 10 — перенос «Пастели»: задачи
 
-Черновик для доски в формате [`docs/tasks/README.md`](../tasks/README.md), с дополнительными полями
-`Depends`, `Size` и `Design`. В `TASKS.md` задачи переносит Hermes после решений Д1–Д7 из [README](README.md).
+Задачи вехи 10 в формате [`docs/tasks/README.md`](../tasks/README.md), с дополнительными полями
+`Depends`, `Size` и `Design`. Решения Д1–Д7 из [README](README.md) приняты 2026-10-16, поэтому ни одна
+задача не ждёт решения. В `TASKS.md` задачи переносятся по фазам; там же — их текущий статус.
 
 - **Порядок задаёт `Depends`, номер — только рекомендуемая очерёдность.** Задачу можно брать, когда закрыто
   всё из её `Depends` и нет блокирующего решения.
 - `blocked` — только когда задача ждёт решения Шукура (как в правилах доски). Ожидание другой задачи видно
   по `Depends`, статус при этом `backlog`.
+- Задачи, которые раньше ждали решений: FT-090 (Д6), FT-091 (Д3), FT-099 (Д5, Д2), FT-108 (Д7), FT-110 (Д1),
+  FT-124 (Д2, Д3), FT-125 (Д2), FT-128 (Д4). Решения записаны в `docs/tasks/decisions.md`.
 - Размер: **S** — до дня работы, **M** — 2–3 дня, **L** — около недели. Оценка грубая, вместе с проверкой.
 - После каждой задачи приложение работает: старый экран удаляется в той задаче, которая его заменяет.
 - Экран сверяют скриншотом с доской холста из поля `Design`, в светлой и тёмной теме.
@@ -17,7 +20,7 @@
 
 ### FT-087: Fix category update, bot delete and double usage count
 
-Status: backlog
+Status: in_progress
 Priority: high
 Owner: Claude Code, QA by Hermes
 Type: bug
@@ -73,7 +76,7 @@ Definition of Done:
 
 ### FT-090: Single database path with TypeORM migrations
 
-Status: blocked (решение Д6)
+Status: backlog
 Priority: high
 Owner: Claude Code, QA by Hermes
 Type: repo-hygiene
@@ -92,7 +95,7 @@ Definition of Done:
 
 ### FT-091: Switch to disable free-tier limits
 
-Status: blocked (решение Д3)
+Status: backlog
 Priority: medium
 Owner: Claude Code, QA by Hermes
 Type: billing-policy
@@ -103,7 +106,7 @@ Context:
 оплату не делает.
 
 Definition of Done:
-- [ ] Переменная окружения выключает проверки лимитов во всех путях ввода; по умолчанию — как решит Шукур
+- [ ] Переменная окружения выключает проверки лимитов во всех путях ввода; на время вехи 10 лимиты выключены (решение Д3)
 - [ ] Код Stars и подписки не меняется; тесты подписки проходят
 - [ ] Переменная описана в `CLAUDE.md` и `quick-start.md`
 
@@ -248,7 +251,7 @@ Definition of Done:
 
 ### FT-099: User categories in the database
 
-Status: blocked (решения Д5, Д2)
+Status: backlog
 Priority: high
 Owner: Claude Code, QA by Hermes
 Type: data
@@ -392,7 +395,7 @@ Definition of Done:
 
 ### FT-108: Apply historical semantic backfill
 
-Status: blocked (решение Д7)
+Status: backlog
 Priority: medium
 Owner: Claude Code, QA by Hermes
 Type: data
@@ -433,7 +436,7 @@ Definition of Done:
 
 ### FT-110: Home shell without the bottom bar
 
-Status: blocked (решение Д1)
+Status: backlog
 Priority: high
 Owner: Claude Code, QA by Hermes
 Type: feature
@@ -670,7 +673,7 @@ Definition of Done:
 
 ### FT-124: Scheduler, daily summary, start and command menu
 
-Status: blocked (решения Д2, Д3)
+Status: backlog
 Priority: medium
 Owner: Claude Code, QA by Hermes
 Type: bot
@@ -690,7 +693,7 @@ Definition of Done:
 
 ### FT-125: More screen, theme and notification settings
 
-Status: blocked (решение Д2)
+Status: backlog
 Priority: medium
 Owner: Claude Code, QA by Hermes
 Type: feature
@@ -734,7 +737,7 @@ Definition of Done:
 
 ### FT-128: Web login through the bot
 
-Status: blocked (решение Д4)
+Status: backlog
 Priority: medium
 Owner: Claude Code, QA by Hermes
 Type: auth
