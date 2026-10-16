@@ -8,6 +8,7 @@ import { TransactionModule } from '../../../modules/transaction/transactionModul
 import { BudgetModule } from '../../../modules/budget/budgetModule';
 import { UserModule } from '../../../modules/user/userModule';
 import { SubscriptionModule } from '../../../modules/subscription/subscriptionModule';
+import { CategoryModule } from '../../../modules/category/categoryModule';
 import { TelegramPaymentService } from '../../../modules/subscription/infrastructure/TelegramPaymentService';
 import { BotContext, BotModules, UserSession } from './types';
 import { registerCommandHandlers } from './handlers/commandHandlers';
@@ -68,6 +69,7 @@ function createInitialSession(userId: string, userName: string): UserSession {
  * @param userModule - User module for user management
  * @param quickCaptureModule - Shared capture boundary used by the text handler
  * @param subscriptionModule - Subscription module for premium features
+ * @param categoryModule - The user's categories for keyboards and labels (FT-100)
  */
 export function startTelegramBot(
   voiceModule: VoiceProcessingModule,
@@ -75,7 +77,8 @@ export function startTelegramBot(
   budgetModule: BudgetModule,
   userModule: UserModule,
   quickCaptureModule: QuickCaptureModule,
-  subscriptionModule?: SubscriptionModule
+  subscriptionModule?: SubscriptionModule,
+  categoryModule?: CategoryModule
 ) {
   try {
     // Check if bot token is configured
@@ -108,6 +111,7 @@ export function startTelegramBot(
       budgetModule,
       userModule,
       subscriptionModule,
+      categoryModule,
     };
 
     // Ensure downloads directory exists

@@ -4,7 +4,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card';
 import { Skeleton } from '@/shared/ui/skeleton';
 import { useDashboardInsights } from '@/entities/dashboard';
 import { useUserStore } from '@/entities/user/model/store';
-import { getCategoryName } from '@/entities/category';
 import { formatCurrency } from '@/shared/lib/formatters';
 import { ROUTES } from '@/shared/lib/constants/routes';
 
@@ -77,7 +76,7 @@ export function AttentionSummary() {
           <div className="flex items-start justify-between gap-3 rounded-xl bg-muted px-4 py-3">
             <span className="flex min-w-0 items-start gap-2 text-sm font-medium">
               <TrendingDown className="mt-0.5 h-4 w-4 flex-shrink-0 text-muted-foreground" aria-hidden="true" />
-              <span>Крупнее всего расходы: {getCategoryName(topCategory.category)}</span>
+              <span>Крупнее всего расходы: {topCategory.category}</span>
             </span>
             <span className="flex-shrink-0 text-sm font-semibold">{formatCurrency(topCategory.amount)}</span>
           </div>

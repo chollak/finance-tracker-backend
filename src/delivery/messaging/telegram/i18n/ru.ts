@@ -1,12 +1,3 @@
-import { QuickCategory } from '../types';
-import { EXPENSE_CATEGORIES } from '../../../../shared/domain/entities/Category';
-
-// Generate quick categories from shared Category entity
-const QUICK_CATEGORIES: QuickCategory[] = EXPENSE_CATEGORIES.slice(0, 8).map((c) => ({
-  id: c.id,
-  emoji: c.icon,
-  name: c.name,
-}));
 
 /**
  * Russian language strings for Telegram bot
@@ -142,7 +133,6 @@ export const RU = {
     title: 'Быстрое добавление:',
     selectCategory: 'Выберите категорию:',
     enterAmount: (category: string) => `${category}\n\nВведите сумму:`,
-    categories: QUICK_CATEGORIES,
   },
 
   // Errors

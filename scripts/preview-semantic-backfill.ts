@@ -54,7 +54,7 @@ const DEFAULT_DB_PATH = path.join(process.cwd(), 'data', 'database.sqlite');
 
 // Read what exists; a database created before the semantic columns were added simply reports fewer.
 const WANTED_COLUMNS = [
-  'id', 'date', 'createdAt', 'amount', 'type', 'semanticType', 'needsReview', 'category',
+  'id', 'date', 'createdAt', 'amount', 'amount_minor', 'type', 'semanticType', 'needsReview', 'category',
   'description', 'originalText', 'merchant', 'isArchived', 'isDebtRelated', 'relatedDebtId',
   'userId',
 ];
@@ -195,7 +195,10 @@ function asFlag(value: unknown): boolean | null {
 }
 
 function toStoredRow(row: Record<string, unknown>): StoredTransactionRow {
-  const amount = Number(row.amount);
+  // FT-097 stores integer minor units in amount_minor; older databases still have amount in сум.
+  const amount = row.amount_minor !== undefined && row.amount_minor !== null
+    ? Number(row.amount_minor) / 100
+    : Number(row.amount);
   return {
     id: String(row.id),
     date: asText(row.date),

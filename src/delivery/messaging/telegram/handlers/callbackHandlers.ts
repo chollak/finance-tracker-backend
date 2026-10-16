@@ -5,9 +5,9 @@ import { formatConfirmedMessage } from '../formatters';
 import {
   transactionConfirmedKeyboard,
   transactionEditKeyboard,
-  getCategoryDisplay
 } from '../keyboards';
 import { createWebAppUrl } from '../utils';
+import { botUserId, quickAddCategory } from '../utils/userCategories';
 import {
   getLastTransactionId,
   clearLastTransactionId
@@ -160,7 +160,8 @@ async function handleQuickAdd(ctx: BotContext) {
       return;
     }
 
-    const categoryDisplay = getCategoryDisplay(categoryId);
+    // A category id, or an old static id from a button sent before FT-099
+    const { name: categoryDisplay } = await quickAddCategory(ctx, await botUserId(ctx), categoryId);
 
     await ctx.answerCbQuery();
 

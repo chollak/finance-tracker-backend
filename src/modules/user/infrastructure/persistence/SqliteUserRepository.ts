@@ -2,7 +2,7 @@
  * SQLite User Repository Implementation
  */
 
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { AppDataSource } from '../../../../shared/infrastructure/database/database.config';
 import { User as UserDomain, CreateUserDTO, UpdateUserDTO } from '../../domain/userEntity';
 import { UserRepository } from '../../domain/userRepository';
@@ -11,8 +11,8 @@ import { User as UserEntity } from '../../../../shared/infrastructure/database/e
 export class SqliteUserRepository implements UserRepository {
   private repository: Repository<UserEntity>;
 
-  constructor() {
-    this.repository = AppDataSource.getRepository(UserEntity);
+  constructor(dataSource: DataSource = AppDataSource) {
+    this.repository = dataSource.getRepository(UserEntity);
   }
 
   async findById(id: string): Promise<UserDomain | null> {

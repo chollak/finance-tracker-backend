@@ -3,8 +3,6 @@
  * Centralized for easy translation and maintenance
  */
 
-import { generateCategoryPrompt, generateDebtPrompt } from '../entities/Category';
-
 export const ERROR_MESSAGES = {
   // Generic
   INTERNAL_ERROR: 'Internal server error',
@@ -50,45 +48,40 @@ export const OPENAI_PROMPTS = {
 
       ВАЖНЫЕ ПРАВИЛА:
       - Всегда возвращай ответ в формате JSON с полем "items" (массив)
-      - Различай ДОЛГИ и ТРАНЗАКЦИИ по контексту
       - Анализируй контекст для точной категоризации
       - Определяй мерчантов/поставщиков по названиям и нормализуй их
       - Используй здравый смысл для категорий
       - Добавляй уверенность в анализе (confidence: 0.1-1.0)
       - Записывай суммы как есть, не конвертируй валюты
-      - ВАЖНО: В поле category используй ТОЛЬКО английские ID категорий из списка ниже`,
+      - ВАЖНО: В поле category пиши название категории ровно так, как оно написано в списке ниже`,
 
-    USER_ANALYZE_TRANSACTIONS:
-      `Проанализируй текст и извлеки все финансовые операции. ВАЖНО: Различай ДОЛГИ и ТРАНЗАКЦИИ!
+    /** `categoryPrompt` lists the user's visible categories (FT-099, buildCategoryPrompt). */
+    USER_ANALYZE_TRANSACTIONS: (categoryPrompt: string) =>
+      `Проанализируй текст и извлеки все финансовые операции.
 
-${generateDebtPrompt()}
-
-${generateCategoryPrompt()}
+${categoryPrompt}
 
       ФОРМАТ ОТВЕТА (JSON):
       {
         "items": [
-          // Для ДОЛГА:
-          { "intent": "debt", "debtType": "i_owe" | "owed_to_me", "personName": "имя", "amount": число,
-            "dueDate": "YYYY-MM-DD" | null, "description": "описание", "moneyTransferred": true/false, "confidence": число },
-          // Для ТРАНЗАКЦИИ:
-          { "intent": "transaction", "amount": число, "category": "category_id", "type": "income" | "expense",
+          { "intent": "transaction", "amount": число, "currency": "UZS" | "USD", "account": "cash" | "card" | null,
+            "category": "название категории из списка", "type": "income" | "expense",
             "semanticType": "expense" | "income" | "own_transfer" | "saving_deposit" | "debt" | "reimbursement" | "cash_withdrawal" | "group_payment",
             "needsReview": true | false,
             "date": "YYYY-MM-DD", "merchant": "название", "confidence": число, "description": "описание" }
         ]
       }
 
-      ПРАВИЛА ОПРЕДЕЛЕНИЯ INTENT:
-      - "одолжил", "дал в долг", "взял в долг", "занял у", "должен" → intent: "debt"
-      - Остальное (покупки, оплаты, зарплата) → intent: "transaction"
+      ДОЛГИ ОТДЕЛЬНО НЕ РАЗБИРАЙ:
+      - "одолжил", "дал в долг", "взял в долг", "занял", "кредит", "рассрочка" → обычная операция
+        (intent "transaction", type "expense") в категории "Другое"
 
       ПРАВИЛА ОПРЕДЕЛЕНИЯ SEMANTICTYPE (смысл транзакции, обязательное поле):
       - "expense" — обычная трата (покупки, еда, такси и т.д.)
       - "income" — обычный доход (зарплата, подарок)
       - "own_transfer" — перевод между своими счетами/картами
       - "saving_deposit" — перевод в накопления/сбережения
-      - "debt" — движение денег, связанное с долгом (сама транзакция, а не intent "debt")
+      - "debt" — возврат долга, который уже был записан
         Пример: "я вернул 50000" (я отдаю долг) → type "expense", semanticType "debt"
       - "reimbursement" — возврат денег, компенсация
         Пример: "мне вернули 100000" (деньги вернулись мне) → type "income", semanticType "reimbursement"
@@ -106,7 +99,11 @@ ${generateCategoryPrompt()}
       - "позавчера" = позавчерашняя дата
       - "25го", "25 числа" = 25-е число текущего/следующего месяца
       - "на прошлой неделе" = примерно 7 дней назад
-      - Если дата не указана: для транзакций = сегодня, для долгов dueDate = null
+      - Если дата не указана — сегодня
+
+      ВАЛЮТА И СЧЁТ:
+      - "$", "долл", "доллар", "usd" → "currency": "USD", сумма в долларах как написано (55, 9.99); иначе "UZS"
+      - "нал", "наличными" → "account": "cash"; "картой", "по карте", "uzcard", "humo" → "account": "card"; иначе null
 
       ПРАВИЛА СУММ:
       - Записывай числа как есть (50000, 100, 25.5)
@@ -114,7 +111,7 @@ ${generateCategoryPrompt()}
       - НЕ КОНВЕРТИРУЙ валюты - записывай оригинальную сумму
       - Если сумма не указана четко, confidence = 0.3
 
-      КРИТИЧНО: В поле "category" возвращай ТОЛЬКО английский ID (food, taxi, utilities, salary и т.д.)!`,
+      КРИТИЧНО: В поле "category" возвращай только название из списка категорий; если ни одна не подходит — "Другое".`,
 
     TRANSCRIPTION_PROMPT: 'финансовые транзакции, покупки, расходы, доходы, долги, одолжил, занял'
   },
@@ -130,9 +127,10 @@ ${generateCategoryPrompt()}
       - Use common sense for categories
       - Add confidence in analysis (confidence: 0.1-1.0)
       - Record amounts as is, don't convert currencies
-      - IMPORTANT: Use ONLY English category IDs from the list below in the category field`,
+      - IMPORTANT: In the category field write a category name exactly as it appears in the list below`,
 
-    USER_ANALYZE_TRANSACTIONS:
+    /** `categoryPrompt` lists the user's visible categories (FT-099, buildCategoryPrompt). */
+    USER_ANALYZE_TRANSACTIONS: (categoryPrompt: string) =>
       `Analyze the text and extract ALL financial transactions. IMPORTANT: Process multiple transactions in a single message!
 
       EXAMPLES OF MULTIPLE TRANSACTIONS:
@@ -140,12 +138,13 @@ ${generateCategoryPrompt()}
       • "Gas station $100, bought bread $5, received salary $2000" → 3 transactions
       • "Yesterday: dinner $40, today: coffee $8" → 2 transactions with different dates
 
-${generateCategoryPrompt()}
+${categoryPrompt}
 
-      CRITICAL: In the "category" field, return ONLY English IDs (food, taxi, utilities, salary, etc.), NOT Russian names!
+      CRITICAL: In the "category" field, return only a name from the category list; if none fits, "Другое".
+      Debts, loans and installments are ordinary expenses in "Другое".
 
       RESPONSE FORMAT:
-      [{"amount": number, "category": "category_id", "type": "income" | "expense",
+      [{"amount": number, "category": "category name from the list", "type": "income" | "expense",
         "semanticType": "expense" | "income" | "own_transfer" | "saving_deposit" | "debt" | "reimbursement" | "cash_withdrawal" | "group_payment",
         "needsReview": true | false,
         "date": "YYYY-MM-DD", "merchant": "normalized name", "confidence": number, "description": "brief description"}]
@@ -155,7 +154,7 @@ ${generateCategoryPrompt()}
       - "income" — regular income (salary, gift)
       - "own_transfer" — transfer between the user's own accounts/cards
       - "saving_deposit" — money moved into savings
-      - "debt" — a money movement tied to debt (the transaction itself, not intent "debt")
+      - "debt" — repaying a debt that was already recorded
       - "reimbursement" — money returned/refunded to the user
       - "cash_withdrawal" — cash withdrawal from ATM/bank
       - "group_payment" — paying for a group, to be split later

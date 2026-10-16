@@ -1,4 +1,6 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, Index } from 'typeorm';
+import { bigintNumber } from '../transformers';
+import { Category } from './Category';
 
 export enum TransactionType {
   INCOME = 'income',
@@ -6,12 +8,16 @@ export enum TransactionType {
 }
 
 @Entity('transactions')
+@Index('IDX_transactions_user_date', ['userId', 'date'])
+@Index('IDX_transactions_account', ['accountId'])
+@Index('IDX_transactions_user_client', ['userId', 'clientId'], { unique: true })
 export class Transaction {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
-  @Column('decimal', { precision: 10, scale: 2 })
-  amount!: number;
+  /** Integer minor units: тийины for UZS, cents for USD (FT-097). Replaced `amount decimal(10,2)`. */
+  @Column('bigint', { name: 'amount_minor', transformer: bigintNumber })
+  amountMinor!: number;
 
   @Column()
   type!: 'income' | 'expense';
@@ -53,13 +59,49 @@ export class Transaction {
   @Column()
   userId!: string;
 
-  // Category name (simplified, no foreign key)
-  @Column({ nullable: true, default: 'Другое' })
-  category?: string;
+  /** The user's category (FT-099). Integrity is kept by the application; there is no FK constraint. */
+  @Column({ name: 'category_id' })
+  categoryId!: string;
+
+  /** Loaded with the record so its current name can be shown. */
+  @ManyToOne(() => Category, { createForeignKeyConstraints: false })
+  @JoinColumn({ name: 'category_id' })
+  categoryRef?: Category;
+
+  /** The account the money moved on (FT-101). Integrity is kept by the application. */
+  @Column({ name: 'account_id' })
+  accountId!: string;
+
+  /** Currency of the amount: the account's at the time of writing (FT-103). */
+  @Column({ default: 'UZS' })
+  currency!: string;
+
+  /** Where the record came from: telegram, miniapp, ios_shortcut, receipt, manual (FT-103); null for older records. */
+  @Column('varchar', { nullable: true })
+  source?: string | null;
+
+  /** The pre-FT-099 category string (old id or name), kept until FT-136 for the migration report. */
+  @Column('varchar', { name: 'legacy_category', nullable: true })
+  legacyCategory?: string | null;
 
   // Archive support - archived transactions are excluded from analytics
   @Column({ default: false })
   isArchived!: boolean;
+
+  /**
+   * Deleted softly (FT-105): «Отменить» brings the record back. The repository leaves deleted records
+   * out of every read unless asked for them by id.
+   */
+  @Column('datetime', { name: 'deleted_at', nullable: true })
+  deletedAt?: Date | null;
+
+  /** Note and merchant as searched (FT-107): `recordSearchText`, kept in step on every write. */
+  @Column('varchar', { name: 'search_text', default: '' })
+  searchText!: string;
+
+  /** The client's id for the record (FT-106), unique per user: a repeated create returns this record. */
+  @Column('varchar', { name: 'client_id', nullable: true })
+  clientId?: string | null;
 
   // Debt-related fields
   @Column({ default: false })

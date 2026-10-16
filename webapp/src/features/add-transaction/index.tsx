@@ -3,7 +3,7 @@ import { useCreateTransaction } from '@/entities/transaction';
 import { useUserStore } from '@/entities/user/model/store';
 import { TransactionForm } from './ui/TransactionForm';
 import { ROUTES } from '@/shared/lib/constants';
-import type { AddTransactionFormData } from './model/schema';
+import type { TransactionFormResult } from './ui/TransactionForm';
 import { toast } from 'sonner';
 
 interface AddTransactionProps {
@@ -21,7 +21,7 @@ export function AddTransaction({ onSuccess, showHeader = true }: AddTransactionP
   const userName = useUserStore((state) => state.userName);
   const createTransaction = useCreateTransaction();
 
-  const handleSubmit = async (data: AddTransactionFormData) => {
+  const handleSubmit = async (data: TransactionFormResult) => {
     if (!userId) {
       toast.error('Пользователь не авторизован');
       return;
@@ -63,5 +63,5 @@ export function AddTransaction({ onSuccess, showHeader = true }: AddTransactionP
 }
 
 // Re-export components and types
-export { TransactionForm } from './ui/TransactionForm';
+export { TransactionForm, type TransactionFormResult } from './ui/TransactionForm';
 export { addTransactionSchema, type AddTransactionFormData } from './model/schema';

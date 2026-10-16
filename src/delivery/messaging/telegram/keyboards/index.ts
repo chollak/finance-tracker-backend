@@ -1,8 +1,7 @@
 export {
   quickCategoryKeyboard,
-  getCategoryById,
-  getCategoryDisplay
 } from './categoryKeyboard';
+export type { CategoryButton } from './categoryKeyboard';
 
 export {
   transactionConfirmationKeyboard,

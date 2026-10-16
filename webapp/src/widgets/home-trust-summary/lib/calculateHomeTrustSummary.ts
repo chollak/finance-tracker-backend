@@ -1,5 +1,7 @@
 export type HomeTrustTransaction = {
   amount: number;
+  /** Dollars are not added to сум totals (FT-103). */
+  currency?: 'UZS' | 'USD';
   type: 'income' | 'expense';
   semanticType?: string;
   needsReview?: boolean;
@@ -42,7 +44,10 @@ export function calculateHomeTrustSummary(
   transactions: HomeTrustTransaction[],
   monthStart: string
 ): HomeTrustSummaryMetrics {
-  const monthTransactions = transactions.filter((transaction) => transaction.date >= monthStart);
+  // Totals are in сум; dollar records (FT-103) are left out rather than added as сум
+  const monthTransactions = transactions.filter(
+    (transaction) => transaction.date >= monthStart && (transaction.currency ?? 'UZS') === 'UZS'
+  );
   const outgoingTransactions = monthTransactions.filter(isOutgoing);
   const excludedTransactions = outgoingTransactions.filter(
     (transaction) => !isNeedsReview(transaction) && isNonExpenseMovement(transaction)

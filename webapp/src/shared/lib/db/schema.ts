@@ -15,6 +15,9 @@ export interface LocalTransaction {
   // Core transaction data
   date: string;
   category: string;
+  /** Server records only (FT-099): the user's category and its colour. */
+  categoryId?: string;
+  categoryColor?: string;
   description: string;
   amount: number;
   type: 'income' | 'expense';
@@ -48,6 +51,7 @@ export interface LocalUser {
 export interface CreateLocalTransactionDTO {
   date: string;
   category: string;
+  categoryId?: string;
   description: string;
   amount: number;
   type: 'income' | 'expense';
@@ -63,6 +67,7 @@ export interface CreateLocalTransactionDTO {
 export interface UpdateLocalTransactionDTO {
   date?: string;
   category?: string;
+  categoryId?: string;
   description?: string;
   amount?: number;
   type?: 'income' | 'expense';

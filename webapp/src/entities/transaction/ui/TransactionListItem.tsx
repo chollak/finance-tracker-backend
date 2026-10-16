@@ -9,7 +9,6 @@ import { Badge } from '@/shared/ui/badge';
 import type { TransactionViewModel } from '../model/types';
 import { TransactionActions } from './TransactionActions';
 import { TransactionCorrectionChips } from './TransactionCorrectionChips';
-import { getCategoryName } from '@/entities/category/model/categories';
 import { NEEDS_REVIEW_LABEL, NON_EXPENSE_MOVEMENT_HINT } from '../lib/semanticType';
 import { shouldShowDescriptionTooltip } from '../lib/transactionRowDisplay';
 
@@ -72,7 +71,7 @@ export function TransactionListItem({
             <p className="font-medium leading-snug line-clamp-2 break-words">{transaction.description}</p>
           )}
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1">
-            <span className="text-sm text-muted-foreground truncate">{getCategoryName(transaction.category)}</span>
+            <span className="text-sm text-muted-foreground truncate">{transaction.category}</span>
             {/* Ordinary expenses skip the badge — the red amount already says it */}
             {transaction._showSemanticTypeBadge && (
               <Badge

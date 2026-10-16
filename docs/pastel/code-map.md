@@ -58,7 +58,7 @@ webapp, проверка архитектуры и шрифтов.
 | `SqliteTransactionRepository.update()` | нет ветки для `category` — смена категории молча теряется на SQLite | Карточка операции и проверка записей правят категорию |
 | `callbackHandlers.ts`, «Удалить» в боте | `DeleteTransactionUseCase.execute(transactionId)` вызывается строкой вместо `{ id }`; проверка «последней записи» сравнивает разные ключи | В «Пастели» отмена и «Вернуть» — одно нажатие |
 | `CreateTransactionUseCase` + обработчики бота + middleware `POST /transactions` | счётчик записей free-лимита увеличивается дважды | Лимит наступает вдвое раньше |
-| `requireAdmin` на `transactionController.ts:97, 254` и в `openAIUsageRoutes.ts` | перед ним нет авторизации — всегда 401 (на `/subscription/grant` авторизация есть) | Не мешает; мёртвый `GET /api/transactions` занимает путь, нужный истории (FT-107) |
+| `requireAdmin` на `transactionController.ts:97, 254` и в `openAIUsageRoutes.ts` | перед ним нет авторизации — всегда 401 (на `/subscription/grant` авторизация есть) | Не мешает. Мёртвый `GET /api/transactions` убран в FT-107: путь занят историей |
 | Репозитории транзакций | `isDebtRelated`, `relatedDebtId`, `tags`, `splitGroupId` не сохраняются | Не мешает, если долги уходят из интерфейса |
 
 ## Webapp — `webapp/src/`

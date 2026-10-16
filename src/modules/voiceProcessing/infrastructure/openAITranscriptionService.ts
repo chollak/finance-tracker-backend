@@ -11,7 +11,7 @@ import { AppConfig } from '../../../shared/infrastructure/config/appConfig';
 import { ExternalServiceError, ErrorFactory } from '../../../shared/domain/errors/AppError';
 import { OPENAI_PROMPTS, ERROR_MESSAGES } from '../../../shared/domain/constants/messages';
 import { transactionLearning } from '../../../shared/application/learning/transactionLearning';
-import { normalizeCategory } from '../../../shared/domain/entities/Category';
+import { AnalysisContext, buildCategoryPrompt } from '../domain/categoryPrompt';
 import { normalizeSemanticType } from '../../transaction/domain/transactionSemanticType';
 import { createLogger, LogCategory } from '../../../shared/infrastructure/logging';
 
@@ -52,7 +52,7 @@ export class OpenAITranscriptionService implements TranscriptionService {
   /**
    * Analyze text and extract both transactions and debts
    */
-  async analyzeInput(text: string): Promise<AnalysisResult> {
+  async analyzeInput(text: string, context: AnalysisContext = {}): Promise<AnalysisResult> {
     if (!text || text.trim().length === 0) {
       throw ErrorFactory.validation('Text input is required for analysis');
     }
@@ -62,9 +62,10 @@ export class OpenAITranscriptionService implements TranscriptionService {
       const language = AppConfig.DEFAULT_LANGUAGE.toUpperCase() as keyof typeof OPENAI_PROMPTS;
       const prompts = OPENAI_PROMPTS[language];
 
-      // Enhance prompts with learned patterns
+      // The user's own categories (FT-099), then learned patterns shown in the user's names
       const enhancedUserPrompt = await transactionLearning.getEnhancedPrompts(
-        prompts.USER_ANALYZE_TRANSACTIONS
+        prompts.USER_ANALYZE_TRANSACTIONS(buildCategoryPrompt(context.categories)),
+        context.presetNames
       );
 
       const messages: ChatCompletionMessageParam[] = [
@@ -148,13 +149,9 @@ export class OpenAITranscriptionService implements TranscriptionService {
 
         const intent = item.intent || 'transaction';
 
-        if (intent === 'debt') {
-          const debt = this.parseDebtItem(item);
-          if (debt) debts.push(debt);
-        } else {
-          const transaction = this.parseTransactionItem(item);
-          if (transaction) transactions.push(transaction);
-        }
+        // Debt parsing is off (decision Д2): a debt the model still reports is an expense in «Другое»
+        const transaction = intent === 'debt' ? this.debtAsExpense(item) : this.parseTransactionItem(item);
+        if (transaction) transactions.push(transaction);
       }
 
       return { transactions, debts };
@@ -170,34 +167,28 @@ export class OpenAITranscriptionService implements TranscriptionService {
   }
 
   /**
-   * Parse a debt item from OpenAI response
+   * A debt item («одолжил», «взял в долг», «кредит», «рассрочка») becomes an ordinary expense in
+   * «Другое» — decision Д2; the debt module stays but is no longer filled from text.
    */
-  private parseDebtItem(item: any): ParsedDebt | null {
+  private debtAsExpense(item: any): ParsedTransaction | null {
     const amount = typeof item.amount === 'number' ? item.amount : parseFloat(item.amount) || 0;
     if (amount <= 0) return null;
 
-    const debtType = item.debtType === 'i_owe' ? 'i_owe' : 'owed_to_me';
-    const personName = String(item.personName || 'Unknown').trim();
-
-    // Parse due date
-    let dueDate: string | null = null;
-    if (item.dueDate && item.dueDate !== 'null') {
-      dueDate = this.parseDueDate(String(item.dueDate));
-    }
-
-    let confidence = typeof item.confidence === 'number' ? item.confidence : 0.8;
-    if (!personName || personName === 'Unknown') confidence = Math.min(confidence, 0.5);
-    confidence = Math.max(0.1, Math.min(1.0, confidence));
+    const personName = item.personName ? String(item.personName).trim() : '';
+    const description = item.description ? String(item.description) : personName || undefined;
+    const confidence = typeof item.confidence === 'number' ? Math.max(0.1, Math.min(1.0, item.confidence)) : 0.8;
 
     return {
-      intent: 'debt',
-      debtType,
-      personName,
+      intent: 'transaction',
       amount,
-      dueDate,
-      description: item.description ? String(item.description) : undefined,
-      moneyTransferred: item.moneyTransferred !== false, // Default to true
+      category: 'Другое',
+      type: 'expense',
+      semanticType: 'expense',
+      needsReview: false,
+      date: new Date().toISOString().split('T')[0],
+      merchant: personName || undefined,
       confidence,
+      description,
     };
   }
 
@@ -208,22 +199,25 @@ export class OpenAITranscriptionService implements TranscriptionService {
     const amount = typeof item.amount === 'number' ? item.amount : parseFloat(item.amount) || 0;
     if (amount <= 0) return null;
 
-    const rawCategory = String(item.category || 'other');
-    const category = normalizeCategory(rawCategory);
+    // The name the model chose; the user's category is resolved on create (FT-099)
+    const category = String(item.category || '').trim() || 'Другое';
     const merchant = item.merchant ? String(item.merchant) : undefined;
 
     let confidence = typeof item.confidence === 'number' ? item.confidence : 0.8;
     if (amount === 0) confidence = Math.min(confidence, 0.4);
-    if (category === 'other' || category === 'other-income') confidence = Math.min(confidence, 0.5);
+    if (category.toLocaleLowerCase('ru-RU') === 'другое') confidence = Math.min(confidence, 0.5);
     if (!merchant && !item.merchant) confidence = Math.min(confidence, 0.6);
     confidence = Math.max(0.1, Math.min(1.0, confidence));
 
     const type = item.type === 'income' || item.type === 'expense' ? item.type : 'expense';
+    const paymentKind = item.account === 'cash' || item.account === 'card' ? item.account : undefined;
 
     return {
       intent: 'transaction',
       amount,
       category,
+      currency: String(item.currency ?? '').toUpperCase() === 'USD' ? 'USD' : 'UZS',
+      paymentKind,
       type,
       semanticType: normalizeSemanticType(item.semanticType, type),
       needsReview: item.needsReview === true,
@@ -232,39 +226,6 @@ export class OpenAITranscriptionService implements TranscriptionService {
       confidence,
       description: item.description ? String(item.description) : undefined,
     };
-  }
-
-  /**
-   * Parse due date from various formats
-   */
-  private parseDueDate(dateStr: string): string | null {
-    // Already in YYYY-MM-DD format
-    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-      return dateStr;
-    }
-
-    // Handle "25го", "25 числа" etc.
-    const dayMatch = dateStr.match(/(\d{1,2})/);
-    if (dayMatch) {
-      const day = parseInt(dayMatch[1], 10);
-      const today = new Date();
-      let month = today.getMonth();
-      let year = today.getFullYear();
-
-      // If the day has passed this month, use next month
-      if (day < today.getDate()) {
-        month += 1;
-        if (month > 11) {
-          month = 0;
-          year += 1;
-        }
-      }
-
-      const dueDate = new Date(year, month, day);
-      return dueDate.toISOString().split('T')[0];
-    }
-
-    return null;
   }
 
   /**

@@ -35,6 +35,12 @@ describe('buildCaptureAck', () => {
   });
 
   describe('single transaction', () => {
+    it('shows dollars as dollars, with cents (FT-103)', () => {
+      const ack = buildCaptureAck([captured({ amount: 55, currency: 'USD', description: 'наушники', category: 'Покупки' })], { today: TODAY });
+
+      expect(ack.summary).toBe('Наушники · 55,00 USD · Покупки');
+    });
+
     it('summarises label, grouped amount and localized category', () => {
       const ack = buildCaptureAck([captured()], { today: TODAY });
 

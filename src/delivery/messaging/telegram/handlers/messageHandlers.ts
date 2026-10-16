@@ -6,9 +6,9 @@ import { formatCaptureMessage, formatTransactionMessage } from '../formatters';
 import {
   transactionConfirmationKeyboard,
   transactionAutoSavedKeyboard,
-  getCategoryDisplay
 } from '../keyboards';
 import { downloadVoiceFile, cleanupFile } from '../utils';
+import { quickAddCategory } from '../utils/userCategories';
 import { AppError } from '../../../../shared/domain/errors/AppError';
 import { DetectedDebt } from '../../../../modules/voiceProcessing/domain/processedTransaction';
 import { SubscriptionModule } from '../../../../modules/subscription/subscriptionModule';
@@ -19,7 +19,7 @@ import {
 import { resolveUserIdToUUID } from '../../../../shared/application/helpers/userIdResolver';
 import { LimitType } from '../../../../modules/subscription/domain/usageLimit';
 import { createLogger, LogCategory } from '../../../../shared/infrastructure/logging';
-import { countsAsRealExpense, normalizeSemanticType } from '../../../../modules/transaction/domain/transactionSemanticType';
+import { fromMinor } from '../../../../shared/domain/money/money';
 import { buildCaptureAck } from '../../../../modules/quickCapture/application/buildCaptureAck';
 import { toCapturedTransaction } from '../../../../modules/quickCapture/application/toCapturedTransaction';
 import { CapturedTransaction } from '../../../../modules/quickCapture/domain/quickCaptureTypes';
@@ -257,6 +257,7 @@ export function createVoiceMessageHandler(userModule?: UserModule, subscriptionM
         filePath,
         userId,
         userName,
+        source: 'telegram',
       });
 
       if (result.transactions.length === 0 && (!result.debts || result.debts.length === 0)) {
@@ -386,24 +387,15 @@ async function getTodaySummary(
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const thisMonth = transactions.filter(tx => new Date(tx.date) >= startOfMonth);
+    const thisDay = thisMonth.filter(tx => new Date(tx.date) >= today);
 
-    let todayTotal = 0;
-    let monthTotal = 0;
+    // Real expenses through the shared period totals (FT-103): dollars at the effective rate
+    const totals = transactionModule.getPeriodTotalsService();
+    const month = await totals.summarize(userId, thisMonth);
+    const day = await totals.summarize(userId, thisDay);
 
-    for (const tx of transactions) {
-      const semanticType = normalizeSemanticType(tx.semanticType, tx.type);
-      if (!tx.needsReview && countsAsRealExpense(semanticType)) {
-        const txDate = new Date(tx.date);
-        if (txDate >= startOfMonth) {
-          monthTotal += tx.amount;
-          if (txDate >= today) {
-            todayTotal += tx.amount;
-          }
-        }
-      }
-    }
-
-    return { todayTotal, monthTotal };
+    return { todayTotal: fromMinor(day.expenseMinor), monthTotal: fromMinor(month.expenseMinor) };
   } catch {
     return undefined;
   }
@@ -442,16 +434,20 @@ async function handleQuickAddAmount(
   ctx.session.pendingAction = undefined;
 
   const { transactionModule } = ctx.modules;
-  const categoryDisplay = getCategoryDisplay(category);
 
   try {
+    // The button's category: a category id, or an old static id from a message sent before FT-099
+    const picked = await quickAddCategory(ctx, userId, category);
+    const categoryDisplay = picked.name;
+
     // Create transaction directly without AI parsing
     const transactionData = {
-      id: `tx_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       userId,
       userName,
       amount,
-      category,
+      source: 'telegram' as const,
+      category: picked.category,
+      categoryId: picked.categoryId,
       type: 'expense' as const,
       description: categoryDisplay,
       date: new Date().toISOString(),
@@ -475,7 +471,7 @@ async function handleQuickAddAmount(
     const processedTx: ProcessedTransaction = {
       id: transactionId,
       amount,
-      category,
+      category: categoryDisplay,
       type: 'expense',
       description: categoryDisplay,
       confidence: 1.0, // High confidence for manual quick add

@@ -144,11 +144,13 @@ so even rejected requests consume budget.
 | `text` | `string` | yes | Must be a non-empty string with non-whitespace content. Max **2000 characters** (checked on the raw string, before trimming). Trimmed before parsing; the trimmed value is echoed back as `data.text`. |
 | `userId` | `string` | yes | Owner of the created transactions. No default — unlike the older `POST /api/voice/text-input` route, this endpoint never falls back to a placeholder user id. |
 | `userName` | `string` | no | Passed to the parser/user pipeline. A non-string value is silently treated as absent. |
-| `source` | `"telegram" \| "miniapp" \| "ios_shortcut"` | no | Routing metadata only. Validated against the enum, echoed back in the response. **Not persisted.** |
+| `source` | `"telegram" \| "miniapp" \| "ios_shortcut"` | no | Validated against the enum and echoed back. Since FT-103 it is **stored on every created record** (`transactions.source`); without it the records get `miniapp`. |
 
-Unknown extra fields are ignored (the handler destructures only the four fields above).
+| `clientId` | `string` | no | FT-106. The client's id for this capture: letters, digits and `-`, up to 64. A repeat returns the records of the first capture (`repeated: true`) without parsing again; see [docs/pastel/api.md](pastel/api.md#повтор-из-офлайн-очереди-ft-106). |
 
-Validation order inside the handler: `text` present/non-blank → `text` length → `source` enum → `userId` present.
+Unknown extra fields are ignored (the handler destructures only the five fields above).
+
+Validation order inside the handler: `text` present/non-blank → `text` length → `source` enum → `clientId` format → `userId` present.
 
 ---
 
@@ -201,10 +203,14 @@ Everything in `transactions`/`debts` is **already written to the database** by t
 | Field | Type | Notes |
 |---|---|---|
 | `id` | `string` | Persisted transaction id. |
-| `amount` | `number` | Always positive; direction is in `type`. |
+| `amount` | `number` | Always positive; direction is in `type`. In the record's `currency`, major units. |
+| `currency` | `"UZS" \| "USD"` | FT-103. `USD` when the text says «$», «долл…», «usd»; otherwise `UZS`. |
+| `accountId` | `string` | FT-103. The account the record went to (named in the text, «нал» → cash, «картой» → card, else the default). |
+| `accountName` | `string?` | FT-103. That account's name, for the ack. |
+| `assumptions` | `CaptureAssumption[]` | FT-103. What the parse took for granted: `thousands` («45» read as 45 000), `category` (not named in the text), `account` (`reason: hint \| default`), `currency` (`reason: no_usd_account` — dollars kept on a сум account, record flagged `needsReview`). Shape: [docs/pastel/api.md](pastel/api.md#записи-валюта-и-источник-ft-103). |
 | `type` | `"income" \| "expense"` | |
 | `semanticType` | `TransactionSemanticType` | e.g. `expense`, `income`, `own_transfer`, `saving_deposit`, `cash_withdrawal`. Normalized from `type` when the parser did not set one. |
-| `category` | `string` | Category **id** (`"transport"`, `"food"`), not a display name. |
+| `category` | `string` | The user's category **name** (`"Транспорт"`, `"Кафе"`) since FT-099; the id is on the stored record (`categoryId`). |
 | `description` | `string?` | |
 | `merchant` | `string?` | |
 | `date` | `string` | As produced by the parser: `YYYY-MM-DD` or a full ISO timestamp. |
@@ -310,9 +316,16 @@ curl -sS -X POST http://localhost:3000/api/quick-capture \
       {
         "id": "tx-1",
         "amount": 18000,
+        "currency": "UZS",
+        "accountId": "acc-1",
+        "accountName": "Карта",
+        "assumptions": [
+          { "kind": "category", "name": "Транспорт" },
+          { "kind": "account", "name": "Карта", "reason": "default" }
+        ],
         "type": "expense",
         "semanticType": "expense",
-        "category": "transport",
+        "category": "Транспорт",
         "description": "такси",
         "merchant": "такси",
         "date": "2026-09-02",
@@ -390,13 +403,13 @@ curl -sS -X POST https://<tunnel-host>/api/quick-capture \
 
 ## Current limitations
 
-1. **`source` is not persisted.** It is validated and echoed back for client-side routing only — the `Transaction`
-   entity has no source column, so you cannot query "everything captured from the Mini App".
+1. **`source` is stored, the Shortcut contract is unchanged.** Since FT-103 every record keeps its `source`; the
+   request and the old response fields did not change, the new response fields are additive.
 2. **No parse-without-save / draft.** Every successful capture writes immediately. There is no
    `/parse` + `/commit` split and no `draft` status; a client confirmation sheet would have to edit or delete an
    already-saved row.
-3. **No idempotency.** `clientRequestId` is not accepted and no deduplication exists — a retried request creates
-   duplicate transactions.
+3. **Idempotency only with `clientId`.** Since FT-106 a request with a `clientId` is safe to retry; without one a
+   retried request still creates duplicate transactions.
 4. **Rate limit is coarse.** The AI limiter is per-IP and its 20/15min budget is *shared* with `/api/voice/*`; it is not
    per-user and cannot be tuned separately for capture.
 5. **No `occurredAt`.** The transaction date comes from the parser/server, so a client cannot backdate a capture through

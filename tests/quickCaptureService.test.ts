@@ -38,7 +38,7 @@ describe('QuickCaptureService', () => {
         source: 'miniapp',
       });
 
-      expect(useCase.execute).toHaveBeenCalledWith('такси 18к', 'user-1', 'Shukur');
+      expect(useCase.execute).toHaveBeenCalledWith('такси 18к', 'user-1', 'Shukur', { source: 'miniapp' });
       expect(result.status).toBe('saved');
       expect(result.source).toBe('miniapp');
       expect(result.text).toBe('такси 18к');
@@ -240,7 +240,8 @@ describe('QuickCaptureService', () => {
 
       const result = await new QuickCaptureService(useCase).capture({ text: '  кофе 35000  ', userId: 'user-1' });
 
-      expect(useCase.execute).toHaveBeenCalledWith('кофе 35000', 'user-1', undefined);
+      // A client that does not name its source is the Mini App; the source is stored (FT-103)
+      expect(useCase.execute).toHaveBeenCalledWith('кофе 35000', 'user-1', undefined, { source: 'miniapp' });
       expect(result.text).toBe('кофе 35000');
     });
 

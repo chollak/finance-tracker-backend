@@ -4,6 +4,9 @@ import { CreateTransactionUseCase } from '../src/modules/transaction/application
 import { CreateDebtUseCase } from '../src/modules/debt/application/createDebt';
 import { DebtStatus, DebtType } from '../src/modules/debt/domain/debtEntity';
 
+/** Text and voice paths choose categories and accounts automatically (FT-099, FT-103). */
+const AUTOMATIC = expect.objectContaining({ visibleCategoriesOnly: true, allowCurrencyMismatch: true });
+
 jest.mock('../src/modules/voiceProcessing/infrastructure/openAITranscriptionService');
 
 describe('ProcessTextInputUseCase', () => {
@@ -27,7 +30,7 @@ describe('ProcessTextInputUseCase', () => {
     expect(openAIService.analyzeInput).not.toHaveBeenCalled();
     expect(createTransactionUseCase.execute).toHaveBeenCalledWith(expect.objectContaining({
       amount: 15000,
-      category: 'coffee',
+      category: 'кофе',
       type: 'expense',
       semanticType: 'expense',
       date: '2026-07-22',
@@ -37,12 +40,12 @@ describe('ProcessTextInputUseCase', () => {
       userName: 'Shukur',
       originalText: 'кофе 15000 сум',
       originalParsing: expect.objectContaining({ semanticType: 'expense' }),
-    }));
+    }), AUTOMATIC);
     expect(result.transactions).toEqual([
       expect.objectContaining({
         id: 'fast-1',
         amount: 15000,
-        category: 'coffee',
+        category: 'кофе',
         semanticType: 'expense',
         merchant: 'кофе',
         description: 'кофе',
@@ -73,7 +76,7 @@ describe('ProcessTextInputUseCase', () => {
       type: 'expense',
       semanticType: 'own_transfer',
       needsReview: false,
-    }));
+    }), AUTOMATIC);
     expect(result.transactions).toEqual([
       expect.objectContaining({ id: 'transfer-fast-1', semanticType: 'own_transfer', needsReview: false })
     ]);
@@ -100,7 +103,7 @@ describe('ProcessTextInputUseCase', () => {
       type: 'expense',
       semanticType: 'saving_deposit',
       needsReview: false,
-    }));
+    }), AUTOMATIC);
     expect(result.transactions).toEqual([
       expect.objectContaining({ id: 'saving-fast-1', semanticType: 'saving_deposit', needsReview: false })
     ]);
@@ -127,7 +130,7 @@ describe('ProcessTextInputUseCase', () => {
       type: 'expense',
       semanticType: 'cash_withdrawal',
       needsReview: false,
-    }));
+    }), AUTOMATIC);
     expect(result.transactions).toEqual([
       expect.objectContaining({ id: 'cash-fast-1', semanticType: 'cash_withdrawal', needsReview: false })
     ]);
@@ -152,10 +155,11 @@ describe('ProcessTextInputUseCase', () => {
     expect(createTransactionUseCase.execute).toHaveBeenCalledWith(expect.objectContaining({
       amount: 7000000,
       type: 'income',
-      category: 'salary',
+      // The fast path passes the word through; CreateTransactionUseCase resolves it to «Зарплата» (FT-099)
+      category: 'зарплата',
       semanticType: 'income',
       needsReview: false,
-    }));
+    }), AUTOMATIC);
     expect(result.transactions).toEqual([
       expect.objectContaining({ id: 'income-fast-1', semanticType: 'income', needsReview: false })
     ]);
@@ -271,7 +275,7 @@ describe('ProcessTextInputUseCase', () => {
     expect(createTransactionUseCase.execute).toHaveBeenCalledWith(expect.objectContaining({
       semanticType: 'own_transfer',
       originalParsing: expect.objectContaining({ semanticType: 'own_transfer' }),
-    }));
+    }), AUTOMATIC);
     expect(result.transactions).toEqual([
       expect.objectContaining({ id: 'transfer-1', semanticType: 'own_transfer' })
     ]);
@@ -303,7 +307,7 @@ describe('ProcessTextInputUseCase', () => {
 
     expect(createTransactionUseCase.execute).toHaveBeenCalledWith(expect.objectContaining({
       semanticType: 'income',
-    }));
+    }), AUTOMATIC);
     expect(result.transactions).toEqual([
       expect.objectContaining({ id: 'income-1', semanticType: 'income' })
     ]);
@@ -335,7 +339,7 @@ describe('ProcessTextInputUseCase', () => {
 
     expect(createTransactionUseCase.execute).toHaveBeenCalledWith(expect.objectContaining({
       needsReview: true,
-    }));
+    }), AUTOMATIC);
     expect(result.transactions).toEqual([
       expect.objectContaining({ id: 'uncertain-1', needsReview: true })
     ]);
@@ -366,7 +370,7 @@ describe('ProcessTextInputUseCase', () => {
 
     expect(createTransactionUseCase.execute).toHaveBeenCalledWith(expect.objectContaining({
       needsReview: false,
-    }));
+    }), AUTOMATIC);
     expect(result.transactions).toEqual([
       expect.objectContaining({ id: 'certain-1', needsReview: false })
     ]);
@@ -435,6 +439,9 @@ describe('ProcessTextInputUseCase', () => {
       transactions: [{
         id: '42',
         amount: 5,
+        currency: 'UZS',
+        // The category is not named in the text, so it is reported as a guess (FT-103)
+        assumptions: [{ kind: 'category', name: 'Food' }],
         category: 'Food',
         type: 'expense',
         semanticType: 'expense',
@@ -479,6 +486,8 @@ describe('ProcessTextInputUseCase', () => {
         {
           id: '1',
           amount: 5,
+          currency: 'UZS',
+          assumptions: [{ kind: 'category', name: 'Food' }],
           category: 'Food',
           type: 'expense',
           semanticType: 'expense',
@@ -491,6 +500,8 @@ describe('ProcessTextInputUseCase', () => {
         {
           id: '2',
           amount: 40,
+          currency: 'UZS',
+          assumptions: [{ kind: 'category', name: 'Debt' }],
           category: 'Debt',
           type: 'expense',
           semanticType: 'expense',
@@ -565,7 +576,7 @@ describe('ProcessTextInputUseCase', () => {
         semanticType: 'income',
         description: 'зарплата',
         merchant: 'зарплата',
-      }));
+      }), AUTOMATIC);
       expect(result.transactions).toEqual([
         expect.objectContaining({ id: 'salary-mln', amount: 12000000, description: 'зарплата' })
       ]);
@@ -581,7 +592,7 @@ describe('ProcessTextInputUseCase', () => {
         type: 'income',
         description: 'зарплата',
         merchant: 'зарплата',
-      }));
+      }), AUTOMATIC);
     });
 
     it('parses "такси 3.5 млн" as 3 500 000', async () => {
@@ -594,7 +605,7 @@ describe('ProcessTextInputUseCase', () => {
         type: 'expense',
         description: 'такси',
         merchant: 'такси',
-      }));
+      }), AUTOMATIC);
     });
 
     it('parses "кофе 25 тыс" as 25 000', async () => {
@@ -606,7 +617,7 @@ describe('ProcessTextInputUseCase', () => {
         amount: 25000,
         description: 'кофе',
         merchant: 'кофе',
-      }));
+      }), AUTOMATIC);
     });
 
     it('parses "кофе 25 тысяч" as 25 000', async () => {
@@ -618,7 +629,7 @@ describe('ProcessTextInputUseCase', () => {
         amount: 25000,
         description: 'кофе',
         merchant: 'кофе',
-      }));
+      }), AUTOMATIC);
     });
 
     it('parses "кофе 15к" as 15 000', async () => {
@@ -630,7 +641,7 @@ describe('ProcessTextInputUseCase', () => {
         amount: 15000,
         description: 'кофе',
         merchant: 'кофе',
-      }));
+      }), AUTOMATIC);
     });
 
     it('parses "кофе 50 тыщ" as 50 000', async () => {
@@ -642,7 +653,7 @@ describe('ProcessTextInputUseCase', () => {
         amount: 50000,
         description: 'кофе',
         merchant: 'кофе',
-      }));
+      }), AUTOMATIC);
     });
 
     it('parses "такси 2 млн сум" as 2 000 000 and drops both the multiplier and the currency word', async () => {
@@ -654,7 +665,7 @@ describe('ProcessTextInputUseCase', () => {
         amount: 2000000,
         description: 'такси',
         merchant: 'такси',
-      }));
+      }), AUTOMATIC);
     });
 
     it('keeps parsing a plain "1000000" amount without a magnitude word', async () => {
@@ -667,7 +678,7 @@ describe('ProcessTextInputUseCase', () => {
         amount: 1000000,
         description: 'кофе',
         merchant: 'кофе',
-      }));
+      }), AUTOMATIC);
     });
 
     it('never stores a magnitude phrase with a lost order of magnitude when it falls back to OpenAI', async () => {
@@ -688,7 +699,7 @@ describe('ProcessTextInputUseCase', () => {
       expect(openAIService.analyzeInput).toHaveBeenCalledTimes(1);
       expect(createTransactionUseCase.execute).toHaveBeenCalledWith(expect.objectContaining({
         amount: 12000000,
-      }));
+      }), AUTOMATIC);
     });
 
     it('sends an ambiguous comma decimal like "зарплата 1,5 млн" to OpenAI instead of guessing the magnitude', async () => {
@@ -709,7 +720,7 @@ describe('ProcessTextInputUseCase', () => {
       expect(openAIService.analyzeInput).toHaveBeenCalledTimes(1);
       expect(createTransactionUseCase.execute).toHaveBeenCalledWith(expect.objectContaining({
         amount: 1500000,
-      }));
+      }), AUTOMATIC);
     });
 
     it('does not read a unit like "кг" as a thousands multiplier', async () => {
@@ -751,7 +762,7 @@ describe('ProcessTextInputUseCase', () => {
       expect(openAIService.analyzeInput).toHaveBeenCalledTimes(1);
       expect(createTransactionUseCase.execute).toHaveBeenCalledWith(expect.objectContaining({
         amount: 12000000,
-      }));
+      }), AUTOMATIC);
       expect(createTransactionUseCase.execute).not.toHaveBeenCalledWith(expect.objectContaining({
         amount: 12,
       }));
@@ -800,7 +811,7 @@ describe('ProcessTextInputUseCase', () => {
       expect(createTransactionUseCase.execute).toHaveBeenCalledWith(expect.objectContaining({
         amount: 1234,
         needsReview: true,
-      }));
+      }), AUTOMATIC);
     });
 
     it('keeps the amount OpenAI chose when it is the currency-marked one', async () => {
@@ -822,7 +833,7 @@ describe('ProcessTextInputUseCase', () => {
       expect(createTransactionUseCase.execute).toHaveBeenCalledWith(expect.objectContaining({
         amount: 1234,
         needsReview: false,
-      }));
+      }), AUTOMATIC);
     });
 
     it('leaves a computed total alone when it is not one of the numbers written in the text', async () => {
@@ -843,7 +854,7 @@ describe('ProcessTextInputUseCase', () => {
       expect(createTransactionUseCase.execute).toHaveBeenCalledWith(expect.objectContaining({
         amount: 100000,
         needsReview: false,
-      }));
+      }), AUTOMATIC);
     });
 
     it('leaves multi-item text alone where each number belongs to its own transaction', async () => {
@@ -873,7 +884,7 @@ describe('ProcessTextInputUseCase', () => {
       expect(createTransactionUseCase.execute).toHaveBeenCalledWith(expect.objectContaining({
         amount: 30000,
         needsReview: false,
-      }));
+      }), AUTOMATIC);
     });
 
     it('flags the capture for review without guessing when the text marks several different amounts', async () => {
@@ -893,7 +904,7 @@ describe('ProcessTextInputUseCase', () => {
 
       expect(createTransactionUseCase.execute).toHaveBeenCalledWith(expect.objectContaining({
         needsReview: true,
-      }));
+      }), AUTOMATIC);
     });
   });
 
@@ -941,7 +952,7 @@ describe('ProcessTextInputUseCase', () => {
         category: 'transfer',
         semanticType: 'cash_withdrawal',
         needsReview: false,
-      }));
+      }), AUTOMATIC);
       expect(result.transactions).toEqual([
         expect.objectContaining({ id: 'cash-fast', amount, semanticType: 'cash_withdrawal' })
       ]);
@@ -982,7 +993,7 @@ describe('ProcessTextInputUseCase', () => {
 
       expect(createTransactionUseCase.execute).toHaveBeenCalledWith(expect.objectContaining({
         semanticType: 'own_transfer',
-      }));
+      }), AUTOMATIC);
     });
   });
 
@@ -1094,7 +1105,7 @@ describe('ProcessTextInputUseCase', () => {
         semanticType: 'expense',
         needsReview: true,
         originalParsing: expect.objectContaining({ needsReview: true }),
-      }));
+      }), AUTOMATIC);
       expect(result.transactions).toEqual([
         expect.objectContaining({ id: 'repay-1', needsReview: true })
       ]);
@@ -1119,7 +1130,7 @@ describe('ProcessTextInputUseCase', () => {
 
       expect(createTransactionUseCase.execute).toHaveBeenCalledWith(expect.objectContaining({
         needsReview: true,
-      }));
+      }), AUTOMATIC);
       expect(result.transactions).toEqual([
         expect.objectContaining({ id: 'repay-2', needsReview: true })
       ]);
@@ -1145,14 +1156,15 @@ describe('ProcessTextInputUseCase', () => {
       expect(createTransactionUseCase.execute).toHaveBeenCalledWith(expect.objectContaining({
         semanticType: 'reimbursement',
         needsReview: false,
-      }));
+      }), AUTOMATIC);
     });
 
     // "вернулся" is not a repayment: the guard must bound the verb, not match its stem.
-    // Its category stays 'other' because the whole label is categorized, which is existing behavior.
+    // The label is passed through as the category; CreateTransactionUseCase resolves it (FT-099):
+    // the whole label «вернулся домой такси» matches nothing and lands in «Другое».
     const unrelatedPhrases: Array<[string, string, number]> = [
-      ['вернулся домой такси 30000', 'other', 30000],
-      ['продукты 50000', 'groceries', 50000],
+      ['вернулся домой такси 30000', 'вернулся домой такси', 30000],
+      ['продукты 50000', 'продукты', 50000],
     ];
 
     it.each(unrelatedPhrases)('still parses "%s" locally as an ordinary expense', async (phrase, category, amount) => {
@@ -1166,7 +1178,7 @@ describe('ProcessTextInputUseCase', () => {
         category,
         semanticType: 'expense',
         needsReview: false,
-      }));
+      }), AUTOMATIC);
     });
   });
 

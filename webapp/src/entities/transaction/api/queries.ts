@@ -16,6 +16,8 @@ function localToTransaction(local: LocalTransaction): Transaction {
     id: local.id,
     date: local.date,
     category: local.category,
+    categoryId: local.categoryId,
+    categoryColor: local.categoryColor,
     description: local.description,
     amount: local.amount,
     type: local.type,

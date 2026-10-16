@@ -10,8 +10,7 @@ import { useCreateTransaction } from '@/entities/transaction';
 import { useUserStore } from '@/entities/user/model/store';
 import { toast } from 'sonner';
 
-import { QuickAddForm } from './QuickAddForm';
-import type { QuickAddFormData } from '../model/schema';
+import { QuickAddForm, type QuickAddResult } from './QuickAddForm';
 
 interface QuickAddSheetProps {
   children: React.ReactNode;
@@ -32,7 +31,7 @@ export function QuickAddSheet({
   const userName = useUserStore((state) => state.userName);
   const createTransaction = useCreateTransaction();
 
-  const handleSubmit = async (data: QuickAddFormData) => {
+  const handleSubmit = async (data: QuickAddResult) => {
     if (!userId) {
       toast.error('Пользователь не авторизован');
       return;
@@ -107,7 +106,7 @@ export function ControlledQuickAddSheet({
   const userName = useUserStore((state) => state.userName);
   const createTransaction = useCreateTransaction();
 
-  const handleSubmit = async (data: QuickAddFormData) => {
+  const handleSubmit = async (data: QuickAddResult) => {
     if (!userId) {
       toast.error('Пользователь не авторизован');
       return;

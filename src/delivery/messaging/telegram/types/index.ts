@@ -6,6 +6,7 @@ import { TransactionModule } from '../../../../modules/transaction/transactionMo
 import { BudgetModule } from '../../../../modules/budget/budgetModule';
 import { UserModule } from '../../../../modules/user/userModule';
 import { SubscriptionModule } from '../../../../modules/subscription/subscriptionModule';
+import { CategoryModule } from '../../../../modules/category/categoryModule';
 import { TransactionSemanticType } from '../../../../modules/transaction/domain/transactionSemanticType';
 
 /**
@@ -19,6 +20,8 @@ export interface BotModules {
   budgetModule: BudgetModule;
   userModule: UserModule;
   subscriptionModule?: SubscriptionModule;
+  /** The user's categories (FT-099/FT-100): quick-add keyboard and labels. */
+  categoryModule?: CategoryModule;
 }
 
 /**
@@ -76,15 +79,6 @@ export interface ProcessedTransaction {
   merchant?: string;
   confidence?: number;
   description?: string;
-}
-
-/**
- * Quick category for inline keyboard
- */
-export interface QuickCategory {
-  id: string;
-  emoji: string;
-  name: string;
 }
 
 /**

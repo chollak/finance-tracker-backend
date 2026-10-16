@@ -1,4 +1,5 @@
 import { TransactionSemanticType } from '../../transaction/domain/transactionSemanticType';
+import { AnalysisContext } from './categoryPrompt';
 
 /**
  * Parsed transaction from voice/text input
@@ -6,7 +7,12 @@ import { TransactionSemanticType } from '../../transaction/domain/transactionSem
 export interface ParsedTransaction {
   intent: 'transaction';
   amount: number;
+  /** A category name as the parser saw it; resolved to the user's category on create (FT-099). */
   category: string;
+  /** Dollars when the text says so («$», «долл», «usd»); сум otherwise (FT-103). */
+  currency?: 'UZS' | 'USD';
+  /** «нал» → cash, «картой» → card, when the parser tells it per item (FT-103). */
+  paymentKind?: 'cash' | 'card';
   type: 'income' | 'expense';
   semanticType?: TransactionSemanticType;
   needsReview?: boolean;
@@ -36,7 +42,8 @@ export interface ParsedDebt {
 export type ParsedItem = ParsedTransaction | ParsedDebt;
 
 /**
- * Result of analyzing text input
+ * Result of analyzing text input. `debts` stays for the response shape but is always empty: debt
+ * parsing is off (decision Д2) — debts are recorded as expenses in «Другое».
  */
 export interface AnalysisResult {
   transactions: ParsedTransaction[];
@@ -52,7 +59,7 @@ export interface TranscriptionService {
   analyzeTransactions(text: string): Promise<ParsedTransaction[]>;
 
   /**
-   * Analyze text and extract both transactions and debts
+   * Analyze text and extract transactions, choosing among the user's categories when given
    */
-  analyzeInput(text: string): Promise<AnalysisResult>;
+  analyzeInput(text: string, context?: AnalysisContext): Promise<AnalysisResult>;
 }

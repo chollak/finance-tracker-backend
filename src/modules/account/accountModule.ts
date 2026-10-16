@@ -1,0 +1,75 @@
+import { AccountRepository } from './domain/accountRepository';
+import { AccountMoveRepository } from './domain/accountMoveRepository';
+import { AccountRecordSource } from './domain/accountRecords';
+import { CbuRateOnDate } from './domain/fxRate';
+import { AccountBook, DefaultAccountSource } from './application/accountBook';
+import { CreateAccountUseCase, ListAccountsUseCase, UpdateAccountUseCase } from './application/accountUseCases';
+import { CreateMoveUseCase, SetMoveDeletedUseCase } from './application/accountMoveUseCases';
+import { GetAccountOperationsUseCase } from './application/accountOperations';
+import { RepositoryFactory } from '../../shared/infrastructure/database/repositoryFactory';
+
+/**
+ * Accounts (FT-101): balances computed on read, the total in сум, the account of every new record.
+ * The book is the account resolver of the transaction module. Moves between accounts (FT-104):
+ * transfers, exchanges, adjustments, and the operations of one account.
+ */
+export class AccountModule {
+  private book: AccountBook;
+  private createMove: CreateMoveUseCase;
+  private operations: GetAccountOperationsUseCase;
+
+  constructor(
+    private repository: AccountRepository,
+    defaultAccount?: DefaultAccountSource,
+    private moveRepository: AccountMoveRepository = RepositoryFactory.createAccountMoveRepository()
+  ) {
+    this.book = new AccountBook(repository, defaultAccount);
+    this.createMove = new CreateMoveUseCase(this.book, moveRepository);
+    this.operations = new GetAccountOperationsUseCase(this.book, moveRepository);
+  }
+
+  static create(): AccountModule {
+    return new AccountModule(RepositoryFactory.createAccountRepository());
+  }
+
+  /** Wired in createModules(): the CBU rate on a date for exchanges, the records of an account. */
+  setCbuRates(rates: CbuRateOnDate): void {
+    this.createMove.setRates(rates);
+  }
+
+  setRecordSource(records: AccountRecordSource): void {
+    this.operations.setRecordSource(records);
+  }
+
+  getBook(): AccountBook {
+    return this.book;
+  }
+
+  getRepository(): AccountRepository {
+    return this.repository;
+  }
+
+  getListAccountsUseCase(): ListAccountsUseCase {
+    return new ListAccountsUseCase(this.book);
+  }
+
+  getCreateAccountUseCase(): CreateAccountUseCase {
+    return new CreateAccountUseCase(this.book, this.repository);
+  }
+
+  getUpdateAccountUseCase(): UpdateAccountUseCase {
+    return new UpdateAccountUseCase(this.book, this.repository);
+  }
+
+  getCreateMoveUseCase(): CreateMoveUseCase {
+    return this.createMove;
+  }
+
+  getSetMoveDeletedUseCase(): SetMoveDeletedUseCase {
+    return new SetMoveDeletedUseCase(this.moveRepository);
+  }
+
+  getAccountOperationsUseCase(): GetAccountOperationsUseCase {
+    return this.operations;
+  }
+}

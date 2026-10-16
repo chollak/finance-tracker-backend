@@ -15,6 +15,21 @@ import { createBudgetRouter } from '../../../modules/budget/interfaces/budgetRou
 import { createDebtRouter } from '../../../modules/debt/presentation/controllers/debtRoutes';
 import { createDashboardRouter } from './routes/dashboardRoutes';
 import { createUserController } from '../../../modules/user/presentation/controllers/userController';
+import { createSettingsRoutes } from '../../../modules/user/presentation/controllers/settingsController';
+import { CategoryModule } from '../../../modules/category/categoryModule';
+import { createCategoryRoutes } from '../../../modules/category/presentation/categoryController';
+import { AccountModule } from '../../../modules/account/accountModule';
+import { createAccountRoutes } from '../../../modules/account/presentation/accountController';
+import { createMoveRoutes } from '../../../modules/account/presentation/moveController';
+import { FxModule } from '../../../modules/fx/fxModule';
+import { createFxRoutes } from '../../../modules/fx/presentation/fxController';
+
+/** Modules of the money model (milestone 10, phase 2); their routes take the user from auth only. */
+export interface MoneyModules {
+  categoryModule?: CategoryModule;
+  accountModule?: AccountModule;
+  fxModule?: FxModule;
+}
 import { createSubscriptionRoutes } from './routes/subscriptionRoutes';
 import {
   errorHandler,
@@ -35,7 +50,8 @@ export function buildServer(
   userModule?: UserModule,
   subscriptionModule?: SubscriptionModule,
   // Kept last and optional: existing callers pass a subset of these positional arguments.
-  quickCaptureModule?: QuickCaptureModule
+  quickCaptureModule?: QuickCaptureModule,
+  moneyModules: MoneyModules = {}
 ) {
   const router = Router();
   
@@ -67,7 +83,7 @@ export function buildServer(
     '/transactions',
     createTransactionRouter(
       transactionModule.getCreateTransactionUseCase(),
-      transactionModule.getGetTransactionsUseCase(),
+      transactionModule.getTransactionHistoryUseCase(),
       transactionModule.getAnalyticsService(),
       transactionModule.getGetUserTransactionsUseCase(),
       transactionModule.getGetTransactionByIdUseCase(),
@@ -80,7 +96,8 @@ export function buildServer(
       transactionModule.getArchiveAllByUserUseCase(),
       transactionModule.getGetArchivedTransactionsUseCase(),
       subscriptionModule,
-      userModule
+      userModule,
+      transactionModule.getRestoreTransactionUseCase()
     )
   );
 
@@ -132,6 +149,18 @@ export function buildServer(
       '/users',
       createUserController(userModule)
     );
+    // Milestone 10 routes take the user from authentication, never from the path
+    router.use('/settings', createSettingsRoutes(userModule));
+    if (moneyModules.categoryModule) {
+      router.use('/categories', createCategoryRoutes(moneyModules.categoryModule, userModule));
+    }
+    if (moneyModules.accountModule) {
+      router.use('/accounts', createAccountRoutes(moneyModules.accountModule, userModule));
+      router.use('/moves', createMoveRoutes(moneyModules.accountModule, userModule));
+    }
+    if (moneyModules.fxModule) {
+      router.use('/rates', createFxRoutes(moneyModules.fxModule.getService(), userModule));
+    }
   }
 
   // Subscription routes (optional - only if both modules are provided)

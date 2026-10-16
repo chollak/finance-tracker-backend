@@ -31,6 +31,8 @@ function localToTransaction(local: LocalTransaction): Transaction {
     id: local.id,
     date: local.date,
     category: local.category,
+    categoryId: local.categoryId,
+    categoryColor: local.categoryColor,
     description: local.description,
     amount: local.amount,
     type: local.type,
@@ -56,6 +58,7 @@ export function useCreateTransaction() {
       const localTx = await transactionDataSource.create({
         date: data.date,
         category: data.category,
+        categoryId: data.categoryId,
         description: data.description,
         amount: data.amount,
         type: data.type,
@@ -109,6 +112,7 @@ export function useUpdateTransaction() {
       const localTx = await transactionDataSource.update(id, {
         date: data.date,
         category: data.category,
+        categoryId: data.categoryId,
         description: data.description,
         amount: data.amount,
         type: data.type,
