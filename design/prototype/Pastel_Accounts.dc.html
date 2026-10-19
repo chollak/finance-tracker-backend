@@ -1,0 +1,686 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Daftar — счета</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; position: relative; overflow: hidden; display: flex; flex-direction: column; background: {{t.bg}}; color: {{t.ink}}; font-family: 'Manrope', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;">
+<p role="status" style="position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;">{{liveText}}</p>
+
+<div style="flex: 0 0 auto; padding: 8px 16px;">
+<header style="display: flex; align-items: center; gap: 12px; height: 48px;">
+<sc-if value="{{isList}}" hint-placeholder-val="{{true}}">
+<a href="{{homeHref}}" aria-label="Назад" style="flex: 0 0 44px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border-radius: 9999px; background: {{t.card}}; color: {{t.ink}};"><svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><path d="M12.5 4.5 7 10l5.5 5.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg></a>
+</sc-if>
+<sc-if value="{{isAccount}}" hint-placeholder-val="{{false}}">
+<button type="button" onClick="{{backToList}}" aria-label="Назад к счетам" style="flex: 0 0 44px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border: 0; border-radius: 9999px; background: {{t.card}}; color: {{t.ink}}; cursor: pointer;"><svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><path d="M12.5 4.5 7 10l5.5 5.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
+</sc-if>
+<h1 id="acc-title" tabindex="-1" style="flex: 1 1 auto; min-width: 0; margin: 0; outline: none; font-size: 18px; line-height: 1.3; font-weight: 800; letter-spacing: -0.3px;">{{title}}</h1>
+<sc-if value="{{isAccount}}" hint-placeholder-val="{{false}}">
+<button type="button" onClick="{{openEdit}}" aria-haspopup="dialog" style="flex: 0 0 auto; height: 44px; padding: 0 14px; border: 0; border-radius: 9999px; background: {{t.card}}; color: {{t.ink}}; font-family: inherit; font-size: 14px; font-weight: 800; cursor: pointer;">Изменить</button>
+</sc-if>
+</header>
+</div>
+
+<sc-if value="{{isList}}" hint-placeholder-val="{{true}}">
+<div style="flex: 1 1 auto; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding: 4px 16px 104px;">
+<section aria-label="Всего на счетах" style="flex: 0 0 auto; display: flex; flex-direction: column; gap: 4px; padding: 16px 20px 18px; border-radius: 28px; background: {{t.hero}}; color: {{t.heroInk}};">
+<h2 style="margin: 0; font-size: 14px; font-weight: 600; color: {{t.heroMuted}};">Всего на счетах</h2>
+<div style="display: flex; align-items: baseline; gap: 8px;"><span style="font-size: 40px; line-height: 1.05; font-weight: 700; letter-spacing: -1.4px; white-space: nowrap; font-variant-numeric: tabular-nums;">{{totalBig}}</span><span style="font-size: 17px; font-weight: 600; color: {{t.heroMuted}};">сум</span></div>
+<span style="font-size: 13px; line-height: 1.4; font-weight: 600; color: {{t.heroMuted}};">{{totalNote}}</span>
+</section>
+
+<button type="button" onClick="{{openRate}}" aria-haspopup="dialog" style="flex: 0 0 auto; min-height: 64px; display: flex; align-items: center; gap: 12px; padding: 10px 14px 10px 12px; border: 0; border-radius: 24px; background: {{t.card}}; color: {{t.ink}}; font-family: inherit; text-align: left; cursor: pointer;">
+<span aria-hidden="true" style="flex: 0 0 40px; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 9999px; background: {{t.track}};">
+<sc-if value="{{isOnline}}" hint-placeholder-val="{{true}}"><svg width="20" height="20" viewBox="0 0 20 20"><path d="M3 14l4-4 3 3 7-7M13 6h4v4" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"></path></svg></sc-if>
+<sc-if value="{{isOffline}}" hint-placeholder-val="{{false}}"><svg width="20" height="20" viewBox="0 0 20 20"><path d="M2.5 7.5a11 11 0 0 1 4-2.4M17.5 7.5a11 11 0 0 0-6.3-3M5 10.5a7 7 0 0 1 3-1.8M15 10.5a7 7 0 0 0-1.6-1.1M7.6 13.4a3.5 3.5 0 0 1 4.8 0M10 16.5h.01M3 3l14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path></svg></sc-if>
+</span>
+<span style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px;"><span style="font-size: 15px; font-weight: 800;">Курс доллара · {{rateShort}}</span><span style="font-size: 13px; line-height: 1.35; font-weight: 600; color: {{t.muted}};">{{rateSub}}</span></span>
+<svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true" style="flex: 0 0 16px;"><path d="M7.5 4.5 13 10l-5.5 5.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+</button>
+
+<section aria-labelledby="acc-list" style="flex: 0 0 auto; display: flex; flex-direction: column; padding: 4px 0; border-radius: 24px; background: {{t.card}};">
+<h2 id="acc-list" style="margin: 0; padding: 12px 16px 4px; font-size: 13px; font-weight: 700; color: {{t.muted}};">Счета</h2>
+<sc-for list="{{accRows}}" as="a" hint-placeholder-count="3">
+<button type="button" onClick="{{a.open}}" aria-label="{{a.aria}}" style="min-height: 64px; display: flex; align-items: center; gap: 12px; padding: 8px 16px; border: 0; border-top: {{a.divider}}; background: transparent; color: {{t.ink}}; font-family: inherit; text-align: left; cursor: pointer;">
+<span aria-hidden="true" style="flex: 0 0 40px; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 9999px; background: {{t.track}}; color: {{t.ink}}; font-size: 17px; font-weight: 800;">
+<sc-if value="{{a.isUsd}}" hint-placeholder-val="{{false}}">$</sc-if>
+<sc-if value="{{a.isCard}}" hint-placeholder-val="{{false}}"><svg width="20" height="20" viewBox="0 0 20 20"><rect x="2.5" y="4.5" width="15" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"></rect><path d="M2.5 8.5h15" stroke="currentColor" stroke-width="1.8"></path></svg></sc-if>
+<sc-if value="{{a.isCash}}" hint-placeholder-val="{{true}}"><svg width="20" height="20" viewBox="0 0 20 20"><rect x="2" y="5.5" width="16" height="9" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.8"></rect><circle cx="10" cy="10" r="2" fill="none" stroke="currentColor" stroke-width="1.6"></circle></svg></sc-if>
+</span>
+<span style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px;"><span style="font-size: 15px; font-weight: 700;">{{a.name}}</span><span style="font-size: 13px; font-weight: 600; color: {{t.muted}};">{{a.sub}}</span></span>
+<span style="flex: 0 0 auto; display: flex; flex-direction: column; align-items: flex-end; gap: 1px;"><span style="font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap;">{{a.balance}}</span><sc-if value="{{a.isUsd}}" hint-placeholder-val="{{false}}"><span style="font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; color: {{t.muted}};">{{a.inUzs}}</span></sc-if></span>
+</button>
+</sc-for>
+<button type="button" onClick="{{openNew}}" aria-haspopup="dialog" style="min-height: 56px; display: flex; align-items: center; gap: 12px; padding: 8px 16px; border: 0; border-top: {{newDivider}}; background: transparent; color: {{t.ink}}; font-family: inherit; font-size: 15px; font-weight: 800; text-align: left; cursor: pointer;"><span aria-hidden="true" style="flex: 0 0 40px; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 9999px; border: 2px dashed {{t.muted}}; box-sizing: border-box;"><svg width="18" height="18" viewBox="0 0 20 20"><path d="M10 4v12M4 10h12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"></path></svg></span>Добавить счёт</button>
+<sc-if value="{{hasHidden}}" hint-placeholder-val="{{false}}">
+<button type="button" onClick="{{openHidden}}" aria-haspopup="dialog" style="min-height: 52px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 16px; border: 0; border-top: 1px solid {{t.line}}; background: transparent; color: {{t.ink}}; font-family: inherit; font-size: 15px; font-weight: 700; text-align: left; cursor: pointer;">{{hiddenLabel}}<svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true"><path d="M7.5 4.5 13 10l-5.5 5.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
+</sc-if>
+</section>
+</div>
+<div style="position: absolute; left: 0; right: 0; bottom: 0; padding: 12px 16px 24px; background: {{t.bg}};">
+<button type="button" onClick="{{openTransfer}}" aria-disabled="{{trDisabled}}" style="width: 100%; min-height: 56px; display: flex; align-items: center; justify-content: center; gap: 10px; padding: 8px 20px; border: 0; border-radius: 9999px; background: {{trBg}}; color: {{trInk}}; font-family: inherit; font-size: 16px; font-weight: 800; cursor: pointer;"><svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true" style="flex: 0 0 20px;"><path d="M4 7h11m-3-3 3 3-3 3M16 13H5m3 3-3-3 3-3" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"></path></svg>{{trLabel}}</button>
+</div>
+</sc-if>
+
+<sc-if value="{{isAccount}}" hint-placeholder-val="{{false}}">
+<div style="flex: 1 1 auto; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; padding: 4px 16px 32px;">
+<section aria-label="Остаток" style="flex: 0 0 auto; display: flex; flex-direction: column; gap: 4px; padding: 16px 20px 18px; border-radius: 28px; background: {{t.card}};">
+<span style="font-size: 14px; font-weight: 600; color: {{t.muted}};">{{acc.kindText}}</span>
+<div style="display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;"><span style="font-size: 40px; line-height: 1.05; font-weight: 700; letter-spacing: -1.4px; white-space: nowrap; font-variant-numeric: tabular-nums;">{{acc.big}}</span><span style="font-size: 17px; font-weight: 600; color: {{t.muted}};">{{acc.unit}}</span></div>
+<span style="font-size: 13px; line-height: 1.4; font-weight: 600; color: {{t.muted}};">{{acc.initialText}}</span>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 10px;">
+<button type="button" onClick="{{openTransferFrom}}" aria-disabled="{{trDisabled}}" style="min-height: 44px; padding: 6px 12px; border: 0; border-radius: 9999px; background: {{t.track}}; color: {{accTrInk}}; font-family: inherit; font-size: 14px; font-weight: 800; line-height: 1.2; cursor: pointer;">{{acc.moveLabel}}</button>
+<button type="button" onClick="{{openCorrect}}" aria-haspopup="dialog" style="min-height: 44px; padding: 6px 12px; border: 0; border-radius: 9999px; background: {{t.track}}; color: {{t.ink}}; font-family: inherit; font-size: 14px; font-weight: 800; line-height: 1.2; cursor: pointer;">Сверить остаток</button>
+</div>
+</section>
+<sc-for list="{{acc.days}}" as="d" hint-placeholder-count="3">
+<section aria-label="{{d.label}}" style="flex: 0 0 auto; display: flex; flex-direction: column; gap: 6px;">
+<h2 style="margin: 0; padding: 0 4px; font-size: 13px; font-weight: 700; color: {{t.muted}};">{{d.label}}</h2>
+<ul style="list-style: none; margin: 0; padding: 4px 8px; border-radius: 24px; background: {{t.card}};">
+<sc-for list="{{d.items}}" as="o" hint-placeholder-count="2">
+<li style="display: flex;">
+<button type="button" onClick="{{o.open}}" aria-label="{{o.aria}}" style="flex: 1 1 auto; min-width: 0; min-height: 60px; display: flex; align-items: center; gap: 12px; padding: 10px 8px 10px 4px; border: 0; border-radius: 18px; background: transparent; color: {{t.ink}}; font-family: inherit; text-align: left; cursor: pointer;">
+<span aria-hidden="true" style="flex: 0 0 40px; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 9999px; background: {{o.bg}}; color: {{o.iconInk}}; font-size: 15px; font-weight: 800;">
+<sc-if value="{{o.isTxn}}" hint-placeholder-val="{{true}}">{{o.letter}}</sc-if>
+<sc-if value="{{o.isMove}}" hint-placeholder-val="{{false}}"><svg width="18" height="18" viewBox="0 0 20 20"><path d="M4 7h11m-3-3 3 3-3 3M16 13H5m3 3-3-3 3-3" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"></path></svg></sc-if>
+<sc-if value="{{o.isAdj}}" hint-placeholder-val="{{false}}"><svg width="18" height="18" viewBox="0 0 20 20"><path d="M10 3.5v7M6.5 7h7M6.5 15.5h7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg></sc-if>
+</span>
+<span style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px;"><span style="font-size: 15px; font-weight: 700;">{{o.title}}</span><span style="font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: {{t.muted}};">{{o.sub}}</span></span>
+<span style="flex: 0 0 auto; font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; color: {{o.color}};">{{o.amount}}</span>
+</button>
+</li>
+</sc-for>
+</ul>
+</section>
+</sc-for>
+<sc-if value="{{acc.empty}}" hint-placeholder-val="{{false}}">
+<section style="flex: 0 0 auto; display: flex; flex-direction: column; gap: 4px; padding: 20px; border-radius: 24px; background: {{t.card}};">
+<h2 style="margin: 0; font-size: 15px; font-weight: 800;">Операций пока нет</h2>
+<p style="margin: 0; font-size: 13px; line-height: 1.45; font-weight: 600; color: {{t.muted}};">Здесь появятся расходы, доходы и переводы этого счёта.</p>
+</section>
+</sc-if>
+</div>
+</sc-if>
+
+<sc-if value="{{hasToast}}" hint-placeholder-val="{{false}}">
+<div style="position: absolute; left: 16px; right: 16px; bottom: {{toastBottom}}; z-index: 15; min-height: 56px; box-sizing: border-box; display: flex; align-items: center; gap: 12px; padding: 6px 6px 6px 16px; border-radius: 24px; background: {{t.primaryBg}}; color: {{t.primaryInk}};">
+<span aria-hidden="true" style="flex: 0 0 24px; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 9999px; background: #c9efd9; color: #14532d;"><svg width="14" height="14" viewBox="0 0 20 20"><path d="M4.5 10.5 8 14l7.5-8" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+<span style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px;"><span style="font-size: 14px; font-weight: 800;">{{toastTitle}}</span><span style="font-size: 13px; line-height: 1.35; font-weight: 600; color: {{t.primarySub}};">{{toastDetail}}</span></span>
+<button type="button" onClick="{{undo}}" style="flex: 0 0 auto; height: 44px; padding: 0 14px; border: 0; border-radius: 9999px; background: transparent; color: {{t.primaryInk}}; font-family: inherit; font-size: 14px; font-weight: 800; text-decoration: underline; cursor: pointer;">Отменить</button>
+</div>
+</sc-if>
+
+<sc-if value="{{sheetOpen}}" hint-placeholder-val="{{false}}">
+<div style="position: absolute; inset: 0; z-index: 20;">
+<div onClick="{{closeSheet}}" aria-hidden="true" style="position: absolute; inset: 0; background: {{t.scrim}};"></div>
+<div role="dialog" aria-modal="true" aria-labelledby="sheet-title" onKeyDown="{{sheetKey}}" style="position: absolute; left: 0; right: 0; bottom: 0; max-height: calc(100% - 64px); overflow-y: auto; box-sizing: border-box; display: flex; flex-direction: column; gap: 12px; padding: 8px 16px 24px; border-radius: 28px 28px 0 0; background: {{t.sheet}};">
+<span aria-hidden="true" style="flex: 0 0 auto; align-self: center; width: 36px; height: 5px; border-radius: 3px; background: {{t.grabber}};"></span>
+<div style="flex: 0 0 auto; display: flex; align-items: center; gap: 12px;">
+<h2 id="sheet-title" tabindex="-1" style="flex: 1 1 auto; margin: 0; outline: none; font-size: 18px; line-height: 1.3; font-weight: 800; letter-spacing: -0.3px;">{{sheetTitle}}</h2>
+<button type="button" onClick="{{closeSheet}}" aria-label="Закрыть" style="flex: 0 0 44px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border: 0; border-radius: 9999px; background: {{t.sheetCard}}; color: {{t.ink}}; cursor: pointer;"><svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true"><path d="M5.5 5.5l9 9m0-9-9 9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg></button>
+</div>
+
+<sc-if value="{{isRate}}" hint-placeholder-val="{{false}}">
+<div role="group" aria-label="Какой курс использовать" style="flex: 0 0 auto; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px; padding: 2px; border-radius: 9999px; background: {{t.sheetTrack}};">
+<button type="button" onClick="{{rateCbu}}" aria-pressed="{{cbuPressed}}" style="height: 44px; border: 0; border-radius: 9999px; background: {{cbuBg}}; box-shadow: {{cbuShadow}}; color: {{cbuInk}}; font-family: inherit; font-size: 14px; font-weight: 800; cursor: pointer;">Курс ЦБ</button>
+<button type="button" onClick="{{rateOwn}}" aria-pressed="{{ownPressed}}" style="height: 44px; border: 0; border-radius: 9999px; background: {{ownBg}}; box-shadow: {{ownShadow}}; color: {{ownInk}}; font-family: inherit; font-size: 14px; font-weight: 800; cursor: pointer;">Свой курс</button>
+</div>
+<sc-if value="{{isCbu}}" hint-placeholder-val="{{true}}">
+<div style="flex: 0 0 auto; display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; border-radius: 24px; background: {{t.sheetCard}};">
+<span style="font-size: 13px; font-weight: 700; color: {{t.muted}};">{{rateLabel}}</span>
+<div style="display: flex; align-items: baseline; gap: 6px;"><span style="font-size: 32px; line-height: 1.1; font-weight: 800; letter-spacing: -1px; font-variant-numeric: tabular-nums;">{{rateBig}}</span><span style="font-size: 15px; font-weight: 700; color: {{t.muted}};">сум за $1</span></div>
+<span style="font-size: 13px; line-height: 1.45; font-weight: 600; color: {{t.muted}};">{{rateHint}}</span>
+</div>
+</sc-if>
+<p style="flex: 0 0 auto; margin: 0 4px; font-size: 13px; line-height: 1.45; font-weight: 600; color: {{t.muted}};">По этому курсу считаются итог на главной и суммы в долларах. Прошлые обмены не меняются — у каждого свой курс сделки.</p>
+</sc-if>
+
+<sc-if value="{{isHidden}}" hint-placeholder-val="{{false}}">
+<ul style="flex: 0 0 auto; list-style: none; margin: 0; padding: 0 16px; border-radius: 24px; background: {{t.sheetCard}};">
+<sc-for list="{{hiddenRows}}" as="h" hint-placeholder-count="1">
+<li style="min-height: 60px; display: flex; align-items: center; gap: 12px; border-top: {{h.divider}};"><span style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px;"><span style="font-size: 15px; font-weight: 700;">{{h.name}}</span><span style="font-size: 13px; font-weight: 600; color: {{t.muted}};">{{h.balance}}</span></span><button type="button" onClick="{{h.show}}" aria-label="{{h.aria}}" style="flex: 0 0 auto; height: 44px; padding: 0 16px; border: 0; border-radius: 9999px; background: {{t.sheetTrack}}; color: {{t.ink}}; font-family: inherit; font-size: 14px; font-weight: 800; cursor: pointer;">Показать</button></li>
+</sc-for>
+</ul>
+<p style="flex: 0 0 auto; margin: 0 4px; font-size: 13px; line-height: 1.45; font-weight: 600; color: {{t.muted}};">Скрытые счета не входят в итог и не предлагаются при записи, но их операции остаются в истории и аналитике.</p>
+</sc-if>
+
+<sc-if value="{{isOp}}" hint-placeholder-val="{{false}}">
+<ul style="flex: 0 0 auto; list-style: none; margin: 0; padding: 0 16px; border-radius: 24px; background: {{t.sheetCard}};">
+<sc-for list="{{opRows}}" as="r" hint-placeholder-count="3">
+<li style="min-height: 56px; display: flex; flex-direction: column; justify-content: center; gap: 2px; padding: 8px 0; box-sizing: border-box; border-top: {{r.divider}};"><span style="font-size: 13px; font-weight: 700; color: {{t.muted}};">{{r.label}}</span><span style="font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums;">{{r.value}}</span></li>
+</sc-for>
+</ul>
+<p style="flex: 0 0 auto; margin: 0 4px; font-size: 13px; line-height: 1.45; font-weight: 600; color: {{t.muted}};">{{opNote}}</p>
+<button type="button" onClick="{{deleteOp}}" style="flex: 0 0 auto; height: 52px; display: flex; align-items: center; justify-content: center; gap: 8px; border: 0; border-radius: 9999px; background: {{t.sheetCard}}; color: {{t.ink}}; font-family: inherit; font-size: 15px; font-weight: 800; cursor: pointer;"><svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true"><path d="M4 6h12M8 6V4.5h4V6M6 6l.8 10h6.4L14 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path></svg>{{deleteLabel}}</button>
+</sc-if>
+
+<sc-if value="{{isNew}}" hint-placeholder-val="{{false}}">
+<label style="flex: 0 0 auto; display: flex; flex-direction: column; gap: 6px;"><span style="padding: 0 4px; font-size: 13px; font-weight: 700; color: {{t.muted}};">Название</span><input type="text" value="{{newName}}" onChange="{{onNewName}}" onFocus="{{nameFocus}}" onBlur="{{nameBlur}}" placeholder="Например, Копилка" style="height: 52px; box-sizing: border-box; padding: 0 16px; border: 0; border-radius: 9999px; background: {{t.sheetCard}}; color: {{t.ink}}; font-family: inherit; font-size: 16px; font-weight: 600; outline-color: {{t.ink}};"></label>
+<div role="group" aria-label="Тип счёта" style="flex: 0 0 auto; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px; padding: 2px; border-radius: 9999px; background: {{t.sheetTrack}};">
+<button type="button" onClick="{{newCash}}" aria-pressed="{{cashPressed}}" style="height: 44px; border: 0; border-radius: 9999px; background: {{cashBg}}; box-shadow: {{cashShadow}}; color: {{cashInk}}; font-family: inherit; font-size: 14px; font-weight: 800; cursor: pointer;">Наличные</button>
+<button type="button" onClick="{{newCard}}" aria-pressed="{{cardPressed}}" style="height: 44px; border: 0; border-radius: 9999px; background: {{cardBg}}; box-shadow: {{cardShadow}}; color: {{cardInk}}; font-family: inherit; font-size: 14px; font-weight: 800; cursor: pointer;">Карта</button>
+</div>
+<div role="group" aria-label="Валюта счёта" style="flex: 0 0 auto; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px; padding: 2px; border-radius: 9999px; background: {{t.sheetTrack}};">
+<button type="button" onClick="{{newUzs}}" aria-pressed="{{uzsPressed}}" style="height: 44px; border: 0; border-radius: 9999px; background: {{uzsBg}}; box-shadow: {{uzsShadow}}; color: {{uzsInk}}; font-family: inherit; font-size: 14px; font-weight: 800; cursor: pointer;">Сумы</button>
+<button type="button" onClick="{{newUsd}}" aria-pressed="{{usdPressed}}" style="height: 44px; border: 0; border-radius: 9999px; background: {{usdBg}}; box-shadow: {{usdShadow}}; color: {{usdInk}}; font-family: inherit; font-size: 14px; font-weight: 800; cursor: pointer;">Доллары</button>
+</div>
+</sc-if>
+
+<sc-if value="{{isEdit}}" hint-placeholder-val="{{false}}">
+<label style="flex: 0 0 auto; display: flex; flex-direction: column; gap: 6px;"><span style="padding: 0 4px; font-size: 13px; font-weight: 700; color: {{t.muted}};">Название</span><input type="text" value="{{editName}}" onChange="{{onEditName}}" style="height: 52px; box-sizing: border-box; padding: 0 16px; border: 0; border-radius: 9999px; background: {{t.sheetCard}}; color: {{t.ink}}; font-family: inherit; font-size: 16px; font-weight: 600; outline-color: {{t.ink}};"></label>
+<div style="flex: 0 0 auto; display: flex; flex-direction: column; padding: 0 16px; border-radius: 24px; background: {{t.sheetCard}};">
+<sc-if value="{{curLocked}}" hint-placeholder-val="{{true}}">
+<div style="display: flex; flex-direction: column; gap: 2px; padding: 12px 0;"><span style="font-size: 13px; font-weight: 700; color: {{t.muted}};">Валюта</span><span style="font-size: 15px; font-weight: 700;">{{editCur}}</span><span style="font-size: 13px; line-height: 1.45; font-weight: 600; color: {{t.muted}};">Не изменить: на счёте уже есть операции.</span></div>
+</sc-if>
+<sc-if value="{{curFree}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; flex-direction: column; gap: 8px; padding: 12px 0;"><span style="font-size: 13px; font-weight: 700; color: {{t.muted}};">Валюта</span><div role="group" aria-label="Валюта счёта" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px; padding: 2px; border-radius: 9999px; background: {{t.sheetTrack}};"><button type="button" onClick="{{editUzs}}" aria-pressed="{{eUzsPressed}}" style="height: 44px; border: 0; border-radius: 9999px; background: {{eUzsBg}}; box-shadow: {{eUzsShadow}}; color: {{eUzsInk}}; font-family: inherit; font-size: 14px; font-weight: 800; cursor: pointer;">Сумы</button><button type="button" onClick="{{editUsd}}" aria-pressed="{{eUsdPressed}}" style="height: 44px; border: 0; border-radius: 9999px; background: {{eUsdBg}}; box-shadow: {{eUsdShadow}}; color: {{eUsdInk}}; font-family: inherit; font-size: 14px; font-weight: 800; cursor: pointer;">Доллары</button></div></div>
+</sc-if>
+<sc-if value="{{showInitial}}" hint-placeholder-val="{{true}}">
+<div style="display: flex; flex-direction: column; gap: 2px; padding: 12px 0; border-top: 1px solid {{t.line}};"><span style="font-size: 13px; font-weight: 700; color: {{t.muted}};">Начальный остаток</span><span style="font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums;">{{editInitial}}</span></div>
+</sc-if>
+</div>
+</sc-if>
+
+<sc-if value="{{hasKeypad}}" hint-placeholder-val="{{false}}">
+<div style="flex: 0 0 auto; display: flex; flex-direction: column; gap: 4px; padding: 12px 16px; border-radius: 24px; background: {{t.sheetCard}};">
+<span style="font-size: 13px; font-weight: 700; color: {{t.muted}};">{{amountLabel}}</span>
+<div style="display: flex; align-items: baseline; gap: 6px;"><span style="font-size: 32px; line-height: 1.1; font-weight: 800; letter-spacing: -1px; font-variant-numeric: tabular-nums; color: {{amountInk}};">{{amountText}}</span><span style="font-size: 15px; font-weight: 700; color: {{t.muted}};">{{amountUnit}}</span></div>
+<sc-if value="{{hasAmountNote}}" hint-placeholder-val="{{false}}">
+<span style="font-size: 13px; line-height: 1.45; font-weight: 600; color: {{t.muted}};">{{amountNote}}</span>
+</sc-if>
+</div>
+<sc-if value="{{showKeys}}" hint-placeholder-val="{{true}}">
+<div role="group" aria-label="Цифровая клавиатура" style="flex: 0 0 auto; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px;">
+<sc-for list="{{keys}}" as="k" hint-placeholder-count="12">
+<button type="button" onClick="{{k.press}}" aria-label="{{k.aria}}" style="height: 48px; display: flex; align-items: center; justify-content: center; border: 0; border-radius: 9999px; background: {{t.sheetCard}}; color: {{t.ink}}; font-family: inherit; font-size: {{k.size}}; font-weight: 600; font-variant-numeric: tabular-nums; cursor: pointer;">
+<sc-if value="{{k.isBack}}" hint-placeholder-val="{{false}}"><svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H9l-6-7 6-7Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"></path><path d="m12 9.5 5 5m0-5-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path></svg></sc-if>
+<sc-if value="{{k.isText}}" hint-placeholder-val="{{true}}"><span>{{k.label}}</span></sc-if>
+</button>
+</sc-for>
+</div>
+</sc-if>
+</sc-if>
+
+<sc-if value="{{hasSheetBtn}}" hint-placeholder-val="{{true}}">
+<button type="button" onClick="{{sheetDone}}" aria-disabled="{{sheetDisabled}}" style="flex: 0 0 auto; min-height: 56px; padding: 8px 20px; border: 0; border-radius: 9999px; background: {{sheetBtnBg}}; color: {{sheetBtnInk}}; font-family: inherit; font-size: 16px; font-weight: 800; cursor: pointer;">{{sheetBtn}}</button>
+</sc-if>
+
+<sc-if value="{{showHideBtn}}" hint-placeholder-val="{{false}}">
+<div style="flex: 0 0 auto; display: flex; flex-direction: column; gap: 6px;">
+<button type="button" onClick="{{hideAcc}}" style="height: 52px; display: flex; align-items: center; justify-content: center; gap: 8px; border: 0; border-radius: 9999px; background: {{t.sheetCard}}; color: {{t.ink}}; font-family: inherit; font-size: 15px; font-weight: 800; cursor: pointer;"><svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 3l14 14M8.2 5.2A8 8 0 0 1 10 5c4.2 0 7 5 7 5a13 13 0 0 1-2.3 2.8M12 14.6a6.7 6.7 0 0 1-2 .4c-4.2 0-7-5-7-5a13 13 0 0 1 2.6-3.1M8.6 8.6a2 2 0 0 0 2.8 2.8" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></path></svg>Скрыть счёт</button>
+<p style="margin: 0 4px; font-size: 13px; line-height: 1.45; font-weight: 600; color: {{t.muted}};">{{hideNote}}</p>
+</div>
+</sc-if>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{transferOpen}}" hint-placeholder-val="{{false}}">
+<div style="position: absolute; left: 0; top: 0; width: 390px; height: 844px; z-index: 40;">
+<dc-import name="Pastel_Transfer" dark="{{dark}}" fx="{{transferFx}}" preset="{{transferPreset}}" from="{{transferFrom}}" accs="{{transferAccs}}" cbu-rate="{{cbuRate}}" on-close="{{closeTransfer}}" on-done="{{applyTransfer}}" hint-size="390px,844px"></dc-import>
+</div>
+</sc-if>
+
+<sc-if value="{{historyOpen}}" hint-placeholder-val="{{false}}">
+<div style="position: absolute; left: 0; top: 0; width: 390px; height: 844px; z-index: 40;">
+<dc-import name="Pastel_History" dark="{{dark}}" start-acc="{{historyAcc}}" start-txn="{{historyTxn}}" on-close="{{closeHistory}}" hint-size="390px,844px"></dc-import>
+</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"view":{"editor":"enum","options":["list","account","rate","own","new","edit","correct","offline","hidden","op"],"default":"list"},"homeHref":{"editor":null,"default":"Pastel_Home.dc.html"},"transfer":{"editor":null},"transferStart":{"editor":"enum","options":["none","same","fx"],"default":"none"},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  theme() {
+    if (this.props.dark) {
+      return { bg: "#111214", card: "#1b1c1f", ink: "#f4f4f6", muted: "#9d9da6", track: "#26272b", line: "#2c2d31", hero: "#f4f4f6", heroInk: "#141416", heroMuted: "#5d5d66", primaryBg: "#f4f4f6", primaryInk: "#141416", primarySub: "#5d5d66", income: "#6fd59a", sheet: "#1b1c1f", sheetCard: "#26272b", sheetTrack: "#3a3b40", segOn: "#1b1c1f", segShadow: "none", segOff: "#b0b0b8", off: "#b0b0b8", scrim: "rgba(0, 0, 0, 0.6)", grabber: "#3a3b40" };
+    }
+    return { bg: "#f3f3f5", card: "#ffffff", ink: "#141416", muted: "#6b6b74", track: "#e7e7ec", line: "#ececf0", hero: "#141416", heroInk: "#ffffff", heroMuted: "#b5b5bd", primaryBg: "#141416", primaryInk: "#ffffff", primarySub: "#b5b5bd", income: "#15803d", sheet: "#f3f3f5", sheetCard: "#ffffff", sheetTrack: "#e7e7ec", segOn: "#ffffff", segShadow: "0 1px 3px rgba(0, 0, 0, 0.1)", segOff: "#5d5d66", off: "#5d5d66", scrim: "rgba(20, 20, 22, 0.32)", grabber: "#d4d4db" };
+  }
+  nb() { return String.fromCharCode(160); }
+  fmtInt(n) { return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, this.nb()); }
+  fmtUsd(n) { const p = Number(n).toFixed(2).split("."); return this.fmtInt(parseInt(p[0], 10)) + "," + p[1]; }
+  money(n, cur, sign) { const s = sign ? (n < 0 ? "−" : "+") : ""; const v = Math.abs(n); return s + (cur === "USD" ? this.fmtUsd(v) + this.nb() + "USD" : this.fmtInt(v) + this.nb() + "сум"); }
+  // Как в истории: сумы без подписи валюты, доллары — с «USD».
+  short(n, cur) { const s = n < 0 ? "−" : "+"; const v = Math.abs(n); return s + (cur === "USD" ? this.fmtUsd(v) + this.nb() + "USD" : this.fmtInt(v)); }
+  cbu() { return this.props.view === "offline" ? { rate: 12640, date: "13 окт", fresh: false } : { rate: 12650, date: "14 окт", fresh: true }; }
+  cats() { return { pr: ["Продукты", "#ffdcc8"], kf: ["Кафе", "#ffd6e0"], tr: ["Транспорт", "#cfe3ff"], dm: ["Дом", "#ede3d6"], sv: ["Связь", "#e3dcff"], zd: ["Здоровье", "#c9efd9"], pk: ["Покупки", "#fbefb3"], zp: ["Зарплата", "#c9efd9"], fr: ["Фриланс", "#e3dcff"] }; }
+  dayLabel(iso) {
+    const d = parseInt(iso.slice(8, 10), 10);
+    if (iso === "2026-10-14") return "Сегодня, 14 октября";
+    if (iso === "2026-10-13") return "Вчера, 13 октября";
+    const wd = ["Воскресенье", "Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота"][new Date(Date.UTC(2026, 9, d)).getUTCDay()];
+    return wd + ", " + d + " октября";
+  }
+  seedAccs() {
+    return [
+      { id: "cash", name: "Наличные", cur: "UZS", kind: "cash", balance: 1250000, initial: 1000000, since: "1 августа", hasOps: true },
+      { id: "card", name: "Карта", cur: "UZS", kind: "card", balance: 3180000, initial: 2000000, since: "1 августа", hasOps: true },
+      { id: "usd", name: "Доллары", cur: "USD", kind: "cash", balance: 420, initial: 20, since: "1 августа", hasOps: true }
+    ];
+  }
+  // Доходы и расходы — те же записи, что в истории (id совпадают, запись открывается там).
+  txns() {
+    const r = (id, cat, amount, acc, d, note) => ({ id: id, cat: cat, amount: amount, acc: acc, date: "2026-10-" + d, note: note });
+    return [
+      r("t1", "pr", -186400, "card", "14", "Супермаркет"), r("t2", "tr", -24000, "cash", "14", "Такси"),
+      r("t3", "zp", 12500000, "card", "13", "За сентябрь"), r("t4", "kf", -145000, "card", "13", "Обед с командой"), r("t5", "fr", 300, "usd", "13", "Лендинг"), r("t6", "tr", -32000, "card", "13", "Такси домой"),
+      r("t7", "sv", -60000, "card", "12", "Мобильная связь"), r("t8", "tr", -85000, "cash", "12", "Такси в аэропорт"), r("t9", "pr", -94000, "cash", "12", "Рынок"),
+      r("t10", "kf", -25000, "cash", "11", "Кофе"), r("t11", "pk", -640000, "card", "11", "Кроссовки"), r("t12", "dm", -312000, "card", "11", "Коммуналка"),
+      r("t13", "zd", -48000, "cash", "10", "Аптека"), r("t14", "tr", -21000, "card", "10", "Такси")
+    ];
+  }
+  // Переводы, обмены и корректировки — не доходы и не расходы, живут в счетах.
+  seedMoves() {
+    return [
+      { key: "m1", kind: "transfer", from: "usd", to: "card", out: 100, inn: 1260000, fx: true, rate: 12600, date: "2026-10-12" },
+      { key: "m2", kind: "adj", acc: "card", diff: 20000, date: "2026-10-10" }
+    ];
+  }
+  init() {
+    if (this._init) return this._init;
+    const v = this.props.view || "list";
+    const ts = this.props.transferStart || "none";
+    let accs = this.seedAccs();
+    let moves = this.seedMoves();
+    let undo = [];
+    const tr = this.props.transfer;
+    if (tr) {
+      const m = Object.assign({ key: "init", kind: "transfer", date: "2026-10-14", fresh: true }, tr);
+      undo = [{ key: "init", kind: "addmove", move: m, prevOps: this.opsFlags(accs, m), title: tr.fx ? "Обмен записан" : "Перевод записан", detail: this.moveDetail(m, accs) }];
+      accs = this.applyMove(accs, m, 1);
+      moves = [m].concat(moves);
+    }
+    this._init = {
+      accs: accs, moves: moves, undo: undo,
+      view: v === "account" || v === "edit" || v === "correct" || v === "op" ? "account" : "list",
+      accId: "card",
+      sheet: { rate: "rate", own: "rate", new: "new", edit: "edit", correct: "correct", hidden: "hidden", op: "op" }[v] || null,
+      opKey: v === "op" ? "m1" : null,
+      rateMode: "cbu", rdMode: v === "own" ? "own" : "cbu", ownRate: "12800", rateDraft: v === "own" ? "12800" : "", ownSince: "14 окт",
+      newName: v === "new" ? "Копилка" : "", newCur: "UZS", newKind: "cash", amount: v === "new" ? "500000" : "", touched: v === "new" || v === "own", nameFocus: false,
+      editName: "Карта", editCurDraft: null, hidden: v === "hidden" ? { usd: true } : {},
+      transferOpen: ts === "same" || ts === "fx", transferFrom: "card", transferFx: ts === "fx", transferPreset: ts === "same" || ts === "fx",
+      historyOpen: false, historyTxn: null
+    };
+    return this._init;
+  }
+  accMap(accs) { const A = {}; accs.forEach((a) => { A[a.id] = a; }); return A; }
+  touches(m, id) { return m.kind === "adj" ? m.acc === id : (m.from === id || m.to === id); }
+  // Как движение меняет остатки: dir = 1 — применить, −1 — откатить.
+  applyMove(accs, m, dir) {
+    return accs.map((a) => {
+      if (!this.touches(m, a.id)) return a;
+      let b = a.balance;
+      if (m.kind === "adj") b += dir * m.diff;
+      if (m.kind === "transfer" && a.id === m.from) b -= dir * m.out;
+      if (m.kind === "transfer" && a.id === m.to) b += dir * m.inn;
+      return Object.assign({}, a, { balance: Math.round(b * 100) / 100, hasOps: dir > 0 ? true : a.hasOps });
+    });
+  }
+  opsFlags(accs, m) { const f = {}; accs.forEach((a) => { if (this.touches(m, a.id)) f[a.id] = a.hasOps; }); return f; }
+  restoreFlags(accs, flags) { return accs.map((a) => (a.id in flags ? Object.assign({}, a, { hasOps: flags[a.id] }) : a)); }
+  moveDetail(m, accs) {
+    const A = this.accMap(accs);
+    if (m.kind === "adj") return A[m.acc].name + " · " + this.money(m.diff, A[m.acc].cur, true);
+    return m.fx ? this.money(m.out, A[m.from].cur) + " → " + this.money(m.inn, A[m.to].cur) : A[m.from].name + " → " + A[m.to].name + " · " + this.money(m.out, A[m.from].cur);
+  }
+  st() { return Object.assign({}, this.init(), this.state || {}); }
+  rate(s) { return s.rateMode === "own" ? parseInt(s.ownRate, 10) : this.cbu().rate; }
+  timers() { if (!this._timers) this._timers = {}; return this._timers; }
+  componentWillUnmount() { const tm = this.timers(); Object.keys(tm).forEach((k) => clearTimeout(tm[k])); }
+  arm(key) {
+    this.timers()[key] = setTimeout(() => { delete this.timers()[key]; this.setState((prev) => ({ undo: ((prev && prev.undo) || this.st().undo).filter((u) => u.key !== key) })); }, 4000);
+  }
+  pushUndo(a) {
+    const key = "u" + Date.now() + "_" + Math.floor(Math.random() * 1e6);
+    this.setState((prev) => ({ undo: ((prev && prev.undo) || this.st().undo).concat([Object.assign({ key: key }, a)]) }));
+    this.arm(key);
+  }
+  undo() {
+    const s = this.st();
+    const top = s.undo[s.undo.length - 1];
+    if (!top) return;
+    clearTimeout(this.timers()[top.key]);
+    delete this.timers()[top.key];
+    const rest = s.undo.slice(0, -1);
+    if (top.kind === "add") this.setState({ accs: s.accs.filter((a) => a.id !== top.id), undo: rest, view: s.accId === top.id ? "list" : s.view });
+    else if (top.kind === "hide") { const h = Object.assign({}, s.hidden); delete h[top.id]; this.setState({ hidden: h, undo: rest }); }
+    else if (top.kind === "show") { const h = Object.assign({}, s.hidden); h[top.id] = true; this.setState({ hidden: h, undo: rest }); }
+    else if (top.kind === "edit") this.setState({ accs: s.accs.map((a) => (a.id === top.id ? Object.assign({}, a, top.prev) : a)), undo: rest });
+    else if (top.kind === "rate") this.setState({ rateMode: top.prevMode, ownRate: top.prevOwn, ownSince: top.prevSince, undo: rest });
+    else if (top.kind === "addmove") this.setState({ accs: this.restoreFlags(this.applyMove(s.accs, top.move, -1), top.prevOps), moves: s.moves.filter((m) => m.key !== top.move.key), undo: rest });
+    else if (top.kind === "delmove") { const moves = s.moves.slice(); moves.splice(Math.min(top.idx, moves.length), 0, top.move); this.setState({ accs: this.applyMove(s.accs, top.move, 1), moves: moves, undo: rest }); }
+  }
+  focusId(id) {
+    if (typeof document === "undefined") return;
+    setTimeout(() => { const h = document.getElementById(id); if (h) h.focus(); }, 60);
+  }
+  // Шторка запоминает, откуда её открыли, и возвращает туда фокус.
+  openSheet(patch) {
+    if (typeof document !== "undefined") this._opener = document.activeElement;
+    this.setState(patch);
+    this.focusId("sheet-title");
+  }
+  returnFocus() {
+    const el = this._opener;
+    this._opener = null;
+    if (el && el.focus && el.isConnected !== false) setTimeout(() => { try { el.focus(); } catch (e) {} }, 60);
+    else this.focusId("acc-title");
+  }
+  press(k, cur, field, prefill) {
+    const s = this.st();
+    // Первая цифра заменяет число, «⌫» и «000» правят показанное.
+    let a = s.touched ? s[field] : (k === "back" || k === "000" ? prefill : "");
+    if (k === "back") a = a.slice(0, -1);
+    else if (k === "000") { if (a !== "" && a !== "0" && a.indexOf(",") === -1 && a.length <= 8) a = a + "000"; }
+    else if (k === ",") { if (cur === "USD" && a.indexOf(",") === -1) a = (a === "" ? "0" : a) + ","; }
+    else {
+      const ci = a.indexOf(",");
+      if (ci !== -1 && a.length - ci > 2) return;
+      if (a === "0") a = k; else if (a.replace(",", "").length < 11) a = a + k;
+    }
+    const patch = { touched: true };
+    patch[field] = a;
+    this.setState(patch);
+  }
+  num(str) { return str ? parseFloat(String(str).replace(",", ".")) : 0; }
+  showStr(str, cur) {
+    if (!str) return "0";
+    if (cur === "USD") { const p = str.split(","); return this.fmtInt(parseInt(p[0] || "0", 10)) + (p.length > 1 ? "," + p[1] : ""); }
+    return this.fmtInt(parseInt(str, 10));
+  }
+  plainUsd(n) { return Number(n).toFixed(2).replace(".", ","); }
+  renderVals() {
+    const t = this.theme();
+    const s = this.st();
+    if (!this._armedInit && s.undo.some((u) => u.key === "init")) { this._armedInit = true; this.arm("init"); }
+    const rate = this.rate(s);
+    const cbu = this.cbu();
+    const A = this.accMap(s.accs);
+    const visible = s.accs.filter((a) => !s.hidden[a.id]);
+    const total = visible.reduce((x, a) => x + (a.cur === "USD" ? a.balance * rate : a.balance), 0);
+    const usdAccs = visible.filter((a) => a.cur === "USD");
+    const acc = A[s.accId] || s.accs[0];
+    const seg = (on) => ({ bg: on ? t.segOn : "transparent", shadow: on ? t.segShadow : "none", ink: on ? t.ink : t.segOff, pressed: on ? "true" : "false" });
+    const own = s.rateMode === "own";
+    const canTransfer = visible.length >= 2;
+    const accRows = visible.map((a, i) => ({
+      name: a.name,
+      sub: (a.cur === "USD" ? "доллары" : "сумы") + " · " + (a.kind === "card" ? "карта" : "наличные"),
+      isUsd: a.cur === "USD", isCard: a.cur !== "USD" && a.kind === "card", isCash: a.cur !== "USD" && a.kind !== "card",
+      balance: this.money(a.balance, a.cur),
+      inUzs: a.cur === "USD" ? "≈" + this.nb() + this.money(a.balance * rate, "UZS") : "",
+      aria: a.name + ", " + this.money(a.balance, a.cur) + (a.cur === "USD" ? ", примерно " + this.money(a.balance * rate, "UZS") : "") + ". Открыть счёт",
+      divider: i === 0 ? "none" : "1px solid " + t.line,
+      open: () => { this.setState({ view: "account", accId: a.id }); this.focusId("acc-title"); }
+    }));
+    // Операции открытого счёта по дням: новые движения сверху, затем записи, затем прошлые движения.
+    const cats = this.cats();
+    const txns = this.txns().filter((x) => x.acc === acc.id);
+    const moves = s.moves.filter((m) => this.touches(m, acc.id) && A[m.acc || m.from] && (m.kind === "adj" || A[m.to]));
+    const moveItem = (m) => {
+      const isAdj = m.kind === "adj";
+      const amt = isAdj ? m.diff : (m.from === acc.id ? -m.out : m.inn);
+      const title = isAdj ? "Корректировка" : (m.fx ? "Обмен" : "Перевод");
+      const sub = isAdj ? "Остаток сверен вручную" : A[m.from].name + " → " + A[m.to].name;
+      return { isTxn: false, isMove: !isAdj, isAdj: isAdj, letter: "", bg: t.track, iconInk: t.ink, title: title, sub: sub, amount: this.short(amt, acc.cur), color: t.ink, aria: title + ", " + sub + ", " + this.money(amt, acc.cur, true) + ". Не в аналитике. Подробнее", open: () => this.openSheet({ sheet: "op", opKey: m.key }) };
+    };
+    const txnItem = (x) => ({ isTxn: true, isMove: false, isAdj: false, letter: cats[x.cat][0].charAt(0), bg: cats[x.cat][1], iconInk: "#141416", title: cats[x.cat][0], sub: x.note, amount: this.short(x.amount, acc.cur), color: x.amount > 0 ? t.income : t.ink, aria: cats[x.cat][0] + ", " + x.note + ", " + this.money(x.amount, acc.cur, true) + ". Открыть в истории", open: () => this.setState({ historyOpen: true, historyTxn: x.id }) });
+    const dates = [];
+    moves.concat(txns).forEach((o) => { if (dates.indexOf(o.date) === -1) dates.push(o.date); });
+    dates.sort((a, b) => (a < b ? 1 : -1));
+    const days = dates.map((d) => {
+      const items = moves.filter((m) => m.date === d && m.fresh).map(moveItem).concat(txns.filter((x) => x.date === d).map(txnItem)).concat(moves.filter((m) => m.date === d && !m.fresh).map(moveItem));
+      return { label: this.dayLabel(d), items: items };
+    });
+    // Шторки.
+    const sheet = s.sheet;
+    const rdOwn = s.rdMode === "own";
+    const ecur = s.editCurDraft || acc.cur;
+    const curChanged = sheet === "edit" && !acc.hasOps && ecur !== acc.cur;
+    const keyCur = sheet === "new" ? s.newCur : (sheet === "correct" ? acc.cur : (curChanged ? ecur : "UZS"));
+    const field = sheet === "rate" ? "rateDraft" : "amount";
+    const prefill = sheet === "rate" ? (own ? s.ownRate : String(cbu.rate)) : (sheet === "correct" ? (acc.cur === "USD" ? this.plainUsd(acc.balance) : String(acc.balance)) : "");
+    const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", sheet === "rate" || keyCur !== "USD" ? "000" : ",", "0", "back"].map((k) => ({ label: k, aria: k === "back" ? "Стереть" : (k === "000" ? "Три нуля" : (k === "," ? "Запятая" : k)), isBack: k === "back", isText: k !== "back", size: k === "000" ? "17px" : "23px", press: () => this.press(k, keyCur, field, prefill) }));
+    // Свой курс: пока не ввели — подсказка (курс ЦБ или уже выбранный свой).
+    const rateDraftNum = s.touched ? (s.rateDraft ? parseInt(s.rateDraft, 10) : 0) : (own ? parseInt(s.ownRate, 10) : cbu.rate);
+    const rateValid = rateDraftNum >= 1000 && rateDraftNum <= 100000;
+    const rateOk = !rdOwn || (s.touched ? rateValid : own);
+    const amountNum = this.num(s.amount);
+    const corrDiff = sheet === "correct" && s.touched && s.amount !== "" ? Math.round((amountNum - acc.balance) * (acc.cur === "USD" ? 100 : 1)) / (acc.cur === "USD" ? 100 : 1) : 0;
+    const newOk = sheet === "new" && s.newName.trim().length > 0;
+    let sheetTitle = "";
+    let sheetBtn = "Готово";
+    let sheetOk = true;
+    let amountLabel = "";
+    let amountNote = "";
+    if (sheet === "rate") { sheetTitle = "Курс доллара"; sheetOk = rateOk; if (!rateOk) sheetBtn = "Введите свой курс"; }
+    if (sheet === "hidden") sheetTitle = "Скрытые счета";
+    if (sheet === "new") { sheetTitle = "Новый счёт"; sheetBtn = newOk ? "Добавить счёт" : "Введите название"; sheetOk = newOk; amountLabel = "Сколько на нём сейчас"; amountNote = "Это начальный остаток — он не попадёт в доходы."; }
+    if (sheet === "edit") { sheetTitle = "Счёт «" + acc.name + "»"; sheetBtn = "Сохранить"; sheetOk = s.editName.trim().length > 0; amountLabel = "Сколько на нём сейчас"; amountNote = "Валюта меняется — введите остаток в новой валюте."; }
+    if (sheet === "correct") { sheetTitle = "Сколько сейчас на счёте «" + acc.name + "»?"; sheetBtn = "Сверить остаток"; sheetOk = s.touched && s.amount !== "" && corrDiff !== 0; amountLabel = "Точный остаток"; amountNote = corrDiff ? "Разница " + this.money(corrDiff, acc.cur, true) + " запишется корректировкой — в расходы и аналитику не попадёт." : (s.touched && s.amount !== "" ? "Совпадает с Daftar — исправлять нечего." : "Введите остаток, как в банке или в кошельке. Сейчас в Daftar — " + this.money(acc.balance, acc.cur) + "."); }
+    // Движение в шторке «Подробнее».
+    const om = sheet === "op" ? s.moves.find((m) => m.key === s.opKey) : null;
+    let opRows = [];
+    let deleteLabel = "";
+    if (om) {
+      const day = this.dayLabel(om.date).replace(/^[^,]+, /, "");
+      if (om.kind === "adj") {
+        sheetTitle = "Корректировка, " + day;
+        deleteLabel = "Удалить корректировку";
+        opRows = [["Счёт", A[om.acc].name], ["Разница", this.money(om.diff, A[om.acc].cur, true)]];
+      } else {
+        sheetTitle = (om.fx ? "Обмен, " : "Перевод, ") + day;
+        deleteLabel = om.fx ? "Удалить обмен" : "Удалить перевод";
+        opRows = [[om.fx ? "Отдали" : "Откуда", this.money(om.out, A[om.from].cur) + " · " + A[om.from].name], [om.fx ? "Получили" : "Куда", this.money(om.inn, A[om.to].cur) + " · " + A[om.to].name]];
+        if (om.fx) opRows.push(["Курс сделки", this.fmtInt(om.rate) + " сум за $1"]);
+      }
+    }
+    const rateHintText = s.touched ? (rateValid ? (rateDraftNum > cbu.rate ? "На " + this.fmtInt(rateDraftNum - cbu.rate) + " сум выше ЦБ (" + this.fmtInt(cbu.rate) + ")" : (rateDraftNum < cbu.rate ? "На " + this.fmtInt(cbu.rate - rateDraftNum) + " сум ниже ЦБ (" + this.fmtInt(cbu.rate) + ")" : "Как у ЦБ")) + ". Вернуться к ЦБ можно в любой момент." : "Введите курс от 1 000 до 100 000 сум.") : (own ? "Ваш курс с " + s.ownSince + ". Наберите новый, чтобы изменить." : "Сейчас курс ЦБ. Наберите курс, по которому меняете сами.");
+    const close = () => { this.setState({ sheet: null, touched: false, nameFocus: false, opKey: null }); this.returnFocus(); };
+    const done = () => {
+      const cur = this.st();
+      if (cur.sheet === "rate") {
+        if (!rateOk) return;
+        const newOwn = rdOwn ? String(rateDraftNum) : cur.ownRate;
+        const changed = cur.rdMode !== cur.rateMode || (rdOwn && newOwn !== cur.ownRate);
+        this.setState({ sheet: null, rateMode: cur.rdMode, ownRate: newOwn, ownSince: rdOwn && changed ? "14 окт" : cur.ownSince, touched: false });
+        if (changed) this.pushUndo({ kind: "rate", prevMode: cur.rateMode, prevOwn: cur.ownRate, prevSince: cur.ownSince, title: rdOwn ? "Свой курс: " + this.fmtInt(rateDraftNum) + " сум" : "Курс ЦБ: " + this.fmtInt(cbu.rate) + " сум", detail: "Итог на счетах пересчитан" });
+        this.returnFocus();
+      } else if (cur.sheet === "new") {
+        if (!newOk) return;
+        const id = "n" + cur.accs.length;
+        const bal = this.num(cur.amount);
+        this.setState({ sheet: null, accs: cur.accs.concat([{ id: id, name: cur.newName.trim(), cur: cur.newCur, kind: cur.newKind, balance: bal, initial: bal, since: "14 октября", hasOps: false }]), newName: "", amount: "", touched: false });
+        this.pushUndo({ kind: "add", id: id, title: "Счёт добавлен", detail: cur.newName.trim() + " · " + this.money(bal, cur.newCur) });
+        this.returnFocus();
+      } else if (cur.sheet === "edit") {
+        const name = cur.editName.trim();
+        if (!name) return;
+        const patch = { name: name };
+        if (curChanged) { const bal = this.num(cur.amount); patch.cur = ecur; patch.balance = bal; patch.initial = bal; }
+        const changed = name !== acc.name || curChanged;
+        this.setState({ sheet: null, amount: "", touched: false, accs: cur.accs.map((a) => (a.id === acc.id ? Object.assign({}, a, patch) : a)) });
+        if (changed) this.pushUndo({ kind: "edit", id: acc.id, prev: { name: acc.name, cur: acc.cur, balance: acc.balance, initial: acc.initial }, title: "Счёт изменён", detail: (name !== acc.name ? acc.name + " → " + name : name) + (curChanged ? " · " + (acc.cur === "USD" ? "доллары" : "сумы") + " → " + (ecur === "USD" ? "доллары" : "сумы") : "") });
+        this.returnFocus();
+      } else if (cur.sheet === "correct") {
+        if (!sheetOk) return;
+        const m = { key: "c" + Date.now(), kind: "adj", acc: acc.id, diff: corrDiff, date: "2026-10-14", fresh: true };
+        this.setState({ sheet: null, accs: this.applyMove(cur.accs, m, 1), moves: [m].concat(cur.moves), amount: "", touched: false });
+        this.pushUndo({ kind: "addmove", move: m, prevOps: this.opsFlags(cur.accs, m), title: "Остаток сверен", detail: acc.name + " · корректировка " + this.money(corrDiff, acc.cur, true) });
+        this.returnFocus();
+      } else close();
+    };
+    const cb = seg(!rdOwn);
+    const ow = seg(rdOwn);
+    const uz = seg(s.newCur === "UZS");
+    const ud = seg(s.newCur === "USD");
+    const ca = seg(s.newKind === "cash");
+    const cd = seg(s.newKind === "card");
+    const eu = seg(ecur === "UZS");
+    const ed = seg(ecur === "USD");
+    const top = s.undo[s.undo.length - 1];
+    const hiddenList = s.accs.filter((a) => s.hidden[a.id]);
+    const startFrom = visible.some((a) => a.id === "card") ? "card" : (visible[0] ? visible[0].id : "card");
+    let amountText = this.showStr(s.amount, keyCur);
+    let amountInk = s.amount ? t.ink : t.muted;
+    if (sheet === "rate") { amountText = this.fmtInt(rateDraftNum || 0); amountInk = s.touched || own ? t.ink : t.muted; }
+    if (sheet === "correct" && !s.touched) { amountText = acc.cur === "USD" ? this.fmtUsd(acc.balance) : this.fmtInt(acc.balance); amountInk = t.muted; }
+    return {
+      t: t,
+      dark: !!this.props.dark,
+      liveText: top ? top.title + ". " + top.detail : "",
+      title: s.view === "account" ? acc.name : "Счета",
+      isList: s.view !== "account",
+      isAccount: s.view === "account",
+      homeHref: this.props.homeHref ?? "Pastel_Home.dc.html",
+      backToList: () => { this.setState({ view: "list" }); this.focusId("acc-title"); },
+      totalBig: this.fmtInt(total),
+      totalNote: !visible.length ? "Все счета скрыты" : (usdAccs.length ? "Доллары — по " + (own ? "своему курсу " + this.fmtInt(rate) : "курсу ЦБ на " + cbu.date + ", " + this.fmtInt(rate)) + " сум" : "Все счета в сумах"),
+      isOnline: cbu.fresh,
+      isOffline: !cbu.fresh,
+      rateShort: this.fmtInt(rate) + this.nb() + "сум",
+      rateSub: own ? "Свой с " + s.ownSince + " · ЦБ " + this.fmtInt(cbu.rate) : (cbu.fresh ? "ЦБ на " + cbu.date : "Нет связи · курс ЦБ на " + cbu.date),
+      openRate: () => this.openSheet({ sheet: "rate", rdMode: s.rateMode, rateDraft: "", touched: false }),
+      accRows: accRows,
+      newDivider: visible.length ? "1px solid " + t.line : "none",
+      openNew: () => this.openSheet({ sheet: "new", newName: "", newCur: "UZS", newKind: "cash", amount: "", touched: false }),
+      hasHidden: hiddenList.length > 0,
+      hiddenLabel: "Скрытые счета · " + hiddenList.length,
+      openHidden: () => this.openSheet({ sheet: "hidden" }),
+      isHidden: sheet === "hidden",
+      hiddenRows: hiddenList.map((a, i) => ({ name: a.name, balance: this.money(a.balance, a.cur), aria: "Показать счёт «" + a.name + "»", divider: i === 0 ? "none" : "1px solid " + t.line, show: () => { const h = Object.assign({}, this.st().hidden); delete h[a.id]; const left = Object.keys(h).length; this.setState({ hidden: h, sheet: left ? "hidden" : null }); this.pushUndo({ kind: "show", id: a.id, title: "Счёт снова виден", detail: a.name + " · " + this.money(a.balance, a.cur) }); if (!left) this.returnFocus(); } })),
+      trDisabled: canTransfer ? "false" : "true",
+      trBg: canTransfer ? t.primaryBg : t.track,
+      trInk: canTransfer ? t.primaryInk : t.off,
+      trLabel: canTransfer ? "Перевод или обмен" : "Для перевода нужен второй счёт",
+      accTrInk: canTransfer ? t.ink : t.off,
+      openTransfer: () => { if (canTransfer) this.setState({ transferOpen: true, transferFrom: startFrom, transferFx: false, transferPreset: false }); },
+      openTransferFrom: () => { if (canTransfer && !s.hidden[acc.id]) this.setState({ transferOpen: true, transferFrom: acc.id, transferFx: acc.cur === "USD", transferPreset: false }); },
+      transferOpen: !!s.transferOpen,
+      transferFrom: s.transferFrom,
+      transferFx: !!s.transferFx,
+      transferPreset: !!s.transferPreset,
+      transferAccs: visible.map((a) => ({ id: a.id, name: a.name, cur: a.cur, balance: a.balance })),
+      cbuRate: cbu.rate,
+      closeTransfer: () => { this.setState({ transferOpen: false }); this.focusId("acc-title"); },
+      applyTransfer: (tr) => {
+        const cur = this.st();
+        const m = Object.assign({ key: "t" + Date.now(), kind: "transfer", date: "2026-10-14", fresh: true }, tr);
+        this.setState({ transferOpen: false, accs: this.applyMove(cur.accs, m, 1), moves: [m].concat(cur.moves) });
+        this.pushUndo({ kind: "addmove", move: m, prevOps: this.opsFlags(cur.accs, m), title: tr.fx ? "Обмен записан" : "Перевод записан", detail: this.moveDetail(m, cur.accs) });
+        this.focusId("acc-title");
+      },
+      historyOpen: !!s.historyOpen,
+      historyAcc: acc.id,
+      historyTxn: s.historyTxn,
+      closeHistory: () => { this.setState({ historyOpen: false, historyTxn: null }); this.focusId("acc-title"); },
+      acc: {
+        kindText: (acc.cur === "USD" ? "доллары" : "сумы") + " · " + (acc.kind === "card" ? "карта" : "наличные"),
+        big: acc.cur === "USD" ? this.fmtUsd(acc.balance) : this.fmtInt(acc.balance),
+        unit: acc.cur === "USD" ? "USD" : "сум",
+        initialText: "Начальный остаток " + this.money(acc.initial, acc.cur) + (acc.since === "14 октября" ? " · счёт добавлен сегодня" : " на " + acc.since),
+        moveLabel: acc.cur === "USD" ? "Обменять" : "Перевести",
+        days: days,
+        empty: days.length === 0
+      },
+      openEdit: () => this.openSheet({ sheet: "edit", editName: acc.name, editCurDraft: null, amount: "", touched: false }),
+      openCorrect: () => this.openSheet({ sheet: "correct", amount: "", touched: false }),
+      sheetOpen: !!sheet,
+      closeSheet: close,
+      sheetKey: (e) => { if (e && e.key === "Escape") close(); },
+      sheetTitle: sheetTitle,
+      isRate: sheet === "rate",
+      isCbu: !rdOwn,
+      cbuPressed: cb.pressed, cbuBg: cb.bg, cbuShadow: cb.shadow, cbuInk: cb.ink,
+      ownPressed: ow.pressed, ownBg: ow.bg, ownShadow: ow.shadow, ownInk: ow.ink,
+      rateCbu: () => this.setState({ rdMode: "cbu" }),
+      rateOwn: () => this.setState({ rdMode: "own", rateDraft: "", touched: false }),
+      rateLabel: cbu.fresh ? "ЦБ Узбекистана · " + cbu.date : "ЦБ · " + cbu.date + " · нет связи",
+      rateBig: this.fmtInt(cbu.rate),
+      rateHint: cbu.fresh ? "Обновляется автоматически каждый день." : "Покажу новый курс, как только появится связь.",
+      isOp: sheet === "op" && !!om,
+      opRows: opRows.map((r, i) => ({ label: r[0], value: r[1], divider: i === 0 ? "none" : "1px solid " + t.line })),
+      opNote: om ? (om.kind === "adj" ? "Корректировка не попадает в расходы и аналитику. Если сверили по ошибке — удалите её, остаток вернётся." : (om.fx ? "Обмен" : "Перевод") + " не попадает в расходы и аналитику. Удаление вернёт остатки обоих счетов.") : "",
+      deleteLabel: deleteLabel,
+      deleteOp: () => {
+        const cur = this.st();
+        const idx = cur.moves.findIndex((m) => m.key === cur.opKey);
+        if (idx === -1) return;
+        const m = cur.moves[idx];
+        this.setState({ sheet: null, opKey: null, accs: this.applyMove(cur.accs, m, -1), moves: cur.moves.filter((x) => x.key !== m.key) });
+        this.pushUndo({ kind: "delmove", move: m, idx: idx, title: m.kind === "adj" ? "Корректировка удалена" : (m.fx ? "Обмен удалён" : "Перевод удалён"), detail: this.moveDetail(m, cur.accs) });
+        this.focusId("acc-title");
+      },
+      isNew: sheet === "new",
+      newName: s.newName,
+      onNewName: (e) => this.setState({ newName: e && e.target ? e.target.value : "" }),
+      nameFocus: () => this.setState({ nameFocus: true }),
+      nameBlur: () => this.setState({ nameFocus: false }),
+      newUzs: () => this.setState({ newCur: "UZS", amount: "", touched: false }),
+      newUsd: () => this.setState({ newCur: "USD", amount: "", touched: false }),
+      newCash: () => this.setState({ newKind: "cash" }),
+      newCard: () => this.setState({ newKind: "card" }),
+      uzsPressed: uz.pressed, uzsBg: uz.bg, uzsShadow: uz.shadow, uzsInk: uz.ink,
+      usdPressed: ud.pressed, usdBg: ud.bg, usdShadow: ud.shadow, usdInk: ud.ink,
+      cashPressed: ca.pressed, cashBg: ca.bg, cashShadow: ca.shadow, cashInk: ca.ink,
+      cardPressed: cd.pressed, cardBg: cd.bg, cardShadow: cd.shadow, cardInk: cd.ink,
+      isEdit: sheet === "edit",
+      editName: s.editName,
+      onEditName: (e) => this.setState({ editName: e && e.target ? e.target.value : "" }),
+      curLocked: acc.hasOps,
+      curFree: !acc.hasOps,
+      editUzs: () => this.setState({ editCurDraft: "UZS", amount: "", touched: false }),
+      editUsd: () => this.setState({ editCurDraft: "USD", amount: "", touched: false }),
+      eUzsPressed: eu.pressed, eUzsBg: eu.bg, eUzsShadow: eu.shadow, eUzsInk: eu.ink,
+      eUsdPressed: ed.pressed, eUsdBg: ed.bg, eUsdShadow: ed.shadow, eUsdInk: ed.ink,
+      editCur: acc.cur === "USD" ? "Доллары (USD)" : "Сумы",
+      showInitial: !curChanged,
+      editInitial: this.money(acc.initial, acc.cur) + (acc.since === "14 октября" ? " · сегодня" : " · на " + acc.since),
+      showHideBtn: sheet === "edit" && !curChanged,
+      hideNote: "Итог уменьшится на " + this.money(acc.cur === "USD" ? acc.balance * rate : acc.balance, "UZS") + ". Операции останутся в истории, вернуть счёт можно в любой момент.",
+      hideAcc: () => {
+        const cur = this.st();
+        const name = cur.editName.trim() || acc.name;
+        const h = Object.assign({}, cur.hidden);
+        h[acc.id] = true;
+        this.setState({ hidden: h, sheet: null, view: "list", accs: cur.accs.map((a) => (a.id === acc.id ? Object.assign({}, a, { name: name }) : a)) });
+        this.pushUndo({ kind: "hide", id: acc.id, title: "Счёт скрыт", detail: name + " · вернуть — в «Скрытых счетах»" });
+        this.focusId("acc-title");
+      },
+      hasKeypad: sheet === "new" || sheet === "correct" || (sheet === "rate" && rdOwn) || curChanged,
+      showKeys: !(sheet === "new" && s.nameFocus),
+      amountLabel: sheet === "rate" ? "Свой курс, сум за $1" : amountLabel,
+      amountText: amountText,
+      amountInk: amountInk,
+      amountUnit: sheet === "rate" ? "" : (keyCur === "USD" ? "USD" : "сум"),
+      hasAmountNote: sheet === "rate" ? rdOwn : amountNote.length > 0,
+      amountNote: sheet === "rate" ? rateHintText : amountNote,
+      keys: keys,
+      hasSheetBtn: sheet !== "hidden" && sheet !== "op",
+      sheetDone: done,
+      sheetBtn: sheetBtn,
+      sheetDisabled: sheetOk ? "false" : "true",
+      sheetBtnBg: sheetOk ? t.primaryBg : t.sheetTrack,
+      sheetBtnInk: sheetOk ? t.primaryInk : t.off,
+      hasToast: !!top && !sheet && !s.transferOpen && !s.historyOpen,
+      toastBottom: s.view === "account" ? "24px" : "96px",
+      toastTitle: top ? top.title : "",
+      toastDetail: top ? top.detail : "",
+      undo: () => this.undo()
+    };
+  }
+}
+</script>
+</body>
+</html>

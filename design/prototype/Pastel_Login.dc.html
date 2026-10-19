@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Daftar — вход</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+@keyframes lgPulse{0%,100%{opacity:1}50%{opacity:0.25}}
+@media (prefers-reduced-motion: reduce){.lg-anim{animation:none !important}}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; position: relative; overflow: hidden; display: flex; flex-direction: column; gap: 16px; padding: 8px 16px 24px; background: {{t.bg}}; color: {{t.ink}}; font-family: 'Manrope', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;">
+<p role="status" style="position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;">{{liveText}}</p>
+<header style="flex: 0 0 auto; display: flex; align-items: center; gap: 10px; height: 48px;">
+<svg width="30" height="30" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M7 0h10a7 7 0 0 1 7 7v10a7 7 0 0 1-7 7H7a7 7 0 0 1-7-7V7a7 7 0 0 1 7-7ZM6 7v2h12V7H6Zm0 4v2h8v-2H6Zm0 4v2h10v-2H6Z"></path></svg>
+<span style="font-size: 23px; line-height: 1; font-weight: 800; letter-spacing: -0.7px;">daftar</span>
+</header>
+
+<sc-if value="{{isStart}}" hint-placeholder-val="{{true}}">
+<div style="flex: 1 1 auto; display: flex; flex-direction: column; justify-content: flex-start; gap: 16px; padding: 72px 4px 0;">
+<span aria-hidden="true" style="width: 56px; height: 56px; display: flex; align-items: center; justify-content: center; border-radius: 9999px; background: {{t.track}};"><svg width="26" height="26" viewBox="0 0 20 20"><path d="M11.5 4H15.5v12H11.5M3.5 10h8.5M9 6.5 12.5 10 9 13.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+<h1 id="lg-title" tabindex="-1" style="margin: 0; outline: none; font-size: 28px; line-height: 1.2; font-weight: 800; letter-spacing: -0.8px;">Траты и доходы — голосом, текстом и фото чека</h1>
+<p style="margin: 0; font-size: 16px; line-height: 1.5; font-weight: 500; color: {{t.muted}};">Daftar живёт в Telegram. Войдите тем же аккаунтом — в браузере будут те же счета и записи, что в боте.</p>
+<ul style="list-style: none; margin: 8px 0 0; padding: 4px 16px; border-radius: 24px; background: {{t.card}};">
+<sc-for list="{{steps}}" as="st" hint-placeholder-count="3">
+<li style="min-height: 52px; display: flex; align-items: center; gap: 12px; border-top: {{st.divider}};"><span aria-hidden="true" style="flex: 0 0 28px; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 9999px; background: {{t.track}}; font-size: 13px; font-weight: 800;">{{st.n}}</span><span style="font-size: 15px; line-height: 1.4; font-weight: 600;">{{st.text}}</span></li>
+</sc-for>
+</ul>
+</div>
+<button type="button" onClick="{{start}}" style="flex: 0 0 auto; height: 56px; border: 0; border-radius: 9999px; background: {{t.primaryBg}}; color: {{t.primaryInk}}; font-family: inherit; font-size: 16px; font-weight: 800; cursor: pointer;">Войти через Telegram</button>
+<p style="flex: 0 0 auto; margin: 0; text-align: center; font-size: 13px; line-height: 1.45; font-weight: 600; color: {{t.muted}};">Пароль не нужен. Daftar видит только ваше имя в Telegram — не чаты и не контакты.</p>
+</sc-if>
+
+<sc-if value="{{isWaiting}}" hint-placeholder-val="{{false}}">
+<div style="flex: 1 1 auto; display: flex; flex-direction: column; justify-content: flex-start; gap: 16px; padding: 72px 4px 0;">
+<span aria-hidden="true" style="width: 56px; height: 56px; display: flex; align-items: center; justify-content: center; border-radius: 9999px; background: {{t.track}};"><svg class="lg-anim" width="26" height="26" viewBox="0 0 20 20" style="animation: lgPulse 1.6s ease-in-out infinite;"><path d="M3.5 4.5h13v8.5h-7l-4 3v-3h-2v-8.5Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"></path><path d="M7 9h.01M10 9h.01M13 9h.01" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"></path></svg></span>
+<h1 id="lg-title" tabindex="-1" style="margin: 0; outline: none; font-size: 28px; line-height: 1.2; font-weight: 800; letter-spacing: -0.8px;">Подтвердите вход в Telegram</h1>
+<p style="margin: 0; font-size: 16px; line-height: 1.5; font-weight: 500; color: {{t.muted}};">В чате с ботом Daftar нажмите «Подтвердить» — вход здесь завершится сам.</p>
+<p style="margin: 0; font-size: 14px; line-height: 1.5; font-weight: 600; color: {{t.muted}};">Чат не открылся или кнопки нет? Нажмите «Открыть Telegram», а в чате — «Запустить».</p>
+<div style="display: flex; flex-direction: column; gap: 2px; padding: 14px 16px; border-radius: 24px; background: {{t.card}};"><span style="font-size: 13px; font-weight: 700; color: {{t.muted}};">Ссылка для входа действует</span><span style="font-size: 15px; font-weight: 700;">5 минут, до 19:47</span></div>
+</div>
+<a href="{{tgHref}}" style="flex: 0 0 auto; height: 56px; display: flex; align-items: center; justify-content: center; border-radius: 9999px; background: {{t.primaryBg}}; color: {{t.primaryInk}}; text-decoration: none; font-size: 16px; font-weight: 800;">Открыть Telegram</a>
+<button type="button" onClick="{{cancel}}" style="flex: 0 0 auto; height: 44px; align-self: center; padding: 0 16px; border: 0; border-radius: 9999px; background: transparent; color: {{t.ink}}; font-family: inherit; font-size: 14px; font-weight: 800; text-decoration: underline; cursor: pointer;">Отменить вход</button>
+</sc-if>
+
+<sc-if value="{{isExpired}}" hint-placeholder-val="{{false}}">
+<div style="flex: 1 1 auto; display: flex; flex-direction: column; justify-content: flex-start; gap: 16px; padding: 72px 4px 0;">
+<span aria-hidden="true" style="width: 56px; height: 56px; display: flex; align-items: center; justify-content: center; border-radius: 9999px; background: {{t.track}};"><svg width="26" height="26" viewBox="0 0 20 20"><path d="M10 17a7 7 0 1 0 0-14 7 7 0 0 0 0 14Zm0-10.5V10l2.5 1.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+<h1 id="lg-title" tabindex="-1" style="margin: 0; outline: none; font-size: 28px; line-height: 1.2; font-weight: 800; letter-spacing: -0.8px;">Вход не подтвердили</h1>
+<p style="margin: 0; font-size: 16px; line-height: 1.5; font-weight: 500; color: {{t.muted}};">Ссылка для входа действует 5 минут, и это время вышло. Нажмите ниже — откроется чат с ботом Daftar, там нажмите «Подтвердить».</p>
+</div>
+<button type="button" onClick="{{start}}" style="flex: 0 0 auto; height: 56px; border: 0; border-radius: 9999px; background: {{t.primaryBg}}; color: {{t.primaryInk}}; font-family: inherit; font-size: 16px; font-weight: 800; cursor: pointer;">Войти через Telegram</button>
+</sc-if>
+
+<sc-if value="{{isDone}}" hint-placeholder-val="{{false}}">
+<div style="position: absolute; left: 0; top: 0; width: 390px; height: 844px; z-index: 40;">
+<dc-import name="Pastel_Home" dark="{{dark}}" more-href="{{moreHref}}" web="{{web}}" hint-size="390px,844px"></dc-import>
+</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"view":{"editor":"enum","options":["start","waiting","expired"],"default":"start"},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  theme() {
+    if (this.props.dark) return { bg: "#111214", card: "#1b1c1f", ink: "#f4f4f6", muted: "#9d9da6", track: "#26272b", primaryBg: "#f4f4f6", primaryInk: "#141416" };
+    return { bg: "#f3f3f5", card: "#ffffff", ink: "#141416", muted: "#6b6b74", track: "#e7e7ec", primaryBg: "#141416", primaryInk: "#ffffff" };
+  }
+  st() { return Object.assign({ view: this.props.view || "start" }, this.state || {}); }
+  componentWillUnmount() { clearTimeout(this._wait); }
+  // В прототипе подтверждение «приходит» через 3 секунды.
+  wait() {
+    clearTimeout(this._wait);
+    this._wait = setTimeout(() => this.setState({ view: "done" }), 3000);
+  }
+  focusTitle() {
+    if (typeof document === "undefined") return;
+    setTimeout(() => { const h = document.getElementById("lg-title"); if (h) h.focus(); }, 60);
+  }
+  renderVals() {
+    const t = this.theme();
+    const s = this.st();
+    if (!this._armed && s.view === "waiting") { this._armed = true; this.wait(); }
+    const steps = ["Откроется чат с ботом Daftar", "Нажмите там «Запустить» и «Подтвердить»", "Вернитесь сюда — вход завершится сам"];
+    return {
+      t: t,
+      dark: !!this.props.dark,
+      liveText: s.view === "waiting" ? "Ждём подтверждения в Telegram" : (s.view === "expired" ? "Вход не подтвердили. Можно попробовать снова" : ""),
+      isStart: s.view === "start",
+      isWaiting: s.view === "waiting",
+      isExpired: s.view === "expired",
+      isDone: s.view === "done",
+      steps: steps.map((x, i) => ({ n: String(i + 1), text: x, divider: i === 0 ? "none" : "1px solid " + (this.props.dark ? "#2c2d31" : "#ececf0") })),
+      start: () => { this.setState({ view: "waiting" }); this.wait(); this.focusTitle(); },
+      cancel: () => { clearTimeout(this._wait); this.setState({ view: "start" }); this.focusTitle(); },
+      tgHref: this.props.dark ? "Pastel_BotLoginDark.dc.html" : "Pastel_BotLogin.dc.html",
+      moreHref: this.props.dark ? "Pastel_MoreWebDark.dc.html" : "Pastel_MoreWeb.dc.html",
+      web: true
+    };
+  }
+}
+</script>
+</body>
+</html>

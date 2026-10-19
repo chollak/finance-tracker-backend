@@ -1,0 +1,811 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Daftar — аналитика</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; position: relative; overflow: hidden; display: flex; flex-direction: column; background: {{t.bg}}; color: {{t.ink}}; font-family: 'Manrope', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;">
+
+<sc-if value="{{isOverview}}" hint-placeholder-val="{{true}}">
+<div style="flex: 0 0 auto; display: flex; flex-direction: column; gap: 12px; padding: 8px 16px 8px;">
+<header style="display: flex; align-items: center; gap: 12px; height: 48px;">
+<a href="{{homeHref}}" aria-label="На главную" style="flex: 0 0 44px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border-radius: 9999px; background: {{t.card}}; color: {{t.ink}};"><svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><path d="M12.5 4.5 7 10l5.5 5.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg></a>
+<h1 style="flex: 1 1 auto; margin: 0; font-size: 18px; line-height: 1.3; font-weight: 800; letter-spacing: -0.3px;">Аналитика</h1>
+</header>
+<sc-if value="{{manyMonths}}" hint-placeholder-val="{{true}}">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+<button type="button" onClick="{{prevMonth}}" disabled="{{prevDisabled}}" aria-label="Предыдущий месяц" style="flex: 0 0 44px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border: 0; border-radius: 9999px; background: {{t.card}}; color: {{t.ink}}; opacity: {{prevOpacity}}; cursor: pointer;"><svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true"><path d="M12.5 4.5 7 10l5.5 5.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
+<span aria-live="polite" style="font-size: 16px; font-weight: 800;">{{monthTitle}}</span>
+<button type="button" onClick="{{nextMonth}}" disabled="{{nextDisabled}}" aria-label="Следующий месяц" style="flex: 0 0 44px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border: 0; border-radius: 9999px; background: {{t.card}}; color: {{t.ink}}; opacity: {{nextOpacity}}; cursor: pointer;"><svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true"><path d="M7.5 4.5 13 10l-5.5 5.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
+</div>
+</sc-if>
+<div role="group" aria-label="Что показать" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px; padding: 2px; border-radius: 9999px; background: {{t.track}};">
+<button type="button" onClick="{{setExpense}}" aria-pressed="{{expPressed}}" style="height: 44px; border: 0; border-radius: 9999px; background: {{expBg}}; box-shadow: {{expShadow}}; color: {{expInk}}; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer;">Расходы</button>
+<button type="button" onClick="{{setIncome}}" aria-pressed="{{incPressed}}" style="height: 44px; border: 0; border-radius: 9999px; background: {{incBg}}; box-shadow: {{incShadow}}; color: {{incInk}}; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer;">Доходы</button>
+</div>
+</div>
+
+<div style="flex: 1 1 auto; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding: 4px 16px 96px;">
+<sc-if value="{{hasData}}" hint-placeholder-val="{{true}}">
+<section aria-label="{{heroLabel}}" style="flex: 0 0 auto; display: flex; flex-direction: column; gap: 4px; padding: 16px 20px 20px; border-radius: 28px; background: {{t.hero}}; color: {{t.heroInk}};">
+<h2 style="margin: 0; font-size: 14px; font-weight: 600; color: {{t.heroMuted}};">{{heroLabel}}</h2>
+<div style="display: flex; align-items: baseline; gap: 8px;">
+<span style="font-size: {{heroSize}}; line-height: 1.05; font-weight: 700; letter-spacing: -1.6px; white-space: nowrap;">{{heroAmount}}</span>
+<span style="font-size: 18px; font-weight: 600; color: {{t.heroMuted}};">сум</span>
+</div>
+<sc-if value="{{hasHeroLine}}" hint-placeholder-val="{{true}}">
+<span style="font-size: 13px; font-weight: 600; color: {{t.heroMuted}};">{{heroCompare}}</span>
+</sc-if>
+<p style="margin: 10px 0 0; padding-top: 12px; border-top: 1px solid {{t.heroLine}}; font-size: 15px; line-height: 1.4; font-weight: 700;">{{insight}}</p>
+</section>
+
+<section aria-label="{{listLabel}}" style="flex: 0 0 auto; display: flex; flex-direction: column; gap: 8px;">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 4px 0;">
+<h2 style="margin: 0; font-size: 18px; line-height: 1.3; font-weight: 800; letter-spacing: -0.3px;">{{listTitle}}</h2>
+<sc-if value="{{hasCompare}}" hint-placeholder-val="{{true}}">
+<span aria-hidden="true" style="display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: {{t.muted}};"><span style="width: 2px; height: 12px; border-radius: 1px; background: {{t.tick}};"></span>{{legendPrev}}</span>
+</sc-if>
+</div>
+<ul style="list-style: none; margin: 0; padding: 4px 8px; border-radius: 24px; background: {{t.card}};">
+<sc-for list="{{rows}}" as="r" hint-placeholder-count="8">
+<li style="display: flex;">
+<button type="button" onClick="{{r.open}}" aria-label="{{r.aria}}" style="flex: 1 1 auto; min-width: 0; min-height: 60px; display: flex; align-items: center; gap: 12px; padding: 10px 8px; border: 0; border-radius: 18px; background: transparent; color: {{t.ink}}; font-family: inherit; text-align: left; cursor: pointer;">
+<span aria-hidden="true" style="flex: 0 0 40px; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 9999px; background: {{r.color}}; color: #141416; font-size: 15px; font-weight: 800;">{{r.letter}}</span>
+<span style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 6px;">
+<span style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px;">
+<span style="font-size: 15px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{r.name}}</span>
+<span style="flex: 0 0 auto; font-size: 15px; font-weight: 800; white-space: nowrap; font-variant-numeric: tabular-nums;">{{r.amount}}</span>
+</span>
+<span style="display: flex; align-items: center; gap: 10px;">
+<span aria-hidden="true" style="flex: 1 1 auto; position: relative; height: 12px; display: flex; align-items: center;">
+<span style="position: absolute; left: 0; right: 0; top: 3px; height: 6px; border-radius: 3px; background: {{t.track}};"></span>
+<span style="position: absolute; left: 0; top: 3px; width: {{r.barW}}; height: 6px; border-radius: 3px; background: {{t.ink}};"></span>
+<sc-if value="{{r.hasTick}}" hint-placeholder-val="{{true}}">
+<span style="position: absolute; left: {{r.tickX}}; top: 0; width: 2px; height: 12px; margin-left: -1px; border-radius: 1px; background: {{t.tick}}; box-shadow: 0 0 0 2px {{t.card}};"></span>
+</sc-if>
+</span>
+<span style="flex: 0 0 auto; min-width: 72px; text-align: right; font-size: 13px; font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums; color: {{r.metaInk}};">{{r.meta}}</span>
+</span>
+</span>
+</button>
+</li>
+</sc-for>
+</ul>
+<p style="margin: 0; padding: 0 4px; font-size: 13px; line-height: 1.45; font-weight: 500; color: {{t.muted}};">{{footnote}}</p>
+</section>
+<sc-if value="{{hasAudit}}" hint-placeholder-val="{{false}}">
+<a href="{{auditHref}}" style="flex: 0 0 auto; min-height: 64px; box-sizing: border-box; display: flex; align-items: center; gap: 12px; padding: 12px 14px 12px 16px; border-radius: 24px; background: {{t.card}}; color: {{t.ink}}; text-decoration: none;">
+<span style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px;"><span style="font-size: 15px; font-weight: 800;">Ревизия сентября</span><span style="font-size: 13px; font-weight: 600; color: {{t.muted}};">Найти траты, без которых можно обойтись</span></span>
+<svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true"><path d="M7.5 4.5 13 10l-5.5 5.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+</a>
+</sc-if>
+</sc-if>
+
+<sc-if value="{{noData}}" hint-placeholder-val="{{false}}">
+<div role="status" style="flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 64px 24px 24px; text-align: center;">
+<span aria-hidden="true" style="width: 72px; height: 72px; display: flex; align-items: center; justify-content: center; border-radius: 9999px; background: {{t.track}}; color: {{t.ink}};"><svg width="30" height="30" viewBox="0 0 20 20"><path d="M4 16V9m4 7V5m4 11v-5m4 5V7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path></svg></span>
+<h2 style="margin: 6px 0 0; font-size: 18px; line-height: 1.3; font-weight: 800; letter-spacing: -0.3px;">{{emptyTitle}}</h2>
+<p style="margin: 0; max-width: 290px; font-size: 14px; line-height: 1.45; font-weight: 500; color: {{t.muted}};">{{emptyText}}</p>
+<sc-if value="{{emptyCta}}" hint-placeholder-val="{{true}}">
+<a href="{{addHref}}" style="margin-top: 8px; height: 48px; padding: 0 22px; display: flex; align-items: center; border-radius: 9999px; background: {{t.primaryBg}}; color: {{t.primaryInk}}; text-decoration: none; font-size: 15px; font-weight: 800;">{{emptyCtaLabel}}</a>
+</sc-if>
+</div>
+</sc-if>
+</div>
+</sc-if>
+
+<sc-if value="{{isCategory}}" hint-placeholder-val="{{false}}">
+<div style="flex: 0 0 auto; padding: 8px 16px 8px;">
+<header style="display: flex; align-items: center; gap: 12px; height: 48px;">
+<button type="button" onClick="{{backToOverview}}" aria-label="Ко всем категориям" style="flex: 0 0 44px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border: 0; border-radius: 9999px; background: {{t.card}}; color: {{t.ink}}; cursor: pointer;"><svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><path d="M12.5 4.5 7 10l5.5 5.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
+<span aria-hidden="true" style="flex: 0 0 32px; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 9999px; background: {{cat.color}}; color: #141416; font-size: 13px; font-weight: 800;">{{cat.letter}}</span>
+<h1 style="flex: 1 1 auto; min-width: 0; margin: 0; font-size: 18px; line-height: 1.3; font-weight: 800; letter-spacing: -0.3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{cat.name}}</h1>
+<span style="flex: 0 0 auto; font-size: 13px; font-weight: 600; color: {{t.muted}};">{{periodLabel}}</span>
+</header>
+</div>
+
+<div style="flex: 1 1 auto; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding: 4px 16px 96px;">
+<section aria-label="Итог по категории" style="flex: 0 0 auto; display: flex; flex-direction: column; gap: 6px; padding: 16px 20px 20px; border-radius: 24px; background: {{t.card}};">
+<div style="display: flex; align-items: baseline; gap: 8px;">
+<span style="font-size: 32px; line-height: 1.1; font-weight: 800; letter-spacing: -1px; white-space: nowrap; color: {{cat.amountColor}};">{{cat.amount}}</span>
+<span style="font-size: 16px; font-weight: 700; color: {{t.muted}};">сум</span>
+</div>
+<span style="font-size: 13px; font-weight: 600; color: {{t.muted}};">{{cat.meta}}</span>
+<sc-if value="{{cat.hasCompare}}" hint-placeholder-val="{{true}}">
+<span style="font-size: 13px; font-weight: 600; color: {{t.muted}};">{{cat.compare}}</span>
+</sc-if>
+<sc-if value="{{cat.hasInsight}}" hint-placeholder-val="{{true}}">
+<p style="margin: 8px 0 0; padding-top: 10px; border-top: 1px solid {{t.line}}; font-size: 15px; line-height: 1.4; font-weight: 700;">{{cat.insight}}</p>
+</sc-if>
+</section>
+
+<sc-if value="{{showChart}}" hint-placeholder-val="{{true}}">
+<section aria-label="{{chartTitle}}" style="flex: 0 0 auto; display: flex; flex-direction: column; gap: 8px; padding: 14px 16px 10px; border-radius: 24px; background: {{t.card}};">
+<h2 style="margin: 0; font-size: 15px; font-weight: 800;">По дням</h2>
+<button type="button" onClick="{{chartTap}}" aria-label="{{chartAria}}" style="position: relative; height: 112px; display: flex; align-items: flex-end; padding: 0; border: 0; border-bottom: 1px solid {{t.line}}; border-radius: 0; background: transparent; cursor: pointer;">
+<sc-for list="{{cols}}" as="c" hint-placeholder-count="14">
+<span aria-hidden="true" style="flex: 1 1 0; min-width: 0; height: 112px; display: flex; align-items: flex-end; justify-content: center; border-radius: 4px 4px 0 0; background: {{c.selBg}};"><span style="width: {{c.w}}; height: {{c.h}}; border-radius: {{c.r}}; background: {{c.color}};"></span></span>
+</sc-for>
+</button>
+<div aria-hidden="true" style="display: flex; margin-top: -4px;">
+<sc-for list="{{cols}}" as="c" hint-placeholder-count="14">
+<span style="flex: 1 1 0; min-width: 0; overflow: visible; white-space: nowrap; text-align: center; font-size: 12px; font-weight: {{c.labelWeight}}; color: {{c.labelInk}}; font-variant-numeric: tabular-nums;">{{c.label}}</span>
+</sc-for>
+</div>
+<div style="display: flex; align-items: center; gap: 4px;">
+<button type="button" onClick="{{dayPrev}}" aria-disabled="{{dayPrevDisabled}}" aria-label="Предыдущий день" style="flex: 0 0 44px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border: 0; border-radius: 9999px; background: {{t.track}}; color: {{t.ink}}; opacity: {{dayPrevOpacity}}; cursor: pointer;"><svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true"><path d="M12.5 4.5 7 10l5.5 5.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
+<div aria-live="polite" style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 1px; text-align: center;">
+<span style="font-size: 13px; font-weight: 600; color: {{t.muted}};">{{readoutTop}}</span>
+<sc-if value="{{hasReadoutValue}}" hint-placeholder-val="{{false}}">
+<span style="font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums; color: {{t.ink}};">{{readoutValue}}</span>
+</sc-if>
+</div>
+<button type="button" onClick="{{dayNext}}" aria-disabled="{{dayNextDisabled}}" aria-label="Следующий день" style="flex: 0 0 44px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border: 0; border-radius: 9999px; background: {{t.track}}; color: {{t.ink}}; opacity: {{dayNextOpacity}}; cursor: pointer;"><svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true"><path d="M7.5 4.5 13 10l-5.5 5.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
+</div>
+</section>
+</sc-if>
+
+<section aria-label="Операции" style="flex: 0 0 auto; display: flex; flex-direction: column; gap: 10px;">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 4px 0;">
+<h2 style="margin: 0; font-size: 18px; line-height: 1.3; font-weight: 800; letter-spacing: -0.3px;">Операции</h2>
+<sc-if value="{{hasDay}}" hint-placeholder-val="{{false}}">
+<button type="button" onClick="{{clearDay}}" aria-label="{{dayChipAria}}" style="height: 44px; margin-right: -4px; padding: 0 12px; display: flex; align-items: center; gap: 6px; border: 0; border-radius: 9999px; background: {{t.primaryBg}}; color: {{t.primaryInk}}; font-family: inherit; font-size: 13px; font-weight: 800; cursor: pointer;">{{dayChip}}<svg width="14" height="14" viewBox="0 0 20 20" aria-hidden="true"><path d="M5.5 5.5l9 9m0-9-9 9" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"></path></svg></button>
+</sc-if>
+</div>
+<sc-for list="{{groups}}" as="g" hint-placeholder-count="3">
+<div style="display: flex; flex-direction: column; gap: 6px;">
+<div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 0 4px;">
+<h3 style="margin: 0; font-size: 13px; font-weight: 700; color: {{t.muted}};">{{g.label}}</h3>
+<span style="font-size: 13px; font-weight: 800; font-variant-numeric: tabular-nums; color: {{g.totalInk}};"><span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;">Итог дня: </span>{{g.total}}</span>
+</div>
+<ul style="list-style: none; margin: 0; padding: 4px 8px; border-radius: 24px; background: {{t.card}};">
+<sc-for list="{{g.rows}}" as="r" hint-placeholder-count="2">
+<li style="display: flex; align-items: center; border-radius: 18px; box-shadow: {{r.ring}};">
+<button type="button" onClick="{{r.quickCat}}" aria-label="{{r.catAria}}" style="flex: 0 0 52px; width: 52px; height: 60px; display: flex; align-items: center; justify-content: center; padding: 0 0 0 4px; border: 0; border-radius: 18px; background: transparent; cursor: pointer;"><span aria-hidden="true" style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 9999px; background: {{r.color}}; color: #141416; font-size: 15px; font-weight: 800;">{{r.letter}}</span></button>
+<button type="button" onClick="{{r.open}}" aria-label="{{r.aria}}" style="flex: 1 1 auto; min-width: 0; min-height: 60px; display: flex; align-items: center; gap: 12px; padding: 10px 8px; border: 0; border-radius: 18px; background: transparent; color: {{t.ink}}; font-family: inherit; text-align: left; cursor: pointer;">
+<span style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px;">
+<span style="font-size: 15px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{r.title}}</span>
+<span style="font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: {{t.muted}};">{{r.sub}}</span>
+</span>
+<span style="flex: 0 0 auto; font-size: 15px; font-weight: 800; white-space: nowrap; font-variant-numeric: tabular-nums; color: {{r.amountColor}};">{{r.amount}}</span>
+</button>
+</li>
+</sc-for>
+</ul>
+</div>
+</sc-for>
+<sc-if value="{{noOps}}" hint-placeholder-val="{{false}}">
+<p style="margin: 0; padding: 20px; border-radius: 24px; background: {{t.card}}; font-size: 14px; font-weight: 500; color: {{t.muted}};">{{noOpsText}}</p>
+</sc-if>
+</section>
+</div>
+</sc-if>
+
+<sc-if value="{{hasToast}}" hint-placeholder-val="{{false}}">
+<div role="status" style="position: absolute; left: 16px; right: 16px; bottom: 24px; z-index: 15; min-height: 56px; box-sizing: border-box; display: flex; align-items: center; gap: 12px; padding: 6px 6px 6px 16px; border-radius: 24px; background: {{t.primaryBg}}; color: {{t.primaryInk}};">
+<sc-if value="{{toastIsCheck}}" hint-placeholder-val="{{false}}">
+<span aria-hidden="true" style="flex: 0 0 24px; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 9999px; background: #c9efd9; color: #14532d;"><svg width="14" height="14" viewBox="0 0 20 20"><path d="M4.5 10.5 8 14l7.5-8" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+</sc-if>
+<sc-if value="{{toastIsDelete}}" hint-placeholder-val="{{true}}">
+<svg width="22" height="22" viewBox="0 0 20 20" aria-hidden="true" style="flex: 0 0 22px;"><path d="M4 6h12M8 6V4.5h4V6m-6.5 0 .8 9.5a1.5 1.5 0 0 0 1.5 1.4h4.4a1.5 1.5 0 0 0 1.5-1.4L14.5 6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+</sc-if>
+<span style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px;">
+<span style="font-size: 14px; font-weight: 800;">{{toastTitle}}</span>
+<span style="font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: {{t.primarySub}};">{{toastDetail}}</span>
+</span>
+<button type="button" onClick="{{undo}}" style="flex: 0 0 auto; height: 44px; padding: 0 14px; border: 0; border-radius: 9999px; background: transparent; color: {{t.primaryInk}}; font-family: inherit; font-size: 14px; font-weight: 800; text-decoration: underline; cursor: pointer;">Отменить</button>
+</div>
+</sc-if>
+
+<sc-if value="{{sheetOpen}}" hint-placeholder-val="{{false}}">
+<div style="position: absolute; left: 0; top: 0; width: 390px; height: 844px; z-index: 20;">
+<dc-import name="Pastel_TxnSheet" dark="{{dark}}" txn="{{openTxn}}" saved="{{saved}}" conv-hint="{{convHint}}" on-field="{{openField}}" on-type="{{setType}}" on-amount="{{setAmount}}" on-note="{{setNote}}" on-convert="{{convert}}" on-delete="{{deleteOpen}}" on-close="{{closeSheet}}" hint-size="390px,844px"></dc-import>
+</div>
+</sc-if>
+
+<sc-if value="{{pickerOpen}}" hint-placeholder-val="{{false}}">
+<div style="position: absolute; left: 0; top: 0; width: 390px; height: 844px; z-index: 30;">
+<dc-import name="Pastel_Picker" dark="{{dark}}" kind="{{pickerKind}}" heading="{{pickerHeading}}" options="{{pickerOptions}}" selected="{{pickerSelected}}" min-month="2026-08" context="{{pickerContext}}" on-more="{{pickerMore}}" on-pick="{{pickValue}}" on-close="{{closePicker}}" hint-size="390px,844px"></dc-import>
+</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"homeHref":{"editor":null,"default":"Pastel_Home.dc.html"},"addHref":{"editor":null,"default":"Pastel_Add.dc.html"},"auditHref":{"editor":null,"default":"Pastel_Audit.dc.html"},"startKind":{"editor":null},"startMonth":{"editor":null},"startCat":{"editor":null},"freshDays":{"editor":null},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  theme() {
+    if (this.props.dark) {
+      return { bg: "#111214", card: "#1b1c1f", ink: "#f4f4f6", muted: "#9d9da6", segOff: "#b0b0b8", track: "#26272b", segOn: "#3a3b40", segShadow: "none", line: "#34353a", tick: "#9d9da6", dim: "#6b6c74", hero: "#f4f4f6", heroInk: "#141416", heroMuted: "#5d5d66", heroLine: "rgba(0, 0, 0, 0.1)", income: "#6fd59a", primaryBg: "#f4f4f6", primaryInk: "#141416", primarySub: "#5d5d66" };
+    }
+    return { bg: "#f3f3f5", card: "#ffffff", ink: "#141416", muted: "#6b6b74", segOff: "#5d5d66", track: "#e7e7ec", segOn: "#ffffff", segShadow: "0 1px 3px rgba(0, 0, 0, 0.1)", line: "#ececf0", tick: "#6b6b74", dim: "#94949c", hero: "#141416", heroInk: "#ffffff", heroMuted: "#b5b5bd", heroLine: "rgba(255, 255, 255, 0.16)", income: "#15803d", primaryBg: "#141416", primaryInk: "#ffffff", primarySub: "#b5b5bd" };
+  }
+  expCats() { return [["pr", "Продукты", "#ffdcc8"], ["kf", "Кафе", "#ffd6e0"], ["tr", "Транспорт", "#cfe3ff"], ["dm", "Дом", "#ede3d6"], ["sv", "Связь", "#e3dcff"], ["zd", "Здоровье", "#c9efd9"], ["pk", "Покупки", "#fbefb3"], ["dr", "Другое", "#e6e6ea"]]; }
+  incCats() { return [["zp", "Зарплата", "#c9efd9"], ["fr", "Фриланс", "#e3dcff"], ["bz", "Бизнес", "#cfe3ff"], ["pd", "Подарки", "#ffd6e0"], ["kb", "Кэшбэк", "#fbefb3"], ["pc", "Проценты", "#ffdcc8"], ["vz", "Возврат", "#ede3d6"], ["dx", "Другое", "#e6e6ea"]]; }
+  catInfo(id) {
+    const c = this.expCats().concat(this.incCats()).find((x) => x[0] === id);
+    return c ? { name: c[1], color: c[2] } : { name: "Без категории", color: "#e6e6ea" };
+  }
+  accOpts() { return [{ id: "cash", name: "Наличные", bal: "1 250 000 сум" }, { id: "card", name: "Карта", bal: "3 180 000 сум" }, { id: "usd", name: "Доллары", bal: "420,00 USD" }]; }
+  accName(id) { return id === "cash" ? "Наличные" : (id === "usd" ? "Доллары" : "Карта"); }
+  rate() { return 12650; }
+  pad(n) { return n < 10 ? "0" + n : String(n); }
+  nom() { return ["январь", "февраль", "март", "апрель", "май", "июнь", "июль", "август", "сентябрь", "октябрь", "ноябрь", "декабрь"]; }
+  gen() { return ["января", "февраля", "марта", "апреля", "мая", "июня", "июля", "августа", "сентября", "октября", "ноября", "декабря"]; }
+  dat() { return ["январю", "февралю", "марту", "апрелю", "маю", "июню", "июлю", "августу", "сентябрю", "октябрю", "ноябрю", "декабрю"]; }
+  prep() { return ["январе", "феврале", "марте", "апреле", "мае", "июне", "июле", "августе", "сентябре", "октябре", "ноябре", "декабре"]; }
+  seed() {
+    const out = [];
+    let k = 0;
+    const add = (m, d, type, cat, amount, acc, note) => { k++; out.push({ id: "a" + k, type: type, cat: cat, amount: amount, acc: acc, date: "2026-" + this.pad(m) + "-" + this.pad(d), note: note }); };
+    const oct = [
+      [14, "pr", 186400, "card", "Супермаркет"], [14, "tr", 24000, "cash", "Такси"],
+      [13, "kf", 145000, "card", "Обед с командой"], [13, "tr", 32000, "card", "Такси домой"],
+      [12, "sv", 60000, "card", "Мобильная связь"], [12, "tr", 85000, "cash", "Такси в аэропорт"], [12, "pr", 94000, "cash", "Рынок"],
+      [11, "kf", 25000, "cash", "Кофе"], [11, "pk", 640000, "card", "Кроссовки"], [11, "dm", 312000, "card", "Коммуналка"],
+      [10, "zd", 48000, "cash", "Аптека"], [10, "tr", 21000, "card", "Такси"],
+      [9, "kf", 286000, "card", "Ужин с друзьями"], [9, "pr", 308000, "cash", "Рынок"], [9, "tr", 120000, "card", "Бензин"],
+      [8, "kf", 28000, "cash", "Кофе"], [8, "dm", 500000, "card", "Посуда"], [8, "pk", 240000, "card", "Книги"], [8, "tr", 20000, "cash", "Парковка"], [8, "dr", 100000, "cash", "Стрижка"],
+      [7, "kf", 62000, "card", "Обед"], [7, "pr", 451000, "card", "Супермаркет"], [7, "tr", 34000, "card", "Такси"], [7, "zd", 72000, "cash", "Аптека"],
+      [6, "kf", 25000, "cash", "Кофе"], [6, "pr", 64000, "cash", "Хлеб и молоко"], [6, "tr", 26000, "cash", "Такси"], [6, "dr", 200000, "card", "Подарок коллеге"],
+      [5, "kf", 318000, "card", "Семейный ужин"], [5, "dm", 400000, "cash", "Ремонт крана"], [5, "tr", 40000, "card", "Метро"],
+      [4, "pr", 388600, "card", "Супермаркет"], [4, "pk", 180000, "card", "Футболка"],
+      [3, "kf", 58000, "card", "Обед"], [3, "pr", 236000, "cash", "Рынок"], [3, "tr", 18400, "cash", "Такси"], [3, "zd", 400000, "card", "Стоматолог"],
+      [2, "kf", 25000, "cash", "Кофе"], [2, "tr", 300000, "card", "Бензин"], [2, "sv", 50000, "card", "Второй номер"], [3, "sv", 50000, "card", "Кинопоиск"], [6, "sv", 20000, "cash", "Мобильная связь"],
+      [1, "kf", 120000, "card", "Пицца"], [1, "pr", 412000, "card", "Супермаркет"], [1, "dm", 238000, "card", "Хозтовары"], [1, "tr", 22000, "cash", "Такси"], [1, "sv", 200000, "card", "Домашний интернет"]
+    ];
+    oct.forEach((r) => add(10, r[0], "expense", r[1], r[2], r[3], r[4]));
+    add(10, 13, "income", "zp", 12500000, "card", "За сентябрь");
+    add(10, 13, "income", "fr", 300, "usd", "Лендинг");
+    const AS = [[8, 1, "tr", 240000, "card", "Бензин"], [8, 1, "sv", 200000, "card", "Домашний интернет"], [8, 1, "pr", 420000, "card", "Супермаркет"], [8, 2, "kf", 27000, "cash", "Кофе"], [8, 2, "sv", 80000, "card", "Мобильная связь"], [8, 2, "dm", 352000, "card", "Коммуналка"], [8, 3, "tr", 25000, "cash", "Такси"], [8, 3, "sv", 50000, "card", "Второй номер"], [8, 4, "kf", 58000, "card", "Обед"], [8, 4, "pr", 380000, "card", "Супермаркет"], [8, 5, "kf", 27000, "cash", "Кофе"], [8, 5, "tr", 30000, "cash", "Парковка"], [8, 5, "sv", 50000, "card", "Кинопоиск"], [8, 6, "tr", 40000, "card", "Метро"], [8, 6, "pk", 380000, "card", "Рюкзак"], [8, 7, "dm", 600000, "card", "Ремонт кондиционера"], [8, 7, "pr", 200000, "cash", "Рынок"], [8, 8, "kf", 27000, "cash", "Кофе"], [8, 8, "tr", 30000, "cash", "Парковка"], [8, 8, "pr", 450000, "card", "Супермаркет"], [8, 9, "kf", 170000, "card", "Доставка еды"], [8, 9, "tr", 240000, "card", "Бензин"], [8, 10, "tr", 28000, "cash", "Такси"], [8, 10, "zd", 60000, "cash", "Аптека"], [8, 11, "kf", 62000, "card", "Обед"], [8, 11, "dm", 180000, "cash", "Хозтовары"], [8, 11, "pr", 390000, "card", "Супермаркет"], [8, 12, "kf", 27000, "cash", "Кофе"], [8, 12, "tr", 30000, "cash", "Парковка"], [8, 13, "pk", 700000, "card", "Одежда"], [8, 13, "dr", 100000, "cash", "Стрижка"], [8, 14, "kf", 65000, "card", "Обед"], [8, 14, "dm", 900000, "card", "Шторы"], [8, 15, "kf", 27000, "cash", "Кофе"], [8, 15, "pr", 410000, "card", "Супермаркет"], [8, 16, "kf", 240000, "card", "Ужин"], [8, 16, "tr", 240000, "card", "Бензин"], [8, 17, "tr", 26000, "cash", "Такси"], [8, 17, "zd", 410000, "card", "Стоматолог"], [8, 18, "kf", 60000, "card", "Обед"], [8, 18, "dm", 210000, "cash", "Хозтовары"], [8, 18, "pr", 395000, "card", "Супермаркет"], [8, 19, "kf", 27000, "cash", "Кофе"], [8, 19, "tr", 30000, "cash", "Парковка"], [8, 19, "pr", 210000, "cash", "Рынок"], [8, 20, "tr", 40000, "card", "Метро"], [8, 20, "pk", 220000, "card", "Книги"], [8, 20, "dr", 300000, "card", "Подарок на день рождения брата"], [8, 21, "dm", 500000, "card", "Посуда"], [8, 22, "kf", 27000, "cash", "Кофе"], [8, 22, "tr", 30000, "cash", "Парковка"], [8, 22, "pr", 430000, "card", "Супермаркет"], [8, 23, "kf", 182000, "card", "Доставка еды"], [8, 24, "tr", 27000, "cash", "Такси"], [8, 24, "tr", 240000, "card", "Бензин"], [8, 24, "dr", 210000, "card", "Химчистка"], [8, 25, "kf", 60000, "card", "Обед"], [8, 25, "pk", 400000, "card", "Часы"], [8, 25, "pr", 415000, "card", "Супермаркет"], [8, 26, "kf", 27000, "cash", "Кофе"], [8, 26, "zd", 50000, "cash", "Аптека"], [8, 27, "tr", 30000, "cash", "Парковка"], [8, 27, "dm", 158000, "cash", "Хозтовары"], [8, 28, "tr", 24000, "cash", "Такси"], [8, 28, "pk", 500000, "card", "Одежда"], [8, 29, "kf", 27000, "cash", "Кофе"], [8, 29, "pr", 200000, "cash", "Рынок"], [8, 30, "kf", 260000, "card", "Ужин"], [8, 31, "tr", 30000, "cash", "Такси"], [9, 1, "kf", 28000, "cash", "Кофе"], [9, 1, "sv", 200000, "card", "Домашний интернет"], [9, 1, "pr", 420000, "card", "Супермаркет"], [9, 2, "kf", 28000, "cash", "Кофе"], [9, 2, "tr", 24000, "cash", "Такси"], [9, 2, "sv", 80000, "card", "Мобильная связь"], [9, 2, "dm", 348000, "card", "Коммуналка"], [9, 3, "kf", 28000, "cash", "Кофе"], [9, 3, "tr", 240000, "card", "Бензин"], [9, 3, "sv", 50000, "card", "Второй номер"], [9, 4, "kf", 62000, "card", "Обед"], [9, 4, "zd", 260000, "card", "Анализы"], [9, 4, "pr", 388000, "card", "Супермаркет"], [9, 5, "kf", 28000, "cash", "Кофе"], [9, 5, "tr", 27000, "cash", "Такси"], [9, 5, "sv", 50000, "card", "Кинопоиск"], [9, 6, "kf", 28000, "cash", "Кофе"], [9, 6, "kf", 180000, "card", "Доставка еды"], [9, 6, "pk", 690000, "card", "Наушники"], [9, 6, "pr", 230000, "cash", "Рынок"], [9, 7, "tr", 31000, "cash", "Такси"], [9, 7, "dm", 700000, "card", "Ремонт ванной"], [9, 8, "kf", 28000, "cash", "Кофе"], [9, 8, "tr", 40000, "card", "Метро"], [9, 8, "zd", 300000, "card", "Стоматолог"], [9, 8, "pr", 452000, "card", "Супермаркет"], [9, 9, "kf", 28000, "cash", "Кофе"], [9, 9, "tr", 22000, "cash", "Такси"], [9, 9, "dm", 162000, "cash", "Хозтовары"], [9, 10, "kf", 58000, "card", "Обед"], [9, 10, "tr", 226000, "card", "Бензин"], [9, 10, "dr", 100000, "cash", "Стрижка"], [9, 11, "kf", 186000, "card", "Доставка еды"], [9, 11, "tr", 29000, "cash", "Такси"], [9, 11, "zd", 50000, "cash", "Аптека"], [9, 11, "pr", 310000, "card", "Супермаркет"], [9, 12, "kf", 28000, "cash", "Кофе"], [9, 12, "tr", 26000, "cash", "Такси"], [9, 12, "dm", 240000, "card", "Посуда"], [9, 13, "kf", 70000, "card", "Обед"], [9, 13, "pk", 130000, "card", "Книги"], [9, 13, "pr", 180000, "cash", "Рынок"], [9, 14, "tr", 25000, "cash", "Такси"], [9, 14, "dr", 160000, "card", "Подарок коллеге"], [9, 15, "kf", 28000, "cash", "Кофе"], [9, 15, "pr", 460000, "card", "Супермаркет"], [9, 16, "tr", 28000, "cash", "Такси"], [9, 16, "dm", 900000, "card", "Ремонт ванной"], [9, 17, "kf", 28000, "cash", "Кофе"], [9, 17, "tr", 250000, "card", "Бензин"], [9, 17, "pr", 250000, "cash", "Рынок"], [9, 18, "kf", 176000, "card", "Доставка еды"], [9, 18, "tr", 24000, "cash", "Такси"], [9, 19, "kf", 28000, "cash", "Кофе"], [9, 19, "tr", 20000, "cash", "Парковка"], [9, 19, "zd", 80000, "cash", "Аптека"], [9, 19, "pr", 395000, "card", "Супермаркет"], [9, 20, "tr", 32000, "cash", "Такси"], [9, 20, "pk", 420000, "card", "Одежда"], [9, 21, "kf", 28000, "cash", "Кофе"], [9, 21, "dm", 190000, "cash", "Хозтовары"], [9, 22, "kf", 280000, "card", "Ужин с друзьями"], [9, 22, "dr", 200000, "card", "Подарок на свадьбу"], [9, 23, "kf", 28000, "cash", "Кофе"], [9, 23, "tr", 25000, "cash", "Парковка"], [9, 23, "pr", 430000, "card", "Супермаркет"], [9, 24, "tr", 26000, "cash", "Такси"], [9, 24, "zd", 170000, "card", "Витамины"], [9, 25, "kf", 28000, "cash", "Кофе"], [9, 25, "dm", 360000, "card", "Полка"], [9, 26, "kf", 190000, "card", "Доставка еды"], [9, 26, "pr", 200000, "cash", "Рынок"], [9, 27, "kf", 28000, "cash", "Кофе"], [9, 27, "tr", 30000, "cash", "Такси"], [9, 27, "pk", 140000, "card", "Чехол для телефона"], [9, 28, "tr", 245000, "card", "Бензин"], [9, 28, "pr", 405000, "card", "Супермаркет"], [9, 29, "kf", 28000, "cash", "Кофе"], [9, 29, "tr", 25000, "cash", "Такси"], [9, 29, "dr", 80000, "cash", "Стрижка"], [9, 30, "tr", 25000, "cash", "Парковка"]];
+    AS.forEach((r) => add(r[0], r[1], "expense", r[2], r[3], r[4], r[5]));
+    add(9, 12, "income", "zp", 12500000, "card", "За август");
+    add(9, 25, "income", "fr", 200, "usd", "Логотип");
+    add(9, 30, "income", "kb", 180000, "card", "Кэшбэк");
+    add(8, 12, "income", "zp", 12500000, "card", "За июль");
+    add(8, 20, "income", "pd", 500000, "cash", "Подарок на день рождения");
+    add(8, 31, "income", "kb", 150000, "card", "Кэшбэк");
+    return out;
+  }
+  fmtInt(s) { return String(s).replace(/\B(?=(\d{3})+(?!\d))/g, " "); }
+  fmtNum(n, usd) {
+    if (usd) { const p = Number(n).toFixed(2).split("."); return this.fmtInt(p[0]) + "," + p[1]; }
+    return this.fmtInt(Math.round(Number(n)));
+  }
+  fmtAmt(x) { return (x.type === "income" ? "+" : "−") + this.fmtNum(x.amount, x.acc === "usd") + (x.acc === "usd" ? " USD" : ""); }
+  fmtFull(x) { return (x.type === "income" ? "+" : "−") + this.fmtNum(x.amount, x.acc === "usd") + (x.acc === "usd" ? "\u00a0USD" : "\u00a0сум"); }
+  fmtPlain(x) { return this.fmtNum(x.amount, x.acc === "usd") + (x.acc === "usd" ? "\u00a0USD" : "\u00a0сум"); }
+  diffWords(d) { return "на " + this.fmtInt(Math.abs(Math.round(d))) + "\u00a0сум " + (d >= 0 ? "больше" : "меньше"); }
+  som(x) { return x.acc === "usd" ? x.amount * this.rate() : x.amount; }
+  signed(n) { const r = Math.round(n); return (r > 0 ? "+" : (r < 0 ? "−" : "")) + this.fmtInt(Math.abs(r)); }
+  plural(n, one, few, many) {
+    const m10 = n % 10;
+    const m100 = n % 100;
+    if (m10 === 1 && m100 !== 11) return one;
+    if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return few;
+    return many;
+  }
+  daysIn(key) { const y = parseInt(key.slice(0, 4), 10); const m = parseInt(key.slice(5, 7), 10); return new Date(Date.UTC(y, m, 0)).getUTCDate(); }
+  shift(key, d) { const y = parseInt(key.slice(0, 4), 10); const m = parseInt(key.slice(5, 7), 10) - 1 + d; const yy = y + Math.floor(m / 12); const mm = ((m % 12) + 12) % 12; return yy + "-" + this.pad(mm + 1); }
+  st() {
+    const s = this.state || {};
+    const fresh = this.props.freshDays !== undefined && this.props.freshDays !== null ? Number(this.props.freshDays) : null;
+    return {
+      fresh: fresh,
+      txns: s.txns || this.seed(),
+      kind: s.kind || this.props.startKind || "expense",
+      month: s.month || this.props.startMonth || "2026-10",
+      cat: s.cat !== undefined ? s.cat : (this.props.startCat ?? null),
+      day: s.day || null,
+      openId: s.openId || null,
+      keepId: s.keepId || null,
+      picker: s.picker || null,
+      direct: !!s.direct,
+      undo: s.undo || [],
+      editedId: s.editedId || null,
+      flashId: s.flashId || null,
+      saved: !!s.saved,
+      convHint: s.convHint || null,
+      typeRevert: s.typeRevert || null,
+      pendingRedate: s.pendingRedate || null
+    };
+  }
+  months(s) { return s.fresh !== null ? ["2026-10"] : ["2026-08", "2026-09", "2026-10"]; }
+  startKey(s) { return s.fresh !== null ? "2026-10" : "2026-08"; }
+  periodOf(s, key, income) {
+    const cur = key === "2026-10";
+    const last = cur ? (s.fresh !== null ? s.fresh : 14) : this.daysIn(key);
+    const m = parseInt(key.slice(5, 7), 10) - 1;
+    const prevKey = this.shift(key, -1);
+    const hasPrev = prevKey >= this.startKey(s) && this.months(s).indexOf(prevKey) !== -1;
+    const pm = (m + 11) % 12;
+    const prevDays = this.daysIn(prevKey);
+    const prevTo = cur && !income ? Math.min(last, prevDays) : prevDays;
+    const prevFull = prevTo === prevDays;
+    return {
+      key: key, cur: cur, from: 1, to: last, days: last,
+      label: cur ? (last === 1 ? "1" : "1–" + last) + "\u00a0" + this.gen()[m] : this.nom()[m],
+      title: this.nom()[m].charAt(0).toUpperCase() + this.nom()[m].slice(1) + " " + key.slice(0, 4),
+      prevKey: prevKey, hasPrev: hasPrev, prevTo: prevTo,
+      prevLabel: prevFull ? this.nom()[pm] : "1–" + prevTo + " " + this.gen()[pm],
+      toPrev: prevFull ? "к " + this.dat()[pm] : "к 1–" + prevTo + " " + this.gen()[pm],
+      inPrev: prevFull ? "в " + this.prep()[pm] : "в те же дни " + this.gen()[pm],
+      thanPrev: prevFull ? "чем в " + this.prep()[pm] : "чем за 1–" + prevTo + " " + this.gen()[pm],
+      likePrev: prevFull ? "как в " + this.prep()[pm] : "как за 1–" + prevTo + " " + this.gen()[pm],
+      monthPrep: this.prep()[m],
+      legend: prevFull ? "было в " + this.prep()[pm] : "было за 1–" + prevTo + "\u00a0" + this.gen()[pm]
+    };
+  }
+  inRange(x, key, to) { return x.date.slice(0, 7) === key && parseInt(x.date.slice(8, 10), 10) <= to; }
+  totals(list, type) {
+    const by = {};
+    let sum = 0;
+    list.forEach((x) => { if (x.type !== type) return; const v = this.som(x); by[x.cat] = (by[x.cat] || 0) + v; sum += v; });
+    return { by: by, sum: sum };
+  }
+  shares(by, sum) {
+    const ids = Object.keys(by).filter((k) => by[k] > 0);
+    const raw = ids.map((k) => ({ k: k, v: sum > 0 ? (by[k] / sum) * 100 : 0 }));
+    raw.forEach((r) => { r.f = Math.floor(r.v); r.rem = r.v - r.f; });
+    let left = 100 - raw.reduce((a, r) => a + r.f, 0);
+    raw.slice().sort((a, b) => b.rem - a.rem).forEach((r) => { if (left > 0 && sum > 0) { r.f += 1; left -= 1; } });
+    const out = {};
+    raw.forEach((r) => { out[r.k] = r.f; });
+    return out;
+  }
+  pct(cur, prev) { return prev > 0 ? Math.round(((cur - prev) / prev) * 100) : null; }
+  arrow(p) { return p > 0 ? "↑ " + p + "%" : (p < 0 ? "↓ " + Math.abs(p) + "%" : "= 0%"); }
+  timers() { if (!this._timers) this._timers = {}; return this._timers; }
+  pushUndo(action) {
+    const key = "u" + Date.now() + "_" + Math.floor(Math.random() * 1e6);
+    this.setState({ undo: this.st().undo.concat([Object.assign({ key: key }, action)]) });
+    this.timers()[key] = setTimeout(() => {
+      delete this.timers()[key];
+      this.setState((prev) => ({ undo: ((prev && prev.undo) || []).filter((u) => u.key !== key) }));
+    }, 4000);
+  }
+  undo() {
+    const s = this.st();
+    const top = s.undo[s.undo.length - 1];
+    if (!top) return;
+    clearTimeout(this.timers()[top.key]);
+    delete this.timers()[top.key];
+    const rest = s.undo.slice(0, -1);
+    if (top.kind === "recat" || top.kind === "redate") {
+      const p = top.kind === "recat" ? { cat: top.prevCat } : { date: top.prevDate };
+      this.setState({ txns: s.txns.map((x) => (x.id === top.id ? Object.assign({}, x, p) : x)), undo: rest });
+      return;
+    }
+    const txns = s.txns.slice();
+    txns.splice(Math.min(top.idx, txns.length), 0, top.txn);
+    this.setState({ txns: txns, undo: rest });
+  }
+  flash(id) {
+    clearTimeout(this._fl);
+    this.setState({ flashId: id });
+    this._fl = setTimeout(() => this.setState({ flashId: null }), 2000);
+  }
+  patch(id, p) {
+    clearTimeout(this._sv);
+    this.setState({ txns: this.st().txns.map((x) => (x.id === id ? Object.assign({}, x, p) : x)), editedId: id, keepId: id, saved: true });
+    this._sv = setTimeout(() => this.setState({ saved: false }), 2000);
+  }
+  restore(id, p) { this.setState({ txns: this.st().txns.map((x) => (x.id === id ? Object.assign({}, x, p) : x)) }); }
+  pickValue(val) {
+    const s = this.st();
+    const x = s.txns.find((y) => y.id === s.openId);
+    if (!x) { this.setState({ picker: null, direct: false }); return; }
+    if (s.picker === "category") {
+      if (s.direct && val !== x.cat) this.pushUndo({ kind: "recat", id: x.id, prevCat: x.cat, title: "Категория изменена", detail: this.catInfo(x.cat).name + " → " + this.catInfo(val).name });
+      this.patch(x.id, { cat: val });
+      this.setState({ typeRevert: null });
+    }
+    if (s.picker === "date" && val !== x.date) {
+      if (val.slice(0, 7) !== s.month) {
+        const m = parseInt(val.slice(5, 7), 10) - 1;
+        const first = s.pendingRedate && s.pendingRedate.id === x.id ? s.pendingRedate.prevDate : x.date;
+        this.setState({ pendingRedate: { kind: "redate", id: x.id, prevDate: first, title: "Дата изменена", detail: "Перенесено на " + parseInt(val.slice(8, 10), 10) + "\u00a0" + this.gen()[m] + " · " + this.fmtFull(x) } });
+      } else if (s.day) {
+        this.setState({ day: parseInt(val.slice(8, 10), 10) });
+      }
+      this.patch(x.id, { date: val });
+    }
+    if (s.picker === "account" && val !== x.acc) {
+      const h = s.convHint && s.convHint.id === x.id ? s.convHint : null;
+      const origin = h ? h.origin : { acc: x.acc, amount: x.amount };
+      const isUsd = val === "usd";
+      this.patch(x.id, { acc: val });
+      if ((origin.acc === "usd") === isUsd) {
+        this.setState({ convHint: null });
+      } else {
+        const conv = isUsd ? Math.round((origin.amount / this.rate()) * 100) / 100 : Math.round(origin.amount * this.rate());
+        this.setState({ convHint: { id: x.id, origin: origin, amount: conv, note: "Валюта сменилась, число осталось прежним", label: "Пересчитать: " + this.fmtNum(conv, isUsd) + (isUsd ? " USD" : " сум") } });
+      }
+    }
+    if (s.direct) {
+      this.setState({ picker: null, direct: false, openId: null, editedId: null });
+      this.flash(x.id);
+      return;
+    }
+    this.setState({ picker: null });
+  }
+  closePicker() {
+    const s = this.st();
+    const r = s.typeRevert;
+    if (r && r.id === s.openId) this.restore(r.id, { type: r.type, cat: r.cat });
+    if (s.direct) this.setState({ picker: null, direct: false, openId: null, typeRevert: null });
+    else this.setState({ picker: null, typeRevert: null });
+  }
+  closeSheet() {
+    const s = this.st();
+    const pr = s.pendingRedate;
+    this.setState({ openId: null, picker: null, direct: false, editedId: null, convHint: null, saved: false, pendingRedate: null });
+    if (pr) { const x = s.txns.find((y) => y.id === pr.id); if (x && x.date.slice(0, 7) !== s.month) this.pushUndo(pr); }
+    if (s.editedId) this.flash(s.editedId);
+  }
+  deleteOpen() {
+    const s = this.st();
+    const idx = s.txns.findIndex((y) => y.id === s.openId);
+    if (idx === -1) return;
+    const x = s.txns[idx];
+    this.setState({ txns: s.txns.filter((y) => y.id !== x.id), openId: null, picker: null, direct: false, editedId: null, convHint: null, saved: false, pendingRedate: null });
+    this.pushUndo({ kind: "delete", txn: x, idx: idx, title: "Удалено", detail: this.catInfo(x.cat).name + " · " + this.fmtFull(x) });
+  }
+  componentWillUnmount() {
+    clearTimeout(this._fl);
+    clearTimeout(this._sv);
+    const tm = this.timers();
+    Object.keys(tm).forEach((k) => clearTimeout(tm[k]));
+  }
+  q(note) { return "«" + note + "»"; }
+  renderVals() {
+    const t = this.theme();
+    const s = this.st();
+    const P = this.periodOf(s, s.month, s.kind === "income");
+    const ms = this.months(s);
+    const mi = ms.indexOf(s.month);
+    const exp = s.kind !== "income";
+    const type = exp ? "expense" : "income";
+    const word = exp ? "расходов" : "доходов";
+    const NB = " ";
+    const pool = s.fresh !== null ? s.txns.filter((x) => x.date.slice(0, 7) !== "2026-10" || parseInt(x.date.slice(8, 10), 10) <= s.fresh) : s.txns;
+    const curList = pool.filter((x) => this.inRange(x, P.key, P.to));
+    const prevList = P.hasPrev ? pool.filter((x) => this.inRange(x, P.prevKey, P.prevTo)) : [];
+    const T = this.totals(curList, type);
+    const Tp = this.totals(prevList, type);
+    const sh = this.shares(T.by, T.sum);
+    const catList = exp ? this.expCats() : this.incCats();
+    const ids = catList.map((c) => c[0]).filter((k) => (T.by[k] || 0) > 0 || (Tp.by[k] || 0) > 0);
+    ids.sort((a, b) => ((T.by[b] || 0) - (T.by[a] || 0)) || ((Tp.by[b] || 0) - (Tp.by[a] || 0)));
+    const hasCompare = P.hasPrev && Tp.sum > 0;
+    const maxV = ids.reduce((m, k) => Math.max(m, T.by[k] || 0, hasCompare ? (Tp.by[k] || 0) : 0), 0) || 1;
+    const usdIn = curList.some((x) => x.type === type && x.acc === "usd");
+    const few = P.cur && P.days < 7;
+    const incomplete = !exp && P.cur;
+    const count = (list, k) => list.filter((x) => x.type === type && x.cat === k).length;
+
+    const rows = ids.map((k) => {
+      const c = this.catInfo(k);
+      const v = T.by[k] || 0;
+      const pv = Tp.by[k] || 0;
+      const p = this.pct(v, pv);
+      const share = (sh[k] || 0) + "%";
+      const usdCat = curList.some((x) => x.type === type && x.cat === k && x.acc === "usd");
+      const partial = incomplete && pv > 0 && v < pv;
+      const delta = partial ? (v === 0 ? "пока нет" : "пока " + Math.round((v / pv) * 100) + "%") : (pv === 0 ? "новое" : (p === 0 ? "как было" : this.arrow(p)));
+      const change = partial ? "пока " + Math.round((v / pv) * 100) + "% от суммы за весь " + P.prevLabel : (pv === 0 ? P.inPrev + " не было" : (p > 0 ? "на " + p + "% больше, " + P.thanPrev : (p < 0 ? "на " + Math.abs(p) + "% меньше, " + P.thanPrev : "столько же, " + P.likePrev)));
+      return {
+        name: c.name,
+        color: c.color,
+        letter: c.name.charAt(0),
+        amount: (usdCat ? "≈" + NB : "") + this.fmtInt(Math.round(v)),
+        barW: Math.max(v > 0 ? 2 : 0, (v / maxV) * 100).toFixed(1) + "%",
+        hasTick: hasCompare && pv > 0,
+        tickX: ((pv / maxV) * 100).toFixed(1) + "%",
+        meta: hasCompare ? delta : share,
+        metaInk: hasCompare && !partial ? t.ink : t.muted,
+        aria: c.name + ": " + this.fmtInt(Math.round(v)) + NB + "сум, " + share + " " + word + (hasCompare ? ", " + change : "") + ". Открыть",
+        open: () => this.setState({ cat: k, day: null })
+      };
+    });
+
+    let insight = "";
+    let heroCompare = "";
+    const tp = this.pct(T.sum, Tp.sum);
+    if (hasCompare && incomplete) heroCompare = "За весь " + P.prevLabel + " — " + this.fmtInt(Math.round(Tp.sum)) + NB + "сум";
+    else if (hasCompare) heroCompare = (tp === 0 ? "Почти " + P.likePrev : (tp > 0 ? "↑ " + tp + "% " : "↓ " + Math.abs(tp) + "% ") + P.toPrev) + " · " + this.diffWords(T.sum - Tp.sum);
+    else if (!P.hasPrev && !few) heroCompare = "Первый месяц учёта — сравнивать пока не с чем";
+    if (few) {
+      const left = 7 - P.days;
+      insight = "Пока записи за " + P.days + " " + this.plural(P.days, "день", "дня", "дней") + " — выводы через " + left + " " + this.plural(left, "день", "дня", "дней") + ", сравнение в ноябре";
+    } else if (hasCompare) {
+      const cand = ids.filter((k) => (exp ? count(curList, k) >= 3 && count(prevList, k) >= 3 : true));
+      const ups = cand.filter((k) => (T.by[k] || 0) > (Tp.by[k] || 0)).sort((a, b) => ((T.by[b] - Tp.by[b]) - (T.by[a] - Tp.by[a])));
+      const downs = cand.filter((k) => (T.by[k] || 0) < (Tp.by[k] || 0)).sort((a, b) => ((T.by[a] || 0) - Tp.by[a]) - ((T.by[b] || 0) - Tp.by[b]));
+      const k = ups[0] || (incomplete ? null : downs[0]);
+      if (k) {
+        const c = this.catInfo(k).name;
+        const pv = Tp.by[k] || 0;
+        const d = (T.by[k] || 0) - pv;
+        if (pv === 0) insight = c + ": " + this.fmtInt(Math.round(d)) + NB + "сум — " + P.inPrev + " не было";
+        else insight = c + ": " + this.diffWords(d) + ", " + P.thanPrev;
+      } else if (ids.length) {
+        insight = "Больше всего — " + this.catInfo(ids[0]).name.toLowerCase() + ": " + (sh[ids[0]] || 0) + "% " + word;
+      }
+    } else if (ids.length) {
+      insight = "Больше всего — " + this.catInfo(ids[0]).name.toLowerCase() + ": " + (sh[ids[0]] || 0) + "% " + word;
+    }
+    const heroAmountText = (usdIn ? "≈" + NB : "") + this.fmtInt(Math.round(T.sum));
+
+    // category view
+    const catId = s.cat;
+    let catVals = { name: "", letter: "", color: "#e6e6ea", amount: "0", amountColor: t.ink, meta: "", hasCompare: false, compare: "", insight: "", hasInsight: false };
+    let cols = [];
+    let groups = [];
+    let readout = "";
+    let readoutActive = false;
+    let readoutValue = "";
+    let showChart = false;
+    let dayChip = "";
+    let chartAria = "";
+    let chartTap = () => {};
+    let dayStep = () => {};
+    let noOpsText = "";
+    if (catId) {
+      const c = this.catInfo(catId);
+      const isInc = this.incCats().some((d) => d[0] === catId);
+      const ctype = isInc ? "income" : "expense";
+      const CP = this.periodOf(s, s.month, isInc);
+      const cCur = pool.filter((x) => this.inRange(x, CP.key, CP.to));
+      const cPrev = CP.hasPrev ? pool.filter((x) => this.inRange(x, CP.prevKey, CP.prevTo)) : [];
+      const inCat = cCur.filter((x) => (x.type === ctype && x.cat === catId) || x.id === s.keepId);
+      const strict = inCat.filter((x) => x.cat === catId && x.type === ctype);
+      const v = strict.reduce((a, x) => a + this.som(x), 0);
+      const tt = this.totals(cCur, ctype);
+      const tpv = this.totals(cPrev, ctype);
+      const pv = tpv.by[catId] || 0;
+      const shAll = this.shares(tt.by, tt.sum);
+      const n = strict.length;
+      const p = this.pct(v, pv);
+      const cmp = CP.hasPrev && tpv.sum > 0;
+      const sorted = strict.slice().sort((a, b) => this.som(b) - this.som(a));
+      const m = parseInt(CP.key.slice(5, 7), 10) - 1;
+      let ins = "";
+      if (n === 0) ins = "В этом периоде операций нет";
+      else if (few) ins = "Выводы появятся через неделю записей";
+      else if (n === 1) ins = "Одна операция — " + parseInt(sorted[0].date.slice(8, 10), 10) + " " + this.gen()[m];
+      else if (n >= 3 && (this.som(sorted[0]) + this.som(sorted[1])) / v >= 0.45) {
+        const lead = (this.som(sorted[0]) + this.som(sorted[1])) / v >= 0.5 ? "Больше половины" : "Почти половина";
+        ins = sorted[0].note === sorted[1].note ? lead + " — две траты " + this.q(sorted[0].note) : lead + " — " + this.q(sorted[0].note) + " и " + this.q(sorted[1].note);
+      } else {
+        const cnt = {};
+        strict.forEach((x) => { cnt[x.note] = (cnt[x.note] || 0) + 1; });
+        const keys = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a]);
+        const tie = keys.length > 1 && cnt[keys[0]] === cnt[keys[1]];
+        ins = cnt[keys[0]] >= 3 && !tie ? "Чаще всего — " + this.q(keys[0]) + ": " + cnt[keys[0]] + " " + this.plural(cnt[keys[0]], "раз", "раза", "раз") : "Крупнейшая — " + this.q(sorted[0].note) + ": " + this.fmtPlain(sorted[0]);
+      }
+      catVals = {
+        name: c.name,
+        letter: c.name.charAt(0),
+        color: c.color,
+        amount: (strict.some((x) => x.acc === "usd") ? "≈" + NB : "") + this.fmtInt(Math.round(v)),
+        amountColor: isInc ? t.income : t.ink,
+        meta: (shAll[catId] || 0) + "% " + (isInc ? "доходов" : "расходов") + " · " + n + " " + this.plural(n, "операция", "операции", "операций") + (n > 1 ? " · в среднем " + this.fmtInt(Math.round(v / n)) + NB + "сум" : ""),
+        hasCompare: cmp,
+        compare: cmp ? (isInc && CP.cur && v < pv ? "За весь " + CP.prevLabel + " — " + this.fmtInt(Math.round(pv)) + NB + "сум" : (pv === 0 ? CP.inPrev.charAt(0).toUpperCase() + CP.inPrev.slice(1) + " не было" : (p === 0 ? "Столько же, " + CP.likePrev : this.arrow(p) + " " + CP.toPrev + " · " + this.diffWords(v - pv)))) : "",
+        insight: ins,
+        hasInsight: n > 0
+      };
+      const perDay = {};
+      const cntDay = {};
+      strict.forEach((x) => { const d = parseInt(x.date.slice(8, 10), 10); perDay[d] = (perDay[d] || 0) + this.som(x); cntDay[d] = (cntDay[d] || 0) + 1; });
+      let maxD = 0;
+      let maxDay = null;
+      for (let d = 1; d <= CP.to; d++) { if ((perDay[d] || 0) > maxD) { maxD = perDay[d]; maxDay = d; } }
+      const w = CP.to <= 16 ? 14 : 6;
+      for (let d = 1; d <= CP.to; d++) {
+        const val = perDay[d] || 0;
+        const on = s.day === d;
+        const label = (d === 1 || d === CP.to || (CP.to > 16 ? d % 7 === 1 && d < CP.to - 3 : d % 7 === 0 && d < CP.to - 1)) ? String(d) : "";
+        cols.push({
+          label: label,
+          w: w + "px",
+          h: (maxD > 0 && val > 0 ? Math.max(3, Math.round((val / maxD) * 100)) : 0) + "px",
+          r: (w >= 8 ? 4 : 3) + "px " + (w >= 8 ? 4 : 3) + "px 0 0",
+          color: s.day && !on ? t.dim : t.ink,
+          selBg: on ? t.track : "transparent",
+          labelInk: on ? t.ink : t.muted,
+          labelWeight: on ? "800" : "600"
+        });
+      }
+      if (s.day) {
+        cols.forEach((c, idx) => { const d = idx + 1; if (d !== s.day && Math.abs(d - s.day) <= 2) c.label = ""; if (d === s.day) c.label = String(d); });
+        readout = s.day + NB + this.gen()[m];
+        readoutValue = (perDay[s.day] || 0) ? this.fmtInt(Math.round(perDay[s.day])) + NB + "сум · " + cntDay[s.day] + " " + this.plural(cntDay[s.day], "операция", "операции", "операций") : "нет операций";
+        readoutActive = true;
+        dayChip = s.day + NB + this.gen()[m];
+      } else readout = "Коснитесь столбца или выберите день стрелками";
+      showChart = n >= 2;
+      chartAria = (isInc ? "Поступления" : "Траты") + " по дням, " + CP.label + (maxDay ? ". Больше всего — " + maxDay + " " + this.gen()[m] + ": " + this.fmtInt(Math.round(maxD)) + NB + "сум" : "") + ". Выбрать день";
+      chartTap = (e) => {
+        let d = maxDay || CP.to;
+        const tgt = e && e.currentTarget;
+        if (e && e.detail !== 0 && tgt && tgt.getBoundingClientRect) {
+          const r = tgt.getBoundingClientRect();
+          const x = (e.clientX - r.left) / (r.width || 1);
+          d = Math.max(1, Math.min(CP.to, Math.floor(x * CP.to) + 1));
+        }
+        this.setState({ day: s.day === d ? null : d });
+      };
+      dayStep = (dir) => {
+        let d = s.day ? s.day + dir : (dir < 0 ? CP.to : 1);
+        d = Math.max(1, Math.min(CP.to, d));
+        this.setState({ day: d });
+      };
+      const shown = inCat.filter((x) => !s.day || parseInt(x.date.slice(8, 10), 10) === s.day);
+      noOpsText = s.day ? "В этот день операций нет" : "В " + CP.monthPrep + " операций нет";
+      const byDate = {};
+      shown.forEach((x) => { (byDate[x.date] = byDate[x.date] || []).push(x); });
+      groups = Object.keys(byDate).sort().reverse().map((date) => {
+        const d = parseInt(date.slice(8, 10), 10);
+        const items = byDate[date];
+        const dayLabel = date === "2026-10-14" ? "Сегодня, 14 октября" : (date === "2026-10-13" ? "Вчера, 13 октября" : ["Воскресенье", "Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота"][new Date(Date.UTC(2026, m, d)).getUTCDay()] + ", " + d + " " + this.gen()[m]);
+        const own = items.filter((x) => x.cat === catId);
+        const tot = own.reduce((a, x) => a + (x.type === "income" ? 1 : -1) * this.som(x), 0);
+        return {
+          label: dayLabel,
+          totalInk: tot > 0 ? t.income : t.muted,
+          total: (own.some((x) => x.acc === "usd") ? "≈" + NB : "") + this.signed(tot) + NB + "сум",
+          rows: items.map((x) => {
+            const ci = this.catInfo(x.cat);
+            return {
+              title: x.note || ci.name,
+              sub: (x.cat !== catId ? ci.name + " · " : "") + this.accName(x.acc),
+              color: ci.color,
+              letter: ci.name.charAt(0),
+              amount: this.fmtAmt(x),
+              amountColor: x.type === "income" ? t.income : t.ink,
+              ring: s.flashId === x.id ? "inset 0 0 0 2px " + t.ink : "none",
+              aria: (x.note || ci.name) + ", " + this.fmtFull(x) + ", " + this.accName(x.acc) + ". Открыть",
+              catAria: "Сменить категорию: " + ci.name + ", " + this.fmtFull(x),
+              open: () => { clearTimeout(this._sv); this.setState({ openId: x.id, keepId: x.id, picker: null, direct: false, convHint: null, saved: false, editedId: null, typeRevert: null }); },
+              quickCat: () => { clearTimeout(this._sv); this.setState({ openId: x.id, keepId: x.id, picker: "category", direct: true, convHint: null, saved: false, editedId: null, typeRevert: null }); }
+            };
+          })
+        };
+      });
+    }
+
+    const openTxn = s.openId ? s.txns.find((y) => y.id === s.openId) : null;
+    const sheetOpen = !!openTxn && !s.direct;
+    const pk = openTxn ? s.picker : null;
+    let pickerOptions = null;
+    let pickerSelected = null;
+    let pickerHeading = "";
+    let pickerKind = "category";
+    if (pk === "category") {
+      pickerOptions = (openTxn.type === "income" ? this.incCats() : this.expCats()).map((d) => ({ id: d[0], name: d[1], color: d[2] }));
+      pickerSelected = openTxn.cat || null;
+      pickerHeading = openTxn.type === "income" ? "Категория дохода" : "Категория расхода";
+    }
+    if (pk === "account") { pickerKind = "account"; pickerOptions = this.accOpts(); pickerSelected = openTxn.acc; pickerHeading = "Счёт"; }
+    if (pk === "date") { pickerKind = "date"; pickerSelected = openTxn.date; pickerHeading = "Дата"; }
+    const top = s.undo[s.undo.length - 1] || null;
+    const overlay = sheetOpen || !!pk;
+    const go = (d) => { const i = ms.indexOf(s.month) + d; if (i >= 0 && i < ms.length) this.setState({ month: ms[i], cat: null, day: null, keepId: null }); };
+    const curMonth = P.cur;
+    const cpTo = catId ? this.periodOf(s, s.month, this.incCats().some((d) => d[0] === catId)).to : 1;
+
+    return {
+      t: t,
+      dark: !!this.props.dark,
+      homeHref: this.props.homeHref ?? "Pastel_Home.dc.html",
+      addHref: this.props.addHref ?? "Pastel_Add.dc.html",
+      auditHref: this.props.auditHref ?? "Pastel_Audit.dc.html",
+      hasAudit: s.month === "2026-09" && exp && s.fresh === null,
+      isOverview: !catId,
+      isCategory: !!catId,
+      manyMonths: ms.length > 1,
+      monthTitle: P.title,
+      prevDisabled: mi <= 0,
+      nextDisabled: mi >= ms.length - 1,
+      prevOpacity: mi <= 0 ? "0.35" : "1",
+      nextOpacity: mi >= ms.length - 1 ? "0.35" : "1",
+      prevMonth: () => go(-1),
+      nextMonth: () => go(1),
+      setExpense: () => this.setState({ kind: "expense", cat: null, day: null }),
+      setIncome: () => this.setState({ kind: "income", cat: null, day: null }),
+      expPressed: exp ? "true" : "false",
+      incPressed: exp ? "false" : "true",
+      expBg: exp ? t.segOn : "transparent",
+      expShadow: exp ? t.segShadow : "none",
+      expInk: exp ? t.ink : t.segOff,
+      incBg: exp ? "transparent" : t.segOn,
+      incShadow: exp ? "none" : t.segShadow,
+      incInk: exp ? t.segOff : t.ink,
+      hasData: T.sum > 0,
+      noData: T.sum === 0,
+      emptyTitle: curMonth ? "В " + P.monthPrep + " пока нет " + word : "В " + P.monthPrep + " " + word + " не было",
+      emptyText: curMonth ? (exp ? "Запишите первую трату — аналитика появится сразу, а выводы через неделю." : "Запишите первый доход — он появится здесь сразу.") : "Выберите другой месяц стрелками выше.",
+      emptyCta: curMonth,
+      emptyCtaLabel: exp ? "Записать трату" : "Записать доход",
+      heroLabel: (exp ? "Расходы" : "Доходы") + " · " + P.label,
+      heroAmount: heroAmountText,
+      heroSize: heroAmountText.length > 11 ? "38px" : "46px",
+      hasCompare: hasCompare,
+      heroCompare: heroCompare,
+      hasHeroLine: heroCompare.length > 0,
+      insight: insight,
+      listLabel: exp ? "Расходы по категориям" : "Доходы по категориям",
+      listTitle: "По категориям",
+      legendPrev: P.legend,
+      rows: rows,
+      footnote: (usdIn ? "Доллары пересчитаны по курсу ЦБ: 1 USD = 12" + NB + "650 сум. " : "") + "Нажмите на категорию, чтобы увидеть операции.",
+      cat: catVals,
+      periodLabel: P.label,
+      backToOverview: () => this.setState({ cat: null, day: null, keepId: null }),
+      cols: cols,
+      chartAria: chartAria,
+      chartTap: chartTap,
+      readoutTop: readout,
+      readoutValue: readoutValue,
+      hasReadoutValue: readoutActive,
+      showChart: showChart,
+      chartTitle: "По дням",
+      dayPrev: () => dayStep(-1),
+      dayNext: () => dayStep(1),
+      dayPrevDisabled: s.day === 1 ? "true" : "false",
+      dayNextDisabled: s.day === cpTo ? "true" : "false",
+      dayPrevOpacity: s.day === 1 ? "0.35" : "1",
+      dayNextOpacity: s.day === cpTo ? "0.35" : "1",
+      hasDay: !!s.day,
+      dayChip: dayChip,
+      dayChipAria: "Сбросить день: " + dayChip,
+      clearDay: () => this.setState({ day: null }),
+      groups: groups,
+      noOps: !!catId && groups.length === 0,
+      noOpsText: noOpsText,
+      hasToast: !!top && !overlay,
+      toastIsCheck: !!top && top.kind !== "delete",
+      toastIsDelete: !!top && top.kind === "delete",
+      toastTitle: top ? top.title : "",
+      toastDetail: top ? top.detail : "",
+      undo: () => this.undo(),
+      sheetOpen: sheetOpen,
+      openTxn: openTxn,
+      saved: s.saved,
+      convHint: s.convHint,
+      openField: (kind) => this.setState({ picker: kind }),
+      setType: (tp2) => {
+        if (!openTxn || openTxn.type === tp2) return;
+        this.setState({ typeRevert: { id: openTxn.id, type: openTxn.type, cat: openTxn.cat } });
+        this.patch(openTxn.id, { type: tp2, cat: null });
+        this.setState({ picker: "category" });
+      },
+      setAmount: (v) => { this.patch(s.openId, { amount: v }); this.setState({ convHint: null }); },
+      setNote: (v) => this.patch(s.openId, { note: v }),
+      convert: () => { if (s.convHint) { this.patch(s.convHint.id, { amount: s.convHint.amount }); this.setState({ convHint: null }); } },
+      deleteOpen: () => this.deleteOpen(),
+      closeSheet: () => this.closeSheet(),
+      pickerOpen: !!pk,
+      pickerKind: pickerKind,
+      pickerHeading: pickerHeading,
+      pickerOptions: pickerOptions,
+      pickerSelected: pickerSelected,
+      pickerContext: s.direct && openTxn ? (openTxn.note ? openTxn.note + " · " : "") + this.fmtFull(openTxn) : null,
+      pickerMore: s.direct && openTxn ? () => this.setState({ direct: false, picker: null }) : null,
+      pickValue: (v) => this.pickValue(v),
+      closePicker: () => this.closePicker()
+    };
+  }
+}
+</script>
+</body>
+</html>
