@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { useHasHydrated } from '@/entities/user/model/store';
-import { Loading } from '@/shared/ui/loading';
+import { AppLoading } from '../router/AppLoading';
 
 interface HydrationGateProps {
   children: ReactNode;
@@ -14,9 +14,9 @@ export function HydrationGate({ children }: HydrationGateProps) {
   const hasHydrated = useHasHydrated();
 
   if (!hasHydrated) {
-    // Show minimal loading state while hydrating
-    // This is very fast (< 50ms) so users won't notice
-    return <Loading fullScreen />;
+    // Very fast (< 50ms), but on Home it is already Home's skeleton (FT-112). Above the router, so the
+    // address is read from the page
+    return <AppLoading pathname={typeof window === 'undefined' ? '' : window.location.pathname} />;
   }
 
   return <>{children}</>;

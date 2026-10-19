@@ -117,7 +117,8 @@ describe('Home header', () => {
 });
 
 describe('Home opens History and Analytics in one tap', () => {
-  it.each<HomeState>(['loading', 'empty', 'with-records'])('while %s', (state) => {
+  // While loading Home is its skeleton (FT-112): nothing to press until the data comes
+  it.each<HomeState>(['empty', 'with-records'])('while %s', (state) => {
     const targets = linkTargets(render(<HomePage />, ROUTES.HOME, state));
 
     expect(targets).toContain(ROUTES.TRANSACTIONS);

@@ -244,7 +244,7 @@ function Panel({ theme, long }: { theme: 'light' | 'dark'; long: boolean }) {
       <Block title="Skeleton">
         <div className="flex flex-col gap-3 rounded-hero bg-primary p-5">
           <SkeletonBlock className="h-3.5 w-28 bg-on-primary/20" />
-          <SkeletonBlock className="h-10 w-48 rounded-[14px] bg-on-primary/20" />
+          <SkeletonBlock radius="tile" className="h-10 w-48 bg-on-primary/20" />
         </div>
         <div className="flex items-center gap-3 rounded-card bg-card px-4 py-3">
           <SkeletonBlock className="size-10" />

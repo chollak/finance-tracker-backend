@@ -3,6 +3,7 @@ import { lazy, Suspense } from 'react';
 import { Button } from '@/shared/ui/button';
 import { EmptyState } from '@/shared/ui/empty-state';
 import { Loading } from '@/shared/ui/loading';
+import { HomeSkeleton } from '@/widgets/home-skeleton';
 import { AppShell } from './AppShell';
 import { FirstLaunchGate } from './FirstLaunchGate';
 
@@ -26,9 +27,9 @@ const PastelShowcasePage = lazy(() => import('@/pages').then(m => ({ default: m.
 // Placeholder of the accounts screen, opened from the balance card on Home; FT-118 builds the screen
 const AccountsPage = lazy(() => import('@/pages').then(m => ({ default: m.AccountsPage })));
 
-// Wrapper component with Suspense
-function PageLoader({ children }: { children: React.ReactNode }) {
-  return <Suspense fallback={<Loading fullScreen />}>{children}</Suspense>;
+// Wrapper component with Suspense; Home's code loads behind Home's skeleton (FT-112)
+function PageLoader({ children, fallback = <Loading fullScreen /> }: { children: React.ReactNode; fallback?: React.ReactNode }) {
+  return <Suspense fallback={fallback}>{children}</Suspense>;
 }
 
 function NotFoundPage() {
@@ -103,7 +104,7 @@ export const appRoutes: RouteObject[] = [
         children: [
           {
             path: '/',
-            element: <PageLoader><HomePage /></PageLoader>,
+            element: <PageLoader fallback={<HomeSkeleton />}><HomePage /></PageLoader>,
           },
           {
             path: '/transactions',

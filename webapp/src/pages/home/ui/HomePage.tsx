@@ -3,12 +3,14 @@ import { BalanceCard } from '@/widgets/balance-card';
 import { SummaryTiles } from '@/widgets/summary-tiles';
 import { RecentTransactions } from '@/widgets/recent-transactions';
 import { HomeHeader } from '@/widgets/home-header';
+import { HomeSkeleton } from '@/widgets/home-skeleton';
 import { Button } from '@/shared/ui/button';
 import { PageShell } from '@/shared/ui';
 import { QuickAddSheet } from '@/features/quick-add';
 import { TextQuickCaptureCard } from '@/features/quick-capture';
 import { GuestModeBanner } from '@/features/auth';
 import { useIsGuest } from '@/entities/user';
+import { useHomeLoading } from '../model/homeLoading';
 
 /**
  * Home Page — the shell of the app (FT-110) with the boards' content (FT-111, «Главная», «Главная после
@@ -20,9 +22,14 @@ import { useIsGuest } from '@/entities/user';
  * The one-line capture card stays between the tiles and the records until FT-114 brings the composer of the
  * boards. Guests keep records on the device and have no accounts (guest mode goes with FT-128), so they see
  * the capture card and their records only.
+ *
+ * Until its first reads have answered Home is its skeleton (FT-112), the same one the app opens on.
  */
 export function HomePage() {
   const isGuest = useIsGuest();
+  const loading = useHomeLoading();
+
+  if (loading) return <HomeSkeleton />;
 
   return (
     <PageShell className="pt-2 md:pt-2">
