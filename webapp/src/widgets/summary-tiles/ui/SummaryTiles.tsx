@@ -4,7 +4,7 @@ import { ROUTES } from '@/shared/lib/constants/routes';
 import { monthBounds, monthTitle, parseLocalDate, toLocalDate } from '@/shared/lib/dates';
 import { SkeletonBlock } from '@/shared/ui/pastel';
 import { usePeriodTotals, type PeriodTotals } from '@/entities/transaction';
-import { summaryTiles, tileValueClass, type SummaryTile } from '../lib/summaryTiles';
+import { missingRateNote, summaryTiles, tileValueClass, type SummaryTile } from '../lib/summaryTiles';
 
 const TONE: Record<SummaryTile['kind'], string> = {
   income: 'bg-pastel-mint text-mint-ink',
@@ -13,6 +13,8 @@ const TONE: Record<SummaryTile['kind'], string> = {
 
 function Tile({ tile, isError }: { tile: SummaryTile; isError: boolean }) {
   return (
+    // On the board the income tile opens the income view of Analytics; that view comes with the analytics
+    // screens (FT-121), and until then both tiles open Analytics as it is
     <Link
       to={ROUTES.ANALYTICS}
       aria-label={tile.ariaLabel}
@@ -31,6 +33,7 @@ function Tile({ tile, isError }: { tile: SummaryTile; isError: boolean }) {
       {tile.value !== null ? (
         <span className={cn(tileValueClass(tile.value), 'whitespace-nowrap')}>{tile.value}</span>
       ) : isError ? (
+        // The balance card above says the month's totals did not load and reads them again (same query)
         <span className="type-tile-value">—</span>
       ) : (
         <SkeletonBlock className="my-0.5 h-[19px] w-24 bg-pastel-ink/10" />
@@ -50,10 +53,12 @@ export interface SummaryTilesViewProps {
 /** The tiles as the board draws them, from totals already read; `SummaryTiles` reads them. */
 export function SummaryTilesView({ totals, year, month, className }: SummaryTilesViewProps) {
   const [income, expense] = summaryTiles(totals.data, month);
+  const note = missingRateNote(totals.data);
   return (
     <section aria-label={monthTitle(year, month)} className={cn('grid grid-cols-2 gap-3', className)}>
       <Tile tile={income} isError={totals.isError} />
       <Tile tile={expense} isError={totals.isError} />
+      {note && <p className="col-span-2 -mt-1 px-1 text-[13px] font-medium text-ink-muted">{note}</p>}
     </section>
   );
 }

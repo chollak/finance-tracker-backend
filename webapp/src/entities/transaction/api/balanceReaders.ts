@@ -1,5 +1,5 @@
 import type { QueryKey } from '@tanstack/react-query';
-import { accountKeys } from '@/entities/account/api/keys';
+import { accountKeys } from '@/entities/account';
 import { transactionKeys } from './keys';
 
 /**

@@ -69,17 +69,41 @@ function Note({ children }: { children: ReactNode }) {
   return <p className="rounded-card bg-card p-5 text-[14px] font-medium leading-[1.45] text-ink-muted">{children}</p>;
 }
 
+/** The records did not load: says so and reads them again (a problem says what to do; FT-112 adds the slow state). */
+function LoadFailed({ onRetry, retrying }: { onRetry: () => void; retrying: boolean }) {
+  return (
+    <div className="flex flex-col items-start gap-1 rounded-card bg-card px-5 pb-2 pt-5">
+      <p className="text-[14px] font-medium leading-[1.45] text-ink-muted">Не удалось загрузить записи.</p>
+      <button
+        type="button"
+        onClick={onRetry}
+        disabled={retrying}
+        aria-busy={retrying}
+        className={cn(
+          '-ml-3 h-touch rounded-pill px-3 text-[14px] font-extrabold text-ink disabled:text-ink-muted',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink'
+        )}
+      >
+        Попробовать снова
+      </button>
+    </div>
+  );
+}
+
 export interface RecentRecordsViewProps {
   records: { data: Transaction[] | undefined; isError: boolean };
   categories: readonly Category[] | undefined;
   today: string;
   onOpen: (id: string) => void;
+  onRetry: () => void;
+  /** A retry is under way: the button waits instead of firing twice. */
+  retrying?: boolean;
 }
 
 /** The section as the board draws it, from records already read; `RecentTransactions` reads them. */
-export function RecentRecordsView({ records, categories, today, onOpen }: RecentRecordsViewProps) {
+export function RecentRecordsView({ records, categories, today, onOpen, onRetry, retrying = false }: RecentRecordsViewProps) {
   if (!records.data) {
-    return <Shell>{records.isError ? <Note>Не удалось загрузить записи</Note> : <LoadingRows />}</Shell>;
+    return <Shell>{records.isError ? <LoadFailed onRetry={onRetry} retrying={retrying} /> : <LoadingRows />}</Shell>;
   }
   if (records.data.length === 0) {
     return (
@@ -116,6 +140,8 @@ export function RecentTransactions() {
       categories={categories.data}
       today={toLocalDate(new Date())}
       onOpen={(id) => navigate(ROUTES.EDIT_TRANSACTION(id))}
+      onRetry={() => void records.refetch()}
+      retrying={records.isError && records.isFetching}
     />
   );
 }

@@ -10,9 +10,9 @@ import { addDays, monthBounds, monthNameIn, monthNameLower, toLocalDate } from '
 import { MINUS, NBSP } from '@/shared/lib/money';
 import { ROUTES } from '@/shared/lib/constants/routes';
 import type { Transaction } from '@/shared/types';
-import { BalanceCardView } from '@/widgets/balance-card/ui/BalanceCard';
-import { SummaryTilesView } from '@/widgets/summary-tiles/ui/SummaryTiles';
-import { FIRST_RECORD_HINT, RecentRecordsView } from '@/widgets/recent-transactions/ui/RecentTransactions';
+import { BalanceCardView } from '@/widgets/balance-card';
+import { SummaryTilesView } from '@/widgets/summary-tiles';
+import { FIRST_RECORD_HINT, RecentRecordsView } from '@/widgets/recent-transactions';
 import { HomePage } from './HomePage';
 
 /**
@@ -84,6 +84,8 @@ interface View {
   totals?: PeriodTotals;
   records?: Transaction[];
   expanded?: boolean;
+  /** Which reads failed. */
+  failed?: Array<'accounts' | 'totals' | 'records'>;
 }
 
 function markup(element: ReactElement): string {
@@ -96,13 +98,20 @@ function markup(element: ReactElement): string {
 }
 
 /** The three sections of Home as the boards stack them, from the given data. */
-function home({ accounts, totals: monthTotals, records, expanded = false }: View): string {
-  const query = <T,>(data: T | undefined) => ({ data, isError: false });
+function home({ accounts, totals: monthTotals, records, expanded = false, failed = [] }: View): string {
+  const query = <T,>(data: T | undefined, name: 'accounts' | 'totals' | 'records') => ({ data, isError: failed.includes(name) });
   return markup(
     <>
-      <BalanceCardView accounts={query(accounts)} totals={query(monthTotals)} month={MONTH} expanded={expanded} onToggle={() => {}} />
-      <SummaryTilesView totals={query(monthTotals)} year={Number(TODAY.slice(0, 4))} month={MONTH} />
-      <RecentRecordsView records={query(records)} categories={CATEGORIES} today={TODAY} onOpen={() => {}} />
+      <BalanceCardView
+        accounts={query(accounts, 'accounts')}
+        totals={query(monthTotals, 'totals')}
+        month={MONTH}
+        expanded={expanded}
+        onToggle={() => {}}
+        onRetry={() => {}}
+      />
+      <SummaryTilesView totals={query(monthTotals, 'totals')} year={Number(TODAY.slice(0, 4))} month={MONTH} />
+      <RecentRecordsView records={query(records, 'records')} categories={CATEGORIES} today={TODAY} onOpen={() => {}} onRetry={() => {}} />
     </>
   );
 }
@@ -125,6 +134,15 @@ describe('balance card', () => {
     expect(board()).toMatch(/<button[^>]*aria-expanded="false"[^>]*>.*?3 счёта/);
   });
 
+  it('names the list it opens only while the list is there', () => {
+    expect(board()).not.toMatch(/aria-controls=/);
+
+    const open = home({ accounts: ACCOUNTS, totals: totals(0, 0), expanded: true });
+    const controls = open.match(/aria-controls="([^"]+)"/)?.[1];
+    expect(controls).toBeDefined();
+    expect(open).toContain(`<ul id="${controls}"`);
+  });
+
   it('says what share of this month’s income is spent', () => {
     expect(text(board())).toContain(`В ${monthNameIn(MONTH)} потрачено 47% дохода`);
   });
@@ -137,6 +155,61 @@ describe('balance card', () => {
     expect(text(html)).toContain(`Доллары 420,00${NBSP}USD`);
     expect(anchors(html).find((tag) => tag.includes(`href="${ROUTES.ACCOUNTS}"`))).toBeDefined();
     expect(text(html)).toContain('Все счета и курс доллара');
+  });
+});
+
+describe('a dollar account without a rate', () => {
+  const noRate: AccountsOverview = { ...ACCOUNTS, totalMinor: 443_000_000, rate: null, missingRate: true };
+  const NOTE = 'Доллары не вошли в итог: курса пока нет';
+
+  it('the closed card says the total leaves the dollars out', () => {
+    expect(text(home({ accounts: noRate, totals: totals(0, 0) }))).toContain(NOTE);
+  });
+
+  it('the open card says it once', () => {
+    expect(text(home({ accounts: noRate, totals: totals(0, 0), expanded: true })).split(NOTE)).toHaveLength(2);
+  });
+
+  it('the tiles say their sums leave the dollars out', () => {
+    const monthTotals = { ...totals(0, 18_000_000), usd: { present: true, missingRate: true, rateMinor: null } };
+
+    expect(text(home({ accounts: noRate, totals: monthTotals }))).toContain('Доллары не вошли в итоги месяца: курса пока нет');
+    expect(text(home({ accounts: ACCOUNTS, totals: totals(0, 18_000_000) }))).not.toContain('Доллары не вошли');
+  });
+});
+
+describe('when a read fails', () => {
+  const RETRY = /<button[^>]*>Попробовать снова<\/button>/g;
+
+  it('the card says the balances did not load and offers to read them again', () => {
+    const html = home({ totals: totals(0, 0), records: RECORDS, failed: ['accounts'] });
+
+    expect(text(html)).toContain('Не удалось загрузить остатки.');
+    expect(html.match(RETRY)).toHaveLength(1);
+  });
+
+  it('the card says the month did not count instead of dropping the line; the tiles show «—»', () => {
+    const html = home({ accounts: ACCOUNTS, records: RECORDS, failed: ['totals'] });
+
+    expect(text(html)).toContain(`9${NBSP}743${NBSP}000 сум`);
+    expect(text(html)).toContain('Не удалось посчитать итоги месяца.');
+    expect(text(html)).toContain(`Доход за ${monthNameLower(MONTH)} —`);
+    expect(html.match(RETRY)).toHaveLength(1);
+  });
+
+  it('one retry in the card covers the balances and the month together', () => {
+    expect(home({ records: RECORDS, failed: ['accounts', 'totals'] }).match(RETRY)).toHaveLength(1);
+  });
+
+  it('the recent records say they did not load and offer to read them again', () => {
+    const html = home({ accounts: ACCOUNTS, totals: totals(0, 0), failed: ['records'] });
+
+    expect(text(html)).toContain('Не удалось загрузить записи.');
+    expect(html.match(RETRY)).toHaveLength(1);
+  });
+
+  it('nothing offers a retry while everything reads fine', () => {
+    expect(home({ accounts: ACCOUNTS, totals: totals(0, 0), records: RECORDS })).not.toMatch(RETRY);
   });
 });
 

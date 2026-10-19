@@ -7,7 +7,7 @@ import { transactionKeys } from './keys';
 import { transactionDataSource } from '@/shared/lib/db';
 import type { LocalTransaction } from '@/shared/lib/db/schema';
 import { isGuestId } from '@/shared/lib/utils/guestId';
-import { useUserStore } from '@/entities/user/model/store';
+import { useUserStore } from '@/entities/user';
 import type { PeriodTotals } from '../model/types';
 
 /**

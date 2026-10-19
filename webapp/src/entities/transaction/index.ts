@@ -34,6 +34,7 @@ export {
 
 // API
 export { transactionKeys } from './api/keys';
+export { balanceReaderKeys } from './api/balanceReaders';
 export {
   useTransactions,
   useTransaction,

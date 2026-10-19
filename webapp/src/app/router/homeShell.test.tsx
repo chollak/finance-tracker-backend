@@ -10,7 +10,7 @@ import { useUserStore } from '@/entities/user';
 import { transactionKeys } from '@/entities/transaction';
 import { accountKeys } from '@/entities/account';
 import { monthBounds, toLocalDate } from '@/shared/lib/dates';
-import { RECENT_LIMIT } from '@/widgets/recent-transactions/ui/RecentTransactions';
+import { RECENT_LIMIT } from '@/widgets/recent-transactions';
 import type { Transaction } from '@/shared/types';
 import { AppShell } from './AppShell';
 

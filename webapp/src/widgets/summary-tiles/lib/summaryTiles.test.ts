@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { MINUS, NBSP } from '@/shared/lib/money';
 import type { PeriodTotals } from '@/entities/transaction';
-import { summaryTiles, tileValueClass } from './summaryTiles';
+import { missingRateNote, summaryTiles, tileValueClass } from './summaryTiles';
 
 /**
  * FT-111, board «Главная» (docs/pastel/components/SummaryTiles.md): income and expenses of the current
@@ -50,5 +50,21 @@ describe('month tiles', () => {
     expect(tileValueClass(`+16${NBSP}295${NBSP}000`)).toBe('type-tile-value');
     expect(tileValueClass(`+1${NBSP}629${NBSP}500${NBSP}000`)).toBe('type-tile-value');
     expect(tileValueClass(`+16${NBSP}295${NBSP}000${NBSP}000`)).not.toBe('type-tile-value');
+  });
+});
+
+describe('missing rate', () => {
+  it('the tiles say the dollars are left out while there is no rate', () => {
+    const noRate = { ...totals(0, 18_000_000), usd: { present: true, missingRate: true, rateMinor: null } };
+
+    expect(missingRateNote(noRate)).toBe('Доллары не вошли в итоги месяца: курса пока нет');
+  });
+
+  it('and say nothing when the dollars are counted, there are none or the totals are still loading', () => {
+    const counted = { ...totals(0, 18_000_000), usd: { present: true, missingRate: false, rateMinor: 1_265_000 } };
+
+    expect(missingRateNote(counted)).toBeNull();
+    expect(missingRateNote(totals(0, 0))).toBeNull();
+    expect(missingRateNote(undefined)).toBeNull();
   });
 });

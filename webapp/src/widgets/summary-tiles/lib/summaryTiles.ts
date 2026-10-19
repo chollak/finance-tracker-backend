@@ -41,3 +41,11 @@ export function tileValueClass(value: string): string {
   if (value.length <= 17) return 'text-[16px] leading-[1.2] font-extrabold tracking-[-0.3px] tabular-nums';
   return 'text-[14px] leading-[1.2] font-extrabold tracking-[-0.2px] tabular-nums';
 }
+
+/**
+ * The tiles' sums leave dollar records out while there is no rate to count them at (FT-103), so the tiles
+ * say so the way the balance card does; null when nothing is left out.
+ */
+export function missingRateNote(totals: PeriodTotals | undefined): string | null {
+  return totals?.usd.missingRate ? 'Доллары не вошли в итоги месяца: курса пока нет' : null;
+}

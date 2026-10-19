@@ -1,7 +1,6 @@
 import type { QueryKey } from '@tanstack/react-query';
 
-import { transactionKeys } from '@/entities/transaction/api/keys';
-import { balanceReaderKeys } from '@/entities/transaction/api/balanceReaders';
+import { balanceReaderKeys, transactionKeys } from '@/entities/transaction';
 import { budgetKeys } from '@/entities/budget/api/keys';
 import { dashboardKeys } from '@/entities/dashboard/api/keys';
 import { subscriptionKeys } from '@/entities/subscription/api/keys';

@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/shared/api';
 import { API_ENDPOINTS } from '@/shared/lib/constants';
-import { useUserStore } from '@/entities/user/model/store';
+import { useUserStore } from '@/entities/user';
 import type { AccountsOverview } from '../model/types';
 import { accountKeys } from './keys';
 

@@ -1,7 +1,14 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  useMutation,
+  useQueryClient,
+  type QueryClient,
+  type QueryKey,
+  type UseMutationOptions,
+} from '@tanstack/react-query';
 import { apiClient } from '@/shared/api';
 import { API_ENDPOINTS } from '@/shared/lib/constants';
 import type { Debt, CreateDebtDTO, UpdateDebtDTO, PayDebtDTO, DebtPayment } from '@/shared/types';
+import { balanceReaderKeys, transactionKeys } from '@/entities/transaction';
 import { debtKeys } from './keys';
 import { isGuestId } from '@/shared/lib/utils/guestId';
 import { haptic } from '@/shared/lib/haptic';
@@ -17,14 +24,26 @@ export class GuestAccessError extends Error {
 }
 
 /**
- * Hook to create a new debt
- * Guest users: throws GuestAccessError
+ * What a debt's linked record moves besides the debts (FT-111 review): a debt created with the money
+ * handed over and every payment write a record to an account, so Home's balances, month totals and recent
+ * records change, and so does the user's record list. Deleting or cancelling a debt and deleting a payment
+ * leave the linked records where they are (the backend does not remove them), so those refresh the debts only.
  */
-export function useCreateDebt(userId: string) {
-  const queryClient = useQueryClient();
+export function linkedRecordKeys(userId: string): QueryKey[] {
+  return [...balanceReaderKeys(userId), transactionKeys.list(userId)];
+}
 
-  return useMutation({
-    mutationFn: async (data: CreateDebtDTO) => {
+function refreshLinkedRecords(queryClient: QueryClient, userId: string): void {
+  for (const queryKey of linkedRecordKeys(userId)) queryClient.invalidateQueries({ queryKey });
+}
+
+/** Options of `useCreateDebt`, apart so a test can run them on its own client. */
+export function createDebtMutation(
+  queryClient: QueryClient,
+  userId: string
+): UseMutationOptions<Debt, Error, CreateDebtDTO> {
+  return {
+    mutationFn: async (data) => {
       // Block guest users
       if (isGuestId(userId)) {
         throw new GuestAccessError('создания долгов');
@@ -36,12 +55,23 @@ export function useCreateDebt(userId: string) {
       );
       return response.data;
     },
-    onSuccess: () => {
+    onSuccess: (_, data) => {
       haptic.success();
       queryClient.invalidateQueries({ queryKey: debtKeys.lists() });
       queryClient.invalidateQueries({ queryKey: debtKeys.summary(userId) });
+      // The backend writes a linked record only when the money was handed over
+      if (data.moneyTransferred) refreshLinkedRecords(queryClient, userId);
     },
-  });
+  };
+}
+
+/**
+ * Hook to create a new debt
+ * Guest users: throws GuestAccessError
+ */
+export function useCreateDebt(userId: string) {
+  const queryClient = useQueryClient();
+  return useMutation(createDebtMutation(queryClient, userId));
 }
 
 /**
@@ -114,15 +144,13 @@ export function useCancelDebt(userId: string) {
   });
 }
 
-/**
- * Hook to make a payment on a debt
- * Guest users: throws GuestAccessError
- */
-export function usePayDebt(userId: string) {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({ debtId, data }: { debtId: string; data: PayDebtDTO }) => {
+/** Options of `usePayDebt`, apart so a test can run them on its own client. */
+export function payDebtMutation(
+  queryClient: QueryClient,
+  userId: string
+): UseMutationOptions<DebtPayment, Error, { debtId: string; data: PayDebtDTO }> {
+  return {
+    mutationFn: async ({ debtId, data }) => {
       if (isGuestId(userId)) {
         throw new GuestAccessError('оплаты долгов');
       }
@@ -132,25 +160,34 @@ export function usePayDebt(userId: string) {
       );
       return response.data;
     },
-    onSuccess: (_, { debtId }) => {
+    onSuccess: (_, { debtId, data }) => {
       haptic.success();
       queryClient.invalidateQueries({ queryKey: debtKeys.lists() });
       queryClient.invalidateQueries({ queryKey: debtKeys.detail(debtId) });
       queryClient.invalidateQueries({ queryKey: debtKeys.withPayments(debtId) });
       queryClient.invalidateQueries({ queryKey: debtKeys.summary(userId) });
+      // The backend writes a linked record unless asked not to
+      if (data.createTransaction !== false) refreshLinkedRecords(queryClient, userId);
     },
-  });
+  };
 }
 
 /**
- * Hook to pay off a debt in full
+ * Hook to make a payment on a debt
  * Guest users: throws GuestAccessError
  */
-export function usePayDebtFull(userId: string) {
+export function usePayDebt(userId: string) {
   const queryClient = useQueryClient();
+  return useMutation(payDebtMutation(queryClient, userId));
+}
 
-  return useMutation({
-    mutationFn: async ({ debtId, note, createTransaction = true }: { debtId: string; note?: string; createTransaction?: boolean }) => {
+/** Options of `usePayDebtFull`, apart so a test can run them on its own client. */
+export function payDebtFullMutation(
+  queryClient: QueryClient,
+  userId: string
+): UseMutationOptions<DebtPayment, Error, { debtId: string; note?: string; createTransaction?: boolean }> {
+  return {
+    mutationFn: async ({ debtId, note, createTransaction = true }) => {
       if (isGuestId(userId)) {
         throw new GuestAccessError('оплаты долгов');
       }
@@ -160,14 +197,24 @@ export function usePayDebtFull(userId: string) {
       );
       return response.data;
     },
-    onSuccess: (_, { debtId }) => {
+    onSuccess: (_, { debtId, createTransaction = true }) => {
       haptic.success();
       queryClient.invalidateQueries({ queryKey: debtKeys.lists() });
       queryClient.invalidateQueries({ queryKey: debtKeys.detail(debtId) });
       queryClient.invalidateQueries({ queryKey: debtKeys.withPayments(debtId) });
       queryClient.invalidateQueries({ queryKey: debtKeys.summary(userId) });
+      if (createTransaction) refreshLinkedRecords(queryClient, userId);
     },
-  });
+  };
+}
+
+/**
+ * Hook to pay off a debt in full
+ * Guest users: throws GuestAccessError
+ */
+export function usePayDebtFull(userId: string) {
+  const queryClient = useQueryClient();
+  return useMutation(payDebtFullMutation(queryClient, userId));
 }
 
 /**

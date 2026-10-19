@@ -30,14 +30,30 @@ export interface BalanceCardViewProps {
   month: number;
   expanded: boolean;
   onToggle: () => void;
+  /** Reads again whatever failed: the balances, the month's totals (the tiles read the same totals). */
+  onRetry: () => void;
+  /** A retry is under way: the button waits instead of firing twice. */
+  retrying?: boolean;
   className?: string;
 }
 
 /** The card as the board draws it, from data already read; `BalanceCard` reads it. */
-export function BalanceCardView({ accounts, totals, month, expanded, onToggle, className }: BalanceCardViewProps) {
+export function BalanceCardView({
+  accounts,
+  totals,
+  month,
+  expanded,
+  onToggle,
+  onRetry,
+  retrying = false,
+  className,
+}: BalanceCardViewProps) {
   const listId = useId();
   const model = accounts.data ? balanceCardModel(accounts.data) : null;
   const share = totals.data ? spendShare(totals.data, month) : null;
+  // A problem says what happened and what to do (design-system): each failed part says what is missing
+  // where it would stand, and one «Попробовать снова» reads them again. FT-112 adds the slow state.
+  const failed = (!model && accounts.isError) || (!share && totals.isError);
 
   return (
     <section
@@ -51,7 +67,8 @@ export function BalanceCardView({ accounts, totals, month, expanded, onToggle, c
             type="button"
             onClick={onToggle}
             aria-expanded={expanded}
-            aria-controls={listId}
+            // The list is in the page only while open, so it is named only then
+            aria-controls={expanded ? listId : undefined}
             className={cn(
               '-mr-2 flex h-touch items-center gap-1 rounded-pill px-2 text-[14px] font-semibold text-on-primary-muted',
               FOCUS
@@ -69,13 +86,16 @@ export function BalanceCardView({ accounts, totals, month, expanded, onToggle, c
           <span className="text-[18px] font-semibold text-on-primary-muted">{model.unit}</span>
         </div>
       ) : accounts.isError ? (
-        <p className="py-2 text-[15px] font-semibold text-on-primary-muted">Не удалось загрузить остатки</p>
+        <p className="py-2 text-[15px] font-semibold text-on-primary-muted">Не удалось загрузить остатки.</p>
       ) : (
         <>
           <SkeletonBlock className="my-1 h-11 w-52 bg-hero-track" />
           <span className="sr-only">Считаем остатки…</span>
         </>
       )}
+
+      {/* Shown open or closed: the total above leaves the dollars out, so it must say so (money-model, rule 1) */}
+      {model?.missingRateNote && <p className="text-[13px] font-medium text-on-primary-muted">{model.missingRateNote}</p>}
 
       {model && expanded && (
         <ul id={listId} className="mb-1 mt-2 flex flex-col gap-2 text-[14px]">
@@ -85,7 +105,6 @@ export function BalanceCardView({ accounts, totals, month, expanded, onToggle, c
               <span className="shrink-0 whitespace-nowrap font-bold tabular-nums">{account.value}</span>
             </li>
           ))}
-          {model.missingRateNote && <li className="text-[13px] font-medium text-on-primary-muted">{model.missingRateNote}</li>}
           <li>
             <Link
               to={ROUTES.ACCOUNTS}
@@ -114,7 +133,25 @@ export function BalanceCardView({ accounts, totals, month, expanded, onToggle, c
           </span>
         </div>
       )}
+      {!share && totals.isError && (
+        <span className="mt-2.5 text-[13px] font-medium text-on-primary-muted">Не удалось посчитать итоги месяца.</span>
+      )}
       {!share && !totals.isError && <SkeletonBlock className="mt-2.5 h-2 w-full bg-hero-track" />}
+
+      {failed && (
+        <button
+          type="button"
+          onClick={onRetry}
+          disabled={retrying}
+          aria-busy={retrying}
+          className={cn(
+            '-ml-3 mt-1 flex h-touch items-center self-start rounded-pill px-3 text-[14px] font-extrabold text-on-primary disabled:text-on-primary-muted',
+            FOCUS
+          )}
+        >
+          Попробовать снова
+        </button>
+      )}
     </section>
   );
 }
@@ -138,6 +175,11 @@ export function BalanceCard({ className }: { className?: string }) {
       month={parseLocalDate(today).month}
       expanded={expanded}
       onToggle={() => setExpanded((value) => !value)}
+      onRetry={() => {
+        if (accounts.isError) void accounts.refetch();
+        if (totals.isError) void totals.refetch();
+      }}
+      retrying={(accounts.isError && accounts.isFetching) || (totals.isError && totals.isFetching)}
       className={className}
     />
   );

@@ -2,12 +2,12 @@ import { describe, it, expect } from 'vitest';
 
 import { quickCaptureInvalidationKeys } from './invalidation';
 import type { QuickCaptureResult } from '../model/types';
-import { transactionKeys } from '@/entities/transaction/api/keys';
+import { transactionKeys } from '@/entities/transaction';
 import { budgetKeys } from '@/entities/budget/api/keys';
 import { dashboardKeys } from '@/entities/dashboard/api/keys';
 import { subscriptionKeys } from '@/entities/subscription/api/keys';
 import { debtKeys } from '@/entities/debt/api/keys';
-import { accountKeys } from '@/entities/account/api/keys';
+import { accountKeys } from '@/entities/account';
 
 // Quick capture persists on the server, so the Mini App has to refetch the same caches the
 // local create/update/delete mutations invalidate — otherwise Home keeps showing stale totals.

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { QueryClient } from '@tanstack/react-query';
-import { accountKeys } from '@/entities/account/api/keys';
+import { accountKeys } from '@/entities/account';
 import { balanceReaderKeys } from './balanceReaders';
 import { transactionKeys } from './keys';
 
