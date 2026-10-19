@@ -10,7 +10,6 @@ export {
 export {
   useTelegram,
   useTelegramMainButton,
-  useTelegramBackButton,
   useTelegramHaptic,
   useTelegramCloudStorage,
   useTelegramTheme,

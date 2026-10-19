@@ -10,21 +10,21 @@ import { TextQuickCaptureCard } from '@/features/quick-capture';
 import { GuestModeBanner } from '@/features/auth';
 
 /**
- * Home Page — quick capture first.
+ * Home Page — the shell of the app (FT-110, boards «Главная», «Главная · тёмная»).
  *
- * Home is deliberately minimal: date/status, today's real spend, the one-line
- * capture card, the transactions a capture just changed, and an attention block
- * that renders nothing unless there is a real signal. The today total sits above
- * capture so a saved row immediately moves a number the user cares about — it is
- * one figure, not a dashboard. Everything else (balance, budgets,
- * AI usage limits, semantic trust formula, savings stats) stays implemented
- * and routable — it is reachable from More, just not competing with capture
- * for the first viewport.
+ * There is no bottom bar: the header carries the daftar sign and «Ещё», today's spend opens
+ * Analytics, «Все» over the recent records opens History, and every other section is in «Ещё» —
+ * nothing is further than two taps. Below the header Home is still the capture-first screen of
+ * milestone 9: today's real spend, the one-line capture card (FT-114 replaces it), the records a
+ * capture just changed and an attention block that renders nothing unless there is a real signal.
+ * FT-111 brings the balance card, the month tiles and the recent records of the boards.
  */
 export function HomePage() {
   return (
-    <PageShell>
-      <HomeHeader />
+    <PageShell className="pt-2 md:pt-2">
+      {/* The balance card's «Всего на счетах» becomes the heading in FT-111 */}
+      <h1 className="sr-only">Главная</h1>
+      <HomeHeader className="mb-4" />
 
       {/* Guest Mode Banner */}
       <GuestModeBanner className="mb-4" />

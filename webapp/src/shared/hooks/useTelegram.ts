@@ -108,38 +108,7 @@ export function useTelegramMainButton(options: {
   }, [mainButton, isTelegram, text, onClick, visible]);
 }
 
-/**
- * Hook to control Telegram BackButton
- * @param onClick - Callback when back button is pressed
- * @param visible - Whether to show the back button
- */
-export function useTelegramBackButton(
-  onClick?: () => void,
-  visible: boolean = true
-) {
-  const { backButton, isTelegram } = useTelegram();
-
-  useEffect(() => {
-    if (!isTelegram || !backButton) return;
-
-    if (visible) {
-      backButton.show();
-    } else {
-      backButton.hide();
-    }
-
-    if (onClick) {
-      backButton.onClick(onClick);
-    }
-
-    return () => {
-      if (onClick) {
-        backButton.offClick(onClick);
-      }
-      backButton.hide();
-    };
-  }, [backButton, isTelegram, onClick, visible]);
-}
+// Telegram's BackButton is driven by the app shell: see useTelegramBackButton in shared/lib/navigation (FT-110).
 
 /**
  * Hook for Telegram Haptic Feedback

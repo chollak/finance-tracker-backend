@@ -11,11 +11,10 @@ export function AddTransactionPage() {
   const navigate = useNavigate();
 
   return (
-    <PageShell as="main" className="max-w-2xl">
+    <PageShell className="max-w-2xl">
       <FormPageHeader
         title="Новая транзакция"
         subtitle="Добавьте доход или расход"
-        onBack={() => navigate(-1)}
       />
 
       {/* Add Transaction Feature */}

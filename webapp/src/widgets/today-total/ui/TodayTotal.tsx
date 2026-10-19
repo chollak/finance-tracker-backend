@@ -1,9 +1,12 @@
 import { useMemo, type ReactNode } from 'react';
+import { ChevronRight } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { Card } from '@/shared/ui/card';
 import { Skeleton } from '@/shared/ui/skeleton';
 import { AmountText } from '@/shared/ui/typography';
 import { useTransactions } from '@/entities/transaction';
 import { useUserStore } from '@/entities/user/model/store';
+import { ROUTES } from '@/shared/lib/constants/routes';
 import {
   calculateTodayTotal,
   formatTodayTotalMeta,
@@ -12,14 +15,25 @@ import {
 
 const TITLE = 'Потрачено сегодня';
 
+/**
+ * The card opens Analytics (FT-110): with no bottom bar, Home is where Analytics is reached from. On the
+ * boards that is the month's expense tile; it replaces this card in FT-111 and keeps the link.
+ */
 function TodayTotalShell({ children }: { children: ReactNode }) {
   return (
-    <Card className="px-5 py-4">
-      <p className="text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">
-        {TITLE}
-      </p>
-      {children}
-    </Card>
+    <Link
+      to={ROUTES.ANALYTICS}
+      className="block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
+    >
+      <Card className="px-5 py-4 transition-colors active:bg-muted/60">
+        <p className="flex items-center justify-between gap-2 text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">
+          {TITLE}
+          <ChevronRight className="h-4 w-4 shrink-0" aria-hidden="true" />
+        </p>
+        {children}
+        <span className="sr-only">Открыть аналитику</span>
+      </Card>
+    </Link>
   );
 }
 

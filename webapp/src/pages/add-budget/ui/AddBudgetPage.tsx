@@ -17,8 +17,8 @@ export function AddBudgetPage() {
   // Guest users: show login prompt
   if (isGuest) {
     return (
-      <PageShell as="main" className="max-w-2xl">
-        <FormPageHeader title="Новый бюджет" onBack={() => navigate(-1)} />
+      <PageShell className="max-w-2xl">
+        <FormPageHeader title="Новый бюджет" />
         <GuestFeatureBlock
           title="Бюджеты доступны после входа"
           description="Войдите через Telegram, чтобы создавать бюджеты и отслеживать лимиты."
@@ -28,11 +28,10 @@ export function AddBudgetPage() {
   }
 
   return (
-    <PageShell as="main" className="max-w-2xl">
+    <PageShell className="max-w-2xl">
       <FormPageHeader
         title="Новый бюджет"
         subtitle="Создайте план расходов"
-        onBack={() => navigate(-1)}
       />
 
       {/* Create Budget Feature */}

@@ -46,7 +46,7 @@ export function DebtDetailsPage() {
 
   if (isLoading) {
     return (
-      <PageShell as="main" className="max-w-2xl">
+      <PageShell className="max-w-2xl">
         <Skeleton className="h-8 w-32 mb-6" />
         <Skeleton className="h-48 w-full mb-4" />
         <Skeleton className="h-32 w-full" />
@@ -56,7 +56,7 @@ export function DebtDetailsPage() {
 
   if (!debtData) {
     return (
-      <PageShell as="main" className="max-w-2xl text-center">
+      <PageShell className="max-w-2xl text-center">
         <p className="text-muted-foreground">Долг не найден</p>
         <Button onClick={() => navigate(ROUTES.DEBTS)} className="mt-4">
           Вернуться к списку
@@ -117,11 +117,10 @@ export function DebtDetailsPage() {
   };
 
   return (
-    <PageShell as="main" className="max-w-2xl">
+    <PageShell className="max-w-2xl">
       <FormPageHeader
         title={debt.personName}
         subtitle={debt._typeLabel}
-        onBack={() => navigate(-1)}
         action={(
           <span className={cn('rounded-full px-3 py-1 text-sm', debt._statusColor, 'bg-current/10')}>
             {debt._statusLabel}

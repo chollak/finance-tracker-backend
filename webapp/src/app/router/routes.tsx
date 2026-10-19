@@ -1,9 +1,9 @@
-import { createBrowserRouter, Link, Outlet, ScrollRestoration, useRouteError } from 'react-router-dom';
+import { createBrowserRouter, Link, useRouteError } from 'react-router-dom';
 import { lazy, Suspense } from 'react';
 import { Button } from '@/shared/ui/button';
 import { EmptyState } from '@/shared/ui/empty-state';
 import { Loading } from '@/shared/ui/loading';
-import { Layout } from '@/shared/ui/layout';
+import { AppShell } from './AppShell';
 import { FirstLaunchGate } from './FirstLaunchGate';
 
 // Lazy load pages for code splitting
@@ -27,16 +27,6 @@ const PastelShowcasePage = lazy(() => import('@/pages').then(m => ({ default: m.
 // Wrapper component with Suspense
 function PageLoader({ children }: { children: React.ReactNode }) {
   return <Suspense fallback={<Loading fullScreen />}>{children}</Suspense>;
-}
-
-// Layout wrapper for main pages with navigation
-function LayoutWrapper() {
-  return (
-    <Layout>
-      <ScrollRestoration />
-      <Outlet />
-    </Layout>
-  );
 }
 
 function NotFoundPage() {
@@ -100,9 +90,10 @@ export const router = createBrowserRouter([
     element: <FirstLaunchGate />,
     children: [
       {
-        // Main pages with navigation layout
-        element: <LayoutWrapper />,
-        errorElement: <Layout><RouterErrorPage /></Layout>,
+        // No bottom bar (FT-110): Home opens History and Analytics, «Ещё» the rest; every other
+        // screen is nested and has «Назад» (Telegram's BackButton or its own)
+        element: <AppShell />,
+        errorElement: <RouterErrorPage />,
         children: [
           {
             path: '/',
@@ -128,36 +119,36 @@ export const router = createBrowserRouter([
             path: '/more',
             element: <PageLoader><MorePage /></PageLoader>,
           },
+          // Form and detail pages
+          {
+            path: '/transactions/add',
+            element: <PageLoader><AddTransactionPage /></PageLoader>,
+          },
+          {
+            path: '/transactions/:id/edit',
+            element: <PageLoader><EditTransactionPage /></PageLoader>,
+          },
+          {
+            path: '/budgets/add',
+            element: <PageLoader><AddBudgetPage /></PageLoader>,
+          },
+          {
+            path: '/budgets/:id/edit',
+            element: <PageLoader><EditBudgetPage /></PageLoader>,
+          },
+          {
+            path: '/debts/add',
+            element: <PageLoader><AddDebtPage /></PageLoader>,
+          },
+          {
+            path: '/debts/:id',
+            element: <PageLoader><DebtDetailsPage /></PageLoader>,
+          },
           {
             path: '*',
             element: <NotFoundPage />,
           },
         ],
-      },
-      // Form pages without navigation layout (have their own back button)
-      {
-        path: '/transactions/add',
-        element: <PageLoader><AddTransactionPage /></PageLoader>,
-      },
-      {
-        path: '/transactions/:id/edit',
-        element: <PageLoader><EditTransactionPage /></PageLoader>,
-      },
-      {
-        path: '/budgets/add',
-        element: <PageLoader><AddBudgetPage /></PageLoader>,
-      },
-      {
-        path: '/budgets/:id/edit',
-        element: <PageLoader><EditBudgetPage /></PageLoader>,
-      },
-      {
-        path: '/debts/add',
-        element: <PageLoader><AddDebtPage /></PageLoader>,
-      },
-      {
-        path: '/debts/:id',
-        element: <PageLoader><DebtDetailsPage /></PageLoader>,
       },
     ],
   },

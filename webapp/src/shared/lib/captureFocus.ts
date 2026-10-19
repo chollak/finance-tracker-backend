@@ -1,13 +1,13 @@
 /**
- * "Put me in the capture field" — a one-slot request passed from the global dock to whatever
- * capture surface is currently on screen.
+ * "Put me in the capture field" — a one-slot request passed from another screen (the «Текстом» row
+ * of «Ещё»; the bottom dock that first asked for it is gone since FT-110) to whatever capture surface
+ * is currently on screen.
  *
- * The dock lives in every route, the capture field only on Home, so a plain callback or a shared
- * store would mean either lifting capture state into the app shell or wiring a context through
- * pages that have nothing to do with capture. Instead the dock states an intent and the capture
- * card answers it when it exists.
+ * The capture field lives only on Home, so a plain callback or a shared store would mean either
+ * lifting capture state into the app shell or wiring a context through pages that have nothing to do
+ * with capture. Instead the caller states an intent and the capture card answers it when it exists.
  *
- * The request is *latched*, not fired-and-forgotten: pressing the dock action on `/more`
+ * The request is *latched*, not fired-and-forgotten: pressing «Текстом» on `/more`
  * navigates Home first, so the capture card mounts a frame or two after the press. A plain event
  * would land before anyone listened and the press would silently do nothing. The pending flag
  * survives until a listener subscribes, and is cleared the moment it is delivered so a later
@@ -33,8 +33,8 @@ function deliver(): void {
 /**
  * Ask the capture surface to take focus.
  *
- * Delivered immediately when a surface is listening (dock pressed on Home), otherwise held until
- * one subscribes (dock pressed elsewhere → navigate Home → card mounts).
+ * Delivered immediately when a surface is listening, otherwise held until one subscribes
+ * (pressed elsewhere → navigate Home → card mounts).
  */
 export function requestCaptureFocus(): void {
   pending = true;

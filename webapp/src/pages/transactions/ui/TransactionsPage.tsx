@@ -237,7 +237,7 @@ export function TransactionsPage() {
               variant="ghost"
               size="icon"
               onClick={toggleSearch}
-              // Stable QA hook, like the dock's `data-dock-center`: screenshot runs
+              // Stable QA hook: screenshot runs
               // must not break when the label or the icon changes.
               data-history-search-toggle
               aria-expanded={isSearchOpen}
@@ -366,7 +366,7 @@ export function TransactionsPage() {
         </TabsContent>
       </Tabs>
 
-      {/* Add Transaction - desktop only; mobile uses the central bottom-nav action */}
+      {/* Add Transaction - desktop only; on a phone records are written from Home */}
       {activeTab === 'active' && transactions && transactions.length > 0 && (
         <QuickAddSheet>
           <Button

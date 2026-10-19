@@ -51,7 +51,7 @@ Common primitives:
 
 ### Core tabs inside `Layout`
 
-Use `PageShell` as a `div` because `Layout` already owns the `<main>` landmark and bottom-nav clearance.
+Use `PageShell` as a `div` because the app shell (`webapp/src/app/router/AppShell.tsx`) already owns the `<main>` landmark. There is no bottom bar since FT-110.
 
 ```tsx
 <PageShell>

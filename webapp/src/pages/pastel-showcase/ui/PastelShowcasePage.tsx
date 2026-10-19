@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react';
 import { ArrowUp, Bell, Download, FileText, Mic, MicOff, Palette, PenLine, User, Wallet } from 'lucide-react';
 import {
   AccountPicker,
+  BackButton,
   Button,
   CalendarSheet,
   CategoryPicker,
@@ -87,6 +88,8 @@ function Panel({ theme, long }: { theme: 'light' | 'dark'; long: boolean }) {
           <Button variant="round" aria-label="Голосовой ввод"><Mic strokeWidth={1.9} /></Button>
           <Button variant="round" aria-label="Отправить"><ArrowUp strokeWidth={1.9} /></Button>
           <Button variant="round-secondary" aria-label="Ручной ввод"><PenLine strokeWidth={1.9} /></Button>
+          {/* «Назад» of a nested screen (on `card`); inside Telegram it gives way to Telegram's BackButton */}
+          <BackButton />
           <Button variant="text">Отменить</Button>
         </div>
       </Block>

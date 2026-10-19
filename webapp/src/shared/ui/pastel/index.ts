@@ -14,3 +14,4 @@ export { Sheet } from './sheet';
 export { CategoryPicker, AccountPicker, type PickerCategory, type PickerAccount } from './picker';
 export { CalendarSheet } from './calendar-sheet';
 export { Wordmark } from './wordmark';
+export { BackButton } from './back-button';

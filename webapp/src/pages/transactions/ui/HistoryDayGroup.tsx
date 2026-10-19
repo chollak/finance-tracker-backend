@@ -58,9 +58,8 @@ export function HistoryDayGroup({
   return (
     <section className={className}>
       {/* Sticky so the day a row belongs to stays on screen while its rows scroll past —
-          the list is scanned by day, and a row loses its meaning without one. `md:top-14`
-          clears the desktop `TopNav`, which is itself sticky and 56px tall. */}
-      <header className="sticky top-0 z-10 bg-background pb-1.5 pt-1 md:top-14">
+          the list is scanned by day, and a row loses its meaning without one. */}
+      <header className="sticky top-0 z-10 bg-background pb-1.5 pt-1">
         <div className="flex items-baseline justify-between gap-3">
           <h2 className="min-w-0 truncate text-sm font-semibold leading-snug">{group.label}</h2>
           {expenseTotal && (

@@ -137,7 +137,7 @@ export function TextQuickCaptureCard({ className }: TextQuickCaptureCardProps) {
   const canSubmit = !!userId && isOnline && !capture.isPending && text.trim().length > 0;
 
   /**
-   * The dock's `Записать` asks for this card; this is where that request is answered.
+   * «Текстом» in «Ещё» asks for this card; this is where that request is answered.
    *
    * The card is scrolled into view before focusing because on Home it can sit under the fold once
    * a few recent rows are rendered, and a focus ring the user cannot see is not feedback. In guest

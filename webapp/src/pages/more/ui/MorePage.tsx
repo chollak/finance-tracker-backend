@@ -194,8 +194,8 @@ export function MorePage() {
           key={channel.id}
           to={ROUTES.HOME}
           className="block"
-          // Same latch the dock's `Записать` uses: the capture card picks the request up when it
-          // mounts, so the press is not swallowed by the route change.
+          // A latched request: the capture card picks it up when Home mounts, so the press is not
+          // swallowed by the route change.
           onClick={() => requestCaptureFocus()}
         >
           <Card className={cn(CARD_BASE, CARD_INTERACTIVE)}>
