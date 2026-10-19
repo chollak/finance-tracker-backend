@@ -1,6 +1,13 @@
 import { useCallback, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { backStep, syncTelegramBackButton, telegramBackButton, type TelegramBackButtonApi } from './backNavigation';
+import {
+  backStep,
+  closeStep,
+  keepTelegramBackButtonInStep,
+  telegramBackButton,
+  type BackStep,
+  type TelegramBackButtonApi,
+} from './backNavigation';
 
 /** Telegram's BackButton for this page, or null outside Telegram (and when rendered without a window). */
 export function currentTelegramBackButton(): TelegramBackButtonApi | null {
@@ -8,18 +15,36 @@ export function currentTelegramBackButton(): TelegramBackButtonApi | null {
   return telegramBackButton(window.Telegram?.WebApp);
 }
 
-/** One press of «Назад» on the current screen: the previous app screen, or the parent one. */
-export function useGoBack(): () => void {
+/** react-router's index of the current history entry (`history.state.idx`); undefined without a window. */
+function currentHistoryIndex(): number | undefined {
+  if (typeof window === 'undefined') return undefined;
+  return (window.history.state as { idx?: number } | null)?.idx;
+}
+
+/** Runs the step `choose` picks for the current screen: one entry back, or the target in place of this one. */
+function useStep(choose: (pathname: string, historyIndex: number | undefined) => BackStep | null): () => void {
   const navigate = useNavigate();
   const { pathname } = useLocation();
 
   return useCallback(() => {
-    const historyIndex = (window.history.state as { idx?: number } | null)?.idx;
-    const step = backStep(pathname, historyIndex);
+    const step = choose(pathname, currentHistoryIndex());
     if (!step) return;
     if (step.kind === 'history') navigate(-1);
     else navigate(step.to, { replace: true });
-  }, [navigate, pathname]);
+  }, [choose, navigate, pathname]);
+}
+
+/** One press of «Назад» on the current screen: the previous app screen, or the parent one. */
+export function useGoBack(): () => void {
+  return useStep(backStep);
+}
+
+/**
+ * Closes a form or a detail screen after a save or a delete, the way «Назад» does (see `closeStep`).
+ * Forms use it instead of `navigate(list)`, which would leave the submitted form under the list.
+ */
+export function useCloseScreen(): () => void {
+  return useStep(closeStep);
 }
 
 /**
@@ -30,11 +55,7 @@ export function useTelegramBackButton(): void {
   const { pathname } = useLocation();
   const goBack = useGoBack();
 
-  useEffect(() => {
-    const button = currentTelegramBackButton();
-    if (!button) return;
-    return syncTelegramBackButton(button, pathname, goBack);
-  }, [pathname, goBack]);
+  useEffect(() => keepTelegramBackButtonInStep(window.Telegram?.WebApp, pathname, goBack), [pathname, goBack]);
 
   // When the shell goes away (the first launch takes the screen), the button goes with it
   useEffect(() => () => currentTelegramBackButton()?.hide(), []);

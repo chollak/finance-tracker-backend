@@ -1,8 +1,7 @@
-import { useNavigate } from 'react-router-dom';
 import { useCreateBudget } from '@/entities/budget';
 import { useUserStore } from '@/entities/user/model/store';
 import { BudgetForm } from './ui/BudgetForm';
-import { ROUTES } from '@/shared/lib/constants';
+import { useCloseScreen } from '@/shared/lib/navigation';
 import type { CreateBudgetFormData } from './model/schema';
 import { toast } from 'sonner';
 
@@ -15,7 +14,7 @@ interface CreateBudgetProps {
  * Handles budget creation logic and navigation
  */
 export function CreateBudget({ onSuccess }: CreateBudgetProps = {}) {
-  const navigate = useNavigate();
+  const closeScreen = useCloseScreen();
   const userId = useUserStore((state) => state.userId);
   const createBudget = useCreateBudget();
 
@@ -33,11 +32,8 @@ export function CreateBudget({ onSuccess }: CreateBudgetProps = {}) {
 
       toast.success('Бюджет создан');
 
-      if (onSuccess) {
-        onSuccess();
-      } else {
-        navigate(ROUTES.BUDGETS);
-      }
+      // Closes the way «Назад» does: back to the screen that opened the form, never to the form again
+      (onSuccess ?? closeScreen)();
     } catch (error) {
       toast.error('Не удалось создать бюджет');
       console.error('Failed to create budget:', error);

@@ -1,7 +1,5 @@
 import { CreateBudget } from '@/features/create-budget';
 import { FormPageHeader, PageShell } from '@/shared/ui';
-import { useNavigate } from 'react-router-dom';
-import { ROUTES } from '@/shared/lib/constants/routes';
 import { useIsGuest } from '@/entities/user/model/store';
 import { GuestFeatureBlock } from '@/features/auth';
 
@@ -11,7 +9,6 @@ import { GuestFeatureBlock } from '@/features/auth';
  * Guest users see login prompt
  */
 export function AddBudgetPage() {
-  const navigate = useNavigate();
   const isGuest = useIsGuest();
 
   // Guest users: show login prompt
@@ -34,8 +31,8 @@ export function AddBudgetPage() {
         subtitle="Создайте план расходов"
       />
 
-      {/* Create Budget Feature */}
-      <CreateBudget onSuccess={() => navigate(ROUTES.BUDGETS)} />
+      {/* Create Budget Feature: a created budget closes the form the way «Назад» does */}
+      <CreateBudget />
     </PageShell>
   );
 }

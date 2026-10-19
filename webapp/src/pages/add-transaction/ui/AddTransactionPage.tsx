@@ -1,15 +1,11 @@
 import { AddTransaction } from '@/features/add-transaction';
 import { FormPageHeader, PageShell } from '@/shared/ui';
-import { useNavigate } from 'react-router-dom';
-import { ROUTES } from '@/shared/lib/constants/routes';
 
 /**
  * Add Transaction Page
  * Dedicated page for adding new transactions
  */
 export function AddTransactionPage() {
-  const navigate = useNavigate();
-
   return (
     <PageShell className="max-w-2xl">
       <FormPageHeader
@@ -17,8 +13,8 @@ export function AddTransactionPage() {
         subtitle="Добавьте доход или расход"
       />
 
-      {/* Add Transaction Feature */}
-      <AddTransaction onSuccess={() => navigate(ROUTES.HOME)} showHeader={false} />
+      {/* Add Transaction Feature: a saved record closes the form the way «Назад» does */}
+      <AddTransaction showHeader={false} />
     </PageShell>
   );
 }

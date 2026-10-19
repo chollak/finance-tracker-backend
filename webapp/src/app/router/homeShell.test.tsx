@@ -7,8 +7,7 @@ import { HomePage, MorePage } from '@/pages';
 import { FormPageHeader, PageHeader } from '@/shared/ui';
 import { ROUTES } from '@/shared/lib/constants/routes';
 import { useUserStore } from '@/entities/user';
-import { transactionKeys } from '@/entities/transaction/api/keys';
-import { transactionToViewModel } from '@/entities/transaction/lib/toViewModel';
+import { transactionKeys, transactionToViewModel } from '@/entities/transaction';
 import type { Transaction } from '@/shared/types';
 import { AppShell } from './AppShell';
 

@@ -1,8 +1,7 @@
-import { useNavigate } from 'react-router-dom';
 import { useCreateTransaction } from '@/entities/transaction';
 import { useUserStore } from '@/entities/user/model/store';
 import { TransactionForm } from './ui/TransactionForm';
-import { ROUTES } from '@/shared/lib/constants';
+import { useCloseScreen } from '@/shared/lib/navigation';
 import type { TransactionFormResult } from './ui/TransactionForm';
 import { toast } from 'sonner';
 
@@ -16,7 +15,7 @@ interface AddTransactionProps {
  * Handles transaction creation logic and navigation
  */
 export function AddTransaction({ onSuccess, showHeader = true }: AddTransactionProps = {}) {
-  const navigate = useNavigate();
+  const closeScreen = useCloseScreen();
   const userId = useUserStore((state) => state.userId);
   const userName = useUserStore((state) => state.userName);
   const createTransaction = useCreateTransaction();
@@ -37,11 +36,8 @@ export function AddTransaction({ onSuccess, showHeader = true }: AddTransactionP
 
       toast.success('Транзакция добавлена');
 
-      if (onSuccess) {
-        onSuccess();
-      } else {
-        navigate(ROUTES.HOME);
-      }
+      // Closes the way «Назад» does: back to the screen that opened the form, never to the form again
+      (onSuccess ?? closeScreen)();
     } catch (error) {
       toast.error('Не удалось добавить транзакцию');
       console.error('Failed to create transaction:', error);

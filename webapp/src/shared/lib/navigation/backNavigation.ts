@@ -55,6 +55,16 @@ export function backStep(pathname: string, historyIndex: number | undefined): Ba
 }
 
 /**
+ * How a form or a detail screen closes after a save or a delete: the way «Назад» does — back to the app
+ * screen that opened it, or, when it was opened directly, to its parent in its own place. It never
+ * pushes the list on top of the form, so the next «Назад» cannot land on the submitted form or on a
+ * record that was just deleted.
+ */
+export function closeStep(pathname: string, historyIndex: number | undefined): BackStep {
+  return backStep(pathname, historyIndex) ?? { kind: 'route', to: ROUTES.HOME };
+}
+
+/**
  * Telegram's BackButton, when the page really runs inside Telegram and the client has one (Bot API 6.1).
  * The SDK is loaded in a plain browser too, with empty initData, so only initData tells them apart.
  */
@@ -88,4 +98,18 @@ export function syncTelegramBackButton(
   button.onClick(goBack);
   button.show();
   return () => button.offClick(goBack);
+}
+
+/**
+ * The app shell's effect for one screen: inside Telegram, Telegram's BackButton is put in step with the
+ * screen (see `syncTelegramBackButton`); outside Telegram nothing happens, the screen draws its own «Назад».
+ */
+export function keepTelegramBackButtonInStep(
+  webApp: TelegramBackButtonHost | undefined,
+  pathname: string,
+  goBack: () => void
+): () => void {
+  const button = telegramBackButton(webApp);
+  if (!button) return () => {};
+  return syncTelegramBackButton(button, pathname, goBack);
 }

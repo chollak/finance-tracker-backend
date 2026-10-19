@@ -88,8 +88,9 @@ function Panel({ theme, long }: { theme: 'light' | 'dark'; long: boolean }) {
           <Button variant="round" aria-label="Голосовой ввод"><Mic strokeWidth={1.9} /></Button>
           <Button variant="round" aria-label="Отправить"><ArrowUp strokeWidth={1.9} /></Button>
           <Button variant="round-secondary" aria-label="Ручной ввод"><PenLine strokeWidth={1.9} /></Button>
-          {/* «Назад» of a nested screen (on `card`); inside Telegram it gives way to Telegram's BackButton */}
-          <BackButton />
+          {/* «Назад» of a nested screen (on `card`); inside Telegram it gives way to Telegram's BackButton.
+              Here a press does nothing: the showcase is not a nested screen and has nowhere to go back to */}
+          <BackButton onClick={() => {}} />
           <Button variant="text">Отменить</Button>
         </div>
       </Block>

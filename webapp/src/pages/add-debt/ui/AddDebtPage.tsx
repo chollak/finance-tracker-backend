@@ -1,7 +1,5 @@
 import { CreateDebt } from '@/features/create-debt';
 import { FormPageHeader, PageShell } from '@/shared/ui';
-import { useNavigate } from 'react-router-dom';
-import { ROUTES } from '@/shared/lib/constants/routes';
 import { useIsGuest } from '@/entities/user/model/store';
 import { GuestFeatureBlock } from '@/features/auth';
 
@@ -11,7 +9,6 @@ import { GuestFeatureBlock } from '@/features/auth';
  * Guest users see login prompt
  */
 export function AddDebtPage() {
-  const navigate = useNavigate();
   const isGuest = useIsGuest();
 
   // Guest users: show login prompt
@@ -34,8 +31,8 @@ export function AddDebtPage() {
         subtitle="Добавьте запись о долге"
       />
 
-      {/* Create Debt Feature */}
-      <CreateDebt onSuccess={() => navigate(ROUTES.DEBTS)} />
+      {/* Create Debt Feature: a created debt closes the form the way «Назад» does */}
+      <CreateDebt />
     </PageShell>
   );
 }

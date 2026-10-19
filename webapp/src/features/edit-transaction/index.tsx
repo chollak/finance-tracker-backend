@@ -1,7 +1,7 @@
-import { useNavigate, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { useTransaction, useUpdateTransaction } from '@/entities/transaction';
 import { TransactionForm, type TransactionFormResult } from '../add-transaction/ui/TransactionForm';
-import { ROUTES } from '@/shared/lib/constants';
+import { useCloseScreen } from '@/shared/lib/navigation';
 import { toast } from 'sonner';
 import { Skeleton } from '@/shared/ui/skeleton';
 
@@ -10,7 +10,8 @@ import { Skeleton } from '@/shared/ui/skeleton';
  * Reuses TransactionForm from AddTransaction
  */
 export function EditTransaction() {
-  const navigate = useNavigate();
+  // A saved record closes the form the way «Назад» does, so «Назад» never reopens it
+  const closeScreen = useCloseScreen();
   const { id } = useParams<{ id: string }>();
   const { data: transaction, isLoading } = useTransaction(id || null);
   const updateTransaction = useUpdateTransaction();
@@ -34,7 +35,7 @@ export function EditTransaction() {
       });
 
       toast.success('Транзакция обновлена');
-      navigate(ROUTES.TRANSACTIONS);
+      closeScreen();
     } catch (error) {
       toast.error('Не удалось обновить транзакцию');
       console.error('Failed to update transaction:', error);

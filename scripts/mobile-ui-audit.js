@@ -182,12 +182,10 @@ function rect(el) {
         };
       };
 
-      // The dock's primary action carries `data-dock-center` so this metric survives label
-      // changes; the old aria-label is kept as a fallback for pre-FT-079 builds.
-      const centerSelector = document.querySelector('nav [data-dock-center]')
-        ? 'nav [data-dock-center]'
-        : 'nav button[aria-label="Добавить транзакцию"]';
-      const navButtonRect = rectOf(centerSelector);
+      // No bottom bar since FT-110: Home's header carries the round «Ещё», nested screens a round «Назад»
+      // (outside Telegram). Both are 48/44px circles; null when the screen has none.
+      const moreLink = rectOf('header a[aria-label="Ещё"]');
+      const backButton = rectOf('button[aria-label="Назад"]');
 
       const actions = [...document.querySelectorAll('button,a')].map((el) => {
         const r = el.getBoundingClientRect();
@@ -215,12 +213,8 @@ function rect(el) {
         },
         h1: rectOf('h1'),
         tabList: rectOf('[role="tablist"]'),
-        navButton: navButtonRect && {
-          ...navButtonRect,
-          centerX: navButtonRect.x + navButtonRect.w / 2,
-          viewportCenterX: innerWidth / 2,
-        },
-        navLabels: [...document.querySelectorAll('nav span')].map((el) => el.textContent),
+        moreLink,
+        backButton,
         bottomActions: actions,
       };
     }, route.name);
@@ -242,7 +236,8 @@ function rect(el) {
     authFailures: result.authFailures,
     h1: result.metrics.h1,
     tabList: result.metrics.tabList,
-    navButton: result.metrics.navButton,
+    moreLink: result.metrics.moreLink,
+    backButton: result.metrics.backButton,
     scroll: result.metrics.scroll,
   }));
 

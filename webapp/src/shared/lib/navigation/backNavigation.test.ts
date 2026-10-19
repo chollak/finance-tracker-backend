@@ -2,9 +2,12 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   backControl,
   backStep,
+  closeStep,
+  keepTelegramBackButtonInStep,
   parentPath,
   syncTelegramBackButton,
   telegramBackButton,
+  type BackStep,
   type TelegramBackButtonApi,
 } from './backNavigation';
 
@@ -171,5 +174,156 @@ describe('syncTelegramBackButton', () => {
 
     expect(button.hide).not.toHaveBeenCalled();
     expect(button.visible).toBe(true);
+  });
+});
+
+/**
+ * The browser history as react-router's BrowserRouter keeps it: entries, the current one and its index
+ * (`history.state.idx`). `open` is a tap on a link (a push); «Назад» and closing a form run the step the
+ * app picks, as `useGoBack` / `useCloseScreen` do: `history` is `navigate(-1)`, `route` is
+ * `navigate(to, { replace: true })`.
+ */
+function appHistory(start: string) {
+  const entries = [start];
+  let index = 0;
+  const run = (step: BackStep | null) => {
+    if (!step) return;
+    if (step.kind === 'history') index -= 1;
+    else entries[index] = step.to;
+  };
+  return {
+    get path() {
+      return entries[index];
+    },
+    /** What «Назад» can still reach: the current entry and those below it. */
+    get stack() {
+      return entries.slice(0, index + 1);
+    },
+    open(to: string) {
+      entries.splice(index + 1);
+      entries.push(to);
+      index += 1;
+    },
+    back() {
+      run(backStep(entries[index], index));
+    },
+    close() {
+      run(closeStep(entries[index], index));
+    },
+  };
+}
+
+describe('closeStep — a form closes after a save or a delete the way «Назад» does', () => {
+  it('list → form → save: «Назад» lands on the screen that opened the list, never on the form', () => {
+    const history = appHistory('/');
+    history.open('/transactions');
+    history.open('/transactions/t1/edit');
+
+    history.close();
+    expect(history.path).toBe('/transactions');
+    expect(history.stack).toEqual(['/', '/transactions']);
+
+    history.back();
+    expect(history.path).toBe('/');
+  });
+
+  it('a record opened from Home returns to Home after the save', () => {
+    const history = appHistory('/');
+    history.open('/transactions/t1/edit');
+
+    history.close();
+    expect(history.path).toBe('/');
+    expect(history.stack).toEqual(['/']);
+  });
+
+  it('manual entry returns to the screen it was opened from', () => {
+    const history = appHistory('/');
+    history.open('/more');
+    history.open('/transactions/add');
+
+    history.close();
+    expect(history.path).toBe('/more');
+  });
+
+  it('a deleted debt is never shown again: «Назад» walks the list, «Ещё», Home', () => {
+    const history = appHistory('/');
+    history.open('/more');
+    history.open('/debts');
+    history.open('/debts/d1');
+
+    history.close();
+    const visited = [history.path];
+    history.back();
+    visited.push(history.path);
+    history.back();
+    visited.push(history.path);
+
+    expect(visited).toEqual(['/debts', '/more', '/']);
+    expect(backStep(history.path, 0)).toBeNull();
+  });
+
+  it('a saved or deleted budget and a created budget or debt leave no form under their list', () => {
+    for (const form of ['/budgets/b1/edit', '/budgets/add']) {
+      const history = appHistory('/');
+      history.open('/more');
+      history.open('/budgets');
+      history.open(form);
+
+      history.close();
+      expect(history.stack).toEqual(['/', '/more', '/budgets']);
+    }
+
+    const history = appHistory('/');
+    history.open('/more');
+    history.open('/debts');
+    history.open('/debts/add');
+    history.close();
+    expect(history.stack).toEqual(['/', '/more', '/debts']);
+  });
+
+  it('a form opened by a link from the bot gives its place to its parent, so the app never shows it again', () => {
+    const history = appHistory('/transactions/t1/edit');
+
+    history.close();
+    expect(history.stack).toEqual(['/transactions']);
+
+    history.back();
+    expect(history.stack).toEqual(['/']);
+  });
+
+  it('on Home there is nothing to close: it stays on Home', () => {
+    expect(closeStep('/', 0)).toEqual({ kind: 'route', to: '/' });
+  });
+});
+
+describe('keepTelegramBackButtonInStep — the app shell’s effect for a screen', () => {
+  it('inside Telegram it shows the BackButton on a nested screen and a press goes back', () => {
+    const app = webApp();
+    const goBack = vi.fn();
+
+    const cleanup = keepTelegramBackButtonInStep(app, '/transactions', goBack);
+    expect(app.BackButton.visible).toBe(true);
+    app.BackButton.press();
+    expect(goBack).toHaveBeenCalledTimes(1);
+
+    cleanup();
+    expect(app.BackButton.handlerCount()).toBe(0);
+  });
+
+  it('inside Telegram it hides the BackButton on Home', () => {
+    const app = webApp();
+    app.BackButton.visible = true;
+
+    keepTelegramBackButtonInStep(app, '/', vi.fn());
+    expect(app.BackButton.visible).toBe(false);
+  });
+
+  it('outside Telegram it leaves the BackButton alone: the screen draws its own «Назад»', () => {
+    const app = webApp({ initData: '' });
+
+    keepTelegramBackButtonInStep(app, '/transactions', vi.fn())();
+    keepTelegramBackButtonInStep(undefined, '/transactions', vi.fn())();
+    expect(app.BackButton.show).not.toHaveBeenCalled();
+    expect(app.BackButton.onClick).not.toHaveBeenCalled();
   });
 });
