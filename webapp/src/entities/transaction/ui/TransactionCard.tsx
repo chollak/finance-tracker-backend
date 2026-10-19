@@ -1,7 +1,6 @@
 import { Card } from '@/shared/ui/card';
 import { Badge } from '@/shared/ui/badge';
 import type { TransactionViewModel } from '../model/types';
-import { getCategoryName } from '@/entities/category/model/categories';
 import { NEEDS_REVIEW_LABEL } from '../lib/semanticType';
 import { TransactionCorrectionChips } from './TransactionCorrectionChips';
 
@@ -37,7 +36,7 @@ export function TransactionCard({ transaction, onClick }: TransactionCardProps) 
             <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
               <span>{transaction._formattedDate}</span>
               <span>•</span>
-              <span>{getCategoryName(transaction.category)}</span>
+              <span>{transaction.category}</span>
               <Badge variant={transaction._semanticTypeBadgeVariant} className="px-2 py-0 text-[11px]">
                 {transaction._semanticTypeLabel}
               </Badge>

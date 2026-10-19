@@ -9,12 +9,35 @@ import { createOpenAIUsageModule } from './modules/openai-usage/openAIUsageModul
 import { UserModule } from './modules/user/userModule';
 import { SubscriptionModule } from './modules/subscription/subscriptionModule';
 import { RepositoryFactory } from './shared/infrastructure/database/repositoryFactory';
+import { CategoryModule } from './modules/category/categoryModule';
+import { AccountModule } from './modules/account/accountModule';
+import { FxModule } from './modules/fx/fxModule';
 
 export function createModules() {
   // Core modules (no dependencies on subscription)
+  const categoryModule = CategoryModule.create();
   const transactionModule = TransactionModule.create();
+  // Records point at the user's categories (FT-099)
+  transactionModule.setCategoryResolver(categoryModule.getCatalog());
   const budgetModule = BudgetModule.create(transactionModule);
   const userModule = UserModule.create();
+
+  // Records are written to the user's accounts (FT-101); the default account comes from settings
+  const accountModule = AccountModule.create();
+  transactionModule.setAccountResolver(accountModule.getBook());
+  accountModule.getBook().setDefaultAccountSource(userId => userModule.defaultAccountId(userId));
+  userModule.setAccountCheck((userId, accountId) => accountModule.getBook().isVisibleAccount(userId, accountId));
+  // The account screen lists the account's records next to its moves (FT-104)
+  accountModule.setRecordSource({ recordsOf: (userId, accountId) => transactionModule.recordsOfAccount(userId, accountId) });
+
+  // USD rate (FT-102): the user's own rate from settings, else the Central Bank's
+  const fxModule = FxModule.create({
+    get: userId => userModule.ownUsdRate(userId),
+    set: (userId, rate) => userModule.setOwnUsdRate(userId, rate),
+  });
+  accountModule.getBook().setRateProvider(fxModule.getService());
+  accountModule.setCbuRates(fxModule.getService());
+  transactionModule.setUsdRateSource(fxModule.getService());
   const openAIUsageModule = createOpenAIUsageModule();
 
   // Create SubscriptionModule with repositories
@@ -32,12 +55,16 @@ export function createModules() {
 
   // VoiceProcessingModule now handles both transactions and debts
   const openAIService = new OpenAITranscriptionService(AppConfig.OPENAI_API_KEY);
-  const voiceModule = new VoiceProcessingModule(openAIService, transactionModule, debtModule);
+  const voiceModule = new VoiceProcessingModule(openAIService, transactionModule, debtModule, categoryModule.getCatalog());
 
   // Shared quick-capture boundary: wraps the existing text pipeline for API/Telegram/Mini App clients
-  const quickCaptureModule = QuickCaptureModule.create(voiceModule);
+  // A repeated clientId returns the records the first capture wrote (FT-106)
+  const quickCaptureModule = QuickCaptureModule.create(voiceModule, transactionModule);
 
   return {
+    categoryModule,
+    accountModule,
+    fxModule,
     transactionModule,
     budgetModule,
     debtModule,

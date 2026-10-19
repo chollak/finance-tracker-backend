@@ -26,6 +26,11 @@ export const ROUTES = {
 
 // API endpoints
 export const API_ENDPOINTS = {
+  // The user's categories (FT-099); the user comes from authentication
+  CATEGORIES: {
+    LIST: '/categories',
+  },
+
   // Transactions
   TRANSACTIONS: {
     LIST: (userId: string) => `/transactions/user/${userId}`,

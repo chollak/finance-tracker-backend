@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Daftar — голосовой ввод</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+@keyframes pvLevel{0%,100%{transform:scaleY(0.35)}50%{transform:scaleY(1)}}
+@keyframes pvBlink{0%,100%{opacity:1}50%{opacity:0.2}}
+@media (prefers-reduced-motion: reduce){.pv-anim{animation:none !important}}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; position: relative; overflow: hidden; display: flex; flex-direction: column; gap: 20px; padding: 8px 16px 16px; background: {{t.bg}}; color: {{t.ink}}; font-family: 'Manrope', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;">
+
+<header style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: center; height: 48px;">
+<a href="{{homeHref}}" style="justify-self: start; height: 44px; padding: 0 16px; display: flex; align-items: center; border-radius: 9999px; background: {{t.card}}; color: {{t.ink}}; font-size: 14px; font-weight: 700; text-decoration: none;">Отмена</a>
+<sc-if value="{{isListening}}" hint-placeholder-val="{{true}}">
+<span style="justify-self: center; display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; color: {{t.ink}};"><span class="pv-anim" aria-hidden="true" style="width: 10px; height: 10px; border-radius: 9999px; background: {{t.ink}}; animation: pvBlink 1.2s ease-in-out infinite;"></span>Слушаю</span>
+<span style="justify-self: end; font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; color: {{t.muted}};">0:07</span>
+</sc-if>
+</header>
+
+<sc-if value="{{isProblem}}" hint-placeholder-val="{{false}}">
+<div style="flex: 1 1 auto; display: flex; flex-direction: column; justify-content: center; gap: 16px; padding: 0 4px;">
+<span aria-hidden="true" style="width: 64px; height: 64px; display: flex; align-items: center; justify-content: center; border-radius: 9999px; background: {{t.track}}; color: {{t.ink}};"><svg width="28" height="28" viewBox="0 0 24 24"><path d="{{pIcon}}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+<h1 id="pv-title" tabindex="-1" style="margin: 0; outline: none; font-size: 26px; line-height: 1.2; font-weight: 800; letter-spacing: -0.8px;">{{pTitle}}</h1>
+<p style="margin: 0; font-size: 16px; line-height: 1.5; font-weight: 500; color: {{t.muted}};">{{pText}}</p>
+<sc-if value="{{hasSteps}}" hint-placeholder-val="{{false}}">
+<ol style="margin: 0; padding: 4px 16px; list-style: none; border-radius: 24px; background: {{t.card}};">
+<sc-for list="{{pSteps}}" as="st" hint-placeholder-count="3">
+<li style="min-height: 48px; display: flex; align-items: center; gap: 12px; border-top: {{st.divider}};"><span aria-hidden="true" style="flex: 0 0 28px; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 9999px; background: {{t.track}}; font-size: 13px; font-weight: 800;">{{st.n}}</span><span style="font-size: 15px; line-height: 1.4; font-weight: 600;">{{st.text}}</span></li>
+</sc-for>
+</ol>
+</sc-if>
+</div>
+<a href="{{pPrimaryHref}}" style="flex: 0 0 auto; height: 56px; display: flex; align-items: center; justify-content: center; border-radius: 9999px; background: {{t.primaryBg}}; color: {{t.primaryInk}}; text-decoration: none; font-size: 16px; font-weight: 800;">{{pPrimary}}</a>
+<sc-if value="{{hasRetry}}" hint-placeholder-val="{{false}}">
+<a href="{{retryHref}}" style="flex: 0 0 auto; height: 44px; align-self: center; display: flex; align-items: center; padding: 0 16px; color: {{t.ink}}; font-size: 14px; font-weight: 800;">{{retryLabel}}</a>
+</sc-if>
+</sc-if>
+
+<sc-if value="{{isListening}}" hint-placeholder-val="{{true}}">
+<p aria-live="polite" style="margin: 8px 0 0; font-size: 28px; line-height: 1.25; font-weight: 700; letter-spacing: -0.8px; text-wrap: pretty; color: {{t.ink}};">кофе 25к, такси до работы 18 тысяч наличными, <span style="color: {{t.muted}};">вчера пришло 300 долларов за лендинг</span><span class="pv-anim" aria-hidden="true" style="display: inline-block; width: 3px; height: 28px; margin-left: 4px; vertical-align: -5px; border-radius: 2px; background: {{t.ink}}; animation: pvBlink 1s ease-in-out infinite;"></span></p>
+
+<ul aria-label="Уже распознано" style="list-style: none; margin: 0; padding: 4px 16px; border-radius: 24px; background: {{t.card}};">
+<li style="display: flex; align-items: center; gap: 12px; padding: 10px 0;">
+<span aria-hidden="true" style="flex: 0 0 36px; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 9999px; background: #ffd6e0; color: #141416; font-size: 14px; font-weight: 800;">К</span>
+<span style="flex: 1 1 auto; min-width: 0; font-size: 15px; font-weight: 700;">Кафе</span>
+<span style="flex: 0 0 auto; font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums;">−25 000</span>
+</li>
+<li style="display: flex; align-items: center; gap: 12px; padding: 10px 0;">
+<span aria-hidden="true" style="flex: 0 0 36px; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 9999px; background: #cfe3ff; color: #141416; font-size: 14px; font-weight: 800;">Т</span>
+<span style="flex: 1 1 auto; min-width: 0; font-size: 15px; font-weight: 700;">Транспорт <span style="font-weight: 500; color: {{t.muted}};">· Наличные</span></span>
+<span style="flex: 0 0 auto; font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums;">−18 000</span>
+</li>
+<li style="display: flex; align-items: center; gap: 12px; padding: 10px 0; color: {{t.muted}};">
+<span class="pv-anim" aria-hidden="true" style="flex: 0 0 36px; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 9999px; background: {{t.track}}; font-size: 16px; font-weight: 800; animation: pvBlink 1s ease-in-out infinite;">…</span>
+<span style="font-size: 15px; font-weight: 600;">Распознаю</span>
+</li>
+</ul>
+
+<p style="margin: auto 0 0; text-align: center; font-size: 13px; font-weight: 600; color: {{t.muted}};">Можно несколько сразу, с датой и счётом</p>
+
+<div aria-hidden="true" style="height: 48px; display: flex; align-items: center; justify-content: center; gap: 4px;">
+<sc-for list="{{bars}}" as="b" hint-placeholder-count="36">
+<span class="pv-anim" style="flex: 0 0 4px; width: 4px; height: {{b.h}}; border-radius: 9999px; background: {{b.bg}}; transform-origin: center; animation: pvLevel 0.9s ease-in-out {{b.delay}} infinite;"></span>
+</sc-for>
+</div>
+
+<a href="{{reviewHref}}" style="height: 56px; display: flex; align-items: center; justify-content: center; gap: 10px; border-radius: 9999px; background: {{t.primaryBg}}; color: {{t.primaryInk}}; text-decoration: none; font-size: 16px; font-weight: 800;"><span aria-hidden="true" style="width: 12px; height: 12px; border-radius: 3px; background: {{t.primaryInk}};"></span>Готово</a>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"homeHref":{"editor":null,"default":"Pastel_Home.dc.html"},"reviewHref":{"editor":null,"default":"Pastel_Review.dc.html"},"addHref":{"editor":null},"web":{"editor":"boolean","default":false},"state":{"editor":"enum","options":["listening","denied","silent","offline","receiptOffline"],"default":"listening"},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  theme() {
+    if (this.props.dark) {
+      return { bg: "#111214", card: "#1b1c1f", ink: "#f4f4f6", muted: "#9d9da6", track: "#26272b", primaryBg: "#f4f4f6", primaryInk: "#141416" };
+    }
+    return { bg: "#f3f3f5", card: "#ffffff", ink: "#141416", muted: "#6b6b74", track: "#e7e7ec", primaryBg: "#141416", primaryInk: "#ffffff" };
+  }
+  renderVals() {
+    const t = this.theme();
+    const bars = [];
+    for (let i = 0; i < 36; i++) {
+      const h = 8 + Math.round(34 * Math.abs(Math.sin(i * 1.73) * Math.cos(i * 0.57)));
+      bars.push({ h: h + "px", delay: ((i % 9) * 0.1).toFixed(2) + "s", bg: t.ink });
+    }
+    const st = this.props.state || "listening";
+    const dk = this.props.dark ? "Dark" : "";
+    const off = st === "offline" || st === "receiptOffline";
+    const home = this.props.homeHref ?? (off ? "Pastel_HomeOffline" : "Pastel_Home") + dk + ".dc.html";
+    const web = !!this.props.web;
+    const P = {
+      denied: { icon: "M9 5a3 3 0 0 1 6 0v6M15 13.5A3 3 0 0 1 9 11V9M5.5 11a6.5 6.5 0 0 0 10.8 4.9M18.5 11a6.5 6.5 0 0 1-.4 2.2M12 17.5V21M3 3l18 18", title: "Нет доступа к микрофону", text: web ? "Браузеру не разрешено слушать микрофон. Разрешите — или напишите то же самое текстом, Daftar поймёт так же." : "Telegram не разрешено слушать микрофон. Включите доступ — или напишите то же самое текстом, Daftar поймёт так же.", steps: web ? ["Нажмите значок слева от адреса сайта", "Найдите «Микрофон» и выберите «Разрешить»", "Нажмите «Доступ включён — попробовать снова»"] : ["Откройте настройки телефона", "Найдите Telegram и включите «Микрофон»", "Нажмите «Доступ включён — попробовать снова»"], primary: "Написать текстом", primaryHref: home, retry: "Доступ включён — попробовать снова" },
+      silent: { icon: "M9 5a3 3 0 0 1 6 0v6a3 3 0 0 1-6 0V5ZM5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21", title: "Ничего не расслышал", text: "Скажите сумму и на что потратили, например: «такси 18 тысяч» или «обед 45к картой». Можно несколько трат сразу.", steps: [], primary: "Сказать ещё раз", primaryHref: "Pastel_Voice" + dk + ".dc.html", retry: "Написать текстом", retryHref: home },
+      offline: { icon: "M3.5 9a12.5 12.5 0 0 1 4.6-2.8M20.5 9a12.5 12.5 0 0 0-7.4-3.4M6.5 12.5a8 8 0 0 1 3.4-2M17.5 12.5a8 8 0 0 0-1.9-1.3M9.2 16a4 4 0 0 1 5.6 0M12 19.5h.01M3 3l18 18", title: "Голос работает только со связью", text: "Речь распознаётся на сервере. Запишите вручную — запись сохранится на этом устройстве и отправится, когда связь вернётся.", steps: [], primary: "Ввести вручную", primaryHref: this.props.addHref ?? "Pastel_AddOffline" + dk + ".dc.html", retry: "" },
+      receiptOffline: { icon: "M4 8.5h3l1.5-2.5h7L17 8.5h3v10H4v-10ZM12 16a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM3 3l18 18", title: "Чек читается только со связью", text: "Чеки распознаются на сервере. Запишите сумму вручную — запись сохранится на этом устройстве. Когда связь вернётся, чек можно снять и дополнить им запись.", steps: [], primary: "Ввести вручную", primaryHref: this.props.addHref ?? "Pastel_AddOffline" + dk + ".dc.html", retry: "" }
+    }[st] || null;
+    return {
+      t: t,
+      isListening: !P,
+      isProblem: !!P,
+      pIcon: P ? P.icon : "",
+      pTitle: P ? P.title : "",
+      pText: P ? P.text : "",
+      hasSteps: !!(P && P.steps.length),
+      pSteps: P ? P.steps.map((x, i) => ({ n: String(i + 1), text: x, divider: i === 0 ? "none" : "1px solid " + (this.props.dark ? "#2c2d31" : "#ececf0") })) : [],
+      pPrimary: P ? P.primary : "",
+      pPrimaryHref: P ? P.primaryHref : "",
+      hasRetry: !!(P && P.retry),
+      retryLabel: P ? P.retry : "",
+      retryHref: P ? (P.retryHref || "Pastel_Voice" + dk + ".dc.html") : "",
+      homeHref: home,
+      reviewHref: this.props.reviewHref ?? "Pastel_Review.dc.html",
+      bars: bars
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -84,6 +84,16 @@ export class AuthorizationError extends AppError {
   }
 }
 
+/** The request clashes with existing data — a duplicate name, an account that already has records. */
+export class ConflictError extends AppError {
+  readonly code = 'CONFLICT';
+  readonly statusCode = 409;
+
+  constructor(message: string, context?: Record<string, any>) {
+    super(message, context);
+  }
+}
+
 // Error factory
 export class ErrorFactory {
   static validation(message: string, field?: string): ValidationError {

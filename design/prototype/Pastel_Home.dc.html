@@ -1,0 +1,606 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Daftar — главная</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; position: relative; overflow: hidden; background: {{t.bg}}; color: {{t.ink}}; font-family: 'Manrope', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;">
+<main style="height: 844px; box-sizing: border-box; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; padding: 8px 16px 170px;">
+
+<header style="flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 12px; height: 48px;">
+<div style="display: flex; align-items: center; gap: 10px; color: {{t.ink}};">
+<svg width="30" height="30" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M7 0h10a7 7 0 0 1 7 7v10a7 7 0 0 1-7 7H7a7 7 0 0 1-7-7V7a7 7 0 0 1 7-7ZM6 7v2h12V7H6Zm0 4v2h8v-2H6Zm0 4v2h10v-2H6Z"></path></svg>
+<span style="font-size: 23px; line-height: 1; font-weight: 800; letter-spacing: -0.7px;">daftar</span>
+</div>
+<div style="display: flex; align-items: center; gap: 8px;">
+<div role="group" aria-label="Валюта отображения" style="display: flex; gap: 2px; padding: 2px; border-radius: 9999px; background: {{t.track}};">
+<button type="button" onClick="{{setUZS}}" aria-pressed="{{uzsPressed}}" style="height: 44px; min-width: 58px; padding: 0 14px; border: 0; border-radius: 9999px; background: {{uzsBg}}; box-shadow: {{uzsShadow}}; color: {{uzsInk}}; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer;">Сум</button>
+<button type="button" onClick="{{setUSD}}" aria-pressed="{{usdPressed}}" style="height: 44px; min-width: 58px; padding: 0 14px; border: 0; border-radius: 9999px; background: {{usdBg}}; box-shadow: {{usdShadow}}; color: {{usdInk}}; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer;">USD</button>
+</div>
+<a href="{{moreHref}}" aria-label="Ещё: счета, категории, настройки" style="flex: 0 0 48px; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; border-radius: 9999px; background: {{t.track}}; color: {{t.ink}};"><svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><circle cx="4.5" cy="10" r="1.7" fill="currentColor"></circle><circle cx="10" cy="10" r="1.7" fill="currentColor"></circle><circle cx="15.5" cy="10" r="1.7" fill="currentColor"></circle></svg></a>
+</div>
+</header>
+<sc-if value="{{isOffline}}" hint-placeholder-val="{{false}}">
+<div role="status" style="flex: 0 0 auto; min-height: 48px; box-sizing: border-box; display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-radius: 24px; background: {{t.card}};">
+<svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true" style="flex: 0 0 20px;"><path d="M2.5 7.5a11 11 0 0 1 4-2.4M17.5 7.5a11 11 0 0 0-6.3-3M5 10.5a7 7 0 0 1 3-1.8M15 10.5a7 7 0 0 0-1.6-1.1M7.6 13.4a3.5 3.5 0 0 1 4.8 0M10 16.5h.01M3 3l14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path></svg>
+<span style="font-size: 14px; line-height: 1.4; font-weight: 700;">Нет связи — записи сохранятся и отправятся сами</span>
+</div>
+</sc-if>
+
+<section aria-label="Баланс" style="flex: 0 0 auto; display: flex; flex-direction: column; gap: 6px; padding: 12px 20px 20px; border-radius: 28px; background: {{t.hero}}; color: {{t.heroInk}};">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+<h1 style="margin: 0; font-size: 14px; font-weight: 600; color: {{t.heroMuted}};">Всего на счетах</h1>
+<button type="button" onClick="{{toggleAcc}}" aria-expanded="{{accExpanded}}" style="height: 44px; margin-right: -8px; padding: 0 8px; display: flex; align-items: center; gap: 4px; border: 0; border-radius: 9999px; background: transparent; color: {{t.heroMuted}}; font-family: inherit; font-size: 14px; font-weight: 600; cursor: pointer;">
+<span>{{accCount}}</span>
+<svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true" style="transform: rotate({{accRot}});"><path d="M5 7.5 10 12.5l5-5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+</button>
+</div>
+<div style="display: flex; align-items: baseline; gap: 8px;">
+<span style="font-size: 46px; line-height: 1.05; font-weight: 700; letter-spacing: -1.6px; white-space: nowrap; font-variant-numeric: tabular-nums;">{{balanceBig}}</span>
+<span style="font-size: 18px; font-weight: 600; color: {{t.heroMuted}};">{{unit}}</span>
+</div>
+<sc-if value="{{showAcc}}" hint-placeholder-val="{{false}}">
+<ul style="list-style: none; margin: 8px 0 4px; padding: 0; display: flex; flex-direction: column; gap: 8px; font-size: 14px;">
+<sc-for list="{{accList}}" as="ac" hint-placeholder-count="3">
+<li style="display: flex; justify-content: space-between; gap: 12px;"><span style="color: {{t.heroMuted}};">{{ac.name}}</span><span style="font-weight: 700; font-variant-numeric: tabular-nums;">{{ac.value}}</span></li>
+</sc-for>
+<li><a href="{{accountsHref}}" style="min-height: 44px; margin: 2px 0 -6px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border-top: 1px solid {{t.heroTrack}}; color: {{t.heroInk}}; text-decoration: none; font-weight: 800;">Все счета и курс доллара<svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true"><path d="M7.5 4.5 13 10l-5.5 5.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg></a></li>
+</ul>
+</sc-if>
+<sc-if value="{{isFresh}}" hint-placeholder-val="{{false}}">
+<span style="margin-top: 10px; font-size: 13px; line-height: 1.45; font-weight: 500; color: {{t.heroMuted}};">Здесь появится, какую часть дохода вы потратили за месяц.</span>
+</sc-if>
+<sc-if value="{{notFresh}}" hint-placeholder-val="{{true}}">
+<div style="display: flex; flex-direction: column; gap: 8px; margin-top: 10px;">
+<div aria-hidden="true" style="height: 8px; border-radius: 9999px; overflow: hidden; background: {{t.heroTrack}};">
+<div style="width: 47%; height: 100%; border-radius: 9999px; background: {{t.heroFill}};"></div>
+</div>
+<span style="font-size: 13px; font-weight: 500; color: {{t.heroMuted}};">В октябре потрачено <span style="font-weight: 800; color: {{t.heroInk}};">47%</span> дохода</span>
+</div>
+</sc-if>
+</section>
+
+<section aria-label="Октябрь 2026" style="flex: 0 0 auto; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px;">
+<a href="{{analyticsIncomeHref}}" aria-label="{{incomeAria}}" style="display: flex; flex-direction: column; gap: 6px; min-width: 0; padding: 16px; border-radius: 24px; background: #c9efd9; color: #14532d; text-decoration: none;">
+<span style="display: flex; align-items: center; justify-content: space-between; gap: 4px; font-size: 13px; font-weight: 700;">Доход за октябрь<svg width="14" height="14" viewBox="0 0 20 20" aria-hidden="true"><path d="M7.5 4.5 13 10l-5.5 5.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+<span style="font-size: 19px; line-height: 1.2; font-weight: 800; letter-spacing: -0.4px; white-space: nowrap; font-variant-numeric: tabular-nums;">{{incomeVal}}</span>
+</a>
+<a href="{{analyticsHref}}" aria-label="{{expenseAria}}" style="display: flex; flex-direction: column; gap: 6px; min-width: 0; padding: 16px; border-radius: 24px; background: #ffdcc8; color: #7a2e0e; text-decoration: none;">
+<span style="display: flex; align-items: center; justify-content: space-between; gap: 4px; font-size: 13px; font-weight: 700;">Расход за октябрь<svg width="14" height="14" viewBox="0 0 20 20" aria-hidden="true"><path d="M7.5 4.5 13 10l-5.5 5.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+<span style="font-size: 19px; line-height: 1.2; font-weight: 800; letter-spacing: -0.4px; white-space: nowrap; font-variant-numeric: tabular-nums;">{{expenseVal}}</span>
+</a>
+</section>
+
+<sc-if value="{{showAudit}}" hint-placeholder-val="{{true}}">
+<div style="flex: 0 0 auto; display: flex; align-items: center; border-radius: 24px; background: {{t.card}};">
+<a href="{{auditHref}}" aria-label="{{auditAria}}" style="flex: 1 1 auto; min-width: 0; min-height: 64px; box-sizing: border-box; display: flex; align-items: center; gap: 12px; padding: 12px 4px 12px 12px; border-radius: 24px; color: {{t.ink}}; text-decoration: none;">
+<span aria-hidden="true" style="flex: 0 0 40px; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 9999px; background: {{t.track}}; color: {{t.ink}};"><svg width="20" height="20" viewBox="0 0 20 20"><circle cx="9" cy="9" r="5.5" fill="none" stroke="currentColor" stroke-width="1.8"></circle><path d="m13.2 13.2 3.6 3.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path></svg></span>
+<span style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px;"><span style="font-size: 15px; font-weight: 800;">{{auditTitle}}</span><span style="font-size: 13px; line-height: 1.3; font-weight: 600; color: {{t.muted}};">{{auditSub}}</span></span>
+</a>
+<button type="button" onClick="{{auditLater}}" aria-label="Позже — отложить ревизию до завтра" style="flex: 0 0 auto; min-width: 64px; height: 48px; margin-right: 8px; padding: 0 12px; border: 0; border-radius: 9999px; background: transparent; color: {{t.muted}}; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer;">Позже</button>
+</div>
+</sc-if>
+<sc-if value="{{showGoals}}" hint-placeholder-val="{{false}}">
+<a href="{{goalsHref}}" aria-label="{{goalsAria}}" style="flex: 0 0 auto; min-height: 64px; box-sizing: border-box; display: flex; align-items: center; gap: 12px; padding: 12px 14px 12px 12px; border-radius: 24px; background: {{t.card}}; color: {{t.ink}}; text-decoration: none;">
+<span aria-hidden="true" style="flex: 0 0 40px; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 9999px; background: {{t.track}}; color: {{t.ink}};"><svg width="20" height="20" viewBox="0 0 20 20"><circle cx="10" cy="10" r="6.5" fill="none" stroke="currentColor" stroke-width="1.8"></circle><circle cx="10" cy="10" r="2.5" fill="currentColor"></circle></svg></span>
+<span style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px;"><span style="font-size: 15px; font-weight: 800;">{{goalsTitle}}</span><span style="font-size: 13px; line-height: 1.3; font-weight: 600; color: {{t.muted}};">{{goalsSub}}</span></span>
+<svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true" style="flex: 0 0 16px;"><path d="M7.5 4.5 13 10l-5.5 5.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+</a>
+</sc-if>
+
+<section aria-label="Последние операции" style="flex: 0 0 auto; display: flex; flex-direction: column; gap: 10px; padding-top: 4px;">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+<h2 style="margin: 0; font-size: 18px; line-height: 1.3; font-weight: 800; letter-spacing: -0.3px; color: {{t.ink}};">Последние операции</h2>
+<a href="{{historyHref}}" aria-label="Все операции" style="height: 44px; margin-right: -10px; padding: 0 10px; display: flex; align-items: center; gap: 2px; border-radius: 9999px; color: {{t.ink}}; text-decoration: none; font-size: 14px; font-weight: 800;">Все<svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true"><path d="M7.5 4.5 13 10l-5.5 5.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg></a>
+</div>
+<sc-for list="{{groups}}" as="g" hint-placeholder-count="2">
+<div style="display: flex; flex-direction: column; gap: 6px;">
+<h3 style="margin: 0; font-size: 13px; font-weight: 600; color: {{t.muted}};">{{g.label}}</h3>
+<ul style="list-style: none; margin: 0; padding: 4px 8px; border-radius: 24px; background: {{t.card}};">
+<sc-for list="{{g.rows}}" as="r" hint-placeholder-count="2">
+<li style="display: flex; align-items: center; gap: 0; border-radius: 18px; box-shadow: {{r.ring}};">
+<button type="button" onClick="{{r.quickCat}}" aria-label="{{r.catAria}}" style="flex: 0 0 52px; width: 52px; height: 60px; display: flex; align-items: center; justify-content: center; padding: 0 0 0 4px; border: 0; border-radius: 18px; background: transparent; cursor: pointer;"><span aria-hidden="true" style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 9999px; background: {{r.color}}; color: #141416; font-size: 15px; font-weight: 800;">{{r.letter}}</span></button>
+<button type="button" onClick="{{r.open}}" aria-label="{{r.aria}}" style="flex: 1 1 auto; min-width: 0; min-height: 60px; display: flex; align-items: center; gap: 12px; padding: 10px 8px 10px 8px; border: 0; border-radius: 18px; background: transparent; color: {{t.ink}}; font-family: inherit; text-align: left; cursor: pointer;">
+<span style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px;">
+<span style="font-size: 15px; font-weight: 700; color: {{t.ink}};">{{r.cat}}</span>
+<span style="display: flex; align-items: center; gap: 4px; min-width: 0; font-size: 13px; color: {{t.muted}};"><sc-if value="{{r.pending}}" hint-placeholder-val="{{false}}"><svg width="13" height="13" viewBox="0 0 20 20" aria-hidden="true" style="flex: 0 0 13px;"><path d="M10 17a7 7 0 1 0 0-14 7 7 0 0 0 0 14Zm0-10.5V10l2.5 1.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg></sc-if><span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{r.note}}</span></span>
+</span>
+<span style="flex: 0 0 auto; font-size: 15px; font-weight: 800; white-space: nowrap; font-variant-numeric: tabular-nums; color: {{r.amountColor}};">{{r.amount}}</span>
+</button>
+</li>
+</sc-for>
+</ul>
+</div>
+</sc-for>
+<sc-if value="{{noRecent}}" hint-placeholder-val="{{false}}">
+<p style="margin: 0; padding: 20px; border-radius: 24px; background: {{t.card}}; font-size: 14px; font-weight: 500; color: {{t.muted}};">{{emptyText}}</p>
+</sc-if>
+</section>
+</main>
+
+<div aria-label="Быстрый ввод" role="region" style="position: absolute; left: 0; right: 0; bottom: 0; display: flex; flex-direction: column; gap: 10px; padding: 12px 0 24px; background: {{t.bg}};">
+<div role="group" aria-label="Частые операции" style="display: flex; gap: 8px; padding: 0 16px; overflow-x: auto;">
+<sc-for list="{{quick}}" as="q" hint-placeholder-count="4">
+<button type="button" onClick="{{q.add}}" aria-label="{{q.aria}}" style="flex: 0 0 auto; height: 44px; padding: 0 16px; display: flex; align-items: center; gap: 6px; border: 0; border-radius: 9999px; background: {{q.bg}}; color: #141416; font-family: inherit; font-size: 14px; font-weight: 700; white-space: nowrap; cursor: pointer;">
+<span>{{q.name}}</span>
+<span style="font-weight: 500; opacity: 0.75;">{{q.amount}}</span>
+</button>
+</sc-for>
+</div>
+<div style="display: flex; gap: 8px; padding: 0 16px;">
+<div style="flex: 1 1 auto; min-width: 0; height: 56px; box-sizing: border-box; display: flex; align-items: center; gap: 4px; padding: 0 6px 0 20px; border-radius: 9999px; background: {{t.card}};">
+<label style="flex: 1 1 auto; min-width: 0; height: 100%; display: flex; align-items: center;">
+<span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;">Новая запись текстом</span>
+<input type="text" value="{{text}}" placeholder="Кофе 25к, такси 18к…" onInput="{{onType}}" onKeyDown="{{onKey}}" style="flex: 1 1 auto; min-width: 0; height: 44px; border: 0; padding: 0; background: transparent; color: {{t.ink}}; font-family: inherit; font-size: 15px; font-weight: 500;">
+</label>
+<a href="{{receiptHref}}" aria-label="Фото чека" style="flex: 0 0 44px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border-radius: 9999px; background: transparent; color: {{t.ink}};"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8.5A2.5 2.5 0 0 1 6.5 6h1.6l1.4-2h5l1.4 2h1.6A2.5 2.5 0 0 1 20 8.5v8a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 16.5v-8Z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"></path><circle cx="12" cy="12.5" r="3.4" fill="none" stroke="currentColor" stroke-width="1.9"></circle></svg></a>
+<a href="{{addHref}}" aria-label="Ввести вручную" style="flex: 0 0 44px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border-radius: 9999px; background: transparent; color: {{t.ink}};"><svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true" fill="currentColor"><circle cx="5" cy="5" r="1.6"></circle><circle cx="10" cy="5" r="1.6"></circle><circle cx="15" cy="5" r="1.6"></circle><circle cx="5" cy="10" r="1.6"></circle><circle cx="10" cy="10" r="1.6"></circle><circle cx="15" cy="10" r="1.6"></circle><circle cx="5" cy="15" r="1.6"></circle><circle cx="10" cy="15" r="1.6"></circle><circle cx="15" cy="15" r="1.6"></circle></svg></a>
+</div>
+<sc-if value="{{hasTextOnline}}" hint-placeholder-val="{{false}}">
+<a href="{{reviewHref}}" aria-label="Распознать текст" style="flex: 0 0 56px; width: 56px; height: 56px; display: flex; align-items: center; justify-content: center; border-radius: 9999px; background: {{t.primaryBg}}; color: {{t.primaryInk}};"><svg width="22" height="22" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 16V4M5 9l5-5 5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg></a>
+</sc-if>
+<sc-if value="{{hasTextOffline}}" hint-placeholder-val="{{false}}">
+<button type="button" onClick="{{sendOffline}}" aria-label="Записать без связи" style="border: 0; cursor: pointer; flex: 0 0 56px; width: 56px; height: 56px; display: flex; align-items: center; justify-content: center; border-radius: 9999px; background: {{t.primaryBg}}; color: {{t.primaryInk}};"><svg width="22" height="22" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 16V4M5 9l5-5 5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
+</sc-if>
+<sc-if value="{{noText}}" hint-placeholder-val="{{true}}">
+<a href="{{voiceHref}}" aria-label="{{micAria}}" style="flex: 0 0 56px; width: 56px; height: 56px; display: flex; align-items: center; justify-content: center; border-radius: 9999px; background: {{micBg}}; color: {{micInk}};"><svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3" fill="currentColor"></rect><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"></path></svg></a>
+</sc-if>
+</div>
+</div>
+
+<sc-if value="{{hasToast}}" hint-placeholder-val="{{false}}">
+<div role="status" style="position: absolute; left: 16px; right: 16px; bottom: 160px; z-index: 15; min-height: 56px; box-sizing: border-box; display: flex; align-items: center; gap: 12px; padding: 6px 6px 6px 16px; border-radius: 24px; background: {{t.primaryBg}}; color: {{t.primaryInk}};">
+<sc-if value="{{toastIsAdd}}" hint-placeholder-val="{{false}}">
+<span aria-hidden="true" style="flex: 0 0 24px; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 9999px; background: #c9efd9; color: #14532d;"><svg width="14" height="14" viewBox="0 0 20 20"><path d="M4.5 10.5 8 14l7.5-8" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+</sc-if>
+<sc-if value="{{toastIsDelete}}" hint-placeholder-val="{{true}}">
+<svg width="22" height="22" viewBox="0 0 20 20" aria-hidden="true" style="flex: 0 0 22px;"><path d="M4 6h12M8 6V4.5h4V6m-6.5 0 .8 9.5a1.5 1.5 0 0 0 1.5 1.4h4.4a1.5 1.5 0 0 0 1.5-1.4L14.5 6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+</sc-if>
+<span style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px;">
+<span style="font-size: 14px; font-weight: 800;">{{toastTitle}}</span>
+<span style="font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: {{t.primarySub}};">{{toastDetail}}</span>
+</span>
+<sc-if value="{{hasUndo}}" hint-placeholder-val="{{true}}">
+<button type="button" onClick="{{undo}}" style="flex: 0 0 auto; height: 44px; padding: 0 14px; border: 0; border-radius: 9999px; background: transparent; color: {{t.primaryInk}}; font-family: inherit; font-size: 14px; font-weight: 800; text-decoration: underline; cursor: pointer;">Отменить</button>
+</sc-if>
+</div>
+</sc-if>
+
+<sc-if value="{{sheetOpen}}" hint-placeholder-val="{{false}}">
+<div style="position: absolute; left: 0; top: 0; width: 390px; height: 844px; z-index: 20;">
+<dc-import name="Pastel_TxnSheet" dark="{{dark}}" txn="{{openTxn}}" start-edit="{{startEdit}}" saved="{{saved}}" conv-hint="{{convHint}}" on-field="{{openField}}" on-type="{{setType}}" on-amount="{{setAmount}}" on-note="{{setNote}}" on-convert="{{convert}}" on-delete="{{deleteOpen}}" on-close="{{closeSheet}}" hint-size="390px,844px"></dc-import>
+</div>
+</sc-if>
+
+<sc-if value="{{pickerOpen}}" hint-placeholder-val="{{false}}">
+<div style="position: absolute; left: 0; top: 0; width: 390px; height: 844px; z-index: 30;">
+<dc-import name="Pastel_Picker" dark="{{dark}}" kind="{{pickerKind}}" heading="{{pickerHeading}}" options="{{pickerOptions}}" selected="{{pickerSelected}}" min-month="2026-08" context="{{pickerContext}}" on-more="{{pickerMore}}" on-pick="{{pickValue}}" on-close="{{closePicker}}" hint-size="390px,844px"></dc-import>
+</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"addHref":{"editor":null,"default":"Pastel_Add.dc.html"},"voiceHref":{"editor":null,"default":"Pastel_Voice.dc.html"},"reviewHref":{"editor":null,"default":"Pastel_Review.dc.html"},"historyHref":{"editor":null,"default":"Pastel_History.dc.html"},"analyticsHref":{"editor":null,"default":"Pastel_Analytics.dc.html"},"analyticsIncomeHref":{"editor":null,"default":"Pastel_AnalyticsIncome.dc.html"},"auditHref":{"editor":null,"default":"Pastel_Audit.dc.html"},"receiptHref":{"editor":null,"default":"Pastel_Receipt.dc.html"},"accountsHref":{"editor":null,"default":"Pastel_Accounts.dc.html"},"moreHref":{"editor":null},"fresh":{"editor":null},"offline":{"editor":"boolean","default":false},"web":{"editor":"boolean","default":false},"savedReceipt":{"editor":"enum","options":["","single","split","dup","botsplit"]},"receiptResult":{"editor":null},"auditCount":{"editor":"number","default":6},"auditPending":{"editor":"boolean","default":true},"goalsActive":{"editor":"boolean","default":false},"goalsHref":{"editor":null,"default":"Pastel_AuditDone.dc.html"},"startTxn":{"editor":null},"startPicker":{"editor":null},"startAmount":{"editor":null},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  theme() {
+    if (this.props.dark) {
+      return { bg: "#111214", card: "#1b1c1f", ink: "#f4f4f6", muted: "#9d9da6", segOff: "#b0b0b8", track: "#26272b", segOn: "#3a3b40", segShadow: "none", hero: "#f4f4f6", heroInk: "#141416", heroMuted: "#5d5d66", heroTrack: "rgba(0, 0, 0, 0.1)", heroFill: "#141416", income: "#6fd59a", primaryBg: "#f4f4f6", primaryInk: "#141416", primarySub: "#5d5d66" };
+    }
+    return { bg: "#f3f3f5", card: "#ffffff", ink: "#141416", muted: "#6b6b74", segOff: "#5d5d66", track: "#e7e7ec", segOn: "#ffffff", segShadow: "0 1px 3px rgba(0, 0, 0, 0.1)", hero: "#141416", heroInk: "#ffffff", heroMuted: "#b5b5bd", heroTrack: "rgba(255, 255, 255, 0.16)", heroFill: "#c9efd9", income: "#15803d", primaryBg: "#141416", primaryInk: "#ffffff", primarySub: "#b5b5bd" };
+  }
+  expCats() { return [["pr", "Продукты", "#ffdcc8"], ["kf", "Кафе", "#ffd6e0"], ["tr", "Транспорт", "#cfe3ff"], ["dm", "Дом", "#ede3d6"], ["sv", "Связь", "#e3dcff"], ["zd", "Здоровье", "#c9efd9"], ["pk", "Покупки", "#fbefb3"], ["dr", "Другое", "#e6e6ea"]]; }
+  incCats() { return [["zp", "Зарплата", "#c9efd9"], ["fr", "Фриланс", "#e3dcff"], ["bz", "Бизнес", "#cfe3ff"], ["pd", "Подарки", "#ffd6e0"], ["kb", "Кэшбэк", "#fbefb3"], ["pc", "Проценты", "#ffdcc8"], ["vz", "Возврат", "#ede3d6"], ["dx", "Другое", "#e6e6ea"]]; }
+  catInfo(id) {
+    const c = this.expCats().concat(this.incCats()).find((x) => x[0] === id);
+    return c ? { name: c[1], color: c[2] } : { name: "Без категории", color: "#e6e6ea" };
+  }
+  accOpts() { return [{ id: "cash", name: "Наличные", bal: "1 250 000 сум" }, { id: "card", name: "Карта", bal: "3 180 000 сум" }, { id: "usd", name: "Доллары", bal: "420,00 USD" }]; }
+  // Итог сохранения чека: новые записи сверху и уведомление с отменой.
+  receiptOutcome() {
+    if (this.props.receiptResult) return this.props.receiptResult;
+    const o = this.props.savedReceipt || "";
+    const NB = String.fromCharCode(160);
+    if (o === "single") return { add: [{ id: "r1", type: "expense", cat: "pr", amount: 254300, acc: "card", date: "2026-10-14", note: "Navruz Market" }], title: "Записано", detail: "Продукты · −254" + NB + "300 сум" };
+    if (o === "split" || o === "botsplit") return { add: [{ id: "r1", type: "expense", cat: "pr", amount: 210800, acc: "card", date: "2026-10-14", note: "Navruz Market" }, { id: "r2", type: "expense", cat: "dm", amount: 43500, acc: "card", date: "2026-10-14", note: "Navruz Market" }], title: o === "split" ? "Записано 2 расхода" : "Запись разделена на 2", detail: "Navruz Market · −254" + NB + "300 сум", restore: o === "botsplit" ? { id: "b1", type: "expense", cat: "pr", amount: 254300, acc: "card", date: "2026-10-14", note: "Navruz Market" } : null };
+    if (o === "dup") return { patch: { id: "t1", note: "Navruz Market · 7 позиций" }, title: "Запись дополнена", detail: "Магазин и 7 позиций из чека" };
+    return null;
+  }
+  seed() {
+    const o = this.receiptOutcome();
+    const base = this.baseSeed();
+    if (!o) return base;
+    if (o.patch) return base.map((x) => (x.id === o.patch.id ? Object.assign({}, x, { note: o.patch.note, prevNote: x.note }) : x));
+    return o.add.concat(base);
+  }
+  baseSeed() {
+    return [
+      { id: "t1", type: "expense", cat: "pr", amount: 186400, acc: "card", date: "2026-10-14", note: "Супермаркет" },
+      { id: "t2", type: "expense", cat: "tr", amount: 24000, acc: "cash", date: "2026-10-14", note: "Такси" },
+      { id: "t3", type: "income", cat: "zp", amount: 12500000, acc: "card", date: "2026-10-13", note: "За сентябрь" },
+      { id: "t4", type: "expense", cat: "kf", amount: 145000, acc: "card", date: "2026-10-13", note: "Обед с командой" },
+      { id: "t5", type: "income", cat: "fr", amount: 300, acc: "usd", date: "2026-10-13", note: "Лендинг" }
+    ];
+  }
+  fmtInt(s) { return String(s).replace(/\B(?=(\d{3})+(?!\d))/g, " "); }
+  fmtNum(n, usd) {
+    if (usd) { const p = Number(n).toFixed(2).split("."); return this.fmtInt(p[0]) + "," + p[1]; }
+    return this.fmtInt(Math.round(Number(n)));
+  }
+  fmtAmt(x) { return (x.type === "income" ? "+" : "−") + this.fmtNum(x.amount, x.acc === "usd") + (x.acc === "usd" ? " USD" : ""); }
+  fmtFull(x) { return (x.type === "income" ? "+" : "−") + this.fmtNum(x.amount, x.acc === "usd") + (x.acc === "usd" ? " USD" : " сум"); }
+  dayLabel(iso) {
+    const y = parseInt(iso.slice(0, 4), 10);
+    const m = parseInt(iso.slice(5, 7), 10) - 1;
+    const d = parseInt(iso.slice(8, 10), 10);
+    if (y === 2026 && m === 9 && d === 14) return "Сегодня";
+    if (y === 2026 && m === 9 && d === 13) return "Вчера";
+    const gen = ["января", "февраля", "марта", "апреля", "мая", "июня", "июля", "августа", "сентября", "октября", "ноября", "декабря"][m];
+    const wd = ["Воскресенье", "Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота"][new Date(Date.UTC(y, m, d)).getUTCDay()];
+    return wd + ", " + d + " " + gen;
+  }
+  st() {
+    const s = this.state || {};
+    return {
+      cur: s.cur || "UZS",
+      text: s.text || "",
+      showAcc: !!s.showAcc,
+      txns: s.txns || (this.props.fresh ? [] : (this.props.offline ? [{ id: "p0", type: "expense", cat: "kf", amount: 25000, acc: "card", date: "2026-10-14", note: "Кофе", pending: true }].concat(this.seed()) : this.seed())),
+      openId: s.openId !== undefined ? s.openId : (this.props.startTxn ?? null),
+      picker: s.picker !== undefined ? s.picker : (this.props.startPicker ?? null),
+      direct: !!s.direct,
+      undo: s.undo || this.initUndo(),
+      editedId: s.editedId || null,
+      flashId: s.flashId || null,
+      saved: !!s.saved,
+      convHint: s.convHint || null,
+      typeRevert: s.typeRevert || null,
+      touched: !!s.touched,
+      auditHidden: !!s.auditHidden
+    };
+  }
+  plural(n, one, few, many) {
+    const m10 = n % 10;
+    const m100 = n % 100;
+    if (m10 === 1 && m100 !== 11) return one;
+    if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return few;
+    return many;
+  }
+  initUndo() {
+    const o = this.receiptOutcome();
+    if (!o) return [];
+    return [{ key: "init", kind: "receipt", ids: o.add ? o.add.map((x) => x.id) : [], patchId: o.patch ? o.patch.id : "", restore: o.restore || null, title: o.title, detail: o.detail }];
+  }
+  timers() { if (!this._timers) this._timers = {}; return this._timers; }
+  pushUndo(action) {
+    const key = "u" + Date.now() + "_" + Math.floor(Math.random() * 1e6);
+    const a = Object.assign({ key: key }, action);
+    this.setState({ undo: this.st().undo.concat([a]) });
+    this.timers()[key] = setTimeout(() => {
+      delete this.timers()[key];
+      this.setState((prev) => ({ undo: ((prev && prev.undo) || []).filter((u) => u.key !== key) }));
+    }, 4000);
+  }
+  undo() {
+    const s = this.st();
+    const top = s.undo[s.undo.length - 1];
+    if (!top) return;
+    clearTimeout(this.timers()[top.key]);
+    delete this.timers()[top.key];
+    const rest = s.undo.slice(0, -1);
+    if (top.kind === "delete") {
+      const txns = s.txns.slice();
+      txns.splice(Math.min(top.idx, txns.length), 0, top.txn);
+      this.setState({ txns: txns, undo: rest });
+    } else if (top.kind === "receipt") {
+      const kept = s.txns.filter((y) => top.ids.indexOf(y.id) === -1).map((y) => (y.id === top.patchId ? Object.assign({}, y, { note: y.prevNote || y.note }) : y));
+      this.setState({ txns: top.restore ? [top.restore].concat(kept) : kept, undo: rest });
+    } else if (top.kind === "addmany") {
+      this.setState({ txns: s.txns.filter((y) => top.ids.indexOf(y.id) === -1), undo: rest });
+    } else if (top.kind === "info") {
+      this.setState({ undo: rest });
+    } else if (top.kind === "audit") {
+      this.setState({ auditHidden: false, undo: rest });
+    } else if (top.kind === "recat") {
+      this.setState({ txns: s.txns.map((x) => (x.id === top.id ? Object.assign({}, x, { cat: top.prevCat }) : x)), undo: rest });
+    } else {
+      this.setState({ txns: s.txns.filter((y) => y.id !== top.id), undo: rest });
+    }
+  }
+  flash(id) {
+    clearTimeout(this._fl);
+    this.setState({ flashId: id });
+    this._fl = setTimeout(() => this.setState({ flashId: null }), 2000);
+  }
+  patch(id, p) {
+    const txns = this.st().txns.map((x) => (x.id === id ? Object.assign({}, x, p) : x));
+    clearTimeout(this._sv);
+    this.setState({ txns: txns, editedId: id, saved: true, touched: true });
+    this._sv = setTimeout(() => this.setState({ saved: false }), 2000);
+  }
+  pickValue(val) {
+    const s = this.st();
+    const x = s.txns.find((y) => y.id === s.openId);
+    if (!x) { this.setState({ picker: null, direct: false }); return; }
+    if (s.picker === "category") {
+      if (s.direct && val !== x.cat) this.pushUndo({ kind: "recat", id: x.id, prevCat: x.cat, title: "Категория изменена", detail: this.catInfo(x.cat).name + " → " + this.catInfo(val).name });
+      this.patch(x.id, { cat: val });
+      this.setState({ typeRevert: null });
+    }
+    if (s.picker === "date") this.patch(x.id, { date: val });
+    if (s.picker === "account" && val !== x.acc) {
+      const h = s.convHint && s.convHint.id === x.id ? s.convHint : null;
+      const origin = h ? h.origin : { acc: x.acc, amount: x.amount };
+      const origUsd = origin.acc === "usd";
+      const isUsd = val === "usd";
+      this.patch(x.id, { acc: val });
+      if (origUsd === isUsd) {
+        this.setState({ convHint: null });
+      } else {
+        const conv = isUsd ? Math.round((origin.amount / 12650) * 100) / 100 : Math.round(origin.amount * 12650);
+        this.setState({ convHint: { id: x.id, origin: origin, amount: conv, note: "Валюта сменилась, число осталось прежним", label: "Пересчитать: " + this.fmtNum(conv, isUsd) + (isUsd ? " USD" : " сум") } });
+      }
+    }
+    if (s.direct) {
+      this.setState({ picker: null, direct: false, openId: null, editedId: null, touched: true });
+      this.flash(x.id);
+      return;
+    }
+    this.setState({ picker: null, touched: true });
+  }
+  restore(id, p) {
+    this.setState({ txns: this.st().txns.map((x) => (x.id === id ? Object.assign({}, x, p) : x)) });
+  }
+  closePicker() {
+    const s = this.st();
+    const r = s.typeRevert;
+    if (r && r.id === s.openId) this.restore(r.id, { type: r.type, cat: r.cat });
+    if (s.direct) this.setState({ picker: null, direct: false, openId: null, typeRevert: null, touched: true });
+    else this.setState({ picker: null, typeRevert: null, touched: true });
+  }
+  closeSheet() {
+    const s = this.st();
+    this.setState({ openId: null, picker: null, direct: false, editedId: null, convHint: null, saved: false, touched: true });
+    if (s.editedId) this.flash(s.editedId);
+  }
+  deleteOpen() {
+    const s = this.st();
+    const idx = s.txns.findIndex((y) => y.id === s.openId);
+    if (idx === -1) return;
+    const x = s.txns[idx];
+    this.setState({ txns: s.txns.filter((y) => y.id !== x.id), openId: null, picker: null, direct: false, editedId: null, convHint: null, saved: false, touched: true });
+    this.pushUndo({ kind: "delete", txn: x, idx: idx, title: "Удалено", detail: this.catInfo(x.cat).name + " · " + this.fmtFull(x) });
+  }
+  // Без связи разбираем простое «что и сколько» прямо на телефоне; категорию уточнит ИИ, когда связь вернётся.
+  // Без связи разбираем простое «что и сколько» прямо на телефоне — так же, как бот: «45» без «к» — это 45 000,
+  // «$» и «долл» — счёт «Доллары», «зарплата»/«пришло» — доход. Категорию ИИ уточнит, когда связь вернётся.
+  parseChunk(chunk) {
+    const low = chunk.toLowerCase().trim();
+    const m = low.match(/(\$\s*)?(\d[\d\s]*(?:[.,]\d+)?)\s*(\$|usd|долл\S*|к|k|тыс\S*|млн)?/);
+    if (!m) return null;
+    let n = parseFloat(m[2].replace(/\s/g, "").replace(",", "."));
+    const suf = m[3] || "";
+    const usd = !!m[1] || suf === "$" || suf === "usd" || suf.indexOf("долл") === 0;
+    let assumed = false;
+    if (!usd) {
+      if (suf === "к" || suf === "k" || suf.indexOf("тыс") === 0) n *= 1000;
+      else if (suf === "млн") n *= 1000000;
+      else if (n < 1000) { n *= 1000; assumed = true; }
+    }
+    if (!n) return null;
+    const rest = low.replace(m[0], " ").replace(/\s+/g, " ").trim();
+    const word = rest.split(" ")[0] || "";
+    const inc = /^(зарплат|пришл|получил|доход|аванс)/.test(word);
+    const map = [["кофе", "kf"], ["обед", "kf"], ["ужин", "kf"], ["кафе", "kf"], ["такси", "tr"], ["метро", "tr"], ["бензин", "tr"], ["продукт", "pr"], ["рынок", "pr"], ["супермаркет", "pr"], ["аптек", "zd"], ["связь", "sv"], ["телефон", "sv"], ["зарплат", "zp"]];
+    const hit = map.find((x) => word.indexOf(x[0]) === 0);
+    return { amount: usd ? Math.round(n * 100) / 100 : Math.round(n), usd: usd, type: inc ? "income" : "expense", cat: hit ? hit[1] : (inc ? "dx" : "dr"), note: rest ? rest.charAt(0).toUpperCase() + rest.slice(1) : "", assumed: assumed };
+  }
+  parseLocal(text) {
+    // «Кофе 25к, такси 18к» — две записи.
+    const parts = text.split(/,|;|\sи\s/).map((x) => x.trim()).filter((x) => x);
+    const out = parts.map((p) => this.parseChunk(p));
+    return out.length && out.every((x) => x) ? out : null;
+  }
+  sendOffline() {
+    const s = this.st();
+    const rs = this.parseLocal(s.text);
+    if (!rs) { this.pushUndo({ kind: "info", title: "Без связи понимаю только «что и сколько»", detail: "Например: «такси 18к» или «обед 45 000, кофе 25к»" }); return; }
+    const base = Date.now();
+    const xs = rs.map((r, k) => ({ id: "o" + base + "_" + k, type: r.type, cat: r.cat, amount: r.amount, acc: r.usd ? "usd" : "card", date: "2026-10-14", note: r.note + (r.assumed ? " · проверьте сумму" : ""), pending: true }));
+    this.setState({ txns: xs.concat(s.txns), text: "", touched: true });
+    const one = xs.length === 1 ? xs[0] : null;
+    this.pushUndo({ kind: "addmany", ids: xs.map((x) => x.id), title: "Записано на этом устройстве", detail: one ? (one.note || "Запись") + " · " + this.fmtFull(one) + " · отправится со связью" : xs.length + " " + this.plural(xs.length, "запись", "записи", "записей") + " · отправятся со связью" });
+  }
+  quickAdd(d) {
+    const s = this.st();
+    const off = !!this.props.offline;
+    const x = { id: "q" + Date.now() + Math.floor(Math.random() * 1000), type: "expense", cat: d[3], amount: d[4], acc: "card", date: "2026-10-14", note: d[0], pending: off };
+    this.setState({ txns: [x].concat(s.txns), touched: true });
+    this.pushUndo({ kind: "add", id: x.id, title: off ? "Записано на этом устройстве" : "Записано", detail: d[0] + " · −" + d[1] + " сум" + (off ? " · отправится со связью" : " · Карта") });
+  }
+  componentWillUnmount() {
+    clearTimeout(this._fl);
+    clearTimeout(this._sv);
+    const tm = this.timers();
+    Object.keys(tm).forEach((k) => clearTimeout(tm[k]));
+  }
+  renderVals() {
+    if (!this._initToast && this.receiptOutcome() && !(this.state && this.state.undo)) {
+      this._initToast = true;
+      const first = this.receiptOutcome();
+      const fid = first.add && first.add.length ? first.add[0].id : (first.patch ? first.patch.id : null);
+      if (fid) setTimeout(() => this.flash(fid), 0);
+      this.timers().init = setTimeout(() => { delete this.timers().init; this.setState((prev) => ({ undo: ((prev && prev.undo) || this.initUndo()).filter((u) => u.key !== "init") })); }, 4000);
+    }
+    const t = this.theme();
+    const s = this.st();
+    const uzs = s.cur === "UZS";
+    const sp = " ";
+    const hasText = s.text.trim().length > 0;
+    const off = !!this.props.offline;
+    // Адрес того же экрана в текущей теме.
+    const h = (name) => name + (this.props.dark ? "Dark" : "") + ".dc.html";
+    // Первый запуск: остатки из «Сколько у вас сейчас денег?», записей ещё нет.
+    const fresh = this.props.fresh || null;
+    const freshAccs = fresh ? [["Наличные", fresh.cash || 0, false], ["Карта", fresh.card || 0, false], ["Доллары", fresh.usd || 0, true]] : [];
+    const freshTotal = fresh ? (fresh.cash || 0) + (fresh.card || 0) + (fresh.usd || 0) * 12650 : 0;
+
+    const sorted = s.txns.map((x, i) => ({ x: x, i: i })).sort((a, b) => (a.x.date === b.x.date ? a.i - b.i : (a.x.date < b.x.date ? 1 : -1))).map((o) => o.x);
+    const recent = sorted.slice(0, 5);
+    const groups = [];
+    recent.forEach((x) => {
+      const label = this.dayLabel(x.date);
+      let g = groups.find((y) => y.label === label);
+      if (!g) { g = { label: label, rows: [] }; groups.push(g); }
+      const c = this.catInfo(x.cat);
+      const amount = this.fmtAmt(x);
+      g.rows.push({
+        cat: c.name,
+        color: c.color,
+        letter: c.name.charAt(0),
+        note: (x.pending ? "Ждёт связи · " : "") + (x.note || "Без заметки"),
+        pending: !!x.pending,
+        amount: amount,
+        amountColor: x.type === "income" ? t.income : t.ink,
+        ring: s.flashId === x.id ? "inset 0 0 0 2px " + t.ink : "none",
+        aria: c.name + ", " + this.fmtFull(x) + (x.note ? ", " + x.note : "") + (x.pending ? ", ждёт связи" : "") + ". Открыть",
+        catAria: "Сменить категорию: " + c.name + ", " + this.fmtFull(x),
+        open: () => { clearTimeout(this._sv); this.setState({ openId: x.id, picker: null, direct: false, convHint: null, saved: false, editedId: null, typeRevert: null, touched: true }); },
+        quickCat: () => { clearTimeout(this._sv); this.setState({ openId: x.id, picker: "category", direct: true, convHint: null, saved: false, editedId: null, typeRevert: null, touched: true }); }
+      });
+    });
+
+    const quickDefs = [["Кофе", "25" + sp + "000", "#fbefb3", "kf", 25000], ["Такси", "18" + sp + "000", "#cfe3ff", "tr", 18000], ["Обед", "45" + sp + "000", "#ffd6e0", "kf", 45000], ["Продукты", "150" + sp + "000", "#ffdcc8", "pr", 150000]];
+    const quick = quickDefs.map((d) => ({
+      name: d[0],
+      amount: d[1],
+      bg: d[2],
+      aria: "Записать сразу: " + d[0] + ", " + d[1] + " сум",
+      add: () => this.quickAdd(d)
+    }));
+
+    const openTxn = s.openId ? s.txns.find((y) => y.id === s.openId) : null;
+    const sheetOpen = !!openTxn && !s.direct;
+    const pk = openTxn ? s.picker : null;
+    let pickerOptions = null;
+    let pickerSelected = null;
+    let pickerHeading = "";
+    if (pk === "category") {
+      pickerOptions = (openTxn.type === "income" ? this.incCats() : this.expCats()).map((d) => ({ id: d[0], name: d[1], color: d[2] }));
+      pickerSelected = openTxn.cat || null;
+      pickerHeading = openTxn.type === "income" ? "Категория дохода" : "Категория расхода";
+    }
+    if (pk === "account") { pickerOptions = this.accOpts(); pickerSelected = openTxn.acc; pickerHeading = "Счёт"; }
+    if (pk === "date") { pickerSelected = openTxn.date; pickerHeading = "Дата"; }
+    const top = s.undo[s.undo.length - 1] || null;
+    const overlay = sheetOpen || !!pk;
+
+    return {
+      t: t,
+      dark: !!this.props.dark,
+      addHref: off ? h("Pastel_AddOffline") : (this.props.addHref ?? h("Pastel_Add")),
+      voiceHref: off ? h("Pastel_VoiceOffline") : (this.props.voiceHref ?? h("Pastel_Voice")),
+      reviewHref: this.props.reviewHref ?? h("Pastel_Review"),
+      historyHref: fresh ? h("Pastel_HistoryEmpty") : (this.props.historyHref ?? h("Pastel_History")),
+      analyticsHref: fresh ? h("Pastel_AnalyticsEmpty") : (this.props.analyticsHref ?? h("Pastel_Analytics")),
+      auditHref: this.props.auditHref ?? h("Pastel_Audit"),
+      receiptHref: off ? h("Pastel_ReceiptOffline") : (this.props.receiptHref ?? h("Pastel_Receipt")),
+      accountsHref: off ? h("Pastel_AccountsOffline") : (this.props.accountsHref ?? h("Pastel_Accounts")),
+      showGoals: !!this.props.goalsActive && !fresh,
+      goalsHref: this.props.goalsHref ?? h("Pastel_AuditDone"),
+      goalsTitle: "Цели после ревизии",
+      goalsSub: "4 цели · экономия до 814\u00a0000 сум",
+      goalsAria: "Цели после ревизии: 4 цели, экономия до 814\u00a0000 сум в месяц. Открыть",
+      showAudit: !fresh && (this.props.auditPending ?? true) && (this.props.auditCount ?? 6) > 0 && !s.auditHidden,
+      auditTitle: "Ревизия сентября",
+      auditSub: (this.props.auditCount ?? 6) + " " + this.plural(this.props.auditCount ?? 6, "трата", "траты", "трат") + " на проверку · пара минут",
+      auditAria: "Ревизия сентября: " + (this.props.auditCount ?? 6) + " " + this.plural(this.props.auditCount ?? 6, "трата", "траты", "трат") + " на проверку. Открыть",
+      auditLater: () => { this.setState({ auditHidden: true }); this.pushUndo({ kind: "audit", title: "Ревизия отложена", detail: "Вернём карточку завтра" }); },
+      analyticsIncomeHref: fresh ? h("Pastel_AnalyticsEmpty") : (this.props.analyticsIncomeHref ?? h("Pastel_AnalyticsIncome")),
+      incomeAria: fresh ? "Доход за октябрь: пока нет. Открыть аналитику" : "Доход за октябрь: " + (uzs ? "+16" + sp + "295" + sp + "000 сум" : "+1" + sp + "288,14 USD") + ". Открыть аналитику",
+      expenseAria: fresh ? "Расход за октябрь: пока нет. Открыть аналитику" : "Расход за октябрь: " + (uzs ? "−7" + sp + "684" + sp + "400 сум" : "−607,46 USD") + ". Открыть аналитику",
+      setUZS: () => this.setState({ cur: "UZS" }),
+      setUSD: () => this.setState({ cur: "USD" }),
+      uzsPressed: uzs ? "true" : "false",
+      usdPressed: uzs ? "false" : "true",
+      uzsBg: uzs ? t.segOn : "transparent",
+      uzsShadow: uzs ? t.segShadow : "none",
+      uzsInk: uzs ? t.ink : t.segOff,
+      usdBg: uzs ? "transparent" : t.segOn,
+      usdShadow: uzs ? "none" : t.segShadow,
+      usdInk: uzs ? t.segOff : t.ink,
+      balanceBig: fresh ? (uzs ? this.fmtNum(freshTotal, false) : this.fmtNum(freshTotal / 12650, true)) : (uzs ? "9" + sp + "743" + sp + "000" : "770,20"),
+      isFresh: !!fresh,
+      notFresh: !fresh,
+      isOffline: !!this.props.offline,
+      moreHref: this.props.moreHref ?? (this.props.dark ? "Pastel_MoreDark.dc.html" : "Pastel_More.dc.html"),
+      accCount: fresh ? freshAccs.length + " " + this.plural(freshAccs.length, "счёт", "счёта", "счетов") : "3 счёта",
+      accList: (fresh ? freshAccs : [["Наличные", 1250000, false], ["Карта", 3180000, false], ["Доллары", 420, true]]).map((a) => ({ name: a[0], value: this.fmtNum(a[1], a[2]) + (a[2] ? "\u00a0USD" : "\u00a0сум") })),
+      emptyText: fresh ? "Пока пусто. Нажмите кнопку траты внизу, напишите «такси 18к» или скажите, что купили, — Daftar сам поймёт сумму и категорию." : "Пока пусто. Нажмите «Кофе» внизу или скажите, что купили.",
+      unit: uzs ? "сум" : "USD",
+      incomeVal: fresh ? "0" : (uzs ? "+16" + sp + "295" + sp + "000" : "+1" + sp + "288,14"),
+      expenseVal: fresh ? "0" : (uzs ? "−7" + sp + "684" + sp + "400" : "−607,46"),
+      showAcc: s.showAcc,
+      toggleAcc: () => this.setState({ showAcc: !s.showAcc }),
+      accExpanded: s.showAcc ? "true" : "false",
+      accRot: s.showAcc ? "180deg" : "0deg",
+      groups: groups,
+      noRecent: groups.length === 0,
+      onType: (e) => this.setState({ text: e && e.target ? e.target.value : "" }),
+      hasText: hasText,
+      hasTextOnline: hasText && !off,
+      hasTextOffline: hasText && off,
+      micBg: off ? t.track : t.primaryBg,
+      micInk: off ? t.ink : t.primaryInk,
+      micAria: off ? "Голосовой ввод — без связи не работает" : "Голосовой ввод",
+      text: s.text,
+      onKey: (e) => { if (e && e.key === "Enter" && off) this.sendOffline(); },
+      sendOffline: () => this.sendOffline(),
+      noText: !hasText,
+      quick: quick,
+      hasToast: !!top && !overlay,
+      toastIsAdd: !!top && top.kind !== "delete" && top.kind !== "audit" && top.kind !== "info",
+      hasUndo: !!top && top.kind !== "info",
+      toastIsDelete: !!top && top.kind === "delete",
+      toastTitle: top ? top.title : "",
+      toastDetail: top ? top.detail : "",
+      undo: () => this.undo(),
+      sheetOpen: sheetOpen,
+      openTxn: openTxn,
+      startEdit: !!this.props.startAmount && !s.touched,
+      saved: s.saved,
+      convHint: s.convHint,
+      openField: (kind) => this.setState({ picker: kind, touched: true }),
+      setType: (type) => {
+        if (!openTxn || openTxn.type === type) return;
+        this.setState({ typeRevert: { id: openTxn.id, type: openTxn.type, cat: openTxn.cat } });
+        this.patch(openTxn.id, { type: type, cat: null });
+        this.setState({ picker: "category" });
+      },
+      setAmount: (n) => { this.patch(s.openId, { amount: n }); this.setState({ convHint: null }); },
+      setNote: (v) => this.patch(s.openId, { note: v }),
+      convert: () => { if (s.convHint) { this.patch(s.convHint.id, { amount: s.convHint.amount }); this.setState({ convHint: null }); } },
+      deleteOpen: () => this.deleteOpen(),
+      closeSheet: () => this.closeSheet(),
+      pickerOpen: !!pk,
+      pickerKind: pk || "category",
+      pickerHeading: pickerHeading,
+      pickerOptions: pickerOptions,
+      pickerSelected: pickerSelected,
+      pickerContext: s.direct && openTxn ? (openTxn.note ? openTxn.note + " · " : "") + this.fmtFull(openTxn) : null,
+      pickerMore: s.direct && openTxn ? () => this.setState({ direct: false, picker: null }) : null,
+      pickValue: (v) => this.pickValue(v),
+      closePicker: () => this.closePicker()
+    };
+  }
+}
+</script>
+</body>
+</html>

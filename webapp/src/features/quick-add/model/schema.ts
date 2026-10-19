@@ -24,38 +24,3 @@ export const quickAddSchema = z.object({
 });
 
 export type QuickAddFormData = z.infer<typeof quickAddSchema>;
-
-/**
- * Default descriptions for categories when not provided
- */
-export const DEFAULT_DESCRIPTIONS: Record<string, string> = {
-  food: 'Еда',
-  groceries: 'Продукты',
-  restaurants: 'Ресторан',
-  coffee: 'Кофе',
-  transport: 'Транспорт',
-  taxi: 'Такси',
-  'public-transport': 'Общ. транспорт',
-  fuel: 'Топливо',
-  shopping: 'Покупки',
-  clothing: 'Одежда',
-  electronics: 'Электроника',
-  entertainment: 'Развлечения',
-  hobbies: 'Хобби',
-  sports: 'Спорт',
-  bills: 'Счёт',
-  utilities: 'Коммунальные',
-  rent: 'Аренда',
-  internet: 'Интернет',
-  health: 'Здоровье',
-  pharmacy: 'Аптека',
-  fitness: 'Фитнес',
-  education: 'Образование',
-  courses: 'Курсы',
-  other: 'Другое',
-  salary: 'Зарплата',
-  freelance: 'Фриланс',
-  investment: 'Инвестиции',
-  gift: 'Подарок',
-  transfer: 'Перевод',
-};

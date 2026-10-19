@@ -1,10 +1,7 @@
 import { Transaction } from '../domain/transactionEntity';
-import {
-  TransactionSemanticType,
-  countsAsIncome,
-  countsAsRealExpense,
-  normalizeSemanticType,
-} from '../domain/transactionSemanticType';
+import { TransactionSemanticType } from '../domain/transactionSemanticType';
+import { fromMinor } from '../../../shared/domain/money/money';
+import { summarizePeriod } from '../domain/periodTotals';
 
 export interface DateRange {
   startDate: Date;
@@ -64,10 +61,6 @@ export function getPreviousWeekRange(now = new Date()): DateRange {
   };
 }
 
-function round2(value: number): number {
-  return Math.round(value * 100) / 100;
-}
-
 function isWithinRange(dateStr: string, range: DateRange): boolean {
   const date = new Date(dateStr);
   return date >= range.startDate && date <= range.endDate;
@@ -84,59 +77,33 @@ function isExcludedMovementType(
  * (real expense vs income vs excluded movement). Transactions flagged
  * needsReview are excluded from all categorized totals and surfaced
  * separately in summary.needsReview until corrected.
+ * Built on the shared period totals (FT-103): dollars are converted at `usdRateMinor`, or left out
+ * when there is no rate; the summary reports сум.
  */
-export function summarizeWeeklyReview(transactions: Transaction[], range: DateRange): WeeklyReviewSummary {
+export function summarizeWeeklyReview(
+  transactions: Transaction[],
+  range: DateRange,
+  options: { usdRateMinor?: number | null } = {}
+): WeeklyReviewSummary {
   const inRange = transactions.filter(transaction => isWithinRange(transaction.date, range));
+  const totals = summarizePeriod(inRange, { usdRateMinor: options.usdRateMinor ?? null });
 
-  let realExpenses = 0;
-  let income = 0;
-  let excludedMovementsTotal = 0;
   const excludedMovementsBreakdown: Partial<Record<ExcludedMovementSemanticType, number>> = {};
-  const needsReviewTransactions: Transaction[] = [];
-  let needsReviewTotal = 0;
-  const categoryTotals: Record<string, number> = {};
-
-  for (const transaction of inRange) {
-    if (transaction.needsReview === true) {
-      needsReviewTransactions.push(transaction);
-      needsReviewTotal += transaction.amount;
-      continue;
-    }
-
-    const semanticType = normalizeSemanticType(transaction.semanticType, transaction.type);
-
-    if (countsAsIncome(semanticType)) {
-      income += transaction.amount;
-      continue;
-    }
-
-    if (countsAsRealExpense(semanticType)) {
-      realExpenses += transaction.amount;
-      categoryTotals[transaction.category] = (categoryTotals[transaction.category] || 0) + transaction.amount;
-      continue;
-    }
-
-    if (isExcludedMovementType(semanticType)) {
-      excludedMovementsTotal += transaction.amount;
-      excludedMovementsBreakdown[semanticType] = (excludedMovementsBreakdown[semanticType] || 0) + transaction.amount;
-    }
+  for (const [semanticType, minor] of Object.entries(totals.excludedMovements.bySemanticType) as Array<[ExcludedMovementSemanticType, number]>) {
+    if (isExcludedMovementType(semanticType)) excludedMovementsBreakdown[semanticType] = fromMinor(minor);
   }
-
-  const topCategories = Object.entries(categoryTotals)
-    .map(([category, amount]) => ({ category, amount: round2(amount) }))
-    .sort((a, b) => b.amount - a.amount);
 
   return {
     range,
-    realExpenses: round2(realExpenses),
-    income: round2(income),
-    excludedMovementsTotal: round2(excludedMovementsTotal),
+    realExpenses: fromMinor(totals.expenseMinor),
+    income: fromMinor(totals.incomeMinor),
+    excludedMovementsTotal: fromMinor(totals.excludedMovements.totalMinor),
     excludedMovementsBreakdown,
     needsReview: {
-      count: needsReviewTransactions.length,
-      total: round2(needsReviewTotal),
-      transactions: needsReviewTransactions,
+      count: totals.needsReview.count,
+      total: fromMinor(totals.needsReview.totalMinor),
+      transactions: totals.needsReview.records,
     },
-    topCategories,
+    topCategories: totals.categories.map(category => ({ category: category.category, amount: fromMinor(category.amountMinor) })),
   };
 }

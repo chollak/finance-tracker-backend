@@ -22,6 +22,8 @@ import { isNonExpenseMovement } from './semanticType';
  */
 export interface DayGroupTransaction {
   amount: number;
+  /** Dollars are not added to сум totals (FT-103). */
+  currency?: 'UZS' | 'USD';
   type: 'income' | 'expense';
   semanticType?: TransactionSemanticType;
   needsReview?: boolean;
@@ -58,6 +60,13 @@ export function summarizeDayGroup(transactions: DayGroupTransaction[]): DayGroup
     // totals and is surfaced as work to do instead.
     if (transaction.needsReview === true) {
       summary.needsReviewCount += 1;
+      continue;
+    }
+
+    // A dollar record is not added to сум as it is (FT-103): it stays out of the totals until the
+    // screen converts it at the rate
+    if ((transaction.currency ?? 'UZS') !== 'UZS') {
+      summary.excludedCount += 1;
       continue;
     }
 

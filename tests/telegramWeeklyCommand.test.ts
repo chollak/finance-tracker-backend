@@ -1,4 +1,5 @@
 import { registerCommandHandlers } from '../src/delivery/messaging/telegram/handlers/commandHandlers';
+import { PeriodTotalsService } from '../src/modules/transaction/application/periodTotalsService';
 
 describe('Telegram weekly review command', () => {
   function registerCommands() {
@@ -37,6 +38,7 @@ describe('Telegram weekly review command', () => {
         },
         transactionModule: {
           getGetUserTransactionsUseCase: () => ({ execute }),
+          getPeriodTotalsService: () => new PeriodTotalsService(),
         },
       },
     };

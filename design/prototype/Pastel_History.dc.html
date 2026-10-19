@@ -1,0 +1,477 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Daftar — история операций</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; position: relative; overflow: hidden; display: flex; flex-direction: column; background: {{t.bg}}; color: {{t.ink}}; font-family: 'Manrope', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;">
+
+<div style="flex: 0 0 auto; display: flex; flex-direction: column; gap: 12px; padding: 8px 16px 8px;">
+<header style="display: flex; align-items: center; gap: 12px; height: 48px;">
+<sc-if value="{{noClose}}" hint-placeholder-val="{{true}}">
+<a href="{{homeHref}}" aria-label="На главную" style="flex: 0 0 44px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border-radius: 9999px; background: {{t.card}}; color: {{t.ink}};"><svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><path d="M12.5 4.5 7 10l5.5 5.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg></a>
+</sc-if>
+<sc-if value="{{hasClose}}" hint-placeholder-val="{{false}}">
+<button type="button" onClick="{{close}}" aria-label="Назад" style="flex: 0 0 44px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border: 0; border-radius: 9999px; background: {{t.card}}; color: {{t.ink}}; cursor: pointer;"><svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><path d="M12.5 4.5 7 10l5.5 5.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
+</sc-if>
+<h1 style="margin: 0; font-size: 18px; line-height: 1.3; font-weight: 800; letter-spacing: -0.3px;">История</h1>
+</header>
+
+<div role="search" style="height: 52px; box-sizing: border-box; display: flex; align-items: center; gap: 8px; padding: 0 4px 0 18px; border-radius: 9999px; background: {{t.card}};">
+<svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true" style="flex: 0 0 20px; color: {{t.muted}};"><circle cx="9" cy="9" r="5.5" fill="none" stroke="currentColor" stroke-width="2"></circle><path d="m13.2 13.2 3.6 3.6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg>
+<label style="flex: 1 1 auto; min-width: 0; height: 100%; display: flex; align-items: center;">
+<span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;">Поиск по операциям</span>
+<input type="text" enterkeyhint="search" value="{{query}}" onChange="{{onQuery}}" onKeyDown="{{searchKey}}" placeholder="Такси, кафе, 25 000…" style="flex: 1 1 auto; min-width: 0; height: 44px; border: 0; padding: 0; background: transparent; color: {{t.ink}}; font-family: inherit; font-size: 15px; font-weight: 600; outline-offset: 2px;">
+</label>
+<sc-if value="{{hasQuery}}" hint-placeholder-val="{{false}}">
+<button type="button" onClick="{{clearQuery}}" aria-label="Очистить поиск" style="flex: 0 0 44px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border: 0; border-radius: 9999px; background: {{t.track}}; color: {{t.ink}}; cursor: pointer;"><svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true"><path d="M5.5 5.5l9 9m0-9-9 9" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"></path></svg></button>
+</sc-if>
+</div>
+
+<div role="group" aria-label="Фильтры" style="display: flex; gap: 8px; margin: 0 -16px; padding: 0 16px; overflow-x: auto;">
+<button type="button" onClick="{{openCatFilter}}" aria-label="{{catChipAria}}" style="flex: 0 0 auto; height: 44px; padding: 0 12px 0 16px; display: flex; align-items: center; gap: 6px; border: 0; border-radius: 9999px; background: {{catChipBg}}; color: {{catChipInk}}; font-family: inherit; font-size: 14px; font-weight: 700; white-space: nowrap; cursor: pointer;">
+<sc-if value="{{catActive}}" hint-placeholder-val="{{false}}">
+<span aria-hidden="true" style="flex: 0 0 12px; width: 12px; height: 12px; border-radius: 9999px; background: {{catDot}};"></span>
+</sc-if>
+<span>{{catChipLabel}}</span>
+<svg width="14" height="14" viewBox="0 0 20 20" aria-hidden="true"><path d="M5 7.5 10 12.5l5-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+</button>
+<sc-for list="{{accChips}}" as="a" hint-placeholder-count="3">
+<button type="button" onClick="{{a.toggle}}" aria-pressed="{{a.pressed}}" style="flex: 0 0 auto; height: 44px; padding: 0 16px; border: 0; border-radius: 9999px; background: {{a.bg}}; color: {{a.ink}}; font-family: inherit; font-size: 14px; font-weight: 700; white-space: nowrap; cursor: pointer;">{{a.name}}</button>
+</sc-for>
+</div>
+
+<sc-if value="{{showResult}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 28px;">
+<span aria-live="polite" style="font-size: 13px; font-weight: 600; color: {{t.muted}};">{{resultLine}}</span>
+<button type="button" onClick="{{resetAll}}" style="height: 44px; margin: -8px -10px -8px 0; padding: 0 10px; border: 0; border-radius: 9999px; background: transparent; color: {{t.ink}}; font-family: inherit; font-size: 14px; font-weight: 800; cursor: pointer;">Сбросить</button>
+</div>
+</sc-if>
+</div>
+
+<div style="flex: 1 1 auto; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; padding: 8px 16px 32px;">
+<sc-for list="{{groups}}" as="g" hint-placeholder-count="3">
+<section aria-label="{{g.label}}" style="flex: 0 0 auto; display: flex; flex-direction: column; gap: 6px;">
+<div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 0 4px;">
+<h2 style="margin: 0; font-size: 13px; font-weight: 700; color: {{t.muted}};">{{g.label}}</h2>
+<span style="font-size: 13px; font-weight: 800; white-space: nowrap; font-variant-numeric: tabular-nums; color: {{g.totalColor}};"><span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;">Итог дня: </span>{{g.total}}</span>
+</div>
+<ul style="list-style: none; margin: 0; padding: 4px 8px; border-radius: 24px; background: {{t.card}};">
+<sc-for list="{{g.rows}}" as="r" hint-placeholder-count="2">
+<li style="display: flex; align-items: center; border-radius: 18px; box-shadow: {{r.ring}};">
+<button type="button" onClick="{{r.quickCat}}" aria-label="{{r.catAria}}" style="flex: 0 0 52px; width: 52px; height: 60px; display: flex; align-items: center; justify-content: center; padding: 0 0 0 4px; border: 0; border-radius: 18px; background: transparent; cursor: pointer;"><span aria-hidden="true" style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 9999px; background: {{r.color}}; color: #141416; font-size: 15px; font-weight: 800;">{{r.letter}}</span></button>
+<button type="button" onClick="{{r.open}}" aria-label="{{r.aria}}" style="flex: 1 1 auto; min-width: 0; min-height: 60px; display: flex; align-items: center; gap: 12px; padding: 10px 8px; border: 0; border-radius: 18px; background: transparent; color: {{t.ink}}; font-family: inherit; text-align: left; cursor: pointer;">
+<span style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px;">
+<span style="font-size: 15px; font-weight: 700; color: {{t.ink}};">{{r.cat}}</span>
+<span style="font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: {{t.muted}};">{{r.sub}}</span>
+</span>
+<span style="flex: 0 0 auto; font-size: 15px; font-weight: 800; white-space: nowrap; font-variant-numeric: tabular-nums; color: {{r.amountColor}};">{{r.amount}}</span>
+</button>
+</li>
+</sc-for>
+</ul>
+</section>
+</sc-for>
+
+<sc-if value="{{isEmpty}}" hint-placeholder-val="{{false}}">
+<div role="status" style="flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 48px 24px 24px; text-align: center;">
+<span aria-hidden="true" style="width: 72px; height: 72px; display: flex; align-items: center; justify-content: center; border-radius: 9999px; background: {{t.track}}; color: {{t.ink}};"><svg width="30" height="30" viewBox="0 0 20 20"><circle cx="9" cy="9" r="5.5" fill="none" stroke="currentColor" stroke-width="1.8"></circle><path d="m13.2 13.2 3.6 3.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path></svg></span>
+<h2 style="margin: 6px 0 0; font-size: 18px; line-height: 1.3; font-weight: 800; letter-spacing: -0.3px;">{{emptyTitle}}</h2>
+<p style="margin: 0; max-width: 290px; font-size: 14px; line-height: 1.45; font-weight: 500; color: {{t.muted}};">{{emptyText}}</p>
+<sc-if value="{{filtered}}" hint-placeholder-val="{{true}}">
+<button type="button" onClick="{{resetAll}}" style="margin-top: 8px; height: 48px; padding: 0 22px; border: 0; border-radius: 9999px; background: {{t.primaryBg}}; color: {{t.primaryInk}}; font-family: inherit; font-size: 15px; font-weight: 800; cursor: pointer;">Сбросить поиск и фильтры</button>
+</sc-if>
+</div>
+</sc-if>
+</div>
+
+<sc-if value="{{hasToast}}" hint-placeholder-val="{{false}}">
+<div role="status" style="position: absolute; left: 16px; right: 16px; bottom: 24px; z-index: 15; min-height: 56px; box-sizing: border-box; display: flex; align-items: center; gap: 12px; padding: 6px 6px 6px 16px; border-radius: 24px; background: {{t.primaryBg}}; color: {{t.primaryInk}};">
+<sc-if value="{{toastIsCheck}}" hint-placeholder-val="{{false}}">
+<span aria-hidden="true" style="flex: 0 0 24px; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 9999px; background: #c9efd9; color: #14532d;"><svg width="14" height="14" viewBox="0 0 20 20"><path d="M4.5 10.5 8 14l7.5-8" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+</sc-if>
+<sc-if value="{{toastIsDelete}}" hint-placeholder-val="{{true}}">
+<svg width="22" height="22" viewBox="0 0 20 20" aria-hidden="true" style="flex: 0 0 22px;"><path d="M4 6h12M8 6V4.5h4V6m-6.5 0 .8 9.5a1.5 1.5 0 0 0 1.5 1.4h4.4a1.5 1.5 0 0 0 1.5-1.4L14.5 6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+</sc-if>
+<span style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px;">
+<span style="font-size: 14px; font-weight: 800;">{{toastTitle}}</span>
+<span style="font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: {{t.primarySub}};">{{toastDetail}}</span>
+</span>
+<button type="button" onClick="{{undo}}" style="flex: 0 0 auto; height: 44px; padding: 0 14px; border: 0; border-radius: 9999px; background: transparent; color: {{t.primaryInk}}; font-family: inherit; font-size: 14px; font-weight: 800; text-decoration: underline; cursor: pointer;">Отменить</button>
+</div>
+</sc-if>
+
+<sc-if value="{{sheetOpen}}" hint-placeholder-val="{{false}}">
+<div style="position: absolute; left: 0; top: 0; width: 390px; height: 844px; z-index: 20;">
+<dc-import name="Pastel_TxnSheet" dark="{{dark}}" txn="{{openTxn}}" saved="{{saved}}" conv-hint="{{convHint}}" on-field="{{openField}}" on-type="{{setType}}" on-amount="{{setAmount}}" on-note="{{setNote}}" on-convert="{{convert}}" on-delete="{{deleteOpen}}" on-close="{{closeSheet}}" hint-size="390px,844px"></dc-import>
+</div>
+</sc-if>
+
+<sc-if value="{{pickerOpen}}" hint-placeholder-val="{{false}}">
+<div style="position: absolute; left: 0; top: 0; width: 390px; height: 844px; z-index: 30;">
+<dc-import name="Pastel_Picker" dark="{{dark}}" kind="{{pickerKind}}" heading="{{pickerHeading}}" options="{{pickerOptions}}" selected="{{pickerSelected}}" min-month="2026-08" context="{{pickerContext}}" on-more="{{pickerMore}}" on-pick="{{pickValue}}" on-close="{{closePicker}}" hint-size="390px,844px"></dc-import>
+</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"homeHref":{"editor":null,"default":"Pastel_Home.dc.html"},"startQuery":{"editor":null},"startAcc":{"editor":null},"startCat":{"editor":null},"startTxn":{"editor":null},"onClose":{"editor":null},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  theme() {
+    if (this.props.dark) {
+      return { bg: "#111214", card: "#1b1c1f", ink: "#f4f4f6", muted: "#9d9da6", track: "#26272b", income: "#6fd59a", primaryBg: "#f4f4f6", primaryInk: "#141416", primarySub: "#5d5d66" };
+    }
+    return { bg: "#f3f3f5", card: "#ffffff", ink: "#141416", muted: "#6b6b74", track: "#e7e7ec", income: "#15803d", primaryBg: "#141416", primaryInk: "#ffffff", primarySub: "#b5b5bd" };
+  }
+  expCats() { return [["pr", "Продукты", "#ffdcc8"], ["kf", "Кафе", "#ffd6e0"], ["tr", "Транспорт", "#cfe3ff"], ["dm", "Дом", "#ede3d6"], ["sv", "Связь", "#e3dcff"], ["zd", "Здоровье", "#c9efd9"], ["pk", "Покупки", "#fbefb3"], ["dr", "Другое", "#e6e6ea"]]; }
+  incCats() { return [["zp", "Зарплата", "#c9efd9"], ["fr", "Фриланс", "#e3dcff"], ["bz", "Бизнес", "#cfe3ff"], ["pd", "Подарки", "#ffd6e0"], ["kb", "Кэшбэк", "#fbefb3"], ["pc", "Проценты", "#ffdcc8"], ["vz", "Возврат", "#ede3d6"], ["dx", "Другое", "#e6e6ea"]]; }
+  catInfo(id) {
+    const c = this.expCats().concat(this.incCats()).find((x) => x[0] === id);
+    return c ? { name: c[1], color: c[2] } : { name: "Без категории", color: "#e6e6ea" };
+  }
+  accOpts() { return [{ id: "cash", name: "Наличные", bal: "1 250 000 сум" }, { id: "card", name: "Карта", bal: "3 180 000 сум" }, { id: "usd", name: "Доллары", bal: "420,00 USD" }]; }
+  accName(id) { return id === "cash" ? "Наличные" : (id === "usd" ? "Доллары" : "Карта"); }
+  seed() {
+    const r = (id, type, cat, amount, acc, date, note) => ({ id: id, type: type, cat: cat, amount: amount, acc: acc, date: "2026-10-" + date, note: note });
+    return [
+      r("t1", "expense", "pr", 186400, "card", "14", "Супермаркет"),
+      r("t2", "expense", "tr", 24000, "cash", "14", "Такси"),
+      r("t3", "income", "zp", 12500000, "card", "13", "За сентябрь"),
+      r("t4", "expense", "kf", 145000, "card", "13", "Обед с командой"),
+      r("t5", "income", "fr", 300, "usd", "13", "Лендинг"),
+      r("t6", "expense", "tr", 32000, "card", "13", "Такси домой"),
+      r("t7", "expense", "sv", 60000, "card", "12", "Мобильная связь"),
+      r("t8", "expense", "tr", 85000, "cash", "12", "Такси в аэропорт"),
+      r("t9", "expense", "pr", 94000, "cash", "12", "Рынок"),
+      r("t10", "expense", "kf", 25000, "cash", "11", "Кофе"),
+      r("t11", "expense", "pk", 640000, "card", "11", "Кроссовки"),
+      r("t12", "expense", "dm", 312000, "card", "11", "Коммуналка"),
+      r("t13", "expense", "zd", 48000, "cash", "10", "Аптека"),
+      r("t14", "expense", "tr", 21000, "card", "10", "Такси")
+    ];
+  }
+  fmtInt(s) { return String(s).replace(/\B(?=(\d{3})+(?!\d))/g, " "); }
+  fmtNum(n, usd) {
+    if (usd) { const p = Number(n).toFixed(2).split("."); return this.fmtInt(p[0]) + "," + p[1]; }
+    return this.fmtInt(Math.round(Number(n)));
+  }
+  fmtAmt(x) { return (x.type === "income" ? "+" : "−") + this.fmtNum(x.amount, x.acc === "usd") + (x.acc === "usd" ? " USD" : ""); }
+  fmtFull(x) { return (x.type === "income" ? "+" : "−") + this.fmtNum(x.amount, x.acc === "usd") + (x.acc === "usd" ? " USD" : " сум"); }
+  dayLabel(iso) {
+    const y = parseInt(iso.slice(0, 4), 10);
+    const m = parseInt(iso.slice(5, 7), 10) - 1;
+    const d = parseInt(iso.slice(8, 10), 10);
+    const gen = ["января", "февраля", "марта", "апреля", "мая", "июня", "июля", "августа", "сентября", "октября", "ноября", "декабря"][m];
+    if (y === 2026 && m === 9 && d === 14) return "Сегодня, 14 октября";
+    if (y === 2026 && m === 9 && d === 13) return "Вчера, 13 октября";
+    const wd = ["Воскресенье", "Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота"][new Date(Date.UTC(y, m, d)).getUTCDay()];
+    return wd + ", " + d + " " + gen;
+  }
+  plural(n, one, few, many) {
+    const m10 = n % 10;
+    const m100 = n % 100;
+    if (m10 === 1 && m100 !== 11) return one;
+    if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return few;
+    return many;
+  }
+  total(list) {
+    let sum = 0;
+    let approx = false;
+    list.forEach((x) => {
+      const v = x.acc === "usd" ? x.amount * 12650 : x.amount;
+      if (x.acc === "usd") approx = true;
+      sum += x.type === "income" ? v : -v;
+    });
+    sum = Math.round(sum);
+    const text = (approx ? "≈ " : "") + (sum > 0 ? "+" : (sum < 0 ? "−" : "")) + this.fmtInt(Math.abs(sum)) + " сум";
+    return { text: text, positive: sum > 0 };
+  }
+  st() {
+    const s = this.state || {};
+    return {
+      txns: s.txns || this.seed(),
+      query: s.query !== undefined ? s.query : (this.props.startQuery ?? ""),
+      acc: s.acc !== undefined ? s.acc : (this.props.startAcc ?? null),
+      cat: s.cat !== undefined ? s.cat : (this.props.startCat ?? null),
+      openId: s.openId !== undefined ? s.openId : (this.props.startTxn ?? null),
+      keepId: s.keepId || null,
+      picker: s.picker || null,
+      direct: !!s.direct,
+      undo: s.undo || [],
+      editedId: s.editedId || null,
+      flashId: s.flashId || null,
+      saved: !!s.saved,
+      convHint: s.convHint || null,
+      typeRevert: s.typeRevert || null
+    };
+  }
+  parseQuery(q) {
+    const low = q.trim().toLowerCase().replace(/[−+\-]/g, " ");
+    const digits = low.replace(/[^0-9]/g, "");
+    const words = low.replace(/[0-9\s .,]+/g, " ").trim().split(" ").filter((w) => w.length > 0);
+    return { words: words, digits: digits, empty: low.length === 0 };
+  }
+  matches(x, pq) {
+    if (pq.empty) return true;
+    const hay = (this.catInfo(x.cat).name + " " + (x.note || "") + " " + this.accName(x.acc)).toLowerCase();
+    for (let i = 0; i < pq.words.length; i++) { if (hay.indexOf(pq.words[i]) === -1) return false; }
+    if (pq.digits) {
+      const amt = x.acc === "usd" ? String(Math.floor(x.amount)) : String(Math.round(x.amount));
+      if (amt.indexOf(pq.digits) !== 0) return false;
+    }
+    return true;
+  }
+  timers() { if (!this._timers) this._timers = {}; return this._timers; }
+  pushUndo(action) {
+    const key = "u" + Date.now() + "_" + Math.floor(Math.random() * 1e6);
+    this.setState({ undo: this.st().undo.concat([Object.assign({ key: key }, action)]) });
+    this.timers()[key] = setTimeout(() => {
+      delete this.timers()[key];
+      this.setState((prev) => ({ undo: ((prev && prev.undo) || []).filter((u) => u.key !== key) }));
+    }, 4000);
+  }
+  undo() {
+    const s = this.st();
+    const top = s.undo[s.undo.length - 1];
+    if (!top) return;
+    clearTimeout(this.timers()[top.key]);
+    delete this.timers()[top.key];
+    const rest = s.undo.slice(0, -1);
+    if (top.kind === "recat") {
+      this.setState({ txns: s.txns.map((x) => (x.id === top.id ? Object.assign({}, x, { cat: top.prevCat }) : x)), undo: rest });
+      return;
+    }
+    const txns = s.txns.slice();
+    txns.splice(Math.min(top.idx, txns.length), 0, top.txn);
+    this.setState({ txns: txns, undo: rest });
+  }
+  flash(id) {
+    clearTimeout(this._fl);
+    this.setState({ flashId: id });
+    this._fl = setTimeout(() => this.setState({ flashId: null }), 2000);
+  }
+  patch(id, p) {
+    clearTimeout(this._sv);
+    this.setState({ txns: this.st().txns.map((x) => (x.id === id ? Object.assign({}, x, p) : x)), editedId: id, keepId: id, saved: true });
+    this._sv = setTimeout(() => this.setState({ saved: false }), 2000);
+  }
+  setFilter(p) { this.setState(Object.assign({ keepId: null }, p)); }
+  pickValue(val) {
+    const s = this.st();
+    if (s.picker === "filter") { this.setFilter({ cat: val === "all" ? null : val, picker: null }); return; }
+    const x = s.txns.find((y) => y.id === s.openId);
+    if (!x) { this.setState({ picker: null, direct: false }); return; }
+    if (s.picker === "category") {
+      if (s.direct && val !== x.cat) this.pushUndo({ kind: "recat", id: x.id, prevCat: x.cat, title: "Категория изменена", detail: this.catInfo(x.cat).name + " → " + this.catInfo(val).name });
+      this.patch(x.id, { cat: val });
+      this.setState({ typeRevert: null });
+    }
+    if (s.picker === "date") this.patch(x.id, { date: val });
+    if (s.picker === "account" && val !== x.acc) {
+      const h = s.convHint && s.convHint.id === x.id ? s.convHint : null;
+      const origin = h ? h.origin : { acc: x.acc, amount: x.amount };
+      const origUsd = origin.acc === "usd";
+      const isUsd = val === "usd";
+      this.patch(x.id, { acc: val });
+      if (origUsd === isUsd) {
+        this.setState({ convHint: null });
+      } else {
+        const conv = isUsd ? Math.round((origin.amount / 12650) * 100) / 100 : Math.round(origin.amount * 12650);
+        this.setState({ convHint: { id: x.id, origin: origin, amount: conv, note: "Валюта сменилась, число осталось прежним", label: "Пересчитать: " + this.fmtNum(conv, isUsd) + (isUsd ? " USD" : " сум") } });
+      }
+    }
+    if (s.direct) {
+      this.setState({ picker: null, direct: false, openId: null, editedId: null });
+      this.flash(x.id);
+      return;
+    }
+    this.setState({ picker: null });
+  }
+  restore(id, p) {
+    this.setState({ txns: this.st().txns.map((x) => (x.id === id ? Object.assign({}, x, p) : x)) });
+  }
+  closePicker() {
+    const s = this.st();
+    const r = s.typeRevert;
+    if (r && r.id === s.openId) this.restore(r.id, { type: r.type, cat: r.cat });
+    if (s.direct) this.setState({ picker: null, direct: false, openId: null, typeRevert: null });
+    else this.setState({ picker: null, typeRevert: null });
+  }
+  closeSheet() {
+    const s = this.st();
+    this.setState({ openId: null, picker: null, direct: false, editedId: null, convHint: null, saved: false });
+    if (s.editedId) this.flash(s.editedId);
+  }
+  deleteOpen() {
+    const s = this.st();
+    const idx = s.txns.findIndex((y) => y.id === s.openId);
+    if (idx === -1) return;
+    const x = s.txns[idx];
+    this.setState({ txns: s.txns.filter((y) => y.id !== x.id), openId: null, picker: null, direct: false, editedId: null, convHint: null, saved: false });
+    this.pushUndo({ kind: "delete", txn: x, idx: idx, title: "Удалено", detail: this.catInfo(x.cat).name + " · " + this.fmtFull(x) });
+  }
+  componentWillUnmount() {
+    clearTimeout(this._fl);
+    clearTimeout(this._sv);
+    const tm = this.timers();
+    Object.keys(tm).forEach((k) => clearTimeout(tm[k]));
+  }
+  renderVals() {
+    const t = this.theme();
+    const s = this.st();
+    const pq = this.parseQuery(s.query);
+    const list = s.txns
+      .map((x, i) => ({ x: x, i: i }))
+      .filter((o) => o.x.id === s.keepId || ((!s.acc || o.x.acc === s.acc) && (!s.cat || o.x.cat === s.cat) && this.matches(o.x, pq)))
+      .sort((a, b) => (a.x.date === b.x.date ? a.i - b.i : (a.x.date < b.x.date ? 1 : -1)))
+      .map((o) => o.x);
+
+    const groups = [];
+    list.forEach((x) => {
+      let g = groups.find((y) => y.date === x.date);
+      if (!g) { g = { date: x.date, label: this.dayLabel(x.date), items: [] }; groups.push(g); }
+      g.items.push(x);
+    });
+    const outGroups = groups.map((g) => {
+      const tot = this.total(g.items);
+      return {
+        label: g.label,
+        total: tot.text,
+        totalColor: tot.positive ? t.income : t.muted,
+        rows: g.items.map((x) => {
+          const c = this.catInfo(x.cat);
+          const acc = this.accName(x.acc);
+          return {
+            cat: c.name,
+            color: c.color,
+            letter: c.name.charAt(0),
+            sub: (x.note ? x.note + " · " : "") + acc,
+            amount: this.fmtAmt(x),
+            amountColor: x.type === "income" ? t.income : t.ink,
+            ring: s.flashId === x.id ? "inset 0 0 0 2px " + t.ink : "none",
+            aria: c.name + ", " + this.fmtFull(x) + (x.note ? ", " + x.note : "") + ", " + acc + ". Открыть",
+            catAria: "Сменить категорию: " + c.name + ", " + this.fmtFull(x),
+            open: () => { clearTimeout(this._sv); this.setState({ openId: x.id, keepId: x.id, picker: null, direct: false, convHint: null, saved: false, editedId: null, typeRevert: null }); },
+            quickCat: () => { clearTimeout(this._sv); this.setState({ openId: x.id, keepId: x.id, picker: "category", direct: true, convHint: null, saved: false, editedId: null, typeRevert: null }); }
+          };
+        })
+      };
+    });
+
+    const filtered = !pq.empty || !!s.acc || !!s.cat;
+    const n = list.length;
+    const allTot = this.total(list);
+    const resultLine = n + " " + this.plural(n, "операция", "операции", "операций") + " · " + allTot.text;
+    const parts = [];
+    if (!pq.empty) parts.push("по запросу «" + s.query.trim() + "»");
+    if (s.cat) parts.push("в категории «" + this.catInfo(s.cat).name + "»");
+    if (s.acc) parts.push("на счёте «" + this.accName(s.acc) + "»");
+    const emptyText = filtered ? "Ничего нет " + parts.join(", ") + ". Попробуйте другое слово или снимите фильтр." : "Запишите первую трату на главной — она появится здесь.";
+
+    const accChips = this.accOpts().map((a) => {
+      const on = s.acc === a.id;
+      return { name: a.name, pressed: on ? "true" : "false", bg: on ? t.primaryBg : t.card, ink: on ? t.primaryInk : t.ink, toggle: () => this.setFilter({ acc: on ? null : a.id }) };
+    });
+    const catActive = !!s.cat;
+    const catI = catActive ? this.catInfo(s.cat) : null;
+
+    const openTxn = s.openId ? s.txns.find((y) => y.id === s.openId) : null;
+    const sheetOpen = !!openTxn && !s.direct;
+    const pk = s.picker === "filter" ? "filter" : (openTxn ? s.picker : null);
+    let pickerOptions = null;
+    let pickerSelected = null;
+    let pickerHeading = "";
+    let pickerKind = "category";
+    if (pk === "filter") {
+      const used = {};
+      s.txns.forEach((x) => { used[x.cat] = true; });
+      const toOpt = (grp) => (d) => ({ id: d[0], name: d[1], color: d[2], group: grp });
+      pickerOptions = [{ id: "all", name: "Все категории", wide: true, plain: true, group: "" }]
+        .concat(this.expCats().filter((d) => used[d[0]]).map(toOpt("Расходы")))
+        .concat(this.incCats().filter((d) => used[d[0]]).map(toOpt("Доходы")));
+      pickerSelected = s.cat || "all";
+      pickerHeading = "Фильтр по категории";
+    }
+    if (pk === "category") {
+      pickerOptions = (openTxn.type === "income" ? this.incCats() : this.expCats()).map((d) => ({ id: d[0], name: d[1], color: d[2] }));
+      pickerSelected = openTxn.cat || null;
+      pickerHeading = openTxn.type === "income" ? "Категория дохода" : "Категория расхода";
+    }
+    if (pk === "account") { pickerKind = "account"; pickerOptions = this.accOpts(); pickerSelected = openTxn.acc; pickerHeading = "Счёт"; }
+    if (pk === "date") { pickerKind = "date"; pickerSelected = openTxn.date; pickerHeading = "Дата"; }
+    const top = s.undo[s.undo.length - 1] || null;
+    const overlay = sheetOpen || !!pk;
+
+    return {
+      t: t,
+      dark: !!this.props.dark,
+      homeHref: this.props.homeHref ?? "Pastel_Home.dc.html",
+      hasClose: !!this.props.onClose,
+      noClose: !this.props.onClose,
+      close: () => { if (this.props.onClose) this.props.onClose(); },
+      query: s.query,
+      onQuery: (e) => this.setFilter({ query: e && e.target ? e.target.value : "" }),
+      hasQuery: s.query.length > 0,
+      clearQuery: () => this.setFilter({ query: "" }),
+      searchKey: (e) => { if (e && e.key === "Enter" && e.target && e.target.blur) e.target.blur(); },
+      openCatFilter: () => this.setState({ picker: "filter", openId: null, direct: false }),
+      catActive: catActive,
+      catDot: catI ? catI.color : "transparent",
+      catChipLabel: catI ? catI.name : "Категория",
+      catChipAria: catI ? "Категория: " + catI.name + ". Изменить фильтр" : "Фильтр по категории",
+      catChipBg: catActive ? t.primaryBg : t.card,
+      catChipInk: catActive ? t.primaryInk : t.ink,
+      accChips: accChips,
+      filtered: filtered,
+      showResult: filtered && n > 0,
+      resultLine: resultLine,
+      resetAll: () => this.setFilter({ query: "", acc: null, cat: null }),
+      groups: outGroups,
+      isEmpty: n === 0,
+      emptyTitle: filtered ? "Ничего не нашлось" : "Пока нет операций",
+      emptyText: emptyText,
+      hasToast: !!top && !overlay,
+      toastIsCheck: !!top && top.kind !== "delete",
+      toastIsDelete: !!top && top.kind === "delete",
+      toastTitle: top ? top.title : "",
+      toastDetail: top ? top.detail : "",
+      undo: () => this.undo(),
+      sheetOpen: sheetOpen,
+      openTxn: openTxn,
+      saved: s.saved,
+      convHint: s.convHint,
+      openField: (kind) => this.setState({ picker: kind }),
+      setType: (type) => {
+        if (!openTxn || openTxn.type === type) return;
+        this.setState({ typeRevert: { id: openTxn.id, type: openTxn.type, cat: openTxn.cat } });
+        this.patch(openTxn.id, { type: type, cat: null });
+        this.setState({ picker: "category" });
+      },
+      setAmount: (v) => { this.patch(s.openId, { amount: v }); this.setState({ convHint: null }); },
+      setNote: (v) => this.patch(s.openId, { note: v }),
+      convert: () => { if (s.convHint) { this.patch(s.convHint.id, { amount: s.convHint.amount }); this.setState({ convHint: null }); } },
+      deleteOpen: () => this.deleteOpen(),
+      closeSheet: () => this.closeSheet(),
+      pickerOpen: !!pk,
+      pickerKind: pickerKind,
+      pickerHeading: pickerHeading,
+      pickerOptions: pickerOptions,
+      pickerSelected: pickerSelected,
+      pickerContext: s.direct && openTxn ? (openTxn.note ? openTxn.note + " · " : "") + this.fmtFull(openTxn) : null,
+      pickerMore: s.direct && openTxn ? () => this.setState({ direct: false, picker: null }) : null,
+      pickValue: (v) => this.pickValue(v),
+      closePicker: () => this.closePicker()
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,10 +1,10 @@
 import { Router, Request } from 'express';
 import { CreateTransactionUseCase } from '../../application/createTransaction';
-import { GetTransactionsUseCase } from '../../application/getTransactions';
+import { GetTransactionHistoryUseCase } from '../../application/getTransactionHistory';
 import { AnalyticsService } from '../../application/analyticsService';
 import { GetUserTransactionsUseCase } from '../../application/getUserTransactions';
 import { GetTransactionByIdUseCase } from '../../application/getTransactionById';
-import { DeleteTransactionUseCase } from '../../application/deleteTransaction';
+import { DeleteTransactionUseCase, RestoreTransactionUseCase } from '../../application/deleteTransaction';
 import { UpdateTransactionUseCase } from '../../application/updateTransaction';
 import { UpdateTransactionWithLearningUseCase } from '../../application/updateTransactionWithLearning';
 import { ArchiveTransactionUseCase } from '../../application/archiveTransaction';
@@ -22,6 +22,7 @@ import { UserModule } from '../../../user/userModule';
 import { createUserResolutionMiddleware } from '../../../../delivery/web/express/middleware/userResolutionMiddleware';
 import { allowGuestMode, optionalAuth, verifyOwnership, requireAdmin } from '../../../../delivery/web/express/middleware/authMiddleware';
 import { standardRateLimiter } from '../../../../delivery/web/express/middleware/rateLimitMiddleware';
+import { createCurrentUserMiddleware, currentUserId } from '../../../../delivery/web/express/middleware/currentUserMiddleware';
 import { verifyResourceOwnership } from '../../../../shared/infrastructure/utils/ownershipVerification';
 import { createLogger, LogCategory } from '../../../../shared/infrastructure/logging';
 // Import for type extensions on Express.Request
@@ -41,7 +42,7 @@ async function verifyTransactionOwnershipWithResult(
   transactionId: string,
   getByIdUseCase: GetTransactionByIdUseCase,
   userModule?: UserModule,
-  options?: { includeArchived?: boolean }
+  options?: { includeArchived?: boolean; includeDeleted?: boolean }
 ): Promise<{ success: true; transaction: Transaction } | { success: false; error: Error }> {
   const result = await getByIdUseCase.execute(transactionId, options);
 
@@ -62,7 +63,7 @@ async function verifyTransactionOwnershipWithResult(
 
 export function createTransactionRouter(
   createUseCase: CreateTransactionUseCase,
-  getUseCase: GetTransactionsUseCase,
+  historyUseCase: GetTransactionHistoryUseCase,
   analyticsService: AnalyticsService,
   getUserUseCase: GetUserTransactionsUseCase,
   getByIdUseCase: GetTransactionByIdUseCase,
@@ -76,7 +77,8 @@ export function createTransactionRouter(
   getArchivedUseCase: GetArchivedTransactionsUseCase,
   // Kept for the router's call signature; usage is counted in CreateTransactionUseCase.
   _subscriptionModule?: SubscriptionModule,
-  userModule?: UserModule
+  userModule?: UserModule,
+  restoreUseCase?: RestoreTransactionUseCase
 ): Router {
   const router = Router();
 
@@ -225,12 +227,17 @@ export function createTransactionRouter(
       }
 
       const transaction = validationResult.data;
-      const createResult = await createUseCase.execute(transaction);
+      // A repeat of a clientId the user already sent answers 200 with that record, deleted or not (FT-106)
+      let repeat: Transaction | undefined;
+      const createResult = await createUseCase.execute(transaction, { onRepeat: existing => { repeat = existing; } });
 
       if (!createResult.success) {
         return handleControllerError(createResult.error, res);
       }
 
+      if (repeat) {
+        return handleControllerSuccess({ id: repeat.id, transaction: repeat, repeated: true }, res, 200);
+      }
       handleControllerSuccess(
         { id: createResult.data, transaction },
         res,
@@ -242,15 +249,19 @@ export function createTransactionRouter(
     }
   });
 
-  // Get ALL transactions - ADMIN ONLY (returns data for all users)
-  router.get('/', requireAdmin, async (_req, res) => {
-    try {
-      const transactions = await getUseCase.execute();
-      handleControllerSuccess(transactions, res);
-    } catch (error) {
-      handleControllerError(error, res);
-    }
-  });
+  // History with search and filters (FT-107): the user from authentication, never from the query.
+  // Replaces the admin list of everyone's records.
+  if (userModule) {
+    router.get('/', ...createCurrentUserMiddleware(userModule), async (req, res) => {
+      try {
+        const result = await historyUseCase.execute({ userId: currentUserId(req), query: req.query as Record<string, unknown> });
+        if (!result.success) return handleControllerError(result.error, res);
+        handleControllerSuccess(result.data, res);
+      } catch (error) {
+        handleControllerError(error, res);
+      }
+    });
+  }
 
   router.get('/user/:userId', allowGuestMode, resolveUser, verifyOwnership, async (req, res) => {
     try {
@@ -311,8 +322,9 @@ export function createTransactionRouter(
         return handleControllerError(deleteResult.error, res);
       }
 
+      // Deleted softly (FT-105): POST /:id/restore brings it back
       handleControllerSuccess(
-        { message: SUCCESS_MESSAGES.TRANSACTION_DELETED },
+        { message: SUCCESS_MESSAGES.TRANSACTION_DELETED, id: transactionId },
         res,
         200,
         SUCCESS_MESSAGES.TRANSACTION_DELETED
@@ -321,6 +333,31 @@ export function createTransactionRouter(
       handleControllerError(error, res);
     }
   });
+
+  if (restoreUseCase) {
+    /** «Отменить» after a delete (FT-105): the record comes back to lists, balances and totals. */
+    router.post('/:id/restore', optionalAuth, async (req, res) => {
+      try {
+        const transactionId = getStringParam(req, 'id');
+        if (!transactionId) {
+          return handleControllerError(ErrorFactory.validation('Transaction ID is required'), res);
+        }
+
+        const ownershipResult = await verifyTransactionOwnershipWithResult(
+          req, transactionId, getByIdUseCase, userModule, { includeDeleted: true }
+        );
+        if (!ownershipResult.success) {
+          return handleControllerError(ownershipResult.error, res);
+        }
+
+        const result = await restoreUseCase.execute({ id: transactionId });
+        if (!result.success) return handleControllerError(result.error, res);
+        handleControllerSuccess(result.data, res);
+      } catch (error) {
+        handleControllerError(error, res);
+      }
+    });
+  }
 
   router.put('/:id', optionalAuth, async (req, res) => {
     try {
@@ -338,7 +375,7 @@ export function createTransactionRouter(
       }
 
       // Validate the update data - allow partial updates
-      const allowedFields = ['amount', 'category', 'description', 'date', 'type', 'semanticType', 'needsReview', 'merchant'];
+      const allowedFields = ['amount', 'amountMinor', 'category', 'categoryId', 'accountId', 'currency', 'description', 'date', 'type', 'semanticType', 'needsReview', 'merchant'];
       const updates: Record<string, unknown> = {};
 
       for (const field of allowedFields) {

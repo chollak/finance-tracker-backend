@@ -7,23 +7,23 @@ export interface BuildCaptureAckOptions {
   today?: string;
 }
 
-const CURRENCY = 'сум';
-
 /**
  * Groups thousands with a plain space and keeps kopeck-style fractions only when they exist,
- * so "18000" reads as "18 000" and "1234.5" as "1 234,50".
+ * so "18000" reads as "18 000" and "1234.5" as "1 234,50". Dollars always show cents: "55,00".
  */
-function formatAmount(amount: number): string {
+function formatAmount(amount: number, alwaysCents = false): string {
   const abs = Math.abs(amount);
-  const [whole, fraction] = (Number.isInteger(abs) ? abs.toFixed(0) : abs.toFixed(2)).split('.');
+  const [whole, fraction] = (Number.isInteger(abs) && !alwaysCents ? abs.toFixed(0) : abs.toFixed(2)).split('.');
   const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 
   return fraction ? `${grouped},${fraction}` : grouped;
 }
 
+/** In the record's currency (FT-103): «18 000 сум», «55,00 USD» — never dollars written as сум. */
 function formatAmountWithCurrency(transaction: CapturedTransaction): string {
   const sign = transaction.type === 'income' ? '+' : '';
-  return `${sign}${formatAmount(transaction.amount)} ${CURRENCY}`;
+  const usd = transaction.currency === 'USD';
+  return `${sign}${formatAmount(transaction.amount, usd)} ${usd ? 'USD' : 'сум'}`;
 }
 
 function categoryName(category: string): string {

@@ -62,8 +62,8 @@ export const transactionDataSource = {
       throw new Error('Failed to create transaction on server');
     }
 
-    // Return server response with id
-    return serverTxToLocal({ ...dto, id: response.data.id, createdAt: new Date().toISOString() });
+    // The server resolved the category: take its name and id from the stored record
+    return serverTxToLocal({ ...dto, ...response.data.transaction, id: response.data.id, createdAt: new Date().toISOString() });
   },
 
   /**
@@ -150,6 +150,8 @@ function serverTxToLocal(serverTx: any): LocalTransaction {
     id: serverTx.id,
     date: serverTx.date,
     category: serverTx.category,
+    categoryId: serverTx.categoryId,
+    categoryColor: serverTx.categoryColor,
     description: serverTx.description,
     amount: Number(serverTx.amount),
     type: serverTx.type,

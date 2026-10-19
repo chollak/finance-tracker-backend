@@ -10,8 +10,10 @@ import {
   todayKeyboard
 } from '../keyboards';
 import { resolveUserIdToUUID } from '../../../../shared/application/helpers/userIdResolver';
+import { botUserId, quickAddCategories } from '../utils/userCategories';
 import { createLogger, LogCategory } from '../../../../shared/infrastructure/logging';
 import { getPreviousWeekRange, summarizeWeeklyReview } from '../../../../modules/transaction/application/weeklyReviewService';
+import { fromMinor } from '../../../../shared/domain/money/money';
 
 const logger = createLogger(LogCategory.TELEGRAM);
 
@@ -50,7 +52,8 @@ async function handleWeeklyReview(ctx: BotContext) {
     const transactions = await transactionModule
       .getGetUserTransactionsUseCase()
       .execute(userId);
-    const summary = summarizeWeeklyReview(transactions, getPreviousWeekRange());
+    const usdRateMinor = await transactionModule.getPeriodTotalsService().usdRateFor(userId, transactions);
+    const summary = summarizeWeeklyReview(transactions, getPreviousWeekRange(), { usdRateMinor });
 
     await ctx.reply(formatWeeklyReviewSummary(summary), {
       parse_mode: 'HTML',
@@ -88,8 +91,8 @@ async function handleStart(ctx: BotContext) {
       ...(keyboard || {}),
     });
 
-    // Send quick category keyboard
-    await ctx.reply(RU.quickCategories.title, quickCategoryKeyboard());
+    // Quick-add keyboard from the user's own categories (FT-100)
+    await sendQuickCategories(ctx);
   } catch (error) {
     logger.error('/start command error', error as Error);
     await ctx.reply(RU.errors.generic);
@@ -124,42 +127,23 @@ async function handleToday(ctx: BotContext) {
       return txDate >= today && txDate <= endOfDay;
     });
 
-    // Calculate summary
+    // The shared period totals (FT-103): real income and expenses, records awaiting review apart,
+    // dollars at the user's effective rate
+    const totals = await transactionModule.getPeriodTotalsService().summarize(userId, todayTransactions);
     const summary: StatsSummary = {
-      totalIncome: 0,
-      totalExpense: 0,
-      netIncome: 0,
+      totalIncome: fromMinor(totals.incomeMinor),
+      totalExpense: fromMinor(totals.expenseMinor),
+      netIncome: fromMinor(totals.netMinor),
       transactionCount: todayTransactions.length,
     };
 
-    const categoryMap = new Map<string, { amount: number; count: number }>();
-
-    for (const tx of todayTransactions) {
-      if (tx.type === 'income') {
-        summary.totalIncome += tx.amount;
-      } else {
-        summary.totalExpense += tx.amount;
-        // Track expense categories
-        const existing = categoryMap.get(tx.category) || { amount: 0, count: 0 };
-        categoryMap.set(tx.category, {
-          amount: existing.amount + tx.amount,
-          count: existing.count + 1,
-        });
-      }
-    }
-    summary.netIncome = summary.totalIncome - summary.totalExpense;
-
     // Convert category map to array
-    const categories: CategoryBreakdown[] = Array.from(categoryMap.entries())
-      .map(([category, data]) => ({
-        category,
-        amount: data.amount,
-        count: data.count,
-        percentage: summary.totalExpense > 0
-          ? Math.round((data.amount / summary.totalExpense) * 100)
-          : 0,
-      }))
-      .sort((a, b) => b.amount - a.amount);
+    const categories: CategoryBreakdown[] = totals.categories.map(category => ({
+      category: category.category,
+      amount: fromMinor(category.amountMinor),
+      count: category.count,
+      percentage: Math.round(category.percentage),
+    }));
 
     const message = formatTodayStats(summary, categories);
     const keyboard = todayKeyboard(telegramId);
@@ -201,43 +185,23 @@ async function handleStats(ctx: BotContext) {
       return txDate >= startOfMonth && txDate <= endOfMonth;
     });
 
-    // Calculate summary
+    // The shared period totals (FT-103): real income and expenses, records awaiting review apart,
+    // dollars at the user's effective rate
+    const totals = await transactionModule.getPeriodTotalsService().summarize(userId, monthTransactions);
     const summary: StatsSummary = {
-      totalIncome: 0,
-      totalExpense: 0,
-      netIncome: 0,
+      totalIncome: fromMinor(totals.incomeMinor),
+      totalExpense: fromMinor(totals.expenseMinor),
+      netIncome: fromMinor(totals.netMinor),
       transactionCount: monthTransactions.length,
     };
 
-    const categoryMap = new Map<string, { amount: number; count: number }>();
-
-    for (const tx of monthTransactions) {
-      if (tx.type === 'income') {
-        summary.totalIncome += tx.amount;
-      } else {
-        summary.totalExpense += tx.amount;
-        // Track expense categories
-        const existing = categoryMap.get(tx.category) || { amount: 0, count: 0 };
-        categoryMap.set(tx.category, {
-          amount: existing.amount + tx.amount,
-          count: existing.count + 1,
-        });
-      }
-    }
-    summary.netIncome = summary.totalIncome - summary.totalExpense;
-
     // Convert to top categories array
-    const topCategories: CategoryBreakdown[] = Array.from(categoryMap.entries())
-      .map(([category, data]) => ({
-        category,
-        amount: data.amount,
-        count: data.count,
-        percentage: summary.totalExpense > 0
-          ? Math.round((data.amount / summary.totalExpense) * 100)
-          : 0,
-      }))
-      .sort((a, b) => b.amount - a.amount)
-      .slice(0, 5);
+    const topCategories: CategoryBreakdown[] = totals.categories.slice(0, 5).map(category => ({
+      category: category.category,
+      amount: fromMinor(category.amountMinor),
+      count: category.count,
+      percentage: Math.round(category.percentage),
+    }));
 
     const message = formatMonthStats(summary, topCategories, now);
     const keyboard = statsKeyboard(telegramId);
@@ -300,6 +264,14 @@ async function handleBudget(ctx: BotContext) {
   }
 }
 
+/** The quick-add keyboard, built from the user's visible expense categories; nothing without them. */
+async function sendQuickCategories(ctx: BotContext) {
+  const categories = await quickAddCategories(ctx, await botUserId(ctx));
+  if (categories.length > 0) {
+    await ctx.reply(RU.quickCategories.title, quickCategoryKeyboard(categories));
+  }
+}
+
 /**
  * /help - Show help with quick categories
  */
@@ -310,7 +282,7 @@ async function handleHelp(ctx: BotContext) {
     });
 
     // Also send quick categories for convenience
-    await ctx.reply(RU.quickCategories.title, quickCategoryKeyboard());
+    await sendQuickCategories(ctx);
   } catch (error) {
     logger.error('/help command error', error as Error);
     await ctx.reply(RU.errors.generic);

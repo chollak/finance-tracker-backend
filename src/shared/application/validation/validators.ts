@@ -5,6 +5,10 @@ import {
   TransactionSemanticType,
   TRANSACTION_SEMANTIC_TYPES,
 } from '../../../modules/transaction/domain/transactionSemanticType';
+import { resolveAmountMinor } from '../../domain/money/money';
+
+/** Largest amount of one record: 1 000 000 000 сум (or dollars), in minor units. */
+export const MAX_RECORD_AMOUNT_MINOR = 100_000_000_000;
 
 export interface ValidationResult {
   isValid: boolean;
@@ -105,6 +109,24 @@ export class Validators {
     }
 
     return numberResult;
+  }
+
+  /**
+   * The amount of a record in integer minor units, from the new `amountMinor` or the legacy `amount`
+   * in major units (FT-097). Both may be sent; then they must agree.
+   */
+  static moneyAmount(data: { amount?: unknown; amountMinor?: unknown }): Result<number, ValidationError> {
+    const resolved = resolveAmountMinor(data);
+    if (!resolved.ok) {
+      return ResultHelper.failure(new ValidationError(resolved.message, 'amount'));
+    }
+    if (resolved.amountMinor < 1) {
+      return ResultHelper.failure(new ValidationError('Amount must be at least 0.01', 'amount'));
+    }
+    if (resolved.amountMinor > MAX_RECORD_AMOUNT_MINOR) {
+      return ResultHelper.failure(new ValidationError('Amount must be no more than 1,000,000,000', 'amount'));
+    }
+    return ResultHelper.success(resolved.amountMinor);
   }
 
   static category(value: any): Result<string, ValidationError> {

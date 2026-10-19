@@ -1,8 +1,9 @@
 import { ProcessTextInputUseCase } from '../../voiceProcessing/application/processTextInput';
 import { getLogger, LogCategory } from '../../../shared/application/logging';
 import { buildCaptureAck } from './buildCaptureAck';
-import { toCapturedTransaction } from './toCapturedTransaction';
+import { capturedFromRecord, toCapturedTransaction } from './toCapturedTransaction';
 import {
+  CaptureReplay,
   CaptureReviewReason,
   CaptureSource,
   CapturedDebt,
@@ -20,9 +21,25 @@ const logger = getLogger(LogCategory.TRANSACTION);
  * persistence all stay inside ProcessTextInputUseCase, which this service only wraps.
  */
 export class QuickCaptureService {
-  constructor(private processTextInputUseCase: ProcessTextInputUseCase) {}
+  /** Captures with a clientId still being parsed, so a retry waits for them instead of parsing again. */
+  private inFlight = new Map<string, Promise<QuickCaptureResult>>();
+
+  constructor(private processTextInputUseCase: ProcessTextInputUseCase, private replay?: CaptureReplay) {}
 
   async capture(request: QuickCaptureRequest): Promise<QuickCaptureResult> {
+    if (!request.clientId) return this.captureOnce(request);
+
+    // A retry that arrives while the first request is still with the parser (a client timeout) waits
+    // for it: two parses of one text may differ, and their records must not mix (FT-106)
+    const key = `${request.userId}\u0000${request.clientId}`;
+    const running = this.inFlight.get(key);
+    if (running) return { ...(await running), repeated: true };
+    const capture = this.captureOnce(request).finally(() => this.inFlight.delete(key));
+    this.inFlight.set(key, capture);
+    return capture;
+  }
+
+  private async captureOnce(request: QuickCaptureRequest): Promise<QuickCaptureResult> {
     const text = request.text.trim();
 
     // Blank input never reaches the parser: no OpenAI call, no write.
@@ -30,7 +47,20 @@ export class QuickCaptureService {
       return buildResult('', request.source, [], []);
     }
 
-    const processed = await this.processTextInputUseCase.execute(text, request.userId, request.userName);
+    // A repeat from the offline queue answers with what the first request wrote (FT-106)
+    if (request.clientId && this.replay) {
+      const earlier = await this.replay.findByClientId(request.userId, request.clientId);
+      if (earlier.length > 0) {
+        logger.info('Quick capture repeated', { transactions: earlier.length });
+        return { ...buildResult(text, request.source, earlier.map(capturedFromRecord), []), repeated: true };
+      }
+    }
+
+    // The source is now stored on every record (FT-103); a client that does not say is the Mini App
+    const processed = await this.processTextInputUseCase.execute(text, request.userId, request.userName, {
+      source: request.source ?? 'miniapp',
+      ...(request.clientId ? { clientId: request.clientId } : {}),
+    });
     const result = buildResult(
       text,
       request.source,

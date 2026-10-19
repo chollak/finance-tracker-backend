@@ -12,6 +12,13 @@ import { ErrorFactory } from '../../../shared/domain/errors/AppError';
 import { Validators } from '../../../shared/application/validation/validators';
 import { getLogger, LogCategory } from '../../../shared/application/logging';
 import { normalizeSemanticType } from '../../transaction/domain/transactionSemanticType';
+import { UserCategorySource } from '../domain/categoryPrompt';
+import { analysisContextFor } from './processTextInput';
+import { detectPaymentHints } from '../domain/paymentHints';
+import { ResolvedAccount } from '../../transaction/domain/accountResolver';
+import { captureAssumptions } from './captureAssumptions';
+import { captureMoneyOf } from './captureMoney';
+import { fromMinor } from '../../../shared/domain/money/money';
 
 const logger = getLogger(LogCategory.OPENAI);
 
@@ -46,7 +53,9 @@ export class ProcessVoiceInputUseCase {
   constructor(
     private openAIService: TranscriptionService,
     private createTransactionUseCase: CreateTransactionUseCase,
-    private createDebtUseCase?: CreateDebtUseCase
+    // Debt parsing is off (decision Д2): the parser no longer reports debts
+    private createDebtUseCase?: CreateDebtUseCase,
+    private categorySource?: UserCategorySource
   ) {}
 
   async execute(input: VoiceInput): Promise<ProcessedTransaction> {
@@ -96,11 +105,16 @@ export class ProcessVoiceInputUseCase {
         throw ErrorFactory.externalService('Voice Transcription', new Error('No speech detected in audio'));
       }
 
-      // Analyze text for transactions AND debts
-      const parsed = await this.openAIService.analyzeInput(recognizedText);
+      // Analyze the text with the user's categories (FT-099)
+      const parsed = await this.openAIService.analyzeInput(
+        recognizedText,
+        await analysisContextFor(this.categorySource, input.userId.trim())
+      );
 
       const transactionResults: DetectedTransaction[] = [];
       const debtResults: DetectedDebt[] = [];
+      // «нал», «картой», «$» in what was said: which account and currency (FT-103)
+      const hints = detectPaymentHints(recognizedText);
 
       // Log if nothing found
       if (parsed.transactions.length === 0 && parsed.debts.length === 0) {
@@ -116,11 +130,15 @@ export class ProcessVoiceInputUseCase {
           const type = p.type === 'income' ? 'income' : 'expense';
           const semanticType = normalizeSemanticType(p.semanticType, type);
           const needsReview = p.needsReview === true;
+          const money = captureMoneyOf(p, recognizedText, hints, parsed.transactions.length, semanticType);
+          const { currency } = money;
           const transaction: Transaction = {
             date: p.date || new Date().toISOString().split('T')[0],
-            category: p.category || 'other',
+            category: p.category || 'Другое',
             description: p.description || recognizedText.substring(0, 500),
-            amount: p.amount || 0,
+            amount: money.amount,
+            currency,
+            source: input.source ?? 'miniapp',
             type,
             semanticType,
             needsReview,
@@ -130,8 +148,8 @@ export class ProcessVoiceInputUseCase {
             confidence: p.confidence,
             originalText: recognizedText,
             originalParsing: {
-              amount: p.amount || 0,
-              category: p.category || 'other',
+              amount: money.amount,
+              category: p.category || 'Другое',
               type,
               semanticType,
               needsReview,
@@ -140,11 +158,30 @@ export class ProcessVoiceInputUseCase {
             },
           };
 
-          const createResult = await this.createTransactionUseCase.execute(transaction);
+          // The parser chooses the category automatically, so never a hidden one (FT-099), and the
+          // account from the wording (FT-103); moving own money is not paid «налом»
+          let account: ResolvedAccount | undefined;
+          const createResult = await this.createTransactionUseCase.execute(transaction, {
+            visibleCategoriesOnly: true,
+            accountHint: { text: money.accountText, kind: money.kind },
+            allowCurrencyMismatch: true,
+            onResolved: resolved => { account = resolved.account; },
+          });
           if (createResult.success) {
             transactionResults.push({
               id: createResult.data,
-              amount: transaction.amount,
+              amount: transaction.amountMinor !== undefined ? fromMinor(transaction.amountMinor) : transaction.amount,
+              amountMinor: transaction.amountMinor,
+              currency: transaction.currency,
+              accountId: transaction.accountId,
+              accountName: account?.name,
+              assumptions: captureAssumptions({
+                text: recognizedText,
+                amount: transaction.amount,
+                categoryName: transaction.category,
+                account,
+                currency,
+              }),
               category: transaction.category,
               type: transaction.type,
               semanticType: transaction.semanticType,

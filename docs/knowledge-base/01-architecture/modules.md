@@ -1,6 +1,6 @@
 # Module System
 
-`createModules()` (`src/appModules.ts`) возвращает **7 модулей приложения**, каждый с чётко определённой ответственностью.
+`createModules()` (`src/appModules.ts`) возвращает **11 модулей приложения**, каждый с чётко определённой ответственностью. `CategoryModule` добавлен в FT-099, `AccountModule` — в FT-101, `FxModule` — в FT-102, `QuickCaptureModule` — обёртка над текстовым разбором для `POST /api/quick-capture`.
 
 Dashboard модулем не является: в `src/modules/dashboard/` лежат только `DashboardService` и `DashboardController`, файла `dashboardModule.ts` нет. Сборка происходит в Express-слое — см. [Dashboard: сервис, а не модуль](#dashboard-сервис-а-не-модуль).
 
@@ -14,7 +14,11 @@ graph TD
     VM[VoiceProcessingModule<br/>Voice/Text Processing]
     OM[OpenAIUsageModule<br/>Usage Monitoring]
     SM[SubscriptionModule<br/>Premium + Payments]
-    UM[UserModule<br/>User Management]
+    UM[UserModule<br/>Users + Settings]
+    CM[CategoryModule<br/>User Categories]
+    AM[AccountModule<br/>Accounts + Balances]
+    FM[FxModule<br/>USD rate]
+    QM[QuickCaptureModule<br/>Quick capture API]
     DS[DashboardService<br/>не модуль, собирается в Express]
 
     BM -->|depends on| TM
@@ -24,6 +28,13 @@ graph TD
     VM -->|depends on| TM
     VM -->|depends on| DeM
     TM -.->|setSubscriptionDependencies| SM
+    TM -.->|setCategoryResolver| CM
+    TM -.->|setAccountResolver| AM
+    AM -.->|default account| UM
+    AM -.->|setRateProvider| FM
+    FM -.->|own rate in settings| UM
+    VM -.->|categories for the prompt| CM
+    QM -->|depends on| VM
     SM -.->|controller uses| UM
     DS -.->|AnalyticsService| TM
     DS -.->|BudgetService| BM
@@ -35,6 +46,8 @@ graph TD
     style OM fill:#9C27B0,stroke:#6A1B9A,color:#fff
     style SM fill:#FFD700,stroke:#B8860B,color:#000
     style UM fill:#00BCD4,stroke:#00838F,color:#fff
+    style CM fill:#8BC34A,stroke:#558B2F,color:#fff
+    style QM fill:#FFB74D,stroke:#E65100,color:#000
     style DS fill:#ECEFF1,stroke:#90A4AE,color:#000,stroke-dasharray: 4 4
 ```
 
@@ -45,10 +58,14 @@ graph TD
 | **TransactionModule** | Core: транзакции и аналитика | Независимый при создании; позже получает Subscription + User через `setSubscriptionDependencies()` | `transactionModule.ts` |
 | **BudgetModule** | Управление бюджетами | TransactionModule | `budgetModule.ts` |
 | **DebtModule** | Управление долгами | TransactionModule, SubscriptionModule, UserModule | `debtModule.ts` |
-| **VoiceProcessingModule** | AI обработка голоса/текста | TransactionModule, DebtModule | `voiceProcessingModule.ts` |
+| **VoiceProcessingModule** | AI обработка голоса/текста | TransactionModule, DebtModule (не используется с Д2), категории пользователя для промпта | `voiceProcessingModule.ts` |
+| **QuickCaptureModule** | `POST /api/quick-capture` поверх текстового разбора | VoiceProcessingModule | `quickCaptureModule.ts` |
+| **AccountModule** | Счета (FT-101): остатки на чтении, итог в сумах, счёт новой записи | Независимый; TransactionModule получает его как `AccountResolver`; счёт по умолчанию — из настроек UserModule | `accountModule.ts` |
+| **FxModule** | Курс доллара (FT-102): ЦБ по датам, свой курс, действующий курс | Свой курс хранится в настройках UserModule; AccountModule получает его как `EffectiveRateProvider` | `fxModule.ts` |
+| **CategoryModule** | Категории пользователя (FT-099): 8 + 8 стартовых, переименование, цвет, скрытие; разрешение категории записи | Независимый; TransactionModule получает его как `CategoryResolver` | `categoryModule.ts` |
 | **OpenAIUsageModule** | Мониторинг OpenAI costs | Независимый | `openAIUsageModule.ts` |
 | **SubscriptionModule** | Premium подписки + Telegram Stars | UserModule (controller) | `subscriptionModule.ts` |
-| **UserModule** | Управление пользователями | Независимый | `userModule.ts` |
+| **UserModule** | Пользователи и их настройки (FT-098) | Независимый | `userModule.ts` |
 
 Отдельно, **не как модуль**:
 
@@ -299,7 +316,57 @@ new ProcessVoiceInputUseCase(
 Управление пользователями и резолв внешних идентификаторов (`telegramId` → внутренний UUID).
 
 ### Использование
-`SubscriptionController` и роутеры транзакций/бюджетов/долгов используют модуль, чтобы принять `telegram_id` во внешнем API и работать с UUID внутри.
+`SubscriptionController` и роутеры транзакций/бюджетов/долгов используют модуль, чтобы принять `telegram_id` во внешнем API и работать с UUID внутри. Маршруты вехи 10 берут пользователя только из авторизации через `createCurrentUserMiddleware(userModule)`.
+
+### Настройки (FT-098)
+`GetUserSettingsUseCase`, `UpdateUserSettingsUseCase` и таблица `user_settings`; маршрут `GET/PATCH /api/settings`. Контракт — [`docs/pastel/api.md`](../../pastel/api.md).
+
+---
+
+## 8. CategoryModule
+
+**Файл:** [`src/modules/category/categoryModule.ts`](../../../src/modules/category/categoryModule.ts)
+
+### Назначение
+Категории пользователя (FT-099, решение Д5). У каждого 8 расходных и 8 доходных стартовых категорий из дизайна; их можно переименовать, перекрасить в один из 8 пастельных цветов, скрыть («Другое» не скрывается) и добавить свои. Запись хранит `category_id`.
+
+### Состав
+- `CategoryCatalog` — создаёт стартовый набор при первом обращении, реализует порт `CategoryResolver` модуля транзакций и `UserCategorySource` модуля разбора.
+- `categoryPresets.ts` — стартовые категории и перевод старых 26 + 7 id, названий и синонимов в новые с учётом типа записи.
+- `ListCategoriesUseCase`, `CreateCategoryUseCase`, `UpdateCategoryUseCase` — `GET/POST /api/categories`, `PATCH /api/categories/:id`.
+
+### Как запись получает категорию
+`CreateTransactionUseCase` и обновление спрашивают `CategoryResolver`: id категории (новые клиенты) → своё название без учёта регистра → старый id, название или синоним через стартовую категорию → «Другое» того же типа. Автоматические пути (ИИ, быстрый разбор текста) не кладут запись в скрытую категорию. Смена типа без новой категории переносит запись в одноимённую категорию другого типа или в его «Другое».
+
+---
+
+## 9. AccountModule
+
+**Файл:** [`src/modules/account/accountModule.ts`](../../../src/modules/account/accountModule.ts)
+
+### Назначение
+Счета пользователя (FT-101): наличные, карта, доллары. Счёт скрывают, а не удаляют. Пользователю без счетов создаётся «Карта» (UZS); при миграции на неё переехала вся история.
+
+### Состав
+- `AccountBook` — создаёт «Карту» при первом обращении, считает остатки (`summary`) и итог видимых счетов в сумах (доллары — через порт `EffectiveRateProvider`, FT-102), реализует порт `AccountResolver` модуля транзакций: выбранный счёт; иначе среди видимых счетов в валюте записи — названный в тексте, затем по виду («нал», «картой»), затем по валюте; иначе счёт по умолчанию из настроек, иначе первый видимый (FT-103). Скрытый счёт для новой записи не выбирается.
+- `SqliteAccountRepository.balanceChanges` — остаток считается на чтении одним запросом, без кэша: записи в валюте счёта и неудалённые перемещения с даты открытия.
+- `ListAccountsUseCase`, `CreateAccountUseCase`, `UpdateAccountUseCase` — `GET/POST /api/accounts`, `PATCH /api/accounts/:id`.
+- Перемещения (FT-104, таблица `account_moves`): `CreateMoveUseCase` (перевод, обмен с курсом сделки и курсом ЦБ на дату через порт `CbuRateOnDate`, корректировка до введённого остатка), `SetMoveDeletedUseCase` (мягкое удаление и восстановление) — `POST /api/moves`, `DELETE /api/moves/:id`, `POST /api/moves/:id/restore`. Перемещения — не записи, поэтому в аналитику не попадают.
+- `GetAccountOperationsUseCase` — `GET /api/accounts/:id/operations`: записи счёта (через порт `AccountRecordSource`, его даёт TransactionModule) и перемещения по дням.
+
+---
+
+## 10. FxModule
+
+**Файл:** [`src/modules/fx/fxModule.ts`](../../../src/modules/fx/fxModule.ts)
+
+### Назначение
+Курс доллара (FT-102). Курс ЦБ Узбекистана хранится по датам в `fx_rates`, загружается при старте и раз в час, пока нет курса на сегодня; без ответа действует последний известный. Свой курс пользователя — в `user_settings` (`fx_own_rate_minor`, `fx_own_since`) — действует вместо курса ЦБ.
+
+### Состав
+- `FxRateService` — `refreshUsd`, `cbuRateOn(date)` (для обменов FT-104), `effectiveUsdRate(userId)` (порт `EffectiveRateProvider` модуля счетов), `setOwnRate`.
+- `HttpCbuClient` — запрос к ЦБ с таймаутом 10 с; любая ошибка — «нет ответа», без падения.
+- `GET /api/rates/usd`, `PUT` и `DELETE /api/rates/usd/own`.
 
 ---
 
@@ -356,39 +423,33 @@ router.use(
 ```typescript
 export function createModules() {
   // 1. Core модули без зависимости от subscription
+  const categoryModule = CategoryModule.create();
   const transactionModule = TransactionModule.create();
+  transactionModule.setCategoryResolver(categoryModule.getCatalog()); // FT-099
   const budgetModule = BudgetModule.create(transactionModule);
   const userModule = UserModule.create();
   const openAIUsageModule = createOpenAIUsageModule();
 
   // 2. SubscriptionModule с repositories
-  const subscriptionRepository = RepositoryFactory.createSubscriptionRepository();
-  const usageLimitRepository = RepositoryFactory.createUsageLimitRepository();
-  const subscriptionModule = new SubscriptionModule(subscriptionRepository, usageLimitRepository);
+  const subscriptionModule = new SubscriptionModule(subscriptionRepository, usageLimitRepository, {
+    freeLimitsEnabled: AppConfig.FREE_LIMITS_ENABLED,
+  });
 
   // 3. Обратная связь: транзакциям нужен subscription для декремента при удалении
   transactionModule.setSubscriptionDependencies(subscriptionModule, userModule);
 
-  // 4. Модули, которым нужны subscription/limits
+  // 4. Модули, которым нужны subscription/limits и категории
   const debtModule = DebtModule.create(transactionModule, subscriptionModule, userModule);
+  const voiceModule = new VoiceProcessingModule(openAIService, transactionModule, debtModule, categoryModule.getCatalog());
+  const quickCaptureModule = QuickCaptureModule.create(voiceModule);
 
-  const openAIService = new OpenAITranscriptionService(AppConfig.OPENAI_API_KEY);
-  const voiceModule = new VoiceProcessingModule(openAIService, transactionModule, debtModule);
-
-  return {
-    transactionModule,
-    budgetModule,
-    debtModule,
-    voiceModule,
-    openAIUsageModule,
-    userModule,
-    subscriptionModule,
-  };
+  return { categoryModule, transactionModule, budgetModule, debtModule, voiceModule, quickCaptureModule,
+    openAIUsageModule, userModule, subscriptionModule };
 }
 ```
 
 **Порядок важен:**
-1. Сначала создаются модули без зависимости от subscription
+1. Сначала создаются модули без зависимости от subscription; категории подключаются к транзакциям сразу
 2. Затем `SubscriptionModule`, после чего `transactionModule.setSubscriptionDependencies()` замыкает обратную связь
 3. Затем модули, которым нужны лимиты (`DebtModule`) и уже готовые модули (`VoiceProcessingModule`)
 

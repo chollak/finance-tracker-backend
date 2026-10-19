@@ -4,6 +4,9 @@ import { ProcessVoiceInputUseCase } from '../src/modules/voiceProcessing/applica
 import { TranscriptionService } from '../src/modules/voiceProcessing/domain/transcriptionService';
 import { CreateTransactionUseCase } from '../src/modules/transaction/application/createTransaction';
 
+/** Text and voice paths choose categories and accounts automatically (FT-099, FT-103). */
+const AUTOMATIC = expect.objectContaining({ visibleCategoriesOnly: true, allowCurrencyMismatch: true });
+
 describe('OpenAITranscriptionService transaction parsing - semanticType', () => {
   // Access the private parseTransactionItem method directly; no network calls are made.
   const service = new OpenAITranscriptionService('test-api-key') as unknown as {
@@ -127,7 +130,7 @@ describe('ProcessVoiceInputUseCase - semanticType flow-through', () => {
     expect(createTransactionUseCase.execute).toHaveBeenCalledWith(expect.objectContaining({
       semanticType: 'cash_withdrawal',
       originalParsing: expect.objectContaining({ semanticType: 'cash_withdrawal' }),
-    }));
+    }), AUTOMATIC);
     expect(result.transactions).toEqual([
       expect.objectContaining({ id: 'withdrawal-1', semanticType: 'cash_withdrawal' }),
     ]);
@@ -158,7 +161,7 @@ describe('ProcessVoiceInputUseCase - semanticType flow-through', () => {
 
     expect(createTransactionUseCase.execute).toHaveBeenCalledWith(expect.objectContaining({
       semanticType: 'income',
-    }));
+    }), AUTOMATIC);
     expect(result.transactions).toEqual([
       expect.objectContaining({ id: 'salary-1', semanticType: 'income' }),
     ]);
@@ -190,7 +193,7 @@ describe('ProcessVoiceInputUseCase - semanticType flow-through', () => {
 
     expect(createTransactionUseCase.execute).toHaveBeenCalledWith(expect.objectContaining({
       needsReview: true,
-    }));
+    }), AUTOMATIC);
     expect(result.transactions).toEqual([
       expect.objectContaining({ id: 'uncertain-1', needsReview: true }),
     ]);

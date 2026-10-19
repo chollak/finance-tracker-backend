@@ -28,6 +28,7 @@
     "migration:show": "npm run build && node dist/shared/infrastructure/database/migrate.js show",
     "migration:run": "npm run build && node dist/shared/infrastructure/database/migrate.js run",
     "migration:revert": "npm run build && node dist/shared/infrastructure/database/migrate.js revert",
+    "report:categories": "npm run build && node scripts/report-category-migration.js",
     "supabase:setup": "npx ts-node scripts/create-tables.ts",
     "supabase:test": "npx ts-node scripts/test-supabase.ts",
     "seed:test": "npx ts-node scripts/seed-test-data.ts",

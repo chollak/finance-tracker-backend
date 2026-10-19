@@ -5,3 +5,8 @@ export { DebtPayment } from './DebtPayment';
 export { User } from './User';
 export { Subscription } from './Subscription';
 export { UsageLimit } from './UsageLimit';
+export { UserSettings } from './UserSettings';
+export { Category } from './Category';
+export { Account } from './Account';
+export { FxRate } from './FxRate';
+export { AccountMove } from './AccountMove';

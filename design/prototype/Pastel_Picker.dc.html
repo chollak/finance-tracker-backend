@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Daftar — шторка выбора</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; position: relative; overflow: hidden; color: {{t.ink}}; font-family: 'Manrope', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;">
+<button type="button" tabindex="-1" aria-hidden="true" onClick="{{close}}" style="position: absolute; left: 0; top: 0; width: 390px; height: 844px; border: 0; padding: 0; background: {{t.scrim}}; cursor: pointer;"></button>
+<section role="dialog" aria-modal="true" aria-label="{{title}}" style="position: absolute; left: 0; right: 0; bottom: 0; max-height: calc(100% - 64px); overflow-y: auto; box-sizing: border-box; display: flex; flex-direction: column; gap: 12px; padding: 8px 16px 24px; border-radius: 28px 28px 0 0; background: {{t.sheet}};">
+<span aria-hidden="true" style="align-self: center; width: 36px; height: 5px; border-radius: 9999px; background: {{t.grabber}};"></span>
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+<h2 style="margin: 0; font-size: 18px; line-height: 1.3; font-weight: 800; letter-spacing: -0.3px;">{{title}}</h2>
+<button type="button" aria-label="Закрыть" onClick="{{close}}" style="flex: 0 0 44px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border: 0; border-radius: 9999px; background: {{t.card}}; color: {{t.ink}}; cursor: pointer;"><svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true"><path d="M5.5 5.5l9 9m0-9-9 9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg></button>
+</div>
+<sc-if value="{{hasContext}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: -6px;">
+<span style="flex: 1 1 auto; min-width: 0; padding-left: 2px; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: {{t.muted}};">{{context}}</span>
+<sc-if value="{{hasMore}}" hint-placeholder-val="{{false}}">
+<button type="button" onClick="{{more}}" style="flex: 0 0 auto; height: 44px; margin-right: -6px; padding: 0 10px; display: flex; align-items: center; gap: 2px; border: 0; border-radius: 9999px; background: transparent; color: {{t.ink}}; font-family: inherit; font-size: 14px; font-weight: 800; cursor: pointer;">Вся операция<svg width="14" height="14" viewBox="0 0 20 20" aria-hidden="true"><path d="M7.5 4.5 13 10l-5.5 5.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
+</sc-if>
+</div>
+</sc-if>
+
+<sc-if value="{{isCategory}}" hint-placeholder-val="{{true}}">
+<div role="radiogroup" aria-label="{{title}}" style="display: flex; flex-direction: column; gap: 12px;">
+<sc-for list="{{sections}}" as="sec" hint-placeholder-count="1">
+<div style="display: flex; flex-direction: column; gap: 8px;">
+<sc-if value="{{sec.hasLabel}}" hint-placeholder-val="{{false}}">
+<h3 style="margin: 0; padding: 0 4px; font-size: 13px; font-weight: 700; color: {{t.muted}};">{{sec.label}}</h3>
+</sc-if>
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px;">
+<sc-for list="{{sec.items}}" as="c" hint-placeholder-count="8">
+<button type="button" role="radio" onClick="{{c.pick}}" aria-checked="{{c.checked}}" aria-label="{{c.aria}}" style="grid-column: {{c.span}}; min-width: 0; height: 48px; padding: 0 4px; border: 0; border-radius: 16px; background: {{c.bg}}; box-shadow: {{c.ring}}; outline: {{c.outline}}; outline-offset: 2px; color: {{c.ink}}; font-family: inherit; font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer;">{{c.name}}</button>
+</sc-for>
+</div>
+</div>
+</sc-for>
+</div>
+</sc-if>
+
+<sc-if value="{{isAccount}}" hint-placeholder-val="{{false}}">
+<div role="radiogroup" aria-label="{{title}}" style="display: flex; flex-direction: column; padding: 0 16px; border-radius: 24px; background: {{t.card}};">
+<sc-for list="{{accs}}" as="a" hint-placeholder-count="3">
+<button type="button" role="radio" onClick="{{a.pick}}" aria-checked="{{a.checked}}" style="min-height: 60px; display: flex; align-items: center; gap: 12px; padding: 8px 0; border: 0; border-top: {{a.divider}}; background: transparent; color: {{t.ink}}; font-family: inherit; text-align: left; cursor: pointer;">
+<span style="flex: 1 1 auto; display: flex; flex-direction: column; gap: 1px;"><span style="font-size: 15px; font-weight: 700;">{{a.name}}</span><span style="font-size: 13px; font-weight: 500; color: {{t.muted}};">{{a.bal}}</span></span>
+<sc-if value="{{a.isOn}}" hint-placeholder-val="{{false}}">
+<span aria-hidden="true" style="flex: 0 0 24px; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 9999px; background: {{t.primaryBg}}; color: {{t.primaryInk}};"><svg width="14" height="14" viewBox="0 0 20 20"><path d="M4.5 10.5 8 14l7.5-8" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+</sc-if>
+<sc-if value="{{a.isOff}}" hint-placeholder-val="{{true}}">
+<span aria-hidden="true" style="flex: 0 0 24px; width: 24px; height: 24px; box-sizing: border-box; border-radius: 9999px; border: 2px solid {{t.muted}};"></span>
+</sc-if>
+</button>
+</sc-for>
+</div>
+</sc-if>
+
+<sc-if value="{{isDate}}" hint-placeholder-val="{{false}}">
+<div role="radiogroup" aria-label="Быстрый выбор даты" style="display: flex; gap: 8px;">
+<sc-for list="{{quick}}" as="q" hint-placeholder-count="2">
+<button type="button" role="radio" onClick="{{q.pick}}" aria-checked="{{q.checked}}" style="height: 44px; padding: 0 18px; border: 0; border-radius: 9999px; background: {{q.bg}}; color: {{q.ink}}; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer;">{{q.label}}</button>
+</sc-for>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px; padding: 6px 10px 10px; border-radius: 24px; background: {{t.card}};">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+<button type="button" onClick="{{prevMonth}}" disabled="{{prevDisabled}}" aria-label="Предыдущий месяц" style="flex: 0 0 44px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border: 0; border-radius: 9999px; background: transparent; color: {{t.ink}}; opacity: {{prevOpacity}}; cursor: pointer;"><svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true"><path d="M12.5 4.5 7 10l5.5 5.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
+<span aria-live="polite" style="font-size: 15px; font-weight: 800;">{{monthTitle}}</span>
+<button type="button" onClick="{{nextMonth}}" disabled="{{nextDisabled}}" aria-label="Следующий месяц" style="flex: 0 0 44px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border: 0; border-radius: 9999px; background: transparent; color: {{t.ink}}; opacity: {{nextOpacity}}; cursor: pointer;"><svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true"><path d="M7.5 4.5 13 10l-5.5 5.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
+</div>
+<div aria-hidden="true" style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); text-align: center; font-size: 12px; font-weight: 600; color: {{t.muted}};"><span>Пн</span><span>Вт</span><span>Ср</span><span>Чт</span><span>Пт</span><span>Сб</span><span>Вс</span></div>
+<div role="radiogroup" aria-label="{{monthTitle}}" style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); row-gap: 2px;">
+<sc-for list="{{cells}}" as="d" hint-placeholder-count="35">
+<sc-if value="{{d.blank}}" hint-placeholder-val="{{false}}">
+<span aria-hidden="true"></span>
+</sc-if>
+<sc-if value="{{d.isDay}}" hint-placeholder-val="{{true}}">
+<button type="button" role="radio" onClick="{{d.pick}}" disabled="{{d.disabled}}" aria-checked="{{d.checked}}" aria-label="{{d.aria}}" style="justify-self: center; width: 44px; height: 44px; border: 0; border-radius: 9999px; background: {{d.bg}}; box-shadow: {{d.ring}}; color: {{d.ink}}; opacity: {{d.opacity}}; font-family: inherit; font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; cursor: {{d.cursor}};">{{d.num}}</button>
+</sc-if>
+</sc-for>
+</div>
+</div>
+</sc-if>
+</section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"kind":{"editor":"enum","options":["category","account","date"],"default":"category"},"heading":{"editor":null},"options":{"editor":null},"selected":{"editor":null},"tentative":{"editor":null},"context":{"editor":null},"minMonth":{"editor":null},"onMore":{"editor":null},"onPick":{"editor":null},"onClose":{"editor":null},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  theme() {
+    if (this.props.dark) {
+      return { sheet: "#1b1c1f", card: "#26272b", ink: "#f4f4f6", muted: "#9d9da6", line: "#34353a", grabber: "#3a3b40", scrim: "rgba(0, 0, 0, 0.6)", primaryBg: "#f4f4f6", primaryInk: "#141416" };
+    }
+    return { sheet: "#f3f3f5", card: "#ffffff", ink: "#141416", muted: "#6b6b74", line: "#ececf0", grabber: "#d4d4db", scrim: "rgba(20, 20, 22, 0.32)", primaryBg: "#141416", primaryInk: "#ffffff" };
+  }
+  defaultCats() {
+    return [["pr", "Продукты", "#ffdcc8"], ["kf", "Кафе", "#ffd6e0"], ["tr", "Транспорт", "#cfe3ff"], ["dm", "Дом", "#ede3d6"], ["sv", "Связь", "#e3dcff"], ["zd", "Здоровье", "#c9efd9"], ["pk", "Покупки", "#fbefb3"], ["dr", "Другое", "#e6e6ea"]].map((d) => ({ id: d[0], name: d[1], color: d[2] }));
+  }
+  monthNames() { return ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"]; }
+  genNames() { return ["января", "февраля", "марта", "апреля", "мая", "июня", "июля", "августа", "сентября", "октября", "ноября", "декабря"]; }
+  pad(n) { return n < 10 ? "0" + n : String(n); }
+  renderVals() {
+    const t = this.theme();
+    const kind = this.props.kind ?? "category";
+    const s = this.state || {};
+    const pickFn = (id) => { if (typeof this.props.onPick === "function") this.props.onPick(id); };
+    const close = () => { if (typeof this.props.onClose === "function") this.props.onClose(); };
+    const sel = this.props.selected !== undefined ? this.props.selected : (kind === "date" ? "2026-10-13" : (kind === "account" ? "card" : "kf"));
+    const title = this.props.heading ?? (kind === "date" ? "Дата" : (kind === "account" ? "Счёт" : "Категория"));
+    const tentative = !!this.props.tentative;
+    let sections = [];
+    let accs = [];
+    let quick = [];
+    const cells = [];
+    let monthTitle = "";
+    let prevDisabled = true;
+    let nextDisabled = true;
+    let shift = (d) => {};
+
+    if (kind === "category") {
+      const opts = this.props.options ?? this.defaultCats();
+      opts.forEach((o) => {
+        const label = o.group || "";
+        let sec = sections.find((x) => x.label === label);
+        if (!sec) { sec = { label: label, hasLabel: label.length > 0, items: [] }; sections.push(sec); }
+        const on = o.id === sel;
+        sec.items.push({
+          name: o.name,
+          bg: o.plain ? t.card : o.color,
+          ink: o.plain ? t.ink : "#141416",
+          span: o.wide ? "1 / -1" : "auto",
+          ring: on && !tentative ? "0 0 0 2px " + t.sheet + ", 0 0 0 4px " + t.ink : "none",
+          outline: on && tentative ? "2px dashed " + t.ink : "none",
+          checked: on ? "true" : "false",
+          aria: o.name + (on && tentative ? ", предположение ИИ" : ""),
+          pick: () => pickFn(o.id)
+        });
+      });
+    }
+
+    if (kind === "account") {
+      const opts = this.props.options ?? [{ id: "cash", name: "Наличные", bal: "1 250 000 сум" }, { id: "card", name: "Карта", bal: "3 180 000 сум" }, { id: "usd", name: "Доллары", bal: "420,00 USD" }];
+      accs = opts.map((o, i) => {
+        const on = o.id === sel;
+        return { name: o.name, bal: o.bal, isOn: on, isOff: !on, checked: on ? "true" : "false", divider: i === 0 ? "none" : "1px solid " + t.line, pick: () => pickFn(o.id) };
+      });
+    }
+
+    if (kind === "date") {
+      const today = { y: 2026, m: 9, d: 14 };
+      const selY = parseInt(String(sel).slice(0, 4), 10) || today.y;
+      const selM = (parseInt(String(sel).slice(5, 7), 10) || 10) - 1;
+      const base = s.view !== undefined ? s.view : selY * 12 + selM;
+      const nowIdx = today.y * 12 + today.m;
+      const mm = this.props.minMonth ? String(this.props.minMonth) : null;
+      const minIdx = mm ? parseInt(mm.slice(0, 4), 10) * 12 + parseInt(mm.slice(5, 7), 10) - 1 : nowIdx - 12;
+      const y = Math.floor(base / 12);
+      const m = base % 12;
+      monthTitle = this.monthNames()[m] + " " + y;
+      prevDisabled = base <= minIdx;
+      nextDisabled = base >= nowIdx;
+      shift = (delta) => { const v = Math.min(nowIdx, Math.max(minIdx, base + delta)); this.setState({ view: v }); };
+      quick = [["2026-10-14", "Сегодня"], ["2026-10-13", "Вчера"]].map((q) => {
+        const on = q[0] === sel;
+        return { label: q[1], checked: on ? "true" : "false", bg: on ? t.primaryBg : t.card, ink: on ? t.primaryInk : t.ink, pick: () => pickFn(q[0]) };
+      });
+      const first = new Date(Date.UTC(y, m, 1)).getUTCDay();
+      const blanks = (first + 6) % 7;
+      const days = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+      for (let i = 0; i < blanks; i++) cells.push({ blank: true, isDay: false });
+      for (let d = 1; d <= days; d++) {
+        const id = y + "-" + this.pad(m + 1) + "-" + this.pad(d);
+        const idx = y * 12 + m;
+        const future = idx > nowIdx || (idx === nowIdx && d > today.d);
+        const isToday = idx === nowIdx && d === today.d;
+        const on = id === sel;
+        cells.push({
+          blank: false,
+          isDay: true,
+          num: String(d),
+          disabled: future,
+          checked: on ? "true" : "false",
+          aria: d + " " + this.genNames()[m] + (isToday ? ", сегодня" : "") + (future ? ", недоступно" : ""),
+          bg: on ? t.primaryBg : "transparent",
+          ink: on ? t.primaryInk : t.ink,
+          ring: (!on && isToday) ? "inset 0 0 0 1.5px " + t.ink : "none",
+          opacity: future ? "0.35" : "1",
+          cursor: future ? "default" : "pointer",
+          pick: () => { if (!future) pickFn(id); }
+        });
+      }
+    }
+
+    return {
+      t: t,
+      title: title,
+      close: close,
+      hasContext: !!this.props.context,
+      context: this.props.context || "",
+      hasMore: typeof this.props.onMore === "function",
+      more: () => { if (typeof this.props.onMore === "function") this.props.onMore(); },
+      isCategory: kind === "category",
+      isAccount: kind === "account",
+      isDate: kind === "date",
+      sections: sections,
+      accs: accs,
+      quick: quick,
+      cells: cells,
+      monthTitle: monthTitle,
+      prevDisabled: prevDisabled,
+      nextDisabled: nextDisabled,
+      prevOpacity: prevDisabled ? "0.35" : "1",
+      nextOpacity: nextDisabled ? "0.35" : "1",
+      prevMonth: () => shift(-1),
+      nextMonth: () => shift(1)
+    };
+  }
+}
+</script>
+</body>
+</html>

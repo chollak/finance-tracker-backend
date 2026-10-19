@@ -1,400 +1,156 @@
 /**
- * Seed script for creating test data in local SQLite database
+ * Test data for the local SQLite database, written through the app's own use cases so it always
+ * matches the current schema and rules (categories, accounts, money in minor units, moves).
  *
- * Creates:
- * - 1 test user (telegramId: test_user_dev)
- * - ~50 transactions (various categories, income/expense)
- * - 3 budgets (Food, Transport, Entertainment)
+ * Creates, for the user with telegramId 900000001 (numeric, so `X-Dev-User-Id: 900000001` opens it):
+ * - accounts «Карта», «Наличные» and «Доллары» with opening balances 30 days ago;
+ * - ~50 records over the last 30 days in the starter categories, a few of them in dollars;
+ * - a transfer «Карта → Наличные» and an exchange «Доллары → Карта».
  *
- * Usage: npm run seed:test
+ * Budgets are no longer seeded: they leave the interface (decision Д2).
+ *
+ * Usage: npm run seed:test [-- --db=path/to/database.sqlite]
+ * The database is migrated first, with a backup, as on app start.
  */
 
+import 'reflect-metadata';
 import path from 'path';
-import { randomUUID } from 'crypto';
-import sqlite3 from 'sqlite3';
+import { createAppDataSource, DATABASE_FILE } from '../src/shared/infrastructure/database/database.config';
+import { runMigrationsWithBackup } from '../src/shared/infrastructure/database/migrationRunner';
+import { SqliteUserRepository } from '../src/modules/user/infrastructure/persistence/SqliteUserRepository';
+import { SqliteTransactionRepository } from '../src/modules/transaction/infrastructure/persistence/SqliteTransactionRepository';
+import { CreateTransactionUseCase } from '../src/modules/transaction/application/createTransaction';
+import { CategoryCatalog } from '../src/modules/category/application/categoryCatalog';
+import { SqliteCategoryRepository } from '../src/modules/category/infrastructure/SqliteCategoryRepository';
+import { AccountModule } from '../src/modules/account/accountModule';
+import { SqliteAccountRepository } from '../src/modules/account/infrastructure/SqliteAccountRepository';
+import { SqliteAccountMoveRepository } from '../src/modules/account/infrastructure/SqliteAccountMoveRepository';
+import { todayDateOnly } from '../src/shared/domain/dates/dateOnly';
 
-const DB_PATH = path.join(process.cwd(), 'data', 'database.sqlite');
+const TEST_TELEGRAM_ID = '900000001';
 
-// Test user configuration
-const TEST_USER = {
-  id: randomUUID(),
-  telegramId: 'test_user_dev',
-  username: 'testuser',
-  firstName: 'Test',
-  lastName: 'Developer',
-  language: 'ru',
-  currency: 'UZS',
-};
-
-// Categories for transactions
-const EXPENSE_CATEGORIES = [
-  'Еда', 'Продукты', 'Рестораны', 'Кофе',
-  'Транспорт', 'Такси', 'Бензин',
-  'Покупки', 'Одежда', 'Электроника',
-  'Развлечения', 'Кино', 'Подписки',
-  'Счета', 'Интернет', 'Коммунальные',
-  'Здоровье', 'Аптека',
+const EXPENSES: Array<{ category: string; merchants: string[]; range: [number, number] }> = [
+  { category: 'Продукты', merchants: ['Makro', 'Korzinka', 'Havas'], range: [50000, 400000] },
+  { category: 'Кафе', merchants: ['Evos', 'Oqtepa Lavash', 'Brew Spot', 'Caravan'], range: [25000, 250000] },
+  { category: 'Транспорт', merchants: ['Yandex Go', 'MyTaxi', 'АЗС UNG'], range: [15000, 150000] },
+  { category: 'Дом', merchants: ['Тошкент шахар газ', 'Электр энергия'], range: [100000, 600000] },
+  { category: 'Связь', merchants: ['Uzmobile', 'Uztelecom'], range: [50000, 150000] },
+  { category: 'Здоровье', merchants: ['Dori-Darmon', 'Akfa Medline'], range: [30000, 400000] },
+  { category: 'Покупки', merchants: ['Uzum Market', 'Texnomart', 'Zara'], range: [100000, 1500000] },
+];
+const INCOMES: Array<{ category: string; description: string; range: [number, number] }> = [
+  { category: 'Зарплата', description: 'Зарплата', range: [8000000, 15000000] },
+  { category: 'Фриланс', description: 'Проект для клиента', range: [500000, 3000000] },
+  { category: 'Кэшбэк', description: 'Кэшбэк', range: [10000, 80000] },
 ];
 
-const INCOME_CATEGORIES = ['Зарплата', 'Фриланс', 'Перевод', 'Подарок'];
-
-// Merchants for realistic data
-const MERCHANTS: Record<string, string[]> = {
-  'Еда': ['Evos', 'Oqtepa Lavash', 'KFC', 'Burger King'],
-  'Продукты': ['Makro', 'Korzinka', 'Havas'],
-  'Рестораны': ['Caravan', 'Milliy Taomlar', 'The Ramen'],
-  'Кофе': ['Brew Spot', 'Coffee Boom', 'Starbucks'],
-  'Транспорт': ['Yandex Go', 'MyTaxi', 'Uzum Taxi'],
-  'Такси': ['Yandex Go', 'MyTaxi'],
-  'Бензин': ['АЗС Лукойл', 'АЗС UNG', 'Qozoq АЗС'],
-  'Покупки': ['Uzum Market', 'Wildberries'],
-  'Одежда': ['LC Waikiki', 'Zara', 'H&M'],
-  'Электроника': ['Texnomart', 'MediaPark', 'Olcha'],
-  'Развлечения': ['Netflix', 'Spotify', 'YouTube Premium'],
-  'Кино': ['Magic Cinema', 'Chaplin Cinemas'],
-  'Подписки': ['Netflix', 'Spotify', 'ChatGPT Plus'],
-  'Счета': ['Uzmobile', 'Ucell'],
-  'Интернет': ['Uztelecom', 'TuronTelecom'],
-  'Коммунальные': ['Тошкент шахар газ', 'Электр энергия'],
-  'Здоровье': ['Dori-Darmon', 'Akfa Medline'],
-  'Аптека': ['Dori-Darmon', 'Фармация'],
-};
-
-// Generate random date within last N days
-function randomDate(daysBack: number): string {
+const pick = <T>(items: T[]): T => items[Math.floor(Math.random() * items.length)];
+/** Whole thousands of сум, as people write them. */
+const amountIn = ([min, max]: [number, number]) => Math.round((min + Math.random() * (max - min)) / 1000) * 1000;
+function daysAgo(days: number): string {
   const date = new Date();
-  date.setDate(date.getDate() - Math.floor(Math.random() * daysBack));
-  return date.toISOString().split('T')[0];
+  date.setDate(date.getDate() - days);
+  return todayDateOnly(date);
 }
 
-// Generate random amount based on category
-function randomAmount(category: string, type: 'income' | 'expense'): number {
-  if (type === 'income') {
-    const ranges: Record<string, [number, number]> = {
-      'Зарплата': [5000000, 15000000],
-      'Фриланс': [500000, 3000000],
-      'Перевод': [100000, 1000000],
-      'Подарок': [50000, 500000],
-    };
-    const [min, max] = ranges[category] || [100000, 1000000];
-    return Math.floor(Math.random() * (max - min) + min);
-  }
-
-  const ranges: Record<string, [number, number]> = {
-    'Еда': [20000, 80000],
-    'Продукты': [50000, 300000],
-    'Рестораны': [80000, 250000],
-    'Кофе': [15000, 40000],
-    'Транспорт': [10000, 50000],
-    'Такси': [15000, 80000],
-    'Бензин': [100000, 300000],
-    'Покупки': [50000, 500000],
-    'Одежда': [100000, 800000],
-    'Электроника': [200000, 2000000],
-    'Развлечения': [30000, 150000],
-    'Кино': [50000, 150000],
-    'Подписки': [50000, 200000],
-    'Счета': [50000, 200000],
-    'Интернет': [80000, 150000],
-    'Коммунальные': [100000, 500000],
-    'Здоровье': [50000, 500000],
-    'Аптека': [20000, 200000],
-  };
-  const [min, max] = ranges[category] || [20000, 100000];
-  return Math.floor(Math.random() * (max - min) + min);
-}
-
-// Generate description based on category
-function generateDescription(category: string, merchant: string | undefined, type: 'income' | 'expense'): string {
-  if (type === 'income') {
-    const descriptions: Record<string, string[]> = {
-      'Зарплата': ['Зарплата за месяц', 'Аванс', 'Зарплата'],
-      'Фриланс': ['Проект для клиента', 'Фриланс работа', 'Консультация'],
-      'Перевод': ['Перевод от друга', 'Возврат долга', 'Перевод'],
-      'Подарок': ['Подарок на день рождения', 'Подарок', 'Кэшбэк'],
-    };
-    const options = descriptions[category] || ['Доход'];
-    return options[Math.floor(Math.random() * options.length)];
-  }
-
-  if (merchant) {
-    return `${category} - ${merchant}`;
-  }
-  return category;
-}
-
-interface TransactionData {
-  id: string;
-  userId: string;
-  amount: number;
-  type: 'income' | 'expense';
-  category: string;
-  merchant: string | null;
-  description: string;
-  date: string;
-  confidence: number;
-}
-
-// Generate test transactions
-function generateTransactions(userId: string): TransactionData[] {
-  const transactions: TransactionData[] = [];
-
-  // Generate ~40 expenses
-  for (let i = 0; i < 40; i++) {
-    const category = EXPENSE_CATEGORIES[Math.floor(Math.random() * EXPENSE_CATEGORIES.length)];
-    const merchantList = MERCHANTS[category] || [];
-    const merchant = merchantList.length > 0
-      ? merchantList[Math.floor(Math.random() * merchantList.length)]
-      : null;
-
-    transactions.push({
-      id: randomUUID(),
-      userId,
-      amount: randomAmount(category, 'expense'),
-      type: 'expense',
-      category,
-      merchant,
-      description: generateDescription(category, merchant || undefined, 'expense'),
-      date: randomDate(30),
-      confidence: 0.85 + Math.random() * 0.15,
-    });
-  }
-
-  // Generate ~10 incomes
-  for (let i = 0; i < 10; i++) {
-    const category = INCOME_CATEGORIES[Math.floor(Math.random() * INCOME_CATEGORIES.length)];
-
-    transactions.push({
-      id: randomUUID(),
-      userId,
-      amount: randomAmount(category, 'income'),
-      type: 'income',
-      category,
-      merchant: null,
-      description: generateDescription(category, undefined, 'income'),
-      date: randomDate(30),
-      confidence: 0.9 + Math.random() * 0.1,
-    });
-  }
-
-  return transactions;
-}
-
-interface BudgetData {
-  id: string;
-  userId: string;
-  name: string;
-  amount: number;
-  period: string;
-  startDate: string;
-  endDate: string;
-  categoryIds: string;
-  isActive: number;
-  spent: number;
-  description: string;
-}
-
-// Generate test budgets
-function generateBudgets(userId: string): BudgetData[] {
-  const now = new Date();
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-
-  return [
-    {
-      id: randomUUID(),
-      userId,
-      name: 'Еда на месяц',
-      amount: 1500000,
-      period: 'monthly',
-      startDate: startOfMonth.toISOString().split('T')[0],
-      endDate: endOfMonth.toISOString().split('T')[0],
-      categoryIds: JSON.stringify(['Еда', 'Продукты', 'Рестораны', 'Кофе']),
-      isActive: 1,
-      spent: 0,
-      description: 'Бюджет на еду и рестораны',
-    },
-    {
-      id: randomUUID(),
-      userId,
-      name: 'Транспорт',
-      amount: 500000,
-      period: 'monthly',
-      startDate: startOfMonth.toISOString().split('T')[0],
-      endDate: endOfMonth.toISOString().split('T')[0],
-      categoryIds: JSON.stringify(['Транспорт', 'Такси', 'Бензин']),
-      isActive: 1,
-      spent: 0,
-      description: 'Бюджет на транспорт',
-    },
-    {
-      id: randomUUID(),
-      userId,
-      name: 'Развлечения',
-      amount: 300000,
-      period: 'monthly',
-      startDate: startOfMonth.toISOString().split('T')[0],
-      endDate: endOfMonth.toISOString().split('T')[0],
-      categoryIds: JSON.stringify(['Развлечения', 'Кино', 'Подписки']),
-      isActive: 1,
-      spent: 0,
-      description: 'Бюджет на развлечения',
-    },
-  ];
-}
-
-// Helper to run db queries as promises
-function dbRun(db: sqlite3.Database, sql: string, params: any[] = []): Promise<void> {
-  return new Promise((resolve, reject) => {
-    db.run(sql, params, (err) => {
-      if (err) reject(err);
-      else resolve();
-    });
-  });
-}
-
-function dbGet<T>(db: sqlite3.Database, sql: string, params: any[] = []): Promise<T | undefined> {
-  return new Promise((resolve, reject) => {
-    db.get(sql, params, (err, row) => {
-      if (err) reject(err);
-      else resolve(row as T | undefined);
-    });
-  });
+function databaseFile(): string {
+  const arg = process.argv.find(value => value.startsWith('--db='));
+  return arg ? path.resolve(arg.slice('--db='.length)) : DATABASE_FILE;
 }
 
 async function seed() {
-  console.log('🌱 Starting seed script...\n');
-
-  const db = new sqlite3.Database(DB_PATH);
-  console.log('✅ Database connected\n');
+  const file = databaseFile();
+  console.log(`🌱 Seeding ${file}\n`);
+  const dataSource = createAppDataSource(file);
+  await dataSource.initialize();
 
   try {
-    // Check if test user already exists
-    const existingUser = await dbGet<{ id: string; telegram_id: string }>(
-      db,
-      'SELECT id, telegram_id FROM users WHERE telegram_id = ?',
-      [TEST_USER.telegramId]
-    );
+    const { applied, backupPath } = await runMigrationsWithBackup(dataSource, file, path.join(path.dirname(file), 'backups'));
+    if (applied.length > 0) {
+      console.log(`🗂  Migrations applied: ${applied.join(', ')}${backupPath ? ` (backup: ${backupPath})` : ''}\n`);
+    }
 
-    if (existingUser) {
-      console.log(`⚠️  Test user "${TEST_USER.telegramId}" already exists`);
-      console.log('   To recreate, delete existing data first.\n');
-
-      // Show current stats
-      const txCount = await dbGet<{ count: number }>(
-        db,
-        'SELECT COUNT(*) as count FROM transactions WHERE userId = ?',
-        [existingUser.id]
+    const users = new SqliteUserRepository(dataSource);
+    const existing = await users.findByTelegramId(TEST_TELEGRAM_ID);
+    if (existing) {
+      const [{ count }] = await dataSource.query(
+        `SELECT COUNT(*) AS count FROM transactions WHERE userId = ? AND deleted_at IS NULL`, [existing.id]
       );
-
-      const budgetCount = await dbGet<{ count: number }>(
-        db,
-        'SELECT COUNT(*) as count FROM budgets WHERE userId = ?',
-        [existingUser.id]
-      );
-
-      console.log(`📊 Current data for test user:`);
-      console.log(`   - Transactions: ${txCount?.count || 0}`);
-      console.log(`   - Budgets: ${budgetCount?.count || 0}`);
-
-      db.close();
+      console.log(`⚠️  Test user "${TEST_TELEGRAM_ID}" already exists with ${count} records. Delete it first to seed again.`);
       return;
     }
+    const user = await users.getOrCreate({ telegramId: TEST_TELEGRAM_ID, userName: 'testuser', firstName: 'Test', lastName: 'Developer', languageCode: 'ru' });
 
-    // Create test user
-    console.log('👤 Creating test user...');
-    await dbRun(
-      db,
-      `INSERT INTO users (id, telegram_id, user_name, first_name, last_name, language_code, default_currency)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [
-        TEST_USER.id,
-        TEST_USER.telegramId,
-        TEST_USER.username,
-        TEST_USER.firstName,
-        TEST_USER.lastName,
-        TEST_USER.language,
-        TEST_USER.currency,
-      ]
-    );
-    console.log(`   ✅ User created: ${TEST_USER.firstName} ${TEST_USER.lastName} (${TEST_USER.telegramId})\n`);
+    const accounts = new AccountModule(new SqliteAccountRepository(dataSource), undefined, new SqliteAccountMoveRepository(dataSource));
+    const opened = daysAgo(30);
+    const account = async (name: string, kind: 'cash' | 'card', currency: 'UZS' | 'USD', openingBalanceMinor: number) => {
+      const created = await accounts.getCreateAccountUseCase().execute({
+        userId: user.id, body: { name, kind, currency, openingBalanceMinor, openingDate: opened },
+      });
+      if (!created.success) throw created.error;
+      return created.data;
+    };
+    // «Карта» is created on first need; it opens with the others
+    const [card] = await accounts.getBook().listForUser(user.id);
+    await dataSource.query(`UPDATE accounts SET opening_date = ?, opening_balance_minor = ? WHERE id = ?`, [opened, 5_000_000_00, card.id]);
+    const cash = await account('Наличные', 'cash', 'UZS', 1_500_000_00);
+    const dollars = await account('Доллары', 'cash', 'USD', 500_00);
+    console.log('👛 Accounts: Карта, Наличные, Доллары\n');
 
-    // Create transactions
-    console.log('💳 Creating transactions...');
-    const transactions = generateTransactions(TEST_USER.id);
+    const repository = new SqliteTransactionRepository(dataSource);
+    const create = new CreateTransactionUseCase(repository, new CategoryCatalog(new SqliteCategoryRepository(dataSource)), accounts.getBook());
+    let created = 0;
+    const write = async (record: Parameters<CreateTransactionUseCase['execute']>[0]) => {
+      const result = await create.execute(record);
+      if (!result.success) throw result.error;
+      created += 1;
+    };
 
-    for (const tx of transactions) {
-      await dbRun(
-        db,
-        `INSERT INTO transactions (id, userId, amount, type, category, merchant, description, date, confidence)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [tx.id, tx.userId, tx.amount, tx.type, tx.category, tx.merchant, tx.description, tx.date, tx.confidence]
-      );
+    for (let i = 0; i < 40; i += 1) {
+      const expense = pick(EXPENSES);
+      const merchant = pick(expense.merchants);
+      await write({
+        userId: user.id, type: 'expense', category: expense.category, amount: amountIn(expense.range),
+        description: merchant, merchant, date: daysAgo(Math.floor(Math.random() * 30)),
+        accountId: Math.random() < 0.15 ? cash.id : card.id, source: pick(['telegram', 'miniapp', 'manual'] as const), confidence: 0.9,
+      });
     }
-
-    const incomeCount = transactions.filter((t) => t.type === 'income').length;
-    const expenseCount = transactions.filter((t) => t.type === 'expense').length;
-    console.log(`   ✅ Created ${transactions.length} transactions (${incomeCount} income, ${expenseCount} expense)\n`);
-
-    // Create budgets
-    console.log('📊 Creating budgets...');
-    const budgets = generateBudgets(TEST_USER.id);
-
-    for (const budget of budgets) {
-      await dbRun(
-        db,
-        `INSERT INTO budgets (id, userId, name, amount, period, startDate, endDate, categoryIds, isActive, spent, description)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          budget.id,
-          budget.userId,
-          budget.name,
-          budget.amount,
-          budget.period,
-          budget.startDate,
-          budget.endDate,
-          budget.categoryIds,
-          budget.isActive,
-          budget.spent,
-          budget.description,
-        ]
-      );
+    for (let i = 0; i < 4; i += 1) {
+      const cents = Math.round(500 + Math.random() * 4500);
+      await write({
+        userId: user.id, type: 'expense', category: pick(['Связь', 'Покупки']), amount: cents / 100, amountMinor: cents,
+        description: pick(['ChatGPT Plus', 'Spotify', 'iCloud', 'Наушники']), date: daysAgo(Math.floor(Math.random() * 30)),
+        accountId: dollars.id, source: 'telegram',
+      });
     }
-    console.log(`   ✅ Created ${budgets.length} budgets\n`);
-
-    // Calculate and update spent amounts for budgets
-    console.log('🧮 Calculating budget spent amounts...');
-    for (const budget of budgets) {
-      const categoryIds = JSON.parse(budget.categoryIds);
-
-      // Calculate spent from transactions
-      const spent = transactions
-        .filter(
-          (t) =>
-            t.type === 'expense' &&
-            categoryIds.includes(t.category) &&
-            t.date >= budget.startDate &&
-            t.date <= budget.endDate
-        )
-        .reduce((sum, t) => sum + t.amount, 0);
-
-      await dbRun(db, 'UPDATE budgets SET spent = ? WHERE id = ?', [spent, budget.id]);
-      console.log(`   - ${budget.name}: ${spent.toLocaleString()} / ${budget.amount.toLocaleString()} UZS`);
+    for (let i = 0; i < 6; i += 1) {
+      const income = pick(INCOMES);
+      await write({
+        userId: user.id, type: 'income', category: income.category, amount: amountIn(income.range),
+        description: income.description, date: daysAgo(Math.floor(Math.random() * 30)), accountId: card.id, source: 'manual',
+      });
     }
+    console.log(`💳 Records: ${created}\n`);
 
-    console.log('\n✅ Seed completed successfully!');
-    console.log('\n📋 Summary:');
-    console.log(`   User ID: ${TEST_USER.telegramId}`);
-    console.log(`   Transactions: ${transactions.length}`);
-    console.log(`   Budgets: ${budgets.length}`);
-    console.log('\n💡 Use this telegramId in the webapp to see test data.');
+    const transfer = await accounts.getCreateMoveUseCase().execute({
+      userId: user.id, body: { kind: 'transfer', fromAccountId: card.id, toAccountId: cash.id, amountMinor: 500_000_00, date: daysAgo(10) },
+    });
+    const exchange = await accounts.getCreateMoveUseCase().execute({
+      userId: user.id, body: { kind: 'exchange', fromAccountId: dollars.id, toAccountId: card.id, fromAmountMinor: 100_00, toAmountMinor: 1_260_000_00, date: daysAgo(5) },
+    });
+    if (!transfer.success) throw transfer.error;
+    if (!exchange.success) throw exchange.error;
+    console.log('🔁 Moves: transfer Карта → Наличные, exchange Доллары → Карта\n');
 
-    db.close();
-  } catch (error) {
-    console.error('❌ Seed failed:', error);
-    db.close();
-    process.exit(1);
+    const summary = await accounts.getBook().summary(user.id);
+    for (const a of summary.accounts) console.log(`   ${a.name}: ${(a.balanceMinor / 100).toLocaleString('ru-RU')} ${a.currency}`);
+    console.log(`\n✅ Done. Outside production, send X-Dev-User-Id: ${TEST_TELEGRAM_ID} to act as this user.`);
+  } finally {
+    await dataSource.destroy();
   }
 }
 
-seed();
+seed().catch(error => {
+  console.error('❌ Seed failed:', error);
+  process.exit(1);
+});

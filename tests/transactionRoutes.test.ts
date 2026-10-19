@@ -11,7 +11,7 @@ import {
 } from '../src/delivery/web/express/middleware/errorMiddleware';
 import { createTransactionRouter } from '../src/modules/transaction/presentation/controllers/transactionController';
 import { CreateTransactionUseCase } from '../src/modules/transaction/application/createTransaction';
-import { GetTransactionsUseCase } from '../src/modules/transaction/application/getTransactions';
+import { GetTransactionHistoryUseCase } from '../src/modules/transaction/application/getTransactionHistory';
 import { AnalyticsService } from '../src/modules/transaction/application/analyticsService';
 import { GetUserTransactionsUseCase } from '../src/modules/transaction/application/getUserTransactions';
 import { GetTransactionByIdUseCase } from '../src/modules/transaction/application/getTransactionById';
@@ -36,7 +36,7 @@ function buildTransactionTestApp(options: { userModule?: UserModule } = {}) {
   router.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
   const createUseCase = { execute: jest.fn() } as unknown as CreateTransactionUseCase;
-  const getUseCase = { execute: jest.fn() } as unknown as GetTransactionsUseCase;
+  const getUseCase = { execute: jest.fn() } as unknown as GetTransactionHistoryUseCase;
   const analyticsService = {
     getSummary: jest.fn(),
     getCategoryBreakdown: jest.fn(),
@@ -254,7 +254,8 @@ describe('Transaction API route boundaries', () => {
 
     expect(res.status).toBe(201);
     expect(mocks.createUseCase.execute).toHaveBeenCalledWith(
-      expect.objectContaining({ semanticType: 'own_transfer' })
+      expect.objectContaining({ semanticType: 'own_transfer' }),
+      expect.objectContaining({ onRepeat: expect.any(Function) })
     );
   });
 
@@ -302,6 +303,38 @@ describe('Transaction API route boundaries', () => {
     });
   });
 
+  it('passes accountId and currency through on PUT and answers 400 when the use case refuses the pair (FT-103)', async () => {
+    (mocks.getByIdUseCase.execute as jest.Mock).mockResolvedValue({
+      success: true,
+      data: { id: 'tx-guest', userId: 'guest_abc123', amount: 100 },
+    });
+    const { ValidationError } = jest.requireActual('../src/shared/domain/errors/AppError');
+    (mocks.updateUseCase.execute as jest.Mock).mockResolvedValue({
+      success: false,
+      error: new ValidationError('The record is in USD, the account «Карта» in UZS', 'accountId'),
+    });
+
+    const res = await fetch(`${baseUrl}/api/transactions/tx-guest`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accountId: 'acc-card', currency: 'USD' }),
+    });
+
+    expect(res.status).toBe(400);
+    expect(mocks.updateUseCase.execute).toHaveBeenCalledWith({ id: 'tx-guest', accountId: 'acc-card', currency: 'USD' });
+  });
+
+  it('refuses a currency other than UZS or USD on create', async () => {
+    const res = await fetch(`${baseUrl}/api/transactions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ amount: 100, category: 'food', description: 'x', type: 'expense', userId: 'user-1', currency: 'EUR' }),
+    });
+
+    expect(res.status).toBe(400);
+    expect(mocks.createUseCase.execute).not.toHaveBeenCalled();
+  });
+
   it('defaults needsReview to false on create when omitted', async () => {
     (mocks.createUseCase.execute as jest.Mock).mockResolvedValue({
       success: true,
@@ -322,7 +355,8 @@ describe('Transaction API route boundaries', () => {
 
     expect(res.status).toBe(201);
     expect(mocks.createUseCase.execute).toHaveBeenCalledWith(
-      expect.objectContaining({ needsReview: false })
+      expect.objectContaining({ needsReview: false }),
+      expect.objectContaining({ onRepeat: expect.any(Function) })
     );
   });
 
@@ -347,7 +381,8 @@ describe('Transaction API route boundaries', () => {
 
     expect(res.status).toBe(201);
     expect(mocks.createUseCase.execute).toHaveBeenCalledWith(
-      expect.objectContaining({ needsReview: true })
+      expect.objectContaining({ needsReview: true }),
+      expect.objectContaining({ onRepeat: expect.any(Function) })
     );
   });
 

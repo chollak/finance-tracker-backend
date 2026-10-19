@@ -4,13 +4,26 @@ import { Result, ResultHelper } from '../../../shared/domain/types/Result';
 import { ValidationError, NotFoundError, BusinessLogicError } from '../../../shared/domain/errors/AppError';
 import { getLogger, LogCategory } from '../../../shared/application/logging';
 import { isTransactionSemanticType, TransactionSemanticType } from '../domain/transactionSemanticType';
+import { Validators } from '../../../shared/application/validation/validators';
+import { CategoryResolver } from '../domain/categoryResolver';
+import { resolveCategoryForUpdate } from './resolveCategoryForUpdate';
+import { AccountResolver } from '../domain/accountResolver';
+import { resolveAccountForUpdate } from './resolveAccountForUpdate';
 
 const logger = getLogger(LogCategory.TRANSACTION);
 
 export interface UpdateTransactionRequest {
   id: string;
+  /** Legacy amount in сум; converted to amountMinor (FT-097). */
   amount?: number;
+  amountMinor?: number;
+  /** Legacy: old id, name or alias; resolved to categoryId (FT-099). */
   category?: string;
+  categoryId?: string;
+  /** Move the record to another of the user's visible accounts (FT-101). */
+  accountId?: string;
+  /** Only together with accountId: the record's currency must be the new account's (FT-103). */
+  currency?: 'UZS' | 'USD';
   description?: string;
   date?: string;
   type?: 'income' | 'expense';
@@ -19,10 +32,14 @@ export interface UpdateTransactionRequest {
 }
 
 export class UpdateTransactionUseCase {
-  constructor(private repository: TransactionRepository) {}
+  constructor(
+    private repository: TransactionRepository,
+    private categoryResolver?: CategoryResolver,
+    private accountResolver?: AccountResolver
+  ) {}
 
   async execute(request: UpdateTransactionRequest): Promise<Result<Transaction>> {
-    const { id, amount, category, description, date, type, semanticType, needsReview } = request;
+    const { id, category, description, date, type, semanticType, needsReview } = request;
 
     // Validate ID
     if (!id?.trim()) {
@@ -30,8 +47,13 @@ export class UpdateTransactionUseCase {
     }
 
     // Validate update fields if provided
-    if (amount !== undefined && amount <= 0) {
-      return ResultHelper.failure(new ValidationError('Amount must be greater than 0'));
+    let amountMinor: number | undefined;
+    if (request.amount !== undefined || request.amountMinor !== undefined) {
+      const resolved = Validators.moneyAmount(request);
+      if (!resolved.success) {
+        return ResultHelper.failure(new ValidationError(resolved.error.message, 'amount'));
+      }
+      amountMinor = resolved.data;
     }
 
     if (category !== undefined && !category.trim()) {
@@ -61,9 +83,20 @@ export class UpdateTransactionUseCase {
         return ResultHelper.failure(new NotFoundError('Transaction', id));
       }
 
+      const categoryResult = await resolveCategoryForUpdate(this.categoryResolver, existing, request);
+      if (!categoryResult.success) {
+        return ResultHelper.failure(categoryResult.error);
+      }
+
+      const moved = await resolveAccountForUpdate(this.accountResolver, existing, request);
+      if (!moved.success) return ResultHelper.failure(moved.error);
+      const { accountId, currency } = moved.data;
+
       const updatedTransaction = await this.repository.update(id.trim(), {
-        amount,
-        category,
+        amountMinor,
+        categoryId: categoryResult.data?.id,
+        accountId,
+        currency,
         description,
         date,
         type,
