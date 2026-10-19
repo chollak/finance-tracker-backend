@@ -15,8 +15,9 @@ import { useCaptureReview } from './useCaptureReview';
 
 /**
  * FT-114: what the review screen does with the records already saved by the capture. Every change is
- * patched at once; «×» deletes with «Отменить»; «Сохранить» shows Home with «Записано», whose «Отменить»
- * takes back every record of the phrase; «Изменить» takes them back and returns the text to the field.
+ * patched at once; «×» deletes with «Отменить» for as long as the review lasts; «Сохранить» shows Home with
+ * «Записано», whose «Отменить» takes back every record of the phrase; «Изменить» takes them back and returns
+ * the text to the field.
  */
 
 vi.mock('@/entities/transaction', async (importOriginal) => {
@@ -100,7 +101,23 @@ const shownToast = () => {
   const { stack, now } = useUndoToastStore.getState();
   return visibleEntry(stack, Math.max(now, Date.now()));
 };
+const toastTitles = () => useUndoToastStore.getState().stack.map((entry) => entry.title);
 const items = () => useCaptureStore.getState().review?.items ?? [];
+const deletedIds = () => vi.mocked(deleteTransaction).mock.calls.map(([, variables]) => variables.id);
+
+/** A request that answers when the test says so. */
+function deferred() {
+  let resolve!: () => void;
+  let reject!: (reason: unknown) => void;
+  const promise = new Promise<void>((done, fail) => {
+    resolve = done;
+    reject = fail;
+  });
+  return { promise, resolve, reject };
+}
+
+const OFFLINE = { message: 'Network Error', statusCode: 0 };
+const NOT_FOUND = { message: 'Transaction not found', statusCode: 404 };
 
 beforeEach(() => {
   queryClient = new QueryClient();
@@ -140,12 +157,25 @@ describe('a change on the review', () => {
   });
 
   it('a change the server refused is put back, and the screen says so', async () => {
-    vi.mocked(patchTransaction).mockRejectedValueOnce({ message: 'Network Error', statusCode: 0 });
+    vi.mocked(patchTransaction).mockRejectedValueOnce(OFFLINE);
 
     await mountReview().chooseCategory('a', 'c-gro');
 
     expect(items()[0]).toMatchObject({ categoryId: 'c-cafe', guessed: true });
     expect(shownToast()).toMatchObject({ kind: 'info', title: 'Не получилось изменить' });
+  });
+
+  it('a refused change takes back only itself: a change made meanwhile stays, as on the server', async () => {
+    const confirm = deferred();
+    vi.mocked(patchTransaction).mockReturnValueOnce(confirm.promise).mockResolvedValueOnce(undefined);
+    const review = mountReview();
+
+    const confirming = review.chooseCategory('a', 'c-cafe');
+    await mountReview().chooseAccount('a', 'cash');
+    confirm.reject(OFFLINE);
+    await confirming;
+
+    expect(items()[0]).toMatchObject({ categoryId: 'c-cafe', guessed: true, accountId: 'cash' });
   });
 });
 
@@ -161,6 +191,18 @@ describe('«×»', () => {
 
     expect(restoreTransaction).toHaveBeenCalledWith(queryClient, { id: 'a', userId: USER_ID });
     expect(items()[0].removed).toBe(false);
+  });
+
+  it('shows no «Убрано» when the review ended while the record was being deleted', async () => {
+    const deleting = deferred();
+    vi.mocked(deleteTransaction).mockReturnValueOnce(deleting.promise);
+
+    const removing = mountReview().remove('a');
+    await mountReview().cancel(vi.fn());
+    deleting.resolve();
+    await removing;
+
+    expect(toastTitles()).not.toContain('Убрано');
   });
 });
 
@@ -180,7 +222,41 @@ describe('«Сохранить»', () => {
 
     await useUndoToastStore.getState().undoVisible();
 
-    expect(vi.mocked(deleteTransaction).mock.calls.map(([, variables]) => variables.id)).toEqual(['b', 'a']);
+    expect(deletedIds()).toEqual(['b', 'a']);
+  });
+
+  it('takes «Убрано» away: the removed record stays removed, also after «Записано» is undone', async () => {
+    await mountReview().remove('b');
+    mountReview().save();
+
+    expect(toastTitles()).toEqual(['Записано']);
+    await useUndoToastStore.getState().undoVisible();
+
+    expect(shownToast()).toBeNull();
+    expect(restoreTransaction).not.toHaveBeenCalled();
+  });
+
+  it('a retry of «Отменить» deletes only the records the first press could not', async () => {
+    mountReview().save();
+    vi.mocked(deleteTransaction).mockRejectedValueOnce(OFFLINE); // «a» fails, «b» is deleted
+
+    await useUndoToastStore.getState().undoVisible();
+    expect(shownToast()).toMatchObject({ title: 'Не получилось отменить' });
+
+    vi.mocked(deleteTransaction).mockClear();
+    await useUndoToastStore.getState().undoVisible();
+
+    expect(deletedIds()).toEqual(['a']);
+    expect(shownToast()).toBeNull();
+  });
+
+  it('counts a record the server no longer has as taken back', async () => {
+    mountReview().save();
+    vi.mocked(deleteTransaction).mockRejectedValueOnce(NOT_FOUND);
+
+    await useUndoToastStore.getState().undoVisible();
+
+    expect(shownToast()).toBeNull();
   });
 });
 
@@ -190,7 +266,7 @@ describe('«Изменить» and «Назад»', () => {
 
     await mountReview().cancel(leave);
 
-    expect(vi.mocked(deleteTransaction).mock.calls.map(([, variables]) => variables.id)).toEqual(['a', 'b']);
+    expect(deletedIds()).toEqual(['a', 'b']);
     expect(useCaptureStore.getState()).toMatchObject({ draft: TEXT, review: null });
     expect(leave).toHaveBeenCalledTimes(1);
   });
@@ -201,17 +277,39 @@ describe('«Изменить» and «Назад»', () => {
 
     await mountReview().cancel(vi.fn());
 
-    expect(vi.mocked(deleteTransaction).mock.calls.map(([, variables]) => variables.id)).toEqual(['b']);
+    expect(deletedIds()).toEqual(['b']);
+  });
+
+  it('take «Убрано» away too: a record removed from a cancelled phrase does not come back', async () => {
+    await mountReview().remove('b');
+
+    await mountReview().cancel(vi.fn());
+    await useUndoToastStore.getState().undoVisible();
+
+    expect(restoreTransaction).not.toHaveBeenCalled();
+    expect(toastTitles()).not.toContain('Убрано');
+    expect(shownToast()).toBeNull();
   });
 
   it('when the records could not be taken back, the review stays and says so', async () => {
-    vi.mocked(deleteTransaction).mockRejectedValueOnce({ message: 'Network Error', statusCode: 0 });
+    vi.mocked(deleteTransaction).mockRejectedValueOnce(OFFLINE);
     const leave = vi.fn();
 
     await mountReview().cancel(leave);
 
     expect(leave).not.toHaveBeenCalled();
     expect(useCaptureStore.getState().review).not.toBeNull();
+    expect(items().map((item) => item.removed)).toEqual([false, true]); // «b» is gone, «a» waits for another press
     expect(shownToast()).toMatchObject({ kind: 'info', title: 'Не получилось отменить' });
+  });
+
+  it('a record the server no longer has counts as taken back', async () => {
+    vi.mocked(deleteTransaction).mockRejectedValueOnce(NOT_FOUND);
+    const leave = vi.fn();
+
+    await mountReview().cancel(leave);
+
+    expect(leave).toHaveBeenCalledTimes(1);
+    expect(useCaptureStore.getState()).toMatchObject({ draft: TEXT, review: null });
   });
 });

@@ -96,9 +96,19 @@ function update(session: ReviewSession, id: string, change: (item: ReviewItem) =
   return { ...session, items: session.items.map((item) => (item.id === id ? change(item) : item)) };
 }
 
-/** Puts an item back as it was (a change the server refused). */
-export function replaceItem(session: ReviewSession, item: ReviewItem): ReviewSession {
-  return update(session, item.id, () => item);
+/**
+ * Takes back one change the server refused: `before` and `after` are the item around that change. Only the
+ * fields it changed go back, and only those nothing has changed since — a later change, which the server may
+ * have taken, stays on the screen.
+ */
+export function revertChange(session: ReviewSession, before: ReviewItem, after: ReviewItem): ReviewSession {
+  return update(session, before.id, (latest) => {
+    const reverted = { ...latest };
+    for (const key of Object.keys(before) as (keyof ReviewItem)[]) {
+      if (before[key] !== after[key] && latest[key] === after[key]) Object.assign(reverted, { [key]: before[key] });
+    }
+    return reverted;
+  });
 }
 
 export function findItem(session: ReviewSession, id: string): ReviewItem | undefined {

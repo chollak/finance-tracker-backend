@@ -12,6 +12,8 @@ interface UndoToastState {
   push: (entry: NewEntry) => string;
   /** Undo the visible action (only if it is still the one with this id); resolves after its undo ran. */
   undoVisible: (id?: string) => Promise<void>;
+  /** Take every entry of a flow off the stack (the flow has ended); the previous toast shows again. */
+  dismissGroup: (group: string) => void;
   sheetOpened: () => void;
   sheetClosed: () => void;
   clear: () => void;
@@ -39,9 +41,19 @@ export const useUndoToastStore = create<UndoToastState>()((set, get) => ({
     try {
       await entry.undo();
     } catch {
-      // Put it back with the same undo, so «Отменить» really retries.
-      get().push({ kind: entry.kind, title: 'Не получилось отменить', detail: 'Проверьте связь и нажмите ещё раз', undo: entry.undo });
+      // Put it back with the same undo (and flow), so «Отменить» really retries.
+      get().push({
+        kind: entry.kind,
+        title: 'Не получилось отменить',
+        detail: 'Проверьте связь и нажмите ещё раз',
+        undo: entry.undo,
+        group: entry.group,
+      });
     }
+  },
+  dismissGroup: (group) => {
+    const now = Date.now();
+    set((state) => ({ stack: pruneExpired(state.stack, now).filter((entry) => entry.group !== group), now }));
   },
   sheetOpened: () => set((state) => ({ openSheets: state.openSheets + 1 })),
   sheetClosed: () => set((state) => ({ openSheets: Math.max(0, state.openSheets - 1) })),
@@ -52,4 +64,9 @@ export const useUndoToastStore = create<UndoToastState>()((set, get) => ({
 /** Show an action toast. Pass `undo` only when it really reverts the action. */
 export function showUndoToast(entry: NewEntry): string {
   return useUndoToastStore.getState().push(entry);
+}
+
+/** The flow is over: its toasts go, so no «Отменить» is left that reaches into it. */
+export function dismissUndoGroup(group: string): void {
+  useUndoToastStore.getState().dismissGroup(group);
 }

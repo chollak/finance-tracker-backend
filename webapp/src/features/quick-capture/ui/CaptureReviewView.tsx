@@ -109,11 +109,11 @@ function ItemCard({ item, busy, ...on }: { item: ReviewItemView; busy: boolean }
         </button>
       </div>
 
-      {item.thousands && <p className="pr-3 text-[13px] font-semibold leading-[1.35] text-ink-muted">{item.thousands}</p>}
+      {item.thousands && <p className="pr-3 type-label text-ink-muted">{item.thousands}</p>}
 
       {item.conversion && (
         <div role="status" className="flex flex-col items-start gap-2 pr-3">
-          <span className="text-[13px] font-semibold leading-[1.35] text-ink-muted">{item.conversion.note}</span>
+          <span className="type-label text-ink-muted">{item.conversion.note}</span>
           <button
             type="button"
             onClick={() => on.onConvert(item.id)}
@@ -140,7 +140,7 @@ export function CaptureReviewView({ model, busy = false, onEdit, onSave, ...on }
     <div className="mx-auto flex min-h-[calc(100dvh-env(safe-area-inset-bottom))] w-full max-w-md flex-col gap-3 bg-bg px-4 pb-4 pt-2 text-ink">
       <header className="flex h-key shrink-0 items-center gap-3">
         <BackButton />
-        <h1 className="text-[18px] font-extrabold leading-[1.3] tracking-[-0.3px] text-ink">Проверьте записи</h1>
+        <h1 className="type-section text-ink">Проверьте записи</h1>
       </header>
 
       <section aria-label="Исходный текст" className="flex flex-col gap-1 rounded-card bg-card pb-1 pl-[18px] pr-2 pt-3.5">
@@ -150,15 +150,9 @@ export function CaptureReviewView({ model, busy = false, onEdit, onSave, ...on }
             <Check />
             {model.summary}
           </span>
-          <button
-            type="button"
-            onClick={onEdit}
-            disabled={busy}
-            aria-busy={busy}
-            className={cn('h-touch shrink-0 rounded-pill px-2.5 text-[14px] font-extrabold text-ink underline underline-offset-4', FOCUS)}
-          >
+          <Button variant="text" onClick={onEdit} disabled={busy} aria-busy={busy} className="px-2.5 focus-visible:ring-offset-card">
             Изменить
-          </button>
+          </Button>
         </div>
       </section>
 

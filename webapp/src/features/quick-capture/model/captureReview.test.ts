@@ -16,6 +16,7 @@ import {
   removedToast,
   removeItem,
   restoreItem,
+  revertChange,
   reviewModel,
   reviewSessionFrom,
   type ReviewContext,
@@ -165,6 +166,37 @@ describe('the AI’s guess of a category', () => {
 
     expect(reviewModel(session, CONTEXT).items[0].category).toMatchObject({ name: 'Продукты', color: 'peach', guessed: false });
     expect(patch).toEqual({ categoryId: 'c-gro' });
+  });
+});
+
+describe('a change the server refused', () => {
+  const itemOf = (session: ReviewSession, id: string) => session.items.find((item) => item.id === id)!;
+
+  it('goes back as it was', () => {
+    const before = itemOf(board(), 'a');
+    const changed = chooseCategory(board(), 'a', 'c-gro').session;
+
+    expect(itemOf(revertChange(changed, before, itemOf(changed, 'a')), 'a')).toEqual(before);
+  });
+
+  it('takes back only its own fields: a later change of another field stays', () => {
+    const before = itemOf(board(), 'a');
+    const confirmed = chooseCategory(board(), 'a', 'c-cafe').session; // in flight
+    const after = itemOf(confirmed, 'a');
+    const moved = chooseAccount(confirmed, 'a', ACCOUNTS[0], CONTEXT.rateMinor).session; // taken by the server
+
+    const item = itemOf(revertChange(moved, before, after), 'a');
+
+    expect(item).toMatchObject({ categoryId: 'c-cafe', guessed: true, accountId: 'cash' });
+  });
+
+  it('does not undo a later change of the same field', () => {
+    const before = itemOf(board(), 'b');
+    const first = chooseDate(board(), 'b', addDays(TODAY, -2)).session;
+    const after = itemOf(first, 'b');
+    const second = chooseDate(first, 'b', addDays(TODAY, -5)).session;
+
+    expect(itemOf(revertChange(second, before, after), 'b').date).toBe(addDays(TODAY, -5));
   });
 });
 

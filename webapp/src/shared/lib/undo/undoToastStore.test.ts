@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { useUndoToastStore, showUndoToast } from './undoToastStore';
+import { dismissUndoGroup, useUndoToastStore, showUndoToast } from './undoToastStore';
 import { visibleEntry } from './undoStack';
 
 const state = () => useUndoToastStore.getState();
@@ -37,6 +37,19 @@ describe('undo toast store', () => {
     await state().undoVisible(retry!.id);
     expect(undo).toHaveBeenCalledTimes(2);
     expect(visibleEntry(state().stack, Date.now())).toBeNull();
+  });
+
+  it('takes a finished flow’s toasts off the stack, retries included, and shows the one before them', async () => {
+    const removed = vi.fn().mockRejectedValueOnce(new Error('offline'));
+    showUndoToast({ kind: 'saved', title: 'Записано', undo: vi.fn() });
+    showUndoToast({ kind: 'deleted', title: 'Убрано', group: 'review', undo: vi.fn() });
+    const id = showUndoToast({ kind: 'deleted', title: 'Убрано', group: 'review', undo: removed });
+    await state().undoVisible(id); // fails: «Не получилось отменить» of the same flow
+
+    dismissUndoGroup('review');
+
+    expect(state().stack.map((entry) => entry.title)).toEqual(['Записано']);
+    expect(visibleEntry(state().stack, Date.now())?.title).toBe('Записано');
   });
 
   it('counts open sheets and never goes below zero', () => {

@@ -14,6 +14,11 @@ export interface UndoEntry {
   detail?: string;
   /** Real undo. Without it the toast has no «Отменить» — never a decorative button. */
   undo?: () => void | Promise<void>;
+  /**
+   * The flow the action belongs to (the review of a phrase). When the flow ends, `dismissGroup` takes its
+   * entries off the stack: their «Отменить» would undo something inside a flow that is already over.
+   */
+  group?: string;
   createdAt: number;
 }
 
