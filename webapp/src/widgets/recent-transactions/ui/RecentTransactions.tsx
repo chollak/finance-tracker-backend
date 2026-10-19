@@ -1,97 +1,121 @@
 import type { ReactNode } from 'react';
-import { ChevronRight } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Card } from '@/shared/ui/card';
-import { Skeleton } from '@/shared/ui/skeleton';
-import { CompactTransactionRow, formatAllTransactionsLabel, useTransactions } from '@/entities/transaction';
-import { useUserStore } from '@/entities/user/model/store';
+import { cn } from '@/shared/lib/utils';
 import { ROUTES } from '@/shared/lib/constants/routes';
+import { toLocalDate } from '@/shared/lib/dates';
+import { SkeletonBlock } from '@/shared/ui/pastel';
+import { findCategory, useCategories, type Category } from '@/entities/category';
+import { buildRecordDays, RecordDayList, useRecentRecords, type Transaction } from '@/entities/transaction';
 
-const TITLE = 'Последние';
-const RECENT_LIMIT = 5;
+/** The board shows the five newest records. */
+export const RECENT_LIMIT = 5;
 
 /**
- * The link to History is always there — while loading and on an empty Home too (FT-110): with no bottom
- * bar it is the way to History.
+ * What an empty Home says (DoD: after the first launch it tells how to make the first record). The board's
+ * sentence starts with «Нажмите кнопку траты внизу» and «скажите, что купили» — the chips and the voice of
+ * the bottom composer, which come with FT-114 and FT-117; until then it names what works today: the capture
+ * line above the list and a voice message to the bot.
  */
-function RecentShell({ allLabel = 'Все', children }: { allLabel?: string; children: ReactNode }) {
+export const FIRST_RECORD_HINT =
+  'Пока пусто. Напишите «такси 18к» в строке выше или скажите боту, что купили, — Daftar сам поймёт сумму и категорию.';
+
+function Shell({ children }: { children: ReactNode }) {
   return (
-    <Card className="px-2 py-2">
-      <div className="flex items-center justify-between gap-2 pl-2">
-        <p className="text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">
-          {TITLE}
-        </p>
+    <section aria-label="Последние операции" className="flex flex-col gap-2.5 pt-1">
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="type-section text-ink">Последние операции</h2>
+        {/* With no bottom bar this is the way to History — while loading and on an empty Home too (FT-110) */}
         <Link
           to={ROUTES.TRANSACTIONS}
-          className="-mr-1 inline-flex min-h-11 items-center gap-0.5 rounded-lg px-2 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+          aria-label="Все операции"
+          className={cn(
+            '-mr-2.5 flex h-touch items-center gap-0.5 rounded-pill px-2.5 text-[14px] font-extrabold text-ink',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink'
+          )}
         >
-          {allLabel}
-          <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
+          Все
+          <svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true">
+            <path d="M7.5 4.5 13 10l-5.5 5.5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
         </Link>
       </div>
       {children}
-    </Card>
+    </section>
+  );
+}
+
+function LoadingRows() {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <SkeletonBlock className="h-3 w-16" />
+      <div className="rounded-card bg-card px-2 py-1">
+        {[0, 1, 2].map((row) => (
+          <div key={row} className="flex h-row items-center gap-3 pl-1.5 pr-2">
+            <SkeletonBlock className="size-10 shrink-0" />
+            <div className="flex flex-1 flex-col gap-1.5">
+              <SkeletonBlock className="h-3.5 w-24" />
+              <SkeletonBlock className="h-3 w-16" />
+            </div>
+            <SkeletonBlock className="h-3.5 w-16" />
+          </div>
+        ))}
+      </div>
+      <span className="sr-only">Загружаем последние операции…</span>
+    </div>
+  );
+}
+
+function Note({ children }: { children: ReactNode }) {
+  return <p className="rounded-card bg-card p-5 text-[14px] font-medium leading-[1.45] text-ink-muted">{children}</p>;
+}
+
+export interface RecentRecordsViewProps {
+  records: { data: Transaction[] | undefined; isError: boolean };
+  categories: readonly Category[] | undefined;
+  today: string;
+  onOpen: (id: string) => void;
+}
+
+/** The section as the board draws it, from records already read; `RecentTransactions` reads them. */
+export function RecentRecordsView({ records, categories, today, onOpen }: RecentRecordsViewProps) {
+  if (!records.data) {
+    return <Shell>{records.isError ? <Note>Не удалось загрузить записи</Note> : <LoadingRows />}</Shell>;
+  }
+  if (records.data.length === 0) {
+    return (
+      <Shell>
+        <Note>{FIRST_RECORD_HINT}</Note>
+      </Shell>
+    );
+  }
+
+  const days = buildRecordDays(records.data, {
+    today,
+    categoryOf: (record) => findCategory(categories, record.categoryId),
+  });
+  return (
+    <Shell>
+      <RecordDayList days={days} onOpen={onOpen} />
+    </Shell>
   );
 }
 
 /**
- * Recent transactions — the correction log of the quick-action loop (FT-080).
- *
- * The list exists to answer one question right after a capture: «записалось ли это
- * правильно?». So it is deliberately not a management surface — no add button
- * competing with the capture card, no instructions, no per-row menu. Just the
- * last few captures as compact rows, each opening the edit screen, and the flagged
- * ones offering their one-tap correction inline.
- *
- * The full list with filters, archive and bulk actions stays one quiet link away on
- * the History page.
+ * «Последние операции» on Home (FT-111, board «Главная», TransactionList.md): the five newest records by
+ * day, «Все» opening History. The category's name and colour come from the user's list by id. A row opens
+ * the record's screen; the record sheet replaces it in FT-115.
  */
 export function RecentTransactions() {
   const navigate = useNavigate();
-  const userId = useUserStore((state) => state.userId);
-  const { data: transactions, isLoading } = useTransactions(userId);
-
-  if (isLoading) {
-    return (
-      <RecentShell>
-        <div className="mt-1 space-y-1" aria-hidden="true">
-          {[1, 2, 3, 4, 5].map((i) => (
-            <Skeleton key={i} className="h-[52px] w-full rounded-xl" />
-          ))}
-        </div>
-        <span className="sr-only">Загружаем последние операции…</span>
-      </RecentShell>
-    );
-  }
-
-  if (!transactions || transactions.length === 0) {
-    return (
-      <RecentShell>
-        {/* Minimal on purpose: the capture card above is the way in, so an empty log
-            only has to say it is empty. */}
-        <div className="px-2 pb-3 pt-2">
-          <p className="text-sm font-medium leading-snug">Пока ничего не записано</p>
-          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-            Первая операция появится здесь сразу после записи
-          </p>
-        </div>
-      </RecentShell>
-    );
-  }
-
-  const recentTransactions = transactions.slice(0, RECENT_LIMIT);
+  const records = useRecentRecords(RECENT_LIMIT);
+  const categories = useCategories();
 
   return (
-    <RecentShell allLabel={formatAllTransactionsLabel(transactions.length)}>
-      <div className="divide-y divide-border/60">
-        {recentTransactions.map((transaction) => (
-          <CompactTransactionRow
-            key={transaction.id}
-            transaction={transaction}
-            onClick={() => transaction.id && navigate(ROUTES.EDIT_TRANSACTION(transaction.id))}
-          />
-        ))}
-      </div>
-    </RecentShell>
+    <RecentRecordsView
+      records={records}
+      categories={categories.data}
+      today={toLocalDate(new Date())}
+      onOpen={(id) => navigate(ROUTES.EDIT_TRANSACTION(id))}
+    />
   );
 }

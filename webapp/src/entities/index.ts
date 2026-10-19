@@ -7,3 +7,4 @@ export * from './user';
 export * from './dashboard';
 export * from './settings';
 export * from './rate';
+export * from './account';

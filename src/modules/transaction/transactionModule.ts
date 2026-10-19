@@ -1,5 +1,6 @@
 import { CreateTransactionUseCase } from './application/createTransaction';
 import { GetTransactionHistoryUseCase } from './application/getTransactionHistory';
+import { GetPeriodTotalsUseCase } from './application/getPeriodTotals';
 import { GetUserTransactionsUseCase } from './application/getUserTransactions';
 import { GetTransactionByIdUseCase } from './application/getTransactionById';
 import { DeleteTransactionUseCase, RestoreTransactionUseCase } from './application/deleteTransaction';
@@ -97,6 +98,11 @@ export class TransactionModule {
 
   getTransactionHistoryUseCase(): GetTransactionHistoryUseCase {
     return new GetTransactionHistoryUseCase(this.repository);
+  }
+
+  /** Income and expenses of a period for the month tiles on Home (FT-111). */
+  getPeriodTotalsUseCase(): GetPeriodTotalsUseCase {
+    return new GetPeriodTotalsUseCase(this.repository, this.periodTotals);
   }
 
   getGetUserTransactionsUseCase(): GetUserTransactionsUseCase {

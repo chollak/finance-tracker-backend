@@ -9,7 +9,7 @@ import { isNonExpenseMovement } from './semanticType';
  * History groups rows by day, and a day header without a number is just a divider.
  * The number it earns has to be the one the user already trusts elsewhere: **real
  * expenses only**, by the same rules the backend uses for real-expense analytics and
- * the Home today-total uses for «Потрачено сегодня». Summing every outgoing row would
+ * the old Home today-total used for «Потрачено сегодня». Summing every outgoing row would
  * be a different number under the same word and would silently contradict Home.
  *
  * Everything the total deliberately leaves out is still counted — as a quiet note, so

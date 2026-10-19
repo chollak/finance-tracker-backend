@@ -7,6 +7,8 @@ import { transactionKeys } from './keys';
 import { transactionDataSource } from '@/shared/lib/db';
 import type { LocalTransaction } from '@/shared/lib/db/schema';
 import { isGuestId } from '@/shared/lib/utils/guestId';
+import { useUserStore } from '@/entities/user/model/store';
+import type { PeriodTotals } from '../model/types';
 
 /**
  * Convert LocalTransaction to Transaction format
@@ -234,5 +236,51 @@ export function useArchivedTransactions(userId: string | null) {
       return transactions.map(transactionToViewModel);
     },
     enabled: !!userId && !isGuest,
+  });
+}
+
+/**
+ * The newest records of the signed-in user — the recent list on Home (FT-111). Read through the history
+ * API (FT-107: the user from authentication, newest first by date and time of creation), so every record
+ * carries its amount in minor units, its currency and its category id. Guests read the device's records.
+ */
+export function useRecentRecords(limit: number) {
+  const userId = useUserStore((state) => state.userId);
+  const userType = useUserStore((state) => state.userType);
+
+  return useQuery({
+    queryKey: transactionKeys.recent(userId ?? '', limit),
+    queryFn: async (): Promise<Transaction[]> => {
+      if (userType === 'guest') {
+        const local = await transactionDataSource.getAll();
+        return local
+          .map(localToTransaction)
+          .sort((a, b) => b.date.localeCompare(a.date) || (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))
+          .slice(0, limit);
+      }
+      const response = await apiClient.get<{ items: Transaction[]; nextCursor: string | null }>(
+        API_ENDPOINTS.TRANSACTIONS.HISTORY({ limit })
+      );
+      return response.data?.items ?? [];
+    },
+    enabled: !!userId && userType !== null,
+  });
+}
+
+/**
+ * Income and expenses of a period (FT-111: the month tiles and the line under the balance), from the
+ * backend's one totals service. Guests have no server totals, so the query does not run for them.
+ */
+export function usePeriodTotals(range: { from: string; to: string }) {
+  const userId = useUserStore((state) => state.userId);
+  const userType = useUserStore((state) => state.userType);
+
+  return useQuery({
+    queryKey: transactionKeys.totals(userId ?? '', range),
+    queryFn: async (): Promise<PeriodTotals> => {
+      const response = await apiClient.get<PeriodTotals>(API_ENDPOINTS.TRANSACTIONS.TOTALS(range));
+      return response.data;
+    },
+    enabled: !!userId && userType === 'telegram',
   });
 }

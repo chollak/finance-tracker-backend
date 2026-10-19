@@ -14,7 +14,16 @@ const MONTHS_GENITIVE = [
   'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря',
 ];
 
+/** «В октябре потрачено…». */
+const MONTHS_PREPOSITIONAL = [
+  'январе', 'феврале', 'марте', 'апреле', 'мае', 'июне',
+  'июле', 'августе', 'сентябре', 'октябре', 'ноябре', 'декабре',
+];
+
 export const WEEKDAYS_SHORT = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+
+/** Sunday first, as `Date.getDay()` counts. */
+const WEEKDAYS_LONG = ['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота'];
 
 const pad = (value: number) => String(value).padStart(2, '0');
 
@@ -41,6 +50,36 @@ export function monthTitle(year: number, month: number): string {
 export function dayMonth(value: LocalDate): string {
   const { month, day } = parseLocalDate(value);
   return `${day} ${MONTHS_GENITIVE[month - 1]}`;
+}
+
+/** «октябрь» — for «Доход за октябрь». */
+export function monthNameLower(month: number): string {
+  return MONTHS_NOMINATIVE[month - 1].toLocaleLowerCase('ru-RU');
+}
+
+/** «октябре» — for «В октябре потрачено 47% дохода». */
+export function monthNameIn(month: number): string {
+  return MONTHS_PREPOSITIONAL[month - 1];
+}
+
+/** The first and the last day of the month `value` is in. */
+export function monthBounds(value: LocalDate): { from: LocalDate; to: LocalDate } {
+  const { year, month } = parseLocalDate(value);
+  const lastDay = new Date(year, month, 0).getDate();
+  return { from: `${year}-${pad(month)}-01`, to: `${year}-${pad(month)}-${pad(lastDay)}` };
+}
+
+/**
+ * Day of a list grouped by days (docs/pastel/components/TransactionList.md): «Сегодня», «Вчера», then
+ * «Понедельник, 12 октября»; a day of another year carries the year.
+ */
+export function dayGroupLabel(value: LocalDate, today: LocalDate): string {
+  if (value === today) return 'Сегодня';
+  if (value === addDays(today, -1)) return 'Вчера';
+  const { year, month, day } = parseLocalDate(value);
+  const weekday = WEEKDAYS_LONG[new Date(year, month - 1, day).getDay()];
+  const sameYear = year === parseLocalDate(today).year;
+  return `${weekday}, ${dayMonth(value)}${sameYear ? '' : ` ${year}`}`;
 }
 
 /** «Сегодня», «Вчера» or «14 октября». */

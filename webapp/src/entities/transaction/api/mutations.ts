@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/shared/api';
 import { API_ENDPOINTS } from '@/shared/lib/constants';
 import type { Transaction, CreateTransactionDTO, UpdateTransactionDTO } from '@/shared/types';
@@ -12,6 +12,12 @@ import { transactionDataSource } from '@/shared/lib/db';
 import type { LocalTransaction } from '@/shared/lib/db/schema';
 import { isGuestId } from '@/shared/lib/utils/guestId';
 import { haptic } from '@/shared/lib/haptic';
+import { balanceReaderKeys } from './balanceReaders';
+
+/** Home's balances, month totals and recent records move with every change of records (FT-111). */
+function invalidateBalanceReaders(queryClient: QueryClient, userId: string): void {
+  for (const queryKey of balanceReaderKeys(userId)) queryClient.invalidateQueries({ queryKey });
+}
 
 /**
  * Error thrown when guest user tries to access server features
@@ -88,6 +94,7 @@ export function useCreateTransaction() {
       // 2. Invalidate ONLY computed data that depends on transaction totals
       queryClient.invalidateQueries({ queryKey: budgetKeys.summaries(userId) });
       queryClient.invalidateQueries({ queryKey: dashboardKeys.insights(userId) });
+      invalidateBalanceReaders(queryClient, userId);
       queryClient.invalidateQueries({ queryKey: dashboardKeys.quickStats(userId) });
       // Invalidate analytics since totals changed
       queryClient.invalidateQueries({ queryKey: transactionKeys.analytics(userId) });
@@ -152,6 +159,7 @@ export function useUpdateTransaction() {
       // 3. Invalidate computed data (amount/category might have changed)
       queryClient.invalidateQueries({ queryKey: budgetKeys.summaries(userId) });
       queryClient.invalidateQueries({ queryKey: dashboardKeys.insights(userId) });
+      invalidateBalanceReaders(queryClient, userId);
       queryClient.invalidateQueries({ queryKey: dashboardKeys.quickStats(userId) });
       queryClient.invalidateQueries({ queryKey: transactionKeys.analytics(userId) });
       queryClient.invalidateQueries({ queryKey: transactionKeys.categorySummary(userId) });
@@ -194,6 +202,7 @@ export function useDeleteTransaction() {
       // 3. Invalidate computed data
       queryClient.invalidateQueries({ queryKey: budgetKeys.summaries(userId) });
       queryClient.invalidateQueries({ queryKey: dashboardKeys.insights(userId) });
+      invalidateBalanceReaders(queryClient, userId);
       queryClient.invalidateQueries({ queryKey: dashboardKeys.quickStats(userId) });
       queryClient.invalidateQueries({ queryKey: transactionKeys.analytics(userId) });
       queryClient.invalidateQueries({ queryKey: transactionKeys.categorySummary(userId) });
@@ -257,6 +266,7 @@ export function useArchiveTransaction() {
       // 4. Invalidate computed data
       queryClient.invalidateQueries({ queryKey: budgetKeys.summaries(userId) });
       queryClient.invalidateQueries({ queryKey: dashboardKeys.insights(userId) });
+      invalidateBalanceReaders(queryClient, userId);
       queryClient.invalidateQueries({ queryKey: dashboardKeys.quickStats(userId) });
       queryClient.invalidateQueries({ queryKey: transactionKeys.analytics(userId) });
       queryClient.invalidateQueries({ queryKey: transactionKeys.categorySummary(userId) });
@@ -321,6 +331,7 @@ export function useUnarchiveTransaction() {
       // 4. Invalidate computed data
       queryClient.invalidateQueries({ queryKey: budgetKeys.summaries(userId) });
       queryClient.invalidateQueries({ queryKey: dashboardKeys.insights(userId) });
+      invalidateBalanceReaders(queryClient, userId);
       queryClient.invalidateQueries({ queryKey: dashboardKeys.quickStats(userId) });
       queryClient.invalidateQueries({ queryKey: transactionKeys.analytics(userId) });
       queryClient.invalidateQueries({ queryKey: transactionKeys.categorySummary(userId) });
@@ -375,6 +386,7 @@ export function useArchiveAllTransactions() {
       // 4. Invalidate computed data
       queryClient.invalidateQueries({ queryKey: budgetKeys.summaries(userId) });
       queryClient.invalidateQueries({ queryKey: dashboardKeys.insights(userId) });
+      invalidateBalanceReaders(queryClient, userId);
       queryClient.invalidateQueries({ queryKey: dashboardKeys.quickStats(userId) });
       queryClient.invalidateQueries({ queryKey: transactionKeys.analytics(userId) });
       queryClient.invalidateQueries({ queryKey: transactionKeys.categorySummary(userId) });

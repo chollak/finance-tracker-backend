@@ -8,8 +8,9 @@ import { Wordmark } from '@/shared/ui/pastel';
  * and the round «Ещё» on the right — 48px, `track`. There is no bottom bar: the sections Home does not
  * open itself are in «Ещё».
  *
- * The «Сум / USD» switch beside «Ещё» on the boards changes the currency of the balance card, so it
- * comes with that card (FT-111).
+ * The «Сум / USD» switch beside «Ещё» on the boards (it changes the display currency of the balance card)
+ * is not in the Definition of Done of any task yet — docs/pastel/handoff.md, item 8 — so the header has no
+ * switch until the owner puts it into one.
  */
 export function HomeHeader({ className }: { className?: string }) {
   return (

@@ -7,7 +7,10 @@ import { HomePage, MorePage } from '@/pages';
 import { FormPageHeader, PageHeader } from '@/shared/ui';
 import { ROUTES } from '@/shared/lib/constants/routes';
 import { useUserStore } from '@/entities/user';
-import { transactionKeys, transactionToViewModel } from '@/entities/transaction';
+import { transactionKeys } from '@/entities/transaction';
+import { accountKeys } from '@/entities/account';
+import { monthBounds, toLocalDate } from '@/shared/lib/dates';
+import { RECENT_LIMIT } from '@/widgets/recent-transactions/ui/RecentTransactions';
 import type { Transaction } from '@/shared/types';
 import { AppShell } from './AppShell';
 
@@ -28,20 +31,30 @@ function record(id: string, amount: number): Transaction {
     category: 'Кафе',
     description: 'Обед',
     amount,
+    amountMinor: amount * 100,
     type: 'expense',
     userId: USER_ID,
   };
 }
 
+/** What Home reads since FT-111: the accounts, the month's totals and the recent records. */
 function queryClient(state: HomeState): QueryClient {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  if (state === 'empty') client.setQueryData(transactionKeys.list(USER_ID), []);
-  if (state === 'with-records') {
-    client.setQueryData(
-      transactionKeys.list(USER_ID),
-      [record('t1', 45000), record('t2', 18000)].map(transactionToViewModel)
-    );
-  }
+  if (state === 'loading') return client;
+  const records = state === 'with-records' ? [record('t1', 45000), record('t2', 18000)] : [];
+  const month = monthBounds(toLocalDate(new Date()));
+  client.setQueryData(accountKeys.list(USER_ID), { accounts: [], totalMinor: 0, rate: null, missingRate: false });
+  client.setQueryData(transactionKeys.totals(USER_ID, month), {
+    ...month,
+    incomeMinor: 0,
+    expenseMinor: records.reduce((sum, item) => sum + (item.amountMinor ?? 0), 0),
+    netMinor: 0,
+    recordCount: records.length,
+    needsReview: { count: 0, totalMinor: 0 },
+    excludedMovementsMinor: 0,
+    usd: { present: false, missingRate: false, rateMinor: null },
+  });
+  client.setQueryData(transactionKeys.recent(USER_ID, RECENT_LIMIT), records);
   return client;
 }
 

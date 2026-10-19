@@ -24,3 +24,20 @@ export interface TransactionViewModel extends Transaction {
   _isNonExpenseMovement: boolean;        // true for movements excluded from expense/budget analytics
   _needsReview: boolean;                 // true when semanticType is uncertain and awaits user correction
 }
+
+/**
+ * `GET /api/transactions/totals?from&to` (FT-111): income and real expenses of a period in сум minor
+ * units, by the one totals service of the backend — dollars at the user's rate, records awaiting review
+ * and movements of own money apart.
+ */
+export interface PeriodTotals {
+  from: string;
+  to: string;
+  incomeMinor: number;
+  expenseMinor: number;
+  netMinor: number;
+  recordCount: number;
+  needsReview: { count: number; totalMinor: number };
+  excludedMovementsMinor: number;
+  usd: { present: boolean; missingRate: boolean; rateMinor: number | null };
+}

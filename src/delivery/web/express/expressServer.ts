@@ -97,7 +97,8 @@ export function buildServer(
       transactionModule.getGetArchivedTransactionsUseCase(),
       subscriptionModule,
       userModule,
-      transactionModule.getRestoreTransactionUseCase()
+      transactionModule.getRestoreTransactionUseCase(),
+      transactionModule.getPeriodTotalsUseCase()
     )
   );
 

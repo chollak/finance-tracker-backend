@@ -1,5 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { addDays, dayMonth, monthGrid, monthNavigation, monthTitle, relativeDayLabel, shiftMonth, toLocalDate } from './localDate';
+import {
+  addDays,
+  dayGroupLabel,
+  dayMonth,
+  monthBounds,
+  monthGrid,
+  monthNameIn,
+  monthNameLower,
+  monthNavigation,
+  monthTitle,
+  relativeDayLabel,
+  shiftMonth,
+  toLocalDate,
+} from './localDate';
 
 describe('local dates', () => {
   it('formats and moves days without time zones', () => {
@@ -32,5 +45,27 @@ describe('local dates', () => {
     expect(monthNavigation(2025, 11, '2026-10-16')).toEqual({ canPrev: true, canNext: true });
     expect(monthNavigation(2025, 10, '2026-10-16')).toEqual({ canPrev: false, canNext: true });
     expect(shiftMonth(2026, 1, -1)).toEqual({ year: 2025, month: 12 });
+  });
+
+  it('gives the first and the last day of the month of a date', () => {
+    expect(monthBounds('2026-10-19')).toEqual({ from: '2026-10-01', to: '2026-10-31' });
+    expect(monthBounds('2026-02-10')).toEqual({ from: '2026-02-01', to: '2026-02-28' });
+    expect(monthBounds('2028-02-29')).toEqual({ from: '2028-02-01', to: '2028-02-29' });
+  });
+
+  it('names a month for «за октябрь» and «в октябре»', () => {
+    expect(monthNameLower(10)).toBe('октябрь');
+    expect(monthNameLower(5)).toBe('май');
+    expect(monthNameIn(10)).toBe('октябре');
+    expect(monthNameIn(5)).toBe('мае');
+    expect(monthNameIn(8)).toBe('августе');
+  });
+
+  it('labels a day group of a list: «Сегодня», «Вчера», then the weekday and the date', () => {
+    expect(dayGroupLabel('2026-10-19', '2026-10-19')).toBe('Сегодня');
+    expect(dayGroupLabel('2026-10-18', '2026-10-19')).toBe('Вчера');
+    expect(dayGroupLabel('2026-10-12', '2026-10-19')).toBe('Понедельник, 12 октября');
+    expect(dayGroupLabel('2026-10-17', '2026-10-19')).toBe('Суббота, 17 октября');
+    expect(dayGroupLabel('2025-12-31', '2026-10-19')).toBe('Среда, 31 декабря 2025');
   });
 });

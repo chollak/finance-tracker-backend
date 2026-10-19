@@ -1,58 +1,48 @@
 import { Plus } from 'lucide-react';
-import { AttentionSummary } from '@/widgets/attention-summary';
+import { BalanceCard } from '@/widgets/balance-card';
+import { SummaryTiles } from '@/widgets/summary-tiles';
 import { RecentTransactions } from '@/widgets/recent-transactions';
 import { HomeHeader } from '@/widgets/home-header';
-import { TodayTotal } from '@/widgets/today-total';
 import { Button } from '@/shared/ui/button';
-import { PageShell, SectionStack } from '@/shared/ui';
+import { PageShell } from '@/shared/ui';
 import { QuickAddSheet } from '@/features/quick-add';
 import { TextQuickCaptureCard } from '@/features/quick-capture';
 import { GuestModeBanner } from '@/features/auth';
+import { useIsGuest } from '@/entities/user';
 
 /**
- * Home Page — the shell of the app (FT-110, boards «Главная», «Главная · тёмная»).
+ * Home Page — the shell of the app (FT-110) with the boards' content (FT-111, «Главная», «Главная после
+ * первого запуска»): the balance card with the accounts and the month's spend share, the month tiles of
+ * income and expenses, and the recent records by day.
  *
- * There is no bottom bar: the header carries the daftar sign and «Ещё», today's spend opens
- * Analytics, «Все» over the recent records opens History, and every other section is in «Ещё» —
- * nothing is further than two taps. Below the header Home is still the capture-first screen of
- * milestone 9: today's real spend, the one-line capture card (FT-114 replaces it), the records a
- * capture just changed and an attention block that renders nothing unless there is a real signal.
- * FT-111 brings the balance card, the month tiles and the recent records of the boards.
+ * There is no bottom bar: the header carries the daftar sign and «Ещё», the tiles open Analytics, «Все»
+ * over the records opens History, and every other section is in «Ещё» — nothing is further than two taps.
+ * The one-line capture card stays between the tiles and the records until FT-114 brings the composer of the
+ * boards. Guests keep records on the device and have no accounts (guest mode goes with FT-128), so they see
+ * the capture card and their records only.
  */
 export function HomePage() {
+  const isGuest = useIsGuest();
+
   return (
     <PageShell className="pt-2 md:pt-2">
-      {/* The balance card's «Всего на счетах» becomes the heading in FT-111 */}
-      <h1 className="sr-only">Главная</h1>
+      {/* For everyone else the balance card's «Всего на счетах» is the screen's heading */}
+      {isGuest && <h1 className="sr-only">Главная</h1>}
       <HomeHeader className="mb-4" />
 
-      {/* Guest Mode Banner */}
       <GuestModeBanner className="mb-4" />
 
-      {/* Main Content */}
-      <SectionStack>
-        {/* Today total - the daily feedback a capture immediately changes */}
-        <div className="animate-fade-in-up">
-          <TodayTotal />
-        </div>
+      <div className="flex flex-col gap-4">
+        {!isGuest && <BalanceCard />}
+        {!isGuest && <SummaryTiles />}
 
         {/* Quick Capture - one line of text through the same boundary the Telegram bot uses */}
-        <div className="animate-fade-in-up stagger-1">
-          <TextQuickCaptureCard />
-        </div>
+        <TextQuickCaptureCard />
 
-        {/* Recent Transactions - fast correction of what was just captured */}
-        <div className="animate-fade-in-up stagger-2">
-          <RecentTransactions />
-        </div>
+        <RecentTransactions />
+      </div>
 
-        {/* Attention Summary - renders nothing unless there is a real signal */}
-        <div className="animate-fade-in-up stagger-3">
-          <AttentionSummary />
-        </div>
-      </SectionStack>
-
-      {/* Floating Action Button - Quick Add Transaction (desktop only) */}
+      {/* Floating Action Button - Quick Add Transaction (desktop only; FT-113 replaces it) */}
       <QuickAddSheet>
         <Button
           size="lg"

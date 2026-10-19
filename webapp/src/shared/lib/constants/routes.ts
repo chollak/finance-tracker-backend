@@ -22,6 +22,9 @@ export const ROUTES = {
 
   // More
   MORE: '/more',
+
+  // Accounts and the USD rate: opened from the balance card on Home; the screen comes with FT-118
+  ACCOUNTS: '/accounts',
 } as const;
 
 // API endpoints
@@ -36,6 +39,7 @@ export const API_ENDPOINTS = {
 
   // Accounts (FT-101); the first launch sets their opening balances (FT-109)
   ACCOUNTS: {
+    LIST: '/accounts',
     OPENING_BALANCES: '/accounts/opening-balances',
   },
 
@@ -47,6 +51,11 @@ export const API_ENDPOINTS = {
   // Transactions
   TRANSACTIONS: {
     LIST: (userId: string) => `/transactions/user/${userId}`,
+    // History of the signed-in user, newest first (FT-107); the user comes from authentication
+    HISTORY: (params: { limit?: number } = {}) =>
+      `/transactions${params.limit ? `?limit=${params.limit}` : ''}`,
+    // Income and expenses of a period through the one totals service (FT-111)
+    TOTALS: (range: { from: string; to: string }) => `/transactions/totals?from=${range.from}&to=${range.to}`,
     CREATE: '/transactions',
     UPDATE: (id: string) => `/transactions/${id}`,
     DELETE: (id: string) => `/transactions/${id}`,
