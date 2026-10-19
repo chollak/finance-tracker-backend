@@ -60,8 +60,17 @@ export interface CreateTransactionDTO {
   /** Category name; `categoryId` decides on the server when given. */
   category: string;
   categoryId?: string;
+  /** The note; may be empty (FT-113). */
   description: string;
   amount: number;
+  /** Integer minor units of `currency` (FT-097); the server prefers it to `amount`. */
+  amountMinor?: number;
+  /** The account's currency (FT-103); without it the account's, else сум. */
+  currency?: 'UZS' | 'USD';
+  /** One of the user's visible accounts (FT-101); without it the default account. */
+  accountId?: string;
+  /** The client's id of the record (FT-106): a repeat returns the same record instead of a second one. */
+  clientId?: string;
   type: 'income' | 'expense';
   semanticType?: TransactionSemanticType;
   needsReview?: boolean;

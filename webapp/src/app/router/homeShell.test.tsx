@@ -134,7 +134,7 @@ describe('every section is at most 2 taps from Home', () => {
     ROUTES.MORE,
     ROUTES.BUDGETS,
     ROUTES.DEBTS,
-    ROUTES.ADD_TRANSACTION,
+    ROUTES.MANUAL_ENTRY,
   ];
   /** Screens whose own links count as the second tap. */
   const SCREENS: Record<string, () => ReactElement> = { [ROUTES.MORE]: () => <MorePage /> };
@@ -173,7 +173,7 @@ describe('«Назад» on nested screens', () => {
   it('outside Telegram a nested screen draws its own «Назад»', () => {
     expect(render(<MorePage />, ROUTES.MORE)).toMatch(BACK_BUTTON);
     expect(render(<PageHeader title="История" />, ROUTES.TRANSACTIONS)).toMatch(BACK_BUTTON);
-    expect(render(<FormPageHeader title="Новая транзакция" />, ROUTES.ADD_TRANSACTION)).toMatch(BACK_BUTTON);
+    expect(render(<FormPageHeader title="Новый бюджет" />, ROUTES.ADD_BUDGET)).toMatch(BACK_BUTTON);
   });
 
   it('a plain browser with the Telegram SDK loaded is still outside Telegram', () => {
@@ -186,6 +186,6 @@ describe('«Назад» on nested screens', () => {
     vi.stubGlobal('window', { Telegram: { WebApp: telegramWebApp() } });
 
     expect(render(<PageHeader title="История" />, ROUTES.TRANSACTIONS)).not.toMatch(BACK_BUTTON);
-    expect(render(<FormPageHeader title="Новая транзакция" />, ROUTES.ADD_TRANSACTION)).not.toMatch(BACK_BUTTON);
+    expect(render(<FormPageHeader title="Новый бюджет" />, ROUTES.ADD_BUDGET)).not.toMatch(BACK_BUTTON);
   });
 });

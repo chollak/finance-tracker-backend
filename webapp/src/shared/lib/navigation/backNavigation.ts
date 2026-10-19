@@ -34,9 +34,8 @@ export function parentPath(pathname: string): string | null {
   if (segments.length === 0) return null;
 
   const section = `/${segments[0]}`;
+  // Manual entry (/add) is a way to write, opened from Home or «Ещё»: one segment, so its parent is Home
   if (segments.length === 1) return OPENED_FROM_MORE.includes(section) ? ROUTES.MORE : ROUTES.HOME;
-  // Manual entry is a way to write, opened from Home or «Ещё», not a screen of History
-  if (pathname.replace(/\/+$/, '') === ROUTES.ADD_TRANSACTION) return ROUTES.HOME;
   return section;
 }
 
@@ -62,6 +61,16 @@ export function backStep(pathname: string, historyIndex: number | undefined): Ba
  */
 export function closeStep(pathname: string, historyIndex: number | undefined): BackStep {
   return backStep(pathname, historyIndex) ?? { kind: 'route', to: ROUTES.HOME };
+}
+
+/**
+ * Where a saved record leaves its screen (FT-113: «после — главная»): Home. When Home opened the screen,
+ * one step back to it, so Home is not stacked twice; otherwise Home takes the screen's place, so «Назад»
+ * never reopens the submitted form. `openedFrom` is the path the link to the screen passed along.
+ */
+export function homeAfterSaveStep(historyIndex: number | undefined, openedFrom: string | undefined): BackStep {
+  if (openedFrom === ROUTES.HOME && typeof historyIndex === 'number' && historyIndex > 0) return { kind: 'history' };
+  return { kind: 'route', to: ROUTES.HOME };
 }
 
 /**

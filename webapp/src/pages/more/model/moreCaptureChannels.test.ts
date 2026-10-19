@@ -79,7 +79,7 @@ describe('getMoreCaptureChannels', () => {
     expect(shortcut.action).toBe('none');
   });
 
-  it('routes the manual fallback to the form page', () => {
+  it('routes the manual fallback to the manual entry screen', () => {
     const manual = byId('manual');
 
     expect(manual.action).toBe('route');

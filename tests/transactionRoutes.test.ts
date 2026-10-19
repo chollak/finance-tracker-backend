@@ -259,6 +259,40 @@ describe('Transaction API route boundaries', () => {
     );
   });
 
+  // FT-113: the note on the manual entry screen is optional («Например, супермаркет» is only a hint)
+  it.each([
+    ['without a description', {}],
+    ['with an empty description', { description: '' }],
+    ['with a blank description', { description: '   ' }],
+  ])('creates a record %s: the note is stored empty', async (_case, note) => {
+    (mocks.createUseCase.execute as jest.Mock).mockResolvedValue({ success: true, data: 'tx-new' });
+
+    const res = await fetch(`${baseUrl}/api/transactions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ amountMinor: 18_640_000, categoryId: 'cat-1', type: 'expense', userId: 'user-1', ...note }),
+    });
+
+    expect(res.status).toBe(201);
+    expect(mocks.createUseCase.execute).toHaveBeenCalledWith(
+      expect.objectContaining({ description: '', amountMinor: 18_640_000, categoryId: 'cat-1' }),
+      expect.objectContaining({ onRepeat: expect.any(Function) })
+    );
+  });
+
+  it('still refuses a note that is not text or longer than 500 characters', async () => {
+    for (const description of [42, 'x'.repeat(501)]) {
+      const res = await fetch(`${baseUrl}/api/transactions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amountMinor: 100, categoryId: 'cat-1', type: 'expense', userId: 'user-1', description }),
+      });
+
+      expect(res.status).toBe(400);
+    }
+    expect(mocks.createUseCase.execute).not.toHaveBeenCalled();
+  });
+
   it('rejects an invalid semanticType on create with 400 and does not call the create use case', async () => {
     const res = await fetch(`${baseUrl}/api/transactions`, {
       method: 'POST',

@@ -14,3 +14,17 @@ export function usdToUzsMinor(usdMinor: number, rateMinor: number): number {
   const tiyin = Number(sum) * 100;
   return negative ? -tiyin : tiyin;
 }
+
+/**
+ * Сум → dollars at a rate (the «≈ 14,74 USD» under the amount on manual entry, FT-113): `uzsMinor` in tiyin,
+ * the rate in сум×100 per 1 USD, the result in cents rounded half away from zero.
+ */
+export function uzsToUsdMinor(uzsMinor: number, rateMinor: number): number {
+  const numerator = BigInt(Math.round(uzsMinor)) * 100n; // cents × rate
+  const rate = BigInt(Math.round(rateMinor));
+  const negative = numerator < 0n;
+  const magnitude = negative ? -numerator : numerator;
+  let cents = magnitude / rate;
+  if ((magnitude % rate) * 2n >= rate) cents += 1n;
+  return negative ? -Number(cents) : Number(cents);
+}

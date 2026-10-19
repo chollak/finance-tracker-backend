@@ -23,11 +23,15 @@ export class TransactionValidator {
         .validate(Validators.category(data.category));
     }
 
+    // The note is optional (FT-113: manual entry saves without one); when sent it is text up to 500
+    const hasDescription = data.description !== undefined && data.description !== null;
+    if (hasDescription) {
+      chain.validate(Validators.description(data.description));
+    }
+
     // Validate required fields
     chain
       .validate(amountMinor)
-      .validate(Validators.required(data.description, 'description'))
-      .validate(Validators.description(data.description))
       .validate(Validators.required(data.type, 'type'))
       .validate(Validators.transactionType(data.type))
       .validate(Validators.required(data.userId, 'userId'))
@@ -94,7 +98,7 @@ export class TransactionValidator {
       currency: data.currency === 'USD' || data.currency === 'UZS' ? data.currency : undefined,
       // Records written through the API by hand; capture paths set their own source
       source: 'manual',
-      description: String(data.description).trim(),
+      description: hasDescription ? String(data.description).trim() : '',
       type: data.type as 'income' | 'expense',
       semanticType: normalizeSemanticType(data.semanticType, data.type as 'income' | 'expense'),
       needsReview: data.needsReview === true,

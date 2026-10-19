@@ -3,6 +3,7 @@ import {
   backControl,
   backStep,
   closeStep,
+  homeAfterSaveStep,
   keepTelegramBackButtonInStep,
   parentPath,
   syncTelegramBackButton,
@@ -70,7 +71,7 @@ describe('parentPath — where «Назад» leads when there is no app screen 
   });
 
   it('manual entry is a way to write, not part of History: it returns to Home', () => {
-    expect(parentPath('/transactions/add')).toBe('/');
+    expect(parentPath('/add')).toBe('/');
   });
 
   it('an unknown address returns to Home', () => {
@@ -116,7 +117,7 @@ describe('telegramBackButton — Telegram’s own BackButton only inside Telegra
 describe('backControl — which «Назад» a screen gets', () => {
   it('nested screens inside Telegram use Telegram’s BackButton', () => {
     expect(backControl('/transactions', true)).toBe('telegram');
-    expect(backControl('/transactions/add', true)).toBe('telegram');
+    expect(backControl('/add', true)).toBe('telegram');
   });
 
   it('nested screens outside Telegram draw their own «Назад»', () => {
@@ -210,6 +211,10 @@ function appHistory(start: string) {
     close() {
       run(closeStep(entries[index], index));
     },
+    /** A saved record shows Home (FT-113); `openedFrom` is what the link to the screen passed along. */
+    saveToHome(openedFrom?: string) {
+      run(homeAfterSaveStep(index, openedFrom));
+    },
   };
 }
 
@@ -239,7 +244,7 @@ describe('closeStep — a form closes after a save or a delete the way «Наз�
   it('manual entry returns to the screen it was opened from', () => {
     const history = appHistory('/');
     history.open('/more');
-    history.open('/transactions/add');
+    history.open('/add');
 
     history.close();
     expect(history.path).toBe('/more');
@@ -325,5 +330,34 @@ describe('keepTelegramBackButtonInStep — the app shell’s effect for a screen
     keepTelegramBackButtonInStep(undefined, '/transactions', vi.fn())();
     expect(app.BackButton.show).not.toHaveBeenCalled();
     expect(app.BackButton.onClick).not.toHaveBeenCalled();
+  });
+});
+
+describe('homeAfterSaveStep — a saved record shows Home (FT-113)', () => {
+  it('opened from Home: one step back, so Home is not stacked twice', () => {
+    const history = appHistory('/');
+    history.open('/add');
+
+    history.saveToHome('/');
+    expect(history.path).toBe('/');
+    expect(history.stack).toEqual(['/']);
+  });
+
+  it('opened from another screen: Home takes the entry screen’s place, never the form again', () => {
+    const history = appHistory('/');
+    history.open('/more');
+    history.open('/add');
+
+    history.saveToHome('/more');
+    expect(history.path).toBe('/');
+    expect(history.stack).toEqual(['/', '/more', '/']);
+  });
+
+  it('opened directly (a link, a reload): Home in its place', () => {
+    const history = appHistory('/add');
+
+    history.saveToHome(undefined);
+    expect(history.path).toBe('/');
+    expect(history.stack).toEqual(['/']);
   });
 });

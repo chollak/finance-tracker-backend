@@ -150,10 +150,5 @@ export function openingBalancesNote(state: OpeningBalancesState, rate: NoteRate 
   return `Всего ≈ ${sum(total)}, доллары — ${by} ${rateText}. ${more}`;
 }
 
-/** A key from a computer keyboard (Telegram Desktop): digits, Backspace, and a comma or dot for dollars. */
-export function keyFromKeyboard(key: string, currency: Currency): KeypadKey | null {
-  if (/^[0-9]$/.test(key)) return key as KeypadKey;
-  if (key === 'Backspace') return 'del';
-  if ((key === ',' || key === '.') && currency === 'USD') return ',';
-  return null;
-}
+/** A key from a computer keyboard (Telegram Desktop): shared with manual entry since FT-113. */
+export { keyFromKeyboard } from '@/shared/lib/money';

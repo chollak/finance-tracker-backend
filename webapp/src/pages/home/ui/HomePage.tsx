@@ -1,12 +1,10 @@
-import { Plus } from 'lucide-react';
 import { BalanceCard } from '@/widgets/balance-card';
 import { SummaryTiles } from '@/widgets/summary-tiles';
 import { RecentTransactions } from '@/widgets/recent-transactions';
 import { HomeHeader } from '@/widgets/home-header';
 import { HomeSkeleton } from '@/widgets/home-skeleton';
-import { Button } from '@/shared/ui/button';
 import { PageShell } from '@/shared/ui';
-import { QuickAddSheet } from '@/features/quick-add';
+import { UndoToast } from '@/shared/ui/pastel';
 import { TextQuickCaptureCard } from '@/features/quick-capture';
 import { GuestModeBanner } from '@/features/auth';
 import { useIsGuest } from '@/entities/user';
@@ -20,7 +18,7 @@ import { useHomeLoading } from '../model/homeLoading';
  * There is no bottom bar: the header carries the daftar sign and «Ещё», the tiles open Analytics, «Все»
  * over the records opens History, and every other section is in «Ещё» — nothing is further than two taps.
  * The one-line capture card stays between the tiles and the records until FT-114 brings the composer of the
- * boards. Guests keep records on the device and have no accounts (guest mode goes with FT-128), so they see
+ * boards; its round «Ввести вручную» opens manual entry (FT-113), after which Home shows «Записано». Guests keep records on the device and have no accounts (guest mode goes with FT-128), so they see
  * the capture card and their records only.
  *
  * Until each of its first reads has answered once Home is its skeleton (FT-112), the same one the app opens
@@ -30,7 +28,15 @@ export function HomePage() {
   const isGuest = useIsGuest();
   const loading = useHomeLoading();
 
-  if (loading) return <HomeSkeleton />;
+  // The toast of a record saved elsewhere (FT-113) shows over the skeleton too: Home may still be reading
+  if (loading) {
+    return (
+      <>
+        <HomeSkeleton />
+        <UndoToast />
+      </>
+    );
+  }
 
   return (
     <PageShell className="pt-2 md:pt-2">
@@ -50,17 +56,8 @@ export function HomePage() {
         <RecentTransactions />
       </div>
 
-      {/* Floating Action Button - Quick Add Transaction (desktop only; FT-113 replaces it) */}
-      <QuickAddSheet>
-        <Button
-          size="lg"
-          className="hidden md:fixed md:bottom-6 right-6 h-14 w-14 rounded-full shadow-lg md:flex md:h-auto md:w-auto md:rounded-md md:px-6"
-          aria-label="Добавить транзакцию"
-        >
-          <Plus className="h-6 w-6 md:mr-2" aria-hidden="true" />
-          <span className="hidden md:inline">Добавить транзакцию</span>
-        </Button>
-      </QuickAddSheet>
+      {/* «Записано» with «Отменить» after a manual entry is saved (FT-113) */}
+      <UndoToast />
     </PageShell>
   );
 }

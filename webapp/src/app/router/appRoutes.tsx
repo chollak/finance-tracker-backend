@@ -10,7 +10,6 @@ import { FirstLaunchGate } from './FirstLaunchGate';
 // Lazy load pages for code splitting
 const HomePage = lazy(() => import('@/pages').then(m => ({ default: m.HomePage })));
 const TransactionsPage = lazy(() => import('@/pages').then(m => ({ default: m.TransactionsPage })));
-const AddTransactionPage = lazy(() => import('@/pages').then(m => ({ default: m.AddTransactionPage })));
 const EditTransactionPage = lazy(() => import('@/pages').then(m => ({ default: m.EditTransactionPage })));
 const BudgetsPage = lazy(() => import('@/pages').then(m => ({ default: m.BudgetsPage })));
 const AddBudgetPage = lazy(() => import('@/pages').then(m => ({ default: m.AddBudgetPage })));
@@ -24,6 +23,8 @@ const MorePage = lazy(() => import('@/pages').then(m => ({ default: m.MorePage }
 const VoiceCheckPage = lazy(() => import('@/pages').then(m => ({ default: m.VoiceCheckPage })));
 // Pastel component showcase in both themes (FT-093), not linked from the app
 const PastelShowcasePage = lazy(() => import('@/pages').then(m => ({ default: m.PastelShowcasePage })));
+// Manual entry with the app's own keypad (FT-113), opened from Home, «Ещё» and an empty History
+const ManualEntryPage = lazy(() => import('@/pages').then(m => ({ default: m.ManualEntryPage })));
 // Placeholder of the accounts screen, opened from the balance card on Home; FT-118 builds the screen
 const AccountsPage = lazy(() => import('@/pages').then(m => ({ default: m.AccountsPage })));
 
@@ -130,11 +131,11 @@ export const appRoutes: RouteObject[] = [
             path: '/accounts',
             element: <PageLoader><AccountsPage /></PageLoader>,
           },
-          // Form and detail pages
           {
-            path: '/transactions/add',
-            element: <PageLoader><AddTransactionPage /></PageLoader>,
+            path: '/add',
+            element: <PageLoader><ManualEntryPage /></PageLoader>,
           },
+          // Form and detail pages
           {
             path: '/transactions/:id/edit',
             element: <PageLoader><EditTransactionPage /></PageLoader>,

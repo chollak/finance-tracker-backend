@@ -101,3 +101,14 @@ export function amountFontSize(display: string): 50 | 40 | 32 {
   if (length > 10) return 40;
   return 50;
 }
+
+/**
+ * A key from a computer keyboard (Telegram Desktop) for the app's own keypad: digits, Backspace, and a
+ * comma or dot for dollars.
+ */
+export function keyFromKeyboard(key: string, currency: Currency): KeypadKey | null {
+  if (/^[0-9]$/.test(key)) return key as KeypadKey;
+  if (key === 'Backspace') return 'del';
+  if ((key === ',' || key === '.') && currency === 'USD') return ',';
+  return null;
+}

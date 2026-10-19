@@ -72,6 +72,10 @@ export function useCreateTransaction() {
         needsReview: data.needsReview,
         userId: data.userId,
         merchant: data.merchant,
+        amountMinor: data.amountMinor,
+        currency: data.currency,
+        accountId: data.accountId,
+        clientId: data.clientId,
       });
       return localToTransaction(localTx);
     },
@@ -168,6 +172,41 @@ export function useUpdateTransaction() {
   });
 }
 
+/** Takes a deleted record out of every cache it was in and refetches what it counted in. */
+function forgetDeletedTransaction(queryClient: QueryClient, { id, userId }: { id: string; userId: string }): void {
+  // 1. Remove from transaction list cache (NO HTTP request)
+  queryClient.setQueryData<TransactionViewModel[]>(
+    transactionKeys.list(userId),
+    (old) => {
+      if (!old) return old;
+      return old.filter((t) => t.id !== id);
+    }
+  );
+
+  // 2. Remove from detail cache
+  queryClient.removeQueries({ queryKey: transactionKeys.detail(id) });
+
+  // 3. Invalidate computed data
+  queryClient.invalidateQueries({ queryKey: budgetKeys.summaries(userId) });
+  queryClient.invalidateQueries({ queryKey: dashboardKeys.insights(userId) });
+  invalidateBalanceReaders(queryClient, userId);
+  queryClient.invalidateQueries({ queryKey: dashboardKeys.quickStats(userId) });
+  queryClient.invalidateQueries({ queryKey: transactionKeys.analytics(userId) });
+  queryClient.invalidateQueries({ queryKey: transactionKeys.categorySummary(userId) });
+  queryClient.invalidateQueries({ queryKey: transactionKeys.trends(userId) });
+  // Invalidate subscription to refresh usage limits (transaction count decreased)
+  queryClient.invalidateQueries({ queryKey: subscriptionKeys.status(userId) });
+}
+
+/**
+ * Deletes a record — softly on the server (FT-105), from the device for a guest — and refreshes what showed
+ * it. Not a hook: «Отменить» in a toast runs it after the screen that wrote the record is gone (FT-113).
+ */
+export async function deleteTransaction(queryClient: QueryClient, variables: { id: string; userId: string }): Promise<void> {
+  await transactionDataSource.delete(variables.id);
+  forgetDeletedTransaction(queryClient, variables);
+}
+
 /**
  * Hook to delete a transaction
  * Guest: IndexedDB, Telegram: Server API
@@ -184,31 +223,7 @@ export function useDeleteTransaction() {
     onSuccess: (_, variables) => {
       // Haptic feedback for deletion (warning - destructive action)
       haptic.warning();
-
-      const { id, userId } = variables;
-
-      // 1. Remove from transaction list cache (NO HTTP request)
-      queryClient.setQueryData<TransactionViewModel[]>(
-        transactionKeys.list(userId),
-        (old) => {
-          if (!old) return old;
-          return old.filter((t) => t.id !== id);
-        }
-      );
-
-      // 2. Remove from detail cache
-      queryClient.removeQueries({ queryKey: transactionKeys.detail(id) });
-
-      // 3. Invalidate computed data
-      queryClient.invalidateQueries({ queryKey: budgetKeys.summaries(userId) });
-      queryClient.invalidateQueries({ queryKey: dashboardKeys.insights(userId) });
-      invalidateBalanceReaders(queryClient, userId);
-      queryClient.invalidateQueries({ queryKey: dashboardKeys.quickStats(userId) });
-      queryClient.invalidateQueries({ queryKey: transactionKeys.analytics(userId) });
-      queryClient.invalidateQueries({ queryKey: transactionKeys.categorySummary(userId) });
-      queryClient.invalidateQueries({ queryKey: transactionKeys.trends(userId) });
-      // Invalidate subscription to refresh usage limits (transaction count decreased)
-      queryClient.invalidateQueries({ queryKey: subscriptionKeys.status(userId) });
+      forgetDeletedTransaction(queryClient, variables);
     },
   });
 }

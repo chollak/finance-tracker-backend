@@ -6,7 +6,7 @@
  *   BASE_URL=http://127.0.0.1:3000 npm run design:audit
  *   VIEWPORT_WIDTH=390 VIEWPORT_HEIGHT=844 npm run design:audit
  *   AUTH_MODE=telegram TELEGRAM_USER_ID=131184740 npm run design:audit
- *   ROUTES=/transactions/add,/budgets/add,/debts/add npm run design:audit
+ *   ROUTES=/add,/budgets/add,/debts/add npm run design:audit
  *   SCROLL_TO=bottom npm run design:audit
  *
  * The script expects a running app. It does not start servers.
@@ -54,7 +54,7 @@ const defaultRoutes = [
   { name: 'budgets', path: '/budgets' },
   { name: 'debts', path: '/debts' },
   { name: 'more', path: '/more' },
-  { name: 'add-transaction', path: '/transactions/add' },
+  { name: 'manual-entry', path: '/add' },
   { name: 'add-budget', path: '/budgets/add' },
   { name: 'add-debt', path: '/debts/add' },
   { name: 'analytics', path: '/analytics' },

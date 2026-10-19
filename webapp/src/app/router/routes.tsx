@@ -7,7 +7,7 @@ export const router = createBrowserRouter(appRoutes);
 export const ROUTES = {
   HOME: '/',
   TRANSACTIONS: '/transactions',
-  ADD_TRANSACTION: '/transactions/add',
+  MANUAL_ENTRY: '/add',
   EDIT_TRANSACTION: (id: string) => `/transactions/${id}/edit`,
   BUDGETS: '/budgets',
   ADD_BUDGET: '/budgets/add',

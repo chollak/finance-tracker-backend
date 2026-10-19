@@ -136,8 +136,8 @@ Routes are defined in `webapp/src/app/router/routes.tsx`:
 | Route | Page |
 |-------|------|
 | `/` | Home — balance overview, quick access |
+| `/add` | Manual entry — own keypad, account, category, date, note (FT-113) |
 | `/transactions` | Transactions list — search, filter, edit, delete |
-| `/transactions/add` | Add transaction form |
 | `/transactions/:id/edit` | Edit transaction form |
 | `/budgets` | Budgets — progress, alerts |
 | `/budgets/add` | Create budget form |

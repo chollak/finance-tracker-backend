@@ -54,6 +54,11 @@ export interface CreateLocalTransactionDTO {
   categoryId?: string;
   description: string;
   amount: number;
+  /** For the server (FT-113); guest records keep using `amount`, and guests have no accounts. */
+  amountMinor?: number;
+  currency?: 'UZS' | 'USD';
+  accountId?: string;
+  clientId?: string;
   type: 'income' | 'expense';
   semanticType?: TransactionSemanticType;
   needsReview?: boolean;

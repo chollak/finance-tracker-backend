@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react';
-import { Archive, Plus, Search, X } from 'lucide-react';
+import { Archive, Search, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
@@ -15,7 +15,6 @@ import {
 import { useUserStore } from '@/entities/user/model/store';
 import { FilterBar, useTransactionFiltersStore, filterTransactions } from '@/features/filter-transactions';
 import { useDeleteTransactionDialog } from '@/features/delete-transaction';
-import { QuickAddSheet } from '@/features/quick-add';
 import { Button, EmptyState, PageHeader, PageShell, SegmentedTabsList, SegmentedTabsTrigger } from '@/shared/ui';
 import { Skeleton } from '@/shared/ui/skeleton';
 import { Tabs, TabsContent } from '@/shared/ui/tabs';
@@ -302,7 +301,7 @@ export function TransactionsPage() {
                 description="Записи из Telegram-бота и из Mini App появляются здесь сразу после сохранения"
                 tip="Голосом — в чате бота: скажите «Обед 50 тысяч», и запись окажется тут"
                 action={
-                  <Button variant="outline" onClick={() => navigate(ROUTES.ADD_TRANSACTION)}>
+                  <Button variant="outline" onClick={() => navigate(ROUTES.MANUAL_ENTRY)}>
                     Добавить вручную
                   </Button>
                 }
@@ -365,20 +364,6 @@ export function TransactionsPage() {
           />
         </TabsContent>
       </Tabs>
-
-      {/* Add Transaction - desktop only; on a phone records are written from Home */}
-      {activeTab === 'active' && transactions && transactions.length > 0 && (
-        <QuickAddSheet>
-          <Button
-            size="lg"
-            className="hidden md:fixed md:bottom-6 md:right-6 md:flex h-14 w-14 rounded-full shadow-lg md:h-auto md:w-auto md:rounded-md md:px-6"
-            aria-label="Добавить транзакцию"
-          >
-            <Plus className="h-6 w-6 md:mr-2" aria-hidden="true" />
-            <span className="hidden md:inline">Добавить</span>
-          </Button>
-        </QuickAddSheet>
-      )}
 
       {/* Delete Confirmation Dialog */}
       {DialogComponent}

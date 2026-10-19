@@ -49,6 +49,7 @@ export {
   useCreateTransaction,
   useUpdateTransaction,
   useDeleteTransaction,
+  deleteTransaction,
   useArchiveTransaction,
   useUnarchiveTransaction,
   useArchiveAllTransactions,

@@ -4,8 +4,10 @@ export const ROUTES = {
 
   // Transactions
   TRANSACTIONS: '/transactions',
-  ADD_TRANSACTION: '/transactions/add',
   EDIT_TRANSACTION: (id: string) => `/transactions/${id}/edit`,
+
+  // Manual entry (FT-113): a way to write, opened from Home, «Ещё» and an empty History
+  MANUAL_ENTRY: '/add',
 
   // Budgets
   BUDGETS: '/budgets',

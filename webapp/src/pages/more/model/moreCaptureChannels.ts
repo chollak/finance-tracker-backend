@@ -1,3 +1,5 @@
+import { ROUTES } from '@/shared/lib/constants/routes';
+
 /**
  * The capture channels «Ещё» lists (FT-082).
  *
@@ -42,7 +44,8 @@ export interface MoreCaptureChannelsInput {
   hasBotLink: boolean;
 }
 
-export const MANUAL_CAPTURE_HREF = '/transactions/add';
+/** Manual entry with the app's own keypad (FT-113). */
+export const MANUAL_CAPTURE_HREF = ROUTES.MANUAL_ENTRY;
 
 /**
  * Ordered by how a capture actually happens day to day: the two fast paths first, the phone
@@ -91,9 +94,9 @@ export function getMoreCaptureChannels({
     },
     {
       id: 'manual',
-      title: 'Вручную, формой',
-      description: 'Поля суммы, категории и даты',
-      status: 'Форма',
+      title: 'Вручную',
+      description: 'Сумма на своей клавиатуре, счёт, категория и дата',
+      status: 'Здесь',
       isAvailable: true,
       action: 'route',
       href: MANUAL_CAPTURE_HREF,

@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import {
   backStep,
   closeStep,
+  homeAfterSaveStep,
   keepTelegramBackButtonInStep,
   telegramBackButton,
   type BackStep,
@@ -45,6 +46,27 @@ export function useGoBack(): () => void {
  */
 export function useCloseScreen(): () => void {
   return useStep(closeStep);
+}
+
+/** What a link to a screen passes along so the screen knows who opened it (see `useShowHomeAfterSave`). */
+export interface OpenedFromState {
+  from: string;
+}
+
+/**
+ * Shows Home after a record is saved (FT-113), see `homeAfterSaveStep`. The screen learns who opened it
+ * from the link's state (`{ from }`); a screen opened directly has none.
+ */
+export function useShowHomeAfterSave(): () => void {
+  const navigate = useNavigate();
+  const { state } = useLocation();
+  const openedFrom = (state as Partial<OpenedFromState> | null)?.from;
+
+  return useCallback(() => {
+    const step = homeAfterSaveStep(currentHistoryIndex(), openedFrom);
+    if (step.kind === 'history') navigate(-1);
+    else navigate(step.to, { replace: true });
+  }, [navigate, openedFrom]);
 }
 
 /**

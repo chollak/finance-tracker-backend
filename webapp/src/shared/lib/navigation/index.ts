@@ -2,6 +2,7 @@ export {
   backControl,
   backStep,
   closeStep,
+  homeAfterSaveStep,
   keepTelegramBackButtonInStep,
   parentPath,
   syncTelegramBackButton,
@@ -10,4 +11,11 @@ export {
   type TelegramBackButtonApi,
   type TelegramBackButtonHost,
 } from './backNavigation';
-export { currentTelegramBackButton, useCloseScreen, useGoBack, useTelegramBackButton } from './useBack';
+export {
+  currentTelegramBackButton,
+  useCloseScreen,
+  useGoBack,
+  useShowHomeAfterSave,
+  useTelegramBackButton,
+  type OpenedFromState,
+} from './useBack';

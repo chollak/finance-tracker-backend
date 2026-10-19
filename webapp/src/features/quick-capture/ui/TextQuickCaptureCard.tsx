@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { Loader2, Send, WifiOff } from 'lucide-react';
 
 import { Button } from '@/shared/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card';
 import { cn } from '@/shared/lib/utils';
+import { ROUTES } from '@/shared/lib/constants/routes';
+import type { OpenedFromState } from '@/shared/lib/navigation';
 import { subscribeToCaptureFocus } from '@/shared/lib/captureFocus';
 import { useUserStore } from '@/entities/user/model/store';
 import { isGuestId } from '@/shared/lib/utils/guestId';
@@ -102,6 +105,28 @@ function CaptureActionTile({ action, isActive, onPress }: CaptureActionTileProps
         {action.badge ?? action.caption}
       </span>
     </button>
+  );
+}
+
+/**
+ * «Ввести вручную» (FT-113): the composer's round button with the keypad's nine dots (Composer.md, board
+ * «Главная»), opening manual entry. It lives in this card until FT-114 brings the composer.
+ */
+function ManualEntryLink() {
+  const { pathname } = useLocation();
+  const state: OpenedFromState = { from: pathname };
+
+  return (
+    <Link
+      to={ROUTES.MANUAL_ENTRY}
+      state={state}
+      aria-label="Ввести вручную"
+      className="flex size-touch shrink-0 items-center justify-center rounded-pill text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink"
+    >
+      <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true" fill="currentColor">
+        {[5, 10, 15].flatMap((cy) => [5, 10, 15].map((cx) => <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r="1.6" />))}
+      </svg>
+    </Link>
   );
 }
 
@@ -222,11 +247,14 @@ export function TextQuickCaptureCard({ className }: TextQuickCaptureCardProps) {
 
       <CardContent className="space-y-3 p-4 pt-0">
         {isGuest ? (
-          <p className="text-sm leading-relaxed text-muted-foreground">
-            В гостевом режиме быстрая запись текстом недоступна: она сохраняет операции на
-            сервере, а гостевые данные хранятся только в этом браузере. Войдите через Telegram,
-            напишите операцию боту или добавьте её вручную.
-          </p>
+          <div className="flex items-start gap-2">
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              В гостевом режиме быстрая запись текстом недоступна: она сохраняет операции на
+              сервере, а гостевые данные хранятся только в этом браузере. Войдите через Telegram,
+              напишите операцию боту или добавьте её вручную.
+            </p>
+            <ManualEntryLink />
+          </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-3" aria-busy={capture.isPending}>
             {offlineNotice && (
@@ -268,9 +296,10 @@ export function TextQuickCaptureCard({ className }: TextQuickCaptureCardProps) {
               />
               <div className="flex items-center justify-between gap-2 px-3 pb-3">
                 {/* The format claim belongs next to the input it describes, not in a header. */}
-                <p className="min-w-0 truncate pl-1 text-xs text-muted-foreground">
+                <p className="min-w-0 flex-1 truncate pl-1 text-xs text-muted-foreground">
                   Одной строкой, как боту
                 </p>
+                <ManualEntryLink />
                 <Button type="submit" className="shrink-0 px-5" disabled={!canSubmit}>
                   {capture.isPending ? (
                     <>

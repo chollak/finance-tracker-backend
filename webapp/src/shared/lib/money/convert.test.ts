@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { usdToUzsMinor } from './convert';
+import { usdToUzsMinor, uzsToUsdMinor } from './convert';
 
 describe('usdToUzsMinor', () => {
   it('converts dollars to whole сум at a rate in сум×100 per dollar', () => {
@@ -18,5 +18,21 @@ describe('usdToUzsMinor', () => {
   it('stays exact for the largest amounts the keypad allows', () => {
     // 999 999 999,99 USD × 12 850,37
     expect(usdToUzsMinor(99_999_999_999, 1_285_037)).toBe(1_285_036_999_987_100);
+  });
+});
+
+describe('uzsToUsdMinor', () => {
+  it('converts сум to cents at a rate in сум×100 per dollar', () => {
+    // 186 400 сум ÷ 12 650 = 14,735… → 14,74 USD (the «≈ 14,74 USD» under the amount on manual entry)
+    expect(uzsToUsdMinor(18_640_000, 1_265_000)).toBe(1_474);
+    // 5 313 000 сум ÷ 12 650 = 420,00 USD
+    expect(uzsToUsdMinor(531_300_000, 1_265_000)).toBe(42_000);
+  });
+
+  it('rounds half a cent away from zero', () => {
+    // 6 325 сум ÷ 12 650 = 0,5 USD exactly; 63,25 сум ÷ 12 650 = 0,005 USD → 0,01
+    expect(uzsToUsdMinor(632_500, 1_265_000)).toBe(50);
+    expect(uzsToUsdMinor(6_325, 1_265_000)).toBe(1);
+    expect(uzsToUsdMinor(-6_325, 1_265_000)).toBe(-1);
   });
 });
