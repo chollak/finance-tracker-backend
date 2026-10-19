@@ -8,8 +8,12 @@ import { AnalyticsService } from '../src/modules/transaction/application/analyti
 import { errorHandler } from '../src/delivery/web/express/middleware/errorMiddleware';
 import { openMigratedDatabase, TestDatabase } from './helpers/testDatabase';
 import { recordsOn } from './helpers/records';
+import { todayDateOnly } from '../src/shared/domain/dates/dateOnly';
 
 const unused = { execute: jest.fn() } as never;
+// The default account opens today and counts records from its opening date on (FT-101), so a fixed
+// date would drop out of the balance once that day is past.
+const today = todayDateOnly();
 
 describe('soft delete and restore of records (FT-105)', () => {
   let db: TestDatabase;
@@ -24,7 +28,7 @@ describe('soft delete and restore of records (FT-105)', () => {
     await db.close();
   });
 
-  async function record(amount: number, userId = 'user-1', date = '2026-10-16') {
+  async function record(amount: number, userId = 'user-1', date = today) {
     const created = await records.create.execute({ userId, amount, type: 'expense', category: 'Кафе', description: 'кофе', date });
     if (!created.success) throw created.error;
     return created.data;
@@ -42,7 +46,7 @@ describe('soft delete and restore of records (FT-105)', () => {
     expect(await records.repository.findByIdIncludingArchived(gone)).toBeNull();
     expect((await records.repository.findByUserId('user-1')).map(r => r.id)).toEqual([kept]);
     expect((await records.repository.getAll()).map(r => r.id)).toEqual([kept]);
-    expect((await records.repository.getByUserIdAndDateRange('user-1', new Date('2026-10-01'), new Date('2026-10-31'))).map(r => r.id)).toEqual([kept]);
+    expect((await records.repository.getByUserIdAndDateRange('user-1', new Date(today), new Date(today))).map(r => r.id)).toEqual([kept]);
     expect(await balance()).toBe(-1000000);
     const analytics = new AnalyticsService(records.repository);
     expect((await analytics.getAnalyticsSummary('user-1')).totalExpense).toBe(10000);
