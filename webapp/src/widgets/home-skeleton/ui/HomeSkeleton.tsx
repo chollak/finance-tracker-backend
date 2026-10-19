@@ -1,4 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
+import { useIsTelegramUser } from '@/entities/user';
 import { cn } from '@/shared/lib/utils';
 import { Button, SkeletonBlock, Wordmark } from '@/shared/ui/pastel';
 import { useSlowLoading } from '../model/slowLoading';
@@ -18,8 +19,11 @@ const ROWS = [
   { title: 'w-[40%]', note: 'w-[45%]' },
 ];
 
+/** The quick examples under the input of the capture card, as wide as the real ones. */
+const EXAMPLES = ['w-[99px]', 'w-[95px]', 'w-[95px]'];
+
 export interface HomeSkeletonViewProps {
-  /** Six seconds have passed: the message and «Попробовать снова» take the place of the bottom shapes. */
+  /** Six seconds have passed: the message and «Попробовать снова» take the place of the note. */
   slow: boolean;
   onRetry: () => void;
 }
@@ -27,91 +31,110 @@ export interface HomeSkeletonViewProps {
 /**
  * The skeleton as the boards «Загрузка», «Загрузка дольше обычного», «Загрузка · тёмная» draw it, from the
  * slow flag; `HomeSkeleton` keeps the time. Grey shapes of Home's own layout in Home's own frame (page
- * gutter, 48px header, 16px between sections): the daftar sign, the balance card in `primary` with stripes
- * in `hero-track` (lighter in the light theme, darker in the dark one), the two month tiles, the heading and
- * the card of records, and at the bottom the quick chips and the input of the composer. The shapes pulse
+ * gutter, 48px header, 16px between sections), so nothing moves when Home comes (Skeleton.md): the daftar
+ * sign, the balance card in `primary` with stripes in `hero-track` (lighter in the light theme, darker in the
+ * dark one), the two month tiles, the capture card, the heading and the card of records. The shapes pulse
  * (`SkeletonBlock`, still under prefers-reduced-motion); there is no spinner.
  *
- * The balance card's rows are as tall as the real card's (a 44px header row, the 48px amount, the bar and
- * the line under it), so the tiles do not move when the card comes. The board has a «Сум / USD» switch
- * beside «Ещё»; Home's header has none yet (docs/pastel/handoff.md, item 8), so neither has the skeleton.
- * The bottom shapes are the composer of FT-114; until it comes, Home keeps the capture card above its
- * records instead. «Записывать без связи» under the slow state comes with the offline mode (FT-129).
+ * Every shape is as tall as what replaces it: the balance card's rows (a 44px header row, the 48px amount,
+ * the bar and the line under it), the 80px tiles, the 308px capture card, the 44px row of the records'
+ * heading and the day line over the list. The boards put the composer's quick chips and input at the bottom
+ * and no capture card; Home keeps the one-line capture card between the tiles and the records until FT-114
+ * brings the composer, so the skeleton draws that card and only the note at the bottom, and FT-114 changes
+ * both. The board has a «Сум / USD» switch beside «Ещё»; Home's header has none yet (docs/pastel/handoff.md,
+ * item 8), so neither has the skeleton. «Записывать без связи» under the slow state comes with the offline
+ * mode (FT-129).
+ *
+ * Only the shapes are `aria-busy`: the status line and the slow message with its button stay outside, so a
+ * screen reader announces them and lets the button be pressed while the shapes still wait.
  */
 export function HomeSkeletonView({ slow, onRetry }: HomeSkeletonViewProps) {
   // With the message and the button at the bottom the list is shorter, so everything fits
   const rows = slow ? ROWS.slice(0, 3) : ROWS;
 
   return (
-    <div aria-busy="true" className="fixed inset-0 overflow-hidden bg-bg">
-      <div className="relative mx-auto flex h-full w-full max-w-3xl flex-col gap-4 px-4 pt-2">
+    <div className="fixed inset-0 overflow-hidden bg-bg">
+      <div className="relative mx-auto flex h-full w-full max-w-3xl flex-col px-4 pt-2">
         <p role="status" className="sr-only">
           {slow ? SLOW_STATUS : LOADING_STATUS}
         </p>
 
-        {/* The real header: the sign is there at once, «Ещё» waits as a circle */}
-        <header className="flex h-key shrink-0 items-center justify-between gap-3">
-          <Wordmark />
-          <SkeletonBlock className="size-key" />
-        </header>
+        <div aria-busy="true" className="flex shrink-0 flex-col gap-4">
+          {/* The real header: the sign is there at once, «Ещё» waits as a circle */}
+          <header className="flex h-key shrink-0 items-center justify-between gap-3">
+            <Wordmark />
+            <SkeletonBlock className="size-key" />
+          </header>
 
-        <div aria-hidden="true" className="flex shrink-0 flex-col gap-4">
-          <div className="flex flex-col gap-1.5 rounded-hero bg-primary px-5 pb-5 pt-3">
-            <span className="flex min-h-touch items-center">
-              <SkeletonBlock className="h-3.5 w-[120px] bg-hero-track" />
-            </span>
-            <span className="flex h-12 items-center">
-              <SkeletonBlock radius="tile" className="h-11 w-[220px] max-w-full bg-hero-track" />
-            </span>
-            <span className="mt-2.5 flex flex-col gap-2">
-              <SkeletonBlock className="h-2 w-full bg-hero-track" />
-              <span className="flex h-5 items-center">
-                <SkeletonBlock className="h-3 w-[180px] max-w-full bg-hero-track" />
+          <div aria-hidden="true" className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1.5 rounded-hero bg-primary px-5 pb-5 pt-3">
+              <span className="flex min-h-touch items-center">
+                <SkeletonBlock className="h-3.5 w-[120px] bg-hero-track" />
               </span>
-            </span>
-          </div>
+              <span className="flex h-12 items-center">
+                <SkeletonBlock radius="tile" className="h-11 w-[220px] max-w-full bg-hero-track" />
+              </span>
+              <span className="mt-2.5 flex flex-col gap-2">
+                <SkeletonBlock className="h-2 w-full bg-hero-track" />
+                <span className="flex h-5 items-center">
+                  <SkeletonBlock className="h-3 w-[180px] max-w-full bg-hero-track" />
+                </span>
+              </span>
+            </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <SkeletonBlock radius="card" className="h-[82px]" />
-            <SkeletonBlock radius="card" className="h-[82px]" />
-          </div>
+            <div className="grid grid-cols-2 gap-3">
+              <SkeletonBlock radius="card" className="h-20" />
+              <SkeletonBlock radius="card" className="h-20" />
+            </div>
 
-          <div className="flex flex-col gap-2.5 pt-1">
-            <SkeletonBlock className="h-5 w-[200px]" />
-            <ul className="rounded-card bg-card px-4 py-1">
-              {rows.map((row, index) => (
-                <li key={index} className="flex h-row items-center gap-3">
-                  <SkeletonBlock className="size-10 shrink-0" />
-                  <span className="flex min-w-0 flex-1 flex-col gap-2">
-                    <SkeletonBlock className={cn('h-3', row.title)} />
-                    <SkeletonBlock className={cn('h-2.5', row.note)} />
-                  </span>
-                  <SkeletonBlock className="h-3 w-[72px] shrink-0" />
-                </li>
-              ))}
-            </ul>
+            {/* The capture card of Home until FT-114: its title, the input, the examples and the three ways in */}
+            <div className="flex h-[308px] flex-col gap-3 rounded-card bg-card p-4">
+              <span className="flex h-5 items-center">
+                <SkeletonBlock className="h-3.5 w-[180px]" />
+              </span>
+              <SkeletonBlock radius="tile" className="h-[118px]" />
+              <span className="flex gap-2 py-1">
+                {EXAMPLES.map((width, index) => (
+                  <SkeletonBlock key={index} className={cn('h-touch shrink-0', width)} />
+                ))}
+              </span>
+              <span className="grid grid-cols-3 gap-2">
+                <SkeletonBlock radius="tile" className="h-12" />
+                <SkeletonBlock radius="tile" className="h-12" />
+                <SkeletonBlock radius="tile" className="h-12" />
+              </span>
+            </div>
+
+            <div className="flex flex-col gap-2.5 pt-1">
+              <span className="flex h-touch items-center">
+                <SkeletonBlock className="h-5 w-[200px]" />
+              </span>
+              <div className="flex flex-col gap-1.5">
+                <span className="flex h-[18px] items-center">
+                  <SkeletonBlock className="h-3 w-16" />
+                </span>
+                <ul className="rounded-card bg-card px-4 py-1">
+                  {rows.map((row, index) => (
+                    <li key={index} className="flex h-row items-center gap-3">
+                      <SkeletonBlock className="size-10 shrink-0" />
+                      <span className="flex min-w-0 flex-1 flex-col gap-2">
+                        <SkeletonBlock className={cn('h-3', row.title)} />
+                        <SkeletonBlock className={cn('h-2.5', row.note)} />
+                      </span>
+                      <SkeletonBlock className="h-3 w-[72px] shrink-0" />
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
           </div>
         </div>
 
         <div className="absolute inset-x-0 bottom-0 flex flex-col gap-2.5 bg-bg px-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-3">
-          <p aria-hidden="true" className="mx-1 text-center text-[13px] font-semibold leading-[1.45] text-ink-muted">
+          <p aria-hidden="true" className="type-label mx-1 text-center text-ink-muted">
             {slow ? SLOW_NOTE : LOADING_NOTE}
           </p>
-          {slow ? (
-            <Button onClick={onRetry}>Попробовать снова</Button>
-          ) : (
-            <div aria-hidden="true" className="flex flex-col gap-2.5">
-              <div className="flex gap-2">
-                <SkeletonBlock className="h-touch w-[104px]" />
-                <SkeletonBlock className="h-touch w-[104px]" />
-                <SkeletonBlock className="h-touch w-[104px]" />
-              </div>
-              <div className="flex gap-2">
-                <SkeletonBlock className="h-button flex-1 bg-card" />
-                <SkeletonBlock className="size-button shrink-0" />
-              </div>
-            </div>
-          )}
+          {slow && <Button onClick={onRetry}>Попробовать снова</Button>}
         </div>
       </div>
     </div>
@@ -123,9 +146,13 @@ export function HomeSkeletonView({ slow, onRetry }: HomeSkeletonViewProps) {
  * Home's data is in — while the gate learns about the first launch, while Home's code loads, while its
  * reads answer. After six seconds of it — counted across those steps — it says the loading is slow, and
  * «Попробовать снова» asks again for whatever has not answered yet and gives it six more seconds.
+ *
+ * The slow message promises records kept on the server, so only a Telegram user gets it. A guest keeps
+ * records on the device (and a user not known yet may turn out to be one): the shapes stay without it.
  */
 export function HomeSkeleton() {
   const queryClient = useQueryClient();
+  const isTelegramUser = useIsTelegramUser();
   const { slow, restart } = useSlowLoading();
 
   const retry = () => {
@@ -133,5 +160,5 @@ export function HomeSkeleton() {
     void retryUnanswered(queryClient);
   };
 
-  return <HomeSkeletonView slow={slow} onRetry={retry} />;
+  return <HomeSkeletonView slow={slow && isTelegramUser} onRetry={retry} />;
 }

@@ -23,7 +23,8 @@ import { useHomeLoading } from '../model/homeLoading';
  * boards. Guests keep records on the device and have no accounts (guest mode goes with FT-128), so they see
  * the capture card and their records only.
  *
- * Until its first reads have answered Home is its skeleton (FT-112), the same one the app opens on.
+ * Until each of its first reads has answered once Home is its skeleton (FT-112), the same one the app opens
+ * on; a read that failed is then the business of its section, which says so and reads it again.
  */
 export function HomePage() {
   const isGuest = useIsGuest();

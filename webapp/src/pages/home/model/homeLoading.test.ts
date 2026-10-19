@@ -8,15 +8,20 @@ import { isHomeLoading } from './homeLoading';
  * The reads are real TanStack Query results, in the states a read goes through.
  */
 
-type ReadState = 'on its way' | 'answered' | 'failed' | 'not running';
+type ReadState = 'on its way' | 'answered' | 'failed' | 'failed, asked again' | 'not running';
 
 let n = 0;
 function read(state: ReadState) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const queryKey = ['read', (n += 1)];
   if (state === 'answered') client.setQueryData(queryKey, { ok: true });
+  const query = client.getQueryCache().build(client, { queryKey });
   if (state === 'failed') {
-    client.getQueryCache().build(client, { queryKey }).setState({ status: 'error', error: new Error('down') });
+    query.setState({ status: 'error', error: new Error('down'), errorUpdateCount: 1, errorUpdatedAt: Date.now() });
+  }
+  if (state === 'failed, asked again') {
+    // What TanStack makes of a failed read with no data while it asks it again: pending, but answered once
+    query.setState({ status: 'pending', fetchStatus: 'fetching', error: null, errorUpdateCount: 1, errorUpdatedAt: Date.now() });
   }
   // «not running»: a read this user does not make (guests have no server balances or totals)
   return new QueryObserver(client, { queryKey, queryFn: () => ({ ok: true }), enabled: state !== 'not running' }).getCurrentResult();
@@ -47,11 +52,43 @@ describe('Home shows itself', () => {
     expect(isHomeLoading({ isGuest: false, reads: reads('failed', 'answered', 'answered', 'answered') })).toBe(false);
   });
 
+  it('and stays while a failed read is asked again: its section waits for that answer, not the whole of Home', () => {
+    expect(isHomeLoading({ isGuest: false, reads: reads('failed, asked again', 'answered', 'answered', 'answered') })).toBe(false);
+  });
+
   it('without waiting for reads that do not run for this user', () => {
     expect(isHomeLoading({ isGuest: false, reads: reads('not running', 'not running', 'answered', 'answered') })).toBe(false);
   });
 
-  it('to guests at once: their records are on the device, and the skeleton promises records on the server', () => {
+  it('to guests at once: their records are on the device', () => {
     expect(isHomeLoading({ isGuest: true, reads: reads('not running', 'not running', 'on its way', 'on its way') })).toBe(false);
+  });
+});
+
+describe('FT-112 review: a read that fails before it has data', () => {
+  /**
+   * The loop the review found: the read fails, Home shows itself, its sections mount new observers of the read,
+   * TanStack asks a failed read with no data again on mount (retryOnMount) and makes it pending. If that put
+   * Home back on its skeleton, the sections would unmount, the read would fail again, and so on without end.
+   */
+  it('does not put Home back on its skeleton when a section mounted since asks it again', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const queryKey = ['accounts'];
+    let calls = 0;
+    const queryFn = () => {
+      calls += 1;
+      return calls === 1 ? Promise.reject(new Error('500')) : new Promise<never>(() => {});
+    };
+    await client.prefetchQuery({ queryKey, queryFn });
+    expect(client.getQueryState(queryKey)?.status).toBe('error');
+
+    const section = new QueryObserver(client, { queryKey, queryFn });
+    const stop = section.subscribe(() => {});
+    const accounts = section.getCurrentResult();
+
+    expect(calls).toBe(2);
+    expect(accounts.isPending).toBe(true);
+    expect(isHomeLoading({ isGuest: false, reads: [accounts, ...reads('answered', 'answered', 'answered')] })).toBe(false);
+    stop();
   });
 });

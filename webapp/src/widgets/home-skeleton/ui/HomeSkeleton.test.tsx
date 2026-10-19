@@ -1,6 +1,9 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { HomeSkeletonView } from './HomeSkeleton';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { signInForStaticRender } from '@/entities/user/model/staticRenderUser';
+import { homeLoadingClock, SLOW_LOADING_AFTER_MS } from '../model/slowLoading';
+import { HomeSkeleton, HomeSkeletonView } from './HomeSkeleton';
 
 /**
  * FT-112, boards «Загрузка», «Загрузка дольше обычного», «Загрузка · тёмная» and Skeleton.md: Home opens
@@ -11,6 +14,19 @@ import { HomeSkeletonView } from './HomeSkeleton';
 const view = (slow: boolean) => renderToStaticMarkup(<HomeSkeletonView slow={slow} onRetry={() => {}} />);
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
 const RETRY = /<button[^>]*>Попробовать снова<\/button>/;
+
+/** The markup inside the `aria-busy` container (a div), up to its closing tag. */
+function busyRegion(html: string): string {
+  const start = html.indexOf('aria-busy="true"');
+  const tags = /<div[\s>]|<\/div>/g;
+  tags.lastIndex = start;
+  let depth = 1;
+  for (let tag = tags.exec(html); tag; tag = tags.exec(html)) {
+    depth += tag[0] === '</div>' ? -1 : 1;
+    if (depth === 0) return html.slice(start, tag.index);
+  }
+  throw new Error('the busy container is not closed');
+}
 
 /** Every class list in the markup that animates something. */
 const animated = (html: string) =>
@@ -35,9 +51,45 @@ describe('Home while it loads', () => {
     // The balance card keeps the colour of the real one: `primary`, its stripes `hero-track`
     expect(html).toMatch(/rounded-hero bg-primary/);
     expect(html).toMatch(/bg-hero-track/);
-    // The tiles keep the corners of the real ones (24px), not a pill
-    expect(html.match(/class="[^"]*rounded-card[^"]*h-\[82px\]/g)).toHaveLength(2);
+    // The tiles keep the corners of the real ones (24px), not a pill, and their height (80px)
+    expect(html.match(/class="[^"]*rounded-card[^"]*h-20"/g)).toHaveLength(2);
     expect(html.match(/<li[\s>]/g)).toHaveLength(4);
+  });
+
+  it('draws Home’s capture card at its height between the tiles and the records, as Home has it until FT-114', () => {
+    const html = view(false);
+    const tiles = html.indexOf('h-20"');
+    const capture = html.indexOf('h-[308px]');
+    const records = html.indexOf('<ul');
+
+    expect(capture).toBeGreaterThan(-1);
+    expect(html).toMatch(/class="[^"]*h-\[308px\][^"]*rounded-card bg-card/);
+    expect(tiles).toBeLessThan(capture);
+    expect(capture).toBeLessThan(records);
+  });
+
+  it('draws no composer at the bottom: Home has none until FT-114, so nothing there would vanish', () => {
+    // The composer's input is as tall as the main button (`h-button`); its quick chips are pills at the bottom
+    expect(view(false)).not.toMatch(/h-button/);
+  });
+
+  it('puts the records where Home puts them: under a heading row and a day line', () => {
+    const html = view(false);
+
+    expect(html).toMatch(/<span class="flex h-touch items-center"><span[^>]*h-5 w-\[200px\]/);
+    expect(html).toMatch(/<span class="flex h-\[18px\] items-center">.*?<\/span><\/span><ul/);
+  });
+
+  it('says it is loading under the shapes in the label style', () => {
+    expect(view(false)).toMatch(/<p[^>]*class="type-label[^"]*text-ink-muted"[^>]*>Загружаю ваши счета и записи…<\/p>/);
+  });
+
+  it('keeps the status line out of the busy shapes, so a screen reader announces it', () => {
+    const html = view(false);
+
+    expect(html).toMatch(/role="status"/);
+    expect(busyRegion(html)).toContain('daftar');
+    expect(busyRegion(html)).not.toMatch(/role="status"/);
   });
 
   it('has no spinner in the middle', () => {
@@ -71,6 +123,13 @@ describe('Home that loads longer than usual', () => {
     expect(html).toMatch(/aria-busy="true"/);
   });
 
+  it('keeps the message and the button out of the busy shapes, so they are announced and can be pressed', () => {
+    const region = busyRegion(view(true));
+
+    expect(region).not.toContain('Попробовать снова');
+    expect(region).not.toContain('Дольше обычного');
+  });
+
   it('offers «Попробовать снова» as the main full-width button', () => {
     const button = view(true).match(RETRY)?.[0];
 
@@ -85,5 +144,56 @@ describe('Home that loads longer than usual', () => {
 
   it('shortens the list so the message and the button fit', () => {
     expect(view(true).match(/<li[\s>]/g)).toHaveLength(3);
+  });
+});
+
+describe('the slow message of a loading that has taken six seconds', () => {
+  let signOut = () => {};
+  const T0 = new Date('2026-10-19T09:00:00Z').getTime();
+
+  /** HomeSkeleton as it renders once the shared clock of Home's loading has counted six seconds. */
+  function sixSecondsLater(): string {
+    vi.useFakeTimers({ now: T0 });
+    homeLoadingClock.show();
+    vi.setSystemTime(T0 + SLOW_LOADING_AFTER_MS);
+    const client = new QueryClient();
+    return renderToStaticMarkup(
+      <QueryClientProvider client={client}>
+        <HomeSkeleton />
+      </QueryClientProvider>
+    );
+  }
+
+  afterEach(async () => {
+    homeLoadingClock.hide();
+    await Promise.resolve();
+    vi.useRealTimers();
+    signOut();
+  });
+
+  it('comes to a Telegram user: their records are kept on the server', () => {
+    signOut = signInForStaticRender({ userId: '900000001', userType: 'telegram' });
+
+    const html = sixSecondsLater();
+
+    expect(text(html)).toContain('Записи не пропадут: они хранятся на сервере.');
+    expect(html).toMatch(RETRY);
+  });
+
+  it('does not come to a guest: their records are on the device, and the server would be a false promise', () => {
+    signOut = signInForStaticRender({ userId: 'guest_1', userType: 'guest' });
+
+    const html = sixSecondsLater();
+
+    expect(text(html)).not.toContain('хранятся на сервере');
+    expect(html).not.toMatch(RETRY);
+    expect(text(html)).toContain('Загружаю ваши счета и записи…');
+  });
+
+  it('does not come while it is not known yet who the user is: they may turn out to be a guest', () => {
+    const html = sixSecondsLater();
+
+    expect(text(html)).not.toContain('хранятся на сервере');
+    expect(html).not.toMatch(RETRY);
   });
 });

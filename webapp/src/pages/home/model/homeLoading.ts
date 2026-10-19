@@ -9,18 +9,27 @@ import { RECENT_LIMIT } from '@/widgets/recent-transactions';
 export interface HomeRead {
   /** The read runs for this user (guests have no server balances or totals). */
   isEnabled: boolean;
-  /** No answer yet: neither data nor a failure. */
+  /**
+   * No data: on its way for the first time, or asked again after a failure (a failed read with no data is
+   * pending again while it is asked again).
+   */
   isPending: boolean;
+  /** It has answered at least once, with data or with a failure; stays so while it is asked again. */
+  isFetched: boolean;
 }
 
 /**
- * Whether Home is still its skeleton (FT-112): until each of its first reads has answered — with data, or
- * with a failure its section reports with «Попробовать снова» — so Home does not appear piece by piece.
- * Guests read their records on the device at once, and the skeleton's slow message promises records kept
- * on the server, so guests never get it.
+ * Whether Home is still its skeleton (FT-112): until each of its first reads has answered once — with data,
+ * or with a failure its section reports with «Попробовать снова» — so Home does not appear piece by piece.
+ *
+ * Answered once is enough: a failed read with no data is pending again as soon as Home's sections mount and
+ * TanStack asks it again (retryOnMount). Waiting for that answer too would swap Home back to the skeleton,
+ * unmount the sections and ask again without end, and the section's error would never show.
+ *
+ * Guests read their records on the device at once, so Home does not wait for them.
  */
 export function isHomeLoading({ isGuest, reads }: { isGuest: boolean; reads: readonly HomeRead[] }): boolean {
-  return !isGuest && reads.some((read) => read.isEnabled && read.isPending);
+  return !isGuest && reads.some((read) => read.isEnabled && read.isPending && !read.isFetched);
 }
 
 /**
