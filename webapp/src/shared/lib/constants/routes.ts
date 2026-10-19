@@ -31,6 +31,19 @@ export const API_ENDPOINTS = {
     LIST: '/categories',
   },
 
+  // The user's settings (FT-098): theme, notifications, whether the first launch is done
+  SETTINGS: '/settings',
+
+  // Accounts (FT-101); the first launch sets their opening balances (FT-109)
+  ACCOUNTS: {
+    OPENING_BALANCES: '/accounts/opening-balances',
+  },
+
+  // USD rate in effect for the user: own or the Central Bank's (FT-102)
+  RATES: {
+    USD: '/rates/usd',
+  },
+
   // Transactions
   TRANSACTIONS: {
     LIST: (userId: string) => `/transactions/user/${userId}`,

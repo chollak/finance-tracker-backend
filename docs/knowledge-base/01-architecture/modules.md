@@ -31,6 +31,7 @@ graph TD
     TM -.->|setCategoryResolver| CM
     TM -.->|setAccountResolver| AM
     AM -.->|default account| UM
+    AM -.->|first launch done: onboardedAt| UM
     AM -.->|setRateProvider| FM
     FM -.->|own rate in settings| UM
     VM -.->|categories for the prompt| CM
@@ -353,6 +354,7 @@ new ProcessVoiceInputUseCase(
 - `ListAccountsUseCase`, `CreateAccountUseCase`, `UpdateAccountUseCase` — `GET/POST /api/accounts`, `PATCH /api/accounts/:id`.
 - Перемещения (FT-104, таблица `account_moves`): `CreateMoveUseCase` (перевод, обмен с курсом сделки и курсом ЦБ на дату через порт `CbuRateOnDate`, корректировка до введённого остатка), `SetMoveDeletedUseCase` (мягкое удаление и восстановление) — `POST /api/moves`, `DELETE /api/moves/:id`, `POST /api/moves/:id/restore`. Перемещения — не записи, поэтому в аналитику не попадают.
 - `GetAccountOperationsUseCase` — `GET /api/accounts/:id/operations`: записи счёта (через порт `AccountRecordSource`, его даёт TransactionModule) и перемещения по дням.
+- `CompleteFirstLaunchUseCase` (FT-109) — `POST /api/accounts/opening-balances`: наличные, карта и доллары становятся начальными остатками «Наличных», «Карты» и «Долларов» с датой сегодня (существующий счёт той же валюты переиспользуется, недостающий создаётся), затем ставится `onboardedAt`. Готов ли первый запуск — через порт `FirstLaunchProgress`; его реализует UserModule (`onboardedAt`, `markOnboarded`), подставляется в `createAccountRoutes`.
 
 ---
 

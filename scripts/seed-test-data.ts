@@ -3,7 +3,7 @@
  * matches the current schema and rules (categories, accounts, money in minor units, moves).
  *
  * Creates, for the user with telegramId 900000001 (numeric, so `X-Dev-User-Id: 900000001` opens it):
- * - accounts «Карта», «Наличные» and «Доллары» with opening balances 30 days ago;
+ * - accounts «Карта», «Наличные» and «Доллары» with opening balances 30 days ago, first launch done (FT-109);
  * - ~50 records over the last 30 days in the starter categories, a few of them in dollars;
  * - a transfer «Карта → Наличные» and an exchange «Доллары → Карта».
  *
@@ -18,6 +18,8 @@ import path from 'path';
 import { createAppDataSource, DATABASE_FILE } from '../src/shared/infrastructure/database/database.config';
 import { runMigrationsWithBackup } from '../src/shared/infrastructure/database/migrationRunner';
 import { SqliteUserRepository } from '../src/modules/user/infrastructure/persistence/SqliteUserRepository';
+import { SqliteUserSettingsRepository } from '../src/modules/user/infrastructure/persistence/SqliteUserSettingsRepository';
+import { defaultUserSettings } from '../src/modules/user/domain/userSettings';
 import { SqliteTransactionRepository } from '../src/modules/transaction/infrastructure/persistence/SqliteTransactionRepository';
 import { CreateTransactionUseCase } from '../src/modules/transaction/application/createTransaction';
 import { CategoryCatalog } from '../src/modules/category/application/categoryCatalog';
@@ -95,7 +97,10 @@ async function seed() {
     await dataSource.query(`UPDATE accounts SET opening_date = ?, opening_balance_minor = ? WHERE id = ?`, [opened, 5_000_000_00, card.id]);
     const cash = await account('Наличные', 'cash', 'UZS', 1_500_000_00);
     const dollars = await account('Доллары', 'cash', 'USD', 500_00);
-    console.log('👛 Accounts: Карта, Наличные, Доллары\n');
+    // The opening balances above are what the first launch (FT-109) sets: the user has been through it
+    const settings = new SqliteUserSettingsRepository(dataSource);
+    await settings.upsert({ ...defaultUserSettings(user.id), onboardedAt: new Date(`${opened}T09:00:00+05:00`).toISOString() });
+    console.log('👛 Accounts: Карта, Наличные, Доллары (first launch done)\n');
 
     const repository = new SqliteTransactionRepository(dataSource);
     const create = new CreateTransactionUseCase(repository, new CategoryCatalog(new SqliteCategoryRepository(dataSource)), accounts.getBook());

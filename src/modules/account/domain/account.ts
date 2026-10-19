@@ -51,7 +51,12 @@ export function accountNameKey(name: string): string {
  * Accounts made by the FT-101 migration keep their random ids.
  */
 export function starterAccountId(userId: string): string {
-  const hex = createHash('sha256').update(`starter-account:${userId}`).digest('hex');
+  return uuidFrom(`starter-account:${userId}`);
+}
+
+/** A uuid-shaped id derived from the seed: the same seed always gives the same id. */
+export function uuidFrom(seed: string): string {
+  const hex = createHash('sha256').update(seed).digest('hex');
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
 }
 

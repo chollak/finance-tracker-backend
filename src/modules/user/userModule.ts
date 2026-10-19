@@ -75,6 +75,20 @@ export class UserModule {
     });
   }
 
+  /** When the user completed the first launch (FT-109), or null while it is pending. */
+  async onboardedAt(userId: string): Promise<string | null> {
+    if (!this.settingsRepository) throw new Error('UserModule was created without a settings repository');
+    const stored = await this.settingsRepository.findByUserId(userId);
+    return stored?.onboardedAt ?? null;
+  }
+
+  /** Mark the first launch done; the first-launch screen is no longer shown. */
+  async markOnboarded(userId: string, at: string): Promise<void> {
+    if (!this.settingsRepository) throw new Error('UserModule was created without a settings repository');
+    const current = (await this.settingsRepository.findByUserId(userId)) ?? defaultUserSettings(userId);
+    await this.settingsRepository.upsert({ ...current, onboardedAt: at });
+  }
+
   /** The user's default account from settings, or null. */
   async defaultAccountId(userId: string): Promise<string | null> {
     if (!this.getUserSettingsUseCase) return null;

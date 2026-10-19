@@ -6,12 +6,15 @@ import { AccountBook, DefaultAccountSource } from './application/accountBook';
 import { CreateAccountUseCase, ListAccountsUseCase, UpdateAccountUseCase } from './application/accountUseCases';
 import { CreateMoveUseCase, SetMoveDeletedUseCase } from './application/accountMoveUseCases';
 import { GetAccountOperationsUseCase } from './application/accountOperations';
+import { CompleteFirstLaunchUseCase } from './application/firstLaunchUseCase';
+import { FirstLaunchProgress } from './domain/firstLaunch';
 import { RepositoryFactory } from '../../shared/infrastructure/database/repositoryFactory';
 
 /**
  * Accounts (FT-101): balances computed on read, the total in сум, the account of every new record.
  * The book is the account resolver of the transaction module. Moves between accounts (FT-104):
- * transfers, exchanges, adjustments, and the operations of one account.
+ * transfers, exchanges, adjustments, and the operations of one account. The first launch (FT-109) sets
+ * the opening balances.
  */
 export class AccountModule {
   private book: AccountBook;
@@ -71,5 +74,10 @@ export class AccountModule {
 
   getAccountOperationsUseCase(): GetAccountOperationsUseCase {
     return this.operations;
+  }
+
+  /** First launch (FT-109): opening balances dated today; whether it is done lives in the user's settings. */
+  getCompleteFirstLaunchUseCase(progress: FirstLaunchProgress): CompleteFirstLaunchUseCase {
+    return new CompleteFirstLaunchUseCase(this.book, this.repository, progress);
   }
 }

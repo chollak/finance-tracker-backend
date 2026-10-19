@@ -4,6 +4,7 @@ import { Button } from '@/shared/ui/button';
 import { EmptyState } from '@/shared/ui/empty-state';
 import { Loading } from '@/shared/ui/loading';
 import { Layout } from '@/shared/ui/layout';
+import { FirstLaunchGate } from './FirstLaunchGate';
 
 // Lazy load pages for code splitting
 const HomePage = lazy(() => import('@/pages').then(m => ({ default: m.HomePage })));
@@ -85,42 +86,7 @@ function RouterErrorPage() {
 }
 
 export const router = createBrowserRouter([
-  {
-    // Main pages with navigation layout
-    element: <LayoutWrapper />,
-    errorElement: <Layout><RouterErrorPage /></Layout>,
-    children: [
-      {
-        path: '/',
-        element: <PageLoader><HomePage /></PageLoader>,
-      },
-      {
-        path: '/transactions',
-        element: <PageLoader><TransactionsPage /></PageLoader>,
-      },
-      {
-        path: '/budgets',
-        element: <PageLoader><BudgetsPage /></PageLoader>,
-      },
-      {
-        path: '/debts',
-        element: <PageLoader><DebtsPage /></PageLoader>,
-      },
-      {
-        path: '/analytics',
-        element: <PageLoader><AnalyticsPage /></PageLoader>,
-      },
-      {
-        path: '/more',
-        element: <PageLoader><MorePage /></PageLoader>,
-      },
-      {
-        path: '*',
-        element: <NotFoundPage />,
-      },
-    ],
-  },
-  // Form pages without navigation layout (have their own back button)
+  // Showcase and device checks: outside the first launch, not linked from the app
   {
     path: '/dev/pastel',
     element: <PageLoader><PastelShowcasePage /></PageLoader>,
@@ -130,28 +96,70 @@ export const router = createBrowserRouter([
     element: <PageLoader><VoiceCheckPage /></PageLoader>,
   },
   {
-    path: '/transactions/add',
-    element: <PageLoader><AddTransactionPage /></PageLoader>,
-  },
-  {
-    path: '/transactions/:id/edit',
-    element: <PageLoader><EditTransactionPage /></PageLoader>,
-  },
-  {
-    path: '/budgets/add',
-    element: <PageLoader><AddBudgetPage /></PageLoader>,
-  },
-  {
-    path: '/budgets/:id/edit',
-    element: <PageLoader><EditBudgetPage /></PageLoader>,
-  },
-  {
-    path: '/debts/add',
-    element: <PageLoader><AddDebtPage /></PageLoader>,
-  },
-  {
-    path: '/debts/:id',
-    element: <PageLoader><DebtDetailsPage /></PageLoader>,
+    // Every app screen opens only after the first launch (FT-109)
+    element: <FirstLaunchGate />,
+    children: [
+      {
+        // Main pages with navigation layout
+        element: <LayoutWrapper />,
+        errorElement: <Layout><RouterErrorPage /></Layout>,
+        children: [
+          {
+            path: '/',
+            element: <PageLoader><HomePage /></PageLoader>,
+          },
+          {
+            path: '/transactions',
+            element: <PageLoader><TransactionsPage /></PageLoader>,
+          },
+          {
+            path: '/budgets',
+            element: <PageLoader><BudgetsPage /></PageLoader>,
+          },
+          {
+            path: '/debts',
+            element: <PageLoader><DebtsPage /></PageLoader>,
+          },
+          {
+            path: '/analytics',
+            element: <PageLoader><AnalyticsPage /></PageLoader>,
+          },
+          {
+            path: '/more',
+            element: <PageLoader><MorePage /></PageLoader>,
+          },
+          {
+            path: '*',
+            element: <NotFoundPage />,
+          },
+        ],
+      },
+      // Form pages without navigation layout (have their own back button)
+      {
+        path: '/transactions/add',
+        element: <PageLoader><AddTransactionPage /></PageLoader>,
+      },
+      {
+        path: '/transactions/:id/edit',
+        element: <PageLoader><EditTransactionPage /></PageLoader>,
+      },
+      {
+        path: '/budgets/add',
+        element: <PageLoader><AddBudgetPage /></PageLoader>,
+      },
+      {
+        path: '/budgets/:id/edit',
+        element: <PageLoader><EditBudgetPage /></PageLoader>,
+      },
+      {
+        path: '/debts/add',
+        element: <PageLoader><AddDebtPage /></PageLoader>,
+      },
+      {
+        path: '/debts/:id',
+        element: <PageLoader><DebtDetailsPage /></PageLoader>,
+      },
+    ],
   },
 ]);
 

@@ -5,3 +5,5 @@ export * from './debt';
 export * from './category';
 export * from './user';
 export * from './dashboard';
+export * from './settings';
+export * from './rate';

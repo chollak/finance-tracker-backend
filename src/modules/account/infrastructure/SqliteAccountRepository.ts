@@ -2,7 +2,7 @@ import { DataSource, Repository } from 'typeorm';
 import { AppDataSource } from '../../../shared/infrastructure/database/database.config';
 import { Account as AccountEntity } from '../../../shared/infrastructure/database/entities/Account';
 import { Account, isAccountKind, isCurrency } from '../domain/account';
-import { AccountRepository } from '../domain/accountRepository';
+import { AccountChanges, AccountRepository } from '../domain/accountRepository';
 
 export class SqliteAccountRepository implements AccountRepository {
   private repository: Repository<AccountEntity>;
@@ -29,10 +29,7 @@ export class SqliteAccountRepository implements AccountRepository {
     return created;
   }
 
-  async update(
-    id: string,
-    changes: Partial<Pick<Account, 'name' | 'kind' | 'currency' | 'isHidden' | 'sortOrder'>>
-  ): Promise<Account> {
+  async update(id: string, changes: AccountChanges): Promise<Account> {
     if (Object.keys(changes).length > 0) await this.repository.update(id, changes);
     const updated = await this.findById(id);
     if (!updated) throw new Error(`Account ${id} not found after update`);
