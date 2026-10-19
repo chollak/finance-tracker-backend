@@ -1,6 +1,6 @@
 import { Markup } from 'telegraf';
 import { RU } from '../i18n/ru';
-import { createWebAppUrl, isWebAppConfigured } from '../utils/webAppUrl';
+import { createWebAppUrl, isWebAppConfigured, WEB_APP_PATHS } from '../utils/webAppUrl';
 
 /**
  * Creates main menu keyboard for /start command
@@ -12,9 +12,9 @@ export function mainMenuKeyboard(userId: string) {
 
   try {
     const homeUrl = createWebAppUrl(userId);
-    const addUrl = createWebAppUrl(userId, { path: 'transactions/add' });
-    const transactionsUrl = createWebAppUrl(userId, { path: 'transactions' });
-    const analyticsUrl = createWebAppUrl(userId, { path: 'analytics' });
+    const addUrl = createWebAppUrl(userId, { path: WEB_APP_PATHS.manualEntry });
+    const transactionsUrl = createWebAppUrl(userId, { path: WEB_APP_PATHS.transactions });
+    const analyticsUrl = createWebAppUrl(userId, { path: WEB_APP_PATHS.analytics });
 
     return Markup.inlineKeyboard([
       [Markup.button.webApp(`📊 ${RU.welcome.openApp}`, homeUrl)],
@@ -38,7 +38,7 @@ export function statsKeyboard(userId: string) {
   }
 
   try {
-    const url = createWebAppUrl(userId, { path: 'analytics' });
+    const url = createWebAppUrl(userId, { path: WEB_APP_PATHS.analytics });
     return Markup.inlineKeyboard([
       [Markup.button.webApp(`📊 ${RU.buttons.moreStats}`, url)],
     ]);
@@ -56,7 +56,7 @@ export function budgetKeyboard(userId: string, hasBudgets: boolean) {
   }
 
   try {
-    const url = createWebAppUrl(userId, { path: 'budgets' });
+    const url = createWebAppUrl(userId, { path: WEB_APP_PATHS.budgets });
     const buttonText = hasBudgets ? RU.buttons.allBudgets : RU.buttons.createBudget;
     return Markup.inlineKeyboard([
       [Markup.button.webApp(`💰 ${buttonText}`, url)],
@@ -75,7 +75,7 @@ export function todayKeyboard(userId: string) {
   }
 
   try {
-    const url = createWebAppUrl(userId, { path: 'transactions' });
+    const url = createWebAppUrl(userId, { path: WEB_APP_PATHS.transactions });
     return Markup.inlineKeyboard([
       [Markup.button.webApp(`📊 ${RU.buttons.viewAll}`, url)],
     ]);

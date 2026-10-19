@@ -1,7 +1,7 @@
 import { Markup } from 'telegraf';
 import { InlineKeyboardButton } from 'telegraf/types';
 import { RU } from '../i18n/ru';
-import { createWebAppUrl, isWebAppConfigured } from '../utils/webAppUrl';
+import { createWebAppUrl, isWebAppConfigured, WEB_APP_PATHS } from '../utils/webAppUrl';
 
 type InlineButton = InlineKeyboardButton.CallbackButton | InlineKeyboardButton.WebAppButton;
 
@@ -46,8 +46,8 @@ export function transactionAutoSavedKeyboard(transactionId: string, userId: stri
   // Add focused daily-use Web App buttons if configured
   if (isWebAppConfigured()) {
     try {
-      const transactionsUrl = createWebAppUrl(userId, { path: 'transactions' });
-      const addUrl = createWebAppUrl(userId, { path: 'transactions/add' });
+      const transactionsUrl = createWebAppUrl(userId, { path: WEB_APP_PATHS.transactions });
+      const addUrl = createWebAppUrl(userId, { path: WEB_APP_PATHS.manualEntry });
       buttons.push([
         Markup.button.webApp(`🧾 ${RU.buttons.viewAll}`, transactionsUrl),
         Markup.button.webApp(`➕ ${RU.buttons.addTransaction}`, addUrl),

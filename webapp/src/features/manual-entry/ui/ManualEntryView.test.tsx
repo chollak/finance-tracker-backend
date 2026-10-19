@@ -79,6 +79,19 @@ const tags = (html: string, pattern: RegExp) => [...html.matchAll(pattern)].map(
 const buttonWith = (html: string, label: string) =>
   tags(html, /<button[^>]*>(?:(?!<\/button>).)*<\/button>/gs).find((tag) => text(tag).includes(label));
 
+/** The element that opens at `start` in the markup, through its matching closing tag. */
+function elementFrom(html: string, start: number): string {
+  const name = /^<(\w+)/.exec(html.slice(start))?.[1] ?? 'div';
+  const pattern = new RegExp(`<${name}[\\s>]|</${name}>`, 'g');
+  pattern.lastIndex = start;
+  let depth = 0;
+  for (let match = pattern.exec(html); match; match = pattern.exec(html)) {
+    depth += match[0].startsWith('</') ? -1 : 1;
+    if (depth === 0) return html.slice(start, match.index + match[0].length);
+  }
+  return html.slice(start);
+}
+
 describe('header', () => {
   it('has «Назад», «Расход / Доход» with the type pressed, and the date', () => {
     const html = render(BOARD);
@@ -187,5 +200,33 @@ describe('while the lists are read or could not be read', () => {
 
     expect(text(html)).toContain('Не получилось загрузить категории');
     expect(buttonWith(html, 'Попробовать снова')).toBeDefined();
+  });
+});
+
+describe('more categories and accounts than the board has (users add their own)', () => {
+  const MORE_CATEGORIES: Category[] = [
+    ...CATEGORIES,
+    ...['Спорт', 'Кофе с собой', 'Подарки', 'Дети'].map((name, index): Category => ({
+      id: `own-${index}`, type: 'expense', name, color: 'mint', isHidden: false, isOther: false, sortOrder: 100 + index * 10, presetKey: null,
+    })),
+  ];
+  const MORE_ACCOUNTS = [...ACCOUNTS, account({ id: 'savings', name: 'Копилка', sortOrder: 40 })];
+
+  it('only the lists scroll: the amount, the keypad and the main button stay on the one screen', () => {
+    const html = render(BOARD, { model: manualEntryModel(BOARD, { ...CONTEXT, accounts: MORE_ACCOUNTS, categories: MORE_CATEGORIES }) });
+    const lists = elementFrom(html, html.search(/<div class="[^"]*\boverflow-y-auto\b/));
+
+    // The screen is exactly one viewport tall instead of growing past it
+    expect(html).toMatch(/^<div class="[^"]*\bh-\[calc\(100dvh-env\(safe-area-inset-bottom\)\)\]/);
+    expect(html).not.toMatch(/min-h-dvh/);
+
+    expect(lists).toMatch(/aria-label="Счёт"/);
+    expect(lists).toMatch(/aria-label="Категория расхода"/);
+    expect(tags(lists, /role="radio"/g)).toHaveLength(MORE_ACCOUNTS.length + MORE_CATEGORIES.length);
+    expect(lists).toContain('Заметка');
+
+    expect(lists).not.toMatch(/aria-label="Сумма"/);
+    expect(lists).not.toMatch(/aria-label="Три нуля"/);
+    expect(text(lists)).not.toContain('Сохранить расход');
   });
 });

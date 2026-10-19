@@ -66,7 +66,7 @@ After creating a transaction, you'll see buttons:
 - Search by description or category
 - Filter by type (Income/Expense) or specific categories
 - Edit any transaction via `/transactions/:id/edit`
-- Add a transaction via `/transactions/add`
+- Add a transaction via `/add` (manual entry with the app's own keypad)
 - Delete transactions with confirmation
 - Auto-grouped by date (Today, Yesterday, This Week, Earlier)
 

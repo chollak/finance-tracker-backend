@@ -46,7 +46,7 @@ The production build is emitted to `../public/webapp/` and served by the Express
 |---|---|
 | `/` | Home |
 | `/transactions` | Transactions list |
-| `/transactions/add` | Add transaction |
+| `/add` | Manual entry (keypad, account, category, date) |
 | `/transactions/:id/edit` | Edit transaction |
 | `/budgets` | Budgets list |
 | `/budgets/add` | Add budget |

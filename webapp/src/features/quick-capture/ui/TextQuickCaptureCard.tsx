@@ -295,8 +295,11 @@ export function TextQuickCaptureCard({ className }: TextQuickCaptureCardProps) {
                 className="block w-full resize-none rounded-t-2xl bg-transparent px-4 pb-1 pt-3 text-base leading-snug outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed"
               />
               <div className="flex items-center justify-between gap-2 px-3 pb-3">
-                {/* The format claim belongs next to the input it describes, not in a header. */}
-                <p className="min-w-0 flex-1 truncate pl-1 text-xs text-muted-foreground">
+                {/*
+                  The format claim belongs next to the input it describes, not in a header. It wraps
+                  rather than truncating: beside «Ввести вручную» and «Записать» the row is narrow.
+                */}
+                <p className="min-w-0 flex-1 pl-1 text-xs leading-tight text-muted-foreground">
                   Одной строкой, как боту
                 </p>
                 <ManualEntryLink />

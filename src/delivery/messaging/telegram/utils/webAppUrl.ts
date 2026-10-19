@@ -1,8 +1,24 @@
 import { AppConfig } from '../../../../shared/infrastructure/config/appConfig';
 
+/**
+ * The Mini App screens the bot opens, as paths without the leading slash. Each one must be a route of
+ * the webapp (`webapp/src/shared/lib/constants/routes.ts`); `tests/telegramWebAppLinks.test.ts` checks
+ * it, so a renamed screen cannot leave a bot button on «Страница не найдена».
+ */
+export const WEB_APP_PATHS = {
+  /** Manual entry with the keypad (FT-113) */
+  manualEntry: 'add',
+  /** History */
+  transactions: 'transactions',
+  analytics: 'analytics',
+  budgets: 'budgets',
+} as const;
+
+export type WebAppPath = (typeof WEB_APP_PATHS)[keyof typeof WEB_APP_PATHS];
+
 export interface WebAppUrlParams {
   edit?: string;
-  path?: string;
+  path?: WebAppPath;
   startapp?: string;
 }
 

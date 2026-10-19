@@ -67,8 +67,9 @@ React 19, Vite, Tailwind 4 (`@theme inline` в `app/styles/globals.css`), shadcn
 Dexie, react-router 7, recharts, sonner, motion. Feature-Sliced Design: `app`, `pages` (12), `widgets` (11),
 `features` (12), `entities` (7), `shared`. Около 258 файлов, 20 файлов тестов Vitest (только чистые функции).
 
-**Маршруты.** `/` Главная, `/transactions` История, `/transactions/add`, `/transactions/:id/edit`,
-`/budgets…`, `/debts…`, `/analytics`, `/more`. Нижний бар (FT-086): Главная · История · Записать · Ещё.
+**Маршруты.** `/` Главная, `/transactions` История, `/add` ручной ввод (FT-113; `/transactions/add`
+убран), `/transactions/:id/edit`, `/budgets…`, `/debts…`, `/analytics`, `/more`.
+Нижний бар (FT-086): Главная · История · Записать · Ещё.
 `BackButton`/`MainButton` Telegram написаны, но не используются.
 
 **Что переиспользуется при переносе**
