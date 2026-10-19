@@ -8,7 +8,7 @@ import { transactionDataSource } from '@/shared/lib/db';
 import type { LocalTransaction } from '@/shared/lib/db/schema';
 import { isGuestId } from '@/shared/lib/utils/guestId';
 import { useUserStore } from '@/entities/user';
-import type { PeriodTotals } from '../model/types';
+import type { FrequentRecord, PeriodTotals } from '../model/types';
 
 /**
  * Convert LocalTransaction to Transaction format
@@ -280,6 +280,25 @@ export function usePeriodTotals(range: { from: string; to: string }) {
     queryFn: async (): Promise<PeriodTotals> => {
       const response = await apiClient.get<PeriodTotals>(API_ENDPOINTS.TRANSACTIONS.TOTALS(range));
       return response.data;
+    },
+    enabled: !!userId && userType === 'telegram',
+  });
+}
+
+/**
+ * The user's frequent expenses for the quick chips over the composer (FT-114), by the backend's rule (up to 6
+ * «category + note + amount» of the last 30 days, each written at least 3 times). Guests have no server
+ * records, so the query does not run for them.
+ */
+export function useFrequentRecords() {
+  const userId = useUserStore((state) => state.userId);
+  const userType = useUserStore((state) => state.userType);
+
+  return useQuery({
+    queryKey: transactionKeys.frequent(userId ?? ''),
+    queryFn: async (): Promise<FrequentRecord[]> => {
+      const response = await apiClient.get<{ items: FrequentRecord[] }>(API_ENDPOINTS.TRANSACTIONS.FREQUENT);
+      return response.data?.items ?? [];
     },
     enabled: !!userId && userType === 'telegram',
   });

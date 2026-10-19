@@ -111,8 +111,11 @@ describe('Home header', () => {
     expect(render(<HomePage />, ROUTES.HOME, 'with-records')).not.toMatch(BACK_BUTTON);
   });
 
-  it('keeps the text capture card until FT-114 replaces it', () => {
-    expect(render(<HomePage />, ROUTES.HOME)).toContain('Запишите одной строкой');
+  it('has the composer at the bottom in place of the text capture card (FT-114)', () => {
+    const html = render(<HomePage />, ROUTES.HOME);
+
+    expect(html).toMatch(/role="region" aria-label="Быстрый ввод"/);
+    expect(html).not.toContain('Запишите одной строкой');
   });
 });
 

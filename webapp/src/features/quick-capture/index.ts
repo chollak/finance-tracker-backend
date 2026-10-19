@@ -1,29 +1,29 @@
-// Quick Capture feature barrel — client boundary for POST /api/quick-capture.
+// Quick Capture feature (FT-114): the composer at the bottom of Home — quick chips that write in one tap and
+// a field whose text goes to POST /api/quick-capture — and the review of the records a phrase made.
 // Contract: docs/QUICK_CAPTURE_API.md
+
+export { Composer } from './ui/Composer';
+export { ComposerView, type ComposerViewProps } from './ui/ComposerView';
+export { CaptureReview } from './ui/CaptureReview';
+export { CaptureReviewView, type CaptureReviewViewProps } from './ui/CaptureReviewView';
 
 export { useQuickCapture, CaptureTextError } from './api/mutations';
 export type { QuickCaptureInput } from './api/mutations';
 export { quickCaptureInvalidationKeys } from './api/invalidation';
+export { useCaptureStore } from './model/captureStore';
 
-export { TextQuickCaptureCard } from './ui/TextQuickCaptureCard';
+export { STARTER_CHIPS, quickChips, type QuickChip, type QuickChipRecord } from './model/quickChips';
+export {
+  reviewSessionFrom,
+  reviewModel,
+  type ReviewContext,
+  type ReviewItem,
+  type ReviewModel,
+  type ReviewSession,
+} from './model/captureReview';
 
 export { toCaptureFeedback } from './model/toCaptureFeedback';
 export type { CaptureFeedback, CaptureFeedbackTone } from './model/toCaptureFeedback';
-export { toCaptureErrorFeedback } from './model/toCaptureErrorFeedback';
-export type { CaptureErrorFeedback } from './model/toCaptureErrorFeedback';
-export { toCaptureActionHint } from './model/toCaptureActionHint';
-export { CAPTURE_EXAMPLES } from './model/captureExamples';
-export type { CaptureExample } from './model/captureExamples';
-export {
-  CAPTURE_ACTIONS,
-  captureActionAccessibleLabel,
-  captureActionHintFor,
-  nextActiveCaptureAction,
-} from './model/captureActions';
-export type { CaptureAction, CaptureActionId } from './model/captureActions';
-export { toCaptureOfflineNotice, readOnlineStatus } from './model/toCaptureOfflineNotice';
-export type { CaptureOfflineNotice } from './model/toCaptureOfflineNotice';
-export { useIsOnline } from './model/useIsOnline';
 export {
   validateCaptureText,
   captureTextRejectionMessage,
@@ -33,6 +33,7 @@ export type { CaptureTextValidation, CaptureTextRejection } from './model/valida
 
 export type {
   CaptureSource,
+  CaptureAssumption,
   QuickCaptureStatus,
   QuickCaptureRequest,
   QuickCaptureResult,
@@ -40,7 +41,7 @@ export type {
   CapturedDebt,
   CaptureAck,
   CaptureAckAction,
-  CaptureReview,
+  CaptureReview as CaptureReviewReasons,
   CaptureReviewReason,
 } from './model/types';
 export { CAPTURE_SOURCES } from './model/types';

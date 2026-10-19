@@ -208,6 +208,48 @@ export async function deleteTransaction(queryClient: QueryClient, variables: { i
 }
 
 /**
+ * Brings a deleted record back (FT-105: `POST /api/transactions/:id/restore`) and refreshes what counts it.
+ * Not a hook, like `deleteTransaction`: «Отменить» in a toast runs it. Server records only.
+ */
+export async function restoreTransaction(queryClient: QueryClient, { id, userId }: { id: string; userId: string }): Promise<void> {
+  await apiClient.post(API_ENDPOINTS.TRANSACTIONS.RESTORE(id));
+  refetchAfterChange(queryClient, userId);
+}
+
+/** A change of one field of a saved record, as `PUT /api/transactions/:id` takes it (docs/pastel/api.md). */
+export type TransactionPatch =
+  | { categoryId: string }
+  | { accountId: string; currency: 'UZS' | 'USD' }
+  | { date: string }
+  | { amountMinor: number };
+
+/**
+ * Changes a saved record at once (the AI review of FT-114: category, account, date, a converted amount) and
+ * refreshes what shows it. Server records only: the review follows a server capture.
+ */
+export async function patchTransaction(
+  queryClient: QueryClient,
+  { id, userId, patch }: { id: string; userId: string; patch: TransactionPatch }
+): Promise<void> {
+  await apiClient.put(API_ENDPOINTS.TRANSACTIONS.UPDATE(id), patch);
+  queryClient.removeQueries({ queryKey: transactionKeys.detail(id) });
+  refetchAfterChange(queryClient, userId);
+}
+
+/** Everything a written, changed, deleted or restored record moves; the server computes it. */
+function refetchAfterChange(queryClient: QueryClient, userId: string): void {
+  queryClient.invalidateQueries({ queryKey: transactionKeys.list(userId) });
+  queryClient.invalidateQueries({ queryKey: budgetKeys.summaries(userId) });
+  queryClient.invalidateQueries({ queryKey: dashboardKeys.insights(userId) });
+  invalidateBalanceReaders(queryClient, userId);
+  queryClient.invalidateQueries({ queryKey: dashboardKeys.quickStats(userId) });
+  queryClient.invalidateQueries({ queryKey: transactionKeys.analytics(userId) });
+  queryClient.invalidateQueries({ queryKey: transactionKeys.categorySummary(userId) });
+  queryClient.invalidateQueries({ queryKey: transactionKeys.trends(userId) });
+  queryClient.invalidateQueries({ queryKey: subscriptionKeys.status(userId) });
+}
+
+/**
  * Hook to delete a transaction
  * Guest: IndexedDB, Telegram: Server API
  */

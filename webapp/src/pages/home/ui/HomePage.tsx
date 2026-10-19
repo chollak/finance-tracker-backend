@@ -5,7 +5,7 @@ import { HomeHeader } from '@/widgets/home-header';
 import { HomeSkeleton } from '@/widgets/home-skeleton';
 import { PageShell } from '@/shared/ui';
 import { UndoToast } from '@/shared/ui/pastel';
-import { TextQuickCaptureCard } from '@/features/quick-capture';
+import { Composer } from '@/features/quick-capture';
 import { GuestModeBanner } from '@/features/auth';
 import { useIsGuest } from '@/entities/user';
 import { useHomeLoading } from '../model/homeLoading';
@@ -17,9 +17,10 @@ import { useHomeLoading } from '../model/homeLoading';
  *
  * There is no bottom bar: the header carries the daftar sign and «Ещё», the tiles open Analytics, «Все»
  * over the records opens History, and every other section is in «Ещё» — nothing is further than two taps.
- * The one-line capture card stays between the tiles and the records until FT-114 brings the composer of the
- * boards; its round «Ввести вручную» opens manual entry (FT-113), after which Home shows «Записано». Guests keep records on the device and have no accounts (guest mode goes with FT-128), so they see
- * the capture card and their records only.
+ * The composer is fixed to the bottom (FT-114, Composer.md): quick chips that write in one tap, the field
+ * whose phrase opens the review of its records, «Ввести вручную»; the page leaves room under the records for
+ * it, and «Записано» shows over it. Guests keep records on the device and have no accounts (guest mode goes
+ * with FT-128), so they see the composer and their records only.
  *
  * Until each of its first reads has answered once Home is its skeleton (FT-112), the same one the app opens
  * on; a read that failed is then the business of its section, which says so and reads it again.
@@ -39,7 +40,7 @@ export function HomePage() {
   }
 
   return (
-    <PageShell className="pt-2 md:pt-2">
+    <PageShell className="pt-2 pb-[calc(10rem+env(safe-area-inset-bottom))] md:pt-2">
       {/* For everyone else the balance card's «Всего на счетах» is the screen's heading */}
       {isGuest && <h1 className="sr-only">Главная</h1>}
       <HomeHeader className="mb-4" />
@@ -49,15 +50,13 @@ export function HomePage() {
       <div className="flex flex-col gap-4">
         {!isGuest && <BalanceCard />}
         {!isGuest && <SummaryTiles />}
-
-        {/* Quick Capture - one line of text through the same boundary the Telegram bot uses */}
-        <TextQuickCaptureCard />
-
         <RecentTransactions />
       </div>
 
-      {/* «Записано» with «Отменить» after a manual entry is saved (FT-113) */}
-      <UndoToast />
+      <Composer />
+
+      {/* «Записано» with «Отменить» over the composer (Toast.md): after a chip, a review, a manual entry */}
+      <UndoToast bottom={160} />
     </PageShell>
   );
 }

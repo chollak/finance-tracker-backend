@@ -68,7 +68,8 @@ Dexie, react-router 7, recharts, sonner, motion. Feature-Sliced Design: `app`, `
 `features` (12), `entities` (7), `shared`. Около 258 файлов, 20 файлов тестов Vitest (только чистые функции).
 
 **Маршруты.** `/` Главная, `/transactions` История, `/add` ручной ввод (FT-113; `/transactions/add`
-убран), `/transactions/:id/edit`, `/budgets…`, `/debts…`, `/analytics`, `/more`.
+убран), `/review` проверка записей фразы (FT-114), `/transactions/:id/edit`, `/budgets…`, `/debts…`, `/analytics`,
+`/more`.
 Нижний бар (FT-086): Главная · История · Записать · Ещё.
 `BackButton`/`MainButton` Telegram написаны, но не используются.
 
@@ -76,7 +77,8 @@ Dexie, react-router 7, recharts, sonner, motion. Feature-Sliced Design: `app`, `
 
 - `shared/api/client.ts` — клиент с `Authorization: tma <initData>`.
 - `entities/*/api` — запросы и мутации React Query, ключи кэша, `toViewModel`.
-- `features/quick-capture` — отправка текста, разбор ответа (`toCaptureFeedback`, ошибки, офлайн-заметка).
+- `features/quick-capture` — отправка текста, разбор ответа (`toCaptureFeedback`); с FT-114 там же `Composer`,
+  чипы частых трат и экран проверки записей `/review`.
 - `entities/transaction/lib` — группировка по дням, подписи строк.
 - `shared/lib/formatters`, `plural.ts`, `haptic.ts`, `captureFocus.ts`.
 - `useUserStore` (zustand), `shared/hooks/useTelegram.ts`.

@@ -9,6 +9,8 @@ export const transactionKeys = {
     limit === undefined
       ? ([...transactionKeys.list(userId), 'recent'] as const)
       : ([...transactionKeys.list(userId), 'recent', limit] as const),
+  // The quick chips' frequent expenses (FT-114): under list(userId), so every change of records refreshes them
+  frequent: (userId: string) => [...transactionKeys.list(userId), 'frequent'] as const,
   // Without a range — every period of the user, for invalidation
   totals: (userId: string, range?: { from: string; to: string }) =>
     range

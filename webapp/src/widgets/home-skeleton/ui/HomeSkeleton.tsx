@@ -19,8 +19,8 @@ const ROWS = [
   { title: 'w-[40%]', note: 'w-[45%]' },
 ];
 
-/** The quick examples under the input of the capture card, as wide as the real ones. */
-const EXAMPLES = ['w-[99px]', 'w-[95px]', 'w-[95px]'];
+/** The composer's quick chips at the bottom, as the board draws them. */
+const CHIPS = [0, 1, 2];
 
 export interface HomeSkeletonViewProps {
   /** Six seconds have passed: the message and «Попробовать снова» take the place of the note. */
@@ -33,17 +33,16 @@ export interface HomeSkeletonViewProps {
  * slow flag; `HomeSkeleton` keeps the time. Grey shapes of Home's own layout in Home's own frame (page
  * gutter, 48px header, 16px between sections), so nothing moves when Home comes (Skeleton.md): the daftar
  * sign, the balance card in `primary` with stripes in `hero-track` (lighter in the light theme, darker in the
- * dark one), the two month tiles, the capture card, the heading and the card of records. The shapes pulse
- * (`SkeletonBlock`, still under prefers-reduced-motion); there is no spinner.
+ * dark one), the two month tiles, the heading and the card of records, the composer at the bottom. The shapes
+ * pulse (`SkeletonBlock`, still under prefers-reduced-motion); there is no spinner.
  *
  * Every shape is as tall as what replaces it: the balance card's rows (a 44px header row, the 48px amount,
- * the bar and the line under it), the 80px tiles, the 308px capture card, the 44px row of the records'
- * heading and the day line over the list. The boards put the composer's quick chips and input at the bottom
- * and no capture card; Home keeps the one-line capture card between the tiles and the records until FT-114
- * brings the composer, so the skeleton draws that card and only the note at the bottom, and FT-114 changes
- * both. The board has a «Сум / USD» switch beside «Ещё»; Home's header has none yet (docs/pastel/handoff.md,
- * item 8), so neither has the skeleton. «Записывать без связи» under the slow state comes with the offline
- * mode (FT-129).
+ * the bar and the line under it), the 80px tiles, the 44px row of the records' heading and the day line over
+ * the list. At the bottom, under the note, the composer as Home has it (FT-114): three chips, the 56px field
+ * on `card` and the round button; the slow state puts its message and «Попробовать снова» there instead. The
+ * board has a «Сум / USD» switch beside «Ещё»; Home's header has none yet (docs/pastel/handoff.md, item 8),
+ * so neither has the skeleton. «Записывать без связи» under the slow state comes with the offline mode
+ * (FT-129).
  *
  * Only the shapes are `aria-busy`: the status line and the slow message with its button stay outside, so a
  * screen reader announces them and lets the button be pressed while the shapes still wait.
@@ -87,24 +86,6 @@ export function HomeSkeletonView({ slow, onRetry }: HomeSkeletonViewProps) {
               <SkeletonBlock radius="card" className="h-20" />
             </div>
 
-            {/* The capture card of Home until FT-114: its title, the input, the examples and the three ways in */}
-            <div className="flex h-[308px] flex-col gap-3 rounded-card bg-card p-4">
-              <span className="flex h-5 items-center">
-                <SkeletonBlock className="h-3.5 w-[180px]" />
-              </span>
-              <SkeletonBlock radius="tile" className="h-[118px]" />
-              <span className="flex gap-2 py-1">
-                {EXAMPLES.map((width, index) => (
-                  <SkeletonBlock key={index} className={cn('h-touch shrink-0', width)} />
-                ))}
-              </span>
-              <span className="grid grid-cols-3 gap-2">
-                <SkeletonBlock radius="tile" className="h-12" />
-                <SkeletonBlock radius="tile" className="h-12" />
-                <SkeletonBlock radius="tile" className="h-12" />
-              </span>
-            </div>
-
             <div className="flex flex-col gap-2.5 pt-1">
               <span className="flex h-touch items-center">
                 <SkeletonBlock className="h-5 w-[200px]" />
@@ -134,7 +115,22 @@ export function HomeSkeletonView({ slow, onRetry }: HomeSkeletonViewProps) {
           <p aria-hidden="true" className="type-label mx-1 text-center text-ink-muted">
             {slow ? SLOW_NOTE : LOADING_NOTE}
           </p>
-          {slow && <Button onClick={onRetry}>Попробовать снова</Button>}
+          {slow ? (
+            <Button onClick={onRetry}>Попробовать снова</Button>
+          ) : (
+            // The composer of Home (FT-114): the quick chips, the field and the round button
+            <div aria-hidden="true" className="flex flex-col gap-2.5">
+              <span className="flex gap-2">
+                {CHIPS.map((index) => (
+                  <SkeletonBlock key={index} className="h-touch w-[104px] shrink-0" />
+                ))}
+              </span>
+              <span className="flex gap-2">
+                <SkeletonBlock className="h-button flex-1 rounded-pill bg-card" />
+                <SkeletonBlock className="size-button shrink-0" />
+              </span>
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -18,21 +18,45 @@ export interface QuickCaptureRequest {
   userId: string;
   userName?: string;
   source?: CaptureSource;
+  /** The client's id for this capture (FT-106): a repeat answers with the records of the first one. */
+  clientId?: string;
 }
+
+/**
+ * What the parse took for granted (FT-103): «45» read as 45 000, a category the text does not name, the
+ * account it chose, dollars parked on a сум account.
+ */
+export type CaptureAssumption =
+  | { kind: 'thousands'; written: string; amount: number }
+  | { kind: 'category'; name: string }
+  | { kind: 'account'; name: string; reason: 'hint' | 'default' }
+  | { kind: 'currency'; currency: 'USD'; reason: 'no_usd_account' };
 
 export interface CapturedTransaction {
   id: string;
+  /** In the record's currency, major units. */
   amount: number;
+  /** The same in integer minor units (FT-114). */
+  amountMinor?: number;
+  currency?: 'UZS' | 'USD';
+  accountId?: string;
+  accountName?: string;
+  /** Not on a repeated capture: they are not stored. */
+  assumptions?: CaptureAssumption[];
   type: 'income' | 'expense';
   semanticType: TransactionSemanticType;
-  /** Category id (`"transport"`), not a display name. */
+  /** The current name of the record's category. */
   category: string;
+  /** The user's category (FT-114). */
+  categoryId?: string;
   description?: string;
   merchant?: string;
   date: string;
   confidence?: number;
   needsReview: boolean;
   countsAsRealExpense: boolean;
+  /** Only on a repeated capture whose record was deleted since (FT-106). */
+  deletedAt?: string;
 }
 
 export interface CapturedDebt {
@@ -70,4 +94,6 @@ export interface QuickCaptureResult {
   debts: CapturedDebt[];
   ack: CaptureAck;
   review: CaptureReview;
+  /** A repeated `clientId` (FT-106): nothing new was written. */
+  repeated?: boolean;
 }

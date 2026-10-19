@@ -204,13 +204,15 @@ Everything in `transactions`/`debts` is **already written to the database** by t
 |---|---|---|
 | `id` | `string` | Persisted transaction id. |
 | `amount` | `number` | Always positive; direction is in `type`. In the record's `currency`, major units. |
+| `amountMinor` | `number` | FT-114. The same amount in integer minor units (tiyin, cents), as the review screen computes it. |
 | `currency` | `"UZS" \| "USD"` | FT-103. `USD` when the text says «$», «долл…», «usd»; otherwise `UZS`. |
 | `accountId` | `string` | FT-103. The account the record went to (named in the text, «нал» → cash, «картой» → card, else the default). |
 | `accountName` | `string?` | FT-103. That account's name, for the ack. |
 | `assumptions` | `CaptureAssumption[]` | FT-103. What the parse took for granted: `thousands` («45» read as 45 000), `category` (not named in the text), `account` (`reason: hint \| default`), `currency` (`reason: no_usd_account` — dollars kept on a сум account, record flagged `needsReview`). Shape: [docs/pastel/api.md](pastel/api.md#записи-валюта-и-источник-ft-103). |
 | `type` | `"income" \| "expense"` | |
 | `semanticType` | `TransactionSemanticType` | e.g. `expense`, `income`, `own_transfer`, `saving_deposit`, `cash_withdrawal`. Normalized from `type` when the parser did not set one. |
-| `category` | `string` | The user's category **name** (`"Транспорт"`, `"Кафе"`) since FT-099; the id is on the stored record (`categoryId`). |
+| `category` | `string` | The user's category **name** (`"Транспорт"`, `"Кафе"`) since FT-099. |
+| `categoryId` | `string` | FT-114. The user's category id, the same as the stored record's `categoryId`: the review screen shows and changes the category by it. |
 | `description` | `string?` | |
 | `merchant` | `string?` | |
 | `date` | `string` | As produced by the parser: `YYYY-MM-DD` or a full ISO timestamp. |
@@ -316,6 +318,7 @@ curl -sS -X POST http://localhost:3000/api/quick-capture \
       {
         "id": "tx-1",
         "amount": 18000,
+        "amountMinor": 1800000,
         "currency": "UZS",
         "accountId": "acc-1",
         "accountName": "Карта",
@@ -326,6 +329,7 @@ curl -sS -X POST http://localhost:3000/api/quick-capture \
         "type": "expense",
         "semanticType": "expense",
         "category": "Транспорт",
+        "categoryId": "cat-transport",
         "description": "такси",
         "merchant": "такси",
         "date": "2026-09-02",
@@ -406,17 +410,19 @@ curl -sS -X POST https://<tunnel-host>/api/quick-capture \
 1. **`source` is stored, the Shortcut contract is unchanged.** Since FT-103 every record keeps its `source`; the
    request and the old response fields did not change, the new response fields are additive.
 2. **No parse-without-save / draft.** Every successful capture writes immediately. There is no
-   `/parse` + `/commit` split and no `draft` status; a client confirmation sheet would have to edit or delete an
-   already-saved row.
+   `/parse` + `/commit` split and no `draft` status. The Mini App's review screen (FT-114) therefore edits and
+   deletes already-saved rows: each change is a `PUT /api/transactions/:id`, «×» a soft delete with restore, and
+   «Изменить» / «Назад» delete the capture's rows and return the text to the field.
 3. **Idempotency only with `clientId`.** Since FT-106 a request with a `clientId` is safe to retry; without one a
    retried request still creates duplicate transactions.
 4. **Rate limit is coarse.** The AI limiter is per-IP and its 20/15min budget is *shared* with `/api/voice/*`; it is not
    per-user and cannot be tuned separately for capture.
 5. **No `occurredAt`.** The transaction date comes from the parser/server, so a client cannot backdate a capture through
    this endpoint.
-6. **The Mini App Home quick-capture card calls this endpoint.** Authenticated Telegram Mini App users submit
-   one-line captures through `POST /api/quick-capture`; guest mode keeps data in browser-local IndexedDB, so
-   server-side quick capture is intentionally disabled for guests.
+6. **The Mini App Home composer calls this endpoint** (FT-114, replacing the quick-capture card). Authenticated
+   Telegram Mini App users send a phrase through `POST /api/quick-capture` with a `clientId` per phrase; its records
+   — one or several — open one review screen. Guest mode keeps data in browser-local IndexedDB, so server-side quick
+   capture is intentionally disabled for guests.
 7. **Shortcut auth is dev/test only.** See [iOS Shortcut capture](#ios-shortcut-capture-devtest-only) — one shared
    optional token, refused in production, no issuance/expiry/revocation. Production Shortcut use still requires the
    deferred auth decision (`FT-075`).

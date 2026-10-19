@@ -1,7 +1,8 @@
 // Transaction entity barrel export
 
 // Types
-export type { Transaction, CreateTransactionDTO, UpdateTransactionDTO, TransactionViewModel, TransactionSemanticType, PeriodTotals } from './model/types';
+export type { Transaction, CreateTransactionDTO, UpdateTransactionDTO, TransactionViewModel, TransactionSemanticType, PeriodTotals, FrequentRecord } from './model/types';
+export type { TransactionPatch } from './api/mutations';
 export type { RecordDay, RecordRow, RecordCategory } from './lib/recordDays';
 export type { DateGroup } from './lib/groupByDate';
 export type { DayGroupSummary, DayGroupTransaction } from './lib/dayGroupSummary';
@@ -44,12 +45,15 @@ export {
   useArchivedTransactions,
   useRecentRecords,
   usePeriodTotals,
+  useFrequentRecords,
 } from './api/queries';
 export {
   useCreateTransaction,
   useUpdateTransaction,
   useDeleteTransaction,
   deleteTransaction,
+  restoreTransaction,
+  patchTransaction,
   useArchiveTransaction,
   useUnarchiveTransaction,
   useArchiveAllTransactions,

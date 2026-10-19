@@ -12,12 +12,11 @@ export const RECENT_LIMIT = 5;
 
 /**
  * What an empty Home says (DoD: after the first launch it tells how to make the first record). The board's
- * sentence starts with «Нажмите кнопку траты внизу» and «скажите, что купили» — the chips and the voice of
- * the bottom composer, which come with FT-114 and FT-117; until then it names what works today: the capture
- * line above the list and a voice message to the bot.
+ * sentence names the composer's chips and voice; voice in the mini app comes with FT-117, so until then it
+ * names what works here: the chips at the bottom and the field.
  */
 export const FIRST_RECORD_HINT =
-  'Пока пусто. Напишите «такси 18к» в строке выше или скажите боту, что купили, — Daftar сам поймёт сумму и категорию.';
+  'Пока пусто. Нажмите кнопку траты внизу или напишите «такси 18к» — Daftar сам поймёт сумму и категорию.';
 
 function Shell({ children }: { children: ReactNode }) {
   return (

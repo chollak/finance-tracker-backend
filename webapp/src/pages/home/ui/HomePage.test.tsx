@@ -245,11 +245,18 @@ describe('recent records', () => {
 });
 
 describe('Home', () => {
-  it('stacks the balance card, the month tiles, the capture line and the recent records', () => {
+  it('stacks the balance card, the month tiles and the recent records, with the composer at the bottom (FT-114)', () => {
     const html = text(markup(<HomePage />));
-    const order = ['Всего на счетах', `Доход за ${monthNameLower(MONTH)}`, 'Запишите одной строкой', 'Последние операции'];
+    const order = ['Всего на счетах', `Доход за ${monthNameLower(MONTH)}`, 'Последние операции', 'Новая запись текстом'];
 
     expect(order.map((part) => html.indexOf(part)).every((index, i, all) => index >= 0 && (i === 0 || index > all[i - 1]))).toBe(true);
+  });
+
+  it('shows «Записано» over the composer, and the records do not hide under it (Toast.md, Composer.md)', () => {
+    const html = markup(<HomePage />);
+
+    expect(html).toMatch(/role="status" aria-live="polite"[^>]*style="bottom:calc\(160px/);
+    expect(html).toMatch(/class="[^"]*pb-\[calc\(10rem\+env\(safe-area-inset-bottom\)\)\]/);
   });
 
   it('no longer has the old today total and attention summary', () => {

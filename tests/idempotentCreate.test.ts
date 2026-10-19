@@ -146,6 +146,10 @@ describe('idempotent create for the offline queue (FT-106)', () => {
       expect(first.transactions).toHaveLength(2);
       expect(second.repeated).toBe(true);
       expect(second.transactions.map(t => [t.id, t.amount, t.category])).toEqual(first.transactions.map(t => [t.id, t.amount, t.category]));
+      // The review screen (FT-114) reads the category by id and the amount in minor units, on a repeat too
+      expect(second.transactions.map(t => [t.categoryId, t.amountMinor])).toEqual(first.transactions.map(t => [t.categoryId, t.amountMinor]));
+      expect(first.transactions.map(t => t.amountMinor)).toEqual([1800000, 2500000]);
+      expect(first.transactions.every(t => typeof t.categoryId === 'string')).toBe(true);
       expect(second.status).toBe('saved');
       expect(execute).not.toHaveBeenCalled();
       expect(openAI.analyzeInput).toHaveBeenCalledTimes(1);

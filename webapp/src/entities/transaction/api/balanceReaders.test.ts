@@ -18,3 +18,16 @@ describe('what a change of records refreshes on Home (FT-111)', () => {
     expect(theirs.map((key) => client.getQueryState(key)?.isInvalidated)).toEqual([false, false, false]);
   });
 });
+
+describe('what a change of records refreshes on Home (FT-114)', () => {
+  it('the frequent expenses of the quick chips too: a written or deleted record changes them', async () => {
+    const client = new QueryClient();
+    client.setQueryData(transactionKeys.frequent('user-1'), []);
+    client.setQueryData(transactionKeys.frequent('user-2'), []);
+
+    for (const queryKey of balanceReaderKeys('user-1')) await client.invalidateQueries({ queryKey });
+
+    expect(client.getQueryState(transactionKeys.frequent('user-1'))?.isInvalidated).toBe(true);
+    expect(client.getQueryState(transactionKeys.frequent('user-2'))?.isInvalidated).toBe(false);
+  });
+});

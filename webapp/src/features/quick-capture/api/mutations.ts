@@ -30,6 +30,8 @@ export interface QuickCaptureInput {
   text: string;
   userId: string;
   userName?: string;
+  /** One per phrase as sent (FT-106): sending it again after a lost answer returns the same records. */
+  clientId?: string;
 }
 
 /**
@@ -46,7 +48,7 @@ export function useQuickCapture() {
   const queryClient = useQueryClient();
 
   return useMutation<QuickCaptureResult, Error, QuickCaptureInput>({
-    mutationFn: async ({ text, userId, userName }) => {
+    mutationFn: async ({ text, userId, userName, clientId }) => {
       if (isGuestId(userId)) {
         throw new GuestAccessError('быстрой записи текстом');
       }
@@ -61,6 +63,7 @@ export function useQuickCapture() {
         userId,
         userName,
         source: 'miniapp',
+        ...(clientId ? { clientId } : {}),
       });
 
       return response.data;

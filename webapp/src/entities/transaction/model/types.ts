@@ -41,3 +41,18 @@ export interface PeriodTotals {
   excludedMovementsMinor: number;
   usd: { present: boolean; missingRate: boolean; rateMinor: number | null };
 }
+
+/**
+ * One of `GET /api/transactions/frequent` (FT-114): an expense written at least 3 times in the last 30 days
+ * with the same category, note and amount — a quick chip over the composer writes it again in one tap.
+ */
+export interface FrequentRecord {
+  categoryId: string;
+  /** As written the last time; may be empty. */
+  note: string;
+  amountMinor: number;
+  currency: 'UZS' | 'USD';
+  /** The account of the latest of them. */
+  accountId: string | null;
+  count: number;
+}

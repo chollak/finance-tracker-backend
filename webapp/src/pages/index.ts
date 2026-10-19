@@ -2,6 +2,7 @@
 export * from './home';
 export * from './transactions';
 export * from './manual-entry';
+export * from './capture-review';
 export * from './edit-transaction';
 export * from './budgets';
 export * from './add-budget';

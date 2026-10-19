@@ -66,13 +66,6 @@ describe('ways to manual entry', () => {
     expect(link).toMatch(/size-touch/);
   });
 
-  it('the round button does not cut the input’s hint: it wraps', () => {
-    const hint = [...home().matchAll(/<p [^>]*>[^<]*<\/p>/g)].map((match) => match[0]).find((tag) => tag.includes('Одной строкой, как боту'));
-
-    expect(hint).toBeDefined();
-    expect(hint).not.toMatch(/\btruncate\b/);
-  });
-
   it('Home has no «Быстрое добавление» sheet any more', () => {
     expect(home()).not.toContain('Добавить транзакцию');
   });

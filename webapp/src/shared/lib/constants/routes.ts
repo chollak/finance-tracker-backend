@@ -9,6 +9,9 @@ export const ROUTES = {
   // Manual entry (FT-113): a way to write, opened from Home, «Ещё» and an empty History
   MANUAL_ENTRY: '/add',
 
+  // The review of the records a phrase sent from the composer made (FT-114)
+  CAPTURE_REVIEW: '/review',
+
   // Budgets
   BUDGETS: '/budgets',
   ADD_BUDGET: '/budgets/add',
@@ -58,9 +61,13 @@ export const API_ENDPOINTS = {
       `/transactions${params.limit ? `?limit=${params.limit}` : ''}`,
     // Income and expenses of a period through the one totals service (FT-111)
     TOTALS: (range: { from: string; to: string }) => `/transactions/totals?from=${range.from}&to=${range.to}`,
+    // Frequent expenses of the last 30 days for the quick chips (FT-114); the user from authentication
+    FREQUENT: '/transactions/frequent',
     CREATE: '/transactions',
     UPDATE: (id: string) => `/transactions/${id}`,
     DELETE: (id: string) => `/transactions/${id}`,
+    // «Отменить» after a delete brings the record back (FT-105)
+    RESTORE: (id: string) => `/transactions/${id}/restore`,
     ANALYTICS: {
       SUMMARY: (userId: string, params?: { startDate?: string; endDate?: string }) => {
         const query = new URLSearchParams();

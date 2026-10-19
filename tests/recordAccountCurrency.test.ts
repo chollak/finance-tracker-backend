@@ -54,6 +54,14 @@ describe('account and currency of every record (FT-103)', () => {
       expect(openAI.analyzeInput).not.toHaveBeenCalled();
     });
 
+    it('names the category by its id and the amount in minor units, as the review screen needs them (FT-114)', async () => {
+      const result = await capture.execute('кофе 25000', 'user-1');
+      const record = await stored(result.transactions[0].id);
+
+      expect(result.transactions[0]).toMatchObject({ categoryId: record.categoryId, category: 'Кафе', amountMinor: 2500000 });
+      expect(record.categoryId).toEqual(expect.any(String));
+    });
+
     it('without a word for the account, the default one — and says so, with the guessed category', async () => {
       const result = await capture.execute('кофе 25000', 'user-1');
 

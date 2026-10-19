@@ -25,6 +25,8 @@ const VoiceCheckPage = lazy(() => import('@/pages').then(m => ({ default: m.Voic
 const PastelShowcasePage = lazy(() => import('@/pages').then(m => ({ default: m.PastelShowcasePage })));
 // Manual entry with the app's own keypad (FT-113), opened from Home, «Ещё» and an empty History
 const ManualEntryPage = lazy(() => import('@/pages').then(m => ({ default: m.ManualEntryPage })));
+// The review of the records a phrase from Home's composer made (FT-114)
+const CaptureReviewPage = lazy(() => import('@/pages').then(m => ({ default: m.CaptureReviewPage })));
 // Placeholder of the accounts screen, opened from the balance card on Home; FT-118 builds the screen
 const AccountsPage = lazy(() => import('@/pages').then(m => ({ default: m.AccountsPage })));
 
@@ -134,6 +136,10 @@ export const appRoutes: RouteObject[] = [
           {
             path: '/add',
             element: <PageLoader><ManualEntryPage /></PageLoader>,
+          },
+          {
+            path: '/review',
+            element: <PageLoader><CaptureReviewPage /></PageLoader>,
           },
           // Form and detail pages
           {

@@ -1,6 +1,7 @@
 import { CreateTransactionUseCase } from './application/createTransaction';
 import { GetTransactionHistoryUseCase } from './application/getTransactionHistory';
 import { GetPeriodTotalsUseCase } from './application/getPeriodTotals';
+import { GetFrequentRecordsUseCase } from './application/getFrequentRecords';
 import { GetUserTransactionsUseCase } from './application/getUserTransactions';
 import { GetTransactionByIdUseCase } from './application/getTransactionById';
 import { DeleteTransactionUseCase, RestoreTransactionUseCase } from './application/deleteTransaction';
@@ -103,6 +104,11 @@ export class TransactionModule {
   /** Income and expenses of a period for the month tiles on Home (FT-111). */
   getPeriodTotalsUseCase(): GetPeriodTotalsUseCase {
     return new GetPeriodTotalsUseCase(this.repository, this.periodTotals);
+  }
+
+  /** The frequent expenses for the quick chips over the composer (FT-114). */
+  getFrequentRecordsUseCase(): GetFrequentRecordsUseCase {
+    return new GetFrequentRecordsUseCase(this.repository);
   }
 
   getGetUserTransactionsUseCase(): GetUserTransactionsUseCase {

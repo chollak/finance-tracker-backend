@@ -20,7 +20,10 @@ export interface DetectedTransaction {
   accountId?: string;
   accountName?: string;
   assumptions?: CaptureAssumption[];
+  /** The current name of the record's category. */
   category: string;
+  /** The user's category the record went to (FT-099), so a screen can show and change it by id (FT-114). */
+  categoryId?: string;
   type: 'income' | 'expense';
   semanticType?: TransactionSemanticType;
   needsReview?: boolean;

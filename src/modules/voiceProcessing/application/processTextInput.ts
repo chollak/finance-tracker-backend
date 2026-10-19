@@ -477,6 +477,7 @@ export class ProcessTextInputUseCase {
               currency,
             }),
             category: transaction.category,
+            categoryId: transaction.categoryId,
             type: transaction.type,
             semanticType: transaction.semanticType,
             needsReview: transaction.needsReview,

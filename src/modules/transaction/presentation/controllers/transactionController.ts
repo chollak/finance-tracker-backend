@@ -2,6 +2,7 @@ import { Router, Request } from 'express';
 import { CreateTransactionUseCase } from '../../application/createTransaction';
 import { GetTransactionHistoryUseCase } from '../../application/getTransactionHistory';
 import { GetPeriodTotalsUseCase } from '../../application/getPeriodTotals';
+import { GetFrequentRecordsUseCase } from '../../application/getFrequentRecords';
 import { AnalyticsService } from '../../application/analyticsService';
 import { GetUserTransactionsUseCase } from '../../application/getUserTransactions';
 import { GetTransactionByIdUseCase } from '../../application/getTransactionById';
@@ -80,7 +81,8 @@ export function createTransactionRouter(
   _subscriptionModule?: SubscriptionModule,
   userModule?: UserModule,
   restoreUseCase?: RestoreTransactionUseCase,
-  periodTotalsUseCase?: GetPeriodTotalsUseCase
+  periodTotalsUseCase?: GetPeriodTotalsUseCase,
+  frequentRecordsUseCase?: GetFrequentRecordsUseCase
 ): Router {
   const router = Router();
 
@@ -271,6 +273,20 @@ export function createTransactionRouter(
     router.get('/totals', ...createCurrentUserMiddleware(userModule), async (req, res) => {
       try {
         const result = await periodTotalsUseCase.execute({ userId: currentUserId(req), query: req.query as Record<string, unknown> });
+        if (!result.success) return handleControllerError(result.error, res);
+        handleControllerSuccess(result.data, res);
+      } catch (error) {
+        handleControllerError(error, res);
+      }
+    });
+  }
+
+  // The user's frequent expenses for the quick chips over the composer (FT-114). The user from
+  // authentication; registered before /:id so «frequent» is not read as a record id.
+  if (userModule && frequentRecordsUseCase) {
+    router.get('/frequent', ...createCurrentUserMiddleware(userModule), async (req, res) => {
+      try {
+        const result = await frequentRecordsUseCase.execute({ userId: currentUserId(req) });
         if (!result.success) return handleControllerError(result.error, res);
         handleControllerSuccess(result.data, res);
       } catch (error) {

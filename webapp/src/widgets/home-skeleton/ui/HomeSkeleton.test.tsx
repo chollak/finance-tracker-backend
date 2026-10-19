@@ -56,21 +56,17 @@ describe('Home while it loads', () => {
     expect(html.match(/<li[\s>]/g)).toHaveLength(4);
   });
 
-  it('draws Home’s capture card at its height between the tiles and the records, as Home has it until FT-114', () => {
-    const html = view(false);
-    const tiles = html.indexOf('h-20"');
-    const capture = html.indexOf('h-[308px]');
-    const records = html.indexOf('<ul');
-
-    expect(capture).toBeGreaterThan(-1);
-    expect(html).toMatch(/class="[^"]*h-\[308px\][^"]*rounded-card bg-card/);
-    expect(tiles).toBeLessThan(capture);
-    expect(capture).toBeLessThan(records);
+  it('has no capture card between the tiles and the records: Home has the composer at the bottom (FT-114)', () => {
+    expect(view(false)).not.toMatch(/h-\[308px\]/);
   });
 
-  it('draws no composer at the bottom: Home has none until FT-114, so nothing there would vanish', () => {
-    // The composer's input is as tall as the main button (`h-button`); its quick chips are pills at the bottom
-    expect(view(false)).not.toMatch(/h-button/);
+  it('draws the composer at the bottom as Home has it: three chips, the field and the round button', () => {
+    const html = view(false);
+    const bottom = html.slice(html.indexOf('Загружаю ваши счета и записи…'));
+
+    expect(bottom.match(/class="[^"]*h-touch w-\[104px\][^"]*"/g)).toHaveLength(3);
+    expect(bottom).toMatch(/class="[^"]*h-button[^"]*rounded-pill bg-card/);
+    expect(bottom).toMatch(/class="[^"]*size-button/);
   });
 
   it('puts the records where Home puts them: under a heading row and a day line', () => {
@@ -144,6 +140,13 @@ describe('Home that loads longer than usual', () => {
 
   it('shortens the list so the message and the button fit', () => {
     expect(view(true).match(/<li[\s>]/g)).toHaveLength(3);
+  });
+
+  it('puts the message and the button in the composer’s place', () => {
+    const html = view(true);
+
+    expect(html).not.toMatch(/w-\[104px\]/);
+    expect(html).not.toMatch(/size-button/);
   });
 });
 

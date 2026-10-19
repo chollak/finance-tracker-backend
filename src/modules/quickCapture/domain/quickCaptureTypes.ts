@@ -44,6 +44,8 @@ export interface CapturedTransaction {
   id: string;
   /** In the record's currency, major units. Additive fields below (FT-103) leave the contract intact. */
   amount: number;
+  /** The same amount in integer minor units (FT-097), for screens that compute in them (FT-114). */
+  amountMinor?: number;
   currency?: 'UZS' | 'USD';
   accountId?: string;
   accountName?: string;
@@ -51,7 +53,10 @@ export interface CapturedTransaction {
   assumptions?: CaptureAssumption[];
   type: 'income' | 'expense';
   semanticType: TransactionSemanticType;
+  /** The current name of the record's category. */
   category: string;
+  /** The user's category the record went to (FT-099): the review screen shows and changes it by id (FT-114). */
+  categoryId?: string;
   description?: string;
   merchant?: string;
   date: string;

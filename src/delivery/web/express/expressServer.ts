@@ -98,7 +98,8 @@ export function buildServer(
       subscriptionModule,
       userModule,
       transactionModule.getRestoreTransactionUseCase(),
-      transactionModule.getPeriodTotalsUseCase()
+      transactionModule.getPeriodTotalsUseCase(),
+      transactionModule.getFrequentRecordsUseCase()
     )
   );
 
