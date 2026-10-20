@@ -83,6 +83,23 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 **Файл:** [`src/delivery/web/express/middleware/errorMiddleware.ts`](../../../src/delivery/web/express/middleware/errorMiddleware.ts)
 
+#### E. Rate limits (в каждом роутере, до его авторизации)
+
+| Лимитер | Окно | Считает по | Лимит |
+|---|---|---|---|
+| `standardRateLimiter` — общий (FT-139) | 15 минут | пользователю Telegram: проверенный initData (`Authorization: tma …`), вне production — `X-Dev-User-Id` | 600 |
+| | | адресу, если входа нет или initData не прошёл проверку | 100 |
+| `aiRateLimiter` — разбор фраз, голос, быстрая запись | 15 минут | адресу | 20 |
+| `readOnlyRateLimiter` — `/dashboard` | 15 минут | адресу | 300 |
+| `strictRateLimiter` / `adminRateLimiter` | 15 минут | адресу | 10 / 5 |
+
+Общий лимитер стоит перед авторизацией маршрута, поэтому вход проверяет сам — тем же правилом, что
+`requireAuth` (`signedInTelegramId()` в `authMiddleware.ts`). Поддельный initData считается как запрос без
+входа и не даёт отдельного счётчика. Ответ сверх лимита — `429 RATE_LIMIT_EXCEEDED`, заголовок
+`RateLimit-Limit` называет действующий лимит. Счётчики в памяти процесса: перезапуск их обнуляет.
+
+**Файл:** [`src/delivery/web/express/middleware/rateLimitMiddleware.ts`](../../../src/delivery/web/express/middleware/rateLimitMiddleware.ts)
+
 ---
 
 ### 4. Routing
@@ -379,10 +396,10 @@ res.on('finish', () => {
 ✅ Request size limits (10MB)
 ✅ Input validation на controller level
 ✅ Error message sanitization (no stack traces)
+✅ Rate limits per Telegram user / per address (see 3.E)
 
 ### Missing (TODO)
 ⚠️ Authentication/Authorization (no JWT)
-⚠️ Rate limiting (no DDoS protection)
 ⚠️ Request signing/verification
 ⚠️ SQL injection protection (use parameterized queries)
 

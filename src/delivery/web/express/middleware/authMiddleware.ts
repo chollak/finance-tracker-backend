@@ -48,16 +48,17 @@ declare global {
  *
  * @param initData - Raw initData string from Telegram
  * @param botToken - Telegram bot token
+ * @param quiet - Do not log why the data was refused (the caller is not the one answering the request)
  * @returns Parsed data if valid, null if invalid
  */
-function validateTelegramWebAppData(initData: string, botToken: string): TelegramInitData | null {
+function validateTelegramWebAppData(initData: string, botToken: string, quiet = false): TelegramInitData | null {
   try {
     // Parse the initData string
     const params = new URLSearchParams(initData);
     const hash = params.get('hash');
 
     if (!hash) {
-      logger.warn('No hash in initData');
+      if (!quiet) logger.warn('No hash in initData');
       return null;
     }
 
@@ -88,7 +89,7 @@ function validateTelegramWebAppData(initData: string, botToken: string): Telegra
 
     // Compare hashes (timing-safe comparison)
     if (!crypto.timingSafeEqual(Buffer.from(hash), Buffer.from(calculatedHash))) {
-      logger.warn('Hash mismatch - invalid initData');
+      if (!quiet) logger.warn('Hash mismatch - invalid initData');
       return null;
     }
 
@@ -101,7 +102,7 @@ function validateTelegramWebAppData(initData: string, botToken: string): Telegra
     const maxAge = 3600; // 1 hour
 
     if (now - authDate > maxAge) {
-      logger.warn('initData expired', { authDate, now, age: now - authDate });
+      if (!quiet) logger.warn('initData expired', { authDate, now, age: now - authDate });
       return null;
     }
 
@@ -112,9 +113,34 @@ function validateTelegramWebAppData(initData: string, botToken: string): Telegra
       hash,
     };
   } catch (error) {
-    logger.error('Error validating initData', error as Error);
+    if (!quiet) logger.error('Error validating initData', error as Error);
     return null;
   }
+}
+
+/**
+ * The Telegram user id a request is signed in as, by the same rules as `requireAuth`, without answering the
+ * request: `X-Dev-User-Id` outside production, otherwise valid, unexpired initData in
+ * `Authorization: tma <initData>`. Null when the request proves no user.
+ *
+ * The general rate limit counts by it (FT-139); it runs before the route's own authentication.
+ */
+export function signedInTelegramId(req: Request, botToken: string = AppConfig.TG_BOT_API_KEY): number | null {
+  if (process.env.NODE_ENV !== 'production') {
+    const devUserId = req.headers['x-dev-user-id'];
+    if (devUserId && typeof devUserId === 'string') {
+      const id = parseInt(devUserId, 10);
+      return Number.isSafeInteger(id) ? id : null;
+    }
+  }
+
+  const [scheme, initData] = (req.headers.authorization ?? '').split(' ');
+  if (scheme?.toLowerCase() !== 'tma' || !initData || !botToken) {
+    return null;
+  }
+
+  const id = validateTelegramWebAppData(initData, botToken, true)?.user?.id;
+  return typeof id === 'number' && Number.isSafeInteger(id) ? id : null;
 }
 
 /**
