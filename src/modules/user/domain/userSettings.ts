@@ -12,6 +12,10 @@ export const DAILY_SUMMARY_TIMES = ['20:00', '21:00', '22:00', '23:00'] as const
 /** The monthly audit reminder on the 1st: 09:00, 10:00, 12:00 or 19:00. */
 export const AUDIT_TIMES = ['09:00', '10:00', '12:00', '19:00'] as const;
 
+/** The currency Home shows the balance and the month tiles in: «Сум / USD» in its header (FT-137). */
+export const DISPLAY_CURRENCIES = ['UZS', 'USD'] as const;
+export type DisplayCurrency = (typeof DISPLAY_CURRENCIES)[number];
+
 /** Receipt photo tips are shown until the user has seen them this many times. */
 export const RECEIPT_TIPS_LIMIT = 3;
 
@@ -35,6 +39,11 @@ export interface UserSettings {
   receiptTipsSeen: number;
   /** The audit invitation is hidden until this date (YYYY-MM-DD). */
   auditInviteSnoozedUntil: string | null;
+  /**
+   * The currency chosen with «Сум / USD» on Home (FT-137). A choice, not a fact: without a USD rate Home
+   * shows сум whatever is chosen here, and comes back to dollars once a rate is known.
+   */
+  displayCurrency: DisplayCurrency;
 }
 
 export function defaultUserSettings(userId: string): UserSettings {
@@ -52,6 +61,7 @@ export function defaultUserSettings(userId: string): UserSettings {
     onboardedAt: null,
     receiptTipsSeen: 0,
     auditInviteSnoozedUntil: null,
+    displayCurrency: 'UZS',
   };
 }
 

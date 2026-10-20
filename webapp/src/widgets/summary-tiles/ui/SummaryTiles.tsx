@@ -4,6 +4,7 @@ import { ROUTES } from '@/shared/lib/constants/routes';
 import { monthBounds, monthTitle, parseLocalDate, toLocalDate } from '@/shared/lib/dates';
 import { SkeletonBlock } from '@/shared/ui/pastel';
 import { usePeriodTotals, type PeriodTotals } from '@/entities/transaction';
+import { IN_UZS, useDisplayCurrency, type DisplayMoney } from '@/features/display-currency';
 import { missingRateNote, summaryTiles, tileValueClass, type SummaryTile } from '../lib/summaryTiles';
 
 const TONE: Record<SummaryTile['kind'], string> = {
@@ -44,6 +45,8 @@ function Tile({ tile, isError }: { tile: SummaryTile; isError: boolean }) {
 
 export interface SummaryTilesViewProps {
   totals: { data: PeriodTotals | undefined; isError: boolean };
+  /** The currency of the sums («Сум / USD», FT-137); сум by default. */
+  display?: DisplayMoney;
   year: number;
   /** 1–12. */
   month: number;
@@ -51,8 +54,8 @@ export interface SummaryTilesViewProps {
 }
 
 /** The tiles as the board draws them, from totals already read; `SummaryTiles` reads them. */
-export function SummaryTilesView({ totals, year, month, className }: SummaryTilesViewProps) {
-  const [income, expense] = summaryTiles(totals.data, month);
+export function SummaryTilesView({ totals, display = IN_UZS, year, month, className }: SummaryTilesViewProps) {
+  const [income, expense] = summaryTiles(totals.data, month, display);
   const note = missingRateNote(totals.data);
   return (
     <section aria-label={monthTitle(year, month)} className={cn('grid grid-cols-2 gap-3', className)}>
@@ -65,11 +68,15 @@ export function SummaryTilesView({ totals, year, month, className }: SummaryTile
 
 /**
  * Month tiles of Home (FT-111, SummaryTiles.md): income in mint, expenses in peach, both themes alike;
- * each opens Analytics. The numbers are the backend's totals service (GET /api/transactions/totals).
+ * each opens Analytics. The numbers are the backend's totals service (GET /api/transactions/totals), in the
+ * currency of «Сум / USD» in the header (FT-137).
  */
 export function SummaryTiles({ className }: { className?: string }) {
   const today = toLocalDate(new Date());
   const { year, month } = parseLocalDate(today);
   const totals = usePeriodTotals(monthBounds(today));
-  return <SummaryTilesView totals={totals} year={year} month={month} className={className} />;
+  const { shown, rateMinor } = useDisplayCurrency();
+  return (
+    <SummaryTilesView totals={totals} display={{ currency: shown, rateMinor }} year={year} month={month} className={className} />
+  );
 }

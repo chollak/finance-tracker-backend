@@ -91,6 +91,47 @@ describe('balance card', () => {
   });
 });
 
+describe('in dollars (FT-137, «Сум / USD»)', () => {
+  const USD = { currency: 'USD' as const, rateMinor: 1_265_000 };
+
+  it('shows the total in USD at the rate in effect: the board’s 9 743 000 сум at 12 650 is 770,20 USD', () => {
+    const model = balanceCardModel(OVERVIEW, USD);
+
+    expect(model.total).toBe('770,20');
+    expect(model.unit).toBe('USD');
+  });
+
+  it('keeps every account in its own currency', () => {
+    expect(balanceCardModel(OVERVIEW, USD).accounts).toEqual(balanceCardModel(OVERVIEW).accounts);
+  });
+
+  it('counts a dollar account as it is, without a round trip through сум', () => {
+    // 420,00 USD at 12 850,37 is 5 397 155 сум after rounding; back at the same rate it must stay 420,00
+    const dollarsOnly: AccountsOverview = {
+      accounts: [account({ id: 'usd', name: 'Доллары', currency: 'USD', balanceMinor: 42_000 })],
+      totalMinor: 539_715_500,
+      rate: { rateMinor: 1_285_037, source: 'cbu', date: '2026-10-14' },
+      missingRate: false,
+    };
+
+    expect(balanceCardModel(dollarsOnly, { currency: 'USD', rateMinor: 1_285_037 }).total).toBe('420,00');
+  });
+
+  it('leaves the total in сум as GET /api/accounts gives it when сум are shown', () => {
+    const model = balanceCardModel(OVERVIEW, { currency: 'UZS', rateMinor: 1_265_000 });
+
+    expect(model.total).toBe(`9${NBSP}743${NBSP}000`);
+    expect(model.unit).toBe('сум');
+  });
+
+  it('stays in сум without a rate', () => {
+    expect(balanceCardModel(OVERVIEW, { currency: 'USD', rateMinor: null })).toMatchObject({
+      total: `9${NBSP}743${NBSP}000`,
+      unit: 'сум',
+    });
+  });
+});
+
 describe('the line under the balance', () => {
   it('says what share of the month’s income is spent, the bar filled as much', () => {
     // Board: income 16 295 000, expenses 7 684 400 → 47%

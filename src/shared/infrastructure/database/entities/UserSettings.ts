@@ -43,6 +43,10 @@ export class UserSettings {
   @Column('date', { name: 'audit_invite_snoozed_until', nullable: true })
   auditInviteSnoozedUntil!: string | null;
 
+  /** «Сум / USD» on Home (FT-137): `UZS` or `USD`. */
+  @Column({ name: 'display_currency', default: 'UZS' })
+  displayCurrency!: string;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 

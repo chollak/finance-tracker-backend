@@ -133,6 +133,7 @@
 | `onboarded_at` | нет — показать первый запуск |
 | `receipt_tips_seen` | 0 — подсказки к фото чека показываются, пока меньше 3 |
 | `audit_invite_snoozed_until` | нет |
+| `display_currency` | `UZS` — «Сум / USD» на главной (FT-137) |
 
 Время — по `users.timezone` (`Asia/Tashkent`).
 

@@ -39,10 +39,9 @@ export interface HomeSkeletonViewProps {
  * Every shape is as tall as what replaces it: the balance card's rows (a 44px header row, the 48px amount,
  * the bar and the line under it), the 80px tiles, the 44px row of the records' heading and the day line over
  * the list. At the bottom, under the note, the composer as Home has it (FT-114): three chips, the 56px field
- * on `card` and the round button; the slow state puts its message and «Попробовать снова» there instead. The
- * board has a «Сум / USD» switch beside «Ещё»; Home's header has none yet (docs/pastel/handoff.md, item 8),
- * so neither has the skeleton. «Записывать без связи» under the slow state comes with the offline mode
- * (FT-129).
+ * on `card` and the round button; the slow state puts its message and «Попробовать снова» there instead. In the
+ * header «Сум / USD» (FT-137) and «Ещё» wait as a 124px pill and a circle, as the board draws them.
+ * «Записывать без связи» under the slow state comes with the offline mode (FT-129).
  *
  * Only the shapes are `aria-busy`: the status line and the slow message with its button stay outside, so a
  * screen reader announces them and lets the button be pressed while the shapes still wait.
@@ -59,10 +58,13 @@ export function HomeSkeletonView({ slow, onRetry }: HomeSkeletonViewProps) {
         </p>
 
         <div aria-busy="true" className="flex shrink-0 flex-col gap-4">
-          {/* The real header: the sign is there at once, «Ещё» waits as a circle */}
+          {/* The real header: the sign is there at once, «Сум / USD» waits as a pill and «Ещё» as a circle */}
           <header className="flex h-key shrink-0 items-center justify-between gap-3">
             <Wordmark />
-            <SkeletonBlock className="size-key" />
+            <span className="flex items-center gap-2">
+              <SkeletonBlock className="h-key w-[124px]" />
+              <SkeletonBlock className="size-key" />
+            </span>
           </header>
 
           <div aria-hidden="true" className="flex flex-col gap-4">

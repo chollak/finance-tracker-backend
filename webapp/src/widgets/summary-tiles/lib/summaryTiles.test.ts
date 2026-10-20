@@ -53,6 +53,32 @@ describe('month tiles', () => {
   });
 });
 
+describe('in dollars (FT-137, «Сум / USD»)', () => {
+  const USD = { currency: 'USD' as const, rateMinor: 1_265_000 };
+
+  it('show the month at the rate in effect, with cents: the board’s +1 288,14 and −607,46', () => {
+    const [income, expense] = summaryTiles(totals(1_629_500_000, 768_440_000), 10, USD);
+
+    expect(income.value).toBe(`+1${NBSP}288,14`);
+    expect(expense.value).toBe(`${MINUS}607,46`);
+    expect(income.ariaLabel).toBe(`Доход за октябрь: +1${NBSP}288,14${NBSP}USD. Открыть аналитику`);
+    expect(expense.ariaLabel).toBe(`Расход за октябрь: ${MINUS}607,46${NBSP}USD. Открыть аналитику`);
+  });
+
+  it('show 0 for an empty month in dollars too', () => {
+    const [income] = summaryTiles(totals(0, 0), 10, USD);
+
+    expect(income.value).toBe('0,00');
+    expect(income.ariaLabel).toBe('Доход за октябрь: пока нет. Открыть аналитику');
+  });
+
+  it('stay in сум without a rate', () => {
+    const [income] = summaryTiles(totals(1_629_500_000, 0), 10, { currency: 'USD', rateMinor: null });
+
+    expect(income.value).toBe(`+16${NBSP}295${NBSP}000`);
+  });
+});
+
 describe('missing rate', () => {
   it('the tiles say the dollars are left out while there is no rate', () => {
     const noRate = { ...totals(0, 18_000_000), usd: { present: true, missingRate: true, rateMinor: null } };

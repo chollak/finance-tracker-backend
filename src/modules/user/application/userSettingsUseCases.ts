@@ -3,6 +3,7 @@ import { BusinessLogicError, ValidationError } from '../../../shared/domain/erro
 import {
   AUDIT_TIMES,
   DAILY_SUMMARY_TIMES,
+  DISPLAY_CURRENCIES,
   RECEIPT_TIPS_LIMIT,
   THEME_PREFERENCES,
   UserSettings,
@@ -57,6 +58,7 @@ const RULES: Record<string, FieldRule> = {
   receiptTipsSeen: tipsCount,
   auditInviteSnoozedUntil: dateOrNull,
   defaultAccountId: idOrNull,
+  displayCurrency: oneOf(DISPLAY_CURRENCIES),
 };
 
 /** Check a PATCH body: an object with at least one known field, each value valid. Unknown fields are refused. */

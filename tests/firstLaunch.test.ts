@@ -120,6 +120,42 @@ describe('first launch with opening balances (FT-109)', () => {
     expect(byName({ accounts })['Наличные']).toMatchObject({ id: cash.id, openingBalanceMinor: 300_000_00 });
   });
 
+  const names = async () =>
+    (await as('GET', '/api/accounts')).body.data.accounts.map((account: { name: string }) => account.name);
+
+  it('puts the accounts in the order of the boards: Наличные, Карта, Доллары (FT-137)', async () => {
+    // A new user: «Карта» is created on the first read, before the first launch
+    expect(await names()).toEqual(['Карта']);
+
+    expect((await start({ cashMinor: 100_00 })).status).toBe(200);
+
+    expect(await names()).toEqual(['Наличные', 'Карта', 'Доллары']);
+    const res = await start({}); // the order does not depend on a repeated request either
+    expect(res.status).toBe(409);
+    expect(await names()).toEqual(['Наличные', 'Карта', 'Доллары']);
+  });
+
+  it('puts a migrated user\'s «Карта» with its history between Наличные and Доллары', async () => {
+    const [card] = (await as('GET', '/api/accounts')).body.data.accounts;
+    await db.dataSource.query(`UPDATE accounts SET opening_date = ?, sort_order = 10 WHERE id = ?`, [daysAgo(60), card.id]);
+
+    const res = await start({ cardMinor: 2_000_000_00 });
+
+    expect(res.body.data.accounts.map((account: { name: string }) => account.name)).toEqual(['Наличные', 'Карта', 'Доллары']);
+    expect(await names()).toEqual(['Наличные', 'Карта', 'Доллары']);
+    expect((await as('GET', '/api/accounts')).body.data.accounts[1].id).toBe(card.id);
+  });
+
+  it('keeps other accounts after the three, in their own order', async () => {
+    // Neither is taken by a row of the screen: «Карта» is named, and neither is a cash account
+    await as('POST', '/api/accounts', { name: 'Humo', kind: 'card', currency: 'UZS' });
+    await as('POST', '/api/accounts', { name: 'Visa', kind: 'card', currency: 'USD' });
+
+    expect((await start({})).status).toBe(200);
+
+    expect(await names()).toEqual(['Наличные', 'Карта', 'Доллары', 'Humo', 'Visa']);
+  });
+
   it('happens once: a second first launch is refused and changes nothing', async () => {
     expect((await start({ cashMinor: 100_00 })).status).toBe(200);
 

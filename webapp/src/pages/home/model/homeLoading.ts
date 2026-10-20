@@ -1,5 +1,6 @@
 import { useAccounts } from '@/entities/account';
 import { useCategories } from '@/entities/category';
+import { useUsdRate } from '@/entities/rate';
 import { usePeriodTotals, useRecentRecords } from '@/entities/transaction';
 import { useIsGuest } from '@/entities/user';
 import { monthBounds, toLocalDate } from '@/shared/lib/dates';
@@ -34,7 +35,10 @@ export function isHomeLoading({ isGuest, reads }: { isGuest: boolean; reads: rea
 
 /**
  * Home's first reads, the same queries its sections make: the balances (balance card), the month's totals
- * (the line under the balance and the tiles), the recent records and the categories they are shown with.
+ * (the line under the balance and the tiles), the recent records and the categories they are shown with,
+ * and the USD rate — the card and the tiles are in dollars when «Сум / USD» says so (FT-137), so Home does
+ * not open in сум and turn into dollars a moment later. The settings with that choice are read before Home
+ * (the first-launch gate).
  */
 export function useHomeLoading(): boolean {
   const isGuest = useIsGuest();
@@ -42,6 +46,7 @@ export function useHomeLoading(): boolean {
   const totals = usePeriodTotals(monthBounds(toLocalDate(new Date())));
   const records = useRecentRecords(RECENT_LIMIT);
   const categories = useCategories();
+  const rate = useUsdRate();
 
-  return isHomeLoading({ isGuest, reads: [accounts, totals, records, categories] });
+  return isHomeLoading({ isGuest, reads: [accounts, totals, records, categories, rate] });
 }

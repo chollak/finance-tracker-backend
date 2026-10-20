@@ -10,6 +10,7 @@ import {
   FirstLaunchAccount,
   FirstLaunchProgress,
   firstLaunchAccountId,
+  firstLaunchSortOrder,
 } from '../domain/firstLaunch';
 import { AccountBook, AccountsSummary } from './accountBook';
 
@@ -64,8 +65,10 @@ function existingAccountFor(row: FirstLaunchAccount, accounts: Account[], taken:
  * POST /api/accounts/opening-balances (FT-109): «Сколько у вас сейчас денег?». Cash, card and dollars
  * become the opening balances of «Наличные», «Карта» and «Доллары», dated today: records and moves before
  * today no longer count in the balance (money-model «Остаток счёта») but stay in history and analytics.
- * Then the first launch is marked done. It happens once; later corrections go through the accounts
- * screen (FT-118).
+ * The three stand first, in the order of the screen and the boards: Наличные, Карта, Доллары (FT-137) — a
+ * migrated or new user's «Карта» was created first and would otherwise lead; any other account follows them
+ * in its own order. Then the first launch is marked done. It happens once; later corrections go through
+ * the accounts screen (FT-118).
  */
 export class CompleteFirstLaunchUseCase {
   constructor(
@@ -88,10 +91,9 @@ export class CompleteFirstLaunchUseCase {
       const openingDate = todayDateOnly(moment);
       const accounts = await this.book.listForUser(input.userId);
       const used = new Set<string>();
-      let sortOrder = Math.max(0, ...accounts.map(account => account.sortOrder));
 
-      for (const row of FIRST_LAUNCH_ACCOUNTS) {
-        const opening = { openingBalanceMinor: amounts.data[row.field], openingDate };
+      for (const [position, row] of FIRST_LAUNCH_ACCOUNTS.entries()) {
+        const opening = { openingBalanceMinor: amounts.data[row.field], openingDate, sortOrder: firstLaunchSortOrder(position) };
         const existing = existingAccountFor(row, accounts, used);
         if (existing) {
           used.add(existing.id);
@@ -100,11 +102,10 @@ export class CompleteFirstLaunchUseCase {
         }
 
         const id = firstLaunchAccountId(input.userId, row.slot);
-        sortOrder += 10;
         try {
           await this.repository.create({
             id, userId: input.userId, name: row.name, kind: row.kind, currency: row.currency,
-            ...opening, isHidden: false, sortOrder,
+            ...opening, isHidden: false,
           });
         } catch (error) {
           // A concurrent first launch created it a moment ago: set the same opening balance on it
@@ -112,6 +113,13 @@ export class CompleteFirstLaunchUseCase {
           await this.repository.update(id, opening);
         }
         used.add(id);
+      }
+
+      // Accounts the screen did not set follow the three, in the order they had
+      const others = accounts.filter(account => !used.has(account.id));
+      for (const [index, account] of others.entries()) {
+        const sortOrder = firstLaunchSortOrder(FIRST_LAUNCH_ACCOUNTS.length + index);
+        if (account.sortOrder !== sortOrder) await this.repository.update(account.id, { sortOrder });
       }
 
       const onboardedAt = moment.toISOString();

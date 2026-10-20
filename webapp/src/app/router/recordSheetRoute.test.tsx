@@ -8,6 +8,7 @@ import type { ReactNode } from 'react';
 import { HomePage, TransactionsPage } from '@/pages';
 import { accountKeys } from '@/entities/account';
 import { categoryKeys } from '@/entities/category';
+import { rateKeys } from '@/entities/rate';
 import { transactionKeys } from '@/entities/transaction';
 import { useUserStore } from '@/entities/user';
 import { useRecordSheetStore } from '@/features/record-sheet';
@@ -86,6 +87,7 @@ describe('ways to the record sheet', () => {
       { id: 'c-cafe', type: 'expense', name: 'Кафе', color: 'rose', isHidden: false, isOther: false, sortOrder: 20, presetKey: 'cafe' },
     ]);
     client.setQueryData(transactionKeys.record('t4'), T4);
+    client.setQueryData(rateKeys.usd(USER_ID), { effective: null, cbu: null, own: null });
     return client;
   }
 

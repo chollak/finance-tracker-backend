@@ -17,12 +17,20 @@ export interface FirstLaunchAccount {
   currency: Currency;
 }
 
-/** The three rows of the first-launch screen, in its order. */
+/** The three rows of the first-launch screen, in its order — also the order of the accounts on the boards. */
 export const FIRST_LAUNCH_ACCOUNTS: readonly FirstLaunchAccount[] = [
   { slot: 'cash', field: 'cashMinor', name: 'Наличные', kind: 'cash', currency: 'UZS' },
   { slot: 'card', field: 'cardMinor', name: 'Карта', kind: 'card', currency: 'UZS' },
   { slot: 'usd', field: 'usdMinor', name: 'Доллары', kind: 'cash', currency: 'USD' },
 ];
+
+/**
+ * The sort order the first launch gives the account at this position: the three rows stand first, as on
+ * the boards — Наличные, Карта, Доллары (FT-137) — and accounts the screen did not set follow them.
+ */
+export function firstLaunchSortOrder(position: number): number {
+  return (position + 1) * 10;
+}
 
 /**
  * The id of an account the first launch creates: derived from the user and the row, so a repeated or

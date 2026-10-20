@@ -1,7 +1,13 @@
 import { DataSource, Repository } from 'typeorm';
 import { AppDataSource } from '../../../../shared/infrastructure/database/database.config';
 import { UserSettings as UserSettingsEntity } from '../../../../shared/infrastructure/database/entities/UserSettings';
-import { THEME_PREFERENCES, ThemePreference, UserSettings } from '../../domain/userSettings';
+import {
+  DISPLAY_CURRENCIES,
+  DisplayCurrency,
+  THEME_PREFERENCES,
+  ThemePreference,
+  UserSettings,
+} from '../../domain/userSettings';
 import { UserSettingsRepository } from '../../domain/userSettingsRepository';
 
 export class SqliteUserSettingsRepository implements UserSettingsRepository {
@@ -30,6 +36,9 @@ export class SqliteUserSettingsRepository implements UserSettingsRepository {
     const theme = (THEME_PREFERENCES as readonly string[]).includes(entity.theme)
       ? (entity.theme as ThemePreference)
       : 'telegram';
+    const displayCurrency = (DISPLAY_CURRENCIES as readonly string[]).includes(entity.displayCurrency)
+      ? (entity.displayCurrency as DisplayCurrency)
+      : 'UZS';
     return {
       userId: entity.userId,
       theme,
@@ -44,6 +53,7 @@ export class SqliteUserSettingsRepository implements UserSettingsRepository {
       onboardedAt: entity.onboardedAt ? new Date(entity.onboardedAt).toISOString() : null,
       receiptTipsSeen: Number(entity.receiptTipsSeen ?? 0),
       auditInviteSnoozedUntil: entity.auditInviteSnoozedUntil ?? null,
+      displayCurrency,
     };
   }
 }

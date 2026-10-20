@@ -1,11 +1,15 @@
-import { visibleAccounts, type AccountsOverview } from '@/entities/account';
+import { visibleAccounts, type Account, type AccountsOverview } from '@/entities/account';
 import type { PeriodTotals } from '@/entities/transaction';
 import { monthNameIn } from '@/shared/lib/dates';
-import { CURRENCY_UNIT, formatMinor } from '@/shared/lib/money';
+import { CURRENCY_UNIT, formatMinor, uzsToUsdMinor, type Currency } from '@/shared/lib/money';
 import { pluralWithCount } from '@/shared/lib/plural';
+import { IN_UZS, shownCurrency, type DisplayMoney } from '@/features/display-currency';
 
 export interface BalanceCardModel {
-  /** «9 743 000» — `totalMinor` of GET /api/accounts, nothing added or left out here. */
+  /**
+   * In сум: «9 743 000» — `totalMinor` of GET /api/accounts, nothing added or left out here. In dollars:
+   * «770,20» — the dollar accounts as they are and the сум accounts at the rate in effect.
+   */
   total: string;
   unit: string;
   /** «3 счёта» — the visible accounts. */
@@ -16,19 +20,35 @@ export interface BalanceCardModel {
   missingRateNote: string | null;
 }
 
-/** The balance card of Home (docs/pastel/components/BalanceCard.md) from GET /api/accounts. */
-export function balanceCardModel(overview: AccountsOverview): BalanceCardModel {
+/**
+ * The total in dollars: the visible dollar accounts as they are, the сум accounts at the rate — not the сум
+ * total converted back, so dollars never take a round trip through whole сум.
+ */
+function totalInUsdMinor(accounts: readonly Account[], rateMinor: number): number {
+  const sum = (currency: Currency) =>
+    accounts.filter((account) => account.currency === currency).reduce((total, account) => total + account.balanceMinor, 0);
+  return sum('USD') + uzsToUsdMinor(sum('UZS'), rateMinor);
+}
+
+/**
+ * The balance card of Home (docs/pastel/components/BalanceCard.md) from GET /api/accounts, in the currency
+ * chosen with «Сум / USD» (FT-137). The accounts inside the card stay in their own currencies.
+ */
+export function balanceCardModel(overview: AccountsOverview, display: DisplayMoney = IN_UZS): BalanceCardModel {
   const accounts = visibleAccounts(overview.accounts);
+  const currency = shownCurrency(display);
+  const totalMinor = currency === 'USD' ? totalInUsdMinor(accounts, display.rateMinor!) : overview.totalMinor;
   return {
-    total: formatMinor(overview.totalMinor, 'UZS', { unit: false }),
-    unit: CURRENCY_UNIT.UZS,
+    total: formatMinor(totalMinor, currency, { unit: false }),
+    unit: CURRENCY_UNIT[currency],
     countLabel: pluralWithCount(accounts.length, 'счёт', 'счёта', 'счетов'),
     accounts: accounts.map((account) => ({
       id: account.id,
       name: account.name,
       value: formatMinor(account.balanceMinor, account.currency),
     })),
-    missingRateNote: overview.missingRate ? 'Доллары не вошли в итог: курса пока нет' : null,
+    // In dollars the dollar accounts are counted as they are, so nothing is left out
+    missingRateNote: overview.missingRate && currency === 'UZS' ? 'Доллары не вошли в итог: курса пока нет' : null,
   };
 }
 

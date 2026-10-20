@@ -6,6 +6,7 @@ import { monthBounds, parseLocalDate, toLocalDate } from '@/shared/lib/dates';
 import { SkeletonBlock } from '@/shared/ui/pastel';
 import { useAccounts, type AccountsOverview } from '@/entities/account';
 import { usePeriodTotals, type PeriodTotals } from '@/entities/transaction';
+import { IN_UZS, useDisplayCurrency, type DisplayMoney } from '@/features/display-currency';
 import { balanceAmountClass, balanceCardModel, spendShare } from '../lib/balanceCard';
 
 const FOCUS = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-on-primary';
@@ -26,6 +27,8 @@ interface Query<T> {
 export interface BalanceCardViewProps {
   accounts: Query<AccountsOverview>;
   totals: Query<PeriodTotals>;
+  /** The currency of the total («Сум / USD», FT-137); сум by default. */
+  display?: DisplayMoney;
   /** 1–12: the month of the line under the balance. */
   month: number;
   expanded: boolean;
@@ -41,6 +44,7 @@ export interface BalanceCardViewProps {
 export function BalanceCardView({
   accounts,
   totals,
+  display = IN_UZS,
   month,
   expanded,
   onToggle,
@@ -49,7 +53,7 @@ export function BalanceCardView({
   className,
 }: BalanceCardViewProps) {
   const listId = useId();
-  const model = accounts.data ? balanceCardModel(accounts.data) : null;
+  const model = accounts.data ? balanceCardModel(accounts.data, display) : null;
   const share = totals.data ? spendShare(totals.data, month) : null;
   // A problem says what happened and what to do (design-system): each failed part says what is missing
   // where it would stand, and one «Попробовать снова» reads them again. FT-112 adds the slow state.
@@ -160,18 +164,21 @@ export function BalanceCardView({
  * Balance card of Home (FT-111, boards «Главная», «Главная после первого запуска»; BalanceCard.md): the
  * total of the accounts exactly as GET /api/accounts gives it, «3 счёта» opening the accounts inside the
  * card with «Все счета и курс доллара», and one line — what share of this month's income is spent, from the
- * same totals service as the month tiles. In the dark theme the card turns light by the tokens alone.
+ * same totals service as the month tiles. In the dark theme the card turns light by the tokens alone. The
+ * total is in the currency of «Сум / USD» in the header (FT-137).
  */
 export function BalanceCard({ className }: { className?: string }) {
   const [expanded, setExpanded] = useState(false);
   const today = toLocalDate(new Date());
   const accounts = useAccounts();
   const totals = usePeriodTotals(monthBounds(today));
+  const { shown, rateMinor } = useDisplayCurrency();
 
   return (
     <BalanceCardView
       accounts={accounts}
       totals={totals}
+      display={{ currency: shown, rateMinor }}
       month={parseLocalDate(today).month}
       expanded={expanded}
       onToggle={() => setExpanded((value) => !value)}

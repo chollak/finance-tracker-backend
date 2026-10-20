@@ -45,6 +45,13 @@ describe('Home while it loads', () => {
     expect(view(false)).toMatch(/<header[^>]*>.*daftar.*<\/header>/);
   });
 
+  it('keeps the place of «Сум / USD» beside «Ещё», as Home’s header has it (FT-137)', () => {
+    const header = view(false).match(/<header[^>]*>(.*)<\/header>/)?.[1] ?? '';
+    // The switch: a 124px pill as tall as its track (48px); «Ещё»: a 48px circle
+    expect(header).toMatch(/class="[^"]*h-key[^"]*w-\[124px\]/);
+    expect(header).toMatch(/class="[^"]*size-key/);
+  });
+
   it('draws the balance card, the two month tiles and the list of records as shapes', () => {
     const html = view(false);
 
