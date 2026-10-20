@@ -29,6 +29,14 @@ describe('daily summary rules (FT-124)', () => {
       expect(isSummaryDue({ date: '2026-10-14', time: '23:59' }, '21:00')).toBe(true);
       expect(isSummaryDue({ date: '2026-10-14', time: '21:30' }, '22:00')).toBe(false);
     });
+
+    it('is not due on the evening the user came at or after the chosen time', () => {
+      const evening = { date: '2026-10-20', time: '22:16' };
+      expect(isSummaryDue(evening, '21:00', { date: '2026-10-20', time: '22:15' })).toBe(false);
+      expect(isSummaryDue(evening, '21:00', { date: '2026-10-20', time: '21:00' })).toBe(false);
+      expect(isSummaryDue(evening, '21:00', { date: '2026-10-20', time: '20:59' })).toBe(true);
+      expect(isSummaryDue(evening, '21:00', { date: '2026-10-19', time: '22:15' })).toBe(true);
+    });
   });
 
   describe('what it says', () => {
@@ -36,16 +44,17 @@ describe('daily summary rules (FT-124)', () => {
       month: '2026-10',
       today: '2026-10-14',
       totalMinor: 768_440_000,
+      hasUsd: true,
       comparable: true,
       change: { diffMinor: 71_440_000 },
       previous: { month: '2026-09', to: '2026-09-14', wholeMonth: false },
       categories: [
-        { name: 'Продукты', amountMinor: 214_000_000 },
-        { name: 'Дом', amountMinor: 145_000_000 },
-        { name: 'Кафе', amountMinor: 109_200_000 },
-        { name: 'Покупки', amountMinor: 106_000_000 },
+        { name: 'Продукты', amountMinor: 214_000_000, hasUsd: false },
+        { name: 'Дом', amountMinor: 145_000_000, hasUsd: false },
+        { name: 'Кафе', amountMinor: 109_200_000, hasUsd: true },
+        { name: 'Покупки', amountMinor: 106_000_000, hasUsd: false },
         // Only in September: nothing spent this month
-        { name: 'Подарки', amountMinor: 0 },
+        { name: 'Подарки', amountMinor: 0, hasUsd: false },
       ],
       usd: { missingRate: false },
     };
@@ -55,11 +64,12 @@ describe('daily summary rules (FT-124)', () => {
         month: '2026-10',
         today: '2026-10-14',
         totalMinor: 768_440_000,
+        hasUsd: true,
         comparison: { diffMinor: 71_440_000, previous: { month: '2026-09', to: '2026-09-14', wholeMonth: false } },
         categories: [
-          { name: 'Продукты', amountMinor: 214_000_000 },
-          { name: 'Дом', amountMinor: 145_000_000 },
-          { name: 'Кафе', amountMinor: 109_200_000 },
+          { name: 'Продукты', amountMinor: 214_000_000, hasUsd: false },
+          { name: 'Дом', amountMinor: 145_000_000, hasUsd: false },
+          { name: 'Кафе', amountMinor: 109_200_000, hasUsd: true },
         ],
         usdLeftOut: false,
       });
@@ -69,31 +79,34 @@ describe('daily summary rules (FT-124)', () => {
       expect(monthSummaryOf({ ...analytics, comparable: false, change: null }).comparison).toBeNull();
     });
 
-    it('the day: the total, how many expenses, up to 3 categories', () => {
+    it('the day: the total, every expense counted (dollars without a rate too), up to 3 categories, review apart', () => {
       const month = monthSummaryOf(analytics);
       const day = daySummaryOf('2026-10-14', {
-        recordCount: 5,
+        recordCount: 9,
         expenseMinor: 21_040_000 + 600_000,
         categories: [
-          { category: 'Продукты', amountMinor: 18_640_000, count: 1 },
-          { category: 'Транспорт', amountMinor: 2_400_000, count: 1 },
-          { category: 'Кафе', amountMinor: 400_000, count: 1 },
-          { category: 'Связь', amountMinor: 200_000, count: 1 },
+          { category: 'Продукты', amountMinor: 18_640_000, count: 1, hasUsd: false },
+          { category: 'Транспорт', amountMinor: 2_400_000, count: 1, hasUsd: true },
+          { category: 'Кафе', amountMinor: 400_000, count: 1, hasUsd: false },
+          { category: 'Связь', amountMinor: 200_000, count: 1, hasUsd: false },
         ],
-        usd: { missingRate: true },
+        needsReview: { count: 2 },
+        leftOutUsd: { expenseCount: 1, needsReviewCount: 1 },
       }, month);
 
       expect(day).toEqual({
         day: '2026-10-14',
-        recordCount: 5,
+        recordCount: 9,
         expenseMinor: 21_640_000,
-        expenseCount: 4,
+        expenseHasUsd: true,
+        expenseCount: 5,
+        usdLeftOutCount: 1,
         categories: [
-          { name: 'Продукты', amountMinor: 18_640_000 },
-          { name: 'Транспорт', amountMinor: 2_400_000 },
-          { name: 'Кафе', amountMinor: 400_000 },
+          { name: 'Продукты', amountMinor: 18_640_000, hasUsd: false },
+          { name: 'Транспорт', amountMinor: 2_400_000, hasUsd: true },
+          { name: 'Кафе', amountMinor: 400_000, hasUsd: false },
         ],
-        usdLeftOut: true,
+        needsReviewCount: 3,
         month,
       });
     });

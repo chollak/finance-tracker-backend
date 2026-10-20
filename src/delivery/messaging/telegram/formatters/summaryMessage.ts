@@ -1,7 +1,7 @@
 import { Markup } from 'telegraf';
 import { InlineKeyboardButton } from 'telegraf/types';
 import { ComparedPeriod, DaySummary, MonthSummary } from '../../../../modules/notification/domain/dailySummary';
-import { absoluteDate, amountDigits, amountWithUnit, escapeHtml, recordsWord } from './recordMessage';
+import { absoluteDate, amountDigits, amountWithUnit, escapeHtml, NBSP, recordsWord } from './recordMessage';
 
 /**
  * Итоги дня и месяца in the chat (FT-124, docs/pastel/components/BotNotice.md, boards «Бот · итоги дня» and
@@ -15,6 +15,11 @@ import { absoluteDate, amountDigits, amountWithUnit, escapeHtml, recordsWord } f
  *   Транспорт · 24 000
  *
  *   С начала октября — 7 684 400 сум, на 714 400 сум больше, чем за 1–14 сентября.
+ *
+ * The numbers are Home's: dollars at the user's rate, and an amount with converted dollars inside gets «≈», as on
+ * the analytics screen («Покупки · ≈ 704 000»). The count is of every expense record, dollars left out for want
+ * of a rate included («Доллары не вошли: курса пока нет.»). Records awaiting review are in no total: «Нужно
+ * проверить в Daftar: 1 запись — пока не в итогах.»
  */
 
 export interface BotNotice {
@@ -43,8 +48,15 @@ const daysUpTo = (day: number) => (day === 1 ? '1' : `1–${day}`);
 /** «7 684 400 сум». */
 const som = (minor: number) => amountWithUnit(Math.abs(minor), 'UZS');
 
-/** «Продукты · 186 400». */
-const categoryLine = (category: { name: string; amountMinor: number }) => `${escapeHtml(category.name)} · ${amountDigits(category.amountMinor, 'UZS')}`;
+/** «≈ 728 000 сум»: dollars converted at the rate are inside. */
+const approx = (hasUsd: boolean, text: string) => (hasUsd ? `≈${NBSP}${text}` : text);
+
+/** «Продукты · 186 400», «Покупки · ≈ 704 000». */
+const categoryLine = (category: { name: string; amountMinor: number; hasUsd: boolean }) =>
+  `${escapeHtml(category.name)} · ${approx(category.hasUsd, amountDigits(category.amountMinor, 'UZS'))}`;
+
+/** «Нужно проверить в Daftar: 1 запись — пока не в итогах.» */
+const needsReviewLine = (count: number) => `Нужно проверить в Daftar: ${recordsWord(count)} — пока не в итогах.`;
 
 /** What the month is compared with, as the analytics screen says it: «чем за 1–14 сентября», «чем в сентябре». */
 function previousWords(previous: ComparedPeriod): { than: string; like: string } {
@@ -65,7 +77,7 @@ function comparisonWords(comparison: NonNullable<MonthSummary['comparison']>): s
 /** The one line about the month under the day; none while nothing was spent this month. */
 function monthLine(month: MonthSummary): string | null {
   if (month.totalMinor <= 0) return null;
-  const head = `С начала ${MONTHS_OF[monthIndex(month.month)]} — ${som(month.totalMinor)}`;
+  const head = `С начала ${MONTHS_OF[monthIndex(month.month)]} — ${approx(month.hasUsd, som(month.totalMinor))}`;
   return month.comparison ? `${head}, ${comparisonWords(month.comparison)}.` : `${head}.`;
 }
 
@@ -98,16 +110,16 @@ export function formatDaySummary(summary: DaySummary, options: { today: string; 
   }
 
   const head = [title];
-  if (summary.expenseCount > 0) {
-    head.push(`Потрачено ${som(summary.expenseMinor)} · ${recordsWord(summary.expenseCount)}`);
-    if (summary.usdLeftOut) head.push(USD_LEFT_OUT);
-  } else {
-    // Income, a transfer or a record awaiting review: no spending to tell
-    head.push(summary.usdLeftOut ? USD_LEFT_OUT : 'Трат не было.');
-  }
+  // Expenses in the total; a day of dollars only, all without a rate, has none to show
+  const counted = summary.expenseCount - summary.usdLeftOutCount;
+  if (counted > 0) head.push(`Потрачено ${approx(summary.expenseHasUsd, som(summary.expenseMinor))} · ${recordsWord(summary.expenseCount)}`);
+  if (summary.usdLeftOutCount > 0) head.push(USD_LEFT_OUT);
+  if (summary.needsReviewCount > 0) head.push(needsReviewLine(summary.needsReviewCount));
+  // Only income or a transfer: no spending to tell
+  if (head.length === 1) head.push('Трат не было.');
   const month = monthLine(summary.month);
   return {
-    text: blocks(head, summary.expenseCount > 0 ? summary.categories.map(categoryLine) : null, month ? [month] : null),
+    text: blocks(head, counted > 0 ? summary.categories.map(categoryLine) : null, month ? [month] : null),
     keyboard: appLinkRows('Открыть Daftar', options.appUrl),
   };
 }
@@ -123,7 +135,7 @@ export function formatMonthSummary(summary: MonthSummary, options: { analyticsUr
   const head = [`<b>${MONTH_NAMES[index]} · ${daysUpTo(dayOf(summary.today))}</b>`];
   let categories: string[] | null = null;
   if (summary.totalMinor > 0) {
-    const spent = `Потрачено ${som(summary.totalMinor)}`;
+    const spent = `Потрачено ${approx(summary.hasUsd, som(summary.totalMinor))}`;
     head.push(summary.comparison ? `${spent} — ${comparisonWords(summary.comparison)}.` : `${spent}.`);
     if (summary.usdLeftOut) head.push(USD_LEFT_OUT);
     categories = summary.categories.map(categoryLine);

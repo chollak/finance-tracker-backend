@@ -44,16 +44,20 @@ export function localClock(now: Date, timeZone: string | undefined): LocalClock 
 
 /**
  * The summary of the day is due from the chosen time until the day ends: a bot that was down at 21:00 and
- * starts at 22:30 still sends it, one that starts after midnight does not send yesterday's.
+ * starts at 22:30 still sends it, one that starts after midnight does not send yesterday's. A user who came at
+ * or after the chosen time (`joined`, on the same clock) was not there for it: the first summary is the next day's.
  */
-export function isSummaryDue(clock: LocalClock, summaryTime: string): boolean {
+export function isSummaryDue(clock: LocalClock, summaryTime: string, joined?: LocalClock): boolean {
+  if (joined && joined.date === clock.date && joined.time >= summaryTime) return false;
   return clock.time >= summaryTime;
 }
 
-/** A category line: «Продукты · 186 400». */
+/** A category line: «Продукты · 186 400», «Покупки · ≈ 704 000». */
 export interface SummaryCategory {
   name: string;
   amountMinor: number;
+  /** Dollars converted at the rate are inside: «≈», as on the analytics screen. */
+  hasUsd: boolean;
 }
 
 /** What the comparison is made with: the same days of the month before («1–14 сентября») or all of it. */
@@ -73,6 +77,8 @@ export interface MonthSummary {
   today: string;
   /** Real expenses of the month, as Home's month tile counts them. */
   totalMinor: number;
+  /** Dollars converted at the rate are inside: «≈». */
+  hasUsd: boolean;
   /** Null while there is nothing fair to compare with (the first days of recording, an empty month before). */
   comparison: { diffMinor: number; previous: ComparedPeriod } | null;
   /** The largest categories, at most DAILY_SUMMARY_RULES.topCategories. */
@@ -81,17 +87,27 @@ export interface MonthSummary {
   usdLeftOut: boolean;
 }
 
-/** The day: «Потрачено 210 400 сум · 2 записи», the categories and the month so far. */
+/**
+ * The day: «Потрачено 210 400 сум · 2 записи», the categories and the month so far. The amounts are Home's —
+ * dollars at the user's rate, marked «≈»; the count is of every expense record, dollars left out for want of a
+ * rate included; records awaiting review are in no total and are named apart.
+ */
 export interface DaySummary {
   /** YYYY-MM-DD */
   day: string;
   /** Every record of the day, of any kind: none is the empty-day question. */
   recordCount: number;
+  /** Real expenses in сум, dollars at the rate. */
   expenseMinor: number;
-  /** Records counted as expenses. */
+  /** Dollars converted at the rate are inside: «≈». */
+  expenseHasUsd: boolean;
+  /** Every real expense record of the day, dollars left out included. */
   expenseCount: number;
+  /** Of them, dollars left out of `expenseMinor`: no rate yet. */
+  usdLeftOutCount: number;
   categories: SummaryCategory[];
-  usdLeftOut: boolean;
+  /** Records awaiting review, of any kind: not in the totals until checked. */
+  needsReviewCount: number;
   month: MonthSummary;
 }
 
@@ -99,8 +115,9 @@ export interface DaySummary {
 export interface DayTotals {
   recordCount: number;
   expenseMinor: number;
-  categories: ReadonlyArray<{ category: string; amountMinor: number; count: number }>;
-  usd: { missingRate: boolean };
+  categories: ReadonlyArray<{ category: string; amountMinor: number; count: number; hasUsd: boolean }>;
+  needsReview: { count: number };
+  leftOutUsd: { expenseCount: number; needsReviewCount: number };
 }
 
 /** The month's expense analytics as the analytics screen gets them (FT-120: `MonthAnalytics`). */
@@ -108,10 +125,11 @@ export interface MonthExpenses {
   month: string;
   today: string;
   totalMinor: number;
+  hasUsd: boolean;
   comparable: boolean;
   change: { diffMinor: number } | null;
   previous: ComparedPeriod | null;
-  categories: ReadonlyArray<{ name: string; amountMinor: number }>;
+  categories: ReadonlyArray<{ name: string; amountMinor: number; hasUsd: boolean }>;
   usd: { missingRate: boolean };
 }
 
@@ -121,6 +139,7 @@ export function monthSummaryOf(analytics: MonthExpenses): MonthSummary {
     month: analytics.month,
     today: analytics.today,
     totalMinor: analytics.totalMinor,
+    hasUsd: analytics.hasUsd,
     comparison: compared
       ? { diffMinor: analytics.change!.diffMinor, previous: { month: analytics.previous!.month, to: analytics.previous!.to, wholeMonth: analytics.previous!.wholeMonth } }
       : null,
@@ -128,21 +147,24 @@ export function monthSummaryOf(analytics: MonthExpenses): MonthSummary {
     categories: analytics.categories
       .filter(category => category.amountMinor > 0)
       .slice(0, DAILY_SUMMARY_RULES.topCategories)
-      .map(category => ({ name: category.name, amountMinor: category.amountMinor })),
+      .map(category => ({ name: category.name, amountMinor: category.amountMinor, hasUsd: category.hasUsd })),
     usdLeftOut: analytics.usd.missingRate,
   };
 }
 
 export function daySummaryOf(day: string, totals: DayTotals, month: MonthSummary): DaySummary {
+  const usdLeftOutCount = totals.leftOutUsd.expenseCount;
   return {
     day,
     recordCount: totals.recordCount,
     expenseMinor: totals.expenseMinor,
-    expenseCount: totals.categories.reduce((sum, category) => sum + category.count, 0),
+    expenseHasUsd: totals.categories.some(category => category.hasUsd),
+    expenseCount: totals.categories.reduce((sum, category) => sum + category.count, 0) + usdLeftOutCount,
+    usdLeftOutCount,
     categories: totals.categories
       .slice(0, DAILY_SUMMARY_RULES.topCategories)
-      .map(category => ({ name: category.category, amountMinor: category.amountMinor })),
-    usdLeftOut: totals.usd.missingRate,
+      .map(category => ({ name: category.category, amountMinor: category.amountMinor, hasUsd: category.hasUsd })),
+    needsReviewCount: totals.needsReview.count + totals.leftOutUsd.needsReviewCount,
     month,
   };
 }

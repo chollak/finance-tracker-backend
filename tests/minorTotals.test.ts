@@ -1,5 +1,5 @@
 import { AnalyticsService } from '../src/modules/transaction/application/analyticsService';
-import { summarizeWeeklyReview } from '../src/modules/transaction/application/weeklyReviewService';
+import { summarizePeriod } from '../src/modules/transaction/domain/periodTotals';
 import { Transaction } from '../src/modules/transaction/domain/transactionEntity';
 import { TransactionRepository } from '../src/modules/transaction/domain/transactionRepository';
 
@@ -34,15 +34,12 @@ describe('totals in minor units (FT-097)', () => {
     expect(breakdown.coffee).toEqual({ amount: 1, count: 10, percentage: 100 });
   });
 
-  it('weekly review', () => {
-    const summary = summarizeWeeklyReview([...tenCoffees, salary], {
-      startDate: new Date('2026-10-12T00:00:00Z'),
-      endDate: new Date('2026-10-18T23:59:59Z'),
-    });
+  it('period totals (Home, analytics, the bot\'s summaries)', () => {
+    const totals = summarizePeriod([...tenCoffees, salary], { usdRateMinor: null });
 
-    expect(summary.realExpenses).toBe(1);
-    expect(summary.income).toBe(0.3);
-    expect(summary.topCategories).toEqual([{ category: 'coffee', amount: 1 }]);
+    expect(totals.expenseMinor).toBe(100);
+    expect(totals.incomeMinor).toBe(30);
+    expect(totals.categories).toEqual([expect.objectContaining({ category: 'coffee', amountMinor: 100, count: 10 })]);
   });
 
   it('reads records that carry only the legacy amount', async () => {

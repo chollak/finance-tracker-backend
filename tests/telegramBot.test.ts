@@ -94,17 +94,52 @@ describe('startTelegramBot', () => {
     expect(use.mock.invocationCallOrder[call]).toBeLessThan(registerCommandHandlers.mock.invocationCallOrder[0]);
   });
 
-  it('sets the command menu and starts the daily summary in the bot\'s process (FT-124)', async () => {
+  it('sets the command menu and starts the daily summary once Telegram answered for the bot (FT-124)', async () => {
     const { start, telegram, setCommandMenu, dailySummary, launch } = await loadBotWithMocks();
 
     start();
 
     expect(setCommandMenu).toHaveBeenCalledWith(telegram);
     expect(launch).toHaveBeenCalledTimes(1);
+    // Not before Telegraf's onLaunch (getMe answered)
+    expect(dailySummary.start).not.toHaveBeenCalled();
+    const [onLaunch] = launch.mock.calls[0] as unknown as [() => void];
+    onLaunch();
     expect(dailySummary.start).toHaveBeenCalledTimes(1);
-    // The scheduler sends with the bot's own Telegram client
-    const [sender] = dailySummary.start.mock.calls[0];
+    // The scheduler sends with the bot's own Telegram client; its first look at the clock waits a minute, so a
+    // polling conflict found in that minute stops it before anything goes out
+    const [sender, options] = dailySummary.start.mock.calls[0];
     expect(sender.send).toEqual(expect.any(Function));
+    expect(options).toEqual({ firstTickInMs: 60_000 });
+  });
+
+  it('polling that fails for good stops the daily summary (FT-124)', async () => {
+    const { start, launch, launchCatch, dailySummary } = await loadBotWithMocks();
+    const { getTelegramBotStatus } = await import('../src/delivery/messaging/telegram/telegramBot');
+
+    start();
+    (launch.mock.calls[0] as unknown as [() => void])[0]();
+    launchCatch.mock.calls[0][0](new Error('401: Unauthorized'));
+
+    expect(getTelegramBotStatus()).toEqual(expect.objectContaining({ state: 'failed' }));
+    expect(dailySummary.stop).toHaveBeenCalledTimes(1);
+  });
+
+  it('a polling conflict stops the daily summary until the retry is connected again (FT-124)', async () => {
+    jest.useFakeTimers();
+    const { start, launch, launchCatch, dailySummary } = await loadBotWithMocks();
+
+    start();
+    (launch.mock.calls[0] as unknown as [() => void])[0]();
+    launchCatch.mock.calls[0][0](new Error('409: Conflict: terminated by other getUpdates request'));
+    expect(dailySummary.stop).toHaveBeenCalledTimes(1);
+
+    jest.advanceTimersByTime(5000);
+    expect(launch).toHaveBeenCalledTimes(2);
+    expect(dailySummary.start).toHaveBeenCalledTimes(1);
+    (launch.mock.calls[1] as unknown as [() => void])[0]();
+    expect(dailySummary.start).toHaveBeenCalledTimes(2);
+    jest.useRealTimers();
   });
 
   it('attaches a rejection handler to bot.launch so launch failures do not become unhandled rejections', async () => {

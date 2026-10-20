@@ -214,6 +214,22 @@ describe('account and currency of every record (FT-103)', () => {
       const noRate = summarizePeriod([tx({}), usd], { usdRateMinor: null });
       expect(noRate.expenseMinor).toBe(100000 * 100);
       expect(noRate.usd.missingRate).toBe(true);
+      expect(totals.leftOutUsd).toEqual({ expenseCount: 0, needsReviewCount: 0 });
+    });
+
+    it('counts the dollars it leaves out without a rate by how they would count (FT-124)', () => {
+      const noRate = summarizePeriod([
+        tx({}),
+        usd,
+        { ...usd, needsReview: true },
+        { ...usd, type: 'income', semanticType: 'income', category: 'Фриланс' },
+        { ...usd, semanticType: 'own_transfer' },
+      ], { usdRateMinor: null });
+
+      expect(noRate.leftOutUsd).toEqual({ expenseCount: 1, needsReviewCount: 1 });
+      // Nothing else moves: the review count and the categories are of what was counted
+      expect(noRate.needsReview.count).toBe(0);
+      expect(noRate.categories.map(c => [c.category, c.count])).toEqual([['Покупки', 1]]);
     });
 
     it('keeps review, income and own movements apart, and ranks categories', () => {

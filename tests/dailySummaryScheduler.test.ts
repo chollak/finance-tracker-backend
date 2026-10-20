@@ -48,6 +48,38 @@ describe('daily summary scheduler (FT-124)', () => {
     scheduler.stop();
   });
 
+  it('with firstTickInMs: the first look at the clock waits, and a stop before it means none at all', async () => {
+    jest.useFakeTimers();
+    const list = jest.fn().mockResolvedValue([] as SummaryRecipient[]);
+    const scheduler = notifier(list);
+
+    scheduler.start(sender, { firstTickInMs: 60_000 });
+    await jest.advanceTimersByTimeAsync(59_000);
+    expect(list).not.toHaveBeenCalled();
+    await jest.advanceTimersByTimeAsync(1_000);
+    expect(list).toHaveBeenCalledTimes(1);
+    await jest.advanceTimersByTimeAsync(60_000);
+    expect(list).toHaveBeenCalledTimes(2);
+    scheduler.stop();
+
+    const neverListed = jest.fn().mockResolvedValue([]);
+    const stopped = notifier(neverListed);
+    stopped.start(sender, { firstTickInMs: 60_000 });
+    stopped.stop();
+    await jest.advanceTimersByTimeAsync(300_000);
+    expect(neverListed).not.toHaveBeenCalled();
+
+    // Started again after a stop: it runs
+    const again = jest.fn().mockResolvedValue([]);
+    const resumed = notifier(again);
+    resumed.start(sender, { firstTickInMs: 60_000 });
+    resumed.stop();
+    resumed.start(sender, { firstTickInMs: 60_000 });
+    await jest.advanceTimersByTimeAsync(60_000);
+    expect(again).toHaveBeenCalledTimes(1);
+    resumed.stop();
+  });
+
   it('a tick that fails does not stop the next ones', async () => {
     jest.useFakeTimers();
     const list = jest.fn().mockRejectedValueOnce(new Error('database is locked')).mockResolvedValue([]);

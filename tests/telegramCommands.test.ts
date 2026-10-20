@@ -63,6 +63,9 @@ describe('bot commands (FT-124)', () => {
   let transactionModule: TransactionModule;
   let userModule: UserModule;
   let notificationModule: NotificationModule;
+  let accountModule: AccountModule;
+  /** The user's USD rate in minor units (12 800,00 сум), or none yet. */
+  let rateMinor: number | null;
   let bot: Bot;
   let replies: Reply[];
   let owner: string;
@@ -87,11 +90,20 @@ describe('bot commands (FT-124)', () => {
     return replies;
   }
 
-  async function record(date: string, category: string, sum: number, type: 'expense' | 'income' = 'expense') {
+  async function record(date: string, category: string, sum: number, type: 'expense' | 'income' = 'expense', extra: Record<string, unknown> = {}) {
     const created = await transactionModule.getCreateTransactionUseCase().execute({
-      userId: owner, amountMinor: sum * 100, category, type, description: category, date, source: 'telegram',
+      userId: owner, amountMinor: sum * 100, category, type, description: category, date, source: 'telegram', ...extra,
     } as any);
     if (!created.success) throw created.error;
+  }
+
+  /** A record in dollars on the user's dollar account: «наушники 55$». */
+  async function dollars(date: string, category: string, usd: number, type: 'expense' | 'income' = 'expense', extra: Record<string, unknown> = {}) {
+    const account = await accountModule.getCreateAccountUseCase().execute({
+      userId: owner, body: { name: `Доллары ${date} ${category}`, kind: 'cash', currency: 'USD', openingDate: '2026-09-01' },
+    });
+    if (!account.success) throw account.error;
+    await record(date, category, usd, type, { currency: 'USD', accountId: account.data.id, ...extra });
   }
 
   /** Home's month tile and a day's total: GET /api/transactions/totals. */
@@ -111,10 +123,12 @@ describe('bot commands (FT-124)', () => {
     db = await openMigratedDatabase();
     const ds = db.dataSource;
     const categoryModule = new CategoryModule(new SqliteCategoryRepository(ds));
-    const accountModule = new AccountModule(new SqliteAccountRepository(ds), undefined, new SqliteAccountMoveRepository(ds));
+    accountModule = new AccountModule(new SqliteAccountRepository(ds), undefined, new SqliteAccountMoveRepository(ds));
     transactionModule = new TransactionModule(new SqliteTransactionRepository(ds));
     transactionModule.setCategoryResolver(categoryModule.getCatalog());
     transactionModule.setAccountResolver(accountModule.getBook());
+    rateMinor = 1_280_000;
+    transactionModule.setUsdRateSource({ effectiveUsdRate: async () => (rateMinor === null ? null : { rateMinor, source: 'cbu' }) });
     userModule = new UserModule(new SqliteUserRepository(ds), new SqliteUserSettingsRepository(ds));
     notificationModule = new NotificationModule(new SqliteNotificationLogRepository(ds), { transactionModule, userModule });
     owner = (await userModule.getGetOrCreateUserUseCase().execute({ telegramId: String(TELEGRAM_ID) })).id;
@@ -190,6 +204,133 @@ describe('bot commands (FT-124)', () => {
       `С начала октября — 355${NB}400${NB}сум, на 155${NB}400${NB}сум больше, чем за 1–14 сентября.`,
     ].join('\n'));
     expect(today.keyboard).toEqual([[expect.objectContaining({ text: 'Открыть Daftar ↗' })]]);
+  });
+
+  describe('/today with dollars and records awaiting review: Home\'s numbers, every expense counted', () => {
+    beforeEach(async () => {
+      await record('2026-09-05', 'Продукты', 200_000);
+      await record('2026-10-02', 'Продукты', 600_000);
+    });
+
+    it('dollars at the rate are in the total, marked «≈» as on the analytics screen', async () => {
+      await record('2026-10-14', 'Транспорт', 24_000);
+      await dollars('2026-10-14', 'Покупки', 55);
+
+      const [today] = await send('/today');
+
+      // 55 × 12 800 = 704 000 сум
+      expect(await homeExpenses('2026-10-14', '2026-10-14')).toBe(72_800_000);
+      expect(today.text).toBe([
+        `<b>Итоги дня · 14${NB}октября</b>`,
+        `Потрачено ≈${NB}728${NB}000${NB}сум · 2 записи`,
+        '',
+        `Покупки · ≈${NB}704${NB}000`,
+        `Транспорт · 24${NB}000`,
+        '',
+        `С начала октября — ≈${NB}1${NB}328${NB}000${NB}сум, на 1${NB}128${NB}000${NB}сум больше, чем за 1–14 сентября.`,
+      ].join('\n'));
+    });
+
+    it('without a rate the dollars are left out of the total but not of the count', async () => {
+      rateMinor = null;
+      await record('2026-10-14', 'Транспорт', 24_000);
+      await dollars('2026-10-14', 'Покупки', 55);
+
+      const [today] = await send('/today');
+
+      expect(await homeExpenses('2026-10-14', '2026-10-14')).toBe(2_400_000);
+      expect(today.text).toBe([
+        `<b>Итоги дня · 14${NB}октября</b>`,
+        `Потрачено 24${NB}000${NB}сум · 2 записи`,
+        'Доллары не вошли: курса пока нет.',
+        '',
+        `Транспорт · 24${NB}000`,
+        '',
+        `С начала октября — 624${NB}000${NB}сум, на 424${NB}000${NB}сум больше, чем за 1–14 сентября.`,
+      ].join('\n'));
+    });
+
+    it('dollar income without a rate says nothing under «Потрачено»', async () => {
+      rateMinor = null;
+      await record('2026-10-14', 'Транспорт', 24_000);
+      await dollars('2026-10-14', 'Фриланс', 300, 'income');
+
+      const [today] = await send('/today');
+
+      expect(today.text).toContain(`Потрачено 24${NB}000${NB}сум · 1 запись\n\n`);
+      expect(today.text).not.toContain('Доллары не вошли');
+    });
+
+    it('a day of dollar expenses only, without a rate: no «Трат не было.»', async () => {
+      rateMinor = null;
+      await dollars('2026-10-14', 'Покупки', 55);
+
+      const [today] = await send('/today');
+
+      expect(today.text).toBe([
+        `<b>Итоги дня · 14${NB}октября</b>`,
+        'Доллары не вошли: курса пока нет.',
+        '',
+        `С начала октября — 600${NB}000${NB}сум, на 400${NB}000${NB}сум больше, чем за 1–14 сентября.`,
+      ].join('\n'));
+    });
+
+    it('records awaiting review are named apart, never «Трат не было.»', async () => {
+      await record('2026-10-14', 'Покупки', 45_000, 'expense', { needsReview: true });
+      // «наушники 55$» to check, and no rate to count it at
+      rateMinor = null;
+      await dollars('2026-10-14', 'Покупки', 55, 'expense', { needsReview: true });
+
+      const [today] = await send('/today');
+
+      expect(await homeExpenses('2026-10-14', '2026-10-14')).toBe(0);
+      expect(today.text).toBe([
+        `<b>Итоги дня · 14${NB}октября</b>`,
+        'Нужно проверить в Daftar: 2 записи — пока не в итогах.',
+        '',
+        `С начала октября — 600${NB}000${NB}сум, на 400${NB}000${NB}сум больше, чем за 1–14 сентября.`,
+      ].join('\n'));
+    });
+
+    it('a day of income only: «Трат не было.»', async () => {
+      await record('2026-10-14', 'Зарплата', 12_500_000, 'income');
+
+      const [today] = await send('/today');
+
+      expect(today.text.split('\n').slice(0, 2)).toEqual([`<b>Итоги дня · 14${NB}октября</b>`, 'Трат не было.']);
+    });
+
+    it('/month: «≈» on the total and on the categories with dollars inside', async () => {
+      await record('2026-10-14', 'Транспорт', 24_000);
+      await dollars('2026-10-14', 'Покупки', 55);
+
+      const [month] = await send('/month');
+
+      expect(await homeExpenses('2026-10-01', '2026-10-31')).toBe(132_800_000);
+      expect(month.text).toBe([
+        '<b>Октябрь · 1–14</b>',
+        `Потрачено ≈${NB}1${NB}328${NB}000${NB}сум — на 1${NB}128${NB}000${NB}сум больше, чем за 1–14 сентября.`,
+        '',
+        `Покупки · ≈${NB}704${NB}000`,
+        `Продукты · 600${NB}000`,
+        `Транспорт · 24${NB}000`,
+      ].join('\n'));
+    });
+
+    it('/month without a rate: the dollars are left out and it says so', async () => {
+      rateMinor = null;
+      await dollars('2026-10-14', 'Покупки', 55);
+
+      const [month] = await send('/month');
+
+      expect(month.text).toBe([
+        '<b>Октябрь · 1–14</b>',
+        `Потрачено 600${NB}000${NB}сум — на 400${NB}000${NB}сум больше, чем за 1–14 сентября.`,
+        'Доллары не вошли: курса пока нет.',
+        '',
+        `Продукты · 600${NB}000`,
+      ].join('\n'));
+    });
   });
 
   it('/today without records today: «Записей пока нет.», no question and no buttons', async () => {

@@ -48,8 +48,10 @@ async function recordMessageKeyboard(mode: RecordMessageInput['mode'], records =
 
 const MANY = Array.from({ length: 7 }, (_, i) => record(`tx-${i}`));
 
-const MONTH: MonthSummary = { month: '2026-10', today: '2026-10-14', totalMinor: 100_000, comparison: null, categories: [], usdLeftOut: false };
-const DAY: DaySummary = { day: '2026-10-14', recordCount: 1, expenseMinor: 100_000, expenseCount: 1, categories: [], usdLeftOut: false, month: MONTH };
+const MONTH: MonthSummary = { month: '2026-10', today: '2026-10-14', totalMinor: 100_000, hasUsd: false, comparison: null, categories: [], usdLeftOut: false };
+const DAY: DaySummary = {
+  day: '2026-10-14', recordCount: 1, expenseMinor: 100_000, expenseHasUsd: false, expenseCount: 1, usdLeftOutCount: 0, categories: [], needsReviewCount: 0, month: MONTH,
+};
 
 /** The keyboard of a notice: the daily summary, /today, /month. */
 function noticeKeyboard(notice: { keyboard: unknown }): Keyboard {

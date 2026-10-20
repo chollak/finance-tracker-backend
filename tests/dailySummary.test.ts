@@ -23,8 +23,9 @@ import { registerSummaryHandlers, summarySender } from '../src/delivery/messagin
 /**
  * FT-124 end to end on a real SQLite file: the daily summary goes out at the user's chosen time on the user's
  * clock, once — a second tick or a restart does not repeat it; a day without records asks «Трат правда не
- * было?» at most 2 evenings in a row and again after a record; «Да, не было» answers it. Telegram is a fake that
- * keeps what the bot sent; the text is drawn by the bot's own sender.
+ * было?» at most 2 evenings in a row and again after a record, never before the first record and not on the
+ * evening the user came after the chosen time; «Да, не было» answers it, unless the day has records by then.
+ * Telegram is a fake that keeps what the bot sent; the text is drawn by the bot's own sender.
  */
 
 const NB = '\u00a0';
@@ -85,8 +86,10 @@ describe('daily summary (FT-124)', () => {
     running = await start();
   }
 
+  /** A user with the bot since September, before any of the days below — whatever the real date is. */
   async function user(telegramId: string = TELEGRAM_ID): Promise<string> {
     const created = await running.userModule.getGetOrCreateUserUseCase().execute({ telegramId, firstName: 'Shukur' });
+    await joined(created.id, '2026-09-01', '09:00');
     return created.id;
   }
 
@@ -100,6 +103,30 @@ describe('daily summary (FT-124)', () => {
   /** The clock reads this time in Tashkent (UTC+5). */
   function at(date: string, time: string): void {
     clock = new Date(`${date}T${time}:00+05:00`);
+  }
+
+  /** The user first came to the bot at this time in Tashkent (`users.created_at` is UTC). */
+  async function joined(owner: string, date: string, time: string): Promise<void> {
+    const utc = new Date(`${date}T${time}:00+05:00`).toISOString().replace('T', ' ').slice(0, 19);
+    await running.ds.query('UPDATE users SET created_at = ? WHERE id = ?', [utc, owner]);
+  }
+
+  /** «Да, не было» pressed under the message the bot sent. */
+  async function pressNoSpending(message: Sent) {
+    const actions: Array<{ trigger: RegExp; handler: (ctx: any) => Promise<void> }> = [];
+    registerSummaryHandlers({ action: (trigger: RegExp, handler: any) => actions.push({ trigger, handler }) } as any);
+    const data = message.keyboard[0][0].callback_data!;
+    const action = actions.find(({ trigger }) => trigger.test(data))!;
+    const ctx: any = {
+      from: { id: Number(TELEGRAM_ID) },
+      match: action.trigger.exec(data),
+      callbackQuery: { data, message: { message_id: message.messageId, chat: { id: Number(TELEGRAM_ID) } } },
+      modules: { userModule: running.userModule, notificationModule: running.notificationModule },
+      answerCbQuery: jest.fn().mockResolvedValue(true),
+      editMessageText: jest.fn().mockResolvedValue(true),
+    };
+    await action.handler(ctx);
+    return ctx;
   }
 
   async function tick() {
@@ -178,6 +205,7 @@ describe('daily summary (FT-124)', () => {
   it('at the time the user chose, not at all when switched off', async () => {
     const late = await user('597843120');
     const off = await user('597843121');
+    await record(late, '2026-10-10', 'Кафе', 25_000);
     await running.userModule.getUpdateUserSettingsUseCase().execute({ userId: late, patch: { dailySummaryTime: '22:00' } });
     await running.userModule.getUpdateUserSettingsUseCase().execute({ userId: off, patch: { dailySummaryEnabled: false } });
 
@@ -236,24 +264,67 @@ describe('daily summary (FT-124)', () => {
     expect(await evening('2026-10-19')).toEqual(['asked']);
   });
 
+  it('a user who has not recorded anything yet is not asked; the evenings before the first record do not count', async () => {
+    const owner = await user();
+    const evening = async (date: string) => {
+      at(date, '21:00');
+      return (await tick()).map(result => result.outcome);
+    };
+
+    expect(await evening('2026-10-11')).toEqual(['skipped']);
+    expect(await evening('2026-10-12')).toEqual(['skipped']);
+    expect(sent).toEqual([]);
+    expect(await logEntry(owner, 'daily_summary', '2026-10-12')).toMatchObject({ status: 'skipped', variant: 'empty' });
+
+    // The first record: from now on the empty evenings are asked about, two in a row
+    await record(owner, '2026-10-13', 'Кафе', 25_000);
+    expect(await evening('2026-10-13')).toEqual(['sent']);
+    expect(await evening('2026-10-14')).toEqual(['asked']);
+    expect(await evening('2026-10-15')).toEqual(['asked']);
+    expect(await evening('2026-10-16')).toEqual(['skipped']);
+    expect(sent).toHaveLength(3);
+  });
+
+  it('a new user who came at 22:15, after the chosen time: nothing that evening, even after a first record', async () => {
+    const owner = await user();
+    await joined(owner, '2026-10-20', '22:15');
+
+    // The minute after /start: no question under the greeting, nothing claimed for the day
+    at('2026-10-20', '22:16');
+    expect(await tick()).toEqual([]);
+    expect(sent).toEqual([]);
+    expect(await logEntry(owner, 'daily_summary', '2026-10-20')).toBeNull();
+
+    // The first record a few minutes later is not followed by a summary of it
+    await record(owner, '2026-10-20', 'Кафе', 45_000);
+    at('2026-10-20', '22:21');
+    expect(await tick()).toEqual([]);
+    at('2026-10-20', '23:59');
+    expect(await tick()).toEqual([]);
+    expect(sent).toEqual([]);
+
+    // The next evening is the first one at the chosen time
+    await record(owner, '2026-10-21', 'Такси', 18_000);
+    at('2026-10-21', '21:00');
+    expect(await tick()).toEqual([{ userId: owner, day: '2026-10-21', outcome: 'sent' }]);
+  });
+
+  it('a user who came before the chosen time gets that evening\'s summary', async () => {
+    const owner = await user();
+    await joined(owner, '2026-10-20', '20:30');
+    await record(owner, '2026-10-20', 'Кафе', 45_000);
+
+    at('2026-10-20', '21:00');
+    expect(await tick()).toEqual([{ userId: owner, day: '2026-10-20', outcome: 'sent' }]);
+  });
+
   it('«Да, не было»: the question turns into the answer, kept with the notice', async () => {
     const owner = await user();
+    await record(owner, '2026-10-10', 'Кафе', 25_000);
     at('2026-10-19', '21:00');
     await tick();
 
-    const actions: Array<{ trigger: RegExp; handler: (ctx: any) => Promise<void> }> = [];
-    registerSummaryHandlers({ action: (trigger: RegExp, handler: any) => actions.push({ trigger, handler }) } as any);
-    const data = sent[0].keyboard[0][0].callback_data!;
-    const action = actions.find(({ trigger }) => trigger.test(data))!;
-    const ctx: any = {
-      from: { id: Number(TELEGRAM_ID) },
-      match: action.trigger.exec(data),
-      callbackQuery: { data, message: { message_id: sent[0].messageId, chat: { id: Number(TELEGRAM_ID) } } },
-      modules: { userModule: running.userModule, notificationModule: running.notificationModule },
-      answerCbQuery: jest.fn().mockResolvedValue(true),
-      editMessageText: jest.fn().mockResolvedValue(true),
-    };
-    await action.handler(ctx);
+    const ctx = await pressNoSpending(sent[0]);
 
     expect(ctx.editMessageText).toHaveBeenCalledWith(
       `<b>Итоги дня · 19${NB}октября</b>\nОтметил: 19${NB}октября трат не было.`,
@@ -261,6 +332,33 @@ describe('daily summary (FT-124)', () => {
     );
     expect(ctx.answerCbQuery).toHaveBeenCalled();
     expect(await logEntry(owner, 'daily_summary', '2026-10-19')).toMatchObject({ answer: 'no_spending' });
+  });
+
+  it('«Да, не было» after «обед 45к» for that day: nothing is kept, the question becomes the day\'s summary', async () => {
+    const owner = await user();
+    await record(owner, '2026-10-10', 'Кафе', 25_000);
+    at('2026-10-19', '21:00');
+    await tick();
+    // The hint under the question: «просто напишите, например «обед 45к»»
+    await record(owner, '2026-10-19', 'Кафе', 45_000);
+    at('2026-10-19', '21:10');
+
+    const ctx = await pressNoSpending(sent[0]);
+
+    expect(ctx.editMessageText).toHaveBeenCalledTimes(1);
+    const [text, extra] = ctx.editMessageText.mock.calls[0];
+    expect(text).toBe([
+      `<b>Итоги дня · 19${NB}октября</b>`,
+      `Потрачено 45${NB}000${NB}сум · 1 запись`,
+      '',
+      `Кафе · 45${NB}000`,
+      '',
+      `С начала октября — 70${NB}000${NB}сум.`,
+    ].join('\n'));
+    // No «Да, не было» any more: the link to the app instead
+    expect(extra.reply_markup.inline_keyboard).toEqual([[expect.objectContaining({ text: 'Открыть Daftar ↗' })]]);
+    expect(ctx.answerCbQuery).toHaveBeenCalled();
+    expect(await logEntry(owner, 'daily_summary', '2026-10-19')).toMatchObject({ variant: 'empty', answer: null });
   });
 
   it('Telegram refuses (the bot is blocked): kept as failed, not tried again that day', async () => {

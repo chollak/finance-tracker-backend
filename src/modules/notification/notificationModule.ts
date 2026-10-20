@@ -47,6 +47,7 @@ function summaryNumbers(transactionModule: TransactionModule): SummaryNumbers {
       if (!result.success) throw result.error;
       return result.data;
     },
+    firstRecordDate: userId => transactionModule.getRepository().findFirstRecordDate(userId),
   };
 }
 
@@ -56,6 +57,7 @@ function summaryRecipients(userModule: UserModule): RecipientSource {
       userId: user.id,
       telegramId: user.telegramId,
       timeZone: user.timezone,
+      joinedAt: user.createdAt,
       dailySummaryEnabled: settings.dailySummaryEnabled,
       dailySummaryTime: settings.dailySummaryTime,
     })),

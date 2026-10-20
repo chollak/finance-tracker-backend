@@ -11,6 +11,7 @@ import { CategoryModule } from '../../../modules/category/categoryModule';
 import { AccountModule } from '../../../modules/account/accountModule';
 import { BotMessageModule } from '../../../modules/botMessage/botMessageModule';
 import { NotificationModule } from '../../../modules/notification/notificationModule';
+import { SUMMARY_TICK_MS } from '../../../modules/notification/application/dailySummaryNotifier';
 import { TelegramPaymentService } from '../../../modules/subscription/infrastructure/TelegramPaymentService';
 import { BotContext, BotModules, UserSession } from './types';
 import { registerCommandHandlers, setCommandMenu } from './handlers/commandHandlers';
@@ -218,16 +219,25 @@ export function startTelegramBot(
 
     // ===== LAUNCH BOT =====
 
+    // Итоги дня at the time each user chose (FT-124) run only while this process polls: the scheduler starts once
+    // Telegram has answered for the bot, looks at the clock a minute later — a polling conflict with another
+    // instance shows up within that minute — and stops whenever polling fails, for a retry or for good
+    const dailySummary = notificationModule?.getDailySummary();
+    const sender = summarySender(bot.telegram);
+    const startDailySummary = () => dailySummary?.start(sender, { firstTickInMs: SUMMARY_TICK_MS });
+
     const launchWithRetry = (attempt: number) => {
       telegramBotStatus = { state: 'starting', attempts: attempt };
       logger.info('Starting Telegram bot long polling', { attempt });
 
-      const launchPromise = bot.launch();
+      const launchPromise = bot.launch(startDailySummary);
       telegramBotStatus = { state: 'running', attempts: attempt };
       logger.info('Telegram bot long polling launch requested', { attempt });
 
       launchPromise.catch((error) => {
         const message = errorMessage(error);
+        // Another instance may be polling this token: it sends the summaries, this one does not
+        dailySummary?.stop();
 
         if (isPollingConflict(error) && attempt < MAX_POLLING_RETRY_ATTEMPTS) {
           const delayMs = retryDelay(attempt);
@@ -252,11 +262,6 @@ export function startTelegramBot(
     void setCommandMenu(bot.telegram);
 
     launchWithRetry(1);
-
-    // Итоги дня at the time each user chose (FT-124): a notice is claimed in notifications_log before it goes
-    // out, so a restart or a second process does not send it twice
-    const dailySummary = notificationModule?.getDailySummary();
-    dailySummary?.start(summarySender(bot.telegram));
 
     // Graceful shutdown handlers
     process.once('SIGINT', () => {

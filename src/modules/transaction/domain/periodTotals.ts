@@ -24,10 +24,11 @@ export interface CategoryTotal {
 
 /**
  * Income, real expenses and categories of a set of records — one rule for every reader (FT-103):
- * analytics, dashboard, the bot's /today and /stats, the weekly review.
+ * analytics, dashboard, Home's tiles, the bot's daily summary, /today and /month.
  *
  * - Amounts are in сум (minor units); dollars are converted at one rate, rounded to whole сум. Without
- *   a rate they are left out and `usd.missingRate` says so — dollars are never added to сум as is.
+ *   a rate they are left out and `usd.missingRate` says so — dollars are never added to сум as is;
+ *   `leftOutUsd` counts them by how they would count.
  * - Records awaiting review are counted apart (`needsReview`), not in income or expenses.
  * - Transfers, savings, withdrawals, debts and reimbursements are `excludedMovements`.
  */
@@ -43,6 +44,8 @@ export interface PeriodTotals {
   excludedMovements: { totalMinor: number; bySemanticType: Partial<Record<ExcludedMovementSemanticType, number>> };
   recordCount: number;
   usd: { present: boolean; missingRate: boolean; rateMinor: number | null };
+  /** Dollar records left out for want of a rate: real expenses and records awaiting review (FT-124: «· 2 записи»). */
+  leftOutUsd: { expenseCount: number; needsReviewCount: number };
 }
 
 /** A record's amount in сум minor units, or null for dollars without a rate. */
@@ -81,6 +84,7 @@ export function summarizePeriod(records: Transaction[], options: { usdRateMinor:
   let excludedMinor = 0;
   let usdPresent = false;
   let missingRate = false;
+  const leftOutUsd = { expenseCount: 0, needsReviewCount: 0 };
   const needsReviewRecords: Transaction[] = [];
   const excludedBySemanticType: Partial<Record<ExcludedMovementSemanticType, number>> = {};
   const expenses = new Map<string, CategoryTotal>();
@@ -100,6 +104,8 @@ export function summarizePeriod(records: Transaction[], options: { usdRateMinor:
     const minor = uzsMinorOf(record, options.usdRateMinor);
     if (minor === null) {
       missingRate = true;
+      if (record.needsReview === true) leftOutUsd.needsReviewCount += 1;
+      else if (countsAs(record) === 'expense') leftOutUsd.expenseCount += 1;
       continue;
     }
 
@@ -133,5 +139,6 @@ export function summarizePeriod(records: Transaction[], options: { usdRateMinor:
     excludedMovements: { totalMinor: excludedMinor, bySemanticType: excludedBySemanticType },
     recordCount: records.length,
     usd: { present: usdPresent, missingRate, rateMinor: usdPresent ? options.usdRateMinor : null },
+    leftOutUsd,
   };
 }
