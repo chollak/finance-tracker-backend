@@ -32,8 +32,9 @@ export const ROUTES = {
   // More
   MORE: '/more',
 
-  // Accounts and the USD rate: opened from the balance card on Home; the screen comes with FT-118
+  // Accounts and the USD rate (FT-118): opened from the balance card on Home; an account opens its own screen
   ACCOUNTS: '/accounts',
+  ACCOUNT: (id: string) => `/accounts/${encodeURIComponent(id)}`,
 } as const;
 
 // API endpoints
@@ -49,7 +50,18 @@ export const API_ENDPOINTS = {
   // Accounts (FT-101); the first launch sets their opening balances (FT-109)
   ACCOUNTS: {
     LIST: '/accounts',
+    CREATE: '/accounts',
+    UPDATE: (id: string) => `/accounts/${encodeURIComponent(id)}`,
+    // The account screen: the account with its balance and its records and moves by day (FT-104, FT-118)
+    OPERATIONS: (id: string) => `/accounts/${encodeURIComponent(id)}/operations`,
     OPENING_BALANCES: '/accounts/opening-balances',
+  },
+
+  // Transfers, exchanges and balance adjustments (FT-104); deleted softly and restored
+  MOVES: {
+    CREATE: '/moves',
+    DELETE: (id: string) => `/moves/${encodeURIComponent(id)}`,
+    RESTORE: (id: string) => `/moves/${encodeURIComponent(id)}/restore`,
   },
 
   // USD rate in effect for the user: own or the Central Bank's (FT-102)

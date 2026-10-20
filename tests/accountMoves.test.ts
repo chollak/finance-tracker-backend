@@ -179,6 +179,27 @@ describe('transfers, exchanges and adjustments (FT-104)', () => {
     }
   });
 
+  it('the account screen says whether the account has operations, deleted moves too (FT-118)', async () => {
+    const from = await card();
+    const fresh = await account('Наличные', 'cash');
+    const operations = accounts.getAccountOperationsUseCase();
+    const hasOperations = async (accountId: string) => {
+      const result = await operations.execute({ userId: 'user-1', accountId });
+      if (!result.success) throw result.error;
+      return result.data.account.hasOperations;
+    };
+
+    expect(await hasOperations(fresh.id)).toBe(false);
+    const created = await move({ kind: 'transfer', fromAccountId: from.id, toAccountId: fresh.id, amountMinor: 100 });
+    if (!created.success) throw created.error;
+    await setDeleted(created.data.id, true);
+
+    // Nothing is listed, yet the currency cannot change: the move can be restored
+    const listed = await operations.execute({ userId: 'user-1', accountId: fresh.id });
+    expect(listed.success && listed.data.days).toEqual([]);
+    expect(await hasOperations(fresh.id)).toBe(true);
+  });
+
   it('an account with moves can no longer change its currency', async () => {
     const from = await card();
     const to = await account('Наличные', 'cash');

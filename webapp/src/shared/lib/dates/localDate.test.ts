@@ -3,6 +3,7 @@ import {
   addDays,
   dayGroupLabel,
   dayMonth,
+  dayMonthShort,
   monthBounds,
   monthGrid,
   monthNameIn,
@@ -19,6 +20,12 @@ describe('local dates', () => {
     expect(toLocalDate(new Date(2026, 9, 16, 23, 59))).toBe('2026-10-16');
     expect(addDays('2026-10-01', -1)).toBe('2026-09-30');
     expect(addDays('2026-12-31', 1)).toBe('2027-01-01');
+  });
+
+  it('shortens a date the way the rate is dated: «14 окт», another year with it (FT-118)', () => {
+    expect(dayMonthShort('2026-10-14', '2026-10-20')).toBe('14 окт');
+    expect(dayMonthShort('2026-05-01', '2026-10-20')).toBe('1 мая');
+    expect(dayMonthShort('2025-12-31', '2026-01-02')).toBe('31 дек 2025');
   });
 
   it('names days and months in Russian', () => {

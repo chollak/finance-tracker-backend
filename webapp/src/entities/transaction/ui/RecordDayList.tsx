@@ -39,6 +39,64 @@ function RowText({ row }: { row: RecordRow }) {
   );
 }
 
+interface RecordRowItemProps {
+  row: RecordRow;
+  onOpen: (id: string) => void;
+  onCategory?: (id: string) => void;
+  flashId?: string | null;
+}
+
+/**
+ * One row of a day's card: an `<li>` with the category circle and the row as one button, or as two when
+ * `onCategory` is given. The account screen (FT-118) puts these among its moves, in the same card.
+ */
+export function RecordRowItem({ row, onOpen, onCategory, flashId }: RecordRowItemProps) {
+  return (
+    <li className={cn('flex items-center rounded-control', flashId && row.id === flashId && 'ring-2 ring-inset ring-ink')}>
+      {onCategory ? (
+        <>
+          <button
+            type="button"
+            onClick={() => row.id && onCategory(row.id)}
+            aria-label={row.categoryAriaLabel}
+            className={cn('flex h-row w-[52px] shrink-0 items-center justify-center rounded-control pl-1', FOCUS)}
+          >
+            <CategoryDot name={row.title} color={row.color} />
+          </button>
+          <button
+            type="button"
+            onClick={() => row.id && onOpen(row.id)}
+            aria-label={row.ariaLabel}
+            className={cn(
+              'flex min-h-row min-w-0 flex-1 items-center rounded-control text-left text-ink',
+              'transition-colors duration-150 active:bg-track',
+              FOCUS
+            )}
+          >
+            <RowText row={row} />
+          </button>
+        </>
+      ) : (
+        <button
+          type="button"
+          onClick={() => row.id && onOpen(row.id)}
+          aria-label={row.ariaLabel}
+          className={cn(
+            'flex min-h-row w-full items-center rounded-control text-left text-ink',
+            'transition-colors duration-150 active:bg-track',
+            FOCUS
+          )}
+        >
+          <span aria-hidden="true" className="flex h-row w-[52px] shrink-0 items-center justify-center pl-1">
+            <CategoryDot name={row.title} color={row.color} />
+          </span>
+          <RowText row={row} />
+        </button>
+      )}
+    </li>
+  );
+}
+
 /**
  * Records grouped by day (docs/pastel/components/TransactionList.md): the day label (in History with the day's
  * total on the right), then a card with 60px rows and no dividers — the category circle, the category and the
@@ -73,51 +131,7 @@ export function RecordDayList({ days, variant = 'recent', onOpen, onCategory, fl
           </div>
           <ul className="rounded-card bg-card px-2 py-1">
             {day.rows.map((row) => (
-              <li
-                key={row.id}
-                className={cn('flex items-center rounded-control', flashId && row.id === flashId && 'ring-2 ring-inset ring-ink')}
-              >
-                {onCategory ? (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => row.id && onCategory(row.id)}
-                      aria-label={row.categoryAriaLabel}
-                      className={cn('flex h-row w-[52px] shrink-0 items-center justify-center rounded-control pl-1', FOCUS)}
-                    >
-                      <CategoryDot name={row.title} color={row.color} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => row.id && onOpen(row.id)}
-                      aria-label={row.ariaLabel}
-                      className={cn(
-                        'flex min-h-row min-w-0 flex-1 items-center rounded-control text-left text-ink',
-                        'transition-colors duration-150 active:bg-track',
-                        FOCUS
-                      )}
-                    >
-                      <RowText row={row} />
-                    </button>
-                  </>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => row.id && onOpen(row.id)}
-                    aria-label={row.ariaLabel}
-                    className={cn(
-                      'flex min-h-row w-full items-center rounded-control text-left text-ink',
-                      'transition-colors duration-150 active:bg-track',
-                      FOCUS
-                    )}
-                  >
-                    <span aria-hidden="true" className="flex h-row w-[52px] shrink-0 items-center justify-center pl-1">
-                      <CategoryDot name={row.title} color={row.color} />
-                    </span>
-                    <RowText row={row} />
-                  </button>
-                )}
-              </li>
+              <RecordRowItem key={row.id} row={row} onOpen={onOpen} onCategory={onCategory} flashId={flashId} />
             ))}
           </ul>
         </Group>

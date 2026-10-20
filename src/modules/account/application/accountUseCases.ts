@@ -96,18 +96,24 @@ export class CreateAccountUseCase {
   }
 }
 
-const EDITABLE = ['name', 'kind', 'currency', 'isHidden'];
+const EDITABLE = ['name', 'kind', 'currency', 'isHidden', 'openingBalanceMinor'];
+
+const OPENING_BALANCE_WITH_CURRENCY = 'openingBalanceMinor changes only with the currency: the balance is entered again in the new one';
 
 export class UpdateAccountUseCase {
   constructor(private book: AccountBook, private repository: AccountRepository) {}
 
-  /** Rename, switch cash/card, hide or show; change the currency only while the account has no operations. */
+  /**
+   * Rename, switch cash/card, hide or show; change the currency only while the account has no operations.
+   * With a new currency the balance is entered again (design-system «Новый счёт», FT-118): `openingBalanceMinor`
+   * goes with the currency change, never on its own — a balance that is off is set right by an adjustment.
+   */
   async execute(input: { userId: string; accountId: string; body: Record<string, unknown> }): Promise<Result<Account>> {
     const fields = Object.keys(input.body);
     const unknown = fields.filter(field => !EDITABLE.includes(field));
     if (fields.length === 0 || unknown.length > 0) {
       return ResultHelper.failure(new ValidationError(
-        unknown.length > 0 ? `${unknown.join(', ')} cannot be changed` : 'Send name, kind, currency or isHidden'
+        unknown.length > 0 ? `${unknown.join(', ')} cannot be changed` : 'Send name, kind, currency, isHidden or openingBalanceMinor'
       ));
     }
 
@@ -116,7 +122,7 @@ export class UpdateAccountUseCase {
       const account = accounts.find(item => item.id === input.accountId);
       if (!account) return ResultHelper.failure(new NotFoundError('Account', input.accountId));
 
-      const changes: Partial<Pick<Account, 'name' | 'kind' | 'currency' | 'isHidden'>> = {};
+      const changes: Partial<Pick<Account, 'name' | 'kind' | 'currency' | 'isHidden' | 'openingBalanceMinor'>> = {};
       if (input.body.name !== undefined) {
         const name = checkName(input.body.name);
         if (!name.success) return name;
@@ -134,10 +140,22 @@ export class UpdateAccountUseCase {
         if (!isCurrency(input.body.currency)) {
           return ResultHelper.failure(new ValidationError(`currency must be one of: ${CURRENCIES.join(', ')}`, 'currency'));
         }
+        if (input.body.openingBalanceMinor !== undefined) {
+          if (!isMinorInteger(input.body.openingBalanceMinor)) {
+            return ResultHelper.failure(new ValidationError('openingBalanceMinor must be an integer number of minor units', 'openingBalanceMinor'));
+          }
+          if (input.body.currency === account.currency) {
+            return ResultHelper.failure(new ValidationError(OPENING_BALANCE_WITH_CURRENCY, 'openingBalanceMinor'));
+          }
+          changes.openingBalanceMinor = input.body.openingBalanceMinor;
+        }
         if (input.body.currency !== account.currency && (await this.repository.hasOperations(account.id))) {
           return ResultHelper.failure(new ConflictError('The currency of an account with operations cannot change'));
         }
         changes.currency = input.body.currency;
+      }
+      if (input.body.openingBalanceMinor !== undefined && input.body.currency === undefined) {
+        return ResultHelper.failure(new ValidationError(OPENING_BALANCE_WITH_CURRENCY, 'openingBalanceMinor'));
       }
       if (input.body.isHidden !== undefined) {
         if (typeof input.body.isHidden !== 'boolean') {

@@ -28,7 +28,7 @@ export class AccountModule {
   ) {
     this.book = new AccountBook(repository, defaultAccount);
     this.createMove = new CreateMoveUseCase(this.book, moveRepository);
-    this.operations = new GetAccountOperationsUseCase(this.book, moveRepository);
+    this.operations = new GetAccountOperationsUseCase(this.book, moveRepository, repository);
   }
 
   static create(): AccountModule {

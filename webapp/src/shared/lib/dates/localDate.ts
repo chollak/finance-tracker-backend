@@ -52,6 +52,14 @@ export function dayMonth(value: LocalDate): string {
   return `${day} ${MONTHS_GENITIVE[month - 1]}`;
 }
 
+const MONTHS_SHORT = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+
+/** «14 окт» — the date of a rate (RateRow.md); a day of another year than `today` carries the year. */
+export function dayMonthShort(value: LocalDate, today: LocalDate): string {
+  const { year, month, day } = parseLocalDate(value);
+  return `${day} ${MONTHS_SHORT[month - 1]}${year === parseLocalDate(today).year ? '' : ` ${year}`}`;
+}
+
 /** «октябрь» — for «Доход за октябрь». */
 export function monthNameLower(month: number): string {
   return MONTHS_NOMINATIVE[month - 1].toLocaleLowerCase('ru-RU');

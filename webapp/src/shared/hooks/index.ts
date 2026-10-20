@@ -22,3 +22,5 @@ export {
 } from './useDebounce';
 
 export { useTheme } from './useTheme';
+
+export { useIsOnline } from './useOnline';

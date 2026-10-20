@@ -26,8 +26,9 @@ const PastelShowcasePage = lazy(() => import('@/pages').then(m => ({ default: m.
 const ManualEntryPage = lazy(() => import('@/pages').then(m => ({ default: m.ManualEntryPage })));
 // The review of the records a phrase from Home's composer made (FT-114)
 const CaptureReviewPage = lazy(() => import('@/pages').then(m => ({ default: m.CaptureReviewPage })));
-// Placeholder of the accounts screen, opened from the balance card on Home; FT-118 builds the screen
+// Accounts and the rate, opened from the balance card on Home, and one account's screen (FT-118)
 const AccountsPage = lazy(() => import('@/pages').then(m => ({ default: m.AccountsPage })));
+const AccountPage = lazy(() => import('@/pages').then(m => ({ default: m.AccountPage })));
 
 // Wrapper component with Suspense; Home's code loads behind Home's skeleton (FT-112)
 function PageLoader({ children, fallback = <Loading fullScreen /> }: { children: React.ReactNode; fallback?: React.ReactNode }) {
@@ -131,6 +132,10 @@ export const appRoutes: RouteObject[] = [
           {
             path: '/accounts',
             element: <PageLoader><AccountsPage /></PageLoader>,
+          },
+          {
+            path: '/accounts/:id',
+            element: <PageLoader><AccountPage /></PageLoader>,
           },
           {
             path: '/add',

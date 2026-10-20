@@ -278,6 +278,24 @@ describe('accounts and balances (FT-101)', () => {
         expect((await server.request('PATCH', `/api/accounts/${cash.id}`, { devUser: 9999, body: { name: 'Чужой' } })).status).toBe(404);
       });
 
+      it('a currency change takes the balance entered again in the new currency (FT-118)', async () => {
+        const piggy = (await as('POST', '/api/accounts', { name: 'Копилка', kind: 'cash', currency: 'UZS', openingBalanceMinor: toMinorSum(500000) })).body.data;
+
+        const changed = await as('PATCH', `/api/accounts/${piggy.id}`, { currency: 'USD', openingBalanceMinor: 4000 });
+        expect(changed.status).toBe(200);
+        expect(changed.body.data).toMatchObject({ currency: 'USD', openingBalanceMinor: 4000, openingDate: piggy.openingDate });
+        const listed = (await as('GET', '/api/accounts')).body.data.accounts.find((a: { id: string }) => a.id === piggy.id);
+        expect(listed).toMatchObject({ currency: 'USD', balanceMinor: 4000 });
+
+        // Only with a change of the currency, and only a whole number of minor units
+        expect((await as('PATCH', `/api/accounts/${piggy.id}`, { openingBalanceMinor: 5 })).status).toBe(400);
+        expect((await as('PATCH', `/api/accounts/${piggy.id}`, { currency: 'USD', openingBalanceMinor: 5 })).status).toBe(400);
+        expect((await as('PATCH', `/api/accounts/${piggy.id}`, { currency: 'UZS', openingBalanceMinor: 1.5 })).status).toBe(400);
+        expect((await as('PATCH', `/api/accounts/${piggy.id}`, { currency: 'UZS', openingBalanceMinor: '500' })).status).toBe(400);
+        expect((await as('GET', '/api/accounts')).body.data.accounts.find((a: { id: string }) => a.id === piggy.id))
+          .toMatchObject({ currency: 'USD', openingBalanceMinor: 4000 });
+      });
+
       it('refuses a currency change once the account has records', async () => {
         const card = (await as('GET', '/api/accounts')).body.data.accounts[0];
         const userId = (await as('GET', '/api/settings')).body.data.userId;
@@ -288,6 +306,7 @@ describe('accounts and balances (FT-101)', () => {
 
         const res = await as('PATCH', `/api/accounts/${card.id}`, { currency: 'USD' });
         expect(res.status).toBe(409);
+        expect((await as('PATCH', `/api/accounts/${card.id}`, { currency: 'USD', openingBalanceMinor: 100 })).status).toBe(409);
         expect((await as('PATCH', `/api/accounts/${card.id}`, { currency: 'UZS' })).status).toBe(200);
       });
 

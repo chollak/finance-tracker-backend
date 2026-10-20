@@ -21,7 +21,7 @@ export type { RecordDay, RecordRow, RecordCategory, DayTotal } from './lib/recor
 export { transactionToViewModel } from './lib/toViewModel';
 
 // Utils
-export { buildRecordDays } from './lib/recordDays';
+export { buildRecordDays, recordRow } from './lib/recordDays';
 export { deviceHistoryPage, formatNetMinor, isHistoryNarrowed, netInUzs, parseHistorySearch } from './lib/historySearch';
 export {
   getSemanticTypeLabel,
@@ -57,4 +57,4 @@ export {
 export { TransactionCard } from './ui/TransactionCard';
 export { TransactionListItem } from './ui/TransactionListItem';
 export { TransactionActions } from './ui/TransactionActions';
-export { RecordDayList } from './ui/RecordDayList';
+export { RecordDayList, RecordRowItem } from './ui/RecordDayList';

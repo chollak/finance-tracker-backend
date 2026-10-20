@@ -7,6 +7,7 @@ import { AccountWithBalance } from '../domain/account';
 import { AccountMove, MoveKind, moveChangeFor } from '../domain/accountMove';
 import { AccountMoveRepository } from '../domain/accountMoveRepository';
 import { AccountRecordSource } from '../domain/accountRecords';
+import { AccountRepository } from '../domain/accountRepository';
 import { AccountBook } from './accountBook';
 
 const logger = getLogger(LogCategory.TRANSACTION);
@@ -38,7 +39,11 @@ export interface MoveOperation extends OperationBase {
 export type AccountOperation = RecordOperation | MoveOperation;
 
 export interface AccountOperations {
-  account: AccountWithBalance;
+  /**
+   * `hasOperations`: the account has records or moves, deleted ones too (FT-118) — its currency can no longer
+   * change, even when nothing is listed.
+   */
+  account: AccountWithBalance & { hasOperations: boolean };
   days: Array<{ date: string; operations: AccountOperation[] }>;
 }
 
@@ -47,7 +52,12 @@ export interface AccountOperations {
  * records and moves by day, newest first. Records are the same as in history; moves are only here.
  */
 export class GetAccountOperationsUseCase {
-  constructor(private book: AccountBook, private moves: AccountMoveRepository, private records?: AccountRecordSource) {}
+  constructor(
+    private book: AccountBook,
+    private moves: AccountMoveRepository,
+    private accounts: Pick<AccountRepository, 'hasOperations'>,
+    private records?: AccountRecordSource
+  ) {}
 
   setRecordSource(records: AccountRecordSource): void {
     this.records = records;
@@ -116,7 +126,8 @@ export class GetAccountOperationsUseCase {
           date,
           operations: operations.sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? '')),
         }));
-      return ResultHelper.success({ account, days });
+      const hasOperations = await this.accounts.hasOperations(account.id);
+      return ResultHelper.success({ account: { ...account, hasOperations }, days });
     } catch (error) {
       logger.error('Failed to read account operations', error as Error);
       return ResultHelper.failure(new BusinessLogicError('Failed to read account operations'));

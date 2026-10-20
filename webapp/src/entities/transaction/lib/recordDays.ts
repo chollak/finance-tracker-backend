@@ -71,6 +71,35 @@ function amountMinorOf(record: Transaction): number {
 }
 
 /**
+ * One record's row (docs/pastel/components/TransactionList.md): its category's current name and colour (from the
+ * user's list by id, else what the record was sent with), the note (in History followed by the account), the amount —
+ * сум without a unit, other currencies with one; income green with «+». The account screen (FT-118) lays these rows
+ * among its moves.
+ */
+export function recordRow(record: Transaction, options: Pick<RecordDaysOptions, 'categoryOf' | 'accountOf'>): RecordRow {
+  const category = options.categoryOf(record);
+  const title = category?.name ?? record.category;
+  const color = category?.color ?? (isPastelColor(record.categoryColor) ? record.categoryColor : 'mist');
+  const note = record.description?.trim() || record.merchant?.trim() || '';
+  const account = options.accountOf?.(record);
+  const currency: Currency = record.currency ?? 'UZS';
+  const tone = record.type === 'income' ? 'income' : 'expense';
+  const signed = tone === 'income' ? amountMinorOf(record) : -amountMinorOf(record);
+
+  const fullAmount = formatMinor(signed, currency, { sign: 'always' });
+  return {
+    id: record.id ?? '',
+    title,
+    color,
+    note: [note, account].filter(Boolean).join(' · ') || NO_NOTE,
+    amount: formatMinor(signed, currency, { sign: 'always', unit: currency !== 'UZS' }),
+    tone,
+    ariaLabel: `${title}, ${fullAmount}${note ? `, ${note}` : ''}${account ? `, ${account}` : ''}. Открыть`,
+    categoryAriaLabel: `Сменить категорию: ${title}, ${fullAmount}`,
+  };
+}
+
+/**
  * Rows of a list grouped by day (docs/pastel/components/TransactionList.md), in the order the records came
  * (newest first from the API). The category comes from the user's list by id (`categoryOf`); a record
  * whose category is not there keeps the name and colour it was sent with. History adds the account to the note,
@@ -90,26 +119,7 @@ export function buildRecordDays(records: readonly Transaction[], options: Record
     }
     recordsOfDay.get(day)!.push(record);
 
-    const category = options.categoryOf(record);
-    const title = category?.name ?? record.category;
-    const color = category?.color ?? (isPastelColor(record.categoryColor) ? record.categoryColor : 'mist');
-    const note = record.description?.trim() || record.merchant?.trim() || '';
-    const account = options.accountOf?.(record);
-    const currency: Currency = record.currency ?? 'UZS';
-    const tone = record.type === 'income' ? 'income' : 'expense';
-    const signed = tone === 'income' ? amountMinorOf(record) : -amountMinorOf(record);
-
-    const fullAmount = formatMinor(signed, currency, { sign: 'always' });
-    group.rows.push({
-      id: record.id ?? '',
-      title,
-      color,
-      note: [note, account].filter(Boolean).join(' · ') || NO_NOTE,
-      amount: formatMinor(signed, currency, { sign: 'always', unit: currency !== 'UZS' }),
-      tone,
-      ariaLabel: `${title}, ${fullAmount}${note ? `, ${note}` : ''}${account ? `, ${account}` : ''}. Открыть`,
-      categoryAriaLabel: `Сменить категорию: ${title}, ${fullAmount}`,
-    });
+    group.rows.push(recordRow(record, options));
   }
 
   const totals = options.dayTotals;
