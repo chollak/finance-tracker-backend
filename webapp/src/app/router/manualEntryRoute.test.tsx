@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { matchRoutes, MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { HomePage } from '@/pages';
+import { ManualEntryPage } from '@/pages/manual-entry';
 import { ROUTES } from '@/shared/lib/constants/routes';
 import { useUserStore } from '@/entities/user';
 import { accountKeys } from '@/entities/account';
@@ -54,6 +55,30 @@ describe('routes', () => {
 
   it('the old form at /transactions/add is gone', () => {
     expect(screenAt('/transactions/add')).toBe('*');
+  });
+});
+
+describe('the side manual entry starts on', () => {
+  function entryAt(path: string): string {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    return renderToStaticMarkup(
+      <QueryClientProvider client={client}>
+        <MemoryRouter initialEntries={[path]}>
+          <ManualEntryPage />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+  }
+  const pressed = (markup: string) => /aria-pressed="true"[^>]*><span[^>]*>([^<]+)</.exec(markup)?.[1];
+
+  it('an expense, as it opens from Home', () => {
+    expect(pressed(entryAt(ROUTES.MANUAL_ENTRY))).toBe('Расход');
+    expect(ROUTES.MANUAL_ENTRY_OF('expense')).toBe('/add');
+  });
+
+  it('an income from «Записать доход» of an empty month of analytics', () => {
+    expect(ROUTES.MANUAL_ENTRY_OF('income')).toBe('/add?type=income');
+    expect(pressed(entryAt(ROUTES.MANUAL_ENTRY_OF('income')))).toBe('Доход');
   });
 });
 

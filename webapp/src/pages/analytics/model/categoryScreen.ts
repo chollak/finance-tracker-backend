@@ -221,6 +221,35 @@ export function stepDay(dates: readonly string[], selected: string | null, direc
   return dates[Math.min(dates.length - 1, Math.max(0, index + direction))];
 }
 
+/** A day of the answer's period: the current month's all of it, a past month's all of it. */
+export const isInPeriodOf = (data: Pick<CategoryAnalytics, 'period'>, day: string): boolean => day >= data.period.from && day <= data.period.to;
+
+/** Newest first, as the answer lists the operations: by date, then by the time of writing. */
+const isNewer = (a: Transaction, b: Transaction) => a.date > b.date || (a.date === b.date && (a.createdAt ?? '') > (b.createdAt ?? ''));
+
+/**
+ * The operations under «Операции» (board: `inCat = … || x.id === s.keepId`): the category's, with the record opened
+ * or changed on this screen kept among them as it is now — moved to another category too, where its row names it —
+ * while its date is in the period. Moved out of the period, it leaves the list. `kept` is the record as the sheet
+ * last read or saved it: it is newer than the answer until the answer is read again.
+ */
+export function listedRecords(data: CategoryAnalytics, kept: Transaction | undefined): Transaction[] {
+  if (!kept) return data.records;
+  const rest = data.records.filter((record) => record.id !== kept.id);
+  if (!isInPeriodOf(data, recordDay(kept))) return rest;
+  const at = rest.findIndex((record) => isNewer(kept, record));
+  return at === -1 ? [...rest, kept] : [...rest.slice(0, at), kept, ...rest.slice(at)];
+}
+
+/**
+ * The day chosen after the record kept moved from `before` to `after` (board `pickValue`: `else if (s.day)`): a move
+ * within the period takes the chosen day with it, so the record stays in sight; a move out of it changes nothing.
+ */
+export function dayAfterMove(data: Pick<CategoryAnalytics, 'period'>, selected: string | null, before: string, after: string): string | null {
+  if (!selected || before === after || !isInPeriodOf(data, after)) return selected;
+  return after;
+}
+
 /** Under «Операции» when there are none. */
 export function noOperationsText(data: CategoryAnalytics, selected: string | null): string {
   return selected ? 'В этот день операций нет' : `${capitalize(monthIn(data.month))} операций нет`;

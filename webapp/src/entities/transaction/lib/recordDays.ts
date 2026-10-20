@@ -65,7 +65,8 @@ export interface RecordDaysOptions {
   dayTotals?: { rateMinor: number | null; lastDayComplete: boolean };
   /**
    * The operations of one category (analytics, FT-121, board «Аналитика · категория «Кафе»»): the category is the
-   * screen's, so the note leads and the account goes under it; a record of another category names it there.
+   * screen's, so the note leads and the account goes under it; a record of another category — the one just moved out
+   * of it, kept in the list — names it there and is left out of its day's total.
    */
   lead?: { categoryId: string };
 }
@@ -151,7 +152,10 @@ export function buildRecordDays(records: readonly Transaction[], options: Record
   if (totals) {
     days.forEach((group, index) => {
       if (index === days.length - 1 && !totals.lastDayComplete) return;
-      const net = netInUzs(recordsOfDay.get(group.day)!, totals.rateMinor);
+      const ofDay = recordsOfDay.get(group.day)!;
+      const lead = options.lead;
+      const counted = lead ? ofDay.filter((record) => record.categoryId === lead.categoryId) : ofDay;
+      const net = netInUzs(counted, totals.rateMinor);
       const text = formatNetMinor(net);
       if (text) group.total = { text, tone: net.netMinor > 0 ? 'income' : 'muted' };
     });

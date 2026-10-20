@@ -59,7 +59,7 @@ beforeEach(() => {
   vi.mocked(apiClient.get).mockImplementation(async (url: string) => {
     if (url === '/categories') return { success: true, data: CATEGORIES } as never;
     const answer = answers[url];
-    if (answer instanceof Error) throw { message: answer.message, statusCode: 500 };
+    if (answer instanceof Error) throw { message: answer.message, statusCode: (answer as Error & { statusCode?: number }).statusCode ?? 500 };
     if (answer) return { success: true, data: answer } as never;
     return new Promise<never>(() => {});
   });
@@ -212,6 +212,15 @@ describe('Analytics: nothing yet (board «Аналитика · пока пус�
     expect(buttons().some((item) => item.getAttribute('aria-label') === 'Предыдущий месяц')).toBe(false);
     expect(text()).not.toContain('По категориям');
   });
+
+  it('an empty month of income leads to an income: manual entry opens on «Доход»', async () => {
+    answers['/analytics?type=income'] = { ...EMPTY, type: 'income' };
+    await renderAnalytics('/analytics?type=income');
+
+    expect(text()).toContain('В октябре пока нет доходов');
+    const write = [...document.body.querySelectorAll('a')].find((link) => link.textContent === 'Записать доход');
+    expect(write?.getAttribute('href')).toBe('/add?type=income');
+  });
 });
 
 describe('Analytics: a read that failed, a guest', () => {
@@ -223,6 +232,17 @@ describe('Analytics: a read that failed, a guest', () => {
     answers['/analytics?type=expense'] = OCTOBER_EXPENSES;
     await press('Попробовать снова');
     expect(text()).toContain('Расходы · 1–14 октября');
+  });
+
+  it('a month later than the current one (a link, a clock ahead) is refused: the screen goes to the current month', async () => {
+    answers['/analytics?month=2030-01&type=income'] = Object.assign(new Error('month must not be after the current month'), { statusCode: 400 });
+    await renderAnalytics('/analytics?month=2030-01&type=income');
+
+    expect(router.state.location.pathname).toBe('/analytics');
+    expect(router.state.location.search).toBe('?type=income');
+    expect(text()).not.toContain('Не удалось загрузить аналитику.');
+    expect(text()).toContain('Доходы · 1–14 октября');
+    expect(button('Предыдущий месяц')).toBeTruthy();
   });
 
   it('a guest is asked to sign in: analytics is counted on the server', async () => {

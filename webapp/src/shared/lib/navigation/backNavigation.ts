@@ -44,13 +44,14 @@ export type BackStep = { kind: 'history' } | { kind: 'route'; to: string };
 /**
  * What one press of «Назад» does. `historyIndex` is react-router's index of the current entry
  * (`history.state.idx`): above 0, an app screen opened this one and the press returns to it; at 0 the
- * press would leave the app, so it opens the parent screen instead.
+ * press would leave the app, so it opens the parent screen instead. `screenParent` — the parent the screen
+ * named itself (`useScreenParent`), in place of the one its address gives.
  */
-export function backStep(pathname: string, historyIndex: number | undefined): BackStep | null {
+export function backStep(pathname: string, historyIndex: number | undefined, screenParent?: string): BackStep | null {
   const parent = parentPath(pathname);
   if (parent === null) return null;
   if (typeof historyIndex === 'number' && historyIndex > 0) return { kind: 'history' };
-  return { kind: 'route', to: parent };
+  return { kind: 'route', to: screenParent ?? parent };
 }
 
 /**
@@ -59,8 +60,8 @@ export function backStep(pathname: string, historyIndex: number | undefined): Ba
  * pushes the list on top of the form, so the next «Назад» cannot land on the submitted form or on a
  * record that was just deleted.
  */
-export function closeStep(pathname: string, historyIndex: number | undefined): BackStep {
-  return backStep(pathname, historyIndex) ?? { kind: 'route', to: ROUTES.HOME };
+export function closeStep(pathname: string, historyIndex: number | undefined, screenParent?: string): BackStep {
+  return backStep(pathname, historyIndex, screenParent) ?? { kind: 'route', to: ROUTES.HOME };
 }
 
 /**

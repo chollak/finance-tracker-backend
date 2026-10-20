@@ -10,6 +10,9 @@ export const ACCOUNT_PARAM = 'account';
 /** The query parameter of the transfer form: the account it starts from (FT-119). */
 export const TRANSFER_FROM_PARAM = 'from';
 
+/** The query parameter manual entry starts as an income with (`?type=income`): an empty month of income leads there. */
+export const ENTRY_TYPE_PARAM = 'type';
+
 /** Analytics (FT-121): the month shown (YYYY-MM; the current one when absent) and expenses or income. */
 export const ANALYTICS_MONTH_PARAM = 'month';
 export const ANALYTICS_TYPE_PARAM = 'type';
@@ -35,8 +38,10 @@ export const ROUTES = {
   // A record: Home with its sheet open (FT-115; the edit page /transactions/:id/edit is gone)
   RECORD: (id: string) => `/?${RECORD_PARAM}=${encodeURIComponent(id)}`,
 
-  // Manual entry (FT-113): a way to write, opened from Home, «Ещё» and an empty History
+  // Manual entry (FT-113): a way to write, opened from Home, «Ещё» and an empty History; an empty month of analytics
+  // opens it on its own side (FT-121)
   MANUAL_ENTRY: '/add',
+  MANUAL_ENTRY_OF: (type: 'expense' | 'income') => (type === 'income' ? `/add?${ENTRY_TYPE_PARAM}=income` : '/add'),
 
   // The review of the records a phrase sent from the composer made (FT-114)
   CAPTURE_REVIEW: '/review',

@@ -24,6 +24,7 @@ import {
   quickPickerContext,
   recordSheetModel,
   sheetRecordFrom,
+  type RecordPeriod,
   type SheetContext,
   type SheetFieldKind,
 } from '../model/recordSheet';
@@ -50,8 +51,11 @@ const UNREADABLE_TOAST = {
  * The record sheet (FT-115, TxnSheet.md): mount once on a screen that lists records. It shows the record
  * `openRecordSheet` or `openRecordCategory` named, and nothing otherwise. The sheet belongs to the screen it
  * was opened on: this one takes it, and one opened elsewhere is closed rather than shown here.
+ *
+ * `period` — the screen lists the records of these days only (a category of a month, FT-121): a record whose date
+ * is moved out of them says so as the sheet closes, with «Отменить».
  */
-export function RecordSheet() {
+export function RecordSheet({ period }: { period?: RecordPeriod } = {}) {
   const { pathname } = useLocation();
   const target = useRecordSheetStore((state) => state.target);
   const here = target !== null && (target.screen === undefined || target.screen === pathname);
@@ -62,10 +66,10 @@ export function RecordSheet() {
     else if (target.screen !== pathname) closeRecordSheet();
   }, [target, pathname]);
 
-  return here ? <RecordSheetSession key={target.id} target={target} /> : null;
+  return here ? <RecordSheetSession key={target.id} target={target} period={period} /> : null;
 }
 
-function RecordSheetSession({ target }: { target: RecordSheetTarget }) {
+function RecordSheetSession({ target, period }: { target: RecordSheetTarget; period?: RecordPeriod }) {
   const [today] = useState(() => toLocalDate(new Date()));
   const isGuest = useUserStore((state) => state.userType === 'guest');
   const record = useRecord(target.id, target.seed);
@@ -85,7 +89,7 @@ function RecordSheetSession({ target }: { target: RecordSheetTarget }) {
     today,
   };
   const loaded = source ? initialSheet(sheetRecordFrom(source, context.categories)) : null;
-  const edits = useRecordEdits(target.id, loaded, context);
+  const edits = useRecordEdits(target.id, loaded, context, period);
   const state = edits.state;
 
   const [mode, setMode] = useState<Mode>('view');

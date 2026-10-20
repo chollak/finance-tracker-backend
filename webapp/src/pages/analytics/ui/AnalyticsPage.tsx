@@ -7,6 +7,7 @@ import { cn } from '@/shared/lib/utils';
 import { BackButton, EmptyState, Segmented, SkeletonBlock, UndoToast } from '@/shared/ui/pastel';
 import { monthOverview, monthStepper } from '../model/monthOverview';
 import { monthParam } from '../model/periodWords';
+import { useLeaveRefusedMonth } from '../model/useLeaveRefusedMonth';
 import { AnalyticsHeroView, CategoryBarsView, MonthStepperView } from './MonthParts';
 import { BARS_ICON, FOCUS, GuestAnalytics, LoadingRows, ReadFailed } from './parts';
 
@@ -40,7 +41,8 @@ function LoadingMonth() {
  * there is one month only) and «Расходы / Доходы». Under them the total with its fair comparison and one insight,
  * then the categories as bars with the tick of the previous period; a category opens its own screen. The month and
  * the side are in the address (`?month=2026-09&type=income`), so Home's income tile opens the income and «Назад»
- * from a category returns to the same month. An empty month leads to the first record.
+ * from a category returns to the same month. An empty month leads to the first record of its side. A month later
+ * than the current one (a link, a clock ahead) is refused by the API: the screen goes to the current month.
  */
 export function AnalyticsPage() {
   const isGuest = useIsGuest();
@@ -50,6 +52,7 @@ export function AnalyticsPage() {
   const type: AnalyticsType = params.get(ANALYTICS_TYPE_PARAM) === 'income' ? 'income' : 'expense';
   const analytics = useMonthAnalytics({ month, type });
   const categories = useCategories();
+  const refusedMonth = useLeaveRefusedMonth(month, analytics.error, ROUTES.ANALYTICS_VIEW({ type }));
 
   if (isGuest) return <GuestAnalytics />;
 
@@ -64,7 +67,7 @@ export function AnalyticsPage() {
     navigate(ROUTES.ANALYTICS_VIEW({ month: view.month === known?.currentMonth ? undefined : view.month, type: view.type }), { replace: true });
 
   let content;
-  if (analytics.isError) {
+  if (analytics.isError && !refusedMonth) {
     content = <ReadFailed text="Не удалось загрузить аналитику." onRetry={() => void analytics.refetch()} retrying={analytics.isFetching} />;
   } else if (!data) {
     content = <LoadingMonth />;
@@ -81,7 +84,7 @@ export function AnalyticsPage() {
             action={
               view.action && (
                 <Link
-                  to={ROUTES.MANUAL_ENTRY}
+                  to={ROUTES.MANUAL_ENTRY_OF(data.type)}
                   className={cn('mt-2 flex h-key items-center rounded-pill bg-primary px-[22px] text-[15px] font-extrabold text-on-primary', FOCUS)}
                 >
                   {view.action}

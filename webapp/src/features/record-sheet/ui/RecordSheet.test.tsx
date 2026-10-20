@@ -353,6 +353,83 @@ describe('«Готово» and the ring on the row', () => {
   });
 });
 
+/**
+ * Board «Аналитика · категория «Кафе»» (`pendingRedate`): the category of October lists October only. A record moved
+ * to September leaves that list, so closing its sheet says where it went, and «Отменить» puts the date back.
+ */
+describe('a record moved out of the days the screen lists', () => {
+  const OCTOBER = { from: '2026-10-01', to: '2026-10-31' };
+
+  beforeEach(() => {
+    act(() =>
+      root.render(
+        <QueryClientProvider client={client}>
+          <MemoryRouter>
+            <RecordSheet period={OCTOBER} />
+          </MemoryRouter>
+        </QueryClientProvider>
+      )
+    );
+  });
+
+  async function moveToSecondOfSeptember() {
+    await openT4();
+    await press(button('Дата: Вчера, 13 октября. Изменить'));
+    await press(button('Предыдущий месяц'));
+    await press(button('2 сентября 2026'));
+    await settle();
+  }
+
+  it('«Готово» says «Дата изменена · Перенесено на 2 сентября», and «Отменить» puts back the date it had', async () => {
+    await moveToSecondOfSeptember();
+    expect(latestPatch()).toEqual({ id: 't4', userId: USER_ID, patch: { date: '2026-09-02' } });
+    expect(toastNow()).toBeNull();
+
+    await press(button('Готово'));
+    expect(toastNow()).toMatchObject({ kind: 'changed', title: 'Дата изменена', detail: `Перенесено на 2${NBSP}сентября · ${MINUS}145${NBSP}000${NBSP}сум` });
+
+    await act(async () => useUndoToastStore.getState().undoVisible());
+    expect(latestPatch()).toEqual({ id: 't4', userId: USER_ID, patch: { date: '2026-10-13' } });
+  });
+
+  it('moved within the days, or moved out and back: closing says nothing', async () => {
+    await openT4();
+    await press(button('Дата: Вчера, 13 октября. Изменить'));
+    await press(button('Сегодня'));
+    await settle();
+    await press(button('Готово'));
+    expect(toastNow()).toBeNull();
+
+    await moveToSecondOfSeptember();
+    await press(button('Дата: Среда, 2 сентября. Изменить'));
+    await press(button('Следующий месяц'));
+    await press(button('10 октября 2026'));
+    await settle();
+    await press(button('Готово'));
+    expect(toastNow()).toBeNull();
+  });
+
+  it('a move the server refused after «Готово»: «Дата изменена» goes, «Не получилось сохранить» says why', async () => {
+    let refuse!: (error: unknown) => void;
+    vi.mocked(patchTransaction).mockImplementationOnce(() => new Promise<void>((_, reject) => (refuse = reject)));
+    await moveToSecondOfSeptember();
+    await press(button('Готово'));
+    expect(toastNow()).toMatchObject({ title: 'Дата изменена' });
+
+    await act(async () => refuse({ statusCode: 0, message: 'offline' }));
+    expect(toastNow()).toMatchObject({ kind: 'info', title: 'Не получилось сохранить' });
+    expect(useUndoToastStore.getState().stack.map((entry) => entry.title)).toEqual(['Не получилось сохранить']);
+  });
+
+  it('deleted after the move: «Удалено» only', async () => {
+    await moveToSecondOfSeptember();
+    await press(button('Удалить операцию'));
+    await settle();
+
+    expect(useUndoToastStore.getState().stack.map((entry) => entry.title)).toEqual(['Удалено']);
+  });
+});
+
 describe('«Удалить операцию»', () => {
   it('deletes without asking, closes the sheet and shows «Удалено» with «Отменить», which brings it back', async () => {
     await openT4();

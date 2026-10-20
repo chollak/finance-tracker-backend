@@ -1,7 +1,7 @@
 import { visibleAccounts, type Account } from '@/entities/account';
 import { findCategory, pickableCategories, type Category } from '@/entities/category';
 import type { TransactionPatch } from '@/entities/transaction';
-import { addDays, dayGroupLabel, dayMonth, toLocalDate, type LocalDate } from '@/shared/lib/dates';
+import { addDays, dayGroupLabel, dayMonth, monthNameOf, parseLocalDate, toLocalDate, type LocalDate } from '@/shared/lib/dates';
 import {
   amountFontSize,
   CURRENCY_UNIT,
@@ -360,6 +360,24 @@ export function deletedToast(record: SheetRecord, context: SheetContext): { titl
 /** «Категория изменена / Кафе → Продукты», after the quick choice from a row (Toast.md). */
 export function categoryChangedToast(fromId: string | null, toId: string, context: SheetContext): { title: string; detail: string } {
   return { title: 'Категория изменена', detail: `${categoryName(fromId, context)} → ${categoryName(toId, context)}` };
+}
+
+/**
+ * The days a screen lists records of — a category of a month (FT-121, board «Аналитика · категория «Кафе»»): a
+ * record whose date the sheet moved out of them leaves that list, and says so as the sheet closes.
+ */
+export interface RecordPeriod {
+  /** YYYY-MM-DD, inclusive. */
+  from: LocalDate;
+  to: LocalDate;
+}
+
+export const isInPeriod = (date: LocalDate, period: RecordPeriod): boolean => date >= period.from && date <= period.to;
+
+/** «Дата изменена / Перенесено на 2 сентября · −145 000 сум»: the record left the screen's days (board `pendingRedate`). */
+export function movedToast(record: SheetRecord): { title: string; detail: string } {
+  const { month, day } = parseLocalDate(record.date);
+  return { title: 'Дата изменена', detail: `Перенесено на ${day}${NBSP}${monthNameOf(month)} · ${amountWithUnit(record)}` };
 }
 
 /** The line under the quick choice's title: «Обед с командой · −145 000 сум» (Picker.md). */

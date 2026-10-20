@@ -93,6 +93,14 @@ describe('backStep', () => {
   it('Home has no back', () => {
     expect(backStep('/', 2)).toBeNull();
   });
+
+  it('opened directly, a screen that named its parent goes there: a category of analytics to its month and side', () => {
+    const parent = '/analytics?month=2026-09&type=income';
+    expect(backStep('/analytics/categories/fr', 0, parent)).toEqual({ kind: 'route', to: parent });
+    expect(closeStep('/analytics/categories/fr', undefined, parent)).toEqual({ kind: 'route', to: parent });
+    // Opened from an app screen, it still goes back there
+    expect(backStep('/analytics/categories/fr', 2, parent)).toEqual({ kind: 'history' });
+  });
 });
 
 describe('telegramBackButton — Telegram’s own BackButton only inside Telegram', () => {

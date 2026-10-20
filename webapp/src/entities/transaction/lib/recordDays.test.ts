@@ -208,6 +208,27 @@ describe('a category’s operations (FT-121, board «Аналитика · ка�
     ]);
   });
 
+  it('a day’s total counts the category’s own records only: one moved to another category is listed, not counted', () => {
+    const [day, alone] = buildRecordDays(
+      [
+        record({ id: 'a', categoryId: 'kf', amountMinor: 2_500_000, description: 'Кофе', accountId: 'cash', date: '2026-10-13' }),
+        record({ id: 'b', categoryId: 'pr', amountMinor: 14_500_000, description: 'Обед с командой', accountId: 'card', date: '2026-10-13' }),
+        record({ id: 'c', categoryId: 'pr', amountMinor: 5_800_000, description: 'Обед', accountId: 'card', date: '2026-10-12' }),
+      ],
+      {
+        today: TODAY,
+        categoryOf: (item) => (item.categoryId === 'pr' ? { name: 'Продукты', color: 'peach' } : cafeOf(item)),
+        accountOf,
+        dayTotals: { rateMinor: null, lastDayComplete: true },
+        lead: { categoryId: 'kf' },
+      }
+    );
+
+    expect(day.rows.map((item) => item.note)).toEqual(['Наличные', 'Продукты · Карта']);
+    expect(day.total).toEqual({ text: `${MINUS}25${NBSP}000${NBSP}сум`, tone: 'muted' });
+    expect(alone.total).toEqual({ text: `0${NBSP}сум`, tone: 'muted' });
+  });
+
   it('other lists keep the category as the title, and the circle shows it too', () => {
     const [day] = buildRecordDays([record({ id: 'k', categoryId: 'kf', amountMinor: 100, description: 'Кофе' })], { today: TODAY, categoryOf: cafeOf });
     expect([day.rows[0].title, day.rows[0].category, day.rows[0].note]).toEqual(['Кафе', 'Кафе', 'Кофе']);

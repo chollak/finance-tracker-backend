@@ -22,13 +22,32 @@ function currentHistoryIndex(): number | undefined {
   return (window.history.state as { idx?: number } | null)?.idx;
 }
 
+/** The parents screens named for themselves (`useScreenParent`), by pathname. */
+const screenParents = new Map<string, string>();
+
+/**
+ * Where «Назад» of this screen leads when it was opened directly (a link, a reload): `path` instead of the parent its
+ * address gives — a category of analytics returns to its own month and side, not to this month's expenses. Both the
+ * screen's own «Назад» and Telegram's BackButton follow it; `null` keeps the parent of the address.
+ */
+export function useScreenParent(path: string | null): void {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    if (path === null) return;
+    screenParents.set(pathname, path);
+    return () => {
+      if (screenParents.get(pathname) === path) screenParents.delete(pathname);
+    };
+  }, [pathname, path]);
+}
+
 /** Runs the step `choose` picks for the current screen: one entry back, or the target in place of this one. */
-function useStep(choose: (pathname: string, historyIndex: number | undefined) => BackStep | null): () => void {
+function useStep(choose: (pathname: string, historyIndex: number | undefined, screenParent?: string) => BackStep | null): () => void {
   const navigate = useNavigate();
   const { pathname } = useLocation();
 
   return useCallback(() => {
-    const step = choose(pathname, currentHistoryIndex());
+    const step = choose(pathname, currentHistoryIndex(), screenParents.get(pathname));
     if (!step) return;
     if (step.kind === 'history') navigate(-1);
     else navigate(step.to, { replace: true });

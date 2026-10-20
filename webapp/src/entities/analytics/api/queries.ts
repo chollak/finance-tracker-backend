@@ -27,7 +27,8 @@ export function useMonthAnalytics(view: { month: string | undefined; type: Analy
 
 /**
  * One category of a month (FT-120: `GET /api/analytics/categories/:id?month`): its total and change, every day of
- * the period and its operations. A category that is not the user's answers with `statusCode: 404`.
+ * the period and its operations. A category that is not the user's answers with `statusCode: 404`, a month later than
+ * the current one with `statusCode: 400`.
  */
 export function useCategoryAnalytics(categoryId: string | undefined, month: string | undefined) {
   const userId = useUserStore((state) => state.userId);
@@ -40,6 +41,6 @@ export function useCategoryAnalytics(categoryId: string | undefined, month: stri
       return response.data;
     },
     enabled: !!userId && userType === 'telegram' && !!categoryId,
-    retry: (failures, error) => error.statusCode !== 404 && failures < 2,
+    retry: (failures, error) => error.statusCode !== 404 && error.statusCode !== 400 && failures < 2,
   });
 }

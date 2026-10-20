@@ -21,6 +21,7 @@ import {
   manualEntryRecord,
   pressEntryKey,
   type EntryContext,
+  type EntryType,
 } from '../model/manualEntry';
 import { ManualEntryView, type ListStatus } from './ManualEntryView';
 
@@ -36,9 +37,9 @@ function isTextField(target: EventTarget | null): boolean {
 
 /**
  * Manual entry (FT-113): the user's accounts, categories and rate, the entry's state, the date in the
- * calendar sheet, and the save. Starts as an expense of today on the default account.
+ * calendar sheet, and the save. Starts as an expense of today on the default account — or as an income, `type`.
  */
-export function ManualEntry() {
+export function ManualEntry({ type = 'expense' }: { type?: EntryType } = {}) {
   const [today] = useState(() => toLocalDate(new Date()));
   const isGuest = useUserStore((state) => state.userType === 'guest');
   const accountsQuery = useAccounts();
@@ -46,7 +47,7 @@ export function ManualEntry() {
   const settings = useSettings();
   const rate = useUsdRate();
   const { save, isPending, failed } = useSaveManualEntry();
-  const [state, setState] = useState(() => initialManualEntry(today, null));
+  const [state, setState] = useState(() => initialManualEntry(today, null, type));
   const [dateOpen, setDateOpen] = useState(false);
 
   const accounts = accountsQuery.data?.accounts ?? NO_ACCOUNTS;

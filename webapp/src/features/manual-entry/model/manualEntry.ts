@@ -106,8 +106,9 @@ export function entryAccountId(accounts: readonly Account[], defaultAccountId: s
   return visible.find((account) => account.id === defaultAccountId)?.id ?? visible[0]?.id ?? null;
 }
 
-export function initialManualEntry(today: LocalDate, accountId: string | null): ManualEntryState {
-  return { type: 'expense', accountId, amount: emptyKeypad(), categoryId: null, date: today, note: '' };
+/** An expense by default; an income when opened for one («Записать доход» of an empty month of analytics). */
+export function initialManualEntry(today: LocalDate, accountId: string | null, type: EntryType = 'expense'): ManualEntryState {
+  return { type, accountId, amount: emptyKeypad(), categoryId: null, date: today, note: '' };
 }
 
 function accountOf(state: ManualEntryState, accounts: readonly Account[]): Account | undefined {

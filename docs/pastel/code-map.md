@@ -67,8 +67,8 @@ React 19, Vite, Tailwind 4 (`@theme inline` в `app/styles/globals.css`), shadcn
 Dexie, react-router 7, sonner, motion (recharts убран в FT-121). Feature-Sliced Design: `app`, `pages` (12), `widgets` (11),
 `features` (12), `entities` (7), `shared`. Около 258 файлов, 20 файлов тестов Vitest (только чистые функции).
 
-**Маршруты.** `/` Главная, `/transactions` История (FT-116: поиск и фильтры), `/add` ручной ввод (FT-113; `/transactions/add`
-убран), `/review` проверка записей фразы (FT-114), `/?record=<id>` — главная с карточкой операции (FT-115;
+**Маршруты.** `/` Главная, `/transactions` История (FT-116: поиск и фильтры), `/add[?type=income]` ручной ввод (FT-113; `/transactions/add`
+убран; `?type=income` — с «Доход», из пустого месяца доходов аналитики), `/review` проверка записей фразы (FT-114), `/?record=<id>` — главная с карточкой операции (FT-115;
 `/transactions/:id/edit` убран), `/accounts` счета с итогом и курсом и `/accounts/:id` экран счёта (FT-118; его запись открывает
 `/transactions?account=<id>&record=<id>` — историю, суженную до счёта, с карточкой операции), `/accounts/transfer[?from=<id>]`
 перевод и обмен (FT-119), `/analytics[?month=YYYY-MM&type=income]` аналитика месяца и

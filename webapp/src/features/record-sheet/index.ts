@@ -4,6 +4,7 @@
 export { RecordSheet } from './ui/RecordSheet';
 export { useRecordLink, recordLinkState } from './api/useRecordLink';
 export { SAVED_NOTICE_MS } from './api/useRecordEdits';
+export type { RecordPeriod } from './model/recordSheet';
 export {
   openRecordSheet,
   openRecordCategory,

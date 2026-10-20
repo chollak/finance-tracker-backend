@@ -2,14 +2,18 @@ import { useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { deleteTransaction, patchTransaction, restoreTransaction } from '@/entities/transaction';
 import { useUserStore } from '@/entities/user';
-import { showUndoToast } from '@/shared/lib/undo';
+import type { LocalDate } from '@/shared/lib/dates';
+import { dismissUndoGroup, showUndoToast } from '@/shared/lib/undo';
 import {
   cancelTypeChange,
   categoryChangedToast,
   chooseCategory as chooseCategoryOf,
   chooseType as chooseTypeOf,
   deletedToast,
+  isInPeriod,
+  movedToast,
   revertSheetChange,
+  type RecordPeriod,
   type RecordType,
   type SheetChange,
   type SheetContext,
@@ -25,6 +29,9 @@ export type SaveStatus = 'idle' | 'saved' | 'save-failed' | 'delete-failed';
 
 const SAVE_FAILED_TOAST = { title: 'Не получилось сохранить', detail: 'Проверьте связь и измените ещё раз' } as const;
 
+/** The toast group of «Дата изменена» of a record: a move the server refused after the sheet closed takes it away. */
+const movedGroup = (id: string) => `record-moved:${id}`;
+
 /**
  * What the record sheet does with a saved record (FT-115). Every change shows at once and is patched to the
  * record at once; «Сохранено» shows for 2 seconds after the server took it; a change it refused goes back and
@@ -34,8 +41,12 @@ const SAVE_FAILED_TOAST = { title: 'Не получилось сохранить
  *
  * `loaded` is the sheet of the record as read; changes are kept apart from it, so a read that answers late
  * does not undo them.
+ *
+ * `period` — the days the screen lists (a category of a month, FT-121): a record whose date was moved out of them
+ * leaves that list, so closing says «Дата изменена · Перенесено на 2 сентября · −145 000 сум» with «Отменить», which
+ * puts back the date it had before it left (board `pendingRedate`).
  */
-export function useRecordEdits(id: string, loaded: SheetState | null, context: SheetContext) {
+export function useRecordEdits(id: string, loaded: SheetState | null, context: SheetContext, period?: RecordPeriod) {
   const queryClient = useQueryClient();
   const userId = useUserStore((state) => state.userId);
   const [edited, setEdited] = useState<SheetState | null>(null);
@@ -49,6 +60,9 @@ export function useRecordEdits(id: string, loaded: SheetState | null, context: S
   const closed = useRef(false);
   const mounted = useRef(true);
   const savedTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  // The date the record had before it was first moved out of `period`; «Дата изменена» was shown
+  const movedFrom = useRef<LocalDate | null>(null);
+  const movedShown = useRef(false);
 
   useEffect(() => {
     mounted.current = true;
@@ -76,6 +90,7 @@ export function useRecordEdits(id: string, loaded: SheetState | null, context: S
     const made = before && make(before);
     if (!userId || !before || !made) return;
     write(made.state);
+    if (period && movedFrom.current === null && !isInPeriod(made.state.record.date, period)) movedFrom.current = before.record.date;
     if (!made.patch) return;
     try {
       await patchTransaction(queryClient, { id, userId, patch: made.patch });
@@ -89,9 +104,26 @@ export function useRecordEdits(id: string, loaded: SheetState | null, context: S
         clearTimeout(savedTimer.current);
         setStatus('save-failed');
       } else {
+        // The move out of the screen's days was refused after the sheet closed: the record is back, so is its date
+        const back = read();
+        if (movedShown.current && period && back && isInPeriod(back.record.date, period)) dismissUndoGroup(movedGroup(id));
         showUndoToast({ kind: 'info', ...SAVE_FAILED_TOAST });
       }
     }
+  };
+
+  /** Closing a record moved out of the screen's days: it has left the list, the toast says where to. */
+  const announceMove = () => {
+    const state = read();
+    const from = movedFrom.current;
+    if (!period || !from || !userId || !state || isInPeriod(state.record.date, period)) return;
+    movedShown.current = true;
+    showUndoToast({
+      kind: 'changed',
+      ...movedToast(state.record),
+      group: movedGroup(id),
+      undo: async () => void (await patchTransaction(queryClient, { id, userId, patch: { date: from } })),
+    });
   };
 
   /** «Расход / Доход»: returns whether a category of the new type is to be chosen now. */
@@ -114,6 +146,7 @@ export function useRecordEdits(id: string, loaded: SheetState | null, context: S
     closed.current = true;
     closeRecordSheet();
     if (saved.current) flashRecord(id);
+    announceMove();
   };
 
   /** «Удалить операцию»: no question; «Удалено» with «Отменить» brings it back. */

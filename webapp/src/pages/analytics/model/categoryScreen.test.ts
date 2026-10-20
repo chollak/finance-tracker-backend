@@ -5,8 +5,10 @@ import {
   categoryInsight,
   categoryPeriodLabel,
   categorySummary,
+  dayAfterMove,
   dayChart,
   dayChip,
+  listedRecords,
   noOperationsText,
   stepDay,
   tapDay,
@@ -246,5 +248,53 @@ describe('choosing a day', () => {
   it('no operations: on the chosen day, in the month', () => {
     expect(noOperationsText(CAFE, '2026-10-04')).toBe('В этот день операций нет');
     expect(noOperationsText(CAFE, null)).toBe('В октябре операций нет');
+  });
+});
+
+/**
+ * The board keeps the record opened or changed on the category's screen in its list (`inCat … || x.id === s.keepId`):
+ * moved to «Продукты» it stays where it was, named there; moved within the month it goes to its new day, and the day
+ * chosen goes with it; moved out of the month it leaves.
+ */
+describe('the record just opened or changed stays in the list', () => {
+  const ids = (records: readonly { id?: string }[]) => records.map((record) => record.id);
+  const lunch = CAFE_RECORDS[0];
+
+  it('none kept: the answer’s operations as they are', () => {
+    expect(listedRecords(CAFE, undefined)).toBe(CAFE.records);
+  });
+
+  it('moved to another category, it stays in its place, as the sheet saved it', () => {
+    const moved = { ...lunch, categoryId: 'pr', category: 'Продукты' };
+    const answer = { ...CAFE, records: CAFE_RECORDS.slice(1) };
+    const listed = listedRecords(answer, moved);
+
+    expect(ids(listed)).toEqual(ids(CAFE_RECORDS));
+    expect(listed[0]).toBe(moved);
+  });
+
+  it('the copy the sheet saved wins over the answer not read again yet', () => {
+    const moved = { ...lunch, categoryId: 'pr' };
+    expect(listedRecords(CAFE, moved)[0]).toBe(moved);
+    expect(listedRecords(CAFE, moved)).toHaveLength(10);
+  });
+
+  it('moved within the month, it is where its new date puts it', () => {
+    const redated = { ...lunch, date: '2026-10-04', createdAt: '2026-10-04T10:00:00.000Z' };
+    expect(ids(listedRecords(CAFE, redated))).toEqual(['k11', 'k9', 'k8', 'k7', 'k6', 'k5', 'k13', 'k3', 'k2', 'k1']);
+    expect(ids(listedRecords(CAFE, { ...lunch, date: '2026-10-01', createdAt: '2026-10-01T08:00:00.000Z' })).at(-1)).toBe('k13');
+  });
+
+  it('moved out of the month, it leaves', () => {
+    expect(ids(listedRecords(CAFE, { ...lunch, date: '2026-09-02' }))).not.toContain('k13');
+    expect(listedRecords(CAFE, { ...lunch, date: '2026-09-02' })).toHaveLength(9);
+  });
+
+  it('a chosen day goes with a move within the month; none chosen or a move out of it changes nothing', () => {
+    expect(dayAfterMove(CAFE, '2026-10-13', '2026-10-13', '2026-10-04')).toBe('2026-10-04');
+    expect(dayAfterMove(CAFE, '2026-10-05', '2026-10-13', '2026-10-04')).toBe('2026-10-04');
+    expect(dayAfterMove(CAFE, null, '2026-10-13', '2026-10-04')).toBeNull();
+    expect(dayAfterMove(CAFE, '2026-10-13', '2026-10-13', '2026-09-02')).toBe('2026-10-13');
+    expect(dayAfterMove(CAFE, '2026-10-13', '2026-10-13', '2026-10-13')).toBe('2026-10-13');
   });
 });
