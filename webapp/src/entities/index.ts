@@ -4,7 +4,7 @@ export * from './budget';
 export * from './debt';
 export * from './category';
 export * from './user';
-export * from './dashboard';
 export * from './settings';
 export * from './rate';
 export * from './account';
+export * from './analytics';

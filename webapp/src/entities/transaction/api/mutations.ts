@@ -5,7 +5,6 @@ import type { Transaction, CreateTransactionDTO, UpdateTransactionDTO } from '@/
 import type { TransactionViewModel } from '../model/types';
 import { transactionKeys } from './keys';
 import { budgetKeys } from '@/entities/budget/api/keys';
-import { dashboardKeys } from '@/entities/dashboard/api/keys';
 import { subscriptionKeys } from '@/entities/subscription/api/keys';
 import { findCategory, GUEST_CATEGORIES } from '@/entities/category';
 import { transactionToViewModel } from '../lib/toViewModel';
@@ -98,13 +97,7 @@ export function useCreateTransaction() {
 
       // 2. Invalidate ONLY computed data that depends on transaction totals
       queryClient.invalidateQueries({ queryKey: budgetKeys.summaries(userId) });
-      queryClient.invalidateQueries({ queryKey: dashboardKeys.insights(userId) });
       invalidateBalanceReaders(queryClient, userId);
-      queryClient.invalidateQueries({ queryKey: dashboardKeys.quickStats(userId) });
-      // Invalidate analytics since totals changed
-      queryClient.invalidateQueries({ queryKey: transactionKeys.analytics(userId) });
-      queryClient.invalidateQueries({ queryKey: transactionKeys.categorySummary(userId) });
-      queryClient.invalidateQueries({ queryKey: transactionKeys.trends(userId) });
       // Invalidate subscription to refresh usage limits (transaction count increased)
       queryClient.invalidateQueries({ queryKey: subscriptionKeys.status(userId) });
     },
@@ -163,12 +156,7 @@ export function useUpdateTransaction() {
 
       // 3. Invalidate computed data (amount/category might have changed)
       queryClient.invalidateQueries({ queryKey: budgetKeys.summaries(userId) });
-      queryClient.invalidateQueries({ queryKey: dashboardKeys.insights(userId) });
       invalidateBalanceReaders(queryClient, userId);
-      queryClient.invalidateQueries({ queryKey: dashboardKeys.quickStats(userId) });
-      queryClient.invalidateQueries({ queryKey: transactionKeys.analytics(userId) });
-      queryClient.invalidateQueries({ queryKey: transactionKeys.categorySummary(userId) });
-      queryClient.invalidateQueries({ queryKey: transactionKeys.trends(userId) });
     },
   });
 }
@@ -211,12 +199,7 @@ function forgetDeletedTransaction(queryClient: QueryClient, { id, userId }: { id
 
   // 3. Invalidate computed data
   queryClient.invalidateQueries({ queryKey: budgetKeys.summaries(userId) });
-  queryClient.invalidateQueries({ queryKey: dashboardKeys.insights(userId) });
   invalidateBalanceReaders(queryClient, userId);
-  queryClient.invalidateQueries({ queryKey: dashboardKeys.quickStats(userId) });
-  queryClient.invalidateQueries({ queryKey: transactionKeys.analytics(userId) });
-  queryClient.invalidateQueries({ queryKey: transactionKeys.categorySummary(userId) });
-  queryClient.invalidateQueries({ queryKey: transactionKeys.trends(userId) });
   // Invalidate subscription to refresh usage limits (transaction count decreased)
   queryClient.invalidateQueries({ queryKey: subscriptionKeys.status(userId) });
 }
@@ -304,11 +287,6 @@ export async function patchTransaction(
 function refetchAfterChange(queryClient: QueryClient, userId: string): void {
   queryClient.invalidateQueries({ queryKey: transactionKeys.list(userId) });
   queryClient.invalidateQueries({ queryKey: budgetKeys.summaries(userId) });
-  queryClient.invalidateQueries({ queryKey: dashboardKeys.insights(userId) });
   invalidateBalanceReaders(queryClient, userId);
-  queryClient.invalidateQueries({ queryKey: dashboardKeys.quickStats(userId) });
-  queryClient.invalidateQueries({ queryKey: transactionKeys.analytics(userId) });
-  queryClient.invalidateQueries({ queryKey: transactionKeys.categorySummary(userId) });
-  queryClient.invalidateQueries({ queryKey: transactionKeys.trends(userId) });
   queryClient.invalidateQueries({ queryKey: subscriptionKeys.status(userId) });
 }

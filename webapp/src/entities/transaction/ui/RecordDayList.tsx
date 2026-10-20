@@ -6,9 +6,10 @@ interface RecordDayListProps {
   days: RecordDay[];
   /**
    * `history` (board «История»): the days are the screen's sections — headings of level 2, 16px apart — and each
-   * carries its total on the right. `recent` (Home): days under the section «Последние операции».
+   * carries its total on the right. `recent` (Home): days under the section «Последние операции». `category`
+   * (analytics, FT-121): days with their totals under the section «Операции» of a category.
    */
-  variant?: 'recent' | 'history';
+  variant?: 'recent' | 'history' | 'category';
   /** Opens the record. */
   onOpen: (id: string) => void;
   /** The category circle as a button of its own: the choice of a category at once (FT-115). */
@@ -61,7 +62,7 @@ export function RecordRowItem({ row, onOpen, onCategory, flashId }: RecordRowIte
             aria-label={row.categoryAriaLabel}
             className={cn('flex h-row w-[52px] shrink-0 items-center justify-center rounded-control pl-1', FOCUS)}
           >
-            <CategoryDot name={row.title} color={row.color} />
+            <CategoryDot name={row.category} color={row.color} />
           </button>
           <button
             type="button"
@@ -88,7 +89,7 @@ export function RecordRowItem({ row, onOpen, onCategory, flashId }: RecordRowIte
           )}
         >
           <span aria-hidden="true" className="flex h-row w-[52px] shrink-0 items-center justify-center pl-1">
-            <CategoryDot name={row.title} color={row.color} />
+            <CategoryDot name={row.category} color={row.color} />
           </span>
           <RowText row={row} />
         </button>
@@ -108,6 +109,8 @@ export function RecordRowItem({ row, onOpen, onCategory, flashId }: RecordRowIte
  */
 export function RecordDayList({ days, variant = 'recent', onOpen, onCategory, flashId, className }: RecordDayListProps) {
   const history = variant === 'history';
+  // History's and a category's days are labelled in bold, 4px in from the card's edge
+  const dated = history || variant === 'category';
   const Heading = history ? 'h2' : 'h3';
   // History's days are its sections (board «История»); Home's are a list inside one
   const Group = history ? 'section' : 'div';
@@ -115,8 +118,8 @@ export function RecordDayList({ days, variant = 'recent', onOpen, onCategory, fl
     <div className={cn('flex flex-col', history ? 'gap-4' : 'gap-2.5', className)}>
       {days.map((day) => (
         <Group key={day.day} aria-label={history ? day.label : undefined} className="flex flex-col gap-1.5">
-          <div className={cn('flex items-baseline justify-between gap-2', history && 'px-1')}>
-            <Heading className={cn('type-label min-w-0 truncate text-ink-muted', history && 'font-bold')}>{day.label}</Heading>
+          <div className={cn('flex items-baseline justify-between gap-2', dated && 'px-1')}>
+            <Heading className={cn('type-label min-w-0 truncate text-ink-muted', dated && 'font-bold')}>{day.label}</Heading>
             {day.total && (
               <span
                 className={cn(

@@ -17,6 +17,8 @@ const DebtsPage = lazy(() => import('@/pages').then(m => ({ default: m.DebtsPage
 const AddDebtPage = lazy(() => import('@/pages').then(m => ({ default: m.AddDebtPage })));
 const DebtDetailsPage = lazy(() => import('@/pages').then(m => ({ default: m.DebtDetailsPage })));
 const AnalyticsPage = lazy(() => import('@/pages').then(m => ({ default: m.AnalyticsPage })));
+// One category of the month: its days and operations (FT-121)
+const CategoryAnalyticsPage = lazy(() => import('@/pages').then(m => ({ default: m.CategoryAnalyticsPage })));
 const MorePage = lazy(() => import('@/pages').then(m => ({ default: m.MorePage })));
 // FT-088 spike page: not linked from the app, opened by URL inside Telegram on each device
 const VoiceCheckPage = lazy(() => import('@/pages').then(m => ({ default: m.VoiceCheckPage })));
@@ -126,6 +128,10 @@ export const appRoutes: RouteObject[] = [
           {
             path: '/analytics',
             element: <PageLoader><AnalyticsPage /></PageLoader>,
+          },
+          {
+            path: '/analytics/categories/:id',
+            element: <PageLoader><CategoryAnalyticsPage /></PageLoader>,
           },
           {
             path: '/more',

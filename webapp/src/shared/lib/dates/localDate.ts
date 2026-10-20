@@ -14,6 +14,12 @@ const MONTHS_GENITIVE = [
   'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря',
 ];
 
+/** «↑ 10% к августу» (analytics, FT-121). */
+const MONTHS_DATIVE = [
+  'январю', 'февралю', 'марту', 'апрелю', 'маю', 'июню',
+  'июлю', 'августу', 'сентябрю', 'октябрю', 'ноябрю', 'декабрю',
+];
+
 /** «В октябре потрачено…». */
 const MONTHS_PREPOSITIONAL = [
   'январе', 'феврале', 'марте', 'апреле', 'мае', 'июне',
@@ -68,6 +74,16 @@ export function monthNameLower(month: number): string {
 /** «октябре» — for «В октябре потрачено 47% дохода». */
 export function monthNameIn(month: number): string {
   return MONTHS_PREPOSITIONAL[month - 1];
+}
+
+/** «сентября» — for «1–14 сентября». */
+export function monthNameOf(month: number): string {
+  return MONTHS_GENITIVE[month - 1];
+}
+
+/** «августу» — for «↑ 10% к августу». */
+export function monthNameTo(month: number): string {
+  return MONTHS_DATIVE[month - 1];
 }
 
 /** The first and the last day of the month `value` is in. */

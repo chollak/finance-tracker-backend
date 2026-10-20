@@ -105,8 +105,6 @@ export default defineConfig({
           'react-vendor': ['react', 'react-dom', 'react-router-dom'],
           // TanStack Query
           'query-vendor': ['@tanstack/react-query'],
-          // Charts library (heavy)
-          'charts-vendor': ['recharts'],
           // Form libraries
           'form-vendor': ['react-hook-form', '@hookform/resolvers', 'zod'],
           // UI components

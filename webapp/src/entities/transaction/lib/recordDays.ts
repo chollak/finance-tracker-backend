@@ -12,10 +12,15 @@ export interface RecordCategory {
 
 export interface RecordRow {
   id: string;
-  /** The category's name. */
+  /** The category's name; in a category's list (analytics, FT-121) the note, else the category's name. */
   title: string;
+  /** The category's name, for its circle. */
+  category: string;
   color: PastelColor;
-  /** The note, else the merchant, else «Без заметки»; in History followed by the account: «Супермаркет · Карта». */
+  /**
+   * The note, else the merchant, else «Без заметки»; in History followed by the account: «Супермаркет · Карта». In a
+   * category's list the account, after the record's own category when it is another: «Транспорт · Карта».
+   */
   note: string;
   /** «−186 400», «+12 500 000», «+300,00 USD»: сум without a unit, other currencies with one. */
   amount: string;
@@ -58,6 +63,11 @@ export interface RecordDaysOptions {
    * read — the last day may go on there, so its total waits.
    */
   dayTotals?: { rateMinor: number | null; lastDayComplete: boolean };
+  /**
+   * The operations of one category (analytics, FT-121, board «Аналитика · категория «Кафе»»): the category is the
+   * screen's, so the note leads and the account goes under it; a record of another category names it there.
+   */
+  lead?: { categoryId: string };
 }
 
 const NO_NOTE = 'Без заметки';
@@ -81,27 +91,36 @@ function amountMinorOf(record: Transaction): number {
  */
 export function recordRow(
   record: Transaction,
-  options: Pick<RecordDaysOptions, 'categoryOf' | 'accountOf'> & { opens?: 'here' | 'history' }
+  options: Pick<RecordDaysOptions, 'categoryOf' | 'accountOf' | 'lead'> & { opens?: 'here' | 'history' }
 ): RecordRow {
   const category = options.categoryOf(record);
-  const title = category?.name ?? record.category;
+  const categoryName = category?.name ?? record.category;
   const color = category?.color ?? (isPastelColor(record.categoryColor) ? record.categoryColor : 'mist');
   const note = record.description?.trim() || record.merchant?.trim() || '';
   const account = options.accountOf?.(record);
   const currency: Currency = record.currency ?? 'UZS';
   const tone = record.type === 'income' ? 'income' : 'expense';
   const signed = tone === 'income' ? amountMinorOf(record) : -amountMinorOf(record);
-
   const fullAmount = formatMinor(signed, currency, { sign: 'always' });
+  const opens = options.opens === 'history' ? 'Открыть в истории' : 'Открыть';
+
+  // A category's list: «Обед с командой» over «Карта»
+  const lead = options.lead;
+  const title = lead ? note || categoryName : categoryName;
+  const other = lead && record.categoryId !== lead.categoryId ? categoryName : '';
+  const under = lead ? [other, account].filter(Boolean).join(' · ') : [note, account].filter(Boolean).join(' · ');
+  const said = lead ? [other, account] : [note, account];
+
   return {
     id: record.id ?? '',
     title,
+    category: categoryName,
     color,
-    note: [note, account].filter(Boolean).join(' · ') || NO_NOTE,
+    note: under || (lead ? '' : NO_NOTE),
     amount: formatMinor(signed, currency, { sign: 'always', unit: currency !== 'UZS' }),
     tone,
-    ariaLabel: `${title}, ${fullAmount}${note ? `, ${note}` : ''}${account ? `, ${account}` : ''}. ${options.opens === 'history' ? 'Открыть в истории' : 'Открыть'}`,
-    categoryAriaLabel: `Сменить категорию: ${title}, ${fullAmount}`,
+    ariaLabel: `${[title, fullAmount, ...said.filter(Boolean)].join(', ')}. ${opens}`,
+    categoryAriaLabel: `Сменить категорию: ${categoryName}, ${fullAmount}`,
   };
 }
 

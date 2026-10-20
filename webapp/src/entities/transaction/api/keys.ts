@@ -27,10 +27,4 @@ export const transactionKeys = {
   // One record as the record sheet shows it (FT-115): the full record with its amount in minor units,
   // currency and account — apart from `detail`, which old screens fill with a view model without them
   record: (id: string) => [...transactionKeys.all, 'record', id] as const,
-  analytics: (userId: string, filters?: Record<string, unknown>) =>
-    [...transactionKeys.all, 'analytics', userId, filters] as const,
-  categorySummary: (userId: string, filters?: Record<string, unknown>) =>
-    [...transactionKeys.all, 'category-summary', userId, filters] as const,
-  trends: (userId: string, months?: number) =>
-    [...transactionKeys.all, 'trends', userId, months] as const,
 };

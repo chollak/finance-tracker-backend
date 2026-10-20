@@ -8,6 +8,8 @@ import {
   monthGrid,
   monthNameIn,
   monthNameLower,
+  monthNameOf,
+  monthNameTo,
   monthNavigation,
   monthTitle,
   relativeDayLabel,
@@ -66,6 +68,12 @@ describe('local dates', () => {
     expect(monthNameIn(10)).toBe('октябре');
     expect(monthNameIn(5)).toBe('мае');
     expect(monthNameIn(8)).toBe('августе');
+    // Analytics (FT-121): «1–14 сентября», «↑ 10% к августу»
+    expect(monthNameOf(9)).toBe('сентября');
+    expect(monthNameOf(5)).toBe('мая');
+    expect(monthNameTo(8)).toBe('августу');
+    expect(monthNameTo(5)).toBe('маю');
+    expect(monthNameTo(1)).toBe('январю');
   });
 
   it('labels a day group of a list: «Сегодня», «Вчера», then the weekday and the date', () => {

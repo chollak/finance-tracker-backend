@@ -64,15 +64,17 @@ webapp, проверка архитектуры и шрифтов.
 ## Webapp — `webapp/src/`
 
 React 19, Vite, Tailwind 4 (`@theme inline` в `app/styles/globals.css`), shadcn/Radix, React Query, zustand,
-Dexie, react-router 7, recharts, sonner, motion. Feature-Sliced Design: `app`, `pages` (12), `widgets` (11),
+Dexie, react-router 7, sonner, motion (recharts убран в FT-121). Feature-Sliced Design: `app`, `pages` (12), `widgets` (11),
 `features` (12), `entities` (7), `shared`. Около 258 файлов, 20 файлов тестов Vitest (только чистые функции).
 
 **Маршруты.** `/` Главная, `/transactions` История (FT-116: поиск и фильтры), `/add` ручной ввод (FT-113; `/transactions/add`
 убран), `/review` проверка записей фразы (FT-114), `/?record=<id>` — главная с карточкой операции (FT-115;
 `/transactions/:id/edit` убран), `/accounts` счета с итогом и курсом и `/accounts/:id` экран счёта (FT-118; его запись открывает
 `/transactions?account=<id>&record=<id>` — историю, суженную до счёта, с карточкой операции), `/accounts/transfer[?from=<id>]`
-перевод и обмен (FT-119),
-`/budgets…`, `/debts…`, `/analytics`, `/more`.
+перевод и обмен (FT-119), `/analytics[?month=YYYY-MM&type=income]` аналитика месяца и
+`/analytics/categories/:id[?month=]` категория по дням (FT-121; старые `FinancialHealth`, круговая диаграмма и вызовы
+`dashboard` из webapp удалены),
+`/budgets…`, `/debts…`, `/more`.
 Нижний бар (FT-086): Главная · История · Записать · Ещё.
 `BackButton`/`MainButton` Telegram написаны, но не используются.
 

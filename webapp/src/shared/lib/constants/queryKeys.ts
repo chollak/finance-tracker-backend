@@ -13,11 +13,6 @@ export const QUERY_KEYS = {
   BUDGET_SUMMARIES: 'budget-summaries',
   BUDGET_ALERTS: 'budget-alerts',
 
-  // Dashboard
-  DASHBOARD: 'dashboard',
-  DASHBOARD_QUICK_STATS: 'dashboard-quick-stats',
-  DASHBOARD_HEALTH_SCORE: 'dashboard-health-score',
-
   // Analytics
   ANALYTICS_SUMMARY: 'analytics-summary',
   ANALYTICS_CATEGORIES: 'analytics-categories',
@@ -45,15 +40,6 @@ export const queryKeys = {
     summaries: (userId: string) => [QUERY_KEYS.BUDGET_SUMMARIES, userId] as const,
     alerts: (userId: string, threshold?: number) =>
       [QUERY_KEYS.BUDGET_ALERTS, userId, threshold] as const,
-  },
-
-  // Dashboard
-  dashboard: {
-    all: [QUERY_KEYS.DASHBOARD] as const,
-    full: (userId: string, filters?: Record<string, unknown>) =>
-      [...queryKeys.dashboard.all, 'full', userId, filters] as const,
-    quickStats: (userId: string) => [QUERY_KEYS.DASHBOARD_QUICK_STATS, userId] as const,
-    healthScore: (userId: string) => [QUERY_KEYS.DASHBOARD_HEALTH_SCORE, userId] as const,
   },
 
   // Analytics

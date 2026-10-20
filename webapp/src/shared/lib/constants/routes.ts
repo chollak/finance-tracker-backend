@@ -10,6 +10,18 @@ export const ACCOUNT_PARAM = 'account';
 /** The query parameter of the transfer form: the account it starts from (FT-119). */
 export const TRANSFER_FROM_PARAM = 'from';
 
+/** Analytics (FT-121): the month shown (YYYY-MM; the current one when absent) and expenses or income. */
+export const ANALYTICS_MONTH_PARAM = 'month';
+export const ANALYTICS_TYPE_PARAM = 'type';
+
+function analyticsSearch(view: { month?: string; type?: 'expense' | 'income' }): string {
+  const query = new URLSearchParams();
+  if (view.month) query.set(ANALYTICS_MONTH_PARAM, view.month);
+  if (view.type === 'income') query.set(ANALYTICS_TYPE_PARAM, 'income');
+  const search = query.toString();
+  return search ? `?${search}` : '';
+}
+
 // Route constants for type-safe navigation
 export const ROUTES = {
   HOME: '/',
@@ -39,8 +51,11 @@ export const ROUTES = {
   ADD_DEBT: '/debts/add',
   DEBT_DETAILS: (id: string) => `/debts/${id}`,
 
-  // Analytics
+  // Analytics (FT-121): the month's expenses or income by category, opened from Home's tiles; a category opens its
+  // own screen with the days and the operations
   ANALYTICS: '/analytics',
+  ANALYTICS_VIEW: (view: { month?: string; type?: 'expense' | 'income' }) => `/analytics${analyticsSearch(view)}`,
+  ANALYTICS_CATEGORY: (id: string, month?: string) => `/analytics/categories/${encodeURIComponent(id)}${analyticsSearch({ month })}`,
 
   // More
   MORE: '/more',
@@ -131,22 +146,15 @@ export const API_ENDPOINTS = {
     DELETE: (id: string) => `/transactions/${id}`,
     // «Отменить» after a delete brings the record back (FT-105)
     RESTORE: (id: string) => `/transactions/${id}/restore`,
-    ANALYTICS: {
-      SUMMARY: (userId: string, params?: { startDate?: string; endDate?: string }) => {
-        const query = new URLSearchParams();
-        if (params?.startDate) query.append('startDate', params.startDate);
-        if (params?.endDate) query.append('endDate', params.endDate);
-        return `/transactions/analytics/summary/${userId}${query.toString() ? `?${query}` : ''}`;
-      },
-      CATEGORIES: (userId: string, params?: { startDate?: string; endDate?: string }) => {
-        const query = new URLSearchParams();
-        if (params?.startDate) query.append('startDate', params.startDate);
-        if (params?.endDate) query.append('endDate', params.endDate);
-        return `/transactions/analytics/categories/${userId}${query.toString() ? `?${query}` : ''}`;
-      },
-      TRENDS: (userId: string, months: number = 12) =>
-        `/transactions/analytics/trends/${userId}?months=${months}`,
-    },
+  },
+
+  // Analytics (FT-120): a month by category with a fair comparison, and one category by day; the user comes from
+  // authentication
+  ANALYTICS: {
+    MONTH: (params: { month?: string; type: 'expense' | 'income' }) =>
+      `/analytics?${new URLSearchParams({ ...(params.month ? { month: params.month } : {}), type: params.type })}`,
+    CATEGORY: (id: string, month?: string) =>
+      `/analytics/categories/${encodeURIComponent(id)}${month ? `?${new URLSearchParams({ month })}` : ''}`,
   },
 
   // Budgets
@@ -159,18 +167,6 @@ export const API_ENDPOINTS = {
     SUMMARIES: (userId: string) => `/budgets/users/${userId}/budgets/summaries`,
     ALERTS: (userId: string, threshold: number = 0.8) =>
       `/budgets/users/${userId}/budgets/alerts?threshold=${threshold}`,
-  },
-
-  // Dashboard
-  DASHBOARD: {
-    FULL: (userId: string, params?: { startDate?: string; endDate?: string }) => {
-      const query = new URLSearchParams();
-      if (params?.startDate) query.append('startDate', params.startDate);
-      if (params?.endDate) query.append('endDate', params.endDate);
-      return `/dashboard/${userId}${query.toString() ? `?${query}` : ''}`;
-    },
-    QUICK_STATS: (userId: string) => `/dashboard/${userId}/quick-stats`,
-    HEALTH_SCORE: (userId: string) => `/dashboard/insights/${userId}/health-score`,
   },
 
   // Voice

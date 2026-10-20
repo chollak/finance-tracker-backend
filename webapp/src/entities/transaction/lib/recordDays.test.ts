@@ -174,3 +174,42 @@ describe('History by day (FT-116, board «История», TransactionList.md)'
     expect(today.rows[0].note).toBe('Супермаркет');
   });
 });
+
+describe('a category’s operations (FT-121, board «Аналитика · категория «Кафе»»)', () => {
+  const ACCOUNTS: Record<string, string> = { card: 'Карта', cash: 'Наличные' };
+  const accountOf = (item: Transaction) => (item.accountId ? ACCOUNTS[item.accountId] : undefined);
+  const cafe: Record<string, RecordCategory> = { kf: { name: 'Кафе', color: 'rose' }, tr: { name: 'Транспорт', color: 'sky' } };
+  const cafeOf = (item: Transaction) => (item.categoryId ? cafe[item.categoryId] : undefined);
+
+  it('every row is of the one category: the note leads, the account goes under it, the circle keeps the category', () => {
+    const [day] = buildRecordDays(
+      [record({ id: 'k13', categoryId: 'kf', amountMinor: 14_500_000, description: 'Обед с командой', accountId: 'card', date: '2026-10-13' })],
+      { today: TODAY, categoryOf: cafeOf, accountOf, datedLabels: true, lead: { categoryId: 'kf' } }
+    );
+
+    expect(day.label).toBe('Вчера, 13 октября');
+    expect(day.rows[0]).toMatchObject({ title: 'Обед с командой', note: 'Карта', category: 'Кафе', color: 'rose', amount: `${MINUS}145${NBSP}000` });
+    expect(day.rows[0].ariaLabel).toBe(`Обед с командой, ${MINUS}145${NBSP}000${NBSP}сум, Карта. Открыть`);
+    expect(day.rows[0].categoryAriaLabel).toBe(`Сменить категорию: Кафе, ${MINUS}145${NBSP}000${NBSP}сум`);
+  });
+
+  it('a record without a note is named by its category; one of another category names it beside the account', () => {
+    const [day] = buildRecordDays(
+      [
+        record({ id: 'a', categoryId: 'kf', amountMinor: 2_500_000, accountId: 'cash' }),
+        record({ id: 'b', categoryId: 'tr', amountMinor: 3_200_000, description: 'Такси домой', accountId: 'card' }),
+      ],
+      { today: TODAY, categoryOf: cafeOf, accountOf, lead: { categoryId: 'kf' } }
+    );
+
+    expect(day.rows.map((item) => [item.title, item.note, item.category])).toEqual([
+      ['Кафе', 'Наличные', 'Кафе'],
+      ['Такси домой', 'Транспорт · Карта', 'Транспорт'],
+    ]);
+  });
+
+  it('other lists keep the category as the title, and the circle shows it too', () => {
+    const [day] = buildRecordDays([record({ id: 'k', categoryId: 'kf', amountMinor: 100, description: 'Кофе' })], { today: TODAY, categoryOf: cafeOf });
+    expect([day.rows[0].title, day.rows[0].category, day.rows[0].note]).toEqual(['Кафе', 'Кафе', 'Кофе']);
+  });
+});

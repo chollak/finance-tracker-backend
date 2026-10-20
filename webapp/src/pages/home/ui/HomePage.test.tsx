@@ -214,22 +214,29 @@ describe('when a read fails', () => {
 });
 
 describe('month tiles', () => {
-  it('show income and expenses of the month from the totals service; both open Analytics', () => {
+  // FT-121: the income tile opens the income of Analytics, the expense tile its expenses (board «Главная»)
+  const incomeTiles = (html: string) => anchors(html).filter((tag) => tag.includes(`href="${ROUTES.ANALYTICS_VIEW({ type: 'income' })}"`));
+  const expenseTiles = (html: string) => anchors(html).filter((tag) => tag.includes(`href="${ROUTES.ANALYTICS}"`));
+
+  it('show income and expenses of the month from the totals service; each opens its side of Analytics', () => {
     const html = home({ accounts: ACCOUNTS, totals: totals(1_629_500_000, 768_440_000), records: RECORDS });
     const month = monthNameLower(MONTH);
 
     expect(text(html)).toContain(`Доход за ${month} +16${NBSP}295${NBSP}000`);
     expect(text(html)).toContain(`Расход за ${month} ${MINUS}7${NBSP}684${NBSP}400`);
-    const tiles = anchors(html).filter((tag) => tag.includes(`href="${ROUTES.ANALYTICS}"`));
-    expect(tiles).toHaveLength(2);
-    expect(tiles[0]).toContain(`aria-label="Доход за ${month}: +16${NBSP}295${NBSP}000${NBSP}сум. Открыть аналитику"`);
+    expect(ROUTES.ANALYTICS_VIEW({ type: 'income' })).toBe('/analytics?type=income');
+    expect(incomeTiles(html)).toHaveLength(1);
+    expect(incomeTiles(html)[0]).toContain(`aria-label="Доход за ${month}: +16${NBSP}295${NBSP}000${NBSP}сум. Открыть аналитику"`);
+    expect(expenseTiles(html)).toHaveLength(1);
+    expect(expenseTiles(html)[0]).toContain(`aria-label="Расход за ${month}`);
   });
 
   it('do not show a 0 while the totals load', () => {
     const html = home({ accounts: ACCOUNTS });
 
     expect(text(html)).not.toMatch(/Доход за \S+ 0/);
-    expect(anchors(html).filter((tag) => tag.includes(`href="${ROUTES.ANALYTICS}"`))).toHaveLength(2);
+    expect(incomeTiles(html)).toHaveLength(1);
+    expect(expenseTiles(html)).toHaveLength(1);
   });
 });
 

@@ -14,10 +14,9 @@ const TONE: Record<SummaryTile['kind'], string> = {
 
 function Tile({ tile, isError }: { tile: SummaryTile; isError: boolean }) {
   return (
-    // On the board the income tile opens the income view of Analytics; that view comes with the analytics
-    // screens (FT-121), and until then both tiles open Analytics as it is
+    // The income tile opens the income of Analytics, the expense tile its expenses (board «Главная», FT-121)
     <Link
-      to={ROUTES.ANALYTICS}
+      to={tile.kind === 'income' ? ROUTES.ANALYTICS_VIEW({ type: 'income' }) : ROUTES.ANALYTICS}
       aria-label={tile.ariaLabel}
       className={cn(
         'flex min-w-0 flex-col gap-1.5 rounded-card p-4 transition-transform duration-150 active:scale-[0.98]',
@@ -68,7 +67,7 @@ export function SummaryTilesView({ totals, display = IN_UZS, year, month, classN
 
 /**
  * Month tiles of Home (FT-111, SummaryTiles.md): income in mint, expenses in peach, both themes alike;
- * each opens Analytics. The numbers are the backend's totals service (GET /api/transactions/totals), in the
+ * each opens its side of Analytics. The numbers are the backend's totals service (GET /api/transactions/totals), in the
  * currency of «Сум / USD» in the header (FT-137).
  */
 export function SummaryTiles({ className }: { className?: string }) {
