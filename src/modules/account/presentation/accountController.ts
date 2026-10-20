@@ -4,18 +4,22 @@ import { createCurrentUserMiddleware, currentUserId } from '../../../delivery/we
 import { standardRateLimiter } from '../../../delivery/web/express/middleware/rateLimitMiddleware';
 import { UserModule } from '../../user/userModule';
 import { AccountModule } from '../accountModule';
-import { CreateAccountUseCase, ListAccountsUseCase, UpdateAccountUseCase } from '../application/accountUseCases';
+import { CreateAccountUseCase, DeleteAccountUseCase, ListAccountsUseCase, UpdateAccountUseCase } from '../application/accountUseCases';
 import { GetAccountOperationsUseCase } from '../application/accountOperations';
 import { CompleteFirstLaunchUseCase } from '../application/firstLaunchUseCase';
 
-/** GET/POST /api/accounts, PATCH /api/accounts/:id (FT-101), POST /api/accounts/opening-balances (FT-109). */
+/**
+ * GET/POST /api/accounts, PATCH /api/accounts/:id (FT-101), POST /api/accounts/opening-balances (FT-109),
+ * DELETE /api/accounts/:id of an account without operations (FT-118).
+ */
 export class AccountController {
   constructor(
     private list: ListAccountsUseCase,
     private create: CreateAccountUseCase,
     private update: UpdateAccountUseCase,
     private operations: GetAccountOperationsUseCase,
-    private firstLaunch: CompleteFirstLaunchUseCase
+    private firstLaunch: CompleteFirstLaunchUseCase,
+    private remove: DeleteAccountUseCase
   ) {}
 
   /** POST /api/accounts/opening-balances — the first launch: cash, card and dollars on hand today (FT-109). */
@@ -78,6 +82,17 @@ export class AccountController {
       handleControllerError(error, res);
     }
   };
+
+  /** «Отменить» after «Счёт добавлен»: only an account without operations; any other one is hidden instead. */
+  delete = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const result = await this.remove.execute({ userId: currentUserId(req), accountId: String(req.params.id) });
+      if (!result.success) return handleControllerError(result.error, res);
+      handleControllerSuccess(result.data, res);
+    } catch (error) {
+      handleControllerError(error, res);
+    }
+  };
 }
 
 /**
@@ -90,7 +105,8 @@ export function createAccountRoutes(accountModule: AccountModule, userModule: Us
     accountModule.getCreateAccountUseCase(),
     accountModule.getUpdateAccountUseCase(),
     accountModule.getAccountOperationsUseCase(),
-    accountModule.getCompleteFirstLaunchUseCase(userModule)
+    accountModule.getCompleteFirstLaunchUseCase(userModule),
+    accountModule.getDeleteAccountUseCase()
   );
   const router = Router();
   router.use(standardRateLimiter);
@@ -99,6 +115,7 @@ export function createAccountRoutes(accountModule: AccountModule, userModule: Us
   router.post('/', controller.post);
   router.post('/opening-balances', controller.postOpeningBalances);
   router.patch('/:id', controller.patch);
+  router.delete('/:id', controller.delete);
   router.get('/:id/operations', controller.getOperations);
   return router;
 }

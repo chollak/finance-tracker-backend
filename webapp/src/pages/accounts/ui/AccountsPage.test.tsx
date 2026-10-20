@@ -65,6 +65,7 @@ beforeEach(() => {
   });
   vi.mocked(apiClient.post).mockReset();
   vi.mocked(apiClient.patch).mockReset();
+  vi.mocked(apiClient.delete).mockReset();
   useUserStore.setState({ userId: USER_ID, userType: 'telegram', telegramId: USER_ID, userName: 'Шукур' });
   useUndoToastStore.setState({ stack: [], openSheets: 0 });
   container = document.createElement('div');
@@ -180,6 +181,11 @@ describe('Accounts', () => {
     expect(document.body.querySelector('[role="dialog"]')).toBeNull();
     expect(text()).toContain('Счёт добавлен');
     expect(text()).toContain(`Копилка · 500${NBSP}000${NBSP}сум`);
+
+    // «Отменить» takes the account back: nothing has been recorded on it yet (board «Новый счёт», Toast.md)
+    vi.mocked(apiClient.delete).mockResolvedValue({ success: true, data: { id: 'piggy' } } as never);
+    await press('Отменить');
+    expect(apiClient.delete).toHaveBeenCalledWith('/accounts/piggy');
   });
 
   it('a name already taken keeps the sheet open and says so', async () => {
@@ -213,6 +219,26 @@ describe('Accounts', () => {
 
     await press('Отменить');
     expect(apiClient.patch).toHaveBeenLastCalledWith('/accounts/usd', { isHidden: true });
+  });
+
+  it('while the rates are not read — or their read failed — the row names the rate the total was counted at', async () => {
+    vi.mocked(apiClient.get).mockImplementation(async (url: string) => {
+      if (url === '/accounts') return { success: true, data: overview } as never;
+      throw { statusCode: 500, message: 'Server error' };
+    });
+    await renderAccounts();
+
+    expect(text()).toContain(`Доллары — по курсу ЦБ на 14 окт, 12${NBSP}650 сум`);
+    expect(button(`Курс доллара · 12${NBSP}650 сум, ЦБ на 14 окт`)).toBeTruthy();
+    expect(text()).not.toContain('Курса пока нет');
+  });
+
+  it('a guest is told accounts come after signing in', async () => {
+    useUserStore.setState({ userId: 'guest-1', userType: 'guest', telegramId: null, userName: null });
+    await renderAccounts();
+
+    expect(text()).toContain('Счета — после входа');
+    expect(button('На главную')).toBeTruthy();
   });
 
   it('the rate row opens the Central Bank rate with its date', async () => {

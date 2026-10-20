@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import type { Account, AccountMove, AccountOperations, MoveOperation, RecordOperation } from '@/entities/account';
 import { MINUS, NBSP } from '@/shared/lib/money';
 import type { Transaction } from '@/shared/types';
-import { accountDays, accountHeader, moveDetails } from './accountScreen';
+import { accountDays, accountHeader, moveDetails, transferAction } from './accountScreen';
+import { HIDDEN_ACCOUNT, NEEDS_SECOND_ACCOUNT, TRANSFER_NOT_YET } from './notices';
 
 /**
  * FT-118, boards «Счёт «Карта» · операции» and «Обмен · подробнее и удаление» (design-system «Экран счёта»,
@@ -109,6 +110,18 @@ describe('account screen', () => {
     );
   });
 
+  it('a hidden account says so under its name', () => {
+    expect(accountHeader({ ...CARD, isHidden: true }, TODAY).caption).toBe('сумы · карта · скрыт');
+  });
+
+  it('«Перевести» is off for a hidden account and with one visible account, each saying its own reason', () => {
+    expect(transferAction(CARD, 3)).toEqual({ available: true, notice: TRANSFER_NOT_YET });
+    expect(transferAction(CARD, 1)).toEqual({ available: false, notice: NEEDS_SECOND_ACCOUNT });
+    // Hidden: whatever else is visible, the reason is this account
+    expect(transferAction({ ...CARD, isHidden: true }, 2)).toEqual({ available: false, notice: HIDDEN_ACCOUNT });
+    expect(HIDDEN_ACCOUNT.title).toBe('Счёт скрыт');
+  });
+
   it('lists records and moves by day in the order the server gives, records as in History', () => {
     const operations: AccountOperations = {
       account: { ...CARD, hasOperations: true },
@@ -132,6 +145,8 @@ describe('account screen', () => {
       `${MINUS}186${NBSP}400`,
       'expense',
     ]);
+    // A record opens in History (board: «… Открыть в истории»)
+    expect(first.type === 'record' && first.row.ariaLabel).toBe(`Продукты, ${MINUS}186${NBSP}400${NBSP}сум, Супермаркет. Открыть в истории`);
     const salary = days[1].items[0];
     expect(salary.type === 'record' && [salary.row.amount, salary.row.tone]).toEqual([`+12${NBSP}500${NBSP}000`, 'income']);
     const exchange = days[2].items[0];

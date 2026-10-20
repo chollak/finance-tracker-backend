@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { createAccount, updateAccount } from '@/entities/account';
+import { createAccount, deleteAccount, updateAccount } from '@/entities/account';
 import { type UsdRates } from '@/entities/rate';
 import { type LocalDate } from '@/shared/lib/dates';
 import { pressKey, type KeypadKey } from '@/shared/lib/money';
@@ -27,7 +27,8 @@ export function SheetError({ text }: { text: string | null }) {
  * «Новый счёт» (board «Новый счёт»): the name, «Наличные / Карта» and «Сумы / Доллары» each on its own line (they
  * must fit Uzbek labels), «Сколько на нём сейчас» on the app's keypad — the opening balance, not income. While the
  * name is being typed the phone's keyboard is up, so the keypad steps aside. The new account shows in the list with
- * «Счёт добавлен»; a wrong one is hidden from its screen like any other (an account is hidden, never deleted).
+ * «Счёт добавлен» and «Отменить», which takes it back while nothing has been recorded on it (the server refuses an
+ * account with operations: such an account is hidden, never deleted).
  */
 export function NewAccountSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const [draft, setDraft] = useState<NewAccountDraft>(NEW_ACCOUNT);
@@ -44,7 +45,9 @@ export function NewAccountSheet({ open, onOpenChange }: { open: boolean; onOpenC
     const done = await write.run((queryClient, userId) => createAccount(queryClient, userId, payload));
     if (!done) return;
     onOpenChange(false);
-    if (saved) showUndoToast({ kind: 'saved', ...saved });
+    const { queryClient, userId } = write;
+    const { id } = done.value;
+    if (saved) showUndoToast({ kind: 'saved', ...saved, undo: () => deleteAccount(queryClient, userId, id) });
   };
 
   return (

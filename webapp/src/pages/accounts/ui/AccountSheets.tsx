@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
-import { adjustBalance, deleteMove, restoreMove, updateAccount, type Account, type AccountPatch, type MoveOperation } from '@/entities/account';
+import { adjustBalance, deleteMove, restoreMove, updateAccount, type Account, type MoveOperation } from '@/entities/account';
 import type { LocalDate } from '@/shared/lib/dates';
-import { emptyKeypad, formatMinor, pressKey, type KeypadKey, type KeypadState } from '@/shared/lib/money';
+import { emptyKeypad, pressKey, type KeypadKey, type KeypadState } from '@/shared/lib/money';
 import { showUndoToast } from '@/shared/lib/undo';
 import { Button, Keypad, Segmented, Sheet } from '@/shared/ui/pastel';
 import { CURRENCY_OPTIONS, correctBalanceView, editAccountDraft, editAccountView, type EditAccountDraft } from '../model/accountForms';
@@ -66,21 +66,19 @@ export function EditAccountSheet({
     });
   };
 
+  // A name typed and not saved goes with it; «Отменить» brings back both
   const toggleHidden = async () => {
     const hide = view.hide;
     if (!hide?.available || write.busy) return;
-    const hiding = hide.action === 'hide';
-    const patch: AccountPatch = { isHidden: hiding };
-    const done = await write.run((queryClient, userId) => updateAccount(queryClient, userId, account.id, patch));
+    const done = await write.run((queryClient, userId) => updateAccount(queryClient, userId, account.id, hide.patch));
     if (!done) return;
     onOpenChange(false);
-    if (hiding) onHidden();
+    if (hide.action === 'hide') onHidden();
     const { queryClient, userId } = write;
     showUndoToast({
       kind: 'changed',
-      title: hiding ? 'Счёт скрыт' : 'Счёт снова виден',
-      detail: hiding ? `${account.name} · вернуть — в «Скрытых счетах»` : `${account.name} · ${formatMinor(account.balanceMinor, account.currency)}`,
-      undo: () => updateAccount(queryClient, userId, account.id, { isHidden: !hiding }).then(() => undefined),
+      ...hide.saved,
+      undo: () => updateAccount(queryClient, userId, account.id, hide.undo).then(() => undefined),
     });
   };
 
@@ -128,7 +126,12 @@ export function EditAccountSheet({
       </Button>
       {view.hide && (
         <div className="flex shrink-0 flex-col gap-1.5">
-          <SheetSecondaryButton icon="hide" onClick={() => void toggleHidden()} disabled={!view.hide.available} busy={write.busy}>
+          <SheetSecondaryButton
+            icon={view.hide.action === 'hide' ? 'hide' : 'show'}
+            onClick={() => void toggleHidden()}
+            disabled={!view.hide.available}
+            busy={write.busy}
+          >
             {view.hide.action === 'hide' ? 'Скрыть счёт' : 'Показать счёт'}
           </SheetSecondaryButton>
           <p className="type-label mx-1 leading-[1.45] text-ink-muted">{view.hide.note}</p>

@@ -16,4 +16,9 @@ export interface AccountRepository {
   balanceChanges(userId: string): Promise<Map<string, number>>;
   /** Whether any record or move refers to the account — then its currency can no longer change. */
   hasOperations(accountId: string): Promise<boolean>;
+  /**
+   * Deletes an account no record or move refers to, deleted ones included (FT-118: «Отменить» right after «Счёт
+   * добавлен»), in one statement; false when it has operations — such an account is hidden, never deleted.
+   */
+  deleteIfUnused(accountId: string): Promise<boolean>;
 }

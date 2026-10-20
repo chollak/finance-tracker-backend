@@ -1,6 +1,20 @@
+import type { AccountsOverview } from '@/entities/account';
 import type { UsdRates } from '@/entities/rate';
 import { dayMonthShort, type LocalDate } from '@/shared/lib/dates';
 import { formatMinor } from '@/shared/lib/money';
+
+/**
+ * The rates as far as they are known. Until `GET /api/rates/usd` answers — or when it fails — the rate the total was
+ * counted at (`GET /api/accounts` `rate`) is the one in effect, so the row and the total never contradict each other.
+ */
+export function knownRates(rates: UsdRates | undefined, counted: AccountsOverview['rate'] | undefined): UsdRates | undefined {
+  if (rates || !counted) return rates;
+  return {
+    effective: counted,
+    cbu: counted.source === 'cbu' ? { rateMinor: counted.rateMinor, date: counted.date, fetchedAt: '' } : null,
+    own: counted.source === 'own' ? { rateMinor: counted.rateMinor, since: counted.date } : null,
+  };
+}
 
 interface RateContext {
   /** The device has a connection; without one the last known rate is in effect and the row says so. */

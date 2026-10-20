@@ -18,9 +18,9 @@ import { AccountPage } from './AccountPage';
 
 /**
  * FT-118, boards «Счёт «Карта» · операции», «Обмен · подробнее и удаление», «Сверить остаток», «Изменить или
- * скрыть счёт»: the account screen reads GET /api/accounts/:id/operations; a move opens «Подробнее» and is deleted
- * with «Отменить»; «Сверить остаток» records the difference as an adjustment; «Изменить» renames or hides. Rendered
- * in jsdom with the API answered here.
+ * скрыть счёт»: the account screen reads GET /api/accounts/:id/operations 60 days at a time; a record opens in History
+ * narrowed to the account; a move opens «Подробнее» and is deleted with «Отменить»; «Сверить остаток» records the
+ * difference as an adjustment; «Изменить» renames or hides. Rendered in jsdom with the API answered here.
  */
 
 vi.mock('@/shared/api/client', () => {
@@ -66,6 +66,9 @@ const EXCHANGE: AccountMove = {
 
 let accounts: AccountsOverview;
 let operations: AccountOperations;
+/** What a window of the account's operations answers, by its `from` and `to`; the board's days by default. */
+let operationsFor: (params: URLSearchParams) => AccountOperations;
+let operationReads: URLSearchParams[];
 let root: Root;
 let container: HTMLDivElement;
 let router: ReturnType<typeof createMemoryRouter>;
@@ -87,11 +90,18 @@ beforeEach(() => {
       },
     ],
   };
+  operationsFor = () => operations;
+  operationReads = [];
   vi.mocked(apiClient.get).mockImplementation(async (url: string) => {
-    if (url === '/accounts') return { success: true, data: accounts } as never;
-    if (url === '/rates/usd') return { success: true, data: RATES } as never;
-    if (url === '/accounts/card/operations') return { success: true, data: operations } as never;
-    if (url === '/accounts/nope/operations') throw { statusCode: 404, message: 'Account not found' };
+    const [path, search = ''] = url.split('?');
+    if (path === '/accounts') return { success: true, data: accounts } as never;
+    if (path === '/rates/usd') return { success: true, data: RATES } as never;
+    if (path === '/accounts/card/operations') {
+      const params = new URLSearchParams(search);
+      operationReads.push(params);
+      return { success: true, data: operationsFor(params) } as never;
+    }
+    if (path === '/accounts/nope/operations') throw { statusCode: 404, message: 'Account not found' };
     return new Promise<never>(() => {});
   });
   vi.mocked(apiClient.post).mockReset();
@@ -116,6 +126,7 @@ async function renderAccount(id = 'card') {
     [
       { path: '/accounts', element: <p>Список счетов</p> },
       { path: '/accounts/:id', element: <AccountPage /> },
+      { path: '/transactions', element: <p>История</p> },
     ],
     { initialEntries: ['/accounts', `/accounts/${id}`], initialIndex: 1 }
   );
@@ -167,14 +178,55 @@ describe('Account screen', () => {
     expect(text()).toContain('Супермаркет');
     expect(text()).toContain(`+12${NBSP}500${NBSP}000`);
     expect(button(`Обмен, Доллары → Карта, +1${NBSP}260${NBSP}000${NBSP}сум. Не в аналитике. Подробнее`)).toBeTruthy();
+    // The last 60 days with today first, and anything later
+    expect(operationReads.map((params) => params.toString())).toEqual([`from=${addDays(TODAY, -59)}`]);
   });
 
-  it('a record opens the record sheet, as in History', async () => {
+  it('a record opens in History narrowed to this account, with its sheet open on the record as listed', async () => {
     await renderAccount();
 
-    await press(`Продукты, ${MINUS}186${NBSP}400${NBSP}сум, Супермаркет. Открыть`);
+    // One button, as on the board: no separate category circle here
+    expect(buttons().some((item) => item.getAttribute('aria-label')?.startsWith('Сменить категорию'))).toBe(false);
+    await press(`Продукты, ${MINUS}186${NBSP}400${NBSP}сум, Супермаркет. Открыть в истории`);
 
-    expect(useRecordSheetStore.getState().target).toMatchObject({ id: 't1', view: 'sheet' });
+    const { pathname, search, state } = router.state.location;
+    expect(pathname).toBe('/transactions');
+    expect(Object.fromEntries(new URLSearchParams(search))).toEqual({ account: 'card', record: 't1' });
+    expect((state as { recordSeed?: Transaction }).recordSeed).toMatchObject({ id: 't1', description: 'Супермаркет' });
+    // The sheet itself is History's: nothing is opened on the account screen
+    expect(useRecordSheetStore.getState().target).toBeNull();
+  });
+
+  it('reads earlier days 60 at a time as the list comes to its end', async () => {
+    const OLD = addDays(TODAY, -75);
+    const older = record({ id: 't9', description: 'Старая покупка', date: OLD });
+    operationsFor = (params) =>
+      params.get('to') === OLD
+        ? {
+            ...operations,
+            days: [{ date: OLD, operations: [{ type: 'record', id: 't9', date: OLD, createdAt: null, amountMinor: -18_640_000, countsInBalance: true, record: older }] }],
+            earlierDate: null,
+          }
+        : { ...operations, earlierDate: OLD };
+    await renderAccount();
+
+    expect(text()).not.toContain('Старая покупка');
+    // jsdom has no IntersectionObserver: the end of the list is a button
+    await press('Показать ещё');
+
+    expect(operationReads[1].get('from')).toBe(addDays(OLD, -59));
+    expect(operationReads[1].get('to')).toBe(OLD);
+    expect(text()).toContain('Старая покупка');
+    expect(text()).toContain('Супермаркет');
+    expect(buttons().some((item) => item.textContent?.trim() === 'Показать ещё')).toBe(false);
+  });
+
+  it('nothing in the last 60 days but earlier operations: no «Операций пока нет», the earlier days are offered', async () => {
+    operationsFor = (params) => (params.get('to') ? operations : { ...operations, days: [], earlierDate: TODAY });
+    await renderAccount();
+
+    expect(text()).not.toContain('Операций пока нет');
+    expect(button('Показать ещё')).toBeTruthy();
   });
 
   it('«Подробнее» of an exchange deletes it with «Отменить», which brings it back', async () => {
@@ -255,6 +307,58 @@ describe('Account screen', () => {
     await press('Скрыть счёт');
     expect(apiClient.patch).toHaveBeenLastCalledWith('/accounts/card', { isHidden: true });
     expect(router.state.location.pathname).toBe('/accounts');
+  });
+
+  it('«Скрыть счёт» takes the name typed and not saved along, and «Отменить» brings both back', async () => {
+    vi.mocked(apiClient.patch).mockResolvedValue({ success: true, data: CARD } as never);
+    await renderAccount();
+
+    await press('Изменить');
+    const input = dialog()!.querySelector<HTMLInputElement>('input')!;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, 'Uzcard');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await press('Скрыть счёт');
+
+    expect(apiClient.patch).toHaveBeenLastCalledWith('/accounts/card', { name: 'Uzcard', isHidden: true });
+    const toast = useUndoToastStore.getState().stack.at(-1)!;
+    expect(toast).toMatchObject({ title: 'Счёт скрыт', detail: 'Uzcard · вернуть — в «Скрытых счетах»' });
+    await act(async () => toast.undo!());
+    expect(apiClient.patch).toHaveBeenLastCalledWith('/accounts/card', { name: 'Карта', isHidden: false });
+  });
+
+  it('a hidden account says so, cannot transfer for that reason, and is shown again with the eye', async () => {
+    const hidden = { ...CARD, isHidden: true };
+    accounts = { ...accounts, accounts: [CASH, hidden, USD] };
+    operations = { ...operations, account: { ...hidden, hasOperations: true } };
+    vi.mocked(apiClient.patch).mockResolvedValue({ success: true, data: CARD } as never);
+    await renderAccount();
+
+    expect(text()).toContain('сумы · карта · скрыт');
+    expect(button('Перевести').getAttribute('aria-disabled')).toBe('true');
+    await press('Перевести');
+    // Two other accounts are visible: what is missing is this one, not a second account
+    expect(text()).toContain('Счёт скрыт');
+    expect(text()).toContain('Покажите его в «Изменить»');
+    expect(text()).not.toContain('Для перевода нужен второй счёт');
+
+    await press('Изменить');
+    const show = [...dialog()!.querySelectorAll('button')].find((item) => item.textContent?.trim() === 'Показать счёт')!;
+    // The eye, not the crossed-out eye of «Скрыть счёт»
+    expect(show.querySelector('circle')).not.toBeNull();
+    await act(async () => show.click());
+    await settle();
+    expect(apiClient.patch).toHaveBeenLastCalledWith('/accounts/card', { isHidden: false });
+  });
+
+  it('a guest who follows a link to an account is told accounts come after signing in', async () => {
+    useUserStore.setState({ userId: 'guest-1', userType: 'guest', telegramId: null, userName: null });
+    await renderAccount();
+
+    expect(text()).toContain('Счета — после входа');
+    expect(text()).not.toContain('Загружаем счёт');
+    await press('На главную');
   });
 
   it('with one visible account «Перевести» says a second account is needed', async () => {

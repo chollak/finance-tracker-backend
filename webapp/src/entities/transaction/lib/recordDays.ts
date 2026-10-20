@@ -21,7 +21,10 @@ export interface RecordRow {
   amount: string;
   /** Income is green with «+», expenses ink with «−». */
   tone: 'income' | 'expense';
-  /** «Продукты, −186 400 сум, Супермаркет. Открыть»; in History the account after the note. */
+  /**
+   * «Продукты, −186 400 сум, Супермаркет. Открыть»; in History the account after the note; on the account screen
+   * «… Открыть в истории» (FT-118).
+   */
   ariaLabel: string;
   /** The category circle (FT-115): «Сменить категорию: Продукты, −186 400 сум». */
   categoryAriaLabel: string;
@@ -74,9 +77,12 @@ function amountMinorOf(record: Transaction): number {
  * One record's row (docs/pastel/components/TransactionList.md): its category's current name and colour (from the
  * user's list by id, else what the record was sent with), the note (in History followed by the account), the amount —
  * сум without a unit, other currencies with one; income green with «+». The account screen (FT-118) lays these rows
- * among its moves.
+ * among its moves; there a row opens the record in History, and its label says so (`opens: 'history'`).
  */
-export function recordRow(record: Transaction, options: Pick<RecordDaysOptions, 'categoryOf' | 'accountOf'>): RecordRow {
+export function recordRow(
+  record: Transaction,
+  options: Pick<RecordDaysOptions, 'categoryOf' | 'accountOf'> & { opens?: 'here' | 'history' }
+): RecordRow {
   const category = options.categoryOf(record);
   const title = category?.name ?? record.category;
   const color = category?.color ?? (isPastelColor(record.categoryColor) ? record.categoryColor : 'mist');
@@ -94,7 +100,7 @@ export function recordRow(record: Transaction, options: Pick<RecordDaysOptions, 
     note: [note, account].filter(Boolean).join(' · ') || NO_NOTE,
     amount: formatMinor(signed, currency, { sign: 'always', unit: currency !== 'UZS' }),
     tone,
-    ariaLabel: `${title}, ${fullAmount}${note ? `, ${note}` : ''}${account ? `, ${account}` : ''}. Открыть`,
+    ariaLabel: `${title}, ${fullAmount}${note ? `, ${note}` : ''}${account ? `, ${account}` : ''}. ${options.opens === 'history' ? 'Открыть в истории' : 'Открыть'}`,
     categoryAriaLabel: `Сменить категорию: ${title}, ${fullAmount}`,
   };
 }

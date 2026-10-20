@@ -3,7 +3,7 @@ import type { Account, AccountsOverview } from '@/entities/account';
 import type { UsdRates } from '@/entities/rate';
 import { MINUS, NBSP } from '@/shared/lib/money';
 import { accountsListModel } from './accountsList';
-import { rateRowModel, rateSheetModel } from './rateRow';
+import { knownRates, rateRowModel, rateSheetModel } from './rateRow';
 
 /**
  * FT-118, boards «Счета · итог, курс, список», «Скрытые счета», «Счета · нет связи» (AccountList.md, RateRow.md):
@@ -138,6 +138,24 @@ describe('rate row', () => {
       caption: 'Курса пока нет: загрузится, когда ответит ЦБ',
       offline: false,
     });
+  });
+
+  it('until the rates are read — or when that fails — names the rate the total was counted at, never «нет курса»', () => {
+    const counted = { rateMinor: 1_265_000, source: 'cbu' as const, date: '2026-10-14' };
+    expect(rateRowModel(knownRates(undefined, counted), { online: true, today: TODAY })).toEqual({
+      title: `Курс доллара · 12${NBSP}650 сум`,
+      caption: 'ЦБ на 14 окт',
+      offline: false,
+    });
+    expect(rateSheetModel(knownRates(undefined, counted), { online: true, today: TODAY })).toMatchObject({
+      label: 'ЦБ Узбекистана · 14 окт',
+      value: `12${NBSP}650`,
+    });
+    const own = knownRates(undefined, { rateMinor: 1_280_000, source: 'own', date: '2026-10-10' });
+    expect(rateRowModel(own, { online: true, today: TODAY }).caption).toBe('Свой с 10 окт');
+    // The rates once read win; with neither, the row says the rate is not there yet
+    expect(knownRates(RATES, { ...counted, rateMinor: 1 })).toBe(RATES);
+    expect(rateRowModel(knownRates(undefined, null), { online: true, today: TODAY }).caption).toBe('Курса пока нет: загрузится, когда ответит ЦБ');
   });
 
   it('the sheet shows the Central Bank rate, its date and how it is updated', () => {

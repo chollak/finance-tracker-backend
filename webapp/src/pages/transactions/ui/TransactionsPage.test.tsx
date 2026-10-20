@@ -8,7 +8,7 @@ import type { Account } from '@/entities/account';
 import type { Category } from '@/entities/category';
 import { transactionKeys, type HistoryPage } from '@/entities/transaction';
 import { useUserStore } from '@/entities/user';
-import { useRecordSheetStore } from '@/features/record-sheet';
+import { recordLinkState, useRecordSheetStore } from '@/features/record-sheet';
 import { apiClient } from '@/shared/api';
 import { ROUTES } from '@/shared/lib/constants/routes';
 import { addDays, dayMonth, toLocalDate } from '@/shared/lib/dates';
@@ -41,7 +41,8 @@ const CATEGORIES: Category[] = [
 const account = (id: string, name: string, currency: 'UZS' | 'USD' = 'UZS', sortOrder = 10): Account => ({
   id, name, kind: id === 'card' ? 'card' : 'cash', currency, openingBalanceMinor: 0, openingDate: '2026-10-01', isHidden: false, sortOrder, balanceMinor: 0,
 });
-const ACCOUNTS: Account[] = [account('cash', 'Наличные', 'UZS', 10), account('card', 'Карта', 'UZS', 20), account('usd', 'Доллары', 'USD', 30)];
+const BOARD_ACCOUNTS: Account[] = [account('cash', 'Наличные', 'UZS', 10), account('card', 'Карта', 'UZS', 20), account('usd', 'Доллары', 'USD', 30)];
+let ACCOUNTS: Account[] = BOARD_ACCOUNTS;
 
 vi.mock('@/entities/category', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/entities/category')>();
@@ -104,6 +105,7 @@ beforeEach(() => {
   gets = [];
   server = {};
   answer = () => page([T1, T2, T3, T4, T8]);
+  ACCOUNTS = BOARD_ACCOUNTS;
   vi.mocked(apiClient.get).mockImplementation(async (url: string) => {
     gets.push(url);
     const [path, search = ''] = url.split('?');
@@ -132,10 +134,12 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-async function renderHistory() {
+let router: ReturnType<typeof createMemoryRouter>;
+
+async function renderHistory(entry: string | { pathname: string; search: string; state?: unknown } = ROUTES.TRANSACTIONS) {
   client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  const router = createMemoryRouter([{ path: ROUTES.TRANSACTIONS, element: <TransactionsPage /> }], {
-    initialEntries: [ROUTES.TRANSACTIONS],
+  router = createMemoryRouter([{ path: ROUTES.TRANSACTIONS, element: <TransactionsPage /> }], {
+    initialEntries: [entry],
   });
   await act(async () => {
     root.render(
@@ -306,6 +310,54 @@ describe('History', () => {
     act(() => useRecordSheetStore.setState({ target: null }));
     await press(`Сменить категорию: Продукты, ${MINUS}186${NBSP}400${NBSP}сум`);
     expect(useRecordSheetStore.getState().target).toMatchObject({ id: 't1', view: 'category' });
+  });
+
+  it('opened from the account screen: that account’s chip on, the record’s sheet open on the record as listed', async () => {
+    answer = (params) => (params.get('accountIds') === 'card' ? page([T1, T3, T4]) : page([T1, T2, T3, T4, T8]));
+    const [pathname, search] = ROUTES.ACCOUNT_RECORD('card', 't1').split('?');
+    await renderHistory({ pathname, search: `?${search}`, state: recordLinkState(T1) });
+
+    // Narrowed from the first read: the whole history is never asked for
+    expect(requests.map((params) => params.get('accountIds'))).toEqual(['card']);
+    expect(button('Карта').getAttribute('aria-pressed')).toBe('true');
+    expect(text()).not.toContain('Такси');
+    expect(useRecordSheetStore.getState().target).toMatchObject({ id: 't1', view: 'sheet', seed: T1 });
+    // The record leaves the address; the account stays
+    expect(Object.fromEntries(new URLSearchParams(router.state.location.search))).toEqual({ account: 'card' });
+
+    // The chip lets go as any other
+    act(() => useRecordSheetStore.setState({ target: null }));
+    await press('Карта');
+    expect(lastRequest().get('accountIds')).toBeNull();
+  });
+
+  it('the record opened from the account screen stays in the list after it is moved to another account', async () => {
+    // The record sheet reads the record: it is on «Наличные» now, and the filter no longer finds it
+    server = { t1: { ...T1, accountId: 'cash' } };
+    answer = (params) => (params.get('accountIds') === 'card' ? page([T3, T4]) : page([T1, T2, T3, T4, T8]));
+    const [pathname, search] = ROUTES.ACCOUNT_RECORD('card', 't1').split('?');
+    await renderHistory({ pathname, search: `?${search}`, state: recordLinkState(T1) });
+    await settle();
+
+    expect(button(`Продукты, ${MINUS}186${NBSP}400${NBSP}сум, Супермаркет, Наличные. Открыть`)).toBeTruthy();
+  });
+
+  it('narrowed by a hidden account, its chip stays at the end, on, so it can be let go', async () => {
+    ACCOUNTS = [...BOARD_ACCOUNTS, { ...account('old', 'Старая карта', 'UZS', 40), isHidden: true }];
+    await renderHistory({ pathname: ROUTES.TRANSACTIONS, search: '?account=old' });
+
+    const chips = [...document.body.querySelectorAll<HTMLButtonElement>('[role="group"] button[aria-pressed]')];
+    expect(chips.map((chip) => [chip.textContent, chip.getAttribute('aria-pressed')])).toEqual([
+      ['Наличные', 'false'],
+      ['Карта', 'false'],
+      ['Доллары', 'false'],
+      ['Старая карта', 'true'],
+    ]);
+    expect(lastRequest().get('accountIds')).toBe('old');
+
+    await press('Старая карта');
+    expect(lastRequest().get('accountIds')).toBeNull();
+    expect(buttons().some((item) => item.textContent === 'Старая карта')).toBe(false);
   });
 
   it('the type chip, last in the row, opens «Все / Расходы / Доходы»; the choice goes to the server and shows on the chip', async () => {

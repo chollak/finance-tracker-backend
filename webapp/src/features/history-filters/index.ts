@@ -12,4 +12,5 @@ export {
   categoryFilterGroups,
   TYPE_FILTER,
   typeChipLabel,
+  accountFilterChips,
 } from './model/historyFilters';

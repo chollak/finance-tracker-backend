@@ -175,3 +175,30 @@ export class UpdateAccountUseCase {
     }
   }
 }
+
+export class DeleteAccountUseCase {
+  constructor(private book: AccountBook, private repository: AccountRepository) {}
+
+  /**
+   * «Отменить» right after «Счёт добавлен» (FT-118, board «Новый счёт»): an account that no record or move has
+   * touched, deleted ones included, is taken back. Any other account is hidden, never deleted (design-system
+   * «Скрыть, а не удалить»): 409. The last visible account stays, as with hiding.
+   */
+  async execute(input: { userId: string; accountId: string }): Promise<Result<{ id: string }>> {
+    try {
+      const accounts = await this.book.listForUser(input.userId);
+      const account = accounts.find(item => item.id === input.accountId);
+      if (!account) return ResultHelper.failure(new NotFoundError('Account', input.accountId));
+      if (!account.isHidden && !accounts.some(item => item.id !== account.id && !item.isHidden)) {
+        return ResultHelper.failure(new ValidationError('The last visible account cannot be deleted', 'accountId'));
+      }
+      if (!(await this.repository.deleteIfUnused(account.id))) {
+        return ResultHelper.failure(new ConflictError('An account with operations is hidden, not deleted'));
+      }
+      return ResultHelper.success({ id: account.id });
+    } catch (error) {
+      logger.error('Failed to delete account', error as Error);
+      return ResultHelper.failure(new BusinessLogicError('Failed to delete account'));
+    }
+  }
+}

@@ -19,6 +19,15 @@ export async function createAccount(queryClient: QueryClient, userId: string, ac
   return response.data;
 }
 
+/**
+ * «Отменить» after «Счёт добавлен»: the server deletes only an account no operation has touched (409 otherwise — such
+ * an account is hidden, not deleted).
+ */
+export async function deleteAccount(queryClient: QueryClient, userId: string, id: string): Promise<void> {
+  await apiClient.delete<{ id: string }>(API_ENDPOINTS.ACCOUNTS.DELETE(id));
+  refetchAccounts(queryClient, userId);
+}
+
 /** Rename, hide or show; a new currency only with the balance entered again (no operations yet). */
 export async function updateAccount(queryClient: QueryClient, userId: string, id: string, patch: AccountPatch): Promise<Account> {
   const response = await apiClient.patch<Account>(API_ENDPOINTS.ACCOUNTS.UPDATE(id), patch);

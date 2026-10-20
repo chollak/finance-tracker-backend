@@ -1,5 +1,11 @@
-/** The query parameter that names a record whose sheet Home opens (FT-115): the bot's «Изменить» links to it. */
+/**
+ * The query parameter that names a record whose sheet a screen opens: Home for the bot's «Изменить» (FT-115),
+ * History for a record of the account screen (FT-118).
+ */
 export const RECORD_PARAM = 'record';
+
+/** The query parameter History starts narrowed by: an account (FT-118, records of the account screen). */
+export const ACCOUNT_PARAM = 'account';
 
 // Route constants for type-safe navigation
 export const ROUTES = {
@@ -7,6 +13,10 @@ export const ROUTES = {
 
   // Transactions
   TRANSACTIONS: '/transactions',
+  // History narrowed to an account with a record's sheet open: a record of the account screen opens there (FT-118,
+  // design-system «Экран счёта»)
+  ACCOUNT_RECORD: (accountId: string, recordId: string) =>
+    `/transactions?${new URLSearchParams({ [ACCOUNT_PARAM]: accountId, [RECORD_PARAM]: recordId })}`,
   // A record: Home with its sheet open (FT-115; the edit page /transactions/:id/edit is gone)
   RECORD: (id: string) => `/?${RECORD_PARAM}=${encodeURIComponent(id)}`,
 
@@ -52,8 +62,17 @@ export const API_ENDPOINTS = {
     LIST: '/accounts',
     CREATE: '/accounts',
     UPDATE: (id: string) => `/accounts/${encodeURIComponent(id)}`,
-    // The account screen: the account with its balance and its records and moves by day (FT-104, FT-118)
-    OPERATIONS: (id: string) => `/accounts/${encodeURIComponent(id)}/operations`,
+    // «Отменить» after «Счёт добавлен»: only an account no operation has touched (FT-118)
+    DELETE: (id: string) => `/accounts/${encodeURIComponent(id)}`,
+    // The account screen: the account with its balance and its records and moves by day (FT-104, FT-118), read in
+    // windows back in time
+    OPERATIONS: (id: string, range: { from?: string; to?: string } = {}) => {
+      const query = new URLSearchParams();
+      if (range.from) query.set('from', range.from);
+      if (range.to) query.set('to', range.to);
+      const search = query.toString();
+      return `/accounts/${encodeURIComponent(id)}/operations${search ? `?${search}` : ''}`;
+    },
     OPENING_BALANCES: '/accounts/opening-balances',
   },
 

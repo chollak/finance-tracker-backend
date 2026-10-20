@@ -16,3 +16,4 @@ export { CategoryPicker, AccountPicker, OptionPicker, type PickerCategory, type 
 export { CalendarSheet } from './calendar-sheet';
 export { Wordmark } from './wordmark';
 export { BackButton } from './back-button';
+export { NextPage } from './next-page';

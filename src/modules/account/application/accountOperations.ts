@@ -45,6 +45,11 @@ export interface AccountOperations {
    */
   account: AccountWithBalance & { hasOperations: boolean };
   days: Array<{ date: string; operations: AccountOperation[] }>;
+  /**
+   * With `from`: the day of the newest operation before it, where the screen reads the next window back from
+   * (FT-118); null when there is nothing earlier, or without `from`.
+   */
+  earlierDate: string | null;
 }
 
 /**
@@ -74,14 +79,24 @@ export class GetAccountOperationsUseCase {
       const account = summary.accounts.find(candidate => candidate.id === input.accountId);
       if (!account) return ResultHelper.failure(new NotFoundError('Account', input.accountId));
 
+      const from = input.from as string | undefined;
+      const to = input.to as string | undefined;
+      // Older records may keep a full moment in `date` (written before FT-100); they belong to its day
+      const dayOf = (stored: string) => stored.slice(0, 10);
       const inRange = (stored: string) => {
-        const date = stored.slice(0, 10);
-        return (input.from === undefined || date >= (input.from as string)) && (input.to === undefined || date <= (input.to as string));
+        const date = dayOf(stored);
+        return (from === undefined || date >= from) && (to === undefined || date <= to);
+      };
+      let earlierDate: string | null = null;
+      const noteEarlier = (stored: string) => {
+        const date = dayOf(stored);
+        if (from !== undefined && date < from && (earlierDate === null || date > earlierDate)) earlierDate = date;
       };
       const counts = (date: string) => date >= account.openingDate;
       const names = new Map(summary.accounts.map(candidate => [candidate.id, candidate]));
 
       const records = this.records ? await this.records.recordsOf(input.userId, account.id) : [];
+      records.forEach(record => noteEarlier(record.date));
       const recordOperations: AccountOperation[] = records.filter(record => inRange(record.date)).map(record => {
         const amountMinor = record.amountMinor ?? 0;
         return {
@@ -96,6 +111,7 @@ export class GetAccountOperationsUseCase {
       });
 
       const moves = await this.moves.findByAccount(account.id);
+      moves.forEach(move => noteEarlier(move.date));
       const moveOperations: AccountOperation[] = moves.filter(move => inRange(move.date)).map(move => {
         const otherId = move.fromAccountId === account.id ? move.toAccountId : move.fromAccountId;
         const other = otherId ? names.get(otherId) : undefined;
@@ -114,8 +130,7 @@ export class GetAccountOperationsUseCase {
 
       const byDay = new Map<string, AccountOperation[]>();
       for (const operation of [...recordOperations, ...moveOperations]) {
-        // Older records may keep a full moment in `date` (written before FT-100); they belong to its day
-        const date = operation.date.slice(0, 10);
+        const date = dayOf(operation.date);
         const day = byDay.get(date) ?? [];
         day.push(operation);
         byDay.set(date, day);
@@ -127,7 +142,7 @@ export class GetAccountOperationsUseCase {
           operations: operations.sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? '')),
         }));
       const hasOperations = await this.accounts.hasOperations(account.id);
-      return ResultHelper.success({ account: { ...account, hasOperations }, days });
+      return ResultHelper.success({ account: { ...account, hasOperations }, days, earlierDate });
     } catch (error) {
       logger.error('Failed to read account operations', error as Error);
       return ResultHelper.failure(new BusinessLogicError('Failed to read account operations'));

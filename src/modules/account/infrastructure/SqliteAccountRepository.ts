@@ -82,6 +82,17 @@ export class SqliteAccountRepository implements AccountRepository {
     return rows.length > 0;
   }
 
+  /** The check and the delete are one statement, so a record written in between keeps its account. */
+  async deleteIfUnused(accountId: string): Promise<boolean> {
+    await this.dataSource.query(
+      `DELETE FROM "accounts" WHERE "id" = ?
+         AND NOT EXISTS (SELECT 1 FROM "transactions" WHERE "account_id" = ?)
+         AND NOT EXISTS (SELECT 1 FROM "account_moves" WHERE "from_account_id" = ? OR "to_account_id" = ?)`,
+      [accountId, accountId, accountId, accountId]
+    );
+    return (await this.findById(accountId)) === null;
+  }
+
   private toDomain(entity: AccountEntity): Account {
     return {
       id: entity.id,

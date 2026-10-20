@@ -25,11 +25,14 @@ export interface HistoryFiltersModel {
   reset: () => void;
 }
 
-/** The search and the filter chips of History (FT-116, FilterChips.md). */
-export function useHistoryFilters(): HistoryFiltersModel {
+/**
+ * The search and the filter chips of History (FT-116, FilterChips.md). History opened from the account screen starts
+ * with that account's chip on (`initial.accountId`, FT-118); the chip lets go as any other.
+ */
+export function useHistoryFilters(initial: Partial<Pick<HistoryQuery, 'accountId'>> = {}): HistoryFiltersModel {
   const [text, setText] = useState(NO_FILTERS.text);
   const [categoryId, setCategoryId] = useState<string | null>(NO_FILTERS.categoryId);
-  const [accountId, setAccountId] = useState<string | null>(NO_FILTERS.accountId);
+  const [accountId, setAccountId] = useState<string | null>(() => initial.accountId ?? NO_FILTERS.accountId);
   const [type, setType] = useState<HistoryQuery['type']>(NO_FILTERS.type);
   const settled = useDebounce(text, SEARCH_DELAY_MS);
 

@@ -1,9 +1,11 @@
-import { useEffect, useRef, useState } from 'react';
-import { useAccounts, visibleAccounts } from '@/entities/account';
+import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { useAccounts } from '@/entities/account';
 import { findCategory, useCategories } from '@/entities/category';
 import { useUsdRate } from '@/entities/rate';
 import { buildRecordDays, isHistoryNarrowed, RecordDayList, useRecord, useRecordHistory } from '@/entities/transaction';
 import {
+  accountFilterChips,
   EMPTY_HISTORY,
   HistoryFilters,
   NOTHING_FOUND_TITLE,
@@ -11,10 +13,11 @@ import {
   resultLine,
   useHistoryFilters,
 } from '@/features/history-filters';
-import { openRecordCategory, openRecordSheet, RecordSheet, useRecordFlash } from '@/features/record-sheet';
+import { openRecordCategory, openRecordSheet, RecordSheet, useRecordFlash, useRecordLink } from '@/features/record-sheet';
+import { ACCOUNT_PARAM, RECORD_PARAM } from '@/shared/lib/constants/routes';
 import { toLocalDate } from '@/shared/lib/dates';
 import { cn } from '@/shared/lib/utils';
-import { BackButton, Button, EmptyState, SkeletonBlock, UndoToast } from '@/shared/ui/pastel';
+import { BackButton, Button, EmptyState, NextPage, SkeletonBlock, UndoToast } from '@/shared/ui/pastel';
 import { historyFilterKey, summaryWithKept, withKeptRecord } from '../model/keptRecord';
 
 const FOCUS = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink';
@@ -58,38 +61,6 @@ function ReadFailed({ text, onRetry, retrying }: { text: string; onRetry: () => 
   );
 }
 
-/**
- * The end of the list: reads the next page once it comes near the screen. Without IntersectionObserver a button
- * reads it.
- */
-function NextPage({ onLoad }: { onLoad: () => void }) {
-  const marker = useRef<HTMLDivElement>(null);
-  const load = useRef(onLoad);
-  useEffect(() => {
-    load.current = onLoad;
-  });
-  const [watching] = useState(() => typeof IntersectionObserver !== 'undefined');
-
-  useEffect(() => {
-    const node = marker.current;
-    if (!node || !watching) return;
-    const observer = new IntersectionObserver((entries) => {
-      if (entries.some((entry) => entry.isIntersecting)) load.current();
-    }, { rootMargin: '400px 0px' });
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [watching]);
-
-  if (!watching) {
-    return (
-      <button type="button" onClick={onLoad} className={cn('h-touch self-center rounded-pill px-4 text-[14px] font-extrabold text-ink', FOCUS)}>
-        Показать ещё
-      </button>
-    );
-  }
-  return <div ref={marker} aria-hidden="true" className="h-px" />;
-}
-
 const SEARCH_ICON = (
   <svg viewBox="0 0 20 20">
     <circle cx="9" cy="9" r="5.5" fill="none" stroke="currentColor" strokeWidth="1.8" />
@@ -104,9 +75,15 @@ const SEARCH_ICON = (
  * page. What a search found is summed up under the chips with «Сбросить»; nothing found says what was searched and
  * resets it all. A row opens its record sheet, its category circle the choice of a category; the record just
  * changed stays in a filtered list until the filter changes. Opened from Home («Все»), «Назад» returns there.
+ *
+ * A record of the account screen opens here (FT-118, design-system «Экран счёта»): `?account=` starts History with
+ * that account's chip on, `?record=` opens the record's sheet, and the record is kept in the list as one opened from
+ * a row. «Назад» returns to the account screen.
  */
 export function TransactionsPage() {
-  const filters = useHistoryFilters();
+  const [params] = useSearchParams();
+  const [link] = useState(() => ({ accountId: params.get(ACCOUNT_PARAM), recordId: params.get(RECORD_PARAM) }));
+  const filters = useHistoryFilters({ accountId: link.accountId });
   const { query } = filters;
   const history = useRecordHistory(query);
   const categories = useCategories();
@@ -118,7 +95,8 @@ export function TransactionsPage() {
   // The record whose row was opened, kept in the list it was opened from «пока фильтр не поменяют» (FilterChips.md):
   // any change of the search or a chip forgets it, a change made and then undone too
   const filterKey = historyFilterKey(query);
-  const [kept, setKept] = useState<{ id: string; filterKey: string } | null>(null);
+  const [kept, setKept] = useState<{ id: string; filterKey: string } | null>(() => (link.recordId ? { id: link.recordId, filterKey } : null));
+  useRecordLink();
   if (kept && kept.filterKey !== filterKey) setKept(null);
   const keptId = kept?.filterKey === filterKey ? kept.id : null;
   // Only as the record sheet read or saved it: a deleted record is not asked for again (and is back with «Отменить»)
@@ -216,7 +194,7 @@ export function TransactionsPage() {
         <HistoryFilters
           filters={filters}
           categories={categories.data}
-          accounts={visibleAccounts(allAccounts)}
+          accounts={accountFilterChips(allAccounts, query.accountId)}
           result={narrowed && summary && summary.count > 0 ? resultLine(summary) : null}
         />
       </div>

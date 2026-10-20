@@ -1,13 +1,22 @@
 import type { ReactNode } from 'react';
+import { LogIn } from 'lucide-react';
 import type { AccountIcon as AccountIconKind } from '@/entities/account';
+import { useCloseScreen } from '@/shared/lib/navigation';
 import { cn } from '@/shared/lib/utils';
+import { BackButton, ProblemScreen } from '@/shared/ui/pastel';
 import type { AmountView } from '../model/accountForms';
 
 export const FOCUS = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink';
 export const FOCUS_INSET = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ink';
 
 /** Line icons of the accounts boards, 20×20, drawn in `currentColor`. */
-export function Icon({ name, className }: { name: 'cash' | 'card' | 'trend' | 'offline' | 'move' | 'adjust' | 'plus' | 'chevron' | 'trash' | 'hide'; className?: string }) {
+export function Icon({
+  name,
+  className,
+}: {
+  name: 'cash' | 'card' | 'trend' | 'offline' | 'move' | 'adjust' | 'plus' | 'chevron' | 'trash' | 'hide' | 'show';
+  className?: string;
+}) {
   const common = { width: 20, height: 20, viewBox: '0 0 20 20', 'aria-hidden': true, className, fill: 'none', stroke: 'currentColor' } as const;
   switch (name) {
     case 'cash':
@@ -81,7 +90,28 @@ export function Icon({ name, className }: { name: 'cash' | 'card' | 'trend' | 'o
           />
         </svg>
       );
+    case 'show':
+      return (
+        <svg {...common}>
+          <path d="M3 10s2.8-5 7-5 7 5 7 5-2.8 5-7 5-7-5-7-5z" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+          <circle cx="10" cy="10" r="2" strokeWidth="1.7" />
+        </svg>
+      );
   }
+}
+
+/** A guest keeps records on the device and has no accounts: the list and an account's link say so (ProblemScreen.md). */
+export function GuestAccounts() {
+  const close = useCloseScreen();
+  return (
+    <ProblemScreen
+      header={<BackButton />}
+      icon={<LogIn strokeWidth={1.9} />}
+      title="Счета — после входа"
+      text="Счета и остатки хранятся в Daftar, а не на телефоне. Войдите через Telegram, и они появятся здесь."
+      action={{ label: 'На главную', onClick: close }}
+    />
+  );
 }
 
 /** The 40px circle on `track` of an account: banknote, card or «$» (AccountList.md). */
@@ -154,7 +184,7 @@ export function NameField({
   );
 }
 
-/** A secondary button of a sheet on `sheet-card` with a line icon: «Удалить обмен», «Скрыть счёт». */
+/** A secondary button of a sheet on `sheet-card` with a line icon: «Удалить обмен», «Скрыть счёт», «Показать счёт». */
 export function SheetSecondaryButton({
   icon,
   children,
@@ -162,7 +192,7 @@ export function SheetSecondaryButton({
   disabled,
   busy,
 }: {
-  icon: 'trash' | 'hide';
+  icon: 'trash' | 'hide' | 'show';
   children: ReactNode;
   onClick: () => void;
   disabled?: boolean;

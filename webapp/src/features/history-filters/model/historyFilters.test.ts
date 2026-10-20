@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import type { Account } from '@/entities/account';
 import type { Category } from '@/entities/category';
 import { MINUS, NBSP } from '@/shared/lib/money';
-import { categoryFilterGroups, EMPTY_HISTORY, nothingFoundText, NOTHING_FOUND_TITLE, resultLine, TYPE_FILTER, typeChipLabel } from './historyFilters';
+import { accountFilterChips, categoryFilterGroups, EMPTY_HISTORY, nothingFoundText, NOTHING_FOUND_TITLE, resultLine, TYPE_FILTER, typeChipLabel } from './historyFilters';
 
 /**
  * FT-116, FilterChips.md and EmptyState.md: the line under the chips says what a search found, the empty
@@ -97,5 +98,23 @@ describe('the type filter (Definition of Done: «чипы фильтров (ка
     expect(typeChipLabel(null)).toBe('Тип');
     expect(typeChipLabel('expense')).toBe('Расходы');
     expect(typeChipLabel('income')).toBe('Доходы');
+  });
+});
+
+describe('the account chips (FT-118)', () => {
+  const account = (id: string, isHidden = false): Account => ({
+    id, name: id, kind: 'card', currency: 'UZS', openingBalanceMinor: 0, openingDate: '2026-10-01', isHidden, sortOrder: 10, balanceMinor: 0,
+  });
+  const ALL = [account('cash'), account('old', true), account('card')];
+
+  it('offers the visible accounts in their order', () => {
+    expect(accountFilterChips(ALL, null).map((chip) => chip.id)).toEqual(['cash', 'card']);
+    expect(accountFilterChips(ALL, 'card').map((chip) => chip.id)).toEqual(['cash', 'card']);
+    expect(accountFilterChips(undefined, 'card')).toEqual([]);
+  });
+
+  it('keeps a hidden account History is narrowed by at the end, so its chip can be let go', () => {
+    expect(accountFilterChips(ALL, 'old').map((chip) => chip.id)).toEqual(['cash', 'card', 'old']);
+    expect(accountFilterChips(ALL, 'gone').map((chip) => chip.id)).toEqual(['cash', 'card']);
   });
 });

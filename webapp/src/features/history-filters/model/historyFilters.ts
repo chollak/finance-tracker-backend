@@ -1,3 +1,4 @@
+import { visibleAccounts, type Account } from '@/entities/account';
 import { pickableCategories, type Category } from '@/entities/category';
 import { formatNetMinor, type HistoryQuery, type HistorySummary } from '@/entities/transaction';
 import { pluralWithCount } from '@/shared/lib/plural';
@@ -23,6 +24,17 @@ export const TYPE_FILTER = {
 /** What the type chip says: «Тип» while both kinds are shown, «Расходы» or «Доходы» once one is chosen. */
 export function typeChipLabel(type: HistoryQuery['type']): string {
   return TYPE_FILTER.options.find((option) => option.type === type && type !== null)?.name ?? TYPE_FILTER.chip;
+}
+
+/**
+ * The account chips: the visible accounts in their order. A hidden account is not offered, but once History is
+ * narrowed by it (its record opened from the account screen, FT-118) its chip stays at the end, on, so it can be let
+ * go: its operations stay in History (design-system «Скрыть, а не удалить»).
+ */
+export function accountFilterChips(accounts: readonly Account[] | undefined, chosenId: string | null): Account[] {
+  const visible = visibleAccounts(accounts);
+  const chosen = chosenId ? accounts?.find((account) => account.id === chosenId && account.isHidden) : undefined;
+  return chosen ? [...visible, chosen] : visible;
 }
 
 /** EmptyState.md: the search or the filters found nothing. */

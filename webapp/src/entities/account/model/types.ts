@@ -93,4 +93,6 @@ export interface AccountOperations {
   /** `hasOperations`: records or moves, deleted ones too — the currency can no longer change (FT-118). */
   account: Account & { hasOperations: boolean };
   days: Array<{ date: string; operations: AccountOperation[] }>;
+  /** Asked with `from`: the day of the newest operation before it, where the next window back ends; null — none. */
+  earlierDate?: string | null;
 }

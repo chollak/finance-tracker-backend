@@ -3,7 +3,7 @@ import { AccountMoveRepository } from './domain/accountMoveRepository';
 import { AccountRecordSource } from './domain/accountRecords';
 import { CbuRateOnDate } from './domain/fxRate';
 import { AccountBook, DefaultAccountSource } from './application/accountBook';
-import { CreateAccountUseCase, ListAccountsUseCase, UpdateAccountUseCase } from './application/accountUseCases';
+import { CreateAccountUseCase, DeleteAccountUseCase, ListAccountsUseCase, UpdateAccountUseCase } from './application/accountUseCases';
 import { CreateMoveUseCase, SetMoveDeletedUseCase } from './application/accountMoveUseCases';
 import { GetAccountOperationsUseCase } from './application/accountOperations';
 import { CompleteFirstLaunchUseCase } from './application/firstLaunchUseCase';
@@ -62,6 +62,10 @@ export class AccountModule {
 
   getUpdateAccountUseCase(): UpdateAccountUseCase {
     return new UpdateAccountUseCase(this.book, this.repository);
+  }
+
+  getDeleteAccountUseCase(): DeleteAccountUseCase {
+    return new DeleteAccountUseCase(this.book, this.repository);
   }
 
   getCreateMoveUseCase(): CreateMoveUseCase {

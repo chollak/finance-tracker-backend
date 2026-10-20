@@ -1,19 +1,20 @@
 import { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { SearchX } from 'lucide-react';
 import { useAccountOperations, useAccounts, visibleAccounts, type MoveOperation } from '@/entities/account';
 import { findCategory, useCategories } from '@/entities/category';
 import { RecordRowItem } from '@/entities/transaction';
-import { openRecordCategory, openRecordSheet, RecordSheet, useRecordFlash } from '@/features/record-sheet';
+import { useIsGuest } from '@/entities/user';
+import { recordLinkState } from '@/features/record-sheet';
+import { ROUTES } from '@/shared/lib/constants/routes';
 import { toLocalDate } from '@/shared/lib/dates';
 import { useCloseScreen } from '@/shared/lib/navigation';
 import { showUndoToast } from '@/shared/lib/undo';
 import { cn } from '@/shared/lib/utils';
-import { BackButton, ProblemScreen, SkeletonBlock, UndoToast } from '@/shared/ui/pastel';
-import { accountDays, accountHeader, type MoveRow, type OperationDay } from '../model/accountScreen';
-import { NEEDS_SECOND_ACCOUNT, TRANSFER_NOT_YET } from '../model/notices';
+import { BackButton, NextPage, ProblemScreen, SkeletonBlock, UndoToast } from '@/shared/ui/pastel';
+import { accountDays, accountHeader, transferAction, type MoveRow, type OperationDay } from '../model/accountScreen';
 import { CorrectBalanceSheet, EditAccountSheet, MoveSheet } from './AccountSheets';
-import { FOCUS, FOCUS_INSET, Icon } from './parts';
+import { FOCUS, FOCUS_INSET, GuestAccounts, Icon } from './parts';
 
 /** A transfer, an exchange or an adjustment among the records: a neutral circle, the amount in ink (AccountMoves.md). */
 function MoveRowItem({ row, onOpen }: { row: MoveRow; onOpen: () => void }) {
@@ -41,18 +42,15 @@ function MoveRowItem({ row, onOpen }: { row: MoveRow; onOpen: () => void }) {
   );
 }
 
+/** A record is one button, as on the board: it opens the record in History. */
 function OperationDays({
   days,
   onRecord,
-  onCategory,
   onMove,
-  flashId,
 }: {
   days: OperationDay[];
   onRecord: (id: string) => void;
-  onCategory: (id: string) => void;
   onMove: (operation: MoveOperation) => void;
-  flashId: string | null;
 }) {
   return (
     <>
@@ -62,7 +60,7 @@ function OperationDays({
           <ul className="rounded-card bg-card px-2 py-1">
             {day.items.map((item) =>
               item.type === 'record' ? (
-                <RecordRowItem key={item.id} row={item.row} onOpen={onRecord} onCategory={onCategory} flashId={flashId} />
+                <RecordRowItem key={item.id} row={item.row} onOpen={onRecord} />
               ) : (
                 <MoveRowItem key={item.id} row={item.row} onOpen={() => onMove(item.operation)} />
               )
@@ -71,6 +69,45 @@ function OperationDays({
         </section>
       ))}
     </>
+  );
+}
+
+/** Earlier days still being read: a day label and grey rows (Skeleton.md). */
+function LoadingDays() {
+  return (
+    <div className="flex flex-col gap-1.5" aria-hidden="true">
+      <SkeletonBlock className="ml-1 h-3 w-32" />
+      <div className="rounded-card bg-card px-2 py-1">
+        {[0, 1].map((row) => (
+          <div key={row} className="flex h-row items-center gap-3 pl-1.5 pr-2">
+            <SkeletonBlock className="size-10 shrink-0" />
+            <div className="flex flex-1 flex-col gap-1.5">
+              <SkeletonBlock className="h-3.5 w-24" />
+              <SkeletonBlock className="h-3 w-36" />
+            </div>
+            <SkeletonBlock className="h-3.5 w-16" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** A read failed: says so and reads again (a problem says what to do). */
+function ReadFailed({ text, onRetry, retrying }: { text: string; onRetry: () => void; retrying: boolean }) {
+  return (
+    <div className="flex flex-col items-start gap-1 rounded-card bg-card px-5 pb-2 pt-5">
+      <p className="text-[14px] font-medium leading-[1.45] text-ink-muted">{text}</p>
+      <button
+        type="button"
+        onClick={onRetry}
+        disabled={retrying}
+        aria-busy={retrying}
+        className={cn('-ml-3 h-touch rounded-pill px-3 text-[14px] font-extrabold text-ink disabled:text-ink-muted', FOCUS)}
+      >
+        Попробовать снова
+      </button>
+    </div>
   );
 }
 
@@ -108,17 +145,19 @@ type OpenSheet = { kind: 'edit' } | { kind: 'correct' } | { kind: 'move'; operat
 /**
  * One account (FT-118, boards «Счёт «Карта» · операции», «Обмен · подробнее и удаление», «Сверить остаток»,
  * «Изменить или скрыть счёт»; design-system «Экран счёта»): the balance large, the opening balance with its date,
- * «Перевести» (a dollar account «Обменять») and «Сверить остаток», then its records and moves by day. A record
- * opens the same record sheet as in History; a move opens «Подробнее», where it is deleted with «Отменить».
+ * «Перевести» (a dollar account «Обменять») and «Сверить остаток», then its records and moves by day, 60 days at a
+ * time — earlier days are read as the list comes near its end. A record opens in History, narrowed to this account,
+ * with its sheet open; «Назад» there returns here. A move opens «Подробнее», where it is deleted with «Отменить».
  * «Изменить» renames, changes the currency while there are no operations, and hides the account.
  */
 export function AccountPage() {
   const { id } = useParams();
   const [today] = useState(() => toLocalDate(new Date()));
+  const isGuest = useIsGuest();
   const operations = useAccountOperations(id);
   const accounts = useAccounts();
   const categories = useCategories();
-  const flashId = useRecordFlash();
+  const navigate = useNavigate();
   const close = useCloseScreen();
   const [sheet, setSheet] = useState<OpenSheet>(null);
   // Each opening of «Изменить» and «Сверить остаток» starts from the account as it is now
@@ -130,6 +169,9 @@ export function AccountPage() {
   const onOpenChange = (value: boolean) => {
     if (!value) setSheet(null);
   };
+
+  // A guest's records live on the device; accounts come after signing in (as the list says)
+  if (isGuest) return <GuestAccounts />;
 
   if (operations.error?.statusCode === 404) {
     return (
@@ -146,7 +188,8 @@ export function AccountPage() {
   const data = operations.data;
   const account = data?.account;
   const visible = visibleAccounts(accounts.data?.accounts);
-  const canTransfer = !!account && !account.isHidden && visible.length >= 2;
+  const transfer = account ? transferAction(account, visible.length) : null;
+  const canTransfer = transfer?.available ?? false;
   const header = account ? accountHeader(account, today) : null;
   const days = data
     ? accountDays(data, { today, categoryOf: (record) => findCategory(categories.data, record.categoryId) })
@@ -156,6 +199,10 @@ export function AccountPage() {
   const seed = (recordId: string) => {
     const operation = recordOf(recordId);
     return operation?.type === 'record' ? operation.record : undefined;
+  };
+  // The record in History narrowed to this account, its sheet open at once with the record as listed here
+  const openInHistory = (recordId: string) => {
+    if (account) navigate(ROUTES.ACCOUNT_RECORD(account.id, recordId), { state: recordLinkState(seed(recordId)) });
   };
 
   let content;
@@ -172,7 +219,7 @@ export function AccountPage() {
           <div className="mt-2.5 grid grid-cols-2 gap-2">
             <button
               type="button"
-              onClick={() => showUndoToast({ kind: 'info', ...(canTransfer ? TRANSFER_NOT_YET : NEEDS_SECOND_ACCOUNT) })}
+              onClick={() => transfer && showUndoToast({ kind: 'info', ...transfer.notice })}
               aria-disabled={!canTransfer || undefined}
               className={cn(
                 'min-h-touch rounded-pill bg-track px-3 py-1.5 text-[14px] font-extrabold leading-tight',
@@ -193,14 +240,22 @@ export function AccountPage() {
           </div>
         </section>
 
-        {days.length > 0 ? (
-          <OperationDays
-            days={days}
-            onRecord={(recordId) => openRecordSheet(recordId, seed(recordId))}
-            onCategory={(recordId) => openRecordCategory(recordId, seed(recordId))}
-            onMove={(operation) => open({ kind: 'move', operation })}
-            flashId={flashId}
-          />
+        {days.length > 0 || operations.hasNextPage ? (
+          <>
+            <OperationDays days={days} onRecord={openInHistory} onMove={(operation) => open({ kind: 'move', operation })} />
+            {operations.hasNextPage &&
+              (operations.isFetchNextPageError ? (
+                <ReadFailed
+                  text="Не удалось загрузить прошлые операции."
+                  onRetry={() => void operations.fetchNextPage()}
+                  retrying={operations.isFetchingNextPage}
+                />
+              ) : operations.isFetchingNextPage ? (
+                <LoadingDays />
+              ) : (
+                <NextPage onLoad={() => void operations.fetchNextPage()} />
+              ))}
+          </>
         ) : (
           <section className="flex flex-col gap-1 rounded-card bg-card p-5">
             <h2 className="text-[15px] font-extrabold">Операций пока нет</h2>
@@ -210,20 +265,7 @@ export function AccountPage() {
       </>
     );
   } else if (operations.isError) {
-    content = (
-      <div className="flex flex-col items-start gap-1 rounded-card bg-card px-5 pb-2 pt-5">
-        <p className="text-[14px] font-medium leading-[1.45] text-ink-muted">Не удалось загрузить счёт.</p>
-        <button
-          type="button"
-          onClick={() => void operations.refetch()}
-          disabled={operations.isFetching}
-          aria-busy={operations.isFetching}
-          className={cn('-ml-3 h-touch rounded-pill px-3 text-[14px] font-extrabold text-ink disabled:text-ink-muted', FOCUS)}
-        >
-          Попробовать снова
-        </button>
-      </div>
-    );
+    content = <ReadFailed text="Не удалось загрузить счёт." onRetry={() => void operations.refetch()} retrying={operations.isFetching} />;
   } else {
     content = (
       <>
@@ -274,8 +316,7 @@ export function AccountPage() {
         </>
       )}
 
-      {/* A row opens the record sheet, as in History; its toasts and the accounts' show at the bottom edge */}
-      <RecordSheet />
+      {/* The accounts' toasts at the bottom edge; a record opens in History, with its own */}
       <UndoToast bottom={24} />
     </div>
   );

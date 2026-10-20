@@ -2,7 +2,7 @@
 // «Отменить». A screen that lists records mounts `RecordSheet` once and opens it from its rows.
 
 export { RecordSheet } from './ui/RecordSheet';
-export { useRecordLink } from './api/useRecordLink';
+export { useRecordLink, recordLinkState } from './api/useRecordLink';
 export { SAVED_NOTICE_MS } from './api/useRecordEdits';
 export {
   openRecordSheet,

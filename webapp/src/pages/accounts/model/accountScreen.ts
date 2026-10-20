@@ -3,9 +3,10 @@ import { recordRow, type RecordCategory, type RecordRow } from '@/entities/trans
 import { dayGroupLabel, dayMonth, parseLocalDate, type LocalDate } from '@/shared/lib/dates';
 import { CURRENCY_UNIT, formatMinor, type Currency } from '@/shared/lib/money';
 import type { Transaction } from '@/shared/types';
+import { HIDDEN_ACCOUNT, NEEDS_SECOND_ACCOUNT, TRANSFER_NOT_YET } from './notices';
 
 export interface AccountHeader {
-  /** «сумы · карта». */
+  /** «сумы · карта»; a hidden account says so: «сумы · карта · скрыт». */
   caption: string;
   /** «3 180 000», «420,00»; the unit beside it. */
   balance: string;
@@ -32,12 +33,22 @@ export function openingText(account: Account, today: LocalDate, style: 'screen' 
 /** The top of the account screen: the balance large, the opening balance with its date, the move action. */
 export function accountHeader(account: Account, today: LocalDate): AccountHeader {
   return {
-    caption: accountCaption(account),
+    caption: `${accountCaption(account)}${account.isHidden ? ' · скрыт' : ''}`,
     balance: formatMinor(account.balanceMinor, account.currency, { unit: false }),
     unit: CURRENCY_UNIT[account.currency],
     initialText: `Начальный остаток ${openingText(account, today, 'screen')}`,
     moveLabel: account.currency === 'USD' ? 'Обменять' : 'Перевести',
   };
+}
+
+/**
+ * «Перевести» / «Обменять» of the account screen: off — and saying why — for a hidden account and while only one
+ * account is visible (design-system «Скрыть, а не удалить»); until FT-119 brings the form it says it is coming.
+ */
+export function transferAction(account: Pick<Account, 'isHidden'>, visibleCount: number): { available: boolean; notice: { title: string; detail: string } } {
+  if (account.isHidden) return { available: false, notice: HIDDEN_ACCOUNT };
+  if (visibleCount < 2) return { available: false, notice: NEEDS_SECOND_ACCOUNT };
+  return { available: true, notice: TRANSFER_NOT_YET };
 }
 
 export interface MoveRow {
@@ -89,7 +100,8 @@ function moveRow(operation: MoveOperation, account: Account): MoveRow {
 
 /**
  * The operations of the account by day, in the server's order (newest first, inside a day by when they were made):
- * records exactly as History shows them, moves among them on a neutral circle (design-system «Экран счёта»).
+ * records exactly as History shows them — a row opens the record in History — and moves among them on a neutral
+ * circle (design-system «Экран счёта»).
  */
 export function accountDays(
   operations: AccountOperations,
@@ -101,7 +113,7 @@ export function accountDays(
     label: dayGroupLabel(day.date, context.today, { withDate: true }),
     items: day.operations.map((operation): OperationItem =>
       operation.type === 'record'
-        ? { type: 'record', id: operation.id, row: recordRow(operation.record, { categoryOf: context.categoryOf }), record: operation.record }
+        ? { type: 'record', id: operation.id, row: recordRow(operation.record, { categoryOf: context.categoryOf, opens: 'history' }), record: operation.record }
         : { type: 'move', id: operation.id, row: moveRow(operation, account), operation }
     ),
   }));

@@ -15,5 +15,12 @@ export type {
 } from './model/types';
 export { useAccounts, useAccountOperations } from './api/queries';
 export { accountKeys } from './api/keys';
-export { createAccount, updateAccount, adjustBalance, deleteMove, restoreMove } from './api/writes';
+export { createAccount, updateAccount, deleteAccount, adjustBalance, deleteMove, restoreMove } from './api/writes';
 export { visibleAccounts, accountCaption, accountIcon, type AccountIcon } from './lib/accounts';
+export {
+  OPERATIONS_WINDOW_DAYS,
+  firstOperationsWindow,
+  nextOperationsWindow,
+  mergeOperationWindows,
+  type OperationsWindow,
+} from './lib/operationWindows';

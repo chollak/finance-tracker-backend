@@ -266,6 +266,15 @@ describe('transfers, exchanges and adjustments (FT-104)', () => {
       expect((await as('GET', `/api/accounts/${cash.id}/operations?from=октябрь`)).status).toBe(400);
       expect((await server.request('GET', `/api/accounts/${cash.id}/operations`, { devUser: 999 })).status).toBe(404);
 
+      // Read in windows back in time (FT-118): with `from`, the day of the newest operation before it
+      const recent = (await as('GET', `/api/accounts/${from.id}/operations?from=2026-10-01`)).body.data;
+      expect(recent.days.map((d: { date: string }) => d.date)).toEqual(['2026-10-12']);
+      expect(recent.earlierDate).toBe('2026-09-28');
+      const earlier = (await as('GET', `/api/accounts/${from.id}/operations?from=2026-08-01&to=2026-09-28`)).body.data;
+      expect(earlier.days.map((d: { date: string }) => d.date)).toEqual(['2026-09-28']);
+      expect(earlier.earlierDate).toBeNull();
+      expect(operations.body.data.earlierDate).toBeNull();
+
       const moveId = created.body.data.id;
       expect((await server.request('DELETE', `/api/moves/${moveId}`, { devUser: 999 })).status).toBe(404);
       expect((await as('DELETE', `/api/moves/${moveId}`)).body.data.deletedAt).not.toBeNull();

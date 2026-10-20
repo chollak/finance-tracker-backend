@@ -110,12 +110,25 @@ export interface EditAccountView {
   /** What «Сохранить» sends and what «Отменить» sends back; null when nothing changed. */
   change: { patch: AccountPatch; undo: AccountPatch; detail: string } | null;
   /** «Скрыть счёт» (or «Показать счёт» for a hidden one) with what it does; null while the currency changes. */
-  hide: { action: 'hide' | 'show'; available: boolean; note: string } | null;
+  hide: HideView | null;
+}
+
+/**
+ * «Скрыть счёт» / «Показать счёт»: a name typed and not saved goes with it (board: the typed name is applied and named
+ * in the toast), and «Отменить» brings both back.
+ */
+export interface HideView {
+  action: 'hide' | 'show';
+  available: boolean;
+  note: string;
+  patch: AccountPatch;
+  undo: AccountPatch;
+  saved: Saved;
 }
 
 const currencyWord = (currency: Currency) => (currency === 'USD' ? 'доллары' : 'сумы');
 
-function hideNote(account: Account, context: { visibleCount: number; rateMinor: number | null }): EditAccountView['hide'] {
+function hideNote(account: Account, context: { visibleCount: number; rateMinor: number | null }): Pick<HideView, 'action' | 'available' | 'note'> {
   if (account.isHidden) return { action: 'show', available: true, note: 'Счёт снова войдёт в итог и в выбор при записи.' };
   if (context.visibleCount <= 1) {
     return { action: 'hide', available: false, note: 'Это единственный видимый счёт — скрыть его нельзя.' };
@@ -130,6 +143,21 @@ function hideNote(account: Account, context: { visibleCount: number; rateMinor: 
   if (!inUzs) return { action: 'hide', available: true, note: rest };
   const change = inUzs > 0 ? 'уменьшится' : 'увеличится';
   return { action: 'hide', available: true, note: `Итог ${change} на ${formatMinor(Math.abs(inUzs), 'UZS')}. ${rest}` };
+}
+
+function hideView(account: Account, name: string, context: { visibleCount: number; rateMinor: number | null }): HideView {
+  const state = hideNote(account, context);
+  const hiding = state.action === 'hide';
+  const renamed = name !== '' && name !== account.name;
+  const shown = renamed ? name : account.name;
+  return {
+    ...state,
+    patch: renamed ? { name, isHidden: hiding } : { isHidden: hiding },
+    undo: renamed ? { name: account.name, isHidden: !hiding } : { isHidden: !hiding },
+    saved: hiding
+      ? { title: 'Счёт скрыт', detail: `${shown} · вернуть — в «Скрытых счетах»` }
+      : { title: 'Счёт снова виден', detail: `${shown} · ${formatMinor(account.balanceMinor, account.currency)}` },
+  };
 }
 
 /**
@@ -173,7 +201,7 @@ export function editAccountView(
     amountNote: currencyChanged ? 'Валюта меняется — введите остаток в новой валюте.' : null,
     button: name ? { label: 'Сохранить', ready: true } : { label: 'Введите название', ready: false },
     change: details.length ? { patch: patch as AccountPatch, undo: undo as AccountPatch, detail: details.join(' · ') } : null,
-    hide: currencyChanged ? null : hideNote(account, context),
+    hide: currencyChanged ? null : hideView(account, name, context),
   };
 }
 

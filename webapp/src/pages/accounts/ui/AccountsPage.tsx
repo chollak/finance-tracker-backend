@@ -1,21 +1,19 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LogIn } from 'lucide-react';
 import { useAccounts } from '@/entities/account';
 import { useUsdRate } from '@/entities/rate';
 import { useIsGuest } from '@/entities/user';
 import { useIsOnline } from '@/shared/hooks';
 import { ROUTES } from '@/shared/lib/constants/routes';
 import { toLocalDate } from '@/shared/lib/dates';
-import { useCloseScreen } from '@/shared/lib/navigation';
 import { showUndoToast } from '@/shared/lib/undo';
 import { cn } from '@/shared/lib/utils';
-import { BackButton, Button, ProblemScreen, SkeletonBlock, UndoToast } from '@/shared/ui/pastel';
+import { BackButton, Button, SkeletonBlock, UndoToast } from '@/shared/ui/pastel';
 import { accountsListModel, type AccountsListModel } from '../model/accountsList';
 import { TRANSFER_NOT_YET } from '../model/notices';
-import { rateRowModel, type RateRowModel } from '../model/rateRow';
+import { knownRates, rateRowModel, type RateRowModel } from '../model/rateRow';
 import { HiddenAccountsSheet, NewAccountSheet, RateSheet } from './ListSheets';
-import { AccountMark, FOCUS, FOCUS_INSET, Icon } from './parts';
+import { AccountMark, FOCUS, FOCUS_INSET, GuestAccounts, Icon } from './parts';
 
 function TotalCard({ model }: { model: AccountsListModel }) {
   return (
@@ -154,25 +152,16 @@ export function AccountsPage() {
   const rates = useUsdRate();
   const online = useIsOnline();
   const navigate = useNavigate();
-  const close = useCloseScreen();
   const [sheet, setSheet] = useState<'new' | 'hidden' | 'rate' | null>(null);
   // A new account starts from an empty sheet every time
   const [newSheetKey, setNewSheetKey] = useState(0);
 
-  if (isGuest) {
-    return (
-      <ProblemScreen
-        header={<BackButton />}
-        icon={<LogIn strokeWidth={1.9} />}
-        title="Счета — после входа"
-        text="Счета и остатки хранятся в Daftar, а не на телефоне. Войдите через Telegram, и они появятся здесь."
-        action={{ label: 'На главную', onClick: close }}
-      />
-    );
-  }
+  if (isGuest) return <GuestAccounts />;
 
   const model = accounts.data ? accountsListModel(accounts.data, today) : null;
-  const rateRow = rateRowModel(rates.data, { online, today });
+  // The row names the rate the total above it was counted at until the rates are read
+  const known = knownRates(rates.data, accounts.data?.rate);
+  const rateRow = rateRowModel(known, { online, today });
   const sheetOpen = (name: typeof sheet) => (open: boolean) => setSheet(open ? name : null);
 
   let content;
@@ -251,7 +240,7 @@ export function AccountsPage() {
           <HiddenAccountsSheet open={sheet === 'hidden'} onOpenChange={sheetOpen('hidden')} accounts={model.hidden} />
         </>
       )}
-      <RateSheet open={sheet === 'rate'} onOpenChange={sheetOpen('rate')} rates={rates.data} online={online} today={today} />
+      <RateSheet open={sheet === 'rate'} onOpenChange={sheetOpen('rate')} rates={known} online={online} today={today} />
 
       {/* «Счёт добавлен», «Счёт снова виден» over the bottom button (Toast.md) */}
       <UndoToast bottom={96} />

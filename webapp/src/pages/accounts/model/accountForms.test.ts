@@ -116,16 +116,36 @@ describe('edit account', () => {
   });
 
   it('the last visible account cannot be hidden; a hidden one is shown again', () => {
-    expect(editAccountView(CARD, editAccountDraft(CARD), { ...context, visibleCount: 1 }).hide).toEqual({
+    expect(editAccountView(CARD, editAccountDraft(CARD), { ...context, visibleCount: 1 }).hide).toMatchObject({
       action: 'hide',
       available: false,
       note: 'Это единственный видимый счёт — скрыть его нельзя.',
     });
-    expect(editAccountView({ ...CARD, isHidden: true }, editAccountDraft(CARD), context).hide).toEqual({
+    expect(editAccountView({ ...CARD, isHidden: true }, editAccountDraft(CARD), context).hide).toMatchObject({
       action: 'show',
       available: true,
       note: 'Счёт снова войдёт в итог и в выбор при записи.',
+      patch: { isHidden: false },
+      undo: { isHidden: true },
+      saved: { title: 'Счёт снова виден', detail: `Карта · 3${NBSP}180${NBSP}000${NBSP}сум` },
     });
+  });
+
+  it('hiding takes a name typed and not saved along (board: hideAcc), and «Отменить» brings both back', () => {
+    const typed = { ...editAccountDraft(CARD), name: '  Uzcard ' };
+    expect(editAccountView(CARD, typed, context).hide).toMatchObject({
+      action: 'hide',
+      patch: { name: 'Uzcard', isHidden: true },
+      undo: { name: 'Карта', isHidden: false },
+      saved: { title: 'Счёт скрыт', detail: 'Uzcard · вернуть — в «Скрытых счетах»' },
+    });
+    // The same name or an empty field changes only whether it is seen
+    expect(editAccountView(CARD, editAccountDraft(CARD), context).hide).toMatchObject({
+      patch: { isHidden: true },
+      undo: { isHidden: false },
+      saved: { detail: 'Карта · вернуть — в «Скрытых счетах»' },
+    });
+    expect(editAccountView(CARD, { ...typed, name: ' ' }, context).hide?.patch).toEqual({ isHidden: true });
   });
 
   it('hiding a dollar account names how much in сум leaves the total', () => {

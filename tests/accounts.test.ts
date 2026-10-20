@@ -310,6 +310,34 @@ describe('accounts and balances (FT-101)', () => {
         expect((await as('PATCH', `/api/accounts/${card.id}`, { currency: 'UZS' })).status).toBe(200);
       });
 
+      it('deletes only an account no record or move has touched: «Отменить» after «Счёт добавлен» (FT-118)', async () => {
+        const card = (await as('GET', '/api/accounts')).body.data.accounts[0];
+        const piggy = (await as('POST', '/api/accounts', { name: 'Копилка', kind: 'cash', currency: 'UZS' })).body.data;
+
+        expect((await server.request('DELETE', `/api/accounts/${piggy.id}`, { devUser: 9999 })).status).toBe(404);
+        expect((await server.request('DELETE', `/api/accounts/${piggy.id}`)).status).toBe(401);
+        const deleted = await as('DELETE', `/api/accounts/${piggy.id}`);
+        expect(deleted.status).toBe(200);
+        expect(deleted.body.data).toEqual({ id: piggy.id });
+        expect((await as('GET', '/api/accounts')).body.data.accounts.map((a: { id: string }) => a.id)).toEqual([card.id]);
+        expect((await as('DELETE', `/api/accounts/${piggy.id}`)).status).toBe(404);
+
+        // The last visible account stays, as with hiding
+        expect((await as('DELETE', `/api/accounts/${card.id}`)).status).toBe(400);
+
+        // An account with a record — a deleted one too, «Отменить» can bring it back — is hidden, never deleted
+        const cash = (await as('POST', '/api/accounts', { name: 'Наличные', kind: 'cash', currency: 'UZS' })).body.data;
+        const userId = (await as('GET', '/api/settings')).body.data.userId;
+        const created = await records.create.execute({
+          userId, accountId: cash.id, amount: 1000, type: 'expense', category: 'Кафе', description: 'x', date: '2026-10-16',
+        });
+        if (!created.success) throw created.error;
+        await db.dataSource.query(`UPDATE transactions SET deleted_at = datetime('now') WHERE id = ?`, [created.data]);
+        const refused = await as('DELETE', `/api/accounts/${cash.id}`);
+        expect(refused.status).toBe(409);
+        expect((await as('GET', '/api/accounts')).body.data.accounts.map((a: { id: string }) => a.id)).toEqual([card.id, cash.id]);
+      });
+
       it('accepts only a visible account of the user as the default', async () => {
         const card = (await as('GET', '/api/accounts')).body.data.accounts[0];
         const cash = (await as('POST', '/api/accounts', { name: 'Наличные', kind: 'cash', currency: 'UZS' })).body.data;
