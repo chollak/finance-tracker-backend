@@ -30,9 +30,10 @@ const totals = (records: Transaction[], usdRateMinor: number | null = null) => s
 /** FT-120: the analytics rules of design-system «Аналитика», with nothing read from a database. */
 describe('month analytics rules (FT-120)', () => {
   describe('periods: the current month against the same days, past months whole', () => {
-    it('compares 1–14 October with 1–14 September while October goes on', () => {
+    it('compares October with 1–14 September while October goes on', () => {
       const { period, previous } = analyticsPeriods({ month: '2026-10', today: '2026-10-14', type: 'expense', firstMonth: '2026-08' });
-      expect(period).toEqual({ month: '2026-10', from: '2026-10-01', to: '2026-10-14', wholeMonth: false });
+      // The whole calendar month, as Home's tiles (FT-141): a record dated after today counts in it
+      expect(period).toEqual({ month: '2026-10', from: '2026-10-01', to: '2026-10-31', wholeMonth: false });
       expect(previous).toEqual({ month: '2026-09', from: '2026-09-01', to: '2026-09-14', wholeMonth: false });
     });
 
@@ -44,7 +45,7 @@ describe('month analytics rules (FT-120)', () => {
 
     it('compares income of an unfinished month with the whole previous month', () => {
       const { period, previous } = analyticsPeriods({ month: '2026-10', today: '2026-10-14', type: 'income', firstMonth: '2026-08' });
-      expect(period.to).toBe('2026-10-14');
+      expect(period).toEqual({ month: '2026-10', from: '2026-10-01', to: '2026-10-31', wholeMonth: false });
       expect(previous).toEqual({ month: '2026-09', from: '2026-09-01', to: '2026-09-30', wholeMonth: true });
     });
 
@@ -119,6 +120,24 @@ describe('month analytics rules (FT-120)', () => {
       });
     });
 
+    it('names a growth before a larger decline (FT-141)', () => {
+      const result = october(
+        [...many('2026-10', 'cafe', 3, 45000), ...many('2026-10', 'food', 3, 50000)],
+        [...many('2026-09', 'cafe', 3, 40000), ...many('2026-09', 'food', 3, 250000)]
+      );
+      // «Продукты» fell by 600 000, «Кафе» grew by 15 000: the growth is named
+      expect(result.insight).toMatchObject({ kind: 'change', categoryId: 'cafe', direction: 'up', diffMinor: sum(15000) });
+    });
+
+    it('takes an expense category into the insight from exactly 3 operations in both periods (FT-141)', () => {
+      const result = october(
+        [...many('2026-10', 'cafe', 3, 50000), ...many('2026-10', 'food', 3, 900000)],
+        [...many('2026-09', 'cafe', 3, 10000), ...many('2026-09', 'food', 2, 10000)]
+      );
+      // «Продукты» grew more, but with 2 operations in September
+      expect(result.insight).toMatchObject({ kind: 'change', categoryId: 'cafe', direction: 'up' });
+    });
+
     it('names the biggest decline when nothing grew', () => {
       const result = october(
         [...many('2026-10', 'cafe', 3, 30000), ...many('2026-10', 'food', 3, 50000)],
@@ -166,6 +185,20 @@ describe('month analytics rules (FT-120)', () => {
       expect(result.comparable).toBe(false);
       expect(result.change).toBeNull();
       expect(result.categories.map(row => [row.categoryId, row.change, row.sharePercent])).toEqual([['food', null, 100]]);
+    });
+
+    it('ends the first days on the 7th day of recording (FT-141)', () => {
+      const records = [...many('2026-10', 'food', 3, 100000)];
+      const prior = many('2026-09', 'food', 3, 50000);
+
+      const sixth = october(records, prior, { trackingDays: 6 });
+      expect(sixth.insight).toEqual({ kind: 'too_early', days: 6, daysLeft: 1 });
+      expect(sixth.comparable).toBe(false);
+
+      const seventh = october(records, prior, { trackingDays: 7 });
+      expect(seventh.comparable).toBe(true);
+      expect(seventh.insight).toMatchObject({ kind: 'change', categoryId: 'food', direction: 'up' });
+      expect(seventh.change).toMatchObject({ kind: 'up', percent: 100 });
     });
 
     it('names the largest share in the first month of recording', () => {

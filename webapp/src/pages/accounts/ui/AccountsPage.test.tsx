@@ -8,6 +8,7 @@ import type { Account, AccountsOverview } from '@/entities/account';
 import type { UsdRates } from '@/entities/rate';
 import { useUserStore } from '@/entities/user';
 import { apiClient } from '@/shared/api';
+import { pastelColors, type PastelColorName } from '@/shared/config/pastelTokens';
 import { NBSP } from '@/shared/lib/money';
 import { useUndoToastStore } from '@/shared/lib/undo';
 import { AccountsPage } from './AccountsPage';
@@ -131,6 +132,21 @@ async function type(input: HTMLInputElement, value: string) {
   });
 }
 
+/** The colour token a `bg-<token>` class paints the element with. */
+function backgroundToken(element: Element): PastelColorName | undefined {
+  return [...element.classList]
+    .map((name) => name.slice(3))
+    .find((name): name is PastelColorName => name in pastelColors.light);
+}
+/** A switch in a sheet shows its chosen segment as a knob on the track, in the light and the dark theme (FT-141). */
+function expectKnobShows(groupName: string) {
+  const group = document.body.querySelector(`[role="dialog"] [role="group"][aria-label="${groupName}"]`)!;
+  const knob = group.querySelector('[aria-pressed="true"]')!;
+  const track = backgroundToken(group)!;
+  const chosen = backgroundToken(knob)!;
+  for (const theme of ['light', 'dark'] as const) expect(pastelColors[theme][chosen]).not.toBe(pastelColors[theme][track]);
+}
+
 describe('Accounts', () => {
   it('shows the total, the rate it is counted at, the rate row and the accounts with «≈» under dollars', async () => {
     await renderAccounts();
@@ -251,6 +267,20 @@ describe('Accounts', () => {
     expect(router.state.location.pathname).toBe('/accounts/transfer');
     expect(router.state.location.search).toBe('');
     expect(text()).toContain('Форма перевода');
+  });
+
+  it('the switches of «Курс доллара» and «Новый счёт» show the chosen segment in both themes (FT-141)', async () => {
+    await renderAccounts();
+
+    await press(`Курс доллара · 12${NBSP}650 сум, ЦБ на 14 окт`);
+    expectKnobShows('Какой курс использовать');
+    await pressInSheet('Свой курс');
+    expectKnobShows('Какой курс использовать');
+    await pressInSheet('Закрыть');
+
+    await press('Добавить счёт');
+    expectKnobShows('Тип счёта');
+    expectKnobShows('Валюта счёта');
   });
 
   it('the rate row opens the Central Bank rate with its date', async () => {

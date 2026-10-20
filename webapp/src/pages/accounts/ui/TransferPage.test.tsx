@@ -74,17 +74,19 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.unmount());
   container.remove();
+  window.history.replaceState(null, '');
 });
 
-async function renderTransfer(search = '') {
+async function renderTransfer(search = '', before: string[] = ['/accounts']) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   router = createMemoryRouter(
     [
+      { path: '/', element: <p>Главная</p> },
       { path: '/accounts', element: <p>Список счетов</p> },
       { path: '/accounts/transfer', element: <TransferPage /> },
       { path: '/accounts/:id', element: <p>Экран счёта</p> },
     ],
-    { initialEntries: ['/accounts', `/accounts/transfer${search}`], initialIndex: 1 }
+    { initialEntries: [...before, `/accounts/transfer${search}`], initialIndex: before.length }
   );
   await act(async () => {
     root.render(
@@ -216,6 +218,40 @@ describe('Transfer form', () => {
     expect(text()).toContain(sum('На счёте «Карта» только 3 180 000 сум — меньше суммы'));
     await click(button('Не хватает денег на счёте'));
     expect(apiClient.post).not.toHaveBeenCalled();
+  });
+
+  it('leaving during the save is not followed by another step back; the toast still offers «Отменить» (FT-141)', async () => {
+    let answer: (value: unknown) => void = () => {};
+    vi.mocked(apiClient.post).mockImplementation(() => new Promise((resolve) => (answer = resolve)) as never);
+    vi.mocked(apiClient.delete).mockResolvedValue({ success: true, data: { ...MOVE, deletedAt: 'now' } } as never);
+    await renderTransfer('', ['/', '/accounts']);
+    // In the app react-router keeps the entry's index in history.state: closing is then one step back
+    window.history.replaceState({ idx: 2 }, '');
+
+    await keys('500');
+    await click(button(sum('Перевести 500 сум')));
+    // «Назад» while the move is being written
+    await act(async () => router.navigate(-1));
+    await settle();
+    expect(router.state.location.pathname).toBe('/accounts');
+
+    await act(async () => answer({ success: true, data: MOVE }));
+    await settle();
+
+    expect(router.state.location.pathname).toBe('/accounts');
+    expect(text()).toContain('Список счетов');
+    expect(lastToast()).toMatchObject({ title: 'Перевод записан' });
+    await act(async () => lastToast()!.undo!());
+    expect(apiClient.delete).toHaveBeenCalledWith('/moves/m1');
+  });
+
+  it('an exchange to dollars shows the empty «Получаю» as «0,00» (FT-141)', async () => {
+    await renderTransfer();
+
+    await click(buttonStarting('Куда: счёт Наличные'));
+    await pick('Доллары');
+
+    expect(buttonStarting('Получаю:').textContent).toBe('0,00USD');
   });
 
   it('a failed save keeps the form with what was typed and says why', async () => {

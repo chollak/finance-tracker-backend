@@ -5,7 +5,6 @@
 
 import { UserRepository } from './domain/userRepository';
 import { UserSettingsRepository } from './domain/userSettingsRepository';
-import { defaultUserSettings } from './domain/userSettings';
 import { AccountCheck, GetUserSettingsUseCase, UpdateUserSettingsUseCase } from './application/userSettingsUseCases';
 import { GetOrCreateUserUseCase } from './application/getOrCreateUserUseCase';
 import { GetUserUseCase } from './application/getUserUseCase';
@@ -67,9 +66,7 @@ export class UserModule {
   /** Set the own USD rate, or clear it with null. The value is checked by the rates module. */
   async setOwnUsdRate(userId: string, rate: { rateMinor: number; since: string } | null): Promise<void> {
     if (!this.settingsRepository) throw new Error('UserModule was created without a settings repository');
-    const current = (await this.settingsRepository.findByUserId(userId)) ?? defaultUserSettings(userId);
-    await this.settingsRepository.upsert({
-      ...current,
+    await this.settingsRepository.write(userId, {
       fxOwnRateMinor: rate ? rate.rateMinor : null,
       fxOwnSince: rate ? rate.since : null,
     });
@@ -85,8 +82,7 @@ export class UserModule {
   /** Mark the first launch done; the first-launch screen is no longer shown. */
   async markOnboarded(userId: string, at: string): Promise<void> {
     if (!this.settingsRepository) throw new Error('UserModule was created without a settings repository');
-    const current = (await this.settingsRepository.findByUserId(userId)) ?? defaultUserSettings(userId);
-    await this.settingsRepository.upsert({ ...current, onboardedAt: at });
+    await this.settingsRepository.write(userId, { onboardedAt: at });
   }
 
   /** The user's default account from settings, or null. */

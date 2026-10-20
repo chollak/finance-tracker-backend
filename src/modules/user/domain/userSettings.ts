@@ -65,5 +65,8 @@ export function defaultUserSettings(userId: string): UserSettings {
   };
 }
 
+/** Fields one write changes; the others stay as they are (FT-141). */
+export type UserSettingsChanges = Partial<Omit<UserSettings, 'userId'>>;
+
 /** Fields a client may change through PATCH /api/settings. */
-export type UserSettingsPatch = Partial<Omit<UserSettings, 'userId' | 'fxOwnSince'>>;
+export type UserSettingsPatch = Omit<UserSettingsChanges, 'fxOwnSince'>;

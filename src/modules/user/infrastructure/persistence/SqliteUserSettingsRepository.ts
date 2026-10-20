@@ -7,6 +7,8 @@ import {
   THEME_PREFERENCES,
   ThemePreference,
   UserSettings,
+  UserSettingsChanges,
+  defaultUserSettings,
 } from '../../domain/userSettings';
 import { UserSettingsRepository } from '../../domain/userSettingsRepository';
 
@@ -23,16 +25,29 @@ export class SqliteUserSettingsRepository implements UserSettingsRepository {
   }
 
   /**
-   * One statement, `INSERT … ON CONFLICT (user_id) DO UPDATE`: a new user's first changes may come at once
-   * (FT-140), and `save()` — a read, then an insert — let two of them insert the same row.
+   * One statement: `INSERT … ON CONFLICT (user_id) DO UPDATE SET <the given fields>, updated_at`. A new
+   * user's first changes may come at once (FT-140), and a read-then-write of the whole row let parallel
+   * PATCHes of different fields undo each other (FT-141). The insert carries the defaults for a new row.
    */
-  async upsert(settings: UserSettings): Promise<UserSettings> {
-    await this.repository.upsert(
-      { ...settings, onboardedAt: settings.onboardedAt ? new Date(settings.onboardedAt) : null },
-      ['userId']
-    );
-    const stored = await this.findByUserId(settings.userId);
-    if (!stored) throw new Error(`Failed to save settings for user ${settings.userId}`);
+  async write(userId: string, changes: UserSettingsChanges): Promise<UserSettings> {
+    const fields = Object.keys(changes).filter(field => changes[field as keyof UserSettingsChanges] !== undefined);
+    const overwrite = fields.map(field => {
+      const column = this.repository.metadata.findColumnWithPropertyName(field);
+      if (!column || field === 'userId') throw new Error(`${field} is not a settings column`);
+      return column.databaseName;
+    });
+    const updatedAt = this.repository.metadata.updateDateColumn?.databaseName ?? 'updated_at';
+
+    const row = { ...defaultUserSettings(userId), ...changes, userId };
+    await this.repository
+      .createQueryBuilder()
+      .insert()
+      .values({ ...row, onboardedAt: row.onboardedAt ? new Date(row.onboardedAt) : null })
+      .orUpdate([...overwrite, updatedAt], ['user_id'])
+      .execute();
+
+    const stored = await this.findByUserId(userId);
+    if (!stored) throw new Error(`Failed to save settings for user ${userId}`);
     return stored;
   }
 

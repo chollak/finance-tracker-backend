@@ -104,7 +104,7 @@ export function EditAccountSheet({
               value={draft.currency}
               onChange={(currency) => setDraft((current) => ({ ...current, currency, amount: emptyKeypad() }))}
               ariaLabel="Валюта счёта"
-              className="bg-sheet-track"
+              inSheet
             />
           </SheetField>
         )}

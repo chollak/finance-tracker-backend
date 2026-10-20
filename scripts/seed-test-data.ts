@@ -19,7 +19,6 @@ import { createAppDataSource, DATABASE_FILE } from '../src/shared/infrastructure
 import { runMigrationsWithBackup } from '../src/shared/infrastructure/database/migrationRunner';
 import { SqliteUserRepository } from '../src/modules/user/infrastructure/persistence/SqliteUserRepository';
 import { SqliteUserSettingsRepository } from '../src/modules/user/infrastructure/persistence/SqliteUserSettingsRepository';
-import { defaultUserSettings } from '../src/modules/user/domain/userSettings';
 import { SqliteTransactionRepository } from '../src/modules/transaction/infrastructure/persistence/SqliteTransactionRepository';
 import { CreateTransactionUseCase } from '../src/modules/transaction/application/createTransaction';
 import { CategoryCatalog } from '../src/modules/category/application/categoryCatalog';
@@ -99,7 +98,7 @@ async function seed() {
     const dollars = await account('Доллары', 'cash', 'USD', 500_00);
     // The opening balances above are what the first launch (FT-109) sets: the user has been through it
     const settings = new SqliteUserSettingsRepository(dataSource);
-    await settings.upsert({ ...defaultUserSettings(user.id), onboardedAt: new Date(`${opened}T09:00:00+05:00`).toISOString() });
+    await settings.write(user.id, { onboardedAt: new Date(`${opened}T09:00:00+05:00`).toISOString() });
     console.log('👛 Accounts: Карта, Наличные, Доллары (first launch done)\n');
 
     const repository = new SqliteTransactionRepository(dataSource);

@@ -23,13 +23,19 @@ interface SegmentedProps<T extends string> {
   onClear?: () => void;
   /** An unavailable segment was pressed: the screen says why it cannot be chosen. */
   onUnavailable?: (value: T) => void;
+  /**
+   * Inside a Sheet: track `sheet-track` with a `card` knob, as the boards draw it («Курс доллара», «Новый счёт»,
+   * «Изменить или скрыть счёт»). On a sheet the screen's track and seg-on would be the same colour in dark.
+   */
+  inSheet?: boolean;
   className?: string;
 }
 
 /**
  * Two-way switch (docs/pastel/components/Segmented.md): track 48px with 2px inset, 44px segments,
- * active segment seg-on with shadow-seg, inactive text seg-off. An unavailable segment is dimmed to 0.35,
- * as the other unavailable controls of «Пастель» are (Calendar.md, MonthStepper.md).
+ * active segment seg-on with shadow-seg, inactive text seg-off; in a sheet the track is sheet-track and the
+ * knob card. An unavailable segment is dimmed to 0.35, as the other unavailable controls of «Пастель» are
+ * (Calendar.md, MonthStepper.md).
  */
 export function Segmented<T extends string>({
   options,
@@ -39,10 +45,11 @@ export function Segmented<T extends string>({
   allowDeselect = false,
   onClear,
   onUnavailable,
+  inSheet = false,
   className,
 }: SegmentedProps<T>) {
   return (
-    <div role="group" aria-label={ariaLabel} className={cn('flex h-12 rounded-pill bg-track p-0.5', className)}>
+    <div role="group" aria-label={ariaLabel} className={cn('flex h-12 rounded-pill p-0.5', inSheet ? 'bg-sheet-track' : 'bg-track', className)}>
       {options.map((option) => {
         const active = option.value === value;
         const press = () => {
@@ -61,7 +68,7 @@ export function Segmented<T extends string>({
             className={cn(
               'flex h-touch min-w-0 flex-1 items-center justify-center rounded-pill px-3 text-[14px] font-bold transition-colors duration-150',
               'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink',
-              active ? 'bg-seg-on text-ink shadow-segment' : 'text-seg-off',
+              active ? cn(inSheet ? 'bg-card' : 'bg-seg-on', 'text-ink shadow-segment') : 'text-seg-off',
               option.unavailable && 'opacity-35'
             )}
           >

@@ -233,7 +233,8 @@ export function transferView(state: TransferState, context: TransferContext): Tr
     ? null
     : state.inTouched
       ? { text: keypadDisplay({ text: state.in, pristine: false }), placeholder: inMinor === 0, unit: CURRENCY_UNIT[to.currency] }
-      : { text: autoInMinor ? formatMinor(autoInMinor, to.currency, { unit: false }) : '0', placeholder: true, unit: CURRENCY_UNIT[to.currency] };
+      : // Written as the account writes money: «0,00» for dollars, «0» for сум (board «Обмен сумы → доллары»)
+        { text: formatMinor(autoInMinor ?? 0, to.currency, { unit: false }), placeholder: true, unit: CURRENCY_UNIT[to.currency] };
 
   let note = 'Перевод не попадает в расходы и аналитику — деньги просто меняют счёт.';
   if (exchange) {

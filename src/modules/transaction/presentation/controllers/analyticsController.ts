@@ -3,7 +3,8 @@ import { handleControllerError, handleControllerSuccess } from '../../../../shar
 import { createCurrentUserMiddleware, currentUserId } from '../../../../delivery/web/express/middleware/currentUserMiddleware';
 import { standardRateLimiter } from '../../../../delivery/web/express/middleware/rateLimitMiddleware';
 import { UserModule } from '../../../user/userModule';
-import { GetCategoryAnalyticsUseCase, GetMonthAnalyticsUseCase } from '../../application/getMonthAnalytics';
+import { GetMonthAnalyticsUseCase } from '../../application/getMonthAnalytics';
+import { GetCategoryAnalyticsUseCase } from '../../application/getCategoryAnalytics';
 
 /** GET /api/analytics?month&type, GET /api/analytics/categories/:id?month (FT-120). */
 export class AnalyticsController {

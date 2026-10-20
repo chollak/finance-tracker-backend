@@ -1,4 +1,6 @@
-import { GetCategoryAnalyticsUseCase, GetMonthAnalyticsUseCase } from '../src/modules/transaction/application/getMonthAnalytics';
+import { GetMonthAnalyticsUseCase } from '../src/modules/transaction/application/getMonthAnalytics';
+import { GetCategoryAnalyticsUseCase } from '../src/modules/transaction/application/getCategoryAnalytics';
+import { GetPeriodTotalsUseCase } from '../src/modules/transaction/application/getPeriodTotals';
 import { PeriodTotalsService } from '../src/modules/transaction/application/periodTotalsService';
 import { createAnalyticsRoutes } from '../src/modules/transaction/presentation/controllers/analyticsController';
 import { Transaction } from '../src/modules/transaction/domain/transactionEntity';
@@ -25,6 +27,7 @@ describe('analytics API with fair comparison (FT-120)', () => {
   let rate: { rateMinor: number; source: 'cbu' | 'own' } | null;
   let monthAnalytics: GetMonthAnalyticsUseCase;
   let categoryAnalytics: GetCategoryAnalyticsUseCase;
+  let periodTotals: GetPeriodTotalsUseCase;
 
   beforeEach(async () => {
     db = await openMigratedDatabase();
@@ -33,6 +36,7 @@ describe('analytics API with fair comparison (FT-120)', () => {
     const service = new PeriodTotalsService({ effectiveUsdRate: async () => rate });
     monthAnalytics = new GetMonthAnalyticsUseCase(records.repository, service, () => NOW);
     categoryAnalytics = new GetCategoryAnalyticsUseCase(records.repository, service, records.catalog, () => NOW);
+    periodTotals = new GetPeriodTotalsUseCase(records.repository, service);
   });
 
   afterEach(async () => {
@@ -79,7 +83,7 @@ describe('analytics API with fair comparison (FT-120)', () => {
 
       expect(result).toMatchObject({
         month: '2026-10', type: 'expense', today: '2026-10-14', currentMonth: '2026-10', firstMonth: '2026-08',
-        period: { from: '2026-10-01', to: '2026-10-14', wholeMonth: false },
+        period: { from: '2026-10-01', to: '2026-10-31', wholeMonth: false },
         previous: { month: '2026-09', from: '2026-09-01', to: '2026-09-14', wholeMonth: false },
         comparable: true,
         totalMinor: sum(160000),
@@ -207,6 +211,86 @@ describe('analytics API with fair comparison (FT-120)', () => {
     expect(result.categories.map(row => [row.name, row.sharePercent, row.change])).toEqual([['Продукты', 57, null], ['Кафе', 43, null]]);
   });
 
+  describe('review follow-ups (FT-141)', () => {
+    it('counts a record dated later this month in the current month, as Home\'s tiles do', async () => {
+      await record({ amount: 40000, date: '2026-09-03' });
+      await record({ amount: 60000, date: '2026-10-02' });
+      await record({ amount: 25000, date: '2026-10-20', description: 'Бронь столика' }); // after today, 14 October
+
+      const result = await month({ month: '2026-10' });
+
+      expect(result.period).toEqual({ month: '2026-10', from: '2026-10-01', to: '2026-10-31', wholeMonth: false });
+      // Still compared with the same days of September
+      expect(result.previous).toMatchObject({ from: '2026-09-01', to: '2026-09-14' });
+      expect(result.totalMinor).toBe(sum(85000));
+      const tiles = await periodTotals.execute({ userId: 'user-1', query: { from: '2026-10-01', to: '2026-10-31' } });
+      expect(tiles.success && tiles.data.expenseMinor).toBe(result.totalMinor);
+
+      const cafe = await ofCategory('Кафе', { month: '2026-10' });
+      expect(cafe.amountMinor).toBe(sum(85000));
+      expect(cafe.records.map(r => r.description)).toEqual(['Бронь столика', 'x']);
+      expect(cafe.days.find(day => day.date === '2026-10-20')).toEqual({ date: '2026-10-20', amountMinor: sum(25000), count: 1, hasUsd: false });
+    });
+
+    it('ends the first days on the 7th day of recording', async () => {
+      await record({ amount: 30000, date: '2026-10-09' }); // 6 days to 14 October, both included
+      expect((await month({})).insight).toEqual({ kind: 'too_early', days: 6, daysLeft: 1 });
+
+      await record({ amount: 30000, date: '2026-10-08' }); // now 7
+      expect((await month({})).insight).toMatchObject({ kind: 'largest', name: 'Кафе' });
+    });
+
+    it('tells the first days in the category too', async () => {
+      await record({ amount: 30000, date: '2026-10-12' });
+
+      const early = await ofCategory('Кафе');
+      expect(early).toMatchObject({ comparable: false, firstDays: { days: 3, daysLeft: 4 } });
+      expect((await month({})).firstDays).toEqual({ days: 3, daysLeft: 4 });
+
+      await record({ amount: 30000, date: '2026-09-20' });
+      const later = await ofCategory('Кафе');
+      expect(later.firstDays).toBeNull();
+      expect((await month({})).firstDays).toBeNull();
+    });
+
+    it('does not move the first month for deleted and archived records', async () => {
+      await records.repository.delete(await record({ amount: 70000, date: '2026-07-05' }));
+      await records.repository.archive(await record({ amount: 80000, date: '2026-08-05' }));
+      await record({ amount: 40000, date: '2026-09-03' });
+      await record({ amount: 60000, date: '2026-10-02' });
+
+      const september = await month({ month: '2026-09' });
+      expect(september).toMatchObject({ firstMonth: '2026-09', previous: null, comparable: false });
+      expect((await month({})).firstMonth).toBe('2026-09');
+      // Recording began on 3 September: 42 days
+      expect((await month({})).firstDays).toBeNull();
+    });
+
+    it('converts dollars of both periods at the one rate in effect now', async () => {
+      const accounts = new AccountModule(records.accountRepository, undefined, records.moveRepository);
+      const dollars = await accounts.getCreateAccountUseCase().execute({
+        userId: 'user-1', body: { name: 'Доллары', kind: 'cash', currency: 'USD', openingDate: '2026-08-01' },
+      });
+      if (!dollars.success) throw dollars.error;
+      const usd = (cents: number, date: string) => record({ amountMinor: cents, amount: undefined, currency: 'USD', accountId: dollars.data.id, date });
+      await usd(1000, '2026-09-05'); // 10,00 USD
+      await usd(2000, '2026-10-05'); // 20,00 USD
+
+      const cbu = await month({ month: '2026-10' });
+      // 12 650 сум за $1: 126 500 against 253 000
+      expect(cbu.categories.map(row => [row.name, row.amountMinor, row.previousMinor, row.hasUsd])).toEqual([
+        ['Кафе', sum(253000), sum(126500), true],
+      ]);
+      expect(cbu.usd).toEqual({ present: true, missingRate: false, rateMinor: 1265000, source: 'cbu' });
+
+      rate = { rateMinor: 1280000, source: 'own' };
+      const own = await month({ month: '2026-10' });
+      expect([own.totalMinor, own.previousTotalMinor]).toEqual([sum(256000), sum(128000)]);
+      expect(own.change).toEqual({ kind: 'up', percent: 100, diffMinor: sum(128000) });
+      expect(own.usd).toMatchObject({ rateMinor: 1280000, source: 'own' });
+    });
+  });
+
   it('is empty for a month without records', async () => {
     const result = await month({ month: '2026-10' });
     expect(result).toMatchObject({ firstMonth: '2026-10', totalMinor: 0, categories: [], insight: null, previous: null });
@@ -231,7 +315,7 @@ describe('analytics API with fair comparison (FT-120)', () => {
       expect(cafe).toMatchObject({
         month: '2026-10', today: '2026-10-14', firstMonth: '2026-09',
         category: { id: await categoryId('Кафе'), name: 'Кафе', type: 'expense' },
-        period: { from: '2026-10-01', to: '2026-10-14' },
+        period: { from: '2026-10-01', to: '2026-10-31' },
         previous: { from: '2026-09-01', to: '2026-09-14' },
         comparable: true,
         amountMinor: sum(608000),
@@ -245,7 +329,9 @@ describe('analytics API with fair comparison (FT-120)', () => {
 
     it('spends by day over the whole period', async () => {
       const cafe = await ofCategory('Кафе', { month: '2026-10' });
-      expect(cafe.days).toHaveLength(14);
+      // The whole calendar month (FT-141); days after today are empty unless a record is dated there
+      expect(cafe.days).toHaveLength(31);
+      expect(cafe.days[30]).toEqual({ date: '2026-10-31', amountMinor: 0, count: 0, hasUsd: false });
       expect(cafe.days[0]).toEqual({ date: '2026-10-01', amountMinor: sum(120000), count: 1, hasUsd: false });
       expect(cafe.days[4]).toEqual({ date: '2026-10-05', amountMinor: sum(343000), count: 2, hasUsd: false });
       expect(cafe.days[1]).toEqual({ date: '2026-10-02', amountMinor: 0, count: 0, hasUsd: false });

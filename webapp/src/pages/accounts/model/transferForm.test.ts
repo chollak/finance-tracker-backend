@@ -116,6 +116,15 @@ describe('exchange — different currencies', () => {
     expect(view.payload).toEqual({ kind: 'exchange', fromAccountId: 'card', toAccountId: 'usd', fromAmountMinor: 128_000_000, toAmountMinor: 10_119 });
   });
 
+  it('an empty «Получаю» is written as its account writes money: «0,00» for dollars, «0» for сум (FT-141)', () => {
+    const toDollars = transferView(chooseTransferAccount(start(), 'to', 'usd', BOARD), BOARD);
+    expect(toDollars.to.amount).toEqual({ text: '0,00', placeholder: true, unit: 'USD' });
+
+    const toSum = transferView(start('usd'), BOARD);
+    expect(toSum.kind).toBe('exchange');
+    expect(toSum.to.amount).toEqual({ text: '0', placeholder: true, unit: 'сум' });
+  });
+
   it('a typed «Получаю» gives the deal rate and the difference with the Central Bank in words', () => {
     const view = transferView(boardExchange(), BOARD);
 
@@ -207,7 +216,7 @@ describe('exchange — different currencies', () => {
     let state = typeKeys(chooseTransferAccount(start(undefined, context), 'to', 'usd', context), digits('1280000'), context);
     const waiting = transferView(state, context);
     expect(waiting.to.byCbu).toBe(false);
-    expect(waiting.to.amount).toEqual({ text: '0', placeholder: true, unit: 'USD' });
+    expect(waiting.to.amount).toEqual({ text: '0,00', placeholder: true, unit: 'USD' });
     expect(waiting.button).toEqual({ label: 'Введите, сколько получили', ready: false });
 
     state = typeKeys(focusTransferField(state, 'in', context), digits('100'), context);

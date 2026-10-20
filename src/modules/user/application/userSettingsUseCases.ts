@@ -126,8 +126,7 @@ export class UpdateUserSettingsUseCase {
         return ResultHelper.failure(new ValidationError('defaultAccountId must be one of your visible accounts', 'defaultAccountId'));
       }
 
-      const current = (await this.repository.findByUserId(input.userId)) ?? defaultUserSettings(input.userId);
-      const saved = await this.repository.upsert({ ...current, ...validated.data, userId: input.userId });
+      const saved = await this.repository.write(input.userId, validated.data);
       return ResultHelper.success(saved);
     } catch (error) {
       logger.error('Failed to save settings', error as Error);

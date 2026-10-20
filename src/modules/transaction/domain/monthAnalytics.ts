@@ -22,7 +22,8 @@ export interface AnalyticsPeriod {
   to: string;
   /**
    * A whole month: a month that is over, or the previous month compared in full. The current month is never
-   * whole — it is «1–14 октября» even on its last day.
+   * whole — it is «1–14 октября» even on its last day: its records are the whole calendar month (a record dated
+   * after today counts, as on Home's tiles), compared with the days of the previous month up to today's.
    */
   wholeMonth: boolean;
 }
@@ -122,10 +123,23 @@ export function trackingDaysOf(firstRecordDate: string | null, today: string): n
   return Math.max(0, dayNumber(today) - dayNumber(firstRecordDate) + 1);
 }
 
+/** The first days of recording: no comparison and no insight yet («Пока записи за 3 дня — выводы через 4 дня»). */
+export interface AnalyticsFirstDays {
+  days: number;
+  daysLeft: number;
+}
+
+/** The first days while they last, else null (the 7th day of recording ends them). */
+export function firstDaysOf(trackingDays: number): AnalyticsFirstDays | null {
+  if (trackingDays >= ANALYTICS_RULES.firstDays) return null;
+  return { days: trackingDays, daysLeft: ANALYTICS_RULES.firstDays - trackingDays };
+}
+
 /**
- * The month and what it is compared with: the current month up to today against the same days of the previous
- * month («1–14 октября» against «1–14 сентября»), a past month and income of the current month against the whole
- * previous month. Nothing before the first month of recording.
+ * The month and what it is compared with: the current month against the same days of the previous month, up to
+ * today's («1–14 октября» against «1–14 сентября»), a past month and income of the current month against the whole
+ * previous month. The current month's records are the whole calendar month, as on Home's tiles (FT-141): a record
+ * dated later this month counts in it. Nothing before the first month of recording.
  */
 export function analyticsPeriods(input: { month: string; today: string; type: AnalyticsType; firstMonth: string }): {
   period: AnalyticsPeriod;
@@ -133,13 +147,12 @@ export function analyticsPeriods(input: { month: string; today: string; type: An
 } {
   const { month, today, type, firstMonth } = input;
   const ongoing = month === today.slice(0, 7);
-  const lastDay = ongoing ? Number(today.slice(8, 10)) : daysInMonth(month);
-  const period: AnalyticsPeriod = { month, from: `${month}-01`, to: `${month}-${pad(lastDay)}`, wholeMonth: !ongoing };
+  const period: AnalyticsPeriod = { month, from: `${month}-01`, to: `${month}-${pad(daysInMonth(month))}`, wholeMonth: !ongoing };
 
   const previousMonth = shiftMonth(month, -1);
   if (previousMonth < firstMonth) return { period, previous: null };
   const previousDays = daysInMonth(previousMonth);
-  const previousTo = ongoing && type === 'expense' ? Math.min(lastDay, previousDays) : previousDays;
+  const previousTo = ongoing && type === 'expense' ? Math.min(Number(today.slice(8, 10)), previousDays) : previousDays;
   return {
     period,
     previous: {
@@ -194,9 +207,8 @@ function insightOf(
   context: { type: AnalyticsType; comparable: boolean; soFar: boolean; trackingDays: number; totalMinor: number }
 ): AnalyticsInsight | null {
   if (context.totalMinor <= 0 || rows.length === 0) return null;
-  if (context.trackingDays < ANALYTICS_RULES.firstDays) {
-    return { kind: 'too_early', days: context.trackingDays, daysLeft: ANALYTICS_RULES.firstDays - context.trackingDays };
-  }
+  const firstDays = firstDaysOf(context.trackingDays);
+  if (firstDays) return { kind: 'too_early', ...firstDays };
 
   if (context.comparable) {
     // Income comes rarely (a salary once a month), so its categories take part whatever their count
@@ -243,7 +255,7 @@ export function buildMonthAnalytics(input: {
 
   const totalMinor = totalOf(current);
   const previousTotal = previous && prior ? totalOf(prior) : 0;
-  const comparable = trackingDays >= ANALYTICS_RULES.firstDays && previous !== null && previousTotal > 0;
+  const comparable = firstDaysOf(trackingDays) === null && previous !== null && previousTotal > 0;
   const soFar = type === 'income' && !period.wholeMonth;
 
   const now = categoriesOf(current)

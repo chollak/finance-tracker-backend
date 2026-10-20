@@ -10,6 +10,7 @@ import type { UsdRates } from '@/entities/rate';
 import { useUserStore } from '@/entities/user';
 import { useRecordSheetStore } from '@/features/record-sheet';
 import { apiClient } from '@/shared/api';
+import { pastelColors, type PastelColorName } from '@/shared/config/pastelTokens';
 import { addDays, dayMonth, toLocalDate } from '@/shared/lib/dates';
 import { MINUS, NBSP } from '@/shared/lib/money';
 import { useUndoToastStore } from '@/shared/lib/undo';
@@ -162,6 +163,21 @@ async function keys(...names: string[]) {
   for (const name of names) await press(name);
 }
 const dialog = () => document.body.querySelector<HTMLElement>('[role="dialog"]');
+
+/** The colour token a `bg-<token>` class paints the element with. */
+function backgroundToken(element: Element): PastelColorName | undefined {
+  return [...element.classList]
+    .map((name) => name.slice(3))
+    .find((name): name is PastelColorName => name in pastelColors.light);
+}
+/** A switch in a sheet shows its chosen segment as a knob on the track, in the light and the dark theme (FT-141). */
+function expectKnobShows(groupName: string) {
+  const group = document.body.querySelector(`[role="dialog"] [role="group"][aria-label="${groupName}"]`)!;
+  const knob = group.querySelector('[aria-pressed="true"]')!;
+  const track = backgroundToken(group)!;
+  const chosen = backgroundToken(knob)!;
+  for (const theme of ['light', 'dark'] as const) expect(pastelColors[theme][chosen]).not.toBe(pastelColors[theme][track]);
+}
 
 describe('Account screen', () => {
   it('shows the balance, the opening balance with its date, the two actions and the operations by day', async () => {
@@ -319,6 +335,14 @@ describe('Account screen', () => {
     await press('Скрыть счёт');
     expect(apiClient.patch).toHaveBeenLastCalledWith('/accounts/card', { isHidden: true });
     expect(router.state.location.pathname).toBe('/accounts');
+  });
+
+  it('«Изменить» of an account without operations switches the currency with a visible knob in both themes (FT-141)', async () => {
+    operations = { account: { ...CARD, hasOperations: false }, days: [] };
+    await renderAccount();
+
+    await press('Изменить');
+    expectKnobShows('Валюта счёта');
   });
 
   it('«Скрыть счёт» takes the name typed and not saved along, and «Отменить» brings both back', async () => {

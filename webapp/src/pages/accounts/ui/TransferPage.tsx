@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { ArrowLeftRight } from 'lucide-react';
 import { createMove, deleteMove, useAccounts, visibleAccounts } from '@/entities/account';
@@ -107,7 +107,8 @@ function LoadingForm() {
 /**
  * The form itself, once the accounts are known: its state, the pickers, the keypad from the screen and from a
  * computer keyboard, and the write. A written move closes the form; the screen that opened it shows «Перевод записан»
- * / «Обмен записан» with «Отменить», which deletes the move (both balances come back).
+ * / «Обмен записан» with «Отменить», which deletes the move (both balances come back). Left with «Назад» while the
+ * move is written, the form is already closed: the move and its toast still come, another step back does not.
  */
 function TransferForm({ context, fromId }: { context: TransferContext; fromId: string | null }) {
   const [state, setState] = useState<TransferState | null>(() => startTransfer(context.accounts, fromId));
@@ -115,6 +116,14 @@ function TransferForm({ context, fromId }: { context: TransferContext; fromId: s
   const write = useAccountWrite();
   const { clearError } = write;
   const close = useCloseScreen();
+  const mounted = useRef(true);
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
 
   const onState = useCallback(
     (change: (current: TransferState) => TransferState) => {
@@ -138,7 +147,7 @@ function TransferForm({ context, fromId }: { context: TransferContext; fromId: s
     const { queryClient, userId } = write;
     const { id } = done.value;
     showUndoToast({ kind: 'saved', ...saved, undo: () => deleteMove(queryClient, userId, id) });
-    close();
+    if (mounted.current) close();
   };
 
   return (
@@ -180,7 +189,9 @@ function TransferFormView({
   const focus = (field: TransferField) => onState((current) => focusTransferField(current, field, context));
 
   return (
-    <div className="mx-auto flex h-[calc(100dvh-env(safe-area-inset-bottom))] w-full max-w-md flex-col gap-2.5 bg-bg px-4 pb-6 pt-2 text-ink">
+    // At least the screen high, the keypad at its foot; on a short screen (375×640) the form grows and scrolls
+    // with the page, keeping its bottom padding under the button
+    <div className="mx-auto flex min-h-[calc(100dvh-env(safe-area-inset-bottom))] w-full max-w-md flex-col gap-2.5 bg-bg px-4 pb-6 pt-2 text-ink">
       <p role="status" className="sr-only">
         {view.liveText}
       </p>

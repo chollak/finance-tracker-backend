@@ -67,7 +67,8 @@ export function NewAccountSheet({ open, onOpenChange }: { open: boolean; onOpenC
         value={draft.kind}
         onChange={(kind) => setDraft((current) => ({ ...current, kind }))}
         ariaLabel="Тип счёта"
-        className="shrink-0 bg-sheet-track"
+        inSheet
+        className="shrink-0"
       />
       <Segmented
         options={CURRENCY_OPTIONS}
@@ -75,7 +76,8 @@ export function NewAccountSheet({ open, onOpenChange }: { open: boolean; onOpenC
         // Another currency is another number: the balance is typed again
         onChange={(currency) => setDraft((current) => ({ ...current, currency, amount: NEW_ACCOUNT.amount }))}
         ariaLabel="Валюта счёта"
-        className="shrink-0 bg-sheet-track"
+        inSheet
+        className="shrink-0"
       />
       <AmountCard label="Сколько на нём сейчас" amount={view.amount} note="Это начальный остаток — он не попадёт в доходы." />
       {!typingName && (
@@ -216,7 +218,8 @@ export function RateSheet({
           setState((current) => chooseRateMode(current, mode, rates));
         }}
         ariaLabel="Какой курс использовать"
-        className="shrink-0 bg-sheet-track"
+        inSheet
+        className="shrink-0"
       />
       {view.cbu && (
         <div className="flex shrink-0 flex-col gap-1 rounded-card bg-sheet-card px-4 py-3.5">
