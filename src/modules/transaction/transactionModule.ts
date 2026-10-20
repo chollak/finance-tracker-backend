@@ -98,7 +98,7 @@ export class TransactionModule {
   }
 
   getTransactionHistoryUseCase(): GetTransactionHistoryUseCase {
-    return new GetTransactionHistoryUseCase(this.repository);
+    return new GetTransactionHistoryUseCase(this.repository, this.periodTotals);
   }
 
   /** Income and expenses of a period for the month tiles on Home (FT-111). */

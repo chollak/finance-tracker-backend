@@ -68,4 +68,11 @@ describe('local dates', () => {
     expect(dayGroupLabel('2026-10-17', '2026-10-19')).toBe('Суббота, 17 октября');
     expect(dayGroupLabel('2025-12-31', '2026-10-19')).toBe('Среда, 31 декабря 2025');
   });
+
+  it('History names the date after «Сегодня» and «Вчера» too (FT-116, board «История»)', () => {
+    expect(dayGroupLabel('2026-10-14', '2026-10-14', { withDate: true })).toBe('Сегодня, 14 октября');
+    expect(dayGroupLabel('2026-10-13', '2026-10-14', { withDate: true })).toBe('Вчера, 13 октября');
+    expect(dayGroupLabel('2026-10-12', '2026-10-14', { withDate: true })).toBe('Понедельник, 12 октября');
+    expect(dayGroupLabel('2025-12-31', '2026-01-01', { withDate: true })).toBe('Вчера, 31 декабря 2025');
+  });
 });

@@ -18,7 +18,7 @@ export class PeriodTotalsService {
   }
 
   /** The rate dollars in these records convert at, or null (no dollars, or no rate yet). */
-  async usdRateFor(userId: string, records: Transaction[]): Promise<number | null> {
+  async usdRateFor(userId: string, records: ReadonlyArray<Pick<Transaction, 'currency'>>): Promise<number | null> {
     if (!this.rates || !records.some(record => record.currency === 'USD')) return null;
     return (await this.rates.effectiveUsdRate(userId))?.rateMinor ?? null;
   }

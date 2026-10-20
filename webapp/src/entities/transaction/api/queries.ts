@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/shared/api';
 import { API_ENDPOINTS } from '@/shared/lib/constants';
 import type { Transaction } from '@/shared/types';
@@ -8,7 +8,8 @@ import { transactionDataSource } from '@/shared/lib/db';
 import type { LocalTransaction } from '@/shared/lib/db/schema';
 import { isGuestId } from '@/shared/lib/utils/guestId';
 import { useUserStore } from '@/entities/user';
-import type { FrequentRecord, PeriodTotals } from '../model/types';
+import type { FrequentRecord, HistoryPage, HistoryQuery, PeriodTotals } from '../model/types';
+import { deviceHistoryPage, parseHistorySearch } from '../lib/historySearch';
 
 /**
  * Convert LocalTransaction to Transaction format
@@ -222,30 +223,6 @@ export function useMonthlyTrends(userId: string | null, months: number = 12) {
 }
 
 /**
- * Hook to fetch archived transactions for a user
- * Guest users: returns empty array (no server call)
- */
-export function useArchivedTransactions(userId: string | null) {
-  const isGuest = userId ? isGuestId(userId) : false;
-
-  return useQuery({
-    queryKey: transactionKeys.archived(userId || ''),
-    queryFn: async () => {
-      // Guest users: return empty archived list
-      if (isGuest) return [];
-
-      const response = await apiClient.get<Transaction[]>(
-        API_ENDPOINTS.TRANSACTIONS.ARCHIVE.LIST(userId!)
-      );
-
-      const transactions = response.data || [];
-      return transactions.map(transactionToViewModel);
-    },
-    enabled: !!userId && !isGuest,
-  });
-}
-
-/**
  * The newest records of the signed-in user — the recent list on Home (FT-111). Read through the history
  * API (FT-107: the user from authentication, newest first by date and time of creation), so every record
  * carries its amount in minor units, its currency and its category id. Guests read the device's records.
@@ -307,5 +284,45 @@ export function useFrequentRecords() {
       return response.data?.items ?? [];
     },
     enabled: !!userId && userType === 'telegram',
+  });
+}
+
+/**
+ * History (FT-116): the records the search and the filters find, newest first, a page at a time —
+ * `GET /api/transactions` with `q`, `categoryIds`, `accountIds` and the cursor of the page before (FT-107; the user
+ * from authentication). The first page of a narrowed History sums up all it found. While a new search is read the
+ * list of the one before stays on screen. Guests search the device's records here, by the same rules.
+ */
+export function useRecordHistory(query: HistoryQuery) {
+  const userId = useUserStore((state) => state.userId);
+  const userType = useUserStore((state) => state.userType);
+  // «такси» and «такси » are one search
+  const normalized: HistoryQuery = { ...query, text: parseHistorySearch(query.text) ? query.text.trim() : '' };
+
+  return useInfiniteQuery({
+    queryKey: transactionKeys.history(userId ?? '', normalized),
+    queryFn: async ({ pageParam }): Promise<HistoryPage> => {
+      if (userType === 'guest') {
+        const local = await transactionDataSource.getAll();
+        return deviceHistoryPage(local.map(localToTransaction), normalized);
+      }
+      const response = await apiClient.get<HistoryPage>(
+        API_ENDPOINTS.TRANSACTIONS.HISTORY({
+          q: normalized.text || undefined,
+          categoryIds: normalized.categoryId ? [normalized.categoryId] : undefined,
+          accountIds: normalized.accountId ? [normalized.accountId] : undefined,
+          cursor: pageParam ?? undefined,
+        })
+      );
+      return {
+        items: response.data?.items ?? [],
+        nextCursor: response.data?.nextCursor ?? null,
+        summary: response.data?.summary ?? null,
+      };
+    },
+    initialPageParam: null as string | null,
+    getNextPageParam: (last) => last.nextCursor,
+    placeholderData: keepPreviousData,
+    enabled: !!userId && userType !== null,
   });
 }

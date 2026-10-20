@@ -8,7 +8,7 @@ import type { ReactNode } from 'react';
 import { HomePage, TransactionsPage } from '@/pages';
 import { accountKeys } from '@/entities/account';
 import { categoryKeys } from '@/entities/category';
-import { transactionKeys, transactionToViewModel } from '@/entities/transaction';
+import { transactionKeys } from '@/entities/transaction';
 import { useUserStore } from '@/entities/user';
 import { useRecordSheetStore } from '@/features/record-sheet';
 import { ROUTES } from '@/shared/lib/constants/routes';
@@ -89,6 +89,16 @@ describe('ways to the record sheet', () => {
     return client;
   }
 
+  /** Home's reads, and History as it opens (FT-116): one page with t4, nothing narrowed. */
+  function historyData(): QueryClient {
+    const client = homeData();
+    client.setQueryData(transactionKeys.history(USER_ID, { text: '', categoryId: null, accountId: null }), {
+      pages: [{ items: [T4], nextCursor: null, summary: null }],
+      pageParams: [null],
+    });
+    return client;
+  }
+
   async function renderAt(client: QueryClient, path: string, element: ReactNode) {
     const router = createMemoryRouter([{ path: path.split('?')[0], element }], { initialEntries: [path] });
     await act(async () => {
@@ -139,9 +149,7 @@ describe('ways to the record sheet', () => {
   });
 
   it('a sheet stays on the screen it was opened on: leaving History (Telegram «Назад») does not carry it to Home', async () => {
-    const client = homeData();
-    client.setQueryData(transactionKeys.list(USER_ID), [transactionToViewModel(T4)]);
-    client.setQueryData(transactionKeys.archived(USER_ID), []);
+    const client = historyData();
     const router = createMemoryRouter(
       [
         { path: ROUTES.HOME, element: <HomePage /> },
@@ -156,7 +164,7 @@ describe('ways to the record sheet', () => {
         </QueryClientProvider>
       );
     });
-    await press(`Изменить: Обед с командой, ${transactionToViewModel(T4)._formattedAmount}`);
+    await press(`Кафе, ${MINUS}145${NBSP}000${NBSP}сум, Обед с командой. Открыть`);
     expect(document.body.textContent).toContain('Изменения сохраняются сразу');
 
     await act(async () => router.navigate(-1));
@@ -166,15 +174,16 @@ describe('ways to the record sheet', () => {
     expect(useRecordSheetStore.getState().target).toBeNull();
   });
 
-  it('in History a row opens the sheet too, instead of the removed edit page', async () => {
-    const client = homeData();
-    client.setQueryData(transactionKeys.list(USER_ID), [transactionToViewModel(T4)]);
-    client.setQueryData(transactionKeys.archived(USER_ID), []);
-    await renderAt(client, ROUTES.TRANSACTIONS, <TransactionsPage />);
+  it('in History a row opens the sheet too, its category circle the choice of a category (FT-116)', async () => {
+    await renderAt(historyData(), ROUTES.TRANSACTIONS, <TransactionsPage />);
 
-    await press(`Изменить: Обед с командой, ${transactionToViewModel(T4)._formattedAmount}`);
+    await press(`Кафе, ${MINUS}145${NBSP}000${NBSP}сум, Обед с командой. Открыть`);
 
     expect(useRecordSheetStore.getState().target).toMatchObject({ id: 't4', view: 'sheet' });
     expect(document.body.textContent).toContain('Изменения сохраняются сразу');
+
+    act(() => useRecordSheetStore.setState({ target: null }));
+    await press(`Сменить категорию: Кафе, ${MINUS}145${NBSP}000${NBSP}сум`);
+    expect(useRecordSheetStore.getState().target).toMatchObject({ id: 't4', view: 'category' });
   });
 });

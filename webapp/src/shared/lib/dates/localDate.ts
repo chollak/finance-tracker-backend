@@ -71,15 +71,17 @@ export function monthBounds(value: LocalDate): { from: LocalDate; to: LocalDate 
 
 /**
  * Day of a list grouped by days (docs/pastel/components/TransactionList.md): «Сегодня», «Вчера», then
- * «Понедельник, 12 октября»; a day of another year carries the year.
+ * «Понедельник, 12 октября»; a day of another year carries the year. History names the date after «Сегодня» and
+ * «Вчера» too (`withDate`, board «История»): «Сегодня, 14 октября».
  */
-export function dayGroupLabel(value: LocalDate, today: LocalDate): string {
-  if (value === today) return 'Сегодня';
-  if (value === addDays(today, -1)) return 'Вчера';
+export function dayGroupLabel(value: LocalDate, today: LocalDate, options: { withDate?: boolean } = {}): string {
   const { year, month, day } = parseLocalDate(value);
-  const weekday = WEEKDAYS_LONG[new Date(year, month - 1, day).getDay()];
   const sameYear = year === parseLocalDate(today).year;
-  return `${weekday}, ${dayMonth(value)}${sameYear ? '' : ` ${year}`}`;
+  const date = `${dayMonth(value)}${sameYear ? '' : ` ${year}`}`;
+  const relative = value === today ? 'Сегодня' : value === addDays(today, -1) ? 'Вчера' : null;
+  if (relative) return options.withDate ? `${relative}, ${date}` : relative;
+  const weekday = WEEKDAYS_LONG[new Date(year, month - 1, day).getDay()];
+  return `${weekday}, ${date}`;
 }
 
 /** «Сегодня», «Вчера» or «14 октября». */

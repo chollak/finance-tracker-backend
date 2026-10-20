@@ -72,6 +72,7 @@ describe('Enhanced Analytics Service', () => {
       findByIdIncludingDeleted: jest.fn(),
       findByClientId: jest.fn(),
       findHistory: jest.fn(),
+      findHistoryAmounts: jest.fn(),
       update: jest.fn(),
       getByUserIdAndDateRange: jest.fn(),
       // Archive methods

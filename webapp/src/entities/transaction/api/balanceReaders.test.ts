@@ -31,3 +31,17 @@ describe('what a change of records refreshes on Home (FT-114)', () => {
     expect(client.getQueryState(transactionKeys.frequent('user-2'))?.isInvalidated).toBe(false);
   });
 });
+
+describe('what a change of records refreshes in History (FT-116)', () => {
+  it('every search and filter of that user’s History: a deleted or changed record leaves or moves', async () => {
+    const client = new QueryClient();
+    const searched = transactionKeys.history('user-1', { text: 'такси', categoryId: null, accountId: 'cash' });
+    const whole = transactionKeys.history('user-1', { text: '', categoryId: null, accountId: null });
+    const theirs = transactionKeys.history('user-2', { text: '', categoryId: null, accountId: null });
+    for (const key of [searched, whole, theirs]) client.setQueryData(key, {});
+
+    for (const queryKey of balanceReaderKeys('user-1')) await client.invalidateQueries({ queryKey });
+
+    expect([searched, whole, theirs].map((key) => client.getQueryState(key)?.isInvalidated)).toEqual([true, true, false]);
+  });
+});

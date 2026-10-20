@@ -2,13 +2,15 @@ import { DataSource, Repository, SelectQueryBuilder } from 'typeorm';
 import { QueryDeepPartialEntity } from 'typeorm/query-builder/QueryPartialEntity';
 import { AppDataSource } from '../../../../shared/infrastructure/database/database.config';
 import { Transaction as TransactionEntity, TransactionType } from '../../../../shared/infrastructure/database/entities/Transaction';
+import { Account as AccountEntity } from '../../../../shared/infrastructure/database/entities/Account';
 import { TransactionRepository } from '../../domain/transactionRepository';
 import { Transaction } from '../../domain/transactionEntity';
 import { normalizeSemanticType } from '../../domain/transactionSemanticType';
 import { normalizeNeedsReview } from '../../domain/transactionEntity';
 import { fromMinor, minorOf, toMinor } from '../../../../shared/domain/money/money';
 import { isRecordCurrency, isRecordSource } from '../../domain/recordSource';
-import { HistoryCursor, HistoryFilters, HistoryPage, recordSearchText } from '../../domain/transactionHistory';
+import { searchKey } from '../../../../shared/domain/text/searchKey';
+import { HistoryAmount, HistoryCursor, HistoryFilters, HistoryPage, recordSearchText } from '../../domain/transactionHistory';
 
 /** «50%» is searched as text: LIKE wildcards in the query are escaped. */
 function likeContains(key: string): string {
@@ -20,9 +22,11 @@ const CREATED_AT = "strftime('%Y-%m-%d %H:%M:%f', transaction.createdAt)";
 
 export class SqliteTransactionRepository implements TransactionRepository {
   private repository: Repository<TransactionEntity>;
+  private accounts: Repository<AccountEntity>;
 
   constructor(dataSource: DataSource = AppDataSource) {
     this.repository = dataSource.getRepository(TransactionEntity);
+    this.accounts = dataSource.getRepository(AccountEntity);
   }
 
   /**
@@ -115,20 +119,39 @@ export class SqliteTransactionRepository implements TransactionRepository {
   }
 
   /**
-   * One page of history (FT-107). The query matches the note or merchant (`search_text`) or the
-   * category's current name (`name_key`, kept by the category module), so a renamed category is found
-   * by its new name at once. Ordered by date, creation time and id, newest first; the cursor is where
-   * the previous page ended.
+   * The user's records history filters find (FT-107), not archived, not deleted. Every word of a search
+   * (FT-116, SearchField.md) is matched in the note or merchant (`search_text`), the category's current name
+   * (`name_key`, kept by the category module) or the account's name — so a renamed category is found by its
+   * new name at once — and the digits start the amount in whole сум or dollars.
    */
-  async findHistory(userId: string, filters: HistoryFilters, cursor: HistoryCursor | null, limit: number): Promise<HistoryPage> {
+  private async historyQuery(userId: string, filters: HistoryFilters): Promise<SelectQueryBuilder<TransactionEntity>> {
     const builder = this.query()
       .andWhere('transaction.userId = :userId', { userId })
       .andWhere('transaction.isArchived = :isArchived', { isArchived: false });
 
-    if (filters.q) {
-      builder.andWhere("(transaction.searchText LIKE :pattern ESCAPE '\\' OR category.nameKey LIKE :pattern ESCAPE '\\')", {
-        pattern: likeContains(filters.q),
+    const { search } = filters;
+    if (search) {
+      // Account names are few and kept as typed: matched in code, where Cyrillic case folds
+      const accountKeys = search.words.length > 0
+        ? (await this.accounts.find({ where: { userId }, select: { id: true, name: true } }))
+          .map(account => ({ id: account.id, key: searchKey(account.name) }))
+        : [];
+      search.words.forEach((word, index) => {
+        const accountIds = accountKeys.filter(account => account.key.includes(word)).map(account => account.id);
+        const matches = [
+          `transaction.searchText LIKE :word${index} ESCAPE '\\'`,
+          `category.nameKey LIKE :word${index} ESCAPE '\\'`,
+          ...(accountIds.length > 0 ? [`transaction.accountId IN (:...wordAccounts${index})`] : []),
+        ];
+        builder.andWhere(`(${matches.join(' OR ')})`, {
+          [`word${index}`]: likeContains(word),
+          ...(accountIds.length > 0 ? { [`wordAccounts${index}`]: accountIds } : {}),
+        });
       });
+      if (search.amountDigits) {
+        // Whole сум or dollars: minor units are hundredths, and integer division drops them
+        builder.andWhere('CAST(transaction.amountMinor / 100 AS TEXT) LIKE :amountPrefix', { amountPrefix: `${search.amountDigits}%` });
+      }
     }
     if (filters.categoryIds?.length) builder.andWhere('transaction.categoryId IN (:...categoryIds)', { categoryIds: filters.categoryIds });
     if (filters.accountIds?.length) builder.andWhere('transaction.accountId IN (:...accountIds)', { accountIds: filters.accountIds });
@@ -138,6 +161,15 @@ export class SqliteTransactionRepository implements TransactionRepository {
     // By the day: older records may keep a full moment in `date` (written before FT-100)
     if (filters.from) builder.andWhere('substr(transaction.date, 1, 10) >= :from', { from: filters.from });
     if (filters.to) builder.andWhere('substr(transaction.date, 1, 10) <= :to', { to: filters.to });
+    return builder;
+  }
+
+  /**
+   * One page of history (FT-107), ordered by date, creation time and id, newest first; the cursor is where
+   * the previous page ended.
+   */
+  async findHistory(userId: string, filters: HistoryFilters, cursor: HistoryCursor | null, limit: number): Promise<HistoryPage> {
+    const builder = await this.historyQuery(userId, filters);
     if (cursor) {
       builder.andWhere(
         `(transaction.date < :cursorDate
@@ -160,6 +192,21 @@ export class SqliteTransactionRepository implements TransactionRepository {
       ? { date: last.date, createdAt: last.createdAt!, id: last.id! }
       : null;
     return { items, next };
+  }
+
+  /** Every record the filters find, all pages, as much as a summary needs (FT-116). */
+  async findHistoryAmounts(userId: string, filters: HistoryFilters): Promise<HistoryAmount[]> {
+    const builder = await this.historyQuery(userId, filters);
+    const rows: Array<{ type: string; currency: string | null; amountMinor: number | string }> = await builder
+      .select('transaction.type', 'type')
+      .addSelect('transaction.currency', 'currency')
+      .addSelect('transaction.amountMinor', 'amountMinor')
+      .getRawMany();
+    return rows.map(row => ({
+      type: row.type === TransactionType.INCOME ? 'income' : 'expense',
+      currency: isRecordCurrency(row.currency) ? row.currency : 'UZS',
+      amountMinor: Number(row.amountMinor),
+    }));
   }
 
   /** A record by id even if it is deleted — to restore it, or to answer a repeated create (FT-106). */

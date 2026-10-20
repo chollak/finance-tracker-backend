@@ -1,6 +1,6 @@
 // src/domain/transactionRepository.ts
 import { Transaction } from "./transactionEntity";
-import { HistoryCursor, HistoryFilters, HistoryPage } from "./transactionHistory";
+import { HistoryAmount, HistoryCursor, HistoryFilters, HistoryPage } from "./transactionHistory";
 
 export interface TransactionRepository {
     create(transaction: Transaction): Promise<Transaction>;
@@ -20,6 +20,8 @@ export interface TransactionRepository {
     findByClientId(userId: string, clientId: string): Promise<Transaction[]>;
     /** One page of the user's history (FT-107), newest first; not archived, not deleted. */
     findHistory(userId: string, filters: HistoryFilters, cursor: HistoryCursor | null, limit: number): Promise<HistoryPage>;
+    /** Type, currency and amount of every record the same filters find, all pages: the summary of a search (FT-116). */
+    findHistoryAmounts(userId: string, filters: HistoryFilters): Promise<HistoryAmount[]>;
     update(id: string, updates: Partial<Transaction>): Promise<Transaction>;
     getByUserIdAndDateRange(userId: string, startDate: Date, endDate: Date): Promise<Transaction[]>;
 

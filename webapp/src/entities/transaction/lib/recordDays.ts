@@ -2,6 +2,7 @@ import type { Transaction } from '@/shared/types';
 import { dayGroupLabel, toLocalDate, type LocalDate } from '@/shared/lib/dates';
 import { formatMinor, type Currency } from '@/shared/lib/money';
 import { isPastelColor, type PastelColor } from '@/shared/lib/pastel/categoryColors';
+import { formatNetMinor, netInUzs } from './historySearch';
 
 /** What a row shows of the record's category: its current name and pastel colour. */
 export interface RecordCategory {
@@ -14,23 +15,46 @@ export interface RecordRow {
   /** The category's name. */
   title: string;
   color: PastelColor;
-  /** The note, else the merchant, else «Без заметки». */
+  /** The note, else the merchant, else «Без заметки»; in History followed by the account: «Супермаркет · Карта». */
   note: string;
   /** «−186 400», «+12 500 000», «+300,00 USD»: сум without a unit, other currencies with one. */
   amount: string;
   /** Income is green with «+», expenses ink with «−». */
   tone: 'income' | 'expense';
-  /** «Продукты, −186 400 сум, Супермаркет. Открыть». */
+  /** «Продукты, −186 400 сум, Супермаркет. Открыть»; in History the account after the note. */
   ariaLabel: string;
   /** The category circle (FT-115): «Сменить категорию: Продукты, −186 400 сум». */
   categoryAriaLabel: string;
 }
 
+/** History's total of a day (TransactionList.md): in сум with its sign; income green, expenses muted. */
+export interface DayTotal {
+  /** «−210 400 сум», «≈ +16 118 000 сум». */
+  text: string;
+  tone: 'income' | 'muted';
+}
+
 export interface RecordDay {
   day: LocalDate;
-  /** «Сегодня», «Вчера», «Понедельник, 12 октября». */
+  /** «Сегодня», «Вчера», «Понедельник, 12 октября»; History: «Сегодня, 14 октября». */
   label: string;
   rows: RecordRow[];
+  /** History only, and only when it is known: not for dollars without a rate, nor for a day the next page goes on. */
+  total?: DayTotal;
+}
+
+export interface RecordDaysOptions {
+  today: LocalDate;
+  categoryOf: (record: Transaction) => RecordCategory | undefined;
+  /** History: the account's name after the note (board «История»). */
+  accountOf?: (record: Transaction) => string | undefined;
+  /** History: «Сегодня, 14 октября» instead of «Сегодня». */
+  datedLabels?: boolean;
+  /**
+   * History: each day's total in сум, dollars at `rateMinor`. `lastDayComplete: false` while the next page is not
+   * read — the last day may go on there, so its total waits.
+   */
+  dayTotals?: { rateMinor: number | null; lastDayComplete: boolean };
 }
 
 const NO_NOTE = 'Без заметки';
@@ -49,26 +73,28 @@ function amountMinorOf(record: Transaction): number {
 /**
  * Rows of a list grouped by day (docs/pastel/components/TransactionList.md), in the order the records came
  * (newest first from the API). The category comes from the user's list by id (`categoryOf`); a record
- * whose category is not there keeps the name and colour it was sent with.
+ * whose category is not there keeps the name and colour it was sent with. History adds the account to the note,
+ * the date to «Сегодня» and «Вчера», and each day's total.
  */
-export function buildRecordDays(
-  records: readonly Transaction[],
-  options: { today: LocalDate; categoryOf: (record: Transaction) => RecordCategory | undefined }
-): RecordDay[] {
+export function buildRecordDays(records: readonly Transaction[], options: RecordDaysOptions): RecordDay[] {
   const days: RecordDay[] = [];
+  const recordsOfDay = new Map<LocalDate, Transaction[]>();
 
   for (const record of records) {
     const day = recordDay(record.date);
     let group = days.find((item) => item.day === day);
     if (!group) {
-      group = { day, label: dayGroupLabel(day, options.today), rows: [] };
+      group = { day, label: dayGroupLabel(day, options.today, { withDate: options.datedLabels }), rows: [] };
       days.push(group);
+      recordsOfDay.set(day, []);
     }
+    recordsOfDay.get(day)!.push(record);
 
     const category = options.categoryOf(record);
     const title = category?.name ?? record.category;
     const color = category?.color ?? (isPastelColor(record.categoryColor) ? record.categoryColor : 'mist');
     const note = record.description?.trim() || record.merchant?.trim() || '';
+    const account = options.accountOf?.(record);
     const currency: Currency = record.currency ?? 'UZS';
     const tone = record.type === 'income' ? 'income' : 'expense';
     const signed = tone === 'income' ? amountMinorOf(record) : -amountMinorOf(record);
@@ -78,11 +104,21 @@ export function buildRecordDays(
       id: record.id ?? '',
       title,
       color,
-      note: note || NO_NOTE,
+      note: [note, account].filter(Boolean).join(' · ') || NO_NOTE,
       amount: formatMinor(signed, currency, { sign: 'always', unit: currency !== 'UZS' }),
       tone,
-      ariaLabel: `${title}, ${fullAmount}${note ? `, ${note}` : ''}. Открыть`,
+      ariaLabel: `${title}, ${fullAmount}${note ? `, ${note}` : ''}${account ? `, ${account}` : ''}. Открыть`,
       categoryAriaLabel: `Сменить категорию: ${title}, ${fullAmount}`,
+    });
+  }
+
+  const totals = options.dayTotals;
+  if (totals) {
+    days.forEach((group, index) => {
+      if (index === days.length - 1 && !totals.lastDayComplete) return;
+      const net = netInUzs(recordsOfDay.get(group.day)!, totals.rateMinor);
+      const text = formatNetMinor(net);
+      if (text) group.total = { text, tone: net.netMinor > 0 ? 'income' : 'muted' };
     });
   }
 

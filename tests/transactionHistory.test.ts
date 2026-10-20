@@ -1,6 +1,9 @@
 import { createTransactionRouter } from '../src/modules/transaction/presentation/controllers/transactionController';
 import { GetTransactionHistoryUseCase } from '../src/modules/transaction/application/getTransactionHistory';
 import { GetTransactionByIdUseCase } from '../src/modules/transaction/application/getTransactionById';
+import { PeriodTotalsService } from '../src/modules/transaction/application/periodTotalsService';
+import { parseHistorySearch } from '../src/modules/transaction/domain/transactionHistory';
+import { CreateAccountUseCase } from '../src/modules/account/application/accountUseCases';
 import { CategoryModule } from '../src/modules/category/categoryModule';
 import { SqliteCategoryRepository } from '../src/modules/category/infrastructure/SqliteCategoryRepository';
 import { UserModule } from '../src/modules/user/userModule';
@@ -18,11 +21,17 @@ describe('history with search and filters (FT-107)', () => {
   let db: TestDatabase;
   let records: ReturnType<typeof recordsOn>;
   let history: GetTransactionHistoryUseCase;
+  // The USD rate in effect for the user (FT-102): 12 650 сум
+  let rateMinor: number | null;
 
   beforeEach(async () => {
     db = await openMigratedDatabase();
     records = recordsOn(db.dataSource);
-    history = new GetTransactionHistoryUseCase(records.repository);
+    rateMinor = 1_265_000;
+    history = new GetTransactionHistoryUseCase(
+      records.repository,
+      new PeriodTotalsService({ effectiveUsdRate: async () => (rateMinor === null ? null : { rateMinor }) })
+    );
   });
 
   afterEach(async () => {
@@ -61,6 +70,78 @@ describe('history with search and filters (FT-107)', () => {
     expect(renamed.success).toBe(true);
     expect(await descriptions({ q: 'рестор' })).toEqual(['обед']);
     expect(await descriptions({ q: 'кафе' })).toEqual([]);
+  });
+
+  async function account(name: string, currency: 'UZS' | 'USD' = 'UZS') {
+    const created = await new CreateAccountUseCase(records.book, records.accountRepository).execute({
+      userId: 'user-1', body: { name, kind: 'cash', currency },
+    });
+    if (!created.success) throw created.error;
+    return created.data;
+  }
+
+  // FT-116, SearchField.md: «Ищет по категории, заметке, счёту и сумме»
+  it('reads a query as words and digits: «25 000» is an amount, signs and separators are not words', () => {
+    expect(parseHistorySearch('  Такси  ДОМОЙ ')).toEqual({ words: ['такси', 'домой'], amountDigits: '' });
+    expect(parseHistorySearch('25 000')).toEqual({ words: [], amountDigits: '25000' });
+    expect(parseHistorySearch('кофе −25,5')).toEqual({ words: ['кофе'], amountDigits: '255' });
+    expect(parseHistorySearch('Ёлки')).toEqual({ words: ['елки'], amountDigits: '' });
+    expect(parseHistorySearch('50%')).toEqual({ words: ['%'], amountDigits: '50' });
+    expect(parseHistorySearch(' − ')).toBeNull();
+    expect(parseHistorySearch('')).toBeNull();
+  });
+
+  it('finds every word of the query in the note, the category or the account name', async () => {
+    const cash = await account('Наличные');
+    await record({ description: 'Такси домой', category: 'Транспорт', date: '2026-10-16' });
+    await record({ description: 'Такси в аэропорт', category: 'Транспорт', accountId: cash.id, date: '2026-10-15' });
+    await record({ description: 'Обед с командой', category: 'Кафе', accountId: cash.id, date: '2026-10-14' });
+
+    expect(await descriptions({ q: 'такси наличные' })).toEqual(['Такси в аэропорт']);
+    expect(await descriptions({ q: 'НАЛИЧН' })).toEqual(['Такси в аэропорт', 'Обед с командой']);
+    expect(await descriptions({ q: 'транспорт домой' })).toEqual(['Такси домой']);
+    expect(await descriptions({ q: 'обед командой' })).toEqual(['Обед с командой']);
+    expect(await descriptions({ q: 'такси кафе' })).toEqual([]);
+  });
+
+  it('matches digits with the start of the amount: «25 000» finds coffee for 25 000, not the salary of 12 500 000', async () => {
+    const dollars = await account('Доллары', 'USD');
+    await record({ description: 'Кофе', amount: 25000, category: 'Кафе' });
+    await record({ description: 'За сентябрь', amount: 12500000, type: 'income', category: 'Зарплата' });
+    await record({ description: 'Лендинг', amount: 300, currency: 'USD', accountId: dollars.id, type: 'income', category: 'Фриланс' });
+
+    expect(await descriptions({ q: '25 000' })).toEqual(['Кофе']);
+    expect(await descriptions({ q: 'кофе 25' })).toEqual(['Кофе']);
+    expect(await descriptions({ q: '12 5' })).toEqual(['За сентябрь']);
+    expect(await descriptions({ q: '300' })).toEqual(['Лендинг']);
+    expect(await descriptions({ q: '7' })).toEqual([]);
+  });
+
+  it('tells how many records a search or a filter found and their sum in сум, dollars at the rate', async () => {
+    const cash = await account('Наличные');
+    const dollars = await account('Доллары', 'USD');
+    await record({ description: 'Такси', amount: 24000, category: 'Транспорт', accountId: cash.id });
+    await record({ description: 'Такси в аэропорт', amount: 85000, category: 'Транспорт', accountId: cash.id });
+    await record({ description: 'Такси домой', amount: 32000, category: 'Транспорт' });
+    await record({ description: 'Такси для клиента', amount: 300, currency: 'USD', accountId: dollars.id, type: 'income', category: 'Фриланс' });
+
+    // The board «История · «такси» + Наличные»: «2 операции · −109 000 сум»
+    const found = await search({ q: 'такси', accountIds: cash.id });
+    expect(found.summary).toEqual({ count: 2, netMinor: -10_900_000, usd: { present: false, missingRate: false } });
+
+    // Dollars at 12 650 сум: 300 USD = 3 795 000 сум, income
+    const all = await search({ q: 'такси', limit: '2' });
+    expect(all.items).toHaveLength(2);
+    expect(all.summary).toEqual({ count: 4, netMinor: 379_500_000 - 14_100_000, usd: { present: true, missingRate: false } });
+    // Only the first page carries it
+    expect((await search({ q: 'такси', limit: '2', cursor: all.nextCursor })).summary).toBeNull();
+
+    rateMinor = null;
+    expect((await search({ q: 'такси' })).summary).toEqual({ count: 4, netMinor: -14_100_000, usd: { present: true, missingRate: true } });
+
+    // Nothing searched or filtered: the list is the whole history, there is nothing to sum up
+    expect((await search({})).summary).toBeNull();
+    expect((await search({ q: '  ' })).summary).toBeNull();
   });
 
   it('keeps the search text in step when the note changes', async () => {
@@ -179,6 +260,7 @@ describe('history with search and filters (FT-107)', () => {
       expect(res.status).toBe(200);
       expect(res.body.data.items.map((item: Transaction) => item.description)).toEqual(['мой кофе']);
       expect(res.body.data.nextCursor).toBeNull();
+      expect(res.body.data.summary).toEqual({ count: 1, netMinor: -1_000_000, usd: { present: false, missingRate: false } });
 
       expect((await server.request('GET', '/api/transactions')).status).toBe(401);
       expect((await server.request('GET', '/api/transactions?type=gift', { devUser: 4242 })).status).toBe(400);

@@ -96,3 +96,81 @@ describe('recent records by day', () => {
     expect(buildRecordDays([], { today: TODAY, categoryOf })).toEqual([]);
   });
 });
+
+describe('History by day (FT-116, board «История», TransactionList.md)', () => {
+  const ACCOUNTS: Record<string, string> = { card: 'Карта', cash: 'Наличные', usd: 'Доллары' };
+  const accountOf = (item: Transaction) => (item.accountId ? ACCOUNTS[item.accountId] : undefined);
+  // 12 650 сум for a dollar
+  const RATE = 1_265_000;
+
+  // The board's first three days
+  const history = [
+    record({ id: 't1', categoryId: 'pr', amountMinor: 18_640_000, description: 'Супермаркет', accountId: 'card' }),
+    record({ id: 't2', categoryId: 'tr', amountMinor: 2_400_000, description: 'Такси', accountId: 'cash' }),
+    record({ id: 't3', categoryId: 'zp', type: 'income', amountMinor: 1_250_000_000, date: '2026-10-13', description: 'За сентябрь', accountId: 'card' }),
+    record({ id: 't4', category: 'Кафе', categoryColor: 'rose', amountMinor: 14_500_000, date: '2026-10-13', description: 'Обед с командой', accountId: 'card' }),
+    record({ id: 't5', categoryId: 'fr', type: 'income', amountMinor: 30_000, currency: 'USD', date: '2026-10-13', description: 'Лендинг', accountId: 'usd' }),
+    record({ id: 't6', categoryId: 'tr', amountMinor: 3_200_000, date: '2026-10-13', description: 'Такси домой', accountId: 'card' }),
+    record({ id: 't7', categoryId: 'tr', amountMinor: 6_000_000, date: '2026-10-12', description: 'Мобильная связь', accountId: 'card' }),
+    record({ id: 't8', categoryId: 'tr', amountMinor: 8_500_000, date: '2026-10-12', description: 'Такси в аэропорт', accountId: 'cash' }),
+    record({ id: 't9', categoryId: 'pr', amountMinor: 9_400_000, date: '2026-10-12', description: 'Рынок', accountId: 'cash' }),
+  ];
+
+  const historyDays = (dayTotals: { rateMinor: number | null; lastDayComplete: boolean }) =>
+    buildRecordDays(history, { today: TODAY, categoryOf, accountOf, datedLabels: true, dayTotals });
+
+  it('names the date of every day, and the account after the note', () => {
+    const [today] = historyDays({ rateMinor: RATE, lastDayComplete: true });
+
+    expect(historyDays({ rateMinor: RATE, lastDayComplete: true }).map((day) => day.label)).toEqual([
+      'Сегодня, 14 октября',
+      'Вчера, 13 октября',
+      'Понедельник, 12 октября',
+    ]);
+    expect(today.rows.map((row) => row.note)).toEqual(['Супермаркет · Карта', 'Такси · Наличные']);
+    expect(today.rows[0].ariaLabel).toBe(`Продукты, ${MINUS}186${NBSP}400${NBSP}сум, Супермаркет, Карта. Открыть`);
+  });
+
+  it('a record without a note shows its account alone', () => {
+    const [day] = buildRecordDays([record({ id: 'a', categoryId: 'pr', amountMinor: 100, accountId: 'cash' })], {
+      today: TODAY,
+      categoryOf,
+      accountOf,
+      datedLabels: true,
+    });
+
+    expect(day.rows[0].note).toBe('Наличные');
+  });
+
+  it('totals each day in сум with its sign: income green, expenses muted, dollars at the rate with «≈»', () => {
+    const days = historyDays({ rateMinor: RATE, lastDayComplete: true });
+
+    expect(days.map((day) => day.total)).toEqual([
+      { text: `${MINUS}210${NBSP}400${NBSP}сум`, tone: 'muted' },
+      // 12 500 000 + 300 USD × 12 650 − 145 000 − 32 000
+      { text: `≈${NBSP}+16${NBSP}118${NBSP}000${NBSP}сум`, tone: 'income' },
+      { text: `${MINUS}239${NBSP}000${NBSP}сум`, tone: 'muted' },
+    ]);
+  });
+
+  it('has no total for a day with dollars but no rate, nor for the last day while its next page is not read', () => {
+    expect(historyDays({ rateMinor: null, lastDayComplete: true }).map((day) => day.total?.text ?? null)).toEqual([
+      `${MINUS}210${NBSP}400${NBSP}сум`,
+      null,
+      `${MINUS}239${NBSP}000${NBSP}сум`,
+    ]);
+    expect(historyDays({ rateMinor: RATE, lastDayComplete: false }).map((day) => day.total?.text ?? null)).toEqual([
+      `${MINUS}210${NBSP}400${NBSP}сум`,
+      `≈${NBSP}+16${NBSP}118${NBSP}000${NBSP}сум`,
+      null,
+    ]);
+  });
+
+  it('Home has neither totals, nor accounts, nor dates after «Сегодня»', () => {
+    const [today] = buildRecordDays(history, { today: TODAY, categoryOf });
+
+    expect(today.label).toBe('Сегодня');
+    expect(today.total).toBeUndefined();
+    expect(today.rows[0].note).toBe('Супермаркет');
+  });
+});

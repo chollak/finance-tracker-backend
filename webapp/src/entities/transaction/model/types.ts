@@ -56,3 +56,34 @@ export interface FrequentRecord {
   accountId: string | null;
   count: number;
 }
+
+/** What History is narrowed by (FT-116): the search text, one category, one account. */
+export interface HistoryQuery {
+  text: string;
+  categoryId: string | null;
+  accountId: string | null;
+}
+
+/**
+ * A sum in сум of records of both currencies: income adds, expenses subtract; dollars at the user's rate, each
+ * record rounded to whole сум (money-model.md), and without a rate they are left out (`missingRate`).
+ */
+export interface NetInUzs {
+  netMinor: number;
+  usd: { present: boolean; missingRate: boolean };
+}
+
+/** Everything a search or a filter found, all pages (FilterChips.md: «2 операции · −109 000 сум»). */
+export interface HistorySummary extends NetInUzs {
+  count: number;
+}
+
+/**
+ * A page of `GET /api/transactions` (FT-107, FT-116): records newest first, the next page's cursor (null on the
+ * last page) and, on the first page of a search or a filter, what all of it found.
+ */
+export interface HistoryPage {
+  items: Transaction[];
+  nextCursor: string | null;
+  summary: HistorySummary | null;
+}

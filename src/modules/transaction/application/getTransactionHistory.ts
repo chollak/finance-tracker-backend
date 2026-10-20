@@ -2,10 +2,17 @@ import { Result, ResultHelper } from '../../../shared/domain/types/Result';
 import { BusinessLogicError, ValidationError } from '../../../shared/domain/errors/AppError';
 import { getLogger, LogCategory } from '../../../shared/application/logging';
 import { isValidDateOnly } from '../../../shared/domain/dates/dateOnly';
-import { searchKey } from '../../../shared/domain/text/searchKey';
 import { Transaction } from '../domain/transactionEntity';
 import { TransactionRepository } from '../domain/transactionRepository';
-import { HistoryCursor, HistoryFilters } from '../domain/transactionHistory';
+import {
+  HistoryCursor,
+  HistoryFilters,
+  HistorySummary,
+  narrowsHistory,
+  parseHistorySearch,
+  summarizeHistory,
+} from '../domain/transactionHistory';
+import { PeriodTotalsService } from './periodTotalsService';
 
 const logger = getLogger(LogCategory.TRANSACTION);
 
@@ -19,6 +26,11 @@ export interface TransactionHistory {
   items: Transaction[];
   /** Pass as `cursor` for the next page; null on the last page. */
   nextCursor: string | null;
+  /**
+   * Everything a search or a filter found (FT-116: «2 операции · −109 000 сум» under the filters) — on the first
+   * page of a narrowed history; null on later pages and for the whole history.
+   */
+  summary: HistorySummary | null;
 }
 
 const fail = (message: string, field: string) => ResultHelper.failure(new ValidationError(message, field));
@@ -49,11 +61,16 @@ function idList(value: unknown): string[] | null {
 
 /**
  * History with search and filters (FT-107): `q`, `categoryIds`, `accountIds`, `type`, `from`, `to`,
- * `cursor`, `limit`. Search ignores case and «ё» (Russian rules) and looks at the note, the merchant and
- * the category's current name. Pages go by a cursor, newest first.
+ * `cursor`, `limit`. Search ignores case and «ё» (Russian rules): every word is looked for in the note, the
+ * merchant, the category's current name and the account's name, and digits start the amount (FT-116). Pages go
+ * by a cursor, newest first; the first page of a search or a filter sums up all it found, dollars at the user's
+ * rate.
  */
 export class GetTransactionHistoryUseCase {
-  constructor(private repository: TransactionRepository) {}
+  constructor(
+    private repository: TransactionRepository,
+    private periodTotals: PeriodTotalsService
+  ) {}
 
   async execute(input: { userId: string; query: Record<string, unknown> }): Promise<Result<TransactionHistory>> {
     const { query } = input;
@@ -62,8 +79,8 @@ export class GetTransactionHistoryUseCase {
     if (query.q !== undefined) {
       if (typeof query.q !== 'string') return fail('q must be text', 'q');
       if (query.q.length > QUERY_MAX_LENGTH) return fail(`q must be at most ${QUERY_MAX_LENGTH} characters`, 'q');
-      const key = searchKey(query.q);
-      if (key) filters.q = key;
+      const search = parseHistorySearch(query.q);
+      if (search) filters.search = search;
     }
     for (const field of ['categoryIds', 'accountIds'] as const) {
       if (query[field] === undefined) continue;
@@ -98,7 +115,12 @@ export class GetTransactionHistoryUseCase {
 
     try {
       const page = await this.repository.findHistory(input.userId, filters, cursor, limit);
-      return ResultHelper.success({ items: page.items, nextCursor: page.next ? encodeCursor(page.next) : null });
+      let summary: HistorySummary | null = null;
+      if (!cursor && narrowsHistory(filters)) {
+        const amounts = await this.repository.findHistoryAmounts(input.userId, filters);
+        summary = summarizeHistory(amounts, await this.periodTotals.usdRateFor(input.userId, amounts));
+      }
+      return ResultHelper.success({ items: page.items, nextCursor: page.next ? encodeCursor(page.next) : null, summary });
     } catch (error) {
       logger.error('Failed to read history', error as Error);
       return ResultHelper.failure(new BusinessLogicError('Failed to read history'));

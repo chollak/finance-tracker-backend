@@ -60,9 +60,20 @@ export const API_ENDPOINTS = {
   // Transactions
   TRANSACTIONS: {
     LIST: (userId: string) => `/transactions/user/${userId}`,
-    // History of the signed-in user, newest first (FT-107); the user comes from authentication
-    HISTORY: (params: { limit?: number } = {}) =>
-      `/transactions${params.limit ? `?limit=${params.limit}` : ''}`,
+    // History of the signed-in user, newest first (FT-107): search, filters and the next page's cursor (FT-116);
+    // the user comes from authentication
+    HISTORY: (
+      params: { q?: string; categoryIds?: string[]; accountIds?: string[]; cursor?: string; limit?: number } = {}
+    ) => {
+      const query = new URLSearchParams();
+      if (params.q) query.set('q', params.q);
+      if (params.categoryIds?.length) query.set('categoryIds', params.categoryIds.join(','));
+      if (params.accountIds?.length) query.set('accountIds', params.accountIds.join(','));
+      if (params.cursor) query.set('cursor', params.cursor);
+      if (params.limit) query.set('limit', String(params.limit));
+      const search = query.toString();
+      return `/transactions${search ? `?${search}` : ''}`;
+    },
     // Income and expenses of a period through the one totals service (FT-111)
     TOTALS: (range: { from: string; to: string }) => `/transactions/totals?from=${range.from}&to=${range.to}`,
     // Frequent expenses of the last 30 days for the quick chips (FT-114); the user from authentication
@@ -89,13 +100,6 @@ export const API_ENDPOINTS = {
       },
       TRENDS: (userId: string, months: number = 12) =>
         `/transactions/analytics/trends/${userId}?months=${months}`,
-    },
-    ARCHIVE: {
-      ONE: (id: string) => `/transactions/${id}/archive`,
-      UNARCHIVE: (id: string) => `/transactions/${id}/unarchive`,
-      BATCH: '/transactions/archive/batch',
-      ALL: (userId: string) => `/transactions/archive/all/${userId}`,
-      LIST: (userId: string) => `/transactions/archived/user/${userId}`,
     },
   },
 

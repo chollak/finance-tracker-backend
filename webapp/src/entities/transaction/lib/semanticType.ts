@@ -64,8 +64,3 @@ export function isNonExpenseMovement(semanticType: TransactionSemanticType): boo
 export const NEEDS_REVIEW_CORRECTION_TYPES: TransactionSemanticType[] =
   TRANSACTION_SEMANTIC_TYPES.filter((type) => type !== 'income');
 
-export function matchesNeedsReviewQuery(needsReview: boolean | undefined, query: string): boolean {
-  if (!needsReview || !query) return false;
-  const normalizedQuery = query.toLowerCase();
-  return NEEDS_REVIEW_LABEL.toLowerCase().includes(normalizedQuery);
-}
