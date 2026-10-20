@@ -57,11 +57,13 @@ export interface FrequentRecord {
   count: number;
 }
 
-/** What History is narrowed by (FT-116): the search text, one category, one account. */
+/** What History is narrowed by (FT-116): the search text, one category, one account, one type. */
 export interface HistoryQuery {
   text: string;
   categoryId: string | null;
   accountId: string | null;
+  /** Only expenses or only income; null — both. */
+  type: 'income' | 'expense' | null;
 }
 
 /**

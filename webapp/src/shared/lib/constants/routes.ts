@@ -63,12 +63,20 @@ export const API_ENDPOINTS = {
     // History of the signed-in user, newest first (FT-107): search, filters and the next page's cursor (FT-116);
     // the user comes from authentication
     HISTORY: (
-      params: { q?: string; categoryIds?: string[]; accountIds?: string[]; cursor?: string; limit?: number } = {}
+      params: {
+        q?: string;
+        categoryIds?: string[];
+        accountIds?: string[];
+        type?: 'income' | 'expense';
+        cursor?: string;
+        limit?: number;
+      } = {}
     ) => {
       const query = new URLSearchParams();
       if (params.q) query.set('q', params.q);
       if (params.categoryIds?.length) query.set('categoryIds', params.categoryIds.join(','));
       if (params.accountIds?.length) query.set('accountIds', params.accountIds.join(','));
+      if (params.type) query.set('type', params.type);
       if (params.cursor) query.set('cursor', params.cursor);
       if (params.limit) query.set('limit', String(params.limit));
       const search = query.toString();

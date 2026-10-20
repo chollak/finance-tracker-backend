@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Category } from '@/entities/category';
 import { MINUS, NBSP } from '@/shared/lib/money';
-import { categoryFilterGroups, EMPTY_HISTORY, nothingFoundText, NOTHING_FOUND_TITLE, resultLine } from './historyFilters';
+import { categoryFilterGroups, EMPTY_HISTORY, nothingFoundText, NOTHING_FOUND_TITLE, resultLine, TYPE_FILTER, typeChipLabel } from './historyFilters';
 
 /**
  * FT-116, FilterChips.md and EmptyState.md: the line under the chips says what a search found, the empty
@@ -40,6 +40,15 @@ describe('when nothing is found (EmptyState.md)', () => {
     );
   });
 
+  it('names the type chosen', () => {
+    expect(nothingFoundText({ text: 'такси', category: null, account: null, type: 'income' })).toBe(
+      'Ничего нет по запросу «такси», среди доходов. Попробуйте другое слово или снимите фильтр.'
+    );
+    expect(nothingFoundText({ text: '', category: null, account: 'Карта', type: 'expense' })).toBe(
+      'Ничего нет на счёте «Карта», среди расходов. Попробуйте другое слово или снимите фильтр.'
+    );
+  });
+
   it('an empty history leads to the first record instead', () => {
     expect(EMPTY_HISTORY).toEqual({ title: 'Пока нет операций', text: 'Запишите первую трату на главной — она появится здесь.' });
   });
@@ -71,5 +80,22 @@ describe('the category filter (Picker.md: «Все категории», then «
       { label: 'Доходы', categories: [{ id: 'salary', name: 'Зарплата', color: 'mint' }] },
     ]);
     expect(categoryFilterGroups([category({ id: 'cafe' })]).map((group) => group.label)).toEqual(['Расходы']);
+  });
+});
+
+describe('the type filter (Definition of Done: «чипы фильтров (категория, счёт, тип) через Picker»)', () => {
+  it('offers both kinds, only expenses, only income', () => {
+    expect(TYPE_FILTER.title).toBe('Тип операции');
+    expect(TYPE_FILTER.options.map((option) => [option.name, option.type])).toEqual([
+      ['Все', null],
+      ['Расходы', 'expense'],
+      ['Доходы', 'income'],
+    ]);
+  });
+
+  it('the chip says «Тип» while both are shown, and the kind once one is chosen', () => {
+    expect(typeChipLabel(null)).toBe('Тип');
+    expect(typeChipLabel('expense')).toBe('Расходы');
+    expect(typeChipLabel('income')).toBe('Доходы');
   });
 });

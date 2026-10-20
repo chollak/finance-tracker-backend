@@ -13,9 +13,9 @@ export const transactionKeys = {
   frequent: (userId: string) => [...transactionKeys.list(userId), 'frequent'] as const,
   // History with its search and filters (FT-116), under list(userId) too. Without a query — every History of the
   // user, for invalidation
-  history: (userId: string, query?: { text: string; categoryId: string | null; accountId: string | null }) =>
+  history: (userId: string, query?: { text: string; categoryId: string | null; accountId: string | null; type: string | null }) =>
     query
-      ? ([...transactionKeys.list(userId), 'history', query.text, query.categoryId, query.accountId] as const)
+      ? ([...transactionKeys.list(userId), 'history', query.text, query.categoryId, query.accountId, query.type] as const)
       : ([...transactionKeys.list(userId), 'history'] as const),
   // Without a range — every period of the user, for invalidation
   totals: (userId: string, range?: { from: string; to: string }) =>

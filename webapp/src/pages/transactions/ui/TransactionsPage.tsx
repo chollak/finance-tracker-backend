@@ -15,7 +15,7 @@ import { openRecordCategory, openRecordSheet, RecordSheet, useRecordFlash } from
 import { toLocalDate } from '@/shared/lib/dates';
 import { cn } from '@/shared/lib/utils';
 import { BackButton, Button, EmptyState, SkeletonBlock, UndoToast } from '@/shared/ui/pastel';
-import { withKeptRecord } from '../model/keptRecord';
+import { historyFilterKey, summaryWithKept, withKeptRecord } from '../model/keptRecord';
 
 const FOCUS = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink';
 
@@ -115,14 +115,20 @@ export function TransactionsPage() {
   const flashId = useRecordFlash();
   const [today] = useState(() => toLocalDate(new Date()));
 
-  // The record whose row was opened, while the filter it was opened under stays
-  const filterKey = `${query.text}\u0000${query.categoryId ?? ''}\u0000${query.accountId ?? ''}`;
+  // The record whose row was opened, kept in the list it was opened from «пока фильтр не поменяют» (FilterChips.md):
+  // any change of the search or a chip forgets it, a change made and then undone too
+  const filterKey = historyFilterKey(query);
   const [kept, setKept] = useState<{ id: string; filterKey: string } | null>(null);
-  const keptRecord = useRecord(kept?.filterKey === filterKey ? kept.id : null);
+  if (kept && kept.filterKey !== filterKey) setKept(null);
+  const keptId = kept?.filterKey === filterKey ? kept.id : null;
+  // Only as the record sheet read or saved it: a deleted record is not asked for again (and is back with «Отменить»)
+  const keptRecord = useRecord(keptId, undefined, { cachedOnly: true });
+  const rateMinor = rate.data?.effective?.rateMinor ?? null;
 
   const pages = history.data?.pages;
-  const items = pages ? withKeptRecord(pages.flatMap((page) => page.items), keptRecord.data) : undefined;
-  const summary = pages?.[0]?.summary ?? null;
+  const shown = pages ? withKeptRecord(pages.flatMap((page) => page.items), keptRecord.data, history.hasNextPage) : undefined;
+  const items = shown?.items;
+  const summary = summaryWithKept(pages?.[0]?.summary ?? null, shown?.added ?? null, rateMinor);
   const allAccounts = accounts.data?.accounts ?? [];
   const accountName = (id: string | undefined) => allAccounts.find((account) => account.id === id)?.name;
   const narrowed = isHistoryNarrowed(query);
@@ -133,7 +139,7 @@ export function TransactionsPage() {
         categoryOf: (record) => findCategory(categories.data, record.categoryId),
         accountOf: (record) => accountName(record.accountId),
         datedLabels: true,
-        dayTotals: { rateMinor: rate.data?.effective?.rateMinor ?? null, lastDayComplete: !history.hasNextPage },
+        dayTotals: { rateMinor, lastDayComplete: !history.hasNextPage },
       })
     : undefined;
 
@@ -166,6 +172,7 @@ export function TransactionsPage() {
           text: query.text,
           category: findCategory(categories.data, query.categoryId ?? undefined)?.name ?? null,
           account: accountName(query.accountId ?? undefined) ?? null,
+          type: query.type,
         })}
         action={
           <Button onClick={filters.reset} className="mt-2 h-key w-auto px-[22px] text-[15px]">

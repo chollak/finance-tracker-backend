@@ -62,7 +62,7 @@ export function RecordDayList({ days, variant = 'recent', onOpen, onCategory, fl
             {day.total && (
               <span
                 className={cn(
-                  'shrink-0 whitespace-nowrap text-[13px] font-extrabold tabular-nums',
+                  'type-label shrink-0 whitespace-nowrap font-extrabold',
                   day.total.tone === 'income' ? 'text-income' : 'text-ink-muted'
                 )}
               >

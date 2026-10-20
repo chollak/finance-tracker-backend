@@ -31,9 +31,9 @@ export function parseHistorySearch(text: string): HistorySearch | null {
   return words.length === 0 && amountDigits === '' ? null : { words, amountDigits };
 }
 
-/** A search, a category or an account narrows History: what it found is then summed up under the chips. */
+/** A search, a category, an account or a type narrows History: what it found is then summed up under the chips. */
 export function isHistoryNarrowed(query: HistoryQuery): boolean {
-  return parseHistorySearch(query.text) !== null || query.categoryId !== null || query.accountId !== null;
+  return parseHistorySearch(query.text) !== null || query.categoryId !== null || query.accountId !== null || query.type !== null;
 }
 
 function amountMinorOf(record: Transaction): number {
@@ -81,6 +81,7 @@ export function deviceHistoryPage(records: readonly Transaction[], query: Histor
   const search = parseHistorySearch(query.text);
   const items = records
     .filter((record) => (query.categoryId === null || record.categoryId === query.categoryId) && query.accountId === null)
+    .filter((record) => query.type === null || record.type === query.type)
     .filter((record) => search === null || matches(record, search))
     .sort((a, b) => b.date.localeCompare(a.date) || (b.createdAt ?? '').localeCompare(a.createdAt ?? ''));
   return {

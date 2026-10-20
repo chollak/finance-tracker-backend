@@ -173,6 +173,27 @@ export function useUpdateTransaction() {
   });
 }
 
+/**
+ * Records deleted here, as they were known when deleted (FT-116): «Отменить» brings a record back unchanged, so its
+ * copy is known again at once — History shows the record just changed back in its list without reading it.
+ */
+const deletedRecords = new Map<string, Transaction>();
+
+/**
+ * The record as the record sheet read it is forgotten. Whoever shows it sees it gone at once, and nothing is sent
+ * to read it again: a reader still on screen (History's record just changed, the sheet that is closing) is left
+ * with no record rather than a fresh query that would ask the server for a deleted one.
+ */
+function forgetRecordRead(queryClient: QueryClient, id: string): void {
+  const query = queryClient.getQueryCache().find<Transaction>({ queryKey: transactionKeys.record(id), exact: true });
+  const known = query?.state.data;
+  if (known) deletedRecords.set(id, known);
+  else deletedRecords.delete(id);
+  if (!query) return;
+  query.reset();
+  if (query.getObserversCount() === 0) queryClient.removeQueries({ queryKey: transactionKeys.record(id), exact: true });
+}
+
 /** Takes a deleted record out of every cache it was in and refetches what it counted in. */
 function forgetDeletedTransaction(queryClient: QueryClient, { id, userId }: { id: string; userId: string }): void {
   // 1. Remove from transaction list cache (NO HTTP request)
@@ -186,7 +207,7 @@ function forgetDeletedTransaction(queryClient: QueryClient, { id, userId }: { id
 
   // 2. Remove from detail cache
   queryClient.removeQueries({ queryKey: transactionKeys.detail(id) });
-  queryClient.removeQueries({ queryKey: transactionKeys.record(id) });
+  forgetRecordRead(queryClient, id);
 
   // 3. Invalidate computed data
   queryClient.invalidateQueries({ queryKey: budgetKeys.summaries(userId) });
@@ -216,6 +237,9 @@ export async function deleteTransaction(queryClient: QueryClient, variables: { i
  */
 export async function restoreTransaction(queryClient: QueryClient, { id, userId }: { id: string; userId: string }): Promise<void> {
   await transactionDataSource.restore(id);
+  const known = deletedRecords.get(id);
+  deletedRecords.delete(id);
+  if (known) queryClient.setQueryData(transactionKeys.record(id), known);
   refetchAfterChange(queryClient, userId);
 }
 

@@ -58,8 +58,12 @@ export function useTransactions(userId: string | null) {
  * record of a guest. `placeholder` is the record as the list that opened it has it, shown until the read
  * answers; TanStack drops it when the read fails, so a caller that must keep showing it keeps it itself. A record
  * that is gone answers with an error (`statusCode: 404` from the server).
+ *
+ * `cachedOnly` — the record only as it is known here (what the record sheet read or saved), never read for this
+ * caller: History's record just changed is gone with its delete and back with «Отменить», without asking the server
+ * for a record that is no more.
  */
-export function useRecord(id: string | null, placeholder?: Transaction) {
+export function useRecord(id: string | null, placeholder?: Transaction, { cachedOnly = false }: { cachedOnly?: boolean } = {}) {
   const userType = useUserStore((state) => state.userType);
 
   return useQuery({
@@ -73,7 +77,7 @@ export function useRecord(id: string | null, placeholder?: Transaction) {
       const response = await apiClient.get<Transaction>(API_ENDPOINTS.TRANSACTIONS.DETAIL(id!));
       return response.data;
     },
-    enabled: !!id && userType !== null,
+    enabled: !!id && userType !== null && !cachedOnly,
     placeholderData: placeholder,
     retry: false,
   });
@@ -289,7 +293,7 @@ export function useFrequentRecords() {
 
 /**
  * History (FT-116): the records the search and the filters find, newest first, a page at a time —
- * `GET /api/transactions` with `q`, `categoryIds`, `accountIds` and the cursor of the page before (FT-107; the user
+ * `GET /api/transactions` with `q`, `categoryIds`, `accountIds`, `type` and the cursor of the page before (FT-107; the user
  * from authentication). The first page of a narrowed History sums up all it found. While a new search is read the
  * list of the one before stays on screen. Guests search the device's records here, by the same rules.
  */
@@ -311,6 +315,7 @@ export function useRecordHistory(query: HistoryQuery) {
           q: normalized.text || undefined,
           categoryIds: normalized.categoryId ? [normalized.categoryId] : undefined,
           accountIds: normalized.accountId ? [normalized.accountId] : undefined,
+          type: normalized.type ?? undefined,
           cursor: pageParam ?? undefined,
         })
       );

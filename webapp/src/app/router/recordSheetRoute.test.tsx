@@ -92,7 +92,7 @@ describe('ways to the record sheet', () => {
   /** Home's reads, and History as it opens (FT-116): one page with t4, nothing narrowed. */
   function historyData(): QueryClient {
     const client = homeData();
-    client.setQueryData(transactionKeys.history(USER_ID, { text: '', categoryId: null, accountId: null }), {
+    client.setQueryData(transactionKeys.history(USER_ID, { text: '', categoryId: null, accountId: null, type: null }), {
       pages: [{ items: [T4], nextCursor: null, summary: null }],
       pageParams: [null],
     });

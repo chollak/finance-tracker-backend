@@ -124,25 +124,64 @@ interface AccountPickerProps {
 /** Account choice: rows 60px with name and balance, a radio circle on the right. */
 export function AccountPicker({ open, onOpenChange, title = 'Счёт', accounts, selectedId, onSelect, footnote }: AccountPickerProps) {
   return (
+    <OptionPicker
+      open={open}
+      onOpenChange={onOpenChange}
+      title={title}
+      options={accounts.map((account) => ({ id: account.id, name: account.name, detail: account.balance }))}
+      selectedId={selectedId}
+      onSelect={(option) => {
+        const account = accounts.find((item) => item.id === option.id);
+        if (account) onSelect(account);
+      }}
+      footnote={footnote}
+    />
+  );
+}
+
+export interface PickerOption {
+  id: string;
+  name: string;
+  /** A `label` line under the name: an account's balance. */
+  detail?: string;
+}
+
+interface OptionPickerProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  /** Says what is chosen: «Счёт», «Тип операции». */
+  title: string;
+  options: PickerOption[];
+  selectedId?: string | null;
+  onSelect: (option: PickerOption) => void;
+  footnote?: ReactNode;
+}
+
+/**
+ * A choice of a few named options, as the account choice draws it (Picker.md): a `sheet-card` with 60px rows — the
+ * name `body-strong`, an optional `label` line under it, a radio circle on the right. A press selects and closes.
+ */
+export function OptionPicker({ open, onOpenChange, title, options, selectedId, onSelect, footnote }: OptionPickerProps) {
+  return (
     <Sheet open={open} onOpenChange={onOpenChange} title={title}>
       <div role="radiogroup" aria-label={title} className="overflow-hidden rounded-card bg-sheet-card [&>*+*]:border-t [&>*+*]:border-line">
-        {accounts.map((account) => {
-          const checked = account.id === selectedId;
+        {options.map((option) => {
+          const checked = option.id === selectedId;
           return (
             <button
-              key={account.id}
+              key={option.id}
               type="button"
               role="radio"
               aria-checked={checked}
               onClick={() => {
-                onSelect(account);
+                onSelect(option);
                 onOpenChange(false);
               }}
               className="flex min-h-row w-full items-center gap-3 px-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ink"
             >
               <span className="flex min-w-0 flex-1 flex-col">
-                <span className="type-body-strong truncate text-ink">{account.name}</span>
-                <span className="type-label text-ink-muted">{account.balance}</span>
+                <span className="type-body-strong truncate text-ink">{option.name}</span>
+                {option.detail !== undefined && <span className="type-label text-ink-muted">{option.detail}</span>}
               </span>
               <span
                 aria-hidden="true"

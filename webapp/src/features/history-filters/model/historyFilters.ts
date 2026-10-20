@@ -4,7 +4,26 @@ import { pluralWithCount } from '@/shared/lib/plural';
 import type { PickerCategory } from '@/shared/ui/pastel';
 
 /** History as it opens: no search, no filter. */
-export const NO_FILTERS: HistoryQuery = { text: '', categoryId: null, accountId: null };
+export const NO_FILTERS: HistoryQuery = { text: '', categoryId: null, accountId: null, type: null };
+
+/**
+ * The type filter (FT-116 Definition of Done: «чипы фильтров (категория, счёт, тип) через Picker»): the chip's name
+ * when off, the picker's title and its choices — both kinds, only expenses, only income.
+ */
+export const TYPE_FILTER = {
+  chip: 'Тип',
+  title: 'Тип операции',
+  options: [
+    { id: 'all', name: 'Все', type: null },
+    { id: 'expense', name: 'Расходы', type: 'expense' },
+    { id: 'income', name: 'Доходы', type: 'income' },
+  ],
+} as const satisfies { chip: string; title: string; options: ReadonlyArray<{ id: string; name: string; type: HistoryQuery['type'] }> };
+
+/** What the type chip says: «Тип» while both kinds are shown, «Расходы» or «Доходы» once one is chosen. */
+export function typeChipLabel(type: HistoryQuery['type']): string {
+  return TYPE_FILTER.options.find((option) => option.type === type && type !== null)?.name ?? TYPE_FILTER.chip;
+}
 
 /** EmptyState.md: the search or the filters found nothing. */
 export const NOTHING_FOUND_TITLE = 'Ничего не нашлось';
@@ -29,12 +48,18 @@ export function resultLine(summary: HistorySummary): string {
  * What an empty result says (EmptyState.md, board «История · ничего не найдено»): what was searched, then the way
  * out — «Ничего нет по запросу «такси», на счёте «Доллары». Попробуйте другое слово или снимите фильтр.»
  */
-export function nothingFoundText(searched: { text: string; category: string | null; account: string | null }): string {
+export function nothingFoundText(searched: {
+  text: string;
+  category: string | null;
+  account: string | null;
+  type?: HistoryQuery['type'];
+}): string {
   const parts: string[] = [];
   const text = searched.text.trim();
   if (text) parts.push(`по запросу «${text}»`);
   if (searched.category) parts.push(`в категории «${searched.category}»`);
   if (searched.account) parts.push(`на счёте «${searched.account}»`);
+  if (searched.type) parts.push(searched.type === 'income' ? 'среди доходов' : 'среди расходов');
   return `Ничего нет ${parts.join(', ')}. Попробуйте другое слово или снимите фильтр.`;
 }
 

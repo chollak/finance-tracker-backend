@@ -35,9 +35,9 @@ describe('what a change of records refreshes on Home (FT-114)', () => {
 describe('what a change of records refreshes in History (FT-116)', () => {
   it('every search and filter of that user’s History: a deleted or changed record leaves or moves', async () => {
     const client = new QueryClient();
-    const searched = transactionKeys.history('user-1', { text: 'такси', categoryId: null, accountId: 'cash' });
-    const whole = transactionKeys.history('user-1', { text: '', categoryId: null, accountId: null });
-    const theirs = transactionKeys.history('user-2', { text: '', categoryId: null, accountId: null });
+    const searched = transactionKeys.history('user-1', { text: 'такси', categoryId: null, accountId: 'cash', type: null });
+    const whole = transactionKeys.history('user-1', { text: '', categoryId: null, accountId: null, type: null });
+    const theirs = transactionKeys.history('user-2', { text: '', categoryId: null, accountId: null, type: null });
     for (const key of [searched, whole, theirs]) client.setQueryData(key, {});
 
     for (const queryKey of balanceReaderKeys('user-1')) await client.invalidateQueries({ queryKey });

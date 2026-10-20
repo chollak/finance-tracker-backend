@@ -12,7 +12,7 @@ export { SkeletonBlock } from './skeleton-block';
 export { Keypad } from './keypad';
 export { UndoToast } from './undo-toast';
 export { Sheet } from './sheet';
-export { CategoryPicker, AccountPicker, type PickerCategory, type PickerAccount } from './picker';
+export { CategoryPicker, AccountPicker, OptionPicker, type PickerCategory, type PickerAccount, type PickerOption } from './picker';
 export { CalendarSheet } from './calendar-sheet';
 export { Wordmark } from './wordmark';
 export { BackButton } from './back-button';

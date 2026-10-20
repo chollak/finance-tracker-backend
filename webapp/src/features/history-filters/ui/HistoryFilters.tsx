@@ -3,8 +3,8 @@ import type { Account } from '@/entities/account';
 import { findCategory, type Category } from '@/entities/category';
 import { cn } from '@/shared/lib/utils';
 import { pastelBgClass } from '@/shared/lib/pastel/categoryColors';
-import { CategoryPicker } from '@/shared/ui/pastel';
-import { categoryFilterGroups } from '../model/historyFilters';
+import { CategoryPicker, OptionPicker } from '@/shared/ui/pastel';
+import { categoryFilterGroups, TYPE_FILTER, typeChipLabel } from '../model/historyFilters';
 import type { HistoryFiltersModel } from '../model/useHistoryFilters';
 
 const FOCUS = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-bg';
@@ -17,6 +17,12 @@ function chipClass(on: boolean): string {
     FOCUS
   );
 }
+
+const CHEVRON = (
+  <svg width="14" height="14" viewBox="0 0 20 20" aria-hidden="true">
+    <path d="M5 7.5 10 12.5l5-5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
 
 /**
  * The search field (SearchField.md): a 52px pill on `card`, the magnifier in `muted`, the field 15px/600 with the
@@ -77,12 +83,15 @@ export interface HistoryFiltersProps {
 
 /**
  * The top of History (FT-116, boards «История» and «История · «такси» + Наличные»): the search field; the chips —
- * «Категория ▾» opening the category filter, then one chip per account (one at a time, a second press lets go),
- * scrolling sideways; and, when the search or a filter found something, the line with what it found and «Сбросить».
+ * «Категория ▾» opening the category filter, then one chip per account (one at a time, a second press lets go), then
+ * «Тип ▾» opening the choice of «Все / Расходы / Доходы» (the Definition of Done's type filter, which the boards do
+ * not draw: last in the row, so the row reads as on the boards), scrolling sideways; and, when the search or a filter
+ * found something, the line with what it found and «Сбросить».
  */
 export function HistoryFilters({ filters, categories, accounts, result }: HistoryFiltersProps) {
-  const [picking, setPicking] = useState(false);
+  const [picking, setPicking] = useState<'category' | 'type' | null>(null);
   const category = findCategory(categories, filters.query.categoryId ?? undefined);
+  const type = filters.query.type;
 
   return (
     <>
@@ -91,15 +100,13 @@ export function HistoryFilters({ filters, categories, accounts, result }: Histor
       <div role="group" aria-label="Фильтры" className="-mx-4 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <button
           type="button"
-          onClick={() => setPicking(true)}
+          onClick={() => setPicking('category')}
           aria-label={category ? `Категория: ${category.name}. Изменить фильтр` : 'Фильтр по категории'}
           className={cn(chipClass(category !== undefined), 'gap-1.5 pl-4 pr-3')}
         >
           {category && <span aria-hidden="true" className={cn('size-3 shrink-0 rounded-pill', pastelBgClass[category.color])} />}
           <span>{category?.name ?? 'Категория'}</span>
-          <svg width="14" height="14" viewBox="0 0 20 20" aria-hidden="true">
-            <path d="M5 7.5 10 12.5l5-5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
+          {CHEVRON}
         </button>
         {accounts.map((account) => {
           const pressed = filters.query.accountId === account.id;
@@ -115,6 +122,15 @@ export function HistoryFilters({ filters, categories, accounts, result }: Histor
             </button>
           );
         })}
+        <button
+          type="button"
+          onClick={() => setPicking('type')}
+          aria-label={type ? `Тип: ${typeChipLabel(type)}. Изменить фильтр` : 'Фильтр по типу'}
+          className={cn(chipClass(type !== null), 'gap-1.5 pl-4 pr-3')}
+        >
+          <span>{typeChipLabel(type)}</span>
+          {CHEVRON}
+        </button>
       </div>
 
       {result && (
@@ -133,13 +149,21 @@ export function HistoryFilters({ filters, categories, accounts, result }: Histor
       )}
 
       <CategoryPicker
-        open={picking}
-        onOpenChange={setPicking}
+        open={picking === 'category'}
+        onOpenChange={(open) => setPicking(open ? 'category' : null)}
         title="Фильтр по категории"
         groups={categoryFilterGroups(categories)}
         selectedId={filters.query.categoryId}
         onSelect={(picked) => filters.chooseCategory(picked.id)}
         allOption={{ label: 'Все категории', selected: filters.query.categoryId === null, onSelect: () => filters.chooseCategory(null) }}
+      />
+      <OptionPicker
+        open={picking === 'type'}
+        onOpenChange={(open) => setPicking(open ? 'type' : null)}
+        title={TYPE_FILTER.title}
+        options={TYPE_FILTER.options.map(({ id, name }) => ({ id, name }))}
+        selectedId={TYPE_FILTER.options.find((option) => option.type === type)?.id}
+        onSelect={(picked) => filters.chooseType(TYPE_FILTER.options.find((option) => option.id === picked.id)?.type ?? null)}
       />
     </>
   );

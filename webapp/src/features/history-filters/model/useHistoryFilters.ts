@@ -19,6 +19,8 @@ export interface HistoryFiltersModel {
   chooseCategory: (categoryId: string | null) => void;
   /** An account chip: a press turns it on, another one off; one account at a time. */
   toggleAccount: (accountId: string) => void;
+  /** Only expenses or only income, or null for both («Все»). */
+  chooseType: (type: HistoryQuery['type']) => void;
   /** «Сбросить», «Сбросить поиск и фильтры»: no search, no filter, at once. */
   reset: () => void;
 }
@@ -28,19 +30,22 @@ export function useHistoryFilters(): HistoryFiltersModel {
   const [text, setText] = useState(NO_FILTERS.text);
   const [categoryId, setCategoryId] = useState<string | null>(NO_FILTERS.categoryId);
   const [accountId, setAccountId] = useState<string | null>(NO_FILTERS.accountId);
+  const [type, setType] = useState<HistoryQuery['type']>(NO_FILTERS.type);
   const settled = useDebounce(text, SEARCH_DELAY_MS);
 
   return {
     text,
     // A cleared field shows the whole history at once; typing waits for a pause
-    query: { text: text.trim() === '' ? '' : settled, categoryId, accountId },
+    query: { text: text.trim() === '' ? '' : settled, categoryId, accountId, type },
     setText,
     chooseCategory: setCategoryId,
     toggleAccount: (id) => setAccountId((current) => (current === id ? null : id)),
+    chooseType: setType,
     reset: () => {
       setText(NO_FILTERS.text);
       setCategoryId(NO_FILTERS.categoryId);
       setAccountId(NO_FILTERS.accountId);
+      setType(NO_FILTERS.type);
     },
   };
 }

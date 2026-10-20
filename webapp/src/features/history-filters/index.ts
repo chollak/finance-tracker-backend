@@ -1,4 +1,4 @@
-// History's search and filters (FT-116, SearchField.md, FilterChips.md): the field, the category and account chips,
+// History's search and filters (FT-116, SearchField.md, FilterChips.md): the field, the category, account and type chips,
 // the line with what a search found, and what an empty result says.
 
 export { HistoryFilters, type HistoryFiltersProps } from './ui/HistoryFilters';
@@ -10,4 +10,6 @@ export {
   resultLine,
   nothingFoundText,
   categoryFilterGroups,
+  TYPE_FILTER,
+  typeChipLabel,
 } from './model/historyFilters';

@@ -4,7 +4,7 @@ import { apiClient } from '@/shared/api';
 import { transactionDataSource } from '@/shared/lib/db';
 import type { Transaction } from '@/shared/types';
 import { transactionKeys } from './keys';
-import { patchTransaction, restoreTransaction } from './mutations';
+import { deleteTransaction, patchTransaction, restoreTransaction } from './mutations';
 
 /**
  * FT-115: the record sheet saves every change at once through `patchTransaction` and brings a deleted record
@@ -29,6 +29,7 @@ beforeEach(() => {
   vi.mocked(apiClient.post).mockReset();
   vi.mocked(transactionDataSource.update).mockReset();
   vi.mocked(transactionDataSource.restore).mockReset();
+  vi.mocked(transactionDataSource.delete).mockReset();
   client = new QueryClient();
 });
 
@@ -108,5 +109,28 @@ describe('«Отменить» after a delete', () => {
     expect(invalidate.mock.calls.map(([filters]) => JSON.stringify(filters?.queryKey))).toContain(
       JSON.stringify(transactionKeys.list('900000001'))
     );
+  });
+
+  it('the deleted record is forgotten, and known again as it was once it is back — nothing reads it (FT-116)', async () => {
+    vi.mocked(transactionDataSource.delete).mockResolvedValue(true);
+    vi.mocked(transactionDataSource.restore).mockResolvedValue(undefined);
+    client.setQueryData(transactionKeys.record('t4'), SAVED);
+
+    await deleteTransaction(client, { id: 't4', userId: '900000001' });
+    expect(client.getQueryData(transactionKeys.record('t4'))).toBeUndefined();
+
+    await restoreTransaction(client, { id: 't4', userId: '900000001' });
+    expect(client.getQueryData(transactionKeys.record('t4'))).toEqual(SAVED);
+    expect(apiClient.get).not.toHaveBeenCalled();
+  });
+
+  it('a record nobody had read stays unknown after it is back', async () => {
+    vi.mocked(transactionDataSource.delete).mockResolvedValue(true);
+    vi.mocked(transactionDataSource.restore).mockResolvedValue(undefined);
+
+    await deleteTransaction(client, { id: 't9', userId: '900000001' });
+    await restoreTransaction(client, { id: 't9', userId: '900000001' });
+
+    expect(client.getQueryData(transactionKeys.record('t9'))).toBeUndefined();
   });
 });

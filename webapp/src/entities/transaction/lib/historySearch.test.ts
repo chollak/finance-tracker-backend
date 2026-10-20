@@ -24,11 +24,12 @@ describe('a history query', () => {
   });
 
   it('narrows History when it has something to search, or a category or an account is chosen', () => {
-    expect(isHistoryNarrowed({ text: '', categoryId: null, accountId: null })).toBe(false);
-    expect(isHistoryNarrowed({ text: '   ', categoryId: null, accountId: null })).toBe(false);
-    expect(isHistoryNarrowed({ text: 'такси', categoryId: null, accountId: null })).toBe(true);
-    expect(isHistoryNarrowed({ text: '', categoryId: 'c-cafe', accountId: null })).toBe(true);
-    expect(isHistoryNarrowed({ text: '', categoryId: null, accountId: 'cash' })).toBe(true);
+    expect(isHistoryNarrowed({ text: '', categoryId: null, accountId: null, type: null })).toBe(false);
+    expect(isHistoryNarrowed({ text: '   ', categoryId: null, accountId: null, type: null })).toBe(false);
+    expect(isHistoryNarrowed({ text: 'такси', categoryId: null, accountId: null, type: null })).toBe(true);
+    expect(isHistoryNarrowed({ text: '', categoryId: 'c-cafe', accountId: null, type: null })).toBe(true);
+    expect(isHistoryNarrowed({ text: '', categoryId: null, accountId: 'cash', type: null })).toBe(true);
+    expect(isHistoryNarrowed({ text: '', categoryId: null, accountId: null, type: 'income' })).toBe(true);
   });
 });
 
@@ -41,14 +42,14 @@ describe('a guest’s history, searched on the device', () => {
   const ids = (page: { items: Transaction[] }) => page.items.map((item) => item.id);
 
   it('is the whole history, newest first, with nothing to sum up', () => {
-    const page = deviceHistoryPage(records, { text: '', categoryId: null, accountId: null });
+    const page = deviceHistoryPage(records, { text: '', categoryId: null, accountId: null, type: null });
 
     expect(ids(page)).toEqual(['b', 'c', 'a']);
     expect(page).toMatchObject({ nextCursor: null, summary: null });
   });
 
   it('finds every word in the category or the note, and digits at the start of the amount', () => {
-    const find = (text: string) => ids(deviceHistoryPage(records, { text, categoryId: null, accountId: null }));
+    const find = (text: string) => ids(deviceHistoryPage(records, { text, categoryId: null, accountId: null, type: null }));
 
     expect(find('ТАКСИ')).toEqual(['b']);
     expect(find('транспорт домой')).toEqual(['b']);
@@ -58,8 +59,15 @@ describe('a guest’s history, searched on the device', () => {
     expect(find('такси кафе')).toEqual([]);
   });
 
+  it('filters by type: only expenses or only income', () => {
+    expect(ids(deviceHistoryPage(records, { text: '', categoryId: null, accountId: null, type: 'expense' }))).toEqual(['b', 'a']);
+    const income = deviceHistoryPage(records, { text: '', categoryId: null, accountId: null, type: 'income' });
+    expect(ids(income)).toEqual(['c']);
+    expect(income.summary).toMatchObject({ count: 1, netMinor: 1_250_000_000 });
+  });
+
   it('filters by category and sums up what it found', () => {
-    const page = deviceHistoryPage(records, { text: '', categoryId: 'g-tr', accountId: null });
+    const page = deviceHistoryPage(records, { text: '', categoryId: 'g-tr', accountId: null, type: null });
 
     expect(ids(page)).toEqual(['b']);
     expect(page.summary).toEqual({ count: 1, netMinor: -3_200_000, usd: { present: false, missingRate: false } });
