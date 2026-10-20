@@ -389,15 +389,6 @@ describe('Account screen', () => {
     expect(apiClient.patch).toHaveBeenLastCalledWith('/accounts/card', { isHidden: false });
   });
 
-  it('a guest who follows a link to an account is told accounts come after signing in', async () => {
-    useUserStore.setState({ userId: 'guest-1', userType: 'guest', telegramId: null, userName: null });
-    await renderAccount();
-
-    expect(text()).toContain('Счета — после входа');
-    expect(text()).not.toContain('Загружаем счёт');
-    await press('На главную');
-  });
-
   it('with one visible account «Перевести» says a second account is needed', async () => {
     accounts = { ...accounts, accounts: [CARD, { ...CASH, isHidden: true }, { ...USD, isHidden: true }] };
     await renderAccount();

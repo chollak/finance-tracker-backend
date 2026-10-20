@@ -51,7 +51,6 @@ export function VoiceCheckPage() {
   const [copied, setCopied] = useState(false);
   const urlRef = useRef<string | null>(null);
   const reportRef = useRef<HTMLPreElement | null>(null);
-  const userType = useUserStore(state => state.userType);
 
   useEffect(() => () => {
     if (urlRef.current) URL.revokeObjectURL(urlRef.current);
@@ -177,10 +176,8 @@ export function VoiceCheckPage() {
       <Button size="lg" variant="secondary" onClick={upload} disabled={busy !== null || !recording || !userId}>
         {busy === 'uploading' ? 'Распознаю…' : '2. Отправить на распознавание'}
       </Button>
-      {(!userId || userType === 'guest') && (
-        <p className="text-sm text-muted-foreground">
-          {userId ? 'Вы не в Telegram: запись уйдёт от гостя. Для проверки откройте страницу кнопкой меню бота.' : 'Нет пользователя — откройте страницу из Telegram.'}
-        </p>
+      {!userId && (
+        <p className="text-sm text-muted-foreground">Нет пользователя — откройте страницу из Telegram.</p>
       )}
 
       <section className="flex flex-col gap-2">

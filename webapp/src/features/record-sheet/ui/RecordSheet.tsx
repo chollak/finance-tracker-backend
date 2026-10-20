@@ -4,7 +4,6 @@ import { useAccounts, type Account } from '@/entities/account';
 import { useCategories } from '@/entities/category';
 import { useUsdRate } from '@/entities/rate';
 import { useRecord } from '@/entities/transaction';
-import { useUserStore } from '@/entities/user';
 import { toLocalDate } from '@/shared/lib/dates';
 import { showUndoToast } from '@/shared/lib/undo';
 import { keyFromKeyboard, keypadFromMinor, keypadToMinor, pressKey, type KeypadState } from '@/shared/lib/money';
@@ -36,7 +35,7 @@ const NO_ACCOUNTS: readonly Account[] = [];
 type Mode = 'view' | 'amount' | 'note';
 type Picker = 'category' | 'account' | 'date' | null;
 
-/** `apiClient` rejects with `{ statusCode }`; a guest's missing record too. */
+/** `apiClient` rejects with `{ statusCode }`. */
 function isGone(error: unknown): boolean {
   return typeof error === 'object' && error !== null && (error as { statusCode?: unknown }).statusCode === 404;
 }
@@ -71,7 +70,6 @@ export function RecordSheet({ period }: { period?: RecordPeriod } = {}) {
 
 function RecordSheetSession({ target, period }: { target: RecordSheetTarget; period?: RecordPeriod }) {
   const [today] = useState(() => toLocalDate(new Date()));
-  const isGuest = useUserStore((state) => state.userType === 'guest');
   const record = useRecord(target.id, target.seed);
   const gone = record.isError && isGone(record.error);
   // The record as read; until then, or when the read failed (a 5xx, no connection, a 429), the record the list
@@ -83,8 +81,8 @@ function RecordSheetSession({ target, period }: { target: RecordSheetTarget; per
 
   const context: SheetContext = {
     categories: categories.data ?? [],
-    // A guest has no accounts: the sheet has no «Счёт»
-    accounts: isGuest ? NO_ACCOUNTS : accountsQuery.data?.accounts ?? NO_ACCOUNTS,
+    // Until the accounts are read the sheet has no «Счёт»
+    accounts: accountsQuery.data?.accounts ?? NO_ACCOUNTS,
     rateMinor: rate.data?.effective?.rateMinor ?? null,
     today,
   };

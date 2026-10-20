@@ -11,6 +11,7 @@ import { CategoryModule } from '../../../modules/category/categoryModule';
 import { AccountModule } from '../../../modules/account/accountModule';
 import { BotMessageModule } from '../../../modules/botMessage/botMessageModule';
 import { NotificationModule } from '../../../modules/notification/notificationModule';
+import { AuthModule } from '../../../modules/auth/authModule';
 import { SUMMARY_TICK_MS } from '../../../modules/notification/application/dailySummaryNotifier';
 import { TelegramPaymentService } from '../../../modules/subscription/infrastructure/TelegramPaymentService';
 import { BotContext, BotModules, UserSession } from './types';
@@ -18,6 +19,7 @@ import { registerCommandHandlers, setCommandMenu } from './handlers/commandHandl
 import { registerSummaryHandlers, summarySender } from './handlers/summaryHandlers';
 import { registerMessageHandlers } from './handlers/messageHandlers';
 import { registerCallbackHandlers } from './handlers/callbackHandlers';
+import { registerLoginHandlers } from './handlers/loginHandlers';
 import { closeAmountQuestionOnCommand, registerRecordHandlers } from './handlers/recordHandlers';
 import { registerPaymentHandlers } from './handlers/paymentHandlers';
 import { createLogger, LogCategory } from '../../../shared/infrastructure/logging';
@@ -78,6 +80,7 @@ function createInitialSession(userId: string, userName: string): UserSession {
  * @param botMessageModule - Which records each confirmation shows, so its buttons survive a restart (FT-122)
  * @param notificationModule - Итоги дня at the chosen time, /today and /month (FT-124): its scheduler runs here,
  *   in the bot's process, and only while the bot polls
+ * @param authModule - The web login (FT-128): /start login_<token> asks «Подтвердить» or «Это не я»
  */
 export function startTelegramBot(
   voiceModule: VoiceProcessingModule,
@@ -88,7 +91,8 @@ export function startTelegramBot(
   categoryModule?: CategoryModule,
   accountModule?: AccountModule,
   botMessageModule?: BotMessageModule,
-  notificationModule?: NotificationModule
+  notificationModule?: NotificationModule,
+  authModule?: AuthModule
 ) {
   try {
     // Check if bot token is configured
@@ -124,6 +128,7 @@ export function startTelegramBot(
       accountModule,
       botMessageModule,
       notificationModule,
+      authModule,
     };
 
     // Ensure downloads directory exists
@@ -209,6 +214,9 @@ export function startTelegramBot(
 
     // «Да, не было» under the evening question (FT-124)
     registerSummaryHandlers(bot);
+
+    // «Подтвердить» / «Это не я» under a web login question (FT-128)
+    registerLoginHandlers(bot);
 
     // Callback handlers: inline keyboard actions
     registerCallbackHandlers(bot);

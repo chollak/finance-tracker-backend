@@ -274,11 +274,4 @@ describe('Transfer form', () => {
     await click(button('К счетам'));
     expect(router.state.location.pathname).toBe('/accounts');
   });
-
-  it('a guest is told accounts come after signing in', async () => {
-    useUserStore.setState({ userId: 'guest-1', userType: 'guest', telegramId: null, userName: null });
-    await renderTransfer();
-
-    expect(text()).toContain('Счета — после входа');
-  });
 });

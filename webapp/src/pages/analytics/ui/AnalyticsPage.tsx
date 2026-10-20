@@ -1,7 +1,6 @@
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useMonthAnalytics, type AnalyticsType } from '@/entities/analytics';
 import { findCategory, useCategories } from '@/entities/category';
-import { useIsGuest } from '@/entities/user';
 import { ANALYTICS_MONTH_PARAM, ANALYTICS_TYPE_PARAM, ROUTES } from '@/shared/lib/constants/routes';
 import { cn } from '@/shared/lib/utils';
 import { BackButton, EmptyState, Segmented, SkeletonBlock, UndoToast } from '@/shared/ui/pastel';
@@ -9,7 +8,7 @@ import { monthOverview, monthStepper } from '../model/monthOverview';
 import { monthParam } from '../model/periodWords';
 import { useLeaveRefusedMonth } from '../model/useLeaveRefusedMonth';
 import { AnalyticsHeroView, CategoryBarsView, MonthStepperView } from './MonthParts';
-import { BARS_ICON, FOCUS, GuestAnalytics, LoadingRows, ReadFailed } from './parts';
+import { BARS_ICON, FOCUS, LoadingRows, ReadFailed } from './parts';
 
 const SIDES = [
   { value: 'expense', label: 'Расходы' },
@@ -45,7 +44,6 @@ function LoadingMonth() {
  * than the current one (a link, a clock ahead) is refused by the API: the screen goes to the current month.
  */
 export function AnalyticsPage() {
-  const isGuest = useIsGuest();
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const month = monthParam(params.get(ANALYTICS_MONTH_PARAM));
@@ -54,7 +52,6 @@ export function AnalyticsPage() {
   const categories = useCategories();
   const refusedMonth = useLeaveRefusedMonth(month, analytics.error, ROUTES.ANALYTICS_VIEW({ type }));
 
-  if (isGuest) return <GuestAnalytics />;
 
   // While another month or side is read, the answer before keeps the stepper in place
   const known = analytics.data;

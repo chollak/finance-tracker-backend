@@ -22,7 +22,7 @@ export { transactionToViewModel } from './lib/toViewModel';
 
 // Utils
 export { buildRecordDays, recordRow } from './lib/recordDays';
-export { deviceHistoryPage, formatNetMinor, isHistoryNarrowed, netInUzs, parseHistorySearch } from './lib/historySearch';
+export { formatNetMinor, isHistoryNarrowed, netInUzs, parseHistorySearch } from './lib/historySearch';
 export {
   getSemanticTypeLabel,
   getSemanticTypeBadgeVariant,

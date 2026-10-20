@@ -166,13 +166,4 @@ describe('a send that failed', () => {
     const [first, second] = sentClientIds();
     expect(second).toBe(first);
   });
-
-  it('a guest is told to sign in: the text is written on the server', async () => {
-    user.current = { userId: 'guest_1', userName: '', userType: 'guest' };
-
-    await mountSend().send('кофе 25к');
-
-    expect(mutateAsync).not.toHaveBeenCalled();
-    expect(shownToast()).toMatchObject({ kind: 'info', title: 'Запись текстом — после входа' });
-  });
 });

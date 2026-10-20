@@ -29,7 +29,7 @@ export type EntryType = 'expense' | 'income';
 
 export interface ManualEntryState {
   type: EntryType;
-  /** null for a guest, who has no accounts. */
+  /** null until the accounts are read. */
   accountId: string | null;
   amount: KeypadState;
   categoryId: string | null;
@@ -39,7 +39,7 @@ export interface ManualEntryState {
 
 /** What the screen is filled from. */
 export interface EntryContext {
-  /** The user's accounts (hidden ones are not offered); none for a guest. */
+  /** The user's accounts (hidden ones are not offered). */
   accounts: readonly Account[];
   /** The user's categories (hidden ones are not offered). */
   categories: readonly Category[];
@@ -85,13 +85,13 @@ export interface ManualEntryModel {
   save: { label: string; ready: boolean };
 }
 
-/** What is written: `POST /api/transactions` for a signed-in user, the device for a guest. */
+/** What is written: `POST /api/transactions`. */
 export interface ManualEntryRecord {
   type: EntryType;
   /** Integer minor units of `currency`. */
   amountMinor: number;
   currency: Currency;
-  /** Absent for a guest: the record has no account. */
+  /** Absent without accounts: the server writes to the default one. */
   accountId?: string;
   categoryId: string;
   categoryName: string;

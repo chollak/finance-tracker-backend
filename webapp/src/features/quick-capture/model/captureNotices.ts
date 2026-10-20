@@ -9,11 +9,6 @@ export interface CaptureNotice {
 
 export const NOT_UNDERSTOOD: CaptureNotice = { title: 'Не понял, что записать', detail: 'Напишите, что и сколько: «такси 18к»' };
 
-export const GUEST_TEXT: CaptureNotice = {
-  title: 'Запись текстом — после входа',
-  detail: 'Войдите через Telegram или нажмите «Ввести вручную»',
-};
-
 /** Until FT-117 brings voice into the mini app: where it works today. */
 export const VOICE_NOT_YET: CaptureNotice = { title: 'Голос здесь — скоро', detail: 'Пока скажите боту в Telegram или напишите текстом' };
 
@@ -35,7 +30,6 @@ function field(error: unknown, key: 'name' | 'message' | 'statusCode'): unknown 
  * nothing here assumes `instanceof Error`. The text stays in the field in every case.
  */
 export function sendFailedNotice(error: unknown): CaptureNotice {
-  if (field(error, 'name') === 'GuestAccessError') return GUEST_TEXT;
   if (field(error, 'name') === 'CaptureTextError') {
     const message = field(error, 'message');
     return { title: typeof message === 'string' ? message : 'Не удалось разобрать текст', detail: 'Исправьте текст и отправьте снова' };
@@ -44,7 +38,8 @@ export function sendFailedNotice(error: unknown): CaptureNotice {
     case 0:
       return { title: 'Нет связи с сервером', detail: 'Текст остался в поле — отправьте, когда связь вернётся' };
     case 401:
-      return { title: 'Нужна авторизация', detail: 'Откройте приложение из Telegram' };
+      // In a browser the session is over: the login screen opens (FT-128)
+      return { title: 'Нужно войти снова', detail: 'Вход — через Telegram, текст останется в поле' };
     case 429:
       // The AI limit is per-IP and shared with /api/voice/* (docs/QUICK_CAPTURE_API.md)
       return { title: 'Слишком много запросов', detail: 'Попробуйте через несколько минут' };

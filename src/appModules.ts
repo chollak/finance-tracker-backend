@@ -15,6 +15,7 @@ import { FxModule } from './modules/fx/fxModule';
 import { BotMessageModule } from './modules/botMessage/botMessageModule';
 import { NotificationModule } from './modules/notification/notificationModule';
 import { ExportModule } from './modules/export/exportModule';
+import { AuthModule } from './modules/auth/authModule';
 import { transactionLearning } from './shared/application/learning/transactionLearning';
 
 export function createModules() {
@@ -79,6 +80,9 @@ export function createModules() {
     accounts: userId => accountModule.getRepository().findByUserId(userId),
   });
 
+  // Web login through the bot (FT-128, decision Д4): the link, the answer in the bot, the browser's session
+  const authModule = AuthModule.create();
+
   return {
     categoryModule,
     accountModule,
@@ -94,5 +98,6 @@ export function createModules() {
     botMessageModule,
     notificationModule,
     exportModule,
+    authModule,
   };
 }

@@ -1,6 +1,6 @@
 import type { Transaction } from '@/shared/types';
 import { formatMinor, NBSP, usdToUzsMinor } from '@/shared/lib/money';
-import type { HistoryPage, HistoryQuery, NetInUzs } from '../model/types';
+import type { HistoryQuery, NetInUzs } from '../model/types';
 
 /**
  * A history query as SearchField.md reads it (FT-116), the same way the server does (`parseHistorySearch` in
@@ -40,13 +40,6 @@ function amountMinorOf(record: Transaction): number {
   return record.amountMinor ?? Math.round(record.amount * 100);
 }
 
-function matches(record: Transaction, search: HistorySearch): boolean {
-  const haystack = searchKey([record.category, record.description, record.merchant].filter(Boolean).join(' '));
-  if (!search.words.every((word) => haystack.includes(word))) return false;
-  // Whole сум or dollars: minor units are hundredths
-  return String(Math.floor(amountMinorOf(record) / 100)).startsWith(search.amountDigits);
-}
-
 /**
  * Records in сум of both currencies (TransactionList.md, «Итог дня»): income adds, expenses subtract; dollars at the
  * rate, each record rounded to whole сум like the server's totals; without a rate they are left out.
@@ -71,22 +64,4 @@ export function formatNetMinor(net: NetInUzs): string | null {
   if (net.usd.missingRate) return null;
   const sum = formatMinor(net.netMinor, 'UZS', { sign: 'always' });
   return net.usd.present ? `≈${NBSP}${sum}` : sum;
-}
-
-/**
- * A guest's History: the device's records (guest mode goes with FT-128) searched and filtered here by the same
- * rules, newest first, as one page. A guest has no accounts: an account filter finds nothing.
- */
-export function deviceHistoryPage(records: readonly Transaction[], query: HistoryQuery): HistoryPage {
-  const search = parseHistorySearch(query.text);
-  const items = records
-    .filter((record) => (query.categoryId === null || record.categoryId === query.categoryId) && query.accountId === null)
-    .filter((record) => query.type === null || record.type === query.type)
-    .filter((record) => search === null || matches(record, search))
-    .sort((a, b) => b.date.localeCompare(a.date) || (b.createdAt ?? '').localeCompare(a.createdAt ?? ''));
-  return {
-    items,
-    nextCursor: null,
-    summary: isHistoryNarrowed(query) ? { count: items.length, ...netInUzs(items, null) } : null,
-  };
 }

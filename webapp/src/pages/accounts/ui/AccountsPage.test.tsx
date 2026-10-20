@@ -251,14 +251,6 @@ describe('Accounts', () => {
     expect(text()).not.toContain('Курса пока нет');
   });
 
-  it('a guest is told accounts come after signing in', async () => {
-    useUserStore.setState({ userId: 'guest-1', userType: 'guest', telegramId: null, userName: null });
-    await renderAccounts();
-
-    expect(text()).toContain('Счета — после входа');
-    expect(button('На главную')).toBeTruthy();
-  });
-
   it('«Перевод или обмен» opens the transfer form (FT-119)', async () => {
     await renderAccounts();
 

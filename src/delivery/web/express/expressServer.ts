@@ -26,6 +26,9 @@ import { FxModule } from '../../../modules/fx/fxModule';
 import { createFxRoutes } from '../../../modules/fx/presentation/fxController';
 import { ExportModule } from '../../../modules/export/exportModule';
 import { createExportRoutes } from '../../../modules/export/presentation/exportController';
+import { AuthModule } from '../../../modules/auth/authModule';
+import { createAuthRoutes } from '../../../modules/auth/presentation/authController';
+import { createWebSessionMiddleware } from './middleware/webSessionMiddleware';
 
 /** Modules of the money model (milestone 10, phase 2); their routes take the user from auth only. */
 export interface MoneyModules {
@@ -34,6 +37,8 @@ export interface MoneyModules {
   fxModule?: FxModule;
   /** «Скачать все записи» (FT-126). */
   exportModule?: ExportModule;
+  /** Signing in to the web app through the bot and the browser's session cookie (FT-128). */
+  authModule?: AuthModule;
 }
 import { createSubscriptionRoutes } from './routes/subscriptionRoutes';
 import {
@@ -67,6 +72,12 @@ export function buildServer(
   router.use(express.json({ limit: '10mb' }));
   router.use(express.urlencoded({ extended: true, limit: '10mb' }));
   // Note: Using custom corsHeaders middleware (applied above) for secure CORS handling
+
+  // A browser signed in through the bot (FT-128): its session cookie, read before any route and rate limit
+  const authModule = moneyModules.authModule;
+  if (authModule) {
+    router.use(createWebSessionMiddleware(sessionSecret => authModule.getWebSessionUseCase().execute({ sessionSecret })));
+  }
 
   // Note: User resolution middleware is applied at route level, not globally.
   // This ensures req.params is available when middleware runs.
@@ -167,6 +178,10 @@ export function buildServer(
     }
     if (moneyModules.fxModule) {
       router.use('/rates', createFxRoutes(moneyModules.fxModule.getService(), userModule));
+    }
+    // Web login through the bot and the browser's session (FT-128)
+    if (authModule) {
+      router.use('/auth', createAuthRoutes(authModule, userModule));
     }
     // All records as CSV: a download, or a file in the chat with the bot (FT-126)
     if (moneyModules.exportModule) {

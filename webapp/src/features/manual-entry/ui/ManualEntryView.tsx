@@ -11,8 +11,8 @@ export interface ManualEntryViewProps {
   type: EntryType;
   note: string;
   model: ManualEntryModel;
-  /** The accounts; `none` — a guest, who has no accounts. */
-  accounts: ListStatus | 'none';
+  /** The accounts: read, being read, or failed to read. */
+  accounts: ListStatus;
   categories: ListStatus;
   saving?: boolean;
   saveFailed?: boolean;
@@ -127,45 +127,43 @@ export function ManualEntryView({
         selection rings and focus rings room inside the scroll box without moving anything on the board.
       */}
       <div className="-mx-4 -my-1 flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-y-contain px-4 py-1">
-        {accounts !== 'none' && (
-          <Section label="Счёт">
-            {accounts === 'failed' ? (
-              <ReadFailed what="счета" onRetry={onRetry} />
-            ) : accounts === 'loading' ? (
-              <div aria-busy="true" className="grid grid-cols-3 gap-2">
-                {[0, 1, 2].map((index) => <SkeletonBlock key={index} className="h-control" radius="tile" />)}
-              </div>
-            ) : (
-              <div role="radiogroup" aria-label="Счёт" className="grid grid-cols-3 gap-2">
-                {model.accounts.map((account) => (
-                  <button
-                    key={account.id}
-                    type="button"
-                    role="radio"
-                    aria-checked={account.selected}
-                    onClick={() => onAccount(account.id)}
+        <Section label="Счёт">
+          {accounts === 'failed' ? (
+            <ReadFailed what="счета" onRetry={onRetry} />
+          ) : accounts === 'loading' ? (
+            <div aria-busy="true" className="grid grid-cols-3 gap-2">
+              {[0, 1, 2].map((index) => <SkeletonBlock key={index} className="h-control" radius="tile" />)}
+            </div>
+          ) : (
+            <div role="radiogroup" aria-label="Счёт" className="grid grid-cols-3 gap-2">
+              {model.accounts.map((account) => (
+                <button
+                  key={account.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={account.selected}
+                  onClick={() => onAccount(account.id)}
+                  className={cn(
+                    'flex h-control min-w-0 flex-col items-start justify-center gap-px rounded-control px-3.5 text-left',
+                    FOCUS,
+                    'focus-visible:ring-offset-2 focus-visible:ring-offset-bg',
+                    account.selected ? 'bg-primary text-on-primary' : 'bg-card text-ink'
+                  )}
+                >
+                  <span className="max-w-full truncate text-[14px] font-bold leading-[1.2]">{account.name}</span>
+                  <span
                     className={cn(
-                      'flex h-control min-w-0 flex-col items-start justify-center gap-px rounded-control px-3.5 text-left',
-                      FOCUS,
-                      'focus-visible:ring-offset-2 focus-visible:ring-offset-bg',
-                      account.selected ? 'bg-primary text-on-primary' : 'bg-card text-ink'
+                      'max-w-full truncate whitespace-nowrap text-[11px] font-semibold leading-[1.4] tabular-nums',
+                      account.selected ? 'text-on-primary-muted' : 'text-ink-muted'
                     )}
                   >
-                    <span className="max-w-full truncate text-[14px] font-bold leading-[1.2]">{account.name}</span>
-                    <span
-                      className={cn(
-                        'max-w-full truncate whitespace-nowrap text-[11px] font-semibold leading-[1.4] tabular-nums',
-                        account.selected ? 'text-on-primary-muted' : 'text-ink-muted'
-                      )}
-                    >
-                      {account.balance}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </Section>
-        )}
+                    {account.balance}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </Section>
 
         <Section label="Категория">
           {categories === 'failed' ? (

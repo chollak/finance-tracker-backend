@@ -181,6 +181,8 @@
 
   /* Skeleton pulse of «Пастель»: opacity 1 → 0.55, 1.6s (docs/pastel/components/Skeleton.md) */
   --animate-pastel-pulse: pastelPulse 1.6s ease-in-out infinite;
+  /* The icon while the login waits for «Подтвердить»: opacity 1 → 0.25, 1.6s (board «Вход · ждём подтверждения») */
+  --animate-waiting-pulse: waitingPulse 1.6s ease-in-out infinite;
 
   /* ===== SPACING (Touch Targets) ===== */
   --touch-target: 2.75rem;    /* 44px minimum */
@@ -259,6 +261,15 @@
   }
   50% {
     opacity: 0.55;
+  }
+}
+
+@keyframes waitingPulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
   }
 }
 

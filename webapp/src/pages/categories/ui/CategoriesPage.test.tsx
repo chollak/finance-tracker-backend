@@ -4,7 +4,8 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
-import { GUEST_CATEGORIES, type Category } from '@/entities/category';
+import { type Category } from '@/entities/category';
+import { STARTER_CATEGORIES } from '@/entities/category/model/fixtures';
 import { useUserStore } from '@/entities/user';
 import { apiClient } from '@/shared/api';
 import { useUndoToastStore } from '@/shared/lib/undo';
@@ -31,7 +32,7 @@ let root: Root;
 let container: HTMLDivElement;
 let router: ReturnType<typeof createMemoryRouter>;
 
-const START: Category[] = GUEST_CATEGORIES.map((category, index) => ({ ...category, id: `c${index}` }));
+const START: Category[] = STARTER_CATEGORIES.map((category, index) => ({ ...category, id: `c${index}` }));
 const idOf = (name: string, type: Category['type'] = 'expense') => START.find((c) => c.name === name && c.type === type)!.id;
 
 /** «8 записей в октябре»: the month's analytics, as the analytics screen reads it. */
@@ -509,15 +510,5 @@ describe('«Скрытые категории»', () => {
 
     expect(apiClient.patch).toHaveBeenLastCalledWith(`/categories/${idOf('Покупки')}`, { isHidden: true });
     expect(rows().at(-1)).toBe('Скрытые · 1');
-  });
-});
-
-describe('a guest', () => {
-  it('has no categories of their own to change: the screen says they come after signing in', async () => {
-    useUserStore.setState({ userId: 'guest_1', userType: 'guest', telegramId: null, userName: null });
-    await renderCategories();
-
-    expect(squash(document.body.textContent)).toContain('Категории — после входа');
-    expect(apiClient.get).not.toHaveBeenCalledWith('/categories');
   });
 });

@@ -14,8 +14,8 @@ export interface ThemeChoice {
 
 /**
  * The theme the user chose (FT-125, board «Тема»). It is the `theme` setting, so it follows the user to the Mini App
- * on another phone and to the browser; the device applies it before the server answers. A guest has no settings:
- * the choice stays on this device.
+ * on another phone and to the browser; the device applies it before the server answers. Before anyone is signed in
+ * (the login screen) the choice stays on this device.
  */
 export function useThemeChoice(): ThemeChoice {
   const preference = useThemeStore((state) => state.preference);

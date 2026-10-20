@@ -2,9 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { apiClient } from '@/shared/api';
 import { API_ENDPOINTS } from '@/shared/lib/constants';
-import { isGuestId } from '@/shared/lib/utils/guestId';
 import { haptic } from '@/shared/lib/haptic';
-import { GuestAccessError } from '@/entities/transaction/api/mutations';
 
 import { quickCaptureInvalidationKeys } from './invalidation';
 import { toCaptureFeedback, type CaptureFeedback } from '../model/toCaptureFeedback';
@@ -37,10 +35,6 @@ export interface QuickCaptureInput {
 /**
  * Hook for POST /api/quick-capture — the shared capture boundary the Telegram bot already uses.
  *
- * Guest users are rejected: their transactions live in IndexedDB only
- * (`transactionDataSource`), while this endpoint writes server-side, so a guest capture would
- * save into a store the Mini App never reads back.
- *
  * The result is returned as-is; `toCaptureFeedback()` turns it into honest UI wording. Nothing
  * here fakes a save — `no_transaction` invalidates no cache and reports no saved rows.
  */
@@ -49,10 +43,6 @@ export function useQuickCapture() {
 
   return useMutation<QuickCaptureResult, Error, QuickCaptureInput>({
     mutationFn: async ({ text, userId, userName, clientId }) => {
-      if (isGuestId(userId)) {
-        throw new GuestAccessError('быстрой записи текстом');
-      }
-
       const validation = validateCaptureText(text);
       if (!validation.ok) {
         throw new CaptureTextError(validation.reason);

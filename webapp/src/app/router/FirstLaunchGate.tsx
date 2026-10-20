@@ -20,7 +20,7 @@ export function FirstLaunchGate() {
   const userType = useUserStore((state) => state.userType);
   const userId = useUserStore((state) => state.userId);
   const settings = useSettings();
-  // The user the gate has let into the app; another user (a sign-in after a guest) waits again
+  // The user the gate has let into the app; another user (a sign-in after «Выйти») waits again
   const [openedFor, setOpenedFor] = useState<string | null>(null);
   const decision = firstLaunchDecision({
     userType,

@@ -1,9 +1,6 @@
 import type { ReactNode } from 'react';
-import { LogIn } from 'lucide-react';
 import type { AccountIcon as AccountIconKind } from '@/entities/account';
-import { useCloseScreen } from '@/shared/lib/navigation';
 import { cn } from '@/shared/lib/utils';
-import { BackButton, ProblemScreen } from '@/shared/ui/pastel';
 import type { AmountView } from '../model/accountForms';
 
 export const FOCUS = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink';
@@ -110,20 +107,6 @@ export function Icon({
         </svg>
       );
   }
-}
-
-/** A guest keeps records on the device and has no accounts: the list and an account's link say so (ProblemScreen.md). */
-export function GuestAccounts() {
-  const close = useCloseScreen();
-  return (
-    <ProblemScreen
-      header={<BackButton />}
-      icon={<LogIn strokeWidth={1.9} />}
-      title="Счета — после входа"
-      text="Счета и остатки хранятся в Daftar, а не на телефоне. Войдите через Telegram, и они появятся здесь."
-      action={{ label: 'На главную', onClick: close }}
-    />
-  );
 }
 
 /** The 40px circle on `track` of an account: banknote, card or «$» (AccountList.md). */

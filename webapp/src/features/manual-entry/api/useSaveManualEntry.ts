@@ -8,7 +8,7 @@ import type { ManualEntryRecord } from '../model/manualEntry';
 
 /**
  * Writes a manual entry (FT-113): `POST /api/transactions` with the amount in minor units, the account,
- * its currency, the category and the date (a guest's record stays on the device), then shows Home with
+ * its currency, the category and the date, then shows Home with
  * «Записано» and «Отменить». A failed save keeps the screen as it was, so it can be pressed again.
  */
 export function useSaveManualEntry() {

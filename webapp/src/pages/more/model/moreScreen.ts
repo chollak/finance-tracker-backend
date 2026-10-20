@@ -118,9 +118,6 @@ export function notificationPatch(kind: NotificationKind, change: { on: boolean 
 
 export const NOTIFICATION_SAVE_FAILED = { title: 'Не получилось сохранить настройку', detail: 'Проверьте связь и попробуйте ещё раз' } as const;
 
-/** The bot's notices need the account: a guest has none. */
-export const GUEST_NOTIFICATION_STATE = 'После входа через Telegram';
-
 export const BOT_NOTE = 'Время — по Ташкенту. Кроме этого бот пишет только в ответ на ваши записи.';
 
 /** The audit comes with its screens (FT-132); until then the row only says what it will be. */
@@ -128,10 +125,15 @@ export const AUDIT_SOON = 'Скоро: разбор трат прошлого м
 
 export const DATA_NOTE = 'Все записи с категориями, счетами и курсом — таблицей CSV, её откроет Excel или Google Таблицы.';
 
-/** «Аккаунт» by a direct link: who is signed in (FT-128 brings «Выйти» with the web session). */
-export function accountState(user: { isGuest: boolean; name: string | null }): { title: string; subtitle: string } {
-  if (user.isGuest) return { title: 'Гость', subtitle: 'Записи только в этом браузере' };
-  return { title: user.name || 'Аккаунт Telegram', subtitle: 'Вход через Telegram' };
+/** «Аккаунт» by a direct link: who is signed in — «Шукур», «@shukur · вход через Telegram» (board «„Ещё“ в браузере»). */
+export function accountState(user: { name: string | null; username: string | null }): { title: string; subtitle: string } {
+  return {
+    title: user.name || 'Аккаунт Telegram',
+    subtitle: user.username ? `@${user.username} · вход через Telegram` : 'Вход через Telegram',
+  };
 }
+
+/** «Выйти» (FT-128): the session of this browser only; the records stay. */
+export const SIGN_OUT = { title: 'Выйти', subtitle: 'Только в этом браузере · записи останутся' } as const;
 
 export const VERSION_LINE = 'Daftar · версия 0.1';

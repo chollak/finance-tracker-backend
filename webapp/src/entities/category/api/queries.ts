@@ -2,7 +2,6 @@ import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/shared/api';
 import { API_ENDPOINTS } from '@/shared/lib/constants';
 import { useUserStore } from '@/entities/user/model/store';
-import { GUEST_CATEGORIES } from '../model/guestCategories';
 import type { Category } from '../model/types';
 
 export const categoryKeys = {
@@ -12,16 +11,14 @@ export const categoryKeys = {
 
 /**
  * The user's categories (FT-100): from `GET /api/categories`, cached for the session. Hidden ones are
- * included — pickers filter them out, history still shows their records. Guests get the starter set.
+ * included — pickers filter them out, history still shows their records.
  */
 export function useCategories() {
   const userId = useUserStore((state) => state.userId);
-  const userType = useUserStore((state) => state.userType);
 
   return useQuery({
     queryKey: categoryKeys.list(userId ?? ''),
     queryFn: async (): Promise<Category[]> => {
-      if (userType === 'guest') return GUEST_CATEGORIES;
       const response = await apiClient.get<Category[]>(API_ENDPOINTS.CATEGORIES.LIST);
       return response.data ?? [];
     },

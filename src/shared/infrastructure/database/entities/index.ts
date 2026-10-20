@@ -12,3 +12,4 @@ export { FxRate } from './FxRate';
 export { AccountMove } from './AccountMove';
 export { BotMessage } from './BotMessage';
 export { NotificationLog } from './NotificationLog';
+export { LoginToken } from './LoginToken';

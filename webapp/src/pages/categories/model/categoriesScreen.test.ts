@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { GUEST_CATEGORIES, type Category } from '@/entities/category';
+import { type Category } from '@/entities/category';
+import { STARTER_CATEGORIES } from '@/entities/category/model/fixtures';
 import {
   addPayload,
   addedToast,
@@ -22,7 +23,7 @@ import {
  * the screen says and what each close of a sheet writes.
  */
 
-const categories: Category[] = GUEST_CATEGORIES.map((category, index) => ({ ...category, id: `c${index}` }));
+const categories: Category[] = STARTER_CATEGORIES.map((category, index) => ({ ...category, id: `c${index}` }));
 const byName = (name: string, type: Category['type'] = 'expense') => categories.find((c) => c.name === name && c.type === type)!;
 const cafe = byName('Кафе');
 const other = byName('Другое');

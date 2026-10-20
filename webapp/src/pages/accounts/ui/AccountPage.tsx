@@ -4,7 +4,6 @@ import { SearchX } from 'lucide-react';
 import { useAccountOperations, useAccounts, visibleAccounts, type MoveOperation } from '@/entities/account';
 import { findCategory, useCategories } from '@/entities/category';
 import { RecordRowItem } from '@/entities/transaction';
-import { useIsGuest } from '@/entities/user';
 import { recordLinkState } from '@/features/record-sheet';
 import { ROUTES } from '@/shared/lib/constants/routes';
 import { toLocalDate } from '@/shared/lib/dates';
@@ -14,7 +13,7 @@ import { cn } from '@/shared/lib/utils';
 import { BackButton, NextPage, ProblemScreen, SkeletonBlock, UndoToast } from '@/shared/ui/pastel';
 import { accountDays, accountHeader, transferAction, type MoveRow, type OperationDay } from '../model/accountScreen';
 import { CorrectBalanceSheet, EditAccountSheet, MoveSheet } from './AccountSheets';
-import { FOCUS, FOCUS_INSET, GuestAccounts, Icon, ReadFailed } from './parts';
+import { FOCUS, FOCUS_INSET, Icon, ReadFailed } from './parts';
 
 /** A transfer, an exchange or an adjustment among the records: a neutral circle, the amount in ink (AccountMoves.md). */
 function MoveRowItem({ row, onOpen }: { row: MoveRow; onOpen: () => void }) {
@@ -135,7 +134,6 @@ type OpenSheet = { kind: 'edit' } | { kind: 'correct' } | { kind: 'move'; operat
 export function AccountPage() {
   const { id } = useParams();
   const [today] = useState(() => toLocalDate(new Date()));
-  const isGuest = useIsGuest();
   const operations = useAccountOperations(id);
   const accounts = useAccounts();
   const categories = useCategories();
@@ -152,8 +150,6 @@ export function AccountPage() {
     if (!value) setSheet(null);
   };
 
-  // A guest's records live on the device; accounts come after signing in (as the list says)
-  if (isGuest) return <GuestAccounts />;
 
   if (operations.error?.statusCode === 404) {
     return (

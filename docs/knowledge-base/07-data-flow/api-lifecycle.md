@@ -83,15 +83,29 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 **Файл:** [`src/delivery/web/express/middleware/errorMiddleware.ts`](../../../src/delivery/web/express/middleware/errorMiddleware.ts)
 
+#### D2. Web session (FT-128)
+
+Браузер вне Telegram входит через бота и получает httpOnly-cookie `daftar_session` (SameSite=Lax, `Path=/api`, 30
+дней). `createWebSessionMiddleware` стоит сразу после парсеров, до всех роутеров и лимитов: находит сессию по хешу
+cookie и кладёт её пользователя в `req.webSession`. Дальше вход определяется так (`requireAuth`, `optionalAuth`,
+`signedInTelegramId`): вне production `X-Dev-User-Id`; есть заголовок `Authorization` — только он (`tma <initData>`
+Mini App); нет заголовка — сессия браузера. Без всего этого — `401`.
+
+**Файл:** [`src/delivery/web/express/middleware/webSessionMiddleware.ts`](../../../src/delivery/web/express/middleware/webSessionMiddleware.ts)
+
 #### E. Rate limits (в каждом роутере, до его авторизации)
 
 | Лимитер | Окно | Считает по | Лимит |
 |---|---|---|---|
-| `standardRateLimiter` — общий (FT-139) | 15 минут | пользователю Telegram: проверенный initData (`Authorization: tma …`), вне production — `X-Dev-User-Id` | 600 |
+| `standardRateLimiter` — общий (FT-139) | 15 минут | пользователю Telegram: проверенный initData (`Authorization: tma …`), сессия браузера (FT-128), вне production — `X-Dev-User-Id` | 600 |
 | | | адресу, если входа нет или initData не прошёл проверку | 100 |
 | `aiRateLimiter` — разбор фраз, голос, быстрая запись | 15 минут | адресу | 20 |
 | `readOnlyRateLimiter` — `/dashboard` | 15 минут | адресу | 300 |
 | `strictRateLimiter` / `adminRateLimiter` | 15 минут | адресу | 10 / 5 |
+
+Вход в браузере (FT-128): `POST /api/auth/web-login` — `strictRateLimiter` (10 ссылок с адреса за 15 минут), опрос
+`GET /api/auth/web-login` — `readOnlyRateLimiter` (страница спрашивает раз в 3 секунды), остальное `/api/auth` —
+общий.
 
 Общий лимитер стоит перед авторизацией маршрута, поэтому вход проверяет сам — тем же правилом, что
 `requireAuth` (`signedInTelegramId()` в `authMiddleware.ts`). Поддельный initData считается как запрос без

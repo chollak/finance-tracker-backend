@@ -115,13 +115,13 @@ describe('what the sheet shows (board «Карточка операции»)', (
     expect(recordSheetModel(sheet({ amountMinor: 1_250_000_000_00 }), CONTEXT).amount.large).toBe(false);
   });
 
-  it('a guest has no accounts: no «Счёт» row', () => {
+  it('without the accounts: no «Счёт» row', () => {
     const model = recordSheetModel(sheet({ accountId: undefined }), { ...CONTEXT, accounts: [] });
 
     expect(model.fields.map((item) => item.label)).toEqual(['Категория', 'Дата', 'Заметка']);
   });
 
-  it('a record without a category id finds it by name (guest records from before FT-099)', () => {
+  it('a record without a category id finds it by name (records from before FT-099)', () => {
     expect(field(sheet({ categoryId: undefined, category: 'кафе' }), 'Категория')?.value).toBe('Кафе');
   });
 });

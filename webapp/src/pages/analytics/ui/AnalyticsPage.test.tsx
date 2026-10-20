@@ -223,7 +223,7 @@ describe('Analytics: nothing yet (board «Аналитика · пока пус�
   });
 });
 
-describe('Analytics: a read that failed, a guest', () => {
+describe('Analytics: a read that failed', () => {
   it('a failed read says so and reads again', async () => {
     answers['/analytics?type=expense'] = new Error('boom');
     await renderAnalytics();
@@ -243,13 +243,5 @@ describe('Analytics: a read that failed, a guest', () => {
     expect(text()).not.toContain('Не удалось загрузить аналитику.');
     expect(text()).toContain('Доходы · 1–14 октября');
     expect(button('Предыдущий месяц')).toBeTruthy();
-  });
-
-  it('a guest is asked to sign in: analytics is counted on the server', async () => {
-    useUserStore.setState({ userId: 'guest-1', userType: 'guest', telegramId: null, userName: null });
-    await renderAnalytics();
-
-    expect(text()).toContain('Аналитика — после входа');
-    expect(vi.mocked(apiClient.get).mock.calls.some(([url]) => url.startsWith('/analytics'))).toBe(false);
   });
 });

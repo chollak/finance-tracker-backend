@@ -5,7 +5,7 @@ import { useUserStore } from '@/entities/user';
 import { ROUTES } from '@/shared/lib/constants/routes';
 import type { OpenedFromState } from '@/shared/lib/navigation';
 import { showUndoToast } from '@/shared/lib/undo';
-import { GUEST_TEXT, NOT_UNDERSTOOD, sendFailedNotice, type CaptureNotice } from '../model/captureNotices';
+import { NOT_UNDERSTOOD, sendFailedNotice, type CaptureNotice } from '../model/captureNotices';
 import { reviewSessionFrom } from '../model/captureReview';
 import { useCaptureStore } from '../model/captureStore';
 import { validateCaptureText } from '../model/validateCaptureText';
@@ -24,7 +24,6 @@ export function useSendCapture() {
   const capture = useQuickCapture();
   const userId = useUserStore((state) => state.userId);
   const userName = useUserStore((state) => state.userName);
-  const userType = useUserStore((state) => state.userType);
   const categories = useCategories();
   const navigate = useNavigate();
   const { pathname } = useLocation();
@@ -36,10 +35,6 @@ export function useSendCapture() {
     if (!userId || capture.isPending) return;
     const validation = validateCaptureText(raw);
     if (!validation.ok) return;
-    if (userType === 'guest') {
-      notify(GUEST_TEXT);
-      return;
-    }
 
     const text = validation.text;
     if (attempt.current?.text !== text) attempt.current = { text, clientId: crypto.randomUUID() };

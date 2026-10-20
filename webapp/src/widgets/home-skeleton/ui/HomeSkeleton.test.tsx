@@ -181,8 +181,8 @@ describe('the slow message of a loading that has taken six seconds', () => {
     signOut();
   });
 
-  it('comes to a Telegram user: their records are kept on the server', () => {
-    signOut = signInForStaticRender({ userId: '900000001', userType: 'telegram' });
+  it('comes to a signed-in user: their records are kept on the server', () => {
+    signOut = signInForStaticRender({ userId: '900000001' });
 
     const html = sixSecondsLater();
 
@@ -190,17 +190,7 @@ describe('the slow message of a loading that has taken six seconds', () => {
     expect(html).toMatch(RETRY);
   });
 
-  it('does not come to a guest: their records are on the device, and the server would be a false promise', () => {
-    signOut = signInForStaticRender({ userId: 'guest_1', userType: 'guest' });
-
-    const html = sixSecondsLater();
-
-    expect(text(html)).not.toContain('хранятся на сервере');
-    expect(html).not.toMatch(RETRY);
-    expect(text(html)).toContain('Загружаю ваши счета и записи…');
-  });
-
-  it('does not come while it is not known yet who the user is: they may turn out to be a guest', () => {
+  it('does not come while it is not known yet who the user is (a browser checks its session)', () => {
     const html = sixSecondsLater();
 
     expect(text(html)).not.toContain('хранятся на сервере');

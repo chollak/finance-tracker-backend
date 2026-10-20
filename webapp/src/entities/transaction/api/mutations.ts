@@ -6,27 +6,15 @@ import type { TransactionViewModel } from '../model/types';
 import { transactionKeys } from './keys';
 import { budgetKeys } from '@/entities/budget/api/keys';
 import { subscriptionKeys } from '@/entities/subscription/api/keys';
-import { findCategory, GUEST_CATEGORIES } from '@/entities/category';
 import { transactionToViewModel } from '../lib/toViewModel';
 import { transactionDataSource } from '@/shared/lib/db';
-import type { LocalTransaction, UpdateLocalTransactionDTO } from '@/shared/lib/db/schema';
-import { isGuestId } from '@/shared/lib/utils/guestId';
+import type { LocalTransaction } from '@/shared/lib/db/schema';
 import { haptic } from '@/shared/lib/haptic';
 import { balanceReaderKeys } from './balanceReaders';
 
 /** Home's balances, month totals and recent records move with every change of records (FT-111). */
 function invalidateBalanceReaders(queryClient: QueryClient, userId: string): void {
   for (const queryKey of balanceReaderKeys(userId)) queryClient.invalidateQueries({ queryKey });
-}
-
-/**
- * Error thrown when guest user tries to access server features
- */
-export class GuestAccessError extends Error {
-  constructor(feature: string) {
-    super(`Для ${feature} необходимо войти через Telegram`);
-    this.name = 'GuestAccessError';
-  }
 }
 
 /**
@@ -52,15 +40,13 @@ function localToTransaction(local: LocalTransaction): Transaction {
 }
 
 /**
- * Hook to create a new transaction
- * Guest: IndexedDB, Telegram: Server API
+ * Hook to create a new transaction on the server
  */
 export function useCreateTransaction() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (data: CreateTransactionDTO) => {
-      // Use dataSource - handles guest (IndexedDB) vs telegram (server API)
       const localTx = await transactionDataSource.create({
         date: data.date,
         category: data.category,
@@ -105,15 +91,13 @@ export function useCreateTransaction() {
 }
 
 /**
- * Hook to update an existing transaction
- * Guest: IndexedDB, Telegram: Server API
+ * Hook to update an existing transaction on the server
  */
 export function useUpdateTransaction() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({ id, data }: { id: string; userId: string; data: UpdateTransactionDTO }) => {
-      // Use dataSource - handles guest (IndexedDB) vs telegram (server API)
       const localTx = await transactionDataSource.update(id, {
         date: data.date,
         category: data.category,
@@ -205,7 +189,7 @@ function forgetDeletedTransaction(queryClient: QueryClient, { id, userId }: { id
 }
 
 /**
- * Deletes a record — softly on the server (FT-105), from the device for a guest — and refreshes what showed
+ * Deletes a record — softly on the server (FT-105) — and refreshes what showed
  * it. Not a hook: «Отменить» in a toast runs it after the screen that wrote the record is gone (FT-113).
  */
 export async function deleteTransaction(queryClient: QueryClient, variables: { id: string; userId: string }): Promise<void> {
@@ -214,9 +198,8 @@ export async function deleteTransaction(queryClient: QueryClient, variables: { i
 }
 
 /**
- * Brings a deleted record back (FT-105: `POST /api/transactions/:id/restore`; a guest's record is put back on
- * the device, FT-115) and refreshes what counts it. Not a hook, like `deleteTransaction`: «Отменить» in a toast
- * runs it.
+ * Brings a deleted record back (FT-105: `POST /api/transactions/:id/restore`) and refreshes what counts it. Not a
+ * hook, like `deleteTransaction`: «Отменить» in a toast runs it.
  */
 export async function restoreTransaction(queryClient: QueryClient, { id, userId }: { id: string; userId: string }): Promise<void> {
   await transactionDataSource.restore(id);
@@ -240,44 +223,15 @@ export type TransactionPatch =
   | { type: 'income' | 'expense'; categoryId: string; semanticType: 'income' | 'expense' };
 
 /**
- * A guest's device record has no account or currency (сум only), keeps its amount in сум and the name of its
- * category next to the id (the old History list shows the name); guest mode goes with FT-128 (decision Д4).
- */
-function toDeviceUpdate(patch: TransactionPatch): UpdateLocalTransactionDTO {
-  const update: UpdateLocalTransactionDTO = {};
-  if ('amountMinor' in patch) update.amount = patch.amountMinor / 100;
-  if ('categoryId' in patch) {
-    update.categoryId = patch.categoryId;
-    const category = findCategory(GUEST_CATEGORIES, patch.categoryId);
-    if (category) update.category = category.name;
-  }
-  if ('date' in patch) update.date = patch.date;
-  if ('description' in patch) update.description = patch.description;
-  if ('type' in patch) {
-    update.type = patch.type;
-    update.semanticType = patch.semanticType;
-  }
-  return update;
-}
-
-/**
  * Changes a saved record at once (the AI review of FT-114, the record sheet of FT-115) and refreshes what shows
- * it. A signed-in user's record is changed on the server, whose answer becomes the record the sheet shows; a
- * guest's on the device.
+ * it. The record is changed on the server, whose answer becomes the record the sheet shows.
  */
 export async function patchTransaction(
   queryClient: QueryClient,
   { id, userId, patch }: { id: string; userId: string; patch: TransactionPatch }
 ): Promise<void> {
-  let saved: Transaction;
-  if (isGuestId(userId)) {
-    const local = await transactionDataSource.update(id, toDeviceUpdate(patch));
-    if (!local) throw { statusCode: 404, message: 'Transaction not found' };
-    saved = localToTransaction(local);
-  } else {
-    const response = await apiClient.put<Transaction>(API_ENDPOINTS.TRANSACTIONS.UPDATE(id), patch);
-    saved = response.data;
-  }
+  const response = await apiClient.put<Transaction>(API_ENDPOINTS.TRANSACTIONS.UPDATE(id), patch);
+  const saved = response.data;
   queryClient.removeQueries({ queryKey: transactionKeys.detail(id) });
   queryClient.setQueryData(transactionKeys.record(id), saved);
   refetchAfterChange(queryClient, userId);

@@ -1,6 +1,6 @@
 # Module System
 
-`createModules()` (`src/appModules.ts`) возвращает **14 модулей приложения**, каждый с чётко определённой ответственностью. `CategoryModule` добавлен в FT-099, `AccountModule` — в FT-101, `FxModule` — в FT-102, `BotMessageModule` — в FT-122, `NotificationModule` — в FT-124, `ExportModule` — в FT-126, `QuickCaptureModule` — обёртка над текстовым разбором для `POST /api/quick-capture`.
+`createModules()` (`src/appModules.ts`) возвращает **15 модулей приложения**, каждый с чётко определённой ответственностью. `CategoryModule` добавлен в FT-099, `AccountModule` — в FT-101, `FxModule` — в FT-102, `BotMessageModule` — в FT-122, `NotificationModule` — в FT-124, `ExportModule` — в FT-126, `AuthModule` — в FT-128, `QuickCaptureModule` — обёртка над текстовым разбором для `POST /api/quick-capture`.
 
 Dashboard модулем не является: в `src/modules/dashboard/` лежат только `DashboardService` и `DashboardController`, файла `dashboardModule.ts` нет. Сборка происходит в Express-слое — см. [Dashboard: сервис, а не модуль](#dashboard-сервис-а-не-модуль).
 
@@ -22,6 +22,7 @@ graph TD
     BMM[BotMessageModule<br/>Bot record messages]
     NM[NotificationModule<br/>Daily summary, /today, /month]
     EM[ExportModule<br/>All records as CSV]
+    AuM[AuthModule<br/>Web login through the bot]
     DS[DashboardService<br/>не модуль, собирается в Express]
 
     BM -->|depends on| TM
@@ -43,6 +44,7 @@ graph TD
     NM -->|users + settings| UM
     EM -.->|records: ExportSources| TM
     EM -.->|accounts + moves: ExportSources| AM
+    AuM -.->|session names: users table| UM
     SM -.->|controller uses| UM
     DS -.->|AnalyticsService| TM
     DS -.->|BudgetService| BM
@@ -76,6 +78,7 @@ graph TD
 | **UserModule** | Пользователи и их настройки (FT-098) | Независимый | `userModule.ts` |
 | **BotMessageModule** | Сообщения бота о записях (FT-122): какие записи показывает подтверждение и какой экран кнопок открыт — таблица `bot_messages`, кнопки и `/undo` переживают перезапуск | Независимый; записи меняет бот через use cases TransactionModule | `botMessageModule.ts` |
 | **NotificationModule** | Уведомления бота (FT-124): итоги дня в выбранное время по часам пользователя, не больше одного раза за день (`notifications_log`), и итоги для `/today` и `/month` | TransactionModule (сервис итогов FT-103, аналитика FT-120), UserModule (пользователи и настройки) | `notificationModule.ts` |
+| **AuthModule** | Вход в браузере через бота (FT-128, Д4): одноразовая ссылка `t.me/<bot>?start=login_<token>` на 5 минут, «Подтвердить» / «Это не я» в боте, сессия браузера — httpOnly-cookie; `login_tokens` | Независимый; имена для `GET /api/auth/session` — из UserModule в контроллере; сессию читает `webSessionMiddleware` в Express | `authModule.ts` |
 | **ExportModule** | «Скачать все записи» (FT-126): CSV всех неудалённых записей и перемещений — скачивание в браузере (`GET /api/export`) или файл в чат с ботом (`POST /api/export/chat`, `sendDocument`) | TransactionModule и AccountModule через порт `ExportSources` (подключается в `createModules()`); Bot API — по токену бота | `exportModule.ts` |
 
 Отдельно, **не как модуль**:
@@ -463,6 +466,34 @@ new ProcessVoiceInputUseCase(
   «205 записей на 14 октября — …»; 403 и «chat not found» — `ChatClosedError`. Создаётся, если задан
   `TG_BOT_API_KEY`; без него `POST /api/export/chat` отвечает `502`, скачивание работает.
 - Чат — Telegram id из авторизации (`currentTelegramId`), пользователь — `currentUserId`.
+
+---
+
+## 14. AuthModule
+
+**Файл:** [`src/modules/auth/authModule.ts`](../../../src/modules/auth/authModule.ts)
+
+### Назначение
+Вход в браузере по прямой ссылке (FT-128, решение Д4: гостевого режима больше нет). Daftar живёт в Telegram, пароля
+нет: «Войти через Telegram» даёт одноразовую ссылку на бота, бот спрашивает «Подтвердить» или «Это не я», страница
+ждёт и открывается сама. Подтверждённый вход становится сессией браузера. Mini App по-прежнему входит initData.
+Маршруты — `docs/pastel/api.md`, «Вход в браузере через бота».
+
+### Состав
+- Домен — `webLogin.ts`: статусы входа (`pending` → `confirmed` / `rejected` / `cancelled`, `confirmed` → `active` →
+  `signed_out`), что видит ждущая страница (`webLoginState`), срок ссылки 5 минут и сессии 30 дней, подпись
+  устройства «Chrome · Windows» (`deviceLabel`); `authPorts.ts`: порты `SecretGenerator`, `BotUsernameSource`, ошибки
+  `LOGIN_NOT_CONFIRMED` (409), `NOT_SIGNED_IN` (401), `LOGIN_UNAVAILABLE` (503).
+- Use cases (`application/webLogin.ts`): `StartWebLogin`, `GetWebLoginStatus`, `CancelWebLogin`, `OpenWebSession`,
+  `GetWebSession`, `CloseWebSession` — для браузера; `OpenLoginInBot`, `AnswerLogin` — для бота. Смена статуса —
+  условным `UPDATE … WHERE status = …` (`updateIf`): два ответа или ответ и отмена не выигрывают оба.
+- `SqliteLoginTokenRepository` — TypeORM, таблица `login_tokens` (миграция `LoginTokens1762100000000`). Секреты
+  ожидания и сессии хранятся только хешами SHA-256; код ссылки — как есть (по нему ответить можно только из Telegram).
+- `ConfiguredBotUsername` — `TG_BOT_USERNAME`, иначе `getMe` бота (запоминается).
+- Delivery: `webSessionMiddleware.ts` читает cookie `daftar_session` до всех маршрутов и кладёт пользователя в
+  `req.webSession`; `requireAuth`, `optionalAuth` и общий лимит запросов (`signedInTelegramId`) принимают его, когда
+  нет заголовка `Authorization`. Бот: `/start login_<token>` — `commandHandlers.ts`, кнопки —
+  `handlers/loginHandlers.ts`, тексты — `formatters/loginMessage.ts`.
 
 ---
 

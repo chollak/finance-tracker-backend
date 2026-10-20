@@ -6,6 +6,7 @@ import { Loading } from '@/shared/ui/loading';
 import { HomeSkeleton } from '@/widgets/home-skeleton';
 import { AppShell } from './AppShell';
 import { FirstLaunchGate } from './FirstLaunchGate';
+import { AuthGate } from './AuthGate';
 
 // Lazy load pages for code splitting
 const HomePage = lazy(() => import('@/pages').then(m => ({ default: m.HomePage })));
@@ -102,89 +103,95 @@ export const appRoutes: RouteObject[] = [
     element: <PageLoader><VoiceCheckPage /></PageLoader>,
   },
   {
-    // Every app screen opens only after the first launch (FT-109)
-    element: <FirstLaunchGate />,
+    // Every app screen needs a signed-in account (FT-128): in a browser without a session — the login screen
+    element: <AuthGate />,
     children: [
       {
-        // No bottom bar (FT-110): Home opens History and Analytics, «Ещё» the rest; every other
-        // screen is nested and has «Назад» (Telegram's BackButton or its own)
-        element: <AppShell />,
-        errorElement: <RouterErrorPage />,
+        // Every app screen opens only after the first launch (FT-109)
+        element: <FirstLaunchGate />,
         children: [
           {
-            path: '/',
-            element: <PageLoader fallback={<HomeSkeleton />}><HomePage /></PageLoader>,
-          },
-          {
-            path: '/transactions',
-            element: <PageLoader><TransactionsPage /></PageLoader>,
-          },
-          {
-            path: '/budgets',
-            element: <PageLoader><BudgetsPage /></PageLoader>,
-          },
-          {
-            path: '/debts',
-            element: <PageLoader><DebtsPage /></PageLoader>,
-          },
-          {
-            path: '/analytics',
-            element: <PageLoader><AnalyticsPage /></PageLoader>,
-          },
-          {
-            path: '/analytics/categories/:id',
-            element: <PageLoader><CategoryAnalyticsPage /></PageLoader>,
-          },
-          {
-            path: '/more',
-            element: <PageLoader><MorePage /></PageLoader>,
-          },
-          {
-            path: '/more/categories',
-            element: <PageLoader><CategoriesPage /></PageLoader>,
-          },
-          {
-            path: '/accounts',
-            element: <PageLoader><AccountsPage /></PageLoader>,
-          },
-          {
-            // Before /accounts/:id in reading order; react-router ranks the static segment above it anyway
-            path: '/accounts/transfer',
-            element: <PageLoader><TransferPage /></PageLoader>,
-          },
-          {
-            path: '/accounts/:id',
-            element: <PageLoader><AccountPage /></PageLoader>,
-          },
-          {
-            path: '/add',
-            element: <PageLoader><ManualEntryPage /></PageLoader>,
-          },
-          {
-            path: '/review',
-            element: <PageLoader><CaptureReviewPage /></PageLoader>,
-          },
-          // Form and detail pages. A record has no page: its sheet opens over the list (FT-115), and a link
-          // to a record is Home with `?record=` (ROUTES.RECORD)
-          {
-            path: '/budgets/add',
-            element: <PageLoader><AddBudgetPage /></PageLoader>,
-          },
-          {
-            path: '/budgets/:id/edit',
-            element: <PageLoader><EditBudgetPage /></PageLoader>,
-          },
-          {
-            path: '/debts/add',
-            element: <PageLoader><AddDebtPage /></PageLoader>,
-          },
-          {
-            path: '/debts/:id',
-            element: <PageLoader><DebtDetailsPage /></PageLoader>,
-          },
-          {
-            path: '*',
-            element: <NotFoundPage />,
+            // No bottom bar (FT-110): Home opens History and Analytics, «Ещё» the rest; every other
+            // screen is nested and has «Назад» (Telegram's BackButton or its own)
+            element: <AppShell />,
+            errorElement: <RouterErrorPage />,
+            children: [
+              {
+                path: '/',
+                element: <PageLoader fallback={<HomeSkeleton />}><HomePage /></PageLoader>,
+              },
+              {
+                path: '/transactions',
+                element: <PageLoader><TransactionsPage /></PageLoader>,
+              },
+              {
+                path: '/budgets',
+                element: <PageLoader><BudgetsPage /></PageLoader>,
+              },
+              {
+                path: '/debts',
+                element: <PageLoader><DebtsPage /></PageLoader>,
+              },
+              {
+                path: '/analytics',
+                element: <PageLoader><AnalyticsPage /></PageLoader>,
+              },
+              {
+                path: '/analytics/categories/:id',
+                element: <PageLoader><CategoryAnalyticsPage /></PageLoader>,
+              },
+              {
+                path: '/more',
+                element: <PageLoader><MorePage /></PageLoader>,
+              },
+              {
+                path: '/more/categories',
+                element: <PageLoader><CategoriesPage /></PageLoader>,
+              },
+              {
+                path: '/accounts',
+                element: <PageLoader><AccountsPage /></PageLoader>,
+              },
+              {
+                // Before /accounts/:id in reading order; react-router ranks the static segment above it anyway
+                path: '/accounts/transfer',
+                element: <PageLoader><TransferPage /></PageLoader>,
+              },
+              {
+                path: '/accounts/:id',
+                element: <PageLoader><AccountPage /></PageLoader>,
+              },
+              {
+                path: '/add',
+                element: <PageLoader><ManualEntryPage /></PageLoader>,
+              },
+              {
+                path: '/review',
+                element: <PageLoader><CaptureReviewPage /></PageLoader>,
+              },
+              // Form and detail pages. A record has no page: its sheet opens over the list (FT-115), and a link
+              // to a record is Home with `?record=` (ROUTES.RECORD)
+              {
+                path: '/budgets/add',
+                element: <PageLoader><AddBudgetPage /></PageLoader>,
+              },
+              {
+                path: '/budgets/:id/edit',
+                element: <PageLoader><EditBudgetPage /></PageLoader>,
+              },
+              {
+                path: '/debts/add',
+                element: <PageLoader><AddDebtPage /></PageLoader>,
+              },
+              {
+                path: '/debts/:id',
+                element: <PageLoader><DebtDetailsPage /></PageLoader>,
+              },
+              {
+                path: '*',
+                element: <NotFoundPage />,
+              },
+            ],
           },
         ],
       },

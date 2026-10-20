@@ -45,6 +45,8 @@ OPENAI_API_KEY=sk-your-openai-api-key
 
 # Optional Telegram Bot
 TG_BOT_API_KEY=your-telegram-bot-token
+# Optional: the bot's @username for the web login link (FT-128); asked from Telegram when empty
+TG_BOT_USERNAME=YourBot
 WEB_APP_URL=http://localhost:3000
 # Set false to run API without Telegram polling
 ENABLE_TELEGRAM_POLLING=true
@@ -348,6 +350,7 @@ SELECT * FROM transaction LIMIT 10;
 | `DATABASE_TYPE` | `sqlite` | только `sqlite`; любое другое значение — ошибка запуска |
 | `FREE_LIMITS_ENABLED` | `false` | `true` включает лимиты бесплатного тарифа. На время вехи 10 выключены (решение Д3); использование всё равно считается |
 | `TG_BOT_API_KEY` | - | Telegram bot token |
+| `TG_BOT_USERNAME` | - | @username бота без `@` для ссылки входа в браузере `t.me/<bot>?start=login_…` (FT-128). Пусто — спрашивается у Telegram (`getMe`) |
 | `WEB_APP_URL` | `http://localhost:3000` | Public URL (перезаписывается `npm run dev:miniapp`) |
 
 ---

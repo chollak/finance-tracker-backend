@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAccounts } from '@/entities/account';
 import { useUsdRate } from '@/entities/rate';
-import { useIsGuest } from '@/entities/user';
 import { useIsOnline } from '@/shared/hooks';
 import { ROUTES } from '@/shared/lib/constants/routes';
 import { toLocalDate } from '@/shared/lib/dates';
@@ -11,7 +10,7 @@ import { BackButton, Button, SkeletonBlock, UndoToast } from '@/shared/ui/pastel
 import { accountsListModel, type AccountsListModel } from '../model/accountsList';
 import { knownRates, rateRowModel, type RateRowModel } from '../model/rateRow';
 import { HiddenAccountsSheet, NewAccountSheet, RateSheet } from './ListSheets';
-import { AccountMark, FOCUS, FOCUS_INSET, GuestAccounts, Icon } from './parts';
+import { AccountMark, FOCUS, FOCUS_INSET, Icon } from './parts';
 
 function TotalCard({ model }: { model: AccountsListModel }) {
   return (
@@ -146,7 +145,6 @@ function LoadingAccounts() {
  */
 export function AccountsPage() {
   const [today] = useState(() => toLocalDate(new Date()));
-  const isGuest = useIsGuest();
   const accounts = useAccounts();
   const rates = useUsdRate();
   const online = useIsOnline();
@@ -156,7 +154,6 @@ export function AccountsPage() {
   const [newSheetKey, setNewSheetKey] = useState(0);
   const [rateSheetKey, setRateSheetKey] = useState(0);
 
-  if (isGuest) return <GuestAccounts />;
 
   const model = accounts.data ? accountsListModel(accounts.data, today) : null;
   // The row names the rate the total above it was counted at until the rates are read

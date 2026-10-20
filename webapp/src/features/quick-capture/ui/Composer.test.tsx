@@ -18,7 +18,7 @@ import { Composer } from './Composer';
 /**
  * FT-114: the composer as Home mounts it. The microphone and the camera say honestly where voice and
  * receipts work today (until FT-117 and FT-135); the quick chips are the user's frequent expenses, and the
- * four starters of the prototype for a guest or when the frequent ones could not be read. Rendered in jsdom.
+ * four starters of the prototype when the frequent ones could not be read. Rendered in jsdom.
  */
 
 const CATEGORIES: Category[] = [
@@ -130,14 +130,6 @@ describe('the quick chips', () => {
 
   it('are the four starters when the frequent ones could not be read', async () => {
     frequent.current = { data: undefined, isError: true };
-
-    await renderComposer();
-
-    expect(chipNames()).toEqual(STARTERS);
-  });
-
-  it('are the four starters for a guest, who has no server records', async () => {
-    useUserStore.setState({ userType: 'guest' });
 
     await renderComposer();
 

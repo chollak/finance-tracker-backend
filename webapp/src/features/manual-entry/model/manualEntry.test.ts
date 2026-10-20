@@ -171,9 +171,9 @@ describe('the account', () => {
     expect(manualEntryModel(chooseAccount(board(), 'cash', ACCOUNTS), CONTEXT).amount.text).toBe(n(`${MINUS}186 400`));
   });
 
-  it('a guest has no accounts: сум, no account to show', () => {
-    const guest = { ...CONTEXT, accounts: [] };
-    const model = manualEntryModel(type(['5', '000'], initialManualEntry(TODAY, null), guest), guest);
+  it('before the accounts are read: сум, no account to show', () => {
+    const noAccounts = { ...CONTEXT, accounts: [] };
+    const model = manualEntryModel(type(['5', '000'], initialManualEntry(TODAY, null), noAccounts), noAccounts);
 
     expect(model.accounts).toEqual([]);
     expect(model.amount).toMatchObject({ text: n(`${MINUS}5 000`), unit: 'сум' });

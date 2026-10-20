@@ -8,7 +8,7 @@ import { analyticsKeys } from './keys';
 /**
  * Where the money of a month went (FT-120: `GET /api/analytics?month&type`). `month` undefined — the current month
  * as the server counts it. While another month or type is read, the answer before stays (`isPlaceholderData`): the
- * screen keeps its month stepper and shows the new month as loading. Guests have no server analytics.
+ * screen keeps its month stepper and shows the new month as loading.
  */
 export function useMonthAnalytics(view: { month: string | undefined; type: AnalyticsType }) {
   const userId = useUserStore((state) => state.userId);

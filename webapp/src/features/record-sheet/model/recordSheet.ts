@@ -38,7 +38,7 @@ export interface SheetRecord {
   amountMinor: number;
   currency: Currency;
   categoryId: string | null;
-  /** null for a guest, whose records have no account. */
+  /** null for a record without an account. */
   accountId: string | null;
   date: LocalDate;
   /** The note (`description`), trimmed. */
@@ -66,7 +66,7 @@ export interface SheetChange {
 export interface SheetContext {
   /** The user's categories, hidden ones too: a record keeps showing its category. */
   categories: readonly Category[];
-  /** The user's accounts; none for a guest, whose sheet has no «Счёт». */
+  /** The user's accounts; none until they are read — the sheet then has no «Счёт». */
   accounts: readonly Account[];
   /** The USD rate in effect, сум×100 per 1 USD; null while there is none. */
   rateMinor: number | null;
@@ -85,7 +85,7 @@ function recordDay(date: string): LocalDate {
   return Number.isNaN(moment.getTime()) ? date.slice(0, 10) : toLocalDate(moment);
 }
 
-/** The record from the API (or a guest's device); a category without an id is found by its name. */
+/** The record from the API; a category without an id (records from before FT-099) is found by its name. */
 export function sheetRecordFrom(record: Transaction, categories: readonly Category[]): SheetRecord {
   const type: RecordType = record.type === 'income' ? 'income' : 'expense';
   const categoryId =

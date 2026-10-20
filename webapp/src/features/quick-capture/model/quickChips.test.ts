@@ -59,15 +59,15 @@ describe('the starters for a newcomer', () => {
     });
   });
 
-  it('go to the default account, or the first visible one without it; a guest has no accounts', () => {
+  it('go to the default account, or the first visible one without it; none without accounts', () => {
     const [onCash] = quickChips({ frequent: [], categories: CATEGORIES, accounts: ACCOUNTS, defaultAccountId: 'cash' });
     const [onFirst] = quickChips({ frequent: [], categories: CATEGORIES, accounts: ACCOUNTS, defaultAccountId: null });
-    const [guest] = quickChips({ frequent: [], categories: CATEGORIES, accounts: [], defaultAccountId: null });
+    const [noAccount] = quickChips({ frequent: [], categories: CATEGORIES, accounts: [], defaultAccountId: null });
 
     expect(onCash.record).toMatchObject({ accountId: 'cash', accountName: 'Наличные' });
     expect(onFirst.record).toMatchObject({ accountId: 'card', accountName: 'Карта' });
-    expect(guest.record.accountId).toBeUndefined();
-    expect(guest.record.accountName).toBeUndefined();
+    expect(noAccount.record.accountId).toBeUndefined();
+    expect(noAccount.record.accountName).toBeUndefined();
   });
 
   it('follow a renamed category and leave out one the user hid', () => {
@@ -155,9 +155,9 @@ describe('the frequent expenses', () => {
 describe('«Записано» after a chip', () => {
   it('says what was written, with the sign, the unit and the account (Toast.md)', () => {
     const [chip] = quickChips({ frequent: [], categories: CATEGORIES, accounts: ACCOUNTS, defaultAccountId: 'card' });
-    const [guest] = quickChips({ frequent: [], categories: CATEGORIES, accounts: [], defaultAccountId: null });
+    const [noAccount] = quickChips({ frequent: [], categories: CATEGORIES, accounts: [], defaultAccountId: null });
 
     expect(quickChipSavedDetail(chip.record)).toBe(`Кофе · ${MINUS}25${NBSP}000${NBSP}сум · Карта`);
-    expect(quickChipSavedDetail(guest.record)).toBe(`Кофе · ${MINUS}25${NBSP}000${NBSP}сум`);
+    expect(quickChipSavedDetail(noAccount.record)).toBe(`Кофе · ${MINUS}25${NBSP}000${NBSP}сум`);
   });
 });

@@ -75,7 +75,7 @@ export interface HistoryFiltersProps {
   filters: HistoryFiltersModel;
   /** The user's categories, hidden ones too (a chosen hidden category still names itself on the chip). */
   categories: readonly Category[] | undefined;
-  /** The accounts offered as chips, in their order. A guest has none. */
+  /** The accounts offered as chips, in their order. */
   accounts: readonly Account[];
   /** «2 операции · −109 000 сум» when a narrowed History found something; null hides the line. */
   result: string | null;

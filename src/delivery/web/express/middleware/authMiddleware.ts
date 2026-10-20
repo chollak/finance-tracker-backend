@@ -121,7 +121,8 @@ function validateTelegramWebAppData(initData: string, botToken: string, quiet = 
 /**
  * The Telegram user id a request is signed in as, by the same rules as `requireAuth`, without answering the
  * request: `X-Dev-User-Id` outside production, otherwise valid, unexpired initData in
- * `Authorization: tma <initData>`. Null when the request proves no user.
+ * `Authorization: tma <initData>`, otherwise the browser's session cookie (FT-128, `req.webSession`). Null when the
+ * request proves no user.
  *
  * The general rate limit counts by it (FT-139); it runs before the route's own authentication.
  */
@@ -134,7 +135,11 @@ export function signedInTelegramId(req: Request, botToken: string = AppConfig.TG
     }
   }
 
-  const [scheme, initData] = (req.headers.authorization ?? '').split(' ');
+  if (!req.headers.authorization) {
+    return req.webSession?.telegramId ?? null;
+  }
+
+  const [scheme, initData] = req.headers.authorization.split(' ');
   if (scheme?.toLowerCase() !== 'tma' || !initData || !botToken) {
     return null;
   }
@@ -144,10 +149,22 @@ export function signedInTelegramId(req: Request, botToken: string = AppConfig.TG
 }
 
 /**
+ * The browser's session (FT-128) as the signed-in user, when the request has no Authorization header: Telegram's
+ * initData, when sent, decides alone. The session knows only the Telegram id; names come from the users table.
+ */
+function signInWithWebSession(req: Request): boolean {
+  if (req.headers.authorization || !req.webSession) return false;
+  req.telegramUser = { id: req.webSession.telegramId, first_name: '' };
+  req.isAuthenticated = true;
+  return true;
+}
+
+/**
  * Authentication middleware
  *
  * Validates Telegram Web App initData from Authorization header.
  * Format: Authorization: tma <initData>
+ * Without the header, a browser's session cookie (FT-128, put in `req.webSession` by webSessionMiddleware) signs in.
  *
  * @example
  * // Apply to protected routes
@@ -173,6 +190,12 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
       next();
       return;
     }
+  }
+
+  // A browser signed in through the bot (FT-128)
+  if (signInWithWebSession(req)) {
+    next();
+    return;
   }
 
   // Get Authorization header
@@ -261,6 +284,12 @@ export function optionalAuth(req: Request, _res: Response, next: NextFunction): 
       next();
       return;
     }
+  }
+
+  // A browser signed in through the bot (FT-128)
+  if (signInWithWebSession(req)) {
+    next();
+    return;
   }
 
   const authHeader = req.headers.authorization;

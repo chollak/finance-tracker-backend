@@ -1,4 +1,4 @@
-import { useUserStore, type UserType } from './store';
+import { useUserStore } from './store';
 
 /**
  * For tests that render to static markup (there is no DOM in the webapp's tests). A server render reads the
@@ -6,14 +6,16 @@ import { useUserStore, type UserType } from './store';
  * that way always sees nobody signed in, and every read that needs the user stays off. This puts the user
  * into the initial state; the returned function takes them out again.
  */
-export function signInForStaticRender(user: { userId: string; userType: Exclude<UserType, null> }): () => void {
+export function signInForStaticRender(user: { userId: string; userName?: string; username?: string }): () => void {
   const initial = useUserStore.getInitialState();
   const before = { ...initial };
   Object.assign(initial, {
     userId: user.userId,
-    userType: user.userType,
-    telegramId: user.userType === 'telegram' ? user.userId : null,
-    userName: null,
+    userType: 'telegram',
+    telegramId: user.userId,
+    userName: user.userName ?? null,
+    username: user.username ?? null,
+    signedOut: false,
   });
   return () => {
     Object.assign(initial, before);

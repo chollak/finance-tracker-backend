@@ -16,3 +16,4 @@ export * from './pastel-showcase';
 export * from './first-launch';
 export * from './accounts';
 export * from './categories';
+export * from './login';

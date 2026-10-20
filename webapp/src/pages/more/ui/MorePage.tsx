@@ -1,11 +1,12 @@
 import { useState, type ReactNode } from 'react';
-import { Bell, CalendarDays, Download, Flag, Moon, Search, Tag, User, Wallet } from 'lucide-react';
+import { Bell, CalendarDays, Download, Flag, LogOut, Moon, Search, Tag, User, Wallet } from 'lucide-react';
 import { useAccounts } from '@/entities/account';
 import { useCategories } from '@/entities/category';
 import { useUsdRate } from '@/entities/rate';
 import { useSettings, useUpdateSettings } from '@/entities/settings';
-import { useIsGuest, useUserStore } from '@/entities/user';
+import { useUserStore } from '@/entities/user';
 import { useExportRecords } from '@/features/export-records';
+import { useSignOut } from '@/features/web-login';
 import { ThemeSheet, themeLabel, useThemeChoice } from '@/features/theme-choice';
 import { ROUTES } from '@/shared/lib/constants/routes';
 import { insideTelegram } from '@/shared/lib/telegram';
@@ -18,12 +19,12 @@ import {
   BOT_NOTE,
   categoriesState,
   DATA_NOTE,
-  GUEST_NOTIFICATION_STATE,
   NOTIFICATION_KINDS,
   NOTIFICATION_SAVE_FAILED,
   NOTIFICATIONS,
   notificationPatch,
   notificationState,
+  SIGN_OUT,
   VERSION_LINE,
   type NotificationKind,
 } from '../model/moreScreen';
@@ -41,15 +42,16 @@ const NOTIFICATION_ICONS: Record<NotificationKind, ReactNode> = {
  * «Ещё» (FT-125, boards «„Ещё“ — разделы и настройки», «Сводка дня в боте», «Тема», «„Ещё“ в браузере», «„Ещё“ ·
  * тёмная»): sections, not a settings screen with «Сохранить». «Деньги» — the accounts and the rate, the categories,
  * the audit; «Бот в Telegram» — the summary, the audit call and goal alerts, which drive the bot's scheduler (FT-124);
- * «Вид» — the theme; «Данные» — the export; by a direct link also «Аккаунт». Every row says its state, every change
+ * «Вид» — the theme; «Данные» — the export; by a direct link also «Аккаунт» with «Выйти» (FT-128). Every row says its state, every change
  * applies at once. Budgets and debts are not here (Д2). «Скачать все записи» (FT-126) sends the CSV to the chat with the
  * bot in Telegram and downloads it in a browser. «Категории» opens the categories screen (FT-127). The audit (FT-132)
  * comes later: its row says so and opens nothing yet.
  */
 export function MorePage() {
   const inTelegram = insideTelegram();
-  const isGuest = useIsGuest();
   const userName = useUserStore((state) => state.userName);
+  const username = useUserStore((state) => state.username);
+  const { signOut, pending: signingOut } = useSignOut();
   const accounts = useAccounts();
   const rates = useUsdRate();
   const categories = useCategories();
@@ -60,12 +62,11 @@ export function MorePage() {
   const [sheet, setSheet] = useState<NotificationKind | 'theme' | null>(null);
 
   const notice = sheet === 'theme' ? null : sheet;
-  const account = accountState({ isGuest, name: userName });
+  const account = accountState({ name: userName, username });
 
   const notificationRow = (kind: NotificationKind) => {
     const title = NOTIFICATIONS[kind].title;
     const rowIcon = NOTIFICATION_ICONS[kind];
-    if (isGuest) return <SettingsRow key={kind} kind="static" icon={rowIcon} title={title} subtitle={GUEST_NOTIFICATION_STATE} />;
     if (settings.data) {
       const { state } = notificationState(kind, settings.data);
       return <SettingsRow key={kind} kind="sheet" onClick={() => setSheet(kind)} icon={rowIcon} title={title} subtitle={state} />;
@@ -104,14 +105,14 @@ export function MorePage() {
               to={ROUTES.ACCOUNTS}
               icon={icon(Wallet)}
               title="Счета и курс доллара"
-              subtitle={isGuest ? GUEST_NOTIFICATION_STATE : accountsState(accounts.data, rates.data)}
+              subtitle={accountsState(accounts.data, rates.data)}
             />
             <SettingsRow
               kind="link"
               to={ROUTES.CATEGORIES}
               icon={icon(Tag)}
               title="Категории"
-              subtitle={isGuest ? GUEST_NOTIFICATION_STATE : categoriesState(categories.data)}
+              subtitle={categoriesState(categories.data)}
             />
             <SettingsRow kind="static" icon={icon(Search)} title="Ревизия трат" subtitle={AUDIT_SOON} />
           </SettingsSection>
@@ -125,25 +126,22 @@ export function MorePage() {
           </SettingsSection>
 
           <SettingsSection title="Данные" note={DATA_NOTE}>
-            {/* A guest's records are in this browser only: the export is for an account (FT-126) */}
-            {isGuest ? (
-              <SettingsRow kind="static" icon={icon(Download)} title="Скачать все записи" subtitle={GUEST_NOTIFICATION_STATE} />
-            ) : (
-              <SettingsRow
-                kind="action"
-                onClick={exportRecords.start}
-                busy={exportRecords.phase === 'pending'}
-                inactive={exportRecords.phase === 'done'}
-                icon={icon(Download)}
-                title="Скачать все записи"
-                subtitle={exportRecords.subtitle}
-              />
-            )}
+            <SettingsRow
+              kind="action"
+              onClick={exportRecords.start}
+              busy={exportRecords.phase === 'pending'}
+              inactive={exportRecords.phase === 'done'}
+              icon={icon(Download)}
+              title="Скачать все записи"
+              subtitle={exportRecords.subtitle}
+            />
           </SettingsSection>
 
           {!inTelegram && (
             <SettingsSection title="Аккаунт">
               <SettingsRow kind="static" icon={icon(User)} title={account.title} subtitle={account.subtitle} />
+              {/* FT-128: this browser's session only — no confirm, the records stay */}
+              <SettingsRow kind="action" onClick={signOut} busy={signingOut} icon={icon(LogOut)} title={SIGN_OUT.title} subtitle={SIGN_OUT.subtitle} />
             </SettingsSection>
           )}
 

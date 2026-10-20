@@ -1,11 +1,8 @@
 import { useState } from 'react';
-import { Tag } from 'lucide-react';
 import { useMonthAnalytics } from '@/entities/analytics';
 import { useCategories, type CategoryType } from '@/entities/category';
-import { useIsGuest } from '@/entities/user';
-import { useCloseScreen } from '@/shared/lib/navigation';
 import { cn } from '@/shared/lib/utils';
-import { BackButton, CategoryDot, ProblemScreen, Segmented, SkeletonBlock, UndoToast } from '@/shared/ui/pastel';
+import { BackButton, CategoryDot, Segmented, SkeletonBlock, UndoToast } from '@/shared/ui/pastel';
 import { categoryRows, LIST_NOTE, monthCounts, TYPE_OPTIONS, type CategoryRowView } from '../model/categoriesScreen';
 import { EditCategorySheet, HiddenCategoriesSheet, NewCategorySheet } from './CategorySheets';
 
@@ -65,20 +62,6 @@ function LoadingList() {
   );
 }
 
-/** A guest keeps the starter set on the device and has nothing to change on the server (ProblemScreen.md). */
-function GuestCategories() {
-  const close = useCloseScreen();
-  return (
-    <ProblemScreen
-      header={<BackButton label="Назад в «Ещё»" />}
-      icon={<Tag strokeWidth={1.9} />}
-      title="Категории — после входа"
-      text="Свои категории хранятся в Daftar, а не на телефоне. Войдите через Telegram, и их можно будет переименовать, раскрасить и скрыть."
-      action={{ label: 'Назад в «Ещё»', onClick: close }}
-    />
-  );
-}
-
 type OpenSheet = { kind: 'edit'; id: string } | { kind: 'new' } | { kind: 'hidden' } | null;
 
 /**
@@ -89,7 +72,6 @@ type OpenSheet = { kind: 'edit'; id: string } | { kind: 'new' } | { kind: 'hidde
  * «Ещё», which «Назад» returns to; inside Telegram its BackButton does.
  */
 export function CategoriesPage() {
-  const isGuest = useIsGuest();
   const categories = useCategories();
   // Both sides at once, so «Доходы» shows its numbers without waiting
   const expenseMonth = useMonthAnalytics({ month: undefined, type: 'expense' });
@@ -98,8 +80,6 @@ export function CategoriesPage() {
   const [sheet, setSheet] = useState<OpenSheet>(null);
   // Every opening of a sheet starts afresh
   const [opening, setOpening] = useState(0);
-
-  if (isGuest) return <GuestCategories />;
 
   const month = type === 'expense' ? expenseMonth : incomeMonth;
   const counts = monthCounts(month.data);

@@ -5,7 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import type { Account, AccountsOverview } from '@/entities/account';
-import { GUEST_CATEGORIES, type Category } from '@/entities/category';
+import { type Category } from '@/entities/category';
+import { STARTER_CATEGORIES } from '@/entities/category/model/fixtures';
 import type { UsdRates } from '@/entities/rate';
 import type { UserSettings } from '@/entities/settings';
 import { useUserStore } from '@/entities/user';
@@ -75,7 +76,7 @@ function telegram(colorScheme: 'light' | 'dark' = 'light') {
 beforeEach(() => {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
   settings = SETTINGS;
-  categories = GUEST_CATEGORIES;
+  categories = STARTER_CATEGORIES;
   vi.mocked(apiClient.get).mockImplementation(async (url: string) => {
     if (url === '/accounts') return { success: true, data: ACCOUNTS } as never;
     if (url === '/rates/usd') return { success: true, data: RATES } as never;
@@ -86,11 +87,12 @@ beforeEach(() => {
   vi.mocked(apiClient.patch).mockReset();
   vi.mocked(apiClient.post).mockReset();
   vi.mocked(apiClient.getFile).mockReset();
+  vi.mocked(apiClient.delete).mockReset();
   vi.mocked(apiClient.patch).mockImplementation(async (_url: string, patch: unknown) => {
     settings = { ...settings, ...(patch as Partial<UserSettings>) };
     return { success: true, data: settings } as never;
   });
-  useUserStore.setState({ userId: USER_ID, userType: 'telegram', telegramId: USER_ID, userName: 'Шукур' });
+  useUserStore.setState({ userId: USER_ID, userType: 'telegram', telegramId: USER_ID, userName: 'Шукур', username: null, signedOut: false });
   useThemeStore.setState({ preference: 'telegram', resolved: 'light', automatic: 'light' });
   useUndoToastStore.setState({ stack: [], openSheets: 0 });
   useExportStore.setState({ running: false, doneAt: null });
@@ -114,6 +116,7 @@ async function renderMore() {
       { path: '/more', element: <MorePage /> },
       { path: '/accounts', element: <p>Экран счетов</p> },
       { path: '/more/categories', element: <p>Экран категорий</p> },
+      { path: '/', element: <p>Главная</p> },
     ],
     { initialEntries: ['/more'] }
   );
@@ -214,7 +217,7 @@ describe('«Ещё» in Telegram', () => {
   });
 
   it('a hidden category is not counted; the own rate is named as the user\'s', async () => {
-    categories = GUEST_CATEGORIES.map((category) => (category.name === 'Связь' ? { ...category, isHidden: true } : category));
+    categories = STARTER_CATEGORIES.map((category) => (category.name === 'Связь' ? { ...category, isHidden: true } : category));
     vi.mocked(apiClient.get).mockImplementation(async (url: string) => {
       if (url === '/accounts') return { success: true, data: ACCOUNTS } as never;
       if (url === '/rates/usd') return { success: true, data: { ...RATES, effective: { rateMinor: 1_270_000, source: 'own', date: '2026-10-15' }, own: { rateMinor: 1_270_000, since: '2026-10-15' } } } as never;
@@ -409,14 +412,14 @@ describe('«Ещё» in Telegram', () => {
 });
 
 describe('«Ещё» by a direct link', () => {
-  it('adds «Аккаунт» with the name, and the automatic theme is «Как в системе»', async () => {
+  it('adds «Аккаунт» with the name and «Выйти», and the automatic theme is «Как в системе»', async () => {
     await renderMore();
 
     const titles = sections().map((section) => section.title);
     expect(titles).toEqual(['Деньги', 'Бот в Telegram', 'Вид', 'Данные', 'Аккаунт']);
     expect(sections()[2].rows).toEqual(['Тема · Как в системе']);
     expect(sections()[3].rows).toEqual(['Скачать все записи · Файл CSV на это устройство']);
-    expect(sections()[4].rows).toEqual(['Шукур · Вход через Telegram']);
+    expect(sections()[4].rows).toEqual(['Шукур · Вход через Telegram', 'Выйти · Только в этом браузере · записи останутся']);
     // Outside Telegram the screen has its own «Назад»
     expect(document.body.querySelector('button[aria-label="Назад"]')).not.toBeNull();
   });
@@ -455,27 +458,38 @@ describe('«Ещё» by a direct link', () => {
     expect(sections()[3].rows).toEqual(['Скачать все записи · Скачано — файл в загрузках']);
   });
 
-  it('a guest: the bot\'s notices need an account, the theme still changes on this device', async () => {
-    useUserStore.setState({ userId: 'guest_1', userType: 'guest', telegramId: null, userName: 'Guest' });
+  it('«Аккаунт» names the account as the board does: «@shukur · вход через Telegram»', async () => {
+    useUserStore.setState({ username: 'shukur' });
     await renderMore();
 
-    expect(sections()[1].rows).toEqual([
-      'Сводка дня · После входа через Telegram',
-      'Звать на ревизию · После входа через Telegram',
-      'Цели и подписки · После входа через Telegram',
-    ]);
-    expect(sections()[4].rows).toEqual(['Гость · Записи только в этом браузере']);
-    // A guest has the starter set on the device and nothing to change on the server (FT-127), as with the accounts
-    expect(sections()[0].rows.slice(0, 2)).toEqual(['Счета и курс доллара · После входа через Telegram', 'Категории · После входа через Telegram']);
-    // A guest's records are in this browser only: the export is for an account (FT-126)
-    expect(sections()[3].rows).toEqual(['Скачать все записи · После входа через Telegram']);
-    // Not buttons: nothing to open
-    expect(row('Сводка дня').tagName).toBe('DIV');
-    expect(row('Скачать все записи').tagName).toBe('DIV');
+    expect(sections()[4].rows[0]).toBe('Шукур · @shukur · вход через Telegram');
+    // Who is signed in is a fact, not a button
+    expect(row('Шукур').tagName).toBe('DIV');
+  });
 
-    await press(row('Тема'));
-    await press(inSheet('Тёмная'));
-    expect(useThemeStore.getState().preference).toBe('dark');
-    expect(apiClient.patch).not.toHaveBeenCalled();
+  it('«Выйти» ends the session in this browser only and leaves for the login screen', async () => {
+    vi.mocked(apiClient.delete).mockResolvedValue({ success: true, data: { signedOut: true } } as never);
+    await renderMore();
+
+    // An action in place: no chevron, no sheet
+    expect(row('Выйти').tagName).toBe('BUTTON');
+    expect(row('Выйти').getAttribute('aria-haspopup')).toBeNull();
+    expect(row('Выйти').querySelectorAll('svg')).toHaveLength(1); // the icon only
+    await press(row('Выйти'));
+
+    expect(apiClient.delete).toHaveBeenCalledWith('/auth/session');
+    expect(useUserStore.getState()).toMatchObject({ userId: null, signedOut: true });
+    // The next sign-in opens Home, as on the board
+    expect(router.state.location.pathname).toBe('/');
+  });
+
+  it('«Выйти» that did not reach the server keeps the user in and says so', async () => {
+    vi.mocked(apiClient.delete).mockRejectedValue({ statusCode: 0, message: 'Network error' });
+    await renderMore();
+
+    await press(row('Выйти'));
+
+    expect(useUserStore.getState()).toMatchObject({ userId: USER_ID, signedOut: false });
+    expect(useUndoToastStore.getState().stack.map((entry) => [entry.title, entry.detail])).toEqual([['Не получилось выйти', 'Проверьте связь и попробуйте ещё раз']]);
   });
 });

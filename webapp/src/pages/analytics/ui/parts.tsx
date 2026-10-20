@@ -1,7 +1,5 @@
-import { LogIn } from 'lucide-react';
-import { useCloseScreen } from '@/shared/lib/navigation';
 import { cn } from '@/shared/lib/utils';
-import { BackButton, ProblemScreen, SkeletonBlock } from '@/shared/ui/pastel';
+import { SkeletonBlock } from '@/shared/ui/pastel';
 
 export const FOCUS = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink';
 export const FOCUS_INSET = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ink';
@@ -64,16 +62,3 @@ export function LoadingRows({ rows }: { rows: number }) {
   );
 }
 
-/** Analytics is counted on the server from the records there: a guest signs in first (as the accounts say). */
-export function GuestAnalytics() {
-  const close = useCloseScreen();
-  return (
-    <ProblemScreen
-      header={<BackButton />}
-      icon={<LogIn strokeWidth={1.9} />}
-      title="Аналитика — после входа"
-      text="Аналитика считается в Daftar по вашим записям. Войдите через Telegram, и она появится здесь."
-      action={{ label: 'На главную', onClick: close }}
-    />
-  );
-}

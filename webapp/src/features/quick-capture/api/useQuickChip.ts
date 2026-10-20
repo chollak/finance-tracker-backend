@@ -8,8 +8,7 @@ import { quickChipSavedDetail, type QuickChip } from '../model/quickChips';
 
 /**
  * A tap on a quick chip (FT-114, Composer.md): the expense is written at once — today, the chip's category,
- * note, amount and account — and Home says «Записано» with «Отменить», which really deletes it. A guest's
- * record stays on the device, as every guest record does.
+ * note, amount and account — and Home says «Записано» with «Отменить», which really deletes it.
  */
 export function useQuickChip() {
   const queryClient = useQueryClient();

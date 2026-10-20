@@ -11,8 +11,7 @@ export interface FirstLaunchGateInput {
 
 /**
  * Whether the app opens on «Сколько у вас сейчас денег?» (FT-109): while `onboardedAt` is empty — for a
- * new user and for one whose history was migrated alike. Guests keep their records on the device and have
- * no server accounts, so they are not asked. If the settings cannot be read the app still opens: the
+ * new user and for one whose history was migrated alike. If the settings cannot be read the app still opens: the
  * question waits for the next start instead of locking the user out.
  *
  * The gate waits only once. A screen that reads the settings itself asks for them again as it mounts, and a failed
@@ -21,7 +20,6 @@ export interface FirstLaunchGateInput {
  * open, it stays open while the settings are read again.
  */
 export function firstLaunchDecision({ userType, settings, opened = false }: FirstLaunchGateInput): FirstLaunchDecision {
-  if (userType === 'guest') return 'app';
   if (userType === null) return 'wait';
   if (settings.isError) return 'app';
   if (settings.isPending || !settings.data) return opened ? 'app' : 'wait';

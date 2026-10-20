@@ -10,18 +10,7 @@ import { API_ENDPOINTS } from '@/shared/lib/constants';
 import type { Debt, CreateDebtDTO, UpdateDebtDTO, PayDebtDTO, DebtPayment } from '@/shared/types';
 import { balanceReaderKeys, transactionKeys } from '@/entities/transaction';
 import { debtKeys } from './keys';
-import { isGuestId } from '@/shared/lib/utils/guestId';
 import { haptic } from '@/shared/lib/haptic';
-
-/**
- * Error thrown when guest user tries to access server features
- */
-export class GuestAccessError extends Error {
-  constructor(feature: string) {
-    super(`Для ${feature} необходимо войти через Telegram`);
-    this.name = 'GuestAccessError';
-  }
-}
 
 /**
  * What a debt's linked record moves besides the debts (FT-111 review): a debt created with the money
@@ -44,11 +33,6 @@ export function createDebtMutation(
 ): UseMutationOptions<Debt, Error, CreateDebtDTO> {
   return {
     mutationFn: async (data) => {
-      // Block guest users
-      if (isGuestId(userId)) {
-        throw new GuestAccessError('создания долгов');
-      }
-
       const response = await apiClient.post<Debt>(
         API_ENDPOINTS.DEBTS.CREATE(userId),
         data
@@ -67,7 +51,6 @@ export function createDebtMutation(
 
 /**
  * Hook to create a new debt
- * Guest users: throws GuestAccessError
  */
 export function useCreateDebt(userId: string) {
   const queryClient = useQueryClient();
@@ -98,16 +81,12 @@ export function useUpdateDebt() {
 
 /**
  * Hook to delete a debt
- * Guest users: throws GuestAccessError
  */
 export function useDeleteDebt(userId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (debtId: string) => {
-      if (isGuestId(userId)) {
-        throw new GuestAccessError('удаления долгов');
-      }
       await apiClient.delete(API_ENDPOINTS.DEBTS.DELETE(debtId));
     },
     onSuccess: () => {
@@ -120,16 +99,12 @@ export function useDeleteDebt(userId: string) {
 
 /**
  * Hook to cancel a debt
- * Guest users: throws GuestAccessError
  */
 export function useCancelDebt(userId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (debtId: string) => {
-      if (isGuestId(userId)) {
-        throw new GuestAccessError('отмены долгов');
-      }
       const response = await apiClient.post<Debt>(
         API_ENDPOINTS.DEBTS.CANCEL(debtId)
       );
@@ -151,9 +126,6 @@ export function payDebtMutation(
 ): UseMutationOptions<DebtPayment, Error, { debtId: string; data: PayDebtDTO }> {
   return {
     mutationFn: async ({ debtId, data }) => {
-      if (isGuestId(userId)) {
-        throw new GuestAccessError('оплаты долгов');
-      }
       const response = await apiClient.post<DebtPayment>(
         API_ENDPOINTS.DEBTS.PAY(debtId),
         data
@@ -174,7 +146,6 @@ export function payDebtMutation(
 
 /**
  * Hook to make a payment on a debt
- * Guest users: throws GuestAccessError
  */
 export function usePayDebt(userId: string) {
   const queryClient = useQueryClient();
@@ -188,9 +159,6 @@ export function payDebtFullMutation(
 ): UseMutationOptions<DebtPayment, Error, { debtId: string; note?: string; createTransaction?: boolean }> {
   return {
     mutationFn: async ({ debtId, note, createTransaction = true }) => {
-      if (isGuestId(userId)) {
-        throw new GuestAccessError('оплаты долгов');
-      }
       const response = await apiClient.post<DebtPayment>(
         API_ENDPOINTS.DEBTS.PAY_FULL(debtId),
         { note, createTransaction }
@@ -210,7 +178,6 @@ export function payDebtFullMutation(
 
 /**
  * Hook to pay off a debt in full
- * Guest users: throws GuestAccessError
  */
 export function usePayDebtFull(userId: string) {
   const queryClient = useQueryClient();
@@ -219,16 +186,12 @@ export function usePayDebtFull(userId: string) {
 
 /**
  * Hook to delete a payment
- * Guest users: throws GuestAccessError
  */
 export function useDeletePayment(userId: string, debtId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (paymentId: string) => {
-      if (isGuestId(userId)) {
-        throw new GuestAccessError('удаления платежей');
-      }
       await apiClient.delete(API_ENDPOINTS.DEBTS.DELETE_PAYMENT(paymentId));
     },
     onSuccess: () => {

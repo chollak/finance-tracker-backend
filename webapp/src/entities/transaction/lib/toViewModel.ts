@@ -15,7 +15,7 @@ export function transactionToViewModel(transaction: Transaction): TransactionVie
   // Use createdAt for formatted date (includes time), fallback to date
   const dateForFormatting = transaction.createdAt || transaction.date;
 
-  // Local/guest transactions may predate semanticType — fall back to income/expense.
+  // Older records may predate semanticType — fall back to income/expense.
   const semanticType: TransactionSemanticType = transaction.semanticType ?? (isIncome ? 'income' : 'expense');
 
   return {

@@ -3,7 +3,6 @@ import { useAccounts, type Account } from '@/entities/account';
 import { useCategories } from '@/entities/category';
 import { useSettings } from '@/entities/settings';
 import { useUsdRate } from '@/entities/rate';
-import { useUserStore } from '@/entities/user';
 import { toLocalDate } from '@/shared/lib/dates';
 import { keyFromKeyboard, type KeypadKey } from '@/shared/lib/money';
 import { CalendarSheet } from '@/shared/ui/pastel';
@@ -41,7 +40,6 @@ function isTextField(target: EventTarget | null): boolean {
  */
 export function ManualEntry({ type = 'expense' }: { type?: EntryType } = {}) {
   const [today] = useState(() => toLocalDate(new Date()));
-  const isGuest = useUserStore((state) => state.userType === 'guest');
   const accountsQuery = useAccounts();
   const categoriesQuery = useCategories();
   const settings = useSettings();
@@ -94,7 +92,7 @@ export function ManualEntry({ type = 'expense' }: { type?: EntryType } = {}) {
         type={state.type}
         note={state.note}
         model={manualEntryModel(state, context)}
-        accounts={isGuest ? 'none' : statusOf(accountsQuery)}
+        accounts={statusOf(accountsQuery)}
         categories={statusOf(categoriesQuery)}
         saving={isPending}
         saveFailed={failed}

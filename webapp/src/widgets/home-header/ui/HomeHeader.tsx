@@ -2,23 +2,19 @@ import { Link } from 'react-router-dom';
 import { cn } from '@/shared/lib/utils';
 import { ROUTES } from '@/shared/lib/constants/routes';
 import { Wordmark } from '@/shared/ui/pastel';
-import { useIsGuest } from '@/entities/user';
 import { DisplayCurrencySwitch } from '@/features/display-currency';
 
 /**
  * Home header of «Пастель» (FT-110, boards «Главная», «Главная · тёмная»): the daftar sign on the left; on
  * the right «Сум / USD» (FT-137) — the currency of the balance card and the month tiles — and the round
- * «Ещё», 48px, `track`. There is no bottom bar: the sections Home does not open itself are in «Ещё». Guests
- * have no balance card and no tiles, so they have no switch either.
+ * «Ещё», 48px, `track`. There is no bottom bar: the sections Home does not open itself are in «Ещё».
  */
 export function HomeHeader({ className }: { className?: string }) {
-  const isGuest = useIsGuest();
-
   return (
     <header className={cn('flex h-key items-center justify-between gap-3', className)}>
       <Wordmark />
       <div className="flex items-center gap-2">
-        {!isGuest && <DisplayCurrencySwitch />}
+        <DisplayCurrencySwitch />
         <Link
           to={ROUTES.MORE}
           aria-label="Ещё"

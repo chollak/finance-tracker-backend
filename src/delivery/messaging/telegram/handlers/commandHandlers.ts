@@ -5,6 +5,8 @@ import { RU } from '../i18n/ru';
 import { appLinkRows, formatDaySummary, formatMonthSummary } from '../formatters/summaryMessage';
 import { appLinks } from '../utils/webAppUrl';
 import { localClock } from '../../../../modules/notification/domain/dailySummary';
+import { LOGIN_START_PREFIX } from '../../../../modules/auth/domain/webLogin';
+import { handleLoginStart } from './loginHandlers';
 import { createLogger, LogCategory } from '../../../../shared/infrastructure/logging';
 
 const logger = createLogger(LogCategory.TELEGRAM);
@@ -52,8 +54,24 @@ async function botUser(ctx: BotContext): Promise<{ id: string; telegramId: strin
   return { id: user.id, telegramId, today: localClock(new Date(), user.timezone).date };
 }
 
-/** The first message: what Daftar is and how to write, «Открыть Daftar ↗» (board «Бот · первое сообщение»). */
+/** What follows /start: the parameter of a t.me/<bot>?start=… link. */
+function startPayload(ctx: BotContext): string {
+  const payload = (ctx as unknown as { payload?: unknown }).payload;
+  if (typeof payload === 'string') return payload.trim();
+  const text = (ctx.message as { text?: string } | undefined)?.text ?? '';
+  return text.split(/\s+/).slice(1).join(' ').trim();
+}
+
+/**
+ * The first message: what Daftar is and how to write, «Открыть Daftar ↗» (board «Бот · первое сообщение»). A link
+ * from the browser's «Войти через Telegram» comes as /start login_<token> and asks to confirm the login (FT-128).
+ */
 async function handleStart(ctx: BotContext) {
+  const payload = startPayload(ctx);
+  if (payload.startsWith(LOGIN_START_PREFIX)) {
+    await handleLoginStart(ctx, payload.slice(LOGIN_START_PREFIX.length));
+    return;
+  }
   try {
     await ctx.reply(RU.commands.start, { parse_mode: 'HTML', ...keyboard(appLinkRows('Открыть Daftar', appLinks.home(String(ctx.from?.id)))) });
   } catch (error) {

@@ -133,12 +133,6 @@ describe('account', () => {
     ]);
     expect(accounts.map((tag) => /aria-checked="true"/.test(tag))).toEqual([false, true, false]);
   });
-
-  it('a guest has no accounts and no account section', () => {
-    const html = render(BOARD, { accounts: 'none', model: manualEntryModel(BOARD, { ...CONTEXT, accounts: [] }) });
-
-    expect(html).not.toMatch(/aria-label="Счёт"/);
-  });
 });
 
 describe('category tiles', () => {

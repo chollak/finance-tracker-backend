@@ -18,7 +18,8 @@ function getTelegramInitData(): string | null {
 /**
  * Build authorization headers for API requests
  * Adds Telegram Mini App authentication if available
- * In development mode without Telegram, uses X-Dev-User-Id header
+ * In development mode without Telegram, uses X-Dev-User-Id header (only with VITE_MOCK_USER_ID)
+ * A browser sends neither: its session is an httpOnly cookie that goes with every same-origin request (FT-128)
  */
 function getAuthHeaders(): Record<string, string> {
   const headers: Record<string, string> = {};
@@ -32,6 +33,22 @@ function getAuthHeaders(): Record<string, string> {
   }
 
   return headers;
+}
+
+let sessionLost: (() => void) | null = null;
+
+/**
+ * What to do when the server stops taking the browser's session (FT-128): it ended, or «Выйти» was pressed in another
+ * tab. Inside Telegram initData signs every request, so a 401 there is not a lost session.
+ */
+export function onSessionLost(handler: (() => void) | null): void {
+  sessionLost = handler;
+}
+
+/** A 401 outside Telegram from a route other than the login's own. */
+function noticeUnauthorized(endpoint: string, status: number): void {
+  if (status !== 401 || getTelegramInitData() || endpoint.startsWith('/auth/')) return;
+  sessionLost?.();
 }
 
 class ApiClient {
@@ -58,6 +75,7 @@ class ApiClient {
       });
 
       if (!response.ok) {
+        noticeUnauthorized(endpoint, response.status);
         const errorData = await response.json().catch(() => ({}));
         throw {
           message: errorData.message || 'Request failed',
@@ -125,6 +143,7 @@ class ApiClient {
       const response = await fetch(url, { method: 'GET', headers: getAuthHeaders() });
 
       if (!response.ok) {
+        noticeUnauthorized(endpoint, response.status);
         const errorData = await response.json().catch(() => ({}));
         throw {
           message: errorData.message || 'Request failed',
@@ -160,6 +179,7 @@ class ApiClient {
       });
 
       if (!response.ok) {
+        noticeUnauthorized(endpoint, response.status);
         const errorData = await response.json().catch(() => ({}));
         throw {
           message: errorData.message || 'Upload failed',

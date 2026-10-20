@@ -79,7 +79,7 @@ afterEach(() => signOut());
 
 describe('HomePage of a signed-in user', () => {
   it('is its skeleton while its reads are on their way', async () => {
-    signOut = signInForStaticRender({ userId: USER_ID, userType: 'telegram' });
+    signOut = signInForStaticRender({ userId: USER_ID });
 
     const html = render(await client({ onTheirWay: ['accounts', 'totals', 'records', 'categories', 'rate'] }));
 
@@ -88,13 +88,13 @@ describe('HomePage of a signed-in user', () => {
   });
 
   it.each<Read>(['accounts', 'totals', 'records', 'categories', 'rate'])('waits for each of them: %s', async (read) => {
-    signOut = signInForStaticRender({ userId: USER_ID, userType: 'telegram' });
+    signOut = signInForStaticRender({ userId: USER_ID });
 
     expect(isSkeleton(render(await client({ onTheirWay: [read] })))).toBe(true);
   });
 
   it('is Home once they have answered', async () => {
-    signOut = signInForStaticRender({ userId: USER_ID, userType: 'telegram' });
+    signOut = signInForStaticRender({ userId: USER_ID });
 
     const html = render(await client());
 
@@ -105,7 +105,7 @@ describe('HomePage of a signed-in user', () => {
   it.each<Read>(['accounts', 'totals', 'records', 'categories', 'rate'])(
     'stays Home when %s failed before it had data, while its section asks it again on mount',
     async (read) => {
-      signOut = signInForStaticRender({ userId: USER_ID, userType: 'telegram' });
+      signOut = signInForStaticRender({ userId: USER_ID });
 
       const html = render(await client({ failed: [read] }));
 
@@ -113,15 +113,4 @@ describe('HomePage of a signed-in user', () => {
       expect(isHome(html)).toBe(true);
     }
   );
-});
-
-describe('HomePage of a guest', () => {
-  it('is Home at once: the records are on the device', async () => {
-    signOut = signInForStaticRender({ userId: 'guest_1', userType: 'guest' });
-
-    const html = render(await client({ onTheirWay: ['records', 'categories'] }));
-
-    expect(isSkeleton(html)).toBe(false);
-    expect(html).toContain('Последние операции');
-  });
 });

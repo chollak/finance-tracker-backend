@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { useIsTelegramUser } from '@/entities/user';
+import { useUserStore } from '@/entities/user';
 import { cn } from '@/shared/lib/utils';
 import { Button, SkeletonBlock, Wordmark } from '@/shared/ui/pastel';
 import { useSlowLoading } from '../model/slowLoading';
@@ -145,12 +145,12 @@ export function HomeSkeletonView({ slow, onRetry }: HomeSkeletonViewProps) {
  * reads answer. After six seconds of it — counted across those steps — it says the loading is slow, and
  * «Попробовать снова» asks again for whatever has not answered yet and gives it six more seconds.
  *
- * The slow message promises records kept on the server, so only a Telegram user gets it. A guest keeps
- * records on the device (and a user not known yet may turn out to be one): the shapes stay without it.
+ * The slow message promises records kept on the server, so only a signed-in user gets it. While the app still
+ * learns who is there (a browser checks its session, FT-128) the shapes stay without it.
  */
 export function HomeSkeleton() {
   const queryClient = useQueryClient();
-  const isTelegramUser = useIsTelegramUser();
+  const signedIn = useUserStore((state) => state.userType === 'telegram');
   const { slow, restart } = useSlowLoading();
 
   const retry = () => {
@@ -158,5 +158,5 @@ export function HomeSkeleton() {
     void retryUnanswered(queryClient);
   };
 
-  return <HomeSkeletonView slow={slow && isTelegramUser} onRetry={retry} />;
+  return <HomeSkeletonView slow={slow && signedIn} onRetry={retry} />;
 }

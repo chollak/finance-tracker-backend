@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { GUEST_CATEGORIES } from '../model/guestCategories';
+import { STARTER_CATEGORIES } from '../model/fixtures';
 import { findCategory, pickableCategories } from './categoryList';
 
 describe('category list (FT-100)', () => {
   it('offers the visible categories of one type, «Другое» last', () => {
-    const categories = GUEST_CATEGORIES.map((category) =>
+    const categories = STARTER_CATEGORIES.map((category) =>
       category.name === 'Связь' ? { ...category, isHidden: true } : category
     );
 
@@ -15,14 +15,14 @@ describe('category list (FT-100)', () => {
   });
 
   it('finds a category by id', () => {
-    expect(findCategory(GUEST_CATEGORIES, 'guest:cafe')?.name).toBe('Кафе');
-    expect(findCategory(GUEST_CATEGORIES, 'missing')).toBeUndefined();
-    expect(findCategory(GUEST_CATEGORIES, undefined)).toBeUndefined();
+    expect(findCategory(STARTER_CATEGORIES, 'starter:cafe')?.name).toBe('Кафе');
+    expect(findCategory(STARTER_CATEGORIES, 'missing')).toBeUndefined();
+    expect(findCategory(STARTER_CATEGORIES, undefined)).toBeUndefined();
   });
 
   it('mirrors the 8 + 8 starter categories of a server account', () => {
-    expect(GUEST_CATEGORIES.filter((c) => c.type === 'expense')).toHaveLength(8);
-    expect(GUEST_CATEGORIES.filter((c) => c.type === 'income')).toHaveLength(8);
-    expect(GUEST_CATEGORIES.filter((c) => c.isOther).map((c) => c.type)).toEqual(['expense', 'income']);
+    expect(STARTER_CATEGORIES.filter((c) => c.type === 'expense')).toHaveLength(8);
+    expect(STARTER_CATEGORIES.filter((c) => c.type === 'income')).toHaveLength(8);
+    expect(STARTER_CATEGORIES.filter((c) => c.isOther).map((c) => c.type)).toEqual(['expense', 'income']);
   });
 });

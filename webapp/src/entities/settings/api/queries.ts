@@ -10,8 +10,7 @@ export const settingsKeys = {
 };
 
 /**
- * The signed-in user's settings (`GET /api/settings`; the user comes from authentication). Guests have
- * no server settings, so the query does not run for them.
+ * The signed-in user's settings (`GET /api/settings`; the user comes from authentication).
  */
 export function useSettings() {
   const userId = useUserStore((state) => state.userId);

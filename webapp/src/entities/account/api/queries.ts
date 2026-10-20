@@ -10,7 +10,7 @@ import { accountKeys } from './keys';
 
 /**
  * The signed-in user's accounts with balances and the total (`GET /api/accounts`; the user comes from
- * authentication). Guests keep records on the device and have no accounts, so the query does not run.
+ * authentication).
  */
 export function useAccounts() {
   const userId = useUserStore((state) => state.userId);

@@ -3,7 +3,6 @@ import { useSearchParams } from 'react-router-dom';
 import { ArrowLeftRight } from 'lucide-react';
 import { createMove, deleteMove, useAccounts, visibleAccounts } from '@/entities/account';
 import { useUsdRate } from '@/entities/rate';
-import { useIsGuest } from '@/entities/user';
 import { TRANSFER_FROM_PARAM } from '@/shared/lib/constants/routes';
 import type { KeypadKey } from '@/shared/lib/money';
 import { useCloseScreen } from '@/shared/lib/navigation';
@@ -24,7 +23,7 @@ import {
   type TransferState,
 } from '../model/transferForm';
 import { SheetError } from './ListSheets';
-import { FOCUS, GuestAccounts, Icon, ReadFailed } from './parts';
+import { FOCUS, Icon, ReadFailed } from './parts';
 import { useAccountWrite } from './useAccountWrite';
 import { useKeypadKeyboard } from './useKeypadKeyboard';
 
@@ -275,7 +274,6 @@ function TransferFormView({
  * «Назад» is Telegram's BackButton or its own and changes nothing.
  */
 export function TransferPage() {
-  const isGuest = useIsGuest();
   const accounts = useAccounts();
   const rates = useUsdRate();
   const [params] = useSearchParams();
@@ -290,7 +288,6 @@ export function TransferPage() {
     [overview, rates.data]
   );
 
-  if (isGuest) return <GuestAccounts />;
 
   if (context) {
     if (context.accounts.length < 2) {

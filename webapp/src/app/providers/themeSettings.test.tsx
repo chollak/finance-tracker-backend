@@ -135,8 +135,8 @@ describe('the theme', () => {
     expect(useThemeStore.getState().preference).toBe('telegram');
   });
 
-  it('a guest has no saved settings: the choice stays on this device', async () => {
-    useUserStore.setState({ userId: 'guest_1', userType: 'guest', telegramId: null, userName: 'Guest' });
+  it('before anyone is signed in (the login screen): the choice stays on this device', async () => {
+    useUserStore.setState({ userId: null, userType: null, telegramId: null, userName: null });
     await mount(null);
 
     await act(async () => choose('dark'));

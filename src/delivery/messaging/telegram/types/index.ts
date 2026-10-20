@@ -9,6 +9,7 @@ import { CategoryModule } from '../../../../modules/category/categoryModule';
 import { AccountModule } from '../../../../modules/account/accountModule';
 import { BotMessageModule } from '../../../../modules/botMessage/botMessageModule';
 import { NotificationModule } from '../../../../modules/notification/notificationModule';
+import { AuthModule } from '../../../../modules/auth/authModule';
 
 /**
  * Modules available in bot context
@@ -28,6 +29,8 @@ export interface BotModules {
   botMessageModule?: BotMessageModule;
   /** Итоги дня и месяца (FT-124): /today, /month, «Да, не было» under the evening question. */
   notificationModule?: NotificationModule;
+  /** The web login (FT-128): /start login_<token>, «Подтвердить» and «Это не я». */
+  authModule?: AuthModule;
 }
 
 /**

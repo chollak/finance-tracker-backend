@@ -1,8 +1,9 @@
 import type { Category } from './types';
 
 /**
- * Categories for guest mode, which has no server account. They mirror the 8 + 8 starter categories a
- * server account gets. Guest mode goes away with FT-128 (decision Д4), and this list with it.
+ * For tests: the 8 + 8 starter categories as `GET /api/categories` gives them to a new account (FT-099). The app
+ * itself always reads the user's categories from the server — guest mode, which used this list, went away with
+ * FT-128 (decision Д4).
  */
 const STARTERS: Array<[Category['type'], string, string, Category['color']]> = [
   ['expense', 'groceries', 'Продукты', 'peach'],
@@ -23,10 +24,10 @@ const STARTERS: Array<[Category['type'], string, string, Category['color']]> = [
   ['income', 'other-income', 'Другое', 'mist'],
 ];
 
-export const GUEST_CATEGORIES: Category[] = STARTERS.map(([type, key, name, color], index) => {
+export const STARTER_CATEGORIES: Category[] = STARTERS.map(([type, key, name, color], index) => {
   const isOther = name === 'Другое';
   return {
-    id: `guest:${key}`,
+    id: `starter:${key}`,
     type,
     name,
     color,

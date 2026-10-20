@@ -38,8 +38,4 @@ describe('first launch gate (FT-109)', () => {
   it('once open, the settings read at last still show the first launch to a user who has not done it', () => {
     expect(firstLaunchDecision({ userType: 'telegram', settings: { ...settled, data: { onboardedAt: null } }, opened: true })).toBe('first-launch');
   });
-
-  it('leaves guests (records only on this device) alone: they have no server accounts', () => {
-    expect(firstLaunchDecision({ userType: 'guest', settings: { isPending: true, isError: false, data: undefined } })).toBe('app');
-  });
 });

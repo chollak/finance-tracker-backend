@@ -1,50 +1,24 @@
 /**
- * Data Source Manager
- *
- * Architecture:
- * - Guest mode: IndexedDB only (offline-first)
- * - Telegram mode: Server API only (no local caching)
+ * Transaction data source: the records on the server. Guest mode, which kept records in IndexedDB on the device, went
+ * away with FT-128 (decision Д4); the shapes keep their old names (`LocalTransaction`) for the screens that read them.
  */
 
 import { useUserStore } from '@/entities/user/model/store';
-import { localTransactionRepo } from './transactionRepo';
 import { apiClient } from '@/shared/api/client';
 import { API_ENDPOINTS } from '@/shared/lib/constants/routes';
 import type { LocalTransaction, CreateLocalTransactionDTO, UpdateLocalTransactionDTO } from './schema';
 
-export type DataSourceMode = 'local' | 'server';
-
 /**
- * A guest's records deleted in this session, for «Отменить» (FT-115). The server deletes softly and restores
- * by id (FT-105); the device deletes for good, so the record is kept here to be put back as it was.
- */
-const deletedOnDevice = new Map<string, LocalTransaction>();
-
-/**
- * Get current data source mode based on user type
- */
-export function getDataSourceMode(): DataSourceMode {
-  const { userType } = useUserStore.getState();
-  return userType === 'guest' ? 'local' : 'server';
-}
-
-/**
- * Transaction Data Source
- * Guest = IndexedDB, Telegram = Server API
+ * Transaction Data Source (server API)
  */
 export const transactionDataSource = {
   /**
    * Get all transactions for current user
    */
   async getAll(): Promise<LocalTransaction[]> {
-    const { userId, userType } = useUserStore.getState();
+    const { userId } = useUserStore.getState();
     if (!userId) return [];
 
-    if (userType === 'guest') {
-      return localTransactionRepo.getByUserId(userId);
-    }
-
-    // Telegram users: server only
     const response = await apiClient.get<any[]>(`/transactions/user/${userId}`);
     return (response.data || []).map(serverTxToLocal);
   },
@@ -53,13 +27,7 @@ export const transactionDataSource = {
    * Create a new transaction
    */
   async create(dto: CreateLocalTransactionDTO): Promise<LocalTransaction> {
-    const { userType } = useUserStore.getState();
 
-    if (userType === 'guest') {
-      return localTransactionRepo.create(dto);
-    }
-
-    // Telegram users: server only
     const response = await apiClient.post<any>('/transactions', {
       ...dto,
       userId: dto.userId,
@@ -80,13 +48,7 @@ export const transactionDataSource = {
     id: string,
     updates: UpdateLocalTransactionDTO
   ): Promise<LocalTransaction | undefined> {
-    const { userType } = useUserStore.getState();
 
-    if (userType === 'guest') {
-      return localTransactionRepo.update(id, updates);
-    }
-
-    // Telegram users: server only
     const response = await apiClient.put<any>(`/transactions/${id}`, updates);
 
     if (!response.data) {
@@ -100,15 +62,8 @@ export const transactionDataSource = {
    * Delete a transaction
    */
   async delete(id: string): Promise<boolean> {
-    const { userId, userType } = useUserStore.getState();
+    const { userId } = useUserStore.getState();
 
-    if (userType === 'guest') {
-      const existing = await localTransactionRepo.getById(id);
-      if (existing) deletedOnDevice.set(id, existing);
-      return localTransactionRepo.delete(id);
-    }
-
-    // Telegram users: server only
     // Pass userId in query for auth middleware to verify ownership
     await apiClient.delete(`/transactions/${id}?userId=${userId}`);
     return true;
@@ -116,19 +71,9 @@ export const transactionDataSource = {
 
   /**
    * Bring a deleted record back (the «Отменить» of «Удалено»): `POST /transactions/:id/restore` on the server
-   * (FT-105); a guest's record is put back on the device as it was deleted. Throws when there is nothing to
-   * bring back, so the toast says the undo failed.
+   * (FT-105). Throws when there is nothing to bring back, so the toast says the undo failed.
    */
   async restore(id: string): Promise<void> {
-    const { userType } = useUserStore.getState();
-
-    if (userType === 'guest') {
-      const deleted = deletedOnDevice.get(id);
-      if (!deleted) throw new Error(`Record ${id} was not deleted on this device`);
-      await localTransactionRepo.put(deleted);
-      deletedOnDevice.delete(id);
-      return;
-    }
 
     await apiClient.post(API_ENDPOINTS.TRANSACTIONS.RESTORE(id));
   },
@@ -137,13 +82,7 @@ export const transactionDataSource = {
    * Get a single transaction by ID
    */
   async getById(id: string): Promise<LocalTransaction | undefined> {
-    const { userType } = useUserStore.getState();
 
-    if (userType === 'guest') {
-      return localTransactionRepo.getById(id);
-    }
-
-    // Telegram users: server only
     const response = await apiClient.get<any>(`/transactions/${id}`);
     return response.data ? serverTxToLocal(response.data) : undefined;
   },
@@ -152,14 +91,9 @@ export const transactionDataSource = {
    * Get analytics summary
    */
   async getAnalytics(startDate?: string, endDate?: string) {
-    const { userId, userType } = useUserStore.getState();
+    const { userId } = useUserStore.getState();
     if (!userId) return null;
 
-    if (userType === 'guest') {
-      return localTransactionRepo.getAnalyticsSummary(userId, startDate, endDate);
-    }
-
-    // Telegram users: server only
     const params = new URLSearchParams();
     if (startDate) params.set('startDate', startDate);
     if (endDate) params.set('endDate', endDate);

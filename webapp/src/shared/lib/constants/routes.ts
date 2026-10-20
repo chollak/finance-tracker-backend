@@ -76,6 +76,13 @@ export const ROUTES = {
 
 // API endpoints
 export const API_ENDPOINTS = {
+  // Signing in to the web app through the bot (FT-128): the login this browser waits for and its session. The secrets
+  // are httpOnly cookies the page never sees
+  AUTH: {
+    WEB_LOGIN: '/auth/web-login',
+    SESSION: '/auth/session',
+  },
+
   // The user's categories (FT-099); the user comes from authentication. The categories screen (FT-127) adds one,
   // renames, recolours, hides and shows; «Отменить» after «Категория добавлена» deletes it while nothing went in it
   CATEGORIES: {

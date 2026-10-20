@@ -33,7 +33,7 @@ export interface QuickChipRecord {
   note: string;
   amountMinor: number;
   currency: Currency;
-  /** None for a guest, who has no accounts. */
+  /** None while the user has no accounts. */
   accountId?: string;
   accountName?: string;
 }
@@ -54,7 +54,7 @@ export interface QuickChipsInput {
   /** The server's frequent expenses; undefined while they are being read. */
   frequent: readonly FrequentRecord[] | undefined;
   categories: readonly Category[];
-  /** Every account of the user (hidden too); none for a guest. */
+  /** Every account of the user (hidden too). */
   accounts: readonly Account[];
   defaultAccountId: string | null | undefined;
 }
@@ -62,7 +62,7 @@ export interface QuickChipsInput {
 /**
  * The account a chip writes to: its own while visible, else the default one if it has the chip's currency,
  * else the first visible one of that currency. Null when the user has accounts but none of that currency;
- * undefined for a guest (no accounts at all).
+ * undefined when there are no accounts at all.
  */
 function chipAccount(
   wanted: string | null,

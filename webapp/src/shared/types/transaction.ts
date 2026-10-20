@@ -19,7 +19,7 @@ export interface Transaction {
   date: string;
   /** Current name of the record's category (the API returns names since FT-099). */
   category: string;
-  /** The user's category (FT-099); missing only for guest-mode records. */
+  /** The user's category (FT-099); missing only for records from before it. */
   categoryId?: string;
   /** Pastel colour token of the category (FT-100). */
   categoryColor?: string;
@@ -28,7 +28,7 @@ export interface Transaction {
   amount: number;
   /** Integer minor units (FT-097) of the record's currency. */
   amountMinor?: number;
-  /** UZS unless the record is in dollars (FT-103); older records and guest mode have none — сум. */
+  /** UZS unless the record is in dollars (FT-103); older records have none — сум. */
   currency?: 'UZS' | 'USD';
   /** The account the money moved on (FT-101). */
   accountId?: string;

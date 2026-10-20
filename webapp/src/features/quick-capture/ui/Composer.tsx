@@ -2,7 +2,6 @@ import { useAccounts } from '@/entities/account';
 import { useCategories } from '@/entities/category';
 import { useSettings } from '@/entities/settings';
 import { useFrequentRecords } from '@/entities/transaction';
-import { useUserStore } from '@/entities/user';
 import { showUndoToast } from '@/shared/lib/undo';
 import { useQuickChip } from '../api/useQuickChip';
 import { useSendCapture } from '../api/useSendCapture';
@@ -21,7 +20,6 @@ const notify = (notice: CaptureNotice) => showUndoToast({ kind: 'info', title: n
 export function Composer() {
   const draft = useCaptureStore((state) => state.draft);
   const setDraft = useCaptureStore((state) => state.setDraft);
-  const isGuest = useUserStore((state) => state.userType === 'guest');
   const frequent = useFrequentRecords();
   const categories = useCategories();
   const accounts = useAccounts();
@@ -29,8 +27,8 @@ export function Composer() {
   const { send, isPending } = useSendCapture();
   const { write } = useQuickChip();
 
-  // A guest has no server records, so no frequent ones: the starters. A failed read falls back to them too.
-  const frequentRecords = isGuest || frequent.isError ? [] : frequent.data;
+  // A failed read of the frequent records falls back to the starters
+  const frequentRecords = frequent.isError ? [] : frequent.data;
   const chips = quickChips({
     frequent: categories.data ? frequentRecords : undefined,
     categories: categories.data ?? [],

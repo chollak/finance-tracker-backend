@@ -5,7 +5,6 @@ import { useAccounts } from '@/entities/account';
 import { useCategoryAnalytics, type CategoryAnalytics } from '@/entities/analytics';
 import { findCategory, useCategories } from '@/entities/category';
 import { buildRecordDays, RecordDayList, useRecord } from '@/entities/transaction';
-import { useIsGuest } from '@/entities/user';
 import { openRecordCategory, openRecordSheet, RecordSheet, useRecordFlash } from '@/features/record-sheet';
 import { ANALYTICS_MONTH_PARAM, ROUTES } from '@/shared/lib/constants/routes';
 import { useCloseScreen, useScreenParent } from '@/shared/lib/navigation';
@@ -25,7 +24,7 @@ import {
 import { monthParam } from '../model/periodWords';
 import { useLeaveRefusedMonth } from '../model/useLeaveRefusedMonth';
 import { DayBarsView } from './DayBars';
-import { FOCUS, GuestAnalytics, LoadingRows, ReadFailed } from './parts';
+import { FOCUS, LoadingRows, ReadFailed } from './parts';
 
 /** Where the category's «Назад» leads when it was opened directly: its own month and side of the overview. */
 function overviewOf(data: CategoryAnalytics | undefined, month: string | undefined): string {
@@ -74,7 +73,6 @@ export function CategoryAnalyticsPage() {
   const { id } = useParams();
   const [params] = useSearchParams();
   const month = monthParam(params.get(ANALYTICS_MONTH_PARAM));
-  const isGuest = useIsGuest();
   const analytics = useCategoryAnalytics(id, month);
   const categories = useCategories();
   const accounts = useAccounts();
@@ -97,7 +95,6 @@ export function CategoryAnalyticsPage() {
     if (kept.day && data) setSelected(dayAfterMove(data, selected, kept.day, keptDay));
   }
 
-  if (isGuest) return <GuestAnalytics />;
 
   if (analytics.error?.statusCode === 404) {
     return (
