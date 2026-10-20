@@ -268,6 +268,15 @@ export function addedToast(name: string): CategoryToast {
   return { title: 'Категория добавлена', detail: `${name} · ИИ начнёт предлагать её` };
 }
 
+/**
+ * «Отменить» after «Категория добавлена», when a record went into the new category within the toast's 4 seconds (the
+ * bot, another device): the server keeps it (409), and pressing again would not change that, so the toast says why
+ * and what to do instead — not «Не получилось отменить · Проверьте связь».
+ */
+export function keptAddedToast(name: string): CategoryToast {
+  return { title: 'Не удалено', detail: `${name} · уже есть запись — можно скрыть` };
+}
+
 /** A write the server refused or that did not get through, said in a toast after the sheet has closed. */
 export function writeFailedToast(error: Partial<ApiError> | undefined, name: string): CategoryToast {
   if (error?.statusCode === 409) return { title: NOT_SAVED, detail: `Категория «${name}» уже есть` };

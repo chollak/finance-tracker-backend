@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useEffectEvent, useRef, useState } from 'react';
 import type { Category, CategoryType } from '@/entities/category';
 import type { ApiError } from '@/shared/api';
 import { pastelBgClass } from '@/shared/lib/pastel/categoryColors';
@@ -99,8 +99,10 @@ function EyeOffIcon() {
 /**
  * «Категория «Кафе»» (board «Категория «Кафе»», CategoryEditor.md): the name, the colour, «Готово» and «Скрыть
  * категорию». The edit is applied whenever the sheet closes — «Готово», «Закрыть», the scrim, Esc or a drag — with
- * «Категория изменена» and «Отменить»; an empty or taken name saves nothing and the toast says why. «Другое» is not
- * hidden: in place of the button it says why. Mounted for one opening (the page keys it).
+ * «Категория изменена» and «Отменить»; an empty or taken name saves nothing and the toast says why. Leaving the screen
+ * with the sheet open — Telegram's BackButton, the phone's or the browser's «Назад» — closes it too, so the edit is
+ * applied then as well and its toast shows on the screen «Назад» led to. «Другое» is not hidden: in place of the
+ * button it says why. Mounted for one opening (the page keys it).
  */
 export function EditCategorySheet({
   category,
@@ -118,10 +120,8 @@ export function EditCategorySheet({
   const finished = useRef(false);
   const view = editFormView(category, draft, categories, counts);
 
-  const finish = (how: 'close' | 'hide') => {
-    if (finished.current) return;
-    finished.current = true;
-    onClose();
+  /** What closing writes: the edit, or the hide with it. The writes and their toasts outlive the sheet and the screen. */
+  const apply = (how: 'close' | 'hide') => {
     if (how === 'hide') {
       const write = hideOutcome(category, draft, categories);
       void writes.apply(category.id, write, write.patch.name ?? category.name);
@@ -131,6 +131,21 @@ export function EditCategorySheet({
     if (outcome.kind === 'refused') showUndoToast({ kind: 'info', ...outcome.toast });
     if (outcome.kind === 'save') void writes.apply(category.id, outcome, outcome.patch.name ?? category.name);
   };
+
+  const finish = (how: 'close' | 'hide') => {
+    if (finished.current) return;
+    finished.current = true;
+    onClose();
+    apply(how);
+  };
+
+  // The screen went away under the open sheet («Назад»): that is a close as well. Nothing is left to close, so only the
+  // edit is applied. React's development check unmounts once right after the first mount — the draft is untouched
+  // then, so nothing is written, and the sheet stays open.
+  const leave = useEffectEvent(() => {
+    if (!finished.current) apply('close');
+  });
+  useEffect(() => () => leave(), []);
 
   return (
     <Sheet open onOpenChange={(open) => !open && finish('close')} title={view.title}>
@@ -179,7 +194,7 @@ export function NewCategorySheet({ type, categories, onClose }: { type: Category
     try {
       const created = await writes.add(payload);
       onClose();
-      showUndoToast({ kind: 'saved', ...addedToast(created.name), undo: () => writes.remove(created.id) });
+      showUndoToast({ kind: 'saved', ...addedToast(created.name), undo: () => writes.takeBack(created) });
     } catch (failure) {
       setBusy(false);
       setError(addFailedText(failure as Partial<ApiError>));

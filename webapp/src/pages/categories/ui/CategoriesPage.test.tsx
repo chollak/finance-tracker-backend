@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act } from 'react';
+import { act, StrictMode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -8,6 +8,7 @@ import { GUEST_CATEGORIES, type Category } from '@/entities/category';
 import { useUserStore } from '@/entities/user';
 import { apiClient } from '@/shared/api';
 import { useUndoToastStore } from '@/shared/lib/undo';
+import { UndoToast } from '@/shared/ui/pastel';
 import { CategoriesPage } from './CategoriesPage';
 
 /**
@@ -88,21 +89,41 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+/** In StrictMode, as main.tsx renders the app: its development check unmounts every screen once right after mounting. */
 async function renderCategories() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   router = createMemoryRouter(
     [
-      { path: '/more', element: <p>Ещё</p> },
+      // «Ещё» shows the toasts of what was done on the screen «Назад» left
+      {
+        path: '/more',
+        element: (
+          <>
+            <p>Ещё</p>
+            <UndoToast bottom={24} />
+          </>
+        ),
+      },
       { path: '/more/categories', element: <CategoriesPage /> },
     ],
     { initialEntries: ['/more', '/more/categories'], initialIndex: 1 }
   );
   await act(async () => {
     root.render(
-      <QueryClientProvider client={client}>
-        <RouterProvider router={router} />
-      </QueryClientProvider>
+      <StrictMode>
+        <QueryClientProvider client={client}>
+          <RouterProvider router={router} />
+        </QueryClientProvider>
+      </StrictMode>
     );
+  });
+  await settle();
+}
+
+/** «Назад» of Telegram's BackButton, of the phone or of the browser: one step back in the history, the sheet still open. */
+async function goBack() {
+  await act(async () => {
+    await router.navigate(-1);
   });
   await settle();
 }
@@ -300,6 +321,70 @@ describe('«Категория «Кафе»»: the edit applies when the sheet c
     expect(rows().at(-1)).toBe('Добавить категорию');
   });
 
+  it('opening a sheet writes nothing and it stays open (React’s development check unmounts it once)', async () => {
+    await renderCategories();
+
+    await press(button('Кафе'));
+
+    expect(sheet()).not.toBeNull();
+    expect(apiClient.patch).not.toHaveBeenCalled();
+    expect(toast()).toBe('');
+  });
+
+  it('«Назад» with the sheet open (Telegram’s BackButton, the phone’s, the browser’s) applies the edit too: the toast shows on «Ещё»', async () => {
+    await renderCategories();
+
+    await press(button('Кафе'));
+    await type('Кофейни');
+    await goBack();
+
+    expect(router.state.location.pathname).toBe('/more');
+    expect(sheet()).toBeNull();
+    expect(apiClient.patch).toHaveBeenCalledTimes(1);
+    expect(apiClient.patch).toHaveBeenCalledWith(`/categories/${idOf('Кафе')}`, { name: 'Кофейни' });
+    expect(categories.find((c) => c.id === idOf('Кафе'))?.name).toBe('Кофейни');
+    expect(toast()).toBe('Категория изменена Кафе → Кофейни Отменить');
+
+    await press(button('Отменить'));
+
+    expect(apiClient.patch).toHaveBeenLastCalledWith(`/categories/${idOf('Кафе')}`, { name: 'Кафе' });
+    expect(categories.find((c) => c.id === idOf('Кафе'))?.name).toBe('Кафе');
+  });
+
+  it('«Назад» with a taken name saves nothing and says why on «Ещё»; with nothing changed it writes nothing', async () => {
+    await renderCategories();
+
+    await press(button('Кафе'));
+    await type('Продукты');
+    await goBack();
+
+    expect(router.state.location.pathname).toBe('/more');
+    expect(apiClient.patch).not.toHaveBeenCalled();
+    expect(toast()).toBe('Не сохранено Категория «Продукты» уже есть');
+
+    useUndoToastStore.setState({ stack: [] });
+    await act(async () => {
+      await router.navigate('/more/categories');
+    });
+    await settle();
+    await press(button('Транспорт'));
+    await goBack();
+
+    expect(apiClient.patch).not.toHaveBeenCalled();
+    expect(toast()).toBe('');
+  });
+
+  it('a sheet closed by its button before «Назад» is not applied twice', async () => {
+    await renderCategories();
+
+    await press(button('Кафе'));
+    await type('Кофейни');
+    await press(button('Готово', sheet()!));
+    await goBack();
+
+    expect(apiClient.patch).toHaveBeenCalledTimes(1);
+  });
+
   it('«Другое» has no «Скрыть категорию» — it says why', async () => {
     await renderCategories();
 
@@ -332,6 +417,45 @@ describe('«Новая категория»', () => {
     await press(button('Отменить'));
 
     expect(apiClient.delete).toHaveBeenCalledWith('/categories/new1');
+    expect(rows()).not.toContain('Спорт · В октябре не было');
+  });
+
+  it('«Отменить» once a record went into the new one (409): it stays, and the toast says why instead of asking to retry', async () => {
+    await renderCategories();
+
+    await press(button('Добавить категорию'));
+    await type('Спорт');
+    await press(button('Добавить категорию расхода', sheet()!));
+    // A record from the bot reached «Спорт» within the toast’s 4 seconds
+    vi.mocked(apiClient.delete).mockRejectedValueOnce({ message: 'A category with records is hidden, not deleted', statusCode: 409 });
+    const monthReads = () => vi.mocked(apiClient.get).mock.calls.filter(([url]) => url === '/analytics?type=expense').length;
+    const readsBefore = monthReads();
+
+    await press(button('Отменить'));
+
+    expect(apiClient.delete).toHaveBeenCalledWith('/categories/new1');
+    expect(rows()).toContain('Спорт · В октябре не было');
+    expect(toast()).toBe('Не удалено Спорт · уже есть запись — можно скрыть');
+    expect(() => button('Отменить')).toThrow();
+    // The month is read again, so the row counts the record that kept it
+    expect(monthReads()).toBeGreaterThan(readsBefore);
+  });
+
+  it('«Отменить» that does not get through can be pressed again', async () => {
+    await renderCategories();
+
+    await press(button('Добавить категорию'));
+    await type('Спорт');
+    await press(button('Добавить категорию расхода', sheet()!));
+    vi.mocked(apiClient.delete).mockRejectedValueOnce({ message: 'Network', statusCode: 0 });
+
+    await press(button('Отменить'));
+
+    expect(toast()).toBe('Не получилось отменить Проверьте связь и нажмите ещё раз Отменить');
+
+    await press(button('Отменить'));
+
+    expect(apiClient.delete).toHaveBeenCalledTimes(2);
     expect(rows()).not.toContain('Спорт · В октябре не было');
   });
 

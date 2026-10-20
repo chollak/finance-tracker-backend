@@ -8,6 +8,7 @@ import {
   editFormView,
   editOutcome,
   hideOutcome,
+  keptAddedToast,
   monthCounts,
   NEW_DRAFT,
   newFormView,
@@ -204,5 +205,9 @@ describe('«Новая категория»', () => {
     expect(addPayload('expense', { name: 'Кафе', color: 'sky' }, categories)).toBeNull();
     expect(addPayload('expense', NEW_DRAFT, categories)).toBeNull();
     expect(addedToast('Спорт')).toEqual({ title: 'Категория добавлена', detail: 'Спорт · ИИ начнёт предлагать её' });
+  });
+
+  it('«Отменить» after a record went into it: it stays, and the toast says why and what to do instead', () => {
+    expect(keptAddedToast('Спорт')).toEqual({ title: 'Не удалено', detail: 'Спорт · уже есть запись — можно скрыть' });
   });
 });
