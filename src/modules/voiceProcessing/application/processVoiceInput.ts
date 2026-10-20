@@ -133,8 +133,10 @@ export class ProcessVoiceInputUseCase {
       const debtResults: DetectedDebt[] = [];
       // «нал», «картой», «$» in what was said: which account and currency (FT-103)
       const hints = detectPaymentHints(recognizedText);
-      // Named without an amount: nothing is written for them, the bot asks «Сколько?» (FT-123)
+      // Named without an amount: nothing is written for them, the bot asks «Сколько?» (FT-123). They are
+      // items of what was said all the same: «нал» of an unpriced taxi is not the coffee's
       const withoutAmount = parsed.withoutAmount ?? [];
+      const itemCount = parsed.transactions.length + withoutAmount.length;
 
       // Log if nothing found
       if (parsed.transactions.length === 0 && parsed.debts.length === 0) {
@@ -154,7 +156,7 @@ export class ProcessVoiceInputUseCase {
           const type = p.type === 'income' ? 'income' : 'expense';
           const semanticType = normalizeSemanticType(p.semanticType, type);
           const needsReview = p.needsReview === true;
-          const money = captureMoneyOf(p, recognizedText, hints, parsed.transactions.length, semanticType);
+          const money = captureMoneyOf(p, recognizedText, hints, itemCount, semanticType);
           const { currency } = money;
           const transaction: Transaction = {
             date: p.date || new Date().toISOString().split('T')[0],
@@ -208,7 +210,7 @@ export class ProcessVoiceInputUseCase {
                   type: transaction.type,
                   presetKey: category?.presetKey ?? null,
                   chosenBy: 'ai',
-                  words: recordWordsOf(recognizedText, p, parsed.transactions.length),
+                  words: recordWordsOf(recognizedText, p, itemCount),
                   learnedWords: category?.presetKey ? learned.get(category.presetKey) : undefined,
                 },
                 account,

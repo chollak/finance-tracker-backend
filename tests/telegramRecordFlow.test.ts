@@ -138,6 +138,8 @@ describe('bot record messages (FT-122)', () => {
   let planMissing: ItemWithoutAmount[] = [];
   let heard = '';
   let limit: LimitAnswer = { allowed: true };
+  /** Telegram refuses the bot's next message once (FT-123 review). */
+  let replyFails = false;
   const today = todayDateOnly();
 
   /** Writes the planned records the way the capture use cases do: through the create use case. */
@@ -230,6 +232,7 @@ describe('bot record messages (FT-122)', () => {
         categoryModule,
         userModule,
         botMessageModule,
+        subscriptionModule,
         quickCaptureModule: { getQuickCaptureService: () => ({ capture, captureWithAmount }) },
         voiceModule: { getProcessVoiceInputUseCase: () => ({ execute: voice }) },
       },
@@ -251,6 +254,10 @@ describe('bot record messages (FT-122)', () => {
       sendChatAction: jest.fn().mockResolvedValue(undefined),
       answerCbQuery: jest.fn().mockResolvedValue(undefined),
       reply: jest.fn(async (text: string, extra?: any) => {
+        if (replyFails) {
+          replyFails = false;
+          throw new Error('Telegram is down');
+        }
         const messageId = nextMessageId++;
         messages.set(messageId, { text, keyboard: extra?.reply_markup?.inline_keyboard ?? [] });
         return { message_id: messageId, chat: { id: TELEGRAM_ID } };
@@ -308,6 +315,13 @@ describe('bot record messages (FT-122)', () => {
     return pressData(messageId, button.callback_data);
   }
 
+  /** The callback data of a button as it is now: pressed again later, it is a stale keyboard or a double tap. */
+  function dataOf(messageId: number, label: string): string {
+    const button = messages.get(messageId)!.keyboard.flat().find(candidate => candidate.text === label);
+    if (!button?.callback_data) throw new Error(`No button «${label}» under message ${messageId}: ${JSON.stringify(labels(messageId))}`);
+    return button.callback_data;
+  }
+
   function text(messageId: number): string {
     return messages.get(messageId)!.text;
   }
@@ -332,6 +346,7 @@ describe('bot record messages (FT-122)', () => {
 
   beforeEach(async () => {
     limit = { allowed: true };
+    replyFails = false;
     dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ft122-flow-'));
     file = path.join(dir, 'db.sqlite');
     messages.clear();
@@ -1058,6 +1073,28 @@ describe('bot record messages (FT-122)', () => {
         expect(await awaiting()).toBeNull();
       });
 
+      it('a second tap of «Пропустить», or one drawn before an answer, skips nothing more', async () => {
+        const lunchItem: ItemWithoutAmount = { description: 'обед', category: 'Кафе', type: 'expense', date: today };
+        const message = await write('кофе 25к, такси, обед', [coffee], { missing: [taxiItem, lunchItem] });
+        const skip = dataOf(message, 'Пропустить «Такси»');
+
+        await pressData(message, skip);
+        expect(labels(message)).toContainEqual(['Пропустить «Обед»']);
+        await pressData(message, skip);
+
+        expect(text(message)).toMatch(/«Такси» — пропустил\.\n\n«Обед» — без суммы\. Сколько\? Напишите числом\.$/);
+        expect(text(message)).not.toContain('«Обед» — пропустил');
+        expect(labels(message)).toContainEqual(['Пропустить «Обед»']);
+        expect((await awaiting())?.messageId).toBe(message);
+
+        // «Обед» answered: the «Пропустить «Обед»» drawn before skips nothing
+        const stale = dataOf(message, 'Пропустить «Обед»');
+        await write('45к');
+        await pressData(message, stale);
+        expect(text(message)).toMatch(/«Такси» — пропустил\.\n«Обед» — записал отдельным сообщением\.$/);
+        expect(text(message)).not.toContain('«Обед» — пропустил');
+      });
+
       it('the next item is asked with the new record, one question at a time', async () => {
         const lunchItem: ItemWithoutAmount = { description: 'обед', category: 'Кафе', type: 'expense', date: today };
         await write('такси, обед', [], { missing: [taxiItem, lunchItem] });
@@ -1070,6 +1107,33 @@ describe('bot record messages (FT-122)', () => {
         expect(text(second)).toContain(`<b>Расход ${MINUS}45${NB}000${NB}сум</b>\nКафе · «Обед»`);
         expect(text(first)).toMatch(/«Обед» — записал отдельным сообщением\.$/);
         expect(await awaiting()).toBeNull();
+      });
+
+      it('reads a bare «870» for an income as 870 000 too, as «Сумму» does, and says so; «870 сум» is as written', async () => {
+        const cashback: ItemWithoutAmount = { description: 'кэшбэк', category: 'Кэшбэк', type: 'income', date: today };
+        await write('кэшбэк', [], { missing: [cashback] });
+
+        const thousands = await write('870');
+        expect(text(thousands)).toContain(`<b>Доход +870${NB}000${NB}сум</b>\n<i>«870» понял как 870${NB}000${NB}сум.</i>`);
+
+        await write('кэшбэк', [], { missing: [cashback] });
+        const exact = await write('870 сум');
+        expect(text(exact)).toContain(`<b>Доход +870${NB}сум</b>\n`);
+        expect(text(exact)).not.toContain('понял как');
+      });
+
+      it('meets the free limit like a phrase: unlike «Сумму», the answer adds a record', async () => {
+        await write('кофе 25к, такси', [coffee], { missing: [taxiItem] });
+        limit = { allowed: false };
+
+        const paywall = await write('18к');
+
+        expect(text(paywall)).toContain('Лимит записей исчерпан.');
+        expect(running.captureWithAmount).not.toHaveBeenCalled();
+        expect(await awaiting()).not.toBeNull(); // still asked
+
+        limit = { allowed: true };
+        expect(text(await write('18к'))).toContain('Транспорт · «Такси»');
       });
 
       it('waits for the answer after the bot restarts', async () => {
@@ -1125,6 +1189,52 @@ describe('bot record messages (FT-122)', () => {
         expect(await inApp(wrongId)).toBe(false);
       });
 
+      it('a second tap of «Это 25 000 сум» changes nothing more', async () => {
+        const message = await write('кофе 25000000', [bigCoffee]);
+        const [id] = await recordIdsOf(message);
+        const fix = dataOf(message, `Это 25${NB}000${NB}сум`);
+
+        await pressData(message, fix);
+        const ctx = await pressData(message, fix);
+
+        expect((await record(id)).amountMinor).toBe(2_500_000);
+        expect(await inApp(id)).toBe(true);
+        expect(text(message)).toContain(`<b>Расход ${MINUS}25${NB}000${NB}сум</b>`);
+        expect(text(message)).toContain(`Сумма изменена: было 25${NB}000${NB}000.`);
+        expect(labels(message)).toEqual([['Изменить', 'Отменить']]);
+        expect(ctx.answerCbQuery).toHaveBeenCalledWith(undefined);
+      });
+
+      it('«Не записывать» left from before «Да, верная» does not delete the written record', async () => {
+        const message = await write('кофе 25000000', [bigCoffee]);
+        const [id] = await recordIdsOf(message);
+        const decline = dataOf(message, 'Не записывать');
+        const right = dataOf(message, 'Да, верная');
+
+        await pressData(message, right);
+        await pressData(message, decline);
+        await pressData(message, right);
+
+        expect(await inApp(id)).toBe(true);
+        expect((await record(id)).amountMinor).toBe(2_500_000_000);
+        expect(text(message)).toContain(`<b>Расход ${MINUS}25${NB}000${NB}000${NB}сум</b>`);
+        expect(text(message)).not.toContain('Не записал');
+        expect(labels(message)).toEqual([['Изменить', 'Отменить']]);
+      });
+
+      it('«Это 25 000 сум» left from before «Не записывать» brings nothing back', async () => {
+        const message = await write('кофе 25000000', [bigCoffee]);
+        const [id] = await recordIdsOf(message);
+        const fix = dataOf(message, `Это 25${NB}000${NB}сум`);
+
+        await press(message, 'Не записывать');
+        await pressData(message, fix);
+
+        expect(await inApp(id)).toBe(false);
+        expect((await record(id)).amountMinor).toBe(2_500_000_000);
+        expect(text(message)).toBe(`<s><b>Сумма большая: ${MINUS}25${NB}000${NB}000${NB}сум за «Кофе».</b></s>\n\nНе записал.`);
+      });
+
       it('a typed amount answers it; any other text only drops the hint, the buttons stay', async () => {
         const typed = await write('кофе 25000000', [bigCoffee]);
         const [typedId] = await recordIdsOf(typed);
@@ -1172,6 +1282,28 @@ describe('bot record messages (FT-122)', () => {
         expect(labels(message)).toEqual([['Изменить', 'Отменить']]);
       });
 
+      it('is written as it is when its question cannot be remembered: the phrase is not lost', async () => {
+        jest.spyOn(running.botMessageModule.getLog(), 'remember').mockRejectedValueOnce(new Error('disk full'));
+
+        const message = await write('кофе 25000000', [bigCoffee]);
+
+        const [{ id }] = (await running.capture.mock.results[0].value).transactions;
+        expect(await inApp(id)).toBe(true);
+        expect((await record(id)).amountMinor).toBe(2_500_000_000);
+        expect(text(message)).toBe(`<b>Расход ${MINUS}25${NB}000${NB}000${NB}сум</b>\nКафе · «Кофе»\nКарта · ${absoluteDate(today, today)}`);
+        expect(labels(message)).toEqual([]);
+      });
+
+      it('is written as it is when Telegram refuses the question', async () => {
+        replyFails = true;
+
+        const error = await write('кофе 25000000', [bigCoffee]);
+
+        const [{ id }] = (await running.capture.mock.results[0].value).transactions;
+        expect(await inApp(id)).toBe(true);
+        expect(text(error)).toBe('Произошла ошибка. Попробуйте снова.');
+      });
+
       it('says what had no amount when a large one takes the question', async () => {
         const message = await write('кофе 25000000, такси', [bigCoffee], { missing: [taxiItem] });
 
@@ -1203,7 +1335,8 @@ describe('bot record messages (FT-122)', () => {
     it('says with an example what to write when it found nothing, and when it heard nothing', async () => {
       expect(text(await write('привет'))).toBe(notUnderstood);
       expect(text(await say(''))).toBe(notHeard);
-      expect(text(await say('ммм'))).toBe(notHeard);
+      // Heard, but nothing in it to write: as for a text of the same words (board «Бот · не понял, не расслышал»)
+      expect(text(await say('привет, как дела'))).toBe(notUnderstood);
     });
   });
 });

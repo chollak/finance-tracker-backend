@@ -83,6 +83,51 @@ describe('text and voice capture pass it through (FT-123)', () => {
     expect(result.withoutAmount).toEqual([taxi]);
   });
 
+  describe('an item without an amount is an item of the phrase (FT-123 review)', () => {
+    const coffee = { intent: 'transaction' as const, amount: 25000, category: 'Кафе', type: 'expense' as const, description: 'кофе', date: '2026-10-16' };
+    const cashTaxi: ItemWithoutAmount = { ...taxi, paymentKind: 'cash' };
+
+    it('«нал» of «такси» does not move the coffee: it goes to the default account', async () => {
+      const created = creator('coffee-1', { presetKey: 'cafe' });
+      const service = parser({ transactions: [coffee], withoutAmount: [cashTaxi] });
+      const useCase = new ProcessTextInputUseCase(service, created.useCase);
+
+      const result = await useCase.execute('кофе 25к, такси нал', 'user-1');
+
+      expect(service.analyzeInput).toHaveBeenCalled();
+      expect(created.execute).toHaveBeenCalledTimes(1);
+      expect(created.execute.mock.calls[0][1].accountHint).toEqual({ text: undefined, kind: undefined });
+      expect(result.withoutAmount).toEqual([cashTaxi]);
+    });
+
+    it('«$» and the words of another item are not the coffee’s either', async () => {
+      const created = creator('coffee-2', { presetKey: 'transport' });
+      const useCase = new ProcessTextInputUseCase(parser({ transactions: [coffee], withoutAmount: [{ ...taxi, description: 'такси в долларах $' }] }), created.useCase);
+
+      const result = await useCase.execute('кофе 25к, такси $', 'user-1');
+
+      expect(created.execute.mock.calls[0][0]).toEqual(expect.objectContaining({ amount: 25000, currency: 'UZS' }));
+      // «такси» names Транспорт, but it is the other item's word: for the coffee the category stays a guess
+      expect(result.transactions[0].assumptions).toContainEqual(expect.objectContaining({ kind: 'category' }));
+    });
+
+    it('a voice message counts it too', async () => {
+      jest.spyOn(fs, 'access').mockResolvedValue(undefined);
+      jest.spyOn(fs, 'rename').mockResolvedValue(undefined);
+      jest.spyOn(fs, 'unlink').mockResolvedValue(undefined);
+      const service = parser({ transactions: [coffee], withoutAmount: [cashTaxi] });
+      (service.transcribe as jest.Mock).mockResolvedValue('кофе 25 тысяч, такси нал');
+      const created = creator('coffee-3', { presetKey: 'cafe' });
+      const useCase = new ProcessVoiceInputUseCase(service, created.useCase);
+
+      await useCase.execute({ filePath: '/nowhere/voice.ogg', userId: 'user-1' });
+
+      expect(created.execute).toHaveBeenCalledTimes(1);
+      expect(created.execute.mock.calls[0][1].accountHint).toEqual({ text: undefined, kind: undefined });
+      jest.restoreAllMocks();
+    });
+  });
+
   it('the quick capture result carries it, nothing saved', async () => {
     const created = creator();
     const service = new QuickCaptureService(new ProcessTextInputUseCase(parser({ withoutAmount: [taxi] }), created.useCase));

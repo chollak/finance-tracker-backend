@@ -63,9 +63,10 @@ async function replyWithError(ctx: BotContext, error: unknown): Promise<void> {
 }
 
 /**
- * Text in a chat where a record waits for its amount after «Сумму» (FT-122). It runs ahead of the free
- * limit: an amount corrects a record already written, so the paywall must not answer it. Any other text
- * closes the question and goes on to the capture.
+ * Text in a chat where a message waits for an amount (FT-122, FT-123): after «Сумму», «не 25, а 28», a large
+ * amount, «Сколько?». It runs ahead of the free limit: an amount there corrects a record already written, so
+ * the paywall must not answer it. The answer to «Сколько?» adds a record, so it checks the limit itself
+ * (answerMissing). Any other text closes the question and goes on to the capture.
  */
 export function createAmountAnswerMiddleware(userModule?: UserModule) {
   return async function answerAmount(ctx: BotContext, next: () => Promise<void>): Promise<void> {
@@ -255,8 +256,9 @@ export function createVoiceMessageHandler(userModule?: UserModule, subscriptionM
 
       const withoutAmount = result.withoutAmount ?? [];
       if (result.transactions.length === 0 && (!result.debts || result.debts.length === 0) && withoutAmount.length === 0) {
-        // Nothing to write from what was said: ask again, with an example (FT-123)
-        await ctx.reply(RU.capture.notHeard);
+        // Heard, but nothing to write («привет»): the answer to a text of the same words, with an example
+        // (FT-123, board «Бот · не понял, не расслышал»). «Не расслышал» is for a voice with no words in it
+        await ctx.reply(RU.capture.notUnderstood, { parse_mode: 'HTML' });
         return;
       }
 

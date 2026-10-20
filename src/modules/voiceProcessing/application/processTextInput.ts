@@ -375,7 +375,10 @@ export interface AmountAnswer {
 interface RecordWrite {
   text: string;
   hints: PaymentHints;
-  /** Records of the phrase: with one, the words of the whole phrase apply to it. */
+  /**
+   * Items of the phrase, the ones named without an amount too (FT-123): with one, the words of the whole
+   * phrase apply to it.
+   */
   itemCount: number;
   clientId?: string;
   source: RecordSource;
@@ -471,13 +474,17 @@ export class ProcessTextInputUseCase {
 
     const transactionResults: DetectedTransaction[] = [];
     const debtResults: DetectedDebt[] = [];
+    // Named without an amount: nothing is written, the bot asks «Сколько?» (FT-123). They are items of the
+    // phrase all the same: «нал» in «кофе 25к, такси нал» is the taxi's, so the coffee keeps only its own words
+    const withoutAmount = parsed.withoutAmount ?? [];
+    const itemCount = transactions.length + withoutAmount.length;
 
     // Process transactions
     for (const [index, p] of transactions.entries()) {
       const written = await this.writeRecord(p, {
         text,
         hints,
-        itemCount: transactions.length,
+        itemCount,
         clientId: options.clientId ? itemClientId(options.clientId, index) : undefined,
         source,
         userId,
@@ -537,8 +544,6 @@ export class ProcessTextInputUseCase {
       }
     }
 
-    // Named without an amount: nothing is written, the bot asks «Сколько?» (FT-123)
-    const withoutAmount = parsed.withoutAmount ?? [];
     return { text, transactions: transactionResults, debts: debtResults, ...(withoutAmount.length ? { withoutAmount } : {}) };
   }
 

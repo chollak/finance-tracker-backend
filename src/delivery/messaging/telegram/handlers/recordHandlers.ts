@@ -37,6 +37,7 @@ import {
 } from '../utils/recordMessageView';
 import { AmountReply, parseAmountCorrection, parseAmountReply, writtenAmountMatches } from '../utils/amountReply';
 import { botUserId } from '../utils/userCategories';
+import { checkTelegramLimit } from '../middleware/subscriptionMiddleware';
 import { BotMessage, openQuestion, RecordMessageMode, RecordMessageState } from '../../../../modules/botMessage/domain/botMessage';
 import { BotMessageLog } from '../../../../modules/botMessage/application/botMessageLog';
 import { ResolvedAccount } from '../../../../modules/transaction/domain/accountResolver';
@@ -137,7 +138,21 @@ async function revert(ctx: BotContext, message: BotMessage, input: RecordMessage
   return confirmed(state, cancelled.length > 1 ? 'Записи возвращены' : 'Запись возвращена');
 }
 
-/** Applies a press to the message: the records change, the screen changes. */
+/**
+ * The record a large-amount button is about, while its question is open: the message is on the `large`
+ * screen and the record is still held (deleted softly). After «Это 25 000 сум», «Да, верная», «Не записывать»
+ * or a typed amount it is not: a second tap, or a keyboard drawn before, must not change the record again.
+ */
+function heldLarge(message: BotMessage, input: RecordMessageInput): RecordView | undefined {
+  if (message.mode !== 'large') return undefined;
+  const big = largeRecord(input);
+  return big?.cancelled ? big : undefined;
+}
+
+/**
+ * Applies a press to the message: the records change, the screen changes. Null when the press is about a
+ * question no longer asked — a double tap, a stale keyboard: nothing changes, the message is drawn as it is.
+ */
 async function applyPress(
   ctx: BotContext,
   log: BotMessageLog,
@@ -145,7 +160,7 @@ async function applyPress(
   input: RecordMessageInput,
   verb: string,
   arg: string | undefined
-): Promise<PressResult> {
+): Promise<PressResult | null> {
   const { state } = message;
   const record = selectedRecord(input);
   const live = input.records.filter(candidate => !candidate.cancelled);
@@ -232,25 +247,29 @@ async function applyPress(
     case RECORD_VERBS.otherCategory:
       return { mode: 'category', state: { ...withoutPick(state), selected: 0, back: 'confirm' } };
     case RECORD_VERBS.skip: {
+      // The button says how many items were still asked when it was drawn: the list only gets shorter from
+      // the front, so another count means its item was already skipped, answered or closed
       const [item, ...rest] = state.missing ?? [];
-      if (!item) return { mode: message.mode, state };
+      if (!item || Number(arg) !== rest.length + 1) return null;
       const next: RecordMessageState = { ...state, notes: [...(state.notes ?? []), RU.record.skipped(quoted(itemName(item)))] };
       if (rest.length) next.missing = rest;
       else delete next.missing;
       return { mode: message.mode, state: next };
     }
     case RECORD_VERBS.largeRight:
-      return releaseLarge(ctx, message, input);
+      return heldLarge(message, input) ? releaseLarge(ctx, message, input) : null;
     case RECORD_VERBS.largeFix: {
-      const big = largeRecord(input);
-      if (!big) throw new PressFailed('No large record');
+      const big = heldLarge(message, input);
+      if (!big) return null;
       // Brought back first: a deleted record cannot be changed
       const released = await releaseLarge(ctx, message, input, `Сумма изменена: было ${amountDigits(big.amountMinor, big.currency)}`);
       await update(ctx, big.id, { amountMinor: thousandTimesLess(big) });
       return released;
     }
-    case RECORD_VERBS.largeDecline:
-      return declineLarge(ctx, message, input);
+    case RECORD_VERBS.largeDecline: {
+      const big = heldLarge(message, input);
+      return big ? declineLarge(ctx, message, input, big) : null;
+    }
     default:
       throw new PressFailed(`Unknown action ${verb}`);
   }
@@ -298,9 +317,7 @@ async function releaseLarge(ctx: BotContext, message: BotMessage, input: RecordM
  * «Не записывать» of a large amount (FT-123): it stays deleted and leaves the message; the other records of
  * the phrase are written.
  */
-async function declineLarge(ctx: BotContext, message: BotMessage, input: RecordMessageInput): Promise<PressResult> {
-  const big = largeRecord(input);
-  if (!big) throw new PressFailed('No large record');
+async function declineLarge(ctx: BotContext, message: BotMessage, input: RecordMessageInput, big: RecordView): Promise<PressResult> {
   await restoreRecords(ctx, input.records.filter(record => record.cancelled && record.id !== big.id));
   const next: RecordMessageState = { ...message.state, selected: 0, declined: [...(message.state.declined ?? []), big.id] };
   delete next.large;
@@ -321,14 +338,15 @@ function isStaleScreen(message: BotMessage, input: RecordMessageInput, verb: str
 /** Runs a press on a stored message and draws the message again. */
 async function pressMessage(ctx: BotContext, log: BotMessageLog, message: BotMessage, verb: string, arg?: string): Promise<void> {
   const input = await recordMessageInput(ctx, message);
-  // A message of only an item without an amount has no records, but its «Не записывать» works (FT-123)
-  if (input.records.length === 0 && !message.state.missing?.length) {
+  // Its records gone altogether. A message of only an item without an amount has none, but its «Не
+  // записывать» works; a declined large amount is still drawn (FT-123)
+  if (input.records.length === 0 && !input.declined?.length && message.recordIds.length > 0) {
     await answer(ctx, RU.record.notFound);
     return;
   }
   const result = isStaleScreen(message, input, verb) ? confirmed(message.state) : await applyPress(ctx, log, message, input, verb, arg);
-  const saved = await log.save(message, result);
-  await redrawRecordMessage(ctx, saved);
+  // A press about a question no longer asked is not saved: the message is drawn as it is now
+  await redrawRecordMessage(ctx, result ? await log.save(message, result) : message);
   await answer(ctx);
 }
 
@@ -550,6 +568,10 @@ async function answerMissing(ctx: BotContext, log: BotMessageLog, message: BotMe
     await ctx.reply(RU.record.amountTooBig);
     return true;
   }
+  // Unlike «Сумму», this answer adds a record: the free limit meets it as it meets a phrase, and the
+  // question stays open
+  const { subscriptionModule } = ctx.modules;
+  if (subscriptionModule && !await checkTelegramLimit(ctx, subscriptionModule, userId, 'transactions')) return true;
 
   const captured = await ctx.modules.quickCaptureModule.getQuickCaptureService().captureWithAmount({
     item,

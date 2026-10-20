@@ -269,6 +269,30 @@ export interface SendRecordMessageInput {
 }
 
 /**
+ * A large amount whose question cannot be asked — not sent, or not remembered, so no button or answer could
+ * reach it: the held records are written as they are, as without the log, and the message, if it went out,
+ * becomes their confirmation without buttons. The phrase is never lost (FT-123 review).
+ */
+async function writeHeldAsIs(ctx: BotContext, held: RecordView[], content: RecordMessageContent, where?: { chatId: string; messageId: number }): Promise<void> {
+  if (held.length === 0) return;
+  try {
+    await restoreRecords(ctx, held);
+  } catch (error) {
+    logger.error('Could not bring back the records of a large amount', error as Error, { userId: content.userId, records: held.length });
+    return;
+  }
+  if (!where) return;
+  try {
+    const state = { ...content.state };
+    delete state.large;
+    const drawn = await drawRecordMessage(ctx, { ...content, mode: 'confirm', state });
+    await editPlainMessage(ctx, where.chatId, where.messageId, drawn.text);
+  } catch (error) {
+    logger.warn('Could not redraw a large amount written as it is', { messageId: where.messageId, error: (error as Error).message });
+  }
+}
+
+/**
  * The confirmation of records just written: one message for all records of a phrase, remembered in
  * `bot_messages` so its buttons work later, after a restart too. A suspiciously large amount holds the
  * whole message — its records are deleted softly until the person answers (FT-123); what was named without
@@ -292,8 +316,9 @@ export async function sendRecordMessage(ctx: BotContext, input: SendRecordMessag
 
   // Without the log nothing could answer the question, so a large amount is written as it is
   const large = log ? before.records.findIndex(record => !record.cancelled && isSuspiciouslyLarge({ ...record, presetKey: record.categoryPresetKey })) : -1;
+  const held = large === -1 ? [] : before.records.filter(record => !record.cancelled);
   if (large !== -1) {
-    await cancelRecords(ctx, before.records.filter(record => !record.cancelled));
+    await cancelRecords(ctx, held);
     mode = 'large';
     state.large = { index: large };
     if (missing.length) {
@@ -301,21 +326,36 @@ export async function sendRecordMessage(ctx: BotContext, input: SendRecordMessag
       delete state.missing;
     }
   }
-  const content = { userId: input.userId, recordIds: input.recordIds, mode, state, heard };
-  const drawn = await drawRecordMessage(ctx, content);
-
-  // Without the log nothing could answer the buttons, so the message goes without them
-  const sent = await ctx.reply(drawn.text, {
-    parse_mode: 'HTML',
-    ...(log ? { reply_markup: { inline_keyboard: drawn.keyboard } } : {}),
-  });
+  const content: RecordMessageContent = { userId: input.userId, recordIds: input.recordIds, mode, state, heard };
+  let sent: Awaited<ReturnType<BotContext['reply']>> | undefined;
+  try {
+    const drawn = await drawRecordMessage(ctx, content);
+    // Without the log nothing could answer the buttons, so the message goes without them
+    sent = await ctx.reply(drawn.text, {
+      parse_mode: 'HTML',
+      ...(log ? { reply_markup: { inline_keyboard: drawn.keyboard } } : {}),
+    });
+  } catch (error) {
+    await writeHeldAsIs(ctx, held, content);
+    throw error;
+  }
 
   const chatId = chatIdOf(ctx);
-  if (!log || !sent?.message_id || !chatId) return;
+  if (!log || !sent?.message_id || !chatId) {
+    await writeHeldAsIs(ctx, held, content, chatId && sent?.message_id ? { chatId, messageId: sent.message_id } : undefined);
+    return;
+  }
+  let remembered: BotMessage;
   try {
-    const remembered = await log.remember({ ...content, chatId, messageId: sent.message_id });
-    if (openQuestion(mode, state)) await closeOtherQuestions(ctx, log, remembered);
+    remembered = await log.remember({ ...content, chatId, messageId: sent.message_id });
   } catch (error) {
     logger.error('Failed to remember a bot record message', error as Error, { userId: input.userId, messageId: sent.message_id });
+    await writeHeldAsIs(ctx, held, content, { chatId, messageId: sent.message_id });
+    return;
+  }
+  try {
+    if (openQuestion(mode, state)) await closeOtherQuestions(ctx, log, remembered);
+  } catch (error) {
+    logger.error('Failed to close the other questions of the chat', error as Error, { userId: input.userId, messageId: sent.message_id });
   }
 }

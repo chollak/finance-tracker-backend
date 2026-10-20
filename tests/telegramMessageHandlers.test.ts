@@ -505,10 +505,10 @@ describe('Telegram message handlers', () => {
       expect(replyText(reply)).toContain('Боб');
     });
 
-    it('asks to say it again, with an example, when nothing was found or heard (FT-123)', async () => {
+    it('says what to write when it heard words with nothing to write, and asks again when it heard none (FT-123)', async () => {
       const notHeard = 'Не расслышал.\nСкажите ещё раз — что купили и сколько, например: «такси восемнадцать тысяч». Или напишите текстом.';
       const { ctx, reply } = createVoiceContext({}, voiceResult({
-        text: 'привет',
+        text: 'привет, как дела',
         transactions: [],
         debts: [],
       }));
@@ -516,7 +516,9 @@ describe('Telegram message handlers', () => {
 
       await handler(ctx as any);
 
-      expect(replyText(reply)).toBe(notHeard);
+      expect(replyText(reply)).toBe('Не нашёл, что записать.\nНапишите трату и сумму:\n'
+        + '<blockquote><i>такси 18к, обед 45\u00a0000 картой</i></blockquote>\n\n<i>Подробнее — /help</i>');
+      expect(reply).toHaveBeenLastCalledWith(expect.any(String), { parse_mode: 'HTML' });
 
       (ctx as any).modules.voiceModule.getProcessVoiceInputUseCase = () => ({
         execute: jest.fn().mockRejectedValue(new NoSpeechDetectedError()),

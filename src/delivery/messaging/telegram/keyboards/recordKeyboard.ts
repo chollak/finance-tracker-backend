@@ -40,7 +40,7 @@ export const RECORD_VERBS = {
   rightCategory: 'y',
   /** «Другая», «Выбрать категорию»: the categories, «‹ Назад» back to the confirmation (FT-123). */
   otherCategory: 'o',
-  /** «Пропустить «Такси»», «Не записывать» of an item named without an amount (FT-123). */
+  /** «Пропустить «Такси»», «Не записывать» of an item named without an amount (FT-123); the argument is how many are asked. */
   skip: 'k',
   /** The large-amount question (FT-123): «Это 25 000 сум», «Да, верная», «Не записывать». */
   largeFix: 'lf',
@@ -88,11 +88,15 @@ export function accountsFor(record: RecordView, accounts: PickerAccount[]): Pick
   return accounts.filter(account => account.currency === record.currency);
 }
 
-/** «Пропустить «Такси»» under records, «Не записывать» when the message has none (FT-123). */
+/**
+ * «Пропустить «Такси»» under records, «Не записывать» when the message has none (FT-123). The argument is how
+ * many items are still asked: it names the first one, so a second tap does not skip the next.
+ */
 function skipRows(input: RecordMessageInput): Button[][] {
-  const [item] = input.state.missing ?? [];
+  const missing = input.state.missing ?? [];
+  const [item] = missing;
   if (!item) return [];
-  return [[button(input.records.length > 0 ? `Пропустить ${quoted(itemName(item))}` : 'Не записывать', RECORD_VERBS.skip)]];
+  return [[button(input.records.length > 0 ? `Пропустить ${quoted(itemName(item))}` : 'Не записывать', RECORD_VERBS.skip, missing.length)]];
 }
 
 function confirmRows(input: RecordMessageInput): Button[][] {
