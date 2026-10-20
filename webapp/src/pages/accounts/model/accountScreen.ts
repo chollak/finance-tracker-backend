@@ -3,7 +3,7 @@ import { recordRow, type RecordCategory, type RecordRow } from '@/entities/trans
 import { dayGroupLabel, dayMonth, parseLocalDate, type LocalDate } from '@/shared/lib/dates';
 import { CURRENCY_UNIT, formatMinor, type Currency } from '@/shared/lib/money';
 import type { Transaction } from '@/shared/types';
-import { HIDDEN_ACCOUNT, NEEDS_SECOND_ACCOUNT, TRANSFER_NOT_YET } from './notices';
+import { HIDDEN_ACCOUNT, NEEDS_SECOND_ACCOUNT } from './notices';
 
 export interface AccountHeader {
   /** «сумы · карта»; a hidden account says so: «сумы · карта · скрыт». */
@@ -42,13 +42,16 @@ export function accountHeader(account: Account, today: LocalDate): AccountHeader
 }
 
 /**
- * «Перевести» / «Обменять» of the account screen: off — and saying why — for a hidden account and while only one
- * account is visible (design-system «Скрыть, а не удалить»); until FT-119 brings the form it says it is coming.
+ * «Перевести» / «Обменять» of the account screen: opens the transfer form from this account (FT-119); off — and
+ * saying why — for a hidden account and while only one account is visible (design-system «Скрыть, а не удалить»).
  */
-export function transferAction(account: Pick<Account, 'isHidden'>, visibleCount: number): { available: boolean; notice: { title: string; detail: string } } {
+export function transferAction(
+  account: Pick<Account, 'isHidden'>,
+  visibleCount: number
+): { available: true; notice: null } | { available: false; notice: { title: string; detail: string } } {
   if (account.isHidden) return { available: false, notice: HIDDEN_ACCOUNT };
   if (visibleCount < 2) return { available: false, notice: NEEDS_SECOND_ACCOUNT };
-  return { available: true, notice: TRANSFER_NOT_YET };
+  return { available: true, notice: null };
 }
 
 export interface MoveRow {

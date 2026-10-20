@@ -71,6 +71,17 @@ export function pressKey(state: KeypadState, key: KeypadKey, currency: Currency)
   return { text: next, pristine: false };
 }
 
+/**
+ * A key on a number that is already shown — a hint (the amount at the Central Bank rate, the rate itself) or a value
+ * typed before and returned to (TransferForm.md, RateRow.md): `pristine` marks it. The first digit (or a comma)
+ * replaces it, «⌫» and «000» edit what is shown. Once typed into, it is the keypad as usual.
+ */
+export function pressShownKey(state: KeypadState, key: KeypadKey, currency: Currency): KeypadState {
+  if (!state.pristine) return pressKey(state, key, currency);
+  const edits = key === 'del' || key === '000';
+  return pressKey({ text: edits ? state.text : '', pristine: false }, key, currency);
+}
+
 /** Integer minor units, or null when nothing is entered (the save button then asks for an amount). */
 export function keypadToMinor(state: KeypadState, currency: Currency): number | null {
   const { text } = keypadForCurrency(state, currency);

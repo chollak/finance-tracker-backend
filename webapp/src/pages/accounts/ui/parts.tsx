@@ -14,7 +14,7 @@ export function Icon({
   name,
   className,
 }: {
-  name: 'cash' | 'card' | 'trend' | 'offline' | 'move' | 'adjust' | 'plus' | 'chevron' | 'trash' | 'hide' | 'show';
+  name: 'cash' | 'card' | 'trend' | 'offline' | 'move' | 'adjust' | 'plus' | 'chevron' | 'down' | 'swap' | 'trash' | 'hide' | 'show';
   className?: string;
 }) {
   const common = { width: 20, height: 20, viewBox: '0 0 20 20', 'aria-hidden': true, className, fill: 'none', stroke: 'currentColor' } as const;
@@ -71,6 +71,18 @@ export function Icon({
       return (
         <svg {...common}>
           <path d="M7.5 4.5 13 10l-5.5 5.5" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      );
+    case 'down':
+      return (
+        <svg {...common}>
+          <path d="M5 7.5 10 12.5l5-5" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      );
+    case 'swap':
+      return (
+        <svg {...common}>
+          <path d="M7 4v12m-3-3 3 3 3-3M13 16V4m-3 3 3-3 3 3" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       );
     case 'trash':
@@ -214,5 +226,23 @@ export function SheetSecondaryButton({
       <Icon name={icon} className="size-[18px]" />
       {children}
     </button>
+  );
+}
+
+/** A read failed: says so and reads again (a problem says what to do). */
+export function ReadFailed({ text, onRetry, retrying }: { text: string; onRetry: () => void; retrying: boolean }) {
+  return (
+    <div className="flex flex-col items-start gap-1 rounded-card bg-card px-5 pb-2 pt-5">
+      <p className="text-[14px] font-medium leading-[1.45] text-ink-muted">{text}</p>
+      <button
+        type="button"
+        onClick={onRetry}
+        disabled={retrying}
+        aria-busy={retrying}
+        className={cn('-ml-3 h-touch rounded-pill px-3 text-[14px] font-extrabold text-ink disabled:text-ink-muted', FOCUS)}
+      >
+        Попробовать снова
+      </button>
+    </div>
   );
 }

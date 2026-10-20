@@ -62,6 +62,11 @@ export interface AccountMove {
   deletedAt: string | null;
 }
 
+/** `POST /api/moves` from the transfer form (FT-119): one currency is a transfer, two currencies an exchange. */
+export type NewMove =
+  | { kind: 'transfer'; fromAccountId: string; toAccountId: string; amountMinor: number }
+  | { kind: 'exchange'; fromAccountId: string; toAccountId: string; fromAmountMinor: number; toAmountMinor: number };
+
 interface OperationBase {
   id: string;
   date: string;

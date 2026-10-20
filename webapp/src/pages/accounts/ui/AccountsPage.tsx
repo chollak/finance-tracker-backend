@@ -6,11 +6,9 @@ import { useIsGuest } from '@/entities/user';
 import { useIsOnline } from '@/shared/hooks';
 import { ROUTES } from '@/shared/lib/constants/routes';
 import { toLocalDate } from '@/shared/lib/dates';
-import { showUndoToast } from '@/shared/lib/undo';
 import { cn } from '@/shared/lib/utils';
 import { BackButton, Button, SkeletonBlock, UndoToast } from '@/shared/ui/pastel';
 import { accountsListModel, type AccountsListModel } from '../model/accountsList';
-import { TRANSFER_NOT_YET } from '../model/notices';
 import { knownRates, rateRowModel, type RateRowModel } from '../model/rateRow';
 import { HiddenAccountsSheet, NewAccountSheet, RateSheet } from './ListSheets';
 import { AccountMark, FOCUS, FOCUS_INSET, GuestAccounts, Icon } from './parts';
@@ -142,8 +140,9 @@ function LoadingAccounts() {
 /**
  * The accounts (FT-118, boards «Счета · итог, курс, список», «Скрытые счета», «Счета · тёмная», «Счета · нет
  * связи»): the total of the visible accounts with the rate named under it, the rate row, the accounts with «≈ … сум»
- * under a dollar one, «Добавить счёт» and «Скрытые счета · N». At the bottom «Перевод или обмен» — or «Для перевода
- * нужен второй счёт» while one account is visible. Opened from Home's balance card; an account opens its own screen.
+ * under a dollar one, «Добавить счёт» and «Скрытые счета · N». At the bottom «Перевод или обмен», which opens the
+ * transfer form (FT-119) — or «Для перевода нужен второй счёт» while one account is visible. The rate row opens
+ * «Курс доллара» with the own rate (FT-119). Opened from Home's balance card; an account opens its own screen.
  */
 export function AccountsPage() {
   const [today] = useState(() => toLocalDate(new Date()));
@@ -153,8 +152,9 @@ export function AccountsPage() {
   const online = useIsOnline();
   const navigate = useNavigate();
   const [sheet, setSheet] = useState<'new' | 'hidden' | 'rate' | null>(null);
-  // A new account starts from an empty sheet every time
+  // A new account and the rate start from a fresh sheet every time
   const [newSheetKey, setNewSheetKey] = useState(0);
+  const [rateSheetKey, setRateSheetKey] = useState(0);
 
   if (isGuest) return <GuestAccounts />;
 
@@ -169,7 +169,13 @@ export function AccountsPage() {
     content = (
       <>
         <TotalCard model={model} />
-        <RateRow model={rateRow} onOpen={() => setSheet('rate')} />
+        <RateRow
+          model={rateRow}
+          onOpen={() => {
+            setRateSheetKey((key) => key + 1);
+            setSheet('rate');
+          }}
+        />
         <AccountList
           model={model}
           onOpen={(id) => navigate(ROUTES.ACCOUNT(id))}
@@ -223,7 +229,7 @@ export function AccountsPage() {
         <div className="fixed inset-x-0 bottom-0 z-10 mx-auto w-full max-w-3xl bg-bg px-4 pb-[calc(24px+env(safe-area-inset-bottom))] pt-3">
           <Button
             onClick={() => {
-              if (transfer.available) showUndoToast({ kind: 'info', ...TRANSFER_NOT_YET });
+              if (transfer.available) navigate(ROUTES.TRANSFER());
             }}
             aria-disabled={!transfer.available || undefined}
             className={cn('px-5', !transfer.available && 'bg-track text-seg-off active:scale-100')}
@@ -240,9 +246,9 @@ export function AccountsPage() {
           <HiddenAccountsSheet open={sheet === 'hidden'} onOpenChange={sheetOpen('hidden')} accounts={model.hidden} />
         </>
       )}
-      <RateSheet open={sheet === 'rate'} onOpenChange={sheetOpen('rate')} rates={known} online={online} today={today} />
+      <RateSheet key={rateSheetKey} open={sheet === 'rate'} onOpenChange={sheetOpen('rate')} rates={known} online={online} today={today} />
 
-      {/* «Счёт добавлен», «Счёт снова виден» over the bottom button (Toast.md) */}
+      {/* «Счёт добавлен», «Счёт снова виден», the rate and a move from the transfer form, over the bottom button (Toast.md) */}
       <UndoToast bottom={96} />
     </div>
   );

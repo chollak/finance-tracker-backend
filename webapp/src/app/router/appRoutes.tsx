@@ -29,6 +29,8 @@ const CaptureReviewPage = lazy(() => import('@/pages').then(m => ({ default: m.C
 // Accounts and the rate, opened from the balance card on Home, and one account's screen (FT-118)
 const AccountsPage = lazy(() => import('@/pages').then(m => ({ default: m.AccountsPage })));
 const AccountPage = lazy(() => import('@/pages').then(m => ({ default: m.AccountPage })));
+// Transfer and exchange between accounts (FT-119), from the accounts or an account
+const TransferPage = lazy(() => import('@/pages').then(m => ({ default: m.TransferPage })));
 
 // Wrapper component with Suspense; Home's code loads behind Home's skeleton (FT-112)
 function PageLoader({ children, fallback = <Loading fullScreen /> }: { children: React.ReactNode; fallback?: React.ReactNode }) {
@@ -132,6 +134,11 @@ export const appRoutes: RouteObject[] = [
           {
             path: '/accounts',
             element: <PageLoader><AccountsPage /></PageLoader>,
+          },
+          {
+            // Before /accounts/:id in reading order; react-router ranks the static segment above it anyway
+            path: '/accounts/transfer',
+            element: <PageLoader><TransferPage /></PageLoader>,
           },
           {
             path: '/accounts/:id',

@@ -8,6 +8,7 @@ import {
   keypadIsPlaceholder,
   keypadToMinor,
   pressKey,
+  pressShownKey,
   type KeypadKey,
   type KeypadState,
 } from './keypad';
@@ -85,6 +86,27 @@ describe('editing an existing amount', () => {
   it('keeps cents of a dollar amount', () => {
     expect(keypadFromMinor(1146, 'USD').text).toBe('11,46');
     expect(keypadFromMinor(42_000, 'USD').text).toBe('420');
+  });
+});
+
+describe('pressShownKey — a number already shown (a hint or a value typed before)', () => {
+  // TransferForm.md, RateRow.md: «первая цифра заменяет её, «⌫» и «000» правят показанное»
+  it('the first digit replaces the shown number', () => {
+    expect(pressShownKey({ text: '12650', pristine: true }, '1', 'UZS')).toEqual({ text: '1', pristine: false });
+    expect(pressShownKey({ text: '101,19', pristine: true }, '9', 'USD')).toEqual({ text: '9', pristine: false });
+  });
+
+  it('«⌫» and «000» edit the shown number instead of clearing it', () => {
+    expect(pressShownKey({ text: '101,19', pristine: true }, 'del', 'USD')).toEqual({ text: '101,1', pristine: false });
+    expect(pressShownKey({ text: '12', pristine: true }, '000', 'UZS')).toEqual({ text: '12000', pristine: false });
+  });
+
+  it('a comma on a shown dollar amount starts a new one', () => {
+    expect(pressShownKey({ text: '101,19', pristine: true }, ',', 'USD')).toEqual({ text: '0,', pristine: false });
+  });
+
+  it('once typed into, it is the keypad as usual', () => {
+    expect(pressShownKey({ text: '12', pristine: false }, '8', 'UZS')).toEqual(pressKey({ text: '12', pristine: false }, '8', 'UZS'));
   });
 });
 

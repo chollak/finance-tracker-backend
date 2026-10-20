@@ -3,7 +3,8 @@ import type { Account, AccountsOverview } from '@/entities/account';
 import type { UsdRates } from '@/entities/rate';
 import { MINUS, NBSP } from '@/shared/lib/money';
 import { accountsListModel } from './accountsList';
-import { knownRates, rateRowModel, rateSheetModel } from './rateRow';
+import { knownRates, rateRowModel } from './rateRow';
+import { openRateSheet, rateSheetView } from './rateSheet';
 
 /**
  * FT-118, boards «Счета · итог, курс, список», «Скрытые счета», «Счета · нет связи» (AccountList.md, RateRow.md):
@@ -147,7 +148,8 @@ describe('rate row', () => {
       caption: 'ЦБ на 14 окт',
       offline: false,
     });
-    expect(rateSheetModel(knownRates(undefined, counted), { online: true, today: TODAY })).toMatchObject({
+    const known = knownRates(undefined, counted);
+    expect(rateSheetView(known, openRateSheet(known), { online: true, today: TODAY }).cbu).toMatchObject({
       label: 'ЦБ Узбекистана · 14 окт',
       value: `12${NBSP}650`,
     });
@@ -156,23 +158,5 @@ describe('rate row', () => {
     // The rates once read win; with neither, the row says the rate is not there yet
     expect(knownRates(RATES, { ...counted, rateMinor: 1 })).toBe(RATES);
     expect(rateRowModel(knownRates(undefined, null), { online: true, today: TODAY }).caption).toBe('Курса пока нет: загрузится, когда ответит ЦБ');
-  });
-
-  it('the sheet shows the Central Bank rate, its date and how it is updated', () => {
-    expect(rateSheetModel(RATES, { online: true, today: TODAY })).toEqual({
-      label: 'ЦБ Узбекистана · 14 окт',
-      value: `12${NBSP}650`,
-      hint: 'Обновляется автоматически каждый день.',
-      own: null,
-    });
-    expect(rateSheetModel(RATES, { online: false, today: TODAY })).toMatchObject({
-      label: 'ЦБ · 14 окт · нет связи',
-      hint: 'Покажу новый курс, как только появится связь.',
-    });
-    const own = rateSheetModel(
-      { ...RATES, effective: { rateMinor: 1_280_000, source: 'own', date: TODAY }, own: { rateMinor: 1_280_000, since: TODAY } },
-      { online: true, today: TODAY }
-    );
-    expect(own.own).toBe(`Сейчас действует свой курс: 12${NBSP}800 сум с 14 окт`);
   });
 });

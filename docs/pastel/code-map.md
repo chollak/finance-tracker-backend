@@ -70,7 +70,8 @@ Dexie, react-router 7, recharts, sonner, motion. Feature-Sliced Design: `app`, `
 **Маршруты.** `/` Главная, `/transactions` История (FT-116: поиск и фильтры), `/add` ручной ввод (FT-113; `/transactions/add`
 убран), `/review` проверка записей фразы (FT-114), `/?record=<id>` — главная с карточкой операции (FT-115;
 `/transactions/:id/edit` убран), `/accounts` счета с итогом и курсом и `/accounts/:id` экран счёта (FT-118; его запись открывает
-`/transactions?account=<id>&record=<id>` — историю, суженную до счёта, с карточкой операции),
+`/transactions?account=<id>&record=<id>` — историю, суженную до счёта, с карточкой операции), `/accounts/transfer[?from=<id>]`
+перевод и обмен (FT-119),
 `/budgets…`, `/debts…`, `/analytics`, `/more`.
 Нижний бар (FT-086): Главная · История · Записать · Ещё.
 `BackButton`/`MainButton` Telegram написаны, но не используются.

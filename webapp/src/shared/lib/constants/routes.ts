@@ -7,6 +7,9 @@ export const RECORD_PARAM = 'record';
 /** The query parameter History starts narrowed by: an account (FT-118, records of the account screen). */
 export const ACCOUNT_PARAM = 'account';
 
+/** The query parameter of the transfer form: the account it starts from (FT-119). */
+export const TRANSFER_FROM_PARAM = 'from';
+
 // Route constants for type-safe navigation
 export const ROUTES = {
   HOME: '/',
@@ -45,6 +48,8 @@ export const ROUTES = {
   // Accounts and the USD rate (FT-118): opened from the balance card on Home; an account opens its own screen
   ACCOUNTS: '/accounts',
   ACCOUNT: (id: string) => `/accounts/${encodeURIComponent(id)}`,
+  // The transfer and exchange form (FT-119), from the accounts or from an account (`from`)
+  TRANSFER: (fromId?: string) => `/accounts/transfer${fromId ? `?${new URLSearchParams({ [TRANSFER_FROM_PARAM]: fromId })}` : ''}`,
 } as const;
 
 // API endpoints
@@ -86,6 +91,8 @@ export const API_ENDPOINTS = {
   // USD rate in effect for the user: own or the Central Bank's (FT-102)
   RATES: {
     USD: '/rates/usd',
+    // The user's own rate: PUT sets it (with `since` to bring a previous one back), DELETE returns to the CBU's (FT-119)
+    USD_OWN: '/rates/usd/own',
   },
 
   // Transactions

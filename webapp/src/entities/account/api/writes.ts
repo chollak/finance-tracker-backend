@@ -1,11 +1,11 @@
 import type { QueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/shared/api';
 import { API_ENDPOINTS } from '@/shared/lib/constants';
-import type { Account, AccountMove, AccountPatch, NewAccount } from '../model/types';
+import type { Account, AccountMove, AccountPatch, NewAccount, NewMove } from '../model/types';
 import { accountKeys } from './keys';
 
 /**
- * Writes of the accounts screen (FT-118). Not hooks: a sheet runs them and «Отменить» in a toast runs their
+ * Writes of the accounts screen (FT-118) and the transfer form (FT-119). Not hooks: a sheet runs them and «Отменить» in a toast runs their
  * reverse. After each, every account read of the user — the list with its total, Home's balance card, the
  * account screens — is read again: the server computes balances, nothing is patched into the cache.
  */
@@ -42,6 +42,13 @@ export async function adjustBalance(
   { accountId, balanceMinor }: { accountId: string; balanceMinor: number }
 ): Promise<AccountMove> {
   const response = await apiClient.post<AccountMove>(API_ENDPOINTS.MOVES.CREATE, { kind: 'adjustment', accountId, balanceMinor });
+  refetchAccounts(queryClient, userId);
+  return response.data;
+}
+
+/** A transfer or an exchange from the transfer form (FT-119); «Отменить» deletes it with `deleteMove`. */
+export async function createMove(queryClient: QueryClient, userId: string, move: NewMove): Promise<AccountMove> {
+  const response = await apiClient.post<AccountMove>(API_ENDPOINTS.MOVES.CREATE, move);
   refetchAccounts(queryClient, userId);
   return response.data;
 }

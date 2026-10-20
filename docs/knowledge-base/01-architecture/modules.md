@@ -373,7 +373,7 @@ new ProcessVoiceInputUseCase(
 ### Состав
 - `FxRateService` — `refreshUsd`, `cbuRateOn(date)` (для обменов FT-104), `effectiveUsdRate(userId)` (порт `EffectiveRateProvider` модуля счетов), `setOwnRate`.
 - `HttpCbuClient` — запрос к ЦБ с таймаутом 10 с; любая ошибка — «нет ответа», без падения.
-- `GET /api/rates/usd`, `PUT` и `DELETE /api/rates/usd/own`.
+- `GET /api/rates/usd`, `PUT` и `DELETE /api/rates/usd/own`; `PUT` с `since` возвращает прежний свой курс с его датой («Отменить» в шторке курса, FT-119).
 
 ---
 

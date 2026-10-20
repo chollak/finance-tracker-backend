@@ -125,6 +125,7 @@ async function renderAccount(id = 'card') {
   router = createMemoryRouter(
     [
       { path: '/accounts', element: <p>Список счетов</p> },
+      { path: '/accounts/transfer', element: <p>Форма перевода</p> },
       { path: '/accounts/:id', element: <AccountPage /> },
       { path: '/transactions', element: <p>История</p> },
     ],
@@ -180,6 +181,17 @@ describe('Account screen', () => {
     expect(button(`Обмен, Доллары → Карта, +1${NBSP}260${NBSP}000${NBSP}сум. Не в аналитике. Подробнее`)).toBeTruthy();
     // The last 60 days with today first, and anything later
     expect(operationReads.map((params) => params.toString())).toEqual([`from=${addDays(TODAY, -59)}`]);
+  });
+
+  it('«Перевести» opens the transfer form from this account (FT-119)', async () => {
+    await renderAccount();
+
+    await press('Перевести');
+
+    expect(router.state.location.pathname).toBe('/accounts/transfer');
+    expect(Object.fromEntries(new URLSearchParams(router.state.location.search))).toEqual({ from: 'card' });
+    expect(text()).toContain('Форма перевода');
+    expect(text()).not.toContain('скоро');
   });
 
   it('a record opens in History narrowed to this account, with its sheet open on the record as listed', async () => {
@@ -339,6 +351,7 @@ describe('Account screen', () => {
     expect(button('Перевести').getAttribute('aria-disabled')).toBe('true');
     await press('Перевести');
     // Two other accounts are visible: what is missing is this one, not a second account
+    expect(router.state.location.pathname).toBe('/accounts/card');
     expect(text()).toContain('Счёт скрыт');
     expect(text()).toContain('Покажите его в «Изменить»');
     expect(text()).not.toContain('Для перевода нужен второй счёт');
@@ -367,6 +380,7 @@ describe('Account screen', () => {
 
     expect(button('Перевести').getAttribute('aria-disabled')).toBe('true');
     await press('Перевести');
+    expect(router.state.location.pathname).toBe('/accounts/card');
     expect(text()).toContain('Для перевода нужен второй счёт');
   });
 

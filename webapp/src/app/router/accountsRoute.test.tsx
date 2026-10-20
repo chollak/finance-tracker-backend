@@ -29,3 +29,15 @@ describe('/accounts', () => {
     expect(parentPath(ROUTES.ACCOUNTS)).toBe(ROUTES.HOME);
   });
 });
+
+describe('/accounts/transfer (FT-119)', () => {
+  it('the transfer form is a screen of its own, not an account named «transfer»', () => {
+    expect(ROUTES.TRANSFER()).toBe('/accounts/transfer');
+    expect(ROUTES.TRANSFER('3f1c card')).toBe('/accounts/transfer?from=3f1c+card');
+    expect(screenAt(ROUTES.TRANSFER())).toBe('/accounts/transfer');
+  });
+
+  it('opened directly it goes back to the accounts', () => {
+    expect(parentPath(ROUTES.TRANSFER())).toBe(ROUTES.ACCOUNTS);
+  });
+});

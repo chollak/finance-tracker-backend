@@ -30,5 +30,7 @@ export function useAccountWrite() {
     [queryClient, userId]
   );
 
-  return { run, busy, error, clearError: () => setError(null), queryClient, userId };
+  const clearError = useCallback(() => setError(null), []);
+
+  return { run, busy, error, clearError, queryClient, userId };
 }

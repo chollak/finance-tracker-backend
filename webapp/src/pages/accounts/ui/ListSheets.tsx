@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
+import type { QueryClient } from '@tanstack/react-query';
 import { createAccount, deleteAccount, updateAccount } from '@/entities/account';
-import { type UsdRates } from '@/entities/rate';
+import { clearOwnUsdRate, setOwnUsdRate, type UsdRates } from '@/entities/rate';
 import { type LocalDate } from '@/shared/lib/dates';
 import { pressKey, type KeypadKey } from '@/shared/lib/money';
 import { showUndoToast } from '@/shared/lib/undo';
@@ -8,7 +9,7 @@ import { cn } from '@/shared/lib/utils';
 import { Button, Keypad, Segmented, Sheet } from '@/shared/ui/pastel';
 import { CURRENCY_OPTIONS, KIND_OPTIONS, NEW_ACCOUNT, newAccountView, type NewAccountDraft } from '../model/accountForms';
 import type { HiddenAccountRow } from '../model/accountsList';
-import { rateSheetModel } from '../model/rateRow';
+import { chooseRateMode, openRateSheet, pressRateKey, rateSheetView, type RateChange, type RateMode } from '../model/rateSheet';
 import { AmountCard, FOCUS, NameField } from './parts';
 import { useKeypadKeyboard } from './useKeypadKeyboard';
 import { useAccountWrite } from './useAccountWrite';
@@ -146,9 +147,24 @@ export function HiddenAccountsSheet({
   );
 }
 
+const RATE_MODES: ReadonlyArray<{ value: RateMode; label: string }> = [
+  { value: 'cbu', label: 'Курс ЦБ' },
+  { value: 'own', label: 'Свой курс' },
+];
+
+/** What «Готово» — or «Отменить» after it — writes: an own rate (with its date, coming back) or the Central Bank's. */
+function applyRate(queryClient: QueryClient, userId: string, change: RateChange): Promise<UsdRates> {
+  return change.kind === 'own'
+    ? setOwnUsdRate(queryClient, userId, change.rateMinor, change.since)
+    : clearOwnUsdRate(queryClient, userId);
+}
+
 /**
- * «Курс доллара» from the rate row (RateRow.md), as far as FT-118 goes: the Central Bank rate with its date and how
- * it is updated, and what the rate is used for. Choosing an own rate on the keypad comes with FT-119.
+ * «Курс доллара» from the rate row (FT-119, board «Курс доллара · свой курс», RateRow.md): «Курс ЦБ / Свой курс».
+ * The Central Bank rate with its date; or the own rate on the app's keypad, compared with the Central Bank's, that
+ * does not set itself — until something is typed the button asks for a rate. «Готово» applies a change with a toast
+ * and «Отменить»; with an own rate in effect «Курс ЦБ» turns it into «Вернуть курс ЦБ». Closing the sheet — or
+ * «Готово» with the same rate — changes nothing. Opened afresh each time (the page keys it), on the rate in effect.
  */
 export function RateSheet({
   open,
@@ -163,23 +179,68 @@ export function RateSheet({
   online: boolean;
   today: LocalDate;
 }) {
-  const model = rateSheetModel(rates, { online, today });
+  const [state, setState] = useState(() => openRateSheet(rates));
+  const write = useAccountWrite();
+  const view = rateSheetView(rates, state, { online, today });
+
+  const onKey = useCallback((key: KeypadKey) => setState((current) => pressRateKey(current, key)), []);
+  useKeypadKeyboard('UZS', onKey, open && state.mode === 'own');
+
+  const done = async () => {
+    const { change, undo, saved, button } = view;
+    if (!button.ready || write.busy) return;
+    if (!change) {
+      onOpenChange(false);
+      return;
+    }
+    const applied = await write.run((queryClient, userId) => applyRate(queryClient, userId, change));
+    if (!applied) return;
+    onOpenChange(false);
+    const { queryClient, userId } = write;
+    if (saved) showUndoToast({ kind: 'changed', ...saved, undo: () => applyRate(queryClient, userId, undo).then(() => undefined) });
+  };
+
+  const consequence = (
+    <p className="type-label mx-1 shrink-0 leading-[1.45] text-ink-muted">
+      По этому курсу считаются итог на главной и суммы в долларах. Прошлые обмены не меняются — у каждого свой курс сделки.
+    </p>
+  );
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange} title="Курс доллара">
-      <div className="flex shrink-0 flex-col gap-1 rounded-card bg-sheet-card px-4 py-3.5">
-        <span className="type-label font-bold text-ink-muted">{model.label}</span>
-        {model.value && (
-          <p className="flex items-baseline gap-1.5">
-            <span className="text-[32px] font-extrabold leading-[1.1] tracking-[-1px] tabular-nums text-ink">{model.value}</span>
-            <span className="text-[15px] font-bold text-ink-muted">сум за $1</span>
-          </p>
-        )}
-        <span className="type-label leading-[1.45] text-ink-muted">{model.hint}</span>
-      </div>
-      {model.own && <p className="type-label mx-1 shrink-0 font-bold text-ink">{model.own}</p>}
-      <p className="type-label mx-1 shrink-0 leading-[1.45] text-ink-muted">
-        По этому курсу считаются итог на главной и суммы в долларах. Прошлые обмены не меняются — у каждого свой курс сделки.
-      </p>
+      <Segmented
+        options={RATE_MODES}
+        value={view.mode}
+        onChange={(mode) => {
+          write.clearError();
+          setState((current) => chooseRateMode(current, mode, rates));
+        }}
+        ariaLabel="Какой курс использовать"
+        className="shrink-0 bg-sheet-track"
+      />
+      {view.cbu && (
+        <div className="flex shrink-0 flex-col gap-1 rounded-card bg-sheet-card px-4 py-3.5">
+          <span className="type-label font-bold text-ink-muted">{view.cbu.label}</span>
+          {view.cbu.value && (
+            <p className="flex items-baseline gap-1.5">
+              <span className="text-[32px] font-extrabold leading-[1.1] tracking-[-1px] tabular-nums text-ink">{view.cbu.value}</span>
+              <span className="text-[15px] font-bold text-ink-muted">сум за $1</span>
+            </p>
+          )}
+          <span className="type-label leading-[1.45] text-ink-muted">{view.cbu.hint}</span>
+        </div>
+      )}
+      {consequence}
+      {view.own && (
+        <>
+          <AmountCard label={view.own.label} amount={{ ...view.own.amount, unit: '' }} note={view.own.hint} />
+          <Keypad currency="UZS" onKey={onKey} inSheet className="shrink-0" />
+        </>
+      )}
+      <SheetError text={write.error} />
+      <Button inSheet onClick={() => void done()} disabled={!view.button.ready || write.busy} aria-busy={write.busy || undefined}>
+        {view.button.label}
+      </Button>
     </Sheet>
   );
 }

@@ -3,7 +3,7 @@ import type { Account, AccountMove, AccountOperations, MoveOperation, RecordOper
 import { MINUS, NBSP } from '@/shared/lib/money';
 import type { Transaction } from '@/shared/types';
 import { accountDays, accountHeader, moveDetails, transferAction } from './accountScreen';
-import { HIDDEN_ACCOUNT, NEEDS_SECOND_ACCOUNT, TRANSFER_NOT_YET } from './notices';
+import { HIDDEN_ACCOUNT, NEEDS_SECOND_ACCOUNT } from './notices';
 
 /**
  * FT-118, boards «Счёт «Карта» · операции» and «Обмен · подробнее и удаление» (design-system «Экран счёта»,
@@ -115,7 +115,8 @@ describe('account screen', () => {
   });
 
   it('«Перевести» is off for a hidden account and with one visible account, each saying its own reason', () => {
-    expect(transferAction(CARD, 3)).toEqual({ available: true, notice: TRANSFER_NOT_YET });
+    // Available: it opens the form (FT-119), there is nothing to say
+    expect(transferAction(CARD, 3)).toEqual({ available: true, notice: null });
     expect(transferAction(CARD, 1)).toEqual({ available: false, notice: NEEDS_SECOND_ACCOUNT });
     // Hidden: whatever else is visible, the reason is this account
     expect(transferAction({ ...CARD, isHidden: true }, 2)).toEqual({ available: false, notice: HIDDEN_ACCOUNT });

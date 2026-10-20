@@ -51,33 +51,3 @@ export function rateRowModel(rates: UsdRates | undefined, { online, today }: Rat
   const date = dayMonthShort(effective.date, today);
   return { title, caption: online ? `ЦБ на ${date}` : `Нет связи · курс ЦБ на ${date}`, offline: !online };
 }
-
-export interface RateSheetModel {
-  /** «ЦБ Узбекистана · 14 окт». */
-  label: string;
-  /** «12 650» (сум за $1); null before the Central Bank has answered once. */
-  value: string | null;
-  hint: string;
-  /** An own rate in effect, said in one line; null with the Central Bank's. */
-  own: string | null;
-}
-
-/**
- * The sheet «Курс доллара» (RateRow.md) as far as FT-118 goes: the Central Bank rate with its date and how it is
- * updated. Choosing an own rate on the keypad comes with FT-119.
- */
-export function rateSheetModel(rates: UsdRates | undefined, { online, today }: RateContext): RateSheetModel {
-  const cbu = rates?.cbu ?? null;
-  const date = cbu ? dayMonthShort(cbu.date, today) : null;
-  const own = rates?.effective?.source === 'own' && rates.own ? rates.own : null;
-  return {
-    label: date ? (online ? `ЦБ Узбекистана · ${date}` : `ЦБ · ${date} · нет связи`) : 'ЦБ Узбекистана',
-    value: cbu ? sum(cbu.rateMinor) : null,
-    hint: !online
-      ? 'Покажу новый курс, как только появится связь.'
-      : cbu
-        ? 'Обновляется автоматически каждый день.'
-        : 'Курса пока нет: загрузится, когда ответит ЦБ.',
-    own: own ? `Сейчас действует свой курс: ${sum(own.rateMinor)} сум с ${dayMonthShort(own.since, today)}` : null,
-  };
-}

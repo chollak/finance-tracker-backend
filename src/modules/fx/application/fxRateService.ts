@@ -1,7 +1,7 @@
 import { Result, ResultHelper } from '../../../shared/domain/types/Result';
 import { BusinessLogicError, ValidationError } from '../../../shared/domain/errors/AppError';
 import { getLogger, LogCategory } from '../../../shared/application/logging';
-import { todayDateOnly } from '../../../shared/domain/dates/dateOnly';
+import { isValidDateOnly, todayDateOnly } from '../../../shared/domain/dates/dateOnly';
 import { EffectiveRate, EffectiveRateProvider } from '../../account/domain/fxRate';
 import { CbuRate, MAX_RATE_MINOR, MIN_RATE_MINOR, isPlausibleRateMinor } from '../domain/fxRate';
 import { FxRateRepository } from '../domain/fxRateRepository';
@@ -69,16 +69,27 @@ export class FxRateService implements EffectiveRateProvider {
     };
   }
 
-  /** Set the user's own rate from today, or go back to the CBU rate with `null`. */
-  async setOwnRate(userId: string, rateMinor: unknown, today: string = todayDateOnly()): Promise<Result<UsdRateInfo>> {
+  /**
+   * Set the user's own rate from today, or go back to the CBU rate with `null`. `since` brings back an own rate
+   * with the date it applied from — «Отменить» after a change of the rate (FT-119); never later than today.
+   */
+  async setOwnRate(
+    userId: string,
+    rateMinor: unknown,
+    today: string = todayDateOnly(),
+    since?: unknown
+  ): Promise<Result<UsdRateInfo>> {
     if (rateMinor !== null && !isPlausibleRateMinor(rateMinor)) {
       return ResultHelper.failure(new ValidationError(
         `rateMinor must be an integer from ${MIN_RATE_MINOR} to ${MAX_RATE_MINOR} (сум×100 per dollar)`,
         'rateMinor'
       ));
     }
+    if (since !== undefined && (!isValidDateOnly(since) || since > today)) {
+      return ResultHelper.failure(new ValidationError('since must be a date YYYY-MM-DD not later than today', 'since'));
+    }
     try {
-      await this.ownRates.set(userId, rateMinor === null ? null : { rateMinor, since: today });
+      await this.ownRates.set(userId, rateMinor === null ? null : { rateMinor, since: since ?? today });
       return ResultHelper.success(await this.info(userId));
     } catch (error) {
       logger.error('Failed to set own rate', error as Error);

@@ -14,7 +14,7 @@ import { cn } from '@/shared/lib/utils';
 import { BackButton, NextPage, ProblemScreen, SkeletonBlock, UndoToast } from '@/shared/ui/pastel';
 import { accountDays, accountHeader, transferAction, type MoveRow, type OperationDay } from '../model/accountScreen';
 import { CorrectBalanceSheet, EditAccountSheet, MoveSheet } from './AccountSheets';
-import { FOCUS, FOCUS_INSET, GuestAccounts, Icon } from './parts';
+import { FOCUS, FOCUS_INSET, GuestAccounts, Icon, ReadFailed } from './parts';
 
 /** A transfer, an exchange or an adjustment among the records: a neutral circle, the amount in ink (AccountMoves.md). */
 function MoveRowItem({ row, onOpen }: { row: MoveRow; onOpen: () => void }) {
@@ -93,24 +93,6 @@ function LoadingDays() {
   );
 }
 
-/** A read failed: says so and reads again (a problem says what to do). */
-function ReadFailed({ text, onRetry, retrying }: { text: string; onRetry: () => void; retrying: boolean }) {
-  return (
-    <div className="flex flex-col items-start gap-1 rounded-card bg-card px-5 pb-2 pt-5">
-      <p className="text-[14px] font-medium leading-[1.45] text-ink-muted">{text}</p>
-      <button
-        type="button"
-        onClick={onRetry}
-        disabled={retrying}
-        aria-busy={retrying}
-        className={cn('-ml-3 h-touch rounded-pill px-3 text-[14px] font-extrabold text-ink disabled:text-ink-muted', FOCUS)}
-      >
-        Попробовать снова
-      </button>
-    </div>
-  );
-}
-
 function LoadingAccount() {
   return (
     <div className="flex flex-col gap-4" aria-hidden="true">
@@ -145,8 +127,8 @@ type OpenSheet = { kind: 'edit' } | { kind: 'correct' } | { kind: 'move'; operat
 /**
  * One account (FT-118, boards «Счёт «Карта» · операции», «Обмен · подробнее и удаление», «Сверить остаток»,
  * «Изменить или скрыть счёт»; design-system «Экран счёта»): the balance large, the opening balance with its date,
- * «Перевести» (a dollar account «Обменять») and «Сверить остаток», then its records and moves by day, 60 days at a
- * time — earlier days are read as the list comes near its end. A record opens in History, narrowed to this account,
+ * «Перевести» (a dollar account «Обменять») — the transfer form from this account (FT-119) — and «Сверить остаток»,
+ * then its records and moves by day, 60 days at a time — earlier days are read as the list comes near its end. A record opens in History, narrowed to this account,
  * with its sheet open; «Назад» there returns here. A move opens «Подробнее», where it is deleted with «Отменить».
  * «Изменить» renames, changes the currency while there are no operations, and hides the account.
  */
@@ -219,7 +201,11 @@ export function AccountPage() {
           <div className="mt-2.5 grid grid-cols-2 gap-2">
             <button
               type="button"
-              onClick={() => transfer && showUndoToast({ kind: 'info', ...transfer.notice })}
+              onClick={() => {
+                if (!transfer) return;
+                if (transfer.available) navigate(ROUTES.TRANSFER(account.id));
+                else showUndoToast({ kind: 'info', ...transfer.notice });
+              }}
               aria-disabled={!canTransfer || undefined}
               className={cn(
                 'min-h-touch rounded-pill bg-track px-3 py-1.5 text-[14px] font-extrabold leading-tight',

@@ -129,6 +129,22 @@ describe('USD rate (FT-102)', () => {
       }
     });
 
+    it('brings an own rate back with the date it applied from — «Отменить» after a change (FT-119)', async () => {
+      const back = await service.setOwnRate('user-1', 1280000, '2026-10-16', '2026-10-10');
+      expect(back.success && back.data.own).toEqual({ rateMinor: 1280000, since: '2026-10-10' });
+      expect(back.success && back.data.effective).toEqual({ rateMinor: 1280000, source: 'own', date: '2026-10-10' });
+
+      // Not later than today, a real date, and only with a rate
+      for (const since of ['2026-10-17', '2026-02-30', '10.10.2026', 20261010]) {
+        const result = await service.setOwnRate('user-1', 1290000, '2026-10-16', since);
+        expect(result.success).toBe(false);
+      }
+      expect(ownRates.get('user-1')).toEqual({ rateMinor: 1280000, since: '2026-10-10' });
+      // Without a date it applies from today, as before
+      const today = await service.setOwnRate('user-1', 1290000, '2026-10-16');
+      expect(today.success && today.data.own).toEqual({ rateMinor: 1290000, since: '2026-10-16' });
+    });
+
     it('serves /api/rates/usd and puts the own rate into the accounts total', async () => {
       const userModule = new UserModule(new SqliteUserRepository(db.dataSource), new SqliteUserSettingsRepository(db.dataSource));
       const fx = new FxRateService(new SqliteFxRateRepository(db.dataSource), client, {
@@ -156,6 +172,11 @@ describe('USD rate (FT-102)', () => {
         expect((await as('GET', '/api/rates/usd')).body.data.own).toEqual({ rateMinor: 1290000, since: todayDateOnly() });
 
         expect((await as('PUT', '/api/rates/usd/own', { rateMinor: 'много' })).status).toBe(400);
+        // «Отменить» after a change brings the previous own rate back with its own date
+        const restored = await as('PUT', '/api/rates/usd/own', { rateMinor: 1280000, since: '2020-01-01' });
+        expect(restored.status).toBe(200);
+        expect(restored.body.data.own).toEqual({ rateMinor: 1280000, since: '2020-01-01' });
+        expect((await as('PUT', '/api/rates/usd/own', { rateMinor: 1280000, since: '2999-01-01' })).status).toBe(400);
         expect((await as('DELETE', '/api/rates/usd/own')).body.data).toEqual({ effective: null, cbu: null, own: null });
         expect((await server.request('GET', '/api/rates/usd')).status).toBe(401);
       } finally {

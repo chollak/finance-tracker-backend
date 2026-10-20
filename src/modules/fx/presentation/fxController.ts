@@ -19,7 +19,7 @@ export class FxController {
 
   putOwn = async (req: Request, res: Response): Promise<void> => {
     try {
-      const result = await this.service.setOwnRate(currentUserId(req), req.body?.rateMinor);
+      const result = await this.service.setOwnRate(currentUserId(req), req.body?.rateMinor, undefined, req.body?.since);
       if (!result.success) return handleControllerError(result.error, res);
       handleControllerSuccess(result.data, res);
     } catch (error) {

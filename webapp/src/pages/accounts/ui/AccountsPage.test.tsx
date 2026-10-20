@@ -66,6 +66,7 @@ beforeEach(() => {
   vi.mocked(apiClient.post).mockReset();
   vi.mocked(apiClient.patch).mockReset();
   vi.mocked(apiClient.delete).mockReset();
+  vi.mocked(apiClient.put).mockReset();
   useUserStore.setState({ userId: USER_ID, userType: 'telegram', telegramId: USER_ID, userName: 'Шукур' });
   useUndoToastStore.setState({ stack: [], openSheets: 0 });
   container = document.createElement('div');
@@ -83,6 +84,7 @@ async function renderAccounts() {
   router = createMemoryRouter(
     [
       { path: '/accounts', element: <AccountsPage /> },
+      { path: '/accounts/transfer', element: <p>Форма перевода</p> },
       { path: '/accounts/:id', element: <AccountScreenStub /> },
     ],
     { initialEntries: ['/accounts'] }
@@ -241,14 +243,87 @@ describe('Accounts', () => {
     expect(button('На главную')).toBeTruthy();
   });
 
+  it('«Перевод или обмен» opens the transfer form (FT-119)', async () => {
+    await renderAccounts();
+
+    await press('Перевод или обмен');
+
+    expect(router.state.location.pathname).toBe('/accounts/transfer');
+    expect(router.state.location.search).toBe('');
+    expect(text()).toContain('Форма перевода');
+  });
+
   it('the rate row opens the Central Bank rate with its date', async () => {
     await renderAccounts();
 
     await press(`Курс доллара · 12${NBSP}650 сум, ЦБ на 14 окт`);
 
     expect(document.body.querySelector('[role="dialog"] h2')?.textContent).toBe('Курс доллара');
+    expect(button('Курс ЦБ').getAttribute('aria-pressed')).toBe('true');
     expect(text()).toContain('ЦБ Узбекистана · 14 окт');
     expect(text()).toContain('Обновляется автоматически каждый день.');
     expect(text()).toContain('По этому курсу считаются итог на главной и суммы в долларах.');
+  });
+
+  it('an own rate on the keypad: «Готово» applies it with a toast, «Отменить» goes back to the Central Bank (FT-119)', async () => {
+    const own: UsdRates = { ...RATES, effective: { rateMinor: 1_280_000, source: 'own', date: '2026-10-14' }, own: { rateMinor: 1_280_000, since: '2026-10-14' } };
+    vi.mocked(apiClient.put).mockResolvedValue({ success: true, data: own } as never);
+    vi.mocked(apiClient.delete).mockResolvedValue({ success: true, data: RATES } as never);
+    await renderAccounts();
+
+    await press(`Курс доллара · 12${NBSP}650 сум, ЦБ на 14 окт`);
+    await pressInSheet('Свой курс');
+    // Nothing typed yet: the Central Bank rate is a hint and the button asks for a rate
+    expect(button('Введите свой курс').disabled).toBe(true);
+    expect(text()).toContain('Свой курс, сум за $1');
+
+    for (const key of ['1', '2', '8', '0', '0']) await press(key);
+    expect(text()).toContain(`На 150 сум выше ЦБ (12${NBSP}650). Вернуться к ЦБ можно в любой момент.`);
+    await pressInSheet('Готово');
+
+    expect(apiClient.put).toHaveBeenCalledWith('/rates/usd/own', { rateMinor: 1_280_000 });
+    expect(document.body.querySelector('[role="dialog"]')).toBeNull();
+    expect(text()).toContain(`Свой курс: 12${NBSP}800 сум`);
+    expect(text()).toContain('Итог на счетах пересчитан');
+
+    await press('Отменить');
+    expect(apiClient.delete).toHaveBeenCalledWith('/rates/usd/own');
+  });
+
+  it('«Вернуть курс ЦБ» from an own rate, and «Отменить» brings the own rate back with its date (FT-119)', async () => {
+    const own: UsdRates = { ...RATES, effective: { rateMinor: 1_280_000, source: 'own', date: '2026-10-10' }, own: { rateMinor: 1_280_000, since: '2026-10-10' } };
+    vi.mocked(apiClient.get).mockImplementation(async (url: string) => {
+      if (url === '/accounts') return { success: true, data: overview } as never;
+      if (url === '/rates/usd') return { success: true, data: own } as never;
+      return new Promise<never>(() => {});
+    });
+    vi.mocked(apiClient.delete).mockResolvedValue({ success: true, data: RATES } as never);
+    vi.mocked(apiClient.put).mockResolvedValue({ success: true, data: own } as never);
+    await renderAccounts();
+
+    await press(`Курс доллара · 12${NBSP}800 сум, Свой с 10 окт · ЦБ 12${NBSP}650`);
+    expect(button('Свой курс').getAttribute('aria-pressed')).toBe('true');
+    expect(text()).toContain('Ваш курс с 10 окт. Наберите новый, чтобы изменить.');
+    await pressInSheet('Курс ЦБ');
+    await pressInSheet('Вернуть курс ЦБ');
+
+    expect(apiClient.delete).toHaveBeenCalledWith('/rates/usd/own');
+    expect(text()).toContain(`Курс ЦБ: 12${NBSP}650 сум`);
+
+    await press('Отменить');
+    expect(apiClient.put).toHaveBeenCalledWith('/rates/usd/own', { rateMinor: 1_280_000, since: '2026-10-10' });
+  });
+
+  it('closing the rate sheet changes nothing', async () => {
+    await renderAccounts();
+
+    await press(`Курс доллара · 12${NBSP}650 сум, ЦБ на 14 окт`);
+    await pressInSheet('Свой курс');
+    for (const key of ['1', '3', '0', '0', '0']) await press(key);
+    await pressInSheet('Закрыть');
+
+    expect(apiClient.put).not.toHaveBeenCalled();
+    expect(apiClient.delete).not.toHaveBeenCalled();
+    expect(useUndoToastStore.getState().stack).toEqual([]);
   });
 });
