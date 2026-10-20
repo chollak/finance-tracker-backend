@@ -81,22 +81,9 @@ export const RU = {
     },
   },
 
-  // Transaction messages
+  // Transaction messages (the confirmation itself is the record message, FT-122)
   transaction: {
-    autoSaved: 'Сохранено',
-    confirmRequired: 'Подтвердите',
-    confidence: (value: number) => `Уверенность: ${value}%`,
-    amount: 'Сумма',
-    category: 'Категория',
-    type: 'Тип',
-    merchant: 'Место',
-    income: 'Доход',
-    expense: 'Расход',
-    confirmed: 'Подтверждено',
-    deleted: 'Удалено',
     noTransactions: 'Транзакций не найдено',
-    todaySummary: (amount: string) => `Сегодня: ${amount}`,
-    monthSummary: (amount: string) => `Месяц: ${amount}`,
   },
 
   // Debt messages
@@ -115,14 +102,8 @@ export const RU = {
 
   // Buttons
   buttons: {
-    confirm: 'Подтвердить',
-    edit: 'Изменить',
-    delete: 'Удалить',
     viewAll: 'Все транзакции',
     addTransaction: 'Добавить транзакцию',
-    openApp: 'Открыть приложение',
-    back: 'Назад',
-    cancel: 'Отмена',
     moreStats: 'Подробная аналитика',
     allBudgets: 'Все бюджеты',
     createBudget: 'Создать бюджет',
@@ -135,11 +116,21 @@ export const RU = {
     enterAmount: (category: string) => `${category}\n\nВведите сумму:`,
   },
 
+  // Record messages (FT-122): what the bot says around its confirmations
+  record: {
+    notFound: 'Не нашёл эту запись.',
+    nothingToUndo: 'Отменять нечего: записей из чата пока нет.',
+    undone: (what: string) => `Отменил последнюю запись: ${what}`,
+    reverted: (count: number) => (count > 1 ? 'Вернул записи.' : 'Вернул запись.'),
+    amountNotPositive: 'Сумма должна быть больше нуля.',
+    amountTooBig: 'Сумма слишком большая — проверьте её и напишите ещё раз.',
+    noAccountIn: (currency: 'UZS' | 'USD') =>
+      currency === 'USD' ? 'Счёта в долларах нет — добавьте его в Daftar.' : 'Счёта в сумах нет — добавьте его в Daftar.',
+  },
+
   // Errors
   errors: {
     generic: 'Произошла ошибка. Попробуйте снова.',
-    noTransactionFound: 'Транзакция не найдена.',
-    cannotDelete: 'Можно удалить только последнюю транзакцию.',
     voiceProcessing: 'Не удалось обработать голосовое сообщение.',
     invalidCommand: 'Неизвестная команда.',
     emptyMessage: 'Пожалуйста, отправьте сообщение с транзакцией.',

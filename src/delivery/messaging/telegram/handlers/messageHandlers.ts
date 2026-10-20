@@ -1,14 +1,11 @@
 import { Telegraf } from 'telegraf';
 import { message } from 'telegraf/filters';
-import { BotContext, ProcessedTransaction } from '../types';
+import { BotContext } from '../types';
 import { RU, formatAmount } from '../i18n/ru';
-import { formatCaptureMessage, formatTransactionMessage } from '../formatters';
-import {
-  transactionConfirmationKeyboard,
-  transactionAutoSavedKeyboard,
-} from '../keyboards';
 import { downloadVoiceFile, cleanupFile } from '../utils';
 import { quickAddCategory } from '../utils/userCategories';
+import { guessedIds, sendRecordMessage } from '../utils/recordMessageView';
+import { answerAmountQuestion } from './recordHandlers';
 import { AppError } from '../../../../shared/domain/errors/AppError';
 import { DetectedDebt } from '../../../../modules/voiceProcessing/domain/processedTransaction';
 import { SubscriptionModule } from '../../../../modules/subscription/subscriptionModule';
@@ -19,18 +16,9 @@ import {
 import { resolveUserIdToUUID } from '../../../../shared/application/helpers/userIdResolver';
 import { LimitType } from '../../../../modules/subscription/domain/usageLimit';
 import { createLogger, LogCategory } from '../../../../shared/infrastructure/logging';
-import { fromMinor } from '../../../../shared/domain/money/money';
-import { buildCaptureAck } from '../../../../modules/quickCapture/application/buildCaptureAck';
 import { toCapturedTransaction } from '../../../../modules/quickCapture/application/toCapturedTransaction';
-import { CapturedTransaction } from '../../../../modules/quickCapture/domain/quickCaptureTypes';
 
 const logger = createLogger(LogCategory.TELEGRAM_MSG);
-
-const CONFIDENCE_THRESHOLD = 0.6;
-
-// Track the last transaction per Telegram user for the «Удалить» button. Keyed by the Telegram id
-// (`ctx.from.id`), because that is all the callback query knows about the user.
-const lastTransactions: Record<string, string> = {};
 
 async function sendProcessingFeedback(ctx: BotContext): Promise<void> {
   try {
@@ -38,27 +26,6 @@ async function sendProcessingFeedback(ctx: BotContext): Promise<void> {
   } catch {
     // Best-effort UX feedback only; processing must continue even if Telegram rejects chat action.
   }
-}
-
-/**
- * Get last transaction ID for a Telegram user
- */
-export function getLastTransactionId(telegramId: string): string | undefined {
-  return lastTransactions[telegramId];
-}
-
-/**
- * Set last transaction ID for a Telegram user
- */
-export function setLastTransactionId(telegramId: string, transactionId: string): void {
-  lastTransactions[telegramId] = transactionId;
-}
-
-/**
- * Clear last transaction ID for a Telegram user
- */
-export function clearLastTransactionId(telegramId: string): void {
-  delete lastTransactions[telegramId];
 }
 
 /**
@@ -162,7 +129,10 @@ export function createTextMessageHandler(userModule?: UserModule, _subscriptionM
         return;
       }
 
-      const { quickCaptureModule, transactionModule } = ctx.modules;
+      // «Сумму» under a record waits for the amount as the next text (FT-122)
+      if (await answerAmountQuestion(ctx, text, userId)) return;
+
+      const { quickCaptureModule } = ctx.modules;
 
       await sendProcessingFeedback(ctx);
 
@@ -180,14 +150,12 @@ export function createTextMessageHandler(userModule?: UserModule, _subscriptionM
         return;
       }
 
-      // Get summary for context
-      const summary = await getTodaySummary(transactionModule, userId);
-
-      // Process each transaction
-      for (const tx of result.transactions) {
-        setLastTransactionId(telegramId, tx.id);
-        await sendCaptureResponse(ctx, tx, userId, summary);
-      }
+      // One confirmation for all records of the phrase (FT-122)
+      await sendRecordMessage(ctx, {
+        userId,
+        recordIds: result.transactions.map(tx => tx.id),
+        guessed: guessedIds(result.transactions),
+      });
 
       // Process each debt
       for (const debt of result.debts) {
@@ -250,7 +218,7 @@ export function createVoiceMessageHandler(userModule?: UserModule, subscriptionM
       // Download voice file
       filePath = await downloadVoiceFile(fileLink.href, voice.file_id);
 
-      const { voiceModule, transactionModule } = ctx.modules;
+      const { voiceModule } = ctx.modules;
 
       // Process voice input
       const result = await voiceModule.getProcessVoiceInputUseCase().execute({
@@ -265,15 +233,13 @@ export function createVoiceMessageHandler(userModule?: UserModule, subscriptionM
         return;
       }
 
-      // Get summary for context
-      const summary = await getTodaySummary(transactionModule, userId);
-
-      // Transcription stays in the voice use case, but the confirmation is the shared capture ack,
-      // so a voice capture reads exactly like a text one apart from the 🎤 prefix.
-      for (const tx of result.transactions) {
-        setLastTransactionId(telegramId, tx.id);
-        await sendCaptureResponse(ctx, toCapturedTransaction(tx), userId, summary, true);
-      }
+      // The same confirmation as for text, with what the bot heard quoted (FT-122)
+      await sendRecordMessage(ctx, {
+        userId,
+        recordIds: result.transactions.map(tx => tx.id),
+        guessed: guessedIds(result.transactions.map(toCapturedTransaction)),
+        heard: result.text,
+      });
 
       // Process each debt
       if (result.debts && result.debts.length > 0) {
@@ -303,102 +269,6 @@ export function createVoiceMessageHandler(userModule?: UserModule, subscriptionM
       }
     }
   };
-}
-
-/**
- * Send transaction response with appropriate keyboard
- */
-async function sendTransactionResponse(
-  ctx: BotContext,
-  tx: ProcessedTransaction,
-  originalText: string,
-  userId: string,
-  isVoice: boolean,
-  summary?: { todayTotal: number; monthTotal: number }
-) {
-  const confidence = tx.confidence || 0.8;
-  const needsConfirmation = confidence < CONFIDENCE_THRESHOLD;
-
-  const message = formatTransactionMessage(
-    tx,
-    originalText,
-    needsConfirmation,
-    isVoice,
-    summary?.todayTotal,
-    summary?.monthTotal
-  );
-
-  const keyboard = needsConfirmation
-    ? transactionConfirmationKeyboard(tx.id, userId)
-    : transactionAutoSavedKeyboard(tx.id, userId);
-
-  await ctx.reply(message, {
-    parse_mode: 'HTML',
-    ...keyboard,
-  });
-}
-
-/**
- * Send a quick-capture result using the shared ack, one message per captured transaction so
- * each keeps its own edit/delete keyboard. Shared by the text and voice paths; `isVoice` only
- * adds the 🎤 prefix so both channels confirm a capture with the same words.
- */
-async function sendCaptureResponse(
-  ctx: BotContext,
-  tx: CapturedTransaction,
-  userId: string,
-  summary?: { todayTotal: number; monthTotal: number },
-  isVoice = false
-) {
-  const confidence = tx.confidence ?? 0.8;
-  const needsConfirmation = confidence < CONFIDENCE_THRESHOLD;
-
-  const message = formatCaptureMessage(
-    tx,
-    buildCaptureAck([tx]),
-    needsConfirmation,
-    isVoice,
-    summary?.todayTotal,
-    summary?.monthTotal
-  );
-
-  const keyboard = needsConfirmation
-    ? transactionConfirmationKeyboard(tx.id, userId)
-    : transactionAutoSavedKeyboard(tx.id, userId);
-
-  await ctx.reply(message, {
-    parse_mode: 'HTML',
-    ...keyboard,
-  });
-}
-
-/**
- * Get today's spending summary for context
- */
-async function getTodaySummary(
-  transactionModule: BotContext['modules']['transactionModule'],
-  userId: string
-): Promise<{ todayTotal: number; monthTotal: number } | undefined> {
-  try {
-    const transactions = await transactionModule
-      .getGetUserTransactionsUseCase()
-      .execute(userId);
-
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const thisMonth = transactions.filter(tx => new Date(tx.date) >= startOfMonth);
-    const thisDay = thisMonth.filter(tx => new Date(tx.date) >= today);
-
-    // Real expenses through the shared period totals (FT-103): dollars at the effective rate
-    const totals = transactionModule.getPeriodTotalsService();
-    const month = await totals.summarize(userId, thisMonth);
-    const day = await totals.summarize(userId, thisDay);
-
-    return { todayTotal: fromMinor(day.expenseMinor), monthTotal: fromMinor(month.expenseMinor) };
-  } catch {
-    return undefined;
-  }
 }
 
 /**
@@ -459,33 +329,8 @@ async function handleQuickAddAmount(
       throw createResult.error;
     }
 
-    const transactionId = createResult.data;
-
-    // Track for delete functionality
-    setLastTransactionId(String(ctx.from?.id ?? 'unknown'), transactionId);
-
-    // Get summary for context
-    const summary = await getTodaySummary(transactionModule, userId);
-
-    // Create ProcessedTransaction for response
-    const processedTx: ProcessedTransaction = {
-      id: transactionId,
-      amount,
-      category: categoryDisplay,
-      type: 'expense',
-      description: categoryDisplay,
-      confidence: 1.0, // High confidence for manual quick add
-    };
-
-    // Send confirmation
-    await sendTransactionResponse(
-      ctx,
-      processedTx,
-      `${categoryDisplay} ${amount}`,
-      userId,
-      false,
-      summary
-    );
+    // The same confirmation as a record written by text (FT-122)
+    await sendRecordMessage(ctx, { userId, recordIds: [createResult.data] });
 
   } catch (error) {
     logger.error('Quick add error', error as Error);

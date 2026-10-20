@@ -2,13 +2,13 @@ import { AppConfig } from '../src/shared/infrastructure/config/appConfig';
 import {
   budgetKeyboard,
   mainMenuKeyboard,
+  recordKeyboard,
   statsKeyboard,
   todayKeyboard,
-  transactionAutoSavedKeyboard,
-  transactionConfirmationKeyboard,
-  transactionEditKeyboard,
 } from '../src/delivery/messaging/telegram/keyboards';
 import { RU } from '../src/delivery/messaging/telegram/i18n/ru';
+import { RecordMessageInput, RecordView } from '../src/delivery/messaging/telegram/formatters/recordMessage';
+import { recordMessageInput } from '../src/delivery/messaging/telegram/utils/recordMessageView';
 // The webapp's own route constants: its tests match them against its route table (appRoutes)
 import { ROUTES } from '../webapp/src/shared/lib/constants/routes';
 
@@ -16,6 +16,8 @@ import { ROUTES } from '../webapp/src/shared/lib/constants/routes';
  * The bot's Mini App buttons open real screens of the webapp. FT-113 moved manual entry from
  * /transactions/add to /add; a bot link left on the old address opened «Страница не найдена». FT-115
  * replaced the edit page /transactions/:id/edit with the record sheet, which Home opens from `?record=`.
+ * FT-122: the links under a record message — «Открыть в Daftar ↗», «Другая дата ↗», «Остальные — в
+ * Daftar ↗» — are built by the bot from the same helper.
  */
 
 const BASE_URL = 'https://miniapp.test';
@@ -28,6 +30,26 @@ interface Button {
 }
 
 type Keyboard = { reply_markup: { inline_keyboard: Button[][] } } | undefined;
+
+function record(id: string): RecordView {
+  return {
+    id, type: 'expense', semanticType: 'expense', amountMinor: 2_400_000, currency: 'UZS', categoryName: 'Транспорт',
+    note: 'такси', accountName: 'Карта', date: '2026-10-14', needsReview: false, cancelled: false,
+  };
+}
+
+/** The keyboard under a record message, with the Mini App links the bot builds for this user. */
+async function recordMessageKeyboard(mode: RecordMessageInput['mode'], records = [record(RECORD_ID)]): Promise<Keyboard> {
+  const ctx = {
+    from: { id: Number(USER_ID) },
+    modules: { transactionModule: { getGetTransactionByIdUseCase: () => ({ execute: async () => ({ success: false }) }) } },
+  };
+  const links = await recordMessageInput(ctx as any, { userId: 'user-1', recordIds: [], mode, state: { selected: 0, guessed: [] }, heard: null });
+  const input: RecordMessageInput = { ...links, records, mode, accounts: [], categories: [] };
+  return { reply_markup: { inline_keyboard: recordKeyboard(input) as Button[][] } };
+}
+
+const MANY = Array.from({ length: 7 }, (_, i) => record(`tx-${i}`));
 
 /** The Mini App buttons of a keyboard. */
 function webAppButtons(keyboard: Keyboard): Button[] {
@@ -59,18 +81,14 @@ describe('«Добавить» in the bot opens manual entry', () => {
     expect(url.searchParams.get('userId')).toBe(USER_ID);
   });
 
-  it('under an auto-saved record', () => {
-    const url = urlOf(transactionAutoSavedKeyboard(RECORD_ID, USER_ID), RU.buttons.addTransaction);
-
-    expect(url.pathname).toBe(ROUTES.MANUAL_ENTRY);
-    expect(url.pathname).toBe('/add');
-    expect(url.searchParams.get('userId')).toBe(USER_ID);
-  });
 });
 
-describe('«Изменить» in the bot opens the record sheet', () => {
-  it('Home with the record named, as the webapp links to a record', () => {
-    const url = urlOf(transactionEditKeyboard(RECORD_ID, USER_ID), RU.buttons.edit);
+describe('«Открыть в Daftar ↗» under a record opens its sheet', () => {
+  it.each([
+    ['«Изменить»', 'edit' as const, 'Открыть в Daftar'],
+    ['the date picker', 'date' as const, 'Другая дата'],
+  ])('from %s: Home with the record named, as the webapp links to a record', async (_name, mode, label) => {
+    const url = urlOf(await recordMessageKeyboard(mode), label);
 
     expect(url.origin).toBe(BASE_URL);
     expect(url.pathname).toBe(ROUTES.HOME);
@@ -78,24 +96,30 @@ describe('«Изменить» in the bot opens the record sheet', () => {
     expect(`${url.pathname}?record=${url.searchParams.get('record')}`).toBe(ROUTES.RECORD(RECORD_ID));
     expect(url.searchParams.get('userId')).toBe(USER_ID);
   });
+
+  it('«Остальные — в Daftar ↗» under a message with many records opens History', async () => {
+    const url = urlOf(await recordMessageKeyboard('confirm', MANY), 'Остальные — в Daftar');
+
+    expect(url.pathname).toBe(ROUTES.TRANSACTIONS);
+  });
 });
 
 describe('every Mini App link of the bot is a screen of the webapp', () => {
   const screens = new Set<string>(Object.values(ROUTES).flatMap((route) => (typeof route === 'string' ? [route] : [])));
 
-  const keyboards: Array<[string, () => Keyboard]> = [
+  const keyboards: Array<[string, () => Keyboard | Promise<Keyboard>]> = [
     ['/start menu', () => mainMenuKeyboard(USER_ID)],
     ['/stats', () => statsKeyboard(USER_ID)],
     ['/budget with budgets', () => budgetKeyboard(USER_ID, true)],
     ['/budget without budgets', () => budgetKeyboard(USER_ID, false)],
     ['/today', () => todayKeyboard(USER_ID)],
-    ['an auto-saved record', () => transactionAutoSavedKeyboard(RECORD_ID, USER_ID)],
-    ['a record to confirm', () => transactionConfirmationKeyboard(RECORD_ID, USER_ID)],
-    ['editing a record', () => transactionEditKeyboard(RECORD_ID, USER_ID)],
+    ['«Изменить» under a record', () => recordMessageKeyboard('edit')],
+    ['the date picker under a record', () => recordMessageKeyboard('date')],
+    ['a message with many records', () => recordMessageKeyboard('confirm', MANY)],
   ];
 
-  it.each(keyboards)('%s', (_name, build) => {
-    const buttons = webAppButtons(build());
+  it.each(keyboards)('%s', async (_name, build) => {
+    const buttons = webAppButtons(await build());
 
     expect(buttons.length).toBeGreaterThan(0);
     for (const button of buttons) {
@@ -103,8 +127,9 @@ describe('every Mini App link of the bot is a screen of the webapp', () => {
     }
   });
 
-  it('none of them opens the removed /transactions/add or /transactions/:id/edit', () => {
-    const paths = keyboards.flatMap(([, build]) => webAppButtons(build()).map((button) => new URL(button.web_app!.url).pathname));
+  it('none of them opens the removed /transactions/add or /transactions/:id/edit', async () => {
+    const built = await Promise.all(keyboards.map(([, build]) => build()));
+    const paths = built.flatMap((keyboard) => webAppButtons(keyboard).map((button) => new URL(button.web_app!.url).pathname));
 
     expect(paths).not.toContain('/transactions/add');
     expect(paths.filter((path) => path.endsWith('/edit'))).toEqual([]);

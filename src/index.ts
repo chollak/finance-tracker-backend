@@ -38,7 +38,7 @@ async function startApplication() {
     // Initialize database first
     await initializeDatabase();
     
-    const { categoryModule, accountModule, fxModule, transactionModule, budgetModule, debtModule, voiceModule, quickCaptureModule, openAIUsageModule, userModule, subscriptionModule } = createModules();
+    const { categoryModule, accountModule, fxModule, transactionModule, budgetModule, debtModule, voiceModule, quickCaptureModule, openAIUsageModule, userModule, subscriptionModule, botMessageModule } = createModules();
     const app = express();
 
     // Trust first proxy (nginx/docker) - required for correct IP detection in rate limiting
@@ -72,7 +72,7 @@ async function startApplication() {
     app.listen(port, () => {
       logger.info('Server started', { port });
       // Start Telegram bot after HTTP server is ready
-      startTelegramBot(voiceModule, transactionModule, budgetModule, userModule, quickCaptureModule, subscriptionModule, categoryModule);
+      startTelegramBot(voiceModule, transactionModule, budgetModule, userModule, quickCaptureModule, subscriptionModule, categoryModule, accountModule, botMessageModule);
     });
 
     // Handle graceful shutdown

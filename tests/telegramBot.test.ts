@@ -40,6 +40,9 @@ describe('startTelegramBot', () => {
     jest.doMock('../src/delivery/messaging/telegram/handlers/callbackHandlers', () => ({
       registerCallbackHandlers: jest.fn(),
     }));
+    jest.doMock('../src/delivery/messaging/telegram/handlers/recordHandlers', () => ({
+      registerRecordHandlers: jest.fn(),
+    }));
     jest.doMock('../src/delivery/messaging/telegram/handlers/paymentHandlers', () => ({
       registerPaymentHandlers: jest.fn(),
     }));

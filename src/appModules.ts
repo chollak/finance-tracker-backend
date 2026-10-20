@@ -12,6 +12,7 @@ import { RepositoryFactory } from './shared/infrastructure/database/repositoryFa
 import { CategoryModule } from './modules/category/categoryModule';
 import { AccountModule } from './modules/account/accountModule';
 import { FxModule } from './modules/fx/fxModule';
+import { BotMessageModule } from './modules/botMessage/botMessageModule';
 import { transactionLearning } from './shared/application/learning/transactionLearning';
 
 export function createModules() {
@@ -63,6 +64,9 @@ export function createModules() {
   // A repeated clientId returns the records the first capture wrote (FT-106)
   const quickCaptureModule = QuickCaptureModule.create(voiceModule, transactionModule);
 
+  // Which records each bot confirmation shows: «Изменить», «Вернуть» and /undo survive a restart (FT-122)
+  const botMessageModule = BotMessageModule.create();
+
   return {
     categoryModule,
     accountModule,
@@ -75,5 +79,6 @@ export function createModules() {
     openAIUsageModule,
     userModule,
     subscriptionModule,
+    botMessageModule,
   };
 }

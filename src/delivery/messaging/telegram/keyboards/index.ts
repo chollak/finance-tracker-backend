@@ -3,12 +3,7 @@ export {
 } from './categoryKeyboard';
 export type { CategoryButton } from './categoryKeyboard';
 
-export {
-  transactionConfirmationKeyboard,
-  transactionAutoSavedKeyboard,
-  transactionConfirmedKeyboard,
-  transactionEditKeyboard
-} from './confirmationKeyboard';
+export { recordKeyboard, recordCallback, RECORD_VERBS, RECORD_CALLBACK_PATTERN } from './recordKeyboard';
 
 export {
   mainMenuKeyboard,

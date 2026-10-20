@@ -29,3 +29,9 @@ export function isValidDateOnly(value: unknown): value is string {
   const date = new Date(Date.UTC(year, month - 1, day));
   return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
 }
+
+/** The calendar day `days` after (or, negative, before) a YYYY-MM-DD date. */
+export function addDaysToDateOnly(date: string, days: number): string {
+  const [year, month, day] = date.split('-').map(Number);
+  return new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10);
+}

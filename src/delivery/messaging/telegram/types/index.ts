@@ -7,7 +7,8 @@ import { BudgetModule } from '../../../../modules/budget/budgetModule';
 import { UserModule } from '../../../../modules/user/userModule';
 import { SubscriptionModule } from '../../../../modules/subscription/subscriptionModule';
 import { CategoryModule } from '../../../../modules/category/categoryModule';
-import { TransactionSemanticType } from '../../../../modules/transaction/domain/transactionSemanticType';
+import { AccountModule } from '../../../../modules/account/accountModule';
+import { BotMessageModule } from '../../../../modules/botMessage/botMessageModule';
 
 /**
  * Modules available in bot context
@@ -20,8 +21,12 @@ export interface BotModules {
   budgetModule: BudgetModule;
   userModule: UserModule;
   subscriptionModule?: SubscriptionModule;
-  /** The user's categories (FT-099/FT-100): quick-add keyboard and labels. */
+  /** The user's categories (FT-099/FT-100): quick-add keyboard, labels, the category picker (FT-122). */
   categoryModule?: CategoryModule;
+  /** The user's accounts (FT-101): the account line of a confirmation and the account picker (FT-122). */
+  accountModule?: AccountModule;
+  /** Which records each confirmation shows (FT-122): its buttons and /undo survive a restart. */
+  botMessageModule?: BotMessageModule;
 }
 
 /**
@@ -30,7 +35,6 @@ export interface BotModules {
 export interface UserSession {
   userId: string;
   userName: string;
-  lastTransactionId?: string;
   language: 'ru';
   pendingAction?: PendingAction;
 }
@@ -40,8 +44,7 @@ export interface UserSession {
  */
 export type PendingAction =
   | { type: 'awaiting_category'; amount: number }
-  | { type: 'awaiting_amount'; category: string }
-  | { type: 'awaiting_confirmation'; transactionId: string };
+  | { type: 'awaiting_amount'; category: string };
 
 /**
  * Extended bot context with modules and session
@@ -65,21 +68,6 @@ export type VoiceMessageContext = NarrowedContext<BotContext, Update.MessageUpda
  * Context for callback query handlers
  */
 export type CallbackContext = NarrowedContext<BotContext, Update.CallbackQueryUpdate<CallbackQuery.DataQuery>>;
-
-/**
- * Transaction data from processing
- */
-export interface ProcessedTransaction {
-  id: string;
-  amount: number;
-  category: string;
-  type: 'income' | 'expense';
-  semanticType?: TransactionSemanticType;
-  needsReview?: boolean;
-  merchant?: string;
-  confidence?: number;
-  description?: string;
-}
 
 /**
  * Statistics summary for commands

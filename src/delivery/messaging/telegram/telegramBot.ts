@@ -9,11 +9,14 @@ import { BudgetModule } from '../../../modules/budget/budgetModule';
 import { UserModule } from '../../../modules/user/userModule';
 import { SubscriptionModule } from '../../../modules/subscription/subscriptionModule';
 import { CategoryModule } from '../../../modules/category/categoryModule';
+import { AccountModule } from '../../../modules/account/accountModule';
+import { BotMessageModule } from '../../../modules/botMessage/botMessageModule';
 import { TelegramPaymentService } from '../../../modules/subscription/infrastructure/TelegramPaymentService';
 import { BotContext, BotModules, UserSession } from './types';
 import { registerCommandHandlers } from './handlers/commandHandlers';
 import { registerMessageHandlers } from './handlers/messageHandlers';
 import { registerCallbackHandlers } from './handlers/callbackHandlers';
+import { registerRecordHandlers } from './handlers/recordHandlers';
 import { registerPaymentHandlers } from './handlers/paymentHandlers';
 import { createLogger, LogCategory } from '../../../shared/infrastructure/logging';
 
@@ -70,6 +73,8 @@ function createInitialSession(userId: string, userName: string): UserSession {
  * @param quickCaptureModule - Shared capture boundary used by the text handler
  * @param subscriptionModule - Subscription module for premium features
  * @param categoryModule - The user's categories for keyboards and labels (FT-100)
+ * @param accountModule - The user's accounts for the confirmation and the account picker (FT-122)
+ * @param botMessageModule - Which records each confirmation shows, so its buttons survive a restart (FT-122)
  */
 export function startTelegramBot(
   voiceModule: VoiceProcessingModule,
@@ -78,7 +83,9 @@ export function startTelegramBot(
   userModule: UserModule,
   quickCaptureModule: QuickCaptureModule,
   subscriptionModule?: SubscriptionModule,
-  categoryModule?: CategoryModule
+  categoryModule?: CategoryModule,
+  accountModule?: AccountModule,
+  botMessageModule?: BotMessageModule
 ) {
   try {
     // Check if bot token is configured
@@ -112,6 +119,8 @@ export function startTelegramBot(
       userModule,
       subscriptionModule,
       categoryModule,
+      accountModule,
+      botMessageModule,
     };
 
     // Ensure downloads directory exists
@@ -188,6 +197,9 @@ export function startTelegramBot(
       registerPaymentHandlers(bot, subscriptionModule, paymentService);
       logger.info('Payment handlers registered');
     }
+
+    // Record messages (FT-122): their buttons and /undo
+    registerRecordHandlers(bot);
 
     // Callback handlers: inline keyboard actions
     registerCallbackHandlers(bot);

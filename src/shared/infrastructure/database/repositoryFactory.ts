@@ -20,6 +20,8 @@ import { SqliteUserSettingsRepository } from '../../../modules/user/infrastructu
 import { SqliteDebtRepository } from '../../../modules/debt/infrastructure/SqliteDebtRepository';
 import { SqliteSubscriptionRepository } from '../../../modules/subscription/infrastructure/SqliteSubscriptionRepository';
 import { SqliteUsageLimitRepository } from '../../../modules/subscription/infrastructure/SqliteUsageLimitRepository';
+import { BotMessageRepository } from '../../../modules/botMessage/domain/botMessageRepository';
+import { SqliteBotMessageRepository } from '../../../modules/botMessage/infrastructure/SqliteBotMessageRepository';
 
 /**
  * Creates repository implementations. There is one database path — TypeORM (decision Д6, FT-090);
@@ -69,5 +71,9 @@ export class RepositoryFactory {
 
   static createUsageLimitRepository(): UsageLimitRepository {
     return new SqliteUsageLimitRepository();
+  }
+
+  static createBotMessageRepository(): BotMessageRepository {
+    return new SqliteBotMessageRepository();
   }
 }

@@ -10,6 +10,7 @@ import { TransactionDeletedAt1761400000000 } from './1761400000000-TransactionDe
 import { TransactionClientId1761500000000 } from './1761500000000-TransactionClientId';
 import { TransactionSearchText1761600000000 } from './1761600000000-TransactionSearchText';
 import { DisplayCurrency1761700000000 } from './1761700000000-DisplayCurrency';
+import { BotMessages1761800000000 } from './1761800000000-BotMessages';
 
 /**
  * Every schema change is a migration listed here, in order. Classes are listed explicitly instead of
@@ -28,4 +29,5 @@ export const MIGRATIONS = [
   TransactionClientId1761500000000,
   TransactionSearchText1761600000000,
   DisplayCurrency1761700000000,
+  BotMessages1761800000000,
 ];

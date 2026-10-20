@@ -1,6 +1,6 @@
 # Module System
 
-`createModules()` (`src/appModules.ts`) возвращает **11 модулей приложения**, каждый с чётко определённой ответственностью. `CategoryModule` добавлен в FT-099, `AccountModule` — в FT-101, `FxModule` — в FT-102, `QuickCaptureModule` — обёртка над текстовым разбором для `POST /api/quick-capture`.
+`createModules()` (`src/appModules.ts`) возвращает **12 модулей приложения**, каждый с чётко определённой ответственностью. `CategoryModule` добавлен в FT-099, `AccountModule` — в FT-101, `FxModule` — в FT-102, `BotMessageModule` — в FT-122, `QuickCaptureModule` — обёртка над текстовым разбором для `POST /api/quick-capture`.
 
 Dashboard модулем не является: в `src/modules/dashboard/` лежат только `DashboardService` и `DashboardController`, файла `dashboardModule.ts` нет. Сборка происходит в Express-слое — см. [Dashboard: сервис, а не модуль](#dashboard-сервис-а-не-модуль).
 
@@ -19,6 +19,7 @@ graph TD
     AM[AccountModule<br/>Accounts + Balances]
     FM[FxModule<br/>USD rate]
     QM[QuickCaptureModule<br/>Quick capture API]
+    BMM[BotMessageModule<br/>Bot record messages]
     DS[DashboardService<br/>не модуль, собирается в Express]
 
     BM -->|depends on| TM
@@ -67,6 +68,7 @@ graph TD
 | **OpenAIUsageModule** | Мониторинг OpenAI costs | Независимый | `openAIUsageModule.ts` |
 | **SubscriptionModule** | Premium подписки + Telegram Stars | UserModule (controller) | `subscriptionModule.ts` |
 | **UserModule** | Пользователи и их настройки (FT-098) | Независимый | `userModule.ts` |
+| **BotMessageModule** | Сообщения бота о записях (FT-122): какие записи показывает подтверждение и какой экран кнопок открыт — таблица `bot_messages`, кнопки и `/undo` переживают перезапуск | Независимый; записи меняет бот через use cases TransactionModule | `botMessageModule.ts` |
 
 Отдельно, **не как модуль**:
 
@@ -380,6 +382,24 @@ new ProcessVoiceInputUseCase(
 
 ---
 
+## 11. BotMessageModule
+
+**Файл:** [`src/modules/botMessage/botMessageModule.ts`](../../../src/modules/botMessage/botMessageModule.ts)
+
+### Назначение
+Сообщения бота о записях (FT-122). Подтверждение в чате — одно сообщение на фразу; таблица `bot_messages` хранит,
+какие записи оно показывает (`record_ids`), какой экран кнопок под ним открыт (`mode`: подтверждение, «Изменить»,
+сумма, категория, счёт, дата), последнюю правку и догадки о категории (`state`), что бот расслышал (`heard`).
+Поэтому «Изменить», «Вернуть», ответ суммой и `/undo` работают и после перезапуска.
+
+### Состав
+- `BotMessageLog` — `remember`, `find(chat, message)`, `recent(chat)` (для `/undo`), `awaitingAmount(chat)`, `save`.
+- `SqliteBotMessageRepository` — TypeORM; строка на сообщение, уникальна пара `chat_id` + `message_id`.
+- Сами записи модуль не трогает: бот меняет их через use cases TransactionModule (`Update`, `Delete`, `Restore`) и
+  рисует сообщение заново из базы (`src/delivery/messaging/telegram/utils/recordMessageView.ts`).
+
+---
+
 ## Dashboard: сервис, а не модуль
 
 **Файлы:**
@@ -453,8 +473,11 @@ export function createModules() {
   const voiceModule = new VoiceProcessingModule(openAIService, transactionModule, debtModule, categoryModule.getCatalog(), transactionLearning);
   const quickCaptureModule = QuickCaptureModule.create(voiceModule);
 
+  // 5. Сообщения бота о записях (FT-122)
+  const botMessageModule = BotMessageModule.create();
+
   return { categoryModule, transactionModule, budgetModule, debtModule, voiceModule, quickCaptureModule,
-    openAIUsageModule, userModule, subscriptionModule };
+    openAIUsageModule, userModule, subscriptionModule, botMessageModule };
 }
 ```
 

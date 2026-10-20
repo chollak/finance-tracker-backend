@@ -1,8 +1,5 @@
-export {
-  formatTransactionMessage,
-  formatCaptureMessage,
-  formatConfirmedMessage
-} from './transactionFormatter';
+export { formatRecordMessage } from './recordMessage';
+export type { RecordMessageInput, RecordView } from './recordMessage';
 
 export {
   formatTodayStats,

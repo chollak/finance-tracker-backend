@@ -88,7 +88,7 @@
 
 ## Модули системы
 
-`createModules()` (`src/appModules.ts`) возвращает 11 модулей приложения:
+`createModules()` (`src/appModules.ts`) возвращает 12 модулей приложения:
 
 | Модуль | Назначение | Зависимости |
 |--------|------------|-------------|
@@ -103,6 +103,7 @@
 | **AccountModule** | Счета и остатки (FT-101); счёт новой записи | Независимый; TransactionModule получает его как `AccountResolver` |
 | **FxModule** | Курс доллара (FT-102): ЦБ и свой | AccountModule получает его как `EffectiveRateProvider`; свой курс — в настройках UserModule |
 | **SubscriptionModule** | Free/Premium подписки, лимиты, Telegram Stars | UserModule (на уровне контроллера) |
+| **BotMessageModule** | Сообщения бота о записях (FT-122): связь «сообщение → записи» в `bot_messages` | Независимый |
 
 **Dashboard — не модуль.** В `src/modules/dashboard/` есть только `DashboardService` и `DashboardController`; `dashboardModule.ts` отсутствует, и `createModules()` не возвращает `dashboardModule`. Сборка идёт в Express-слое: `createDashboardRouter()` строит `DashboardService` из `transactionModule.getAnalyticsService()` и `budgetModule.budgetService`.
 

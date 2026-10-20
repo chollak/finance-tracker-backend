@@ -46,7 +46,7 @@ flowchart TD
     M --> O[TransactionRepository.save]
     O --> P[Database SQLite/Supabase]
     P --> Q[Return Transaction ID]
-    Q --> R[Telegram Success Message<br/>+ Edit/Delete Buttons]
+    Q --> R[Telegram record message<br/>Изменить / Отменить, bot_messages]
     R --> S[File Cleanup]
 
     style A fill:#4CAF50,stroke:#2E7D32,color:#fff
@@ -229,32 +229,26 @@ if (description.length < 3) confidence -= 0.05;
 ---
 
 ### 10. Telegram Response
-**Handler:** Telegram Bot
+**Handler:** Telegram Bot — `sendRecordMessage` (`src/delivery/messaging/telegram/utils/recordMessageView.ts`)
 
-**High Confidence Message:**
+Одно сообщение на всю фразу (FT-122, `docs/pastel/components/BotRecord.md`): записи читаются из базы, без эмодзи,
+дата всегда абсолютная, голосовое — с цитатой того, что бот расслышал. Связь «сообщение → записи» и открытый
+экран кнопок хранятся в `bot_messages` (BotMessageModule), поэтому кнопки и `/undo` работают после перезапуска.
+
 ```
-✅ Auto-saved: Купил хлеб в магазине...
+Расход −186 400 сум              ← жирным
+Продукты · «Супермаркет»
+Карта · 14 октября
+┃ Расслышал: «Супермаркет сто восемьдесят шесть тысяч четыреста, картой»
 
-💰 Amount: 500
-📂 Category: Продукты
-📊 Type: expense
-🏪 Пятёрочка
-
-[✏️ Edit] [🗑️ Delete]
-[📊 Open app]
+[Изменить] [Отменить]
 ```
 
-**Low Confidence Message:**
-```
-🤔 Please confirm:
-📝 Купил хлеб...
-
-💰 Amount: 500
-📂 Category: Продукты
-⚠️ Confidence: 45%
-
-[✅ Confirm] [✏️ Edit] [❌ Delete]
-```
+Несколько записей: «Расходы −43 000 сум · 2 записи», строка на запись, кнопка на запись и «Отменить все».
+«Изменить» → «Сумму | Категорию», «Счёт | Дату», «Открыть в Daftar ↗», «Готово», «Отменить запись»; поле — за два
+нажатия, категории по 2 в ряд. «Отменить» удаляет запись мягко и зачёркивает её с «Вернуть»; `/undo` делает то же с
+последним сообщением чата, где есть записи. Уверенность разбора кнопки больше не меняет; угаданная категория
+показана с «?» (FT-138), вопрос о ней — FT-123.
 
 ---
 

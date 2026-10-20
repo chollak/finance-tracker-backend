@@ -22,8 +22,9 @@ Architecture: `domain → application → infrastructure → presentation` вн�
 | `dashboard` (не модуль) | Инсайты, health score, алерты | Заменяется аналитикой и ревизией «Пастели», удаляется в уборке |
 
 **Бот** (`src/delivery/messaging/telegram/`): `/start`, `/today`, `/stats`, `/budget`, `/week`, `/weekly`,
-`/transactions`, `/help`, `/premium`, `/cancel_subscription`. Текст и голос идут через `QuickCaptureService`, каждое подтверждение — отдельным сообщением с
-кнопками «Изменить» (открывает mini app) и «Удалить». Только русский. Планировщика нет: ни сводок, ни
+`/transactions`, `/help`, `/premium`, `/cancel_subscription`, `/undo` (FT-122). Текст и голос идут через `QuickCaptureService`;
+с FT-122 подтверждение — одно сообщение на фразу с «Изменить» (поля прямо в чате) и «Отменить», связь сообщения с
+записями — в `bot_messages`. Только русский. Планировщика нет: ни сводок, ни
 напоминаний. Payload у `/start` не читается.
 
 **Данные.** TypeORM + SQLite (`data/database.sqlite`, `synchronize` в dev). Параллельно живёт путь Supabase
@@ -56,7 +57,7 @@ webapp, проверка архитектуры и шрифтов.
 | Где | Что | Чем мешает |
 |---|---|---|
 | `SqliteTransactionRepository.update()` | нет ветки для `category` — смена категории молча теряется на SQLite | Карточка операции и проверка записей правят категорию |
-| `callbackHandlers.ts`, «Удалить» в боте | `DeleteTransactionUseCase.execute(transactionId)` вызывается строкой вместо `{ id }`; проверка «последней записи» сравнивает разные ключи | В «Пастели» отмена и «Вернуть» — одно нажатие |
+| `callbackHandlers.ts`, «Удалить» в боте | `DeleteTransactionUseCase.execute(transactionId)` вызывается строкой вместо `{ id }`; проверка «последней записи» сравнивает разные ключи | Исправлено в FT-087; с FT-122 «Удалить» старых сообщений — отмена с «Вернуть», память о «последней записи» убрана |
 | `CreateTransactionUseCase` + обработчики бота + middleware `POST /transactions` | счётчик записей free-лимита увеличивается дважды | Лимит наступает вдвое раньше |
 | `requireAdmin` на `transactionController.ts:97, 254` и в `openAIUsageRoutes.ts` | перед ним нет авторизации — всегда 401 (на `/subscription/grant` авторизация есть) | Не мешает. Мёртвый `GET /api/transactions` убран в FT-107: путь занят историей |
 | Репозитории транзакций | `isDebtRelated`, `relatedDebtId`, `tags`, `splitGroupId` не сохраняются | Не мешает, если долги уходят из интерфейса |
