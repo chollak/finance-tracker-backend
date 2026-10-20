@@ -208,7 +208,7 @@ Everything in `transactions`/`debts` is **already written to the database** by t
 | `currency` | `"UZS" \| "USD"` | FT-103. `USD` when the text says «$», «долл…», «usd»; otherwise `UZS`. |
 | `accountId` | `string` | FT-103. The account the record went to (named in the text, «нал» → cash, «картой» → card, else the default). |
 | `accountName` | `string?` | FT-103. That account's name, for the ack. |
-| `assumptions` | `CaptureAssumption[]` | FT-103. What the parse took for granted: `thousands` («45» read as 45 000), `category` (not named in the text), `account` (`reason: hint \| default`), `currency` (`reason: no_usd_account` — dollars kept on a сум account, record flagged `needsReview`). Shape: [docs/pastel/api.md](pastel/api.md#записи-валюта-и-источник-ft-103). |
+| `assumptions` | `CaptureAssumption[]` | FT-103. What the parse took for granted: `thousands` («45» read as 45 000), `category` (FT-138: only a category the AI chose itself — none when the words name it by the user's category name, a category-dictionary word or a learned pattern, and never on the fast paths without the AI; a single-record `ack` then shows «Покупки?»), `account` (`reason: hint \| default`), `currency` (`reason: no_usd_account` — dollars kept on a сум account, record flagged `needsReview`). Shape: [docs/pastel/api.md](pastel/api.md#записи-валюта-и-источник-ft-103). |
 | `type` | `"income" \| "expense"` | |
 | `semanticType` | `TransactionSemanticType` | e.g. `expense`, `income`, `own_transfer`, `saving_deposit`, `cash_withdrawal`. Normalized from `type` when the parser did not set one. |
 | `category` | `string` | The user's category **name** (`"Транспорт"`, `"Кафе"`) since FT-099. |
@@ -323,7 +323,6 @@ curl -sS -X POST http://localhost:3000/api/quick-capture \
         "accountId": "acc-1",
         "accountName": "Карта",
         "assumptions": [
-          { "kind": "category", "name": "Транспорт" },
           { "kind": "account", "name": "Карта", "reason": "default" }
         ],
         "type": "expense",

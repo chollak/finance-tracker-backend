@@ -10,6 +10,8 @@ import { AnalysisContext, UserCategorySource } from '../domain/categoryPrompt';
 import { detectPaymentHints, stripPaymentWords } from '../domain/paymentHints';
 import { RecordSource } from '../../transaction/domain/recordSource';
 import { ResolvedAccount } from '../../transaction/domain/accountResolver';
+import { ResolvedCategory } from '../../transaction/domain/categoryResolver';
+import { LearnedCategoryWords, recordWordsOf } from '../domain/categoryGuess';
 import { captureAssumptions } from './captureAssumptions';
 import { captureMoneyOf } from './captureMoney';
 import { itemClientId } from '../../transaction/domain/clientId';
@@ -377,6 +379,20 @@ export async function analysisContextFor(source: UserCategorySource | undefined,
   }
 }
 
+/**
+ * Learned words of the starter categories, for the category guess rule (FT-138). Without them every
+ * category the AI chose that the words do not name stays a guess — the capture goes on.
+ */
+export async function learnedWordsFor(source: LearnedCategoryWords | undefined): Promise<ReadonlyMap<string, readonly string[]>> {
+  if (!source) return new Map();
+  try {
+    return await source.learnedCategoryWords();
+  } catch (error) {
+    logger.error('Failed to read learned category words', error as Error);
+    return new Map();
+  }
+}
+
 export class ProcessTextInputUseCase {
   constructor(
     private openAIService: TranscriptionService,
@@ -384,7 +400,9 @@ export class ProcessTextInputUseCase {
     // Debt parsing is off (decision Д2): the parser no longer reports debts, so this stays unused
     // until the debt module is removed.
     private createDebtUseCase?: CreateDebtUseCase,
-    private categorySource?: UserCategorySource
+    private categorySource?: UserCategorySource,
+    /** Learned words, so a category a learned pattern gives is not called a guess (FT-138). */
+    private learnedWords?: LearnedCategoryWords
   ) {}
 
   async execute(text: string, userId: string, userName?: string, options: TextInputOptions = {}): Promise<ProcessedTransaction> {
@@ -392,10 +410,12 @@ export class ProcessTextInputUseCase {
     // «нал», «картой», «$» in the text: which account and currency (FT-103)
     const hints = detectPaymentHints(text);
 
-    const parsed = parseObviousSemanticTransaction(text)
-      || parseSimpleTextTransaction(text)
-      // Fall back to OpenAI for complex/natural-language inputs, with the user's categories
-      || await this.openAIService.analyzeInput(text, await analysisContextFor(this.categorySource, userId));
+    const local = parseObviousSemanticTransaction(text) || parseSimpleTextTransaction(text);
+    // Fall back to OpenAI for complex/natural-language inputs, with the user's categories
+    const parsed = local || await this.openAIService.analyzeInput(text, await analysisContextFor(this.categorySource, userId));
+    // The text paths take the category from the words; only the AI's own choice can be a guess (FT-138)
+    const chosenBy = local ? 'text' : 'ai';
+    const learned = chosenBy === 'ai' ? await learnedWordsFor(this.learnedWords) : new Map<string, readonly string[]>();
 
     // Only a single-transaction parse is checked against the text's currency markers. In
     // multi-item text ("продукты 12000 сум и такси 30000") each number belongs to its own
@@ -455,11 +475,12 @@ export class ProcessTextInputUseCase {
         // Text paths choose a category automatically, so never a hidden one (FT-099), and read the
         // account from the wording (FT-103). Moving money is not paid «налом»: no kind hint for it.
         let account: ResolvedAccount | undefined;
+        let category: ResolvedCategory | undefined;
         const createResult = await this.createTransactionUseCase.execute(transaction, {
           visibleCategoriesOnly: true,
           accountHint: { text: money.accountText, kind: money.kind },
           allowCurrencyMismatch: true,
-          onResolved: resolved => { account = resolved.account; },
+          onResolved: resolved => { account = resolved.account; category = resolved.category; },
         });
         if (createResult.success) {
           transactionResults.push({
@@ -472,7 +493,14 @@ export class ProcessTextInputUseCase {
             assumptions: captureAssumptions({
               text,
               amount: transaction.amount,
-              categoryName: transaction.category,
+              category: {
+                name: transaction.category,
+                type: transaction.type,
+                presetKey: category?.presetKey ?? null,
+                chosenBy,
+                words: recordWordsOf(text, p, transactions.length),
+                learnedWords: category?.presetKey ? learned.get(category.presetKey) : undefined,
+              },
               account,
               currency,
             }),

@@ -38,6 +38,12 @@ function sameLabel(a: string, b: string): boolean {
   return a.trim().toLocaleLowerCase('ru-RU') === b.trim().toLocaleLowerCase('ru-RU');
 }
 
+/** A category the AI guessed (FT-138) carries «?», as on the bot board: «Покупки?». */
+function shownCategory(transaction: CapturedTransaction, name: string): string {
+  const guessed = transaction.assumptions?.some(assumption => assumption.kind === 'category') ?? false;
+  return guessed ? `${name}?` : name;
+}
+
 /**
  * `withCategory` is dropped for multi-item acks so each line stays scannable, and it is
  * also dropped when the label we have *is* the category name (no "Транспорт · Транспорт"),
@@ -47,9 +53,9 @@ function summaryLine(transaction: CapturedTransaction, withCategory: boolean): s
   const name = categoryName(transaction.category);
   const label = transaction.description?.trim() || transaction.merchant?.trim() || '';
 
-  const parts = [capitalize(label || name), formatAmountWithCurrency(transaction)];
+  const parts = [label ? capitalize(label) : shownCategory(transaction, capitalize(name)), formatAmountWithCurrency(transaction)];
   if (withCategory && label && !sameLabel(label, name)) {
-    parts.push(name);
+    parts.push(shownCategory(transaction, name));
   }
 
   return parts.join(' · ');

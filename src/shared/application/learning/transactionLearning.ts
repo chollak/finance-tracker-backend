@@ -5,6 +5,9 @@ import { CATEGORY_PRESETS, presetKeyForLearning } from '../../../modules/categor
 
 const logger = createLogger(LogCategory.LEARNING);
 
+/** A pattern counts once it has been used this many times: the AI prompt shows it, and it names a category (FT-138). */
+export const MIN_PATTERN_USES = 2;
+
 export interface LearningData {
   originalText: string;
   originalParsing: {
@@ -127,7 +130,7 @@ export class TransactionLearningService {
       if (patterns.categories.length > 0) {
         enhancement += '\nКАТЕГОРИИ:\n';
         patterns.categories
-          .filter(p => p.usageCount >= 2) // Only include patterns used at least twice
+          .filter(p => p.usageCount >= MIN_PATTERN_USES)
           .sort((a, b) => b.confidence - a.confidence)
           .slice(0, 20) // Top 20 patterns
           .forEach(pattern => {
@@ -140,7 +143,7 @@ export class TransactionLearningService {
       if (patterns.merchants.length > 0) {
         enhancement += '\nМЕРЧАНТЫ:\n';
         patterns.merchants
-          .filter(p => p.usageCount >= 2)
+          .filter(p => p.usageCount >= MIN_PATTERN_USES)
           .sort((a, b) => b.usageCount - a.usageCount)
           .slice(0, 15) // Top 15 merchants
           .forEach(pattern => {
@@ -156,6 +159,30 @@ export class TransactionLearningService {
       logger.error('Failed to enhance prompts', error as Error);
       return basePrompt;
     }
+  }
+
+  /**
+   * Learned words by starter key (FT-138): the keywords of category patterns and the aliases of merchants
+   * with a category, from the patterns the AI prompt shows. Bare numbers («25000») name nothing.
+   */
+  async learnedCategoryWords(): Promise<Map<string, string[]>> {
+    const patterns = await this.loadPatterns();
+    const words = new Map<string, string[]>();
+    const add = (key: string, word: string) => {
+      if (!/\p{L}/u.test(word)) return;
+      const list = words.get(key) ?? [];
+      if (!list.includes(word)) list.push(word);
+      words.set(key, list);
+    };
+    for (const pattern of patterns.categories) {
+      if (pattern.usageCount < MIN_PATTERN_USES) continue;
+      for (const keyword of pattern.keywords) add(pattern.category, keyword);
+    }
+    for (const merchant of patterns.merchants) {
+      if (merchant.usageCount < MIN_PATTERN_USES || !merchant.category) continue;
+      for (const alias of merchant.aliases) add(merchant.category, alias);
+    }
+    return words;
   }
 
   private async updatePatterns(learningEntry: LearningData): Promise<void> {

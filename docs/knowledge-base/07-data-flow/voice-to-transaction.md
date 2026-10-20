@@ -15,6 +15,11 @@
 > `AccountBook.resolveForRecord` выбирает счёт (названный в тексте, по виду, по валюте, по умолчанию). Запись
 > сохраняет `source` (`telegram` у бота) и `currency`; ответ содержит `assumptions` (`captureAssumptions`).
 > Доллары без долларового счёта остаются в USD на счёте по умолчанию с `needsReview`.
+>
+> **С FT-138.** Догадка о категории (`assumptions: { kind: "category" }`, «?» на проверке и «Покупки?» в
+> боте) — только у категории, которую ИИ выбрал сам: не у той, что дали название категории, слово словаря
+> (`presetSynonyms`) или выученный паттерн (`TransactionLearningService.learnedCategoryWords`) в словах записи
+> (`categoryGuess.ts`). Быстрые разборы без ИИ догадку не ставят. Правило — `docs/pastel/api.md`.
 
 ## Общий поток
 

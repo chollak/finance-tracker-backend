@@ -128,6 +128,19 @@ describe('buildCaptureAck', () => {
         .toBe('Транспорт · 18 000 сум');
     });
 
+    it('marks a category the AI guessed with «?», as the bot board does (FT-138)', () => {
+      const guessed = { assumptions: [{ kind: 'category' as const, name: 'Покупки' }], category: 'Покупки' };
+
+      expect(buildCaptureAck([captured({ ...guessed, description: 'Uzum', amount: 180000 })], { today: TODAY }).summary)
+        .toBe('Uzum · 180 000 сум · Покупки?');
+      // Without a note the category is the label, still marked
+      expect(buildCaptureAck([captured({ ...guessed, description: undefined, merchant: undefined, amount: 180000 })], { today: TODAY }).summary)
+        .toBe('Покупки? · 180 000 сум');
+      // A category the text gave carries no mark
+      expect(buildCaptureAck([captured({ assumptions: [{ kind: 'account', name: 'Карта', reason: 'default' }] })], { today: TODAY }).summary)
+        .toBe('Такси · 18 000 сум · Транспорт');
+    });
+
     it('keeps an unknown category id readable instead of dropping it', () => {
       const ack = buildCaptureAck([captured({ category: 'not-a-real-category' })], { today: TODAY });
 

@@ -440,7 +440,7 @@ describe('ProcessTextInputUseCase', () => {
         id: '42',
         amount: 5,
         currency: 'UZS',
-        // The category is not named in the text, so it is reported as a guess (FT-103)
+        // The parser chose the category and no word of the text names it, so it is a guess (FT-103, FT-138)
         assumptions: [{ kind: 'category', name: 'Food' }],
         category: 'Food',
         type: 'expense',

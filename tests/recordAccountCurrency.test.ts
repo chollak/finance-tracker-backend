@@ -62,11 +62,10 @@ describe('account and currency of every record (FT-103)', () => {
       expect(record.categoryId).toEqual(expect.any(String));
     });
 
-    it('without a word for the account, the default one — and says so, with the guessed category', async () => {
+    it('without a word for the account, the default one — and says so; «кофе» names the category (FT-138)', async () => {
       const result = await capture.execute('кофе 25000', 'user-1');
 
       expect(result.transactions[0].assumptions).toEqual([
-        { kind: 'category', name: 'Кафе' },
         { kind: 'account', name: 'Карта', reason: 'default' },
       ]);
     });
@@ -135,7 +134,8 @@ describe('account and currency of every record (FT-103)', () => {
         debts: [],
       });
 
-      const result = await capture.execute('обедали с коллегами. Вышло 45', 'user-1');
+      // No word of the text names «Кафе», so it is the parser's own guess (FT-138)
+      const result = await capture.execute('посидели с коллегами. Вышло 45', 'user-1');
 
       expect(openAI.analyzeInput).toHaveBeenCalled();
       expect(result.transactions[0].amount).toBe(45000);

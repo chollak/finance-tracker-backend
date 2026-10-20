@@ -13,9 +13,11 @@ import { Validators } from '../../../shared/application/validation/validators';
 import { getLogger, LogCategory } from '../../../shared/application/logging';
 import { normalizeSemanticType } from '../../transaction/domain/transactionSemanticType';
 import { UserCategorySource } from '../domain/categoryPrompt';
-import { analysisContextFor } from './processTextInput';
+import { analysisContextFor, learnedWordsFor } from './processTextInput';
 import { detectPaymentHints } from '../domain/paymentHints';
 import { ResolvedAccount } from '../../transaction/domain/accountResolver';
+import { ResolvedCategory } from '../../transaction/domain/categoryResolver';
+import { LearnedCategoryWords, recordWordsOf } from '../domain/categoryGuess';
 import { captureAssumptions } from './captureAssumptions';
 import { captureMoneyOf } from './captureMoney';
 import { fromMinor } from '../../../shared/domain/money/money';
@@ -55,7 +57,9 @@ export class ProcessVoiceInputUseCase {
     private createTransactionUseCase: CreateTransactionUseCase,
     // Debt parsing is off (decision Д2): the parser no longer reports debts
     private createDebtUseCase?: CreateDebtUseCase,
-    private categorySource?: UserCategorySource
+    private categorySource?: UserCategorySource,
+    /** Learned words, so a category a learned pattern gives is not called a guess (FT-138). */
+    private learnedWords?: LearnedCategoryWords
   ) {}
 
   async execute(input: VoiceInput): Promise<ProcessedTransaction> {
@@ -124,6 +128,9 @@ export class ProcessVoiceInputUseCase {
         return { text: recognizedText, transactions: [], debts: [] };
       }
 
+      // Every category here is the AI's choice; it is a guess unless the words name it (FT-138)
+      const learned = parsed.transactions.length > 0 ? await learnedWordsFor(this.learnedWords) : new Map<string, readonly string[]>();
+
       // Process transactions
       for (const p of parsed.transactions) {
         try {
@@ -161,11 +168,12 @@ export class ProcessVoiceInputUseCase {
           // The parser chooses the category automatically, so never a hidden one (FT-099), and the
           // account from the wording (FT-103); moving own money is not paid «налом»
           let account: ResolvedAccount | undefined;
+          let category: ResolvedCategory | undefined;
           const createResult = await this.createTransactionUseCase.execute(transaction, {
             visibleCategoriesOnly: true,
             accountHint: { text: money.accountText, kind: money.kind },
             allowCurrencyMismatch: true,
-            onResolved: resolved => { account = resolved.account; },
+            onResolved: resolved => { account = resolved.account; category = resolved.category; },
           });
           if (createResult.success) {
             transactionResults.push({
@@ -178,7 +186,14 @@ export class ProcessVoiceInputUseCase {
               assumptions: captureAssumptions({
                 text: recognizedText,
                 amount: transaction.amount,
-                categoryName: transaction.category,
+                category: {
+                  name: transaction.category,
+                  type: transaction.type,
+                  presetKey: category?.presetKey ?? null,
+                  chosenBy: 'ai',
+                  words: recordWordsOf(recognizedText, p, parsed.transactions.length),
+                  learnedWords: category?.presetKey ? learned.get(category.presetKey) : undefined,
+                },
                 account,
                 currency,
               }),

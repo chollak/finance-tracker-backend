@@ -1,5 +1,6 @@
 import { ResolvedAccount } from '../../transaction/domain/accountResolver';
 import { CaptureAssumption } from '../domain/processedTransaction';
+import { categoryNamedIn, CategoryOfRecord } from '../domain/categoryGuess';
 
 const AMOUNT_TOKEN = /[+-]?\d[\d\s.,]*/g;
 const MAGNITUDE_AFTER = /^\s?(?:млрд|миллиард\p{L}*|mlrd|млн|миллион\p{L}*|mln|тысяч\p{L}*|тыщ\p{L}*|тыс|ming|[кk])(?![\p{L}\p{N}_])/iu;
@@ -17,22 +18,25 @@ function asNumber(token: string): number {
   return Number(token.replace(/\s/g, '').replace(',', '.'));
 }
 
-function mentions(text: string, name: string): boolean {
-  const fold = (value: string) => value.toLocaleLowerCase('ru-RU').replace(/ё/g, 'е');
-  return fold(text).includes(fold(name));
-}
-
 /**
  * What the parse assumed about one record (FT-103):
  * - a bare «45» read as 45 000 — the amount is a thousand times a number written without «к»/«тыс»;
- * - a category the text does not name;
+ * - a category the AI chose itself (FT-138): not one the record's words name — by its name, a dictionary
+ *   word or a learned word — and not one the text paths read from the words without the AI;
  * - the account, and whether a word in the text chose it or it is the default;
  * - dollars on a сум account, because the user has no dollar account (the record awaits review).
  */
 export function captureAssumptions(input: {
   text: string;
   amount: number;
-  categoryName: string;
+  category: CategoryOfRecord & {
+    /** `ai` when the parser chose it; `text` when a text path read it from the words. */
+    chosenBy: 'ai' | 'text';
+    /** The words of this record (`recordWordsOf`). */
+    words: string;
+    /** What learned patterns tie to its starter category. */
+    learnedWords?: readonly string[];
+  };
   account?: ResolvedAccount;
   currency: 'UZS' | 'USD';
 }): CaptureAssumption[] {
@@ -45,8 +49,9 @@ export function captureAssumptions(input: {
     assumptions.push({ kind: 'thousands', written: shortened, amount: input.amount });
   }
 
-  if (!mentions(input.text, input.categoryName)) {
-    assumptions.push({ kind: 'category', name: input.categoryName });
+  const { category } = input;
+  if (category.chosenBy === 'ai' && !categoryNamedIn(category.words, category, category.learnedWords)) {
+    assumptions.push({ kind: 'category', name: category.name });
   }
 
   if (input.account) {

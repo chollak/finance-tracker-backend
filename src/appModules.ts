@@ -12,6 +12,7 @@ import { RepositoryFactory } from './shared/infrastructure/database/repositoryFa
 import { CategoryModule } from './modules/category/categoryModule';
 import { AccountModule } from './modules/account/accountModule';
 import { FxModule } from './modules/fx/fxModule';
+import { transactionLearning } from './shared/application/learning/transactionLearning';
 
 export function createModules() {
   // Core modules (no dependencies on subscription)
@@ -55,7 +56,8 @@ export function createModules() {
 
   // VoiceProcessingModule now handles both transactions and debts
   const openAIService = new OpenAITranscriptionService(AppConfig.OPENAI_API_KEY);
-  const voiceModule = new VoiceProcessingModule(openAIService, transactionModule, debtModule, categoryModule.getCatalog());
+  // Learned patterns: a category they give is not the AI's guess (FT-138)
+  const voiceModule = new VoiceProcessingModule(openAIService, transactionModule, debtModule, categoryModule.getCatalog(), transactionLearning);
 
   // Shared quick-capture boundary: wraps the existing text pipeline for API/Telegram/Mini App clients
   // A repeated clientId returns the records the first capture wrote (FT-106)

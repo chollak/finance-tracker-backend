@@ -59,7 +59,7 @@ graph TD
 | **TransactionModule** | Core: транзакции и аналитика | Независимый при создании; позже получает Subscription + User через `setSubscriptionDependencies()` | `transactionModule.ts` |
 | **BudgetModule** | Управление бюджетами | TransactionModule | `budgetModule.ts` |
 | **DebtModule** | Управление долгами | TransactionModule, SubscriptionModule, UserModule | `debtModule.ts` |
-| **VoiceProcessingModule** | AI обработка голоса/текста | TransactionModule, DebtModule (не используется с Д2), категории пользователя для промпта | `voiceProcessingModule.ts` |
+| **VoiceProcessingModule** | AI обработка голоса/текста | TransactionModule, DebtModule (не используется с Д2), категории пользователя для промпта, выученные слова для правила догадки о категории (FT-138) | `voiceProcessingModule.ts` |
 | **QuickCaptureModule** | `POST /api/quick-capture` поверх текстового разбора | VoiceProcessingModule | `quickCaptureModule.ts` |
 | **AccountModule** | Счета (FT-101): остатки на чтении, итог в сумах, счёт новой записи | Независимый; TransactionModule получает его как `AccountResolver`; счёт по умолчанию — из настроек UserModule | `accountModule.ts` |
 | **FxModule** | Курс доллара (FT-102): ЦБ по датам, свой курс, действующий курс | Свой курс хранится в настройках UserModule; AccountModule получает его как `EffectiveRateProvider` | `fxModule.ts` |
@@ -287,6 +287,10 @@ new ProcessVoiceInputUseCase(
 **Почему зависимость?**
 После парсинга транзакции из голоса/текста, нужно сохранить её через `CreateTransactionUseCase`.
 
+**Порты (domain):** `UserCategorySource` (`categoryPrompt.ts`, реализует `CategoryCatalog`) — категории для
+промпта; `LearnedCategoryWords` (`categoryGuess.ts`, реализует `TransactionLearningService`) — выученные слова
+по ключу стартовой категории: категория, которую они дают, не догадка ИИ (FT-138, `docs/pastel/api.md`).
+
 ---
 
 ## 6. OpenAIUsageModule
@@ -442,7 +446,7 @@ export function createModules() {
 
   // 4. Модули, которым нужны subscription/limits и категории
   const debtModule = DebtModule.create(transactionModule, subscriptionModule, userModule);
-  const voiceModule = new VoiceProcessingModule(openAIService, transactionModule, debtModule, categoryModule.getCatalog());
+  const voiceModule = new VoiceProcessingModule(openAIService, transactionModule, debtModule, categoryModule.getCatalog(), transactionLearning);
   const quickCaptureModule = QuickCaptureModule.create(voiceModule);
 
   return { categoryModule, transactionModule, budgetModule, debtModule, voiceModule, quickCaptureModule,

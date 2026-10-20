@@ -91,6 +91,21 @@ export function presetKeyForLearning(value: string): string {
 }
 
 /**
+ * Every dictionary word of a starter category (FT-138): its default name and the ids, names and aliases of
+ * the old categories it absorbed — the words `presetForLegacyCategory` resolves to it. Unlike `presetHints`
+ * nothing is left out: such a word in a phrase means the dictionary gave the category, not the AI.
+ */
+export function presetSynonyms(preset: CategoryPreset): string[] {
+  const words = new Set<string>([preset.name]);
+  for (const legacyId of preset.legacyIds) {
+    const legacy = getCategoryById(legacyId);
+    if (!legacy) continue;
+    for (const word of [legacy.id, legacy.name, ...legacy.aliases]) words.add(word);
+  }
+  return [...words];
+}
+
+/**
  * Words that point at a starter category: the names and aliases of the old categories it absorbed.
  * The starter's own default name stays among them — after a rename it is still a good hint.
  */
