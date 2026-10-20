@@ -381,7 +381,7 @@ export async function analysisContextFor(source: UserCategorySource | undefined,
 
 /**
  * Learned words of the starter categories, for the category guess rule (FT-138). Without them every
- * category the AI chose that the words do not name stays a guess — the capture goes on.
+ * category the words do not name stays a guess — the capture goes on.
  */
 export async function learnedWordsFor(source: LearnedCategoryWords | undefined): Promise<ReadonlyMap<string, readonly string[]>> {
   if (!source) return new Map();
@@ -391,6 +391,15 @@ export async function learnedWordsFor(source: LearnedCategoryWords | undefined):
     logger.error('Failed to read learned category words', error as Error);
     return new Map();
   }
+}
+
+/**
+ * How a record's category was set (FT-138): by the AI, or on a fast path from the label — unless the path
+ * set it by the record's kind: a transfer, savings or cash withdrawal goes to «Другое», no word chose it.
+ */
+function categoryChosenBy(fastPath: boolean, semanticType: TransactionSemanticType): 'ai' | 'words' | 'kind' {
+  if (!fastPath) return 'ai';
+  return semanticType === 'expense' || semanticType === 'income' ? 'words' : 'kind';
 }
 
 export class ProcessTextInputUseCase {
@@ -413,9 +422,9 @@ export class ProcessTextInputUseCase {
     const local = parseObviousSemanticTransaction(text) || parseSimpleTextTransaction(text);
     // Fall back to OpenAI for complex/natural-language inputs, with the user's categories
     const parsed = local || await this.openAIService.analyzeInput(text, await analysisContextFor(this.categorySource, userId));
-    // The text paths take the category from the words; only the AI's own choice can be a guess (FT-138)
-    const chosenBy = local ? 'text' : 'ai';
-    const learned = chosenBy === 'ai' ? await learnedWordsFor(this.learnedWords) : new Map<string, readonly string[]>();
+    // A category no word of the record names is a guess (FT-138): the AI's own choice, or «Другое» for a
+    // label the text path did not recognise
+    const learned = parsed.transactions.length > 0 ? await learnedWordsFor(this.learnedWords) : new Map<string, readonly string[]>();
 
     // Only a single-transaction parse is checked against the text's currency markers. In
     // multi-item text ("продукты 12000 сум и такси 30000") each number belongs to its own
@@ -497,7 +506,7 @@ export class ProcessTextInputUseCase {
                 name: transaction.category,
                 type: transaction.type,
                 presetKey: category?.presetKey ?? null,
-                chosenBy,
+                chosenBy: categoryChosenBy(local !== null, semanticType),
                 words: recordWordsOf(text, p, transactions.length),
                 learnedWords: category?.presetKey ? learned.get(category.presetKey) : undefined,
               },

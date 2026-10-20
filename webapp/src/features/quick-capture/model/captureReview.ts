@@ -22,7 +22,7 @@ export interface ReviewItem {
   currency: Currency;
   note: string;
   categoryId: string | null;
-  /** The category is the AI's guess (`assumptions`: one the AI chose itself, FT-138), not confirmed yet. */
+  /** The category is a guess (`assumptions`: no word of the record names it, FT-138), not confirmed yet. */
   guessed: boolean;
   accountId: string | null;
   date: LocalDate;

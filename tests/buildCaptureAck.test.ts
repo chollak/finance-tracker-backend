@@ -136,6 +136,14 @@ describe('buildCaptureAck', () => {
       // Without a note the category is the label, still marked
       expect(buildCaptureAck([captured({ ...guessed, description: undefined, merchant: undefined, amount: 180000 })], { today: TODAY }).summary)
         .toBe('Покупки? · 180 000 сум');
+      // A note that is the category name stands for it, so it keeps the mark too
+      expect(buildCaptureAck([captured({ ...guessed, description: 'покупки', amount: 180000 })], { today: TODAY }).summary)
+        .toBe('Покупки? · 180 000 сум');
+      // In a multi-record ack too, where the category is left out
+      expect(buildCaptureAck([
+        captured({ ...guessed, id: 'tx-1', description: 'покупки', amount: 180000 }),
+        captured({ ...guessed, id: 'tx-2', description: 'Uzum', amount: 20000 }),
+      ], { today: TODAY }).summary).toBe('Покупки? · 180 000 сум\nUzum · 20 000 сум');
       // A category the text gave carries no mark
       expect(buildCaptureAck([captured({ assumptions: [{ kind: 'account', name: 'Карта', reason: 'default' }] })], { today: TODAY }).summary)
         .toBe('Такси · 18 000 сум · Транспорт');

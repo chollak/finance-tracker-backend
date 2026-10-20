@@ -23,9 +23,9 @@ export interface QuickCaptureRequest {
 }
 
 /**
- * What the parse took for granted (FT-103): «45» read as 45 000, a category the AI chose itself (FT-138: not
- * one the words name by its name, the category dictionary or a learned pattern), the account it chose, dollars
- * parked on a сум account.
+ * What the parse took for granted (FT-103): «45» read as 45 000, a category no word of the record names (FT-138:
+ * the AI's own choice, or «Другое» for a word nothing recognised — not one its name, the category dictionary or a
+ * learned pattern gave), the account it chose, dollars parked on a сум account.
  */
 export type CaptureAssumption =
   | { kind: 'thousands'; written: string; amount: number }

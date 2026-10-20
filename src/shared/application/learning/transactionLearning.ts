@@ -2,6 +2,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { createLogger, LogCategory } from '../logging';
 import { CATEGORY_PRESETS, presetKeyForLearning } from '../../../modules/category/domain/categoryPresets';
+import { namingWordsOf } from '../../../modules/voiceProcessing/domain/categoryGuess';
 
 const logger = createLogger(LogCategory.LEARNING);
 
@@ -162,27 +163,20 @@ export class TransactionLearningService {
   }
 
   /**
-   * Learned words by starter key (FT-138): the keywords of category patterns and the aliases of merchants
-   * with a category, from the patterns the AI prompt shows. Bare numbers («25000») name nothing.
+   * Learned words that name a starter category, by its key (FT-138): from the patterns the AI prompt shows,
+   * the aliases of merchants with a category and those keywords of category patterns that point at it —
+   * not «купил», «деньги» or a word two categories share (`namingWordsOf`).
    */
   async learnedCategoryWords(): Promise<Map<string, string[]>> {
     const patterns = await this.loadPatterns();
-    const words = new Map<string, string[]>();
-    const add = (key: string, word: string) => {
-      if (!/\p{L}/u.test(word)) return;
-      const list = words.get(key) ?? [];
-      if (!list.includes(word)) list.push(word);
-      words.set(key, list);
-    };
-    for (const pattern of patterns.categories) {
-      if (pattern.usageCount < MIN_PATTERN_USES) continue;
-      for (const keyword of pattern.keywords) add(pattern.category, keyword);
-    }
-    for (const merchant of patterns.merchants) {
-      if (merchant.usageCount < MIN_PATTERN_USES || !merchant.category) continue;
-      for (const alias of merchant.aliases) add(merchant.category, alias);
-    }
-    return words;
+    return namingWordsOf({
+      categories: patterns.categories
+        .filter(pattern => pattern.usageCount >= MIN_PATTERN_USES)
+        .map(pattern => ({ key: pattern.category, keywords: pattern.keywords })),
+      merchants: patterns.merchants
+        .filter(merchant => merchant.usageCount >= MIN_PATTERN_USES && merchant.category)
+        .map(merchant => ({ key: merchant.category!, aliases: merchant.aliases })),
+    });
   }
 
   private async updatePatterns(learningEntry: LearningData): Promise<void> {

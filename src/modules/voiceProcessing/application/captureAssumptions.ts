@@ -21,8 +21,8 @@ function asNumber(token: string): number {
 /**
  * What the parse assumed about one record (FT-103):
  * - a bare «45» read as 45 000 — the amount is a thousand times a number written without «к»/«тыс»;
- * - a category the AI chose itself (FT-138): not one the record's words name — by its name, a dictionary
- *   word or a learned word — and not one the text paths read from the words without the AI;
+ * - a category no word of the record names — by its name, a dictionary word or a learned word (FT-138): the
+ *   AI's own choice, or «Другое» for a word a text path did not recognise; never one the record's kind set;
  * - the account, and whether a word in the text chose it or it is the default;
  * - dollars on a сум account, because the user has no dollar account (the record awaits review).
  */
@@ -30,8 +30,12 @@ export function captureAssumptions(input: {
   text: string;
   amount: number;
   category: CategoryOfRecord & {
-    /** `ai` when the parser chose it; `text` when a text path read it from the words. */
-    chosenBy: 'ai' | 'text';
+    /**
+     * `ai` — the parser chose it; `words` — a text path read it from the label («такси 18000»), so a label
+     * the dictionary does not know lands in «Другое» unnamed; `kind` — a fast path set it by the record's kind
+     * (a transfer, savings or cash withdrawal goes to «Другое»).
+     */
+    chosenBy: 'ai' | 'words' | 'kind';
     /** The words of this record (`recordWordsOf`). */
     words: string;
     /** What learned patterns tie to its starter category. */
@@ -50,7 +54,7 @@ export function captureAssumptions(input: {
   }
 
   const { category } = input;
-  if (category.chosenBy === 'ai' && !categoryNamedIn(category.words, category, category.learnedWords)) {
+  if (category.chosenBy !== 'kind' && !categoryNamedIn(category.words, category, category.learnedWords)) {
     assumptions.push({ kind: 'category', name: category.name });
   }
 

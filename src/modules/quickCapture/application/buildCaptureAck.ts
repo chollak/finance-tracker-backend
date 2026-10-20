@@ -47,14 +47,19 @@ function shownCategory(transaction: CapturedTransaction, name: string): string {
 /**
  * `withCategory` is dropped for multi-item acks so each line stays scannable, and it is
  * also dropped when the label we have *is* the category name (no "Транспорт · Транспорт"),
- * including when the parser echoes it in another case ("кофе" for "Кофе").
+ * including when the parser echoes it in another case ("кофе" for "Кофе"). Such a label
+ * stands for the category, so a guessed one keeps its «?»: "Покупки? · 180 000 сум".
  */
 function summaryLine(transaction: CapturedTransaction, withCategory: boolean): string {
   const name = categoryName(transaction.category);
   const label = transaction.description?.trim() || transaction.merchant?.trim() || '';
+  const labelIsCategory = !label || sameLabel(label, name);
 
-  const parts = [label ? capitalize(label) : shownCategory(transaction, capitalize(name)), formatAmountWithCurrency(transaction)];
-  if (withCategory && label && !sameLabel(label, name)) {
+  const parts = [
+    labelIsCategory ? shownCategory(transaction, capitalize(label || name)) : capitalize(label),
+    formatAmountWithCurrency(transaction),
+  ];
+  if (withCategory && !labelIsCategory) {
     parts.push(shownCategory(transaction, name));
   }
 

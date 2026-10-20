@@ -4,7 +4,7 @@ import path from 'path';
 import { ProcessTextInputUseCase } from '../src/modules/voiceProcessing/application/processTextInput';
 import { ProcessVoiceInputUseCase } from '../src/modules/voiceProcessing/application/processVoiceInput';
 import { TranscriptionService } from '../src/modules/voiceProcessing/domain/transcriptionService';
-import { categoryNamedIn, LearnedCategoryWords } from '../src/modules/voiceProcessing/domain/categoryGuess';
+import { categoryNamedIn, LearnedCategoryWords, namingWordsOf, recordWordsOf } from '../src/modules/voiceProcessing/domain/categoryGuess';
 import { TransactionLearningService } from '../src/shared/application/learning/transactionLearning';
 import { buildCaptureAck } from '../src/modules/quickCapture/application/buildCaptureAck';
 import { toCapturedTransaction } from '../src/modules/quickCapture/application/toCapturedTransaction';
@@ -12,14 +12,19 @@ import { openMigratedDatabase, TestDatabase } from './helpers/testDatabase';
 import { recordsOn } from './helpers/records';
 
 /**
- * FT-138, decision of 2026-10-20: «?» on a category only when the AI picked it itself. A category the text
- * names — by the user's name of it, by a word of the category dictionary, or by a word a learned pattern ties
- * to it — is not a guess, and neither is one the text paths read from the words without the AI.
+ * FT-138, decision of 2026-10-20: «?» on a category only when no word of the record names it — by the user's
+ * name of it, by a word of the category dictionary, or by a word a learned pattern ties to it. So the AI's own
+ * choice is a guess, and so is «Другое» for a word a text path did not recognise (decided on review); one the
+ * record's kind sets on a fast path (a transfer) is not.
  */
 
 const CAFE = { name: 'Кафе', type: 'expense' as const, presetKey: 'cafe' };
 const GROCERIES = { name: 'Продукты', type: 'expense' as const, presetKey: 'groceries' };
 const FREELANCE = { name: 'Фриланс', type: 'income' as const, presetKey: 'freelance' };
+const HOME = { name: 'Дом', type: 'expense' as const, presetKey: 'home' };
+const TRANSPORT = { name: 'Транспорт', type: 'expense' as const, presetKey: 'transport' };
+const OTHER = { name: 'Другое', type: 'expense' as const, presetKey: 'other' };
+const SEED = path.join(__dirname, '..', 'data', 'patterns.seed.json');
 
 describe('whether the words name the category (FT-138)', () => {
   it('the user’s own name of the category, in any case and with «ё» as «е»', () => {
@@ -40,6 +45,27 @@ describe('whether the words name the category (FT-138)', () => {
     expect(categoryNamedIn('кофе с собой', { ...CAFE, name: 'Кофейни' })).toBe(true);
   });
 
+  it('another ending is a short one: an inflection, not another word', () => {
+    expect(categoryNamedIn('с продуктами', GROCERIES)).toBe(true);
+    expect(categoryNamedIn('в аптеках', { name: 'Здоровье', type: 'expense', presetKey: 'health' })).toBe(true);
+    // «обед|енный», «аптек|арский» are other words
+    expect(categoryNamedIn('обеденный перерыв', CAFE)).toBe(false);
+    expect(categoryNamedIn('аптекарский', { name: 'Здоровье', type: 'expense', presetKey: 'health' })).toBe(false);
+  });
+
+  it('a dictionary word whose stem starts an everyday word of another meaning counts only as written', () => {
+    // «оплата» (old «Счета», now «Дом») is not «оплатил», «дорога» (Транспорт) is not «дорого»
+    expect(categoryNamedIn('оплатил садик 500к.', HOME)).toBe(false);
+    expect(categoryNamedIn('дорого вышло 100к.', TRANSPORT)).toBe(false);
+    expect(categoryNamedIn('дорогой ужин 300к', TRANSPORT)).toBe(false);
+    expect(categoryNamedIn('перевёл другу 500к', OTHER)).toBe(false);
+    expect(categoryNamedIn('обменял 100$ по курсу 12 700', OTHER)).toBe(false);
+    // as written they still name their category
+    expect(categoryNamedIn('оплата за садик 500к', HOME)).toBe(true);
+    expect(categoryNamedIn('дорога до Самарканда 200к', TRANSPORT)).toBe(true);
+    expect(categoryNamedIn('курсы английского 900к', OTHER)).toBe(true);
+  });
+
   it('a word only inside another word does not count', () => {
     // «чай» of the coffee dictionary is not in «случайно», «вода» of home bills is not in «водитель»
     expect(categoryNamedIn('случайно', CAFE)).toBe(false);
@@ -55,6 +81,51 @@ describe('whether the words name the category (FT-138)', () => {
   it('words that point at another category do not name this one', () => {
     expect(categoryNamedIn('за лендинг', FREELANCE)).toBe(false);
     expect(categoryNamedIn('такси до работы', CAFE)).toBe(false);
+  });
+});
+
+describe('the words of one record in a phrase of several (FT-138)', () => {
+  it('are the phrase’s words the AI’s note or merchant has, also with another ending', () => {
+    expect(recordWordsOf('купил продуктов на 50к и такси 20к', { description: 'продукты' }, 2)).toBe('продуктов');
+    expect(recordWordsOf('такси 20к и самокат 15к', { description: 'Такси', merchant: 'Yandex Go' }, 2)).toBe('такси');
+    expect(recordWordsOf('uzum 180к и такси 20к', { description: 'Покупки на Uzum', merchant: 'Uzum' }, 2)).toBe('uzum');
+  });
+
+  it('a phrase of one record is all its own', () => {
+    expect(recordWordsOf('купил продуктов на 50к', { description: 'Продукты' }, 1)).toBe('купил продуктов на 50к');
+  });
+});
+
+describe('which learned words name a category (FT-138 review)', () => {
+  it('a keyword of a category pattern, but not a generic word, a short word or one with digits', () => {
+    const words = namingWordsOf({
+      categories: [{ key: 'cafe', keywords: ['купила', 'шаурму,', 'деньгами', 'вчера', 'для', '25к', 'на', 'потратил'] }],
+      merchants: [],
+    });
+
+    expect(words.get('cafe')).toEqual(['шаурму']);
+  });
+
+  it('not a word the patterns of two categories share', () => {
+    const words = namingWordsOf({
+      categories: [
+        { key: 'cafe', keywords: ['самса', 'чиланзар'] },
+        { key: 'transport', keywords: ['метан', 'чиланзар'] },
+      ],
+      merchants: [],
+    });
+
+    expect(words.get('cafe')).toEqual(['самса']);
+    expect(words.get('transport')).toEqual(['метан']);
+  });
+
+  it('every merchant alias with a category, but not a bare number', () => {
+    const words = namingWordsOf({
+      categories: [],
+      merchants: [{ key: 'shopping', aliases: ['uzum market', '1234'] }],
+    });
+
+    expect(words.get('shopping')).toEqual(['uzum market']);
   });
 });
 
@@ -91,6 +162,15 @@ describe('learned words for the guess rule (FT-138)', () => {
 
   it('are empty without patterns', async () => {
     expect((await new TransactionLearningService(tempDir).learnedCategoryWords()).size).toBe(0);
+  });
+
+  it('from the shipped seed: «потратил», «деньги», «купил» name nothing, «evos» and «заправился» do', async () => {
+    fs.copyFileSync(SEED, path.join(tempDir, 'data', 'patterns.seed.json'));
+
+    const words = await new TransactionLearningService(tempDir).learnedCategoryWords();
+
+    expect(words.get('cafe')).toEqual(['evos', 'maxway']);
+    expect(words.get('transport')).toEqual(['заправился', 'азс', 'такси', 'yandex']);
   });
 });
 
@@ -130,11 +210,27 @@ describe('the category guess of a capture (FT-138)', () => {
       ]);
     });
 
-    it('an unknown word lands in «Другое» without a guess: nobody picked it', async () => {
+    it('a word the dictionary does not know lands in «Другое» as a guess: nobody chose it (decided on review)', async () => {
       const result = await capture.execute('стрижка 50000', 'user-1');
 
       expect(openAI.analyzeInput).not.toHaveBeenCalled();
       expect(result.transactions[0].category).toBe('Другое');
+      expect(guessOf(result.transactions[0].assumptions)).toEqual({ kind: 'category', name: 'Другое' });
+    });
+
+    it('«Другое» the dictionary gives is not a guess («кино» was «Развлечения»)', async () => {
+      const result = await capture.execute('кино 80000', 'user-1');
+
+      expect(openAI.analyzeInput).not.toHaveBeenCalled();
+      expect(result.transactions[0].category).toBe('Другое');
+      expect(guessOf(result.transactions[0].assumptions)).toBeUndefined();
+    });
+
+    it('a transfer goes to «Другое» by its kind — no guess', async () => {
+      const result = await capture.execute('перевел 500000 на Alif', 'user-1');
+
+      expect(openAI.analyzeInput).not.toHaveBeenCalled();
+      expect(result.transactions[0]).toEqual(expect.objectContaining({ category: 'Другое', semanticType: 'own_transfer' }));
       expect(guessOf(result.transactions[0].assumptions)).toBeUndefined();
     });
   });
@@ -172,6 +268,20 @@ describe('the category guess of a capture (FT-138)', () => {
 
       expect(guessOf(result.transactions[0].assumptions)).toBeUndefined();
       expect(guessOf(result.transactions[1].assumptions)).toEqual({ kind: 'category', name: 'Транспорт' });
+    });
+
+    it('a record’s note with another ending than the phrase still gives the phrase’s word', async () => {
+      openAI.analyzeInput.mockResolvedValue({
+        transactions: [
+          { intent: 'transaction', amount: 50000, category: 'Продукты', type: 'expense', description: 'продукты', date: '2026-10-14' },
+          { intent: 'transaction', amount: 20000, category: 'Транспорт', type: 'expense', description: 'такси', date: '2026-10-14' },
+        ],
+        debts: [],
+      });
+
+      const result = await capture.execute('купил продуктов на 50к и такси 20к', 'user-1');
+
+      expect(result.transactions.map(t => guessOf(t.assumptions))).toEqual([undefined, undefined]);
     });
 
     it('a word the AI wrote into its note but the phrase does not have does not count', async () => {
@@ -213,6 +323,59 @@ describe('the category guess of a capture (FT-138)', () => {
 
       expect(result.transactions).toHaveLength(1);
       expect(guessOf(result.transactions[0].assumptions)).toEqual({ kind: 'category', name: 'Покупки' });
+    });
+  });
+
+  describe('with the shipped learned patterns (FT-138 review)', () => {
+    let tempDir: string;
+
+    const answer = (category: string) => openAI.analyzeInput.mockResolvedValue({
+      transactions: [{ intent: 'transaction', amount: 35000, category, type: 'expense', date: '2026-10-14' }],
+      debts: [],
+    });
+
+    beforeEach(() => {
+      tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'shipped-patterns-'));
+      fs.mkdirSync(path.join(tempDir, 'data'), { recursive: true });
+      fs.copyFileSync(SEED, path.join(tempDir, 'data', 'patterns.seed.json'));
+      capture = new ProcessTextInputUseCase(openAI as unknown as TranscriptionService, records.create, undefined, records.catalog, new TransactionLearningService(tempDir));
+    });
+
+    afterEach(() => {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    });
+
+    it('«купил» of the seed does not name «Кафе»: the AI’s choice stays a guess', async () => {
+      answer('Кафе');
+      const shawarma = await capture.execute('купил шаурму 35к', 'user-1');
+      const ordered = await capture.execute('заказал шаурму 35к.', 'user-1');
+
+      expect(openAI.analyzeInput).toHaveBeenCalledTimes(2);
+      expect(guessOf(shawarma.transactions[0].assumptions)).toEqual({ kind: 'category', name: 'Кафе' });
+      expect(guessOf(ordered.transactions[0].assumptions)).toEqual({ kind: 'category', name: 'Кафе' });
+    });
+
+    it('a word of the seed that points at a category still gives it', async () => {
+      answer('Транспорт');
+      const result = await capture.execute('заправился на 200к.', 'user-1');
+
+      expect(openAI.analyzeInput).toHaveBeenCalled();
+      expect(guessOf(result.transactions[0].assumptions)).toBeUndefined();
+    });
+
+    it('a learned merchant alias gives the category; «evos» too', async () => {
+      const seed = JSON.parse(fs.readFileSync(SEED, 'utf-8'));
+      fs.writeFileSync(path.join(tempDir, 'data', 'patterns.json'), JSON.stringify({
+        ...seed,
+        merchants: [{ aliases: ['oqtepa'], normalizedName: 'Oqtepa Lavash', category: 'cafe', usageCount: 2 }],
+      }));
+      answer('Кафе');
+
+      const oqtepa = await capture.execute('купил в oqtepa 35к', 'user-1');
+      const evos = await capture.execute('купил в evos 35к', 'user-1');
+
+      expect(guessOf(oqtepa.transactions[0].assumptions)).toBeUndefined();
+      expect(guessOf(evos.transactions[0].assumptions)).toBeUndefined();
     });
   });
 
