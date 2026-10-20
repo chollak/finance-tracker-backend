@@ -22,11 +22,15 @@ export class SqliteUserSettingsRepository implements UserSettingsRepository {
     return entity ? this.toDomain(entity) : null;
   }
 
+  /**
+   * One statement, `INSERT … ON CONFLICT (user_id) DO UPDATE`: a new user's first changes may come at once
+   * (FT-140), and `save()` — a read, then an insert — let two of them insert the same row.
+   */
   async upsert(settings: UserSettings): Promise<UserSettings> {
-    await this.repository.save(this.repository.create({
-      ...settings,
-      onboardedAt: settings.onboardedAt ? new Date(settings.onboardedAt) : null,
-    }));
+    await this.repository.upsert(
+      { ...settings, onboardedAt: settings.onboardedAt ? new Date(settings.onboardedAt) : null },
+      ['userId']
+    );
     const stored = await this.findByUserId(settings.userId);
     if (!stored) throw new Error(`Failed to save settings for user ${settings.userId}`);
     return stored;

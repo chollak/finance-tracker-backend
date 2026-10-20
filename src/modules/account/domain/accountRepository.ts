@@ -11,6 +11,8 @@ export interface AccountRepository {
   findByUserId(userId: string): Promise<Account[]>;
   findById(id: string): Promise<Account | null>;
   create(account: Account): Promise<Account>;
+  /** Inserts unless an account with this id exists; never fails on the key (FT-140: a new user's «Карта»). */
+  createIfMissing(account: Account): Promise<void>;
   update(id: string, changes: AccountChanges): Promise<Account>;
   /** Balance change of each account from its opening date: records by type, plus moves (FT-104). */
   balanceChanges(userId: string): Promise<Map<string, number>>;

@@ -53,26 +53,23 @@ export class AccountBook implements AccountResolver {
   /**
    * All of the user's accounts, hidden included; «Карта» is created for a user without any. Its id comes
    * from the user (`starterAccountId`), so concurrent first requests end up with one «Карта»: the
-   * insert that loses the race fails on the key and is ignored.
+   * insert that loses the race is skipped (FT-140).
    */
   async listForUser(userId: string): Promise<Account[]> {
     const accounts = await this.repository.findByUserId(userId);
     if (accounts.length > 0) return accounts;
-    try {
-      await this.repository.create({
-        id: starterAccountId(userId),
-        userId,
-        ...DEFAULT_ACCOUNT,
-        openingBalanceMinor: 0,
-        openingDate: todayDateOnly(),
-        isHidden: false,
-        sortOrder: 10,
-      });
-    } catch (error) {
-      const created = await this.repository.findById(starterAccountId(userId));
-      if (!created) throw error;
-    }
-    return this.repository.findByUserId(userId);
+    await this.repository.createIfMissing({
+      id: starterAccountId(userId),
+      userId,
+      ...DEFAULT_ACCOUNT,
+      openingBalanceMinor: 0,
+      openingDate: todayDateOnly(),
+      isHidden: false,
+      sortOrder: 10,
+    });
+    const created = await this.repository.findByUserId(userId);
+    if (created.length === 0) throw new Error(`Starter account for user ${userId} not created`);
+    return created;
   }
 
   /** Accounts with balances, and the total of the visible ones in сум. */

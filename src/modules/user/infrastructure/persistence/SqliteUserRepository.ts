@@ -63,13 +63,38 @@ export class SqliteUserRepository implements UserRepository {
     await this.repository.delete(id);
   }
 
+  /**
+   * The first requests of a new user come at once (FT-140): each may find no user and insert. The insert
+   * skips a row another request already added (`telegram_id` is unique) and the user is read back, so
+   * there is one row and every caller gets it. Unlike `save()`, it opens no transaction and never fails
+   * on the key: on SQLite TypeORM shares one connection, and a failed `save()` rolled back what other
+   * requests had just written in its transaction.
+   */
   async getOrCreate(dto: CreateUserDTO): Promise<UserDomain> {
     const existing = await this.findByTelegramId(dto.telegramId);
     if (existing) {
       await this.updateLastSeen(existing.id);
       return existing;
     }
-    return this.create(dto);
+
+    await this.repository
+      .createQueryBuilder()
+      .insert()
+      .values({
+        telegramId: dto.telegramId,
+        userName: dto.userName,
+        firstName: dto.firstName,
+        lastName: dto.lastName,
+        languageCode: dto.languageCode || 'ru',
+      })
+      .orIgnore()
+      .execute();
+
+    const user = await this.findByTelegramId(dto.telegramId);
+    if (!user) {
+      throw new Error('User not found after create');
+    }
+    return user;
   }
 
   private mapToUser(entity: UserEntity): UserDomain {

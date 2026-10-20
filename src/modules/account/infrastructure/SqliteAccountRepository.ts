@@ -29,6 +29,10 @@ export class SqliteAccountRepository implements AccountRepository {
     return created;
   }
 
+  async createIfMissing(account: Account): Promise<void> {
+    await this.repository.createQueryBuilder().insert().values({ ...account }).orIgnore().execute();
+  }
+
   async update(id: string, changes: AccountChanges): Promise<Account> {
     if (Object.keys(changes).length > 0) await this.repository.update(id, changes);
     const updated = await this.findById(id);
