@@ -86,7 +86,7 @@ beforeEach(() => {
     return { success: true, data: settings } as never;
   });
   useUserStore.setState({ userId: USER_ID, userType: 'telegram', telegramId: USER_ID, userName: 'Шукур' });
-  useThemeStore.setState({ preference: 'telegram', resolved: 'light' });
+  useThemeStore.setState({ preference: 'telegram', resolved: 'light', automatic: 'light' });
   useUndoToastStore.setState({ stack: [], openSheets: 0 });
   container = document.createElement('div');
   document.body.appendChild(container);
@@ -167,7 +167,11 @@ describe('«Ещё» in Telegram', () => {
       { title: 'Деньги', rows: [`Счета и курс доллара · 3 счёта · курс ЦБ 12${NBSP}650`, 'Категории · 8 для расходов, 8 для доходов', 'Ревизия трат · Скоро: разбор трат прошлого месяца'] },
       {
         title: 'Бот в Telegram',
-        rows: ['Сводка дня · Каждый вечер в 21:00', 'Звать на ревизию · 1-го числа в 10:00, за прошлый месяц', 'Цели и подписки · Когда цель близка к лимиту и перед списанием подписки'],
+        rows: [
+          'Сводка дня · Каждый вечер в 21:00',
+          'Звать на ревизию · Скоро: 1-го числа в 10:00',
+          'Цели и подписки · Скоро: когда цель близка к лимиту и перед списанием подписки',
+        ],
       },
       { title: 'Вид', rows: ['Тема · Как в Telegram'] },
       { title: 'Данные', rows: ['Скачать все записи · Скоро: файл CSV придёт в чат с ботом'] },
@@ -242,13 +246,15 @@ describe('«Ещё» in Telegram', () => {
     expect(squash(sheet()?.textContent)).toContain('Раз в месяц бот позовёт разобрать траты прошлого месяца: что было нужно, а что лишнее.');
     expect(squash(sheet()!.querySelector('[role="switch"]')?.textContent)).toBe('Звать 1-го числа');
     expect(squash(sheet()?.textContent)).toContain('Во сколько звать');
+    // Nothing is sent before there is an audit: the sheet says when it starts
+    expect(squash(sheet()?.textContent)).toContain('Ревизия появится скоро — тогда бот и начнёт звать.');
     expect([...sheet()!.querySelectorAll('[role="radio"]')].map((time) => time.textContent)).toEqual(['09:00', '10:00', '12:00', '19:00']);
 
     await press(inSheet('19:00'));
     await press(inSheet('Готово'));
 
     expect(apiClient.patch).toHaveBeenLastCalledWith('/settings', { auditTime: '19:00' });
-    expect(sections()[1].rows[1]).toBe('Звать на ревизию · 1-го числа в 19:00, за прошлый месяц');
+    expect(sections()[1].rows[1]).toBe('Звать на ревизию · Скоро: 1-го числа в 19:00');
   });
 
   it('«Цели и подписки»: a switch without a time', async () => {
@@ -256,6 +262,7 @@ describe('«Ещё» in Telegram', () => {
 
     await press(row('Цели и подписки'));
     expect(squash(sheet()?.textContent)).toContain('Днём, если трата по цели из ревизии подходит к лимиту, и за день до списания подписки, которую вы решили отменить.');
+    expect(squash(sheet()?.textContent)).toContain('Цели и подписки появятся с ревизией — тогда бот и начнёт предупреждать.');
     expect(sheet()!.querySelectorAll('[role="radio"]')).toHaveLength(0);
 
     await press(sheet()!.querySelector('[role="switch"]')!);
@@ -278,6 +285,8 @@ describe('«Ещё» in Telegram', () => {
 
   it('«Тема»: three choices, the automatic one saying what Telegram has now; a choice applies at once and is saved', async () => {
     telegram('dark');
+    // What ThemeController (not mounted here) keeps from Telegram's colorScheme
+    useThemeStore.setState({ resolved: 'dark', automatic: 'dark' });
     await renderMore();
 
     await press(row('Тема'));
@@ -312,6 +321,16 @@ describe('«Ещё» by a direct link', () => {
     expect(sections()[4].rows).toEqual(['Шукур · Вход через Telegram']);
     // Outside Telegram the screen has its own «Назад»
     expect(document.body.querySelector('button[aria-label="Назад"]')).not.toBeNull();
+  });
+
+  it('the header with «Назад» stays while the list scrolls under it (board: the header is fixed)', async () => {
+    await renderMore();
+
+    const pinned = document.body.querySelector('button[aria-label="Назад"]')?.closest('.sticky');
+    expect(pinned?.className.split(' ')).toEqual(expect.arrayContaining(['sticky', 'top-0', 'bg-bg']));
+    expect(pinned?.querySelector('h1')?.textContent).toBe('Ещё');
+    // The sections are not inside it: they scroll
+    expect(pinned?.querySelector('section')).toBeNull();
   });
 
   it('a guest: the bot\'s notices need an account, the theme still changes on this device', async () => {

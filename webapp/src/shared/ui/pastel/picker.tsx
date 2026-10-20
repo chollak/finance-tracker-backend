@@ -157,18 +157,21 @@ interface OptionPickerProps {
   footnote?: ReactNode;
   /** A press selects and the sheet stays open: the choice shows at once behind it («Тема», FT-125). */
   keepOpen?: boolean;
+  /** 4px above the first option and under the last, as the lists of «Ещё» draw their cards (board «Тема»). */
+  padded?: boolean;
 }
 
 /**
  * A choice of a few named options, as the account choice draws it (Picker.md): a `sheet-card` with 60px rows — the
- * name `body-strong`, an optional `label` line under it, a radio circle on the right. A press selects and closes,
- * unless `keepOpen`.
+ * name `body-strong`, an optional `label` line under it, a radio circle on the right. The lines between the rows
+ * start 16px in, under the text (boards «Компонент · шторка выбора», «Тема»). A press selects and closes, unless
+ * `keepOpen`.
  */
-export function OptionPicker({ open, onOpenChange, title, options, selectedId, onSelect, footnote, keepOpen = false }: OptionPickerProps) {
+export function OptionPicker({ open, onOpenChange, title, options, selectedId, onSelect, footnote, keepOpen = false, padded = false }: OptionPickerProps) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange} title={title}>
-      <div role="radiogroup" aria-label={title} className="overflow-hidden rounded-card bg-sheet-card [&>*+*]:border-t [&>*+*]:border-line">
-        {options.map((option) => {
+      <div role="radiogroup" aria-label={title} className={cn('overflow-hidden rounded-card bg-sheet-card', padded && 'py-1')}>
+        {options.map((option, index) => {
           const checked = option.id === selectedId;
           return (
             <button
@@ -180,7 +183,12 @@ export function OptionPicker({ open, onOpenChange, title, options, selectedId, o
                 onSelect(option);
                 if (!keepOpen) onOpenChange(false);
               }}
-              className="flex min-h-row w-full items-center gap-3 px-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ink"
+              className={cn(
+                'relative flex min-h-row w-full items-center gap-3 px-4 py-2 text-left',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ink',
+                // The line between rows starts under the text; the row itself is pressable edge to edge
+                index > 0 && 'before:absolute before:inset-x-4 before:top-0 before:h-px before:bg-line'
+              )}
             >
               <span className="flex min-w-0 flex-1 flex-col">
                 <span className="type-body-strong truncate text-ink">{option.name}</span>

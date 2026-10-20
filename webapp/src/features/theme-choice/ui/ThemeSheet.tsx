@@ -1,4 +1,4 @@
-import { automaticTheme } from '@/shared/lib/theme';
+import { useThemeStore } from '@/shared/lib/theme';
 import { OptionPicker } from '@/shared/ui/pastel';
 import { themeOptions } from '../model/themeChoice';
 import { useThemeChoice } from '../api/useThemeChoice';
@@ -12,11 +12,13 @@ interface ThemeSheetProps {
 
 /**
  * «Тема» (FT-125, board «Тема»; Picker.md): «Как в Telegram» with what Telegram has now, «Светлая», «Тёмная». A choice
- * applies at once and the sheet stays open, so the new theme is right there to look at; «Закрыть» closes it.
+ * applies at once and the sheet stays open, so the new theme is right there to look at; «Закрыть» closes it. What
+ * Telegram has now follows Telegram while the sheet is open (`themeChanged`, through ThemeController).
  */
 export function ThemeSheet({ open, onOpenChange, inTelegram }: ThemeSheetProps) {
   const { preference, choose } = useThemeChoice();
-  const options = themeOptions(inTelegram, automaticTheme());
+  const automatic = useThemeStore((state) => state.automatic);
+  const options = themeOptions(inTelegram, automatic);
 
   return (
     <OptionPicker
@@ -30,6 +32,7 @@ export function ThemeSheet({ open, onOpenChange, inTelegram }: ThemeSheetProps) 
         if (option) choose(option.value);
       }}
       keepOpen
+      padded
     />
   );
 }

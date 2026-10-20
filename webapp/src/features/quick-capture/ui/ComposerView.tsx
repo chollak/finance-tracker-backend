@@ -1,4 +1,3 @@
-import type { Ref } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/shared/lib/utils';
 import { ROUTES } from '@/shared/lib/constants/routes';
@@ -18,7 +17,6 @@ export interface ComposerViewProps {
   onChip: (chip: QuickChip) => void;
   onVoice: () => void;
   onCamera: () => void;
-  inputRef?: Ref<HTMLInputElement>;
 }
 
 const FOCUS = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink';
@@ -70,7 +68,7 @@ function SendIcon() {
  * amount 500), then the 56px field on `card` with the camera and «Ввести вручную» inside, and the round 56px
  * `primary` button: the microphone while the field is empty, the send arrow once there is text.
  */
-export function ComposerView({ chips, text, sending, onText, onSend, onChip, onVoice, onCamera, inputRef }: ComposerViewProps) {
+export function ComposerView({ chips, text, sending, onText, onSend, onChip, onVoice, onCamera }: ComposerViewProps) {
   const { pathname } = useLocation();
   const openedFrom: OpenedFromState = { from: pathname };
   const hasText = text.trim().length > 0;
@@ -114,7 +112,6 @@ export function ComposerView({ chips, text, sending, onText, onSend, onChip, onV
           <label className="flex h-full min-w-0 flex-1 items-center">
             <span className="sr-only">Новая запись текстом</span>
             <input
-              ref={inputRef}
               type="text"
               value={text}
               onChange={(event) => onText(event.target.value)}

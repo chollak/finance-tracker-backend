@@ -12,7 +12,7 @@ interface NotificationSheetProps {
 /**
  * «Сводка дня», «Звать на ревизию», «Цели и подписки» (FT-125, board «Сводка дня в боте»; Switch.md): what the bot
  * sends and when, the switch and, while it is on, the time. A change applies at once and is saved; «Готово» only
- * closes the sheet.
+ * closes the sheet. A notice the bot does not send yet says when it starts.
  */
 export function NotificationSheet({ kind, onClose, settings, onChange }: NotificationSheetProps) {
   const spec = NOTIFICATIONS[kind];
@@ -37,6 +37,7 @@ export function NotificationSheet({ kind, onClose, settings, onChange }: Notific
         )}
       </div>
       {spec.note && <p className="mx-1 text-[13px] font-semibold leading-[1.45] text-ink-muted">{spec.note}</p>}
+      {spec.soon && <p className="mx-1 text-[13px] font-semibold leading-[1.45] text-ink-muted">{spec.soon.note}</p>}
       <Button inSheet onClick={onClose}>
         Готово
       </Button>

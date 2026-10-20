@@ -12,6 +12,9 @@ import { createSettingsRoutes } from '../src/modules/user/presentation/controlle
 import { NotificationModule } from '../src/modules/notification/notificationModule';
 import { SqliteNotificationLogRepository } from '../src/modules/notification/infrastructure/SqliteNotificationLogRepository';
 import { DailySummarySender } from '../src/modules/notification/application/dailySummaryNotifier';
+import { AUDIT_TIMES, DAILY_SUMMARY_TIMES } from '../src/modules/user/domain/userSettings';
+// The webapp's copy: the time chips of «Сводка дня» and «Звать на ревизию»
+import { AUDIT_TIMES as WEBAPP_AUDIT_TIMES, DAILY_SUMMARY_TIMES as WEBAPP_DAILY_SUMMARY_TIMES } from '../webapp/src/entities/settings/model/options';
 import { openMigratedDatabase, TestDatabase } from './helpers/testDatabase';
 import { startTestServer, TestServer } from './helpers/testServer';
 
@@ -127,5 +130,13 @@ describe('notification settings from «Ещё» drive the scheduler (FT-125)', (
 
     const read = await server.request('GET', '/api/settings', { devUser: TELEGRAM_ID });
     expect(read.body.data).toMatchObject({ auditEnabled: false, auditTime: '19:00', goalAlertsEnabled: false, dailySummaryEnabled: true, dailySummaryTime: '21:00' });
+  });
+});
+
+describe('the time chips of «Ещё» (FT-125)', () => {
+  // A chip the server does not accept would be turned down, and the switch would flip back with «Не получилось»
+  it('are the times PATCH /api/settings accepts, in the same order', () => {
+    expect([...WEBAPP_DAILY_SUMMARY_TIMES]).toEqual([...DAILY_SUMMARY_TIMES]);
+    expect([...WEBAPP_AUDIT_TIMES]).toEqual([...AUDIT_TIMES]);
   });
 });

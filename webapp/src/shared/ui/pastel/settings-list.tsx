@@ -13,7 +13,8 @@ interface SettingsSectionProps {
 export function SettingsSection({ title, note, children }: SettingsSectionProps) {
   return (
     <section className="flex flex-col gap-1.5">
-      <h2 className="px-1 text-[13px] font-bold text-ink-muted">{title}</h2>
+      {/* The board's own line height and spacing (13px Manrope, `normal`), not the 1.12 and tightening of headings */}
+      <h2 className="px-1 text-[13px] font-bold leading-[normal] tracking-normal text-ink-muted">{title}</h2>
       <div className="overflow-hidden rounded-card bg-card py-1 [&>*+*]:border-t [&>*+*]:border-line">{children}</div>
       {note && <p className="mx-1 mt-0.5 text-[13px] font-semibold leading-[1.45] text-ink-muted">{note}</p>}
     </section>

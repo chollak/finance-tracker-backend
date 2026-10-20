@@ -92,7 +92,7 @@ Dexie, react-router 7, sonner, motion (recharts убран в FT-121). Feature-S
 - `features/quick-capture` — отправка текста, разбор ответа (`toCaptureFeedback`); с FT-114 там же `Composer`,
   чипы частых трат и экран проверки записей `/review`.
 - `entities/transaction/lib` — группировка по дням, подписи строк.
-- `shared/lib/formatters`, `plural.ts`, `haptic.ts`, `captureFocus.ts`.
+- `shared/lib/formatters`, `plural.ts`, `haptic.ts`.
 - `useUserStore` (zustand), `shared/hooks/useTelegram.ts`.
 
 **Что заменяется целиком.** Токены и шрифт (Onest, нейтральный shadcn, только светлая тема), нижний бар,

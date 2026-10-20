@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { settingsKeys, type UserSettings } from '@/entities/settings';
 import { useUserStore } from '@/entities/user';
-import { ThemeSettingsSync, useThemeChoice } from '@/features/theme-choice';
+import { ThemeSettingsSync, ThemeSheet, useThemeChoice } from '@/features/theme-choice';
 import { apiClient } from '@/shared/api';
 import { useThemeStore, type ThemePreference } from '@/shared/lib/theme';
 import { useUndoToastStore } from '@/shared/lib/undo';
@@ -78,7 +78,7 @@ beforeEach(() => {
   vi.mocked(apiClient.get).mockImplementation(() => new Promise<never>(() => {}));
   vi.mocked(apiClient.patch).mockReset();
   useUserStore.setState({ userId: USER_ID, userType: 'telegram', telegramId: USER_ID, userName: 'Шукур' });
-  useThemeStore.setState({ preference: 'telegram', resolved: 'light' });
+  useThemeStore.setState({ preference: 'telegram', resolved: 'light', automatic: 'light' });
   useUndoToastStore.setState({ stack: [], openSheets: 0 });
   container = document.createElement('div');
   document.body.appendChild(container);
@@ -89,6 +89,7 @@ afterEach(() => {
   act(() => root.unmount());
   container.remove();
   delete document.documentElement.dataset.theme;
+  vi.unstubAllGlobals();
 });
 
 describe('the theme', () => {
@@ -142,5 +143,55 @@ describe('the theme', () => {
 
     expect(shown()).toBe('dark');
     expect(apiClient.patch).not.toHaveBeenCalled();
+  });
+});
+
+describe('«Тема» while it is open', () => {
+  /** A Mini App whose colorScheme Telegram changes, with the `themeChanged` handlers the app gave it. */
+  function telegram(colorScheme: 'light' | 'dark') {
+    const handlers: Array<() => void> = [];
+    const webApp = {
+      initData: 'query_id=1&hash=abc',
+      colorScheme,
+      onEvent: (event: string, handler: () => void) => event === 'themeChanged' && handlers.push(handler),
+      offEvent: vi.fn(),
+    };
+    vi.stubGlobal('Telegram', { WebApp: webApp });
+    return {
+      change: (scheme: 'light' | 'dark') => {
+        webApp.colorScheme = scheme;
+        handlers.forEach((handler) => handler());
+      },
+    };
+  }
+
+  const automaticLine = () =>
+    [...document.body.querySelectorAll('[role="radio"]')][0]?.querySelector(':scope > span:first-child > span:last-child')?.textContent;
+
+  async function open() {
+    client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    client.setQueryData(settingsKeys.detail(USER_ID), SETTINGS);
+    await act(async () => {
+      root.render(
+        <QueryClientProvider client={client}>
+          <ThemeController />
+          <ThemeSheet open onOpenChange={() => {}} inTelegram />
+        </QueryClientProvider>
+      );
+    });
+    await settle();
+  }
+
+  it.each<ThemePreference>(['telegram', 'light'])('names what Telegram has now, as Telegram changes it (chosen: %s)', async (preference) => {
+    useThemeStore.setState({ preference });
+    const app = telegram('light');
+    await open();
+    expect(automaticLine()).toBe('Сейчас в Telegram светлая');
+
+    await act(async () => app.change('dark'));
+
+    expect(automaticLine()).toBe('Сейчас в Telegram тёмная');
+    // The screen follows Telegram only while the theme is «Как в Telegram»
+    expect(shown()).toBe(preference === 'telegram' ? 'dark' : 'light');
   });
 });

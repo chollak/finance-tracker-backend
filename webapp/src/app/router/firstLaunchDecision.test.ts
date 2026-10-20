@@ -26,6 +26,19 @@ describe('first launch gate (FT-109)', () => {
     expect(firstLaunchDecision({ userType: 'telegram', settings: { isPending: false, isError: true, data: undefined } })).toBe('app');
   });
 
+  // FT-125 review: «Ещё» and Home read the settings themselves; on mount a failed read is pending again
+  it('once the app is open, a read of the settings asked again does not take it away', () => {
+    const askedAgain = { isPending: true, isError: false, data: undefined };
+
+    expect(firstLaunchDecision({ userType: 'telegram', settings: askedAgain, opened: true })).toBe('app');
+    // Before the app has opened, the gate still waits
+    expect(firstLaunchDecision({ userType: 'telegram', settings: askedAgain, opened: false })).toBe('wait');
+  });
+
+  it('once open, the settings read at last still show the first launch to a user who has not done it', () => {
+    expect(firstLaunchDecision({ userType: 'telegram', settings: { ...settled, data: { onboardedAt: null } }, opened: true })).toBe('first-launch');
+  });
+
   it('leaves guests (records only on this device) alone: they have no server accounts', () => {
     expect(firstLaunchDecision({ userType: 'guest', settings: { isPending: true, isError: false, data: undefined } })).toBe('app');
   });

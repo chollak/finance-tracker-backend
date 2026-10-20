@@ -28,7 +28,10 @@ export function categoriesState(categories: readonly Category[] | undefined): st
   return `${pickableCategories(categories, 'expense').length} для расходов, ${pickableCategories(categories, 'income').length} для доходов`;
 }
 
-/** The bot's notices, as many as the bot really sends (design-system «Навигация, настройки и связь»). */
+/**
+ * The bot's notices, as many as the bot really sends (design-system «Навигация, настройки и связь»): the summary
+ * now (FT-124), the audit call and the goal alerts once there is an audit — until then they say «Скоро».
+ */
 export type NotificationKind = 'summary' | 'audit' | 'goals';
 
 export const NOTIFICATION_KINDS: readonly NotificationKind[] = ['summary', 'audit', 'goals'];
@@ -47,7 +50,14 @@ interface NotificationSpec {
   time?: { field: 'dailySummaryTime' | 'auditTime'; label: string; options: readonly string[] };
   /** One line under the card. */
   note?: string;
+  /** The row's state, as the board has it. */
   state: (on: boolean, time: string | null) => string;
+  /**
+   * The bot does not send this yet: the audit and the goals come with FT-132, their reminders with FT-133, which
+   * drops this. The setting is kept already; while it is on the row says «Скоро» in place of the board's state, and
+   * the sheet says when it starts.
+   */
+  soon?: { state: (time: string | null) => string; note: string };
 }
 
 export const NOTIFICATIONS: Record<NotificationKind, NotificationSpec> = {
@@ -67,6 +77,7 @@ export const NOTIFICATIONS: Record<NotificationKind, NotificationSpec> = {
     enabledField: 'auditEnabled',
     time: { field: 'auditTime', label: 'Во сколько звать', options: AUDIT_TIMES },
     state: (on, time) => (on ? `1-го числа в ${time}, за прошлый месяц` : 'Выключено'),
+    soon: { state: (time) => `Скоро: 1-го числа в ${time}`, note: 'Ревизия появится скоро — тогда бот и начнёт звать.' },
   },
   goals: {
     title: 'Цели и подписки',
@@ -74,6 +85,10 @@ export const NOTIFICATIONS: Record<NotificationKind, NotificationSpec> = {
     switchLabel: 'Предупреждать',
     enabledField: 'goalAlertsEnabled',
     state: (on) => (on ? 'Когда цель близка к лимиту и перед списанием подписки' : 'Выключено'),
+    soon: {
+      state: () => 'Скоро: когда цель близка к лимиту и перед списанием подписки',
+      note: 'Цели и подписки появятся с ревизией — тогда бот и начнёт предупреждать.',
+    },
   },
 };
 
@@ -89,7 +104,7 @@ export function notificationState(kind: NotificationKind, settings: Notification
   const spec = NOTIFICATIONS[kind];
   const on = settings[spec.enabledField];
   const time = spec.time ? settings[spec.time.field] : null;
-  return { on, time, state: spec.state(on, time) };
+  return { on, time, state: on && spec.soon ? spec.soon.state(time) : spec.state(on, time) };
 }
 
 /** One change of a notice is one setting: its switch or its time. */

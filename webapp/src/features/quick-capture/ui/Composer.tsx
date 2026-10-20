@@ -1,10 +1,8 @@
-import { useEffect, useRef } from 'react';
 import { useAccounts } from '@/entities/account';
 import { useCategories } from '@/entities/category';
 import { useSettings } from '@/entities/settings';
 import { useFrequentRecords } from '@/entities/transaction';
 import { useUserStore } from '@/entities/user';
-import { subscribeToCaptureFocus } from '@/shared/lib/captureFocus';
 import { showUndoToast } from '@/shared/lib/undo';
 import { useQuickChip } from '../api/useQuickChip';
 import { useSendCapture } from '../api/useSendCapture';
@@ -19,7 +17,6 @@ const notify = (notice: CaptureNotice) => showUndoToast({ kind: 'info', title: n
  * The composer at the bottom of Home (FT-114, Composer.md): quick chips that write in one tap, the field
  * whose text goes to recognition and then to the review of its records, «Ввести вручную». The microphone
  * and the camera say honestly where voice and receipts work today, until FT-117 and FT-135 bring them here.
- * «Текстом» in «Ещё» asks for this field (`requestCaptureFocus`).
  */
 export function Composer() {
   const draft = useCaptureStore((state) => state.draft);
@@ -31,15 +28,6 @@ export function Composer() {
   const settings = useSettings();
   const { send, isPending } = useSendCapture();
   const { write } = useQuickChip();
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(
-    () =>
-      subscribeToCaptureFocus(() => {
-        inputRef.current?.focus();
-      }),
-    []
-  );
 
   // A guest has no server records, so no frequent ones: the starters. A failed read falls back to them too.
   const frequentRecords = isGuest || frequent.isError ? [] : frequent.data;
@@ -60,7 +48,6 @@ export function Composer() {
       onChip={(chip) => void write(chip)}
       onVoice={() => notify(VOICE_NOT_YET)}
       onCamera={() => notify(RECEIPT_NOT_YET)}
-      inputRef={inputRef}
     />
   );
 }

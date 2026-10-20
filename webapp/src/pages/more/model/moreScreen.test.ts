@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Account, AccountsOverview } from '@/entities/account';
 import type { UsdRates } from '@/entities/rate';
-import type { UserSettings } from '@/entities/settings';
+import { AUDIT_TIMES, DAILY_SUMMARY_TIMES, type UserSettings } from '@/entities/settings';
 import { NBSP } from '@/shared/lib/money';
 import { accountsState, NOTIFICATIONS, notificationPatch, notificationState } from './moreScreen';
 
@@ -50,14 +50,23 @@ describe('the bot\'s notices', () => {
     expect(notificationState('summary', settings({ dailySummaryEnabled: false })).state).toBe('Выключена');
   });
 
-  it('the audit: on the 1st at its time, about the month before; or off', () => {
-    expect(notificationState('audit', settings({ auditTime: '09:00' })).state).toBe('1-го числа в 09:00, за прошлый месяц');
+  // The bot does not send these until there is an audit (FT-132, FT-133): «Скоро», not an active schedule
+  it('the audit: soon, on the 1st at its time; or off', () => {
+    expect(notificationState('audit', settings({ auditTime: '09:00' }))).toEqual({ on: true, time: '09:00', state: 'Скоро: 1-го числа в 09:00' });
     expect(notificationState('audit', settings({ auditEnabled: false })).state).toBe('Выключено');
   });
 
-  it('goals and subscriptions: when, in words; or off', () => {
-    expect(notificationState('goals', settings({}))).toEqual({ on: true, time: null, state: 'Когда цель близка к лимиту и перед списанием подписки' });
+  it('goals and subscriptions: soon, when, in words; or off', () => {
+    expect(notificationState('goals', settings({}))).toEqual({ on: true, time: null, state: 'Скоро: когда цель близка к лимиту и перед списанием подписки' });
     expect(notificationState('goals', settings({ goalAlertsEnabled: false })).state).toBe('Выключено');
+  });
+
+  it('only the summary is sent today: the others say when they start, and keep the board\'s state for FT-133', () => {
+    expect(NOTIFICATIONS.summary.soon).toBeUndefined();
+    expect(NOTIFICATIONS.audit.soon?.note).toBe('Ревизия появится скоро — тогда бот и начнёт звать.');
+    expect(NOTIFICATIONS.goals.soon?.note).toBe('Цели и подписки появятся с ревизией — тогда бот и начнёт предупреждать.');
+    expect(NOTIFICATIONS.audit.state(true, '10:00')).toBe('1-го числа в 10:00, за прошлый месяц');
+    expect(NOTIFICATIONS.goals.state(true, null)).toBe('Когда цель близка к лимиту и перед списанием подписки');
   });
 
   it('a change is one setting', () => {
@@ -68,9 +77,10 @@ describe('the bot\'s notices', () => {
     expect(notificationPatch('goals', { on: false })).toEqual({ goalAlertsEnabled: false });
   });
 
-  it('the times are the ones the server accepts', () => {
-    expect(NOTIFICATIONS.summary.time?.options).toEqual(['20:00', '21:00', '22:00', '23:00']);
-    expect(NOTIFICATIONS.audit.time?.options).toEqual(['09:00', '10:00', '12:00', '19:00']);
+  // That these are the server's own lists is checked by Jest (tests/notificationSettings.test.ts)
+  it('the sheets offer the times of the settings', () => {
+    expect(NOTIFICATIONS.summary.time?.options).toEqual(DAILY_SUMMARY_TIMES);
+    expect(NOTIFICATIONS.audit.time?.options).toEqual(AUDIT_TIMES);
     expect(NOTIFICATIONS.goals.time).toBeUndefined();
   });
 });

@@ -36,8 +36,13 @@ interface ThemeState {
   preference: ThemePreference;
   /** What is on screen now; set by ThemeController. */
   resolved: ResolvedTheme;
+  /**
+   * What the automatic theme gives right now — Telegram's light or dark inside Telegram, the system's elsewhere —
+   * whatever the user chose; set by ThemeController as Telegram or the system change it («Тема» names it, FT-125).
+   */
+  automatic: ResolvedTheme;
   setPreference: (preference: ThemePreference) => void;
-  setResolved: (theme: ResolvedTheme) => void;
+  setResolved: (resolved: ResolvedTheme, automatic: ResolvedTheme) => void;
 }
 
 export const useThemeStore = create<ThemeState>()(
@@ -45,8 +50,9 @@ export const useThemeStore = create<ThemeState>()(
     (set) => ({
       preference: 'telegram',
       resolved: 'light',
+      automatic: 'light',
       setPreference: (preference) => set({ preference }),
-      setResolved: (resolved) => set({ resolved }),
+      setResolved: (resolved, automatic) => set({ resolved, automatic }),
     }),
     {
       name: THEME_STORAGE_KEY,

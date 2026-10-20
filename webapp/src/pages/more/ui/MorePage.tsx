@@ -86,13 +86,16 @@ export function MorePage() {
 
   return (
     <div className="mx-auto w-full max-w-3xl text-ink">
-      <div className="flex flex-col px-4 pb-[calc(32px+env(safe-area-inset-bottom))] pt-2">
+      {/* The header stays and the list scrolls under it, as on the board and on History */}
+      <div className="sticky top-0 z-10 bg-bg px-4 py-2">
         <header className="flex h-key items-center gap-3">
           <BackButton />
           <h1 className="type-section text-ink">Ещё</h1>
         </header>
+      </div>
 
-        <div className="flex flex-col gap-5 pt-3">
+      <div className="px-4 pb-[calc(32px+env(safe-area-inset-bottom))] pt-1">
+        <div className="flex flex-col gap-5">
           <SettingsSection title="Деньги">
             <SettingsRow
               kind="link"

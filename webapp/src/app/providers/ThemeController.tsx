@@ -23,7 +23,8 @@ function applyTheme(theme: ResolvedTheme) {
 
 /**
  * Applies the theme of «Пастель» to <html data-theme> and keeps it in sync with the user's choice,
- * Telegram's colorScheme (event `themeChanged`) and, outside Telegram, the system setting.
+ * Telegram's colorScheme (event `themeChanged`) and, outside Telegram, the system setting. It also keeps what the
+ * automatic theme gives now, for «Тема» to name while it is open.
  * index.html sets the first value before React loads, so there is no flash on open.
  */
 export function ThemeController() {
@@ -34,9 +35,11 @@ export function ThemeController() {
     const media = window.matchMedia?.('(prefers-color-scheme: dark)');
     const update = () => {
       // Telegram's SDK reports 'light' even in a plain browser: its colorScheme counts only inside Telegram
-      const theme = resolveTheme(preference, telegramColorScheme(), Boolean(media?.matches));
+      const scheme = telegramColorScheme();
+      const systemDark = Boolean(media?.matches);
+      const theme = resolveTheme(preference, scheme, systemDark);
       applyTheme(theme);
-      setResolved(theme);
+      setResolved(theme, resolveTheme('telegram', scheme, systemDark));
     };
 
     update();
