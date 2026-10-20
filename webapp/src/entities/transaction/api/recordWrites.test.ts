@@ -78,6 +78,23 @@ describe('a change of a guest record (device)', () => {
     expect(transactionDataSource.update).toHaveBeenNthCalledWith(2, 't4', {});
     expect(apiClient.put).not.toHaveBeenCalled();
   });
+
+  it('a new category writes its name too, which the old History list shows', async () => {
+    vi.mocked(transactionDataSource.update).mockResolvedValue({
+      id: 't4', date: '2026-10-14', category: 'Продукты', categoryId: 'guest:groceries', description: '', amount: 20000,
+      type: 'expense', userId: GUEST, localCreatedAt: 0, localUpdatedAt: 0,
+    });
+
+    await patchTransaction(client, { id: 't4', userId: GUEST, patch: { categoryId: 'guest:groceries' } });
+    await patchTransaction(client, {
+      id: 't4', userId: GUEST, patch: { type: 'income', categoryId: 'guest:salary', semanticType: 'income' },
+    });
+
+    expect(transactionDataSource.update).toHaveBeenNthCalledWith(1, 't4', { categoryId: 'guest:groceries', category: 'Продукты' });
+    expect(transactionDataSource.update).toHaveBeenNthCalledWith(2, 't4', {
+      categoryId: 'guest:salary', category: 'Зарплата', type: 'income', semanticType: 'income',
+    });
+  });
 });
 
 describe('«Отменить» after a delete', () => {

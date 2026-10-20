@@ -65,7 +65,7 @@ function CalendarContent({ value, today, onChoose }: { value: LocalDate; today: 
             type="button"
             onClick={() => choose(chip.date)}
             className={cn(
-              'h-touch rounded-pill px-4 text-[14px] font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink',
+              'h-touch rounded-pill px-[18px] text-[14px] font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink',
               value === chip.date ? 'bg-primary text-on-primary' : 'bg-sheet-card text-ink'
             )}
           >
@@ -74,7 +74,8 @@ function CalendarContent({ value, today, onChoose }: { value: LocalDate; today: 
         ))}
       </div>
 
-      <div className="flex flex-col gap-2 rounded-card bg-sheet-card p-3">
+      {/* The board's month card: 6px between the month, the weekdays and the days; days step by 46px */}
+      <div className="flex flex-col gap-1.5 rounded-card bg-sheet-card px-2.5 pb-2.5 pt-1.5">
         <div className="flex items-center justify-between">
           <button
             type="button"
@@ -83,7 +84,7 @@ function CalendarContent({ value, today, onChoose }: { value: LocalDate; today: 
             onClick={() => setView(shiftMonth(view.year, view.month, -1))}
             className="flex size-touch items-center justify-center rounded-pill text-ink disabled:opacity-35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink"
           >
-            <ChevronLeft className="size-5" strokeWidth={2} />
+            <ChevronLeft className="size-[18px]" strokeWidth={2.2} />
           </button>
           <p className="text-[15px] font-extrabold" aria-live="polite">{monthTitle(view.year, view.month)}</p>
           <button
@@ -93,13 +94,13 @@ function CalendarContent({ value, today, onChoose }: { value: LocalDate; today: 
             onClick={() => setView(shiftMonth(view.year, view.month, 1))}
             className="flex size-touch items-center justify-center rounded-pill text-ink disabled:opacity-35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink"
           >
-            <ChevronRight className="size-5" strokeWidth={2} />
+            <ChevronRight className="size-[18px]" strokeWidth={2.2} />
           </button>
         </div>
-        <div className="grid grid-cols-7 text-center type-axis text-ink-muted" aria-hidden="true">
-          {WEEKDAYS_SHORT.map((day) => <span key={day} className="py-1">{day}</span>)}
+        <div className="grid grid-cols-7 text-center type-axis leading-4 text-ink-muted" aria-hidden="true">
+          {WEEKDAYS_SHORT.map((day) => <span key={day}>{day}</span>)}
         </div>
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-0.5">
           {weeks.map((week, weekIndex) => (
             <div key={weekIndex} className="grid grid-cols-7 justify-items-center">
               {week.map((cell, dayIndex) =>

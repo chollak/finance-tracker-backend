@@ -29,7 +29,8 @@ const SAVE_FAILED_TOAST = { title: 'Не получилось сохранить
  * What the record sheet does with a saved record (FT-115). Every change shows at once and is patched to the
  * record at once; «Сохранено» shows for 2 seconds after the server took it; a change it refused goes back and
  * the sheet says so (a toast, when the sheet is already closed). «Готово» closes the sheet and rings the row
- * that was changed. «Удалить операцию» deletes without asking, with «Отменить» in the toast.
+ * once a change of it was saved — at once, or when a save still on its way answers; a refused change rings
+ * nothing. «Удалить операцию» deletes without asking, with «Отменить» in the toast.
  *
  * `loaded` is the sheet of the record as read; changes are kept apart from it, so a read that answers late
  * does not undo them.
@@ -42,8 +43,10 @@ export function useRecordEdits(id: string, loaded: SheetState | null, context: S
   const [deleting, setDeleting] = useState(false);
   // The state as it is now: a handler may run right after another one, before React renders it
   const current = useRef<SheetState | null>(null);
-  // Something was sent: closing rings the row
-  const changed = useRef(false);
+  // A change was saved: closing rings the row
+  const saved = useRef(false);
+  // «Готово» was pressed: a save that answers after it rings the row then
+  const closed = useRef(false);
   const mounted = useRef(true);
   const savedTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
@@ -74,9 +77,10 @@ export function useRecordEdits(id: string, loaded: SheetState | null, context: S
     if (!userId || !before || !made) return;
     write(made.state);
     if (!made.patch) return;
-    changed.current = true;
     try {
       await patchTransaction(queryClient, { id, userId, patch: made.patch });
+      saved.current = true;
+      if (closed.current) flashRecord(id);
       if (mounted.current) showSaved();
     } catch {
       const latest = read();
@@ -105,10 +109,11 @@ export function useRecordEdits(id: string, loaded: SheetState | null, context: S
     if (state?.typeChange) write(cancelTypeChange(state));
   };
 
-  /** «Готово», «Закрыть», the scrim: the sheet goes; the row it changed is ringed. */
+  /** «Готово», «Закрыть», the scrim: the sheet goes; the row whose change was saved is ringed. */
   const close = () => {
+    closed.current = true;
     closeRecordSheet();
-    if (changed.current) flashRecord(id);
+    if (saved.current) flashRecord(id);
   };
 
   /** «Удалить операцию»: no question; «Удалено» with «Отменить» brings it back. */
@@ -132,8 +137,8 @@ export function useRecordEdits(id: string, loaded: SheetState | null, context: S
   };
 
   /**
-   * The quick choice from a row's circle: the choice closes at once and the row is ringed; once saved, «Категория
-   * изменена» with «Отменить», which puts the category back.
+   * The quick choice from a row's circle: the choice closes at once; once saved, the row is ringed and «Категория
+   * изменена» shows with «Отменить», which puts the category back. A refused pick rings nothing.
    */
   const quickCategory = async (categoryId: string) => {
     const state = read();
@@ -141,7 +146,6 @@ export function useRecordEdits(id: string, loaded: SheetState | null, context: S
     if (!userId || !state) return;
     const { patch } = chooseCategoryOf(state, categoryId);
     if (!patch) return;
-    flashRecord(id);
     const previous = state.record.categoryId;
     try {
       await patchTransaction(queryClient, { id, userId, patch });
@@ -149,6 +153,7 @@ export function useRecordEdits(id: string, loaded: SheetState | null, context: S
       showUndoToast({ kind: 'info', ...SAVE_FAILED_TOAST });
       return;
     }
+    flashRecord(id);
     showUndoToast({
       kind: 'changed',
       ...categoryChangedToast(previous, categoryId, context),

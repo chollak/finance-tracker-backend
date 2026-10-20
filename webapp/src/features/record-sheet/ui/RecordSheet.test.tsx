@@ -1,13 +1,14 @@
 // @vitest-environment jsdom
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { deleteTransaction, patchTransaction, restoreTransaction, transactionKeys } from '@/entities/transaction';
 import type { Account } from '@/entities/account';
 import type { Category } from '@/entities/category';
 import { useUserStore } from '@/entities/user';
+import { apiClient } from '@/shared/api';
 import { MINUS, NBSP } from '@/shared/lib/money';
 import { useUndoToastStore, visibleEntry } from '@/shared/lib/undo';
 import type { Transaction } from '@/shared/types';
@@ -142,6 +143,15 @@ const latestPatch = () => vi.mocked(patchTransaction).mock.calls.at(-1)?.[1];
 async function openT4(): Promise<void> {
   await act(async () => openRecordSheet('t4', T4));
 }
+
+/** Lets the read of the record (`GET /transactions/:id`) answer: the query client notifies on a timer. */
+async function answerRead(): Promise<void> {
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(1);
+  });
+}
+
+const toastNow = () => visibleEntry(useUndoToastStore.getState().stack, Date.now());
 
 describe('opening (row → the whole sheet)', () => {
   it('shows the record: the type, the amount and the four fields', async () => {
@@ -302,6 +312,45 @@ describe('«Готово» and the ring on the row', () => {
     expect(useRecordSheetStore.getState().target).toBeNull();
     expect(useRecordSheetStore.getState().flashId).toBeNull();
   });
+
+  it('the only change was refused: «Готово» closes without ringing the row', async () => {
+    vi.mocked(patchTransaction).mockRejectedValueOnce({ statusCode: 0, message: 'offline' });
+    await openT4();
+    await press(button('Дата: Вчера, 13 октября. Изменить'));
+    await press(button('Сегодня'));
+    await settle();
+    await press(button('Готово'));
+
+    expect(useRecordSheetStore.getState().target).toBeNull();
+    expect(useRecordSheetStore.getState().flashId).toBeNull();
+  });
+
+  it('«Готово» before the save answered: the row is ringed once it is saved, not if it is refused', async () => {
+    let answer!: { resolve: () => void; reject: (error: unknown) => void };
+    const pending = () =>
+      new Promise<void>((resolve, reject) => {
+        answer = { resolve, reject };
+      });
+
+    vi.mocked(patchTransaction).mockImplementationOnce(pending);
+    await openT4();
+    await press(button('Дата: Вчера, 13 октября. Изменить'));
+    await press(button('Сегодня'));
+    await press(button('Готово'));
+    expect(useRecordSheetStore.getState().flashId).toBeNull();
+    await act(async () => answer.resolve());
+    expect(useRecordSheetStore.getState().flashId).toBe('t4');
+
+    await act(async () => vi.advanceTimersByTime(2000));
+    vi.mocked(patchTransaction).mockImplementationOnce(pending);
+    await openT4();
+    await press(button('Дата: Вчера, 13 октября. Изменить'));
+    await press(button('Сегодня'));
+    await press(button('Готово'));
+    await act(async () => answer.reject({ statusCode: 0, message: 'offline' }));
+    expect(useRecordSheetStore.getState().flashId).toBeNull();
+    expect(toastNow()).toMatchObject({ kind: 'info', title: 'Не получилось сохранить' });
+  });
 });
 
 describe('«Удалить операцию»', () => {
@@ -359,5 +408,95 @@ describe('the category circle of a row (board «Карточка · выбор �
 
     await act(async () => useUndoToastStore.getState().undoVisible());
     expect(latestPatch()).toEqual({ id: 't4', userId: USER_ID, patch: { categoryId: 'c-cafe' } });
+  });
+
+  it('a pick the server refused: no ring on the row, «Не получилось сохранить»', async () => {
+    vi.mocked(patchTransaction).mockRejectedValueOnce({ statusCode: 0, message: 'offline' });
+    await act(async () => openRecordCategory('t4', T4));
+    await press(radio('Продукты'));
+    await settle();
+
+    expect(useRecordSheetStore.getState().target).toBeNull();
+    expect(useRecordSheetStore.getState().flashId).toBeNull();
+    expect(toastNow()).toMatchObject({ kind: 'info', title: 'Не получилось сохранить' });
+  });
+});
+
+/**
+ * The sheet reads the record (`GET /transactions/:id`) even when the list passed it in; a 5xx, no connection
+ * or a 429 must not take away what the list already has. Only a record that is gone (404) is shown as gone.
+ */
+describe('the read of the record fails', () => {
+  let read: MockInstance<typeof apiClient.get>;
+
+  beforeEach(() => {
+    client.removeQueries({ queryKey: transactionKeys.record('t4') });
+    read = vi.spyOn(apiClient, 'get');
+  });
+
+  afterEach(() => read.mockRestore());
+
+  it('the category circle still opens the choice, from the record the list has, and the pick is saved', async () => {
+    read.mockRejectedValue({ statusCode: 503, message: 'Service Unavailable' });
+    await act(async () => openRecordCategory('t4', T4));
+    await answerRead();
+
+    expect(read).toHaveBeenCalledWith('/transactions/t4');
+    expect(page()).toContain('Категория расхода');
+    expect(page()).toContain(`Обед с командой · ${MINUS}145${NBSP}000${NBSP}сум`);
+
+    await press(radio('Продукты'));
+    await settle();
+    expect(latestPatch()).toEqual({ id: 't4', userId: USER_ID, patch: { categoryId: 'c-pr' } });
+  });
+
+  it('a row still shows the record the list has, not «Не получилось загрузить»', async () => {
+    read.mockRejectedValue({ statusCode: 0, message: 'offline' });
+    await openT4();
+    await answerRead();
+
+    expect(read).toHaveBeenCalledWith('/transactions/t4');
+    expect(button('Категория: Кафе. Изменить')).toBeTruthy();
+    expect(page()).not.toContain('Не получилось загрузить');
+  });
+
+  it('a row without the list\'s record: the sheet says the read failed and reads again on «Попробовать снова»', async () => {
+    read.mockRejectedValueOnce({ statusCode: 503, message: 'Service Unavailable' }).mockResolvedValueOnce({ data: T4 });
+    await act(async () => openRecordSheet('t4'));
+    await answerRead();
+    expect(page()).toContain('Не получилось загрузить операцию');
+
+    await press(button('Попробовать снова'));
+    await answerRead();
+    expect(button('Категория: Кафе. Изменить')).toBeTruthy();
+  });
+
+  it('a record that is gone (404): the row says so, the circle closes the choice with a toast', async () => {
+    read.mockRejectedValue({ statusCode: 404, message: 'Transaction not found' });
+    await openT4();
+    await answerRead();
+    expect(page()).toContain('Этой операции больше нет');
+
+    await press(button('Закрыть'));
+    await act(async () => openRecordCategory('t4', T4));
+    await answerRead();
+
+    expect(page()).not.toContain('Категория расхода');
+    expect(useRecordSheetStore.getState().target).toBeNull();
+    expect(toastNow()).toMatchObject({ kind: 'info', title: 'Этой операции больше нет' });
+  });
+
+  it('the circle without the list\'s record: a failed read closes the choice, and the next tap reads again', async () => {
+    read.mockRejectedValueOnce({ statusCode: 503, message: 'Service Unavailable' }).mockResolvedValueOnce({ data: T4 });
+    await act(async () => openRecordCategory('t4'));
+    await answerRead();
+
+    expect(useRecordSheetStore.getState().target).toBeNull();
+    expect(toastNow()).toMatchObject({ kind: 'info', title: 'Не получилось загрузить операцию' });
+
+    await act(async () => openRecordCategory('t4'));
+    await answerRead();
+    expect(read).toHaveBeenCalledTimes(2);
+    expect(page()).toContain('Категория расхода');
   });
 });

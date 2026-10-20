@@ -6,6 +6,7 @@ import { useUsdRate } from '@/entities/rate';
 import { useRecord } from '@/entities/transaction';
 import { useUserStore } from '@/entities/user';
 import { toLocalDate } from '@/shared/lib/dates';
+import { showUndoToast } from '@/shared/lib/undo';
 import { keyFromKeyboard, keypadFromMinor, keypadToMinor, pressKey, type KeypadState } from '@/shared/lib/money';
 import { AccountPicker, CalendarSheet, CategoryPicker, Sheet } from '@/shared/ui/pastel';
 import { useRecordEdits } from '../api/useRecordEdits';
@@ -39,6 +40,12 @@ function isGone(error: unknown): boolean {
   return typeof error === 'object' && error !== null && (error as { statusCode?: unknown }).statusCode === 404;
 }
 
+/** The quick choice could not show the record: it closes and says why. */
+const UNREADABLE_TOAST = {
+  gone: { title: 'Этой операции больше нет', detail: 'Её удалили' },
+  failed: { title: 'Не получилось загрузить операцию', detail: 'Проверьте связь' },
+} as const;
+
 /**
  * The record sheet (FT-115, TxnSheet.md): mount once on a screen that lists records. It shows the record
  * `openRecordSheet` or `openRecordCategory` named, and nothing otherwise. The sheet belongs to the screen it
@@ -62,6 +69,10 @@ function RecordSheetSession({ target }: { target: RecordSheetTarget }) {
   const [today] = useState(() => toLocalDate(new Date()));
   const isGuest = useUserStore((state) => state.userType === 'guest');
   const record = useRecord(target.id, target.seed);
+  const gone = record.isError && isGone(record.error);
+  // The record as read; until then, or when the read failed (a 5xx, no connection, a 429), the record the list
+  // passed in. TanStack drops the placeholder when the read fails, so it is kept here; only a 404 takes it away.
+  const source = record.data ?? (gone ? undefined : target.seed);
   const categories = useCategories();
   const accountsQuery = useAccounts();
   const rate = useUsdRate();
@@ -73,7 +84,7 @@ function RecordSheetSession({ target }: { target: RecordSheetTarget }) {
     rateMinor: rate.data?.effective?.rateMinor ?? null,
     today,
   };
-  const loaded = record.data ? initialSheet(sheetRecordFrom(record.data, context.categories)) : null;
+  const loaded = source ? initialSheet(sheetRecordFrom(source, context.categories)) : null;
   const edits = useRecordEdits(target.id, loaded, context);
   const state = edits.state;
 
@@ -96,6 +107,15 @@ function RecordSheetSession({ target }: { target: RecordSheetTarget }) {
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [mode, currency]);
+
+  // The quick choice has nothing to show once the read failed without the list's record, or found the record
+  // gone: it closes and says so, so the next tap on the circle starts over and reads again.
+  const quickUnreadable = target.view === 'category' && !state && record.isError;
+  useEffect(() => {
+    if (!quickUnreadable) return;
+    closeRecordSheet();
+    showUndoToast({ kind: 'info', ...(gone ? UNREADABLE_TOAST.gone : UNREADABLE_TOAST.failed) });
+  }, [quickUnreadable, gone]);
 
   // ── The quick choice of a category (a row's circle) ──
   if (target.view === 'category') {
@@ -160,7 +180,7 @@ function RecordSheetSession({ target }: { target: RecordSheetTarget }) {
   let body;
   if (!state || !model) {
     body = record.isError ? (
-      <RecordUnavailable gone={isGone(record.error)} onRetry={() => void record.refetch()} onClose={closeRecordSheet} />
+      <RecordUnavailable gone={gone} onRetry={() => void record.refetch()} onClose={closeRecordSheet} />
     ) : (
       <RecordLoading />
     );

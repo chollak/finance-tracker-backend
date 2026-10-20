@@ -7,6 +7,7 @@ import { transactionKeys } from './keys';
 import { budgetKeys } from '@/entities/budget/api/keys';
 import { dashboardKeys } from '@/entities/dashboard/api/keys';
 import { subscriptionKeys } from '@/entities/subscription/api/keys';
+import { findCategory, GUEST_CATEGORIES } from '@/entities/category';
 import { transactionToViewModel } from '../lib/toViewModel';
 import { transactionDataSource } from '@/shared/lib/db';
 import type { LocalTransaction, UpdateLocalTransactionDTO } from '@/shared/lib/db/schema';
@@ -232,13 +233,17 @@ export type TransactionPatch =
   | { type: 'income' | 'expense'; categoryId: string; semanticType: 'income' | 'expense' };
 
 /**
- * A guest's device record has no account or currency (сум only) and keeps its amount in сум; guest mode goes
- * with FT-128 (decision Д4).
+ * A guest's device record has no account or currency (сум only), keeps its amount in сум and the name of its
+ * category next to the id (the old History list shows the name); guest mode goes with FT-128 (decision Д4).
  */
 function toDeviceUpdate(patch: TransactionPatch): UpdateLocalTransactionDTO {
   const update: UpdateLocalTransactionDTO = {};
   if ('amountMinor' in patch) update.amount = patch.amountMinor / 100;
-  if ('categoryId' in patch) update.categoryId = patch.categoryId;
+  if ('categoryId' in patch) {
+    update.categoryId = patch.categoryId;
+    const category = findCategory(GUEST_CATEGORIES, patch.categoryId);
+    if (category) update.category = category.name;
+  }
   if ('date' in patch) update.date = patch.date;
   if ('description' in patch) update.description = patch.description;
   if ('type' in patch) {

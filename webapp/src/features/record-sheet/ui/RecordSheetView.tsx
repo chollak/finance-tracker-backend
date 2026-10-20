@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Check, ChevronLeft, ChevronRight, Pencil, Trash2, X } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
 import type { KeypadKey } from '@/shared/lib/money';
 import { pastelBgClass } from '@/shared/lib/pastel/categoryColors';
@@ -13,6 +13,31 @@ const TYPE_OPTIONS = [
   { value: 'expense', label: 'Расход' },
   { value: 'income', label: 'Доход' },
 ] as const;
+
+/** The board's pencil (TxnSheet.md): a short one inside its 18px box, lighter than lucide's. */
+function PencilIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true">
+      <path d="M12.8 4.2l3 3L7.5 15.5H4.5v-3l8.3-8.3Z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+/** The board's bin: a lid and a body, no inner lines. */
+function BinIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true">
+      <path
+        d="M4 6h12M8 6V4.5h4V6m-6.5 0 .8 9.5a1.5 1.5 0 0 0 1.5 1.4h4.4a1.5 1.5 0 0 0 1.5-1.4L14.5 6"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
 
 /** A round 44px button on `sheet-card`: «Закрыть» and «Назад» in the sheet's header. */
 function RoundButton({ label, onClick, children }: { label: string; onClick: () => void; children: ReactNode }) {
@@ -102,7 +127,7 @@ export function RecordBody({ model, status, deleting, onAmount, onField, onRecal
           <span className="text-[16px] font-bold text-ink-muted">{model.amount.unit}</span>
         </span>
         <span aria-hidden="true" className="flex size-10 shrink-0 items-center justify-center rounded-pill bg-sheet-track text-ink">
-          <Pencil className="size-[18px]" strokeWidth={1.8} />
+          <PencilIcon />
         </span>
       </button>
 
@@ -153,7 +178,7 @@ export function RecordBody({ model, status, deleting, onAmount, onField, onRecal
           aria-busy={deleting}
           className={cn('flex h-touch items-center justify-center gap-2 rounded-pill text-[15px] font-bold text-ink disabled:text-ink-muted', FOCUS)}
         >
-          <Trash2 aria-hidden="true" className="size-[18px]" strokeWidth={1.7} />
+          <BinIcon />
           Удалить операцию
         </button>
       </div>

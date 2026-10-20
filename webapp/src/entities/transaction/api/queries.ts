@@ -55,7 +55,8 @@ export function useTransactions(userId: string | null) {
  * One record as the record sheet shows and changes it (FT-115): `GET /api/transactions/:id` for a signed-in
  * user — the whole record, with its amount in minor units, currency, account and category id — or the device
  * record of a guest. `placeholder` is the record as the list that opened it has it, shown until the read
- * answers. A record that is gone answers with an error (`statusCode: 404` from the server).
+ * answers; TanStack drops it when the read fails, so a caller that must keep showing it keeps it itself. A record
+ * that is gone answers with an error (`statusCode: 404` from the server).
  */
 export function useRecord(id: string | null, placeholder?: Transaction) {
   const userType = useUserStore((state) => state.userType);
