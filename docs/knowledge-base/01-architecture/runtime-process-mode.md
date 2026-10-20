@@ -131,6 +131,13 @@ That preserves current behavior and avoids a breaking deploy change.
 
 No scheduler or product automation should be implemented as part of this decision document. When background jobs are actually implemented, they should run only in `APP_MODE=worker` or in an explicitly single-instance worker service.
 
+**Update (FT-124):** the first scheduler — the bot's daily summary — runs in the bot's process, as its task asks:
+`startTelegramBot()` starts `DailySummaryNotifier` only when the bot polls (no token, `ENABLE_TELEGRAM_POLLING=false`
+or `WEBHOOK_MODE=true` — no scheduler). Telegram allows one poller per bot, so this is single-instance in practice;
+and every notice is claimed in `notifications_log` (unique user + kind + period) before it is sent, so even two
+processes over one database send it once. When `APP_MODE` arrives, the notifier moves with the bot (`bot` or
+`worker`), not into `api`.
+
 ## Proposed Mode Semantics
 
 ### `APP_MODE=all`

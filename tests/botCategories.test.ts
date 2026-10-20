@@ -1,12 +1,11 @@
-import { quickCategoryKeyboard } from '../src/delivery/messaging/telegram/keyboards/categoryKeyboard';
-import { quickAddCategories, quickAddCategory } from '../src/delivery/messaging/telegram/utils/userCategories';
+import { quickAddCategory } from '../src/delivery/messaging/telegram/utils/userCategories';
 import { BotContext } from '../src/delivery/messaging/telegram/types';
 import { CategoryModule } from '../src/modules/category/categoryModule';
 import { SqliteCategoryRepository } from '../src/modules/category/infrastructure/SqliteCategoryRepository';
 import { toDateOnly, todayDateOnly } from '../src/shared/domain/dates/dateOnly';
 import { openMigratedDatabase, TestDatabase } from './helpers/testDatabase';
 
-describe('bot categories (FT-100)', () => {
+describe('bot quick-add buttons of messages sent before FT-124 (FT-100)', () => {
   let db: TestDatabase;
   let ctx: BotContext;
 
@@ -19,22 +18,9 @@ describe('bot categories (FT-100)', () => {
     await db.close();
   });
 
-  it('builds the quick-add keyboard from the user\'s visible expense categories, by name, three per row', async () => {
-    const catalog = (ctx.modules.categoryModule as CategoryModule).getCatalog();
-    const transport = (await catalog.listForUser('user-1')).find(c => c.name === 'Транспорт')!;
-    await new SqliteCategoryRepository(db.dataSource).update(transport.id, { isHidden: true });
-
-    const buttons = await quickAddCategories(ctx, 'user-1');
-    const keyboard = quickCategoryKeyboard(buttons).reply_markup.inline_keyboard;
-
-    expect(buttons.map(b => b.name)).toEqual(['Продукты', 'Кафе', 'Дом', 'Связь', 'Здоровье', 'Покупки', 'Другое']);
-    expect(keyboard.map(row => row.length)).toEqual([3, 3, 1]);
-    expect(keyboard[0][1]).toEqual({ text: 'Кафе', callback_data: `quickadd:${buttons[1].id}`, hide: false });
-    expect(keyboard.flat().every(button => 'callback_data' in button && button.callback_data.length <= 64)).toBe(true);
-  });
-
   it('a button with a category id records into that category', async () => {
-    const cafe = (await quickAddCategories(ctx, 'user-1')).find(b => b.name === 'Кафе')!;
+    const catalog = (ctx.modules.categoryModule as CategoryModule).getCatalog();
+    const cafe = (await catalog.listForUser('user-1')).find(c => c.name === 'Кафе')!;
 
     expect(await quickAddCategory(ctx, 'user-1', cafe.id)).toEqual({ categoryId: cafe.id, category: 'Кафе', name: 'Кафе' });
   });
@@ -46,9 +32,8 @@ describe('bot categories (FT-100)', () => {
     expect(picked.categoryId).toBeDefined();
   });
 
-  it('without the category module the keyboard is empty and the value passes through', async () => {
+  it('without the category module the value passes through', async () => {
     const bare = { modules: {} } as unknown as BotContext;
-    expect(await quickAddCategories(bare, 'user-1')).toEqual([]);
     expect(await quickAddCategory(bare, 'user-1', 'coffee')).toEqual({ category: 'coffee', name: 'coffee' });
   });
 });

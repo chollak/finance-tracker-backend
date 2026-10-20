@@ -87,6 +87,19 @@ export function createAmountAnswerMiddleware(userModule?: UserModule) {
   };
 }
 
+/** A command: «/word», maybe addressed to the bot by name («/today@DaftarBot»), alone or before a space. */
+const COMMAND = /^\/[A-Za-z0-9_]+(@\w+)?(\s|$)/;
+
+/**
+ * A command no handler took — removed with the design (/budget, /week, /transactions) or never there — gets
+ * the board's answer instead of silence (FT-124). Every command handler is registered before the text handlers.
+ */
+export async function answerUnknownCommand(ctx: BotContext, next: () => Promise<void>): Promise<void> {
+  const text = ctx.message && 'text' in ctx.message ? ctx.message.text : '';
+  if (!COMMAND.test(text)) return next();
+  await ctx.reply(RU.commands.unknown);
+}
+
 /**
  * Register message handlers with subscription limit checks
  */
@@ -114,9 +127,10 @@ export function registerMessageHandlers(
       'voice_inputs'
     );
 
-    // Text message handler with limit check; the answer to «Сумму» goes first
+    // Text message handler with limit check; an unknown command and the answer to «Сумму» go first
     bot.on(
       message('text'),
+      answerUnknownCommand,
       answerAmount,
       checkTransactionLimit,
       textHandler
@@ -130,7 +144,7 @@ export function registerMessageHandlers(
     );
   } else {
     // Fallback without subscription checks
-    bot.on(message('text'), answerAmount, textHandler);
+    bot.on(message('text'), answerUnknownCommand, answerAmount, textHandler);
     bot.on(message('voice'), voiceHandler);
   }
 }

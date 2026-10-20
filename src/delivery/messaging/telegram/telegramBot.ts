@@ -5,15 +5,16 @@ import { AppConfig } from '../../../shared/infrastructure/config/appConfig';
 import { VoiceProcessingModule } from '../../../modules/voiceProcessing/voiceProcessingModule';
 import { QuickCaptureModule } from '../../../modules/quickCapture/quickCaptureModule';
 import { TransactionModule } from '../../../modules/transaction/transactionModule';
-import { BudgetModule } from '../../../modules/budget/budgetModule';
 import { UserModule } from '../../../modules/user/userModule';
 import { SubscriptionModule } from '../../../modules/subscription/subscriptionModule';
 import { CategoryModule } from '../../../modules/category/categoryModule';
 import { AccountModule } from '../../../modules/account/accountModule';
 import { BotMessageModule } from '../../../modules/botMessage/botMessageModule';
+import { NotificationModule } from '../../../modules/notification/notificationModule';
 import { TelegramPaymentService } from '../../../modules/subscription/infrastructure/TelegramPaymentService';
 import { BotContext, BotModules, UserSession } from './types';
-import { registerCommandHandlers } from './handlers/commandHandlers';
+import { registerCommandHandlers, setCommandMenu } from './handlers/commandHandlers';
+import { registerSummaryHandlers, summarySender } from './handlers/summaryHandlers';
 import { registerMessageHandlers } from './handlers/messageHandlers';
 import { registerCallbackHandlers } from './handlers/callbackHandlers';
 import { closeAmountQuestionOnCommand, registerRecordHandlers } from './handlers/recordHandlers';
@@ -68,24 +69,25 @@ function createInitialSession(userId: string, userName: string): UserSession {
  * Starts and configures the Telegram bot
  * @param voiceModule - Voice processing module for text/voice input
  * @param transactionModule - Transaction module for CRUD operations
- * @param budgetModule - Budget module for budget management
  * @param userModule - User module for user management
  * @param quickCaptureModule - Shared capture boundary used by the text handler
  * @param subscriptionModule - Subscription module for premium features
  * @param categoryModule - The user's categories for keyboards and labels (FT-100)
  * @param accountModule - The user's accounts for the confirmation and the account picker (FT-122)
  * @param botMessageModule - Which records each confirmation shows, so its buttons survive a restart (FT-122)
+ * @param notificationModule - Итоги дня at the chosen time, /today and /month (FT-124): its scheduler runs here,
+ *   in the bot's process, and only while the bot polls
  */
 export function startTelegramBot(
   voiceModule: VoiceProcessingModule,
   transactionModule: TransactionModule,
-  budgetModule: BudgetModule,
   userModule: UserModule,
   quickCaptureModule: QuickCaptureModule,
   subscriptionModule?: SubscriptionModule,
   categoryModule?: CategoryModule,
   accountModule?: AccountModule,
-  botMessageModule?: BotMessageModule
+  botMessageModule?: BotMessageModule,
+  notificationModule?: NotificationModule
 ) {
   try {
     // Check if bot token is configured
@@ -115,12 +117,12 @@ export function startTelegramBot(
       voiceModule,
       quickCaptureModule,
       transactionModule,
-      budgetModule,
       userModule,
       subscriptionModule,
       categoryModule,
       accountModule,
       botMessageModule,
+      notificationModule,
     };
 
     // Ensure downloads directory exists
@@ -190,7 +192,7 @@ export function startTelegramBot(
     // One question at a time (FT-122): a command first closes the open «Сумму» question of a record
     bot.use(closeAmountQuestionOnCommand);
 
-    // Command handlers: /start, /today, /stats, /budget, /help, /settings
+    // Command handlers: /start, /help, /today, /month (FT-124)
     registerCommandHandlers(bot);
 
     // Payment handlers: /premium, pre_checkout_query, successful_payment
@@ -203,6 +205,9 @@ export function startTelegramBot(
 
     // Record messages (FT-122): their buttons and /undo
     registerRecordHandlers(bot);
+
+    // «Да, не было» under the evening question (FT-124)
+    registerSummaryHandlers(bot);
 
     // Callback handlers: inline keyboard actions
     registerCallbackHandlers(bot);
@@ -243,15 +248,25 @@ export function startTelegramBot(
       });
     };
 
+    // The command menu, «/» in the input field (FT-124)
+    void setCommandMenu(bot.telegram);
+
     launchWithRetry(1);
+
+    // Итоги дня at the time each user chose (FT-124): a notice is claimed in notifications_log before it goes
+    // out, so a restart or a second process does not send it twice
+    const dailySummary = notificationModule?.getDailySummary();
+    dailySummary?.start(summarySender(bot.telegram));
 
     // Graceful shutdown handlers
     process.once('SIGINT', () => {
       logger.info('SIGINT received, stopping bot...');
+      dailySummary?.stop();
       bot.stop('SIGINT');
     });
     process.once('SIGTERM', () => {
       logger.info('SIGTERM received, stopping bot...');
+      dailySummary?.stop();
       bot.stop('SIGTERM');
     });
 

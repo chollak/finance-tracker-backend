@@ -6,12 +6,10 @@ import { AppConfig } from '../../../../shared/infrastructure/config/appConfig';
  * it, so a renamed screen cannot leave a bot button on «Страница не найдена».
  */
 export const WEB_APP_PATHS = {
-  /** Manual entry with the keypad (FT-113) */
-  manualEntry: 'add',
-  /** History */
+  /** History: «Остальные — в Daftar ↗» under a message with many records (FT-122) */
   transactions: 'transactions',
+  /** «Открыть аналитику ↗» under /month (FT-124) */
   analytics: 'analytics',
-  budgets: 'budgets',
 } as const;
 
 export type WebAppPath = (typeof WEB_APP_PATHS)[keyof typeof WEB_APP_PATHS];
@@ -57,6 +55,22 @@ export function createWebAppUrl(userId: string, params: WebAppUrlParams = {}): s
 
   return url.toString();
 }
+
+/** The Mini App for this user — Home, or a screen of it; undefined when the Mini App is not configured. */
+function appUrl(telegramId: string, path?: WebAppPath): string | undefined {
+  if (!isWebAppConfigured()) return undefined;
+  try {
+    return createWebAppUrl(telegramId, path ? { path } : {});
+  } catch {
+    return undefined;
+  }
+}
+
+/** «Открыть Daftar ↗» (Home) under /start and the daily summary, «Открыть аналитику ↗» under /month (FT-124). */
+export const appLinks = {
+  home: (telegramId: string) => appUrl(telegramId),
+  analytics: (telegramId: string) => appUrl(telegramId, WEB_APP_PATHS.analytics),
+};
 
 /**
  * Creates a deep link URL for Telegram bot

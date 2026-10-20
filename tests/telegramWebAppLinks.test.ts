@@ -1,12 +1,8 @@
 import { AppConfig } from '../src/shared/infrastructure/config/appConfig';
-import {
-  budgetKeyboard,
-  mainMenuKeyboard,
-  recordKeyboard,
-  statsKeyboard,
-  todayKeyboard,
-} from '../src/delivery/messaging/telegram/keyboards';
-import { RU } from '../src/delivery/messaging/telegram/i18n/ru';
+import { recordKeyboard } from '../src/delivery/messaging/telegram/keyboards';
+import { formatDaySummary, formatMonthSummary } from '../src/delivery/messaging/telegram/formatters/summaryMessage';
+import { appLinks } from '../src/delivery/messaging/telegram/utils/webAppUrl';
+import { DaySummary, MonthSummary } from '../src/modules/notification/domain/dailySummary';
 import { RecordMessageInput, RecordView } from '../src/delivery/messaging/telegram/formatters/recordMessage';
 import { recordMessageInput } from '../src/delivery/messaging/telegram/utils/recordMessageView';
 // The webapp's own route constants: its tests match them against its route table (appRoutes)
@@ -17,7 +13,8 @@ import { ROUTES } from '../webapp/src/shared/lib/constants/routes';
  * /transactions/add to /add; a bot link left on the old address opened «Страница не найдена». FT-115
  * replaced the edit page /transactions/:id/edit with the record sheet, which Home opens from `?record=`.
  * FT-122: the links under a record message — «Открыть в Daftar ↗», «Другая дата ↗», «Остальные — в
- * Daftar ↗» — are built by the bot from the same helper.
+ * Daftar ↗» — are built by the bot from the same helper. FT-124: «Открыть Daftar ↗» under /start and the daily
+ * summary, «Открыть аналитику ↗» under /month.
  */
 
 const BASE_URL = 'https://miniapp.test';
@@ -51,6 +48,19 @@ async function recordMessageKeyboard(mode: RecordMessageInput['mode'], records =
 
 const MANY = Array.from({ length: 7 }, (_, i) => record(`tx-${i}`));
 
+const MONTH: MonthSummary = { month: '2026-10', today: '2026-10-14', totalMinor: 100_000, comparison: null, categories: [], usdLeftOut: false };
+const DAY: DaySummary = { day: '2026-10-14', recordCount: 1, expenseMinor: 100_000, expenseCount: 1, categories: [], usdLeftOut: false, month: MONTH };
+
+/** The keyboard of a notice: the daily summary, /today, /month. */
+function noticeKeyboard(notice: { keyboard: unknown }): Keyboard {
+  return { reply_markup: { inline_keyboard: notice.keyboard as Button[][] } };
+}
+
+/** «Открыть Daftar ↗» under the daily summary and /today (/start: tests/telegramCommands.test.ts). */
+function summaryKeyboard(): Keyboard {
+  return noticeKeyboard(formatDaySummary(DAY, { today: DAY.day, appUrl: appLinks.home(USER_ID) }));
+}
+
 /** The Mini App buttons of a keyboard. */
 function webAppButtons(keyboard: Keyboard): Button[] {
   return (keyboard?.reply_markup.inline_keyboard ?? []).flat().filter((button) => button.web_app);
@@ -71,16 +81,21 @@ afterEach(() => {
   jest.restoreAllMocks();
 });
 
-describe('«Добавить» in the bot opens manual entry', () => {
-  it('from the /start menu', () => {
-    const url = urlOf(mainMenuKeyboard(USER_ID), RU.buttons.addTransaction);
+describe('«Открыть Daftar ↗» and «Открыть аналитику ↗» (FT-124)', () => {
+  it('the daily summary and /today open Home', () => {
+    const url = urlOf(summaryKeyboard(), 'Открыть Daftar');
 
     expect(url.origin).toBe(BASE_URL);
-    expect(url.pathname).toBe(ROUTES.MANUAL_ENTRY);
-    expect(url.pathname).toBe('/add');
+    expect(url.pathname).toBe(ROUTES.HOME);
     expect(url.searchParams.get('userId')).toBe(USER_ID);
   });
 
+  it('/month opens the analytics of the month', () => {
+    const url = urlOf(noticeKeyboard(formatMonthSummary(MONTH, { analyticsUrl: appLinks.analytics(USER_ID) })), 'Открыть аналитику');
+
+    expect(url.pathname).toBe(ROUTES.ANALYTICS);
+    expect(url.searchParams.get('userId')).toBe(USER_ID);
+  });
 });
 
 describe('«Открыть в Daftar ↗» under a record opens its sheet', () => {
@@ -108,11 +123,8 @@ describe('every Mini App link of the bot is a screen of the webapp', () => {
   const screens = new Set<string>(Object.values(ROUTES).flatMap((route) => (typeof route === 'string' ? [route] : [])));
 
   const keyboards: Array<[string, () => Keyboard | Promise<Keyboard>]> = [
-    ['/start menu', () => mainMenuKeyboard(USER_ID)],
-    ['/stats', () => statsKeyboard(USER_ID)],
-    ['/budget with budgets', () => budgetKeyboard(USER_ID, true)],
-    ['/budget without budgets', () => budgetKeyboard(USER_ID, false)],
-    ['/today', () => todayKeyboard(USER_ID)],
+    ['the daily summary and /today', () => summaryKeyboard()],
+    ['/month', () => noticeKeyboard(formatMonthSummary(MONTH, { analyticsUrl: appLinks.analytics(USER_ID) }))],
     ['«Изменить» under a record', () => recordMessageKeyboard('edit')],
     ['the date picker under a record', () => recordMessageKeyboard('date')],
     ['a message with many records', () => recordMessageKeyboard('confirm', MANY)],

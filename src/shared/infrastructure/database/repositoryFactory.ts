@@ -22,6 +22,8 @@ import { SqliteSubscriptionRepository } from '../../../modules/subscription/infr
 import { SqliteUsageLimitRepository } from '../../../modules/subscription/infrastructure/SqliteUsageLimitRepository';
 import { BotMessageRepository } from '../../../modules/botMessage/domain/botMessageRepository';
 import { SqliteBotMessageRepository } from '../../../modules/botMessage/infrastructure/SqliteBotMessageRepository';
+import { NotificationLogRepository } from '../../../modules/notification/domain/notificationLog';
+import { SqliteNotificationLogRepository } from '../../../modules/notification/infrastructure/SqliteNotificationLogRepository';
 
 /**
  * Creates repository implementations. There is one database path — TypeORM (decision Д6, FT-090);
@@ -75,5 +77,9 @@ export class RepositoryFactory {
 
   static createBotMessageRepository(): BotMessageRepository {
     return new SqliteBotMessageRepository();
+  }
+
+  static createNotificationLogRepository(): NotificationLogRepository {
+    return new SqliteNotificationLogRepository();
   }
 }

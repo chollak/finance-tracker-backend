@@ -20,6 +20,11 @@ export class SqliteUserRepository implements UserRepository {
     return entity ? this.mapToUser(entity) : null;
   }
 
+  async findAll(): Promise<UserDomain[]> {
+    const entities = await this.repository.find({ order: { createdAt: 'ASC' } });
+    return entities.map(entity => this.mapToUser(entity));
+  }
+
   async findByTelegramId(telegramId: string): Promise<UserDomain | null> {
     const entity = await this.repository.findOne({ where: { telegramId } });
     return entity ? this.mapToUser(entity) : null;

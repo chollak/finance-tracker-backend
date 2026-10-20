@@ -13,6 +13,7 @@ import { CategoryModule } from './modules/category/categoryModule';
 import { AccountModule } from './modules/account/accountModule';
 import { FxModule } from './modules/fx/fxModule';
 import { BotMessageModule } from './modules/botMessage/botMessageModule';
+import { NotificationModule } from './modules/notification/notificationModule';
 import { transactionLearning } from './shared/application/learning/transactionLearning';
 
 export function createModules() {
@@ -67,6 +68,9 @@ export function createModules() {
   // Which records each bot confirmation shows: «Изменить», «Вернуть» and /undo survive a restart (FT-122)
   const botMessageModule = BotMessageModule.create();
 
+  // Итоги дня at the chosen time, /today and /month, sent at most once (FT-124)
+  const notificationModule = NotificationModule.create(transactionModule, userModule);
+
   return {
     categoryModule,
     accountModule,
@@ -80,5 +84,6 @@ export function createModules() {
     userModule,
     subscriptionModule,
     botMessageModule,
+    notificationModule,
   };
 }

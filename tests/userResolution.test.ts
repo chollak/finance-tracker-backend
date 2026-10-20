@@ -40,6 +40,10 @@ class InMemoryUserRepository implements UserRepository {
     return [...this.usersById.values()].find((u) => u.telegramId === telegramId) ?? null;
   }
 
+  async findAll(): Promise<User[]> {
+    return [...this.usersById.values()];
+  }
+
   async create(dto: CreateUserDTO): Promise<User> {
     const id = `user-${++this.seq}`;
     const now = new Date();

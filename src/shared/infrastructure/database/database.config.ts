@@ -2,7 +2,7 @@ import fs from 'fs';
 import { DataSource } from 'typeorm';
 import path from 'path';
 import { AppConfig } from '../config/appConfig';
-import { Transaction, Budget, Debt, DebtPayment, User, Subscription, UsageLimit, UserSettings, Category, Account, FxRate, AccountMove, BotMessage } from './entities';
+import { Transaction, Budget, Debt, DebtPayment, User, Subscription, UsageLimit, UserSettings, Category, Account, FxRate, AccountMove, BotMessage, NotificationLog } from './entities';
 import { MIGRATIONS } from './migrations';
 import { findSchemaDrift, runMigrationsWithBackup } from './migrationRunner';
 import { createLogger, LogCategory } from '../logging';
@@ -13,7 +13,7 @@ export const DATABASE_FILE = path.join(process.cwd(), 'data', 'database.sqlite')
 export const DATABASE_BACKUP_DIR = path.join(process.cwd(), 'data', 'backups');
 
 export const DATABASE_ENTITIES = [
-  Transaction, Budget, Debt, DebtPayment, User, Subscription, UsageLimit, UserSettings, Category, Account, FxRate, AccountMove, BotMessage,
+  Transaction, Budget, Debt, DebtPayment, User, Subscription, UsageLimit, UserSettings, Category, Account, FxRate, AccountMove, BotMessage, NotificationLog,
 ];
 
 /**

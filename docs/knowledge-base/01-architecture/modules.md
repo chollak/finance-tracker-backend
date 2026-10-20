@@ -1,6 +1,6 @@
 # Module System
 
-`createModules()` (`src/appModules.ts`) возвращает **12 модулей приложения**, каждый с чётко определённой ответственностью. `CategoryModule` добавлен в FT-099, `AccountModule` — в FT-101, `FxModule` — в FT-102, `BotMessageModule` — в FT-122, `QuickCaptureModule` — обёртка над текстовым разбором для `POST /api/quick-capture`.
+`createModules()` (`src/appModules.ts`) возвращает **13 модулей приложения**, каждый с чётко определённой ответственностью. `CategoryModule` добавлен в FT-099, `AccountModule` — в FT-101, `FxModule` — в FT-102, `BotMessageModule` — в FT-122, `NotificationModule` — в FT-124, `QuickCaptureModule` — обёртка над текстовым разбором для `POST /api/quick-capture`.
 
 Dashboard модулем не является: в `src/modules/dashboard/` лежат только `DashboardService` и `DashboardController`, файла `dashboardModule.ts` нет. Сборка происходит в Express-слое — см. [Dashboard: сервис, а не модуль](#dashboard-сервис-а-не-модуль).
 
@@ -20,6 +20,7 @@ graph TD
     FM[FxModule<br/>USD rate]
     QM[QuickCaptureModule<br/>Quick capture API]
     BMM[BotMessageModule<br/>Bot record messages]
+    NM[NotificationModule<br/>Daily summary, /today, /month]
     DS[DashboardService<br/>не модуль, собирается в Express]
 
     BM -->|depends on| TM
@@ -37,6 +38,8 @@ graph TD
     FM -.->|own rate in settings| UM
     VM -.->|categories for the prompt| CM
     QM -->|depends on| VM
+    NM -->|totals + analytics| TM
+    NM -->|users + settings| UM
     SM -.->|controller uses| UM
     DS -.->|AnalyticsService| TM
     DS -.->|BudgetService| BM
@@ -69,6 +72,7 @@ graph TD
 | **SubscriptionModule** | Premium подписки + Telegram Stars | UserModule (controller) | `subscriptionModule.ts` |
 | **UserModule** | Пользователи и их настройки (FT-098) | Независимый | `userModule.ts` |
 | **BotMessageModule** | Сообщения бота о записях (FT-122): какие записи показывает подтверждение и какой экран кнопок открыт — таблица `bot_messages`, кнопки и `/undo` переживают перезапуск | Независимый; записи меняет бот через use cases TransactionModule | `botMessageModule.ts` |
+| **NotificationModule** | Уведомления бота (FT-124): итоги дня в выбранное время по часам пользователя, не больше одного раза за день (`notifications_log`), и итоги для `/today` и `/month` | TransactionModule (сервис итогов FT-103, аналитика FT-120), UserModule (пользователи и настройки) | `notificationModule.ts` |
 
 Отдельно, **не как модуль**:
 
@@ -405,6 +409,33 @@ new ProcessVoiceInputUseCase(
 
 ---
 
+## 12. NotificationModule
+
+**Файл:** [`src/modules/notification/notificationModule.ts`](../../../src/modules/notification/notificationModule.ts)
+
+### Назначение
+Сообщения, которые бот присылает сам (FT-124, `docs/pastel/components/BotNotice.md`). Пока это итоги дня: в
+выбранное время (`dailySummaryTime`, 20:00–23:00, по умолчанию 21:00) по часовому поясу пользователя
+(`users.timezone`) — сумма за день, до 3 категорий и строка о месяце; в день без записей — «Трат правда не было?»,
+не больше 2 вечеров подряд и снова после записи. Те же итоги отвечают на `/today` и `/month`.
+
+### Состав
+- Домен — `dailySummary.ts`: часы пользователя (`localClock`), когда итоги пора слать (`isSummaryDue`), что в них
+  (`DaySummary`, `MonthSummary`), правила `DAILY_SUMMARY_RULES`; `notificationLog.ts` — строка журнала и порт
+  репозитория.
+- `SummaryService` — итоги дня и месяца. Числа — из TransactionModule: `GetPeriodTotalsUseCase.forPeriod` (тот же
+  сервис итогов, что у плиток главной) и `GetMonthAnalyticsUseCase` (сравнение с теми же днями прошлого месяца).
+- `DailySummaryNotifier` — планировщик: раз в минуту смотрит часы каждого пользователя; день сначала занимается в
+  `notifications_log` (уникальны пользователь + вид + период), потом читается и отправляется — второй тик,
+  перезапуск или второй процесс его не повторят. Не дошедшее (бот заблокирован) остаётся `failed` и в тот день не
+  повторяется.
+- `SqliteNotificationLogRepository` — TypeORM, `INSERT OR IGNORE` + перечитывание (как FT-140).
+- Отправляет и рисует бот: `summarySender` и «Да, не было» — `src/delivery/messaging/telegram/handlers/summaryHandlers.ts`,
+  тексты — `formatters/summaryMessage.ts`. Планировщик запускает `startTelegramBot()`, то есть только процесс,
+  который опрашивает Telegram.
+
+---
+
 ## Dashboard: сервис, а не модуль
 
 **Файлы:**
@@ -481,8 +512,11 @@ export function createModules() {
   // 5. Сообщения бота о записях (FT-122)
   const botMessageModule = BotMessageModule.create();
 
+  // 6. Итоги дня, /today и /month (FT-124)
+  const notificationModule = NotificationModule.create(transactionModule, userModule);
+
   return { categoryModule, transactionModule, budgetModule, debtModule, voiceModule, quickCaptureModule,
-    openAIUsageModule, userModule, subscriptionModule, botMessageModule };
+    openAIUsageModule, userModule, subscriptionModule, botMessageModule, notificationModule };
 }
 ```
 

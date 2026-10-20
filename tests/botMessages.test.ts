@@ -40,6 +40,15 @@ describe('bot messages (FT-122)', () => {
     await ds.destroy();
   }
 
+  /** Reverts the newest migrations down to and including `name`: later tasks add migrations after these. */
+  async function revertThrough(ds: DataSource, name: string): Promise<void> {
+    for (;;) {
+      const [last] = await ds.query(`SELECT "name" FROM "migrations" ORDER BY "id" DESC LIMIT 1`);
+      await ds.undoLastMigration({ transaction: 'each' });
+      if (!last || last.name === name) return;
+    }
+  }
+
   it('creates the table with the migration, matching the entity', async () => {
     const { ds } = await startBot();
 
@@ -181,7 +190,7 @@ describe('bot messages (FT-122)', () => {
 
   it('a message waiting for an amount before FT-123 still waits after the update', async () => {
     const { ds } = await startBot();
-    await ds.undoLastMigration({ transaction: 'each' }); // back to FT-122's table
+    await revertThrough(ds, 'BotMessageQuestion1761900000000'); // back to FT-122's table
     await ds.query(`INSERT INTO "bot_messages" ("id", "user_id", "chat_id", "message_id", "record_ids", "mode", "state") VALUES ('m-1', 'user-1', '1', 10, '["tx-1"]', 'amount', '{"selected":0,"guessed":[]}')`);
     await ds.runMigrations({ transaction: 'each' });
 
@@ -193,9 +202,9 @@ describe('bot messages (FT-122)', () => {
   it('is removed by reverting its migration', async () => {
     const { ds } = await startBot();
 
-    await ds.undoLastMigration({ transaction: 'each' }); // FT-123: the open question
+    await revertThrough(ds, 'BotMessageQuestion1761900000000'); // FT-123: the open question
     expect((await ds.query(`PRAGMA table_info("bot_messages")`)).map((column: { name: string }) => column.name)).not.toContain('question');
-    await ds.undoLastMigration({ transaction: 'each' });
+    await revertThrough(ds, 'BotMessages1761800000000');
 
     expect(await ds.query(`SELECT name FROM sqlite_master WHERE name = 'bot_messages'`)).toEqual([]);
   });

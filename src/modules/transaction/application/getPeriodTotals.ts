@@ -44,8 +44,7 @@ export class GetPeriodTotalsUseCase {
     if (from > to) return fail('from must not be after to', 'from');
 
     try {
-      const records = await this.repository.getByUserIdAndDateRange(input.userId, new Date(from), new Date(to));
-      const totals = await this.periodTotals.summarize(input.userId, records);
+      const totals = await this.forPeriod(input.userId, from, to);
       return ResultHelper.success({
         from,
         to,
@@ -61,5 +60,14 @@ export class GetPeriodTotalsUseCase {
       logger.error('Failed to compute period totals', error as Error);
       return ResultHelper.failure(new BusinessLogicError('Failed to compute period totals'));
     }
+  }
+
+  /**
+   * The full totals of the period, categories included, for the bot's summaries (FT-124): the same records
+   * and rule as the answer above. Days are YYYY-MM-DD, both included; storage errors are thrown.
+   */
+  async forPeriod(userId: string, from: string, to: string): Promise<PeriodTotals> {
+    const records = await this.repository.getByUserIdAndDateRange(userId, new Date(from), new Date(to));
+    return this.periodTotals.summarize(userId, records);
   }
 }

@@ -3,12 +3,12 @@ import { Message, Update, CallbackQuery } from 'telegraf/types';
 import { VoiceProcessingModule } from '../../../../modules/voiceProcessing/voiceProcessingModule';
 import { QuickCaptureModule } from '../../../../modules/quickCapture/quickCaptureModule';
 import { TransactionModule } from '../../../../modules/transaction/transactionModule';
-import { BudgetModule } from '../../../../modules/budget/budgetModule';
 import { UserModule } from '../../../../modules/user/userModule';
 import { SubscriptionModule } from '../../../../modules/subscription/subscriptionModule';
 import { CategoryModule } from '../../../../modules/category/categoryModule';
 import { AccountModule } from '../../../../modules/account/accountModule';
 import { BotMessageModule } from '../../../../modules/botMessage/botMessageModule';
+import { NotificationModule } from '../../../../modules/notification/notificationModule';
 
 /**
  * Modules available in bot context
@@ -18,7 +18,6 @@ export interface BotModules {
   /** Shared capture boundary — the text handler goes through this, not through the parser directly. */
   quickCaptureModule: QuickCaptureModule;
   transactionModule: TransactionModule;
-  budgetModule: BudgetModule;
   userModule: UserModule;
   subscriptionModule?: SubscriptionModule;
   /** The user's categories (FT-099/FT-100): quick-add keyboard, labels, the category picker (FT-122). */
@@ -27,6 +26,8 @@ export interface BotModules {
   accountModule?: AccountModule;
   /** Which records each confirmation shows (FT-122): its buttons and /undo survive a restart. */
   botMessageModule?: BotMessageModule;
+  /** Итоги дня и месяца (FT-124): /today, /month, «Да, не было» under the evening question. */
+  notificationModule?: NotificationModule;
 }
 
 /**
@@ -68,37 +69,3 @@ export type VoiceMessageContext = NarrowedContext<BotContext, Update.MessageUpda
  * Context for callback query handlers
  */
 export type CallbackContext = NarrowedContext<BotContext, Update.CallbackQueryUpdate<CallbackQuery.DataQuery>>;
-
-/**
- * Statistics summary for commands
- */
-export interface StatsSummary {
-  totalIncome: number;
-  totalExpense: number;
-  netIncome: number;
-  transactionCount: number;
-}
-
-/**
- * Category breakdown for stats
- */
-export interface CategoryBreakdown {
-  category: string;
-  amount: number;
-  percentage: number;
-  count: number;
-}
-
-/**
- * Budget status for /budget command
- */
-export interface BudgetStatus {
-  id: string;
-  name: string;
-  category: string;
-  limit: number;
-  spent: number;
-  remaining: number;
-  percentage: number;
-  status: 'ok' | 'warning' | 'exceeded';
-}

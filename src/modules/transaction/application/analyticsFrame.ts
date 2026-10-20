@@ -1,6 +1,6 @@
 import { Result, ResultHelper } from '../../../shared/domain/types/Result';
 import { ValidationError } from '../../../shared/domain/errors/AppError';
-import { todayDateOnly } from '../../../shared/domain/dates/dateOnly';
+import { isValidDateOnly, todayDateOnly } from '../../../shared/domain/dates/dateOnly';
 import { Transaction } from '../domain/transactionEntity';
 import { TransactionRepository } from '../domain/transactionRepository';
 import { countsAs, PeriodTotals, summarizePeriod } from '../domain/periodTotals';
@@ -64,9 +64,9 @@ export const failAnalytics = (message: string, field: string) => ResultHelper.fa
 export async function readAnalyticsFrame(
   repository: TransactionRepository,
   periodTotals: PeriodTotalsService,
-  input: { userId: string; month: unknown; type: AnalyticsType; now: Date }
+  input: { userId: string; month: unknown; type: AnalyticsType; now: Date; today?: string }
 ): Promise<Result<ReadFrame>> {
-  const today = todayDateOnly(input.now);
+  const today = isValidDateOnly(input.today) ? input.today : todayDateOnly(input.now);
   const currentMonth = today.slice(0, 7);
   const month = input.month === undefined ? currentMonth : input.month;
   if (!isValidMonth(month)) return failAnalytics('month must be YYYY-MM', 'month');

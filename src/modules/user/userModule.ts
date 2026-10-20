@@ -5,6 +5,8 @@
 
 import { UserRepository } from './domain/userRepository';
 import { UserSettingsRepository } from './domain/userSettingsRepository';
+import { User } from './domain/userEntity';
+import { UserSettings, defaultUserSettings } from './domain/userSettings';
 import { AccountCheck, GetUserSettingsUseCase, UpdateUserSettingsUseCase } from './application/userSettingsUseCases';
 import { GetOrCreateUserUseCase } from './application/getOrCreateUserUseCase';
 import { GetUserUseCase } from './application/getUserUseCase';
@@ -90,6 +92,19 @@ export class UserModule {
     if (!this.getUserSettingsUseCase) return null;
     const result = await this.getUserSettingsUseCase.execute({ userId });
     return result.success ? result.data.defaultAccountId : null;
+  }
+
+  /**
+   * Every user with their settings — the stored ones, else the defaults (FT-098) — for the bot's daily summary
+   * (FT-124): who gets it, when and on which clock.
+   */
+  async listUsersWithSettings(): Promise<Array<{ user: User; settings: UserSettings }>> {
+    const [users, stored] = await Promise.all([
+      this.repository.findAll(),
+      this.settingsRepository ? this.settingsRepository.findAll() : Promise.resolve([] as UserSettings[]),
+    ]);
+    const byUser = new Map(stored.map(settings => [settings.userId, settings]));
+    return users.map(user => ({ user, settings: byUser.get(user.id) ?? defaultUserSettings(user.id) }));
   }
 
   getGetUserSettingsUseCase(): GetUserSettingsUseCase {

@@ -18,12 +18,15 @@ describe('startTelegramBot', () => {
     const use = jest.fn();
     const catchHandler = jest.fn();
     const stop = jest.fn();
+    const telegram = { setMyCommands: jest.fn().mockResolvedValue(true), sendMessage: jest.fn() };
+    const action = jest.fn();
     const Telegraf = jest.fn().mockImplementation(() => ({
       use,
       catch: catchHandler,
       launch,
       stop,
-      telegram: {},
+      action,
+      telegram,
     }));
 
     jest.doMock('telegraf', () => ({
@@ -32,9 +35,11 @@ describe('startTelegramBot', () => {
     }));
 
     const registerCommandHandlers = jest.fn();
+    const setCommandMenu = jest.fn().mockResolvedValue(undefined);
     const closeAmountQuestionOnCommand = jest.fn();
     jest.doMock('../src/delivery/messaging/telegram/handlers/commandHandlers', () => ({
       registerCommandHandlers,
+      setCommandMenu,
     }));
     jest.doMock('../src/delivery/messaging/telegram/handlers/messageHandlers', () => ({
       registerMessageHandlers: jest.fn(),
@@ -60,10 +65,15 @@ describe('startTelegramBot', () => {
       getGetOrCreateUserUseCase: () => ({ execute: jest.fn() }),
     } as any;
 
-    const start = () => startTelegramBot({} as any, {} as any, {} as any, userModule, {} as any);
+    const dailySummary = { start: jest.fn(), stop: jest.fn() };
+    const notificationModule = { getDailySummary: () => dailySummary } as any;
+    const start = () => startTelegramBot({} as any, {} as any, userModule, {} as any, undefined, undefined, undefined, undefined, notificationModule);
 
     return {
       start,
+      telegram,
+      setCommandMenu,
+      dailySummary,
       Telegraf,
       launch,
       launchCatch,
@@ -82,6 +92,19 @@ describe('startTelegramBot', () => {
     const call = use.mock.calls.findIndex(([middleware]) => middleware === closeAmountQuestionOnCommand);
     expect(call).not.toBe(-1);
     expect(use.mock.invocationCallOrder[call]).toBeLessThan(registerCommandHandlers.mock.invocationCallOrder[0]);
+  });
+
+  it('sets the command menu and starts the daily summary in the bot\'s process (FT-124)', async () => {
+    const { start, telegram, setCommandMenu, dailySummary, launch } = await loadBotWithMocks();
+
+    start();
+
+    expect(setCommandMenu).toHaveBeenCalledWith(telegram);
+    expect(launch).toHaveBeenCalledTimes(1);
+    expect(dailySummary.start).toHaveBeenCalledTimes(1);
+    // The scheduler sends with the bot's own Telegram client
+    const [sender] = dailySummary.start.mock.calls[0];
+    expect(sender.send).toEqual(expect.any(Function));
   });
 
   it('attaches a rejection handler to bot.launch so launch failures do not become unhandled rejections', async () => {
@@ -122,12 +145,14 @@ describe('startTelegramBot', () => {
 
   it('does not create or launch a Telegram bot when polling is explicitly disabled', async () => {
     process.env.ENABLE_TELEGRAM_POLLING = 'false';
-    const { start, Telegraf, launch } = await loadBotWithMocks();
+    const { start, Telegraf, launch, dailySummary } = await loadBotWithMocks();
 
     start();
 
     expect(Telegraf).not.toHaveBeenCalled();
     expect(launch).not.toHaveBeenCalled();
+    // No bot, no scheduler: the daily summary runs only in the bot's process
+    expect(dailySummary.start).not.toHaveBeenCalled();
   });
 
   it('does not launch polling when webhook mode is enabled', async () => {

@@ -27,6 +27,11 @@ Architecture: `domain → application → infrastructure → presentation` вн�
 записями — в `bot_messages`. Только русский. Планировщика нет: ни сводок, ни
 напоминаний. Payload у `/start` не читается.
 
+> С FT-124 меню команд (`setMyCommands`) — `/today`, `/month`, `/undo`, `/help`, `/start`; `/stats` отвечает как
+> `/month` вне меню, `/budget`, `/week`, `/weekly`, `/transactions` убраны («Такой команды нет. Список — /help»),
+> `/premium` и `/cancel_subscription` работают вне меню (Д3). Итоги дня шлёт планировщик `NotificationModule` в
+> процессе бота, отправленное — в `notifications_log`.
+
 **Данные.** TypeORM + SQLite (`data/database.sqlite`, `synchronize` в dev). Параллельно живёт путь Supabase
 через `supabase-js` со своими репозиториями и ручными SQL-миграциями в `migrations/` (проект на паузе).
 Сущности: `transactions`, `budgets`, `debts`, `debt_payments`, `users`, `subscriptions`, `usage_limits`.

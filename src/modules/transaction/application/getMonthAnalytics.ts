@@ -29,12 +29,16 @@ export class GetMonthAnalyticsUseCase {
     private now: () => Date = () => new Date()
   ) {}
 
-  async execute(input: { userId: string; query: Record<string, unknown> }): Promise<Result<MonthAnalytics>> {
+  /**
+   * `today` (YYYY-MM-DD) tells the month as it is on that day in the user's calendar — the bot's daily summary for
+   * a user outside Tashkent (FT-124); by default it is today in Tashkent.
+   */
+  async execute(input: { userId: string; query: Record<string, unknown>; today?: string }): Promise<Result<MonthAnalytics>> {
     const type = typeOf(input.query.type);
     if (!type) return failAnalytics('type must be expense or income', 'type');
 
     try {
-      const read = await readAnalyticsFrame(this.repository, this.periodTotals, { userId: input.userId, month: input.query.month, type, now: this.now() });
+      const read = await readAnalyticsFrame(this.repository, this.periodTotals, { userId: input.userId, month: input.query.month, type, now: this.now(), today: input.today });
       if (!read.success) return read;
       const { frame, trackingDays, current, prior } = read.data;
       const body = buildMonthAnalytics({ type, period: frame.period, previous: frame.previous, trackingDays, current, prior });

@@ -24,6 +24,11 @@ export class SqliteUserSettingsRepository implements UserSettingsRepository {
     return entity ? this.toDomain(entity) : null;
   }
 
+  async findAll(): Promise<UserSettings[]> {
+    const entities = await this.repository.find();
+    return entities.map(entity => this.toDomain(entity));
+  }
+
   /**
    * One statement: `INSERT … ON CONFLICT (user_id) DO UPDATE SET <the given fields>, updated_at`. A new
    * user's first changes may come at once (FT-140), and a read-then-write of the whole row let parallel
