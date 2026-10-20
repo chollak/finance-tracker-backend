@@ -149,3 +149,30 @@ export class UpdateCategoryUseCase {
     }
   }
 }
+
+export class DeleteCategoryUseCase {
+  constructor(private catalog: CategoryCatalog, private repository: CategoryRepository) {}
+
+  /**
+   * «Отменить» right after «Категория добавлена» (FT-127, board «Новая категория»): a category the user added and no
+   * record has gone into, deleted records included, is taken back. A starter category and «Другое» are hidden or
+   * renamed, never deleted (400); one with records is hidden, not deleted (409).
+   */
+  async execute(input: { userId: string; categoryId: string }): Promise<Result<{ id: string }>> {
+    try {
+      const categories = await this.catalog.listForUser(input.userId);
+      const category = categories.find(item => item.id === input.categoryId);
+      if (!category) return ResultHelper.failure(new NotFoundError('Category', input.categoryId));
+      if (category.isOther || category.presetKey !== null) {
+        return ResultHelper.failure(new ValidationError('Only a category the user added can be deleted', 'categoryId'));
+      }
+      if (!(await this.repository.deleteIfUnused(category.id))) {
+        return ResultHelper.failure(new ConflictError('A category with records is hidden, not deleted'));
+      }
+      return ResultHelper.success({ id: category.id });
+    } catch (error) {
+      logger.error('Failed to delete category', error as Error);
+      return ResultHelper.failure(new BusinessLogicError('Failed to delete category'));
+    }
+  }
+}

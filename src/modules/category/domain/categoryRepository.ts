@@ -10,4 +10,9 @@ export interface CategoryRepository {
   update(id: string, changes: Partial<Pick<Category, 'name' | 'color' | 'isHidden' | 'sortOrder'>>): Promise<Category>;
   /** Highest sortOrder among the user's own (non-«Другое») categories of a type, or 0. */
   maxSortOrder(userId: string, type: CategoryType): Promise<number>;
+  /**
+   * Delete a category no record points at, deleted records included (FT-127: «Отменить» after «Категория
+   * добавлена»). False when a record has it: such a category is hidden, never deleted.
+   */
+  deleteIfUnused(id: string): Promise<boolean>;
 }

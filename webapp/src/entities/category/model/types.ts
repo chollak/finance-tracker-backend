@@ -15,3 +15,9 @@ export interface Category {
   /** Starter category key, stable across renames; null for the user's own. */
   presetKey: string | null;
 }
+
+/** What the categories screen changes (FT-127): any of the name, the colour and whether it is hidden. */
+export type CategoryPatch = Partial<Pick<Category, 'name' | 'color' | 'isHidden'>>;
+
+/** A category the user adds (FT-127). */
+export type NewCategory = Pick<Category, 'type' | 'name' | 'color'>;

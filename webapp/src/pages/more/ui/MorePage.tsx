@@ -43,8 +43,8 @@ const NOTIFICATION_ICONS: Record<NotificationKind, ReactNode> = {
  * the audit; «Бот в Telegram» — the summary, the audit call and goal alerts, which drive the bot's scheduler (FT-124);
  * «Вид» — the theme; «Данные» — the export; by a direct link also «Аккаунт». Every row says its state, every change
  * applies at once. Budgets and debts are not here (Д2). «Скачать все записи» (FT-126) sends the CSV to the chat with the
- * bot in Telegram and downloads it in a browser. The categories screen (FT-127) and the audit (FT-132) come later:
- * their rows say so and open nothing yet.
+ * bot in Telegram and downloads it in a browser. «Категории» opens the categories screen (FT-127). The audit (FT-132)
+ * comes later: its row says so and opens nothing yet.
  */
 export function MorePage() {
   const inTelegram = insideTelegram();
@@ -106,7 +106,13 @@ export function MorePage() {
               title="Счета и курс доллара"
               subtitle={isGuest ? GUEST_NOTIFICATION_STATE : accountsState(accounts.data, rates.data)}
             />
-            <SettingsRow kind="static" icon={icon(Tag)} title="Категории" subtitle={categoriesState(categories.data)} />
+            <SettingsRow
+              kind="link"
+              to={ROUTES.CATEGORIES}
+              icon={icon(Tag)}
+              title="Категории"
+              subtitle={isGuest ? GUEST_NOTIFICATION_STATE : categoriesState(categories.data)}
+            />
             <SettingsRow kind="static" icon={icon(Search)} title="Ревизия трат" subtitle={AUDIT_SOON} />
           </SettingsSection>
 

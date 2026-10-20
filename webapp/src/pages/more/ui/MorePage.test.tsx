@@ -113,6 +113,7 @@ async function renderMore() {
     [
       { path: '/more', element: <MorePage /> },
       { path: '/accounts', element: <p>Экран счетов</p> },
+      { path: '/more/categories', element: <p>Экран категорий</p> },
     ],
     { initialEntries: ['/more'] }
   );
@@ -188,11 +189,11 @@ describe('«Ещё» in Telegram', () => {
     expect(text()).toContain('Все записи с категориями, счетами и курсом — таблицей CSV, её откроет Excel или Google Таблицы.');
   });
 
-  it('offers no budgets and no debts (Д2): the only section it links to is the accounts', async () => {
+  it('offers no budgets and no debts (Д2): the sections it links to are the accounts and the categories', async () => {
     await renderMore();
 
     const links = [...document.body.querySelectorAll('a')].map((link) => link.getAttribute('href'));
-    expect(links).toEqual(['/accounts']);
+    expect(links).toEqual(['/accounts', '/more/categories']);
     expect(text()).not.toMatch(/Бюджет|Долг/);
   });
 
@@ -202,6 +203,14 @@ describe('«Ещё» in Telegram', () => {
     await press(row('Счета и курс доллара'));
 
     expect(router.state.location.pathname).toBe('/accounts');
+  });
+
+  it('«Категории» opens the categories screen (FT-127)', async () => {
+    await renderMore();
+
+    await press(row('Категории'));
+
+    expect(router.state.location.pathname).toBe('/more/categories');
   });
 
   it('a hidden category is not counted; the own rate is named as the user\'s', async () => {
@@ -456,6 +465,8 @@ describe('«Ещё» by a direct link', () => {
       'Цели и подписки · После входа через Telegram',
     ]);
     expect(sections()[4].rows).toEqual(['Гость · Записи только в этом браузере']);
+    // A guest has the starter set on the device and nothing to change on the server (FT-127), as with the accounts
+    expect(sections()[0].rows.slice(0, 2)).toEqual(['Счета и курс доллара · После входа через Telegram', 'Категории · После входа через Telegram']);
     // A guest's records are in this browser only: the export is for an account (FT-126)
     expect(sections()[3].rows).toEqual(['Скачать все записи · После входа через Telegram']);
     // Not buttons: nothing to open

@@ -20,6 +20,8 @@ const AnalyticsPage = lazy(() => import('@/pages').then(m => ({ default: m.Analy
 // One category of the month: its days and operations (FT-121)
 const CategoryAnalyticsPage = lazy(() => import('@/pages').then(m => ({ default: m.CategoryAnalyticsPage })));
 const MorePage = lazy(() => import('@/pages').then(m => ({ default: m.MorePage })));
+// The categories (FT-127), opened from «Ещё»
+const CategoriesPage = lazy(() => import('@/pages').then(m => ({ default: m.CategoriesPage })));
 // FT-088 spike page: not linked from the app, opened by URL inside Telegram on each device
 const VoiceCheckPage = lazy(() => import('@/pages').then(m => ({ default: m.VoiceCheckPage })));
 // Pastel component showcase in both themes (FT-093), not linked from the app
@@ -136,6 +138,10 @@ export const appRoutes: RouteObject[] = [
           {
             path: '/more',
             element: <PageLoader><MorePage /></PageLoader>,
+          },
+          {
+            path: '/more/categories',
+            element: <PageLoader><CategoriesPage /></PageLoader>,
           },
           {
             path: '/accounts',

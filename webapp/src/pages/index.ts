@@ -15,3 +15,4 @@ export * from './voice-check';
 export * from './pastel-showcase';
 export * from './first-launch';
 export * from './accounts';
+export * from './categories';

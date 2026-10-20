@@ -1,12 +1,12 @@
 import { CategoryRepository } from './domain/categoryRepository';
 import { CategoryCatalog } from './application/categoryCatalog';
-import { CreateCategoryUseCase, ListCategoriesUseCase, UpdateCategoryUseCase } from './application/categoryUseCases';
+import { CreateCategoryUseCase, DeleteCategoryUseCase, ListCategoriesUseCase, UpdateCategoryUseCase } from './application/categoryUseCases';
 import { RepositoryFactory } from '../../shared/infrastructure/database/repositoryFactory';
 
 /**
  * User categories (FT-099): 8 + 8 starter categories per user, renamed, recoloured and hidden by the
- * user. The catalog is also the category resolver of the transaction module and the source of the
- * category list in AI prompts.
+ * user; their own ones added and, right after, taken back (FT-127). The catalog is also the category
+ * resolver of the transaction module and the source of the category list in AI prompts.
  */
 export class CategoryModule {
   private catalog: CategoryCatalog;
@@ -33,5 +33,9 @@ export class CategoryModule {
 
   getUpdateCategoryUseCase(): UpdateCategoryUseCase {
     return new UpdateCategoryUseCase(this.catalog, this.repository);
+  }
+
+  getDeleteCategoryUseCase(): DeleteCategoryUseCase {
+    return new DeleteCategoryUseCase(this.catalog, this.repository);
   }
 }

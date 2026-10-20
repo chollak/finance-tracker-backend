@@ -131,7 +131,7 @@ describe('Home opens History and Analytics in one tap', () => {
 });
 
 describe('every section is at most 2 taps from Home', () => {
-  const SECTIONS = [ROUTES.TRANSACTIONS, ROUTES.ANALYTICS, ROUTES.MORE, ROUTES.ACCOUNTS, ROUTES.MANUAL_ENTRY];
+  const SECTIONS = [ROUTES.TRANSACTIONS, ROUTES.ANALYTICS, ROUTES.MORE, ROUTES.ACCOUNTS, ROUTES.MANUAL_ENTRY, ROUTES.CATEGORIES];
   /** Screens whose own links count as the second tap. */
   const SCREENS: Record<string, () => ReactElement> = { [ROUTES.MORE]: () => <MorePage /> };
 

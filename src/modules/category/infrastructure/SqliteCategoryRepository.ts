@@ -66,6 +66,16 @@ export class SqliteCategoryRepository implements CategoryRepository {
     return Number(row?.max ?? 0);
   }
 
+  /** The check and the delete are one statement, so a record written in between keeps its category. */
+  async deleteIfUnused(id: string): Promise<boolean> {
+    await this.repository.manager.query(
+      `DELETE FROM "categories" WHERE "id" = ?
+         AND NOT EXISTS (SELECT 1 FROM "transactions" WHERE "category_id" = ?)`,
+      [id, id]
+    );
+    return (await this.findById(id)) === null;
+  }
+
   private toEntity(category: Category): Partial<CategoryEntity> {
     return {
       id: category.id,

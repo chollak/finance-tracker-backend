@@ -64,6 +64,8 @@ export const ROUTES = {
 
   // More
   MORE: '/more',
+  // The categories (FT-127): opened from «Ещё», whose «Назад» it returns to
+  CATEGORIES: '/more/categories',
 
   // Accounts and the USD rate (FT-118): opened from the balance card on Home; an account opens its own screen
   ACCOUNTS: '/accounts',
@@ -74,9 +76,13 @@ export const ROUTES = {
 
 // API endpoints
 export const API_ENDPOINTS = {
-  // The user's categories (FT-099); the user comes from authentication
+  // The user's categories (FT-099); the user comes from authentication. The categories screen (FT-127) adds one,
+  // renames, recolours, hides and shows; «Отменить» after «Категория добавлена» deletes it while nothing went in it
   CATEGORIES: {
     LIST: '/categories',
+    CREATE: '/categories',
+    UPDATE: (id: string) => `/categories/${encodeURIComponent(id)}`,
+    DELETE: (id: string) => `/categories/${encodeURIComponent(id)}`,
   },
 
   // The user's settings (FT-098): theme, notifications, whether the first launch is done
