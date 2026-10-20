@@ -2,6 +2,7 @@ import { CreateTransactionUseCase } from './application/createTransaction';
 import { GetTransactionHistoryUseCase } from './application/getTransactionHistory';
 import { GetPeriodTotalsUseCase } from './application/getPeriodTotals';
 import { GetFrequentRecordsUseCase } from './application/getFrequentRecords';
+import { GetCategoryAnalyticsUseCase, GetMonthAnalyticsUseCase } from './application/getMonthAnalytics';
 import { GetUserTransactionsUseCase } from './application/getUserTransactions';
 import { GetTransactionByIdUseCase } from './application/getTransactionById';
 import { DeleteTransactionUseCase, RestoreTransactionUseCase } from './application/deleteTransaction';
@@ -104,6 +105,16 @@ export class TransactionModule {
   /** Income and expenses of a period for the month tiles on Home (FT-111). */
   getPeriodTotalsUseCase(): GetPeriodTotalsUseCase {
     return new GetPeriodTotalsUseCase(this.repository, this.periodTotals);
+  }
+
+  /** Where the money goes in a month, compared fairly (FT-120). */
+  getMonthAnalyticsUseCase(): GetMonthAnalyticsUseCase {
+    return new GetMonthAnalyticsUseCase(this.repository, this.periodTotals);
+  }
+
+  /** One category of a month: by day and its operations (FT-120). Needs the category resolver. */
+  getCategoryAnalyticsUseCase(): GetCategoryAnalyticsUseCase | undefined {
+    return this.categoryResolver ? new GetCategoryAnalyticsUseCase(this.repository, this.periodTotals, this.categoryResolver) : undefined;
   }
 
   /** The frequent expenses for the quick chips over the composer (FT-114). */

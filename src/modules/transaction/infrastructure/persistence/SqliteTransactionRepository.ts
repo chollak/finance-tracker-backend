@@ -259,15 +259,26 @@ export class SqliteTransactionRepository implements TransactionRepository {
   }
 
   async getByUserIdAndDateRange(userId: string, startDate: Date, endDate: Date): Promise<Transaction[]> {
+    // By the record's day: records saved before FT-100 may keep a full moment («2026-10-14T05:30:00.000Z»)
     const entities = await this.query()
       .andWhere('transaction.userId = :userId', { userId })
       .andWhere('transaction.isArchived = :isArchived', { isArchived: false })
-      .andWhere('transaction.date >= :startDate', { startDate: startDate.toISOString().split('T')[0] })
-      .andWhere('transaction.date <= :endDate', { endDate: endDate.toISOString().split('T')[0] })
+      .andWhere('substr(transaction.date, 1, 10) >= :startDate', { startDate: startDate.toISOString().split('T')[0] })
+      .andWhere('substr(transaction.date, 1, 10) <= :endDate', { endDate: endDate.toISOString().split('T')[0] })
       .orderBy('transaction.date', 'DESC')
       .getMany();
 
     return entities.map(entity => this.mapToTransaction(entity));
+  }
+
+  async findFirstRecordDate(userId: string): Promise<string | null> {
+    const row = await this.repository.createQueryBuilder('transaction')
+      .select('MIN(substr(transaction.date, 1, 10))', 'first')
+      .where('transaction.deletedAt IS NULL')
+      .andWhere('transaction.userId = :userId', { userId })
+      .andWhere('transaction.isArchived = :isArchived', { isArchived: false })
+      .getRawOne<{ first: string | null }>();
+    return row?.first ?? null;
   }
 
   async findByUserId(userId: string, limit?: number): Promise<Transaction[]> {

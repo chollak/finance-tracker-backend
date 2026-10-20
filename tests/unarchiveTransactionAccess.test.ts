@@ -52,6 +52,7 @@ function buildRepoWithArchivedRow(row: Transaction): TransactionRepository {
     findByUserId: jest.fn(),
     update: jest.fn(),
     getByUserIdAndDateRange: jest.fn(),
+    findFirstRecordDate: jest.fn(),
     archive: jest.fn(),
     unarchive: jest.fn(),
     archiveMultiple: jest.fn(),

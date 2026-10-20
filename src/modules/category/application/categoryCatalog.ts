@@ -82,6 +82,11 @@ export class CategoryCatalog implements CategoryResolver, UserCategorySource {
     return ResultHelper.success(toResolved(other));
   }
 
+  async findForUser(userId: string, categoryId: string): Promise<ResolvedCategory | null> {
+    const category = (await this.listForUser(userId)).find(candidate => candidate.id === categoryId);
+    return category ? toResolved(category) : null;
+  }
+
   /** Visible categories with hint words, for the AI prompt. */
   async promptCategories(userId: string): Promise<PromptCategory[]> {
     const categories = await this.listForUser(userId);

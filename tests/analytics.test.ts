@@ -75,6 +75,7 @@ describe('Enhanced Analytics Service', () => {
       findHistoryAmounts: jest.fn(),
       update: jest.fn(),
       getByUserIdAndDateRange: jest.fn(),
+      findFirstRecordDate: jest.fn(),
       // Archive methods
       archive: jest.fn(),
       unarchive: jest.fn(),

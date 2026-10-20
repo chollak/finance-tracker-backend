@@ -18,6 +18,8 @@ export interface CategoryTotal {
   count: number;
   /** Share of the total of its kind (expenses or income), two decimals. */
   percentage: number;
+  /** Dollars converted at the rate are inside (FT-120: «≈» before the amount). */
+  hasUsd: boolean;
 }
 
 /**
@@ -49,6 +51,23 @@ export function uzsMinorOf(record: Transaction, usdRateMinor: number | null): nu
   return usdRateMinor === null ? null : convertUsdToUzsMinor(minorOf(record), usdRateMinor);
 }
 
+/** A record's meaning in totals; debt-linked records of before FT-072 may still say «expense» — they are debt movements. */
+function semanticTypeOf(record: Transaction): TransactionSemanticType {
+  return record.isDebtRelated ? 'debt' : normalizeSemanticType(record.semanticType, record.type);
+}
+
+/**
+ * Whether a record counts as income or as a real expense in totals, by the rules above; null for records
+ * awaiting review and for movements of own money (FT-120: the operations of an analytics category).
+ */
+export function countsAs(record: Transaction): 'income' | 'expense' | null {
+  if (record.needsReview === true) return null;
+  const semanticType = semanticTypeOf(record);
+  if (countsAsIncome(semanticType)) return 'income';
+  if (countsAsRealExpense(semanticType)) return 'expense';
+  return null;
+}
+
 function byCategory(entries: Map<string, CategoryTotal>, total: number): CategoryTotal[] {
   return [...entries.values()]
     .map(entry => ({ ...entry, percentage: percentOf(entry.amountMinor, total) }))
@@ -69,9 +88,10 @@ export function summarizePeriod(records: Transaction[], options: { usdRateMinor:
 
   const add = (map: Map<string, CategoryTotal>, record: Transaction, minor: number) => {
     const key = record.categoryId ?? record.category;
-    const entry = map.get(key) ?? { categoryId: record.categoryId, category: record.category, amountMinor: 0, count: 0, percentage: 0 };
+    const entry = map.get(key) ?? { categoryId: record.categoryId, category: record.category, amountMinor: 0, count: 0, percentage: 0, hasUsd: false };
     entry.amountMinor += minor;
     entry.count += 1;
+    if (record.currency === 'USD') entry.hasUsd = true;
     map.set(key, entry);
   };
 
@@ -89,16 +109,15 @@ export function summarizePeriod(records: Transaction[], options: { usdRateMinor:
       continue;
     }
 
-    // Debt-linked records of before FT-072 may still say «expense»; they are debt movements
-    const semanticType = record.isDebtRelated ? 'debt' : normalizeSemanticType(record.semanticType, record.type);
-    if (countsAsIncome(semanticType)) {
+    const counted = countsAs(record);
+    if (counted === 'income') {
       incomeMinor += minor;
       add(incomes, record, minor);
-    } else if (countsAsRealExpense(semanticType)) {
+    } else if (counted === 'expense') {
       expenseMinor += minor;
       add(expenses, record, minor);
     } else {
-      const movement = semanticType as ExcludedMovementSemanticType;
+      const movement = semanticTypeOf(record) as ExcludedMovementSemanticType;
       excludedMinor += minor;
       excludedBySemanticType[movement] = (excludedBySemanticType[movement] ?? 0) + minor;
     }

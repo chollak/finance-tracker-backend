@@ -91,8 +91,11 @@ Core module системы — управление финансовыми тр�
 - `DeleteTransactionUseCase` - удаление транзакции
 - `UpdateTransactionWithLearningUseCase` - обновление с ML записью
 
+- `GetMonthAnalyticsUseCase`, `GetCategoryAnalyticsUseCase` - аналитика «Пастели» с честным сравнением (FT-120): `GET /api/analytics`, `GET /api/analytics/categories/:id`; правила — `domain/monthAnalytics.ts`, суммы — через `PeriodTotalsService`; категорию ищет порт `CategoryResolver.findForUser`
+
 ### Services
-- `AnalyticsService` - аналитика (summary, categories, trends, patterns)
+- `AnalyticsService` - старая аналитика (summary, categories, trends, patterns)
+- `PeriodTotalsService` - итоги периода (FT-103): одно правило для главной, аналитики, бота, недельного отчёта
 
 ### Repository
 - Interface: `src/modules/transaction/domain/transactionRepository.ts`

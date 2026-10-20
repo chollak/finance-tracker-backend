@@ -9,6 +9,7 @@ import { UserModule } from '../../../modules/user/userModule';
 import { SubscriptionModule } from '../../../modules/subscription/subscriptionModule';
 import { QuickCaptureModule } from '../../../modules/quickCapture/quickCaptureModule';
 import { createTransactionRouter } from '../../../modules/transaction/presentation/controllers/transactionController';
+import { createAnalyticsRoutes } from '../../../modules/transaction/presentation/controllers/analyticsController';
 import { createVoiceProcessingRouter } from '../../../modules/voiceProcessing/presentation/controllers/voiceProcessingController';
 import { createQuickCaptureRouter } from '../../../modules/quickCapture/presentation/controllers/quickCaptureController';
 import { createBudgetRouter } from '../../../modules/budget/interfaces/budgetRoutes';
@@ -162,6 +163,11 @@ export function buildServer(
     }
     if (moneyModules.fxModule) {
       router.use('/rates', createFxRoutes(moneyModules.fxModule.getService(), userModule));
+    }
+    // Analytics with fair comparison (FT-120); a category's analytics needs the user's categories
+    const categoryAnalytics = transactionModule.getCategoryAnalyticsUseCase();
+    if (categoryAnalytics) {
+      router.use('/analytics', createAnalyticsRoutes(transactionModule.getMonthAnalyticsUseCase(), categoryAnalytics, userModule));
     }
   }
 

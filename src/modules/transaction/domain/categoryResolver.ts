@@ -28,4 +28,6 @@ export interface CategoryResolutionInput {
  */
 export interface CategoryResolver {
   resolveForRecord(input: CategoryResolutionInput): Promise<Result<ResolvedCategory>>;
+  /** One of the user's categories, hidden ones too (FT-120: a category's analytics); null if it is not theirs. */
+  findForUser(userId: string, categoryId: string): Promise<ResolvedCategory | null>;
 }

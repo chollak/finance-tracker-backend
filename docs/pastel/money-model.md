@@ -211,7 +211,7 @@
 | `POST /api/moves`, `DELETE /api/moves/:id`, `POST /api/moves/:id/restore`, `GET /api/accounts/:id/operations` | перевод, обмен, корректировка; операции счёта | FT-104 |
 | `POST /api/transactions/:id/restore` | отмена удаления | FT-105 |
 | `GET /api/transactions?q&categoryIds&accountIds&type&from&to&cursor` | история; заменяет мёртвый админский `GET /api/transactions` | FT-107 |
-| `GET /api/analytics?month=YYYY-MM&type=expense` | аналитика с честным сравнением | FT-120 |
+| `GET /api/analytics?month=YYYY-MM&type=expense`, `GET /api/analytics/categories/:id?month=YYYY-MM` | аналитика с честным сравнением; категория по дням и её операции | FT-120 |
 
 Ввод (`quick-capture`, голос, бот) учится выбирать счёт: «нал», «наличными» → «Наличные»; «картой»,
 «uzcard», «humo» → «Карта»; «$», «долл», «usd» → долларовый счёт; иначе — счёт по умолчанию. Ответ разбора
