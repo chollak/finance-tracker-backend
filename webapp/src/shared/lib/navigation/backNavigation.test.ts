@@ -57,9 +57,13 @@ describe('parentPath — where «Назад» leads when there is no app screen 
     expect(parentPath('/transactions/')).toBe('/');
   });
 
-  it('sections opened from «Ещё» return to «Ещё»', () => {
-    expect(parentPath('/budgets')).toBe('/more');
-    expect(parentPath('/debts')).toBe('/more');
+  it('budgets and debts are out of the navigation (Д2, FT-125): opened by an old link they return to Home', () => {
+    expect(parentPath('/budgets')).toBe('/');
+    expect(parentPath('/debts')).toBe('/');
+  });
+
+  it('the accounts open from Home and from «Ещё» and return to Home', () => {
+    expect(parentPath('/accounts')).toBe('/');
   });
 
   it('a form or a detail screen returns to its section', () => {
@@ -87,7 +91,7 @@ describe('backStep', () => {
 
   it('opened directly (a link from the bot, a reload) it goes to the parent screen instead of leaving the app', () => {
     expect(backStep('/transactions/7f3a/edit', 0)).toEqual({ kind: 'route', to: '/transactions' });
-    expect(backStep('/budgets', undefined)).toEqual({ kind: 'route', to: '/more' });
+    expect(backStep('/budgets', undefined)).toEqual({ kind: 'route', to: '/' });
   });
 
   it('Home has no back', () => {
@@ -251,16 +255,15 @@ describe('closeStep — a form closes after a save or a delete the way «Наз�
 
   it('manual entry returns to the screen it was opened from', () => {
     const history = appHistory('/');
-    history.open('/more');
+    history.open('/transactions');
     history.open('/add');
 
     history.close();
-    expect(history.path).toBe('/more');
+    expect(history.path).toBe('/transactions');
   });
 
-  it('a deleted debt is never shown again: «Назад» walks the list, «Ещё», Home', () => {
+  it('a deleted debt is never shown again: «Назад» walks the list, then Home', () => {
     const history = appHistory('/');
-    history.open('/more');
     history.open('/debts');
     history.open('/debts/d1');
 
@@ -268,30 +271,26 @@ describe('closeStep — a form closes after a save or a delete the way «Наз�
     const visited = [history.path];
     history.back();
     visited.push(history.path);
-    history.back();
-    visited.push(history.path);
 
-    expect(visited).toEqual(['/debts', '/more', '/']);
+    expect(visited).toEqual(['/debts', '/']);
     expect(backStep(history.path, 0)).toBeNull();
   });
 
   it('a saved or deleted budget and a created budget or debt leave no form under their list', () => {
     for (const form of ['/budgets/b1/edit', '/budgets/add']) {
       const history = appHistory('/');
-      history.open('/more');
       history.open('/budgets');
       history.open(form);
 
       history.close();
-      expect(history.stack).toEqual(['/', '/more', '/budgets']);
+      expect(history.stack).toEqual(['/', '/budgets']);
     }
 
     const history = appHistory('/');
-    history.open('/more');
     history.open('/debts');
     history.open('/debts/add');
     history.close();
-    expect(history.stack).toEqual(['/', '/more', '/debts']);
+    expect(history.stack).toEqual(['/', '/debts']);
   });
 
   it('a form opened by a link from the bot gives its place to its parent, so the app never shows it again', () => {

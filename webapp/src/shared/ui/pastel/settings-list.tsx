@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronRight } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
 
 interface SettingsSectionProps {
@@ -13,10 +12,10 @@ interface SettingsSectionProps {
 /** A section of «Ещё» (docs/pastel/components/SettingsList.md): heading, one card, optional note. */
 export function SettingsSection({ title, note, children }: SettingsSectionProps) {
   return (
-    <section className="flex flex-col gap-2">
+    <section className="flex flex-col gap-1.5">
       <h2 className="px-1 text-[13px] font-bold text-ink-muted">{title}</h2>
-      <div className="overflow-hidden rounded-card bg-card [&>*+*]:border-t [&>*+*]:border-line">{children}</div>
-      {note && <p className="px-1 text-[13px] font-medium text-ink-muted">{note}</p>}
+      <div className="overflow-hidden rounded-card bg-card py-1 [&>*+*]:border-t [&>*+*]:border-line">{children}</div>
+      {note && <p className="mx-1 mt-0.5 text-[13px] font-semibold leading-[1.45] text-ink-muted">{note}</p>}
     </section>
   );
 }
@@ -34,6 +33,14 @@ type SettingsRowProps = SettingsRowKind & {
   subtitle?: string;
 };
 
+function Chevron() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true" className="shrink-0 text-ink">
+      <path d="M7.5 4.5 13 10l-5.5 5.5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 function RowBody({ icon, title, subtitle, chevron, outlined }: { icon: ReactNode; title: string; subtitle?: string; chevron: boolean; outlined: boolean }) {
   return (
     <>
@@ -41,22 +48,23 @@ function RowBody({ icon, title, subtitle, chevron, outlined }: { icon: ReactNode
         aria-hidden="true"
         className={cn(
           'flex size-10 shrink-0 items-center justify-center rounded-pill text-ink [&_svg]:size-5',
-          outlined ? 'border-2 border-line' : 'bg-track'
+          outlined ? 'border-2 border-track' : 'bg-track'
         )}
       >
         {icon}
       </span>
-      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+      <span data-row-text="" className="flex min-w-0 flex-1 flex-col gap-px">
         <span className="text-[15px] font-bold leading-snug text-ink">{title}</span>
-        {subtitle && <span className="text-[13px] font-medium leading-snug text-ink-muted">{subtitle}</span>}
+        {subtitle && <span className="text-[13px] font-semibold leading-[1.35] text-ink-muted">{subtitle}</span>}
       </span>
-      {chevron && <ChevronRight aria-hidden="true" className="size-5 shrink-0 text-ink-muted" strokeWidth={2} />}
+      {chevron && <Chevron />}
     </>
   );
 }
 
+const rowBase = 'flex min-h-16 w-full items-center gap-3 py-2 pl-3 pr-3.5 text-left';
 const rowClass =
-  'flex min-h-16 w-full items-center gap-3 px-4 py-2.5 text-left transition-colors duration-150 ' +
+  `${rowBase} transition-colors duration-150 ` +
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ink active:bg-track';
 
 /**
@@ -68,7 +76,7 @@ export function SettingsRow(props: SettingsRowProps) {
 
   if (props.kind === 'link') {
     return (
-      <Link to={props.to} className={rowClass}>
+      <Link to={props.to} data-settings-row="" className={rowClass}>
         <RowBody icon={icon} title={title} subtitle={subtitle} chevron outlined={false} />
       </Link>
     );
@@ -76,7 +84,7 @@ export function SettingsRow(props: SettingsRowProps) {
 
   if (props.kind === 'sheet') {
     return (
-      <button type="button" aria-haspopup="dialog" onClick={props.onClick} className={rowClass}>
+      <button type="button" aria-haspopup="dialog" onClick={props.onClick} data-settings-row="" className={rowClass}>
         <RowBody icon={icon} title={title} subtitle={subtitle} chevron outlined={false} />
       </button>
     );
@@ -84,14 +92,14 @@ export function SettingsRow(props: SettingsRowProps) {
 
   if (props.kind === 'action') {
     return (
-      <button type="button" onClick={props.onClick} disabled={props.disabled} className={cn(rowClass, 'disabled:active:bg-transparent')}>
+      <button type="button" onClick={props.onClick} disabled={props.disabled} data-settings-row="" className={cn(rowClass, 'disabled:active:bg-transparent')}>
         <RowBody icon={icon} title={title} subtitle={subtitle} chevron={false} outlined={false} />
       </button>
     );
   }
 
   return (
-    <div className="flex min-h-16 w-full items-center gap-3 px-4 py-2.5">
+    <div data-settings-row="" className={rowBase}>
       <RowBody icon={icon} title={title} subtitle={subtitle} chevron={false} outlined />
     </div>
   );

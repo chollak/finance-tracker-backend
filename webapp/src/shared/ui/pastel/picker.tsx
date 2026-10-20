@@ -155,13 +155,16 @@ interface OptionPickerProps {
   selectedId?: string | null;
   onSelect: (option: PickerOption) => void;
   footnote?: ReactNode;
+  /** A press selects and the sheet stays open: the choice shows at once behind it («Тема», FT-125). */
+  keepOpen?: boolean;
 }
 
 /**
  * A choice of a few named options, as the account choice draws it (Picker.md): a `sheet-card` with 60px rows — the
- * name `body-strong`, an optional `label` line under it, a radio circle on the right. A press selects and closes.
+ * name `body-strong`, an optional `label` line under it, a radio circle on the right. A press selects and closes,
+ * unless `keepOpen`.
  */
-export function OptionPicker({ open, onOpenChange, title, options, selectedId, onSelect, footnote }: OptionPickerProps) {
+export function OptionPicker({ open, onOpenChange, title, options, selectedId, onSelect, footnote, keepOpen = false }: OptionPickerProps) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange} title={title}>
       <div role="radiogroup" aria-label={title} className="overflow-hidden rounded-card bg-sheet-card [&>*+*]:border-t [&>*+*]:border-line">
@@ -175,7 +178,7 @@ export function OptionPicker({ open, onOpenChange, title, options, selectedId, o
               aria-checked={checked}
               onClick={() => {
                 onSelect(option);
-                onOpenChange(false);
+                if (!keepOpen) onOpenChange(false);
               }}
               className="flex min-h-row w-full items-center gap-3 px-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ink"
             >

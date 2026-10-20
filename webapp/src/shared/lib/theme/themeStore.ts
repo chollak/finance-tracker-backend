@@ -5,7 +5,8 @@ import { THEME_STORAGE_KEY, type ResolvedTheme, type ThemePreference } from './r
 /**
  * localStorage can be missing or throw inside some WebViews and private windows; the theme then
  * simply is not remembered between opens, and the app still renders.
- * (FT-125 moves the preference to the server settings so it follows the user across devices.)
+ * The user's choice is the `theme` setting on the server (FT-125, features/theme-choice): this copy only paints the
+ * first frame before the settings are read (index.html) and keeps a guest's choice.
  */
 const safeStorage: StateStorage = {
   getItem: (name) => {

@@ -2,7 +2,7 @@ import { ROUTES } from '@/shared/lib/constants/routes';
 
 /**
  * «Назад» of «Пастель» (FT-110). There is no bottom bar: Home is the top of the app, History and
- * Analytics open from it, the other sections from «Ещё». Every other screen is nested and has a back:
+ * Analytics open from it, the accounts from it and from «Ещё». Every other screen is nested and has a back:
  * Telegram's BackButton inside Telegram, the screen's own round «Назад» elsewhere (design-system,
  * «Telegram»).
  */
@@ -22,9 +22,6 @@ export interface TelegramBackButtonHost {
   BackButton?: TelegramBackButtonApi;
 }
 
-/** Sections opened from «Ещё» rather than from Home. */
-const OPENED_FROM_MORE: readonly string[] = [ROUTES.BUDGETS, ROUTES.DEBTS];
-
 /**
  * The screen «Назад» leads to when there is no app screen to return to — the screen was opened by a
  * link from the bot or reloaded. `null` on Home.
@@ -33,10 +30,10 @@ export function parentPath(pathname: string): string | null {
   const segments = pathname.split('/').filter(Boolean);
   if (segments.length === 0) return null;
 
-  const section = `/${segments[0]}`;
-  // Manual entry (/add) is a way to write, opened from Home or «Ещё»: one segment, so its parent is Home
-  if (segments.length === 1) return OPENED_FROM_MORE.includes(section) ? ROUTES.MORE : ROUTES.HOME;
-  return section;
+  // A section of one segment returns to Home: History, Analytics, «Ещё», the accounts (opened from Home and from
+  // «Ещё»), manual entry. Budgets and debts are out of the navigation (Д2, FT-125); an old link to them returns Home
+  if (segments.length === 1) return ROUTES.HOME;
+  return `/${segments[0]}`;
 }
 
 export type BackStep = { kind: 'history' } | { kind: 'route'; to: string };

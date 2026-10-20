@@ -10,7 +10,6 @@ import { accountKeys } from '@/entities/account';
 import { transactionKeys } from '@/entities/transaction';
 import { monthBounds, toLocalDate } from '@/shared/lib/dates';
 import { RECENT_LIMIT } from '@/widgets/recent-transactions';
-import { getMoreCaptureChannels } from '@/pages/more/model/moreCaptureChannels';
 import { appRoutes } from './appRoutes';
 
 /**
@@ -93,12 +92,6 @@ describe('ways to manual entry', () => {
 
   it('Home has no «Быстрое добавление» sheet any more', () => {
     expect(home()).not.toContain('Добавить транзакцию');
-  });
-
-  it('«Ещё» → «Вручную» opens it too', () => {
-    const manual = getMoreCaptureChannels({ isGuest: false, hasBotLink: true }).find((channel) => channel.id === 'manual');
-
-    expect(manual?.href).toBe(ROUTES.MANUAL_ENTRY);
   });
 });
 

@@ -80,7 +80,8 @@ Dexie, react-router 7, sonner, motion (recharts убран в FT-121). Feature-S
 перевод и обмен (FT-119), `/analytics[?month=YYYY-MM&type=income]` аналитика месяца и
 `/analytics/categories/:id[?month=]` категория по дням (FT-121; старые `FinancialHealth`, круговая диаграмма и вызовы
 `dashboard` из webapp удалены),
-`/budgets…`, `/debts…`, `/more`.
+`/budgets…`, `/debts…` (вне навигации по Д2, открываются только по старой ссылке), `/more` — «Ещё» (FT-125: счета и курс,
+категории, уведомления бота, тема, выгрузка; в браузере ещё «Аккаунт»).
 Нижний бар (FT-086): Главная · История · Записать · Ещё.
 `BackButton`/`MainButton` Telegram написаны, но не используются.
 

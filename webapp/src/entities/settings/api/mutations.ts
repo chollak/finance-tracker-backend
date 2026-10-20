@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useIsMutating, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient, type ApiError } from '@/shared/api';
 import { API_ENDPOINTS } from '@/shared/lib/constants';
 import { useUserStore } from '@/entities/user/model/store';
@@ -46,4 +46,12 @@ export function useUpdateSettings({ onError }: { onError?: (error: ApiError) => 
       }
     },
   });
+}
+
+/**
+ * A change of the settings is on its way to the server. Until it lands, the settings in the cache are the screen's
+ * own guess, and whatever copies them elsewhere (the theme on the device, FT-125) waits for the last answer.
+ */
+export function useSavingSettings(): boolean {
+  return useIsMutating({ mutationKey: UPDATE_SETTINGS }) > 0;
 }

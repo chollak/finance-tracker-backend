@@ -37,7 +37,7 @@ export function ChoiceChips<T extends string>({ options, value, onChange, ariaLa
             onKeyDown={(event) => move(event, index)}
             onClick={() => onChange(option.value)}
             className={cn(
-              'h-touch rounded-pill px-4 text-[14px] font-bold transition-colors duration-150',
+              'h-touch rounded-pill px-4 text-[15px] font-extrabold tabular-nums transition-colors duration-150',
               'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink',
               checked ? 'bg-primary text-on-primary' : 'bg-sheet-track text-ink'
             )}

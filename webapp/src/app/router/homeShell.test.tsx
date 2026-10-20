@@ -131,27 +131,31 @@ describe('Home opens History and Analytics in one tap', () => {
 });
 
 describe('every section is at most 2 taps from Home', () => {
-  const SECTIONS = [
-    ROUTES.TRANSACTIONS,
-    ROUTES.ANALYTICS,
-    ROUTES.MORE,
-    ROUTES.BUDGETS,
-    ROUTES.DEBTS,
-    ROUTES.MANUAL_ENTRY,
-  ];
+  const SECTIONS = [ROUTES.TRANSACTIONS, ROUTES.ANALYTICS, ROUTES.MORE, ROUTES.ACCOUNTS, ROUTES.MANUAL_ENTRY];
   /** Screens whose own links count as the second tap. */
   const SCREENS: Record<string, () => ReactElement> = { [ROUTES.MORE]: () => <MorePage /> };
 
-  it.each<HomeState>(['empty', 'with-records'])('while %s', (state) => {
+  function reachable(state: HomeState): Set<string> {
     const firstTap = new Set(linkTargets(render(<HomePage />, ROUTES.HOME, state)));
-    const secondTap = new Set<string>();
+    const taps = new Set(firstTap);
     for (const target of firstTap) {
       const screen = SCREENS[target];
-      if (screen) linkTargets(render(screen(), target, state)).forEach((href) => secondTap.add(href));
+      if (screen) linkTargets(render(screen(), target, state)).forEach((href) => taps.add(href));
     }
+    return taps;
+  }
 
-    const unreachable = SECTIONS.filter((section) => !firstTap.has(section) && !secondTap.has(section));
-    expect(unreachable).toEqual([]);
+  it.each<HomeState>(['empty', 'with-records'])('while %s', (state) => {
+    const taps = reachable(state);
+
+    expect(SECTIONS.filter((section) => !taps.has(section))).toEqual([]);
+  });
+
+  // Д2, FT-125: budgets and debts leave the navigation; their code and data stay
+  it.each<HomeState>(['empty', 'with-records'])('budgets and debts are not offered, while %s', (state) => {
+    const taps = [...reachable(state)];
+
+    expect(taps.filter((href) => href.startsWith(ROUTES.BUDGETS) || href.startsWith(ROUTES.DEBTS))).toEqual([]);
   });
 });
 
