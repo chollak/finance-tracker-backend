@@ -1,11 +1,12 @@
 import type { ReactNode } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { cn } from '@/shared/lib/utils';
 import { ROUTES } from '@/shared/lib/constants/routes';
 import { toLocalDate } from '@/shared/lib/dates';
 import { SkeletonBlock } from '@/shared/ui/pastel';
 import { findCategory, useCategories, type Category } from '@/entities/category';
 import { buildRecordDays, RecordDayList, useRecentRecords, type Transaction } from '@/entities/transaction';
+import { openRecordCategory, openRecordSheet, useRecordFlash } from '@/features/record-sheet';
 
 /** The board shows the five newest records. */
 export const RECENT_LIMIT = 5;
@@ -93,14 +94,28 @@ export interface RecentRecordsViewProps {
   records: { data: Transaction[] | undefined; isError: boolean };
   categories: readonly Category[] | undefined;
   today: string;
+  /** A row: the record's sheet. */
   onOpen: (id: string) => void;
+  /** A row's category circle: the choice of a category at once (FT-115). */
+  onCategory?: (id: string) => void;
+  /** The row just changed, ringed for 2 seconds. */
+  flashId?: string | null;
   onRetry: () => void;
   /** A retry is under way: the button waits instead of firing twice. */
   retrying?: boolean;
 }
 
 /** The section as the board draws it, from records already read; `RecentTransactions` reads them. */
-export function RecentRecordsView({ records, categories, today, onOpen, onRetry, retrying = false }: RecentRecordsViewProps) {
+export function RecentRecordsView({
+  records,
+  categories,
+  today,
+  onOpen,
+  onCategory,
+  flashId,
+  onRetry,
+  retrying = false,
+}: RecentRecordsViewProps) {
   if (!records.data) {
     return <Shell>{records.isError ? <LoadFailed onRetry={onRetry} retrying={retrying} /> : <LoadingRows />}</Shell>;
   }
@@ -118,7 +133,7 @@ export function RecentRecordsView({ records, categories, today, onOpen, onRetry,
   });
   return (
     <Shell>
-      <RecordDayList days={days} onOpen={onOpen} />
+      <RecordDayList days={days} onOpen={onOpen} onCategory={onCategory} flashId={flashId} />
     </Shell>
   );
 }
@@ -126,19 +141,24 @@ export function RecentRecordsView({ records, categories, today, onOpen, onRetry,
 /**
  * «Последние операции» on Home (FT-111, board «Главная», TransactionList.md): the five newest records by
  * day, «Все» opening History. The category's name and colour come from the user's list by id. A row opens
- * the record's screen; the record sheet replaces it in FT-115.
+ * the record sheet, its category circle the choice of a category, and the row just changed is ringed
+ * (FT-115); the screen mounts `RecordSheet`.
  */
 export function RecentTransactions() {
-  const navigate = useNavigate();
   const records = useRecentRecords(RECENT_LIMIT);
   const categories = useCategories();
+  const flashId = useRecordFlash();
+  // The record as the list has it, shown in the sheet until the sheet reads it
+  const seed = (id: string) => records.data?.find((record) => record.id === id);
 
   return (
     <RecentRecordsView
       records={records}
       categories={categories.data}
       today={toLocalDate(new Date())}
-      onOpen={(id) => navigate(ROUTES.EDIT_TRANSACTION(id))}
+      onOpen={(id) => openRecordSheet(id, seed(id))}
+      onCategory={(id) => openRecordCategory(id, seed(id))}
+      flashId={flashId}
       onRetry={() => void records.refetch()}
       retrying={records.isError && records.isFetching}
     />

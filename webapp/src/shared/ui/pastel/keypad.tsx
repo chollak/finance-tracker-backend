@@ -4,6 +4,8 @@ import { keypadExtraKey, pressKey, type Currency, type KeypadKey, type KeypadSta
 
 type KeypadProps = {
   currency: Currency;
+  /** Keys on `sheet-card` inside a sheet (the record sheet's amount): `card` would vanish on the dark sheet. */
+  inSheet?: boolean;
   className?: string;
 } & (
   | { state: KeypadState; onChange: (state: KeypadState) => void }
@@ -23,7 +25,7 @@ const DIGIT_ROWS: KeypadKey[][] = [
  * Telegram's WebView shifts and covers the screen unpredictably.
  */
 export function Keypad(props: KeypadProps) {
-  const { currency, className } = props;
+  const { currency, inSheet = false, className } = props;
   const extra = keypadExtraKey(currency);
   const rows: KeypadKey[][] = [...DIGIT_ROWS, [extra, '0', 'del']];
   const press = (key: KeypadKey) =>
@@ -38,10 +40,11 @@ export function Keypad(props: KeypadProps) {
           onClick={() => press(key)}
           aria-label={key === 'del' ? 'Стереть' : key === '000' ? 'Три нуля' : key === ',' ? 'Запятая' : undefined}
           className={cn(
-            'flex h-key items-center justify-center rounded-pill bg-card font-semibold tabular-nums text-ink',
+            'flex h-key items-center justify-center rounded-pill font-semibold tabular-nums text-ink',
+            inSheet ? 'bg-sheet-card active:bg-sheet-track' : 'bg-card active:bg-track',
             // «000» is a word-sized key on every board: 17px against the digits' 23px
             key === '000' ? 'text-[17px]' : 'text-[23px]',
-            'transition-[transform,background-color] duration-100 active:scale-[0.97] active:bg-track',
+            'transition-[transform,background-color] duration-100 active:scale-[0.97]',
             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink'
           )}
         >

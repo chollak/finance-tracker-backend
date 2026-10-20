@@ -14,7 +14,8 @@ import { ROUTES } from '../webapp/src/shared/lib/constants/routes';
 
 /**
  * The bot's Mini App buttons open real screens of the webapp. FT-113 moved manual entry from
- * /transactions/add to /add; a bot link left on the old address opened «Страница не найдена».
+ * /transactions/add to /add; a bot link left on the old address opened «Страница не найдена». FT-115
+ * replaced the edit page /transactions/:id/edit with the record sheet, which Home opens from `?record=`.
  */
 
 const BASE_URL = 'https://miniapp.test';
@@ -67,11 +68,20 @@ describe('«Добавить» in the bot opens manual entry', () => {
   });
 });
 
+describe('«Изменить» in the bot opens the record sheet', () => {
+  it('Home with the record named, as the webapp links to a record', () => {
+    const url = urlOf(transactionEditKeyboard(RECORD_ID, USER_ID), RU.buttons.edit);
+
+    expect(url.origin).toBe(BASE_URL);
+    expect(url.pathname).toBe(ROUTES.HOME);
+    expect(url.searchParams.get('record')).toBe(RECORD_ID);
+    expect(`${url.pathname}?record=${url.searchParams.get('record')}`).toBe(ROUTES.RECORD(RECORD_ID));
+    expect(url.searchParams.get('userId')).toBe(USER_ID);
+  });
+});
+
 describe('every Mini App link of the bot is a screen of the webapp', () => {
-  const screens = new Set<string>([
-    ...Object.values(ROUTES).flatMap((route) => (typeof route === 'string' ? [route] : [])),
-    ROUTES.EDIT_TRANSACTION(RECORD_ID),
-  ]);
+  const screens = new Set<string>(Object.values(ROUTES).flatMap((route) => (typeof route === 'string' ? [route] : [])));
 
   const keyboards: Array<[string, () => Keyboard]> = [
     ['/start menu', () => mainMenuKeyboard(USER_ID)],
@@ -93,9 +103,10 @@ describe('every Mini App link of the bot is a screen of the webapp', () => {
     }
   });
 
-  it('none of them opens the removed /transactions/add', () => {
+  it('none of them opens the removed /transactions/add or /transactions/:id/edit', () => {
     const paths = keyboards.flatMap(([, build]) => webAppButtons(build()).map((button) => new URL(button.web_app!.url).pathname));
 
     expect(paths).not.toContain('/transactions/add');
+    expect(paths.filter((path) => path.endsWith('/edit'))).toEqual([]);
   });
 });

@@ -15,6 +15,8 @@ import {
 import { useUserStore } from '@/entities/user/model/store';
 import { FilterBar, useTransactionFiltersStore, filterTransactions } from '@/features/filter-transactions';
 import { useDeleteTransactionDialog } from '@/features/delete-transaction';
+import { openRecordSheet, RecordSheet } from '@/features/record-sheet';
+import { UndoToast } from '@/shared/ui/pastel';
 import { Button, EmptyState, PageHeader, PageShell, SegmentedTabsList, SegmentedTabsTrigger } from '@/shared/ui';
 import { Skeleton } from '@/shared/ui/skeleton';
 import { Tabs, TabsContent } from '@/shared/ui/tabs';
@@ -291,7 +293,8 @@ export function TransactionsPage() {
             // rows that survived a query would name the day but count only the matches,
             // and 114 000 would sit under a date whose real total is 235 000.
             showSummary={!isFiltered}
-            onOpen={(id) => navigate(ROUTES.EDIT_TRANSACTION(id))}
+            // The record sheet (FT-115) replaced the edit page; History itself is redone in FT-116
+            onOpen={(id) => openRecordSheet(id)}
             onArchive={handleArchive}
             onDelete={openDialog}
             emptyState={
@@ -367,6 +370,10 @@ export function TransactionsPage() {
 
       {/* Delete Confirmation Dialog */}
       {DialogComponent}
+
+      {/* A row opens the record sheet; its «Удалено» and «Отменить» show at the bottom edge (Toast.md) */}
+      <RecordSheet />
+      <UndoToast />
     </PageShell>
   );
 }

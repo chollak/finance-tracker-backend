@@ -9,7 +9,6 @@ export const ROUTES = {
   TRANSACTIONS: '/transactions',
   MANUAL_ENTRY: '/add',
   CAPTURE_REVIEW: '/review',
-  EDIT_TRANSACTION: (id: string) => `/transactions/${id}/edit`,
   BUDGETS: '/budgets',
   ADD_BUDGET: '/budgets/add',
   EDIT_BUDGET: (id: string) => `/budgets/${id}/edit`,

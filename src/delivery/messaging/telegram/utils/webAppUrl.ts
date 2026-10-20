@@ -16,7 +16,14 @@ export const WEB_APP_PATHS = {
 
 export type WebAppPath = (typeof WEB_APP_PATHS)[keyof typeof WEB_APP_PATHS];
 
+/**
+ * The query parameter that names a record whose sheet Home opens (FT-115, the webapp's `RECORD_PARAM`):
+ * the record has no page of its own since the edit page went.
+ */
+export const RECORD_PARAM = 'record';
+
 export interface WebAppUrlParams {
+  /** A record to change: Home opens its sheet. */
   edit?: string;
   path?: WebAppPath;
   startapp?: string;
@@ -35,9 +42,10 @@ export function createWebAppUrl(userId: string, params: WebAppUrlParams = {}): s
     throw new Error('WEB_APP_URL not configured');
   }
 
-  // For transaction editing - use the correct route path
+  // A record to change: Home with its sheet open (the webapp's ROUTES.RECORD)
   if (params.edit) {
-    const url = new URL(`/transactions/${params.edit}/edit`, baseUrl);
+    const url = new URL('/', baseUrl);
+    url.searchParams.set(RECORD_PARAM, params.edit);
     url.searchParams.set('userId', userId);
     return url.toString();
   }

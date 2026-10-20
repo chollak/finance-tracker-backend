@@ -68,7 +68,8 @@ Dexie, react-router 7, recharts, sonner, motion. Feature-Sliced Design: `app`, `
 `features` (12), `entities` (7), `shared`. Около 258 файлов, 20 файлов тестов Vitest (только чистые функции).
 
 **Маршруты.** `/` Главная, `/transactions` История, `/add` ручной ввод (FT-113; `/transactions/add`
-убран), `/review` проверка записей фразы (FT-114), `/transactions/:id/edit`, `/budgets…`, `/debts…`, `/analytics`,
+убран), `/review` проверка записей фразы (FT-114), `/?record=<id>` — главная с карточкой операции (FT-115;
+`/transactions/:id/edit` убран), `/budgets…`, `/debts…`, `/analytics`,
 `/more`.
 Нижний бар (FT-086): Главная · История · Записать · Ещё.
 `BackButton`/`MainButton` Telegram написаны, но не используются.

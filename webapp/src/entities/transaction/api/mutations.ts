@@ -9,7 +9,7 @@ import { dashboardKeys } from '@/entities/dashboard/api/keys';
 import { subscriptionKeys } from '@/entities/subscription/api/keys';
 import { transactionToViewModel } from '../lib/toViewModel';
 import { transactionDataSource } from '@/shared/lib/db';
-import type { LocalTransaction } from '@/shared/lib/db/schema';
+import type { LocalTransaction, UpdateLocalTransactionDTO } from '@/shared/lib/db/schema';
 import { isGuestId } from '@/shared/lib/utils/guestId';
 import { haptic } from '@/shared/lib/haptic';
 import { balanceReaderKeys } from './balanceReaders';
@@ -185,6 +185,7 @@ function forgetDeletedTransaction(queryClient: QueryClient, { id, userId }: { id
 
   // 2. Remove from detail cache
   queryClient.removeQueries({ queryKey: transactionKeys.detail(id) });
+  queryClient.removeQueries({ queryKey: transactionKeys.record(id) });
 
   // 3. Invalidate computed data
   queryClient.invalidateQueries({ queryKey: budgetKeys.summaries(userId) });
@@ -208,31 +209,65 @@ export async function deleteTransaction(queryClient: QueryClient, variables: { i
 }
 
 /**
- * Brings a deleted record back (FT-105: `POST /api/transactions/:id/restore`) and refreshes what counts it.
- * Not a hook, like `deleteTransaction`: «Отменить» in a toast runs it. Server records only.
+ * Brings a deleted record back (FT-105: `POST /api/transactions/:id/restore`; a guest's record is put back on
+ * the device, FT-115) and refreshes what counts it. Not a hook, like `deleteTransaction`: «Отменить» in a toast
+ * runs it.
  */
 export async function restoreTransaction(queryClient: QueryClient, { id, userId }: { id: string; userId: string }): Promise<void> {
-  await apiClient.post(API_ENDPOINTS.TRANSACTIONS.RESTORE(id));
+  await transactionDataSource.restore(id);
   refetchAfterChange(queryClient, userId);
 }
 
-/** A change of one field of a saved record, as `PUT /api/transactions/:id` takes it (docs/pastel/api.md). */
+/**
+ * A change of a saved record, as `PUT /api/transactions/:id` takes it (docs/pastel/api.md): one field, or the
+ * fields that move together — an account with its currency, a type with a category of that type and its
+ * meaning (the record sheet's «Расход / Доход», FT-115).
+ */
 export type TransactionPatch =
   | { categoryId: string }
   | { accountId: string; currency: 'UZS' | 'USD' }
   | { date: string }
-  | { amountMinor: number };
+  | { amountMinor: number }
+  | { description: string }
+  | { type: 'income' | 'expense'; categoryId: string; semanticType: 'income' | 'expense' };
 
 /**
- * Changes a saved record at once (the AI review of FT-114: category, account, date, a converted amount) and
- * refreshes what shows it. Server records only: the review follows a server capture.
+ * A guest's device record has no account or currency (сум only) and keeps its amount in сум; guest mode goes
+ * with FT-128 (decision Д4).
+ */
+function toDeviceUpdate(patch: TransactionPatch): UpdateLocalTransactionDTO {
+  const update: UpdateLocalTransactionDTO = {};
+  if ('amountMinor' in patch) update.amount = patch.amountMinor / 100;
+  if ('categoryId' in patch) update.categoryId = patch.categoryId;
+  if ('date' in patch) update.date = patch.date;
+  if ('description' in patch) update.description = patch.description;
+  if ('type' in patch) {
+    update.type = patch.type;
+    update.semanticType = patch.semanticType;
+  }
+  return update;
+}
+
+/**
+ * Changes a saved record at once (the AI review of FT-114, the record sheet of FT-115) and refreshes what shows
+ * it. A signed-in user's record is changed on the server, whose answer becomes the record the sheet shows; a
+ * guest's on the device.
  */
 export async function patchTransaction(
   queryClient: QueryClient,
   { id, userId, patch }: { id: string; userId: string; patch: TransactionPatch }
 ): Promise<void> {
-  await apiClient.put(API_ENDPOINTS.TRANSACTIONS.UPDATE(id), patch);
+  let saved: Transaction;
+  if (isGuestId(userId)) {
+    const local = await transactionDataSource.update(id, toDeviceUpdate(patch));
+    if (!local) throw { statusCode: 404, message: 'Transaction not found' };
+    saved = localToTransaction(local);
+  } else {
+    const response = await apiClient.put<Transaction>(API_ENDPOINTS.TRANSACTIONS.UPDATE(id), patch);
+    saved = response.data;
+  }
   queryClient.removeQueries({ queryKey: transactionKeys.detail(id) });
+  queryClient.setQueryData(transactionKeys.record(id), saved);
   refetchAfterChange(queryClient, userId);
 }
 

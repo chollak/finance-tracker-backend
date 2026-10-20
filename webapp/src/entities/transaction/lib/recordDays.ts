@@ -22,6 +22,8 @@ export interface RecordRow {
   tone: 'income' | 'expense';
   /** «Продукты, −186 400 сум, Супермаркет. Открыть». */
   ariaLabel: string;
+  /** The category circle (FT-115): «Сменить категорию: Продукты, −186 400 сум». */
+  categoryAriaLabel: string;
 }
 
 export interface RecordDay {
@@ -71,6 +73,7 @@ export function buildRecordDays(
     const tone = record.type === 'income' ? 'income' : 'expense';
     const signed = tone === 'income' ? amountMinorOf(record) : -amountMinorOf(record);
 
+    const fullAmount = formatMinor(signed, currency, { sign: 'always' });
     group.rows.push({
       id: record.id ?? '',
       title,
@@ -78,7 +81,8 @@ export function buildRecordDays(
       note: note || NO_NOTE,
       amount: formatMinor(signed, currency, { sign: 'always', unit: currency !== 'UZS' }),
       tone,
-      ariaLabel: `${title}, ${formatMinor(signed, currency, { sign: 'always' })}${note ? `, ${note}` : ''}. Открыть`,
+      ariaLabel: `${title}, ${fullAmount}${note ? `, ${note}` : ''}. Открыть`,
+      categoryAriaLabel: `Сменить категорию: ${title}, ${fullAmount}`,
     });
   }
 

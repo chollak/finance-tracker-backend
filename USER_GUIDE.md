@@ -65,7 +65,8 @@ After creating a transaction, you'll see buttons:
 **Transactions (`/transactions`):**
 - Search by description or category
 - Filter by type (Income/Expense) or specific categories
-- Edit any transaction via `/transactions/:id/edit`
+- Tap a record to open its sheet: every change is saved at once; delete it with «Отменить» in the toast
+  (a link to a record is `/?record=<id>`, which the bot's «Изменить» opens)
 - Add a transaction via `/add` (manual entry with the app's own keypad)
 - Delete transactions with confirmation
 - Auto-grouped by date (Today, Yesterday, This Week, Earlier)

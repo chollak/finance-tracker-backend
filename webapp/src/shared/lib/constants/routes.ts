@@ -1,10 +1,14 @@
+/** The query parameter that names a record whose sheet Home opens (FT-115): the bot's «Изменить» links to it. */
+export const RECORD_PARAM = 'record';
+
 // Route constants for type-safe navigation
 export const ROUTES = {
   HOME: '/',
 
   // Transactions
   TRANSACTIONS: '/transactions',
-  EDIT_TRANSACTION: (id: string) => `/transactions/${id}/edit`,
+  // A record: Home with its sheet open (FT-115; the edit page /transactions/:id/edit is gone)
+  RECORD: (id: string) => `/?${RECORD_PARAM}=${encodeURIComponent(id)}`,
 
   // Manual entry (FT-113): a way to write, opened from Home, «Ещё» and an empty History
   MANUAL_ENTRY: '/add',
@@ -64,6 +68,8 @@ export const API_ENDPOINTS = {
     // Frequent expenses of the last 30 days for the quick chips (FT-114); the user from authentication
     FREQUENT: '/transactions/frequent',
     CREATE: '/transactions',
+    // One record of the user, as the record sheet reads it (FT-115)
+    DETAIL: (id: string) => `/transactions/${id}`,
     UPDATE: (id: string) => `/transactions/${id}`,
     DELETE: (id: string) => `/transactions/${id}`,
     // «Отменить» after a delete brings the record back (FT-105)

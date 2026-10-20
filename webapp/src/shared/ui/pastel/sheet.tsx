@@ -7,7 +7,13 @@ import { useUndoToastStore } from '@/shared/lib/undo';
 interface SheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** The dialog's name; shown as the heading unless `header` replaces it. */
   title: string;
+  /**
+   * A header of its own instead of the title and «Закрыть» (the record sheet: «Расход / Доход» and «Закрыть»,
+   * or «Назад» and «Сумма»). The title then names the dialog for screen readers only.
+   */
+  header?: ReactNode;
   /** Optional line under the title (Picker: the operation being changed). */
   subtitle?: ReactNode;
   /** Optional action at the right of the subtitle line («Вся операция ›»). */
@@ -25,7 +31,7 @@ const CLOSE_DRAG_PX = 80;
  * and Escape; dragging the grabber or the title down closes it. At most one sheet over another.
  * Height is limited to the window minus 64px; the content scrolls inside. Toasts hide meanwhile.
  */
-export function Sheet({ open, onOpenChange, title, subtitle, children, footer, className }: SheetProps) {
+export function Sheet({ open, onOpenChange, title, header, subtitle, children, footer, className }: SheetProps) {
   const sheetOpened = useUndoToastStore((state) => state.sheetOpened);
   const sheetClosed = useUndoToastStore((state) => state.sheetClosed);
   const [dragY, setDragY] = useState(0);
@@ -83,15 +89,22 @@ export function Sheet({ open, onOpenChange, title, subtitle, children, footer, c
             onPointerCancel={onPointerUp}
           >
             <span aria-hidden="true" className="mx-auto h-[5px] w-9 rounded-pill bg-grabber" />
-            <div className="flex items-center justify-between gap-3">
-              <Dialog.Title className="type-section min-w-0">{title}</Dialog.Title>
-              <Dialog.Close
-                aria-label="Закрыть"
-                className="flex size-touch shrink-0 items-center justify-center rounded-pill bg-sheet-card text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink"
-              >
-                <X className="size-5" strokeWidth={2} />
-              </Dialog.Close>
-            </div>
+            {header ? (
+              <>
+                <Dialog.Title className="sr-only">{title}</Dialog.Title>
+                {header}
+              </>
+            ) : (
+              <div className="flex items-center justify-between gap-3">
+                <Dialog.Title className="type-section min-w-0">{title}</Dialog.Title>
+                <Dialog.Close
+                  aria-label="Закрыть"
+                  className="flex size-touch shrink-0 items-center justify-center rounded-pill bg-sheet-card text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink"
+                >
+                  <X className="size-5" strokeWidth={2} />
+                </Dialog.Close>
+              </div>
+            )}
             {subtitle}
           </div>
           <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain px-4 pb-6 pt-3">

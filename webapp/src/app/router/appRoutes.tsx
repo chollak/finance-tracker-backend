@@ -10,7 +10,6 @@ import { FirstLaunchGate } from './FirstLaunchGate';
 // Lazy load pages for code splitting
 const HomePage = lazy(() => import('@/pages').then(m => ({ default: m.HomePage })));
 const TransactionsPage = lazy(() => import('@/pages').then(m => ({ default: m.TransactionsPage })));
-const EditTransactionPage = lazy(() => import('@/pages').then(m => ({ default: m.EditTransactionPage })));
 const BudgetsPage = lazy(() => import('@/pages').then(m => ({ default: m.BudgetsPage })));
 const AddBudgetPage = lazy(() => import('@/pages').then(m => ({ default: m.AddBudgetPage })));
 const EditBudgetPage = lazy(() => import('@/pages').then(m => ({ default: m.EditBudgetPage })));
@@ -141,11 +140,8 @@ export const appRoutes: RouteObject[] = [
             path: '/review',
             element: <PageLoader><CaptureReviewPage /></PageLoader>,
           },
-          // Form and detail pages
-          {
-            path: '/transactions/:id/edit',
-            element: <PageLoader><EditTransactionPage /></PageLoader>,
-          },
+          // Form and detail pages. A record has no page: its sheet opens over the list (FT-115), and a link
+          // to a record is Home with `?record=` (ROUTES.RECORD)
           {
             path: '/budgets/add',
             element: <PageLoader><AddBudgetPage /></PageLoader>,

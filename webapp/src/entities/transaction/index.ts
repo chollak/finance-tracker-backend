@@ -38,7 +38,7 @@ export { transactionKeys } from './api/keys';
 export { balanceReaderKeys } from './api/balanceReaders';
 export {
   useTransactions,
-  useTransaction,
+  useRecord,
   useTransactionAnalytics,
   useCategoryBreakdown,
   useMonthlyTrends,

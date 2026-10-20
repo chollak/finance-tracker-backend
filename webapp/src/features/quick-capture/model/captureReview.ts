@@ -2,7 +2,7 @@ import { visibleAccounts, type Account } from '@/entities/account';
 import { pickableCategories, type Category } from '@/entities/category';
 import type { TransactionPatch } from '@/entities/transaction';
 import { addDays, parseLocalDate, type LocalDate } from '@/shared/lib/dates';
-import { CURRENCY_UNIT, formatMinor, MINUS, NBSP, usdToUzsMinor, uzsToUsdMinor, type Currency } from '@/shared/lib/money';
+import { CURRENCY_UNIT, formatMinor, MINUS, NBSP, recalculationAfterMove, type Currency, type Recalculation } from '@/shared/lib/money';
 import type { PastelColor } from '@/shared/lib/pastel/categoryColors';
 import type { PickerAccount, PickerCategory } from '@/shared/ui/pastel';
 import { pluralRu } from '@/shared/lib/plural';
@@ -29,7 +29,7 @@ export interface ReviewItem {
   /** «45» read as 45 000: what was written and the amount it became. */
   thousands: { written: string; amountMinor: number } | null;
   /** After an account of another currency the number stayed; this offers it converted (design-system). */
-  conversion: { origin: { currency: Currency; amountMinor: number }; amountMinor: number } | null;
+  conversion: Recalculation | null;
   /** Taken out with «×» (deleted, «Отменить» brings it back). */
   removed: boolean;
 }
@@ -120,29 +120,18 @@ export function chooseCategory(session: ReviewSession, id: string, categoryId: s
   return { session: update(session, id, (item) => ({ ...item, categoryId, guessed: false })), patch: { categoryId } };
 }
 
-function convertMinor(amountMinor: number, from: Currency, to: Currency, rateMinor: number | null): number | null {
-  if (from === to) return amountMinor;
-  if (!rateMinor) return null;
-  return to === 'USD' ? uzsToUsdMinor(amountMinor, rateMinor) : usdToUzsMinor(amountMinor, rateMinor);
-}
-
 /**
  * Another account. Of the same currency it just moves the record; of another one the number stays (money
  * never changes currency silently) and the converted amount is offered; back to the first currency the
- * number is the one written, so nothing is offered.
+ * number is the one written, so nothing is offered (`recalculationAfterMove`, the same rule as the record sheet).
  */
 export function chooseAccount(session: ReviewSession, id: string, account: Account, rateMinor: number | null): ReviewChange {
-  const next = update(session, id, (item) => {
-    if (account.currency === item.currency) return { ...item, accountId: account.id };
-    const origin = item.conversion?.origin ?? { currency: item.currency, amountMinor: item.amountMinor };
-    const converted = origin.currency === account.currency ? null : convertMinor(origin.amountMinor, origin.currency, account.currency, rateMinor);
-    return {
-      ...item,
-      accountId: account.id,
-      currency: account.currency,
-      conversion: converted === null ? null : { origin, amountMinor: converted },
-    };
-  });
+  const next = update(session, id, (item) => ({
+    ...item,
+    accountId: account.id,
+    currency: account.currency,
+    conversion: recalculationAfterMove({ ...item, recalculation: item.conversion }, account.currency, rateMinor),
+  }));
   return { session: next, patch: { accountId: account.id, currency: account.currency } };
 }
 

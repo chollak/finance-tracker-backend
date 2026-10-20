@@ -9,9 +9,16 @@
 import { useUserStore } from '@/entities/user/model/store';
 import { localTransactionRepo } from './transactionRepo';
 import { apiClient } from '@/shared/api/client';
+import { API_ENDPOINTS } from '@/shared/lib/constants/routes';
 import type { LocalTransaction, CreateLocalTransactionDTO, UpdateLocalTransactionDTO } from './schema';
 
 export type DataSourceMode = 'local' | 'server';
+
+/**
+ * A guest's records deleted in this session, for «Отменить» (FT-115). The server deletes softly and restores
+ * by id (FT-105); the device deletes for good, so the record is kept here to be put back as it was.
+ */
+const deletedOnDevice = new Map<string, LocalTransaction>();
 
 /**
  * Get current data source mode based on user type
@@ -96,6 +103,8 @@ export const transactionDataSource = {
     const { userId, userType } = useUserStore.getState();
 
     if (userType === 'guest') {
+      const existing = await localTransactionRepo.getById(id);
+      if (existing) deletedOnDevice.set(id, existing);
       return localTransactionRepo.delete(id);
     }
 
@@ -103,6 +112,25 @@ export const transactionDataSource = {
     // Pass userId in query for auth middleware to verify ownership
     await apiClient.delete(`/transactions/${id}?userId=${userId}`);
     return true;
+  },
+
+  /**
+   * Bring a deleted record back (the «Отменить» of «Удалено»): `POST /transactions/:id/restore` on the server
+   * (FT-105); a guest's record is put back on the device as it was deleted. Throws when there is nothing to
+   * bring back, so the toast says the undo failed.
+   */
+  async restore(id: string): Promise<void> {
+    const { userType } = useUserStore.getState();
+
+    if (userType === 'guest') {
+      const deleted = deletedOnDevice.get(id);
+      if (!deleted) throw new Error(`Record ${id} was not deleted on this device`);
+      await localTransactionRepo.put(deleted);
+      deletedOnDevice.delete(id);
+      return;
+    }
+
+    await apiClient.post(API_ENDPOINTS.TRANSACTIONS.RESTORE(id));
   },
 
   /**

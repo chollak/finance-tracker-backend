@@ -6,6 +6,7 @@ import { HomeSkeleton } from '@/widgets/home-skeleton';
 import { PageShell } from '@/shared/ui';
 import { UndoToast } from '@/shared/ui/pastel';
 import { Composer } from '@/features/quick-capture';
+import { RecordSheet, useRecordLink } from '@/features/record-sheet';
 import { GuestModeBanner } from '@/features/auth';
 import { useIsGuest } from '@/entities/user';
 import { useHomeLoading } from '../model/homeLoading';
@@ -24,10 +25,14 @@ import { useHomeLoading } from '../model/homeLoading';
  *
  * Until each of its first reads has answered once Home is its skeleton (FT-112), the same one the app opens
  * on; a read that failed is then the business of its section, which says so and reads it again.
+ *
+ * A recent record opens its sheet (FT-115), and so does a link to a record (`ROUTES.RECORD`: the bot's
+ * «Изменить»), which the sheet shows once Home is there.
  */
 export function HomePage() {
   const isGuest = useIsGuest();
   const loading = useHomeLoading();
+  useRecordLink();
 
   // The toast of a record saved elsewhere (FT-113) shows over the skeleton too: Home may still be reading
   if (loading) {
@@ -55,8 +60,11 @@ export function HomePage() {
 
       <Composer />
 
-      {/* «Записано» with «Отменить» over the composer (Toast.md): after a chip, a review, a manual entry */}
+      {/* «Записано» with «Отменить» over the composer (Toast.md): after a chip, a review, a manual entry, and
+          «Удалено» or «Категория изменена» after the record sheet */}
       <UndoToast bottom={160} />
+
+      <RecordSheet />
     </PageShell>
   );
 }

@@ -1,12 +1,37 @@
 import { cn } from '@/shared/lib/utils';
 import { CategoryDot } from '@/shared/ui/pastel';
-import type { RecordDay } from '../lib/recordDays';
+import type { RecordDay, RecordRow } from '../lib/recordDays';
 
 interface RecordDayListProps {
   days: RecordDay[];
   /** Opens the record. */
   onOpen: (id: string) => void;
+  /** The category circle as a button of its own: the choice of a category at once (FT-115). */
+  onCategory?: (id: string) => void;
+  /** The row just changed, ringed for 2 seconds (FT-115). */
+  flashId?: string | null;
   className?: string;
+}
+
+const FOCUS = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ink';
+
+function RowText({ row }: { row: RecordRow }) {
+  return (
+    <>
+      <span className="flex min-w-0 flex-1 flex-col gap-px py-2.5 pl-2 pr-3">
+        <span className="type-body-strong truncate">{row.title}</span>
+        <span className="truncate text-[13px] leading-snug text-ink-muted">{row.note}</span>
+      </span>
+      <span
+        className={cn(
+          'shrink-0 whitespace-nowrap pr-2 text-[15px] font-extrabold tabular-nums',
+          row.tone === 'income' ? 'text-income' : 'text-ink'
+        )}
+      >
+        {row.amount}
+      </span>
+    </>
+  );
 }
 
 /**
@@ -14,10 +39,10 @@ interface RecordDayListProps {
  * 60px rows and no dividers — the category circle, the category and the note, the amount (expenses ink
  * with «−», income green with «+»). A long note is cut with an ellipsis, the amount never.
  *
- * The whole row opens the record. The circle as a button of its own, straight to the category picker,
- * comes with the record sheet (FT-115).
+ * A row is two buttons when `onCategory` is given: the circle (a 52×60 target) opens the choice of a category
+ * at once, the rest of the row opens the record. The row just changed is ringed inside with `ink` for 2 seconds.
  */
-export function RecordDayList({ days, onOpen, className }: RecordDayListProps) {
+export function RecordDayList({ days, onOpen, onCategory, flashId, className }: RecordDayListProps) {
   return (
     <div className={cn('flex flex-col gap-2.5', className)}>
       {days.map((day) => (
@@ -25,33 +50,50 @@ export function RecordDayList({ days, onOpen, className }: RecordDayListProps) {
           <h3 className="type-label text-ink-muted">{day.label}</h3>
           <ul className="rounded-card bg-card px-2 py-1">
             {day.rows.map((row) => (
-              <li key={row.id}>
-                <button
-                  type="button"
-                  onClick={() => row.id && onOpen(row.id)}
-                  aria-label={row.ariaLabel}
-                  className={cn(
-                    'flex min-h-row w-full items-center rounded-control text-left text-ink',
-                    'transition-colors duration-150 active:bg-track',
-                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ink'
-                  )}
-                >
-                  <span aria-hidden="true" className="flex h-row w-[52px] shrink-0 items-center justify-center pl-1">
-                    <CategoryDot name={row.title} color={row.color} />
-                  </span>
-                  <span className="flex min-w-0 flex-1 flex-col gap-px py-2.5 pl-2 pr-3">
-                    <span className="type-body-strong truncate">{row.title}</span>
-                    <span className="truncate text-[13px] leading-snug text-ink-muted">{row.note}</span>
-                  </span>
-                  <span
+              <li
+                key={row.id}
+                className={cn('flex items-center rounded-control', flashId && row.id === flashId && 'ring-2 ring-inset ring-ink')}
+              >
+                {onCategory ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => row.id && onCategory(row.id)}
+                      aria-label={row.categoryAriaLabel}
+                      className={cn('flex h-row w-[52px] shrink-0 items-center justify-center rounded-control pl-1', FOCUS)}
+                    >
+                      <CategoryDot name={row.title} color={row.color} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => row.id && onOpen(row.id)}
+                      aria-label={row.ariaLabel}
+                      className={cn(
+                        'flex min-h-row min-w-0 flex-1 items-center rounded-control text-left text-ink',
+                        'transition-colors duration-150 active:bg-track',
+                        FOCUS
+                      )}
+                    >
+                      <RowText row={row} />
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => row.id && onOpen(row.id)}
+                    aria-label={row.ariaLabel}
                     className={cn(
-                      'shrink-0 whitespace-nowrap pr-2 text-[15px] font-extrabold tabular-nums',
-                      row.tone === 'income' ? 'text-income' : 'text-ink'
+                      'flex min-h-row w-full items-center rounded-control text-left text-ink',
+                      'transition-colors duration-150 active:bg-track',
+                      FOCUS
                     )}
                   >
-                    {row.amount}
-                  </span>
-                </button>
+                    <span aria-hidden="true" className="flex h-row w-[52px] shrink-0 items-center justify-center pl-1">
+                      <CategoryDot name={row.title} color={row.color} />
+                    </span>
+                    <RowText row={row} />
+                  </button>
+                )}
               </li>
             ))}
           </ul>

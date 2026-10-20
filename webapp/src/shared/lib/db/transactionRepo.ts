@@ -119,6 +119,11 @@ export const localTransactionRepo = {
     return true;
   },
 
+  /** Put a record back exactly as it was (the undo of a guest's delete, FT-115). */
+  async put(transaction: LocalTransaction): Promise<void> {
+    await db.transactions.put(transaction);
+  },
+
   /**
    * Archive a transaction
    */

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { usdToUzsMinor, uzsToUsdMinor } from './convert';
+import { convertMinor, recalculationAfterMove, usdToUzsMinor, uzsToUsdMinor } from './convert';
 
 describe('usdToUzsMinor', () => {
   it('converts dollars to whole сум at a rate in сум×100 per dollar', () => {
@@ -34,5 +34,34 @@ describe('uzsToUsdMinor', () => {
     expect(uzsToUsdMinor(632_500, 1_265_000)).toBe(50);
     expect(uzsToUsdMinor(6_325, 1_265_000)).toBe(1);
     expect(uzsToUsdMinor(-6_325, 1_265_000)).toBe(-1);
+  });
+});
+
+describe('convertMinor', () => {
+  it('is the amount itself in its own currency, null without a rate', () => {
+    expect(convertMinor(14_500_000, 'UZS', 'UZS', null)).toBe(14_500_000);
+    expect(convertMinor(14_500_000, 'UZS', 'USD', null)).toBeNull();
+    expect(convertMinor(14_500_000, 'UZS', 'USD', 1_265_000)).toBe(1_146);
+  });
+});
+
+describe('recalculationAfterMove (TxnSheet.md: the number stays, «Пересчитать» is offered)', () => {
+  const written = { currency: 'UZS' as const, amountMinor: 14_500_000, recalculation: null };
+
+  it('to another currency: the amount first written, converted', () => {
+    expect(recalculationAfterMove(written, 'USD', 1_265_000)).toEqual({ origin: { currency: 'UZS', amountMinor: 14_500_000 }, amountMinor: 1_146 });
+  });
+
+  it('back to the first currency: nothing to offer', () => {
+    const moved = { currency: 'USD' as const, amountMinor: 14_500_000, recalculation: recalculationAfterMove(written, 'USD', 1_265_000) };
+
+    expect(recalculationAfterMove(moved, 'UZS', 1_265_000)).toBeNull();
+  });
+
+  it('within the currency: the offer stays; without a rate: none', () => {
+    const offer = recalculationAfterMove(written, 'USD', 1_265_000);
+
+    expect(recalculationAfterMove({ currency: 'USD', amountMinor: 14_500_000, recalculation: offer }, 'USD', 1_265_000)).toBe(offer);
+    expect(recalculationAfterMove(written, 'USD', null)).toBeNull();
   });
 });

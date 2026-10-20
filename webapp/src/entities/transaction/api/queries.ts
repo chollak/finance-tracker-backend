@@ -52,23 +52,28 @@ export function useTransactions(userId: string | null) {
 }
 
 /**
- * Hook to fetch a single transaction by ID
- * Guest: IndexedDB, Telegram: Server API
+ * One record as the record sheet shows and changes it (FT-115): `GET /api/transactions/:id` for a signed-in
+ * user — the whole record, with its amount in minor units, currency, account and category id — or the device
+ * record of a guest. `placeholder` is the record as the list that opened it has it, shown until the read
+ * answers. A record that is gone answers with an error (`statusCode: 404` from the server).
  */
-export function useTransaction(id: string | null) {
+export function useRecord(id: string | null, placeholder?: Transaction) {
+  const userType = useUserStore((state) => state.userType);
+
   return useQuery({
-    queryKey: transactionKeys.detail(id || ''),
-    queryFn: async () => {
-      // Use dataSource - handles guest (IndexedDB) vs telegram (server API)
-      const localTx = await transactionDataSource.getById(id!);
-
-      if (!localTx) {
-        throw new Error('Transaction not found');
+    queryKey: transactionKeys.record(id ?? ''),
+    queryFn: async (): Promise<Transaction> => {
+      if (userType === 'guest') {
+        const local = await transactionDataSource.getById(id!);
+        if (!local) throw { statusCode: 404, message: 'Transaction not found' };
+        return localToTransaction(local);
       }
-
-      return transactionToViewModel(localToTransaction(localTx));
+      const response = await apiClient.get<Transaction>(API_ENDPOINTS.TRANSACTIONS.DETAIL(id!));
+      return response.data;
     },
-    enabled: !!id,
+    enabled: !!id && userType !== null,
+    placeholderData: placeholder,
+    retry: false,
   });
 }
 
