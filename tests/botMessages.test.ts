@@ -114,9 +114,87 @@ describe('bot messages (FT-122)', () => {
     expect((await log.awaitingAmount('1'))?.messageId).toBe(10);
   });
 
+  it('keeps what a clarification asked across a restart (FT-123)', async () => {
+    const first = await startBot();
+    const log = first.module.getLog();
+    const message = await log.remember({
+      userId: 'user-1',
+      chatId: '1',
+      messageId: 10,
+      recordIds: ['tx-1', 'tx-2'],
+      state: {
+        assumed: { 'tx-2': { written: '45', amountMinor: 4_500_000 } },
+        missing: [{ description: 'такси', category: 'Транспорт', type: 'expense', date: '2026-10-16' }],
+      },
+    });
+    await log.save(message, {
+      mode: 'large',
+      state: {
+        ...message.state,
+        notes: ['«Такси» — без суммы, не записал.'],
+        large: { index: 1, replyClosed: true },
+        declined: ['tx-3'],
+        back: 'confirm',
+      },
+    });
+    await stopBot(first.ds);
+
+    const second = await startBot();
+    const found = await second.module.getLog().find('1', 10);
+
+    expect(found!.mode).toBe('large');
+    expect(found!.state).toEqual({
+      selected: 0,
+      guessed: [],
+      assumed: { 'tx-2': { written: '45', amountMinor: 4_500_000 } },
+      missing: [{ description: 'такси', category: 'Транспорт', type: 'expense', date: '2026-10-16' }],
+      notes: ['«Такси» — без суммы, не записал.'],
+      large: { index: 1, replyClosed: true },
+      declined: ['tx-3'],
+      back: 'confirm',
+    });
+  });
+
+  it('waits for an amount while a message asks «Сколько?» or about a large amount, one question a chat (FT-123)', async () => {
+    const { module } = await startBot();
+    const log = module.getLog();
+    const asking = await log.remember({
+      userId: 'user-1',
+      chatId: '1',
+      messageId: 10,
+      recordIds: ['tx-1'],
+      state: { missing: [{ description: 'такси', category: 'Транспорт', type: 'expense' }] },
+    });
+    expect((await log.awaitingAmount('1'))?.messageId).toBe(10);
+
+    const answered = await log.save(asking, { state: { ...asking.state, missing: [], notes: ['«Такси» — пропустил.'] } });
+    expect(await log.awaitingAmount('1')).toBeNull();
+
+    const large = await log.remember({ userId: 'user-1', chatId: '1', messageId: 11, recordIds: ['tx-2'], mode: 'large', state: { large: { index: 0 } } });
+    expect((await log.awaitingAmount('1'))?.messageId).toBe(11);
+    expect(await log.otherQuestions(answered)).toEqual([expect.objectContaining({ messageId: 11 })]);
+
+    // «Если сумма другая — напишите её» withdrawn: the buttons stay, the next text is not an answer
+    await log.save(large, { state: { ...large.state, large: { index: 0, replyClosed: true } } });
+    expect(await log.awaitingAmount('1')).toBeNull();
+  });
+
+  it('a message waiting for an amount before FT-123 still waits after the update', async () => {
+    const { ds } = await startBot();
+    await ds.undoLastMigration({ transaction: 'each' }); // back to FT-122's table
+    await ds.query(`INSERT INTO "bot_messages" ("id", "user_id", "chat_id", "message_id", "record_ids", "mode", "state") VALUES ('m-1', 'user-1', '1', 10, '["tx-1"]', 'amount', '{"selected":0,"guessed":[]}')`);
+    await ds.runMigrations({ transaction: 'each' });
+
+    const log = new BotMessageModule(new SqliteBotMessageRepository(ds)).getLog();
+    expect((await log.awaitingAmount('1'))?.messageId).toBe(10);
+    expect(await findSchemaDrift(ds)).toEqual([]);
+  });
+
   it('is removed by reverting its migration', async () => {
     const { ds } = await startBot();
 
+    await ds.undoLastMigration({ transaction: 'each' }); // FT-123: the open question
+    expect((await ds.query(`PRAGMA table_info("bot_messages")`)).map((column: { name: string }) => column.name)).not.toContain('question');
     await ds.undoLastMigration({ transaction: 'each' });
 
     expect(await ds.query(`SELECT name FROM sqlite_master WHERE name = 'bot_messages'`)).toEqual([]);

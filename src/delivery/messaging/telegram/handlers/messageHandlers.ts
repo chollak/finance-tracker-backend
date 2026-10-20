@@ -4,7 +4,7 @@ import { BotContext } from '../types';
 import { RU, formatAmount } from '../i18n/ru';
 import { downloadVoiceFile, cleanupFile } from '../utils';
 import { quickAddCategory } from '../utils/userCategories';
-import { guessedIds, sendRecordMessage } from '../utils/recordMessageView';
+import { assumedThousands, guessedIds, sendRecordMessage } from '../utils/recordMessageView';
 import { answerAmountQuestion } from './recordHandlers';
 import { AppError } from '../../../../shared/domain/errors/AppError';
 import { DetectedDebt } from '../../../../modules/voiceProcessing/domain/processedTransaction';
@@ -17,6 +17,7 @@ import { resolveUserIdToUUID } from '../../../../shared/application/helpers/user
 import { LimitType } from '../../../../modules/subscription/domain/usageLimit';
 import { createLogger, LogCategory } from '../../../../shared/infrastructure/logging';
 import { toCapturedTransaction } from '../../../../modules/quickCapture/application/toCapturedTransaction';
+import { NoSpeechDetectedError } from '../../../../modules/voiceProcessing/domain/voiceErrors';
 
 const logger = createLogger(LogCategory.TELEGRAM_MSG);
 
@@ -174,16 +175,20 @@ export function createTextMessageHandler(userModule?: UserModule, _subscriptionM
         source: 'telegram',
       });
 
-      if (result.transactions.length === 0 && result.debts.length === 0) {
-        await ctx.reply(RU.transaction.noTransactions);
+      const withoutAmount = result.withoutAmount ?? [];
+      if (result.transactions.length === 0 && result.debts.length === 0 && withoutAmount.length === 0) {
+        // Nothing to write: say how to write it, with an example (FT-123)
+        await ctx.reply(RU.capture.notUnderstood, { parse_mode: 'HTML' });
         return;
       }
 
-      // One confirmation for all records of the phrase (FT-122)
+      // One confirmation for all records of the phrase (FT-122); what had no amount is asked (FT-123)
       await sendRecordMessage(ctx, {
         userId,
         recordIds: result.transactions.map(tx => tx.id),
         guessed: guessedIds(result.transactions),
+        assumed: assumedThousands(result.transactions),
+        missing: withoutAmount,
       });
 
       // Process each debt
@@ -248,16 +253,21 @@ export function createVoiceMessageHandler(userModule?: UserModule, subscriptionM
         return;
       }
 
-      if (result.transactions.length === 0 && (!result.debts || result.debts.length === 0)) {
-        await ctx.reply(`🎤 ${RU.transaction.noTransactions}`);
+      const withoutAmount = result.withoutAmount ?? [];
+      if (result.transactions.length === 0 && (!result.debts || result.debts.length === 0) && withoutAmount.length === 0) {
+        // Nothing to write from what was said: ask again, with an example (FT-123)
+        await ctx.reply(RU.capture.notHeard);
         return;
       }
 
       // The same confirmation as for text, with what the bot heard quoted (FT-122)
+      const captured = result.transactions.map(toCapturedTransaction);
       await sendRecordMessage(ctx, {
         userId,
         recordIds: result.transactions.map(tx => tx.id),
-        guessed: guessedIds(result.transactions.map(toCapturedTransaction)),
+        guessed: guessedIds(captured),
+        assumed: assumedThousands(captured),
+        missing: withoutAmount,
         heard: result.text,
       });
 
@@ -277,7 +287,9 @@ export function createVoiceMessageHandler(userModule?: UserModule, subscriptionM
         fileId: voice.file_id,
       });
 
-      if (error instanceof AppError) {
+      if (error instanceof NoSpeechDetectedError) {
+        await ctx.reply(RU.capture.notHeard);
+      } else if (error instanceof AppError) {
         await ctx.reply(`🎤❌ ${error.message}`);
       } else {
         await ctx.reply(`🎤 ${RU.errors.voiceProcessing}`);

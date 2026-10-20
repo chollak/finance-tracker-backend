@@ -1,7 +1,15 @@
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, IsNull, Not, Repository } from 'typeorm';
 import { AppDataSource } from '../../../shared/infrastructure/database/database.config';
 import { BotMessage as BotMessageEntity } from '../../../shared/infrastructure/database/entities/BotMessage';
-import { BotMessage, BotMessageChanges, isRecordMessageMode, RecordMessageMode, RecordMessageState } from '../domain/botMessage';
+import {
+  AssumedThousands,
+  BotMessage,
+  BotMessageChanges,
+  isRecordMessageMode,
+  openQuestion,
+  RecordMessageState,
+} from '../domain/botMessage';
+import { ItemWithoutAmount } from '../../voiceProcessing/domain/processedTransaction';
 import { BotMessageRepository, NewBotMessage } from '../domain/botMessageRepository';
 
 export class SqliteBotMessageRepository implements BotMessageRepository {
@@ -21,6 +29,7 @@ export class SqliteBotMessageRepository implements BotMessageRepository {
       mode: message.mode,
       state: JSON.stringify(message.state),
       heard: message.heard,
+      question: openQuestion(message.mode, message.state),
     });
     return this.toDomain((await this.repository.findOne({ where: { id: message.id } }))!);
   }
@@ -35,16 +44,21 @@ export class SqliteBotMessageRepository implements BotMessageRepository {
     return entities.map(entity => this.toDomain(entity));
   }
 
-  async findByMode(chatId: string, mode: RecordMessageMode): Promise<BotMessage[]> {
-    const entities = await this.repository.find({ where: { chatId, mode }, order: { messageId: 'DESC' } });
+  async findWithOpenQuestion(chatId: string): Promise<BotMessage[]> {
+    const entities = await this.repository.find({ where: { chatId, question: Not(IsNull()) }, order: { messageId: 'DESC' } });
     return entities.map(entity => this.toDomain(entity));
   }
 
   async update(id: string, changes: BotMessageChanges): Promise<BotMessage> {
-    const patch: Partial<BotMessageEntity> = {};
-    if (changes.mode !== undefined) patch.mode = changes.mode;
-    if (changes.state !== undefined) patch.state = JSON.stringify(changes.state);
-    if (Object.keys(patch).length > 0) await this.repository.update(id, patch);
+    const current = await this.repository.findOne({ where: { id } });
+    if (!current) throw new Error(`Bot message ${id} not found`);
+    if (changes.mode !== undefined || changes.state !== undefined) {
+      const before = this.toDomain(current);
+      const mode = changes.mode ?? before.mode;
+      const state = changes.state ?? before.state;
+      // The open question follows the screen and the state: it is never written on its own
+      await this.repository.update(id, { mode, state: JSON.stringify(state), question: openQuestion(mode, state) });
+    }
     const updated = await this.repository.findOne({ where: { id } });
     if (!updated) throw new Error(`Bot message ${id} not found after update`);
     return this.toDomain(updated);
@@ -95,5 +109,37 @@ function parseState(value: string): RecordMessageState {
     const undone = parsed.undone.filter((id): id is string => typeof id === 'string');
     if (undone.length > 0) state.undone = undone;
   }
+  const assumed = parseAssumed(parsed.assumed);
+  if (assumed) state.assumed = assumed;
+  if (Array.isArray(parsed.missing)) {
+    const missing = parsed.missing.filter(isItemWithoutAmount);
+    if (missing.length > 0) state.missing = missing;
+  }
+  if (Array.isArray(parsed.notes)) {
+    const notes = parsed.notes.filter((note): note is string => typeof note === 'string' && note.length > 0);
+    if (notes.length > 0) state.notes = notes;
+  }
+  if (parsed.large && Number.isInteger(parsed.large.index) && parsed.large.index >= 0) {
+    state.large = { index: parsed.large.index, ...(parsed.large.replyClosed === true ? { replyClosed: true } : {}) };
+  }
+  if (Array.isArray(parsed.declined)) {
+    const declined = parsed.declined.filter((id): id is string => typeof id === 'string');
+    if (declined.length > 0) state.declined = declined;
+  }
+  if (parsed.back === 'confirm') state.back = 'confirm';
   return state;
+}
+
+function parseAssumed(value: unknown): Record<string, AssumedThousands> | undefined {
+  if (!value || typeof value !== 'object') return undefined;
+  const entries = Object.entries(value as Record<string, Partial<AssumedThousands>>)
+    .filter(([, assumed]) => typeof assumed?.written === 'string' && Number.isInteger(assumed.amountMinor))
+    .map(([id, assumed]) => [id, { written: assumed.written!, amountMinor: assumed.amountMinor! }] as const);
+  return entries.length > 0 ? Object.fromEntries(entries) : undefined;
+}
+
+function isItemWithoutAmount(value: unknown): value is ItemWithoutAmount {
+  const item = value as Partial<ItemWithoutAmount> | null;
+  return Boolean(item) && typeof item!.description === 'string' && typeof item!.category === 'string'
+    && (item!.type === 'income' || item!.type === 'expense');
 }

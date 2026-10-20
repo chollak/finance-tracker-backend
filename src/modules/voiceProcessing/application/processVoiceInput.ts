@@ -21,6 +21,7 @@ import { LearnedCategoryWords, recordWordsOf } from '../domain/categoryGuess';
 import { captureAssumptions } from './captureAssumptions';
 import { captureMoneyOf } from './captureMoney';
 import { fromMinor } from '../../../shared/domain/money/money';
+import { NoSpeechDetectedError } from '../domain/voiceErrors';
 
 const logger = getLogger(LogCategory.OPENAI);
 
@@ -115,7 +116,7 @@ export class ProcessVoiceInputUseCase {
       const recognizedText = await this.openAIService.transcribe(newFilePath);
 
       if (!recognizedText || recognizedText.trim().length === 0) {
-        throw ErrorFactory.externalService('Voice Transcription', new Error('No speech detected in audio'));
+        throw new NoSpeechDetectedError();
       }
 
       if (options.takeHeardText && await options.takeHeardText(recognizedText)) {
@@ -132,13 +133,16 @@ export class ProcessVoiceInputUseCase {
       const debtResults: DetectedDebt[] = [];
       // «нал», «картой», «$» in what was said: which account and currency (FT-103)
       const hints = detectPaymentHints(recognizedText);
+      // Named without an amount: nothing is written for them, the bot asks «Сколько?» (FT-123)
+      const withoutAmount = parsed.withoutAmount ?? [];
 
       // Log if nothing found
       if (parsed.transactions.length === 0 && parsed.debts.length === 0) {
         logger.warn('No transactions or debts found in voice input', {
           recognizedText: recognizedText.substring(0, 100),
+          withoutAmount: withoutAmount.length,
         });
-        return { text: recognizedText, transactions: [], debts: [] };
+        return { text: recognizedText, transactions: [], debts: [], ...(withoutAmount.length ? { withoutAmount } : {}) };
       }
 
       // Every category here is the AI's choice; it is a guess unless the words name it (FT-138)
@@ -280,7 +284,7 @@ export class ProcessVoiceInputUseCase {
         }
       }
 
-      return { text: recognizedText, transactions: transactionResults, debts: debtResults };
+      return { text: recognizedText, transactions: transactionResults, debts: debtResults, ...(withoutAmount.length ? { withoutAmount } : {}) };
     } catch (error) {
       if (error instanceof Error && error.name.includes('Error')) {
         throw error;

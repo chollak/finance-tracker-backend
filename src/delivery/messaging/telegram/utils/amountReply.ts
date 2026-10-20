@@ -89,3 +89,34 @@ export function parseAmountReply(text: string, record: AmountReplyRecord): Amoun
     ...(hints.kind ? { account: hints.kind } : {}),
   };
 }
+
+/**
+ * «не 25, а 28» (FT-123, design-system «До любого поля — 2 нажатия»): the amount a record has and the one it
+ * should have. Only the shape is read here; whether both sides are amounts is the handler's to say.
+ */
+export interface AmountCorrection {
+  was: string;
+  now: string;
+}
+
+const CORRECTION = /^не\s+(.+?)\s*,?\s+а\s+(.+)$/iu;
+
+export function parseAmountCorrection(text: string): AmountCorrection | null {
+  const match = CORRECTION.exec(text.trim().replace(/[.!]+$/, '').trim());
+  if (!match) return null;
+  const was = match[1].trim().replace(/,$/, '').trim();
+  const now = match[2].trim();
+  return was && now ? { was, now } : null;
+}
+
+/**
+ * Whether «25» of «не 25, а 28» is the record's amount: read the way an answer is read («25» is 25 000 сум,
+ * «25к», «25 000»), or as written (a cashback of 870 сум is «870»).
+ */
+export function writtenAmountMatches(written: string, record: { amountMinor: number; currency: 'UZS' | 'USD' }): boolean {
+  const read = parseAmountReply(written, record);
+  if (read?.kind === 'amount' && read.currency === record.currency && read.amountMinor === record.amountMinor) return true;
+  const digits = written.replace(/[\s ]/g, '');
+  if (!/^\d+$/.test(digits)) return false;
+  return Number(digits) * MINOR_PER_MAJOR === record.amountMinor;
+}

@@ -3,6 +3,7 @@ import { getLogger, LogCategory } from '../../../shared/application/logging';
 import { buildCaptureAck } from './buildCaptureAck';
 import { capturedFromRecord, toCapturedTransaction } from './toCapturedTransaction';
 import {
+  AmountAnswerRequest,
   CaptureReplay,
   CaptureReviewReason,
   CaptureSource,
@@ -67,6 +68,8 @@ export class QuickCaptureService {
       processed.transactions.map(toCapturedTransaction),
       processed.debts
     );
+    // Named without an amount (FT-123): nothing written, the bot asks how much
+    if (processed.withoutAmount?.length) result.withoutAmount = processed.withoutAmount;
 
     // Captured text is user content, so only counts and routing metadata are logged.
     logger.info('Quick capture processed', {
@@ -74,9 +77,26 @@ export class QuickCaptureService {
       status: result.status,
       transactions: result.transactions.length,
       debts: processed.debts.length,
+      withoutAmount: processed.withoutAmount?.length ?? 0,
     });
 
     return result;
+  }
+
+  /**
+   * Writes an item a phrase named without an amount, with the amount of the answer to «Сколько?» (FT-123),
+   * through the same pipeline as the phrase itself.
+   */
+  async captureWithAmount(request: AmountAnswerRequest): Promise<QuickCaptureResult> {
+    const written = await this.processTextInputUseCase.executeWithAmount(
+      request.item,
+      request.answer,
+      request.userId,
+      request.userName,
+      { source: request.source ?? 'miniapp' }
+    );
+    const text = `${request.item.description} ${request.answer.text}`.trim();
+    return buildResult(text, request.source, written ? [toCapturedTransaction(written)] : [], []);
   }
 }
 

@@ -110,6 +110,8 @@ ${categoryPrompt}
       - Ищи числа с любыми валютами (сум, сўм, UZS, $, €, руб)
       - НЕ КОНВЕРТИРУЙ валюты - записывай оригинальную сумму
       - Если сумма не указана четко, confidence = 0.3
+      - Если трата или доход названы без суммы («такси» в «кофе 25к, такси»), верни их отдельным элементом
+        с "amount": null — сумму не придумывай и не бери от соседней траты
 
       КРИТИЧНО: В поле "category" возвращай только название из списка категорий; если ни одна не подходит — "Другое".`,
 
@@ -175,7 +177,9 @@ ${categoryPrompt}
       - Record numbers as is (50000, 100, 25.5)
       - Look for numbers with any currencies (sum, сўм, UZS, $, €, rub)
       - DON'T CONVERT currencies - record original amount
-      - If amount not clearly specified, confidence = 0.3`,
+      - If amount not clearly specified, confidence = 0.3
+      - If a spend or an income is named without an amount ("taxi" in "coffee 25k, taxi"), return it as its own
+        item with "amount": null — do not invent an amount or take a neighbour's`,
 
     TRANSCRIPTION_PROMPT: 'financial transactions, purchases, expenses, income'
   }

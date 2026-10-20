@@ -7,6 +7,8 @@ import {
   amountDigits,
   amountWithUnit,
   escapeHtml,
+  itemName,
+  largeRecord,
   quoted,
   recordName,
   RecordMessageInput,
@@ -14,22 +16,32 @@ import {
   RecordView,
   selectedRecord,
   signedAmount,
+  thousandTimesLess,
 } from '../formatters/recordMessage';
 import { accountsFor, RECORD_CALLBACK_PATTERN, RECORD_VERBS, recordCallback } from '../keyboards/recordKeyboard';
 import {
+  assumedThousands,
   botMessageLog,
+  cancelRecords,
   chatIdOf,
+  closeOtherQuestions,
+  closeQuestion,
+  closedQuestion,
   editPlainMessage,
+  guessedIds,
   readRecord,
   recordMessageInput,
   redrawRecordMessage,
+  restoreRecords,
+  sendRecordMessage,
 } from '../utils/recordMessageView';
-import { parseAmountReply } from '../utils/amountReply';
+import { AmountReply, parseAmountCorrection, parseAmountReply, writtenAmountMatches } from '../utils/amountReply';
 import { botUserId } from '../utils/userCategories';
-import { BotMessage, RecordMessageMode, RecordMessageState } from '../../../../modules/botMessage/domain/botMessage';
+import { BotMessage, openQuestion, RecordMessageMode, RecordMessageState } from '../../../../modules/botMessage/domain/botMessage';
 import { BotMessageLog } from '../../../../modules/botMessage/application/botMessageLog';
 import { ResolvedAccount } from '../../../../modules/transaction/domain/accountResolver';
 import { isValidDateOnly } from '../../../../shared/domain/dates/dateOnly';
+import { MINOR_PER_MAJOR } from '../../../../shared/domain/money/money';
 import { createLogger, LogCategory } from '../../../../shared/infrastructure/logging';
 
 const logger = createLogger(LogCategory.TELEGRAM);
@@ -58,7 +70,7 @@ interface PressResult {
 class PressFailed extends Error {}
 
 function withoutPick(state: RecordMessageState): RecordMessageState {
-  const { pickType: _pickType, ...rest } = state;
+  const { pickType: _pickType, back: _back, ...rest } = state;
   return rest;
 }
 
@@ -96,20 +108,6 @@ async function update(ctx: BotContext, id: string, changes: Record<string, unkno
   if (!result.success) throw new PressFailed(result.error.message);
 }
 
-async function cancel(ctx: BotContext, records: RecordView[]): Promise<void> {
-  for (const record of records) {
-    const result = await ctx.modules.transactionModule.getDeleteTransactionUseCase().execute({ id: record.id });
-    if (!result.success) throw new PressFailed(result.error.message);
-  }
-}
-
-async function restore(ctx: BotContext, records: RecordView[]): Promise<void> {
-  for (const record of records) {
-    const result = await ctx.modules.transactionModule.getRestoreTransactionUseCase().execute({ id: record.id });
-    if (!result.success) throw new PressFailed(result.error.message);
-  }
-}
-
 /** «Вернул запись.» under the /undo reply once its records are back. */
 async function closeUndoReply(ctx: BotContext, message: BotMessage, count: number): Promise<void> {
   if (message.state.undoMessageId === undefined) return;
@@ -125,12 +123,12 @@ async function revert(ctx: BotContext, message: BotMessage, input: RecordMessage
     const one = input.records[index];
     if (!one) throw new PressFailed('No such record');
     if (!one.cancelled) return confirmed(message.state);
-    await restore(ctx, [one]);
+    await restoreRecords(ctx, [one]);
     return confirmed(message.state, `${quoted(recordName(one))} возвращена`);
   }
   const { undone } = message.state;
   const cancelled = input.records.filter(record => record.cancelled && (!undone?.length || undone.includes(record.id)));
-  await restore(ctx, cancelled);
+  await restoreRecords(ctx, cancelled);
   await closeUndoReply(ctx, message, cancelled.length);
   const state = { ...message.state };
   delete state.undoMessageId;
@@ -172,17 +170,19 @@ async function applyPress(
     case RECORD_VERBS.field: {
       const mode = FIELD_MODES.find(candidate => candidate === arg);
       if (!mode) throw new PressFailed(`Unknown field ${arg}`);
-      if (mode === 'amount') await closeOtherAmountQuestions(ctx, log, message);
+      if (mode === 'amount') await closeOtherQuestions(ctx, log, message);
       return { mode, state: withoutPick(state) };
     }
     case RECORD_VERBS.back:
-      return { mode: 'edit', state: withoutPick(state) };
+      // From the categories opened by «Другая», back to the question it came from (FT-123)
+      return { mode: state.back === 'confirm' ? 'confirm' : 'edit', state: withoutPick(state) };
     case RECORD_VERBS.done:
       return confirmed(state, state.changed);
     case RECORD_VERBS.switchType: {
       if (!record) throw new PressFailed('No record');
       const shown = state.pickType ?? record.type;
       const next = withoutPick(state);
+      if (state.back) next.back = state.back;
       const other = shown === 'income' ? 'expense' : 'income';
       if (other !== record.type) next.pickType = other;
       return { mode: 'category', state: next };
@@ -213,46 +213,55 @@ async function applyPress(
     case RECORD_VERBS.cancel: {
       // In «Изменить» of one of several records only that record goes; otherwise all of the message
       if (input.records.length > 1 && message.mode !== 'confirm' && record && !record.cancelled) {
-        await cancel(ctx, [record]);
+        await cancelRecords(ctx, [record]);
         return confirmed(state, `${quoted(recordName(record))} отменена`);
       }
-      await cancel(ctx, live);
-      const next = { ...state };
+      await cancelRecords(ctx, live);
+      // Nothing of the message is left: what had no amount is not asked any more (FT-123)
+      const next = closedQuestion({ ...message, state }).state;
       delete next.undone; // «Вернуть» now brings back all of them
       return confirmed(next);
     }
     case RECORD_VERBS.revert:
       return revert(ctx, message, input, arg === undefined ? undefined : Number(arg));
+    case RECORD_VERBS.rightCategory: {
+      if (!record) throw new PressFailed('No record');
+      const next = { ...state, guessed: state.guessed.filter(id => id !== record.id) };
+      return confirmed(next, `Категория: ${record.categoryName}`);
+    }
+    case RECORD_VERBS.otherCategory:
+      return { mode: 'category', state: { ...withoutPick(state), selected: 0, back: 'confirm' } };
+    case RECORD_VERBS.skip: {
+      const [item, ...rest] = state.missing ?? [];
+      if (!item) return { mode: message.mode, state };
+      const next: RecordMessageState = { ...state, notes: [...(state.notes ?? []), RU.record.skipped(quoted(itemName(item)))] };
+      if (rest.length) next.missing = rest;
+      else delete next.missing;
+      return { mode: message.mode, state: next };
+    }
+    case RECORD_VERBS.largeRight:
+      return releaseLarge(ctx, message, input);
+    case RECORD_VERBS.largeFix: {
+      const big = largeRecord(input);
+      if (!big) throw new PressFailed('No large record');
+      // Brought back first: a deleted record cannot be changed
+      const released = await releaseLarge(ctx, message, input, `Сумма изменена: было ${amountDigits(big.amountMinor, big.currency)}`);
+      await update(ctx, big.id, { amountMinor: thousandTimesLess(big) });
+      return released;
+    }
+    case RECORD_VERBS.largeDecline:
+      return declineLarge(ctx, message, input);
     default:
       throw new PressFailed(`Unknown action ${verb}`);
   }
 }
 
 /**
- * Closes a message's «Сумму» question: back on «Изменить», or on the confirmation when its record is
- * gone. The log keeps the change even if the message cannot be drawn again.
+ * Closes the chat's open question, if it is this person's, so that a later number does not change a record
+ * or write an item (design-system «Один вопрос за раз»). Text and voice that are not an amount close it in
+ * answerAmountQuestion; a command, here.
  */
-async function closeQuestion(ctx: BotContext, log: BotMessageLog, message: BotMessage, mode: RecordMessageMode = 'edit'): Promise<void> {
-  const closed = await log.save(message, { mode });
-  try {
-    await redrawRecordMessage(ctx, closed);
-  } catch (error) {
-    // An old message that cannot be drawn keeps its old buttons
-    logger.warn('Could not redraw a closed amount question', { messageId: message.messageId, error: (error as Error).message });
-  }
-}
-
-/** One question at a time: a new «Сумму» puts any other message waiting for an amount back on «Изменить». */
-async function closeOtherAmountQuestions(ctx: BotContext, log: BotMessageLog, message: BotMessage): Promise<void> {
-  for (const other of await log.otherAmountQuestions(message)) await closeQuestion(ctx, log, other);
-}
-
-/**
- * Closes the chat's open «Сумму» question, if it is this person's, so that a later number does not
- * change that record (design-system «Один вопрос за раз»). Text and voice that are not an amount close it
- * in answerAmountQuestion; a command, here.
- */
-async function closeAmountQuestion(ctx: BotContext): Promise<void> {
+async function closeOpenQuestion(ctx: BotContext): Promise<void> {
   const log = botMessageLog(ctx);
   const chatId = chatIdOf(ctx);
   if (!log || !chatId) return;
@@ -261,17 +270,41 @@ async function closeAmountQuestion(ctx: BotContext): Promise<void> {
   await closeQuestion(ctx, log, message);
 }
 
-/** Ahead of the command handlers: a command closes the open «Сумму» question first. */
+/** Ahead of the command handlers: a command closes the open question first. */
 export async function closeAmountQuestionOnCommand(ctx: BotContext, next: () => Promise<void>): Promise<void> {
   const text = ctx.message && 'text' in ctx.message ? ctx.message.text : '';
   if (text.startsWith('/')) {
     try {
-      await closeAmountQuestion(ctx);
+      await closeOpenQuestion(ctx);
     } catch (error) {
-      logger.warn('Could not close the amount question before a command', { error: (error as Error).message });
+      logger.warn('Could not close the open question before a command', { error: (error as Error).message });
     }
   }
   return next();
+}
+
+/**
+ * «Да, верная», «Это 25 000 сум» or the right amount typed (FT-123): the records held for the large amount
+ * come back — all but one the person declined — and the message is a confirmation again.
+ */
+async function releaseLarge(ctx: BotContext, message: BotMessage, input: RecordMessageInput, changed?: string): Promise<PressResult> {
+  await restoreRecords(ctx, input.records.filter(record => record.cancelled));
+  const next = { ...message.state, selected: 0 };
+  delete next.large;
+  return confirmed(next, changed);
+}
+
+/**
+ * «Не записывать» of a large amount (FT-123): it stays deleted and leaves the message; the other records of
+ * the phrase are written.
+ */
+async function declineLarge(ctx: BotContext, message: BotMessage, input: RecordMessageInput): Promise<PressResult> {
+  const big = largeRecord(input);
+  if (!big) throw new PressFailed('No large record');
+  await restoreRecords(ctx, input.records.filter(record => record.cancelled && record.id !== big.id));
+  const next: RecordMessageState = { ...message.state, selected: 0, declined: [...(message.state.declined ?? []), big.id] };
+  delete next.large;
+  return confirmed(next);
 }
 
 /**
@@ -280,13 +313,16 @@ export async function closeAmountQuestionOnCommand(ctx: BotContext, next: () => 
  * message again: struck through, with «Вернуть».
  */
 function isStaleScreen(message: BotMessage, input: RecordMessageInput, verb: string): boolean {
+  // The records of a large amount are held deleted on purpose until it is answered (FT-123)
+  if (message.mode === 'large') return false;
   return message.mode !== 'confirm' && verb !== RECORD_VERBS.revert && Boolean(selectedRecord(input)?.cancelled);
 }
 
 /** Runs a press on a stored message and draws the message again. */
 async function pressMessage(ctx: BotContext, log: BotMessageLog, message: BotMessage, verb: string, arg?: string): Promise<void> {
   const input = await recordMessageInput(ctx, message);
-  if (input.records.length === 0) {
+  // A message of only an item without an amount has no records, but its «Не записывать» works (FT-123)
+  if (input.records.length === 0 && !message.state.missing?.length) {
     await answer(ctx, RU.record.notFound);
     return;
   }
@@ -378,7 +414,7 @@ async function handleUndo(ctx: BotContext) {
       const live = input.records.filter(record => !record.cancelled);
       if (live.length === 0) continue;
 
-      await cancel(ctx, live);
+      await cancelRecords(ctx, live);
       const what = live.length === 1 ? `${signedAmount(live[0])} · ${quoted(recordName(live[0]))}` : recordsWord(live.length);
       const reply = await ctx.reply(escapeHtml(RU.record.undone(what)), {
         parse_mode: 'HTML',
@@ -416,27 +452,92 @@ async function revertFromUndoReply(ctx: BotContext, log: BotMessageLog, userId: 
   await answer(ctx);
 }
 
-/**
- * A text, or the words of a voice message, in a chat where a message waits for an amount after «Сумму».
- * An amount (with an account word, «18к нал», if any) changes the record and the bot says so; anything
- * else closes the question honestly — the message goes back to «Изменить» — and the text is handled as
- * usual. True when the text was the answer.
- */
-export async function answerAmountQuestion(ctx: BotContext, text: string, userId: string): Promise<boolean> {
-  const log = botMessageLog(ctx);
-  const chatId = chatIdOf(ctx);
-  if (!log || !chatId) return false;
-  const message = await log.awaitingAmount(chatId);
-  if (!message || message.userId !== userId) return false;
+type AmountOf = Extract<AmountReply, { kind: 'amount' }>;
 
-  const input = await recordMessageInput(ctx, message);
-  const record = selectedRecord(input);
-  if (!record || record.cancelled) {
-    await closeQuestion(ctx, log, message, 'confirm');
-    return false;
+/**
+ * A new amount for a record of a message — the answer to «Сумму», to a large amount, «не 25, а 28». The
+ * record moves to an account in the new currency, «нал» moves it to cash; the message says what it was and a
+ * held large amount is written; the bot says what changed. Nothing changes when there is no account in the
+ * new currency: the bot says so.
+ */
+async function changeAmount(
+  ctx: BotContext,
+  log: BotMessageLog,
+  target: { message: BotMessage; input: RecordMessageInput; record: RecordView },
+  reply: AmountOf,
+  userId: string,
+  sayAssumed = true
+): Promise<void> {
+  const { message, input, record } = target;
+  const changes: Record<string, unknown> = { amountMinor: reply.amountMinor };
+  if (reply.currency !== record.currency) {
+    // Money does not change currency in place: the record moves to an account in the new currency
+    const account = await accountFor(ctx, userId, reply.currency, reply.account);
+    if (!account) {
+      await ctx.reply(RU.record.noAccountIn(reply.currency));
+      return;
+    }
+    changes.accountId = account.id;
+    changes.currency = reply.currency;
+  } else if (reply.account) {
+    // «18к нал»: the record moves to a cash account of its currency, if the person has one
+    const account = await accountFor(ctx, userId, reply.currency, reply.account);
+    if (account?.matchedBy === 'kind' && account.id !== record.accountId) changes.accountId = account.id;
   }
 
-  const reply = parseAmountReply(text, record);
+  const was = reply.currency === record.currency && record.currency === 'UZS'
+    ? amountDigits(record.amountMinor, record.currency)
+    : amountWithUnit(record.amountMinor, record.currency);
+  const changed = `Сумма изменена: было ${was}`;
+  // The right amount of a large one: the records held for it are written — brought back first, since a
+  // deleted record cannot be changed (FT-123)
+  const result = message.mode === 'large' ? await releaseLarge(ctx, message, input, changed) : confirmed(message.state, changed);
+  await update(ctx, record.id, changes);
+  await redrawRecordMessage(ctx, await log.save(message, result));
+
+  const view: RecordView = { ...record, amountMinor: reply.amountMinor, currency: reply.currency };
+  const assumed = reply.written && sayAssumed ? `. ${quoted(reply.written)} понял как ${amountWithUnit(reply.amountMinor, reply.currency)}` : '';
+  await ctx.reply(escapeHtml(RU.record.changed(`${signedAmount(view)} · ${quoted(recordName(view))}${assumed}`)), { parse_mode: 'HTML' });
+}
+
+/** The amount answer to a question about one record: «Сумму» or a large amount. False when the text is not an amount. */
+async function answerWithAmount(
+  ctx: BotContext,
+  log: BotMessageLog,
+  target: { message: BotMessage; input: RecordMessageInput; record: RecordView },
+  text: string,
+  userId: string
+): Promise<boolean> {
+  const reply = parseAmountReply(text, target.record);
+  if (!reply) {
+    await closeQuestion(ctx, log, target.message);
+    return false;
+  }
+  if (reply.kind === 'not_positive') {
+    await ctx.reply(RU.record.amountNotPositive);
+    return true;
+  }
+  if (reply.kind === 'too_big') {
+    await ctx.reply(RU.record.amountTooBig);
+    return true;
+  }
+  await changeAmount(ctx, log, target, reply, userId);
+  return true;
+}
+
+function userNameOf(ctx: BotContext): string {
+  return `${ctx.from?.first_name || ''} ${ctx.from?.last_name || ''}`.trim() || 'User';
+}
+
+/**
+ * The answer to «Сколько?» (FT-123): the first item named without an amount is written with it — through
+ * the capture pipeline, so its guesses read as a phrase's — and confirmed in a message of its own, which asks
+ * about the next item if there is one. The asking message says the item was written separately.
+ */
+async function answerMissing(ctx: BotContext, log: BotMessageLog, message: BotMessage, text: string, userId: string): Promise<boolean> {
+  const [item, ...rest] = message.state.missing ?? [];
+  if (!item) return false;
+  const reply = parseAmountReply(text, { currency: 'UZS' });
   if (!reply) {
     await closeQuestion(ctx, log, message);
     return false;
@@ -450,33 +551,152 @@ export async function answerAmountQuestion(ctx: BotContext, text: string, userId
     return true;
   }
 
-  const changes: Record<string, unknown> = { amountMinor: reply.amountMinor };
-  if (reply.currency !== record.currency) {
-    // Money does not change currency in place: the record moves to an account in the new currency
-    const account = await accountFor(ctx, userId, reply.currency, reply.account);
-    if (!account) {
-      await ctx.reply(RU.record.noAccountIn(reply.currency));
-      return true;
-    }
-    changes.accountId = account.id;
-    changes.currency = reply.currency;
-  } else if (reply.account) {
-    // «18к нал»: the record moves to a cash account of its currency, if the person has one
-    const account = await accountFor(ctx, userId, reply.currency, reply.account);
-    if (account?.matchedBy === 'kind' && account.id !== record.accountId) changes.accountId = account.id;
+  const captured = await ctx.modules.quickCaptureModule.getQuickCaptureService().captureWithAmount({
+    item,
+    answer: { text: text.trim(), amount: reply.amountMinor / MINOR_PER_MAJOR, currency: reply.currency, kind: reply.account },
+    userId,
+    userName: userNameOf(ctx),
+    source: 'telegram',
+  });
+  if (captured.transactions.length === 0) {
+    // Nothing written: the question stays open
+    await ctx.reply(RU.errors.generic);
+    return true;
   }
 
-  await update(ctx, record.id, changes);
-  const was = reply.currency === record.currency && record.currency === 'UZS'
-    ? amountDigits(record.amountMinor, record.currency)
-    : amountWithUnit(record.amountMinor, record.currency);
-  const saved = await log.save(message, confirmed(message.state, `Сумма изменена: было ${was}`));
-  await redrawRecordMessage(ctx, saved);
-
-  const changed: RecordView = { ...record, amountMinor: reply.amountMinor, currency: reply.currency };
-  const assumed = reply.written ? `. ${quoted(reply.written)} понял как ${amountWithUnit(reply.amountMinor, reply.currency)}` : '';
-  await ctx.reply(escapeHtml(`Изменил: ${signedAmount(changed)} · ${quoted(recordName(changed))}${assumed}`), { parse_mode: 'HTML' });
+  const state: RecordMessageState = { ...message.state, notes: [...(message.state.notes ?? []), RU.record.writtenSeparately(quoted(itemName(item)))] };
+  delete state.missing;
+  await redrawRecordMessage(ctx, await log.save(message, { state }));
+  await sendRecordMessage(ctx, {
+    userId,
+    recordIds: captured.transactions.map(transaction => transaction.id),
+    guessed: guessedIds(captured.transactions),
+    assumed: assumedThousands(captured.transactions),
+    missing: rest,
+  });
   return true;
+}
+
+function repliedMessageId(ctx: BotContext): number | undefined {
+  const message = ctx.message as { reply_to_message?: { message_id?: number } } | undefined;
+  return message?.reply_to_message?.message_id;
+}
+
+interface CorrectionTarget {
+  message: BotMessage;
+  input: RecordMessageInput;
+  record: RecordView;
+}
+
+/**
+ * The record «не 25, а 28» is about: of the bot message it replies to; else the one the open «Сумму» or
+ * large-amount question asks about, if «25» is its amount or not given; else the chat's newest record of
+ * that amount.
+ */
+async function correctionTarget(ctx: BotContext, log: BotMessageLog, chatId: string, userId: string, was: string): Promise<CorrectionTarget | null> {
+  const wasGiven = /\d/.test(was);
+  const isWas = (record: RecordView) => writtenAmountMatches(was, record);
+
+  const repliedTo = repliedMessageId(ctx);
+  const replied = repliedTo === undefined ? null : await log.find(chatId, repliedTo);
+  if (replied && replied.userId === userId) {
+    const input = await recordMessageInput(ctx, replied);
+    const live = input.records.filter(record => !record.cancelled);
+    let record: RecordView | undefined;
+    if (replied.mode === 'large') record = largeOf(input, wasGiven ? isWas : undefined);
+    else if (wasGiven) record = live.find(isWas);
+    else record = replied.mode === 'amount' ? selectedRecord(input) : live.length === 1 ? live[0] : undefined;
+    return record ? { message: replied, input, record } : null;
+  }
+
+  const asking = await log.awaitingAmount(chatId);
+  if (asking && asking.userId === userId && (asking.mode === 'amount' || asking.mode === 'large')) {
+    const input = await recordMessageInput(ctx, asking);
+    const record = asking.mode === 'large' ? largeRecord(input) : selectedRecord(input);
+    if (record && (!wasGiven || isWas(record))) return { message: asking, input, record };
+  }
+
+  if (!wasGiven) return null;
+  for (const message of await log.recent(chatId)) {
+    if (message.userId !== userId) continue;
+    const input = await recordMessageInput(ctx, message);
+    // A held large amount is deleted on purpose: its record is the one to match there
+    const record = message.mode === 'large' ? largeOf(input, isWas) : input.records.find(candidate => !candidate.cancelled && isWas(candidate));
+    if (record) return { message, input, record };
+  }
+  return null;
+}
+
+/** The record of a large-amount question, if «25» of «не 25, а 28» (when given) is its amount. */
+function largeOf(input: RecordMessageInput, isWas?: (record: RecordView) => boolean): RecordView | undefined {
+  const record = largeRecord(input);
+  return record && (!isWas || isWas(record)) ? record : undefined;
+}
+
+/**
+ * «не 25, а 28» (FT-123, design-system «До любого поля — 2 нажатия»): the amount of a record changes, as
+ * after «Сумму». True when the text was such a correction — answered even when it cannot be applied.
+ */
+async function correctAmount(ctx: BotContext, log: BotMessageLog, chatId: string, text: string, userId: string): Promise<boolean> {
+  const correction = parseAmountCorrection(text);
+  if (!correction) return false;
+  const wasGiven = /\d/.test(correction.was);
+  if (!wasGiven && !/\d/.test(correction.now)) {
+    await ctx.reply(RU.record.correctionOnlyAmount);
+    return true;
+  }
+  // «не обед, а ужин 45к» is a phrase, not a correction
+  if (!wasGiven && !parseAmountReply(correction.now, { currency: 'UZS' })) return false;
+
+  const target = await correctionTarget(ctx, log, chatId, userId, correction.was);
+  if (!target) {
+    await ctx.reply(wasGiven ? RU.record.correctionNotFound(correction.was) : RU.record.correctionWhich);
+    return true;
+  }
+  const reply = parseAmountReply(correction.now, target.record);
+  if (!reply || reply.kind === 'not_positive') {
+    await ctx.reply(RU.record.correctionNotAnAmount);
+    return true;
+  }
+  if (reply.kind === 'too_big') {
+    await ctx.reply(RU.record.amountTooBig);
+    return true;
+  }
+
+  // «28» in «не 25, а 28» is read the way «25» was written: no need to say it is 28 000
+  const wasShortened = parseAmountReply(correction.was, target.record);
+  await changeAmount(ctx, log, target, reply, userId, !(wasShortened?.kind === 'amount' && wasShortened.written));
+  // Another text for a question elsewhere: «Сумму» or a large amount there closes; «Сколько?» stays asked
+  for (const other of await log.otherQuestions(target.message)) {
+    if (openQuestion(other.mode, other.state) !== 'missing') await closeQuestion(ctx, log, other);
+  }
+  return true;
+}
+
+/**
+ * A text, or the words of a voice message (FT-122, FT-123). «не 25, а 28» changes the amount of a record.
+ * Otherwise, where a message waits for an amount — after «Сумму», «Сколько?» of an item named without one, a
+ * large amount — an amount (with an account word, «18к нал», if any) answers it; anything else closes the
+ * question honestly and the text is handled as usual. True when the text was handled here.
+ */
+export async function answerAmountQuestion(ctx: BotContext, text: string, userId: string): Promise<boolean> {
+  const log = botMessageLog(ctx);
+  const chatId = chatIdOf(ctx);
+  if (!log || !chatId) return false;
+  if (await correctAmount(ctx, log, chatId, text, userId)) return true;
+
+  const message = await log.awaitingAmount(chatId);
+  if (!message || message.userId !== userId) return false;
+
+  if (openQuestion(message.mode, message.state) === 'missing') return answerMissing(ctx, log, message, text, userId);
+
+  const input = await recordMessageInput(ctx, message);
+  const record = message.mode === 'large' ? largeRecord(input) : selectedRecord(input);
+  if (!record || (message.mode !== 'large' && record.cancelled)) {
+    await closeQuestion(ctx, log, message, true);
+    return false;
+  }
+  return answerWithAmount(ctx, log, { message, input, record }, text, userId);
 }
 
 /**

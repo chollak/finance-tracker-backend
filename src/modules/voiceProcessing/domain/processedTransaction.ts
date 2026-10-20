@@ -44,8 +44,29 @@ export interface DetectedDebt {
   linkedTransactionId?: string;
 }
 
+/**
+ * Something the phrase names without an amount: «такси» in «кофе 25к, такси, обед 45» (FT-123). Nothing is
+ * written for it; the bot asks «Сколько?» and writes it with the amount of the answer
+ * (`ProcessTextInputUseCase.executeWithAmount`).
+ */
+export interface ItemWithoutAmount {
+  /** As the phrase names it: «такси». */
+  description: string;
+  /** The category the parser chose, by name; resolved like any record's when it is written. */
+  category: string;
+  type: 'income' | 'expense';
+  semanticType?: TransactionSemanticType;
+  /** YYYY-MM-DD; today when the phrase does not say. */
+  date?: string;
+  /** «нал», «картой» said of this item. */
+  paymentKind?: 'cash' | 'card';
+  merchant?: string;
+}
+
 export interface ProcessedTransaction {
   text: string;
   transactions: DetectedTransaction[];
   debts: DetectedDebt[];
+  /** Named without an amount, so not written (FT-123). */
+  withoutAmount?: ItemWithoutAmount[];
 }

@@ -2,6 +2,10 @@ import { Markup } from 'telegraf';
 import { InlineKeyboardButton } from 'telegraf/types';
 import { addDaysToDateOnly } from '../../../../shared/domain/dates/dateOnly';
 import {
+  amountWithUnit,
+  categoryQuestion,
+  itemName,
+  largeRecord,
   PickerAccount,
   quoted,
   recordName,
@@ -9,6 +13,7 @@ import {
   RecordView,
   selectedRecord,
   shortAmount,
+  thousandTimesLess,
 } from '../formatters/recordMessage';
 
 /**
@@ -31,6 +36,16 @@ export const RECORD_VERBS = {
   revert: 'v',
   /** «Вернуть» under the /undo reply; the argument is the message whose records it cancelled. */
   undoRevert: 'u',
+  /** «Да, верно» under a guessed category (FT-123). */
+  rightCategory: 'y',
+  /** «Другая», «Выбрать категорию»: the categories, «‹ Назад» back to the confirmation (FT-123). */
+  otherCategory: 'o',
+  /** «Пропустить «Такси»», «Не записывать» of an item named without an amount (FT-123). */
+  skip: 'k',
+  /** The large-amount question (FT-123): «Это 25 000 сум», «Да, верная», «Не записывать». */
+  largeFix: 'lf',
+  largeRight: 'ly',
+  largeDecline: 'ln',
 } as const;
 
 export type RecordVerb = (typeof RECORD_VERBS)[keyof typeof RECORD_VERBS];
@@ -73,9 +88,24 @@ export function accountsFor(record: RecordView, accounts: PickerAccount[]): Pick
   return accounts.filter(account => account.currency === record.currency);
 }
 
+/** «Пропустить «Такси»» under records, «Не записывать» when the message has none (FT-123). */
+function skipRows(input: RecordMessageInput): Button[][] {
+  const [item] = input.state.missing ?? [];
+  if (!item) return [];
+  return [[button(input.records.length > 0 ? `Пропустить ${quoted(itemName(item))}` : 'Не записывать', RECORD_VERBS.skip)]];
+}
+
 function confirmRows(input: RecordMessageInput): Button[][] {
   const { records } = input;
-  if (records.length === 1) return [[button('Изменить', RECORD_VERBS.edit), button('Отменить', RECORD_VERBS.cancel)]];
+  if (records.length === 0) return skipRows(input);
+  if (records.length === 1) {
+    const asked = categoryQuestion(input);
+    const rows: Button[][] = [];
+    if (asked === 'guess') rows.push([button('Да, верно', RECORD_VERBS.rightCategory), button('Другая', RECORD_VERBS.otherCategory)]);
+    if (asked === 'unknown') rows.push([button('Выбрать категорию', RECORD_VERBS.otherCategory)]);
+    rows.push([button('Изменить', RECORD_VERBS.edit), button('Отменить', RECORD_VERBS.cancel)]);
+    return [...rows, ...skipRows(input)];
+  }
 
   const shown = records.length > MAX_RECORD_BUTTONS ? records.slice(0, MORE_RECORDS_SHOWN) : records;
   const rows: Button[][] = shown.map((record, index) => [record.cancelled
@@ -85,8 +115,20 @@ function confirmRows(input: RecordMessageInput): Button[][] {
     const more = link('Остальные — в Daftar', input.historyUrl);
     if (more.length) rows.push(more);
   }
+  rows.push(...skipRows(input));
   if (records.some(record => !record.cancelled)) rows.push([button('Отменить все', RECORD_VERBS.cancel)]);
   return rows;
+}
+
+/** The large-amount question: what it most likely was, that it is right, not to write it (FT-123). */
+function largeRows(input: RecordMessageInput): Button[][] {
+  const record = largeRecord(input);
+  if (!record) return [];
+  return [
+    [button(`Это ${amountWithUnit(thousandTimesLess(record), record.currency)}`, RECORD_VERBS.largeFix)],
+    [button('Да, верная', RECORD_VERBS.largeRight)],
+    [button('Не записывать', RECORD_VERBS.largeDecline)],
+  ];
 }
 
 function editRows(input: RecordMessageInput, record: RecordView): Button[][] {
@@ -141,7 +183,8 @@ function revertCount(input: RecordMessageInput): number {
 /** The inline keyboard for the message's current screen. */
 export function recordKeyboard(input: RecordMessageInput): Button[][] {
   const { records } = input;
-  if (records.length === 0) return [];
+  if (input.mode === 'large' && records.length > 0) return largeRows(input);
+  if (records.length === 0) return skipRows(input);
   if (records.every(record => record.cancelled)) {
     return [[button(revertCount(input) > 1 ? 'Вернуть все' : 'Вернуть', RECORD_VERBS.revert)]];
   }

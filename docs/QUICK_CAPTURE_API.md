@@ -182,6 +182,7 @@ succeeded).
 | `debts` | `CapturedDebt[]` | Debts the pipeline **already persisted**. May be empty. |
 | `ack` | `CaptureAck` | Ready-to-render confirmation (Russian), shared by all clients. |
 | `review` | `CaptureReview` | Machine-readable reasons the capture may need attention. |
+| `withoutAmount` | `CapturedWithoutAmount[]` \| absent | FT-123. What the text names without an amount («такси» in «кофе 25к, такси»): **nothing is written** for these. Each item: `description`, `category` (the parser's choice, by name), `type`, `semanticType?`, `date?`, `paymentKind?` (`cash` \| `card`), `merchant?`. The key is omitted when there are none. The bot asks «Сколько?» and writes the item with the answer (`QuickCaptureService.captureWithAmount`); the Mini App ignores it for now. |
 
 ### `status`
 

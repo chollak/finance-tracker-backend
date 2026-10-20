@@ -1,4 +1,4 @@
-import { BotMessage, BotMessageChanges, RecordMessageMode } from './botMessage';
+import { BotMessage, BotMessageChanges } from './botMessage';
 
 export type NewBotMessage = Omit<BotMessage, 'createdAt' | 'updatedAt'>;
 
@@ -7,7 +7,7 @@ export interface BotMessageRepository {
   findByMessage(chatId: string, messageId: number): Promise<BotMessage | null>;
   /** The chat's messages, newest first. */
   findByChat(chatId: string, limit: number): Promise<BotMessage[]>;
-  /** The chat's messages with this keyboard screen open, newest first. */
-  findByMode(chatId: string, mode: RecordMessageMode): Promise<BotMessage[]>;
+  /** The chat's messages with an open question (`openQuestion`), newest first. */
+  findWithOpenQuestion(chatId: string): Promise<BotMessage[]>;
   update(id: string, changes: BotMessageChanges): Promise<BotMessage>;
 }

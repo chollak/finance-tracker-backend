@@ -1,6 +1,6 @@
 import { TransactionSemanticType } from '../../transaction/domain/transactionSemanticType';
 import { Transaction } from '../../transaction/domain/transactionEntity';
-import { CaptureAssumption, DetectedDebt } from '../../voiceProcessing/domain/processedTransaction';
+import { CaptureAssumption, DetectedDebt, ItemWithoutAmount } from '../../voiceProcessing/domain/processedTransaction';
 
 /**
  * Quick Capture is the shared application boundary every client (Telegram, Mini App,
@@ -74,6 +74,28 @@ export interface CapturedTransaction {
  */
 export type CapturedDebt = DetectedDebt;
 
+/** Named without an amount, so not written (FT-123): «такси» in «кофе 25к, такси». */
+export type CapturedWithoutAmount = ItemWithoutAmount;
+
+/**
+ * The answer to «Сколько?» for an item named without an amount (FT-123): the item is written with the
+ * answer's amount through the same pipeline as a phrase.
+ */
+export interface AmountAnswerRequest {
+  item: CapturedWithoutAmount;
+  answer: {
+    /** As written: «18к нал». */
+    text: string;
+    /** Major units of `currency`, «45» already read as 45 000. */
+    amount: number;
+    currency: 'UZS' | 'USD';
+    kind?: 'cash' | 'card';
+  };
+  userId: string;
+  userName?: string;
+  source?: CaptureSource;
+}
+
 export type CaptureAckAction = 'edit' | 'delete' | 'review';
 
 export interface CaptureAck {
@@ -99,4 +121,6 @@ export interface QuickCaptureResult {
   review: CaptureReview;
   /** True when this answers a repeated `clientId` (FT-106): nothing new was written. */
   repeated?: boolean;
+  /** Named without an amount, so nothing was written for them (FT-123); absent when there are none. */
+  withoutAmount?: CapturedWithoutAmount[];
 }

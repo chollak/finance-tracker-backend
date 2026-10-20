@@ -11,6 +11,7 @@ import {
 } from '../src/modules/voiceProcessing/domain/processedTransaction';
 import { Transaction } from '../src/modules/transaction/domain/transactionEntity';
 import { downloadVoiceFile, cleanupFile } from '../src/delivery/messaging/telegram/utils';
+import { NoSpeechDetectedError } from '../src/modules/voiceProcessing/domain/voiceErrors';
 
 // The voice path must not touch the filesystem or Telegram's CDN in tests; transcription itself
 // stays mocked at the use-case level, so no OpenAI call is ever made.
@@ -243,14 +244,15 @@ describe('Telegram message handlers', () => {
 
       await handler(ctx as any);
 
-      expect(remember).toHaveBeenCalledWith({
+      expect(remember).toHaveBeenCalledWith(expect.objectContaining({
         userId: '131184740',
         chatId: '131184740',
         messageId: 501,
         recordIds: ['tx-1', 'tx-2'],
-        guessed: ['tx-2'],
+        mode: 'confirm',
+        state: expect.objectContaining({ guessed: ['tx-2'] }),
         heard: null,
-      });
+      }));
     });
 
     it('says a record flagged for review needs checking and is not in the totals yet', async () => {
@@ -294,13 +296,16 @@ describe('Telegram message handlers', () => {
       expect(replyText(reply)).toContain('Покупки? · «Uzum»');
     });
 
-    it('reports no transaction when nothing was captured', async () => {
+    it('says with an example what to write when nothing was captured (FT-123)', async () => {
       const { ctx, reply } = createTextContext({ message: { text: 'привет' } }, captureResult([], { text: 'привет' }));
       const handler = createTextMessageHandler();
 
       await handler(ctx as any);
 
-      expect(replyText(reply)).toBe('Транзакций не найдено');
+      expect(replyText(reply)).toBe(
+        `Не нашёл, что записать.\nНапишите трату и сумму:\n<blockquote><i>такси 18к, обед 45${NB}000 картой</i></blockquote>\n\n<i>Подробнее — /help</i>`
+      );
+      expect(replyText(reply)).not.toMatch(EMOJI);
     });
 
     it('still reports debts detected alongside the capture', async () => {
@@ -500,7 +505,8 @@ describe('Telegram message handlers', () => {
       expect(replyText(reply)).toContain('Боб');
     });
 
-    it('reports no transaction found', async () => {
+    it('asks to say it again, with an example, when nothing was found or heard (FT-123)', async () => {
+      const notHeard = 'Не расслышал.\nСкажите ещё раз — что купили и сколько, например: «такси восемнадцать тысяч». Или напишите текстом.';
       const { ctx, reply } = createVoiceContext({}, voiceResult({
         text: 'привет',
         transactions: [],
@@ -510,7 +516,13 @@ describe('Telegram message handlers', () => {
 
       await handler(ctx as any);
 
-      expect(replyText(reply)).toBe('🎤 Транзакций не найдено');
+      expect(replyText(reply)).toBe(notHeard);
+
+      (ctx as any).modules.voiceModule.getProcessVoiceInputUseCase = () => ({
+        execute: jest.fn().mockRejectedValue(new NoSpeechDetectedError()),
+      });
+      await handler(ctx as any);
+      expect(replyText(reply)).toBe(notHeard);
     });
 
     it('counts the voice input; created transactions are counted by the create use case', async () => {

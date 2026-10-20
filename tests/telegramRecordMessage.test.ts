@@ -193,7 +193,8 @@ describe('BotRecord text (FT-122)', () => {
   });
 
   it('asks what to change, which category, account, date or amount', () => {
-    expect(formatRecordMessage(input({ mode: 'edit' }))).toMatch(/\n\n<i>Что изменить\?<\/i>$/);
+    // FT-123: the amount can be changed by text too
+    expect(formatRecordMessage(input({ mode: 'edit' }))).toMatch(new RegExp(`\\n\\n<i>Что изменить\\? Сумму можно и текстом: «не 24${NB}000, а …»\\.</i>$`));
     expect(formatRecordMessage(input({ mode: 'category' }))).toMatch(/\n\n<i>Выберите категорию:<\/i>$/);
     expect(formatRecordMessage(input({ mode: 'category', state: { selected: 0, guessed: [], pickType: 'income' } })))
       .toMatch(/\n\n<i>Выберите категорию дохода:<\/i>$/);
@@ -379,6 +380,181 @@ describe('BotKeyboard under a record (FT-122)', () => {
 
     for (const button of rows(value).flat()) {
       if (button.callback_data) expect(Buffer.byteLength(button.callback_data)).toBeLessThanOrEqual(64);
+    }
+  });
+});
+
+describe('BotRecord clarifications (FT-123)', () => {
+  const uzum = record({ id: 'tx-uzum', amountMinor: 18_000_000, categoryName: 'Покупки', note: 'Uzum', accountName: 'Карта', date: '2026-10-16' });
+  const guessed = (ids: string[]) => ({ selected: 0, guessed: ids });
+
+  it('asks about a guessed category in words, after an empty line: «Записал в «Покупки» — верно?»', () => {
+    const value = input({ records: [uzum], state: guessed(['tx-uzum']), today: '2026-10-16' });
+
+    expect(formatRecordMessage(value)).toBe(
+      `<b>Расход ${MINUS}180${NB}000${NB}сум</b>\nПокупки? · «Uzum»\nКарта · 16${NB}октября\n\nЗаписал в «Покупки» — верно?`
+    );
+    expect(labels(value)).toEqual([['Да, верно', 'Другая'], ['Изменить', 'Отменить']]);
+  });
+
+  it('says it did not know the category when the guess is «Другое»: «Категорию не узнал»', () => {
+    const value = input({
+      records: [record({ id: 'tx-cut', amountMinor: 5_000_000, categoryId: 'cat-other', categoryName: 'Другое', categoryIsOther: true, note: 'стрижка' })],
+      state: guessed(['tx-cut']),
+    });
+
+    expect(formatRecordMessage(value)).toBe(
+      `<b>Расход ${MINUS}50${NB}000${NB}сум</b>\nДругое · «Стрижка»\nНаличные · 14${NB}октября\n\nКатегорию не узнал — записал в «Другое».`
+    );
+    expect(labels(value)).toEqual([['Выбрать категорию'], ['Изменить', 'Отменить']]);
+  });
+
+  it('asks nothing once the guess is confirmed or changed, and nothing for one of several', () => {
+    expect(formatRecordMessage(input({ records: [uzum], today: '2026-10-16' }))).not.toContain('верно?');
+    const several = input({
+      records: [uzum, record({ id: 'tx-2', amountMinor: 2_500_000, categoryName: 'Кафе', note: 'кофе', accountName: 'Карта', date: '2026-10-16' })],
+      state: guessed(['tx-uzum']),
+      today: '2026-10-16',
+    });
+    expect(formatRecordMessage(several)).toContain(`${MINUS}180${NB}000 · Покупки? · «Uzum»`);
+    expect(formatRecordMessage(several)).not.toContain('верно?');
+  });
+
+  it('says in italics right under the amount that «45» was read as 45 000', () => {
+    const value = input({
+      records: [record({ id: 'tx-lunch', amountMinor: 4_500_000, categoryName: 'Кафе', note: 'обед' })],
+      state: { selected: 0, guessed: [], assumed: { 'tx-lunch': { written: '45', amountMinor: 4_500_000 } } },
+    });
+
+    expect(formatRecordMessage(value)).toBe(
+      `<b>Расход ${MINUS}45${NB}000${NB}сум</b>\n<i>«45» понял как 45${NB}000${NB}сум.</i>\nКафе · «Обед»\nНаличные · 14${NB}октября`
+    );
+  });
+
+  it('among several, marks the amount with «?» and says so under its line; a changed amount drops it', () => {
+    const state = { selected: 0, guessed: [], assumed: { 'tx-lunch': { written: '45', amountMinor: 4_500_000 } } };
+    const coffee = record({ id: 'tx-coffee', amountMinor: 2_500_000, categoryName: 'Кафе', note: 'кофе', accountName: 'Карта', date: '2026-10-16' });
+    const lunch = record({ id: 'tx-lunch', amountMinor: 4_500_000, categoryName: 'Кафе', note: 'обед', accountName: 'Карта', date: '2026-10-16' });
+
+    expect(formatRecordMessage(input({ records: [coffee, lunch], state, today: '2026-10-16' }))).toBe(
+      `<b>Расходы ${MINUS}70${NB}000${NB}сум · 2 записи</b>\n`
+      + `${MINUS}25${NB}000 · Кафе · «Кофе»\n`
+      + `${MINUS}45${NB}000? · Кафе · «Обед»\n`
+      + `<i>«45» понял как 45${NB}000${NB}сум.</i>\n`
+      + `Карта · 16${NB}октября`
+    );
+    const changed = formatRecordMessage(input({ records: [coffee, { ...lunch, amountMinor: 5_000_000 }], state, today: '2026-10-16' }));
+    expect(changed).not.toContain('понял как');
+    expect(changed).not.toContain('?');
+  });
+
+  it('asks «Сколько?» for what was named without an amount, «Пропустить» before «Отменить все» — as on the board', () => {
+    const value = input({
+      records: [
+        record({ id: 'tx-coffee', amountMinor: 2_500_000, categoryName: 'Кафе', note: 'Кофе', accountName: 'Карта', date: '2026-10-16' }),
+        record({ id: 'tx-lunch', amountMinor: 4_500_000, categoryName: 'Кафе', note: 'Обед', accountName: 'Карта', date: '2026-10-16' }),
+      ],
+      state: {
+        selected: 0,
+        guessed: [],
+        assumed: { 'tx-lunch': { written: '45', amountMinor: 4_500_000 } },
+        missing: [{ description: 'такси', category: 'Транспорт', type: 'expense' }],
+      },
+      today: '2026-10-16',
+    });
+
+    expect(formatRecordMessage(value)).toBe(
+      `<b>Расходы ${MINUS}70${NB}000${NB}сум · 2 записи</b>\n`
+      + `${MINUS}25${NB}000 · Кафе · «Кофе»\n`
+      + `${MINUS}45${NB}000? · Кафе · «Обед»\n`
+      + `<i>«45» понял как 45${NB}000${NB}сум.</i>\n`
+      + `Карта · 16${NB}октября\n\n`
+      + '«Такси» — без суммы. Сколько? Напишите числом.'
+    );
+    expect(labels(value)).toEqual([
+      [`${MINUS}25${NB}000 · «Кофе»`],
+      [`${MINUS}45${NB}000 · «Обед»`],
+      ['Пропустить «Такси»'],
+      ['Отменить все'],
+    ]);
+  });
+
+  it('a phrase that only names something without an amount: bold, «Сколько?», «Не записывать»', () => {
+    const value = input({ records: [], state: { selected: 0, guessed: [], missing: [{ description: 'такси', category: 'Транспорт', type: 'expense' }] } });
+
+    expect(formatRecordMessage(value)).toBe('<b>«Такси» — без суммы.</b>\nСколько? Напишите числом.');
+    expect(labels(value)).toEqual([['Не записывать']]);
+  });
+
+  it('writes what was not recorded, under the records', () => {
+    const value = input({ state: { selected: 0, guessed: [], notes: ['«Обед» — без суммы, не записал.'] } });
+
+    expect(formatRecordMessage(value)).toBe(
+      `<b>Расход ${MINUS}24${NB}000${NB}сум</b>\nТранспорт · «Такси»\nНаличные · 14${NB}октября\n\n«Обед» — без суммы, не записал.`
+    );
+  });
+
+  describe('a large amount', () => {
+    const coffee = record({ id: 'tx-big', amountMinor: 2_500_000_000, categoryName: 'Кафе', note: 'кофе', accountName: 'Карта', cancelled: true, date: '2026-10-17' });
+
+    it('is not written until confirmed: «Пока не записал — сумма верная?», the buttons of the board', () => {
+      const value = input({ records: [coffee], mode: 'large', state: { selected: 0, guessed: [], large: { index: 0 } }, today: '2026-10-17' });
+
+      expect(formatRecordMessage(value)).toBe(
+        `<b>Сумма большая: ${MINUS}25${NB}000${NB}000${NB}сум за «Кофе».</b>\nПока не записал — сумма верная?\n\n<i>Если сумма другая — напишите её.</i>`
+      );
+      expect(labels(value)).toEqual([[`Это 25${NB}000${NB}сум`], ['Да, верная'], ['Не записывать']]);
+    });
+
+    it('drops the typing hint once another text came, and keeps the buttons', () => {
+      const value = input({ records: [coffee], mode: 'large', state: { selected: 0, guessed: [], large: { index: 0, replyClosed: true } } });
+
+      expect(formatRecordMessage(value)).not.toContain('напишите её');
+      expect(labels(value)).toHaveLength(3);
+    });
+
+    it('with several records nothing of the message is written, and what had no amount is said', () => {
+      const value = input({
+        records: [coffee, record({ id: 'tx-2', amountMinor: 1_800_000, cancelled: true })],
+        mode: 'large',
+        state: { selected: 0, guessed: [], large: { index: 0 }, notes: ['«Обед» — без суммы, не записал.'] },
+      });
+
+      expect(formatRecordMessage(value)).toBe(
+        `<b>Сумма большая: ${MINUS}25${NB}000${NB}000${NB}сум за «Кофе».</b>\n`
+        + 'Пока ничего из сообщения не записал — сумма верная?\n'
+        + '«Обед» — без суммы, не записал.\n\n'
+        + '<i>Если сумма другая — напишите её.</i>'
+      );
+    });
+
+    it('«Не записывать»: struck through, «Не записал.», no buttons', () => {
+      const value = input({ records: [], declined: [coffee], state: { selected: 0, guessed: [], declined: ['tx-big'] } });
+
+      expect(formatRecordMessage(value)).toBe(`<s><b>Сумма большая: ${MINUS}25${NB}000${NB}000${NB}сум за «Кофе».</b></s>\n\nНе записал.`);
+      expect(labels(value)).toEqual([]);
+    });
+
+    it('«Не записывать» of one of several: the others stay, a line says what was not written', () => {
+      const value = input({ records: [record()], declined: [coffee], state: { selected: 0, guessed: [], declined: ['tx-big'] } });
+
+      expect(formatRecordMessage(value)).toBe(
+        `<b>Расход ${MINUS}24${NB}000${NB}сум</b>\nТранспорт · «Такси»\nНаличные · 14${NB}октября\n\n«Кофе» на ${MINUS}25${NB}000${NB}000${NB}сум не записал.`
+      );
+      expect(labels(value)).toEqual([['Изменить', 'Отменить']]);
+    });
+  });
+
+  it('keeps callbacks within Telegram’s 64 bytes and has no emoji', () => {
+    const values = [
+      input({ records: [uzum], state: guessed(['tx-uzum']) }),
+      input({ records: [], state: { selected: 0, guessed: [], missing: [{ description: 'такси', category: 'Транспорт', type: 'expense' }] } }),
+      input({ records: [record({ cancelled: true, amountMinor: 2_500_000_000 })], mode: 'large', state: { selected: 0, guessed: [], large: { index: 0 } } }),
+    ];
+    for (const value of values) {
+      for (const button of rows(value).flat()) expect(Buffer.byteLength(button.callback_data ?? '', 'utf8')).toBeLessThanOrEqual(64);
+      expect(formatRecordMessage(value)).not.toMatch(EMOJI);
+      expect(labels(value).flat().join(' ')).not.toMatch(EMOJI);
     }
   });
 });

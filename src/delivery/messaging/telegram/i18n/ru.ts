@@ -126,6 +126,22 @@ export const RU = {
     amountTooBig: 'Сумма слишком большая — проверьте её и напишите ещё раз.',
     noAccountIn: (currency: 'UZS' | 'USD') =>
       currency === 'USD' ? 'Счёта в долларах нет — добавьте его в Daftar.' : 'Счёта в сумах нет — добавьте его в Daftar.',
+    // FT-123: what was named without an amount, «не 25, а 28»
+    withoutAmountNotWritten: (name: string) => `${name} — без суммы, не записал.`,
+    skipped: (name: string) => `${name} — пропустил.`,
+    writtenSeparately: (name: string) => `${name} — записал отдельным сообщением.`,
+    changed: (what: string) => `Изменил: ${what}`,
+    correctionOnlyAmount: 'Так можно поменять только сумму: «не 25, а 28». Остальное — кнопка «Изменить» под записью.',
+    correctionNotFound: (was: string) => `Не нашёл запись на ${was}. Нажмите «Изменить» под нужной.`,
+    correctionWhich: 'Не понял, какую сумму менять. Напишите так: «не 25, а 28».',
+    correctionNotAnAmount: 'Новая сумма должна быть числом больше нуля.',
+  },
+
+  // FT-123: nothing to write — with an example of what to write (board «Бот · не понял, не расслышал»)
+  capture: {
+    notUnderstood: 'Не нашёл, что записать.\nНапишите трату и сумму:\n'
+      + '<blockquote><i>такси 18к, обед 45\u00a0000 картой</i></blockquote>\n\n<i>Подробнее — /help</i>',
+    notHeard: 'Не расслышал.\nСкажите ещё раз — что купили и сколько, например: «такси восемнадцать тысяч». Или напишите текстом.',
   },
 
   // Errors

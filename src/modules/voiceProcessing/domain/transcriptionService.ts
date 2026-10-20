@@ -1,5 +1,6 @@
 import { TransactionSemanticType } from '../../transaction/domain/transactionSemanticType';
 import { AnalysisContext } from './categoryPrompt';
+import { ItemWithoutAmount } from './processedTransaction';
 
 /**
  * Parsed transaction from voice/text input
@@ -48,6 +49,8 @@ export type ParsedItem = ParsedTransaction | ParsedDebt;
 export interface AnalysisResult {
   transactions: ParsedTransaction[];
   debts: ParsedDebt[];
+  /** Named without an amount («такси» in «кофе 25к, такси»): nothing is written for them (FT-123). */
+  withoutAmount?: ItemWithoutAmount[];
 }
 
 export interface TranscriptionService {

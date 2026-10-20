@@ -12,6 +12,7 @@ import { ExternalServiceError, ErrorFactory } from '../../../shared/domain/error
 import { OPENAI_PROMPTS, ERROR_MESSAGES } from '../../../shared/domain/constants/messages';
 import { transactionLearning } from '../../../shared/application/learning/transactionLearning';
 import { AnalysisContext, buildCategoryPrompt } from '../domain/categoryPrompt';
+import { ItemWithoutAmount } from '../domain/processedTransaction';
 import { normalizeSemanticType } from '../../transaction/domain/transactionSemanticType';
 import { createLogger, LogCategory } from '../../../shared/infrastructure/logging';
 
@@ -143,6 +144,7 @@ export class OpenAITranscriptionService implements TranscriptionService {
 
       const transactions: ParsedTransaction[] = [];
       const debts: ParsedDebt[] = [];
+      const withoutAmount: ItemWithoutAmount[] = [];
 
       for (const item of items) {
         if (!item || typeof item !== 'object') continue;
@@ -152,9 +154,12 @@ export class OpenAITranscriptionService implements TranscriptionService {
         // Debt parsing is off (decision Д2): a debt the model still reports is an expense in «Другое»
         const transaction = intent === 'debt' ? this.debtAsExpense(item) : this.parseTransactionItem(item);
         if (transaction) transactions.push(transaction);
+        // Named without an amount: kept aside, the bot asks how much (FT-123)
+        const unpriced = !transaction && intent !== 'debt' ? this.parseItemWithoutAmount(item) : null;
+        if (unpriced) withoutAmount.push(unpriced);
       }
 
-      return { transactions, debts };
+      return { transactions, debts, ...(withoutAmount.length ? { withoutAmount } : {}) };
     } catch (error) {
       logger.error('Failed to parse OpenAI response', error as Error, { content: cleanContent.substring(0, 200) });
       throw ErrorFactory.externalService(
@@ -189,6 +194,28 @@ export class OpenAITranscriptionService implements TranscriptionService {
       merchant: personName || undefined,
       confidence,
       description,
+    };
+  }
+
+  /**
+   * An item the model returned without an amount («такси» in «кофе 25к, такси»): what it is and where it
+   * would go, so the bot can ask «Сколько?» (FT-123). An item that names nothing is dropped.
+   */
+  private parseItemWithoutAmount(item: any): ItemWithoutAmount | null {
+    const amount = typeof item.amount === 'number' ? item.amount : parseFloat(item.amount);
+    if (Number.isFinite(amount) && amount !== 0) return null;
+    const description = String(item.description || item.merchant || '').trim();
+    if (!description) return null;
+    const type = item.type === 'income' ? 'income' : 'expense';
+    const paymentKind = item.account === 'cash' || item.account === 'card' ? item.account : undefined;
+    return {
+      description,
+      category: String(item.category || '').trim() || 'Другое',
+      type,
+      semanticType: normalizeSemanticType(item.semanticType, type),
+      ...(item.date ? { date: String(item.date) } : {}),
+      ...(paymentKind ? { paymentKind } : {}),
+      ...(item.merchant ? { merchant: String(item.merchant) } : {}),
     };
   }
 

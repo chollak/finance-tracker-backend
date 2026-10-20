@@ -1,4 +1,4 @@
-import { parseAmountReply } from '../src/delivery/messaging/telegram/utils/amountReply';
+import { parseAmountCorrection, parseAmountReply, writtenAmountMatches } from '../src/delivery/messaging/telegram/utils/amountReply';
 
 /**
  * «Сумму» under a record asks «Напишите новую сумму — например, 150к.» (FT-122): the next text counts
@@ -81,5 +81,37 @@ describe('amount reply (FT-122)', () => {
     for (const text of ['такси 18к', 'обед', 'не 25, а 28', 'нал', '', '/undo', '25 и 30', '60$ сум', 'картошка 5к']) {
       expect(parseAmountReply(text, sumExpense)).toBeNull();
     }
+  });
+});
+
+/** «не 25, а 28» (FT-123): the amount a record has and the one it should have. */
+describe('amount correction (FT-123)', () => {
+  it.each([
+    ['не 25, а 28', '25', '28'],
+    ['Не 25 а 28', '25', '28'],
+    ['не 145 000, а 150 000', '145 000', '150 000'],
+    ['не 25к, а 28к.', '25к', '28к'],
+    ['не 55$, а 60$', '55$', '60$'],
+    ['не кафе, а транспорт', 'кафе', 'транспорт'],
+  ])('«%s» is «%s» → «%s»', (text, was, now) => {
+    expect(parseAmountCorrection(text)).toEqual({ was, now });
+  });
+
+  it('is not a correction otherwise', () => {
+    for (const text of ['кофе 25к', 'не забыть кофе 25к', 'нет, 28', '25, а 28', 'не 25']) {
+      expect(parseAmountCorrection(text)).toBeNull();
+    }
+  });
+
+  it('matches the amount a record has, written the way the record was written or as it is', () => {
+    const coffee = { amountMinor: 2_500_000, currency: 'UZS' as const };
+    expect(writtenAmountMatches('25', coffee)).toBe(true);
+    expect(writtenAmountMatches('25к', coffee)).toBe(true);
+    expect(writtenAmountMatches('25 000', coffee)).toBe(true);
+    expect(writtenAmountMatches('28', coffee)).toBe(false);
+    // A small income stays as it is: «не 870, а 900» of a cashback of 870 сум
+    expect(writtenAmountMatches('870', { amountMinor: 87_000, currency: 'UZS' })).toBe(true);
+    expect(writtenAmountMatches('55', { amountMinor: 5_500, currency: 'USD' })).toBe(true);
+    expect(writtenAmountMatches('кафе', coffee)).toBe(false);
   });
 });

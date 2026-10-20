@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto';
-import { BotMessage, BotMessageChanges } from '../domain/botMessage';
+import { BotMessage, BotMessageChanges, RecordMessageMode, RecordMessageState } from '../domain/botMessage';
 import { BotMessageRepository } from '../domain/botMessageRepository';
 
 /** How far back /undo looks for the last message with records still in place. */
@@ -13,6 +13,10 @@ export interface RememberBotMessageInput {
   /** Records whose category the parse guessed (FT-138). */
   guessed?: string[];
   heard?: string | null;
+  /** The screen the message opens on: the confirmation, or `large` when its records are held (FT-123). */
+  mode?: RecordMessageMode;
+  /** What else the message starts with (FT-123): «45» read as 45 000, items without an amount, notes. */
+  state?: Partial<RecordMessageState>;
 }
 
 /**
@@ -30,8 +34,8 @@ export class BotMessageLog {
       chatId: input.chatId,
       messageId: input.messageId,
       recordIds: [...input.recordIds],
-      mode: 'confirm',
-      state: { selected: 0, guessed: input.guessed ? [...input.guessed] : [] },
+      mode: input.mode ?? 'confirm',
+      state: { selected: 0, ...input.state, guessed: [...(input.guessed ?? input.state?.guessed ?? [])] },
       heard: input.heard?.trim() ? input.heard.trim() : null,
     });
   }
@@ -45,15 +49,18 @@ export class BotMessageLog {
     return this.repository.findByChat(chatId, limit);
   }
 
-  /** The message whose «Сумму» waits for the amount as the next text of the chat, if any. */
+  /**
+   * The message whose question waits for an amount as the next text of the chat, if any: the new amount
+   * after «Сумму», «Сколько?» of an item named without one, or the right amount of a large one (FT-123).
+   */
   async awaitingAmount(chatId: string): Promise<BotMessage | null> {
-    const [newest] = await this.repository.findByMode(chatId, 'amount');
+    const [newest] = await this.repository.findWithOpenQuestion(chatId);
     return newest ?? null;
   }
 
-  /** Other messages of the chat still waiting for an amount: one question at a time. */
-  async otherAmountQuestions(message: BotMessage): Promise<BotMessage[]> {
-    return (await this.repository.findByMode(message.chatId, 'amount')).filter(other => other.id !== message.id);
+  /** Other messages of the chat with an open question: one question at a time. */
+  async otherQuestions(message: BotMessage): Promise<BotMessage[]> {
+    return (await this.repository.findWithOpenQuestion(message.chatId)).filter(other => other.id !== message.id);
   }
 
   save(message: BotMessage, changes: BotMessageChanges): Promise<BotMessage> {

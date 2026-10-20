@@ -389,11 +389,16 @@ new ProcessVoiceInputUseCase(
 ### Назначение
 Сообщения бота о записях (FT-122). Подтверждение в чате — одно сообщение на фразу; таблица `bot_messages` хранит,
 какие записи оно показывает (`record_ids`), какой экран кнопок под ним открыт (`mode`: подтверждение, «Изменить»,
-сумма, категория, счёт, дата), последнюю правку и догадки о категории (`state`), что бот расслышал (`heard`).
-Поэтому «Изменить», «Вернуть», ответ суммой и `/undo` работают и после перезапуска.
+сумма, категория, счёт, дата; с FT-123 — `large`, крупная сумма до подтверждения), последнюю правку и догадки о
+категории (`state`; с FT-123 там же «45» → 45 000, названное без суммы, строки «не записал», отказ от крупной суммы),
+что бот расслышал (`heard`) и открытый вопрос (`question`, FT-123: выводится из `mode` и `state`). Поэтому
+«Изменить», «Вернуть», ответ суммой, «Сколько?» и `/undo` работают и после перезапуска.
 
 ### Состав
-- `BotMessageLog` — `remember`, `find(chat, message)`, `recent(chat)` (для `/undo`), `awaitingAmount(chat)`, `save`.
+- `BotMessageLog` — `remember`, `find(chat, message)`, `recent(chat)` (для `/undo`), `awaitingAmount(chat)` (открытый
+  вопрос чата — один за раз), `otherQuestions(message)`, `save`.
+- Домен — `openQuestion(mode, state)`: что чат ждёт следующим текстом. Тип названного без суммы
+  (`ItemWithoutAmount`) берётся из домена VoiceProcessingModule.
 - `SqliteBotMessageRepository` — TypeORM; строка на сообщение, уникальна пара `chat_id` + `message_id`.
 - Сами записи модуль не трогает: бот меняет их через use cases TransactionModule (`Update`, `Delete`, `Restore`) и
   рисует сообщение заново из базы (`src/delivery/messaging/telegram/utils/recordMessageView.ts`).
