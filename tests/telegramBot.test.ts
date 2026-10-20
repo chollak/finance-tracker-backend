@@ -31,8 +31,10 @@ describe('startTelegramBot', () => {
       session: jest.fn(() => jest.fn()),
     }));
 
+    const registerCommandHandlers = jest.fn();
+    const closeAmountQuestionOnCommand = jest.fn();
     jest.doMock('../src/delivery/messaging/telegram/handlers/commandHandlers', () => ({
-      registerCommandHandlers: jest.fn(),
+      registerCommandHandlers,
     }));
     jest.doMock('../src/delivery/messaging/telegram/handlers/messageHandlers', () => ({
       registerMessageHandlers: jest.fn(),
@@ -42,6 +44,7 @@ describe('startTelegramBot', () => {
     }));
     jest.doMock('../src/delivery/messaging/telegram/handlers/recordHandlers', () => ({
       registerRecordHandlers: jest.fn(),
+      closeAmountQuestionOnCommand,
     }));
     jest.doMock('../src/delivery/messaging/telegram/handlers/paymentHandlers', () => ({
       registerPaymentHandlers: jest.fn(),
@@ -65,8 +68,21 @@ describe('startTelegramBot', () => {
       launch,
       launchCatch,
       processOnce,
+      use,
+      registerCommandHandlers,
+      closeAmountQuestionOnCommand,
     };
   }
+
+  it('closes an open «Сумму» question before any command runs (FT-122)', async () => {
+    const { start, use, registerCommandHandlers, closeAmountQuestionOnCommand } = await loadBotWithMocks();
+
+    start();
+
+    const call = use.mock.calls.findIndex(([middleware]) => middleware === closeAmountQuestionOnCommand);
+    expect(call).not.toBe(-1);
+    expect(use.mock.invocationCallOrder[call]).toBeLessThan(registerCommandHandlers.mock.invocationCallOrder[0]);
+  });
 
   it('attaches a rejection handler to bot.launch so launch failures do not become unhandled rejections', async () => {
     const { start, launch, launchCatch } = await loadBotWithMocks();

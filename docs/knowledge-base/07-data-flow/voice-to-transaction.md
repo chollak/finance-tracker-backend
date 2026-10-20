@@ -34,7 +34,9 @@ flowchart TD
     C -->|MP3| E[OpenAI Whisper API]
     D --> E
     E --> F[Transcribed Text<br/>Купил хлеб за 500 рублей]
-    F --> G[Enhanced Prompt<br/>+ Learning Patterns]
+    F --> F1{Бот ждёт сумму<br/>после «Сумму»?}
+    F1 -->|только сумма| F2[Меняет сумму записи<br/>«Изменил: …»]
+    F1 -->|нет или другое| G[Enhanced Prompt<br/>+ Learning Patterns]
     G --> H[OpenAI GPT-4 API]
     H --> I[Parsed Transaction<br/>amount: 500, category: groceries]
     I --> J{Confidence Score}
@@ -112,6 +114,13 @@ const transcription = await openai.audio.transcriptions.create({
 ```
 
 **Файл:** [`src/modules/voiceProcessing/infrastructure/openAITranscriptionService.ts:24`](../../../src/modules/voiceProcessing/infrastructure/openAITranscriptionService.ts)
+
+**Открытый вопрос «Сумму» (FT-122).** До разбора услышанный текст отдаётся боту
+(`ProcessVoiceInputUseCase.execute(input, { takeHeardText })`): если под записью открыт вопрос «Напишите новую
+сумму» и голосовое — только сумма («150 тысяч»), бот меняет сумму записи, и ничего не разбирается и не пишется.
+Любое другое голосовое закрывает вопрос — сообщение возвращается на «Изменить» — и записывается как обычно.
+Команда тоже сначала закрывает вопрос (`closeAmountQuestionOnCommand` перед обработчиками команд). Текстовый
+ответ на вопрос стоит перед проверкой бесплатного лимита: он исправляет запись, а не добавляет новую.
 
 ---
 

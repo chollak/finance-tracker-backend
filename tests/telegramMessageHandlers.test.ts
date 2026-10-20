@@ -415,7 +415,7 @@ describe('Telegram message handlers', () => {
         userId: '131184740',
         userName: 'Shukur',
         source: 'telegram',
-      });
+      }, { takeHeardText: expect.any(Function) });
       expect(capture).not.toHaveBeenCalled();
     });
 
@@ -427,7 +427,7 @@ describe('Telegram message handlers', () => {
 
       expect(replyText(reply)).toBe(
         `<b>Расход ${MINUS}18${NB}000${NB}сум</b>\nТранспорт · «Такси»\n2${NB}сентября\n`
-        + '<blockquote>Расслышал: «такси восемнадцать тысяч»</blockquote>'
+        + '<blockquote><i>Расслышал: «такси восемнадцать тысяч»</i></blockquote>'
       );
       expect(replyText(reply)).not.toMatch(EMOJI);
       expect(replyLabels(reply)).toEqual([['Изменить', 'Отменить']]);

@@ -27,6 +27,11 @@ export interface RecordMessageState {
   guessed: string[];
   /** The /undo reply that cancelled these records: «Вернуть» here also closes that reply. */
   undoMessageId?: number;
+  /**
+   * The records /undo cancelled: «Вернуть» brings back only these, not a record cancelled on purpose
+   * before. Cleared once they are back, or when «Отменить» cancels the whole message.
+   */
+  undone?: string[];
 }
 
 export interface BotMessage {

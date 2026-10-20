@@ -51,6 +51,15 @@ function convertOggToMp3(input: string, output: string): Promise<void> {
   });
 }
 
+export interface ProcessVoiceOptions {
+  /**
+   * What was heard, before it is parsed into records. It returns true when the caller has used the text
+   * itself (the bot's open «Сумму» question takes a spoken amount, FT-122); nothing is then parsed or
+   * written.
+   */
+  takeHeardText?: (text: string) => Promise<boolean>;
+}
+
 export class ProcessVoiceInputUseCase {
   constructor(
     private openAIService: TranscriptionService,
@@ -62,7 +71,7 @@ export class ProcessVoiceInputUseCase {
     private learnedWords?: LearnedCategoryWords
   ) {}
 
-  async execute(input: VoiceInput): Promise<ProcessedTransaction> {
+  async execute(input: VoiceInput, options: ProcessVoiceOptions = {}): Promise<ProcessedTransaction> {
     // Input validation
     const filePathValidation = Validators.required(input.filePath, 'filePath');
     if (!filePathValidation.success) {
@@ -107,6 +116,10 @@ export class ProcessVoiceInputUseCase {
 
       if (!recognizedText || recognizedText.trim().length === 0) {
         throw ErrorFactory.externalService('Voice Transcription', new Error('No speech detected in audio'));
+      }
+
+      if (options.takeHeardText && await options.takeHeardText(recognizedText)) {
+        return { text: recognizedText, transactions: [], debts: [] };
       }
 
       // Analyze the text with the user's categories (FT-099)

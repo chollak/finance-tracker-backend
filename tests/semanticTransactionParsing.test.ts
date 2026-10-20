@@ -136,6 +136,38 @@ describe('ProcessVoiceInputUseCase - semanticType flow-through', () => {
     ]);
   });
 
+  it('hands what was heard to the caller first; when the caller takes it, nothing is parsed or written (FT-122)', async () => {
+    const openAIService = {
+      transcribe: jest.fn().mockResolvedValue('150 тысяч'),
+      analyzeInput: jest.fn(),
+      analyzeTransactions: jest.fn(),
+    } as unknown as TranscriptionService;
+    const createTransactionUseCase = { execute: jest.fn() } as unknown as CreateTransactionUseCase;
+    const takeHeardText = jest.fn().mockResolvedValue(true);
+
+    const useCase = new ProcessVoiceInputUseCase(openAIService, createTransactionUseCase);
+    const result = await useCase.execute({ filePath, userId: 'user1' }, { takeHeardText });
+
+    expect(takeHeardText).toHaveBeenCalledWith('150 тысяч');
+    expect(openAIService.analyzeInput).not.toHaveBeenCalled();
+    expect(createTransactionUseCase.execute).not.toHaveBeenCalled();
+    expect(result).toEqual({ text: '150 тысяч', transactions: [], debts: [] });
+  });
+
+  it('parses what was heard as usual when the caller does not take it', async () => {
+    const openAIService = {
+      transcribe: jest.fn().mockResolvedValue('такси 18000'),
+      analyzeInput: jest.fn().mockResolvedValue({ transactions: [], debts: [] }),
+      analyzeTransactions: jest.fn(),
+    } as unknown as TranscriptionService;
+    const createTransactionUseCase = { execute: jest.fn() } as unknown as CreateTransactionUseCase;
+
+    const useCase = new ProcessVoiceInputUseCase(openAIService, createTransactionUseCase);
+    await useCase.execute({ filePath, userId: 'user1' }, { takeHeardText: jest.fn().mockResolvedValue(false) });
+
+    expect(openAIService.analyzeInput).toHaveBeenCalledWith('такси 18000', expect.anything());
+  });
+
   it('normalizes a missing semanticType from the transcription service based on the legacy type', async () => {
     const openAIService = {
       transcribe: jest.fn().mockResolvedValue('зарплата 3000000'),

@@ -16,7 +16,7 @@ import { BotContext, BotModules, UserSession } from './types';
 import { registerCommandHandlers } from './handlers/commandHandlers';
 import { registerMessageHandlers } from './handlers/messageHandlers';
 import { registerCallbackHandlers } from './handlers/callbackHandlers';
-import { registerRecordHandlers } from './handlers/recordHandlers';
+import { closeAmountQuestionOnCommand, registerRecordHandlers } from './handlers/recordHandlers';
 import { registerPaymentHandlers } from './handlers/paymentHandlers';
 import { createLogger, LogCategory } from '../../../shared/infrastructure/logging';
 
@@ -186,6 +186,9 @@ export function startTelegramBot(
     // ===== REGISTER HANDLERS =====
     // IMPORTANT: Order matters! Command handlers must be registered before message handlers
     // because bot.on(message('text')) catches all text including commands
+
+    // One question at a time (FT-122): a command first closes the open «Сумму» question of a record
+    bot.use(closeAmountQuestionOnCommand);
 
     // Command handlers: /start, /today, /stats, /budget, /help, /settings
     registerCommandHandlers(bot);

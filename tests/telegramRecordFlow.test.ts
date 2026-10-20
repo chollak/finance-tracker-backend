@@ -18,18 +18,27 @@ import { SqliteUserRepository } from '../src/modules/user/infrastructure/persist
 import { SqliteUserSettingsRepository } from '../src/modules/user/infrastructure/persistence/SqliteUserSettingsRepository';
 import { BotMessageModule } from '../src/modules/botMessage/botMessageModule';
 import { SqliteBotMessageRepository } from '../src/modules/botMessage/infrastructure/SqliteBotMessageRepository';
-import { registerRecordHandlers } from '../src/delivery/messaging/telegram/handlers/recordHandlers';
+import { closeAmountQuestionOnCommand, registerRecordHandlers } from '../src/delivery/messaging/telegram/handlers/recordHandlers';
 import { registerCallbackHandlers } from '../src/delivery/messaging/telegram/handlers/callbackHandlers';
-import { createTextMessageHandler } from '../src/delivery/messaging/telegram/handlers/messageHandlers';
+import { registerMessageHandlers } from '../src/delivery/messaging/telegram/handlers/messageHandlers';
 import { resolveUserIdToUUID } from '../src/shared/application/helpers/userIdResolver';
 import { addDaysToDateOnly, todayDateOnly } from '../src/shared/domain/dates/dateOnly';
 import { absoluteDate } from '../src/delivery/messaging/telegram/formatters/recordMessage';
 import { CaptureAssumption } from '../src/modules/voiceProcessing/domain/processedTransaction';
+import { ProcessVoiceOptions } from '../src/modules/voiceProcessing/application/processVoiceInput';
+import { VoiceInput } from '../src/modules/voiceProcessing/domain/voiceInput';
+
+// A voice message is not downloaded in tests; what it «says» is set by the test
+jest.mock('../src/delivery/messaging/telegram/utils', () => ({
+  downloadVoiceFile: jest.fn(async (_url: string, fileId: string) => `/tmp/voice/${fileId}.ogg`),
+  cleanupFile: jest.fn(async () => undefined),
+}));
 
 /**
  * FT-122 end to end on a real SQLite file: a phrase in the chat → one confirmation; «Изменить» → a
  * field in two presses; «Отменить» → struck through with «Вернуть»; /undo; and all of it after the bot
- * restarts. Telegram is a fake chat that keeps the messages the bot sent and edited.
+ * restarts. Telegram is a fake chat that keeps the messages the bot sent and edited; the handlers are
+ * registered the way telegramBot.ts registers them, and every update runs through that chain.
  */
 
 const NB = ' ';
@@ -50,9 +59,28 @@ interface PlannedRecord {
   guessed?: boolean;
 }
 
+type Middleware = (ctx: any, next: () => Promise<void>) => Promise<void> | void;
+
+async function run(chain: Middleware[], ctx: any): Promise<void> {
+  const step = async (index: number): Promise<void> => {
+    if (index < chain.length) await chain[index](ctx, () => step(index + 1));
+  };
+  await step(0);
+}
+
 class Bot {
   readonly actions: Array<{ trigger: RegExp | string; handler: (ctx: any) => Promise<void> }> = [];
   readonly commands = new Map<string, (ctx: any) => Promise<void>>();
+  readonly middleware: Middleware[] = [];
+  readonly handlers: Array<{ filter: (update: any) => boolean; chain: Middleware[] }> = [];
+
+  use(middleware: Middleware) {
+    this.middleware.push(middleware);
+  }
+
+  on(filter: (update: any) => boolean, ...chain: Middleware[]) {
+    this.handlers.push({ filter, chain });
+  }
 
   action(trigger: RegExp | string, handler: (ctx: any) => Promise<void>) {
     this.actions.push({ trigger, handler });
@@ -61,7 +89,20 @@ class Bot {
   command(name: string, handler: (ctx: any) => Promise<void>) {
     this.commands.set(name, handler);
   }
+
+  /** A message the way Telegraf runs it: the middleware first, then its command or the first handler that matches. */
+  async handle(ctx: any): Promise<void> {
+    const text: unknown = ctx.message?.text;
+    const command = typeof text === 'string' && text.startsWith('/') ? this.commands.get(text.slice(1).split(/\s/)[0]) : undefined;
+    const tail: Middleware[] = command
+      ? [async (c: any) => command(c)]
+      : this.handlers.find(({ filter }) => filter(ctx.update))?.chain ?? [];
+    await run([...this.middleware, ...tail], ctx);
+  }
 }
+
+/** What the free limit says for the next record (FT-091: off by default, on here when a test says so). */
+interface LimitAnswer { allowed: boolean }
 
 interface Running {
   ds: DataSource;
@@ -73,6 +114,7 @@ interface Running {
   botMessageModule: BotMessageModule;
   bot: Bot;
   capture: jest.Mock;
+  voice: jest.Mock;
 }
 
 describe('bot record messages (FT-122)', () => {
@@ -84,7 +126,32 @@ describe('bot record messages (FT-122)', () => {
   const messages = new Map<number, ChatMessage>();
   let nextMessageId = 100;
   let plan: PlannedRecord[] = [];
+  let heard = '';
+  let limit: LimitAnswer = { allowed: true };
   const today = todayDateOnly();
+
+  /** Writes the planned records the way the capture use cases do: through the create use case. */
+  async function writePlan(transactionModule: TransactionModule, accountModule: AccountModule, owner: string) {
+    const accounts = await accountModule.getBook().listForUser(owner);
+    const transactions = [];
+    for (const planned of plan) {
+      const created = await transactionModule.getCreateTransactionUseCase().execute({
+        userId: owner,
+        amountMinor: planned.amountMinor,
+        category: planned.category,
+        type: planned.type ?? 'expense',
+        description: planned.description,
+        date: today,
+        source: 'telegram',
+        accountId: accounts.find(account => account.name === (planned.account ?? 'Карта'))?.id,
+        currency: planned.currency,
+      } as any);
+      if (!created.success) throw created.error;
+      const assumptions: CaptureAssumption[] = planned.guessed ? [{ kind: 'category', name: planned.category }] : [];
+      transactions.push({ id: created.data, amount: planned.amountMinor / 100, type: planned.type ?? 'expense', category: planned.category, date: today, assumptions });
+    }
+    return transactions;
+  }
 
   async function start(): Promise<Running> {
     const ds = createAppDataSource(file);
@@ -100,32 +167,29 @@ describe('bot record messages (FT-122)', () => {
     const userModule = new UserModule(new SqliteUserRepository(ds), new SqliteUserSettingsRepository(ds));
     const botMessageModule = new BotMessageModule(new SqliteBotMessageRepository(ds));
 
-    // The capture writes the planned records the way QuickCaptureService does: through the create use case
-    const capture = jest.fn(async ({ userId: owner }: { userId: string }) => {
-      const accounts = await accountModule.getBook().listForUser(owner);
-      const transactions = [];
-      for (const planned of plan) {
-        const created = await transactionModule.getCreateTransactionUseCase().execute({
-          userId: owner,
-          amountMinor: planned.amountMinor,
-          category: planned.category,
-          type: planned.type ?? 'expense',
-          description: planned.description,
-          date: today,
-          source: 'telegram',
-          accountId: accounts.find(account => account.name === (planned.account ?? 'Карта'))?.id,
-          currency: planned.currency,
-        } as any);
-        if (!created.success) throw created.error;
-        const assumptions: CaptureAssumption[] = planned.guessed ? [{ kind: 'category', name: planned.category }] : [];
-        transactions.push({ id: created.data, assumptions });
-      }
-      return { transactions, debts: [] };
+    // The capture writes the planned records the way QuickCaptureService does
+    const capture = jest.fn(async ({ userId: owner }: { userId: string }) => ({
+      transactions: await writePlan(transactionModule, accountModule, owner),
+      debts: [],
+    }));
+    // The voice use case: what was heard goes to the caller first, as ProcessVoiceInputUseCase does
+    const voice = jest.fn(async (input: VoiceInput, options: ProcessVoiceOptions = {}) => {
+      if (await options.takeHeardText?.(heard)) return { text: heard, transactions: [], debts: [] };
+      return { text: heard, transactions: await writePlan(transactionModule, accountModule, input.userId), debts: [] };
     });
+    const subscriptionModule = {
+      getCheckLimitUseCase: () => ({
+        execute: async () => ({ ...limit, isPremium: false, currentUsage: 50, limit: 50, remaining: 0, message: 'Лимит записей исчерпан.' }),
+      }),
+      getIncrementUsageUseCase: () => ({ execute: async () => undefined }),
+    };
 
+    // In the order telegramBot.ts registers them
     const bot = new Bot();
+    bot.use(closeAmountQuestionOnCommand);
     registerRecordHandlers(bot as any);
     registerCallbackHandlers(bot as any);
+    registerMessageHandlers(bot as any, subscriptionModule as any, userModule);
 
     return {
       ds,
@@ -136,6 +200,7 @@ describe('bot record messages (FT-122)', () => {
       botMessageModule,
       bot,
       capture,
+      voice,
       modules: {
         transactionModule,
         accountModule,
@@ -143,6 +208,7 @@ describe('bot record messages (FT-122)', () => {
         userModule,
         botMessageModule,
         quickCaptureModule: { getQuickCaptureService: () => ({ capture }) },
+        voiceModule: { getProcessVoiceInputUseCase: () => ({ execute: voice }) },
       },
     };
   }
@@ -171,6 +237,7 @@ describe('bot record messages (FT-122)', () => {
           messages.set(messageId, { text, keyboard: extra?.reply_markup?.inline_keyboard ?? [] });
           return true;
         }),
+        getFileLink: jest.fn(async () => ({ href: 'https://telegram.test/voice.ogg' })),
       },
     };
   }
@@ -179,10 +246,23 @@ describe('bot record messages (FT-122)', () => {
   async function write(text: string, records: PlannedRecord[] = []): Promise<number> {
     plan = records;
     nextMessageId += 1; // the person's own message takes an id too
-    const ctx = { ...baseContext(), message: { text } };
-    if (text.startsWith('/')) await running.bot.commands.get(text.slice(1))!(ctx);
-    else await createTextMessageHandler(running.userModule)(ctx as any);
+    const message = { text };
+    await running.bot.handle({ ...baseContext(), message, update: { message } });
     return nextMessageId - 1;
+  }
+
+  /** The person sends a voice message that is heard as `words`; returns the id of the bot's last message. */
+  async function say(words: string, records: PlannedRecord[] = []): Promise<number> {
+    plan = records;
+    heard = words;
+    nextMessageId += 1;
+    const message = { voice: { file_id: `voice-${nextMessageId}` } };
+    await running.bot.handle({ ...baseContext(), message, update: { message } });
+    return nextMessageId - 1;
+  }
+
+  function awaiting() {
+    return running.botMessageModule.getLog().awaitingAmount(String(TELEGRAM_ID));
   }
 
   async function pressData(messageId: number, data: string) {
@@ -223,6 +303,7 @@ describe('bot record messages (FT-122)', () => {
   const coffee: PlannedRecord = { amountMinor: 2_500_000, category: 'Кафе', description: 'кофе' };
 
   beforeEach(async () => {
+    limit = { allowed: true };
     dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ft122-flow-'));
     file = path.join(dir, 'db.sqlite');
     messages.clear();
@@ -400,6 +481,176 @@ describe('bot record messages (FT-122)', () => {
     expect(await running.botMessageModule.getLog().awaitingAmount(String(TELEGRAM_ID))).toBeNull();
   });
 
+  it('a voice message that is not an amount closes the question: a later number does not touch the record', async () => {
+    const message = await write('обед с командой 145к', [lunch]);
+    const [id] = await recordIdsOf(message);
+    await press(message, 'Изменить');
+    await press(message, 'Сумму');
+
+    const voiceReply = await say('такси двадцать тысяч', [{ ...taxi, amountMinor: 2_000_000 }]);
+
+    expect(await awaiting()).toBeNull();
+    expect(labels(message)[0]).toEqual(['Сумму', 'Категорию']);
+    expect(text(message)).not.toContain('Напишите новую сумму');
+    expect(text(voiceReply)).toContain(`<b>Расход ${MINUS}20${NB}000${NB}сум</b>`);
+    expect(text(voiceReply)).toContain('Расслышал: «такси двадцать тысяч»');
+
+    await write('300');
+
+    expect((await record(id)).amountMinor).toBe(14_500_000);
+    expect(running.capture).toHaveBeenCalledTimes(2); // «300» is a phrase of its own now
+  });
+
+  it('a voice message that is only an amount answers the question, as text does', async () => {
+    const message = await write('обед с командой 145к', [lunch]);
+    const [id] = await recordIdsOf(message);
+    await press(message, 'Изменить');
+    await press(message, 'Сумму');
+
+    const reply = await say('150 тысяч.', [coffee]);
+
+    expect((await record(id)).amountMinor).toBe(15_000_000);
+    expect(text(reply)).toBe(`Изменил: ${MINUS}150${NB}000${NB}сум · «Обед с командой»`);
+    expect(text(message)).toContain(`<i>Сумма изменена: было 145${NB}000.</i>`);
+    // Nothing was written from it
+    expect([...messages.values()].some(sent => sent.text.includes('«Кофе»'))).toBe(false);
+    expect(await awaiting()).toBeNull();
+  });
+
+  it('a command closes the question before it runs', async () => {
+    const message = await write('обед с командой 145к', [lunch]);
+    const [id] = await recordIdsOf(message);
+    await press(message, 'Изменить');
+    await press(message, 'Сумму');
+
+    await write('/today');
+
+    expect(await awaiting()).toBeNull();
+    expect(labels(message)[0]).toEqual(['Сумму', 'Категорию']);
+    await write('300');
+    expect((await record(id)).amountMinor).toBe(14_500_000);
+  });
+
+  it('/undo of the record whose amount is asked closes the question and cancels it', async () => {
+    const message = await write('обед с командой 145к', [lunch]);
+    const [id] = await recordIdsOf(message);
+    await press(message, 'Изменить');
+    await press(message, 'Сумму');
+
+    await write('/undo');
+
+    expect(await awaiting()).toBeNull();
+    expect((await record(id)).deletedAt).toBeTruthy();
+    expect(labels(message)).toEqual([['Вернуть']]);
+  });
+
+  it('answers «Сумму» even when the free limit of records is reached: it corrects a record, it adds none', async () => {
+    const message = await write('обед с командой 145к', [lunch]);
+    const [id] = await recordIdsOf(message);
+    await press(message, 'Изменить');
+    await press(message, 'Сумму');
+    limit = { allowed: false };
+
+    const reply = await write('150к');
+
+    expect((await record(id)).amountMinor).toBe(15_000_000);
+    expect(text(reply)).toBe(`Изменил: ${MINUS}150${NB}000${NB}сум · «Обед с командой»`);
+
+    // A new phrase still meets the limit
+    const paywall = await write('кофе 25к', [coffee]);
+    expect(text(paywall)).toContain('Лимит записей исчерпан.');
+    expect(running.capture).toHaveBeenCalledTimes(1);
+  });
+
+  it('reads «45» as 45 000 сум for an income too', async () => {
+    const message = await write('фриланс 300к', [{ amountMinor: 30_000_000, category: 'Фриланс', description: 'фриланс', type: 'income' }]);
+    const [id] = await recordIdsOf(message);
+    await press(message, 'Изменить');
+    await press(message, 'Сумму');
+
+    const reply = await write('45');
+
+    expect((await record(id)).amountMinor).toBe(4_500_000);
+    expect(text(reply)).toBe(`Изменил: +45${NB}000${NB}сум · «Фриланс». «45» понял как 45${NB}000${NB}сум`);
+  });
+
+  it('«150к» under a dollar record is сум: the record moves to a сум account', async () => {
+    const message = await write('наушники 60$', [{ amountMinor: 6_000, category: 'Покупки', description: 'наушники', account: 'Доллары', currency: 'USD' }]);
+    const [id] = await recordIdsOf(message);
+    await press(message, 'Изменить');
+    await press(message, 'Сумму');
+    expect(text(message)).toMatch(/например, 60\$\.<\/b>$/);
+
+    await write('150к');
+
+    const accounts = await running.accountModule.getBook().listForUser(userId);
+    expect(await record(id)).toEqual(expect.objectContaining({
+      amountMinor: 15_000_000,
+      currency: 'UZS',
+      accountId: accounts.find(account => account.name === 'Карта')!.id,
+    }));
+    expect(text(message)).toContain(`<b>Расход ${MINUS}150${NB}000${NB}сум</b>`);
+  });
+
+  it('«18к нал» answers the question and moves the record to cash', async () => {
+    const message = await write('такси 25к', [{ ...taxi, amountMinor: 2_500_000, account: 'Карта' }]);
+    const [id] = await recordIdsOf(message);
+    await press(message, 'Изменить');
+    await press(message, 'Сумму');
+
+    const reply = await write('18к нал');
+
+    const accounts = await running.accountModule.getBook().listForUser(userId);
+    expect(running.capture).toHaveBeenCalledTimes(1);
+    expect(await record(id)).toEqual(expect.objectContaining({
+      amountMinor: 1_800_000,
+      accountId: accounts.find(account => account.name === 'Наличные')!.id,
+    }));
+    expect(text(reply)).toBe(`Изменил: ${MINUS}18${NB}000${NB}сум · «Такси»`);
+    expect(text(message)).toContain(`Наличные · ${absoluteDate(today, today)}`);
+  });
+
+  it('a picker of a record deleted in the app meanwhile draws the record cancelled instead of failing', async () => {
+    const message = await write('такси 18к нал', [taxi]);
+    const [id] = await recordIdsOf(message);
+    await press(message, 'Изменить');
+    await press(message, 'Категорию');
+    const deleted = await running.transactionModule.getDeleteTransactionUseCase().execute({ id });
+    expect(deleted.success).toBe(true);
+
+    const ctx = await press(message, 'Кафе');
+
+    expect(ctx.answerCbQuery).not.toHaveBeenCalledWith('Произошла ошибка. Попробуйте снова.');
+    expect((await record(id)).deletedAt).toBeTruthy();
+    expect(text(message)).toContain('Отменено — в приложении этой записи нет.');
+    expect(labels(message)).toEqual([['Вернуть']]);
+  });
+
+  it('«Отменить «…»» of a record deleted in the app meanwhile does not cancel the other records', async () => {
+    const message = await write('кофе 25к, такси 18к', [coffee, taxi]);
+    const [coffeeId, taxiId] = await recordIdsOf(message);
+    await press(message, `${MINUS}18${NB}000 · «Такси»`);
+    await running.transactionModule.getDeleteTransactionUseCase().execute({ id: taxiId });
+
+    await press(message, 'Отменить «Такси»');
+
+    expect((await record(coffeeId)).deletedAt).toBeFalsy();
+    expect(labels(message)).toEqual([[`${MINUS}25${NB}000 · «Кофе»`], ['Вернуть «Такси»'], ['Отменить все']]);
+  });
+
+  it('a stale «Вернуть» on a record already back says nothing came back', async () => {
+    const message = await write('такси 18к нал', [taxi]);
+    const [id] = await recordIdsOf(message);
+    await press(message, 'Отменить');
+    const restored = await running.transactionModule.getRestoreTransactionUseCase().execute({ id });
+    expect(restored.success).toBe(true);
+
+    await press(message, 'Вернуть');
+
+    expect(text(message)).not.toContain('возвращена');
+    expect(labels(message)).toEqual([['Изменить', 'Отменить']]);
+  });
+
   it('«Отменить» strikes the record through and «Вернуть» brings it back', async () => {
     const message = await write('такси 18к нал', [taxi]);
     const [id] = await recordIdsOf(message);
@@ -465,6 +716,45 @@ describe('bot record messages (FT-122)', () => {
     expect(text(again)).toContain('«Кофе»');
     expect(text(first)).toContain('Отменено');
     expect(text(await write('/undo'))).toBe('Отменять нечего: записей из чата пока нет.');
+  });
+
+  it('«Вернуть» under the /undo reply brings back only what /undo cancelled', async () => {
+    const message = await write('кофе 25к, такси 18к', [coffee, taxi]);
+    const [coffeeId, taxiId] = await recordIdsOf(message);
+    await press(message, `${MINUS}18${NB}000 · «Такси»`);
+    await press(message, 'Отменить «Такси»');
+
+    const reply = await write('/undo');
+    expect(text(reply)).toBe(`Отменил последнюю запись: ${MINUS}25${NB}000${NB}сум · «Кофе»`);
+    expect(labels(message)).toEqual([['Вернуть']]); // one record comes back
+
+    await press(reply, 'Вернуть');
+
+    expect((await record(coffeeId)).deletedAt).toBeFalsy();
+    expect((await record(taxiId)).deletedAt).toBeTruthy();
+    expect(text(reply)).toBe('Вернул запись.');
+    expect(text(message)).toMatch(/<i>Запись возвращена\.<\/i>$/);
+    expect(labels(message)).toEqual([[`${MINUS}25${NB}000 · «Кофе»`], ['Вернуть «Такси»'], ['Отменить все']]);
+  });
+
+  it('«Вернуть» on the message after /undo also brings back only what /undo cancelled', async () => {
+    const message = await write('кофе 25к, такси 18к', [coffee, taxi]);
+    const [coffeeId, taxiId] = await recordIdsOf(message);
+    await press(message, `${MINUS}18${NB}000 · «Такси»`);
+    await press(message, 'Отменить «Такси»');
+    const reply = await write('/undo');
+
+    await press(message, 'Вернуть');
+
+    expect((await record(coffeeId)).deletedAt).toBeFalsy();
+    expect((await record(taxiId)).deletedAt).toBeTruthy();
+    expect(text(reply)).toBe('Вернул запись.');
+
+    // «Отменить все» then «Вернуть все» brings back both: the message's own cancel is not /undo's
+    await press(message, 'Отменить все');
+    expect(labels(message)).toEqual([['Вернуть все']]);
+    await press(message, 'Вернуть все');
+    expect((await record(taxiId)).deletedAt).toBeFalsy();
   });
 
   it('«Вернуть» under the cancelled record also closes the /undo reply', async () => {

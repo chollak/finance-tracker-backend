@@ -91,5 +91,9 @@ function parseState(value: string): RecordMessageState {
   if (parsed.pickType === 'income' || parsed.pickType === 'expense') state.pickType = parsed.pickType;
   if (typeof parsed.changed === 'string' && parsed.changed) state.changed = parsed.changed;
   if (Number.isInteger(parsed.undoMessageId)) state.undoMessageId = parsed.undoMessageId;
+  if (Array.isArray(parsed.undone)) {
+    const undone = parsed.undone.filter((id): id is string => typeof id === 'string');
+    if (undone.length > 0) state.undone = undone;
+  }
   return state;
 }

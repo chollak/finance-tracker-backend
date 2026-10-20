@@ -28,6 +28,7 @@ import { parseAmountReply } from '../utils/amountReply';
 import { botUserId } from '../utils/userCategories';
 import { BotMessage, RecordMessageMode, RecordMessageState } from '../../../../modules/botMessage/domain/botMessage';
 import { BotMessageLog } from '../../../../modules/botMessage/application/botMessageLog';
+import { ResolvedAccount } from '../../../../modules/transaction/domain/accountResolver';
 import { isValidDateOnly } from '../../../../shared/domain/dates/dateOnly';
 import { createLogger, LogCategory } from '../../../../shared/infrastructure/logging';
 
@@ -115,19 +116,26 @@ async function closeUndoReply(ctx: BotContext, message: BotMessage, count: numbe
   await editPlainMessage(ctx, message.chatId, message.state.undoMessageId, RU.record.reverted(count));
 }
 
-/** «Вернуть»: the cancelled records of the message, or the one named, come back. */
+/**
+ * «Вернуть»: the one record named, or the records of the message — after /undo only the ones it
+ * cancelled, as on the board. A stale button on records already back changes nothing and says nothing.
+ */
 async function revert(ctx: BotContext, message: BotMessage, input: RecordMessageInput, index?: number): Promise<PressResult> {
   if (index !== undefined) {
     const one = input.records[index];
     if (!one) throw new PressFailed('No such record');
-    if (one.cancelled) await restore(ctx, [one]);
+    if (!one.cancelled) return confirmed(message.state);
+    await restore(ctx, [one]);
     return confirmed(message.state, `${quoted(recordName(one))} возвращена`);
   }
-  const cancelled = input.records.filter(record => record.cancelled);
+  const { undone } = message.state;
+  const cancelled = input.records.filter(record => record.cancelled && (!undone?.length || undone.includes(record.id)));
   await restore(ctx, cancelled);
   await closeUndoReply(ctx, message, cancelled.length);
   const state = { ...message.state };
   delete state.undoMessageId;
+  delete state.undone;
+  if (cancelled.length === 0) return confirmed(state);
   return confirmed(state, cancelled.length > 1 ? 'Записи возвращены' : 'Запись возвращена');
 }
 
@@ -147,13 +155,16 @@ async function applyPress(
   switch (verb) {
     case RECORD_VERBS.edit: {
       const first = input.records.findIndex(candidate => !candidate.cancelled);
-      const next = withoutPick({ ...state, selected: first === -1 ? 0 : first });
+      if (first === -1) return confirmed(state);
+      const next = withoutPick({ ...state, selected: first });
       delete next.changed;
       return { mode: 'edit', state: next };
     }
     case RECORD_VERBS.pick: {
       const index = Number(arg);
-      if (!Number.isInteger(index) || !input.records[index] || input.records[index].cancelled) throw new PressFailed('No such record');
+      if (!Number.isInteger(index) || !input.records[index]) throw new PressFailed('No such record');
+      // Cancelled meanwhile, in the app: the message is drawn again, the button turns into «Вернуть»
+      if (input.records[index].cancelled) return confirmed(state);
       const next = withoutPick({ ...state, selected: index });
       delete next.changed;
       return { mode: 'edit', state: next };
@@ -206,7 +217,9 @@ async function applyPress(
         return confirmed(state, `${quoted(recordName(record))} отменена`);
       }
       await cancel(ctx, live);
-      return confirmed(state);
+      const next = { ...state };
+      delete next.undone; // «Вернуть» now brings back all of them
+      return confirmed(next);
     }
     case RECORD_VERBS.revert:
       return revert(ctx, message, input, arg === undefined ? undefined : Number(arg));
@@ -215,17 +228,59 @@ async function applyPress(
   }
 }
 
+/**
+ * Closes a message's «Сумму» question: back on «Изменить», or on the confirmation when its record is
+ * gone. The log keeps the change even if the message cannot be drawn again.
+ */
+async function closeQuestion(ctx: BotContext, log: BotMessageLog, message: BotMessage, mode: RecordMessageMode = 'edit'): Promise<void> {
+  const closed = await log.save(message, { mode });
+  try {
+    await redrawRecordMessage(ctx, closed);
+  } catch (error) {
+    // An old message that cannot be drawn keeps its old buttons
+    logger.warn('Could not redraw a closed amount question', { messageId: message.messageId, error: (error as Error).message });
+  }
+}
+
 /** One question at a time: a new «Сумму» puts any other message waiting for an amount back on «Изменить». */
 async function closeOtherAmountQuestions(ctx: BotContext, log: BotMessageLog, message: BotMessage): Promise<void> {
-  for (const other of await log.otherAmountQuestions(message)) {
-    const closed = await log.save(other, { mode: 'edit' });
+  for (const other of await log.otherAmountQuestions(message)) await closeQuestion(ctx, log, other);
+}
+
+/**
+ * Closes the chat's open «Сумму» question, if it is this person's, so that a later number does not
+ * change that record (design-system «Один вопрос за раз»). Text and voice that are not an amount close it
+ * in answerAmountQuestion; a command, here.
+ */
+async function closeAmountQuestion(ctx: BotContext): Promise<void> {
+  const log = botMessageLog(ctx);
+  const chatId = chatIdOf(ctx);
+  if (!log || !chatId) return;
+  const message = await log.awaitingAmount(chatId);
+  if (!message || message.userId !== await botUserId(ctx)) return;
+  await closeQuestion(ctx, log, message);
+}
+
+/** Ahead of the command handlers: a command closes the open «Сумму» question first. */
+export async function closeAmountQuestionOnCommand(ctx: BotContext, next: () => Promise<void>): Promise<void> {
+  const text = ctx.message && 'text' in ctx.message ? ctx.message.text : '';
+  if (text.startsWith('/')) {
     try {
-      await redrawRecordMessage(ctx, closed);
+      await closeAmountQuestion(ctx);
     } catch (error) {
-      // The question is closed in the log; an old message that cannot be drawn keeps its old buttons
-      logger.warn('Could not redraw a closed amount question', { messageId: other.messageId, error: (error as Error).message });
+      logger.warn('Could not close the amount question before a command', { error: (error as Error).message });
     }
   }
+  return next();
+}
+
+/**
+ * A screen of one record («Изменить» or one of its fields) whose record was cancelled meanwhile — in the
+ * app, or by /undo of another message. The press would change a cancelled record, so it only draws the
+ * message again: struck through, with «Вернуть».
+ */
+function isStaleScreen(message: BotMessage, input: RecordMessageInput, verb: string): boolean {
+  return message.mode !== 'confirm' && verb !== RECORD_VERBS.revert && Boolean(selectedRecord(input)?.cancelled);
 }
 
 /** Runs a press on a stored message and draws the message again. */
@@ -235,7 +290,7 @@ async function pressMessage(ctx: BotContext, log: BotMessageLog, message: BotMes
     await answer(ctx, RU.record.notFound);
     return;
   }
-  const result = await applyPress(ctx, log, message, input, verb, arg);
+  const result = isStaleScreen(message, input, verb) ? confirmed(message.state) : await applyPress(ctx, log, message, input, verb, arg);
   const saved = await log.save(message, result);
   await redrawRecordMessage(ctx, saved);
   await answer(ctx);
@@ -329,7 +384,7 @@ async function handleUndo(ctx: BotContext) {
         parse_mode: 'HTML',
         reply_markup: { inline_keyboard: undoKeyboard(message.messageId) },
       });
-      const state = withoutPick({ ...message.state });
+      const state = withoutPick({ ...message.state, undone: live.map(record => record.id) });
       delete state.changed;
       if (reply?.message_id) state.undoMessageId = reply.message_id;
       await redrawRecordMessage(ctx, await log.save(message, { mode: 'confirm', state }));
@@ -362,9 +417,10 @@ async function revertFromUndoReply(ctx: BotContext, log: BotMessageLog, userId: 
 }
 
 /**
- * Text in a chat where a message waits for an amount after «Сумму». An amount changes the record and
- * the bot says so; anything else closes the question honestly — the message goes back to «Изменить» —
- * and the text is handled as usual. True when the text was the answer.
+ * A text, or the words of a voice message, in a chat where a message waits for an amount after «Сумму».
+ * An amount (with an account word, «18к нал», if any) changes the record and the bot says so; anything
+ * else closes the question honestly — the message goes back to «Изменить» — and the text is handled as
+ * usual. True when the text was the answer.
  */
 export async function answerAmountQuestion(ctx: BotContext, text: string, userId: string): Promise<boolean> {
   const log = botMessageLog(ctx);
@@ -376,13 +432,13 @@ export async function answerAmountQuestion(ctx: BotContext, text: string, userId
   const input = await recordMessageInput(ctx, message);
   const record = selectedRecord(input);
   if (!record || record.cancelled) {
-    await log.save(message, { mode: 'confirm' });
+    await closeQuestion(ctx, log, message, 'confirm');
     return false;
   }
 
   const reply = parseAmountReply(text, record);
   if (!reply) {
-    await redrawRecordMessage(ctx, await log.save(message, { mode: 'edit' }));
+    await closeQuestion(ctx, log, message);
     return false;
   }
   if (reply.kind === 'not_positive') {
@@ -397,13 +453,17 @@ export async function answerAmountQuestion(ctx: BotContext, text: string, userId
   const changes: Record<string, unknown> = { amountMinor: reply.amountMinor };
   if (reply.currency !== record.currency) {
     // Money does not change currency in place: the record moves to an account in the new currency
-    const accountId = await accountInCurrency(ctx, userId, reply.currency);
-    if (!accountId) {
+    const account = await accountFor(ctx, userId, reply.currency, reply.account);
+    if (!account) {
       await ctx.reply(RU.record.noAccountIn(reply.currency));
       return true;
     }
-    changes.accountId = accountId;
+    changes.accountId = account.id;
     changes.currency = reply.currency;
+  } else if (reply.account) {
+    // «18к нал»: the record moves to a cash account of its currency, if the person has one
+    const account = await accountFor(ctx, userId, reply.currency, reply.account);
+    if (account?.matchedBy === 'kind' && account.id !== record.accountId) changes.accountId = account.id;
   }
 
   await update(ctx, record.id, changes);
@@ -419,10 +479,13 @@ export async function answerAmountQuestion(ctx: BotContext, text: string, userId
   return true;
 }
 
-/** The account a record in this currency goes to: the default one if it fits, else the first visible. */
-async function accountInCurrency(ctx: BotContext, userId: string, currency: 'UZS' | 'USD'): Promise<string | undefined> {
+/**
+ * The account a record in this currency goes to: of the kind named if there is one, else the default
+ * one if it fits, else the first visible; undefined when the person has no account in that currency.
+ */
+async function accountFor(ctx: BotContext, userId: string, currency: 'UZS' | 'USD', kind?: 'cash' | 'card'): Promise<ResolvedAccount | undefined> {
   const book = ctx.modules.accountModule?.getBook();
   if (!book) return undefined;
-  const resolved = await book.resolveForRecord({ userId, currency });
-  return resolved.success && resolved.data.currency === currency ? resolved.data.id : undefined;
+  const resolved = await book.resolveForRecord({ userId, currency, kind });
+  return resolved.success && resolved.data.currency === currency ? resolved.data : undefined;
 }

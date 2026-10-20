@@ -45,6 +45,46 @@ async function incrementUsage(
   }
 }
 
+/** The user behind the update; the Telegram id if it cannot be resolved. */
+async function resolveUserId(ctx: BotContext, userModule: UserModule | undefined, where: string): Promise<string> {
+  const telegramId = String(ctx.from?.id ?? 'unknown');
+  if (!userModule) return telegramId;
+  try {
+    return await resolveUserIdToUUID(telegramId, userModule);
+  } catch (error) {
+    logger.error(`Failed to resolve userId in ${where}`, error as Error);
+    return telegramId;
+  }
+}
+
+async function replyWithError(ctx: BotContext, error: unknown): Promise<void> {
+  await ctx.reply(error instanceof AppError ? `❌ ${error.message}` : RU.errors.generic);
+}
+
+/**
+ * Text in a chat where a record waits for its amount after «Сумму» (FT-122). It runs ahead of the free
+ * limit: an amount corrects a record already written, so the paywall must not answer it. Any other text
+ * closes the question and goes on to the capture.
+ */
+export function createAmountAnswerMiddleware(userModule?: UserModule) {
+  return async function answerAmount(ctx: BotContext, next: () => Promise<void>): Promise<void> {
+    const text = ctx.message && 'text' in ctx.message ? ctx.message.text : '';
+    // Commands, an empty text and the amount of a quick-add category are not answers to «Сумму»
+    if (!text.trim() || text.startsWith('/') || ctx.session?.pendingAction?.type === 'awaiting_amount') return next();
+
+    const userId = await resolveUserId(ctx, userModule, 'amount answer');
+    let answered: boolean;
+    try {
+      answered = await answerAmountQuestion(ctx, text, userId);
+    } catch (error) {
+      logger.error('Amount answer error', error instanceof Error ? error : new Error(String(error)), { userId });
+      await replyWithError(ctx, error);
+      return;
+    }
+    if (!answered) return next();
+  };
+}
+
 /**
  * Register message handlers with subscription limit checks
  */
@@ -55,6 +95,7 @@ export function registerMessageHandlers(
 ) {
   // Voice inputs are counted inside the voice handler; created transactions are counted by
   // CreateTransactionUseCase.
+  const answerAmount = createAmountAnswerMiddleware(userModule);
   const textHandler = createTextMessageHandler(userModule, subscriptionModule);
   const voiceHandler = createVoiceMessageHandler(userModule, subscriptionModule);
 
@@ -71,9 +112,10 @@ export function registerMessageHandlers(
       'voice_inputs'
     );
 
-    // Text message handler with limit check
+    // Text message handler with limit check; the answer to «Сумму» goes first
     bot.on(
       message('text'),
+      answerAmount,
       checkTransactionLimit,
       textHandler
     );
@@ -86,7 +128,7 @@ export function registerMessageHandlers(
     );
   } else {
     // Fallback without subscription checks
-    bot.on(message('text'), textHandler);
+    bot.on(message('text'), answerAmount, textHandler);
     bot.on(message('voice'), voiceHandler);
   }
 }
@@ -103,18 +145,8 @@ export function createTextMessageHandler(userModule?: UserModule, _subscriptionM
     // Skip commands
     if (text.startsWith('/')) return;
 
-    const telegramId = String(ctx.from?.id ?? 'unknown');
     const userName = `${ctx.from?.first_name || ''} ${ctx.from?.last_name || ''}`.trim() || 'User';
-
-    // Resolve telegramId to UUID if userModule is available
-    let userId = telegramId;
-    if (userModule) {
-      try {
-        userId = await resolveUserIdToUUID(telegramId, userModule);
-      } catch (error) {
-        logger.error('Failed to resolve userId in text handler', error as Error);
-      }
-    }
+    const userId = await resolveUserId(ctx, userModule, 'text handler');
 
     try {
       // Handle Quick Add - awaiting amount after category selection
@@ -128,9 +160,6 @@ export function createTextMessageHandler(userModule?: UserModule, _subscriptionM
         await ctx.reply(RU.errors.emptyMessage);
         return;
       }
-
-      // «Сумму» under a record waits for the amount as the next text (FT-122)
-      if (await answerAmountQuestion(ctx, text, userId)) return;
 
       const { quickCaptureModule } = ctx.modules;
 
@@ -170,11 +199,7 @@ export function createTextMessageHandler(userModule?: UserModule, _subscriptionM
         text: text.substring(0, 50),
       });
 
-      if (error instanceof AppError) {
-        await ctx.reply(`❌ ${error.message}`);
-      } else {
-        await ctx.reply(RU.errors.generic);
-      }
+      await replyWithError(ctx, error);
     }
   };
 }
@@ -184,19 +209,9 @@ export function createTextMessageHandler(userModule?: UserModule, _subscriptionM
  */
 export function createVoiceMessageHandler(userModule?: UserModule, subscriptionModule?: SubscriptionModule) {
   return async function handleVoiceMessage(ctx: BotContext) {
-    const telegramId = String(ctx.from?.id ?? 'unknown');
     const userName = `${ctx.from?.first_name || ''} ${ctx.from?.last_name || ''}`.trim() || 'User';
     let filePath: string | undefined;
-
-    // Resolve telegramId to UUID if userModule is available
-    let userId = telegramId;
-    if (userModule) {
-      try {
-        userId = await resolveUserIdToUUID(telegramId, userModule);
-      } catch (error) {
-        logger.error('Failed to resolve userId in voice handler', error as Error);
-      }
-    }
+    const userId = await resolveUserId(ctx, userModule, 'voice handler');
 
     const voice = ctx.message && 'voice' in ctx.message ? ctx.message.voice : null;
     if (!voice) {
@@ -220,13 +235,18 @@ export function createVoiceMessageHandler(userModule?: UserModule, subscriptionM
 
       const { voiceModule } = ctx.modules;
 
-      // Process voice input
-      const result = await voiceModule.getProcessVoiceInputUseCase().execute({
-        filePath,
-        userId,
-        userName,
-        source: 'telegram',
-      });
+      // Process voice input. «Сумму» under a record waits for an amount: a voice that is only an amount
+      // answers it, any other closes it before its records are written (FT-122, «Один вопрос за раз»)
+      let answered = false;
+      const result = await voiceModule.getProcessVoiceInputUseCase().execute(
+        { filePath, userId, userName, source: 'telegram' },
+        { takeHeardText: async heard => (answered = await answerAmountQuestion(ctx, heard, userId)) }
+      );
+
+      if (answered) {
+        incrementUsage(subscriptionModule, userId, 'voice_inputs').catch(() => {});
+        return;
+      }
 
       if (result.transactions.length === 0 && (!result.debts || result.debts.length === 0)) {
         await ctx.reply(`🎤 ${RU.transaction.noTransactions}`);

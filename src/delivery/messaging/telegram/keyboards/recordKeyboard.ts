@@ -131,12 +131,19 @@ function dateRows(input: RecordMessageInput, record: RecordView): Button[][] {
   return rows;
 }
 
+/** How many records «Вернуть» of a cancelled message brings back: after /undo, only the ones it cancelled. */
+function revertCount(input: RecordMessageInput): number {
+  const undone = input.state.undone ?? [];
+  const back = input.records.filter(record => undone.includes(record.id)).length;
+  return back > 0 ? back : input.records.length;
+}
+
 /** The inline keyboard for the message's current screen. */
 export function recordKeyboard(input: RecordMessageInput): Button[][] {
   const { records } = input;
   if (records.length === 0) return [];
   if (records.every(record => record.cancelled)) {
-    return [[button(records.length > 1 ? 'Вернуть все' : 'Вернуть', RECORD_VERBS.revert)]];
+    return [[button(revertCount(input) > 1 ? 'Вернуть все' : 'Вернуть', RECORD_VERBS.revert)]];
   }
 
   const record = selectedRecord(input)!;

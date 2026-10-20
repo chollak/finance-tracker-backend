@@ -275,7 +275,8 @@ export function formatRecordMessage(input: RecordMessageInput): string {
 
   lines.push(...notices(records));
 
-  if (input.heard && !allCancelled) lines.push({ text: `Расслышал: ${quoted(input.heard)}`, quote: true });
+  // Telegram draws a quote upright; on the boards it is italic
+  if (input.heard && !allCancelled) lines.push({ text: `Расслышал: ${quoted(input.heard)}`, italic: true, quote: true });
 
   if (allCancelled) {
     lines.push({ text: records.length > 1 ? 'Отменено — в приложении этих записей нет.' : 'Отменено — в приложении этой записи нет.', gap: true });
