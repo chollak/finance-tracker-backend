@@ -24,12 +24,16 @@ import { createAccountRoutes } from '../../../modules/account/presentation/accou
 import { createMoveRoutes } from '../../../modules/account/presentation/moveController';
 import { FxModule } from '../../../modules/fx/fxModule';
 import { createFxRoutes } from '../../../modules/fx/presentation/fxController';
+import { ExportModule } from '../../../modules/export/exportModule';
+import { createExportRoutes } from '../../../modules/export/presentation/exportController';
 
 /** Modules of the money model (milestone 10, phase 2); their routes take the user from auth only. */
 export interface MoneyModules {
   categoryModule?: CategoryModule;
   accountModule?: AccountModule;
   fxModule?: FxModule;
+  /** «Скачать все записи» (FT-126). */
+  exportModule?: ExportModule;
 }
 import { createSubscriptionRoutes } from './routes/subscriptionRoutes';
 import {
@@ -163,6 +167,10 @@ export function buildServer(
     }
     if (moneyModules.fxModule) {
       router.use('/rates', createFxRoutes(moneyModules.fxModule.getService(), userModule));
+    }
+    // All records as CSV: a download, or a file in the chat with the bot (FT-126)
+    if (moneyModules.exportModule) {
+      router.use('/export', createExportRoutes(moneyModules.exportModule, userModule));
     }
     // Analytics with fair comparison (FT-120); a category's analytics needs the user's categories
     const categoryAnalytics = transactionModule.getCategoryAnalyticsUseCase();

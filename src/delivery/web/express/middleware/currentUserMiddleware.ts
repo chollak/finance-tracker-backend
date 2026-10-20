@@ -51,3 +51,14 @@ export function currentUserId(req: Request): string {
   }
   return req.currentUserId;
 }
+
+/**
+ * The Telegram id the request is signed in as — also the id of the user's private chat with the bot (FT-126: the
+ * export goes there). Only valid behind createCurrentUserMiddleware.
+ */
+export function currentTelegramId(req: Request): string {
+  if (!req.telegramUser) {
+    throw ErrorFactory.authorization('Authentication required');
+  }
+  return String(req.telegramUser.id);
+}

@@ -33,6 +33,14 @@ export class SqliteAccountMoveRepository implements AccountMoveRepository {
     return entities.map(entity => this.toDomain(entity));
   }
 
+  async findByUserId(userId: string): Promise<AccountMove[]> {
+    const entities = await this.repository.find({
+      where: { userId, deletedAt: IsNull() },
+      order: { date: 'ASC', createdAt: 'ASC' },
+    });
+    return entities.map(entity => this.toDomain(entity));
+  }
+
   async setDeletedAt(id: string, deletedAt: Date | null): Promise<AccountMove> {
     await this.repository.update(id, { deletedAt });
     const updated = await this.findById(id);

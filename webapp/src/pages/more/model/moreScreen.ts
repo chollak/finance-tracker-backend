@@ -126,11 +126,6 @@ export const BOT_NOTE = 'Время — по Ташкенту. Кроме это
 /** The audit comes with its screens (FT-132); until then the row only says what it will be. */
 export const AUDIT_SOON = 'Скоро: разбор трат прошлого месяца';
 
-/** The export comes with FT-126: in Telegram the file goes to the chat with the bot, in a browser to the device. */
-export function exportSoon(inTelegram: boolean): string {
-  return inTelegram ? 'Скоро: файл CSV придёт в чат с ботом' : 'Скоро: файл CSV на это устройство';
-}
-
 export const DATA_NOTE = 'Все записи с категориями, счетами и курсом — таблицей CSV, её откроет Excel или Google Таблицы.';
 
 /** «Аккаунт» by a direct link: who is signed in (FT-128 brings «Выйти» with the web session). */

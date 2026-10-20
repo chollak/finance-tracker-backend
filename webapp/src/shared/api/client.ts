@@ -114,6 +114,38 @@ class ApiClient {
     });
   }
 
+  /**
+   * A file the server sends as a download (FT-126: the CSV of all records): its bytes and the headers that name it.
+   * Errors come as JSON, as from every other route.
+   */
+  async getFile(endpoint: string): Promise<{ blob: Blob; headers: Headers }> {
+    const url = `${this.baseUrl}${endpoint}`;
+
+    try {
+      const response = await fetch(url, { method: 'GET', headers: getAuthHeaders() });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw {
+          message: errorData.message || 'Request failed',
+          statusCode: response.status,
+          ...readServerError(errorData),
+        } as ApiError;
+      }
+
+      return { blob: await response.blob(), headers: response.headers };
+    } catch (error) {
+      if ((error as ApiError).statusCode) {
+        throw error;
+      }
+
+      throw {
+        message: 'Network error',
+        statusCode: 0,
+      } as ApiError;
+    }
+  }
+
   async upload<T>(endpoint: string, formData: FormData): Promise<ApiResponse<T>> {
     const url = `${this.baseUrl}${endpoint}`;
 

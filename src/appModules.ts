@@ -14,6 +14,7 @@ import { AccountModule } from './modules/account/accountModule';
 import { FxModule } from './modules/fx/fxModule';
 import { BotMessageModule } from './modules/botMessage/botMessageModule';
 import { NotificationModule } from './modules/notification/notificationModule';
+import { ExportModule } from './modules/export/exportModule';
 import { transactionLearning } from './shared/application/learning/transactionLearning';
 
 export function createModules() {
@@ -71,6 +72,13 @@ export function createModules() {
   // Итоги дня at the chosen time, /today and /month, sent at most once (FT-124)
   const notificationModule = NotificationModule.create(transactionModule, userModule);
 
+  // «Скачать все записи» (FT-126): records and moves that are not deleted, as CSV — downloaded or sent to the bot chat
+  const exportModule = ExportModule.create({
+    records: userId => transactionModule.getRepository().findByUserId(userId),
+    moves: userId => accountModule.movesOfUser(userId),
+    accounts: userId => accountModule.getRepository().findByUserId(userId),
+  });
+
   return {
     categoryModule,
     accountModule,
@@ -85,5 +93,6 @@ export function createModules() {
     subscriptionModule,
     botMessageModule,
     notificationModule,
+    exportModule,
   };
 }

@@ -101,6 +101,12 @@ export const API_ENDPOINTS = {
     OPENING_BALANCES: '/accounts/opening-balances',
   },
 
+  // All records and moves as CSV (FT-126): a download in a browser, a file in the chat with the bot in Telegram
+  EXPORT: {
+    FILE: '/export',
+    CHAT: '/export/chat',
+  },
+
   // Transfers, exchanges and balance adjustments (FT-104); deleted softly and restored
   MOVES: {
     CREATE: '/moves',

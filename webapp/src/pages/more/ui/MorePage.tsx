@@ -5,6 +5,7 @@ import { useCategories } from '@/entities/category';
 import { useUsdRate } from '@/entities/rate';
 import { useSettings, useUpdateSettings } from '@/entities/settings';
 import { useIsGuest, useUserStore } from '@/entities/user';
+import { useExportRecords } from '@/features/export-records';
 import { ThemeSheet, themeLabel, useThemeChoice } from '@/features/theme-choice';
 import { ROUTES } from '@/shared/lib/constants/routes';
 import { insideTelegram } from '@/shared/lib/telegram';
@@ -17,7 +18,6 @@ import {
   BOT_NOTE,
   categoriesState,
   DATA_NOTE,
-  exportSoon,
   GUEST_NOTIFICATION_STATE,
   NOTIFICATION_KINDS,
   NOTIFICATION_SAVE_FAILED,
@@ -42,8 +42,9 @@ const NOTIFICATION_ICONS: Record<NotificationKind, ReactNode> = {
  * тёмная»): sections, not a settings screen with «Сохранить». «Деньги» — the accounts and the rate, the categories,
  * the audit; «Бот в Telegram» — the summary, the audit call and goal alerts, which drive the bot's scheduler (FT-124);
  * «Вид» — the theme; «Данные» — the export; by a direct link also «Аккаунт». Every row says its state, every change
- * applies at once. Budgets and debts are not here (Д2). The categories screen (FT-127), the audit (FT-132) and the
- * export (FT-126) come later: their rows say so and open nothing yet.
+ * applies at once. Budgets and debts are not here (Д2). «Скачать все записи» (FT-126) sends the CSV to the chat with the
+ * bot in Telegram and downloads it in a browser. The categories screen (FT-127) and the audit (FT-132) come later:
+ * their rows say so and open nothing yet.
  */
 export function MorePage() {
   const inTelegram = insideTelegram();
@@ -54,6 +55,7 @@ export function MorePage() {
   const categories = useCategories();
   const settings = useSettings();
   const { preference } = useThemeChoice();
+  const exportRecords = useExportRecords(inTelegram);
   const { mutate } = useUpdateSettings({ onError: () => showUndoToast({ kind: 'info', ...NOTIFICATION_SAVE_FAILED }) });
   const [sheet, setSheet] = useState<NotificationKind | 'theme' | null>(null);
 
@@ -117,7 +119,20 @@ export function MorePage() {
           </SettingsSection>
 
           <SettingsSection title="Данные" note={DATA_NOTE}>
-            <SettingsRow kind="static" icon={icon(Download)} title="Скачать все записи" subtitle={exportSoon(inTelegram)} />
+            {/* A guest's records are in this browser only: the export is for an account (FT-126) */}
+            {isGuest ? (
+              <SettingsRow kind="static" icon={icon(Download)} title="Скачать все записи" subtitle={GUEST_NOTIFICATION_STATE} />
+            ) : (
+              <SettingsRow
+                kind="action"
+                onClick={exportRecords.start}
+                busy={exportRecords.phase === 'pending'}
+                inactive={exportRecords.phase === 'done'}
+                icon={icon(Download)}
+                title="Скачать все записи"
+                subtitle={exportRecords.subtitle}
+              />
+            )}
           </SettingsSection>
 
           {!inTelegram && (
@@ -140,8 +155,9 @@ export function MorePage() {
       )}
       <ThemeSheet open={sheet === 'theme'} onOpenChange={(open) => setSheet(open ? 'theme' : null)} inTelegram={inTelegram} />
 
-      {/* «Не получилось сохранить настройку» — after the sheet closes (Toast.md) */}
-      <UndoToast />
+      {/* «Не получилось сохранить настройку» — after the sheet closes (Toast.md); «Файл отправлен в чат с ботом» 24px over
+          the edge, as on the board «Выгрузка записей» */}
+      <UndoToast bottom={24} />
     </div>
   );
 }

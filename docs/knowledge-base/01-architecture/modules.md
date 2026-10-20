@@ -1,6 +1,6 @@
 # Module System
 
-`createModules()` (`src/appModules.ts`) возвращает **13 модулей приложения**, каждый с чётко определённой ответственностью. `CategoryModule` добавлен в FT-099, `AccountModule` — в FT-101, `FxModule` — в FT-102, `BotMessageModule` — в FT-122, `NotificationModule` — в FT-124, `QuickCaptureModule` — обёртка над текстовым разбором для `POST /api/quick-capture`.
+`createModules()` (`src/appModules.ts`) возвращает **14 модулей приложения**, каждый с чётко определённой ответственностью. `CategoryModule` добавлен в FT-099, `AccountModule` — в FT-101, `FxModule` — в FT-102, `BotMessageModule` — в FT-122, `NotificationModule` — в FT-124, `ExportModule` — в FT-126, `QuickCaptureModule` — обёртка над текстовым разбором для `POST /api/quick-capture`.
 
 Dashboard модулем не является: в `src/modules/dashboard/` лежат только `DashboardService` и `DashboardController`, файла `dashboardModule.ts` нет. Сборка происходит в Express-слое — см. [Dashboard: сервис, а не модуль](#dashboard-сервис-а-не-модуль).
 
@@ -21,6 +21,7 @@ graph TD
     QM[QuickCaptureModule<br/>Quick capture API]
     BMM[BotMessageModule<br/>Bot record messages]
     NM[NotificationModule<br/>Daily summary, /today, /month]
+    EM[ExportModule<br/>All records as CSV]
     DS[DashboardService<br/>не модуль, собирается в Express]
 
     BM -->|depends on| TM
@@ -40,6 +41,8 @@ graph TD
     QM -->|depends on| VM
     NM -->|totals + analytics| TM
     NM -->|users + settings| UM
+    EM -.->|records: ExportSources| TM
+    EM -.->|accounts + moves: ExportSources| AM
     SM -.->|controller uses| UM
     DS -.->|AnalyticsService| TM
     DS -.->|BudgetService| BM
@@ -73,6 +76,7 @@ graph TD
 | **UserModule** | Пользователи и их настройки (FT-098) | Независимый | `userModule.ts` |
 | **BotMessageModule** | Сообщения бота о записях (FT-122): какие записи показывает подтверждение и какой экран кнопок открыт — таблица `bot_messages`, кнопки и `/undo` переживают перезапуск | Независимый; записи меняет бот через use cases TransactionModule | `botMessageModule.ts` |
 | **NotificationModule** | Уведомления бота (FT-124): итоги дня в выбранное время по часам пользователя, не больше одного раза за день (`notifications_log`), и итоги для `/today` и `/month` | TransactionModule (сервис итогов FT-103, аналитика FT-120), UserModule (пользователи и настройки) | `notificationModule.ts` |
+| **ExportModule** | «Скачать все записи» (FT-126): CSV всех неудалённых записей и перемещений — скачивание в браузере (`GET /api/export`) или файл в чат с ботом (`POST /api/export/chat`, `sendDocument`) | TransactionModule и AccountModule через порт `ExportSources` (подключается в `createModules()`); Bot API — по токену бота | `exportModule.ts` |
 
 Отдельно, **не как модуль**:
 
@@ -436,6 +440,28 @@ new ProcessVoiceInputUseCase(
   тексты — `formatters/summaryMessage.ts`. Планировщик запускает `startTelegramBot()`, то есть только процесс,
   который опрашивает Telegram: после ответа Telegram (`onLaunch`), с первым тиком через минуту, и останавливает,
   когда опрос падает (конфликт с другим процессом или ошибка насовсем).
+
+---
+
+## 13. ExportModule
+
+**Файл:** [`src/modules/export/exportModule.ts`](../../../src/modules/export/exportModule.ts)
+
+### Назначение
+«Скачать все записи» в «Ещё» (FT-126): один файл `daftar-<сегодня>.csv` со всеми неудалёнными и неархивными
+записями и неудалёнными перемещениями пользователя. В браузере его отдаёт `GET /api/export`, в Telegram
+`POST /api/export/chat` отправляет его в личный чат с ботом. Формат — `docs/pastel/api.md`, «Выгрузка всех записей».
+
+### Состав
+- Домен — `recordsCsv.ts`: строки файла (перевод и обмен — две строки, «откуда» и «куда»), `;`, десятичная запятая,
+  UTF-8 с BOM; `exportPorts.ts`: порты `ExportSources` (записи, перемещения, счета) и `ChatFileSender`, ошибка
+  `ChatClosedError` (`422 BOT_CHAT_CLOSED`).
+- `BuildRecordsFileUseCase` — файл; `SendRecordsToChatUseCase` — отправка, по одной на пользователя за раз: второй
+  запрос, пока файл в пути, — `409`, второй файл не уходит. Без записей файл не отправляется.
+- `TelegramChatFileSender` — `sendDocument` через Bot API (`Telegram` из telegraf, не опрашивающий бот), подпись
+  «205 записей на 14 октября — …»; 403 и «chat not found» — `ChatClosedError`. Создаётся, если задан
+  `TG_BOT_API_KEY`; без него `POST /api/export/chat` отвечает `502`, скачивание работает.
+- Чат — Telegram id из авторизации (`currentTelegramId`), пользователь — `currentUserId`.
 
 ---
 

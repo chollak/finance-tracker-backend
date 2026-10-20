@@ -161,7 +161,7 @@ This project follows **Clean Architecture** principles with clear separation bet
 
 ### Module System
 
-`createModules()` in `src/appModules.ts` returns **13 app modules**:
+`createModules()` in `src/appModules.ts` returns **14 app modules**:
 
 1. **TransactionModule** - CRUD operations for transactions + analytics; gets its categories through the `CategoryResolver` port
 2. **BudgetModule** - Budget management (depends on TransactionModule; leaves the UI per decision Д2)
@@ -176,6 +176,7 @@ This project follows **Clean Architecture** principles with clear separation bet
 11. **FxModule** - USD rate (FT-102): Central Bank rate by date, loaded at start and hourly until today's is in; the user's own rate
 12. **BotMessageModule** - Bot record messages (FT-122): which records each confirmation shows and which keyboard screen is open (`bot_messages`), so «Изменить», «Вернуть» and `/undo` survive a restart
 13. **NotificationModule** - Notices the bot sends on its own (FT-124): the daily summary at the chosen time on the user's clock, sent at most once (`notifications_log`), and the summaries behind `/today` and `/month` (depends on TransactionModule and UserModule); its scheduler runs in the bot's process
+14. **ExportModule** - «Скачать все записи» (FT-126): a CSV of all records and moves that are not deleted — `GET /api/export` downloads it, `POST /api/export/chat` sends it to the chat with the bot (`sendDocument`); reads TransactionModule and AccountModule through the `ExportSources` port
 
 **Dashboard is not an app module.** `src/modules/dashboard/` contains only `DashboardService` and `DashboardController`; there is no `dashboardModule.ts` and `createModules()` does not return a `dashboardModule`. The dashboard is assembled in the Express delivery layer: `createDashboardRouter()` (`src/delivery/web/express/routes/dashboardRoutes.ts`) builds `DashboardService` from `transactionModule.getAnalyticsService()` and `budgetModule.budgetService`.
 

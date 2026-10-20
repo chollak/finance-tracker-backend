@@ -24,7 +24,18 @@ export function SettingsSection({ title, note, children }: SettingsSectionProps)
 type SettingsRowKind =
   | { kind: 'link'; to: string }
   | { kind: 'sheet'; onClick: () => void }
-  | { kind: 'action'; onClick: () => void; disabled?: boolean }
+  | {
+      kind: 'action';
+      onClick: () => void;
+      disabled?: boolean;
+      /**
+       * Done already and blocked until its toast ends (SettingsList.md: «Отправлено — файл уже в чате с ботом»):
+       * `aria-disabled`, so focus stays on the row, as on the board; a press does nothing.
+       */
+      inactive?: boolean;
+      /** Working on it: `aria-busy`, and blocked like `inactive`. */
+      busy?: boolean;
+    }
   | { kind: 'static' };
 
 type SettingsRowProps = SettingsRowKind & {
@@ -92,8 +103,17 @@ export function SettingsRow(props: SettingsRowProps) {
   }
 
   if (props.kind === 'action') {
+    const blocked = props.inactive || props.busy;
     return (
-      <button type="button" onClick={props.onClick} disabled={props.disabled} data-settings-row="" className={cn(rowClass, 'disabled:active:bg-transparent')}>
+      <button
+        type="button"
+        onClick={blocked ? undefined : props.onClick}
+        disabled={props.disabled}
+        aria-disabled={blocked || undefined}
+        aria-busy={props.busy || undefined}
+        data-settings-row=""
+        className={cn(rowClass, 'disabled:active:bg-transparent aria-disabled:active:bg-transparent')}
+      >
         <RowBody icon={icon} title={title} subtitle={subtitle} chevron={false} outlined={false} />
       </button>
     );

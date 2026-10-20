@@ -9,6 +9,7 @@ import { GUEST_CATEGORIES, type Category } from '@/entities/category';
 import type { UsdRates } from '@/entities/rate';
 import type { UserSettings } from '@/entities/settings';
 import { useUserStore } from '@/entities/user';
+import { EXPORT_DONE_MS, useExportStore } from '@/features/export-records';
 import { apiClient } from '@/shared/api';
 import { NBSP } from '@/shared/lib/money';
 import { useThemeStore } from '@/shared/lib/theme';
@@ -24,7 +25,9 @@ import { MorePage } from './MorePage';
 
 vi.mock('@/shared/api/client', () => {
   const pending = () => new Promise<never>(() => {});
-  return { apiClient: { get: vi.fn(pending), post: vi.fn(pending), put: vi.fn(pending), patch: vi.fn(pending), delete: vi.fn(pending) } };
+  return {
+    apiClient: { get: vi.fn(pending), post: vi.fn(pending), put: vi.fn(pending), patch: vi.fn(pending), delete: vi.fn(pending), getFile: vi.fn(pending) },
+  };
 });
 
 const USER_ID = '900000001';
@@ -81,6 +84,8 @@ beforeEach(() => {
     return new Promise<never>(() => {});
   });
   vi.mocked(apiClient.patch).mockReset();
+  vi.mocked(apiClient.post).mockReset();
+  vi.mocked(apiClient.getFile).mockReset();
   vi.mocked(apiClient.patch).mockImplementation(async (_url: string, patch: unknown) => {
     settings = { ...settings, ...(patch as Partial<UserSettings>) };
     return { success: true, data: settings } as never;
@@ -88,6 +93,7 @@ beforeEach(() => {
   useUserStore.setState({ userId: USER_ID, userType: 'telegram', telegramId: USER_ID, userName: 'Шукур' });
   useThemeStore.setState({ preference: 'telegram', resolved: 'light', automatic: 'light' });
   useUndoToastStore.setState({ stack: [], openSheets: 0 });
+  useExportStore.setState({ running: false, doneAt: null });
   container = document.createElement('div');
   document.body.appendChild(container);
   root = createRoot(container);
@@ -97,6 +103,8 @@ afterEach(() => {
   act(() => root.unmount());
   container.remove();
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+  vi.useRealTimers();
 });
 
 async function renderMore() {
@@ -174,7 +182,7 @@ describe('«Ещё» in Telegram', () => {
         ],
       },
       { title: 'Вид', rows: ['Тема · Как в Telegram'] },
-      { title: 'Данные', rows: ['Скачать все записи · Скоро: файл CSV придёт в чат с ботом'] },
+      { title: 'Данные', rows: ['Скачать все записи · Файл CSV придёт в чат с ботом'] },
     ]);
     expect(text()).toContain('Время — по Ташкенту. Кроме этого бот пишет только в ответ на ваши записи.');
     expect(text()).toContain('Все записи с категориями, счетами и курсом — таблицей CSV, её откроет Excel или Google Таблицы.');
@@ -308,6 +316,87 @@ describe('«Ещё» in Telegram', () => {
     await press(inSheet('Закрыть'));
     expect(sections()[2].rows).toEqual(['Тема · Светлая']);
   });
+
+  describe('«Скачать все записи» (FT-126, board «Выгрузка записей»)', () => {
+    const SENT = { success: true, data: { fileName: 'daftar-2026-10-14.csv', count: 205 } };
+    const exportRow = () => row('Скачать все записи');
+    const exportState = () => squash([...exportRow().querySelectorAll('[data-row-text] > span')].map((part) => part.textContent).join(' · '));
+    const toasts = () => useUndoToastStore.getState().stack.map((entry) => [entry.title, entry.detail]);
+    const chatCalls = () => vi.mocked(apiClient.post).mock.calls.filter(([url]) => url === '/export/chat').length;
+
+    it('an action in place, not a section: no chevron, no sheet', async () => {
+      await renderMore();
+
+      expect(exportRow().tagName).toBe('BUTTON');
+      expect(exportRow().getAttribute('aria-haspopup')).toBeNull();
+      expect(exportRow().querySelectorAll('svg')).toHaveLength(1); // the icon only
+    });
+
+    it('sends the file to the chat with the bot once: a second press while it is made, or while its toast shows, sends nothing', async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true, toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+      let answer!: (value: unknown) => void;
+      vi.mocked(apiClient.post).mockImplementation((url: string) => (url === '/export/chat' ? new Promise((resolve) => (answer = resolve)) : new Promise<never>(() => {})) as never);
+      await renderMore();
+
+      await press(exportRow());
+      expect(apiClient.post).toHaveBeenCalledWith('/export/chat');
+      expect(exportState()).toBe('Скачать все записи · Готовим файл…');
+      expect(exportRow().getAttribute('aria-busy')).toBe('true');
+      await press(exportRow());
+      expect(chatCalls()).toBe(1);
+
+      await act(async () => answer(SENT));
+      await settle();
+
+      expect(toasts()).toEqual([['Файл отправлен в чат с ботом', 'daftar-2026-10-14.csv · 205 записей']]);
+      expect(document.body.querySelector('[role="status"]')?.textContent).toContain('Файл отправлен в чат с ботом');
+      expect(exportState()).toBe('Скачать все записи · Отправлено — файл уже в чате с ботом');
+      expect(exportRow().getAttribute('aria-disabled')).toBe('true');
+      await press(exportRow());
+      expect(chatCalls()).toBe(1);
+
+      // The toast is gone: the row is ready, and a press makes a new file
+      await act(async () => {
+        vi.advanceTimersByTime(EXPORT_DONE_MS + 50);
+      });
+      expect(exportState()).toBe('Скачать все записи · Файл CSV придёт в чат с ботом');
+      expect(exportRow().getAttribute('aria-disabled')).toBeNull();
+      await press(exportRow());
+      expect(chatCalls()).toBe(2);
+    });
+
+    it('a failure says so and the row is ready again', async () => {
+      vi.mocked(apiClient.post).mockRejectedValueOnce({ message: 'Network error', statusCode: 0 });
+      await renderMore();
+
+      await press(exportRow());
+
+      expect(toasts()).toEqual([['Не получилось отправить файл', 'Проверьте связь и попробуйте ещё раз']]);
+      expect(exportState()).toBe('Скачать все записи · Файл CSV придёт в чат с ботом');
+      vi.mocked(apiClient.post).mockResolvedValueOnce(SENT as never);
+      await press(exportRow());
+      expect(chatCalls()).toBe(2);
+    });
+
+    it('when the bot may not write to the user, says how to let it', async () => {
+      vi.mocked(apiClient.post).mockRejectedValueOnce({ message: 'Request failed', statusCode: 422, code: 'BOT_CHAT_CLOSED' });
+      await renderMore();
+
+      await press(exportRow());
+
+      expect(toasts()).toEqual([['Бот не может написать вам', 'Откройте чат с ботом и нажмите «Старт»']]);
+    });
+
+    it('with nothing recorded, says there is nothing to send', async () => {
+      vi.mocked(apiClient.post).mockResolvedValueOnce({ success: true, data: { fileName: 'daftar-2026-10-14.csv', count: 0 } } as never);
+      await renderMore();
+
+      await press(exportRow());
+
+      expect(toasts()).toEqual([['Выгружать пока нечего', 'Записей ещё нет']]);
+      expect(exportState()).toBe('Скачать все записи · Файл CSV придёт в чат с ботом');
+    });
+  });
 });
 
 describe('«Ещё» by a direct link', () => {
@@ -317,7 +406,7 @@ describe('«Ещё» by a direct link', () => {
     const titles = sections().map((section) => section.title);
     expect(titles).toEqual(['Деньги', 'Бот в Telegram', 'Вид', 'Данные', 'Аккаунт']);
     expect(sections()[2].rows).toEqual(['Тема · Как в системе']);
-    expect(sections()[3].rows).toEqual(['Скачать все записи · Скоро: файл CSV на это устройство']);
+    expect(sections()[3].rows).toEqual(['Скачать все записи · Файл CSV на это устройство']);
     expect(sections()[4].rows).toEqual(['Шукур · Вход через Telegram']);
     // Outside Telegram the screen has its own «Назад»
     expect(document.body.querySelector('button[aria-label="Назад"]')).not.toBeNull();
@@ -333,6 +422,30 @@ describe('«Ещё» by a direct link', () => {
     expect(pinned?.querySelector('section')).toBeNull();
   });
 
+  it('«Скачать все записи» downloads the file to the device, never through the chat', async () => {
+    vi.mocked(apiClient.getFile).mockResolvedValue({
+      blob: new Blob(['\uFEFFДата;Тип'], { type: 'text/csv' }),
+      headers: new Headers({ 'Content-Disposition': 'attachment; filename="daftar-2026-10-14.csv"', 'X-Export-Count': '205' }),
+    } as never);
+    // jsdom has no object URLs
+    const createObjectURL = vi.fn(() => 'blob:daftar');
+    Object.assign(URL, { createObjectURL, revokeObjectURL: vi.fn() });
+    const saved: Array<{ href: string; download: string }> = [];
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
+      saved.push({ href: this.href, download: this.download });
+    });
+    await renderMore();
+
+    await press(row('Скачать все записи'));
+
+    expect(apiClient.getFile).toHaveBeenCalledWith('/export');
+    expect(apiClient.post).not.toHaveBeenCalled();
+    expect(createObjectURL).toHaveBeenCalledWith(expect.any(Blob));
+    expect(saved).toEqual([{ href: 'blob:daftar', download: 'daftar-2026-10-14.csv' }]);
+    expect(useUndoToastStore.getState().stack.map((entry) => [entry.title, entry.detail])).toEqual([['Файл скачан', 'daftar-2026-10-14.csv · 205 записей']]);
+    expect(sections()[3].rows).toEqual(['Скачать все записи · Скачано — файл в загрузках']);
+  });
+
   it('a guest: the bot\'s notices need an account, the theme still changes on this device', async () => {
     useUserStore.setState({ userId: 'guest_1', userType: 'guest', telegramId: null, userName: 'Guest' });
     await renderMore();
@@ -343,8 +456,11 @@ describe('«Ещё» by a direct link', () => {
       'Цели и подписки · После входа через Telegram',
     ]);
     expect(sections()[4].rows).toEqual(['Гость · Записи только в этом браузере']);
+    // A guest's records are in this browser only: the export is for an account (FT-126)
+    expect(sections()[3].rows).toEqual(['Скачать все записи · После входа через Telegram']);
     // Not buttons: nothing to open
     expect(row('Сводка дня').tagName).toBe('DIV');
+    expect(row('Скачать все записи').tagName).toBe('DIV');
 
     await press(row('Тема'));
     await press(inSheet('Тёмная'));

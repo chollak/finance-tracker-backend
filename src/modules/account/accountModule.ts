@@ -1,4 +1,5 @@
 import { AccountRepository } from './domain/accountRepository';
+import { AccountMove } from './domain/accountMove';
 import { AccountMoveRepository } from './domain/accountMoveRepository';
 import { AccountRecordSource } from './domain/accountRecords';
 import { CbuRateOnDate } from './domain/fxRate';
@@ -50,6 +51,11 @@ export class AccountModule {
 
   getRepository(): AccountRepository {
     return this.repository;
+  }
+
+  /** The user's moves that are not deleted, oldest first (FT-126: the export of all records). */
+  movesOfUser(userId: string): Promise<AccountMove[]> {
+    return this.moveRepository.findByUserId(userId);
   }
 
   getListAccountsUseCase(): ListAccountsUseCase {
