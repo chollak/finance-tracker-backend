@@ -4,7 +4,7 @@
 
 ## Prerequisites
 
-- **Node.js**: 18+ ([download](https://nodejs.org/))
+- **Node.js**: 22 (`.nvmrc`; `nvm use`). Webapp на Vite 7 и Vitest 4 требует 20.19+, на Node 16–18 `npm install` падает на сборке webapp
 - **npm**: 8+ (comes with Node.js)
 - **SQLite3**: Встроено в Node.js (для SQLite database)
 - **Optional**: FFmpeg для voice processing
@@ -105,8 +105,10 @@ npm run dev:miniapp -- --chat-id=<telegram_chat_id>
 
 Что делает команда (`scripts/dev-miniapp.js`):
 
-1. Поднимает Cloudflare quick tunnel и получает публичный HTTPS-адрес.
-2. Записывает этот адрес в локальный `.env` как `WEB_APP_URL`.
+1. Поднимает Cloudflare quick tunnel и получает публичный HTTPS-адрес. `cloudflared` ищет в `CLOUDFLARED_BIN`,
+   `~/.local/bin` (WSL) и в `PATH` (Homebrew на macOS).
+2. Записывает этот адрес как `WEB_APP_URL` в тот env-файл, который читает приложение: `.env.local`, если он есть,
+   иначе `.env` (`--env-file` меняет выбор).
 3. Обновляет постоянную menu-кнопку бота в Telegram через `setChatMenuButton`.
 4. Собирает проект и запускает `npm run serve`.
 

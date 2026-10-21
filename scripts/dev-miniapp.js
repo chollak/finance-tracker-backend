@@ -13,16 +13,16 @@
 const fs = require('fs');
 const http = require('http');
 const https = require('https');
+const net = require('net');
 const path = require('path');
 const { spawn, spawnSync } = require('child_process');
 
 const root = path.resolve(__dirname, '..');
-const DEFAULT_ENV_FILE = path.join(root, '.env');
 const DEFAULT_PORT = 3000;
 const DEFAULT_MENU_TEXT = 'Finance DEV';
 
 function printHelp() {
-  console.log(`Finance Tracker Telegram Mini App helper\n\nUsage:\n  npm run dev:miniapp -- --chat-id=<telegram_chat_id> [--skip-build]\n  npm run miniapp:menu -- status --chat-id=<telegram_chat_id>\n  npm run miniapp:menu -- set --url=<https_url> --chat-id=<telegram_chat_id>\n\nOptions:\n  --chat-id, --chatId       Telegram chat/user id for the persistent menu button\n  --url                    Public HTTPS Mini App URL for set/status checks\n  --path                   set only: open this page from the menu button (e.g. /dev/voice-check); WEB_APP_URL is not changed\n  --env-file               Env file to update (default: .env)\n  --menu-text              Telegram menu button text (default: Finance DEV)\n  --port                   Backend port (default: 3000)\n  --skip-build             Skip npm run build:webapp && npm run build before serve\n  --no-serve               Only create/update tunnel/menu; do not start npm run serve\n  --no-menu                Do not call Telegram setChatMenuButton\n  --help                   Show help\n\nNotes:\n  - For Telegram Mini App on a phone, WEB_APP_URL must be public HTTPS.\n  - Old inline buttons keep their embedded URL; send /start after a tunnel change.\n  - The persistent chat menu button must be updated separately; this helper does it.\n`);
+  console.log(`Finance Tracker Telegram Mini App helper\n\nUsage:\n  npm run dev:miniapp -- --chat-id=<telegram_chat_id> [--skip-build]\n  npm run miniapp:menu -- status --chat-id=<telegram_chat_id>\n  npm run miniapp:menu -- set --url=<https_url> --chat-id=<telegram_chat_id>\n\nOptions:\n  --chat-id, --chatId       Telegram chat/user id for the persistent menu button\n  --url                    Public HTTPS Mini App URL for set/status checks\n  --path                   set only: open this page from the menu button (e.g. /dev/voice-check); WEB_APP_URL is not changed\n  --env-file               Env file to update (default: the one the app reads — .env.local if present, else .env)\n  --menu-text              Telegram menu button text (default: Finance DEV)\n  --port                   Backend port (default: 3000)\n  --skip-build             Skip npm run build:webapp && npm run build before serve\n  --no-serve               Only create/update tunnel/menu; do not start npm run serve\n  --no-menu                Do not call Telegram setChatMenuButton\n  --help                   Show help\n\nNotes:\n  - For Telegram Mini App on a phone, WEB_APP_URL must be public HTTPS.\n  - Old inline buttons keep their embedded URL; send /start after a tunnel change.\n  - The persistent chat menu button must be updated separately; this helper does it.\n`);
 }
 
 function parseArgs(argv) {
@@ -51,6 +51,21 @@ function parseArgs(argv) {
     }
   }
   return args;
+}
+
+// The file the app reads (AppConfig): .env.local when it exists, otherwise .env. Updating another one would leave
+// the server on the old WEB_APP_URL.
+function envFileFor(flags, baseDir = root) {
+  if (flags['env-file']) return path.resolve(baseDir, flags['env-file']);
+  const local = path.join(baseDir, '.env.local');
+  return fs.existsSync(local) ? local : path.join(baseDir, '.env');
+}
+
+// CLOUDFLARED_BIN, then ~/.local/bin (the WSL setup), then PATH (Homebrew on macOS); null when it is nowhere.
+function findCloudflared(env = process.env) {
+  if (env.CLOUDFLARED_BIN) return env.CLOUDFLARED_BIN;
+  const onPath = (env.PATH || '').split(path.delimiter).filter(Boolean).map((dir) => path.join(dir, 'cloudflared'));
+  return [path.join(env.HOME || '', '.local/bin/cloudflared'), ...onPath].find((file) => fs.existsSync(file)) || null;
 }
 
 function readEnv(envFile) {
@@ -191,9 +206,18 @@ function waitForOutput(child, regex, timeoutMs, label) {
   });
 }
 
+// Whether something accepts connections on the port — by connecting, as `ss` is Linux-only.
 function isPortListening(port) {
-  const result = spawnSync('bash', ['-lc', `ss -ltn | grep -q ':${Number(port)}\\b'`], { stdio: 'ignore' });
-  return result.status === 0;
+  return new Promise((resolve) => {
+    const socket = net.connect({ port: Number(port), host: '127.0.0.1' });
+    const done = (listening) => {
+      socket.destroy();
+      resolve(listening);
+    };
+    socket.setTimeout(1000, () => done(false));
+    socket.once('connect', () => done(true));
+    socket.once('error', () => done(false));
+  });
 }
 
 async function probe(url) {
@@ -210,7 +234,7 @@ async function probe(url) {
 }
 
 async function commandStatus({ flags }) {
-  const envFile = path.resolve(root, flags['env-file'] || DEFAULT_ENV_FILE);
+  const envFile = envFileFor(flags);
   const env = { ...readEnv(envFile), ...process.env };
   const chatId = flags['chat-id'] || flags.chatId || env.MINIAPP_CHAT_ID || env.TELEGRAM_CHAT_ID;
   const currentUrl = env.WEB_APP_URL || env.NGROK_URL || '';
@@ -233,7 +257,7 @@ async function commandStatus({ flags }) {
 }
 
 async function commandSet({ flags }) {
-  const envFile = path.resolve(root, flags['env-file'] || DEFAULT_ENV_FILE);
+  const envFile = envFileFor(flags);
   const env = { ...readEnv(envFile), ...process.env };
   const chatId = flags['chat-id'] || flags.chatId || env.MINIAPP_CHAT_ID || env.TELEGRAM_CHAT_ID;
   const baseUrl = flags.url || env.WEB_APP_URL || env.NGROK_URL;
@@ -263,7 +287,7 @@ async function commandSet({ flags }) {
 }
 
 async function commandRun({ flags }) {
-  const envFile = path.resolve(root, flags['env-file'] || DEFAULT_ENV_FILE);
+  const envFile = envFileFor(flags);
   const env = { ...readEnv(envFile), ...process.env };
   const chatId = flags['chat-id'] || flags.chatId || env.MINIAPP_CHAT_ID || env.TELEGRAM_CHAT_ID;
   const port = Number(flags.port || env.PORT || DEFAULT_PORT);
@@ -271,8 +295,10 @@ async function commandRun({ flags }) {
   const children = [];
 
   if (!flags.url) {
-    const cloudflared = process.env.CLOUDFLARED_BIN || path.join(process.env.HOME || '', '.local/bin/cloudflared');
-    if (!fs.existsSync(cloudflared)) throw new Error(`cloudflared not found at ${cloudflared}; set CLOUDFLARED_BIN`);
+    const cloudflared = findCloudflared();
+    if (!cloudflared || !fs.existsSync(cloudflared)) {
+      throw new Error(`cloudflared not found${cloudflared ? ` at ${cloudflared}` : ' in ~/.local/bin or on PATH'}; set CLOUDFLARED_BIN`);
+    }
     console.log(`Starting Cloudflare tunnel to http://127.0.0.1:${port} ...`);
     const tunnel = spawn(cloudflared, ['tunnel', '--url', `http://127.0.0.1:${port}`], { cwd: root, stdio: ['ignore', 'pipe', 'pipe'] });
     children.push(tunnel);
@@ -287,7 +313,7 @@ async function commandRun({ flags }) {
     runCommand('npm', ['run', 'build']);
   }
 
-  const alreadyListening = isPortListening(port);
+  const alreadyListening = await isPortListening(port);
   if (flags['no-serve']) {
     console.log('Skipped server start (--no-serve).');
   } else if (alreadyListening) {
@@ -334,7 +360,11 @@ async function main() {
   throw new Error(`Unknown command: ${parsed.command}`);
 }
 
-main().catch((error) => {
-  console.error(`ERROR: ${error.message}`);
-  process.exit(1);
-});
+if (require.main === module) {
+  main().catch((error) => {
+    console.error(`ERROR: ${error.message}`);
+    process.exit(1);
+  });
+}
+
+module.exports = { envFileFor, findCloudflared, isPortListening };
