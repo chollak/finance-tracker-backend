@@ -25,6 +25,11 @@ export const AUDIT_RULES = {
   subscriptionPriceChange: 0.1,
   /** Averages are told rounded to a thousand сум, without «≈». */
   averageRoundingMinor: 100_000,
+  /**
+   * A month counts as recorded whole when recording began on one of its first 3 days. One begun on the 25th is known
+   * only in part: «таких трат не было» or «вчетверо чаще» about it would not be true, so it is not compared.
+   */
+  wholeMonthStartDays: 3,
 } as const;
 
 /** A real expense as the audit reads it (`auditRecordsOf`). */
@@ -62,8 +67,10 @@ export interface AuditOperation {
 
 export interface AuditCandidate {
   /**
-   * The spending the candidate is about, the same in every month: `service:<key>` for a service of the catalog,
-   * else `<categoryId>|<note key>` — what the audit keeps its decision by (FT-131).
+   * The spending's group within this audit: `service:<key>` for a service of the catalog, else
+   * `<categoryId>|<note key>`. Only a service's key holds from month to month: a note group's root depends on the notes
+   * of the two months compared (September with only «Такси домой» gives `…|такси домой`, October with a plain «Такси»
+   * gives `…|такси`). A decision of another audit (FT-131) is matched by `isSameAuditSpending`.
    */
   key: string;
   kind: AuditCandidateKind;
@@ -85,11 +92,17 @@ export interface AuditCandidate {
   count: number;
   /** It repeats, so a goal may limit it: everything but a large purchase. */
   recurring: boolean;
-  /** What a month of it costs if it goes on: `amountMinor` when recurring, 0 for a one-off purchase. */
+  /**
+   * What a month of it costs if it goes on: `amountMinor` when recurring, 0 for a one-off purchase; a service charged
+   * earlier but not the month before (yearly, paused) — the charge spread over the months since its last one.
+   */
   monthlyMinor: number;
   /** The operations of the month in the group, newest first. */
   operations: AuditOperation[];
-  /** The same spending the month before; null when that month is not compared (not recorded yet). */
+  /**
+   * The same spending the month before (a service's charges in any category); null when that month is not compared:
+   * not recorded whole (`firstWholeMonth`).
+   */
   previous: { count: number; amountMinor: number } | null;
   /** A statement with numbers: «В августе — 2 раза на 352 000 сум: вдвое чаще и на 380 000 сум больше.» */
   reason: string;
@@ -107,6 +120,32 @@ export function spendingNoteKey(note: string, categoryName: string): string {
 /** «Такси домой» and «Такси в аэропорт» are «Такси»: the note is the group's or begins with its words. */
 export function isSameSpending(noteKey: string, groupKey: string): boolean {
   return noteKey === groupKey || (groupKey !== '' && noteKey.startsWith(`${groupKey} `));
+}
+
+/**
+ * Whether candidates of two audits are about the same spending — how a decision is found again in the next audit
+ * (FT-131), since a note group's `key` may change between audits: a service by its key, whatever the category of its
+ * charge; else the same category and one group's note within the other's, either way («Такси домой» of September is
+ * «Такси» of October).
+ */
+export function isSameAuditSpending(
+  a: Pick<AuditCandidate, 'categoryId' | 'noteKey' | 'serviceKey'>,
+  b: Pick<AuditCandidate, 'categoryId' | 'noteKey' | 'serviceKey'>
+): boolean {
+  if (a.serviceKey !== null || b.serviceKey !== null) return a.serviceKey === b.serviceKey;
+  if (a.categoryId !== b.categoryId || a.noteKey === null || b.noteKey === null) return false;
+  return isSameSpending(a.noteKey, b.noteKey) || isSameSpending(b.noteKey, a.noteKey);
+}
+
+/**
+ * The first month recorded from its start, so the audit may compare with it: the month of the first record when that
+ * record is on one of its first `wholeMonthStartDays` days, else the next month; null before any record. The audit of a
+ * month before it has «мало данных» (FT-132).
+ */
+export function firstWholeMonth(firstRecordDate: string | null): string | null {
+  if (!firstRecordDate) return null;
+  const month = firstRecordDate.slice(0, 7);
+  return Number(firstRecordDate.slice(8, 10)) <= AUDIT_RULES.wholeMonthStartDays ? month : shiftMonth(month, 1);
 }
 
 /**
@@ -155,8 +194,9 @@ const isPurchase = (record: AuditRecord) =>
   record.categoryPresetKey !== null && (AUDIT_RULES.largePurchase.presetKeys as readonly string[]).includes(record.categoryPresetKey);
 
 /**
- * The groups of spending in both months: a service of the catalog by its key, whatever the note and category; any
- * other note by its category and the shortest note of that category, in either month, it begins with.
+ * The groups of spending in both months: a service of the catalog by its key, whatever the note; any other note by
+ * its category and the shortest note of that category, in either month, it begins with. A service's earlier charges
+ * are read apart, in every category (`MonthContext.serviceCharges`).
  */
 function groupsOf(current: AuditRecord[], previous: AuditRecord[]): Group[] {
   const noteKeys = new Map<AuditRecord, string>();
@@ -194,7 +234,7 @@ function groupsOf(current: AuditRecord[], previous: AuditRecord[]): Group[] {
     groups.set(key, group);
   };
   current.forEach(record => add(record, 'current'));
-  previous.forEach(record => add(record, 'previous'));
+  previous.filter(record => !services.has(record)).forEach(record => add(record, 'previous'));
   return [...groups.values()];
 }
 
@@ -211,17 +251,28 @@ function nameOf(group: Group, latest: AuditRecord): string {
 interface MonthContext {
   month: string;
   previousMonth: string;
-  /** The month before is recorded, so «не было» is true. */
+  /** The month before is recorded whole, so «не было» is true. */
   previousCompared: boolean;
   /** The largest purchase of the month: «Самая крупная покупка сентября». */
   largestPurchaseMinor: number;
+  /** Each service's charges before the month, in any category: a yearly or paused one is not «новая». */
+  serviceCharges: Map<string, AuditRecord[]>;
 }
 
-/** «Новая подписка: первое списание 3 сентября.», «Подорожала: …», «Списывается каждый месяц: …». */
-function subscriptionReason(service: SubscriptionService, now: AuditRecord[], before: AuditRecord[], context: MonthContext): string {
+const monthOfRecord = (record: AuditRecord) => record.date.slice(0, 7);
+
+/** Whole months from one month to another: 12 from 2025-09 to 2026-09. */
+const monthsBetween = (from: string, to: string) =>
+  (Number(to.slice(0, 4)) - Number(from.slice(0, 4))) * 12 + Number(to.slice(5, 7)) - Number(from.slice(5, 7));
+
+/**
+ * «Новая подписка: первое списание 3 сентября.», «Подорожала: …», «Списывается каждый месяц: …»; just the charge when
+ * the month before is not compared, or when it had no charge but an earlier month did (a yearly or paused one).
+ */
+function subscriptionReason(service: SubscriptionService, now: AuditRecord[], earlier: AuditRecord[], before: AuditRecord[], context: MonthContext): string {
   const amount = total(now);
   const tariff = service.kind === 'tariff';
-  if (!context.previousCompared) {
+  if (!context.previousCompared || (before.length === 0 && earlier.length > 0)) {
     if (now.length === 1) return `Списание ${dayText(now[0].date)} — ${sumText(amount)}.`;
     return `${capitalized(inMonth(context.month))} — ${timesText(now.length)} на ${sumText(amount)}.`;
   }
@@ -242,7 +293,9 @@ function subscriptionReason(service: SubscriptionService, now: AuditRecord[], be
 /** The candidate a group makes, by the first rule it meets, or null. */
 function candidateOf(group: Group, context: MonthContext): AuditCandidate | null {
   const now = [...group.current].sort(newestFirst);
-  const before = context.previousCompared ? group.previous : [];
+  const earlier = group.service ? context.serviceCharges.get(group.service.key) ?? [] : [];
+  const previousOfGroup = group.service ? earlier.filter(record => monthOfRecord(record) === context.previousMonth) : group.previous;
+  const before = context.previousCompared ? previousOfGroup : [];
   const amount = total(now);
   const count = now.length;
   const was = total(before);
@@ -270,7 +323,12 @@ function candidateOf(group: Group, context: MonthContext): AuditCandidate | null
   const inPrevious = capitalized(inMonth(context.previousMonth));
 
   if (group.service) {
-    return make(group.service.kind, { title: name, reason: subscriptionReason(group.service, now, before, context) });
+    // Charged before but not the month before (a yearly one): a month of it is the charge over the months since then
+    const lastCharge = context.previousCompared && before.length === 0 && earlier.length > 0
+      ? earlier.reduce((lastDate, record) => (record.date > lastDate ? record.date : lastDate), earlier[0].date)
+      : null;
+    const monthlyMinor = lastCharge ? Math.round(amount / monthsBetween(lastCharge.slice(0, 7), context.month)) : amount;
+    return make(group.service.kind, { title: name, reason: subscriptionReason(group.service, now, earlier, before, context), monthlyMinor });
   }
 
   const { frequentSmall, moreOften, largePurchase } = AUDIT_RULES;
@@ -310,21 +368,34 @@ function candidateOf(group: Group, context: MonthContext): AuditCandidate | null
 /**
  * The candidates of the audit of `month` (YYYY-MM): spending of flexible categories in that month, each by the first
  * of the rules it meets — «Подписка» / «Платный тариф» (a service of the catalog charged in the month), «Часто и
- * понемногу», «Стало чаще», «Крупная покупка» — largest first. `records` may hold any months: the month and the one
- * before are read. The month before is compared only from `firstMonth` (the month of the first record), so nothing
- * is said about a month that was not recorded.
+ * понемногу», «Стало чаще», «Крупная покупка» — largest first. Zero and negative amounts are no spending.
+ *
+ * `records` should hold every month up to `month`: the month and the one before are compared, and the earlier ones
+ * tell a new subscription from a yearly or paused one (a service's charges are read in any category). The month
+ * before is compared only when it was recorded whole — from `firstWholeMonth(firstRecordDate)`, the day of the
+ * user's first record — so nothing is said about a month recorded in part or not at all: no «Стало чаще», no «таких
+ * трат не было», no «Новая подписка». Whether `month` itself was recorded whole is the caller's «мало данных».
  */
-export function findAuditCandidates(input: { month: string; records: readonly AuditRecord[]; firstMonth: string | null }): AuditCandidate[] {
+export function findAuditCandidates(input: { month: string; records: readonly AuditRecord[]; firstRecordDate: string | null }): AuditCandidate[] {
   const { month } = input;
   const previousMonth = shiftMonth(month, -1);
-  const flexible = input.records.filter(record => isFlexible(record) && record.amountMinor > 0);
-  const current = flexible.filter(record => record.date.slice(0, 7) === month);
-  const previous = flexible.filter(record => record.date.slice(0, 7) === previousMonth);
+  const spent = input.records.filter(record => record.amountMinor > 0);
+  const flexible = spent.filter(isFlexible);
+  const current = flexible.filter(record => monthOfRecord(record) === month);
+  const previous = flexible.filter(record => monthOfRecord(record) === previousMonth);
+  const wholeFrom = firstWholeMonth(input.firstRecordDate);
+  const serviceCharges = new Map<string, AuditRecord[]>();
+  for (const record of spent) {
+    if (monthOfRecord(record) >= month) continue;
+    const service = findSubscription(record.note);
+    if (service) serviceCharges.set(service.key, [...(serviceCharges.get(service.key) ?? []), record]);
+  }
   const context: MonthContext = {
     month,
     previousMonth,
-    previousCompared: input.firstMonth !== null && previousMonth >= input.firstMonth,
+    previousCompared: wholeFrom !== null && previousMonth >= wholeFrom,
     largestPurchaseMinor: current.filter(isPurchase).reduce((max, record) => Math.max(max, record.amountMinor), 0),
+    serviceCharges,
   };
 
   return groupsOf(current, previous)

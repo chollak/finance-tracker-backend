@@ -4,6 +4,8 @@ import {
   AuditRecord,
   auditRecordsOf,
   findAuditCandidates,
+  firstWholeMonth,
+  isSameAuditSpending,
   isSameSpending,
   spendingNoteKey,
 } from '../src/modules/audit/domain/auditRules';
@@ -28,8 +30,8 @@ function times(month: string, code: Code, count: number, amount: number, note: s
   return Array.from({ length: count }, (_, i) => rec(`${month}-${String(i + 1).padStart(2, '0')}`, code, amount, note, `${month}-${note}-${i}`));
 }
 
-const audit = (records: AuditRecord[], month = '2026-09', firstMonth: string | null = '2026-08') =>
-  findAuditCandidates({ month, records, firstMonth });
+const audit = (records: AuditRecord[], month = '2026-09', firstRecordDate: string | null = '2026-08-01') =>
+  findAuditCandidates({ month, records, firstRecordDate });
 
 /** What the card shows: kind and category, title, amount, reason. */
 const card = (candidate: AuditCandidate) => ({
@@ -150,6 +152,15 @@ describe('spending audit rules (FT-130)', () => {
       expect(audit(above)).toEqual([]);
     });
 
+    it('ignores zero and negative amounts: they are not a time spent', () => {
+      const seven = times('2026-09', 'kf', 7, 30000, 'Кофе');
+      expect(audit([...seven, rec('2026-09-20', 'kf', 0, 'Кофе')])).toEqual([]);
+      expect(audit([...seven, rec('2026-09-21', 'kf', -30000, 'Кофе')])).toEqual([]);
+      // Nor in the month before: «таких трат не было» stays true
+      const [candidate] = audit([rec('2026-08-20', 'kf', 0, 'Кофе'), ...seven, rec('2026-09-22', 'kf', 30000, 'Кофе')]);
+      expect(plain(candidate.reason)).toBe('В среднем 30 000 сум за раз. В августе таких трат не было.');
+    });
+
     it('rounds the average to a thousand and gives it without «≈»', () => {
       const records = [...times('2026-09', 'kf', 9, 25000, 'Кофе'), rec('2026-09-20', 'kf', 31000, 'Кофе')];
       // 256 000 / 10 = 25 600 → 26 000
@@ -157,7 +168,7 @@ describe('spending audit rules (FT-130)', () => {
     });
 
     it('says nothing about the month before when that month was not recorded', () => {
-      expect(plain(audit(times('2026-09', 'kf', 8, 25000, 'Кофе'), '2026-09', '2026-09')[0].reason)).toBe('В среднем 25 000 сум за раз.');
+      expect(plain(audit(times('2026-09', 'kf', 8, 25000, 'Кофе'), '2026-09', '2026-09-01')[0].reason)).toBe('В среднем 25 000 сум за раз.');
     });
   });
 
@@ -189,6 +200,51 @@ describe('spending audit rules (FT-130)', () => {
       expect(reason(3)).toBe('В августе — 1 раз на 100 000 сум: втрое чаще и на 200 000 сум больше.');
       expect(reason(4)).toBe('В августе — 1 раз на 100 000 сум: вчетверо чаще и на 300 000 сум больше.');
       expect(reason(5)).toBe('В августе — 1 раз на 100 000 сум: в 5 раз чаще и на 400 000 сум больше.');
+    });
+  });
+
+  describe('the month before is compared only when it was recorded from its start', () => {
+    // Recording began on 25 October: the first whole month is November, so October is known only in part
+    const late = '2026-10-25';
+    const weekly = [rec('2026-10-25', 'kf', 150000, 'Доставка еды'), ...['01', '08', '15', '22'].map(day => rec(`2026-11-${day}`, 'kf', 150000, 'Доставка еды'))];
+
+    it('counts a month recorded from one of its first 3 days as whole, a later start from the next month', () => {
+      expect(AUDIT_RULES.wholeMonthStartDays).toBe(3);
+      expect(firstWholeMonth('2026-10-01')).toBe('2026-10');
+      expect(firstWholeMonth('2026-10-03')).toBe('2026-10');
+      expect(firstWholeMonth('2026-10-04')).toBe('2026-11');
+      expect(firstWholeMonth(late)).toBe('2026-11');
+      expect(firstWholeMonth('2026-12-20')).toBe('2027-01');
+      expect(firstWholeMonth(null)).toBeNull();
+    });
+
+    it('is no «Стало чаще» against a month recorded in part: the same pace is not «вчетверо чаще»', () => {
+      expect(audit(weekly, '2026-11', late)).toEqual([]);
+      // The same records with October recorded whole are a true statement
+      expect(audit(weekly, '2026-11', '2026-10-01').map(card)).toEqual([
+        {
+          kind: 'Стало чаще · Кафе',
+          title: 'Доставка еды — 4 раза',
+          amount: 600000,
+          reason: 'В октябре — 1 раз на 150 000 сум: вчетверо чаще и на 450 000 сум больше.',
+        },
+      ]);
+    });
+
+    it('says nothing about such a month: no «таких трат не было», no comparison, no «новая подписка»', () => {
+      const records = [...times('2026-11', 'kf', 8, 25000, 'Кофе'), rec('2026-11-10', 'sv', 60000, 'Netflix')];
+      const candidates = audit(records, '2026-11', late);
+      expect(candidates.map(card)).toEqual([
+        { kind: 'Часто и понемногу · Кафе', title: 'Кофе — 8 раз', amount: 200000, reason: 'В среднем 25 000 сум за раз.' },
+        { kind: 'Подписка · Связь', title: 'Netflix', amount: 60000, reason: 'Списание 10 ноября — 60 000 сум.' },
+      ]);
+      expect(candidates.map(candidate => candidate.previous)).toEqual([null, null]);
+    });
+
+    it('compares a month begun on its 3rd day, not on its 4th', () => {
+      const coffee = times('2026-11', 'kf', 8, 25000, 'Кофе');
+      expect(plain(audit(coffee, '2026-11', '2026-10-03')[0].reason)).toBe('В среднем 25 000 сум за раз. В октябре таких трат не было.');
+      expect(plain(audit(coffee, '2026-11', '2026-10-04')[0].reason)).toBe('В среднем 25 000 сум за раз.');
     });
   });
 
@@ -235,10 +291,48 @@ describe('spending audit rules (FT-130)', () => {
       expect(plain(same[0].reason)).toBe('Списывается каждый месяц: в августе и в сентябре по 50 000 сум.');
       const close = audit([rec('2026-08-05', 'sv', 46000, 'Кинопоиск'), rec('2026-09-05', 'sv', 50000, 'Кинопоиск')]);
       expect(plain(close[0].reason)).toBe('Списывается каждый месяц: в августе — 46 000 сум, в сентябре — 50 000 сум.');
+      // Exactly 10% either way is still «каждый месяц»; a сум more is «подорожала»
+      const tenUp = audit([rec('2026-08-05', 'sv', 50000, 'Кинопоиск'), rec('2026-09-05', 'sv', 55000, 'Кинопоиск')]);
+      expect(plain(tenUp[0].reason)).toBe('Списывается каждый месяц: в августе — 50 000 сум, в сентябре — 55 000 сум.');
+      const tenDown = audit([rec('2026-08-05', 'sv', 50000, 'Кинопоиск'), rec('2026-09-05', 'sv', 45000, 'Кинопоиск')]);
+      expect(plain(tenDown[0].reason)).toBe('Списывается каждый месяц: в августе — 50 000 сум, в сентябре — 45 000 сум.');
+      const above = audit([rec('2026-08-05', 'sv', 50000, 'Кинопоиск'), rec('2026-09-05', 'sv', 55001, 'Кинопоиск')]);
+      expect(plain(above[0].reason)).toBe('Подорожала: в августе — 50 000 сум, в сентябре — 55 001 сум.');
+    });
+
+    it('takes everything charged in the month, not the price of one charge', () => {
+      const twice = [rec('2026-09-05', 'sv', 50000, 'Кинопоиск'), rec('2026-09-20', 'sv', 50000, 'Кинопоиск')];
+      const [candidate] = audit([rec('2026-08-05', 'sv', 50000, 'Кинопоиск'), ...twice]);
+      expect(card(candidate)).toEqual({ kind: 'Подписка · Связь', title: 'Кинопоиск', amount: 100000, reason: 'Подорожала: в августе — 50 000 сум, в сентябре — 100 000 сум.' });
+      expect(candidate).toMatchObject({ count: 2, monthlyMinor: sum(100000) });
+      expect(plain(audit(twice, '2026-09', '2026-09-01')[0].reason)).toBe('В сентябре — 2 раза на 100 000 сум.');
+    });
+
+    it('is new only when it was never charged before: a yearly or paused one just tells its charge', () => {
+      // Telegram Premium for a year: charged last September, recorded since then
+      const yearly = audit([rec('2025-09-10', 'sv', 400000, 'Telegram Premium на год'), rec('2026-09-10', 'sv', 400000, 'Telegram Premium на год')], '2026-09', '2025-09-01');
+      expect(card(yearly[0])).toEqual({ kind: 'Подписка · Связь', title: 'Telegram Premium', amount: 400000, reason: 'Списание 10 сентября — 400 000 сум.' });
+      // What a month of it costs is the charge spread over the months since the one before
+      expect(yearly[0]).toMatchObject({ recurring: true, monthlyMinor: Math.round(sum(400000) / 12), previous: { count: 0, amountMinor: 0 } });
+      // Paused for August
+      const paused = audit([rec('2026-07-05', 'sv', 50000, 'Кинопоиск'), rec('2026-09-05', 'sv', 50000, 'Кинопоиск')], '2026-09', '2026-07-01');
+      expect(plain(paused[0].reason)).toBe('Списание 5 сентября — 50 000 сум.');
+      expect(paused[0].monthlyMinor).toBe(sum(25000));
+    });
+
+    it('reads earlier charges of a service in any category, its own or not flexible', () => {
+      const own = (record: AuditRecord): AuditRecord => ({ ...record, categoryId: 'cat-own', categoryName: 'Подписки', categoryPresetKey: null });
+      const inOwn = audit([own(rec('2026-08-05', 'sv', 50000, 'Кинопоиск')), rec('2026-09-05', 'sv', 50000, 'Кинопоиск')]);
+      expect(card(inOwn[0])).toEqual({ kind: 'Подписка · Связь', title: 'Кинопоиск', amount: 50000, reason: 'Списывается каждый месяц: в августе и в сентябре по 50 000 сум.' });
+      expect(inOwn[0].previous).toEqual({ count: 1, amountMinor: sum(50000) });
+      const inHealth = audit([rec('2026-08-05', 'zd', 45000, 'Кинопоиск'), rec('2026-09-05', 'sv', 50000, 'Кинопоиск')]);
+      expect(plain(inHealth[0].reason)).toBe('Подорожала: в августе — 45 000 сум, в сентябре — 50 000 сум.');
+      // A charge of the month in a category that is not flexible is still no candidate
+      expect(audit([rec('2026-08-05', 'sv', 50000, 'Кинопоиск'), own(rec('2026-09-05', 'sv', 50000, 'Кинопоиск'))])).toEqual([]);
     });
 
     it('without the month before: just the charge', () => {
-      const [candidate] = audit([rec('2026-09-12', 'sv', 41000, 'Telegram Premium')], '2026-09', '2026-09');
+      const [candidate] = audit([rec('2026-09-12', 'sv', 41000, 'Telegram Premium')], '2026-09', '2026-09-01');
       expect(card(candidate)).toEqual({ kind: 'Подписка · Связь', title: 'Telegram Premium', amount: 41000, reason: 'Списание 12 сентября — 41 000 сум.' });
     });
 
@@ -255,7 +349,7 @@ describe('spending audit rules (FT-130)', () => {
 
   describe('one spending under different notes is one group in both months', () => {
     it('counts «Такси домой» and «Такси в аэропорт» with «Такси» in October (the board\'s goals)', () => {
-      const candidates = audit(prototypeRecords(), '2026-10', '2026-08');
+      const candidates = audit(prototypeRecords(), '2026-10', '2026-08-01');
       const taxi = candidates.find(candidate => candidate.categoryName === 'Транспорт' && candidate.name === 'Такси')!;
       expect(card(taxi)).toEqual({
         kind: 'Часто и понемногу · Транспорт',
@@ -283,6 +377,56 @@ describe('spending audit rules (FT-130)', () => {
         reason: 'В августе — 2 раза на 150 000 сум: вдвое чаще и на 180 000 сум больше.',
       });
       expect(candidate.previous).toEqual({ count: 2, amountMinor: sum(150000) });
+    });
+
+    it('takes the group\'s root from the month before too: «Такси» of August gathers September\'s notes', () => {
+      const records = [
+        rec('2026-08-10', 'tr', 30000, 'Такси'),
+        ...times('2026-09', 'tr', 4, 25000, 'Такси домой'),
+        ...times('2026-09', 'tr', 4, 25000, 'Такси на работу'),
+      ];
+      const candidates = audit(records);
+      expect(candidates.map(card)).toEqual([
+        {
+          kind: 'Часто и понемногу · Транспорт',
+          title: 'Такси — 8 раз',
+          amount: 200000,
+          reason: 'В среднем 25 000 сум за раз. В августе — 1 раз на 30 000 сум.',
+        },
+      ]);
+      expect(candidates[0].key).toBe('cat-transport|такси');
+    });
+
+    it('keeps the key within one audit; across audits the same spending is matched by its notes', () => {
+      const records = [
+        ...times('2026-08', 'tr', 2, 20000, 'Такси домой'),
+        ...times('2026-09', 'tr', 8, 20000, 'Такси домой'),
+        ...times('2026-10', 'tr', 4, 20000, 'Такси'),
+        ...times('2026-10', 'tr', 4, 20000, 'Такси домой'),
+        ...times('2026-10', 'kf', 8, 20000, 'Кофе'),
+        rec('2026-09-05', 'sv', 50000, 'Кинопоиск'),
+        rec('2026-10-05', 'dr', 50000, 'кинопоиск, подписка'),
+      ];
+      const september = audit(records, '2026-09', '2026-08-01');
+      const october = audit(records, '2026-10', '2026-08-01');
+      const taxiOf = (candidates: AuditCandidate[]) => candidates.find(candidate => candidate.categoryName === 'Транспорт')!;
+      // The root of a group depends on the notes of the two months compared
+      expect(taxiOf(september)).toMatchObject({ key: 'cat-transport|такси домой', name: 'Такси домой' });
+      expect(taxiOf(october)).toMatchObject({ key: 'cat-transport|такси', name: 'Такси' });
+      expect(isSameAuditSpending(taxiOf(september), taxiOf(october))).toBe(true);
+      expect(isSameAuditSpending(taxiOf(october), taxiOf(september))).toBe(true);
+      // A service by its key, whatever the category of its charge
+      const kinopoiskOf = (candidates: AuditCandidate[]) => candidates.find(candidate => candidate.serviceKey === 'kinopoisk')!;
+      expect(kinopoiskOf(september).categoryName).toBe('Связь');
+      expect(kinopoiskOf(october).categoryName).toBe('Другое');
+      expect(isSameAuditSpending(kinopoiskOf(september), kinopoiskOf(october))).toBe(true);
+      // Different spending is not the same
+      const coffee = october.find(candidate => candidate.name === 'Кофе')!;
+      expect(isSameAuditSpending(taxiOf(september), coffee)).toBe(false);
+      expect(isSameAuditSpending(kinopoiskOf(september), coffee)).toBe(false);
+      expect(isSameAuditSpending(taxiOf(september), { ...taxiOf(october), categoryId: 'cat-other' })).toBe(false);
+      expect(isSameAuditSpending({ categoryId: 'cat-transport', noteKey: 'такси', serviceKey: null }, { categoryId: 'cat-transport', noteKey: 'таксист', serviceKey: null })).toBe(false);
+      expect(isSameAuditSpending({ categoryId: 'cat-cafe', noteKey: '', serviceKey: null }, { categoryId: 'cat-cafe', noteKey: 'кофе', serviceKey: null })).toBe(false);
     });
 
     it('keeps different spending that only begins alike apart, and categories apart', () => {

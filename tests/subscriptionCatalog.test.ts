@@ -37,11 +37,20 @@ describe('subscription catalog (FT-130)', () => {
     ['Telegram Premium', 'telegram-premium', 'Telegram Premium'],
     ['телеграм премиум на год', 'telegram-premium', 'Telegram Premium'],
     ['Второй номер', 'second-number', 'Второй номер'],
+    ['Disney+', 'disney-plus', 'Disney+'],
+    ['Disney Plus на год', 'disney-plus', 'Disney+'],
+    ['дисней плюс', 'disney-plus', 'Disney+'],
+    ['Apple TV+', 'apple-tv', 'Apple TV+'],
+    ['Yandex+', 'yandex-plus', 'Яндекс Плюс'],
   ])('knows «%s»', (note, key, name) => {
     expect(findSubscription(note)).toMatchObject({ key, name });
   });
 
-  it.each(['Такси', 'Кофе', 'Мобильная связь', 'Домашний интернет', 'Премиум бензин', 'Кино', 'Музыкальная школа', 'Облако-сервис ремонт', 'Telegram'])(
+  it.each([
+    'Такси', 'Кофе', 'Мобильная связь', 'Домашний интернет', 'Премиум бензин', 'Кино', 'Музыкальная школа', 'Облако-сервис ремонт', 'Telegram',
+    // Merchandise and devices named after a service are purchases, not subscriptions
+    'Игрушка Disney для сына', 'Рюкзак Дисней', 'Apple TV 4K', 'Кофе+круассан',
+  ])(
     'leaves «%s» alone',
     note => {
       expect(findSubscription(note)).toBeNull();
@@ -51,5 +60,11 @@ describe('subscription catalog (FT-130)', () => {
   it('matches whole words only', () => {
     expect(findSubscription('Spotifyx')).toBeNull();
     expect(findSubscription('супер-кинопоиск')).toMatchObject({ key: 'kinopoisk' });
+  });
+
+  it('reads «+» as the word «plus»: «Disney+» is «disney plus», «iCloud+» is still iCloud', () => {
+    expect(findSubscription('iCloud+')).toMatchObject({ key: 'icloud' });
+    expect(findSubscription('disney +')).toMatchObject({ key: 'disney-plus' });
+    expect(findSubscription('Disney')).toBeNull();
   });
 });

@@ -3,9 +3,11 @@
  * in code, not a table (docs/pastel/money-model.md). A charge of one of them in a flexible category is a «Подписка»
  * or a «Платный тариф» candidate — new, more expensive or charged every month.
  *
- * Words are written as notes are compared (`noteWords`): lower case, «е» for «ё», punctuation as spaces. A word
- * matches only whole words of a note: «Netflix» and «подписка netflix», not «netflixx». Generic words («кино»,
- * «музыка», «облако», «premium», «telegram») are left out on purpose — they name too much else.
+ * Words are written as notes are compared (`noteWords`): lower case, «е» for «ё», punctuation as spaces; «+» reads
+ * as the word «plus», so «Disney+» is «disney plus». A word matches only whole words of a note: «Netflix» and
+ * «подписка netflix», not «netflixx». Generic words («кино», «музыка», «облако», «premium», «telegram») are left out
+ * on purpose — they name too much else; so are the bare names of brands that also sell things («Disney», «Apple TV»):
+ * «Игрушка Disney» and «Apple TV 4K» are purchases, so the service needs its «plus».
  */
 export type SubscriptionGroup = 'streaming' | 'music' | 'cloud' | 'ai' | 'telegram' | 'tariff';
 
@@ -34,8 +36,8 @@ export const SUBSCRIPTION_CATALOG: readonly SubscriptionService[] = [
   subscription('megogo', 'Megogo', 'streaming', ['megogo', 'мегого']),
   subscription('wink', 'Wink', 'streaming', ['wink', 'винк']),
   subscription('amediateka', 'Амедиатека', 'streaming', ['amediateka', 'амедиатека']),
-  subscription('disney-plus', 'Disney+', 'streaming', ['disney', 'дисней']),
-  subscription('apple-tv', 'Apple TV+', 'streaming', ['apple tv']),
+  subscription('disney-plus', 'Disney+', 'streaming', ['disney plus', 'дисней плюс', 'дисней plus']),
+  subscription('apple-tv', 'Apple TV+', 'streaming', ['apple tv plus', 'эпл тв плюс']),
   subscription('allplay', 'Allplay', 'streaming', ['allplay']),
   // Музыка
   subscription('spotify', 'Spotify', 'music', ['spotify', 'спотифай']),
@@ -69,9 +71,9 @@ export function noteWords(note: string): string {
   return note.toLocaleLowerCase('ru-RU').replace(/ё/g, 'е').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
 }
 
-/** The service a note names, or null. */
+/** The service a note names, or null. «+» is the word «plus» here: «Disney+», «Apple TV+», «Yandex+». */
 export function findSubscription(note: string): SubscriptionService | null {
-  const padded = ` ${noteWords(note)} `;
+  const padded = ` ${noteWords(note.replace(/\+/g, ' plus '))} `;
   if (padded.trim() === '') return null;
   return SUBSCRIPTION_CATALOG.find(service => service.words.some(word => padded.includes(` ${word} `))) ?? null;
 }
