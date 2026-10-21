@@ -39,7 +39,7 @@ The route uses `allowGuestMode` (`src/delivery/web/express/middleware/authMiddle
 |---|---|
 | `userId` starts with `guest_` | No auth header needed. `req.isAuthenticated = false`, request proceeds. |
 | Any other `userId` | Full `requireAuth`: `Authorization: tma <initData>` (Telegram Mini App initData, HMAC-validated, max age 1 hour). |
-| Local dev only (`NODE_ENV !== 'production'`) | `X-Dev-User-Id: <telegramId>` header bypasses auth. |
+| Local dev only (`NODE_ENV !== 'production'`) | `X-Dev-User-Id: <telegramId>` header bypasses auth — only for a request from this machine (loopback, no `Cf-Connecting-Ip` / `X-Forwarded-For` / `Forwarded`): never through the `dev:miniapp` tunnel or from the network (`isLocalRequest`, 2026-10-21). |
 | Local dev only (`NODE_ENV !== 'production'`) | `X-Shortcut-User-Id: <ownerId>` header — the iPhone Shortcut path, see [below](#ios-shortcut-capture-devtest-only). |
 
 Notes:
@@ -62,14 +62,17 @@ An iPhone Shortcut cannot produce Telegram initData, so for local testing it ide
 | Header | Required | Meaning |
 |---|---|---|
 | `X-Shortcut-User-Id` | yes (activates the flow) | Owner id the capture is written for — a Telegram id (`597843119`), a user UUID, or a `guest_*` id. Goes through the same `resolveUserIdToUUID()` as `body.userId`. |
-| `X-Shortcut-Capture-Token` | only when `SHORTCUT_CAPTURE_TOKEN` is set | Must equal `SHORTCUT_CAPTURE_TOKEN` (compared in constant time). When the env var is empty/unset, no token is required. |
+| `X-Shortcut-Capture-Token` | when `SHORTCUT_CAPTURE_TOKEN` is set | Must equal `SHORTCUT_CAPTURE_TOKEN` (compared in constant time). Through the tunnel or from the network the token is **required**: without `SHORTCUT_CAPTURE_TOKEN` such a request gets `403 SHORTCUT_CAPTURE_TOKEN_REQUIRED`; only a request from this machine goes without it. |
 
 Behavior when `X-Shortcut-User-Id` is present and non-blank:
 
 1. `NODE_ENV=production` → **`403 SHORTCUT_CAPTURE_DISABLED`**. The header is refused loudly, never silently ignored,
    so a misconfigured Shortcut cannot fall through to some other auth path in production.
-2. `SHORTCUT_CAPTURE_TOKEN` set and the token header is missing or wrong → **`401 INVALID_SHORTCUT_TOKEN`**.
-3. Otherwise the request is accepted: `req.body.userId` is **overridden** with the header id and `req.body.source` is
+2. `SHORTCUT_CAPTURE_TOKEN` empty and the request is not from this machine (the tunnel, the Wi-Fi network) →
+   **`403 SHORTCUT_CAPTURE_TOKEN_REQUIRED`**: without a token the header alone would let anyone with the link write
+   as anyone (2026-10-21).
+3. `SHORTCUT_CAPTURE_TOKEN` set and the token header is missing or wrong → **`401 INVALID_SHORTCUT_TOKEN`**.
+4. Otherwise the request is accepted: `req.body.userId` is **overridden** with the header id and `req.body.source` is
    **forced** to `ios_shortcut`, so the Shortcut body only has to carry `text`. A `userId`/`source` sent in the body is
    ignored — the header is the authoritative identity for this flow.
 
@@ -287,6 +290,7 @@ Auth and rate-limit middleware answer earlier in the chain and use a **flat** sh
 | 401 | `MISSING_AUTH_HEADER` | Non-guest `userId` with no `Authorization` header |
 | 401 | `INVALID_SHORTCUT_TOKEN` | `X-Shortcut-User-Id` sent while `SHORTCUT_CAPTURE_TOKEN` is configured, with a missing/wrong `X-Shortcut-Capture-Token` |
 | 403 | `SHORTCUT_CAPTURE_DISABLED` | `X-Shortcut-User-Id` sent while `NODE_ENV=production` |
+| 403 | `SHORTCUT_CAPTURE_TOKEN_REQUIRED` | `X-Shortcut-User-Id` through the tunnel or from the network while `SHORTCUT_CAPTURE_TOKEN` is empty |
 | 401 | `INVALID_AUTH_FORMAT` | `Authorization` header not in `tma <initData>` form |
 | 401 | `INVALID_AUTH` | initData hash mismatch or older than 1 hour |
 | 401 | `MISSING_USER_DATA` | Valid initData without a `user` payload |

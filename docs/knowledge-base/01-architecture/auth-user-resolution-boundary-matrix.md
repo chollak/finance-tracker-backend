@@ -20,7 +20,7 @@ The goal is to avoid accidental security regressions by documenting which bounda
 Strict auth boundary.
 
 - Allows health check.
-- Allows `X-Dev-User-Id` only outside production.
+- Allows `X-Dev-User-Id` only outside production and only for a request from this machine (`isLocalRequest`: loopback, no forwarding headers) — never through the `dev:miniapp` tunnel (2026-10-21).
 - Requires `Authorization: tma <initData>` otherwise.
 - Validates Telegram Web App initData hash and expiry.
 - Responds with 401 for missing/invalid auth.

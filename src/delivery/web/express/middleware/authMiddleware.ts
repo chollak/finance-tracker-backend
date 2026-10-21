@@ -118,16 +118,37 @@ function validateTelegramWebAppData(initData: string, botToken: string, quiet = 
   }
 }
 
+const LOOPBACK_ADDRESSES = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1']);
+/** Headers a proxy or tunnel adds; Cloudflare always sets `cf-connecting-ip`. */
+const FORWARDING_HEADERS = ['cf-connecting-ip', 'x-forwarded-for', 'forwarded'];
+
+/**
+ * A request from this machine: over loopback and not forwarded by a proxy or tunnel. cloudflared connects to the
+ * server over loopback too, so its requests are told apart by the headers Cloudflare adds.
+ */
+export function isLocalRequest(req: Request): boolean {
+  if (FORWARDING_HEADERS.some(header => req.headers[header] !== undefined)) return false;
+  return LOOPBACK_ADDRESSES.has(req.socket?.remoteAddress ?? '');
+}
+
+/**
+ * Whether the dev headers, which sign in without proof, may count: outside production and only from this machine.
+ * `npm run dev:miniapp` puts the dev server on the internet through a quick tunnel, and it listens on every interface.
+ */
+function devHeadersAllowed(req: Request): boolean {
+  return process.env.NODE_ENV !== 'production' && isLocalRequest(req);
+}
+
 /**
  * The Telegram user id a request is signed in as, by the same rules as `requireAuth`, without answering the
- * request: `X-Dev-User-Id` outside production, otherwise valid, unexpired initData in
+ * request: `X-Dev-User-Id` outside production from this machine, otherwise valid, unexpired initData in
  * `Authorization: tma <initData>`, otherwise the browser's session cookie (FT-128, `req.webSession`). Null when the
  * request proves no user.
  *
  * The general rate limit counts by it (FT-139); it runs before the route's own authentication.
  */
 export function signedInTelegramId(req: Request, botToken: string = AppConfig.TG_BOT_API_KEY): number | null {
-  if (process.env.NODE_ENV !== 'production') {
+  if (devHeadersAllowed(req)) {
     const devUserId = req.headers['x-dev-user-id'];
     if (devUserId && typeof devUserId === 'string') {
       const id = parseInt(devUserId, 10);
@@ -177,8 +198,8 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
     return;
   }
 
-  // Development mode bypass: allow X-Dev-User-Id header
-  if (process.env.NODE_ENV !== 'production') {
+  // Development mode bypass: X-Dev-User-Id, only from this machine (never through the tunnel)
+  if (devHeadersAllowed(req)) {
     const devUserId = req.headers['x-dev-user-id'];
     if (devUserId && typeof devUserId === 'string') {
       logger.debug('Development auth bypass', { devUserId });
@@ -272,7 +293,7 @@ export function optionalAuth(req: Request, _res: Response, next: NextFunction): 
   // Development mode bypass: allow the same local dev header as requireAuth.
   // This keeps browser-only Mini App QA working for routes that allow guest mode
   // but still need ownership checks for real user resources.
-  if (process.env.NODE_ENV !== 'production') {
+  if (devHeadersAllowed(req)) {
     const devUserId = req.headers['x-dev-user-id'];
     if (devUserId && typeof devUserId === 'string') {
       logger.debug('Development optional auth bypass', { devUserId });
@@ -503,6 +524,18 @@ export function allowShortcutCapture(req: Request, res: Response, next: NextFunc
   }
 
   const expectedToken = (process.env.SHORTCUT_CAPTURE_TOKEN || '').trim();
+
+  // Without a token the header alone names the owner, so it counts only from this machine: through the tunnel
+  // anyone with the link could write as anyone
+  if (!expectedToken && !isLocalRequest(req)) {
+    logger.warn('Shortcut capture without a token from outside this machine rejected', { shortcutUserId });
+    res.status(403).json({
+      success: false,
+      error: 'Shortcut capture through a tunnel or the network needs SHORTCUT_CAPTURE_TOKEN',
+      code: 'SHORTCUT_CAPTURE_TOKEN_REQUIRED',
+    });
+    return;
+  }
 
   if (expectedToken) {
     const rawToken = req.headers[SHORTCUT_TOKEN_HEADER];

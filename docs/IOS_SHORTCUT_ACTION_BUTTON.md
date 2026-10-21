@@ -149,7 +149,7 @@ HTTP-запрос прямо в локальный сервер и показы�
 |---|---|---|
 | `<BASE_URL>` | адрес локального сервера | `http://<ip-компьютера>:3000` в той же Wi-Fi-сети, либо `https://<tunnel-host>` из `npm run dev:miniapp -- --chat-id=<id>` |
 | `<TELEGRAM_ID>` | владелец записи | тот же id, что используется в боте (у Шукура — его собственный Telegram id) |
-| `<SHORTCUT_CAPTURE_TOKEN>` | необязательный общий токен | значение, которое Шукур сам записывает в `.env` как `SHORTCUT_CAPTURE_TOKEN=`; если переменная пустая — токен не требуется |
+| `<SHORTCUT_CAPTURE_TOKEN>` | общий токен | значение, которое Шукур сам записывает в `.env.local` как `SHORTCUT_CAPTURE_TOKEN=`. С телефона (туннель или Wi-Fi) **обязателен**: без него сервер отвечает `403 SHORTCUT_CAPTURE_TOKEN_REQUIRED`. Без токена работает только запрос с самого компьютера |
 
 Токен придумывает и хранит Шукур. В репозитории и в этом документе его нет и быть не должно — только плейсхолдер.
 
@@ -190,6 +190,7 @@ curl -sS -X POST <BASE_URL>/api/quick-capture \
 | Симптом | Причина | Что делать |
 |---|---|---|
 | `403 SHORTCUT_CAPTURE_DISABLED` | сервер запущен с `NODE_ENV=production` | этот путь в проде выключен намеренно; использовать Telegram-вариант |
+| `403 SHORTCUT_CAPTURE_TOKEN_REQUIRED` | запрос с телефона, а `SHORTCUT_CAPTURE_TOKEN` не задан | задать токен в `.env.local`, перезапустить сервер, добавить заголовок `X-Shortcut-Capture-Token` в Shortcut |
 | `401 INVALID_SHORTCUT_TOKEN` | `SHORTCUT_CAPTURE_TOKEN` задан в `.env`, а заголовок не совпал | сверить заголовок со значением в `.env`, перезапустить сервер после правки |
 | `401 MISSING_AUTH_HEADER` | заголовок `X-Shortcut-User-Id` не долетел или пустой | проверить имя заголовка, без пробелов в значении |
 | `400 VALIDATION_ERROR` | пустой `text` или тело не JSON | тип тела в Shortcut — `JSON`, поле `text` не пустое |
