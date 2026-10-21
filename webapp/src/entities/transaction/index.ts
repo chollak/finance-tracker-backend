@@ -16,12 +16,15 @@ export type {
 } from './model/types';
 export type { TransactionPatch } from './api/mutations';
 export type { RecordDay, RecordRow, RecordCategory, DayTotal } from './lib/recordDays';
+export type { QueuedRecord, QueuedRecordInput } from './model/outbox';
+export type { ListedRecord } from './lib/pendingRecords';
 
 // View Model
 export { transactionToViewModel } from './lib/toViewModel';
 
 // Utils
-export { buildRecordDays, recordRow } from './lib/recordDays';
+export { buildRecordDays, recordRow, PENDING_CAPTION } from './lib/recordDays';
+export { pendingRecord, withPendingRecords, queuedToastDetail, QUEUED_TITLE } from './lib/pendingRecords';
 export { formatNetMinor, isHistoryNarrowed, netInUzs, parseHistorySearch } from './lib/historySearch';
 export {
   getSemanticTypeLabel,
@@ -48,7 +51,19 @@ export {
   deleteTransaction,
   restoreTransaction,
   patchTransaction,
+  refreshAfterRecordsChanged,
 } from './api/mutations';
+// Records written without a connection (FT-129): the outbox and its send
+export {
+  queueRecords,
+  writeOnDevice,
+  cancelQueuedRecords,
+  flushRecordOutbox,
+  pendingRecordsOf,
+  usePendingRecords,
+  OUTBOX_SEND_TIMEOUT_MS,
+  type OutboxFlush,
+} from './api/recordOutbox';
 
 // UI Components
 export { TransactionCard } from './ui/TransactionCard';

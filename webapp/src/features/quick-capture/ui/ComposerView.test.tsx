@@ -117,3 +117,30 @@ describe('the round button', () => {
     expect(html).toMatch(/<input[^>]*value="такси 18к"/);
   });
 });
+
+/**
+ * FT-129, board «Главная без связи»: without a connection the microphone is a `track` circle with `ink`, not the main
+ * button, and says it does not work; the send arrow writes on the device.
+ */
+describe('the composer without a connection', () => {
+  it('draws the microphone on `track` and says it does not work', () => {
+    const mic = buttons(view({ offline: true })).find((tag) => tag.includes('Голосовой ввод'));
+
+    expect(mic).toContain('aria-label="Голосовой ввод — без связи не работает"');
+    expect(mic).toMatch(/class="[^"]*bg-track[^"]*text-ink/);
+    expect(mic).not.toMatch(/bg-primary/);
+  });
+
+  it('the send arrow says it writes without a connection', () => {
+    const send = buttons(view({ offline: true, text: 'такси 18к' })).find((tag) => tag.includes('type="submit"'));
+
+    expect(send).toContain('aria-label="Записать без связи"');
+  });
+
+  it('online the microphone stays the main button', () => {
+    const mic = buttons(view()).find((tag) => tag.includes('Голосовой ввод'));
+
+    expect(mic).toContain('aria-label="Голосовой ввод"');
+    expect(mic).toMatch(/bg-primary/);
+  });
+});

@@ -8,6 +8,9 @@ import { apiClient } from '@/shared/api/client';
 import { API_ENDPOINTS } from '@/shared/lib/constants/routes';
 import type { LocalTransaction, CreateLocalTransactionDTO, UpdateLocalTransactionDTO } from './schema';
 
+/** How long writing a record may wait for the server (FT-129). */
+export const RECORD_WRITE_TIMEOUT_MS = 15_000;
+
 /**
  * Transaction Data Source (server API)
  */
@@ -28,10 +31,16 @@ export const transactionDataSource = {
    */
   async create(dto: CreateLocalTransactionDTO): Promise<LocalTransaction> {
 
-    const response = await apiClient.post<any>('/transactions', {
-      ...dto,
-      userId: dto.userId,
-    });
+    // A write that gets no answer in time is given up (FT-129): its screen keeps it on the device with the same client
+    // id, so the outbox sends it once the connection is back
+    const response = await apiClient.post<any>(
+      '/transactions',
+      {
+        ...dto,
+        userId: dto.userId,
+      },
+      { timeoutMs: RECORD_WRITE_TIMEOUT_MS }
+    );
 
     if (!response.data) {
       throw new Error('Failed to create transaction on server');

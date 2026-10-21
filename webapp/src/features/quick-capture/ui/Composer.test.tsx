@@ -3,7 +3,8 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useLocation } from 'react-router-dom';
+import { useEffect } from 'react';
 import type { Account } from '@/entities/account';
 import type { Category } from '@/entities/category';
 import type { FrequentRecord } from '@/entities/transaction';
@@ -11,6 +12,7 @@ import { useUserStore } from '@/entities/user';
 import { ROUTES } from '@/shared/lib/constants/routes';
 import { NBSP } from '@/shared/lib/money';
 import { useUndoToastStore, visibleEntry } from '@/shared/lib/undo';
+import { memoryOfflineStorage, setOfflineStorage, useConnectivityStore, useOutboxStore } from '@/shared/lib/offline';
 import { RECEIPT_NOT_YET, VOICE_NOT_YET } from '../model/captureNotices';
 import { useCaptureStore } from '../model/captureStore';
 import { Composer } from './Composer';
@@ -57,6 +59,16 @@ const STARTERS = ['Кофе', 'Такси', 'Обед', 'Продукты'];
 
 let root: Root | null = null;
 let container: HTMLDivElement;
+let shownPath = '';
+
+/** Where the app went: the path the router is on. */
+function Where() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    shownPath = pathname;
+  });
+  return null;
+}
 
 async function renderComposer(): Promise<void> {
   root = createRoot(container);
@@ -65,6 +77,7 @@ async function renderComposer(): Promise<void> {
       <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
         <MemoryRouter initialEntries={[ROUTES.HOME]}>
           <Composer />
+          <Where />
         </MemoryRouter>
       </QueryClientProvider>
     );
@@ -93,6 +106,9 @@ beforeEach(() => {
   useUndoToastStore.getState().clear();
   useCaptureStore.setState({ draft: '', review: null });
   useUserStore.setState({ userId: USER_ID, userType: 'telegram', telegramId: USER_ID, userName: 'Шукур' });
+  setOfflineStorage(memoryOfflineStorage());
+  useOutboxStore.setState({ entries: [] });
+  useConnectivityStore.setState({ browserOnline: true, lost: false });
 });
 
 afterEach(() => {
@@ -134,5 +150,45 @@ describe('the quick chips', () => {
     await renderComposer();
 
     expect(chipNames()).toEqual(STARTERS);
+  });
+});
+
+/**
+ * FT-129, OfflineBar.md, boards «Главная без связи», «Голос без связи», «Чек без связи»: without a connection the
+ * microphone is not the main button any more (`track`), and it and the camera open their honest screens — voice and
+ * receipts are read on the server — with «Ввести вручную».
+ */
+describe('without a connection', () => {
+  beforeEach(() => {
+    useConnectivityStore.setState({ browserOnline: false });
+  });
+
+  it('the microphone says it does not work and opens «Голос работает только со связью»', async () => {
+    await renderComposer();
+
+    await press('Голосовой ввод — без связи не работает');
+
+    expect(shownPath).toBe(ROUTES.VOICE_OFFLINE);
+    expect(shownToast()).toBeNull();
+  });
+
+  it('the camera opens «Чек читается только со связью»', async () => {
+    await renderComposer();
+
+    await press('Фото чека');
+
+    expect(shownPath).toBe(ROUTES.RECEIPT_OFFLINE);
+  });
+
+  it('the microphone works again once the connection is back', async () => {
+    await renderComposer();
+    await act(async () => {
+      useConnectivityStore.setState({ browserOnline: true });
+    });
+
+    await press('Голосовой ввод');
+
+    expect(shownPath).toBe(ROUTES.HOME);
+    expect(shownToast()).toMatchObject({ title: VOICE_NOT_YET.title });
   });
 });

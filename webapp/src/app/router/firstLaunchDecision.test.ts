@@ -39,3 +39,23 @@ describe('first launch gate (FT-109)', () => {
     expect(firstLaunchDecision({ userType: 'telegram', settings: { ...settled, data: { onboardedAt: null } }, opened: true })).toBe('first-launch');
   });
 });
+
+// FT-129: without a connection the settings that were never kept on the device cannot come; the app opens as when they
+// cannot be read, so the user can write. Settings kept on the device decide as usual.
+describe('first launch gate without a connection (FT-129)', () => {
+  const waiting = { isPending: true, isError: false, data: undefined };
+
+  it('opens the app instead of waiting for settings that cannot come', () => {
+    expect(firstLaunchDecision({ userType: 'telegram', settings: waiting, offline: true })).toBe('app');
+  });
+
+  it('settings kept on the device still show the first launch to a user who has not done it', () => {
+    expect(
+      firstLaunchDecision({ userType: 'telegram', settings: { isPending: false, isError: false, data: { onboardedAt: null } }, offline: true })
+    ).toBe('first-launch');
+  });
+
+  it('still waits until the user is known', () => {
+    expect(firstLaunchDecision({ userType: null, settings: waiting, offline: true })).toBe('wait');
+  });
+});

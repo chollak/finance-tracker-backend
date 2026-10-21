@@ -1,6 +1,17 @@
 import { env } from '@/shared/config/env';
+import { connectionReached } from '@/shared/lib/offline/connectivity';
 import type { ApiResponse, ApiError } from './types';
 import { readServerError } from './readServerError';
+
+/** How long a write may wait for the server before it counts as unanswered (FT-129): see `RequestOptions.timeoutMs`. */
+export interface RequestOptions {
+  /**
+   * Give up after this many ms and reject as «no answer» (`statusCode: 0`). A record write uses it so a dead connection
+   * that the browser still calls online ends in the outbox instead of a button that waits for a minute; its client id
+   * (FT-106) makes the later send safe even if the server did get it.
+   */
+  timeoutMs?: number;
+}
 
 /**
  * Get Telegram Web App initData for authentication
@@ -60,19 +71,25 @@ class ApiClient {
 
   private async request<T>(
     endpoint: string,
-    options: RequestInit = {}
+    options: RequestInit = {},
+    { timeoutMs }: RequestOptions = {}
   ): Promise<ApiResponse<T>> {
     const url = `${this.baseUrl}${endpoint}`;
+    const abort = timeoutMs ? new AbortController() : null;
+    const timer = abort ? setTimeout(() => abort.abort(), timeoutMs) : null;
 
     try {
       const response = await fetch(url, {
         ...options,
+        ...(abort ? { signal: abort.signal } : {}),
         headers: {
           'Content-Type': 'application/json',
           ...getAuthHeaders(),
           ...options.headers,
         },
       });
+      // The server answered a write (FT-129). A read may come from the service worker's cache, so it does not count
+      if (options.method && options.method !== 'GET') connectionReached();
 
       if (!response.ok) {
         noticeUnauthorized(endpoint, response.status);
@@ -96,6 +113,8 @@ class ApiClient {
         message: 'Network error',
         statusCode: 0,
       } as ApiError;
+    } finally {
+      if (timer) clearTimeout(timer);
     }
   }
 
@@ -105,11 +124,15 @@ class ApiClient {
     });
   }
 
-  async post<T>(endpoint: string, body?: unknown): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, {
-      method: 'POST',
-      body: body ? JSON.stringify(body) : undefined,
-    });
+  async post<T>(endpoint: string, body?: unknown, options?: RequestOptions): Promise<ApiResponse<T>> {
+    return this.request<T>(
+      endpoint,
+      {
+        method: 'POST',
+        body: body ? JSON.stringify(body) : undefined,
+      },
+      options
+    );
   }
 
   async put<T>(endpoint: string, body: unknown): Promise<ApiResponse<T>> {
@@ -205,3 +228,20 @@ class ApiClient {
 
 // Singleton instance
 export const apiClient = new ApiClient();
+
+/**
+ * Whether the server answers at all (FT-129): `GET /api/health`, which the service worker never answers from its cache.
+ * The offline mode asks it while the server is not answering, to know when it is back.
+ */
+export async function serverAnswers(timeoutMs = 10_000): Promise<boolean> {
+  const abort = new AbortController();
+  const timer = setTimeout(() => abort.abort(), timeoutMs);
+  try {
+    const response = await fetch(`${env.apiBaseUrl}/health`, { signal: abort.signal, cache: 'no-store' });
+    return response.ok;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
+}

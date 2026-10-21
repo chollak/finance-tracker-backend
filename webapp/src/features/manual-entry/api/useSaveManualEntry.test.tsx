@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { deleteTransaction, useCreateTransaction } from '@/entities/transaction';
+import { deleteTransaction, pendingRecordsOf, useCreateTransaction } from '@/entities/transaction';
+import { memoryOfflineStorage, setOfflineStorage, useConnectivityStore, useOutboxStore } from '@/shared/lib/offline';
 import { MINUS, NBSP } from '@/shared/lib/money';
 import { useUndoToastStore, visibleEntry } from '@/shared/lib/undo';
 import type { ManualEntryRecord } from '../model/manualEntry';
@@ -100,6 +101,9 @@ beforeEach(() => {
   openedFrom('/', 1);
   useUndoToastStore.getState().clear();
   user.current = { userId: USER_ID, userName: 'Шукур' };
+  setOfflineStorage(memoryOfflineStorage());
+  useOutboxStore.setState({ entries: [] });
+  useConnectivityStore.setState({ browserOnline: true, lost: false });
 });
 
 afterEach(() => {
@@ -245,5 +249,57 @@ describe('a failed save', () => {
 
     expect(shownToast()).toMatchObject({ title: 'Записано' });
     expect(navigate).toHaveBeenCalledTimes(1);
+  });
+});
+
+/**
+ * FT-129, board «Ручной ввод без связи»: the manual entry works without a connection. The record goes into the outbox
+ * on the device and Home says it will be sent when the connection is back.
+ */
+describe('a save without a connection', () => {
+  it('writes the record on the device and shows Home with «Записано на этом устройстве»', async () => {
+    useConnectivityStore.setState({ browserOnline: false });
+
+    await mountSave().save(RECORD, 'Карта');
+
+    expect(mutateAsync).not.toHaveBeenCalled();
+    expect(pendingRecordsOf(USER_ID)).toEqual([
+      expect.objectContaining({
+        type: 'expense',
+        amountMinor: 18_640_000,
+        currency: 'UZS',
+        accountId: 'card',
+        categoryId: 'products',
+        categoryName: 'Продукты',
+        date: '2026-10-14',
+        note: 'супермаркет',
+      }),
+    ]);
+    expect(shownToast()).toMatchObject({
+      kind: 'saved',
+      title: 'Записано на этом устройстве',
+      detail: `супермаркет · ${MINUS}186${NBSP}400${NBSP}сум · отправится со связью`,
+    });
+    expect(navigate).toHaveBeenCalledWith(-1);
+  });
+
+  it('a send that got no answer is kept on the device with the client id it was sent with', async () => {
+    mutateAsync.mockRejectedValue({ message: 'Network error', statusCode: 0 });
+
+    await mountSave().save(RECORD, 'Карта');
+
+    const [sent] = sentClientIds();
+    expect(pendingRecordsOf(USER_ID)).toEqual([expect.objectContaining({ clientId: sent })]);
+    expect(shownToast()).toMatchObject({ title: 'Записано на этом устройстве' });
+    expect(navigate).toHaveBeenCalledWith(-1);
+  });
+
+  it('a save the server refused stays on the screen, as before', async () => {
+    mutateAsync.mockRejectedValue({ message: 'Validation failed', statusCode: 400 });
+
+    await mountSave().save(RECORD, 'Карта');
+
+    expect(pendingRecordsOf(USER_ID)).toEqual([]);
+    expect(navigate).not.toHaveBeenCalled();
   });
 });

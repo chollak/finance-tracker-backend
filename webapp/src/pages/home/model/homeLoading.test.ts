@@ -88,3 +88,17 @@ describe('FT-112 review: a read that fails before it has data', () => {
     stop();
   });
 });
+
+/**
+ * FT-129: without a connection the reads that have nothing cannot answer, so Home does not wait for them — it opens on
+ * what it has (the reads kept from the last time) with the offline line, and the writing works.
+ */
+describe('Home without a connection', () => {
+  it('opens at once, even with its reads still waiting', () => {
+    expect(isHomeLoading({ reads: reads('on its way', 'on its way', 'answered', 'answered'), offline: true })).toBe(false);
+  });
+
+  it('online it waits as before', () => {
+    expect(isHomeLoading({ reads: reads('on its way', 'answered', 'answered', 'answered'), offline: false })).toBe(true);
+  });
+});

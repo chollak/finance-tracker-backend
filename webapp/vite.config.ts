@@ -47,8 +47,9 @@ export default defineConfig({
         runtimeCaching: [
           {
             // API calls - Network First with fallback. Not the login and the session (FT-128): an answer about who is
-            // signed in must never come from a cache
-            urlPattern: /^https?:\/\/[^/]+\/api\/(?!auth\/).*/i,
+            // signed in must never come from a cache. Nor the health check: the offline mode asks it whether the server
+            // is there at all (FT-129)
+            urlPattern: /^https?:\/\/[^/]+\/api\/(?!auth\/|health).*/i,
             handler: 'NetworkFirst',
             options: {
               cacheName: 'api-cache',

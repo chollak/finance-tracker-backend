@@ -17,6 +17,11 @@ export interface ComposerViewProps {
   onChip: (chip: QuickChip) => void;
   onVoice: () => void;
   onCamera: () => void;
+  /**
+   * No connection (FT-129, board «Главная без связи»): the microphone is a `track` circle, not the main button, and
+   * says it does not work; the send arrow writes on the device.
+   */
+  offline?: boolean;
 }
 
 const FOCUS = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink';
@@ -66,9 +71,10 @@ function SendIcon() {
  * chips and text; `Composer` reads them and acts. On the screen's background, fixed to the bottom: the quick
  * chips in one row that scrolls sideways (44px pills in their category's pastel, the name 14px/700 and the
  * amount 500), then the 56px field on `card` with the camera and «Ввести вручную» inside, and the round 56px
- * `primary` button: the microphone while the field is empty, the send arrow once there is text.
+ * `primary` button: the microphone while the field is empty, the send arrow once there is text. Without a connection
+ * the microphone is on `track` (FT-129).
  */
-export function ComposerView({ chips, text, sending, onText, onSend, onChip, onVoice, onCamera }: ComposerViewProps) {
+export function ComposerView({ chips, text, sending, onText, onSend, onChip, onVoice, onCamera, offline = false }: ComposerViewProps) {
   const { pathname } = useLocation();
   const openedFrom: OpenedFromState = { from: pathname };
   const hasText = text.trim().length > 0;
@@ -141,8 +147,18 @@ export function ComposerView({ chips, text, sending, onText, onSend, onChip, onV
         </div>
 
         {hasText ? (
-          <Button type="submit" variant="round" aria-label="Распознать текст" disabled={sending} aria-busy={sending}>
+          <Button
+            type="submit"
+            variant="round"
+            aria-label={offline ? 'Записать без связи' : 'Распознать текст'}
+            disabled={sending}
+            aria-busy={sending}
+          >
             <SendIcon />
+          </Button>
+        ) : offline ? (
+          <Button variant="round" aria-label="Голосовой ввод — без связи не работает" onClick={onVoice} className="bg-track text-ink">
+            <MicIcon />
           </Button>
         ) : (
           <Button variant="round" aria-label="Голосовой ввод" onClick={onVoice}>

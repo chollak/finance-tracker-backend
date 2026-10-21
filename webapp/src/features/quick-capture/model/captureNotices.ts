@@ -21,6 +21,18 @@ export const CANCEL_FAILED: CaptureNotice = { title: 'Не получилось 
 
 export const WRITE_FAILED: CaptureNotice = { title: 'Не получилось записать', detail: 'Проверьте связь и нажмите ещё раз' };
 
+/** Without a connection a phrase is read on the device, but only a simple one (FT-129, board «Главная без связи»). */
+export const OFFLINE_NOT_UNDERSTOOD: CaptureNotice = {
+  title: 'Без связи понимаю только «что и сколько»',
+  detail: 'Например: «такси 18к» или «обед 45 000, кофе 25к»',
+};
+
+/** «55$» without a dollar account: the server would refuse it, so the device does not write it (FT-129). */
+export const NO_DOLLAR_ACCOUNT: CaptureNotice = {
+  title: 'Нет долларового счёта',
+  detail: 'Запишите в сумах или добавьте счёт «Доллары»',
+};
+
 function field(error: unknown, key: 'name' | 'message' | 'statusCode'): unknown {
   return typeof error === 'object' && error !== null ? (error as Record<string, unknown>)[key] : undefined;
 }

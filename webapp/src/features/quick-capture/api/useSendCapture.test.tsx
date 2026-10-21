@@ -3,6 +3,10 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useCategories, type Category } from '@/entities/category';
+import type { Account } from '@/entities/account';
+import { pendingRecordsOf } from '@/entities/transaction';
+import { memoryOfflineStorage, setOfflineStorage, useConnectivityStore, useOutboxStore } from '@/shared/lib/offline';
+import { MINUS, NBSP } from '@/shared/lib/money';
 import { ROUTES } from '@/shared/lib/constants/routes';
 import { useUndoToastStore, visibleEntry } from '@/shared/lib/undo';
 import { useCaptureStore } from '../model/captureStore';
@@ -26,6 +30,18 @@ vi.mock('@/entities/category', async (importOriginal) => {
   return { ...actual, useCategories: vi.fn() };
 });
 
+const ACCOUNTS: Account[] = [
+  { id: 'card', name: 'Карта', kind: 'card', currency: 'UZS', openingBalanceMinor: 0, openingDate: '2026-10-01', isHidden: false, sortOrder: 10, balanceMinor: 0 },
+];
+vi.mock('@/entities/account', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/entities/account')>();
+  return { ...actual, useAccounts: () => ({ data: { accounts: ACCOUNTS } }) };
+});
+vi.mock('@/entities/settings', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/entities/settings')>();
+  return { ...actual, useSettings: () => ({ data: { defaultAccountId: 'card' } }) };
+});
+
 const user = vi.hoisted(() => ({ current: { userId: '900000001' as string | null, userName: 'Шукур', userType: 'telegram' as string | null } }));
 vi.mock('@/entities/user', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/entities/user')>();
@@ -39,6 +55,8 @@ vi.mock('react-router-dom', async (importOriginal) => {
 
 const CATEGORIES: Category[] = [
   { id: 'c-cafe', type: 'expense', name: 'Кафе', color: 'rose', isHidden: false, isOther: false, sortOrder: 20, presetKey: 'cafe' },
+  { id: 'c-tr', type: 'expense', name: 'Транспорт', color: 'sky', isHidden: false, isOther: false, sortOrder: 30, presetKey: 'transport' },
+  { id: 'c-other', type: 'expense', name: 'Другое', color: 'mist', isHidden: false, isOther: true, sortOrder: 1000, presetKey: 'other' },
 ];
 
 const mutateAsync = vi.fn();
@@ -93,6 +111,9 @@ beforeEach(() => {
   useUndoToastStore.getState().clear();
   useCaptureStore.setState({ draft: 'кофе 25к, такси 18к', review: null });
   user.current = { userId: '900000001', userName: 'Шукур', userType: 'telegram' };
+  setOfflineStorage(memoryOfflineStorage());
+  useOutboxStore.setState({ entries: [] });
+  useConnectivityStore.setState({ browserOnline: true, lost: false });
 });
 
 describe('a phrase that made records', () => {
@@ -165,5 +186,61 @@ describe('a send that failed', () => {
 
     const [first, second] = sentClientIds();
     expect(second).toBe(first);
+  });
+});
+
+/**
+ * FT-129, OfflineBar.md, board «Главная без связи»: without a connection a simple phrase is read on the device — «такси
+ * 18к, кофе 25к» is two records — and written into the outbox; the field is emptied and the toast says they go with the
+ * connection. A phrase the device cannot read keeps the text and says what it understands.
+ */
+describe('a phrase without a connection', () => {
+  beforeEach(() => {
+    useConnectivityStore.setState({ browserOnline: false });
+  });
+
+  it('is read on the device into its records, written there, and the field is emptied', async () => {
+    useCaptureStore.setState({ draft: 'такси 18к, кофе 25к' });
+
+    await mountSend().send('такси 18к, кофе 25к');
+
+    expect(mutateAsync).not.toHaveBeenCalled();
+    expect(pendingRecordsOf('900000001')).toEqual([
+      expect.objectContaining({ note: 'Такси', amountMinor: 1_800_000, categoryId: 'c-tr', accountId: 'card' }),
+      expect.objectContaining({ note: 'Кофе', amountMinor: 2_500_000, categoryId: 'c-cafe', accountId: 'card' }),
+    ]);
+    expect(useCaptureStore.getState().draft).toBe('');
+    expect(navigate).not.toHaveBeenCalled();
+    expect(shownToast()).toMatchObject({ kind: 'saved', title: 'Записано на этом устройстве', detail: '2 записи · отправятся со связью' });
+  });
+
+  it('one record names itself in the toast', async () => {
+    await mountSend().send('такси 18к');
+
+    expect(shownToast()?.detail).toBe(`Такси · ${MINUS}18${NBSP}000${NBSP}сум · отправится со связью`);
+  });
+
+  it('a phrase the device cannot read stays in the field, and the toast says what it understands', async () => {
+    useCaptureStore.setState({ draft: 'вчера ужинали с друзьями' });
+
+    await mountSend().send('вчера ужинали с друзьями');
+
+    expect(pendingRecordsOf('900000001')).toEqual([]);
+    expect(useCaptureStore.getState().draft).toBe('вчера ужинали с друзьями');
+    expect(shownToast()).toMatchObject({
+      kind: 'info',
+      title: 'Без связи понимаю только «что и сколько»',
+      detail: 'Например: «такси 18к» или «обед 45 000, кофе 25к»',
+    });
+  });
+
+  it('dollars without a dollar account are not written, and the toast says why', async () => {
+    useCaptureStore.setState({ draft: '55$' });
+
+    await mountSend().send('55$');
+
+    expect(pendingRecordsOf('900000001')).toEqual([]);
+    expect(useCaptureStore.getState().draft).toBe('55$');
+    expect(shownToast()).toMatchObject({ kind: 'info', title: 'Нет долларового счёта' });
   });
 });

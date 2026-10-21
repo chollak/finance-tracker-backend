@@ -21,12 +21,37 @@ interface RecordDayListProps {
 
 const FOCUS = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ink';
 
+/** The clock before «Ждёт связи» (OfflineBar.md: 13px, the caption's colour). */
+function PendingClock() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 20 20" aria-hidden="true" className="shrink-0">
+      <path
+        d="M10 17a7 7 0 1 0 0-14 7 7 0 0 0 0 14Zm0-10.5V10l2.5 1.5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 function RowText({ row }: { row: RecordRow }) {
   return (
     <>
       <span className="flex min-w-0 flex-1 flex-col gap-px py-2.5 pl-2 pr-3">
         <span className="type-body-strong truncate">{row.title}</span>
-        <span className="truncate text-[13px] leading-snug text-ink-muted">{row.note}</span>
+        {row.pending ? (
+          <span className="flex min-w-0 items-center gap-1 text-[13px] leading-snug text-ink-muted">
+            <PendingClock />
+            <span data-pending="" className="truncate">
+              {row.note}
+            </span>
+          </span>
+        ) : (
+          <span className="truncate text-[13px] leading-snug text-ink-muted">{row.note}</span>
+        )}
       </span>
       <span
         className={cn(

@@ -206,7 +206,7 @@ export async function restoreTransaction(queryClient: QueryClient, { id, userId 
   const known = deletedRecords.get(id);
   deletedRecords.delete(id);
   if (known) queryClient.setQueryData(transactionKeys.record(id), known);
-  refetchAfterChange(queryClient, userId);
+  refreshAfterRecordsChanged(queryClient, userId);
 }
 
 /**
@@ -234,11 +234,14 @@ export async function patchTransaction(
   const saved = response.data;
   queryClient.removeQueries({ queryKey: transactionKeys.detail(id) });
   queryClient.setQueryData(transactionKeys.record(id), saved);
-  refetchAfterChange(queryClient, userId);
+  refreshAfterRecordsChanged(queryClient, userId);
 }
 
-/** Everything a written, changed, deleted or restored record moves; the server computes it. */
-function refetchAfterChange(queryClient: QueryClient, userId: string): void {
+/**
+ * Everything a written, changed, deleted or restored record moves; the server computes it. The outbox (FT-129) runs it
+ * after it sent what was written without a connection.
+ */
+export function refreshAfterRecordsChanged(queryClient: QueryClient, userId: string): void {
   queryClient.invalidateQueries({ queryKey: transactionKeys.list(userId) });
   queryClient.invalidateQueries({ queryKey: budgetKeys.summaries(userId) });
   invalidateBalanceReaders(queryClient, userId);

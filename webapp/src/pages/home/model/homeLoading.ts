@@ -3,6 +3,7 @@ import { useCategories } from '@/entities/category';
 import { useUsdRate } from '@/entities/rate';
 import { usePeriodTotals, useRecentRecords } from '@/entities/transaction';
 import { monthBounds, toLocalDate } from '@/shared/lib/dates';
+import { useIsOffline } from '@/shared/lib/offline';
 import { RECENT_LIMIT } from '@/widgets/recent-transactions';
 
 /** What the decision needs of a read (a TanStack Query result). */
@@ -26,7 +27,10 @@ export interface HomeRead {
  * TanStack asks it again (retryOnMount). Waiting for that answer too would swap Home back to the skeleton,
  * unmount the sections and ask again without end, and the section's error would never show.
  */
-export function isHomeLoading({ reads }: { reads: readonly HomeRead[] }): boolean {
+export function isHomeLoading({ reads, offline = false }: { reads: readonly HomeRead[]; offline?: boolean }): boolean {
+  // Without a connection (FT-129) a read that has nothing cannot answer: Home opens on what it has (the reads kept on
+  // the device fill it) with the offline line, and writing works
+  if (offline) return false;
   return reads.some((read) => read.isEnabled && read.isPending && !read.isFetched);
 }
 
@@ -43,6 +47,7 @@ export function useHomeLoading(): boolean {
   const records = useRecentRecords(RECENT_LIMIT);
   const categories = useCategories();
   const rate = useUsdRate();
+  const offline = useIsOffline();
 
-  return isHomeLoading({ reads: [accounts, totals, records, categories, rate] });
+  return isHomeLoading({ reads: [accounts, totals, records, categories, rate], offline });
 }

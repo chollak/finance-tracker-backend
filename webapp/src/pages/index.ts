@@ -3,6 +3,7 @@ export * from './home';
 export * from './transactions';
 export * from './manual-entry';
 export * from './capture-review';
+export * from './capture-offline';
 export * from './budgets';
 export * from './add-budget';
 export * from './edit-budget';

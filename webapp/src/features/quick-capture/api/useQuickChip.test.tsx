@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { deleteTransaction, useCreateTransaction } from '@/entities/transaction';
+import { deleteTransaction, pendingRecordsOf, useCreateTransaction } from '@/entities/transaction';
 import { toLocalDate } from '@/shared/lib/dates';
+import { memoryOfflineStorage, setOfflineStorage, useConnectivityStore, useOutboxStore } from '@/shared/lib/offline';
 import { MINUS, NBSP } from '@/shared/lib/money';
 import { useUndoToastStore, visibleEntry } from '@/shared/lib/undo';
 import type { QuickChip } from '../model/quickChips';
@@ -61,6 +62,9 @@ beforeEach(() => {
   vi.mocked(useCreateTransaction).mockReturnValue({ mutateAsync, isPending: false } as unknown as ReturnType<typeof useCreateTransaction>);
   useUndoToastStore.getState().clear();
   user.current = { userId: '900000001', userName: 'Шукур' };
+  setOfflineStorage(memoryOfflineStorage());
+  useOutboxStore.setState({ entries: [] });
+  useConnectivityStore.setState({ browserOnline: true, lost: false });
 });
 
 describe('a tap on a chip', () => {
@@ -95,12 +99,64 @@ describe('a tap on a chip', () => {
     expect(deleteTransaction).toHaveBeenCalledWith(queryClient, { id: 't1', userId: '900000001' });
   });
 
-  it('says when it could not write, with nothing to undo', async () => {
-    mutateAsync.mockRejectedValue({ message: 'Network Error', statusCode: 0 });
+  it('says when the server could not write it, with nothing to undo', async () => {
+    mutateAsync.mockRejectedValue({ message: 'Internal', statusCode: 500 });
 
     await mountChip().write(CHIP);
 
     expect(shownToast()).toMatchObject({ kind: 'info', title: 'Не получилось записать' });
     expect(shownToast()?.undo).toBeUndefined();
+  });
+});
+
+/**
+ * FT-129, OfflineBar.md: without a connection a chip still writes — on the device, into the outbox with the client id
+ * it will be sent with — and the toast says it will go when the connection is back.
+ */
+describe('a tap on a chip without a connection', () => {
+  it('writes on the device instead of sending, with «отправится со связью»', async () => {
+    useConnectivityStore.setState({ browserOnline: false });
+
+    await mountChip().write(CHIP);
+
+    expect(mutateAsync).not.toHaveBeenCalled();
+    expect(pendingRecordsOf('900000001')).toEqual([
+      expect.objectContaining({
+        type: 'expense',
+        amountMinor: 2_500_000,
+        currency: 'UZS',
+        accountId: 'card',
+        categoryId: 'c-cafe',
+        categoryName: 'Кафе',
+        note: 'Кофе',
+        date: toLocalDate(new Date()),
+        clientId: expect.stringMatching(/^[0-9a-f-]{36}$/),
+      }),
+    ]);
+    expect(shownToast()).toMatchObject({
+      kind: 'saved',
+      title: 'Записано на этом устройстве',
+      detail: `Кофе · ${MINUS}25${NBSP}000${NBSP}сум · отправится со связью`,
+    });
+  });
+
+  it('«Отменить» takes it back out of the outbox', async () => {
+    useConnectivityStore.setState({ browserOnline: false });
+
+    await mountChip().write(CHIP);
+    await useUndoToastStore.getState().undoVisible();
+
+    expect(pendingRecordsOf('900000001')).toEqual([]);
+  });
+
+  it('a send that got no answer is kept on the device with the same client id, and the app works offline', async () => {
+    mutateAsync.mockRejectedValue({ message: 'Network error', statusCode: 0 });
+
+    await mountChip().write(CHIP);
+
+    const sent = mutateAsync.mock.calls[0][0].clientId as string;
+    expect(pendingRecordsOf('900000001')).toEqual([expect.objectContaining({ clientId: sent, note: 'Кофе' })]);
+    expect(shownToast()).toMatchObject({ title: 'Записано на этом устройстве' });
+    expect(useConnectivityStore.getState().lost).toBe(true);
   });
 });

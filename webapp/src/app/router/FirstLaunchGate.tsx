@@ -2,6 +2,7 @@ import { lazy, Suspense, useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { useUserStore } from '@/entities/user';
 import { useSettings } from '@/entities/settings';
+import { useIsOffline } from '@/shared/lib/offline';
 import { Loading } from '@/shared/ui/loading';
 import { firstLaunchDecision } from './firstLaunchDecision';
 import { AppLoading } from './AppLoading';
@@ -20,12 +21,14 @@ export function FirstLaunchGate() {
   const userType = useUserStore((state) => state.userType);
   const userId = useUserStore((state) => state.userId);
   const settings = useSettings();
+  const offline = useIsOffline();
   // The user the gate has let into the app; another user (a sign-in after «Выйти») waits again
   const [openedFor, setOpenedFor] = useState<string | null>(null);
   const decision = firstLaunchDecision({
     userType,
     settings: { isPending: settings.isPending, isError: settings.isError, data: settings.data },
     opened: userId !== null && openedFor === userId,
+    offline,
   });
   // Remembered during the render (React's «storing information from previous renders»): the next render — the
   // screen's own read making the settings pending again — must already know

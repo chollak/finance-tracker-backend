@@ -1,5 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useUserStore } from '@/entities/user';
+import { workOffline } from '@/shared/lib/offline';
 import { cn } from '@/shared/lib/utils';
 import { Button, SkeletonBlock, Wordmark } from '@/shared/ui/pastel';
 import { useSlowLoading } from '../model/slowLoading';
@@ -26,6 +27,8 @@ export interface HomeSkeletonViewProps {
   /** Six seconds have passed: the message and «Попробовать снова» take the place of the note. */
   slow: boolean;
   onRetry: () => void;
+  /** «Записывать без связи» (FT-129): Home opens on what was kept on the device and writing works offline. */
+  onOffline: () => void;
 }
 
 /**
@@ -41,12 +44,12 @@ export interface HomeSkeletonViewProps {
  * the list. At the bottom, under the note, the composer as Home has it (FT-114): three chips, the 56px field
  * on `card` and the round button; the slow state puts its message and «Попробовать снова» there instead. In the
  * header «Сум / USD» (FT-137) and «Ещё» wait as a 124px pill and a circle, as the board draws them.
- * «Записывать без связи» under the slow state comes with the offline mode (FT-129).
+ * Under «Попробовать снова» the slow state offers «Записывать без связи» (FT-129), an underlined 44px link.
  *
  * Only the shapes are `aria-busy`: the status line and the slow message with its button stay outside, so a
  * screen reader announces them and lets the button be pressed while the shapes still wait.
  */
-export function HomeSkeletonView({ slow, onRetry }: HomeSkeletonViewProps) {
+export function HomeSkeletonView({ slow, onRetry, onOffline }: HomeSkeletonViewProps) {
   // With the message and the button at the bottom the list is shorter, so everything fits
   const rows = slow ? ROWS.slice(0, 3) : ROWS;
 
@@ -118,7 +121,12 @@ export function HomeSkeletonView({ slow, onRetry }: HomeSkeletonViewProps) {
             {slow ? SLOW_NOTE : LOADING_NOTE}
           </p>
           {slow ? (
-            <Button onClick={onRetry}>Попробовать снова</Button>
+            <>
+              <Button onClick={onRetry}>Попробовать снова</Button>
+              <Button variant="text" onClick={onOffline} className="self-center px-4">
+                Записывать без связи
+              </Button>
+            </>
           ) : (
             // The composer of Home (FT-114): the quick chips, the field and the round button
             <div aria-hidden="true" className="flex flex-col gap-2.5">
@@ -147,6 +155,9 @@ export function HomeSkeletonView({ slow, onRetry }: HomeSkeletonViewProps) {
  *
  * The slow message promises records kept on the server, so only a signed-in user gets it. While the app still
  * learns who is there (a browser checks its session, FT-128) the shapes stay without it.
+ *
+ * «Записывать без связи» (FT-129) fills Home's reads from what was kept on the device and switches the app to the
+ * offline mode until the server answers again: Home opens with the offline line and the composer writes on the device.
  */
 export function HomeSkeleton() {
   const queryClient = useQueryClient();
@@ -158,5 +169,13 @@ export function HomeSkeleton() {
     void retryUnanswered(queryClient);
   };
 
-  return <HomeSkeletonView slow={slow && signedIn} onRetry={retry} />;
+  const userId = useUserStore((state) => state.userId);
+
+  return (
+    <HomeSkeletonView
+      slow={slow && signedIn}
+      onRetry={retry}
+      onOffline={() => void workOffline(queryClient, userId)}
+    />
+  );
 }

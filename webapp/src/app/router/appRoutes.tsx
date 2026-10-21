@@ -31,6 +31,9 @@ const PastelShowcasePage = lazy(() => import('@/pages').then(m => ({ default: m.
 const ManualEntryPage = lazy(() => import('@/pages').then(m => ({ default: m.ManualEntryPage })));
 // The review of the records a phrase from Home's composer made (FT-114)
 const CaptureReviewPage = lazy(() => import('@/pages').then(m => ({ default: m.CaptureReviewPage })));
+// Voice and receipts without a connection (FT-129): opened by the composer's microphone and camera offline
+const VoiceOfflinePage = lazy(() => import('@/pages').then(m => ({ default: m.VoiceOfflinePage })));
+const ReceiptOfflinePage = lazy(() => import('@/pages').then(m => ({ default: m.ReceiptOfflinePage })));
 // Accounts and the rate, opened from the balance card on Home, and one account's screen (FT-118)
 const AccountsPage = lazy(() => import('@/pages').then(m => ({ default: m.AccountsPage })));
 const AccountPage = lazy(() => import('@/pages').then(m => ({ default: m.AccountPage })));
@@ -168,6 +171,14 @@ export const appRoutes: RouteObject[] = [
               {
                 path: '/review',
                 element: <PageLoader><CaptureReviewPage /></PageLoader>,
+              },
+              {
+                path: '/offline-voice',
+                element: <PageLoader><VoiceOfflinePage /></PageLoader>,
+              },
+              {
+                path: '/offline-receipt',
+                element: <PageLoader><ReceiptOfflinePage /></PageLoader>,
               },
               // Form and detail pages. A record has no page: its sheet opens over the list (FT-115), and a link
               // to a record is Home with `?record=` (ROUTES.RECORD)

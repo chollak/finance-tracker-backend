@@ -10,6 +10,7 @@ import {
   CategoryTile,
   ChoiceChips,
   Keypad,
+  OfflineBar,
   ProblemScreen,
   Segmented,
   SettingsRow,
@@ -254,6 +255,10 @@ function Panel({ theme, long }: { theme: 'light' | 'dark'; long: boolean }) {
           </span>
           <SkeletonBlock className="h-3 w-16" />
         </div>
+      </Block>
+
+      <Block title="OfflineBar">
+        <OfflineBar />
       </Block>
 
       <Block title="ProblemScreen">

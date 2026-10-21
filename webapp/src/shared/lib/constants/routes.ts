@@ -46,6 +46,11 @@ export const ROUTES = {
   // The review of the records a phrase sent from the composer made (FT-114)
   CAPTURE_REVIEW: '/review',
 
+  // Without a connection the microphone and the camera of the composer open these honest screens (FT-129): voice and
+  // receipts are read on the server; «Ввести вручную» writes on the device
+  VOICE_OFFLINE: '/offline-voice',
+  RECEIPT_OFFLINE: '/offline-receipt',
+
   // Budgets
   BUDGETS: '/budgets',
   ADD_BUDGET: '/budgets/add',

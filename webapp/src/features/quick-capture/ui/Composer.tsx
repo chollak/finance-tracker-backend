@@ -1,7 +1,11 @@
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAccounts } from '@/entities/account';
 import { useCategories } from '@/entities/category';
 import { useSettings } from '@/entities/settings';
 import { useFrequentRecords } from '@/entities/transaction';
+import { ROUTES } from '@/shared/lib/constants/routes';
+import type { OpenedFromState } from '@/shared/lib/navigation';
+import { useIsOffline } from '@/shared/lib/offline';
 import { showUndoToast } from '@/shared/lib/undo';
 import { useQuickChip } from '../api/useQuickChip';
 import { useSendCapture } from '../api/useSendCapture';
@@ -16,8 +20,16 @@ const notify = (notice: CaptureNotice) => showUndoToast({ kind: 'info', title: n
  * The composer at the bottom of Home (FT-114, Composer.md): quick chips that write in one tap, the field
  * whose text goes to recognition and then to the review of its records, «Ввести вручную». The microphone
  * and the camera say honestly where voice and receipts work today, until FT-117 and FT-135 bring them here.
+ *
+ * Without a connection (FT-129) the chips, the field and «Ввести вручную» write on the device; the microphone is not
+ * the main button, and it and the camera open their screens «Голос работает только со связью» and «Чек читается
+ * только со связью».
  */
 export function Composer() {
+  const offline = useIsOffline();
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const openedFrom: OpenedFromState = { from: pathname };
   const draft = useCaptureStore((state) => state.draft);
   const setDraft = useCaptureStore((state) => state.setDraft);
   const frequent = useFrequentRecords();
@@ -44,8 +56,9 @@ export function Composer() {
       onText={setDraft}
       onSend={() => void send(draft)}
       onChip={(chip) => void write(chip)}
-      onVoice={() => notify(VOICE_NOT_YET)}
-      onCamera={() => notify(RECEIPT_NOT_YET)}
+      onVoice={() => (offline ? navigate(ROUTES.VOICE_OFFLINE, { state: openedFrom }) : notify(VOICE_NOT_YET))}
+      onCamera={() => (offline ? navigate(ROUTES.RECEIPT_OFFLINE, { state: openedFrom }) : notify(RECEIPT_NOT_YET))}
+      offline={offline}
     />
   );
 }

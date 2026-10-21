@@ -11,7 +11,7 @@ import { HomeSkeleton, HomeSkeletonView } from './HomeSkeleton';
  * slow and offers to try again. Rendered to static markup (no DOM).
  */
 
-const view = (slow: boolean) => renderToStaticMarkup(<HomeSkeletonView slow={slow} onRetry={() => {}} />);
+const view = (slow: boolean) => renderToStaticMarkup(<HomeSkeletonView slow={slow} onRetry={() => {}} onOffline={() => {}} />);
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
 const RETRY = /<button[^>]*>Попробовать снова<\/button>/;
 
@@ -141,8 +141,18 @@ describe('Home that loads longer than usual', () => {
     expect(button).toMatch(/w-full/);
   });
 
-  it('leaves «Записывать без связи» to the offline mode (FT-129)', () => {
-    expect(text(view(true))).not.toContain('Записывать без связи');
+  it('offers «Записывать без связи» as an underlined link under the button (FT-129)', () => {
+    const html = view(true);
+    const link = html.match(/<button[^>]*>Записывать без связи<\/button>/)?.[0];
+
+    expect(link).toBeDefined();
+    expect(link).toMatch(/underline/);
+    expect(link).toMatch(/h-touch/);
+    expect(html.indexOf('Записывать без связи')).toBeGreaterThan(html.indexOf('Попробовать снова'));
+  });
+
+  it('does not offer it before the six seconds are up', () => {
+    expect(text(view(false))).not.toContain('Записывать без связи');
   });
 
   it('shortens the list so the message and the button fit', () => {

@@ -3,6 +3,7 @@ import { dayGroupLabel, toLocalDate, type LocalDate } from '@/shared/lib/dates';
 import { formatMinor, type Currency } from '@/shared/lib/money';
 import { isPastelColor, type PastelColor } from '@/shared/lib/pastel/categoryColors';
 import { formatNetMinor, netInUzs } from './historySearch';
+import type { ListedRecord } from './pendingRecords';
 
 /** What a row shows of the record's category: its current name and pastel colour. */
 export interface RecordCategory {
@@ -33,6 +34,11 @@ export interface RecordRow {
   ariaLabel: string;
   /** The category circle (FT-115): «Сменить категорию: Продукты, −186 400 сум». */
   categoryAriaLabel: string;
+  /**
+   * Written without a connection and not sent yet (FT-129, OfflineBar.md): the caption starts with «Ждёт связи» and a
+   * clock; the amount and its colour stay as they are.
+   */
+  pending: boolean;
 }
 
 /** History's total of a day (TransactionList.md): in сум with its sign; income green, expenses muted. */
@@ -72,6 +78,8 @@ export interface RecordDaysOptions {
 }
 
 const NO_NOTE = 'Без заметки';
+/** First in a waiting record's caption, so an ellipsis never cuts it off (OfflineBar.md). */
+export const PENDING_CAPTION = 'Ждёт связи';
 
 /** The local day of a record: a plain date as is; records saved before FT-100 may keep a full moment. */
 function recordDay(date: string): LocalDate {
@@ -112,6 +120,24 @@ export function recordRow(
   const under = lead ? [other, account].filter(Boolean).join(' · ') : [note, account].filter(Boolean).join(' · ');
   const said = lead ? [other, account] : [note, account];
 
+  const pending = (record as ListedRecord).pending;
+  if (pending) {
+    // Not on the server yet: it has no sheet to open, and its caption says it waits (board «Главная без связи»)
+    const caption = [PENDING_CAPTION, under || NO_NOTE, pending.checkAmount ? 'проверьте сумму' : ''].filter(Boolean).join(' · ');
+    return {
+      id: record.id ?? '',
+      title,
+      category: categoryName,
+      color,
+      note: caption,
+      amount: formatMinor(signed, currency, { sign: 'always', unit: currency !== 'UZS' }),
+      tone,
+      ariaLabel: [title, fullAmount, ...said.filter(Boolean), 'ждёт связи'].join(', '),
+      categoryAriaLabel: `${categoryName}, ${fullAmount}, ждёт связи`,
+      pending: true,
+    };
+  }
+
   return {
     id: record.id ?? '',
     title,
@@ -122,6 +148,7 @@ export function recordRow(
     tone,
     ariaLabel: `${[title, fullAmount, ...said.filter(Boolean)].join(', ')}. ${opens}`,
     categoryAriaLabel: `Сменить категорию: ${categoryName}, ${fullAmount}`,
+    pending: false,
   };
 }
 

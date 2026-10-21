@@ -4,7 +4,8 @@ import { RecentTransactions } from '@/widgets/recent-transactions';
 import { HomeHeader } from '@/widgets/home-header';
 import { HomeSkeleton } from '@/widgets/home-skeleton';
 import { PageShell } from '@/shared/ui';
-import { UndoToast } from '@/shared/ui/pastel';
+import { OfflineBar, UndoToast } from '@/shared/ui/pastel';
+import { useIsOffline } from '@/shared/lib/offline';
 import { Composer } from '@/features/quick-capture';
 import { RecordSheet, useRecordLink } from '@/features/record-sheet';
 import { useHomeLoading } from '../model/homeLoading';
@@ -25,9 +26,13 @@ import { useHomeLoading } from '../model/homeLoading';
  *
  * A recent record opens its sheet (FT-115), and so does a link to a record (`ROUTES.RECORD`: the bot's
  * «Изменить»), which the sheet shows once Home is there.
+ *
+ * Without a connection (FT-129, boards «Главная без связи») one line under the header says so, Home opens on what
+ * was kept on the device, and the composer writes there.
  */
 export function HomePage() {
   const loading = useHomeLoading();
+  const offline = useIsOffline();
   useRecordLink();
 
   // The toast of a record saved elsewhere (FT-113) shows over the skeleton too: Home may still be reading
@@ -46,6 +51,7 @@ export function HomePage() {
       <HomeHeader className="mb-4" />
 
       <div className="flex flex-col gap-4">
+        {offline && <OfflineBar />}
         <BalanceCard />
         <SummaryTiles />
         <RecentTransactions />

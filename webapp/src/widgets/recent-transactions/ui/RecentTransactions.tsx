@@ -5,8 +5,16 @@ import { ROUTES } from '@/shared/lib/constants/routes';
 import { toLocalDate } from '@/shared/lib/dates';
 import { SkeletonBlock } from '@/shared/ui/pastel';
 import { findCategory, useCategories, type Category } from '@/entities/category';
-import { buildRecordDays, RecordDayList, useRecentRecords, type Transaction } from '@/entities/transaction';
+import {
+  buildRecordDays,
+  RecordDayList,
+  usePendingRecords,
+  useRecentRecords,
+  withPendingRecords,
+  type Transaction,
+} from '@/entities/transaction';
 import { openRecordCategory, openRecordSheet, useRecordFlash } from '@/features/record-sheet';
+import { showUndoToast } from '@/shared/lib/undo';
 
 /** The board shows the five newest records. */
 export const RECENT_LIMIT = 5;
@@ -138,26 +146,42 @@ export function RecentRecordsView({
   );
 }
 
+/** A tap on a record that waits for the connection (FT-129): it can be changed once it is sent. */
+const PENDING_TAP = { title: 'Запись ждёт связи', detail: 'Изменить её можно, когда она отправится' };
+
 /**
  * «Последние операции» on Home (FT-111, board «Главная», TransactionList.md): the five newest records by
  * day, «Все» opening History. The category's name and colour come from the user's list by id. A row opens
  * the record sheet, its category circle the choice of a category, and the row just changed is ringed
- * (FT-115); the screen mounts `RecordSheet`.
+ * (FT-115); the screen mounts `RecordSheet`. Records written without a connection are among them with «Ждёт связи»
+ * and have no sheet until they are sent (FT-129).
  */
 export function RecentTransactions() {
   const records = useRecentRecords(RECENT_LIMIT);
+  const pending = usePendingRecords();
   const categories = useCategories();
   const flashId = useRecordFlash();
+  // The records written without a connection are among them at once, first on their day (FT-129)
+  const listed = withPendingRecords(records.data, pending, RECENT_LIMIT);
+  const waiting = new Set(pending.map((record) => record.id));
   // The record as the list has it, shown in the sheet until the sheet reads it
   const seed = (id: string) => records.data?.find((record) => record.id === id);
+  // A waiting record is not on the server yet: it has no sheet
+  const open = (show: (id: string, seed?: Transaction) => void) => (id: string) => {
+    if (waiting.has(id)) {
+      showUndoToast({ kind: 'info', title: PENDING_TAP.title, detail: PENDING_TAP.detail });
+      return;
+    }
+    show(id, seed(id));
+  };
 
   return (
     <RecentRecordsView
-      records={records}
+      records={{ data: listed, isError: records.isError }}
       categories={categories.data}
       today={toLocalDate(new Date())}
-      onOpen={(id) => openRecordSheet(id, seed(id))}
-      onCategory={(id) => openRecordCategory(id, seed(id))}
+      onOpen={open(openRecordSheet)}
+      onCategory={open(openRecordCategory)}
       flashId={flashId}
       onRetry={() => void records.refetch()}
       retrying={records.isError && records.isFetching}

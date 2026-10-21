@@ -7,6 +7,8 @@ export interface FirstLaunchGateInput {
   settings: { isPending: boolean; isError: boolean; data: { onboardedAt: string | null } | undefined };
   /** The gate has already let this user into the app in this session. */
   opened?: boolean;
+  /** No connection (FT-129): settings never kept on the device cannot come. */
+  offline?: boolean;
 }
 
 /**
@@ -18,10 +20,13 @@ export interface FirstLaunchGateInput {
  * read with no data is pending again until that answer comes (TanStack's retryOnMount). Waiting again would take the
  * screen away, mount it anew when the read fails and ask once more — without end (FT-125 review). So once the app is
  * open, it stays open while the settings are read again.
+ *
+ * Without a connection (FT-129) settings that were never kept on the device cannot come: the app opens as when they
+ * cannot be read, so the user can write on the device.
  */
-export function firstLaunchDecision({ userType, settings, opened = false }: FirstLaunchGateInput): FirstLaunchDecision {
+export function firstLaunchDecision({ userType, settings, opened = false, offline = false }: FirstLaunchGateInput): FirstLaunchDecision {
   if (userType === null) return 'wait';
   if (settings.isError) return 'app';
-  if (settings.isPending || !settings.data) return opened ? 'app' : 'wait';
+  if (settings.isPending || !settings.data) return opened || offline ? 'app' : 'wait';
   return settings.data.onboardedAt ? 'app' : 'first-launch';
 }
