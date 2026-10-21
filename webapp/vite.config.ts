@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
@@ -85,6 +86,13 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+    },
+  },
+  test: {
+    env: {
+      // A local .env.local may name a dev user for `npm run dev:full`; tests must not run as that user
+      // (src/shared/config/env.test.ts). A test that needs one mocks `env` itself
+      VITE_MOCK_USER_ID: '',
     },
   },
   server: {
