@@ -23,8 +23,8 @@ export function createQuickCaptureRouter(
   // Capture can reach OpenAI, so it shares the AI rate limit with /voice.
   router.use(aiRateLimiter);
 
-  // allowShortcutCapture handles the dev/test iPhone Shortcut header (FT-075) and otherwise
-  // delegates to allowGuestMode, so Mini App and guest callers keep the exact same auth path.
+  // allowShortcutCapture handles the dev/test iPhone Shortcut header (FT-075); otherwise the request signs in and
+  // body.userId becomes the signed-in user (writeAsSignedInUser), so a capture is never for someone else.
   router.post('/', allowShortcutCapture, async (req: Request, res: Response) => {
     try {
       const { text, source, userId, userName, clientId } = req.body ?? {};
@@ -49,8 +49,7 @@ export function createQuickCaptureRouter(
         return handleControllerError(error, res);
       }
 
-      // Capture writes transactions, so the owner must be explicit — no default userId here,
-      // unlike the older /voice/text-input route that falls back to '1'.
+      // Set by the auth middleware (signed-in user or Shortcut owner); kept as a guard against a misconfigured route
       if (!userId || typeof userId !== 'string') {
         const error = ErrorFactory.validation('User ID is required', 'userId');
         return handleControllerError(error, res);

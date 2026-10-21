@@ -2,6 +2,37 @@
 
 > Status: FT-024 audit/decision matrix. This document records current auth, guest, ownership, and userId-resolution boundaries before any strict resolver implementation.
 
+## 2026-10-21 — the user only from authentication (supersedes the guest rows below)
+
+Found while checking the local run: the dev server `npm run dev:miniapp` puts on the internet accepted unproven
+identities, and several routes took the user from the request. Changed:
+
+| Was | Now |
+|---|---|
+| `X-Dev-User-Id` signed in as anyone outside production — through the tunnel too | Only for a request from this machine (`isLocalRequest`): over loopback, `Host` is `localhost` / `127.0.0.1` / `[::1]` (no DNS rebinding), no `Cf-Connecting-Ip` / `Forwarded`, and an `X-Forwarded-For` only of loopback — the Vite proxy sends one (`xfwd`), so `vite --host` and a phone on the Wi-Fi do not qualify |
+| `X-Shortcut-User-Id` without `SHORTCUT_CAPTURE_TOKEN` wrote as any owner | From the phone (tunnel, Wi-Fi) the token is required — `403 SHORTCUT_CAPTURE_TOKEN_REQUIRED` |
+| `allowGuestMode`: a `guest_*` id went through without signing in | Same as `requireAuth`: there are no guests (Д4); the name stays until FT-136 |
+| `verifyOwnership` let a UUID through (`resolvedUser.telegramId` null) and any non-numeric id in the fallback | The path/body/query userId must equal the signed-in Telegram id; a UUID or guest id is `403` |
+| `verifyResourceOwnership({ allowGuest })` opened guest-owned records to anyone | No guest option: every record needs its signed-in owner |
+| `POST /api/transactions` had no authentication and took `body.userId` (and `?userId=`, which user resolution reads first) | `requireAuth` + `writeAsSignedInUser`: the signed-in user; a path, query or body userId naming someone else is `403` |
+| `POST /api/quick-capture`, `/api/voice/text-input`, `/api/voice/voice-input` took `body.userId` (text-input defaulted to `'1'`) | The signed-in user (`writeAsSignedInUser`); the Shortcut path keeps its header owner |
+| `PUT /api/transactions/:id` taught learning with `body.userId` | With the record owner, checked above |
+
+`requireAuth` no longer skips a path `/health`: the health check has its own route without auth, and the skip let
+`/api/<router>/health` past sign-in. Checked live, also through a real quick tunnel: the dev header `401`, a Shortcut
+without a token `403`, `POST /api/transactions` without signing in `401`.
+
+Tests: `tests/localDevAuth.test.ts`, `tests/userFromAuth.test.ts`.
+
+Known and left (security review 2026-10-21): with `SHORTCUT_CAPTURE_TOKEN` set, the token holder still chooses the
+owner by `X-Shortcut-User-Id` (bind the token to one owner if anyone else ever gets one); user resolution creates a
+user row for an unknown Telegram id before the ownership check refuses it (the shadow-user problem); an array or a
+number in `userId` on routes with user resolution gives `500` instead of `400`; with `trust proxy 1` a Wi-Fi client can
+set `X-Forwarded-For` to dodge IP rate limits (`isLocalRequest` reads the socket, not `req.ip`); `requireAdmin` routes
+have no `requireAuth` before them and always answer `401`. Not changed: the legacy user-scoped routes keep their
+`:userId` paths (budgets, debts, dashboard, subscription — out of the UI since Д2); with the strict `verifyOwnership` they
+answer only their own user. FT-136 removes the guest branches that are now dead code.
+
 ## Purpose
 
 The backend supports several identity modes:

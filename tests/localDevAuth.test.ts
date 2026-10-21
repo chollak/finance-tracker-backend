@@ -26,10 +26,18 @@ const savedToken = process.env.SHORTCUT_CAPTURE_TOKEN;
 beforeAll(async () => {
   const app = express();
   app.use(express.json());
-  app.get('/required', requireAuth, (req, res) => res.json({ id: req.telegramUser?.id ?? null }));
-  app.get('/optional', optionalAuth, (req, res) => res.json({ id: req.telegramUser?.id ?? null }));
-  app.get('/signed', (req, res) => res.json({ id: signedInTelegramId(req, 'bot-token') }));
-  app.post('/capture', allowShortcutCapture, (req, res) => res.json({ userId: req.body.userId, source: req.body.source }));
+  app.get('/required', requireAuth, (req, res) => {
+    res.json({ id: req.telegramUser?.id ?? null });
+  });
+  app.get('/optional', optionalAuth, (req, res) => {
+    res.json({ id: req.telegramUser?.id ?? null });
+  });
+  app.get('/signed', (req, res) => {
+    res.json({ id: signedInTelegramId(req, 'bot-token') });
+  });
+  app.post('/capture', allowShortcutCapture, (req, res) => {
+    res.json({ userId: req.body.userId, source: req.body.source });
+  });
   server = await new Promise<http.Server>(resolve => {
     const listening = app.listen(0, () => resolve(listening));
   });
@@ -79,7 +87,7 @@ describe('X-Dev-User-Id', () => {
 
 describe('a request from this machine', () => {
   const request = (remoteAddress: string | undefined, headers: Record<string, string> = {}) =>
-    ({ headers, socket: { remoteAddress } }) as unknown as express.Request;
+    ({ headers: { host: 'localhost:3000', ...headers }, socket: { remoteAddress } }) as unknown as express.Request;
 
   it('comes over loopback, IPv4 or IPv6, with no forwarding headers', () => {
     expect(isLocalRequest(request('127.0.0.1'))).toBe(true);
@@ -96,6 +104,26 @@ describe('a request from this machine', () => {
   it('is not one Cloudflare forwarded, though cloudflared itself connects over loopback', () => {
     expect(isLocalRequest(request('127.0.0.1', { 'cf-connecting-ip': '203.0.113.7' }))).toBe(false);
     expect(isLocalRequest(request('127.0.0.1', { 'x-forwarded-for': '203.0.113.7' }))).toBe(false);
+    expect(isLocalRequest(request('127.0.0.1', { 'cf-connecting-ip': '203.0.113.7', 'x-forwarded-for': '127.0.0.1' }))).toBe(false);
+    expect(isLocalRequest(request('127.0.0.1', { forwarded: 'for=203.0.113.7' }))).toBe(false);
+  });
+
+  it('may come through the Vite proxy for a browser on this machine, which says it forwards for loopback', () => {
+    expect(isLocalRequest(request('127.0.0.1', { 'x-forwarded-for': '127.0.0.1' }))).toBe(true);
+    expect(isLocalRequest(request('::1', { 'x-forwarded-for': '::1' }))).toBe(true);
+  });
+
+  it('is not one the Vite proxy forwards for another device (vite --host)', () => {
+    expect(isLocalRequest(request('127.0.0.1', { 'x-forwarded-for': '192.168.1.20' }))).toBe(false);
+    expect(isLocalRequest(request('127.0.0.1', { 'x-forwarded-for': '127.0.0.1, 192.168.1.20' }))).toBe(false);
+  });
+
+  it('is addressed to this machine by name — not a page of another site rebound to 127.0.0.1', () => {
+    expect(isLocalRequest(request('127.0.0.1', { host: '127.0.0.1:3000' }))).toBe(true);
+    expect(isLocalRequest(request('::1', { host: '[::1]:3000' }))).toBe(true);
+    expect(isLocalRequest(request('127.0.0.1', { host: 'evil.example:3000' }))).toBe(false);
+    expect(isLocalRequest(request('127.0.0.1', { host: 'localhost.evil.example' }))).toBe(false);
+    expect(isLocalRequest(({ headers: {}, socket: { remoteAddress: '127.0.0.1' } }) as unknown as express.Request)).toBe(false);
   });
 });
 

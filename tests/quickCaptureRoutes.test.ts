@@ -78,6 +78,9 @@ describe('POST /api/quick-capture', () => {
   let baseUrl: string;
   let mocks: ReturnType<typeof buildTestApp>;
 
+  // Signed in as Telegram user 555111 through the local dev header (non-production only)
+  const SIGNED_IN = { 'X-Dev-User-Id': '555111' };
+
   function post(body: unknown, headers: Record<string, string> = {}) {
     return fetch(`${baseUrl}/api/quick-capture`, {
       method: 'POST',
@@ -106,7 +109,7 @@ describe('POST /api/quick-capture', () => {
 
   describe('validation', () => {
     it('returns 400 when text is missing', async () => {
-      const res = await post({ userId: 'guest_abc123' });
+      const res = await post({ userId: '555111' }, SIGNED_IN);
 
       expect(res.status).toBe(400);
       const body = await res.json();
@@ -119,7 +122,7 @@ describe('POST /api/quick-capture', () => {
     });
 
     it('returns 400 when text is blank', async () => {
-      const res = await post({ userId: 'guest_abc123', text: '   ' });
+      const res = await post({ userId: '555111', text: '   ' }, SIGNED_IN);
 
       expect(res.status).toBe(400);
       const body = await res.json();
@@ -128,7 +131,7 @@ describe('POST /api/quick-capture', () => {
     });
 
     it('returns 400 when text exceeds the 2000 character limit', async () => {
-      const res = await post({ userId: 'guest_abc123', text: 'a'.repeat(2001) });
+      const res = await post({ userId: '555111', text: 'a'.repeat(2001) }, SIGNED_IN);
 
       expect(res.status).toBe(400);
       const body = await res.json();
@@ -140,7 +143,7 @@ describe('POST /api/quick-capture', () => {
     });
 
     it('returns 400 for an unknown source', async () => {
-      const res = await post({ userId: 'guest_abc123', text: 'такси 18к', source: 'smoke_signal' });
+      const res = await post({ userId: '555111', text: 'такси 18к', source: 'smoke_signal' }, SIGNED_IN);
 
       expect(res.status).toBe(400);
       const body = await res.json();
@@ -150,29 +153,42 @@ describe('POST /api/quick-capture', () => {
       });
       expect(mocks.quickCaptureService.capture).not.toHaveBeenCalled();
     });
-
-    it('returns 400 when userId is missing, without falling back to a default user', async () => {
-      // X-Dev-User-Id gets past allowGuestMode (non-production only) so the handler's own
-      // userId validation is what is being exercised here, not the auth middleware.
-      const res = await post({ text: 'такси 18к' }, { 'X-Dev-User-Id': '555111' });
-
-      expect(res.status).toBe(400);
-      const body = await res.json();
-      expect(body.error).toMatchObject({
-        code: 'VALIDATION_ERROR',
-        message: 'User ID is required',
-      });
-      expect(mocks.quickCaptureService.capture).not.toHaveBeenCalled();
-    });
   });
 
   describe('auth', () => {
-    it('rejects a non-guest request with no auth header (401)', async () => {
+    it('rejects a request with no auth header (401)', async () => {
       const res = await post({ userId: '555111', text: 'такси 18к' });
 
       expect(res.status).toBe(401);
       const body = await res.json();
       expect(body).toMatchObject({ success: false, code: 'MISSING_AUTH_HEADER' });
+      expect(mocks.quickCaptureService.capture).not.toHaveBeenCalled();
+    });
+
+    it('rejects a guest id with no auth header (401)', async () => {
+      const res = await post({ userId: 'guest_abc123', text: 'такси 18к', source: 'miniapp' });
+
+      expect(res.status).toBe(401);
+      expect(mocks.quickCaptureService.capture).not.toHaveBeenCalled();
+    });
+
+    it('captures for the signed-in user when the body has no userId', async () => {
+      (mocks.quickCaptureService.capture as jest.Mock).mockResolvedValue(SAVED_RESULT);
+
+      const res = await post({ text: 'такси 18к' }, SIGNED_IN);
+
+      expect(res.status).toBe(200);
+      expect(mocks.quickCaptureService.capture).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: '555111', text: 'такси 18к' })
+      );
+    });
+
+    it('refuses a body userId naming another user (403)', async () => {
+      const res = await post({ userId: '597843119', text: 'такси 18к' }, SIGNED_IN);
+
+      expect(res.status).toBe(403);
+      const body = await res.json();
+      expect(body).toMatchObject({ success: false, code: 'ACCESS_DENIED' });
       expect(mocks.quickCaptureService.capture).not.toHaveBeenCalled();
     });
 
@@ -319,10 +335,10 @@ describe('POST /api/quick-capture', () => {
   });
 
   describe('successful capture', () => {
-    it('passes a guest capture to the service and returns the result payload', async () => {
+    it('passes the signed-in user’s capture to the service and returns the result payload', async () => {
       (mocks.quickCaptureService.capture as jest.Mock).mockResolvedValue(SAVED_RESULT);
 
-      const res = await post({ userId: 'guest_abc123', text: 'такси 18к', source: 'miniapp' });
+      const res = await post({ userId: '555111', text: 'такси 18к', source: 'miniapp' }, SIGNED_IN);
 
       expect(res.status).toBe(200);
       const body = await res.json();
@@ -330,7 +346,7 @@ describe('POST /api/quick-capture', () => {
       expect(body.data).toEqual(SAVED_RESULT);
       expect(mocks.quickCaptureService.capture).toHaveBeenCalledWith({
         text: 'такси 18к',
-        userId: 'guest_abc123',
+        userId: '555111',
         userName: undefined,
         source: 'miniapp',
       });
@@ -339,14 +355,14 @@ describe('POST /api/quick-capture', () => {
     it('passes a clientId through and refuses a malformed one (FT-106)', async () => {
       (mocks.quickCaptureService.capture as jest.Mock).mockResolvedValue(SAVED_RESULT);
 
-      const ok = await post({ userId: 'guest_abc123', text: 'такси 18к', clientId: '6f1c2b3a-4d5e-4f60-8a7b-9c0d1e2f3a4b' });
+      const ok = await post({ userId: '555111', text: 'такси 18к', clientId: '6f1c2b3a-4d5e-4f60-8a7b-9c0d1e2f3a4b' }, SIGNED_IN);
       expect(ok.status).toBe(200);
       expect(mocks.quickCaptureService.capture).toHaveBeenCalledWith(expect.objectContaining({
         clientId: '6f1c2b3a-4d5e-4f60-8a7b-9c0d1e2f3a4b',
       }));
 
       for (const clientId of ['a:1', '', 'x'.repeat(65), 42]) {
-        const bad = await post({ userId: 'guest_abc123', text: 'такси 18к', clientId });
+        const bad = await post({ userId: '555111', text: 'такси 18к', clientId }, SIGNED_IN);
         expect(bad.status).toBe(400);
       }
       expect(mocks.quickCaptureService.capture).toHaveBeenCalledTimes(1);
@@ -358,12 +374,12 @@ describe('POST /api/quick-capture', () => {
         source: undefined,
       });
 
-      const res = await post({ userId: 'guest_abc123', text: 'кофе 35000', userName: 'Shukur' });
+      const res = await post({ userId: '555111', text: 'кофе 35000', userName: 'Shukur' }, SIGNED_IN);
 
       expect(res.status).toBe(200);
       expect(mocks.quickCaptureService.capture).toHaveBeenCalledWith({
         text: 'кофе 35000',
-        userId: 'guest_abc123',
+        userId: '555111',
         userName: 'Shukur',
         source: undefined,
       });
@@ -372,7 +388,7 @@ describe('POST /api/quick-capture', () => {
     it('maps a service failure to a 500 instead of leaking the error', async () => {
       (mocks.quickCaptureService.capture as jest.Mock).mockRejectedValue(new Error('parser exploded'));
 
-      const res = await post({ userId: 'guest_abc123', text: 'такси 18к' });
+      const res = await post({ userId: '555111', text: 'такси 18к' }, SIGNED_IN);
 
       expect(res.status).toBe(500);
       const body = await res.json();

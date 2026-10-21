@@ -44,10 +44,7 @@ export class BudgetController {
     }
 
     const budget = result.data;
-    await verifyResourceOwnership(req, budget, this.userModule, {
-      resourceType: 'budget',
-      allowGuest: true
-    });
+    await verifyResourceOwnership(req, budget, this.userModule, { resourceType: 'budget' });
 
     return budget;
   }

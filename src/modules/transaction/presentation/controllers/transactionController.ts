@@ -22,7 +22,7 @@ import { SUCCESS_MESSAGES } from '../../../../shared/domain/constants/messages';
 import { SubscriptionModule } from '../../../subscription/subscriptionModule';
 import { UserModule } from '../../../user/userModule';
 import { createUserResolutionMiddleware } from '../../../../delivery/web/express/middleware/userResolutionMiddleware';
-import { allowGuestMode, optionalAuth, verifyOwnership, requireAdmin } from '../../../../delivery/web/express/middleware/authMiddleware';
+import { allowGuestMode, optionalAuth, verifyOwnership, requireAdmin, requireAuth, writeAsSignedInUser } from '../../../../delivery/web/express/middleware/authMiddleware';
 import { standardRateLimiter } from '../../../../delivery/web/express/middleware/rateLimitMiddleware';
 import { createCurrentUserMiddleware, currentUserId } from '../../../../delivery/web/express/middleware/currentUserMiddleware';
 import { verifyResourceOwnership } from '../../../../shared/infrastructure/utils/ownershipVerification';
@@ -36,7 +36,6 @@ const logger = createLogger(LogCategory.TRANSACTION);
 /**
  * Fetch transaction and verify ownership
  * Uses shared verifyResourceOwnership helper for consistent behavior
- * Guest users (guest_*) are allowed without verification
  * Returns null if transaction not found or ownership verification fails
  */
 async function verifyTransactionOwnershipWithResult(
@@ -55,7 +54,6 @@ async function verifyTransactionOwnershipWithResult(
   try {
     await verifyResourceOwnership(req, result.data, userModule, {
       resourceType: 'transaction',
-      allowGuest: true,
     });
     return { success: true, transaction: result.data };
   } catch (error) {
@@ -212,7 +210,8 @@ export function createTransactionRouter(
 
   // Usage is counted by CreateTransactionUseCase, once per created transaction — a route-level
   // increment here counted every POST twice.
-  router.post('/', resolveUser, async (req, res) => {
+  // The signed-in user writes for themselves: a body naming another user is refused (2026-10-21)
+  router.post('/', requireAuth, writeAsSignedInUser, resolveUser, async (req, res) => {
     try {
       // Use resolved UUID from middleware (for body.userId)
       if (req.resolvedUser?.id && req.body.userId) {
@@ -439,7 +438,8 @@ export function createTransactionRouter(
         updateResult = await updateWithLearningUseCase.execute({
           id: transactionId,
           ...updates,
-          userId: req.body.userId,
+          // The record's owner, verified above — never a userId the body names
+          userId: ownershipResult.transaction.userId,
           originalText: req.body.originalText,
           originalParsing: req.body.originalParsing
         });

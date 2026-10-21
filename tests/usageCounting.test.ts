@@ -171,7 +171,8 @@ describe('POST /api/transactions does not count transactions a second time', () 
   it('creates the transaction without a route-level usage increment', async () => {
     const res = await fetch(`${baseUrl}/api/transactions`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      // Signed in as the user the body names, through the local dev header
+      headers: { 'Content-Type': 'application/json', 'X-Dev-User-Id': '131184740' },
       body: JSON.stringify({
         amount: 25000,
         category: 'coffee',

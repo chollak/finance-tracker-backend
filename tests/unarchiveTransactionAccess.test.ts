@@ -25,6 +25,14 @@ import { ArchiveAllByUserUseCase } from '../src/modules/transaction/application/
 import { GetArchivedTransactionsUseCase } from '../src/modules/transaction/application/getArchivedTransactions';
 import { TransactionRepository } from '../src/modules/transaction/domain/transactionRepository';
 import { Transaction } from '../src/modules/transaction/domain/transactionEntity';
+import { UserModule } from '../src/modules/user/userModule';
+
+// Telegram user 131184740 is signed in through the local dev header and owns the records of OWNER_UUID
+const TELEGRAM_ID = '131184740';
+const OWNER_UUID = 'owner-uuid-archived';
+const userModule = {
+  getGetUserUseCase: () => ({ execute: jest.fn().mockResolvedValue({ success: true, data: { id: OWNER_UUID } }) }),
+} as unknown as UserModule;
 
 const archivedTransaction: Transaction = {
   id: 'tx-archived',
@@ -33,7 +41,7 @@ const archivedTransaction: Transaction = {
   description: 'Hidden lunch',
   amount: 25000,
   type: 'expense',
-  userId: 'guest_abc123',
+  userId: OWNER_UUID,
   isArchived: true,
 } as Transaction;
 
@@ -119,7 +127,7 @@ function buildApp() {
     noop as unknown as ArchiveAllByUserUseCase,
     noop as unknown as GetArchivedTransactionsUseCase,
     undefined,
-    undefined
+    userModule
   ));
 
   router.use('*', notFoundHandler);
@@ -149,13 +157,16 @@ describe('POST /transactions/:id/unarchive', () => {
   });
 
   it('restores an archived transaction instead of reporting it missing', async () => {
-    const res = await fetch(`${baseUrl}/api/transactions/tx-archived/unarchive`, { method: 'POST' });
+    const res = await fetch(`${baseUrl}/api/transactions/tx-archived/unarchive`, {
+      method: 'POST',
+      headers: { 'X-Dev-User-Id': TELEGRAM_ID },
+    });
 
     expect(res.status).toBe(200);
     expect(built.repository.unarchive).toHaveBeenCalledWith('tx-archived');
   });
 
-  it('still refuses to unarchive a transaction owned by someone else', async () => {
+  it('still refuses to unarchive a transaction owned by someone else, to a signed-in user', async () => {
     const owned = { ...archivedTransaction, id: 'tx-owned', userId: 'real-user-id' } as Transaction;
     const repository = buildRepoWithArchivedRow(owned);
     const app = express();
@@ -176,7 +187,7 @@ describe('POST /transactions/:id/unarchive', () => {
       { execute: jest.fn() } as unknown as ArchiveAllByUserUseCase,
       { execute: jest.fn() } as unknown as GetArchivedTransactionsUseCase,
       undefined,
-      undefined
+      userModule
     ));
     router.use('*', notFoundHandler);
     router.use(errorHandler);
@@ -184,7 +195,11 @@ describe('POST /transactions/:id/unarchive', () => {
 
     const s = app.listen(0);
     const { port } = s.address() as AddressInfo;
-    const res = await fetch(`http://127.0.0.1:${port}/api/transactions/tx-owned/unarchive`, { method: 'POST' });
+    // Signed in as the owner of OWNER_UUID, asking for a record of another user
+    const res = await fetch(`http://127.0.0.1:${port}/api/transactions/tx-owned/unarchive`, {
+      method: 'POST',
+      headers: { 'X-Dev-User-Id': TELEGRAM_ID },
+    });
     s.close();
 
     expect(res.status).toBe(403);

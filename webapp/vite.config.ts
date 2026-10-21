@@ -102,6 +102,9 @@ export default defineConfig({
         target: 'http://localhost:3000',
         changeOrigin: true,
         secure: false,
+        // Names the browser it forwards for: the dev header counts only for a browser on this machine, not for a
+        // phone on the Wi-Fi with `vite --host` (isLocalRequest)
+        xfwd: true,
       },
     },
   },

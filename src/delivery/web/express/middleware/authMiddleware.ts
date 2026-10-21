@@ -119,16 +119,36 @@ function validateTelegramWebAppData(initData: string, botToken: string, quiet = 
 }
 
 const LOOPBACK_ADDRESSES = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1']);
-/** Headers a proxy or tunnel adds; Cloudflare always sets `cf-connecting-ip`. */
-const FORWARDING_HEADERS = ['cf-connecting-ip', 'x-forwarded-for', 'forwarded'];
+const LOCAL_HOSTNAMES = new Set(['localhost', '127.0.0.1', '[::1]']);
+
+/** The name in a Host header, without the port: `localhost:3000` → `localhost`, `[::1]:3000` → `[::1]`. */
+function hostnameOf(host: string | undefined): string {
+  const match = (host ?? '').trim().toLowerCase().match(/^(\[[^\]]+\]|[^:]+)(?::\d+)?$/);
+  return match ? match[1] : '';
+}
 
 /**
- * A request from this machine: over loopback and not forwarded by a proxy or tunnel. cloudflared connects to the
- * server over loopback too, so its requests are told apart by the headers Cloudflare adds.
+ * Whoever forwarded the request says it came from this machine. Cloudflare always sets `cf-connecting-ip`, so a
+ * tunnelled request never qualifies; the Vite dev proxy (`xfwd`) names the browser it forwards for, which is loopback
+ * only when the browser runs here — not with `vite --host` and a phone on the Wi-Fi.
+ */
+function forwardedForLoopback(req: Request): boolean {
+  if (req.headers['cf-connecting-ip'] !== undefined || req.headers.forwarded !== undefined) return false;
+  const forwardedFor = req.headers['x-forwarded-for'];
+  if (forwardedFor === undefined) return true;
+  const chain = (Array.isArray(forwardedFor) ? forwardedFor.join(',') : forwardedFor).split(',').map(entry => entry.trim());
+  return chain.every(address => LOOPBACK_ADDRESSES.has(address));
+}
+
+/**
+ * A request from this machine: over loopback, addressed to this machine by name (a page of another site rebound to
+ * 127.0.0.1 — DNS rebinding — carries its own Host) and, if a proxy forwarded it, for a client on loopback too.
+ * cloudflared connects to the server over loopback, so its requests are told apart by the headers Cloudflare adds.
  */
 export function isLocalRequest(req: Request): boolean {
-  if (FORWARDING_HEADERS.some(header => req.headers[header] !== undefined)) return false;
-  return LOOPBACK_ADDRESSES.has(req.socket?.remoteAddress ?? '');
+  return LOOPBACK_ADDRESSES.has(req.socket?.remoteAddress ?? '')
+    && LOCAL_HOSTNAMES.has(hostnameOf(req.headers.host))
+    && forwardedForLoopback(req);
 }
 
 /**
@@ -192,12 +212,6 @@ function signInWithWebSession(req: Request): boolean {
  * router.use('/api/transactions', requireAuth, transactionRoutes);
  */
 export function requireAuth(req: Request, res: Response, next: NextFunction): void {
-  // Skip auth for health check
-  if (req.path === '/health') {
-    next();
-    return;
-  }
-
   // Development mode bypass: X-Dev-User-Id, only from this machine (never through the tunnel)
   if (devHeadersAllowed(req)) {
     const devUserId = req.headers['x-dev-user-id'];
@@ -353,11 +367,12 @@ export function optionalAuth(req: Request, _res: Response, next: NextFunction): 
 /**
  * Verify request user matches the resource owner
  *
- * Prevents IDOR attacks by ensuring authenticated user can only access their own resources.
- * Guest users (guest_*) are allowed through since they can only access their own local data.
+ * Prevents IDOR attacks: the userId in the path, body or query must be the signed-in user's own Telegram id
+ * (2026-10-21). A UUID or a `guest_*` id is refused — it says nothing about who sent the request, and there are
+ * no guests any more (decision Д4).
  *
  * @example
- * router.get('/transactions/:userId', allowGuestMode, verifyOwnership, handler);
+ * router.get('/transactions/:userId', requireAuth, verifyOwnership, handler);
  */
 export function verifyOwnership(req: Request, res: Response, next: NextFunction): void {
   // Get target userId from request
@@ -369,13 +384,6 @@ export function verifyOwnership(req: Request, res: Response, next: NextFunction)
     return;
   }
 
-  // Allow guest users through - they only access their own IndexedDB data
-  if (typeof targetUserId === 'string' && targetUserId.startsWith('guest_')) {
-    next();
-    return;
-  }
-
-  // For non-guest users, must be authenticated
   if (!req.isAuthenticated || !req.telegramUser) {
     res.status(401).json({
       success: false,
@@ -385,46 +393,18 @@ export function verifyOwnership(req: Request, res: Response, next: NextFunction)
     return;
   }
 
-  // Get authenticated user's telegramId
   const authTelegramId = req.telegramUser.id.toString();
+  // userResolutionMiddleware leaves telegramId null for a UUID or a guest id: it names no one this request signed in as
+  const targetTelegramId = req.resolvedUser ? req.resolvedUser.telegramId : String(targetUserId).trim();
 
-  // Check if resolved user matches authenticated user
-  // Note: resolvedUser.telegramId is set by userResolutionMiddleware
-  if (req.resolvedUser) {
-    // If we have resolvedUser, compare telegramIds
-    if (req.resolvedUser.telegramId && req.resolvedUser.telegramId !== authTelegramId) {
-      logger.warn('Ownership mismatch', {
-        authTelegramId,
-        targetTelegramId: req.resolvedUser.telegramId,
-        targetUserId,
-      });
-
-      res.status(403).json({
-        success: false,
-        error: 'You can only access your own resources',
-        code: 'ACCESS_DENIED',
-      });
-      return;
-    }
-  } else {
-    // Fallback: compare raw userId with telegramId
-    // This handles cases where userResolutionMiddleware wasn't applied
-    const targetStr = targetUserId.toString();
-
-    // Allow if target looks like telegramId and matches
-    if (/^\d+$/.test(targetStr) && targetStr !== authTelegramId) {
-      logger.warn('Ownership mismatch (raw)', {
-        authTelegramId,
-        targetUserId: targetStr,
-      });
-
-      res.status(403).json({
-        success: false,
-        error: 'You can only access your own resources',
-        code: 'ACCESS_DENIED',
-      });
-      return;
-    }
+  if (targetTelegramId !== authTelegramId) {
+    logger.warn('Ownership mismatch', { authTelegramId, targetUserId });
+    res.status(403).json({
+      success: false,
+      error: 'You can only access your own resources',
+      code: 'ACCESS_DENIED',
+    });
+    return;
   }
 
   next();
@@ -497,7 +477,7 @@ function safeTokenEquals(provided: string, expected: string): boolean {
  *
  * Production is guarded loudly, not silently: a shortcut header in production is refused with 403
  * rather than ignored, so a misconfigured Shortcut fails visibly instead of falling back to another
- * auth path. Requests without the header are untouched and go through `allowGuestMode` as before.
+ * auth path. Requests without the header sign in and capture for the signed-in user (`writeAsSignedInUser`).
  *
  * `req.telegramUser` is deliberately NOT fabricated here: this bypass proves nothing about a
  * Telegram identity, so ownership-sensitive middleware (`verifyOwnership`, `requireAdmin`) stays
@@ -507,9 +487,9 @@ export function allowShortcutCapture(req: Request, res: Response, next: NextFunc
   const rawShortcutUserId = req.headers[SHORTCUT_USER_ID_HEADER];
   const shortcutUserId = typeof rawShortcutUserId === 'string' ? rawShortcutUserId.trim() : '';
 
-  // Not a Shortcut request — behavior is exactly what it was before FT-075.
+  // Not a Shortcut request: the signed-in user captures for themselves
   if (!shortcutUserId) {
-    allowGuestMode(req, res, next);
+    requireAuth(req, res, () => writeAsSignedInUser(req, res, next));
     return;
   }
 
@@ -566,22 +546,36 @@ export function allowShortcutCapture(req: Request, res: Response, next: NextFunc
 }
 
 /**
- * Guest mode middleware
- *
- * Allows guest users (offline-first mode) without authentication.
- * Validates auth if present, but allows guest_* userIds without auth.
+ * Formerly guest mode: a `guest_*` userId went through without signing in. There are no guests any more (decision Д4,
+ * FT-128), so every request signs in (2026-10-21). Kept under its old name for the routes that use it until FT-136.
  */
 export function allowGuestMode(req: Request, res: Response, next: NextFunction): void {
-  // Check if this is a guest user request
-  const targetUserId = req.params.userId || req.body?.userId || req.query?.userId;
+  requireAuth(req, res, next);
+}
 
-  if (targetUserId && typeof targetUserId === 'string' && targetUserId.startsWith('guest_')) {
-    // Guest user - no auth required
-    req.isAuthenticated = false;
-    next();
+/**
+ * A write for the signed-in user (2026-10-21). A `userId` the path, query or body still carries — the Mini App's
+ * outbox, older clients — must be that user's Telegram id, or the write is refused: never another account. The body is then set to
+ * the signed-in user, so user resolution and the handler see only them. Behind requireAuth.
+ */
+export function writeAsSignedInUser(req: Request, res: Response, next: NextFunction): void {
+  if (!req.isAuthenticated || !req.telegramUser) {
+    res.status(401).json({ success: false, error: 'Authentication required', code: 'AUTH_REQUIRED' });
     return;
   }
 
-  // Not a guest - require authentication
-  requireAuth(req, res, next);
+  const signedIn = String(req.telegramUser.id);
+  // Every place a userId can come from: user resolution reads the path and the query before the body
+  const claims = [req.params?.userId, req.query?.userId, req.body?.userId];
+  const othersClaimed = claims.some(
+    claimed => claimed !== undefined && claimed !== null && claimed !== '' && String(claimed).trim() !== signedIn
+  );
+  if (othersClaimed) {
+    logger.warn('Write for another user refused', { signedIn });
+    res.status(403).json({ success: false, error: 'You can only write your own records', code: 'ACCESS_DENIED' });
+    return;
+  }
+
+  if (req.body && typeof req.body === 'object') req.body.userId = signedIn;
+  next();
 }

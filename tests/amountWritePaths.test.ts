@@ -14,6 +14,7 @@ import { Transaction } from '../src/modules/transaction/domain/transactionEntity
 import { TransactionRepository } from '../src/modules/transaction/domain/transactionRepository';
 import { fromMinor, toMinor } from '../src/shared/domain/money/money';
 import { transactionLearning } from '../src/shared/application/learning/transactionLearning';
+import { UserModule } from '../src/modules/user/userModule';
 
 jest.mock('../src/shared/application/learning/transactionLearning', () => ({
   transactionLearning: { recordCorrection: jest.fn().mockResolvedValue(undefined) },
@@ -51,6 +52,14 @@ class MemoryTransactions implements Partial<TransactionRepository> {
 
 const unused = { execute: jest.fn() } as never;
 
+// The signed-in Telegram user and the UUID their records are stored under
+const TELEGRAM_ID = '131184740';
+const OWNER_UUID = 'owner-uuid-ft097';
+const users = {
+  getGetOrCreateUserUseCase: () => ({ execute: jest.fn().mockResolvedValue({ id: OWNER_UUID }) }),
+  getGetUserUseCase: () => ({ execute: jest.fn().mockResolvedValue({ success: true, data: { id: OWNER_UUID } }) }),
+} as unknown as UserModule;
+
 describe('FT-097: every writer may send amountMinor or the old amount', () => {
   let repository: MemoryTransactions;
   let server: http.Server;
@@ -70,7 +79,9 @@ describe('FT-097: every writer may send amountMinor or the old amount', () => {
       unused,
       new UpdateTransactionUseCase(repo),
       new UpdateTransactionWithLearningUseCase(repo),
-      unused, unused, unused, unused, unused
+      unused, unused, unused, unused, unused,
+      undefined,
+      users
     ));
     app.use(errorHandler);
     server = app.listen(0, () => {
@@ -83,11 +94,16 @@ describe('FT-097: every writer may send amountMinor or the old amount', () => {
     server.close(done);
   });
 
+  // Signed in through the local dev header, so the test exercises the amount path only
   const json = (method: string, url: string, body: unknown) =>
-    fetch(`${baseUrl}${url}`, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    fetch(`${baseUrl}${url}`, {
+      method,
+      headers: { 'Content-Type': 'application/json', 'X-Dev-User-Id': TELEGRAM_ID },
+      body: JSON.stringify(body),
+    });
 
-  // Guest ids pass the ownership check without Telegram auth, so the test exercises the amount path only.
-  const base = { userId: 'guest_ft097', type: 'expense', category: 'coffee', description: 'Кофе', date: '2026-10-16' };
+  const base = { userId: TELEGRAM_ID, type: 'expense', category: 'coffee', description: 'Кофе', date: '2026-10-16' };
+  const owned = { ...base, userId: OWNER_UUID };
 
   it('POST from TransactionForm / QuickAddSheet with the old amount in сум', async () => {
     const res = await json('POST', '/api/transactions', { ...base, amount: 25000 });
@@ -114,7 +130,7 @@ describe('FT-097: every writer may send amountMinor or the old amount', () => {
   });
 
   it('PUT from TransactionForm with the old amount, and with amountMinor', async () => {
-    const created = await repository.create({ ...base, type: 'expense', amount: 25000 });
+    const created = await repository.create({ ...owned, type: 'expense', amount: 25000 });
 
     const legacy = await json('PUT', `/api/transactions/${created.id}`, { amount: 28000 });
     expect(legacy.status).toBe(200);
@@ -126,11 +142,11 @@ describe('FT-097: every writer may send amountMinor or the old amount', () => {
   });
 
   it('PUT with learning stores minor units and teaches the parser in сум', async () => {
-    const created = await repository.create({ ...base, type: 'expense', amount: 25000 });
+    const created = await repository.create({ ...owned, type: 'expense', amount: 25000 });
 
     const res = await json('PUT', `/api/transactions/${created.id}`, {
       amount: 30000,
-      userId: 'guest_ft097',
+      userId: TELEGRAM_ID,
       originalText: 'кофе 25к',
       originalParsing: { amount: 25000, category: 'coffee', type: 'expense' },
     });
@@ -141,7 +157,8 @@ describe('FT-097: every writer may send amountMinor or the old amount', () => {
       'кофе 25к',
       expect.objectContaining({ amount: 25000 }),
       { amount: 30000 },
-      'guest_ft097',
+      // The record's owner, not the userId the body names
+      OWNER_UUID,
       0.8
     );
   });

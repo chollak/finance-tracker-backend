@@ -37,19 +37,18 @@ The route uses `allowGuestMode` (`src/delivery/web/express/middleware/authMiddle
 
 | Caller | Requirement |
 |---|---|
-| `userId` starts with `guest_` | No auth header needed. `req.isAuthenticated = false`, request proceeds. |
-| Any other `userId` | Full `requireAuth`: `Authorization: tma <initData>` (Telegram Mini App initData, HMAC-validated, max age 1 hour). |
+| Every request (no guests since Д4, 2026-10-21) | Full `requireAuth`: `Authorization: tma <initData>` (Telegram Mini App initData, HMAC-validated, max age 1 hour) or the browser session (FT-128). The capture is for the **signed-in user**: a body `userId` may be omitted; if sent, it must be that user's Telegram id, otherwise **`403 ACCESS_DENIED`**. |
 | Local dev only (`NODE_ENV !== 'production'`) | `X-Dev-User-Id: <telegramId>` header bypasses auth — only for a request from this machine (loopback, no `Cf-Connecting-Ip` / `X-Forwarded-For` / `Forwarded`): never through the `dev:miniapp` tunnel or from the network (`isLocalRequest`, 2026-10-21). |
 | Local dev only (`NODE_ENV !== 'production'`) | `X-Shortcut-User-Id: <ownerId>` header — the iPhone Shortcut path, see [below](#ios-shortcut-capture-devtest-only). |
 
 Notes:
 
-- `allowGuestMode` reads `req.body.userId`, so the guest check happens **before** the handler's own validation. A
-  non-guest request with no auth header gets `401` even if `text` is missing.
+- Authentication runs **before** the handler's own validation: a request that does not sign in gets `401` even if
+  `text` is missing.
 - There is **no** production API token and no API-key auth. In production the only way in is valid Telegram `initData`
-  (or a `guest_*` id). The Shortcut header below is explicitly refused when `NODE_ENV=production`.
-- The route does **not** apply `verifyOwnership`. Ownership is effectively enforced by `requireAuth` for non-guest ids,
-  not by comparing `userId` against the authenticated Telegram user.
+  or the browser session. The Shortcut header below is explicitly refused when `NODE_ENV=production`.
+- The owner is the signed-in user (`writeAsSignedInUser`, 2026-10-21): a body `userId` naming anyone else is `403
+  ACCESS_DENIED`. Before that the route wrote for whatever `userId` the body named.
 
 ### iOS Shortcut capture (dev/test only)
 
@@ -61,7 +60,7 @@ An iPhone Shortcut cannot produce Telegram initData, so for local testing it ide
 
 | Header | Required | Meaning |
 |---|---|---|
-| `X-Shortcut-User-Id` | yes (activates the flow) | Owner id the capture is written for — a Telegram id (`597843119`), a user UUID, or a `guest_*` id. Goes through the same `resolveUserIdToUUID()` as `body.userId`. |
+| `X-Shortcut-User-Id` | yes (activates the flow) | Owner id the capture is written for — a Telegram id (`597843119`). Goes through the same `resolveUserIdToUUID()` as `body.userId`. |
 | `X-Shortcut-Capture-Token` | when `SHORTCUT_CAPTURE_TOKEN` is set | Must equal `SHORTCUT_CAPTURE_TOKEN` (compared in constant time). Through the tunnel or from the network the token is **required**: without `SHORTCUT_CAPTURE_TOKEN` such a request gets `403 SHORTCUT_CAPTURE_TOKEN_REQUIRED`; only a request from this machine goes without it. |
 
 Behavior when `X-Shortcut-User-Id` is present and non-blank:
@@ -77,7 +76,7 @@ Behavior when `X-Shortcut-User-Id` is present and non-blank:
    ignored — the header is the authoritative identity for this flow.
 
 A blank or absent `X-Shortcut-User-Id` changes nothing: the request goes through `allowGuestMode` exactly as before, so
-Mini App and guest callers are unaffected.
+the Mini App path is unaffected.
 
 `req.telegramUser` is deliberately **not** fabricated for shortcut requests — the bypass proves nothing about a Telegram
 identity, so `verifyOwnership`/`requireAdmin` stay fail-closed if they are ever added to this route.
@@ -136,7 +135,6 @@ so even rejected requests consume budget.
 ```json
 {
   "text": "такси 18к",
-  "userId": "guest_abc123",
   "userName": "Shukur",
   "source": "miniapp"
 }
@@ -145,7 +143,7 @@ so even rejected requests consume budget.
 | Field | Type | Required | Behavior |
 |---|---|---|---|
 | `text` | `string` | yes | Must be a non-empty string with non-whitespace content. Max **2000 characters** (checked on the raw string, before trimming). Trimmed before parsing; the trimmed value is echoed back as `data.text`. |
-| `userId` | `string` | yes | Owner of the created transactions. No default — unlike the older `POST /api/voice/text-input` route, this endpoint never falls back to a placeholder user id. |
+| `userId` | `string` | no | The signed-in user's Telegram id, if sent at all (the Mini App still sends it); anything else is `403 ACCESS_DENIED`. The owner is always the signed-in user. |
 | `userName` | `string` | no | Passed to the parser/user pipeline. A non-string value is silently treated as absent. |
 | `source` | `"telegram" \| "miniapp" \| "ios_shortcut"` | no | Validated against the enum and echoed back. Since FT-103 it is **stored on every created record** (`transactions.source`); without it the records get `miniapp`. |
 
@@ -153,7 +151,7 @@ so even rejected requests consume budget.
 
 Unknown extra fields are ignored (the handler destructures only the five fields above).
 
-Validation order inside the handler: `text` present/non-blank → `text` length → `source` enum → `clientId` format → `userId` present.
+Validation order inside the handler: `text` present/non-blank → `text` length → `source` enum → `clientId` format.
 
 ---
 
@@ -285,9 +283,9 @@ Auth and rate-limit middleware answer earlier in the chain and use a **flat** sh
 | 400 | `VALIDATION_ERROR` | `Text is required and cannot be empty` — `text` missing, not a string, or whitespace-only |
 | 400 | `VALIDATION_ERROR` | `Text is too long (maximum 2000 characters)` |
 | 400 | `VALIDATION_ERROR` | `Source must be one of: telegram, miniapp, ios_shortcut` |
-| 400 | `VALIDATION_ERROR` | `User ID is required` — `userId` missing or not a string |
 | 400 | `INVALID_JSON` | Malformed JSON body (global error handler) |
-| 401 | `MISSING_AUTH_HEADER` | Non-guest `userId` with no `Authorization` header |
+| 401 | `MISSING_AUTH_HEADER` | No `Authorization` header, no browser session |
+| 403 | `ACCESS_DENIED` | The body `userId` is not the signed-in user |
 | 401 | `INVALID_SHORTCUT_TOKEN` | `X-Shortcut-User-Id` sent while `SHORTCUT_CAPTURE_TOKEN` is configured, with a missing/wrong `X-Shortcut-Capture-Token` |
 | 403 | `SHORTCUT_CAPTURE_DISABLED` | `X-Shortcut-User-Id` sent while `NODE_ENV=production` |
 | 403 | `SHORTCUT_CAPTURE_TOKEN_REQUIRED` | `X-Shortcut-User-Id` through the tunnel or from the network while `SHORTCUT_CAPTURE_TOKEN` is empty |
@@ -304,12 +302,13 @@ Validation failures never reach the service, so they cost no OpenAI call and wri
 
 ## Examples
 
-### Guest capture (local dev)
+### Capture from this machine (local dev)
 
 ```bash
 curl -sS -X POST http://localhost:3000/api/quick-capture \
   -H 'Content-Type: application/json' \
-  -d '{"text":"такси 18к","userId":"guest_abc123","source":"miniapp"}'
+  -H 'X-Dev-User-Id: <TELEGRAM_ID>' \
+  -d '{"text":"такси 18к","source":"miniapp"}'
 ```
 
 ```json

@@ -92,6 +92,10 @@ describe('soft delete and restore of records (FT-105)', () => {
   describe('DELETE /api/transactions/:id and POST /api/transactions/:id/restore', () => {
     let server: http.Server;
     let baseUrl: string;
+    // Telegram user 131184740 is signed in through the local dev header and owns the records of 'owner-ft105'
+    const users = {
+      getGetUserUseCase: () => ({ execute: jest.fn().mockResolvedValue({ success: true, data: { id: 'owner-ft105' } }) }),
+    } as never;
 
     beforeEach(done => {
       const app = express();
@@ -101,7 +105,7 @@ describe('soft delete and restore of records (FT-105)', () => {
         new GetTransactionByIdUseCase(records.repository),
         new DeleteTransactionUseCase(records.repository),
         records.update, unused, unused, unused, unused, unused, unused,
-        undefined, undefined,
+        undefined, users,
         new RestoreTransactionUseCase(records.repository)
       ));
       app.use(errorHandler);
@@ -116,13 +120,12 @@ describe('soft delete and restore of records (FT-105)', () => {
     });
 
     const call = async (method: string, url: string) => {
-      const res = await fetch(`${baseUrl}${url}`, { method, headers: { 'Content-Type': 'application/json' } });
+      const res = await fetch(`${baseUrl}${url}`, { method, headers: { 'Content-Type': 'application/json', 'X-Dev-User-Id': '131184740' } });
       return { status: res.status, body: await res.json() };
     };
 
     it('deletes softly, restores, and answers 404 for what is gone or unknown', async () => {
-      // Guest ids pass the ownership check without Telegram auth
-      const id = await record(25000, 'guest_ft105');
+      const id = await record(25000, 'owner-ft105');
 
       const deleted = await call('DELETE', `/api/transactions/${id}`);
       expect(deleted.status).toBe(200);

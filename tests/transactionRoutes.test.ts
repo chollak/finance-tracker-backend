@@ -26,6 +26,20 @@ import { GetArchivedTransactionsUseCase } from '../src/modules/transaction/appli
 import { NotFoundError } from '../src/shared/domain/errors/AppError';
 import { UserModule } from '../src/modules/user/userModule';
 
+// Signed in through the local dev header as TELEGRAM_ID, who owns the records stored under USER_UUID
+const TELEGRAM_ID = '131184740';
+const USER_UUID = '02c5718f-b6db-4990-894e-3fc080bb2a83';
+const SIGNED_IN = { 'Content-Type': 'application/json', 'X-Dev-User-Id': TELEGRAM_ID };
+
+function signedInUserModule(): UserModule {
+  return {
+    getGetOrCreateUserUseCase: () => ({ execute: jest.fn().mockResolvedValue({ id: USER_UUID, telegramId: TELEGRAM_ID }) }),
+    getGetUserUseCase: () => ({
+      execute: jest.fn().mockResolvedValue({ success: true, data: { id: USER_UUID, telegramId: TELEGRAM_ID } }),
+    }),
+  } as unknown as UserModule;
+}
+
 function buildTransactionTestApp(options: { userModule?: UserModule } = {}) {
   const router = express.Router();
 
@@ -99,7 +113,7 @@ describe('Transaction API route boundaries', () => {
   let mocks: ReturnType<typeof buildTransactionTestApp>;
 
   beforeEach((done) => {
-    mocks = buildTransactionTestApp();
+    mocks = buildTransactionTestApp({ userModule: signedInUserModule() });
     server = mocks.app.listen(0, () => {
       const { port } = server.address() as AddressInfo;
       baseUrl = `http://127.0.0.1:${port}`;
@@ -145,19 +159,42 @@ describe('Transaction API route boundaries', () => {
     });
   });
 
-  it('allows reading a guest-owned transaction without auth', async () => {
-    const transaction = { id: 'tx-guest', userId: 'guest_abc123', amount: 100 };
+  it('fails closed for a guest-owned transaction too when no auth is provided', async () => {
     (mocks.getByIdUseCase.execute as jest.Mock).mockResolvedValue({
       success: true,
-      data: transaction,
+      data: { id: 'tx-guest', userId: 'guest_abc123', amount: 100 },
     });
 
     const res = await fetch(`${baseUrl}/api/transactions/tx-guest`);
 
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(403);
     const body = await res.json();
-    expect(body.success).toBe(true);
-    expect(body.data).toEqual(transaction);
+    expect(body.success).toBe(false);
+    expect(body.error).toMatchObject({ code: 'AUTHORIZATION_ERROR' });
+  });
+
+  it('refuses to create a transaction without signing in (401)', async () => {
+    const res = await fetch(`${baseUrl}/api/transactions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ amount: 100, category: 'food', description: 'Lunch', type: 'expense', userId: TELEGRAM_ID }),
+    });
+
+    expect(res.status).toBe(401);
+    expect(mocks.createUseCase.execute).not.toHaveBeenCalled();
+  });
+
+  it('refuses to create a transaction for another user named in the body (403)', async () => {
+    const res = await fetch(`${baseUrl}/api/transactions`, {
+      method: 'POST',
+      headers: SIGNED_IN,
+      body: JSON.stringify({ amount: 100, category: 'food', description: 'Lunch', type: 'expense', userId: '597843119' }),
+    });
+
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body).toMatchObject({ success: false, code: 'ACCESS_DENIED' });
+    expect(mocks.createUseCase.execute).not.toHaveBeenCalled();
   });
 
   it('allows local development update and delete with X-Dev-User-Id when ownership matches', async () => {
@@ -211,15 +248,15 @@ describe('Transaction API route boundaries', () => {
     expect(mocks.deleteUseCase.execute).toHaveBeenCalledWith({ id: 'tx-1' });
   });
 
-  it('validates empty guest transaction update bodies before calling update use cases', async () => {
+  it('validates empty transaction update bodies before calling update use cases', async () => {
     (mocks.getByIdUseCase.execute as jest.Mock).mockResolvedValue({
       success: true,
-      data: { id: 'tx-guest', userId: 'guest_abc123', amount: 100 },
+      data: { id: 'tx-own', userId: USER_UUID, amount: 100 },
     });
 
-    const res = await fetch(`${baseUrl}/api/transactions/tx-guest`, {
+    const res = await fetch(`${baseUrl}/api/transactions/tx-own`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: SIGNED_IN,
       body: JSON.stringify({}),
     });
 
@@ -241,14 +278,14 @@ describe('Transaction API route boundaries', () => {
 
     const res = await fetch(`${baseUrl}/api/transactions`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: SIGNED_IN,
       body: JSON.stringify({
         amount: 500000,
         category: 'transfer',
         description: 'TBC -> Alif',
         type: 'expense',
         semanticType: 'own_transfer',
-        userId: 'user-1',
+        userId: TELEGRAM_ID,
       }),
     });
 
@@ -269,8 +306,8 @@ describe('Transaction API route boundaries', () => {
 
     const res = await fetch(`${baseUrl}/api/transactions`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ amountMinor: 18_640_000, categoryId: 'cat-1', type: 'expense', userId: 'user-1', ...note }),
+      headers: SIGNED_IN,
+      body: JSON.stringify({ amountMinor: 18_640_000, categoryId: 'cat-1', type: 'expense', userId: TELEGRAM_ID, ...note }),
     });
 
     expect(res.status).toBe(201);
@@ -284,8 +321,8 @@ describe('Transaction API route boundaries', () => {
     for (const description of [42, 'x'.repeat(501)]) {
       const res = await fetch(`${baseUrl}/api/transactions`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amountMinor: 100, categoryId: 'cat-1', type: 'expense', userId: 'user-1', description }),
+        headers: SIGNED_IN,
+        body: JSON.stringify({ amountMinor: 100, categoryId: 'cat-1', type: 'expense', userId: TELEGRAM_ID, description }),
       });
 
       expect(res.status).toBe(400);
@@ -296,14 +333,14 @@ describe('Transaction API route boundaries', () => {
   it('rejects an invalid semanticType on create with 400 and does not call the create use case', async () => {
     const res = await fetch(`${baseUrl}/api/transactions`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: SIGNED_IN,
       body: JSON.stringify({
         amount: 100,
         category: 'food',
         description: 'Lunch',
         type: 'expense',
         semanticType: 'crypto_trade',
-        userId: 'user-1',
+        userId: TELEGRAM_ID,
       }),
     });
 
@@ -317,22 +354,22 @@ describe('Transaction API route boundaries', () => {
   it('passes semanticType through to the update use case on PUT', async () => {
     (mocks.getByIdUseCase.execute as jest.Mock).mockResolvedValue({
       success: true,
-      data: { id: 'tx-guest', userId: 'guest_abc123', amount: 100 },
+      data: { id: 'tx-own', userId: USER_UUID, amount: 100 },
     });
     (mocks.updateUseCase.execute as jest.Mock).mockResolvedValue({
       success: true,
-      data: { id: 'tx-guest', userId: 'guest_abc123', amount: 100, semanticType: 'saving_deposit' },
+      data: { id: 'tx-own', userId: USER_UUID, amount: 100, semanticType: 'saving_deposit' },
     });
 
-    const res = await fetch(`${baseUrl}/api/transactions/tx-guest`, {
+    const res = await fetch(`${baseUrl}/api/transactions/tx-own`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: SIGNED_IN,
       body: JSON.stringify({ semanticType: 'saving_deposit' }),
     });
 
     expect(res.status).toBe(200);
     expect(mocks.updateUseCase.execute).toHaveBeenCalledWith({
-      id: 'tx-guest',
+      id: 'tx-own',
       semanticType: 'saving_deposit',
     });
   });
@@ -340,7 +377,7 @@ describe('Transaction API route boundaries', () => {
   it('passes accountId and currency through on PUT and answers 400 when the use case refuses the pair (FT-103)', async () => {
     (mocks.getByIdUseCase.execute as jest.Mock).mockResolvedValue({
       success: true,
-      data: { id: 'tx-guest', userId: 'guest_abc123', amount: 100 },
+      data: { id: 'tx-own', userId: USER_UUID, amount: 100 },
     });
     const { ValidationError } = jest.requireActual('../src/shared/domain/errors/AppError');
     (mocks.updateUseCase.execute as jest.Mock).mockResolvedValue({
@@ -348,21 +385,21 @@ describe('Transaction API route boundaries', () => {
       error: new ValidationError('The record is in USD, the account «Карта» in UZS', 'accountId'),
     });
 
-    const res = await fetch(`${baseUrl}/api/transactions/tx-guest`, {
+    const res = await fetch(`${baseUrl}/api/transactions/tx-own`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: SIGNED_IN,
       body: JSON.stringify({ accountId: 'acc-card', currency: 'USD' }),
     });
 
     expect(res.status).toBe(400);
-    expect(mocks.updateUseCase.execute).toHaveBeenCalledWith({ id: 'tx-guest', accountId: 'acc-card', currency: 'USD' });
+    expect(mocks.updateUseCase.execute).toHaveBeenCalledWith({ id: 'tx-own', accountId: 'acc-card', currency: 'USD' });
   });
 
   it('refuses a currency other than UZS or USD on create', async () => {
     const res = await fetch(`${baseUrl}/api/transactions`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ amount: 100, category: 'food', description: 'x', type: 'expense', userId: 'user-1', currency: 'EUR' }),
+      headers: SIGNED_IN,
+      body: JSON.stringify({ amount: 100, category: 'food', description: 'x', type: 'expense', userId: TELEGRAM_ID, currency: 'EUR' }),
     });
 
     expect(res.status).toBe(400);
@@ -377,13 +414,13 @@ describe('Transaction API route boundaries', () => {
 
     const res = await fetch(`${baseUrl}/api/transactions`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: SIGNED_IN,
       body: JSON.stringify({
         amount: 100,
         category: 'food',
         description: 'Lunch',
         type: 'expense',
-        userId: 'user-1',
+        userId: TELEGRAM_ID,
       }),
     });
 
@@ -402,14 +439,14 @@ describe('Transaction API route boundaries', () => {
 
     const res = await fetch(`${baseUrl}/api/transactions`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: SIGNED_IN,
       body: JSON.stringify({
         amount: 100,
         category: 'food',
         description: 'Lunch',
         type: 'expense',
         needsReview: true,
-        userId: 'user-1',
+        userId: TELEGRAM_ID,
       }),
     });
 
@@ -423,14 +460,14 @@ describe('Transaction API route boundaries', () => {
   it('rejects a non-boolean needsReview on create with 400 and does not call the create use case', async () => {
     const res = await fetch(`${baseUrl}/api/transactions`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: SIGNED_IN,
       body: JSON.stringify({
         amount: 100,
         category: 'food',
         description: 'Lunch',
         type: 'expense',
         needsReview: 'yes',
-        userId: 'user-1',
+        userId: TELEGRAM_ID,
       }),
     });
 
@@ -444,22 +481,22 @@ describe('Transaction API route boundaries', () => {
   it('passes needsReview through to the update use case on PUT', async () => {
     (mocks.getByIdUseCase.execute as jest.Mock).mockResolvedValue({
       success: true,
-      data: { id: 'tx-guest', userId: 'guest_abc123', amount: 100 },
+      data: { id: 'tx-own', userId: USER_UUID, amount: 100 },
     });
     (mocks.updateUseCase.execute as jest.Mock).mockResolvedValue({
       success: true,
-      data: { id: 'tx-guest', userId: 'guest_abc123', amount: 100, needsReview: true },
+      data: { id: 'tx-own', userId: USER_UUID, amount: 100, needsReview: true },
     });
 
-    const res = await fetch(`${baseUrl}/api/transactions/tx-guest`, {
+    const res = await fetch(`${baseUrl}/api/transactions/tx-own`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: SIGNED_IN,
       body: JSON.stringify({ needsReview: true }),
     });
 
     expect(res.status).toBe(200);
     expect(mocks.updateUseCase.execute).toHaveBeenCalledWith({
-      id: 'tx-guest',
+      id: 'tx-own',
       needsReview: true,
     });
   });

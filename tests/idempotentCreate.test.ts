@@ -100,12 +100,14 @@ describe('idempotent create for the offline queue (FT-106)', () => {
       server.close(done);
     });
 
+    // Signed in as Telegram user 131184740 through the local dev header
     const post = async (body: unknown) => {
-      const res = await fetch(`${baseUrl}/api/transactions`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const res = await fetch(`${baseUrl}/api/transactions`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Dev-User-Id': '131184740' }, body: JSON.stringify(body),
+      });
       return { status: res.status, body: await res.json() };
     };
-    // Guest ids pass the ownership check without Telegram auth
-    const body = { userId: 'guest_ft106', amountMinor: 2500000, type: 'expense', category: 'Кафе', description: 'кофе', date: '2026-10-16', clientId: CLIENT_ID };
+    const body = { userId: '131184740', amountMinor: 2500000, type: 'expense', category: 'Кафе', description: 'кофе', date: '2026-10-16', clientId: CLIENT_ID };
 
     it('answers 201 the first time and 200 with the same record on a repeat', async () => {
       const first = await post(body);

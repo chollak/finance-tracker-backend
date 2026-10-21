@@ -412,25 +412,28 @@ describe('ownershipVerification', () => {
   }
 
   describe('verifyResourceOwnership', () => {
-    it('bypasses verification for a guest-owned resource when allowGuest is true, even without auth', async () => {
+    // There are no guests any more (decision Д4): a guest-owned resource is nobody's to open
+    it('does not open a guest-owned resource to a signed-in user either', async () => {
       const resource: OwnedResource = { userId: 'guest_abc' };
+      const signedIn: User = {
+        id: 'user-1',
+        telegramId: '42',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
 
       await expect(
-        verifyResourceOwnership(makeRequest(undefined), resource, undefined, {
+        verifyResourceOwnership(makeRequest({ id: 42, first_name: 'Bob' }), resource, makeUserModuleReturning(signedIn), {
           resourceType,
-          allowGuest: true,
         })
-      ).resolves.toBeUndefined();
+      ).rejects.toThrow('You do not have permission');
     });
 
-    it('does not bypass a guest-owned resource when allowGuest is false (fail-closed)', async () => {
+    it('does not open a guest-owned resource without auth (fail-closed)', async () => {
       const resource: OwnedResource = { userId: 'guest_abc' };
 
       await expect(
-        verifyResourceOwnership(makeRequest(undefined), resource, undefined, {
-          resourceType,
-          allowGuest: false,
-        })
+        verifyResourceOwnership(makeRequest(undefined), resource, undefined, { resourceType })
       ).rejects.toThrow('Authentication required');
     });
 

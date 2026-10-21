@@ -7,7 +7,7 @@ import { ErrorFactory } from '../../../../shared/domain/errors/AppError';
 import { SUCCESS_MESSAGES } from '../../../../shared/domain/constants/messages';
 import { UserModule } from '../../../user/userModule';
 import { resolveUserIdToUUID } from '../../../../shared/application/helpers/userIdResolver';
-import { allowGuestMode } from '../../../../delivery/web/express/middleware/authMiddleware';
+import { requireAuth, writeAsSignedInUser } from '../../../../delivery/web/express/middleware/authMiddleware';
 import { aiRateLimiter } from '../../../../delivery/web/express/middleware/rateLimitMiddleware';
 
 // Allowed audio MIME types
@@ -55,7 +55,8 @@ export function createVoiceProcessingRouter(
   // Apply AI rate limiting to all voice/text processing routes
   router.use(aiRateLimiter);
 
-  router.post('/voice-input', allowGuestMode, upload.single('audio'), async (req: Request, res: Response) => {
+  // The signed-in user, never a userId of the form (2026-10-21); the form is read by multer, so the check comes after it
+  router.post('/voice-input', requireAuth, upload.single('audio'), writeAsSignedInUser, async (req: Request, res: Response) => {
     try {
       // Input validation
       if (!req.file) {
@@ -98,7 +99,7 @@ export function createVoiceProcessingRouter(
     }
   });
 
-  router.post('/text-input', allowGuestMode, async (req: Request, res: Response) => {
+  router.post('/text-input', requireAuth, writeAsSignedInUser, async (req: Request, res: Response) => {
     try {
       // Input validation
       if (!req.body.text || typeof req.body.text !== 'string' || req.body.text.trim().length === 0) {
@@ -112,8 +113,8 @@ export function createVoiceProcessingRouter(
         return handleControllerError(error, res);
       }
 
-      // Default userId if not provided (for backward compatibility)
-      let userId = req.body.userId || '1';
+      // The signed-in user (writeAsSignedInUser); there is no default user any more
+      let userId = req.body.userId;
       const userName = req.body.userName || 'Unknown User';
 
       // Resolve telegramId to UUID if userModule is available
