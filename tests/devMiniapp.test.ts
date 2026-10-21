@@ -27,6 +27,12 @@ function touch(...parts: string[]): string {
   return file;
 }
 
+function executable(...parts: string[]): string {
+  const file = touch(...parts);
+  fs.chmodSync(file, 0o755);
+  return file;
+}
+
 describe('the env file', () => {
   it('is .env.local when there is one, as the app reads only it then', () => {
     touch('.env');
@@ -51,14 +57,22 @@ describe('cloudflared', () => {
   });
 
   it('is ~/.local/bin/cloudflared when it is there', () => {
-    const local = touch('.local', 'bin', 'cloudflared');
-    const brew = touch('brew', 'cloudflared');
+    const local = executable('.local', 'bin', 'cloudflared');
+    const brew = executable('brew', 'cloudflared');
     expect(findCloudflared({ HOME: dir, PATH: path.dirname(brew) })).toBe(local);
   });
 
   it('is found on PATH otherwise, as Homebrew installs it', () => {
-    const brew = touch('brew', 'cloudflared');
+    const brew = executable('brew', 'cloudflared');
     expect(findCloudflared({ HOME: dir, PATH: ['/nowhere', path.dirname(brew)].join(path.delimiter) })).toBe(brew);
+  });
+
+  it('is not a folder or a file that cannot run, which happen to have its name', () => {
+    fs.mkdirSync(path.join(dir, 'a', 'cloudflared'), { recursive: true });
+    touch('b', 'cloudflared');
+    const brew = executable('brew', 'cloudflared');
+    const PATH = [path.join(dir, 'a'), path.join(dir, 'b'), path.dirname(brew)].join(path.delimiter);
+    expect(findCloudflared({ HOME: dir, PATH })).toBe(brew);
   });
 
   it('is missing when it is nowhere', () => {

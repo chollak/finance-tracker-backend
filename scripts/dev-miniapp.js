@@ -65,7 +65,16 @@ function envFileFor(flags, baseDir = root) {
 function findCloudflared(env = process.env) {
   if (env.CLOUDFLARED_BIN) return env.CLOUDFLARED_BIN;
   const onPath = (env.PATH || '').split(path.delimiter).filter(Boolean).map((dir) => path.join(dir, 'cloudflared'));
-  return [path.join(env.HOME || '', '.local/bin/cloudflared'), ...onPath].find((file) => fs.existsSync(file)) || null;
+  return [path.join(env.HOME || '', '.local/bin/cloudflared'), ...onPath].find(isExecutableFile) || null;
+}
+
+function isExecutableFile(file) {
+  try {
+    fs.accessSync(file, fs.constants.X_OK);
+    return fs.statSync(file).isFile();
+  } catch {
+    return false;
+  }
 }
 
 function readEnv(envFile) {
@@ -202,6 +211,11 @@ function waitForOutput(child, regex, timeoutMs, label) {
     child.on('exit', (code) => {
       clearTimeout(timer);
       reject(new Error(`${label} exited before readiness (code=${code})`));
+    });
+    // A binary that cannot be started emits 'error', not 'exit'
+    child.on('error', (error) => {
+      clearTimeout(timer);
+      reject(new Error(`${label} could not start: ${error.message}`));
     });
   });
 }
