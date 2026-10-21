@@ -26,6 +26,9 @@ import { NotificationLogRepository } from '../../../modules/notification/domain/
 import { SqliteNotificationLogRepository } from '../../../modules/notification/infrastructure/SqliteNotificationLogRepository';
 import { LoginTokenRepository } from '../../../modules/auth/domain/loginTokenRepository';
 import { SqliteLoginTokenRepository } from '../../../modules/auth/infrastructure/SqliteLoginTokenRepository';
+import { AuditRepository, GoalRepository } from '../../../modules/audit/domain/auditRepository';
+import { SqliteAuditRepository } from '../../../modules/audit/infrastructure/SqliteAuditRepository';
+import { SqliteGoalRepository } from '../../../modules/audit/infrastructure/SqliteGoalRepository';
 
 /**
  * Creates repository implementations. There is one database path — TypeORM (decision Д6, FT-090);
@@ -87,5 +90,13 @@ export class RepositoryFactory {
 
   static createLoginTokenRepository(): LoginTokenRepository {
     return new SqliteLoginTokenRepository();
+  }
+
+  static createAuditRepository(): AuditRepository {
+    return new SqliteAuditRepository();
+  }
+
+  static createGoalRepository(): GoalRepository {
+    return new SqliteGoalRepository();
   }
 }

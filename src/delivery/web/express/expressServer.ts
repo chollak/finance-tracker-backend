@@ -28,6 +28,8 @@ import { ExportModule } from '../../../modules/export/exportModule';
 import { createExportRoutes } from '../../../modules/export/presentation/exportController';
 import { AuthModule } from '../../../modules/auth/authModule';
 import { createAuthRoutes } from '../../../modules/auth/presentation/authController';
+import { AuditModule } from '../../../modules/audit/auditModule';
+import { createAuditRoutes, createGoalRoutes } from '../../../modules/audit/presentation/auditController';
 import { createWebSessionMiddleware } from './middleware/webSessionMiddleware';
 
 /** Modules of the money model (milestone 10, phase 2); their routes take the user from auth only. */
@@ -39,6 +41,8 @@ export interface MoneyModules {
   exportModule?: ExportModule;
   /** Signing in to the web app through the bot and the browser's session cookie (FT-128). */
   authModule?: AuthModule;
+  /** The spending audit and its goals (FT-131). */
+  auditModule?: AuditModule;
 }
 import { createSubscriptionRoutes } from './routes/subscriptionRoutes';
 import {
@@ -186,6 +190,11 @@ export function buildServer(
     // All records as CSV: a download, or a file in the chat with the bot (FT-126)
     if (moneyModules.exportModule) {
       router.use('/export', createExportRoutes(moneyModules.exportModule, userModule));
+    }
+    // The spending audit of the month before and the goals it makes (FT-131)
+    if (moneyModules.auditModule) {
+      router.use('/audits', createAuditRoutes(moneyModules.auditModule, userModule));
+      router.use('/goals', createGoalRoutes(moneyModules.auditModule, userModule));
     }
     // Analytics with fair comparison (FT-120); a category's analytics needs the user's categories
     const categoryAnalytics = transactionModule.getCategoryAnalyticsUseCase();

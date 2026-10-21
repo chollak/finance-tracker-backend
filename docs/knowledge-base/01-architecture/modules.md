@@ -1,6 +1,6 @@
 # Module System
 
-`createModules()` (`src/appModules.ts`) возвращает **15 модулей приложения**, каждый с чётко определённой ответственностью. `CategoryModule` добавлен в FT-099, `AccountModule` — в FT-101, `FxModule` — в FT-102, `BotMessageModule` — в FT-122, `NotificationModule` — в FT-124, `ExportModule` — в FT-126, `AuthModule` — в FT-128, `QuickCaptureModule` — обёртка над текстовым разбором для `POST /api/quick-capture`.
+`createModules()` (`src/appModules.ts`) возвращает **16 модулей приложения**, каждый с чётко определённой ответственностью. `CategoryModule` добавлен в FT-099, `AccountModule` — в FT-101, `FxModule` — в FT-102, `BotMessageModule` — в FT-122, `NotificationModule` — в FT-124, `ExportModule` — в FT-126, `AuthModule` — в FT-128, `AuditModule` — в FT-131, `QuickCaptureModule` — обёртка над текстовым разбором для `POST /api/quick-capture`.
 
 Dashboard модулем не является: в `src/modules/dashboard/` лежат только `DashboardService` и `DashboardController`, файла `dashboardModule.ts` нет. Сборка происходит в Express-слое — см. [Dashboard: сервис, а не модуль](#dashboard-сервис-а-не-модуль).
 
@@ -23,6 +23,7 @@ graph TD
     NM[NotificationModule<br/>Daily summary, /today, /month]
     EM[ExportModule<br/>All records as CSV]
     AuM[AuthModule<br/>Web login through the bot]
+    AuD[AuditModule<br/>Spending audit + goals]
     DS[DashboardService<br/>не модуль, собирается в Express]
 
     BM -->|depends on| TM
@@ -45,6 +46,8 @@ graph TD
     EM -.->|records: ExportSources| TM
     EM -.->|accounts + moves: ExportSources| AM
     AuM -.->|session names: users table| UM
+    AuD -.->|records + rate: AuditSources| TM
+    AuD -.->|categories: AuditSources| CM
     SM -.->|controller uses| UM
     DS -.->|AnalyticsService| TM
     DS -.->|BudgetService| BM
@@ -79,6 +82,7 @@ graph TD
 | **BotMessageModule** | Сообщения бота о записях (FT-122): какие записи показывает подтверждение и какой экран кнопок открыт — таблица `bot_messages`, кнопки и `/undo` переживают перезапуск | Независимый; записи меняет бот через use cases TransactionModule | `botMessageModule.ts` |
 | **NotificationModule** | Уведомления бота (FT-124): итоги дня в выбранное время по часам пользователя, не больше одного раза за день (`notifications_log`), и итоги для `/today` и `/month` | TransactionModule (сервис итогов FT-103, аналитика FT-120), UserModule (пользователи и настройки) | `notificationModule.ts` |
 | **AuthModule** | Вход в браузере через бота (FT-128, Д4): одноразовая ссылка `t.me/<bot>?start=login_<token>` на 5 минут, «Подтвердить» / «Это не я» в боте, сессия браузера — httpOnly-cookie; `login_tokens` | Независимый; имена для `GET /api/auth/session` — из UserModule в контроллере; сессию читает `webSessionMiddleware` в Express | `authModule.ts` |
+| **AuditModule** | Ревизия трат и цели (FT-130 правила, FT-131 хранение): ревизия прошлого месяца открывается при первом запросе и хранит кандидатов с решениями (`audits`), «Готово» делает цели (`goals`) — лимит с дня ревизии, сравнение с теми же днями прошлого месяца, подписки «Уже отменено» / «Напомнить»; неразобранное приходит в следующую ревизию | TransactionModule (записи, первая запись, курс через сервис итогов FT-103) и CategoryModule через порт `AuditSources` (подключается в `createModules()`) | `auditModule.ts` |
 | **ExportModule** | «Скачать все записи» (FT-126): CSV всех неудалённых записей и перемещений — скачивание в браузере (`GET /api/export`) или файл в чат с ботом (`POST /api/export/chat`, `sendDocument`) | TransactionModule и AccountModule через порт `ExportSources` (подключается в `createModules()`); Bot API — по токену бота | `exportModule.ts` |
 
 Отдельно, **не как модуль**:
@@ -86,7 +90,6 @@ graph TD
 | Компонент | Роль | Зависимости | Ключевые файлы |
 |-----------|------|-------------|----------------|
 | `DashboardService` / `DashboardController` | Агрегация insights для dashboard-эндпоинтов | AnalyticsService (Transaction) + BudgetService (Budget) | `src/modules/dashboard/application/services/dashboardService.ts`, `src/modules/dashboard/presentation/controllers/dashboardController.ts` |
-| Правила ревизии трат (FT-130) | Чистый домен без модуля: кандидаты месяца по 4 правилам из гибких категорий, группы трат под разными заметками, причины словами с числами, каталог подписок константой. Модуль `audit` с таблицами `audits`, `goals` и маршрутами появится в FT-131 | Типы и правила итогов TransactionModule (`countsAs`, `uzsMinorOf`, `recordDay`) | `src/modules/audit/domain/auditRules.ts`, `subscriptionCatalog.ts`, `auditText.ts` |
 
 ---
 
@@ -497,6 +500,32 @@ new ProcessVoiceInputUseCase(
   `req.webSession`; `requireAuth`, `optionalAuth` и общий лимит запросов (`signedInTelegramId`) принимают его, когда
   нет заголовка `Authorization`. Бот: `/start login_<token>` — `commandHandlers.ts`, кнопки —
   `handlers/loginHandlers.ts`, тексты — `formatters/loginMessage.ts`.
+
+---
+
+## 15. AuditModule
+
+**Файл:** [`src/modules/audit/auditModule.ts`](../../../src/modules/audit/auditModule.ts)
+
+### Назначение
+Ревизия трат раз в месяц и цели после неё (design-system «Ревизия трат»). Правила кандидатов — FT-130, хранение,
+решения, цели и маршруты — FT-131, экраны — FT-132, напоминания в боте — FT-133. Маршруты — `docs/pastel/api.md`,
+«Ревизия трат и цели».
+
+### Состав
+- Домен — `auditRules.ts`, `subscriptionCatalog.ts`, `auditText.ts` (FT-130): кандидаты месяца по 4 правилам из гибких
+  категорий, группы трат под разными заметками, причины словами с числами, каталог подписок константой.
+- Домен — `audit.ts` (FT-131): ревизия и её кандидаты с решениями (`AuditItem`), цель решения (`goalOf`), итог-план
+  (`auditSummary`), кандидаты новой ревизии (`openAuditItems`: неразобранное прошлого месяца один раз, «Нужно» — пока
+  не вырастет в `AUDIT_DECISION_RULES.needAgainRatio` раза, отменённая подписка — пока её не спишут снова); `goal.ts` —
+  цель, лимит до конца месяца пропорционально оставшимся дням, сравнение с теми же днями прошлого месяца, следующее
+  списание подписки; `goalMath.ts` — округление до тысячи; `auditSources.ts`, `auditRepository.ts` — порты.
+- Use cases: `GetCurrentAuditUseCase` (открывает ревизию прошлого месяца при первом запросе или говорит, когда будет
+  первая), `DecideAuditCandidateUseCase`, `FinishAuditUseCase`, `ListGoalsUseCase`, `UpdateGoalUseCase`; `AuditReader`
+  — «сегодня» по Ташкенту (или переданное, для бота FT-133), расходы как в итогах FT-103, ответы API.
+- `SqliteAuditRepository` — `audits` (миграция `AuditsGoals1762200000000`): кандидаты JSON, `INSERT OR IGNORE` на
+  (пользователь, месяц), запись только поверх прочитанной `version` — use case перечитывает и повторяет, так что два
+  нажатия сразу не теряют отметку. `SqliteGoalRepository` — `goals`, одна цель на кандидата ревизии.
 
 ---
 

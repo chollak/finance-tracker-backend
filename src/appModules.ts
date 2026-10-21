@@ -16,6 +16,7 @@ import { BotMessageModule } from './modules/botMessage/botMessageModule';
 import { NotificationModule } from './modules/notification/notificationModule';
 import { ExportModule } from './modules/export/exportModule';
 import { AuthModule } from './modules/auth/authModule';
+import { AuditModule } from './modules/audit/auditModule';
 import { transactionLearning } from './shared/application/learning/transactionLearning';
 
 export function createModules() {
@@ -83,6 +84,15 @@ export function createModules() {
   // Web login through the bot (FT-128, decision Д4): the link, the answer in the bot, the browser's session
   const authModule = AuthModule.create();
 
+  // The spending audit and its goals (FT-130, FT-131): records, categories and the rate as in every total (FT-103)
+  const periodTotals = transactionModule.getPeriodTotalsService();
+  const auditModule = AuditModule.create({
+    recordsBetween: (userId, from, to) => transactionModule.getRepository().getByUserIdAndDateRange(userId, new Date(from), new Date(to)),
+    firstRecordDate: userId => transactionModule.getRepository().findFirstRecordDate(userId),
+    categories: userId => categoryModule.getCatalog().listForUser(userId),
+    usdRateMinor: (userId, records) => periodTotals.usdRateFor(userId, records),
+  });
+
   return {
     categoryModule,
     accountModule,
@@ -99,5 +109,6 @@ export function createModules() {
     notificationModule,
     exportModule,
     authModule,
+    auditModule,
   };
 }

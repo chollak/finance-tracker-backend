@@ -13,3 +13,5 @@ export { AccountMove } from './AccountMove';
 export { BotMessage } from './BotMessage';
 export { NotificationLog } from './NotificationLog';
 export { LoginToken } from './LoginToken';
+export { Audit } from './Audit';
+export { Goal } from './Goal';
