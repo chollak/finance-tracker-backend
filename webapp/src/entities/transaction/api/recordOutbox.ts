@@ -5,10 +5,13 @@ import { apiClient } from '@/shared/api';
 import { API_ENDPOINTS } from '@/shared/lib/constants';
 import {
   addToOutbox,
+  cancelInOutbox,
   connectionLost,
   isNoConnectionError,
   outboxOf,
+  outboxRow,
   removeFromOutbox,
+  shownOutboxOf,
   useOutboxStore,
   type OutboxRow,
 } from '@/shared/lib/offline';
@@ -29,23 +32,27 @@ import { deleteTransaction, refreshAfterRecordsChanged } from './mutations';
 /** How long one send may wait for the server before it counts as unanswered. */
 export const OUTBOX_SEND_TIMEOUT_MS = 15_000;
 
-const toQueued = (row: OutboxRow): QueuedRecord => ({
-  ...(row.body as QueuedRecordInput),
-  clientId: row.clientId,
-  userId: row.userId,
-  createdAt: row.createdAt,
-});
+/** What the device keeps of a record: what was written and when its phrase was (absent in rows kept before it was). */
+type QueuedBody = QueuedRecordInput & { writtenAt?: number };
 
-/** What waits for this user, oldest first. */
+function toQueued(row: OutboxRow): QueuedRecord {
+  const { writtenAt, ...record } = row.body as QueuedBody;
+  return { ...record, clientId: row.clientId, userId: row.userId, createdAt: row.createdAt, writtenAt: writtenAt ?? row.createdAt };
+}
+
+/** What waits for this user, oldest first; not what was taken back while it was being sent. */
 export function pendingRecordsOf(userId: string): QueuedRecord[] {
-  return outboxOf(userId).map(toQueued);
+  return shownOutboxOf(userId).map(toQueued);
 }
 
 /** The waiting records of the signed-in user as the lists show them, with «Ждёт связи». */
 export function usePendingRecords(): ListedRecord[] {
   const userId = useUserStore((state) => state.userId);
   const entries = useOutboxStore((state) => state.entries);
-  return useMemo(() => (userId ? outboxOf(userId, entries).map((row) => pendingRecord(toQueued(row))) : []), [userId, entries]);
+  return useMemo(
+    () => (userId ? shownOutboxOf(userId, entries).map((row) => pendingRecord(toQueued(row))) : []),
+    [userId, entries]
+  );
 }
 
 /**
@@ -54,12 +61,13 @@ export function usePendingRecords(): ListedRecord[] {
  */
 export function queueRecords(userId: string, records: readonly QueuedRecordInput[], clientIds: readonly string[] = []): QueuedRecord[] {
   const now = Date.now();
-  const rows: OutboxRow<QueuedRecordInput>[] = records.map((record, index) => ({
+  const rows: OutboxRow<QueuedBody>[] = records.map((record, index) => ({
     clientId: clientIds[index] ?? crypto.randomUUID(),
     userId,
     // Apart by a millisecond, so they are sent in the order they were written
     createdAt: now + index,
-    body: { ...record },
+    // The same for every record of one phrase: the lists keep them in the order they were written
+    body: { ...record, writtenAt: now },
   }));
   void addToOutbox(rows).catch(() => undefined);
   return rows.map(toQueued);
@@ -85,29 +93,37 @@ export function writeOnDevice(
   return queued;
 }
 
-/** Records being sent right now, those taken back while they were, and the server's ids of those already sent. */
+/** Records being sent right now, and the server's ids of those this device sent in this session. */
 const sending = new Set<string>();
-const cancelled = new Set<string>();
 const sentIds = new Map<string, string>();
 
-/** Takes waiting records back: out of the outbox; one already sent is deleted on the server (FT-105, soft). */
+/**
+ * Takes waiting records back, gone from the screens at once:
+ * - one not sent yet leaves the outbox;
+ * - one being sent right now stays on the device as taken back (`cancelled`, so a reload does not bring it back) until
+ *   its send is settled: deleted on the server if it got there, sent again with its client id and deleted if the send
+ *   got no answer;
+ * - one already sent is deleted on the server (FT-105, soft).
+ */
 export async function cancelQueuedRecords(
   queryClient: QueryClient,
   { clientIds, userId }: { clientIds: readonly string[]; userId: string }
 ): Promise<void> {
-  const unsent: string[] = [];
-  for (const clientId of clientIds) {
+  const sent = clientIds.flatMap((clientId) => {
     const id = sentIds.get(clientId);
-    if (id) {
-      await deleteTransaction(queryClient, { id, userId });
-      sentIds.delete(clientId);
-    } else if (sending.has(clientId)) {
-      cancelled.add(clientId);
-    } else {
-      unsent.push(clientId);
-    }
+    return id ? [{ clientId, id }] : [];
+  });
+  const inFlight = clientIds.filter((clientId) => !sentIds.has(clientId) && sending.has(clientId));
+  const unsent = clientIds.filter((clientId) => !sentIds.has(clientId) && !sending.has(clientId));
+  const outbox = Promise.all([
+    inFlight.length ? cancelInOutbox(inFlight) : undefined,
+    unsent.length ? removeFromOutbox(unsent) : undefined,
+  ]);
+  for (const { clientId, id } of sent) {
+    await deleteTransaction(queryClient, { id, userId });
+    sentIds.delete(clientId);
   }
-  if (unsent.length) await removeFromOutbox(unsent);
+  await outbox;
 }
 
 function sendBody(record: QueuedRecord) {
@@ -147,11 +163,31 @@ function showSent(queryClient: QueryClient, record: QueuedRecord, id: string): v
   );
 }
 
+const statusOf = (error: unknown) => (error as { statusCode?: number } | null)?.statusCode;
+
 /** The server will take it later: no answer, the session (FT-128), too many requests, or the server itself is down. */
 function worthRetrying(error: unknown): boolean {
   if (isNoConnectionError(error)) return true;
-  const status = (error as { statusCode?: number } | null)?.statusCode;
+  const status = statusOf(error);
   return status === undefined || status === 401 || status === 408 || status === 429 || status >= 500;
+}
+
+/** «Отменить» came while it was being sent — in this session or before the app was opened again. */
+const takenBack = (clientId: string) => outboxRow(clientId)?.cancelled === true;
+
+/** Deletes on the server a record that was taken back; «not found» means it is gone already. */
+async function deleteTakenBack(queryClient: QueryClient, id: string, userId: string): Promise<void> {
+  try {
+    await deleteTransaction(queryClient, { id, userId });
+  } catch (error) {
+    if (statusOf(error) !== 404) throw error;
+  }
+}
+
+/** What `POST /api/transactions` answers: a repeat of a client id brings the record it has, deleted or not (FT-106). */
+interface SendAnswer {
+  id: string;
+  transaction?: { deletedAt?: string };
 }
 
 export interface OutboxFlush {
@@ -166,21 +202,23 @@ async function flush(queryClient: QueryClient, userId: string): Promise<OutboxFl
   let sent = 0;
   let stopped: OutboxFlush['stopped'] = null;
 
-  for (const record of pendingRecordsOf(userId)) {
+  for (const row of outboxOf(userId)) {
+    // Taken back while an earlier one was being sent: it never goes
+    if (!outboxRow(row.clientId)) continue;
+    const record = toQueued(row);
     sending.add(record.clientId);
     try {
-      const response = await apiClient.post<{ id: string }>(API_ENDPOINTS.TRANSACTIONS.CREATE, sendBody(record), {
+      const response = await apiClient.post<SendAnswer>(API_ENDPOINTS.TRANSACTIONS.CREATE, sendBody(record), {
         timeoutMs: OUTBOX_SEND_TIMEOUT_MS,
       });
       const id = response.data?.id;
-      sent += 1;
-      if (id) {
-        sentIds.set(record.clientId, id);
-        if (cancelled.has(record.clientId)) {
-          cancelled.delete(record.clientId);
-          await deleteTransaction(queryClient, { id, userId }).catch(() => undefined);
-          sentIds.delete(record.clientId);
-        } else {
+      if (takenBack(record.clientId)) {
+        // The server must not keep it; a failed delete leaves it taken back for the next send
+        if (id && !response.data?.transaction?.deletedAt) await deleteTakenBack(queryClient, id, userId);
+      } else {
+        sent += 1;
+        if (id) {
+          sentIds.set(record.clientId, id);
           showSent(queryClient, record, id);
         }
       }
@@ -191,10 +229,11 @@ async function flush(queryClient: QueryClient, userId: string): Promise<OutboxFl
         stopped = isNoConnectionError(error) ? 'no-connection' : 'server';
         break;
       }
-      // The server will never take it (a record it finds invalid, the free limit): say so instead of trying forever
+      // The server will never take it (a record it finds invalid, the free limit): say so instead of trying forever —
+      // unless it was taken back
+      const quiet = takenBack(record.clientId);
       await removeFromOutbox([record.clientId]);
-      cancelled.delete(record.clientId);
-      showUndoToast({ kind: 'info', title: 'Запись не отправилась', detail: refusedToastDetail(record) });
+      if (!quiet) showUndoToast({ kind: 'info', title: 'Запись не отправилась', detail: refusedToastDetail(record) });
     } finally {
       sending.delete(record.clientId);
     }

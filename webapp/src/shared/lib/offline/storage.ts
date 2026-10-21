@@ -13,6 +13,11 @@ export interface OutboxRow<T = unknown> {
   /** When it was written, ms; the outbox sends oldest first. */
   createdAt: number;
   body: T;
+  /**
+   * Taken back («Отменить») while it was being sent: the screens no longer show it, and it stays here until its sender
+   * knows the server does not keep it — sent again with the same client id and deleted there.
+   */
+  cancelled?: boolean;
 }
 
 /** The last answer of a read: its TanStack key, the user it belongs to and when it was read. */

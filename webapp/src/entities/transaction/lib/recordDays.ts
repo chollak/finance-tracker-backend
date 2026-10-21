@@ -36,9 +36,15 @@ export interface RecordRow {
   categoryAriaLabel: string;
   /**
    * Written without a connection and not sent yet (FT-129, OfflineBar.md): the caption starts with «Ждёт связи» and a
-   * clock; the amount and its colour stay as they are.
+   * clock, «проверьте сумму» right after it when the device read «45» as 45 000; the amount and its colour stay as
+   * they are.
    */
   pending: boolean;
+  /**
+   * A waiting row that asks to check the amount: its caption may take two lines, so the flag is never cut — at 390px
+   * «Ждёт связи · проверьте сумму» alone is a little wider than one line (rows grow from `min-h-row`).
+   */
+  noteWraps?: boolean;
 }
 
 /** History's total of a day (TransactionList.md): in сум with its sign; income green, expenses muted. */
@@ -80,6 +86,8 @@ export interface RecordDaysOptions {
 const NO_NOTE = 'Без заметки';
 /** First in a waiting record's caption, so an ellipsis never cuts it off (OfflineBar.md). */
 export const PENDING_CAPTION = 'Ждёт связи';
+/** Right after it when the device read «45» as 45 000: the flag must not be cut off either. */
+const CHECK_AMOUNT = 'проверьте сумму';
 
 /** The local day of a record: a plain date as is; records saved before FT-100 may keep a full moment. */
 function recordDay(date: string): LocalDate {
@@ -122,8 +130,10 @@ export function recordRow(
 
   const pending = (record as ListedRecord).pending;
   if (pending) {
-    // Not on the server yet: it has no sheet to open, and its caption says it waits (board «Главная без связи»)
-    const caption = [PENDING_CAPTION, under || NO_NOTE, pending.checkAmount ? 'проверьте сумму' : ''].filter(Boolean).join(' · ');
+    // Not on the server yet: it has no sheet to open, and its caption says it waits (board «Главная без связи»). The
+    // flags lead, so an ellipsis cuts only the note; «Без заметки» would add nothing to a waiting row
+    const check = pending.checkAmount ? CHECK_AMOUNT : '';
+    const caption = [PENDING_CAPTION, check, under].filter(Boolean).join(' · ');
     return {
       id: record.id ?? '',
       title,
@@ -132,9 +142,10 @@ export function recordRow(
       note: caption,
       amount: formatMinor(signed, currency, { sign: 'always', unit: currency !== 'UZS' }),
       tone,
-      ariaLabel: [title, fullAmount, ...said.filter(Boolean), 'ждёт связи'].join(', '),
+      ariaLabel: [title, fullAmount, ...said, 'ждёт связи', check].filter(Boolean).join(', '),
       categoryAriaLabel: `${categoryName}, ${fullAmount}, ждёт связи`,
       pending: true,
+      noteWraps: pending.checkAmount,
     };
   }
 

@@ -46,6 +46,16 @@ function getAuthHeaders(): Record<string, string> {
   return headers;
 }
 
+/**
+ * Whether an answer came from the app's server itself, so the connection to it is back (FT-129). Its errors are JSON
+ * (`errorMiddleware`, its own 502 and 503 too); a gateway in front of it — the Cloudflare tunnel, a proxy — answers
+ * 502, 503 or 504 (Cloudflare also 520–530) with a page of its own while the server is down, and that is still no
+ * connection to it.
+ */
+function answeredByServer(response: Response): boolean {
+  return response.status < 500 || (response.headers.get('content-type') ?? '').includes('application/json');
+}
+
 let sessionLost: (() => void) | null = null;
 
 /**
@@ -89,7 +99,7 @@ class ApiClient {
         },
       });
       // The server answered a write (FT-129). A read may come from the service worker's cache, so it does not count
-      if (options.method && options.method !== 'GET') connectionReached();
+      if (options.method && options.method !== 'GET' && answeredByServer(response)) connectionReached();
 
       if (!response.ok) {
         noticeUnauthorized(endpoint, response.status);

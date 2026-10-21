@@ -8,7 +8,7 @@ import type { Category } from '@/entities/category';
 import { queueRecords } from '@/entities/transaction';
 import { useUserStore } from '@/entities/user';
 import { toLocalDate } from '@/shared/lib/dates';
-import { memoryOfflineStorage, setOfflineStorage, useOutboxStore } from '@/shared/lib/offline';
+import { cancelInOutbox, memoryOfflineStorage, setOfflineStorage, useOutboxStore } from '@/shared/lib/offline';
 import { useUndoToastStore, visibleEntry } from '@/shared/lib/undo';
 import type { Transaction } from '@/shared/types';
 import { RecentTransactions } from './RecentTransactions';
@@ -92,8 +92,9 @@ afterEach(() => {
 });
 
 describe('a record waiting for the connection on Home', () => {
+  let clientId = '';
   beforeEach(() => {
-    queueRecords(USER_ID, [
+    [{ clientId }] = queueRecords(USER_ID, [
       { type: 'expense', amountMinor: 2_500_000, currency: 'UZS', categoryId: 'c-cafe', categoryName: 'Кафе', date: TODAY, note: 'Кофе' },
     ]);
   });
@@ -124,6 +125,17 @@ describe('a record waiting for the connection on Home', () => {
     expect(shownToast()).toMatchObject({ kind: 'info', title: 'Запись ждёт связи', detail: 'Изменить её можно, когда она отправится' });
   });
 
+  it('is gone at once when «Отменить» takes it back while it is being sent', async () => {
+    await render();
+
+    await act(async () => {
+      await cancelInOutbox([clientId]);
+    });
+
+    expect(container.querySelector('li [data-pending]')).toBeNull();
+    expect(rowLabels()).toEqual(['Продукты, −186\u00a0400\u00a0сум, Супермаркет. Открыть']);
+  });
+
   it('a record on the server still opens its sheet', async () => {
     await render();
 
@@ -132,5 +144,47 @@ describe('a record waiting for the connection on Home', () => {
     });
 
     expect(opened.ids).toEqual(['t1']);
+  });
+});
+
+describe('several records of one phrase written without a connection', () => {
+  it('keep the order the phrase named them in: «такси 18к, кофе 25к» — Такси, then Кофе', async () => {
+    queueRecords(USER_ID, [
+      { type: 'expense', amountMinor: 1_800_000, currency: 'UZS', categoryName: 'Транспорт', date: TODAY, note: 'Такси' },
+      { type: 'expense', amountMinor: 2_500_000, currency: 'UZS', categoryId: 'c-cafe', categoryName: 'Кафе', date: TODAY, note: 'Кофе' },
+    ]);
+
+    await render();
+
+    expect([...container.querySelectorAll('li [data-pending]')].map((caption) => caption.textContent)).toEqual([
+      'Ждёт связи · Такси',
+      'Ждёт связи · Кофе',
+    ]);
+  });
+});
+
+describe('a waiting record with an amount to check', () => {
+  it('says «проверьте сумму» right after «Ждёт связи»', async () => {
+    queueRecords(USER_ID, [
+      { type: 'expense', amountMinor: 4_500_000, currency: 'UZS', categoryId: 'c-cafe', categoryName: 'Кафе', date: TODAY, note: 'Обед', checkAmount: true },
+    ]);
+
+    await render();
+
+    const caption = container.querySelector('li [data-pending]');
+    expect(caption?.textContent).toBe('Ждёт связи · проверьте сумму · Обед');
+    // Two lines rather than an ellipsis that cuts the flag
+    expect(caption?.className).toContain('line-clamp-2');
+    expect(caption?.className).not.toContain('truncate');
+  });
+
+  it('a plain waiting record keeps its caption on one line, as the board draws it', async () => {
+    queueRecords(USER_ID, [
+      { type: 'expense', amountMinor: 2_500_000, currency: 'UZS', categoryId: 'c-cafe', categoryName: 'Кафе', date: TODAY, note: 'Кофе' },
+    ]);
+
+    await render();
+
+    expect(container.querySelector('li [data-pending]')?.className).toContain('truncate');
   });
 });

@@ -26,6 +26,8 @@ export interface QueuedRecord extends QueuedRecordInput {
   /** The id it is sent with (FT-106): a repeat returns the record the server already has. */
   clientId: string;
   userId: string;
-  /** When it was written, ms. */
+  /** When it was written, ms: the records of one phrase a millisecond apart, in the order they were written. */
   createdAt: number;
+  /** When the phrase, chip or entry that wrote it was, ms: the same for every record of one phrase. */
+  writtenAt: number;
 }

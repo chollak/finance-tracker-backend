@@ -22,9 +22,9 @@ interface RecordDayListProps {
 const FOCUS = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ink';
 
 /** The clock before «Ждёт связи» (OfflineBar.md: 13px, the caption's colour). */
-function PendingClock() {
+function PendingClock({ className }: { className?: string }) {
   return (
-    <svg width="13" height="13" viewBox="0 0 20 20" aria-hidden="true" className="shrink-0">
+    <svg width="13" height="13" viewBox="0 0 20 20" aria-hidden="true" className={cn('shrink-0', className)}>
       <path
         d="M10 17a7 7 0 1 0 0-14 7 7 0 0 0 0 14Zm0-10.5V10l2.5 1.5"
         fill="none"
@@ -43,9 +43,15 @@ function RowText({ row }: { row: RecordRow }) {
       <span className="flex min-w-0 flex-1 flex-col gap-px py-2.5 pl-2 pr-3">
         <span className="type-body-strong truncate">{row.title}</span>
         {row.pending ? (
-          <span className="flex min-w-0 items-center gap-1 text-[13px] leading-snug text-ink-muted">
-            <PendingClock />
-            <span data-pending="" className="truncate">
+          <span
+            className={cn(
+              'flex min-w-0 gap-1 text-[13px] leading-snug text-ink-muted',
+              row.noteWraps ? 'items-start' : 'items-center'
+            )}
+          >
+            {/* On two lines the clock stays by the first one, where «Ждёт связи» is */}
+            <PendingClock className={row.noteWraps ? 'mt-[2.5px]' : undefined} />
+            <span data-pending="" className={row.noteWraps ? 'line-clamp-2' : 'truncate'}>
               {row.note}
             </span>
           </span>

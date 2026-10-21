@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { memoryOfflineStorage, setOfflineStorage, type OfflineStorage } from './storage';
-import { addToOutbox, loadOutbox, outboxOf, removeFromOutbox, useOutboxStore } from './outbox';
+import { addToOutbox, cancelInOutbox, loadOutbox, outboxOf, removeFromOutbox, shownOutboxOf, useOutboxStore } from './outbox';
 
 /**
  * FT-129: what is written without a connection waits in the outbox on the device, each with the client id (FT-106) it
@@ -55,5 +55,26 @@ describe('the outbox', () => {
     await loadOutbox('u1');
 
     expect(outboxOf('u1').map((row) => row.clientId)).toEqual(['b']);
+  });
+
+  it('hides what was taken back while it was being sent, and keeps it so on the device', async () => {
+    await addToOutbox([entry('a'), entry('b', 'u1', 2)]);
+
+    await cancelInOutbox(['a']);
+
+    expect(shownOutboxOf('u1').map((row) => row.clientId)).toEqual(['b']);
+    expect(outboxOf('u1').map((row) => [row.clientId, row.cancelled === true])).toEqual([['a', true], ['b', false]]);
+    useOutboxStore.setState({ entries: [] });
+    await loadOutbox('u1');
+    expect(shownOutboxOf('u1').map((row) => row.clientId)).toEqual(['b']);
+  });
+
+  it('forgets what was taken back once it is settled', async () => {
+    await addToOutbox([entry('a')]);
+    await cancelInOutbox(['a']);
+
+    await removeFromOutbox(['a']);
+
+    expect(await storage.listOutbox('u1')).toEqual([]);
   });
 });

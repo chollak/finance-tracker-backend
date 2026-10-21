@@ -8,6 +8,8 @@ export type ListedRecord = Transaction & {
   pending?: {
     /** The device read «45» as 45 000: the row asks to check the amount. */
     checkAmount: boolean;
+    /** When its phrase, chip or entry was, ms: the same for every record of one phrase. */
+    writtenAt: number;
   };
 };
 
@@ -26,16 +28,19 @@ export function pendingRecord(queued: QueuedRecord): ListedRecord {
     type: queued.type,
     userId: queued.userId,
     createdAt: new Date(queued.createdAt).toISOString(),
-    pending: { checkAmount: queued.checkAmount === true },
+    pending: { checkAmount: queued.checkAmount === true, writtenAt: queued.writtenAt },
   };
 }
 
 const day = (record: Transaction) => record.date.slice(0, 10);
 
+const writtenAt = (record: ListedRecord) => record.pending?.writtenAt ?? 0;
+
 /**
  * The recent records with the ones waiting for the connection (board «Главная без связи»): by day, newest first, a
- * waiting record first on its day — it was written after everything the server has. Undefined while nothing is read
- * and nothing waits.
+ * waiting record first on its day — it was written after everything the server has. The newest phrase first, and the
+ * records of one phrase in the order it named them («такси 18к, кофе 25к» — Такси, then Кофе), as the board puts them.
+ * Undefined while nothing is read and nothing waits.
  */
 export function withPendingRecords(
   records: readonly Transaction[] | undefined,
@@ -43,7 +48,9 @@ export function withPendingRecords(
   limit: number
 ): ListedRecord[] | undefined {
   if (!records && pending.length === 0) return undefined;
-  const waiting = [...pending].sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''));
+  const waiting = [...pending].sort(
+    (a, b) => writtenAt(b) - writtenAt(a) || (a.createdAt ?? '').localeCompare(b.createdAt ?? '')
+  );
   const merged: ListedRecord[] = [...waiting, ...(records ?? [])];
   // Stable: within a day the waiting ones stay first and the server's keep their order
   merged.sort((a, b) => day(b).localeCompare(day(a)));

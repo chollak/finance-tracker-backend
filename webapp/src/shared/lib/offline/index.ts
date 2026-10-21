@@ -19,5 +19,14 @@ export {
   type OutboxRow,
   type SavedReadRow,
 } from './storage';
-export { useOutboxStore, outboxOf, loadOutbox, addToOutbox, removeFromOutbox } from './outbox';
+export {
+  useOutboxStore,
+  outboxOf,
+  shownOutboxOf,
+  outboxRow,
+  loadOutbox,
+  addToOutbox,
+  cancelInOutbox,
+  removeFromOutbox,
+} from './outbox';
 export { persistReads, restoreSavedReads, forgetSavedReads, workOffline, type SavedReadPolicy } from './savedReads';
