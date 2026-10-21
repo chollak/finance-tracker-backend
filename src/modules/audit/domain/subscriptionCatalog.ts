@@ -71,6 +71,11 @@ export function noteWords(note: string): string {
   return note.toLocaleLowerCase('ru-RU').replace(/ё/g, 'е').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
 }
 
+/** The service of the catalog with this key, or null. */
+export function findServiceByKey(key: string): SubscriptionService | null {
+  return SUBSCRIPTION_CATALOG.find(service => service.key === key) ?? null;
+}
+
 /** The service a note names, or null. «+» is the word «plus» here: «Disney+», «Apple TV+», «Yandex+». */
 export function findSubscription(note: string): SubscriptionService | null {
   const padded = ` ${noteWords(note.replace(/\+/g, ' plus '))} `;

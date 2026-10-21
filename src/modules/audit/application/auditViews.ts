@@ -16,7 +16,7 @@ import {
 import { AuditCandidate, AuditRecord, auditRecordsOf } from '../domain/auditRules';
 import { GoalRepository } from '../domain/auditRepository';
 import { AuditSources } from '../domain/auditSources';
-import { Goal, GoalComparison, GoalSubscription, combinedComparison, goalProgress, goalSavingMinor, halfLimitMinor } from '../domain/goal';
+import { Goal, GoalComparison, GoalSubscription, combinedComparison, goalProgress, goalSavingMinor, goalServiceKind, halfLimitMinor } from '../domain/goal';
 
 /** A candidate as the audit screen gets it (FT-131): what the rules found and what was decided. */
 export interface AuditCandidateView
@@ -47,6 +47,11 @@ export interface GoalView {
   /** The category's current name. */
   categoryName: string;
   serviceKey: string | null;
+  /**
+   * `cancel` only: `subscription` — «цель: отменить», «Уже отменено», «Отмените в самом сервисе»; `tariff` — «цель:
+   * отключить», «Уже отключено», «Отключите у оператора». Null for the other goals.
+   */
+  serviceKind: 'subscription' | 'tariff' | null;
   monthlyMinor: number;
   /** «лимит 175 000 сум в месяц»; 0 unless «Вдвое меньше». */
   limitMinor: number;
@@ -133,6 +138,7 @@ export class AuditReader {
           categoryId: goal.categoryId,
           categoryName: categories.get(goal.categoryId) ?? '',
           serviceKey: goal.serviceKey,
+          serviceKind: goalServiceKind(goal),
           monthlyMinor: goal.monthlyMinor,
           limitMinor: goal.limitMinor,
           savingMinor: goalSavingMinor(goal),

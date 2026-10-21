@@ -15,6 +15,7 @@ import { BotMessageQuestion1761900000000 } from './1761900000000-BotMessageQuest
 import { NotificationsLog1762000000000 } from './1762000000000-NotificationsLog';
 import { LoginTokens1762100000000 } from './1762100000000-LoginTokens';
 import { AuditsGoals1762200000000 } from './1762200000000-AuditsGoals';
+import { AuditFrozen1762300000000 } from './1762300000000-AuditFrozen';
 
 /**
  * Every schema change is a migration listed here, in order. Classes are listed explicitly instead of
@@ -38,4 +39,5 @@ export const MIGRATIONS = [
   NotificationsLog1762000000000,
   LoginTokens1762100000000,
   AuditsGoals1762200000000,
+  AuditFrozen1762300000000,
 ];

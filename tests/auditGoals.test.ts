@@ -7,6 +7,8 @@ import {
   goalOf,
   nextAuditOn,
   openAuditItems,
+  refoundAuditItems,
+  sameAuditItems,
 } from '../src/modules/audit/domain/audit';
 import {
   GOAL_RULES,
@@ -67,6 +69,36 @@ describe('audit decisions and goals (FT-131)', () => {
     });
   });
 
+  describe('the candidates found again before the first mark (FT-142)', () => {
+    it('keep the id of the same spending, also when its note group widens; a spending found anew keeps its own', () => {
+      const taxi = item(byName('Такси'), null);
+      const kept: AuditItem[] = [
+        // Read when September had only «Такси домой»; a plain «Такси» recorded since widens the group
+        { ...taxi, id: 'kept-taxi', key: `${taxi.categoryId}|такси домой`, noteKey: 'такси домой' },
+        { ...item(byName('Кофе'), null), id: 'kept-coffee' },
+        { ...item(byName('Наушники'), null), id: 'kept-brought', carriedFrom: '2026-08' },
+      ];
+      const found: AuditItem[] = [
+        { ...taxi, id: 'new-taxi' },
+        { ...item(byName('Кофе'), null), id: 'new-coffee', count: 17 },
+        // Found by this month's rules now, not brought: not the brought one
+        { ...item(byName('Наушники'), null), id: 'new-headphones' },
+        { ...item(byName('Кинопоиск'), null), id: 'new-cinema' },
+      ];
+      const refound = refoundAuditItems(kept, found);
+      expect(refound.map(entry => entry.id)).toEqual(['kept-taxi', 'kept-coffee', 'new-headphones', 'new-cinema']);
+      expect(refound[1].count).toBe(17);
+    });
+
+    it('say the same whatever order their fields were written in', () => {
+      const coffee = item(byName('Кофе'), null);
+      const reordered = Object.fromEntries(Object.entries(coffee).reverse()) as unknown as AuditItem;
+      expect(sameAuditItems([coffee], [reordered])).toBe(true);
+      expect(sameAuditItems([coffee], [{ ...coffee, count: 17 }])).toBe(false);
+      expect(sameAuditItems([coffee], [])).toBe(false);
+    });
+  });
+
   describe('the goal a decision makes', () => {
     it('gives a repeating extra spending «Вдвое меньше» unless «Отказаться» is chosen, a subscription only «Отменить»', () => {
       expect(goalOf(item(byName('Кофе'), 'extra'))).toBe('half');
@@ -94,6 +126,32 @@ describe('audit decisions and goals (FT-131)', () => {
         totalMinor: sum(2319000),
         planMinor: sum(814000),
         wastedMinor: sum(1504000),
+        carriedCount: 0,
+        carriedTotalMinor: 0,
+        carriedWastedMinor: 0,
+      });
+    });
+
+    it('sums only the month audited; what came from the audit before is counted apart (FT-142)', () => {
+      const taxi = item(byName('Такси'), 'extra');
+      const coffee: AuditItem = { ...item(byName('Кофе'), 'extra', 'drop'), carriedFrom: '2026-08' };
+      const headphones: AuditItem = { ...item(byName('Наушники'), null), carriedFrom: '2026-08' };
+      expect(auditSummary([taxi, coffee, headphones])).toEqual({
+        count: 3,
+        marked: 2,
+        left: 1,
+        extraCount: 2,
+        needCount: 0,
+        goalCount: 2,
+        // September's own: the taxi, 349 000 сум, of which 174 000 above its limit went on the extra
+        totalMinor: sum(349000),
+        wastedMinor: sum(174000),
+        // Brought from August: coffee given up and the headphones not decided yet
+        carriedCount: 2,
+        carriedTotalMinor: sum(448000 + 690000),
+        carriedWastedMinor: sum(448000),
+        // The plan is a month from now on: the goal of a brought spending counts
+        planMinor: sum(174000 + 448000),
       });
     });
 

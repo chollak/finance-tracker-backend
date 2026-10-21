@@ -3,7 +3,7 @@ import { daysInMonth, shiftMonth } from '../../transaction/domain/monthAnalytics
 import { AuditItem, GoalKind, goalOf } from './audit';
 import { AuditRecord, isSameAuditSpending, spendingNoteKey } from './auditRules';
 import { GOAL_RULES, halfLimitMinor, roundToThousand } from './goalMath';
-import { findSubscription } from './subscriptionCatalog';
+import { SubscriptionService, findServiceByKey, findSubscription } from './subscriptionCatalog';
 
 export { GOAL_RULES, halfLimitMinor, roundToThousand };
 
@@ -81,6 +81,16 @@ export function goalDraftOf(item: AuditItem, doneOn: string): GoalDraft | null {
     // A yearly charge spread over 12 months (FT-130 `monthlyMinor`) comes back in 12 months
     chargeMonths: subscription ? Math.max(1, Math.round(item.amountMinor / Math.max(1, item.monthlyMinor))) : null,
   };
+}
+
+/**
+ * What a goal to cancel is (FT-142): a subscription — «отменить», «Уже отменено», «Отмените в самом сервисе» — or an
+ * operator's paid tariff — «отключить», «Уже отключено», «Отключите у оператора». The catalog tells it by the
+ * service's key; a key no longer in it reads as a subscription. Null for the other goals.
+ */
+export function goalServiceKind(goal: Pick<Goal, 'kind' | 'serviceKey'>): SubscriptionService['kind'] | null {
+  if (goal.kind !== 'cancel') return null;
+  return (goal.serviceKey ? findServiceByKey(goal.serviceKey)?.kind : null) ?? 'subscription';
 }
 
 /** What the goal saves a month: the month given up or cancelled; for «Вдвое меньше», the part above the limit. */

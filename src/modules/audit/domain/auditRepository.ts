@@ -1,4 +1,4 @@
-import { Audit } from './audit';
+import { Audit, AuditChanges } from './audit';
 import { Goal, GoalDraft, SubscriptionState } from './goal';
 
 export type NewAudit = Pick<Audit, 'id' | 'userId' | 'month' | 'items'>;
@@ -13,10 +13,10 @@ export interface AuditRepository {
   /** All of the user's audits, newest month first. */
   findByUserId(userId: string): Promise<Audit[]>;
   /**
-   * Writes the candidates and the audit day if the audit is still at `version`, and moves the version on; false when
-   * another write came first (the caller reads it again).
+   * Writes the candidates, the audit day and whether the candidates are frozen if the audit is still at `version`, and
+   * moves the version on; false when another write came first (the caller reads it again).
    */
-  updateIfVersion(id: string, version: number, changes: Pick<Audit, 'items' | 'doneOn'>): Promise<boolean>;
+  updateIfVersion(id: string, version: number, changes: AuditChanges): Promise<boolean>;
 }
 
 export type NewGoal = GoalDraft & Pick<Goal, 'id' | 'userId' | 'auditId'>;

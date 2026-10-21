@@ -2,6 +2,7 @@ import { RepositoryFactory } from '../../shared/infrastructure/database/reposito
 import { AuditRepository, GoalRepository } from './domain/auditRepository';
 import { AuditSources } from './domain/auditSources';
 import { AuditReader } from './application/auditViews';
+import { AuditGoalSync } from './application/auditGoalSync';
 import { DecideAuditCandidateUseCase, FinishAuditUseCase, GetCurrentAuditUseCase } from './application/auditUseCases';
 import { ListGoalsUseCase, UpdateGoalUseCase } from './application/goalUseCases';
 
@@ -30,9 +31,11 @@ export class AuditModule {
   constructor(dependencies: AuditModuleDependencies) {
     const { audits, goals, sources } = dependencies;
     const reader = new AuditReader(sources, goals, dependencies.now ?? (() => new Date()));
+    // One for both: the goal syncs of an audit run one after another
+    const goalSync = new AuditGoalSync(audits, goals);
     this.getCurrent = new GetCurrentAuditUseCase(audits, goals, sources, reader);
-    this.decide = new DecideAuditCandidateUseCase(audits, goals, reader);
-    this.finish = new FinishAuditUseCase(audits, goals, reader);
+    this.decide = new DecideAuditCandidateUseCase(audits, goalSync, reader);
+    this.finish = new FinishAuditUseCase(audits, goalSync, reader);
     this.listGoals = new ListGoalsUseCase(goals, reader);
     this.updateGoal = new UpdateGoalUseCase(goals, reader);
   }

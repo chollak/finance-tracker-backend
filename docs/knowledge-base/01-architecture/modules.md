@@ -521,11 +521,15 @@ new ProcessVoiceInputUseCase(
   цель, лимит до конца месяца пропорционально оставшимся дням, сравнение с теми же днями прошлого месяца, следующее
   списание подписки; `goalMath.ts` — округление до тысячи; `auditSources.ts`, `auditRepository.ts` — порты.
 - Use cases: `GetCurrentAuditUseCase` (открывает ревизию прошлого месяца при первом запросе или говорит, когда будет
-  первая), `DecideAuditCandidateUseCase`, `FinishAuditUseCase`, `ListGoalsUseCase`, `UpdateGoalUseCase`; `AuditReader`
-  — «сегодня» по Ташкенту (или переданное, для бота FT-133), расходы как в итогах FT-103, ответы API.
-- `SqliteAuditRepository` — `audits` (миграция `AuditsGoals1762200000000`): кандидаты JSON, `INSERT OR IGNORE` на
-  (пользователь, месяц), запись только поверх прочитанной `version` — use case перечитывает и повторяет, так что два
-  нажатия сразу не теряют отметку. `SqliteGoalRepository` — `goals`, одна цель на кандидата ревизии.
+  первая; до первой отметки или «Готово» находит кандидатов заново при каждом чтении — `refoundAuditItems` сохраняет
+  `id` той же траты, FT-142), `DecideAuditCandidateUseCase`, `FinishAuditUseCase` (обе замораживают состав),
+  `ListGoalsUseCase`, `UpdateGoalUseCase`; `AuditGoalSync` — цели следуют за решениями, по очереди на ревизию, с
+  перечитыванием решения перед созданием цели (FT-142); `AuditReader` — «сегодня» по Ташкенту (или переданное, для бота
+  FT-133), расходы как в итогах FT-103, ответы API.
+- `SqliteAuditRepository` — `audits` (миграции `AuditsGoals1762200000000`, `AuditFrozen1762300000000`): кандидаты JSON,
+  `frozen`, `INSERT OR IGNORE` на (пользователь, месяц), запись только поверх прочитанной `version` — use case
+  перечитывает и повторяет, так что два нажатия сразу не теряют отметку. `SqliteGoalRepository` — `goals`, одна цель на
+  кандидата ревизии.
 
 ---
 

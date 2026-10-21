@@ -1,5 +1,6 @@
 import { AuditModule } from '../src/modules/audit/auditModule';
 import { AuditSources } from '../src/modules/audit/domain/auditSources';
+import { GoalRepository } from '../src/modules/audit/domain/auditRepository';
 import { AuditCandidateView, AuditView, GoalView } from '../src/modules/audit/application/auditViews';
 import { SqliteAuditRepository } from '../src/modules/audit/infrastructure/SqliteAuditRepository';
 import { SqliteGoalRepository } from '../src/modules/audit/infrastructure/SqliteGoalRepository';
@@ -12,6 +13,7 @@ import { SqliteUserSettingsRepository } from '../src/modules/user/infrastructure
 import { createSettingsRoutes } from '../src/modules/user/presentation/controllers/settingsController';
 import { Result } from '../src/shared/domain/types/Result';
 import { prototypeRecords } from './helpers/auditPrototype';
+import { findSchemaDrift } from '../src/shared/infrastructure/database/migrationRunner';
 import { openMigratedDatabase, TestDatabase } from './helpers/testDatabase';
 import { recordsOn } from './helpers/records';
 import { startTestServer, TestServer } from './helpers/testServer';
@@ -42,6 +44,7 @@ describe('audit storage and goals (FT-131)', () => {
   let db: TestDatabase;
   let records: ReturnType<typeof recordsOn>;
   let now: Date;
+  let sources: AuditSources;
   let audits: AuditModule;
 
   beforeEach(async () => {
@@ -49,7 +52,7 @@ describe('audit storage and goals (FT-131)', () => {
     records = recordsOn(db.dataSource);
     now = OCT_14;
     const periodTotals = new PeriodTotalsService({ effectiveUsdRate: async () => ({ rateMinor: 1265000, source: 'cbu' }) });
-    const sources: AuditSources = {
+    sources = {
       recordsBetween: (userId, from, to) => records.repository.getByUserIdAndDateRange(userId, new Date(from), new Date(to)),
       firstRecordDate: userId => records.repository.findFirstRecordDate(userId),
       categories: userId => records.catalog.listForUser(userId),
@@ -121,7 +124,7 @@ describe('audit storage and goals (FT-131)', () => {
     expect(await db.dataSource.query('SELECT COUNT(*) AS n FROM audits')).toEqual([{ n: 0 }]);
   });
 
-  it('opens September\'s audit with the candidates of the board and keeps them as found', async () => {
+  it('opens September\'s audit with the candidates of the board', async () => {
     await seedBoard();
     const audit = await current();
 
@@ -136,18 +139,12 @@ describe('audit storage and goals (FT-131)', () => {
     ]);
     expect(audit.summary).toEqual({
       count: 6, marked: 0, left: 6, extraCount: 0, needCount: 0, goalCount: 0, totalMinor: sum(2319000), planMinor: 0, wastedMinor: 0,
+      carriedCount: 0, carriedTotalMinor: 0, carriedWastedMinor: 0,
     });
     expect(candidate(audit, 'Такси')).toMatchObject({ halfLimitMinor: sum(175000), savingMinor: 0, monthlyMinor: sum(349000) });
     expect(candidate(audit, 'Такси').title.replace(/ /g, ' ')).toBe('Такси — 13 раз');
     expect(candidate(audit, 'Кинопоиск').halfLimitMinor).toBeNull();
     expect(candidate(audit, 'Наушники').halfLimitMinor).toBeNull();
-
-    // Found once: a coffee recorded for September afterwards does not change the audit
-    await record({ date: '2026-09-30' });
-    const again = await current();
-    expect(again.id).toBe(audit.id);
-    expect(again.candidates.map(entry => entry.id)).toEqual(audit.candidates.map(entry => entry.id));
-    expect(candidate(again, 'Кофе').count).toBe(16);
     expect(await db.dataSource.query('SELECT COUNT(*) AS n FROM audits')).toEqual([{ n: 1 }]);
   });
 
@@ -288,6 +285,225 @@ describe('audit storage and goals (FT-131)', () => {
       ['Кроссовки', '2026-10'],
       ['Такси', '2026-10'],
     ]);
+  });
+
+  /**
+   * FT-142: the follow-ups of FT-131's review the audit screens (FT-132) need — rules in docs/tasks/decisions.md,
+   * 2026-10-21 «решения FT-130 и правила по ревью FT-131».
+   */
+  describe('review follow-ups (FT-142)', () => {
+    it('finds the candidates again on every read until the first mark, keeping the ids of the same spending', async () => {
+      await seedBoard();
+      const audit = await current();
+
+      // Recorded for September after the first read — the invitation on the 1st must not cut off yesterday
+      await record({ date: '2026-09-30' });
+      await record({ amount: 900000, category: 'Покупки', description: 'Телевизор', date: '2026-09-29' });
+      const again = await current();
+
+      expect(again.id).toBe(audit.id);
+      expect(again.state).toBe('open');
+      expect(candidate(again, 'Кофе')).toMatchObject({ count: 17, amountMinor: sum(476000) });
+      expect(candidate(again, 'Телевизор')).toMatchObject({ kind: 'large_purchase', amountMinor: sum(900000), decision: null });
+      expect(again.summary).toMatchObject({ count: 7, totalMinor: sum(2319000 + 28000 + 900000) });
+      // A screen that read the audit before still marks the same spending
+      for (const entry of audit.candidates) expect(candidate(again, entry.name).id).toBe(entry.id);
+      expect(await db.dataSource.query('SELECT COUNT(*) AS n FROM audits')).toEqual([{ n: 1 }]);
+      expect(unwrap(await decide(audit.id!, candidate(audit, 'Такси').id, { decision: 'extra' })).candidates).toHaveLength(7);
+    });
+
+    it('keeps the candidates as they are from the first mark on, even when the mark is taken back', async () => {
+      await seedBoard();
+      const marked = await mark(await current(), { 'Кофе': { decision: 'need' } });
+
+      await record({ date: '2026-09-30' });
+      await record({ amount: 900000, category: 'Покупки', description: 'Телевизор', date: '2026-09-29' });
+      const after = await current();
+      expect(after.candidates.map(entry => [entry.id, entry.name, entry.amountMinor])).toEqual(
+        marked.candidates.map(entry => [entry.id, entry.name, entry.amountMinor]));
+      expect(candidate(after, 'Кофе').count).toBe(16);
+
+      await mark(marked, { 'Кофе': { decision: null } });
+      await record({ date: '2026-09-29' });
+      expect(candidate(await current(), 'Кофе').count).toBe(16);
+      expect((await current()).candidates.map(entry => entry.name)).not.toContain('Телевизор');
+    });
+
+    it('keeps the candidates as they are after «Готово», also when nothing was found', async () => {
+      // Only groceries: not a flexible category, so September has nothing to mark
+      await record({ amount: 400000, category: 'Продукты', description: 'Супермаркет', date: '2026-08-01' });
+      await record({ amount: 400000, category: 'Продукты', description: 'Супермаркет', date: '2026-09-02' });
+      const clean = await current();
+      expect(clean).toMatchObject({ state: 'open', candidates: [] });
+      expect(unwrap(await finish(clean.id!))).toMatchObject({ state: 'done', doneOn: '2026-10-14', candidates: [] });
+
+      await record({ amount: 900000, category: 'Покупки', description: 'Телевизор', date: '2026-09-29' });
+      expect(await current()).toMatchObject({ state: 'done', candidates: [] });
+    });
+
+    it('keeps a mark sent while the audit is found again', async () => {
+      await seedBoard();
+      const audit = await current();
+      await record({ date: '2026-09-30' });
+
+      await Promise.all([current(), decide(audit.id!, candidate(audit, 'Такси').id, { decision: 'extra' }), current()]);
+
+      const after = await current();
+      expect(candidate(after, 'Такси').decision).toBe('extra');
+      expect(candidate(after, 'Такси').id).toBe(candidate(audit, 'Такси').id);
+    });
+
+    it('sums only the month audited; what came from the audit before is a number apart', async () => {
+      await seedBoard();
+      const september = await mark(await current(), {
+        'Такси': { decision: 'extra' },
+        'Кинопоиск': { decision: 'extra' },
+        'Второй номер': { decision: 'need' },
+      });
+      const done = unwrap(await finish(september.id!));
+      unwrap(await updateGoal(goalNamed(done.goals, 'Кинопоиск').id, { subscription: 'cancelled' }));
+
+      now = NOV_2;
+      const october = await current();
+      const own = october.candidates.filter(entry => entry.carriedFrom === null);
+      expect(own.map(entry => entry.name)).toEqual(['Кроссовки', 'Такси']);
+      const ownTotal = own.reduce((total, entry) => total + entry.amountMinor, 0);
+      expect(october.summary).toMatchObject({
+        count: 5,
+        left: 5,
+        totalMinor: ownTotal,
+        wastedMinor: 0,
+        // «Доставка еды», «Наушники» and «Кофе» of September
+        carriedCount: 3,
+        carriedTotalMinor: sum(732000 + 690000 + 448000),
+        carriedWastedMinor: 0,
+      });
+
+      const marked = await mark(october, {
+        'Кроссовки': { decision: 'extra' },
+        'Наушники': { decision: 'extra' },
+        'Кофе': { decision: 'extra', goal: 'drop' },
+      });
+      expect(marked.summary).toMatchObject({
+        totalMinor: ownTotal,
+        // October's extra: the sneakers, a one-off purchase, whole
+        wastedMinor: candidate(october, 'Кроссовки').amountMinor,
+        // September's extra brought here: the headphones and the coffee given up
+        carriedWastedMinor: sum(690000 + 448000),
+        planMinor: sum(448000),
+      });
+    });
+
+    it('tells a subscription to cancel from a paid tariff to turn off (serviceKind)', async () => {
+      await seedBoard();
+      const audit = await mark(await current(), {
+        'Кинопоиск': { decision: 'extra' },
+        'Второй номер': { decision: 'extra' },
+        'Кофе': { decision: 'extra' },
+      });
+      const done = unwrap(await finish(audit.id!));
+
+      expect(done.goals.map(goal => [goal.name, goal.kind, goal.serviceKind])).toEqual([
+        ['Кофе', 'half', null],
+        ['Второй номер', 'cancel', 'tariff'],
+        ['Кинопоиск', 'cancel', 'subscription'],
+      ]);
+      expect((await goals()).goals.map(goal => [goal.name, goal.serviceKind])).toEqual([
+        ['Кофе', null],
+        ['Второй номер', 'tariff'],
+        ['Кинопоиск', 'subscription'],
+      ]);
+      const answered = unwrap(await updateGoal(goalNamed(done.goals, 'Второй номер').id, { subscription: 'cancelled' }));
+      expect(answered).toMatchObject({ serviceKind: 'tariff', subscription: { state: 'cancelled' } });
+    });
+
+    it('makes no goal for a spending marked «Нужно» while the goals were being written', async () => {
+      await seedBoard();
+      const auditRepository = new SqliteAuditRepository(db.dataSource);
+      const goalRepository = new SqliteGoalRepository(db.dataSource);
+      /** Runs once, when the goals' sync has read the audit and is about to write the goals. */
+      let meanwhile: (() => Promise<void>) | null = null;
+      const watched: GoalRepository = {
+        createIgnoringDuplicate: goal => goalRepository.createIgnoringDuplicate(goal),
+        findById: id => goalRepository.findById(id),
+        findByAuditId: async auditId => {
+          const found = await goalRepository.findByAuditId(auditId);
+          const run = meanwhile;
+          meanwhile = null;
+          if (run) await run();
+          return found;
+        },
+        findByUserId: userId => goalRepository.findByUserId(userId),
+        update: (id, changes) => goalRepository.update(id, changes),
+        delete: id => goalRepository.delete(id),
+      };
+      const module = new AuditModule({ audits: auditRepository, goals: watched, sources, now: () => now });
+
+      const audit = await mark(await current(), { 'Такси': { decision: 'extra' }, 'Кофе': { decision: 'extra' } });
+      const taxiId = candidate(audit, 'Такси').id;
+      let ran = false;
+      // «Нужно» on «Такси» lands between the sync's read of the audit and its writes; its own sync has not run yet
+      meanwhile = async () => {
+        ran = true;
+        const stored = (await auditRepository.findById(audit.id!))!;
+        const items = stored.items.map(entry => (entry.id === taxiId ? { ...entry, decision: 'need' as const } : entry));
+        expect(await auditRepository.updateIfVersion(stored.id, stored.version, { items, doneOn: stored.doneOn, frozen: true })).toBe(true);
+      };
+
+      const done = unwrap(await module.getFinishAuditUseCase().execute({ userId: 'user-1', auditId: audit.id! }));
+
+      expect(ran).toBe(true);
+      expect(done.goals.map(goal => goal.name)).toEqual(['Кофе']);
+      const after = await current();
+      expect(candidate(after, 'Такси').decision).toBe('need');
+      expect(after.goals.map(goal => goal.name)).toEqual(['Кофе']);
+      expect(await db.dataSource.query('SELECT name FROM goals')).toEqual([{ name: 'Кофе' }]);
+    });
+
+    it('freezes, by migration, the audits kept before that have a mark, a chosen goal or an audit day', async () => {
+      const ds = db.dataSource;
+      for (;;) {
+        const [last] = await ds.query(`SELECT "name" FROM "migrations" ORDER BY "id" DESC LIMIT 1`);
+        await ds.undoLastMigration({ transaction: 'each' });
+        if (!last || last.name === 'AuditFrozen1762300000000') break;
+      }
+      const itemOf = (fields: Record<string, unknown>) => JSON.stringify([{ id: 'c1', name: 'Кофе', categoryId: 'cat', amountMinor: 100, operations: [], carriedFrom: null, decision: null, goalChoice: null, ...fields }]);
+      const insert = (id: string, month: string, candidates: string, doneOn: string | null) =>
+        ds.query(`INSERT INTO "audits" ("id", "user_id", "month", "candidates", "done_on") VALUES (?, 'user-1', ?, ?, ?)`, [id, month, candidates, doneOn]);
+      await insert('untouched', '2026-06', itemOf({}), null);
+      await insert('marked', '2026-07', itemOf({ decision: 'need' }), null);
+      await insert('chosen', '2026-08', itemOf({ goalChoice: 'drop' }), null);
+      await insert('done', '2026-09', '[]', '2026-10-14');
+
+      await ds.runMigrations({ transaction: 'each' });
+
+      expect(await ds.query(`SELECT "id", "frozen" FROM "audits" ORDER BY "month"`)).toEqual([
+        { id: 'untouched', frozen: 0 },
+        { id: 'marked', frozen: 1 },
+        { id: 'chosen', frozen: 1 },
+        { id: 'done', frozen: 1 },
+      ]);
+      expect(await findSchemaDrift(ds)).toEqual([]);
+    });
+
+    it('ends with the goals of the last marks when marks and «Готово» come at once', async () => {
+      await seedBoard();
+      const audit = await mark(await current(), { 'Такси': { decision: 'extra' }, 'Кофе': { decision: 'extra' } });
+
+      await Promise.all([
+        finish(audit.id!),
+        decide(audit.id!, candidate(audit, 'Такси').id, { decision: 'need' }),
+        decide(audit.id!, candidate(audit, 'Доставка еды').id, { decision: 'extra' }),
+        decide(audit.id!, candidate(audit, 'Кофе').id, { goal: 'drop' }),
+      ]);
+
+      const after = await current();
+      expect(after.goals.map(goal => [goal.name, goal.kind])).toEqual([['Доставка еды', 'half'], ['Кофе', 'drop']]);
+      expect(await db.dataSource.query('SELECT name, kind FROM goals ORDER BY name')).toEqual([
+        { name: 'Доставка еды', kind: 'half' },
+        { name: 'Кофе', kind: 'drop' },
+      ]);
+    });
   });
 
   describe('routes', () => {

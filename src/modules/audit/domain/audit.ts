@@ -44,11 +44,20 @@ export interface Audit {
   items: AuditItem[];
   /** The audit day, YYYY-MM-DD: the first «Готово». Goals count from it; null until then. */
   doneOn: string | null;
+  /**
+   * The candidates are kept as they are (FT-142): set by the first mark or «Готово» and never unset, also when the mark
+   * is taken back. Until then every read finds them again (`refoundAuditItems`), so a record added for the month
+   * after the first read — the invitation comes on the 1st — still comes in.
+   */
+  frozen: boolean;
   /** Grows with every write: a write made on an older version is refused and read again. */
   version: number;
   createdAt: Date;
   updatedAt: Date;
 }
+
+/** What a write of the audit changes. */
+export type AuditChanges = Pick<Audit, 'items' | 'doneOn' | 'frozen'>;
 
 export const isServiceCandidate = (candidate: Pick<AuditCandidate, 'kind'>) => candidate.kind === 'subscription' || candidate.kind === 'tariff';
 
@@ -87,6 +96,7 @@ export function wastedOf(item: AuditItem): number {
 }
 
 export interface AuditSummary {
+  /** All the candidates, those brought from the audit before included: «Разобрано 2 из 6». */
   count: number;
   /** Decided: «Разобрано 2 из 6». */
   marked: number;
@@ -95,16 +105,30 @@ export interface AuditSummary {
   extraCount: number;
   needCount: number;
   goalCount: number;
-  /** All the candidates: «— 2 319 000 сум за сентябрь». */
+  /** The candidates of the month audited only: «— 2 319 000 сум за сентябрь». */
   totalMinor: number;
-  /** Saved a month if the goals are kept: «814 000 сум в месяц», never with a minus. */
+  /** Saved a month if the goals are kept, those of brought candidates included: «814 000 сум в месяц», never with a minus. */
   planMinor: number;
-  /** «В сентябре на лишнее ушло 1 504 000 сум». */
+  /** What went on the extra in the month audited only: «В сентябре на лишнее ушло 1 504 000 сум». */
   wastedMinor: number;
+  /** Candidates brought from the audit before (`carriedFrom`): their month is not this one, so they are counted apart. */
+  carriedCount: number;
+  /** What the brought candidates took in their month. */
+  carriedTotalMinor: number;
+  /** What of it went on the extra, as decided now. */
+  carriedWastedMinor: number;
 }
 
+const sumOf = (items: readonly AuditItem[], amount: (item: AuditItem) => number) => items.reduce((total, item) => total + amount(item), 0);
+
+/**
+ * The audit's numbers. The month's sum and «на лишнее ушло» are of the month audited only (FT-142): a candidate
+ * brought from the audit before was spent in its own month, so it is a number apart (`carried…`).
+ */
 export function auditSummary(items: readonly AuditItem[]): AuditSummary {
   const marked = items.filter(item => item.decision !== null).length;
+  const own = items.filter(item => item.carriedFrom === null);
+  const carried = items.filter(item => item.carriedFrom !== null);
   return {
     count: items.length,
     marked,
@@ -112,9 +136,12 @@ export function auditSummary(items: readonly AuditItem[]): AuditSummary {
     extraCount: items.filter(item => item.decision === 'extra').length,
     needCount: items.filter(item => item.decision === 'need').length,
     goalCount: items.filter(item => goalOf(item) !== null).length,
-    totalMinor: items.reduce((total, item) => total + item.amountMinor, 0),
-    planMinor: items.reduce((total, item) => total + savingOf(item), 0),
-    wastedMinor: items.reduce((total, item) => total + wastedOf(item), 0),
+    totalMinor: sumOf(own, item => item.amountMinor),
+    planMinor: sumOf(items, savingOf),
+    wastedMinor: sumOf(own, wastedOf),
+    carriedCount: carried.length,
+    carriedTotalMinor: sumOf(carried, item => item.amountMinor),
+    carriedWastedMinor: sumOf(carried, wastedOf),
   };
 }
 
@@ -167,4 +194,40 @@ export function openAuditItems(input: {
     .map(item => ({ ...item, id: input.newId(), carriedFrom: before!.month }));
 
   return [...fresh, ...carried];
+}
+
+/**
+ * The candidates found again for an audit not frozen yet (FT-142), with the ids of those kept: the same spending keeps
+ * its id, so a screen that read the audit before still marks it. The same spending is the same key, else
+ * `isSameAuditSpending` (a note group's root may change when a record is added: «Такси домой» → «Такси»), and a
+ * brought candidate is matched only with a brought one. Each kept id is given once; a spending found anew gets the
+ * id `found` gave it.
+ */
+export function refoundAuditItems(kept: readonly AuditItem[], found: readonly AuditItem[]): AuditItem[] {
+  const unused = [...kept];
+  const ids = new Map<AuditItem, string>();
+  const match = (same: (a: AuditItem, b: AuditItem) => boolean) => {
+    for (const item of found) {
+      if (ids.has(item)) continue;
+      const index = unused.findIndex(entry => (entry.carriedFrom === null) === (item.carriedFrom === null) && same(entry, item));
+      if (index >= 0) ids.set(item, unused.splice(index, 1)[0].id);
+    }
+  };
+  match((a, b) => a.key === b.key);
+  match(isSameAuditSpending);
+  return found.map(item => (ids.has(item) ? { ...item, id: ids.get(item)! } : item));
+}
+
+/** A value as JSON with its keys sorted, so two equal objects read the same whatever order their keys were set in. */
+function canonical(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(canonical);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b)).map(([key, entry]) => [key, canonical(entry)]));
+  }
+  return value;
+}
+
+/** Whether two lists of candidates say the same: a read that finds nothing new writes nothing. */
+export function sameAuditItems(a: readonly AuditItem[], b: readonly AuditItem[]): boolean {
+  return JSON.stringify(canonical(a)) === JSON.stringify(canonical(b));
 }
