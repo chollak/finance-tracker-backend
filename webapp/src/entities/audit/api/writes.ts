@@ -7,13 +7,27 @@ import { applyCandidateChange, applyGoalAnswer } from '../model/applyChange';
 import type { Audit, CandidateChange, Goal, Goals, SubscriptionAnswer } from '../model/types';
 import { auditKeys } from './keys';
 
-/** A press on a candidate or «Готово». */
-type AuditWrite = { kind: 'mark'; auditId: string; candidateId: string; change: CandidateChange } | { kind: 'finish'; auditId: string };
+/** A press on a candidate, «Готово», or an answer about a subscription's goal. */
+type AuditWrite =
+  | { kind: 'mark'; auditId: string; candidateId: string; change: CandidateChange }
+  | { kind: 'finish'; auditId: string }
+  | { kind: 'goal'; goalId: string; answer: SubscriptionAnswer };
+
+/** The server's answer: the whole audit for a mark and «Готово», the goal for an answer. */
+type AuditWriteResult = { audit: Audit } | { goal: Goal };
 
 const AUDIT_WRITE = ['audit', 'write'] as const;
 
-const applyWrite = (audit: Audit, write: AuditWrite): Audit =>
-  write.kind === 'mark' ? applyCandidateChange(audit, write.candidateId, write.change) : audit;
+const replaceGoal = (goals: readonly Goal[], goal: Goal) => goals.map((entry) => (entry.id === goal.id ? goal : entry));
+
+function applyWrite(audit: Audit, write: AuditWrite): Audit {
+  if (write.kind === 'mark') return applyCandidateChange(audit, write.candidateId, write.change);
+  if (write.kind === 'goal') {
+    const goal = audit.goals.find((entry) => entry.id === write.goalId);
+    return goal ? { ...audit, goals: replaceGoal(audit.goals, applyGoalAnswer(goal, write.answer)) } : audit;
+  }
+  return audit;
+}
 
 /** The writes still on their way after `write`, in the order they were made. */
 function writesAfter(queryClient: QueryClient, write: AuditWrite): AuditWrite[] {
@@ -24,20 +38,22 @@ function writesAfter(queryClient: QueryClient, write: AuditWrite): AuditWrite[] 
     .filter((variables): variables is AuditWrite => !!variables && variables !== write);
 }
 
-const replaceGoal = (goals: readonly Goal[], goal: Goal) => goals.map((entry) => (entry.id === goal.id ? goal : entry));
-
 /**
- * The audit's writes (FT-132). Marks and «Готово» go out one after another, in the order pressed (`PATCH
- * /api/audits/:id/candidates/:candidateId`, `POST /api/audits/:id/finish`): a mark shows at once, and the server's answer
- * — the whole audit — takes its place with the marks still on their way laid over it, so an earlier answer never undoes
- * a later press. A mark that did not reach the server is taken back the same way and `onFailed` says so. «Уже отменено»
- * and «Напомнить» are saved on the goal (`PATCH /api/goals/:id`). Home's «Цели после ревизии» is read again once the
- * last write has landed.
+ * The audit's writes (FT-132). Marks, «Готово» and the answers about a subscription go out one after another, in the
+ * order pressed (`PATCH /api/audits/:id/candidates/:candidateId`, `POST /api/audits/:id/finish`, `PATCH /api/goals/:id`):
+ * a press shows at once, and the server's answer — the whole audit, or the goal — takes its place with the presses still
+ * on their way laid over it, so an earlier answer never undoes a later press. A press that did not reach the server is
+ * taken back the same way and `onFailed` says so.
+ *
+ * Home's «Цели после ревизии» (`GET /api/goals`) is read again once the last write has landed — at once, even with Home
+ * closed, so «На главную» opens Home with the card in place. An answer changes a goal Home already has in its list; it
+ * never writes the list itself: the list Home read before «Готово» does not have the goals yet.
  */
-export function useAuditWrites({ onFailed }: { onFailed?: (error: ApiError, what: 'mark' | 'finish' | 'goal') => void } = {}) {
+export function useAuditWrites({ onFailed }: { onFailed?: (error: ApiError, what: AuditWrite['kind']) => void } = {}) {
   const queryClient = useQueryClient();
   const userId = useUserStore((state) => state.userId) ?? '';
   const key = auditKeys.current(userId);
+  const goalsKey = auditKeys.goals(userId);
   // The audit as the server last answered, under the presses still on their way
   const confirmed = useRef<Audit | undefined>(undefined);
 
@@ -46,28 +62,41 @@ export function useAuditWrites({ onFailed }: { onFailed?: (error: ApiError, what
   };
   const afterLast = () => {
     if (queryClient.isMutating({ mutationKey: AUDIT_WRITE }) > 1) return;
-    void queryClient.invalidateQueries({ queryKey: auditKeys.goals(userId) });
+    // The goals come with «Готово»: from then on they are read at once, with Home closed too; before it, when next shown
+    const done = queryClient.getQueryData<Audit>(key)?.state === 'done';
+    void queryClient.invalidateQueries({ queryKey: goalsKey, refetchType: done ? 'all' : 'active' });
   };
 
-  const write = useMutation<Audit, ApiError, AuditWrite>({
+  const write = useMutation<AuditWriteResult, ApiError, AuditWrite>({
     mutationKey: AUDIT_WRITE,
     scope: { id: 'audit' },
     mutationFn: async (variables) => {
+      if (variables.kind === 'goal') {
+        const response = await apiClient.patch<Goal>(API_ENDPOINTS.GOALS.UPDATE(variables.goalId), { subscription: variables.answer });
+        return { goal: response.data };
+      }
       const response =
         variables.kind === 'mark'
           ? await apiClient.patch<Audit>(API_ENDPOINTS.AUDITS.CANDIDATE(variables.auditId, variables.candidateId), variables.change)
           : await apiClient.post<Audit>(API_ENDPOINTS.AUDITS.FINISH(variables.auditId));
-      return response.data;
+      return { audit: response.data };
     },
     onMutate: async (variables) => {
       await queryClient.cancelQueries({ queryKey: key });
       // The first press of a run starts from what the screen shows: the server's last answer
       if (writesAfter(queryClient, variables).length === 0) confirmed.current = queryClient.getQueryData<Audit>(key);
-      if (variables.kind === 'mark') queryClient.setQueryData<Audit>(key, (audit) => (audit ? applyWrite(audit, variables) : audit));
+      if (variables.kind !== 'finish') queryClient.setQueryData<Audit>(key, (audit) => (audit ? applyWrite(audit, variables) : audit));
     },
-    onSuccess: (audit, variables) => {
-      confirmed.current = audit;
-      show(audit, writesAfter(queryClient, variables));
+    onSuccess: (result, variables) => {
+      if ('goal' in result) {
+        const { goal } = result;
+        if (confirmed.current) confirmed.current = { ...confirmed.current, goals: replaceGoal(confirmed.current.goals, goal) };
+        const goals = queryClient.getQueryData<Goals>(goalsKey);
+        if (goals?.goals.some((entry) => entry.id === goal.id)) queryClient.setQueryData<Goals>(goalsKey, { ...goals, goals: replaceGoal(goals.goals, goal) });
+      } else {
+        confirmed.current = result.audit;
+      }
+      show(confirmed.current, writesAfter(queryClient, variables));
     },
     onError: (error, variables) => {
       const pending = writesAfter(queryClient, variables);
@@ -79,36 +108,14 @@ export function useAuditWrites({ onFailed }: { onFailed?: (error: ApiError, what
     onSettled: afterLast,
   });
 
-  const answer = useMutation<Goal, ApiError, { goalId: string; answer: SubscriptionAnswer }, { before: Goal | undefined }>({
-    mutationFn: async ({ goalId, answer: subscription }) => {
-      const response = await apiClient.patch<Goal>(API_ENDPOINTS.GOALS.UPDATE(goalId), { subscription });
-      return response.data;
-    },
-    onMutate: ({ goalId, answer: subscription }) => {
-      const before = queryClient.getQueryData<Audit>(key)?.goals.find((goal) => goal.id === goalId);
-      if (before) {
-        const guess = applyGoalAnswer(before, subscription);
-        queryClient.setQueryData<Audit>(key, (audit) => (audit ? { ...audit, goals: replaceGoal(audit.goals, guess) } : audit));
-      }
-      return { before };
-    },
-    onSuccess: (goal) => {
-      queryClient.setQueryData<Audit>(key, (audit) => (audit ? { ...audit, goals: replaceGoal(audit.goals, goal) } : audit));
-      queryClient.setQueryData<Goals>(auditKeys.goals(userId), (goals) => (goals ? { ...goals, goals: replaceGoal(goals.goals, goal) } : goals));
-    },
-    onError: (error, _variables, context) => {
-      const before = context?.before;
-      if (before) queryClient.setQueryData<Audit>(key, (audit) => (audit ? { ...audit, goals: replaceGoal(audit.goals, before) } : audit));
-      onFailed?.(error, 'goal');
-    },
-  });
-
   return {
     /** «Нужно / Лишнее» (null — the second press) or «Вдвое меньше / Отказаться». */
     mark: (auditId: string, candidateId: string, change: CandidateChange) => write.mutate({ kind: 'mark', auditId, candidateId, change }),
-    /** «Готово»: resolves with the audit and its goals once every press before it has landed. */
-    finish: (auditId: string) => write.mutateAsync({ kind: 'finish', auditId }),
+    /** «Готово»: resolves once every press before it and «Готово» itself have landed; rejects when it did not. */
+    finish: async (auditId: string): Promise<void> => {
+      await write.mutateAsync({ kind: 'finish', auditId });
+    },
     /** «Уже отменено», «Напомнить» or no answer about a subscription to cancel. */
-    answerGoal: (goalId: string, subscription: SubscriptionAnswer) => answer.mutate({ goalId, answer: subscription }),
+    answerGoal: (goalId: string, answer: SubscriptionAnswer) => write.mutate({ kind: 'goal', goalId, answer }),
   };
 }

@@ -17,12 +17,13 @@ let container: HTMLDivElement;
 const onChange = vi.fn();
 const onUnavailable = vi.fn();
 
-function render(usdUnavailable: boolean, inSheet = false): void {
+function render(usdUnavailable: boolean, inSheet = false, strong = false): void {
   root = createRoot(container);
   act(() => {
     root!.render(
       <Segmented
         inSheet={inSheet}
+        strong={strong}
         ariaLabel="Валюта отображения"
         value="UZS"
         onChange={onChange}
@@ -109,5 +110,15 @@ describe('Segmented', () => {
     expect(background(container.querySelector('[role="group"]')!)).toBe('sheet-track');
     expect(background(segment('Сум'))).toBe('card');
     expect([...segment('USD').classList].some((name) => name.startsWith('bg-'))).toBe(false);
+  });
+
+  it('labels are 700; `strong` makes them 800, as the audit’s «Нужно / Лишнее» (FT-132)', () => {
+    render(false);
+    expect(segment('Сум').className).toContain('font-bold');
+    act(() => root?.unmount());
+
+    render(false, false, true);
+    expect(segment('Сум').className).toContain('font-extrabold');
+    expect(segment('USD').className).not.toContain('font-bold');
   });
 });

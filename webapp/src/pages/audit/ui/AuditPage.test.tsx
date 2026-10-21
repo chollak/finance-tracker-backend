@@ -4,12 +4,15 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
-import { applyCandidateChange, applyGoalAnswer, type Audit, type CandidateChange, type SubscriptionAnswer } from '@/entities/audit';
-import { BOARD_DONE, BOARD_OPEN, EARLY } from '@/entities/audit/model/fixtures';
+import type { ReactNode } from 'react';
+import { applyCandidateChange, applyGoalAnswer, type Audit, type CandidateChange, type Goals, type SubscriptionAnswer } from '@/entities/audit';
+import { BOARD_DONE, BOARD_GOALS, BOARD_OPEN, EARLY } from '@/entities/audit/model/fixtures';
 import type { Category } from '@/entities/category';
+import type { UserSettings } from '@/entities/settings';
 import { useUserStore } from '@/entities/user';
 import { apiClient } from '@/shared/api';
 import { useUndoToastStore } from '@/shared/lib/undo';
+import { AuditCard } from '@/widgets/audit-card';
 import { AuditPage } from './AuditPage';
 
 /**
@@ -37,6 +40,16 @@ const CATEGORIES = [
   category('cat-telecom', 'Связь', 'lilac'),
 ];
 
+const SETTINGS: UserSettings = {
+  userId: USER_ID, theme: 'telegram', dailySummaryEnabled: true, dailySummaryTime: '21:00', auditEnabled: true, auditTime: '10:00',
+  goalAlertsEnabled: true, fxOwnRateMinor: null, fxOwnSince: null, defaultAccountId: null, onboardedAt: '2026-08-01T09:00:00.000Z',
+  receiptTipsSeen: 0, auditInviteSnoozedUntil: null, displayCurrency: 'UZS',
+};
+
+/** `GET /api/goals`: none until «Готово», then the audit's goals as they are now. */
+const goalsOf = (audit: Audit): Goals =>
+  audit.state === 'done' ? { ...BOARD_GOALS, goals: audit.goals } : { today: audit.today, startsOn: null, endsOn: null, goals: [], planMinor: 0, comparison: null };
+
 /** The audit as the server keeps it; the stubs below change it as the API would. */
 let server: Audit;
 let failNextMark: boolean;
@@ -51,6 +64,8 @@ beforeEach(() => {
   vi.mocked(apiClient.get).mockReset().mockImplementation(async (url: string) => {
     if (url === '/audits/current') return { success: true, data: server } as never;
     if (url === '/categories') return { success: true, data: CATEGORIES } as never;
+    if (url === '/goals') return { success: true, data: goalsOf(server) } as never;
+    if (url === '/settings') return { success: true, data: SETTINGS } as never;
     return new Promise<never>(() => {});
   });
   vi.mocked(apiClient.patch).mockReset().mockImplementation(async (url: string, body: unknown) => {
@@ -99,12 +114,12 @@ async function settle() {
   }
 }
 
-async function renderAudit(from: string[] = ['/', '/audit']) {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+async function renderAudit(from: string[] = ['/', '/audit'], { home = <p>Главная</p>, staleTime = 0 }: { home?: ReactNode; staleTime?: number } = {}) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime } } });
   router = createMemoryRouter(
     [
       { path: '/audit', element: <AuditPage /> },
-      { path: '/', element: <p>Главная</p> },
+      { path: '/', element: home },
       { path: '/more', element: <p>Ещё</p> },
     ],
     { initialEntries: from, initialIndex: from.length - 1 }
@@ -272,6 +287,26 @@ describe('«Готово» and the result («Ревизия · итог и це�
     expect(apiClient.patch).toHaveBeenLastCalledWith('/goals/goal-kinopoisk', { subscription: 'cancelled' });
     expect(text()).toContain('Отменено — больше не спишут');
     expect(() => button(document.body, 'Уже отменено')).toThrow();
+  });
+
+  it('«На главную» after «Напомнить» shows «Цели после ревизии» on Home, read again since Home had none', async () => {
+    // Home as the app keeps it: its reads stay fresh for 5 minutes, and it read the goals while the audit was open
+    await renderAudit(['/'], { home: <AuditCard />, staleTime: 5 * 60_000 });
+    const invite = document.body.querySelector<HTMLAnchorElement>('a[href="/audit"]')!;
+    expect(squash(invite.textContent)).toContain('Ревизия сентября');
+
+    await press(invite);
+    await press(button(card('Кофе'), 'Лишнее'));
+    await press(button(card('Кинопоиск'), 'Лишнее'));
+    await press(done());
+    vi.mocked(apiClient.get).mockClear();
+    await press(button(document.body, 'Напомнить 2 ноября'));
+    await press([...document.body.querySelectorAll('a')].find((link) => link.textContent === 'На главную')!);
+
+    expect(router.state.location.pathname).toBe('/');
+    expect(apiClient.get).toHaveBeenCalledWith('/goals');
+    const goals = document.body.querySelector<HTMLAnchorElement>('a[href="/audit"]');
+    expect(squash(goals?.textContent)).toBe(`Цели после ревизии4 цели · экономия до 814${NB}000${NB}сум`);
   });
 
   it('«На главную» opens Home', async () => {

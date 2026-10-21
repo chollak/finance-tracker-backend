@@ -28,13 +28,15 @@ interface SegmentedProps<T extends string> {
    * «Изменить или скрыть счёт»). On a sheet the screen's track and seg-on would be the same colour in dark.
    */
   inSheet?: boolean;
+  /** Labels at 800 instead of 700: the audit's «Нужно / Лишнее», as the board «Ревизия · начало» draws them. */
+  strong?: boolean;
   className?: string;
 }
 
 /**
  * Two-way switch (docs/pastel/components/Segmented.md): track 48px with 2px inset, 44px segments,
  * active segment seg-on with shadow-seg, inactive text seg-off; in a sheet the track is sheet-track and the
- * knob card. An unavailable segment is dimmed to 0.35, as the other unavailable controls of «Пастель» are
+ * knob card. Labels 14px, 700; `strong` — 800. An unavailable segment is dimmed to 0.35, as the other unavailable controls of «Пастель» are
  * (Calendar.md, MonthStepper.md).
  */
 export function Segmented<T extends string>({
@@ -46,6 +48,7 @@ export function Segmented<T extends string>({
   onClear,
   onUnavailable,
   inSheet = false,
+  strong = false,
   className,
 }: SegmentedProps<T>) {
   return (
@@ -66,7 +69,8 @@ export function Segmented<T extends string>({
             aria-label={option.ariaLabel}
             onClick={press}
             className={cn(
-              'flex h-touch min-w-0 flex-1 items-center justify-center rounded-pill px-3 text-[14px] font-bold transition-colors duration-150',
+              'flex h-touch min-w-0 flex-1 items-center justify-center rounded-pill px-3 text-[14px] transition-colors duration-150',
+              strong ? 'font-extrabold' : 'font-bold',
               'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink',
               active ? cn(inSheet ? 'bg-card' : 'bg-seg-on', 'text-ink shadow-segment') : 'text-seg-off',
               option.unavailable && 'opacity-35'

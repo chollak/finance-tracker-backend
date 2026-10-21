@@ -29,13 +29,14 @@ const FAILED = {
 function TooEarly({ audit }: { audit: Audit }) {
   const view = tooEarlyView(audit);
   return (
-    // The board's empty state sits 64px under the header, as analytics' empty month
-    <div className="pt-4">
+    // The board's empty state sits 64px under the header (the icon's top at 128px), as analytics' empty month: the page's
+    // 4px, this 12px and EmptyState's own 48px
+    <div className="pt-3">
       <EmptyState
         icon={SEARCH_ICON}
         title={view.title}
         text={view.text}
-        action={<span className="mt-1.5 text-[13px] font-bold text-ink-muted">{view.progress}</span>}
+        action={<span className="mt-1.5 text-[13px] font-bold leading-[normal] text-ink-muted">{view.progress}</span>}
       />
     </div>
   );
@@ -113,7 +114,7 @@ export function AuditPage() {
             <span aria-hidden="true" className="h-1.5 flex-1 overflow-hidden rounded-[3px] bg-track">
               <span className="block h-1.5 rounded-[3px] bg-ink transition-[width] duration-200" style={{ width: `${(intro.share * 100).toFixed(1)}%` }} />
             </span>
-            <span className="shrink-0 text-[13px] font-bold text-ink-muted">{intro.progress}</span>
+            <span className="shrink-0 text-[13px] font-bold leading-[normal] text-ink-muted">{intro.progress}</span>
           </div>
         </section>
         {data.candidates.map((candidate) => (

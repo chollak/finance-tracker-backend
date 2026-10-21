@@ -7,6 +7,8 @@ import type { AuditResultView, CandidateCardView, GoalRowView } from '../model/a
 
 export const FOCUS = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink';
 
+// Text the boards leave at `line-height: normal` keeps `leading-[normal]` (the page's 1.5 would push the cards down)
+
 /** The magnifier of the audit: the invitation, «Ещё» and the empty state draw the same one. */
 export const SEARCH_ICON = (
   <svg viewBox="0 0 20 20" aria-hidden="true">
@@ -71,11 +73,11 @@ export function CandidateCard({
     <article aria-label={card.aria} className="flex flex-col gap-2.5 rounded-card bg-card p-4">
       <div className="flex items-center gap-2">
         <CategoryDot name={candidate.categoryName} color={color} size="sm" />
-        <span className="min-w-0 flex-1 text-[13px] font-bold text-ink-muted">{card.kindLine}</span>
+        <span className="min-w-0 flex-1 text-[13px] font-bold leading-[normal] text-ink-muted">{card.kindLine}</span>
       </div>
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-[17px] font-extrabold leading-[1.3] tracking-[-0.2px]">{card.title}</h2>
-        <span className="ml-auto whitespace-nowrap text-[15px] font-extrabold tabular-nums">{card.amount}</span>
+        <span className="ml-auto whitespace-nowrap text-[15px] font-extrabold leading-[normal] tabular-nums">{card.amount}</span>
       </div>
 
       {card.reason && (
@@ -106,11 +108,12 @@ export function CandidateCard({
         allowDeselect
         onClear={() => onChange({ decision: null })}
         ariaLabel={card.groupAria}
+        strong
       />
 
       {card.goal && (
         <div className="flex flex-col gap-2">
-          <span className="text-[13px] font-bold text-ink-muted">Что делаем дальше</span>
+          <span className="text-[13px] font-bold leading-[normal] text-ink-muted">Что делаем дальше</span>
           {card.goal.choices && (
             <Segmented<GoalChoice> options={GOALS} value={card.goal.choice} onChange={(goal) => onChange({ goal })} ariaLabel="Цель" />
           )}
@@ -133,7 +136,7 @@ export function PlanHero({ result, headingRef }: { result: AuditResultView; head
         <>
           <p className="flex flex-wrap items-baseline gap-2">
             <span className="type-balance whitespace-nowrap">{result.plan.amount}</span>{' '}
-            <span className="text-[18px] font-semibold text-on-primary-muted">сум в месяц</span>
+            <span className="text-[18px] font-semibold leading-[normal] text-on-primary-muted">сум в месяц</span>
           </p>
           <span className="text-[13px] font-semibold leading-[1.45] text-on-primary-muted">{result.plan.text}</span>
         </>
@@ -165,14 +168,14 @@ export function GoalList({
         <h2 id="audit-goals-title" className="type-section">
           Цели
         </h2>
-        {sub && <span className="text-[13px] font-semibold text-ink-muted">{sub}</span>}
+        {sub && <span className="text-[13px] font-semibold leading-[normal] text-ink-muted">{sub}</span>}
       </div>
       <ul className="rounded-card bg-card px-4 py-1">
         {rows.map(({ id, row }) => (
           <li key={id} className="flex flex-col gap-1.5 border-t border-line py-3 first:border-t-0">
             <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-1">
-              <span className="text-[15px] font-bold">{row.name}</span>
-              <span className="ml-auto text-right text-[13px] font-bold text-ink-muted">{row.goal}</span>
+              <span className="text-[15px] font-bold leading-[normal]">{row.name}</span>
+              <span className="ml-auto text-right text-[13px] font-bold leading-[normal] text-ink-muted">{row.goal}</span>
             </div>
             {row.bar !== null && (
               <span aria-hidden="true" className="block h-1.5 overflow-hidden rounded-[3px] bg-bar-track">
@@ -214,7 +217,7 @@ export function GoalList({
 export function ResultList({ id, title, list, note }: { id: string; title: string; list: string; note: string }) {
   return (
     <section aria-labelledby={id} className="flex flex-col gap-1.5 rounded-card bg-card px-4 py-3.5">
-      <h2 id={id} className="text-[13px] font-bold text-ink-muted">
+      <h2 id={id} className="text-[13px] font-bold leading-[normal] text-ink-muted">
         {title}
       </h2>
       <span className="text-[15px] font-bold leading-[1.45]">{list}</span>
