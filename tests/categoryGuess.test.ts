@@ -8,6 +8,8 @@ import { categoryNamedIn, LearnedCategoryWords, namingWordsOf, recordWordsOf } f
 import { TransactionLearningService } from '../src/shared/application/learning/transactionLearning';
 import { buildCaptureAck } from '../src/modules/quickCapture/application/buildCaptureAck';
 import { toCapturedTransaction } from '../src/modules/quickCapture/application/toCapturedTransaction';
+import { CreateCategoryUseCase } from '../src/modules/category/application/categoryUseCases';
+import { SqliteCategoryRepository } from '../src/modules/category/infrastructure/SqliteCategoryRepository';
 import { openMigratedDatabase, TestDatabase } from './helpers/testDatabase';
 import { recordsOn } from './helpers/records';
 
@@ -210,10 +212,12 @@ describe('the category guess of a capture (FT-138)', () => {
       ]);
     });
 
-    it('a word the dictionary does not know lands in «Другое» as a guess: nobody chose it (decided on review)', async () => {
+    it('a word the dictionary does not know lands in «Другое» as a guess when the AI cannot read it (decided on review)', async () => {
+      openAI.analyzeInput.mockRejectedValue(new Error('401 Incorrect API key'));
+
       const result = await capture.execute('стрижка 50000', 'user-1');
 
-      expect(openAI.analyzeInput).not.toHaveBeenCalled();
+      expect(openAI.analyzeInput).toHaveBeenCalledTimes(1);
       expect(result.transactions[0].category).toBe('Другое');
       expect(guessOf(result.transactions[0].assumptions)).toEqual({ kind: 'category', name: 'Другое' });
     });
@@ -232,6 +236,80 @@ describe('the category guess of a capture (FT-138)', () => {
       expect(openAI.analyzeInput).not.toHaveBeenCalled();
       expect(result.transactions[0]).toEqual(expect.objectContaining({ category: 'Другое', semanticType: 'own_transfer' }));
       expect(guessOf(result.transactions[0].assumptions)).toBeUndefined();
+    });
+  });
+
+  describe('the text fast path takes a label only when its words name one category (FT-143)', () => {
+    const answer = (category: string, description: string, extra: Record<string, unknown> = {}) => ({
+      transactions: [{ intent: 'transaction' as const, amount: 1, category, type: 'expense' as const, description, date: '2026-10-21', ...extra }],
+      debts: [],
+    });
+
+    it('a label of several words with a dictionary word — the board’s «обед с командой 145к» is «Кафе», no AI, no guess', async () => {
+      const result = await capture.execute('обед с командой 145к', 'user-1');
+
+      expect(openAI.analyzeInput).not.toHaveBeenCalled();
+      expect(result.transactions[0]).toEqual(expect.objectContaining({ category: 'Кафе', amount: 145000, description: 'обед с командой' }));
+      expect(guessOf(result.transactions[0].assumptions)).toBeUndefined();
+    });
+
+    it('a word the dictionary does not know goes to the AI — «стрижка 50000», «наушники 55$»', async () => {
+      openAI.analyzeInput
+        .mockResolvedValueOnce(answer('Другое', 'стрижка', { amount: 50000 }))
+        .mockResolvedValueOnce(answer('Покупки', 'наушники', { amount: 55, currency: 'USD' }));
+
+      const haircut = await capture.execute('стрижка 50000', 'user-1');
+      const headphones = await capture.execute('наушники 55$', 'user-1');
+
+      expect(openAI.analyzeInput.mock.calls.map(([text]) => text)).toEqual(['стрижка 50000', 'наушники 55$']);
+      expect(haircut.transactions[0].category).toBe('Другое');
+      expect(headphones.transactions[0]).toEqual(expect.objectContaining({ category: 'Покупки', currency: 'USD' }));
+      expect(guessOf(headphones.transactions[0].assumptions)).toEqual({ kind: 'category', name: 'Покупки' });
+    });
+
+    it('a label whose words name two categories goes to the AI', async () => {
+      openAI.analyzeInput.mockResolvedValue(answer('Продукты', 'кофе продукты', { amount: 50000 }));
+
+      const result = await capture.execute('кофе продукты 50000', 'user-1');
+
+      expect(openAI.analyzeInput).toHaveBeenCalledTimes(1);
+      expect(result.transactions[0].category).toBe('Продукты');
+    });
+
+    it('a learned word gives the category on the fast path', async () => {
+      learned.learnedCategoryWords.mockResolvedValue(new Map([['groceries', ['korzinka']]]));
+
+      const result = await capture.execute('korzinka 120000', 'user-1');
+
+      expect(openAI.analyzeInput).not.toHaveBeenCalled();
+      expect(result.transactions[0].category).toBe('Продукты');
+      expect(guessOf(result.transactions[0].assumptions)).toBeUndefined();
+    });
+
+    it('the user’s own category by its name of several words', async () => {
+      const created = await new CreateCategoryUseCase(records.catalog, new SqliteCategoryRepository(db.dataSource))
+        .execute({ userId: 'user-1', body: { type: 'expense', name: 'Салон красоты', color: 'peach' } });
+      expect(created.success).toBe(true);
+
+      const result = await capture.execute('салон красоты 200000', 'user-1');
+
+      expect(openAI.analyzeInput).not.toHaveBeenCalled();
+      expect(result.transactions[0].category).toBe('Салон красоты');
+    });
+
+    it('an AI answer without records keeps the simple reading: the record is not lost', async () => {
+      openAI.analyzeInput.mockResolvedValue({ transactions: [], debts: [] });
+
+      const result = await capture.execute('стрижка 50000', 'user-1');
+
+      expect(result.transactions).toEqual([expect.objectContaining({ category: 'Другое', amount: 50000 })]);
+      expect(guessOf(result.transactions[0].assumptions)).toEqual({ kind: 'category', name: 'Другое' });
+    });
+
+    it('a phrase that is not a simple label still fails when the AI does', async () => {
+      openAI.analyzeInput.mockRejectedValue(new Error('401 Incorrect API key'));
+
+      await expect(capture.execute('кофе 25к и такси 18к', 'user-1')).rejects.toThrow('401');
     });
   });
 

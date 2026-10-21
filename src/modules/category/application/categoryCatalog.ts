@@ -6,6 +6,7 @@ import { Category, categoryNameKey } from '../domain/category';
 import { CATEGORY_PRESETS, presetByKey, presetForLegacyCategory, presetHints } from '../domain/categoryPresets';
 import { CategoryRepository } from '../domain/categoryRepository';
 import { PromptCategory, UserCategorySource } from '../../voiceProcessing/domain/categoryPrompt';
+import { CategoryOfRecord } from '../../voiceProcessing/domain/categoryGuess';
 
 function toResolved(category: Category): ResolvedCategory {
   return {
@@ -96,6 +97,14 @@ export class CategoryCatalog implements CategoryResolver, UserCategorySource {
         const preset = category.presetKey ? presetByKey(category.presetKey, category.type) : undefined;
         return { type: category.type, name: category.name, hints: preset ? presetHints(preset) : [] };
       });
+  }
+
+  /** Visible categories with their starter keys, for the word rule of the text fast path (FT-143). */
+  async recordCategories(userId: string): Promise<CategoryOfRecord[]> {
+    const categories = await this.listForUser(userId);
+    return categories
+      .filter(category => !category.isHidden)
+      .map(category => ({ type: category.type, name: category.name, presetKey: category.presetKey }));
   }
 
   /** The user's current name for each starter key of a type — used to show learned patterns. */

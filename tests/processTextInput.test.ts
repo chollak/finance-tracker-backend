@@ -28,9 +28,10 @@ describe('ProcessTextInputUseCase', () => {
     const result = await useCase.execute('кофе 15000 сум', 'user1', 'Shukur');
 
     expect(openAIService.analyzeInput).not.toHaveBeenCalled();
+    // The label names one category (FT-143), so the record goes there by that category's name
     expect(createTransactionUseCase.execute).toHaveBeenCalledWith(expect.objectContaining({
       amount: 15000,
-      category: 'кофе',
+      category: 'Кафе',
       type: 'expense',
       semanticType: 'expense',
       date: '2026-07-22',
@@ -45,7 +46,7 @@ describe('ProcessTextInputUseCase', () => {
       expect.objectContaining({
         id: 'fast-1',
         amount: 15000,
-        category: 'кофе',
+        category: 'Кафе',
         semanticType: 'expense',
         merchant: 'кофе',
         description: 'кофе',
@@ -1160,11 +1161,11 @@ describe('ProcessTextInputUseCase', () => {
     });
 
     // "вернулся" is not a repayment: the guard must bound the verb, not match its stem.
-    // The label is passed through as the category; CreateTransactionUseCase resolves it (FT-099):
-    // the whole label «вернулся домой такси» matches nothing and lands in «Другое».
+    // The label's words name one category (FT-143): «такси» in «вернулся домой такси» is «Транспорт» — looked up
+    // whole, as before FT-143, it matched nothing and landed in «Другое».
     const unrelatedPhrases: Array<[string, string, number]> = [
-      ['вернулся домой такси 30000', 'вернулся домой такси', 30000],
-      ['продукты 50000', 'продукты', 50000],
+      ['вернулся домой такси 30000', 'Транспорт', 30000],
+      ['продукты 50000', 'Продукты', 50000],
     ];
 
     it.each(unrelatedPhrases)('still parses "%s" locally as an ordinary expense', async (phrase, category, amount) => {

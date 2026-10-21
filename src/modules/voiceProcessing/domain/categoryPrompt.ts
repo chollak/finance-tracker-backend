@@ -1,5 +1,6 @@
 import { CATEGORY_PRESETS, presetHints } from '../../category/domain/categoryPresets';
 import { categoryNameKey } from '../../category/domain/category';
+import { CategoryOfRecord } from './categoryGuess';
 
 const HINTS_PER_CATEGORY = 8;
 
@@ -22,11 +23,18 @@ export interface AnalysisContext {
 export interface UserCategorySource {
   promptCategories(userId: string): Promise<PromptCategory[]>;
   presetNames(userId: string): Promise<Map<string, string>>;
+  /** The user's visible categories with their starter keys, for the word rule of the text fast path (FT-143). */
+  recordCategories(userId: string): Promise<CategoryOfRecord[]>;
 }
 
 /** The starter 8 + 8, for a parse without a known user. */
 export function starterPromptCategories(): PromptCategory[] {
   return CATEGORY_PRESETS.map(preset => ({ type: preset.type, name: preset.name, hints: presetHints(preset) }));
+}
+
+/** The starter 8 + 8 as records see them, for a user whose categories cannot be read. */
+export function starterRecordCategories(): CategoryOfRecord[] {
+  return CATEGORY_PRESETS.map(preset => ({ type: preset.type, name: preset.name, presetKey: preset.key }));
 }
 
 /** A hint that is itself the name of a category of the list («кэшбэк» under «Возврат») would mislead. */

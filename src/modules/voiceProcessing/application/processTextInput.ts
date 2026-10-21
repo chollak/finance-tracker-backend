@@ -6,12 +6,12 @@ import { Transaction } from '../../transaction/domain/transactionEntity';
 import { DebtType } from '../../debt/domain/debtEntity';
 import { DebtLimitExceededError } from '../../debt/domain/errors';
 import { getLogger, LogCategory } from '../../../shared/application/logging';
-import { AnalysisContext, UserCategorySource } from '../domain/categoryPrompt';
+import { AnalysisContext, starterRecordCategories, UserCategorySource } from '../domain/categoryPrompt';
 import { detectPaymentHints, PaymentHints, stripPaymentWords } from '../domain/paymentHints';
 import { RecordSource } from '../../transaction/domain/recordSource';
 import { ResolvedAccount } from '../../transaction/domain/accountResolver';
 import { ResolvedCategory } from '../../transaction/domain/categoryResolver';
-import { LearnedCategoryWords, recordWordsOf } from '../domain/categoryGuess';
+import { categoryNamedIn, CategoryOfRecord, LearnedCategoryWords, recordWordsOf } from '../domain/categoryGuess';
 import { captureAssumptions } from './captureAssumptions';
 import { captureMoneyOf } from './captureMoney';
 import { itemClientId } from '../../transaction/domain/clientId';
@@ -408,6 +408,17 @@ export async function analysisContextFor(source: UserCategorySource | undefined,
   }
 }
 
+/** The user's visible categories for the word rule of the fast path (FT-143); the starter set if they cannot be read. */
+export async function recordCategoriesFor(source: UserCategorySource | undefined, userId: string): Promise<CategoryOfRecord[]> {
+  if (!source) return starterRecordCategories();
+  try {
+    return await source.recordCategories(userId);
+  } catch (error) {
+    logger.error('Failed to read categories for the text fast path', error as Error);
+    return starterRecordCategories();
+  }
+}
+
 /**
  * Learned words of the starter categories, for the category guess rule (FT-138). Without them every
  * category the words do not name stays a guess — the capture goes on.
@@ -448,12 +459,14 @@ export class ProcessTextInputUseCase {
     // «нал», «картой», «$» in the text: which account and currency (FT-103)
     const hints = detectPaymentHints(text);
 
-    const local = parseObviousSemanticTransaction(text) || parseSimpleTextTransaction(text);
-    // Fall back to OpenAI for complex/natural-language inputs, with the user's categories
-    const parsed = local || await this.openAIService.analyzeInput(text, await analysisContextFor(this.categorySource, userId));
+    const obvious = parseObviousSemanticTransaction(text);
+    const simple = obvious ? null : parseSimpleTextTransaction(text);
     // A category no word of the record names is a guess (FT-138): the AI's own choice, or «Другое» for a
-    // label the text path did not recognise
-    const learned = parsed.transactions.length > 0 ? await learnedWordsFor(this.learnedWords) : new Map<string, readonly string[]>();
+    // label nothing recognised. The same words decide whether the simple path keeps its label (FT-143)
+    const learned = await learnedWordsFor(this.learnedWords);
+    const local = obvious ?? (simple ? await this.withNamedCategory(simple, userId, learned) : null);
+    // Fall back to OpenAI for complex/natural-language inputs, with the user's categories
+    const { parsed, fastPath } = local ? { parsed: local, fastPath: true } : await this.readByAI(text, userId, simple);
 
     // Only a single-transaction parse is checked against the text's currency markers. In
     // multi-item text ("продукты 12000 сум и такси 30000") each number belongs to its own
@@ -489,7 +502,7 @@ export class ProcessTextInputUseCase {
         source,
         userId,
         userName,
-        fastPath: local !== null,
+        fastPath,
         learned,
       });
       if (written) transactionResults.push(written);
@@ -545,6 +558,47 @@ export class ProcessTextInputUseCase {
     }
 
     return { text, transactions: transactionResults, debts: debtResults, ...(withoutAmount.length ? { withoutAmount } : {}) };
+  }
+
+  /**
+   * The simple «<label> <amount>» keeps its label only when the label — whole or by its words — names exactly
+   * one of the user's visible expense categories (FT-143, by the word rule of FT-138); the record then goes
+   * there by that category's name. Otherwise null and the phrase goes to the AI like a complex one: the label
+   * used to be looked up whole, so «обед с командой» landed in «Другое ?» without ever reaching the AI.
+   */
+  private async withNamedCategory(
+    simple: AnalysisResult,
+    userId: string,
+    learned: ReadonlyMap<string, readonly string[]>
+  ): Promise<AnalysisResult | null> {
+    const [record] = simple.transactions;
+    const named = (await recordCategoriesFor(this.categorySource, userId)).filter(category =>
+      category.type === 'expense'
+      && categoryNamedIn(record.category, category, category.presetKey ? learned.get(category.presetKey) : undefined)
+    );
+    return named.length === 1 ? { ...simple, transactions: [{ ...record, category: named[0].name }] } : null;
+  }
+
+  /**
+   * The AI's reading of the phrase. A simple «<label> <amount>» sent to it only because its label named no
+   * single category is written as before when the AI fails or reads no record from it: «Другое ?» (FT-143).
+   */
+  private async readByAI(
+    text: string,
+    userId: string,
+    simple: AnalysisResult | null
+  ): Promise<{ parsed: AnalysisResult; fastPath: boolean }> {
+    const ask = async () => this.openAIService.analyzeInput(text, await analysisContextFor(this.categorySource, userId));
+    if (!simple) return { parsed: await ask(), fastPath: false };
+
+    try {
+      const parsed = await ask();
+      if (parsed?.transactions?.length || parsed?.withoutAmount?.length) return { parsed, fastPath: false };
+      logger.warn('The AI read no record from a simple phrase; its label is kept');
+    } catch (error) {
+      logger.warn('The AI could not read a simple phrase; its label is kept', { error: (error as Error).message });
+    }
+    return { parsed: simple, fastPath: true };
   }
 
   /**
