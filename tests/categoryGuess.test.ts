@@ -8,7 +8,7 @@ import { categoryNamedIn, LearnedCategoryWords, namingWordsOf, recordWordsOf } f
 import { TransactionLearningService } from '../src/shared/application/learning/transactionLearning';
 import { buildCaptureAck } from '../src/modules/quickCapture/application/buildCaptureAck';
 import { toCapturedTransaction } from '../src/modules/quickCapture/application/toCapturedTransaction';
-import { CreateCategoryUseCase } from '../src/modules/category/application/categoryUseCases';
+import { CreateCategoryUseCase, UpdateCategoryUseCase } from '../src/modules/category/application/categoryUseCases';
 import { SqliteCategoryRepository } from '../src/modules/category/infrastructure/SqliteCategoryRepository';
 import { openMigratedDatabase, TestDatabase } from './helpers/testDatabase';
 import { recordsOn } from './helpers/records';
@@ -295,6 +295,38 @@ describe('the category guess of a capture (FT-138)', () => {
 
       expect(openAI.analyzeInput).not.toHaveBeenCalled();
       expect(result.transactions[0].category).toBe('Салон красоты');
+    });
+
+    it('the user’s own category named like a dictionary word wins by its name — «кофе» is their «Кофе», not «Кафе»', async () => {
+      const created = await new CreateCategoryUseCase(records.catalog, new SqliteCategoryRepository(db.dataSource))
+        .execute({ userId: 'user-1', body: { type: 'expense', name: 'Кофе', color: 'peach' } });
+      expect(created.success).toBe(true);
+
+      const result = await capture.execute('кофе 25000', 'user-1');
+
+      expect(openAI.analyzeInput).not.toHaveBeenCalled();
+      expect(result.transactions[0].category).toBe('Кофе');
+    });
+
+    it('a learned word does not outvote the dictionary: «кофе» learned for «Продукты» stays «Кафе»', async () => {
+      learned.learnedCategoryWords.mockResolvedValue(new Map([['groceries', ['кофе', 'зернах']]]));
+
+      const result = await capture.execute('кофе 25000', 'user-1');
+
+      expect(openAI.analyzeInput).not.toHaveBeenCalled();
+      expect(result.transactions[0].category).toBe('Кафе');
+    });
+
+    it('a hidden category is not chosen: its word goes to the AI', async () => {
+      const repository = new SqliteCategoryRepository(db.dataSource);
+      const cafe = (await records.catalog.listForUser('user-1')).find(category => category.presetKey === 'cafe')!;
+      await new UpdateCategoryUseCase(records.catalog, repository)
+        .execute({ userId: 'user-1', categoryId: cafe.id, body: { isHidden: true } });
+      openAI.analyzeInput.mockResolvedValue(answer('Другое', 'кофе', { amount: 25000 }));
+
+      await capture.execute('кофе 25000', 'user-1');
+
+      expect(openAI.analyzeInput).toHaveBeenCalledTimes(1);
     });
 
     it('an AI answer without records keeps the simple reading: the record is not lost', async () => {
