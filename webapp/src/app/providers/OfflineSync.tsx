@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useUserStore } from '@/entities/user';
 import { persistReads } from '@/shared/lib/offline';
-import { startOfflineSync } from './offlineSync';
+import { startOfflineSync } from './startOfflineSync';
 import { savedReadUser } from './savedReadKeys';
 
 /**

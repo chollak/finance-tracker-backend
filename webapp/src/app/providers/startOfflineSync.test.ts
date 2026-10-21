@@ -13,7 +13,7 @@ import {
   useOutboxStore,
 } from '@/shared/lib/offline';
 import { savedReadUser } from './savedReadKeys';
-import { startOfflineSync } from './offlineSync';
+import { startOfflineSync } from './startOfflineSync';
 
 /**
  * FT-129: what keeps the app working without a connection. Records written offline go when the connection is back —
