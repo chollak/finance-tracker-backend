@@ -1,0 +1,551 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Daftar — ревизия трат</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; position: relative; overflow: hidden; display: flex; flex-direction: column; background: {{t.bg}}; color: {{t.ink}}; font-family: 'Manrope', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;">
+
+<div style="flex: 0 0 auto; padding: 8px 16px 8px;">
+<header style="display: flex; align-items: center; gap: 12px; height: 48px;">
+<a href="{{backHref}}" aria-label="Назад" style="flex: 0 0 44px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border-radius: 9999px; background: {{t.card}}; color: {{t.ink}};"><svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><path d="M12.5 4.5 7 10l5.5 5.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg></a>
+<h1 style="flex: 1 1 auto; margin: 0; font-size: 18px; line-height: 1.3; font-weight: 800; letter-spacing: -0.3px;">{{screenTitle}}</h1>
+</header>
+</div>
+
+<sc-if value="{{isEmpty}}" hint-placeholder-val="{{false}}">
+<div role="status" style="flex: 1 1 auto; display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 64px 28px 24px; text-align: center;">
+<span aria-hidden="true" style="width: 72px; height: 72px; display: flex; align-items: center; justify-content: center; border-radius: 9999px; background: {{t.track}}; color: {{t.ink}};"><svg width="30" height="30" viewBox="0 0 20 20"><circle cx="9" cy="9" r="5.5" fill="none" stroke="currentColor" stroke-width="1.8"></circle><path d="m13.2 13.2 3.6 3.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path></svg></span>
+<h2 style="margin: 6px 0 0; font-size: 18px; line-height: 1.3; font-weight: 800; letter-spacing: -0.3px;">Первая ревизия — 1 ноября</h2>
+<p style="margin: 0; max-width: 300px; font-size: 14px; line-height: 1.45; font-weight: 500; color: {{t.muted}};">Нужен целый месяц записей: тогда ИИ найдёт траты, которые повторяются или растут, и спросит, нужны ли они.</p>
+<span style="margin-top: 6px; font-size: 13px; font-weight: 700; color: {{t.muted}};">Записей пока — за 3 дня из 31</span>
+</div>
+</sc-if>
+
+<sc-if value="{{isList}}" hint-placeholder-val="{{true}}">
+<div style="flex: 1 1 auto; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding: 4px 16px 196px;">
+<section aria-label="О ревизии" style="flex: 0 0 auto; display: flex; flex-direction: column; gap: 10px; padding: 16px 20px 18px; border-radius: 24px; background: {{t.card}};">
+<p style="margin: 0; font-size: 15px; line-height: 1.45; font-weight: 600;">{{introText}}</p>
+<div aria-hidden="true" style="display: flex; align-items: center; gap: 10px;">
+<span style="flex: 1 1 auto; height: 6px; border-radius: 3px; background: {{t.track}}; overflow: hidden;"><span style="display: block; width: {{progressW}}; height: 6px; border-radius: 3px; background: {{t.ink}};"></span></span>
+<span style="flex: 0 0 auto; font-size: 13px; font-weight: 700; color: {{t.muted}};">{{progressText}}</span>
+</div>
+</section>
+
+<sc-for list="{{cands}}" as="c" hint-placeholder-count="6">
+<article aria-label="{{c.aria}}" style="flex: 0 0 auto; display: flex; flex-direction: column; gap: 10px; padding: 16px; border-radius: 24px; background: {{t.card}};">
+<div style="display: flex; align-items: center; gap: 8px;">
+<span aria-hidden="true" style="flex: 0 0 24px; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 9999px; background: {{c.color}}; color: #141416; font-size: 11px; font-weight: 800;">{{c.letter}}</span>
+<span style="flex: 1 1 auto; min-width: 0; font-size: 13px; font-weight: 700; color: {{t.muted}};">{{c.kind}} · {{c.catName}}</span>
+</div>
+<div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
+<h2 style="margin: 0; font-size: 17px; line-height: 1.3; font-weight: 800; letter-spacing: -0.2px;">{{c.title}}</h2>
+<span style="margin-left: auto; font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap;">{{c.amount}}</span>
+</div>
+<sc-if value="{{c.showDetails}}" hint-placeholder-val="{{true}}">
+<p style="margin: 0; font-size: 13px; line-height: 1.45; font-weight: 600; color: {{t.muted}};">{{c.reason}}</p>
+<button type="button" onClick="{{c.toggleOps}}" aria-expanded="{{c.expanded}}" style="align-self: flex-start; height: 44px; margin: -6px 0 -6px -10px; padding: 0 10px; display: flex; align-items: center; gap: 4px; border: 0; border-radius: 9999px; background: transparent; color: {{t.ink}}; font-family: inherit; font-size: 14px; font-weight: 800; cursor: pointer;">{{c.opsLabel}}<svg width="14" height="14" viewBox="0 0 20 20" aria-hidden="true" style="transform: rotate({{c.rot}});"><path d="M5 7.5 10 12.5l5-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
+<sc-if value="{{c.isOpen}}" hint-placeholder-val="{{false}}">
+<ul style="list-style: none; margin: -4px 0 0; padding: 4px 12px; border-radius: 16px; background: {{t.bg}};">
+<sc-for list="{{c.ops}}" as="o" hint-placeholder-count="4">
+<li style="display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 32px; font-size: 13px; font-weight: 600;"><span style="color: {{t.muted}};">{{o.date}}</span><span style="font-weight: 800; font-variant-numeric: tabular-nums;">{{o.amount}}</span></li>
+</sc-for>
+</ul>
+<sc-if value="{{c.hasMoreOps}}" hint-placeholder-val="{{false}}">
+<button type="button" onClick="{{c.showAllOps}}" style="align-self: flex-start; height: 44px; margin: -6px 0 -6px -10px; padding: 0 10px; border: 0; border-radius: 9999px; background: transparent; color: {{t.ink}}; font-family: inherit; font-size: 14px; font-weight: 800; cursor: pointer;">{{c.moreOpsLabel}}</button>
+</sc-if>
+</sc-if>
+</sc-if>
+
+<div role="group" aria-label="{{c.groupAria}}" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px; padding: 2px; border-radius: 9999px; background: {{t.track}};">
+<button type="button" onClick="{{c.markNeed}}" aria-pressed="{{c.needPressed}}" style="height: 44px; border: 0; border-radius: 9999px; background: {{c.needBg}}; box-shadow: {{c.needShadow}}; color: {{c.needInk}}; font-family: inherit; font-size: 14px; font-weight: 800; cursor: pointer;">Нужно</button>
+<button type="button" onClick="{{c.markExtra}}" aria-pressed="{{c.extraPressed}}" style="height: 44px; border: 0; border-radius: 9999px; background: {{c.extraBg}}; box-shadow: {{c.extraShadow}}; color: {{c.extraInk}}; font-family: inherit; font-size: 14px; font-weight: 800; cursor: pointer;">Лишнее</button>
+</div>
+
+<sc-if value="{{c.showGoal}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; flex-direction: column; gap: 8px;">
+<span style="font-size: 13px; font-weight: 700; color: {{t.muted}};">Что делаем дальше</span>
+<sc-if value="{{c.twoGoals}}" hint-placeholder-val="{{true}}">
+<div role="group" aria-label="Цель" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px; padding: 2px; border-radius: 9999px; background: {{t.track}};">
+<button type="button" onClick="{{c.goalHalf}}" aria-pressed="{{c.halfPressed}}" style="height: 44px; border: 0; border-radius: 9999px; background: {{c.halfBg}}; box-shadow: {{c.halfShadow}}; color: {{c.halfInk}}; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer;">Вдвое меньше</button>
+<button type="button" onClick="{{c.goalDrop}}" aria-pressed="{{c.dropPressed}}" style="height: 44px; border: 0; border-radius: 9999px; background: {{c.dropBg}}; box-shadow: {{c.dropShadow}}; color: {{c.dropInk}}; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer;">Отказаться</button>
+</div>
+</sc-if>
+<span style="font-size: 13px; line-height: 1.45; font-weight: 700;">{{c.saveText}}</span>
+</div>
+</sc-if>
+<sc-if value="{{c.showNote}}" hint-placeholder-val="{{false}}">
+<span style="font-size: 13px; line-height: 1.45; font-weight: 600; color: {{t.muted}};">{{c.note}}</span>
+</sc-if>
+</article>
+</sc-for>
+</div>
+
+<div style="position: absolute; left: 0; right: 0; bottom: 0; display: flex; flex-direction: column; gap: 10px; padding: 14px 16px 24px; background: {{t.bg}}; box-shadow: 0 -1px 0 {{t.line}};">
+<div aria-live="polite" style="display: flex; flex-direction: column; gap: 2px; padding: 0 4px;">
+<sc-if value="{{hasFoot}}" hint-placeholder-val="{{true}}">
+<sc-if value="{{hasFootPlan}}" hint-placeholder-val="{{true}}">
+<span style="font-size: 15px; line-height: 1.35; font-weight: 800; font-variant-numeric: tabular-nums;">{{footPlan}}</span>
+</sc-if>
+<span style="font-size: 13px; line-height: 1.4; font-weight: 600; color: {{t.muted}};">{{footLeft}}</span>
+</sc-if>
+</div>
+<button type="button" onClick="{{finish}}" aria-disabled="{{finishDisabled}}" style="height: 56px; border: 0; border-radius: 9999px; background: {{finishBg}}; color: {{finishInk}}; font-family: inherit; font-size: 16px; font-weight: 800; cursor: pointer;">{{finishLabel}}</button>
+</div>
+</sc-if>
+
+<sc-if value="{{isDone}}" hint-placeholder-val="{{false}}">
+<div style="flex: 1 1 auto; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding: 4px 16px 32px;">
+<section aria-label="Итог ревизии" style="flex: 0 0 auto; display: flex; flex-direction: column; gap: 4px; padding: 16px 20px 20px; border-radius: 28px; background: {{t.hero}}; color: {{t.heroInk}};">
+<h2 id="audit-done-title" tabindex="-1" style="margin: 0; outline: none; font-size: 14px; font-weight: 600; color: {{t.heroMuted}};">{{heroLabel}}</h2>
+<sc-if value="{{hasPlan}}" hint-placeholder-val="{{true}}">
+<div style="display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;">
+<span style="font-size: 46px; line-height: 1.05; font-weight: 700; letter-spacing: -1.6px; white-space: nowrap;">{{planSum}}</span>
+<span style="font-size: 18px; font-weight: 600; color: {{t.heroMuted}};">сум в месяц</span>
+</div>
+<span style="font-size: 13px; line-height: 1.45; font-weight: 600; color: {{t.heroMuted}};">{{planSub}}</span>
+</sc-if>
+<sc-if value="{{noPlanExtra}}" hint-placeholder-val="{{false}}">
+<p style="margin: 4px 0 0; font-size: 24px; line-height: 1.25; font-weight: 800; letter-spacing: -0.4px;">{{noPlanTitle}}</p>
+<p style="margin: 6px 0 0; font-size: 14px; line-height: 1.45; font-weight: 600; color: {{t.heroMuted}};">{{noPlanText}}</p>
+</sc-if>
+<sc-if value="{{hasTrend}}" hint-placeholder-val="{{true}}">
+<p style="margin: 10px 0 0; padding-top: 12px; border-top: 1px solid {{t.heroLine}}; font-size: 15px; line-height: 1.4; font-weight: 700;">{{trendText}}</p>
+</sc-if>
+</section>
+
+<sc-if value="{{hasGoals}}" hint-placeholder-val="{{true}}">
+<section aria-labelledby="audit-goals-title" style="flex: 0 0 auto; display: flex; flex-direction: column; gap: 8px;">
+<div style="display: flex; flex-direction: column; gap: 2px; padding: 4px 4px 0;">
+<h2 id="audit-goals-title" style="margin: 0; font-size: 18px; line-height: 1.3; font-weight: 800; letter-spacing: -0.3px;">Цели</h2>
+<span style="font-size: 13px; font-weight: 600; color: {{t.muted}};">{{goalsSub}}</span>
+</div>
+<ul style="list-style: none; margin: 0; padding: 4px 16px; border-radius: 24px; background: {{t.card}};">
+<sc-for list="{{goals}}" as="g" hint-placeholder-count="3">
+<li style="display: flex; flex-direction: column; gap: 6px; padding: 12px 0; border-top: {{g.divider}};">
+<div style="display: flex; align-items: baseline; justify-content: space-between; gap: 4px 8px; flex-wrap: wrap;">
+<span style="font-size: 15px; font-weight: 700;">{{g.name}}</span>
+<span style="margin-left: auto; font-size: 13px; font-weight: 700; color: {{t.muted}}; text-align: right;">{{g.goal}}</span>
+</div>
+<sc-if value="{{g.hasBar}}" hint-placeholder-val="{{true}}">
+<span aria-hidden="true" style="display: block; height: 6px; border-radius: 3px; background: {{t.barTrack}}; overflow: hidden;"><span style="display: block; width: {{g.fillW}}; height: 6px; border-radius: 3px; background: {{t.ink}};"></span></span>
+</sc-if>
+<span style="font-size: 13px; line-height: 1.45; font-weight: 700;">{{g.status}}</span>
+<sc-if value="{{g.hasTrend}}" hint-placeholder-val="{{false}}">
+<span style="font-size: 13px; line-height: 1.45; font-weight: 600; color: {{t.muted}};">{{g.trend}}</span>
+</sc-if>
+<sc-if value="{{g.hasActions}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; gap: 8px; flex-wrap: wrap;">
+<button type="button" onClick="{{g.cancelled}}" aria-label="{{g.doneAria}}" style="height: 44px; padding: 0 16px; border: 0; border-radius: 9999px; background: {{t.track}}; color: {{t.ink}}; font-family: inherit; font-size: 14px; font-weight: 800; cursor: pointer;">{{g.doneLabel}}</button>
+<sc-if value="{{g.showRemind}}" hint-placeholder-val="{{true}}">
+<button type="button" onClick="{{g.remind}}" aria-label="{{g.remindAria}}" style="height: 44px; padding: 0 16px; border: 0; border-radius: 9999px; background: {{t.track}}; color: {{t.ink}}; font-family: inherit; font-size: 14px; font-weight: 800; cursor: pointer;">{{g.remindLabel}}</button>
+</sc-if>
+</div>
+</sc-if>
+</li>
+</sc-for>
+</ul>
+</section>
+</sc-if>
+
+<sc-if value="{{hasOneOff}}" hint-placeholder-val="{{true}}">
+<section aria-labelledby="audit-oneoff-title" style="flex: 0 0 auto; display: flex; flex-direction: column; gap: 6px; padding: 14px 16px; border-radius: 24px; background: {{t.card}};">
+<h2 id="audit-oneoff-title" style="margin: 0; font-size: 13px; font-weight: 700; color: {{t.muted}};">Разовое лишнее</h2>
+<span style="font-size: 15px; font-weight: 700; line-height: 1.45;">{{oneOffList}}</span>
+<span style="font-size: 13px; line-height: 1.45; font-weight: 600; color: {{t.muted}};">Цель не нужна: это разовые покупки.</span>
+</section>
+</sc-if>
+
+<sc-if value="{{hasNeed}}" hint-placeholder-val="{{true}}">
+<section aria-labelledby="audit-need-title" style="flex: 0 0 auto; display: flex; flex-direction: column; gap: 6px; padding: 14px 16px; border-radius: 24px; background: {{t.card}};">
+<h2 id="audit-need-title" style="margin: 0; font-size: 13px; font-weight: 700; color: {{t.muted}};">Нужное</h2>
+<span style="font-size: 15px; font-weight: 700; line-height: 1.45;">{{needList}}</span>
+<span style="font-size: 13px; line-height: 1.45; font-weight: 600; color: {{t.muted}};">Больше не будем их предлагать, пока они заметно не вырастут.</span>
+</section>
+</sc-if>
+
+<span style="flex: 0 0 auto; padding: 0 4px; font-size: 13px; line-height: 1.45; font-weight: 600; color: {{t.muted}};">{{nextText}}</span>
+<p role="status" style="position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;">{{live}}</p>
+<a href="{{doneHomeHref}}" style="flex: 0 0 56px; height: 56px; display: flex; align-items: center; justify-content: center; border-radius: 9999px; background: {{t.primaryBg}}; color: {{t.primaryInk}}; text-decoration: none; font-size: 16px; font-weight: 800;">На главную</a>
+<sc-if value="{{canEdit}}" hint-placeholder-val="{{true}}">
+<button type="button" onClick="{{editMarks}}" style="flex: 0 0 44px; height: 44px; border: 0; border-radius: 9999px; background: transparent; color: {{t.ink}}; font-family: inherit; font-size: 15px; font-weight: 800; cursor: pointer;">Изменить отметки</button>
+</sc-if>
+</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"homeHref":{"editor":null,"default":"Pastel_Home.dc.html"},"doneHomeHref":{"editor":null,"default":"Pastel_HomeGoals.dc.html"},"backHref":{"editor":null},"preset":{"editor":"enum","options":["start","progress","done","clean","empty"],"default":"start"},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  theme() {
+    if (this.props.dark) {
+      return { bg: "#111214", card: "#1b1c1f", ink: "#f4f4f6", muted: "#9d9da6", segOff: "#b0b0b8", track: "#26272b", segOn: "#3a3b40", segShadow: "none", line: "#2c2d31", barTrack: "#34353a", hero: "#f4f4f6", heroInk: "#141416", heroMuted: "#5d5d66", heroLine: "rgba(0, 0, 0, 0.1)", primaryBg: "#f4f4f6", primaryInk: "#141416" };
+    }
+    return { bg: "#f3f3f5", card: "#ffffff", ink: "#141416", muted: "#6b6b74", segOff: "#5d5d66", track: "#e7e7ec", segOn: "#ffffff", segShadow: "0 1px 3px rgba(0, 0, 0, 0.1)", line: "#e7e7ec", barTrack: "#dcdce3", hero: "#141416", heroInk: "#ffffff", heroMuted: "#b5b5bd", heroLine: "rgba(255, 255, 255, 0.16)", primaryBg: "#141416", primaryInk: "#ffffff" };
+  }
+  cats() { return { pr: ["Продукты", "#ffdcc8"], kf: ["Кафе", "#ffd6e0"], tr: ["Транспорт", "#cfe3ff"], dm: ["Дом", "#ede3d6"], sv: ["Связь", "#e3dcff"], zd: ["Здоровье", "#c9efd9"], pk: ["Покупки", "#fbefb3"], dr: ["Другое", "#e6e6ea"] }; }
+  pad(n) { return n < 10 ? "0" + n : String(n); }
+  seed() {
+    const out = [];
+    const add = (m, d, cat, amount, acc, note) => out.push({ type: "expense", cat: cat, amount: amount, acc: acc, date: "2026-" + this.pad(m) + "-" + this.pad(d), note: note });
+    const oct = [
+      [14, "pr", 186400, "card", "Супермаркет"], [14, "tr", 24000, "cash", "Такси"],
+      [13, "kf", 145000, "card", "Обед с командой"], [13, "tr", 32000, "card", "Такси домой"],
+      [12, "sv", 60000, "card", "Мобильная связь"], [12, "tr", 85000, "cash", "Такси в аэропорт"], [12, "pr", 94000, "cash", "Рынок"],
+      [11, "kf", 25000, "cash", "Кофе"], [11, "pk", 640000, "card", "Кроссовки"], [11, "dm", 312000, "card", "Коммуналка"],
+      [10, "zd", 48000, "cash", "Аптека"], [10, "tr", 21000, "card", "Такси"],
+      [9, "kf", 286000, "card", "Ужин с друзьями"], [9, "pr", 308000, "cash", "Рынок"], [9, "tr", 120000, "card", "Бензин"],
+      [8, "kf", 28000, "cash", "Кофе"], [8, "dm", 500000, "card", "Посуда"], [8, "pk", 240000, "card", "Книги"], [8, "tr", 20000, "cash", "Парковка"], [8, "dr", 100000, "cash", "Стрижка"],
+      [7, "kf", 62000, "card", "Обед"], [7, "pr", 451000, "card", "Супермаркет"], [7, "tr", 34000, "card", "Такси"], [7, "zd", 72000, "cash", "Аптека"],
+      [6, "kf", 25000, "cash", "Кофе"], [6, "pr", 64000, "cash", "Хлеб и молоко"], [6, "tr", 26000, "cash", "Такси"], [6, "dr", 200000, "card", "Подарок коллеге"],
+      [5, "kf", 318000, "card", "Семейный ужин"], [5, "dm", 400000, "cash", "Ремонт крана"], [5, "tr", 40000, "card", "Метро"],
+      [4, "pr", 388600, "card", "Супермаркет"], [4, "pk", 180000, "card", "Футболка"],
+      [3, "kf", 58000, "card", "Обед"], [3, "pr", 236000, "cash", "Рынок"], [3, "tr", 18400, "cash", "Такси"], [3, "zd", 400000, "card", "Стоматолог"],
+      [2, "kf", 25000, "cash", "Кофе"], [2, "tr", 300000, "card", "Бензин"], [2, "sv", 50000, "card", "Второй номер"], [3, "sv", 50000, "card", "Кинопоиск"], [6, "sv", 20000, "cash", "Мобильная связь"],
+      [1, "kf", 120000, "card", "Пицца"], [1, "pr", 412000, "card", "Супермаркет"], [1, "dm", 238000, "card", "Хозтовары"], [1, "tr", 22000, "cash", "Такси"], [1, "sv", 200000, "card", "Домашний интернет"]
+    ];
+    oct.forEach((r) => add(10, r[0], r[1], r[2], r[3], r[4]));
+    const AS = [[8, 1, "tr", 240000, "card", "Бензин"], [8, 1, "sv", 200000, "card", "Домашний интернет"], [8, 1, "pr", 420000, "card", "Супермаркет"], [8, 2, "kf", 27000, "cash", "Кофе"], [8, 2, "sv", 80000, "card", "Мобильная связь"], [8, 2, "dm", 352000, "card", "Коммуналка"], [8, 3, "tr", 25000, "cash", "Такси"], [8, 3, "sv", 50000, "card", "Второй номер"], [8, 4, "kf", 58000, "card", "Обед"], [8, 4, "pr", 380000, "card", "Супермаркет"], [8, 5, "kf", 27000, "cash", "Кофе"], [8, 5, "tr", 30000, "cash", "Парковка"], [8, 5, "sv", 50000, "card", "Кинопоиск"], [8, 6, "tr", 40000, "card", "Метро"], [8, 6, "pk", 380000, "card", "Рюкзак"], [8, 7, "dm", 600000, "card", "Ремонт кондиционера"], [8, 7, "pr", 200000, "cash", "Рынок"], [8, 8, "kf", 27000, "cash", "Кофе"], [8, 8, "tr", 30000, "cash", "Парковка"], [8, 8, "pr", 450000, "card", "Супермаркет"], [8, 9, "kf", 170000, "card", "Доставка еды"], [8, 9, "tr", 240000, "card", "Бензин"], [8, 10, "tr", 28000, "cash", "Такси"], [8, 10, "zd", 60000, "cash", "Аптека"], [8, 11, "kf", 62000, "card", "Обед"], [8, 11, "dm", 180000, "cash", "Хозтовары"], [8, 11, "pr", 390000, "card", "Супермаркет"], [8, 12, "kf", 27000, "cash", "Кофе"], [8, 12, "tr", 30000, "cash", "Парковка"], [8, 13, "pk", 700000, "card", "Одежда"], [8, 13, "dr", 100000, "cash", "Стрижка"], [8, 14, "kf", 65000, "card", "Обед"], [8, 14, "dm", 900000, "card", "Шторы"], [8, 15, "kf", 27000, "cash", "Кофе"], [8, 15, "pr", 410000, "card", "Супермаркет"], [8, 16, "kf", 240000, "card", "Ужин"], [8, 16, "tr", 240000, "card", "Бензин"], [8, 17, "tr", 26000, "cash", "Такси"], [8, 17, "zd", 410000, "card", "Стоматолог"], [8, 18, "kf", 60000, "card", "Обед"], [8, 18, "dm", 210000, "cash", "Хозтовары"], [8, 18, "pr", 395000, "card", "Супермаркет"], [8, 19, "kf", 27000, "cash", "Кофе"], [8, 19, "tr", 30000, "cash", "Парковка"], [8, 19, "pr", 210000, "cash", "Рынок"], [8, 20, "tr", 40000, "card", "Метро"], [8, 20, "pk", 220000, "card", "Книги"], [8, 20, "dr", 300000, "card", "Подарок на день рождения брата"], [8, 21, "dm", 500000, "card", "Посуда"], [8, 22, "kf", 27000, "cash", "Кофе"], [8, 22, "tr", 30000, "cash", "Парковка"], [8, 22, "pr", 430000, "card", "Супермаркет"], [8, 23, "kf", 182000, "card", "Доставка еды"], [8, 24, "tr", 27000, "cash", "Такси"], [8, 24, "tr", 240000, "card", "Бензин"], [8, 24, "dr", 210000, "card", "Химчистка"], [8, 25, "kf", 60000, "card", "Обед"], [8, 25, "pk", 400000, "card", "Часы"], [8, 25, "pr", 415000, "card", "Супермаркет"], [8, 26, "kf", 27000, "cash", "Кофе"], [8, 26, "zd", 50000, "cash", "Аптека"], [8, 27, "tr", 30000, "cash", "Парковка"], [8, 27, "dm", 158000, "cash", "Хозтовары"], [8, 28, "tr", 24000, "cash", "Такси"], [8, 28, "pk", 500000, "card", "Одежда"], [8, 29, "kf", 27000, "cash", "Кофе"], [8, 29, "pr", 200000, "cash", "Рынок"], [8, 30, "kf", 260000, "card", "Ужин"], [8, 31, "tr", 30000, "cash", "Такси"], [9, 1, "kf", 28000, "cash", "Кофе"], [9, 1, "sv", 200000, "card", "Домашний интернет"], [9, 1, "pr", 420000, "card", "Супермаркет"], [9, 2, "kf", 28000, "cash", "Кофе"], [9, 2, "tr", 24000, "cash", "Такси"], [9, 2, "sv", 80000, "card", "Мобильная связь"], [9, 2, "dm", 348000, "card", "Коммуналка"], [9, 3, "kf", 28000, "cash", "Кофе"], [9, 3, "tr", 240000, "card", "Бензин"], [9, 3, "sv", 50000, "card", "Второй номер"], [9, 4, "kf", 62000, "card", "Обед"], [9, 4, "zd", 260000, "card", "Анализы"], [9, 4, "pr", 388000, "card", "Супермаркет"], [9, 5, "kf", 28000, "cash", "Кофе"], [9, 5, "tr", 27000, "cash", "Такси"], [9, 5, "sv", 50000, "card", "Кинопоиск"], [9, 6, "kf", 28000, "cash", "Кофе"], [9, 6, "kf", 180000, "card", "Доставка еды"], [9, 6, "pk", 690000, "card", "Наушники"], [9, 6, "pr", 230000, "cash", "Рынок"], [9, 7, "tr", 31000, "cash", "Такси"], [9, 7, "dm", 700000, "card", "Ремонт ванной"], [9, 8, "kf", 28000, "cash", "Кофе"], [9, 8, "tr", 40000, "card", "Метро"], [9, 8, "zd", 300000, "card", "Стоматолог"], [9, 8, "pr", 452000, "card", "Супермаркет"], [9, 9, "kf", 28000, "cash", "Кофе"], [9, 9, "tr", 22000, "cash", "Такси"], [9, 9, "dm", 162000, "cash", "Хозтовары"], [9, 10, "kf", 58000, "card", "Обед"], [9, 10, "tr", 226000, "card", "Бензин"], [9, 10, "dr", 100000, "cash", "Стрижка"], [9, 11, "kf", 186000, "card", "Доставка еды"], [9, 11, "tr", 29000, "cash", "Такси"], [9, 11, "zd", 50000, "cash", "Аптека"], [9, 11, "pr", 310000, "card", "Супермаркет"], [9, 12, "kf", 28000, "cash", "Кофе"], [9, 12, "tr", 26000, "cash", "Такси"], [9, 12, "dm", 240000, "card", "Посуда"], [9, 13, "kf", 70000, "card", "Обед"], [9, 13, "pk", 130000, "card", "Книги"], [9, 13, "pr", 180000, "cash", "Рынок"], [9, 14, "tr", 25000, "cash", "Такси"], [9, 14, "dr", 160000, "card", "Подарок коллеге"], [9, 15, "kf", 28000, "cash", "Кофе"], [9, 15, "pr", 460000, "card", "Супермаркет"], [9, 16, "tr", 28000, "cash", "Такси"], [9, 16, "dm", 900000, "card", "Ремонт ванной"], [9, 17, "kf", 28000, "cash", "Кофе"], [9, 17, "tr", 250000, "card", "Бензин"], [9, 17, "pr", 250000, "cash", "Рынок"], [9, 18, "kf", 176000, "card", "Доставка еды"], [9, 18, "tr", 24000, "cash", "Такси"], [9, 19, "kf", 28000, "cash", "Кофе"], [9, 19, "tr", 20000, "cash", "Парковка"], [9, 19, "zd", 80000, "cash", "Аптека"], [9, 19, "pr", 395000, "card", "Супермаркет"], [9, 20, "tr", 32000, "cash", "Такси"], [9, 20, "pk", 420000, "card", "Одежда"], [9, 21, "kf", 28000, "cash", "Кофе"], [9, 21, "dm", 190000, "cash", "Хозтовары"], [9, 22, "kf", 280000, "card", "Ужин с друзьями"], [9, 22, "dr", 200000, "card", "Подарок на свадьбу"], [9, 23, "kf", 28000, "cash", "Кофе"], [9, 23, "tr", 25000, "cash", "Парковка"], [9, 23, "pr", 430000, "card", "Супермаркет"], [9, 24, "tr", 26000, "cash", "Такси"], [9, 24, "zd", 170000, "card", "Витамины"], [9, 25, "kf", 28000, "cash", "Кофе"], [9, 25, "dm", 360000, "card", "Полка"], [9, 26, "kf", 190000, "card", "Доставка еды"], [9, 26, "pr", 200000, "cash", "Рынок"], [9, 27, "kf", 28000, "cash", "Кофе"], [9, 27, "tr", 30000, "cash", "Такси"], [9, 27, "pk", 140000, "card", "Чехол для телефона"], [9, 28, "tr", 245000, "card", "Бензин"], [9, 28, "pr", 405000, "card", "Супермаркет"], [9, 29, "kf", 28000, "cash", "Кофе"], [9, 29, "tr", 25000, "cash", "Такси"], [9, 29, "dr", 80000, "cash", "Стрижка"], [9, 30, "tr", 25000, "cash", "Парковка"]];
+    AS.forEach((r) => add(r[0], r[1], r[2], r[3], r[4], r[5]));
+    return out;
+  }
+  // Каталог платных сервисов, которые ИИ узнаёт по названию в заметке.
+  services() {
+    return {
+      "Кинопоиск": { kind: "Подписка", fresh: "Новая подписка", cancel: "Отменить подписку", goal: "цель: отменить", where: "Отмените в самом сервисе до этой даты.", doneBtn: "Уже отменено", doneStatus: "Отменено — больше не спишут" },
+      "Второй номер": { kind: "Платный тариф", fresh: "Новый тариф", cancel: "Отключить тариф", goal: "цель: отключить", where: "Отключите у оператора до этой даты.", doneBtn: "Уже отключено", doneStatus: "Отключено — больше не спишут" }
+    };
+  }
+  fmtInt(s) { return String(s).replace(/\B(?=(\d{3})+(?!\d))/g, " "); }
+  sum(n) { return this.fmtInt(Math.round(n)) + " сум"; }
+  r1000(n) { return Math.round(n / 1000) * 1000; }
+  plural(n, one, few, many) {
+    const m10 = n % 10;
+    const m100 = n % 100;
+    if (m10 === 1 && m100 !== 11) return one;
+    if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return few;
+    return many;
+  }
+  times(n) { return n + " " + this.plural(n, "раз", "раза", "раз"); }
+  gen() { return ["января", "февраля", "марта", "апреля", "мая", "июня", "июля", "августа", "сентября", "октября", "ноября", "декабря"]; }
+  nom() { return ["январь", "февраль", "март", "апрель", "май", "июнь", "июль", "август", "сентябрь", "октябрь", "ноябрь", "декабрь"]; }
+  prep() { return ["январе", "феврале", "марте", "апреле", "мае", "июне", "июле", "августе", "сентябре", "октябре", "ноябре", "декабре"]; }
+  iso(dt) { return dt.getUTCFullYear() + "-" + this.pad(dt.getUTCMonth() + 1) + "-" + this.pad(dt.getUTCDate()); }
+  date(iso) { return new Date(Date.UTC(parseInt(iso.slice(0, 4), 10), parseInt(iso.slice(5, 7), 10) - 1, parseInt(iso.slice(8, 10), 10))); }
+  dayGen(iso) { return parseInt(iso.slice(8, 10), 10) + " " + this.gen()[parseInt(iso.slice(5, 7), 10) - 1]; }
+  ratioWord(r) {
+    if (r < 2.5) return "вдвое";
+    if (r < 3.5) return "втрое";
+    if (r < 4.5) return "вчетверо";
+    const n = Math.round(r);
+    return "в " + n + " " + this.plural(n, "раз", "раза", "раз");
+  }
+  // Одна и та же трата под разными заметками: «Такси домой» и «Такси в аэропорт» — это «Такси».
+  same(note, key) { return note === key || note.indexOf(key + " ") === 0; }
+  candidates(tx, cur, prev) {
+    const flexible = ["kf", "tr", "pk", "dr", "sv"];
+    const svc = this.services();
+    const pm = parseInt(prev, 10) - 1;
+    const cm = parseInt(cur, 10) - 1;
+    const group = (m) => {
+      const g = {};
+      tx.filter((x) => x.date.slice(5, 7) === m).forEach((x) => {
+        const k = x.cat + "|" + x.note;
+        if (!g[k]) g[k] = { cat: x.cat, note: x.note, n: 0, s: 0, ops: [] };
+        g[k].n++; g[k].s += x.amount; g[k].ops.push(x);
+      });
+      return g;
+    };
+    const G = group(cur);
+    const Pg = group(prev);
+    const curMax = tx.filter((x) => x.date.slice(5, 7) === cur && (x.cat === "pk" || x.cat === "dr")).reduce((m, x) => Math.max(m, x.amount), 0);
+    const out = [];
+    Object.keys(G).forEach((k) => {
+      const c = G[k];
+      const p = Pg[k] || { n: 0, s: 0 };
+      if (flexible.indexOf(c.cat) === -1) return;
+      const avg = c.s / c.n;
+      const inPrev = "В " + this.prep()[pm];
+      const sv = svc[c.note];
+      if (sv) {
+        const price = c.s / c.n;
+        const pprice = p.n ? p.s / p.n : 0;
+        let reason = "";
+        if (!p.n) reason = sv.fresh + ": первое списание " + this.dayGen(c.ops[0].date) + ".";
+        else if (Math.abs(price - pprice) / pprice > 0.1) reason = (price > pprice ? "Подорожала" : "Подешевела") + ": в " + this.prep()[pm] + " — " + this.sum(pprice) + ", в " + this.prep()[cm] + " — " + this.sum(price) + ".";
+        else reason = "Списывается каждый месяц: в " + this.prep()[pm] + " и в " + this.prep()[cm] + " по " + this.sum(price) + ".";
+        out.push({ id: k, kind: sv.kind, sub: true, svc: sv, recurring: true, c: c, monthly: price, title: c.note, amountText: this.sum(price) + " в месяц", reason: reason });
+      } else if (c.n >= 8 && avg <= 60000) {
+        out.push({ id: k, kind: "Часто и понемногу", sub: false, recurring: true, c: c, monthly: c.s, title: c.note + " — " + this.times(c.n), amountText: this.sum(c.s), reason: "В среднем " + this.sum(this.r1000(avg)) + " за раз. " + (p.n ? inPrev + " — " + this.times(p.n) + " на " + this.sum(p.s) + "." : inPrev + " таких трат не было.") });
+      } else if (p.n > 0 && c.n >= p.n * 2 && c.s >= 300000) {
+        out.push({ id: k, kind: "Стало чаще", sub: false, recurring: true, c: c, monthly: c.s, title: c.note + " — " + this.times(c.n), amountText: this.sum(c.s), reason: inPrev + " — " + this.times(p.n) + " на " + this.sum(p.s) + ": " + this.ratioWord(c.n / p.n) + " чаще и на " + this.sum(c.s - p.s) + " больше." });
+      } else if ((c.cat === "pk" || c.cat === "dr") && c.ops.some((x) => x.amount >= 600000)) {
+        const big = c.ops.slice().sort((a, b) => b.amount - a.amount)[0];
+        out.push({ id: k, kind: "Крупная покупка", sub: false, recurring: false, c: { cat: c.cat, note: c.note, n: 1, s: big.amount, ops: [big] }, monthly: 0, title: c.note, amountText: this.sum(big.amount), reason: (big.amount >= curMax ? "Самая крупная покупка " + this.gen()[cm] + ", " : "Крупная покупка, ") + this.dayGen(big.date) + "." });
+      }
+    });
+    out.sort((a, b) => b.c.s - a.c.s);
+    return out;
+  }
+  presetState(preset, cands) {
+    const by = {};
+    cands.forEach((c) => { by[c.c.note] = c.id; });
+    const m = {};
+    const g = {};
+    if (preset === "progress") { m[by["Доставка еды"]] = "need"; m[by["Кофе"]] = "extra"; }
+    if (preset === "done") {
+      ["Кофе", "Такси", "Доставка еды", "Кинопоиск", "Наушники"].forEach((n) => { m[by[n]] = "extra"; });
+      m[by["Второй номер"]] = "need";
+    }
+    if (preset === "clean") cands.forEach((c) => { m[c.id] = "need"; });
+    return { marks: m, goals: g };
+  }
+  st() {
+    const s = this.state || {};
+    const preset = this.props.preset || "start";
+    if (!this._tx) { this._tx = this.seed(); this._cands = this.candidates(this._tx, "09", "08"); }
+    const ps = this.presetState(preset, this._cands);
+    return {
+      preset: preset,
+      tx: this._tx,
+      cands: this._cands,
+      marks: s.marks || ps.marks,
+      goals: s.goals || ps.goals,
+      open: s.open || {},
+      allOps: s.allOps || {},
+      subState: s.subState || {},
+      live: s.live || "",
+      view: s.view || (preset === "done" || preset === "clean" || this._cands.length === 0 ? "done" : "list")
+    };
+  }
+  renderVals() {
+    const t = this.theme();
+    const s = this.st();
+    const C = s.cands;
+    const N = C.length;
+    // Ревизия сентября проходит 14 октября; цели считаем с этого дня до конца месяца.
+    const today = "2026-10-14";
+    const dDay = parseInt(today.slice(8, 10), 10);
+    const mIdx = parseInt(today.slice(5, 7), 10) - 1;
+    const mDays = 31;
+    const auditMonth = this.gen()[mIdx - 1];
+    const sinceText = this.dayGen(today);
+    const monthEnd = mDays + " " + this.gen()[mIdx];
+    const monthStart = "1 " + this.gen()[mIdx];
+    const marked = C.filter((c) => s.marks[c.id]).length;
+    const extras = C.filter((c) => s.marks[c.id] === "extra");
+    const left = N - marked;
+    const goalOf = (c) => (s.marks[c.id] !== "extra" || !c.recurring ? null : (c.sub ? "drop" : (s.goals[c.id] || "half")));
+    const limitOf = (c) => this.r1000(c.monthly / 2);
+    const saving = (c) => { const g = goalOf(c); return g === "drop" ? c.monthly : (g === "half" ? c.monthly - limitOf(c) : 0); };
+    const wasted = (c) => { if (s.marks[c.id] !== "extra") return 0; return goalOf(c) === "half" ? c.c.s - limitOf(c) : c.c.s; };
+    const extraSept = C.reduce((a, c) => a + wasted(c), 0);
+    const plan = C.reduce((a, c) => a + saving(c), 0);
+    const seg = (on) => ({ bg: on ? t.segOn : "transparent", shadow: on ? t.segShadow : "none", ink: on ? t.ink : t.segOff, pressed: on ? "true" : "false" });
+    const setMark = (c, v) => this.setState((prev) => {
+      const marks = Object.assign({}, (prev && prev.marks) || s.marks);
+      const subState = Object.assign({}, (prev && prev.subState) || {});
+      if (marks[c.id] === v) delete marks[c.id];
+      else marks[c.id] = v;
+      delete subState[c.id];
+      return { marks: marks, subState: subState };
+    });
+    const setGoal = (c, v) => this.setState((prev) => { const goals = Object.assign({}, (prev && prev.goals) || s.goals); goals[c.id] = v; return { goals: goals }; });
+    const cands = C.map((c) => {
+      const mk = s.marks[c.id];
+      const cat = this.cats()[c.c.cat];
+      const g = goalOf(c);
+      const isOpen = !!s.open[c.id];
+      const all = c.c.ops.slice().sort((a, b) => (a.date < b.date ? 1 : -1));
+      const ops = s.allOps[c.id] ? all : all.slice(0, 5);
+      const need = seg(mk === "need");
+      const extra = seg(mk === "extra");
+      const half = seg(g === "half");
+      const drop = seg(g === "drop");
+      let saveText = "";
+      if (g === "half") saveText = "Лимит " + this.sum(limitOf(c)) + " в месяц · экономия " + this.sum(c.monthly - limitOf(c));
+      if (g === "drop") saveText = c.sub ? c.svc.cancel + " · экономия " + this.sum(c.monthly) + " в месяц" : "Экономия " + this.sum(c.monthly) + " в месяц";
+      return {
+        aria: c.kind + ": " + c.title + ", " + c.amountText + (mk === "need" ? ". Отмечено: нужно" : (mk === "extra" ? ". Отмечено: лишнее" : "")),
+        kind: c.kind,
+        catName: cat[0],
+        color: cat[1],
+        letter: cat[0].charAt(0),
+        title: c.title,
+        amount: c.amountText,
+        reason: c.reason,
+        showDetails: !mk,
+        opsLabel: isOpen ? "Скрыть операции" : (all.length === 1 ? "Показать операцию" : "Показать " + all.length + " " + this.plural(all.length, "операцию", "операции", "операций")),
+        expanded: isOpen ? "true" : "false",
+        rot: isOpen ? "180deg" : "0deg",
+        isOpen: isOpen,
+        toggleOps: () => this.setState((prev) => { const o = Object.assign({}, (prev && prev.open) || {}); o[c.id] = !o[c.id]; return { open: o }; }),
+        ops: ops.map((x) => ({ date: this.dayGen(x.date), amount: this.sum(x.amount) })),
+        hasMoreOps: !s.allOps[c.id] && all.length > 5,
+        moreOpsLabel: "Показать все " + all.length,
+        showAllOps: () => this.setState((prev) => { const o = Object.assign({}, (prev && prev.allOps) || {}); o[c.id] = true; return { allOps: o }; }),
+        groupAria: "Нужна ли трата «" + c.c.note + "»",
+        markNeed: () => setMark(c, "need"),
+        markExtra: () => setMark(c, "extra"),
+        needPressed: need.pressed, needBg: need.bg, needShadow: need.shadow, needInk: need.ink,
+        extraPressed: extra.pressed, extraBg: extra.bg, extraShadow: extra.shadow, extraInk: extra.ink,
+        showGoal: mk === "extra" && c.recurring,
+        twoGoals: !c.sub,
+        goalHalf: () => setGoal(c, "half"),
+        goalDrop: () => setGoal(c, "drop"),
+        halfPressed: half.pressed, halfBg: half.bg, halfShadow: half.shadow, halfInk: half.ink,
+        dropPressed: drop.pressed, dropBg: drop.bg, dropShadow: drop.shadow, dropInk: drop.ink,
+        saveText: saveText,
+        showNote: mk === "need" || (mk === "extra" && !c.recurring),
+        note: mk === "need" ? (c.recurring ? "Предложим снова, только если трата заметно вырастет." : "Учтём: такие покупки для вас нормальны.") : "Разовая покупка — цель не нужна. Войдёт в итог «ушло на лишнее»."
+      };
+    });
+
+    // Цели — с дня ревизии; тренд — с 1 числа против тех же дней прошлого месяца.
+    const monthKey = this.pad(mIdx + 1);
+    const prevKey = this.pad(mIdx);
+    const dayOf = (x) => parseInt(x.date.slice(8, 10), 10);
+    const curOf = (c, from, to) => s.tx.filter((x) => x.date.slice(5, 7) === monthKey && x.cat === c.c.cat && this.same(x.note, c.c.note) && dayOf(x) >= from && dayOf(x) <= to);
+    const prevOf = (c, to) => s.tx.filter((x) => x.date.slice(5, 7) === prevKey && x.cat === c.c.cat && this.same(x.note, c.c.note) && dayOf(x) <= to);
+    const total = (l) => l.reduce((a, x) => a + x.amount, 0);
+    let aggNow = 0;
+    let aggPrev = 0;
+    const goalCands = C.filter((c) => goalOf(c));
+    const goals = goalCands.map((c, i) => {
+      const g = goalOf(c);
+      const since = total(curOf(c, dDay, mDays));
+      const rest = g === "half" ? this.r1000((limitOf(c) * (mDays - dDay + 1)) / mDays) : 0;
+      let status = "";
+      let hasActions = false;
+      let doneLabel = "";
+      let remindLabel = "";
+      let remindAria = "";
+      let doneAria = "";
+      if (c.sub) {
+        const charges = s.tx.filter((x) => x.cat === c.c.cat && this.same(x.note, c.c.note)).sort((a, b) => (a.date < b.date ? -1 : 1));
+        const last = charges.length ? charges[charges.length - 1].date : today;
+        const nd = this.date(last);
+        while (this.iso(nd) <= today) nd.setUTCMonth(nd.getUTCMonth() + 1);
+        const next = this.iso(nd);
+        const rd = this.date(next);
+        rd.setUTCDate(rd.getUTCDate() - 1);
+        const remindIso = this.iso(rd) > today ? this.iso(rd) : today;
+        const st = s.subState[c.id];
+        doneLabel = c.svc.doneBtn;
+        doneAria = c.svc.doneBtn + ": " + c.c.note;
+        remindLabel = "Напомнить " + this.dayGen(remindIso);
+        remindAria = "Напомнить про «" + c.c.note + "» " + this.dayGen(remindIso);
+        if (st === "cancelled") status = c.svc.doneStatus;
+        else if (st === "remind") { status = "Напомним в боте " + this.dayGen(remindIso) + ". Следующее списание — " + this.dayGen(next) + "."; hasActions = true; }
+        else { status = "Следующее списание — " + this.dayGen(next) + ". " + c.svc.where; hasActions = true; }
+      } else if (g === "half") {
+        status = since <= rest ? "Потрачено " + this.fmtInt(since) + " из " + this.sum(rest) + " до " + monthEnd : "Потрачено " + this.sum(since) + " — на " + this.fmtInt(since - rest) + " больше лимита до " + monthEnd;
+      } else {
+        status = since === 0 ? "Пока ни разу" : "Потрачено " + this.sum(since);
+      }
+      let trend = "";
+      if (!c.sub) {
+        const mtd = total(curOf(c, 1, dDay));
+        const prev = total(prevOf(c, dDay));
+        if (prev > 0) {
+          aggNow += mtd;
+          aggPrev += prev;
+          const pct = Math.round(((mtd - prev) / prev) * 100);
+          if (mtd === 0) trend = "С " + monthStart + " — ни разу, а за те же дни " + auditMonth + " — " + this.sum(prev);
+          else trend = "С " + monthStart + " — " + this.sum(mtd) + ", за те же дни " + auditMonth + " — " + this.sum(prev) + (pct < 0 ? ": на " + Math.abs(pct) + "% меньше" : (pct > 0 ? ": на " + pct + "% больше" : ": столько же"));
+        }
+      }
+      return {
+        name: c.c.note,
+        goal: c.sub ? c.svc.goal : (g === "drop" ? "цель: отказаться" : "лимит " + this.sum(limitOf(c)) + " в месяц"),
+        hasBar: g === "half",
+        fillW: rest > 0 ? Math.min(100, (since / rest) * 100).toFixed(1) + "%" : "0%",
+        status: status,
+        hasTrend: trend.length > 0,
+        trend: trend,
+        hasActions: hasActions,
+        doneLabel: doneLabel,
+        doneAria: doneAria,
+        remindLabel: remindLabel,
+        remindAria: remindAria,
+        showRemind: hasActions && s.subState[c.id] !== "remind",
+        cancelled: () => this.setState((prev) => { const o = Object.assign({}, (prev && prev.subState) || {}); o[c.id] = "cancelled"; return { subState: o, live: c.c.note + ": " + c.svc.doneStatus.toLowerCase() }; }),
+        remind: () => this.setState((prev) => { const o = Object.assign({}, (prev && prev.subState) || {}); o[c.id] = "remind"; return { subState: o, live: "Напомним про «" + c.c.note + "» " + remindLabel.replace("Напомнить ", "") }; }),
+        divider: i === 0 ? "none" : "1px solid " + t.line
+      };
+    });
+    let trendText = "";
+    if (aggPrev > 0) {
+      const pct = Math.round(((aggNow - aggPrev) / aggPrev) * 100);
+      trendText = "По этим тратам с " + monthStart + " — " + this.sum(aggNow) + ", за те же дни " + auditMonth + " — " + this.sum(aggPrev) + (pct < 0 ? ": уже на " + Math.abs(pct) + "% меньше" : (pct > 0 ? ": пока на " + pct + "% больше" : ": пока столько же"));
+    }
+    const needList = C.filter((c) => s.marks[c.id] === "need").map((c) => c.c.note);
+    const oneOffs = C.filter((c) => s.marks[c.id] === "extra" && !c.recurring);
+    let noPlanTitle = "";
+    let noPlanText = "";
+    if (N === 0) { noPlanTitle = "Лишнего не нашлось"; noPlanText = "Траты " + auditMonth + " обычные: ничего не выросло и не повторялось сверх привычного."; }
+    else if (extras.length === 0 && left === 0) { noPlanTitle = "Лишнего не нашлось"; noPlanText = "Все траты вы отметили как нужные."; }
+    else if (extras.length === 0) { noPlanTitle = "Пока лишнего нет"; noPlanText = "Нужными отмечено " + marked + " из " + N + ". Остальные разберёте позже."; }
+    else if (plan === 0) { noPlanTitle = "Цели не нужны"; noPlanText = "Лишнее — только разовые покупки, их не нужно ограничивать."; }
+    const leftWord = left + " " + this.plural(left, "неразобранная трата", "неразобранные траты", "неразобранных трат");
+    const finishFocus = () => {
+      if (typeof document === "undefined") return;
+      setTimeout(() => { const h = document.getElementById("audit-done-title"); if (h) h.focus(); }, 60);
+    };
+
+    return {
+      t: t,
+      homeHref: this.props.homeHref ?? "Pastel_Home.dc.html",
+      doneHomeHref: goals.length ? (this.props.doneHomeHref ?? "Pastel_HomeGoals.dc.html") : (this.props.homeHref ?? "Pastel_Home.dc.html"),
+      backHref: this.props.backHref ?? this.props.homeHref ?? "Pastel_Home.dc.html",
+      screenTitle: s.preset === "empty" ? "Ревизия трат" : "Ревизия " + auditMonth,
+      isEmpty: s.preset === "empty",
+      isList: s.preset !== "empty" && s.view === "list",
+      isDone: s.preset !== "empty" && s.view === "done",
+      introText: "ИИ нашёл " + N + " " + this.plural(N, "трату, которая может быть лишней", "траты, которые могут быть лишними", "трат, которые могут быть лишними") + ", — " + this.sum(C.reduce((a, c) => a + c.c.s, 0)) + " за " + this.nom()[mIdx - 1] + ". Отметьте: нужно или лишнее.",
+      progressW: N ? ((marked / N) * 100).toFixed(1) + "%" : "100%",
+      progressText: "Разобрано " + marked + " из " + N,
+      cands: cands,
+      hasFoot: marked > 0,
+      hasFootPlan: plan > 0,
+      footPlan: "Экономия " + this.sum(plan) + " в месяц",
+      footLeft: (extras.length ? "Лишнее: " + extras.length + " из " + N : "Пока лишнего нет") + (left ? " · " + left + " разберёте позже" : ""),
+      finish: () => { if (marked > 0) { this.setState({ view: "done", live: "" }); finishFocus(); } },
+      finishDisabled: marked > 0 ? "false" : "true",
+      finishBg: marked > 0 ? t.primaryBg : t.track,
+      finishInk: marked > 0 ? t.primaryInk : t.segOff,
+      finishLabel: marked > 0 ? "Готово" : "Отметьте хотя бы одну",
+      heroLabel: N ? "Итог · отмечено " + marked + " из " + N : "Итог · " + this.nom()[mIdx - 1],
+      hasPlan: plan > 0,
+      planSum: this.fmtInt(Math.round(plan)),
+      planSub: "Столько сэкономите, если держаться целей. В " + this.prep()[mIdx - 1] + " на лишнее ушло " + this.sum(extraSept) + ".",
+      noPlanExtra: plan === 0,
+      noPlanTitle: noPlanTitle,
+      noPlanText: noPlanText,
+      hasTrend: trendText.length > 0,
+      trendText: trendText,
+      hasGoals: goals.length > 0,
+      goalsSub: "Считаем с " + sinceText + " — дня ревизии",
+      goals: goals,
+      hasOneOff: oneOffs.length > 0,
+      oneOffList: oneOffs.map((c) => c.c.note + " — " + this.sum(c.c.s)).join(", "),
+      hasNeed: needList.length > 0,
+      needList: needList.join(", "),
+      nextText: (goals.length ? "Цели появятся на главной, а у лимита напишем в боте. " : "") + "Следующая ревизия — 1 " + this.gen()[mIdx + 1] + ", за " + this.nom()[mIdx] + "." + (left ? " В неё войдут и " + leftWord + "." : ""),
+      live: s.live,
+      canEdit: N > 0,
+      editMarks: () => this.setState({ view: "list", live: "" })
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -10,7 +10,6 @@ export {
 export {
   useTelegram,
   useTelegramMainButton,
-  useTelegramBackButton,
   useTelegramHaptic,
   useTelegramCloudStorage,
   useTelegramTheme,
@@ -23,3 +22,5 @@ export {
 } from './useDebounce';
 
 export { useTheme } from './useTheme';
+
+export { useIsOnline } from './useOnline';

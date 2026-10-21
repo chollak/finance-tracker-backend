@@ -14,12 +14,13 @@ import { createDebtRouter } from '../src/modules/debt/presentation/controllers/d
 import { ProcessTextInputUseCase } from '../src/modules/voiceProcessing/application/processTextInput';
 import { ProcessVoiceInputUseCase } from '../src/modules/voiceProcessing/application/processVoiceInput';
 import { DebtModule } from '../src/modules/debt/debtModule';
+import { UserModule } from '../src/modules/user/userModule';
 import { ValidationError } from '../src/shared/domain/errors/AppError';
 
 /**
  * Characterization/safety tests for the critical Express wiring in expressServer.ts:
- * health check, 404 handling, JSON body parsing, guest-mode auth bypass, and the
- * global error handler's status-code mapping.
+ * health check, 404 handling, JSON body parsing, sign-in (no guests since 2026-10-21),
+ * and the global error handler's status-code mapping.
  *
  * SCOPE NOTE: `buildServer()` wires 5+ full modules (Transaction, Voice, Budget,
  * Debt, OpenAIUsage), several of which need a dozen+ use-case getters just to
@@ -33,6 +34,8 @@ import { ValidationError } from '../src/shared/domain/errors/AppError';
  * exported as a standalone unit, so its JSON contract is reproduced verbatim here;
  * if that handler's shape changes, this test must be updated to match.
  */
+
+const DEBT_OWNER_UUID = 'debt-owner-uuid';
 
 function buildTestApp() {
   const router = express.Router();
@@ -76,7 +79,12 @@ function buildTestApp() {
       executeDeletePayment: jest.fn(),
     },
   } as unknown as DebtModule;
-  router.use('/debts', createDebtRouter(debtModule));
+  // The signed-in Telegram user 555111 owns the records stored under DEBT_OWNER_UUID
+  const userModule = {
+    getGetOrCreateUserUseCase: () => ({ execute: jest.fn().mockResolvedValue({ id: DEBT_OWNER_UUID }) }),
+    getGetUserUseCase: () => ({ execute: jest.fn().mockResolvedValue({ success: true, data: { id: DEBT_OWNER_UUID } }) }),
+  } as unknown as UserModule;
+  router.use('/debts', createDebtRouter(debtModule, userModule));
 
   // Small test-only routes to directly exercise errorHandler's error-type mapping,
   // since the mounted controllers above catch errors internally and never call next(err).
@@ -145,8 +153,8 @@ describe('API routes and middleware (characterization)', () => {
     });
   });
 
-  describe('voice text-input route (JSON parsing + guest mode)', () => {
-    it('processes JSON body for a guest user without auth', async () => {
+  describe('voice text-input route (JSON parsing + sign-in)', () => {
+    it('processes JSON body for the signed-in user', async () => {
       (mocks.textUseCase.execute as jest.Mock).mockResolvedValue({
         text: 'coffee 5',
         transactions: [],
@@ -155,8 +163,8 @@ describe('API routes and middleware (characterization)', () => {
 
       const res = await fetch(`${baseUrl}/api/voice/text-input`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: 'guest_abc123', text: 'coffee 5' }),
+        headers: { 'Content-Type': 'application/json', 'X-Dev-User-Id': '555111' },
+        body: JSON.stringify({ userId: '555111', text: 'coffee 5' }),
       });
 
       expect(res.status).toBe(200);
@@ -165,12 +173,23 @@ describe('API routes and middleware (characterization)', () => {
       expect(body.data).toEqual({ text: 'coffee 5', transactions: [], debts: [] });
       expect(mocks.textUseCase.execute).toHaveBeenCalledWith(
         'coffee 5',
-        'guest_abc123',
+        '555111',
         'Unknown User'
       );
     });
 
-    it('rejects a non-guest request with no auth header (401)', async () => {
+    it('rejects a guest id with no auth header (401)', async () => {
+      const res = await fetch(`${baseUrl}/api/voice/text-input`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: 'guest_abc123', text: 'coffee 5' }),
+      });
+
+      expect(res.status).toBe(401);
+      expect(mocks.textUseCase.execute).not.toHaveBeenCalled();
+    });
+
+    it('rejects a request with no auth header (401)', async () => {
       const res = await fetch(`${baseUrl}/api/voice/text-input`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -186,8 +205,8 @@ describe('API routes and middleware (characterization)', () => {
     it('returns 400 validation error when text is missing', async () => {
       const res = await fetch(`${baseUrl}/api/voice/text-input`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: 'guest_abc123' }),
+        headers: { 'Content-Type': 'application/json', 'X-Dev-User-Id': '555111' },
+        body: JSON.stringify({ userId: '555111' }),
       });
 
       expect(res.status).toBe(400);
@@ -200,29 +219,19 @@ describe('API routes and middleware (characterization)', () => {
     });
   });
 
-  describe('debt route (guest mode + dev auth bypass)', () => {
-    it('allows a guest user to create a debt without auth', async () => {
-      (mocks.debtModule.createDebtUseCase.execute as jest.Mock).mockResolvedValue({
-        success: true,
-        data: { id: 'debt-1', personName: 'Bob' },
-      });
-
+  describe('debt route (sign-in + dev auth bypass)', () => {
+    it('refuses to create a debt for a guest id without auth (401)', async () => {
       const res = await fetch(`${baseUrl}/api/debts/user/guest_abc123`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ type: 'lent', personName: 'Bob', amount: '100', currency: 'UZS' }),
       });
 
-      expect(res.status).toBe(201);
-      const body = await res.json();
-      expect(body.success).toBe(true);
-      expect(body.data).toEqual({ id: 'debt-1', personName: 'Bob' });
-      expect(mocks.debtModule.createDebtUseCase.execute).toHaveBeenCalledWith(
-        expect.objectContaining({ userId: 'guest_abc123', personName: 'Bob' })
-      );
+      expect(res.status).toBe(401);
+      expect(mocks.debtModule.createDebtUseCase.execute).not.toHaveBeenCalled();
     });
 
-    it('rejects a non-guest request with no auth header (401)', async () => {
+    it('rejects a request with no auth header (401)', async () => {
       const res = await fetch(`${baseUrl}/api/debts/user/555111`);
       expect(res.status).toBe(401);
       const body = await res.json();
@@ -243,25 +252,29 @@ describe('API routes and middleware (characterization)', () => {
       expect(res.status).toBe(200);
       const body = await res.json();
       expect(body.success).toBe(true);
-      expect(mocks.debtModule.getDebtsUseCase.executeGetAll).toHaveBeenCalledWith('555111', undefined);
+      // The Telegram id in the path is resolved to the owner's UUID
+      expect(mocks.debtModule.getDebtsUseCase.executeGetAll).toHaveBeenCalledWith(DEBT_OWNER_UUID, undefined);
     });
 
     it('maps a null debt lookup after ownership verification to a 404, not a 500', async () => {
       (mocks.debtModule.getDebtsUseCase.executeGetById as jest.Mock).mockResolvedValue({
         success: true,
-        data: { id: 'debt-1', userId: 'guest_abc123' },
+        data: { id: 'debt-1', userId: DEBT_OWNER_UUID },
       });
       (mocks.debtModule.getDebtsUseCase.executeGetWithPayments as jest.Mock).mockResolvedValue({
         success: true,
         data: null,
       });
 
-      const res = await fetch(`${baseUrl}/api/debts/debt-1?withPayments=true`);
+      const res = await fetch(`${baseUrl}/api/debts/debt-1?withPayments=true`, {
+        headers: { 'X-Dev-User-Id': '555111' },
+      });
 
       expect(res.status).toBe(404);
       const body = await res.json();
       expect(body.success).toBe(false);
       expect(body.error).toMatchObject({ code: 'NOT_FOUND' });
+      expect(mocks.debtModule.getDebtsUseCase.executeGetWithPayments).toHaveBeenCalledWith('debt-1');
     });
   });
 

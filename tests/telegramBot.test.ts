@@ -18,12 +18,15 @@ describe('startTelegramBot', () => {
     const use = jest.fn();
     const catchHandler = jest.fn();
     const stop = jest.fn();
+    const telegram = { setMyCommands: jest.fn().mockResolvedValue(true), sendMessage: jest.fn() };
+    const action = jest.fn();
     const Telegraf = jest.fn().mockImplementation(() => ({
       use,
       catch: catchHandler,
       launch,
       stop,
-      telegram: {},
+      action,
+      telegram,
     }));
 
     jest.doMock('telegraf', () => ({
@@ -31,14 +34,22 @@ describe('startTelegramBot', () => {
       session: jest.fn(() => jest.fn()),
     }));
 
+    const registerCommandHandlers = jest.fn();
+    const setCommandMenu = jest.fn().mockResolvedValue(undefined);
+    const closeAmountQuestionOnCommand = jest.fn();
     jest.doMock('../src/delivery/messaging/telegram/handlers/commandHandlers', () => ({
-      registerCommandHandlers: jest.fn(),
+      registerCommandHandlers,
+      setCommandMenu,
     }));
     jest.doMock('../src/delivery/messaging/telegram/handlers/messageHandlers', () => ({
       registerMessageHandlers: jest.fn(),
     }));
     jest.doMock('../src/delivery/messaging/telegram/handlers/callbackHandlers', () => ({
       registerCallbackHandlers: jest.fn(),
+    }));
+    jest.doMock('../src/delivery/messaging/telegram/handlers/recordHandlers', () => ({
+      registerRecordHandlers: jest.fn(),
+      closeAmountQuestionOnCommand,
     }));
     jest.doMock('../src/delivery/messaging/telegram/handlers/paymentHandlers', () => ({
       registerPaymentHandlers: jest.fn(),
@@ -54,16 +65,99 @@ describe('startTelegramBot', () => {
       getGetOrCreateUserUseCase: () => ({ execute: jest.fn() }),
     } as any;
 
-    const start = () => startTelegramBot({} as any, {} as any, {} as any, userModule, {} as any);
+    const dailySummary = { start: jest.fn(), stop: jest.fn() };
+    const reminders = { start: jest.fn(), stop: jest.fn() };
+    const notificationModule = { getDailySummary: () => dailySummary, getReminders: () => reminders } as any;
+    const start = () => startTelegramBot({} as any, {} as any, userModule, {} as any, undefined, undefined, undefined, undefined, notificationModule);
 
     return {
       start,
+      telegram,
+      setCommandMenu,
+      dailySummary,
+      reminders,
       Telegraf,
       launch,
       launchCatch,
       processOnce,
+      use,
+      registerCommandHandlers,
+      closeAmountQuestionOnCommand,
     };
   }
+
+  it('closes an open «Сумму» question before any command runs (FT-122)', async () => {
+    const { start, use, registerCommandHandlers, closeAmountQuestionOnCommand } = await loadBotWithMocks();
+
+    start();
+
+    const call = use.mock.calls.findIndex(([middleware]) => middleware === closeAmountQuestionOnCommand);
+    expect(call).not.toBe(-1);
+    expect(use.mock.invocationCallOrder[call]).toBeLessThan(registerCommandHandlers.mock.invocationCallOrder[0]);
+  });
+
+  it('sets the command menu and starts the daily summary once Telegram answered for the bot (FT-124)', async () => {
+    const { start, telegram, setCommandMenu, dailySummary, launch } = await loadBotWithMocks();
+
+    start();
+
+    expect(setCommandMenu).toHaveBeenCalledWith(telegram);
+    expect(launch).toHaveBeenCalledTimes(1);
+    // Not before Telegraf's onLaunch (getMe answered)
+    expect(dailySummary.start).not.toHaveBeenCalled();
+    const [onLaunch] = launch.mock.calls[0] as unknown as [() => void];
+    onLaunch();
+    expect(dailySummary.start).toHaveBeenCalledTimes(1);
+    // The scheduler sends with the bot's own Telegram client; its first look at the clock waits a minute, so a
+    // polling conflict found in that minute stops it before anything goes out
+    const [sender, options] = dailySummary.start.mock.calls[0];
+    expect(sender.send).toEqual(expect.any(Function));
+    expect(options).toEqual({ firstTickInMs: 60_000 });
+  });
+
+  it('starts the goal, subscription and audit reminders with the daily summary, and stops them with it (FT-133)', async () => {
+    const { start, launch, launchCatch, reminders } = await loadBotWithMocks();
+
+    start();
+    expect(reminders.start).not.toHaveBeenCalled();
+    (launch.mock.calls[0] as unknown as [() => void])[0]();
+    expect(reminders.start).toHaveBeenCalledTimes(1);
+    const [sender, options] = reminders.start.mock.calls[0];
+    expect(sender.send).toEqual(expect.any(Function));
+    expect(options).toEqual({ firstTickInMs: 60_000 });
+
+    launchCatch.mock.calls[0][0](new Error('401: Unauthorized'));
+    expect(reminders.stop).toHaveBeenCalledTimes(1);
+  });
+
+  it('polling that fails for good stops the daily summary (FT-124)', async () => {
+    const { start, launch, launchCatch, dailySummary } = await loadBotWithMocks();
+    const { getTelegramBotStatus } = await import('../src/delivery/messaging/telegram/telegramBot');
+
+    start();
+    (launch.mock.calls[0] as unknown as [() => void])[0]();
+    launchCatch.mock.calls[0][0](new Error('401: Unauthorized'));
+
+    expect(getTelegramBotStatus()).toEqual(expect.objectContaining({ state: 'failed' }));
+    expect(dailySummary.stop).toHaveBeenCalledTimes(1);
+  });
+
+  it('a polling conflict stops the daily summary until the retry is connected again (FT-124)', async () => {
+    jest.useFakeTimers();
+    const { start, launch, launchCatch, dailySummary } = await loadBotWithMocks();
+
+    start();
+    (launch.mock.calls[0] as unknown as [() => void])[0]();
+    launchCatch.mock.calls[0][0](new Error('409: Conflict: terminated by other getUpdates request'));
+    expect(dailySummary.stop).toHaveBeenCalledTimes(1);
+
+    jest.advanceTimersByTime(5000);
+    expect(launch).toHaveBeenCalledTimes(2);
+    expect(dailySummary.start).toHaveBeenCalledTimes(1);
+    (launch.mock.calls[1] as unknown as [() => void])[0]();
+    expect(dailySummary.start).toHaveBeenCalledTimes(2);
+    jest.useRealTimers();
+  });
 
   it('attaches a rejection handler to bot.launch so launch failures do not become unhandled rejections', async () => {
     const { start, launch, launchCatch } = await loadBotWithMocks();
@@ -103,12 +197,14 @@ describe('startTelegramBot', () => {
 
   it('does not create or launch a Telegram bot when polling is explicitly disabled', async () => {
     process.env.ENABLE_TELEGRAM_POLLING = 'false';
-    const { start, Telegraf, launch } = await loadBotWithMocks();
+    const { start, Telegraf, launch, dailySummary } = await loadBotWithMocks();
 
     start();
 
     expect(Telegraf).not.toHaveBeenCalled();
     expect(launch).not.toHaveBeenCalled();
+    // No bot, no scheduler: the daily summary runs only in the bot's process
+    expect(dailySummary.start).not.toHaveBeenCalled();
   });
 
   it('does not launch polling when webhook mode is enabled', async () => {

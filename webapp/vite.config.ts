@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
@@ -46,8 +47,10 @@ export default defineConfig({
         // Cache strategies
         runtimeCaching: [
           {
-            // API calls - Network First with fallback
-            urlPattern: /^https?:\/\/.*\/api\/.*/i,
+            // API calls - Network First with fallback. Not the login and the session (FT-128): an answer about who is
+            // signed in must never come from a cache. Nor the health check: the offline mode asks it whether the server
+            // is there at all (FT-129)
+            urlPattern: /^https?:\/\/[^/]+\/api\/(?!auth\/|health).*/i,
             handler: 'NetworkFirst',
             options: {
               cacheName: 'api-cache',
@@ -85,6 +88,13 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  test: {
+    env: {
+      // A local .env.local may name a dev user for `npm run dev:full`; tests must not run as that user
+      // (src/shared/config/env.test.ts). A test that needs one mocks `env` itself
+      VITE_MOCK_USER_ID: '',
+    },
+  },
   server: {
     port: 5173,
     proxy: {
@@ -92,6 +102,9 @@ export default defineConfig({
         target: 'http://localhost:3000',
         changeOrigin: true,
         secure: false,
+        // Names the browser it forwards for: the dev header counts only for a browser on this machine, not for a
+        // phone on the Wi-Fi with `vite --host` (isLocalRequest)
+        xfwd: true,
       },
     },
   },
@@ -105,8 +118,6 @@ export default defineConfig({
           'react-vendor': ['react', 'react-dom', 'react-router-dom'],
           // TanStack Query
           'query-vendor': ['@tanstack/react-query'],
-          // Charts library (heavy)
-          'charts-vendor': ['recharts'],
           // Form libraries
           'form-vendor': ['react-hook-form', '@hookform/resolvers', 'zod'],
           // UI components

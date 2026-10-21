@@ -36,14 +36,18 @@ export class BudgetService {
 
     let totalSpent = 0;
 
+    // Budgets are in сум; dollar records (FT-103) are left out rather than added as сум — budgets leave
+    // the interface (decision Д2), so they get no rate conversion
     const budgetSpendingTransactions = transactions.filter(t =>
-      !t.needsReview && countsAsBudgetSpending(normalizeSemanticType(t.semanticType, t.type))
+      !t.needsReview && (t.currency ?? 'UZS') === 'UZS' && countsAsBudgetSpending(normalizeSemanticType(t.semanticType, t.type))
     );
 
     // Filter by categories if specified
     if (budget.categoryIds && budget.categoryIds.length > 0) {
       totalSpent = budgetSpendingTransactions
-        .filter(t => budget.categoryIds!.includes(t.category))
+        // Budgets made after FT-099 hold category ids; older ones hold static ids that no longer
+        // match (budgets leave the interface per decision Д2)
+        .filter(t => (t.categoryId !== undefined && budget.categoryIds!.includes(t.categoryId)) || budget.categoryIds!.includes(t.category))
         .reduce((sum, t) => sum + t.amount, 0);
     } else {
       // Include all budget-counted spending if no categories specified

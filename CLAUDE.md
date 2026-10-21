@@ -13,7 +13,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 > |---|---|
 > | Задача в работе, очередь, таблица backlog | `TASKS.md` |
 > | Отложенные задачи с описаниями | `docs/tasks/backlog.md` |
-> | 102 закрытые задачи с отчётами | `docs/tasks/archive/` |
+> | 108 закрытых задач с отчётами | `docs/tasks/archive/` |
 > | Лог решений по плану, новые сверху | `docs/tasks/decisions.md` |
 > | Правила доски, статусы, роли, формат задачи | `docs/tasks/README.md` |
 >
@@ -21,17 +21,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 > её в доске со `Status: done`.** Снимая с очереди — переноси в `docs/tasks/backlog.md`, в доске
 > оставляй строку таблицы. Подробности и причина: `docs/tasks/decisions.md`, запись 2026-09-06.
 
-**Goal now:** довести существующий Telegram-first finance tracker до состояния «одной кнопкой поднял и пользуюсь сам локально». Do not rebuild broad product areas or revive old production/AWS plans.
+**Goal now (2026-10-16):** веха 10 — перенос утверждённого дизайна «Пастель» (`docs/pastel/`) в этот проект узкими срезами FT-087…FT-136. Проект развивается, а не пишется заново; старые production/AWS-планы не возвращать.
 
 **Source of truth for current work:** `TASKS.md` — секция «Текущий фокус» и раздел «В работе» (раскладку см. в блоке выше). GitHub Issues/Wiki may contain stale January-era planning; use them only when a task explicitly asks to reconcile them.
 
-**Runtime target now:** local WSL + SQLite + Telegram polling + Cloudflare quick tunnel for Mini App phone testing. Production/AWS is intentionally parked; `sapaev.uz` and Supabase are not the active dev path.
+**Runtime target now:** local WSL or macOS (Node 22, `.nvmrc`) + SQLite + Telegram polling + Cloudflare quick tunnel for Mini App phone testing. Production/AWS is intentionally parked; `sapaev.uz` and Supabase are not the active dev path.
 
-**Home/Capture UX (2026-09-04):** Home первого экрана — минимальный quick capture: заголовок со статусом, карточка ввода, недавние транзакции и attention-блок, который ничего не рисует без реального сигнала. `BalanceCard`, budget overview, premium/usage limits и trust summary убраны с первого флоу Home, но **не удалены**: компоненты и маршруты живут и доступны из «Ещё» (`FT-073`). Карточка ввода показывает три способа записи — «Чек» (`Скоро`, недоступен), «Голос» (честная подсказка: диктовка работает в чате бота, не в Mini App) и «Текстом» (работает здесь), плюс offline-нотис вместо приёма ввода без сети (`FT-074`).
+**Home/Capture UX (2026-10-16):** целевой интерфейс — «Пастель»: правила, токены и компоненты в `docs/pastel/`, экраны — на холсте (ссылка в `docs/pastel/README.md`). Нижнего бара (`FT-086`) больше нет (FT-110): главная — шапка с «Ещё», карточка баланса, плитки месяца и последние операции (FT-111), внизу — поле ввода с чипами частых трат (FT-114; карточка ввода `FT-073`, `FT-074` удалена), фраза открывает проверку записей `/review`. Раздел Design System ниже описывает «Пастель»; гайды в `docs/knowledge-base/10-design-guidelines/` — архив (FT-096).
 
-**Current implementation queue (2026-09-04):** активный фокус — **полный редизайн Mini App вокруг quick action**; план в `.hermes/plans/2026-09-04_173401-quick-action-ui-redesign-roadmap.md`. Шукур перенёс все оставшиеся не-quick-action задачи в backlog; не возвращать бюджеты/долги/аналитику/premium в primary UX и не начинать old backlog без явного запроса. Новая очередь: `FT-081` (History correction UI, next) → `FT-082` (More quick-action hub) → `FT-083` (remove dashboard dependency from Home) → `FT-084` (saved toast/real undo) → `FT-085` (dark theme pair, later). `FT-077` today-spend hero, `FT-078` capture card redesign, `FT-079` capture-first dock и `FT-080` compact recent rows закрыты и verified. Реализация только narrow slices через Claude Code; Hermes финально проверяет diff/tests/screenshots и коммитит. Безопасный план quick capture закрыт полностью: гайд «как записывать операции» через Telegram (`FT-076`, `docs/IOS_SHORTCUT_ACTION_BUTTON.md`) и прямой Shortcut-вызов `POST /api/quick-capture` **для dev/test** (`FT-075`). Dev/test-контур: `X-Shortcut-User-Id` задаёт владельца и принудительно ставит `source=ios_shortcut`, опциональный `SHORTCUT_CAPTURE_TOKEN` проверяется через `X-Shortcut-Capture-Token` (плейсхолдер есть в `.env.example`), а при `NODE_ENV=production` весь обход отвергается с 403 `SHORTCUT_CAPTURE_DISABLED`. Это **не продовая auth-модель**: продовый токен (выдача, срок жизни, отзыв, отдельный rate limit для не-Telegram источника) — будущее решение Шукура, а не текущий блокер. Не включать обход в проде и не класть реальные токены в клиентские инструкции. `FT-049`/`FT-050` (GitHub-сверка, ветки) требуют явного разрешения на внешние действия. The live semantic smoke (`FT-044`), its debt-linked transaction bug (`FT-072`), read-only historical semantic preview (`FT-045`), budgets page UX cleanup (`FT-055`), transaction row readability (`FT-056`), collapsed semantic corrections (`FT-057`), touch target compliance (`FT-058`), the minimal Home/Capture slice (`FT-073`), the capture action row/states (`FT-074`), the iPhone Action Button guide (`FT-076`), the dev/test Shortcut capture API (`FT-075`), and the guideline polish trio (`FT-059`, `FT-060`, `FT-061`) are done/verified locally. Do not apply data backfills, close GitHub issues, delete branches, touch production/Supabase, or change product-policy without the explicit stop/ask rules below.
+**State (2026-10-21):** фазы 0–8 вехи 10 сделаны в облаке — ветка `claude/new-session-uv5og7`, ещё не слита. `TASKS.md` пока показывает фазу 0: статусы ставит Hermes после проверки. Что сделано, что проверить на своей машине и что осталось (FT-117, FT-134, FT-135, FT-143, FT-108, FT-136) — [`docs/pastel/handoff.md`](docs/pastel/handoff.md).
 
-**Stop/ask before:** production deploys, Supabase SQL/migrations, billing/subscription policy changes, rate-limit policy changes, broad Home/product IA decisions, destructive branch deletion, force dependency upgrades (`npm audit fix --force`).
+**Current implementation queue (2026-10-16):** веха 10, фаза 0: `FT-087` (в работе) → спайки `FT-088` и `FT-089` → `FT-090` (миграции TypeORM) → `FT-091` (выключатель лимитов). Полные описания и порядок по `Depends` — `docs/pastel/tasks.md`; решения Д1–Д7 — `docs/tasks/decisions.md`. Веха 9 закрыта, FT-082…FT-086 отменены. Реализация только narrow slices через Claude Code; Hermes финально проверяет diff/tests/screenshots и коммитит. Безопасный план quick capture закрыт полностью: гайд «как записывать операции» через Telegram (`FT-076`, `docs/IOS_SHORTCUT_ACTION_BUTTON.md`) и прямой Shortcut-вызов `POST /api/quick-capture` **для dev/test** (`FT-075`). Dev/test-контур: `X-Shortcut-User-Id` задаёт владельца и принудительно ставит `source=ios_shortcut`, `SHORTCUT_CAPTURE_TOKEN` проверяется через `X-Shortcut-Capture-Token` и обязателен для запроса с телефона (туннель, Wi-Fi; без него — 403 `SHORTCUT_CAPTURE_TOKEN_REQUIRED`), а `X-Dev-User-Id` действует только для запроса с этой машины (2026-10-21) (плейсхолдер есть в `.env.example`), а при `NODE_ENV=production` весь обход отвергается с 403 `SHORTCUT_CAPTURE_DISABLED`. Это **не продовая auth-модель**: продовый токен (выдача, срок жизни, отзыв, отдельный rate limit для не-Telegram источника) — будущее решение Шукура, а не текущий блокер. Не включать обход в проде и не класть реальные токены в клиентские инструкции. `FT-049`/`FT-050` (GitHub-сверка, ветки) требуют явного разрешения на внешние действия. The live semantic smoke (`FT-044`), its debt-linked transaction bug (`FT-072`), read-only historical semantic preview (`FT-045`), budgets page UX cleanup (`FT-055`), transaction row readability (`FT-056`), collapsed semantic corrections (`FT-057`), touch target compliance (`FT-058`), the minimal Home/Capture slice (`FT-073`), the capture action row/states (`FT-074`), the iPhone Action Button guide (`FT-076`), the dev/test Shortcut capture API (`FT-075`), and the guideline polish trio (`FT-059`, `FT-060`, `FT-061`) are done/verified locally. Do not apply data backfills (единственное исключение — FT-108 после просмотра списка Шукуром), close GitHub issues, delete branches, touch production/Supabase, or change product-policy without the explicit stop/ask rules below.
+
+**Stop/ask before:** production deploys, Supabase SQL/migrations, billing/subscription policy changes, rate-limit policy changes, product IA decisions beyond what `docs/pastel/` describes, destructive branch deletion, force dependency upgrades (`npm audit fix --force`).
 
 **Role split:** Claude Code implements narrow TDD slices; Hermes reviews diff, runs verification, updates board/report, commits and pushes.
 
@@ -52,6 +54,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npm run dev` - Backend only (serves static production build)
 - `npm run dev:frontend` - Frontend only (requires backend running separately)
 - `npm run dev:backend` - Backend only (same as `npm run dev`)
+
+**Database migrations (FT-090):**
+- `npm run migration:show` - Applied/pending migrations and whether the schema matches the entities
+- `npm run migration:run` - Back up `data/database.sqlite` to `data/backups/`, then apply pending migrations (the app also does this on start)
+- `npm run migration:revert` - Back up, then undo the last migration
 
 **Testing:**
 - `npm test` - Run Jest tests (located in `tests/` folder)
@@ -75,13 +82,13 @@ Required environment variables in `.env` file:
 - `OPENAI_API_KEY` - For voice transcription and transaction parsing
 - `TG_BOT_API_KEY` - Telegram bot token
 - `WEB_APP_URL` - Public URL for the web application
-- `DATABASE_TYPE` - Database type: `sqlite` (default) or `supabase`
+- `TG_BOT_USERNAME` - optional; the bot's @username for the web login link `t.me/<bot>?start=login_…` (FT-128). When empty the server asks Telegram (`getMe`)
+- `FREE_LIMITS_ENABLED` - optional; `true` enforces free-tier limits (50 records, 10 voice inputs a month). Off by default during milestone 10 (decision Д3, FT-091); usage is still counted
+- `DATABASE_TYPE` - optional; only `sqlite` is supported (any other value fails startup). The `supabase-js` path was removed in FT-090 (decision Д6)
 
-**For Supabase (when DATABASE_TYPE=supabase):**
-- `SUPABASE_URL` - Supabase project URL
-- `SUPABASE_ANON_KEY` - Supabase anonymous key
-- **Supabase Project ID:** `cttsquvkvkwtxsfrgsrs` (historical value; verify before use — current local work uses SQLite and Supabase is paused)
-- **Test User telegramId:** `597843119` (Konan) - only for approved Supabase testing; do not modify Supabase without explicit permission
+**Historical, not active:**
+- **Supabase Project ID:** `cttsquvkvkwtxsfrgsrs` — project paused; the app no longer talks to Supabase. Do not modify it without explicit permission
+- **Test User telegramId:** `597843119` (Konan)
 - **Production Domain:** `https://sapaev.uz` (owned by Shukur but not an active deployment target as of 2026-08-13)
 
 **Logging:**
@@ -123,7 +130,7 @@ For detailed documentation, see **[docs/knowledge-base/](docs/knowledge-base/)**
 
 - **[Architecture](docs/knowledge-base/01-architecture/)** - Clean Architecture, modules, design patterns
   - [Overview](docs/knowledge-base/01-architecture/overview.md) - Layers and dependency flow
-  - [Modules](docs/knowledge-base/01-architecture/modules.md) - 7 модулей системы
+  - [Modules](docs/knowledge-base/01-architecture/modules.md) - 16 модулей системы
   - [Patterns](docs/knowledge-base/01-architecture/patterns.md) - Repository, DI, Factory, Use Case
   - [Runtime / Process Mode](docs/knowledge-base/01-architecture/runtime-process-mode.md) - API/Bot/Worker process-mode decision
   - [API / Domain Consistency Audit](docs/knowledge-base/01-architecture/api-domain-consistency-audit.md) - FT-018 controller/use-case/API contract audit
@@ -137,15 +144,15 @@ For detailed documentation, see **[docs/knowledge-base/](docs/knowledge-base/)**
 - **[Development Guide](docs/knowledge-base/08-development/)** - Quick start, adding features
   - [Quick Start](docs/knowledge-base/08-development/quick-start.md) - Setup and running
   - [Adding Features](docs/knowledge-base/08-development/adding-features.md) - Use cases, endpoints, modules
-  - [Database Guide](docs/knowledge-base/08-development/database-guide.md) - SQLite vs Supabase
+  - [Database Guide](docs/knowledge-base/08-development/database-guide.md) - SQLite, TypeORM, migrations
   - [Troubleshooting](docs/knowledge-base/08-development/troubleshooting.md) - Common issues
   - [Test Logging & Contract Cleanup](docs/knowledge-base/08-development/test-logging-and-contract-cleanup.md) - FT-017 findings and cleanup plan
   - [Task Workflow](docs/knowledge-base/08-development/task-workflow.md) - TASKS.md vs GitHub Issues decision
   - [API Route Coverage Matrix](docs/knowledge-base/08-development/api-route-coverage-matrix.md) - FT-022 route coverage audit
 - **[UX Improvements](docs/knowledge-base/09-ux-improvements/)** - UI/UX enhancement tracking
   - [UI/UX Analysis](docs/knowledge-base/09-ux-improvements/ui-ux-analysis.md) - Complete analysis and recommendations
-- **[Design Guidelines](docs/knowledge-base/10-design-guidelines/)** - Frontend design rules (MUST FOLLOW)
-  - [Design Guidelines](docs/knowledge-base/10-design-guidelines/design-guidelines.md) - Complete design system rules
+- **[Design Guidelines](docs/knowledge-base/10-design-guidelines/)** - archived; frontend rules are in [docs/pastel/](docs/pastel/README.md) (MUST FOLLOW)
+  - [Design Guidelines](docs/knowledge-base/10-design-guidelines/design-guidelines.md) - archived; the design system is «Пастель», see [docs/pastel/design-system.md](docs/pastel/design-system.md)
 - **[Backend Standards](docs/BACKEND_STANDARDS.md)** - Backend coding standards (MUST FOLLOW)
   - Error handling, Repository patterns, Use Cases, Controllers, Naming conventions
 - **[Quick Capture API](docs/QUICK_CAPTURE_API.md)** - Shipped `POST /api/quick-capture` contract, auth, limits
@@ -157,15 +164,24 @@ This project follows **Clean Architecture** principles with clear separation bet
 
 ### Module System
 
-`createModules()` in `src/appModules.ts` returns **7 app modules**:
+`createModules()` in `src/appModules.ts` returns **16 app modules**:
 
-1. **TransactionModule** - CRUD operations for transactions + analytics
-2. **BudgetModule** - Budget management (depends on TransactionModule)
-3. **DebtModule** - Debt management with payment history (depends on TransactionModule, SubscriptionModule, UserModule)
-4. **VoiceProcessingModule** - AI-powered voice/text processing (depends on TransactionModule, DebtModule)
-5. **OpenAIUsageModule** - OpenAI API usage monitoring
-6. **UserModule** - User management (telegramId → UUID resolution)
-7. **SubscriptionModule** - Premium subscriptions with Telegram Stars payments
+1. **TransactionModule** - CRUD operations for transactions + analytics; gets its categories through the `CategoryResolver` port
+2. **BudgetModule** - Budget management (depends on TransactionModule; leaves the UI per decision Д2)
+3. **DebtModule** - Debt management with payment history (depends on TransactionModule, SubscriptionModule, UserModule; no longer filled from text per Д2)
+4. **VoiceProcessingModule** - AI-powered voice/text processing (depends on TransactionModule; the user's categories go into the prompt)
+5. **QuickCaptureModule** - `POST /api/quick-capture` over the text pipeline (depends on VoiceProcessingModule)
+6. **CategoryModule** - User categories (FT-099): 8 + 8 starters per user, rename, colour, hide; resolves the category of every record
+7. **OpenAIUsageModule** - OpenAI API usage monitoring
+8. **UserModule** - User management (telegramId → UUID resolution) and settings (FT-098)
+9. **SubscriptionModule** - Premium subscriptions with Telegram Stars payments
+10. **AccountModule** - Accounts (FT-101): balances on read, the total in сум, the account of every new record
+11. **FxModule** - USD rate (FT-102): Central Bank rate by date, loaded at start and hourly until today's is in; the user's own rate
+12. **BotMessageModule** - Bot record messages (FT-122): which records each confirmation shows and which keyboard screen is open (`bot_messages`), so «Изменить», «Вернуть» and `/undo` survive a restart
+13. **NotificationModule** - Notices the bot sends on its own: the daily summary at the chosen time on the user's clock and the summaries behind `/today` and `/month` (FT-124); the reminders after the audit — a goal at 80% of its limit and over it, a subscription the day before its charge, the audit on the 1st with «Позже» once (FT-133); each sent at most once (`notifications_log`). Depends on TransactionModule, UserModule and AuditModule (through the `ReminderSources` port); its schedulers run in the bot's process
+14. **ExportModule** - «Скачать все записи» (FT-126): a CSV of all records and moves that are not deleted — `GET /api/export` downloads it, `POST /api/export/chat` sends it to the chat with the bot (`sendDocument`); reads TransactionModule and AccountModule through the `ExportSources` port
+15. **AuthModule** - Web login through the bot (FT-128, decision Д4): a one-time link `t.me/<bot>?start=login_<token>` for 5 minutes (`login_tokens`), «Подтвердить» / «Это не я» in the bot, the browser's httpOnly session cookie read by `webSessionMiddleware` next to initData, «Выйти». No guest mode in the browser any more
+16. **AuditModule** - Spending audit and goals (FT-130, FT-131): the audit rules over flexible categories, `audits` (candidates and decisions, carried to the next audit) and `goals`; `/api/audits`, `/api/goals`; reads TransactionModule and CategoryModule through the `AuditSources` port
 
 **Dashboard is not an app module.** `src/modules/dashboard/` contains only `DashboardService` and `DashboardController`; there is no `dashboardModule.ts` and `createModules()` does not return a `dashboardModule`. The dashboard is assembled in the Express delivery layer: `createDashboardRouter()` (`src/delivery/web/express/routes/dashboardRoutes.ts`) builds `DashboardService` from `transactionModule.getAnalyticsService()` and `budgetModule.budgetService`.
 
@@ -200,7 +216,7 @@ The application has two main delivery mechanisms:
 
 ### Data Flow
 
-Voice commands → OpenAI Whisper → GPT-4 Parsing → Transaction Creation → Database (SQLite/Supabase)
+Voice commands → OpenAI Whisper → GPT-4 Parsing → Transaction Creation → Database (SQLite via TypeORM)
 Text input → GPT-4 Parsing → Transaction Creation → Database
 HTTP API → Controller → Use Case → Repository → Database
 
@@ -209,14 +225,13 @@ HTTP API → Controller → Use Case → Repository → Database
 ### Why Clean Architecture?
 - **Testability** - легко мокировать зависимости и тестировать бизнес-логику изолированно
 - **Maintainability** - изменения в одном слое не влияют на другие
-- **Flexibility** - легко менять технологии (например, переключаться между SQLite и Supabase)
+- **Flexibility** - смена технологии затрагивает только инфраструктурный слой
 - **Scalability** - модульная структура позволяет системе расти постепенно
 
-### Why Dual Database Support?
-- **Development** - SQLite для быстрого старта без облачных зависимостей
-- **Production** - Supabase для масштабирования и real-time возможностей
-- **Migration Path** - постепенный переход от MVP к production-ready solution
-- **Implementation** - Repository Pattern + Factory для seamless switching
+### Why One Database Path?
+- **One implementation per repository** - TypeORM over SQLite; the `supabase-js` repositories were removed in FT-090 (decision Д6), so every new table is written once
+- **Migrations, not synchronize** - schema changes are TypeORM migrations applied on start after a backup to `data/backups/`; `synchronize` is off because it cannot convert types or move data
+- **Postgres later** - if needed, it becomes another TypeORM `DataSource` behind the same repositories, not a second set of repositories
 
 ### Machine Learning System
 - Система обучается на пользовательских исправлениях транзакций
@@ -233,11 +248,14 @@ HTTP API → Controller → Use Case → Repository → Database
 **Принцип:** Каждый тип данных должен иметь единственное место определения.
 
 **Примеры:**
-- **Categories**: `src/shared/domain/entities/Category.ts` - единственный источник категорий
-  - OpenAI prompts используют `generateCategoryPrompt()` из этого файла
-  - Frontend копирует структуру (без aliases) в `webapp/src/entities/category/model/categories.ts`
-  - Telegram bot импортирует из shared entity
-- **Transactions**: Entity в `src/modules/transaction/domain/Transaction.ts`
+- **Categories**: таблица `categories` — у каждого пользователя свои (FT-099). Источник — `CategoryModule`
+  (`src/modules/category/`): стартовые 8 + 8 в `categoryPresets.ts`, остальное — в базе
+  - Webapp читает `GET /api/categories` (`useCategories()` в `webapp/src/entities/category`), копии списка нет
+  - Бот строит клавиатуры из категорий пользователя (`utils/userCategories.ts`)
+  - Промпт ИИ перечисляет видимые категории пользователя (`buildCategoryPrompt`)
+  - `src/shared/domain/entities/Category.ts` — только словарь старых 26 + 7 id и синонимов для перевода
+    старых значений; новые категории туда не добавляются
+- **Transactions**: Entity в `src/modules/transaction/domain/transactionEntity.ts`
 - **Budgets**: Entity в `src/modules/budget/domain/Budget.ts`
 
 **Антипаттерн:** Дублирование данных в разных файлах без синхронизации.
@@ -248,12 +266,13 @@ HTTP API → Controller → Use Case → Repository → Database
 
 | Слой | Формат | Пример |
 |------|--------|--------|
-| Database | ID | `"utilities"`, `"food"` |
-| API Response | ID | `{ category: "utilities" }` |
-| OpenAI Input/Output | ID | `category: "food"` |
-| UI Display | Localized name | `"Коммунальные"`, `"Еда"` |
+| Database | id категории пользователя | `transactions.category_id = "3f1c…"` |
+| API Response | id + текущее название | `{ categoryId: "3f1c…", category: "Кафе" }` |
+| OpenAI Input/Output | название из списка пользователя | `category: "Кафе"` → `CategoryResolver` → id |
+| UI Display | название и цвет категории | по `categoryId` из `useCategories()` |
 
-**Конвертация:** Используй `getCategoryById(id)?.name` для отображения.
+**Конвертация:** запись получает категорию через `CategoryResolver` (id → своё название → старый id или
+синоним → «Другое»); показывать — название и цвет из списка категорий пользователя.
 
 ### 3. Normalization at Input
 
@@ -272,8 +291,8 @@ const category = normalizeCategory(rawCategory); // всегда ID
 **Принцип:** Начинать с простого решения, расширять при необходимости.
 
 **Пример (Categories):**
-- **MVP**: Статические категории в коде
-- **Будущее**: Динамические из БД + пользовательские
+- **Было (MVP)**: статические категории в коде
+- **Стало (FT-099)**: категории пользователя в базе, стартовый набор 8 + 8 из дизайна
 
 **Как применять:**
 - Когда пользователь предлагает сложное решение, спросить: "Это нужно для MVP?"
@@ -300,30 +319,31 @@ const category = normalizeCategory(rawCategory); // всегда ID
 
 ## Shared Entities
 
-### Category Entity
+### Categories (FT-099, FT-100)
 
-**Location:** `src/shared/domain/entities/Category.ts`
+**Где:** `src/modules/category/` — домен (`category.ts`, `categoryPresets.ts`), `CategoryCatalog`,
+`GET/POST /api/categories`, `PATCH /api/categories/:id`. Контракт — `docs/pastel/api.md`.
 
-**Структура:**
 ```typescript
 interface Category {
-  id: string;        // English ID: "food", "utilities"
-  name: string;      // Russian name: "Еда", "Коммунальные"
-  type: 'income' | 'expense' | 'both';
-  icon: string;      // Emoji: "🍔", "💡"
-  aliases: string[]; // Для matching: ["еда", "ресторан", "кафе"]
+  id: string;            // uuid
+  userId: string;
+  type: 'expense' | 'income';
+  name: string;          // «Кафе»; уникально у пользователя в пределах типа, без учёта регистра и ё
+  color: CategoryColor;  // один из 8 пастельных токенов
+  isHidden: boolean;
+  isOther: boolean;      // «Другое» — не скрывается
+  sortOrder: number;
+  presetKey: string | null; // ключ стартовой категории ('cafe'); у своих null
 }
 ```
 
-**Использование:**
-- `getCategoryById(id)` - получить по ID
-- `getCategoryByAlias(text)` - найти по русскому тексту
-- `normalizeCategory(input)` - всегда вернуть ID
-- `generateCategoryPrompt()` - для OpenAI prompts
-
-**Синхронизация Frontend:**
-- Frontend имеет копию без `aliases` в `webapp/src/entities/category/model/categories.ts`
-- При изменении категорий - обновить оба файла
+**Правила:**
+- Запись хранит `category_id`; категорию для записи даёт `CategoryResolver` (порт модуля транзакций).
+- Ввод текстом и голосом выбирает только видимые категории; нераспознанное — «Другое» того же типа.
+- Выученные паттерны хранят `presetKey`, а не названия: названия у каждого пользователя свои.
+- Старый словарь `src/shared/domain/entities/Category.ts` нужен только для перевода старых значений
+  (старые записи, кнопки бота в старых сообщениях, синонимы — подсказки ИИ). Список в webapp удалён.
 
 ## Documentation Maintenance Rules
 
@@ -479,7 +499,7 @@ interface Category {
 |----------|-----------|-----------------|
 | Home | Навигация по wiki | При добавлении новых страниц |
 | Architecture Overview | Clean Architecture, слои, data flow | При изменении архитектуры |
-| Module System | 7 модулей, зависимости | При добавлении/удалении модуля |
+| Module System | 16 модулей, зависимости | При добавлении/удалении модуля |
 | Design Patterns | Repository, Use Case, Result, DI | При использовании нового паттерна |
 | Quick Start | Установка, запуск, env vars | При изменении процесса запуска |
 | API Reference | Все endpoints | При добавлении/изменении endpoint |
@@ -574,7 +594,6 @@ Fixes #123
 - [ ] Unit tests pass
 - [ ] Manual testing done
 - [ ] Tested on SQLite
-- [ ] Tested on Supabase
 
 ## Screenshots (if UI changes)
 ```
@@ -616,131 +635,31 @@ fixes #70"
 
 ---
 
-## Design System (WebApp Frontend)
+## Design System (WebApp Frontend) — «Пастель»
 
-**IMPORTANT: All frontend changes MUST follow the [Design Guidelines](docs/knowledge-base/10-design-guidelines/design-guidelines.md)**
+**IMPORTANT: All frontend work follows the design system «Пастель» (milestone 10).** Rules: [`docs/pastel/design-system.md`](docs/pastel/design-system.md); one spec per component: [`docs/pastel/components/`](docs/pastel/components/); screens: the canvas linked from [`docs/pastel/README.md`](docs/pastel/README.md). The older guides in `docs/knowledge-base/10-design-guidelines/` are archived.
 
 ### Quick Reference (MUST FOLLOW)
 
 | Aspect | Rule |
 |--------|------|
-| **Style** | Minimal & Clean — lots of whitespace, no decorative elements |
-| **Font** | Onest, Cyrillic-friendly; follow current tokens/docs before changing weights |
-| **Colors** | Neutral UI chrome; green/red/orange only for semantic money/status roles |
-| **Border Radius** | Shared `Card` default is `rounded-2xl`; feature/status cards may opt into larger radius intentionally |
-| **Animations** | Fade-in 300ms, Hover 150ms, Stagger 50ms |
-| **Touch Targets** | Minimum 44x44px, prefer 48x48px |
-| **Approach** | Mobile-first, then scale up |
+| **Font** | Manrope 500–800, self-hosted (`@fontsource-variable/manrope`, `fonts.css`). The design system names Google Fonts — we self-host on purpose; `npm run check:fonts` fails on any font CDN |
+| **Colour** | Neutral base, one contrast accent (`primary`), pastel only as backgrounds of category tiles/dots and month tiles, text on pastel always `pastel-ink`. Income green with «+», expenses `ink` with «−». No gradients, no card shadows, no emoji |
+| **Themes** | Light and dark from the same tokens. Theme: «как в Telegram» (`colorScheme`), light or dark (`ThemeController`, `useTheme`) |
+| **Numbers** | Integer minor units in code; shown with sign, unit and non-breaking groups via `formatMinor()`; tabular figures everywhere |
+| **Shape** | Everything pressable is a pill or circle; cards `rounded-card` (24px), balance card and sheets `rounded-hero` (28px) |
+| **Touch** | At least 44px (`size-touch`); main button and quick input 56px (`h-button`) |
+| **Popups** | Only the bottom `Sheet`; deleting has no confirm dialog — a toast with «Отменить» (`showUndoToast` with a real undo) |
+| **Copy** | Russian, short, verbs on buttons; labels must survive +30% (Uzbek) |
 
-### Design Anti-Patterns (AVOID)
-- Purple/violet gradients (AI slop aesthetic)
-- Colorful dashboard treatment where colors do not carry semantic meaning
-- Heavy shadows
-- Animations longer than 600ms
-- Introducing new ad-hoc font sizes/weights instead of shared tokens/components
-- Decorative borders on cards
+### Where things are
 
-For current visual direction, read `docs/knowledge-base/10-design-guidelines/style-direction.md` before UI work. FT-059 reconciled the font (Onest 400–800; weight 500 allowed for captions/controls, not as a hierarchy step) and the chart palette; where any older guideline text still conflicts, prefer the active implementation + style-direction doc.
-
-The webapp uses a **shadcn/ui-based design system** (Radix primitives + Tailwind CSS + `class-variance-authority`), implementing a modern, mobile-first finance tracker interface. There is no separate `design-system/` package — shared primitives live directly in `shared/ui/` (Feature-Sliced Design layout: `app/entities/features/pages/shared/widgets`).
-
-### Design System Structure
-
-**Location:** `webapp/src/shared/ui/`
-
-Shared primitives (`button.tsx`, `card.tsx`, `badge.tsx`, `input.tsx`, `dialog.tsx`, `alert-dialog.tsx`, `progress.tsx`, `skeleton.tsx`, `dock.tsx`, etc.), plus page-shell helpers in `layout.tsx` and `typography.tsx` (`PageShell`, `SectionStack`, `PageHeader`, `FormPageHeader`, `AmountText`, `MetricStat`).
-
-### Design Tokens
-
-**File:** `webapp/src/app/styles/globals.css` (`@theme inline` block)
-
-Centralized CSS variables:
-- **Base colors:** `background`, `foreground`, `card`, `primary`, `secondary`, `muted`, `accent`, `destructive`, `border`, `input`, `ring`
-- **Semantic finance colors:** `income` (green), `expense` (red), `warning` (orange), `success` (green) — each with `-foreground` and `-muted` variants
-- **Border radius scale:** `sm` 8px, `md` 12px, `lg` 16px, `xl` 20px, `2xl` 24px (standard cards), `3xl` 32px (modals/feature cards only), `full` pill
-- **Animation timing:** `duration-fast/normal/slow`, `ease-out/in-out/spring`
-
-There are no `lime`/`lavender` accent colors — those were removed as part of the design-system cleanup. **One accent per view**: neutral UI chrome (`primary`/`secondary`/`muted`) for structure, semantic tokens (`income`/`expense`/`warning`/`success`/`destructive`) only where they explain financial meaning. Never hardcode raw Tailwind palette colors (`red-*`, `purple-*`, etc.) for UI state — use the semantic tokens above.
-
-### UI Components
-
-**Import pattern:**
-```typescript
-import { Button } from '@/shared/ui/button';
-import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/shared/ui/card';
-import { Badge } from '@/shared/ui/badge';
-```
-
-**Button variants:** `default` (dark, primary actions) · `destructive` · `outline` · `secondary` · `ghost` · `link` · `income` · `expense`
-
-**Badge variants:** `default` · `secondary` · `destructive` · `outline` · `income` · `expense` · `warning` · `success`
-
-**Card:** single primitive, `rounded-2xl` (24px, standard card radius) by default — pass an explicit `rounded-3xl` only for modals/feature cards that intentionally opt into the larger radius.
-
-**Example usage:**
-```tsx
-<Button variant="income" size="lg">
-  Add Income
-</Button>
-
-<Card className="p-5">
-  <CardHeader><CardTitle>Balance</CardTitle></CardHeader>
-  <CardContent>...</CardContent>
-</Card>
-```
-
-### Key Features
-
-1. **Dynamic Font Sizing** - `AmountText`/`BalanceCard` scale text based on amount magnitude
-2. **Responsive Design** - Mobile-first with breakpoints (md: 768px, lg: 1024px)
-3. **Hybrid Navigation** - `Dock` (mobile bottom nav) + top nav (desktop)
-4. **Consistent Animations** - Fade-in, slide-up, stagger effects (see Animation Classes below)
-5. **TypeScript Typed** - Full type safety for all components
-
-### Feature Components
-
-- **`widgets/balance-card/`** - Dark card showing balance with dynamic font sizing
-- **`entities/transaction/ui/`** - `TransactionCard`, `TransactionListItem`, `TransactionActions`
-- **`entities/budget/ui/BudgetCard.tsx`** - Budget progress card with alerts
-- **`shared/ui/dock.tsx`** - Bottom navigation (mobile) with centered `+` action
-
-### Responsive Breakpoints
-
-```css
-/* Mobile-first approach */
-default: mobile (< 768px)
-md: tablet (≥ 768px)
-lg: desktop (≥ 1024px)
-```
-
-### Animation Classes
-
-Available in `webapp/src/app/styles/globals.css`:
-- `.animate-fade-in` / `.animate-fade-in-up` - Fade in with slight upward movement
-- `.animate-slide-in-up` - Slide up from bottom
-- `.animate-scale-in` - Scale-up entrance
-- `.stagger-1` … `.stagger-8` - 50ms-increment stagger delays for list items
-
-### Adding New Components
-
-1. Create `ComponentName.tsx` in `webapp/src/shared/ui/` (shared primitive) or the relevant `entities/`/`widgets/`/`features/` slice (feature-specific component)
-2. Use `cva` for variant-based components (see `button.tsx`/`badge.tsx` for the pattern)
-3. Reference design tokens (`globals.css` CSS variables) for colors, spacing, radius — never hardcode raw Tailwind palette colors
-4. Export via the slice's `index.ts` barrel
-
-### Styling Guidelines
-
-- Use Tailwind utility classes (configured via `@theme inline` in `globals.css`, no `tailwind.config.js` color overrides needed)
-- Reference design tokens for colors, spacing, shadows
-- Standard cards: `rounded-2xl` (24px); reserve `rounded-3xl` (32px) for modals/feature cards
-- Use `overflow-hidden` to prevent text overflow
-- Apply `break-all` for long numbers/text that needs wrapping
-- Include hover states for interactive elements
-- Add active states with `active:scale-95` for touch feedback
-
-For detailed component documentation, see: [Design System Guide](docs/knowledge-base/08-development/design-system.md)
-
----
+- **Tokens:** `docs/pastel/tokens.json` → `npm run tokens:pastel` → `webapp/src/app/styles/pastel-tokens.css` and `webapp/src/shared/config/pastelTokens.ts` (generated, never edit; `npm run check:tokens` is part of verify).
+- **Tailwind names:** Pastel colours `bg-bg`, `text-ink`, `text-ink-muted`, `bg-track`, `bg-sheet`, `bg-sheet-card`, `border-line`, `bg-pastel-mint`…; radii `rounded-tile|control|card|hero|pill`; sizes `h-touch|key|control|button|row`; text styles `type-balance`, `type-section`, `type-label`, `type-body`, `type-body-strong`, `type-button`… The shadcn names (`bg-background`, `text-muted-foreground`, `bg-primary`…) map to Pastel tokens so not-yet-redesigned screens follow the theme.
+- **Components:** `webapp/src/shared/ui/pastel/` — `Button`, `Segmented`, `SwitchRow`, `ChoiceChips`, `SettingsSection`/`SettingsRow`, `CategoryDot`, `CategoryTile`, `ProblemScreen`, `SkeletonBlock`, `Keypad`, `UndoToast`, `Sheet`, `CategoryPicker`, `AccountPicker`, `CalendarSheet`, `OfflineBar`. New screens use these; shadcn primitives in `shared/ui` stay only for screens not yet redesigned and go away with them.
+- **Logic helpers:** `shared/lib/money` (format, keypad), `shared/lib/undo` (toast stack), `shared/lib/dates` (local dates, calendar), `shared/lib/theme`, `shared/lib/pastel` (category colours), `shared/lib/offline` (connection state, Dexie outbox, reads kept for the offline mode — FT-129).
+- **Showcase:** `/dev/pastel` renders the components side by side in light and dark (sheets and toasts open in the page theme — switch the system theme to see the other), with a +30% label switch. `/dev/*` pages ship in builds on purpose (the voice check must run inside the Mini App) but are not linked. Check new components there before using them on screens.
+- **Acceptance:** a screen is compared by screenshot with its canvas board (task field `Design`), light and dark, at 390px.
 
 ## Common Development Tasks
 
@@ -764,23 +683,19 @@ See: [Adding Features Guide](docs/knowledge-base/08-development/adding-features.
 
 ### Changing Database Schema
 
-**SQLite:**
-- Modify entity в `src/shared/infrastructure/database/entities/`
-- Auto-sync in development (`synchronize: true`)
+1. Change the entity in `src/shared/infrastructure/database/entities/`
+2. Add a migration class in `src/shared/infrastructure/database/migrations/` and list it in `migrations/index.ts`
+3. Test it on a real SQLite file in a temp dir (see `tests/databaseMigrations.test.ts`): data kept, `findSchemaDrift()` empty
+4. `npm run migration:show` shows pending migrations and any entity/schema drift; `npm run migration:run` applies them after a backup (the app also does this on start); `npm run migration:revert` undoes the last one after a backup
 
-**Supabase:**
-- Write migration SQL в `migrations/` folder
-- Execute в Supabase SQL Editor
-- Update repository implementations if needed
-
-See: [Database Guide](docs/knowledge-base/08-development/database-guide.md)
+Never turn `synchronize` back on. See: [Database Guide](docs/knowledge-base/08-development/database-guide.md)
 
 ### Adding a New Module
 
 1. Create folder structure: `src/modules/{module}/{domain,application,infrastructure,presentation}/`
 2. Define domain entities и repository interfaces
 3. Implement use cases и services
-4. Create repository implementations (SQLite + Supabase)
+4. Create the repository implementation (TypeORM) and a migration for its tables
 5. Add module class with factory method
 6. Register в `src/appModules.ts`
 7. Add routes if needed
@@ -796,7 +711,7 @@ See: [Adding Features Guide](docs/knowledge-base/08-development/adding-features.
 
 ## Integration Points
 
-- **Database**: SQLite for local/default storage, Supabase for production/cloud storage
+- **Database**: SQLite via TypeORM, schema managed by migrations
 - **OpenAI**: Voice transcription using openai package
 - **Telegram**: Bot interface using telegraf package
 - **Express**: HTTP server with custom CORS headers and multer for file uploads

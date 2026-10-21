@@ -1,410 +1,183 @@
 # Database Guide
 
-Работа с SQLite и Supabase, миграция между ними.
+Одна база — SQLite через TypeORM. Схема меняется только миграциями.
 
-## Database Options
+С FT-090 (веха 10, решение Д6) путь Supabase через `supabase-js` убран: отдельные репозитории, ручной SQL
+в Supabase Editor и переключатель `DATABASE_TYPE=supabase` больше не существуют. История и старые SQL-файлы
+остались в `migrations/` (корень репозитория) и в git; для приложения они не используются.
 
-Проект поддерживает две базы данных:
+## Где что лежит
 
-| Feature | SQLite | Supabase (PostgreSQL) |
-|---------|--------|----------------------|
-| **Тип** | Файловая | Облачная |
-| **Setup** | Автоматически | Требует настройки |
-| **Масштабирование** | Ограниченное | Высокое |
-| **Concurrent Access** | Limited | Full support |
-| **Backup** | Копирование файла | Автоматический |
-| **Cost** | Бесплатно | Freemium model |
-| **Real-time** | Нет | Да |
-| **Best For** | Development, MVP | Production, Scale |
+| Что | Где |
+|---|---|
+| Файл базы | `data/database.sqlite` (в `.gitignore`) |
+| Копии перед миграциями | `data/backups/database-YYYYMMDD-HHmmss.sqlite` (в `.gitignore`) |
+| Настройка TypeORM | `src/shared/infrastructure/database/database.config.ts` |
+| Сущности | `src/shared/infrastructure/database/entities/` |
+| Миграции | `src/shared/infrastructure/database/migrations/` — каждая отдельным классом, список в `index.ts` |
+| Применение и проверка | `src/shared/infrastructure/database/migrationRunner.ts` |
+| Команды | `src/shared/infrastructure/database/migrate.ts` |
+| Репозитории | `Sqlite*Repository` в модулях, создаются через `RepositoryFactory` |
 
----
+## Как это работает при запуске
 
-## SQLite (Default)
+1. `initializeDatabase()` открывает `data/database.sqlite` (файл и папка создаются сами).
+2. Если есть неприменённые миграции, база сначала копируется в `data/backups/`. Новая пустая база не
+   копируется. Потом миграции применяются, каждая в своей транзакции.
+3. `findSchemaDrift()` сравнивает таблицы с сущностями. Если они расходятся (сущность изменили без миграции
+   или базу правили руками), в лог пишется предупреждение с SQL, который понадобился бы. Сам этот SQL
+   не выполняется.
 
-### Configuration
+`synchronize` выключен всегда: он не умеет менять типы и переносить данные и может молча удалить колонку.
 
-**.env:**
+Первая миграция `Baseline1760600000000` повторяет схему, которую раньше создавал `synchronize`. На старой
+базе она только записывает себя в таблицу `migrations` (все `CREATE TABLE IF NOT EXISTS`), на новой —
+создаёт все таблицы. Откатить её нельзя: откат удалил бы все данные.
+
+## Суммы — целые в сотых долях
+
+С FT-097 (`AmountMinor1760700000000`) сумма записи хранится в `transactions.amount_minor bigint`: тийины
+для сумов, центы для долларов, одна шкала ×100. Миграция пересобрала таблицу и проверила каждую строку
+(`amount_minor = round(amount × 100)`) и итоги по пользователю; при расхождении она останавливается и
+ничего не меняет.
+
+В коде суммы складываются только как целые — помощник `src/shared/domain/money/money.ts` (`toMinor`,
+`fromMinor`, `sumMinor`, `minorOf`, `percentOf`, `resolveAmountMinor`). На переходный период запись
+принимает и `amountMinor`, и старое `amount` в сумах, а ответы содержат оба поля; `amount` уйдёт в FT-136.
+Бюджеты и долги не переведены (решение Д2): у них осталось `decimal`.
+
+## Категории в базе
+
+С FT-099 (`Categories1760900000000`) категории — таблица `categories`, у каждого пользователя свои 8 + 8.
+Запись хранит `transactions.category_id`; старая строка категории осталась в `legacy_category` до FT-136.
+Миграция создала стартовые категории всем пользователям из `users` и из `transactions.userId` и перевела
+записи по таблице из `docs/pastel/money-model.md` с учётом типа: расход в «Зарплата» уходит в «Другое»
+расходов. Отчёт «сколько куда» пишется в лог при миграции и выводится в любой момент:
+
 ```bash
-DATABASE_TYPE=sqlite
+npm run report:categories                 # по всем пользователям
+npm run report:categories -- --user=<id>  # по одному
 ```
 
-Или просто не указывать (default).
+Новому пользователю стартовые категории создаются при первом обращении (`CategoryCatalog.listForUser`).
+Обучение (`data/patterns.json`, `data/learning-data.json`) хранит ключи стартовых категорий (`cafe`,
+`transport`); старые id переводятся при чтении и записываются по-новому при следующем сохранении.
 
-### Location
+## Счета
 
+С FT-101 (`Accounts1761000000000`) есть таблица `accounts`, а у записи — `transactions.account_id`.
+Миграция дала каждому пользователю счёт «Карта» (UZS) с остатком 0 на день миграции и перенесла на него всю
+историю. Остаток считается на чтении: начальный остаток + записи по `type` с даты открытия (архивные не
+входят). Поэтому старая история остаток не ломает; настоящие остатки задаёт первый запуск (FT-109).
+
+С FT-103 (`RecordCurrencySource1761200000000`) у записи есть `currency` (`UZS` по умолчанию, у старых записей
+тоже `UZS`) и `source` (`telegram`, `miniapp`, `ios_shortcut`, `receipt`, `manual`; у старых записей пусто).
+В остаток счёта входят только записи в валюте счёта: «55$», сохранённые на сумовый счёт за неимением
+долларового, ждут проверки и в остаток не входят, пока их не перенесут.
+
+С FT-104 (`AccountMoves1761300000000`) есть таблица `account_moves`: перевод, обмен (с курсом сделки и курсом
+ЦБ на дату) и корректировка. Перемещения входят в остаток с даты открытия счёта, удаляются мягко
+(`deleted_at`) и в аналитику не попадают никогда — это отдельная таблица, а не записи.
+
+С FT-105 (`TransactionDeletedAt1761400000000`) записи удаляются мягко: `transactions.deleted_at`. Все чтения
+`SqliteTransactionRepository` и запрос остатков их не видят; найти удалённую можно только по id
+(`findByIdIncludingDeleted`) — чтобы восстановить. Откат миграции удаляет такие записи насовсем.
+
+С FT-106 (`TransactionClientId1761500000000`) у записи есть `client_id` с уникальным индексом
+(`userId`, `client_id`): повтор запроса из офлайн-очереди возвращает ту же запись. У старых записей `NULL`.
+
+С FT-107 (`TransactionSearchText1761600000000`) у записи есть `search_text` — заметка и магазин в нижнем
+регистре по-русски, «ё» как «е»: `LIKE` в SQLite не складывает регистр кириллицы. Колонку пишет репозиторий
+при каждом создании и правке; миграция заполнила её у старых записей. Название категории ищется по
+`categories.name_key` в момент поиска.
+
+С FT-122 (`BotMessages1761800000000`) есть таблица `bot_messages`: сообщение бота о записях (`chat_id` +
+`message_id`, уникальная пара) → его записи (`record_ids`, JSON-массив), открытый экран кнопок (`mode`) и его
+состояние (`state`, JSON), что бот расслышал в голосовом (`heard`). Записи остаются в `transactions`; сообщение
+рисуется из них заново на каждое нажатие. Откат миграции удаляет таблицу — кнопки старых сообщений перестают
+находить записи, сами записи не трогаются.
+
+С FT-123 (`BotMessageQuestion1761900000000`) у `bot_messages` есть `question` — чего чат ждёт следующим текстом:
+`amount` (новая сумма после «Сумму»), `missing` («Сколько?» у названного без суммы), `large` (верная сумма у
+крупной). Колонку выводит из `mode` и `state` репозиторий при каждой записи, сама по себе она не пишется; миграция
+ставит `amount` сообщениям, которые уже ждали сумму. Индекс `chat_id` + `question` — для поиска открытого вопроса
+чата. Откат удаляет колонку; вопросы «Сколько?» и про крупную сумму тогда не находятся.
+
+С FT-124 (`NotificationsLog1762000000000`) есть таблица `notifications_log`: что бот прислал сам и за какой период —
+строка на пользователя, вид (`kind`: пока `daily_summary`) и период (`period`: день `YYYY-MM-DD`), уникальный индекс
+по этой тройке. Строку занимает планировщик до отправки (`INSERT OR IGNORE`, `status = 'sending'`), потом пишет
+`sent` / `skipped` / `failed`, что ушло (`variant`: `summary` или `empty`), куда (`chat_id`, `message_id`), ответ
+(`answer = 'no_spending'` — «Да, не было») и ошибку Telegram. Откат удаляет таблицу: итоги дня, уже отправленные
+сегодня, тогда уйдут ещё раз.
+
+С FT-133 в том же журнале — напоминания после ревизии, свои `kind` и `period`: `goal_near` и `goal_over` (id цели),
+`subscription` (`<id цели>:<день напоминания>`), `audit` и `audit_again` (месяц ревизии `YYYY-MM`). Миграция
+`NotificationDueOn1762400000000` добавляет `due_on` — день, когда ревизия позовёт снова после «Позже» (`answer =
+'later'`). Откат удаляет колонку: «Позже», нажатое до отката, тогда не позовёт второй раз.
+
+## Курс доллара
+
+С FT-102 (`FxRates1761100000000`) курсы ЦБ хранятся в `fx_rates` (дата, валюта, `rate_minor` — сумы×100 за
+доллар). Приложение запрашивает курс при старте и раз в час, пока нет курса на сегодня. Без интернета в логе
+будет предупреждение `CBU rate unavailable` — это не ошибка: действует последний известный курс.
+
+## Команды
+
+```bash
+npm run migration:show     # какие миграции применены [x] и какие ждут [ ]; совпадает ли схема с сущностями
+npm run migration:run      # копия базы в data/backups/, потом все ждущие миграции
+npm run migration:revert   # копия базы, потом откат последней миграции
 ```
-data/database.sqlite
-```
 
-### Auto-sync
+Команды сначала собирают проект (`npm run build`) и запускают `dist/.../migrate.js`.
 
-В development mode таблицы создаются автоматически:
+Вернуть базу из копии: остановить приложение и скопировать файл из `data/backups/` на место
+`data/database.sqlite`.
 
-```typescript
-// database.config.ts
-synchronize: process.env.NODE_ENV === 'development'
-```
+## Как изменить схему
 
-⚠️ **Warning:** `synchronize: true` опасно в production!
+1. Изменить сущность в `src/shared/infrastructure/database/entities/`.
+2. Добавить миграцию `src/shared/infrastructure/database/migrations/<timestamp>-<Name>.ts`: класс
+   `<Name><timestamp>` с `up()` и, если откат безопасен, `down()`. Перенос данных — в той же миграции.
+3. Добавить класс в `MIGRATIONS` в `migrations/index.ts`.
+4. Тест на настоящем SQLite во временной папке: после миграции `findSchemaDrift()` пустой, данные на месте.
+   Пример — `tests/databaseMigrations.test.ts`.
 
-### Inspect Database
+SQL для новой миграции удобно получить так: изменить сущность и запустить `npm run migration:show` — он
+выведет, что пришлось бы выполнить. Для SQLite изменения колонок TypeORM делает через пересоздание таблицы;
+проверяйте, что данные переносятся.
+
+## Посмотреть базу
 
 ```bash
 sqlite3 data/database.sqlite
-
-# Commands
-.tables                          # List tables
-.schema transactions             # Show table schema
-SELECT * FROM transactions;      # Query data
-.quit                           # Exit
+.tables
+.schema transactions
+SELECT * FROM migrations;
+.quit
 ```
 
-### Backup
-
-```bash
-cp data/database.sqlite data/database-backup-$(date +%Y%m%d).sqlite
-```
-
----
-
-## Supabase
-
-### Setup
-
-#### 1. Create Supabase Project
-
-1. Перейти на [supabase.com](https://supabase.com)
-2. Sign up / Login
-3. Create new project
-4. Wait for provisioning
-
-#### 2. Get Credentials
-
-В Project Settings → API:
-- **URL**: `https://xxx.supabase.co`
-- **Anon public key**: `eyJhbGc...`
-
-#### 3. Configure .env
-
-```bash
-DATABASE_TYPE=supabase
-SUPABASE_URL=https://xxx.supabase.co
-SUPABASE_ANON_KEY=eyJhbGc...
-```
-
-#### 4. Run Migrations
-
-Выполнить SQL в Supabase Dashboard → SQL Editor:
-
-```sql
--- File: migrations/001_initial_schema.sql
-CREATE TABLE transactions (
-  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-  amount DECIMAL(10,2) NOT NULL,
-  type TEXT NOT NULL CHECK (type IN ('income', 'expense')),
-  description TEXT NOT NULL,
-  date DATE NOT NULL,
-  category TEXT DEFAULT 'Другое',
-  user_id TEXT NOT NULL,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- Indexes
-CREATE INDEX idx_transactions_user_id ON transactions(user_id);
-CREATE INDEX idx_transactions_date ON transactions(date);
-
--- More tables...
-```
-
-Полный SQL: [`migrations/001_initial_schema.sql`](../../../migrations/001_initial_schema.sql)
-
-#### 5. Test Connection
-
-```bash
-npm run supabase:test
-```
-
----
-
-## Migration: SQLite → Supabase
-
-Полный гайд: [`SUPABASE_MIGRATION.md`](../../../SUPABASE_MIGRATION.md)
-
-### Quick Steps
-
-#### 1. Setup Supabase (see above)
-
-#### 2. Export Data from SQLite
-
-```bash
-sqlite3 data/database.sqlite .dump > backup.sql
-```
-
-#### 3. Transform SQL for PostgreSQL
-
-SQLite и PostgreSQL имеют различия:
-- Primary keys: `INTEGER` → `UUID`
-- Auto-increment → `uuid_generate_v4()`
-- Date format differences
-
-#### 4. Import to Supabase
-
-```sql
--- In Supabase SQL Editor
--- Copy/paste transformed SQL
-```
-
-#### 5. Switch Configuration
-
-```bash
-# .env
-DATABASE_TYPE=supabase
-```
-
-#### 6. Restart Application
-
-```bash
-npm run dev
-```
-
----
-
-## Repository Factory Pattern
-
-Переключение между БД происходит автоматически:
-
-```typescript
-// src/shared/infrastructure/database/repositoryFactory.ts
-class RepositoryFactory {
-  static createTransactionRepository(): TransactionRepository {
-    if (AppConfig.DATABASE_TYPE === 'supabase') {
-      return new SupabaseTransactionRepository();
-    }
-    return new SqliteTransactionRepository();
-  }
-}
-```
-
-**Use cases не знают о конкретной БД** - работают через интерфейс!
-
----
-
-## Key Differences
-
-### Primary Keys
-
-**SQLite:**
-```typescript
-@PrimaryGeneratedColumn()
-id!: number; // Auto-increment integer
-```
-
-**Supabase:**
-```sql
-id UUID DEFAULT uuid_generate_v4() PRIMARY KEY
-```
-
-### Column Names
-
-**SQLite (TypeORM):**
-```typescript
-@Column()
-userId!: string; // camelCase
-```
-
-**Supabase:**
-```sql
-user_id TEXT -- snake_case
-```
-
-**Mapping handled in repositories:**
-```typescript
-// Supabase Repository
-{ user_id: transaction.userId }
-```
-
-### Date Handling
-
-**SQLite:**
-```sql
-DATE -- Stored as string
-```
-
-**Supabase:**
-```sql
-DATE -- True date type
-TIMESTAMP WITH TIME ZONE -- For timestamps
-```
-
----
-
-## Testing Different Databases
-
-### Run Tests Against SQLite
-
-```bash
-DATABASE_TYPE=sqlite npm test
-```
-
-### Run Tests Against Supabase
-
-```bash
-DATABASE_TYPE=supabase npm test
-```
-
-**Note:** Нужны реальные Supabase credentials в `.env.test`.
-
----
-
-## Schema Management
-
-### SQLite
-
-**Auto-sync (Development):**
-```typescript
-synchronize: true // Automatically updates schema
-```
-
-**Manual (Production):**
-```bash
-# Create migration
-npm run typeorm migration:generate -- -n AddColumn
-
-# Run migration
-npm run typeorm migration:run
-```
-
-### Supabase
-
-**Manual Migrations:**
-1. Write SQL в `migrations/` folder
-2. Выполнить в Supabase SQL Editor
-3. Track в git
-
-**Version Control:**
-```
-migrations/
-├── 001_initial_schema.sql
-├── 002_add_notifications.sql
-└── 003_add_indexes.sql
-```
-
----
-
-## Performance Optimization
-
-### Indexes
-
-**SQLite:**
-```sql
-CREATE INDEX idx_transactions_user_date
-ON transactions(user_id, date DESC);
-```
-
-**Supabase:**
-```sql
-CREATE INDEX idx_transactions_user_date
-ON transactions(user_id, date DESC);
-```
-
-### Connection Pooling
-
-**SQLite:**
-- Не требуется (файловая БД)
-- TypeORM управляет connections
-
-**Supabase:**
-- HTTP connections с keep-alive
-- Automatic connection management
-
----
-
-## Troubleshooting
-
-### SQLite Issues
-
-**Problem:** `SQLITE_CANTOPEN`
-```bash
-mkdir -p data
-chmod 755 data
-```
-
-**Problem:** Database locked
-```bash
-# Only one process can write at a time
-# Ensure no other instances running
-```
-
-### Supabase Issues
-
-**Problem:** Connection timeout
-```bash
-# Check firewall settings
-# Verify SUPABASE_URL and KEY
-```
-
-**Problem:** RLS (Row Level Security) errors
-```sql
--- Disable RLS for development
-ALTER TABLE transactions DISABLE ROW LEVEL SECURITY;
-```
-
----
-
-## Best Practices
-
-### Development
-✅ Use SQLite для быстрого старта
-✅ Test с обеими БД перед production
-✅ Keep migrations в git
-
-### Production
-✅ Use Supabase для масштабирования
-✅ Enable backups
-✅ Monitor query performance
-✅ Set up database indexes
-
----
-
-## Successful Migration (January 2026)
-
-**Статус:** ✅ Миграция на Supabase успешно завершена!
-
-**Результаты миграции:**
-- ✅ **116 транзакций** мигрировано из SQLite в Supabase
-- ✅ **1 бюджет** мигрирован
-- ✅ **0 ошибок** - все данные перенесены корректно
-- ✅ **Тесты пройдены** - подключение, запросы и индексы работают
-
-**Выполненные шаги:**
-1. ✅ SQL schema создана в Supabase (tables, indexes, triggers)
-2. ✅ Скрипт миграции данных (`scripts/migrate-to-supabase.ts`) создан
-3. ✅ Backup SQLite базы сохранен (`data/database.sqlite.backup`)
-4. ✅ Данные мигрированы batch inserts (100 записей за раз)
-5. ✅ Подключение протестировано (`scripts/test-supabase-connection.ts`)
-6. ✅ `.env.local` настроен с `DATABASE_TYPE=supabase`
-
-**Текущая конфигурация:**
-```env
-DATABASE_TYPE=supabase
-SUPABASE_URL=https://cttsquvkvkwtxsfrgsrs.supabase.co
-SUPABASE_ANON_KEY=eyJhbGci...
-```
-
-**Как использовать:**
-- Приложение автоматически использует Supabase (через `RepositoryFactory`)
-- SQLite backup сохранен для отката при необходимости
-- Переключение обратно: изменить `DATABASE_TYPE=sqlite` в `.env.local`
-
-**Скрипты миграции:**
-- [`scripts/migrate-to-supabase.ts`](../../../scripts/migrate-to-supabase.ts) - миграция данных
-- [`scripts/test-supabase-connection.ts`](../../../scripts/test-supabase-connection.ts) - тест подключения
-
----
+## Частые проблемы
+
+- **`DriverPackageNotInstalledError: SQLite package has not been found`** — не собран нативный модуль
+  `sqlite3` (например, после `npm ci --ignore-scripts`). Выполнить `npm rebuild sqlite3`.
+- **`SQLITE_BUSY: database is locked`** — писать в файл может один процесс. Остановить второй экземпляр
+  приложения или открытый `sqlite3` с незавершённой транзакцией.
+- **В логе «Database schema differs from entities»** — сущность изменили без миграции. Добавить миграцию,
+  а не включать `synchronize`.
+- **`DATABASE_TYPE=supabase is not supported`** — удалить `DATABASE_TYPE` из `.env` или поставить `sqlite`.
+- **`UNIQUE constraint failed` при первых запросах нового пользователя** (FT-140) — первые запросы приходят
+  одновременно, и каждый создаёт то, чего ещё нет. Такие строки вставляются одной командой, которая не падает
+  на уникальном ключе (`INSERT OR IGNORE`, `ON CONFLICT … DO UPDATE`), и читаются заново. Не `save()`: в
+  SQLite TypeORM ведёт все запросы через одно соединение, `save()` открывает на нём транзакцию, и её откат
+  после ошибки уносит то, что другие запросы записали в это время. Так сделаны пользователь (`getOrCreate`),
+  настройки (`write`), стартовые категории, «Карта» (id из пользователя, `createIfMissing`) и счётчики
+  `usage_limits` (FT-141); проверка — `tests/newUserOnce.test.ts`, `tests/firstWritesOnce.test.ts`.
+- **Параллельные правки одной строки теряют поля** (FT-141) — «прочитать строку, поменять поле, записать всю
+  строку» в двух запросах сразу оставляет только последнюю правку. Запись меняет только свои поля и
+  `updated_at`: настройки пишутся `INSERT … ON CONFLICT (user_id) DO UPDATE SET <переданные поля>, updated_at`.
 
 ## См. также
 
-- [`SUPABASE_MIGRATION.md`](../../../SUPABASE_MIGRATION.md) - Полный гайд по миграции
-- [Architecture Overview](../01-architecture/overview.md) - Repository Pattern
-- [Quick Start](quick-start.md) - Initial setup
+- [Quick Start](quick-start.md)
+- [Модель денег вехи 10](../../pastel/money-model.md) — какие таблицы и миграции впереди

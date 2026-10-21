@@ -25,6 +25,7 @@ export class SubscriptionController {
    */
   private createGuestUserResponse(userId: string): SubscriptionStatus {
     const period = getCurrentMonthPeriod();
+    const limitsOn = this.subscriptionModule.freeLimitsEnabled;
     return {
       subscription: null,
       usageLimit: {
@@ -45,18 +46,18 @@ export class SubscriptionController {
       limits: {
         transactions: {
           used: 0,
-          limit: FREE_TIER_LIMITS.transactions,
-          remaining: FREE_TIER_LIMITS.transactions,
+          limit: limitsOn ? FREE_TIER_LIMITS.transactions : null,
+          remaining: limitsOn ? FREE_TIER_LIMITS.transactions : null,
         },
         voiceInputs: {
           used: 0,
-          limit: FREE_TIER_LIMITS.voiceInputs,
-          remaining: FREE_TIER_LIMITS.voiceInputs,
+          limit: limitsOn ? FREE_TIER_LIMITS.voiceInputs : null,
+          remaining: limitsOn ? FREE_TIER_LIMITS.voiceInputs : null,
         },
         activeDebts: {
           used: 0,
-          limit: FREE_TIER_LIMITS.activeDebts,
-          remaining: FREE_TIER_LIMITS.activeDebts,
+          limit: limitsOn ? FREE_TIER_LIMITS.activeDebts : null,
+          remaining: limitsOn ? FREE_TIER_LIMITS.activeDebts : null,
         },
       },
     };

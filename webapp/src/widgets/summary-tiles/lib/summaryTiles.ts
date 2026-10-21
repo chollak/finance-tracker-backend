@@ -1,0 +1,59 @@
+import type { PeriodTotals } from '@/entities/transaction';
+import { monthNameLower } from '@/shared/lib/dates';
+import { formatMinor, uzsToUsdMinor } from '@/shared/lib/money';
+import { IN_UZS, shownCurrency, type DisplayMoney } from '@/features/display-currency';
+
+export interface SummaryTile {
+  kind: 'income' | 'expense';
+  /** «Доход за октябрь». */
+  label: string;
+  /** «+16 295 000», «−7 684 400», «0»; in dollars «+1 288,14»; null while the totals load. */
+  value: string | null;
+  ariaLabel: string;
+}
+
+/**
+ * The two tiles under the balance (docs/pastel/components/SummaryTiles.md): income and real expenses of
+ * the month, as the backend's one totals service counts them (FT-103) — dollars at the rate, transfers and
+ * records awaiting review left out. With a sign, without the unit; in сум, or in dollars at the rate in
+ * effect when «Сум / USD» says so (FT-137) — the month's сум converted, as the board does.
+ */
+export function summaryTiles(
+  totals: PeriodTotals | undefined,
+  month: number,
+  display: DisplayMoney = IN_UZS
+): [SummaryTile, SummaryTile] {
+  const monthName = monthNameLower(month);
+  const currency = shownCurrency(display);
+  const tile = (kind: SummaryTile['kind'], minor: number | undefined): SummaryTile => {
+    const label = `${kind === 'income' ? 'Доход' : 'Расход'} за ${monthName}`;
+    if (minor === undefined) return { kind, label, value: null, ariaLabel: `${label}. Открыть аналитику` };
+    const shown = currency === 'USD' ? uzsToUsdMinor(minor, display.rateMinor!) : minor;
+    const signed = kind === 'income' ? shown : -shown;
+    return {
+      kind,
+      label,
+      value: formatMinor(signed, currency, { sign: 'always', unit: false }),
+      ariaLabel: `${label}: ${minor === 0 ? 'пока нет' : formatMinor(signed, currency, { sign: 'always' })}. Открыть аналитику`,
+    };
+  };
+  return [tile('income', totals?.incomeMinor), tile('expense', totals?.expenseMinor)];
+}
+
+/**
+ * A tile's amount never wraps or gets cut (SummaryTiles.md): past 14 signs it gets smaller. Half of a
+ * 390px screen fits «+1 629 500 000» at 19px.
+ */
+export function tileValueClass(value: string): string {
+  if (value.length <= 14) return 'type-tile-value';
+  if (value.length <= 17) return 'text-[16px] leading-[1.2] font-extrabold tracking-[-0.3px] tabular-nums';
+  return 'text-[14px] leading-[1.2] font-extrabold tracking-[-0.2px] tabular-nums';
+}
+
+/**
+ * The tiles' sums leave dollar records out while there is no rate to count them at (FT-103), so the tiles
+ * say so the way the balance card does; null when nothing is left out.
+ */
+export function missingRateNote(totals: PeriodTotals | undefined): string | null {
+  return totals?.usd.missingRate ? 'Доллары не вошли в итоги месяца: курса пока нет' : null;
+}

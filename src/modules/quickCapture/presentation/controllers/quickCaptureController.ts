@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { QuickCaptureService } from '../../application/quickCaptureService';
 import { CAPTURE_SOURCES, isCaptureSource } from '../../domain/quickCaptureTypes';
+import { isClientId } from '../../../transaction/domain/clientId';
 import { handleControllerError, handleControllerSuccess } from '../../../../shared/infrastructure/utils/controllerHelpers';
 import { ErrorFactory } from '../../../../shared/domain/errors/AppError';
 import { UserModule } from '../../../user/userModule';
@@ -22,11 +23,11 @@ export function createQuickCaptureRouter(
   // Capture can reach OpenAI, so it shares the AI rate limit with /voice.
   router.use(aiRateLimiter);
 
-  // allowShortcutCapture handles the dev/test iPhone Shortcut header (FT-075) and otherwise
-  // delegates to allowGuestMode, so Mini App and guest callers keep the exact same auth path.
+  // allowShortcutCapture handles the dev/test iPhone Shortcut header (FT-075); otherwise the request signs in and
+  // body.userId becomes the signed-in user (writeAsSignedInUser), so a capture is never for someone else.
   router.post('/', allowShortcutCapture, async (req: Request, res: Response) => {
     try {
-      const { text, source, userId, userName } = req.body ?? {};
+      const { text, source, userId, userName, clientId } = req.body ?? {};
 
       if (!text || typeof text !== 'string' || text.trim().length === 0) {
         const error = ErrorFactory.validation('Text is required and cannot be empty', 'text');
@@ -43,8 +44,12 @@ export function createQuickCaptureRouter(
         return handleControllerError(error, res);
       }
 
-      // Capture writes transactions, so the owner must be explicit — no default userId here,
-      // unlike the older /voice/text-input route that falls back to '1'.
+      if (clientId !== undefined && clientId !== null && !isClientId(clientId)) {
+        const error = ErrorFactory.validation('clientId must be up to 64 letters, digits or «-»', 'clientId');
+        return handleControllerError(error, res);
+      }
+
+      // Set by the auth middleware (signed-in user or Shortcut owner); kept as a guard against a misconfigured route
       if (!userId || typeof userId !== 'string') {
         const error = ErrorFactory.validation('User ID is required', 'userId');
         return handleControllerError(error, res);
@@ -57,6 +62,7 @@ export function createQuickCaptureRouter(
         userId: resolvedUserId,
         userName: typeof userName === 'string' ? userName : undefined,
         source,
+        ...(isClientId(clientId) ? { clientId } : {}),
       });
 
       handleControllerSuccess(result, res, 200, 'Quick capture processed');

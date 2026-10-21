@@ -348,7 +348,18 @@ export function createBudgetRouter(module: BudgetModule): Router {
 
 ### User ID Resolution
 
-Всегда используй `req.resolvedUser?.id`:
+**Новые маршруты (веха 10, `docs/pastel/api.md`)** берут пользователя только из авторизации: роутер
+подключает `createCurrentUserMiddleware(userModule)`, обработчик читает `currentUserId(req)`. `:userId` в
+пути, `userId` в query или теле не используются.
+
+```typescript
+router.use(...createCurrentUserMiddleware(userModule));
+router.get('/', async (req, res) => {
+  const userId = currentUserId(req); // UUID пользователя из initData / X-Dev-User-Id
+});
+```
+
+**Старые маршруты** с `:userId` используют `req.resolvedUser?.id`:
 
 ```typescript
 // ✅ ПРАВИЛЬНО
@@ -625,8 +636,7 @@ src/modules/{module}/
 │   ├── get{Entity}s.ts          # GetAllUseCase
 │   └── {entity}Service.ts       # Service (если нужна сложная логика)
 ├── infrastructure/
-│   ├── Sqlite{Entity}Repository.ts
-│   └── Supabase{Entity}Repository.ts
+│   └── Sqlite{Entity}Repository.ts   # TypeORM; tables come from a migration
 ├── presentation/
 │   ├── {entity}Controller.ts
 │   └── {entity}Routes.ts

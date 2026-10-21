@@ -14,7 +14,6 @@ webapp/src/shared/ui/
 ├── page-header.tsx
 ├── form-page-header.tsx
 ├── typography.tsx      # PageShell, SectionStack, AmountText, MetricStat
-├── dock.tsx            # mobile bottom dock primitives
 └── ...                 # dialogs, sheets, forms, tabs, inputs
 ```
 
@@ -24,9 +23,8 @@ webapp/src/shared/ui/
 - Layout: mobile-first Telegram Mini App.
 - Standard card radius: `rounded-2xl` / 24px.
 - Larger radius: `rounded-3xl` only for deliberate feature cards/modals.
-- Core tab pages use `Layout` + `PageShell`.
-- Standalone form/detail pages use `PageShell as="main"` + `FormPageHeader`.
-- Mobile navigation uses a centered dock with one global `+` transaction action.
+- Every screen renders inside the app shell (`app/router/AppShell.tsx`, owns `<main>`) as `PageShell` + `PageHeader` / `FormPageHeader`.
+- No bottom bar (FT-110): Home opens History and Analytics, «Ещё» the rest; nested screens get «Назад» (Telegram's BackButton inside Telegram).
 
 ## Color rules
 

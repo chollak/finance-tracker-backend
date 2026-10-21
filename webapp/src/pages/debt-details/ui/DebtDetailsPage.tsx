@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { useDebtWithPayments, usePayDebt, usePayDebtFull, useCancelDebt, useDeleteDebt, debtToViewModel } from '@/entities/debt';
 import { useUserStore } from '@/entities/user/model/store';
 import { Button } from '@/shared/ui/button';
@@ -19,7 +19,7 @@ import {
   AlertDialogTrigger,
 } from '@/shared/ui/alert-dialog';
 import { Trash2, Ban, CreditCard, CheckCircle } from 'lucide-react';
-import { ROUTES } from '@/shared/lib/constants/routes';
+import { useCloseScreen } from '@/shared/lib/navigation';
 import { formatCurrency } from '@/shared/lib/formatters';
 import { formatRelativeDate } from '@/shared/lib/formatters';
 import { cn } from '@/shared/lib/utils';
@@ -32,7 +32,8 @@ import { useState } from 'react';
  */
 export function DebtDetailsPage() {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
+  // Leaving a deleted or missing debt closes the screen the way «Назад» does, so «Назад» never reopens it
+  const closeScreen = useCloseScreen();
   const userId = useUserStore((state) => state.userId);
 
   const { data: debtData, isLoading } = useDebtWithPayments(id || null);
@@ -46,7 +47,7 @@ export function DebtDetailsPage() {
 
   if (isLoading) {
     return (
-      <PageShell as="main" className="max-w-2xl">
+      <PageShell className="max-w-2xl">
         <Skeleton className="h-8 w-32 mb-6" />
         <Skeleton className="h-48 w-full mb-4" />
         <Skeleton className="h-32 w-full" />
@@ -56,9 +57,9 @@ export function DebtDetailsPage() {
 
   if (!debtData) {
     return (
-      <PageShell as="main" className="max-w-2xl text-center">
+      <PageShell className="max-w-2xl text-center">
         <p className="text-muted-foreground">Долг не найден</p>
-        <Button onClick={() => navigate(ROUTES.DEBTS)} className="mt-4">
+        <Button onClick={closeScreen} className="mt-4">
           Вернуться к списку
         </Button>
       </PageShell>
@@ -110,18 +111,17 @@ export function DebtDetailsPage() {
     try {
       await deleteDebt.mutateAsync(debt.id);
       toast.success('Долг удалён');
-      navigate(ROUTES.DEBTS);
+      closeScreen();
     } catch (error) {
       toast.error('Не удалось удалить долг');
     }
   };
 
   return (
-    <PageShell as="main" className="max-w-2xl">
+    <PageShell className="max-w-2xl">
       <FormPageHeader
         title={debt.personName}
         subtitle={debt._typeLabel}
-        onBack={() => navigate(-1)}
         action={(
           <span className={cn('rounded-full px-3 py-1 text-sm', debt._statusColor, 'bg-current/10')}>
             {debt._statusLabel}

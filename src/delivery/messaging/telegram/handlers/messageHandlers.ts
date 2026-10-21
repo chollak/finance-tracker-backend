@@ -1,14 +1,11 @@
 import { Telegraf } from 'telegraf';
 import { message } from 'telegraf/filters';
-import { BotContext, ProcessedTransaction } from '../types';
+import { BotContext } from '../types';
 import { RU, formatAmount } from '../i18n/ru';
-import { formatCaptureMessage, formatTransactionMessage } from '../formatters';
-import {
-  transactionConfirmationKeyboard,
-  transactionAutoSavedKeyboard,
-  getCategoryDisplay
-} from '../keyboards';
 import { downloadVoiceFile, cleanupFile } from '../utils';
+import { quickAddCategory } from '../utils/userCategories';
+import { assumedThousands, guessedIds, sendRecordMessage } from '../utils/recordMessageView';
+import { answerAmountQuestion } from './recordHandlers';
 import { AppError } from '../../../../shared/domain/errors/AppError';
 import { DetectedDebt } from '../../../../modules/voiceProcessing/domain/processedTransaction';
 import { SubscriptionModule } from '../../../../modules/subscription/subscriptionModule';
@@ -19,17 +16,10 @@ import {
 import { resolveUserIdToUUID } from '../../../../shared/application/helpers/userIdResolver';
 import { LimitType } from '../../../../modules/subscription/domain/usageLimit';
 import { createLogger, LogCategory } from '../../../../shared/infrastructure/logging';
-import { countsAsRealExpense, normalizeSemanticType } from '../../../../modules/transaction/domain/transactionSemanticType';
-import { buildCaptureAck } from '../../../../modules/quickCapture/application/buildCaptureAck';
 import { toCapturedTransaction } from '../../../../modules/quickCapture/application/toCapturedTransaction';
-import { CapturedTransaction } from '../../../../modules/quickCapture/domain/quickCaptureTypes';
+import { NoSpeechDetectedError } from '../../../../modules/voiceProcessing/domain/voiceErrors';
 
 const logger = createLogger(LogCategory.TELEGRAM_MSG);
-
-const CONFIDENCE_THRESHOLD = 0.6;
-
-// Track last transaction per user for delete functionality
-const lastTransactions: Record<string, string> = {};
 
 async function sendProcessingFeedback(ctx: BotContext): Promise<void> {
   try {
@@ -37,27 +27,6 @@ async function sendProcessingFeedback(ctx: BotContext): Promise<void> {
   } catch {
     // Best-effort UX feedback only; processing must continue even if Telegram rejects chat action.
   }
-}
-
-/**
- * Get last transaction ID for a user
- */
-export function getLastTransactionId(userId: string): string | undefined {
-  return lastTransactions[userId];
-}
-
-/**
- * Set last transaction ID for a user
- */
-export function setLastTransactionId(userId: string, transactionId: string): void {
-  lastTransactions[userId] = transactionId;
-}
-
-/**
- * Clear last transaction ID for a user
- */
-export function clearLastTransactionId(userId: string): void {
-  delete lastTransactions[userId];
 }
 
 /**
@@ -77,6 +46,60 @@ async function incrementUsage(
   }
 }
 
+/** The user behind the update; the Telegram id if it cannot be resolved. */
+async function resolveUserId(ctx: BotContext, userModule: UserModule | undefined, where: string): Promise<string> {
+  const telegramId = String(ctx.from?.id ?? 'unknown');
+  if (!userModule) return telegramId;
+  try {
+    return await resolveUserIdToUUID(telegramId, userModule);
+  } catch (error) {
+    logger.error(`Failed to resolve userId in ${where}`, error as Error);
+    return telegramId;
+  }
+}
+
+async function replyWithError(ctx: BotContext, error: unknown): Promise<void> {
+  await ctx.reply(error instanceof AppError ? `❌ ${error.message}` : RU.errors.generic);
+}
+
+/**
+ * Text in a chat where a message waits for an amount (FT-122, FT-123): after «Сумму», «не 25, а 28», a large
+ * amount, «Сколько?». It runs ahead of the free limit: an amount there corrects a record already written, so
+ * the paywall must not answer it. The answer to «Сколько?» adds a record, so it checks the limit itself
+ * (answerMissing). Any other text closes the question and goes on to the capture.
+ */
+export function createAmountAnswerMiddleware(userModule?: UserModule) {
+  return async function answerAmount(ctx: BotContext, next: () => Promise<void>): Promise<void> {
+    const text = ctx.message && 'text' in ctx.message ? ctx.message.text : '';
+    // Commands, an empty text and the amount of a quick-add category are not answers to «Сумму»
+    if (!text.trim() || text.startsWith('/') || ctx.session?.pendingAction?.type === 'awaiting_amount') return next();
+
+    const userId = await resolveUserId(ctx, userModule, 'amount answer');
+    let answered: boolean;
+    try {
+      answered = await answerAmountQuestion(ctx, text, userId);
+    } catch (error) {
+      logger.error('Amount answer error', error instanceof Error ? error : new Error(String(error)), { userId });
+      await replyWithError(ctx, error);
+      return;
+    }
+    if (!answered) return next();
+  };
+}
+
+/** A command: «/word», maybe addressed to the bot by name («/today@DaftarBot»), alone or before a space. */
+const COMMAND = /^\/[A-Za-z0-9_]+(@\w+)?(\s|$)/;
+
+/**
+ * A command no handler took — removed with the design (/budget, /week, /transactions) or never there — gets
+ * the board's answer instead of silence (FT-124). Every command handler is registered before the text handlers.
+ */
+export async function answerUnknownCommand(ctx: BotContext, next: () => Promise<void>): Promise<void> {
+  const text = ctx.message && 'text' in ctx.message ? ctx.message.text : '';
+  if (!COMMAND.test(text)) return next();
+  await ctx.reply(RU.commands.unknown);
+}
+
 /**
  * Register message handlers with subscription limit checks
  */
@@ -85,7 +108,9 @@ export function registerMessageHandlers(
   subscriptionModule?: SubscriptionModule,
   userModule?: UserModule
 ) {
-  // Create handlers with subscriptionModule for direct increment after success
+  // Voice inputs are counted inside the voice handler; created transactions are counted by
+  // CreateTransactionUseCase.
+  const answerAmount = createAmountAnswerMiddleware(userModule);
   const textHandler = createTextMessageHandler(userModule, subscriptionModule);
   const voiceHandler = createVoiceMessageHandler(userModule, subscriptionModule);
 
@@ -102,16 +127,16 @@ export function registerMessageHandlers(
       'voice_inputs'
     );
 
-    // Text message handler with limit check
-    // Note: Increment happens inside handler after successful processing
+    // Text message handler with limit check; an unknown command and the answer to «Сумму» go first
     bot.on(
       message('text'),
+      answerUnknownCommand,
+      answerAmount,
       checkTransactionLimit,
       textHandler
     );
 
     // Voice message handler with limit check
-    // Note: Increment happens inside handler after successful processing
     bot.on(
       message('voice'),
       checkVoiceLimit,
@@ -119,7 +144,7 @@ export function registerMessageHandlers(
     );
   } else {
     // Fallback without subscription checks
-    bot.on(message('text'), textHandler);
+    bot.on(message('text'), answerUnknownCommand, answerAmount, textHandler);
     bot.on(message('voice'), voiceHandler);
   }
 }
@@ -127,31 +152,23 @@ export function registerMessageHandlers(
 /**
  * Create text message handler with userModule for userId resolution
  */
-export function createTextMessageHandler(userModule?: UserModule, subscriptionModule?: SubscriptionModule) {
+// Text capture no longer counts usage itself (CreateTransactionUseCase does); the second parameter is
+// kept so the handler factories share one signature.
+export function createTextMessageHandler(userModule?: UserModule, _subscriptionModule?: SubscriptionModule) {
   return async function handleTextMessage(ctx: BotContext) {
     const text = ctx.message && 'text' in ctx.message ? ctx.message.text : '';
 
     // Skip commands
     if (text.startsWith('/')) return;
 
-    const telegramId = String(ctx.from?.id ?? 'unknown');
     const userName = `${ctx.from?.first_name || ''} ${ctx.from?.last_name || ''}`.trim() || 'User';
-
-    // Resolve telegramId to UUID if userModule is available
-    let userId = telegramId;
-    if (userModule) {
-      try {
-        userId = await resolveUserIdToUUID(telegramId, userModule);
-      } catch (error) {
-        logger.error('Failed to resolve userId in text handler', error as Error);
-      }
-    }
+    const userId = await resolveUserId(ctx, userModule, 'text handler');
 
     try {
       // Handle Quick Add - awaiting amount after category selection
       if (ctx.session?.pendingAction?.type === 'awaiting_amount') {
         await sendProcessingFeedback(ctx);
-        await handleQuickAddAmount(ctx, text, userId, userName, subscriptionModule);
+        await handleQuickAddAmount(ctx, text, userId, userName);
         return;
       }
 
@@ -160,7 +177,7 @@ export function createTextMessageHandler(userModule?: UserModule, subscriptionMo
         return;
       }
 
-      const { quickCaptureModule, transactionModule } = ctx.modules;
+      const { quickCaptureModule } = ctx.modules;
 
       await sendProcessingFeedback(ctx);
 
@@ -173,41 +190,36 @@ export function createTextMessageHandler(userModule?: UserModule, subscriptionMo
         source: 'telegram',
       });
 
-      if (result.transactions.length === 0 && result.debts.length === 0) {
-        await ctx.reply(RU.transaction.noTransactions);
+      const withoutAmount = result.withoutAmount ?? [];
+      if (result.transactions.length === 0 && result.debts.length === 0 && withoutAmount.length === 0) {
+        // Nothing to write: say how to write it, with an example (FT-123)
+        await ctx.reply(RU.capture.notUnderstood, { parse_mode: 'HTML' });
         return;
       }
 
-      // Get summary for context
-      const summary = await getTodaySummary(transactionModule, userId);
-
-      // Process each transaction
-      for (const tx of result.transactions) {
-        setLastTransactionId(userId, tx.id);
-        await sendCaptureResponse(ctx, tx, userId, summary);
-      }
+      // One confirmation for all records of the phrase (FT-122); what had no amount is asked (FT-123)
+      await sendRecordMessage(ctx, {
+        userId,
+        recordIds: result.transactions.map(tx => tx.id),
+        guessed: guessedIds(result.transactions),
+        assumed: assumedThousands(result.transactions),
+        missing: withoutAmount,
+      });
 
       // Process each debt
       for (const debt of result.debts) {
         await sendDebtResponse(ctx, debt, false);
       }
 
-      // Increment transactions usage after successful processing (fire and forget)
-      if (result.transactions.length > 0) {
-        // Increment once per message, not per transaction
-        incrementUsage(subscriptionModule, userId, 'transactions').catch(() => {});
-      }
+      // Transactions are counted against the free limit by CreateTransactionUseCase, once per
+      // created transaction; counting here as well doubled the usage.
     } catch (error) {
       logger.error('Text message error', error instanceof Error ? error : new Error(String(error)), {
         userId,
         text: text.substring(0, 50),
       });
 
-      if (error instanceof AppError) {
-        await ctx.reply(`❌ ${error.message}`);
-      } else {
-        await ctx.reply(RU.errors.generic);
-      }
+      await replyWithError(ctx, error);
     }
   };
 }
@@ -217,19 +229,9 @@ export function createTextMessageHandler(userModule?: UserModule, subscriptionMo
  */
 export function createVoiceMessageHandler(userModule?: UserModule, subscriptionModule?: SubscriptionModule) {
   return async function handleVoiceMessage(ctx: BotContext) {
-    const telegramId = String(ctx.from?.id ?? 'unknown');
     const userName = `${ctx.from?.first_name || ''} ${ctx.from?.last_name || ''}`.trim() || 'User';
     let filePath: string | undefined;
-
-    // Resolve telegramId to UUID if userModule is available
-    let userId = telegramId;
-    if (userModule) {
-      try {
-        userId = await resolveUserIdToUUID(telegramId, userModule);
-      } catch (error) {
-        logger.error('Failed to resolve userId in voice handler', error as Error);
-      }
-    }
+    const userId = await resolveUserId(ctx, userModule, 'voice handler');
 
     const voice = ctx.message && 'voice' in ctx.message ? ctx.message.voice : null;
     if (!voice) {
@@ -251,29 +253,39 @@ export function createVoiceMessageHandler(userModule?: UserModule, subscriptionM
       // Download voice file
       filePath = await downloadVoiceFile(fileLink.href, voice.file_id);
 
-      const { voiceModule, transactionModule } = ctx.modules;
+      const { voiceModule } = ctx.modules;
 
-      // Process voice input
-      const result = await voiceModule.getProcessVoiceInputUseCase().execute({
-        filePath,
-        userId,
-        userName,
-      });
+      // Process voice input. «Сумму» under a record waits for an amount: a voice that is only an amount
+      // answers it, any other closes it before its records are written (FT-122, «Один вопрос за раз»)
+      let answered = false;
+      const result = await voiceModule.getProcessVoiceInputUseCase().execute(
+        { filePath, userId, userName, source: 'telegram' },
+        { takeHeardText: async heard => (answered = await answerAmountQuestion(ctx, heard, userId)) }
+      );
 
-      if (result.transactions.length === 0 && (!result.debts || result.debts.length === 0)) {
-        await ctx.reply(`🎤 ${RU.transaction.noTransactions}`);
+      if (answered) {
+        incrementUsage(subscriptionModule, userId, 'voice_inputs').catch(() => {});
         return;
       }
 
-      // Get summary for context
-      const summary = await getTodaySummary(transactionModule, userId);
-
-      // Transcription stays in the voice use case, but the confirmation is the shared capture ack,
-      // so a voice capture reads exactly like a text one apart from the 🎤 prefix.
-      for (const tx of result.transactions) {
-        setLastTransactionId(userId, tx.id);
-        await sendCaptureResponse(ctx, toCapturedTransaction(tx), userId, summary, true);
+      const withoutAmount = result.withoutAmount ?? [];
+      if (result.transactions.length === 0 && (!result.debts || result.debts.length === 0) && withoutAmount.length === 0) {
+        // Heard, but nothing to write («привет»): the answer to a text of the same words, with an example
+        // (FT-123, board «Бот · не понял, не расслышал»). «Не расслышал» is for a voice with no words in it
+        await ctx.reply(RU.capture.notUnderstood, { parse_mode: 'HTML' });
+        return;
       }
+
+      // The same confirmation as for text, with what the bot heard quoted (FT-122)
+      const captured = result.transactions.map(toCapturedTransaction);
+      await sendRecordMessage(ctx, {
+        userId,
+        recordIds: result.transactions.map(tx => tx.id),
+        guessed: guessedIds(captured),
+        assumed: assumedThousands(captured),
+        missing: withoutAmount,
+        heard: result.text,
+      });
 
       // Process each debt
       if (result.debts && result.debts.length > 0) {
@@ -282,20 +294,18 @@ export function createVoiceMessageHandler(userModule?: UserModule, subscriptionM
         }
       }
 
-      // Increment voice_inputs usage after successful processing (fire and forget)
+      // Increment voice_inputs usage after successful processing (fire and forget).
+      // Created transactions are counted by CreateTransactionUseCase.
       incrementUsage(subscriptionModule, userId, 'voice_inputs').catch(() => {});
-
-      // Also increment transactions if any were created
-      if (result.transactions.length > 0) {
-        incrementUsage(subscriptionModule, userId, 'transactions').catch(() => {});
-      }
     } catch (error) {
       logger.error('Voice message error', error instanceof Error ? error : new Error(String(error)), {
         userId,
         fileId: voice.file_id,
       });
 
-      if (error instanceof AppError) {
+      if (error instanceof NoSpeechDetectedError) {
+        await ctx.reply(RU.capture.notHeard);
+      } else if (error instanceof AppError) {
         await ctx.reply(`🎤❌ ${error.message}`);
       } else {
         await ctx.reply(`🎤 ${RU.errors.voiceProcessing}`);
@@ -310,119 +320,13 @@ export function createVoiceMessageHandler(userModule?: UserModule, subscriptionM
 }
 
 /**
- * Send transaction response with appropriate keyboard
- */
-async function sendTransactionResponse(
-  ctx: BotContext,
-  tx: ProcessedTransaction,
-  originalText: string,
-  userId: string,
-  isVoice: boolean,
-  summary?: { todayTotal: number; monthTotal: number }
-) {
-  const confidence = tx.confidence || 0.8;
-  const needsConfirmation = confidence < CONFIDENCE_THRESHOLD;
-
-  const message = formatTransactionMessage(
-    tx,
-    originalText,
-    needsConfirmation,
-    isVoice,
-    summary?.todayTotal,
-    summary?.monthTotal
-  );
-
-  const keyboard = needsConfirmation
-    ? transactionConfirmationKeyboard(tx.id, userId)
-    : transactionAutoSavedKeyboard(tx.id, userId);
-
-  await ctx.reply(message, {
-    parse_mode: 'HTML',
-    ...keyboard,
-  });
-}
-
-/**
- * Send a quick-capture result using the shared ack, one message per captured transaction so
- * each keeps its own edit/delete keyboard. Shared by the text and voice paths; `isVoice` only
- * adds the 🎤 prefix so both channels confirm a capture with the same words.
- */
-async function sendCaptureResponse(
-  ctx: BotContext,
-  tx: CapturedTransaction,
-  userId: string,
-  summary?: { todayTotal: number; monthTotal: number },
-  isVoice = false
-) {
-  const confidence = tx.confidence ?? 0.8;
-  const needsConfirmation = confidence < CONFIDENCE_THRESHOLD;
-
-  const message = formatCaptureMessage(
-    tx,
-    buildCaptureAck([tx]),
-    needsConfirmation,
-    isVoice,
-    summary?.todayTotal,
-    summary?.monthTotal
-  );
-
-  const keyboard = needsConfirmation
-    ? transactionConfirmationKeyboard(tx.id, userId)
-    : transactionAutoSavedKeyboard(tx.id, userId);
-
-  await ctx.reply(message, {
-    parse_mode: 'HTML',
-    ...keyboard,
-  });
-}
-
-/**
- * Get today's spending summary for context
- */
-async function getTodaySummary(
-  transactionModule: BotContext['modules']['transactionModule'],
-  userId: string
-): Promise<{ todayTotal: number; monthTotal: number } | undefined> {
-  try {
-    const transactions = await transactionModule
-      .getGetUserTransactionsUseCase()
-      .execute(userId);
-
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-
-    let todayTotal = 0;
-    let monthTotal = 0;
-
-    for (const tx of transactions) {
-      const semanticType = normalizeSemanticType(tx.semanticType, tx.type);
-      if (!tx.needsReview && countsAsRealExpense(semanticType)) {
-        const txDate = new Date(tx.date);
-        if (txDate >= startOfMonth) {
-          monthTotal += tx.amount;
-          if (txDate >= today) {
-            todayTotal += tx.amount;
-          }
-        }
-      }
-    }
-
-    return { todayTotal, monthTotal };
-  } catch {
-    return undefined;
-  }
-}
-
-/**
  * Handle Quick Add amount input after category selection
  */
 async function handleQuickAddAmount(
   ctx: BotContext,
   text: string,
   userId: string,
-  userName: string,
-  subscriptionModule?: SubscriptionModule
+  userName: string
 ) {
   const category = ctx.session.pendingAction?.type === 'awaiting_amount'
     ? ctx.session.pendingAction.category
@@ -448,16 +352,20 @@ async function handleQuickAddAmount(
   ctx.session.pendingAction = undefined;
 
   const { transactionModule } = ctx.modules;
-  const categoryDisplay = getCategoryDisplay(category);
 
   try {
+    // The button's category: a category id, or an old static id from a message sent before FT-099
+    const picked = await quickAddCategory(ctx, userId, category);
+    const categoryDisplay = picked.name;
+
     // Create transaction directly without AI parsing
     const transactionData = {
-      id: `tx_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       userId,
       userName,
       amount,
-      category,
+      source: 'telegram' as const,
+      category: picked.category,
+      categoryId: picked.categoryId,
       type: 'expense' as const,
       description: categoryDisplay,
       date: new Date().toISOString(),
@@ -469,36 +377,9 @@ async function handleQuickAddAmount(
       throw createResult.error;
     }
 
-    const transactionId = createResult.data;
+    // The same confirmation as a record written by text (FT-122)
+    await sendRecordMessage(ctx, { userId, recordIds: [createResult.data] });
 
-    // Track for delete functionality
-    setLastTransactionId(userId, transactionId);
-
-    // Get summary for context
-    const summary = await getTodaySummary(transactionModule, userId);
-
-    // Create ProcessedTransaction for response
-    const processedTx: ProcessedTransaction = {
-      id: transactionId,
-      amount,
-      category,
-      type: 'expense',
-      description: categoryDisplay,
-      confidence: 1.0, // High confidence for manual quick add
-    };
-
-    // Send confirmation
-    await sendTransactionResponse(
-      ctx,
-      processedTx,
-      `${categoryDisplay} ${amount}`,
-      userId,
-      false,
-      summary
-    );
-
-    // Increment transactions usage after successful creation (fire and forget)
-    incrementUsage(subscriptionModule, userId, 'transactions').catch(() => {});
   } catch (error) {
     logger.error('Quick add error', error as Error);
     if (error instanceof AppError) {

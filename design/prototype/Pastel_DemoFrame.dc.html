@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Daftar — показ</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="width: 880px; height: 844px; box-sizing: border-box; display: flex; background: #e9e9ee; color: #141416; font-family: 'Manrope', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;">
+
+<div aria-label="Экран приложения" role="region" style="flex: 0 0 390px; width: 390px; height: 844px; position: relative; overflow: hidden; background: #f3f3f5;">
+<sc-if value="{{s1}}" hint-placeholder-val="{{true}}"><dc-import name="Pastel_Bot" scene="start" app-href="Pastel_Demo02.dc.html" back-href="Pastel_Demo01.dc.html" hint-size="390px,844px"></dc-import></sc-if>
+<sc-if value="{{s2}}" hint-placeholder-val="{{false}}"><dc-import name="Pastel_Setup" hint-size="390px,844px"></dc-import></sc-if>
+<sc-if value="{{s3}}" hint-placeholder-val="{{false}}"><dc-import name="Pastel_Bot" scene="text" app-href="Pastel_Demo07.dc.html" back-href="Pastel_Demo02.dc.html" analytics-href="Pastel_Demo08.dc.html" audit-href="Pastel_Demo10.dc.html" hint-size="390px,844px"></dc-import></sc-if>
+<sc-if value="{{s4}}" hint-placeholder-val="{{false}}"><dc-import name="Pastel_Voice" review-href="Pastel_Demo05.dc.html" home-href="Pastel_Demo07.dc.html" hint-size="390px,844px"></dc-import></sc-if>
+<sc-if value="{{s5}}" hint-placeholder-val="{{false}}"><dc-import name="Pastel_Review" home-href="Pastel_Demo06.dc.html" edit-href="Pastel_Demo04.dc.html" hint-size="390px,844px"></dc-import></sc-if>
+<sc-if value="{{s6}}" hint-placeholder-val="{{false}}"><dc-import name="Pastel_Receipt" step="tips" back-href="Pastel_Demo05.dc.html" add-href="Pastel_Demo06.dc.html" hint-size="390px,844px"></dc-import></sc-if>
+<sc-if value="{{s7}}" hint-placeholder-val="{{false}}"><dc-import name="Pastel_Home" analytics-href="Pastel_Demo08.dc.html" analytics-income-href="Pastel_Demo08.dc.html" audit-href="Pastel_Demo10.dc.html" accounts-href="Pastel_Demo12.dc.html" receipt-href="Pastel_Demo06.dc.html" voice-href="Pastel_Demo04.dc.html" hint-size="390px,844px"></dc-import></sc-if>
+<sc-if value="{{s8}}" hint-placeholder-val="{{false}}"><dc-import name="Pastel_Analytics" home-href="Pastel_Demo07.dc.html" audit-href="Pastel_Demo10.dc.html" hint-size="390px,844px"></dc-import></sc-if>
+<sc-if value="{{s9}}" hint-placeholder-val="{{false}}"><dc-import name="Pastel_Bot" scene="summary" app-href="Pastel_Demo07.dc.html" back-href="Pastel_Demo08.dc.html" analytics-href="Pastel_Demo08.dc.html" hint-size="390px,844px"></dc-import></sc-if>
+<sc-if value="{{s10}}" hint-placeholder-val="{{false}}"><dc-import name="Pastel_Audit" preset="start" home-href="Pastel_Demo07.dc.html" back-href="Pastel_Demo09.dc.html" done-home-href="Pastel_Demo11.dc.html" hint-size="390px,844px"></dc-import></sc-if>
+<sc-if value="{{s11}}" hint-placeholder-val="{{false}}"><dc-import name="Pastel_Home" audit-pending="{{no}}" goals-active="{{yes}}" accounts-href="Pastel_Demo12.dc.html" analytics-href="Pastel_Demo08.dc.html" hint-size="390px,844px"></dc-import></sc-if>
+<sc-if value="{{s12}}" hint-placeholder-val="{{false}}"><dc-import name="Pastel_Accounts" home-href="Pastel_Demo11.dc.html" hint-size="390px,844px"></dc-import></sc-if>
+</div>
+
+<aside aria-labelledby="demo-title" style="flex: 1 1 auto; min-width: 0; height: 844px; box-sizing: border-box; overflow-y: auto; display: flex; flex-direction: column; gap: 18px; padding: 32px 36px 28px;">
+<div style="display: flex; flex-direction: column; gap: 10px;">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+<span style="display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 800;"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M7 0h10a7 7 0 0 1 7 7v10a7 7 0 0 1-7 7H7a7 7 0 0 1-7-7V7a7 7 0 0 1 7-7ZM6 7v2h12V7H6Zm0 4v2h8v-2H6Zm0 4v2h10v-2H6Z"></path></svg>Месяц с Daftar · показ</span>
+<span style="font-size: 13px; font-weight: 700; color: #5d5d66; font-variant-numeric: tabular-nums;">{{counter}}</span>
+</div>
+<div aria-hidden="true" style="display: flex; gap: 4px;">
+<sc-for list="{{bars}}" as="b" hint-placeholder-count="12">
+<span style="flex: 1 1 0; height: 4px; border-radius: 9999px; background: {{b.bg}};"></span>
+</sc-for>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 12px;">
+<span style="align-self: flex-start; padding: 6px 12px; border-radius: 9999px; background: #ffffff; font-size: 13px; font-weight: 800;">{{when}}</span>
+<h1 id="demo-title" style="margin: 0; font-size: 30px; line-height: 1.15; font-weight: 800; letter-spacing: -1px;">{{title}}</h1>
+<p style="margin: 0; font-size: 16px; line-height: 1.55; font-weight: 500; color: #3f3f46;">{{text}}</p>
+</div>
+
+<section aria-label="Попробуйте" style="display: flex; flex-direction: column; gap: 8px; padding: 16px 18px; border-radius: 24px; background: #ffffff;">
+<h2 style="margin: 0; font-size: 13px; font-weight: 800; color: #5d5d66;">Попробуйте на экране слева</h2>
+<ol style="margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px;">
+<sc-for list="{{tries}}" as="tr" hint-placeholder-count="2">
+<li style="display: flex; gap: 10px; font-size: 15px; line-height: 1.45; font-weight: 600;"><span aria-hidden="true" style="flex: 0 0 24px; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 9999px; background: #e7e7ec; font-size: 12px; font-weight: 800;">{{tr.n}}</span><span>{{tr.text}}</span></li>
+</sc-for>
+</ol>
+</section>
+
+<p style="margin: 0; display: flex; align-items: center; gap: 8px; font-size: 13px; line-height: 1.4; font-weight: 700; color: #5d5d66;"><svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true" style="flex: 0 0 16px;"><path d="M10 2.5 12.2 7l5 .7-3.6 3.5.9 5L10 13.8 5.5 16.2l.9-5L2.8 7.7l5-.7L10 2.5Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"></path></svg>{{principle}}</p>
+
+<div style="display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 8px;">
+<sc-if value="{{hasPrev}}" hint-placeholder-val="{{true}}"><a href="{{prevHref}}" style="height: 52px; display: flex; align-items: center; justify-content: center; border-radius: 9999px; background: #ffffff; color: #141416; text-decoration: none; font-size: 15px; font-weight: 800;">Назад</a></sc-if>
+<sc-if value="{{noPrev}}" hint-placeholder-val="{{false}}"><span></span></sc-if>
+<a href="{{nextHref}}" style="height: 52px; display: flex; align-items: center; justify-content: center; gap: 8px; border-radius: 9999px; background: #141416; color: #ffffff; text-decoration: none; font-size: 15px; font-weight: 800;">{{nextLabel}}<svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h11m-4-4.5L15.5 10 11 14.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg></a>
+</div>
+
+<nav aria-label="Все шаги показа" style="margin-top: auto; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 12px;">
+<sc-for list="{{steps}}" as="st" hint-placeholder-count="12">
+<a href="{{st.href}}" aria-current="{{st.current}}" style="min-height: 32px; display: flex; align-items: center; gap: 8px; color: {{st.ink}}; text-decoration: none; font-size: 13px; font-weight: {{st.weight}};"><span aria-hidden="true" style="flex: 0 0 20px; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; border-radius: 9999px; background: {{st.dot}}; color: {{st.dotInk}}; font-size: 11px; font-weight: 800;">{{st.n}}</span>{{st.title}}</a>
+</sc-for>
+</nav>
+</aside>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"step":{"editor":"number","default":1},"$preview":{"width":880,"height":844}}'>
+class Component extends DCLogic {
+  // Сценарий показа: от /start в боте до счетов. Каждый шаг — живой экран; ссылки внутри ведут на следующий шаг.
+  script() {
+    return [
+      { title: "Знакомство в боте", short: "Бот: /start", when: "1 августа", text: "Всё начинается в Telegram. Бот одним сообщением объясняет, как записывать: голосом, текстом или фото чека — без форм и анкет.", tries: ["Нажмите «Открыть Daftar» под сообщением бота"], principle: "Принцип: записать — за секунды" },
+      { title: "Первый запуск", short: "Первый запуск", when: "1 августа, минутой позже", text: "Один экран вместо анкеты: сколько денег сейчас на наличных, карте и в долларах. Это не доход, а стартовые остатки. Можно начать с нуля.", tries: ["Тапните строку и наберите сумму на клавиатуре", "Нажмите «Начать» — откроется пустая главная с подсказкой"], principle: "Принцип: записать — за секунды" },
+      { title: "Запись прямо в чате", short: "Запись в чате", when: "14 октября, 8:52", text: "Утром в такси: «такси 24к нал». Бот сразу записывает и показывает, как понял. Вечером — голосовое про супермаркет. Приложение открывать не нужно.", tries: ["Напишите боту «кофе 25к» или «обед 45к картой»", "Нажмите «Изменить» под записью и поменяйте категорию"], principle: "Принцип: исправить — не больше 3 нажатий" },
+      { title: "Несколько трат голосом", short: "Голос", when: "14 октября, в приложении", text: "Микрофон на главной: можно сказать сразу несколько трат, с датой и счётом. Daftar разбирает речь на лету и показывает, что уже понял.", tries: ["Нажмите «Готово»"], principle: "Принцип: ИИ делает рутину" },
+      { title: "Проверка распознанного", short: "Проверка", when: "14 октября", text: "ИИ сам выбрал категорию, счёт и дату для каждой траты, а неуверенное пометил. Человеку остаётся проверить и подтвердить.", tries: ["Нажмите на категорию, чтобы поправить", "Нажмите «Сохранить» — дальше чек"], principle: "Принцип: ИИ делает рутину, человек подтверждает" },
+      { title: "Фото чека", short: "Фото чека", when: "14 октября, 20:05", text: "Чек из Navruz Market: Daftar читает QR-код, поэтому суммы точные. Раскладывает 9 позиций и замечает, что порошок и губки — это «Дом», а не «Продукты».", tries: ["Нажмите «Сфотографировать»", "Включите «Разделить по категориям»", "Сохраните — записи появятся на главной"], principle: "Принцип: ИИ делает рутину" },
+      { title: "Главная вечером", short: "Главная", when: "14 октября, 20:30", text: "Сколько денег на всех счетах, доход и расход за месяц, последние записи. Записать можно прямо отсюда: кнопки частых трат, текст, голос, чек.", tries: ["Нажмите кружок категории у записи — сменить её за 2 касания", "Нажмите плитку «Расход за октябрь»"], principle: "Принцип: выводы вместо таблиц" },
+      { title: "Куда уходят деньги", short: "Аналитика", when: "14 октября", text: "Сверху одна строка-вывод вместо таблицы. Ниже категории с полосами и засечкой прошлого месяца — сразу видно, что выросло.", tries: ["Нажмите категорию — увидите её записи", "Переключите месяц стрелками"], principle: "Принцип: выводы вместо таблиц" },
+      { title: "Итог дня в боте", short: "Итог дня", when: "14 октября, 21:00", text: "Вечером бот присылает итог: сколько потрачено и на что, сколько с начала месяца и как это против сентября. В день без записей он спросит, правда ли трат не было.", tries: ["Нажмите «Да, не было» под сообщением за 19 октября"], principle: "Принцип: выводы вместо таблиц" },
+      { title: "Ревизия трат", short: "Ревизия", when: "Октябрь · ревизия сентября", text: "1-го числа Daftar собирает за прошлый месяц кандидатов в лишние траты: подписки, частые мелкие траты, резкий рост категории. Человек решает, что нужно, а что лишнее, и видит, сколько мог бы сохранить.", tries: ["Отметьте траты «Нужно» или «Лишнее»", "Нажмите «Готово» — Daftar посчитает, сколько можно сохранить", "Нажмите «На главную» — там уже цели"], principle: "Главный вопрос MVP: что было лишним" },
+      { title: "Цели после ревизии", short: "Цели", when: "Сразу после ревизии", text: "Решения из ревизии становятся целями: лимит на такси до конца месяца, отмена подписки. Они живут на главной, а бот напишет, если лимит близко.", tries: ["Нажмите «3 счёта» на карточке баланса", "Затем «Все счета и курс доллара»"], principle: "Принцип: выводы вместо таблиц" },
+      { title: "Сумы и доллары", short: "Счета и обмен", when: "Когда угодно", text: "Наличные, карта и доллары в одном итоге, и сразу видно, по какому курсу. Курс ЦБ подтягивается сам, можно поставить свой. Обмен хранит настоящий курс сделки.", tries: ["Нажмите «Перевод или обмен», в «Куда» выберите «Доллары»", "Наберите сумму, затем тапните «Получаю» и введите, сколько пришло на самом деле — появится курс сделки"], principle: "Это весь MVP: записать, исправить, понять, сократить" }
+    ];
+  }
+  file(n) { return "Pastel_Demo" + (n < 10 ? "0" : "") + n + ".dc.html"; }
+  renderVals() {
+    const sc = this.script();
+    const N = sc.length;
+    const step = Math.min(N, Math.max(1, parseInt(this.props.step || 1, 10)));
+    const cur = sc[step - 1];
+    const out = {
+      yes: true,
+      no: false,
+      counter: "Шаг " + step + " из " + N,
+      bars: sc.map((x, i) => ({ bg: i < step ? "#141416" : "#d4d4db" })),
+      when: cur.when,
+      title: cur.title,
+      text: cur.text,
+      tries: cur.tries.map((x, i) => ({ n: String(i + 1), text: x })),
+      principle: cur.principle,
+      hasPrev: step > 1,
+      noPrev: step === 1,
+      prevHref: this.file(Math.max(1, step - 1)),
+      nextHref: step < N ? this.file(step + 1) : this.file(1),
+      nextLabel: step < N ? "Дальше: " + sc[step].short : "Показать сначала",
+      steps: sc.map((x, i) => ({ n: String(i + 1), title: x.short, href: this.file(i + 1), current: i + 1 === step ? "step" : "false", ink: i + 1 === step ? "#141416" : "#3f3f46", weight: i + 1 === step ? "800" : "600", dot: i + 1 === step ? "#141416" : "#ffffff", dotInk: i + 1 === step ? "#ffffff" : "#141416" }))
+    };
+    for (let i = 1; i <= N; i++) out["s" + i] = i === step;
+    return out;
+  }
+}
+</script>
+</body>
+</html>

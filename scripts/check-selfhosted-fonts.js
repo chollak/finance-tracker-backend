@@ -1,18 +1,18 @@
 #!/usr/bin/env node
 /*
- * Self-hosted Onest audit (FT-061).
+ * Self-hosted font audit (FT-061; Manrope since FT-092, design system «Пастель»).
  *
  * Usage:
  *   npm run check:fonts          # after npm run build:webapp
  *
- * Onest used to be fetched from the Google Fonts CDN on every cold start, so the first screen
+ * The app font used to be fetched from the Google Fonts CDN on every cold start, so the first screen
  * of the Mini App rendered on system-font metrics the layout is not built for, and the app
  * depended on a third party to draw its own text. This script fails if that comes back.
  *
  * It audits both ends:
  *   1. the webapp source — @font-face rules, weight range, subsets, unicode-range, font-display,
  *      and no CDN reference anywhere under webapp/src or in index.html;
- *   2. the built bundle Express actually serves — no CDN reference, and the Onest woff2 files
+ *   2. the built bundle Express actually serves — no CDN reference, and the Manrope woff2 files
  *      present and referenced by the built CSS.
  *
  * This lives in Node rather than a Vitest test because Vitest does not process CSS by default,
@@ -97,8 +97,8 @@ if (!globalsCss.includes('@import "./fonts.css"')) {
 const sansToken = globalsCss.match(/--font-family-sans:\s*([^;]+);/)?.[1];
 if (!sansToken) {
   fail('globals.css has no --font-family-sans token.');
-} else if (!/^'Onest',/.test(sansToken.trim()) || !sansToken.includes('system-ui')) {
-  fail(`--font-family-sans should start with 'Onest', and keep a system-ui fallback: ${sansToken.trim()}`);
+} else if (!/^'Manrope',/.test(sansToken.trim()) || !sansToken.includes('system-ui')) {
+  fail(`--font-family-sans should start with 'Manrope', and keep a system-ui fallback: ${sansToken.trim()}`);
 }
 
 const faceCount = [...fontsCss.matchAll(/@font-face/g)].length;
@@ -111,23 +111,23 @@ if (sources.length === 0) {
   fail('fonts.css has no src: url(...) — nothing is served from our own bundle.');
 }
 for (const source of sources) {
-  if (!/^@fontsource-variable\/onest\/files\/.+\.woff2$/.test(source)) {
+  if (!/^@fontsource-variable\/manrope\/files\/.+\.woff2$/.test(source)) {
     fail(`fonts.css src should resolve through the npm package, not an absolute URL: ${source}`);
   }
 }
 
 const families = new Set([...fontsCss.matchAll(/font-family:\s*'([^']+)'/g)].map((m) => m[1]));
-assertSetEqual('fonts.css @font-face families', families, ['Onest']);
+assertSetEqual('fonts.css @font-face families', families, ['Manrope']);
 
-// The design system uses 400/500/600/700/800. A variable font carries the whole 100-900 axis,
-// so the declared range is what pins the app to the weights it uses.
+// The design system uses 500–800. A variable font carries a wider axis, so the declared range is
+// what pins the app to the weights it uses.
 const weights = new Set([...fontsCss.matchAll(/font-weight:\s*([^;]+);/g)].map((m) => m[1].trim()));
-assertSetEqual('fonts.css declared weight ranges', weights, ['400 800']);
+assertSetEqual('fonts.css declared weight ranges', weights, ['500 800']);
 
 // Only the subsets the Russian/UZS UI actually renders are shipped. Adding one is a deliberate
 // call about bundle size, so it should show up in a diff on this check.
 const subsets = new Set(
-  [...fontsCss.matchAll(/files\/onest-([a-z-]+)-wght-normal\.woff2/g)].map((m) => m[1])
+  [...fontsCss.matchAll(/files\/manrope-([a-z-]+)-wght-normal\.woff2/g)].map((m) => m[1])
 );
 assertSetEqual('fonts.css subsets', subsets, ['cyrillic', 'latin']);
 
@@ -161,9 +161,13 @@ for (const file of files.filter((f) => TEXT_EXTENSIONS.includes(path.extname(f))
   }
 }
 
-const fontFiles = files.filter((f) => /onest-.*\.woff2$/.test(path.basename(f)));
+const fontFiles = files.filter((f) => /manrope-.*\.woff2$/.test(path.basename(f)));
 if (fontFiles.length === 0) {
-  fail('no Onest woff2 files in the build — the font is not self-hosted.');
+  fail('no Manrope woff2 files in the build — the font is not self-hosted.');
+}
+const staleFonts = files.filter((f) => /onest-.*\.woff2$/.test(path.basename(f)));
+if (staleFonts.length > 0) {
+  fail(`the build still ships Onest (${staleFonts.map((f) => path.basename(f)).join(', ')}) — rebuild the webapp.`);
 }
 
 const cssFiles = files.filter((f) => path.extname(f) === '.css');
@@ -185,7 +189,7 @@ const detail = fontFiles
   .sort()
   .join(', ');
 
-console.log(`✓ Onest source audit passed: ${faceCount} @font-face, subsets ${[...subsets].sort().join(' + ')}, weight 400 800, font-display swap.`);
-console.log(`✓ Onest is self-hosted: ${fontFiles.length} file(s), ${(totalBytes / 1024).toFixed(1)} KB total.`);
+console.log(`✓ Manrope source audit passed: ${faceCount} @font-face, subsets ${[...subsets].sort().join(' + ')}, weight 500 800, font-display swap.`);
+console.log(`✓ Manrope is self-hosted: ${fontFiles.length} file(s), ${(totalBytes / 1024).toFixed(1)} KB total.`);
 console.log(`  ${detail}`);
 console.log('✓ No Google Fonts CDN references in the webapp source or build output.');

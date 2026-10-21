@@ -55,6 +55,8 @@ export class AppConfig {
   static readonly OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
   static readonly OPENAI_ORG_ID = process.env.OPENAI_ORG_ID || '';
   static readonly TG_BOT_API_KEY = process.env.TG_BOT_API_KEY || '';
+  // The bot's @username for the web login link t.me/<bot>?start=login_… (FT-128); optional — asked from Telegram when empty
+  static readonly TG_BOT_USERNAME = process.env.TG_BOT_USERNAME || '';
   static readonly WEB_APP_URL = process.env.WEB_APP_URL || '';
   static readonly NGROK_URL = process.env.NGROK_URL || '';
 
@@ -71,11 +73,12 @@ export class AppConfig {
   // File Processing
   static readonly DOWNLOADS_PATH = process.env.DOWNLOADS_PATH || './downloads';
 
-  // Database Configuration
-  static readonly DATABASE_TYPE = process.env.DATABASE_TYPE || 'sqlite'; // 'sqlite' or 'supabase'
-  static readonly SUPABASE_URL = process.env.SUPABASE_URL || '';
-  static readonly SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || '';
-  static readonly SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+  // Free-tier limits (50 records and 10 voice inputs a month). Off unless FREE_LIMITS_ENABLED=true:
+  // switched off for milestone 10 by decision Д3 (FT-091). Usage is counted either way.
+  static readonly FREE_LIMITS_ENABLED = process.env.FREE_LIMITS_ENABLED === 'true';
+
+  // Database Configuration: SQLite through TypeORM is the only path (decision Д6, FT-090).
+  static readonly DATABASE_TYPE = process.env.DATABASE_TYPE || 'sqlite';
 
   // Get the appropriate web app URL for current environment
   static getWebAppUrl(): string {
@@ -97,13 +100,11 @@ export class AppConfig {
     }
 
     // Validate database configuration
-    if (this.DATABASE_TYPE === 'supabase') {
-      if (!this.SUPABASE_URL) {
-        errors.push('SUPABASE_URL is required when DATABASE_TYPE is supabase');
-      }
-      if (!this.SUPABASE_ANON_KEY) {
-        errors.push('SUPABASE_ANON_KEY is required when DATABASE_TYPE is supabase');
-      }
+    if (this.DATABASE_TYPE !== 'sqlite') {
+      errors.push(
+        `DATABASE_TYPE=${this.DATABASE_TYPE} is not supported: the app uses SQLite through TypeORM only ` +
+        '(Supabase repositories were removed in FT-090). Remove DATABASE_TYPE or set it to sqlite'
+      );
     }
 
     return {

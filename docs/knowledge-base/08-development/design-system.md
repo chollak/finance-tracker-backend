@@ -1,6 +1,6 @@
 # Design System Guide
 
-Status: current for the Telegram Mini App frontend.
+Status: archived 2026-10-16 (FT-096). The design system is «Пастель»: rules in [`docs/pastel/design-system.md`](../../pastel/design-system.md), components in `webapp/src/shared/ui/pastel/`, tokens generated from `docs/pastel/tokens.json`. What follows describes the shadcn primitives that remain only for screens not yet redesigned.
 
 The old `webapp/src/design-system/` package and its decorative accent variants were removed. New UI work must use the shadcn/Radix-style primitives in `webapp/src/shared/ui/` and the CSS tokens in `webapp/src/app/styles/globals.css`.
 
@@ -22,7 +22,7 @@ The old `webapp/src/design-system/` package and its decorative accent variants w
    - `destructive` = destructive actions and overdue danger states
 4. **No raw Tailwind palette classes in product UI** — avoid classes such as direct palette color names. Use semantic tokens instead.
 5. **Standard card radius** — default `Card` is `rounded-2xl` (24px). Use `rounded-3xl` only for deliberate feature cards/modals.
-6. **Bottom navigation** — mobile dock has a centered `+` action. Do not add competing mobile FABs.
+6. **No bottom bar** (FT-110) — Home is the top of the app: History and Analytics open from it, the other sections from «Ещё». Every other screen is nested and has «Назад»: Telegram's BackButton inside Telegram, the header's own round button elsewhere.
 
 ## Shared primitives
 
@@ -43,15 +43,14 @@ Common primitives:
 - `FormPageHeader`
 - `AmountText`
 - `MetricStat`
-- `Dock`, `DockItem`, `DockSeparator`
 - `EmptyState`
 - form controls, dialogs, sheets, tabs, segmented controls
 
 ## Page layout rules
 
-### Core tabs inside `Layout`
+### Every screen inside the app shell
 
-Use `PageShell` as a `div` because `Layout` already owns the `<main>` landmark and bottom-nav clearance.
+Use `PageShell` as a `div` because the app shell (`webapp/src/app/router/AppShell.tsx`) already owns the `<main>` landmark and the bottom safe-area inset; `PageShell` adds `space-6` above it. There is no bottom bar since FT-110. `PageHeader` and `FormPageHeader` draw «Назад» themselves (nothing inside Telegram, where Telegram's BackButton is used), so pages do not pass a back handler.
 
 ```tsx
 <PageShell>
@@ -60,13 +59,13 @@ Use `PageShell` as a `div` because `Layout` already owns the `<main>` landmark a
 </PageShell>
 ```
 
-### Standalone form/detail routes
+### Form and detail routes
 
-Use `PageShell as="main"` because these routes are outside the nav `Layout`.
+The same `PageShell` as a `div`, narrower. After a save or a delete the form closes with `useCloseScreen()` from `@/shared/lib/navigation` — the way «Назад» does — instead of `navigate(list)`, which would leave the submitted form under the list for the next «Назад».
 
 ```tsx
-<PageShell as="main" className="max-w-2xl">
-  <FormPageHeader title="Новая транзакция" onBack={() => navigate(-1)} />
+<PageShell className="max-w-2xl">
+  <FormPageHeader title="Новая транзакция" />
   {/* form */}
 </PageShell>
 ```
@@ -120,4 +119,4 @@ For mobile visual QA, capture at least 375, 390, and 412 px with relevant routes
 BASE_URL=http://127.0.0.1:3000 VIEWPORT_WIDTH=390 VIEWPORT_HEIGHT=844 OUT_DIR=/tmp/ui-audit ROUTES=/,/transactions,/budgets,/more npm run design:audit
 ```
 
-A technical pass is not enough. Inspect screenshots for visual hierarchy, spacing rhythm, color semantics, and bottom-nav/content collision.
+A technical pass is not enough. Inspect screenshots for visual hierarchy, spacing rhythm, color semantics, and content running into the bottom system zone.

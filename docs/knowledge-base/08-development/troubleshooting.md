@@ -78,36 +78,18 @@ pkill -f "node.*index"
 
 ---
 
-### Supabase: Connection Failed
+### Database: schema differs from entities / cannot adopt baseline
 
-**Error:**
+**Error / log:**
 ```
-Error: fetch failed to https://xxx.supabase.co
-```
-
-**Solution:**
-1. Check `SUPABASE_URL` and `SUPABASE_ANON_KEY` в `.env`
-2. Verify project is active в Supabase dashboard
-3. Check internet connection
-4. Test connection:
-```bash
-npm run supabase:test
+Database schema differs from entities — add a migration
+The database does not match the baseline schema, so it cannot be adopted automatically
 ```
 
----
-
-### Supabase: Table Not Found
-
-**Error:**
-```
-error: relation "transactions" does not exist
-```
-
-**Solution:**
-Run migrations в Supabase SQL Editor:
-```bash
-# See migrations/001_initial_schema.sql
-```
+**Solution:** схема меняется только миграциями (FT-090). Добавить миграцию для изменённой сущности или
+недостающие колонки — см. [Database Guide](database-guide.md). Копия базы перед миграциями лежит в
+`data/backups/`. Supabase как отдельный путь к базе убран; ошибки `supabase.co` больше не относятся к
+приложению.
 
 ---
 

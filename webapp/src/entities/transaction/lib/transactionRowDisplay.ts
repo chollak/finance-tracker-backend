@@ -1,7 +1,6 @@
 import { format, isSameDay, isSameYear, parseISO, subDays } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import type { TransactionSemanticType } from '@/shared/types';
-import { getCategoryName } from '@/entities/category/model/categories';
 import type { TransactionViewModel } from '../model/types';
 import { NEEDS_REVIEW_LABEL } from './semanticType';
 
@@ -103,7 +102,8 @@ export function formatCompactRowMeta(
   const dayLabel = includeDayLabel ? formatCompactRowDayLabel(transaction.date, now) : null;
 
   return [
-    getCategoryName(transaction.category),
+    // Records carry their category's current name since FT-099
+    transaction.category,
     transaction._isNonExpenseMovement ? transaction._semanticTypeLabel : null,
     dayLabel,
   ]
@@ -120,7 +120,7 @@ export function formatCompactRowMeta(
  * for scanning, not for deciding whether to open this row.
  */
 export function formatCompactRowAriaLabel(transaction: TransactionViewModel): string {
-  const description = transaction.description?.trim() || getCategoryName(transaction.category);
+  const description = transaction.description?.trim() || transaction.category;
   const parts = [`Изменить: ${description}`, transaction._formattedAmount];
 
   if (transaction._needsReview) {

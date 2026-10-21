@@ -1,8 +1,7 @@
-import { useNavigate } from 'react-router-dom';
 import { useCreateDebt } from '@/entities/debt';
 import { useUserStore } from '@/entities/user/model/store';
 import { DebtForm } from './ui/DebtForm';
-import { ROUTES } from '@/shared/lib/constants';
+import { useCloseScreen } from '@/shared/lib/navigation';
 import type { CreateDebtFormData } from './model/schema';
 import { toast } from 'sonner';
 
@@ -15,7 +14,7 @@ interface CreateDebtProps {
  * Handles debt creation logic and navigation
  */
 export function CreateDebt({ onSuccess }: CreateDebtProps = {}) {
-  const navigate = useNavigate();
+  const closeScreen = useCloseScreen();
   const userId = useUserStore((state) => state.userId);
   const createDebt = useCreateDebt(userId || '');
 
@@ -30,11 +29,8 @@ export function CreateDebt({ onSuccess }: CreateDebtProps = {}) {
 
       toast.success('Долг добавлен');
 
-      if (onSuccess) {
-        onSuccess();
-      } else {
-        navigate(ROUTES.DEBTS);
-      }
+      // Closes the way «Назад» does: back to the screen that opened the form, never to the form again
+      (onSuccess ?? closeScreen)();
     } catch (error) {
       toast.error('Не удалось создать долг');
       console.error('Failed to create debt:', error);

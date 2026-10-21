@@ -35,9 +35,9 @@
 Реализация технических деталей и интеграций с внешним миром.
 
 **Содержит:**
-- Repository Implementations (SqliteTransactionRepository, SupabaseBudgetRepository)
+- Repository Implementations (SqliteTransactionRepository, SqliteBudgetRepository)
 - External Services (OpenAITranscriptionService)
-- Database Configuration (database.config.ts, supabase.config.ts)
+- Database Configuration (database.config.ts, migrations/)
 - File System Operations
 
 **Зависимости:** Domain Layer (через интерфейсы)
@@ -88,7 +88,7 @@
 
 ## Модули системы
 
-`createModules()` (`src/appModules.ts`) возвращает 7 модулей приложения:
+`createModules()` (`src/appModules.ts`) возвращает 13 модулей приложения:
 
 | Модуль | Назначение | Зависимости |
 |--------|------------|-------------|
@@ -97,8 +97,14 @@
 | **DebtModule** | Управление долгами (кто кому должен) | TransactionModule (linked транзакции), SubscriptionModule (лимиты), UserModule |
 | **VoiceProcessingModule** | Обработка голоса/текста | TransactionModule (CreateTransactionUseCase), DebtModule |
 | **OpenAIUsageModule** | Мониторинг использования OpenAI API | Независимый |
-| **UserModule** | Управление пользователями (telegramId → UUID) | Независимый |
+| **UserModule** | Пользователи (telegramId → UUID) и их настройки (FT-098) | Независимый |
+| **CategoryModule** | Категории пользователя (FT-099); разрешает категорию записи | Независимый; TransactionModule получает его как `CategoryResolver` |
+| **QuickCaptureModule** | `POST /api/quick-capture` поверх текстового разбора | VoiceProcessingModule |
+| **AccountModule** | Счета и остатки (FT-101); счёт новой записи | Независимый; TransactionModule получает его как `AccountResolver` |
+| **FxModule** | Курс доллара (FT-102): ЦБ и свой | AccountModule получает его как `EffectiveRateProvider`; свой курс — в настройках UserModule |
 | **SubscriptionModule** | Free/Premium подписки, лимиты, Telegram Stars | UserModule (на уровне контроллера) |
+| **BotMessageModule** | Сообщения бота о записях (FT-122): связь «сообщение → записи» в `bot_messages` | Независимый |
+| **NotificationModule** | Уведомления бота: итоги дня в выбранное время, `/today` и `/month` (FT-124); напоминания о целях, подписках и ревизии (FT-133); что отправлено — в `notifications_log` | TransactionModule, UserModule, AuditModule |
 
 **Dashboard — не модуль.** В `src/modules/dashboard/` есть только `DashboardService` и `DashboardController`; `dashboardModule.ts` отсутствует, и `createModules()` не возвращает `dashboardModule`. Сборка идёт в Express-слое: `createDashboardRouter()` строит `DashboardService` из `transactionModule.getAnalyticsService()` и `budgetModule.budgetService`.
 
@@ -140,7 +146,7 @@
 ### Почему Repository Pattern?
 ✅ **Abstraction** - бизнес-логика не знает о деталях БД
 ✅ **Testability** - легко мокировать доступ к данным
-✅ **Flexibility** - легко переключаться между SQLite и Supabase
+✅ **Flexibility** - смена хранилища затрагивает только инфраструктурный слой
 
 ## Критичные файлы
 

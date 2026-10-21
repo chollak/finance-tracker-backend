@@ -1,68 +1,74 @@
-import { Plus } from 'lucide-react';
-import { AttentionSummary } from '@/widgets/attention-summary';
+import { BalanceCard } from '@/widgets/balance-card';
+import { SummaryTiles } from '@/widgets/summary-tiles';
+import { AuditCard } from '@/widgets/audit-card';
 import { RecentTransactions } from '@/widgets/recent-transactions';
 import { HomeHeader } from '@/widgets/home-header';
-import { TodayTotal } from '@/widgets/today-total';
-import { Button } from '@/shared/ui/button';
-import { PageShell, SectionStack } from '@/shared/ui';
-import { QuickAddSheet } from '@/features/quick-add';
-import { TextQuickCaptureCard } from '@/features/quick-capture';
-import { GuestModeBanner } from '@/features/auth';
+import { HomeSkeleton } from '@/widgets/home-skeleton';
+import { PageShell } from '@/shared/ui';
+import { OfflineBar, UndoToast } from '@/shared/ui/pastel';
+import { useIsOffline } from '@/shared/lib/offline';
+import { Composer } from '@/features/quick-capture';
+import { RecordSheet, useRecordLink } from '@/features/record-sheet';
+import { useHomeLoading } from '../model/homeLoading';
 
 /**
- * Home Page — quick capture first.
+ * Home Page — the shell of the app (FT-110) with the boards' content (FT-111, «Главная», «Главная после
+ * первого запуска»): the balance card with the accounts and the month's spend share, the month tiles of
+ * income and expenses, and the recent records by day.
  *
- * Home is deliberately minimal: date/status, today's real spend, the one-line
- * capture card, the transactions a capture just changed, and an attention block
- * that renders nothing unless there is a real signal. The today total sits above
- * capture so a saved row immediately moves a number the user cares about — it is
- * one figure, not a dashboard. Everything else (balance, budgets,
- * AI usage limits, semantic trust formula, savings stats) stays implemented
- * and routable — it is reachable from More, just not competing with capture
- * for the first viewport.
+ * There is no bottom bar: the header carries the daftar sign and «Ещё», the tiles open Analytics, «Все»
+ * over the records opens History, and every other section is in «Ещё» — nothing is further than two taps.
+ * The composer is fixed to the bottom (FT-114, Composer.md): quick chips that write in one tap, the field
+ * whose phrase opens the review of its records, «Ввести вручную»; the page leaves room under the records for
+ * it, and «Записано» shows over it.
+ *
+ * Until each of its first reads has answered once Home is its skeleton (FT-112), the same one the app opens
+ * on; a read that failed is then the business of its section, which says so and reads it again.
+ *
+ * Under the tiles one card about the spending audit (FT-132, InviteCard.md): the invitation with «Позже» while the audit
+ * of the month before waits, «Цели после ревизии» after it.
+ *
+ * A recent record opens its sheet (FT-115), and so does a link to a record (`ROUTES.RECORD`: the bot's
+ * «Изменить»), which the sheet shows once Home is there.
+ *
+ * Without a connection (FT-129, boards «Главная без связи») one line under the header says so, Home opens on what
+ * was kept on the device, and the composer writes there.
  */
 export function HomePage() {
+  const loading = useHomeLoading();
+  const offline = useIsOffline();
+  useRecordLink();
+
+  // The toast of a record saved elsewhere (FT-113) shows over the skeleton too: Home may still be reading
+  if (loading) {
+    return (
+      <>
+        <HomeSkeleton />
+        <UndoToast />
+      </>
+    );
+  }
+
   return (
-    <PageShell>
-      <HomeHeader />
+    <PageShell className="pt-2 pb-[calc(10rem+env(safe-area-inset-bottom))] md:pt-2">
+      {/* The balance card's «Всего на счетах» is the screen's heading */}
+      <HomeHeader className="mb-4" />
 
-      {/* Guest Mode Banner */}
-      <GuestModeBanner className="mb-4" />
+      <div className="flex flex-col gap-4">
+        {offline && <OfflineBar />}
+        <BalanceCard />
+        <SummaryTiles />
+        <AuditCard />
+        <RecentTransactions />
+      </div>
 
-      {/* Main Content */}
-      <SectionStack>
-        {/* Today total - the daily feedback a capture immediately changes */}
-        <div className="animate-fade-in-up">
-          <TodayTotal />
-        </div>
+      <Composer />
 
-        {/* Quick Capture - one line of text through the same boundary the Telegram bot uses */}
-        <div className="animate-fade-in-up stagger-1">
-          <TextQuickCaptureCard />
-        </div>
+      {/* «Записано» with «Отменить» over the composer (Toast.md): after a chip, a review, a manual entry, and
+          «Удалено» or «Категория изменена» after the record sheet */}
+      <UndoToast bottom={160} />
 
-        {/* Recent Transactions - fast correction of what was just captured */}
-        <div className="animate-fade-in-up stagger-2">
-          <RecentTransactions />
-        </div>
-
-        {/* Attention Summary - renders nothing unless there is a real signal */}
-        <div className="animate-fade-in-up stagger-3">
-          <AttentionSummary />
-        </div>
-      </SectionStack>
-
-      {/* Floating Action Button - Quick Add Transaction (desktop only) */}
-      <QuickAddSheet>
-        <Button
-          size="lg"
-          className="hidden md:fixed md:bottom-6 right-6 h-14 w-14 rounded-full shadow-lg md:flex md:h-auto md:w-auto md:rounded-md md:px-6"
-          aria-label="Добавить транзакцию"
-        >
-          <Plus className="h-6 w-6 md:mr-2" aria-hidden="true" />
-          <span className="hidden md:inline">Добавить транзакцию</span>
-        </Button>
-      </QuickAddSheet>
+      <RecordSheet />
     </PageShell>
   );
 }

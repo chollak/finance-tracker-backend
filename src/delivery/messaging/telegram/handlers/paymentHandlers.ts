@@ -70,9 +70,11 @@ export function registerPaymentHandlers(
 
         let message = '📊 *Ваш текущий план: Free*\n\n';
         message += '*Использование в этом месяце:*\n';
-        message += `📝 Транзакции: ${limits.transactions.used}/${limits.transactions.limit}\n`;
-        message += `🎤 Голосовые: ${limits.voiceInputs.used}/${limits.voiceInputs.limit}\n`;
-        message += `💰 Активные долги: ${limits.activeDebts.used}/${limits.activeDebts.limit}\n`;
+        // A null limit means limits are switched off (FT-091): show usage without a ceiling.
+        const usage = (used: number, limit: number | null) => (limit === null ? `${used} · без лимита` : `${used}/${limit}`);
+        message += `📝 Транзакции: ${usage(limits.transactions.used, limits.transactions.limit)}\n`;
+        message += `🎤 Голосовые: ${usage(limits.voiceInputs.used, limits.voiceInputs.limit)}\n`;
+        message += `💰 Активные долги: ${usage(limits.activeDebts.used, limits.activeDebts.limit)}\n`;
         message += `\n⭐ *Premium (${SUBSCRIPTION_PRICE_STARS} Stars/мес):*\n`;
         message += '✅ Безлимитные транзакции\n';
         message += '✅ Безлимитные голосовые\n';

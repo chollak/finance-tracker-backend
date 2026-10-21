@@ -19,7 +19,10 @@ export interface CaptureFeedback {
   didPersist: boolean;
   needsAttention: boolean;
   reviewReasons: CaptureReviewReason[];
-  /** Ack hints (`edit`/`delete`/`review`). Not implemented here — see `toCaptureActionHint()`. */
+  /**
+   * Ack hints (`edit`/`delete`/`review`), carried as the server sent them. The webapp does not act on them:
+   * since FT-114 the review screen (`CaptureReview`) is where a captured record is checked and changed.
+   */
   actions: CaptureAckAction[];
 }
 

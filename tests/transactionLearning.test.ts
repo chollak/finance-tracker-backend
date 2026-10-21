@@ -1,7 +1,11 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { TransactionLearningService } from '../src/shared/application/learning/transactionLearning';
+import {
+  TransactionLearningService,
+  migrateLearningData,
+  migratePatterns,
+} from '../src/shared/application/learning/transactionLearning';
 
 describe('TransactionLearningService runtime data policy', () => {
   let tempDir: string;
@@ -32,7 +36,8 @@ describe('TransactionLearningService runtime data policy', () => {
 
     expect(enhancedPrompt).toContain('BASE PROMPT');
     expect(enhancedPrompt).toContain('evos');
-    expect(enhancedPrompt).toContain('restaurants');
+    // The old static id is shown as the starter category it moved into (FT-099)
+    expect(enhancedPrompt).toContain('"evos" → Кафе');
     expect(fs.existsSync(path.join(tempDir, 'data', 'patterns.json'))).toBe(false);
   });
 
@@ -72,5 +77,62 @@ describe('TransactionLearningService runtime data policy', () => {
     expect(learningData[0].userId).toBe('system-seed');
     expect(learningData[1].userId).toBe('user-1');
     expect(patterns.categories[0].category).toBe('restaurants');
+  });
+
+  describe('categories after FT-099', () => {
+    it('maps old static ids to starter keys and merges patterns that land on the same key', () => {
+      const migrated = migratePatterns({
+        categories: [
+          { keywords: ['evos'], category: 'restaurants', confidence: 0.7, usageCount: 2 },
+          { keywords: ['кофейня', 'evos'], category: 'coffee', confidence: 0.9, usageCount: 1 },
+          { keywords: ['азс'], category: 'fuel', confidence: 0.7, usageCount: 1 },
+          { keywords: ['премия'], category: 'bonus', confidence: 0.6, usageCount: 1 },
+          { keywords: ['кино'], category: 'transport', confidence: 0.5, usageCount: 1 },
+        ],
+        merchants: [{ aliases: ['korzinka'], normalizedName: 'Korzinka', category: 'groceries', usageCount: 1 }],
+      });
+
+      expect(migrated.categories).toEqual([
+        { keywords: ['evos', 'кофейня'], category: 'cafe', confidence: 0.9, usageCount: 3 },
+        { keywords: ['азс', 'кино'], category: 'transport', confidence: 0.7, usageCount: 2 },
+        { keywords: ['премия'], category: 'salary', confidence: 0.6, usageCount: 1 },
+      ]);
+      expect(migrated.merchants[0].category).toBe('groceries');
+      // Already migrated data stays as it is
+      expect(migratePatterns(migrated)).toEqual(migrated);
+    });
+
+    it('maps the categories in learning history', () => {
+      const [entry] = migrateLearningData([{
+        originalText: 'такси 18000',
+        originalParsing: { amount: 18000, category: 'taxi', type: 'expense' },
+        userCorrection: { category: 'entertainment' },
+        userId: 'u',
+        timestamp: '2026-10-16T00:00:00Z',
+        confidence: 0.8,
+      }]);
+      expect(entry.originalParsing.category).toBe('transport');
+      expect(entry.userCorrection.category).toBe('other');
+    });
+
+    it("shows patterns in the user's names and leaves out categories the user hid", async () => {
+      fs.writeFileSync(
+        path.join(tempDir, 'data', 'patterns.seed.json'),
+        JSON.stringify({
+          categories: [
+            { keywords: ['evos'], category: 'cafe', confidence: 0.8, usageCount: 2 },
+            { keywords: ['азс'], category: 'transport', confidence: 0.8, usageCount: 2 },
+          ],
+          merchants: [],
+        })
+      );
+      const service = new TransactionLearningService(tempDir);
+
+      // «Кафе» renamed to «Рестораны»; «Транспорт» hidden, so not among the names
+      const prompt = await service.getEnhancedPrompts('BASE', new Map([['cafe', 'Рестораны']]));
+
+      expect(prompt).toContain('"evos" → Рестораны');
+      expect(prompt).not.toContain('азс');
+    });
   });
 });

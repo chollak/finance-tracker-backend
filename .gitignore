@@ -35,6 +35,7 @@ data/database.sqlite
 data/database.sqlite-journal
 data/database.sqlite.*
 data/*.backup
+data/backups/
 
 # Runtime learning data (tracked seed files are data/*.seed.json)
 data/learning-data.json

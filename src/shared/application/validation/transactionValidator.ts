@@ -3,19 +3,35 @@ import { Result, ResultHelper } from '../../domain/types/Result';
 import { ValidationError } from '../../domain/errors/AppError';
 import { Validators, ValidationChain } from './validators';
 import { normalizeSemanticType } from '../../../modules/transaction/domain/transactionSemanticType';
+import { fromMinor } from '../../domain/money/money';
+import { isClientId } from '../../../modules/transaction/domain/clientId';
 
 export class TransactionValidator {
   static validate(data: any): Result<Transaction, ValidationError[]> {
     const chain = new ValidationChain();
 
+    // Amount: new writers send amountMinor (integer minor units), old ones amount in сум (FT-097)
+    const amountMinor = Validators.moneyAmount(data);
+
+    // Category: new writers send categoryId, old ones a category id/name (FT-099)
+    const hasCategoryId = data.categoryId !== undefined && data.categoryId !== null && data.categoryId !== '';
+    if (hasCategoryId) {
+      chain.validate(Validators.string(data.categoryId, 'categoryId'));
+    } else {
+      chain
+        .validate(Validators.required(data.category, 'category'))
+        .validate(Validators.category(data.category));
+    }
+
+    // The note is optional (FT-113: manual entry saves without one); when sent it is text up to 500
+    const hasDescription = data.description !== undefined && data.description !== null;
+    if (hasDescription) {
+      chain.validate(Validators.description(data.description));
+    }
+
     // Validate required fields
     chain
-      .validate(Validators.required(data.amount, 'amount'))
-      .validate(Validators.amount(data.amount))
-      .validate(Validators.required(data.category, 'category'))
-      .validate(Validators.category(data.category))
-      .validate(Validators.required(data.description, 'description'))
-      .validate(Validators.description(data.description))
+      .validate(amountMinor)
       .validate(Validators.required(data.type, 'type'))
       .validate(Validators.transactionType(data.type))
       .validate(Validators.required(data.userId, 'userId'))
@@ -36,6 +52,21 @@ export class TransactionValidator {
       chain.validate(Validators.string(data.merchant, 'merchant'));
     }
 
+    // Optional account (FT-101); without it the record goes to the default account
+    if (data.accountId !== undefined && data.accountId !== null) {
+      chain.validate(Validators.string(data.accountId, 'accountId'));
+    }
+
+    // Optional currency (FT-103); must be the account's. Without it: the picked account's, else сум
+    if (data.currency !== undefined && data.currency !== null) {
+      chain.validate(Validators.oneOf(data.currency, ['UZS', 'USD'], 'currency'));
+    }
+
+    // Optional client id for the offline queue (FT-106): a repeat returns the same record
+    if (data.clientId !== undefined && data.clientId !== null && !isClientId(data.clientId)) {
+      chain.validate(ResultHelper.failure(new ValidationError('clientId must be up to 64 letters, digits or «-»', 'clientId')));
+    }
+
     // Optional semanticType validation - only checked when explicitly provided
     if (data.semanticType !== undefined && data.semanticType !== null) {
       chain.validate(Validators.transactionSemanticType(data.semanticType));
@@ -50,22 +81,32 @@ export class TransactionValidator {
     if (!validationResult.success) {
       return ResultHelper.failure(validationResult.error);
     }
+    if (!amountMinor.success) {
+      return ResultHelper.failure([amountMinor.error]); // already in the chain; narrows the type
+    }
 
     // If all validations pass, create the transaction object
     // Default date to today if not provided
     const defaultDate = new Date().toISOString().split('T')[0];
 
     const transaction: Transaction = {
-      amount: Number(data.amount),
-      category: String(data.category).trim(),
-      description: String(data.description).trim(),
+      amountMinor: amountMinor.data,
+      amount: fromMinor(amountMinor.data),
+      category: hasCategoryId ? '' : String(data.category).trim(),
+      categoryId: hasCategoryId ? String(data.categoryId).trim() : undefined,
+      accountId: data.accountId ? String(data.accountId).trim() : undefined,
+      currency: data.currency === 'USD' || data.currency === 'UZS' ? data.currency : undefined,
+      // Records written through the API by hand; capture paths set their own source
+      source: 'manual',
+      description: hasDescription ? String(data.description).trim() : '',
       type: data.type as 'income' | 'expense',
       semanticType: normalizeSemanticType(data.semanticType, data.type as 'income' | 'expense'),
       needsReview: data.needsReview === true,
       userId: String(data.userId).trim(),
       userName: data.userName ? String(data.userName).trim() : undefined,
       date: data.date ? String(data.date).trim() : defaultDate,
-      merchant: data.merchant ? String(data.merchant).trim() : undefined
+      merchant: data.merchant ? String(data.merchant).trim() : undefined,
+      ...(isClientId(data.clientId) ? { clientId: data.clientId } : {}),
     };
 
     return ResultHelper.success(transaction);
@@ -75,8 +116,10 @@ export class TransactionValidator {
     const chain = new ValidationChain();
 
     // Only validate fields that are present
-    if (data.amount !== undefined) {
-      chain.validate(Validators.amount(data.amount));
+    const hasAmount = data.amount !== undefined || data.amountMinor !== undefined;
+    const amountMinor = hasAmount ? Validators.moneyAmount(data) : undefined;
+    if (amountMinor) {
+      chain.validate(amountMinor);
     }
 
     if (data.category !== undefined) {
@@ -123,8 +166,12 @@ export class TransactionValidator {
     // Create partial transaction object with validated fields
     const partialTransaction: Partial<Transaction> = {};
 
-    if (data.amount !== undefined) partialTransaction.amount = Number(data.amount);
+    if (amountMinor?.success) {
+      partialTransaction.amountMinor = amountMinor.data;
+      partialTransaction.amount = fromMinor(amountMinor.data);
+    }
     if (data.category !== undefined) partialTransaction.category = String(data.category).trim();
+    if (data.categoryId !== undefined) partialTransaction.categoryId = String(data.categoryId).trim();
     if (data.description !== undefined) partialTransaction.description = String(data.description).trim();
     if (data.type !== undefined) partialTransaction.type = data.type;
     if (data.semanticType !== undefined) partialTransaction.semanticType = data.semanticType;

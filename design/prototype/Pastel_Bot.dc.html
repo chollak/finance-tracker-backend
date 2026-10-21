@@ -1,0 +1,932 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Daftar — бот в Telegram</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; position: relative; overflow: hidden; display: flex; flex-direction: column; background: {{t.chatBg}}; color: {{t.text}}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, system-ui, sans-serif;">
+
+<header style="flex: 0 0 56px; display: flex; align-items: center; gap: 8px; padding: 0 12px 0 4px; background: {{t.head}}; box-shadow: 0 1px 0 {{t.headLine}}; z-index: 2;">
+<a href="{{backHref}}" aria-label="Назад к чатам" style="flex: 0 0 44px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; color: {{t.accent}};"><svg width="22" height="22" viewBox="0 0 20 20" aria-hidden="true"><path d="M12.5 4 6.5 10l6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg></a>
+<span aria-hidden="true" style="flex: 0 0 40px; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 9999px; background: {{t.avatarBg}}; color: {{t.avatarInk}};"><svg width="20" height="20" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M7 0h10a7 7 0 0 1 7 7v10a7 7 0 0 1-7 7H7a7 7 0 0 1-7-7V7a7 7 0 0 1 7-7ZM6 7v2h12V7H6Zm0 4v2h8v-2H6Zm0 4v2h10v-2H6Z"></path></svg></span>
+<div style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px;">
+<span style="font-size: 16px; line-height: 1.2; font-weight: 600; color: {{t.title}};">Daftar</span>
+<span style="font-size: 13px; line-height: 1.2; color: {{t.sub}};">{{status}}</span>
+</div>
+</header>
+
+<div role="log" aria-label="Переписка с ботом Daftar" style="flex: 1 1 auto; min-height: 0; overflow-y: auto; display: flex; flex-direction: column-reverse;">
+<div style="display: flex; flex-direction: column; gap: 6px; padding: 10px 8px 10px;">
+<sc-for list="{{items}}" as="m" hint-placeholder-count="4">
+<sc-if value="{{m.isPill}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; justify-content: center; padding: 4px 0;"><span style="padding: 3px 10px; border-radius: 9999px; background: {{t.pill}}; color: #ffffff; font-size: 13px; font-weight: 600;">{{m.text}}</span></div>
+</sc-if>
+<sc-if value="{{m.isMe}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; justify-content: flex-end; padding-left: 64px;">
+<div style="max-width: 290px; box-sizing: border-box; padding: 6px 10px 5px 12px; border-radius: 16px 16px 4px 16px; background: {{t.out}}; font-size: 16px; line-height: 1.35; overflow-wrap: anywhere;">
+<div>{{m.text}}</div>
+<div style="display: flex; justify-content: flex-end; gap: 3px; margin-top: 1px; font-size: 12px; color: {{t.outTime}};">{{m.time}}<span aria-hidden="true">✓✓</span><span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0);">прочитано</span></div>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{m.isVoice}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; justify-content: flex-end; padding-left: 64px;">
+<div role="img" aria-label="{{m.aria}}" style="width: 230px; box-sizing: border-box; display: flex; align-items: center; gap: 10px; padding: 8px 10px 6px 8px; border-radius: 16px 16px 4px 16px; background: {{t.out}};">
+<span aria-hidden="true" style="flex: 0 0 40px; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 9999px; background: {{t.voiceBtn}}; color: {{t.voiceIcon}};"><svg width="16" height="16" viewBox="0 0 20 20"><path d="M6 4.2v11.6L15.5 10 6 4.2Z" fill="currentColor"></path></svg></span>
+<div style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 3px;">
+<svg width="140" height="22" viewBox="0 0 140 22" aria-hidden="true" style="color: {{t.voiceWave}};"><g fill="currentColor"><rect x="0" y="9" width="3" height="4" rx="1.5"></rect><rect x="5" y="6" width="3" height="10" rx="1.5"></rect><rect x="10" y="3" width="3" height="16" rx="1.5"></rect><rect x="15" y="7" width="3" height="8" rx="1.5"></rect><rect x="20" y="4" width="3" height="14" rx="1.5"></rect><rect x="25" y="8" width="3" height="6" rx="1.5"></rect><rect x="30" y="2" width="3" height="18" rx="1.5"></rect><rect x="35" y="6" width="3" height="10" rx="1.5"></rect><rect x="40" y="9" width="3" height="4" rx="1.5"></rect><rect x="45" y="5" width="3" height="12" rx="1.5"></rect><rect x="50" y="3" width="3" height="16" rx="1.5"></rect><rect x="55" y="7" width="3" height="8" rx="1.5"></rect><rect x="60" y="9" width="3" height="4" rx="1.5"></rect><rect x="65" y="4" width="3" height="14" rx="1.5"></rect><rect x="70" y="6" width="3" height="10" rx="1.5"></rect><rect x="75" y="2" width="3" height="18" rx="1.5"></rect><rect x="80" y="8" width="3" height="6" rx="1.5"></rect><rect x="85" y="5" width="3" height="12" rx="1.5"></rect><rect x="90" y="9" width="3" height="4" rx="1.5"></rect><rect x="95" y="6" width="3" height="10" rx="1.5"></rect><rect x="100" y="8" width="3" height="6" rx="1.5"></rect><rect x="105" y="4" width="3" height="14" rx="1.5"></rect><rect x="110" y="9" width="3" height="4" rx="1.5"></rect><rect x="115" y="7" width="3" height="8" rx="1.5"></rect><rect x="120" y="9" width="3" height="4" rx="1.5"></rect></g></svg>
+<div style="display: flex; justify-content: space-between; font-size: 12px; color: {{t.outTime}};"><span>{{m.dur}}</span><span>{{m.time}} ✓✓</span></div>
+</div>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{m.isPhoto}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; justify-content: flex-end; padding-left: 64px;">
+<div style="width: 200px; box-sizing: border-box; padding: 4px; border-radius: 16px 16px 4px 16px; background: {{t.out}};">
+<div role="img" aria-label="{{m.photoAria}}" style="position: relative; height: 230px; border-radius: 12px; overflow: hidden; background: #1c1d21;">
+<div style="position: absolute; left: 50%; top: 50%; width: 140px; box-sizing: border-box; padding: 9px 9px 12px; background: #fbfbf8; color: #2a2a2e; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 7px; line-height: 1.5; transform: translate(-50%, -50%) rotate(-3deg); filter: {{m.blur}};">
+<div style="text-align: center; font-weight: 700; font-size: 8px;">NAVRUZ MARKET</div>
+<div style="margin: 4px 0; border-top: 1px dashed #9a9a9a;"></div>
+<sc-for list="{{m.plines}}" as="pl" hint-placeholder-count="4">
+<div style="display: flex; justify-content: space-between;"><span>{{pl.n}}</span><span>{{pl.p}}</span></div>
+</sc-for>
+<div style="display: flex; justify-content: space-between;"><span>…</span><span></span></div>
+<div style="margin: 4px 0; border-top: 1px dashed #9a9a9a;"></div>
+<div style="display: flex; justify-content: space-between; font-weight: 700; font-size: 8px;"><span>ИТОГО</span><span>{{m.ptotal}}</span></div>
+<div style="display: flex; justify-content: center; margin-top: 5px;"><svg width="30" height="30" viewBox="0 0 9 9" aria-hidden="true" shape-rendering="crispEdges"><path fill="#2a2a2e" d="M0 0h3v3H0zM6 0h3v3H6zM0 6h3v3H0zM4 0h1v1H4zM4 2h1v2H4zM3 4h2v1H3zM6 4h1v1H6zM8 4h1v2H8zM5 5h1v1H5zM4 6h1v1H4zM6 6h2v1H6zM5 7h1v2H5zM7 8h2v1H7z"></path><path fill="#fbfbf8" d="M1 1h1v1H1zM7 1h1v1H7zM1 7h1v1H1z"></path></svg></div>
+</div>
+<span style="position: absolute; right: 6px; bottom: 6px; padding: 1px 6px; border-radius: 9999px; background: rgba(0, 0, 0, 0.5); color: #ffffff; font-size: 12px;">{{m.time}} ✓✓</span>
+</div>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{m.isBot}}" hint-placeholder-val="{{true}}">
+<div style="display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding-right: 40px;">
+<div style="width: {{m.w}}; max-width: 310px; box-sizing: border-box; padding: 6px 12px 5px 12px; border-radius: 16px 16px 16px 4px; background: {{t.in}}; font-size: 16px; line-height: 1.35; overflow-wrap: anywhere;">
+<sc-for list="{{m.lines}}" as="l" hint-placeholder-count="2">
+<sc-if value="{{l.isQuote}}" hint-placeholder-val="{{false}}">
+<div style="margin-top: 6px; padding: 3px 8px 4px 10px; border-left: 3px solid {{t.accent}}; border-radius: 4px; background: {{t.quoteBg}}; font-size: 15px; font-style: italic;">{{l.text}}</div>
+</sc-if>
+<sc-if value="{{l.isText}}" hint-placeholder-val="{{true}}">
+<div style="margin-top: {{l.mt}}; font-weight: {{l.w}}; font-style: {{l.fs}}; text-decoration: {{l.td}}; color: {{l.c}}; font-size: {{l.fz}};">{{l.text}}</div>
+</sc-if>
+</sc-for>
+<div style="display: flex; justify-content: flex-end; gap: 4px; margin-top: 1px; font-size: 12px; color: {{t.inTime}};">{{m.edited}}{{m.time}}</div>
+</div>
+<sc-if value="{{m.hasKb}}" hint-placeholder-val="{{false}}">
+<div role="group" aria-label="{{m.kbAria}}" style="width: 310px; display: flex; flex-direction: column; gap: 4px;">
+<sc-for list="{{m.kb}}" as="r" hint-placeholder-count="1">
+<div style="display: flex; gap: 4px;">
+<sc-for list="{{r.btns}}" as="b" hint-placeholder-count="2">
+<sc-if value="{{b.isLink}}" hint-placeholder-val="{{false}}">
+<a href="{{b.href}}" style="flex: 1 1 0; min-width: 0; min-height: 44px; box-sizing: border-box; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 6px 10px; border-radius: 12px; background: {{t.kb}}; color: #ffffff; font-size: 15px; font-weight: 600; line-height: 1.2; text-align: center; text-decoration: none; white-space: nowrap; overflow: hidden;"><span style="min-width: 0; overflow: hidden; text-overflow: ellipsis;">{{b.label}}</span><svg width="12" height="12" viewBox="0 0 20 20" aria-hidden="true" style="flex: 0 0 12px;"><path d="M7 4h9v9M16 4 5 15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg></a>
+</sc-if>
+<sc-if value="{{b.isChoice}}" hint-placeholder-val="{{false}}">
+<button type="button" onClick="{{b.go}}" aria-pressed="{{b.pressed}}" style="flex: 1 1 0; min-width: 0; min-height: 44px; box-sizing: border-box; padding: 6px 10px; border: 0; border-radius: 12px; background: {{t.kb}}; color: #ffffff; font-family: inherit; font-size: 15px; font-weight: 600; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer;">{{b.label}}</button>
+</sc-if>
+<sc-if value="{{b.isBtn}}" hint-placeholder-val="{{true}}">
+<button type="button" onClick="{{b.go}}" style="flex: 1 1 0; min-width: 0; min-height: 44px; box-sizing: border-box; padding: 6px 10px; border: 0; border-radius: 12px; background: {{t.kb}}; color: #ffffff; font-family: inherit; font-size: 15px; font-weight: 600; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer;">{{b.label}}</button>
+</sc-if>
+</sc-for>
+</div>
+</sc-for>
+</div>
+</sc-if>
+</div>
+</sc-if>
+</sc-for>
+<sc-if value="{{typing}}" hint-placeholder-val="{{false}}">
+<div aria-hidden="true" style="align-self: flex-start; display: flex; gap: 4px; padding: 12px 14px; border-radius: 16px 16px 16px 4px; background: {{t.in}};"><span style="width: 7px; height: 7px; border-radius: 9999px; background: {{t.inTime}};"></span><span style="width: 7px; height: 7px; border-radius: 9999px; background: {{t.inTime}}; opacity: 0.7;"></span><span style="width: 7px; height: 7px; border-radius: 9999px; background: {{t.inTime}}; opacity: 0.4;"></span></div>
+</sc-if>
+</div>
+</div>
+
+<div id="bot-cmds" role="listbox" aria-label="Команды бота" style="display: {{cmdDisplay}}; flex-direction: column; position: absolute; left: 8px; right: 8px; bottom: 68px; z-index: 3; padding: 4px 0; border-radius: 14px; background: {{t.menu}}; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.16);">
+<sc-for list="{{cmds}}" as="c" hint-placeholder-count="4">
+<button type="button" role="option" aria-selected="false" onClick="{{c.go}}" style="min-height: 48px; display: flex; align-items: center; gap: 12px; padding: 6px 14px; border: 0; background: transparent; color: {{t.text}}; font-family: inherit; text-align: left; cursor: pointer;"><span style="flex: 0 0 auto; font-size: 15px; font-weight: 600; color: {{t.accent}};">{{c.cmd}}</span><span style="flex: 1 1 auto; min-width: 0; font-size: 15px; color: {{t.muted}};">{{c.desc}}</span></button>
+</sc-for>
+</div>
+
+<div style="flex: 0 0 auto; display: flex; align-items: center; gap: 6px; padding: 6px 8px 14px; background: {{t.head}}; box-shadow: 0 -1px 0 {{t.headLine}};">
+<a href="{{appHref}}" aria-label="Открыть приложение Daftar" style="flex: 0 0 auto; height: 44px; box-sizing: border-box; display: flex; align-items: center; gap: 6px; padding: 0 14px; border-radius: 9999px; background: {{t.menuBtn}}; color: #ffffff; font-size: 15px; font-weight: 600; text-decoration: none;"><svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 4.5h14M3 10h14M3 15.5h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg>Открыть</a>
+<input type="text" value="{{draft}}" onChange="{{onDraft}}" onKeyDown="{{onKey}}" role="combobox" aria-expanded="{{cmdExpanded}}" aria-controls="bot-cmds" aria-autocomplete="list" aria-label="Сообщение боту" placeholder="Сообщение" enterkeyhint="send" style="flex: 1 1 auto; min-width: 0; height: 44px; box-sizing: border-box; padding: 0 14px; border: 0; border-radius: 9999px; background: {{t.field}}; color: {{t.text}}; font-family: inherit; font-size: 16px; outline-color: {{t.accent}};">
+<sc-if value="{{hasDraft}}" hint-placeholder-val="{{false}}">
+<button type="button" onClick="{{sendDraft}}" aria-label="Отправить" style="flex: 0 0 44px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border: 0; border-radius: 9999px; background: {{t.menuBtn}}; color: #ffffff; cursor: pointer;"><svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 16V4M5 9l5-5 5 5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
+</sc-if>
+<sc-if value="{{noDraft}}" hint-placeholder-val="{{true}}">
+<button type="button" onClick="{{voice}}" aria-label="Записать голосовое" style="flex: 0 0 44px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border: 0; border-radius: 9999px; background: transparent; color: {{t.icon}}; cursor: pointer;"><svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3" fill="none" stroke="currentColor" stroke-width="1.9"></rect><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"></path></svg></button>
+</sc-if>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"scene":{"editor":"enum","options":["text","edit","cats","unsure","fix","undo","errors","summary","reminders","start","commands","receipt","login"],"default":"text"},"appHref":{"editor":null,"default":"Pastel_Home.dc.html"},"analyticsHref":{"editor":null,"default":"Pastel_Analytics.dc.html"},"goalsHref":{"editor":null,"default":"Pastel_AuditDone.dc.html"},"receiptHref":{"editor":null,"default":"Pastel_ReceiptFromBot.dc.html"},"auditHref":{"editor":null,"default":"Pastel_Audit.dc.html"},"backHref":{"editor":null,"default":"Pastel_Home.dc.html"},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  theme() {
+    if (this.props.dark) {
+      return { chatBg: "#0e1621", head: "#17212b", headLine: "rgba(0, 0, 0, 0.35)", title: "#ffffff", sub: "#7f91a4", accent: "#6ab3f3", text: "#f5f5f5", muted: "#8fa1b3", in: "#182533", out: "#2b5278", inTime: "#7f91a4", outTime: "#a9c6e6", kb: "rgba(255, 255, 255, 0.1)", pill: "rgba(255, 255, 255, 0.1)", quoteBg: "rgba(106, 179, 243, 0.1)", menu: "#17212b", menuBtn: "#2f6ea5", field: "#242f3d", icon: "#8fa1b3", voiceBtn: "#a9c6e6", voiceIcon: "#2b5278", voiceWave: "#a9c6e6", avatarBg: "#f4f4f6", avatarInk: "#141416" };
+    }
+    return { chatBg: "#e6ebee", head: "#ffffff", headLine: "rgba(0, 0, 0, 0.08)", title: "#111111", sub: "#6d7883", accent: "#1c6fb8", text: "#111111", muted: "#5f6b76", in: "#ffffff", out: "#e1f8cf", inTime: "#6d7883", outTime: "#2f7a33", kb: "rgba(54, 64, 75, 0.7)", pill: "rgba(54, 64, 75, 0.7)", quoteBg: "rgba(28, 111, 184, 0.08)", menu: "#ffffff", menuBtn: "#1c6fb8", field: "#f0f2f4", icon: "#5f6b76", voiceBtn: "#2f7a33", voiceIcon: "#ffffff", voiceWave: "#2f7a33", avatarBg: "#141416", avatarInk: "#ffffff" };
+  }
+  cats() {
+    return {
+      pr: "Продукты", kf: "Кафе", tr: "Транспорт", dm: "Дом", sv: "Связь", zd: "Здоровье", pk: "Покупки", dr: "Другое",
+      zp: "Зарплата", fr: "Фриланс", bz: "Бизнес", pc: "Проценты", cb: "Кэшбэк", gf: "Подарки", vz: "Возврат", di: "Другое"
+    };
+  }
+  expCats() { return ["pr", "kf", "tr", "dm", "sv", "zd", "pk", "dr"]; }
+  incCats() { return ["zp", "fr", "bz", "pc", "cb", "gf", "vz", "di"]; }
+  accs() { return { card: "Карта", cash: "Наличные", usd: "Доллары" }; }
+  months() { return ["января", "февраля", "марта", "апреля", "мая", "июня", "июля", "августа", "сентября", "октября", "ноября", "декабря"]; }
+  nb() { return String.fromCharCode(160); }
+  fmtInt(n) { return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, this.nb()); }
+  plural(n, one, few, many) {
+    const m10 = n % 10;
+    const m100 = n % 100;
+    if (m10 === 1 && m100 !== 11) return one;
+    if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return few;
+    return many;
+  }
+  amt(r) {
+    if (r.cur === "USD") {
+      const p = r.amount.toFixed(2).split(".");
+      return this.fmtInt(parseInt(p[0], 10)) + "," + p[1] + this.nb() + "USD";
+    }
+    return this.fmtInt(r.amount) + this.nb() + "сум";
+  }
+  money(r) { return (r.type === "income" ? "+" : "−") + this.amt(r); }
+  short(r) { return (r.type === "income" ? "+" : "−") + (r.cur === "USD" ? this.amt(r) : this.fmtInt(r.amount)); }
+  cap(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
+  q(s) { return "«" + s + "»"; }
+  // Слово, начинающееся с основы: «газ» не находится в «магазин», «нал» — в «анализы».
+  hasStem(s, list) { return new RegExp("(?:^|[^а-яёa-z'])(?:" + list.join("|") + ")", "i").test(s); }
+  isCash(s) { return /(?:^|[^а-яёa-z])(нал|налом|наличн[а-яё]*|наличк[а-яё]*|naqd)(?![а-яёa-z])/i.test(s); }
+  guessCat(note) {
+    const s = note.toLowerCase();
+    const has = (list) => this.hasStem(s, list);
+    if (has(["кредит", "рассрочк", "ипотек"])) return { type: "expense", cat: "dr" };
+    if (has(["долг", "qarz"])) return { type: "expense", cat: "dr", unknown: true };
+    if (has(["продукт", "супермаркет", "рынок", "хлеб", "молок", "корзинк", "korzinka", "макро", "non(?![a-z])", "bozor", "oziq"])) return { type: "expense", cat: "pr" };
+    if (has(["кофе", "обед", "ужин", "завтрак", "кафе", "пицц", "доставк", "ресторан", "шаурм", "плов", "самс", "еда", "еды", "еду", "газировк", "qahva", "kofe", "ovqat", "tushlik"])) return { type: "expense", cat: "kf" };
+    if (has(["такси", "метро", "бензин", "парковк", "автобус", "заправк", "taksi", "benzin"])) return { type: "expense", cat: "tr" };
+    if (has(["коммунал", "аренд", "квартир", "посуд", "хозтовар", "ремонт", "свет(?![а-яё])", "газ(?![а-яё])", "kommunal", "ijara"])) return { type: "expense", cat: "dm" };
+    if (has(["связь", "интернет", "телефон", "мобильн", "кинопоиск", "подписк", "второй номер", "internet", "telefon"])) return { type: "expense", cat: "sv" };
+    if (has(["аптек", "врач", "стоматолог", "лекарств", "клиник", "анализ", "dori", "apteka"])) return { type: "expense", cat: "zd" };
+    if (has(["одежд", "кроссовк", "наушник", "книг", "футболк", "обув", "чехол", "kiyim"])) return { type: "expense", cat: "pk" };
+    if (has(["uzum", "озон", "ozon", "wildberries", "маркетплейс"])) return { type: "expense", cat: "pk", guess: true };
+    if (has(["стрижк", "подарок", "цвет", "налог"])) return { type: "expense", cat: "dr" };
+    if (has(["зарплат", "зп(?![а-яё])", "аванс", "преми[яиюей](?![а-яё])", "oylik", "maosh", "avans"])) return { type: "income", cat: "zp" };
+    if (has(["фриланс", "freelance"])) return { type: "income", cat: "fr" };
+    if (has(["к[еэ]шб[еэ]к", "cashback", "keshbek"])) return { type: "income", cat: "cb" };
+    if (has(["процент", "foiz"])) return { type: "income", cat: "pc" };
+    if (has(["возврат", "вернули"])) return { type: "income", cat: "vz" };
+    return { type: "expense", cat: "dr", unknown: true };
+  }
+  sufRe() { return "тыс[а-яё]*\\.?|млрд|млн|mln|миллион[а-яё]*|миллиард[а-яё]*|ming|к|k|т|\\$|usd|долл[а-яё]*|сум|сўм|so'?m"; }
+  numReG() { return new RegExp("(\\$\\s*)?(\\d{1,3}(?:[ " + this.nb() + ",.]\\d{3})+(?![\\d.,]\\d)|\\d+(?:[.,]\\d+)?)\\s*(" + this.sufRe() + ")?(?![а-яёa-z])", "gi"); }
+  // Сумма: число с «к», «млн», «$» или «сум»; если таких нет — последнее число.
+  pickNum(text) {
+    const all = [];
+    const re = this.numReG();
+    let m;
+    while ((m = re.exec(text)) !== null) { all.push(m); if (m[0].length === 0) re.lastIndex++; }
+    if (!all.length) return null;
+    return all.find((x) => x[1] || x[3]) || all[all.length - 1];
+  }
+  readNum(m, cur) {
+    const raw = m[2];
+    const suf = (m[3] || "").toLowerCase();
+    const big = suf === "млн" || suf === "mln" || suf === "млрд" || suf.indexOf("миллион") === 0 || suf.indexOf("миллиард") === 0;
+    // «1.250 млн» — дробь; «1.250.000» и «1 250 000» — разряды.
+    let n = big && /^\d+[.,]\d+$/.test(raw) ? parseFloat(raw.replace(",", ".")) : parseFloat(raw.replace(new RegExp("[ " + this.nb() + "]", "g"), "").replace(/[.,](?=\d{3}(\D|$))/g, "").replace(",", "."));
+    let c = "UZS";
+    let assumed = "";
+    if (m[1] || suf === "$" || suf === "usd" || suf.indexOf("долл") === 0) c = "USD";
+    else if (cur === "USD" && !suf) c = "USD";
+    else if (suf === "млрд" || suf.indexOf("миллиард") === 0) n *= 1e9;
+    else if (big) n *= 1e6;
+    else if (suf === "к" || suf === "k" || suf === "т" || suf === "ming" || suf.indexOf("тыс") === 0) n *= 1000;
+    else if (!suf && n < 1000) { assumed = raw; n *= 1000; }
+    if (!isFinite(n)) return null;
+    return { n: c === "USD" ? Math.round(n * 100) / 100 : Math.round(n), cur: c, assumed: assumed };
+  }
+  // Ответ на «Сколько?» — одна сумма, можно со счётом: «18к нал».
+  bareAmount(text, cur) {
+    const acc = this.isCash(text) ? "cash" : (/(^|\s)(картой|karta)(\s|$)/i.test(text) ? "card" : "");
+    const cleaned = text.replace(/(^|\s)(наличными|наличные|налом|наличка|нал|naqd|картой|по карте|karta)(?=\s|$)/gi, " ").trim();
+    const re = new RegExp("^\\s*(\\$\\s*)?\\d[\\d " + this.nb() + ".,]*\\s*(" + this.sufRe() + ")?\\s*$", "i");
+    if (!re.test(cleaned)) return null;
+    const m = this.pickNum(cleaned);
+    const v = m ? this.readNum(m, cur) : null;
+    return v ? Object.assign(v, { acc: acc }) : null;
+  }
+  parseDay(low) {
+    const md = low.match(/(\d{1,2})\s+(января|февраля|марта|апреля|мая|июня|июля|августа|сентября|октября|ноября|декабря)/);
+    if (md && parseInt(md[1], 10) >= 1 && parseInt(md[1], 10) <= 31) return { day: parseInt(md[1], 10) + this.nb() + md[2], cut: md[0] };
+    if (/(^|\s)позавчера(\s|$)/.test(low)) return { day: "позавчера", cut: "позавчера" };
+    if (/(^|\s)(вчера|kecha)(\s|$)/.test(low)) return { day: "вчера", cut: /kecha/.test(low) ? "kecha" : "вчера" };
+    return { day: "сегодня", cut: "" };
+  }
+  parseChunk(raw) {
+    let s = raw.trim();
+    if (!s) return null;
+    const plus = /^\+/.test(s);
+    s = s.replace(/^[+\-−]\s*/, "");
+    const d = this.parseDay(s.toLowerCase());
+    if (d.cut) s = s.replace(new RegExp(d.cut, "i"), " ");
+    let acc = this.isCash(s) ? "cash" : "card";
+    const m = this.pickNum(s);
+    let rest = m ? s.slice(0, m.index) + " " + s.slice(m.index + m[0].length) : s;
+    rest = rest.replace(/(^|\s)(наличными|наличные|налом|наличка|нал|naqd|картой|по карте|карта|karta|сегодня|bugun)(?=\s|$)/gi, " ")
+      .replace(/(^|\s)(сум|so'?m|сўм)(?=\s|$)/gi, " ")
+      .replace(/\s+/g, " ").trim()
+      .replace(/(^|\s)(за|по|на|в|и)$/i, "").trim()
+      .replace(/^(за|по|на|в|и)\s+/i, "")
+      .replace(/[\s.,;:!—-]+$/g, "").replace(/^[\s.,;:!—-]+/g, "").trim();
+    let g = this.guessCat(rest || s);
+    if (plus && g.type === "expense") g = { type: "income", cat: "di", unknown: true };
+    const full = this.cap(rest) || this.cats()[g.cat];
+    const note = full.length > 40 ? full.slice(0, 39).trim() + "…" : full;
+    const none = { note: note, amount: null, known: !g.unknown, acc: acc, day: d.day };
+    if (!m) return none;
+    const v = this.readNum(m);
+    if (!v || v.n <= 0) return none;
+    if (v.n >= 1e11) return Object.assign(none, { known: true, tooBig: true });
+    if (v.cur === "USD") acc = "usd";
+    return { rec: { type: g.type, cat: g.cat, guess: !!g.guess, unknown: !!g.unknown, amount: v.n, cur: v.cur, note: note, acc: acc, day: d.day, assumed: v.assumed, cancelled: false } };
+  }
+  // «кофе 25к такси 18к» и «кофе 25 000 такси 18 000» — две траты; «хлеб и молоко 15к» — одна.
+  splitText(t) {
+    const months = "января|февраля|марта|апреля|мая|июня|июля|августа|сентября|октября|ноября|декабря";
+    const marked = t.replace(new RegExp("(\\d{3}|\\d\\s*(?:" + this.sufRe() + "))\\s+(?!(?:" + months + ")(?![а-яё]))(?=[a-zа-яё][^,;\\d]*\\d)", "gi"), "$1\u0001");
+    const out = [];
+    marked.split(/\u0001|,(?!\d)|;|\n/).forEach((chunk) => {
+      const parts = chunk.split(/\s+и\s+/);
+      if (parts.length > 1 && parts.every((p) => /\d/.test(p))) parts.forEach((p) => out.push(p));
+      else out.push(chunk);
+    });
+    return out;
+  }
+  rec(type, cat, amount, note, acc, extra) { return Object.assign({ type: type, cat: cat, amount: amount, cur: acc === "usd" ? "USD" : "UZS", note: note, acc: acc, day: "сегодня", guess: false, unknown: false, assumed: "", cancelled: false }, extra || {}); }
+  text(lines, kb, time, on) { return { k: "text", lines: lines, kb: kb || [], time: time, on: on || {} }; }
+  init() {
+    if (this._init) return this._init;
+    const sc = this.props.scene || "text";
+    const NB = this.nb();
+    const L = (text, o) => Object.assign({ text: text }, o || {});
+    const B = (label, o) => Object.assign({ label: label }, o || {});
+    const goals = this.props.goalsHref ?? "Pastel_AuditDone.dc.html";
+    const audit = this.props.auditHref ?? "Pastel_Audit.dc.html";
+    let msgs = [];
+    let clock = 19 * 60 + 24;
+    let ask = null;
+    let draft = "";
+    if (sc === "text") {
+      msgs = [
+        { k: "pill", text: "14 октября" },
+        { k: "me", text: "такси 24к нал", time: "08:52" },
+        { k: "rec", recs: [this.rec("expense", "tr", 24000, "Такси", "cash")], mode: "confirm", time: "08:52" },
+        { k: "voice", dur: "0:05", time: "19:20" },
+        { k: "rec", recs: [this.rec("expense", "pr", 186400, "Супермаркет", "card")], heard: "Супермаркет сто восемьдесят шесть тысяч четыреста, картой", mode: "confirm", time: "19:20" }
+      ];
+    } else if (sc === "edit" || sc === "cats") {
+      clock = 13 * 60 + 41;
+      msgs = [
+        { k: "pill", text: "13 октября" },
+        { k: "me", text: "обед с командой 145к", time: "13:40" },
+        { k: "rec", recs: [this.rec("expense", "kf", 145000, "Обед с командой", "card")], mode: sc === "cats" ? "cats" : "edit", ret: "edit", edited: true, time: "13:40" }
+      ];
+    } else if (sc === "unsure") {
+      clock = 13 * 60 + 3;
+      msgs = [
+        { k: "pill", text: "16 октября" },
+        { k: "me", text: "uzum 180к", time: "12:10" },
+        { k: "rec", recs: [this.rec("expense", "pk", 180000, "Uzum", "card", { guess: true })], mode: "confirm", time: "12:10" },
+        { k: "me", text: "кофе 25к, такси, обед 45", time: "13:02" },
+        { k: "rec", recs: [this.rec("expense", "kf", 25000, "Кофе", "card"), this.rec("expense", "kf", 45000, "Обед", "card", { assumed: "45" })], missing: [{ note: "Такси", acc: "card", day: "сегодня" }], mode: "confirm", time: "13:02" }
+      ];
+      ask = { kind: "missing", idx: 4 };
+    } else if (sc === "fix") {
+      clock = 18 * 60 + 31;
+      msgs = [
+        { k: "pill", text: "18 октября" },
+        { k: "me", text: "кофе 25к", time: "09:10" },
+        { k: "rec", recs: [this.rec("expense", "kf", 28000, "Кофе", "card")], mode: "confirm", changed: "Сумма изменена: было 25" + NB + "000", edited: true, time: "09:10" },
+        { k: "me", text: "не 25, а 28", time: "09:11" },
+        this.text([L("Изменил: −28" + NB + "000 сум · «Кофе»")], [], "09:11"),
+        { k: "me", text: "такси 18к нал", time: "18:29" },
+        { k: "rec", recs: [this.rec("expense", "tr", 18000, "Такси", "cash", { cancelled: true })], mode: "cancelled", undone: [0], undoBy: "m8", edited: true, time: "18:29" },
+        { k: "me", text: "/undo", time: "18:30" },
+        this.text([L("Отменил последнюю запись: −18" + NB + "000 сум · «Такси»")], [[B("Вернуть", { act: "revert:m6" })]], "18:30")
+      ];
+    } else if (sc === "undo") {
+      clock = 18 * 60 + 41;
+      msgs = [
+        { k: "pill", text: "15 октября" },
+        { k: "me", text: "фриланс 3,2 млн", time: "09:30" },
+        { k: "rec", recs: [this.rec("income", "fr", 3200000, "Фриланс", "card")], mode: "confirm", time: "09:30" },
+        { k: "me", text: "наушники 55$", time: "18:05" },
+        { k: "rec", recs: [this.rec("expense", "pk", 55, "Наушники", "usd")], mode: "confirm", time: "18:05" },
+        { k: "me", text: "кофе 25к", time: "18:40" },
+        { k: "rec", recs: [this.rec("expense", "kf", 25000, "Кофе", "card", { cancelled: true })], mode: "cancelled", time: "18:40", edited: true }
+      ];
+    } else if (sc === "errors") {
+      clock = 10 * 60 + 4;
+      msgs = [
+        { k: "pill", text: "17 октября" },
+        { k: "me", text: "привет", time: "10:00" },
+        this.notUnderstood("10:00"),
+        { k: "voice", dur: "0:02", time: "10:01" },
+        this.notHeard("10:01"),
+        { k: "me", text: "кофе 25000000", time: "10:03" },
+        { k: "rec", recs: [this.rec("expense", "kf", 25000000, "Кофе", "card")], mode: "big", bigIdx: 0, time: "10:03" }
+      ];
+      ask = { kind: "amount", idx: 6 };
+    } else if (sc === "summary") {
+      clock = 21 * 60 + 5;
+      msgs = [
+        { k: "pill", text: "13 октября" },
+        this.summaryMsg("13" + NB + "октября", 177000, 2, [["Кафе", 145000], ["Транспорт", 32000]], "С начала октября — 7" + NB + "474" + NB + "000 сум.", "21:00"),
+        { k: "pill", text: "14 октября" },
+        this.summaryMsg("14" + NB + "октября", 210400, 2, [["Продукты", 186400], ["Транспорт", 24000]], "С начала октября — 7" + NB + "684" + NB + "400 сум, на 714" + NB + "400 сум больше, чем за 1–14 сентября.", "21:00"),
+        { k: "pill", text: "19 октября" },
+        this.text([L("Итоги дня · 19 октября", { b: true }), L("Записей нет. Трат правда не было?"), L("Если что-то было — просто напишите, например «обед 45к».", { i: true, gap: true })], [[B("Да, не было", { act: "done" })]], "21:00", { done: { lines: [L("Итоги дня · 19 октября", { b: true }), L("Отметил: 19 октября трат не было.")], kb: [] } })
+      ];
+    } else if (sc === "reminders") {
+      clock = 10 * 60 + 2;
+      msgs = [
+        { k: "pill", text: "27 октября" },
+        this.text([L("Цель «Такси»: 84" + NB + "000 из 102" + NB + "000 сум", { b: true }), L("До конца октября по лимиту осталось 18" + NB + "000 сум."), L("Напишу ещё раз, только если лимит будет превышен.", { i: true, gap: true })], [[B("Открыть цели", { href: goals })]], "12:30"),
+        { k: "pill", text: "1 ноября" },
+        this.text([L("Ревизия октября готова", { b: true }), L("5 трат на проверку — пара минут.")], [[B("Открыть ревизию", { href: audit })], [B("Позже", { act: "later" })]], "10:00", { later: { lines: [L("Ревизия октября готова", { b: true }), L("5 трат на проверку — пара минут."), L("Напомню 2 ноября в 10:00, один раз.", { i: true, gap: true })], kb: [[B("Открыть ревизию", { href: audit })]] } }),
+        { k: "pill", text: "2 ноября" },
+        this.text([L("3 ноября Кинопоиск спишет 50" + NB + "000 сум", { b: true }), L("В ревизии вы решили отменить подписку. Отменить можно только в самом сервисе.")], [[B("Отменено", { act: "cancelled" }), B("Оставить", { act: "keep" })]], "10:00", { cancelled: { lines: [L("Кинопоиск: подписка отменена", { b: true }), L("Минус 50" + NB + "000 сум в месяц. Цель из ревизии выполнена.")], kb: [] }, keep: { lines: [L("Кинопоиск остаётся", { b: true }), L("Цель «отменить» снята. Подписка снова попадёт в ревизию, только если подорожает.")], kb: [] } })
+      ];
+    } else if (sc === "receipt") {
+      clock = 20 * 60 + 31;
+      msgs = [
+        { k: "pill", text: "14 октября" },
+        { k: "voice", dur: "0:05", time: "19:20" },
+        { k: "rec", recs: [this.rec("expense", "pr", 186400, "Супермаркет", "card")], heard: "Супермаркет сто восемьдесят шесть тысяч четыреста, картой", mode: "confirm", time: "19:20" },
+        { k: "photo", time: "19:25", ptotal: "186 400" },
+        this.text([L("Похоже, это уже записано: «Супермаркет» \u2212186" + NB + "400 сум, 19:20.", { b: true }), L("Добавил к записи магазин и 7 позиций из чека — новой записи нет.")], [[B("Это другая покупка", { act: "other" })]], "19:25", { other: { lines: [L("Расход \u2212186" + NB + "400 сум", { b: true }), L("Продукты · «Navruz Market»"), L("Карта · 14" + NB + "октября"), L("Записал как отдельную покупку. Та запись в 19:20 — без изменений.", { i: true, gap: true })], kb: [] } }),
+        { k: "photo", time: "20:06" },
+        { k: "rec", recs: [this.rec("expense", "pr", 254300, "Navruz Market", "card")], receipt: { n: 9, hint: "Порошок и губки похожи на «Дом» — разделить по категориям можно в приложении." }, mode: "confirm", time: "20:06" },
+        { k: "photo", time: "20:30", blur: true },
+        this.text([L("Чек не читается — фото размыто."), L("Снимите ровнее и при свете — весь чек целиком. Или напишите сумму текстом, например «продукты 120к».")], [], "20:30")
+      ];
+    } else if (sc === "login") {
+      clock = 19 * 60 + 43;
+      msgs = [
+        { k: "pill", text: "14 октября" },
+        { k: "me", text: "/start", time: "19:42" },
+        this.text([L("Вход в Daftar из браузера", { b: true }), L("Chrome · Windows, 14 октября в 19:42"), L("Если это вы — подтвердите. Если нет — нажмите «Это не я», и вход не состоится.", { i: true, gap: true })], [[B("Подтвердить", { act: "ok" })], [B("Это не я", { act: "no" })]], "19:42", { ok: { lines: [L("Вход подтверждён", { b: true }), L("Chrome · Windows. Вернитесь в браузер — Daftar уже открыт.")], kb: [[{ label: "Вернуться в браузер", href: this.props.appHref ?? "Pastel_HomeWeb.dc.html" }]] }, no: { lines: [L("Вход отклонён", { b: true }), L("Никто не получил доступ к вашим записям. Если входили не вы — ничего делать не нужно.")], kb: [] } })
+      ];
+    } else if (sc === "start") {
+      clock = 20 * 60 + 15;
+      msgs = [
+        { k: "pill", text: "1 августа" },
+        { k: "me", text: "/start", time: "20:14" },
+        this.greeting("20:14")
+      ];
+    } else if (sc === "commands") {
+      clock = 21 * 60 + 13;
+      msgs = [
+        { k: "pill", text: "14 октября" },
+        { k: "voice", dur: "0:05", time: "19:20" },
+        { k: "rec", recs: [this.rec("expense", "pr", 186400, "Супермаркет", "card")], heard: "Супермаркет сто восемьдесят шесть тысяч четыреста, картой", mode: "confirm", time: "19:20" },
+        this.summaryMsg("14" + NB + "октября", 210400, 2, [["Продукты", 186400], ["Транспорт", 24000]], "С начала октября — 7" + NB + "684" + NB + "400 сум, на 714" + NB + "400 сум больше, чем за 1–14 сентября.", "21:00")
+      ];
+      draft = "/";
+    }
+    msgs = msgs.map((m, i) => Object.assign({ id: "m" + i }, m));
+    if (ask) ask = { kind: ask.kind, id: "m" + ask.idx };
+    this._init = { msgs: msgs, clock: clock, ask: ask, draft: draft, seq: msgs.length };
+    return this._init;
+  }
+  summaryMsg(date, total, n, top, insight, time, usd) {
+    const lines = [{ text: "Итоги дня · " + date, b: true }, { text: "Потрачено " + this.fmtInt(total) + this.nb() + "сум · " + n + " " + this.plural(n, "запись", "записи", "записей") }];
+    top.forEach((p, i) => lines.push({ text: p[0] + " · " + this.fmtInt(p[1]), gap: i === 0 }));
+    if (usd) lines.push({ text: "И в долларах: " + usd });
+    if (insight) lines.push({ text: insight, gap: true });
+    return this.text(lines, [[{ label: "Открыть Daftar", href: this.props.appHref ?? "Pastel_Home.dc.html" }]], time);
+  }
+  greeting(time) {
+    return this.text([
+      { text: "Это Daftar — учёт расходов и доходов.", b: true },
+      { text: "Пишите траты прямо сюда, как в заметках:" },
+      { text: "кофе 25к, такси 18к нал", quote: true },
+      { text: "Можно голосом. Всё сразу попадёт в приложение.", gap: true },
+      { text: "Команды — «/» в поле ввода.", i: true, gap: true }
+    ], [[{ label: "Открыть Daftar", href: this.props.appHref ?? "Pastel_Home.dc.html" }]], time);
+  }
+  notUnderstood(time) {
+    return this.text([{ text: "Не нашёл, что записать." }, { text: "Напишите трату и сумму:" }, { text: "такси 18к, обед 45 000 картой", quote: true }, { text: "Подробнее — /help", i: true, gap: true }], [], time);
+  }
+  notHeard(time) {
+    return this.text([{ text: "Не расслышал." }, { text: "Скажите ещё раз — что купили и сколько, например: «такси восемнадцать тысяч». Или напишите текстом." }], [], time);
+  }
+  st() {
+    const s = this.state || {};
+    const i = this.init();
+    return {
+      msgs: s.msgs || i.msgs,
+      clock: s.clock !== undefined ? s.clock : i.clock,
+      ask: s.ask !== undefined ? s.ask : i.ask,
+      draft: s.draft !== undefined ? s.draft : i.draft,
+      typing: !!s.typing,
+      seq: s.seq || i.seq,
+      voiceN: s.voiceN || 0
+    };
+  }
+  cur(prev) {
+    const s = prev || {};
+    const i = this.init();
+    return { msgs: s.msgs || i.msgs, clock: s.clock !== undefined ? s.clock : i.clock, ask: s.ask !== undefined ? s.ask : i.ask, seq: s.seq || i.seq };
+  }
+  timers() { if (!this._timers) this._timers = []; return this._timers; }
+  hhmm(c) { const h = Math.floor(c / 60) % 24; const m = c % 60; return (h < 10 ? "0" : "") + h + ":" + (m < 10 ? "0" : "") + m; }
+  dateLabel(S) { const p = S.msgs.filter((m) => m.k === "pill"); return p.length ? p[p.length - 1].text.replace(" ", this.nb()) : "сегодня"; }
+  send(text, asVoice) {
+    const t = String(text || "").trim();
+    if (!t && !asVoice) return;
+    this.setState((prev) => {
+      const S = this.cur(prev);
+      const time = this.hhmm(S.clock);
+      const mine = asVoice ? { id: "n" + S.seq, k: "voice", dur: asVoice.dur, time: time } : { id: "n" + S.seq, k: "me", text: t, time: time };
+      return { msgs: S.msgs.concat([mine]), seq: S.seq + 1, draft: "", typing: true };
+    });
+    this.timers().push(setTimeout(() => {
+      this.setState((prev) => Object.assign({ typing: false }, asVoice ? this.respondVoice(this.cur(prev), asVoice) : this.respond(this.cur(prev), t)));
+    }, 700));
+  }
+  pushBot(S, msgs, extra) {
+    const time = this.hhmm(S.clock);
+    let seq = S.seq;
+    const add = msgs.map((m) => Object.assign({ id: "n" + seq++ }, m, { time: m.time || time }));
+    return Object.assign({ msgs: S.msgs.concat(add), seq: seq, clock: S.clock + 1, ask: S.ask }, extra || {});
+  }
+  missingAsk(m) { return m && m.missing && m.missing.length && m.mode !== "cancelled" ? { kind: "missing", id: m.id } : null; }
+  // Человек ушёл от вопроса: закрываем его честно, чтобы следующее число не попало не туда.
+  clearAsk(S) {
+    if (!S.ask) return S;
+    const id = S.ask.id;
+    const msgs = S.msgs.map((m) => {
+      if (m.id !== id) return m;
+      const n = Object.assign({}, m);
+      if (n.mode === "amount") n.mode = n.ret === "confirm" ? "confirm" : "edit";
+      if (n.mode === "big") n.noReply = true;
+      if (n.missing && n.missing.length) {
+        n.notes = (n.notes || []).concat(n.missing.map((x) => this.q(x.note) + " — без суммы, не записал."));
+        n.missing = [];
+        n.edited = true;
+      }
+      return n;
+    });
+    return Object.assign({}, S, { msgs: msgs, ask: null });
+  }
+  live(r) { return !r.cancelled; }
+  liveMsg(m) { return m.k === "rec" && m.mode !== "cancelled" && m.mode !== "big" && m.mode !== "dropped"; }
+  lastRec(S) { for (let i = S.msgs.length - 1; i >= 0; i--) { const m = S.msgs[i]; if (this.liveMsg(m) && m.recs.some((r) => this.live(r))) return m; } return null; }
+  respondVoice(S, v) {
+    if (v.fail) return this.pushBot(S, [this.notHeard()]);
+    const r = this.respond(S, v.text);
+    const last = r.msgs[r.msgs.length - 1];
+    if (last && last.k === "rec") r.msgs = r.msgs.slice(0, -1).concat([Object.assign({}, last, { heard: v.heard })]);
+    return r;
+  }
+  fixedText(r, raw) { return "Изменил: " + this.money(r) + " · " + this.q(r.note) + (raw ? ". «" + raw + "» понял как " + this.amt(r) : ""); }
+  // Новая сумма для записи с учётом её валюты.
+  amountPatch(r, v) {
+    if (v.cur === "USD" && r.cur !== "USD") return { amount: v.n, cur: "USD", acc: "usd", assumed: "" };
+    return { amount: v.n, assumed: "" };
+  }
+  respond(S, t) {
+    const low = t.toLowerCase();
+    if (low.charAt(0) === "/") return this.command(this.clearAsk(S), low.split(/\s+/)[0]);
+    const reply = (text, extra) => this.pushBot(S, [this.text([{ text: text }], [])], extra);
+    // «не 25, а 28» — исправить сумму записи на 25.
+    const fix = low.match(/^не\s+([^,]+?)\s*,?\s+а\s+(.+)$/);
+    if (fix) {
+      const wasM = this.pickNum(fix[1]);
+      const nowM = this.pickNum(fix[2]);
+      if (!wasM && !nowM) return reply("Так можно поменять только сумму: «не 25, а 28». Остальное — кнопка «Изменить» под записью.");
+      let target = null;
+      let idx = 0;
+      if (S.ask && S.ask.kind === "amount") {
+        target = S.msgs.find((m) => m.id === S.ask.id) || null;
+        if (target) idx = target.mode === "big" ? (target.bigIdx || 0) : (target.sel || 0);
+      }
+      if (!target && wasM) {
+        for (let i = S.msgs.length - 1; i >= 0 && !target; i--) {
+          const m = S.msgs[i];
+          if (!this.liveMsg(m)) continue;
+          const j = m.recs.findIndex((r) => { if (!this.live(r)) return false; const w = this.readNum(wasM, r.cur); return w && (r.amount === w.n || (r.cur === "UZS" && r.amount === Math.round(parseFloat(wasM[2].replace(",", "."))))); });
+          if (j !== -1) { target = m; idx = j; }
+        }
+      }
+      if (!target) return reply(wasM ? "Не нашёл запись на " + fix[1].trim() + ". Нажмите «Изменить» под нужной." : "Не понял, какую сумму менять. Напишите так: «не 25, а 28».");
+      const v = nowM ? this.readNum(nowM, target.recs[idx].cur) : null;
+      if (!v || v.n <= 0) return reply("Новая сумма должна быть числом больше нуля.");
+      const was = target.recs[idx].amount;
+      const msgs = S.msgs.map((m) => (m.id === target.id ? this.withRec(m, idx, this.amountPatch(target.recs[idx], v), "Сумма изменена: было " + this.fmtInt(was)) : m));
+      const fixedMsg = msgs.find((m) => m.id === target.id);
+      const ask = S.ask && S.ask.kind === "missing" ? S.ask : this.missingAsk(fixedMsg);
+      return this.pushBot(Object.assign({}, S, { msgs: msgs }), [this.text([{ text: this.fixedText(fixedMsg.recs[idx], v.assumed) }], [])], { ask: ask });
+    }
+    // Ответ на вопрос — только сообщение с одной суммой.
+    if (S.ask) {
+      const target = S.msgs.find((m) => m.id === S.ask.id);
+      const idx = target ? (target.mode === "big" ? (target.bigIdx || 0) : (target.sel || 0)) : 0;
+      const tr = target && target.recs[idx];
+      const bare = this.bareAmount(t, S.ask.kind === "amount" && tr ? tr.cur : "UZS");
+      if (bare && bare.n <= 0) return reply("Сумма должна быть больше нуля.");
+      if (bare && target && S.ask.kind === "amount" && tr) {
+        const msgs = S.msgs.map((m) => (m.id === target.id ? this.withRec(m, idx, Object.assign(this.amountPatch(tr, bare), bare.acc && tr.cur !== "USD" ? { acc: bare.acc } : {}), "Сумма изменена: было " + this.fmtInt(tr.amount)) : m));
+        const fixedMsg = msgs.find((m) => m.id === target.id);
+        return this.pushBot(Object.assign({}, S, { msgs: msgs }), [this.text([{ text: this.fixedText(fixedMsg.recs[idx], bare.assumed) }], [])], { ask: this.missingAsk(fixedMsg) });
+      }
+      if (bare && target && S.ask.kind === "missing" && target.missing && target.missing.length) {
+        const miss = target.missing[0];
+        const rest = target.missing.slice(1);
+        const g = this.guessCat(miss.note);
+        const r = this.rec(g.type, g.cat, bare.n, miss.note, bare.cur === "USD" ? "usd" : (bare.acc || miss.acc), { guess: !!g.guess, unknown: !!g.unknown, day: miss.day, assumed: bare.assumed });
+        const msgs = S.msgs.map((m) => (m.id === target.id ? Object.assign({}, m, { missing: [], notes: (m.notes || []).concat([this.q(miss.note) + " — записал отдельным сообщением."]), edited: true }) : m));
+        const out = [{ k: "rec", recs: [r], mode: "confirm" }];
+        if (rest.length) out.push({ k: "rec", recs: [], missing: rest, mode: "confirm" });
+        const res = this.pushBot(Object.assign({}, S, { msgs: msgs }), out, { ask: null });
+        if (rest.length) res.ask = { kind: "missing", id: res.msgs[res.msgs.length - 1].id };
+        return res;
+      }
+      S = this.clearAsk(S);
+    }
+    const parts = this.splitText(t).map((x) => this.parseChunk(x)).filter((x) => x);
+    const recs = parts.filter((p) => p.rec).map((p) => p.rec);
+    const missing = parts.filter((p) => !p.rec && p.known && !p.tooBig).map((p) => ({ note: p.note, acc: p.acc, day: p.day }));
+    if (!recs.length && !missing.length && parts.some((p) => p.tooBig)) return this.pushBot(S, [this.text([{ text: "Сумма слишком большая — проверьте её и напишите ещё раз." }], [])], { ask: null });
+    if (!recs.length && !missing.length) return this.pushBot(S, [this.notUnderstood()], { ask: null });
+    const bigIdx = recs.findIndex((r) => r.type === "expense" && r.cur === "UZS" && r.amount >= 10000000 && ["kf", "tr", "pr", "sv", "zd"].indexOf(r.cat) !== -1);
+    const msg = { k: "rec", recs: recs, missing: bigIdx === -1 ? missing : [], notes: bigIdx === -1 ? [] : missing.map((x) => this.q(x.note) + " — без суммы, не записал."), mode: bigIdx === -1 ? "confirm" : "big", bigIdx: bigIdx === -1 ? 0 : bigIdx };
+    const out = this.pushBot(S, [msg], { ask: null });
+    const id = out.msgs[out.msgs.length - 1].id;
+    if (bigIdx !== -1) out.ask = { kind: "amount", id: id };
+    else if (missing.length) out.ask = { kind: "missing", id: id };
+    return out;
+  }
+  // Записи из переписки с датами.
+  datedRecs(S) {
+    let pill = "";
+    const out = [];
+    S.msgs.forEach((m) => {
+      if (m.k === "pill") pill = m.text;
+      if (this.liveMsg(m)) m.recs.filter((r) => this.live(r)).forEach((r) => out.push(Object.assign({ date: this.dayText(r.day, pill) }, r)));
+    });
+    return out;
+  }
+  command(S, c) {
+    const L = (text, o) => Object.assign({ text: text }, o || {});
+    const NB = this.nb();
+    const isToday = (this.props.scene || "text") === "text";
+    if (c === "/start") return this.pushBot(S, [this.greeting()]);
+    if (c === "/help") return this.pushBot(S, [this.text([L("Как записывать", { b: true }), L("Трата и сумма: «такси 18к», «обед 45 000 картой»."), L("Несколько сразу — через запятую."), L("Доход: «зарплата 12,5 млн». Доллары: «наушники 55$»."), L("Не сегодня — добавьте «вчера» или дату."), L("Поменять сумму — напишите «не 25, а 28»."), L("/today — итоги дня", { gap: true }), L("/month — траты за месяц"), L("/undo — отменить последнюю запись")], [])]);
+    if (c === "/today") {
+      const day = this.dateLabel(S);
+      const all = this.datedRecs(S).filter((r) => r.type === "expense" && r.date === day);
+      const recs = all.filter((r) => r.cur === "UZS");
+      const usd = all.filter((r) => r.cur === "USD").reduce((a, r) => a + r.amount, 0);
+      if (!all.length) return this.pushBot(S, [this.text([L("Итоги дня · " + day, { b: true }), L("Записей пока нет.")], [])]);
+      const by = {};
+      recs.forEach((r) => { by[r.cat] = (by[r.cat] || 0) + r.amount; });
+      const total = recs.reduce((a, r) => a + r.amount, 0);
+      const top = Object.keys(by).sort((a, b) => by[b] - by[a]).slice(0, 3).map((k) => [this.cats()[k], by[k]]);
+      const month = this.monthTotal(S).total;
+      return this.pushBot(S, [this.summaryMsg(day, total, all.length, top, isToday ? "С начала октября — " + this.fmtInt(month) + NB + "сум, на " + this.fmtInt(month - 6970000) + NB + "сум больше, чем за 1–14 сентября." : "", "", usd ? this.amt({ amount: usd, cur: "USD" }) : "")]);
+    }
+    if (c === "/month") {
+      const link = [[{ label: "Открыть аналитику", href: this.props.analyticsHref ?? "Pastel_Analytics.dc.html" }]];
+      if (!isToday) return this.pushBot(S, [this.text([L("Траты за месяц", { b: true }), L("По категориям и в сравнении с прошлым месяцем — в аналитике.")], link)]);
+      const mt = this.monthTotal(S);
+      const top = Object.keys(mt.by).sort((a, b) => mt.by[b] - mt.by[a]).slice(0, 3);
+      const lines = [L("Октябрь · 1–14", { b: true }), L("Потрачено " + this.fmtInt(mt.total) + NB + "сум — на " + this.fmtInt(mt.total - 6970000) + NB + "сум больше, чем за 1–14 сентября.")];
+      top.forEach((k, i) => lines.push(L(this.cats()[k] + " · " + this.fmtInt(mt.by[k]), { gap: i === 0 })));
+      return this.pushBot(S, [this.text(lines, link)]);
+    }
+    if (c === "/undo") {
+      const last = this.lastRec(S);
+      if (!last) return this.pushBot(S, [this.text([L("Отменять нечего: записей из чата пока нет.")], [])]);
+      const undone = last.recs.map((r, i) => (this.live(r) ? i : -1)).filter((i) => i !== -1);
+      const liveRecs = undone.map((i) => last.recs[i]);
+      const what = liveRecs.length === 1 ? this.money(liveRecs[0]) + " · " + this.q(liveRecs[0].note) : liveRecs.length + " " + this.plural(liveRecs.length, "запись", "записи", "записей");
+      const res = this.pushBot(S, [this.text([L("Отменил последнюю запись: " + what)], [[{ label: "Вернуть", act: "revert:" + last.id }]])]);
+      const undoId = res.msgs[res.msgs.length - 1].id;
+      res.msgs = res.msgs.map((m) => (m.id === last.id ? Object.assign({}, m, { recs: m.recs.map((r, i) => (undone.indexOf(i) !== -1 ? Object.assign({}, r, { cancelled: true }) : r)), mode: "cancelled", undone: undone, undoBy: undoId, edited: true, changed: "" }) : m));
+      return res;
+    }
+    return this.pushBot(S, [this.text([L("Такой команды нет. Список — /help")], [])]);
+  }
+  // Октябрь 1–14 из аналитики, где сегодняшние записи взяты из переписки.
+  monthTotal(S) {
+    const by = { pr: 2140000 - 186400, dm: 1450000, kf: 1092000, pk: 1060000, tr: 742400 - 24000, zd: 520000, sv: 380000, dr: 300000 };
+    const M = this.months();
+    this.datedRecs(S).forEach((r) => {
+      const mm = String(r.date).match(/^(\d{1,2})\s(.+)$/);
+      if (r.type !== "expense" || r.cur !== "UZS" || !mm || M.indexOf(mm[2]) !== 9 || parseInt(mm[1], 10) > 14) return;
+      by[r.cat] = (by[r.cat] || 0) + r.amount;
+    });
+    return { by: by, total: Object.keys(by).reduce((a, k) => a + by[k], 0) };
+  }
+  withRec(m, idx, patch, changed) {
+    const recs = m.recs.map((r, i) => (i === idx ? Object.assign({}, r, patch) : r));
+    return Object.assign({}, m, { recs: recs, mode: "confirm", changed: changed || "", edited: true });
+  }
+  restore(m) {
+    const idx = m.undone && m.undone.length ? m.undone : m.recs.map((r, i) => i);
+    const recs = m.recs.map((r, i) => (idx.indexOf(i) !== -1 ? Object.assign({}, r, { cancelled: false }) : r));
+    return Object.assign({}, m, { recs: recs, mode: "confirm", undone: [], undoBy: "", changed: idx.length > 1 ? "Записи возвращены" : "Запись возвращена", edited: true });
+  }
+  press(id, a) {
+    this.setState((prev) => {
+      let S = this.cur(prev);
+      let ask = S.ask;
+      const C = this.cats();
+      if (a.indexOf("revert:") === 0) {
+        const target = a.slice(7);
+        const t0 = S.msgs.find((m) => m.id === target);
+        return { msgs: S.msgs.map((m) => (m.id === target ? this.restore(m) : (m.id === id ? Object.assign({}, m, { lines: [{ text: "Вернул запись." }], kb: [], edited: true }) : m))), ask: ask };
+      }
+      let undoBy = "";
+      const msgs = S.msgs.map((m0) => {
+        if (m0.id !== id) return m0;
+        const m = Object.assign({}, m0, { edited: true });
+        if (m.k === "text") {
+          const res = m.on[a];
+          return res ? Object.assign(m, { lines: res.lines, kb: res.kb }) : m0;
+        }
+        const sel = m.sel || 0;
+        const r = m.recs[sel];
+        const parts = a.split(":");
+        const verb = parts[0];
+        const arg = parts[1];
+        // Закрываем только вопрос о сумме этой записи; вопрос «Сколько?» остаётся, пока есть пропуски.
+        const closeAmount = () => { if (ask && ask.id === m.id && ask.kind === "amount") ask = null; if (!ask) ask = this.missingAsk(m); };
+        if (verb === "edit") { m.sel = m.recs.findIndex((x) => this.live(x)); m.mode = "edit"; m.changed = ""; }
+        else if (verb === "pick") { m.sel = parseInt(arg, 10); m.mode = "edit"; m.changed = ""; }
+        else if (verb === "f") { m.ret = "edit"; m.mode = arg; if (arg === "amount") ask = { kind: "amount", id: m.id }; }
+        else if (verb === "back") { m.mode = m.ret || "edit"; m.ret = "edit"; closeAmount(); }
+        else if (verb === "done") { m.mode = "confirm"; closeAmount(); }
+        else if (verb === "cat") { const out = this.withRec(m, sel, { cat: arg, guess: false, unknown: false }, (m.typeFlip ? (r.type === "income" ? "Теперь это доход. " : "Теперь это расход. ") : "") + "Категория: " + C[arg]); out.typeFlip = false; return out; }
+        else if (verb === "type") { m.typeFlip = !m.typeFlip; m.recs = m.recs.map((x, i) => (i === sel ? Object.assign({}, x, { type: x.type === "income" ? "expense" : "income", cat: x.type === "income" ? "dr" : "di", guess: false, unknown: true }) : x)); }
+        else if (verb === "acc") return this.withRec(m, sel, { acc: arg }, "Счёт: " + this.accs()[arg]);
+        else if (verb === "day") return this.withRec(m, sel, { day: arg }, "Дата: " + arg);
+        else if (verb === "yes") return this.withRec(m, sel, { guess: false }, "Категория: " + C[r.cat]);
+        else if (verb === "other") { m.ret = "confirm"; m.mode = "cats"; }
+        else if (verb === "cancel") {
+          if (ask && ask.id === m.id && ask.kind === "amount") ask = null;
+          if (m.recs.length > 1 && m.mode === "edit") {
+            m.recs = m.recs.map((x, i) => (i === sel ? Object.assign({}, x, { cancelled: true }) : x));
+            m.mode = m.recs.every((x) => x.cancelled) ? "cancelled" : "confirm";
+            m.changed = this.q(r.note) + " отменена";
+          } else {
+            m.recs = m.recs.map((x) => Object.assign({}, x, { cancelled: true }));
+            m.mode = "cancelled";
+            m.changed = "";
+            m.undone = [];
+          }
+          if (m.mode === "cancelled" && m.missing && m.missing.length) { m.notes = (m.notes || []).concat(m.missing.map((x) => this.q(x.note) + " — без суммы, не записал.")); m.missing = []; if (ask && ask.id === m.id) ask = null; }
+        }
+        else if (verb === "revert") { undoBy = m.undoBy || ""; return this.restore(m); }
+        else if (verb === "revone") { const i = parseInt(arg, 10); m.recs = m.recs.map((x, j) => (j === i ? Object.assign({}, x, { cancelled: false }) : x)); m.changed = this.q(m.recs[i].note) + " возвращена"; }
+        else if (verb === "bigyes") { if (ask && ask.id === m.id) ask = null; m.mode = "confirm"; m.changed = ""; }
+        else if (verb === "bigfix") { if (ask && ask.id === m.id) ask = null; const b = m.bigIdx || 0; return this.withRec(m, b, { amount: Math.round(m.recs[b].amount / 1000) }, "Сумма изменена: было " + this.fmtInt(m.recs[b].amount)); }
+        else if (verb === "bigno") {
+          if (ask && ask.id === m.id) ask = null;
+          const b = m.bigIdx || 0;
+          if (m.recs.length > 1) {
+            const dropped = m.recs[b];
+            m.recs = m.recs.filter((x, i) => i !== b);
+            m.mode = "confirm";
+            m.notes = (m.notes || []).concat([this.q(dropped.note) + " на " + this.money(dropped) + " не записал."]);
+          } else m.mode = "dropped";
+        }
+        else if (verb === "skip") {
+          const miss = (m.missing || [])[0];
+          if (miss) { m.notes = (m.notes || []).concat([this.q(miss.note) + " — пропустил."]); m.missing = m.missing.slice(1); }
+          if (ask && ask.id === m.id && ask.kind === "missing" && !m.missing.length) ask = null;
+        }
+        return m;
+      });
+      let out = msgs;
+      if (undoBy) out = out.map((m) => (m.id === undoBy ? Object.assign({}, m, { lines: [{ text: "Вернул запись." }], kb: [], edited: true }) : m));
+      // Новый вопрос о сумме закрывает вопрос о сумме на другом сообщении.
+      if (S.ask && ask && S.ask.id !== ask.id && S.ask.kind === "amount") {
+        const old = this.clearAsk(Object.assign({}, S, { msgs: out }));
+        return { msgs: old.msgs, ask: ask };
+      }
+      return { msgs: out, ask: ask };
+    });
+  }
+  // «сегодня» в старом сообщении читается неверно — показываем дату.
+  dayText(day, pill) {
+    const M = this.months();
+    const mm = String(pill || "").match(/^(\d{1,2})\s+([а-яё]+)/);
+    const back = day === "сегодня" ? 0 : (day === "вчера" ? 1 : (day === "позавчера" ? 2 : -1));
+    if (!mm || back < 0) return day;
+    const mi = M.indexOf(mm[2]);
+    if (mi < 0) return day;
+    const dt = new Date(Date.UTC(2026, mi, parseInt(mm[1], 10) - back));
+    return dt.getUTCDate() + this.nb() + M[dt.getUTCMonth()];
+  }
+  recView(m, pill) {
+    const L = (text, o) => Object.assign({ text: text }, o || {});
+    const B = (label, act, o) => Object.assign({ label: label, act: act }, o || {});
+    const lines = [];
+    const kb = [];
+    const R = m.recs;
+    const sel = m.sel || 0;
+    const C = this.cats();
+    const A = this.accs();
+    const app = this.props.appHref ?? "Pastel_Home.dc.html";
+    const allOff = m.mode === "cancelled" || m.mode === "dropped";
+    const what = (r) => [C[r.cat] + (r.guess ? "?" : ""), r.note && r.note !== C[r.cat] ? this.q(r.note) : null].filter((x) => x).join(" · ");
+    const where = (r) => A[r.acc] + " · " + this.dayText(r.day, pill);
+    if (m.mode === "big") {
+      const r = R[m.bigIdx || 0];
+      lines.push(L("Сумма большая: " + this.money(r) + " за " + this.q(r.note) + ".", { b: true }));
+      lines.push(L(R.length > 1 ? "Пока ничего из сообщения не записал — сумма верная?" : "Пока не записал — сумма верная?"));
+      (m.notes || []).forEach((x) => lines.push(L(x)));
+      if (!m.noReply) lines.push(L("Если сумма другая — напишите её.", { i: true, gap: true }));
+      kb.push([B("Это " + this.amt(Object.assign({}, r, { amount: Math.round(r.amount / 1000) })), "bigfix")]);
+      kb.push([B("Да, верная", "bigyes")]);
+      kb.push([B("Не записывать", "bigno")]);
+      return { lines: lines, kb: kb };
+    }
+    if (m.mode === "dropped") {
+      const r = R[m.bigIdx || 0];
+      lines.push(L("Сумма большая: " + this.money(r) + " за " + this.q(r.note) + ".", { b: true, s: true }));
+      lines.push(L("Не записал.", { gap: true }));
+      return { lines: lines, kb: kb };
+    }
+    const live = R.filter((r) => this.live(r));
+    if (R.length === 1) {
+      const r = R[0];
+      lines.push(L((r.type === "income" ? "Доход " : "Расход ") + this.money(r), { b: true, s: allOff }));
+      if (r.assumed && !allOff) lines.push(L("«" + r.assumed + "» понял как " + this.amt(r) + ".", { i: true }));
+      lines.push(L(what(r), { s: allOff }));
+      lines.push(L(where(r), { s: allOff }));
+    } else if (R.length > 1) {
+      const sameCur = live.every((r) => r.cur === (live[0] || R[0]).cur);
+      const allExp = live.every((r) => r.type === "expense");
+      const total = live.reduce((a, r) => a + r.amount, 0);
+      const n = live.length || R.length;
+      lines.push(L(allExp && sameCur && live.length ? "Расходы −" + this.amt(Object.assign({}, live[0], { amount: total })) + " · " + n + " " + this.plural(n, "запись", "записи", "записей") : n + " " + this.plural(n, "запись", "записи", "записей"), { b: true, s: allOff }));
+      const sameAcc = R.every((r) => r.acc === R[0].acc && r.day === R[0].day);
+      const editing = ["edit", "cats", "accs", "dates", "amount"].indexOf(m.mode) !== -1;
+      R.forEach((r, i) => {
+        lines.push(L([this.short(r) + (r.assumed ? "?" : ""), what(r)].concat(sameAcc ? [] : [where(r)]).join(" · "), { s: allOff || r.cancelled, b: editing && i === sel }));
+        if (r.assumed && !allOff && !r.cancelled) lines.push(L("«" + r.assumed + "» понял как " + this.amt(r) + ".", { i: true }));
+      });
+      if (sameAcc) lines.push(L(where(R[0]), { s: allOff }));
+    }
+    if (m.heard && !allOff) lines.push(L("Расслышал: «" + m.heard + "»", { quote: true }));
+    if (m.receipt && !allOff) { lines.push(L("Из чека: " + m.receipt.n + " " + this.plural(m.receipt.n, "позиция", "позиции", "позиций") + ", по QR-коду.", { gap: true })); if (m.receipt.hint) lines.push(L(m.receipt.hint, { i: true })); }
+    if (m.mode === "cancelled") lines.push(L(R.length > 1 ? "Отменено — в приложении этих записей нет." : "Отменено — в приложении этой записи нет.", { gap: true }));
+    if (!allOff && m.changed && m.mode === "confirm") lines.push(L(m.changed + ".", { i: true, gap: true }));
+    const r0 = R[0];
+    if (m.mode === "confirm" && R.length === 1 && r0.guess) lines.push(L("Записал в «" + C[r0.cat] + "» — верно?", { gap: true }));
+    if (m.mode === "confirm" && R.length === 1 && r0.unknown) lines.push(L("Категорию не узнал — записал в «" + C[r0.cat] + "».", { gap: true }));
+    (m.notes || []).forEach((x, i) => lines.push(L(x, { gap: i === 0 && R.length > 0 })));
+    const miss = (m.missing || [])[0];
+    const r = R[sel] || r0;
+    if (m.mode === "edit") lines.push(L(R.length > 1 ? "Меняем " + this.q(r.note) + ". Что именно?" : "Что изменить? Сумму можно и текстом: «не " + this.fmtInt(r.amount) + ", а …».", { i: true, gap: true }));
+    else if (m.mode === "cats") lines.push(L("Выберите категорию:", { i: true, gap: true }));
+    else if (m.mode === "accs") lines.push(L("Выберите счёт:", { i: true, gap: true }));
+    else if (m.mode === "dates") lines.push(L("Когда это было?", { i: true, gap: true }));
+    else if (m.mode === "amount") lines.push(L("Напишите новую сумму — например, " + (r.cur === "USD" ? "60$" : "150к") + ".", { b: true, gap: true }));
+    if (miss && !allOff) {
+      if (!R.length) lines.push(L(this.q(miss.note) + " — без суммы.", { b: true }));
+      lines.push(L((R.length ? this.q(miss.note) + " — без суммы. " : "") + "Сколько? Напишите числом.", { gap: R.length > 0 }));
+    }
+    if (!R.length && !miss && !(m.notes || []).length) lines.push(L("Хорошо, не записываю."));
+    // Кнопки: сначала частое действие, отмена — последней строкой.
+    if (m.mode === "cancelled") kb.push([B(R.length > 1 ? "Вернуть все" : "Вернуть", "revert")]);
+    else if (m.mode === "confirm" && R.length) {
+      if (R.length === 1 && r0.guess) { kb.push([B("Да, верно", "yes"), B("Другая", "other")]); kb.push([B("Изменить", "edit"), B("Отменить", "cancel")]); }
+      else if (R.length === 1 && r0.unknown) { kb.push([B("Выбрать категорию", "other")]); kb.push([B("Изменить", "edit"), B("Отменить", "cancel")]); }
+      else if (R.length === 1) kb.push([B("Изменить", "edit"), B("Отменить", "cancel")]);
+      else {
+        const shown = R.length > 6 ? R.slice(0, 5) : R;
+        shown.forEach((x, j) => { const i = R.indexOf(x); kb.push([x.cancelled ? B("Вернуть " + this.q(x.note), "revone:" + i) : B(this.short(x) + " · " + this.q(x.note), "pick:" + i)]); });
+        if (R.length > 6) kb.push([{ label: "Остальные — в Daftar", href: app }]);
+      }
+    }
+    if (m.mode === "confirm" && R.length === 1 && m.receipt) kb.push([{ label: "Разделить в Daftar", href: this.props.receiptHref ?? "Pastel_ReceiptFromBot.dc.html" }]);
+    if (miss && m.mode === "confirm") kb.push([B(R.length ? "Пропустить " + this.q(miss.note) : "Не записывать", "skip")]);
+    if (m.mode === "confirm" && R.length > 1 && live.length) kb.push([B("Отменить все", "cancel")]);
+    if (m.mode === "edit") {
+      const accOptions = r.cur === "USD" ? ["usd"] : ["card", "cash"];
+      kb.push([B("Сумму", "f:amount"), B("Категорию", "f:cats")]);
+      kb.push(accOptions.length > 1 ? [B("Счёт", "f:accs"), B("Дату", "f:dates")] : [B("Дату", "f:dates")]);
+      kb.push([{ label: "Открыть в Daftar", href: app }]);
+      kb.push([B("Готово", "done")]);
+      kb.push([B(R.length > 1 ? "Отменить " + this.q(r.note) : "Отменить запись", "cancel")]);
+    } else if (m.mode === "cats") {
+      const list = r.type === "income" ? this.incCats() : this.expCats();
+      for (let i = 0; i < list.length; i += 2) kb.push(list.slice(i, i + 2).map((c) => B((c === r.cat && !r.guess && !r.unknown ? "✓ " : "") + C[c], "cat:" + c, { choice: true, pressed: c === r.cat && !r.guess && !r.unknown })));
+      kb.push([B(r.type === "income" ? "Это расход" : "Это доход", "type"), B("‹ Назад", "back")]);
+    } else if (m.mode === "accs") {
+      kb.push(["card", "cash"].map((x) => B((x === r.acc ? "✓ " : "") + A[x], "acc:" + x, { choice: true, pressed: x === r.acc })));
+      kb.push([B("‹ Назад", "back")]);
+    } else if (m.mode === "dates") {
+      kb.push(["сегодня", "вчера"].map((d) => B((d === r.day ? "✓ " : "") + this.cap(d), "day:" + d, { choice: true, pressed: d === r.day })));
+      kb.push([B((r.day === "позавчера" ? "✓ " : "") + "Позавчера", "day:позавчера", { choice: true, pressed: r.day === "позавчера" })]);
+      kb.push([{ label: "Другая дата", href: app }]);
+      kb.push([B("‹ Назад", "back")]);
+    } else if (m.mode === "amount") {
+      kb.push([B("‹ Назад", "back")]);
+    }
+    return { lines: lines, kb: kb };
+  }
+  renderVals() {
+    const t = this.theme();
+    const s = this.st();
+    let pill = "";
+    const items = s.msgs.map((m) => {
+      if (m.k === "pill") pill = m.text;
+      const base = { plines: m.ptotal === "186 400" ? [{ n: "Куриное филе", p: "78 000" }, { n: "Рис 2 кг", p: "34 000" }, { n: "Масло 1 л", p: "28 500" }, { n: "Помидоры", p: "16 000" }] : [{ n: "Молоко ×2", p: "23 800" }, { n: "Хлеб", p: "6 500" }, { n: "Куриное филе", p: "78 000" }, { n: "Яблоки", p: "27 000" }], ptotal: m.ptotal || "254 300", isPhoto: m.k === "photo", photoAria: m.blur ? "Фото чека, размытое" : "Фото чека Navruz Market", blur: m.blur ? "blur(2.5px)" : "none", isPill: m.k === "pill", isMe: m.k === "me", isVoice: m.k === "voice", isBot: m.k === "rec" || m.k === "text", text: m.text || "", time: m.time || "", dur: m.dur || "", aria: "Голосовое сообщение, " + (m.dur || ""), edited: m.edited ? "изменено " : "", lines: [], kb: [], hasKb: false, w: "auto", kbAria: "" };
+      if (!base.isBot) return base;
+      const v = m.k === "rec" ? this.recView(m, pill) : { lines: m.lines, kb: m.kb };
+      base.lines = v.lines.map((l) => ({
+        isQuote: !!l.quote,
+        isText: !l.quote,
+        text: l.text,
+        w: l.b ? 700 : 400,
+        fs: l.i ? "italic" : "normal",
+        td: l.s ? "line-through" : "none",
+        c: t.text,
+        fz: "16px",
+        mt: l.gap ? "1.35em" : "0"
+      }));
+      base.kb = v.kb.map((row) => ({
+        btns: row.map((b) => ({
+          label: b.label,
+          isLink: !!b.href,
+          isChoice: !b.href && !!b.choice,
+          isBtn: !b.href && !b.choice,
+          href: b.href || "",
+          pressed: b.pressed ? "true" : "false",
+          go: () => this.press(m.id, b.act)
+        }))
+      }));
+      base.hasKb = base.kb.length > 0;
+      base.w = base.hasKb ? "310px" : "auto";
+      base.kbAria = "Кнопки к сообщению: " + (v.lines[0] ? v.lines[0].text : "");
+      return base;
+    });
+    const cmdList = [["/today", "Итоги дня"], ["/month", "Траты за месяц"], ["/undo", "Отменить последнюю запись"], ["/help", "Как записывать"], ["/start", "Что умеет бот"]];
+    const d = s.draft || "";
+    const head = d.split(" ")[0].toLowerCase();
+    const cmds = d.charAt(0) === "/" && d.indexOf(" ") === -1 ? cmdList.filter((c) => c[0].indexOf(head) === 0).map((c) => ({ cmd: c[0], desc: c[1], go: () => this.send(c[0]) })) : [];
+    const phrases = [{ heard: "Кофе двадцать пять тысяч", text: "кофе 25к", dur: "0:03" }, { heard: "Такси восемнадцать тысяч наличными", text: "такси 18к нал", dur: "0:04" }, { fail: true, dur: "0:02" }];
+    return {
+      t: t,
+      backHref: this.props.backHref ?? "Pastel_Home.dc.html",
+      appHref: this.props.appHref ?? "Pastel_Home.dc.html",
+      status: s.typing ? "печатает…" : "бот",
+      items: items,
+      typing: s.typing,
+      cmdDisplay: cmds.length > 0 ? "flex" : "none",
+      cmdOpen: cmds.length > 0,
+      cmdExpanded: cmds.length > 0 ? "true" : "false",
+      cmds: cmds,
+      draft: d,
+      hasDraft: d.trim().length > 0,
+      noDraft: d.trim().length === 0,
+      onDraft: (e) => this.setState({ draft: e && e.target ? e.target.value : "" }),
+      onKey: (e) => {
+        if (!e || e.key !== "Enter") return;
+        if (e.preventDefault) e.preventDefault();
+        const cur = this.st().draft || "";
+        const h = cur.trim().toLowerCase();
+        const exact = cmdList.some((c) => c[0] === h);
+        const first = h.charAt(0) === "/" && h.indexOf(" ") === -1 ? cmdList.find((c) => c[0].indexOf(h) === 0) : null;
+        this.send(!exact && first ? first[0] : cur);
+      },
+      sendDraft: () => this.send(this.st().draft),
+      voice: () => {
+        const n = this.st().voiceN;
+        this.setState({ voiceN: n + 1 });
+        this.send("", phrases[n % phrases.length]);
+      }
+    };
+  }
+}
+</script>
+</body>
+</html>

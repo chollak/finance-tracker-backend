@@ -1,65 +1,227 @@
-import { Repository } from 'typeorm';
+import { DataSource, Repository, SelectQueryBuilder } from 'typeorm';
+import { QueryDeepPartialEntity } from 'typeorm/query-builder/QueryPartialEntity';
 import { AppDataSource } from '../../../../shared/infrastructure/database/database.config';
 import { Transaction as TransactionEntity, TransactionType } from '../../../../shared/infrastructure/database/entities/Transaction';
+import { Account as AccountEntity } from '../../../../shared/infrastructure/database/entities/Account';
 import { TransactionRepository } from '../../domain/transactionRepository';
 import { Transaction } from '../../domain/transactionEntity';
 import { normalizeSemanticType } from '../../domain/transactionSemanticType';
 import { normalizeNeedsReview } from '../../domain/transactionEntity';
+import { fromMinor, minorOf, toMinor } from '../../../../shared/domain/money/money';
+import { isRecordCurrency, isRecordSource } from '../../domain/recordSource';
+import { searchKey } from '../../../../shared/domain/text/searchKey';
+import { HistoryAmount, HistoryCursor, HistoryFilters, HistoryPage, recordSearchText } from '../../domain/transactionHistory';
+
+/** «50%» is searched as text: LIKE wildcards in the query are escaped. */
+function likeContains(key: string): string {
+  return `%${key.replace(/[\\%_]/g, char => `\\${char}`)}%`;
+}
+
+/** createdAt as SQLite stores it and as an ISO cursor carries it, compared in one format. */
+const CREATED_AT = "strftime('%Y-%m-%d %H:%M:%f', transaction.createdAt)";
 
 export class SqliteTransactionRepository implements TransactionRepository {
   private repository: Repository<TransactionEntity>;
+  private accounts: Repository<AccountEntity>;
 
-  constructor() {
-    this.repository = AppDataSource.getRepository(TransactionEntity);
+  constructor(dataSource: DataSource = AppDataSource) {
+    this.repository = dataSource.getRepository(TransactionEntity);
+    this.accounts = dataSource.getRepository(AccountEntity);
+  }
+
+  /**
+   * Records come with their category, so readers get its current name. Deleted records (FT-105) are
+   * left out unless asked for: every reader — history, balances, analytics, the bot, the weekly
+   * review, export, learning — goes through here.
+   */
+  private query(options: { includeDeleted?: boolean } = {}): SelectQueryBuilder<TransactionEntity> {
+    const builder = this.repository.createQueryBuilder('transaction')
+      .leftJoinAndSelect('transaction.categoryRef', 'category');
+    return options.includeDeleted ? builder.where('1 = 1') : builder.where('transaction.deletedAt IS NULL');
   }
 
   async create(transaction: Transaction): Promise<Transaction> {
+    if (!transaction.categoryId) {
+      throw new Error('A transaction needs categoryId; resolve the category before creating it (FT-099)');
+    }
+    if (!transaction.accountId) {
+      throw new Error('A transaction needs accountId; resolve the account before creating it (FT-101)');
+    }
     const entity = this.repository.create({
-      amount: transaction.amount,
+      amountMinor: minorOf(transaction),
       type: transaction.type === 'income' ? TransactionType.INCOME : TransactionType.EXPENSE,
       semanticType: normalizeSemanticType(transaction.semanticType, transaction.type),
       needsReview: normalizeNeedsReview(transaction.needsReview),
       description: transaction.description,
       date: transaction.date,
       merchant: transaction.merchant,
+      searchText: recordSearchText(transaction),
       confidence: transaction.confidence,
       originalText: transaction.originalText,
       originalParsing: transaction.originalParsing ? JSON.stringify(transaction.originalParsing) : undefined,
       userId: transaction.userId,
-      category: transaction.category || 'Другое',
+      categoryId: transaction.categoryId,
+      accountId: transaction.accountId,
+      currency: transaction.currency ?? 'UZS',
+      source: transaction.source ?? null,
+      clientId: transaction.clientId ?? null,
       isArchived: transaction.isArchived ?? false
     });
 
-    const saved = await this.repository.save(entity);
-    return this.mapToTransaction(saved);
+    // One INSERT, not wrapped in BEGIN…COMMIT: SQLite gives TypeORM one connection, so a concurrent
+    // create that fails (a repeated clientId, FT-106) and rolls back would roll this insert back too
+    const saved = await this.repository.save(entity, { transaction: false });
+    const stored = await this.findByIdIncludingArchived(saved.id);
+    if (!stored) throw new Error(`Transaction ${saved.id} not found after create`);
+    return stored;
   }
 
   async getAll(): Promise<Transaction[]> {
-    const entities = await this.repository.find({
-      where: { isArchived: false },
-      order: { createdAt: 'DESC' }
-    });
+    const entities = await this.query()
+      .andWhere('transaction.isArchived = :isArchived', { isArchived: false })
+      .orderBy('transaction.createdAt', 'DESC')
+      .getMany();
 
     return entities.map(entity => this.mapToTransaction(entity));
   }
 
   async findById(id: string): Promise<Transaction | null> {
-    const entity = await this.repository.findOne({
-      where: { id, isArchived: false }
-    });
+    const entity = await this.query()
+      .andWhere('transaction.id = :id', { id })
+      .andWhere('transaction.isArchived = :isArchived', { isArchived: false })
+      .getOne();
 
-    if (!entity) return null;
-    return this.mapToTransaction(entity);
+    return entity ? this.mapToTransaction(entity) : null;
   }
 
+  /** Deletes softly (FT-105); `restore` brings the record back. */
   async delete(id: string): Promise<void> {
-    await this.repository.delete(id);
+    await this.repository.update(id, { deletedAt: new Date() });
+  }
+
+  async restore(id: string): Promise<Transaction> {
+    await this.repository.update(id, { deletedAt: null });
+    const restored = await this.findByIdIncludingArchived(id);
+    if (!restored) throw new Error(`Transaction ${id} not found after restore`);
+    return restored;
+  }
+
+  async findByClientId(userId: string, clientId: string): Promise<Transaction[]> {
+    const prefix = `${clientId}:`;
+    const entities = await this.query({ includeDeleted: true })
+      .andWhere('transaction.userId = :userId', { userId })
+      .andWhere('(transaction.clientId = :clientId OR substr(transaction.clientId, 1, :length) = :prefix)', {
+        clientId, prefix, length: prefix.length,
+      })
+      .getMany();
+    const index = (record: Transaction) => Number(record.clientId === clientId ? 0 : record.clientId!.slice(prefix.length));
+    return entities.map(entity => this.mapToTransaction(entity)).sort((a, b) => index(a) - index(b));
+  }
+
+  /**
+   * The user's records history filters find (FT-107), not archived, not deleted. Every word of a search
+   * (FT-116, SearchField.md) is matched in the note or merchant (`search_text`), the category's current name
+   * (`name_key`, kept by the category module) or the account's name — so a renamed category is found by its
+   * new name at once — and the digits start the amount in whole сум or dollars.
+   */
+  private async historyQuery(userId: string, filters: HistoryFilters): Promise<SelectQueryBuilder<TransactionEntity>> {
+    const builder = this.query()
+      .andWhere('transaction.userId = :userId', { userId })
+      .andWhere('transaction.isArchived = :isArchived', { isArchived: false });
+
+    const { search } = filters;
+    if (search) {
+      // Account names are few and kept as typed: matched in code, where Cyrillic case folds
+      const accountKeys = search.words.length > 0
+        ? (await this.accounts.find({ where: { userId }, select: { id: true, name: true } }))
+          .map(account => ({ id: account.id, key: searchKey(account.name) }))
+        : [];
+      search.words.forEach((word, index) => {
+        const accountIds = accountKeys.filter(account => account.key.includes(word)).map(account => account.id);
+        const matches = [
+          `transaction.searchText LIKE :word${index} ESCAPE '\\'`,
+          `category.nameKey LIKE :word${index} ESCAPE '\\'`,
+          ...(accountIds.length > 0 ? [`transaction.accountId IN (:...wordAccounts${index})`] : []),
+        ];
+        builder.andWhere(`(${matches.join(' OR ')})`, {
+          [`word${index}`]: likeContains(word),
+          ...(accountIds.length > 0 ? { [`wordAccounts${index}`]: accountIds } : {}),
+        });
+      });
+      if (search.amountDigits) {
+        // Whole сум or dollars: minor units are hundredths, and integer division drops them
+        builder.andWhere('CAST(transaction.amountMinor / 100 AS TEXT) LIKE :amountPrefix', { amountPrefix: `${search.amountDigits}%` });
+      }
+    }
+    if (filters.categoryIds?.length) builder.andWhere('transaction.categoryId IN (:...categoryIds)', { categoryIds: filters.categoryIds });
+    if (filters.accountIds?.length) builder.andWhere('transaction.accountId IN (:...accountIds)', { accountIds: filters.accountIds });
+    if (filters.type) {
+      builder.andWhere('transaction.type = :type', { type: filters.type === 'income' ? TransactionType.INCOME : TransactionType.EXPENSE });
+    }
+    // By the day: older records may keep a full moment in `date` (written before FT-100)
+    if (filters.from) builder.andWhere('substr(transaction.date, 1, 10) >= :from', { from: filters.from });
+    if (filters.to) builder.andWhere('substr(transaction.date, 1, 10) <= :to', { to: filters.to });
+    return builder;
+  }
+
+  /**
+   * One page of history (FT-107), ordered by date, creation time and id, newest first; the cursor is where
+   * the previous page ended.
+   */
+  async findHistory(userId: string, filters: HistoryFilters, cursor: HistoryCursor | null, limit: number): Promise<HistoryPage> {
+    const builder = await this.historyQuery(userId, filters);
+    if (cursor) {
+      builder.andWhere(
+        `(transaction.date < :cursorDate
+          OR (transaction.date = :cursorDate AND ${CREATED_AT} < strftime('%Y-%m-%d %H:%M:%f', :cursorCreatedAt))
+          OR (transaction.date = :cursorDate AND ${CREATED_AT} = strftime('%Y-%m-%d %H:%M:%f', :cursorCreatedAt) AND transaction.id < :cursorId))`,
+        { cursorDate: cursor.date, cursorCreatedAt: cursor.createdAt, cursorId: cursor.id }
+      );
+    }
+
+    const entities = await builder
+      .orderBy('transaction.date', 'DESC')
+      .addOrderBy('transaction.createdAt', 'DESC')
+      .addOrderBy('transaction.id', 'DESC')
+      .limit(limit + 1)
+      .getMany();
+
+    const items = entities.slice(0, limit).map(entity => this.mapToTransaction(entity));
+    const last = items[items.length - 1];
+    const next = entities.length > limit && last
+      ? { date: last.date, createdAt: last.createdAt!, id: last.id! }
+      : null;
+    return { items, next };
+  }
+
+  /** Every record the filters find, all pages, as much as a summary needs (FT-116). */
+  async findHistoryAmounts(userId: string, filters: HistoryFilters): Promise<HistoryAmount[]> {
+    const builder = await this.historyQuery(userId, filters);
+    const rows: Array<{ type: string; currency: string | null; amountMinor: number | string }> = await builder
+      .select('transaction.type', 'type')
+      .addSelect('transaction.currency', 'currency')
+      .addSelect('transaction.amountMinor', 'amountMinor')
+      .getRawMany();
+    return rows.map(row => ({
+      type: row.type === TransactionType.INCOME ? 'income' : 'expense',
+      currency: isRecordCurrency(row.currency) ? row.currency : 'UZS',
+      amountMinor: Number(row.amountMinor),
+    }));
+  }
+
+  /** A record by id even if it is deleted — to restore it, or to answer a repeated create (FT-106). */
+  async findByIdIncludingDeleted(id: string): Promise<Transaction | null> {
+    const entity = await this.query({ includeDeleted: true })
+      .andWhere('transaction.id = :id', { id })
+      .getOne();
+    return entity ? this.mapToTransaction(entity) : null;
   }
 
   async update(id: string, updates: Partial<Transaction>): Promise<Transaction> {
-    const updateData: any = {};
-    
-    if (updates.amount !== undefined) updateData.amount = updates.amount;
+    const updateData: QueryDeepPartialEntity<TransactionEntity> = {};
+
+    if (updates.amountMinor !== undefined) updateData.amountMinor = updates.amountMinor;
+    else if (updates.amount !== undefined) updateData.amountMinor = toMinor(updates.amount);
     if (updates.type !== undefined) {
       updateData.type = updates.type === 'income' ? TransactionType.INCOME : TransactionType.EXPENSE;
     }
@@ -68,42 +230,66 @@ export class SqliteTransactionRepository implements TransactionRepository {
     }
     if (updates.needsReview !== undefined) updateData.needsReview = updates.needsReview;
     if (updates.description !== undefined) updateData.description = updates.description;
+    // A category arrives resolved to its id (FT-099); a bare name is not written
+    if (updates.categoryId !== undefined) updateData.categoryId = updates.categoryId;
+    if (updates.accountId !== undefined) updateData.accountId = updates.accountId;
+    if (updates.currency !== undefined) updateData.currency = updates.currency;
     if (updates.date !== undefined) updateData.date = updates.date;
     if (updates.merchant !== undefined) updateData.merchant = updates.merchant;
     if (updates.confidence !== undefined) updateData.confidence = updates.confidence;
+    // The search text follows the note and the merchant (FT-107)
+    if (updates.description !== undefined || updates.merchant !== undefined) {
+      const current = await this.repository.findOne({ where: { id } });
+      updateData.searchText = recordSearchText({
+        description: updates.description ?? current?.description,
+        merchant: updates.merchant ?? current?.merchant,
+      });
+    }
 
-    await this.repository.update(id, updateData);
-    
+    if (Object.keys(updateData).length > 0) {
+      await this.repository.update(id, updateData);
+    }
+
     const updated = await this.findById(id);
     if (!updated) {
       throw new Error(`Transaction with id ${id} not found after update`);
     }
-    
+
     return updated;
   }
 
   async getByUserIdAndDateRange(userId: string, startDate: Date, endDate: Date): Promise<Transaction[]> {
-    const entities = await this.repository.createQueryBuilder('transaction')
-      .where('transaction.userId = :userId', { userId })
+    // By the record's day: records saved before FT-100 may keep a full moment («2026-10-14T05:30:00.000Z»)
+    const entities = await this.query()
+      .andWhere('transaction.userId = :userId', { userId })
       .andWhere('transaction.isArchived = :isArchived', { isArchived: false })
-      .andWhere('transaction.date >= :startDate', { startDate: startDate.toISOString().split('T')[0] })
-      .andWhere('transaction.date <= :endDate', { endDate: endDate.toISOString().split('T')[0] })
+      .andWhere('substr(transaction.date, 1, 10) >= :startDate', { startDate: startDate.toISOString().split('T')[0] })
+      .andWhere('substr(transaction.date, 1, 10) <= :endDate', { endDate: endDate.toISOString().split('T')[0] })
       .orderBy('transaction.date', 'DESC')
       .getMany();
 
     return entities.map(entity => this.mapToTransaction(entity));
   }
 
-  // Additional methods for SQLite-specific functionality
+  async findFirstRecordDate(userId: string): Promise<string | null> {
+    const row = await this.repository.createQueryBuilder('transaction')
+      .select('MIN(substr(transaction.date, 1, 10))', 'first')
+      .where('transaction.deletedAt IS NULL')
+      .andWhere('transaction.userId = :userId', { userId })
+      .andWhere('transaction.isArchived = :isArchived', { isArchived: false })
+      .getRawOne<{ first: string | null }>();
+    return row?.first ?? null;
+  }
+
   async findByUserId(userId: string, limit?: number): Promise<Transaction[]> {
-    const queryBuilder = this.repository.createQueryBuilder('transaction')
-      .where('transaction.userId = :userId', { userId })
+    const queryBuilder = this.query()
+      .andWhere('transaction.userId = :userId', { userId })
       .andWhere('transaction.isArchived = :isArchived', { isArchived: false })
       .orderBy('transaction.date', 'DESC')
       .addOrderBy('transaction.createdAt', 'DESC');
 
     if (limit) {
-      queryBuilder.limit(limit);
+      queryBuilder.take(limit);
     }
 
     const entities = await queryBuilder.getMany();
@@ -113,7 +299,8 @@ export class SqliteTransactionRepository implements TransactionRepository {
   private mapToTransaction(entity: TransactionEntity): Transaction {
     return {
       id: entity.id,
-      amount: Number(entity.amount),
+      amountMinor: Number(entity.amountMinor),
+      amount: fromMinor(Number(entity.amountMinor)),
       type: entity.type === TransactionType.INCOME ? 'income' : 'expense',
       semanticType: normalizeSemanticType(entity.semanticType, entity.type === TransactionType.INCOME ? 'income' : 'expense'),
       needsReview: entity.needsReview ?? false,
@@ -124,10 +311,18 @@ export class SqliteTransactionRepository implements TransactionRepository {
       confidence: entity.confidence ? Number(entity.confidence) : undefined,
       originalText: entity.originalText,
       originalParsing: entity.originalParsing ? JSON.parse(entity.originalParsing) : undefined,
-      category: entity.category || 'Другое',
+      categoryId: entity.categoryId,
+      category: entity.categoryRef?.name ?? entity.legacyCategory ?? 'Другое',
+      categoryColor: entity.categoryRef?.color,
+      accountId: entity.accountId,
+      currency: isRecordCurrency(entity.currency) ? entity.currency : 'UZS',
+      source: isRecordSource(entity.source) ? entity.source : undefined,
       userName: undefined, // We'll get this from User entity later
       isArchived: entity.isArchived ?? false,
-      createdAt: entity.createdAt?.toISOString()
+      createdAt: entity.createdAt?.toISOString(),
+      // Only deleted records and records sent with a client id carry these, so others keep their shape
+      ...(entity.deletedAt ? { deletedAt: new Date(entity.deletedAt).toISOString() } : {}),
+      ...(entity.clientId ? { clientId: entity.clientId } : {}),
     };
   }
 
@@ -162,14 +357,14 @@ export class SqliteTransactionRepository implements TransactionRepository {
   }
 
   async findArchivedByUserId(userId: string, limit?: number): Promise<Transaction[]> {
-    const queryBuilder = this.repository.createQueryBuilder('transaction')
-      .where('transaction.userId = :userId', { userId })
+    const queryBuilder = this.query()
+      .andWhere('transaction.userId = :userId', { userId })
       .andWhere('transaction.isArchived = :isArchived', { isArchived: true })
       .orderBy('transaction.date', 'DESC')
       .addOrderBy('transaction.createdAt', 'DESC');
 
     if (limit) {
-      queryBuilder.limit(limit);
+      queryBuilder.take(limit);
     }
 
     const entities = await queryBuilder.getMany();
@@ -177,11 +372,10 @@ export class SqliteTransactionRepository implements TransactionRepository {
   }
 
   async findByIdIncludingArchived(id: string): Promise<Transaction | null> {
-    const entity = await this.repository.findOne({
-      where: { id }
-    });
+    const entity = await this.query()
+      .andWhere('transaction.id = :id', { id })
+      .getOne();
 
-    if (!entity) return null;
-    return this.mapToTransaction(entity);
+    return entity ? this.mapToTransaction(entity) : null;
   }
 }

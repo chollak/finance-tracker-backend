@@ -1,5 +1,5 @@
 import { useBudgetSummaries, BudgetCard, budgetToViewModel } from '@/entities/budget';
-import { useUserStore, useIsGuest } from '@/entities/user/model/store';
+import { useUserStore } from '@/entities/user/model/store';
 import { BudgetTotals } from '@/widgets/budget-overview';
 import { Button, EmptyState, PageHeader, PageShell, SectionStack } from '@/shared/ui';
 import { Skeleton } from '@/shared/ui/skeleton';
@@ -7,31 +7,15 @@ import { Plus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '@/shared/lib/constants/routes';
 import { pluralBudgets } from '@/shared/lib/plural';
-import { GuestFeatureBlock } from '@/features/auth';
 
 /**
  * Budgets Page
  * Shows list of all budgets with overview
- * Guest users see login prompt
  */
 export function BudgetsPage() {
   const navigate = useNavigate();
   const userId = useUserStore((state) => state.userId);
-  const isGuest = useIsGuest();
   const { data: budgets, isLoading } = useBudgetSummaries(userId);
-
-  // Guest users: show login prompt
-  if (isGuest) {
-    return (
-      <PageShell>
-        <PageHeader title="Бюджеты" />
-        <GuestFeatureBlock
-          title="Бюджеты доступны после входа"
-          description="Создавайте бюджеты по категориям, отслеживайте лимиты и получайте уведомления о перерасходе."
-        />
-      </PageShell>
-    );
-  }
 
   // Transform to ViewModels
   const budgetViewModels = budgets ? budgets.map(budgetToViewModel) : [];

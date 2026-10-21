@@ -294,30 +294,18 @@ export const AppDataSource = new DataSource({
 });
 ```
 
-#### 3. Auto-sync (Development)
+#### 3. Migration
 
-```bash
-npm run dev
-# Table automatically created
-```
+`synchronize` выключен (FT-090): таблица появится только из миграции.
 
-#### 4. Supabase Migration
+1. Класс в `src/shared/infrastructure/database/migrations/<timestamp>-AddNotifications.ts` с `up()`
+   (и `down()`, если откат безопасен). SQL можно взять из `npm run migration:show` — он печатает, что
+   понадобилось бы для новой сущности.
+2. Добавить класс в `MIGRATIONS` в `migrations/index.ts`.
+3. Тест на настоящем SQLite во временной папке, как в `tests/databaseMigrations.test.ts`.
 
-```sql
--- migrations/002_notifications.sql
-CREATE TABLE notifications (
-  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-  user_id TEXT NOT NULL,
-  title TEXT NOT NULL,
-  message TEXT NOT NULL,
-  read BOOLEAN DEFAULT false,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
-CREATE INDEX idx_notifications_user_id ON notifications(user_id);
-```
-
-Выполнить в Supabase SQL Editor.
+При запуске приложение применит миграцию само, сделав копию базы в `data/backups/`. Подробнее —
+[Database Guide](database-guide.md).
 
 ---
 
