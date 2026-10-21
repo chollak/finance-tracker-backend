@@ -1,0 +1,40 @@
+name: Verify
+
+# Каждый PR проверяется тем же, что `npm run verify` локально: сборка backend и webapp,
+# Jest, Vitest, шрифты, токены, архитектура. Заменил автоматическое ревью
+# claude-code-review.yml (2026-10-21): ревью делают агенты и Hermes, а тесты на PR
+# не запускал никто. Ревью от Claude по запросу — @claude в комментарии (claude.yml).
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+# Новый push в тот же PR отменяет прогон, который ещё идёт
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            webapp/package-lock.json
+
+      # postinstall ставит и собирает webapp
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify
+        run: npm run verify
