@@ -86,6 +86,7 @@ graph TD
 | Компонент | Роль | Зависимости | Ключевые файлы |
 |-----------|------|-------------|----------------|
 | `DashboardService` / `DashboardController` | Агрегация insights для dashboard-эндпоинтов | AnalyticsService (Transaction) + BudgetService (Budget) | `src/modules/dashboard/application/services/dashboardService.ts`, `src/modules/dashboard/presentation/controllers/dashboardController.ts` |
+| Правила ревизии трат (FT-130) | Чистый домен без модуля: кандидаты месяца по 4 правилам из гибких категорий, группы трат под разными заметками, причины словами с числами, каталог подписок константой. Модуль `audit` с таблицами `audits`, `goals` и маршрутами появится в FT-131 | Типы и правила итогов TransactionModule (`countsAs`, `uzsMinorOf`, `recordDay`) | `src/modules/audit/domain/auditRules.ts`, `subscriptionCatalog.ts`, `auditText.ts` |
 
 ---
 
