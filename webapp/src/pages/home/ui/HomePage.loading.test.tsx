@@ -3,6 +3,8 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { accountKeys } from '@/entities/account';
+import { auditKeys } from '@/entities/audit';
+import { BOARD_GOALS, BOARD_OPEN } from '@/entities/audit/model/fixtures';
 import { categoryKeys } from '@/entities/category';
 import { rateKeys } from '@/entities/rate';
 import { transactionKeys } from '@/entities/transaction';
@@ -13,7 +15,8 @@ import { HomePage } from './HomePage';
 
 /**
  * FT-112 review: HomePage is its skeleton until its first reads (the balances, the month's totals, the
- * recent records, the categories, and since FT-137 the USD rate of «Сум / USD») have answered once, and then stays Home — also while a read that failed
+ * recent records, the categories, since FT-137 the USD rate of «Сум / USD», and since FT-132 the audit and its goals of the
+ * card under the tiles) have answered once, and then stays Home — also while a read that failed
  * is asked again by the sections that show its error. Rendered to static markup for a signed-in user; a read
  * is put in the state it would be in when HomePage renders.
  */
@@ -21,13 +24,16 @@ import { HomePage } from './HomePage';
 const USER_ID = '900000001';
 const month = monthBounds(toLocalDate(new Date()));
 
-type Read = 'accounts' | 'totals' | 'records' | 'categories' | 'rate';
+type Read = 'accounts' | 'totals' | 'records' | 'categories' | 'rate' | 'audit' | 'goals';
+const READS: Read[] = ['accounts', 'totals', 'records', 'categories', 'rate', 'audit', 'goals'];
 const KEYS: Record<Read, readonly unknown[]> = {
   accounts: accountKeys.list(USER_ID),
   totals: transactionKeys.totals(USER_ID, month),
   records: transactionKeys.recent(USER_ID, RECENT_LIMIT),
   categories: categoryKeys.list(USER_ID),
   rate: rateKeys.usd(USER_ID),
+  audit: auditKeys.current(USER_ID),
+  goals: auditKeys.goals(USER_ID),
 };
 const ANSWERS: Record<Read, unknown> = {
   accounts: { accounts: [], totalMinor: 0, rate: null, missingRate: false },
@@ -44,6 +50,8 @@ const ANSWERS: Record<Read, unknown> = {
   records: [],
   categories: [],
   rate: { effective: null, cbu: null, own: null },
+  audit: BOARD_OPEN,
+  goals: BOARD_GOALS,
 };
 
 /** A client whose reads have answered, except the ones still on their way and the ones that failed. */
@@ -81,13 +89,13 @@ describe('HomePage of a signed-in user', () => {
   it('is its skeleton while its reads are on their way', async () => {
     signOut = signInForStaticRender({ userId: USER_ID });
 
-    const html = render(await client({ onTheirWay: ['accounts', 'totals', 'records', 'categories', 'rate'] }));
+    const html = render(await client({ onTheirWay: READS }));
 
     expect(isSkeleton(html)).toBe(true);
     expect(isHome(html)).toBe(false);
   });
 
-  it.each<Read>(['accounts', 'totals', 'records', 'categories', 'rate'])('waits for each of them: %s', async (read) => {
+  it.each<Read>(READS)('waits for each of them: %s', async (read) => {
     signOut = signInForStaticRender({ userId: USER_ID });
 
     expect(isSkeleton(render(await client({ onTheirWay: [read] })))).toBe(true);
@@ -102,7 +110,16 @@ describe('HomePage of a signed-in user', () => {
     expect(isHome(html)).toBe(true);
   });
 
-  it.each<Read>(['accounts', 'totals', 'records', 'categories', 'rate'])(
+  it('shows the invitation to the audit under the month tiles, over the recent records (FT-132)', async () => {
+    signOut = signInForStaticRender({ userId: USER_ID });
+
+    const html = render(await client());
+
+    expect(html.indexOf('Ревизия сентября')).toBeGreaterThan(html.indexOf('Расход за'));
+    expect(html.indexOf('Ревизия сентября')).toBeLessThan(html.indexOf('Последние операции'));
+  });
+
+  it.each<Read>(READS)(
     'stays Home when %s failed before it had data, while its section asks it again on mount',
     async (read) => {
       signOut = signInForStaticRender({ userId: USER_ID });

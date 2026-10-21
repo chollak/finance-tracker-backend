@@ -1,4 +1,5 @@
 import { useAccounts } from '@/entities/account';
+import { useCurrentAudit, useGoals } from '@/entities/audit';
 import { useCategories } from '@/entities/category';
 import { useUsdRate } from '@/entities/rate';
 import { usePeriodTotals, useRecentRecords } from '@/entities/transaction';
@@ -37,9 +38,10 @@ export function isHomeLoading({ reads, offline = false }: { reads: readonly Home
 /**
  * Home's first reads, the same queries its sections make: the balances (balance card), the month's totals
  * (the line under the balance and the tiles), the recent records and the categories they are shown with,
- * and the USD rate — the card and the tiles are in dollars when «Сум / USD» says so (FT-137), so Home does
- * not open in сум and turn into dollars a moment later. The settings with that choice are read before Home
- * (the first-launch gate).
+ * the USD rate — the card and the tiles are in dollars when «Сум / USD» says so (FT-137), so Home does
+ * not open in сум and turn into dollars a moment later — and the audit with its goals (FT-132), so the card under the
+ * tiles does not push the records down a moment later. The settings with that choice and with «Позже» of the audit are
+ * read before Home (the first-launch gate).
  */
 export function useHomeLoading(): boolean {
   const accounts = useAccounts();
@@ -47,7 +49,9 @@ export function useHomeLoading(): boolean {
   const records = useRecentRecords(RECENT_LIMIT);
   const categories = useCategories();
   const rate = useUsdRate();
+  const audit = useCurrentAudit();
+  const goals = useGoals();
   const offline = useIsOffline();
 
-  return isHomeLoading({ reads: [accounts, totals, records, categories, rate], offline });
+  return isHomeLoading({ reads: [accounts, totals, records, categories, rate, audit, goals], offline });
 }

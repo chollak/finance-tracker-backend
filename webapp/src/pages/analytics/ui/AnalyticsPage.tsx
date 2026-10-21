@@ -1,13 +1,15 @@
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useMonthAnalytics, type AnalyticsType } from '@/entities/analytics';
+import { useCurrentAudit } from '@/entities/audit';
 import { findCategory, useCategories } from '@/entities/category';
 import { ANALYTICS_MONTH_PARAM, ANALYTICS_TYPE_PARAM, ROUTES } from '@/shared/lib/constants/routes';
 import { cn } from '@/shared/lib/utils';
 import { BackButton, EmptyState, Segmented, SkeletonBlock, UndoToast } from '@/shared/ui/pastel';
+import { auditLink } from '../model/auditLink';
 import { monthOverview, monthStepper } from '../model/monthOverview';
 import { monthParam } from '../model/periodWords';
 import { useLeaveRefusedMonth } from '../model/useLeaveRefusedMonth';
-import { AnalyticsHeroView, CategoryBarsView, MonthStepperView } from './MonthParts';
+import { AnalyticsHeroView, AuditLinkView, CategoryBarsView, MonthStepperView } from './MonthParts';
 import { BARS_ICON, FOCUS, LoadingRows, ReadFailed } from './parts';
 
 const SIDES = [
@@ -41,7 +43,8 @@ function LoadingMonth() {
  * then the categories as bars with the tick of the previous period; a category opens its own screen. The month and
  * the side are in the address (`?month=2026-09&type=income`), so Home's income tile opens the income and «Назад»
  * from a category returns to the same month. An empty month leads to the first record of its side. A month later
- * than the current one (a link, a clock ahead) is refused by the API: the screen goes to the current month.
+ * than the current one (a link, a clock ahead) is refused by the API: the screen goes to the current month. Under the
+ * expenses of the month the audit is about, a card opens the audit (FT-132).
  */
 export function AnalyticsPage() {
   const [params] = useSearchParams();
@@ -50,6 +53,7 @@ export function AnalyticsPage() {
   const type: AnalyticsType = params.get(ANALYTICS_TYPE_PARAM) === 'income' ? 'income' : 'expense';
   const analytics = useMonthAnalytics({ month, type });
   const categories = useCategories();
+  const audit = useCurrentAudit();
   const refusedMonth = useLeaveRefusedMonth(month, analytics.error, ROUTES.ANALYTICS_VIEW({ type }));
 
 
@@ -70,6 +74,7 @@ export function AnalyticsPage() {
     content = <LoadingMonth />;
   } else {
     const view = monthOverview(data, (categoryId) => findCategory(categories.data, categoryId)?.color);
+    const toAudit = auditLink(audit.data, { month: data.month, type: data.type, hasData: view.kind === 'data' });
     content =
       view.kind === 'empty' ? (
         // The board's empty month sits 64px under the switch, 16px lower than History's empty list
@@ -100,6 +105,7 @@ export function AnalyticsPage() {
             footnote={view.footnote}
             onOpen={(categoryId) => navigate(ROUTES.ANALYTICS_CATEGORY(categoryId, data.month))}
           />
+          {toAudit && <AuditLinkView title={toAudit.title} subtitle={toAudit.subtitle} to={ROUTES.AUDIT} />}
         </>
       );
   }

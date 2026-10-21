@@ -1,5 +1,6 @@
 import { BalanceCard } from '@/widgets/balance-card';
 import { SummaryTiles } from '@/widgets/summary-tiles';
+import { AuditCard } from '@/widgets/audit-card';
 import { RecentTransactions } from '@/widgets/recent-transactions';
 import { HomeHeader } from '@/widgets/home-header';
 import { HomeSkeleton } from '@/widgets/home-skeleton';
@@ -23,6 +24,9 @@ import { useHomeLoading } from '../model/homeLoading';
  *
  * Until each of its first reads has answered once Home is its skeleton (FT-112), the same one the app opens
  * on; a read that failed is then the business of its section, which says so and reads it again.
+ *
+ * Under the tiles one card about the spending audit (FT-132, InviteCard.md): the invitation with «Позже» while the audit
+ * of the month before waits, «Цели после ревизии» after it.
  *
  * A recent record opens its sheet (FT-115), and so does a link to a record (`ROUTES.RECORD`: the bot's
  * «Изменить»), which the sheet shows once Home is there.
@@ -54,6 +58,7 @@ export function HomePage() {
         {offline && <OfflineBar />}
         <BalanceCard />
         <SummaryTiles />
+        <AuditCard />
         <RecentTransactions />
       </div>
 

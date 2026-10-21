@@ -7,6 +7,8 @@ import { createMemoryRouter, matchRoutes, RouterProvider } from 'react-router-do
 import type { ReactNode } from 'react';
 import { HomePage, TransactionsPage } from '@/pages';
 import { accountKeys } from '@/entities/account';
+import { auditKeys } from '@/entities/audit';
+import { EARLY } from '@/entities/audit/model/fixtures';
 import { categoryKeys } from '@/entities/category';
 import { rateKeys } from '@/entities/rate';
 import { transactionKeys } from '@/entities/transaction';
@@ -88,6 +90,9 @@ describe('ways to the record sheet', () => {
     ]);
     client.setQueryData(transactionKeys.record('t4'), T4);
     client.setQueryData(rateKeys.usd(USER_ID), { effective: null, cbu: null, own: null });
+    // The audit card's reads (FT-132): too early for an audit, no goals — no card
+    client.setQueryData(auditKeys.current(USER_ID), EARLY);
+    client.setQueryData(auditKeys.goals(USER_ID), { today: EARLY.today, startsOn: null, endsOn: null, goals: [], planMinor: 0, comparison: null });
     return client;
   }
 

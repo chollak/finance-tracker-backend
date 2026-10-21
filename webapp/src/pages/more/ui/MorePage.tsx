@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { Bell, CalendarDays, Download, Flag, LogOut, Moon, Search, Tag, User, Wallet } from 'lucide-react';
 import { useAccounts } from '@/entities/account';
+import { useCurrentAudit } from '@/entities/audit';
 import { useCategories } from '@/entities/category';
 import { useUsdRate } from '@/entities/rate';
 import { useSettings, useUpdateSettings } from '@/entities/settings';
@@ -15,7 +16,7 @@ import { BackButton, SettingsRow, SettingsSection, UndoToast } from '@/shared/ui
 import {
   accountsState,
   accountState,
-  AUDIT_SOON,
+  auditState,
   BOT_NOTE,
   categoriesState,
   DATA_NOTE,
@@ -44,8 +45,8 @@ const NOTIFICATION_ICONS: Record<NotificationKind, ReactNode> = {
  * the audit; «Бот в Telegram» — the summary, the audit call and goal alerts, which drive the bot's scheduler (FT-124);
  * «Вид» — the theme; «Данные» — the export; by a direct link also «Аккаунт» with «Выйти» (FT-128). Every row says its state, every change
  * applies at once. Budgets and debts are not here (Д2). «Скачать все записи» (FT-126) sends the CSV to the chat with the
- * bot in Telegram and downloads it in a browser. «Категории» opens the categories screen (FT-127). The audit (FT-132)
- * comes later: its row says so and opens nothing yet.
+ * bot in Telegram and downloads it in a browser. «Категории» opens the categories screen (FT-127), «Ревизия трат» the
+ * audit of the month before (FT-132, board «Ревизия (из „Ещё“)»), whose «Назад» returns here.
  */
 export function MorePage() {
   const inTelegram = insideTelegram();
@@ -55,6 +56,7 @@ export function MorePage() {
   const accounts = useAccounts();
   const rates = useUsdRate();
   const categories = useCategories();
+  const audit = useCurrentAudit();
   const settings = useSettings();
   const { preference } = useThemeChoice();
   const exportRecords = useExportRecords(inTelegram);
@@ -114,7 +116,7 @@ export function MorePage() {
               title="Категории"
               subtitle={categoriesState(categories.data)}
             />
-            <SettingsRow kind="static" icon={icon(Search)} title="Ревизия трат" subtitle={AUDIT_SOON} />
+            <SettingsRow kind="link" to={ROUTES.AUDIT} icon={icon(Search)} title="Ревизия трат" subtitle={auditState(audit.data)} />
           </SettingsSection>
 
           <SettingsSection title="Бот в Telegram" note={BOT_NOTE}>

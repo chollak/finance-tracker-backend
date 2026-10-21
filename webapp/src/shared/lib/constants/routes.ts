@@ -67,6 +67,10 @@ export const ROUTES = {
   ANALYTICS_VIEW: (view: { month?: string; type?: 'expense' | 'income' }) => `/analytics${analyticsSearch(view)}`,
   ANALYTICS_CATEGORY: (id: string, month?: string) => `/analytics/categories/${encodeURIComponent(id)}${analyticsSearch({ month })}`,
 
+  // The spending audit of the month before (FT-132): opened from Home's invitation and «Цели после ревизии», from «Ещё»
+  // and under the month it audits in analytics
+  AUDIT: '/audit',
+
   // More
   MORE: '/more',
   // The categories (FT-127): opened from «Ещё», whose «Назад» it returns to
@@ -184,6 +188,17 @@ export const API_ENDPOINTS = {
       `/analytics?${new URLSearchParams({ ...(params.month ? { month: params.month } : {}), type: params.type })}`,
     CATEGORY: (id: string, month?: string) =>
       `/analytics/categories/${encodeURIComponent(id)}${month ? `?${new URLSearchParams({ month })}` : ''}`,
+  },
+
+  // The spending audit and its goals (FT-131); the user comes from authentication
+  AUDITS: {
+    CURRENT: '/audits/current',
+    CANDIDATE: (auditId: string, candidateId: string) => `/audits/${encodeURIComponent(auditId)}/candidates/${encodeURIComponent(candidateId)}`,
+    FINISH: (auditId: string) => `/audits/${encodeURIComponent(auditId)}/finish`,
+  },
+  GOALS: {
+    LIST: '/goals',
+    UPDATE: (goalId: string) => `/goals/${encodeURIComponent(goalId)}`,
   },
 
   // Budgets

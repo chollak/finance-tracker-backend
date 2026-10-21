@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import type { Account, AccountsOverview } from '@/entities/account';
+import { BOARD_OPEN } from '@/entities/audit/model/fixtures';
 import { type Category } from '@/entities/category';
 import { STARTER_CATEGORIES } from '@/entities/category/model/fixtures';
 import type { UsdRates } from '@/entities/rate';
@@ -82,6 +83,7 @@ beforeEach(() => {
     if (url === '/rates/usd') return { success: true, data: RATES } as never;
     if (url === '/categories') return { success: true, data: categories } as never;
     if (url === '/settings') return { success: true, data: settings } as never;
+    if (url === '/audits/current') return { success: true, data: BOARD_OPEN } as never;
     return new Promise<never>(() => {});
   });
   vi.mocked(apiClient.patch).mockReset();
@@ -116,6 +118,7 @@ async function renderMore() {
       { path: '/more', element: <MorePage /> },
       { path: '/accounts', element: <p>Экран счетов</p> },
       { path: '/more/categories', element: <p>Экран категорий</p> },
+      { path: '/audit', element: <p>Экран ревизии</p> },
       { path: '/', element: <p>Главная</p> },
     ],
     { initialEntries: ['/more'] }
@@ -176,7 +179,7 @@ describe('«Ещё» in Telegram', () => {
 
     expect(document.body.querySelector('h1')?.textContent).toBe('Ещё');
     expect(sections()).toEqual([
-      { title: 'Деньги', rows: [`Счета и курс доллара · 3 счёта · курс ЦБ 12${NBSP}650`, 'Категории · 8 для расходов, 8 для доходов', 'Ревизия трат · Скоро: разбор трат прошлого месяца'] },
+      { title: 'Деньги', rows: [`Счета и курс доллара · 3 счёта · курс ЦБ 12${NBSP}650`, 'Категории · 8 для расходов, 8 для доходов', 'Ревизия трат · Сентябрь · 6 трат на проверку'] },
       {
         title: 'Бот в Telegram',
         rows: [
@@ -192,11 +195,11 @@ describe('«Ещё» in Telegram', () => {
     expect(text()).toContain('Все записи с категориями, счетами и курсом — таблицей CSV, её откроет Excel или Google Таблицы.');
   });
 
-  it('offers no budgets and no debts (Д2): the sections it links to are the accounts and the categories', async () => {
+  it('offers no budgets and no debts (Д2): the sections it links to are the accounts, the categories and the audit', async () => {
     await renderMore();
 
     const links = [...document.body.querySelectorAll('a')].map((link) => link.getAttribute('href'));
-    expect(links).toEqual(['/accounts', '/more/categories']);
+    expect(links).toEqual(['/accounts', '/more/categories', '/audit']);
     expect(text()).not.toMatch(/Бюджет|Долг/);
   });
 
@@ -206,6 +209,15 @@ describe('«Ещё» in Telegram', () => {
     await press(row('Счета и курс доллара'));
 
     expect(router.state.location.pathname).toBe('/accounts');
+  });
+
+  it('«Ревизия трат» opens the audit (FT-132, board «Ревизия (из „Ещё“)»)', async () => {
+    await renderMore();
+
+    await press(row('Ревизия трат'));
+
+    expect(router.state.location.pathname).toBe('/audit');
+    expect(text()).toBe('Экран ревизии');
   });
 
   it('«Категории» opens the categories screen (FT-127)', async () => {
@@ -266,8 +278,8 @@ describe('«Ещё» in Telegram', () => {
     expect(squash(sheet()?.textContent)).toContain('Раз в месяц бот позовёт разобрать траты прошлого месяца: что было нужно, а что лишнее.');
     expect(squash(sheet()!.querySelector('[role="switch"]')?.textContent)).toBe('Звать 1-го числа');
     expect(squash(sheet()?.textContent)).toContain('Во сколько звать');
-    // Nothing is sent before there is an audit: the sheet says when it starts
-    expect(squash(sheet()?.textContent)).toContain('Ревизия появится скоро — тогда бот и начнёт звать.');
+    // The bot does not call yet (FT-133): the sheet says so and where the audit is
+    expect(squash(sheet()?.textContent)).toContain('Звать в боте начнём скоро, а ревизия уже ждёт на главной и здесь, в «Ещё».');
     expect([...sheet()!.querySelectorAll('[role="radio"]')].map((time) => time.textContent)).toEqual(['09:00', '10:00', '12:00', '19:00']);
 
     await press(inSheet('19:00'));
@@ -282,7 +294,7 @@ describe('«Ещё» in Telegram', () => {
 
     await press(row('Цели и подписки'));
     expect(squash(sheet()?.textContent)).toContain('Днём, если трата по цели из ревизии подходит к лимиту, и за день до списания подписки, которую вы решили отменить.');
-    expect(squash(sheet()?.textContent)).toContain('Цели и подписки появятся с ревизией — тогда бот и начнёт предупреждать.');
+    expect(squash(sheet()?.textContent)).toContain('Предупреждать в боте начнём скоро, а цели после ревизии уже видны на главной.');
     expect(sheet()!.querySelectorAll('[role="radio"]')).toHaveLength(0);
 
     await press(sheet()!.querySelector('[role="switch"]')!);

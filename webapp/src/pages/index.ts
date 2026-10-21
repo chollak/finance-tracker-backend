@@ -18,3 +18,4 @@ export * from './first-launch';
 export * from './accounts';
 export * from './categories';
 export * from './login';
+export * from './audit';

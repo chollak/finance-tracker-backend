@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 import type { Account, AccountsOverview } from '@/entities/account';
 import type { UsdRates } from '@/entities/rate';
 import { AUDIT_TIMES, DAILY_SUMMARY_TIMES, type UserSettings } from '@/entities/settings';
+import { applyCandidateChange, type Audit } from '@/entities/audit';
+import { BOARD_DONE, BOARD_OPEN, BOARD_PROGRESS, EARLY } from '@/entities/audit/model/fixtures';
 import { NBSP } from '@/shared/lib/money';
-import { accountsState, NOTIFICATIONS, notificationPatch, notificationState } from './moreScreen';
+import { accountsState, auditState, NOTIFICATIONS, notificationPatch, notificationState } from './moreScreen';
 
 /**
  * FT-125, board «„Ещё“ — разделы и настройки»: a row of «Ещё» says its state in plain words, with numbers and times
@@ -50,7 +52,7 @@ describe('the bot\'s notices', () => {
     expect(notificationState('summary', settings({ dailySummaryEnabled: false })).state).toBe('Выключена');
   });
 
-  // The bot does not send these until there is an audit (FT-132, FT-133): «Скоро», not an active schedule
+  // The bot does not send these until FT-133: «Скоро», not an active schedule
   it('the audit: soon, on the 1st at its time; or off', () => {
     expect(notificationState('audit', settings({ auditTime: '09:00' }))).toEqual({ on: true, time: '09:00', state: 'Скоро: 1-го числа в 09:00' });
     expect(notificationState('audit', settings({ auditEnabled: false })).state).toBe('Выключено');
@@ -63,8 +65,9 @@ describe('the bot\'s notices', () => {
 
   it('only the summary is sent today: the others say when they start, and keep the board\'s state for FT-133', () => {
     expect(NOTIFICATIONS.summary.soon).toBeUndefined();
-    expect(NOTIFICATIONS.audit.soon?.note).toBe('Ревизия появится скоро — тогда бот и начнёт звать.');
-    expect(NOTIFICATIONS.goals.soon?.note).toBe('Цели и подписки появятся с ревизией — тогда бот и начнёт предупреждать.');
+    // The audit and its goals are on Home and in «Ещё» since FT-132: only the bot's messages are still to come
+    expect(NOTIFICATIONS.audit.soon?.note).toBe('Звать в боте начнём скоро, а ревизия уже ждёт на главной и здесь, в «Ещё».');
+    expect(NOTIFICATIONS.goals.soon?.note).toBe('Предупреждать в боте начнём скоро, а цели после ревизии уже видны на главной.');
     expect(NOTIFICATIONS.audit.state(true, '10:00')).toBe('1-го числа в 10:00, за прошлый месяц');
     expect(NOTIFICATIONS.goals.state(true, null)).toBe('Когда цель близка к лимиту и перед списанием подписки');
   });
@@ -82,5 +85,27 @@ describe('the bot\'s notices', () => {
     expect(NOTIFICATIONS.summary.time?.options).toEqual(DAILY_SUMMARY_TIMES);
     expect(NOTIFICATIONS.audit.time?.options).toEqual(AUDIT_TIMES);
     expect(NOTIFICATIONS.goals.time).toBeUndefined();
+  });
+});
+
+describe('«Ревизия трат» (FT-132)', () => {
+  it('says the month and how many spendings wait, as the board: «Сентябрь · 6 трат на проверку»', () => {
+    expect(auditState(BOARD_OPEN)).toBe('Сентябрь · 6 трат на проверку');
+    expect(auditState(BOARD_PROGRESS)).toBe('Сентябрь · 4 траты на проверку');
+    const allMarked = BOARD_OPEN.candidates.reduce((audit, entry) => applyCandidateChange(audit, entry.id, { decision: 'need' }), BOARD_OPEN);
+    expect(auditState(allMarked)).toBe('Сентябрь · осталось нажать «Готово»');
+  });
+
+  it('after «Готово»: done, with the goals', () => {
+    expect(auditState(BOARD_DONE)).toBe('Сентябрь · готово, 4 цели');
+    expect(auditState({ ...BOARD_DONE, goals: [] })).toBe('Сентябрь · готово');
+  });
+
+  it('nothing found, too early, not read yet', () => {
+    const nothing: Audit = { ...BOARD_OPEN, candidates: [], summary: { ...BOARD_OPEN.summary, count: 0, left: 0 } };
+    expect(auditState(nothing)).toBe('Сентябрь · лишнего не нашлось');
+    expect(auditState(EARLY)).toBe('Первая — 1 декабря');
+    expect(auditState({ ...EARLY, firstRecordDate: null, firstAuditOn: null })).toBe('Нужен месяц записей');
+    expect(auditState(undefined)).toBeUndefined();
   });
 });

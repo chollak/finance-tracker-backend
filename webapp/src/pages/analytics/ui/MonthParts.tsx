@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { cn } from '@/shared/lib/utils';
 import { CategoryDot } from '@/shared/ui/pastel';
 import type { MonthStepper, OverviewHero, OverviewRow } from '../model/monthOverview';
@@ -123,5 +124,21 @@ export function CategoryBarsView({
       </ul>
       <p className="px-1 text-[13px] font-medium leading-[1.45] text-ink-muted">{footnote}</p>
     </section>
+  );
+}
+
+/**
+ * The audit of the month shown (FT-132, board «Аналитика · прошлый месяц»): a `card` row with the title, one line and a
+ * chevron, under the categories.
+ */
+export function AuditLinkView({ title, subtitle, to }: { title: string; subtitle: string; to: string }) {
+  return (
+    <Link to={to} className={cn('flex min-h-16 items-center gap-3 rounded-card bg-card py-3 pl-4 pr-3.5 text-ink', FOCUS)}>
+      <span className="flex min-w-0 flex-1 flex-col gap-px">
+        <span className="text-[15px] font-extrabold leading-snug">{title}</span>
+        <span className="text-[13px] font-semibold text-ink-muted">{subtitle}</span>
+      </span>
+      <Chevron to="right" size={16} />
+    </Link>
   );
 }

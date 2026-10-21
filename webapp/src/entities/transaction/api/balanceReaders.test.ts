@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { QueryClient } from '@tanstack/react-query';
 import { accountKeys } from '@/entities/account';
 import { analyticsKeys } from '@/entities/analytics';
+import { auditKeys } from '@/entities/audit';
 import { balanceReaderKeys } from './balanceReaders';
 import { transactionKeys } from './keys';
 
@@ -61,6 +62,20 @@ describe('what a change of records refreshes in Analytics (FT-121)', () => {
     for (const queryKey of balanceReaderKeys('user-1')) await client.invalidateQueries({ queryKey });
 
     expect(mine.map((key) => client.getQueryState(key)?.isInvalidated)).toEqual([true, true, true]);
+    expect(client.getQueryState(theirs)?.isInvalidated).toBe(false);
+  });
+});
+
+describe('what a change of records refreshes for the audit (FT-132)', () => {
+  it('the current audit and the goals of that user: an audit not yet marked is found again, a goal counts what is spent', async () => {
+    const client = new QueryClient();
+    const mine = [auditKeys.current('user-1'), auditKeys.goals('user-1')];
+    const theirs = auditKeys.current('user-2');
+    for (const key of [...mine, theirs]) client.setQueryData(key, {});
+
+    for (const queryKey of balanceReaderKeys('user-1')) await client.invalidateQueries({ queryKey });
+
+    expect(mine.map((key) => client.getQueryState(key)?.isInvalidated)).toEqual([true, true]);
     expect(client.getQueryState(theirs)?.isInvalidated).toBe(false);
   });
 });

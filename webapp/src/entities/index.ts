@@ -8,3 +8,4 @@ export * from './settings';
 export * from './rate';
 export * from './account';
 export * from './analytics';
+export * from './audit';

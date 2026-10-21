@@ -39,6 +39,8 @@ const AccountsPage = lazy(() => import('@/pages').then(m => ({ default: m.Accoun
 const AccountPage = lazy(() => import('@/pages').then(m => ({ default: m.AccountPage })));
 // Transfer and exchange between accounts (FT-119), from the accounts or an account
 const TransferPage = lazy(() => import('@/pages').then(m => ({ default: m.TransferPage })));
+// The spending audit of the month before (FT-132), from Home, «Ещё» and analytics
+const AuditPage = lazy(() => import('@/pages').then(m => ({ default: m.AuditPage })));
 
 // Wrapper component with Suspense; Home's code loads behind Home's skeleton (FT-112)
 function PageLoader({ children, fallback = <Loading fullScreen /> }: { children: React.ReactNode; fallback?: React.ReactNode }) {
@@ -163,6 +165,10 @@ export const appRoutes: RouteObject[] = [
               {
                 path: '/accounts/:id',
                 element: <PageLoader><AccountPage /></PageLoader>,
+              },
+              {
+                path: '/audit',
+                element: <PageLoader><AuditPage /></PageLoader>,
               },
               {
                 path: '/add',

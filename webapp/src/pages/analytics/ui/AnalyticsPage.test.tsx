@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createMemoryRouter, RouterProvider, useParams, useSearchParams } from 'react-router-dom';
 import type { MonthAnalytics } from '@/entities/analytics';
+import { BOARD_OPEN } from '@/entities/audit/model/fixtures';
 import type { Category } from '@/entities/category';
 import { useUserStore } from '@/entities/user';
 import { apiClient } from '@/shared/api';
@@ -58,6 +59,7 @@ beforeEach(() => {
   vi.mocked(apiClient.get).mockReset();
   vi.mocked(apiClient.get).mockImplementation(async (url: string) => {
     if (url === '/categories') return { success: true, data: CATEGORIES } as never;
+    if (url === '/audits/current') return { success: true, data: BOARD_OPEN } as never;
     const answer = answers[url];
     if (answer instanceof Error) throw { message: answer.message, statusCode: (answer as Error & { statusCode?: number }).statusCode ?? 500 };
     if (answer) return { success: true, data: answer } as never;
@@ -81,6 +83,7 @@ async function renderAnalytics(path = '/analytics') {
       { path: '/analytics', element: <AnalyticsPage /> },
       { path: '/analytics/categories/:id', element: <CategoryStub /> },
       { path: '/add', element: <p>Ручной ввод</p> },
+      { path: '/audit', element: <p>Ревизия</p> },
       { path: '/', element: <p>Главная</p> },
     ],
     { initialEntries: [path] }
@@ -197,6 +200,29 @@ describe('Analytics: expenses of the current month (board «Аналитика �
     await renderAnalytics('/analytics?type=income');
 
     expect(text()).toContain('Фриланс: на 1 265 000 сум больше, чем в сентябре');
+  });
+});
+
+describe('Analytics: the month audited leads to its audit (FT-132, board «Аналитика · прошлый месяц»)', () => {
+  const auditLink = () => [...document.body.querySelectorAll<HTMLAnchorElement>('a')].find((link) => link.textContent?.startsWith('Ревизия'));
+
+  it('under September’s expenses: «Ревизия сентября · Найти траты, без которых можно обойтись»', async () => {
+    await renderAnalytics('/analytics?month=2026-09');
+
+    expect([...auditLink()!.querySelectorAll('span > span')].map((part) => part.textContent)).toEqual([
+      'Ревизия сентября',
+      'Найти траты, без которых можно обойтись',
+    ]);
+    await act(async () => auditLink()!.click());
+    await settle();
+    expect(location()).toBe('/audit');
+  });
+
+  it('not under the current month', async () => {
+    await renderAnalytics();
+
+    expect(text()).toContain('Октябрь 2026');
+    expect(auditLink()).toBeUndefined();
   });
 });
 

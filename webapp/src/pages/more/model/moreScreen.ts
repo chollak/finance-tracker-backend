@@ -1,7 +1,9 @@
 import { visibleAccounts, type AccountsOverview } from '@/entities/account';
+import type { Audit } from '@/entities/audit';
 import { pickableCategories, type Category } from '@/entities/category';
 import type { UsdRates } from '@/entities/rate';
 import { AUDIT_TIMES, DAILY_SUMMARY_TIMES, type SettingsPatch, type UserSettings } from '@/entities/settings';
+import { dayMonth, monthNameLower } from '@/shared/lib/dates';
 import { formatMinor } from '@/shared/lib/money';
 import { pluralWithCount } from '@/shared/lib/plural';
 
@@ -53,9 +55,9 @@ interface NotificationSpec {
   /** The row's state, as the board has it. */
   state: (on: boolean, time: string | null) => string;
   /**
-   * The bot does not send this yet: the audit and the goals come with FT-132, their reminders with FT-133, which
-   * drops this. The setting is kept already; while it is on the row says «Скоро» in place of the board's state, and
-   * the sheet says when it starts.
+   * The bot does not send this yet: the audit and its goals are here since FT-132, their reminders come with FT-133,
+   * which drops this. The setting is kept already; while it is on the row says «Скоро» in place of the board's state,
+   * and the sheet says when it starts.
    */
   soon?: { state: (time: string | null) => string; note: string };
 }
@@ -77,7 +79,7 @@ export const NOTIFICATIONS: Record<NotificationKind, NotificationSpec> = {
     enabledField: 'auditEnabled',
     time: { field: 'auditTime', label: 'Во сколько звать', options: AUDIT_TIMES },
     state: (on, time) => (on ? `1-го числа в ${time}, за прошлый месяц` : 'Выключено'),
-    soon: { state: (time) => `Скоро: 1-го числа в ${time}`, note: 'Ревизия появится скоро — тогда бот и начнёт звать.' },
+    soon: { state: (time) => `Скоро: 1-го числа в ${time}`, note: 'Звать в боте начнём скоро, а ревизия уже ждёт на главной и здесь, в «Ещё».' },
   },
   goals: {
     title: 'Цели и подписки',
@@ -87,7 +89,7 @@ export const NOTIFICATIONS: Record<NotificationKind, NotificationSpec> = {
     state: (on) => (on ? 'Когда цель близка к лимиту и перед списанием подписки' : 'Выключено'),
     soon: {
       state: () => 'Скоро: когда цель близка к лимиту и перед списанием подписки',
-      note: 'Цели и подписки появятся с ревизией — тогда бот и начнёт предупреждать.',
+      note: 'Предупреждать в боте начнём скоро, а цели после ревизии уже видны на главной.',
     },
   },
 };
@@ -120,8 +122,24 @@ export const NOTIFICATION_SAVE_FAILED = { title: 'Не получилось со
 
 export const BOT_NOTE = 'Время — по Ташкенту. Кроме этого бот пишет только в ответ на ваши записи.';
 
-/** The audit comes with its screens (FT-132); until then the row only says what it will be. */
-export const AUDIT_SOON = 'Скоро: разбор трат прошлого месяца';
+/**
+ * «Ревизия трат» (FT-132): the month audited and how many spendings wait — «Сентябрь · 6 трат на проверку»; after
+ * «Готово» — done, with the goals; before a whole month of records — when the first audit comes. Nothing while it is
+ * read.
+ */
+export function auditState(audit: Audit | undefined): string | undefined {
+  if (!audit) return undefined;
+  if (audit.state === 'too_early') return audit.firstAuditOn ? `Первая — ${dayMonth(audit.firstAuditOn)}` : 'Нужен месяц записей';
+  const name = monthNameLower(Number(audit.month.slice(5, 7)));
+  const month = `${name.charAt(0).toLocaleUpperCase('ru-RU')}${name.slice(1)}`;
+  if (audit.state === 'done') {
+    const goals = audit.goals.length;
+    return `${month} · готово${goals > 0 ? `, ${pluralWithCount(goals, 'цель', 'цели', 'целей')}` : ''}`;
+  }
+  if (audit.summary.count === 0) return `${month} · лишнего не нашлось`;
+  if (audit.summary.left === 0) return `${month} · осталось нажать «Готово»`;
+  return `${month} · ${pluralWithCount(audit.summary.left, 'трата', 'траты', 'трат')} на проверку`;
+}
 
 export const DATA_NOTE = 'Все записи с категориями, счетами и курсом — таблицей CSV, её откроет Excel или Google Таблицы.';
 

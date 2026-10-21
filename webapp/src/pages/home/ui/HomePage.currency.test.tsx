@@ -6,6 +6,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { apiClient } from '@/shared/api';
 import { accountKeys, type Account, type AccountsOverview } from '@/entities/account';
+import { auditKeys } from '@/entities/audit';
+import { EARLY } from '@/entities/audit/model/fixtures';
 import { categoryKeys } from '@/entities/category';
 import { rateKeys, type UsdRates } from '@/entities/rate';
 import { settingsKeys, type UserSettings } from '@/entities/settings';
@@ -96,6 +98,9 @@ function seed({ chosen = 'UZS', rates = WITH_RATE, accounts = ACCOUNTS }: { chos
   client.setQueryData(transactionKeys.totals(USER_ID, MONTH), TOTALS);
   client.setQueryData(transactionKeys.recent(USER_ID, RECENT_LIMIT), []);
   client.setQueryData(categoryKeys.list(USER_ID), []);
+  // The audit card's reads (FT-132): too early for an audit, no goals — no card
+  client.setQueryData(auditKeys.current(USER_ID), EARLY);
+  client.setQueryData(auditKeys.goals(USER_ID), { today: EARLY.today, startsOn: null, endsOn: null, goals: [], planMinor: 0, comparison: null });
 }
 
 async function renderHome(): Promise<void> {
