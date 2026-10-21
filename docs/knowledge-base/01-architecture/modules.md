@@ -20,7 +20,7 @@ graph TD
     FM[FxModule<br/>USD rate]
     QM[QuickCaptureModule<br/>Quick capture API]
     BMM[BotMessageModule<br/>Bot record messages]
-    NM[NotificationModule<br/>Daily summary, /today, /month]
+    NM[NotificationModule<br/>Daily summary, /today, /month,<br/>goal + audit reminders]
     EM[ExportModule<br/>All records as CSV]
     AuM[AuthModule<br/>Web login through the bot]
     AuD[AuditModule<br/>Spending audit + goals]
@@ -43,6 +43,7 @@ graph TD
     QM -->|depends on| VM
     NM -->|totals + analytics| TM
     NM -->|users + settings| UM
+    NM -.->|audit, goals, answers: ReminderSources| AuD
     EM -.->|records: ExportSources| TM
     EM -.->|accounts + moves: ExportSources| AM
     AuM -.->|session names: users table| UM
@@ -80,7 +81,7 @@ graph TD
 | **SubscriptionModule** | Premium подписки + Telegram Stars | UserModule (controller) | `subscriptionModule.ts` |
 | **UserModule** | Пользователи и их настройки (FT-098) | Независимый | `userModule.ts` |
 | **BotMessageModule** | Сообщения бота о записях (FT-122): какие записи показывает подтверждение и какой экран кнопок открыт — таблица `bot_messages`, кнопки и `/undo` переживают перезапуск | Независимый; записи меняет бот через use cases TransactionModule | `botMessageModule.ts` |
-| **NotificationModule** | Уведомления бота (FT-124): итоги дня в выбранное время по часам пользователя, не больше одного раза за день (`notifications_log`), и итоги для `/today` и `/month` | TransactionModule (сервис итогов FT-103, аналитика FT-120), UserModule (пользователи и настройки) | `notificationModule.ts` |
+| **NotificationModule** | Уведомления бота: итоги дня в выбранное время по часам пользователя и итоги для `/today` и `/month` (FT-124); напоминания после ревизии — цель на 80% и сверх лимита, подписка накануне списания, ревизия 1-го числа и «Позже» один раз (FT-133); каждое — не больше одного раза (`notifications_log`) | TransactionModule (сервис итогов FT-103, аналитика FT-120), UserModule (пользователи и настройки), AuditModule (ревизия, цели и ответы на напоминания — порт `ReminderSources`) | `notificationModule.ts` |
 | **AuthModule** | Вход в браузере через бота (FT-128, Д4): одноразовая ссылка `t.me/<bot>?start=login_<token>` на 5 минут, «Подтвердить» / «Это не я» в боте, сессия браузера — httpOnly-cookie; `login_tokens` | Независимый; имена для `GET /api/auth/session` — из UserModule в контроллере; сессию читает `webSessionMiddleware` в Express | `authModule.ts` |
 | **AuditModule** | Ревизия трат и цели (FT-130 правила, FT-131 хранение): ревизия прошлого месяца открывается при первом запросе и хранит кандидатов с решениями (`audits`), «Готово» делает цели (`goals`) — лимит с дня ревизии, сравнение с теми же днями прошлого месяца, подписки «Уже отменено» / «Напомнить»; неразобранное приходит в следующую ревизию | TransactionModule (записи, первая запись, курс через сервис итогов FT-103) и CategoryModule через порт `AuditSources` (подключается в `createModules()`) | `auditModule.ts` |
 | **ExportModule** | «Скачать все записи» (FT-126): CSV всех неудалённых записей и перемещений — скачивание в браузере (`GET /api/export`) или файл в чат с ботом (`POST /api/export/chat`, `sendDocument`) | TransactionModule и AccountModule через порт `ExportSources` (подключается в `createModules()`); Bot API — по токену бота | `exportModule.ts` |
@@ -426,16 +427,23 @@ new ProcessVoiceInputUseCase(
 **Файл:** [`src/modules/notification/notificationModule.ts`](../../../src/modules/notification/notificationModule.ts)
 
 ### Назначение
-Сообщения, которые бот присылает сам (FT-124, `docs/pastel/components/BotNotice.md`). Пока это итоги дня: в
+Сообщения, которые бот присылает сам (FT-124, FT-133, `docs/pastel/components/BotNotice.md`). Итоги дня: в
 выбранное время (`dailySummaryTime`, 20:00–23:00, по умолчанию 21:00) по часовому поясу пользователя
 (`users.timezone`) — сумма за день, до 3 категорий и строка о месяце; в день без записей — «Трат правда не было?»,
 не больше 2 вечеров подряд и снова после записи, но не до первой записи пользователя. Пришедший после выбранного
 времени получает первые итоги на следующий день. Те же итоги отвечают на `/today` и `/month`.
 
+Напоминания после ревизии (FT-133, доска «Бот · напоминания»): цель «Вдвое меньше» — один раз на 80% лимита с дня
+ревизии и один раз сверх него, днём (10:00–22:00 по часам пользователя); подписка или тариф с «Напомнить» — в день
+напоминания (накануне списания) с 10:00, с «Отменено | Оставить»; ревизия — 1-го числа в `auditTime`, пока в ней есть
+траты на проверку, с «Открыть ревизию ↗» и «Позже» — «Позже» зовёт ещё раз на следующий день в то же время, один раз.
+Всё — пока включены «Звать на ревизию» (`auditEnabled`) и «Цели и подписки» (`goalAlertsEnabled`).
+
 ### Состав
 - Домен — `dailySummary.ts`: часы пользователя (`localClock`), когда итоги пора слать (`isSummaryDue`), что в них
   (`DaySummary`, `MonthSummary`), правила `DAILY_SUMMARY_RULES`; `notificationLog.ts` — строка журнала и порт
-  репозитория.
+  репозитория; `reminders.ts` (FT-133) — правила напоминаний `REMINDER_RULES` (80%, дневные часы), что они говорят
+  (`ReminderNotice`) и порт `ReminderSources` к модулю ревизии.
 - `SummaryService` — итоги дня и месяца. Числа — из TransactionModule: `GetPeriodTotalsUseCase.forPeriod` (тот же
   сервис итогов, что у плиток главной) и `GetMonthAnalyticsUseCase` (сравнение с теми же днями прошлого месяца).
 - `DailySummaryNotifier` — планировщик: раз в минуту смотрит часы каждого пользователя; день сначала занимается в
@@ -443,9 +451,16 @@ new ProcessVoiceInputUseCase(
   перезапуск или второй процесс его не повторят. Не дошедшее (бот заблокирован) остаётся `failed` и в тот день не
   повторяется. «Да, не было» сохраняет ответ, только пока за день нет записей (`answerNoSpending`); если запись
   уже есть, вопрос превращается в итоги дня.
+- `RemindersNotifier` (FT-133) — планировщик напоминаний, раз в минуту рядом с итогами дня; каждое напоминание
+  занимается в `notifications_log` (`goal_near` / `goal_over` — id цели, `subscription` — id цели и день напоминания,
+  `audit` / `audit_again` — месяц ревизии) и уходит не больше одного раза. Цель, сразу ушедшая сверх лимита, получает
+  только второе сообщение, первое остаётся `skipped`. «Позже» (`answerAuditLater`) пишет `answer = 'later'` и `due_on` —
+  завтра; «Отменено» и «Оставить» (`answerSubscription`) идут в модуль ревизии через `ReminderSources`. Общий таймер
+  обоих планировщиков — `Ticker` (`application/ticker.ts`).
 - `SqliteNotificationLogRepository` — TypeORM, `INSERT OR IGNORE` + перечитывание (как FT-140).
 - Отправляет и рисует бот: `summarySender` и «Да, не было» — `src/delivery/messaging/telegram/handlers/summaryHandlers.ts`,
-  тексты — `formatters/summaryMessage.ts`. Планировщик запускает `startTelegramBot()`, то есть только процесс,
+  тексты — `formatters/summaryMessage.ts`; напоминания, «Позже», «Отменено» и «Оставить» — `handlers/reminderHandlers.ts`
+  и `formatters/reminderMessage.ts`. Планировщики запускает `startTelegramBot()`, то есть только процесс,
   который опрашивает Telegram: после ответа Telegram (`onLaunch`), с первым тиком через минуту, и останавливает,
   когда опрос падает (конфликт с другим процессом или ошибка насовсем).
 
@@ -523,7 +538,9 @@ new ProcessVoiceInputUseCase(
 - Use cases: `GetCurrentAuditUseCase` (открывает ревизию прошлого месяца при первом запросе или говорит, когда будет
   первая; до первой отметки или «Готово» находит кандидатов заново при каждом чтении — `refoundAuditItems` сохраняет
   `id` той же траты, FT-142), `DecideAuditCandidateUseCase`, `FinishAuditUseCase` (обе замораживают состав),
-  `ListGoalsUseCase`, `UpdateGoalUseCase`; `AuditGoalSync` — цели следуют за решениями, по очереди на ревизию, с
+  `ListGoalsUseCase`, `UpdateGoalUseCase`; для бота (FT-133) — `ListGoalRemindersUseCase` (цели «Вдвое меньше» сегодня и
+  подписки, чей день «Напомнить» — сегодня) и `KeepSubscriptionUseCase` («Оставить»: решение в ревизии цели становится
+  «Нужно», цель уходит — и в закрытой ревизии); `AuditGoalSync` — цели следуют за решениями, по очереди на ревизию, с
   перечитыванием решения перед созданием цели (FT-142); `AuditReader` — «сегодня» по Ташкенту (или переданное, для бота
   FT-133), расходы как в итогах FT-103, ответы API.
 - `SqliteAuditRepository` — `audits` (миграции `AuditsGoals1762200000000`, `AuditFrozen1762300000000`): кандидаты JSON,
@@ -609,8 +626,8 @@ export function createModules() {
   // 5. Сообщения бота о записях (FT-122)
   const botMessageModule = BotMessageModule.create();
 
-  // 6. Итоги дня, /today и /month (FT-124)
-  const notificationModule = NotificationModule.create(transactionModule, userModule);
+  // 6. Итоги дня, /today и /month (FT-124), напоминания после ревизии (FT-133) — после auditModule
+  const notificationModule = NotificationModule.create(transactionModule, userModule, auditModule);
 
   return { categoryModule, transactionModule, budgetModule, debtModule, voiceModule, quickCaptureModule,
     openAIUsageModule, userModule, subscriptionModule, botMessageModule, notificationModule };

@@ -104,7 +104,7 @@
 | **FxModule** | Курс доллара (FT-102): ЦБ и свой | AccountModule получает его как `EffectiveRateProvider`; свой курс — в настройках UserModule |
 | **SubscriptionModule** | Free/Premium подписки, лимиты, Telegram Stars | UserModule (на уровне контроллера) |
 | **BotMessageModule** | Сообщения бота о записях (FT-122): связь «сообщение → записи» в `bot_messages` | Независимый |
-| **NotificationModule** | Уведомления бота (FT-124): итоги дня в выбранное время, `/today` и `/month`; что отправлено — в `notifications_log` | TransactionModule, UserModule |
+| **NotificationModule** | Уведомления бота: итоги дня в выбранное время, `/today` и `/month` (FT-124); напоминания о целях, подписках и ревизии (FT-133); что отправлено — в `notifications_log` | TransactionModule, UserModule, AuditModule |
 
 **Dashboard — не модуль.** В `src/modules/dashboard/` есть только `DashboardService` и `DashboardController`; `dashboardModule.ts` отсутствует, и `createModules()` не возвращает `dashboardModule`. Сборка идёт в Express-слое: `createDashboardRouter()` строит `DashboardService` из `transactionModule.getAnalyticsService()` и `budgetModule.budgetService`.
 

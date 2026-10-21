@@ -184,8 +184,8 @@ describe('«Ещё» in Telegram', () => {
         title: 'Бот в Telegram',
         rows: [
           'Сводка дня · Каждый вечер в 21:00',
-          'Звать на ревизию · Скоро: 1-го числа в 10:00',
-          'Цели и подписки · Скоро: когда цель близка к лимиту и перед списанием подписки',
+          'Звать на ревизию · 1-го числа в 10:00, за прошлый месяц',
+          'Цели и подписки · Когда цель близка к лимиту и перед списанием подписки',
         ],
       },
       { title: 'Вид', rows: ['Тема · Как в Telegram'] },
@@ -278,15 +278,15 @@ describe('«Ещё» in Telegram', () => {
     expect(squash(sheet()?.textContent)).toContain('Раз в месяц бот позовёт разобрать траты прошлого месяца: что было нужно, а что лишнее.');
     expect(squash(sheet()!.querySelector('[role="switch"]')?.textContent)).toBe('Звать 1-го числа');
     expect(squash(sheet()?.textContent)).toContain('Во сколько звать');
-    // The bot does not call yet (FT-133): the sheet says so and where the audit is
-    expect(squash(sheet()?.textContent)).toContain('Звать в боте начнём скоро, а ревизия уже ждёт на главной и здесь, в «Ещё».');
+    // The bot calls since FT-133: nothing about «скоро»
+    expect(squash(sheet()?.textContent)).not.toContain('скоро');
     expect([...sheet()!.querySelectorAll('[role="radio"]')].map((time) => time.textContent)).toEqual(['09:00', '10:00', '12:00', '19:00']);
 
     await press(inSheet('19:00'));
     await press(inSheet('Готово'));
 
     expect(apiClient.patch).toHaveBeenLastCalledWith('/settings', { auditTime: '19:00' });
-    expect(sections()[1].rows[1]).toBe('Звать на ревизию · Скоро: 1-го числа в 19:00');
+    expect(sections()[1].rows[1]).toBe('Звать на ревизию · 1-го числа в 19:00, за прошлый месяц');
   });
 
   it('«Цели и подписки»: a switch without a time', async () => {
@@ -294,7 +294,7 @@ describe('«Ещё» in Telegram', () => {
 
     await press(row('Цели и подписки'));
     expect(squash(sheet()?.textContent)).toContain('Днём, если трата по цели из ревизии подходит к лимиту, и за день до списания подписки, которую вы решили отменить.');
-    expect(squash(sheet()?.textContent)).toContain('Предупреждать в боте начнём скоро, а цели после ревизии уже видны на главной.');
+    expect(squash(sheet()?.textContent)).not.toContain('скоро');
     expect(sheet()!.querySelectorAll('[role="radio"]')).toHaveLength(0);
 
     await press(sheet()!.querySelector('[role="switch"]')!);

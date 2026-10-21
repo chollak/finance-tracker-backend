@@ -1,9 +1,10 @@
 import { Column, CreateDateColumn, Entity, Index, PrimaryColumn, UpdateDateColumn } from 'typeorm';
 
 /**
- * A notice the bot sent on its own (FT-124): its kind (`daily_summary`), the period it is about (`2026-10-14`),
- * how it went (`status`), which variant went out and to which message, and the answer to it. Unique per user,
- * kind and period: the row is claimed before sending, so a notice goes out at most once.
+ * A notice the bot sent on its own (FT-124, FT-133): its kind (`daily_summary`, `goal_near`, `audit`…), what it is
+ * about (`period`: a day, a month, a goal), how it went (`status`), which variant went out and to which message, the
+ * answer to it and, after «Позже», the day it comes again. Unique per user, kind and period: the row is claimed before
+ * sending, so a notice goes out at most once.
  */
 @Entity('notifications_log')
 @Index('IDX_notifications_log_period', ['userId', 'kind', 'period'], { unique: true })
@@ -37,6 +38,9 @@ export class NotificationLog {
 
   @Column('text', { nullable: true })
   error!: string | null;
+
+  @Column('varchar', { name: 'due_on', nullable: true })
+  dueOn!: string | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;

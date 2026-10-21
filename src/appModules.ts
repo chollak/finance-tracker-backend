@@ -71,9 +71,6 @@ export function createModules() {
   // Which records each bot confirmation shows: «Изменить», «Вернуть» and /undo survive a restart (FT-122)
   const botMessageModule = BotMessageModule.create();
 
-  // Итоги дня at the chosen time, /today and /month, sent at most once (FT-124)
-  const notificationModule = NotificationModule.create(transactionModule, userModule);
-
   // «Скачать все записи» (FT-126): records and moves that are not deleted, as CSV — downloaded or sent to the bot chat
   const exportModule = ExportModule.create({
     records: userId => transactionModule.getRepository().findByUserId(userId),
@@ -92,6 +89,10 @@ export function createModules() {
     categories: userId => categoryModule.getCatalog().listForUser(userId),
     usdRateMinor: (userId, records) => periodTotals.usdRateFor(userId, records),
   });
+
+  // Итоги дня at the chosen time, /today and /month (FT-124); the goal, subscription and audit reminders (FT-133) —
+  // each sent at most once
+  const notificationModule = NotificationModule.create(transactionModule, userModule, auditModule);
 
   return {
     categoryModule,

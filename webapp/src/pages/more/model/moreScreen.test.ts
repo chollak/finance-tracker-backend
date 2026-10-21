@@ -52,24 +52,21 @@ describe('the bot\'s notices', () => {
     expect(notificationState('summary', settings({ dailySummaryEnabled: false })).state).toBe('Выключена');
   });
 
-  // The bot does not send these until FT-133: «Скоро», not an active schedule
-  it('the audit: soon, on the 1st at its time; or off', () => {
-    expect(notificationState('audit', settings({ auditTime: '09:00' }))).toEqual({ on: true, time: '09:00', state: 'Скоро: 1-го числа в 09:00' });
+  // The bot sends them since FT-133: the row says the board's schedule
+  it('the audit: on the 1st at its time, for the month before; or off', () => {
+    expect(notificationState('audit', settings({ auditTime: '09:00' }))).toEqual({ on: true, time: '09:00', state: '1-го числа в 09:00, за прошлый месяц' });
     expect(notificationState('audit', settings({ auditEnabled: false })).state).toBe('Выключено');
   });
 
-  it('goals and subscriptions: soon, when, in words; or off', () => {
-    expect(notificationState('goals', settings({}))).toEqual({ on: true, time: null, state: 'Скоро: когда цель близка к лимиту и перед списанием подписки' });
+  it('goals and subscriptions: when, in words; or off', () => {
+    expect(notificationState('goals', settings({}))).toEqual({ on: true, time: null, state: 'Когда цель близка к лимиту и перед списанием подписки' });
     expect(notificationState('goals', settings({ goalAlertsEnabled: false })).state).toBe('Выключено');
   });
 
-  it('only the summary is sent today: the others say when they start, and keep the board\'s state for FT-133', () => {
-    expect(NOTIFICATIONS.summary.soon).toBeUndefined();
-    // The audit and its goals are on Home and in «Ещё» since FT-132: only the bot's messages are still to come
-    expect(NOTIFICATIONS.audit.soon?.note).toBe('Звать в боте начнём скоро, а ревизия уже ждёт на главной и здесь, в «Ещё».');
-    expect(NOTIFICATIONS.goals.soon?.note).toBe('Предупреждать в боте начнём скоро, а цели после ревизии уже видны на главной.');
-    expect(NOTIFICATIONS.audit.state(true, '10:00')).toBe('1-го числа в 10:00, за прошлый месяц');
-    expect(NOTIFICATIONS.goals.state(true, null)).toBe('Когда цель близка к лимиту и перед списанием подписки');
+  it('only the summary has a note under its card, as on the board', () => {
+    expect(NOTIFICATIONS.summary.note).toBe('В день без записей сводка спросит, правда ли трат не было, — отдельного напоминания нет.');
+    expect(NOTIFICATIONS.audit.note).toBeUndefined();
+    expect(NOTIFICATIONS.goals.note).toBeUndefined();
   });
 
   it('a change is one setting', () => {

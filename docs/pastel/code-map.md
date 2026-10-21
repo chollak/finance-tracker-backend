@@ -30,7 +30,8 @@ Architecture: `domain → application → infrastructure → presentation` вн�
 > С FT-124 меню команд (`setMyCommands`) — `/today`, `/month`, `/undo`, `/help`, `/start`; `/stats` отвечает как
 > `/month` вне меню, `/budget`, `/week`, `/weekly`, `/transactions` убраны («Такой команды нет. Список — /help»),
 > `/premium` и `/cancel_subscription` работают вне меню (Д3). Итоги дня шлёт планировщик `NotificationModule` в
-> процессе бота, отправленное — в `notifications_log`.
+> процессе бота, отправленное — в `notifications_log`. С FT-133 там же — напоминания о целях, подписках и ревизии
+> (`RemindersNotifier`, `handlers/reminderHandlers.ts`).
 
 **Данные.** TypeORM + SQLite (`data/database.sqlite`, `synchronize` в dev). Параллельно живёт путь Supabase
 через `supabase-js` со своими репозиториями и ручными SQL-миграциями в `migrations/` (проект на паузе).

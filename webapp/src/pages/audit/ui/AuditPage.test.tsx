@@ -52,6 +52,7 @@ const goalsOf = (audit: Audit): Goals =>
 
 /** The audit as the server keeps it; the stubs below change it as the API would. */
 let server: Audit;
+let settings: UserSettings;
 let failNextMark: boolean;
 let root: Root;
 let container: HTMLDivElement;
@@ -60,12 +61,13 @@ let router: ReturnType<typeof createMemoryRouter>;
 beforeEach(() => {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
   server = BOARD_OPEN;
+  settings = SETTINGS;
   failNextMark = false;
   vi.mocked(apiClient.get).mockReset().mockImplementation(async (url: string) => {
     if (url === '/audits/current') return { success: true, data: server } as never;
     if (url === '/categories') return { success: true, data: CATEGORIES } as never;
     if (url === '/goals') return { success: true, data: goalsOf(server) } as never;
-    if (url === '/settings') return { success: true, data: SETTINGS } as never;
+    if (url === '/settings') return { success: true, data: settings } as never;
     return new Promise<never>(() => {});
   });
   vi.mocked(apiClient.patch).mockReset().mockImplementation(async (url: string, body: unknown) => {
@@ -258,7 +260,17 @@ describe('«Готово» and the result («Ревизия · итог и це�
     expect(text()).toContain('Считаем с 14 октября — дня ревизии');
     expect(text()).toContain(`Потрачено 24${NB}000 из 102${NB}000${NB}сум до 31 октября`);
     expect(text()).toContain(`Наушники — 690${NB}000${NB}сум`);
-    expect(text()).toContain('Следующая ревизия — 1 ноября, за октябрь.');
+    expect(text()).toContain('Цели появятся на главной, а у лимита напишем в боте. Следующая ревизия — 1 ноября, за октябрь.');
+  });
+
+  // The bot tells a limit at 80% and over it (FT-133) only while «Цели и подписки» is on
+  it('does not promise the bot\'s message at the limit with «Цели и подписки» off', async () => {
+    server = BOARD_DONE;
+    settings = { ...SETTINGS, goalAlertsEnabled: false };
+    await renderAudit();
+
+    expect(text()).toContain('Цели появятся на главной. Следующая ревизия — 1 ноября, за октябрь.');
+    expect(text()).not.toContain('напишем в боте');
   });
 
   it('«Изменить отметки» returns to the list; «Готово» again shows the result', async () => {

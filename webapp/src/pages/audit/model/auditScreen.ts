@@ -179,8 +179,12 @@ export interface AuditResultView {
 const percentText = (percent: number, less: string, more: string, same: string) =>
   percent < 0 ? `: ${less} ${Math.abs(percent)}% меньше` : percent > 0 ? `: ${more} ${percent}% больше` : `: ${same}`;
 
-/** The result (PlanHero.md, «Ревизия · итог и цели», «Ревизия · лишнего нет»): a plan, not a reproach. */
-export function auditResult(audit: Audit): AuditResultView {
+/**
+ * The result (PlanHero.md, «Ревизия · итог и цели», «Ревизия · лишнего нет»): a plan, not a reproach. «а у лимита
+ * напишем в боте» — only when a goal has a limit the bot watches (FT-133) and «Цели и подписки» is on (`goalAlertsEnabled`,
+ * on until the settings say otherwise).
+ */
+export function auditResult(audit: Audit, options: { goalAlertsEnabled?: boolean } = {}): AuditResultView {
   const month = monthNumber(audit.month);
   const { count, marked, left, extraCount, planMinor, wastedMinor, goalCount } = audit.summary;
 
@@ -208,8 +212,10 @@ export function auditResult(audit: Audit): AuditResultView {
   // What a brought candidate left undecided again does not come once more (FT-131)
   const comingBack = audit.candidates.filter((candidate) => candidate.decision === null && candidate.carriedFrom === null).length;
   const nextMonth = monthNumber(shiftMonth(audit.nextAuditOn.slice(0, 7), -1));
+  const botWatchesLimit = (options.goalAlertsEnabled ?? true) && audit.candidates.some((candidate) => candidate.goal === 'half');
+  const goalsLine = goalCount > 0 ? (botWatchesLimit ? 'Цели появятся на главной, а у лимита напишем в боте. ' : 'Цели появятся на главной. ') : '';
   const next =
-    `${goalCount > 0 ? 'Цели появятся на главной. ' : ''}Следующая ревизия — ${dayMonth(audit.nextAuditOn)}, за ${monthNameLower(nextMonth)}.` +
+    `${goalsLine}Следующая ревизия — ${dayMonth(audit.nextAuditOn)}, за ${monthNameLower(nextMonth)}.` +
     (comingBack > 0
       ? ` В неё войдут и ${comingBack} ${pluralRu(comingBack, 'неразобранная трата', 'неразобранные траты', 'неразобранных трат')}.`
       : '');

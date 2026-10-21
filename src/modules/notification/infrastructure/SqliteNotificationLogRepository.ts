@@ -13,7 +13,7 @@ import {
 
 const STATUSES: readonly NotificationStatus[] = ['sending', 'sent', 'skipped', 'failed'];
 const VARIANTS: readonly DailySummaryVariant[] = ['summary', 'empty'];
-const ANSWERS: readonly NotificationAnswer[] = ['no_spending'];
+const ANSWERS: readonly NotificationAnswer[] = ['no_spending', 'later'];
 
 function oneOf<T extends string>(values: readonly T[], value: string | null): T | null {
   return value !== null && (values as readonly string[]).includes(value) ? (value as T) : null;
@@ -70,6 +70,7 @@ export class SqliteNotificationLogRepository implements NotificationLogRepositor
       messageId: entity.messageId === null || entity.messageId === undefined ? null : Number(entity.messageId),
       answer: oneOf(ANSWERS, entity.answer ?? null),
       error: entity.error ?? null,
+      dueOn: entity.dueOn ?? null,
       createdAt: new Date(entity.createdAt),
       updatedAt: new Date(entity.updatedAt),
     };

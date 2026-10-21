@@ -10,6 +10,8 @@ export const WEB_APP_PATHS = {
   transactions: 'transactions',
   /** «Открыть аналитику ↗» under /month (FT-124) */
   analytics: 'analytics',
+  /** «Открыть ревизию ↗» under the audit call and «Открыть цели ↗» under a goal reminder (FT-133) */
+  audit: 'audit',
 } as const;
 
 export type WebAppPath = (typeof WEB_APP_PATHS)[keyof typeof WEB_APP_PATHS];
@@ -66,10 +68,14 @@ function appUrl(telegramId: string, path?: WebAppPath): string | undefined {
   }
 }
 
-/** «Открыть Daftar ↗» (Home) under /start and the daily summary, «Открыть аналитику ↗» under /month (FT-124). */
+/**
+ * «Открыть Daftar ↗» (Home) under /start and the daily summary, «Открыть аналитику ↗» under /month (FT-124); the audit
+ * — its screen shows the goals after «Готово» — under the audit call and the goal reminders (FT-133).
+ */
 export const appLinks = {
   home: (telegramId: string) => appUrl(telegramId),
   analytics: (telegramId: string) => appUrl(telegramId, WEB_APP_PATHS.analytics),
+  audit: (telegramId: string) => appUrl(telegramId, WEB_APP_PATHS.audit),
 };
 
 /**

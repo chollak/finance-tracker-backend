@@ -146,6 +146,11 @@ export interface GoalSubscription {
   nextChargeOn: string | null;
   /** The day kept by «Напомнить», else the day it would remind; null once cancelled. */
   remindOn: string | null;
+  /**
+   * What the next charge takes — the last charge as recorded (all of it on that day), else the goal's month times its
+   * months between charges: «3 ноября Кинопоиск спишет 50 000 сум» (FT-133). Null before any charge.
+   */
+  chargeMinor: number | null;
 }
 
 export interface GoalProgress {
@@ -178,11 +183,13 @@ export function goalProgress(goal: Goal, records: readonly AuditRecord[], today:
     const lastChargeOn = latest([goal.lastChargeOn, ...own.filter(record => record.date <= today).map(record => record.date)]);
     const next = lastChargeOn ? nextChargeOn(lastChargeOn, goal.chargeMonths ?? 1, today) : null;
     const suggested = next ? suggestedRemindOn(next, today) : null;
+    const lastCharge = total(own.filter(record => record.date === lastChargeOn));
     subscription = {
       state: goal.subscriptionState,
       lastChargeOn,
       nextChargeOn: next,
       remindOn: goal.subscriptionState === 'remind' ? goal.remindOn : goal.subscriptionState === 'cancelled' ? null : suggested,
+      chargeMinor: lastChargeOn ? (lastCharge > 0 ? lastCharge : goal.monthlyMinor * (goal.chargeMonths ?? 1)) : null,
     };
   } else {
     const previousMonth = shiftMonth(month, -1);

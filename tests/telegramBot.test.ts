@@ -66,7 +66,8 @@ describe('startTelegramBot', () => {
     } as any;
 
     const dailySummary = { start: jest.fn(), stop: jest.fn() };
-    const notificationModule = { getDailySummary: () => dailySummary } as any;
+    const reminders = { start: jest.fn(), stop: jest.fn() };
+    const notificationModule = { getDailySummary: () => dailySummary, getReminders: () => reminders } as any;
     const start = () => startTelegramBot({} as any, {} as any, userModule, {} as any, undefined, undefined, undefined, undefined, notificationModule);
 
     return {
@@ -74,6 +75,7 @@ describe('startTelegramBot', () => {
       telegram,
       setCommandMenu,
       dailySummary,
+      reminders,
       Telegraf,
       launch,
       launchCatch,
@@ -111,6 +113,21 @@ describe('startTelegramBot', () => {
     const [sender, options] = dailySummary.start.mock.calls[0];
     expect(sender.send).toEqual(expect.any(Function));
     expect(options).toEqual({ firstTickInMs: 60_000 });
+  });
+
+  it('starts the goal, subscription and audit reminders with the daily summary, and stops them with it (FT-133)', async () => {
+    const { start, launch, launchCatch, reminders } = await loadBotWithMocks();
+
+    start();
+    expect(reminders.start).not.toHaveBeenCalled();
+    (launch.mock.calls[0] as unknown as [() => void])[0]();
+    expect(reminders.start).toHaveBeenCalledTimes(1);
+    const [sender, options] = reminders.start.mock.calls[0];
+    expect(sender.send).toEqual(expect.any(Function));
+    expect(options).toEqual({ firstTickInMs: 60_000 });
+
+    launchCatch.mock.calls[0][0](new Error('401: Unauthorized'));
+    expect(reminders.stop).toHaveBeenCalledTimes(1);
   });
 
   it('polling that fails for good stops the daily summary (FT-124)', async () => {

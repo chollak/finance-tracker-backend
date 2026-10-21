@@ -1,6 +1,7 @@
 import { AppConfig } from '../src/shared/infrastructure/config/appConfig';
 import { recordKeyboard } from '../src/delivery/messaging/telegram/keyboards';
 import { formatDaySummary, formatMonthSummary } from '../src/delivery/messaging/telegram/formatters/summaryMessage';
+import { formatReminder } from '../src/delivery/messaging/telegram/formatters/reminderMessage';
 import { appLinks } from '../src/delivery/messaging/telegram/utils/webAppUrl';
 import { DaySummary, MonthSummary } from '../src/modules/notification/domain/dailySummary';
 import { RecordMessageInput, RecordView } from '../src/delivery/messaging/telegram/formatters/recordMessage';
@@ -100,6 +101,29 @@ describe('«Открыть Daftar ↗» and «Открыть аналитику 
   });
 });
 
+/** «Открыть ревизию ↗» under the audit call and «Открыть цели ↗» under a goal (FT-133). */
+function auditCallKeyboard(): Keyboard {
+  return noticeKeyboard(formatReminder({ kind: 'audit', month: '2026-10', left: 5, repeat: false }, { appUrl: appLinks.audit(USER_ID) }));
+}
+
+function goalKeyboard(): Keyboard {
+  return noticeKeyboard(formatReminder(
+    { kind: 'goal_near', today: '2026-10-27', goal: { id: 'goal-1', name: 'Такси', spentMinor: 8_400_000, limitMinor: 10_200_000, endsOn: '2026-10-31' } },
+    { appUrl: appLinks.audit(USER_ID) }
+  ));
+}
+
+describe('«Открыть ревизию ↗» and «Открыть цели ↗» (FT-133)', () => {
+  it('open the audit: its screen shows the goals after «Готово»', () => {
+    for (const [keyboard, label] of [[auditCallKeyboard(), 'Открыть ревизию'], [goalKeyboard(), 'Открыть цели']] as const) {
+      const url = urlOf(keyboard, label);
+      expect(url.origin).toBe(BASE_URL);
+      expect(url.pathname).toBe(ROUTES.AUDIT);
+      expect(url.searchParams.get('userId')).toBe(USER_ID);
+    }
+  });
+});
+
 describe('«Открыть в Daftar ↗» under a record opens its sheet', () => {
   it.each([
     ['«Изменить»', 'edit' as const, 'Открыть в Daftar'],
@@ -130,6 +154,8 @@ describe('every Mini App link of the bot is a screen of the webapp', () => {
     ['«Изменить» under a record', () => recordMessageKeyboard('edit')],
     ['the date picker under a record', () => recordMessageKeyboard('date')],
     ['a message with many records', () => recordMessageKeyboard('confirm', MANY)],
+    ['the audit call', () => auditCallKeyboard()],
+    ['a goal reminder', () => goalKeyboard()],
   ];
 
   it.each(keyboards)('%s', async (_name, build) => {

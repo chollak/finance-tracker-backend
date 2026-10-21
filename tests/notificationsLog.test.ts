@@ -94,6 +94,20 @@ describe('notifications log (FT-124)', () => {
     });
   });
 
+  it('keeps «Позже» under the audit call and the day the call comes again (FT-133)', async () => {
+    const { log } = await connect();
+    await log.claim({ id: 'n-1', userId: 'user-1', kind: 'audit', period: '2026-10' });
+    await log.update('n-1', { status: 'sent', chatId: '597843119', messageId: 900 });
+
+    expect(await log.find('user-1', 'audit', '2026-10')).toMatchObject({ answer: null, dueOn: null });
+    await log.update('n-1', { answer: 'later', dueOn: '2026-11-02' });
+
+    expect(await log.find('user-1', 'audit', '2026-10')).toMatchObject({ status: 'sent', answer: 'later', dueOn: '2026-11-02' });
+    // The second call is a notice of its own: once per audit
+    expect(await log.claim({ id: 'n-2', userId: 'user-1', kind: 'audit_again', period: '2026-10' })).toBe(true);
+    expect(await log.claim({ id: 'n-3', userId: 'user-1', kind: 'audit_again', period: '2026-10' })).toBe(false);
+  });
+
   it('lists the sent notices of a variant, newest period first, skipped and failed ones left out', async () => {
     const { log } = await connect();
     const write = async (id: string, period: string, status: 'sent' | 'skipped' | 'failed', variant: 'empty' | 'summary') => {

@@ -179,7 +179,7 @@ describe('audit storage and goals (FT-131)', () => {
     ]);
     expect(goalNamed(done.goals, 'Такси')).toMatchObject({ startsOn: '2026-10-14', endsOn: '2026-10-31', categoryName: 'Транспорт' });
     expect(goalNamed(done.goals, 'Кинопоиск').subscription).toEqual({
-      state: null, lastChargeOn: '2026-10-03', nextChargeOn: '2026-11-03', remindOn: '2026-11-02',
+      state: null, lastChargeOn: '2026-10-03', nextChargeOn: '2026-11-03', remindOn: '2026-11-02', chargeMinor: sum(50000),
     });
 
     // «Цели после ревизии» on Home: 4 цели · экономия до 814 000 сум
@@ -236,7 +236,7 @@ describe('audit storage and goals (FT-131)', () => {
     const cinema = goalNamed(done.goals, 'Кинопоиск');
 
     const reminded = unwrap(await updateGoal(cinema.id, { subscription: 'remind' }));
-    expect(reminded.subscription).toEqual({ state: 'remind', lastChargeOn: '2026-10-03', nextChargeOn: '2026-11-03', remindOn: '2026-11-02' });
+    expect(reminded.subscription).toEqual({ state: 'remind', lastChargeOn: '2026-10-03', nextChargeOn: '2026-11-03', remindOn: '2026-11-02', chargeMinor: sum(50000) });
 
     now = new Date('2026-10-20T09:00:00Z');
     expect(goalNamed((await goals()).goals, 'Кинопоиск').subscription).toMatchObject({ state: 'remind', remindOn: '2026-11-02' });

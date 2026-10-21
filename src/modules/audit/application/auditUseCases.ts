@@ -18,6 +18,7 @@ import {
 import { findAuditCandidates, firstWholeMonth } from '../domain/auditRules';
 import { AuditRepository, GoalRepository } from '../domain/auditRepository';
 import { AuditSources } from '../domain/auditSources';
+import { goalServiceKind } from '../domain/goal';
 import { AuditGoalSync } from './auditGoalSync';
 import { AuditReader, AuditView } from './auditViews';
 
@@ -201,6 +202,43 @@ export class FinishAuditUseCase {
       return ResultHelper.success(await this.reader.auditView(finished.data, today));
     } catch (error) {
       return failed('Failed to finish the audit', error);
+    }
+  }
+}
+
+/** What «Оставить» answers about: the subscription that stays. */
+export interface KeptSubscription {
+  name: string;
+  serviceKind: 'subscription' | 'tariff';
+  monthlyMinor: number;
+}
+
+/**
+ * «Оставить» under the bot's subscription reminder (FT-133, board «Бот · напоминания»: «Цель «отменить» снята.
+ * Подписка снова попадёт в ревизию, только если подорожает»): the audit that made the goal marks the subscription
+ * «Нужно» and its goal goes. The audit may be closed by then — the reminder can come in the next month — and only the
+ * decision changes; the next audits leave the subscription out until it is dearer (`openAuditItems`).
+ */
+export class KeepSubscriptionUseCase {
+  constructor(private audits: AuditRepository, private goals: GoalRepository, private goalSync: AuditGoalSync) {}
+
+  async execute(input: { userId: string; goalId: string }): Promise<Result<KeptSubscription>> {
+    try {
+      const goal = await this.goals.findById(input.goalId);
+      if (!goal || goal.userId !== input.userId) return ResultHelper.failure(new NotFoundError('Goal', input.goalId));
+      if (goal.kind !== 'cancel') {
+        return ResultHelper.failure(new BusinessLogicError('Only a subscription to cancel can be kept', { reason: 'NOT_A_SUBSCRIPTION' }));
+      }
+      const changed = await changeAudit(this.audits, goal.auditId, audit => {
+        if (!audit.items.some(item => item.id === goal.candidateId)) return ResultHelper.failure(new NotFoundError('Audit candidate', goal.candidateId));
+        const items = audit.items.map(item => (item.id === goal.candidateId ? { ...item, decision: 'need' as const } : item));
+        return ResultHelper.success({ items, doneOn: audit.doneOn, frozen: true });
+      });
+      if (!changed.success) return changed;
+      await this.goalSync.sync(goal.auditId);
+      return ResultHelper.success({ name: goal.name, serviceKind: goalServiceKind(goal) ?? 'subscription', monthlyMinor: goal.monthlyMinor });
+    } catch (error) {
+      return failed('Failed to keep the subscription', error);
     }
   }
 }

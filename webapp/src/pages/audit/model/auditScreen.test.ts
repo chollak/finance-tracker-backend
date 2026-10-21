@@ -185,9 +185,22 @@ describe('the result («Ревизия · итог и цели»)', () => {
       goalsSub: 'Считаем с 14 октября — дня ревизии',
       oneOff: nb('Наушники — 690 000 сум'),
       need: 'Второй номер',
-      next: 'Цели появятся на главной. Следующая ревизия — 1 ноября, за октябрь.',
+      next: 'Цели появятся на главной, а у лимита напишем в боте. Следующая ревизия — 1 ноября, за октябрь.',
       canEdit: true,
     });
+  });
+
+  // The bot tells a goal at 80% of its limit and over it (FT-133): said only while it really will
+  it('«а у лимита напишем в боте» only with a limit to watch and «Цели и подписки» on', () => {
+    expect(auditResult(BOARD_DONE, { goalAlertsEnabled: false }).next).toBe('Цели появятся на главной. Следующая ревизия — 1 ноября, за октябрь.');
+    const noLimit = ['delivery', 'coffee', 'taxi'].reduce(
+      (audit, id) => applyCandidateChange(audit, id, { goal: 'drop' }),
+      BOARD_DONE
+    );
+    expect(auditResult(noLimit).next).toBe('Цели появятся на главной. Следующая ревизия — 1 ноября, за октябрь.');
+    expect(auditResult(BOARD_DONE, { goalAlertsEnabled: true }).next).toBe(
+      'Цели появятся на главной, а у лимита напишем в боте. Следующая ревизия — 1 ноября, за октябрь.'
+    );
   });
 
   it('the overall line says «пока на … больше» when the month goes worse', () => {
@@ -299,6 +312,6 @@ describe('the result («Ревизия · итог и цели»)', () => {
       ...BOARD_PROGRESS,
       candidates: BOARD_PROGRESS.candidates.map((entry) => (entry.id === 'taxi' ? { ...entry, carriedFrom: '2026-08' } : entry)),
     };
-    expect(auditResult(carried).next).toBe('Цели появятся на главной. Следующая ревизия — 1 ноября, за октябрь. В неё войдут и 3 неразобранные траты.');
+    expect(auditResult(carried).next).toBe('Цели появятся на главной, а у лимита напишем в боте. Следующая ревизия — 1 ноября, за октябрь. В неё войдут и 3 неразобранные траты.');
   });
 });

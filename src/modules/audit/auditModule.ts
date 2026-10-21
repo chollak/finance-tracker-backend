@@ -3,8 +3,8 @@ import { AuditRepository, GoalRepository } from './domain/auditRepository';
 import { AuditSources } from './domain/auditSources';
 import { AuditReader } from './application/auditViews';
 import { AuditGoalSync } from './application/auditGoalSync';
-import { DecideAuditCandidateUseCase, FinishAuditUseCase, GetCurrentAuditUseCase } from './application/auditUseCases';
-import { ListGoalsUseCase, UpdateGoalUseCase } from './application/goalUseCases';
+import { DecideAuditCandidateUseCase, FinishAuditUseCase, GetCurrentAuditUseCase, KeepSubscriptionUseCase } from './application/auditUseCases';
+import { ListGoalRemindersUseCase, ListGoalsUseCase, UpdateGoalUseCase } from './application/goalUseCases';
 
 export interface AuditModuleDependencies {
   audits: AuditRepository;
@@ -18,7 +18,8 @@ export interface AuditModuleDependencies {
  * The spending audit (FT-130 rules, FT-131 storage and goals): the audit of the month before, opened once with the
  * candidates the rules find and the undecided ones of the month before; «Нужно / Лишнее» and the goal of each;
  * «Готово» and the goals it makes — limits from the audit day, compared with the same days of the month before;
- * a subscription's next charge, «Уже отменено» and «Напомнить». Reads records, categories and the rate through
+ * a subscription's next charge, «Уже отменено» and «Напомнить»; what the bot reminds of and «Оставить» under its
+ * subscription reminder (FT-133). Reads records, categories and the rate through
  * `AuditSources`, wired in `createModules()`.
  */
 export class AuditModule {
@@ -27,6 +28,8 @@ export class AuditModule {
   private finish: FinishAuditUseCase;
   private listGoals: ListGoalsUseCase;
   private updateGoal: UpdateGoalUseCase;
+  private goalReminders: ListGoalRemindersUseCase;
+  private keepSubscription: KeepSubscriptionUseCase;
 
   constructor(dependencies: AuditModuleDependencies) {
     const { audits, goals, sources } = dependencies;
@@ -38,6 +41,8 @@ export class AuditModule {
     this.finish = new FinishAuditUseCase(audits, goalSync, reader);
     this.listGoals = new ListGoalsUseCase(goals, reader);
     this.updateGoal = new UpdateGoalUseCase(goals, reader);
+    this.goalReminders = new ListGoalRemindersUseCase(goals, reader);
+    this.keepSubscription = new KeepSubscriptionUseCase(audits, goals, goalSync);
   }
 
   static create(sources: AuditSources): AuditModule {
@@ -66,5 +71,15 @@ export class AuditModule {
 
   getUpdateGoalUseCase(): UpdateGoalUseCase {
     return this.updateGoal;
+  }
+
+  /** The goals and subscriptions the bot reminds of today (FT-133). */
+  getListGoalRemindersUseCase(): ListGoalRemindersUseCase {
+    return this.goalReminders;
+  }
+
+  /** «Оставить» under the bot's subscription reminder (FT-133). */
+  getKeepSubscriptionUseCase(): KeepSubscriptionUseCase {
+    return this.keepSubscription;
   }
 }

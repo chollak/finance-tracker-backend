@@ -263,9 +263,18 @@ describe('audit decisions and goals (FT-131)', () => {
       expect(goalProgress(cinema, records, AUDIT_DAY)).toMatchObject({
         periodLimitMinor: 0,
         comparison: null,
-        subscription: { state: null, lastChargeOn: '2026-10-03', nextChargeOn: '2026-11-03', remindOn: '2026-11-02' },
+        subscription: { state: null, lastChargeOn: '2026-10-03', nextChargeOn: '2026-11-03', remindOn: '2026-11-02', chargeMinor: sum(50000) },
       });
       expect(goalSavingMinor(cinema)).toBe(sum(50000));
+    });
+
+    // «3 ноября Кинопоиск спишет 50 000 сум» (FT-133): the last charge as recorded, all of it on that day
+    it('charges what it charged last time; without the charge recorded, the month times the months between charges', () => {
+      const dearer = [...records, { ...records.find(entry => entry.note === 'Кинопоиск' && entry.date === '2026-10-03')!, id: 'extra-charge', amountMinor: sum(9000) }];
+      expect(goalProgress(cinema, dearer, AUDIT_DAY).subscription?.chargeMinor).toBe(sum(59000));
+      const yearly = { ...cinema, monthlyMinor: sum(33333), chargeMonths: 12, lastChargeOn: '2026-09-10' };
+      expect(goalProgress(yearly, [], AUDIT_DAY).subscription).toMatchObject({ lastChargeOn: '2026-09-10', nextChargeOn: '2027-09-10', chargeMinor: sum(399996) });
+      expect(goalProgress({ ...cinema, lastChargeOn: null }, [], AUDIT_DAY).subscription?.chargeMinor).toBeNull();
     });
 
     it('tells the reminder day kept once «Напомнить» is pressed, and nothing to remind once cancelled', () => {

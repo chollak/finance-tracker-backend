@@ -34,6 +34,41 @@ export class ListGoalsUseCase {
   }
 }
 
+/** What the bot reminds of on a day (FT-133). */
+export interface GoalReminders {
+  /** The «Вдвое меньше» goals counting today, with what was spent since the audit day against the limit. */
+  limits: GoalView[];
+  /** The subscriptions and tariffs to cancel whose «Напомнить» day is today, with the next charge. */
+  subscriptions: GoalView[];
+}
+
+/**
+ * The goals the bot's reminders are about on `today` (FT-133): «Вдвое меньше» goals counting today — told at 80% of
+ * the limit and over it — and the subscriptions whose «Напомнить» day is today, whatever audit made them (the day
+ * before a charge may fall in the next month). Other goals have nothing to remind of.
+ */
+export class ListGoalRemindersUseCase {
+  constructor(private goals: GoalRepository, private reader: AuditReader) {}
+
+  async execute(input: { userId: string; today?: string }): Promise<Result<GoalReminders>> {
+    try {
+      const today = this.reader.today(input.today);
+      const all = await this.goals.findByUserId(input.userId);
+      const limits = all.filter(goal => goal.kind === 'half' && goal.startsOn <= today && today <= goal.endsOn);
+      const subscriptions = all.filter(goal => goal.kind === 'cancel' && goal.subscriptionState === 'remind' && goal.remindOn === today);
+      if (limits.length === 0 && subscriptions.length === 0) return ResultHelper.success({ limits: [], subscriptions: [] });
+      const { goals } = await this.reader.goalViews(input.userId, [...limits, ...subscriptions], today);
+      return ResultHelper.success({
+        limits: goals.filter(goal => goal.kind === 'half'),
+        subscriptions: goals.filter(goal => goal.kind === 'cancel'),
+      });
+    } catch (error) {
+      logger.error('Failed to read the goals to remind of', error as Error);
+      return ResultHelper.failure(new BusinessLogicError('Failed to read the goals to remind of'));
+    }
+  }
+}
+
 const SUBSCRIPTION_ANSWERS: ReadonlyArray<SubscriptionState | null> = ['cancelled', 'remind', null];
 
 /**

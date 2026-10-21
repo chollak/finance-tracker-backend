@@ -3,13 +3,14 @@ import { getLogger, LogCategory } from '../../../shared/application/logging';
 import { DAILY_SUMMARY_RULES, DaySummary, isSummaryDue, localClock } from '../domain/dailySummary';
 import { DailySummaryVariant, NotificationKind, NotificationLogRepository } from '../domain/notificationLog';
 import { SummaryService } from './summaryService';
+import { SchedulerOptions, Ticker } from './ticker';
+
+export { SUMMARY_TICK_MS } from './ticker';
+export type { SchedulerOptions } from './ticker';
 
 const logger = getLogger(LogCategory.TELEGRAM);
 
 const KIND: NotificationKind = 'daily_summary';
-
-/** How often the scheduler looks at the clock. */
-export const SUMMARY_TICK_MS = 60_000;
 
 /** A user the summary may go to, with the settings that say when (FT-098). */
 export interface SummaryRecipient {
@@ -47,13 +48,6 @@ export type SummaryOutcome = 'sent' | 'asked' | 'skipped' | 'failed';
  */
 export type NoSpendingAnswer = { kind: 'confirmed' } | { kind: 'recorded'; summary: DaySummary };
 
-export interface SchedulerOptions {
-  /** How often the clock is looked at. */
-  everyMs?: number;
-  /** The first look this long after the start; at once by default. */
-  firstTickInMs?: number;
-}
-
 export interface TickResult {
   userId: string;
   day: string;
@@ -76,9 +70,7 @@ const TELEGRAM_CHAT = /^\d+$/;
 export class DailySummaryNotifier {
   /** The day each user was handled for in this process: a tick does not ask the log again. */
   private handled = new Map<string, string>();
-  private timer?: NodeJS.Timeout;
-  private firstTick?: NodeJS.Timeout;
-  private running = false;
+  private ticker = new Ticker('Daily summary');
 
   constructor(
     private log: NotificationLogRepository,
@@ -110,34 +102,12 @@ export class DailySummaryNotifier {
 
   /** Ticks now (or `firstTickInMs` later) and then every SUMMARY_TICK_MS; one tick at a time. */
   start(sender: DailySummarySender, options: SchedulerOptions = {}): void {
-    if (this.timer || this.firstTick) return;
-    const everyMs = options.everyMs ?? SUMMARY_TICK_MS;
-    const run = () => {
-      if (this.running) return;
-      this.running = true;
-      this.tick(sender)
-        .catch(error => logger.error('Daily summary tick failed', error as Error))
-        .finally(() => {
-          this.running = false;
-        });
-    };
-    const begin = () => {
-      this.firstTick = undefined;
-      run();
-      this.timer = setInterval(run, everyMs);
-      this.timer.unref?.();
-    };
-    if (!options.firstTickInMs) return begin();
-    this.firstTick = setTimeout(begin, options.firstTickInMs);
-    this.firstTick.unref?.();
+    this.ticker.start(() => this.tick(sender), options);
   }
 
   /** No more ticks; a tick already running finishes. `start` again resumes. */
   stop(): void {
-    if (this.firstTick) clearTimeout(this.firstTick);
-    if (this.timer) clearInterval(this.timer);
-    this.firstTick = undefined;
-    this.timer = undefined;
+    this.ticker.stop();
   }
 
   /**

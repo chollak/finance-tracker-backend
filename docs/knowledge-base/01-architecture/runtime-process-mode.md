@@ -140,6 +140,10 @@ lost the polling to another one does not send; and every notice is claimed in `n
 kind + period) before it is sent, so even two processes over one database send it once. When `APP_MODE` arrives, the notifier moves with the bot (`bot` or
 `worker`), not into `api`.
 
+**Update (FT-133):** the goal, subscription and audit reminders (`RemindersNotifier`) are the second scheduler of the
+same kind: started and stopped with the daily summary, in the bot's process, on the same one-minute `Ticker`, and every
+reminder claimed in `notifications_log` before it is sent.
+
 ## Proposed Mode Semantics
 
 ### `APP_MODE=all`

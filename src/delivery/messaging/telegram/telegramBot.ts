@@ -17,6 +17,7 @@ import { TelegramPaymentService } from '../../../modules/subscription/infrastruc
 import { BotContext, BotModules, UserSession } from './types';
 import { registerCommandHandlers, setCommandMenu } from './handlers/commandHandlers';
 import { registerSummaryHandlers, summarySender } from './handlers/summaryHandlers';
+import { registerReminderHandlers, reminderSender } from './handlers/reminderHandlers';
 import { registerMessageHandlers } from './handlers/messageHandlers';
 import { registerCallbackHandlers } from './handlers/callbackHandlers';
 import { registerLoginHandlers } from './handlers/loginHandlers';
@@ -78,8 +79,8 @@ function createInitialSession(userId: string, userName: string): UserSession {
  * @param categoryModule - The user's categories for keyboards and labels (FT-100)
  * @param accountModule - The user's accounts for the confirmation and the account picker (FT-122)
  * @param botMessageModule - Which records each confirmation shows, so its buttons survive a restart (FT-122)
- * @param notificationModule - Итоги дня at the chosen time, /today and /month (FT-124): its scheduler runs here,
- *   in the bot's process, and only while the bot polls
+ * @param notificationModule - Итоги дня at the chosen time, /today and /month (FT-124), the goal, subscription and
+ *   audit reminders (FT-133): their schedulers run here, in the bot's process, and only while the bot polls
  * @param authModule - The web login (FT-128): /start login_<token> asks «Подтвердить» or «Это не я»
  */
 export function startTelegramBot(
@@ -215,6 +216,9 @@ export function startTelegramBot(
     // «Да, не было» under the evening question (FT-124)
     registerSummaryHandlers(bot);
 
+    // «Позже» under the audit call, «Отменено» / «Оставить» under a subscription reminder (FT-133)
+    registerReminderHandlers(bot);
+
     // «Подтвердить» / «Это не я» under a web login question (FT-128)
     registerLoginHandlers(bot);
 
@@ -227,25 +231,35 @@ export function startTelegramBot(
 
     // ===== LAUNCH BOT =====
 
-    // Итоги дня at the time each user chose (FT-124) run only while this process polls: the scheduler starts once
-    // Telegram has answered for the bot, looks at the clock a minute later — a polling conflict with another
-    // instance shows up within that minute — and stops whenever polling fails, for a retry or for good
+    // Итоги дня at the time each user chose (FT-124) and the reminders after the audit (FT-133) run only while this
+    // process polls: the schedulers start once Telegram has answered for the bot, look at the clock a minute later — a
+    // polling conflict with another instance shows up within that minute — and stop whenever polling fails, for a
+    // retry or for good
     const dailySummary = notificationModule?.getDailySummary();
+    const reminders = notificationModule?.getReminders();
     const sender = summarySender(bot.telegram);
-    const startDailySummary = () => dailySummary?.start(sender, { firstTickInMs: SUMMARY_TICK_MS });
+    const remindersSender = reminderSender(bot.telegram);
+    const startNotices = () => {
+      dailySummary?.start(sender, { firstTickInMs: SUMMARY_TICK_MS });
+      reminders?.start(remindersSender, { firstTickInMs: SUMMARY_TICK_MS });
+    };
+    const stopNotices = () => {
+      dailySummary?.stop();
+      reminders?.stop();
+    };
 
     const launchWithRetry = (attempt: number) => {
       telegramBotStatus = { state: 'starting', attempts: attempt };
       logger.info('Starting Telegram bot long polling', { attempt });
 
-      const launchPromise = bot.launch(startDailySummary);
+      const launchPromise = bot.launch(startNotices);
       telegramBotStatus = { state: 'running', attempts: attempt };
       logger.info('Telegram bot long polling launch requested', { attempt });
 
       launchPromise.catch((error) => {
         const message = errorMessage(error);
-        // Another instance may be polling this token: it sends the summaries, this one does not
-        dailySummary?.stop();
+        // Another instance may be polling this token: it sends the notices, this one does not
+        stopNotices();
 
         if (isPollingConflict(error) && attempt < MAX_POLLING_RETRY_ATTEMPTS) {
           const delayMs = retryDelay(attempt);
@@ -274,12 +288,12 @@ export function startTelegramBot(
     // Graceful shutdown handlers
     process.once('SIGINT', () => {
       logger.info('SIGINT received, stopping bot...');
-      dailySummary?.stop();
+      stopNotices();
       bot.stop('SIGINT');
     });
     process.once('SIGTERM', () => {
       logger.info('SIGTERM received, stopping bot...');
-      dailySummary?.stop();
+      stopNotices();
       bot.stop('SIGTERM');
     });
 

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuditWrites, useCurrentAudit, type Audit, type SubscriptionAnswer } from '@/entities/audit';
 import { findCategory, useCategories } from '@/entities/category';
+import { useSettings } from '@/entities/settings';
 import { ROUTES } from '@/shared/lib/constants/routes';
 import { useShowHomeAfterSave } from '@/shared/lib/navigation';
 import { showUndoToast } from '@/shared/lib/undo';
@@ -54,6 +55,8 @@ function TooEarly({ audit }: { audit: Audit }) {
 export function AuditPage() {
   const audit = useCurrentAudit();
   const categories = useCategories();
+  // «а у лимита напишем в боте» only while the bot will (FT-133)
+  const settings = useSettings();
   const { mark, finish, answerGoal } = useAuditWrites({ onFailed: (_error, what) => showUndoToast({ kind: 'info', ...FAILED[what] }) });
   const showHome = useShowHomeAfterSave();
   const [chosenView, setView] = useState<'list' | 'done' | null>(null);
@@ -149,7 +152,7 @@ export function AuditPage() {
       </div>
     );
   } else {
-    const result = auditResult(data);
+    const result = auditResult(data, { goalAlertsEnabled: settings.data?.goalAlertsEnabled });
     content = (
       <div className="flex flex-col gap-3 pb-[calc(32px+env(safe-area-inset-bottom))]">
         <PlanHero result={result} headingRef={resultHeading} />
