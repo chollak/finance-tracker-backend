@@ -14,6 +14,17 @@ export const LOGIN_LINK_TTL_MS = 5 * 60 * 1000;
 /** How long a session in a browser lasts before the user signs in again; «Выйти» ends it earlier. */
 export const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
+/**
+ * How long a login that is over stays in `login_tokens`: 7 days after its link ended and, if it became a session,
+ * after that session's 30 days ran out («Выйти» does not shorten them here). A new login clears the older ones.
+ */
+export const LOGIN_ROW_KEEP_MS = 7 * 24 * 60 * 60 * 1000;
+
+/** Logins that ended before this moment are cleared. */
+export function loginRowsCutoff(now: Date): Date {
+  return new Date(now.getTime() - LOGIN_ROW_KEEP_MS);
+}
+
 /** The start parameter of the bot link: `t.me/<bot>?start=login_<token>`. */
 export const LOGIN_START_PREFIX = 'login_';
 

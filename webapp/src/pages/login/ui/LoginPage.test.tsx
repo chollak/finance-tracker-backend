@@ -29,6 +29,10 @@ type Status = { status: 'pending'; link: string; expiresAt: string } | { status:
 
 /** What GET /api/auth/web-login answers next. */
 let status: Status;
+/** Who GET /api/auth/session says this browser is: null — 401, no session; 'hold' — no answer yet; 'offline' — no network. */
+let session: typeof USER | null | 'hold' | 'offline';
+/** What POST /api/auth/session answers: the user, or 409 — the login is no longer there to take. */
+let takeSession: 'ok' | 409;
 let root: Root;
 let container: HTMLDivElement;
 let tab: { location: { href: string }; close: ReturnType<typeof vi.fn>; opener: unknown };
@@ -37,11 +41,19 @@ beforeEach(() => {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
   status = { status: 'none' };
+  session = null;
+  takeSession = 'ok';
   vi.mocked(apiClient.get).mockReset();
   vi.mocked(apiClient.post).mockReset();
   vi.mocked(apiClient.delete).mockReset();
   vi.mocked(apiClient.get).mockImplementation(async (url: string) => {
     if (url === '/auth/web-login') return { success: true, data: status } as never;
+    if (url === '/auth/session') {
+      if (session === 'hold') return new Promise<never>(() => {});
+      if (session === 'offline') throw { statusCode: 0, message: 'Network error' };
+      if (session === null) throw { statusCode: 401, message: 'Authorization header required' };
+      return { success: true, data: { user: session } } as never;
+    }
     return new Promise<never>(() => {});
   });
   vi.mocked(apiClient.post).mockImplementation(async (url: string) => {
@@ -49,7 +61,10 @@ beforeEach(() => {
       status = { status: 'pending', link: LINK, expiresAt: EXPIRES };
       return { success: true, data: status } as never;
     }
-    if (url === '/auth/session') return { success: true, data: { user: USER } } as never;
+    if (url === '/auth/session') {
+      if (takeSession === 409) throw { statusCode: 409, message: 'The login is not confirmed' };
+      return { success: true, data: { user: USER } } as never;
+    }
     return new Promise<never>(() => {});
   });
   vi.mocked(apiClient.delete).mockImplementation(async () => {
@@ -235,6 +250,161 @@ describe('the login screen', () => {
     expect(toasts()).toEqual([['Вход через Telegram недоступен', 'Попробуйте через несколько минут']]);
   });
 
+  it('while the page first asks where its login stands, it shows the frame only: no start and no button to press', async () => {
+    let answer: (value: unknown) => void = () => undefined;
+    vi.mocked(apiClient.get).mockImplementationOnce(() => new Promise((resolve) => (answer = resolve)) as never);
+    await renderLogin();
+
+    expect(document.body.querySelector('h1')).toBeNull();
+    expect(document.body.querySelectorAll('button, a')).toHaveLength(0);
+    expect(document.body.querySelector('[aria-busy="true"]')).not.toBeNull();
+    expect(text()).toContain('daftar');
+
+    await act(async () => answer({ success: true, data: { status: 'pending', link: LINK, expiresAt: EXPIRES } }));
+    await settle();
+    expect(title()).toBe('Подтвердите вход в Telegram');
+  });
+
+  it('a reload after «Подтвердить» takes the session behind the frame, without the start screen', async () => {
+    status = { status: 'confirmed' };
+    let answer: (value: unknown) => void = () => undefined;
+    vi.mocked(apiClient.post).mockImplementationOnce(() => new Promise((resolve) => (answer = resolve)) as never);
+    await renderLogin();
+
+    expect(apiClient.post).toHaveBeenCalledWith('/auth/session');
+    expect(document.body.querySelectorAll('button, a')).toHaveLength(0);
+    expect(document.body.querySelector('[role="status"]')?.textContent).toBe('Вход подтверждён. Открываю Daftar');
+
+    await act(async () => answer({ success: true, data: { user: USER } }));
+    await settle();
+    expect(useUserStore.getState().userId).toBe('597843119');
+  });
+
+  it('the title takes the focus when the screen changes, not when the page opens', async () => {
+    await renderLogin();
+    expect(document.activeElement).toBe(document.body);
+
+    await press('Войти через Telegram');
+    expect(document.activeElement?.textContent).toBe('Подтвердите вход в Telegram');
+  });
+});
+
+/**
+ * Two tabs of one browser share its cookies. The bot's «Вернуться в браузер ↗» opens the app in a new tab while the
+ * first one still waits; whichever takes the session first, the other must open the app too, not the login again.
+ */
+describe('another tab of this browser took the session', () => {
+  it('the confirmed login was taken there (409 here): the session is read and the app opens', async () => {
+    await renderLogin();
+    await press('Войти через Telegram');
+
+    status = { status: 'confirmed' };
+    takeSession = 409;
+    session = USER;
+    await wait(LOGIN_POLL_MS);
+
+    expect(apiClient.get).toHaveBeenCalledWith('/auth/session');
+    expect(useUserStore.getState()).toMatchObject({ userId: '597843119', userName: 'Шукур', signedOut: false });
+    expect(title()).not.toBe('Вход не подтвердили');
+  });
+
+  it('409 and no session here: the 5 minutes to take it are over', async () => {
+    await renderLogin();
+    await press('Войти через Telegram');
+
+    status = { status: 'confirmed' };
+    takeSession = 409;
+    await wait(LOGIN_POLL_MS);
+
+    expect(title()).toBe('Вход не подтвердили');
+    expect(useUserStore.getState().userId).toBeNull();
+  });
+
+  it('409 and the session could not be read (no network): waits and asks again', async () => {
+    await renderLogin();
+    await press('Войти через Telegram');
+
+    status = { status: 'confirmed' };
+    takeSession = 409;
+    session = 'offline';
+    await wait(LOGIN_POLL_MS);
+    expect(title()).toBe('Подтвердите вход в Telegram');
+
+    // Next time round the login is gone and the session is there
+    status = { status: 'none' };
+    session = USER;
+    await wait(LOGIN_POLL_MS);
+    expect(useUserStore.getState().userId).toBe('597843119');
+  });
+
+  it('the waited login is gone (it became the session there): the session is read and the app opens', async () => {
+    await renderLogin();
+    await press('Войти через Telegram');
+
+    status = { status: 'none' };
+    session = USER;
+    await wait(LOGIN_POLL_MS);
+
+    expect(useUserStore.getState()).toMatchObject({ userId: '597843119', signedOut: false });
+    expect(toasts()).toEqual([]);
+  });
+
+  it('the waited login is gone and there is no session: the start again', async () => {
+    await renderLogin();
+    await press('Войти через Telegram');
+
+    status = { status: 'none' };
+    await wait(LOGIN_POLL_MS);
+
+    expect(title()).toBe('Траты и доходы — голосом, текстом и фото чека');
+    expect(useUserStore.getState().userId).toBeNull();
+  });
+
+  it('on the start screen: looks again when the user comes back to the tab', async () => {
+    await renderLogin();
+    vi.mocked(apiClient.get).mockClear();
+
+    session = USER;
+    await act(async () => {
+      window.dispatchEvent(new Event('focus'));
+    });
+    await settle();
+
+    expect(apiClient.get).toHaveBeenCalledWith('/auth/session');
+    expect(useUserStore.getState().userId).toBe('597843119');
+  });
+
+  it('after the time ran out: looks again when the tab is shown', async () => {
+    await renderLogin();
+    await press('Войти через Telegram');
+    status = { status: 'expired' };
+    await wait(LOGIN_POLL_MS);
+    expect(title()).toBe('Вход не подтвердили');
+
+    session = USER;
+    await act(async () => {
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    await settle();
+
+    expect(useUserStore.getState().userId).toBe('597843119');
+  });
+
+  it('no session on the way back: the screen stays as it was', async () => {
+    await renderLogin();
+
+    await act(async () => {
+      window.dispatchEvent(new Event('focus'));
+    });
+    await settle();
+
+    expect(apiClient.get).toHaveBeenCalledWith('/auth/session');
+    expect(title()).toBe('Траты и доходы — голосом, текстом и фото чека');
+    expect(useUserStore.getState()).toMatchObject({ userId: null, signedOut: true });
+  });
+});
+
+describe('the login screen, again', () => {
   it('a blocked new tab is no failure: the waiting screen has «Открыть Telegram»', async () => {
     vi.mocked(window.open).mockReturnValue(null);
     await renderLogin();

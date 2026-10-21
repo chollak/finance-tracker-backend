@@ -995,5 +995,6 @@ Depends: все задачи вехи
 
 Definition of Done:
 - [ ] Удалены `transactions.amount` и `legacy_category`, backend `dashboard`, статический `Category.ts` (кроме стартовых пресетов), неиспользуемые виджеты и хуки webapp
+- [ ] Удалены гостевые ветки backend (`guest_*`, решение Д4, ревью FT-128): `allowGuestMode`, `verifyOwnership` в `authMiddleware.ts`, `userIdResolver.ts`, `userResolutionMiddleware.ts`, `ownershipVerification.ts`, `subscriptionController.ts`, `transactionController.ts`; запрос без входа к `/api/dashboard/guest_abc/quick-stats` получает 401
 - [ ] Документация (`knowledge-base`, `CLAUDE.md`) описывает новую модель
 - [ ] `npm run verify` проходит

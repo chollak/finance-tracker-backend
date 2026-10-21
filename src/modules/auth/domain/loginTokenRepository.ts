@@ -22,4 +22,9 @@ export interface LoginTokenRepository {
    * or to nobody): two answers, or an answer and a cancel, cannot both win. True when this call changed it.
    */
   updateIf(id: string, from: { status: LoginStatus; telegramId?: string | null }, changes: LoginTokenChanges): Promise<boolean>;
+  /**
+   * Removes the logins that are over for good: the link ended before `cutoff`, and so did the session's term, if the
+   * login became one. Returns how many went.
+   */
+  deleteEndedBefore(cutoff: Date): Promise<number>;
 }

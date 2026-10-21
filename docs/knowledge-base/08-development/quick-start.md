@@ -141,6 +141,8 @@ npm run dev:full
 
 API calls автоматически проксируются с frontend на backend.
 
+Вне Telegram dev-сервер открывает экран входа через бота (FT-128), а для входа нужны настоящий бот и сеть Telegram. Чтобы сразу работать под тестовым пользователем, задайте в `webapp/.env.local` `VITE_MOCK_USER_ID=<telegram id>` (и, если нужно, `VITE_MOCK_USER_NAME`): запросы пойдут с заголовком `X-Dev-User-Id`, который backend принимает только вне production. Образец — в `webapp/.env.example`.
+
 ---
 
 ### Alternative Development Modes

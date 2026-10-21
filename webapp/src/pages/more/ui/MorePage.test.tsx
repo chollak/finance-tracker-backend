@@ -469,6 +469,12 @@ describe('«Ещё» by a direct link', () => {
 
   it('«Выйти» ends the session in this browser only and leaves for the login screen', async () => {
     vi.mocked(apiClient.delete).mockResolvedValue({ success: true, data: { signedOut: true } } as never);
+    // The service worker's API answers: routes such as /api/accounts don't name the user
+    const forget = vi.fn(async () => {
+      expect(useUserStore.getState().userId).toBe(USER_ID);
+      return true;
+    });
+    vi.stubGlobal('caches', { delete: forget });
     await renderMore();
 
     // An action in place: no chevron, no sheet
@@ -478,6 +484,8 @@ describe('«Ещё» by a direct link', () => {
     await press(row('Выйти'));
 
     expect(apiClient.delete).toHaveBeenCalledWith('/auth/session');
+    // Forgotten before the login screen, so the next account in this browser never gets them
+    expect(forget).toHaveBeenCalledWith('api-cache');
     expect(useUserStore.getState()).toMatchObject({ userId: null, signedOut: true });
     // The next sign-in opens Home, as on the board
     expect(router.state.location.pathname).toBe('/');
@@ -485,9 +493,12 @@ describe('«Ещё» by a direct link', () => {
 
   it('«Выйти» that did not reach the server keeps the user in and says so', async () => {
     vi.mocked(apiClient.delete).mockRejectedValue({ statusCode: 0, message: 'Network error' });
+    const forget = vi.fn(async () => true);
+    vi.stubGlobal('caches', { delete: forget });
     await renderMore();
 
     await press(row('Выйти'));
+    expect(forget).not.toHaveBeenCalled();
 
     expect(useUserStore.getState()).toMatchObject({ userId: USER_ID, signedOut: false });
     expect(useUndoToastStore.getState().stack.map((entry) => [entry.title, entry.detail])).toEqual([['Не получилось выйти', 'Проверьте связь и попробуйте ещё раз']]);

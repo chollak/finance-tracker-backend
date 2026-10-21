@@ -273,6 +273,58 @@ describe('web login through the bot (FT-128)', () => {
     });
   });
 
+  describe('old rows', () => {
+    const DAY = 24 * 60 * MINUTE;
+    const rows = async () => (await db.dataSource.query('SELECT device, status FROM login_tokens ORDER BY created_at, rowid')) as Array<{ device: string; status: string }>;
+
+    async function signedIn(userAgent: string) {
+      const { link, browserSecret } = await start(userAgent);
+      const { loginId } = (await openInBot(tokenOf(link))) as { loginId: string };
+      await answer(loginId, 'confirm');
+      const session = await authModule.getOpenWebSessionUseCase().execute({ browserSecret });
+      if (!session.success) throw session.error;
+      return session.data.sessionSecret;
+    }
+
+    it('a new login clears logins whose link, and session if any, ended more than 7 days ago', async () => {
+      // Device labels tell the rows apart
+      await start('curl/1 Firefox/1');
+      const rejected = await start('Chrome/1 (iPhone)');
+      const { loginId } = (await openInBot(tokenOf(rejected.link))) as { loginId: string };
+      await answer(loginId, 'reject');
+      await signedIn('Chrome/1 (Windows)');
+      const signedOut = await signedIn('Chrome/1 (Linux)');
+      await authModule.getCloseWebSessionUseCase().execute({ sessionSecret: signedOut });
+
+      // 7 days after the links ended, less a minute: everything stays (and the new one)
+      later(7 * DAY + 4 * MINUTE);
+      await start('Chrome/1 (Android)');
+      expect(await rows()).toHaveLength(5);
+
+      // Past the 7 days: the unanswered and the rejected login go; the sessions stay — their 30 days are not over
+      later(2 * MINUTE);
+      await start('Chrome/1 (iPad)');
+      expect(await rows()).toEqual([
+        { device: 'Chrome · Windows', status: 'active' },
+        { device: 'Chrome · Linux', status: 'signed_out' },
+        { device: 'Chrome · Android', status: 'pending' },
+        { device: 'Chrome · iPad', status: 'pending' },
+      ]);
+
+      // 7 days after the sessions' 30: they go too, and so do the links of a week ago
+      later(30 * DAY);
+      await start('Chrome/1 (Mac OS X)');
+      expect(await rows()).toEqual([{ device: 'Chrome · macOS', status: 'pending' }]);
+    });
+
+    it('a live session is never cleared, whatever its age', async () => {
+      const sessionSecret = await signedIn(CHROME_WINDOWS);
+      later(30 * DAY - MINUTE);
+      await start();
+      expect(await authModule.getWebSessionUseCase().execute({ sessionSecret })).toEqual({ success: true, data: { telegramId: TELEGRAM_ID } });
+    });
+  });
+
   describe('state rules', () => {
     it('a login that became a session, or was cancelled, has nothing for the waiting page', () => {
       const base = {
@@ -420,6 +472,33 @@ describe('web login through the bot (FT-128)', () => {
       expect(cancelled.body.data).toEqual({ status: 'none' });
       expect(browser.cookies.has('daftar_login')).toBe(false);
       expect((await browser.request('GET', '/api/auth/web-login')).body.data).toEqual({ status: 'none' });
+    });
+
+    it('«Это не я» is told to the page once: the waiting cookie goes with that answer, so a reload starts clean', async () => {
+      const browser = new Browser();
+      const started = await browser.request('POST', '/api/auth/web-login');
+      const { loginId } = (await openInBot(tokenOf(started.body.data.link))) as { loginId: string };
+      await answer(loginId, 'reject');
+
+      const told = await browser.request('GET', '/api/auth/web-login');
+      expect(told.body.data).toEqual({ status: 'rejected' });
+      expect(browser.setCookies.some(line => line.startsWith('daftar_login=') && /Path=\/api\/auth/.test(line))).toBe(true);
+      expect(browser.cookies.has('daftar_login')).toBe(false);
+
+      // A reload within the cookie's 10 minutes: nothing to say again
+      expect((await browser.request('GET', '/api/auth/web-login')).body.data).toEqual({ status: 'none' });
+    });
+
+    it('keeps the waiting cookie while there is still something to wait for or to say', async () => {
+      const browser = new Browser();
+      await browser.request('POST', '/api/auth/web-login');
+      await browser.request('GET', '/api/auth/web-login');
+      expect(browser.cookies.has('daftar_login')).toBe(true);
+
+      later(5 * MINUTE);
+      expect((await browser.request('GET', '/api/auth/web-login')).body.data).toEqual({ status: 'expired' });
+      // «Вход не подтвердили» shows again after a reload, as the board's screen does
+      expect(browser.cookies.has('daftar_login')).toBe(true);
     });
 
     it('says the time is out after 5 minutes', async () => {

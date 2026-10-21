@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { readSession, useUserStore } from '@/entities/user';
-import { onSessionLost } from '@/shared/api';
+import { forgetCachedResponses, onSessionLost } from '@/shared/api';
 import { env } from '@/shared/config/env';
 import { useUndoToastStore } from '@/shared/lib/undo';
 
@@ -11,7 +11,9 @@ import { useUndoToastStore } from '@/shared/lib/undo';
  * 2. Development outside Telegram with VITE_MOCK_USER_ID — that user (`X-Dev-User-Id`).
  * 3. A browser — the session the bot confirmed (`GET /api/auth/session`, an httpOnly cookie); without one the login
  *    screen. A browser that cannot reach the server keeps the user it had, so the app still opens.
- * Later a 401 outside Telegram means the session ended (or «Выйти» in another tab): the login screen again.
+ * Later a 401 outside Telegram means the session ended (or «Выйти» in another tab): the login screen again. A browser
+ * left without its session also forgets the API answers the service worker kept for it: routes such as `/api/accounts`
+ * don't name the user, and the next account here must not be served them.
  */
 export function UserInitializer() {
   const queryClient = useQueryClient();
@@ -44,8 +46,12 @@ export function UserInitializer() {
       try {
         const user = await readSession();
         if (cancelled) return;
-        if (user) useUserStore.getState().setSessionUser(user);
-        else useUserStore.getState().setSignedOut();
+        if (user) {
+          useUserStore.getState().setSessionUser(user);
+        } else {
+          void forgetCachedResponses();
+          useUserStore.getState().setSignedOut();
+        }
       } catch {
         if (cancelled) return;
         if (!useUserStore.getState().userId) useUserStore.getState().setSignedOut();
@@ -56,6 +62,7 @@ export function UserInitializer() {
 
     onSessionLost(() => {
       if (!useUserStore.getState().userId) return;
+      void forgetCachedResponses();
       useUserStore.getState().setSignedOut();
       useUndoToastStore.getState().clear();
       queryClient.clear();

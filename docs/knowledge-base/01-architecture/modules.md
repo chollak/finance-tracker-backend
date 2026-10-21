@@ -489,6 +489,8 @@ new ProcessVoiceInputUseCase(
   условным `UPDATE … WHERE status = …` (`updateIf`): два ответа или ответ и отмена не выигрывают оба.
 - `SqliteLoginTokenRepository` — TypeORM, таблица `login_tokens` (миграция `LoginTokens1762100000000`). Секреты
   ожидания и сессии хранятся только хешами SHA-256; код ссылки — как есть (по нему ответить можно только из Telegram).
+  `StartWebLogin` перед новой ссылкой удаляет входы, закончившиеся больше 7 дней назад (`deleteEndedBefore`,
+  `LOGIN_ROW_KEEP_MS`; у сессии — по её 30-дневному сроку).
 - `ConfiguredBotUsername` — `TG_BOT_USERNAME`, иначе `getMe` бота (запоминается).
 - Delivery: `webSessionMiddleware.ts` читает cookie `daftar_session` до всех маршрутов и кладёт пользователя в
   `req.webSession`; `requireAuth`, `optionalAuth` и общий лимит запросов (`signedInTelegramId`) принимают его, когда

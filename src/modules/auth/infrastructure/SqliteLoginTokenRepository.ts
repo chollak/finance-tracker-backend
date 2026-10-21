@@ -55,6 +55,17 @@ export class SqliteLoginTokenRepository implements LoginTokenRepository {
     return (result.affected ?? 0) > 0;
   }
 
+  async deleteEndedBefore(cutoff: Date): Promise<number> {
+    const result = await this.repository
+      .createQueryBuilder()
+      .delete()
+      .from(LoginTokenEntity)
+      .where('expires_at < :cutoff', { cutoff })
+      .andWhere('(session_expires_at IS NULL OR session_expires_at < :cutoff)', { cutoff })
+      .execute();
+    return result.affected ?? 0;
+  }
+
   private toDomain(entity: LoginTokenEntity | null): LoginToken | null {
     if (!entity) return null;
     return {

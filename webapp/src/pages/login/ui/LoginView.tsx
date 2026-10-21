@@ -1,4 +1,4 @@
-import type { Ref } from 'react';
+import type { ReactNode, Ref } from 'react';
 import type { LoginView as LoginState, PendingLogin } from '@/features/web-login';
 import { ProblemScreen, Wordmark } from '@/shared/ui/pastel';
 
@@ -54,8 +54,22 @@ interface LoginViewProps {
 }
 
 /**
+ * The screen's frame with the logo only (the place and size of ProblemScreen's `entry` header): while the page first
+ * asks where its login stands, and while it takes a session confirmed before a reload. Neither the start nor its
+ * button shows before the answer — a press there would start a second login.
+ */
+function LoginFrame({ header }: { header: ReactNode }) {
+  return (
+    <div aria-busy="true" className="flex min-h-dvh flex-col bg-bg px-4 pb-6 pt-2">
+      <div className="flex h-key items-center">{header}</div>
+    </div>
+  );
+}
+
+/**
  * The login screen by a direct link (FT-128): «Вход по прямой ссылке», «Вход · ждём подтверждения», «Вход не
- * подтвердили», «Вход · тёмная». One layout — ProblemScreen with the logo — in three states.
+ * подтвердили», «Вход · тёмная». One layout — ProblemScreen with the logo — in three states, and the bare frame while
+ * the page asks.
  */
 export function LoginView({ view, login, expiry, busy, onStart, onCancel, titleRef }: LoginViewProps) {
   const header = <Wordmark />;
@@ -90,6 +104,15 @@ export function LoginView({ view, login, expiry, busy, onStart, onCancel, titleR
             </div>
           )}
         </ProblemScreen>
+      </>
+    );
+  }
+
+  if (view.kind === 'checking' || view.kind === 'signing-in') {
+    return (
+      <>
+        {live}
+        <LoginFrame header={header} />
       </>
     );
   }

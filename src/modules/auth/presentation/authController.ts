@@ -50,11 +50,15 @@ export class AuthController {
     }
   };
 
-  /** GET /web-login: how this browser's login went — the page polls it while it waits. */
+  /**
+   * GET /web-login: how this browser's login went — the page polls it while it waits. «Это не я» is said once: that
+   * answer takes the waiting cookie away, so a reload in the cookie's 10 minutes starts clean instead of repeating it.
+   */
   loginStatus = async (req: Request, res: Response): Promise<void> => {
     try {
       const result = await this.authModule.getWebLoginStatusUseCase().execute({ browserSecret: readCookie(req, LOGIN_COOKIE) });
       if (!result.success) return handleControllerError(result.error, res);
+      if (result.data.status === 'rejected') res.clearCookie(LOGIN_COOKIE, clearCookieOptions(req, LOGIN_COOKIE_PATH));
       res.set('Cache-Control', 'no-store');
       handleControllerSuccess(result.data, res);
     } catch (error) {

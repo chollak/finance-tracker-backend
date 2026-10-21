@@ -70,6 +70,17 @@ describe('in a browser', () => {
     expect(useUserStore.getState()).toMatchObject({ userId: null, userType: null, signedOut: true });
   });
 
+  it('a session that ended between visits also drops the API answers the service worker kept for it', async () => {
+    useUserStore.setState({ userId: '597843119', userType: 'telegram', telegramId: '597843119', userName: 'Шукур' });
+    vi.mocked(apiClient.get).mockRejectedValue({ statusCode: 401 });
+    const forget = vi.fn(async () => true);
+    vi.stubGlobal('caches', { delete: forget });
+
+    await start();
+
+    expect(forget).toHaveBeenCalledWith('api-cache');
+  });
+
   it('a session that ended since the last visit takes the remembered user away', async () => {
     useUserStore.setState({ userId: '597843119', userType: 'telegram', telegramId: '597843119', userName: 'Шукур' });
     vi.mocked(apiClient.get).mockRejectedValue({ statusCode: 401 });
@@ -87,15 +98,19 @@ describe('in a browser', () => {
     expect(useUserStore.getState()).toMatchObject({ userId: '597843119', signedOut: false });
   });
 
-  it('when the server stops taking the session later, the login screen shows', async () => {
+  it('when the server stops taking the session later, the login screen shows and the cached API answers go', async () => {
     vi.mocked(apiClient.get).mockResolvedValue({ success: true, data: { user: USER } } as never);
+    const forget = vi.fn(async () => true);
+    vi.stubGlobal('caches', { delete: forget });
     await start();
+    expect(forget).not.toHaveBeenCalled();
 
     const lost = vi.mocked(onSessionLost).mock.calls.at(-1)?.[0];
     expect(lost).toEqual(expect.any(Function));
     await act(async () => lost?.());
 
     expect(useUserStore.getState()).toMatchObject({ userId: null, signedOut: true });
+    expect(forget).toHaveBeenCalledWith('api-cache');
   });
 });
 

@@ -6,6 +6,7 @@ import {
   isLiveSession,
   LOGIN_LINK_TTL_MS,
   LOGIN_START_PREFIX,
+  loginRowsCutoff,
   LoginAnswer,
   LoginToken,
   SESSION_TTL_MS,
@@ -35,7 +36,10 @@ export interface StartedWebLogin {
   browserSecret: string;
 }
 
-/** «Войти через Telegram»: a new login with its own link and its own waiting secret. */
+/**
+ * «Войти через Telegram»: a new login with its own link and its own waiting secret. It also clears the logins that are
+ * over for good (`LOGIN_ROW_KEEP_MS`), so the table holds about a month of them.
+ */
 export class StartWebLoginUseCase {
   constructor(private deps: WebLoginDeps, private botUsername: BotUsernameSource) {}
 
@@ -44,9 +48,10 @@ export class StartWebLoginUseCase {
     if (!username) return ResultHelper.failure(new LoginUnavailableError());
 
     const { logins, secrets, now } = this.deps;
+    const createdAt = now();
+    await logins.deleteEndedBefore(loginRowsCutoff(createdAt));
     const token = secrets.newSecret();
     const browserSecret = secrets.newSecret();
-    const createdAt = now();
     const expiresAt = new Date(createdAt.getTime() + LOGIN_LINK_TTL_MS);
     await logins.create({
       id: crypto.randomUUID(),

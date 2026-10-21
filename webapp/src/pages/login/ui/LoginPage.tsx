@@ -16,7 +16,8 @@ export function LoginPage() {
   const shown = useRef<string | null>(null);
 
   useEffect(() => {
-    // Not on the first screen: the page has just opened
+    // Not on the first screen: the page has just opened (the bare frame while it asks is not a screen)
+    if (view.kind === 'checking') return;
     if (shown.current !== null && shown.current !== view.kind) titleRef.current?.focus();
     shown.current = view.kind;
   }, [view.kind]);
