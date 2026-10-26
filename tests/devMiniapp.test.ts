@@ -8,7 +8,7 @@ import path from 'path';
  * found where Homebrew puts it, and a busy port is seen without the Linux-only `ss`.
  */
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { envFileFor, findCloudflared, isPortListening } = require('../scripts/dev-miniapp.js');
+const { envFileFor, findCloudflared, isPortListening, isTunnelGone, retryDelayMs, createTunnelSupervisor } = require('../scripts/dev-miniapp.js');
 
 let dir: string;
 
@@ -77,6 +77,66 @@ describe('cloudflared', () => {
 
   it('is missing when it is nowhere', () => {
     expect(findCloudflared({ HOME: dir, PATH: '/nowhere' })).toBeNull();
+  });
+});
+
+describe('a quick tunnel that is gone (the machine slept)', () => {
+  it('is what cloudflared says when Cloudflare no longer knows the tunnel', () => {
+    expect(isTunnelGone(
+      '2026-10-23T05:50:18Z ERR Register tunnel error from server side error="Unauthorized: Tunnel not found" connIndex=0'
+    )).toBe(true);
+  });
+
+  it('is not a dropped connection cloudflared reconnects by itself', () => {
+    expect(isTunnelGone(
+      '2026-10-21T16:55:46Z ERR Failed to dial a quic connection error="failed to dial to edge with quic: timeout: no recent network activity"'
+    )).toBe(false);
+    expect(isTunnelGone('INF Registered tunnel connection connIndex=0 location=waw06 protocol=quic')).toBe(false);
+  });
+});
+
+describe('bringing the tunnel back', () => {
+  const quiet = () => undefined;
+
+  it('waits 30 s, then twice as long each time, at most 5 minutes', () => {
+    expect([0, 1, 2, 3, 4, 10].map(retryDelayMs)).toEqual([30_000, 60_000, 120_000, 240_000, 300_000, 300_000]);
+  });
+
+  it('happens once, however often cloudflared repeats that the tunnel is gone', async () => {
+    let finish: () => void = () => undefined;
+    const recover = jest.fn(() => new Promise<void>(resolve => { finish = resolve; }));
+    const lost = createTunnelSupervisor({ recover, log: quiet });
+
+    const first = lost('gone');
+    await lost('gone');
+    await lost('gone');
+    finish();
+    await first;
+
+    expect(recover).toHaveBeenCalledTimes(1);
+  });
+
+  it('tries again while there is no network, with growing pauses, until it works', async () => {
+    const recover = jest.fn()
+      .mockRejectedValueOnce(new Error('cloudflared did not become ready'))
+      .mockRejectedValueOnce(new Error('Telegram setChatMenuButton failed'))
+      .mockResolvedValueOnce(undefined);
+    const wait = jest.fn(async () => undefined);
+
+    await createTunnelSupervisor({ recover, wait, log: quiet })('gone');
+
+    expect(recover).toHaveBeenCalledTimes(3);
+    expect(wait.mock.calls).toEqual([[30_000], [60_000]]);
+  });
+
+  it('happens again when the tunnel is lost again later', async () => {
+    const recover = jest.fn(async () => undefined);
+    const lost = createTunnelSupervisor({ recover, log: quiet });
+
+    await lost('gone');
+    await lost('gone');
+
+    expect(recover).toHaveBeenCalledTimes(2);
   });
 });
 

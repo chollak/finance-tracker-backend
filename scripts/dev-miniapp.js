@@ -22,7 +22,7 @@ const DEFAULT_PORT = 3000;
 const DEFAULT_MENU_TEXT = 'Finance DEV';
 
 function printHelp() {
-  console.log(`Finance Tracker Telegram Mini App helper\n\nUsage:\n  npm run dev:miniapp -- --chat-id=<telegram_chat_id> [--skip-build]\n  npm run miniapp:menu -- status --chat-id=<telegram_chat_id>\n  npm run miniapp:menu -- set --url=<https_url> --chat-id=<telegram_chat_id>\n\nOptions:\n  --chat-id, --chatId       Telegram chat/user id for the persistent menu button\n  --url                    Public HTTPS Mini App URL for set/status checks\n  --path                   set only: open this page from the menu button (e.g. /dev/voice-check); WEB_APP_URL is not changed\n  --env-file               Env file to update (default: the one the app reads — .env.local if present, else .env)\n  --menu-text              Telegram menu button text (default: Finance DEV)\n  --port                   Backend port (default: 3000)\n  --skip-build             Skip npm run build:webapp && npm run build before serve\n  --no-serve               Only create/update tunnel/menu; do not start npm run serve\n  --no-menu                Do not call Telegram setChatMenuButton\n  --help                   Show help\n\nNotes:\n  - For Telegram Mini App on a phone, WEB_APP_URL must be public HTTPS.\n  - Old inline buttons keep their embedded URL; send /start after a tunnel change.\n  - The persistent chat menu button must be updated separately; this helper does it.\n`);
+  console.log(`Finance Tracker Telegram Mini App helper\n\nUsage:\n  npm run dev:miniapp -- --chat-id=<telegram_chat_id> [--skip-build]\n  npm run miniapp:menu -- status --chat-id=<telegram_chat_id>\n  npm run miniapp:menu -- set --url=<https_url> --chat-id=<telegram_chat_id>\n\nOptions:\n  --chat-id, --chatId       Telegram chat/user id for the persistent menu button\n  --url                    Public HTTPS Mini App URL for set/status checks\n  --path                   set only: open this page from the menu button (e.g. /dev/voice-check); WEB_APP_URL is not changed\n  --env-file               Env file to update (default: the one the app reads — .env.local if present, else .env)\n  --menu-text              Telegram menu button text (default: Finance DEV)\n  --port                   Backend port (default: 3000)\n  --skip-build             Skip npm run build:webapp && npm run build before serve\n  --no-serve               Only create/update tunnel/menu; do not start npm run serve\n  --no-menu                Do not call Telegram setChatMenuButton\n  --help                   Show help\n\nNotes:\n  - For Telegram Mini App on a phone, WEB_APP_URL must be public HTTPS.\n  - Old inline buttons keep their embedded URL; send /start after a tunnel change.\n  - The persistent chat menu button must be updated separately; this helper does it.\n  - A quick tunnel does not survive the machine sleeping: when Cloudflare drops it, the helper opens a new one,\n    updates WEB_APP_URL and the menu button, and restarts the server it started.\n`);
 }
 
 function parseArgs(argv) {
@@ -220,6 +220,64 @@ function waitForOutput(child, regex, timeoutMs, label) {
   });
 }
 
+const TUNNEL_URL_PATTERN = /(https:\/\/[a-z0-9-]+\.trycloudflare\.com)/i;
+
+// cloudflared's answer when Cloudflare has deleted a quick tunnel — what happens while the machine sleeps. A dropped
+// connection («Failed to dial a quic connection») is not this: cloudflared reconnects to the same tunnel by itself.
+function isTunnelGone(text) {
+  return /Tunnel not found/i.test(text);
+}
+
+// Pause before the next attempt to bring the tunnel back: 30 s, twice as long each time, at most 5 minutes.
+function retryDelayMs(attempt) {
+  return Math.min(30_000 * 2 ** attempt, 300_000);
+}
+
+/**
+ * Brings the tunnel back once at a time, however often cloudflared repeats that it is gone. `recover` opens a new
+ * tunnel and points everything at it; it throws while that cannot work yet (no network after waking up) and is tried
+ * again after `retryDelayMs`. Returns `lost(reason)`, called on every sign of a lost tunnel; it resolves once the
+ * tunnel is back, or at once when a recovery is already under way.
+ */
+function createTunnelSupervisor({ recover, wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms)), log = console.log }) {
+  let recovering = false;
+  return async function lost(reason) {
+    if (recovering) return;
+    recovering = true;
+    log(`Tunnel lost (${reason}); opening a new one ...`);
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        await recover();
+        break;
+      } catch (error) {
+        const delay = retryDelayMs(attempt);
+        log(`Could not bring the tunnel back: ${error.message}. Next attempt in ${Math.round(delay / 1000)} s.`);
+        await wait(delay);
+      }
+    }
+    recovering = false;
+  };
+}
+
+async function openTunnel(cloudflared, port) {
+  const child = spawn(cloudflared, ['tunnel', '--url', `http://127.0.0.1:${port}`], { cwd: root, stdio: ['ignore', 'pipe', 'pipe'] });
+  try {
+    const match = await waitForOutput(child, TUNNEL_URL_PATTERN, 45000, 'cloudflared');
+    return { child, url: match[1] };
+  } catch (error) {
+    if (child.exitCode === null) child.kill('SIGTERM');
+    throw error;
+  }
+}
+
+async function waitUntilPortFree(port, timeoutMs = 15000) {
+  const until = Date.now() + timeoutMs;
+  while (await isPortListening(port)) {
+    if (Date.now() > until) throw new Error(`port ${port} is still busy`);
+    await new Promise((resolve) => setTimeout(resolve, 300));
+  }
+}
+
 // Whether something accepts connections on the port — by connecting, as `ss` is Linux-only.
 function isPortListening(port) {
   return new Promise((resolve) => {
@@ -306,26 +364,66 @@ async function commandRun({ flags }) {
   const chatId = flags['chat-id'] || flags.chatId || env.MINIAPP_CHAT_ID || env.TELEGRAM_CHAT_ID;
   const port = Number(flags.port || env.PORT || DEFAULT_PORT);
   const menuText = flags['menu-text'] || env.MINIAPP_MENU_TEXT || DEFAULT_MENU_TEXT;
-  const children = [];
+  const setFlags = (url) => ({ ...flags, url, 'chat-id': chatId, 'env-file': envFile, 'menu-text': menuText });
+  // The tunnel and the server this helper runs now; both are replaced when the tunnel comes back
+  let tunnel = null;
+  let server = null;
+  let stopping = false;
+  let finish = () => undefined;
+  const finished = new Promise((resolve) => { finish = resolve; });
 
+  const stop = () => {
+    if (stopping) return;
+    stopping = true;
+    for (const child of [tunnel, server]) {
+      if (child && child.exitCode === null) child.kill('SIGTERM');
+    }
+    finish();
+    setTimeout(() => process.exit(0), 500).unref();
+  };
+
+  let cloudflared = null;
   if (!flags.url) {
-    const cloudflared = findCloudflared();
+    cloudflared = findCloudflared();
     if (!cloudflared || !fs.existsSync(cloudflared)) {
       throw new Error(`cloudflared not found${cloudflared ? ` at ${cloudflared}` : ' in ~/.local/bin or on PATH'}; set CLOUDFLARED_BIN`);
     }
     console.log(`Starting Cloudflare tunnel to http://127.0.0.1:${port} ...`);
-    const tunnel = spawn(cloudflared, ['tunnel', '--url', `http://127.0.0.1:${port}`], { cwd: root, stdio: ['ignore', 'pipe', 'pipe'] });
-    children.push(tunnel);
-    const match = await waitForOutput(tunnel, /(https:\/\/[a-z0-9-]+\.trycloudflare\.com)/i, 45000, 'cloudflared');
-    flags.url = match[1];
+    const opened = await openTunnel(cloudflared, port);
+    tunnel = opened.child;
+    flags.url = opened.url;
   }
 
-  await commandSet({ flags: { ...flags, 'chat-id': chatId, 'env-file': envFile, 'menu-text': menuText } });
+  await commandSet({ flags: setFlags(flags.url) });
 
   if (!flags['skip-build']) {
     runCommand('npm', ['run', 'build:webapp']);
     runCommand('npm', ['run', 'build']);
   }
+
+  const startServer = async () => {
+    const child = spawn('npm', ['run', 'serve'], { cwd: root, stdio: ['ignore', 'pipe', 'pipe'], shell: process.platform === 'win32' });
+    server = child;
+    child.on('exit', (code) => {
+      if (child !== server || stopping) return;
+      console.error(`Server exited (code=${code}); stopping the helper.`);
+      stop();
+    });
+    await waitForOutput(child, /Server started/, 45000, 'server');
+  };
+
+  // The server reads WEB_APP_URL once, at start, for the links the bot sends: a new tunnel needs a new server
+  const restartServer = async () => {
+    const old = server;
+    server = null;
+    if (old && old.exitCode === null) {
+      const exited = new Promise((resolve) => old.once('exit', resolve));
+      old.kill('SIGTERM');
+      await exited;
+    }
+    await waitUntilPortFree(port);
+    await startServer();
+  };
 
   const alreadyListening = await isPortListening(port);
   if (flags['no-serve']) {
@@ -335,9 +433,40 @@ async function commandRun({ flags }) {
     console.warn('If it was started before WEB_APP_URL changed, restart it before using /start inline buttons.');
   } else {
     console.log('Starting npm run serve ...');
-    const server = spawn('npm', ['run', 'serve'], { cwd: root, stdio: ['ignore', 'pipe', 'pipe'], shell: process.platform === 'win32' });
-    children.push(server);
-    await waitForOutput(server, /Server started/, 45000, 'server');
+    await startServer();
+  }
+
+  if (tunnel) {
+    let lost = () => undefined;
+    const watchTunnel = (child) => {
+      const onData = (data) => {
+        if (child === tunnel && !stopping && isTunnelGone(data.toString())) lost('Cloudflare no longer knows it');
+      };
+      child.stdout.on('data', onData);
+      child.stderr.on('data', onData);
+      child.on('exit', (code) => {
+        if (child === tunnel && !stopping) lost(`cloudflared exited, code=${code}`);
+      });
+    };
+    lost = createTunnelSupervisor({
+      recover: async () => {
+        const old = tunnel;
+        tunnel = null;
+        if (old && old.exitCode === null) old.kill('SIGTERM');
+        const opened = await openTunnel(cloudflared, port);
+        tunnel = opened.child;
+        watchTunnel(opened.child);
+        await commandSet({ flags: setFlags(opened.url) });
+        if (server) {
+          await restartServer();
+          console.log(`Tunnel is back: ${opened.url} — menu button updated, server restarted.`);
+        } else {
+          console.log(`Tunnel is back: ${opened.url} — menu button updated.`);
+          console.warn('The server was not started by this helper: restart it so the bot links use the new address.');
+        }
+      },
+    });
+    watchTunnel(tunnel);
   }
 
   const healthUrl = `${normalizeBaseUrl(flags.url)}/health`;
@@ -347,18 +476,13 @@ async function commandRun({ flags }) {
   console.log(`Public app probe: HTTP ${status}`);
   console.log(`Health URL: ${healthUrl}`);
   console.log('Ready. Press Ctrl+C to stop child tunnel/server processes started by this helper.');
+  if (tunnel) console.log('If Cloudflare drops the tunnel (the machine slept), a new one is opened and the menu button follows it.');
 
-  if (!children.length) return;
+  if (!tunnel && !server) return;
 
-  const stop = () => {
-    for (const child of children) {
-      if (!child.killed) child.kill('SIGTERM');
-    }
-    setTimeout(() => process.exit(0), 500).unref();
-  };
   process.on('SIGINT', stop);
   process.on('SIGTERM', stop);
-  await new Promise((resolve) => children[children.length - 1].on('exit', resolve));
+  await finished;
 }
 
 async function main() {
@@ -381,4 +505,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { envFileFor, findCloudflared, isPortListening };
+module.exports = { envFileFor, findCloudflared, isPortListening, isTunnelGone, retryDelayMs, createTunnelSupervisor };
