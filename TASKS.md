@@ -7,7 +7,7 @@
 |---|---|
 | Как устроена доска, статусы, роли | [`docs/tasks/README.md`](docs/tasks/README.md) |
 | Почему план такой — лог решений | [`docs/tasks/decisions.md`](docs/tasks/decisions.md) |
-| Отложенные задачи, полные описания (10) | [`docs/tasks/backlog.md`](docs/tasks/backlog.md) |
+| Отложенные задачи, полные описания (18) | [`docs/tasks/backlog.md`](docs/tasks/backlog.md) |
 | Закрытые задачи с отчётами (108) | [`docs/tasks/archive/`](docs/tasks/archive/) |
 
 ---
@@ -158,6 +158,14 @@ Definition of Done:
 | [FT-063](docs/tasks/backlog.md) | Сроки долгов и напоминания | продуктовое решение Шукура |
 | [FT-069](docs/tasks/backlog.md) | Граница premium некогерентна и обходится | политика монетизации |
 | [FT-071](docs/tasks/backlog.md) | Rate limits тесноваты под реальное использование | политика лимитов |
+| [FT-144](docs/tasks/backlog.md) | Итог дня и напоминания теряются после сбоя сети (сон мака) | команды Шукура взять в работу |
+| [FT-145](docs/tasks/backlog.md) | Таймаут и повторы для OpenAI: сейчас до 30 минут ожидания | команды Шукура взять в работу |
+| [FT-146](docs/tasks/backlog.md) | Индикатор, пока разбирается фраза | вид по холсту |
+| [FT-147](docs/tasks/backlog.md) | Заметку в ручном вводе сжимает клавиатура | вид по холсту |
+| [FT-148](docs/tasks/backlog.md) | Отметка записей до даты открытия счёта | вид по холсту |
+| [FT-149](docs/tasks/backlog.md) | Выбор счёта по умолчанию | место на холсте или решение Шукура |
+| [FT-150](docs/tasks/backlog.md) | Голые «яндекс» и «uber» не должны давать «Транспорт» | команды Шукура взять в работу |
+| [FT-151](docs/tasks/backlog.md) | Нестабильный `webLogin.test.ts` | команды Шукура взять в работу |
 
 ---
 
