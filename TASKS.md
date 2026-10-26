@@ -7,7 +7,7 @@
 |---|---|
 | Как устроена доска, статусы, роли | [`docs/tasks/README.md`](docs/tasks/README.md) |
 | Почему план такой — лог решений | [`docs/tasks/decisions.md`](docs/tasks/decisions.md) |
-| Отложенные задачи, полные описания (19) | [`docs/tasks/backlog.md`](docs/tasks/backlog.md) |
+| Отложенные задачи, полные описания (29) | [`docs/tasks/backlog.md`](docs/tasks/backlog.md) |
 | Закрытые задачи с отчётами (108) | [`docs/tasks/archive/`](docs/tasks/archive/) |
 
 ---
@@ -28,6 +28,7 @@
 ### Постоянный контекст
 
 - Прод и AWS выключены намеренно и в планы не входят (решение 2026-08-13). Рантайм — локальный WSL + SQLite + Telegram polling + Cloudflare quick tunnel для теста Mini App с телефона.
+- Живой экземпляр переезжает на ПК с Windows + WSL: systemd, адрес `tailscale serve` в tailnet, бэкап в облачную папку, закрытый доступ — FT-153…FT-159 (решение 2026-10-26). До переезда — прежний `npm run dev:miniapp` на маке.
 - Supabase-проект на паузе, не удалён. Локально `DATABASE_TYPE=sqlite`. По решению Д6 путь `supabase-js` уходит из сборки (FT-090).
 - Все исторические транзакции имеют `semanticType = expense`. Backfill по превью FT-045 применяется в FT-108 — только после того, как Шукур просмотрит список.
 
@@ -167,6 +168,16 @@ Definition of Done:
 | [FT-150](docs/tasks/backlog.md) | Голые «яндекс» и «uber» не должны давать «Транспорт» | команды Шукура взять в работу |
 | [FT-151](docs/tasks/backlog.md) | Нестабильный `webLogin.test.ts` | команды Шукура взять в работу |
 | [FT-152](docs/tasks/backlog.md) | Без сети класть сложную фразу в очередь и разбирать на сервере | детали — с Шукуром |
+| [FT-153](docs/tasks/backlog.md) | Закрытый доступ: бот, API и рассылки только для `ALLOWED_TELEGRAM_IDS` | команды Шукура взять в работу |
+| [FT-154](docs/tasks/backlog.md) | Бот не умирает молча: выход процесса и 503 в health | команды Шукура взять в работу |
+| [FT-155](docs/tasks/backlog.md) | Токен владельца для записи с iPhone в production | команды Шукура взять в работу |
+| [FT-156](docs/tasks/backlog.md) | Живой экземпляр на ПК в WSL: systemd, автозапуск, `tailscale serve` | команды Шукура взять в работу; машина Шукура |
+| [FT-157](docs/tasks/backlog.md) | Ночной бэкап базы в облачную папку Windows | команды Шукура; какой облачный диск |
+| [FT-158](docs/tasks/backlog.md) | Убрать мёртвый SSH-деплой на AWS | команды Шукура взять в работу |
+| [FT-159](docs/tasks/backlog.md) | Переезд с мака на ПК | FT-153…FT-157 и PR #91; руки Шукура |
+| [FT-160](docs/tasks/backlog.md) | Shortcut на Action Button через Tailscale | FT-155, FT-159 |
+| [FT-161](docs/tasks/backlog.md) | Минимальное iOS-приложение для быстрой записи | ответы Шукура на открытые вопросы; FT-160 |
+| [FT-162](docs/tasks/backlog.md) | Старые маршруты с `:userId` — пользователь из авторизации | вместе с FT-136 |
 
 ---
 
