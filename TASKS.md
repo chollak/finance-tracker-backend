@@ -7,7 +7,7 @@
 |---|---|
 | Как устроена доска, статусы, роли | [`docs/tasks/README.md`](docs/tasks/README.md) |
 | Почему план такой — лог решений | [`docs/tasks/decisions.md`](docs/tasks/decisions.md) |
-| Отложенные задачи, полные описания (18) | [`docs/tasks/backlog.md`](docs/tasks/backlog.md) |
+| Отложенные задачи, полные описания (19) | [`docs/tasks/backlog.md`](docs/tasks/backlog.md) |
 | Закрытые задачи с отчётами (108) | [`docs/tasks/archive/`](docs/tasks/archive/) |
 
 ---
@@ -166,6 +166,7 @@ Definition of Done:
 | [FT-149](docs/tasks/backlog.md) | Выбор счёта по умолчанию | место на холсте или решение Шукура |
 | [FT-150](docs/tasks/backlog.md) | Голые «яндекс» и «uber» не должны давать «Транспорт» | команды Шукура взять в работу |
 | [FT-151](docs/tasks/backlog.md) | Нестабильный `webLogin.test.ts` | команды Шукура взять в работу |
+| [FT-152](docs/tasks/backlog.md) | Без сети класть сложную фразу в очередь и разбирать на сервере | детали — с Шукуром |
 
 ---
 
