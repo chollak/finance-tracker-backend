@@ -3,6 +3,7 @@ import { BotContext } from '../types';
 import { formatDaySummary, formatNoSpending, NO_SPENDING_CALLBACK_PATTERN } from '../formatters/summaryMessage';
 import { appLinks } from '../utils/webAppUrl';
 import { botUserId } from '../utils/userCategories';
+import { sendOrNotSent } from '../utils/notSent';
 import { DailySummarySender } from '../../../../modules/notification/application/dailySummaryNotifier';
 import { todayDateOnly } from '../../../../shared/domain/dates/dateOnly';
 import { createLogger, LogCategory } from '../../../../shared/infrastructure/logging';
@@ -11,16 +12,17 @@ const logger = createLogger(LogCategory.TELEGRAM);
 
 /**
  * The daily summary sent by the scheduler (FT-124) into the user's private chat with the bot — its id is the
- * user's Telegram id. Telegram's refusal (the bot blocked, the chat never started) is thrown to the scheduler.
+ * user's Telegram id. Telegram's refusal (the bot blocked, the chat never started) is thrown to the scheduler; a
+ * request that never left the machine is thrown as NoticeNotSentError, so the scheduler tries again (FT-144).
  */
 export function summarySender(telegram: Pick<Telegram, 'sendMessage'>): DailySummarySender {
   return {
     async send(recipient, summary) {
       const notice = formatDaySummary(summary, { today: summary.day, appUrl: appLinks.home(recipient.telegramId), scheduled: true });
-      const message = await telegram.sendMessage(recipient.telegramId, notice.text, {
+      const message = await sendOrNotSent(() => telegram.sendMessage(recipient.telegramId, notice.text, {
         parse_mode: 'HTML',
         reply_markup: { inline_keyboard: notice.keyboard },
-      });
+      }));
       return { chatId: String(message.chat.id), messageId: message.message_id };
     },
   };

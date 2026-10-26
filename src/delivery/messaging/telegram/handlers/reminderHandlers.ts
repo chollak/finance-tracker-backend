@@ -11,6 +11,7 @@ import {
 import { BotNotice } from '../formatters/summaryMessage';
 import { appLinks } from '../utils/webAppUrl';
 import { botUserId } from '../utils/userCategories';
+import { sendOrNotSent } from '../utils/notSent';
 import { ReminderSender } from '../../../../modules/notification/application/remindersNotifier';
 import { createLogger, LogCategory } from '../../../../shared/infrastructure/logging';
 
@@ -18,16 +19,17 @@ const logger = createLogger(LogCategory.TELEGRAM);
 
 /**
  * The goal, subscription and audit reminders sent by the scheduler (FT-133) into the user's private chat with the
- * bot — its id is the user's Telegram id. Telegram's refusal (the bot blocked) is thrown to the scheduler.
+ * bot — its id is the user's Telegram id. Telegram's refusal (the bot blocked) is thrown to the scheduler; a request
+ * that never left the machine is thrown as NoticeNotSentError, so the scheduler tries again (FT-144).
  */
 export function reminderSender(telegram: Pick<Telegram, 'sendMessage'>): ReminderSender {
   return {
     async send(recipient, notice) {
       const drawn = formatReminder(notice, { appUrl: appLinks.audit(recipient.telegramId) });
-      const message = await telegram.sendMessage(recipient.telegramId, drawn.text, {
+      const message = await sendOrNotSent(() => telegram.sendMessage(recipient.telegramId, drawn.text, {
         parse_mode: 'HTML',
         reply_markup: { inline_keyboard: drawn.keyboard },
-      });
+      }));
       return { chatId: String(message.chat.id), messageId: message.message_id };
     },
   };

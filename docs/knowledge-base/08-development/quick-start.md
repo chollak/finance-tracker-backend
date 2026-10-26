@@ -361,6 +361,9 @@ SELECT * FROM transaction LIMIT 10;
 | `TG_BOT_API_KEY` | - | Telegram bot token |
 | `TG_BOT_USERNAME` | - | @username бота без `@` для ссылки входа в браузере `t.me/<bot>?start=login_…` (FT-128). Пусто — спрашивается у Telegram (`getMe`) |
 | `WEB_APP_URL` | `http://localhost:3000` | Public URL (перезаписывается `npm run dev:miniapp`) |
+| `OPENAI_MODEL` | `gpt-4.1-mini` | Модель разбора текста (`gpt-4-turbo` OpenAI снял) |
+| `OPENAI_TIMEOUT_MS` | `20000` | Сколько ждать ответа OpenAI на разбор текста и расшифровку голоса (FT-145). Без него SDK ждёт 10 минут |
+| `OPENAI_MAX_RETRIES` | `1` | Сколько раз повторить разбор текста после таймаута или сбоя, 0–5 (FT-145). Голос не повторяется |
 
 ---
 

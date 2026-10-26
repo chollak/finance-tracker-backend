@@ -15,7 +15,8 @@ export type NotificationKind = 'daily_summary' | 'goal_near' | 'goal_over' | 'su
 
 /**
  * `sending` — claimed; it stays so if the process stopped mid-way (at most once: never sent twice).
- * `skipped` — nothing to say: the third empty evening in a row. `failed` — Telegram refused it.
+ * `skipped` — nothing to say: the third empty evening in a row. `failed` — Telegram refused it, or the request may
+ * have reached it (a timeout, a reset). A request that never left the machine keeps no row: the claim is given up (FT-144).
  */
 export type NotificationStatus = 'sending' | 'sent' | 'skipped' | 'failed';
 
@@ -50,6 +51,8 @@ export interface NotificationLogRepository {
   claim(input: { id: string; userId: string; kind: NotificationKind; period: string }): Promise<boolean>;
   find(userId: string, kind: NotificationKind, period: string): Promise<NotificationEntry | null>;
   update(id: string, changes: NotificationChanges): Promise<void>;
+  /** Gives up a claim still `sending`: the notice never left, a later tick may claim it again (FT-144). */
+  release(id: string): Promise<void>;
   /** Notices of this kind and variant that went out, newest period first. */
   lastSent(userId: string, kind: NotificationKind, variant: DailySummaryVariant, limit: number): Promise<NotificationEntry[]>;
 }

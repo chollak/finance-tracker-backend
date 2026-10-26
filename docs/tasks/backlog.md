@@ -329,7 +329,8 @@ Definition of Done:
 
 ### FT-144: Daily summary and reminders survive a failed send
 
-Status: backlog
+Status: review
+Branch: `fix/ft-144-145-reliability`
 Priority: high
 Owner: Claude Code, QA by Hermes
 Type: bug
@@ -360,7 +361,8 @@ Definition of Done:
 
 ### FT-145: Timeout and retries for OpenAI calls
 
-Status: backlog
+Status: review
+Branch: `fix/ft-144-145-reliability`
 Priority: high
 Owner: Claude Code, QA by Hermes
 Type: bug

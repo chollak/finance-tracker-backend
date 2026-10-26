@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto';
 import { getLogger, LogCategory } from '../../../shared/application/logging';
 import { DAILY_SUMMARY_RULES, DaySummary, isSummaryDue, localClock } from '../domain/dailySummary';
 import { DailySummaryVariant, NotificationKind, NotificationLogRepository } from '../domain/notificationLog';
+import { NoticeNotSentError } from '../domain/noticeNotSent';
 import { SummaryService } from './summaryService';
 import { SchedulerOptions, Ticker } from './ticker';
 
@@ -40,7 +41,8 @@ export interface DailySummarySender {
   send(recipient: SummaryRecipient, summary: DaySummary): Promise<SentNotice>;
 }
 
-export type SummaryOutcome = 'sent' | 'asked' | 'skipped' | 'failed';
+/** `retry` — the summary never left the machine: nothing is kept, the next tick sends it (FT-144). */
+export type SummaryOutcome = 'sent' | 'asked' | 'skipped' | 'failed' | 'retry';
 
 /**
  * «Да, не было» pressed: `confirmed` — the day still has no records and the answer is kept with the notice;
@@ -60,7 +62,8 @@ const TELEGRAM_CHAT = /^\d+$/;
 /**
  * The daily summary (FT-124): at the chosen time on the user's clock, once a day. The day is claimed in
  * `notifications_log` before anything is read or sent, so a second tick, a restart or a second process never
- * sends it twice — at most once: a send that failed or stopped half-way is not repeated.
+ * sends it twice — at most once: a send that failed or stopped half-way is not repeated. Only a send that never
+ * left the machine (no network after sleep) gives the claim up and is tried every minute until the day ends (FT-144).
  *
  * A day with records gets the summary; a day without them gets «Трат правда не было?», but never before the
  * user's first record and not more than DAILY_SUMMARY_RULES.emptyEveningsInARow evenings in a row — after that
@@ -70,6 +73,8 @@ const TELEGRAM_CHAT = /^\d+$/;
 export class DailySummaryNotifier {
   /** The day each user was handled for in this process: a tick does not ask the log again. */
   private handled = new Map<string, string>();
+  /** How many times the user's summary of the day did not leave the machine in this process, for the log (FT-144). */
+  private attempts = new Map<string, { day: string; count: number }>();
   private ticker = new Ticker('Daily summary');
 
   constructor(
@@ -91,7 +96,7 @@ export class DailySummaryNotifier {
       try {
         const outcome = await this.notify(recipient, clock.date, sender);
         if (outcome) results.push({ userId: recipient.userId, day: clock.date, outcome });
-        this.handled.set(recipient.userId, clock.date);
+        if (outcome !== 'retry') this.handled.set(recipient.userId, clock.date);
       } catch (error) {
         // The day was not claimed (the log could not be read or written): the next tick tries again
         logger.error('Daily summary failed before it was claimed', error as Error, { userId: recipient.userId, day: clock.date });
@@ -136,14 +141,33 @@ export class DailySummaryNotifier {
         return 'skipped';
       }
       const sent = await sender.send(recipient, summary);
+      this.attempts.delete(userId);
       await this.log.update(id, { status: 'sent', variant, chatId: sent.chatId, messageId: sent.messageId });
       return variant === 'empty' ? 'asked' : 'sent';
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
+      if (error instanceof NoticeNotSentError) return this.notSent(id, userId, day, error);
+      this.attempts.delete(userId);
       logger.warn('Daily summary not sent', { userId, day, error: message });
       await this.log.update(id, { status: 'failed', variant, error: message.slice(0, 500) }).catch(() => undefined);
       return 'failed';
     }
+  }
+
+  /** The summary never left the machine: the claim is given up and the next tick sends it, until the day ends (FT-144). */
+  private async notSent(id: string, userId: string, day: string, error: NoticeNotSentError): Promise<SummaryOutcome> {
+    const previous = this.attempts.get(userId);
+    const attempt = previous?.day === day ? previous.count + 1 : 1;
+    this.attempts.set(userId, { day, count: attempt });
+    try {
+      await this.log.release(id);
+    } catch (releaseError) {
+      // The row stays `sending`: at most once, so this day's summary is not tried again
+      logger.error('Daily summary claim not given up, not tried again', releaseError as Error, { userId, day });
+      return 'failed';
+    }
+    logger.warn('Daily summary did not leave, trying again next minute', { userId, day, attempt, error: error.reason });
+    return 'retry';
   }
 
   /**

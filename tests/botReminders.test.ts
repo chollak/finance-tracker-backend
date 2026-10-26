@@ -563,6 +563,68 @@ describe('goal, subscription and audit reminders in the bot (FT-133)', () => {
     expect(sent).toEqual([]);
   });
 
+  /** What Telegraf's fetch throws when the request did not get through. */
+  const networkError = (code: string) =>
+    Object.assign(new Error(`request to https://api.telegram.org/bot123:[REDACTED]/sendMessage failed, reason: ${code}`), {
+      name: 'FetchError', type: 'system', code, errno: code,
+    });
+
+  it('no network (the Mac woke without it): tried again the next minute; a reset connection is not (FT-144)', async () => {
+    await auditedOnOctober14();
+    await record('2026-10-27', 'Транспорт', 60_000, 'Такси');
+    refuse = networkError('ENOTFOUND');
+    at('2026-10-27', '12:30');
+    expect(await outcomes()).toEqual(['goal_near:retry']);
+
+    refuse = null;
+    at('2026-10-27', '12:31');
+    expect(await outcomes()).toEqual(['goal_near:sent']);
+    at('2026-10-27', '12:32');
+    expect(await tick()).toEqual([]);
+    expect(sent).toHaveLength(1);
+
+    await record('2026-10-28', 'Транспорт', 60_000, 'Такси');
+    refuse = networkError('ECONNRESET');
+    at('2026-10-28', '12:30');
+    expect(await outcomes()).toEqual(['goal_over:failed']);
+    refuse = null;
+    at('2026-10-28', '12:31');
+    expect(await tick()).toEqual([]);
+    expect(sent).toHaveLength(1);
+  });
+
+  it('straight over the limit with no network: the excess is told once it is back, never the 80% (FT-144)', async () => {
+    await auditedOnOctober14();
+    await record('2026-10-25', 'Транспорт', 90_000, 'Такси');
+    refuse = networkError('EAI_AGAIN');
+    at('2026-10-25', '12:00');
+    expect(await outcomes()).toEqual(['goal_over:retry']);
+
+    refuse = null;
+    at('2026-10-25', '12:01');
+    expect(await outcomes()).toEqual(['goal_over:sent']);
+    at('2026-10-25', '12:02');
+    expect(await tick()).toEqual([]);
+    expect(sent).toHaveLength(1);
+  });
+
+  it('no network all day: tried until the day ends, then kept as failed (FT-144)', async () => {
+    await auditedOnOctober14();
+    await record('2026-10-27', 'Транспорт', 60_000, 'Такси');
+    refuse = networkError('ENOTFOUND');
+    at('2026-10-27', '12:30');
+    expect(await outcomes()).toEqual(['goal_near:retry']);
+    at('2026-10-27', '18:00');
+    expect(await outcomes()).toEqual(['goal_near:retry']);
+
+    at('2026-10-28', '12:30');
+    expect(await outcomes()).toEqual(['goal_near:failed']);
+    refuse = null;
+    at('2026-10-28', '12:31');
+    expect(await tick()).toEqual([]);
+    expect(sent).toEqual([]);
+  });
+
   it('two bot processes over the same file at the same minute: one message', async () => {
     await auditedOnOctober14();
     await record('2026-10-27', 'Транспорт', 60_000, 'Такси');

@@ -3,6 +3,7 @@ import { getLogger, LogCategory } from '../../../shared/application/logging';
 import { todayDateOnly } from '../../../shared/domain/dates/dateOnly';
 import { LocalClock, localClock } from '../domain/dailySummary';
 import { NotificationKind, NotificationLogRepository } from '../domain/notificationLog';
+import { NoticeNotSentError } from '../domain/noticeNotSent';
 import {
   AnsweredSubscription,
   ReminderNotice,
@@ -42,7 +43,8 @@ export interface ReminderSender {
   send(recipient: ReminderRecipient, notice: ReminderNotice): Promise<SentNotice>;
 }
 
-export type ReminderOutcome = 'sent' | 'skipped' | 'failed';
+/** `retry` — the notice never left the machine: nothing is kept, the next tick sends it (FT-144). */
+export type ReminderOutcome = 'sent' | 'skipped' | 'failed' | 'retry';
 
 export interface ReminderTickResult {
   userId: string;
@@ -63,7 +65,8 @@ const settledKey = (userId: string, kind: NotificationKind, period: string) => `
 /**
  * The goal, subscription and audit reminders (FT-133), looked at every minute in the bot's process next to the daily
  * summary. Every notice is claimed in `notifications_log` (user, kind, period) before it is sent, so a second tick, a
- * restart or a second process never sends it twice — at most once: a send that failed is not repeated.
+ * restart or a second process never sends it twice — at most once: a send that failed is not repeated. Only a send that
+ * never left the machine (no network after sleep) gives the claim up and is tried every minute for the rest of that day (FT-144).
  *
  * - **A goal** («Вдвое меньше» only — the others have no limit): once at 80% of its limit since the audit day, once over
  *   it, in the daytime on the user's clock, while it counts; a goal that went straight over gets the second message
@@ -77,6 +80,8 @@ const settledKey = (userId: string, kind: NotificationKind, period: string) => `
 export class RemindersNotifier {
   /** Notices already claimed in this process: a tick does not ask the log about them again. */
   private settled = new Set<string>();
+  /** Notices that did not leave the machine in this process: the day of the first try and how many (FT-144). */
+  private attempts = new Map<string, { day: string; count: number }>();
   private ticker = new Ticker('Reminders');
 
   constructor(
@@ -142,7 +147,7 @@ export class RemindersNotifier {
     if (isAuditCallDue(clock, recipient.auditTime) && !(await this.isClaimed(recipient.userId, 'audit', month))) {
       const audit = await this.sources.audit(recipient.userId, clock.date);
       const notice: ReminderNotice | null = audit.state === 'open' && audit.left > 0 ? { kind: 'audit', month, left: audit.left, repeat: false } : null;
-      results.push(...(await this.once(recipient, 'audit', month, notice, sender)));
+      results.push(...(await this.once(recipient, 'audit', month, notice, sender, clock.date)));
     }
 
     // After «Позже»: once, from the day it was put off to
@@ -151,7 +156,7 @@ export class RemindersNotifier {
     if (call?.answer === 'later' && call.dueOn && call.dueOn <= clock.date && !(await this.isClaimed(recipient.userId, 'audit_again', month))) {
       const audit = await this.sources.audit(recipient.userId, clock.date);
       const notice: ReminderNotice | null = audit.state === 'open' && audit.left > 0 ? { kind: 'audit', month, left: audit.left, repeat: true } : null;
-      results.push(...(await this.once(recipient, 'audit_again', month, notice, sender)));
+      results.push(...(await this.once(recipient, 'audit_again', month, notice, sender, clock.date)));
     }
     return results;
   }
@@ -168,11 +173,11 @@ export class RemindersNotifier {
         const level = goalAlertLevel(goal.spentMinor, goal.limitMinor);
         if (level === 'over') {
           if (await this.isClaimed(recipient.userId, 'goal_over', goal.id)) continue;
-          results.push(...(await this.once(recipient, 'goal_over', goal.id, { kind: 'goal_over', today: clock.date, goal }, sender)));
+          results.push(...(await this.once(recipient, 'goal_over', goal.id, { kind: 'goal_over', today: clock.date, goal }, sender, clock.date)));
           // The 80% message would come after the excess: it is kept as skipped
-          if (!(await this.isClaimed(recipient.userId, 'goal_near', goal.id))) await this.once(recipient, 'goal_near', goal.id, null, sender);
+          if (!(await this.isClaimed(recipient.userId, 'goal_near', goal.id))) await this.once(recipient, 'goal_near', goal.id, null, sender, clock.date);
         } else if (level === 'near' && !(await this.isClaimed(recipient.userId, 'goal_near', goal.id))) {
-          results.push(...(await this.once(recipient, 'goal_near', goal.id, { kind: 'goal_near', today: clock.date, goal }, sender)));
+          results.push(...(await this.once(recipient, 'goal_near', goal.id, { kind: 'goal_near', today: clock.date, goal }, sender, clock.date)));
         }
       }
     }
@@ -181,7 +186,7 @@ export class RemindersNotifier {
       for (const goal of subscriptions) {
         const period = `${goal.id}:${clock.date}`;
         if (await this.isClaimed(recipient.userId, 'subscription', period)) continue;
-        results.push(...(await this.once(recipient, 'subscription', period, { kind: 'subscription', today: clock.date, goal }, sender)));
+        results.push(...(await this.once(recipient, 'subscription', period, { kind: 'subscription', today: clock.date, goal }, sender, clock.date)));
       }
     }
     return results;
@@ -204,28 +209,75 @@ export class RemindersNotifier {
     kind: NotificationKind,
     period: string,
     notice: ReminderNotice | null,
-    sender: ReminderSender
+    sender: ReminderSender,
+    day: string
   ): Promise<ReminderTickResult[]> {
     const { userId } = recipient;
+    const key = settledKey(userId, kind, period);
     const id = randomUUID();
     const claimed = await this.log.claim({ id, userId, kind, period });
-    this.settled.add(settledKey(userId, kind, period));
-    if (!claimed) return [];
+    if (!claimed) {
+      this.settled.add(key);
+      return [];
+    }
+    const outcome = await this.deliver(id, recipient, kind, period, notice, sender, day);
+    // A notice that never left is not settled: the next tick claims it again (FT-144)
+    if (outcome !== 'retry') this.settled.add(key);
+    return [{ userId, kind, period, outcome }];
+  }
 
-    const result = (outcome: ReminderOutcome): ReminderTickResult[] => [{ userId, kind, period, outcome }];
+  private async deliver(
+    id: string,
+    recipient: ReminderRecipient,
+    kind: NotificationKind,
+    period: string,
+    notice: ReminderNotice | null,
+    sender: ReminderSender,
+    day: string
+  ): Promise<ReminderOutcome> {
+    const { userId } = recipient;
+    const key = settledKey(userId, kind, period);
     if (!notice) {
       await this.log.update(id, { status: 'skipped' });
-      return result('skipped');
+      return 'skipped';
     }
     try {
       const sent = await sender.send(recipient, notice);
+      this.attempts.delete(key);
       await this.log.update(id, { status: 'sent', chatId: sent.chatId, messageId: sent.messageId });
-      return result('sent');
+      return 'sent';
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
+      if (error instanceof NoticeNotSentError) return this.notSent(id, key, day, error);
+      this.attempts.delete(key);
       logger.warn('Reminder not sent', { userId, kind, period, error: message });
       await this.log.update(id, { status: 'failed', error: message.slice(0, 500) }).catch(() => undefined);
-      return result('failed');
+      return 'failed';
     }
+  }
+
+  /**
+   * The notice never left the machine: the claim is given up and the next tick sends it, for the rest of the user's day
+   * it was first tried on. Still not out the next day — kept as failed, not tried again (FT-144).
+   */
+  private async notSent(id: string, key: string, day: string, error: NoticeNotSentError): Promise<ReminderOutcome> {
+    const previous = this.attempts.get(key);
+    if (previous && previous.day !== day) {
+      this.attempts.delete(key);
+      logger.warn('Reminder did not leave all day, not tried again', { key, attempts: previous.count, error: error.reason });
+      await this.log.update(id, { status: 'failed', error: error.reason.slice(0, 500) }).catch(() => undefined);
+      return 'failed';
+    }
+    const attempt = (previous?.count ?? 0) + 1;
+    this.attempts.set(key, { day, count: attempt });
+    try {
+      await this.log.release(id);
+    } catch (releaseError) {
+      // The row stays `sending`: at most once, so the notice is not tried again
+      logger.error('Reminder claim not given up, not tried again', releaseError as Error, { key });
+      return 'failed';
+    }
+    logger.warn('Reminder did not leave, trying again next minute', { key, attempt, error: error.reason });
+    return 'retry';
   }
 }

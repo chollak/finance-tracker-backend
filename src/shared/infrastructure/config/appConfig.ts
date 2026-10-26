@@ -45,6 +45,14 @@ const loadEnvironment = () => {
 
 loadEnvironment();
 
+/** A whole number from the environment, or the fallback when it is missing or not a whole number in [min, max]. */
+const intFromEnv = (value: string | undefined, fallback: number, min: number, max: number): number => {
+  const parsed = Number(value);
+  return value !== undefined && value.trim() !== '' && Number.isInteger(parsed) && parsed >= min && parsed <= max ? parsed : fallback;
+};
+/** Above this `setTimeout` fires at once. */
+const MAX_TIMER_MS = 2_147_483_647;
+
 export class AppConfig {
   // Environment
   static readonly NODE_ENV = process.env.NODE_ENV || 'development';
@@ -68,6 +76,11 @@ export class AppConfig {
   // OpenAI Configuration
   static readonly OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4.1-mini';
   static readonly WHISPER_MODEL = process.env.WHISPER_MODEL || 'whisper-1';
+  // A request OpenAI does not answer ends here, not after the SDK's 10 minutes × 3 attempts (FT-145).
+  // gpt-4.1-mini reads a phrase in 1–3 s and Whisper a short voice in a few seconds, so 20 s is a stuck request
+  static readonly OPENAI_TIMEOUT_MS = intFromEnv(process.env.OPENAI_TIMEOUT_MS, 20_000, 1, MAX_TIMER_MS);
+  // Text only: a voice upload is not retried (the SDK would resend the stream it already read)
+  static readonly OPENAI_MAX_RETRIES = intFromEnv(process.env.OPENAI_MAX_RETRIES, 1, 0, 5);
   static readonly DEFAULT_LANGUAGE = process.env.DEFAULT_LANGUAGE || 'ru';
 
   // File Processing
