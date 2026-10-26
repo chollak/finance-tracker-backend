@@ -300,9 +300,13 @@ if (description.length < 3) confidence -= 0.05;
 - User-friendly message об ошибке
 
 ### OpenAI API Errors
+- Таймаут `OPENAI_TIMEOUT_MS` (20 с) для текста и голоса и `OPENAI_MAX_RETRIES` (1 повтор) для текста (FT-145). Голос
+  не повторяется: SDK собирает загрузку файла один раз и повтор ушёл бы пустым. Без этих настроек SDK ждал бы
+  10 минут и повторял дважды — до 30 минут на одну фразу
+- Сбой или таймаут → `ExternalServiceError`: бот отвечает «Не получилось разобрать… не записал», причина — в логе
+  (`errorContext`); простая фраза «такси 18000» получает «Другое ?» без ИИ
 - Rate limit handling
 - Invalid API key detection
-- Network timeout recovery
 
 ### FFmpeg Not Available
 - Fallback на file rename

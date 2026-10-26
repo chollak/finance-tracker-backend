@@ -1,4 +1,4 @@
-import OpenAI from 'openai';
+import OpenAI, { ClientOptions } from 'openai';
 import fs from 'fs';
 import { ChatCompletionMessageParam } from 'openai/resources/chat';
 import {
@@ -21,26 +21,36 @@ const logger = createLogger(LogCategory.OPENAI);
 export class OpenAITranscriptionService implements TranscriptionService {
   private openai: OpenAI;
 
-  constructor(apiKey?: string) {
+  /** `options.fetch` replaces the network in tests. */
+  constructor(apiKey?: string, options: Pick<ClientOptions, 'fetch'> = {}) {
     const key = apiKey || AppConfig.OPENAI_API_KEY;
     if (!key) {
       throw ErrorFactory.configuration('OpenAI API key is required');
     }
-    this.openai = new OpenAI({ apiKey: key });
+    this.openai = new OpenAI({
+      apiKey: key,
+      timeout: AppConfig.OPENAI_TIMEOUT_MS,
+      maxRetries: AppConfig.OPENAI_MAX_RETRIES,
+      ...options,
+    });
   }
 
   async transcribe(filePath: string): Promise<string> {
     try {
       const fileStream = fs.createReadStream(filePath);
-      const response = await this.openai.audio.transcriptions.create({
-        model: AppConfig.WHISPER_MODEL,
-        file: fileStream,
-        response_format: 'json',
-        language: AppConfig.DEFAULT_LANGUAGE,
-        prompt:
-          OPENAI_PROMPTS[AppConfig.DEFAULT_LANGUAGE.toUpperCase() as keyof typeof OPENAI_PROMPTS]
-            .TRANSCRIPTION_PROMPT,
-      });
+      const response = await this.openai.audio.transcriptions.create(
+        {
+          model: AppConfig.WHISPER_MODEL,
+          file: fileStream,
+          response_format: 'json',
+          language: AppConfig.DEFAULT_LANGUAGE,
+          prompt:
+            OPENAI_PROMPTS[AppConfig.DEFAULT_LANGUAGE.toUpperCase() as keyof typeof OPENAI_PROMPTS]
+              .TRANSCRIPTION_PROMPT,
+        },
+        // No retry: the SDK builds the upload once and would resend the stream it already read (FT-145)
+        { maxRetries: 0 }
+      );
       return response.text;
     } catch (error) {
       throw ErrorFactory.externalService(

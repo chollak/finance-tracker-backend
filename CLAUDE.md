@@ -84,6 +84,8 @@ Required environment variables in `.env` file:
 - `WEB_APP_URL` - Public URL for the web application
 - `TG_BOT_USERNAME` - optional; the bot's @username for the web login link `t.me/<bot>?start=login_…` (FT-128). When empty the server asks Telegram (`getMe`)
 - `FREE_LIMITS_ENABLED` - optional; `true` enforces free-tier limits (50 records, 10 voice inputs a month). Off by default during milestone 10 (decision Д3, FT-091); usage is still counted
+- `OPENAI_MODEL` - optional; the text-parsing model, default `gpt-4.1-mini` (OpenAI withdrew `gpt-4-turbo`)
+- `OPENAI_TIMEOUT_MS`, `OPENAI_MAX_RETRIES` - optional; how long an OpenAI request may take and how often text parsing is retried (0–5), default 20000 ms and 1 (FT-145); a voice upload is not retried. Without them the SDK waits 10 minutes and retries twice
 - `DATABASE_TYPE` - optional; only `sqlite` is supported (any other value fails startup). The `supabase-js` path was removed in FT-090 (decision Д6)
 
 **Historical, not active:**
