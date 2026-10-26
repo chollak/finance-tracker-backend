@@ -5,47 +5,81 @@
  * Uses express-rate-limit with different limits for different endpoint types.
  */
 
-import rateLimit, { RateLimitRequestHandler } from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator, RateLimitRequestHandler } from 'express-rate-limit';
 import { Request, Response } from 'express';
 import { createLogger, LogCategory } from '../../../../shared/infrastructure/logging';
+import { AppConfig } from '../../../../shared/infrastructure/config/appConfig';
+import { signedInTelegramId } from './authMiddleware';
 
 const logger = createLogger(LogCategory.RATE_LIMIT);
 
+/** Requests per 15 minutes for one signed-in Telegram user (decision of 2026-10-20, FT-139). */
+const SIGNED_IN_REQUEST_LIMIT = 600;
+/** Requests per 15 minutes for one address without sign-in. */
+const ANONYMOUS_REQUEST_LIMIT = 100;
+
+/** Who a request counts against: its Telegram user when signed in, otherwise its address. */
+interface Requester {
+  key: string;
+  telegramId: number | null;
+}
+
 /**
- * Standard API rate limiter
+ * Standard (general) API rate limiter
  *
- * Applies to most API endpoints.
- * Limits: 100 requests per 15 minutes per IP
+ * Applies to most API endpoints. Counts per Telegram user (initData, or `X-Dev-User-Id` outside
+ * production), so people behind one address — the Mini App tunnel, a family's Wi-Fi — do not share a
+ * counter: 600 requests per 15 minutes each. Requests without sign-in count per address: 100.
+ *
+ * It runs before the route's authentication, so it checks the sign-in itself; initData that does not
+ * verify counts as no sign-in. The options exist for tests: each call has its own counters.
  */
-export const standardRateLimiter: RateLimitRequestHandler = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // 100 requests per window
-  message: {
-    success: false,
-    error: 'Too many requests, please try again later',
-    code: 'RATE_LIMIT_EXCEEDED',
-    retryAfter: 15 * 60, // seconds
-  },
-  standardHeaders: true, // Return rate limit info in `RateLimit-*` headers
-  legacyHeaders: false, // Disable `X-RateLimit-*` headers
-  // Use default keyGenerator (IP-based, IPv6 safe)
-  skip: (req: Request): boolean => {
-    // Skip rate limiting for health checks
-    return req.path === '/health';
-  },
-  handler: (req: Request, res: Response): void => {
-    logger.warn('Rate limit exceeded', {
-      ip: req.ip,
-      path: req.path,
-      userId: req.resolvedUser?.id || 'anonymous',
-    });
-    res.status(429).json({
-      success: false,
-      error: 'Too many requests, please try again later',
-      code: 'RATE_LIMIT_EXCEEDED',
-    });
-  },
-});
+export function createStandardRateLimiter(
+  options: { botToken?: string } = {}
+): RateLimitRequestHandler {
+  const botToken = options.botToken ?? AppConfig.TG_BOT_API_KEY;
+  // The key and the limit both need the requester: verify initData once per request.
+  const requesters = new WeakMap<Request, Requester>();
+  const requesterOf = (req: Request): Requester => {
+    let requester = requesters.get(req);
+    if (!requester) {
+      const telegramId = signedInTelegramId(req, botToken);
+      requester = telegramId === null
+        ? { key: `ip:${ipKeyGenerator(req.ip ?? '')}`, telegramId }
+        : { key: `user:${telegramId}`, telegramId };
+      requesters.set(req, requester);
+    }
+    return requester;
+  };
+
+  return rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    limit: (req: Request): number =>
+      requesterOf(req).telegramId === null ? ANONYMOUS_REQUEST_LIMIT : SIGNED_IN_REQUEST_LIMIT,
+    keyGenerator: (req: Request): string => requesterOf(req).key,
+    standardHeaders: true, // Return rate limit info in `RateLimit-*` headers
+    legacyHeaders: false, // Disable `X-RateLimit-*` headers
+    skip: (req: Request): boolean => {
+      // Skip rate limiting for health checks
+      return req.path === '/health';
+    },
+    handler: (req: Request, res: Response): void => {
+      logger.warn('Rate limit exceeded', {
+        ip: req.ip,
+        path: req.path,
+        telegramId: requesterOf(req).telegramId ?? 'anonymous',
+      });
+      res.status(429).json({
+        success: false,
+        error: 'Too many requests, please try again later',
+        code: 'RATE_LIMIT_EXCEEDED',
+      });
+    },
+  });
+}
+
+/** The general limiter the API routers share (one counter set for the whole API). */
+export const standardRateLimiter: RateLimitRequestHandler = createStandardRateLimiter();
 
 /**
  * Strict rate limiter for sensitive operations

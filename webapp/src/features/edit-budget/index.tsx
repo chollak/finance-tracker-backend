@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { useBudget, useUpdateBudget, useDeleteBudget } from '@/entities/budget';
 import { BudgetForm } from '../create-budget/ui/BudgetForm';
 import type { CreateBudgetFormData } from '../create-budget/model/schema';
-import { ROUTES } from '@/shared/lib/constants';
+import { useCloseScreen } from '@/shared/lib/navigation';
 import { toast } from 'sonner';
 import { Skeleton } from '@/shared/ui/skeleton';
 import { Button } from '@/shared/ui/button';
@@ -25,7 +25,8 @@ import { Trash2 } from 'lucide-react';
  * Reuses BudgetForm from CreateBudget
  */
 export function EditBudget() {
-  const navigate = useNavigate();
+  // Saved or deleted, the budget closes the form the way «Назад» does, so «Назад» never reopens it
+  const closeScreen = useCloseScreen();
   const { id } = useParams<{ id: string }>();
   const { data: budget, isLoading } = useBudget(id || null);
   const updateBudget = useUpdateBudget();
@@ -50,7 +51,7 @@ export function EditBudget() {
       });
 
       toast.success('Бюджет обновлен');
-      navigate(ROUTES.BUDGETS);
+      closeScreen();
     } catch (error) {
       toast.error('Не удалось обновить бюджет');
       console.error('Failed to update budget:', error);
@@ -63,7 +64,7 @@ export function EditBudget() {
     try {
       await deleteBudget.mutateAsync({ id, userId: budget.userId });
       toast.success('Бюджет удален');
-      navigate(ROUTES.BUDGETS);
+      closeScreen();
     } catch (error) {
       toast.error('Не удалось удалить бюджет');
       console.error('Failed to delete budget:', error);

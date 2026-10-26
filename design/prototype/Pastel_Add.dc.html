@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Daftar — ручной ввод</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; position: relative; overflow: hidden; display: flex; flex-direction: column; gap: 12px; padding: 8px 16px 16px; background: {{t.bg}}; color: {{t.ink}}; font-family: 'Manrope', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;">
+
+<header style="display: flex; align-items: center; gap: 8px; height: 48px;">
+<a href="{{homeHref}}" aria-label="Назад" style="flex: 0 0 44px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border-radius: 9999px; background: {{t.card}}; color: {{t.ink}};"><svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><path d="M12.5 4.5 7 10l5.5 5.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg></a>
+<div role="group" aria-label="Тип операции" style="flex: 1 1 auto; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px; padding: 2px; border-radius: 9999px; background: {{t.track}};">
+<button type="button" onClick="{{setExpense}}" aria-pressed="{{expPressed}}" style="height: 44px; border: 0; border-radius: 9999px; background: {{expBg}}; box-shadow: {{expShadow}}; color: {{expInk}}; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer;">Расход</button>
+<button type="button" onClick="{{setIncome}}" aria-pressed="{{incPressed}}" style="height: 44px; border: 0; border-radius: 9999px; background: {{incBg}}; box-shadow: {{incShadow}}; color: {{incInk}}; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer;">Доход</button>
+</div>
+<button type="button" aria-label="Дата: сегодня, 14 октября" style="flex: 0 0 auto; height: 44px; padding: 0 14px; border: 0; border-radius: 9999px; background: {{t.card}}; color: {{t.ink}}; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer;">Сегодня</button>
+</header>
+
+<section aria-label="Сумма" style="display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 8px 0 4px;">
+<h1 style="margin: 0; font-size: 14px; font-weight: 600; color: {{t.muted}};">Сумма</h1>
+<div aria-live="polite" style="display: flex; align-items: baseline; justify-content: center; gap: 8px; height: 58px;">
+<span style="font-size: {{amtSize}}; line-height: 1.1; font-weight: 700; letter-spacing: {{amtTrack}}; white-space: nowrap; font-variant-numeric: tabular-nums; color: {{amtColor}};">{{amtText}}</span>
+<span style="font-size: 18px; font-weight: 600; color: {{t.muted}};">{{unit}}</span>
+</div>
+<span style="height: 28px; padding: 0 12px; display: flex; align-items: center; border-radius: 9999px; background: {{t.track}}; color: {{t.muted}}; font-size: 13px; font-weight: 600;">{{conv}}</span>
+</section>
+
+<section aria-label="Счёт" style="display: flex; flex-direction: column; gap: 8px;">
+<h2 style="margin: 0; font-size: 13px; font-weight: 700; color: {{t.muted}};">Счёт</h2>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px;">
+<sc-for list="{{accounts}}" as="a" hint-placeholder-count="3">
+<button type="button" onClick="{{a.pick}}" aria-pressed="{{a.pressed}}" style="min-width: 0; height: 52px; padding: 0 14px; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 1px; border: 0; border-radius: 18px; background: {{a.bg}}; color: {{a.ink}}; font-family: inherit; text-align: left; cursor: pointer;">
+<span style="font-size: 14px; line-height: 1.2; font-weight: 700;">{{a.name}}</span>
+<span style="font-size: 11px; line-height: 1.4; font-weight: 600; white-space: nowrap; color: {{a.sub}};">{{a.bal}}</span>
+</button>
+</sc-for>
+</div>
+</section>
+
+<section aria-label="Категория" style="display: flex; flex-direction: column; gap: 8px;">
+<h2 style="margin: 0; font-size: 13px; font-weight: 700; color: {{t.muted}};">Категория</h2>
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px;">
+<sc-for list="{{cats}}" as="c" hint-placeholder-count="8">
+<button type="button" onClick="{{c.pick}}" aria-pressed="{{c.pressed}}" style="min-width: 0; height: 48px; padding: 0 4px; border: 0; border-radius: 16px; background: {{c.bg}}; box-shadow: {{c.ring}}; color: #141416; font-family: inherit; font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer;">{{c.name}}</button>
+</sc-for>
+</div>
+</section>
+
+<label style="display: flex; align-items: center; gap: 12px; height: 48px; padding: 0 20px; box-sizing: border-box; border-radius: 9999px; background: {{t.card}};">
+<span style="flex: 0 0 auto; font-size: 13px; font-weight: 700; color: {{t.muted}};">Заметка</span>
+<input type="text" placeholder="Например, супермаркет" style="flex: 1 1 auto; min-width: 0; height: 44px; border: 0; padding: 0; background: transparent; color: {{t.ink}}; font-family: inherit; font-size: 15px; font-weight: 500;">
+</label>
+
+<div style="margin-top: auto; display: flex; flex-direction: column; gap: 12px;">
+<div role="group" aria-label="Цифровая клавиатура" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px;">
+<sc-for list="{{keys}}" as="k" hint-placeholder-count="12">
+<button type="button" onClick="{{k.press}}" aria-label="{{k.aria}}" style="height: 48px; display: flex; align-items: center; justify-content: center; border: 0; border-radius: 9999px; background: {{k.bg}}; color: {{k.ink}}; font-family: inherit; font-size: {{k.size}}; font-weight: 600; font-variant-numeric: tabular-nums; cursor: pointer;">
+<sc-if value="{{k.isBack}}" hint-placeholder-val="{{false}}">
+<svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H9l-6-7 6-7Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"></path><path d="m12 9.5 5 5m0-5-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path></svg>
+</sc-if>
+<sc-if value="{{k.isText}}" hint-placeholder-val="{{true}}">
+<span>{{k.label}}</span>
+</sc-if>
+</button>
+</sc-for>
+</div>
+<button type="button" onClick="{{save}}" disabled="{{saveDisabled}}" style="height: 56px; border: 0; border-radius: 9999px; background: {{saveBg}}; color: {{saveInk}}; font-family: inherit; font-size: 16px; font-weight: 800; cursor: pointer;">{{saveLabel}}</button>
+</div>
+
+<sc-if value="{{hasToast}}" hint-placeholder-val="{{false}}">
+<div role="status" style="position: absolute; left: 16px; right: 16px; top: 12px; display: flex; align-items: center; gap: 10px; padding: 12px 18px; border-radius: 9999px; background: {{t.primaryBg}}; color: {{t.primaryInk}}; font-size: 14px; font-weight: 600;">
+<span aria-hidden="true" style="flex: 0 0 24px; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 9999px; background: #c9efd9; color: #14532d;"><svg width="14" height="14" viewBox="0 0 20 20"><path d="M4.5 10.5 8 14l7.5-8" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+<span>{{toast}}</span>
+</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"homeHref":{"editor":null,"default":"Pastel_Home.dc.html"},"offline":{"editor":"boolean","default":false},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  theme() {
+    if (this.props.dark) {
+      return { bg: "#111214", card: "#1b1c1f", ink: "#f4f4f6", muted: "#9d9da6", segOff: "#b0b0b8", track: "#26272b", segOn: "#3a3b40", segShadow: "none", income: "#6fd59a", primaryBg: "#f4f4f6", primaryInk: "#141416", primarySub: "#5d5d66" };
+    }
+    return { bg: "#f3f3f5", card: "#ffffff", ink: "#141416", muted: "#6b6b74", segOff: "#5d5d66", track: "#e7e7ec", segOn: "#ffffff", segShadow: "0 1px 3px rgba(0, 0, 0, 0.1)", income: "#15803d", primaryBg: "#141416", primaryInk: "#ffffff", primarySub: "#b5b5bd" };
+  }
+  rate() { return 12650; }
+  expCats() {
+    return [["pr", "Продукты", "#ffdcc8"], ["kf", "Кафе", "#ffd6e0"], ["tr", "Транспорт", "#cfe3ff"], ["dm", "Дом", "#ede3d6"], ["sv", "Связь", "#e3dcff"], ["zd", "Здоровье", "#c9efd9"], ["pk", "Покупки", "#fbefb3"], ["dr", "Другое", "#e6e6ea"]];
+  }
+  incCats() {
+    return [["zp", "Зарплата", "#c9efd9"], ["fr", "Фриланс", "#e3dcff"], ["bz", "Бизнес", "#cfe3ff"], ["pd", "Подарки", "#ffd6e0"], ["kb", "Кэшбэк", "#fbefb3"], ["pc", "Проценты", "#ffdcc8"], ["vz", "Возврат", "#ede3d6"], ["dx", "Другое", "#e6e6ea"]];
+  }
+  st() {
+    const s = this.state || {};
+    return {
+      type: s.type || "expense",
+      acc: s.acc || "card",
+      amount: s.amount !== undefined ? s.amount : (this.props.offline ? "" : "186400"),
+      cat: s.cat !== undefined ? s.cat : (this.props.offline ? null : "pr"),
+      toast: s.toast || null
+    };
+  }
+  curOf(acc) { return acc === "usd" ? "USD" : "UZS"; }
+  num(a) { const n = parseFloat(String(a).replace(",", ".")); return isNaN(n) ? 0 : n; }
+  fmtInt(s) { return String(s).replace(/\B(?=(\d{3})+(?!\d))/g, " "); }
+  fmtAmount(a) {
+    if (a === "") return "0";
+    const p = a.split(",");
+    return this.fmtInt(p[0] || "0") + (p.length > 1 ? "," + p[1] : "");
+  }
+  fmtUsd(n) { const p = n.toFixed(2).split("."); return this.fmtInt(p[0]) + "," + p[1]; }
+  press(k) {
+    const s = this.st();
+    const cur = this.curOf(s.acc);
+    let a = s.amount;
+    if (k === "back") {
+      a = a.slice(0, -1);
+    } else if (k === "000") {
+      if (a !== "" && a !== "0" && a.length <= 8) a = a + "000";
+    } else if (k === ",") {
+      if (cur === "USD" && a.indexOf(",") === -1) a = (a === "" ? "0" : a) + ",";
+    } else {
+      const ci = a.indexOf(",");
+      if (ci !== -1 && a.length - ci > 2) return;
+      if (a === "0") a = k;
+      else if (a.replace(",", "").length < 11) a = a + k;
+    }
+    this.setState({ amount: a });
+  }
+  pickType(type) {
+    if (this.st().type !== type) this.setState({ type: type, cat: null });
+  }
+  pickAcc(id) {
+    const s = this.st();
+    if (this.curOf(id) !== this.curOf(s.acc)) this.setState({ acc: id, amount: "" });
+    else this.setState({ acc: id });
+  }
+  save() {
+    const s = this.st();
+    const exp = s.type === "expense";
+    const list = exp ? this.expCats() : this.incCats();
+    const c = list.find((x) => x[0] === s.cat);
+    const unit = this.curOf(s.acc) === "USD" ? "USD" : "сум";
+    const msg = (this.props.offline ? "Записано на этом устройстве: " : "") + (exp ? "−" : "+") + this.fmtAmount(s.amount) + " " + unit + " · " + (c ? c[1] : "") + (this.props.offline ? " · отправится со связью" : "");
+    clearTimeout(this._tm);
+    this.setState({ toast: msg, amount: "" });
+    this._tm = setTimeout(() => this.setState({ toast: null }), 2200);
+  }
+  componentWillUnmount() { clearTimeout(this._tm); }
+  renderVals() {
+    const t = this.theme();
+    const s = this.st();
+    const cur = this.curOf(s.acc);
+    const exp = s.type === "expense";
+    const n = this.num(s.amount);
+    const empty = n === 0;
+    const sign = empty ? "" : (exp ? "−" : "+");
+    const amtText = sign + this.fmtAmount(s.amount);
+    const len = amtText.length;
+    const big = len <= 10;
+    const mid = len <= 13;
+    const rate = this.rate();
+    const conv = empty ? "1 USD = 12 650 сум" : (cur === "UZS" ? "≈ " + this.fmtUsd(n / rate) + " USD" : "≈ " + this.fmtInt(Math.round(n * rate)) + " сум");
+
+    const accDefs = [["cash", "Наличные", "1 250 000 сум"], ["card", "Карта", "3 180 000 сум"], ["usd", "Доллары", "420,00 USD"]];
+    const accounts = accDefs.map((d) => {
+      const on = s.acc === d[0];
+      return {
+        name: d[1], bal: d[2],
+        pressed: on ? "true" : "false",
+        bg: on ? t.primaryBg : t.card,
+        ink: on ? t.primaryInk : t.ink,
+        sub: on ? t.primarySub : t.muted,
+        pick: () => this.pickAcc(d[0])
+      };
+    });
+
+    const catList = exp ? this.expCats() : this.incCats();
+    const cats = catList.map((d) => {
+      const on = s.cat === d[0];
+      return {
+        name: d[1],
+        bg: d[2],
+        pressed: on ? "true" : "false",
+        ring: on ? "0 0 0 2px " + t.bg + ", 0 0 0 4px " + t.ink : "none",
+        pick: () => this.setState({ cat: d[0] })
+      };
+    });
+    const catObj = catList.find((d) => d[0] === s.cat);
+
+    const extra = cur === "UZS" ? "000" : ",";
+    const keyIds = ["1", "2", "3", "4", "5", "6", "7", "8", "9", extra, "0", "back"];
+    const keys = keyIds.map((k) => ({
+      label: k,
+      aria: k === "back" ? "Стереть" : (k === "000" ? "Три нуля" : (k === "," ? "Запятая" : k)),
+      isBack: k === "back",
+      isText: k !== "back",
+      size: k === "000" ? "17px" : "23px",
+      bg: t.card,
+      ink: t.ink,
+      press: () => this.press(k)
+    }));
+
+    const ok = !empty && !!catObj;
+    const saveLabel = empty ? "Введите сумму" : (!catObj ? "Выберите категорию" : (exp ? "Сохранить расход" : "Сохранить доход"));
+
+    return {
+      t: t,
+      homeHref: this.props.homeHref ?? (this.props.offline ? "Pastel_HomeOffline" : "Pastel_Home") + (this.props.dark ? "Dark" : "") + ".dc.html",
+      setExpense: () => this.pickType("expense"),
+      setIncome: () => this.pickType("income"),
+      expPressed: exp ? "true" : "false",
+      incPressed: exp ? "false" : "true",
+      expBg: exp ? t.segOn : "transparent",
+      expShadow: exp ? t.segShadow : "none",
+      expInk: exp ? t.ink : t.segOff,
+      incBg: exp ? "transparent" : t.segOn,
+      incShadow: exp ? "none" : t.segShadow,
+      incInk: exp ? t.segOff : t.ink,
+      amtText: amtText,
+      amtSize: big ? "50px" : (mid ? "40px" : "32px"),
+      amtTrack: big ? "-1.8px" : (mid ? "-1.3px" : "-0.9px"),
+      amtColor: empty ? t.muted : (exp ? t.ink : t.income),
+      unit: cur === "USD" ? "USD" : "сум",
+      conv: conv,
+      accounts: accounts,
+      cats: cats,
+      keys: keys,
+      save: () => this.save(),
+      saveDisabled: !ok,
+      saveBg: ok ? t.primaryBg : t.track,
+      saveInk: ok ? t.primaryInk : t.segOff,
+      saveLabel: saveLabel,
+      hasToast: !!s.toast,
+      toast: s.toast || ""
+    };
+  }
+}
+</script>
+</body>
+</html>

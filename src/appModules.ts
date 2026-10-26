@@ -9,18 +9,49 @@ import { createOpenAIUsageModule } from './modules/openai-usage/openAIUsageModul
 import { UserModule } from './modules/user/userModule';
 import { SubscriptionModule } from './modules/subscription/subscriptionModule';
 import { RepositoryFactory } from './shared/infrastructure/database/repositoryFactory';
+import { CategoryModule } from './modules/category/categoryModule';
+import { AccountModule } from './modules/account/accountModule';
+import { FxModule } from './modules/fx/fxModule';
+import { BotMessageModule } from './modules/botMessage/botMessageModule';
+import { NotificationModule } from './modules/notification/notificationModule';
+import { ExportModule } from './modules/export/exportModule';
+import { AuthModule } from './modules/auth/authModule';
+import { AuditModule } from './modules/audit/auditModule';
+import { transactionLearning } from './shared/application/learning/transactionLearning';
 
 export function createModules() {
   // Core modules (no dependencies on subscription)
+  const categoryModule = CategoryModule.create();
   const transactionModule = TransactionModule.create();
+  // Records point at the user's categories (FT-099)
+  transactionModule.setCategoryResolver(categoryModule.getCatalog());
   const budgetModule = BudgetModule.create(transactionModule);
   const userModule = UserModule.create();
+
+  // Records are written to the user's accounts (FT-101); the default account comes from settings
+  const accountModule = AccountModule.create();
+  transactionModule.setAccountResolver(accountModule.getBook());
+  accountModule.getBook().setDefaultAccountSource(userId => userModule.defaultAccountId(userId));
+  userModule.setAccountCheck((userId, accountId) => accountModule.getBook().isVisibleAccount(userId, accountId));
+  // The account screen lists the account's records next to its moves (FT-104)
+  accountModule.setRecordSource({ recordsOf: (userId, accountId) => transactionModule.recordsOfAccount(userId, accountId) });
+
+  // USD rate (FT-102): the user's own rate from settings, else the Central Bank's
+  const fxModule = FxModule.create({
+    get: userId => userModule.ownUsdRate(userId),
+    set: (userId, rate) => userModule.setOwnUsdRate(userId, rate),
+  });
+  accountModule.getBook().setRateProvider(fxModule.getService());
+  accountModule.setCbuRates(fxModule.getService());
+  transactionModule.setUsdRateSource(fxModule.getService());
   const openAIUsageModule = createOpenAIUsageModule();
 
   // Create SubscriptionModule with repositories
   const subscriptionRepository = RepositoryFactory.createSubscriptionRepository();
   const usageLimitRepository = RepositoryFactory.createUsageLimitRepository();
-  const subscriptionModule = new SubscriptionModule(subscriptionRepository, usageLimitRepository);
+  const subscriptionModule = new SubscriptionModule(subscriptionRepository, usageLimitRepository, {
+    freeLimitsEnabled: AppConfig.FREE_LIMITS_ENABLED,
+  });
 
   // Set subscription dependencies for TransactionModule (for decrementing on delete)
   transactionModule.setSubscriptionDependencies(subscriptionModule, userModule);
@@ -30,12 +61,43 @@ export function createModules() {
 
   // VoiceProcessingModule now handles both transactions and debts
   const openAIService = new OpenAITranscriptionService(AppConfig.OPENAI_API_KEY);
-  const voiceModule = new VoiceProcessingModule(openAIService, transactionModule, debtModule);
+  // Learned patterns: a category they give is not the AI's guess (FT-138)
+  const voiceModule = new VoiceProcessingModule(openAIService, transactionModule, debtModule, categoryModule.getCatalog(), transactionLearning);
 
   // Shared quick-capture boundary: wraps the existing text pipeline for API/Telegram/Mini App clients
-  const quickCaptureModule = QuickCaptureModule.create(voiceModule);
+  // A repeated clientId returns the records the first capture wrote (FT-106)
+  const quickCaptureModule = QuickCaptureModule.create(voiceModule, transactionModule);
+
+  // Which records each bot confirmation shows: «Изменить», «Вернуть» and /undo survive a restart (FT-122)
+  const botMessageModule = BotMessageModule.create();
+
+  // «Скачать все записи» (FT-126): records and moves that are not deleted, as CSV — downloaded or sent to the bot chat
+  const exportModule = ExportModule.create({
+    records: userId => transactionModule.getRepository().findByUserId(userId),
+    moves: userId => accountModule.movesOfUser(userId),
+    accounts: userId => accountModule.getRepository().findByUserId(userId),
+  });
+
+  // Web login through the bot (FT-128, decision Д4): the link, the answer in the bot, the browser's session
+  const authModule = AuthModule.create();
+
+  // The spending audit and its goals (FT-130, FT-131): records, categories and the rate as in every total (FT-103)
+  const periodTotals = transactionModule.getPeriodTotalsService();
+  const auditModule = AuditModule.create({
+    recordsBetween: (userId, from, to) => transactionModule.getRepository().getByUserIdAndDateRange(userId, new Date(from), new Date(to)),
+    firstRecordDate: userId => transactionModule.getRepository().findFirstRecordDate(userId),
+    categories: userId => categoryModule.getCatalog().listForUser(userId),
+    usdRateMinor: (userId, records) => periodTotals.usdRateFor(userId, records),
+  });
+
+  // Итоги дня at the chosen time, /today and /month (FT-124); the goal, subscription and audit reminders (FT-133) —
+  // each sent at most once
+  const notificationModule = NotificationModule.create(transactionModule, userModule, auditModule);
 
   return {
+    categoryModule,
+    accountModule,
+    fxModule,
     transactionModule,
     budgetModule,
     debtModule,
@@ -44,5 +106,10 @@ export function createModules() {
     openAIUsageModule,
     userModule,
     subscriptionModule,
+    botMessageModule,
+    notificationModule,
+    exportModule,
+    authModule,
+    auditModule,
   };
 }

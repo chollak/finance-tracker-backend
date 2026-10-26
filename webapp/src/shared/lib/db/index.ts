@@ -1,8 +1,6 @@
 /**
- * Database module exports
+ * The records' data source (server API) and their shapes
  */
 
 export * from './schema';
-export * from './indexedDB';
-export * from './transactionRepo';
 export * from './dataSource';

@@ -26,8 +26,6 @@ export interface OwnedResource {
 export interface VerifyOwnershipOptions {
   /** Resource type name for error messages (e.g., 'budget', 'debt', 'transaction') */
   resourceType: string;
-  /** Allow guest users (userId starting with 'guest_') to bypass verification */
-  allowGuest?: boolean;
 }
 
 /**
@@ -50,12 +48,7 @@ export async function verifyResourceOwnership<T extends OwnedResource>(
   userModule: UserModule | undefined,
   options: VerifyOwnershipOptions
 ): Promise<void> {
-  const { resourceType, allowGuest = false } = options;
-
-  // Allow guest users to bypass if configured
-  if (allowGuest && resource.userId.startsWith('guest_')) {
-    return;
-  }
+  const { resourceType } = options;
 
   const telegramUser = req.telegramUser;
 

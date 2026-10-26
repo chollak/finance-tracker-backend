@@ -1,8 +1,13 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { createLogger, LogCategory } from '../logging';
+import { CATEGORY_PRESETS, presetKeyForLearning } from '../../../modules/category/domain/categoryPresets';
+import { namingWordsOf } from '../../../modules/voiceProcessing/domain/categoryGuess';
 
 const logger = createLogger(LogCategory.LEARNING);
+
+/** A pattern counts once it has been used this many times: the AI prompt shows it, and it names a category (FT-138). */
+export const MIN_PATTERN_USES = 2;
 
 export interface LearningData {
   originalText: string;
@@ -25,6 +30,7 @@ export interface LearningData {
 
 export interface CategoryPattern {
   keywords: string[];
+  /** Starter category key (FT-099); files written before it hold old static ids, mapped on load. */
   category: string;
   confidence: number;
   usageCount: number;
@@ -102,9 +108,10 @@ export class TransactionLearningService {
   }
 
   /**
-   * Get enhanced prompts based on learned patterns
+   * Get enhanced prompts based on learned patterns. Patterns name starter categories by key; they are
+   * shown in the user's current names (`presetNames`), and a starter the user hid is left out.
    */
-  async getEnhancedPrompts(basePrompt: string): Promise<string> {
+  async getEnhancedPrompts(basePrompt: string, presetNames?: Map<string, string>): Promise<string> {
     try {
       const patterns = await this.loadPatterns();
       
@@ -112,17 +119,24 @@ export class TransactionLearningService {
         return basePrompt;
       }
 
+      const categoryName = (key: string | undefined): string | undefined => {
+        if (!key) return undefined;
+        if (presetNames) return presetNames.get(key);
+        return CATEGORY_PRESETS.find(preset => preset.key === key)?.name;
+      };
+
       let enhancement = '\n\nИЗУЧЕННЫЕ ПАТТЕРНЫ (используй для точной категоризации):\n';
       
       // Add learned category patterns
       if (patterns.categories.length > 0) {
         enhancement += '\nКАТЕГОРИИ:\n';
         patterns.categories
-          .filter(p => p.usageCount >= 2) // Only include patterns used at least twice
+          .filter(p => p.usageCount >= MIN_PATTERN_USES)
           .sort((a, b) => b.confidence - a.confidence)
           .slice(0, 20) // Top 20 patterns
           .forEach(pattern => {
-            enhancement += `• "${pattern.keywords.join('", "')}" → ${pattern.category}\n`;
+            const name = categoryName(pattern.category);
+            if (name) enhancement += `• "${pattern.keywords.join('", "')}" → ${name}\n`;
           });
       }
 
@@ -130,12 +144,13 @@ export class TransactionLearningService {
       if (patterns.merchants.length > 0) {
         enhancement += '\nМЕРЧАНТЫ:\n';
         patterns.merchants
-          .filter(p => p.usageCount >= 2)
+          .filter(p => p.usageCount >= MIN_PATTERN_USES)
           .sort((a, b) => b.usageCount - a.usageCount)
           .slice(0, 15) // Top 15 merchants
           .forEach(pattern => {
             enhancement += `• "${pattern.aliases.join('", "')}" → ${pattern.normalizedName}`;
-            if (pattern.category) enhancement += ` (${pattern.category})`;
+            const name = categoryName(pattern.category);
+            if (name) enhancement += ` (${name})`;
             enhancement += '\n';
           });
       }
@@ -145,6 +160,23 @@ export class TransactionLearningService {
       logger.error('Failed to enhance prompts', error as Error);
       return basePrompt;
     }
+  }
+
+  /**
+   * Learned words that name a starter category, by its key (FT-138): from the patterns the AI prompt shows,
+   * the aliases of merchants with a category and those keywords of category patterns that point at it —
+   * not «купил», «деньги» or a word two categories share (`namingWordsOf`).
+   */
+  async learnedCategoryWords(): Promise<Map<string, string[]>> {
+    const patterns = await this.loadPatterns();
+    return namingWordsOf({
+      categories: patterns.categories
+        .filter(pattern => pattern.usageCount >= MIN_PATTERN_USES)
+        .map(pattern => ({ key: pattern.category, keywords: pattern.keywords })),
+      merchants: patterns.merchants
+        .filter(merchant => merchant.usageCount >= MIN_PATTERN_USES && merchant.category)
+        .map(merchant => ({ key: merchant.category!, aliases: merchant.aliases })),
+    });
   }
 
   private async updatePatterns(learningEntry: LearningData): Promise<void> {
@@ -220,7 +252,7 @@ export class TransactionLearningService {
   private async loadLearningData(): Promise<LearningData[]> {
     try {
       const data = await fs.readFile(this.learningDataPath, 'utf-8');
-      return JSON.parse(data);
+      return migrateLearningData(JSON.parse(data));
     } catch (error) {
       return this.loadSeedLearningData();
     }
@@ -229,7 +261,7 @@ export class TransactionLearningService {
   private async loadSeedLearningData(): Promise<LearningData[]> {
     try {
       const data = await fs.readFile(this.learningDataSeedPath, 'utf-8');
-      return JSON.parse(data);
+      return migrateLearningData(JSON.parse(data));
     } catch (error) {
       return [];
     }
@@ -245,19 +277,19 @@ export class TransactionLearningService {
     }
   }
 
-  private async loadPatterns(): Promise<{categories: CategoryPattern[], merchants: MerchantPattern[]}> {
+  private async loadPatterns(): Promise<LearnedPatterns> {
     try {
       const data = await fs.readFile(this.patternsPath, 'utf-8');
-      return JSON.parse(data);
+      return migratePatterns(JSON.parse(data));
     } catch (error) {
       return this.loadSeedPatterns();
     }
   }
 
-  private async loadSeedPatterns(): Promise<{categories: CategoryPattern[], merchants: MerchantPattern[]}> {
+  private async loadSeedPatterns(): Promise<LearnedPatterns> {
     try {
       const data = await fs.readFile(this.patternsSeedPath, 'utf-8');
-      return JSON.parse(data);
+      return migratePatterns(JSON.parse(data));
     } catch (error) {
       return { categories: [], merchants: [] };
     }
@@ -272,6 +304,50 @@ export class TransactionLearningService {
       logger.error('Failed to save patterns', error as Error);
     }
   }
+}
+
+export interface LearnedPatterns {
+  categories: CategoryPattern[];
+  merchants: MerchantPattern[];
+}
+
+/**
+ * Patterns from before FT-099 name old static ids. They are mapped to starter keys when read and
+ * written back that way on the next save; patterns that land on the same key are merged.
+ */
+export function migratePatterns(patterns: LearnedPatterns): LearnedPatterns {
+  const byKey = new Map<string, CategoryPattern>();
+  for (const pattern of patterns.categories ?? []) {
+    const key = presetKeyForLearning(pattern.category);
+    const merged = byKey.get(key);
+    if (!merged) {
+      byKey.set(key, { ...pattern, category: key, keywords: [...pattern.keywords] });
+      continue;
+    }
+    for (const keyword of pattern.keywords) {
+      if (!merged.keywords.includes(keyword)) merged.keywords.push(keyword);
+    }
+    merged.usageCount += pattern.usageCount;
+    merged.confidence = Math.max(merged.confidence, pattern.confidence);
+  }
+  return {
+    categories: [...byKey.values()],
+    merchants: (patterns.merchants ?? []).map(merchant => ({
+      ...merchant,
+      category: merchant.category ? presetKeyForLearning(merchant.category) : merchant.category,
+    })),
+  };
+}
+
+/** Learning history from before FT-099: category values become starter keys. */
+export function migrateLearningData(entries: LearningData[]): LearningData[] {
+  return entries.map(entry => ({
+    ...entry,
+    originalParsing: { ...entry.originalParsing, category: presetKeyForLearning(entry.originalParsing.category) },
+    userCorrection: entry.userCorrection.category
+      ? { ...entry.userCorrection, category: presetKeyForLearning(entry.userCorrection.category) }
+      : entry.userCorrection,
+  }));
 }
 
 // Singleton instance

@@ -2,7 +2,7 @@
  * SQLite UsageLimit Repository Implementation
  */
 
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { AppDataSource } from '../../../shared/infrastructure/database/database.config';
 import { UsageLimit as UsageLimitEntity } from '../../../shared/infrastructure/database/entities/UsageLimit';
 import { UsageLimitRepository } from '../domain/usageLimitRepository';
@@ -17,8 +17,8 @@ import {
 export class SqliteUsageLimitRepository implements UsageLimitRepository {
   private repository: Repository<UsageLimitEntity>;
 
-  constructor() {
-    this.repository = AppDataSource.getRepository(UsageLimitEntity);
+  constructor(dataSource: DataSource = AppDataSource) {
+    this.repository = dataSource.getRepository(UsageLimitEntity);
   }
 
   async findByUserId(userId: string): Promise<UsageLimit | null> {
@@ -42,20 +42,33 @@ export class SqliteUsageLimitRepository implements UsageLimitRepository {
     return this.create({ userId });
   }
 
+  /**
+   * A user's first records may come at once (FT-141), and each finds no row. The insert skips a row another
+   * write already added (`user_id` is unique) and the row is read back: one row, no key error. Not `save()`:
+   * on SQLite TypeORM shares one connection, and a failed `save()` rolls back what others wrote (FT-140).
+   */
   async create(dto: CreateUsageLimitDTO): Promise<UsageLimit> {
     const period = getCurrentMonthPeriod();
 
-    const entity = this.repository.create({
-      userId: dto.userId,
-      periodStart: dto.periodStart || period.start,
-      periodEnd: dto.periodEnd || period.end,
-      transactionsCount: 0,
-      voiceInputsCount: 0,
-      activeDebtsCount: 0,
-    });
+    await this.repository
+      .createQueryBuilder()
+      .insert()
+      .values({
+        userId: dto.userId,
+        periodStart: dto.periodStart || period.start,
+        periodEnd: dto.periodEnd || period.end,
+        transactionsCount: 0,
+        voiceInputsCount: 0,
+        activeDebtsCount: 0,
+      })
+      .orIgnore()
+      .execute();
 
-    const saved = await this.repository.save(entity);
-    return this.mapToUsageLimit(saved);
+    const stored = await this.findByUserId(dto.userId);
+    if (!stored) {
+      throw new Error('UsageLimit not found after create');
+    }
+    return stored;
   }
 
   async incrementCounter(userId: string, limitType: LimitType): Promise<UsageLimit> {

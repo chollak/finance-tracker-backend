@@ -3,34 +3,16 @@ import { apiClient } from '@/shared/api';
 import { API_ENDPOINTS } from '@/shared/lib/constants';
 import type { Budget, BudgetSummary, CreateBudgetDTO, UpdateBudgetDTO } from '@/shared/types';
 import { budgetKeys } from './keys';
-import { dashboardKeys } from '@/entities/dashboard/api/keys';
-import { isGuestId } from '@/shared/lib/utils/guestId';
 import { haptic } from '@/shared/lib/haptic';
 
 /**
- * Error thrown when guest user tries to access server features
- */
-export class GuestAccessError extends Error {
-  constructor(feature: string) {
-    super(`Для ${feature} необходимо войти через Telegram`);
-    this.name = 'GuestAccessError';
-  }
-}
-
-/**
  * Hook to create a new budget
- * Guest users: throws GuestAccessError
  */
 export function useCreateBudget() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (data: CreateBudgetDTO) => {
-      // Block guest users from creating budgets
-      if (isGuestId(data.userId)) {
-        throw new GuestAccessError('создания бюджетов');
-      }
-
       const response = await apiClient.post<Budget>(
         API_ENDPOINTS.BUDGETS.CREATE(data.userId),
         data
@@ -44,9 +26,6 @@ export function useCreateBudget() {
       // Invalidate budget summaries (need recalculation from server)
       queryClient.invalidateQueries({ queryKey: budgetKeys.summaries(userId) });
       queryClient.invalidateQueries({ queryKey: budgetKeys.list(userId) });
-      // Invalidate dashboard budget overview
-      queryClient.invalidateQueries({ queryKey: dashboardKeys.insights(userId) });
-      queryClient.invalidateQueries({ queryKey: dashboardKeys.quickStats(userId) });
     },
   });
 }
@@ -79,27 +58,18 @@ export function useUpdateBudget() {
       // Invalidate summaries (spent calculation might change due to category/date changes)
       queryClient.invalidateQueries({ queryKey: budgetKeys.summaries(userId) });
       queryClient.invalidateQueries({ queryKey: budgetKeys.list(userId) });
-      // Invalidate dashboard
-      queryClient.invalidateQueries({ queryKey: dashboardKeys.insights(userId) });
-      queryClient.invalidateQueries({ queryKey: dashboardKeys.quickStats(userId) });
     },
   });
 }
 
 /**
  * Hook to delete a budget
- * Guest users: throws GuestAccessError
  */
 export function useDeleteBudget() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, userId }: { id: string; userId: string }) => {
-      // Block guest users
-      if (isGuestId(userId)) {
-        throw new GuestAccessError('удаления бюджетов');
-      }
-
+    mutationFn: async ({ id }: { id: string; userId: string }) => {
       const response = await apiClient.delete<{ success: boolean }>(
         API_ENDPOINTS.BUDGETS.DELETE(id)
       );
@@ -123,9 +93,6 @@ export function useDeleteBudget() {
 
       // Invalidate list (might need refresh)
       queryClient.invalidateQueries({ queryKey: budgetKeys.list(userId) });
-      // Invalidate dashboard
-      queryClient.invalidateQueries({ queryKey: dashboardKeys.insights(userId) });
-      queryClient.invalidateQueries({ queryKey: dashboardKeys.quickStats(userId) });
     },
   });
 }

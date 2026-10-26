@@ -1,4 +1,4 @@
-import { ProcessedTransaction, DetectedTransaction, DetectedDebt } from '../domain/processedTransaction';
+import { ProcessedTransaction, DetectedTransaction, DetectedDebt, ItemWithoutAmount } from '../domain/processedTransaction';
 import { TranscriptionService } from '../domain/transcriptionService';
 import { CreateTransactionUseCase } from '../../transaction/application/createTransaction';
 import { CreateDebtUseCase } from '../../debt/application/createDebt';
@@ -6,7 +6,17 @@ import { Transaction } from '../../transaction/domain/transactionEntity';
 import { DebtType } from '../../debt/domain/debtEntity';
 import { DebtLimitExceededError } from '../../debt/domain/errors';
 import { getLogger, LogCategory } from '../../../shared/application/logging';
-import { normalizeCategory } from '../../../shared/domain/entities/Category';
+import { AnalysisContext, starterRecordCategories, UserCategorySource } from '../domain/categoryPrompt';
+import { detectPaymentHints, PaymentHints, stripPaymentWords } from '../domain/paymentHints';
+import { RecordSource } from '../../transaction/domain/recordSource';
+import { ResolvedAccount } from '../../transaction/domain/accountResolver';
+import { ResolvedCategory } from '../../transaction/domain/categoryResolver';
+import { categoryNamedIn, CategoryOfRecord, LearnedCategoryWords, recordWordsOf } from '../domain/categoryGuess';
+import { categoryNameKey } from '../../category/domain/category';
+import { captureAssumptions } from './captureAssumptions';
+import { captureMoneyOf } from './captureMoney';
+import { itemClientId } from '../../transaction/domain/clientId';
+import { fromMinor } from '../../../shared/domain/money/money';
 import { normalizeSemanticType, TransactionSemanticType } from '../../transaction/domain/transactionSemanticType';
 import { AnalysisResult, ParsedTransaction } from '../domain/transcriptionService';
 import {
@@ -281,7 +291,8 @@ function parseObviousSemanticTransaction(text: string): AnalysisResult | null {
   } else if (INCOME_KEYWORDS_PATTERN.test(remainder)) {
     type = 'income';
     semanticType = 'income';
-    category = normalizeCategory(remainder);
+    // «зарплата», «аванс» — resolved to the user's income category on create (FT-099)
+    category = remainder;
   }
 
   if (!semanticType) {
@@ -305,7 +316,9 @@ function parseObviousSemanticTransaction(text: string): AnalysisResult | null {
 }
 
 function parseSimpleTextTransaction(text: string): AnalysisResult | null {
-  const normalizedText = text.trim().replace(/\s+/g, ' ');
+  // «такси 18000 наличными», «наушники 55$» parse like «такси 18000» — the payment words are read
+  // separately as account and currency hints (FT-103)
+  const normalizedText = stripPaymentWords(text.trim().replace(/\s+/g, ' '));
 
   if (isComplexText(normalizedText)) {
     return null;
@@ -334,7 +347,8 @@ function parseSimpleTextTransaction(text: string): AnalysisResult | null {
   const transaction: ParsedTransaction = {
     intent: 'transaction',
     amount,
-    category: normalizeCategory(label),
+    // The label itself — «такси», «кофе», a renamed category — is resolved to the user's category on create
+    category: label,
     type: 'expense',
     semanticType: 'expense',
     needsReview: false,
@@ -347,18 +361,113 @@ function parseSimpleTextTransaction(text: string): AnalysisResult | null {
   return { transactions: [transaction], debts: [] };
 }
 
+/** The answer to «Сколько?» (FT-123): what the person wrote and the amount read from it. */
+export interface AmountAnswer {
+  /** As written: «18к нал», «45», «60$». */
+  text: string;
+  /** In the answer's currency, major units, «45» already read as 45 000. */
+  amount: number;
+  currency: 'UZS' | 'USD';
+  /** «нал», «картой» in the answer. */
+  kind?: 'cash' | 'card';
+}
+
+/** How one parsed record is written: the phrase it came from and who writes it. */
+interface RecordWrite {
+  text: string;
+  hints: PaymentHints;
+  /**
+   * Items of the phrase, the ones named without an amount too (FT-123): with one, the words of the whole
+   * phrase apply to it.
+   */
+  itemCount: number;
+  clientId?: string;
+  source: RecordSource;
+  userId: string;
+  userName?: string;
+  /** Read by a text fast path, not by the AI (FT-138). */
+  fastPath: boolean;
+  learned: ReadonlyMap<string, readonly string[]>;
+}
+
+export interface TextInputOptions {
+  /** Where the text came from; recorded on every record (FT-103). */
+  source?: RecordSource;
+  /** The client's id for the capture (FT-106); its records get «<id>», «<id>:1», … */
+  clientId?: string;
+}
+
+/** The user's categories for the parser prompt; the starter set if they cannot be read. */
+export async function analysisContextFor(source: UserCategorySource | undefined, userId: string): Promise<AnalysisContext> {
+  if (!source) return {};
+  try {
+    const [categories, presetNames] = await Promise.all([source.promptCategories(userId), source.presetNames(userId)]);
+    return { categories, presetNames };
+  } catch (error) {
+    logger.error('Failed to read categories for the parser prompt', error as Error);
+    return {};
+  }
+}
+
+/** The user's visible categories for the word rule of the fast path (FT-143); the starter set if they cannot be read. */
+export async function recordCategoriesFor(source: UserCategorySource | undefined, userId: string): Promise<CategoryOfRecord[]> {
+  if (!source) return starterRecordCategories();
+  try {
+    return await source.recordCategories(userId);
+  } catch (error) {
+    logger.error('Failed to read categories for the text fast path', error as Error);
+    return starterRecordCategories();
+  }
+}
+
+/**
+ * Learned words of the starter categories, for the category guess rule (FT-138). Without them every
+ * category the words do not name stays a guess — the capture goes on.
+ */
+export async function learnedWordsFor(source: LearnedCategoryWords | undefined): Promise<ReadonlyMap<string, readonly string[]>> {
+  if (!source) return new Map();
+  try {
+    return await source.learnedCategoryWords();
+  } catch (error) {
+    logger.error('Failed to read learned category words', error as Error);
+    return new Map();
+  }
+}
+
+/**
+ * How a record's category was set (FT-138): by the AI, or on a fast path from the label — unless the path
+ * set it by the record's kind: a transfer, savings or cash withdrawal goes to «Другое», no word chose it.
+ */
+function categoryChosenBy(fastPath: boolean, semanticType: TransactionSemanticType): 'ai' | 'words' | 'kind' {
+  if (!fastPath) return 'ai';
+  return semanticType === 'expense' || semanticType === 'income' ? 'words' : 'kind';
+}
+
 export class ProcessTextInputUseCase {
   constructor(
     private openAIService: TranscriptionService,
     private createTransactionUseCase: CreateTransactionUseCase,
-    private createDebtUseCase?: CreateDebtUseCase
+    // Debt parsing is off (decision Д2): the parser no longer reports debts, so this stays unused
+    // until the debt module is removed.
+    private createDebtUseCase?: CreateDebtUseCase,
+    private categorySource?: UserCategorySource,
+    /** Learned words, so a category a learned pattern gives is not called a guess (FT-138). */
+    private learnedWords?: LearnedCategoryWords
   ) {}
 
-  async execute(text: string, userId: string, userName?: string): Promise<ProcessedTransaction> {
-    const parsed = parseObviousSemanticTransaction(text)
-      || parseSimpleTextTransaction(text)
-      // Fall back to OpenAI for complex/natural-language inputs and debts.
-      || await this.openAIService.analyzeInput(text);
+  async execute(text: string, userId: string, userName?: string, options: TextInputOptions = {}): Promise<ProcessedTransaction> {
+    const source: RecordSource = options.source ?? 'miniapp';
+    // «нал», «картой», «$» in the text: which account and currency (FT-103)
+    const hints = detectPaymentHints(text);
+
+    const obvious = parseObviousSemanticTransaction(text);
+    const simple = obvious ? null : parseSimpleTextTransaction(text);
+    // A category no word of the record names is a guess (FT-138): the AI's own choice, or «Другое» for a
+    // label nothing recognised. The same words decide whether the simple path keeps its label (FT-143)
+    const learned = await learnedWordsFor(this.learnedWords);
+    const local = obvious ?? (simple ? await this.withNamedCategory(simple, userId, learned) : null);
+    // Fall back to OpenAI for complex/natural-language inputs, with the user's categories
+    const { parsed, fastPath } = local ? { parsed: local, fastPath: true } : await this.readByAI(text, userId, simple);
 
     // Only a single-transaction parse is checked against the text's currency markers. In
     // multi-item text ("продукты 12000 сум и такси 30000") each number belongs to its own
@@ -379,60 +488,25 @@ export class ProcessTextInputUseCase {
 
     const transactionResults: DetectedTransaction[] = [];
     const debtResults: DetectedDebt[] = [];
+    // Named without an amount: nothing is written, the bot asks «Сколько?» (FT-123). They are items of the
+    // phrase all the same: «нал» in «кофе 25к, такси нал» is the taxi's, so the coffee keeps only its own words
+    const withoutAmount = parsed.withoutAmount ?? [];
+    const itemCount = transactions.length + withoutAmount.length;
 
     // Process transactions
-    for (const p of transactions) {
-      try {
-        const type = p.type || 'expense';
-        const semanticType = normalizeSemanticType(p.semanticType, type);
-        const needsReview = p.needsReview === true;
-        const transaction: Transaction = {
-          date: p.date || new Date().toISOString().split('T')[0],
-          category: p.category || 'other',
-          description: p.description || text,
-          amount: p.amount || 0,
-          type,
-          semanticType,
-          needsReview,
-          userId,
-          userName,
-          merchant: p.merchant,
-          confidence: p.confidence,
-          originalText: text,
-          originalParsing: {
-            amount: p.amount || 0,
-            category: p.category || 'other',
-            type,
-            semanticType,
-            needsReview,
-            merchant: p.merchant,
-            confidence: p.confidence,
-          },
-        };
-
-        const createResult = await this.createTransactionUseCase.execute(transaction);
-        if (createResult.success) {
-          transactionResults.push({
-            id: createResult.data,
-            amount: transaction.amount,
-            category: transaction.category,
-            type: transaction.type,
-            semanticType: transaction.semanticType,
-            needsReview: transaction.needsReview,
-            date: transaction.date,
-            merchant: transaction.merchant,
-            confidence: transaction.confidence,
-            description: transaction.description,
-          });
-        } else {
-          logger.error('Failed to create transaction', null, { error: createResult.error?.message });
-        }
-      } catch (error) {
-        logger.error('Failed to create transaction from text input', error as Error, {
-          transactionData: p,
-          userId,
-        });
-      }
+    for (const [index, p] of transactions.entries()) {
+      const written = await this.writeRecord(p, {
+        text,
+        hints,
+        itemCount,
+        clientId: options.clientId ? itemClientId(options.clientId, index) : undefined,
+        source,
+        userId,
+        userName,
+        fastPath,
+        learned,
+      });
+      if (written) transactionResults.push(written);
     }
 
     // Process debts (if DebtModule is available)
@@ -484,6 +558,184 @@ export class ProcessTextInputUseCase {
       }
     }
 
-    return { text, transactions: transactionResults, debts: debtResults };
+    return { text, transactions: transactionResults, debts: debtResults, ...(withoutAmount.length ? { withoutAmount } : {}) };
+  }
+
+  /**
+   * The simple «<label> <amount>» keeps its label only when the label — whole or by its words — names exactly
+   * one of the user's visible expense categories (FT-143, by the word rule of FT-138); the record then goes
+   * there by that category's name. Otherwise null and the phrase goes to the AI like a complex one: the label
+   * used to be looked up whole, so «обед с командой» landed in «Другое ?» without ever reaching the AI.
+   */
+  private async withNamedCategory(
+    simple: AnalysisResult,
+    userId: string,
+    learned: ReadonlyMap<string, readonly string[]>
+  ): Promise<AnalysisResult | null> {
+    const [record] = simple.transactions;
+    const label = record.category;
+    const categories = (await recordCategoriesFor(this.categorySource, userId)).filter(category => category.type === 'expense');
+    // The first kind of match that finds anything decides: the user's own name of a category, whole («кофе» is
+    // their «Кофе», not the starter «Кафе»); then names and the dictionary by words; then learned words, which every
+    // correction of every user adds to, so they never outvote the dictionary
+    const tiers = [
+      categories.filter(category => categoryNameKey(category.name) === categoryNameKey(label)),
+      categories.filter(category => categoryNamedIn(label, category)),
+      categories.filter(category => categoryNamedIn(label, category, category.presetKey ? learned.get(category.presetKey) : undefined)),
+    ];
+    const named = tiers.find(tier => tier.length > 0) ?? [];
+    return named.length === 1 ? { ...simple, transactions: [{ ...record, category: named[0].name }] } : null;
+  }
+
+  /**
+   * The AI's reading of the phrase. A simple «<label> <amount>» sent to it only because its label named no
+   * single category is written as before when the AI fails or reads no record from it: «Другое ?» (FT-143).
+   */
+  private async readByAI(
+    text: string,
+    userId: string,
+    simple: AnalysisResult | null
+  ): Promise<{ parsed: AnalysisResult; fastPath: boolean }> {
+    const ask = async () => this.openAIService.analyzeInput(text, await analysisContextFor(this.categorySource, userId));
+    if (!simple) return { parsed: await ask(), fastPath: false };
+
+    try {
+      const parsed = await ask();
+      if (parsed?.transactions?.length || parsed?.withoutAmount?.length) return { parsed, fastPath: false };
+      logger.warn('The AI read no record from a simple phrase; its label is kept');
+    } catch (error) {
+      logger.warn('The AI could not read a simple phrase; its label is kept', { error: (error as Error).message });
+    }
+    return { parsed: simple, fastPath: true };
+  }
+
+  /**
+   * Writes an item the phrase named without an amount, now that the person said how much (FT-123: the
+   * answer to «Сколько?»). The record is the item — its category, note, date — with the answer's amount,
+   * currency and account word, through the same pipeline as a parsed phrase, so its guesses read the same:
+   * the text it is read from is the note and the answer («такси 18к нал»), and «18» says it was 18 000.
+   */
+  async executeWithAmount(
+    item: ItemWithoutAmount,
+    answer: AmountAnswer,
+    userId: string,
+    userName?: string,
+    options: TextInputOptions = {}
+  ): Promise<DetectedTransaction | null> {
+    const text = `${item.description} ${answer.text}`.trim();
+    const parsed: ParsedTransaction = {
+      intent: 'transaction',
+      amount: answer.amount,
+      currency: answer.currency,
+      paymentKind: answer.kind ?? item.paymentKind,
+      category: item.category,
+      type: item.type,
+      semanticType: item.semanticType,
+      needsReview: false,
+      date: item.date || new Date().toISOString().split('T')[0],
+      merchant: item.merchant,
+      description: item.description,
+    };
+    return this.writeRecord(parsed, {
+      text,
+      hints: detectPaymentHints(text),
+      itemCount: 1,
+      source: options.source ?? 'miniapp',
+      userId,
+      userName,
+      // The parser chose the item's category when it read the phrase
+      fastPath: false,
+      learned: await learnedWordsFor(this.learnedWords),
+    });
+  }
+
+  /** One parsed record written: the money, account and category resolved, and what was assumed. */
+  private async writeRecord(p: ParsedTransaction, write: RecordWrite): Promise<DetectedTransaction | null> {
+    const { text, hints, userId, userName } = write;
+    try {
+      const type = p.type || 'expense';
+      const semanticType = normalizeSemanticType(p.semanticType, type);
+      const needsReview = p.needsReview === true;
+      const money = captureMoneyOf(p, text, hints, write.itemCount, semanticType);
+      const { currency } = money;
+      const transaction: Transaction = {
+        date: p.date || new Date().toISOString().split('T')[0],
+        category: p.category || 'Другое',
+        description: p.description || text,
+        amount: money.amount,
+        currency,
+        source: write.source,
+        ...(write.clientId ? { clientId: write.clientId } : {}),
+        type,
+        semanticType,
+        needsReview,
+        userId,
+        userName,
+        merchant: p.merchant,
+        confidence: p.confidence,
+        originalText: text,
+        originalParsing: {
+          amount: money.amount,
+          category: p.category || 'Другое',
+          type,
+          semanticType,
+          needsReview,
+          merchant: p.merchant,
+          confidence: p.confidence,
+        },
+      };
+
+      // Text paths choose a category automatically, so never a hidden one (FT-099), and read the
+      // account from the wording (FT-103). Moving money is not paid «налом»: no kind hint for it.
+      let account: ResolvedAccount | undefined;
+      let category: ResolvedCategory | undefined;
+      const createResult = await this.createTransactionUseCase.execute(transaction, {
+        visibleCategoriesOnly: true,
+        accountHint: { text: money.accountText, kind: money.kind },
+        allowCurrencyMismatch: true,
+        onResolved: resolved => { account = resolved.account; category = resolved.category; },
+      });
+      if (!createResult.success) {
+        logger.error('Failed to create transaction', null, { error: createResult.error?.message });
+        return null;
+      }
+      return {
+        id: createResult.data,
+        amount: transaction.amountMinor !== undefined ? fromMinor(transaction.amountMinor) : transaction.amount,
+        amountMinor: transaction.amountMinor,
+        currency: transaction.currency,
+        accountId: transaction.accountId,
+        accountName: account?.name,
+        assumptions: captureAssumptions({
+          text,
+          amount: transaction.amount,
+          category: {
+            name: transaction.category,
+            type: transaction.type,
+            presetKey: category?.presetKey ?? null,
+            chosenBy: categoryChosenBy(write.fastPath, semanticType),
+            words: recordWordsOf(text, p, write.itemCount),
+            learnedWords: category?.presetKey ? write.learned.get(category.presetKey) : undefined,
+          },
+          account,
+          currency,
+        }),
+        category: transaction.category,
+        categoryId: transaction.categoryId,
+        type: transaction.type,
+        semanticType: transaction.semanticType,
+        needsReview: transaction.needsReview,
+        date: transaction.date,
+        merchant: transaction.merchant,
+        confidence: transaction.confidence,
+        description: transaction.description,
+      };
+    } catch (error) {
+      logger.error('Failed to create transaction from text input', error as Error, {
+        transactionData: p,
+        userId,
+      });
+      return null;
+    }
   }
 }

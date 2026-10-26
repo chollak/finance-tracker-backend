@@ -1,111 +1,31 @@
-import { QuickCategory } from '../types';
-import { EXPENSE_CATEGORIES } from '../../../../shared/domain/entities/Category';
-
-// Generate quick categories from shared Category entity
-const QUICK_CATEGORIES: QuickCategory[] = EXPENSE_CATEGORIES.slice(0, 8).map((c) => ({
-  id: c.id,
-  emoji: c.icon,
-  name: c.name,
-}));
 
 /**
  * Russian language strings for Telegram bot
  */
 export const RU = {
-  // Welcome and onboarding
-  welcome: {
-    title: 'AI Finance Tracker',
-    greeting: (name: string) => `Привет, ${name}!`,
-    description: `
-Я помогу отслеживать твои расходы и доходы.
-
-<b>Как пользоваться:</b>
-Отправь голосовое сообщение или текст
-Например: <i>кофе 350</i> или <i>зарплата 50000</i>
-
-<b>Команды:</b>
-/today - Расходы за сегодня
-/week - Еженедельный обзор
-/stats - Статистика за месяц
-/budget - Состояние бюджетов
-/help - Помощь
-    `.trim(),
-    openApp: 'Открыть приложение',
-    quickAdd: 'Быстрое добавление:',
-  },
-
-  // Command responses
+  // The boards «Бот · первое сообщение» and «Бот · меню команд» (FT-124)
   commands: {
-    today: {
-      title: 'Сегодня',
-      noTransactions: 'Сегодня транзакций пока нет',
-      total: (amount: string) => `Итого: ${amount}`,
-      income: (amount: string) => `Доход: +${amount}`,
-      expense: (amount: string) => `Расход: ${amount}`,
-      count: (n: number) => `Транзакций: ${n}`,
-    },
-    stats: {
-      title: (month: string) => `Статистика за ${month}`,
-      income: 'Доходы',
-      expenses: 'Расходы',
-      balance: 'Баланс',
-      transactions: 'Транзакций',
-      topCategories: 'Топ категории',
-      savingsRate: (rate: number) => `Норма сбережений: ${rate}%`,
-      noData: 'Нет данных за этот период',
-    },
-    budget: {
-      title: 'Бюджеты',
-      noBudgets: 'У вас пока нет бюджетов.\nСоздайте первый в приложении!',
-      status: (name: string, spent: string, limit: string, percentage: number) =>
-        `${name}: ${spent} / ${limit} (${percentage}%)`,
-      exceeded: 'Превышен!',
-      warning: 'Внимание!',
-      ok: 'OK',
-      remaining: (amount: string) => `Осталось: ${amount}`,
-    },
-    help: {
-      title: 'Справка',
-      content: `
-<b>Как добавлять транзакции:</b>
-
-<b>Голосом:</b>
-<i>"Потратил 500 рублей на такси"</i>
-<i>"Получил зарплату 80000"</i>
-
-<b>Текстом:</b>
-<i>кофе 350</i>
-<i>продукты 2500</i>
-<i>+50000 зарплата</i> (+ для дохода)
-
-<b>Команды:</b>
-/today - Расходы за сегодня
-/week - Еженедельный обзор прошлой недели
-/stats - Статистика за месяц
-/budget - Состояние бюджетов
-
-<b>Быстрое добавление:</b>
-Нажмите на категорию ниже
-      `.trim(),
-    },
+    start: '<b>Это Daftar — учёт расходов и доходов.</b>\nПишите траты прямо сюда, как в заметках:\n'
+      + '<blockquote><i>кофе 25к, такси 18к нал</i></blockquote>\n\n'
+      + 'Можно голосом. Всё сразу попадёт в приложение.\n\n<i>Команды — «/» в поле ввода.</i>',
+    help: [
+      '<b>Как записывать</b>',
+      'Трата и сумма: «такси 18к», «обед 45\u00a0000 картой».',
+      'Несколько сразу — через запятую.',
+      'Доход: «зарплата 12,5 млн». Доллары: «наушники 55$».',
+      'Не сегодня — добавьте «вчера» или дату.',
+      'Поменять сумму — напишите «не 25, а 28».',
+      '',
+      '/today — итоги дня',
+      '/month — траты за месяц',
+      '/undo — отменить последнюю запись',
+    ].join('\n'),
+    unknown: 'Такой команды нет. Список — /help',
   },
 
-  // Transaction messages
+  // Transaction messages (the confirmation itself is the record message, FT-122)
   transaction: {
-    autoSaved: 'Сохранено',
-    confirmRequired: 'Подтвердите',
-    confidence: (value: number) => `Уверенность: ${value}%`,
-    amount: 'Сумма',
-    category: 'Категория',
-    type: 'Тип',
-    merchant: 'Место',
-    income: 'Доход',
-    expense: 'Расход',
-    confirmed: 'Подтверждено',
-    deleted: 'Удалено',
     noTransactions: 'Транзакций не найдено',
-    todaySummary: (amount: string) => `Сегодня: ${amount}`,
-    monthSummary: (amount: string) => `Месяц: ${amount}`,
   },
 
   // Debt messages
@@ -122,54 +42,50 @@ export const RU = {
     noDebts: 'Долгов не найдено',
   },
 
-  // Buttons
-  buttons: {
-    confirm: 'Подтвердить',
-    edit: 'Изменить',
-    delete: 'Удалить',
-    viewAll: 'Все транзакции',
-    addTransaction: 'Добавить транзакцию',
-    openApp: 'Открыть приложение',
-    back: 'Назад',
-    cancel: 'Отмена',
-    moreStats: 'Подробная аналитика',
-    allBudgets: 'Все бюджеты',
-    createBudget: 'Создать бюджет',
+  // A quick-add category button of a message sent before FT-124: the amount comes next
+  quickCategories: {
+    enterAmount: (category: string) => `${category}\n\nВведите сумму:`,
   },
 
-  // Quick categories for inline keyboard (synced with shared Category entity)
-  quickCategories: {
-    title: 'Быстрое добавление:',
-    selectCategory: 'Выберите категорию:',
-    enterAmount: (category: string) => `${category}\n\nВведите сумму:`,
-    categories: QUICK_CATEGORIES,
+  // Record messages (FT-122): what the bot says around its confirmations
+  record: {
+    notFound: 'Не нашёл эту запись.',
+    nothingToUndo: 'Отменять нечего: записей из чата пока нет.',
+    undone: (what: string) => `Отменил последнюю запись: ${what}`,
+    reverted: (count: number) => (count > 1 ? 'Вернул записи.' : 'Вернул запись.'),
+    amountNotPositive: 'Сумма должна быть больше нуля.',
+    amountTooBig: 'Сумма слишком большая — проверьте её и напишите ещё раз.',
+    noAccountIn: (currency: 'UZS' | 'USD') =>
+      currency === 'USD' ? 'Счёта в долларах нет — добавьте его в Daftar.' : 'Счёта в сумах нет — добавьте его в Daftar.',
+    // FT-123: what was named without an amount, «не 25, а 28»
+    withoutAmountNotWritten: (name: string) => `${name} — без суммы, не записал.`,
+    skipped: (name: string) => `${name} — пропустил.`,
+    writtenSeparately: (name: string) => `${name} — записал отдельным сообщением.`,
+    changed: (what: string) => `Изменил: ${what}`,
+    correctionOnlyAmount: 'Так можно поменять только сумму: «не 25, а 28». Остальное — кнопка «Изменить» под записью.',
+    correctionNotFound: (was: string) => `Не нашёл запись на ${was}. Нажмите «Изменить» под нужной.`,
+    correctionWhich: 'Не понял, какую сумму менять. Напишите так: «не 25, а 28».',
+    correctionNotAnAmount: 'Новая сумма должна быть числом больше нуля.',
+  },
+
+  // FT-123: nothing to write — with an example of what to write (board «Бот · не понял, не расслышал»)
+  capture: {
+    notUnderstood: 'Не нашёл, что записать.\nНапишите трату и сумму:\n'
+      + '<blockquote><i>такси 18к, обед 45\u00a0000 картой</i></blockquote>\n\n<i>Подробнее — /help</i>',
+    notHeard: 'Не расслышал.\nСкажите ещё раз — что купили и сколько, например: «такси восемнадцать тысяч». Или напишите текстом.',
   },
 
   // Errors
   errors: {
     generic: 'Произошла ошибка. Попробуйте снова.',
-    noTransactionFound: 'Транзакция не найдена.',
-    cannotDelete: 'Можно удалить только последнюю транзакцию.',
+    // The AI or the speech recognition did not answer (no network, a model withdrawn): nothing was written
+    aiUnavailable: 'Не получилось разобрать — сервис распознавания сейчас не ответил, поэтому не записал.\n'
+      + 'Попробуйте ещё раз через минуту или напишите проще: <i>такси 18к</i>.',
     voiceProcessing: 'Не удалось обработать голосовое сообщение.',
-    invalidCommand: 'Неизвестная команда.',
     emptyMessage: 'Пожалуйста, отправьте сообщение с транзакцией.',
-    webAppNotConfigured: 'Приложение не настроено.',
   },
 
-  // Months
-  months: [
-    'январь', 'февраль', 'март', 'апрель',
-    'май', 'июнь', 'июль', 'август',
-    'сентябрь', 'октябрь', 'ноябрь', 'декабрь',
-  ],
 } as const;
-
-/**
- * Get month name in Russian
- */
-export function getMonthName(date: Date): string {
-  return RU.months[date.getMonth()];
-}
 
 /**
  * Format currency amount

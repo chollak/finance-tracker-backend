@@ -5,14 +5,23 @@ import { AppConfig } from '../../../shared/infrastructure/config/appConfig';
 import { VoiceProcessingModule } from '../../../modules/voiceProcessing/voiceProcessingModule';
 import { QuickCaptureModule } from '../../../modules/quickCapture/quickCaptureModule';
 import { TransactionModule } from '../../../modules/transaction/transactionModule';
-import { BudgetModule } from '../../../modules/budget/budgetModule';
 import { UserModule } from '../../../modules/user/userModule';
 import { SubscriptionModule } from '../../../modules/subscription/subscriptionModule';
+import { CategoryModule } from '../../../modules/category/categoryModule';
+import { AccountModule } from '../../../modules/account/accountModule';
+import { BotMessageModule } from '../../../modules/botMessage/botMessageModule';
+import { NotificationModule } from '../../../modules/notification/notificationModule';
+import { AuthModule } from '../../../modules/auth/authModule';
+import { SUMMARY_TICK_MS } from '../../../modules/notification/application/dailySummaryNotifier';
 import { TelegramPaymentService } from '../../../modules/subscription/infrastructure/TelegramPaymentService';
 import { BotContext, BotModules, UserSession } from './types';
-import { registerCommandHandlers } from './handlers/commandHandlers';
+import { registerCommandHandlers, setCommandMenu } from './handlers/commandHandlers';
+import { registerSummaryHandlers, summarySender } from './handlers/summaryHandlers';
+import { registerReminderHandlers, reminderSender } from './handlers/reminderHandlers';
 import { registerMessageHandlers } from './handlers/messageHandlers';
 import { registerCallbackHandlers } from './handlers/callbackHandlers';
+import { registerLoginHandlers } from './handlers/loginHandlers';
+import { closeAmountQuestionOnCommand, registerRecordHandlers } from './handlers/recordHandlers';
 import { registerPaymentHandlers } from './handlers/paymentHandlers';
 import { createLogger, LogCategory } from '../../../shared/infrastructure/logging';
 
@@ -64,18 +73,27 @@ function createInitialSession(userId: string, userName: string): UserSession {
  * Starts and configures the Telegram bot
  * @param voiceModule - Voice processing module for text/voice input
  * @param transactionModule - Transaction module for CRUD operations
- * @param budgetModule - Budget module for budget management
  * @param userModule - User module for user management
  * @param quickCaptureModule - Shared capture boundary used by the text handler
  * @param subscriptionModule - Subscription module for premium features
+ * @param categoryModule - The user's categories for keyboards and labels (FT-100)
+ * @param accountModule - The user's accounts for the confirmation and the account picker (FT-122)
+ * @param botMessageModule - Which records each confirmation shows, so its buttons survive a restart (FT-122)
+ * @param notificationModule - Итоги дня at the chosen time, /today and /month (FT-124), the goal, subscription and
+ *   audit reminders (FT-133): their schedulers run here, in the bot's process, and only while the bot polls
+ * @param authModule - The web login (FT-128): /start login_<token> asks «Подтвердить» or «Это не я»
  */
 export function startTelegramBot(
   voiceModule: VoiceProcessingModule,
   transactionModule: TransactionModule,
-  budgetModule: BudgetModule,
   userModule: UserModule,
   quickCaptureModule: QuickCaptureModule,
-  subscriptionModule?: SubscriptionModule
+  subscriptionModule?: SubscriptionModule,
+  categoryModule?: CategoryModule,
+  accountModule?: AccountModule,
+  botMessageModule?: BotMessageModule,
+  notificationModule?: NotificationModule,
+  authModule?: AuthModule
 ) {
   try {
     // Check if bot token is configured
@@ -105,9 +123,13 @@ export function startTelegramBot(
       voiceModule,
       quickCaptureModule,
       transactionModule,
-      budgetModule,
       userModule,
       subscriptionModule,
+      categoryModule,
+      accountModule,
+      botMessageModule,
+      notificationModule,
+      authModule,
     };
 
     // Ensure downloads directory exists
@@ -174,7 +196,10 @@ export function startTelegramBot(
     // IMPORTANT: Order matters! Command handlers must be registered before message handlers
     // because bot.on(message('text')) catches all text including commands
 
-    // Command handlers: /start, /today, /stats, /budget, /help, /settings
+    // One question at a time (FT-122): a command first closes the open «Сумму» question of a record
+    bot.use(closeAmountQuestionOnCommand);
+
+    // Command handlers: /start, /help, /today, /month (FT-124)
     registerCommandHandlers(bot);
 
     // Payment handlers: /premium, pre_checkout_query, successful_payment
@@ -185,6 +210,18 @@ export function startTelegramBot(
       logger.info('Payment handlers registered');
     }
 
+    // Record messages (FT-122): their buttons and /undo
+    registerRecordHandlers(bot);
+
+    // «Да, не было» under the evening question (FT-124)
+    registerSummaryHandlers(bot);
+
+    // «Позже» under the audit call, «Отменено» / «Оставить» under a subscription reminder (FT-133)
+    registerReminderHandlers(bot);
+
+    // «Подтвердить» / «Это не я» under a web login question (FT-128)
+    registerLoginHandlers(bot);
+
     // Callback handlers: inline keyboard actions
     registerCallbackHandlers(bot);
 
@@ -194,16 +231,35 @@ export function startTelegramBot(
 
     // ===== LAUNCH BOT =====
 
+    // Итоги дня at the time each user chose (FT-124) and the reminders after the audit (FT-133) run only while this
+    // process polls: the schedulers start once Telegram has answered for the bot, look at the clock a minute later — a
+    // polling conflict with another instance shows up within that minute — and stop whenever polling fails, for a
+    // retry or for good
+    const dailySummary = notificationModule?.getDailySummary();
+    const reminders = notificationModule?.getReminders();
+    const sender = summarySender(bot.telegram);
+    const remindersSender = reminderSender(bot.telegram);
+    const startNotices = () => {
+      dailySummary?.start(sender, { firstTickInMs: SUMMARY_TICK_MS });
+      reminders?.start(remindersSender, { firstTickInMs: SUMMARY_TICK_MS });
+    };
+    const stopNotices = () => {
+      dailySummary?.stop();
+      reminders?.stop();
+    };
+
     const launchWithRetry = (attempt: number) => {
       telegramBotStatus = { state: 'starting', attempts: attempt };
       logger.info('Starting Telegram bot long polling', { attempt });
 
-      const launchPromise = bot.launch();
+      const launchPromise = bot.launch(startNotices);
       telegramBotStatus = { state: 'running', attempts: attempt };
       logger.info('Telegram bot long polling launch requested', { attempt });
 
       launchPromise.catch((error) => {
         const message = errorMessage(error);
+        // Another instance may be polling this token: it sends the notices, this one does not
+        stopNotices();
 
         if (isPollingConflict(error) && attempt < MAX_POLLING_RETRY_ATTEMPTS) {
           const delayMs = retryDelay(attempt);
@@ -224,15 +280,20 @@ export function startTelegramBot(
       });
     };
 
+    // The command menu, «/» in the input field (FT-124)
+    void setCommandMenu(bot.telegram);
+
     launchWithRetry(1);
 
     // Graceful shutdown handlers
     process.once('SIGINT', () => {
       logger.info('SIGINT received, stopping bot...');
+      stopNotices();
       bot.stop('SIGINT');
     });
     process.once('SIGTERM', () => {
       logger.info('SIGTERM received, stopping bot...');
+      stopNotices();
       bot.stop('SIGTERM');
     });
 

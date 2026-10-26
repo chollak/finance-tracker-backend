@@ -12,6 +12,16 @@ import { ErrorFactory } from '../../../shared/domain/errors/AppError';
 import { Validators } from '../../../shared/application/validation/validators';
 import { getLogger, LogCategory } from '../../../shared/application/logging';
 import { normalizeSemanticType } from '../../transaction/domain/transactionSemanticType';
+import { UserCategorySource } from '../domain/categoryPrompt';
+import { analysisContextFor, learnedWordsFor } from './processTextInput';
+import { detectPaymentHints } from '../domain/paymentHints';
+import { ResolvedAccount } from '../../transaction/domain/accountResolver';
+import { ResolvedCategory } from '../../transaction/domain/categoryResolver';
+import { LearnedCategoryWords, recordWordsOf } from '../domain/categoryGuess';
+import { captureAssumptions } from './captureAssumptions';
+import { captureMoneyOf } from './captureMoney';
+import { fromMinor } from '../../../shared/domain/money/money';
+import { NoSpeechDetectedError } from '../domain/voiceErrors';
 
 const logger = getLogger(LogCategory.OPENAI);
 
@@ -42,14 +52,27 @@ function convertOggToMp3(input: string, output: string): Promise<void> {
   });
 }
 
+export interface ProcessVoiceOptions {
+  /**
+   * What was heard, before it is parsed into records. It returns true when the caller has used the text
+   * itself (the bot's open «Сумму» question takes a spoken amount, FT-122); nothing is then parsed or
+   * written.
+   */
+  takeHeardText?: (text: string) => Promise<boolean>;
+}
+
 export class ProcessVoiceInputUseCase {
   constructor(
     private openAIService: TranscriptionService,
     private createTransactionUseCase: CreateTransactionUseCase,
-    private createDebtUseCase?: CreateDebtUseCase
+    // Debt parsing is off (decision Д2): the parser no longer reports debts
+    private createDebtUseCase?: CreateDebtUseCase,
+    private categorySource?: UserCategorySource,
+    /** Learned words, so a category a learned pattern gives is not called a guess (FT-138). */
+    private learnedWords?: LearnedCategoryWords
   ) {}
 
-  async execute(input: VoiceInput): Promise<ProcessedTransaction> {
+  async execute(input: VoiceInput, options: ProcessVoiceOptions = {}): Promise<ProcessedTransaction> {
     // Input validation
     const filePathValidation = Validators.required(input.filePath, 'filePath');
     if (!filePathValidation.success) {
@@ -93,22 +116,39 @@ export class ProcessVoiceInputUseCase {
       const recognizedText = await this.openAIService.transcribe(newFilePath);
 
       if (!recognizedText || recognizedText.trim().length === 0) {
-        throw ErrorFactory.externalService('Voice Transcription', new Error('No speech detected in audio'));
+        throw new NoSpeechDetectedError();
       }
 
-      // Analyze text for transactions AND debts
-      const parsed = await this.openAIService.analyzeInput(recognizedText);
+      if (options.takeHeardText && await options.takeHeardText(recognizedText)) {
+        return { text: recognizedText, transactions: [], debts: [] };
+      }
+
+      // Analyze the text with the user's categories (FT-099)
+      const parsed = await this.openAIService.analyzeInput(
+        recognizedText,
+        await analysisContextFor(this.categorySource, input.userId.trim())
+      );
 
       const transactionResults: DetectedTransaction[] = [];
       const debtResults: DetectedDebt[] = [];
+      // «нал», «картой», «$» in what was said: which account and currency (FT-103)
+      const hints = detectPaymentHints(recognizedText);
+      // Named without an amount: nothing is written for them, the bot asks «Сколько?» (FT-123). They are
+      // items of what was said all the same: «нал» of an unpriced taxi is not the coffee's
+      const withoutAmount = parsed.withoutAmount ?? [];
+      const itemCount = parsed.transactions.length + withoutAmount.length;
 
       // Log if nothing found
       if (parsed.transactions.length === 0 && parsed.debts.length === 0) {
         logger.warn('No transactions or debts found in voice input', {
           recognizedText: recognizedText.substring(0, 100),
+          withoutAmount: withoutAmount.length,
         });
-        return { text: recognizedText, transactions: [], debts: [] };
+        return { text: recognizedText, transactions: [], debts: [], ...(withoutAmount.length ? { withoutAmount } : {}) };
       }
+
+      // Every category here is the AI's choice; it is a guess unless the words name it (FT-138)
+      const learned = parsed.transactions.length > 0 ? await learnedWordsFor(this.learnedWords) : new Map<string, readonly string[]>();
 
       // Process transactions
       for (const p of parsed.transactions) {
@@ -116,11 +156,15 @@ export class ProcessVoiceInputUseCase {
           const type = p.type === 'income' ? 'income' : 'expense';
           const semanticType = normalizeSemanticType(p.semanticType, type);
           const needsReview = p.needsReview === true;
+          const money = captureMoneyOf(p, recognizedText, hints, itemCount, semanticType);
+          const { currency } = money;
           const transaction: Transaction = {
             date: p.date || new Date().toISOString().split('T')[0],
-            category: p.category || 'other',
+            category: p.category || 'Другое',
             description: p.description || recognizedText.substring(0, 500),
-            amount: p.amount || 0,
+            amount: money.amount,
+            currency,
+            source: input.source ?? 'miniapp',
             type,
             semanticType,
             needsReview,
@@ -130,8 +174,8 @@ export class ProcessVoiceInputUseCase {
             confidence: p.confidence,
             originalText: recognizedText,
             originalParsing: {
-              amount: p.amount || 0,
-              category: p.category || 'other',
+              amount: money.amount,
+              category: p.category || 'Другое',
               type,
               semanticType,
               needsReview,
@@ -140,12 +184,40 @@ export class ProcessVoiceInputUseCase {
             },
           };
 
-          const createResult = await this.createTransactionUseCase.execute(transaction);
+          // The parser chooses the category automatically, so never a hidden one (FT-099), and the
+          // account from the wording (FT-103); moving own money is not paid «налом»
+          let account: ResolvedAccount | undefined;
+          let category: ResolvedCategory | undefined;
+          const createResult = await this.createTransactionUseCase.execute(transaction, {
+            visibleCategoriesOnly: true,
+            accountHint: { text: money.accountText, kind: money.kind },
+            allowCurrencyMismatch: true,
+            onResolved: resolved => { account = resolved.account; category = resolved.category; },
+          });
           if (createResult.success) {
             transactionResults.push({
               id: createResult.data,
-              amount: transaction.amount,
+              amount: transaction.amountMinor !== undefined ? fromMinor(transaction.amountMinor) : transaction.amount,
+              amountMinor: transaction.amountMinor,
+              currency: transaction.currency,
+              accountId: transaction.accountId,
+              accountName: account?.name,
+              assumptions: captureAssumptions({
+                text: recognizedText,
+                amount: transaction.amount,
+                category: {
+                  name: transaction.category,
+                  type: transaction.type,
+                  presetKey: category?.presetKey ?? null,
+                  chosenBy: 'ai',
+                  words: recordWordsOf(recognizedText, p, itemCount),
+                  learnedWords: category?.presetKey ? learned.get(category.presetKey) : undefined,
+                },
+                account,
+                currency,
+              }),
               category: transaction.category,
+              categoryId: transaction.categoryId,
               type: transaction.type,
               semanticType: transaction.semanticType,
               needsReview: transaction.needsReview,
@@ -214,7 +286,7 @@ export class ProcessVoiceInputUseCase {
         }
       }
 
-      return { text: recognizedText, transactions: transactionResults, debts: debtResults };
+      return { text: recognizedText, transactions: transactionResults, debts: debtResults, ...(withoutAmount.length ? { withoutAmount } : {}) };
     } catch (error) {
       if (error instanceof Error && error.name.includes('Error')) {
         throw error;

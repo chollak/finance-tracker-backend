@@ -4,13 +4,27 @@ import { Result, ResultHelper } from '../../../shared/domain/types/Result';
 import { ValidationError, NotFoundError, BusinessLogicError } from '../../../shared/domain/errors/AppError';
 import { transactionLearning } from '../../../shared/application/learning/transactionLearning';
 import { getLogger, LogCategory } from '../../../shared/application/logging';
+import { Validators } from '../../../shared/application/validation/validators';
+import { fromMinor, minorOf } from '../../../shared/domain/money/money';
+import { CategoryResolver, ResolvedCategory } from '../domain/categoryResolver';
+import { resolveCategoryForUpdate } from './resolveCategoryForUpdate';
+import { AccountResolver } from '../domain/accountResolver';
+import { resolveAccountForUpdate } from './resolveAccountForUpdate';
 
 const logger = getLogger(LogCategory.LEARNING);
 
 export interface UpdateTransactionWithLearningRequest {
   id: string;
+  /** Legacy amount in сум; converted to amountMinor (FT-097). */
   amount?: number;
+  amountMinor?: number;
+  /** Legacy: old id, name or alias; resolved to categoryId (FT-099). */
   category?: string;
+  categoryId?: string;
+  /** Move the record to another of the user's visible accounts (FT-101). */
+  accountId?: string;
+  /** Only together with accountId: the record's currency must be the new account's (FT-103). */
+  currency?: 'UZS' | 'USD';
   description?: string;
   date?: string;
   type?: 'income' | 'expense';
@@ -28,10 +42,14 @@ export interface UpdateTransactionWithLearningRequest {
 }
 
 export class UpdateTransactionWithLearningUseCase {
-  constructor(private repository: TransactionRepository) {}
+  constructor(
+    private repository: TransactionRepository,
+    private categoryResolver?: CategoryResolver,
+    private accountResolver?: AccountResolver
+  ) {}
 
   async execute(request: UpdateTransactionWithLearningRequest): Promise<Result<Transaction>> {
-    const { id, amount, category, date, type } = request;
+    const { id, category, date, type } = request;
 
     // Validate ID
     if (!id?.trim()) {
@@ -39,8 +57,13 @@ export class UpdateTransactionWithLearningUseCase {
     }
 
     // Validate update fields if provided
-    if (amount !== undefined && amount <= 0) {
-      return ResultHelper.failure(new ValidationError('Amount must be greater than 0'));
+    let amountMinor: number | undefined;
+    if (request.amount !== undefined || request.amountMinor !== undefined) {
+      const resolved = Validators.moneyAmount(request);
+      if (!resolved.success) {
+        return ResultHelper.failure(new ValidationError(resolved.error.message, 'amount'));
+      }
+      amountMinor = resolved.data;
     }
 
     if (category !== undefined && !category.trim()) {
@@ -62,12 +85,29 @@ export class UpdateTransactionWithLearningUseCase {
         return ResultHelper.failure(new NotFoundError('Transaction', id));
       }
 
+      const categoryResult = await resolveCategoryForUpdate(this.categoryResolver, originalTransaction, request);
+      if (!categoryResult.success) {
+        return ResultHelper.failure(categoryResult.error);
+      }
+
+      const moved = await resolveAccountForUpdate(this.accountResolver, originalTransaction, request);
+      if (!moved.success) return ResultHelper.failure(moved.error);
+      const { accountId, currency } = moved.data;
+
       // Update the transaction
-      const updatedTransaction = await this.repository.update(id.trim(), request);
+      const updatedTransaction = await this.repository.update(id.trim(), {
+        ...request,
+        amount: undefined,
+        amountMinor,
+        category: undefined,
+        categoryId: categoryResult.data?.id,
+        accountId,
+        currency,
+      });
 
       // Record learning data if we have the necessary context
       if (request.userId && request.originalText && request.originalParsing) {
-        await this.recordLearningData(request, originalTransaction, updatedTransaction);
+        await this.recordLearningData(request, amountMinor, categoryResult.data, originalTransaction, updatedTransaction);
       }
 
       logger.info('Transaction updated with learning', { transactionId: id });
@@ -89,6 +129,8 @@ export class UpdateTransactionWithLearningUseCase {
 
   private async recordLearningData(
     request: UpdateTransactionWithLearningRequest,
+    amountMinor: number | undefined,
+    category: ResolvedCategory | undefined,
     originalTransaction: Transaction,
     _updatedTransaction: Transaction
   ): Promise<void> {
@@ -96,12 +138,15 @@ export class UpdateTransactionWithLearningUseCase {
       const userCorrection: Record<string, unknown> = {};
 
       // Detect what the user changed
-      if (request.amount !== undefined && request.amount !== originalTransaction.amount) {
-        userCorrection.amount = request.amount;
+      // Learning data keeps amounts in сум, like the parser output it corrects
+      if (amountMinor !== undefined && amountMinor !== minorOf(originalTransaction)) {
+        userCorrection.amount = fromMinor(amountMinor);
       }
 
-      if (request.category !== undefined && request.category !== originalTransaction.category) {
-        userCorrection.category = request.category;
+      // Learned patterns are shared by all users, so they keep the starter key — stable across renames.
+      // A move into a user's own category teaches nothing global.
+      if (category && category.id !== originalTransaction.categoryId && category.presetKey) {
+        userCorrection.category = category.presetKey;
       }
 
       if (request.type !== undefined && request.type !== originalTransaction.type) {

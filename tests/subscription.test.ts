@@ -1,3 +1,4 @@
+import { SubscriptionModule } from '../src/modules/subscription/subscriptionModule';
 import { CreateSubscriptionUseCase } from '../src/modules/subscription/application/createSubscription';
 import { GetSubscriptionUseCase } from '../src/modules/subscription/application/getSubscription';
 import { GrantPremiumUseCase, StartTrialUseCase } from '../src/modules/subscription/application/grantPremium';
@@ -285,6 +286,65 @@ describe('Subscription module', () => {
   });
 
   describe('CheckLimitUseCase', () => {
+    it('allows everything while free-tier limits are switched off, and keeps counting usage', async () => {
+      const useCase = new CheckLimitUseCase(subscriptionRepo, usageLimitRepo, { limitsEnabled: false });
+      for (let i = 0; i < FREE_TIER_LIMITS.transactions + 5; i++) {
+        await usageLimitRepo.incrementCounter('user-1', 'transactions');
+      }
+
+      const result = await useCase.execute({ userId: 'user-1', limitType: 'transactions' });
+
+      expect(result.allowed).toBe(true);
+      expect(result.isPremium).toBe(false);
+      expect(result.currentUsage).toBe(FREE_TIER_LIMITS.transactions + 5);
+      expect(result.limit).toBeNull();
+      expect(result.remaining).toBeNull();
+      expect(result.message).toBeUndefined();
+    });
+
+    it('reports no limits in the subscription status while limits are switched off', async () => {
+      const module = new SubscriptionModule(subscriptionRepo, usageLimitRepo, { freeLimitsEnabled: false });
+      await usageLimitRepo.incrementCounter('user-1', 'transactions');
+
+      const status = await module.getGetSubscriptionUseCase().execute('user-1');
+
+      expect(status.limits.transactions).toEqual({ used: 1, limit: null, remaining: null });
+      expect(status.limits.voiceInputs.limit).toBeNull();
+      expect(module.freeLimitsEnabled).toBe(false);
+    });
+
+    it('keeps free-tier limits off unless FREE_LIMITS_ENABLED is exactly "true"', () => {
+      const original = process.env.FREE_LIMITS_ENABLED;
+      const read = (value: string | undefined) => {
+        if (value === undefined) delete process.env.FREE_LIMITS_ENABLED;
+        else process.env.FREE_LIMITS_ENABLED = value;
+        let enabled: boolean | undefined;
+        jest.isolateModules(() => {
+          enabled = require('../src/shared/infrastructure/config/appConfig').AppConfig.FREE_LIMITS_ENABLED;
+        });
+        return enabled;
+      };
+      try {
+        expect(read(undefined)).toBe(false);
+        expect(read('false')).toBe(false);
+        expect(read('true')).toBe(true);
+      } finally {
+        if (original === undefined) delete process.env.FREE_LIMITS_ENABLED;
+        else process.env.FREE_LIMITS_ENABLED = original;
+      }
+    });
+
+    it('SubscriptionModule passes the switch to the limit check', async () => {
+      const module = new SubscriptionModule(subscriptionRepo, usageLimitRepo, { freeLimitsEnabled: false });
+      for (let i = 0; i < FREE_TIER_LIMITS.voiceInputs; i++) {
+        await usageLimitRepo.incrementCounter('user-1', 'voice_inputs');
+      }
+
+      const result = await module.getCheckLimitUseCase().execute({ userId: 'user-1', limitType: 'voice_inputs' });
+
+      expect(result.allowed).toBe(true);
+    });
+
     it('allows usage below the free-tier transaction limit and reports remaining count', async () => {
       const useCase = new CheckLimitUseCase(subscriptionRepo, usageLimitRepo);
       for (let i = 0; i < 10; i++) {

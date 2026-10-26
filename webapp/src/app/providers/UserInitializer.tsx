@@ -1,88 +1,78 @@
 import { useEffect } from 'react';
-import { useUserStore } from '@/entities/user/model/store';
-import { initDatabase } from '@/shared/lib/db';
+import { useQueryClient } from '@tanstack/react-query';
+import { readSession, useUserStore } from '@/entities/user';
+import { forgetCachedResponses, onSessionLost } from '@/shared/api';
 import { env } from '@/shared/config/env';
+import { useUndoToastStore } from '@/shared/lib/undo';
 
 /**
- * Initializes user data and database on app mount
- *
- * Handles four scenarios:
- * 1. Telegram WebApp - authenticate with Telegram user (server-only mode)
- * 2. Development mode - use mock user from env (server mode)
- * 3. Existing session - restore from localStorage
- * 4. New visitor - create guest user (IndexedDB mode)
- *
- * Architecture:
- * - Telegram users use server API directly (no local storage)
- * - Guest users use IndexedDB only (offline-first)
- * - When guest logs in via Telegram, IndexedDB is cleared
+ * Who the app opens for (FT-128; guest mode went away by decision Д4):
+ * 1. Inside Telegram — the Mini App's user (its initData signs every request).
+ * 2. Development outside Telegram with VITE_MOCK_USER_ID — that user (`X-Dev-User-Id`).
+ * 3. A browser — the session the bot confirmed (`GET /api/auth/session`, an httpOnly cookie); without one the login
+ *    screen. A browser that cannot reach the server keeps the user it had, so the app still opens.
+ * Later a 401 outside Telegram means the session ended (or «Выйти» in another tab): the login screen again. A browser
+ * left without its session also forgets the API answers the service worker kept for it: routes such as `/api/accounts`
+ * don't name the user, and the next account here must not be served them.
  */
 export function UserInitializer() {
+  const queryClient = useQueryClient();
+
   useEffect(() => {
+    let cancelled = false;
+
     async function initialize() {
-      // Get current state (avoid stale closure from StrictMode double-invoke)
       const state = useUserStore.getState();
-
-      // 1. Check if running in Telegram WebApp
       const telegramWebApp = window.Telegram?.WebApp;
-
       if (telegramWebApp) {
         telegramWebApp.ready();
         telegramWebApp.expand();
-
-        const telegramUserId = telegramWebApp.initDataUnsafe?.user?.id?.toString();
-        const userName = telegramWebApp.initDataUnsafe?.user?.first_name;
-
-        if (telegramUserId) {
-          console.log('[UserInitializer] Telegram user detected:', telegramUserId);
-
-          // setTelegramUser will clear IndexedDB if switching from guest
-          await state.setTelegramUser(telegramUserId, userName);
-          return;
-        }
       }
 
-      // 2. Development mode: use mock user from env
-      if (env.isDevelopment && env.mockUserId && env.mockUserId !== '123456789') {
-        console.log('[UserInitializer] Development mode - using mock user:', env.mockUserId);
-        await state.setTelegramUser(env.mockUserId, env.mockUserName);
+      // 1. Telegram WebApp
+      const telegramUser = telegramWebApp?.initDataUnsafe?.user;
+      if (telegramUser?.id) {
+        state.setTelegramUser(String(telegramUser.id), telegramUser.first_name, telegramUser.username);
         return;
       }
 
-      // 3. Check if we already have a user session
-      if (state.userId && state.userType) {
-        console.log('[UserInitializer] Restored session:', {
-          userId: state.userId,
-          userType: state.userType,
-        });
-
-        // Initialize IndexedDB for guest users only
-        if (state.userType === 'guest') {
-          try {
-            await initDatabase();
-          } catch (error) {
-            console.error('[UserInitializer] Failed to initialize database:', error);
-          }
-        }
-
+      // 2. Development mode: the mock user from env
+      if (env.isDevelopment && env.mockUserId) {
+        state.setTelegramUser(env.mockUserId, env.mockUserName);
         return;
       }
 
-      // 4. Create guest user for new visitors
-      console.log('[UserInitializer] Creating guest user');
-
-      // Initialize IndexedDB for guest users
+      // 3. A browser: its session
       try {
-        await initDatabase();
-      } catch (error) {
-        console.error('[UserInitializer] Failed to initialize database:', error);
+        const user = await readSession();
+        if (cancelled) return;
+        if (user) {
+          useUserStore.getState().setSessionUser(user);
+        } else {
+          void forgetCachedResponses();
+          useUserStore.getState().setSignedOut();
+        }
+      } catch {
+        if (cancelled) return;
+        if (!useUserStore.getState().userId) useUserStore.getState().setSignedOut();
       }
-
-      state.initGuest();
     }
 
-    initialize();
-  }, []);
+    void initialize();
+
+    onSessionLost(() => {
+      if (!useUserStore.getState().userId) return;
+      void forgetCachedResponses();
+      useUserStore.getState().setSignedOut();
+      useUndoToastStore.getState().clear();
+      queryClient.clear();
+    });
+
+    return () => {
+      cancelled = true;
+      onSessionLost(null);
+    };
+  }, [queryClient]);
 
   return null;
 }

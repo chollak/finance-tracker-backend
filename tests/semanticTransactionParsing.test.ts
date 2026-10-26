@@ -4,6 +4,9 @@ import { ProcessVoiceInputUseCase } from '../src/modules/voiceProcessing/applica
 import { TranscriptionService } from '../src/modules/voiceProcessing/domain/transcriptionService';
 import { CreateTransactionUseCase } from '../src/modules/transaction/application/createTransaction';
 
+/** Text and voice paths choose categories and accounts automatically (FT-099, FT-103). */
+const AUTOMATIC = expect.objectContaining({ visibleCategoriesOnly: true, allowCurrencyMismatch: true });
+
 describe('OpenAITranscriptionService transaction parsing - semanticType', () => {
   // Access the private parseTransactionItem method directly; no network calls are made.
   const service = new OpenAITranscriptionService('test-api-key') as unknown as {
@@ -127,10 +130,42 @@ describe('ProcessVoiceInputUseCase - semanticType flow-through', () => {
     expect(createTransactionUseCase.execute).toHaveBeenCalledWith(expect.objectContaining({
       semanticType: 'cash_withdrawal',
       originalParsing: expect.objectContaining({ semanticType: 'cash_withdrawal' }),
-    }));
+    }), AUTOMATIC);
     expect(result.transactions).toEqual([
       expect.objectContaining({ id: 'withdrawal-1', semanticType: 'cash_withdrawal' }),
     ]);
+  });
+
+  it('hands what was heard to the caller first; when the caller takes it, nothing is parsed or written (FT-122)', async () => {
+    const openAIService = {
+      transcribe: jest.fn().mockResolvedValue('150 тысяч'),
+      analyzeInput: jest.fn(),
+      analyzeTransactions: jest.fn(),
+    } as unknown as TranscriptionService;
+    const createTransactionUseCase = { execute: jest.fn() } as unknown as CreateTransactionUseCase;
+    const takeHeardText = jest.fn().mockResolvedValue(true);
+
+    const useCase = new ProcessVoiceInputUseCase(openAIService, createTransactionUseCase);
+    const result = await useCase.execute({ filePath, userId: 'user1' }, { takeHeardText });
+
+    expect(takeHeardText).toHaveBeenCalledWith('150 тысяч');
+    expect(openAIService.analyzeInput).not.toHaveBeenCalled();
+    expect(createTransactionUseCase.execute).not.toHaveBeenCalled();
+    expect(result).toEqual({ text: '150 тысяч', transactions: [], debts: [] });
+  });
+
+  it('parses what was heard as usual when the caller does not take it', async () => {
+    const openAIService = {
+      transcribe: jest.fn().mockResolvedValue('такси 18000'),
+      analyzeInput: jest.fn().mockResolvedValue({ transactions: [], debts: [] }),
+      analyzeTransactions: jest.fn(),
+    } as unknown as TranscriptionService;
+    const createTransactionUseCase = { execute: jest.fn() } as unknown as CreateTransactionUseCase;
+
+    const useCase = new ProcessVoiceInputUseCase(openAIService, createTransactionUseCase);
+    await useCase.execute({ filePath, userId: 'user1' }, { takeHeardText: jest.fn().mockResolvedValue(false) });
+
+    expect(openAIService.analyzeInput).toHaveBeenCalledWith('такси 18000', expect.anything());
   });
 
   it('normalizes a missing semanticType from the transcription service based on the legacy type', async () => {
@@ -158,7 +193,7 @@ describe('ProcessVoiceInputUseCase - semanticType flow-through', () => {
 
     expect(createTransactionUseCase.execute).toHaveBeenCalledWith(expect.objectContaining({
       semanticType: 'income',
-    }));
+    }), AUTOMATIC);
     expect(result.transactions).toEqual([
       expect.objectContaining({ id: 'salary-1', semanticType: 'income' }),
     ]);
@@ -190,7 +225,7 @@ describe('ProcessVoiceInputUseCase - semanticType flow-through', () => {
 
     expect(createTransactionUseCase.execute).toHaveBeenCalledWith(expect.objectContaining({
       needsReview: true,
-    }));
+    }), AUTOMATIC);
     expect(result.transactions).toEqual([
       expect.objectContaining({ id: 'uncertain-1', needsReview: true }),
     ]);

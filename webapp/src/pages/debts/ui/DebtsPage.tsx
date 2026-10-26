@@ -1,5 +1,5 @@
 import { useDebts, useDebtSummary, DebtCard } from '@/entities/debt';
-import { useUserStore, useIsGuest } from '@/entities/user/model/store';
+import { useUserStore } from '@/entities/user/model/store';
 import { Button, EmptyState, PageHeader, PageShell, SectionStack, SegmentedButtonGroup } from '@/shared/ui';
 import { Skeleton } from '@/shared/ui/skeleton';
 import { Card } from '@/shared/ui/card';
@@ -10,19 +10,16 @@ import { formatCurrency } from '@/shared/lib/formatters';
 import { pluralDebts, pluralWithCount } from '@/shared/lib/plural';
 import { useState } from 'react';
 import { cn } from '@/shared/lib/utils';
-import { GuestFeatureBlock } from '@/features/auth';
 
 type FilterTab = 'all' | 'i_owe' | 'owed_to_me';
 
 /**
  * Debts Page
  * Shows list of all debts with summary
- * Guest users see login prompt
  */
 export function DebtsPage() {
   const navigate = useNavigate();
   const userId = useUserStore((state) => state.userId);
-  const isGuest = useIsGuest();
   const [activeTab, setActiveTab] = useState<FilterTab>('all');
 
   const { data: debts, isLoading } = useDebts(userId, {
@@ -30,19 +27,6 @@ export function DebtsPage() {
     type: activeTab === 'all' ? undefined : activeTab,
   });
   const { data: summary } = useDebtSummary(userId);
-
-  // Guest users: show login prompt
-  if (isGuest) {
-    return (
-      <PageShell>
-        <PageHeader title="Долги" />
-        <GuestFeatureBlock
-          title="Долги доступны после входа"
-          description="Отслеживайте кто вам должен и кому должны вы. Фиксируйте платежи и получайте напоминания."
-        />
-      </PageShell>
-    );
-  }
 
   const tabs: { key: FilterTab; label: string }[] = [
     { key: 'all', label: 'Все' },

@@ -1,5 +1,8 @@
 # Finance Tracker Style Direction
 
+> **Архив (2026-10-16, FT-096).** Это прежнее направление (Onest, нейтральный shadcn, нижний бар). Действующая дизайн-система — «Пастель»: [`docs/pastel/design-system.md`](../../pastel/design-system.md) и [`docs/pastel/components/`](../../pastel/components/). Не использовать для новых экранов.
+
+
 Date: 2026-07-22
 Status: working design direction
 

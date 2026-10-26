@@ -4,7 +4,8 @@
  * TypeScript constants for programmatic use (charts, dynamic styles).
  * CSS variables are defined in globals.css - this file mirrors them for JS usage.
  *
- * Design System: Minimal & Clean | Onest | Neutral Accent
+ * Legacy values for screens not yet moved to «Пастель» (charts in analytics until FT-121).
+ * Pastel colours for code live in shared/config/pastelTokens.ts (generated from docs/pastel/tokens.json).
  */
 
 /**

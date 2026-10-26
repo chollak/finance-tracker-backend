@@ -15,6 +15,8 @@ export interface TelegramWebApp {
     hash?: string;
   };
   version: string;
+  /** Whether the client supports a Bot API version, e.g. '6.1' for BackButton. */
+  isVersionAtLeast(version: string): boolean;
   platform: string;
   colorScheme: 'light' | 'dark';
   themeParams: ThemeParams;

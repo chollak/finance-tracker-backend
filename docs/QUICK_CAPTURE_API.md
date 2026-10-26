@@ -37,19 +37,18 @@ The route uses `allowGuestMode` (`src/delivery/web/express/middleware/authMiddle
 
 | Caller | Requirement |
 |---|---|
-| `userId` starts with `guest_` | No auth header needed. `req.isAuthenticated = false`, request proceeds. |
-| Any other `userId` | Full `requireAuth`: `Authorization: tma <initData>` (Telegram Mini App initData, HMAC-validated, max age 1 hour). |
-| Local dev only (`NODE_ENV !== 'production'`) | `X-Dev-User-Id: <telegramId>` header bypasses auth. |
+| Every request (no guests since Д4, 2026-10-21) | Full `requireAuth`: `Authorization: tma <initData>` (Telegram Mini App initData, HMAC-validated, max age 1 hour) or the browser session (FT-128). The capture is for the **signed-in user**: a body `userId` may be omitted; if sent, it must be that user's Telegram id, otherwise **`403 ACCESS_DENIED`**. |
+| Local dev only (`NODE_ENV !== 'production'`) | `X-Dev-User-Id: <telegramId>` header bypasses auth — only for a request from this machine (loopback, no `Cf-Connecting-Ip` / `X-Forwarded-For` / `Forwarded`): never through the `dev:miniapp` tunnel or from the network (`isLocalRequest`, 2026-10-21). |
 | Local dev only (`NODE_ENV !== 'production'`) | `X-Shortcut-User-Id: <ownerId>` header — the iPhone Shortcut path, see [below](#ios-shortcut-capture-devtest-only). |
 
 Notes:
 
-- `allowGuestMode` reads `req.body.userId`, so the guest check happens **before** the handler's own validation. A
-  non-guest request with no auth header gets `401` even if `text` is missing.
+- Authentication runs **before** the handler's own validation: a request that does not sign in gets `401` even if
+  `text` is missing.
 - There is **no** production API token and no API-key auth. In production the only way in is valid Telegram `initData`
-  (or a `guest_*` id). The Shortcut header below is explicitly refused when `NODE_ENV=production`.
-- The route does **not** apply `verifyOwnership`. Ownership is effectively enforced by `requireAuth` for non-guest ids,
-  not by comparing `userId` against the authenticated Telegram user.
+  or the browser session. The Shortcut header below is explicitly refused when `NODE_ENV=production`.
+- The owner is the signed-in user (`writeAsSignedInUser`, 2026-10-21): a body `userId` naming anyone else is `403
+  ACCESS_DENIED`. Before that the route wrote for whatever `userId` the body named.
 
 ### iOS Shortcut capture (dev/test only)
 
@@ -61,20 +60,23 @@ An iPhone Shortcut cannot produce Telegram initData, so for local testing it ide
 
 | Header | Required | Meaning |
 |---|---|---|
-| `X-Shortcut-User-Id` | yes (activates the flow) | Owner id the capture is written for — a Telegram id (`597843119`), a user UUID, or a `guest_*` id. Goes through the same `resolveUserIdToUUID()` as `body.userId`. |
-| `X-Shortcut-Capture-Token` | only when `SHORTCUT_CAPTURE_TOKEN` is set | Must equal `SHORTCUT_CAPTURE_TOKEN` (compared in constant time). When the env var is empty/unset, no token is required. |
+| `X-Shortcut-User-Id` | yes (activates the flow) | Owner id the capture is written for — a Telegram id (`597843119`). Goes through the same `resolveUserIdToUUID()` as `body.userId`. |
+| `X-Shortcut-Capture-Token` | when `SHORTCUT_CAPTURE_TOKEN` is set | Must equal `SHORTCUT_CAPTURE_TOKEN` (compared in constant time). Through the tunnel or from the network the token is **required**: without `SHORTCUT_CAPTURE_TOKEN` such a request gets `403 SHORTCUT_CAPTURE_TOKEN_REQUIRED`; only a request from this machine goes without it. |
 
 Behavior when `X-Shortcut-User-Id` is present and non-blank:
 
 1. `NODE_ENV=production` → **`403 SHORTCUT_CAPTURE_DISABLED`**. The header is refused loudly, never silently ignored,
    so a misconfigured Shortcut cannot fall through to some other auth path in production.
-2. `SHORTCUT_CAPTURE_TOKEN` set and the token header is missing or wrong → **`401 INVALID_SHORTCUT_TOKEN`**.
-3. Otherwise the request is accepted: `req.body.userId` is **overridden** with the header id and `req.body.source` is
+2. `SHORTCUT_CAPTURE_TOKEN` empty and the request is not from this machine (the tunnel, the Wi-Fi network) →
+   **`403 SHORTCUT_CAPTURE_TOKEN_REQUIRED`**: without a token the header alone would let anyone with the link write
+   as anyone (2026-10-21).
+3. `SHORTCUT_CAPTURE_TOKEN` set and the token header is missing or wrong → **`401 INVALID_SHORTCUT_TOKEN`**.
+4. Otherwise the request is accepted: `req.body.userId` is **overridden** with the header id and `req.body.source` is
    **forced** to `ios_shortcut`, so the Shortcut body only has to carry `text`. A `userId`/`source` sent in the body is
    ignored — the header is the authoritative identity for this flow.
 
 A blank or absent `X-Shortcut-User-Id` changes nothing: the request goes through `allowGuestMode` exactly as before, so
-Mini App and guest callers are unaffected.
+the Mini App path is unaffected.
 
 `req.telegramUser` is deliberately **not** fabricated for shortcut requests — the bypass proves nothing about a Telegram
 identity, so `verifyOwnership`/`requireAdmin` stay fail-closed if they are ever added to this route.
@@ -133,7 +135,6 @@ so even rejected requests consume budget.
 ```json
 {
   "text": "такси 18к",
-  "userId": "guest_abc123",
   "userName": "Shukur",
   "source": "miniapp"
 }
@@ -142,13 +143,15 @@ so even rejected requests consume budget.
 | Field | Type | Required | Behavior |
 |---|---|---|---|
 | `text` | `string` | yes | Must be a non-empty string with non-whitespace content. Max **2000 characters** (checked on the raw string, before trimming). Trimmed before parsing; the trimmed value is echoed back as `data.text`. |
-| `userId` | `string` | yes | Owner of the created transactions. No default — unlike the older `POST /api/voice/text-input` route, this endpoint never falls back to a placeholder user id. |
+| `userId` | `string` | no | The signed-in user's Telegram id, if sent at all (the Mini App still sends it); anything else is `403 ACCESS_DENIED`. The owner is always the signed-in user. |
 | `userName` | `string` | no | Passed to the parser/user pipeline. A non-string value is silently treated as absent. |
-| `source` | `"telegram" \| "miniapp" \| "ios_shortcut"` | no | Routing metadata only. Validated against the enum, echoed back in the response. **Not persisted.** |
+| `source` | `"telegram" \| "miniapp" \| "ios_shortcut"` | no | Validated against the enum and echoed back. Since FT-103 it is **stored on every created record** (`transactions.source`); without it the records get `miniapp`. |
 
-Unknown extra fields are ignored (the handler destructures only the four fields above).
+| `clientId` | `string` | no | FT-106. The client's id for this capture: letters, digits and `-`, up to 64. A repeat returns the records of the first capture (`repeated: true`) without parsing again; see [docs/pastel/api.md](pastel/api.md#повтор-из-офлайн-очереди-ft-106). |
 
-Validation order inside the handler: `text` present/non-blank → `text` length → `source` enum → `userId` present.
+Unknown extra fields are ignored (the handler destructures only the five fields above).
+
+Validation order inside the handler: `text` present/non-blank → `text` length → `source` enum → `clientId` format.
 
 ---
 
@@ -180,6 +183,7 @@ succeeded).
 | `debts` | `CapturedDebt[]` | Debts the pipeline **already persisted**. May be empty. |
 | `ack` | `CaptureAck` | Ready-to-render confirmation (Russian), shared by all clients. |
 | `review` | `CaptureReview` | Machine-readable reasons the capture may need attention. |
+| `withoutAmount` | `CapturedWithoutAmount[]` \| absent | FT-123. What the text names without an amount («такси» in «кофе 25к, такси»): **nothing is written** for these. Each item: `description`, `category` (the parser's choice, by name), `type`, `semanticType?`, `date?`, `paymentKind?` (`cash` \| `card`), `merchant?`. The key is omitted when there are none. The bot asks «Сколько?» and writes the item with the answer (`QuickCaptureService.captureWithAmount`); the Mini App ignores it for now. |
 
 ### `status`
 
@@ -201,10 +205,16 @@ Everything in `transactions`/`debts` is **already written to the database** by t
 | Field | Type | Notes |
 |---|---|---|
 | `id` | `string` | Persisted transaction id. |
-| `amount` | `number` | Always positive; direction is in `type`. |
+| `amount` | `number` | Always positive; direction is in `type`. In the record's `currency`, major units. |
+| `amountMinor` | `number` | FT-114. The same amount in integer minor units (tiyin, cents), as the review screen computes it. |
+| `currency` | `"UZS" \| "USD"` | FT-103. `USD` when the text says «$», «долл…», «usd»; otherwise `UZS`. |
+| `accountId` | `string` | FT-103. The account the record went to (named in the text, «нал» → cash, «картой» → card, else the default). |
+| `accountName` | `string?` | FT-103. That account's name, for the ack. |
+| `assumptions` | `CaptureAssumption[]` | FT-103. What the parse took for granted: `thousands` («45» read as 45 000), `category` (FT-138: a category no word of the record names — the AI's own choice, or «Другое» for a word the fast path did not recognise («стрижка 50000»); none when the words name it by the user's category name, a category-dictionary word or a learned pattern, and none for a fast-path transfer, savings or cash withdrawal; a single-record `ack` then shows «Покупки?»), `account` (`reason: hint \| default`), `currency` (`reason: no_usd_account` — dollars kept on a сум account, record flagged `needsReview`). Shape: [docs/pastel/api.md](pastel/api.md#записи-валюта-и-источник-ft-103). |
 | `type` | `"income" \| "expense"` | |
 | `semanticType` | `TransactionSemanticType` | e.g. `expense`, `income`, `own_transfer`, `saving_deposit`, `cash_withdrawal`. Normalized from `type` when the parser did not set one. |
-| `category` | `string` | Category **id** (`"transport"`, `"food"`), not a display name. |
+| `category` | `string` | The user's category **name** (`"Транспорт"`, `"Кафе"`) since FT-099. |
+| `categoryId` | `string` | FT-114. The user's category id, the same as the stored record's `categoryId`: the review screen shows and changes the category by it. |
 | `description` | `string?` | |
 | `merchant` | `string?` | |
 | `date` | `string` | As produced by the parser: `YYYY-MM-DD` or a full ISO timestamp. |
@@ -273,11 +283,12 @@ Auth and rate-limit middleware answer earlier in the chain and use a **flat** sh
 | 400 | `VALIDATION_ERROR` | `Text is required and cannot be empty` — `text` missing, not a string, or whitespace-only |
 | 400 | `VALIDATION_ERROR` | `Text is too long (maximum 2000 characters)` |
 | 400 | `VALIDATION_ERROR` | `Source must be one of: telegram, miniapp, ios_shortcut` |
-| 400 | `VALIDATION_ERROR` | `User ID is required` — `userId` missing or not a string |
 | 400 | `INVALID_JSON` | Malformed JSON body (global error handler) |
-| 401 | `MISSING_AUTH_HEADER` | Non-guest `userId` with no `Authorization` header |
+| 401 | `MISSING_AUTH_HEADER` | No `Authorization` header, no browser session |
+| 403 | `ACCESS_DENIED` | The body `userId` is not the signed-in user |
 | 401 | `INVALID_SHORTCUT_TOKEN` | `X-Shortcut-User-Id` sent while `SHORTCUT_CAPTURE_TOKEN` is configured, with a missing/wrong `X-Shortcut-Capture-Token` |
 | 403 | `SHORTCUT_CAPTURE_DISABLED` | `X-Shortcut-User-Id` sent while `NODE_ENV=production` |
+| 403 | `SHORTCUT_CAPTURE_TOKEN_REQUIRED` | `X-Shortcut-User-Id` through the tunnel or from the network while `SHORTCUT_CAPTURE_TOKEN` is empty |
 | 401 | `INVALID_AUTH_FORMAT` | `Authorization` header not in `tma <initData>` form |
 | 401 | `INVALID_AUTH` | initData hash mismatch or older than 1 hour |
 | 401 | `MISSING_USER_DATA` | Valid initData without a `user` payload |
@@ -291,12 +302,13 @@ Validation failures never reach the service, so they cost no OpenAI call and wri
 
 ## Examples
 
-### Guest capture (local dev)
+### Capture from this machine (local dev)
 
 ```bash
 curl -sS -X POST http://localhost:3000/api/quick-capture \
   -H 'Content-Type: application/json' \
-  -d '{"text":"такси 18к","userId":"guest_abc123","source":"miniapp"}'
+  -H 'X-Dev-User-Id: <TELEGRAM_ID>' \
+  -d '{"text":"такси 18к","source":"miniapp"}'
 ```
 
 ```json
@@ -310,9 +322,17 @@ curl -sS -X POST http://localhost:3000/api/quick-capture \
       {
         "id": "tx-1",
         "amount": 18000,
+        "amountMinor": 1800000,
+        "currency": "UZS",
+        "accountId": "acc-1",
+        "accountName": "Карта",
+        "assumptions": [
+          { "kind": "account", "name": "Карта", "reason": "default" }
+        ],
         "type": "expense",
         "semanticType": "expense",
-        "category": "transport",
+        "category": "Транспорт",
+        "categoryId": "cat-transport",
         "description": "такси",
         "merchant": "такси",
         "date": "2026-09-02",
@@ -390,20 +410,22 @@ curl -sS -X POST https://<tunnel-host>/api/quick-capture \
 
 ## Current limitations
 
-1. **`source` is not persisted.** It is validated and echoed back for client-side routing only — the `Transaction`
-   entity has no source column, so you cannot query "everything captured from the Mini App".
+1. **`source` is stored, the Shortcut contract is unchanged.** Since FT-103 every record keeps its `source`; the
+   request and the old response fields did not change, the new response fields are additive.
 2. **No parse-without-save / draft.** Every successful capture writes immediately. There is no
-   `/parse` + `/commit` split and no `draft` status; a client confirmation sheet would have to edit or delete an
-   already-saved row.
-3. **No idempotency.** `clientRequestId` is not accepted and no deduplication exists — a retried request creates
-   duplicate transactions.
+   `/parse` + `/commit` split and no `draft` status. The Mini App's review screen (FT-114) therefore edits and
+   deletes already-saved rows: each change is a `PUT /api/transactions/:id`, «×» a soft delete with restore, and
+   «Изменить» / «Назад» delete the capture's rows and return the text to the field.
+3. **Idempotency only with `clientId`.** Since FT-106 a request with a `clientId` is safe to retry; without one a
+   retried request still creates duplicate transactions.
 4. **Rate limit is coarse.** The AI limiter is per-IP and its 20/15min budget is *shared* with `/api/voice/*`; it is not
    per-user and cannot be tuned separately for capture.
 5. **No `occurredAt`.** The transaction date comes from the parser/server, so a client cannot backdate a capture through
    this endpoint.
-6. **The Mini App Home quick-capture card calls this endpoint.** Authenticated Telegram Mini App users submit
-   one-line captures through `POST /api/quick-capture`; guest mode keeps data in browser-local IndexedDB, so
-   server-side quick capture is intentionally disabled for guests.
+6. **The Mini App Home composer calls this endpoint** (FT-114, replacing the quick-capture card). Authenticated
+   Telegram Mini App users send a phrase through `POST /api/quick-capture` with a `clientId` per phrase; its records
+   — one or several — open one review screen. Guest mode keeps data in browser-local IndexedDB, so server-side quick
+   capture is intentionally disabled for guests.
 7. **Shortcut auth is dev/test only.** See [iOS Shortcut capture](#ios-shortcut-capture-devtest-only) — one shared
    optional token, refused in production, no issuance/expiry/revocation. Production Shortcut use still requires the
    deferred auth decision (`FT-075`).

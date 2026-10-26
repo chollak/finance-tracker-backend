@@ -4,7 +4,7 @@
 
 ## Prerequisites
 
-- **Node.js**: 18+ ([download](https://nodejs.org/))
+- **Node.js**: 22 (`.nvmrc`; `nvm use`). Webapp на Vite 7 и Vitest 4 требует 20.19+, на Node 16–18 `npm install` падает на сборке webapp
 - **npm**: 8+ (comes with Node.js)
 - **SQLite3**: Встроено в Node.js (для SQLite database)
 - **Optional**: FFmpeg для voice processing
@@ -45,6 +45,8 @@ OPENAI_API_KEY=sk-your-openai-api-key
 
 # Optional Telegram Bot
 TG_BOT_API_KEY=your-telegram-bot-token
+# Optional: the bot's @username for the web login link (FT-128); asked from Telegram when empty
+TG_BOT_USERNAME=YourBot
 WEB_APP_URL=http://localhost:3000
 # Set false to run API without Telegram polling
 ENABLE_TELEGRAM_POLLING=true
@@ -85,11 +87,10 @@ OPENAI_API_KEY=sk-...
 **SQLite (default):**
 - Database автоматически создается при первом запуске
 - Location: `data/database.sqlite`
-- Schema sync: `src/shared/infrastructure/database/database.config.ts` включает TypeORM `synchronize`, если `DB_SYNCHRONIZE=true` **или** `NODE_ENV=development`. То есть в локальной разработке схема синхронизируется сама; `DB_SYNCHRONIZE=true` нужен только чтобы включить её вне development. Значение можно задать через обычные `.env` / `.env.local` (после dotenv-загрузки оно попадает в `process.env`); в `.env.example` переменная намеренно не указана как обязательная.
+- Схема меняется только миграциями TypeORM (FT-090). При старте приложение само применяет недостающие миграции, предварительно копируя базу в `data/backups/`. `synchronize` выключен, `DB_SYNCHRONIZE` больше не используется.
+- Вручную: `npm run migration:show`, `npm run migration:run`, `npm run migration:revert`. Подробности — [Database Guide](database-guide.md).
 
-**Supabase (optional):**
-
-См. [Database Guide](database-guide.md) для инструкций по миграции.
+Supabase как отдельный путь к базе убран (решение Д6 вехи 10).
 
 ---
 
@@ -104,10 +105,17 @@ npm run dev:miniapp -- --chat-id=<telegram_chat_id>
 
 Что делает команда (`scripts/dev-miniapp.js`):
 
-1. Поднимает Cloudflare quick tunnel и получает публичный HTTPS-адрес.
-2. Записывает этот адрес в локальный `.env` как `WEB_APP_URL`.
+1. Поднимает Cloudflare quick tunnel и получает публичный HTTPS-адрес. `cloudflared` ищет в `CLOUDFLARED_BIN`,
+   `~/.local/bin` (WSL) и в `PATH` (Homebrew на macOS).
+2. Записывает этот адрес как `WEB_APP_URL` в тот env-файл, который читает приложение: `.env.local`, если он есть,
+   иначе `.env` (`--env-file` меняет выбор).
 3. Обновляет постоянную menu-кнопку бота в Telegram через `setChatMenuButton`.
 4. Собирает проект и запускает `npm run serve`.
+5. Следит за туннелем. Временный туннель не переживает сон компьютера: Cloudflare его удаляет, и `cloudflared` пишет
+   `Unauthorized: Tunnel not found`. Тогда (и если `cloudflared` завершился) скрипт поднимает новый туннель, пишет адрес
+   в env-файл, обновляет menu-кнопку и перезапускает сервер, который запустил сам: сервер читает `WEB_APP_URL` при
+   старте для ссылок бота. Без сети пробует снова через 30 с, 1, 2, 4 и 5 минут. Пока компьютер спит, не работает
+   ничего; старые кнопки в чате ведут на прежний адрес — `/start` пришлёт новые.
 
 Точечные команды, если туннель уже поднят:
 
@@ -139,6 +147,8 @@ npm run dev:full
 - **Frontend**: http://localhost:5173 (React dev server с hot reload)
 
 API calls автоматически проксируются с frontend на backend.
+
+Вне Telegram dev-сервер открывает экран входа через бота (FT-128), а для входа нужны настоящий бот и сеть Telegram. Чтобы сразу работать под тестовым пользователем, задайте в `webapp/.env.local` `VITE_MOCK_USER_ID=<telegram id>` (и, если нужно, `VITE_MOCK_USER_NAME`): запросы пойдут с заголовком `X-Dev-User-Id`, который backend принимает только вне production. Образец — в `webapp/.env.example`.
 
 ---
 
@@ -346,17 +356,11 @@ SELECT * FROM transaction LIMIT 10;
 |----------|---------|-------------|
 | `NODE_ENV` | `development` | Environment mode |
 | `PORT` | `3000` | Server port |
-| `DATABASE_TYPE` | `sqlite` | `sqlite` or `supabase` |
+| `DATABASE_TYPE` | `sqlite` | только `sqlite`; любое другое значение — ошибка запуска |
+| `FREE_LIMITS_ENABLED` | `false` | `true` включает лимиты бесплатного тарифа. На время вехи 10 выключены (решение Д3); использование всё равно считается |
 | `TG_BOT_API_KEY` | - | Telegram bot token |
+| `TG_BOT_USERNAME` | - | @username бота без `@` для ссылки входа в браузере `t.me/<bot>?start=login_…` (FT-128). Пусто — спрашивается у Telegram (`getMe`) |
 | `WEB_APP_URL` | `http://localhost:3000` | Public URL (перезаписывается `npm run dev:miniapp`) |
-| `DB_SYNCHRONIZE` | - | `true` включает TypeORM schema sync для SQLite вне `NODE_ENV=development` |
-
-### Supabase (if DATABASE_TYPE=supabase)
-
-| Variable | Description |
-|----------|-------------|
-| `SUPABASE_URL` | Project URL |
-| `SUPABASE_ANON_KEY` | Anonymous key |
 
 ---
 
@@ -410,7 +414,7 @@ npm run build:webapp
 ## Next Steps
 
 - [Adding Features](adding-features.md) - Как добавить новый use case/endpoint
-- [Database Guide](database-guide.md) - SQLite vs Supabase
+- [Database Guide](database-guide.md) - SQLite, TypeORM и миграции
 - [Troubleshooting](troubleshooting.md) - Решение проблем
 - [Architecture Overview](../01-architecture/overview.md) - Понимание структуры
 

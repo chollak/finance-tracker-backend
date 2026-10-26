@@ -35,6 +35,12 @@ describe('buildCaptureAck', () => {
   });
 
   describe('single transaction', () => {
+    it('shows dollars as dollars, with cents (FT-103)', () => {
+      const ack = buildCaptureAck([captured({ amount: 55, currency: 'USD', description: 'наушники', category: 'Покупки' })], { today: TODAY });
+
+      expect(ack.summary).toBe('Наушники · 55,00 USD · Покупки');
+    });
+
     it('summarises label, grouped amount and localized category', () => {
       const ack = buildCaptureAck([captured()], { today: TODAY });
 
@@ -120,6 +126,27 @@ describe('buildCaptureAck', () => {
 
       expect(buildCaptureAck([captured({ description: undefined, merchant: undefined })], { today: TODAY }).summary)
         .toBe('Транспорт · 18 000 сум');
+    });
+
+    it('marks a category the AI guessed with «?», as the bot board does (FT-138)', () => {
+      const guessed = { assumptions: [{ kind: 'category' as const, name: 'Покупки' }], category: 'Покупки' };
+
+      expect(buildCaptureAck([captured({ ...guessed, description: 'Uzum', amount: 180000 })], { today: TODAY }).summary)
+        .toBe('Uzum · 180 000 сум · Покупки?');
+      // Without a note the category is the label, still marked
+      expect(buildCaptureAck([captured({ ...guessed, description: undefined, merchant: undefined, amount: 180000 })], { today: TODAY }).summary)
+        .toBe('Покупки? · 180 000 сум');
+      // A note that is the category name stands for it, so it keeps the mark too
+      expect(buildCaptureAck([captured({ ...guessed, description: 'покупки', amount: 180000 })], { today: TODAY }).summary)
+        .toBe('Покупки? · 180 000 сум');
+      // In a multi-record ack too, where the category is left out
+      expect(buildCaptureAck([
+        captured({ ...guessed, id: 'tx-1', description: 'покупки', amount: 180000 }),
+        captured({ ...guessed, id: 'tx-2', description: 'Uzum', amount: 20000 }),
+      ], { today: TODAY }).summary).toBe('Покупки? · 180 000 сум\nUzum · 20 000 сум');
+      // A category the text gave carries no mark
+      expect(buildCaptureAck([captured({ assumptions: [{ kind: 'account', name: 'Карта', reason: 'default' }] })], { today: TODAY }).summary)
+        .toBe('Такси · 18 000 сум · Транспорт');
     });
 
     it('keeps an unknown category id readable instead of dropping it', () => {

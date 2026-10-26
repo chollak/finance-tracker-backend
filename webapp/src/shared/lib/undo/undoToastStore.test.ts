@@ -1,0 +1,64 @@
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { dismissUndoGroup, useUndoToastStore, showUndoToast } from './undoToastStore';
+import { visibleEntry } from './undoStack';
+
+const state = () => useUndoToastStore.getState();
+
+describe('undo toast store', () => {
+  afterEach(() => {
+    state().clear();
+    while (state().openSheets > 0) state().sheetClosed();
+    vi.useRealTimers();
+  });
+
+  it('undoes the visible action once and shows the previous one', async () => {
+    const first = vi.fn();
+    const second = vi.fn();
+    showUndoToast({ kind: 'saved', title: 'Записано', undo: first });
+    const id = showUndoToast({ kind: 'deleted', title: 'Удалено', undo: second });
+
+    await state().undoVisible(id);
+    await state().undoVisible(id); // a double tap does not undo the previous action
+
+    expect(second).toHaveBeenCalledTimes(1);
+    expect(first).not.toHaveBeenCalled();
+    expect(visibleEntry(state().stack, Date.now())?.title).toBe('Записано');
+  });
+
+  it('puts a failed undo back so it can be retried', async () => {
+    const undo = vi.fn().mockRejectedValueOnce(new Error('offline')).mockResolvedValueOnce(undefined);
+    const id = showUndoToast({ kind: 'saved', title: 'Записано', undo });
+
+    await state().undoVisible(id);
+    const retry = visibleEntry(state().stack, Date.now());
+    expect(retry?.title).toBe('Не получилось отменить');
+    expect(retry?.undo).toBe(undo);
+
+    await state().undoVisible(retry!.id);
+    expect(undo).toHaveBeenCalledTimes(2);
+    expect(visibleEntry(state().stack, Date.now())).toBeNull();
+  });
+
+  it('takes a finished flow’s toasts off the stack, retries included, and shows the one before them', async () => {
+    const removed = vi.fn().mockRejectedValueOnce(new Error('offline'));
+    showUndoToast({ kind: 'saved', title: 'Записано', undo: vi.fn() });
+    showUndoToast({ kind: 'deleted', title: 'Убрано', group: 'review', undo: vi.fn() });
+    const id = showUndoToast({ kind: 'deleted', title: 'Убрано', group: 'review', undo: removed });
+    await state().undoVisible(id); // fails: «Не получилось отменить» of the same flow
+
+    dismissUndoGroup('review');
+
+    expect(state().stack.map((entry) => entry.title)).toEqual(['Записано']);
+    expect(visibleEntry(state().stack, Date.now())?.title).toBe('Записано');
+  });
+
+  it('counts open sheets and never goes below zero', () => {
+    state().sheetOpened();
+    state().sheetOpened();
+    state().sheetClosed();
+    expect(state().openSheets).toBe(1);
+    state().sheetClosed();
+    state().sheetClosed();
+    expect(state().openSheets).toBe(0);
+  });
+});

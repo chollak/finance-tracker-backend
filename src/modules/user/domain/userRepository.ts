@@ -39,4 +39,7 @@ export interface UserRepository {
    * Get or create user by Telegram ID
    */
   getOrCreate(dto: CreateUserDTO): Promise<User>;
+
+  /** Every user, oldest first — the bot's daily summary goes through them (FT-124). */
+  findAll(): Promise<User[]>;
 }

@@ -1,26 +1,20 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/shared/api';
 import { API_ENDPOINTS } from '@/shared/lib/constants';
 import type { Transaction, CreateTransactionDTO, UpdateTransactionDTO } from '@/shared/types';
 import type { TransactionViewModel } from '../model/types';
 import { transactionKeys } from './keys';
 import { budgetKeys } from '@/entities/budget/api/keys';
-import { dashboardKeys } from '@/entities/dashboard/api/keys';
 import { subscriptionKeys } from '@/entities/subscription/api/keys';
 import { transactionToViewModel } from '../lib/toViewModel';
 import { transactionDataSource } from '@/shared/lib/db';
 import type { LocalTransaction } from '@/shared/lib/db/schema';
-import { isGuestId } from '@/shared/lib/utils/guestId';
 import { haptic } from '@/shared/lib/haptic';
+import { balanceReaderKeys } from './balanceReaders';
 
-/**
- * Error thrown when guest user tries to access server features
- */
-export class GuestAccessError extends Error {
-  constructor(feature: string) {
-    super(`Для ${feature} необходимо войти через Telegram`);
-    this.name = 'GuestAccessError';
-  }
+/** Home's balances, month totals and recent records move with every change of records (FT-111). */
+function invalidateBalanceReaders(queryClient: QueryClient, userId: string): void {
+  for (const queryKey of balanceReaderKeys(userId)) queryClient.invalidateQueries({ queryKey });
 }
 
 /**
@@ -31,6 +25,8 @@ function localToTransaction(local: LocalTransaction): Transaction {
     id: local.id,
     date: local.date,
     category: local.category,
+    categoryId: local.categoryId,
+    categoryColor: local.categoryColor,
     description: local.description,
     amount: local.amount,
     type: local.type,
@@ -44,18 +40,17 @@ function localToTransaction(local: LocalTransaction): Transaction {
 }
 
 /**
- * Hook to create a new transaction
- * Guest: IndexedDB, Telegram: Server API
+ * Hook to create a new transaction on the server
  */
 export function useCreateTransaction() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (data: CreateTransactionDTO) => {
-      // Use dataSource - handles guest (IndexedDB) vs telegram (server API)
       const localTx = await transactionDataSource.create({
         date: data.date,
         category: data.category,
+        categoryId: data.categoryId,
         description: data.description,
         amount: data.amount,
         type: data.type,
@@ -63,6 +58,10 @@ export function useCreateTransaction() {
         needsReview: data.needsReview,
         userId: data.userId,
         merchant: data.merchant,
+        amountMinor: data.amountMinor,
+        currency: data.currency,
+        accountId: data.accountId,
+        clientId: data.clientId,
       });
       return localToTransaction(localTx);
     },
@@ -84,12 +83,7 @@ export function useCreateTransaction() {
 
       // 2. Invalidate ONLY computed data that depends on transaction totals
       queryClient.invalidateQueries({ queryKey: budgetKeys.summaries(userId) });
-      queryClient.invalidateQueries({ queryKey: dashboardKeys.insights(userId) });
-      queryClient.invalidateQueries({ queryKey: dashboardKeys.quickStats(userId) });
-      // Invalidate analytics since totals changed
-      queryClient.invalidateQueries({ queryKey: transactionKeys.analytics(userId) });
-      queryClient.invalidateQueries({ queryKey: transactionKeys.categorySummary(userId) });
-      queryClient.invalidateQueries({ queryKey: transactionKeys.trends(userId) });
+      invalidateBalanceReaders(queryClient, userId);
       // Invalidate subscription to refresh usage limits (transaction count increased)
       queryClient.invalidateQueries({ queryKey: subscriptionKeys.status(userId) });
     },
@@ -97,18 +91,17 @@ export function useCreateTransaction() {
 }
 
 /**
- * Hook to update an existing transaction
- * Guest: IndexedDB, Telegram: Server API
+ * Hook to update an existing transaction on the server
  */
 export function useUpdateTransaction() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({ id, data }: { id: string; userId: string; data: UpdateTransactionDTO }) => {
-      // Use dataSource - handles guest (IndexedDB) vs telegram (server API)
       const localTx = await transactionDataSource.update(id, {
         date: data.date,
         category: data.category,
+        categoryId: data.categoryId,
         description: data.description,
         amount: data.amount,
         type: data.type,
@@ -147,234 +140,110 @@ export function useUpdateTransaction() {
 
       // 3. Invalidate computed data (amount/category might have changed)
       queryClient.invalidateQueries({ queryKey: budgetKeys.summaries(userId) });
-      queryClient.invalidateQueries({ queryKey: dashboardKeys.insights(userId) });
-      queryClient.invalidateQueries({ queryKey: dashboardKeys.quickStats(userId) });
-      queryClient.invalidateQueries({ queryKey: transactionKeys.analytics(userId) });
-      queryClient.invalidateQueries({ queryKey: transactionKeys.categorySummary(userId) });
-      queryClient.invalidateQueries({ queryKey: transactionKeys.trends(userId) });
+      invalidateBalanceReaders(queryClient, userId);
     },
   });
 }
 
 /**
- * Hook to delete a transaction
- * Guest: IndexedDB, Telegram: Server API
+ * Records deleted here, as they were known when deleted (FT-116): «Отменить» brings a record back unchanged, so its
+ * copy is known again at once — History shows the record just changed back in its list without reading it.
  */
-export function useDeleteTransaction() {
-  const queryClient = useQueryClient();
+const deletedRecords = new Map<string, Transaction>();
 
-  return useMutation({
-    mutationFn: async ({ id }: { id: string; userId: string }) => {
-      // Use dataSource - handles guest (IndexedDB) vs telegram (server API)
-      const success = await transactionDataSource.delete(id);
-      return { success };
-    },
-    onSuccess: (_, variables) => {
-      // Haptic feedback for deletion (warning - destructive action)
-      haptic.warning();
+/**
+ * The record as the record sheet read it is forgotten. Whoever shows it sees it gone at once, and nothing is sent
+ * to read it again: a reader still on screen (History's record just changed, the sheet that is closing) is left
+ * with no record rather than a fresh query that would ask the server for a deleted one.
+ */
+function forgetRecordRead(queryClient: QueryClient, id: string): void {
+  const query = queryClient.getQueryCache().find<Transaction>({ queryKey: transactionKeys.record(id), exact: true });
+  const known = query?.state.data;
+  if (known) deletedRecords.set(id, known);
+  else deletedRecords.delete(id);
+  if (!query) return;
+  query.reset();
+  if (query.getObserversCount() === 0) queryClient.removeQueries({ queryKey: transactionKeys.record(id), exact: true });
+}
 
-      const { id, userId } = variables;
+/** Takes a deleted record out of every cache it was in and refetches what it counted in. */
+function forgetDeletedTransaction(queryClient: QueryClient, { id, userId }: { id: string; userId: string }): void {
+  // 1. Remove from transaction list cache (NO HTTP request)
+  queryClient.setQueryData<TransactionViewModel[]>(
+    transactionKeys.list(userId),
+    (old) => {
+      if (!old) return old;
+      return old.filter((t) => t.id !== id);
+    }
+  );
 
-      // 1. Remove from transaction list cache (NO HTTP request)
-      queryClient.setQueryData<TransactionViewModel[]>(
-        transactionKeys.list(userId),
-        (old) => {
-          if (!old) return old;
-          return old.filter((t) => t.id !== id);
-        }
-      );
+  // 2. Remove from detail cache
+  queryClient.removeQueries({ queryKey: transactionKeys.detail(id) });
+  forgetRecordRead(queryClient, id);
 
-      // 2. Remove from detail cache
-      queryClient.removeQueries({ queryKey: transactionKeys.detail(id) });
-
-      // 3. Invalidate computed data
-      queryClient.invalidateQueries({ queryKey: budgetKeys.summaries(userId) });
-      queryClient.invalidateQueries({ queryKey: dashboardKeys.insights(userId) });
-      queryClient.invalidateQueries({ queryKey: dashboardKeys.quickStats(userId) });
-      queryClient.invalidateQueries({ queryKey: transactionKeys.analytics(userId) });
-      queryClient.invalidateQueries({ queryKey: transactionKeys.categorySummary(userId) });
-      queryClient.invalidateQueries({ queryKey: transactionKeys.trends(userId) });
-      // Invalidate subscription to refresh usage limits (transaction count decreased)
-      queryClient.invalidateQueries({ queryKey: subscriptionKeys.status(userId) });
-    },
-  });
+  // 3. Invalidate computed data
+  queryClient.invalidateQueries({ queryKey: budgetKeys.summaries(userId) });
+  invalidateBalanceReaders(queryClient, userId);
+  // Invalidate subscription to refresh usage limits (transaction count decreased)
+  queryClient.invalidateQueries({ queryKey: subscriptionKeys.status(userId) });
 }
 
 /**
- * Hook to archive a single transaction
- * Guest users: throws GuestAccessError
+ * Deletes a record — softly on the server (FT-105) — and refreshes what showed
+ * it. Not a hook: «Отменить» in a toast runs it after the screen that wrote the record is gone (FT-113).
  */
-export function useArchiveTransaction() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({ id, userId }: { id: string; userId: string }) => {
-      if (isGuestId(userId)) {
-        throw new GuestAccessError('архивации транзакций');
-      }
-      const response = await apiClient.post<{ message: string }>(
-        API_ENDPOINTS.TRANSACTIONS.ARCHIVE.ONE(id)
-      );
-      return response.data;
-    },
-    onSuccess: (_, variables) => {
-      // Haptic feedback for archive
-      haptic.success();
-
-      const { id, userId } = variables;
-
-      // 1. Get the transaction from active list before removing
-      const activeList = queryClient.getQueryData<TransactionViewModel[]>(
-        transactionKeys.list(userId)
-      );
-      const archivedTransaction = activeList?.find((t) => t.id === id);
-
-      // 2. Remove from active list
-      queryClient.setQueryData<TransactionViewModel[]>(
-        transactionKeys.list(userId),
-        (old) => {
-          if (!old) return old;
-          return old.filter((t) => t.id !== id);
-        }
-      );
-
-      // 3. Add to archived list (if we found the transaction)
-      if (archivedTransaction) {
-        queryClient.setQueryData<TransactionViewModel[]>(
-          transactionKeys.archived(userId),
-          (old) => {
-            const archived = { ...archivedTransaction, isArchived: true };
-            if (!old) return [archived];
-            return [archived, ...old];
-          }
-        );
-      }
-
-      // 4. Invalidate computed data
-      queryClient.invalidateQueries({ queryKey: budgetKeys.summaries(userId) });
-      queryClient.invalidateQueries({ queryKey: dashboardKeys.insights(userId) });
-      queryClient.invalidateQueries({ queryKey: dashboardKeys.quickStats(userId) });
-      queryClient.invalidateQueries({ queryKey: transactionKeys.analytics(userId) });
-      queryClient.invalidateQueries({ queryKey: transactionKeys.categorySummary(userId) });
-    },
-  });
+export async function deleteTransaction(queryClient: QueryClient, variables: { id: string; userId: string }): Promise<void> {
+  await transactionDataSource.delete(variables.id);
+  forgetDeletedTransaction(queryClient, variables);
 }
 
 /**
- * Hook to unarchive a single transaction
- * Guest users: throws GuestAccessError
+ * Brings a deleted record back (FT-105: `POST /api/transactions/:id/restore`) and refreshes what counts it. Not a
+ * hook, like `deleteTransaction`: «Отменить» in a toast runs it.
  */
-export function useUnarchiveTransaction() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({ id, userId }: { id: string; userId: string }) => {
-      if (isGuestId(userId)) {
-        throw new GuestAccessError('разархивации транзакций');
-      }
-      const response = await apiClient.post<{ message: string }>(
-        API_ENDPOINTS.TRANSACTIONS.ARCHIVE.UNARCHIVE(id)
-      );
-      return response.data;
-    },
-    onSuccess: (_, variables) => {
-      // Haptic feedback for unarchive
-      haptic.success();
-
-      const { id, userId } = variables;
-
-      // 1. Get the transaction from archived list before removing
-      const archivedList = queryClient.getQueryData<TransactionViewModel[]>(
-        transactionKeys.archived(userId)
-      );
-      const unarchivedTransaction = archivedList?.find((t) => t.id === id);
-
-      // 2. Remove from archived list
-      queryClient.setQueryData<TransactionViewModel[]>(
-        transactionKeys.archived(userId),
-        (old) => {
-          if (!old) return old;
-          return old.filter((t) => t.id !== id);
-        }
-      );
-
-      // 3. Add to active list (if we found the transaction)
-      if (unarchivedTransaction) {
-        queryClient.setQueryData<TransactionViewModel[]>(
-          transactionKeys.list(userId),
-          (old) => {
-            const active = { ...unarchivedTransaction, isArchived: false };
-            if (!old) return [active];
-            // Insert at the correct position by date (newest first)
-            const newList = [active, ...old];
-            return newList.sort((a, b) =>
-              new Date(b.date).getTime() - new Date(a.date).getTime()
-            );
-          }
-        );
-      }
-
-      // 4. Invalidate computed data
-      queryClient.invalidateQueries({ queryKey: budgetKeys.summaries(userId) });
-      queryClient.invalidateQueries({ queryKey: dashboardKeys.insights(userId) });
-      queryClient.invalidateQueries({ queryKey: dashboardKeys.quickStats(userId) });
-      queryClient.invalidateQueries({ queryKey: transactionKeys.analytics(userId) });
-      queryClient.invalidateQueries({ queryKey: transactionKeys.categorySummary(userId) });
-    },
-  });
+export async function restoreTransaction(queryClient: QueryClient, { id, userId }: { id: string; userId: string }): Promise<void> {
+  await transactionDataSource.restore(id);
+  const known = deletedRecords.get(id);
+  deletedRecords.delete(id);
+  if (known) queryClient.setQueryData(transactionKeys.record(id), known);
+  refreshAfterRecordsChanged(queryClient, userId);
 }
 
 /**
- * Hook to archive all transactions for a user
- * Guest users: throws GuestAccessError
+ * A change of a saved record, as `PUT /api/transactions/:id` takes it (docs/pastel/api.md): one field, or the
+ * fields that move together — an account with its currency, a type with a category of that type and its
+ * meaning (the record sheet's «Расход / Доход», FT-115).
  */
-export function useArchiveAllTransactions() {
-  const queryClient = useQueryClient();
+export type TransactionPatch =
+  | { categoryId: string }
+  | { accountId: string; currency: 'UZS' | 'USD' }
+  | { date: string }
+  | { amountMinor: number }
+  | { description: string }
+  | { type: 'income' | 'expense'; categoryId: string; semanticType: 'income' | 'expense' };
 
-  return useMutation({
-    mutationFn: async (userId: string) => {
-      if (isGuestId(userId)) {
-        throw new GuestAccessError('архивации транзакций');
-      }
-      const response = await apiClient.post<{ archivedCount: number }>(
-        API_ENDPOINTS.TRANSACTIONS.ARCHIVE.ALL(userId)
-      );
-      return response.data;
-    },
-    onSuccess: (_, userId) => {
-      // Haptic feedback for archive all
-      haptic.success();
+/**
+ * Changes a saved record at once (the AI review of FT-114, the record sheet of FT-115) and refreshes what shows
+ * it. The record is changed on the server, whose answer becomes the record the sheet shows.
+ */
+export async function patchTransaction(
+  queryClient: QueryClient,
+  { id, userId, patch }: { id: string; userId: string; patch: TransactionPatch }
+): Promise<void> {
+  const response = await apiClient.put<Transaction>(API_ENDPOINTS.TRANSACTIONS.UPDATE(id), patch);
+  const saved = response.data;
+  queryClient.removeQueries({ queryKey: transactionKeys.detail(id) });
+  queryClient.setQueryData(transactionKeys.record(id), saved);
+  refreshAfterRecordsChanged(queryClient, userId);
+}
 
-      // 1. Get all active transactions before clearing
-      const activeList = queryClient.getQueryData<TransactionViewModel[]>(
-        transactionKeys.list(userId)
-      );
-
-      // 2. Clear active list
-      queryClient.setQueryData<TransactionViewModel[]>(
-        transactionKeys.list(userId),
-        []
-      );
-
-      // 3. Add all to archived list
-      if (activeList && activeList.length > 0) {
-        queryClient.setQueryData<TransactionViewModel[]>(
-          transactionKeys.archived(userId),
-          (old) => {
-            const archived = activeList.map((t) => ({ ...t, isArchived: true }));
-            if (!old) return archived;
-            return [...archived, ...old];
-          }
-        );
-      }
-
-      // 4. Invalidate computed data
-      queryClient.invalidateQueries({ queryKey: budgetKeys.summaries(userId) });
-      queryClient.invalidateQueries({ queryKey: dashboardKeys.insights(userId) });
-      queryClient.invalidateQueries({ queryKey: dashboardKeys.quickStats(userId) });
-      queryClient.invalidateQueries({ queryKey: transactionKeys.analytics(userId) });
-      queryClient.invalidateQueries({ queryKey: transactionKeys.categorySummary(userId) });
-      queryClient.invalidateQueries({ queryKey: transactionKeys.trends(userId) });
-    },
-  });
+/**
+ * Everything a written, changed, deleted or restored record moves; the server computes it. The outbox (FT-129) runs it
+ * after it sent what was written without a connection.
+ */
+export function refreshAfterRecordsChanged(queryClient: QueryClient, userId: string): void {
+  queryClient.invalidateQueries({ queryKey: transactionKeys.list(userId) });
+  queryClient.invalidateQueries({ queryKey: budgetKeys.summaries(userId) });
+  invalidateBalanceReaders(queryClient, userId);
+  queryClient.invalidateQueries({ queryKey: subscriptionKeys.status(userId) });
 }

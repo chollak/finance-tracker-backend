@@ -1,8 +1,7 @@
 import type { QueryKey } from '@tanstack/react-query';
 
-import { transactionKeys } from '@/entities/transaction/api/keys';
+import { balanceReaderKeys, transactionKeys } from '@/entities/transaction';
 import { budgetKeys } from '@/entities/budget/api/keys';
-import { dashboardKeys } from '@/entities/dashboard/api/keys';
 import { subscriptionKeys } from '@/entities/subscription/api/keys';
 import { debtKeys } from '@/entities/debt/api/keys';
 
@@ -25,13 +24,10 @@ export function quickCaptureInvalidationKeys(
 
   const keys: QueryKey[] = [
     transactionKeys.list(userId),
-    transactionKeys.analytics(userId),
-    transactionKeys.categorySummary(userId),
-    transactionKeys.trends(userId),
     budgetKeys.summaries(userId),
-    dashboardKeys.insights(userId),
-    dashboardKeys.quickStats(userId),
     subscriptionKeys.status(userId),
+    // Home: the balances, the month tiles and the recent records (FT-111); History; Analytics (FT-121)
+    ...balanceReaderKeys(userId),
   ];
 
   if (result.debts.length > 0) {

@@ -45,6 +45,60 @@ async function getUserUUID(ctx: Context, userModule: UserModule): Promise<string
 }
 
 /**
+ * Whether the user may go on with an action that counts against the limit; when not, the paywall is sent.
+ * Fails open: an error while checking lets the action go on. Used by the middleware below and by an answer
+ * that adds a record outside it — «Сколько?» of an item named without an amount (FT-123).
+ */
+export async function checkTelegramLimit(
+  ctx: Context,
+  subscriptionModule: SubscriptionModule,
+  userId: string,
+  limitType: LimitType
+): Promise<boolean> {
+  try {
+    const result = await subscriptionModule
+      .getCheckLimitUseCase()
+      .execute({ userId, limitType });
+
+    // Attach info to context
+    (ctx as SubscriptionContext).subscriptionInfo = {
+      isPremium: result.isPremium,
+      allowed: result.allowed,
+      currentUsage: result.currentUsage,
+      limit: result.limit,
+      remaining: result.remaining,
+    };
+
+    if (!result.allowed) {
+      // Send paywall message
+      await ctx.reply(
+        `⚠️ ${result.message}\n\n` +
+          `Используйте /premium для оплаты (${SUBSCRIPTION_PRICE_STARS} Stars).`,
+        {
+          reply_markup: {
+            inline_keyboard: [
+              [
+                {
+                  text: `⭐ Купить Premium (${SUBSCRIPTION_PRICE_STARS} Stars)`,
+                  callback_data: 'buy_premium',
+                },
+              ],
+            ],
+          },
+        }
+      );
+      return false; // Don't proceed with action
+    }
+
+    return true;
+  } catch (error) {
+    logger.error('Error in telegram subscription middleware', error as Error);
+    // Allow action on error (fail open)
+    return true;
+  }
+}
+
+/**
  * Create middleware to check limit before action
  */
 export function createTelegramCheckLimitMiddleware(
@@ -62,47 +116,7 @@ export function createTelegramCheckLimitMiddleware(
       return next(); // Fail open if can't get user
     }
 
-    try {
-      const result = await subscriptionModule
-        .getCheckLimitUseCase()
-        .execute({ userId, limitType });
-
-      // Attach info to context
-      ctx.subscriptionInfo = {
-        isPremium: result.isPremium,
-        allowed: result.allowed,
-        currentUsage: result.currentUsage,
-        limit: result.limit,
-        remaining: result.remaining,
-      };
-
-      if (!result.allowed) {
-        // Send paywall message
-        await ctx.reply(
-          `⚠️ ${result.message}\n\n` +
-            `Используйте /premium для оплаты (${SUBSCRIPTION_PRICE_STARS} Stars).`,
-          {
-            reply_markup: {
-              inline_keyboard: [
-                [
-                  {
-                    text: `⭐ Купить Premium (${SUBSCRIPTION_PRICE_STARS} Stars)`,
-                    callback_data: 'buy_premium',
-                  },
-                ],
-              ],
-            },
-          }
-        );
-        return; // Don't proceed with action
-      }
-
-      return next();
-    } catch (error) {
-      logger.error('Error in telegram subscription middleware', error as Error);
-      // Allow action on error (fail open)
-      return next();
-    }
+    if (await checkTelegramLimit(ctx, subscriptionModule, userId, limitType)) return next();
   };
 }
 

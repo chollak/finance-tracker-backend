@@ -1,7 +1,8 @@
 import { AnalyticsService, TimeRange, MonthlyTrend } from '../../../transaction/application/analyticsService';
 import { BudgetService } from '../../../budget/application/budgetService';
 import { BudgetSummary } from '../../../budget/domain/budgetEntity';
-import { countsAsIncome, countsAsRealExpense, normalizeSemanticType } from '../../../transaction/domain/transactionSemanticType';
+import { fromMinor } from '../../../../shared/domain/money/money';
+import { summarizePeriod } from '../../../transaction/domain/periodTotals';
 
 export interface DashboardInsights {
   financialSummary: {
@@ -125,6 +126,8 @@ export class DashboardService {
 
     // OPTIMIZED: Load all transactions once instead of 2*N queries
     const allTransactions = await this.analyticsService.getTransactionsForUser(userId, timeRange);
+    // Dollars convert at the user's effective rate (FT-103)
+    const usdRateMinor = await this.analyticsService.usdRateFor(userId, allTransactions);
 
     const weeklyInsights: WeeklyInsight[] = [];
 
@@ -140,30 +143,17 @@ export class DashboardService {
         return tDate >= weekStart && tDate <= weekEnd;
       });
 
-      // Calculate summary in memory
-      let income = 0;
-      let expenses = 0;
-      const categoryAmounts: Record<string, number> = {};
-
-      for (const t of weekTransactions) {
-        const semanticType = normalizeSemanticType(t.semanticType, t.type);
-        if (countsAsIncome(semanticType)) {
-          income += t.amount;
-        } else if (countsAsRealExpense(semanticType)) {
-          expenses += t.amount;
-          categoryAmounts[t.category] = (categoryAmounts[t.category] || 0) + t.amount;
-        }
-      }
-
-      // Find top category
-      const topCategory = Object.entries(categoryAmounts)
-        .sort((a, b) => b[1] - a[1])[0]?.[0] || 'N/A';
+      // The shared period totals (FT-103): integer minor units, dollars at one rate
+      const totals = summarizePeriod(weekTransactions, { usdRateMinor });
+      const income = totals.incomeMinor;
+      const expenses = totals.expenseMinor;
+      const topCategory = totals.categories[0]?.category || 'N/A';
 
       weeklyInsights.push({
         week: `${weekStart.toLocaleDateString()} - ${weekEnd.toLocaleDateString()}`,
-        income: Math.round(income * 100) / 100,
-        expenses: Math.round(expenses * 100) / 100,
-        net: Math.round((income - expenses) * 100) / 100,
+        income: fromMinor(income),
+        expenses: fromMinor(expenses),
+        net: fromMinor(income - expenses),
         budgetPerformance: 75, // Simplified - would calculate based on actual budgets
         topCategory
       });

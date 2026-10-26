@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Daftar — категории</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; position: relative; overflow: hidden; display: flex; flex-direction: column; background: {{t.bg}}; color: {{t.ink}}; font-family: 'Manrope', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;">
+<p role="status" style="position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;">{{liveText}}</p>
+
+<div style="flex: 0 0 auto; display: flex; flex-direction: column; gap: 12px; padding: 8px 16px;">
+<header style="display: flex; align-items: center; gap: 12px; height: 48px;">
+<a href="{{backHref}}" aria-label="Назад в «Ещё»" style="flex: 0 0 44px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border-radius: 9999px; background: {{t.card}}; color: {{t.ink}};"><svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><path d="M12.5 4.5 7 10l5.5 5.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg></a>
+<h1 id="cat-title" tabindex="-1" style="flex: 1 1 auto; margin: 0; outline: none; font-size: 18px; line-height: 1.3; font-weight: 800; letter-spacing: -0.3px;">Категории</h1>
+</header>
+<div role="group" aria-label="Какие категории показать" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px; padding: 2px; border-radius: 9999px; background: {{t.track}};">
+<button type="button" onClick="{{showExp}}" aria-pressed="{{expPressed}}" style="height: 44px; border: 0; border-radius: 9999px; background: {{expBg}}; box-shadow: {{expShadow}}; color: {{expInk}}; font-family: inherit; font-size: 14px; font-weight: 800; cursor: pointer;">Расходы</button>
+<button type="button" onClick="{{showInc}}" aria-pressed="{{incPressed}}" style="height: 44px; border: 0; border-radius: 9999px; background: {{incBg}}; box-shadow: {{incShadow}}; color: {{incInk}}; font-family: inherit; font-size: 14px; font-weight: 800; cursor: pointer;">Доходы</button>
+</div>
+</div>
+
+<div style="flex: 1 1 auto; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding: 4px 16px 32px;">
+<section aria-label="{{listLabel}}" style="flex: 0 0 auto; display: flex; flex-direction: column; padding: 4px 0; border-radius: 24px; background: {{t.card}};">
+<sc-for list="{{rows}}" as="r" hint-placeholder-count="8">
+<button type="button" onClick="{{r.open}}" aria-haspopup="dialog" aria-label="{{r.aria}}" style="min-height: 60px; display: flex; align-items: center; gap: 12px; padding: 8px 14px 8px 12px; border: 0; border-top: {{r.divider}}; background: transparent; color: {{t.ink}}; font-family: inherit; text-align: left; cursor: pointer;">
+<span aria-hidden="true" style="flex: 0 0 40px; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 9999px; background: {{r.color}}; color: #141416; font-size: 15px; font-weight: 800;">{{r.letter}}</span>
+<span style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px;"><span style="font-size: 15px; font-weight: 700;">{{r.name}}</span><span style="font-size: 13px; font-weight: 600; color: {{t.muted}};">{{r.sub}}</span></span>
+<svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true" style="flex: 0 0 16px;"><path d="M7.5 4.5 13 10l-5.5 5.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+</button>
+</sc-for>
+<button type="button" onClick="{{openNew}}" aria-haspopup="dialog" style="min-height: 56px; display: flex; align-items: center; gap: 12px; padding: 8px 14px 8px 12px; border: 0; border-top: 1px solid {{t.line}}; background: transparent; color: {{t.ink}}; font-family: inherit; font-size: 15px; font-weight: 800; text-align: left; cursor: pointer;"><span aria-hidden="true" style="flex: 0 0 40px; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 9999px; border: 2px dashed {{t.muted}}; box-sizing: border-box;"><svg width="18" height="18" viewBox="0 0 20 20"><path d="M10 4v12M4 10h12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"></path></svg></span>{{newLabel}}</button>
+<sc-if value="{{hasHidden}}" hint-placeholder-val="{{false}}">
+<button type="button" onClick="{{openHidden}}" aria-haspopup="dialog" style="min-height: 52px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 16px; border: 0; border-top: 1px solid {{t.line}}; background: transparent; color: {{t.ink}}; font-family: inherit; font-size: 15px; font-weight: 700; text-align: left; cursor: pointer;">{{hiddenLabel}}<svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true"><path d="M7.5 4.5 13 10l-5.5 5.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
+</sc-if>
+</section>
+<p style="flex: 0 0 auto; margin: 0 4px; font-size: 13px; line-height: 1.45; font-weight: 600; color: {{t.muted}};">ИИ раскладывает записи по этим категориям. Новую он начнёт предлагать по её названию — так что лучше называть просто: «Спорт», «Дети».</p>
+</div>
+
+<sc-if value="{{hasToast}}" hint-placeholder-val="{{false}}">
+<div style="position: absolute; left: 16px; right: 16px; bottom: 24px; z-index: 15; min-height: 56px; box-sizing: border-box; display: flex; align-items: center; gap: 12px; padding: 6px 6px 6px 16px; border-radius: 24px; background: {{t.primaryBg}}; color: {{t.primaryInk}};">
+<span aria-hidden="true" style="flex: 0 0 24px; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 9999px; background: #c9efd9; color: #14532d;"><svg width="14" height="14" viewBox="0 0 20 20"><path d="M4.5 10.5 8 14l7.5-8" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+<span style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px;"><span style="font-size: 14px; font-weight: 800;">{{toastTitle}}</span><span style="font-size: 13px; line-height: 1.35; font-weight: 600; color: {{t.primarySub}};">{{toastDetail}}</span></span>
+<sc-if value="{{hasUndo}}" hint-placeholder-val="{{true}}">
+<button type="button" onClick="{{undo}}" style="flex: 0 0 auto; height: 44px; padding: 0 14px; border: 0; border-radius: 9999px; background: transparent; color: {{t.primaryInk}}; font-family: inherit; font-size: 14px; font-weight: 800; text-decoration: underline; cursor: pointer;">Отменить</button>
+</sc-if>
+</div>
+</sc-if>
+
+<sc-if value="{{sheetOpen}}" hint-placeholder-val="{{false}}">
+<div style="position: absolute; inset: 0; z-index: 20;">
+<div onClick="{{closeSheet}}" aria-hidden="true" style="position: absolute; inset: 0; background: {{t.scrim}};"></div>
+<div role="dialog" aria-modal="true" aria-labelledby="sheet-title" onKeyDown="{{sheetKey}}" style="position: absolute; left: 0; right: 0; bottom: 0; max-height: calc(100% - 64px); overflow-y: auto; box-sizing: border-box; display: flex; flex-direction: column; gap: 12px; padding: 8px 16px 24px; border-radius: 28px 28px 0 0; background: {{t.sheet}};">
+<span aria-hidden="true" style="flex: 0 0 auto; align-self: center; width: 36px; height: 5px; border-radius: 3px; background: {{t.grabber}};"></span>
+<div style="flex: 0 0 auto; display: flex; align-items: center; gap: 12px;">
+<h2 id="sheet-title" tabindex="-1" style="flex: 1 1 auto; margin: 0; outline: none; font-size: 18px; line-height: 1.3; font-weight: 800; letter-spacing: -0.3px;">{{sheetTitle}}</h2>
+<button type="button" onClick="{{closeSheet}}" aria-label="Закрыть" style="flex: 0 0 44px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border: 0; border-radius: 9999px; background: {{t.sheetCard}}; color: {{t.ink}}; cursor: pointer;"><svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true"><path d="M5.5 5.5l9 9m0-9-9 9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg></button>
+</div>
+
+<sc-if value="{{isHiddenSheet}}" hint-placeholder-val="{{false}}">
+<ul style="flex: 0 0 auto; list-style: none; margin: 0; padding: 0 16px; border-radius: 24px; background: {{t.sheetCard}};">
+<sc-for list="{{hiddenRows}}" as="h" hint-placeholder-count="1">
+<li style="min-height: 60px; display: flex; align-items: center; gap: 12px; border-top: {{h.divider}};"><span aria-hidden="true" style="flex: 0 0 36px; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 9999px; background: {{h.color}}; color: #141416; font-size: 14px; font-weight: 800;">{{h.letter}}</span><span style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px;"><span style="font-size: 15px; font-weight: 700;">{{h.name}}</span><span style="font-size: 13px; font-weight: 600; color: {{t.muted}};">{{h.sub}}</span></span><button type="button" onClick="{{h.show}}" aria-label="{{h.aria}}" style="flex: 0 0 auto; height: 44px; padding: 0 16px; border: 0; border-radius: 9999px; background: {{t.sheetTrack}}; color: {{t.ink}}; font-family: inherit; font-size: 14px; font-weight: 800; cursor: pointer;">Показать</button></li>
+</sc-for>
+</ul>
+<p style="flex: 0 0 auto; margin: 0 4px; font-size: 13px; line-height: 1.45; font-weight: 600; color: {{t.muted}};">Скрытых категорий нет в выборе, и ИИ их не предлагает. Старые записи с ними остаются в истории и аналитике.</p>
+</sc-if>
+
+<sc-if value="{{isForm}}" hint-placeholder-val="{{false}}">
+<label style="flex: 0 0 auto; display: flex; flex-direction: column; gap: 6px;"><span style="padding: 0 4px; font-size: 13px; font-weight: 700; color: {{t.muted}};">Название</span><input type="text" value="{{draftName}}" onChange="{{onName}}" placeholder="Например, Спорт" maxlength="24" style="height: 52px; box-sizing: border-box; padding: 0 16px; border: 0; border-radius: 9999px; background: {{t.sheetCard}}; color: {{t.ink}}; font-family: inherit; font-size: 16px; font-weight: 600; outline-color: {{t.ink}};"></label>
+<sc-if value="{{hasNameNote}}" hint-placeholder-val="{{false}}">
+<p style="flex: 0 0 auto; margin: -4px 4px 0; font-size: 13px; line-height: 1.45; font-weight: 700; color: {{t.ink}};">{{nameNote}}</p>
+</sc-if>
+<div style="flex: 0 0 auto; display: flex; flex-direction: column; gap: 8px; padding: 12px 16px 16px; border-radius: 24px; background: {{t.sheetCard}};">
+<span id="color-label" style="font-size: 13px; font-weight: 700; color: {{t.muted}};">Цвет кружка</span>
+<div role="radiogroup" aria-labelledby="color-label" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; justify-items: center;">
+<sc-for list="{{swatches}}" as="w" hint-placeholder-count="8">
+<button type="button" role="radio" aria-checked="{{w.checked}}" aria-label="{{w.label}}" onClick="{{w.pick}}" style="width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; border: 0; border-radius: 9999px; background: {{w.color}}; box-shadow: {{w.ring}}; color: #141416; font-family: inherit; font-size: 16px; font-weight: 800; cursor: pointer;">{{w.letter}}</button>
+</sc-for>
+</div>
+</div>
+<button type="button" onClick="{{save}}" aria-disabled="{{saveDisabled}}" style="flex: 0 0 auto; min-height: 56px; padding: 8px 20px; border: 0; border-radius: 9999px; background: {{saveBg}}; color: {{saveInk}}; font-family: inherit; font-size: 16px; font-weight: 800; cursor: pointer;">{{saveLabel}}</button>
+<sc-if value="{{canHide}}" hint-placeholder-val="{{false}}">
+<div style="flex: 0 0 auto; display: flex; flex-direction: column; gap: 6px;">
+<button type="button" onClick="{{hide}}" style="height: 52px; display: flex; align-items: center; justify-content: center; gap: 8px; border: 0; border-radius: 9999px; background: {{t.sheetCard}}; color: {{t.ink}}; font-family: inherit; font-size: 15px; font-weight: 800; cursor: pointer;"><svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 3l14 14M8.2 5.2A8 8 0 0 1 10 5c4.2 0 7 5 7 5a13 13 0 0 1-2.3 2.8M12 14.6a6.7 6.7 0 0 1-2 .4c-4.2 0-7-5-7-5a13 13 0 0 1 2.6-3.1M8.6 8.6a2 2 0 0 0 2.8 2.8" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></path></svg>Скрыть категорию</button>
+<p style="margin: 0 4px; font-size: 13px; line-height: 1.45; font-weight: 600; color: {{t.muted}};">{{hideNote}}</p>
+</div>
+</sc-if>
+<sc-if value="{{isOther}}" hint-placeholder-val="{{false}}">
+<p style="flex: 0 0 auto; margin: 0 4px; font-size: 13px; line-height: 1.45; font-weight: 600; color: {{t.muted}};">«Другое» нельзя скрыть: сюда попадает всё, что ИИ не смог разложить.</p>
+</sc-if>
+</sc-if>
+</div>
+</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"view":{"editor":"enum","options":["list","income","edit","new","hidden"],"default":"list"},"backHref":{"editor":null},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  theme() {
+    if (this.props.dark) {
+      return { bg: "#111214", card: "#1b1c1f", ink: "#f4f4f6", muted: "#9d9da6", track: "#26272b", line: "#2c2d31", primaryBg: "#f4f4f6", primaryInk: "#141416", primarySub: "#5d5d66", sheet: "#1b1c1f", sheetCard: "#26272b", sheetTrack: "#3a3b40", segOn: "#3a3b40", segShadow: "none", segOff: "#b0b0b8", off: "#b0b0b8", scrim: "rgba(0, 0, 0, 0.6)", grabber: "#3a3b40" };
+    }
+    return { bg: "#f3f3f5", card: "#ffffff", ink: "#141416", muted: "#6b6b74", track: "#e7e7ec", line: "#ececf0", primaryBg: "#141416", primaryInk: "#ffffff", primarySub: "#b5b5bd", sheet: "#f3f3f5", sheetCard: "#ffffff", sheetTrack: "#e7e7ec", segOn: "#ffffff", segShadow: "0 1px 3px rgba(0, 0, 0, 0.1)", segOff: "#5d5d66", off: "#5d5d66", scrim: "rgba(20, 20, 22, 0.32)", grabber: "#d4d4db" };
+  }
+  palette() { return [["peach", "#ffdcc8", "Персиковый"], ["rose", "#ffd6e0", "Розовый"], ["sky", "#cfe3ff", "Голубой"], ["sand", "#ede3d6", "Песочный"], ["lilac", "#e3dcff", "Сиреневый"], ["mint", "#c9efd9", "Мятный"], ["butter", "#fbefb3", "Жёлтый"], ["mist", "#e6e6ea", "Серый"]]; }
+  // Число записей за октябрь — из тех же данных, что аналитика.
+  seed() {
+    const c = (id, type, name, color, n) => ({ id: id, type: type, name: name, color: color, n: n });
+    return [
+      c("pr", "exp", "Продукты", "peach", 8), c("kf", "exp", "Кафе", "rose", 10), c("tr", "exp", "Транспорт", "sky", 12), c("dm", "exp", "Дом", "sand", 4),
+      c("sv", "exp", "Связь", "lilac", 5), c("zd", "exp", "Здоровье", "mint", 3), c("pk", "exp", "Покупки", "butter", 3), c("dr", "exp", "Другое", "mist", 2),
+      c("zp", "inc", "Зарплата", "mint", 1), c("fr", "inc", "Фриланс", "lilac", 1), c("bz", "inc", "Бизнес", "sky", 0), c("pd", "inc", "Подарки", "rose", 0),
+      c("kb", "inc", "Кэшбэк", "butter", 0), c("pc", "inc", "Проценты", "peach", 0), c("vz", "inc", "Возврат", "sand", 0), c("dx", "inc", "Другое", "mist", 0)
+    ];
+  }
+  init() {
+    if (this._init) return this._init;
+    const v = this.props.view || "list";
+    this._init = {
+      cats: this.seed(), type: v === "income" ? "inc" : "exp", hidden: v === "hidden" ? { pk: true } : {},
+      sheet: v === "edit" ? "edit" : (v === "new" ? "new" : (v === "hidden" ? "hidden" : null)),
+      editId: "kf", draftName: v === "new" ? "Спорт" : "Кафе", draftColor: v === "new" ? "sky" : "rose", undo: null
+    };
+    return this._init;
+  }
+  st() { return Object.assign({}, this.init(), this.state || {}); }
+  plural(n, one, few, many) { const a = n % 10; const b = n % 100; if (a === 1 && b !== 11) return one; if (a >= 2 && a <= 4 && (b < 12 || b > 14)) return few; return many; }
+  sub(c) { return c.n ? c.n + " " + this.plural(c.n, "запись", "записи", "записей") + " в октябре" : "В октябре не было"; }
+  hex(id) { const p = this.palette().find((x) => x[0] === id); return p ? p[1] : "#e6e6ea"; }
+  isOther(c) { return c.id === "dr" || c.id === "dx"; }
+  timers() { if (!this._timers) this._timers = {}; return this._timers; }
+  componentWillUnmount() { clearTimeout(this.timers().undo); }
+  pushUndo(u) {
+    clearTimeout(this.timers().undo);
+    this.setState({ undo: u });
+    this.timers().undo = setTimeout(() => this.setState({ undo: null }), 4000);
+  }
+  undo() {
+    const s = this.st();
+    const u = s.undo;
+    if (!u) return;
+    clearTimeout(this.timers().undo);
+    if (u.kind === "hide") { const h = Object.assign({}, s.hidden); delete h[u.id]; this.setState({ hidden: h, undo: null }); }
+    if (u.kind === "show") { const h = Object.assign({}, s.hidden); h[u.id] = true; this.setState({ hidden: h, undo: null }); }
+    if (u.kind === "edit") this.setState({ cats: s.cats.map((c) => (c.id === u.id ? Object.assign({}, c, u.prev) : c)), undo: null });
+    if (u.kind === "add") this.setState({ cats: s.cats.filter((c) => c.id !== u.id), undo: null });
+  }
+  focusId(id) {
+    if (typeof document === "undefined") return;
+    setTimeout(() => { const h = document.getElementById(id); if (h) h.focus(); }, 60);
+  }
+  openSheet(patch) {
+    if (typeof document !== "undefined") this._opener = document.activeElement;
+    this.setState(patch);
+    this.focusId("sheet-title");
+  }
+  // Правка применяется сразу при закрытии (с отменой в тосте); новую категорию добавляет только кнопка.
+  closeSheet() {
+    const s = this.st();
+    if (s.sheet === "edit") this.applyEdit();
+    this.setState({ sheet: null });
+    const el = this._opener;
+    this._opener = null;
+    if (el && el.focus && el.isConnected !== false) setTimeout(() => { try { el.focus(); } catch (e) {} }, 60);
+    else this.focusId("cat-title");
+  }
+  applyEdit() {
+    const s = this.st();
+    const editing = s.cats.find((c) => c.id === s.editId);
+    const name = s.draftName.trim();
+    if (!editing || !name) return;
+    const clash = s.cats.some((c) => c.type === editing.type && c.id !== editing.id && c.name.toLowerCase() === name.toLowerCase());
+    if (clash) { this.pushUndo({ kind: "info", title: "Не сохранено", detail: "Категория «" + name + "» уже есть" + (s.cats.some((c) => s.hidden[c.id] && c.name.toLowerCase() === name.toLowerCase()) ? " в скрытых" : "") }); return; }
+    if (name === editing.name && s.draftColor === editing.color) return;
+    this.setState({ cats: s.cats.map((c) => (c.id === editing.id ? Object.assign({}, c, { name: name, color: s.draftColor }) : c)) });
+    this.pushUndo({ kind: "edit", id: editing.id, prev: { name: editing.name, color: editing.color }, title: "Категория изменена", detail: name !== editing.name ? editing.name + " → " + name : name + " · новый цвет" });
+  }
+  renderVals() {
+    const t = this.theme();
+    const s = this.st();
+    const seg = (on) => ({ bg: on ? t.segOn : "transparent", shadow: on ? t.segShadow : "none", ink: on ? t.ink : t.segOff, pressed: on ? "true" : "false" });
+    const list = s.cats.filter((c) => c.type === s.type);
+    const visible = list.filter((c) => !s.hidden[c.id]);
+    // «Другое» всегда последней.
+    visible.sort((a, b) => (this.isOther(a) ? 1 : 0) - (this.isOther(b) ? 1 : 0));
+    const hiddenList = list.filter((c) => s.hidden[c.id]);
+    const sheet = s.sheet;
+    const editing = sheet === "edit" ? s.cats.find((c) => c.id === s.editId) : null;
+    const name = s.draftName.trim();
+    const clash = name && s.cats.some((c) => c.type === s.type && c.name.toLowerCase() === name.toLowerCase() && (!editing || c.id !== editing.id));
+    const changed = editing ? (name !== editing.name || s.draftColor !== editing.color) : true;
+    const ok = !!name && !clash;
+    const letter = (name || "?").charAt(0).toUpperCase();
+    const ex = seg(s.type === "exp");
+    const inc = seg(s.type === "inc");
+    const u = s.undo;
+    const clashHidden = clash && s.cats.some((c) => c.type === s.type && s.hidden[c.id] && c.name.toLowerCase() === name.toLowerCase());
+    let saveLabel = editing ? "Готово" : (s.type === "exp" ? "Добавить категорию расхода" : "Добавить категорию дохода");
+    if (!name) saveLabel = "Введите название";
+    if (clash) saveLabel = clashHidden ? "Такая есть в скрытых — верните её" : "Такая категория уже есть";
+    return {
+      t: t,
+      liveText: u ? u.title + ". " + u.detail : "",
+      backHref: this.props.backHref ?? (this.props.dark ? "Pastel_MoreDark.dc.html" : "Pastel_More.dc.html"),
+      expPressed: ex.pressed, expBg: ex.bg, expShadow: ex.shadow, expInk: ex.ink,
+      incPressed: inc.pressed, incBg: inc.bg, incShadow: inc.shadow, incInk: inc.ink,
+      showExp: () => this.setState({ type: "exp" }),
+      showInc: () => this.setState({ type: "inc" }),
+      listLabel: s.type === "exp" ? "Категории расходов" : "Категории доходов",
+      rows: visible.map((c, i) => ({ name: c.name, sub: this.sub(c), letter: c.name.charAt(0).toUpperCase(), color: this.hex(c.color), divider: i === 0 ? "none" : "1px solid " + t.line, aria: c.name + ", " + this.sub(c) + ". Изменить", open: () => this.openSheet({ sheet: "edit", editId: c.id, draftName: c.name, draftColor: c.color }) })),
+      newLabel: "Добавить категорию",
+      openNew: () => this.openSheet({ sheet: "new", draftName: "", draftColor: "mist" }),
+      hasHidden: hiddenList.length > 0,
+      hiddenLabel: "Скрытые · " + hiddenList.length,
+      openHidden: () => this.openSheet({ sheet: "hidden" }),
+      hasToast: !!u && !sheet,
+      toastTitle: u ? u.title : "",
+      toastDetail: u ? u.detail : "",
+      hasUndo: !!u && u.kind !== "info",
+      undo: () => this.undo(),
+      sheetOpen: !!sheet,
+      closeSheet: () => this.closeSheet(),
+      sheetKey: (e) => { if (e && e.key === "Escape") this.closeSheet(); },
+      sheetTitle: sheet === "hidden" ? "Скрытые категории" : (editing ? "Категория «" + editing.name + "»" : (s.type === "exp" ? "Новая категория расхода" : "Новая категория дохода")),
+      isHiddenSheet: sheet === "hidden",
+      hiddenRows: hiddenList.map((c, i) => ({ name: c.name, sub: this.sub(c), letter: c.name.charAt(0).toUpperCase(), color: this.hex(c.color), aria: "Показать категорию «" + c.name + "»", divider: i === 0 ? "none" : "1px solid " + t.line, show: () => { const h = Object.assign({}, this.st().hidden); delete h[c.id]; const left = Object.keys(h).filter((id) => s.cats.find((x) => x.id === id && x.type === s.type)).length; this.setState({ hidden: h }); if (!left) this.closeSheet(); this.pushUndo({ kind: "show", id: c.id, title: "Категория снова в выборе", detail: c.name }); } })),
+      isForm: sheet === "edit" || sheet === "new",
+      draftName: s.draftName,
+      onName: (e) => this.setState({ draftName: e && e.target ? e.target.value : "" }),
+      hasNameNote: !!editing && name !== editing.name && !!name && !clash,
+      nameNote: editing ? "Все " + (editing.n ? editing.n + " " + this.plural(editing.n, "запись", "записи", "записей") + " за октябрь и прошлые" : "прошлые записи") + " получат новое название." : "",
+      swatches: this.palette().map((p) => ({ label: p[2] + (s.draftColor === p[0] ? ", выбран" : ""), color: p[1], letter: letter, checked: s.draftColor === p[0] ? "true" : "false", ring: s.draftColor === p[0] ? "0 0 0 3px " + t.sheetCard + ", 0 0 0 5px " + t.ink : "none", pick: () => this.setState({ draftColor: p[0] }) })),
+      saveLabel: saveLabel,
+      saveDisabled: ok ? "false" : "true",
+      saveBg: ok ? t.primaryBg : t.sheetTrack,
+      saveInk: ok ? t.primaryInk : t.off,
+      save: () => {
+        if (!ok) return;
+        const cur = this.st();
+        if (editing) {
+          // closeSheet ниже применит правку.
+        } else {
+          const id = "c" + cur.cats.length;
+          const cats = cur.cats.slice();
+          // Новая встаёт перед «Другое».
+          cats.push({ id: id, type: cur.type, name: name, color: cur.draftColor, n: 0 });
+          this.setState({ cats: cats });
+          this.pushUndo({ kind: "add", id: id, title: "Категория добавлена", detail: name + " · ИИ начнёт предлагать её" });
+        }
+        this.closeSheet();
+        if (!editing) this.setState({ sheet: null });
+      },
+      canHide: !!editing && !this.isOther(editing),
+      isOther: !!editing && this.isOther(editing),
+      hideNote: editing ? "Все записи с ней останутся в истории и аналитике. В выборе её не будет; вернуть — «Скрытые» внизу списка." : "",
+      hide: () => {
+        const h = Object.assign({}, this.st().hidden);
+        h[editing.id] = true;
+        this.applyEdit();
+        this.setState({ hidden: h, sheet: null });
+        this.closeSheet();
+        this.pushUndo({ kind: "hide", id: editing.id, title: "Категория скрыта", detail: editing.name + " · вернуть — «Скрытые»" });
+      }
+    };
+  }
+}
+</script>
+</body>
+</html>

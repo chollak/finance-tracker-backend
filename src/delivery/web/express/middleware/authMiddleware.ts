@@ -48,16 +48,17 @@ declare global {
  *
  * @param initData - Raw initData string from Telegram
  * @param botToken - Telegram bot token
+ * @param quiet - Do not log why the data was refused (the caller is not the one answering the request)
  * @returns Parsed data if valid, null if invalid
  */
-function validateTelegramWebAppData(initData: string, botToken: string): TelegramInitData | null {
+function validateTelegramWebAppData(initData: string, botToken: string, quiet = false): TelegramInitData | null {
   try {
     // Parse the initData string
     const params = new URLSearchParams(initData);
     const hash = params.get('hash');
 
     if (!hash) {
-      logger.warn('No hash in initData');
+      if (!quiet) logger.warn('No hash in initData');
       return null;
     }
 
@@ -88,7 +89,7 @@ function validateTelegramWebAppData(initData: string, botToken: string): Telegra
 
     // Compare hashes (timing-safe comparison)
     if (!crypto.timingSafeEqual(Buffer.from(hash), Buffer.from(calculatedHash))) {
-      logger.warn('Hash mismatch - invalid initData');
+      if (!quiet) logger.warn('Hash mismatch - invalid initData');
       return null;
     }
 
@@ -101,7 +102,7 @@ function validateTelegramWebAppData(initData: string, botToken: string): Telegra
     const maxAge = 3600; // 1 hour
 
     if (now - authDate > maxAge) {
-      logger.warn('initData expired', { authDate, now, age: now - authDate });
+      if (!quiet) logger.warn('initData expired', { authDate, now, age: now - authDate });
       return null;
     }
 
@@ -112,9 +113,91 @@ function validateTelegramWebAppData(initData: string, botToken: string): Telegra
       hash,
     };
   } catch (error) {
-    logger.error('Error validating initData', error as Error);
+    if (!quiet) logger.error('Error validating initData', error as Error);
     return null;
   }
+}
+
+const LOOPBACK_ADDRESSES = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1']);
+const LOCAL_HOSTNAMES = new Set(['localhost', '127.0.0.1', '[::1]']);
+
+/** The name in a Host header, without the port: `localhost:3000` → `localhost`, `[::1]:3000` → `[::1]`. */
+function hostnameOf(host: string | undefined): string {
+  const match = (host ?? '').trim().toLowerCase().match(/^(\[[^\]]+\]|[^:]+)(?::\d+)?$/);
+  return match ? match[1] : '';
+}
+
+/**
+ * Whoever forwarded the request says it came from this machine. Cloudflare always sets `cf-connecting-ip`, so a
+ * tunnelled request never qualifies; the Vite dev proxy (`xfwd`) names the browser it forwards for, which is loopback
+ * only when the browser runs here — not with `vite --host` and a phone on the Wi-Fi.
+ */
+function forwardedForLoopback(req: Request): boolean {
+  if (req.headers['cf-connecting-ip'] !== undefined || req.headers.forwarded !== undefined) return false;
+  const forwardedFor = req.headers['x-forwarded-for'];
+  if (forwardedFor === undefined) return true;
+  const chain = (Array.isArray(forwardedFor) ? forwardedFor.join(',') : forwardedFor).split(',').map(entry => entry.trim());
+  return chain.every(address => LOOPBACK_ADDRESSES.has(address));
+}
+
+/**
+ * A request from this machine: over loopback, addressed to this machine by name (a page of another site rebound to
+ * 127.0.0.1 — DNS rebinding — carries its own Host) and, if a proxy forwarded it, for a client on loopback too.
+ * cloudflared connects to the server over loopback, so its requests are told apart by the headers Cloudflare adds.
+ */
+export function isLocalRequest(req: Request): boolean {
+  return LOOPBACK_ADDRESSES.has(req.socket?.remoteAddress ?? '')
+    && LOCAL_HOSTNAMES.has(hostnameOf(req.headers.host))
+    && forwardedForLoopback(req);
+}
+
+/**
+ * Whether the dev headers, which sign in without proof, may count: outside production and only from this machine.
+ * `npm run dev:miniapp` puts the dev server on the internet through a quick tunnel, and it listens on every interface.
+ */
+function devHeadersAllowed(req: Request): boolean {
+  return process.env.NODE_ENV !== 'production' && isLocalRequest(req);
+}
+
+/**
+ * The Telegram user id a request is signed in as, by the same rules as `requireAuth`, without answering the
+ * request: `X-Dev-User-Id` outside production from this machine, otherwise valid, unexpired initData in
+ * `Authorization: tma <initData>`, otherwise the browser's session cookie (FT-128, `req.webSession`). Null when the
+ * request proves no user.
+ *
+ * The general rate limit counts by it (FT-139); it runs before the route's own authentication.
+ */
+export function signedInTelegramId(req: Request, botToken: string = AppConfig.TG_BOT_API_KEY): number | null {
+  if (devHeadersAllowed(req)) {
+    const devUserId = req.headers['x-dev-user-id'];
+    if (devUserId && typeof devUserId === 'string') {
+      const id = parseInt(devUserId, 10);
+      return Number.isSafeInteger(id) ? id : null;
+    }
+  }
+
+  if (!req.headers.authorization) {
+    return req.webSession?.telegramId ?? null;
+  }
+
+  const [scheme, initData] = req.headers.authorization.split(' ');
+  if (scheme?.toLowerCase() !== 'tma' || !initData || !botToken) {
+    return null;
+  }
+
+  const id = validateTelegramWebAppData(initData, botToken, true)?.user?.id;
+  return typeof id === 'number' && Number.isSafeInteger(id) ? id : null;
+}
+
+/**
+ * The browser's session (FT-128) as the signed-in user, when the request has no Authorization header: Telegram's
+ * initData, when sent, decides alone. The session knows only the Telegram id; names come from the users table.
+ */
+function signInWithWebSession(req: Request): boolean {
+  if (req.headers.authorization || !req.webSession) return false;
+  req.telegramUser = { id: req.webSession.telegramId, first_name: '' };
+  req.isAuthenticated = true;
+  return true;
 }
 
 /**
@@ -122,20 +205,15 @@ function validateTelegramWebAppData(initData: string, botToken: string): Telegra
  *
  * Validates Telegram Web App initData from Authorization header.
  * Format: Authorization: tma <initData>
+ * Without the header, a browser's session cookie (FT-128, put in `req.webSession` by webSessionMiddleware) signs in.
  *
  * @example
  * // Apply to protected routes
  * router.use('/api/transactions', requireAuth, transactionRoutes);
  */
 export function requireAuth(req: Request, res: Response, next: NextFunction): void {
-  // Skip auth for health check
-  if (req.path === '/health') {
-    next();
-    return;
-  }
-
-  // Development mode bypass: allow X-Dev-User-Id header
-  if (process.env.NODE_ENV !== 'production') {
+  // Development mode bypass: X-Dev-User-Id, only from this machine (never through the tunnel)
+  if (devHeadersAllowed(req)) {
     const devUserId = req.headers['x-dev-user-id'];
     if (devUserId && typeof devUserId === 'string') {
       logger.debug('Development auth bypass', { devUserId });
@@ -147,6 +225,12 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
       next();
       return;
     }
+  }
+
+  // A browser signed in through the bot (FT-128)
+  if (signInWithWebSession(req)) {
+    next();
+    return;
   }
 
   // Get Authorization header
@@ -223,7 +307,7 @@ export function optionalAuth(req: Request, _res: Response, next: NextFunction): 
   // Development mode bypass: allow the same local dev header as requireAuth.
   // This keeps browser-only Mini App QA working for routes that allow guest mode
   // but still need ownership checks for real user resources.
-  if (process.env.NODE_ENV !== 'production') {
+  if (devHeadersAllowed(req)) {
     const devUserId = req.headers['x-dev-user-id'];
     if (devUserId && typeof devUserId === 'string') {
       logger.debug('Development optional auth bypass', { devUserId });
@@ -235,6 +319,12 @@ export function optionalAuth(req: Request, _res: Response, next: NextFunction): 
       next();
       return;
     }
+  }
+
+  // A browser signed in through the bot (FT-128)
+  if (signInWithWebSession(req)) {
+    next();
+    return;
   }
 
   const authHeader = req.headers.authorization;
@@ -277,11 +367,12 @@ export function optionalAuth(req: Request, _res: Response, next: NextFunction): 
 /**
  * Verify request user matches the resource owner
  *
- * Prevents IDOR attacks by ensuring authenticated user can only access their own resources.
- * Guest users (guest_*) are allowed through since they can only access their own local data.
+ * Prevents IDOR attacks: the userId in the path, body or query must be the signed-in user's own Telegram id
+ * (2026-10-21). A UUID or a `guest_*` id is refused — it says nothing about who sent the request, and there are
+ * no guests any more (decision Д4).
  *
  * @example
- * router.get('/transactions/:userId', allowGuestMode, verifyOwnership, handler);
+ * router.get('/transactions/:userId', requireAuth, verifyOwnership, handler);
  */
 export function verifyOwnership(req: Request, res: Response, next: NextFunction): void {
   // Get target userId from request
@@ -293,13 +384,6 @@ export function verifyOwnership(req: Request, res: Response, next: NextFunction)
     return;
   }
 
-  // Allow guest users through - they only access their own IndexedDB data
-  if (typeof targetUserId === 'string' && targetUserId.startsWith('guest_')) {
-    next();
-    return;
-  }
-
-  // For non-guest users, must be authenticated
   if (!req.isAuthenticated || !req.telegramUser) {
     res.status(401).json({
       success: false,
@@ -309,46 +393,18 @@ export function verifyOwnership(req: Request, res: Response, next: NextFunction)
     return;
   }
 
-  // Get authenticated user's telegramId
   const authTelegramId = req.telegramUser.id.toString();
+  // userResolutionMiddleware leaves telegramId null for a UUID or a guest id: it names no one this request signed in as
+  const targetTelegramId = req.resolvedUser ? req.resolvedUser.telegramId : String(targetUserId).trim();
 
-  // Check if resolved user matches authenticated user
-  // Note: resolvedUser.telegramId is set by userResolutionMiddleware
-  if (req.resolvedUser) {
-    // If we have resolvedUser, compare telegramIds
-    if (req.resolvedUser.telegramId && req.resolvedUser.telegramId !== authTelegramId) {
-      logger.warn('Ownership mismatch', {
-        authTelegramId,
-        targetTelegramId: req.resolvedUser.telegramId,
-        targetUserId,
-      });
-
-      res.status(403).json({
-        success: false,
-        error: 'You can only access your own resources',
-        code: 'ACCESS_DENIED',
-      });
-      return;
-    }
-  } else {
-    // Fallback: compare raw userId with telegramId
-    // This handles cases where userResolutionMiddleware wasn't applied
-    const targetStr = targetUserId.toString();
-
-    // Allow if target looks like telegramId and matches
-    if (/^\d+$/.test(targetStr) && targetStr !== authTelegramId) {
-      logger.warn('Ownership mismatch (raw)', {
-        authTelegramId,
-        targetUserId: targetStr,
-      });
-
-      res.status(403).json({
-        success: false,
-        error: 'You can only access your own resources',
-        code: 'ACCESS_DENIED',
-      });
-      return;
-    }
+  if (targetTelegramId !== authTelegramId) {
+    logger.warn('Ownership mismatch', { authTelegramId, targetUserId });
+    res.status(403).json({
+      success: false,
+      error: 'You can only access your own resources',
+      code: 'ACCESS_DENIED',
+    });
+    return;
   }
 
   next();
@@ -421,7 +477,7 @@ function safeTokenEquals(provided: string, expected: string): boolean {
  *
  * Production is guarded loudly, not silently: a shortcut header in production is refused with 403
  * rather than ignored, so a misconfigured Shortcut fails visibly instead of falling back to another
- * auth path. Requests without the header are untouched and go through `allowGuestMode` as before.
+ * auth path. Requests without the header sign in and capture for the signed-in user (`writeAsSignedInUser`).
  *
  * `req.telegramUser` is deliberately NOT fabricated here: this bypass proves nothing about a
  * Telegram identity, so ownership-sensitive middleware (`verifyOwnership`, `requireAdmin`) stays
@@ -431,9 +487,9 @@ export function allowShortcutCapture(req: Request, res: Response, next: NextFunc
   const rawShortcutUserId = req.headers[SHORTCUT_USER_ID_HEADER];
   const shortcutUserId = typeof rawShortcutUserId === 'string' ? rawShortcutUserId.trim() : '';
 
-  // Not a Shortcut request — behavior is exactly what it was before FT-075.
+  // Not a Shortcut request: the signed-in user captures for themselves
   if (!shortcutUserId) {
-    allowGuestMode(req, res, next);
+    requireAuth(req, res, () => writeAsSignedInUser(req, res, next));
     return;
   }
 
@@ -448,6 +504,18 @@ export function allowShortcutCapture(req: Request, res: Response, next: NextFunc
   }
 
   const expectedToken = (process.env.SHORTCUT_CAPTURE_TOKEN || '').trim();
+
+  // Without a token the header alone names the owner, so it counts only from this machine: through the tunnel
+  // anyone with the link could write as anyone
+  if (!expectedToken && !isLocalRequest(req)) {
+    logger.warn('Shortcut capture without a token from outside this machine rejected', { shortcutUserId });
+    res.status(403).json({
+      success: false,
+      error: 'Shortcut capture through a tunnel or the network needs SHORTCUT_CAPTURE_TOKEN',
+      code: 'SHORTCUT_CAPTURE_TOKEN_REQUIRED',
+    });
+    return;
+  }
 
   if (expectedToken) {
     const rawToken = req.headers[SHORTCUT_TOKEN_HEADER];
@@ -478,22 +546,36 @@ export function allowShortcutCapture(req: Request, res: Response, next: NextFunc
 }
 
 /**
- * Guest mode middleware
- *
- * Allows guest users (offline-first mode) without authentication.
- * Validates auth if present, but allows guest_* userIds without auth.
+ * Formerly guest mode: a `guest_*` userId went through without signing in. There are no guests any more (decision Д4,
+ * FT-128), so every request signs in (2026-10-21). Kept under its old name for the routes that use it until FT-136.
  */
 export function allowGuestMode(req: Request, res: Response, next: NextFunction): void {
-  // Check if this is a guest user request
-  const targetUserId = req.params.userId || req.body?.userId || req.query?.userId;
+  requireAuth(req, res, next);
+}
 
-  if (targetUserId && typeof targetUserId === 'string' && targetUserId.startsWith('guest_')) {
-    // Guest user - no auth required
-    req.isAuthenticated = false;
-    next();
+/**
+ * A write for the signed-in user (2026-10-21). A `userId` the path, query or body still carries — the Mini App's
+ * outbox, older clients — must be that user's Telegram id, or the write is refused: never another account. The body is then set to
+ * the signed-in user, so user resolution and the handler see only them. Behind requireAuth.
+ */
+export function writeAsSignedInUser(req: Request, res: Response, next: NextFunction): void {
+  if (!req.isAuthenticated || !req.telegramUser) {
+    res.status(401).json({ success: false, error: 'Authentication required', code: 'AUTH_REQUIRED' });
     return;
   }
 
-  // Not a guest - require authentication
-  requireAuth(req, res, next);
+  const signedIn = String(req.telegramUser.id);
+  // Every place a userId can come from: user resolution reads the path and the query before the body
+  const claims = [req.params?.userId, req.query?.userId, req.body?.userId];
+  const othersClaimed = claims.some(
+    claimed => claimed !== undefined && claimed !== null && claimed !== '' && String(claimed).trim() !== signedIn
+  );
+  if (othersClaimed) {
+    logger.warn('Write for another user refused', { signedIn });
+    res.status(403).json({ success: false, error: 'You can only write your own records', code: 'ACCESS_DENIED' });
+    return;
+  }
+
+  if (req.body && typeof req.body === 'object') req.body.userId = signedIn;
+  next();
 }

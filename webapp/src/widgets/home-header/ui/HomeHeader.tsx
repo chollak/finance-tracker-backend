@@ -1,46 +1,36 @@
+import { Link } from 'react-router-dom';
 import { cn } from '@/shared/lib/utils';
-import { useUserStore } from '@/entities/user/model/store';
-import {
-  formatHomeHeaderDate,
-  getCaptureChannelStatus,
-  type CaptureChannelTone,
-} from '../lib/homeHeaderModel';
-
-const DOT_TONE_CLASS: Record<CaptureChannelTone, string> = {
-  connected: 'bg-success',
-  local: 'bg-warning',
-  unknown: 'bg-muted-foreground',
-};
+import { ROUTES } from '@/shared/lib/constants/routes';
+import { Wordmark } from '@/shared/ui/pastel';
+import { DisplayCurrencySwitch } from '@/features/display-currency';
 
 /**
- * Home header for the capture-first Home.
- *
- * Replaces the generic "Главная / Обзор ваших финансов" page header: on a
- * quick-capture screen the useful context is today's date and where the capture
- * will be saved, not a restatement of the tab name.
+ * Home header of «Пастель» (FT-110, boards «Главная», «Главная · тёмная»): the daftar sign on the left; on
+ * the right «Сум / USD» (FT-137) — the currency of the balance card and the month tiles — and the round
+ * «Ещё», 48px, `track`. There is no bottom bar: the sections Home does not open itself are in «Ещё».
  */
 export function HomeHeader({ className }: { className?: string }) {
-  const userType = useUserStore((state) => state.userType);
-
-  const { day, weekday } = formatHomeHeaderDate(new Date());
-  const status = getCaptureChannelStatus(userType);
-
   return (
-    <div className={cn('mb-4 flex items-center justify-between gap-3', className)}>
-      <div className="min-w-0">
-        <h1 className="text-[1.35rem] font-bold leading-tight tracking-[-0.03em] sm:text-2xl">
-          {day}
-        </h1>
-        <p className="mt-0.5 text-sm capitalize leading-relaxed text-muted-foreground">{weekday}</p>
+    <header className={cn('flex h-key items-center justify-between gap-3', className)}>
+      <Wordmark />
+      <div className="flex items-center gap-2">
+        <DisplayCurrencySwitch />
+        <Link
+          to={ROUTES.MORE}
+          aria-label="Ещё"
+          className={cn(
+            'flex size-key shrink-0 items-center justify-center rounded-pill bg-track text-ink',
+            'transition-transform duration-150 active:scale-[0.98]',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-bg'
+          )}
+        >
+          <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true">
+            <circle cx="4.5" cy="10" r="1.7" fill="currentColor" />
+            <circle cx="10" cy="10" r="1.7" fill="currentColor" />
+            <circle cx="15.5" cy="10" r="1.7" fill="currentColor" />
+          </svg>
+        </Link>
       </div>
-
-      <span className="inline-flex shrink-0 items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground">
-        <span
-          className={cn('h-1.5 w-1.5 rounded-full', DOT_TONE_CLASS[status.tone])}
-          aria-hidden="true"
-        />
-        {status.label}
-      </span>
-    </div>
+    </header>
   );
 }

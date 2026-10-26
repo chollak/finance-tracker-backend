@@ -24,7 +24,6 @@ interface TransactionRepository {
 
 // Infrastructure implementations
 class SqliteTransactionRepository implements TransactionRepository { }
-class SupabaseTransactionRepository implements TransactionRepository { }
 
 // Use case использует интерфейс
 class CreateTransactionUseCase {
@@ -37,7 +36,7 @@ class CreateTransactionUseCase {
 ```
 
 **Преимущества:**
-- ✅ Легко переключаться между SQLite и Supabase
+- ✅ Смена хранилища затрагивает только инфраструктурный слой
 - ✅ Тестируемость (легко мокировать)
 - ✅ Бизнес-логика не зависит от деталей БД
 
@@ -85,9 +84,6 @@ const budgetService = new BudgetService(budgetRepo, transactionRepo);
 ```typescript
 class RepositoryFactory {
   static createTransactionRepository(): TransactionRepository {
-    if (AppConfig.DATABASE_TYPE === 'supabase') {
-      return new SupabaseTransactionRepository();
-    }
     return new SqliteTransactionRepository();
   }
 }
@@ -231,23 +227,9 @@ class TransactionModule {
 
 ### 7. Strategy Pattern (через Factory)
 
-**Назначение:** Выбор алгоритма/реализации во время выполнения.
-
-**Реализация:**
-```typescript
-// Две стратегии работы с БД
-class SqliteTransactionRepository { }
-class SupabaseTransactionRepository { }
-
-// Выбор стратегии через конфигурацию
-const repository = DATABASE_TYPE === 'supabase'
-  ? new SupabaseTransactionRepository()
-  : new SqliteTransactionRepository();
-```
-
-**Где используется:**
-- Выбор database implementation (SQLite vs Supabase)
-- Repository Factory
+Раньше фабрика выбирала между SQLite и Supabase по `DATABASE_TYPE`. С FT-090 путь к базе один —
+TypeORM, поэтому выбора реализаций во время выполнения сейчас нет. Если появится Postgres, он подключится
+как другой `DataSource` для тех же TypeORM-репозиториев, а не как второй набор репозиториев.
 
 ---
 
@@ -256,7 +238,7 @@ const repository = DATABASE_TYPE === 'supabase'
 **Назначение:** Гарантия единственного экземпляра класса.
 
 **Где используется:**
-- `Supabase Client` - [`src/shared/infrastructure/database/supabase.config.ts`](../../../src/shared/infrastructure/database/supabase.config.ts)
+- `AppDataSource` - [`src/shared/infrastructure/database/database.config.ts`](../../../src/shared/infrastructure/database/database.config.ts)
 - `TransactionLearningService` - [`src/shared/application/learning/transactionLearning.ts`](../../../src/shared/application/learning/transactionLearning.ts)
 
 **Примечание:** Используется минимально, предпочтение отдается DI.

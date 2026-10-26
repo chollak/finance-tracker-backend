@@ -2,7 +2,7 @@
  * SQLite User Repository Implementation
  */
 
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { AppDataSource } from '../../../../shared/infrastructure/database/database.config';
 import { User as UserDomain, CreateUserDTO, UpdateUserDTO } from '../../domain/userEntity';
 import { UserRepository } from '../../domain/userRepository';
@@ -11,13 +11,18 @@ import { User as UserEntity } from '../../../../shared/infrastructure/database/e
 export class SqliteUserRepository implements UserRepository {
   private repository: Repository<UserEntity>;
 
-  constructor() {
-    this.repository = AppDataSource.getRepository(UserEntity);
+  constructor(dataSource: DataSource = AppDataSource) {
+    this.repository = dataSource.getRepository(UserEntity);
   }
 
   async findById(id: string): Promise<UserDomain | null> {
     const entity = await this.repository.findOne({ where: { id } });
     return entity ? this.mapToUser(entity) : null;
+  }
+
+  async findAll(): Promise<UserDomain[]> {
+    const entities = await this.repository.find({ order: { createdAt: 'ASC' } });
+    return entities.map(entity => this.mapToUser(entity));
   }
 
   async findByTelegramId(telegramId: string): Promise<UserDomain | null> {
@@ -63,13 +68,38 @@ export class SqliteUserRepository implements UserRepository {
     await this.repository.delete(id);
   }
 
+  /**
+   * The first requests of a new user come at once (FT-140): each may find no user and insert. The insert
+   * skips a row another request already added (`telegram_id` is unique) and the user is read back, so
+   * there is one row and every caller gets it. Unlike `save()`, it opens no transaction and never fails
+   * on the key: on SQLite TypeORM shares one connection, and a failed `save()` rolled back what other
+   * requests had just written in its transaction.
+   */
   async getOrCreate(dto: CreateUserDTO): Promise<UserDomain> {
     const existing = await this.findByTelegramId(dto.telegramId);
     if (existing) {
       await this.updateLastSeen(existing.id);
       return existing;
     }
-    return this.create(dto);
+
+    await this.repository
+      .createQueryBuilder()
+      .insert()
+      .values({
+        telegramId: dto.telegramId,
+        userName: dto.userName,
+        firstName: dto.firstName,
+        lastName: dto.lastName,
+        languageCode: dto.languageCode || 'ru',
+      })
+      .orIgnore()
+      .execute();
+
+    const user = await this.findByTelegramId(dto.telegramId);
+    if (!user) {
+      throw new Error('User not found after create');
+    }
+    return user;
   }
 
   private mapToUser(entity: UserEntity): UserDomain {

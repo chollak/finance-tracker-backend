@@ -13,7 +13,6 @@ Current source of truth for routes: `src/app/router/routes.tsx`.
 | Routing | React Router 7 |
 | Server state | TanStack Query |
 | Forms/validation | React Hook Form + Zod |
-| Charts | Recharts |
 | Styling | Tailwind CSS 4 + shadcn/Radix primitives |
 | Tests | Vitest |
 
@@ -46,18 +45,19 @@ The production build is emitted to `../public/webapp/` and served by the Express
 |---|---|
 | `/` | Home |
 | `/transactions` | Transactions list |
-| `/transactions/add` | Add transaction |
-| `/transactions/:id/edit` | Edit transaction |
+| `/add` | Manual entry (keypad, account, category, date) |
+| `/?record=<id>` | Home with the record sheet open (a record has no page; rows open the sheet) |
 | `/budgets` | Budgets list |
 | `/budgets/add` | Add budget |
 | `/budgets/:id/edit` | Edit budget |
 | `/debts` | Debts list |
 | `/debts/add` | Add debt |
 | `/debts/:id` | Debt details/payments |
-| `/analytics` | Analytics |
+| `/analytics` | Analytics: a month by category (`?month=YYYY-MM&type=income`) |
+| `/analytics/categories/:id` | One category of the month: by day and its operations |
 | `/more` | Secondary sections/settings |
 
-There is no `/dashboard` or `/stats` route. Dashboard data exists as backend API/service data and is consumed by UI pages such as Home and Analytics.
+There is no `/dashboard` or `/stats` route. The webapp no longer reads the backend's dashboard API (FT-121): Analytics reads `GET /api/analytics`.
 
 ## Structure
 

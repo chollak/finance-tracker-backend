@@ -2,11 +2,12 @@ import { describe, it, expect } from 'vitest';
 
 import { quickCaptureInvalidationKeys } from './invalidation';
 import type { QuickCaptureResult } from '../model/types';
-import { transactionKeys } from '@/entities/transaction/api/keys';
+import { transactionKeys } from '@/entities/transaction';
 import { budgetKeys } from '@/entities/budget/api/keys';
-import { dashboardKeys } from '@/entities/dashboard/api/keys';
+import { analyticsKeys } from '@/entities/analytics';
 import { subscriptionKeys } from '@/entities/subscription/api/keys';
 import { debtKeys } from '@/entities/debt/api/keys';
+import { accountKeys } from '@/entities/account';
 
 // Quick capture persists on the server, so the Mini App has to refetch the same caches the
 // local create/update/delete mutations invalidate — otherwise Home keeps showing stale totals.
@@ -41,12 +42,22 @@ describe('quickCaptureInvalidationKeys', () => {
 
     expect(keys).toContainEqual(transactionKeys.list('user-1'));
     expect(keys).toContainEqual(budgetKeys.summaries('user-1'));
-    expect(keys).toContainEqual(dashboardKeys.insights('user-1'));
-    expect(keys).toContainEqual(dashboardKeys.quickStats('user-1'));
-    expect(keys).toContainEqual(transactionKeys.analytics('user-1'));
-    expect(keys).toContainEqual(transactionKeys.categorySummary('user-1'));
-    expect(keys).toContainEqual(transactionKeys.trends('user-1'));
     expect(keys).toContainEqual(subscriptionKeys.status('user-1'));
+  });
+
+  it('refreshes Analytics (FT-121); the old dashboard is no longer read', () => {
+    const keys = quickCaptureInvalidationKeys(result(), 'user-1');
+
+    expect(keys).toContainEqual(analyticsKeys.all('user-1'));
+    expect(keys.some((key) => key[0] === 'dashboard')).toBe(false);
+  });
+
+  it('refreshes what Home shows: the balances, the month tiles and the recent records (FT-111)', () => {
+    const keys = quickCaptureInvalidationKeys(result(), 'user-1');
+
+    expect(keys).toContainEqual(accountKeys.list('user-1'));
+    expect(keys).toContainEqual(transactionKeys.totals('user-1'));
+    expect(keys).toContainEqual(transactionKeys.recent('user-1'));
   });
 
   it('leaves debt caches alone when no debt was captured', () => {

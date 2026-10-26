@@ -28,10 +28,7 @@ export class DebtController {
     }
 
     const debt = result.data;
-    await verifyResourceOwnership(req, debt, this.userModule, {
-      resourceType: 'debt',
-      allowGuest: true
-    });
+    await verifyResourceOwnership(req, debt, this.userModule, { resourceType: 'debt' });
 
     return debt;
   }

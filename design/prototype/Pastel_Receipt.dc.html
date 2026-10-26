@@ -1,0 +1,485 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Daftar — фото чека</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+@keyframes daftarScan { 0% { top: 6%; } 50% { top: 88%; } 100% { top: 6%; } }
+@media (prefers-reduced-motion: reduce) { .daftar-scan { animation: none !important; top: 50% !important; } }
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; position: relative; overflow: hidden; display: flex; flex-direction: column; background: {{t.bg}}; color: {{t.ink}}; font-family: 'Manrope', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;">
+<p role="status" style="position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;">{{liveText}}</p>
+
+<div style="flex: 0 0 auto; padding: 8px 16px;">
+<header style="display: flex; align-items: center; gap: 12px; height: 48px;">
+<a href="{{backHref}}" aria-label="Назад" style="flex: 0 0 44px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border-radius: 9999px; background: {{t.card}}; color: {{t.ink}};"><svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><path d="M12.5 4.5 7 10l5.5 5.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg></a>
+<h1 id="rc-title" tabindex="-1" style="flex: 1 1 auto; margin: 0; outline: none; font-size: 18px; line-height: 1.3; font-weight: 800; letter-spacing: -0.3px;">{{title}}</h1>
+</header>
+</div>
+
+<sc-if value="{{isTips}}" hint-placeholder-val="{{false}}">
+<div style="flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 16px; padding: 4px 16px 24px;">
+<figure style="flex: 0 0 auto; position: relative; margin: 0; height: 290px; border-radius: 28px; background: #1c1d21; overflow: hidden;">
+<div aria-hidden="true" style="position: absolute; left: 50%; top: 47%; width: 220px; transform: translate(-50%, -50%) scale(0.74) rotate(-3deg);">
+<div style="width: 220px; box-sizing: border-box; padding: 14px 14px 16px; background: #fbfbf8; color: #2a2a2e; font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; font-size: 10px; line-height: 1.45; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);">
+<div style="text-align: center; font-weight: 700; font-size: 12px;">NAVRUZ MARKET</div>
+<div style="text-align: center;">Чек № 0418 · 14.10.2026 20:05</div>
+<div style="margin: 6px 0; border-top: 1px dashed #9a9a9a;"></div>
+<div style="display: flex; justify-content: space-between;"><span>Молоко 2,5% ×2</span><span>23 800</span></div>
+<div style="display: flex; justify-content: space-between;"><span>Хлеб бородинский</span><span>6 500</span></div>
+<div style="display: flex; justify-content: space-between;"><span>Куриное филе</span><span>78 000</span></div>
+<div style="display: flex; justify-content: space-between;"><span>…</span><span></span></div>
+<div style="margin: 6px 0; border-top: 1px dashed #9a9a9a;"></div>
+<div style="display: flex; justify-content: space-between; font-weight: 700; font-size: 12px;"><span>ИТОГО</span><span>254 300</span></div>
+<div style="display: flex; justify-content: center; margin-top: 6px;"><svg width="40" height="40" viewBox="0 0 9 9" shape-rendering="crispEdges"><path fill="#2a2a2e" d="M0 0h3v3H0zM6 0h3v3H6zM0 6h3v3H0zM4 0h1v1H4zM4 2h1v2H4zM3 4h2v1H3zM6 4h1v1H6zM8 4h1v2H8zM5 5h1v1H5zM4 6h1v1H4zM6 6h2v1H6zM5 7h1v2H5zM7 8h2v1H7z"></path><path fill="#fbfbf8" d="M1 1h1v1H1zM7 1h1v1H7zM1 7h1v1H1z"></path></svg></div>
+</div>
+</div>
+<figcaption style="position: absolute; left: 16px; bottom: 14px; display: flex; align-items: center; gap: 6px; padding: 5px 12px 5px 6px; border-radius: 9999px; background: #c9efd9; color: #14532d; font-size: 13px; font-weight: 800;"><svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true"><path d="M4.5 10.5 8 14l7.5-8" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"></path></svg>Пример хорошего кадра</figcaption>
+</figure>
+<h2 style="margin: 4px 4px 0; font-size: 20px; line-height: 1.3; font-weight: 800; letter-spacing: -0.4px;">Сфотографируйте чек целиком</h2>
+<ul style="list-style: none; margin: 0; padding: 0 4px; display: flex; flex-direction: column; gap: 10px;">
+<sc-for list="{{tips}}" as="tip" hint-placeholder-count="3">
+<li style="display: flex; gap: 10px; font-size: 15px; line-height: 1.45; font-weight: 600;"><span aria-hidden="true" style="flex: 0 0 24px; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 9999px; background: {{t.track}}; font-size: 12px; font-weight: 800;">{{tip.n}}</span><span>{{tip.text}}</span></li>
+</sc-for>
+</ul>
+<div style="margin-top: auto; display: flex; flex-direction: column; gap: 4px;">
+<p style="margin: 0 4px 8px; font-size: 13px; line-height: 1.45; font-weight: 600; color: {{t.muted}};">Подсказки покажу ещё 2 раза — потом камера откроется сразу.</p>
+<button type="button" onClick="{{shoot}}" style="height: 56px; display: flex; align-items: center; justify-content: center; gap: 10px; border: 0; border-radius: 9999px; background: {{t.primaryBg}}; color: {{t.primaryInk}}; font-family: inherit; font-size: 16px; font-weight: 800; cursor: pointer;"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8.5A2.5 2.5 0 0 1 6.5 6h1.6l1.4-2h5l1.4 2h1.6A2.5 2.5 0 0 1 20 8.5v8a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 16.5v-8Z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"></path><circle cx="12" cy="12.5" r="3.4" fill="none" stroke="currentColor" stroke-width="1.9"></circle></svg>Сфотографировать</button>
+<button type="button" onClick="{{gallery}}" style="height: 48px; border: 0; border-radius: 9999px; background: transparent; color: {{t.ink}}; font-family: inherit; font-size: 15px; font-weight: 800; cursor: pointer;">Выбрать из галереи</button>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{isPhotoStep}}" hint-placeholder-val="{{false}}">
+<div style="flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 16px; padding: 4px 16px 24px;">
+<div role="img" aria-label="{{photoAria}}" style="flex: 0 0 auto; position: relative; height: 360px; border-radius: 28px; background: #1c1d21; overflow: hidden;">
+<sc-if value="{{showReceiptPhoto}}" hint-placeholder-val="{{true}}">
+<div style="position: absolute; left: 50%; top: 50%; width: 220px; transform: translate(-50%, -50%) scale(0.95) rotate(-2deg); filter: {{photoBlur}};">
+<div style="width: 220px; box-sizing: border-box; padding: 14px 14px 18px; background: #fbfbf8; color: #2a2a2e; font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; font-size: 10px; line-height: 1.45; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);">
+<div style="text-align: center; font-weight: 700; font-size: 12px;">NAVRUZ MARKET</div>
+<div style="text-align: center;">{{rc.head}}</div>
+<div style="margin: 6px 0; border-top: 1px dashed #9a9a9a;"></div>
+<sc-for list="{{rc.lines}}" as="rl" hint-placeholder-count="6">
+<div style="display: flex; justify-content: space-between; gap: 8px;"><span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{rl.name}}</span><span>{{rl.price}}</span></div>
+</sc-for>
+<div style="margin: 6px 0; border-top: 1px dashed #9a9a9a;"></div>
+<div style="display: flex; justify-content: space-between; font-weight: 700; font-size: 12px;"><span>ИТОГО</span><span>{{rc.total}}</span></div>
+<div>Оплата: карта</div>
+<div style="display: flex; justify-content: center; margin-top: 8px;"><svg width="54" height="54" viewBox="0 0 9 9" aria-hidden="true" shape-rendering="crispEdges"><path fill="#2a2a2e" d="M0 0h3v3H0zM6 0h3v3H6zM0 6h3v3H0zM4 0h1v1H4zM4 2h1v2H4zM3 4h2v1H3zM6 4h1v1H6zM8 4h1v2H8zM5 5h1v1H5zM4 6h1v1H4zM6 6h2v1H6zM5 7h1v2H5zM7 8h2v1H7z"></path><path fill="#fbfbf8" d="M1 1h1v1H1zM7 1h1v1H7zM1 7h1v1H1z"></path></svg></div>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{showMugPhoto}}" hint-placeholder-val="{{false}}">
+<svg width="390" height="360" viewBox="0 0 390 360" style="position: absolute; left: 0; top: 0;" aria-hidden="true"><rect width="390" height="360" fill="#3a3027"></rect><ellipse cx="190" cy="250" rx="120" ry="26" fill="#2c241d"></ellipse><path d="M120 120h130v110a26 26 0 0 1-26 26h-78a26 26 0 0 1-26-26V120Z" fill="#e9e4dc"></path><path d="M250 145h18a26 26 0 0 1 0 52h-18" fill="none" stroke="#e9e4dc" stroke-width="12"></path><ellipse cx="185" cy="120" rx="65" ry="12" fill="#6b4a33"></ellipse></svg>
+</sc-if>
+<sc-if value="{{isReading}}" hint-placeholder-val="{{false}}">
+<div class="daftar-scan" aria-hidden="true" style="position: absolute; left: 24px; right: 24px; top: 40%; height: 3px; border-radius: 2px; background: #c9efd9; box-shadow: 0 0 16px 4px rgba(201, 239, 217, 0.6); animation: daftarScan 2.4s ease-in-out infinite;"></div>
+</sc-if>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px; padding: 0 4px;">
+<h2 style="margin: 0; font-size: 20px; line-height: 1.3; font-weight: 800; letter-spacing: -0.4px;">{{photoTitle}}</h2>
+<p style="margin: 0; font-size: 15px; line-height: 1.45; font-weight: 600; color: {{t.muted}};">{{photoText}}</p>
+</div>
+<sc-if value="{{hasFixTips}}" hint-placeholder-val="{{false}}">
+<ul style="list-style: none; margin: 0; padding: 0 4px; display: flex; flex-direction: column; gap: 8px;">
+<sc-for list="{{fixTips}}" as="ft" hint-placeholder-count="3">
+<li style="display: flex; gap: 10px; font-size: 14px; line-height: 1.45; font-weight: 600;"><span aria-hidden="true" style="flex: 0 0 6px; width: 6px; height: 6px; margin-top: 8px; border-radius: 9999px; background: {{t.ink}};"></span><span>{{ft}}</span></li>
+</sc-for>
+</ul>
+</sc-if>
+<div style="margin-top: auto; display: flex; flex-direction: column; gap: 4px;">
+<sc-if value="{{isReading}}" hint-placeholder-val="{{false}}">
+<button type="button" onClick="{{cancelReading}}" style="height: 48px; border: 0; border-radius: 9999px; background: transparent; color: {{t.ink}}; font-family: inherit; font-size: 15px; font-weight: 800; cursor: pointer;">Отменить</button>
+</sc-if>
+<sc-if value="{{isFail}}" hint-placeholder-val="{{false}}">
+<button type="button" onClick="{{retake}}" style="height: 56px; border: 0; border-radius: 9999px; background: {{t.primaryBg}}; color: {{t.primaryInk}}; font-family: inherit; font-size: 16px; font-weight: 800; cursor: pointer;">Переснять</button>
+<a href="{{addHref}}" style="height: 48px; display: flex; align-items: center; justify-content: center; border-radius: 9999px; color: {{t.ink}}; text-decoration: none; font-size: 15px; font-weight: 800;">Ввести вручную</a>
+</sc-if>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{isReview}}" hint-placeholder-val="{{true}}">
+<div style="flex: 1 1 auto; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding: 4px 16px {{reviewPad}};">
+
+<sc-if value="{{isDup}}" hint-placeholder-val="{{false}}">
+<section aria-labelledby="rc-dup" style="flex: 0 0 auto; display: flex; flex-direction: column; gap: 8px; padding: 14px 16px 6px; border-radius: 24px; background: {{t.track}};">
+<h2 id="rc-dup" style="margin: 0; font-size: 16px; line-height: 1.3; font-weight: 800;">Похоже, эта покупка уже записана</h2>
+<div style="display: flex; align-items: center; gap: 12px;">
+<span aria-hidden="true" style="flex: 0 0 36px; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 9999px; background: #ffdcc8; color: #141416; font-size: 14px; font-weight: 800;">П</span>
+<div style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px;"><span style="font-size: 15px; font-weight: 700;">Продукты · Супермаркет</span><span style="font-size: 13px; font-weight: 600; color: {{t.muted}};">19:20 · в боте</span></div>
+<span style="flex: 0 0 auto; font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums;">−186 400</span>
+</div>
+<p style="margin: 0; font-size: 13px; line-height: 1.45; font-weight: 600; color: {{t.muted}};">Сумма та же, время почти совпадает. Добавлю к той записи магазин и позиции — второй расход не появится.</p>
+<button type="button" onClick="{{notDup}}" style="align-self: flex-start; height: 44px; margin-left: -10px; padding: 0 10px; border: 0; border-radius: 9999px; background: transparent; color: {{t.ink}}; font-family: inherit; font-size: 14px; font-weight: 800; cursor: pointer;">Нет, это другая покупка</button>
+</section>
+</sc-if>
+
+<sc-if value="{{noTotal}}" hint-placeholder-val="{{false}}">
+<section aria-labelledby="rc-partial" style="flex: 0 0 auto; display: flex; flex-direction: column; gap: 6px; padding: 14px 16px 16px; border-radius: 24px; background: {{t.track}};">
+<h2 id="rc-partial" style="margin: 0; font-size: 18px; line-height: 1.3; font-weight: 800; letter-spacing: -0.3px;">Итог не попал в кадр</h2>
+<p style="margin: 0; font-size: 14px; line-height: 1.45; font-weight: 600; color: {{t.muted}};">{{partialText}}</p>
+</section>
+</sc-if>
+
+<sc-if value="{{hasTotal}}" hint-placeholder-val="{{true}}">
+<section aria-label="Сумма" style="flex: 0 0 auto; display: flex; flex-direction: column; gap: 10px; padding: 14px 16px 16px; border-radius: 24px; background: {{t.card}};">
+<div style="display: flex; flex-direction: column; gap: 4px;">
+<div style="display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap;">
+<span style="font-size: 32px; line-height: 1.1; font-weight: 800; letter-spacing: -1px; font-variant-numeric: tabular-nums;">{{amountText}}</span>
+<span style="font-size: 15px; font-weight: 700; color: {{t.muted}};">сум · расход</span>
+</div>
+<span style="display: flex; align-items: center; gap: 6px; font-size: 13px; line-height: 1.35; font-weight: 700; color: {{t.muted}};"><span aria-hidden="true" style="flex: 0 0 18px; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; border-radius: 9999px; background: {{sourceBg}}; color: {{sourceInk}}; font-size: 12px; font-weight: 800;">{{sourceMark}}</span>{{source}}</span>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 8px;">
+<sc-if value="{{showCatChip}}" hint-placeholder-val="{{true}}">
+<button type="button" onClick="{{openCat}}" aria-haspopup="dialog" aria-label="{{catAria}}" style="height: 44px; box-sizing: border-box; padding: 0 14px; display: flex; align-items: center; gap: 4px; border: {{catBorder}}; border-radius: 9999px; background: {{catBg}}; color: {{catInk}}; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer;">{{catName}}</button>
+</sc-if>
+<button type="button" onClick="{{openAcc}}" aria-haspopup="dialog" aria-label="{{accAria}}" style="height: 44px; padding: 0 14px; display: flex; align-items: center; border: 0; border-radius: 9999px; background: {{t.track}}; color: {{t.ink}}; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer;">{{accName}}</button>
+<button type="button" onClick="{{openDate}}" aria-haspopup="dialog" aria-label="{{dateAria}}" style="height: 44px; padding: 0 14px; display: flex; align-items: center; border: 0; border-radius: 9999px; background: {{t.track}}; color: {{t.ink}}; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer;">{{dateText}}</button>
+</div>
+</section>
+</sc-if>
+
+<section aria-label="Чек" style="flex: 0 0 auto; display: flex; align-items: center; gap: 12px; padding: 8px; border-radius: 24px; background: {{t.card}};">
+<span aria-hidden="true" style="flex: 0 0 40px; width: 40px; height: 50px; position: relative; overflow: hidden; border-radius: 10px; background: #1c1d21;"><span style="position: absolute; left: 8px; top: 5px; width: 24px; height: 46px; background: #fbfbf8; transform: rotate(-3deg);"><span style="display: block; margin: 4px 3px 0; height: 2px; background: #b9b9b9;"></span><span style="display: block; margin: 3px 3px 0; height: 2px; background: #d4d4d4;"></span><span style="display: block; margin: 3px 3px 0; height: 2px; background: #d4d4d4;"></span><span style="display: block; margin: 5px 3px 0; height: 3px; background: #8a8a8a;"></span></span></span>
+<div style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px;">
+<span style="font-size: 15px; font-weight: 800;">Navruz Market</span>
+<span style="font-size: 13px; line-height: 1.35; font-weight: 600; color: {{t.muted}};">{{receiptMeta}}</span>
+</div>
+<sc-if value="{{canRetake}}" hint-placeholder-val="{{true}}">
+<button type="button" onClick="{{retake}}" style="flex: 0 0 auto; height: 44px; padding: 0 12px; border: 0; border-radius: 9999px; background: transparent; color: {{t.muted}}; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer;">Переснять</button>
+</sc-if>
+</section>
+
+<section aria-labelledby="rc-items" style="flex: 0 0 auto; display: flex; flex-direction: column; padding: 8px 16px 8px; border-radius: 24px; background: {{t.card}};">
+<h2 id="rc-items" style="margin: 0; padding: 8px 0 4px; font-size: 15px; font-weight: 800;">{{itemsTitle}}</h2>
+<sc-if value="{{canSplit}}" hint-placeholder-val="{{true}}">
+<sc-if value="{{hasSuggest}}" hint-placeholder-val="{{false}}">
+<p style="margin: 0; font-size: 13px; line-height: 1.45; font-weight: 600; color: {{t.muted}};">{{suggest}}</p>
+</sc-if>
+<button type="button" role="switch" aria-checked="{{splitChecked}}" onClick="{{toggleSplit}}" style="min-height: 52px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0; border: 0; background: transparent; color: {{t.ink}}; font-family: inherit; font-size: 15px; font-weight: 700; text-align: left; cursor: pointer;"><span>Разделить по категориям</span><span aria-hidden="true" style="flex: 0 0 44px; width: 44px; height: 26px; box-sizing: border-box; padding: 3px; border-radius: 9999px; background: {{switchTrack}}; display: flex; justify-content: {{switchJustify}};"><span style="width: 20px; height: 20px; border-radius: 9999px; background: {{switchKnob}};"></span></span></button>
+</sc-if>
+<sc-if value="{{isSplit}}" hint-placeholder-val="{{false}}">
+<p role="status" style="margin: 0 0 8px; font-size: 14px; line-height: 1.45; font-weight: 700;">{{splitSummary}}</p>
+<p style="margin: 0 0 6px; font-size: 13px; line-height: 1.45; font-weight: 600; color: {{t.muted}};">Нажмите на позицию, чтобы перенести её в другую категорию.</p>
+</sc-if>
+<sc-if value="{{dupNoSplit}}" hint-placeholder-val="{{false}}">
+<p style="margin: 0 0 6px; font-size: 13px; line-height: 1.45; font-weight: 600; color: {{t.muted}};">Разделить по категориям можно будет в карточке записи.</p>
+</sc-if>
+
+<sc-if value="{{isFlat}}" hint-placeholder-val="{{true}}">
+<ul style="list-style: none; margin: 0; padding: 0;">
+<sc-for list="{{items}}" as="it" hint-placeholder-count="4">
+<li style="display: flex; align-items: center; gap: 10px; min-height: 48px; border-top: 1px solid {{t.line}};">
+<span style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px;"><span style="font-size: 14px; line-height: 1.35; font-weight: 600; font-style: {{it.fs}};">{{it.name}}</span><sc-if value="{{it.hasSub}}" hint-placeholder-val="{{false}}"><span style="font-size: 12px; line-height: 1.35; font-weight: 600; color: {{t.muted}};">{{it.sub}}</span></sc-if></span>
+<span style="flex: 0 0 auto; min-width: 64px; text-align: right; font-size: 14px; font-weight: 800; font-variant-numeric: tabular-nums;">{{it.price}}</span>
+</li>
+</sc-for>
+</ul>
+<sc-if value="{{hasMore}}" hint-placeholder-val="{{false}}">
+<button type="button" onClick="{{showAll}}" style="align-self: flex-start; height: 44px; margin-left: -10px; padding: 0 10px; border: 0; border-radius: 9999px; background: transparent; color: {{t.ink}}; font-family: inherit; font-size: 14px; font-weight: 800; cursor: pointer; display: flex; align-items: center; gap: 4px;">{{moreLabel}}<svg width="14" height="14" viewBox="0 0 20 20" aria-hidden="true"><path d="M5 7.5 10 12.5l5-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
+</sc-if>
+</sc-if>
+
+<sc-if value="{{isSplit}}" hint-placeholder-val="{{false}}">
+<sc-for list="{{groups}}" as="g" hint-placeholder-count="2">
+<div role="group" aria-label="{{g.aria}}" style="display: flex; flex-direction: column; border-top: 1px solid {{t.line}};">
+<div style="display: flex; align-items: center; gap: 10px; min-height: 48px;"><span aria-hidden="true" style="flex: 0 0 28px; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 9999px; background: {{g.color}}; color: #141416; font-size: 12px; font-weight: 800;">{{g.letter}}</span><span style="flex: 1 1 auto; font-size: 15px; font-weight: 800;">{{g.name}}</span><span style="font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums;">{{g.sum}}</span></div>
+<sc-for list="{{g.items}}" as="gi" hint-placeholder-count="2">
+<button type="button" onClick="{{gi.pick}}" aria-haspopup="dialog" aria-label="{{gi.aria}}" style="min-height: 44px; display: flex; align-items: center; gap: 10px; padding: 0 0 0 38px; border: 0; background: transparent; color: {{t.ink}}; font-family: inherit; text-align: left; cursor: pointer;">
+<span style="flex: 1 1 auto; min-width: 0; font-size: 14px; line-height: 1.35; font-weight: 600; font-style: {{gi.fs}};">{{gi.name}}</span>
+<span style="flex: 0 0 auto; font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; color: {{t.muted}};">{{gi.price}}</span>
+<svg width="14" height="14" viewBox="0 0 20 20" aria-hidden="true" style="flex: 0 0 14px; color: {{t.muted}};"><path d="M7.5 4.5 13 10l-5.5 5.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+</button>
+</sc-for>
+</div>
+</sc-for>
+</sc-if>
+
+<div style="display: flex; flex-direction: column; gap: 2px; padding: 10px 0 6px; border-top: 1px solid {{t.line}};">
+<div style="display: flex; justify-content: space-between; font-size: 14px; font-weight: 800;"><span>Итого по чеку</span><span style="font-variant-numeric: tabular-nums;">{{totalText}}</span></div>
+<sc-if value="{{hasCheck}}" hint-placeholder-val="{{false}}">
+<span style="font-size: 13px; line-height: 1.45; font-weight: 600; color: {{t.muted}};">{{checkText}}</span>
+</sc-if>
+</div>
+</section>
+</div>
+
+<div style="position: absolute; left: 0; right: 0; bottom: 0; padding: 12px 16px 24px; background: {{t.bg}}; box-shadow: 0 -1px 0 {{t.line}};">
+<sc-if value="{{canSave}}" hint-placeholder-val="{{true}}">
+<button type="button" onClick="{{save}}" style="width: 100%; height: 56px; border: 0; border-radius: 9999px; background: {{t.primaryBg}}; color: {{t.primaryInk}}; font-family: inherit; font-size: 16px; font-weight: 800; cursor: pointer;">{{saveLabel}}</button>
+</sc-if>
+<sc-if value="{{keepAsIs}}" hint-placeholder-val="{{false}}">
+<a href="{{backHref}}" style="height: 56px; display: flex; align-items: center; justify-content: center; border-radius: 9999px; background: {{t.primaryBg}}; color: {{t.primaryInk}}; text-decoration: none; font-size: 16px; font-weight: 800;">Оставить как есть</a>
+</sc-if>
+<sc-if value="{{noTotal}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; flex-direction: column; gap: 4px;">
+<button type="button" onClick="{{retake}}" style="height: 56px; border: 0; border-radius: 9999px; background: {{t.primaryBg}}; color: {{t.primaryInk}}; font-family: inherit; font-size: 16px; font-weight: 800; cursor: pointer;">Переснять</button>
+<a href="{{addHref}}" style="height: 44px; display: flex; align-items: center; justify-content: center; color: {{t.ink}}; text-decoration: none; font-size: 15px; font-weight: 800;">Ввести вручную</a>
+</div>
+</sc-if>
+</div>
+</sc-if>
+
+<sc-if value="{{saved}}" hint-placeholder-val="{{false}}">
+<div style="position: absolute; left: 0; top: 0; width: 390px; height: 844px; z-index: 40;">
+<dc-import name="Pastel_Home" dark="{{dark}}" receipt-result="{{result}}" add-href="{{h.add}}" voice-href="{{h.voice}}" review-href="{{h.review}}" history-href="{{h.history}}" analytics-href="{{h.analytics}}" analytics-income-href="{{h.income}}" audit-href="{{h.audit}}" receipt-href="{{h.receipt}}" hint-size="390px,844px"></dc-import>
+</div>
+</sc-if>
+
+<sc-if value="{{pickerOpen}}" hint-placeholder-val="{{false}}">
+<div style="position: absolute; left: 0; top: 0; width: 390px; height: 844px; z-index: 30;">
+<dc-import name="Pastel_Picker" dark="{{dark}}" kind="{{pickerKind}}" heading="{{pickerHeading}}" options="{{pickerOptions}}" selected="{{pickerSelected}}" tentative="{{pickerTentative}}" min-month="2026-08" context="{{pickerContext}}" on-pick="{{pickValue}}" on-close="{{closePicker}}" hint-size="390px,844px"></dc-import>
+</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"step":{"editor":"enum","options":["tips","reading","review","ocr","split","dup","fromBot","blurry","partial","notreceipt"],"default":"tips"},"addHref":{"editor":null,"default":"Pastel_Add.dc.html"},"backHref":{"editor":null,"default":"Pastel_Home.dc.html"},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  theme() {
+    if (this.props.dark) {
+      return { bg: "#111214", card: "#1b1c1f", ink: "#f4f4f6", muted: "#9d9da6", track: "#26272b", line: "#2c2d31", primaryBg: "#f4f4f6", primaryInk: "#141416", knobOff: "#9d9da6" };
+    }
+    return { bg: "#f3f3f5", card: "#ffffff", ink: "#141416", muted: "#6b6b74", track: "#e7e7ec", line: "#ececf0", primaryBg: "#141416", primaryInk: "#ffffff", knobOff: "#ffffff" };
+  }
+  cats() { return { pr: ["Продукты", "#ffdcc8"], kf: ["Кафе", "#ffd6e0"], tr: ["Транспорт", "#cfe3ff"], dm: ["Дом", "#ede3d6"], sv: ["Связь", "#e3dcff"], zd: ["Здоровье", "#c9efd9"], pk: ["Покупки", "#fbefb3"], dr: ["Другое", "#e6e6ea"] }; }
+  // Чек в сумах: долларового счёта в выборе нет.
+  accOpts() { return [{ id: "cash", name: "Наличные", bal: "1 250 000 сум" }, { id: "card", name: "Карта", bal: "3 180 000 сум" }]; }
+  fmt(n) { return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, String.fromCharCode(160)); }
+  plural(n, one, few, many) {
+    const m10 = n % 10;
+    const m100 = n % 100;
+    if (m10 === 1 && m100 !== 11) return one;
+    if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return few;
+    return many;
+  }
+  // Позиции: [название, цена, категория по ИИ, неуверенно]. В чеке по фото одна строка не разобрана — её сумма считается по разнице с итогом.
+  receipt(kind) {
+    if (kind === "dup") {
+      return { no: "0391", time: "19:18", total: 186400, items: [["Куриное филе 1 кг", 78000, "pr"], ["Рис 2 кг", 34000, "pr"], ["Масло подсолнечное 1 л", 28500, "pr"], ["Помидоры 1 кг", 16000, "pr"], ["Огурцы 1 кг", 12400, "pr"], ["Хлеб бородинский", 6500, "pr"], ["Чай чёрный", 11000, "pr"]] };
+    }
+    const items = [["Молоко 2,5% 1 л × 2", 23800, "pr"], ["Хлеб бородинский", 6500, "pr"], ["Куриное филе 1,2 кг", 78000, "pr"], ["Яблоки 1,5 кг", 27000, "pr"], ["Сыр 300 г", 46000, "pr"], ["Яйца 10 шт", 18500, "pr"], ["Порошок стиральный", 35000, "dm"], ["Губки для посуды", 8500, "dm"], ["Шоколад", 11000, "pr"]];
+    if (kind === "ocr") items[7] = ["Строка не разобрана", 8500, "pr", true];
+    return { no: "0418", time: "20:05", total: 254300, items: items };
+  }
+  kindOf(step, dup) { return dup ? "dup" : (step === "ocr" ? "ocr" : "main"); }
+  base(step) {
+    const dup = step === "dup";
+    const r = this.receipt(this.kindOf(step, dup));
+    return { view: step === "split" || step === "fromBot" ? "review" : step, dup: dup, dupResolved: false, split: step === "split" || step === "fromBot", all: false, itemCats: r.items.map((x) => x[2]), cat: "pr", catSure: step !== "ocr", acc: "card", date: "2026-10-14", picker: null, back: "tips" };
+  }
+  st() {
+    const step = this.props.step || "tips";
+    return Object.assign(this.base(step), this.state || {});
+  }
+  timers() { if (!this._timers) this._timers = []; return this._timers; }
+  componentWillUnmount() { this.clearTimers(); }
+  clearTimers() { this.timers().forEach((x) => clearTimeout(x)); this._timers = []; }
+  focusTitle() {
+    if (typeof document === "undefined") return;
+    setTimeout(() => { const h = document.getElementById("rc-title"); if (h) h.focus(); }, 60);
+  }
+  // Съёмка: результат через пару секунд; правки прошлого фото сбрасываются.
+  read(next, from) {
+    this.clearTimers();
+    const step = this.props.step || "tips";
+    // Отмена вернёт прежние правки; новый снимок применяется, только когда чек прочитан.
+    this._snap = Object.assign({}, this.st());
+    this.setState({ view: "reading", back: from || "tips", next: next, picker: null });
+    const fresh = this.base(next === "dup" ? "dup" : (step === "ocr" ? "ocr" : "review"));
+    this.timers().push(setTimeout(() => { this.setState((prev) => ((prev && prev.view) === "reading" ? Object.assign({}, fresh, { view: (prev && prev.next) || next }) : {})); this.focusTitle(); }, 1800));
+    this.focusTitle();
+  }
+  dateText(iso, time) {
+    const d = parseInt(iso.slice(8, 10), 10);
+    const m = ["янв", "фев", "мар", "апр", "мая", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"][parseInt(iso.slice(5, 7), 10) - 1];
+    if (iso === "2026-10-14") return "Сегодня, " + time;
+    if (iso === "2026-10-13") return "Вчера, " + time;
+    return d + " " + m + ", " + time;
+  }
+  renderVals() {
+    const t = this.theme();
+    const s = this.st();
+    const C = this.cats();
+    const step = this.props.step || "tips";
+    const fromBot = step === "fromBot";
+    const ocr = step === "ocr";
+    const view = s.view;
+    if (view === "reading" && !this._autoRead && !(this.state && this.state.next)) {
+      this._autoRead = true;
+      this.timers().push(setTimeout(() => this.setState((prev) => ((prev && prev.view && prev.view !== "reading") ? {} : { view: "review" })), 1800));
+    }
+    const isDup = s.dup && !s.dupResolved && s.date === "2026-10-14" && view !== "partial";
+    const r = this.receipt(this.kindOf(ocr ? "ocr" : step, s.dup));
+    const partial = view === "partial";
+    const shown = partial ? r.items.slice(0, 5) : r.items;
+    const catOf = (i) => s.itemCats[i] || r.items[i][2];
+    const gmap = {};
+    shown.forEach((x, i) => { const c = catOf(i); if (!gmap[c]) gmap[c] = { sum: 0, idx: [] }; gmap[c].sum += x[1]; gmap[c].idx.push(i); });
+    const gids = Object.keys(gmap).sort((a, b) => gmap[b].sum - gmap[a].sum);
+    const splitOn = !!s.split && !isDup && !partial;
+    const nRec = splitOn ? gids.length : 1;
+    const mainCat = splitOn && gids.length === 1 ? gids[0] : s.cat;
+    const itemView = (x, i) => ({
+      name: x[3] ? "Строка не разобрана" : x[0],
+      fs: x[3] ? "italic" : "normal",
+      hasSub: !!x[3],
+      sub: x[3] ? "сумма — по разнице с итогом" : "",
+      price: this.fmt(x[1]) + (x[3] ? "?" : ""),
+      aria: (x[3] ? "Строка не разобрана, сумма посчитана по разнице с итогом" : x[0]) + ", " + this.fmt(x[1]) + " сум, категория " + C[catOf(i)][0] + ". Перенести в другую категорию",
+      pick: () => this.setState({ picker: { kind: "category", item: i } })
+    });
+    // Неразобранные строки всегда на виду; маленький остаток не прячем.
+    const visible = s.all || shown.length <= 5 ? shown : shown.filter((x, i) => i < 4 || x[3]);
+    const groups = gids.map((g) => ({
+      name: C[g][0], color: C[g][1], letter: C[g][0].charAt(0), sum: this.fmt(gmap[g].sum),
+      aria: C[g][0] + ": " + gmap[g].idx.length + " " + this.plural(gmap[g].idx.length, "позиция", "позиции", "позиций") + " на " + this.fmt(gmap[g].sum) + " сум",
+      items: gmap[g].idx.map((i) => itemView(shown[i], i))
+    }));
+    const suggestIdx = r.items.map((x, i) => (x[2] !== "pr" ? i : -1)).filter((i) => i !== -1);
+    const tips = [{ n: "1", text: "Весь чек в кадре — вместе с итогом внизу." }, { n: "2", text: "Ровно и при свете, без бликов." }, { n: "3", text: "Если на чеке есть QR-код, пусть он тоже попадёт в кадр — тогда суммы будут точными." }];
+    const fail = { blurry: { title: "Чек не читается", text: "Фото размыто — не разобрать ни итог, ни позиции.", tips: ["Положите чек на ровную тёмную поверхность.", "Держите телефон ровно над чеком и не двигайте его, пока снимаете.", "Включите свет или вспышку."] }, notreceipt: { title: "На фото не чек", text: "Не нашёл ни итога, ни позиций. Сфотографируйте сам чек — целиком, с итогом внизу.", tips: [] } };
+    const f = fail[view];
+    const pk = s.picker;
+    let pickerOptions = null;
+    let pickerSelected = null;
+    let pickerHeading = "";
+    let pickerContext = "";
+    if (pk && pk.kind === "category") {
+      pickerOptions = Object.keys(C).map((k) => ({ id: k, name: C[k][0], color: C[k][1] }));
+      pickerSelected = pk.item !== undefined ? catOf(pk.item) : mainCat;
+      pickerHeading = pk.item !== undefined ? "Категория позиции" : "Категория расхода";
+      pickerContext = pk.item !== undefined ? (r.items[pk.item][3] ? "Строка не разобрана" : r.items[pk.item][0]) + " · " + this.fmt(r.items[pk.item][1]) + " сум" : "";
+    }
+    if (pk && pk.kind === "account") { pickerOptions = this.accOpts(); pickerSelected = s.acc; pickerHeading = "Счёт"; }
+    if (pk && pk.kind === "date") { pickerSelected = s.date; pickerHeading = "Дата"; }
+    const accName = { cash: "Наличные", card: "Карта" }[s.acc] || "Карта";
+    const dt = this.dateText(s.date, r.time);
+    const known = r.items.filter((x) => !x[3]).reduce((a, x) => a + x[1], 0);
+    const outcome = fromBot ? "botsplit" : (isDup ? "dup" : (nRec > 1 ? "split" : "single"));
+    const live = { reading: "Читаю чек…", review: "Чек прочитан: " + this.fmt(r.total) + " сум, " + r.items.length + " " + this.plural(r.items.length, "позиция", "позиции", "позиций"), ocr: "Чек распознан по фото — проверьте отмеченное", dup: "Похоже, эта покупка уже записана", partial: "Итог не попал в кадр", blurry: "Чек не читается", notreceipt: "На фото не чек" };
+    return {
+      t: t,
+      dark: !!this.props.dark,
+      liveText: (isDup ? live.dup : (view === "dup" ? live.review : live[view])) || "",
+      title: fromBot ? "Разделить запись" : (view === "tips" || view === "reading" || view === "partial" || f ? "Фото чека" : "Проверьте чек"),
+      backHref: this.props.backHref ?? "Pastel_Home.dc.html",
+      addHref: this.props.addHref ?? "Pastel_Add.dc.html",
+      isTips: view === "tips",
+      tips: tips,
+      shoot: () => this.read(s.dup ? "dup" : (ocr ? "ocr" : "review"), "tips"),
+      gallery: () => this.read(s.dup ? "dup" : (ocr ? "ocr" : "review"), "tips"),
+      isPhotoStep: view === "reading" || !!f,
+      isReading: view === "reading",
+      isFail: !!f,
+      showReceiptPhoto: view !== "notreceipt",
+      showMugPhoto: view === "notreceipt",
+      photoBlur: view === "blurry" ? "blur(3.5px)" : "none",
+      photoAria: view === "notreceipt" ? "Фото: кружка на столе" : (view === "blurry" ? "Фото чека, размытое" : "Фото чека"),
+      rc: { head: "Чек № " + r.no + " · 14.10.2026 " + r.time, lines: r.items.map((x) => ({ name: x[3] ? "▒▒▒▒▒▒▒▒" : x[0], price: x[3] ? "▒▒▒▒" : this.fmt(x[1]) })), total: this.fmt(r.total) },
+      photoTitle: f ? f.title : "Читаю чек…",
+      photoText: f ? f.text : "Ищу QR-код и итог — пара секунд.",
+      hasFixTips: !!f && f.tips.length > 0,
+      fixTips: f ? f.tips : [],
+      cancelReading: () => { this.clearTimers(); const snap = this._snap; this.setState((prev) => Object.assign({}, snap || {}, { view: (prev && prev.back) || "tips" })); this.focusTitle(); },
+      retake: () => this.read(s.dup ? "dup" : (ocr ? "ocr" : "review"), view),
+      isReview: view === "review" || view === "dup" || view === "partial" || view === "ocr",
+      reviewPad: partial ? "160px" : "112px",
+      isDup: isDup,
+      notDup: () => { this.setState({ dupResolved: true }); this.focusTitle(); },
+      hasTotal: !partial,
+      noTotal: partial,
+      partialText: "Видно " + shown.length + " " + this.plural(shown.length, "позицию", "позиции", "позиций") + " на " + this.fmt(shown.reduce((a, x) => a + x[1], 0)) + " сум — это не весь чек. Переснимите так, чтобы низ с итогом и QR-кодом был в кадре.",
+      amountText: "−" + this.fmt(r.total),
+      source: fromBot ? "Чек 20:05 из бота · по QR-коду" : (ocr ? "Распознано по фото — сверьте итог и отмеченное" : "Из QR-кода — суммы точные"),
+      sourceMark: ocr ? "!" : "✓",
+      sourceBg: ocr ? "#fbefb3" : "#c9efd9",
+      sourceInk: ocr ? "#141416" : "#14532d",
+      showCatChip: !splitOn || gids.length === 1,
+      catName: C[mainCat][0] + (s.catSure ? "" : "?"),
+      catBg: s.catSure ? C[mainCat][1] : "transparent",
+      catInk: s.catSure ? "#141416" : t.ink,
+      catBorder: s.catSure ? "0" : "2px dashed " + t.muted,
+      catAria: "Категория: " + C[mainCat][0] + (s.catSure ? "" : ", не уверен — проверьте") + ". Изменить",
+      openCat: () => this.setState({ picker: { kind: "category" } }),
+      accName: accName,
+      accAria: "Счёт: " + accName + ". Изменить",
+      openAcc: () => this.setState({ picker: { kind: "account" } }),
+      dateText: dt,
+      dateAria: "Дата: " + dt + ". Изменить",
+      openDate: () => this.setState({ picker: { kind: "date" } }),
+      receiptMeta: partial ? "Виден не весь чек" : "Чек № " + r.no + " · " + r.items.length + " " + this.plural(r.items.length, "позиция", "позиции", "позиций"),
+      canRetake: !fromBot && !partial,
+      itemsTitle: partial ? "Видно " + shown.length + " " + this.plural(shown.length, "позицию", "позиции", "позиций") : "Позиции",
+      canSplit: !isDup && !partial && !fromBot,
+      dupNoSplit: isDup,
+      hasSuggest: !splitOn && suggestIdx.length > 0 && !fromBot,
+      suggest: suggestIdx.map((i, j) => { const w = r.items[i][0].split(" ")[0]; return j ? w.toLowerCase() : w; }).join(" и ") + (suggestIdx.length > 1 ? " похожи" : " похож") + " на «Дом» — можно разделить.",
+      splitChecked: splitOn ? "true" : "false",
+      toggleSplit: () => { const on = !s.split; const patch = { split: on }; if (!on && gids.length === 1) patch.cat = gids[0]; this.setState(patch); },
+      switchTrack: splitOn ? t.ink : t.track,
+      switchKnob: splitOn ? t.bg : t.knobOff,
+      switchJustify: splitOn ? "flex-end" : "flex-start",
+      isFlat: !splitOn,
+      isSplit: splitOn,
+      groups: groups,
+      items: visible.map((x) => itemView(x, shown.indexOf(x))),
+      hasMore: visible.length < shown.length,
+      moreLabel: "Ещё " + (shown.length - visible.length),
+      showAll: () => this.setState({ all: true }),
+      totalText: partial ? "не найден" : this.fmt(r.total) + " сум",
+      hasCheck: ocr,
+      checkText: "Разобрал " + r.items.filter((x) => !x[3]).length + " " + this.plural(r.items.filter((x) => !x[3]).length, "строку", "строки", "строк") + " из " + r.items.length + ": " + this.fmt(known) + " из " + this.fmt(r.total) + " сум. Итог взят с чека.",
+      saved: !!s.saved,
+      save: () => { this.setState({ saved: true, picker: null }); },
+      result: (() => {
+        const note = "Navruz Market";
+        const total = "\u2212" + this.fmt(r.total) + "\u00a0сум";
+        if (isDup) return { patch: { id: "t1", note: note + " · " + r.items.length + " позиций" }, title: "Запись дополнена", detail: "Магазин и " + r.items.length + " позиций из чека" };
+        const recs = (splitOn ? gids.map((g) => [g, gmap[g].sum]) : [[mainCat, r.total]]).map((p, i) => ({ id: "r" + (i + 1), type: "expense", cat: p[0], amount: p[1], acc: s.acc, date: s.date, note: note }));
+        if (fromBot) return { add: recs, restore: { id: "b1", type: "expense", cat: "pr", amount: 254300, acc: "card", date: "2026-10-14", note: note }, title: "Запись разделена на " + recs.length, detail: note + " · " + total };
+        return { add: recs, title: recs.length > 1 ? "Записано " + recs.length + " " + this.plural(recs.length, "расход", "расхода", "расходов") : "Записано", detail: recs.length > 1 ? note + " · " + total : C[mainCat][0] + " · " + total };
+      })(),
+      h: this.props.dark ? { add: "Pastel_AddDark.dc.html", voice: "Pastel_VoiceDark.dc.html", review: "Pastel_ReviewDark.dc.html", history: "Pastel_HistoryDark.dc.html", analytics: "Pastel_AnalyticsDark.dc.html", income: "Pastel_AnalyticsIncomeDark.dc.html", audit: "Pastel_AuditDark.dc.html", receipt: "Pastel_ReceiptDark.dc.html" } : { add: "Pastel_Add.dc.html", voice: "Pastel_Voice.dc.html", review: "Pastel_Review.dc.html", history: "Pastel_History.dc.html", analytics: "Pastel_Analytics.dc.html", income: "Pastel_AnalyticsIncome.dc.html", audit: "Pastel_Audit.dc.html", receipt: "Pastel_Receipt.dc.html" },
+      canSave: !partial && !(fromBot && nRec < 2),
+      keepAsIs: fromBot && nRec < 2,
+      splitSummary: "Будет " + nRec + " " + this.plural(nRec, "расход", "расхода", "расходов") + ": " + gids.map((g) => C[g][0] + " " + this.fmt(gmap[g].sum)).join(", ") + (fromBot ? " — вместо одной записи на " + this.fmt(r.total) + "." : "."),
+      saveHref: "Pastel_HomeReceipt" + { single: "", split: "Split", dup: "Dup", botsplit: "BotSplit" }[outcome] + (this.props.dark ? "Dark" : "") + ".dc.html",
+      saveLabel: fromBot ? (nRec > 1 ? "Разделить на " + nRec + " " + this.plural(nRec, "запись", "записи", "записей") : "Оставить одной записью") : (isDup ? "Дополнить запись" : (nRec > 1 ? "Сохранить " + nRec + " " + this.plural(nRec, "расход", "расхода", "расходов") : "Сохранить расход")),
+      pickerOpen: !!pk,
+      pickerKind: pk ? pk.kind : "category",
+      pickerHeading: pickerHeading,
+      pickerOptions: pickerOptions,
+      pickerSelected: pickerSelected,
+      pickerTentative: !!pk && pk.kind === "category" && pk.item === undefined && !s.catSure,
+      pickerContext: pickerContext,
+      pickValue: (v) => {
+        const cur = this.st();
+        const p = cur.picker;
+        if (!p) return;
+        if (p.kind === "category" && p.item !== undefined) { const ic = cur.itemCats.slice(); ic[p.item] = v; this.setState({ itemCats: ic, picker: null }); }
+        else if (p.kind === "category") {
+          // Категория чека меняет позиции с прежней основной категорией; перенесённые вручную остаются.
+          const old = cur.split && Object.keys(gmap).length === 1 ? Object.keys(gmap)[0] : cur.cat;
+          this.setState({ cat: v, catSure: true, itemCats: cur.itemCats.map((c) => (c === old ? v : c)), picker: null });
+        }
+        else if (p.kind === "account") this.setState({ acc: v, picker: null });
+        else this.setState({ date: v, picker: null });
+        this.focusTitle();
+      },
+      closePicker: () => { this.setState({ picker: null }); this.focusTitle(); }
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -8,8 +8,8 @@
  * Read-only by construction, not by convention:
  *   - the SQLite file is opened with `OPEN_READONLY`, so the driver itself rejects any write;
  *   - the only statements issued are `PRAGMA table_info` and one `SELECT`;
- *   - TypeORM is deliberately not used — `AppDataSource` runs with `synchronize: true` in
- *     development and would alter the schema just by connecting.
+ *   - TypeORM is deliberately not used — connecting `AppDataSource` would apply pending migrations
+ *     (FT-090), and a read-only preview must not change the schema.
  *
  * Usage:
  *   npm run preview:semantic
@@ -54,7 +54,7 @@ const DEFAULT_DB_PATH = path.join(process.cwd(), 'data', 'database.sqlite');
 
 // Read what exists; a database created before the semantic columns were added simply reports fewer.
 const WANTED_COLUMNS = [
-  'id', 'date', 'createdAt', 'amount', 'type', 'semanticType', 'needsReview', 'category',
+  'id', 'date', 'createdAt', 'amount', 'amount_minor', 'type', 'semanticType', 'needsReview', 'category',
   'description', 'originalText', 'merchant', 'isArchived', 'isDebtRelated', 'relatedDebtId',
   'userId',
 ];
@@ -195,7 +195,10 @@ function asFlag(value: unknown): boolean | null {
 }
 
 function toStoredRow(row: Record<string, unknown>): StoredTransactionRow {
-  const amount = Number(row.amount);
+  // FT-097 stores integer minor units in amount_minor; older databases still have amount in сум.
+  const amount = row.amount_minor !== undefined && row.amount_minor !== null
+    ? Number(row.amount_minor) / 100
+    : Number(row.amount);
   return {
     id: String(row.id),
     date: asText(row.date),

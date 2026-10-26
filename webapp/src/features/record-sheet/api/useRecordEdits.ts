@@ -1,0 +1,210 @@
+import { useEffect, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { deleteTransaction, patchTransaction, restoreTransaction } from '@/entities/transaction';
+import { useUserStore } from '@/entities/user';
+import type { LocalDate } from '@/shared/lib/dates';
+import { dismissUndoGroup, showUndoToast } from '@/shared/lib/undo';
+import {
+  cancelTypeChange,
+  categoryChangedToast,
+  chooseCategory as chooseCategoryOf,
+  chooseType as chooseTypeOf,
+  deletedToast,
+  isInPeriod,
+  movedToast,
+  revertSheetChange,
+  type RecordPeriod,
+  type RecordType,
+  type SheetChange,
+  type SheetContext,
+  type SheetState,
+} from '../model/recordSheet';
+import { closeRecordSheet, flashRecord } from '../model/recordSheetStore';
+
+/** How long «✓ Сохранено» shows after a change was saved (TxnSheet.md). */
+export const SAVED_NOTICE_MS = 2000;
+
+/** The line under the fields: the hint, «Сохранено» for 2 seconds, or what went wrong. */
+export type SaveStatus = 'idle' | 'saved' | 'save-failed' | 'delete-failed';
+
+const SAVE_FAILED_TOAST = { title: 'Не получилось сохранить', detail: 'Проверьте связь и измените ещё раз' } as const;
+
+/** The toast group of «Дата изменена» of a record: a move the server refused after the sheet closed takes it away. */
+const movedGroup = (id: string) => `record-moved:${id}`;
+
+/**
+ * What the record sheet does with a saved record (FT-115). Every change shows at once and is patched to the
+ * record at once; «Сохранено» shows for 2 seconds after the server took it; a change it refused goes back and
+ * the sheet says so (a toast, when the sheet is already closed). «Готово» closes the sheet and rings the row
+ * once a change of it was saved — at once, or when a save still on its way answers; a refused change rings
+ * nothing. «Удалить операцию» deletes without asking, with «Отменить» in the toast.
+ *
+ * `loaded` is the sheet of the record as read; changes are kept apart from it, so a read that answers late
+ * does not undo them.
+ *
+ * `period` — the days the screen lists (a category of a month, FT-121): a record whose date was moved out of them
+ * leaves that list, so closing says «Дата изменена · Перенесено на 2 сентября · −145 000 сум» with «Отменить», which
+ * puts back the date it had before it left (board `pendingRedate`).
+ */
+export function useRecordEdits(id: string, loaded: SheetState | null, context: SheetContext, period?: RecordPeriod) {
+  const queryClient = useQueryClient();
+  const userId = useUserStore((state) => state.userId);
+  const [edited, setEdited] = useState<SheetState | null>(null);
+  const [status, setStatus] = useState<SaveStatus>('idle');
+  const [deleting, setDeleting] = useState(false);
+  // The state as it is now: a handler may run right after another one, before React renders it
+  const current = useRef<SheetState | null>(null);
+  // A change was saved: closing rings the row
+  const saved = useRef(false);
+  // «Готово» was pressed: a save that answers after it rings the row then
+  const closed = useRef(false);
+  const mounted = useRef(true);
+  const savedTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  // The date the record had before it was first moved out of `period`; «Дата изменена» was shown
+  const movedFrom = useRef<LocalDate | null>(null);
+  const movedShown = useRef(false);
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      clearTimeout(savedTimer.current);
+    };
+  }, []);
+
+  const read = (): SheetState | null => current.current ?? loaded;
+  const write = (next: SheetState) => {
+    current.current = next;
+    setEdited(next);
+  };
+
+  const showSaved = () => {
+    clearTimeout(savedTimer.current);
+    setStatus('saved');
+    savedTimer.current = setTimeout(() => setStatus('idle'), SAVED_NOTICE_MS);
+  };
+
+  /** One change: shown at once, then saved; refused — put back. */
+  const apply = async (make: (state: SheetState) => SheetChange | null) => {
+    const before = read();
+    const made = before && make(before);
+    if (!userId || !before || !made) return;
+    write(made.state);
+    if (period && movedFrom.current === null && !isInPeriod(made.state.record.date, period)) movedFrom.current = before.record.date;
+    if (!made.patch) return;
+    try {
+      await patchTransaction(queryClient, { id, userId, patch: made.patch });
+      saved.current = true;
+      if (closed.current) flashRecord(id);
+      if (mounted.current) showSaved();
+    } catch {
+      const latest = read();
+      if (latest) write(revertSheetChange(latest, before, made.state));
+      if (mounted.current) {
+        clearTimeout(savedTimer.current);
+        setStatus('save-failed');
+      } else {
+        // The move out of the screen's days was refused after the sheet closed: the record is back, so is its date
+        const back = read();
+        if (movedShown.current && period && back && isInPeriod(back.record.date, period)) dismissUndoGroup(movedGroup(id));
+        showUndoToast({ kind: 'info', ...SAVE_FAILED_TOAST });
+      }
+    }
+  };
+
+  /** Closing a record moved out of the screen's days: it has left the list, the toast says where to. */
+  const announceMove = () => {
+    const state = read();
+    const from = movedFrom.current;
+    if (!period || !from || !userId || !state || isInPeriod(state.record.date, period)) return;
+    movedShown.current = true;
+    showUndoToast({
+      kind: 'changed',
+      ...movedToast(state.record),
+      group: movedGroup(id),
+      undo: async () => void (await patchTransaction(queryClient, { id, userId, patch: { date: from } })),
+    });
+  };
+
+  /** «Расход / Доход»: returns whether a category of the new type is to be chosen now. */
+  const chooseType = (type: RecordType): boolean => {
+    const state = read();
+    if (!state) return false;
+    const next = chooseTypeOf(state, type);
+    write(next);
+    return next.typeChange !== null;
+  };
+
+  /** The category choice was closed without a choice: after «Расход / Доход» the type comes back. */
+  const leaveCategoryChoice = () => {
+    const state = read();
+    if (state?.typeChange) write(cancelTypeChange(state));
+  };
+
+  /** «Готово», «Закрыть», the scrim: the sheet goes; the row whose change was saved is ringed. */
+  const close = () => {
+    closed.current = true;
+    closeRecordSheet();
+    if (saved.current) flashRecord(id);
+    announceMove();
+  };
+
+  /** «Удалить операцию»: no question; «Удалено» with «Отменить» brings it back. */
+  const remove = async () => {
+    const state = read();
+    if (!userId || !state || deleting) return;
+    setDeleting(true);
+    try {
+      await deleteTransaction(queryClient, { id, userId });
+    } catch {
+      setDeleting(false);
+      setStatus('delete-failed');
+      return;
+    }
+    closeRecordSheet();
+    showUndoToast({
+      kind: 'deleted',
+      ...deletedToast(state.record, context),
+      undo: () => restoreTransaction(queryClient, { id, userId }),
+    });
+  };
+
+  /**
+   * The quick choice from a row's circle: the choice closes at once; once saved, the row is ringed and «Категория
+   * изменена» shows with «Отменить», which puts the category back. A refused pick rings nothing.
+   */
+  const quickCategory = async (categoryId: string) => {
+    const state = read();
+    closeRecordSheet();
+    if (!userId || !state) return;
+    const { patch } = chooseCategoryOf(state, categoryId);
+    if (!patch) return;
+    const previous = state.record.categoryId;
+    try {
+      await patchTransaction(queryClient, { id, userId, patch });
+    } catch {
+      showUndoToast({ kind: 'info', ...SAVE_FAILED_TOAST });
+      return;
+    }
+    flashRecord(id);
+    showUndoToast({
+      kind: 'changed',
+      ...categoryChangedToast(previous, categoryId, context),
+      ...(previous
+        ? { undo: async () => void (await patchTransaction(queryClient, { id, userId, patch: { categoryId: previous } })) }
+        : {}),
+    });
+  };
+
+  return {
+    state: edited ?? loaded,
+    status,
+    deleting,
+    apply,
+    chooseType,
+    leaveCategoryChoice,
+    close,
+    remove,
+    quickCategory,
+  };
+}

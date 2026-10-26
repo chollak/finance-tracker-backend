@@ -3,10 +3,13 @@ import { Message, Update, CallbackQuery } from 'telegraf/types';
 import { VoiceProcessingModule } from '../../../../modules/voiceProcessing/voiceProcessingModule';
 import { QuickCaptureModule } from '../../../../modules/quickCapture/quickCaptureModule';
 import { TransactionModule } from '../../../../modules/transaction/transactionModule';
-import { BudgetModule } from '../../../../modules/budget/budgetModule';
 import { UserModule } from '../../../../modules/user/userModule';
 import { SubscriptionModule } from '../../../../modules/subscription/subscriptionModule';
-import { TransactionSemanticType } from '../../../../modules/transaction/domain/transactionSemanticType';
+import { CategoryModule } from '../../../../modules/category/categoryModule';
+import { AccountModule } from '../../../../modules/account/accountModule';
+import { BotMessageModule } from '../../../../modules/botMessage/botMessageModule';
+import { NotificationModule } from '../../../../modules/notification/notificationModule';
+import { AuthModule } from '../../../../modules/auth/authModule';
 
 /**
  * Modules available in bot context
@@ -16,9 +19,18 @@ export interface BotModules {
   /** Shared capture boundary — the text handler goes through this, not through the parser directly. */
   quickCaptureModule: QuickCaptureModule;
   transactionModule: TransactionModule;
-  budgetModule: BudgetModule;
   userModule: UserModule;
   subscriptionModule?: SubscriptionModule;
+  /** The user's categories (FT-099/FT-100): quick-add keyboard, labels, the category picker (FT-122). */
+  categoryModule?: CategoryModule;
+  /** The user's accounts (FT-101): the account line of a confirmation and the account picker (FT-122). */
+  accountModule?: AccountModule;
+  /** Which records each confirmation shows (FT-122): its buttons and /undo survive a restart. */
+  botMessageModule?: BotMessageModule;
+  /** Итоги дня и месяца (FT-124): /today, /month, «Да, не было» under the evening question. */
+  notificationModule?: NotificationModule;
+  /** The web login (FT-128): /start login_<token>, «Подтвердить» and «Это не я». */
+  authModule?: AuthModule;
 }
 
 /**
@@ -27,7 +39,6 @@ export interface BotModules {
 export interface UserSession {
   userId: string;
   userName: string;
-  lastTransactionId?: string;
   language: 'ru';
   pendingAction?: PendingAction;
 }
@@ -37,8 +48,7 @@ export interface UserSession {
  */
 export type PendingAction =
   | { type: 'awaiting_category'; amount: number }
-  | { type: 'awaiting_amount'; category: string }
-  | { type: 'awaiting_confirmation'; transactionId: string };
+  | { type: 'awaiting_amount'; category: string };
 
 /**
  * Extended bot context with modules and session
@@ -62,61 +72,3 @@ export type VoiceMessageContext = NarrowedContext<BotContext, Update.MessageUpda
  * Context for callback query handlers
  */
 export type CallbackContext = NarrowedContext<BotContext, Update.CallbackQueryUpdate<CallbackQuery.DataQuery>>;
-
-/**
- * Transaction data from processing
- */
-export interface ProcessedTransaction {
-  id: string;
-  amount: number;
-  category: string;
-  type: 'income' | 'expense';
-  semanticType?: TransactionSemanticType;
-  needsReview?: boolean;
-  merchant?: string;
-  confidence?: number;
-  description?: string;
-}
-
-/**
- * Quick category for inline keyboard
- */
-export interface QuickCategory {
-  id: string;
-  emoji: string;
-  name: string;
-}
-
-/**
- * Statistics summary for commands
- */
-export interface StatsSummary {
-  totalIncome: number;
-  totalExpense: number;
-  netIncome: number;
-  transactionCount: number;
-}
-
-/**
- * Category breakdown for stats
- */
-export interface CategoryBreakdown {
-  category: string;
-  amount: number;
-  percentage: number;
-  count: number;
-}
-
-/**
- * Budget status for /budget command
- */
-export interface BudgetStatus {
-  id: string;
-  name: string;
-  category: string;
-  limit: number;
-  spent: number;
-  remaining: number;
-  percentage: number;
-  status: 'ok' | 'warning' | 'exceeded';
-}
