@@ -66,7 +66,7 @@ export class AppConfig {
   static readonly WEBHOOK_MODE = process.env.WEBHOOK_MODE === 'true';
 
   // OpenAI Configuration
-  static readonly OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4-turbo';
+  static readonly OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4.1-mini';
   static readonly WHISPER_MODEL = process.env.WHISPER_MODEL || 'whisper-1';
   static readonly DEFAULT_LANGUAGE = process.env.DEFAULT_LANGUAGE || 'ru';
 

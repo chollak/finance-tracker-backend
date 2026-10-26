@@ -141,10 +141,15 @@ export function createLogger(category: LogCategoryType | string): ILogger {
     },
 
     error(message: string, error?: Error | null, context?: Record<string, unknown>): void {
+      // An AppError keeps its cause in `context` (the OpenAI message behind «External service error: OpenAI Chat»)
+      const errorContext = (error as { context?: unknown } | null | undefined)?.context;
       winstonLogger.error(message, {
         category,
         error: error?.message,
         stack: error?.stack,
+        ...(errorContext && typeof errorContext === 'object'
+          ? { errorContext: sanitizeContext(errorContext as Record<string, unknown>) }
+          : {}),
         ...sanitizeContext(context),
       });
     },

@@ -105,6 +105,11 @@ ${categoryPrompt}
       - "$", "долл", "доллар", "usd" → "currency": "USD", сумма в долларах как написано (55, 9.99); иначе "UZS"
       - "нал", "наличными" → "account": "cash"; "картой", "по карте", "uzcard", "humo" → "account": "card"; иначе null
 
+      НАЗВАНИЕ ЗАПИСИ:
+      - "description" — что купили или за что получили, словами из текста, коротко
+      - Без суммы, валюты и способа оплаты: «кофе 25к налом» → "description": "кофе",
+        «подписка 9.99$» → "description": "подписка"
+
       ПРАВИЛА СУММ:
       - Записывай числа как есть (50000, 100, 25.5)
       - Ищи числа с любыми валютами (сум, сўм, UZS, $, €, руб)
@@ -144,6 +149,10 @@ ${categoryPrompt}
 
       CRITICAL: In the "category" field, return only a name from the category list; if none fits, "Другое".
       Debts, loans and installments are ordinary expenses in "Другое".
+
+      RECORD NAME: "description" is what was bought or paid for, in the words of the text, short, without
+      amount, currency or payment method: «кофе 25к налом» → "description": "кофе",
+      «подписка 9.99$» → "description": "подписка"
 
       RESPONSE FORMAT:
       [{"amount": number, "category": "category name from the list", "type": "income" | "expense",

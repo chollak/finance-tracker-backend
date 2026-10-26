@@ -78,6 +78,9 @@ export const RU = {
   // Errors
   errors: {
     generic: 'Произошла ошибка. Попробуйте снова.',
+    // The AI or the speech recognition did not answer (no network, a model withdrawn): nothing was written
+    aiUnavailable: 'Не получилось разобрать — сервис распознавания сейчас не ответил, поэтому не записал.\n'
+      + 'Попробуйте ещё раз через минуту или напишите проще: <i>такси 18к</i>.',
     voiceProcessing: 'Не удалось обработать голосовое сообщение.',
     emptyMessage: 'Пожалуйста, отправьте сообщение с транзакцией.',
   },

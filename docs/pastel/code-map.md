@@ -49,7 +49,7 @@ Architecture: `domain → application → infrastructure → presentation` вн�
 и синонимами, плюс `transfer` и `debt`. Таблицы категорий нет, в записи хранится строка. Копия списка —
 `webapp/src/entities/category/model/categories.ts`.
 
-**ИИ.** `gpt-4-turbo` (JSON-ответ) и `whisper-1`; промпты в `src/shared/domain/constants/messages.ts`.
+**ИИ.** `gpt-4.1-mini` (JSON-ответ; `gpt-4-turbo` OpenAI снял — `model_not_found`) и `whisper-1`; промпты в `src/shared/domain/constants/messages.ts`.
 Уверенность ниже 0,6 — кнопки подтверждения в боте; `needsReview` исключает запись из итогов. Обучение
 глобальное, в `data/patterns.json`. Фото и QR чеков нет.
 

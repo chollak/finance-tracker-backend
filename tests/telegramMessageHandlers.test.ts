@@ -12,6 +12,7 @@ import {
 import { Transaction } from '../src/modules/transaction/domain/transactionEntity';
 import { downloadVoiceFile, cleanupFile } from '../src/delivery/messaging/telegram/utils';
 import { NoSpeechDetectedError } from '../src/modules/voiceProcessing/domain/voiceErrors';
+import { ExternalServiceError } from '../src/shared/domain/errors/AppError';
 
 // The voice path must not touch the filesystem or Telegram's CDN in tests; transcription itself
 // stays mocked at the use-case level, so no OpenAI call is ever made.
@@ -195,6 +196,19 @@ describe('Telegram message handlers', () => {
       expect(failingSendChatAction).toHaveBeenCalledWith('typing');
       expect(capture).toHaveBeenCalled();
       expect(replyText(reply)).toContain('Расход');
+    });
+
+    it('says in plain words that the AI could not read the phrase, never the technical error', async () => {
+      const { ctx, capture, reply } = createTextContext();
+      capture.mockRejectedValue(new ExternalServiceError('OpenAI Chat', new Error('model_not_found')));
+      const handler = createTextMessageHandler();
+
+      await handler(ctx as any);
+
+      const answer = replyText(reply);
+      expect(answer).toContain('Не получилось разобрать');
+      expect(answer).toContain('не записал');
+      expect(answer).not.toMatch(/External service|OpenAI|❌/);
     });
 
     it('does not call capture for commands', async () => {
@@ -525,6 +539,20 @@ describe('Telegram message handlers', () => {
       });
       await handler(ctx as any);
       expect(replyText(reply)).toBe(notHeard);
+    });
+
+    it('says in plain words that the AI could not read the voice, never the technical error', async () => {
+      const { ctx, reply } = createVoiceContext();
+      (ctx as any).modules.voiceModule.getProcessVoiceInputUseCase = () => ({
+        execute: jest.fn().mockRejectedValue(new ExternalServiceError('OpenAI Whisper', new Error('timeout'))),
+      });
+      const handler = createVoiceMessageHandler();
+
+      await handler(ctx as any);
+
+      const answer = replyText(reply);
+      expect(answer).toContain('Не получилось разобрать');
+      expect(answer).not.toMatch(/External service|OpenAI|❌/);
     });
 
     it('counts the voice input; created transactions are counted by the create use case', async () => {

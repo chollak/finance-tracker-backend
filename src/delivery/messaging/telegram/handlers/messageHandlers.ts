@@ -6,7 +6,7 @@ import { downloadVoiceFile, cleanupFile } from '../utils';
 import { quickAddCategory } from '../utils/userCategories';
 import { assumedThousands, guessedIds, sendRecordMessage } from '../utils/recordMessageView';
 import { answerAmountQuestion } from './recordHandlers';
-import { AppError } from '../../../../shared/domain/errors/AppError';
+import { AppError, ExternalServiceError } from '../../../../shared/domain/errors/AppError';
 import { DetectedDebt } from '../../../../modules/voiceProcessing/domain/processedTransaction';
 import { SubscriptionModule } from '../../../../modules/subscription/subscriptionModule';
 import { UserModule } from '../../../../modules/user/userModule';
@@ -59,6 +59,11 @@ async function resolveUserId(ctx: BotContext, userModule: UserModule | undefined
 }
 
 async function replyWithError(ctx: BotContext, error: unknown): Promise<void> {
+  // A failed AI call says so in the user's words; its own message («External service error: OpenAI Chat») is for the log
+  if (error instanceof ExternalServiceError) {
+    await ctx.reply(RU.errors.aiUnavailable, { parse_mode: 'HTML' });
+    return;
+  }
   await ctx.reply(error instanceof AppError ? `❌ ${error.message}` : RU.errors.generic);
 }
 
@@ -305,6 +310,8 @@ export function createVoiceMessageHandler(userModule?: UserModule, subscriptionM
 
       if (error instanceof NoSpeechDetectedError) {
         await ctx.reply(RU.capture.notHeard);
+      } else if (error instanceof ExternalServiceError) {
+        await ctx.reply(RU.errors.aiUnavailable, { parse_mode: 'HTML' });
       } else if (error instanceof AppError) {
         await ctx.reply(`🎤❌ ${error.message}`);
       } else {

@@ -153,7 +153,7 @@ Text: "Купил хлеб в магазине Пятерочка за пять�
 **API Call:**
 ```typescript
 const response = await openai.chat.completions.create({
-  model: "gpt-4-turbo",
+  model: "gpt-4.1-mini", // AppConfig.OPENAI_MODEL
   messages: [
     { role: "system", content: enhancedSystemPrompt },
     { role: "user", content: text }
