@@ -378,6 +378,66 @@ describe('daily summary (FT-124)', () => {
     });
   });
 
+  /** What Telegraf's fetch throws when the request did not get through: no DNS after sleep, no route, a reset. */
+  function networkError(code: string): Error {
+    return Object.assign(
+      new Error(`request to https://api.telegram.org/bot123:[REDACTED]/sendMessage failed, reason: getaddrinfo ${code} api.telegram.org`),
+      { name: 'FetchError', type: 'system', code, errno: code },
+    );
+  }
+
+  it('no network (the Mac woke without it): tried again the next minute, and after a restart (FT-144)', async () => {
+    const owner = await user();
+    await record(owner, '2026-10-14', 'Кафе', 45_000);
+    refuse = networkError('ENOTFOUND');
+
+    at('2026-10-14', '21:00');
+    expect(await tick()).toEqual([{ userId: owner, day: '2026-10-14', outcome: 'retry' }]);
+    expect(await logEntry(owner, 'daily_summary', '2026-10-14')).toBeNull();
+
+    refuse = networkError('EAI_AGAIN');
+    await restart();
+    at('2026-10-14', '21:01');
+    expect(await tick()).toEqual([{ userId: owner, day: '2026-10-14', outcome: 'retry' }]);
+
+    refuse = null;
+    at('2026-10-14', '21:02');
+    expect(await tick()).toEqual([{ userId: owner, day: '2026-10-14', outcome: 'sent' }]);
+    at('2026-10-14', '21:03');
+    expect(await tick()).toEqual([]);
+    expect(sent).toHaveLength(1);
+    expect(await logEntry(owner, 'daily_summary', '2026-10-14')).toMatchObject({ status: 'sent' });
+  });
+
+  it.each(['ETIMEDOUT', 'ECONNRESET'])('%s may have reached Telegram: kept as failed, never sent twice (FT-144)', async (code) => {
+    const owner = await user();
+    await record(owner, '2026-10-14', 'Кафе', 45_000);
+    refuse = networkError(code);
+
+    at('2026-10-14', '21:00');
+    expect(await tick()).toEqual([{ userId: owner, day: '2026-10-14', outcome: 'failed' }]);
+    refuse = null;
+    at('2026-10-14', '21:01');
+    expect(await tick()).toEqual([]);
+    expect(sent).toEqual([]);
+  });
+
+  it('no network until midnight: the next day does not send the day before (FT-144)', async () => {
+    const owner = await user();
+    await record(owner, '2026-10-14', 'Кафе', 45_000);
+    refuse = networkError('ENOTFOUND');
+
+    at('2026-10-14', '21:00');
+    expect(await tick()).toEqual([{ userId: owner, day: '2026-10-14', outcome: 'retry' }]);
+    at('2026-10-14', '23:59');
+    expect(await tick()).toEqual([{ userId: owner, day: '2026-10-14', outcome: 'retry' }]);
+
+    refuse = null;
+    at('2026-10-15', '09:00');
+    expect(await tick()).toEqual([]);
+    expect(sent).toEqual([]);
+  });
+
   it('only Telegram chats: a dev or guest id gets nothing', async () => {
     await user('dev-user');
     at('2026-10-14', '21:00');

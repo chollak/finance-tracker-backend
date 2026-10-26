@@ -53,6 +53,10 @@ export class SqliteNotificationLogRepository implements NotificationLogRepositor
     await this.repository.update(id, fields);
   }
 
+  async release(id: string): Promise<void> {
+    await this.repository.delete({ id, status: 'sending' });
+  }
+
   async lastSent(userId: string, kind: NotificationKind, variant: DailySummaryVariant, limit: number): Promise<NotificationEntry[]> {
     const entities = await this.repository.find({ where: { userId, kind, variant, status: 'sent' }, order: { period: 'DESC' }, take: limit });
     return entities.map(entity => this.toDomain(entity));

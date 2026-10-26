@@ -144,6 +144,11 @@ kind + period) before it is sent, so even two processes over one database send i
 same kind: started and stopped with the daily summary, in the bot's process, on the same one-minute `Ticker`, and every
 reminder claimed in `notifications_log` before it is sent.
 
+**Update (FT-144):** a notice whose request never left the machine (`ENOTFOUND` / `EAI_AGAIN` after the Mac wakes,
+`ECONNREFUSED`) gives its claim up and is tried on the next tick: the daily summary until its day ends, a reminder
+for the rest of the day of its first try. A timeout, a reset or an «unreachable» error may have reached Telegram and
+stays `failed`, so nothing is sent twice.
+
 ## Proposed Mode Semantics
 
 ### `APP_MODE=all`
