@@ -336,7 +336,8 @@ Type: bug
 Size: S
 
 Context:
-Найдено 2026-10-26 при проверке на маке: после сна итог дня не пришёл, в логе `ENOTFOUND`. Итог и напоминания
+Найдено 2026-10-26 при проверке на маке: итог дня не дошёл ни одного вечера 21–25.10 — каждый раз около 21:05
+`getaddrinfo ENOTFOUND api.telegram.org` (`notifications_log`, `status = failed`): мак спал без сети. Итог и напоминания
 (FT-124, FT-133) уходят не больше одного раза: перед отправкой пишется строка `notifications_log`
 (`dailySummaryNotifier.ts:126-128`, `remindersNotifier.ts:211`), при ошибке она получает `failed`
 (`dailySummaryNotifier.ts:141-145`, `remindersNotifier.ts:224-228`) и больше не пробуется — ни в этом процессе
