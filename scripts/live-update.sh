@@ -140,7 +140,8 @@ main() {
   # A new .nvmrc names a Node that nvm may not have yet; nvm-exec.sh then exits without a word
   "$NVM_EXEC" node --version >/dev/null ||
     fail "Node $(cat .nvmrc) from .nvmrc is not installed: . ~/.nvm/nvm.sh && nvm install, then run this again." \
-      "The code is pulled but not built; the service still runs the previous build"
+      "HEAD is already at $after, not built; the service still runs the previous build from memory, but its next" \
+      "start (a manual restart, a reboot) fails until nvm install"
 
   build || fail "the build of $after failed. The service still runs the previous version from memory, but its next
 start (a crash, a reboot) would use this broken build: fix it and run this again, or $rollback_hint"

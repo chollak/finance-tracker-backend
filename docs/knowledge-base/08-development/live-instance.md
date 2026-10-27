@@ -183,12 +183,13 @@ nano .env.local
 > FT-159: его токен и username в `.env.local`, `ENABLE_TELEGRAM_POLLING=true`, шаг 7 — с его `--chat-id`. Перед
 > переездом вернуть сюда пустые значения или сразу живой токен по разделу «Переезд».
 
-**Shortcut для iPhone (после FT-155).** Когда FT-155 в `main`, раскомментировать `SHORTCUT_CAPTURE_TOKEN`
-(`openssl rand -hex 32`, не короче 32 символов) и `SHORTCUT_CAPTURE_OWNER` (свой id; он должен быть в
-`ALLOWED_TELEGRAM_IDS`). Задавать обе или ни одной: без обеих Shortcut выключен (`403 SHORTCUT_CAPTURE_DISABLED`), а
-неполная или неверная настройка в production останавливает старт. С `Restart=always` это цикл перезапусков —
-`journalctl -u daftar.service -n 20` покажет `Configuration validation failed` и список ошибок. Отзыв токена — новое
-значение и `sudo systemctl restart daftar.service`.
+**Shortcut для iPhone (FT-155).** `SHORTCUT_CAPTURE_TOKEN` (`openssl rand -hex 32`, не короче 32 символов) и
+`SHORTCUT_CAPTURE_OWNER` (свой id; он должен быть в `ALLOWED_TELEGRAM_IDS`). Задавать обе или ни одной: обе пустые —
+Shortcut выключен (`403 SHORTCUT_CAPTURE_DISABLED`), а неполная или неверная настройка в production останавливает
+старт. С `Restart=always` это цикл перезапусков — `journalctl -u daftar.service -n 20` покажет
+`Configuration validation failed` и список ошибок. Отзыв токена — новое значение и
+`sudo systemctl restart daftar.service`: старый перестаёт работать сразу. Сам Shortcut —
+[`docs/IOS_SHORTCUT_ACTION_BUTTON.md`](../../IOS_SHORTCUT_ACTION_BUTTON.md) (FT-160).
 
 ## 6. Сборка и сервис systemd
 
@@ -443,6 +444,10 @@ Shortcut с одного iPhone делят его, браузер на маке 
 Проверить: `journalctl -u daftar.service --grep "rate limit" --no-pager` — в `ip` должен быть адрес устройства из
 `tailscale status`. Если там `127.0.0.1` или `::ffff:127.0.0.1`, адрес клиента не доходит, и все устройства делят один
 лимит. Тогда — задача на код (`trust proxy` и ключ лимитера), не правка на ПК.
+
+IPv6: express-rate-limit 8.6.2 сворачивает адрес IPv6 в подсеть `/56`, а все IPv6-адреса Tailscale лежат в
+`fd7a:115c:a1e0::/48`. Если устройство ходит в tailnet по IPv6, в `ip` будет `fd7a:…`, и все такие устройства делят
+один лимит. Это тоже задача на код, не на ПК.
 
 ## Бэкап (FT-157)
 
