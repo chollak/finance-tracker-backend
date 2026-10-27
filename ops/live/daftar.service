@@ -1,6 +1,6 @@
 # The live instance on the PC (FT-156): API, Mini App and Telegram bot from the live copy, a WSL distro with systemd.
 # A template: __USER__ and __APP_DIR__ are filled in on install, see
-# docs/knowledge-base/08-development/live-instance.md («Сервис systemd»).
+# docs/knowledge-base/08-development/live-instance.md («Сборка и сервис systemd»).
 
 [Unit]
 Description=Daftar live instance (API, Mini App, Telegram bot)

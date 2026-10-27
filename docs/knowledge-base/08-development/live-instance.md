@@ -55,8 +55,8 @@ Daftar для ежедневного пользования живёт на ПК
 
 ## Что нужно
 
-- Windows 10 или 11 с WSL 2 из Microsoft Store: `wsl --version` отвечает (иначе `wsl --update`); дистрибутив Ubuntu
-  (`wsl -l -v`, версия 2).
+- Windows 11 (или 10) с WSL 2 из Microsoft Store версии 0.67.6 или новее — с ней WSL умеет systemd: `wsl --version`
+  отвечает (иначе `wsl --update`); дистрибутив Ubuntu (`wsl -l -v`, версия 2).
 - Аккаунт Tailscale; Tailscale на iPhone включён всегда.
 - Пароль учётной записи Windows — для учётки Microsoft это пароль от неё. Задача Планировщика хранит его, чтобы
   запускаться без входа. PIN не подходит.
@@ -100,7 +100,7 @@ powercfg /change hibernate-timeout-ac 0   # от сети не уходить в
    `serve status` показывает адрес `https://<пк>.<tailnet>.ts.net` — это `WEB_APP_URL`. С `--bg` настройка хранится
    в службе Tailscale и переживает перезагрузку. Сертификат выдаётся при первом обращении, поэтому первый запрос
    может идти несколько секунд. Пока сервер в WSL не запущен, адрес отвечает 502 — так и должно быть. Выключить:
-   `tailscale serve reset`.
+   `tailscale serve reset`. Если `serve` отвечает отказом в доступе — те же команды в PowerShell от администратора.
 5. По желанию: админка → **Machines** → ПК → «…» → **Disable key expiry**. Иначе через 180 дней ключ ПК истечёт и адрес
    перестанет открываться до повторного входа в Tailscale; бот продолжит работать — он ходит в Telegram напрямую.
    Tailscale советует отключать срок только для доверенных устройств.
@@ -113,13 +113,13 @@ WSL:
 cat /etc/wsl.conf
 ```
 
-Если в секции `[boot]` нет `systemd=true` (Ubuntu из `wsl --install` обычно уже с ним):
+Ubuntu из `wsl --install` обычно уже с `systemd=true` в секции `[boot]`. Если строки нет, а секции `[boot]` нет тоже:
 
 ```bash
-printf '[boot]\nsystemd=true\n' | sudo tee -a /etc/wsl.conf
+printf '\n[boot]\nsystemd=true\n' | sudo tee -a /etc/wsl.conf
 ```
 
-Если секция `[boot]` в файле уже есть, допишите строку в неё: `sudo nano /etc/wsl.conf`. Потом в PowerShell
+Если секция `[boot]` есть, а строки нет — дописать `systemd=true` в неё: `sudo nano /etc/wsl.conf`. Потом в PowerShell
 `wsl --shutdown`, снова открыть Ubuntu и проверить
 ([Microsoft](https://learn.microsoft.com/en-us/windows/wsl/systemd)):
 
@@ -293,30 +293,33 @@ scripts/live-update.sh
 
 ## Откат
 
-Нужен прошлый коммит — его печатает `live-update.sh` (или `git reflog`).
+Нужен прошлый коммит — его печатает `live-update.sh` (или `git reflog`). Всё — в `~/daftar-live`.
 
-```bash
-cd ~/daftar-live
-sudo systemctl stop daftar.service
-git switch --detach <прошлый коммит>
-scripts/nvm-exec.sh npm ci --include=dev
-scripts/nvm-exec.sh npm run build:webapp
-scripts/nvm-exec.sh npm run build
-sudo systemctl start daftar.service
-```
+1. Остановить сервис: `sudo systemctl stop daftar.service`.
+2. Проверить, применило ли обновление миграции:
+   `journalctl -u daftar.service --grep "migrations applied" --no-pager | tail -n 3` — запись со временем обновления,
+   в ней `applied` (какие) и `backupPath` (копия базы до них). Если миграций не было — сразу шаг 3. Если были, старому
+   коду нужна старая схема, и путей два:
+   - **сохранить записи, сделанные после обновления** — сейчас, ещё на новой версии:
+     `scripts/nvm-exec.sh npm run migration:revert`. Отменяет последнюю миграцию, перед этим сам копирует базу в
+     `data/backups/`. Миграций было несколько — повторить по числу `applied`;
+   - **вернуть базу как была до обновления** (записи после него пропадут) — после шага 3:
 
-Если обновление применило миграции, старому коду нужна старая схема. Два пути, оба — при остановленном сервисе:
+     ```bash
+     cp data/database.sqlite "data/backups/database-before-rollback-$(date +%Y%m%d-%H%M%S).sqlite"
+     cp <backupPath из журнала> data/database.sqlite
+     ```
 
-- **Сохранить записи, сделанные после обновления:** до `git switch`, ещё на новой версии,
-  `scripts/nvm-exec.sh npm run migration:revert` — отменяет последнюю миграцию (перед этим сам копирует базу в
-  `data/backups/`). Миграций было несколько — повторить столько раз, сколько их в `applied` в журнале.
-- **Вернуть базу как была до обновления** (записи после него пропадут): после `git switch`
+3. Вернуть код и собрать:
 
-  ```bash
-  ls -t data/backups/ | head -n 3
-  cp data/database.sqlite "data/backups/database-before-rollback-$(date +%Y%m%d-%H%M%S).sqlite"
-  cp data/backups/database-<дата>-<время>.sqlite data/database.sqlite
-  ```
+   ```bash
+   git switch --detach <прошлый коммит>
+   scripts/nvm-exec.sh npm ci --include=dev
+   scripts/nvm-exec.sh npm run build:webapp
+   scripts/nvm-exec.sh npm run build
+   ```
+
+4. Запустить: `sudo systemctl start daftar.service`, проверить `curl -s http://127.0.0.1:3000/api/health`.
 
 Пока копия на откате, `live-update.sh` отказывается работать (не `main`) — новая версия не вернётся случайно. Когда
 исправление в `main`: `git switch main && scripts/live-update.sh`.
