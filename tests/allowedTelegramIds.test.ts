@@ -13,6 +13,7 @@ import { UserModule } from '../src/modules/user/userModule';
 import { SqliteUserRepository } from '../src/modules/user/infrastructure/persistence/SqliteUserRepository';
 import { SqliteUserSettingsRepository } from '../src/modules/user/infrastructure/persistence/SqliteUserSettingsRepository';
 import { openMigratedDatabase, TestDatabase } from './helpers/testDatabase';
+import { appConfigWith } from './helpers/appConfigWith';
 
 /**
  * FT-153: closed access by ALLOWED_TELEGRAM_IDS (decision 2026-10-26, «живой экземпляр на своём ПК»). The bot, the API
@@ -20,22 +21,6 @@ import { openMigratedDatabase, TestDatabase } from './helpers/testDatabase';
  * before; production refuses to start without it.
  */
 
-type Config = typeof import('../src/shared/infrastructure/config/appConfig').AppConfig;
-
-/** AppConfig read afresh from the given environment; what it checks is always set, so `.env.local` cannot add to it. */
-function configWith(env: Record<string, string>): Config {
-  const saved = { ...process.env };
-  Object.assign(process.env, { OPENAI_API_KEY: 'test-key', PORT: '3000', DATABASE_TYPE: 'sqlite', ALLOWED_TELEGRAM_IDS: '', ...env });
-  // Outside NODE_ENV=test AppConfig says which env file it loaded
-  const log = jest.spyOn(console, 'log').mockImplementation(() => undefined);
-  let config!: Config;
-  jest.isolateModules(() => {
-    config = require('../src/shared/infrastructure/config/appConfig').AppConfig;
-  });
-  log.mockRestore();
-  process.env = saved;
-  return config;
-}
 
 describe('the list of allowed Telegram ids (FT-153)', () => {
   it('takes ids separated by commas, with spaces and empty entries around them', () => {
@@ -79,7 +64,7 @@ describe('the list of allowed Telegram ids (FT-153)', () => {
 
 describe('ALLOWED_TELEGRAM_IDS in AppConfig (FT-153)', () => {
   it('keeps the parsed list and lets in only it', () => {
-    const config = configWith({ ALLOWED_TELEGRAM_IDS: '597843119, 111' });
+    const config = appConfigWith({ ALLOWED_TELEGRAM_IDS: '597843119, 111' });
     expect(config.ALLOWED_TELEGRAM_IDS).toEqual(['597843119', '111']);
     expect(config.TELEGRAM_ACCESS.allows(111)).toBe(true);
     expect(config.TELEGRAM_ACCESS.allows(222)).toBe(false);
@@ -87,25 +72,25 @@ describe('ALLOWED_TELEGRAM_IDS in AppConfig (FT-153)', () => {
   });
 
   it('outside production an empty list lets everyone in, as before', () => {
-    const config = configWith({ NODE_ENV: 'development', ALLOWED_TELEGRAM_IDS: '' });
+    const config = appConfigWith({ NODE_ENV: 'development', ALLOWED_TELEGRAM_IDS: '' });
     expect(config.TELEGRAM_ACCESS.open).toBe(true);
     expect(config.validate()).toEqual({ isValid: true, errors: [] });
   });
 
   it('in production an empty list stops the start', () => {
-    const config = configWith({ NODE_ENV: 'production', ALLOWED_TELEGRAM_IDS: ' , ' });
+    const config = appConfigWith({ NODE_ENV: 'production', ALLOWED_TELEGRAM_IDS: ' , ' });
     const { isValid, errors } = config.validate();
     expect(isValid).toBe(false);
     expect(errors).toEqual([expect.stringContaining('ALLOWED_TELEGRAM_IDS is required in production')]);
   });
 
   it('in production a list lets the start go on', () => {
-    expect(configWith({ NODE_ENV: 'production', ALLOWED_TELEGRAM_IDS: '597843119' }).validate()).toEqual({ isValid: true, errors: [] });
+    expect(appConfigWith({ NODE_ENV: 'production', ALLOWED_TELEGRAM_IDS: '597843119' }).validate()).toEqual({ isValid: true, errors: [] });
   });
 
   it('an entry that is not a Telegram id stops the start everywhere, naming the entry', () => {
     for (const NODE_ENV of ['development', 'production']) {
-      const { isValid, errors } = configWith({ NODE_ENV, ALLOWED_TELEGRAM_IDS: '597843119, @shukur' }).validate();
+      const { isValid, errors } = appConfigWith({ NODE_ENV, ALLOWED_TELEGRAM_IDS: '597843119, @shukur' }).validate();
       expect(isValid).toBe(false);
       expect(errors).toEqual([expect.stringMatching(/ALLOWED_TELEGRAM_IDS.*@shukur/)]);
     }
@@ -311,6 +296,12 @@ describe('the iPhone Shortcut captures only for an allowed owner (FT-153)', () =
 
   it('captures for an owner on the list', async () => {
     const res = await capture({ 'X-Shortcut-User-Id': String(ALLOWED) });
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ userId: String(ALLOWED) });
+  });
+
+  it('reads the owner as a number, as the list does: leading zeros name the same id (FT-155)', async () => {
+    const res = await capture({ 'X-Shortcut-User-Id': `00${ALLOWED}` });
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ userId: String(ALLOWED) });
   });

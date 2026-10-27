@@ -368,6 +368,8 @@ SELECT * FROM transaction LIMIT 10;
 | `OPENAI_MODEL` | `gpt-4.1-mini` | Модель разбора текста (`gpt-4-turbo` OpenAI снял) |
 | `OPENAI_TIMEOUT_MS` | `20000` | Сколько ждать ответа OpenAI на разбор текста и расшифровку голоса (FT-145). Без него SDK ждёт 10 минут |
 | `OPENAI_MAX_RETRIES` | `1` | Сколько раз повторить разбор текста после таймаута или сбоя, 0–5 (FT-145). Голос не повторяется |
+| `SHORTCUT_CAPTURE_TOKEN` | - | Токен Shortcut с iPhone для `POST /api/quick-capture`, заголовок `X-Shortcut-Capture-Token` (FT-075, FT-155). При `NODE_ENV=production` — не короче 32 символов и только вместе с `SHORTCUT_CAPTURE_OWNER`, иначе ошибка запуска; оба пустые — Shortcut выключен. Отзыв — новое значение и перезапуск. [QUICK_CAPTURE_API.md](../../QUICK_CAPTURE_API.md#ios-shortcut-capture) |
+| `SHORTCUT_CAPTURE_OWNER` | - | Telegram id, на которого пишутся все записи по токену; должен быть в `ALLOWED_TELEGRAM_IDS`. Вне production без него владельца называет заголовок `X-Shortcut-User-Id` |
 
 ---
 

@@ -2,6 +2,7 @@ import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
 import { parseTelegramIds, telegramAccess } from '../../domain/access/telegramAccess';
+import { shortcutCaptureAccess } from '../../domain/access/shortcutCaptureAccess';
 
 /**
  * Environment policy:
@@ -54,6 +55,12 @@ const intFromEnv = (value: string | undefined, fallback: number, min: number, ma
 /** Above this `setTimeout` fires at once. */
 const MAX_TIMER_MS = 2_147_483_647;
 const allowedTelegramIds = parseTelegramIds(process.env.ALLOWED_TELEGRAM_IDS);
+// The iPhone Shortcut's token and owner (FT-155). The middleware reads them per request by the same rules; here they
+// are only checked, so a wrong setting stops the start instead of turning up later as a 403 on the phone
+const shortcutCapture = shortcutCaptureAccess(
+  { token: process.env.SHORTCUT_CAPTURE_TOKEN, owner: process.env.SHORTCUT_CAPTURE_OWNER },
+  { production: process.env.NODE_ENV === 'production', access: telegramAccess(allowedTelegramIds.ids) }
+);
 
 export class AppConfig {
   // Environment
@@ -135,6 +142,10 @@ export class AppConfig {
         'the OpenAI key. List the Telegram user ids allowed in, separated by commas'
       );
     }
+
+    // A Shortcut token that is short or bound to nobody — or to someone without access — is a mistake, not a choice:
+    // leaving both unset is how production goes without the Shortcut
+    errors.push(...shortcutCapture.problems);
 
     // Validate database configuration
     if (this.DATABASE_TYPE !== 'sqlite') {

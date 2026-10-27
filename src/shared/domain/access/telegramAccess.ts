@@ -25,16 +25,23 @@ export interface ParsedTelegramIds {
 }
 
 /**
- * Telegram user ids separated by commas; spaces around them and empty entries are fine. A user id is a positive
- * whole number; leading zeros name the same id.
+ * One Telegram user id as the list keeps it: a positive whole number, spaces around it are fine and leading zeros name
+ * the same id (`0900000143` → `900000143`). Null for anything else.
  */
+export function telegramIdOf(raw: string): string | null {
+  const entry = raw.trim();
+  const id = /^\d+$/.test(entry) ? Number(entry) : NaN;
+  return Number.isSafeInteger(id) && id > 0 ? String(id) : null;
+}
+
+/** Telegram user ids separated by commas; spaces around them and empty entries are fine. */
 export function parseTelegramIds(raw: string | undefined): ParsedTelegramIds {
   const entries = (raw ?? '').split(',').map(entry => entry.trim()).filter(Boolean);
   const ids: string[] = [];
   const invalid: string[] = [];
   for (const entry of entries) {
-    const id = /^\d+$/.test(entry) ? Number(entry) : NaN;
-    if (Number.isSafeInteger(id) && id > 0) ids.push(String(id));
+    const id = telegramIdOf(entry);
+    if (id !== null) ids.push(id);
     else invalid.push(entry);
   }
   return { ids, invalid };
