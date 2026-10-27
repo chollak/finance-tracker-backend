@@ -22,6 +22,7 @@ const TUNNEL = { 'Cf-Connecting-Ip': '203.0.113.7', 'X-Forwarded-For': '203.0.11
 let server: http.Server;
 let baseUrl: string;
 const savedToken = process.env.SHORTCUT_CAPTURE_TOKEN;
+const savedOwner = process.env.SHORTCUT_CAPTURE_OWNER;
 
 beforeAll(async () => {
   const app = express();
@@ -51,6 +52,8 @@ afterAll(async () => {
 afterEach(() => {
   if (savedToken === undefined) delete process.env.SHORTCUT_CAPTURE_TOKEN;
   else process.env.SHORTCUT_CAPTURE_TOKEN = savedToken;
+  if (savedOwner === undefined) delete process.env.SHORTCUT_CAPTURE_OWNER;
+  else process.env.SHORTCUT_CAPTURE_OWNER = savedOwner;
 });
 
 async function call(method: string, path: string, headers: Record<string, string>, body?: unknown) {
@@ -150,5 +153,29 @@ describe('X-Shortcut-User-Id (FT-075)', () => {
       { text: 'такси 18к' }
     );
     expect(res.body).toEqual({ userId: '131184740', source: 'ios_shortcut' });
+  });
+
+  it('with SHORTCUT_CAPTURE_OWNER the header may only repeat the owner, from this machine too (FT-155)', async () => {
+    process.env.SHORTCUT_CAPTURE_OWNER = '131184740';
+    const other = await call('POST', '/capture', { 'X-Shortcut-User-Id': '597843119' }, { text: 'такси 18к' });
+    expect(other.status).toBe(403);
+    expect(other.body.code).toBe('ACCESS_DENIED');
+
+    const same = await call('POST', '/capture', { 'X-Shortcut-User-Id': '0131184740' }, { text: 'такси 18к' });
+    expect(same.body).toEqual({ userId: '131184740', source: 'ios_shortcut' });
+  });
+
+  it('with SHORTCUT_CAPTURE_OWNER the token alone writes for the owner through the tunnel (FT-155)', async () => {
+    process.env.SHORTCUT_CAPTURE_TOKEN = 'test-token-value';
+    process.env.SHORTCUT_CAPTURE_OWNER = '131184740';
+    const res = await call('POST', '/capture', { 'X-Shortcut-Capture-Token': 'test-token-value', ...TUNNEL }, { text: 'такси 18к' });
+    expect(res.body).toEqual({ userId: '131184740', source: 'ios_shortcut' });
+  });
+
+  it('without an owner a request with only the token has nobody to write for (FT-155)', async () => {
+    process.env.SHORTCUT_CAPTURE_TOKEN = 'test-token-value';
+    const res = await call('POST', '/capture', { 'X-Shortcut-Capture-Token': 'test-token-value' }, { text: 'такси 18к' });
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe('SHORTCUT_OWNER_REQUIRED');
   });
 });

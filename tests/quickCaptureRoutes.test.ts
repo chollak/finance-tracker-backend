@@ -207,8 +207,9 @@ describe('POST /api/quick-capture', () => {
     });
   });
 
-  // FT-075: dev/test-only direct capture for an iPhone Shortcut, which cannot produce initData.
-  describe('ios shortcut capture (dev/test only)', () => {
+  // FT-075: direct capture for an iPhone Shortcut, which cannot produce initData. Production with a bound owner: FT-155,
+  // tests/shortcutCaptureOwner.test.ts
+  describe('ios shortcut capture outside production', () => {
     const ORIGINAL_NODE_ENV = process.env.NODE_ENV;
     const ORIGINAL_TOKEN = process.env.SHORTCUT_CAPTURE_TOKEN;
 
@@ -256,7 +257,7 @@ describe('POST /api/quick-capture', () => {
       );
     });
 
-    it('rejects the shortcut bypass in production (403), instead of silently ignoring it', async () => {
+    it('rejects the shortcut in production when it is not set up (403), instead of silently ignoring it', async () => {
       process.env.NODE_ENV = 'production';
       delete process.env.SHORTCUT_CAPTURE_TOKEN;
 

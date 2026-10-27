@@ -10,6 +10,8 @@
 import { Request, RequestHandler, Response, NextFunction } from 'express';
 import crypto from 'crypto';
 import { AppConfig } from '../../../../shared/infrastructure/config/appConfig';
+import { telegramIdOf } from '../../../../shared/domain/access/telegramAccess';
+import { ShortcutCaptureAccess, shortcutCaptureAccess } from '../../../../shared/domain/access/shortcutCaptureAccess';
 import { createLogger, LogCategory } from '../../../../shared/infrastructure/logging';
 
 const logger = createLogger(LogCategory.AUTH);
@@ -482,9 +484,9 @@ export function requireAdmin(req: Request, res: Response, next: NextFunction): v
   next();
 }
 
-/** Header carrying the owner id an iPhone Shortcut captures for (dev/test only). */
+/** Header with the Telegram id an iPhone Shortcut captures for: optional once SHORTCUT_CAPTURE_OWNER is set (FT-155). */
 export const SHORTCUT_USER_ID_HEADER = 'x-shortcut-user-id';
-/** Header carrying the shared capture token, required when SHORTCUT_CAPTURE_TOKEN is configured. */
+/** Header with the capture token, SHORTCUT_CAPTURE_TOKEN. */
 export const SHORTCUT_TOKEN_HEADER = 'x-shortcut-capture-token';
 
 /**
@@ -500,89 +502,113 @@ function safeTokenEquals(provided: string, expected: string): boolean {
 }
 
 /**
- * Shortcut capture middleware — DEV/TEST ONLY (FT-075)
+ * The Shortcut setting by the rules AppConfig checks at start (FT-155). Read per request, as NODE_ENV is for the dev
+ * headers: in production the environment does not change, and tests switch it per case.
+ */
+function currentShortcutCapture(): ShortcutCaptureAccess {
+  return shortcutCaptureAccess(
+    { token: process.env.SHORTCUT_CAPTURE_TOKEN, owner: process.env.SHORTCUT_CAPTURE_OWNER },
+    { production: process.env.NODE_ENV === 'production', access: AppConfig.TELEGRAM_ACCESS }
+  );
+}
+
+function refuse(res: Response, status: number, code: string, error: string): void {
+  res.status(status).json({ success: false, error, code });
+}
+
+type ShortcutOwner = { owner: string } | { refused: { code: string; error: string } };
+
+/**
+ * Who the capture is written for: the configured owner, which the header may only repeat; without one (outside
+ * production) the header names the owner. Ids compare as numbers, as the list does: `0900000143` is `900000143`.
+ */
+function shortcutOwner(configured: string | null, claimedRaw: string): ShortcutOwner {
+  const claimed = claimedRaw ? telegramIdOf(claimedRaw) : null;
+  if (claimedRaw && (claimed === null || (configured !== null && claimed !== configured))) {
+    return { refused: { code: 'ACCESS_DENIED', error: 'This capture token writes only for its owner' } };
+  }
+  const owner = configured ?? claimed;
+  if (owner === null) {
+    return { refused: { code: 'SHORTCUT_OWNER_REQUIRED', error: 'Set SHORTCUT_CAPTURE_OWNER or send X-Shortcut-User-Id' } };
+  }
+  return { owner };
+}
+
+/**
+ * The iPhone Shortcut's way in (FT-075, FT-155). A Shortcut cannot produce Telegram initData, so it sends the capture
+ * token, `X-Shortcut-Capture-Token`, and optionally `X-Shortcut-User-Id`. The capture is written for
+ * SHORTCUT_CAPTURE_OWNER, and the source is forced to `ios_shortcut`, so the Shortcut body only has to carry `text`.
  *
- * An iPhone Shortcut cannot produce Telegram Mini App initData, so for local testing it identifies
- * itself with `X-Shortcut-User-Id` (plus `X-Shortcut-Capture-Token` when SHORTCUT_CAPTURE_TOKEN is
- * set). The header id becomes the capture owner and the source is forced to `ios_shortcut`, so the
- * Shortcut body only has to carry `text`.
+ * - Production (the live instance): on only with a token of 32+ characters and an owner on ALLOWED_TELEGRAM_IDS —
+ *   otherwise `403 SHORTCUT_CAPTURE_DISABLED`, loudly, so a Shortcut never falls through to another auth path. The
+ *   token is always required.
+ * - Outside production, as before: without an owner the header names it; without a token only a request from this
+ *   machine goes through (`403 SHORTCUT_CAPTURE_TOKEN_REQUIRED` through the tunnel or the Wi-Fi).
  *
- * Production is guarded loudly, not silently: a shortcut header in production is refused with 403
- * rather than ignored, so a misconfigured Shortcut fails visibly instead of falling back to another
- * auth path. Requests without the header sign in and capture for the signed-in user (`writeAsSignedInUser`).
+ * The token is checked first, in constant time (`401 INVALID_SHORTCUT_TOKEN`), so an answer to a wrong token says
+ * nothing about the owner or the list. A header naming anyone but the owner is `403 ACCESS_DENIED`. A request with
+ * neither header signs in and captures for the signed-in user (`writeAsSignedInUser`).
  *
- * `req.telegramUser` is deliberately NOT fabricated here: this bypass proves nothing about a
- * Telegram identity, so ownership-sensitive middleware (`verifyOwnership`, `requireAdmin`) stays
- * fail-closed for shortcut requests.
+ * `req.telegramUser` is deliberately NOT fabricated here: the token proves nothing about a Telegram session, so
+ * ownership-sensitive middleware (`verifyOwnership`, `requireAdmin`) stays fail-closed for shortcut requests.
  */
 export function allowShortcutCapture(req: Request, res: Response, next: NextFunction): void {
-  const rawShortcutUserId = req.headers[SHORTCUT_USER_ID_HEADER];
-  const shortcutUserId = typeof rawShortcutUserId === 'string' ? rawShortcutUserId.trim() : '';
+  const rawUserId = req.headers[SHORTCUT_USER_ID_HEADER];
+  const claimedOwner = typeof rawUserId === 'string' ? rawUserId.trim() : '';
+  const rawToken = req.headers[SHORTCUT_TOKEN_HEADER];
 
   // Not a Shortcut request: the signed-in user captures for themselves
-  if (!shortcutUserId) {
+  if (!claimedOwner && rawToken === undefined) {
     requireAuth(req, res, () => writeAsSignedInUser(req, res, next));
     return;
   }
 
-  if (process.env.NODE_ENV === 'production') {
-    logger.warn('Shortcut capture rejected in production');
-    res.status(403).json({
-      success: false,
-      error: 'Shortcut capture is disabled in production',
-      code: 'SHORTCUT_CAPTURE_DISABLED',
-    });
+  const setting = currentShortcutCapture();
+  if (!setting.enabled) {
+    logger.warn('Shortcut capture rejected: the path is off', { problems: setting.problems.length });
+    refuse(res, 403, 'SHORTCUT_CAPTURE_DISABLED', 'Shortcut capture is not set up on this server');
     return;
   }
 
-  const expectedToken = (process.env.SHORTCUT_CAPTURE_TOKEN || '').trim();
-
-  // Without a token the header alone names the owner, so it counts only from this machine: through the tunnel
-  // anyone with the link could write as anyone
-  if (!expectedToken && !isLocalRequest(req)) {
-    logger.warn('Shortcut capture without a token from outside this machine rejected', { shortcutUserId });
-    res.status(403).json({
-      success: false,
-      error: 'Shortcut capture through a tunnel or the network needs SHORTCUT_CAPTURE_TOKEN',
-      code: 'SHORTCUT_CAPTURE_TOKEN_REQUIRED',
-    });
+  // Without a token the header alone names the owner, so it counts only from this machine (never in production, where
+  // the path is off without a token): through the tunnel anyone with the link could write as anyone
+  if (!setting.token && !isLocalRequest(req)) {
+    logger.warn('Shortcut capture without a token from outside this machine rejected');
+    refuse(res, 403, 'SHORTCUT_CAPTURE_TOKEN_REQUIRED', 'Shortcut capture through a tunnel or the network needs SHORTCUT_CAPTURE_TOKEN');
     return;
   }
 
-  if (expectedToken) {
-    const rawToken = req.headers[SHORTCUT_TOKEN_HEADER];
+  if (setting.token) {
     const providedToken = typeof rawToken === 'string' ? rawToken.trim() : '';
-
-    if (!providedToken || !safeTokenEquals(providedToken, expectedToken)) {
-      logger.warn('Shortcut capture token rejected', { shortcutUserId });
-      res.status(401).json({
-        success: false,
-        error: 'Invalid or missing shortcut capture token',
-        code: 'INVALID_SHORTCUT_TOKEN',
-      });
+    if (!providedToken || !safeTokenEquals(providedToken, setting.token)) {
+      logger.warn('Shortcut capture token rejected');
+      refuse(res, 401, 'INVALID_SHORTCUT_TOKEN', 'Invalid or missing shortcut capture token');
       return;
     }
   }
 
-  // Closed access (FT-153): the header names the owner as initData would; checked after the token, so an answer to a
-  // wrong token does not tell who is on the list
-  if (!AppConfig.TELEGRAM_ACCESS.allows(shortcutUserId)) {
-    logger.warn('Shortcut capture for a Telegram user who is not allowed refused', { shortcutUserId });
-    res.status(403).json({
-      success: false,
-      error: 'This Telegram account has no access',
-      code: 'ACCESS_NOT_ALLOWED',
-    });
+  const resolved = shortcutOwner(setting.owner, claimedOwner);
+  if ('refused' in resolved) {
+    logger.warn('Shortcut capture for someone other than its owner refused', { code: resolved.refused.code });
+    refuse(res, 403, resolved.refused.code, resolved.refused.error);
     return;
   }
 
-  logger.debug('Shortcut capture accepted', { shortcutUserId, tokenRequired: Boolean(expectedToken) });
+  // Closed access (FT-153): the owner is checked as initData would be. Production does not start with an owner off the
+  // list, so this matters outside production, where the header may name the owner
+  if (!AppConfig.TELEGRAM_ACCESS.allows(resolved.owner)) {
+    logger.warn('Shortcut capture for a Telegram user who is not allowed refused', { shortcutUserId: resolved.owner });
+    refuse(res, 403, 'ACCESS_NOT_ALLOWED', 'This Telegram account has no access');
+    return;
+  }
+
+  logger.debug('Shortcut capture accepted', { tokenRequired: Boolean(setting.token), boundOwner: setting.owner !== null });
 
   req.isAuthenticated = true;
 
-  // The header is the authoritative owner id for this flow, so it overrides whatever the body said.
+  // The owner is the authoritative id for this flow, so it overrides whatever the body said.
   if (req.body && typeof req.body === 'object') {
-    req.body.userId = shortcutUserId;
+    req.body.userId = resolved.owner;
     req.body.source = 'ios_shortcut';
   }
 

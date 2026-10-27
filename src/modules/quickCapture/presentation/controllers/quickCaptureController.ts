@@ -23,8 +23,8 @@ export function createQuickCaptureRouter(
   // Capture can reach OpenAI, so it shares the AI rate limit with /voice.
   router.use(aiRateLimiter);
 
-  // allowShortcutCapture handles the dev/test iPhone Shortcut header (FT-075); otherwise the request signs in and
-  // body.userId becomes the signed-in user (writeAsSignedInUser), so a capture is never for someone else.
+  // allowShortcutCapture lets the iPhone Shortcut in by its token, for its owner (FT-075, FT-155); otherwise the request
+  // signs in and body.userId becomes the signed-in user (writeAsSignedInUser), so a capture is never for someone else.
   router.post('/', allowShortcutCapture, async (req: Request, res: Response) => {
     try {
       const { text, source, userId, userName, clientId } = req.body ?? {};
