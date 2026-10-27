@@ -437,49 +437,59 @@ journalctl -u <service> -n 50 | grep -E "Telegram bot polling failed permanently
 | Frontend broken | `npm run build:webapp` |
 | Bot not working | Check token, restart server |
 | Slow requests | Add indexes, optimize queries |
-| Git pull fails | Switch to HTTPS or regenerate SSH keys |
+| Live instance: `git pull` fails | HTTPS remote — [Live Instance on the PC](#live-instance-on-the-pc) |
 | Subscription UUID error | Resolve telegram_id → UUID in controller |
 
 ---
 
-## Deployment Issues
+## Live Instance on the PC
 
-### Git Pull Fails on Server
+Живой экземпляр на ПК с WSL, его установка, обновление и откат — [live-instance.md](live-instance.md). Команды ниже —
+в WSL, в копии `~/daftar-live`.
 
-**Error:**
-```
-git@github.com: Permission denied (publickey)
-```
+### `live-update.sh` Refuses to Run
 
-**Solution:**
+| Сообщение | Что значит и что делать |
+|---|---|
+| `the live copy is on '…', not main` | Копия на откате или на другой ветке. Когда исправление в `main`: `git switch main`, затем `scripts/live-update.sh` |
+| `the working tree has changes` | В живой копии правили файлы. `git status`, `git diff` — нужное перенести в репозиторий через PR, потом `git restore .`; лишние файлы — сначала `git clean -n` (список), затем `git clean -f`. `data/` и `.env.local` в git не входят, их это не трогает |
+| `.env.local is missing` | Шаг 5 в [live-instance.md](live-instance.md) |
+| `commit(s) that are not in origin/main` | В живой копии сделали коммит: `git log --oneline origin/main..HEAD`. Нужное перенести через PR, затем `git reset --hard origin/main` |
 
-**Option A: Switch to HTTPS (Simpler)**
+### Git Pull Fails on the PC
+
+**`Permission denied (publickey)`** — копию склонировали по SSH, а ключа на ПК нет. Репозиторий публичный, живой копии
+пушить нечего — переключить на HTTPS:
+
 ```bash
-cd ~/finance-tracker-backend
-git remote set-url origin https://github.com/YOUR_USERNAME/YOUR_REPO.git
-git pull origin main  # Test
+git remote set-url origin https://github.com/chollak/finance-tracker-backend.git
+git pull --ff-only origin main
 ```
 
-**Option B: Fix SSH Keys**
+**`Not possible to fast-forward`** — в живой копии есть свои коммиты: `git log --oneline origin/main..main`. Нужное
+перенести через PR, затем `git fetch origin && git reset --hard origin/main`.
+
+**`Could not resolve host`** — у WSL нет сети или DNS: `curl -sI https://github.com`, `cat /etc/resolv.conf`.
+
+### Service Restarts in a Loop or Is `failed`
+
 ```bash
-# Generate new SSH key
-ssh-keygen -t ed25519 -C "deploy@server" -f ~/.ssh/github_deploy
-
-# Add to SSH config
-cat >> ~/.ssh/config << 'EOF'
-Host github.com
-  HostName github.com
-  User git
-  IdentityFile ~/.ssh/github_deploy
-  IdentitiesOnly yes
-EOF
-
-# Add public key to GitHub
-cat ~/.ssh/github_deploy.pub
-# Copy output, add to: https://github.com/settings/keys
+systemctl status daftar.service --no-pager
+journalctl -u daftar.service -n 100 --no-pager   # без группы adm — через sudo
 ```
+
+Выход из-за бота (`401`, `409`) — раздел [Production process exits right after start](#production-process-exits-right-after-start).
+
+| В журнале | Причина |
+|---|---|
+| `Configuration validation failed` | Настройка в `.env.local` не проходит проверку на старте; список ошибок — в той же записи (`errors`). Например, `ALLOWED_TELEGRAM_IDS is required in production` (FT-153) или Shortcut задан наполовину, токен короче 32 символов, владелец не в `ALLOWED_TELEGRAM_IDS` (FT-155) |
+| `Telegram bot polling failed permanently` сразу после старта, без `409` | Нет сети на старте: в production процесс выходит (FT-154), systemd запускает его снова с растущей паузой |
+| `NODE_MODULE_VERSION` | `node_modules` собраны под другой Node: `scripts/nvm-exec.sh npm ci --include=dev` |
+| `start request repeated too quickly` | Сработал лимит стартов (на systemd 249 / Ubuntu 22.04 — после ~20 быстрых перезапусков, например при долгом отсутствии сети). Исправить причину, затем `sudo systemctl reset-failed daftar.service && sudo systemctl start daftar.service` |
 
 ---
+
+## Deployment Issues
 
 ### Docker Build Fails
 
