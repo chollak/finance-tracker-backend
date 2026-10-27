@@ -273,7 +273,8 @@ scripts/live-update.sh
 Скрипт:
 
 1. Отказывается работать не на `main`, с изменёнными или лишними файлами в дереве и без `.env.local`.
-2. `git pull --ff-only origin main` — и показывает новые коммиты.
+2. `git pull --ff-only origin main` — и показывает новые коммиты. Отказывается, если в копии есть свои коммиты,
+   которых нет в `origin/main`: живая копия — это `main` как в GitHub.
 3. `npm ci --include=dev`, `npm run build:webapp`, `npm run build` — на Node из `.nvmrc`. `--include=dev` нужен, чтобы
    TypeScript и Vite ставились, даже если в оболочке выставлен `NODE_ENV=production`.
 4. `sudo systemctl reset-failed` и `restart daftar.service` (спросит пароль sudo). `reset-failed` — на случай, если

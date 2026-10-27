@@ -86,13 +86,19 @@ main() {
   cd "$APP_DIR"
   check_preconditions
 
-  local before after rollback_hint port health_url
+  local before after ahead rollback_hint port health_url
   before="$(git rev-parse --short HEAD)"
   rollback_hint="rollback: docs/knowledge-base/08-development/live-instance.md («Откат»), previous commit $before"
 
   say "pulling main (now at $before)"
   git pull --ff-only origin main ||
-    fail "git pull failed (above); nothing was changed. See «Обновление» in docs/knowledge-base/08-development/live-instance.md"
+    fail "git pull failed (above); nothing was changed. See «Live Instance on the PC» in docs/knowledge-base/08-development/troubleshooting.md"
+  # A commit made in the live copy itself is clean and fast-forwards, but it is not main as it is in GitHub
+  ahead="$(git rev-list --count origin/main..HEAD)"
+  if [ "$ahead" != "0" ]; then
+    fail "the live copy has $ahead commit(s) that are not in origin/main: git log --oneline origin/main..HEAD." \
+      "Move them to a PR, then git reset --hard origin/main"
+  fi
   after="$(git rev-parse --short HEAD)"
   if [ "$before" = "$after" ]; then
     say "no new commits; rebuilding $after anyway"

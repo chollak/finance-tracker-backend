@@ -437,6 +437,7 @@ Expected response:
 | `the live copy is on '…', not main` | Копия на откате или на другой ветке. Когда исправление в `main`: `git switch main`, затем `scripts/live-update.sh` |
 | `the working tree has changes` | В живой копии правили файлы. `git status`, `git diff` — нужное перенести в репозиторий через PR, потом `git restore .`; лишние файлы — сначала `git clean -n` (список), затем `git clean -f`. `data/` и `.env.local` в git не входят, их это не трогает |
 | `.env.local is missing` | Шаг 5 в [live-instance.md](live-instance.md) |
+| `commit(s) that are not in origin/main` | В живой копии сделали коммит: `git log --oneline origin/main..HEAD`. Нужное перенести через PR, затем `git reset --hard origin/main` |
 
 ### Git Pull Fails on the PC
 
