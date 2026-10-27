@@ -241,14 +241,15 @@ export const apiClient = new ApiClient();
 
 /**
  * Whether the server answers at all (FT-129): `GET /api/health`, which the service worker never answers from its cache.
- * The offline mode asks it while the server is not answering, to know when it is back.
+ * The offline mode asks it while the server is not answering, to know when it is back. Its own JSON 503 — the bot is
+ * down (FT-154) — is still the server answering.
  */
 export async function serverAnswers(timeoutMs = 10_000): Promise<boolean> {
   const abort = new AbortController();
   const timer = setTimeout(() => abort.abort(), timeoutMs);
   try {
     const response = await fetch(`${env.apiBaseUrl}/health`, { signal: abort.signal, cache: 'no-store' });
-    return response.ok;
+    return answeredByServer(response);
   } catch {
     return false;
   } finally {

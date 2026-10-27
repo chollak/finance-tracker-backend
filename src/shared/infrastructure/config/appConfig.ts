@@ -78,6 +78,10 @@ export class AppConfig {
   // Development settings
   // Telegram polling is enabled by default unless explicitly disabled.
   static readonly ENABLE_TELEGRAM_POLLING = process.env.ENABLE_TELEGRAM_POLLING !== 'false';
+  // Launches of polling while Telegram answers 409 (another process polls the token), with a doubling delay; after
+  // the last one the bot is `failed`, which in production ends the process (FT-154). A typo keeps the default
+  static readonly TELEGRAM_POLLING_MAX_RETRIES = intFromEnv(process.env.TELEGRAM_POLLING_MAX_RETRIES, 5, 1, 20);
+  static readonly TELEGRAM_POLLING_RETRY_BASE_MS = intFromEnv(process.env.TELEGRAM_POLLING_RETRY_BASE_MS, 5_000, 1, MAX_TIMER_MS);
   static readonly WEBHOOK_MODE = process.env.WEBHOOK_MODE === 'true';
 
   // OpenAI Configuration

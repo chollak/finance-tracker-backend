@@ -11,6 +11,7 @@ import {
 } from '../src/delivery/web/express/middleware/errorMiddleware';
 import { createVoiceProcessingRouter } from '../src/modules/voiceProcessing/presentation/controllers/voiceProcessingController';
 import { createDebtRouter } from '../src/modules/debt/presentation/controllers/debtRoutes';
+import { createHealthHandler } from '../src/delivery/web/express/routes/healthRoutes';
 import { ProcessTextInputUseCase } from '../src/modules/voiceProcessing/application/processTextInput';
 import { ProcessVoiceInputUseCase } from '../src/modules/voiceProcessing/application/processVoiceInput';
 import { DebtModule } from '../src/modules/debt/debtModule';
@@ -30,9 +31,8 @@ import { ValidationError } from '../src/shared/domain/errors/AppError';
  * router factories buildServer uses (same imports, same order: requestLogger ->
  * securityHeaders -> corsHeaders -> json/urlencoded -> routes -> notFoundHandler ->
  * errorHandler), with mocked module/use-case dependencies for the routers that are
- * exercised (voice, debt). The inline `/health` handler in expressServer.ts is not
- * exported as a standalone unit, so its JSON contract is reproduced verbatim here;
- * if that handler's shape changes, this test must be updated to match.
+ * exercised (voice, debt). `/health` uses the same handler as expressServer.ts
+ * (`createHealthHandler`, FT-154) with the bot switched off; its 503 is in healthRoute.test.ts.
  */
 
 const DEBT_OWNER_UUID = 'debt-owner-uuid';
@@ -46,16 +46,7 @@ function buildTestApp() {
   router.use(express.json({ limit: '10mb' }));
   router.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-  // Mirrors the inline health handler in expressServer.ts:50-58
-  router.get('/health', (_req, res) => {
-    res.status(200).json({
-      status: 'healthy',
-      timestamp: new Date().toISOString(),
-      uptime: process.uptime(),
-      version: process.env.npm_package_version || '1.0.0',
-      environment: process.env.NODE_ENV || 'development',
-    });
-  });
+  router.get('/health', createHealthHandler(() => ({ state: 'disabled', attempts: 0 })));
 
   const textUseCase = { execute: jest.fn() } as unknown as ProcessTextInputUseCase;
   const voiceUseCase = { execute: jest.fn() } as unknown as ProcessVoiceInputUseCase;

@@ -48,7 +48,7 @@ Prefer unit/use-case tests for pure business logic and route tests for HTTP/midd
 
 From `tests/apiRoutes.test.ts`:
 
-- `GET /api/health` returns healthy JSON.
+- `GET /api/health` returns healthy JSON; `tests/healthRoute.test.ts` — `503` when the bot failed for good, `200` otherwise (FT-154).
 - unknown API route returns 404 JSON with original path.
 - CORS preflight short-circuits with 200.
 - `POST /api/voice/text-input`:
