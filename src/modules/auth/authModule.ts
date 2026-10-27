@@ -1,4 +1,5 @@
 import { AppConfig } from '../../shared/infrastructure/config/appConfig';
+import { TelegramAccess } from '../../shared/domain/access/telegramAccess';
 import { RepositoryFactory } from '../../shared/infrastructure/database/repositoryFactory';
 import { BotUsernameSource, SecretGenerator } from './domain/authPorts';
 import { LoginTokenRepository } from './domain/loginTokenRepository';
@@ -21,6 +22,8 @@ export interface AuthModuleOptions {
   secrets?: SecretGenerator;
   /** The clock; tests move it. */
   now?: () => Date;
+  /** Who may take a session (FT-153); ALLOWED_TELEGRAM_IDS when not given. */
+  access?: TelegramAccess;
 }
 
 /**
@@ -42,7 +45,7 @@ export class AuthModule {
     this.startWebLogin = new StartWebLoginUseCase(deps, options.botUsername);
     this.webLoginStatus = new GetWebLoginStatusUseCase(deps, options.botUsername);
     this.cancelWebLogin = new CancelWebLoginUseCase(deps);
-    this.openWebSession = new OpenWebSessionUseCase(deps);
+    this.openWebSession = new OpenWebSessionUseCase(deps, options.access ?? AppConfig.TELEGRAM_ACCESS);
     this.webSession = new GetWebSessionUseCase(deps);
     this.closeWebSession = new CloseWebSessionUseCase(deps);
     this.openLoginInBot = new OpenLoginInBotUseCase(deps);

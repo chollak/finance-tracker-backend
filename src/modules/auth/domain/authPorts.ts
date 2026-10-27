@@ -22,6 +22,16 @@ export class LoginNotConfirmedError extends AppError {
   }
 }
 
+/** A login confirmed while ALLOWED_TELEGRAM_IDS let this Telegram id in, taken after the list changed (FT-153). */
+export class AccessNotAllowedError extends AppError {
+  readonly code = 'ACCESS_NOT_ALLOWED';
+  readonly statusCode = 403;
+
+  constructor() {
+    super('This Telegram account has no access');
+  }
+}
+
 /** No session cookie, or one that ended. */
 export class NotSignedInError extends AppError {
   readonly code = 'NOT_SIGNED_IN';

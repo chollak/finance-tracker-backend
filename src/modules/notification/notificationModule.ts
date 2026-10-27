@@ -10,7 +10,7 @@ import { AuditModule } from '../audit/auditModule';
 import { GoalView } from '../audit/application/auditViews';
 import { NotFoundError } from '../../shared/domain/errors/AppError';
 import { Result } from '../../shared/domain/types/Result';
-import { TelegramAccess, telegramAccess } from '../../shared/domain/access/telegramAccess';
+import { TelegramAccess } from '../../shared/domain/access/telegramAccess';
 import { AppConfig } from '../../shared/infrastructure/config/appConfig';
 
 /**
@@ -30,7 +30,7 @@ export class NotificationModule {
     sources: { transactionModule: TransactionModule; userModule: UserModule; auditModule?: AuditModule; access?: TelegramAccess },
     now: () => Date = () => new Date()
   ) {
-    const access = sources.access ?? telegramAccess([]);
+    const access = sources.access ?? AppConfig.TELEGRAM_ACCESS;
     this.summaries = new SummaryService(summaryNumbers(sources.transactionModule));
     this.dailySummary = new DailySummaryNotifier(repository, summaryRecipients(sources.userModule, access), this.summaries, now);
     if (sources.auditModule) {
@@ -39,12 +39,7 @@ export class NotificationModule {
   }
 
   static create(transactionModule: TransactionModule, userModule: UserModule, auditModule: AuditModule): NotificationModule {
-    return new NotificationModule(RepositoryFactory.createNotificationLogRepository(), {
-      transactionModule,
-      userModule,
-      auditModule,
-      access: AppConfig.TELEGRAM_ACCESS,
-    });
+    return new NotificationModule(RepositoryFactory.createNotificationLogRepository(), { transactionModule, userModule, auditModule });
   }
 
   /** Итоги дня и месяца: the daily summary, /today, /month. */

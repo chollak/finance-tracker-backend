@@ -192,12 +192,14 @@ describe('daily summary (FT-124)', () => {
     });
   });
 
-  it('goes only to the users on ALLOWED_TELEGRAM_IDS; the rest of the base is left as it is (FT-153)', async () => {
+  it('goes only to the users on ALLOWED_TELEGRAM_IDS from the config; the rest of the base is left as it is (FT-153)', async () => {
     const owner = await user();
     const tester = await user('111');
     await record(owner, '2026-10-14', 'Кафе', 45_000);
     await record(tester, '2026-10-14', 'Кафе', 30_000);
-    await restart(telegramAccess([TELEGRAM_ID]));
+    // Built without a list of its own, as the app builds it: the list comes from AppConfig
+    jest.replaceProperty(AppConfig, 'TELEGRAM_ACCESS', telegramAccess([TELEGRAM_ID]));
+    await restart();
     at('2026-10-14', '21:00');
 
     expect(await tick()).toEqual([{ userId: owner, day: '2026-10-14', outcome: 'sent' }]);

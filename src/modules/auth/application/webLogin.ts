@@ -14,7 +14,8 @@ import {
   WebLoginState,
 } from '../domain/webLogin';
 import { LoginTokenRepository } from '../domain/loginTokenRepository';
-import { BotUsernameSource, LoginNotConfirmedError, LoginUnavailableError, SecretGenerator } from '../domain/authPorts';
+import { AccessNotAllowedError, BotUsernameSource, LoginNotConfirmedError, LoginUnavailableError, SecretGenerator } from '../domain/authPorts';
+import { TelegramAccess } from '../../../shared/domain/access/telegramAccess';
 
 /** What the use cases share: the logins, the secrets and the clock. */
 export interface WebLoginDeps {
@@ -106,16 +107,18 @@ export interface OpenedWebSession {
 
 /**
  * The browser takes its confirmed login as a session: a new secret (not the waiting one), valid 30 days. A login
- * becomes a session once; one that is not confirmed, or whose 5 minutes are over, is refused.
+ * becomes a session once; one that is not confirmed, or whose 5 minutes are over, is refused. So is one of a Telegram id
+ * not in ALLOWED_TELEGRAM_IDS (FT-153): the bot does not confirm for them, but the list may have changed since.
  */
 export class OpenWebSessionUseCase {
-  constructor(private deps: WebLoginDeps) {}
+  constructor(private deps: WebLoginDeps, private access: TelegramAccess) {}
 
   async execute(input: { browserSecret: string }): Promise<Result<OpenedWebSession>> {
     const { logins, secrets, now } = this.deps;
     const login = await findByBrowser(this.deps, input.browserSecret);
     const at = now();
     if (!login || !login.telegramId || !canTakeSession(login, at)) return ResultHelper.failure(new LoginNotConfirmedError());
+    if (!this.access.allows(login.telegramId)) return ResultHelper.failure(new AccessNotAllowedError());
 
     const sessionSecret = secrets.newSecret();
     const expiresAt = new Date(at.getTime() + SESSION_TTL_MS);

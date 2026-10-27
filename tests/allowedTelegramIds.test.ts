@@ -22,14 +22,17 @@ import { openMigratedDatabase, TestDatabase } from './helpers/testDatabase';
 
 type Config = typeof import('../src/shared/infrastructure/config/appConfig').AppConfig;
 
-/** AppConfig read afresh from the given environment; ALLOWED_TELEGRAM_IDS is always set, so `.env.local` cannot add it. */
+/** AppConfig read afresh from the given environment; what it checks is always set, so `.env.local` cannot add to it. */
 function configWith(env: Record<string, string>): Config {
   const saved = { ...process.env };
-  Object.assign(process.env, { OPENAI_API_KEY: 'test-key', ALLOWED_TELEGRAM_IDS: '', ...env });
+  Object.assign(process.env, { OPENAI_API_KEY: 'test-key', PORT: '3000', DATABASE_TYPE: 'sqlite', ALLOWED_TELEGRAM_IDS: '', ...env });
+  // Outside NODE_ENV=test AppConfig says which env file it loaded
+  const log = jest.spyOn(console, 'log').mockImplementation(() => undefined);
   let config!: Config;
   jest.isolateModules(() => {
     config = require('../src/shared/infrastructure/config/appConfig').AppConfig;
   });
+  log.mockRestore();
   process.env = saved;
   return config;
 }
@@ -140,6 +143,7 @@ describe('the API lets in only the allowed (FT-153)', () => {
   async function serve(allowed: string[]) {
     jest.replaceProperty(AppConfig, 'TELEGRAM_ACCESS', telegramAccess(allowed));
     jest.replaceProperty(AppConfig, 'TG_BOT_API_KEY', BOT_TOKEN);
+    authModule = new AuthModule(new SqliteLoginTokenRepository(db.dataSource), { botUsername: { username: async () => 'DaftarBot' } });
     const app = express();
     app.use('/api', buildServer(unusedModule, unusedModule, unusedModule, unusedModule, unusedModule, userModule, undefined, undefined, { authModule }));
     server = await new Promise<http.Server>(resolve => {
@@ -149,20 +153,37 @@ describe('the API lets in only the allowed (FT-153)', () => {
   }
 
   async function get(path: string, headers: Record<string, string> = {}) {
-    const res = await fetch(`${baseUrl}${path}`, { headers });
-    const text = await res.text();
-    return { status: res.status, body: text ? JSON.parse(text) : null };
+    return call('GET', path, headers);
   }
 
-  /** A browser session for this Telegram id, as the web login gives it (for example before the list changed). */
-  async function sessionCookie(telegramId: number): Promise<Record<string, string>> {
-    const started = await authModule.getStartWebLoginUseCase().execute({ userAgent: 'test' });
+  async function call(method: string, path: string, headers: Record<string, string> = {}) {
+    const res = await fetch(`${baseUrl}${path}`, { method, headers });
+    const text = await res.text();
+    return { status: res.status, body: text ? JSON.parse(text) : null, setCookie: res.headers.get('set-cookie') ?? '' };
+  }
+
+  /** The web login of a browser confirmed in the bot while the list was open: its waiting secret. */
+  async function confirmedLogin(telegramId: number): Promise<string> {
+    const openAuth = new AuthModule(new SqliteLoginTokenRepository(db.dataSource), {
+      botUsername: { username: async () => 'DaftarBot' },
+      access: telegramAccess([]),
+    });
+    const started = await openAuth.getStartWebLoginUseCase().execute({ userAgent: 'test' });
     if (!started.success) throw started.error;
     const token = new URL(started.data.link).searchParams.get('start')!.slice('login_'.length);
-    const opened = await authModule.getOpenLoginInBotUseCase().execute({ token, telegramId: String(telegramId) });
+    const opened = await openAuth.getOpenLoginInBotUseCase().execute({ token, telegramId: String(telegramId) });
     if (!opened.success || opened.data.kind !== 'ask') throw new Error('The login did not open');
-    await authModule.getAnswerLoginUseCase().execute({ loginId: opened.data.loginId, telegramId: String(telegramId), answer: 'confirm' });
-    const session = await authModule.getOpenWebSessionUseCase().execute({ browserSecret: started.data.browserSecret });
+    await openAuth.getAnswerLoginUseCase().execute({ loginId: opened.data.loginId, telegramId: String(telegramId), answer: 'confirm' });
+    return started.data.browserSecret;
+  }
+
+  /** A browser session for this Telegram id, issued while the list was open (for example before it changed). */
+  async function sessionCookie(telegramId: number): Promise<Record<string, string>> {
+    const openAuth = new AuthModule(new SqliteLoginTokenRepository(db.dataSource), {
+      botUsername: { username: async () => 'DaftarBot' },
+      access: telegramAccess([]),
+    });
+    const session = await openAuth.getOpenWebSessionUseCase().execute({ browserSecret: await confirmedLogin(telegramId) });
     if (!session.success) throw session.error;
     return { Cookie: `daftar_session=${session.data.sessionSecret}` };
   }
@@ -172,7 +193,6 @@ describe('the API lets in only the allowed (FT-153)', () => {
   beforeEach(async () => {
     db = await openMigratedDatabase();
     userModule = new UserModule(new SqliteUserRepository(db.dataSource), new SqliteUserSettingsRepository(db.dataSource));
-    authModule = new AuthModule(new SqliteLoginTokenRepository(db.dataSource), { botUsername: { username: async () => 'DaftarBot' } });
   });
 
   afterEach(async () => {
@@ -207,6 +227,19 @@ describe('the API lets in only the allowed (FT-153)', () => {
 
     expect((await get('/api/settings', { 'X-Dev-User-Id': String(STRANGER) })).status).toBe(403);
     expect((await get('/api/settings', { 'X-Dev-User-Id': 'abc' })).status).toBe(403);
+    expect(await usersInDb()).toEqual([]);
+  });
+
+  it('does not turn a login confirmed while the list was open into a session for someone not on it', async () => {
+    const browserSecret = await confirmedLogin(STRANGER);
+    await serve([String(ALLOWED)]);
+
+    const res = await call('POST', '/api/auth/session', { Cookie: `daftar_login=${browserSecret}` });
+
+    expect(res.status).toBe(403);
+    // The controllers' error envelope, not the middleware's
+    expect(res.body.error).toMatchObject({ code: 'ACCESS_NOT_ALLOWED' });
+    expect(res.setCookie).not.toContain('daftar_session=');
     expect(await usersInDb()).toEqual([]);
   });
 

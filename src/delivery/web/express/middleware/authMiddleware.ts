@@ -10,7 +10,6 @@
 import { Request, RequestHandler, Response, NextFunction } from 'express';
 import crypto from 'crypto';
 import { AppConfig } from '../../../../shared/infrastructure/config/appConfig';
-import { TelegramAccess } from '../../../../shared/domain/access/telegramAccess';
 import { createLogger, LogCategory } from '../../../../shared/infrastructure/logging';
 
 const logger = createLogger(LogCategory.AUTH);
@@ -196,11 +195,8 @@ export function signedInTelegramId(req: Request, botToken: string = AppConfig.TG
  * A dev header that names no Telegram id is refused too: `requireAuth` would sign it in as NaN. A request that proves
  * no user goes on to its route, which answers 401 if it needs sign-in. With an empty list everyone goes on.
  */
-export function createAllowedUsersMiddleware(
-  options: { access?: TelegramAccess; botToken?: string } = {}
-): RequestHandler {
-  const access = options.access ?? AppConfig.TELEGRAM_ACCESS;
-  const botToken = options.botToken ?? AppConfig.TG_BOT_API_KEY;
+export function createAllowedUsersMiddleware(): RequestHandler {
+  const access = AppConfig.TELEGRAM_ACCESS;
 
   return (req: Request, res: Response, next: NextFunction): void => {
     if (access.open) {
@@ -208,9 +204,10 @@ export function createAllowedUsersMiddleware(
       return;
     }
 
-    const telegramId = signedInTelegramId(req, botToken);
-    const claimsDevUser = devHeadersAllowed(req) && Boolean(req.headers['x-dev-user-id']);
-    if (telegramId === null ? !claimsDevUser : access.allows(telegramId)) {
+    const telegramId = signedInTelegramId(req);
+    const provesNoUser = telegramId === null && !(devHeadersAllowed(req) && req.headers['x-dev-user-id']);
+    const allowed = telegramId !== null && access.allows(telegramId);
+    if (provesNoUser || allowed) {
       next();
       return;
     }

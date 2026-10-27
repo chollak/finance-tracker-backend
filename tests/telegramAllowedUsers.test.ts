@@ -6,6 +6,7 @@ import { AppConfig } from '../src/shared/infrastructure/config/appConfig';
 import { telegramAccess } from '../src/shared/domain/access/telegramAccess';
 import { winstonLogger } from '../src/shared/infrastructure/logging';
 import { startTelegramBot } from '../src/delivery/messaging/telegram/telegramBot';
+import { allowedUsersOnly } from '../src/delivery/messaging/telegram/middleware/allowedUsersOnly';
 import { AuthModule } from '../src/modules/auth/authModule';
 import { SqliteLoginTokenRepository } from '../src/modules/auth/infrastructure/SqliteLoginTokenRepository';
 import { UserModule } from '../src/modules/user/userModule';
@@ -186,5 +187,21 @@ describe('the bot answers only the allowed (FT-153)', () => {
 
     expect(sent().some(call => call.method === 'sendMessage' && call.payload.chat_id === STRANGER)).toBe(true);
     expect(await usersInDb()).toEqual([String(STRANGER)]);
+  });
+});
+
+describe('an update without a sender (FT-153)', () => {
+  afterEach(() => jest.restoreAllMocks());
+
+  it('goes nowhere while the list is set, and on with an empty list', async () => {
+    jest.spyOn(winstonLogger, 'warn').mockImplementation(() => winstonLogger);
+    const channelPost: any = { from: undefined, updateType: 'channel_post' };
+    const next = jest.fn().mockResolvedValue(undefined);
+
+    await allowedUsersOnly(telegramAccess([String(ALLOWED)]))(channelPost, next);
+    expect(next).not.toHaveBeenCalled();
+
+    await allowedUsersOnly(telegramAccess([]))(channelPost, next);
+    expect(next).toHaveBeenCalledTimes(1);
   });
 });

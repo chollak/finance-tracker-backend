@@ -12,8 +12,8 @@ limits are off (Д3), so anyone who found the bot would spend the OpenAI key. Wi
 | Bot | `allowedUsersOnly` is the first `bot.use`: no user row, no OpenAI, nothing written, no answer; `warn` with the Telegram id. An update with no sender is dropped |
 | API | `createAllowedUsersMiddleware` in `buildServer`, right after the web session: initData, the session cookie or `X-Dev-User-Id` of someone else — `403 ACCESS_NOT_ALLOWED` before any route resolves the user. A request that proves no user goes on to its route |
 | Shortcut | `allowShortcutCapture`: an owner (`X-Shortcut-User-Id`) not on the list — `403 ACCESS_NOT_ALLOWED`, after the token check. In production the path stays `403 SHORTCUT_CAPTURE_DISABLED` until FT-155 |
-| Web login (FT-128) | The bot ignores `/start login_…` and the buttons, so the login is never confirmed and no session is issued; a session issued before the list changed gets `403` |
-| Notices | Итоги дня and reminders go only to the users on the list; the other rows of `users` (test users) stay as they are |
+| Web login (FT-128) | The bot ignores `/start login_…` and the buttons, so the login is never confirmed. `OpenWebSessionUseCase` also refuses a login confirmed before the list changed (`POST /api/auth/session` — `403 ACCESS_NOT_ALLOWED`, no user row); a session issued before the change gets `403` from the API gate |
+| Notices | Итоги дня and reminders go only to the users on the list (`NotificationModule` takes it from `AppConfig` unless given one); the other rows of `users` (test users) stay as they are |
 
 Empty list: everyone, as before — outside production only; production does not start without it. An entry that is not
 a positive whole number stops the start everywhere: skipped quietly, a typo would lock the owner out or leave the list
