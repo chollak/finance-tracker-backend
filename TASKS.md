@@ -9,7 +9,7 @@
 | Почему план такой — лог решений | [`docs/tasks/decisions.md`](docs/tasks/decisions.md) |
 | Отложенные задачи, полные описания (23) | [`docs/tasks/backlog.md`](docs/tasks/backlog.md) |
 | Открытые задачи вехи 10 | [`docs/pastel/tasks.md`](docs/pastel/tasks.md) |
-| Закрытые задачи с отчётами (159) | [`docs/tasks/archive/`](docs/tasks/archive/) |
+| Закрытые задачи с отчётами (160) | [`docs/tasks/archive/`](docs/tasks/archive/) |
 
 ---
 
@@ -18,11 +18,11 @@
 Живой экземпляр переезжает с мака на ПК с Windows + WSL: systemd, постоянный адрес `tailscale serve` в tailnet,
 ночной бэкап в облачную папку, закрытый доступ (решение 2026-10-26, `docs/tasks/decisions.md`). Порядок:
 
-1. Код: FT-153 → FT-154 → FT-155 по одной — трогают одни и те же файлы. FT-158 — параллельно.
+1. Код: FT-153 → FT-154 → FT-155 по одной — трогают одни и те же файлы. FT-158 — сделана.
 2. Скрипты и инструкции: FT-156 (живой экземпляр), FT-157 (бэкап). Запускает Шукур на ПК.
 3. Переезд FT-159 — руки Шукура; потом Shortcut FT-160 и iOS-приложение FT-161.
 
-Прогресс: FT-153 и FT-158 в работе · FT-154 · FT-155 · FT-156 · FT-157 → FT-159
+Прогресс: FT-153 в работе · FT-154 · FT-155 · FT-156 · FT-157 → FT-159
 
 ### Веха 10 «Пастель» — в `main`
 
@@ -75,29 +75,6 @@ Definition of Done:
 - [ ] Вход в браузере через бота (FT-128) не-допущенному не выдаётся; тест
 - [ ] Итоги дня и напоминания уходят только допущенным; тест
 - [ ] Переменная описана в `.env.example`, `CLAUDE.md` и `docs/knowledge-base/08-development/quick-start.md`
-
----
-
-### FT-158: Remove the dead SSH deploy to AWS
-
-Status: in_progress
-Priority: low
-Owner: Claude Code, QA — под-чат проверки
-Type: repo-hygiene
-Size: S
-
-Context:
-Джоб `deploy` в `.github/workflows/deploy.yml` ходит по SSH на старый AWS-хост (выведен из планов 2026-08-13) и
-запускается только вручную. `docker-cleanup.yml` ходит на тот же хост по расписанию; GitHub отключил его за
-неактивность, последний прогон — 2026-03-29. Живой экземпляр теперь обновляется командой на ПК (FT-156), этот путь
-не вернётся. `quality-gate` в том же файле — единственная проверка на push в `main`, и она остаётся.
-
-Definition of Done:
-- [ ] Из `deploy.yml` убран джоб `deploy`; `quality-gate` остаётся и берёт Node из `.nvmrc`, а не 20; файл переименован, если имя больше не отражает суть
-- [ ] `docker-cleanup.yml` удалён
-- [ ] Шукур сам удаляет секреты `SSH_HOST`, `SSH_USER`, `SSH_KEY` в настройках репозитория (внешнее действие)
-- [ ] `Dockerfile` и `docker-compose.yml` не трогаются: Docker сейчас не используется, но удалять их — отдельное решение
-- [ ] Обновлены места, где деплой описан как законсервированный (`CLAUDE.md`, `docs/knowledge-base/08-development/`)
 
 ---
 
@@ -242,7 +219,7 @@ Definition of Done:
 
 ## Что уже закрыто
 
-159 задач: вехи 0–10 и весь отрезок до того, как появились вехи. Полные отчёты «Реализовано / Проверка» — в архиве.
+160 задач: вехи 0–10 и весь отрезок до того, как появились вехи. Полные отчёты «Реализовано / Проверка» — в архиве.
 
 | Отрезок | Задачи | Файл |
 |---|---|---|
@@ -253,3 +230,4 @@ Definition of Done:
 | Quick capture и первые срезы редизайна | FT-073…FT-081 | [`ft-073-081-quick-action.md`](docs/tasks/archive/ft-073-081-quick-action.md) |
 | Веха 9, отменённый остаток (заменён «Пастелью») | FT-082…FT-086 | [`ft-082-086-quick-action-cancelled.md`](docs/tasks/archive/ft-082-086-quick-action-cancelled.md) |
 | Веха 10: дизайн «Пастель» | FT-087…FT-143 (открытые — в `docs/pastel/tasks.md`) | [`ft-087-143-pastel.md`](docs/tasks/archive/ft-087-143-pastel.md) |
+| Ежедневное пользование и переезд на ПК | с FT-144 | [`ft-144-daily-use.md`](docs/tasks/archive/ft-144-daily-use.md) |
