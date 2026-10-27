@@ -1,6 +1,7 @@
 import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
+import { parseTelegramIds, telegramAccess } from '../../domain/access/telegramAccess';
 
 /**
  * Environment policy:
@@ -52,6 +53,7 @@ const intFromEnv = (value: string | undefined, fallback: number, min: number, ma
 };
 /** Above this `setTimeout` fires at once. */
 const MAX_TIMER_MS = 2_147_483_647;
+const allowedTelegramIds = parseTelegramIds(process.env.ALLOWED_TELEGRAM_IDS);
 
 export class AppConfig {
   // Environment
@@ -67,6 +69,11 @@ export class AppConfig {
   static readonly TG_BOT_USERNAME = process.env.TG_BOT_USERNAME || '';
   static readonly WEB_APP_URL = process.env.WEB_APP_URL || '';
   static readonly NGROK_URL = process.env.NGROK_URL || '';
+
+  // Closed access (FT-153): the bot, the API and the notices only for these Telegram ids, comma-separated.
+  // Empty lets everyone in outside production; production does not start without it
+  static readonly ALLOWED_TELEGRAM_IDS: readonly string[] = allowedTelegramIds.ids;
+  static readonly TELEGRAM_ACCESS = telegramAccess(allowedTelegramIds.ids);
 
   // Development settings
   // Telegram polling is enabled by default unless explicitly disabled.
@@ -110,6 +117,19 @@ export class AppConfig {
 
     if (this.PORT < 1 || this.PORT > 65535) {
       errors.push('PORT must be between 1 and 65535');
+    }
+
+    // A typo skipped quietly would lock the owner out, or leave an empty list that lets everyone in
+    if (allowedTelegramIds.invalid.length > 0) {
+      errors.push(
+        `ALLOWED_TELEGRAM_IDS has entries that are not Telegram user ids: ${allowedTelegramIds.invalid.join(', ')}. ` +
+        'List whole numbers separated by commas'
+      );
+    } else if (this.NODE_ENV === 'production' && this.ALLOWED_TELEGRAM_IDS.length === 0) {
+      errors.push(
+        'ALLOWED_TELEGRAM_IDS is required in production: without it anyone who finds the bot uses it at the cost of ' +
+        'the OpenAI key. List the Telegram user ids allowed in, separated by commas'
+      );
     }
 
     // Validate database configuration

@@ -25,6 +25,7 @@ import { SqliteNotificationLogRepository } from '../src/modules/notification/inf
 import { registerReminderHandlers, reminderSender } from '../src/delivery/messaging/telegram/handlers/reminderHandlers';
 import { Result } from '../src/shared/domain/types/Result';
 import { prototypeRecords } from './helpers/auditPrototype';
+import { TelegramAccess, telegramAccess } from '../src/shared/domain/access/telegramAccess';
 
 /**
  * FT-133 end to end on a real SQLite file (board «Бот · напоминания», BotNotice.md): a goal is told once at 80% of its
@@ -82,7 +83,7 @@ describe('goal, subscription and audit reminders in the bot (FT-133)', () => {
   let running: Running;
   let owner: string;
 
-  async function start(): Promise<Running> {
+  async function start(access?: TelegramAccess): Promise<Running> {
     const ds = createAppDataSource(file);
     open.push(ds);
     await ds.initialize();
@@ -107,16 +108,16 @@ describe('goal, subscription and audit reminders in the bot (FT-133)', () => {
     });
     const notificationModule = new NotificationModule(
       new SqliteNotificationLogRepository(ds),
-      { transactionModule, userModule, auditModule },
+      { transactionModule, userModule, auditModule, access },
       () => clock
     );
     return { ds, transactionModule, userModule, auditModule, notificationModule };
   }
 
-  /** The bot process stops and starts again over the same file. */
-  async function restart(): Promise<void> {
+  /** The bot process stops and starts again over the same file, with ALLOWED_TELEGRAM_IDS when given (FT-153). */
+  async function restart(access?: TelegramAccess): Promise<void> {
     await running.ds.destroy();
-    running = await start();
+    running = await start(access);
   }
 
   /** The clock reads this time in Tashkent (UTC+5). */
@@ -241,6 +242,20 @@ describe('goal, subscription and audit reminders in the bot (FT-133)', () => {
       at('2026-10-28', '12:00');
       expect(await tick()).toEqual([]);
       expect(sent).toHaveLength(1);
+    });
+
+    it('only to the users on ALLOWED_TELEGRAM_IDS (FT-153)', async () => {
+      await auditedOnOctober14();
+      await record('2026-10-27', 'Транспорт', 60_000, 'Такси');
+      at('2026-10-27', '12:30');
+
+      await restart(telegramAccess(['111']));
+      expect(await tick()).toEqual([]);
+      expect(sent).toEqual([]);
+
+      await restart(telegramAccess([TELEGRAM_ID]));
+      expect(await outcomes()).toEqual(['goal_near:sent']);
+      expect(sent.map(message => message.chatId)).toEqual([TELEGRAM_ID]);
     });
 
     it('over its limit: once more, by how much; the 80% message never comes after it', async () => {

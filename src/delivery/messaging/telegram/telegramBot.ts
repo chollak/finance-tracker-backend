@@ -23,6 +23,7 @@ import { registerCallbackHandlers } from './handlers/callbackHandlers';
 import { registerLoginHandlers } from './handlers/loginHandlers';
 import { closeAmountQuestionOnCommand, registerRecordHandlers } from './handlers/recordHandlers';
 import { registerPaymentHandlers } from './handlers/paymentHandlers';
+import { allowedUsersOnly } from './middleware/allowedUsersOnly';
 import { createLogger, LogCategory } from '../../../shared/infrastructure/logging';
 
 const logger = createLogger(LogCategory.TELEGRAM);
@@ -137,6 +138,9 @@ export function startTelegramBot(
     fs.mkdirSync(downloadsDir, { recursive: true });
 
     // ===== MIDDLEWARE =====
+
+    // Closed access (FT-153): first of all, so someone not in ALLOWED_TELEGRAM_IDS reaches nothing below
+    bot.use(allowedUsersOnly(AppConfig.TELEGRAM_ACCESS));
 
     // Inject modules into context
     bot.use((ctx, next) => {

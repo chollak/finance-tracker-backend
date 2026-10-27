@@ -2,6 +2,24 @@
 
 > Status: FT-024 audit/decision matrix. This document records current auth, guest, ownership, and userId-resolution boundaries before any strict resolver implementation.
 
+## 2026-10-27 — closed access by `ALLOWED_TELEGRAM_IDS` (FT-153)
+
+The live instance moves to the owner's PC (decision 2026-10-26). Tailscale closes the API, not the bot; free-tier
+limits are off (Д3), so anyone who found the bot would spend the OpenAI key. With a list set:
+
+| Boundary | Someone not on the list |
+|---|---|
+| Bot | `allowedUsersOnly` is the first `bot.use`: no user row, no OpenAI, nothing written, no answer; `warn` with the Telegram id. An update with no sender is dropped |
+| API | `createAllowedUsersMiddleware` in `buildServer`, right after the web session: initData, the session cookie or `X-Dev-User-Id` of someone else — `403 ACCESS_NOT_ALLOWED` before any route resolves the user. A request that proves no user goes on to its route |
+| Shortcut | `allowShortcutCapture`: an owner (`X-Shortcut-User-Id`) not on the list — `403 ACCESS_NOT_ALLOWED`, after the token check. In production the path stays `403 SHORTCUT_CAPTURE_DISABLED` until FT-155 |
+| Web login (FT-128) | The bot ignores `/start login_…` and the buttons, so the login is never confirmed and no session is issued; a session issued before the list changed gets `403` |
+| Notices | Итоги дня and reminders go only to the users on the list; the other rows of `users` (test users) stay as they are |
+
+Empty list: everyone, as before — outside production only; production does not start without it. An entry that is not
+a positive whole number stops the start everywhere: skipped quietly, a typo would lock the owner out or leave the list
+empty. Tests: `tests/allowedTelegramIds.test.ts`, `tests/telegramAllowedUsers.test.ts`, the FT-153 cases in
+`tests/dailySummary.test.ts` and `tests/botReminders.test.ts`.
+
 ## 2026-10-21 — the user only from authentication (supersedes the guest rows below)
 
 Found while checking the local run: the dev server `npm run dev:miniapp` puts on the internet accepted unproven

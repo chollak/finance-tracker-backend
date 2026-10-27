@@ -10,13 +10,15 @@ import { AuditModule } from '../audit/auditModule';
 import { GoalView } from '../audit/application/auditViews';
 import { NotFoundError } from '../../shared/domain/errors/AppError';
 import { Result } from '../../shared/domain/types/Result';
+import { TelegramAccess, telegramAccess } from '../../shared/domain/access/telegramAccess';
+import { AppConfig } from '../../shared/infrastructure/config/appConfig';
 
 /**
  * Notices the bot sends on its own and the summaries behind them: итоги дня at the chosen time, /today and /month
  * (FT-124); the goal, subscription and audit reminders after the audit (FT-133). What went out and about what is kept
  * in `notifications_log`, so nothing goes out twice. The numbers are the transaction module's — the totals service of
  * FT-103 and the analytics of FT-120 — and the audit module's goals and audits (FT-131); who gets a notice and when
- * comes from the users and their settings.
+ * comes from the users and their settings — only those in ALLOWED_TELEGRAM_IDS (FT-153): the base also keeps test users.
  */
 export class NotificationModule {
   private summaries: SummaryService;
@@ -25,18 +27,24 @@ export class NotificationModule {
 
   constructor(
     repository: NotificationLogRepository,
-    sources: { transactionModule: TransactionModule; userModule: UserModule; auditModule?: AuditModule },
+    sources: { transactionModule: TransactionModule; userModule: UserModule; auditModule?: AuditModule; access?: TelegramAccess },
     now: () => Date = () => new Date()
   ) {
+    const access = sources.access ?? telegramAccess([]);
     this.summaries = new SummaryService(summaryNumbers(sources.transactionModule));
-    this.dailySummary = new DailySummaryNotifier(repository, summaryRecipients(sources.userModule), this.summaries, now);
+    this.dailySummary = new DailySummaryNotifier(repository, summaryRecipients(sources.userModule, access), this.summaries, now);
     if (sources.auditModule) {
-      this.reminders = new RemindersNotifier(repository, reminderRecipients(sources.userModule), reminderSources(sources.auditModule), now);
+      this.reminders = new RemindersNotifier(repository, reminderRecipients(sources.userModule, access), reminderSources(sources.auditModule), now);
     }
   }
 
   static create(transactionModule: TransactionModule, userModule: UserModule, auditModule: AuditModule): NotificationModule {
-    return new NotificationModule(RepositoryFactory.createNotificationLogRepository(), { transactionModule, userModule, auditModule });
+    return new NotificationModule(RepositoryFactory.createNotificationLogRepository(), {
+      transactionModule,
+      userModule,
+      auditModule,
+      access: AppConfig.TELEGRAM_ACCESS,
+    });
   }
 
   /** Итоги дня и месяца: the daily summary, /today, /month. */
@@ -67,9 +75,14 @@ function summaryNumbers(transactionModule: TransactionModule): SummaryNumbers {
   };
 }
 
-function summaryRecipients(userModule: UserModule): RecipientSource {
+/** The users and their settings, of those allowed in (FT-153). */
+async function allowedUsers(userModule: UserModule, access: TelegramAccess) {
+  return (await userModule.listUsersWithSettings()).filter(({ user }) => access.allows(user.telegramId));
+}
+
+function summaryRecipients(userModule: UserModule, access: TelegramAccess): RecipientSource {
   return {
-    list: async () => (await userModule.listUsersWithSettings()).map(({ user, settings }) => ({
+    list: async () => (await allowedUsers(userModule, access)).map(({ user, settings }) => ({
       userId: user.id,
       telegramId: user.telegramId,
       timeZone: user.timezone,
@@ -80,9 +93,9 @@ function summaryRecipients(userModule: UserModule): RecipientSource {
   };
 }
 
-function reminderRecipients(userModule: UserModule): ReminderRecipientSource {
+function reminderRecipients(userModule: UserModule, access: TelegramAccess): ReminderRecipientSource {
   return {
-    list: async () => (await userModule.listUsersWithSettings()).map(({ user, settings }) => ({
+    list: async () => (await allowedUsers(userModule, access)).map(({ user, settings }) => ({
       userId: user.id,
       telegramId: user.telegramId,
       timeZone: user.timezone,

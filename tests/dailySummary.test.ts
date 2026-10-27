@@ -19,6 +19,7 @@ import { SqliteUserSettingsRepository } from '../src/modules/user/infrastructure
 import { NotificationModule } from '../src/modules/notification/notificationModule';
 import { SqliteNotificationLogRepository } from '../src/modules/notification/infrastructure/SqliteNotificationLogRepository';
 import { registerSummaryHandlers, summarySender } from '../src/delivery/messaging/telegram/handlers/summaryHandlers';
+import { TelegramAccess, telegramAccess } from '../src/shared/domain/access/telegramAccess';
 
 /**
  * FT-124 end to end on a real SQLite file: the daily summary goes out at the user's chosen time on the user's
@@ -60,7 +61,7 @@ describe('daily summary (FT-124)', () => {
   }
   let running: Running;
 
-  async function start(): Promise<Running> {
+  async function start(access?: TelegramAccess): Promise<Running> {
     const ds = createAppDataSource(file);
     open.push(ds);
     await ds.initialize();
@@ -71,7 +72,7 @@ describe('daily summary (FT-124)', () => {
     transactionModule.setCategoryResolver(categoryModule.getCatalog());
     transactionModule.setAccountResolver(accountModule.getBook());
     const userModule = new UserModule(new SqliteUserRepository(ds), new SqliteUserSettingsRepository(ds));
-    const notificationModule = new NotificationModule(new SqliteNotificationLogRepository(ds), { transactionModule, userModule }, () => clock);
+    const notificationModule = new NotificationModule(new SqliteNotificationLogRepository(ds), { transactionModule, userModule, access }, () => clock);
     return { ds, transactionModule, userModule, notificationModule };
   }
 
@@ -80,10 +81,10 @@ describe('daily summary (FT-124)', () => {
     return new SqliteNotificationLogRepository(running.ds).find(owner, kind, day);
   }
 
-  /** The bot process stops and starts again over the same file. */
-  async function restart(): Promise<void> {
+  /** The bot process stops and starts again over the same file, with ALLOWED_TELEGRAM_IDS when given (FT-153). */
+  async function restart(access?: TelegramAccess): Promise<void> {
     await running.ds.destroy();
-    running = await start();
+    running = await start(access);
   }
 
   /** A user with the bot since September, before any of the days below — whatever the real date is. */
@@ -189,6 +190,19 @@ describe('daily summary (FT-124)', () => {
     expect(await logEntry(owner, 'daily_summary', '2026-10-14')).toMatchObject({
       status: 'sent', variant: 'summary', chatId: TELEGRAM_ID, messageId: 700,
     });
+  });
+
+  it('goes only to the users on ALLOWED_TELEGRAM_IDS; the rest of the base is left as it is (FT-153)', async () => {
+    const owner = await user();
+    const tester = await user('111');
+    await record(owner, '2026-10-14', 'Кафе', 45_000);
+    await record(tester, '2026-10-14', 'Кафе', 30_000);
+    await restart(telegramAccess([TELEGRAM_ID]));
+    at('2026-10-14', '21:00');
+
+    expect(await tick()).toEqual([{ userId: owner, day: '2026-10-14', outcome: 'sent' }]);
+    expect(sent.map(message => message.chatId)).toEqual([TELEGRAM_ID]);
+    expect(await logEntry(tester, 'daily_summary', '2026-10-14')).toBeNull();
   });
 
   it('two bot processes over the same file at the same minute: one message', async () => {

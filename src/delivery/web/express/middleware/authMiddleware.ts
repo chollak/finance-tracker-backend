@@ -7,9 +7,10 @@
  * Security: https://core.telegram.org/bots/webapps#validating-data-received-via-the-mini-app
  */
 
-import { Request, Response, NextFunction } from 'express';
+import { Request, RequestHandler, Response, NextFunction } from 'express';
 import crypto from 'crypto';
 import { AppConfig } from '../../../../shared/infrastructure/config/appConfig';
+import { TelegramAccess } from '../../../../shared/domain/access/telegramAccess';
 import { createLogger, LogCategory } from '../../../../shared/infrastructure/logging';
 
 const logger = createLogger(LogCategory.AUTH);
@@ -187,6 +188,40 @@ export function signedInTelegramId(req: Request, botToken: string = AppConfig.TG
 
   const id = validateTelegramWebAppData(initData, botToken, true)?.user?.id;
   return typeof id === 'number' && Number.isSafeInteger(id) ? id : null;
+}
+
+/**
+ * Closed access (FT-153): a request signed in as someone not in ALLOWED_TELEGRAM_IDS — by Telegram initData, the
+ * browser's session cookie or `X-Dev-User-Id` — gets 403 before any route, so no route resolves or creates its user.
+ * A dev header that names no Telegram id is refused too: `requireAuth` would sign it in as NaN. A request that proves
+ * no user goes on to its route, which answers 401 if it needs sign-in. With an empty list everyone goes on.
+ */
+export function createAllowedUsersMiddleware(
+  options: { access?: TelegramAccess; botToken?: string } = {}
+): RequestHandler {
+  const access = options.access ?? AppConfig.TELEGRAM_ACCESS;
+  const botToken = options.botToken ?? AppConfig.TG_BOT_API_KEY;
+
+  return (req: Request, res: Response, next: NextFunction): void => {
+    if (access.open) {
+      next();
+      return;
+    }
+
+    const telegramId = signedInTelegramId(req, botToken);
+    const claimsDevUser = devHeadersAllowed(req) && Boolean(req.headers['x-dev-user-id']);
+    if (telegramId === null ? !claimsDevUser : access.allows(telegramId)) {
+      next();
+      return;
+    }
+
+    logger.warn('Request from a Telegram user who is not allowed refused', { telegramId, path: req.originalUrl });
+    res.status(403).json({
+      success: false,
+      error: 'This Telegram account has no access',
+      code: 'ACCESS_NOT_ALLOWED',
+    });
+  };
 }
 
 /**
@@ -530,6 +565,18 @@ export function allowShortcutCapture(req: Request, res: Response, next: NextFunc
       });
       return;
     }
+  }
+
+  // Closed access (FT-153): the header names the owner as initData would; checked after the token, so an answer to a
+  // wrong token does not tell who is on the list
+  if (!AppConfig.TELEGRAM_ACCESS.allows(shortcutUserId)) {
+    logger.warn('Shortcut capture for a Telegram user who is not allowed refused', { shortcutUserId });
+    res.status(403).json({
+      success: false,
+      error: 'This Telegram account has no access',
+      code: 'ACCESS_NOT_ALLOWED',
+    });
+    return;
   }
 
   logger.debug('Shortcut capture accepted', { shortcutUserId, tokenRequired: Boolean(expectedToken) });
