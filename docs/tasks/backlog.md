@@ -414,7 +414,7 @@ Definition of Done:
 
 ---
 
-### FT-151: Flaky webLogin test
+### FT-151: Flaky HTTP tests: webLogin, transactionRoutes
 
 Status: backlog
 Priority: low
@@ -427,6 +427,10 @@ Context:
 `claude/new-session-uv5og7` и прошёл на повторе. Кандидаты:
 - каждый `beforeEach` создаёт SQLite и прогоняет все миграции с копией базы (`:87-96`, `tests/helpers/testDatabase.ts:15-28`), а в `jest.config.js` нет `testTimeout` — под нагрузкой хук может не уложиться в 5 с;
 - ограничители частоты общие на весь файл и на реальных часах: `strictRateLimiter` — 10 POST за 15 минут на `/api/auth/web-login` (`rateLimitMiddleware.ts:90-112`), в блоке маршрутов уже 8 таких запросов (`:397`…`:514`).
+
+Так же нестабилен `tests/transactionRoutes.test.ts`, тест «creates a record without a description»: дважды
+2026-10-27 упал в полном прогоне (`fetch failed` / `ECONNRESET` / «other side closed»), отдельно — 20 прогонов из 20
+зелёные (проверка FT-155).
 
 Definition of Done:
 - [ ] Причина найдена и записана здесь

@@ -9,7 +9,7 @@
 | Почему план такой — лог решений | [`docs/tasks/decisions.md`](docs/tasks/decisions.md) |
 | Отложенные задачи, полные описания (25) | [`docs/tasks/backlog.md`](docs/tasks/backlog.md) |
 | Открытые задачи вехи 10 | [`docs/pastel/tasks.md`](docs/pastel/tasks.md) |
-| Закрытые задачи с отчётами (164) | [`docs/tasks/archive/`](docs/tasks/archive/) |
+| Закрытые задачи с отчётами (165) | [`docs/tasks/archive/`](docs/tasks/archive/) |
 
 ---
 
@@ -18,11 +18,12 @@
 Живой экземпляр переезжает с мака на ПК с Windows + WSL: systemd, постоянный адрес `tailscale serve` в tailnet,
 ночной бэкап в облачную папку, закрытый доступ (решение 2026-10-26, `docs/tasks/decisions.md`). Порядок:
 
-1. Код: FT-153 → FT-154 → FT-155 по одной — трогают одни и те же файлы. FT-153, FT-154 и FT-158 — сделаны.
+1. Код: FT-153 → FT-154 → FT-155 по одной — трогают одни и те же файлы. Все три сделаны — код переезда готов; FT-158
+   тоже сделана.
 2. Скрипты и инструкции: FT-156 (живой экземпляр), FT-157 (бэкап). Запускает Шукур на ПК.
 3. Переезд FT-159 — руки Шукура; потом Shortcut FT-160 и iOS-приложение FT-161.
 
-Прогресс: FT-153 сделана · FT-154 сделана · FT-155 следующая · FT-156 · FT-157 → FT-159
+Прогресс: FT-153 сделана · FT-154 сделана · FT-155 сделана · FT-156 · FT-157 → FT-159
 
 ### Веха 10 «Пастель» — в `main`
 
@@ -52,40 +53,13 @@
 
 ## В работе
 
-Нет задачи в работе: FT-154 закрыта, следующая — FT-155 из очереди.
+Нет задачи в работе: FT-155 закрыта, следующая — FT-156 из очереди.
 
 ---
 
 ## Очередь
 
 Переезд на ПК. Порядок задаёт `Depends`; задачу можно брать, когда закрыто всё, от чего она зависит.
-
-### FT-155: Owner-bound capture token for the iPhone in production
-
-Status: backlog
-Priority: high
-Owner: Claude Code, QA — под-чат проверки
-Type: security
-Size: S
-Depends on: FT-153, FT-154 (те же файлы; владелец должен входить в `ALLOWED_TELEGRAM_IDS`)
-
-Context:
-Решение 2026-10-26 закрывает вопрос о продовой авторизации Shortcut, отложенный 2026-09-04 (FT-075): быстрая запись
-с iPhone (Shortcut на Action Button — FT-160, потом iOS-приложение — FT-161) работает на живом экземпляре с
-`NODE_ENV=production`. Сейчас `allowShortcutCapture` в production отвечает 403 `SHORTCUT_CAPTURE_DISABLED`
-(`authMiddleware.ts:486-505`), а владельца записи выбирает заголовок `X-Shortcut-User-Id`: держатель токена пишет за
-кого угодно (матрица авторизации, раздел 2026-10-21, «Known and left»).
-
-Definition of Done:
-- [ ] Новая `SHORTCUT_CAPTURE_OWNER` (Telegram id) — владелец записей по токену; `X-Shortcut-User-Id` необязателен, а если есть и не равен владельцу — 403; тест
-- [ ] В production путь работает, только если заданы токен не короче 32 символов и владелец, и владелец входит в `ALLOWED_TELEGRAM_IDS` (FT-153); иначе 403, как сейчас; тест
-- [ ] Неверный или пустой токен — 401 `INVALID_SHORTCUT_TOKEN`, сравнение по-прежнему за постоянное время; тест
-- [ ] Повтор с тем же `clientId` не создаёт дублей; тест
-- [ ] Заголовки разработчика (`X-Dev-User-Id`) в production по-прежнему не действуют; тест
-- [ ] Описан отзыв токена: новое значение в `.env.local` и перезапуск сервиса
-- [ ] Обновлены `docs/QUICK_CAPTURE_API.md`, `docs/IOS_SHORTCUT_ACTION_BUTTON.md`, `.env.example` и `docs/knowledge-base/01-architecture/auth-user-resolution-boundary-matrix.md`; пометка «только dev/test» снята
-
----
 
 ### FT-156: Live instance on the Windows PC (WSL)
 
@@ -159,7 +133,7 @@ Definition of Done:
 | [FT-148](docs/tasks/backlog.md) | Отметка записей до даты открытия счёта | вид по холсту |
 | [FT-149](docs/tasks/backlog.md) | Выбор счёта по умолчанию | место на холсте или решение Шукура |
 | [FT-150](docs/tasks/backlog.md) | Голые «яндекс» и «uber» не должны давать «Транспорт» | команды Шукура взять в работу |
-| [FT-151](docs/tasks/backlog.md) | Нестабильный `webLogin.test.ts` | команды Шукура взять в работу |
+| [FT-151](docs/tasks/backlog.md) | Нестабильные HTTP-тесты: webLogin, transactionRoutes | команды Шукура взять в работу |
 | [FT-152](docs/tasks/backlog.md) | Без сети класть сложную фразу в очередь и разбирать на сервере | детали — с Шукуром |
 | [FT-159](docs/tasks/backlog.md) | Переезд с мака на ПК | FT-153…FT-157; руки Шукура |
 | [FT-160](docs/tasks/backlog.md) | Shortcut на Action Button через Tailscale | FT-155, FT-159 |
@@ -175,7 +149,7 @@ Definition of Done:
 
 ## Что уже закрыто
 
-164 задачи: вехи 0–10 и весь отрезок до того, как появились вехи. Полные отчёты «Реализовано / Проверка» — в архиве.
+165 задач: вехи 0–10 и весь отрезок до того, как появились вехи. Полные отчёты «Реализовано / Проверка» — в архиве.
 
 | Отрезок | Задачи | Файл |
 |---|---|---|

@@ -2,7 +2,7 @@
 
 Задачи с FT-144: надёжность, закрытый доступ, переезд живого экземпляра на ПК.
 
-Закрыто задач: **5**. Это архив: задачи здесь не переоткрываются и не редактируются.
+Закрыто задач: **6**. Это архив: задачи здесь не переоткрываются и не редактируются.
 Активная доска — [`TASKS.md`](../../../TASKS.md), решения по плану — [`decisions.md`](../decisions.md).
 
 ---
@@ -295,5 +295,74 @@ Definition of Done:
 - Найдено вне DoD — в FT-167: остановка не ждёт обработчики бота (база закрывается посреди обработки, возможен дубль
   после перезапуска); счётчик попыток polling не сбрасывается после удачного запуска; в production пустой
   `TG_BOT_API_KEY` даёт `disabled` и health 200.
+
+---
+
+### FT-155: Owner-bound capture token for the iPhone in production
+
+Status: done
+Priority: high
+Owner: Claude Code, QA — под-чат проверки
+Type: security
+Size: S
+Depends on: FT-153, FT-154 (те же файлы; владелец должен входить в `ALLOWED_TELEGRAM_IDS`)
+
+Context:
+Решение 2026-10-26 закрывает вопрос о продовой авторизации Shortcut, отложенный 2026-09-04 (FT-075): быстрая запись
+с iPhone (Shortcut на Action Button — FT-160, потом iOS-приложение — FT-161) работает на живом экземпляре с
+`NODE_ENV=production`. Сейчас `allowShortcutCapture` в production отвечает 403 `SHORTCUT_CAPTURE_DISABLED`
+(`authMiddleware.ts:486-505`), а владельца записи выбирает заголовок `X-Shortcut-User-Id`: держатель токена пишет за
+кого угодно (матрица авторизации, раздел 2026-10-21, «Known and left»).
+
+Definition of Done:
+- [x] Новая `SHORTCUT_CAPTURE_OWNER` (Telegram id) — владелец записей по токену; `X-Shortcut-User-Id` необязателен, а если есть и не равен владельцу — 403; тест
+- [x] В production путь работает, только если заданы токен не короче 32 символов и владелец, и владелец входит в `ALLOWED_TELEGRAM_IDS` (FT-153); иначе 403, как сейчас; тест
+- [x] Неверный или пустой токен — 401 `INVALID_SHORTCUT_TOKEN`, сравнение по-прежнему за постоянное время; тест
+- [x] Повтор с тем же `clientId` не создаёт дублей; тест
+- [x] Заголовки разработчика (`X-Dev-User-Id`) в production по-прежнему не действуют; тест
+- [x] Описан отзыв токена: новое значение в `.env.local` и перезапуск сервиса
+- [x] Обновлены `docs/QUICK_CAPTURE_API.md`, `docs/IOS_SHORTCUT_ACTION_BUTTON.md`, `.env.example` и `docs/knowledge-base/01-architecture/auth-user-resolution-boundary-matrix.md`; пометка «только dev/test» снята
+
+Реализовано 2026-10-27 (`ec9897a`, `2fe8508`, `15117f7`, PR #103):
+- Правила — одна чистая функция `shortcutCaptureAccess()` (`src/shared/domain/access/shortcutCaptureAccess.ts`): её
+  вызывают и `allowShortcutCapture` (на каждый запрос), и `AppConfig.validate()` (на старте). Владелец —
+  `SHORTCUT_CAPTURE_OWNER`; `X-Shortcut-User-Id` необязателен, чужой или не id — `403 ACCESS_DENIED`; `userId` и
+  `source` тела перезаписываются владельцем и `ios_shortcut`. Запрос Shortcut — и с одним `X-Shortcut-Capture-Token`
+  (даже пустым).
+- Неполная или неверная настройка в production — ошибка старта, как пустой список в FT-153: токен короче 32 символов,
+  одна переменная без другой, владелец не id или не из `ALLOWED_TELEGRAM_IDS`. Ошибка видна при перезапуске, а не
+  потом как 403 на телефоне. Ни одной — Shortcut выключен, старт идёт, путь отвечает `403 SHORTCUT_CAPTURE_DISABLED`;
+  на уровне запроса неверная настройка тоже даёт 403. Ни токен, ни значение владельца, не похожее на id, в ошибку не
+  попадают (по проверке — только длина).
+- Токен проверяется первым, за постоянное время: нет, пустой или неверный — `401 INVALID_SHORTCUT_TOKEN`; ответ на
+  неверный токен ничего не говорит о владельце и списке.
+- id сравниваются числом, как в списке: `telegramIdOf()` в `telegramAccess.ts`, её же использует `parseTelegramIds`;
+  `0900000143` — это `900000143` (раньше 403).
+- Токен побеждает вход Telegram: запрос с токеном пишет владельцу, что бы ни пришло в initData, `X-Dev-User-Id` или
+  теле. `X-Dev-User-Id` в production не действует; `req.telegramUser` для Shortcut не выдумывается.
+- Вне production прежние правила: без владельца его называет заголовок; без токена — только запрос с этой машины
+  (`SHORTCUT_CAPTURE_TOKEN_REQUIRED`); новый `403 SHORTCUT_OWNER_REQUIRED` — нет ни владельца, ни заголовка.
+- Отдельного лимита для Shortcut нет — общий `aiRateLimiter`, 20 запросов за 15 минут по IP, вместе с `/api/voice/*`;
+  стоит до авторизации и ограничивает и перебор токена.
+- Отзыв: новый `SHORTCUT_CAPTURE_TOKEN` в `.env.local` и перезапуск.
+- Тесты: `tests/shortcutCaptureOwner.test.ts` (правила, старт, `POST /api/quick-capture` через настоящий
+  `buildServer` и `QuickCaptureService` на SQLite в production), случаи FT-155 в `localDevAuth.test.ts` и
+  `allowedTelegramIds.test.ts`; `tests/helpers/appConfigWith.ts`; `tests/setup/env.ts` обнуляет обе переменные.
+- Документы: `QUICK_CAPTURE_API.md` (раздел Shortcut, ошибки с `ACCESS_NOT_ALLOWED`), `IOS_SHORTCUT_ACTION_BUTTON.md`
+  (вариант D для живого экземпляра, отзыв, не делиться командой с токеном, чек-лист D1–D10), `.env.example`, матрица
+  авторизации, `api-lifecycle.md`, `quick-start.md`, `CLAUDE.md`. Пометки «только dev/test» сняты.
+
+Проверка 2026-10-27:
+- Под-чат проверки: DoD сверен по пунктам. Обходы: `userId` в теле, `?userId=`, `X-Dev-User-Id` + токен, initData
+  другого + токен — запись владельцу; части токена и токен в query — 401; токена нет в логах и ответах.
+  `telegramIdOf` и `parseTelegramIds` не ослабили FT-153. `SHORTCUT_OWNER_REQUIRED` старые клиенты не шлют.
+- `npm run test:ci` 90/90 наборов, 1359/1359 тестов; CI `verify` зелёный.
+- Живой запуск. P1 (production, 19 запросов): только токен → 200 владельцу; чужой заголовок → 403; токен + «x»,
+  первые 32 символа, пустой → 401; повтор `clientId` → `repeated: true`; «кофе 25к и такси 18к» через OpenAI → 2
+  записи. P2: initData другого разрешённого + токен → владельцу. P0: не настроен → 403 `SHORTCUT_CAPTURE_DISABLED`.
+  P3: токен из 32 символов — старт, из 31 — нет. Шесть ошибок старта — код 1, токена в выводе нет. Вне production —
+  прежнее поведение.
+- Оставлено: проверяется только длина токена, не случайность — генерировать `openssl rand -hex 32`; теневой
+  пользователь (строка `users` с `telegram_id` = UUID владельца) при первой записи — давняя проблема, не FT-155.
 
 ---

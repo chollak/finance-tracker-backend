@@ -2,6 +2,31 @@
 
 > Status: FT-024 audit/decision matrix. This document records current auth, guest, ownership, and userId-resolution boundaries before any strict resolver implementation.
 
+## 2026-10-27 — the iPhone Shortcut's token bound to its owner, in production too (FT-155)
+
+The quick capture from the iPhone (Shortcut on the Action Button, FT-160) writes to the live instance, which runs with
+`NODE_ENV=production` (decision 2026-10-26). Before, the path was `403 SHORTCUT_CAPTURE_DISABLED` in production, and
+outside it the token holder chose the owner by `X-Shortcut-User-Id`.
+
+| Was | Now |
+|---|---|
+| Production: every Shortcut request `403 SHORTCUT_CAPTURE_DISABLED` | On with `SHORTCUT_CAPTURE_TOKEN` of 32+ characters and `SHORTCUT_CAPTURE_OWNER` in `ALLOWED_TELEGRAM_IDS`; with neither set, `403 SHORTCUT_CAPTURE_DISABLED` as before. A half or wrong setting stops the start (`AppConfig.validate`), like an empty list in FT-153 |
+| The token holder wrote for whoever `X-Shortcut-User-Id` named | The capture is for `SHORTCUT_CAPTURE_OWNER`; the header is optional, and naming anyone else is `403 ACCESS_DENIED` |
+| The header id compared as a string: `0900000143` was `403 ACCESS_NOT_ALLOWED` though the list reads it as `900000143` | Ids compare as numbers, as the list does (`telegramIdOf`) |
+| A request was a Shortcut one only with `X-Shortcut-User-Id` | Also with `X-Shortcut-Capture-Token` alone (even empty); a missing, empty or wrong token is `401 INVALID_SHORTCUT_TOKEN`, checked in constant time before anything about the owner |
+
+Unchanged: outside production without an owner the header names it, and without a token only a request from this machine
+goes through (`403 SHORTCUT_CAPTURE_TOKEN_REQUIRED`); `X-Dev-User-Id` never counts in production, also not next to a
+Shortcut token; `req.telegramUser` is not fabricated for a Shortcut request. A repeat with the same `clientId` answers
+with the first capture's records (FT-106). Revoking: a new `SHORTCUT_CAPTURE_TOKEN` in `.env.local` and a restart.
+Rules: `src/shared/domain/access/shortcutCaptureAccess.ts`, used by `allowShortcutCapture` and `AppConfig.validate`.
+Tests: `tests/shortcutCaptureOwner.test.ts`, the FT-155 cases in `tests/localDevAuth.test.ts` and
+`tests/allowedTelegramIds.test.ts`.
+
+Known and left: one token per server (no per-device tokens, expiry or audit trail); the Shortcut shares the per-IP AI
+limit (20 requests / 15 minutes with `/api/voice/*`) — no separate limit for a non-Telegram source; behind
+`tailscale serve` the address it counts is the tailnet device's, from `X-Forwarded-For` with `trust proxy 1`.
+
 ## 2026-10-27 — closed access by `ALLOWED_TELEGRAM_IDS` (FT-153)
 
 The live instance moves to the owner's PC (decision 2026-10-26). Tailscale closes the API, not the bot; free-tier
@@ -11,7 +36,7 @@ limits are off (Д3), so anyone who found the bot would spend the OpenAI key. Wi
 |---|---|
 | Bot | `allowedUsersOnly` is the first `bot.use`: no user row, no OpenAI, nothing written, no answer; `warn` with the Telegram id. An update with no sender is dropped |
 | API | `createAllowedUsersMiddleware` in `buildServer`, right after the web session: initData, the session cookie or `X-Dev-User-Id` of someone else — `403 ACCESS_NOT_ALLOWED` before any route resolves the user. A request that proves no user goes on to its route |
-| Shortcut | `allowShortcutCapture`: an owner (`X-Shortcut-User-Id`) not on the list — `403 ACCESS_NOT_ALLOWED`, after the token check. In production the path stays `403 SHORTCUT_CAPTURE_DISABLED` until FT-155 |
+| Shortcut | `allowShortcutCapture`: an owner (`X-Shortcut-User-Id`) not on the list — `403 ACCESS_NOT_ALLOWED`, after the token check. In production the owner is `SHORTCUT_CAPTURE_OWNER`, which must be on the list (FT-155) |
 | Web login (FT-128) | The bot ignores `/start login_…` and the buttons, so the login is never confirmed. `OpenWebSessionUseCase` also refuses a login confirmed before the list changed (`POST /api/auth/session` — `403 ACCESS_NOT_ALLOWED`, no user row); a session issued before the change gets `403` from the API gate |
 | Notices | Итоги дня and reminders go only to the users on the list (`NotificationModule` takes it from `AppConfig` unless given one); the other rows of `users` (test users) stay as they are |
 
@@ -43,7 +68,7 @@ without a token `403`, `POST /api/transactions` without signing in `401`.
 Tests: `tests/localDevAuth.test.ts`, `tests/userFromAuth.test.ts`.
 
 Known and left (security review 2026-10-21): with `SHORTCUT_CAPTURE_TOKEN` set, the token holder still chooses the
-owner by `X-Shortcut-User-Id` (bind the token to one owner if anyone else ever gets one); user resolution creates a
+owner by `X-Shortcut-User-Id` (closed by FT-155: the token is bound to `SHORTCUT_CAPTURE_OWNER`); user resolution creates a
 user row for an unknown Telegram id before the ownership check refuses it (the shadow-user problem); an array or a
 number in `userId` on routes with user resolution gives `500` instead of `400`; with `trust proxy 1` a Wi-Fi client can
 set `X-Forwarded-For` to dodge IP rate limits (`isLocalRequest` reads the socket, not `req.ip`); `requireAdmin` routes
