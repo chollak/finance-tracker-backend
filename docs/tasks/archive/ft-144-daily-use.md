@@ -2,7 +2,7 @@
 
 Задачи с FT-144: надёжность, закрытый доступ, переезд живого экземпляра на ПК.
 
-Закрыто задач: **4**. Это архив: задачи здесь не переоткрываются и не редактируются.
+Закрыто задач: **5**. Это архив: задачи здесь не переоткрываются и не редактируются.
 Активная доска — [`TASKS.md`](../../../TASKS.md), решения по плану — [`decisions.md`](../decisions.md).
 
 ---
@@ -231,5 +231,69 @@ Definition of Done:
   {"errorContext":{"originalError":"Request timed out."}}`; в обычном режиме «кофе 25000» → «Расход −25 000 сум · Кафе».
 - Мелочи — в FT-165: на пути простой фразы в лог не попадает причина сбоя; неверный пример «такси 18000» в
   `voice-to-transaction.md:307`.
+
+---
+
+### FT-154: The bot does not die silently
+
+Status: done
+Priority: high
+Owner: Claude Code, QA — под-чат проверки
+Type: reliability
+Size: S
+Depends on: FT-153 (те же файлы: `AppConfig`, `telegramBot.ts`)
+
+Context:
+Если long polling падает насовсем (409 после всех повторов, неверный токен, другая ошибка Telegram), приложение
+продолжает жить без бота (`telegramBot.ts:275-279`, `:304`), а `/api/health` всегда отвечает 200: состояние бота есть
+только в теле, в поле `telegramBot` (`expressServer.ts:91-99`). На маке это было видно глазами. На ПК под systemd
+(FT-156) никто не узнает, что бот молчит: `Restart=always` срабатывает только на выход процесса. Сетевые сбои и
+ответы 429 и 5xx Telegraf повторяет сам (`telegraf/lib/core/network/polling.js`), до `failed` они не доходят.
+
+Definition of Done:
+- [x] При `NODE_ENV=production` окончательный сбой polling (`state = failed`) останавливает планировщики, закрывает базу и завершает процесс с ненулевым кодом; тест
+- [x] `/api/health` отвечает 503, когда бот в состоянии `failed`; `starting` и `retrying` (409, пока мак ещё опрашивает тот же токен) — 200; тест
+- [x] Вне production поведение прежнее: разработка без бота работает
+- [x] Правило описано в `docs/knowledge-base/01-architecture/runtime-process-mode.md`
+
+Реализовано 2026-10-27 (`93f4413`, PR #101):
+- Политика выхода — `src/delivery/runtime/botFailurePolicy.ts`: при `NODE_ENV=production` бот в `failed` пишет причину
+  в лог и запускает общее завершение с кодом 1, systemd поднимает процесс; вне production приложение работает без
+  бота, как раньше. Бот сообщает о сбое через `startTelegramBot(..., { onPollingFailed })`; ошибка при сборке бота
+  тоже даёт `failed`, а не тихое `disabled`.
+- Единый выход — `src/delivery/runtime/gracefulShutdown.ts`, и для SIGTERM/SIGINT (код 0): планировщики → HTTP-сервер
+  (открытым запросам 5 с, потом обрыв) → база → выход. Упавший шаг — в лог, следующий выполняется; через 10 с выход
+  с тем же кодом; повторный вызов не меняет код.
+- 409 остаётся `retrying` (health 200), пока не исчерпаны `TELEGRAM_POLLING_MAX_RETRIES` запусков (5, паузы 5→40 с,
+  ~75 с). Обе настройки читаются через `AppConfig` (`intFromEnv`): опечатка даёт умолчание, а не NaN и `failed` на
+  первом 409.
+- `GET /api/health` — 503 `"unhealthy"` при `failed` во всех окружениях, иначе 200 (`healthRoutes.ts`). Webapp
+  `serverAnswers()` берёт `answeredByServer`: собственный JSON-503 сервера — «отвечает», HTML-страница шлюза — нет.
+- Обработчик сигнала бота перехватывает «Bot is not running!» (опрос не начался — раньше исключение роняло процесс
+  мимо завершения) и отменяет отложенный перезапуск после 409 (`stopping`, `retryTimer`).
+- Тесты: `gracefulShutdown.test.ts`, `botFailurePolicy.test.ts`, `healthRoute.test.ts`, случаи FT-154 в
+  `telegramBot.test.ts`, `webapp/src/shared/api/client.test.ts`. Документы: `runtime-process-mode.md` (Update FT-154,
+  рекомендации для юнита FT-156), `troubleshooting.md`, `CLAUDE.md`.
+
+Проверка 2026-10-27:
+- Под-чат проверки: DoD сверен по пунктам. Diff: порядок шагов, таймаут 10 с, повторный вызов не меняет код, гонки
+  отложенного перезапуска (`stopping`, `retryTimer`), `intFromEnv`, `serverAnswers` (HTML 502/503 шлюза — «не
+  отвечает»). Потребители `/api/health`: webapp (поправлен), `dev-miniapp.js` код не читает, Dockerfile `HEALTHCHECK`
+  (Docker не используется), README и FT-156 смотрят тело — 503 оставлен во всех окружениях.
+- `npm run verify`: Jest 1332/1332, Vitest 1201/1201, dependency-cruiser 328 модулей без нарушений, madge без циклов;
+  CI `verify` зелёный.
+- Запуски с фальшивым токеном: development — health 503 `failed` `401: Unauthorized`, API 200, SIGTERM → «Shutdown
+  complete», код 0; production — выход с кодом 1 через ~0,4 с, строки «polling failed permanently» → «down for good» →
+  «Shutting down» → «database connection closed» → «Shutdown complete»; `ENABLE_TELEGRAM_POLLING=false` — 200
+  `disabled`; SIGTERM при недосланном запросе — запрос оборван через 5 с, код 0.
+- Штаб, настоящий токен (@FinanceTrackerDevBot, живой экземпляр остановлен 16:05–16:12): A (development) — 200
+  `running`; SIGTERM во время опроса → «SIGTERM received, stopping bot...», «Shutdown complete», код 0, без «Bot is not
+  running!»; `/today`, отправленный, пока никто не опрашивал, обработала следующая копия — offset не потерян. Две копии
+  на одном токене (A development, B production): обе при 409 отвечали 200 `retrying` и чередовались; A после 5 попыток
+  — 503 `failed`, процесс жив; B на следующем 409 сверх лимита сама вышла с кодом 1, в логе
+  `lastError: 409: Conflict: terminated by other getUpdates request` и полная цепочка до «Shutdown complete».
+- Найдено вне DoD — в FT-167: остановка не ждёт обработчики бота (база закрывается посреди обработки, возможен дубль
+  после перезапуска); счётчик попыток polling не сбрасывается после удачного запуска; в production пустой
+  `TG_BOT_API_KEY` даёт `disabled` и health 200.
 
 ---
