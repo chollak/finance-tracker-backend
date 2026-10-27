@@ -99,7 +99,9 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': {
-        target: 'http://localhost:3000',
+        // API_PROXY_TARGET lets a test run use its own backend port while the live instance holds 3000
+        // (`.claude/launch.json`, docs/tasks/README.md «Как проверяем»)
+        target: process.env.API_PROXY_TARGET || 'http://localhost:3000',
         changeOrigin: true,
         secure: false,
         // Names the browser it forwards for: the dev header counts only for a browser on this machine, not for a

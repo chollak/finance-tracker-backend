@@ -46,3 +46,7 @@ data/patterns.json
 .DS_Store
 Thumbs.db
 data/finance.db
+
+# Claude Code: personal settings and agent worktrees stay local; .claude/launch.json is shared
+.claude/settings.local.json
+.claude/worktrees/

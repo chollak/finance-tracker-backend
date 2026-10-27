@@ -1,0 +1,29 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "api",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["scripts/nvm-exec.sh", "env", "ENABLE_TELEGRAM_POLLING=false", "PORT=3100", "npm", "run", "dev"],
+      "port": 3100
+    },
+    {
+      "name": "webapp",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "scripts/nvm-exec.sh", "env",
+        "VITE_MOCK_USER_ID=900000143",
+        "VITE_MOCK_USER_NAME=Test",
+        "API_PROXY_TARGET=http://localhost:3100",
+        "npm", "--prefix", "webapp", "run", "dev", "--", "--port", "5174", "--strictPort"
+      ],
+      "port": 5174
+    },
+    {
+      "name": "api-bot",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["scripts/nvm-exec.sh", "env", "PORT=3100", "npm", "run", "dev"],
+      "port": 3100
+    }
+  ]
+}
