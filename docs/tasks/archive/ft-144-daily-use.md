@@ -2,7 +2,7 @@
 
 Задачи с FT-144: надёжность, закрытый доступ, переезд живого экземпляра на ПК.
 
-Закрыто задач: **6**. Это архив: задачи здесь не переоткрываются и не редактируются.
+Закрыто задач: **7**. Это архив: задачи здесь не переоткрываются и не редактируются.
 Активная доска — [`TASKS.md`](../../../TASKS.md), решения по плану — [`decisions.md`](../decisions.md).
 
 ---
@@ -364,5 +364,75 @@ Definition of Done:
   прежнее поведение.
 - Оставлено: проверяется только длина токена, не случайность — генерировать `openssl rand -hex 32`; теневой
   пользователь (строка `users` с `telegram_id` = UUID владельца) при первой записи — давняя проблема, не FT-155.
+
+---
+
+### FT-156: Live instance on the Windows PC (WSL)
+
+Status: done
+Priority: high
+Owner: Claude Code (скрипты, документы) + Shukur (машина), QA — под-чат проверки
+Type: infra
+Size: M
+Depends on: FT-153, FT-154, FT-155 — для переезда; скрипты и документы можно готовить раньше
+
+Context:
+Решение 2026-10-26. Сейчас Daftar живёт в `npm run dev:miniapp` на маке: у Cloudflare quick tunnel новый адрес при
+каждом запуске, бот молчит, пока мак спит. Нужен живой экземпляр на ПК с Windows + WSL, который включён «как
+получится», сам поднимается после включения ПК и открывается с телефона по постоянному адресу в tailnet.
+`dev:miniapp` остаётся для разработки на маке.
+
+Definition of Done:
+- [x] Отдельная копия `~/daftar-live` на `main` со своей `data/` и `.env.local` (`NODE_ENV=production`, `TZ=Asia/Tashkent` — старый код бюджетов, дашборда и лимитов берёт часы машины); разработка идёт в другой папке или на маке
+- [x] Шаблон unit-файла systemd в репозитории: `node dist/index.js`, `Restart=always`, логи в journald; в WSL включён `systemd=true`
+- [x] Задача Планировщика Windows при старте системы держит WSL запущенным; инструкция с командами
+- [x] Сон Windows при питании от сети выключен; Tailscale на Windows работает как служба и без входа пользователя
+- [x] `tailscale serve --bg` отдаёт `http://localhost:3000` как `https://<пк>.<tailnet>.ts.net`; этот адрес — в `WEB_APP_URL`; кнопка меню ставится один раз (`npm run miniapp:menu -- set`)
+- [x] Одна команда обновления (скрипт или npm-скрипт): `git pull --ff-only` ветки `main`, `npm ci`, сборки webapp и backend, перезапуск сервиса; описан откат — прошлый коммит и копия из `data/backups/`
+- [ ] Проверено: Windows перезагружена без входа в WSL → бот отвечает, Mini App открывается с iPhone по адресу tailnet — перенесено в FT-159: нужен ПК Шукура и переезд
+- [x] Новый документ `docs/knowledge-base/08-development/live-instance.md`; `CLAUDE.md` (Runtime target), `quick-start.md` и «Постоянный контекст» в `TASKS.md` описывают живой экземпляр вместо quick tunnel
+
+Реализовано 2026-10-27 (`38006b7`, `5ed824e`, `f54a6e0`, `66f777a`, `25430a4` и правки ревью, PR #102):
+- Копия `~/daftar-live` на `main` со своей `data/` и `.env.local`; шаблон без значений — `ops/live/env.local.example`
+  (`NODE_ENV=production`, `TZ=Asia/Tashkent`, `ALLOWED_TELEGRAM_IDS`, `WEB_APP_URL` — адрес tailnet, блок Shortcut
+  FT-155: обе переменные или ни одной).
+- Unit `ops/live/daftar.service`: `node dist/index.js` через `scripts/nvm-exec.sh` — сервис и `npm ci` на одном Node
+  из `.nvmrc`, нативный `sqlite3` совпадает; обёртка делает `exec`, SIGTERM получает node. `NODE_ENV=production`
+  закреплён в unit; `After=network.target` — ожидание сети в WSL держало бы старт минутами.
+- Политика перезапуска: `Restart=always`, пауза 10 с → 10 минут (`RestartSteps=6`, `RestartMaxDelaySec=10min`,
+  systemd 254+), `StartLimitBurst=20` за час — страховка для systemd 249. После FT-154 неверный токен, 409 или нет
+  сети на старте — несколько попыток в час, сервис возвращается сам; счётчик сбрасывают ручной старт и
+  `reset-failed` (`service.c`).
+- `tailscale serve --bg http://127.0.0.1:3000` — в Windows: Tailscale советует клиент только в Windows (KB 1295),
+  порт из WSL 2 виден в Windows на `localhost`; запасной путь — `networkingMode=mirrored`.
+- Задача Планировщика `Daftar WSL`: при старте системы и при входе, от учётки Шукура с паролем, `wsl.exe --exec
+  /bin/sleep infinity`, без лимита времени; раздел «Если задача не работает» — коды `LastTaskResult`, пароль и
+  Windows Hello, запасной `instanceIdleTimeout=-1`.
+- `scripts/live-update.sh`: отказ не на `main`, на грязном дереве, без `.env.local`, со своими коммитами; `sudo -v`
+  сразу; `git pull --ff-only`; проверка Node из `.nvmrc`; `npm ci` (webapp — его `postinstall`, проверяется) и сборка
+  сервера; `reset-failed` + `restart`; health до 60 с; только после 200 — локальный тег `live-good`, на него
+  указывают все сообщения и откат (`git switch --detach live-good`, база — `migration:revert` или `backupPath`).
+- Бот на ПК выключен до переезда: шаблон ставит `ENABLE_TELEGRAM_POLLING=false` и пустой токен, health до переезда —
+  `disabled`; раздел «Переезд» — порядок включения. ПК остаётся на @FinanceTrackerDevBot, маку — новый dev-бот в FT-159.
+- Документ `docs/knowledge-base/08-development/live-instance.md` (установка по шагам, проверка, переезд, обновление,
+  откат, логи, адрес клиента и лимиты, место для бэкапа FT-157 с правилом «живую базу в облачную папку не класть»);
+  `troubleshooting.md` — раздел «Live Instance on the PC» вместо AWS; `CLAUDE.md`, `quick-start.md`, `DEPLOYMENT.md`,
+  индекс knowledge-base, «Постоянный контекст»; `downloads/` в `.gitignore`.
+
+Проверка 2026-10-27:
+- `systemd-analyze verify` — чисто на systemd 255; на 249 — два предупреждения про `RestartSteps` и
+  `RestartMaxDelaySec`.
+- Установка по шагам 4–6 в Ubuntu 24.04 в Docker: exec до node, `HOME` и `NVM_DIR` есть, `stop` — 0,02 с, код 0;
+  паузы 10 → 20 → 39 → 78 с, start-limit не срабатывает.
+- `live-update.sh`: все отказы; счастливый путь — 3 мин 31 с без простоя; сломанная сборка — сервис не перезапущен,
+  тег на хорошем коммите и при повторе; коммит, падающий на старте, — health 60 с → exit 1, тег не двинулся; откат
+  `git switch --detach live-good` и возврат на `main`; неустановленный Node — остановка до сборки; `postinstall` без
+  сборки webapp ловится.
+- Health с шаблоном до переезда — `disabled`, `TG_BOT_API_KEY missing`. Коды `LastTaskResult` и `instanceIdleTimeout`
+  сверены с Microsoft Learn. `tailscale serve` перезаписывает `X-Forwarded-For` адресом устройства
+  (`ipn/ipnlocal/serve.go`), `trust proxy` 1 (`src/index.ts:48`).
+- `shellcheck` и `bash -n` чисто; `npm run verify` зелёный, CI `verify` зелёный.
+- Не проверено без ПК: задача Планировщика в сеансе 0, проброс `localhost` до `tailscale serve`, перезагрузка,
+  iPhone, код `wsl.exe` после `wsl --shutdown` — перенесено в FT-159.
 
 ---
