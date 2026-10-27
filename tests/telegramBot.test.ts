@@ -3,12 +3,14 @@ describe('startTelegramBot', () => {
 
   beforeEach(() => {
     jest.resetModules();
-    process.env = { ...originalEnv, TG_BOT_API_KEY: 'test-token' };
+    // Pinned: a value in a local .env.local must not change the backoff the tests count on
+    process.env = { ...originalEnv, TG_BOT_API_KEY: 'test-token', TELEGRAM_POLLING_MAX_RETRIES: '5', TELEGRAM_POLLING_RETRY_BASE_MS: '5000' };
   });
 
   afterEach(() => {
     process.env = originalEnv;
     jest.restoreAllMocks();
+    jest.useRealTimers();
   });
 
   async function loadBotWithMocks() {
@@ -68,7 +70,8 @@ describe('startTelegramBot', () => {
     const dailySummary = { start: jest.fn(), stop: jest.fn() };
     const reminders = { start: jest.fn(), stop: jest.fn() };
     const notificationModule = { getDailySummary: () => dailySummary, getReminders: () => reminders } as any;
-    const start = () => startTelegramBot({} as any, {} as any, userModule, {} as any, undefined, undefined, undefined, undefined, notificationModule);
+    const start = (options?: Parameters<typeof startTelegramBot>[10]) =>
+      startTelegramBot({} as any, {} as any, userModule, {} as any, undefined, undefined, undefined, undefined, notificationModule, undefined, options);
 
     return {
       start,
@@ -80,6 +83,7 @@ describe('startTelegramBot', () => {
       launch,
       launchCatch,
       processOnce,
+      stop,
       use,
       registerCommandHandlers,
       closeAmountQuestionOnCommand,
@@ -205,6 +209,143 @@ describe('startTelegramBot', () => {
     expect(launch).not.toHaveBeenCalled();
     // No bot, no scheduler: the daily summary runs only in the bot's process
     expect(dailySummary.start).not.toHaveBeenCalled();
+  });
+
+  describe('polling that fails for good (FT-154)', () => {
+    const flush = () => new Promise(resolve => setImmediate(resolve));
+    const fakeLogger = () => ({ debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn() });
+
+    it('tells the owner of the process, with the last error', async () => {
+      const { start, launchCatch } = await loadBotWithMocks();
+      const onPollingFailed = jest.fn();
+
+      start({ onPollingFailed });
+      launchCatch.mock.calls[0][0](new Error('401: Unauthorized'));
+
+      expect(onPollingFailed).toHaveBeenCalledTimes(1);
+      expect(onPollingFailed).toHaveBeenCalledWith(expect.objectContaining({ state: 'failed', attempts: 1, lastError: '401: Unauthorized' }));
+    });
+
+    it('a 409 stays «retrying» while retries are left, and fails only when they run out', async () => {
+      jest.useFakeTimers();
+      process.env.TELEGRAM_POLLING_MAX_RETRIES = '2';
+      const { start, launch, launchCatch } = await loadBotWithMocks();
+      const { getTelegramBotStatus } = await import('../src/delivery/messaging/telegram/telegramBot');
+      const onPollingFailed = jest.fn();
+      const conflict = () => new Error('409: Conflict: terminated by other getUpdates request');
+
+      start({ onPollingFailed });
+      launchCatch.mock.calls[0][0](conflict());
+      expect(getTelegramBotStatus().state).toBe('retrying');
+      expect(onPollingFailed).not.toHaveBeenCalled();
+
+      jest.advanceTimersByTime(5000);
+      expect(launch).toHaveBeenCalledTimes(2);
+      launchCatch.mock.calls[1][0](conflict());
+
+      expect(getTelegramBotStatus()).toEqual(expect.objectContaining({ state: 'failed', attempts: 2 }));
+      expect(onPollingFailed).toHaveBeenCalledTimes(1);
+      jest.useRealTimers();
+    });
+
+    it('a bot that cannot even be set up is «failed» too, not silently absent', async () => {
+      const { start, use } = await loadBotWithMocks();
+      const { getTelegramBotStatus } = await import('../src/delivery/messaging/telegram/telegramBot');
+      use.mockImplementationOnce(() => { throw new Error('EACCES: downloads'); });
+      const onPollingFailed = jest.fn();
+
+      start({ onPollingFailed });
+
+      expect(getTelegramBotStatus()).toEqual(expect.objectContaining({ state: 'failed', lastError: 'EACCES: downloads' }));
+      expect(onPollingFailed).toHaveBeenCalledTimes(1);
+    });
+
+    it('in production stops the schedulers, closes the database and exits with a non-zero code', async () => {
+      const { start, launch, launchCatch, dailySummary, reminders } = await loadBotWithMocks();
+      const { createGracefulShutdown } = await import('../src/delivery/runtime/gracefulShutdown');
+      const { createBotFailureHandler } = await import('../src/delivery/runtime/botFailurePolicy');
+      const steps = {
+        stopSchedulers: jest.fn(),
+        closeHttpServer: jest.fn().mockResolvedValue(undefined),
+        closeDatabase: jest.fn().mockResolvedValue(undefined),
+      };
+      const exit = jest.fn();
+      const logger = fakeLogger();
+      const shutdown = createGracefulShutdown(steps, { exit, logger });
+
+      start({ onPollingFailed: createBotFailureHandler({ nodeEnv: 'production', shutdown, logger }) });
+      (launch.mock.calls[0] as unknown as [() => void])[0]();
+      launchCatch.mock.calls[0][0](new Error('401: Unauthorized'));
+      await flush();
+
+      expect(dailySummary.stop).toHaveBeenCalled();
+      expect(reminders.stop).toHaveBeenCalled();
+      expect(steps.stopSchedulers).toHaveBeenCalledTimes(1);
+      expect(steps.closeHttpServer).toHaveBeenCalledTimes(1);
+      expect(steps.closeDatabase).toHaveBeenCalledTimes(1);
+      expect(exit).toHaveBeenCalledWith(1);
+    });
+
+    it('a retry setting that is not a number keeps its default instead of failing on the first 409', async () => {
+      process.env.TELEGRAM_POLLING_MAX_RETRIES = 'five';
+      const { start, launchCatch } = await loadBotWithMocks();
+      const { getTelegramBotStatus } = await import('../src/delivery/messaging/telegram/telegramBot');
+
+      start();
+      launchCatch.mock.calls[0][0](new Error('409: Conflict: terminated by other getUpdates request'));
+
+      expect(getTelegramBotStatus().state).toBe('retrying');
+    });
+
+    it('outside production the process keeps running without the bot', async () => {
+      const { start, launchCatch } = await loadBotWithMocks();
+      const { createGracefulShutdown } = await import('../src/delivery/runtime/gracefulShutdown');
+      const { createBotFailureHandler } = await import('../src/delivery/runtime/botFailurePolicy');
+      const closeDatabase = jest.fn().mockResolvedValue(undefined);
+      const exit = jest.fn();
+      const logger = fakeLogger();
+      const shutdown = createGracefulShutdown(
+        { stopSchedulers: jest.fn(), closeHttpServer: jest.fn().mockResolvedValue(undefined), closeDatabase },
+        { exit, logger }
+      );
+
+      start({ onPollingFailed: createBotFailureHandler({ nodeEnv: 'development', shutdown, logger }) });
+      launchCatch.mock.calls[0][0](new Error('401: Unauthorized'));
+      await flush();
+
+      expect(closeDatabase).not.toHaveBeenCalled();
+      expect(exit).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('a signal (FT-154)', () => {
+    function signalHandler(processOnce: jest.SpyInstance, signal: 'SIGINT' | 'SIGTERM') {
+      const call = processOnce.mock.calls.find(([name]) => name === signal);
+      return call?.[1] as () => void;
+    }
+
+    it('before polling started (getMe failed or still running) does not throw out of the listener', async () => {
+      const { start, processOnce, stop } = await loadBotWithMocks();
+      stop.mockImplementation(() => { throw new Error('Bot is not running!'); });
+
+      start();
+
+      expect(() => signalHandler(processOnce, 'SIGTERM')()).not.toThrow();
+      expect(() => signalHandler(processOnce, 'SIGINT')()).not.toThrow();
+    });
+
+    it('while retrying a 409 cancels the next launch, so nothing restarts the notices during shutdown', async () => {
+      jest.useFakeTimers();
+      const { start, launch, launchCatch, processOnce, dailySummary } = await loadBotWithMocks();
+
+      start();
+      launchCatch.mock.calls[0][0](new Error('409: Conflict: terminated by other getUpdates request'));
+      signalHandler(processOnce, 'SIGTERM')();
+      jest.advanceTimersByTime(60_000);
+
+      expect(launch).toHaveBeenCalledTimes(1);
+      expect(dailySummary.start).not.toHaveBeenCalled();
+    });
   });
 
   it('does not launch polling when webhook mode is enabled', async () => {

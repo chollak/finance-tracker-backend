@@ -13,7 +13,8 @@ Current runtime behavior:
 3. create all modules through `createModules()`
 4. start Express API/webapp server
 5. start Telegram bot after HTTP server is listening
-6. close database on `SIGTERM` / `SIGINT`
+6. on `SIGTERM` / `SIGINT` — and in production when the bot fails for good — one graceful shutdown: schedulers,
+   HTTP server, database, exit (FT-154, below)
 
 Current npm/runtime entrypoints:
 
@@ -148,6 +149,39 @@ reminder claimed in `notifications_log` before it is sent.
 `ECONNREFUSED`) gives its claim up and is tried on the next tick: the daily summary until its day ends, a reminder
 for the rest of the day of its first try. A timeout, a reset or an «unreachable» error may have reached Telegram and
 stays `failed`, so nothing is sent twice.
+
+**Update (FT-154): the bot does not die silently.** The live instance runs under systemd with `NODE_ENV=production`
+(decision 2026-10-26), and `Restart=` reacts only to the process exiting: a process alive without its bot would be
+silent. The rule:
+
+- **When the bot is `failed`.** Polling failed for good: Telegram refused the token (`401`, `404`), a `409` «another
+  process polls this token» is still there after `TELEGRAM_POLLING_MAX_RETRIES` launches (default 5, backoff from
+  `TELEGRAM_POLLING_RETRY_BASE_MS` 5 s doubling to 40 s, about 75 s in all; until then the state is `retrying`), or any other Telegram error. A bot that could not even be set
+  up is `failed` too. Network errors, `429` and `5xx` inside the polling loop are retried by Telegraf itself and never
+  get here; a network error on the first `getMe` of a launch is not, so it fails the launch.
+- **Production** (`NODE_ENV=production`): `createBotFailureHandler` (`src/delivery/runtime/botFailurePolicy.ts`) logs
+  the cause and runs the shared graceful shutdown with exit code `1`; systemd starts the process again.
+- **Anywhere else** the app goes on without the bot, as before: development without the bot keeps working.
+- **`GET /api/health`** is `503` (`"status": "unhealthy"`) while the bot is `failed`, in every environment; `starting`,
+  `retrying`, `running` and `disabled` are `200`. The bot's state stays in the body (`telegramBot`). The webapp's
+  offline mode asks this route only whether the server answers, so the server's own JSON `503` still counts as an
+  answer there (`serverAnswers`).
+- **Graceful shutdown** (`src/delivery/runtime/gracefulShutdown.ts`), the same for `SIGTERM` / `SIGINT` (exit `0`):
+  stop the schedulers (daily summary, reminders, USD rate refresh), close the HTTP server (no new requests; open ones
+  get `HTTP_CLOSE_GRACE_MS`, 5 s, then are cut), close the database, exit. A step that throws is logged and the next
+  one runs; after `SHUTDOWN_TIMEOUT_MS` (10 s, under systemd's default `TimeoutStopSec` of 90 s) the process exits with
+  the same code whatever still hangs. Only the first call counts: a `SIGTERM` during a failure exit does not turn it
+  into exit `0`. On a signal the bot itself only stops polling: it cancels a pending 409 relaunch and does not throw
+  when polling never started (Telegraf's «Bot is not running!»), which used to crash the process past the shutdown.
+- **What the journal shows** before the exit: `Telegram bot polling failed permanently` (the error, `attempts`), then
+  `Telegram bot is down for good; exiting so the supervisor restarts the process` (`lastError`, `exitCode`),
+  `Shutting down` (`reason`, `exitCode`) and `Shutdown complete` or `Shutdown timed out, exiting anyway`.
+- **Restart loop.** A wrong token makes every start end within seconds with exit `1`; a `409` after about 75 s. A start
+  backs the database up only when migrations are pending, so a loop does not fill `data/backups/`. For the unit
+  (FT-156): `Restart=always` with `RestartSec=10` (or more) — with that spacing systemd's default start limit (5 starts
+  in 10 s) is never hit, so the service keeps trying and heals itself once the token is fixed or the other poller
+  stops; on systemd 254+ `RestartSteps=` / `RestartMaxDelaySec=` (e.g. 6 steps up to 5 min) slow a long loop down.
+  `TimeoutStopSec` must stay above 10 s.
 
 ## Proposed Mode Semantics
 

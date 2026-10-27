@@ -87,6 +87,7 @@ Required environment variables in `.env` file:
 - `FREE_LIMITS_ENABLED` - optional; `true` enforces free-tier limits (50 records, 10 voice inputs a month). Off by default during milestone 10 (decision Д3, FT-091); usage is still counted
 - `OPENAI_MODEL` - optional; the text-parsing model, default `gpt-4.1-mini` (OpenAI withdrew `gpt-4-turbo`)
 - `OPENAI_TIMEOUT_MS`, `OPENAI_MAX_RETRIES` - optional; how long an OpenAI request may take and how often text parsing is retried (0–5), default 20000 ms and 1 (FT-145); a voice upload is not retried. Without them the SDK waits 10 minutes and retries twice
+- `TELEGRAM_POLLING_MAX_RETRIES`, `TELEGRAM_POLLING_RETRY_BASE_MS` - optional; how many times polling is launched again while Telegram answers 409 (another process polls the token) and the first delay, doubling; default 5 and 5000 ms. After the last one the bot is `failed`: `/api/health` is 503 and with `NODE_ENV=production` the process exits with code 1 so systemd restarts it (FT-154)
 - `DATABASE_TYPE` - optional; only `sqlite` is supported (any other value fails startup). The `supabase-js` path was removed in FT-090 (decision Д6)
 
 **Historical, not active:**
