@@ -5,7 +5,7 @@
 > Source of truth for current work: [TASKS.md](TASKS.md) (текущий фокус) and [CLAUDE.md](CLAUDE.md).
 > For local setup, use [docs/knowledge-base/08-development/quick-start.md](docs/knowledge-base/08-development/quick-start.md).
 >
-> The Docker/Node sections below describe the current packaging commands, but server-side deployment remains parked until a host comes back.
+> The Docker/Node sections below describe the current packaging commands. There is no server-side deploy: the SSH deploy to AWS was removed in FT-158 (see [GitHub Actions](#github-actions)).
 
 ## Overview
 
@@ -100,11 +100,6 @@ docker compose logs -f
 
 ## GitHub Actions
 
-`.github/workflows/deploy.yml` has two jobs:
+GitHub Actions only checks the code; nothing deploys from it. `verify.yml` runs `npm run verify` on every pull request, `quality-gate.yml` on every push to `main`; both take Node.js from `.nvmrc`.
 
-- **`quality-gate`** — runs on every push to `main` and on manual dispatch: Node.js 20, `npm ci`, `npm run verify`. Within `deploy.yml`, this is the only job that runs on push, and it needs no server.
-- **`deploy`** — SSH deploy via `docker compose`, guarded by `if: github.event_name == 'workflow_dispatch'`, so it never runs automatically.
-
-The deploy job was parked on 2026-08-13: automatic deploys had failed on every push since the last successful one on 2026-01-27 (`dial tcp ***:22: i/o timeout`).
-
-To restore automatic deploys: stand up a host, re-check the `SSH_HOST` / `SSH_USER` / `SSH_KEY` repository secrets against its real address, trigger the workflow manually once and confirm a green run, then remove the `if` condition from the `deploy` job.
+The SSH deploy job (`deploy.yml`) and the scheduled `docker-cleanup.yml` reached the AWS host that was removed from the plan on 2026-08-13; both were deleted in FT-158. The live instance moves to Shukur's PC and is updated there by hand (FT-156).

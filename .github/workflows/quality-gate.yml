@@ -1,0 +1,38 @@
+name: Quality gate
+
+# Каждый push в `main` проверяется тем же `npm run verify`, что и PR в verify.yml. PR проверяет
+# свою ветку, а этот прогон — то, что получилось в `main` после слияния, и прямые пуши.
+#
+# Раньше файл назывался deploy.yml, и рядом с `quality-gate` был джоб `deploy` — SSH на AWS-хост,
+# выведенный из планов 2026-08-13. Убран в FT-158 вместе с docker-cleanup.yml: живой экземпляр
+# переезжает на ПК Шукура и обновляется там командой вручную (FT-156), а не из GitHub Actions.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  quality-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            webapp/package-lock.json
+
+      # postinstall ставит и собирает webapp
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify
+        run: npm run verify
