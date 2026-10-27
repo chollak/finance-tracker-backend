@@ -176,14 +176,12 @@ npm run verify
 
 ## GitHub Actions
 
-`.github/workflows/deploy.yml` contains two jobs:
+Both workflows set up Node.js from `.nvmrc`, install with `npm ci` and run `npm run verify`:
 
-- **`quality-gate`** — runs on every push to `main` (and on manual dispatch). Sets up Node.js 20, installs with `npm ci`, and runs `npm run verify`. Within `deploy.yml`, this is the only job that actually runs on push, and it does not depend on any server.
-- **`deploy`** — SSH deploy over `docker compose`, gated behind `if: github.event_name == 'workflow_dispatch'`, so it only runs when triggered manually.
+- **`verify.yml`** — on every pull request.
+- **`quality-gate.yml`** — on every push to `main` (and on manual dispatch), so the merged result is checked too.
 
-The deploy job was parked on 2026-08-13 because the production host was removed from the active plan; automatic deploys had been failing on every push since 2026-01-27. Current work is local-only (WSL + SQLite + Telegram polling), see [TASKS.md](TASKS.md) and [CLAUDE.md](CLAUDE.md).
-
-To bring automatic deploys back: stand up a host, re-check the `SSH_HOST` / `SSH_USER` / `SSH_KEY` repository secrets, run the workflow manually once, then remove the `if` condition from the `deploy` job.
+There is no deploy workflow. The SSH deploy to the AWS host (removed from the plan on 2026-08-13) was deleted in FT-158 together with `docker-cleanup.yml`; the live instance moves to Shukur's PC and is updated there by hand (FT-156). See [TASKS.md](TASKS.md) and [CLAUDE.md](CLAUDE.md).
 
 ## Project Structure
 
