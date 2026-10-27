@@ -5,19 +5,22 @@
 #   scripts/live-update.sh
 #
 # The app applies pending migrations itself on start, after copying the database to data/backups/. While the build
-# runs the old version keeps serving from memory; the bot is silent only for the restart. Rollback and everything
-# else: docs/knowledge-base/08-development/live-instance.md
+# runs the old version keeps serving from memory; the bot is silent only for the restart. After a healthy restart the
+# local tag `live-good` moves to the new commit: it is the commit to roll back to. Rollback and everything else:
+# docs/knowledge-base/08-development/live-instance.md
 #
 # Overrides (for a test on a scratch clone):
 #   LIVE_SERVICE      the systemd unit (default daftar.service)
 #   LIVE_RESTART_CMD  the restart command, run by bash (default: sudo systemctl reset-failed + restart of LIVE_SERVICE)
-#   LIVE_HEALTH_URL   what to poll after the restart; empty skips it
+#   LIVE_HEALTH_URL   what to poll after the restart; empty skips it and leaves `live-good` where it was
 #                     (default http://127.0.0.1:<PORT from .env.local, else 3000>/api/health)
 set -euo pipefail
 
 APP_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 NVM_EXEC="$APP_DIR/scripts/nvm-exec.sh"
 SERVICE="${LIVE_SERVICE:-daftar.service}"
+GOOD_TAG="live-good"
+DOC="docs/knowledge-base/08-development/live-instance.md"
 HEALTH_ATTEMPTS=30
 HEALTH_PAUSE_SECONDS=2
 
@@ -30,6 +33,11 @@ fail() {
 # The value of KEY in .env.local, without quotes; empty when it is not there
 env_value() {
   sed -n "s/^$1=//p" .env.local | tail -n 1 | tr -d "\"'\r"
+}
+
+# The last commit that answered healthy after an update; empty before the first one
+last_good_commit() {
+  git rev-parse --quiet --verify --short "refs/tags/$GOOD_TAG^{commit}" 2>/dev/null || true
 }
 
 check_preconditions() {
@@ -48,10 +56,23 @@ check_preconditions() {
 }
 
 build() {
-  # --include=dev: the build needs TypeScript and Vite even when the shell has NODE_ENV=production
-  say "installing dependencies" && "$NVM_EXEC" npm ci --include=dev &&
-    say "building the web app" && "$NVM_EXEC" npm run build:webapp &&
-    say "building the server" && "$NVM_EXEC" npm run build
+  local marker
+  marker="$(mktemp)"
+  # npm ci also builds the web app: the root package's postinstall runs install:webapp and build:webapp.
+  # --include=dev: the builds need TypeScript and Vite even when the shell has NODE_ENV=production
+  say "installing dependencies; npm ci also builds the web app"
+  if ! "$NVM_EXEC" npm ci --include=dev; then
+    rm -f "$marker"
+    return 1
+  fi
+  if [ ! public/webapp/index.html -nt "$marker" ]; then
+    rm -f "$marker"
+    printf 'live-update: npm ci did not rebuild public/webapp — is the postinstall build gone from package.json?\n' >&2
+    return 1
+  fi
+  rm -f "$marker"
+  say "building the server"
+  "$NVM_EXEC" npm run build
 }
 
 restart_service() {
@@ -86,11 +107,21 @@ main() {
   cd "$APP_DIR"
   check_preconditions
 
-  local before after ahead rollback_hint port health_url
+  local before after ahead good rollback_hint port health_url
   before="$(git rev-parse --short HEAD)"
-  rollback_hint="rollback: docs/knowledge-base/08-development/live-instance.md («Откат»), previous commit $before"
+  good="$(last_good_commit)"
+  if [ -n "$good" ]; then
+    rollback_hint="roll back to $good, the last commit that answered healthy (tag $GOOD_TAG): $DOC, «Откат»"
+  else
+    rollback_hint="no tag $GOOD_TAG yet; the commit before this run was $before, not checked: $DOC, «Откат»"
+  fi
 
-  say "pulling main (now at $before)"
+  # Ask for the sudo password now, not after minutes of building
+  if [ -z "${LIVE_RESTART_CMD:-}" ]; then
+    sudo -v || fail "sudo is needed to restart $SERVICE at the end; nothing was changed"
+  fi
+
+  say "pulling main (now at $before, last good ${good:-none})"
   git pull --ff-only origin main ||
     fail "git pull failed (above); nothing was changed. See «Live Instance on the PC» in docs/knowledge-base/08-development/troubleshooting.md"
   # A commit made in the live copy itself is clean and fast-forwards, but it is not main as it is in GitHub
@@ -106,22 +137,29 @@ main() {
     git --no-pager log --oneline "$before..$after"
   fi
 
+  # A new .nvmrc names a Node that nvm may not have yet; nvm-exec.sh then exits without a word
+  "$NVM_EXEC" node --version >/dev/null ||
+    fail "Node $(cat .nvmrc) from .nvmrc is not installed: . ~/.nvm/nvm.sh && nvm install, then run this again." \
+      "The code is pulled but not built; the service still runs the previous build"
+
   build || fail "the build of $after failed. The service still runs the previous version from memory, but its next
-start (a crash, a reboot) would use this broken build: fix it and run this again, or roll back now — $rollback_hint"
+start (a crash, a reboot) would use this broken build: fix it and run this again, or $rollback_hint"
 
   say "restarting $SERVICE"
-  restart_service || fail "the restart failed: systemctl status $SERVICE; journalctl -u $SERVICE -n 50. $rollback_hint"
+  restart_service || fail "the restart failed: systemctl status $SERVICE; journalctl -u $SERVICE -n 50. Or $rollback_hint"
 
   port="$(env_value PORT)"
   health_url="${LIVE_HEALTH_URL-http://127.0.0.1:${port:-3000}/api/health}"
   if [ -z "$health_url" ]; then
-    say "health check skipped (LIVE_HEALTH_URL is empty)"
-  elif ! wait_until_healthy "$health_url"; then
-    fail "no healthy answer from $health_url in $((HEALTH_ATTEMPTS * HEALTH_PAUSE_SECONDS)) s:" \
-      "journalctl -u $SERVICE -n 50 --no-pager. $rollback_hint"
+    say "done: $before -> $after; health not checked (LIVE_HEALTH_URL is empty), so $GOOD_TAG stays at ${good:-none}"
+    return
   fi
+  wait_until_healthy "$health_url" ||
+    fail "no healthy answer from $health_url in $((HEALTH_ATTEMPTS * HEALTH_PAUSE_SECONDS)) s:" \
+      "journalctl -u $SERVICE -n 50 --no-pager. Or $rollback_hint"
 
-  say "done: $before -> $after. If something is wrong, $rollback_hint"
+  git tag --force "$GOOD_TAG" HEAD >/dev/null
+  say "done: $before -> $after, healthy; $GOOD_TAG -> $after"
 }
 
 # Everything runs from main, which bash has read in full: `git pull` may replace this file while it runs

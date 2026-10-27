@@ -39,13 +39,18 @@ Daftar для ежедневного пользования живёт на ПК
   без правки unit-файла сломала бы `sqlite3`. Обёртка заканчивается `exec`, поэтому главный процесс сервиса — сам
   `node`, и SIGTERM при остановке получает он: приложение закрывает базу.
 - **Перезапуски — `Restart=always` с растущей паузой.** Первая пауза 10 с, потом длиннее, до 10 минут
-  (`RestartSteps=6`, `RestartMaxDelaySec=10min`; нужен systemd 254+, в Ubuntu 24.04 — 255). После FT-154 процесс
-  завершается, когда опрос Telegram сломан насовсем: неверный токен или 409 от второго процесса на том же токене. Так
-  это несколько попыток в час, а не каждые 10 секунд, и сервис вернётся сам, когда причина уйдёт (например, на маке
-  остановили второй экземпляр). Ручной `systemctl restart` и `live-update.sh` начинают паузы с 10 с заново.
-  `StartLimitBurst=20` за `StartLimitIntervalSec=1h` при растущей паузе не достигается: за первый час выходит около 11
-  стартов, потом 6 в час. Лимит нужен на systemd старше 254 (Ubuntu 22.04 — 249): там `RestartSteps` пропускается с
-  предупреждением, и без лимита сервис перезапускался бы каждые 10 с; с лимитом он останавливается после 20 попыток.
+  (`RestartSteps=6`, `RestartMaxDelaySec=10min`; нужен systemd 254+, в Ubuntu 24.04 — 255): 10, 20, 39, 78 с и так
+  далее. В production процесс завершается, когда опрос Telegram сломан насовсем (FT-154): неверный токен, 409 от
+  второго процесса на том же токене после всех повторов, нет сети на старте. Так это несколько попыток в час, а не
+  каждые 10 секунд, и сервис вернётся сам, когда причина уйдёт. `StartLimitBurst=20` за `StartLimitIntervalSec=1h` при
+  растущей паузе не достигается: за первый час выходит около 11 стартов, потом 6 в час.
+  - Счётчик перезапусков systemd сбрасывает только ручной старт или `reset-failed`, а не долгая работа без сбоев: после
+    ~7 автоматических перезапусков за жизнь сервиса каждый новый сбой ждёт 10 минут. `systemctl restart` и
+    `live-update.sh` начинают паузы с 10 с заново (`systemctl show daftar.service -p NRestarts` — счётчик).
+  - На systemd старше 254 (Ubuntu 22.04 — 249) `RestartSteps` пропускается с предупреждением, и пауза всегда 10 с;
+    лимит останавливает сервис после 20 быстрых попыток. Тогда долгая потеря сети на старте оставляет сервис в
+    `failed` до ручного `sudo systemctl reset-failed daftar.service && sudo systemctl start daftar.service`. Поэтому
+    лучше Ubuntu 24.04.
 - **`After=network.target`, без `network-online.target`.** В WSL служба ожидания сети может задерживать старт на
   минуты, а приложению сеть на старте не нужна: опрос Telegram и курс ЦБ сами повторяют запросы.
 - **`NODE_ENV=production` задан в unit-файле:** живой сервис работает в production, что бы ни было в `.env.local`.
@@ -56,11 +61,16 @@ Daftar для ежедневного пользования живёт на ПК
 ## Что нужно
 
 - Windows 11 (или 10) с WSL 2 из Microsoft Store версии 0.67.6 или новее — с ней WSL умеет systemd: `wsl --version`
-  отвечает (иначе `wsl --update`); дистрибутив Ubuntu (`wsl -l -v`, версия 2).
+  отвечает (иначе `wsl --update`). Дистрибутив Ubuntu, версия 2 (`wsl -l -v`); если его нет — PowerShell:
+  `wsl --install -d Ubuntu` (сейчас это 24.04), при первом запуске он попросит имя и пароль Linux. Забыли пароль
+  Linux — `wsl -d Ubuntu -u root passwd <имя>`.
 - Аккаунт Tailscale; Tailscale на iPhone включён всегда.
 - Пароль учётной записи Windows — для учётки Microsoft это пароль от неё. Задача Планировщика хранит его, чтобы
   запускаться без входа. PIN не подходит.
-- Свои токен бота и ключ OpenAI для живого экземпляра — не из репозитория и не из dev-окружения мака.
+- **Бот.** ПК остаётся на нынешнем боте @FinanceTrackerDevBot — он сейчас и есть живой; его токен — в `.env.local`
+  мака и в `~/.config/daftar/dev.env`. Новый dev-бот для мака заводится в FT-159. До переезда ПК этот токен не
+  опрашивает (шаг 5 и раздел [«Переезд»](#переезд-включить-бота-ft-159)).
+- Ключ OpenAI — свой для живого экземпляра, не из репозитория.
 
 **PowerShell** ниже — Windows, **WSL** — терминал Ubuntu. «От администратора» — PowerShell, запущенный «от имени
 администратора».
@@ -74,6 +84,7 @@ powercfg /change standby-timeout-ac 0     # от сети не засыпать
 powercfg /change hibernate-timeout-ac 0   # от сети не уходить в гибернацию
 ```
 
+`/change` меняет только активную схему электропитания: если потом выбрать другую схему, команды нужно повторить.
 Проверить: Параметры → Система → Питание → «При питании от сети переводить в спящий режим через» — «Никогда».
 
 Быстрый запуск выключить: Панель управления → Электропитание → «Действия кнопок питания» → снять «Включить быстрый
@@ -158,36 +169,49 @@ chmod 600 .env.local
 nano .env.local
 ```
 
-Заполнить: `ALLOWED_TELEGRAM_IDS` (свой Telegram id), `TG_BOT_API_KEY`, `TG_BOT_USERNAME`, `OPENAI_API_KEY`,
-`WEB_APP_URL` (адрес из шага 2) и `MINIAPP_CHAT_ID` (свой id). `NODE_ENV=production` и `TZ=Asia/Tashkent` уже стоят.
-`SHORTCUT_CAPTURE_TOKEN` и `SHORTCUT_CAPTURE_OWNER` для iPhone — раскомментировать после того, как FT-155 будет в
-`main`. Значения нигде не печатать и в репозиторий не класть.
+Заполнить: `ALLOWED_TELEGRAM_IDS` (свой Telegram id), `OPENAI_API_KEY`, `WEB_APP_URL` (адрес из шага 2) и
+`MINIAPP_CHAT_ID` (свой id); `ADMIN_TELEGRAM_IDS` — по желанию. `NODE_ENV=production` и `TZ=Asia/Tashkent` уже стоят.
+Значения нигде не печатать и в репозиторий не класть.
 
-> **Один токен — один опрашивающий процесс.** Пока живой экземпляр работает на маке (до переезда FT-159), он
-> опрашивает тот же токен: процесс на ПК получит 409, и они будут сбивать друг друга. Поэтому бот на ПК включается
-> при переезде, после остановки мака. До него можно проверить всё остальное с `ENABLE_TELEGRAM_POLLING=false` или
-> отрепетировать с отдельным ботом от @BotFather. Шаг 7 с боевым токеном уводит кнопку меню живого бота на ПК —
-> тоже только при переезде.
+> **До переезда ПК не опрашивает живой токен.** Шаблон ставит `ENABLE_TELEGRAM_POLLING=false`, а `TG_BOT_API_KEY`
+> и `TG_BOT_USERNAME` до переезда остаются пустыми. Пока живой экземпляр работает на маке, он опрашивает
+> @FinanceTrackerDevBot. Если ПК начнёт опрашивать тот же токен, мак (не production) после пяти 409 уйдёт в `failed`,
+> опрос заберёт ПК — и сообщения Шукура лягут в пустую базу ПК и пропадут при переезде. Включение бота — раздел
+> [«Переезд»](#переезд-включить-бота-ft-159).
+>
+> Отрепетировать всё целиком, с ботом и Mini App, можно на другом боте — удобно сразу завести будущий dev-бот мака из
+> FT-159: его токен и username в `.env.local`, `ENABLE_TELEGRAM_POLLING=true`, шаг 7 — с его `--chat-id`. Перед
+> переездом вернуть сюда пустые значения или сразу живой токен по разделу «Переезд».
+
+**Shortcut для iPhone (после FT-155).** Когда FT-155 в `main`, раскомментировать `SHORTCUT_CAPTURE_TOKEN`
+(`openssl rand -hex 32`, не короче 32 символов) и `SHORTCUT_CAPTURE_OWNER` (свой id; он должен быть в
+`ALLOWED_TELEGRAM_IDS`). Задавать обе или ни одной: без обеих Shortcut выключен (`403 SHORTCUT_CAPTURE_DISABLED`), а
+неполная или неверная настройка в production останавливает старт. С `Restart=always` это цикл перезапусков —
+`journalctl -u daftar.service -n 20` покажет `Configuration validation failed` и список ошибок. Отзыв токена — новое
+значение и `sudo systemctl restart daftar.service`.
 
 ## 6. Сборка и сервис systemd
 
+`npm ci` в шаге 4 уже собрал webapp (это делает `postinstall`); осталось собрать сервер и поставить сервис:
+
 ```bash
 cd ~/daftar-live
-scripts/nvm-exec.sh npm run build:webapp
 scripts/nvm-exec.sh npm run build
 sed -e "s|__USER__|$USER|g" -e "s|__APP_DIR__|$HOME/daftar-live|g" ops/live/daftar.service \
   | sudo tee /etc/systemd/system/daftar.service >/dev/null
 sudo systemctl daemon-reload
 sudo systemctl enable --now daftar.service
 systemctl status daftar.service --no-pager
-journalctl -u daftar.service -f  # Ctrl+C — выйти
+journalctl -u daftar.service -f  # Ctrl+C — выйти; без группы adm — sudo journalctl …
 ```
 
-Готово, когда в журнале есть `Server started`, а проверка отвечает `"environment":"production"` и
-`"telegramBot":{"state":"running"`:
+Готово, когда в журнале есть `Server started`, а проверка отвечает `"environment":"production"` и до переезда —
+`"telegramBot":{"state":"disabled"` (с пустым токеном ещё `"lastError":"TG_BOT_API_KEY missing"`). С репетиционным
+ботом и после переезда — `"state":"running"`.
 
 ```bash
 curl -s http://127.0.0.1:3000/api/health
+git tag -f live-good             # эта сборка работает: на неё откатываться (дальше тег двигает live-update.sh)
 ```
 
 Первый запуск создаёт пустую базу `data/database.sqlite`; записи с мака переезжают в FT-159. Если шаблон
@@ -196,7 +220,8 @@ curl -s http://127.0.0.1:3000/api/health
 
 ## 7. Кнопка меню
 
-Один раз — адрес постоянный:
+Только при переезде (раздел [«Переезд»](#переезд-включить-бота-ft-159)) или для репетиционного бота: с живым токеном
+до переезда эта команда увела бы кнопку меню живого бота на пустой ПК. Делается один раз — адрес постоянный:
 
 ```bash
 cd ~/daftar-live
@@ -241,15 +266,54 @@ Get-ScheduledTask -TaskName 'Daftar WSL' | Select-Object TaskName, State
 - Сменили пароль Windows — обновить его в задаче:
   `$cred = Get-Credential -UserName $user; Set-ScheduledTask -TaskName 'Daftar WSL' -User $user -Password $cred.GetNetworkCredential().Password`.
 
+### Если задача не работает
+
+```powershell
+Get-ScheduledTaskInfo -TaskName 'Daftar WSL' | Select-Object LastRunTime, LastTaskResult, NumberOfMissedRuns
+wsl -l -v
+```
+
+`LastTaskResult` PowerShell печатает десятичным числом
+([коды Планировщика](https://learn.microsoft.com/en-us/windows/win32/taskschd/task-scheduler-error-and-success-constants)):
+
+| `LastTaskResult` | Что значит |
+|---|---|
+| `267009` (`0x41301`) | Задача работает — так и должно быть |
+| `267011` (`0x41303`) | Задача ещё не запускалась: `Start-ScheduledTask -TaskName 'Daftar WSL'` |
+| `0` | `wsl.exe` завершился штатно — WSL больше не держится. Обычно после `wsl --shutdown`: запустить задачу снова |
+| `267014` (`0x41306`) | Задачу остановили вручную (`Stop-ScheduledTask` или в окне Планировщика) |
+| `2147943726` (`0x8007052E`) | Неверное имя пользователя или пароль — см. ниже |
+| другое | `wsl.exe` завершился с ошибкой: выполнить в PowerShell ту же команду `wsl.exe -d Ubuntu --exec /bin/sleep infinity` и прочитать ответ (например, неверное имя дистрибутива) |
+
+**«Неверное имя пользователя или пароль»** при `Register-ScheduledTask` или в `LastTaskResult`. Нужен пароль
+учётной записи Windows: для учётки Microsoft — пароль от неё, PIN и Windows Hello не подходят. Если вход настроен
+только через Windows Hello и пароль не принимается, выключить «Для повышения безопасности разрешить вход только с
+помощью Windows Hello для учётных записей Microsoft» (Параметры → Учётные записи → Варианты входа) и
+зарегистрировать задачу снова, добавив `-Force`. Не проверено на ПК Шукура.
+
+**Задача `Running`, а WSL всё равно гаснет** (`wsl -l -v` — `Stopped`, хотя задача работает): запасной путь —
+запретить WSL гасить простаивающий дистрибутив. В `%UserProfile%\.wslconfig`:
+
+```ini
+[general]
+instanceIdleTimeout=-1
+```
+
+Затем `wsl --shutdown` и `Start-ScheduledTask -TaskName 'Daftar WSL'`. Ключ и секция — по
+[Microsoft Learn](https://learn.microsoft.com/en-us/windows/wsl/wsl-config) (`instanceIdleTimeout`, по умолчанию
+15000 мс, `-1` выключает автоматическую остановку); работает ли он на версии WSL этого ПК, не проверено. Задача при
+старте системы всё равно нужна — она запускает WSL.
+
 ## 9. Проверка
 
 1. PowerShell: `curl.exe -s http://127.0.0.1:3000/api/health` — тот же ответ, что в WSL. Так проверяется доступ
    Windows к серверу в WSL, на котором стоит `tailscale serve`.
-2. iPhone с включённым Tailscale: `https://<пк>.<tailnet>.ts.net/api/health` в Safari, потом Mini App по кнопке меню.
+2. iPhone с включённым Tailscale: `https://<пк>.<tailnet>.ts.net/api/health` в Safari. Mini App по кнопке меню — когда
+   бот включён (репетиционный или после переезда).
 3. **Перезагрузка.** Перезагрузить Windows и не входить (или войти, но не открывать Ubuntu). Через пару минут с
-   iPhone: бот отвечает на сообщение, Mini App открывается по кнопке меню. Потом в PowerShell:
-   `Get-ScheduledTask -TaskName 'Daftar WSL'` — `Running`, `wsl -l -v` — `Running`; в WSL
-   `systemctl status daftar.service` — `active (running)` с момента загрузки.
+   iPhone: `https://<пк>.<tailnet>.ts.net/api/health` отвечает; с репетиционным ботом или после переезда — бот отвечает
+   на сообщение, Mini App открывается по кнопке меню. Потом в PowerShell: `Get-ScheduledTask -TaskName 'Daftar WSL'` —
+   `Running`, `wsl -l -v` — `Running`; в WSL `systemctl status daftar.service` — `active (running)` с момента загрузки.
 
 Если в пункте 1 Windows не получает ответа, а `curl` внутри WSL получает, значит, проброс `localhost` из WSL не
 работает. Тогда — зеркальный режим сети (Windows 11 22H2+): в `%UserProfile%\.wslconfig`
@@ -263,6 +327,23 @@ networkingMode=mirrored
 ([Microsoft](https://learn.microsoft.com/en-us/windows/wsl/networking)); входящие из сети в WSL закрыты брандмауэром
 Hyper-V, пока их не разрешить, — и разрешать не нужно.
 
+## Переезд: включить бота (FT-159)
+
+Порядок важен: пока опрос включён на двух машинах, сообщения уходят то туда, то сюда. Подробности переноса базы —
+FT-159; здесь — переключение бота.
+
+1. **Остановить живой экземпляр на маке** (`kill -TERM` процессу `scripts/dev-miniapp.js`, `pgrep -fl dev-miniapp.js`)
+   и убедиться, что он не запустится снова.
+2. **Перенести базу с мака** на ПК в `~/daftar-live/data/` при остановленном `daftar.service` (FT-159) — до того, как
+   ПК начнёт принимать сообщения.
+3. В `~/daftar-live/.env.local`: `TG_BOT_API_KEY` и `TG_BOT_USERNAME` живого бота @FinanceTrackerDevBot (из
+   `.env.local` мака или `~/.config/daftar/dev.env`) и `ENABLE_TELEGRAM_POLLING=true`.
+4. `sudo systemctl restart daftar.service`, затем `curl -s http://127.0.0.1:3000/api/health` — `"state":"running"`.
+5. Шаг 7: `miniapp:menu -- set` с адресом tailnet и своим `--chat-id`, затем `sudo systemctl restart daftar.service`.
+6. В Telegram отправить боту `/start`: старые кнопки ведут на адрес quick tunnel, `/start` пришлёт новые. Проверить
+   ответ бота и Mini App по кнопке меню, потом проверку 9.3 с перезагрузкой.
+7. Мак дальше работает со своим новым dev-ботом (FT-159) — с тем же токеном его больше не запускать.
+
 ## Обновление
 
 ```bash
@@ -272,15 +353,20 @@ scripts/live-update.sh
 
 Скрипт:
 
-1. Отказывается работать не на `main`, с изменёнными или лишними файлами в дереве и без `.env.local`.
+1. Отказывается работать не на `main`, с изменёнными или лишними файлами в дереве и без `.env.local`. Сразу
+   спрашивает пароль sudo (`sudo -v`) — он нужен в конце для перезапуска, а не через несколько минут сборки.
 2. `git pull --ff-only origin main` — и показывает новые коммиты. Отказывается, если в копии есть свои коммиты,
    которых нет в `origin/main`: живая копия — это `main` как в GitHub.
-3. `npm ci --include=dev`, `npm run build:webapp`, `npm run build` — на Node из `.nvmrc`. `--include=dev` нужен, чтобы
-   TypeScript и Vite ставились, даже если в оболочке выставлен `NODE_ENV=production`.
-4. `sudo systemctl reset-failed` и `restart daftar.service` (спросит пароль sudo). `reset-failed` — на случай, если
-   сервис остановлен лимитом стартов.
-5. Ждёт до 60 с, пока `/api/health` ответит 200, и печатает окружение и состояние бота.
-6. Печатает прошлый коммит — он нужен для отката.
+3. Проверяет, что Node из `.nvmrc` установлен: если `.nvmrc` сменился, подскажет `nvm install` и остановится до сборки.
+4. `npm ci --include=dev` (его `postinstall` ставит и собирает webapp; скрипт проверяет, что `public/webapp`
+   пересобран) и `npm run build` — на Node из `.nvmrc`. `--include=dev` нужен, чтобы TypeScript и Vite ставились,
+   даже если в оболочке выставлен `NODE_ENV=production`.
+5. `sudo systemctl reset-failed` и `restart daftar.service`. `reset-failed` — на случай, если сервис остановлен
+   лимитом стартов; заодно паузы перезапуска снова начинаются с 10 с.
+6. Ждёт до 60 с, пока `/api/health` ответит 200, и печатает окружение и состояние бота.
+7. Только после ответа 200 переставляет локальный тег `live-good` на новый коммит. Это последняя сборка, которая точно
+   работала, — на неё откатываются. Скрипт печатает её при любой неудаче, в том числе при повторном запуске после
+   неудачного обновления, когда «коммит до запуска» был бы уже сломанным.
 
 Миграции применяет само приложение на старте: сначала копирует `data/database.sqlite` в
 `data/backups/database-<дата>-<время>.sqlite`, в журнале — `Database migrations applied` с `backupPath`. Пока идёт
@@ -293,7 +379,9 @@ scripts/live-update.sh
 
 ## Откат
 
-Нужен прошлый коммит — его печатает `live-update.sh` (или `git reflog`). Всё — в `~/daftar-live`.
+Откатываются на тег `live-good` — последнюю сборку, которая ответила 200 (`git log -1 --oneline live-good`). Его
+ставит шаг 6 при установке и двигает `live-update.sh`. Нет тега — прошлый коммит из `git reflog`. Всё — в
+`~/daftar-live`.
 
 1. Остановить сервис: `sudo systemctl stop daftar.service`.
 2. Проверить, применило ли обновление миграции:
@@ -313,9 +401,8 @@ scripts/live-update.sh
 3. Вернуть код и собрать:
 
    ```bash
-   git switch --detach <прошлый коммит>
-   scripts/nvm-exec.sh npm ci --include=dev
-   scripts/nvm-exec.sh npm run build:webapp
+   git switch --detach live-good
+   scripts/nvm-exec.sh npm ci --include=dev   # и webapp — через postinstall
    scripts/nvm-exec.sh npm run build
    ```
 
@@ -335,8 +422,27 @@ journalctl -u daftar.service --grep '"level":"error"' --no-pager
 systemctl show daftar.service -p NRestarts           # сколько раз systemd его перезапускал
 ```
 
-В production приложение пишет JSON — по строке на событие. Сервис `failed` после лимита стартов:
-`sudo systemctl reset-failed daftar.service && sudo systemctl start daftar.service` — сначала причину в журнале.
+В production приложение пишет JSON — по строке на событие. Системный журнал читают пользователи группы `adm` (в
+Ubuntu первый пользователь в ней); если `journalctl -u daftar.service` пуст или пишет про права — `sudo journalctl …`.
+Сервис `failed` после лимита стартов: `sudo systemctl reset-failed daftar.service && sudo systemctl start daftar.service`
+— сначала причину в журнале.
+
+### Адрес клиента и лимиты запросов
+
+`tailscale serve` ставит запросу заголовок `X-Forwarded-For` с адресом устройства в tailnet (`100.x.y.z`) и
+перезаписывает присланный клиентом, так что подделать его нельзя; ещё — `X-Forwarded-Proto: https` и
+`X-Forwarded-Host` (исходники Tailscale, `ipn/ipnlocal/serve.go`, `addProxyForwardedHeaders`). Приложение стоит с
+`trust proxy` = 1 (`src/index.ts`): адрес клиента — последний в `X-Forwarded-For`, то есть адрес устройства, а не
+`127.0.0.1` прокси.
+
+Поэтому лимиты по адресу считаются на устройство. Лимит запросов к ИИ — 20 за 15 минут (`aiRateLimiter`): Mini App и
+Shortcut с одного iPhone делят его, браузер на маке считается отдельно. Голос и текст в боте через HTTP не идут и под
+этот лимит не попадают. Превышение — ответ `429 AI_RATE_LIMIT_EXCEEDED` и в журнале `AI rate limit exceeded` с полем
+`ip`.
+
+Проверить: `journalctl -u daftar.service --grep "rate limit" --no-pager` — в `ip` должен быть адрес устройства из
+`tailscale status`. Если там `127.0.0.1` или `::ffff:127.0.0.1`, адрес клиента не доходит, и все устройства делят один
+лимит. Тогда — задача на код (`trust proxy` и ключ лимитера), не правка на ПК.
 
 ## Бэкап (FT-157)
 
@@ -353,7 +459,8 @@ systemctl show daftar.service -p NRestarts           # сколько раз sys
 
 | Признак | Где смотреть |
 |---|---|
-| Бот молчит | `systemctl status daftar.service`, `journalctl -u daftar.service -n 50`; не опрашивает ли тот же токен мак (409) |
+| Бот молчит | До переезда так и должно быть (`"state":"disabled"`). После — `systemctl status daftar.service`, `journalctl -u daftar.service -n 50`; не опрашивает ли тот же токен мак (409) |
 | Бот отвечает, Mini App не открывается | Windows: `tailscale serve status`, `curl.exe -s http://127.0.0.1:3000/api/health`; на iPhone включён Tailscale |
-| После перезагрузки не работает ничего | `Get-ScheduledTask -TaskName 'Daftar WSL'`, `wsl -l -v`, затем `systemctl status daftar.service` |
+| После перезагрузки не работает ничего | `Get-ScheduledTaskInfo -TaskName 'Daftar WSL'`, `wsl -l -v` — [«Если задача не работает»](#если-задача-не-работает); затем `systemctl status daftar.service` |
+| Сервис перезапускается по кругу | `journalctl -u daftar.service -n 20`: `Configuration validation failed` — ошибка в `.env.local`; остальное — [Troubleshooting](troubleshooting.md#service-restarts-in-a-loop-or-is-failed) |
 | `live-update.sh` отказывается или `git pull` падает | [Troubleshooting → Live Instance on the PC](troubleshooting.md#live-instance-on-the-pc) |

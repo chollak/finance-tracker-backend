@@ -475,16 +475,17 @@ git pull --ff-only origin main
 
 ```bash
 systemctl status daftar.service --no-pager
-journalctl -u daftar.service -n 100 --no-pager
+journalctl -u daftar.service -n 100 --no-pager   # без группы adm — через sudo
 ```
+
+Выход из-за бота (`401`, `409`) — раздел [Production process exits right after start](#production-process-exits-right-after-start).
 
 | В журнале | Причина |
 |---|---|
-| `ALLOWED_TELEGRAM_IDS is required in production` | Пустой список доступа в `.env.local` (FT-153) |
-| `409` / `Conflict` | Тот же токен опрашивает другой процесс — живой экземпляр на маке |
-| `401` / `Unauthorized` | Неверный `TG_BOT_API_KEY` |
+| `Configuration validation failed` | Настройка в `.env.local` не проходит проверку на старте; список ошибок — в той же записи (`errors`). Например, `ALLOWED_TELEGRAM_IDS is required in production` (FT-153) или Shortcut задан наполовину, токен короче 32 символов, владелец не в `ALLOWED_TELEGRAM_IDS` (FT-155) |
+| `Telegram bot polling failed permanently` сразу после старта, без `409` | Нет сети на старте: в production процесс выходит (FT-154), systemd запускает его снова с растущей паузой |
 | `NODE_MODULE_VERSION` | `node_modules` собраны под другой Node: `scripts/nvm-exec.sh npm ci --include=dev` |
-| `start request repeated too quickly` | Сработал лимит стартов. Исправить причину, затем `sudo systemctl reset-failed daftar.service && sudo systemctl start daftar.service` |
+| `start request repeated too quickly` | Сработал лимит стартов (на systemd 249 / Ubuntu 22.04 — после ~20 быстрых перезапусков, например при долгом отсутствии сети). Исправить причину, затем `sudo systemctl reset-failed daftar.service && sudo systemctl start daftar.service` |
 
 ---
 
