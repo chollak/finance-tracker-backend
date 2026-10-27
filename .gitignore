@@ -37,6 +37,9 @@ data/database.sqlite.*
 data/*.backup
 data/backups/
 
+# Voice files the bot downloads (DOWNLOADS_PATH); one left by a crash must not block scripts/live-update.sh
+downloads/
+
 # Runtime learning data (tracked seed files are data/*.seed.json)
 data/learning-data.json
 data/patterns.json

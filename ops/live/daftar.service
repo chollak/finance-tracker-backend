@@ -1,0 +1,43 @@
+# The live instance on the PC (FT-156): API, Mini App and Telegram bot from the live copy, a WSL distro with systemd.
+# A template: __USER__ and __APP_DIR__ are filled in on install, see
+# docs/knowledge-base/08-development/live-instance.md («Сервис systemd»).
+
+[Unit]
+Description=Daftar live instance (API, Mini App, Telegram bot)
+# network.target, not network-online.target: in WSL the wait-online service can hold the start for minutes, and the
+# app needs no network to start — Telegram polling and the rate refresh retry on their own.
+After=network.target
+# A crash loop stops after 20 starts in an hour. With the growing delay below (systemd >= 254) starts stay well under
+# that, so the service keeps retrying every 10 minutes; on an older systemd RestartSteps is ignored with a warning and
+# this limit stops a 10-second loop instead. Starting again after the limit: systemctl reset-failed, then start.
+StartLimitIntervalSec=1h
+StartLimitBurst=20
+
+[Service]
+Type=exec
+User=__USER__
+WorkingDirectory=__APP_DIR__
+# Node from .nvmrc through nvm: the same Node that `npm ci` used in scripts/live-update.sh, so the native sqlite3
+# module matches it. The wrapper execs node, so node is the main process and gets SIGTERM on stop.
+ExecStart=__APP_DIR__/scripts/nvm-exec.sh node dist/index.js
+# The live service is production whatever .env.local says; .env.local keeps it too, for commands run by hand.
+# The rest of the settings, TZ included, come from __APP_DIR__/.env.local (the app reads it from WorkingDirectory).
+Environment=NODE_ENV=production
+
+Restart=always
+# 10 s after the first exit, then longer each time up to 10 minutes (systemd >= 254). A wrong bot token or a 409
+# from a second poller of the same token makes the app exit (FT-154): it retries a few times an hour instead of every
+# few seconds and comes back by itself once the cause is gone. A manual start or restart begins again from 10 s.
+RestartSec=10s
+RestartSteps=6
+RestartMaxDelaySec=10min
+# The app closes the database on SIGTERM; this is the most it may take.
+TimeoutStopSec=30s
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=daftar
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
