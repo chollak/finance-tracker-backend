@@ -71,7 +71,8 @@ OPENAI_API_KEY=sk-...
 
 ### Environment File Policy
 
-- `.env.example` is the only tracked env template.
+- `.env.example` is the tracked env template for development; `ops/live/env.local.example` — for the live instance on
+  the PC (FT-156, [live-instance.md](live-instance.md)).
 - `.env` is ignored and used as the default local/Docker env file.
 - `.env.local` is ignored and preferred for machine-specific overrides.
 - `.env.development` is ignored legacy/local naming; the app does not load it.
@@ -99,7 +100,22 @@ Supabase как отдельный путь к базе убран (решени
 
 ## Running the Application
 
-### Phone / Telegram Mini App (RECOMMENDED для текущего режима работы)
+### Живой экземпляр (ПК с Windows + WSL)
+
+Daftar для ежедневного пользования — systemd-сервис на ПК с WSL: копия `~/daftar-live` на `main`, `NODE_ENV=production`,
+постоянный адрес `https://<пк>.<tailnet>.ts.net` через `tailscale serve`, кнопка меню ставится один раз. Установка,
+проверка, логи и откат — [live-instance.md](live-instance.md) (FT-156). Обновление — одна команда в живой копии:
+
+```bash
+scripts/live-update.sh
+```
+
+До переезда (FT-159) живой экземпляр ещё работает на маке через `npm run dev:miniapp`.
+
+### Phone / Telegram Mini App во время разработки
+
+Для проверки ветки на телефоне с мака: временный адрес Cloudflare quick tunnel. После переезда (FT-159) — со своим
+dev-ботом: один токен опрашивает только один процесс.
 
 ```bash
 # Подставьте свой Telegram chat/user id.
@@ -364,7 +380,7 @@ SELECT * FROM transaction LIMIT 10;
 | `TG_BOT_API_KEY` | - | Telegram bot token |
 | `ALLOWED_TELEGRAM_IDS` | - | Закрытый доступ (FT-153): Telegram id через запятую. Остальным бот молчит (в логе `warn` с id), API отвечает `403 ACCESS_NOT_ALLOWED` до создания пользователя, итоги дня и напоминания им не уходят. Пусто — пускает всех, но при `NODE_ENV=production` пустой список — ошибка запуска; запись не из цифр — ошибка запуска всегда. Свой id виден в логе: с непустым списком бот пишет `warn` с id каждого, кого не пустил |
 | `TG_BOT_USERNAME` | - | @username бота без `@` для ссылки входа в браузере `t.me/<bot>?start=login_…` (FT-128). Пусто — спрашивается у Telegram (`getMe`) |
-| `WEB_APP_URL` | `http://localhost:3000` | Public URL (перезаписывается `npm run dev:miniapp`) |
+| `WEB_APP_URL` | `http://localhost:3000` | Public URL (перезаписывается `npm run dev:miniapp`; у живого экземпляра — адрес tailnet, [live-instance.md](live-instance.md)) |
 | `OPENAI_MODEL` | `gpt-4.1-mini` | Модель разбора текста (`gpt-4-turbo` OpenAI снял) |
 | `OPENAI_TIMEOUT_MS` | `20000` | Сколько ждать ответа OpenAI на разбор текста и расшифровку голоса (FT-145). Без него SDK ждёт 10 минут |
 | `OPENAI_MAX_RETRIES` | `1` | Сколько раз повторить разбор текста после таймаута или сбоя, 0–5 (FT-145). Голос не повторяется |
@@ -440,6 +456,7 @@ npm run verify           # Full gate before commit/push
 # Production
 npm run build            # Compile TypeScript
 npm run serve            # Run compiled app
+scripts/live-update.sh   # Live instance on the PC: pull main, build, restart (live-instance.md)
 
 # Docker
 docker compose up -d --build

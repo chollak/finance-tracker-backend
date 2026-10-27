@@ -4,6 +4,7 @@
 >
 > Source of truth for current work: [TASKS.md](TASKS.md) (текущий фокус) and [CLAUDE.md](CLAUDE.md).
 > For local setup, use [docs/knowledge-base/08-development/quick-start.md](docs/knowledge-base/08-development/quick-start.md).
+> The live instance runs on Shukur's PC (WSL, systemd, `tailscale serve`): [docs/knowledge-base/08-development/live-instance.md](docs/knowledge-base/08-development/live-instance.md) (FT-156).
 >
 > The Docker/Node sections below describe the current packaging commands. There is no server-side deploy: the SSH deploy to AWS was removed in FT-158 (see [GitHub Actions](#github-actions)).
 
