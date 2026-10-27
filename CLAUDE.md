@@ -82,6 +82,7 @@ Required environment variables in `.env` file:
 - `OPENAI_API_KEY` - For voice transcription and transaction parsing
 - `TG_BOT_API_KEY` - Telegram bot token
 - `WEB_APP_URL` - Public URL for the web application
+- `ALLOWED_TELEGRAM_IDS` - closed access (FT-153): Telegram user ids, comma-separated. The bot ignores anyone else silently (a `warn` with the id in the log), the API answers `403 ACCESS_NOT_ALLOWED` before any user is resolved, итоги дня and reminders go only to them. Empty lets everyone in outside production; with `NODE_ENV=production` an empty list stops the start; an entry that is not a whole number stops it everywhere
 - `TG_BOT_USERNAME` - optional; the bot's @username for the web login link `t.me/<bot>?start=login_…` (FT-128). When empty the server asks Telegram (`getMe`)
 - `FREE_LIMITS_ENABLED` - optional; `true` enforces free-tier limits (50 records, 10 voice inputs a month). Off by default during milestone 10 (decision Д3, FT-091); usage is still counted
 - `OPENAI_MODEL` - optional; the text-parsing model, default `gpt-4.1-mini` (OpenAI withdrew `gpt-4-turbo`)

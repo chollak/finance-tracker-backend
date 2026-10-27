@@ -122,6 +122,17 @@ Mini App); нет заголовка — сессия браузера. Без �
 
 **Файл:** [`src/delivery/web/express/middleware/webSessionMiddleware.ts`](../../../src/delivery/web/express/middleware/webSessionMiddleware.ts)
 
+#### D3. Closed access (FT-153)
+
+Сразу после сессии браузера, до всех роутеров, — `createAllowedUsersMiddleware()`: если задан `ALLOWED_TELEGRAM_IDS`,
+запрос, который входит как пользователь не из списка (initData, сессия браузера, вне production `X-Dev-User-Id`), получает
+`403 ACCESS_NOT_ALLOWED` — до разрешения пользователя, строка в `users` не появляется. `X-Dev-User-Id` не из цифр тоже
+`403` (`requireAuth` впустил бы его как `NaN`). Запрос без входа идёт дальше: маршрут ответит `401`, если ему нужен вход.
+Пустой список пускает всех. Владельца Shortcut (`X-Shortcut-User-Id`) проверяет `allowShortcutCapture` — после токена,
+чтобы ответ на неверный токен не выдавал, кто в списке.
+
+**Файл:** [`src/delivery/web/express/middleware/authMiddleware.ts`](../../../src/delivery/web/express/middleware/authMiddleware.ts)
+
 #### E. Rate limits (в каждом роутере, до его авторизации)
 
 | Лимитер | Окно | Считает по | Лимит |

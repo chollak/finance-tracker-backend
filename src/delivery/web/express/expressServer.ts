@@ -31,6 +31,7 @@ import { createAuthRoutes } from '../../../modules/auth/presentation/authControl
 import { AuditModule } from '../../../modules/audit/auditModule';
 import { createAuditRoutes, createGoalRoutes } from '../../../modules/audit/presentation/auditController';
 import { createWebSessionMiddleware } from './middleware/webSessionMiddleware';
+import { createAllowedUsersMiddleware } from './middleware/authMiddleware';
 
 /** Modules of the money model (milestone 10, phase 2); their routes take the user from auth only. */
 export interface MoneyModules {
@@ -82,6 +83,9 @@ export function buildServer(
   if (authModule) {
     router.use(createWebSessionMiddleware(sessionSecret => authModule.getWebSessionUseCase().execute({ sessionSecret })));
   }
+
+  // Closed access (FT-153): someone not in ALLOWED_TELEGRAM_IDS gets 403 here, before any route resolves the user
+  router.use(createAllowedUsersMiddleware());
 
   // Note: User resolution middleware is applied at route level, not globally.
   // This ensures req.params is available when middleware runs.
