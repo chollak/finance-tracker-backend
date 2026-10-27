@@ -53,8 +53,8 @@ import {
   corsHeaders,
   securityHeaders
 } from './middleware/errorMiddleware';
-import { AppConfig } from '../../../shared/infrastructure/config/appConfig';
 import { getTelegramBotStatus } from '../../messaging/telegram/telegramBot';
+import { createHealthHandler } from './routes/healthRoutes';
 
 export function buildServer(
   transactionModule: TransactionModule,
@@ -91,17 +91,8 @@ export function buildServer(
   // This ensures req.params is available when middleware runs.
   // Each router receives userModule and applies middleware to routes with :userId param.
 
-  // Health check endpoint for Docker health monitoring
-  router.get('/health', (_req, res) => {
-    res.status(200).json({ 
-      status: 'healthy',
-      timestamp: new Date().toISOString(),
-      uptime: process.uptime(),
-      version: process.env.npm_package_version || '1.0.0',
-      environment: AppConfig.NODE_ENV,
-      telegramBot: getTelegramBotStatus()
-    });
-  });
+  // Health check: Docker, monitoring and the webapp's offline mode; 503 when the bot failed for good (FT-154)
+  router.get('/health', createHealthHandler(getTelegramBotStatus));
 
   router.use(
     '/transactions',

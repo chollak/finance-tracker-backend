@@ -403,9 +403,26 @@ Expected response:
 {
   "status": "healthy",
   "timestamp": "2026-01-09T...",
-  "uptime": 123.45
+  "uptime": 123.45,
+  "telegramBot": { "state": "running", "attempts": 1 }
 }
 ```
+
+`503` with `"status": "unhealthy"` means the bot's polling failed for good (`telegramBot.state = failed`, the cause in
+`telegramBot.lastError`); `starting`, `retrying`, `running` and `disabled` are `200` (FT-154).
+
+### Production process exits right after start
+
+With `NODE_ENV=production` a bot that failed for good shuts the process down with exit code `1`, so systemd restarts
+it (FT-154, `docs/knowledge-base/01-architecture/runtime-process-mode.md`). Look for the reason in the journal:
+
+```bash
+journalctl -u <service> -n 50 | grep -E "Telegram bot polling failed permanently|down for good|Shutting down"
+```
+
+- `401: Unauthorized` / `404: Not Found` — `TG_BOT_API_KEY` is wrong or revoked: fix it in `.env.local`.
+- `409: Conflict` — another process polls the same token (the Mac's `npm run dev:miniapp`, a second service): stop it.
+  The process retries a `409` with backoff first (`TELEGRAM_POLLING_MAX_RETRIES`, default 5) and exits only after that.
 
 ---
 

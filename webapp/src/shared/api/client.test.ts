@@ -107,6 +107,26 @@ describe('whether a write reached the server (FT-129)', () => {
     expect(await lostThenAnswered(new Response('<html>Bad gateway</html>', { status, headers: { 'content-type': 'text/html' } }))).toBe(true);
   });
 
+  it('the health check answered by the server returns the connection, even its 503 while the bot is down (FT-154)', async () => {
+    const { serverAnswers } = await client();
+
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ status: 'healthy' }), { status: 200, headers: json }));
+    expect(await serverAnswers()).toBe(true);
+
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ status: 'unhealthy', telegramBot: { state: 'failed' } }), { status: 503, headers: json }));
+    expect(await serverAnswers()).toBe(true);
+  });
+
+  it('the health check answered by a gateway while the server is down does not', async () => {
+    const { serverAnswers } = await client();
+
+    fetchMock.mockResolvedValueOnce(new Response('<html>Bad gateway</html>', { status: 502, headers: { 'content-type': 'text/html' } }));
+    expect(await serverAnswers()).toBe(false);
+
+    fetchMock.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+    expect(await serverAnswers()).toBe(false);
+  });
+
   it('a read never does: the service worker may answer it from its cache', async () => {
     fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ success: true, data: [] }), { status: 200, headers: json }));
     const { apiClient } = await client();

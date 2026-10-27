@@ -9,6 +9,8 @@ import { ConfigurationError } from './shared/domain/errors/AppError';
 import { initializeDatabase, closeDatabase } from './shared/infrastructure/database/database.config';
 import { createLogger, LogCategory } from './shared/infrastructure/logging';
 import { registerLoggerFactory } from './shared/application/logging';
+import { closeHttpServer, createGracefulShutdown } from './delivery/runtime/gracefulShutdown';
+import { createBotFailureHandler } from './delivery/runtime/botFailurePolicy';
 
 // Register infrastructure logger for application layer use
 // This is the composition root - where we wire up dependencies
@@ -68,25 +70,31 @@ async function startApplication() {
     });
 
     const port = process.env.PORT || 3000;
-    
-    app.listen(port, () => {
+
+    // One way out (FT-154): a signal exits 0; the bot failing for good in production exits 1 so systemd restarts us
+    const shutdown = createGracefulShutdown(
+      {
+        stopSchedulers: () => {
+          fxModule.getService().stop();
+          notificationModule.getDailySummary().stop();
+          notificationModule.getReminders()?.stop();
+        },
+        closeHttpServer: () => closeHttpServer(server),
+        closeDatabase,
+      },
+      // A macrotask before exiting lets the last log lines reach stdout (journald)
+      { exit: code => setImmediate(() => process.exit(code)), logger }
+    );
+    const onPollingFailed = createBotFailureHandler({ nodeEnv: AppConfig.NODE_ENV, shutdown, logger });
+
+    const server = app.listen(port, () => {
       logger.info('Server started', { port });
       // Start Telegram bot after HTTP server is ready
-      startTelegramBot(voiceModule, transactionModule, userModule, quickCaptureModule, subscriptionModule, categoryModule, accountModule, botMessageModule, notificationModule, authModule);
+      startTelegramBot(voiceModule, transactionModule, userModule, quickCaptureModule, subscriptionModule, categoryModule, accountModule, botMessageModule, notificationModule, authModule, { onPollingFailed });
     });
 
-    // Handle graceful shutdown
-    process.on('SIGTERM', async () => {
-      logger.info('Received SIGTERM, shutting down gracefully...');
-      await closeDatabase();
-      process.exit(0);
-    });
-
-    process.on('SIGINT', async () => {
-      logger.info('Received SIGINT, shutting down gracefully...');
-      await closeDatabase();
-      process.exit(0);
-    });
+    process.on('SIGTERM', () => void shutdown('SIGTERM', 0));
+    process.on('SIGINT', () => void shutdown('SIGINT', 0));
 
   } catch (error) {
     logger.error('Application startup failed', error as Error);
