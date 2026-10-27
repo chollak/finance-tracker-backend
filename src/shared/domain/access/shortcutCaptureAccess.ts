@@ -35,11 +35,17 @@ interface ShortcutCaptureContext {
   access: TelegramAccess;
 }
 
-/** The owner's problems, everywhere: a typo or a stranger would make every capture fail. */
+/**
+ * The owner's problems, everywhere: a typo or a stranger would make every capture fail. A value that is not an id is
+ * never printed — it may be the token put in the wrong variable, and the error goes to the log.
+ */
 function ownerProblems(rawOwner: string, owner: string | null, access: TelegramAccess): string[] {
   if (!rawOwner) return [];
   if (owner === null) {
-    return [`SHORTCUT_CAPTURE_OWNER is not one Telegram user id: ${rawOwner}. Set the whole number of the owner's Telegram id`];
+    return [
+      `SHORTCUT_CAPTURE_OWNER is not one Telegram user id (its value, ${rawOwner.length} characters, is not shown). ` +
+      "Set the whole number of the owner's Telegram id",
+    ];
   }
   if (!access.allows(owner)) {
     return [`SHORTCUT_CAPTURE_OWNER ${owner} is not in ALLOWED_TELEGRAM_IDS: the Shortcut would write for someone with no access`];

@@ -161,7 +161,7 @@ For detailed documentation, see **[docs/knowledge-base/](docs/knowledge-base/)**
 - **[Backend Standards](docs/BACKEND_STANDARDS.md)** - Backend coding standards (MUST FOLLOW)
   - Error handling, Repository patterns, Use Cases, Controllers, Naming conventions
 - **[Quick Capture API](docs/QUICK_CAPTURE_API.md)** - Shipped `POST /api/quick-capture` contract, auth, limits
-- **[iPhone Action Button Guide](docs/IOS_SHORTCUT_ACTION_BUTTON.md)** - Safe Shortcut→Telegram capture MVP (`FT-076`) plus dev/test direct Shortcut API instructions (`FT-075`); production auth remains a future decision
+- **[iPhone Action Button Guide](docs/IOS_SHORTCUT_ACTION_BUTTON.md)** - Safe Shortcut→Telegram capture MVP (`FT-076`) plus the direct Shortcut API (`FT-075`) with the owner-bound token, on the live instance in production too (`FT-155`)
 
 ## Architecture Overview
 

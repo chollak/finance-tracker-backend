@@ -69,6 +69,12 @@ describe('the Shortcut capture setting (FT-155)', () => {
     expect(setting.problems.join(' ')).not.toContain(SHORT_TOKEN);
   });
 
+  it('never prints an owner that is not an id: it may be the token put in the wrong variable', () => {
+    const setting = shortcutCaptureAccess({ token: TOKEN, owner: TOKEN }, production);
+    expect(setting.problems).toEqual([expect.stringMatching(/SHORTCUT_CAPTURE_OWNER/)]);
+    expect(setting.problems.join(' ')).not.toContain(TOKEN.slice(0, 8));
+  });
+
   it('outside production keeps the old rules: any token, the owner optional', () => {
     const development = { production: false, access: telegramAccess([]) };
     expect(shortcutCaptureAccess({ token: 'short' }, development)).toMatchObject({ enabled: true, owner: null, problems: [] });
@@ -111,11 +117,12 @@ describe('the start with a Shortcut setting (FT-155)', () => {
     expect(appConfigWith({ NODE_ENV: 'development', SHORTCUT_CAPTURE_TOKEN: 'short' }).validate()).toEqual({ isValid: true, errors: [] });
   });
 
-  it('stops everywhere on an owner that is not a Telegram id', () => {
+  it('stops everywhere on an owner that is not a Telegram id, without printing it', () => {
     for (const NODE_ENV of ['development', 'production']) {
       const { isValid, errors } = appConfigWith({ ...productionEnv, NODE_ENV, SHORTCUT_CAPTURE_TOKEN: TOKEN, SHORTCUT_CAPTURE_OWNER: '@shukur' }).validate();
       expect(isValid).toBe(false);
-      expect(errors).toEqual([expect.stringMatching(/SHORTCUT_CAPTURE_OWNER.*@shukur/)]);
+      expect(errors).toEqual([expect.stringMatching(/SHORTCUT_CAPTURE_OWNER/)]);
+      expect(errors.join(' ')).not.toContain('@shukur');
     }
   });
 });
