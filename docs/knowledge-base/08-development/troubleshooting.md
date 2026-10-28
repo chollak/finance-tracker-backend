@@ -438,6 +438,7 @@ journalctl -u <service> -n 50 | grep -E "Telegram bot polling failed permanently
 | Bot not working | Check token, restart server |
 | Slow requests | Add indexes, optimize queries |
 | Live instance: `git pull` fails | HTTPS remote — [Live Instance on the PC](#live-instance-on-the-pc) |
+| Live instance: no fresh backups | `journalctl -u daftar-backup.service` — [Backup Fails](#backup-fails) |
 | Subscription UUID error | Resolve telegram_id → UUID in controller |
 
 ---
@@ -486,6 +487,31 @@ journalctl -u daftar.service -n 100 --no-pager   # без группы adm — �
 | `Telegram bot polling failed permanently` сразу после старта, без `409` | Нет сети на старте: в production процесс выходит (FT-154), systemd запускает его снова с растущей паузой |
 | `NODE_MODULE_VERSION` | `node_modules` собраны под другой Node: `scripts/nvm-exec.sh npm ci --include=dev` |
 | `start request repeated too quickly` | Сработал лимит стартов (на systemd 249 / Ubuntu 22.04 — после ~20 быстрых перезапусков, например при долгом отсутствии сети). Исправить причину, затем `sudo systemctl reset-failed daftar.service && sudo systemctl start daftar.service` |
+
+### Backup Fails
+
+Ночной бэкап (FT-157) — раздел «Бэкап» в [live-instance.md](live-instance.md#бэкап-ft-157). Последний запуск и его
+причина:
+
+```bash
+systemctl list-timers daftar-backup.timer
+journalctl -u daftar-backup.service -n 20 --no-pager
+```
+
+После исправления — `sudo systemctl start daftar-backup.service`: копия сразу, не дожидаясь ночи.
+
+| В журнале | Что значит и что делать |
+|---|---|
+| `BACKUP_DIR is not set` | Нет строки `BACKUP_DIR=/mnt/c/DaftarBackup` в `~/daftar-live/.env.local` или она пустая — дописать |
+| `does not exist or is not a folder` | Папки нет: создать `C:\DaftarBackup` в Windows. Если `ls /mnt/c` пуст, WSL не смонтировал диск C: — PowerShell `wsl --shutdown`, затем `Start-ScheduledTask -TaskName 'Daftar WSL'`. Скрипт папку не создаёт намеренно: иначе она оказалась бы внутри WSL |
+| `is on the same disk as …/data` | `BACKUP_DIR` указывает внутрь WSL (`~/…`, `/home/…`) — копия умерла бы вместе с базой. Указать папку на C: (`/mnt/c/…`) |
+| `is not writable` | Папку создали от другого пользователя Windows или только для чтения: свойства папки → Безопасность |
+| `sqlite3 is not installed` | `sudo apt-get install -y sqlite3` |
+| `fails PRAGMA integrity_check` | Копия не прошла проверку — скорее всего, повреждена живая база: `sqlite3 -readonly data/database.sqlite 'PRAGMA integrity_check;'`. В облачную папку ничего не записано, прошлые копии целы. Если и живая не `ok` — восстановление из последней хорошей копии (раздел «Восстановление») |
+| `cannot rename` или `cannot delete the old copy` | Windows держит файл (антивирус, Google Drive). Скрипт повторяет переименование три раза; если копия этого запуска не встала на место, следующий запуск снимет новую. Повторяется каждую ночь — посмотреть, кто держит файл |
+| `never read as whole JSON` | База скопирована, а `data/patterns.json` или `data/learning-data.json` не читается как JSON. Приложение тогда само берёт `data/*.seed.json`; испорченный файл можно убрать в `data/backups/` |
+| `daftar-backup.timer` не загружается: `Failed to parse calendar specification` | Нет часовых поясов: `sudo apt-get install -y tzdata`, затем `sudo systemctl daemon-reload` |
+| Копии на C: свежие, в Google Drive — старые | Drive for desktop не запущен (в Windows никто не входил) или на паузе. Войти в Windows, проверить значок Drive в трее |
 
 ---
 

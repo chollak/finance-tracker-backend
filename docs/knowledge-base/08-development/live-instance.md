@@ -15,13 +15,15 @@ Daftar для ежедневного пользования живёт на ПК
 | Windows | сон от сети выключен | спящий ПК — молчащий бот |
 | WSL (Ubuntu, systemd) | сервис `daftar.service` → `node dist/index.js` | сам поднимается и перезапускается, логи в journald |
 | `~/daftar-live` | копия репозитория на `main`, своя `data/` и `.env.local` | ветки разработки и их миграции не трогают живую базу |
+| WSL → Windows | таймер `daftar-backup.timer` → копия базы в `C:\DaftarBackup`, Google Drive выгружает её в облако | база переживёт потерю `ext4.vhdx` — [«Бэкап»](#бэкап-ft-157) |
 
 Бот работает через long polling — только исходящие запросы, адрес tailnet ему не нужен. Пока ПК выключен, Telegram
 хранит сообщения до 24 часов и отдаёт их после включения.
 
 Файлы в репозитории: [`ops/live/daftar.service`](../../../ops/live/daftar.service) — шаблон unit-файла,
 [`ops/live/env.local.example`](../../../ops/live/env.local.example) — шаблон `.env.local` без значений,
-[`scripts/live-update.sh`](../../../scripts/live-update.sh) — обновление одной командой.
+[`scripts/live-update.sh`](../../../scripts/live-update.sh) — обновление одной командой,
+[`scripts/backup-db.sh`](../../../scripts/backup-db.sh) и `ops/live/daftar-backup.*` — ночной бэкап.
 
 ### Почему так
 
@@ -170,7 +172,8 @@ nano .env.local
 ```
 
 Заполнить: `ALLOWED_TELEGRAM_IDS` (свой Telegram id), `OPENAI_API_KEY`, `WEB_APP_URL` (адрес из шага 2) и
-`MINIAPP_CHAT_ID` (свой id); `ADMIN_TELEGRAM_IDS` — по желанию. `NODE_ENV=production` и `TZ=Asia/Tashkent` уже стоят.
+`MINIAPP_CHAT_ID` (свой id); `ADMIN_TELEGRAM_IDS` — по желанию. `NODE_ENV=production` и `TZ=Asia/Tashkent` уже стоят,
+`BACKUP_DIR=/mnt/c/DaftarBackup` — тоже: саму папку и таймер ставит раздел [«Бэкап»](#бэкап-ft-157).
 Значения нигде не печатать и в репозиторий не класть.
 
 > **До переезда ПК не опрашивает живой токен.** Шаблон ставит `ENABLE_TELEGRAM_POLLING=false`, а `TG_BOT_API_KEY`
@@ -451,14 +454,157 @@ IPv6: express-rate-limit 8.6.2 сворачивает адрес IPv6 в под�
 
 ## Бэкап (FT-157)
 
-Ночную копию базы в папку Google Drive делает FT-157 — она допишет сюда таймер, проверку и восстановление.
+Раз в сутки `daftar-backup.timer` запускает [`scripts/backup-db.sh`](../../../scripts/backup-db.sh): онлайн-копия
+`data/database.sqlite` (`sqlite3 … ".backup …"` — безопасно, пока приложение пишет) → `PRAGMA integrity_check` — `ok` →
+вместе с `data/patterns.json` и `data/learning-data.json` в папку `C:\DaftarBackup` (в WSL — `/mnt/c/DaftarBackup`).
+Google Drive for desktop выгружает эту папку в облако. Хранятся последние 30 копий.
+
+Зачем: весь WSL — один файл `ext4.vhdx`. `wsl --unregister`, переустановка Windows или отказ диска уносят базу, а
+копии, которые приложение делает перед миграциями, лежат в `data/backups/` — там же.
 
 - **Живую базу в облачную папку не класть.** Ни `data/`, ни `~/daftar-live` целиком не должны лежать в папке, которую
   синхронизирует Google Drive (или OneDrive, Dropbox): клиент синхронизации копирует файл посреди записи и может
   подменить его своей версией, а SQLite от этого портится. В облако идут только готовые копии, снятые
-  `sqlite3 … ".backup …"`.
-- Пока FT-157 нет, копии базы есть только перед миграциями, в `data/backups/` — на том же диске, что и сама база, а
-  весь WSL — один файл `ext4.vhdx`.
+  `sqlite3 … ".backup …"`, — это и делает скрипт.
+
+Файлы: [`ops/live/daftar-backup.service`](../../../ops/live/daftar-backup.service) — шаблон сервиса (те же `__USER__` и
+`__APP_DIR__`, что у `daftar.service`), [`ops/live/daftar-backup.timer`](../../../ops/live/daftar-backup.timer) — таймер.
+
+### Почему так
+
+- **Папка на C:, которую синхронизирует Google Drive, а не диск `G:`.** У Google Drive for desktop три способа:
+  - Потоковый «Мой диск» (по умолчанию) — виртуальный диск, в Windows обычно `G:`
+    ([Google](https://support.google.com/drive/answer/2565956)). Он есть, только пока Drive for desktop запущен, то есть
+    после входа в Windows, а ПК работает и без входа. В WSL сам в `/mnt/g` он может не появиться — нужен ручной
+    `mount -t drvfs G: /mnt/g`, который не переживает перезапуск WSL (по отзывам, на разных сборках по-разному; не
+    проверено). Ночью копии было бы некуда писать.
+  - Зеркальный «Мой диск» — обычная папка, но тогда на ПК скачивается весь Google Drive, а путь лежит в профиле
+    пользователя и с пробелом (`My Drive`).
+  - **Папки с компьютера** — выбран этот. Любая локальная папка синхронизируется с Drive; такие папки только
+    зеркалятся ([Google](https://support.google.com/drive/answer/13401938)), в веб-версии Drive они видны в разделе
+    «Компьютеры». `C:\DaftarBackup` — обычная папка на C: без пробелов и без имени пользователя, в WSL она есть всегда
+    (`/mnt/c` монтируется сам), а «Мой диск» остаётся потоковым.
+- **Когда копия попадает в облако.** На C: скрипт пишет в любое время — копия вне `ext4.vhdx` появляется сразу и
+  переживает `wsl --unregister` и порчу `vhdx`. В облако её выгружает Drive for desktop, а он работает только в сеансе
+  пользователя: запускается при входе в Windows. Пока в Windows никто не входил, копии копятся на C: и уходят в облако
+  при входе. До этого от отказа диска или переустановки Windows они не спасают: `vhdx` и C: обычно на одном диске.
+  Так устроено приложение; на ПК Шукура не проверено. Не проверено и то, что Drive замечает файлы, записанные из WSL
+  (через `/mnt/c` пишет сама Windows, поэтому должен).
+- **`BACKUP_DIR` — в `.env.local`, а не в unit-файле.** Все настройки живой копии — в одном файле, который и так правят
+  (шаг 5). Сменить папку можно без `sudo` и `daemon-reload`; скрипт, запущенный руками, видит ту же папку, что и
+  таймер; unit остаётся шаблоном, и его переустановка (`sed … | sudo tee …`) не сотрёт путь. Приложение `BACKUP_DIR`
+  не читает. Переменная окружения с тем же именем важнее файла.
+- **Скрипт не создаёт папку и не пишет на диск WSL.** Если `/mnt/c` вдруг не смонтирован, `mkdir -p` создал бы папку
+  внутри `ext4.vhdx`: копия лежала бы рядом с базой, а выглядела бы бэкапом. Поэтому `BACKUP_DIR` не задан, пустой,
+  не абсолютный, такой папки нет, в неё нельзя писать, она на том же диске, что `data/`, — ошибка с понятным текстом,
+  код 1, сервис `failed`, в журнале — причина.
+- **Копия проверена, недописанный файл не уходит.** Копия снимается во временную папку WSL и проверяется
+  `PRAGMA integrity_check`; не `ok` — в облачную папку не пишется ничего. Если ПК выключили посреди записи, рядом с
+  базой остаётся «горячий» журнал: скрипт открывает базу не только на чтение и откатывает его, как приложение на
+  старте, — иначе копия, догоняющая пропуск сразу после включения, падала бы. JSON-файлы проверяются на
+  целостность: приложение могло писать их в эту секунду, поэтому до трёх попыток; так и не целый файл не копируется,
+  база — копируется, а запуск завершается ошибкой. Каждый файл сначала пишется в той же папке под временным именем
+  `.daftar-….partial`, сверяется с проверенной копией и переименовывается; база — последней, поэтому `.sqlite` в
+  папке значит, что JSON того же запуска рядом.
+- **30 копий.** Имена `daftar-ГГГГММДД-ЧЧММСС.sqlite`, рядом `.patterns.json` и `.learning-data.json` того же запуска;
+  время ташкентское (`TZ` из `.env.local`). Удаляются копии старше тридцатой, и только файлы с таким именем — остальное
+  в папке скрипт не трогает. Удаление синхронизируется: в облаке тоже 30. ПК включён не каждый день, поэтому 30 копий —
+  это 30 дней работы ПК, а по календарю больше.
+- **Таймер.** 04:00 по Ташкенту — зона записана в таймере, часовой пояс WSL не важен; в это время записи не пишут.
+  `Persistent=true`: если в 04:00 ПК выключен, копия снимается сразу после старта WSL, один раз. `RandomizedDelaySec`
+  не задан: он разносит во времени запуски многих машин, а машина одна; после включения он только отложил бы
+  пропущенный запуск, и ПК, выключенный в эти минуты, пропустил бы его снова. `Nice=10` и `IOSchedulingClass=idle` —
+  приложение и бот важнее (класс ввода-вывода действует не на всех дисках, но и не мешает); `TimeoutStartSec=30min` —
+  зависший `/mnt/c` не держит следующие запуски.
+
+### Установка
+
+1. **Windows: папка и Google Drive.**
+   1. Создать папку `C:\DaftarBackup` — в Проводнике или в PowerShell: `New-Item -ItemType Directory C:\DaftarBackup`.
+   2. Установить Google Drive for desktop (google.com/drive/download) и войти своим аккаунтом Google.
+   3. Значок Drive в трее → шестерёнка → **Settings** → **Preferences** → **Folders from your computer** →
+      **Add folder** → `C:\DaftarBackup` → **Sync with Google Drive** (не Back up to Google Photos) → **Done** →
+      **Save**. Названия — из английского интерфейса, в русском они звучат иначе.
+   4. drive.google.com → **Компьютеры** → этот ПК → `DaftarBackup`: папка появилась.
+2. **WSL: путь, первая копия, таймер.**
+
+   ```bash
+   cd ~/daftar-live
+   grep -q '^BACKUP_DIR=' .env.local || printf '\nBACKUP_DIR=/mnt/c/DaftarBackup\n' >> .env.local
+   ls -ld /mnt/c/DaftarBackup       # папка видна из WSL
+   scripts/backup-db.sh             # первая копия руками: «done: … integrity ok»
+   for unit in daftar-backup.service daftar-backup.timer; do
+     sed -e "s|__USER__|$USER|g" -e "s|__APP_DIR__|$HOME/daftar-live|g" "ops/live/$unit" \
+       | sudo tee "/etc/systemd/system/$unit" >/dev/null
+   done
+   sudo systemctl daemon-reload
+   sudo systemctl enable --now daftar-backup.timer
+   sudo systemctl start daftar-backup.service   # копия через systemd — так же, как ночью
+   systemctl list-timers daftar-backup.timer    # NEXT — ближайшие 04:00 по Ташкенту
+   ```
+
+   `.env.local`, сделанный из шаблона после FT-157, строку `BACKUP_DIR` уже содержит — `grep` её не задвоит.
+   `systemctl start` ждёт конца копии; при ошибке он пишет `Job for daftar-backup.service failed`, причина —
+   `journalctl -u daftar-backup.service -n 5`. Пока вы в Windows, Drive выгрузит файлы, и они появятся в
+   drive.google.com → Компьютеры → этот ПК → `DaftarBackup`.
+
+Скрипт обновляется вместе с `main` (`live-update.sh`). Если изменились шаблоны в `ops/live/`, их ставит тот же цикл
+`sed … | sudo tee …`, затем `sudo systemctl daemon-reload`. Выключить бэкап: `sudo systemctl disable --now
+daftar-backup.timer`.
+
+### Проверить, что бэкап идёт
+
+```bash
+systemctl list-timers daftar-backup.timer             # LAST — последний запуск, NEXT — следующий
+systemctl status daftar-backup.service --no-pager     # последний результат: success или failed
+journalctl -u daftar-backup.service -n 20 --no-pager  # «done: …» или причина ошибки
+ls -lt /mnt/c/DaftarBackup | head -n 4                # свежие файлы на C:
+```
+
+С iPhone: приложение Google Drive → Компьютеры → ПК → `DaftarBackup` — дата последнего файла. На C: свежие, а в облаке
+старые — Drive for desktop не запущен (в Windows никто не входил) или поставлен на паузу.
+
+Оповещения о сбое нет: упавший бэкап виден только здесь и в папке. Раз в неделю заглядывать в `list-timers` или в
+папку на iPhone.
+
+### Восстановление
+
+Пример — копия из `C:\DaftarBackup`. Всё в WSL, в `~/daftar-live`:
+
+```bash
+cd ~/daftar-live
+sudo systemctl stop daftar.service
+ls -1 /mnt/c/DaftarBackup/daftar-[0-9]*.sqlite | tail -n 5    # последние копии, свежая внизу
+copy=/mnt/c/DaftarBackup/daftar-20261028-040000.sqlite        # выбранная копия
+sqlite3 -readonly "$copy" 'PRAGMA integrity_check;'           # ok
+sqlite3 -readonly "$copy" 'SELECT count(*) FROM transactions;'
+old="data/backups/before-restore-$(date +%Y%m%d-%H%M%S)"
+mkdir -p "$old" && mv data/database.sqlite* "$old"/           # текущая база и её журнал — в сторону
+cp "$copy" data/database.sqlite                               # без sudo: владелец — вы
+ls -l data/database.sqlite
+sudo systemctl start daftar.service
+curl -s http://127.0.0.1:3000/api/health
+sqlite3 -readonly data/database.sqlite 'SELECT count(*) FROM transactions;'   # столько же, сколько в копии
+```
+
+- `mv data/database.sqlite*` уносит и `database.sqlite-journal`, если он есть: SQLite «докатил» бы журнал старой базы в
+  восстановленный файл и испортил бы его. На новом ПК базы нет — `mv` скажет, что файлов нет, это не ошибка.
+- Файл скопирован через `sudo` и принадлежит `root` — приложение не сможет писать: `sudo chown "$USER:"
+  data/database.sqlite`.
+- JSON того же запуска, если нужны: `cp "${copy%.sqlite}.patterns.json" data/patterns.json` и так же
+  `.learning-data.json`. Без них приложение берёт стартовые `data/*.seed.json`.
+- Копия старее кода — приложение на старте применит миграции и перед этим само скопирует базу в `data/backups/`
+  (в журнале — `Database migrations applied`).
+- Записи после времени копии остаются только в `$old`. Mini App покажет записи на момент копии.
+- Папки на C: нет (новый ПК, переустановка Windows): drive.google.com → Компьютеры → старый ПК → `DaftarBackup` →
+  скачать `.sqlite`. Скачанное лежит в `C:\Users\<имя>\Downloads` — в WSL `/mnt/c/Users/<имя>/Downloads/…`; дальше
+  те же шаги с этим путём в `copy`.
+
+Проверено 2026-10-28. На маке с настоящим приложением: три записи через API → копия при работающем сервере →
+четвёртая запись → остановка → вместо базы чужой файл и файл журнала → шаги выше → сервер поднялся, в API три записи
+из копии, новая запись пишется. В Docker на Ubuntu 24.04 с systemd 255 — тот же блок от имени пользователя сервиса,
+установка по шагам, таймер с догоняющим запуском после «перезагрузки», удаление старше 30 и ошибки в журнале. На ПК
+с Windows и Google Drive не проверено.
 
 ## Если что-то не так
 
@@ -469,3 +615,4 @@ IPv6: express-rate-limit 8.6.2 сворачивает адрес IPv6 в под�
 | После перезагрузки не работает ничего | `Get-ScheduledTaskInfo -TaskName 'Daftar WSL'`, `wsl -l -v` — [«Если задача не работает»](#если-задача-не-работает); затем `systemctl status daftar.service` |
 | Сервис перезапускается по кругу | `journalctl -u daftar.service -n 20`: `Configuration validation failed` — ошибка в `.env.local`; остальное — [Troubleshooting](troubleshooting.md#service-restarts-in-a-loop-or-is-failed) |
 | `live-update.sh` отказывается или `git pull` падает | [Troubleshooting → Live Instance on the PC](troubleshooting.md#live-instance-on-the-pc) |
+| Копии не появляются или в облаке старые | `systemctl list-timers daftar-backup.timer`, `journalctl -u daftar-backup.service -n 20` — [«Проверить, что бэкап идёт»](#проверить-что-бэкап-идёт), [Troubleshooting → Backup Fails](troubleshooting.md#backup-fails) |

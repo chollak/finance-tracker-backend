@@ -91,6 +91,7 @@ Required environment variables in `.env` file:
 - `TELEGRAM_POLLING_MAX_RETRIES`, `TELEGRAM_POLLING_RETRY_BASE_MS` - optional; how many times polling is launched again while Telegram answers 409 (another process polls the token) and the first delay, doubling; default 5 and 5000 ms. After the last one the bot is `failed`: `/api/health` is 503 and with `NODE_ENV=production` the process exits with code 1 so systemd restarts it (FT-154)
 - `SHORTCUT_CAPTURE_TOKEN`, `SHORTCUT_CAPTURE_OWNER` - optional; the iPhone Shortcut's token for `POST /api/quick-capture` and the Telegram id it writes for (FT-155). With `NODE_ENV=production` both or neither: the token at least 32 characters, the owner in `ALLOWED_TELEGRAM_IDS`, otherwise the start stops; neither turns the Shortcut off. Revoking: a new token and a restart
 - `DATABASE_TYPE` - optional; only `sqlite` is supported (any other value fails startup). The `supabase-js` path was removed in FT-090 (decision Д6)
+- `BACKUP_DIR` - not read by the app: the folder `scripts/backup-db.sh` copies the database to on the live instance, `/mnt/c/DaftarBackup` synced by Google Drive (FT-157, `docs/knowledge-base/08-development/live-instance.md` «Бэкап»)
 
 **Historical, not active:**
 - **Supabase Project ID:** `cttsquvkvkwtxsfrgsrs` — project paused; the app no longer talks to Supabase. Do not modify it without explicit permission
