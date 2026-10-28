@@ -34,7 +34,7 @@ export interface HomeSkeletonViewProps {
 /**
  * The skeleton as the boards «Загрузка», «Загрузка дольше обычного», «Загрузка · тёмная» draw it, from the
  * slow flag; `HomeSkeleton` keeps the time. Grey shapes of Home's own layout in Home's own frame (page
- * gutter, 48px header, 16px between sections), so nothing moves when Home comes (Skeleton.md): the daftar
+ * gutter, 48px header, 16px between sections), so nothing moves when Home comes (Skeleton.md): the kapelka
  * sign, the balance card in `primary` with stripes in `hero-track` (lighter in the light theme, darker in the
  * dark one), the two month tiles, the heading and the card of records, the composer at the bottom. The shapes
  * pulse (`SkeletonBlock`, still under prefers-reduced-motion); there is no spinner.

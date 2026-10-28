@@ -504,7 +504,7 @@ describe('bot record messages (FT-122)', () => {
     expect(text(await write('0'))).toBe('Сумма должна быть больше нуля.');
     const hidden = await running.accountModule.getUpdateAccountUseCase().execute({ userId, accountId: dollars.id, body: { isHidden: true } });
     expect(hidden.success).toBe(true);
-    expect(text(await write('55$'))).toBe('Счёта в долларах нет — добавьте его в Daftar.');
+    expect(text(await write('55$'))).toBe('Счёта в долларах нет — добавьте его в Kapelka.');
 
     expect((await record(id)).amountMinor).toBe(14_500_000);
     expect((await running.botMessageModule.getLog().awaitingAmount(String(TELEGRAM_ID)))?.messageId).toBe(message);

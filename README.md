@@ -1,4 +1,7 @@
-# Finance Tracker Backend
+# Kapelka (finance-tracker-backend)
+
+Kapelka is the product: one name for the Telegram bot, the Mini App and the future iOS app (FT-168). The repository
+and the npm package keep the name `finance-tracker-backend`.
 
 AI-powered finance tracking with voice/text input processing using OpenAI.
 Supports SQLite (default) and Supabase databases.

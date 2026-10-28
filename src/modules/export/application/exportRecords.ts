@@ -28,7 +28,7 @@ export class BuildRecordsFileUseCase {
   }
 }
 
-/** What the screen says after sending: «daftar-2026-10-14.csv · 205 записей». */
+/** What the screen says after sending: «kapelka-2026-10-14.csv · 205 записей». */
 export interface SentRecordsFile {
   fileName: string;
   count: number;

@@ -6,6 +6,8 @@ export type ThemePreference = 'telegram' | 'light' | 'dark';
 export type ResolvedTheme = 'light' | 'dark';
 
 export const THEME_PREFERENCES: readonly ThemePreference[] = ['telegram', 'light', 'dark'];
+// The key is from before Kapelka (FT-168) and stays: a new one would forget the theme the user chose. index.html
+// reads the same key before the first paint
 export const THEME_STORAGE_KEY = 'daftar-theme';
 
 export function isThemePreference(value: unknown): value is ThemePreference {

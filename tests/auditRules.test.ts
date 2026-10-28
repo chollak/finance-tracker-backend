@@ -105,7 +105,7 @@ describe('spending audit rules (FT-130)', () => {
       expect(headphones.operations[0]).toMatchObject({ date: '2026-09-06', amountMinor: sum(690000) });
     });
 
-    it('writes numbers with non-breaking spaces, as everywhere in Daftar', () => {
+    it('writes numbers with non-breaking spaces, as everywhere in Kapelka', () => {
       const coffee = candidates.find(candidate => candidate.name === 'Кофе')!;
       expect(coffee.reason).toContain(`28${NBSP}000${NBSP}сум`);
       expect(coffee.title).toBe(`Кофе — 16${NBSP}раз`);

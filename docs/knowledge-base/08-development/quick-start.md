@@ -102,9 +102,10 @@ Supabase как отдельный путь к базе убран (решени
 
 ### Живой экземпляр (ПК с Windows + WSL)
 
-Daftar для ежедневного пользования — systemd-сервис на ПК с WSL: копия `~/daftar-live` на `main`, `NODE_ENV=production`,
-постоянный адрес `https://<пк>.<tailnet>.ts.net` через `tailscale serve`, кнопка меню ставится один раз. Установка,
-проверка, логи и откат — [live-instance.md](live-instance.md) (FT-156). Обновление — одна команда в живой копии:
+Kapelka для ежедневного пользования — systemd-сервис на ПК с WSL: копия `~/kapelka-live` на `main`,
+`NODE_ENV=production`, постоянный адрес `https://<пк>.<tailnet>.ts.net` через `tailscale serve`, свой бот Kapelka,
+кнопка меню ставится один раз. Установка, проверка, логи и откат — [live-instance.md](live-instance.md) (FT-156).
+Обновление — одна команда в живой копии:
 
 ```bash
 scripts/live-update.sh
@@ -114,8 +115,9 @@ scripts/live-update.sh
 
 ### Phone / Telegram Mini App во время разработки
 
-Для проверки ветки на телефоне с мака: временный адрес Cloudflare quick tunnel. После переезда (FT-159) — со своим
-dev-ботом: один токен опрашивает только один процесс.
+Для проверки ветки на телефоне с мака: временный адрес Cloudflare quick tunnel. После переезда (FT-159) — с
+@FinanceTrackerDevBot, ботом для разработки: у живого экземпляра на ПК свой бот Kapelka, а один токен опрашивает
+только один процесс.
 
 ```bash
 # Подставьте свой Telegram chat/user id.

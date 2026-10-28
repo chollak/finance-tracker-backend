@@ -12,8 +12,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'icons/*.png', 'icons/*.svg'],
       manifest: {
-        name: 'Finance Tracker',
-        short_name: 'Finance',
+        name: 'Kapelka',
+        short_name: 'Kapelka',
         description: 'Track your income and expenses easily',
         start_url: '/',
         display: 'standalone',

@@ -5,7 +5,7 @@ import { Wordmark } from '@/shared/ui/pastel';
 import { DisplayCurrencySwitch } from '@/features/display-currency';
 
 /**
- * Home header of «Пастель» (FT-110, boards «Главная», «Главная · тёмная»): the daftar sign on the left; on
+ * Home header of «Пастель» (FT-110, boards «Главная», «Главная · тёмная»): the kapelka sign on the left; on
  * the right «Сум / USD» (FT-137) — the currency of the balance card and the month tiles — and the round
  * «Ещё», 48px, `track`. There is no bottom bar: the sections Home does not open itself are in «Ещё».
  */

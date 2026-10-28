@@ -219,7 +219,7 @@ export interface CorrectBalanceView {
 
 /**
  * «Сверить остаток» (design-system «Счета и курс»): the person types what is really on the account; until then the
- * balance Daftar has is the grey hint. The difference is recorded as an adjustment, out of analytics — an empty
+ * balance Kapelka has is the grey hint. The difference is recorded as an adjustment, out of analytics — an empty
  * field and the same balance keep the button off.
  */
 export function correctBalanceView(account: Pick<Account, 'name' | 'currency' | 'balanceMinor'>, state: KeypadState): CorrectBalanceView {
@@ -231,7 +231,7 @@ export function correctBalanceView(account: Pick<Account, 'name' | 'currency' | 
     return {
       title,
       amount: { text: formatMinor(account.balanceMinor, account.currency, { unit: false }), placeholder: true, unit },
-      note: `Введите остаток, как в банке или в кошельке. Сейчас в Daftar — ${formatMinor(account.balanceMinor, account.currency)}.`,
+      note: `Введите остаток, как в банке или в кошельке. Сейчас в Kapelka — ${formatMinor(account.balanceMinor, account.currency)}.`,
       button,
       balanceMinor: null,
       saved: null,
@@ -242,7 +242,7 @@ export function correctBalanceView(account: Pick<Account, 'name' | 'currency' | 
   const amount = typedAmount(state, account.currency);
   const difference = typed - account.balanceMinor;
   if (difference === 0) {
-    return { title, amount, note: 'Совпадает с Daftar — исправлять нечего.', button, balanceMinor: null, saved: null };
+    return { title, amount, note: 'Совпадает с Kapelka — исправлять нечего.', button, balanceMinor: null, saved: null };
   }
   const signed = formatMinor(difference, account.currency, { sign: 'always' });
   return {

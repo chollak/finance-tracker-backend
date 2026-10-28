@@ -489,14 +489,15 @@ Context:
 Definition of Done:
 - [ ] До переезда Шукур заводит в BotFather нового бота «Kapelka» (`@kapelkabot` или свободный вариант) — живой на ПК, а @FinanceTrackerDevBot отходит маку как бот для разработки (решение 2026-10-28); выпускает новый ключ OpenAI (старый лежит в комментарии в `.env` — отозвать) и ставит лимит расходов в кабинете OpenAI; токены — в `Personal/Secrets`
 - [ ] На маке: `dev:miniapp` остановлен; `sqlite3 data/database.sqlite ".backup …"`; `PRAGMA integrity_check` — `ok`
-- [ ] Копия базы, `patterns.json` и `learning-data.json` лежат в `~/daftar-live/data/` на ПК; файлы принадлежат пользователю сервиса
+- [ ] Копия базы, `patterns.json` и `learning-data.json` лежат в `~/kapelka-live/data/` на ПК; файлы принадлежат пользователю сервиса
+- [ ] `bot_messages` в копии базы очищена до первого запуска с новым ботом (`count(*)` = 0) — «да» Шукура 2026-10-28; шаг — `live-instance.md`, «Переезд»
 - [ ] Сервис запущен: `npm run migration:show` ничего не ждёт; в `/api/health` бот `running`
 - [ ] Кнопка меню ведёт на адрес tailnet; `/start` в чате, чтобы новые кнопки получили новый адрес
 - [ ] Проверка: «кофе 25000» в боте записалось; Mini App открывается с iPhone; записей столько же, сколько в копии с мака; вечером пришёл итог дня
 - [ ] Windows перезагружена без входа в WSL → сервис поднялся сам (задача Планировщика держит WSL), бот отвечает, Mini App открывается с iPhone по адресу tailnet — проверка из FT-156
-- [ ] На ПК: бэкап-таймер стоит (`list-timers`), копия в `C:\DaftarBackup` появилась и выгрузилась в Google Drive после входа в Windows — проверка из FT-157
+- [ ] На ПК: бэкап-таймер стоит (`list-timers`), копия в `C:\KapelkaBackup` появилась и выгрузилась в Google Drive после входа в Windows — проверка из FT-157
 - [ ] Мак переведён на dev-бота и отдельную базу; копия базы с мака хранится 2 недели
-- [ ] Описан откат: остановить сервис на ПК → забрать базу → `dev:miniapp` на маке с прежним токеном
+- [ ] Описан откат: остановить сервис на ПК → забрать базу → `dev:miniapp` на маке с токеном и username бота Kapelka — не @FinanceTrackerDevBot: пользователь пишет в Kapelka, и бот, которого никто не опрашивает, молчит (@FinanceTrackerDevBot — бот разработки мака)
 - [ ] Проверено и записано: открывается ли Mini App в Telegram на iOS, когда ПК выключен (в webapp есть service worker, но в Telegram на iOS он может не работать)
 
 ---
@@ -536,7 +537,7 @@ Depends on: FT-160
 
 Context:
 План Шукура 2026-10-26: минимальное приложение «как SyncSpend» (там траты пишутся в Notion через Shortcuts), только
-для Daftar. Action Button → App Intent → фраза → очередь на телефоне → отправка в `POST /api/quick-capture`, когда ПК
+для Kapelka. Action Button → App Intent → фраза → очередь на телефоне → отправка в `POST /api/quick-capture`, когда ПК
 доступен. Очередь — главное отличие от Shortcut (FT-160): Shortcut не умеет копить записи и повторять отправку, а ПК
 включён «как получится». Backend готов: `clientId` у quick-capture (`quickCaptureService.ts:31-63`) делает повтор
 безопасным, авторизация — токен владельца (FT-155) в Keychain.
@@ -693,5 +694,47 @@ Definition of Done:
 - [ ] Перезапуск во время обработки сообщения не создаёт дубль записи; тест
 - [ ] Счётчик попыток polling сбрасывается после удачного запуска; тест
 - [ ] В production без `TG_BOT_API_KEY` при включённом polling — ошибка старта; тест
+
+---
+
+### FT-169: A sign for Kapelka
+
+Status: backlog
+Priority: low
+Owner: Claude Code, QA — под-чат проверки
+Type: design
+Size: S
+
+Context:
+Знак рядом с wordmark — страница тетради-ведомости (`wordmark.tsx`, `docs/pastel/design-system.md`, «Знак»), нарисован
+под смысл «daftar» (тетрадь). Для Kapelka («капелька», по капельке) нужен свой знак; холст и артефакт дизайн-системы —
+у Шукура, они ещё говорят Daftar.
+
+Definition of Done:
+- [ ] Знак согласован с Шукуром на холсте
+- [ ] Заменён в `wordmark.tsx` и `docs/pastel/design-system.md`
+- [ ] Скриншоты шапки 390 px в обеих темах
+
+---
+
+### FT-170: dev:miniapp writes a wrong WEB_APP_URL when the quick tunnel fails
+
+Status: backlog
+Priority: low
+Owner: Claude Code, QA — под-чат проверки
+Type: bug
+Size: S
+
+Context:
+2026-10-28 без сети `cloudflared` ответил «failed to request quick Tunnel: Post "https://api.trycloudflare.com/tunnel":
+context deadline exceeded», и `scripts/dev-miniapp.js` записал в `.env.local` `WEB_APP_URL=https://api.trycloudflare.com`
+— адрес из текста ошибки, а не туннеля; затем вышел на «Request timed out: api.telegram.org». Следующий удачный запуск
+перезаписал адрес, но кнопка меню могла уйти на неверный адрес. После переезда (FT-159) `dev:miniapp` нужен только для
+разработки на маке.
+
+Definition of Done:
+- [ ] Адрес туннеля берётся только из строки об успешной регистрации (`https://<slug>.trycloudflare.com`, не `api.`)
+- [ ] При ошибке `.env.local` и кнопка меню не меняются, сообщение понятное
+- [ ] Тест на разбор вывода `cloudflared`
 
 ---

@@ -26,15 +26,15 @@ describe('what the row and the toast say', () => {
   });
 
   it('the toast names the file and how many records it has, as on the board', () => {
-    expect(exportedToast({ fileName: 'daftar-2026-10-14.csv', count: 205 }, 'chat')).toEqual({
+    expect(exportedToast({ fileName: 'kapelka-2026-10-14.csv', count: 205 }, 'chat')).toEqual({
       kind: 'saved',
       title: 'Файл отправлен в чат с ботом',
-      detail: 'daftar-2026-10-14.csv · 205 записей',
+      detail: 'kapelka-2026-10-14.csv · 205 записей',
     });
-    expect(exportedToast({ fileName: 'daftar-2026-10-14.csv', count: 1 }, 'download')).toEqual({
+    expect(exportedToast({ fileName: 'kapelka-2026-10-14.csv', count: 1 }, 'download')).toEqual({
       kind: 'saved',
       title: 'Файл скачан',
-      detail: 'daftar-2026-10-14.csv · 1 запись',
+      detail: 'kapelka-2026-10-14.csv · 1 запись',
     });
     expect(NOTHING_TO_EXPORT).toEqual({ kind: 'info', title: 'Выгружать пока нечего', detail: 'Записей ещё нет' });
   });
@@ -63,8 +63,8 @@ describe('what the row and the toast say', () => {
   });
 
   it('reads the file name the server gave', () => {
-    expect(fileNameFromDisposition('attachment; filename="daftar-2026-10-14.csv"')).toBe('daftar-2026-10-14.csv');
-    expect(fileNameFromDisposition('attachment; filename=daftar-2026-10-14.csv')).toBe('daftar-2026-10-14.csv');
+    expect(fileNameFromDisposition('attachment; filename="kapelka-2026-10-14.csv"')).toBe('kapelka-2026-10-14.csv');
+    expect(fileNameFromDisposition('attachment; filename=kapelka-2026-10-14.csv')).toBe('kapelka-2026-10-14.csv');
     expect(fileNameFromDisposition(null)).toBeNull();
   });
 

@@ -128,7 +128,7 @@ describe('the API lets in only the allowed (FT-153)', () => {
   async function serve(allowed: string[]) {
     jest.replaceProperty(AppConfig, 'TELEGRAM_ACCESS', telegramAccess(allowed));
     jest.replaceProperty(AppConfig, 'TG_BOT_API_KEY', BOT_TOKEN);
-    authModule = new AuthModule(new SqliteLoginTokenRepository(db.dataSource), { botUsername: { username: async () => 'DaftarBot' } });
+    authModule = new AuthModule(new SqliteLoginTokenRepository(db.dataSource), { botUsername: { username: async () => 'KapelkaBot' } });
     const app = express();
     app.use('/api', buildServer(unusedModule, unusedModule, unusedModule, unusedModule, unusedModule, userModule, undefined, undefined, { authModule }));
     server = await new Promise<http.Server>(resolve => {
@@ -150,7 +150,7 @@ describe('the API lets in only the allowed (FT-153)', () => {
   /** The web login of a browser confirmed in the bot while the list was open: its waiting secret. */
   async function confirmedLogin(telegramId: number): Promise<string> {
     const openAuth = new AuthModule(new SqliteLoginTokenRepository(db.dataSource), {
-      botUsername: { username: async () => 'DaftarBot' },
+      botUsername: { username: async () => 'KapelkaBot' },
       access: telegramAccess([]),
     });
     const started = await openAuth.getStartWebLoginUseCase().execute({ userAgent: 'test' });
@@ -165,7 +165,7 @@ describe('the API lets in only the allowed (FT-153)', () => {
   /** A browser session for this Telegram id, issued while the list was open (for example before it changed). */
   async function sessionCookie(telegramId: number): Promise<Record<string, string>> {
     const openAuth = new AuthModule(new SqliteLoginTokenRepository(db.dataSource), {
-      botUsername: { username: async () => 'DaftarBot' },
+      botUsername: { username: async () => 'KapelkaBot' },
       access: telegramAccess([]),
     });
     const session = await openAuth.getOpenWebSessionUseCase().execute({ browserSecret: await confirmedLogin(telegramId) });

@@ -3,7 +3,7 @@
 # docs/knowledge-base/08-development/live-instance.md («Сборка и сервис systemd»).
 
 [Unit]
-Description=Daftar live instance (API, Mini App, Telegram bot)
+Description=Kapelka live instance (API, Mini App, Telegram bot)
 # network.target, not network-online.target: in WSL the wait-online service can hold the start for minutes, and the
 # app needs no network to start — Telegram polling and the rate refresh retry on their own.
 After=network.target
@@ -36,7 +36,7 @@ TimeoutStopSec=30s
 
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=daftar
+SyslogIdentifier=kapelka
 NoNewPrivileges=true
 
 [Install]

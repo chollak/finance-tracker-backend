@@ -278,7 +278,7 @@ describe('Telegram message handlers', () => {
 
       await handler(ctx as any);
 
-      expect(replyText(reply)).toContain('Нужно проверить в Daftar — пока не входит в итоги.');
+      expect(replyText(reply)).toContain('Нужно проверить в Kapelka — пока не входит в итоги.');
     });
 
     it('confirms all records of one phrase in one message', async () => {

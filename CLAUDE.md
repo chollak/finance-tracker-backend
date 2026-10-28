@@ -23,9 +23,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Goal now (2026-10-27):** живой экземпляр переезжает с мака на ПК с Windows + WSL (решение 2026-10-26): закрытый доступ, бот не умирает молча, токен владельца для iPhone, systemd и `tailscale serve`, ночной бэкап — FT-153…FT-159. Веха 10 «Пастель» слита в `main`; открыты её задачи, которым нужны телефон, чеки или решение Шукура. Проект развивается, а не пишется заново; старые production/AWS-планы не возвращать.
 
+**Product name (2026-10-28):** Kapelka — one name for the bot, the Mini App and the future iOS app (decision 2026-10-28, renamed in FT-168). The repository and the npm package stay `finance-tracker-backend`. Kept on purpose under the old name, because a new one would break data or sign-ins: the cookies `daftar_session` / `daftar_login`, the Dexie database `daftar-offline`, the `localStorage` key `daftar-theme`. The live instance on the PC polls its own new bot Kapelka; @FinanceTrackerDevBot is the Mac's development bot.
+
 **Source of truth for current work:** `TASKS.md` — секция «Текущий фокус» и раздел «В работе» (раскладку см. в блоке выше). GitHub Issues/Wiki may contain stale January-era planning; use them only when a task explicitly asks to reconcile them.
 
-**Runtime target now:** the live instance is a systemd service on Shukur's Windows PC (WSL, copy `~/daftar-live` on `main`, `NODE_ENV=production`, SQLite, Telegram polling) at a fixed tailnet address from `tailscale serve`, updated by `scripts/live-update.sh` — [`docs/knowledge-base/08-development/live-instance.md`](docs/knowledge-base/08-development/live-instance.md) (FT-156; until the move FT-159 it still runs on the Mac through `dev:miniapp`). Development: macOS or WSL (Node 22, `.nvmrc`) + SQLite; `npm run dev:miniapp` (Cloudflare quick tunnel) stays for phone testing of a branch. Production/AWS is intentionally parked; `sapaev.uz` and Supabase are not the active dev path.
+**Runtime target now:** the live instance is a systemd service on Shukur's Windows PC (WSL, copy `~/kapelka-live` on `main`, `NODE_ENV=production`, SQLite, Telegram polling of the bot Kapelka) at a fixed tailnet address from `tailscale serve`, updated by `scripts/live-update.sh` — [`docs/knowledge-base/08-development/live-instance.md`](docs/knowledge-base/08-development/live-instance.md) (FT-156; until the move FT-159 it still runs on the Mac through `dev:miniapp`). Development: macOS or WSL (Node 22, `.nvmrc`) + SQLite; `npm run dev:miniapp` (Cloudflare quick tunnel) stays for phone testing of a branch. Production/AWS is intentionally parked; `sapaev.uz` and Supabase are not the active dev path.
 
 **Home/Capture UX (2026-10-16):** целевой интерфейс — «Пастель»: правила, токены и компоненты в `docs/pastel/`, экраны — на холсте (ссылка в `docs/pastel/README.md`). Нижнего бара (`FT-086`) больше нет (FT-110): главная — шапка с «Ещё», карточка баланса, плитки месяца и последние операции (FT-111), внизу — поле ввода с чипами частых трат (FT-114; карточка ввода `FT-073`, `FT-074` удалена), фраза открывает проверку записей `/review`. Раздел Design System ниже описывает «Пастель»; гайды в `docs/knowledge-base/10-design-guidelines/` — архив (FT-096).
 
@@ -42,7 +44,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **Build and Run:**
 - `npm run build` - Compile TypeScript to JavaScript in `dist/` folder
 - `npm run serve` - Run the compiled application from `dist/index.js`
-- `scripts/live-update.sh` - live instance on the PC only (`~/daftar-live`, FT-156): refuses off `main` or on a dirty tree, then `git pull --ff-only`, `npm ci`, webapp and server builds, restart of `daftar.service`, health check
+- `scripts/live-update.sh` - live instance on the PC only (`~/kapelka-live`, FT-156): refuses off `main` or on a dirty tree, then `git pull --ff-only`, `npm ci`, webapp and server builds, restart of `kapelka.service`, health check
 
 **Development (Choose one):**
 - `npm run dev:full` - Full-stack development with hot reload
@@ -91,7 +93,7 @@ Required environment variables in `.env` file:
 - `TELEGRAM_POLLING_MAX_RETRIES`, `TELEGRAM_POLLING_RETRY_BASE_MS` - optional; how many times polling is launched again while Telegram answers 409 (another process polls the token) and the first delay, doubling; default 5 and 5000 ms. After the last one the bot is `failed`: `/api/health` is 503 and with `NODE_ENV=production` the process exits with code 1 so systemd restarts it (FT-154)
 - `SHORTCUT_CAPTURE_TOKEN`, `SHORTCUT_CAPTURE_OWNER` - optional; the iPhone Shortcut's token for `POST /api/quick-capture` and the Telegram id it writes for (FT-155). With `NODE_ENV=production` both or neither: the token at least 32 characters, the owner in `ALLOWED_TELEGRAM_IDS`, otherwise the start stops; neither turns the Shortcut off. Revoking: a new token and a restart
 - `DATABASE_TYPE` - optional; only `sqlite` is supported (any other value fails startup). The `supabase-js` path was removed in FT-090 (decision Д6)
-- `BACKUP_DIR` - not read by the app: the folder `scripts/backup-db.sh` copies the database to on the live instance, `/mnt/c/DaftarBackup` synced by Google Drive (FT-157, `docs/knowledge-base/08-development/live-instance.md` «Бэкап»)
+- `BACKUP_DIR` - not read by the app: the folder `scripts/backup-db.sh` copies the database to on the live instance, `/mnt/c/KapelkaBackup` synced by Google Drive (FT-157, `docs/knowledge-base/08-development/live-instance.md` «Бэкап»)
 
 **Historical, not active:**
 - **Supabase Project ID:** `cttsquvkvkwtxsfrgsrs` — project paused; the app no longer talks to Supabase. Do not modify it without explicit permission

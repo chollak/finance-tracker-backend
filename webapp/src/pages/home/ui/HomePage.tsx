@@ -16,7 +16,7 @@ import { useHomeLoading } from '../model/homeLoading';
  * первого запуска»): the balance card with the accounts and the month's spend share, the month tiles of
  * income and expenses, and the recent records by day.
  *
- * There is no bottom bar: the header carries the daftar sign and «Ещё», the tiles open Analytics, «Все»
+ * There is no bottom bar: the header carries the kapelka sign and «Ещё», the tiles open Analytics, «Все»
  * over the records opens History, and every other section is in «Ещё» — nothing is further than two taps.
  * The composer is fixed to the bottom (FT-114, Composer.md): quick chips that write in one tap, the field
  * whose phrase opens the review of its records, «Ввести вручную»; the page leaves room under the records for

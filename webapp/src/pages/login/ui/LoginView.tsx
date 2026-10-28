@@ -29,7 +29,7 @@ function ClockIcon() {
 }
 
 export const LOGIN_STEPS = [
-  'Откроется чат с ботом Daftar',
+  'Откроется чат с ботом Kapelka',
   'Нажмите там «Запустить» и «Подтвердить»',
   'Вернитесь сюда — вход завершится сам',
 ];
@@ -37,7 +37,7 @@ export const LOGIN_STEPS = [
 /** What a screen reader hears when the screen changes. */
 export function loginLiveText(view: LoginState): string {
   if (view.kind === 'waiting') return 'Ждём подтверждения в Telegram';
-  if (view.kind === 'signing-in') return 'Вход подтверждён. Открываю Daftar';
+  if (view.kind === 'signing-in') return 'Вход подтверждён. Открываю Kapelka';
   if (view.kind === 'expired') return 'Вход не подтвердили. Можно попробовать снова';
   return '';
 }
@@ -90,7 +90,7 @@ export function LoginView({ view, login, expiry, busy, onStart, onCancel, titleR
           iconPulse
           title="Подтвердите вход в Telegram"
           titleRef={titleRef}
-          text="В чате с ботом Daftar нажмите «Подтвердить» — вход здесь завершится сам."
+          text="В чате с ботом Kapelka нажмите «Подтвердить» — вход здесь завершится сам."
           action={{ label: 'Открыть Telegram', href: login.link }}
           secondary={{ label: 'Отменить вход', onClick: onCancel, underline: true }}
         >
@@ -127,7 +127,7 @@ export function LoginView({ view, login, expiry, busy, onStart, onCancel, titleR
           icon={<ClockIcon />}
           title="Вход не подтвердили"
           titleRef={titleRef}
-          text="Ссылка для входа действует 5 минут, и это время вышло. Нажмите ниже — откроется чат с ботом Daftar, там нажмите «Подтвердить»."
+          text="Ссылка для входа действует 5 минут, и это время вышло. Нажмите ниже — откроется чат с ботом Kapelka, там нажмите «Подтвердить»."
           action={{ label: 'Войти через Telegram', onClick: onStart, disabled: busy }}
         />
       </>
@@ -143,10 +143,10 @@ export function LoginView({ view, login, expiry, busy, onStart, onCancel, titleR
         icon={<DoorIcon />}
         title="Траты и доходы — голосом, текстом и фото чека"
         titleRef={titleRef}
-        text="Daftar живёт в Telegram. Войдите тем же аккаунтом — в браузере будут те же счета и записи, что в боте."
+        text="Kapelka живёт в Telegram. Войдите тем же аккаунтом — в браузере будут те же счета и записи, что в боте."
         steps={LOGIN_STEPS}
         action={{ label: 'Войти через Telegram', onClick: onStart, disabled: busy }}
-        note="Пароль не нужен. Daftar видит только ваше имя в Telegram — не чаты и не контакты."
+        note="Пароль не нужен. Kapelka видит только ваше имя в Telegram — не чаты и не контакты."
       />
     </>
   );

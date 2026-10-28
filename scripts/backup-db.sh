@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 # Backs up the live instance's database (FT-157): an online copy of data/database.sqlite checked with
 # PRAGMA integrity_check, plus data/patterns.json and data/learning-data.json, into BACKUP_DIR — a plain folder on
-# drive C: that Google Drive for desktop uploads. Keeps the newest 30 copies. daftar-backup.timer runs it once a day;
-# by hand, in the live copy on the PC (~/daftar-live):
+# drive C: that Google Drive for desktop uploads. Keeps the newest 30 copies. kapelka-backup.timer runs it once a day;
+# by hand, in the live copy on the PC (~/kapelka-live):
 #
 #   scripts/backup-db.sh
 #
 # BACKUP_DIR comes from the environment, else from .env.local of this copy, and must already exist: the script never
 # creates it, so a missing /mnt/c fails loudly instead of quietly filling a folder on WSL's own disk.
-# Names: daftar-YYYYMMDD-HHMMSS.sqlite, with .patterns.json and .learning-data.json of the same run beside it; the
+# Names: kapelka-YYYYMMDD-HHMMSS.sqlite, with .patterns.json and .learning-data.json of the same run beside it; the
 # time is in TZ from .env.local. Each file is written under a temporary name in BACKUP_DIR and renamed once complete,
 # so Google Drive never uploads half a file. Only files named like that are ever deleted, and never this run's.
 # One run at a time (flock). Warns, without failing, when the clock is behind the newest copy or the new copy has far
@@ -22,7 +22,7 @@ APP_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 DATABASE="data/database.sqlite"
 SIDECARS="patterns learning-data"
 KEEP=30
-PREFIX="daftar-"
+PREFIX="kapelka-"
 STAMP_RE="[0-9]{8}-[0-9]{6}"
 DOC="docs/knowledge-base/08-development/live-instance.md"
 # How long sqlite3 waits for a lock that the app holds while it writes
@@ -103,7 +103,7 @@ resolve_backup_dir() {
     dir="$(env_value BACKUP_DIR)"
   fi
   if [ -z "$dir" ]; then
-    fail "BACKUP_DIR is not set: add BACKUP_DIR=/mnt/c/DaftarBackup to $APP_DIR/.env.local — the folder Google" \
+    fail "BACKUP_DIR is not set: add BACKUP_DIR=/mnt/c/KapelkaBackup to $APP_DIR/.env.local — the folder Google" \
       "Drive syncs. Nothing was backed up. Steps: $DOC, «Бэкап»"
   fi
   case "$dir" in
@@ -112,7 +112,7 @@ resolve_backup_dir() {
   esac
   if [ ! -d "$dir" ]; then
     fail "BACKUP_DIR=$dir does not exist or is not a folder; nothing was backed up. The script does not create it:" \
-      "create it in Windows (C:\\DaftarBackup is /mnt/c/DaftarBackup). Is drive C: mounted in WSL (ls /mnt/c)?"
+      "create it in Windows (C:\\KapelkaBackup is /mnt/c/KapelkaBackup). Is drive C: mounted in WSL (ls /mnt/c)?"
   fi
   if [ ! -w "$dir" ]; then
     fail "BACKUP_DIR=$dir is not writable for $(id -un); nothing was backed up"
@@ -187,7 +187,7 @@ publish() {
 }
 
 # Deletes the copies older than the newest $KEEP databases, never those of this run (stamp $1) — with a clock far
-# behind, the new copy itself would be the oldest. Only daftar-<date>-<time>.<one of our suffixes> counts
+# behind, the new copy itself would be the oldest. Only kapelka-<date>-<time>.<one of our suffixes> counts
 prune() {
   local current="$1" cutoff file stamp
   cutoff="$(
@@ -264,7 +264,7 @@ main() {
     sleep 1
   done
 
-  STAGING="$(mktemp -d "${TMPDIR:-/tmp}/daftar-backup.XXXXXX")"
+  STAGING="$(mktemp -d "${TMPDIR:-/tmp}/kapelka-backup.XXXXXX")"
   copy_database "$STAGING/$base.sqlite"
   compare_with_previous "$STAGING/$base.sqlite" "$stamp"
   for name in $SIDECARS; do

@@ -6,7 +6,7 @@ import { AppConfig } from '../../../../shared/infrastructure/config/appConfig';
  * it, so a renamed screen cannot leave a bot button on «Страница не найдена».
  */
 export const WEB_APP_PATHS = {
-  /** History: «Остальные — в Daftar ↗» under a message with many records (FT-122) */
+  /** History: «Остальные — в Kapelka ↗» under a message with many records (FT-122) */
   transactions: 'transactions',
   /** «Открыть аналитику ↗» under /month (FT-124) */
   analytics: 'analytics',
@@ -69,7 +69,7 @@ function appUrl(telegramId: string, path?: WebAppPath): string | undefined {
 }
 
 /**
- * «Открыть Daftar ↗» (Home) under /start and the daily summary, «Открыть аналитику ↗» under /month (FT-124); the audit
+ * «Открыть Kapelka ↗» (Home) under /start and the daily summary, «Открыть аналитику ↗» under /month (FT-124); the audit
  * — its screen shows the goals after «Готово» — under the audit call and the goal reminders (FT-133).
  */
 export const appLinks = {

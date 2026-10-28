@@ -13,7 +13,7 @@ export function FirstLaunchPage() {
       </header>
       <div className="flex flex-col gap-1.5 px-1 pt-1">
         <h1 className="text-[26px] font-extrabold leading-[1.2] tracking-[-0.8px]">Сколько у вас сейчас денег?</h1>
-        <p className="type-body text-ink-muted">С этих сумм Daftar начнёт считать. Это не доход — просто остатки на сегодня.</p>
+        <p className="type-body text-ink-muted">С этих сумм Kapelka начнёт считать. Это не доход — просто остатки на сегодня.</p>
       </div>
       <OpeningBalancesForm className="flex-1" />
     </main>

@@ -67,7 +67,7 @@ Quick Capture, что и ввод в Mini App (`quickCaptureService.capture({ so
 
 | Плейсхолдер | Что это | Где взять |
 |---|---|---|
-| `<BOT_USERNAME>` | username бота **без `@`** | открыть чат с ботом в Telegram → имя вида `@my_finance_bot` → в URL пишется `my_finance_bot` |
+| `<BOT_USERNAME>` | username бота **без `@`** | бот живого экземпляра — Kapelka на ПК (`@kapelkabot` или имя, которое дал BotFather при переезде FT-159); до переезда — @FinanceTrackerDevBot. Открыть чат с ботом в Telegram → имя вида `@kapelkabot` → в URL пишется `kapelkabot` |
 
 Для вариантов A–C больше ничего подставлять не нужно: ни chat id, ни токена, ни URL туннеля. Один раз перед первым
 использованием нужно открыть чат с ботом и нажать `/start`, иначе Telegram не даст писать в него из вставки.

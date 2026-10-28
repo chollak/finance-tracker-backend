@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Updates the live instance (FT-156) to the latest main: pull, install, build, restart the service, check health.
-# Run it in the live copy on the PC (~/daftar-live):
+# Run it in the live copy on the PC (~/kapelka-live):
 #
 #   scripts/live-update.sh
 #
@@ -10,7 +10,7 @@
 # docs/knowledge-base/08-development/live-instance.md
 #
 # Overrides (for a test on a scratch clone):
-#   LIVE_SERVICE      the systemd unit (default daftar.service)
+#   LIVE_SERVICE      the systemd unit (default kapelka.service)
 #   LIVE_RESTART_CMD  the restart command, run by bash (default: sudo systemctl reset-failed + restart of LIVE_SERVICE)
 #   LIVE_HEALTH_URL   what to poll after the restart; empty skips it and leaves `live-good` where it was
 #                     (default http://127.0.0.1:<PORT from .env.local, else 3000>/api/health)
@@ -18,7 +18,7 @@ set -euo pipefail
 
 APP_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 NVM_EXEC="$APP_DIR/scripts/nvm-exec.sh"
-SERVICE="${LIVE_SERVICE:-daftar.service}"
+SERVICE="${LIVE_SERVICE:-kapelka.service}"
 GOOD_TAG="live-good"
 DOC="docs/knowledge-base/08-development/live-instance.md"
 HEALTH_ATTEMPTS=30

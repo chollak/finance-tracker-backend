@@ -70,7 +70,8 @@ class OfflineDatabase extends Dexie {
   reads!: Table<SavedReadRow, string>;
 
   constructor() {
-    // Not the IndexedDB of the old guest mode (FT-128 removed it; its records stay where they were)
+    // Not the IndexedDB of the old guest mode (FT-128 removed it; its records stay where they were). The name is from
+    // before Kapelka (FT-168) and stays: a new name opens an empty database, and the queue of unsent records is lost
     super('daftar-offline');
     this.version(1).stores({ outbox: 'clientId, userId, createdAt', reads: 'hash, userId' });
   }

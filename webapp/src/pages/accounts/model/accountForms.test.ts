@@ -14,7 +14,7 @@ import {
  * FT-118, boards «Новый счёт», «Изменить или скрыть счёт», «Сверить остаток» (design-system «Счета и курс»):
  * a new account with its balance now (not income), rename, hide (never the last visible one), a currency changed
  * only without operations with the balance entered again, and the true balance recorded as an adjustment — the
- * button stays off for an empty field and for the balance Daftar already has.
+ * button stays off for an empty field and for the balance Kapelka already has.
  */
 
 const TODAY = '2026-10-14';
@@ -160,11 +160,11 @@ describe('edit account', () => {
 });
 
 describe('correct the balance', () => {
-  it('shows the balance Daftar has as a hint and keeps the button off until another one is typed', () => {
+  it('shows the balance Kapelka has as a hint and keeps the button off until another one is typed', () => {
     expect(correctBalanceView(CARD, emptyKeypad())).toEqual({
       title: 'Сколько сейчас на счёте «Карта»?',
       amount: { text: `3${NBSP}180${NBSP}000`, placeholder: true, unit: 'сум' },
-      note: `Введите остаток, как в банке или в кошельке. Сейчас в Daftar — 3${NBSP}180${NBSP}000${NBSP}сум.`,
+      note: `Введите остаток, как в банке или в кошельке. Сейчас в Kapelka — 3${NBSP}180${NBSP}000${NBSP}сум.`,
       button: { label: 'Сверить остаток', ready: false },
       balanceMinor: null,
       saved: null,
@@ -173,7 +173,7 @@ describe('correct the balance', () => {
 
   it('the same balance is nothing to fix', () => {
     const same = correctBalanceView(CARD, typed(['3', '1', '8', '0', '000']));
-    expect(same.note).toBe('Совпадает с Daftar — исправлять нечего.');
+    expect(same.note).toBe('Совпадает с Kapelka — исправлять нечего.');
     expect(same.button.ready).toBe(false);
     expect(same.balanceMinor).toBeNull();
   });

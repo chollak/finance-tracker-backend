@@ -63,7 +63,7 @@ function startPayload(ctx: BotContext): string {
 }
 
 /**
- * The first message: what Daftar is and how to write, «Открыть Daftar ↗» (board «Бот · первое сообщение»). A link
+ * The first message: what Kapelka is and how to write, «Открыть Kapelka ↗» (board «Бот · первое сообщение»). A link
  * from the browser's «Войти через Telegram» comes as /start login_<token> and asks to confirm the login (FT-128).
  */
 async function handleStart(ctx: BotContext) {
@@ -73,7 +73,7 @@ async function handleStart(ctx: BotContext) {
     return;
   }
   try {
-    await ctx.reply(RU.commands.start, { parse_mode: 'HTML', ...keyboard(appLinkRows('Открыть Daftar', appLinks.home(String(ctx.from?.id)))) });
+    await ctx.reply(RU.commands.start, { parse_mode: 'HTML', ...keyboard(appLinkRows('Открыть Kapelka', appLinks.home(String(ctx.from?.id)))) });
   } catch (error) {
     logger.error('/start command error', error as Error);
     await ctx.reply(RU.errors.generic);

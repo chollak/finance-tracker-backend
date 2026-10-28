@@ -25,7 +25,7 @@ export const RECENT_LIMIT = 5;
  * names what works here: the chips at the bottom and the field.
  */
 export const FIRST_RECORD_HINT =
-  'Пока пусто. Нажмите кнопку траты внизу или напишите «такси 18к» — Daftar сам поймёт сумму и категорию.';
+  'Пока пусто. Нажмите кнопку траты внизу или напишите «такси 18к» — Kapelka сама поймёт сумму и категорию.';
 
 function Shell({ children }: { children: ReactNode }) {
   return (

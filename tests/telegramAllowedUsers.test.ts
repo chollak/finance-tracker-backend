@@ -33,7 +33,7 @@ jest.mock('telegraf', () => {
 
     constructor(token: string, options?: unknown) {
       super(token, options);
-      this.botInfo = { id: 1, is_bot: true, first_name: 'Daftar', username: 'DaftarBot' };
+      this.botInfo = { id: 1, is_bot: true, first_name: 'Kapelka', username: 'KapelkaBot' };
       TestTelegraf.last = this;
     }
 
@@ -114,7 +114,7 @@ describe('the bot answers only the allowed (FT-153)', () => {
 
     db = await openMigratedDatabase();
     userModule = new UserModule(new SqliteUserRepository(db.dataSource), new SqliteUserSettingsRepository(db.dataSource));
-    authModule = new AuthModule(new SqliteLoginTokenRepository(db.dataSource), { botUsername: { username: async () => 'DaftarBot' } });
+    authModule = new AuthModule(new SqliteLoginTokenRepository(db.dataSource), { botUsername: { username: async () => 'KapelkaBot' } });
 
     startTelegramBot(
       watched('voiceModule'), watched('transactionModule'), userModule, watched('quickCaptureModule'),
