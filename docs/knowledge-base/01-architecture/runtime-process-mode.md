@@ -14,7 +14,7 @@ Current runtime behavior:
 4. start Express API/webapp server
 5. start Telegram bot after HTTP server is listening
 6. on `SIGTERM` / `SIGINT` — and in production when the bot fails for good — one graceful shutdown: schedulers,
-   HTTP server, database, exit (FT-154, below)
+   the bot and the HTTP server at once (each finishes its work in flight), database, exit (FT-154, FT-167, below)
 
 Current npm/runtime entrypoints:
 
@@ -167,12 +167,13 @@ silent. The rule:
   offline mode asks this route only whether the server answers, so the server's own JSON `503` still counts as an
   answer there (`serverAnswers`).
 - **Graceful shutdown** (`src/delivery/runtime/gracefulShutdown.ts`), the same for `SIGTERM` / `SIGINT` (exit `0`):
-  stop the schedulers (daily summary, reminders, USD rate refresh), close the HTTP server (no new requests; open ones
-  get `HTTP_CLOSE_GRACE_MS`, 5 s, then are cut), close the database, exit. A step that throws is logged and the next
-  one runs; after `SHUTDOWN_TIMEOUT_MS` (10 s, under systemd's default `TimeoutStopSec` of 90 s) the process exits with
-  the same code whatever still hangs. Only the first call counts: a `SIGTERM` during a failure exit does not turn it
-  into exit `0`. On a signal the bot itself only stops polling: it cancels a pending 409 relaunch and does not throw
-  when polling never started (Telegraf's «Bot is not running!»), which used to crash the process past the shutdown.
+  stop the schedulers (daily summary, reminders, USD rate refresh); then at once stop the bot (FT-167, below) and close
+  the HTTP server (no new requests; open ones get `HTTP_CLOSE_GRACE_MS`, 5 s, then are cut); close the database, exit.
+  A step that throws is logged and the next one runs; after `SHUTDOWN_TIMEOUT_MS` (10 s, under systemd's default
+  `TimeoutStopSec` of 90 s) the process exits with the same code whatever still hangs. Only the first call counts: a
+  `SIGTERM` during a failure exit does not turn it into exit `0`. Stopping the bot cancels a pending 409 relaunch and
+  does not throw when polling never started (Telegraf's «Bot is not running!»), which used to crash the process past
+  the shutdown.
 - **What the journal shows** before the exit: `Telegram bot polling failed permanently` (the error, `attempts`), then
   `Telegram bot is down for good; exiting so the supervisor restarts the process` (`lastError`, `exitCode`),
   `Shutting down` (`reason`, `exitCode`) and `Shutdown complete` or `Shutdown timed out, exiting anyway`.
@@ -182,6 +183,40 @@ silent. The rule:
   in 10 s) is never hit, so the service keeps trying and heals itself once the token is fixed or the other poller
   stops; on systemd 254+ `RestartSteps=` / `RestartMaxDelaySec=` (e.g. 6 steps up to 5 min) slow a long loop down.
   `TimeoutStopSec` must stay above 10 s.
+
+**Update (FT-167): a restart does not drop the updates in flight.** `systemctl restart` happens on every update of the
+live instance (`scripts/live-update.sh`). Before, the bot's own `SIGTERM` listener only aborted `getUpdates`: nobody
+waited for Telegraf's launch promise, the database closed while a handler was still running (a voice through OpenAI,
+say), and the batch's offset was never confirmed, so Telegram sent it again after the restart — a second record if the
+first one had been written.
+
+- **The shutdown stops the bot.** The bot no longer listens to signals itself. `startTelegramBot()` returns a handle;
+  the shutdown's `stopBot` step calls `stop(BOT_STOP_GRACE_MS)`: polling stops taking updates, Telegraf's loop finishes
+  the handlers of its batch and confirms the batch's offset (a short `getUpdates`), the launch promise settles. It waits
+  at most `BOT_STOP_GRACE_MS` (5 s), at the same time as the HTTP server's 5 s, so the database closes well inside the
+  10 s timeout. A handler still running after that is left to Telegram: its update was not confirmed and comes again.
+  A signal while `getMe` is still answering ends the launch there (the bot's `onLaunch` throws), before polling takes
+  any update.
+- **A message sent again writes nothing twice.** Every record a Telegram message writes carries the message's client
+  id `tg-<chat id>-<message id>` (`utils/messageClientId.ts`) — the same unique (user, client id) as the Mini App's
+  offline queue (FT-106): the text and voice captures (`<id>`, `<id>:1`, …), the amount after a quick-add category,
+  the answer to «Сколько?». First in the text and voice chains, `createRepeatedMessageGuard` looks the id up: when the
+  message's records exist, nothing is parsed, downloaded or written; the confirmation is sent only if no recent bot
+  message (`bot_messages`) shows those records yet — the process may have stopped before sending it. A record the
+  person cancelled stays cancelled. Corrections («не 25, а 28», the answer to «Сумму») write no record and are applied
+  again with the same result.
+- **The launch count starts anew.** A launch that has polled for `POLLING_STABLE_MS` without an error counts as
+  started: the next failure is the first of a new count, so a `409` days later is retried instead of `failed` at once.
+  `POLLING_STABLE_MS` is longer than one long poll (50 s) and twice the longest pause between launches (80 s with the
+  defaults), so two processes taking the token from each other still reach `failed`.
+- **Production needs the token.** With `NODE_ENV=production` and polling on (`ENABLE_TELEGRAM_POLLING` not `false`,
+  `WEBHOOK_MODE` not `true`), an empty `TG_BOT_API_KEY` fails `AppConfig.validate()`: the start stops with
+  `Configuration validation failed` instead of a silent `disabled` bot with health `200`. With
+  `ENABLE_TELEGRAM_POLLING=false` (the `api` preview config, the PC before the move) the start goes on without a token.
+- **What the journal shows** on a restart: `Shutting down`, `Stopping Telegram bot`, then `Telegram bot stopped` — or
+  `Telegram updates still being handled; Telegram sends them again after the restart` when the 5 s ran out — and
+  `Shutdown complete`. After the restart a message sent again logs `Telegram sent a handled message again; its records
+  are not written twice`.
 
 ## Proposed Mode Semantics
 

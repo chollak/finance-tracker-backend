@@ -423,6 +423,19 @@ journalctl -u <service> -n 50 | grep -E "Telegram bot polling failed permanently
 - `401: Unauthorized` / `404: Not Found` — `TG_BOT_API_KEY` is wrong or revoked: fix it in `.env.local`.
 - `409: Conflict` — another process polls the same token (the Mac's `npm run dev:miniapp`, a second service): stop it.
   The process retries a `409` with backoff first (`TELEGRAM_POLLING_MAX_RETRIES`, default 5) and exits only after that.
+  A launch that has polled for 80 s (`POLLING_STABLE_MS` with the defaults) starts the count anew (FT-167), so a `409`
+  long after the start is retried too.
+- `Configuration validation failed` with `TG_BOT_API_KEY is required in production` — polling is on and the token is
+  empty (FT-167). Put the token in `.env.local`, or set `ENABLE_TELEGRAM_POLLING=false` to run without the bot.
+
+### A restart while the bot is handling a message
+
+On `SIGTERM` the bot stops taking updates and finishes the one it is handling — up to 5 s — before the database closes
+(FT-167). The journal shows `Stopping Telegram bot`, then `Telegram bot stopped`. With
+`Telegram updates still being handled; Telegram sends them again after the restart` the handler did not finish in
+time: Telegram sends that message again after the start, and `Telegram sent a handled message again; its records are
+not written twice` says the bot found its records by the message's client id instead of writing them again. If the
+person got no confirmation the first time, the bot sends it then.
 
 ---
 
