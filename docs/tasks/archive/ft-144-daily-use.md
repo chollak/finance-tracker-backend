@@ -2,7 +2,7 @@
 
 Задачи с FT-144: надёжность, закрытый доступ, переезд живого экземпляра на ПК.
 
-Закрыто задач: **8**. Это архив: задачи здесь не переоткрываются и не редактируются.
+Закрыто задач: **9**. Это архив: задачи здесь не переоткрываются и не редактируются.
 Активная доска — [`TASKS.md`](../../../TASKS.md), решения по плану — [`decisions.md`](../decisions.md).
 
 ---
@@ -499,5 +499,67 @@ Definition of Done:
   отстали на 35 копий — копия этого запуска цела. `shellcheck` чисто.
 - Не проверено без ПК: drvfs `/mnt/c`, выгрузка файлов из WSL Google Drive'ом, rename под антивирусом, выгрузка копий,
   снятых без входа, после входа, догоняющий запуск на настоящем WSL, восстановление под systemd — в FT-159.
+
+---
+
+### FT-168: Rename Daftar to Kapelka
+
+Status: done
+Priority: high
+Owner: Claude Code, QA — под-чат проверки
+Type: rebrand
+Size: M
+
+Context:
+Решение 2026-10-28: продукт называется Kapelka; переименовать до установки живого экземпляра на ПК (FT-159). Что
+затрагивает переименование — `docs/NAMING.md`, раздел «Что затронет переименование». Шукур тем временем делает
+Windows-часть установки — она от имени не зависит.
+
+Definition of Done:
+- [x] Всё, что видит пользователь, называется Kapelka: webapp (заголовок, манифест PWA, wordmark, «Вход в … из браузера», подпись с версией), тексты и кнопки бота (`/start`, «Открыть … ↗», вход через бота), имя выгрузки `kapelka-<дата>.csv`, текст кнопки меню Mini App по умолчанию, wordmark в `docs/pastel/design-system.md` и `tokens.json`; в пользовательских строках `grep -ri daftar` пусто
+- [x] Не меняются, с комментарием в коде почему: cookie `daftar_session` / `daftar_login`, база Dexie `daftar-offline`; репозиторий и имя пакета тоже
+- [x] Живой экземпляр: `~/kapelka-live`, `kapelka.service`, `kapelka-backup.service` / `.timer`, папка бэкапа `C:\KapelkaBackup`, копии `kapelka-*.sqlite`, имя задачи Планировщика и `SyslogIdentifier` — в `ops/live/`, `scripts/`, `live-instance.md`, `troubleshooting.md`, `quick-start.md`, `CLAUDE.md` и в FT-159
+- [x] `live-instance.md`: ПК получает нового бота «Kapelka» из BotFather, @FinanceTrackerDevBot отходит маку (решение 2026-10-28)
+- [x] Документы о текущем состоянии говорят Kapelka (`CLAUDE.md`, `docs/pastel/README.md`, гайды по iPhone); архив и записи решений не переписываются
+- [x] `npm run verify` проходит; экраны с wordmark и вход в браузере — скриншоты 390 px в светлой и тёмной теме
+
+Реализовано 2026-10-28 (`3673a35`, `8eb3b3b`, `56718d4`, правки ревью `e4035ee`, `accaba3`, PR #106):
+- Видимое — Kapelka: `<title>` и `apple-mobile-web-app-title`, манифест PWA (`public/manifest.json` и `vite.config.ts`,
+  были «Finance Tracker» / «Finance»), wordmark `kapelka` строчными, «Вход в Kapelka из браузера», «Kapelka · версия
+  0.1», вход в браузере, подсказки сверки остатка, первый запуск, пустые «Последние»; бот — `/start`, «Открыть Kapelka ↗»,
+  «Открыть в Kapelka ↗», «Остальные — в Kapelka ↗», «Нужно проверить в Kapelka», вход через бота, счёт «⭐ Kapelka
+  Premium»; выгрузка `kapelka-<дата>.csv`; кнопка меню `MINIAPP_MENU_TEXT=Kapelka` в шаблоне ПК, `Kapelka DEV` по
+  умолчанию в `dev:miniapp`; `design-system.md`, `tokens.json` (сгенерированные токены не изменились). Род женский:
+  «Kapelka уже открыта», «Kapelka сама поймёт».
+- Сохранено с комментарием почему: cookie `daftar_session` / `daftar_login` (новое имя разлогинит браузеры), база Dexie
+  `daftar-offline` (потеряется очередь неотправленных записей), ключ `localStorage` `daftar-theme` (забудется тема);
+  `~/.config/daftar/dev.env` — путь инструментов штаба на маке; репозиторий и имя пакета.
+- Живой экземпляр до установки: `~/kapelka-live`, `kapelka.service`, `kapelka-backup.service` / `.timer`,
+  `SyslogIdentifier`, `C:\KapelkaBackup`, копии `kapelka-<дата>-<время>.sqlite`, задача Планировщика «Kapelka WSL», unit по
+  умолчанию в `live-update.sh`; `tests/backupDb.test.ts` — длина метки берётся из неё, а не числом 18.
+- Бот: ПК получает нового бота «Kapelka» из BotFather, @FinanceTrackerDevBot отходит маку для разработки. «Переезд» в
+  `live-instance.md` начинается с BotFather (`/newbot`, по желанию `/setname`, `/setdescription`, `/setuserpic`) и
+  кончается `/start` в новом боте; репетиция — на самом боте Kapelka. Шаг 4 «Переезда» — очистить `bot_messages` в
+  перенесённой базе до первого запуска («да» Шукура 2026-10-28): номера сообщений нового бота совпали бы со старыми.
+- Документы о текущем состоянии: `CLAUDE.md` (имя продукта, что сохранено, чей бот), README, фокус `TASKS.md`,
+  `docs/pastel/README.md` и `design/README.md` (холст и копия досок ещё говорят daftar — при сверке не расхождение),
+  гайд по iPhone, FT-159 и FT-161. Архив, `decisions.md`, `handoff.md`, `NAMING.md`, `AUTONOMOUS_REPORT.md` и копия
+  холста в `design/` не переписаны.
+- Правки по проверке: неразрывный пробел в «Открыть Kapelka» в шторке «Сводка дня»; откат переезда называет бота —
+  мак снова опрашивает Kapelka (FT-159 и «Откат переезда» в `live-instance.md`); живой на маке до переезда обновлять
+  можно — меняются только надписи; FT-169 — свой знак для Kapelka.
+
+Проверка 2026-10-28:
+- Под-чат проверки: Definition of Done по пунктам; `git grep -i daftar` — остались только сохранённые имена (совпадают с
+  `main`), история, копия холста и описание переименования. `backup-db.sh` после смены префикса — шаблоны через
+  `$PREFIX`, метка 19 символов, `tests/backupDb.test.ts` 20/20. `npm run verify` — Jest 1380 + 1 skipped, Vitest 1201;
+  CI `verify` зелёный. Экспорт `GET /api/export` → `kapelka-2026-10-28.csv`. Скриншоты 390 px в светлой и тёмной теме:
+  первый запуск, главная с wordmark, скелет, «Ещё», шторка «Сводка дня», «Сверить остаток», вход в браузере — всё
+  помещается. Находка про `bot_messages` подтверждена по коду; кроме кнопок и `/undo`, `awaitingAmount()` перехватил бы
+  ответ на старый вопрос «Сколько?».
+- Штаб, бот вживую (@FinanceTrackerDevBot, копия ветки, живой экземпляр остановлен 13:51–13:59): `/start` → «Это
+  Kapelka — учёт расходов и доходов.» и «Открыть Kapelka ↗»; «кофе 25000» → подтверждение; «Изменить» → «Открыть в
+  Kapelka ↗»; `/today` → «Итоги дня · 28 октября …» и «Открыть Kapelka ↗».
+- Не проверено вживую: вход из браузера через бота (нужен HTTPS-адрес Mini App) — покрыт тестами.
 
 ---
