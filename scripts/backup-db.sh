@@ -10,8 +10,9 @@
 # creates it, so a missing /mnt/c fails loudly instead of quietly filling a folder on WSL's own disk.
 # Names: daftar-YYYYMMDD-HHMMSS.sqlite, with .patterns.json and .learning-data.json of the same run beside it; the
 # time is in TZ from .env.local. Each file is written under a temporary name in BACKUP_DIR and renamed once complete,
-# so Google Drive never uploads half a file. Only files named like that are ever deleted. Restore and the rest:
-# docs/knowledge-base/08-development/live-instance.md, «Бэкап»
+# so Google Drive never uploads half a file. Only files named like that are ever deleted, and never this run's.
+# One run at a time (flock). Warns, without failing, when the clock is behind the newest copy or the new copy has far
+# fewer records than it. Restore and the rest: docs/knowledge-base/08-development/live-instance.md, «Бэкап»
 #
 # Override (for a test only):
 #   BACKUP_ALLOW_SAME_DISK=1  accept a BACKUP_DIR on the same disk as data/; a copy there dies with that disk
@@ -37,9 +38,39 @@ PARTIALS=()
 REMOVED=0
 
 say() { printf 'backup-db: %s\n' "$*"; }
+warn() { printf 'backup-db: WARNING: %s\n' "$*"; }
 fail() {
   printf 'backup-db: %s\n' "$*" >&2
   exit 1
+}
+
+# sqlite3 without the user's ~/.sqliterc (headers or a box mode there would break every check) and without a
+# terminal on stdin, where it announces the init file it loads
+sqlite() {
+  sqlite3 -init /dev/null "$@" </dev/null
+}
+
+# The number of records in a database file, or nothing when it cannot be read. immutable=1: no locks, so a copy on
+# the Windows drive is read the same way as one in WSL
+count_records() {
+  local uri="${1//%/%25}"
+  uri="${uri// /%20}"
+  uri="${uri//\?/%3F}"
+  uri="${uri//#/%23}"
+  sqlite "file:$uri?immutable=1" 'SELECT count(*) FROM transactions;' 2>/dev/null || true
+}
+
+# Only one backup at a time: a run by hand and the timer's in the same second would share temporary names. The lock
+# lives with this copy's data, on WSL's own disk (locks on /mnt/c are not to be trusted); without flock (a Mac, for the
+# tests) there is no lock
+take_lock() {
+  local lock="data/backups/.backup-db.lock"
+  if ! command -v flock >/dev/null; then
+    return 0
+  fi
+  mkdir -p data/backups
+  exec 9>"$lock"
+  flock -n 9 || fail "another backup is running (it holds $APP_DIR/$lock); this run did nothing"
 }
 
 cleanup() {
@@ -99,9 +130,9 @@ copy_database() {
   # .backup is SQLite's online backup, safe while the app writes. Not -readonly: after a power cut the file may come
   # with a hot journal, and only a connection that may write rolls it back — what the app itself does on start. The
   # file exists (checked in main), so sqlite3 never creates one
-  sqlite3 -bail "$DATABASE" ".timeout $BUSY_TIMEOUT_MS" ".backup '$copy'" ||
+  sqlite -bail "$DATABASE" ".timeout $BUSY_TIMEOUT_MS" ".backup '$copy'" ||
     fail "sqlite3 .backup of $APP_DIR/$DATABASE failed (above); nothing was written to the backup folder"
-  result="$(sqlite3 -readonly "$copy" 'PRAGMA integrity_check;' 2>&1 || true)"
+  result="$(sqlite -readonly "$copy" 'PRAGMA integrity_check;' 2>&1 || true)"
   if [ "$result" != "ok" ]; then
     printf '%s\n' "$result" | head -n 5 >&2
     fail "the copy fails PRAGMA integrity_check (above); nothing was written to the backup folder." \
@@ -114,7 +145,7 @@ copy_json() {
   local name="$1" copy="$2" attempt valid
   for attempt in $(seq 1 "$JSON_ATTEMPTS"); do
     cp "data/$name.json" "$copy"
-    valid="$(sqlite3 :memory: "SELECT json_valid(CAST(readfile('$copy') AS TEXT));" 2>/dev/null || true)"
+    valid="$(sqlite :memory: "SELECT json_valid(CAST(readfile('$copy') AS TEXT));" 2>/dev/null || true)"
     if [ "$valid" = "1" ]; then
       return 0
     fi
@@ -155,9 +186,10 @@ publish() {
   PARTIALS=()
 }
 
-# Deletes the copies older than the newest $KEEP databases. Only daftar-<date>-<time>.<one of our suffixes> counts
+# Deletes the copies older than the newest $KEEP databases, never those of this run (stamp $1) — with a clock far
+# behind, the new copy itself would be the oldest. Only daftar-<date>-<time>.<one of our suffixes> counts
 prune() {
-  local cutoff file stamp
+  local current="$1" cutoff file stamp
   cutoff="$(
     find "$BACKUP_FOLDER" -maxdepth 1 -type f -name "$PREFIX*.sqlite" |
       sed -n -E "s#^.*/$PREFIX($STAMP_RE)\\.sqlite\$#\\1#p" |
@@ -167,7 +199,7 @@ prune() {
     while IFS= read -r file; do
       stamp="$(printf '%s' "$file" |
         sed -n -E "s#^.*/$PREFIX($STAMP_RE)\\.(sqlite|patterns\\.json|learning-data\\.json)\$#\\1#p")"
-      if [ -n "$stamp" ] && [[ "$stamp" < "$cutoff" ]]; then
+      if [ -n "$stamp" ] && [ "$stamp" != "$current" ] && [[ "$stamp" < "$cutoff" ]]; then
         rm -f -- "$file" || fail "cannot delete the old copy $file (above); the new copy is in place"
         REMOVED=$((REMOVED + 1))
       fi
@@ -175,6 +207,30 @@ prune() {
   fi
   # Temporary files of a run that was killed before its cleanup
   find "$BACKUP_FOLDER" -maxdepth 1 -type f -name ".$PREFIX*.partial" -mmin +60 -exec rm -f {} + 2>/dev/null || true
+}
+
+# Warnings, never a failure, against the newest copy already in the folder: a clock behind it, and far fewer records
+# — a fresh empty database after reinstalling WSL, whose copies would push the good ones out. Restore first: the doc
+compare_with_previous() {
+  local copy="$1" stamp="$2" previous previous_stamp now_count previous_count
+  previous="$(find "$BACKUP_FOLDER" -maxdepth 1 -type f -name "$PREFIX*.sqlite" |
+    grep -E "/$PREFIX$STAMP_RE\\.sqlite\$" | sort | tail -n 1 || true)"
+  if [ -z "$previous" ]; then
+    return 0
+  fi
+  previous_stamp="${previous##*/"$PREFIX"}"
+  previous_stamp="${previous_stamp%.sqlite}"
+  if [[ "$stamp" < "$previous_stamp" ]]; then
+    warn "the clock is behind the newest copy (${previous##*/}; now $stamp): check the time in WSL with date." \
+      "This copy is kept, but sorts as older"
+  fi
+  now_count="$(count_records "$copy")"
+  previous_count="$(count_records "$previous")"
+  if [[ "$now_count" =~ ^[0-9]+$ ]] && [[ "$previous_count" =~ ^[0-9]+$ ]] &&
+    [ $((now_count * 2)) -lt "$previous_count" ]; then
+    warn "this copy has $now_count records, the previous one (${previous##*/}) has $previous_count. A fresh" \
+      "database after reinstalling WSL? Restore from an older copy before new ones push it out: $DOC, «Восстановление»"
+  fi
 }
 
 main() {
@@ -188,6 +244,7 @@ main() {
     fail "no database at $APP_DIR/$DATABASE — is this the live copy? Nothing was backed up"
   fi
   resolve_backup_dir
+  take_lock
 
   tz="${TZ:-$(env_value TZ)}"
   # A run by hand and one through systemd may meet in the same second: the second one waits for the next
@@ -209,6 +266,7 @@ main() {
 
   STAGING="$(mktemp -d "${TMPDIR:-/tmp}/daftar-backup.XXXXXX")"
   copy_database "$STAGING/$base.sqlite"
+  compare_with_previous "$STAGING/$base.sqlite" "$stamp"
   for name in $SIDECARS; do
     if [ ! -f "data/$name.json" ]; then
       skipped="$skipped data/$name.json"
@@ -221,7 +279,7 @@ main() {
   files+=("$base.sqlite")
   publish "${files[@]}"
 
-  prune
+  prune "$stamp"
   kept="$(find "$BACKUP_FOLDER" -maxdepth 1 -type f -name "$PREFIX*.sqlite" | grep -c -E "/$PREFIX$STAMP_RE\\.sqlite\$" || true)"
   size="$(wc -c <"$BACKUP_FOLDER/$base.sqlite" | tr -d ' ')"
   say "done: ${files[*]} in $BACKUP_FOLDER (database $size bytes, integrity ok); copies kept: $kept, old files removed: $REMOVED"
