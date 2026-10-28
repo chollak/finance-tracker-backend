@@ -52,6 +52,15 @@ const GENERIC_WORDS = [
   'еще', 'уже', 'там', 'тут', 'как', 'так',
 ];
 
+/**
+ * Brands of many services (FT-150): alone they name no category — «яндекс плюс» is a subscription, «uber eats»
+ * food, «яндекс такси» a ride. The dictionary has none of them as a word of its own, and a learned pattern does
+ * not tie one to a category either: a correction teaches every word of its phrase, and a learning file may
+ * still hold «yandex» of the seed it was copied from. So a bare brand goes to the AI; a merchant alias with more
+ * words («yandex go») still names its category.
+ */
+const BARE_BRANDS = ['яндекс', 'yandex', 'uber'];
+
 function fold(value: string): string {
   return value.toLocaleLowerCase('ru-RU').replace(/ё/g, 'е');
 }
@@ -108,9 +117,18 @@ export function recordWordsOf(phrase: string, item: { description?: string; merc
     .join(' ');
 }
 
-/** A word of a learned pattern that names nothing: generic, too short, or with digits («25к»). */
+/** A bare brand of many services, in any ending: «яндекс», «яндекса», «Uber» — not «yandex go». */
+function isBareBrand(text: string): boolean {
+  const words = wordsOf(text);
+  return words.length === 1 && BARE_BRANDS.some(brand => sameWord(words[0], brand));
+}
+
+/** A word of a learned pattern that names nothing: generic, a bare brand, too short, or with digits («25к»). */
 function namesNothing(word: string): boolean {
-  return word.length < 3 || /\p{N}/u.test(word) || GENERIC_WORDS.some(generic => sameWord(word, generic));
+  return word.length < 3
+    || /\p{N}/u.test(word)
+    || GENERIC_WORDS.some(generic => sameWord(word, generic))
+    || isBareBrand(word);
 }
 
 /** Learned patterns as the guess rule reads them: the starter key and the words tied to it. */
@@ -123,9 +141,9 @@ export interface LearnedPatternsByKey {
 
 /**
  * Which learned words name a category (FT-138 review). A merchant alias does («uzum market»), unless it is a
- * bare number. A keyword of a category pattern does only when it points at that category: not a generic
- * word (`GENERIC_WORDS`: «купил», «деньги», «вчера»), not a short word or one with digits, and not a word
- * the patterns of two categories share.
+ * bare number or a bare brand («яндекс», FT-150). A keyword of a category pattern does only when it points at
+ * that category: not a generic word (`GENERIC_WORDS`: «купил», «деньги», «вчера»), not a bare brand, not a short
+ * word or one with digits, and not a word the patterns of two categories share.
  */
 export function namingWordsOf(patterns: LearnedPatternsByKey): Map<string, string[]> {
   const keysOfKeyword = new Map<string, Set<string>>();
@@ -145,7 +163,7 @@ export function namingWordsOf(patterns: LearnedPatternsByKey): Map<string, strin
     for (const word of words) if (keysOfKeyword.get(word)!.size === 1) add(key, word);
   }
   for (const { key, aliases } of patterns.merchants) {
-    for (const alias of aliases) if (/\p{L}/u.test(alias)) add(key, alias);
+    for (const alias of aliases) if (/\p{L}/u.test(alias) && !isBareBrand(alias)) add(key, alias);
   }
   return named;
 }

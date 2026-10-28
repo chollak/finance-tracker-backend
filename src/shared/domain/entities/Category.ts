@@ -65,7 +65,9 @@ export const EXPENSE_CATEGORIES: Category[] = [
     name: 'Такси',
     type: 'expense',
     icon: '🚕',
-    aliases: ['такси', 'яндекс', 'uber', 'yandex go', 'yandex', 'taxi'],
+    // Not the bare brands «яндекс», «yandex», «uber» (FT-150): «яндекс плюс» is a subscription, «uber eats» food.
+    // «яндекс такси», «uber taxi» name it by «такси», «taxi»
+    aliases: ['такси', 'yandex go', 'яндекс го', 'taxi'],
   },
   {
     id: 'public-transport',
