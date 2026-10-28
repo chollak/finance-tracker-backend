@@ -37,6 +37,7 @@ import {
 } from '../utils/recordMessageView';
 import { AmountReply, parseAmountCorrection, parseAmountReply, writtenAmountMatches } from '../utils/amountReply';
 import { botUserId } from '../utils/userCategories';
+import { withMessageClientId } from '../utils/messageClientId';
 import { checkTelegramLimit } from '../middleware/subscriptionMiddleware';
 import { BotMessage, openQuestion, RecordMessageMode, RecordMessageState } from '../../../../modules/botMessage/domain/botMessage';
 import { BotMessageLog } from '../../../../modules/botMessage/application/botMessageLog';
@@ -579,6 +580,8 @@ async function answerMissing(ctx: BotContext, log: BotMessageLog, message: BotMe
     userId,
     userName: userNameOf(ctx),
     source: 'telegram',
+    // The answer sent again after a restart writes nothing (FT-167)
+    ...withMessageClientId(ctx),
   });
   if (captured.transactions.length === 0) {
     // Nothing written: the question stays open

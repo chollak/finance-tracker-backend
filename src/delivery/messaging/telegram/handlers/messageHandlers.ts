@@ -4,7 +4,8 @@ import { BotContext } from '../types';
 import { RU, formatAmount } from '../i18n/ru';
 import { downloadVoiceFile, cleanupFile } from '../utils';
 import { quickAddCategory } from '../utils/userCategories';
-import { assumedThousands, guessedIds, sendRecordMessage } from '../utils/recordMessageView';
+import { assumedThousands, botMessageLog, chatIdOf, guessedIds, sendRecordMessage } from '../utils/recordMessageView';
+import { messageClientId, withMessageClientId } from '../utils/messageClientId';
 import { answerAmountQuestion } from './recordHandlers';
 import { AppError, ExternalServiceError } from '../../../../shared/domain/errors/AppError';
 import { DetectedDebt } from '../../../../modules/voiceProcessing/domain/processedTransaction';
@@ -18,6 +19,7 @@ import { LimitType } from '../../../../modules/subscription/domain/usageLimit';
 import { createLogger, LogCategory } from '../../../../shared/infrastructure/logging';
 import { toCapturedTransaction } from '../../../../modules/quickCapture/application/toCapturedTransaction';
 import { NoSpeechDetectedError } from '../../../../modules/voiceProcessing/domain/voiceErrors';
+import { Transaction } from '../../../../modules/transaction/domain/transactionEntity';
 
 const logger = createLogger(LogCategory.TELEGRAM_MSG);
 
@@ -92,6 +94,45 @@ export function createAmountAnswerMiddleware(userModule?: UserModule) {
   };
 }
 
+/** Whether a recent bot message of the chat already shows one of these records. */
+async function shownInChat(ctx: BotContext, recordIds: string[]): Promise<boolean> {
+  const log = botMessageLog(ctx);
+  const chatId = chatIdOf(ctx);
+  if (!log || !chatId) return false;
+  return (await log.recent(chatId)).some(message => message.recordIds.some(id => recordIds.includes(id)));
+}
+
+/**
+ * A message Telegram sends again (FT-167): the bot stopped before confirming it to Telegram — a restart while it was
+ * being handled — and what it wrote carries the message's client id. Nothing is written or parsed again (a voice is
+ * not even downloaded); the confirmation goes out only if no bot message shows the records yet, for the process may
+ * have stopped before sending it. First in the text and voice chains, ahead of the questions and the free limit.
+ */
+export function createRepeatedMessageGuard(userModule?: UserModule) {
+  return async function skipRepeatedMessage(ctx: BotContext, next: () => Promise<void>): Promise<void> {
+    const clientId = messageClientId(ctx);
+    if (!clientId) return next();
+
+    const userId = await resolveUserId(ctx, userModule, 'repeated message check');
+    let earlier: Transaction[];
+    try {
+      earlier = await ctx.modules.transactionModule.findByClientId(userId, clientId);
+    } catch (error) {
+      logger.error('Failed to look for the records of a repeated message', error as Error, { userId });
+      return next();
+    }
+    if (earlier.length === 0) return next();
+
+    const recordIds = earlier.map(record => record.id!);
+    logger.info('Telegram sent a handled message again; its records are not written twice', { userId, records: recordIds.length });
+    try {
+      if (!(await shownInChat(ctx, recordIds))) await sendRecordMessage(ctx, { userId, recordIds });
+    } catch (error) {
+      logger.error('Failed to confirm the records of a repeated message', error as Error, { userId });
+    }
+  };
+}
+
 /** A command: «/word», maybe addressed to the bot by name («/today@KapelkaBot»), alone or before a space. */
 const COMMAND = /^\/[A-Za-z0-9_]+(@\w+)?(\s|$)/;
 
@@ -115,6 +156,7 @@ export function registerMessageHandlers(
 ) {
   // Voice inputs are counted inside the voice handler; created transactions are counted by
   // CreateTransactionUseCase.
+  const skipRepeated = createRepeatedMessageGuard(userModule);
   const answerAmount = createAmountAnswerMiddleware(userModule);
   const textHandler = createTextMessageHandler(userModule, subscriptionModule);
   const voiceHandler = createVoiceMessageHandler(userModule, subscriptionModule);
@@ -132,9 +174,11 @@ export function registerMessageHandlers(
       'voice_inputs'
     );
 
-    // Text message handler with limit check; an unknown command and the answer to «Сумму» go first
+    // Text message handler with limit check; a message sent again, an unknown command and the answer to «Сумму» go
+    // first
     bot.on(
       message('text'),
+      skipRepeated,
       answerUnknownCommand,
       answerAmount,
       checkTransactionLimit,
@@ -144,13 +188,14 @@ export function registerMessageHandlers(
     // Voice message handler with limit check
     bot.on(
       message('voice'),
+      skipRepeated,
       checkVoiceLimit,
       voiceHandler
     );
   } else {
     // Fallback without subscription checks
-    bot.on(message('text'), answerUnknownCommand, answerAmount, textHandler);
-    bot.on(message('voice'), voiceHandler);
+    bot.on(message('text'), skipRepeated, answerUnknownCommand, answerAmount, textHandler);
+    bot.on(message('voice'), skipRepeated, voiceHandler);
   }
 }
 
@@ -188,11 +233,13 @@ export function createTextMessageHandler(userModule?: UserModule, _subscriptionM
 
       // Telegram is a client of the shared capture boundary; parsing, the conservative
       // semantic safeguards and persistence all stay inside it.
+      // The message's client id: sent again after a restart, it does not write its records twice (FT-167)
       const result = await quickCaptureModule.getQuickCaptureService().capture({
         text,
         userId,
         userName,
         source: 'telegram',
+        ...withMessageClientId(ctx),
       });
 
       const withoutAmount = result.withoutAmount ?? [];
@@ -264,7 +311,7 @@ export function createVoiceMessageHandler(userModule?: UserModule, subscriptionM
       // answers it, any other closes it before its records are written (FT-122, «Один вопрос за раз»)
       let answered = false;
       const result = await voiceModule.getProcessVoiceInputUseCase().execute(
-        { filePath, userId, userName, source: 'telegram' },
+        { filePath, userId, userName, source: 'telegram', ...withMessageClientId(ctx) },
         { takeHeardText: async heard => (answered = await answerAmountQuestion(ctx, heard, userId)) }
       );
 
@@ -376,6 +423,8 @@ async function handleQuickAddAmount(
       type: 'expense' as const,
       description: categoryDisplay,
       date: new Date().toISOString(),
+      // Sent again after a restart, when the session that asked for it is gone, the amount writes nothing (FT-167)
+      ...withMessageClientId(ctx),
     };
 
     const createResult = await transactionModule.getCreateTransactionUseCase().execute(transactionData);
