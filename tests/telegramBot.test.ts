@@ -14,9 +14,19 @@ describe('startTelegramBot', () => {
   });
 
   async function loadBotWithMocks() {
+    // Each launch is a promise the test settles as Telegraf would: resolved when bot.stop() ended polling (after the
+    // updates being handled), rejected when the launch failed. `launchCatch` keeps the rejection handler the bot set
     const launchCatch = jest.fn();
-    const launchResult = { catch: launchCatch };
-    const launch = jest.fn(() => launchResult);
+    const launches: Array<{ resolve: () => void; reject: (error: unknown) => void }> = [];
+    const launch = jest.fn(() => {
+      const polling = new Promise<void>((resolve, reject) => { launches.push({ resolve, reject }); });
+      return {
+        catch: (onRejected: (error: unknown) => unknown) => {
+          launchCatch(onRejected);
+          return polling.catch(onRejected);
+        },
+      };
+    });
     const use = jest.fn();
     const catchHandler = jest.fn();
     const stop = jest.fn();
@@ -81,6 +91,7 @@ describe('startTelegramBot', () => {
       reminders,
       Telegraf,
       launch,
+      launches,
       launchCatch,
       processOnce,
       stop,
@@ -266,6 +277,7 @@ describe('startTelegramBot', () => {
       const { createBotFailureHandler } = await import('../src/delivery/runtime/botFailurePolicy');
       const steps = {
         stopSchedulers: jest.fn(),
+        stopBot: jest.fn().mockResolvedValue(undefined),
         closeHttpServer: jest.fn().mockResolvedValue(undefined),
         closeDatabase: jest.fn().mockResolvedValue(undefined),
       };
@@ -305,7 +317,7 @@ describe('startTelegramBot', () => {
       const exit = jest.fn();
       const logger = fakeLogger();
       const shutdown = createGracefulShutdown(
-        { stopSchedulers: jest.fn(), closeHttpServer: jest.fn().mockResolvedValue(undefined), closeDatabase },
+        { stopSchedulers: jest.fn(), stopBot: jest.fn().mockResolvedValue(undefined), closeHttpServer: jest.fn().mockResolvedValue(undefined), closeDatabase },
         { exit, logger }
       );
 
@@ -318,33 +330,149 @@ describe('startTelegramBot', () => {
     });
   });
 
-  describe('a signal (FT-154)', () => {
-    function signalHandler(processOnce: jest.SpyInstance, signal: 'SIGINT' | 'SIGTERM') {
-      const call = processOnce.mock.calls.find(([name]) => name === signal);
-      return call?.[1] as () => void;
-    }
+  describe('stopping (FT-154, FT-167)', () => {
+    const flush = () => new Promise(resolve => setImmediate(resolve));
+    const conflict = () => new Error('409: Conflict: terminated by other getUpdates request');
 
-    it('before polling started (getMe failed or still running) does not throw out of the listener', async () => {
-      const { start, processOnce, stop } = await loadBotWithMocks();
+    it('stops polling and resolves only once the updates being handled are done', async () => {
+      const { start, launch, launches, stop } = await loadBotWithMocks();
+      const bot = start();
+      (launch.mock.calls[0] as unknown as [() => void])[0]();
+      let stopped = false;
+
+      const stopping = bot.stop(5_000).then(() => { stopped = true; });
+      await flush();
+      expect(stop).toHaveBeenCalledTimes(1);
+      expect(stopped).toBe(false);
+
+      // Telegraf's polling loop ends after the handlers of its batch, and confirms the batch's offset
+      launches[0].resolve();
+      await stopping;
+      expect(stopped).toBe(true);
+    });
+
+    it('gives up after the grace period: what is still handled is Telegram’s to send again', async () => {
+      jest.useFakeTimers();
+      const { start, launch } = await loadBotWithMocks();
+      const bot = start();
+      (launch.mock.calls[0] as unknown as [() => void])[0]();
+      let stopped = false;
+
+      const stopping = bot.stop(5_000).then(() => { stopped = true; });
+      await jest.advanceTimersByTimeAsync(4_999);
+      expect(stopped).toBe(false);
+      await jest.advanceTimersByTimeAsync(1);
+      await stopping;
+      expect(stopped).toBe(true);
+    });
+
+    it('while getMe is still running ends the launch before polling starts and does not throw', async () => {
+      const { start, launch, launches, stop, dailySummary } = await loadBotWithMocks();
       stop.mockImplementation(() => { throw new Error('Bot is not running!'); });
+      const onPollingFailed = jest.fn();
+      const bot = start({ onPollingFailed });
 
-      start();
+      const stopping = bot.stop(5_000);
+      // getMe answers: the bot's onLaunch throws, so Telegraf's launch rejects before deleteWebhook and getUpdates
+      const onLaunch = (launch.mock.calls[0] as unknown as [() => void])[0];
+      let thrown: unknown;
+      try { onLaunch(); } catch (error) { thrown = error; }
+      expect(thrown).toEqual(expect.any(Error));
+      launches[0].reject(thrown);
+      await stopping;
 
-      expect(() => signalHandler(processOnce, 'SIGTERM')()).not.toThrow();
-      expect(() => signalHandler(processOnce, 'SIGINT')()).not.toThrow();
+      expect(dailySummary.start).not.toHaveBeenCalled();
+      expect(onPollingFailed).not.toHaveBeenCalled();
     });
 
     it('while retrying a 409 cancels the next launch, so nothing restarts the notices during shutdown', async () => {
       jest.useFakeTimers();
-      const { start, launch, launchCatch, processOnce, dailySummary } = await loadBotWithMocks();
+      const { start, launch, launches, dailySummary } = await loadBotWithMocks();
+      const bot = start();
+      launches[0].reject(conflict());
+      await jest.advanceTimersByTimeAsync(0);
 
-      start();
-      launchCatch.mock.calls[0][0](new Error('409: Conflict: terminated by other getUpdates request'));
-      signalHandler(processOnce, 'SIGTERM')();
-      jest.advanceTimersByTime(60_000);
+      await bot.stop(5_000);
+      await jest.advanceTimersByTimeAsync(60_000);
 
       expect(launch).toHaveBeenCalledTimes(1);
       expect(dailySummary.start).not.toHaveBeenCalled();
+    });
+
+    it('listens to no signal itself: the process shutdown stops it, before the database closes', async () => {
+      const { start, processOnce } = await loadBotWithMocks();
+      const on = jest.spyOn(process, 'on');
+
+      start();
+
+      const signals = [...processOnce.mock.calls, ...on.mock.calls].map(([name]) => name);
+      expect(signals).not.toContain('SIGTERM');
+      expect(signals).not.toContain('SIGINT');
+    });
+
+    it('a bot that was never set up stops at once', async () => {
+      process.env.TG_BOT_API_KEY = '';
+      const { start, Telegraf } = await loadBotWithMocks();
+
+      await start().stop(5_000);
+
+      expect(Telegraf).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('the count of launches (FT-167)', () => {
+    const conflict = () => new Error('409: Conflict: terminated by other getUpdates request');
+
+    it('starts anew once a launch has polled for a while: a late 409 is retried, not «failed»', async () => {
+      jest.useFakeTimers();
+      process.env.TELEGRAM_POLLING_MAX_RETRIES = '2';
+      const { start, launch, launches } = await loadBotWithMocks();
+      const { getTelegramBotStatus, POLLING_STABLE_MS } = await import('../src/delivery/messaging/telegram/telegramBot');
+      const onPollingFailed = jest.fn();
+
+      start({ onPollingFailed });
+      launches[0].reject(conflict());
+      await jest.advanceTimersByTimeAsync(5_000);
+      expect(getTelegramBotStatus()).toEqual(expect.objectContaining({ state: 'running', attempts: 2 }));
+
+      // The second launch connects and polls past the point where a conflict would have shown up
+      (launch.mock.calls[1] as unknown as [() => void])[0]();
+      await jest.advanceTimersByTimeAsync(POLLING_STABLE_MS);
+      launches[1].reject(conflict());
+      await jest.advanceTimersByTimeAsync(0);
+
+      expect(getTelegramBotStatus()).toEqual(expect.objectContaining({ state: 'retrying', attempts: 1 }));
+      expect(onPollingFailed).not.toHaveBeenCalled();
+      await jest.advanceTimersByTimeAsync(5_000);
+      expect(launch).toHaveBeenCalledTimes(3);
+      expect(getTelegramBotStatus()).toEqual(expect.objectContaining({ state: 'running', attempts: 2 }));
+    });
+
+    it('a 409 soon after connecting still counts, so two processes taking the token from each other reach «failed»', async () => {
+      jest.useFakeTimers();
+      process.env.TELEGRAM_POLLING_MAX_RETRIES = '2';
+      const { start, launch, launches } = await loadBotWithMocks();
+      const { getTelegramBotStatus, POLLING_STABLE_MS } = await import('../src/delivery/messaging/telegram/telegramBot');
+      const onPollingFailed = jest.fn();
+
+      start({ onPollingFailed });
+      (launch.mock.calls[0] as unknown as [() => void])[0]();
+      launches[0].reject(conflict());
+      await jest.advanceTimersByTimeAsync(5_000);
+      (launch.mock.calls[1] as unknown as [() => void])[0]();
+      await jest.advanceTimersByTimeAsync(POLLING_STABLE_MS - 1);
+      launches[1].reject(conflict());
+      await jest.advanceTimersByTimeAsync(0);
+
+      expect(getTelegramBotStatus()).toEqual(expect.objectContaining({ state: 'failed', attempts: 2 }));
+      expect(onPollingFailed).toHaveBeenCalledTimes(1);
+    });
+
+    it('counts a launch as started after longer than one long poll (50 s) and twice the longest pause', async () => {
+      const { POLLING_STABLE_MS } = await import('../src/delivery/messaging/telegram/telegramBot');
+
+      // Defaults: 5 launches, pauses 5 s doubling to 40 s
+      expect(POLLING_STABLE_MS).toBe(80_000);
     });
   });
 
