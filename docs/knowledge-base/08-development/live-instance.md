@@ -349,20 +349,33 @@ Hyper-V, пока их не разрешить, — и разрешать не �
    и убедиться, что он не запустится снова.
 3. **Перенести базу с мака** на ПК в `~/kapelka-live/data/` при остановленном `kapelka.service` (FT-159) — до того, как
    ПК начнёт принимать сообщения.
-4. В `~/kapelka-live/.env.local`: `TG_BOT_API_KEY` и `TG_BOT_USERNAME` (без `@`) бота Kapelka из шага 1 и
+4. **Очистить `bot_messages` в перенесённой базе** — сервис всё ещё остановлен, до первого запуска с ботом Kapelka
+   («да» Шукура 2026-10-28):
+
+   ```bash
+   sqlite3 ~/kapelka-live/data/database.sqlite "DELETE FROM bot_messages;"
+   sqlite3 ~/kapelka-live/data/database.sqlite "SELECT count(*) FROM bot_messages;"   # 0
+   ```
+
+   Таблица помнит, какие записи показаны в каком сообщении бота. Чат тот же (Telegram id пользователя), а номера
+   сообщений нового бота начнутся с 1 и совпадут со старыми: кнопки «Изменить» и «Отменить», `/undo` и ответ на
+   открытый вопрос «Сколько?» нашли бы старые сообщения. Записи, счета и настройки таблица не трогает; кнопки под
+   старыми сообщениями остаются в чате @FinanceTrackerDevBot, и ПК их не получает.
+5. В `~/kapelka-live/.env.local`: `TG_BOT_API_KEY` и `TG_BOT_USERNAME` (без `@`) бота Kapelka из шага 1 и
    `ENABLE_TELEGRAM_POLLING=true`.
-5. `sudo systemctl restart kapelka.service`, затем `curl -s http://127.0.0.1:3000/api/health` — `"state":"running"`.
-6. Шаг 7: `miniapp:menu -- set` с адресом tailnet и своим `--chat-id`, затем `sudo systemctl restart kapelka.service`.
-7. В Telegram открыть бота Kapelka и отправить `/start`: пока его не нажали, бот не может писать первым — итоги дня и
+6. `sudo systemctl restart kapelka.service`, затем `curl -s http://127.0.0.1:3000/api/health` — `"state":"running"`.
+7. Шаг 7: `miniapp:menu -- set` с адресом tailnet и своим `--chat-id`, затем `sudo systemctl restart kapelka.service`.
+8. В Telegram открыть бота Kapelka и отправить `/start`: пока его не нажали, бот не может писать первым — итоги дня и
    напоминания не дойдут. Проверить ответ бота, «кофе 25000», Mini App по кнопке меню, потом проверку 9.3 с
    перезагрузкой.
-8. Мак дальше работает с @FinanceTrackerDevBot как ботом для разработки и со своей базой (FT-159). Старая переписка
+9. Мак дальше работает с @FinanceTrackerDevBot как ботом для разработки и со своей базой (FT-159). Старая переписка
    остаётся в чате с @FinanceTrackerDevBot; записи из неё — в базе ПК, в Kapelka.
 
 **Откат переезда.** `sudo systemctl stop kapelka.service` → забрать базу с ПК на мак (`sqlite3 … ".backup …"`) → в
 `.env.local` мака `TG_BOT_API_KEY` и `TG_BOT_USERNAME` бота Kapelka → `dev:miniapp` на маке. Именно Kapelka, а не
 @FinanceTrackerDevBot: пользователь уже пишет в Kapelka, и бот, которого никто не опрашивает, молчит. Сервис на ПК —
-остановленным, иначе два процесса делят один токен (409).
+остановленным, иначе два процесса делят один токен (409). `bot_messages` второй раз чистить не нужно: бот тот же,
+номера сообщений в базе — его.
 
 ## Обновление
 
