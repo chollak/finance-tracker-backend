@@ -374,6 +374,20 @@ rm -rf coverage/
 npm test
 ```
 
+### HTTP Test Gets 404 or `fetch failed` Only in a Full Run (FT-151)
+
+**Error:** a test that passes alone fails now and then in `npm run test:ci`: `Expected: 201, Received: 404`, or
+`TypeError: fetch failed` with `read ECONNRESET` / «other side closed».
+
+**Cause:** the test server listened on port 0 of every interface (`app.listen(0)` binds `[::]`) and the test called
+`http://127.0.0.1:<port>`. On macOS the kernel hands out ports one after another and, for `[::]`, does not look at IPv4
+listeners, so the server can get a port another program already holds on `127.0.0.1` (VS Code, Notion, GitKraken,
+OrbStack…). The request then goes to that program.
+
+**Solution:** start test servers with `listenOnLoopback(app)` or `startTestServer(routes)` from
+`tests/helpers/testServer.ts`. They bind `127.0.0.1`, where the kernel skips taken ports, and start the shared rate
+limiters with empty counters. `tests/testServer.test.ts` fails on any test that listens on port 0 without a host.
+
 ---
 
 ## Logs & Debugging
