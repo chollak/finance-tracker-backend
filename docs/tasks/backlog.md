@@ -487,7 +487,7 @@ Context:
 уходит итог дня. Пока бота никто не опрашивает, Telegram держит обновления до 24 часов, сообщения не теряются.
 
 Definition of Done:
-- [ ] До переезда Шукур заводит dev-бота в BotFather для мака, выпускает новый ключ OpenAI (старый лежит в комментарии в `.env` — отозвать) и ставит лимит расходов в кабинете OpenAI; токены — в `Personal/Secrets`
+- [ ] До переезда Шукур заводит в BotFather нового бота «Kapelka» (`@kapelkabot` или свободный вариант) — живой на ПК, а @FinanceTrackerDevBot отходит маку как бот для разработки (решение 2026-10-28); выпускает новый ключ OpenAI (старый лежит в комментарии в `.env` — отозвать) и ставит лимит расходов в кабинете OpenAI; токены — в `Personal/Secrets`
 - [ ] На маке: `dev:miniapp` остановлен; `sqlite3 data/database.sqlite ".backup …"`; `PRAGMA integrity_check` — `ok`
 - [ ] Копия базы, `patterns.json` и `learning-data.json` лежат в `~/daftar-live/data/` на ПК; файлы принадлежат пользователю сервиса
 - [ ] Сервис запущен: `npm run migration:show` ничего не ждёт; в `/api/health` бот `running`
