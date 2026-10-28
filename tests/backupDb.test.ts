@@ -130,6 +130,14 @@ describe('a backup', () => {
     expect(sql(path.join(out, backups()[0]), 'PRAGMA integrity_check;')).toBe('ok');
   });
 
+  it('run twice within a second — by hand, then through systemd — gives two copies, not an error', () => {
+    const first = backup({ BACKUP_DIR: out });
+    const second = backup({ BACKUP_DIR: out });
+
+    expect([first.code, second.code, second.stderr]).toEqual([0, 0, '']);
+    expect(backups()).toHaveLength(2);
+  });
+
   it('names the copy by the clock in TZ from .env.local', () => {
     envLocal(['TZ=Pacific/Kiritimati', `BACKUP_DIR=${out}`]);
     const local = () => {

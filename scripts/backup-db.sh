@@ -179,7 +179,7 @@ prune() {
 
 main() {
   cd "$APP_DIR"
-  local tz stamp base name kept size
+  local tz stamp base name kept size attempt
   local -a files=()
   local skipped="" broken=""
 
@@ -190,15 +190,22 @@ main() {
   resolve_backup_dir
 
   tz="${TZ:-$(env_value TZ)}"
-  if [ -n "$tz" ]; then
-    stamp="$(TZ="$tz" date +%Y%m%d-%H%M%S)"
-  else
-    stamp="$(date +%Y%m%d-%H%M%S)"
-  fi
-  base="$PREFIX$stamp"
-  if [ -e "$BACKUP_FOLDER/$base.sqlite" ]; then
-    fail "$BACKUP_FOLDER/$base.sqlite already exists: another backup ran this second; nothing was written"
-  fi
+  # A run by hand and one through systemd may meet in the same second: the second one waits for the next
+  for attempt in 1 2 3; do
+    if [ -n "$tz" ]; then
+      stamp="$(TZ="$tz" date +%Y%m%d-%H%M%S)"
+    else
+      stamp="$(date +%Y%m%d-%H%M%S)"
+    fi
+    base="$PREFIX$stamp"
+    if [ ! -e "$BACKUP_FOLDER/$base.sqlite" ]; then
+      break
+    fi
+    if [ "$attempt" = 3 ]; then
+      fail "$BACKUP_FOLDER/$base.sqlite already exists: is another backup running? Nothing was written"
+    fi
+    sleep 1
+  done
 
   STAGING="$(mktemp -d "${TMPDIR:-/tmp}/daftar-backup.XXXXXX")"
   copy_database "$STAGING/$base.sqlite"
