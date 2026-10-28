@@ -57,7 +57,7 @@ Finance Tracker Backend — это backend система для управле�
 - [**Adding Features**](08-development/adding-features.md) - Как добавлять use cases, endpoints, модули
 - [**Database Guide**](08-development/database-guide.md) - SQLite vs Supabase, миграции
 - [**Troubleshooting**](08-development/troubleshooting.md) - Частые проблемы и решения
-- [**Live Instance**](08-development/live-instance.md) - Живой экземпляр на ПК (WSL, systemd, `tailscale serve`): установка, обновление, откат, логи (FT-156)
+- [**Live Instance**](08-development/live-instance.md) - Живой экземпляр на ПК (WSL, systemd, `tailscale serve`): установка, обновление, откат, логи (FT-156), ночной бэкап и восстановление (FT-157)
 - [**Test Logging & Contract Cleanup**](08-development/test-logging-and-contract-cleanup.md) - FT-017 findings and cleanup plan
 - [**Task Workflow**](08-development/task-workflow.md) - TASKS.md vs GitHub Issues decision
 - [**API Route Coverage Matrix**](08-development/api-route-coverage-matrix.md) - FT-022 route coverage audit
