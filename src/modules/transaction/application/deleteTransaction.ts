@@ -4,6 +4,7 @@ import { Result, ResultHelper } from '../../../shared/domain/types/Result';
 import { ValidationError, NotFoundError, BusinessLogicError } from '../../../shared/domain/errors/AppError';
 import { SubscriptionModule } from '../../subscription/subscriptionModule';
 import { UserModule } from '../../user/userModule';
+import { resolveUserIdToUUID } from '../../../shared/application/helpers/userIdResolver';
 import { getLogger, LogCategory } from '../../../shared/application/logging';
 
 const logger = getLogger(LogCategory.TRANSACTION);
@@ -29,12 +30,12 @@ class TransactionCounter {
   async change(recordUserId: string, direction: 'increment' | 'decrement'): Promise<void> {
     if (!this.subscriptionModule || !this.userModule) return;
     try {
-      // Resolve telegram_id to UUID (handles telegramId, UUID and guest users)
-      const user = await this.userModule.getGetOrCreateUserUseCase().execute({ telegramId: recordUserId });
+      // A record's userId is already a UUID; only an old Telegram id is resolved (FT-171)
+      const ownerId = await resolveUserIdToUUID(recordUserId, this.userModule);
       const useCase = direction === 'increment'
         ? this.subscriptionModule.getIncrementUsageUseCase()
         : this.subscriptionModule.getDecrementUsageUseCase();
-      await useCase.execute({ userId: user.id, limitType: 'transactions' });
+      await useCase.execute({ userId: ownerId, limitType: 'transactions' });
     } catch (error) {
       logger.error(`Error ${direction === 'increment' ? 'incrementing' : 'decrementing'} transaction count`, error as Error);
     }

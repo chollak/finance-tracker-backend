@@ -6,6 +6,7 @@ import { normalizeSemanticType } from '../domain/transactionSemanticType';
 import { normalizeNeedsReview } from '../domain/transactionEntity';
 import { SubscriptionModule } from '../../subscription/subscriptionModule';
 import { UserModule } from '../../user/userModule';
+import { resolveUserIdToUUID } from '../../../shared/application/helpers/userIdResolver';
 import { getLogger, LogCategory } from '../../../shared/application/logging';
 import { Validators } from '../../../shared/application/validation/validators';
 import { fromMinor } from '../../../shared/domain/money/money';
@@ -203,13 +204,11 @@ export class CreateTransactionUseCase {
    */
   private async incrementTransactionCount(userId: string): Promise<void> {
     try {
-      // Resolve userId to UUID (handles telegramId, UUID, and guest users)
-      const user = await this.userModule!.getGetOrCreateUserUseCase().execute({
-        telegramId: userId,
-      });
+      // A UUID stays as it is; going to getOrCreate as a telegramId it made a phantom user (FT-171)
+      const ownerId = await resolveUserIdToUUID(userId, this.userModule!);
 
       await this.subscriptionModule!.getIncrementUsageUseCase().execute({
-        userId: user.id,
+        userId: ownerId,
         limitType: 'transactions',
       });
     } catch (error) {
