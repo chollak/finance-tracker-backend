@@ -13,8 +13,8 @@ import { ROUTES } from '../webapp/src/shared/lib/constants/routes';
  * The bot's Mini App buttons open real screens of the webapp. FT-113 moved manual entry from
  * /transactions/add to /add; a bot link left on the old address opened «Страница не найдена». FT-115
  * replaced the edit page /transactions/:id/edit with the record sheet, which Home opens from `?record=`.
- * FT-122: the links under a record message — «Открыть в Daftar ↗», «Другая дата ↗», «Остальные — в
- * Daftar ↗» — are built by the bot from the same helper. FT-124: «Открыть Daftar ↗» under /start and the daily
+ * FT-122: the links under a record message — «Открыть в Kapelka ↗», «Другая дата ↗», «Остальные — в
+ * Kapelka ↗» — are built by the bot from the same helper. FT-124: «Открыть Kapelka ↗» under /start and the daily
  * summary, «Открыть аналитику ↗» under /month.
  */
 
@@ -59,7 +59,7 @@ function noticeKeyboard(notice: { keyboard: unknown }): Keyboard {
   return { reply_markup: { inline_keyboard: notice.keyboard as Button[][] } };
 }
 
-/** «Открыть Daftar ↗» under the daily summary and /today (/start: tests/telegramCommands.test.ts). */
+/** «Открыть Kapelka ↗» under the daily summary and /today (/start: tests/telegramCommands.test.ts). */
 function summaryKeyboard(): Keyboard {
   return noticeKeyboard(formatDaySummary(DAY, { today: DAY.day, appUrl: appLinks.home(USER_ID) }));
 }
@@ -84,9 +84,9 @@ afterEach(() => {
   jest.restoreAllMocks();
 });
 
-describe('«Открыть Daftar ↗» and «Открыть аналитику ↗» (FT-124)', () => {
+describe('«Открыть Kapelka ↗» and «Открыть аналитику ↗» (FT-124)', () => {
   it('the daily summary and /today open Home', () => {
-    const url = urlOf(summaryKeyboard(), 'Открыть Daftar');
+    const url = urlOf(summaryKeyboard(), 'Открыть Kapelka');
 
     expect(url.origin).toBe(BASE_URL);
     expect(url.pathname).toBe(ROUTES.HOME);
@@ -124,9 +124,9 @@ describe('«Открыть ревизию ↗» and «Открыть цели �
   });
 });
 
-describe('«Открыть в Daftar ↗» under a record opens its sheet', () => {
+describe('«Открыть в Kapelka ↗» under a record opens its sheet', () => {
   it.each([
-    ['«Изменить»', 'edit' as const, 'Открыть в Daftar'],
+    ['«Изменить»', 'edit' as const, 'Открыть в Kapelka'],
     ['the date picker', 'date' as const, 'Другая дата'],
   ])('from %s: Home with the record named, as the webapp links to a record', async (_name, mode, label) => {
     const url = urlOf(await recordMessageKeyboard(mode), label);
@@ -138,8 +138,8 @@ describe('«Открыть в Daftar ↗» under a record opens its sheet', () =
     expect(url.searchParams.get('userId')).toBe(USER_ID);
   });
 
-  it('«Остальные — в Daftar ↗» under a message with many records opens History', async () => {
-    const url = urlOf(await recordMessageKeyboard('confirm', MANY), 'Остальные — в Daftar');
+  it('«Остальные — в Kapelka ↗» under a message with many records opens History', async () => {
+    const url = urlOf(await recordMessageKeyboard('confirm', MANY), 'Остальные — в Kapelka');
 
     expect(url.pathname).toBe(ROUTES.TRANSACTIONS);
   });

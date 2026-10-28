@@ -10,6 +10,8 @@ import { Result } from '../../../../shared/domain/types/Result';
 
 const logger = createLogger(LogCategory.AUTH);
 
+// Named before the product became Kapelka (FT-168) and kept on purpose: a new name would sign every browser out
+// and drop a login in progress.
 /** The session: 30 days, for every /api route. */
 export const SESSION_COOKIE = 'daftar_session';
 /** The browser's waiting login: only the login routes read it. */

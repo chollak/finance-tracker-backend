@@ -1,8 +1,8 @@
 import { cn } from '@/shared/lib/utils';
 
 /**
- * The daftar sign and name (design-system «Знак»): a rounded `ink` square with three lines of different
- * length cut out of it — a ledger page — and «daftar» in lower case in `wordmark` type. No logo file yet:
+ * The kapelka sign and name (design-system «Знак»): a rounded `ink` square with three lines of different
+ * length cut out of it — a ledger page — and «kapelka» in lower case in `wordmark` type. No logo file yet:
  * the sign is inline SVG in the text colour.
  */
 export function Wordmark({ className }: { className?: string }) {
@@ -15,7 +15,7 @@ export function Wordmark({ className }: { className?: string }) {
           d="M7 0h10a7 7 0 0 1 7 7v10a7 7 0 0 1-7 7H7a7 7 0 0 1-7-7V7a7 7 0 0 1 7-7ZM6 7v2h12V7H6Zm0 4v2h8v-2H6Zm0 4v2h10v-2H6Z"
         />
       </svg>
-      <span className="type-wordmark">daftar</span>
+      <span className="type-wordmark">kapelka</span>
     </span>
   );
 }

@@ -92,7 +92,7 @@ export function createAmountAnswerMiddleware(userModule?: UserModule) {
   };
 }
 
-/** A command: «/word», maybe addressed to the bot by name («/today@DaftarBot»), alone or before a space. */
+/** A command: «/word», maybe addressed to the bot by name («/today@KapelkaBot»), alone or before a space. */
 const COMMAND = /^\/[A-Za-z0-9_]+(@\w+)?(\s|$)/;
 
 /**

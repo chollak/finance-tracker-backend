@@ -13,7 +13,7 @@ export type ExportWay = 'chat' | 'download';
 
 export type ExportPhase = 'idle' | 'pending' | 'done';
 
-/** What the server says it sent: «daftar-2026-10-14.csv», 205 records and moves. */
+/** What the server says it sent: «kapelka-2026-10-14.csv», 205 records and moves. */
 export interface ExportedFile {
   fileName: string;
   count: number;
@@ -63,7 +63,7 @@ export function exportFailedToast(error: unknown, way: ExportWay): ExportToast {
   };
 }
 
-/** `attachment; filename="daftar-2026-10-14.csv"` → the name. */
+/** `attachment; filename="kapelka-2026-10-14.csv"` → the name. */
 export function fileNameFromDisposition(header: string | null): string | null {
   const match = header?.match(/filename="?([^";]+)"?/i);
   return match ? match[1] : null;

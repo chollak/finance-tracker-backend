@@ -34,7 +34,7 @@ export class TelegramPaymentService {
     };
 
     await this.telegram.sendInvoice(chatId, {
-      title: '⭐ Finance Tracker Premium',
+      title: '⭐ Kapelka Premium',
       description: `Безлимитный доступ на ${MONTHLY_DURATION_DAYS} дней:\n` +
         '✅ Безлимит транзакций\n' +
         '✅ Безлимит голосовых\n' +

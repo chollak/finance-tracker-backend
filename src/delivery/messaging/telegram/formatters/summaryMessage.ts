@@ -19,7 +19,7 @@ import { absoluteDate, amountDigits, amountWithUnit, escapeHtml, NBSP, recordsWo
  * The numbers are Home's: dollars at the user's rate, and an amount with converted dollars inside gets «≈», as on
  * the analytics screen («Покупки · ≈ 704 000»). The count is of every expense record, dollars left out for want
  * of a rate included («Доллары не вошли: курса пока нет.»). Records awaiting review are in no total: «Нужно
- * проверить в Daftar: 1 запись — пока не в итогах.»
+ * проверить в Kapelka: 1 запись — пока не в итогах.»
  */
 
 export interface BotNotice {
@@ -55,8 +55,8 @@ const approx = (hasUsd: boolean, text: string) => (hasUsd ? `≈${NBSP}${text}` 
 const categoryLine = (category: { name: string; amountMinor: number; hasUsd: boolean }) =>
   `${escapeHtml(category.name)} · ${approx(category.hasUsd, amountDigits(category.amountMinor, 'UZS'))}`;
 
-/** «Нужно проверить в Daftar: 1 запись — пока не в итогах.» */
-const needsReviewLine = (count: number) => `Нужно проверить в Daftar: ${recordsWord(count)} — пока не в итогах.`;
+/** «Нужно проверить в Kapelka: 1 запись — пока не в итогах.» */
+const needsReviewLine = (count: number) => `Нужно проверить в Kapelka: ${recordsWord(count)} — пока не в итогах.`;
 
 /** What the month is compared with, as the analytics screen says it: «чем за 1–14 сентября», «чем в сентябре». */
 function previousWords(previous: ComparedPeriod): { than: string; like: string } {
@@ -81,7 +81,7 @@ function monthLine(month: MonthSummary): string | null {
   return month.comparison ? `${head}, ${comparisonWords(month.comparison)}.` : `${head}.`;
 }
 
-/** A link to the Mini App in a row of its own: «Открыть Daftar ↗»; nothing when the Mini App is not configured. */
+/** A link to the Mini App in a row of its own: «Открыть Kapelka ↗»; nothing when the Mini App is not configured. */
 export function appLinkRows(label: string, url: string | undefined): InlineKeyboardButton[][] {
   return url ? [[Markup.button.webApp(`${label} ↗`, url)]] : [];
 }
@@ -120,7 +120,7 @@ export function formatDaySummary(summary: DaySummary, options: { today: string; 
   const month = monthLine(summary.month);
   return {
     text: blocks(head, counted > 0 ? summary.categories.map(categoryLine) : null, month ? [month] : null),
-    keyboard: appLinkRows('Открыть Daftar', options.appUrl),
+    keyboard: appLinkRows('Открыть Kapelka', options.appUrl),
   };
 }
 

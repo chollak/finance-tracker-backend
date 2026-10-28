@@ -86,7 +86,7 @@ describe('web login through the bot (FT-128)', () => {
 
   beforeEach(async () => {
     now = new Date('2026-10-14T14:42:00.000Z');
-    botUsername = 'DaftarBot';
+    botUsername = 'KapelkaBot';
     db = await openMigratedDatabase();
     userModule = new UserModule(new SqliteUserRepository(db.dataSource), new SqliteUserSettingsRepository(db.dataSource));
     authModule = new AuthModule(new SqliteLoginTokenRepository(db.dataSource), {
@@ -105,7 +105,7 @@ describe('web login through the bot (FT-128)', () => {
       const second = await start();
 
       const link = new URL(first.link);
-      expect(`${link.origin}${link.pathname}`).toBe('https://t.me/DaftarBot');
+      expect(`${link.origin}${link.pathname}`).toBe('https://t.me/KapelkaBot');
       expect(link.searchParams.get('start')).toMatch(/^login_[A-Za-z0-9_-]{20,58}$/);
       // Telegram takes a start parameter of up to 64 characters
       expect(link.searchParams.get('start')!.length).toBeLessThanOrEqual(64);
@@ -396,7 +396,7 @@ describe('web login through the bot (FT-128)', () => {
 
       const started = await browser.request('POST', '/api/auth/web-login');
       expect(started.status).toBe(201);
-      expect(started.body.data).toEqual({ status: 'pending', link: expect.stringMatching(/^https:\/\/t\.me\/DaftarBot\?start=login_/), expiresAt: '2026-10-14T14:47:00.000Z' });
+      expect(started.body.data).toEqual({ status: 'pending', link: expect.stringMatching(/^https:\/\/t\.me\/KapelkaBot\?start=login_/), expiresAt: '2026-10-14T14:47:00.000Z' });
       // The waiting secret is an httpOnly cookie for the login routes only, never in the body
       const loginCookie = browser.setCookies.find(line => line.startsWith('daftar_login='))!;
       expect(loginCookie).toMatch(/HttpOnly/i);

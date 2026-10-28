@@ -1,6 +1,6 @@
 /**
  * Signing in to the web app through the bot (FT-128, decision Д4; boards «Вход по прямой ссылке», «Вход · ждём
- * подтверждения», «Бот · подтверждение входа», «Вход не подтвердили»). Daftar lives in Telegram, so a browser has no
+ * подтверждения», «Бот · подтверждение входа», «Вход не подтвердили»). Kapelka lives in Telegram, so a browser has no
  * password: «Войти через Telegram» opens the chat with the bot by a one-time link, the user answers «Подтвердить» or
  * «Это не я» there, and the page that waits opens by itself. The link lives 5 minutes.
  *

@@ -116,7 +116,7 @@ function confirmRows(input: RecordMessageInput): Button[][] {
     ? button(`Вернуть ${quoted(recordName(record))}`, RECORD_VERBS.revert, index)
     : button(`${shortAmount(record)} · ${quoted(recordName(record))}`, RECORD_VERBS.pick, index)]);
   if (records.length > MAX_RECORD_BUTTONS) {
-    const more = link('Остальные — в Daftar', input.historyUrl);
+    const more = link('Остальные — в Kapelka', input.historyUrl);
     if (more.length) rows.push(more);
   }
   rows.push(...skipRows(input));
@@ -141,7 +141,7 @@ function editRows(input: RecordMessageInput, record: RecordView): Button[][] {
     [button('Сумму', RECORD_VERBS.field, 'amount'), button('Категорию', RECORD_VERBS.field, 'category')],
     canMove ? [button('Счёт', RECORD_VERBS.field, 'account'), button('Дату', RECORD_VERBS.field, 'date')] : [button('Дату', RECORD_VERBS.field, 'date')],
   ];
-  const app = link('Открыть в Daftar', input.recordUrl?.(record.id));
+  const app = link('Открыть в Kapelka', input.recordUrl?.(record.id));
   if (app.length) rows.push(app);
   rows.push([button('Готово', RECORD_VERBS.done)]);
   rows.push([button(input.records.length > 1 ? `Отменить ${quoted(recordName(record))}` : 'Отменить запись', RECORD_VERBS.cancel)]);

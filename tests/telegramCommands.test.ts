@@ -146,12 +146,12 @@ describe('bot commands (FT-124)', () => {
     await db.close();
   });
 
-  it('/start: what Daftar is and how to write, with «Открыть Daftar ↗» to Home', async () => {
+  it('/start: what Kapelka is and how to write, with «Открыть Kapelka ↗» to Home', async () => {
     const [greeting, ...rest] = await send('/start');
 
     expect(rest).toEqual([]);
     expect(greeting.text).toBe([
-      '<b>Это Daftar — учёт расходов и доходов.</b>',
+      '<b>Это Kapelka — учёт расходов и доходов.</b>',
       'Пишите траты прямо сюда, как в заметках:',
       '<blockquote><i>кофе 25к, такси 18к нал</i></blockquote>',
       '',
@@ -159,7 +159,7 @@ describe('bot commands (FT-124)', () => {
       '',
       '<i>Команды — «/» в поле ввода.</i>',
     ].join('\n'));
-    expect(greeting.keyboard).toEqual([[expect.objectContaining({ text: 'Открыть Daftar ↗', web_app: { url: `${BASE_URL}/?userId=${TELEGRAM_ID}` } })]]);
+    expect(greeting.keyboard).toEqual([[expect.objectContaining({ text: 'Открыть Kapelka ↗', web_app: { url: `${BASE_URL}/?userId=${TELEGRAM_ID}` } })]]);
   });
 
   it('/help: how to write and the commands, no buttons', async () => {
@@ -203,7 +203,7 @@ describe('bot commands (FT-124)', () => {
       '',
       `С начала октября — 355${NB}400${NB}сум, на 155${NB}400${NB}сум больше, чем за 1–14 сентября.`,
     ].join('\n'));
-    expect(today.keyboard).toEqual([[expect.objectContaining({ text: 'Открыть Daftar ↗' })]]);
+    expect(today.keyboard).toEqual([[expect.objectContaining({ text: 'Открыть Kapelka ↗' })]]);
   });
 
   describe('/today with dollars and records awaiting review: Home\'s numbers, every expense counted', () => {
@@ -286,7 +286,7 @@ describe('bot commands (FT-124)', () => {
       expect(await homeExpenses('2026-10-14', '2026-10-14')).toBe(0);
       expect(today.text).toBe([
         `<b>Итоги дня · 14${NB}октября</b>`,
-        'Нужно проверить в Daftar: 2 записи — пока не в итогах.',
+        'Нужно проверить в Kapelka: 2 записи — пока не в итогах.',
         '',
         `С начала октября — 600${NB}000${NB}сум, на 400${NB}000${NB}сум больше, чем за 1–14 сентября.`,
       ].join('\n'));
@@ -418,7 +418,7 @@ describe('bot commands (FT-124)', () => {
   });
 
   it('a command named with the bot answers as the command itself', async () => {
-    const [today] = await send('/today@DaftarBot');
+    const [today] = await send('/today@KapelkaBot');
 
     expect(today.text).toContain('Итоги дня');
   });

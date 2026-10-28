@@ -95,10 +95,10 @@ afterEach(() => {
 });
 
 describe('Home header', () => {
-  it('shows the daftar sign and a round «Ещё» that opens «Ещё»', () => {
+  it('shows the kapelka sign and a round «Ещё» that opens «Ещё»', () => {
     const html = render(<HomePage />, ROUTES.HOME);
 
-    expect(html).toContain('daftar');
+    expect(html).toContain('kapelka');
     const more = anchorTo(html, ROUTES.MORE);
     expect(more).toBeDefined();
     expect(more).toMatch(/aria-label="Ещё/);
@@ -171,7 +171,7 @@ describe('no bottom bar', () => {
       </QueryClientProvider>
     );
 
-    expect(html).toContain('daftar');
+    expect(html).toContain('kapelka');
     expect(html).not.toMatch(/<nav[\s>]/);
   });
 });

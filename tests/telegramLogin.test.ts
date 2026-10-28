@@ -109,12 +109,12 @@ describe('the bot confirms a web login (FT-128)', () => {
   beforeEach(async () => {
     // 19:42 in Tashkent on 14 October, as on the board
     now = new Date('2026-10-14T14:42:00.000Z');
-    webAppUrl = 'https://daftar.example';
+    webAppUrl = 'https://kapelka.example';
     jest.spyOn(AppConfig, 'getWebAppUrl').mockImplementation(() => webAppUrl);
     db = await openMigratedDatabase();
     userModule = new UserModule(new SqliteUserRepository(db.dataSource), new SqliteUserSettingsRepository(db.dataSource));
     authModule = new AuthModule(new SqliteLoginTokenRepository(db.dataSource), {
-      botUsername: { username: async () => 'DaftarBot' },
+      botUsername: { username: async () => 'KapelkaBot' },
       now: () => now,
     });
     messages.clear();
@@ -136,7 +136,7 @@ describe('the bot confirms a web login (FT-128)', () => {
 
     const question = await start(payload);
     expect(messages.get(question)!.text).toBe([
-      '<b>Вход в Daftar из браузера</b>',
+      '<b>Вход в Kapelka из браузера</b>',
       'Chrome · Windows, 14 октября в 19:42',
       '',
       '<i>Если это вы — подтвердите. Если нет — нажмите «Это не я», и вход не состоится.</i>',
@@ -152,8 +152,8 @@ describe('the bot confirms a web login (FT-128)', () => {
 
     await press(question, 'Подтвердить');
     expect(messages.get(question)).toEqual({
-      text: '<b>Вход подтверждён</b>\nChrome · Windows. Вернитесь в браузер — Daftar уже открыт.',
-      keyboard: [[expect.objectContaining({ text: 'Вернуться в браузер ↗', url: 'https://daftar.example/' })]],
+      text: '<b>Вход подтверждён</b>\nChrome · Windows. Вернитесь в браузер — Kapelka уже открыта.',
+      keyboard: [[expect.objectContaining({ text: 'Вернуться в браузер ↗', url: 'https://kapelka.example/' })]],
     });
     expect(await browserSees(browserSecret)).toBe('confirmed');
   });
@@ -222,6 +222,6 @@ describe('the bot confirms a web login (FT-128)', () => {
 
   it('/start without a login is the first message, as before', async () => {
     const greeting = await start('');
-    expect(messages.get(greeting)!.text).toContain('Это Daftar — учёт расходов и доходов.');
+    expect(messages.get(greeting)!.text).toContain('Это Kapelka — учёт расходов и доходов.');
   });
 });

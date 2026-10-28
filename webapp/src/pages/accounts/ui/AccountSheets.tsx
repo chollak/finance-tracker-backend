@@ -143,7 +143,7 @@ export function EditAccountSheet({
 
 /**
  * «Сверить остаток» (board «Сверить остаток»): what is really on the account, typed on the app's keypad. The balance
- * Daftar has is the grey hint until then; the difference is recorded as an adjustment — not a quiet change of the
+ * Kapelka has is the grey hint until then; the difference is recorded as an adjustment — not a quiet change of the
  * balance — with «Отменить». An empty field and the same balance keep the button off.
  */
 export function CorrectBalanceSheet({ open, onOpenChange, account }: SheetProps & { account: AccountOnScreen }) {

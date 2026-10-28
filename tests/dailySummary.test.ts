@@ -178,7 +178,7 @@ describe('daily summary (FT-124)', () => {
       '',
       `С начала октября — 387${NB}400${NB}сум, на 187${NB}400${NB}сум больше, чем за 1–14 сентября.`,
     ].join('\n'));
-    expect(sent[0].keyboard).toEqual([[expect.objectContaining({ text: 'Открыть Daftar ↗', web_app: { url: `${BASE_URL}/?userId=${TELEGRAM_ID}` } })]]);
+    expect(sent[0].keyboard).toEqual([[expect.objectContaining({ text: 'Открыть Kapelka ↗', web_app: { url: `${BASE_URL}/?userId=${TELEGRAM_ID}` } })]]);
 
     // Every minute until midnight: nothing more; after a restart neither
     at('2026-10-14', '21:01');
@@ -372,7 +372,7 @@ describe('daily summary (FT-124)', () => {
       `С начала октября — 70${NB}000${NB}сум.`,
     ].join('\n'));
     // No «Да, не было» any more: the link to the app instead
-    expect(extra.reply_markup.inline_keyboard).toEqual([[expect.objectContaining({ text: 'Открыть Daftar ↗' })]]);
+    expect(extra.reply_markup.inline_keyboard).toEqual([[expect.objectContaining({ text: 'Открыть Kapelka ↗' })]]);
     expect(ctx.answerCbQuery).toHaveBeenCalled();
     expect(await logEntry(owner, 'daily_summary', '2026-10-19')).toMatchObject({ variant: 'empty', answer: null });
   });

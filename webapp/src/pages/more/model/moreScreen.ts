@@ -59,7 +59,7 @@ interface NotificationSpec {
 export const NOTIFICATIONS: Record<NotificationKind, NotificationSpec> = {
   summary: {
     title: 'Сводка дня',
-    text: 'Вечером бот пришлёт, сколько потрачено за день и на что, — одним сообщением с кнопкой «Открыть Daftar».',
+    text: 'Вечером бот пришлёт, сколько потрачено за день и на что, — одним сообщением с кнопкой «Открыть Kapelka».',
     switchLabel: 'Присылать сводку',
     enabledField: 'dailySummaryEnabled',
     time: { field: 'dailySummaryTime', label: 'Во сколько присылать', options: DAILY_SUMMARY_TIMES },
@@ -143,4 +143,4 @@ export function accountState(user: { name: string | null; username: string | nul
 /** «Выйти» (FT-128): the session of this browser only; the records stay. */
 export const SIGN_OUT = { title: 'Выйти', subtitle: 'Только в этом браузере · записи останутся' } as const;
 
-export const VERSION_LINE = 'Daftar · версия 0.1';
+export const VERSION_LINE = 'Kapelka · версия 0.1';

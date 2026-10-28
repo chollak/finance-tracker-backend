@@ -144,7 +144,7 @@ describe('the CSV of all records (FT-126)', () => {
   });
 
   it('is called after the day it was made', () => {
-    expect(exportFileName('2026-10-14')).toBe('daftar-2026-10-14.csv');
+    expect(exportFileName('2026-10-14')).toBe('kapelka-2026-10-14.csv');
   });
 });
 
@@ -241,7 +241,7 @@ describe('export from the database and its routes (FT-126)', () => {
     const result = await download();
 
     expect(result.headers.get('content-type')).toBe('text/csv; charset=utf-8');
-    expect(result.headers.get('content-disposition')).toBe(`attachment; filename="daftar-${todayDateOnly()}.csv"`);
+    expect(result.headers.get('content-disposition')).toBe(`attachment; filename="kapelka-${todayDateOnly()}.csv"`);
     expect(result.headers.get('x-export-count')).toBe('2');
     expect([...result.bytes.subarray(0, 3)]).toEqual([0xef, 0xbb, 0xbf]);
     // Nothing goes to the chat from a browser
@@ -260,10 +260,10 @@ describe('export from the database and its routes (FT-126)', () => {
     const result = await server.request('POST', '/api/export/chat', { devUser: TELEGRAM_ID });
 
     expect(result.status).toBe(200);
-    expect(result.body.data).toEqual({ fileName: `daftar-${todayDateOnly()}.csv`, count: 1 });
+    expect(result.body.data).toEqual({ fileName: `kapelka-${todayDateOnly()}.csv`, count: 1 });
     expect(sent).toHaveLength(1);
     expect(sent[0].chatId).toBe(String(TELEGRAM_ID));
-    expect(sent[0].file).toMatchObject({ fileName: `daftar-${todayDateOnly()}.csv`, count: 1, date: todayDateOnly() });
+    expect(sent[0].file).toMatchObject({ fileName: `kapelka-${todayDateOnly()}.csv`, count: 1, date: todayDateOnly() });
     expect(lines(sent[0].file.text)).toEqual([HEADER, '2026-10-12;Расход;-24000;UZS;Карта;Кафе;кофе;']);
   });
 
@@ -335,7 +335,7 @@ describe('export from the database and its routes (FT-126)', () => {
 });
 
 describe('the file in the chat with the bot (FT-126)', () => {
-  const file: RecordsFile = { fileName: 'daftar-2026-10-14.csv', text: `${BOM}${HEADER}\r\n`, count: 205, date: '2026-10-14' };
+  const file: RecordsFile = { fileName: 'kapelka-2026-10-14.csv', text: `${BOM}${HEADER}\r\n`, count: 205, date: '2026-10-14' };
 
   it('goes as a document with its name and a line saying what is in it', async () => {
     const telegram = { sendDocument: jest.fn().mockResolvedValue({}) };
@@ -345,7 +345,7 @@ describe('the file in the chat with the bot (FT-126)', () => {
     expect(telegram.sendDocument).toHaveBeenCalledTimes(1);
     const [chatId, document, extra] = telegram.sendDocument.mock.calls[0];
     expect(chatId).toBe('4242');
-    expect(document.filename).toBe('daftar-2026-10-14.csv');
+    expect(document.filename).toBe('kapelka-2026-10-14.csv');
     expect(Buffer.isBuffer(document.source) && document.source.toString('utf8')).toBe(file.text);
     expect(extra).toEqual({ caption: '205 записей на 14 октября — таблица CSV, её откроет Excel или Google Таблицы.' });
   });

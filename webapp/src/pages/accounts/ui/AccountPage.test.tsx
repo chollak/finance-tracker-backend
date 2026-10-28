@@ -288,10 +288,10 @@ describe('Account screen', () => {
     expect(dialog()?.querySelector('h2')?.textContent).toBe('Сколько сейчас на счёте «Карта»?');
     const confirm = () => [...dialog()!.querySelectorAll('button')].find((item) => item.textContent?.trim() === 'Сверить остаток')!;
     expect(confirm().disabled).toBe(true);
-    expect(dialog()?.textContent).toContain(`Сейчас в Daftar — 3${NBSP}180${NBSP}000${NBSP}сум.`);
+    expect(dialog()?.textContent).toContain(`Сейчас в Kapelka — 3${NBSP}180${NBSP}000${NBSP}сум.`);
 
     await keys('3', '1', '8', '0', 'Три нуля');
-    expect(dialog()?.textContent).toContain('Совпадает с Daftar — исправлять нечего.');
+    expect(dialog()?.textContent).toContain('Совпадает с Kapelka — исправлять нечего.');
     expect(confirm().disabled).toBe(true);
 
     await keys('Стереть', 'Стереть', 'Стереть', 'Стереть', 'Стереть', 'Стереть', 'Стереть');

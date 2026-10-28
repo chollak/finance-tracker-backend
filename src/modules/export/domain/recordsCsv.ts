@@ -20,7 +20,7 @@ const BYTE_ORDER_MARK = '﻿';
 const MOVE_TYPE: Record<MoveKind, string> = { transfer: 'Перевод', exchange: 'Обмен', adjustment: 'Корректировка' };
 
 export function exportFileName(date: string): string {
-  return `daftar-${date}.csv`;
+  return `kapelka-${date}.csv`;
 }
 
 interface Line {

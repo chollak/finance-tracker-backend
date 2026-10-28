@@ -8,8 +8,8 @@ import { expiryLine, loginViewAfter } from './webLogin';
 
 describe('the page after an answer about its login', () => {
   it('pending: waits, with the link to the bot and the end of the link', () => {
-    expect(loginViewAfter({ status: 'pending', link: 'https://t.me/DaftarBot?start=login_abc', expiresAt: '2026-10-14T14:47:00.000Z' })).toEqual({
-      view: { kind: 'waiting', link: 'https://t.me/DaftarBot?start=login_abc', expiresAt: '2026-10-14T14:47:00.000Z' },
+    expect(loginViewAfter({ status: 'pending', link: 'https://t.me/KapelkaBot?start=login_abc', expiresAt: '2026-10-14T14:47:00.000Z' })).toEqual({
+      view: { kind: 'waiting', link: 'https://t.me/KapelkaBot?start=login_abc', expiresAt: '2026-10-14T14:47:00.000Z' },
     });
   });
 

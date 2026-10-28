@@ -5,7 +5,7 @@
 export const RU = {
   // The boards «Бот · первое сообщение» and «Бот · меню команд» (FT-124)
   commands: {
-    start: '<b>Это Daftar — учёт расходов и доходов.</b>\nПишите траты прямо сюда, как в заметках:\n'
+    start: '<b>Это Kapelka — учёт расходов и доходов.</b>\nПишите траты прямо сюда, как в заметках:\n'
       + '<blockquote><i>кофе 25к, такси 18к нал</i></blockquote>\n\n'
       + 'Можно голосом. Всё сразу попадёт в приложение.\n\n<i>Команды — «/» в поле ввода.</i>',
     help: [
@@ -56,7 +56,7 @@ export const RU = {
     amountNotPositive: 'Сумма должна быть больше нуля.',
     amountTooBig: 'Сумма слишком большая — проверьте её и напишите ещё раз.',
     noAccountIn: (currency: 'UZS' | 'USD') =>
-      currency === 'USD' ? 'Счёта в долларах нет — добавьте его в Daftar.' : 'Счёта в сумах нет — добавьте его в Daftar.',
+      currency === 'USD' ? 'Счёта в долларах нет — добавьте его в Kapelka.' : 'Счёта в сумах нет — добавьте его в Kapelka.',
     // FT-123: what was named without an amount, «не 25, а 28»
     withoutAmountNotWritten: (name: string) => `${name} — без суммы, не записал.`,
     skipped: (name: string) => `${name} — пропустил.`,

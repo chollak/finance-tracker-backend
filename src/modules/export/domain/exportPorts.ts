@@ -20,7 +20,7 @@ export interface ExportSources {
 
 /** One export: the CSV text and what the screen and the bot say about it. */
 export interface RecordsFile {
-  /** «daftar-2026-10-14.csv». */
+  /** «kapelka-2026-10-14.csv». */
   fileName: string;
   /** UTF-8 text with a byte order mark, so Excel reads the Cyrillic. */
   text: string;

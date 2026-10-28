@@ -282,7 +282,7 @@ describe('BotKeyboard under a record (FT-122)', () => {
     expect(labels(value)).toEqual([
       ['Сумму', 'Категорию'],
       ['Счёт', 'Дату'],
-      ['Открыть в Daftar ↗'],
+      ['Открыть в Kapelka ↗'],
       ['Готово'],
       ['Отменить запись'],
     ]);

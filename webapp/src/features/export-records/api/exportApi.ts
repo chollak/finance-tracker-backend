@@ -13,7 +13,7 @@ export async function downloadRecords(): Promise<ExportedFile & { blob: Blob }> 
   const { blob, headers } = await apiClient.getFile(API_ENDPOINTS.EXPORT.FILE);
   return {
     blob,
-    fileName: fileNameFromDisposition(headers.get('Content-Disposition')) ?? 'daftar.csv',
+    fileName: fileNameFromDisposition(headers.get('Content-Disposition')) ?? 'kapelka.csv',
     count: Number(headers.get('X-Export-Count') ?? 0) || 0,
   };
 }

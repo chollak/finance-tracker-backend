@@ -247,7 +247,7 @@ describe('«Ещё» in Telegram', () => {
 
     await press(row('Сводка дня'));
     expect(sheet()?.querySelector('h2')?.textContent).toBe('Сводка дня');
-    expect(squash(sheet()?.textContent)).toContain('Вечером бот пришлёт, сколько потрачено за день и на что, — одним сообщением с кнопкой «Открыть Daftar».');
+    expect(squash(sheet()?.textContent)).toContain('Вечером бот пришлёт, сколько потрачено за день и на что, — одним сообщением с кнопкой «Открыть Kapelka».');
     expect(squash(sheet()?.textContent)).toContain('В день без записей сводка спросит, правда ли трат не было, — отдельного напоминания нет.');
     const toggle = sheet()!.querySelector('[role="switch"]')!;
     expect(squash(toggle.textContent)).toBe('Присылать сводку');
@@ -342,7 +342,7 @@ describe('«Ещё» in Telegram', () => {
   });
 
   describe('«Скачать все записи» (FT-126, board «Выгрузка записей»)', () => {
-    const SENT = { success: true, data: { fileName: 'daftar-2026-10-14.csv', count: 205 } };
+    const SENT = { success: true, data: { fileName: 'kapelka-2026-10-14.csv', count: 205 } };
     const exportRow = () => row('Скачать все записи');
     const exportState = () => squash([...exportRow().querySelectorAll('[data-row-text] > span')].map((part) => part.textContent).join(' · '));
     const toasts = () => useUndoToastStore.getState().stack.map((entry) => [entry.title, entry.detail]);
@@ -372,7 +372,7 @@ describe('«Ещё» in Telegram', () => {
       await act(async () => answer(SENT));
       await settle();
 
-      expect(toasts()).toEqual([['Файл отправлен в чат с ботом', 'daftar-2026-10-14.csv · 205 записей']]);
+      expect(toasts()).toEqual([['Файл отправлен в чат с ботом', 'kapelka-2026-10-14.csv · 205 записей']]);
       expect(document.body.querySelector('[role="status"]')?.textContent).toContain('Файл отправлен в чат с ботом');
       expect(exportState()).toBe('Скачать все записи · Отправлено — файл уже в чате с ботом');
       expect(exportRow().getAttribute('aria-disabled')).toBe('true');
@@ -412,7 +412,7 @@ describe('«Ещё» in Telegram', () => {
     });
 
     it('with nothing recorded, says there is nothing to send', async () => {
-      vi.mocked(apiClient.post).mockResolvedValueOnce({ success: true, data: { fileName: 'daftar-2026-10-14.csv', count: 0 } } as never);
+      vi.mocked(apiClient.post).mockResolvedValueOnce({ success: true, data: { fileName: 'kapelka-2026-10-14.csv', count: 0 } } as never);
       await renderMore();
 
       await press(exportRow());
@@ -449,10 +449,10 @@ describe('«Ещё» by a direct link', () => {
   it('«Скачать все записи» downloads the file to the device, never through the chat', async () => {
     vi.mocked(apiClient.getFile).mockResolvedValue({
       blob: new Blob(['\uFEFFДата;Тип'], { type: 'text/csv' }),
-      headers: new Headers({ 'Content-Disposition': 'attachment; filename="daftar-2026-10-14.csv"', 'X-Export-Count': '205' }),
+      headers: new Headers({ 'Content-Disposition': 'attachment; filename="kapelka-2026-10-14.csv"', 'X-Export-Count': '205' }),
     } as never);
     // jsdom has no object URLs
-    const createObjectURL = vi.fn(() => 'blob:daftar');
+    const createObjectURL = vi.fn(() => 'blob:kapelka');
     Object.assign(URL, { createObjectURL, revokeObjectURL: vi.fn() });
     const saved: Array<{ href: string; download: string }> = [];
     vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
@@ -465,8 +465,8 @@ describe('«Ещё» by a direct link', () => {
     expect(apiClient.getFile).toHaveBeenCalledWith('/export');
     expect(apiClient.post).not.toHaveBeenCalled();
     expect(createObjectURL).toHaveBeenCalledWith(expect.any(Blob));
-    expect(saved).toEqual([{ href: 'blob:daftar', download: 'daftar-2026-10-14.csv' }]);
-    expect(useUndoToastStore.getState().stack.map((entry) => [entry.title, entry.detail])).toEqual([['Файл скачан', 'daftar-2026-10-14.csv · 205 записей']]);
+    expect(saved).toEqual([{ href: 'blob:kapelka', download: 'kapelka-2026-10-14.csv' }]);
+    expect(useUndoToastStore.getState().stack.map((entry) => [entry.title, entry.detail])).toEqual([['Файл скачан', 'kapelka-2026-10-14.csv · 205 записей']]);
     expect(sections()[3].rows).toEqual(['Скачать все записи · Скачано — файл в загрузках']);
   });
 

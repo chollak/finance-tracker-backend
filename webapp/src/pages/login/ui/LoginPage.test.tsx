@@ -21,7 +21,7 @@ vi.mock('@/shared/api/client', () => {
   return { apiClient: { get: vi.fn(pending), post: vi.fn(pending), put: vi.fn(pending), patch: vi.fn(pending), delete: vi.fn(pending) }, onSessionLost: vi.fn() };
 });
 
-const LINK = 'https://t.me/DaftarBot?start=login_Q0oqA7r8XfGqzcC9';
+const LINK = 'https://t.me/KapelkaBot?start=login_Q0oqA7r8XfGqzcC9';
 const EXPIRES = '2026-10-14T14:47:00.000Z';
 const USER = { telegramId: '597843119', firstName: 'Шукур', username: 'shukur' };
 
@@ -125,18 +125,18 @@ const toasts = () => useUndoToastStore.getState().stack.map((entry) => [entry.ti
 const localTime = (iso: string) => new Intl.DateTimeFormat('ru-RU', { hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
 
 describe('the login screen', () => {
-  it('says what Daftar is, the three steps and why no password is needed', async () => {
+  it('says what Kapelka is, the three steps and why no password is needed', async () => {
     await renderLogin();
 
     expect(title()).toBe('Траты и доходы — голосом, текстом и фото чека');
-    expect(text()).toContain('Daftar живёт в Telegram. Войдите тем же аккаунтом — в браузере будут те же счета и записи, что в боте.');
+    expect(text()).toContain('Kapelka живёт в Telegram. Войдите тем же аккаунтом — в браузере будут те же счета и записи, что в боте.');
     expect([...document.body.querySelectorAll('li')].map((item) => [...item.children].map((part) => squash(part.textContent)).join(' '))).toEqual([
-      '1 Откроется чат с ботом Daftar',
+      '1 Откроется чат с ботом Kapelka',
       '2 Нажмите там «Запустить» и «Подтвердить»',
       '3 Вернитесь сюда — вход завершится сам',
     ]);
     expect(button('Войти через Telegram').tagName).toBe('BUTTON');
-    expect(text()).toContain('Пароль не нужен. Daftar видит только ваше имя в Telegram — не чаты и не контакты.');
+    expect(text()).toContain('Пароль не нужен. Kapelka видит только ваше имя в Telegram — не чаты и не контакты.');
     // Nothing is started until the button is pressed
     expect(apiClient.post).not.toHaveBeenCalled();
   });
@@ -152,7 +152,7 @@ describe('the login screen', () => {
     expect(tab.opener).toBeNull();
 
     expect(title()).toBe('Подтвердите вход в Telegram');
-    expect(text()).toContain('В чате с ботом Daftar нажмите «Подтвердить» — вход здесь завершится сам.');
+    expect(text()).toContain('В чате с ботом Kapelka нажмите «Подтвердить» — вход здесь завершится сам.');
     expect(text()).toContain('Чат не открылся или кнопки нет? Нажмите «Открыть Telegram», а в чате — «Запустить».');
     const card = [...document.body.querySelectorAll('span')].find((part) => part.textContent === 'Ссылка для входа действует')?.parentElement;
     expect([...(card?.children ?? [])].map((part) => part.textContent)).toEqual(['Ссылка для входа действует', `5 минут, до ${localTime(EXPIRES)}`]);
@@ -197,7 +197,7 @@ describe('the login screen', () => {
     await wait(LOGIN_POLL_MS);
 
     expect(title()).toBe('Вход не подтвердили');
-    expect(text()).toContain('Ссылка для входа действует 5 минут, и это время вышло. Нажмите ниже — откроется чат с ботом Daftar, там нажмите «Подтвердить».');
+    expect(text()).toContain('Ссылка для входа действует 5 минут, и это время вышло. Нажмите ниже — откроется чат с ботом Kapelka, там нажмите «Подтвердить».');
     expect(document.body.querySelector('[role="status"]')?.textContent).toBe('Вход не подтвердили. Можно попробовать снова');
 
     await press('Войти через Telegram');
@@ -258,7 +258,7 @@ describe('the login screen', () => {
     expect(document.body.querySelector('h1')).toBeNull();
     expect(document.body.querySelectorAll('button, a')).toHaveLength(0);
     expect(document.body.querySelector('[aria-busy="true"]')).not.toBeNull();
-    expect(text()).toContain('daftar');
+    expect(text()).toContain('kapelka');
 
     await act(async () => answer({ success: true, data: { status: 'pending', link: LINK, expiresAt: EXPIRES } }));
     await settle();
@@ -273,7 +273,7 @@ describe('the login screen', () => {
 
     expect(apiClient.post).toHaveBeenCalledWith('/auth/session');
     expect(document.body.querySelectorAll('button, a')).toHaveLength(0);
-    expect(document.body.querySelector('[role="status"]')?.textContent).toBe('Вход подтверждён. Открываю Daftar');
+    expect(document.body.querySelector('[role="status"]')?.textContent).toBe('Вход подтверждён. Открываю Kapelka');
 
     await act(async () => answer({ success: true, data: { user: USER } }));
     await settle();

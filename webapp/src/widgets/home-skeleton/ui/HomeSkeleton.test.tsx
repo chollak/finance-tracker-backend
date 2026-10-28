@@ -41,8 +41,8 @@ describe('Home while it loads', () => {
     expect(text(html)).toContain('Загружаю ваши счета и записи…');
   });
 
-  it('has the real header with the daftar sign', () => {
-    expect(view(false)).toMatch(/<header[^>]*>.*daftar.*<\/header>/);
+  it('has the real header with the kapelka sign', () => {
+    expect(view(false)).toMatch(/<header[^>]*>.*kapelka.*<\/header>/);
   });
 
   it('keeps the place of «Сум / USD» beside «Ещё», as Home’s header has it (FT-137)', () => {
@@ -91,7 +91,7 @@ describe('Home while it loads', () => {
     const html = view(false);
 
     expect(html).toMatch(/role="status"/);
-    expect(busyRegion(html)).toContain('daftar');
+    expect(busyRegion(html)).toContain('kapelka');
     expect(busyRegion(html)).not.toMatch(/role="status"/);
   });
 

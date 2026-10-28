@@ -263,7 +263,7 @@ function notices(records: RecordView[]): Line[] {
       lines.push({ text: several ? `${prefix}не входит в расходы.` : 'Не входит в расходы.' });
     }
     if (record.needsReview) {
-      lines.push({ text: several ? `${prefix}нужно проверить в Daftar.` : 'Нужно проверить в Daftar — пока не входит в итоги.' });
+      lines.push({ text: several ? `${prefix}нужно проверить в Kapelka.` : 'Нужно проверить в Kapelka — пока не входит в итоги.' });
     }
   }
   return lines;

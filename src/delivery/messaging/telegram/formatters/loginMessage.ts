@@ -7,7 +7,7 @@ import { localClock } from '../../../../modules/notification/domain/dailySummary
 /**
  * The bot's side of the web login (FT-128; boards «Бот · подтверждение входа», «Бот, вход из браузера, тёмная»):
  *
- *   Вход в Daftar из браузера                       ← bold
+ *   Вход в Kapelka из браузера                       ← bold
  *   Chrome · Windows, 14 октября в 19:42
  *
  *   Если это вы — подтвердите. Если нет — нажмите   ← italic
@@ -49,7 +49,7 @@ const escapeHtml = (text: string) => text.replace(/&/g, '&amp;').replace(/</g, '
 export function formatLoginQuestion(login: { loginId: string; device: string; createdAt: Date }, timeZone: string | undefined): LoginNotice {
   return {
     text: [
-      '<b>Вход в Daftar из браузера</b>',
+      '<b>Вход в Kapelka из браузера</b>',
       `${escapeHtml(login.device)}, ${momentOn(login.createdAt, timeZone)}`,
       '',
       '<i>Если это вы — подтвердите. Если нет — нажмите «Это не я», и вход не состоится.</i>',
@@ -77,7 +77,7 @@ export function formatLoginAnswer(answer: BotLoginAnswer, options: { webUrl?: st
   switch (answer.kind) {
     case 'confirmed':
       return {
-        text: `<b>Вход подтверждён</b>\n${escapeHtml(answer.device)}. Вернитесь в браузер — Daftar уже открыт.`,
+        text: `<b>Вход подтверждён</b>\n${escapeHtml(answer.device)}. Вернитесь в браузер — Kapelka уже открыта.`,
         keyboard: options.webUrl?.startsWith('https://') ? [[Markup.button.url('Вернуться в браузер ↗', options.webUrl)]] : [],
       };
     case 'rejected':
