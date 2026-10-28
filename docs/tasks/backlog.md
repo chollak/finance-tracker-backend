@@ -478,7 +478,7 @@ Definition of Done:
 
 ### FT-159: Move from the Mac to the PC
 
-Status: backlog
+Status: in progress — бот на ПК работает с 2026-10-28, Windows-часть и бэкап ждут Шукура дома
 Priority: high
 Owner: Shukur + Claude Code, QA by Hermes
 Type: infra
@@ -489,17 +489,23 @@ Context:
 Переключение живой базы и бота с мака на ПК по решению 2026-10-26. Простой — около 15 минут, не около 21:00, когда
 уходит итог дня. Пока бота никто не опрашивает, Telegram держит обновления до 24 часов, сообщения не теряются.
 
+**2026-10-28: начали с пустой базы, без переноса с мака** (решение в `docs/tasks/decisions.md`). Пункты про перенос
+отменены и зачёркнуты. Установка шла удалённо по SSH: копия — `~/dev/projects/kapelka-live`, бот — @kapelka_app_bot.
+Пока нет задачи Планировщика, WSL держит открытое окно Ubuntu на ПК — его не закрывать.
+
 Definition of Done:
-- [ ] До переезда Шукур заводит в BotFather нового бота «Kapelka» (`@kapelkabot` или свободный вариант) — живой на ПК, а @FinanceTrackerDevBot отходит маку как бот для разработки (решение 2026-10-28); выпускает новый ключ OpenAI (старый лежит в комментарии в `.env` — отозвать) и ставит лимит расходов в кабинете OpenAI; токены — в `Personal/Secrets`
-- [ ] На маке: `dev:miniapp` остановлен; `sqlite3 data/database.sqlite ".backup …"`; `PRAGMA integrity_check` — `ok`
-- [ ] Копия базы, `patterns.json` и `learning-data.json` лежат в `~/kapelka-live/data/` на ПК; файлы принадлежат пользователю сервиса
-- [ ] `bot_messages` в копии базы очищена до первого запуска с новым ботом (`count(*)` = 0) — «да» Шукура 2026-10-28; шаг — `live-instance.md`, «Переезд»
-- [ ] Сервис запущен: `npm run migration:show` ничего не ждёт; в `/api/health` бот `running`
-- [ ] Кнопка меню ведёт на адрес tailnet; `/start` в чате, чтобы новые кнопки получили новый адрес
-- [ ] Проверка: «кофе 25000» в боте записалось; Mini App открывается с iPhone; записей столько же, сколько в копии с мака; вечером пришёл итог дня
+- [x] Шукур завёл в BotFather нового бота «Kapelka» — @kapelka_app_bot, живой на ПК; @FinanceTrackerDevBot отходит маку как бот для разработки (решение 2026-10-28); новый ключ OpenAI — в `.env.local` ПК
+- [ ] Старый ключ OpenAI (в комментарии в `.env` мака) отозван, лимит расходов в кабинете OpenAI стоит; токены — в `Personal/Secrets`
+- ~~На маке: `dev:miniapp` остановлен; `sqlite3 data/database.sqlite ".backup …"`; `PRAGMA integrity_check` — `ok`~~ — без переноса (2026-10-28)
+- ~~Копия базы, `patterns.json` и `learning-data.json` лежат в `~/kapelka-live/data/` на ПК~~ — без переноса
+- ~~`bot_messages` в копии базы очищена до первого запуска с новым ботом~~ — база пустая, чистить нечего
+- [x] Сервис запущен: `npm run migration:show` ничего не ждёт; в `/api/health` бот `running` (2026-10-28)
+- [x] Кнопка меню ведёт на адрес tailnet (`miniapp:menu -- set`); `/start` в чате отправлен (2026-10-28)
+- [ ] Проверка: «кофе 25000» в боте записалось (сделано 2026-10-28); Mini App открывается с iPhone (ждёт `tailscale serve` и HTTPS); вечером пришёл итог дня
+- [ ] Windows: сон от сети выключен (уже было), быстрый запуск выключен; Tailscale — Run unattended, HTTPS в админке, `tailscale serve --bg http://127.0.0.1:3000`; задача Планировщика `Kapelka WSL` — `live-instance.md`, шаги 1, 2, 8
 - [ ] Windows перезагружена без входа в WSL → сервис поднялся сам (задача Планировщика держит WSL), бот отвечает, Mini App открывается с iPhone по адресу tailnet — проверка из FT-156
 - [ ] На ПК: бэкап-таймер стоит (`list-timers`), копия в `C:\KapelkaBackup` появилась и выгрузилась в Google Drive после входа в Windows — проверка из FT-157
-- [ ] Мак переведён на dev-бота и отдельную базу; копия базы с мака хранится 2 недели
+- [ ] Мак переведён на dev-бота и отдельную базу (~~копия базы с мака хранится 2 недели~~ — без переноса)
 - [ ] Описан откат: остановить сервис на ПК → забрать базу → `dev:miniapp` на маке с токеном и username бота Kapelka — не @FinanceTrackerDevBot: пользователь пишет в Kapelka, и бот, которого никто не опрашивает, молчит (@FinanceTrackerDevBot — бот разработки мака)
 - [ ] Проверено и записано: открывается ли Mini App в Telegram на iOS, когда ПК выключен (в webapp есть service worker, но в Telegram на iOS он может не работать)
 
@@ -739,5 +745,36 @@ Definition of Done:
 - [ ] Адрес туннеля берётся только из строки об успешной регистрации (`https://<slug>.trycloudflare.com`, не `api.`)
 - [ ] При ошибке `.env.local` и кнопка меню не меняются, сообщение понятное
 - [ ] Тест на разбор вывода `cloudflared`
+
+---
+
+### FT-171: A new record creates a phantom user to count usage
+
+Status: backlog
+Priority: medium
+Owner: Claude Code, QA — под-чат проверки
+Type: bug
+Size: S
+
+Context:
+Найдено 2026-10-28 на ПК при первой записи в Kapelka (пустая база): после `/start` в `users` одна строка, после
+«кофе 25000» — две. У второй `telegram_id` — UUID настоящего пользователя, создана в ту же секунду, что и запись.
+
+Причина — `CreateTransactionUseCase.incrementTransactionCount` (`src/modules/transaction/application/createTransaction.ts`):
+`userId` записи уже UUID, а метод передаёт его в `getOrCreateUserUseCase` как `telegramId`. Пользователя с таким
+`telegram_id` нет — создаётся новый, и счётчик `transactions` бесплатного тарифа растёт у него. Комментарий «Resolves
+telegramId to UUID if needed» не выполняется: `resolveUserIdToUUID` (`src/shared/application/helpers/userIdResolver.ts`)
+UUID возвращает как есть, но здесь не вызывается.
+
+Что ломается: у каждого пользователя после первой записи — один лишний «пользователь» (дальше он переиспользуется);
+счётчик записей настоящего пользователя всегда 0 — с `FREE_LIMITS_ENABLED=true` лимит в 50 записей не сработал бы.
+Итоги дня и напоминания фантому не уходят (только `ALLOWED_TELEGRAM_IDS`), записи, счета и категории не задеты.
+Такие строки, вероятно, есть и в базе мака.
+
+Definition of Done:
+- [ ] `incrementTransactionCount` разрешает id через `resolveUserIdToUUID` (UUID — как есть, Telegram id — в UUID) и не создаёт пользователя по UUID
+- [ ] Тест: запись от пользователя с UUID не добавляет строку в `users`, счётчик `transactions` растёт у него самого
+- [ ] Поиск других мест, где UUID уходит в `getOrCreate` как `telegramId` (например, `deleteDebt.ts`); найденное — исправлено или записано
+- [ ] Уборка фантомов (`users.telegram_id` в виде UUID и их `usage_limits`) — только список для Шукура; удаление на живой базе — после его «да»
 
 ---
