@@ -1,10 +1,10 @@
-# The nightly backup of the live database (FT-157): runs scripts/backup-db.sh once; daftar-backup.timer starts it.
+# The nightly backup of the live database (FT-157): runs scripts/backup-db.sh once; kapelka-backup.timer starts it.
 # A template: __USER__ and __APP_DIR__ are filled in on install, see
 # docs/knowledge-base/08-development/live-instance.md («Бэкап»).
 
 [Unit]
-Description=Daftar database backup to the Google Drive folder
-# No dependency on daftar.service: the online copy is safe whether the app runs or not
+Description=Kapelka database backup to the Google Drive folder
+# No dependency on kapelka.service: the online copy is safe whether the app runs or not
 
 [Service]
 Type=oneshot
@@ -21,5 +21,5 @@ IOSchedulingClass=idle
 
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=daftar-backup
+SyslogIdentifier=kapelka-backup
 NoNewPrivileges=true

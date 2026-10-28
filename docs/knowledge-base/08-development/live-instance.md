@@ -1,9 +1,9 @@
 # Живой экземпляр на ПК (Windows + WSL)
 
-Daftar для ежедневного пользования живёт на ПК Шукура с Windows + WSL. ПК включён «как получится»: экземпляр сам
+Kapelka для ежедневного пользования живёт на ПК Шукура с Windows + WSL. ПК включён «как получится»: экземпляр сам
 поднимается после включения и открывается с iPhone по постоянному адресу в tailnet. Решение — запись 2026-10-26 в
 [`docs/tasks/decisions.md`](../../tasks/decisions.md), задача FT-156. Мак остаётся для разработки: `npm run dev:miniapp`
-(Cloudflare quick tunnel) и свой dev-бот — [Quick Start](quick-start.md).
+(Cloudflare quick tunnel) и @FinanceTrackerDevBot как бот для разработки — [Quick Start](quick-start.md).
 
 ## Как устроено
 
@@ -11,19 +11,19 @@ Daftar для ежедневного пользования живёт на ПК
 |---|---|---|
 | Windows | Tailscale — служба в режиме Run unattended | ПК в tailnet и без входа в Windows |
 | Windows | `tailscale serve` → `https://<пк>.<tailnet>.ts.net` → `http://127.0.0.1:3000` | постоянный HTTPS-адрес для Mini App, виден только устройствам tailnet |
-| Windows | задача Планировщика `Daftar WSL` | запускает WSL при старте системы и держит его: без неё WSL гасит дистрибутив, когда закрыт последний терминал |
+| Windows | задача Планировщика `Kapelka WSL` | запускает WSL при старте системы и держит его: без неё WSL гасит дистрибутив, когда закрыт последний терминал |
 | Windows | сон от сети выключен | спящий ПК — молчащий бот |
-| WSL (Ubuntu, systemd) | сервис `daftar.service` → `node dist/index.js` | сам поднимается и перезапускается, логи в journald |
-| `~/daftar-live` | копия репозитория на `main`, своя `data/` и `.env.local` | ветки разработки и их миграции не трогают живую базу |
-| WSL → Windows | таймер `daftar-backup.timer` → копия базы в `C:\DaftarBackup`, Google Drive выгружает её в облако | база переживёт потерю `ext4.vhdx` — [«Бэкап»](#бэкап-ft-157) |
+| WSL (Ubuntu, systemd) | сервис `kapelka.service` → `node dist/index.js` | сам поднимается и перезапускается, логи в journald |
+| `~/kapelka-live` | копия репозитория на `main`, своя `data/` и `.env.local` | ветки разработки и их миграции не трогают живую базу |
+| WSL → Windows | таймер `kapelka-backup.timer` → копия базы в `C:\KapelkaBackup`, Google Drive выгружает её в облако | база переживёт потерю `ext4.vhdx` — [«Бэкап»](#бэкап-ft-157) |
 
 Бот работает через long polling — только исходящие запросы, адрес tailnet ему не нужен. Пока ПК выключен, Telegram
 хранит сообщения до 24 часов и отдаёт их после включения.
 
-Файлы в репозитории: [`ops/live/daftar.service`](../../../ops/live/daftar.service) — шаблон unit-файла,
+Файлы в репозитории: [`ops/live/kapelka.service`](../../../ops/live/kapelka.service) — шаблон unit-файла,
 [`ops/live/env.local.example`](../../../ops/live/env.local.example) — шаблон `.env.local` без значений,
 [`scripts/live-update.sh`](../../../scripts/live-update.sh) — обновление одной командой,
-[`scripts/backup-db.sh`](../../../scripts/backup-db.sh) и `ops/live/daftar-backup.*` — ночной бэкап.
+[`scripts/backup-db.sh`](../../../scripts/backup-db.sh) и `ops/live/kapelka-backup.*` — ночной бэкап.
 
 ### Почему так
 
@@ -48,10 +48,10 @@ Daftar для ежедневного пользования живёт на ПК
   растущей паузе не достигается: за первый час выходит около 11 стартов, потом 6 в час.
   - Счётчик перезапусков systemd сбрасывает только ручной старт или `reset-failed`, а не долгая работа без сбоев: после
     ~7 автоматических перезапусков за жизнь сервиса каждый новый сбой ждёт 10 минут. `systemctl restart` и
-    `live-update.sh` начинают паузы с 10 с заново (`systemctl show daftar.service -p NRestarts` — счётчик).
+    `live-update.sh` начинают паузы с 10 с заново (`systemctl show kapelka.service -p NRestarts` — счётчик).
   - На systemd старше 254 (Ubuntu 22.04 — 249) `RestartSteps` пропускается с предупреждением, и пауза всегда 10 с;
     лимит останавливает сервис после 20 быстрых попыток. Тогда долгая потеря сети на старте оставляет сервис в
-    `failed` до ручного `sudo systemctl reset-failed daftar.service && sudo systemctl start daftar.service`. Поэтому
+    `failed` до ручного `sudo systemctl reset-failed kapelka.service && sudo systemctl start kapelka.service`. Поэтому
     лучше Ubuntu 24.04.
 - **`After=network.target`, без `network-online.target`.** В WSL служба ожидания сети может задерживать старт на
   минуты, а приложению сеть на старте не нужна: опрос Telegram и курс ЦБ сами повторяют запросы.
@@ -69,9 +69,10 @@ Daftar для ежедневного пользования живёт на ПК
 - Аккаунт Tailscale; Tailscale на iPhone включён всегда.
 - Пароль учётной записи Windows — для учётки Microsoft это пароль от неё. Задача Планировщика хранит его, чтобы
   запускаться без входа. PIN не подходит.
-- **Бот.** ПК остаётся на нынешнем боте @FinanceTrackerDevBot — он сейчас и есть живой; его токен — в `.env.local`
-  мака и в `~/.config/daftar/dev.env`. Новый dev-бот для мака заводится в FT-159. До переезда ПК этот токен не
-  опрашивает (шаг 5 и раздел [«Переезд»](#переезд-включить-бота-ft-159)).
+- **Бот.** У ПК свой бот — новый «Kapelka», его Шукур заводит в BotFather (`@kapelkabot` или свободный вариант;
+  решение 2026-10-28, шаг 1 раздела [«Переезд»](#переезд-включить-бота-ft-159)). Нынешний @FinanceTrackerDevBot
+  остаётся маку как бот для разработки — его токен на ПК не кладут. Записи привязаны к Telegram id пользователя, а не
+  к боту, поэтому переезжают вместе с базой; старая переписка остаётся в чате со старым ботом.
 - Ключ OpenAI — свой для живого экземпляра, не из репозитория.
 
 **PowerShell** ниже — Windows, **WSL** — терминал Ubuntu. «От администратора» — PowerShell, запущенный «от имени
@@ -144,14 +145,14 @@ systemctl --version | head -n 1  # 254 и выше — пауза перезап
 Журнал между перезагрузками: после перезагрузки `journalctl --list-boots` показывает больше одной строки. Если одну —
 `sudo mkdir -p /var/log/journal && sudo systemctl restart systemd-journald`.
 
-## 4. WSL: Node и копия `~/daftar-live`
+## 4. WSL: Node и копия `~/kapelka-live`
 
 ```bash
 sudo apt-get update && sudo apt-get install -y git curl build-essential python3 sqlite3
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.8/install.sh | bash
 exec bash                        # перечитать профиль, чтобы появился nvm
-git clone https://github.com/chollak/finance-tracker-backend.git ~/daftar-live
-cd ~/daftar-live
+git clone https://github.com/chollak/finance-tracker-backend.git ~/kapelka-live
+cd ~/kapelka-live
 nvm install                      # версия из .nvmrc
 scripts/nvm-exec.sh npm ci --include=dev
 ```
@@ -165,7 +166,7 @@ scripts/nvm-exec.sh npm ci --include=dev
 ## 5. `.env.local`
 
 ```bash
-cd ~/daftar-live
+cd ~/kapelka-live
 cp ops/live/env.local.example .env.local
 chmod 600 .env.local
 nano .env.local
@@ -173,25 +174,25 @@ nano .env.local
 
 Заполнить: `ALLOWED_TELEGRAM_IDS` (свой Telegram id), `OPENAI_API_KEY`, `WEB_APP_URL` (адрес из шага 2) и
 `MINIAPP_CHAT_ID` (свой id); `ADMIN_TELEGRAM_IDS` — по желанию. `NODE_ENV=production` и `TZ=Asia/Tashkent` уже стоят,
-`BACKUP_DIR=/mnt/c/DaftarBackup` — тоже: саму папку и таймер ставит раздел [«Бэкап»](#бэкап-ft-157).
+`BACKUP_DIR=/mnt/c/KapelkaBackup` — тоже: саму папку и таймер ставит раздел [«Бэкап»](#бэкап-ft-157).
 Значения нигде не печатать и в репозиторий не класть.
 
-> **До переезда ПК не опрашивает живой токен.** Шаблон ставит `ENABLE_TELEGRAM_POLLING=false`, а `TG_BOT_API_KEY`
-> и `TG_BOT_USERNAME` до переезда остаются пустыми. Пока живой экземпляр работает на маке, он опрашивает
-> @FinanceTrackerDevBot. Если ПК начнёт опрашивать тот же токен, мак (не production) после пяти 409 уйдёт в `failed`,
-> опрос заберёт ПК — и сообщения Шукура лягут в пустую базу ПК и пропадут при переезде. Включение бота — раздел
+> **До переезда опрос выключен.** Шаблон ставит `ENABLE_TELEGRAM_POLLING=false`. `TG_BOT_API_KEY` и
+> `TG_BOT_USERNAME` бота Kapelka можно вписать, как только бот заведён, или оставить пустыми до переезда. С маком бот
+> не спорит: у живого экземпляра на маке свой токен (@FinanceTrackerDevBot). Но всё, что записано в Kapelka до
+> переезда, ляжет в пустую базу ПК и пропадёт, когда её заменит база с мака. Включение бота — раздел
 > [«Переезд»](#переезд-включить-бота-ft-159).
 >
-> Отрепетировать всё целиком, с ботом и Mini App, можно на другом боте — удобно сразу завести будущий dev-бот мака из
-> FT-159: его токен и username в `.env.local`, `ENABLE_TELEGRAM_POLLING=true`, шаг 7 — с его `--chat-id`. Перед
-> переездом вернуть сюда пустые значения или сразу живой токен по разделу «Переезд».
+> Отрепетировать всё целиком, с ботом и Mini App, можно на самом боте Kapelka: его токен и username в `.env.local`,
+> `ENABLE_TELEGRAM_POLLING=true`, шаг 7 — со своим `--chat-id`. Записи репетиции пропадут при переносе базы; траты
+> до переезда по-прежнему пишутся в @FinanceTrackerDevBot.
 
 **Shortcut для iPhone (FT-155).** `SHORTCUT_CAPTURE_TOKEN` (`openssl rand -hex 32`, не короче 32 символов) и
 `SHORTCUT_CAPTURE_OWNER` (свой id; он должен быть в `ALLOWED_TELEGRAM_IDS`). Задавать обе или ни одной: обе пустые —
 Shortcut выключен (`403 SHORTCUT_CAPTURE_DISABLED`), а неполная или неверная настройка в production останавливает
-старт. С `Restart=always` это цикл перезапусков — `journalctl -u daftar.service -n 20` покажет
+старт. С `Restart=always` это цикл перезапусков — `journalctl -u kapelka.service -n 20` покажет
 `Configuration validation failed` и список ошибок. Отзыв токена — новое значение и
-`sudo systemctl restart daftar.service`: старый перестаёт работать сразу. Сам Shortcut —
+`sudo systemctl restart kapelka.service`: старый перестаёт работать сразу. Сам Shortcut —
 [`docs/IOS_SHORTCUT_ACTION_BUTTON.md`](../../IOS_SHORTCUT_ACTION_BUTTON.md) (FT-160).
 
 ## 6. Сборка и сервис systemd
@@ -199,19 +200,19 @@ Shortcut выключен (`403 SHORTCUT_CAPTURE_DISABLED`), а неполная
 `npm ci` в шаге 4 уже собрал webapp (это делает `postinstall`); осталось собрать сервер и поставить сервис:
 
 ```bash
-cd ~/daftar-live
+cd ~/kapelka-live
 scripts/nvm-exec.sh npm run build
-sed -e "s|__USER__|$USER|g" -e "s|__APP_DIR__|$HOME/daftar-live|g" ops/live/daftar.service \
-  | sudo tee /etc/systemd/system/daftar.service >/dev/null
+sed -e "s|__USER__|$USER|g" -e "s|__APP_DIR__|$HOME/kapelka-live|g" ops/live/kapelka.service \
+  | sudo tee /etc/systemd/system/kapelka.service >/dev/null
 sudo systemctl daemon-reload
-sudo systemctl enable --now daftar.service
-systemctl status daftar.service --no-pager
-journalctl -u daftar.service -f  # Ctrl+C — выйти; без группы adm — sudo journalctl …
+sudo systemctl enable --now kapelka.service
+systemctl status kapelka.service --no-pager
+journalctl -u kapelka.service -f  # Ctrl+C — выйти; без группы adm — sudo journalctl …
 ```
 
 Готово, когда в журнале есть `Server started`, а проверка отвечает `"environment":"production"` и до переезда —
-`"telegramBot":{"state":"disabled"` (с пустым токеном ещё `"lastError":"TG_BOT_API_KEY missing"`). С репетиционным
-ботом и после переезда — `"state":"running"`.
+`"telegramBot":{"state":"disabled"` (с пустым токеном ещё `"lastError":"TG_BOT_API_KEY missing"`). На репетиции и
+после переезда — `"state":"running"`.
 
 ```bash
 curl -s http://127.0.0.1:3000/api/health
@@ -219,24 +220,23 @@ git tag -f live-good             # эта сборка работает: на н
 ```
 
 Первый запуск создаёт пустую базу `data/database.sqlite`; записи с мака переезжают в FT-159. Если шаблон
-`ops/live/daftar.service` в репозитории изменился, unit ставится той же командой `sed … | sudo tee …`, затем
-`sudo systemctl daemon-reload && sudo systemctl restart daftar.service`.
+`ops/live/kapelka.service` в репозитории изменился, unit ставится той же командой `sed … | sudo tee …`, затем
+`sudo systemctl daemon-reload && sudo systemctl restart kapelka.service`.
 
 ## 7. Кнопка меню
 
-Только при переезде (раздел [«Переезд»](#переезд-включить-бота-ft-159)) или для репетиционного бота: с живым токеном
-до переезда эта команда увела бы кнопку меню живого бота на пустой ПК. Делается один раз — адрес постоянный:
+Когда в `.env.local` есть токен бота Kapelka — при переезде (раздел [«Переезд»](#переезд-включить-бота-ft-159)) или
+для репетиции. Кнопка меню @FinanceTrackerDevBot остаётся маку. Делается один раз — адрес постоянный:
 
 ```bash
-cd ~/daftar-live
+cd ~/kapelka-live
 scripts/nvm-exec.sh npm run miniapp:menu -- set --url=https://<пк>.<tailnet>.ts.net --chat-id=<ваш id>
-sudo systemctl restart daftar.service
+sudo systemctl restart kapelka.service
 scripts/nvm-exec.sh npm run miniapp:menu -- status --chat-id=<ваш id>
 ```
 
 `set` пишет `WEB_APP_URL` в `.env.local` этой копии — файл, который читает приложение, — и ставит кнопку с текстом из
-`MINIAPP_MENU_TEXT`. Сервер читает `WEB_APP_URL` при старте, поэтому после `set` — перезапуск. Старые кнопки в чате
-ведут на прежний адрес quick tunnel: `/start` пришлёт новые.
+`MINIAPP_MENU_TEXT` («Kapelka»). Сервер читает `WEB_APP_URL` при старте, поэтому после `set` — перезапуск.
 
 ## 8. Windows: WSL при старте системы
 
@@ -251,29 +251,29 @@ $settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit ([TimeSpan]::Zero) 
   -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1) -StartWhenAvailable `
   -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
 $cred = Get-Credential -UserName $user -Message 'Пароль Windows: задача запускает WSL без входа'
-Register-ScheduledTask -TaskName 'Daftar WSL' -Action $action -Trigger $triggers -Settings $settings `
+Register-ScheduledTask -TaskName 'Kapelka WSL' -Action $action -Trigger $triggers -Settings $settings `
   -User $user -Password $cred.GetNetworkCredential().Password -RunLevel Limited
-Start-ScheduledTask -TaskName 'Daftar WSL'
-Get-ScheduledTask -TaskName 'Daftar WSL' | Select-Object TaskName, State
+Start-ScheduledTask -TaskName 'Kapelka WSL'
+Get-ScheduledTask -TaskName 'Kapelka WSL' | Select-Object TaskName, State
 ```
 
 - `State` должен быть `Running`. `Ready` значит, что `wsl.exe` завершился и WSL снова может погаснуть.
 - Задача запускает в дистрибутиве `sleep infinity` и висит, пока он работает: пока жив этот `wsl.exe`, WSL не гасит
-  дистрибутив, а systemd держит `daftar.service`. Сами службы systemd WSL не держат
+  дистрибутив, а systemd держит `kapelka.service`. Сами службы systemd WSL не держат
   ([Microsoft](https://learn.microsoft.com/en-us/windows/wsl/systemd)).
 - Задача идёт от вашей учётки: дистрибутивы WSL у каждого пользователя свои. С паролем она запускается независимо от
   того, вошёл ли пользователь, и без окна.
 - `ExecutionTimeLimit` 0 — без ограничения: по умолчанию Планировщик останавливает задачу через 72 часа
   ([Microsoft](https://learn.microsoft.com/en-us/windows/win32/taskschd/tasksettings-executiontimelimit)).
 - Триггер «При входе» — запасной, на случай быстрого запуска; второй экземпляр не стартует (`IgnoreNew`).
-- После `wsl --shutdown` задача завершается — запустить снова: `Start-ScheduledTask -TaskName 'Daftar WSL'`.
+- После `wsl --shutdown` задача завершается — запустить снова: `Start-ScheduledTask -TaskName 'Kapelka WSL'`.
 - Сменили пароль Windows — обновить его в задаче:
-  `$cred = Get-Credential -UserName $user; Set-ScheduledTask -TaskName 'Daftar WSL' -User $user -Password $cred.GetNetworkCredential().Password`.
+  `$cred = Get-Credential -UserName $user; Set-ScheduledTask -TaskName 'Kapelka WSL' -User $user -Password $cred.GetNetworkCredential().Password`.
 
 ### Если задача не работает
 
 ```powershell
-Get-ScheduledTaskInfo -TaskName 'Daftar WSL' | Select-Object LastRunTime, LastTaskResult, NumberOfMissedRuns
+Get-ScheduledTaskInfo -TaskName 'Kapelka WSL' | Select-Object LastRunTime, LastTaskResult, NumberOfMissedRuns
 wsl -l -v
 ```
 
@@ -283,7 +283,7 @@ wsl -l -v
 | `LastTaskResult` | Что значит |
 |---|---|
 | `267009` (`0x41301`) | Задача работает — так и должно быть |
-| `267011` (`0x41303`) | Задача ещё не запускалась: `Start-ScheduledTask -TaskName 'Daftar WSL'` |
+| `267011` (`0x41303`) | Задача ещё не запускалась: `Start-ScheduledTask -TaskName 'Kapelka WSL'` |
 | `0` | `wsl.exe` завершился штатно — WSL больше не держится. Обычно после `wsl --shutdown`: запустить задачу снова |
 | `267014` (`0x41306`) | Задачу остановили вручную (`Stop-ScheduledTask` или в окне Планировщика) |
 | `2147943726` (`0x8007052E`) | Неверное имя пользователя или пароль — см. ниже |
@@ -303,7 +303,7 @@ wsl -l -v
 instanceIdleTimeout=-1
 ```
 
-Затем `wsl --shutdown` и `Start-ScheduledTask -TaskName 'Daftar WSL'`. Ключ и секция — по
+Затем `wsl --shutdown` и `Start-ScheduledTask -TaskName 'Kapelka WSL'`. Ключ и секция — по
 [Microsoft Learn](https://learn.microsoft.com/en-us/windows/wsl/wsl-config) (`instanceIdleTimeout`, по умолчанию
 15000 мс, `-1` выключает автоматическую остановку); работает ли он на версии WSL этого ПК, не проверено. Задача при
 старте системы всё равно нужна — она запускает WSL.
@@ -313,11 +313,11 @@ instanceIdleTimeout=-1
 1. PowerShell: `curl.exe -s http://127.0.0.1:3000/api/health` — тот же ответ, что в WSL. Так проверяется доступ
    Windows к серверу в WSL, на котором стоит `tailscale serve`.
 2. iPhone с включённым Tailscale: `https://<пк>.<tailnet>.ts.net/api/health` в Safari. Mini App по кнопке меню — когда
-   бот включён (репетиционный или после переезда).
+   бот включён (на репетиции или после переезда).
 3. **Перезагрузка.** Перезагрузить Windows и не входить (или войти, но не открывать Ubuntu). Через пару минут с
-   iPhone: `https://<пк>.<tailnet>.ts.net/api/health` отвечает; с репетиционным ботом или после переезда — бот отвечает
-   на сообщение, Mini App открывается по кнопке меню. Потом в PowerShell: `Get-ScheduledTask -TaskName 'Daftar WSL'` —
-   `Running`, `wsl -l -v` — `Running`; в WSL `systemctl status daftar.service` — `active (running)` с момента загрузки.
+   iPhone: `https://<пк>.<tailnet>.ts.net/api/health` отвечает; на репетиции или после переезда — бот отвечает
+   на сообщение, Mini App открывается по кнопке меню. Потом в PowerShell: `Get-ScheduledTask -TaskName 'Kapelka WSL'` —
+   `Running`, `wsl -l -v` — `Running`; в WSL `systemctl status kapelka.service` — `active (running)` с момента загрузки.
 
 Если в пункте 1 Windows не получает ответа, а `curl` внутри WSL получает, значит, проброс `localhost` из WSL не
 работает. Тогда — зеркальный режим сети (Windows 11 22H2+): в `%UserProfile%\.wslconfig`
@@ -327,31 +327,41 @@ instanceIdleTimeout=-1
 networkingMode=mirrored
 ```
 
-затем `wsl --shutdown` и `Start-ScheduledTask -TaskName 'Daftar WSL'`. В этом режиме `127.0.0.1` у Windows и WSL общий
+затем `wsl --shutdown` и `Start-ScheduledTask -TaskName 'Kapelka WSL'`. В этом режиме `127.0.0.1` у Windows и WSL общий
 ([Microsoft](https://learn.microsoft.com/en-us/windows/wsl/networking)); входящие из сети в WSL закрыты брандмауэром
 Hyper-V, пока их не разрешить, — и разрешать не нужно.
 
 ## Переезд: включить бота (FT-159)
 
-Порядок важен: пока опрос включён на двух машинах, сообщения уходят то туда, то сюда. Подробности переноса базы —
-FT-159; здесь — переключение бота.
+Живой бот меняется: на ПК — новый бот Kapelka, @FinanceTrackerDevBot отходит маку для разработки (решение
+2026-10-28). Порядок важен: база с мака ложится на ПК до того, как Kapelka начнёт принимать записи. Подробности
+переноса базы — FT-159; здесь — бот.
 
-1. **Остановить живой экземпляр на маке** (`kill -TERM` процессу `scripts/dev-miniapp.js`, `pgrep -fl dev-miniapp.js`)
+1. **Завести бота в BotFather** — руками Шукура, можно заранее. В Telegram открыть @BotFather:
+   - `/newbot` → имя `Kapelka` → username `kapelkabot`; если занят — свободный вариант (`kapelkaappbot`,
+     `kapelka_app_bot`…). BotFather пришлёт токен: сразу в `Personal/Secrets`, нигде не печатать.
+   - По желанию: `/setname` — то же «Kapelka»; `/setdescription` — что человек видит до первого `/start` (например,
+     «Учёт расходов и доходов: пишите траты сюда, как в заметках»); `/setabouttext` — строка в профиле;
+     `/setuserpic` — картинка. Меню команд (`/today`, `/month`, `/undo`, `/help`, `/start`) бот ставит сам при старте,
+     `/setcommands` не нужен.
+2. **Остановить живой экземпляр на маке** (`kill -TERM` процессу `scripts/dev-miniapp.js`, `pgrep -fl dev-miniapp.js`)
    и убедиться, что он не запустится снова.
-2. **Перенести базу с мака** на ПК в `~/daftar-live/data/` при остановленном `daftar.service` (FT-159) — до того, как
+3. **Перенести базу с мака** на ПК в `~/kapelka-live/data/` при остановленном `kapelka.service` (FT-159) — до того, как
    ПК начнёт принимать сообщения.
-3. В `~/daftar-live/.env.local`: `TG_BOT_API_KEY` и `TG_BOT_USERNAME` живого бота @FinanceTrackerDevBot (из
-   `.env.local` мака или `~/.config/daftar/dev.env`) и `ENABLE_TELEGRAM_POLLING=true`.
-4. `sudo systemctl restart daftar.service`, затем `curl -s http://127.0.0.1:3000/api/health` — `"state":"running"`.
-5. Шаг 7: `miniapp:menu -- set` с адресом tailnet и своим `--chat-id`, затем `sudo systemctl restart daftar.service`.
-6. В Telegram отправить боту `/start`: старые кнопки ведут на адрес quick tunnel, `/start` пришлёт новые. Проверить
-   ответ бота и Mini App по кнопке меню, потом проверку 9.3 с перезагрузкой.
-7. Мак дальше работает со своим новым dev-ботом (FT-159) — с тем же токеном его больше не запускать.
+4. В `~/kapelka-live/.env.local`: `TG_BOT_API_KEY` и `TG_BOT_USERNAME` (без `@`) бота Kapelka из шага 1 и
+   `ENABLE_TELEGRAM_POLLING=true`.
+5. `sudo systemctl restart kapelka.service`, затем `curl -s http://127.0.0.1:3000/api/health` — `"state":"running"`.
+6. Шаг 7: `miniapp:menu -- set` с адресом tailnet и своим `--chat-id`, затем `sudo systemctl restart kapelka.service`.
+7. В Telegram открыть бота Kapelka и отправить `/start`: пока его не нажали, бот не может писать первым — итоги дня и
+   напоминания не дойдут. Проверить ответ бота, «кофе 25000», Mini App по кнопке меню, потом проверку 9.3 с
+   перезагрузкой.
+8. Мак дальше работает с @FinanceTrackerDevBot как ботом для разработки и со своей базой (FT-159). Старая переписка
+   остаётся в чате с @FinanceTrackerDevBot; записи из неё — в базе ПК, в Kapelka.
 
 ## Обновление
 
 ```bash
-cd ~/daftar-live
+cd ~/kapelka-live
 scripts/live-update.sh
 ```
 
@@ -365,7 +375,7 @@ scripts/live-update.sh
 4. `npm ci --include=dev` (его `postinstall` ставит и собирает webapp; скрипт проверяет, что `public/webapp`
    пересобран) и `npm run build` — на Node из `.nvmrc`. `--include=dev` нужен, чтобы TypeScript и Vite ставились,
    даже если в оболочке выставлен `NODE_ENV=production`.
-5. `sudo systemctl reset-failed` и `restart daftar.service`. `reset-failed` — на случай, если сервис остановлен
+5. `sudo systemctl reset-failed` и `restart kapelka.service`. `reset-failed` — на случай, если сервис остановлен
    лимитом стартов; заодно паузы перезапуска снова начинаются с 10 с.
 6. Ждёт до 60 с, пока `/api/health` ответит 200, и печатает окружение и состояние бота.
 7. Только после ответа 200 переставляет локальный тег `live-good` на новый коммит. Это последняя сборка, которая точно
@@ -385,11 +395,11 @@ scripts/live-update.sh
 
 Откатываются на тег `live-good` — последнюю сборку, которая ответила 200 (`git log -1 --oneline live-good`). Его
 ставит шаг 6 при установке и двигает `live-update.sh`. Нет тега — прошлый коммит из `git reflog`. Всё — в
-`~/daftar-live`.
+`~/kapelka-live`.
 
-1. Остановить сервис: `sudo systemctl stop daftar.service`.
+1. Остановить сервис: `sudo systemctl stop kapelka.service`.
 2. Проверить, применило ли обновление миграции:
-   `journalctl -u daftar.service --grep "migrations applied" --no-pager | tail -n 3` — запись со временем обновления,
+   `journalctl -u kapelka.service --grep "migrations applied" --no-pager | tail -n 3` — запись со временем обновления,
    в ней `applied` (какие) и `backupPath` (копия базы до них). Если миграций не было — сразу шаг 3. Если были, старому
    коду нужна старая схема, и путей два:
    - **сохранить записи, сделанные после обновления** — сейчас, ещё на новой версии:
@@ -410,7 +420,7 @@ scripts/live-update.sh
    scripts/nvm-exec.sh npm run build
    ```
 
-4. Запустить: `sudo systemctl start daftar.service`, проверить `curl -s http://127.0.0.1:3000/api/health`.
+4. Запустить: `sudo systemctl start kapelka.service`, проверить `curl -s http://127.0.0.1:3000/api/health`.
 
 Пока копия на откате, `live-update.sh` отказывается работать (не `main`) — новая версия не вернётся случайно. Когда
 исправление в `main`: `git switch main && scripts/live-update.sh`.
@@ -418,18 +428,18 @@ scripts/live-update.sh
 ## Логи и состояние
 
 ```bash
-systemctl status daftar.service --no-pager
-journalctl -u daftar.service -f                      # следить
-journalctl -u daftar.service -b --no-pager           # с последней загрузки
-journalctl -u daftar.service --since "1 hour ago" --no-pager
-journalctl -u daftar.service --grep '"level":"error"' --no-pager
-systemctl show daftar.service -p NRestarts           # сколько раз systemd его перезапускал
+systemctl status kapelka.service --no-pager
+journalctl -u kapelka.service -f                      # следить
+journalctl -u kapelka.service -b --no-pager           # с последней загрузки
+journalctl -u kapelka.service --since "1 hour ago" --no-pager
+journalctl -u kapelka.service --grep '"level":"error"' --no-pager
+systemctl show kapelka.service -p NRestarts           # сколько раз systemd его перезапускал
 ```
 
 В production приложение пишет JSON — по строке на событие. Системный журнал читают пользователи группы `adm` (в
-Ubuntu первый пользователь в ней); если `journalctl -u daftar.service` пуст или пишет про права — `sudo journalctl …`.
-Сервис `failed` после лимита стартов: `sudo systemctl reset-failed daftar.service && sudo systemctl start daftar.service`
-— сначала причину в журнале.
+Ubuntu первый пользователь в ней); если `journalctl -u kapelka.service` пуст или пишет про права — `sudo journalctl …`.
+Сервис `failed` после лимита стартов:
+`sudo systemctl reset-failed kapelka.service && sudo systemctl start kapelka.service` — сначала причину в журнале.
 
 ### Адрес клиента и лимиты запросов
 
@@ -444,7 +454,7 @@ Shortcut с одного iPhone делят его, браузер на маке 
 этот лимит не попадают. Превышение — ответ `429 AI_RATE_LIMIT_EXCEEDED` и в журнале `AI rate limit exceeded` с полем
 `ip`.
 
-Проверить: `journalctl -u daftar.service --grep "rate limit" --no-pager` — в `ip` должен быть адрес устройства из
+Проверить: `journalctl -u kapelka.service --grep "rate limit" --no-pager` — в `ip` должен быть адрес устройства из
 `tailscale status`. Если там `127.0.0.1` или `::ffff:127.0.0.1`, адрес клиента не доходит, и все устройства делят один
 лимит. Тогда — задача на код (`trust proxy` и ключ лимитера), не правка на ПК.
 
@@ -454,21 +464,22 @@ IPv6: express-rate-limit 8.6.2 сворачивает адрес IPv6 в под�
 
 ## Бэкап (FT-157)
 
-Раз в сутки `daftar-backup.timer` запускает [`scripts/backup-db.sh`](../../../scripts/backup-db.sh): онлайн-копия
+Раз в сутки `kapelka-backup.timer` запускает [`scripts/backup-db.sh`](../../../scripts/backup-db.sh): онлайн-копия
 `data/database.sqlite` (`sqlite3 … ".backup …"` — безопасно, пока приложение пишет) → `PRAGMA integrity_check` — `ok` →
-вместе с `data/patterns.json` и `data/learning-data.json` в папку `C:\DaftarBackup` (в WSL — `/mnt/c/DaftarBackup`).
+вместе с `data/patterns.json` и `data/learning-data.json` в папку `C:\KapelkaBackup` (в WSL — `/mnt/c/KapelkaBackup`).
 Google Drive for desktop выгружает эту папку в облако. Хранятся последние 30 копий.
 
 Зачем: весь WSL — один файл `ext4.vhdx`. `wsl --unregister`, переустановка Windows или отказ диска уносят базу, а
 копии, которые приложение делает перед миграциями, лежат в `data/backups/` — там же.
 
-- **Живую базу в облачную папку не класть.** Ни `data/`, ни `~/daftar-live` целиком не должны лежать в папке, которую
+- **Живую базу в облачную папку не класть.** Ни `data/`, ни `~/kapelka-live` целиком не должны лежать в папке, которую
   синхронизирует Google Drive (или OneDrive, Dropbox): клиент синхронизации копирует файл посреди записи и может
   подменить его своей версией, а SQLite от этого портится. В облако идут только готовые копии, снятые
   `sqlite3 … ".backup …"`, — это и делает скрипт.
 
-Файлы: [`ops/live/daftar-backup.service`](../../../ops/live/daftar-backup.service) — шаблон сервиса (те же `__USER__` и
-`__APP_DIR__`, что у `daftar.service`), [`ops/live/daftar-backup.timer`](../../../ops/live/daftar-backup.timer) — таймер.
+Файлы: [`ops/live/kapelka-backup.service`](../../../ops/live/kapelka-backup.service) — шаблон сервиса (те же
+`__USER__` и `__APP_DIR__`, что у `kapelka.service`),
+[`ops/live/kapelka-backup.timer`](../../../ops/live/kapelka-backup.timer) — таймер.
 
 ### Почему так
 
@@ -482,7 +493,7 @@ Google Drive for desktop выгружает эту папку в облако. �
     пользователя и с пробелом (`My Drive`).
   - **Папки с компьютера** — выбран этот. Любая локальная папка синхронизируется с Drive; такие папки только
     зеркалятся ([Google](https://support.google.com/drive/answer/13401938)), в веб-версии Drive они видны в разделе
-    «Компьютеры». `C:\DaftarBackup` — обычная папка на C: без пробелов и без имени пользователя, в WSL она есть всегда
+    «Компьютеры». `C:\KapelkaBackup` — обычная папка на C: без пробелов и без имени пользователя, в WSL она есть всегда
     (`/mnt/c` монтируется сам), а «Мой диск» остаётся потоковым.
 - **Когда копия попадает в облако.** На C: скрипт пишет в любое время — копия вне `ext4.vhdx` появляется сразу и
   переживает `wsl --unregister` и порчу `vhdx`. В облако её выгружает Drive for desktop, а он работает только в сеансе
@@ -504,7 +515,7 @@ Google Drive for desktop выгружает эту папку в облако. �
   старте, — иначе копия, догоняющая пропуск сразу после включения, падала бы. JSON-файлы проверяются на
   целостность: приложение могло писать их в эту секунду, поэтому до трёх попыток; так и не целый файл не копируется,
   база — копируется, а запуск завершается ошибкой. Каждый файл сначала пишется в той же папке под временным именем
-  `.daftar-….partial`, сверяется с проверенной копией и переименовывается; база — последней, поэтому `.sqlite` в
+  `.kapelka-….partial`, сверяется с проверенной копией и переименовывается; база — последней, поэтому `.sqlite` в
   папке значит, что JSON того же запуска рядом. Запуск один за раз (`flock` на `data/backups/.backup-db.lock`):
   второй, ручной или по таймеру, пишет `another backup is running` и выходит с кодом 1. `sqlite3` вызывается с
   `-init /dev/null`: `.headers` или `.mode` из `~/.sqliterc` сломали бы проверки.
@@ -512,13 +523,13 @@ Google Drive for desktop выгружает эту папку в облако. �
   записей меньше половины, чем в самой свежей копии в папке: похоже на пустую базу после переустановки WSL, её копии
   вытеснили бы хорошие (раздел «Восстановление»). `WARNING: the clock is behind the newest copy` — часы WSL отстали;
   копия этого запуска всё равно не удаляется, даже если по имени она старше тридцатой.
-- **30 копий — это 30 запусков, а не 30 дней.** Имена `daftar-ГГГГММДД-ЧЧММСС.sqlite`, рядом `.patterns.json` и
+- **30 копий — это 30 запусков, а не 30 дней.** Имена `kapelka-ГГГГММДД-ЧЧММСС.sqlite`, рядом `.patterns.json` и
   `.learning-data.json` того же запуска; время ташкентское (`TZ` из `.env.local`). Удаляются копии старше тридцатой, и
   только файлы с таким именем — остальное в папке скрипт не трогает. Считаются все запуски: ночной, догоняющий после
   включения и ручные. ПК включён не каждый день, поэтому по календарю это обычно больше 30 дней, а после нескольких
   ручных запусков подряд — меньше.
 - **Google Drive синхронизирует в обе стороны.** Удаление по сроку уходит и в облако — там тоже 30. И наоборот:
-  удалили копии на drive.google.com или в приложении Drive на iPhone — они удаляются и из `C:\DaftarBackup`. Вернуть их
+  удалили копии на drive.google.com или в приложении Drive на iPhone — они удаляются и из `C:\KapelkaBackup`. Вернуть их
   можно из корзины Google Drive: удалённое хранится там 30 дней.
 - **Таймер.** 04:00 по Ташкенту — зона записана в таймере, часовой пояс WSL не важен; в это время записи не пишут.
   `Persistent=true`: если в 04:00 ПК выключен, копия снимается сразу после старта WSL, один раз. `RandomizedDelaySec`
@@ -530,54 +541,54 @@ Google Drive for desktop выгружает эту папку в облако. �
 ### Установка
 
 1. **Windows: папка и Google Drive.**
-   1. Создать папку `C:\DaftarBackup` — в Проводнике или в PowerShell: `New-Item -ItemType Directory C:\DaftarBackup`.
+   1. Создать папку `C:\KapelkaBackup` — в Проводнике или в PowerShell: `New-Item -ItemType Directory C:\KapelkaBackup`.
    2. Установить Google Drive for desktop (google.com/drive/download) и войти своим аккаунтом Google.
    3. Значок Drive в трее → шестерёнка → **Settings** → **Preferences** → **Folders from your computer** →
-      **Add folder** → `C:\DaftarBackup` → **Sync with Google Drive** → **Done** → **Save**. Названия — из
+      **Add folder** → `C:\KapelkaBackup` → **Sync with Google Drive** → **Done** → **Save**. Названия — из
       английского интерфейса, в русском они звучат иначе.
-   4. drive.google.com → **Компьютеры** → этот ПК → `DaftarBackup`: папка появилась.
+   4. drive.google.com → **Компьютеры** → этот ПК → `KapelkaBackup`: папка появилась.
 2. **WSL: путь, первая копия, таймер.**
 
-   > **WSL переустановлен, а в `C:\DaftarBackup` уже лежат копии с записями?** Сначала
+   > **WSL переустановлен, а в `C:\KapelkaBackup` уже лежат копии с записями?** Сначала
    > [«Восстановление»](#восстановление), потом этот шаг. Иначе первая же копия снимется с новой пустой базы, станет
    > самой свежей, а следующие начнут вытеснять хорошие (скрипт предупредит в журнале, но не остановится).
 
    ```bash
-   cd ~/daftar-live
-   grep -q '^BACKUP_DIR=' .env.local || printf '\nBACKUP_DIR=/mnt/c/DaftarBackup\n' >> .env.local
-   ls -ld /mnt/c/DaftarBackup       # папка видна из WSL
+   cd ~/kapelka-live
+   grep -q '^BACKUP_DIR=' .env.local || printf '\nBACKUP_DIR=/mnt/c/KapelkaBackup\n' >> .env.local
+   ls -ld /mnt/c/KapelkaBackup       # папка видна из WSL
    scripts/backup-db.sh             # первая копия руками: «done: … integrity ok»
-   for unit in daftar-backup.service daftar-backup.timer; do
-     sed -e "s|__USER__|$USER|g" -e "s|__APP_DIR__|$HOME/daftar-live|g" "ops/live/$unit" \
+   for unit in kapelka-backup.service kapelka-backup.timer; do
+     sed -e "s|__USER__|$USER|g" -e "s|__APP_DIR__|$HOME/kapelka-live|g" "ops/live/$unit" \
        | sudo tee "/etc/systemd/system/$unit" >/dev/null
    done
    sudo systemctl daemon-reload
-   sudo systemctl enable --now daftar-backup.timer
-   sudo systemctl start daftar-backup.service   # копия через systemd — так же, как ночью
-   systemctl list-timers daftar-backup.timer    # NEXT — ближайшие 04:00 по Ташкенту
+   sudo systemctl enable --now kapelka-backup.timer
+   sudo systemctl start kapelka-backup.service   # копия через systemd — так же, как ночью
+   systemctl list-timers kapelka-backup.timer    # NEXT — ближайшие 04:00 по Ташкенту
    ```
 
    `.env.local`, сделанный из шаблона после FT-157, строку `BACKUP_DIR` уже содержит — `grep` её не задвоит.
-   `systemctl start` ждёт конца копии; при ошибке он пишет `Job for daftar-backup.service failed`, причина —
-   `journalctl -u daftar-backup.service -n 5`. Пока вы в Windows, Drive выгрузит файлы, и они появятся в
-   drive.google.com → Компьютеры → этот ПК → `DaftarBackup`.
+   `systemctl start` ждёт конца копии; при ошибке он пишет `Job for kapelka-backup.service failed`, причина —
+   `journalctl -u kapelka-backup.service -n 5`. Пока вы в Windows, Drive выгрузит файлы, и они появятся в
+   drive.google.com → Компьютеры → этот ПК → `KapelkaBackup`.
 
 Скрипт обновляется вместе с `main` (`live-update.sh`). Если изменились шаблоны в `ops/live/`, их ставит тот же цикл
 `sed … | sudo tee …`, затем `sudo systemctl daemon-reload`. Выключить бэкап: `sudo systemctl disable --now
-daftar-backup.timer`.
+kapelka-backup.timer`.
 
 ### Проверить, что бэкап идёт
 
 ```bash
-systemctl list-timers daftar-backup.timer             # LAST — последний запуск, NEXT — следующий
-systemctl status daftar-backup.service --no-pager     # последний результат: success или failed
-journalctl -u daftar-backup.service -n 20 --no-pager  # «done: …», WARNING или причина ошибки
-ls -lt /mnt/c/DaftarBackup | head -n 4                # свежие файлы на C:
+systemctl list-timers kapelka-backup.timer             # LAST — последний запуск, NEXT — следующий
+systemctl status kapelka-backup.service --no-pager     # последний результат: success или failed
+journalctl -u kapelka-backup.service -n 20 --no-pager  # «done: …», WARNING или причина ошибки
+ls -lt /mnt/c/KapelkaBackup | head -n 4                # свежие файлы на C:
 ```
 
 `WARNING` в журнале — запуск прошёл, но что-то не так: см. «Предупреждения в журнале» выше.
 
-С iPhone: приложение Google Drive → Компьютеры → ПК → `DaftarBackup` — дата последнего файла. На C: свежие, а в облаке
+С iPhone: приложение Google Drive → Компьютеры → ПК → `KapelkaBackup` — дата последнего файла. На C: свежие, а в облаке
 старые — Drive for desktop не запущен (в Windows никто не входил) или поставлен на паузу.
 
 Оповещения о сбое нет: упавший бэкап виден только здесь и в папке. Раз в неделю заглядывать в `list-timers` или в
@@ -585,28 +596,28 @@ ls -lt /mnt/c/DaftarBackup | head -n 4                # свежие файлы 
 
 ### Восстановление
 
-Пример — копия из `C:\DaftarBackup`. Всё в WSL, в `~/daftar-live`.
+Пример — копия из `C:\KapelkaBackup`. Всё в WSL, в `~/kapelka-live`.
 
 - **Сначала восстановить, потом ставить таймер.** После переустановки WSL установка FT-156 создаёт пустую базу; если
   поставить бэкап раньше, её копии станут самыми свежими и начнут вытеснять хорошие. Таймер уже стоит — остановить его
-  на время: `sudo systemctl stop daftar-backup.timer`, вернуть — `sudo systemctl start daftar-backup.timer`.
+  на время: `sudo systemctl stop kapelka-backup.timer`, вернуть — `sudo systemctl start kapelka-backup.timer`.
 - **Копию выбирать по дате до потери и по числу записей**, а не просто нижнюю в списке: последние копии могли сняться
   уже с пустой или испорченной базы.
 
 ```bash
-cd ~/daftar-live
-sudo systemctl stop daftar.service
-for f in /mnt/c/DaftarBackup/daftar-[0-9]*.sqlite; do
+cd ~/kapelka-live
+sudo systemctl stop kapelka.service
+for f in /mnt/c/KapelkaBackup/kapelka-[0-9]*.sqlite; do
   echo "$f $(sqlite3 -readonly "$f" 'SELECT count(*) FROM transactions;')"
 done | tail -n 10                                             # копия и число записей, свежая внизу
-copy=/mnt/c/DaftarBackup/daftar-20261028-040000.sqlite        # выбранная копия
+copy=/mnt/c/KapelkaBackup/kapelka-20261028-040000.sqlite        # выбранная копия
 sqlite3 -readonly "$copy" 'PRAGMA integrity_check;'           # ok
 sqlite3 -readonly "$copy" 'SELECT count(*) FROM transactions;'
 old="data/backups/before-restore-$(date +%Y%m%d-%H%M%S)"
 mkdir -p "$old" && mv data/database.sqlite* "$old"/           # текущая база и её журнал — в сторону
 cp "$copy" data/database.sqlite                               # без sudo: владелец — вы
 ls -l data/database.sqlite
-sudo systemctl start daftar.service
+sudo systemctl start kapelka.service
 curl -s http://127.0.0.1:3000/api/health
 sqlite3 -readonly data/database.sqlite 'SELECT count(*) FROM transactions;'   # столько же, сколько в копии
 ```
@@ -620,7 +631,7 @@ sqlite3 -readonly data/database.sqlite 'SELECT count(*) FROM transactions;'   # 
 - Копия старее кода — приложение на старте применит миграции и перед этим само скопирует базу в `data/backups/`
   (в журнале — `Database migrations applied`).
 - Записи после времени копии остаются только в `$old`. Mini App покажет записи на момент копии.
-- Папки на C: нет (новый ПК, переустановка Windows): drive.google.com → Компьютеры → старый ПК → `DaftarBackup` →
+- Папки на C: нет (новый ПК, переустановка Windows): drive.google.com → Компьютеры → старый ПК → `KapelkaBackup` →
   скачать `.sqlite`. Скачанное лежит в `C:\Users\<имя>\Downloads` — в WSL `/mnt/c/Users/<имя>/Downloads/…`; дальше
   те же шаги с этим путём в `copy`. Копии удалили в Google Drive — сначала вернуть их из корзины Drive (30 дней).
 - `sqlite3` на файле в `/mnt/c` отвечает `database is locked` — скопировать копию в `/tmp` и проверять там (на ПК не
@@ -636,9 +647,9 @@ sqlite3 -readonly data/database.sqlite 'SELECT count(*) FROM transactions;'   # 
 
 | Признак | Где смотреть |
 |---|---|
-| Бот молчит | До переезда так и должно быть (`"state":"disabled"`). После — `systemctl status daftar.service`, `journalctl -u daftar.service -n 50`; не опрашивает ли тот же токен мак (409) |
+| Бот молчит | До переезда так и должно быть (`"state":"disabled"`). После — `systemctl status kapelka.service`, `journalctl -u kapelka.service -n 50`; не опрашивает ли токен Kapelka ещё кто-то, например мак (409) |
 | Бот отвечает, Mini App не открывается | Windows: `tailscale serve status`, `curl.exe -s http://127.0.0.1:3000/api/health`; на iPhone включён Tailscale |
-| После перезагрузки не работает ничего | `Get-ScheduledTaskInfo -TaskName 'Daftar WSL'`, `wsl -l -v` — [«Если задача не работает»](#если-задача-не-работает); затем `systemctl status daftar.service` |
-| Сервис перезапускается по кругу | `journalctl -u daftar.service -n 20`: `Configuration validation failed` — ошибка в `.env.local`; остальное — [Troubleshooting](troubleshooting.md#service-restarts-in-a-loop-or-is-failed) |
+| После перезагрузки не работает ничего | `Get-ScheduledTaskInfo -TaskName 'Kapelka WSL'`, `wsl -l -v` — [«Если задача не работает»](#если-задача-не-работает); затем `systemctl status kapelka.service` |
+| Сервис перезапускается по кругу | `journalctl -u kapelka.service -n 20`: `Configuration validation failed` — ошибка в `.env.local`; остальное — [Troubleshooting](troubleshooting.md#service-restarts-in-a-loop-or-is-failed) |
 | `live-update.sh` отказывается или `git pull` падает | [Troubleshooting → Live Instance on the PC](troubleshooting.md#live-instance-on-the-pc) |
-| Копии не появляются или в облаке старые | `systemctl list-timers daftar-backup.timer`, `journalctl -u daftar-backup.service -n 20` — [«Проверить, что бэкап идёт»](#проверить-что-бэкап-идёт), [Troubleshooting → Backup Fails](troubleshooting.md#backup-fails) |
+| Копии не появляются или в облаке старые | `systemctl list-timers kapelka-backup.timer`, `journalctl -u kapelka-backup.service -n 20` — [«Проверить, что бэкап идёт»](#проверить-что-бэкап-идёт), [Troubleshooting → Backup Fails](troubleshooting.md#backup-fails) |

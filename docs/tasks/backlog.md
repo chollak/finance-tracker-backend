@@ -489,12 +489,12 @@ Context:
 Definition of Done:
 - [ ] До переезда Шукур заводит в BotFather нового бота «Kapelka» (`@kapelkabot` или свободный вариант) — живой на ПК, а @FinanceTrackerDevBot отходит маку как бот для разработки (решение 2026-10-28); выпускает новый ключ OpenAI (старый лежит в комментарии в `.env` — отозвать) и ставит лимит расходов в кабинете OpenAI; токены — в `Personal/Secrets`
 - [ ] На маке: `dev:miniapp` остановлен; `sqlite3 data/database.sqlite ".backup …"`; `PRAGMA integrity_check` — `ok`
-- [ ] Копия базы, `patterns.json` и `learning-data.json` лежат в `~/daftar-live/data/` на ПК; файлы принадлежат пользователю сервиса
+- [ ] Копия базы, `patterns.json` и `learning-data.json` лежат в `~/kapelka-live/data/` на ПК; файлы принадлежат пользователю сервиса
 - [ ] Сервис запущен: `npm run migration:show` ничего не ждёт; в `/api/health` бот `running`
 - [ ] Кнопка меню ведёт на адрес tailnet; `/start` в чате, чтобы новые кнопки получили новый адрес
 - [ ] Проверка: «кофе 25000» в боте записалось; Mini App открывается с iPhone; записей столько же, сколько в копии с мака; вечером пришёл итог дня
 - [ ] Windows перезагружена без входа в WSL → сервис поднялся сам (задача Планировщика держит WSL), бот отвечает, Mini App открывается с iPhone по адресу tailnet — проверка из FT-156
-- [ ] На ПК: бэкап-таймер стоит (`list-timers`), копия в `C:\DaftarBackup` появилась и выгрузилась в Google Drive после входа в Windows — проверка из FT-157
+- [ ] На ПК: бэкап-таймер стоит (`list-timers`), копия в `C:\KapelkaBackup` появилась и выгрузилась в Google Drive после входа в Windows — проверка из FT-157
 - [ ] Мак переведён на dev-бота и отдельную базу; копия базы с мака хранится 2 недели
 - [ ] Описан откат: остановить сервис на ПК → забрать базу → `dev:miniapp` на маке с прежним токеном
 - [ ] Проверено и записано: открывается ли Mini App в Telegram на iOS, когда ПК выключен (в webapp есть service worker, но в Telegram на iOS он может не работать)
@@ -536,7 +536,7 @@ Depends on: FT-160
 
 Context:
 План Шукура 2026-10-26: минимальное приложение «как SyncSpend» (там траты пишутся в Notion через Shortcuts), только
-для Daftar. Action Button → App Intent → фраза → очередь на телефоне → отправка в `POST /api/quick-capture`, когда ПК
+для Kapelka. Action Button → App Intent → фраза → очередь на телефоне → отправка в `POST /api/quick-capture`, когда ПК
 доступен. Очередь — главное отличие от Shortcut (FT-160): Shortcut не умеет копить записи и повторять отправку, а ПК
 включён «как получится». Backend готов: `clientId` у quick-capture (`quickCaptureService.ts:31-63`) делает повтор
 безопасным, авторизация — токен владельца (FT-155) в Keychain.

@@ -10,7 +10,7 @@ import sqlite3 from 'sqlite3';
  */
 
 const SCRIPT = path.join(__dirname, '..', 'scripts', 'backup-db.sh');
-const NAME = /^daftar-\d{8}-\d{6}\.sqlite$/;
+const NAME = /^kapelka-\d{8}-\d{6}\.sqlite$/;
 
 jest.setTimeout(30000);
 
@@ -21,7 +21,7 @@ let out: string;
 beforeEach(() => {
   root = fs.mkdtempSync(path.join(os.tmpdir(), 'backup-db-'));
   app = path.join(root, 'live');
-  out = path.join(root, 'DaftarBackup');
+  out = path.join(root, 'KapelkaBackup');
   fs.mkdirSync(path.join(app, 'scripts'), { recursive: true });
   fs.mkdirSync(path.join(app, 'data'));
   fs.mkdirSync(out);
@@ -43,7 +43,7 @@ function sql(file: string, statement: string): string {
 
 /** A copy from an earlier run, with `count` rows in transactions — what the script compares the new copy with */
 function earlierCopy(day: number, count: number): void {
-  const file = path.join(out, `daftar-${stamp(day)}.sqlite`);
+  const file = path.join(out, `kapelka-${stamp(day)}.sqlite`);
   sql(file, `CREATE TABLE transactions(note TEXT); ${"INSERT INTO transactions VALUES ('x');".repeat(count)}`);
 }
 
@@ -116,7 +116,7 @@ describe('a backup', () => {
 
     expect(code).toBe(0);
     expect(backups()).toHaveLength(2);
-    expect(stdout).toContain(`WARNING: this copy has 1 records, the previous one (daftar-${stamp(1)}.sqlite) has 40`);
+    expect(stdout).toContain(`WARNING: this copy has 1 records, the previous one (kapelka-${stamp(1)}.sqlite) has 40`);
   });
 
   it('does not warn when the number of records is about the same', () => {
@@ -207,14 +207,14 @@ describe('a backup', () => {
         timeZone: 'Pacific/Kiritimati', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hourCycle: 'h23',
       }).formatToParts(new Date());
       const get = (type: string) => parts.find((part) => part.type === type)?.value;
-      return `daftar-${get('year')}${get('month')}${get('day')}-${get('hour')}`;
+      return `kapelka-${get('year')}${get('month')}${get('day')}-${get('hour')}`;
     };
     const before = local();
 
     const { code } = backup();
 
     expect(code).toBe(0);
-    expect([before, local()]).toContain(backups()[0].slice(0, 18));
+    expect([before, local()]).toContain(backups()[0].slice(0, before.length));
   });
 
   it('leaves out the JSON files the app has not written yet', () => {
@@ -258,7 +258,7 @@ describe('keeping 30', () => {
     for (let day = 1; day <= 35; day += 1) {
       const future = `2099${stamp(day).slice(4)}`;
       for (const suffix of ['.sqlite', '.patterns.json']) {
-        fs.writeFileSync(path.join(out, `daftar-${future}${suffix}`), 'from a clock that ran ahead');
+        fs.writeFileSync(path.join(out, `kapelka-${future}${suffix}`), 'from a clock that ran ahead');
       }
     }
 
@@ -267,8 +267,8 @@ describe('keeping 30', () => {
     expect([code, stderr]).toEqual([0, '']);
     const kept = backups();
     expect(kept).toHaveLength(31);
-    expect(kept[0]).toMatch(/^daftar-20\d\d/);
-    expect(kept[0].startsWith('daftar-2099')).toBe(false);
+    expect(kept[0]).toMatch(/^kapelka-20\d\d/);
+    expect(kept[0].startsWith('kapelka-2099')).toBe(false);
     expect(sql(path.join(out, kept[0]), 'SELECT count(*) FROM records;')).toBe('3');
     expect(stdout).toContain('WARNING: the clock is behind the newest copy');
   });
@@ -276,13 +276,13 @@ describe('keeping 30', () => {
   it('deletes the copies older than the newest 30 and nothing that is not its own', () => {
     for (let day = 1; day <= 35; day += 1) {
       for (const suffix of ['.sqlite', '.patterns.json', '.learning-data.json']) {
-        fs.writeFileSync(path.join(out, `daftar-${stamp(day)}${suffix}`), 'old');
+        fs.writeFileSync(path.join(out, `kapelka-${stamp(day)}${suffix}`), 'old');
       }
     }
-    const foreign = ['notes.txt', 'daftar-manual.sqlite', `daftar-${stamp(1)}.sqlite.bak`, 'desktop.ini'];
+    const foreign = ['notes.txt', 'kapelka-manual.sqlite', `kapelka-${stamp(1)}.sqlite.bak`, 'desktop.ini'];
     foreign.forEach((name) => fs.writeFileSync(path.join(out, name), 'not ours'));
-    const stalePartial = path.join(out, `.daftar-${stamp(2)}.sqlite.partial`);
-    const freshPartial = path.join(out, `.daftar-${stamp(3)}.sqlite.partial`);
+    const stalePartial = path.join(out, `.kapelka-${stamp(2)}.sqlite.partial`);
+    const freshPartial = path.join(out, `.kapelka-${stamp(3)}.sqlite.partial`);
     fs.writeFileSync(stalePartial, 'killed run');
     fs.writeFileSync(freshPartial, 'a run going on now');
     const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
@@ -293,12 +293,12 @@ describe('keeping 30', () => {
     expect(code).toBe(0);
     const kept = backups();
     expect(kept).toHaveLength(30);
-    expect(kept[0]).toBe(`daftar-${stamp(7)}.sqlite`);
+    expect(kept[0]).toBe(`kapelka-${stamp(7)}.sqlite`);
     expect(sql(path.join(out, kept[29]), 'SELECT count(*) FROM records;')).toBe('3');
     for (let day = 1; day <= 6; day += 1) {
-      expect(fs.readdirSync(out).filter((name) => name.startsWith(`daftar-${stamp(day)}.`) && !name.endsWith('.bak'))).toEqual([]);
+      expect(fs.readdirSync(out).filter((name) => name.startsWith(`kapelka-${stamp(day)}.`) && !name.endsWith('.bak'))).toEqual([]);
     }
-    expect(fs.existsSync(path.join(out, `daftar-${stamp(7)}.patterns.json`))).toBe(true);
+    expect(fs.existsSync(path.join(out, `kapelka-${stamp(7)}.patterns.json`))).toBe(true);
     foreign.forEach((name) => expect(fs.existsSync(path.join(out, name))).toBe(true));
     expect(fs.existsSync(stalePartial)).toBe(false);
     expect(fs.existsSync(freshPartial)).toBe(true);
@@ -328,7 +328,7 @@ describe('the backup folder', () => {
   });
 
   it('is an error when it does not exist, and the script does not create it', () => {
-    const missing = path.join(root, 'mnt', 'c', 'DaftarBackup');
+    const missing = path.join(root, 'mnt', 'c', 'KapelkaBackup');
 
     const { code, stderr } = backup({ BACKUP_DIR: missing });
 
@@ -338,7 +338,7 @@ describe('the backup folder', () => {
   });
 
   it('is an error when it is a relative path', () => {
-    const { code, stderr } = backup({ BACKUP_DIR: 'DaftarBackup' });
+    const { code, stderr } = backup({ BACKUP_DIR: 'KapelkaBackup' });
 
     expect(code).toBe(1);
     expect(stderr).toContain('not an absolute path');
