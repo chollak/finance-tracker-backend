@@ -582,7 +582,7 @@ describe('daily summary (FT-124)', () => {
       expect(await tick()).toEqual([{ userId: owner, day: '2026-10-15', outcome: 'sent', late: true }]);
       expect(sent).toHaveLength(1);
       expect(sent[0].text).toContain(`<b>Итоги за вчера · 15${NB}октября</b>`);
-      expect(sent[0].text).toContain(`Такси · 18${NB}000`);
+      expect(sent[0].text).toContain(`Потрачено 18${NB}000${NB}сум · 1 запись`);
     });
 
     it('the bot off for two evenings: only the last day is caught up, the one before leaves no row', async () => {

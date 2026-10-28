@@ -86,8 +86,9 @@ export function appLinkRows(label: string, url: string | undefined): InlineKeybo
   return url ? [[Markup.button.webApp(`${label} ↗`, url)]] : [];
 }
 
-function dayTitle(day: string, today: string): string {
-  return `<b>Итоги дня · ${absoluteDate(day, today)}</b>`;
+/** «Итоги дня · 14 октября»; caught up the next morning — «Итоги за вчера · 14 октября» (FT-164). */
+function dayTitle(day: string, today: string, late = false): string {
+  return `<b>${late ? 'Итоги за вчера' : 'Итоги дня'} · ${absoluteDate(day, today)}</b>`;
 }
 
 /** Blocks of lines with an empty line between them. */
@@ -96,11 +97,15 @@ function blocks(...parts: Array<string[] | null>): string {
 }
 
 /**
- * The summary of a day — the evening notice (`scheduled`) and /today. A day without records: the evening asks
- * «Трат правда не было?» with «Да, не было»; /today says «Записей пока нет.»
+ * The summary of a day — the evening notice (`scheduled`), the same the next morning when it did not go out by
+ * midnight (`late`, FT-164), and /today. A day without records: the evening asks «Трат правда не было?» with «Да, не
+ * было»; /today says «Записей пока нет.»
  */
-export function formatDaySummary(summary: DaySummary, options: { today: string; appUrl?: string; scheduled?: boolean }): BotNotice {
-  const title = dayTitle(summary.day, options.today);
+export function formatDaySummary(
+  summary: DaySummary,
+  options: { today: string; appUrl?: string; scheduled?: boolean; late?: boolean }
+): BotNotice {
+  const title = dayTitle(summary.day, options.today, options.late);
   if (summary.recordCount === 0) {
     if (!options.scheduled) return { text: `${title}\nЗаписей пока нет.`, keyboard: [] };
     return {

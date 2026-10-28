@@ -13,12 +13,18 @@ const logger = createLogger(LogCategory.TELEGRAM);
 /**
  * The daily summary sent by the scheduler (FT-124) into the user's private chat with the bot — its id is the
  * user's Telegram id. Telegram's refusal (the bot blocked, the chat never started) is thrown to the scheduler; a
- * request that never left the machine is thrown as NoticeNotSentError, so the scheduler tries again (FT-144).
+ * request that never left the machine is thrown as NoticeNotSentError, so the scheduler tries again (FT-144). The
+ * summary of a day that did not go out by its midnight comes the next morning as «Итоги за вчера» (FT-164).
  */
 export function summarySender(telegram: Pick<Telegram, 'sendMessage'>): DailySummarySender {
   return {
-    async send(recipient, summary) {
-      const notice = formatDaySummary(summary, { today: summary.day, appUrl: appLinks.home(recipient.telegramId), scheduled: true });
+    async send(recipient, summary, options = {}) {
+      const notice = formatDaySummary(summary, {
+        today: summary.day,
+        appUrl: appLinks.home(recipient.telegramId),
+        scheduled: true,
+        late: options.late,
+      });
       const message = await sendOrNotSent(() => telegram.sendMessage(recipient.telegramId, notice.text, {
         parse_mode: 'HTML',
         reply_markup: { inline_keyboard: notice.keyboard },
