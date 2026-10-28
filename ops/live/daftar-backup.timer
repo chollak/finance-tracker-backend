@@ -1,0 +1,16 @@
+# Starts daftar-backup.service once a day (FT-157). Installed together with it, see
+# docs/knowledge-base/08-development/live-instance.md («Бэкап»).
+
+[Unit]
+Description=Daily Daftar database backup
+
+[Timer]
+# 04:00 in Tashkent whatever zone the WSL clock is in: a quiet hour, nobody writes records
+OnCalendar=*-*-* 04:00:00 Asia/Tashkent
+# The PC is on «as it happens»: a run missed while it was off happens as soon as WSL starts again
+Persistent=true
+# No RandomizedDelaySec: it spreads the load of many machines over time, and there is one machine here. After a boot
+# it would only postpone the missed run, and a PC switched off within that delay would miss it once more
+
+[Install]
+WantedBy=timers.target

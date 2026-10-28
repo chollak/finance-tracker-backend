@@ -1,0 +1,25 @@
+# The nightly backup of the live database (FT-157): runs scripts/backup-db.sh once; daftar-backup.timer starts it.
+# A template: __USER__ and __APP_DIR__ are filled in on install, see
+# docs/knowledge-base/08-development/live-instance.md («Бэкап»).
+
+[Unit]
+Description=Daftar database backup to the Google Drive folder
+# No dependency on daftar.service: the online copy is safe whether the app runs or not
+
+[Service]
+Type=oneshot
+User=__USER__
+WorkingDirectory=__APP_DIR__
+# BACKUP_DIR and TZ come from __APP_DIR__/.env.local, the one file with the live copy's settings
+ExecStart=__APP_DIR__/scripts/backup-db.sh
+# /mnt/c is a 9p mount served by Windows: if it stops answering, the run ends here instead of blocking the next ones
+TimeoutStartSec=30min
+# The app and the bot come first; the copy of a few megabytes takes seconds anyway. The I/O class matters only
+# under a scheduler that honours it (BFQ) and is harmless otherwise
+Nice=10
+IOSchedulingClass=idle
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=daftar-backup
+NoNewPrivileges=true
