@@ -86,7 +86,7 @@
 | [FT-148](docs/tasks/backlog.md) | Отметка записей до даты открытия счёта | вид по холсту |
 | [FT-149](docs/tasks/backlog.md) | Выбор счёта по умолчанию | место на холсте или решение Шукура |
 | [FT-150](docs/tasks/backlog.md) | Голые «яндекс» и «uber» не должны давать «Транспорт» | команды Шукура взять в работу |
-| [FT-151](docs/tasks/backlog.md) | Нестабильные HTTP-тесты: webLogin, transactionRoutes | команды Шукура взять в работу |
+| [FT-151](docs/tasks/backlog.md) | Нестабильные HTTP-тесты: webLogin, transactionRoutes, accounts | команды Шукура взять в работу |
 | [FT-152](docs/tasks/backlog.md) | Без сети класть сложную фразу в очередь и разбирать на сервере | детали — с Шукуром |
 | [FT-159](docs/tasks/backlog.md) | Переезд с мака на ПК | FT-153…FT-157; руки Шукура |
 | [FT-160](docs/tasks/backlog.md) | Shortcut на Action Button через Tailscale | FT-155, FT-159 |
