@@ -45,7 +45,7 @@
 ### Постоянный контекст
 
 - Прод и AWS выключены намеренно и в планы не входят (решение 2026-08-13). Рантайм — локальный + SQLite + Telegram polling.
-- Живой экземпляр — systemd-сервис на ПК с WSL (`~/daftar-live` на `main`), постоянный адрес в tailnet через `tailscale serve`, обновление `scripts/live-update.sh`, ночной бэкап в `C:\DaftarBackup` с выгрузкой в Google Drive (FT-157): [`live-instance.md`](docs/knowledge-base/08-development/live-instance.md) (FT-156). До переезда FT-159 он ещё на маке в `npm run dev:miniapp`; `dev:miniapp` остаётся для разработки.
+- Живой экземпляр — systemd-сервис на ПК с WSL (`~/kapelka-live` на `main`, свой бот Kapelka), постоянный адрес в tailnet через `tailscale serve`, обновление `scripts/live-update.sh`, ночной бэкап в `C:\KapelkaBackup` с выгрузкой в Google Drive (FT-157): [`live-instance.md`](docs/knowledge-base/08-development/live-instance.md) (FT-156). До переезда FT-159 он ещё на маке в `npm run dev:miniapp`; `dev:miniapp` остаётся для разработки.
 - Работа идёт по схеме «штаб и под-чаты»: роли, цикл задачи и как проверяем — [`docs/tasks/README.md`](docs/tasks/README.md).
 - Supabase-проект на паузе, не удалён. Путь `supabase-js` убран из сборки (Д6, FT-090); только `DATABASE_TYPE=sqlite`.
 - Лимиты free выключены на время вехи 10 (Д3, `FREE_LIMITS_ENABLED`).
