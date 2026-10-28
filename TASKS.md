@@ -7,7 +7,7 @@
 |---|---|
 | Как устроена доска, статусы, роли | [`docs/tasks/README.md`](docs/tasks/README.md) |
 | Почему план такой — лог решений | [`docs/tasks/decisions.md`](docs/tasks/decisions.md) |
-| Отложенные задачи, полные описания (25) | [`docs/tasks/backlog.md`](docs/tasks/backlog.md) |
+| Отложенные задачи, полные описания (26) | [`docs/tasks/backlog.md`](docs/tasks/backlog.md) |
 | Открытые задачи вехи 10 | [`docs/pastel/tasks.md`](docs/pastel/tasks.md) |
 | Закрытые задачи с отчётами (167) | [`docs/tasks/archive/`](docs/tasks/archive/) |
 
@@ -116,6 +116,7 @@ Definition of Done:
 | [FT-165](docs/tasks/backlog.md) | Логи слоя application без времени и уровня | команды Шукура взять в работу |
 | [FT-166](docs/tasks/backlog.md) | Отказы чужим в боте и API не засыпают лог | команды Шукура взять в работу |
 | [FT-167](docs/tasks/backlog.md) | Перезапуск бота не теряет апдейты в обработке | команды Шукура взять в работу |
+| [FT-169](docs/tasks/backlog.md) | Свой знак для Kapelka вместо страницы тетради | знак на холсте от Шукура |
 
 ---
 

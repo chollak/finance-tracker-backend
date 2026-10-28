@@ -247,7 +247,7 @@ describe('«Ещё» in Telegram', () => {
 
     await press(row('Сводка дня'));
     expect(sheet()?.querySelector('h2')?.textContent).toBe('Сводка дня');
-    expect(squash(sheet()?.textContent)).toContain('Вечером бот пришлёт, сколько потрачено за день и на что, — одним сообщением с кнопкой «Открыть Kapelka».');
+    expect(squash(sheet()?.textContent)).toContain(`Вечером бот пришлёт, сколько потрачено за день и на что, — одним сообщением с кнопкой «Открыть${NBSP}Kapelka».`);
     expect(squash(sheet()?.textContent)).toContain('В день без записей сводка спросит, правда ли трат не было, — отдельного напоминания нет.');
     const toggle = sheet()!.querySelector('[role="switch"]')!;
     expect(squash(toggle.textContent)).toBe('Присылать сводку');

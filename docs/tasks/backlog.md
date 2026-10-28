@@ -496,7 +496,7 @@ Definition of Done:
 - [ ] Windows перезагружена без входа в WSL → сервис поднялся сам (задача Планировщика держит WSL), бот отвечает, Mini App открывается с iPhone по адресу tailnet — проверка из FT-156
 - [ ] На ПК: бэкап-таймер стоит (`list-timers`), копия в `C:\KapelkaBackup` появилась и выгрузилась в Google Drive после входа в Windows — проверка из FT-157
 - [ ] Мак переведён на dev-бота и отдельную базу; копия базы с мака хранится 2 недели
-- [ ] Описан откат: остановить сервис на ПК → забрать базу → `dev:miniapp` на маке с прежним токеном
+- [ ] Описан откат: остановить сервис на ПК → забрать базу → `dev:miniapp` на маке с токеном и username бота Kapelka — не @FinanceTrackerDevBot: пользователь пишет в Kapelka, и бот, которого никто не опрашивает, молчит (@FinanceTrackerDevBot — бот разработки мака)
 - [ ] Проверено и записано: открывается ли Mini App в Telegram на iOS, когда ПК выключен (в webapp есть service worker, но в Telegram на iOS он может не работать)
 
 ---
@@ -693,5 +693,25 @@ Definition of Done:
 - [ ] Перезапуск во время обработки сообщения не создаёт дубль записи; тест
 - [ ] Счётчик попыток polling сбрасывается после удачного запуска; тест
 - [ ] В production без `TG_BOT_API_KEY` при включённом polling — ошибка старта; тест
+
+---
+
+### FT-169: A sign for Kapelka
+
+Status: backlog
+Priority: low
+Owner: Claude Code, QA — под-чат проверки
+Type: design
+Size: S
+
+Context:
+Знак рядом с wordmark — страница тетради-ведомости (`wordmark.tsx`, `docs/pastel/design-system.md`, «Знак»), нарисован
+под смысл «daftar» (тетрадь). Для Kapelka («капелька», по капельке) нужен свой знак; холст и артефакт дизайн-системы —
+у Шукура, они ещё говорят Daftar.
+
+Definition of Done:
+- [ ] Знак согласован с Шукуром на холсте
+- [ ] Заменён в `wordmark.tsx` и `docs/pastel/design-system.md`
+- [ ] Скриншоты шапки 390 px в обеих темах
 
 ---
