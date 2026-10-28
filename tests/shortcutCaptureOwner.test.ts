@@ -1,7 +1,6 @@
 import 'reflect-metadata';
 import express from 'express';
 import http from 'http';
-import { AddressInfo } from 'net';
 import { telegramAccess } from '../src/shared/domain/access/telegramAccess';
 import {
   MIN_PRODUCTION_SHORTCUT_TOKEN_LENGTH,
@@ -9,7 +8,6 @@ import {
 } from '../src/shared/domain/access/shortcutCaptureAccess';
 import { AppConfig } from '../src/shared/infrastructure/config/appConfig';
 import { buildServer } from '../src/delivery/web/express/expressServer';
-import { aiRateLimiter } from '../src/delivery/web/express/middleware/rateLimitMiddleware';
 import { ProcessTextInputUseCase } from '../src/modules/voiceProcessing/application/processTextInput';
 import { TranscriptionService } from '../src/modules/voiceProcessing/domain/transcriptionService';
 import { QuickCaptureService } from '../src/modules/quickCapture/application/quickCaptureService';
@@ -20,6 +18,7 @@ import { SqliteUserSettingsRepository } from '../src/modules/user/infrastructure
 import { openMigratedDatabase, TestDatabase } from './helpers/testDatabase';
 import { recordsOn } from './helpers/records';
 import { appConfigWith } from './helpers/appConfigWith';
+import { listenOnLoopback } from './helpers/testServer';
 
 /**
  * FT-155: the iPhone Shortcut writes on the live instance (NODE_ENV=production, decision 2026-10-26) with a token bound
@@ -142,8 +141,6 @@ describe('POST /api/quick-capture from the iPhone in production (FT-155)', () =>
   let analyzeInput: jest.Mock;
 
   beforeEach(async () => {
-    aiRateLimiter.resetKey('127.0.0.1');
-    aiRateLimiter.resetKey('::ffff:127.0.0.1');
     process.env.NODE_ENV = 'production';
     process.env.SHORTCUT_CAPTURE_TOKEN = TOKEN;
     process.env.SHORTCUT_CAPTURE_OWNER = OWNER;
@@ -161,10 +158,8 @@ describe('POST /api/quick-capture from the iPhone in production (FT-155)', () =>
 
     const app = express();
     app.use('/api', buildServer(unusedModule, unusedModule, unusedModule, unusedModule, unusedModule, userModule, undefined, quickCaptureModule));
-    server = await new Promise<http.Server>(resolve => {
-      const listening = app.listen(0, () => resolve(listening));
-    });
-    baseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+    // The test server starts the shared AI limiter (20 per address) with empty counters
+    ({ server, baseUrl } = await listenOnLoopback(app));
   });
 
   afterEach(async () => {

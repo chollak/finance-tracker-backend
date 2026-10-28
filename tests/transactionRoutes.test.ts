@@ -1,5 +1,4 @@
 import express, { Express } from 'express';
-import { AddressInfo } from 'net';
 import http from 'http';
 
 import {
@@ -25,6 +24,7 @@ import { ArchiveAllByUserUseCase } from '../src/modules/transaction/application/
 import { GetArchivedTransactionsUseCase } from '../src/modules/transaction/application/getArchivedTransactions';
 import { NotFoundError } from '../src/shared/domain/errors/AppError';
 import { UserModule } from '../src/modules/user/userModule';
+import { listenOnLoopback } from './helpers/testServer';
 
 // Signed in through the local dev header as TELEGRAM_ID, who owns the records stored under USER_UUID
 const TELEGRAM_ID = '131184740';
@@ -112,13 +112,9 @@ describe('Transaction API route boundaries', () => {
   let baseUrl: string;
   let mocks: ReturnType<typeof buildTransactionTestApp>;
 
-  beforeEach((done) => {
+  beforeEach(async () => {
     mocks = buildTransactionTestApp({ userModule: signedInUserModule() });
-    server = mocks.app.listen(0, () => {
-      const { port } = server.address() as AddressInfo;
-      baseUrl = `http://127.0.0.1:${port}`;
-      done();
-    });
+    ({ server, baseUrl } = await listenOnLoopback(mocks.app));
   });
 
   afterEach((done) => {
@@ -214,13 +210,7 @@ describe('Transaction API route boundaries', () => {
 
     await new Promise<void>((resolve) => server.close(() => resolve()));
     mocks = buildTransactionTestApp({ userModule });
-    await new Promise<void>((resolve) => {
-      server = mocks.app.listen(0, () => {
-        const { port } = server.address() as AddressInfo;
-        baseUrl = `http://127.0.0.1:${port}`;
-        resolve();
-      });
-    });
+    ({ server, baseUrl } = await listenOnLoopback(mocks.app));
 
     (mocks.getByIdUseCase.execute as jest.Mock).mockResolvedValue({
       success: true,

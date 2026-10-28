@@ -1,4 +1,6 @@
+import fs from 'fs';
 import http from 'http';
+import path from 'path';
 import { Router } from 'express';
 import { strictRateLimiter } from '../src/delivery/web/express/middleware/rateLimitMiddleware';
 import { startTestServer, TestServer } from './helpers/testServer';
@@ -80,5 +82,19 @@ describe('test HTTP servers (FT-151)', () => {
 
     server = await login();
     expect((await server.request('POST', '/api/login')).status).toBe(201);
+  });
+
+  it('are never started on every interface: each listens on 127.0.0.1, the address the tests call', () => {
+    const testsDir = __dirname;
+    // Port 0 with no host after it: `listen(0)`, `listen(0, callback)`. Use listenOnLoopback or startTestServer.
+    const anyInterface = /\.listen\(\s*0\s*(?:\)|,(?!\s*['"`]))/;
+    const offenders = (fs.readdirSync(testsDir, { recursive: true }) as string[])
+      .filter(file => file.endsWith('.ts'))
+      .flatMap(file => fs.readFileSync(path.join(testsDir, file), 'utf8')
+        .split('\n')
+        .map((line, index) => (anyInterface.test(line) ? `tests/${file}:${index + 1}` : null))
+        .filter((place): place is string => place !== null));
+
+    expect(offenders).toEqual([]);
   });
 });
