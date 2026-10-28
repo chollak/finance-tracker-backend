@@ -1,4 +1,4 @@
-import { execFileSync, spawnSync } from 'child_process';
+import { execFileSync, spawn, spawnSync } from 'child_process';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
@@ -97,6 +97,37 @@ describe('a backup', () => {
     await new Promise<void>((resolve) => db.close(() => resolve()));
     expect(code).toBe(0);
     expect(sql(path.join(out, backups()[0]), 'SELECT count(*) FROM records;')).toBe('3');
+  });
+
+  it('is taken after a power cut left a hot journal: the unfinished write is rolled back, as the app would on start', async () => {
+    const journal = `${databaseFile()}-journal`;
+    const sizeBefore = fs.statSync(databaseFile()).size;
+    // A writer with a tiny cache spills its pages into the file, then dies mid-transaction like a PC losing power.
+    // Its own process group, so the kill takes the `sleep` that holds the transaction open with it
+    const writer = spawn('sqlite3', [
+      databaseFile(),
+      'PRAGMA cache_size=5;',
+      'PRAGMA cache_spill=5;',
+      'BEGIN;',
+      "WITH RECURSIVE n(k) AS (SELECT 1 UNION ALL SELECT k + 1 FROM n WHERE k < 3000) INSERT INTO records SELECT hex(randomblob(500)) FROM n;",
+      '.shell sleep 30',
+    ], { detached: true, stdio: 'ignore' });
+    const deadline = Date.now() + 10000;
+    while (Date.now() < deadline && !(fs.existsSync(journal) && fs.statSync(databaseFile()).size > sizeBefore * 10)) {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    const exited = new Promise((resolve) => writer.on('exit', resolve));
+    process.kill(-(writer.pid as number), 'SIGKILL');
+    await exited;
+    expect(fs.statSync(databaseFile()).size).toBeGreaterThan(sizeBefore * 10);
+    expect(fs.statSync(journal).size).toBeGreaterThan(0);
+
+    const { code, stderr } = backup({ BACKUP_DIR: out });
+
+    expect(stderr).toBe('');
+    expect(code).toBe(0);
+    expect(sql(path.join(out, backups()[0]), 'SELECT count(*) FROM records;')).toBe('3');
+    expect(sql(path.join(out, backups()[0]), 'PRAGMA integrity_check;')).toBe('ok');
   });
 
   it('names the copy by the clock in TZ from .env.local', () => {

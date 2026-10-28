@@ -96,8 +96,10 @@ resolve_backup_dir() {
 # An online copy of the database, then PRAGMA integrity_check on the copy
 copy_database() {
   local copy="$1" result
-  # -readonly: never create or change the live file. .backup is SQLite's online backup, safe while the app writes
-  sqlite3 -readonly -bail "$DATABASE" ".timeout $BUSY_TIMEOUT_MS" ".backup '$copy'" ||
+  # .backup is SQLite's online backup, safe while the app writes. Not -readonly: after a power cut the file may come
+  # with a hot journal, and only a connection that may write rolls it back — what the app itself does on start. The
+  # file exists (checked in main), so sqlite3 never creates one
+  sqlite3 -bail "$DATABASE" ".timeout $BUSY_TIMEOUT_MS" ".backup '$copy'" ||
     fail "sqlite3 .backup of $APP_DIR/$DATABASE failed (above); nothing was written to the backup folder"
   result="$(sqlite3 -readonly "$copy" 'PRAGMA integrity_check;' 2>&1 || true)"
   if [ "$result" != "ok" ]; then
