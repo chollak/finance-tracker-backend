@@ -77,7 +77,7 @@ describe('daily summary (FT-124)', () => {
   }
 
   /** What `notifications_log` keeps about the user's day. */
-  function logEntry(owner: string, kind: 'daily_summary', day: string) {
+  function logEntry(owner: string, kind: 'daily_summary' | 'daily_summary_late', day: string) {
     return new SqliteNotificationLogRepository(running.ds).find(owner, kind, day);
   }
 
@@ -319,6 +319,10 @@ describe('daily summary (FT-124)', () => {
     expect(await tick()).toEqual([]);
     expect(sent).toEqual([]);
 
+    // Nothing to catch up the next morning: that evening was not theirs (FT-164)
+    at('2026-10-21', '08:00');
+    expect(await tick()).toEqual([]);
+
     // The next evening is the first one at the chosen time
     await record(owner, '2026-10-21', 'Такси', 18_000);
     at('2026-10-21', '21:00');
@@ -392,6 +396,10 @@ describe('daily summary (FT-124)', () => {
     expect(await logEntry(owner, 'daily_summary', '2026-10-14')).toMatchObject({
       status: 'failed', error: '403: Forbidden: bot was blocked by the user',
     });
+    // A refusal is not caught up the next morning either (FT-164)
+    at('2026-10-15', '08:00');
+    expect(await tick()).toEqual([]);
+    expect(sent).toEqual([]);
   });
 
   /** What Telegraf's fetch throws when the request did not get through: no DNS after sleep, no route, a reset. */
@@ -402,19 +410,24 @@ describe('daily summary (FT-124)', () => {
     );
   }
 
-  it('no network (the Mac woke without it): tried again the next minute, and after a restart (FT-144)', async () => {
+  it('no network (the Mac woke without it): tried again the next minute; the attempts survive a restart (FT-144, FT-164)', async () => {
     const owner = await user();
     await record(owner, '2026-10-14', 'Кафе', 45_000);
     refuse = networkError('ENOTFOUND');
 
     at('2026-10-14', '21:00');
     expect(await tick()).toEqual([{ userId: owner, day: '2026-10-14', outcome: 'retry' }]);
-    expect(await logEntry(owner, 'daily_summary', '2026-10-14')).toBeNull();
+    expect(await logEntry(owner, 'daily_summary', '2026-10-14')).toMatchObject({
+      status: 'not_sent', attempts: 1, error: expect.stringContaining('getaddrinfo ENOTFOUND api.telegram.org'),
+    });
 
     refuse = networkError('EAI_AGAIN');
     await restart();
     at('2026-10-14', '21:01');
     expect(await tick()).toEqual([{ userId: owner, day: '2026-10-14', outcome: 'retry' }]);
+    expect(await logEntry(owner, 'daily_summary', '2026-10-14')).toMatchObject({
+      status: 'not_sent', attempts: 2, error: expect.stringContaining('EAI_AGAIN'),
+    });
 
     refuse = null;
     at('2026-10-14', '21:02');
@@ -422,7 +435,8 @@ describe('daily summary (FT-124)', () => {
     at('2026-10-14', '21:03');
     expect(await tick()).toEqual([]);
     expect(sent).toHaveLength(1);
-    expect(await logEntry(owner, 'daily_summary', '2026-10-14')).toMatchObject({ status: 'sent' });
+    // The attempt that went out is the third one
+    expect(await logEntry(owner, 'daily_summary', '2026-10-14')).toMatchObject({ status: 'sent', attempts: 3 });
   });
 
   it.each(['ETIMEDOUT', 'ECONNRESET'])('%s may have reached Telegram: kept as failed, never sent twice (FT-144)', async (code) => {
@@ -435,23 +449,222 @@ describe('daily summary (FT-124)', () => {
     refuse = null;
     at('2026-10-14', '21:01');
     expect(await tick()).toEqual([]);
+    // It may have reached the chat: not caught up the next morning (FT-164)
+    at('2026-10-15', '08:00');
+    expect(await tick()).toEqual([]);
     expect(sent).toEqual([]);
   });
 
-  it('no network until midnight: the next day does not send the day before (FT-144)', async () => {
-    const owner = await user();
-    await record(owner, '2026-10-14', 'Кафе', 45_000);
-    refuse = networkError('ENOTFOUND');
+  describe('a summary that did not go out by midnight (FT-164)', () => {
+    /** The summary of the 13th went out: the bot has been sending this user's summaries. */
+    async function summaryOfThe13thSent(owner: string): Promise<void> {
+      await record(owner, '2026-10-13', 'Такси', 18_000);
+      at('2026-10-13', '21:00');
+      expect(await tick()).toEqual([{ userId: owner, day: '2026-10-13', outcome: 'sent' }]);
+      sent = [];
+    }
 
-    at('2026-10-14', '21:00');
-    expect(await tick()).toEqual([{ userId: owner, day: '2026-10-14', outcome: 'retry' }]);
-    at('2026-10-14', '23:59');
-    expect(await tick()).toEqual([{ userId: owner, day: '2026-10-14', outcome: 'retry' }]);
+    const LATE_14 = [
+      `<b>Итоги за вчера · 14${NB}октября</b>`,
+      `Потрачено 45${NB}000${NB}сум · 1 запись`,
+      '',
+      `Кафе · 45${NB}000`,
+      '',
+      `С начала октября — 63${NB}000${NB}сум.`,
+    ].join('\n');
 
-    refuse = null;
-    at('2026-10-15', '09:00');
-    expect(await tick()).toEqual([]);
-    expect(sent).toEqual([]);
+    it('no network until midnight: the day is kept failed with the reason; «Итоги за вчера» come from 08:00, today\'s as usual', async () => {
+      const owner = await user();
+      await summaryOfThe13thSent(owner);
+      await record(owner, '2026-10-14', 'Кафе', 45_000);
+      refuse = networkError('ENOTFOUND');
+
+      at('2026-10-14', '21:00');
+      expect(await tick()).toEqual([{ userId: owner, day: '2026-10-14', outcome: 'retry' }]);
+      at('2026-10-14', '23:59');
+      expect(await tick()).toEqual([{ userId: owner, day: '2026-10-14', outcome: 'retry' }]);
+
+      // After midnight: the trace, and nothing at night
+      refuse = null;
+      at('2026-10-15', '00:00');
+      expect(await tick()).toEqual([]);
+      expect(await logEntry(owner, 'daily_summary', '2026-10-14')).toMatchObject({
+        status: 'failed',
+        attempts: 2,
+        error: 'не ушло: нет сети, 2 попытки, последняя ошибка request to https://api.telegram.org/bot123:[REDACTED]/sendMessage failed, reason: getaddrinfo ENOTFOUND api.telegram.org',
+      });
+      at('2026-10-15', '07:59');
+      expect(await tick()).toEqual([]);
+      expect(sent).toEqual([]);
+
+      at('2026-10-15', '08:00');
+      expect(await tick()).toEqual([{ userId: owner, day: '2026-10-14', outcome: 'sent', late: true }]);
+      expect(sent).toHaveLength(1);
+      expect(sent[0].text).toBe(LATE_14);
+      expect(sent[0].keyboard).toEqual([[expect.objectContaining({ text: 'Открыть Kapelka ↗' })]]);
+      expect(await logEntry(owner, 'daily_summary_late', '2026-10-14')).toMatchObject({ status: 'sent', attempts: 1, messageId: sent[0].messageId });
+
+      // Once: not on the next tick, not after a restart
+      at('2026-10-15', '08:01');
+      expect(await tick()).toEqual([]);
+      await restart();
+      at('2026-10-15', '12:00');
+      expect(await tick()).toEqual([]);
+
+      // The 15th's own summary at its time
+      await record(owner, '2026-10-15', 'Продукты', 100_000);
+      at('2026-10-15', '21:00');
+      expect(await tick()).toEqual([{ userId: owner, day: '2026-10-15', outcome: 'sent' }]);
+      expect(sent).toHaveLength(2);
+      expect(sent[1].text).toContain(`<b>Итоги дня · 15${NB}октября</b>`);
+    });
+
+    it('the bot was off all evening (the PC slept): the day is kept failed with no attempts, «Итоги за вчера» at 08:00', async () => {
+      const owner = await user();
+      await summaryOfThe13thSent(owner);
+      await record(owner, '2026-10-14', 'Кафе', 45_000);
+
+      // No tick from 20:00 on the 14th until the morning
+      at('2026-10-14', '20:00');
+      expect(await tick()).toEqual([]);
+      at('2026-10-15', '06:30');
+      expect(await tick()).toEqual([]);
+      expect(await logEntry(owner, 'daily_summary', '2026-10-14')).toMatchObject({
+        status: 'failed', attempts: 0, error: 'не ушло: ни одной попытки — бот не работал',
+      });
+
+      // What is decided at night survives a restart
+      await restart();
+      at('2026-10-15', '08:00');
+      expect(await tick()).toEqual([{ userId: owner, day: '2026-10-14', outcome: 'sent', late: true }]);
+      expect(sent.map(message => message.text)).toEqual([LATE_14]);
+    });
+
+    it('the bot comes back after 08:00: «Итоги за вчера» at once', async () => {
+      const owner = await user();
+      await summaryOfThe13thSent(owner);
+      await record(owner, '2026-10-14', 'Кафе', 45_000);
+
+      at('2026-10-15', '10:30');
+      expect(await tick()).toEqual([{ userId: owner, day: '2026-10-14', outcome: 'sent', late: true }]);
+    });
+
+    it('«Итоги за вчера» are tried until the next day ends, across a restart; then kept failed and the next day is the one caught up', async () => {
+      const owner = await user();
+      await summaryOfThe13thSent(owner);
+      await record(owner, '2026-10-14', 'Кафе', 45_000);
+      await record(owner, '2026-10-15', 'Такси', 18_000);
+      refuse = networkError('ENOTFOUND');
+      at('2026-10-14', '21:00');
+      await tick();
+
+      at('2026-10-15', '08:00');
+      expect(await tick()).toEqual([{ userId: owner, day: '2026-10-14', outcome: 'retry', late: true }]);
+      expect(await logEntry(owner, 'daily_summary_late', '2026-10-14')).toMatchObject({ status: 'not_sent', attempts: 1 });
+      await restart();
+      at('2026-10-15', '23:59');
+      // The day before first, then the day's own
+      expect(await tick()).toEqual([
+        { userId: owner, day: '2026-10-14', outcome: 'retry', late: true },
+        { userId: owner, day: '2026-10-15', outcome: 'retry' },
+      ]);
+      expect(await logEntry(owner, 'daily_summary_late', '2026-10-14')).toMatchObject({ status: 'not_sent', attempts: 2 });
+
+      // Two evenings missed in a row: only the last one is caught up
+      refuse = null;
+      at('2026-10-16', '00:00');
+      expect(await tick()).toEqual([]);
+      expect(await logEntry(owner, 'daily_summary_late', '2026-10-14')).toMatchObject({
+        status: 'failed', attempts: 2, error: expect.stringMatching(/^не ушло: нет сети, 2 попытки, последняя ошибка .*ENOTFOUND/),
+      });
+      expect(await logEntry(owner, 'daily_summary', '2026-10-15')).toMatchObject({ status: 'failed', attempts: 1 });
+      at('2026-10-16', '08:00');
+      expect(await tick()).toEqual([{ userId: owner, day: '2026-10-15', outcome: 'sent', late: true }]);
+      expect(sent).toHaveLength(1);
+      expect(sent[0].text).toContain(`<b>Итоги за вчера · 15${NB}октября</b>`);
+      expect(sent[0].text).toContain(`Такси · 18${NB}000`);
+    });
+
+    it('the bot off for two evenings: only the last day is caught up, the one before leaves no row', async () => {
+      const owner = await user();
+      await summaryOfThe13thSent(owner);
+      await record(owner, '2026-10-14', 'Кафе', 45_000);
+      await record(owner, '2026-10-15', 'Такси', 18_000);
+
+      at('2026-10-16', '09:00');
+      expect(await tick()).toEqual([{ userId: owner, day: '2026-10-15', outcome: 'sent', late: true }]);
+      expect(sent).toHaveLength(1);
+      expect(await logEntry(owner, 'daily_summary', '2026-10-14')).toBeNull();
+      expect(await logEntry(owner, 'daily_summary_late', '2026-10-14')).toBeNull();
+      expect(await logEntry(owner, 'daily_summary', '2026-10-15')).toMatchObject({ status: 'failed', attempts: 0 });
+    });
+
+    it('a day without records caught up asks «Трат правда не было?» and counts as one of the two evenings in a row', async () => {
+      const owner = await user();
+      await summaryOfThe13thSent(owner);
+
+      at('2026-10-15', '08:00');
+      expect(await tick()).toEqual([{ userId: owner, day: '2026-10-14', outcome: 'asked', late: true }]);
+      expect(sent[0].text).toBe([
+        `<b>Итоги за вчера · 14${NB}октября</b>`,
+        'Записей нет. Трат правда не было?',
+        '',
+        '<i>Если что-то было — просто напишите, например «обед 45к».</i>',
+      ].join('\n'));
+      expect(sent[0].keyboard).toEqual([[{ text: 'Да, не было', callback_data: 'n:none:2026-10-14', hide: false }]]);
+
+      await pressNoSpending(sent[0]);
+      expect(await logEntry(owner, 'daily_summary_late', '2026-10-14')).toMatchObject({ variant: 'empty', answer: 'no_spending' });
+
+      at('2026-10-15', '21:00');
+      expect((await tick()).map(result => result.outcome)).toEqual(['asked']);
+      at('2026-10-16', '21:00');
+      expect((await tick()).map(result => result.outcome)).toEqual(['skipped']);
+    });
+
+    it('a summary claimed but never finished (the process stopped mid-send) is not tried again, nor caught up', async () => {
+      const owner = await user();
+      await summaryOfThe13thSent(owner);
+      await record(owner, '2026-10-14', 'Кафе', 45_000);
+      await new SqliteNotificationLogRepository(running.ds).claim({ id: 'crashed', userId: owner, kind: 'daily_summary', period: '2026-10-14', sendUntil: '2026-10-14' });
+      await restart();
+
+      at('2026-10-14', '21:30');
+      expect(await tick()).toEqual([]);
+      at('2026-10-15', '08:00');
+      expect(await tick()).toEqual([]);
+      expect(sent).toEqual([]);
+      expect(await logEntry(owner, 'daily_summary', '2026-10-14')).toMatchObject({ status: 'sending' });
+      expect(await logEntry(owner, 'daily_summary_late', '2026-10-14')).toBeNull();
+    });
+
+    it('nothing to catch up for a user the bot has sent no summary yet: no row for a day it knows nothing about', async () => {
+      const fresh = await user();
+      await record(fresh, '2026-10-14', 'Кафе', 45_000);
+
+      at('2026-10-15', '08:00');
+      expect(await tick()).toEqual([]);
+      expect(sent).toEqual([]);
+      expect(await logEntry(fresh, 'daily_summary', '2026-10-14')).toBeNull();
+      expect(await logEntry(fresh, 'daily_summary_late', '2026-10-14')).toBeNull();
+    });
+
+    it('summaries switched off: no «Итоги за вчера»; a summary that did not leave is still kept failed', async () => {
+      const owner = await user();
+      await summaryOfThe13thSent(owner);
+      await record(owner, '2026-10-14', 'Кафе', 45_000);
+      refuse = networkError('ENOTFOUND');
+      at('2026-10-14', '21:00');
+      await tick();
+      refuse = null;
+      await running.userModule.getUpdateUserSettingsUseCase().execute({ userId: owner, patch: { dailySummaryEnabled: false } });
+
+      at('2026-10-15', '08:00');
+      expect(await tick()).toEqual([]);
+      expect(sent).toEqual([]);
+      expect(await logEntry(owner, 'daily_summary', '2026-10-14')).toMatchObject({ status: 'failed', attempts: 1 });
+      expect(await logEntry(owner, 'daily_summary_late', '2026-10-14')).toBeNull();
+    });
   });
 
   it('only Telegram chats: a dev or guest id gets nothing', async () => {
