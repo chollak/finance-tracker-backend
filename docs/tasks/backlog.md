@@ -414,7 +414,7 @@ Definition of Done:
 
 ---
 
-### FT-151: Flaky HTTP tests: webLogin, transactionRoutes
+### FT-151: Flaky HTTP tests: webLogin, transactionRoutes, accounts
 
 Status: backlog
 Priority: low
@@ -430,7 +430,10 @@ Context:
 
 Так же нестабилен `tests/transactionRoutes.test.ts`, тест «creates a record without a description»: дважды
 2026-10-27 упал в полном прогоне (`fetch failed` / `ECONNRESET` / «other side closed»), отдельно — 20 прогонов из 20
-зелёные (проверка FT-155).
+зелёные (проверка FT-155). 2026-10-28 при закрытии FT-168 (коммит только с документами) в полном прогоне по
+одному разу упали `transactionRoutes.test.ts` («creates a record without a description», 404 вместо 201) и
+`tests/accounts.test.ts` («creates an account», 404 вместо 201); отдельно оба — 36 из 36. Машина была под нагрузкой
+(load average около 5) — похоже на общую причину HTTP-тестов, а не на конкретный файл.
 
 Definition of Done:
 - [ ] Причина найдена и записана здесь
