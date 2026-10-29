@@ -136,7 +136,7 @@ const transcription = await openai.audio.transcriptions.create({
 **Enhanced Prompt Example:**
 ```
 You are a financial assistant. Parse this text into transaction.
-Today is 2026-01-09.
+Today is 2026-01-09, Friday.
 
 Learned patterns:
 - "хлеб", "молоко" → category "groceries"
@@ -144,6 +144,12 @@ Learned patterns:
 
 Text: "Купил хлеб в магазине Пятерочка за пятьсот рублей"
 ```
+
+**«Сегодня» — день пользователя (FT-175).** Это день по календарю пользователя (Ташкент), а не UTC: раньше
+`toISOString()` с 00:00 до 05:00 по Ташкенту давал вчерашний день. У фразы из очереди телефона
+(`POST /api/quick-capture` с `capturedAt`) это день ввода, а не день, когда фраза дошла; запись без даты получает его.
+Быстрые пути текста (`такси 18к`) читают «сегодня», «вчера», «позавчера» сами, другой день во фразе отдают ИИ —
+[QUICK_CAPTURE_API.md](../../QUICK_CAPTURE_API.md#time-of-input-capturedat).
 
 ---
 

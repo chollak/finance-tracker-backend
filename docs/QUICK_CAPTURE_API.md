@@ -1,7 +1,8 @@
 # Quick Capture API
 
 > **Status:** describes the **shipped** implementation as of 2026-09-04 (commits `50d84ef` → `03a39a3`), plus the
-> iOS Shortcut token from `FT-075`, bound to one owner and allowed in production since `FT-155` (2026-10-27).
+> iOS Shortcut token from `FT-075`, bound to one owner and allowed in production since `FT-155` (2026-10-27), and the
+> time of input `capturedAt` from `FT-175` (2026-10-29).
 > This document is derived from the code and tests listed under [Source of truth](#source-of-truth), **not** from the
 > earlier speculative spec in `.hermes/plans/2026-09-02_130400-api-first-quick-actions-spec.md`. Where the old spec and
 > the shipped contract disagree, the shipped contract wins; the differences are listed in
@@ -102,7 +103,7 @@ session, so `verifyOwnership`/`requireAdmin` stay fail-closed if they are ever a
 curl -sS -X POST https://<pc>.<tailnet>.ts.net/api/quick-capture \
   -H 'Content-Type: application/json' \
   -H 'X-Shortcut-Capture-Token: <SHORTCUT_CAPTURE_TOKEN>' \
-  -d '{"text":"такси 18к","clientId":"<one id per capture>"}'
+  -d '{"text":"такси 18к","clientId":"<one id per capture>","capturedAt":"2026-10-27T09:15:00+05:00"}'
 
 # outside production, from this machine, without a token
 curl -sS -X POST http://localhost:3000/api/quick-capture \
@@ -166,12 +167,46 @@ so even rejected requests consume budget.
 | `userId` | `string` | no | The signed-in user's Telegram id, if sent at all (the Mini App still sends it); someone else's is `403 ACCESS_DENIED`, a value that is not one non-blank string is `400 INVALID_USER_ID` (FT-162). The owner is always the signed-in user. |
 | `userName` | `string` | no | Passed to the parser/user pipeline. A non-string value is silently treated as absent. |
 | `source` | `"telegram" \| "miniapp" \| "ios_shortcut"` | no | Validated against the enum and echoed back. Since FT-103 it is **stored on every created record** (`transactions.source`); without it the records get `miniapp`. |
-
 | `clientId` | `string` | no | FT-106. The client's id for this capture: letters, digits and `-`, up to 64. A repeat returns the records of the first capture (`repeated: true`) without parsing again; see [docs/pastel/api.md](pastel/api.md#повтор-из-офлайн-очереди-ft-106). |
+| `capturedAt` | `string` | no | FT-175. When the phrase was typed on the phone: ISO 8601 with seconds and a time zone, `2026-10-27T09:15:00+05:00` or `2026-10-27T04:15:00.250Z`. The records are dated by that day, «вчера» is the day before it. `null` is the same as absent. See [Time of input](#time-of-input-capturedat). |
 
-Unknown extra fields are ignored (the handler destructures only the five fields above).
+Unknown extra fields are ignored (the handler destructures only the six fields above).
 
-Validation order inside the handler: `text` present/non-blank → `text` length → `source` enum → `clientId` format.
+Validation order inside the handler: `text` present/non-blank → `text` length → `source` enum → `clientId` format →
+`capturedAt` format. The limits of `capturedAt` are checked by the service, after a repeat of the `clientId` is answered.
+
+---
+
+## Time of input (`capturedAt`)
+
+A phrase from the iOS app's offline queue (FT-161) reaches the server hours or days after it was typed. With
+`capturedAt` the server counts the day from the time of input, not from the time of the request
+(`src/modules/quickCapture/domain/capturedAt.ts`, decisions of FT-175):
+
+- **The day of input** is that moment's day **on the user's calendar** — Tashkent for every user now, the zone every
+  record date is kept in (`toDateOnly` on create, `DEFAULT_TIME_ZONE`). The zone written in `capturedAt` only fixes the
+  moment, it does not choose the day: JavaScript's `toISOString()` and many iOS formatters write UTC (`…Z`), and a
+  phrase sent to the bot or typed in the Mini App at the same moment must land on the same day. On a trip the record
+  still lands on the Tashkent day, as it does through the bot.
+- **The fast paths** (`такси 18к`, `перевел 500к на Alif`, `зарплата 5 млн`) write the record on the day of input;
+  «сегодня», «вчера», «позавчера» in the phrase move it back 0, 1 or 2 days and leave the record's note
+  (`src/modules/voiceProcessing/domain/phraseDay.ts`). A phrase that names any other day — a weekday («в
+  понедельник»), a month, «завтра», «неделю назад», «на прошлой неделе» — goes to the AI.
+- **The AI** is told the day of input and its weekday («Сегодня 2026-10-27, вторник») and counts «вчера», a weekday
+  and the rest from it; a record it gives no date gets the day of input.
+- **Limits**, by the server's clock: at most **5 minutes ahead** (the phone's and the PC's clocks drift a little) and at
+  most **30 days old** (longer than the queue waits while the PC is off; an older record would land in a month already
+  summed up and audited). Outside them it is not the time of input but a wrong phone clock or a stuck record.
+- **Outside the limits — `400 VALIDATION_ERROR`, nothing written**, not «now»: a record dated by «now» would sit on a
+  silently wrong day, while the iOS app keeps a refused record on the phone with its text and the error (FT-161:
+  «400 — ошибка у записи, больше не уходит»), so it can be written again by hand. A malformed value is `400` too.
+- **A repeat** of a `clientId` is answered with the first records **whatever its `capturedAt`** — another time, one out
+  of the limits, none: the limits are checked only for a capture that is about to be parsed, so a record written once
+  is never refused on a retry.
+- **Without `capturedAt`** the day of input is the server's today on the user's calendar, as before. One fix applies
+  to every capture: «today» used to be the UTC day (`new Date().toISOString()`), so from 00:00 to 05:00 in Tashkent the
+  AI was told yesterday and the fast paths wrote yesterday's date (FT-175); it is now the Tashkent day, in the bot's
+  confirmation («Сегодня») too.
 
 ---
 
@@ -303,6 +338,8 @@ Auth and rate-limit middleware answer earlier in the chain and use a **flat** sh
 | 400 | `VALIDATION_ERROR` | `Text is required and cannot be empty` — `text` missing, not a string, or whitespace-only |
 | 400 | `VALIDATION_ERROR` | `Text is too long (maximum 2000 characters)` |
 | 400 | `VALIDATION_ERROR` | `Source must be one of: telegram, miniapp, ios_shortcut` |
+| 400 | `VALIDATION_ERROR` | `capturedAt must be an ISO 8601 time with seconds and a time zone, …` — field `capturedAt` |
+| 400 | `VALIDATION_ERROR` | `capturedAt is more than 5 minutes ahead of the server clock` · `capturedAt is older than 30 days` (not for a repeat of a `clientId`) |
 | 400 | `INVALID_JSON` | Malformed JSON body (global error handler) |
 | 400 | `INVALID_USER_ID` | A body or query `userId` that is not one non-blank string — a number, an array, `null`, `''` (FT-162) |
 | 401 | `MISSING_AUTH_HEADER` | No `Authorization` header, no browser session |
@@ -444,8 +481,9 @@ curl -sS -X POST https://<tunnel-host>/api/quick-capture \
    retried request still creates duplicate transactions.
 4. **Rate limit is coarse.** The AI limiter is per-IP and its 20/15min budget is *shared* with `/api/voice/*`; it is not
    per-user and cannot be tuned separately for capture.
-5. **No `occurredAt`.** The transaction date comes from the parser/server, so a client cannot backdate a capture through
-   this endpoint.
+5. **The time of input, not a date.** `capturedAt` (FT-175) dates a capture by when it was typed, within 5 minutes
+   ahead and 30 days back; a client cannot set a record's date directly. A day in the phrase («5 октября») still goes
+   through the parser.
 6. **The Mini App Home composer calls this endpoint** (FT-114, replacing the quick-capture card). Authenticated
    Telegram Mini App users send a phrase through `POST /api/quick-capture` with a `clientId` per phrase; its records
    — one or several — open one review screen. Guest mode keeps data in browser-local IndexedDB, so server-side quick
@@ -462,7 +500,7 @@ Referenced in the earlier plans/spec, absent from the shipped contract:
 
 | Item | Where it was proposed | Status |
 |---|---|---|
-| `occurredAt` request field | `.hermes/plans/2026-09-02_130400-api-first-quick-actions-spec.md` §5.2 | Not implemented; ignored if sent. |
+| `occurredAt` request field | `.hermes/plans/2026-09-02_130400-api-first-quick-actions-spec.md` §5.2 | Not implemented; ignored if sent. The time of input `capturedAt` shipped instead (FT-175, see [above](#time-of-input-capturedat)). |
 | `clientRequestId` idempotency key | same, §5.2 | Not implemented; ignored if sent. |
 | `draft` status + `POST /api/quick-actions/parse` / `/commit` | same, §5.3 | Not implemented. |
 | `error` status in the response body | same, §5.2 | Not implemented — errors are HTTP status codes. |
@@ -480,6 +518,8 @@ Read these before changing the contract:
 - `src/modules/quickCapture/application/quickCaptureService.ts` — status resolution
 - `src/modules/quickCapture/application/buildCaptureAck.ts` — ack wording
 - `src/modules/quickCapture/application/toCapturedTransaction.ts` — shared transaction mapping (also used by voice)
+- `src/modules/quickCapture/domain/capturedAt.ts` — the format, limits and day of `capturedAt` (FT-175)
+- `src/modules/voiceProcessing/domain/phraseDay.ts` — «сегодня», «вчера», «позавчера» on the fast paths (FT-175)
 - `src/modules/quickCapture/presentation/controllers/quickCaptureController.ts` — HTTP validation, auth, rate limit
 - `src/delivery/web/express/middleware/authMiddleware.ts` — `allowShortcutCapture` (the Shortcut token and its owner)
 - `src/shared/domain/access/shortcutCaptureAccess.ts` — the Shortcut setting rules, also checked at start
@@ -492,5 +532,7 @@ Tests that pin this behavior:
 - `tests/shortcutCaptureOwner.test.ts` — the Shortcut in production: owner binding, token, repeats, start checks (FT-155)
 - `tests/localDevAuth.test.ts`, `tests/allowedTelegramIds.test.ts` — the Shortcut outside production and the list
 - `tests/quickCaptureService.test.ts` — status resolution, semantic safeguards, multi-item, debts
+- `tests/captureTimeOfInput.test.ts`, `tests/capturedAt.test.ts`, `tests/captureDay.test.ts` — the time of input, its
+  limits and repeats, the day words of the fast paths, the Tashkent day before 05:00 (FT-175)
 - `tests/buildCaptureAck.test.ts` — ack wording
 - `tests/telegramMessageHandlers.test.ts` — Telegram routing through the boundary
