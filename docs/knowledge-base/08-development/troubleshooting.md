@@ -386,7 +386,17 @@ OrbStack…). The request then goes to that program.
 
 **Solution:** start test servers with `listenOnLoopback(app)` or `startTestServer(routes)` from
 `tests/helpers/testServer.ts`. They bind `127.0.0.1`, where the kernel skips taken ports, and start the shared rate
-limiters with empty counters. `tests/testServer.test.ts` fails on any test that listens on port 0 without a host.
+limiters with empty counters. `tests/testServer.test.ts` fails on any `listen` call in `tests/` that does not name
+`'127.0.0.1'` itself.
+
+### `npm run verify` Runs Out of Memory in the Main Folder
+
+**Error:** `FATAL ERROR: … JavaScript heap out of memory` during `test:ci`, or `jest-haste-map: Haste module naming
+collision: finance-tracker-backend`; Jest reports far more than 93 suites.
+
+**Cause:** agent copies of the repo live in `.claude/worktrees/` inside it, and `testMatch` took their tests and
+`package.json` too. **Solution:** `jest.config.js` ignores `<rootDir>/.claude/` and `<rootDir>/dist/`
+(`testPathIgnorePatterns`, `modulePathIgnorePatterns`). Check with `npx jest --listTests | grep -c test.ts`.
 
 ---
 
