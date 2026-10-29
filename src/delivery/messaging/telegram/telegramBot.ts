@@ -41,6 +41,21 @@ const MAX_POLLING_RETRY_ATTEMPTS = AppConfig.TELEGRAM_POLLING_MAX_RETRIES;
 const POLLING_RETRY_BASE_DELAY_MS = AppConfig.TELEGRAM_POLLING_RETRY_BASE_MS;
 let telegramBotStatus: TelegramBotRuntimeStatus = { state: 'disabled', attempts: 0 };
 
+/** Above this `setTimeout` fires at once (Node's 2^31 − 1 ms). */
+const MAX_TIMER_MS = 2_147_483_647;
+
+/** The pause before a launch, doubling; never past a timer's limit, which would make it no pause at all. */
+function retryDelay(attempt: number): number {
+  return Math.min(POLLING_RETRY_BASE_DELAY_MS * Math.pow(2, Math.max(0, attempt - 1)), MAX_TIMER_MS);
+}
+
+/**
+ * A launch that has polled this long without an error counts as started (FT-167): the next failure is the first of a
+ * new count, so a 409 days later is retried instead of `failed` at once. Longer than one long poll (50 s) and twice the
+ * longest pause between launches, so two processes that keep taking the token from each other still reach `failed`.
+ */
+export const POLLING_STABLE_MS = Math.max(60_000, retryDelay(MAX_POLLING_RETRY_ATTEMPTS));
+
 export function getTelegramBotStatus(): TelegramBotRuntimeStatus {
   return { ...telegramBotStatus };
 }
@@ -63,10 +78,34 @@ function isPollingConflict(error: unknown): boolean {
   return message.includes('409') || /conflict/i.test(message);
 }
 
-function retryDelay(attempt: number): number {
-  return POLLING_RETRY_BASE_DELAY_MS * Math.pow(2, Math.max(0, attempt - 1));
+/** True when `promise` settled within `ms`, false when the time ran out first. */
+function settlesWithin(promise: Promise<unknown>, ms: number): Promise<boolean> {
+  return new Promise(resolve => {
+    const timer = setTimeout(() => resolve(false), ms);
+    timer.unref?.();
+    const settled = () => {
+      clearTimeout(timer);
+      resolve(true);
+    };
+    promise.then(settled, settled);
+  });
 }
 
+/** The running bot, for the process shutdown (FT-167). */
+export interface TelegramBotHandle {
+  /**
+   * Stops polling and waits, at most `graceMs`, for the updates being handled; Telegraf then confirms their offset.
+   * Resolves either way: an update still running after that is not confirmed, and Telegram sends it again after the
+   * restart.
+   */
+  stop(graceMs: number): Promise<void>;
+}
+
+/** No bot: nothing to wait for. */
+const NO_BOT: TelegramBotHandle = { stop: async () => undefined };
+
+/** Thrown from Telegraf's onLaunch when the shutdown began while getMe was running: the launch ends there. */
+const STOPPING_ERROR = 'Telegram bot is stopping';
 
 /**
  * Creates initial session for a user
@@ -93,6 +132,8 @@ function createInitialSession(userId: string, userName: string): UserSession {
  *   audit reminders (FT-133): their schedulers run here, in the bot's process, and only while the bot polls
  * @param authModule - The web login (FT-128): /start login_<token> asks «Подтвердить» or «Это не я»
  * @param options - `onPollingFailed`: what the process does when the bot is down for good (FT-154)
+ * @returns The handle the process shutdown stops the bot with (FT-167); a bot that is disabled or failed to set up
+ *   gives one that stops at once
  */
 export function startTelegramBot(
   voiceModule: VoiceProcessingModule,
@@ -106,7 +147,7 @@ export function startTelegramBot(
   notificationModule?: NotificationModule,
   authModule?: AuthModule,
   options: TelegramBotOptions = {}
-) {
+): TelegramBotHandle {
   const reportFailure = (status: TelegramBotRuntimeStatus) => {
     if (options.onPollingFailed) {
       options.onPollingFailed(status);
@@ -120,19 +161,19 @@ export function startTelegramBot(
     if (!AppConfig.TG_BOT_API_KEY) {
       telegramBotStatus = { state: 'disabled', attempts: 0, lastError: 'TG_BOT_API_KEY missing' };
       logger.warn('TG_BOT_API_KEY is not set, Telegram bot disabled');
-      return;
+      return NO_BOT;
     }
 
     if (!AppConfig.ENABLE_TELEGRAM_POLLING) {
       telegramBotStatus = { state: 'disabled', attempts: 0, lastError: 'ENABLE_TELEGRAM_POLLING=false' };
       logger.warn('ENABLE_TELEGRAM_POLLING=false, Telegram bot polling disabled');
-      return;
+      return NO_BOT;
     }
 
     if (AppConfig.WEBHOOK_MODE) {
       telegramBotStatus = { state: 'disabled', attempts: 0, lastError: 'WEBHOOK_MODE=true' };
       logger.warn('WEBHOOK_MODE=true, Telegram bot polling disabled');
-      return;
+      return NO_BOT;
     }
 
     // Create bot instance with custom context
@@ -262,11 +303,13 @@ export function startTelegramBot(
     const reminders = notificationModule?.getReminders();
     const sender = summarySender(bot.telegram);
     const remindersSender = reminderSender(bot.telegram);
-    // Set by a signal: no relaunch, no notices started by a getMe that answers late (FT-154)
+    // Set by the shutdown: no relaunch, no polling started by a getMe that answers late (FT-154, FT-167)
     let stopping = false;
     let retryTimer: NodeJS.Timeout | undefined;
+    let stableTimer: NodeJS.Timeout | undefined;
+    // The current launch: settles once polling has ended — after the updates being handled — or the launch failed
+    let polling: Promise<void> | undefined;
     const startNotices = () => {
-      if (stopping) return;
       dailySummary?.start(sender, { firstTickInMs: SUMMARY_TICK_MS });
       reminders?.start(remindersSender, { firstTickInMs: SUMMARY_TICK_MS });
     };
@@ -279,31 +322,44 @@ export function startTelegramBot(
       telegramBotStatus = { state: 'starting', attempts: attempt };
       logger.info('Starting Telegram bot long polling', { attempt });
 
-      const launchPromise = bot.launch(startNotices);
+      let started = false;
+      // Telegraf's onLaunch: getMe answered, polling is about to start
+      const onLaunch = () => {
+        // A throw here rejects the launch before deleteWebhook and getUpdates: no update is taken during the shutdown
+        if (stopping) throw new Error(STOPPING_ERROR);
+        startNotices();
+        stableTimer = setTimeout(() => { started = true; }, POLLING_STABLE_MS);
+        stableTimer.unref?.();
+      };
+
+      const launchPromise = bot.launch(onLaunch);
       telegramBotStatus = { state: 'running', attempts: attempt };
       logger.info('Telegram bot long polling launch requested', { attempt });
 
-      launchPromise.catch((error) => {
+      polling = launchPromise.catch((error) => {
         const message = errorMessage(error);
+        if (stableTimer) clearTimeout(stableTimer);
         // Another instance may be polling this token: it sends the notices, this one does not
         stopNotices();
         if (stopping) return;
 
-        if (isPollingConflict(error) && attempt < MAX_POLLING_RETRY_ATTEMPTS) {
-          const delayMs = retryDelay(attempt);
+        // A launch that polled for a while was a success: this failure starts the count anew (FT-167)
+        const failedAttempt = started ? 1 : attempt;
+        if (isPollingConflict(error) && failedAttempt < MAX_POLLING_RETRY_ATTEMPTS) {
+          const delayMs = retryDelay(failedAttempt);
           const nextRetryAt = new Date(Date.now() + delayMs).toISOString();
-          telegramBotStatus = { state: 'retrying', attempts: attempt, lastError: message, nextRetryAt };
-          logger.warn('Telegram polling conflict; retrying bot launch', { attempt, delayMs, nextRetryAt });
-          retryTimer = setTimeout(() => launchWithRetry(attempt + 1), delayMs);
+          telegramBotStatus = { state: 'retrying', attempts: failedAttempt, lastError: message, nextRetryAt };
+          logger.warn('Telegram polling conflict; retrying bot launch', { attempt: failedAttempt, delayMs, nextRetryAt });
+          retryTimer = setTimeout(() => launchWithRetry(failedAttempt + 1), delayMs);
           retryTimer.unref?.();
           return;
         }
 
-        telegramBotStatus = { state: 'failed', attempts: attempt, lastError: message };
+        telegramBotStatus = { state: 'failed', attempts: failedAttempt, lastError: message };
         logger.error(
           'Telegram bot polling failed permanently',
           error instanceof Error ? error : new Error(String(error)),
-          { attempts: attempt }
+          { attempts: failedAttempt }
         );
         reportFailure(getTelegramBotStatus());
       });
@@ -314,27 +370,36 @@ export function startTelegramBot(
 
     launchWithRetry(1);
 
-    // On a signal the bot only stops polling; src/index.ts closes the rest. Telegraf's stop() throws «Bot is not
-    // running!» before polling started (getMe failed or still running): a throw out of a signal listener would crash
-    // the process past the graceful shutdown (FT-154)
-    const stopBot = (signal: 'SIGINT' | 'SIGTERM') => {
-      logger.info(`${signal} received, stopping bot...`);
+    // The process shutdown stops the bot before it closes the database (FT-167). bot.stop() only aborts getUpdates;
+    // Telegraf's polling loop then finishes the handlers of its batch and confirms the batch's offset, and the launch
+    // promise settles. It throws «Bot is not running!» before polling started (getMe failed or still running): a throw
+    // out of the shutdown would skip it (FT-154)
+    const stop = async (graceMs: number): Promise<void> => {
+      logger.info('Stopping Telegram bot');
       stopping = true;
       if (retryTimer) clearTimeout(retryTimer);
+      if (stableTimer) clearTimeout(stableTimer);
       stopNotices();
       try {
-        bot.stop(signal);
+        bot.stop('shutdown');
       } catch (error) {
         logger.debug('Telegram bot was not polling', { reason: errorMessage(error) });
       }
+      if (!polling) return;
+      if (await settlesWithin(polling, graceMs)) {
+        logger.info('Telegram bot stopped');
+        return;
+      }
+      // Updates still handled, or a launch still waiting for Telegram (getMe, deleteWebhook)
+      logger.warn('Telegram bot did not stop in time; Telegram sends the updates it did not confirm again after the restart', { graceMs });
     };
-    process.once('SIGINT', () => stopBot('SIGINT'));
-    process.once('SIGTERM', () => stopBot('SIGTERM'));
+    return { stop };
 
   } catch (error) {
     // Don't throw: the process owner decides whether to go on without the bot (FT-154)
     telegramBotStatus = { state: 'failed', attempts: 0, lastError: errorMessage(error) };
     logger.error('Failed to start Telegram bot', error instanceof Error ? error : new Error(String(error)));
     reportFailure(getTelegramBotStatus());
+    return NO_BOT;
   }
 }

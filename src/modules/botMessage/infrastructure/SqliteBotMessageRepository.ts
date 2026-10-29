@@ -127,6 +127,7 @@ function parseState(value: string): RecordMessageState {
     if (declined.length > 0) state.declined = declined;
   }
   if (parsed.back === 'confirm') state.back = 'confirm';
+  if (typeof parsed.answeredBy === 'string' && parsed.answeredBy) state.answeredBy = parsed.answeredBy;
   return state;
 }
 

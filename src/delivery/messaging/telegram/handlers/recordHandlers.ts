@@ -37,6 +37,7 @@ import {
 } from '../utils/recordMessageView';
 import { AmountReply, parseAmountCorrection, parseAmountReply, writtenAmountMatches } from '../utils/amountReply';
 import { botUserId } from '../utils/userCategories';
+import { messageClientId, withMessageClientId } from '../utils/messageClientId';
 import { checkTelegramLimit } from '../middleware/subscriptionMiddleware';
 import { BotMessage, openQuestion, RecordMessageMode, RecordMessageState } from '../../../../modules/botMessage/domain/botMessage';
 import { BotMessageLog } from '../../../../modules/botMessage/application/botMessageLog';
@@ -510,8 +511,11 @@ async function changeAmount(
   // The right amount of a large one: the records held for it are written — brought back first, since a
   // deleted record cannot be changed (FT-123)
   const result = message.mode === 'large' ? await releaseLarge(ctx, message, input, changed) : confirmed(message.state, changed);
+  // The chat message that answered: sent again after a restart, it changes nothing more (FT-167)
+  const answeredBy = messageClientId(ctx);
+  const saved = answeredBy ? { ...result, state: { ...result.state, answeredBy } } : result;
   await update(ctx, record.id, changes);
-  await redrawRecordMessage(ctx, await log.save(message, result));
+  await redrawRecordMessage(ctx, await log.save(message, saved));
 
   const view: RecordView = { ...record, amountMinor: reply.amountMinor, currency: reply.currency };
   const assumed = reply.written && sayAssumed ? `. ${quoted(reply.written)} понял как ${amountWithUnit(reply.amountMinor, reply.currency)}` : '';
@@ -579,6 +583,8 @@ async function answerMissing(ctx: BotContext, log: BotMessageLog, message: BotMe
     userId,
     userName: userNameOf(ctx),
     source: 'telegram',
+    // The answer sent again after a restart writes nothing (FT-167)
+    ...withMessageClientId(ctx),
   });
   if (captured.transactions.length === 0) {
     // Nothing written: the question stays open

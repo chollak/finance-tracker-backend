@@ -22,6 +22,7 @@ import { captureAssumptions } from './captureAssumptions';
 import { captureMoneyOf } from './captureMoney';
 import { fromMinor } from '../../../shared/domain/money/money';
 import { NoSpeechDetectedError } from '../domain/voiceErrors';
+import { itemClientId } from '../../transaction/domain/clientId';
 
 const logger = getLogger(LogCategory.OPENAI);
 
@@ -151,7 +152,7 @@ export class ProcessVoiceInputUseCase {
       const learned = parsed.transactions.length > 0 ? await learnedWordsFor(this.learnedWords) : new Map<string, readonly string[]>();
 
       // Process transactions
-      for (const p of parsed.transactions) {
+      for (const [index, p] of parsed.transactions.entries()) {
         try {
           const type = p.type === 'income' ? 'income' : 'expense';
           const semanticType = normalizeSemanticType(p.semanticType, type);
@@ -173,6 +174,7 @@ export class ProcessVoiceInputUseCase {
             merchant: p.merchant,
             confidence: p.confidence,
             originalText: recognizedText,
+            ...(input.clientId ? { clientId: itemClientId(input.clientId, index) } : {}),
             originalParsing: {
               amount: money.amount,
               category: p.category || 'Другое',

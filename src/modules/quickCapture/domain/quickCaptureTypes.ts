@@ -94,6 +94,8 @@ export interface AmountAnswerRequest {
   userId: string;
   userName?: string;
   source?: CaptureSource;
+  /** The client's id for the answer (FT-167): the bot's answer sent again after a restart writes nothing. */
+  clientId?: string;
 }
 
 export type CaptureAckAction = 'edit' | 'delete' | 'review';
