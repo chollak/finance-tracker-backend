@@ -10,6 +10,8 @@ import { errorHandler } from '../src/delivery/web/express/middleware/errorMiddle
 import { openMigratedDatabase, TestDatabase } from './helpers/testDatabase';
 import { recordsOn } from './helpers/records';
 import { listenOnLoopback } from './helpers/testServer';
+import { UserModule } from '../src/modules/user/userModule';
+import { SqliteUserRepository } from '../src/modules/user/infrastructure/persistence/SqliteUserRepository';
 
 const CLIENT_ID = '6f1c2b3a-4d5e-4f60-8a7b-9c0d1e2f3a4b';
 const unused = { execute: jest.fn() } as never;
@@ -87,7 +89,8 @@ describe('idempotent create for the offline queue (FT-106)', () => {
       app.use(express.json());
       app.use('/api/transactions', createTransactionRouter(
         records.create, unused, unused, unused, new GetTransactionByIdUseCase(records.repository),
-        unused, records.update, unused, unused, unused, unused, unused, unused
+        unused, records.update, unused, unused, unused, unused, unused, unused,
+        undefined, new UserModule(new SqliteUserRepository(db.dataSource))
       ));
       app.use(errorHandler);
       ({ server, baseUrl } = await listenOnLoopback(app));

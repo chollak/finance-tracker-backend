@@ -24,9 +24,9 @@ export function createDebtRouter(
   // ==================== USER-SCOPED ROUTES ====================
   // Debts for a specific user (consistent with /transactions/user/:userId pattern)
   // Protected with auth + ownership verification (guests allowed)
-  router.post('/user/:userId', allowGuestMode, resolveUser, verifyOwnership, controller.createDebt);
-  router.get('/user/:userId', allowGuestMode, resolveUser, verifyOwnership, controller.getDebts);
-  router.get('/user/:userId/summary', allowGuestMode, resolveUser, verifyOwnership, controller.getSummary);
+  router.post('/user/:userId', allowGuestMode, verifyOwnership, resolveUser, controller.createDebt);
+  router.get('/user/:userId', allowGuestMode, verifyOwnership, resolveUser, controller.getDebts);
+  router.get('/user/:userId/summary', allowGuestMode, verifyOwnership, resolveUser, controller.getSummary);
 
   // ==================== DEBT-SCOPED ROUTES ====================
   // Single debt operations

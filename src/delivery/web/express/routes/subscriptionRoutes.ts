@@ -8,25 +8,32 @@ import { SubscriptionModule } from '../../../../modules/subscription/subscriptio
 import { UserModule } from '../../../../modules/user/userModule';
 import { SubscriptionController } from '../../../../modules/subscription/presentation/subscriptionController';
 import { createUserResolutionMiddleware } from '../middleware/userResolutionMiddleware';
-import { allowGuestMode, requireAuth, requireAdmin, verifyOwnership } from '../middleware/authMiddleware';
+import { createResolveCurrentUserMiddleware } from '../middleware/currentUserMiddleware';
+import { requireAuth, requireAdmin, verifyOwnership } from '../middleware/authMiddleware';
 import { standardRateLimiter, adminRateLimiter, strictRateLimiter } from '../middleware/rateLimitMiddleware';
 
+/**
+ * The user's own routes take the user from authentication (FT-162): a userId the path, query or body still carries
+ * must be the signed-in user's Telegram id as a string, checked before anything is resolved — someone else's id is 403
+ * and creates no user row. Only the admin grant names whom it is for, in the body.
+ */
 export function createSubscriptionRoutes(
   subscriptionModule: SubscriptionModule,
   userModule: UserModule
 ): Router {
   const router = Router();
   const controller = new SubscriptionController(subscriptionModule);
-  const resolveUser = createUserResolutionMiddleware(userModule);
+  const resolveCurrentUser = createResolveCurrentUserMiddleware(userModule);
+  // The admin grant's target: the user it names, created on first contact
+  const resolveGrantTarget = createUserResolutionMiddleware(userModule);
 
-  // GET /api/subscription/:userId - Get subscription status
-  // Allows guest mode (guests have default free limits)
+  // GET /api/subscription/:userId - Get subscription status; the path id must be the signed-in user's
   router.get(
     '/:userId',
     standardRateLimiter,
-    allowGuestMode,
-    resolveUser,
+    requireAuth,
     verifyOwnership,
+    resolveCurrentUser,
     (req, res) => controller.getSubscriptionStatus(req, res)
   );
 
@@ -34,9 +41,9 @@ export function createSubscriptionRoutes(
   router.post(
     '/check-limit',
     standardRateLimiter,
-    allowGuestMode,
-    resolveUser,
+    requireAuth,
     verifyOwnership,
+    resolveCurrentUser,
     (req, res) => controller.checkLimit(req, res)
   );
 
@@ -47,7 +54,7 @@ export function createSubscriptionRoutes(
     adminRateLimiter,
     requireAuth,
     requireAdmin,
-    resolveUser,
+    resolveGrantTarget,
     (req, res) => controller.grantPremium(req, res)
   );
 
@@ -56,8 +63,8 @@ export function createSubscriptionRoutes(
     '/cancel',
     strictRateLimiter,
     requireAuth,
-    resolveUser,
     verifyOwnership,
+    resolveCurrentUser,
     (req, res) => controller.cancelSubscription(req, res)
   );
 
@@ -66,8 +73,8 @@ export function createSubscriptionRoutes(
     '/start-trial',
     strictRateLimiter,
     requireAuth,
-    resolveUser,
     verifyOwnership,
+    resolveCurrentUser,
     (req, res) => controller.startTrial(req, res)
   );
 

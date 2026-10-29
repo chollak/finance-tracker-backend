@@ -22,9 +22,9 @@ import { SUCCESS_MESSAGES } from '../../../../shared/domain/constants/messages';
 import { SubscriptionModule } from '../../../subscription/subscriptionModule';
 import { UserModule } from '../../../user/userModule';
 import { createUserResolutionMiddleware } from '../../../../delivery/web/express/middleware/userResolutionMiddleware';
-import { allowGuestMode, optionalAuth, verifyOwnership, requireAdmin, requireAuth, writeAsSignedInUser } from '../../../../delivery/web/express/middleware/authMiddleware';
+import { allowGuestMode, optionalAuth, verifyOwnership, requireAdmin, requireAuth } from '../../../../delivery/web/express/middleware/authMiddleware';
 import { standardRateLimiter } from '../../../../delivery/web/express/middleware/rateLimitMiddleware';
-import { createCurrentUserMiddleware, currentUserId } from '../../../../delivery/web/express/middleware/currentUserMiddleware';
+import { createCurrentUserMiddleware, createResolveCurrentUserMiddleware, currentUserId } from '../../../../delivery/web/express/middleware/currentUserMiddleware';
 import { verifyResourceOwnership } from '../../../../shared/infrastructure/utils/ownershipVerification';
 import { createLogger, LogCategory } from '../../../../shared/infrastructure/logging';
 // Import for type extensions on Express.Request
@@ -110,7 +110,7 @@ export function createTransactionRouter(
 
   // Enhanced analytics endpoints with time filtering
   // Protected with auth + ownership verification
-  router.get('/analytics/summary/:userId', allowGuestMode, resolveUser, verifyOwnership, async (req, res) => {
+  router.get('/analytics/summary/:userId', allowGuestMode, verifyOwnership, resolveUser, async (req, res) => {
     try {
       // Use resolved UUID from middleware (falls back to raw param if not resolved)
       const userId = req.resolvedUser?.id || req.params.userId;
@@ -131,7 +131,7 @@ export function createTransactionRouter(
     }
   });
 
-  router.get('/analytics/categories/:userId', allowGuestMode, resolveUser, verifyOwnership, async (req, res) => {
+  router.get('/analytics/categories/:userId', allowGuestMode, verifyOwnership, resolveUser, async (req, res) => {
     try {
       // Use resolved UUID from middleware
       const userId = req.resolvedUser?.id || req.params.userId;
@@ -152,7 +152,7 @@ export function createTransactionRouter(
     }
   });
 
-  router.get('/analytics/trends/:userId', allowGuestMode, resolveUser, verifyOwnership, async (req, res) => {
+  router.get('/analytics/trends/:userId', allowGuestMode, verifyOwnership, resolveUser, async (req, res) => {
     try {
       // Use resolved UUID from middleware
       const userId = req.resolvedUser?.id || req.params.userId;
@@ -165,7 +165,7 @@ export function createTransactionRouter(
     }
   });
 
-  router.get('/analytics/patterns/:userId', allowGuestMode, resolveUser, verifyOwnership, async (req, res) => {
+  router.get('/analytics/patterns/:userId', allowGuestMode, verifyOwnership, resolveUser, async (req, res) => {
     try {
       // Use resolved UUID from middleware
       const userId = req.resolvedUser?.id || req.params.userId;
@@ -186,7 +186,7 @@ export function createTransactionRouter(
     }
   });
 
-  router.get('/analytics/top-categories/:userId', allowGuestMode, resolveUser, verifyOwnership, async (req, res) => {
+  router.get('/analytics/top-categories/:userId', allowGuestMode, verifyOwnership, resolveUser, async (req, res) => {
     try {
       // Use resolved UUID from middleware
       const userId = req.resolvedUser?.id || req.params.userId;
@@ -210,47 +210,46 @@ export function createTransactionRouter(
 
   // Usage is counted by CreateTransactionUseCase, once per created transaction — a route-level
   // increment here counted every POST twice.
-  // The signed-in user writes for themselves: a body naming another user is refused (2026-10-21)
-  router.post('/', requireAuth, writeAsSignedInUser, resolveUser, async (req, res) => {
-    try {
-      // Use resolved UUID from middleware (for body.userId)
-      if (req.resolvedUser?.id && req.body.userId) {
-        req.body.userId = req.resolvedUser.id;
-      }
+  // The record is the signed-in user's (FT-162): the body's userId is never read as the owner. The Mini App's outbox
+  // still sends one; it must be the signed-in user's Telegram id (verifyOwnership: someone else's is 403, checked
+  // before anything is resolved), and the owner is then taken from authentication.
+  if (userModule) {
+    router.post('/', requireAuth, verifyOwnership, createResolveCurrentUserMiddleware(userModule), async (req, res) => {
+      try {
+        // Validate input using our new validation system
+        const validationResult = TransactionValidator.validate({ ...req.body, userId: currentUserId(req) });
 
-      // Validate input using our new validation system
-      const validationResult = TransactionValidator.validate(req.body);
+        if (!validationResult.success) {
+          // Return validation errors in standardized format
+          const validationError = ErrorFactory.validation(
+            `Validation failed: ${validationResult.error.map(e => e.message).join(', ')}`
+          );
+          return handleControllerError(validationError, res);
+        }
 
-      if (!validationResult.success) {
-        // Return validation errors in standardized format
-        const validationError = ErrorFactory.validation(
-          `Validation failed: ${validationResult.error.map(e => e.message).join(', ')}`
+        const transaction = validationResult.data;
+        // A repeat of a clientId the user already sent answers 200 with that record, deleted or not (FT-106)
+        let repeat: Transaction | undefined;
+        const createResult = await createUseCase.execute(transaction, { onRepeat: existing => { repeat = existing; } });
+
+        if (!createResult.success) {
+          return handleControllerError(createResult.error, res);
+        }
+
+        if (repeat) {
+          return handleControllerSuccess({ id: repeat.id, transaction: repeat, repeated: true }, res, 200);
+        }
+        handleControllerSuccess(
+          { id: createResult.data, transaction },
+          res,
+          201,
+          SUCCESS_MESSAGES.TRANSACTION_CREATED
         );
-        return handleControllerError(validationError, res);
+      } catch (error) {
+        handleControllerError(error, res);
       }
-
-      const transaction = validationResult.data;
-      // A repeat of a clientId the user already sent answers 200 with that record, deleted or not (FT-106)
-      let repeat: Transaction | undefined;
-      const createResult = await createUseCase.execute(transaction, { onRepeat: existing => { repeat = existing; } });
-
-      if (!createResult.success) {
-        return handleControllerError(createResult.error, res);
-      }
-
-      if (repeat) {
-        return handleControllerSuccess({ id: repeat.id, transaction: repeat, repeated: true }, res, 200);
-      }
-      handleControllerSuccess(
-        { id: createResult.data, transaction },
-        res,
-        201,
-        SUCCESS_MESSAGES.TRANSACTION_CREATED
-      );
-    } catch (error) {
-      handleControllerError(error, res);
-    }
-  });
+    });
+  }
 
   // History with search and filters (FT-107): the user from authentication, never from the query.
   // Replaces the admin list of everyone's records.
@@ -294,7 +293,7 @@ export function createTransactionRouter(
     });
   }
 
-  router.get('/user/:userId', allowGuestMode, resolveUser, verifyOwnership, async (req, res) => {
+  router.get('/user/:userId', allowGuestMode, verifyOwnership, resolveUser, async (req, res) => {
     try {
       // Use resolved UUID from middleware
       const userId = req.resolvedUser?.id || getStringParam(req, 'userId');
@@ -559,7 +558,7 @@ export function createTransactionRouter(
     }
   });
 
-  router.post('/archive/all/:userId', allowGuestMode, resolveUser, verifyOwnership, async (req, res) => {
+  router.post('/archive/all/:userId', allowGuestMode, verifyOwnership, resolveUser, async (req, res) => {
     try {
       // Use resolved UUID from middleware
       const userId = req.resolvedUser?.id || getStringParam(req, 'userId');
@@ -576,7 +575,7 @@ export function createTransactionRouter(
     }
   });
 
-  router.get('/archived/user/:userId', allowGuestMode, resolveUser, verifyOwnership, async (req, res) => {
+  router.get('/archived/user/:userId', allowGuestMode, verifyOwnership, resolveUser, async (req, res) => {
     try {
       // Use resolved UUID from middleware
       const userId = req.resolvedUser?.id || getStringParam(req, 'userId');

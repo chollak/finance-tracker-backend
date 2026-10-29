@@ -402,22 +402,47 @@ export function optionalAuth(req: Request, _res: Response, next: NextFunction): 
   next();
 }
 
+/** Every userId a request carries — in the path, the query and the body: user resolution reads any of them. */
+function userIdClaims(req: Request): unknown[] {
+  return [req.params?.userId, req.query?.userId, req.body?.userId].filter(claim => claim !== undefined);
+}
+
+/**
+ * Refuses a request whose userIds are not all the signed-in user's own Telegram id, and says whether it did (FT-162).
+ *
+ * - 400 `INVALID_USER_ID`: a userId that is not one non-blank string — a number, the array `?userId=a&userId=b` makes,
+ *   an object, null, an empty string. User resolution would fail on it with 500.
+ * - 403 `ACCESS_DENIED`: a userId naming anyone else. Ids compare as the strings user resolution would look up, so
+ *   `0131184740` is someone else — resolving it would create a user row for it. A UUID or a `guest_*` id is someone
+ *   else too: it says nothing about who sent the request, and there are no guests any more (decision Д4).
+ */
+function refusedUserIdClaims(req: Request, res: Response, signedIn: string, refusal: string): boolean {
+  const claimed = userIdClaims(req).map(claim => (typeof claim === 'string' ? claim.trim() : ''));
+  if (claimed.includes('')) {
+    res.status(400).json({ success: false, error: 'userId must be one Telegram id, as a string', code: 'INVALID_USER_ID' });
+    return true;
+  }
+  if (claimed.some(id => id !== signedIn)) {
+    // The route's pattern, not the ids: a claimed id is whatever the client sent
+    logger.warn('Request naming another user refused', { signedIn, route: `${req.baseUrl}${req.route?.path ?? ''}` });
+    res.status(403).json({ success: false, error: refusal, code: 'ACCESS_DENIED' });
+    return true;
+  }
+  return false;
+}
+
 /**
  * Verify request user matches the resource owner
  *
- * Prevents IDOR attacks: the userId in the path, body or query must be the signed-in user's own Telegram id
- * (2026-10-21). A UUID or a `guest_*` id is refused — it says nothing about who sent the request, and there are
- * no guests any more (decision Д4).
+ * Prevents IDOR attacks: every userId in the path, query or body must be the signed-in user's own Telegram id
+ * (2026-10-21). Runs before user resolution (FT-162), so a refused request resolves no one and creates no user row.
  *
  * @example
- * router.get('/transactions/:userId', requireAuth, verifyOwnership, handler);
+ * router.get('/transactions/:userId', requireAuth, verifyOwnership, resolveUser, handler);
  */
 export function verifyOwnership(req: Request, res: Response, next: NextFunction): void {
-  // Get target userId from request
-  const targetUserId = req.params.userId || req.body?.userId || req.query?.userId;
-
-  if (!targetUserId) {
-    // No userId to check - allow (some endpoints may not need it)
+  // No userId to check: the route takes the user from authentication or needs none
+  if (userIdClaims(req).length === 0) {
     next();
     return;
   }
@@ -431,20 +456,7 @@ export function verifyOwnership(req: Request, res: Response, next: NextFunction)
     return;
   }
 
-  const authTelegramId = req.telegramUser.id.toString();
-  // userResolutionMiddleware leaves telegramId null for a UUID or a guest id: it names no one this request signed in as
-  const targetTelegramId = req.resolvedUser ? req.resolvedUser.telegramId : String(targetUserId).trim();
-
-  if (targetTelegramId !== authTelegramId) {
-    logger.warn('Ownership mismatch', { authTelegramId, targetUserId });
-    res.status(403).json({
-      success: false,
-      error: 'You can only access your own resources',
-      code: 'ACCESS_DENIED',
-    });
-    return;
-  }
-
+  if (refusedUserIdClaims(req, res, String(req.telegramUser.id), 'You can only access your own resources')) return;
   next();
 }
 
@@ -629,8 +641,9 @@ export function allowGuestMode(req: Request, res: Response, next: NextFunction):
 
 /**
  * A write for the signed-in user (2026-10-21). A `userId` the path, query or body still carries — the Mini App's
- * outbox, older clients — must be that user's Telegram id, or the write is refused: never another account. The body is then set to
- * the signed-in user, so user resolution and the handler see only them. Behind requireAuth.
+ * outbox, older clients — must be that user's Telegram id as a string, or the write is refused: never another account
+ * (403), never a userId that is not one string (400, FT-162). The body is then set to the signed-in user, so user
+ * resolution and the handler see only them. Behind requireAuth.
  */
 export function writeAsSignedInUser(req: Request, res: Response, next: NextFunction): void {
   if (!req.isAuthenticated || !req.telegramUser) {
@@ -639,16 +652,7 @@ export function writeAsSignedInUser(req: Request, res: Response, next: NextFunct
   }
 
   const signedIn = String(req.telegramUser.id);
-  // Every place a userId can come from: user resolution reads the path and the query before the body
-  const claims = [req.params?.userId, req.query?.userId, req.body?.userId];
-  const othersClaimed = claims.some(
-    claimed => claimed !== undefined && claimed !== null && claimed !== '' && String(claimed).trim() !== signedIn
-  );
-  if (othersClaimed) {
-    logger.warn('Write for another user refused', { signedIn });
-    res.status(403).json({ success: false, error: 'You can only write your own records', code: 'ACCESS_DENIED' });
-    return;
-  }
+  if (refusedUserIdClaims(req, res, signedIn, 'You can only write your own records')) return;
 
   if (req.body && typeof req.body === 'object') req.body.userId = signedIn;
   next();

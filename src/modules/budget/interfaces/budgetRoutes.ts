@@ -23,12 +23,12 @@ export function createBudgetRouter(
 
   // Budget CRUD operations (user-scoped)
   // Protected with auth + ownership verification (guests allowed)
-  router.post('/users/:userId/budgets', allowGuestMode, resolveUser, verifyOwnership, controller.createBudget);
-  router.get('/users/:userId/budgets', allowGuestMode, resolveUser, verifyOwnership, controller.getBudgets);
+  router.post('/users/:userId/budgets', allowGuestMode, verifyOwnership, resolveUser, controller.createBudget);
+  router.get('/users/:userId/budgets', allowGuestMode, verifyOwnership, resolveUser, controller.getBudgets);
 
   // Budget analytics and summaries
-  router.get('/users/:userId/budgets/summaries', allowGuestMode, resolveUser, verifyOwnership, controller.getBudgetSummaries);
-  router.get('/users/:userId/budgets/alerts', allowGuestMode, resolveUser, verifyOwnership, controller.getBudgetAlerts);
+  router.get('/users/:userId/budgets/summaries', allowGuestMode, verifyOwnership, resolveUser, controller.getBudgetSummaries);
+  router.get('/users/:userId/budgets/alerts', allowGuestMode, verifyOwnership, resolveUser, controller.getBudgetAlerts);
 
   // Budget CRUD operations (budget-scoped)
   // Ownership verification is done in controller by fetching budget and checking userId
