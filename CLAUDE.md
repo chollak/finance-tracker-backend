@@ -83,7 +83,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Required environment variables in `.env` file:
 - `OPENAI_API_KEY` - For voice transcription and transaction parsing
-- `TG_BOT_API_KEY` - Telegram bot token
+- `TG_BOT_API_KEY` - Telegram bot token; with `NODE_ENV=production` and polling on (`ENABLE_TELEGRAM_POLLING` not `false`) an empty one stops the start (FT-167)
 - `WEB_APP_URL` - Public URL for the web application
 - `ALLOWED_TELEGRAM_IDS` - closed access (FT-153): Telegram user ids, comma-separated. The bot ignores anyone else silently (a `warn` with the id in the log), the API answers `403 ACCESS_NOT_ALLOWED` before any user is resolved, итоги дня and reminders go only to them. Empty lets everyone in outside production; with `NODE_ENV=production` an empty list stops the start; an entry that is not a whole number stops it everywhere
 - `TG_BOT_USERNAME` - optional; the bot's @username for the web login link `t.me/<bot>?start=login_…` (FT-128). When empty the server asks Telegram (`getMe`)
