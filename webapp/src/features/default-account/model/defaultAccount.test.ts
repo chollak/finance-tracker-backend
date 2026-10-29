@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Account } from '@/entities/account';
 import { NBSP } from '@/shared/lib/money';
-import { DEFAULT_ACCOUNT_NOTE, defaultAccountView } from './defaultAccount';
+import { DEFAULT_ACCOUNT_NOTE, DEFAULT_ACCOUNT_REFUSED, DEFAULT_ACCOUNT_SAVE_FAILED, defaultAccountSaveNotice, defaultAccountView } from './defaultAccount';
 
 const account = (overrides: Partial<Account>): Account => ({
   id: 'card', name: 'Карта', kind: 'card', currency: 'UZS', openingBalanceMinor: 0, openingDate: '2026-08-01', isHidden: false, sortOrder: 20, balanceMinor: 0, ...overrides,
@@ -65,5 +65,18 @@ describe('defaultAccountView', () => {
     expect(view.account).toBeNull();
     expect(view.state).toBe('Счетов пока нет');
     expect(view.options).toEqual([]);
+  });
+});
+
+describe('defaultAccountSaveNotice', () => {
+  it('a refusal of the server (the account was hidden or deleted elsewhere) is not a connection problem', () => {
+    expect(defaultAccountSaveNotice({ statusCode: 400 })).toEqual(DEFAULT_ACCOUNT_REFUSED);
+    expect(DEFAULT_ACCOUNT_REFUSED.detail).not.toContain('связь');
+  });
+
+  it('no answer, or the server failing, asks to check the connection and try again', () => {
+    expect(defaultAccountSaveNotice({ statusCode: 0 })).toEqual(DEFAULT_ACCOUNT_SAVE_FAILED);
+    expect(defaultAccountSaveNotice({ statusCode: 500 })).toEqual(DEFAULT_ACCOUNT_SAVE_FAILED);
+    expect(defaultAccountSaveNotice({})).toEqual(DEFAULT_ACCOUNT_SAVE_FAILED);
   });
 });

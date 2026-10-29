@@ -29,7 +29,20 @@ export interface DefaultAccountView {
 /** What the setting does; a record that names an account or a currency goes to that one (`accountBook.ts`). */
 export const DEFAULT_ACCOUNT_NOTE = 'Сюда пойдут новые записи, если в них не назван другой счёт или валюта: «нал», «картой», «55$».';
 
-export const DEFAULT_ACCOUNT_SAVE_FAILED = { title: 'Не получилось сменить счёт', detail: 'Проверьте связь и попробуйте ещё раз' } as const;
+export interface DefaultAccountNotice {
+  title: string;
+  detail: string;
+}
+
+export const DEFAULT_ACCOUNT_SAVE_FAILED: DefaultAccountNotice = { title: 'Не получилось сменить счёт', detail: 'Проверьте связь и попробуйте ещё раз' };
+
+/** The server refused the account (400): it was hidden or deleted on another device after the list was read. */
+export const DEFAULT_ACCOUNT_REFUSED: DefaultAccountNotice = { title: 'Этот счёт больше нельзя выбрать', detail: 'Его скрыли или удалили — выберите другой' };
+
+/** What a save that failed says: the server refused the account, or the answer never came. */
+export function defaultAccountSaveNotice(error: { statusCode?: number }): DefaultAccountNotice {
+  return error.statusCode === 400 ? DEFAULT_ACCOUNT_REFUSED : DEFAULT_ACCOUNT_SAVE_FAILED;
+}
 
 export function defaultAccountView(accounts: readonly Account[], defaultAccountId: string | null | undefined): DefaultAccountView {
   const account = defaultRecordAccount(accounts, defaultAccountId);

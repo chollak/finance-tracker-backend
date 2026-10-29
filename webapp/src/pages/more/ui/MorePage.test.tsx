@@ -429,6 +429,30 @@ describe('«Ещё» in Telegram', () => {
       expect(toasts()).toEqual([['Не получилось сменить счёт', 'Проверьте связь и попробуйте ещё раз']]);
     });
 
+    it('an account the server refuses (hidden elsewhere meanwhile) is named so, and the accounts are read again', async () => {
+      let accounts = ACCOUNTS;
+      vi.mocked(apiClient.get).mockImplementation(async (url: string) => {
+        if (url === '/accounts') return { success: true, data: accounts } as never;
+        if (url === '/settings') return { success: true, data: settings } as never;
+        return new Promise<never>(() => {});
+      });
+      vi.mocked(apiClient.patch).mockRejectedValue({ statusCode: 400, code: 'VALIDATION_ERROR', message: 'defaultAccountId must be one of your visible accounts' });
+      const accountReads = () => vi.mocked(apiClient.get).mock.calls.filter(([url]) => url === '/accounts').length;
+      await renderMore();
+      await press(defaultRow());
+      // «Карта» was hidden on another device after the list was read
+      accounts = { ...ACCOUNTS, accounts: ACCOUNTS.accounts.map((item) => (item.id === 'card' ? { ...item, isHidden: true } : item)) };
+      const readsBefore = accountReads();
+
+      await press(inSheet('Карта'));
+
+      expect(toasts()).toEqual([['Этот счёт больше нельзя выбрать', 'Его скрыли или удалили — выберите другой']]);
+      expect(defaultState()).toBe('Счёт по умолчанию · Наличные · первый в списке');
+      expect(accountReads()).toBeGreaterThan(readsBefore);
+      await press(defaultRow());
+      expect(choices().map(([name]) => name)).toEqual(['Наличные', 'Доллары']);
+    });
+
     it('when the chosen account is hidden, the row and the sheet say records go to the first visible one', async () => {
       settings = { ...SETTINGS, defaultAccountId: 'old' };
       await renderMore();
