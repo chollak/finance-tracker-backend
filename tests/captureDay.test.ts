@@ -171,6 +171,11 @@ describe('the AI is told the day the phrase was said (FT-175)', () => {
     const result = await service.analyzeInput('кофе 25к и занял 300к у Азиза', { today: '2026-10-25' });
 
     expect(requests[0].messages[0].content).toContain('Сегодня 2026-10-25, воскресенье');
+    // The week up to that day, so the model looks a weekday up instead of counting: «в понедельник» is the 19th
+    expect(requests[0].messages[0].content).toContain(
+      'Последние 7 дней: воскресенье 2026-10-25, суббота 2026-10-24, пятница 2026-10-23, четверг 2026-10-22, ' +
+      'среда 2026-10-21, вторник 2026-10-20, понедельник 2026-10-19'
+    );
     expect(result.transactions.map(transaction => transaction.date)).toEqual(['2026-10-25', '2026-10-25']);
   });
 });

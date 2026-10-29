@@ -15,9 +15,16 @@ import { AnalysisContext, buildCategoryPrompt } from '../domain/categoryPrompt';
 import { ItemWithoutAmount } from '../domain/processedTransaction';
 import { normalizeSemanticType } from '../../transaction/domain/transactionSemanticType';
 import { createLogger, LogCategory } from '../../../shared/infrastructure/logging';
-import { todayDateOnly, weekdayOfDateOnly } from '../../../shared/domain/dates/dateOnly';
+import { addDaysToDateOnly, todayDateOnly, weekdayOfDateOnly } from '../../../shared/domain/dates/dateOnly';
 
 const logger = createLogger(LogCategory.OPENAI);
+
+/** The 7 days up to `today`, newest first: «воскресенье 2026-10-25, суббота 2026-10-24, …». */
+function weekUpTo(today: string, locale: string): string {
+  return Array.from({ length: 7 }, (_, back) => addDaysToDateOnly(today, -back))
+    .map(date => `${weekdayOfDateOnly(date, locale)} ${date}`)
+    .join(', ');
+}
 
 export class OpenAITranscriptionService implements TranscriptionService {
   private openai: OpenAI;
@@ -82,7 +89,10 @@ export class OpenAITranscriptionService implements TranscriptionService {
       );
 
       const messages: ChatCompletionMessageParam[] = [
-        { role: 'system', content: prompts.SYSTEM_FINANCIAL_ASSISTANT(today, weekdayOfDateOnly(today, prompts.LOCALE)) },
+        {
+          role: 'system',
+          content: prompts.SYSTEM_FINANCIAL_ASSISTANT(today, weekdayOfDateOnly(today, prompts.LOCALE), weekUpTo(today, prompts.LOCALE)),
+        },
         { role: 'user', content: enhancedUserPrompt },
         { role: 'user', content: text },
       ];

@@ -136,7 +136,7 @@ const transcription = await openai.audio.transcriptions.create({
 **Enhanced Prompt Example:**
 ```
 You are a financial assistant. Parse this text into transaction.
-Today is 2026-01-09, Friday.
+Today is 2026-01-09, Friday. The last 7 days: Friday 2026-01-09, Thursday 2026-01-08, …
 
 Learned patterns:
 - "хлеб", "молоко" → category "groceries"

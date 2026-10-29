@@ -46,9 +46,13 @@ export const OPENAI_PROMPTS = {
     /** The language the weekday in `SYSTEM_FINANCIAL_ASSISTANT` is written in. */
     LOCALE: 'ru-RU',
 
-    /** `today` is the day the phrase was said, on the user's calendar (FT-175). */
-    SYSTEM_FINANCIAL_ASSISTANT: (today: string, weekday: string) =>
-      `Ты эксперт финансовый ассистент. Сегодня ${today}, ${weekday}. Основная валюта: узбекский сум (UZS).
+    /**
+     * `today` is the day the phrase was said, on the user's calendar; `week` — the 7 days up to it with their weekdays,
+     * so the model looks «в понедельник» up instead of counting (FT-175).
+     */
+    SYSTEM_FINANCIAL_ASSISTANT: (today: string, weekday: string, week: string) =>
+      `Ты эксперт финансовый ассистент. Сегодня ${today}, ${weekday}. Последние 7 дней: ${week}.
+      Основная валюта: узбекский сум (UZS).
 
       ВАЖНЫЕ ПРАВИЛА:
       - Всегда возвращай ответ в формате JSON с полем "items" (массив)
@@ -131,8 +135,9 @@ ${categoryPrompt}
   EN: {
     LOCALE: 'en-US',
 
-    SYSTEM_FINANCIAL_ASSISTANT: (today: string, weekday: string) =>
-      `You are an expert financial assistant. Today is ${today}, ${weekday}. Main currency: Uzbek Sum (UZS).
+    SYSTEM_FINANCIAL_ASSISTANT: (today: string, weekday: string, week: string) =>
+      `You are an expert financial assistant. Today is ${today}, ${weekday}. The last 7 days: ${week}.
+      Main currency: Uzbek Sum (UZS).
 
       IMPORTANT RULES:
       - Always return response in JSON array format

@@ -196,8 +196,10 @@ A phrase from the iOS app's offline queue (FT-161) reaches the server hours or d
   A phrase that names any other day — a weekday («в понедельник»), «завтра», «неделю назад», «на прошлой неделе»,
   «вчерашний», «на днях», «в выходные» — goes to the AI. A month alone does not: «аренда на ноябрь» is a period, and
   «5 ноября» holds a second number, which sends the phrase to the AI anyway.
-- **The AI** is told the day of input and its weekday («Сегодня 2026-10-27, вторник») and counts «вчера», a weekday
-  and the rest from it; a record it gives no date gets the day of input.
+- **The AI** is told the day of input with its weekday and the 7 days up to it («Сегодня 2026-10-27, вторник.
+  Последние 7 дней: вторник 2026-10-27, понедельник 2026-10-26, …») and counts «вчера», a weekday and the rest from
+  it; a record it gives no date gets the day of input. The list is there because the model miscounted weekdays from
+  the date alone (`gpt-4.1-mini`: «в понедельник» typed on Tuesday the 27th came back as Sunday the 25th).
 - **Ahead of the server** by up to **5 minutes** the time is taken as is: the phone's and the PC's clocks drift a
   little. **Further ahead it is dated by the server's clock** («now») with a warning in the log: a phrase is not typed
   after it arrives, so one of the clocks is wrong — and the PC's in WSL is known to lag after a sleep, which with a
