@@ -1,6 +1,5 @@
 import express from 'express';
 import http from 'http';
-import { AddressInfo } from 'net';
 import { createTransactionRouter } from '../src/modules/transaction/presentation/controllers/transactionController';
 import { DeleteTransactionUseCase, RestoreTransactionUseCase } from '../src/modules/transaction/application/deleteTransaction';
 import { GetTransactionByIdUseCase } from '../src/modules/transaction/application/getTransactionById';
@@ -8,6 +7,7 @@ import { AnalyticsService } from '../src/modules/transaction/application/analyti
 import { errorHandler } from '../src/delivery/web/express/middleware/errorMiddleware';
 import { openMigratedDatabase, TestDatabase } from './helpers/testDatabase';
 import { recordsOn } from './helpers/records';
+import { listenOnLoopback } from './helpers/testServer';
 import { todayDateOnly } from '../src/shared/domain/dates/dateOnly';
 
 const unused = { execute: jest.fn() } as never;
@@ -97,7 +97,7 @@ describe('soft delete and restore of records (FT-105)', () => {
       getGetUserUseCase: () => ({ execute: jest.fn().mockResolvedValue({ success: true, data: { id: 'owner-ft105' } }) }),
     } as never;
 
-    beforeEach(done => {
+    beforeEach(async () => {
       const app = express();
       app.use(express.json());
       app.use('/api/transactions', createTransactionRouter(
@@ -109,10 +109,7 @@ describe('soft delete and restore of records (FT-105)', () => {
         new RestoreTransactionUseCase(records.repository)
       ));
       app.use(errorHandler);
-      server = app.listen(0, () => {
-        baseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
-        done();
-      });
+      ({ server, baseUrl } = await listenOnLoopback(app));
     });
 
     afterEach(done => {

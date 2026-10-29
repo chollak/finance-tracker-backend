@@ -1,5 +1,4 @@
 import express, { Express } from 'express';
-import { AddressInfo } from 'net';
 import http from 'http';
 
 import {
@@ -17,6 +16,7 @@ import { ProcessVoiceInputUseCase } from '../src/modules/voiceProcessing/applica
 import { DebtModule } from '../src/modules/debt/debtModule';
 import { UserModule } from '../src/modules/user/userModule';
 import { ValidationError } from '../src/shared/domain/errors/AppError';
+import { listenOnLoopback } from './helpers/testServer';
 
 /**
  * Characterization/safety tests for the critical Express wiring in expressServer.ts:
@@ -100,13 +100,9 @@ describe('API routes and middleware (characterization)', () => {
   let baseUrl: string;
   let mocks: ReturnType<typeof buildTestApp>;
 
-  beforeEach((done) => {
+  beforeEach(async () => {
     mocks = buildTestApp();
-    server = mocks.app.listen(0, () => {
-      const { port } = server.address() as AddressInfo;
-      baseUrl = `http://127.0.0.1:${port}`;
-      done();
-    });
+    ({ server, baseUrl } = await listenOnLoopback(mocks.app));
   });
 
   afterEach((done) => {

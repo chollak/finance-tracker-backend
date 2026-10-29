@@ -1,6 +1,5 @@
 import express, { NextFunction, Request, Response } from 'express';
 import http from 'http';
-import { AddressInfo } from 'net';
 import {
   allowGuestMode,
   verifyOwnership,
@@ -9,6 +8,7 @@ import {
 } from '../src/delivery/web/express/middleware/authMiddleware';
 import { verifyResourceOwnership } from '../src/shared/infrastructure/utils/ownershipVerification';
 import { UserModule } from '../src/modules/user/userModule';
+import { listenOnLoopback } from './helpers/testServer';
 
 /**
  * The user a request reads or writes is the one it signed in as (2026-10-21). There are no guests (decision Д4), so a
@@ -44,10 +44,7 @@ beforeAll(async () => {
   app.post('/write-anyone', writeAsSignedInUser, (req, res) => {
     res.json({ userId: req.body.userId });
   });
-  server = await new Promise<http.Server>(resolve => {
-    const listening = app.listen(0, () => resolve(listening));
-  });
-  baseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  ({ server, baseUrl } = await listenOnLoopback(app));
 });
 
 afterAll(async () => {
