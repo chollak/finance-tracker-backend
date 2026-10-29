@@ -91,6 +91,21 @@ export function getLogger(category: LogCategoryType | string): ILogger {
 }
 
 /**
+ * What a `warn` line says about an error: its message and, for an AppError, what it keeps about its cause
+ * (`errorContext`, as `logger.error` writes it) — «Request timed out.» behind «External service error: OpenAI Chat».
+ *
+ * @example
+ * logger.warn('The AI could not read a simple phrase; its label is kept', errorFields(error));
+ */
+export function errorFields(error: unknown): { error: string; errorContext?: Record<string, unknown> } {
+  const message = error instanceof Error ? error.message : String(error);
+  const context = (error as { context?: unknown } | null | undefined)?.context;
+  return context && typeof context === 'object'
+    ? { error: message, errorContext: context as Record<string, unknown> }
+    : { error: message };
+}
+
+/**
  * Alias for getLogger - matches the infrastructure API for easier migration
  * @deprecated Use getLogger instead for clearer intent
  */

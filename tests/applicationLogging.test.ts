@@ -1,4 +1,10 @@
 import type { ILogger } from '../src/shared/domain/ports/Logger';
+import { errorFields, registerLoggerFactory } from '../src/shared/application/logging';
+import { ExternalServiceError } from '../src/shared/domain/errors/AppError';
+import { ProcessTextInputUseCase } from '../src/modules/voiceProcessing/application/processTextInput';
+import { TranscriptionService } from '../src/modules/voiceProcessing/domain/transcriptionService';
+import { openMigratedDatabase, TestDatabase } from './helpers/testDatabase';
+import { recordsOn } from './helpers/records';
 
 type LoggingModule = typeof import('../src/shared/application/logging');
 type TickerModule = typeof import('../src/modules/notification/application/ticker');
@@ -75,5 +81,51 @@ describe('application-layer logger (FT-165)', () => {
     const logging = freshModules(() => require('../src/shared/application/logging') as LoggingModule);
 
     expect(() => logging.getLogger('USER').warn('no factory yet', { a: 1 })).not.toThrow();
+  });
+});
+
+/**
+ * FT-165 (after FT-145): when the AI fails on a simple «<label> <amount>», the record keeps its label and the log
+ * says why — «Request timed out.» that ExternalServiceError keeps in `context`, not only «External service error».
+ */
+describe('a simple phrase the AI could not read (FT-165)', () => {
+  let db: TestDatabase;
+
+  beforeEach(async () => {
+    db = await openMigratedDatabase();
+  });
+
+  afterEach(async () => {
+    await db.close();
+  });
+
+  it('logs the cause behind «External service error: OpenAI Chat»', async () => {
+    const { factory, lines } = recordingFactory();
+    registerLoggerFactory(factory);
+    const records = recordsOn(db.dataSource);
+    const openAI = {
+      analyzeInput: jest.fn().mockRejectedValue(new ExternalServiceError('OpenAI Chat', new Error('Request timed out.'))),
+      transcribe: jest.fn(),
+    };
+    const learned = { learnedCategoryWords: jest.fn().mockResolvedValue(new Map()) };
+    const capture = new ProcessTextInputUseCase(openAI as unknown as TranscriptionService, records.create, undefined, records.catalog, learned);
+
+    const result = await capture.execute('стрижка 50000', 'user-1');
+
+    expect(result.transactions[0].category).toBe('Другое');
+    expect(openAI.analyzeInput).toHaveBeenCalledTimes(1);
+    expect(lines).toContainEqual({
+      category: 'OPENAI',
+      level: 'warn',
+      args: [
+        'The AI could not read a simple phrase; its label is kept',
+        { error: 'External service error: OpenAI Chat', errorContext: { originalError: 'Request timed out.' } },
+      ],
+    });
+  });
+
+  it('a plain error or a thrown value gives its message only', () => {
+    expect(errorFields(new Error('401 Incorrect API key'))).toEqual({ error: '401 Incorrect API key' });
+    expect(errorFields('socket hang up')).toEqual({ error: 'socket hang up' });
   });
 });
