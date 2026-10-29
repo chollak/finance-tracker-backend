@@ -584,16 +584,23 @@ describe('goal, subscription and audit reminders in the bot (FT-133)', () => {
       name: 'FetchError', type: 'system', code, errno: code,
     });
 
+  /** What `notifications_log` keeps about the owner's notice. */
+  const logEntry = (kind: 'goal_near' | 'goal_over' | 'subscription' | 'audit', period: string) =>
+    new SqliteNotificationLogRepository(running.ds).find(owner, kind, period);
+
   it('no network (the Mac woke without it): tried again the next minute; a reset connection is not (FT-144)', async () => {
     await auditedOnOctober14();
+    const goal = (await goalNamed('Такси'))!;
     await record('2026-10-27', 'Транспорт', 60_000, 'Такси');
     refuse = networkError('ENOTFOUND');
     at('2026-10-27', '12:30');
     expect(await outcomes()).toEqual(['goal_near:retry']);
+    expect(await logEntry('goal_near', goal.id)).toMatchObject({ status: 'not_sent', attempts: 1, error: expect.stringContaining('ENOTFOUND') });
 
     refuse = null;
     at('2026-10-27', '12:31');
     expect(await outcomes()).toEqual(['goal_near:sent']);
+    expect(await logEntry('goal_near', goal.id)).toMatchObject({ status: 'sent', attempts: 2 });
     at('2026-10-27', '12:32');
     expect(await tick()).toEqual([]);
     expect(sent).toHaveLength(1);
@@ -623,21 +630,119 @@ describe('goal, subscription and audit reminders in the bot (FT-133)', () => {
     expect(sent).toHaveLength(1);
   });
 
-  it('no network all day: tried until the day ends, then kept as failed (FT-144)', async () => {
-    await auditedOnOctober14();
-    await record('2026-10-27', 'Транспорт', 60_000, 'Такси');
-    refuse = networkError('ENOTFOUND');
-    at('2026-10-27', '12:30');
-    expect(await outcomes()).toEqual(['goal_near:retry']);
-    at('2026-10-27', '18:00');
-    expect(await outcomes()).toEqual(['goal_near:retry']);
+  describe('a reminder that did not leave (FT-164)', () => {
+    it('a goal with no network all day comes the next day in the daytime; the attempts survive a restart', async () => {
+      await auditedOnOctober14();
+      const goal = (await goalNamed('Такси'))!;
+      await record('2026-10-27', 'Транспорт', 60_000, 'Такси');
+      refuse = networkError('ENOTFOUND');
+      at('2026-10-27', '12:30');
+      expect(await outcomes()).toEqual(['goal_near:retry']);
+      at('2026-10-27', '21:59');
+      expect(await outcomes()).toEqual(['goal_near:retry']);
+      expect(await logEntry('goal_near', goal.id)).toMatchObject({ status: 'not_sent', attempts: 2, sendUntil: '2026-10-28' });
 
-    at('2026-10-28', '12:30');
-    expect(await outcomes()).toEqual(['goal_near:failed']);
-    refuse = null;
-    at('2026-10-28', '12:31');
-    expect(await tick()).toEqual([]);
-    expect(sent).toEqual([]);
+      await restart();
+      refuse = null;
+      at('2026-10-28', '09:59');
+      expect(await tick()).toEqual([]);
+      at('2026-10-28', '10:00');
+      expect(await outcomes()).toEqual(['goal_near:sent']);
+      expect(sent).toHaveLength(1);
+      expect(sent[0].text).toContain('Цель «Такси»');
+      expect(await logEntry('goal_near', goal.id)).toMatchObject({ status: 'sent', attempts: 3 });
+    });
+
+    it('a goal still not out when the next day ends: kept failed with the reason, never sent', async () => {
+      await auditedOnOctober14();
+      const goal = (await goalNamed('Такси'))!;
+      await record('2026-10-27', 'Транспорт', 60_000, 'Такси');
+      refuse = networkError('ENOTFOUND');
+      at('2026-10-27', '12:30');
+      expect(await outcomes()).toEqual(['goal_near:retry']);
+      at('2026-10-28', '12:30');
+      expect(await outcomes()).toEqual(['goal_near:retry']);
+
+      refuse = null;
+      at('2026-10-29', '12:30');
+      expect(await tick()).toEqual([]);
+      expect(sent).toEqual([]);
+      expect(await logEntry('goal_near', goal.id)).toMatchObject({
+        status: 'failed', attempts: 2, error: expect.stringMatching(/^не ушло: нет сети, 2 попытки, последняя ошибка .*ENOTFOUND/),
+      });
+    });
+
+    it('a goal over its limit while the 80% message waits: the excess goes, the 80% one is kept skipped', async () => {
+      await auditedOnOctober14();
+      const goal = (await goalNamed('Такси'))!;
+      await record('2026-10-27', 'Транспорт', 60_000, 'Такси');
+      refuse = networkError('ENOTFOUND');
+      at('2026-10-27', '12:30');
+      expect(await outcomes()).toEqual(['goal_near:retry']);
+
+      refuse = null;
+      await record('2026-10-28', 'Транспорт', 30_000, 'Такси');
+      at('2026-10-28', '12:30');
+      expect(await outcomes()).toEqual(['goal_over:sent']);
+      expect(sent).toHaveLength(1);
+      expect(await logEntry('goal_near', goal.id)).toMatchObject({ status: 'skipped' });
+    });
+
+    it('a subscription reminder not out on its day: kept failed with the reason the next day, not sent then', async () => {
+      await auditedOnOctober14();
+      await remindAboutKinopoisk();
+      const goal = (await goalNamed('Кинопоиск'))!;
+      refuse = networkError('ENOTFOUND');
+      const subscriptions = async () => (await tick()).filter(result => result.kind === 'subscription').map(result => result.outcome);
+
+      at('2026-11-02', '10:00');
+      expect(await subscriptions()).toEqual(['retry']);
+      await restart();
+      at('2026-11-02', '23:59');
+      expect(await subscriptions()).toEqual(['retry']);
+
+      refuse = null;
+      at('2026-11-03', '10:00');
+      expect(await subscriptions()).toEqual([]);
+      expect(sent.filter(message => message.text.includes('Кинопоиск'))).toEqual([]);
+      expect(await logEntry('subscription', `${goal.id}:2026-11-02`)).toMatchObject({
+        status: 'failed', attempts: 2, error: expect.stringMatching(/^не ушло: нет сети, 2 попытки, последняя ошибка /),
+      });
+    });
+
+    it('the audit call not out on the 1st: kept failed with the reason on the 2nd, not sent then', async () => {
+      await auditedOnOctober14();
+      refuse = networkError('EAI_AGAIN');
+      const audits = async () => (await tick()).filter(result => result.kind.startsWith('audit')).map(result => result.outcome);
+
+      at('2026-11-01', '10:00');
+      expect(await audits()).toEqual(['retry']);
+      at('2026-11-01', '23:59');
+      expect(await audits()).toEqual(['retry']);
+
+      refuse = null;
+      at('2026-11-02', '10:00');
+      expect(await audits()).toEqual([]);
+      expect(sent.filter(message => message.text.startsWith('<b>Ревизия'))).toEqual([]);
+      expect(await logEntry('audit', '2026-10')).toMatchObject({
+        status: 'failed', attempts: 2, error: expect.stringMatching(/^не ушло: нет сети, 2 попытки, последняя ошибка .*EAI_AGAIN/),
+      });
+    });
+
+    it('a reminder claimed but never finished (the process stopped mid-send) is not tried again', async () => {
+      await auditedOnOctober14();
+      const goal = (await goalNamed('Такси'))!;
+      await record('2026-10-27', 'Транспорт', 60_000, 'Такси');
+      await new SqliteNotificationLogRepository(running.ds).claim({ id: 'crashed', userId: owner, kind: 'goal_near', period: goal.id, sendUntil: '2026-10-28' });
+      await restart();
+
+      at('2026-10-27', '12:30');
+      expect(await tick()).toEqual([]);
+      at('2026-10-28', '12:30');
+      expect(await tick()).toEqual([]);
+      expect(sent).toEqual([]);
+      expect(await logEntry('goal_near', goal.id)).toMatchObject({ status: 'sending' });
+    });
   });
 
   it('two bot processes over the same file at the same minute: one message', async () => {

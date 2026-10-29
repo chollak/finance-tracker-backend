@@ -150,6 +150,14 @@ reminder claimed in `notifications_log` before it is sent.
 for the rest of the day of its first try. A timeout, a reset or an «unreachable» error may have reached Telegram and
 stays `failed`, so nothing is sent twice.
 
+**Update (FT-164):** the retries live in `notifications_log`, not in the process: a notice that did not leave waits as
+`not_sent` with its `attempts` and last day (`send_until`), and the next tick — of this process or of the one after a
+restart — takes it with an atomic `UPDATE … WHERE status = 'not_sent'`; a row `sending` is still never taken again. The
+first tick of a user's day keeps what is overdue `failed` with the reason. A daily summary missed by midnight (no
+network, or no process running all evening — the PC slept) is caught up the next morning from 08:00 as «Итоги за
+вчера»; a goal reminder may come the next day (decision 2026-10-29). So a bot that was down only needs to start: what
+was missed is decided from the log, not from memory.
+
 **Update (FT-154): the bot does not die silently.** The live instance runs under systemd with `NODE_ENV=production`
 (decision 2026-10-26), and `Restart=` reacts only to the process exiting: a process alive without its bot would be
 silent. The rule:
