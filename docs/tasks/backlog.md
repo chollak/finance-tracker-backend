@@ -371,27 +371,6 @@ Definition of Done:
 
 ---
 
-### FT-149: Choose the default account
-
-Status: backlog
-Priority: medium
-Owner: Claude Code, QA by Hermes
-Type: feature
-Size: S
-
-Context:
-На backend настройка есть: `default_account_id` (`UserSettings.ts:34-35`), `PATCH /api/settings {defaultAccountId}`
-с проверкой, что счёт видимый (`userSettingsUseCases.ts:47-61`, `:124-127`). Новые записи идут на него, иначе на
-первый видимый счёт (`accountBook.ts:115-117`). В webapp поле только читается (ручной ввод, чипы, офлайн, отправка
-фразы) — выбрать его негде. Сейчас счёт по умолчанию зависит от порядка счетов.
-
-Definition of Done:
-- [ ] Место выбора — по холсту; если доски нет — решение Шукура до реализации
-- [ ] Выбор вызывает `PATCH /api/settings` и сразу действует в ручном вводе, чипах и фразах; тест
-- [ ] Скрытый счёт выбрать нельзя; если скрывают счёт по умолчанию — записи идут на первый видимый, и экран это показывает; тест
-
----
-
 ### FT-152: Queue a complex phrase offline and parse it when the connection returns
 
 Status: backlog
