@@ -19,6 +19,11 @@ import { recordsOn } from './helpers/records';
 const TRANSPORT = { name: 'Транспорт', type: 'expense' as const, presetKey: 'transport' };
 const BARE_BRANDS = ['яндекс', 'yandex', 'uber'];
 const SEED = path.join(__dirname, '..', 'data', 'patterns.seed.json');
+/** patterns.json is written on the first correction from the seed of its day, so a live one may still hold «yandex». */
+const OLD_SEED_FILE = {
+  categories: [{ keywords: ['заправился', 'азс', 'такси', 'yandex'], category: 'transport', confidence: 0.7, usageCount: 2 }],
+  merchants: [{ aliases: ['yandex go', 'яндекс'], normalizedName: 'Yandex Go', category: 'transport', usageCount: 2 }],
+};
 
 describe('a bare brand in the category dictionary (FT-150)', () => {
   it('is not a word of any starter category', () => {
@@ -28,10 +33,11 @@ describe('a bare brand in the category dictionary (FT-150)', () => {
   });
 
   it('names no category; with its service word it names «Транспорт»', () => {
-    for (const text of ['яндекс', 'Yandex', 'uber', 'яндекс плюс', 'uber eats']) {
+    // «яндекс го» too: a Cyrillic alias is a hint of the AI prompt, and «яндекс» there pulled «яндекс плюс» into «Транспорт»
+    for (const text of ['яндекс', 'Yandex', 'uber', 'яндекс плюс', 'uber eats', 'Яндекс Го']) {
       expect(categoryNamedIn(text, TRANSPORT)).toBe(false);
     }
-    for (const text of ['такси', 'яндекс такси', 'Yandex Go', 'яндекс го', 'uber taxi']) {
+    for (const text of ['такси', 'яндекс такси', 'Yandex Go', 'uber taxi']) {
       expect(categoryNamedIn(text, TRANSPORT)).toBe(true);
     }
   });
@@ -41,7 +47,7 @@ describe('a bare brand in the category dictionary (FT-150)', () => {
     ['Yandex', 'Другое'],
     ['uber', 'Другое'],
     ['yandex go', 'Транспорт'],
-    ['Яндекс Го', 'Транспорт'],
+    ['Яндекс Го', 'Другое'],
     ['такси', 'Транспорт'],
   ])('as a value to resolve — an AI-less label, a record queued offline — «%s» is «%s»', (value, name) => {
     expect(presetForLegacyCategory(value, 'expense').name).toBe(name);
@@ -51,7 +57,7 @@ describe('a bare brand in the category dictionary (FT-150)', () => {
     const transport = buildCategoryPrompt().split('\n').find(line => line.startsWith('  - Транспорт'))!;
 
     expect(transport).toContain('такси');
-    expect(transport).not.toMatch(/яндекс(?! го)|yandex|uber/i);
+    expect(transport).not.toMatch(/яндекс|yandex|uber/i);
   });
 });
 
@@ -63,6 +69,22 @@ describe('a bare brand in learned patterns (FT-150)', () => {
     });
 
     expect(words.get('transport')).toEqual(['такси', 'yandex go']);
+  });
+
+  it('is not shown to the AI as a learned word; the other words of the pattern are', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ft150-prompt-'));
+    try {
+      fs.mkdirSync(path.join(dir, 'data'));
+      fs.writeFileSync(path.join(dir, 'data', 'patterns.json'), JSON.stringify(OLD_SEED_FILE));
+
+      const prompt = await new TransactionLearningService(dir).getEnhancedPrompts('BASE');
+
+      expect(prompt).toContain('"заправился", "азс", "такси" → Транспорт');
+      expect(prompt).toContain('"yandex go" → Yandex Go (Транспорт)');
+      expect(prompt).not.toMatch(/"yandex"|"яндекс"/);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   it('is not in the shipped seed', () => {
@@ -102,7 +124,7 @@ describe('a bare brand on the text fast path (FT-150)', () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  it.each(['яндекс 20000', 'yandex 20000', 'uber 20000'])('«%s» goes to the AI, and its choice is a guess', async phrase => {
+  it.each(['яндекс 20000', 'yandex 20000', 'uber 20000', 'Яндекс Го 20000'])('«%s» goes to the AI, and its choice is a guess', async phrase => {
     openAI.analyzeInput.mockResolvedValue(answer('Транспорт', 20000, phrase.split(' ')[0]));
 
     const result = await capture.execute(phrase, 'user-1');
@@ -112,7 +134,7 @@ describe('a bare brand on the text fast path (FT-150)', () => {
     expect(guessOf(result.transactions[0].assumptions)).toEqual({ kind: 'category', name: 'Транспорт' });
   });
 
-  it.each(['такси 18000', 'яндекс такси 18000', 'yandex go 18000', 'Яндекс Го 18000'])('«%s» is «Транспорт» without the AI', async phrase => {
+  it.each(['такси 18000', 'яндекс такси 18000', 'yandex go 18000', 'uber taxi 18000'])('«%s» is «Транспорт» without the AI', async phrase => {
     const result = await capture.execute(phrase, 'user-1');
 
     expect(openAI.analyzeInput).not.toHaveBeenCalled();
@@ -146,11 +168,7 @@ describe('a bare brand on the text fast path (FT-150)', () => {
   );
 
   it('a learning file written from the old seed does not keep a bare brand on the fast path', async () => {
-    // patterns.json is written on the first correction from the seed of its day, so a live one may still hold «yandex»
-    fs.writeFileSync(path.join(tempDir, 'data', 'patterns.json'), JSON.stringify({
-      categories: [{ keywords: ['заправился', 'азс', 'такси', 'yandex'], category: 'transport', confidence: 0.7, usageCount: 2 }],
-      merchants: [{ aliases: ['yandex go', 'яндекс'], normalizedName: 'Yandex Go', category: 'transport', usageCount: 2 }],
-    }));
+    fs.writeFileSync(path.join(tempDir, 'data', 'patterns.json'), JSON.stringify(OLD_SEED_FILE));
     openAI.analyzeInput.mockResolvedValue(answer('Транспорт', 20000, 'Яндекс'));
 
     await capture.execute('yandex 20000', 'user-1');
