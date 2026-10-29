@@ -481,6 +481,26 @@ On `SIGTERM` the bot stops taking updates and finishes the one it is handling �
 message's client id instead of writing them again (`… an amount answer again; it is not applied twice` — the same for
 an answer to «Сумму»). If the person got no confirmation the first time, the bot sends it then.
 
+### Who was turned away by `ALLOWED_TELEGRAM_IDS`
+
+With a list set, the bot ignores everyone else and the API answers them `403 ACCESS_NOT_ALLOWED` (FT-153). The log
+names each refused Telegram id once, at its first refusal: `Telegram update from a user who is not allowed ignored`
+(bot) or `Request from a Telegram user who is not allowed refused` (API), with `telegramId`. That is also how to find
+your own id. Repeats of the same id within 10 minutes are not written one by one (FT-166): when the 10 minutes are
+over, one line with `(repeats)` says how many were skipped (`skipped`, `windowMinutes`). Someone who keeps writing
+costs one line per 10 minutes, not one per message. The windows chain: the next one starts at the `(repeats)` line, so
+a refusal of the same id within 10 minutes after it goes into the next summary, without its `path` or `updateType`.
+
+```bash
+journalctl -u <service> --grep "not allowed" --no-pager | tail -n 20
+```
+
+- No `(repeats)` line — the id was refused once in those 10 minutes.
+- The counts live in the process: a restart forgets them, and refusals not yet summarised at the restart are not
+  written. After it, the first refusal of an id is written at once again.
+- The process remembers up to 1000 refused ids. Past that, the id refused longest ago is forgotten — its `(repeats)`
+  line goes out first — and is written again as new when it comes back.
+
 ---
 
 ## Common Solutions Summary
