@@ -20,6 +20,7 @@ import { createLogger, LogCategory } from '../../../../shared/infrastructure/log
 import { toCapturedTransaction } from '../../../../modules/quickCapture/application/toCapturedTransaction';
 import { NoSpeechDetectedError } from '../../../../modules/voiceProcessing/domain/voiceErrors';
 import { Transaction } from '../../../../modules/transaction/domain/transactionEntity';
+import { BotMessage } from '../../../../modules/botMessage/domain/botMessage';
 
 const logger = createLogger(LogCategory.TELEGRAM_MSG);
 
@@ -94,19 +95,19 @@ export function createAmountAnswerMiddleware(userModule?: UserModule) {
   };
 }
 
-/** Whether a recent bot message of the chat already shows one of these records. */
-async function shownInChat(ctx: BotContext, recordIds: string[]): Promise<boolean> {
+/** The chat's recent bot record messages, newest first; none without the log. */
+async function recentBotMessages(ctx: BotContext): Promise<BotMessage[]> {
   const log = botMessageLog(ctx);
   const chatId = chatIdOf(ctx);
-  if (!log || !chatId) return false;
-  return (await log.recent(chatId)).some(message => message.recordIds.some(id => recordIds.includes(id)));
+  return log && chatId ? log.recent(chatId) : [];
 }
 
 /**
  * A message Telegram sends again (FT-167): the bot stopped before confirming it to Telegram — a restart while it was
- * being handled — and what it wrote carries the message's client id. Nothing is written or parsed again (a voice is
- * not even downloaded); the confirmation goes out only if no bot message shows the records yet, for the process may
- * have stopped before sending it. First in the text and voice chains, ahead of the questions and the free limit.
+ * being handled — and what it did carries the message's client id: the records it wrote, or a bot message whose amount
+ * it answered (`answeredBy`). Nothing is written, changed or parsed again (a voice is not even downloaded). Written
+ * records are confirmed only if no bot message shows them yet, for the process may have stopped before sending it.
+ * First in the text and voice chains, ahead of the questions and the free limit.
  */
 export function createRepeatedMessageGuard(userModule?: UserModule) {
   return async function skipRepeatedMessage(ctx: BotContext, next: () => Promise<void>): Promise<void> {
@@ -115,21 +116,31 @@ export function createRepeatedMessageGuard(userModule?: UserModule) {
 
     const userId = await resolveUserId(ctx, userModule, 'repeated message check');
     let earlier: Transaction[];
+    let recent: BotMessage[];
     try {
-      earlier = await ctx.modules.transactionModule.findByClientId(userId, clientId);
+      [earlier, recent] = await Promise.all([ctx.modules.transactionModule.findByClientId(userId, clientId), recentBotMessages(ctx)]);
     } catch (error) {
-      logger.error('Failed to look for the records of a repeated message', error as Error, { userId });
+      logger.error('Failed to look for what a repeated message did', error as Error, { userId });
       return next();
     }
-    if (earlier.length === 0) return next();
 
-    const recordIds = earlier.map(record => record.id!);
-    logger.info('Telegram sent a handled message again; its records are not written twice', { userId, records: recordIds.length });
-    try {
-      if (!(await shownInChat(ctx, recordIds))) await sendRecordMessage(ctx, { userId, recordIds });
-    } catch (error) {
-      logger.error('Failed to confirm the records of a repeated message', error as Error, { userId });
+    if (earlier.length > 0) {
+      const recordIds = earlier.map(record => record.id!);
+      logger.info('Telegram sent a handled message again; its records are not written twice', { userId, records: recordIds.length });
+      const shown = recent.some(message => message.recordIds.some(id => recordIds.includes(id)));
+      try {
+        if (!shown) await sendRecordMessage(ctx, { userId, recordIds });
+      } catch (error) {
+        logger.error('Failed to confirm the records of a repeated message', error as Error, { userId });
+      }
+      return;
     }
+
+    if (recent.some(message => message.state.answeredBy === clientId)) {
+      logger.info('Telegram sent an amount answer again; it is not applied twice', { userId });
+      return;
+    }
+    return next();
   };
 }
 

@@ -29,6 +29,8 @@ import { ProcessTextInputUseCase } from '../src/modules/voiceProcessing/applicat
 import { ProcessVoiceInputUseCase } from '../src/modules/voiceProcessing/application/processVoiceInput';
 import { QuickCaptureService } from '../src/modules/quickCapture/application/quickCaptureService';
 import { downloadVoiceFile } from '../src/delivery/messaging/telegram/utils';
+import { messageClientId } from '../src/delivery/messaging/telegram/utils/messageClientId';
+import { isClientId, isStoredClientId, itemClientId } from '../src/modules/transaction/domain/clientId';
 
 // A voice message is not downloaded in tests
 jest.mock('../src/delivery/messaging/telegram/utils', () => ({
@@ -44,7 +46,12 @@ jest.mock('../src/delivery/messaging/telegram/utils', () => ({
  */
 
 const TELEGRAM_ID = 131184740;
+/** The bot the chat writes to, and another one: a private chat has the person's id with every bot. */
+const BOT_ID = 7_000_000_001;
+const OTHER_BOT_ID = 8_000_000_002;
 const today = todayDateOnly();
+
+interface Button { text: string; callback_data?: string }
 
 type Middleware = (ctx: any, next: () => Promise<void>) => Promise<void> | void;
 
@@ -59,9 +66,10 @@ async function run(chain: Middleware[], ctx: any): Promise<void> {
 class Bot {
   readonly middleware: Middleware[] = [];
   readonly handlers: Array<{ filter: (update: any) => boolean; chain: Middleware[] }> = [];
+  readonly actions: Array<{ trigger: RegExp | string; handler: (ctx: any) => Promise<void> }> = [];
   use(middleware: Middleware) { this.middleware.push(middleware); }
   on(filter: (update: any) => boolean, ...chain: Middleware[]) { this.handlers.push({ filter, chain }); }
-  action() { /* no buttons pressed here */ }
+  action(trigger: RegExp | string, handler: (ctx: any) => Promise<void>) { this.actions.push({ trigger, handler }); }
   command() { /* no commands sent here */ }
   async handle(ctx: any): Promise<void> {
     await run([...this.middleware, ...(this.handlers.find(({ filter }) => filter(ctx.update))?.chain ?? [])], ctx);
@@ -80,8 +88,9 @@ describe('a message Telegram sends again after a restart (FT-167)', () => {
   let file: string;
   let running: Running;
   const open: DataSource[] = [];
-  /** What the bot sent to the chat, in order. */
+  /** What the bot sent to the chat, in order, and each message as it is now. */
   let sent: string[] = [];
+  const shown = new Map<number, { text: string; keyboard: Button[][] }>();
   let nextBotMessageId = 1000;
   /** The bot's next reply never comes back: the process stops while it is being sent. */
   let replyHangs = false;
@@ -143,32 +152,57 @@ describe('a message Telegram sends again after a restart (FT-167)', () => {
     running = await start();
   }
 
-  /** One update from Telegram, handled to the end — unless a reply hangs, as when the process is stopped. */
-  function deliver(message: Record<string, unknown>, session: Record<string, unknown> = {}): Promise<void> {
-    const full = { message_id: 10, date: 1_761_700_000, chat: { id: TELEGRAM_ID, type: 'private' }, from: { id: TELEGRAM_ID, first_name: 'Shukur' }, ...message };
-    const ctx = {
-      from: full.from,
-      chat: full.chat,
-      message: full,
-      update: { update_id: 500 + Number(full.message_id), message: full },
-      session,
+  /** What every update carries: the person, the chat, the bot, Telegram's answers to what the bot sends. */
+  function baseContext(botId: number) {
+    const chat = { id: TELEGRAM_ID, type: 'private' };
+    return {
+      from: { id: TELEGRAM_ID, first_name: 'Shukur' },
+      chat,
+      botInfo: { id: botId, is_bot: true, first_name: 'Kapelka', username: 'kapelka_test_bot' },
       modules: running.modules,
       sendChatAction: jest.fn().mockResolvedValue(undefined),
-      reply: jest.fn((text: string) => {
+      answerCbQuery: jest.fn().mockResolvedValue(undefined),
+      reply: jest.fn((text: string, extra?: any) => {
         if (replyHangs) return new Promise(() => undefined);
         sent.push(text);
-        return Promise.resolve({ message_id: nextBotMessageId++, chat: full.chat });
+        const messageId = nextBotMessageId++;
+        shown.set(messageId, { text, keyboard: extra?.reply_markup?.inline_keyboard ?? [] });
+        return Promise.resolve({ message_id: messageId, chat });
       }),
       telegram: {
-        editMessageText: jest.fn().mockResolvedValue(true),
+        editMessageText: jest.fn(async (_chat: string, messageId: number, _inline: unknown, text: string, extra?: any) => {
+          shown.set(messageId, { text, keyboard: extra?.reply_markup?.inline_keyboard ?? [] });
+          return true;
+        }),
         getFileLink: jest.fn(async () => ({ href: 'https://telegram.test/voice.ogg' })),
       },
     };
-    return running.bot.handle(ctx);
   }
 
+  /** One update from Telegram, handled to the end — unless a reply hangs, as when the process is stopped. */
+  function deliver(message: Record<string, unknown>, session: Record<string, unknown> = {}, botId = BOT_ID): Promise<void> {
+    const base = baseContext(botId);
+    const full = { message_id: 10, date: 1_761_700_000, chat: base.chat, from: base.from, ...message };
+    return running.bot.handle({ ...base, message: full, update: { update_id: 500 + Number(full.message_id), message: full }, session });
+  }
+
+  /** The person presses a button under a bot message. */
+  async function press(messageId: number, label: string): Promise<void> {
+    const button = shown.get(messageId)?.keyboard.flat().find(candidate => candidate.text === label);
+    if (!button?.callback_data) throw new Error(`No button «${label}» under message ${messageId}`);
+    const data = button.callback_data;
+    const action = running.bot.actions.find(({ trigger }) => (typeof trigger === 'string' ? trigger === data : trigger.test(data)));
+    if (!action) throw new Error(`No handler for ${data}`);
+    const ctx: any = { ...baseContext(BOT_ID), callbackQuery: { data, message: { message_id: messageId, chat: { id: TELEGRAM_ID } } } };
+    ctx.match = typeof action.trigger === 'string' ? [data] : action.trigger.exec(data);
+    await action.handler(ctx);
+  }
+
+  /** The id of the bot message sent last. */
+  const lastBotMessage = () => nextBotMessageId - 1;
+
   async function records(): Promise<Array<{ amountMinor: number; description: string; deletedAt: string | null }>> {
-    const rows = await running.ds.query('SELECT amount_minor AS amountMinor, description, deleted_at AS deletedAt FROM transactions ORDER BY createdAt');
+    const rows = await running.ds.query('SELECT amount_minor AS amountMinor, description, deleted_at AS deletedAt FROM transactions ORDER BY createdAt, rowid');
     return rows.map((row: any) => ({ ...row, amountMinor: Number(row.amountMinor) }));
   }
 
@@ -177,6 +211,7 @@ describe('a message Telegram sends again after a restart (FT-167)', () => {
 
   beforeEach(async () => {
     sent = [];
+    shown.clear();
     replyHangs = false;
     parser.transcribe.mockReset();
     parser.analyzeInput.mockReset().mockResolvedValue({ transactions: [coffee], debts: [] });
@@ -288,5 +323,85 @@ describe('a message Telegram sends again after a restart (FT-167)', () => {
     await deliver({ message_id: 10, text: 'кофе 25 тысяч' });
 
     expect(await records()).toEqual([expect.objectContaining({ deletedAt: expect.any(String) })]);
+  });
+
+  it('the same message number from another bot is a new message, though the chat and bot_messages are the same', async () => {
+    const taxi = { intent: 'transaction', amount: 30000, category: 'Транспорт', type: 'expense', date: today, description: 'такси' };
+    parser.analyzeInput.mockImplementation(async (text: string) => ({ transactions: [text.startsWith('такси') ? taxi : coffee], debts: [] }));
+    await deliver({ message_id: 10, text: 'кофе 25 тысяч' }, {}, BOT_ID);
+    // The move to another bot (live-instance.md, «Переезд»): bot_messages is cleared, the records stay
+    await running.ds.query('DELETE FROM bot_messages');
+
+    await restart();
+    await deliver({ message_id: 10, text: 'такси 30 тысяч' }, {}, OTHER_BOT_ID);
+
+    expect(await records()).toEqual([
+      expect.objectContaining({ amountMinor: 2_500_000, description: 'кофе' }),
+      expect.objectContaining({ amountMinor: 3_000_000, description: 'такси' }),
+    ]);
+    expect(confirmations()[confirmations().length - 1]).toContain('Такси');
+  });
+
+  it('the answer to «Сумму» changes the amount once and writes nothing', async () => {
+    // Read on its own, «30000» is a record of 30 000 — what the repeat would write once the question is closed
+    parser.analyzeInput.mockImplementation(async (text: string) => ({
+      transactions: [text.startsWith('кофе') ? coffee : { intent: 'transaction', amount: 30000, category: 'Другое', type: 'expense', date: today, description: text }],
+      debts: [],
+    }));
+    await deliver({ message_id: 10, text: 'кофе 25 тысяч' });
+    const confirmation = lastBotMessage();
+    await press(confirmation, 'Изменить');
+    await press(confirmation, 'Сумму');
+    await deliver({ message_id: 11, text: '30000' });
+    expect(await records()).toEqual([expect.objectContaining({ amountMinor: 3_000_000, description: 'кофе' })]);
+    const before = sent.length;
+
+    await restart();
+    await deliver({ message_id: 11, text: '30000' });
+
+    expect(await records()).toEqual([expect.objectContaining({ amountMinor: 3_000_000, description: 'кофе' })]);
+    expect(sent).toHaveLength(before);
+  });
+
+  it('the typed answer to a large amount writes the record once', async () => {
+    parser.analyzeInput.mockImplementation(async (text: string) => ({
+      transactions: [text.startsWith('кофе')
+        ? { ...coffee, amount: 25_000_000 }
+        : { intent: 'transaction', amount: 25000, category: 'Другое', type: 'expense', date: today, description: text }],
+      debts: [],
+    }));
+    await deliver({ message_id: 10, text: 'кофе 25000000' });
+    expect(shown.get(lastBotMessage())?.text).toContain('Сумма большая');
+    await deliver({ message_id: 11, text: '25000' });
+    expect(await records()).toEqual([expect.objectContaining({ amountMinor: 2_500_000, description: 'кофе', deletedAt: null })]);
+    const before = sent.length;
+
+    await restart();
+    await deliver({ message_id: 11, text: '25000' });
+
+    expect(await records()).toEqual([expect.objectContaining({ amountMinor: 2_500_000, description: 'кофе', deletedAt: null })]);
+    expect(sent).toHaveLength(before);
+  });
+});
+
+describe('the client id of a Telegram message (FT-167)', () => {
+  const ctxOf = (botId: number | undefined, chatId: number, messageId: number) =>
+    ({ botInfo: botId === undefined ? undefined : { id: botId }, chat: { id: chatId }, message: { message_id: messageId } }) as any;
+
+  it('names the bot, the chat and the message', () => {
+    expect(messageClientId(ctxOf(BOT_ID, TELEGRAM_ID, 10))).toBe(`tg-${BOT_ID}-${TELEGRAM_ID}-10`);
+    expect(messageClientId(ctxOf(OTHER_BOT_ID, TELEGRAM_ID, 10))).not.toBe(messageClientId(ctxOf(BOT_ID, TELEGRAM_ID, 10)));
+  });
+
+  it('fits the client id rules at the largest Telegram ids, with the «:n» of a phrase’s further records', () => {
+    // Bot and chat ids up to 52 bits, a group's chat id negative, message ids up to 2^31
+    const id = messageClientId(ctxOf(Number.MAX_SAFE_INTEGER, -Number.MAX_SAFE_INTEGER, 2_147_483_647))!;
+    expect(isClientId(id)).toBe(true);
+    expect(isStoredClientId(itemClientId(id, 999))).toBe(true);
+  });
+
+  it('is none without the bot, the chat or the message: nothing is guarded then', () => {
+    expect(messageClientId(ctxOf(undefined, TELEGRAM_ID, 10))).toBeUndefined();
+    expect(messageClientId({ botInfo: { id: BOT_ID }, chat: { id: TELEGRAM_ID } } as any)).toBeUndefined();
   });
 });
