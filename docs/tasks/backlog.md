@@ -304,20 +304,6 @@ Definition of Done:
 
 ---
 
-
-Status: backlog
-Priority: medium
-Owner: Claude Code, QA by Hermes
-Type: quick-action-ui
-Size: S
-
-Context:
-
----
-
-
----
-
 ### FT-152: Queue a complex phrase offline and parse it when the connection returns
 
 Status: backlog
