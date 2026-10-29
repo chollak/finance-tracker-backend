@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { SearchX } from 'lucide-react';
 import { useAccountOperations, useAccounts, visibleAccounts, type MoveOperation } from '@/entities/account';
 import { findCategory, useCategories } from '@/entities/category';
-import { RecordRowItem } from '@/entities/transaction';
+import { NotInBalanceCaption, RecordRowItem } from '@/entities/transaction';
 import { recordLinkState } from '@/features/record-sheet';
 import { ROUTES } from '@/shared/lib/constants/routes';
 import { toLocalDate } from '@/shared/lib/dates';
@@ -15,7 +15,10 @@ import { accountDays, accountHeader, transferAction, type MoveRow, type Operatio
 import { CorrectBalanceSheet, EditAccountSheet, MoveSheet } from './AccountSheets';
 import { FOCUS, FOCUS_INSET, Icon, ReadFailed } from './parts';
 
-/** A transfer, an exchange or an adjustment among the records: a neutral circle, the amount in ink (AccountMoves.md). */
+/**
+ * A transfer, an exchange or an adjustment among the records: a neutral circle, the amount in ink (AccountMoves.md).
+ * One the balance leaves out leads its caption with «Не входит в остаток», as a record does (FT-148).
+ */
 function MoveRowItem({ row, onOpen }: { row: MoveRow; onOpen: () => void }) {
   return (
     <li className="flex items-center rounded-control">
@@ -33,7 +36,11 @@ function MoveRowItem({ row, onOpen }: { row: MoveRow; onOpen: () => void }) {
         </span>
         <span className="flex min-w-0 flex-1 flex-col gap-px py-2.5 pl-2 pr-3">
           <span className="type-body-strong truncate">{row.title}</span>
-          <span className="truncate text-[13px] leading-snug text-ink-muted">{row.caption}</span>
+          {row.notInBalance ? (
+            <NotInBalanceCaption note={row.caption} />
+          ) : (
+            <span className="truncate text-[13px] leading-snug text-ink-muted">{row.caption}</span>
+          )}
         </span>
         <span className="shrink-0 whitespace-nowrap pr-2 text-[15px] font-extrabold tabular-nums text-ink">{row.amount}</span>
       </button>

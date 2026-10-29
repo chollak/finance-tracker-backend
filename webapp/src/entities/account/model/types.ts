@@ -73,7 +73,10 @@ interface OperationBase {
   createdAt: string | null;
   /** The signed change of this account's balance, minor units of its currency. */
   amountMinor: number;
-  /** False before the opening date, or for a record in another currency. */
+  /**
+   * False before the opening date, on the opening day before the first launch entered the opening balance (FT-163),
+   * or for a record in another currency. The account screen marks these «Не входит в остаток» (FT-148).
+   */
   countsInBalance: boolean;
 }
 

@@ -1,6 +1,7 @@
+import { NBSP } from '@/shared/lib/money';
 import { cn } from '@/shared/lib/utils';
 import { CategoryDot } from '@/shared/ui/pastel';
-import type { RecordDay, RecordRow } from '../lib/recordDays';
+import { NOT_IN_BALANCE, type RecordDay, type RecordRow } from '../lib/recordDays';
 
 interface RecordDayListProps {
   days: RecordDay[];
@@ -37,12 +38,30 @@ function PendingClock({ className }: { className?: string }) {
   );
 }
 
+/**
+ * The caption of an operation the account's balance leaves out (FT-148): «Не входит в остаток» in the label's weight,
+ * then the note. The mark keeps its width and the note is cut with an ellipsis; only a mark wider than the whole
+ * caption (+30% labels on a narrow phone) wraps to a second line — it is never cut.
+ */
+export function NotInBalanceCaption({ note }: { note: string }) {
+  return (
+    <span className="flex min-w-0 items-start text-[13px] leading-snug text-ink-muted">
+      <span data-balance-mark="" className="max-w-full shrink-0 font-semibold">
+        {NOT_IN_BALANCE}
+      </span>
+      {note && <span className="min-w-0 truncate">{`${NBSP}· ${note}`}</span>}
+    </span>
+  );
+}
+
 function RowText({ row }: { row: RecordRow }) {
   return (
     <>
       <span className="flex min-w-0 flex-1 flex-col gap-px py-2.5 pl-2 pr-3">
         <span className="type-body-strong truncate">{row.title}</span>
-        {row.pending ? (
+        {row.notInBalance ? (
+          <NotInBalanceCaption note={row.note} />
+        ) : row.pending ? (
           <span
             className={cn(
               'flex min-w-0 gap-1 text-[13px] leading-snug text-ink-muted',

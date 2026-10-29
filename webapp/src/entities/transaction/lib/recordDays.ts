@@ -45,6 +45,12 @@ export interface RecordRow {
    * «Ждёт связи · проверьте сумму» alone is a little wider than one line (rows grow from `min-h-row`).
    */
   noteWraps?: boolean;
+  /**
+   * The account screen (FT-148): the operation is not in the account's balance — dated before the opening date,
+   * written on the opening day before the first launch (FT-163), or in another currency. The caption leads with
+   * «Не входит в остаток» (`NOT_IN_BALANCE`), then the note; the amount and its colour stay as they are.
+   */
+  notInBalance?: true;
 }
 
 /** History's total of a day (TransactionList.md): in сум with its sign; income green, expenses muted. */
@@ -88,6 +94,11 @@ const NO_NOTE = 'Без заметки';
 export const PENDING_CAPTION = 'Ждёт связи';
 /** Right after it when the device read «45» as 45 000: the flag must not be cut off either. */
 const CHECK_AMOUNT = 'проверьте сумму';
+/**
+ * The mark of an operation the account's balance leaves out (FT-148): one for every reason the server gives
+ * `countsInBalance: false`, so the list on the account screen adds up to its balance.
+ */
+export const NOT_IN_BALANCE = 'Не входит в остаток';
 
 /** The local day of a record: a plain date as is; records saved before FT-100 may keep a full moment. */
 function recordDay(date: string): LocalDate {
@@ -108,7 +119,11 @@ function amountMinorOf(record: Transaction): number {
  */
 export function recordRow(
   record: Transaction,
-  options: Pick<RecordDaysOptions, 'categoryOf' | 'accountOf' | 'lead'> & { opens?: 'here' | 'history' }
+  options: Pick<RecordDaysOptions, 'categoryOf' | 'accountOf' | 'lead'> & {
+    opens?: 'here' | 'history';
+    /** The account screen: the server says the record is not in the account's balance (FT-148). */
+    notInBalance?: boolean;
+  }
 ): RecordRow {
   const category = options.categoryOf(record);
   const categoryName = category?.name ?? record.category;
@@ -149,17 +164,21 @@ export function recordRow(
     };
   }
 
+  // Not in the balance: the mark leads the caption, so «Без заметки» after it would add nothing
+  const notInBalance = options.notInBalance === true;
+  const marked = notInBalance ? [NOT_IN_BALANCE.toLocaleLowerCase('ru-RU')] : [];
   return {
     id: record.id ?? '',
     title,
     category: categoryName,
     color,
-    note: under || (lead ? '' : NO_NOTE),
+    note: under || (lead || notInBalance ? '' : NO_NOTE),
     amount: formatMinor(signed, currency, { sign: 'always', unit: currency !== 'UZS' }),
     tone,
-    ariaLabel: `${[title, fullAmount, ...said.filter(Boolean)].join(', ')}. ${opens}`,
+    ariaLabel: `${[title, fullAmount, ...said.filter(Boolean), ...marked].join(', ')}. ${opens}`,
     categoryAriaLabel: `Сменить категорию: ${categoryName}, ${fullAmount}`,
     pending: false,
+    ...(notInBalance && { notInBalance: true as const }),
   };
 }
 

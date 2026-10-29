@@ -199,6 +199,96 @@ describe('account screen', () => {
     expect(inDollars.type === 'move' && [inDollars.row.caption, inDollars.row.amount]).toEqual(['Доллары → Карта', `${MINUS}100,00${NBSP}USD`]);
   });
 
+  describe('operations the balance leaves out (FT-148, FT-163)', () => {
+    // Opened on 10 October by the first launch at 09:00 with 1 000 000 сум; `countsInBalance` is the server's
+    // (`countsInBalance()` of the account domain), the screen only reads it
+    const OPENED: Account = { ...CARD, openingDate: '2026-10-10', openingBalanceMinor: 100_000_000, balanceMinor: 125_700_000 };
+    const at = (date: string, time: string) => `${date}T${time}:00.000Z`;
+    const operations: AccountOperations = {
+      account: { ...OPENED, hasOperations: true },
+      days: [
+        {
+          date: '2026-10-12',
+          operations: [
+            move(
+              { id: 'm-in', kind: 'transfer', fromAccountId: 'cash', toAccountId: 'card', fromAmountMinor: 30_000_000, toAmountMinor: 30_000_000, dealRateMinor: null, cbuRateMinor: null, date: '2026-10-12' },
+              { amountMinor: 30_000_000, counterpart: { id: 'cash', name: 'Наличные', currency: 'UZS' } }
+            ),
+            { ...record('t-coffee', { amountMinor: 2_500_000, date: '2026-10-12', description: 'Кофе' }), createdAt: at('2026-10-12', '08:00') },
+            // «55$» on a сум account: in History, not in this balance
+            { ...record('t-usd', { amountMinor: 5_500, currency: 'USD', date: '2026-10-12', description: 'Сувенир' }), countsInBalance: false },
+          ],
+        },
+        {
+          date: '2026-10-10',
+          operations: [
+            { ...record('t-taxi', { amountMinor: 1_800_000, date: '2026-10-10', description: 'Такси' }), createdAt: at('2026-10-10', '10:00') },
+            // The opening day, written in the bot before the first launch: already in the amount entered
+            { ...record('t-morning', { amountMinor: 2_500_000, date: '2026-10-10', description: 'Кофе утром' }), createdAt: at('2026-10-10', '08:00'), countsInBalance: false },
+          ],
+        },
+        {
+          date: '2026-10-05',
+          operations: [
+            { ...record('t-old', { amountMinor: 10_000_000, date: '2026-10-05' }), countsInBalance: false },
+            move(
+              { id: 'm-old', kind: 'transfer', fromAccountId: 'card', toAccountId: 'cash', fromAmountMinor: 20_000_000, toAmountMinor: 20_000_000, dealRateMinor: null, cbuRateMinor: null, date: '2026-10-05' },
+              { amountMinor: -20_000_000, counterpart: { id: 'cash', name: 'Наличные', currency: 'UZS' }, countsInBalance: false }
+            ),
+          ],
+        },
+      ],
+    };
+    const days = accountDays(operations, { today: TODAY, categoryOf });
+    const items = days.flatMap((day) => day.items);
+    const item = (id: string) => items.find((candidate) => candidate.id === id)!;
+    const marked = (id: string) => item(id).row.notInBalance === true;
+
+    it('marks a record before the opening date, one of the opening day written before the first launch, and one in another currency', () => {
+      expect(['t-old', 't-morning', 't-usd'].map(marked)).toEqual([true, true, true]);
+      // The records that count look as in History
+      expect(['t-coffee', 't-taxi'].map((id) => item(id).row.notInBalance)).toEqual([undefined, undefined]);
+    });
+
+    it('marks a move before the opening date; the others are not marked', () => {
+      expect(marked('m-old')).toBe(true);
+      expect(item('m-in').row.notInBalance).toBeUndefined();
+    });
+
+    it('a marked row keeps its note and says it to screen readers; «Без заметки» adds nothing to the mark', () => {
+      const morning = item('t-morning');
+      expect(morning.type === 'record' && [morning.row.note, morning.row.ariaLabel]).toEqual([
+        'Кофе утром',
+        `Продукты, ${MINUS}25${NBSP}000${NBSP}сум, Кофе утром, не входит в остаток. Открыть в истории`,
+      ]);
+      const old = item('t-old');
+      expect(old.type === 'record' && [old.row.note, old.row.ariaLabel]).toEqual([
+        '',
+        `Продукты, ${MINUS}100${NBSP}000${NBSP}сум, не входит в остаток. Открыть в истории`,
+      ]);
+      const oldMove = item('m-old');
+      expect(oldMove.type === 'move' && [oldMove.row.caption, oldMove.row.ariaLabel]).toEqual([
+        'Карта → Наличные',
+        `Перевод, Карта → Наличные, ${MINUS}200${NBSP}000${NBSP}сум, не входит в остаток. Не в аналитике. Подробнее`,
+      ]);
+      // A row that counts keeps «Без заметки» and the label without the mark
+      const coffee = item('t-coffee');
+      expect(coffee.type === 'record' && coffee.row.ariaLabel).toBe(`Продукты, ${MINUS}25${NBSP}000${NBSP}сум, Кофе. Открыть в истории`);
+    });
+
+    it('the opening balance and the operations not marked add up to the balance on the screen', () => {
+      const amountOf = new Map(operations.days.flatMap((day) => day.operations).map((operation) => [operation.id, operation.amountMinor]));
+      const sum = (ids: string[]) => ids.reduce((total, id) => total + amountOf.get(id)!, 0);
+      const counted = items.filter((candidate) => !candidate.row.notInBalance).map((candidate) => candidate.id);
+      const left = items.filter((candidate) => candidate.row.notInBalance).map((candidate) => candidate.id);
+
+      expect(OPENED.openingBalanceMinor + sum(counted)).toBe(OPENED.balanceMinor);
+      // Without the mark the list would not add up: the marked ones are not nothing
+      expect(sum(left)).toBe(-2_500_000 - 5_500 - 10_000_000 - 20_000_000);
+      expect(accountHeader(OPENED, TODAY).balance).toBe(`1${NBSP}257${NBSP}000`);
+    });
+  });
+
   it('«Подробнее» of an exchange: what was given, received and the deal rate; deleting returns both balances', () => {
     expect(moveDetails(move({}), CARD, TODAY)).toEqual({
       title: 'Обмен, 12 октября',

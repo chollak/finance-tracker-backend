@@ -23,7 +23,7 @@ export type { ListedRecord } from './lib/pendingRecords';
 export { transactionToViewModel } from './lib/toViewModel';
 
 // Utils
-export { buildRecordDays, recordRow, PENDING_CAPTION } from './lib/recordDays';
+export { buildRecordDays, recordRow, PENDING_CAPTION, NOT_IN_BALANCE } from './lib/recordDays';
 export { pendingRecord, withPendingRecords, queuedToastDetail, QUEUED_TITLE } from './lib/pendingRecords';
 export { formatNetMinor, isHistoryNarrowed, netInUzs, parseHistorySearch } from './lib/historySearch';
 export {
@@ -69,4 +69,4 @@ export {
 export { TransactionCard } from './ui/TransactionCard';
 export { TransactionListItem } from './ui/TransactionListItem';
 export { TransactionActions } from './ui/TransactionActions';
-export { RecordDayList, RecordRowItem } from './ui/RecordDayList';
+export { NotInBalanceCaption, RecordDayList, RecordRowItem } from './ui/RecordDayList';
