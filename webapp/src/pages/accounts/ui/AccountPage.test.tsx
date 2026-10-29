@@ -249,6 +249,39 @@ describe('Account screen', () => {
     expect(buttons().some((item) => item.textContent?.trim() === 'Показать ещё')).toBe(false);
   });
 
+  it('an operation the balance leaves out says «Не входит в остаток» before its note; the others do not (FT-148)', async () => {
+    const early = record({ id: 't7', description: 'Кофе утром', amount: 25_000, amountMinor: 2_500_000, date: EARLIER });
+    const earlyMove: AccountMove = { ...EXCHANGE, id: 'm7', kind: 'transfer', fromAccountId: 'card', toAccountId: 'cash', fromAmountMinor: 30_000_000, toAmountMinor: 30_000_000, dealRateMinor: null, cbuRateMinor: null };
+    operations = {
+      ...operations,
+      days: [
+        ...operations.days.slice(0, 2),
+        {
+          date: EARLIER,
+          operations: [
+            ...operations.days[2].operations,
+            { type: 'record', id: 't7', date: EARLIER, createdAt: null, amountMinor: -2_500_000, countsInBalance: false, record: early },
+            { type: 'move', id: 'm7', date: EARLIER, createdAt: earlyMove.createdAt, amountMinor: -30_000_000, countsInBalance: false, kind: 'transfer', counterpart: { id: 'cash', name: 'Наличные', currency: 'UZS' }, move: earlyMove },
+          ],
+        },
+      ],
+    };
+    await renderAccount();
+
+    const marks = [...document.body.querySelectorAll('[data-balance-mark]')];
+    expect(marks.map((mark) => mark.textContent)).toEqual(['Не входит в остаток', 'Не входит в остаток']);
+    const record7 = button(`Продукты, ${MINUS}25${NBSP}000${NBSP}сум, Кофе утром, не входит в остаток. Открыть в истории`);
+    const move7 = button(`Перевод, Карта → Наличные, ${MINUS}300${NBSP}000${NBSP}сум, не входит в остаток. Не в аналитике. Подробнее`);
+    // A record's note goes after the mark, so an ellipsis cuts the note, never the mark
+    expect(record7.textContent?.replace(/\s+/g, ' ')).toContain('Не входит в остаток · Кофе утром');
+    // A move's direction is its own line under the mark: where the money went is not cut for the mark
+    expect(move7.querySelector('[data-balance-note]')?.textContent).toBe('Карта → Наличные');
+    expect(move7.textContent).not.toContain('·');
+    // The operations that count are as before
+    expect(button(`Продукты, ${MINUS}186${NBSP}400${NBSP}сум, Супермаркет. Открыть в истории`).querySelector('[data-balance-mark]')).toBeNull();
+    expect(button(`Обмен, Доллары → Карта, +1${NBSP}260${NBSP}000${NBSP}сум. Не в аналитике. Подробнее`).querySelector('[data-balance-mark]')).toBeNull();
+  });
+
   it('nothing in the last 60 days but earlier operations: no «Операций пока нет», the earlier days are offered', async () => {
     operationsFor = (params) => (params.get('to') ? operations : { ...operations, days: [], earlierDate: TODAY });
     await renderAccount();

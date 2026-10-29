@@ -11,6 +11,8 @@
  * - Sensitive data sanitization
  */
 
+// First: LOG_LEVEL and NODE_ENV from .env.local / .env are read below when the logger is created (FT-165)
+import '../config/loadEnvironment';
 import winston from 'winston';
 import { LogCategory, type LogCategoryType, type ILogger } from '../../domain/ports/Logger';
 

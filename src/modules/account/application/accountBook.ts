@@ -135,9 +135,12 @@ export class AccountBook implements AccountResolver {
     return ResultHelper.success(toResolved(fallback, 'default'));
   }
 
-  /** Whether the id is one of the user's visible accounts — for the default account setting. */
-  async isVisibleAccount(userId: string, accountId: string): Promise<boolean> {
+  /**
+   * Whether the id can be the user's default account: one of their visible accounts in сум (FT-149). A record with «$»
+   * goes to a dollar account by its currency anyway, so a dollar default would only ever be skipped.
+   */
+  async canBeDefaultAccount(userId: string, accountId: string): Promise<boolean> {
     const accounts = await this.listForUser(userId);
-    return accounts.some(account => account.id === accountId && !account.isHidden);
+    return accounts.some(account => account.id === accountId && !account.isHidden && account.currency === 'UZS');
   }
 }

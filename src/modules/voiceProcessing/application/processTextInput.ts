@@ -5,7 +5,7 @@ import { CreateDebtUseCase } from '../../debt/application/createDebt';
 import { Transaction } from '../../transaction/domain/transactionEntity';
 import { DebtType } from '../../debt/domain/debtEntity';
 import { DebtLimitExceededError } from '../../debt/domain/errors';
-import { getLogger, LogCategory } from '../../../shared/application/logging';
+import { errorFields, getLogger, LogCategory } from '../../../shared/application/logging';
 import { AnalysisContext, starterRecordCategories, UserCategorySource } from '../domain/categoryPrompt';
 import { detectPaymentHints, PaymentHints, stripPaymentWords } from '../domain/paymentHints';
 import { RecordSource } from '../../transaction/domain/recordSource';
@@ -604,7 +604,7 @@ export class ProcessTextInputUseCase {
       if (parsed?.transactions?.length || parsed?.withoutAmount?.length) return { parsed, fastPath: false };
       logger.warn('The AI read no record from a simple phrase; its label is kept');
     } catch (error) {
-      logger.warn('The AI could not read a simple phrase; its label is kept', { error: (error as Error).message });
+      logger.warn('The AI could not read a simple phrase; its label is kept', errorFields(error));
     }
     return { parsed: simple, fastPath: true };
   }
