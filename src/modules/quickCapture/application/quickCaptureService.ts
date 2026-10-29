@@ -1,7 +1,9 @@
 import { ProcessTextInputUseCase } from '../../voiceProcessing/application/processTextInput';
 import { getLogger, LogCategory } from '../../../shared/application/logging';
+import { ErrorFactory } from '../../../shared/domain/errors/AppError';
 import { buildCaptureAck } from './buildCaptureAck';
 import { capturedFromRecord, toCapturedTransaction } from './toCapturedTransaction';
+import { CAPTURED_AT_LIMITS, CapturedAtProblem, capturedAtProblem, inputDayOf } from '../domain/capturedAt';
 import {
   AmountAnswerRequest,
   CaptureReplay,
@@ -16,6 +18,11 @@ import {
 
 const logger = getLogger(LogCategory.TRANSACTION);
 
+const CAPTURED_AT_REFUSALS: Record<CapturedAtProblem, string> = {
+  ahead: `capturedAt is more than ${CAPTURED_AT_LIMITS.aheadMs / 60_000} minutes ahead of the server clock`,
+  too_old: `capturedAt is older than ${CAPTURED_AT_LIMITS.ageMs / 86_400_000} days`,
+};
+
 /**
  * The shared quick-capture boundary. It owns the client-facing contract (status + ack)
  * and nothing else: parsing, the conservative transfer/savings/withdrawal safeguards and
@@ -25,7 +32,12 @@ export class QuickCaptureService {
   /** Captures with a clientId still being parsed, so a retry waits for them instead of parsing again. */
   private inFlight = new Map<string, Promise<QuickCaptureResult>>();
 
-  constructor(private processTextInputUseCase: ProcessTextInputUseCase, private replay?: CaptureReplay) {}
+  constructor(
+    private processTextInputUseCase: ProcessTextInputUseCase,
+    private replay?: CaptureReplay,
+    /** The server's clock, for the limits of `capturedAt`. */
+    private now: () => Date = () => new Date()
+  ) {}
 
   async capture(request: QuickCaptureRequest): Promise<QuickCaptureResult> {
     if (!request.clientId) return this.captureOnce(request);
@@ -57,10 +69,14 @@ export class QuickCaptureService {
       }
     }
 
+    // Checked after the repeat: a capture written once is answered, whatever time its retry carries (FT-175)
+    const today = request.capturedAt ? this.inputDay(request.capturedAt) : undefined;
+
     // The source is now stored on every record (FT-103); a client that does not say is the Mini App
     const processed = await this.processTextInputUseCase.execute(text, request.userId, request.userName, {
       source: request.source ?? 'miniapp',
       ...(request.clientId ? { clientId: request.clientId } : {}),
+      ...(today ? { today } : {}),
     });
     const result = buildResult(
       text,
@@ -81,6 +97,13 @@ export class QuickCaptureService {
     });
 
     return result;
+  }
+
+  /** The day the phrase was typed (FT-175); a time outside the limits is not one, so the capture is refused. */
+  private inputDay(capturedAt: Date): string {
+    const problem = capturedAtProblem(capturedAt, this.now());
+    if (problem) throw ErrorFactory.validation(CAPTURED_AT_REFUSALS[problem], 'capturedAt');
+    return inputDayOf(capturedAt);
   }
 
   /**
