@@ -3,10 +3,6 @@
 Задачи с FT-144: надёжность, закрытый доступ, переезд живого экземпляра на ПК.
 
 Закрыто задач: **16**. Это архив: задачи здесь не переоткрываются и не редактируются.
-
----
-
-Закрыто задач: **14**. Это архив: задачи здесь не переоткрываются и не редактируются.
 Активная доска — [`TASKS.md`](../../../TASKS.md), решения по плану — [`decisions.md`](../decisions.md).
 
 ---
@@ -904,10 +900,6 @@ Definition of Done:
 
 ### FT-163: Records made before first launch are counted twice in the balance
 
----
-
-### FT-170: dev:miniapp writes a wrong WEB_APP_URL when the quick tunnel fails
-
 Status: done
 Priority: low
 Owner: Claude Code, QA — под-чат проверки
@@ -982,6 +974,15 @@ Definition of Done:
 
 ---
 
+### FT-170: dev:miniapp writes a wrong WEB_APP_URL when the quick tunnel fails
+
+Status: done
+Priority: low
+Owner: Claude Code, QA — под-чат проверки
+Type: bug
+Size: S
+
+Context:
 2026-10-28 без сети `cloudflared` ответил «failed to request quick Tunnel: Post "https://api.trycloudflare.com/tunnel":
 context deadline exceeded», и `scripts/dev-miniapp.js` записал в `.env.local` `WEB_APP_URL=https://api.trycloudflare.com`
 — адрес из текста ошибки, а не туннеля; затем вышел на «Request timed out: api.telegram.org». Следующий удачный запуск
@@ -1025,5 +1026,3 @@ Definition of Done:
 Известно:
 - Туннель поднят, а Telegram недоступен: `WEB_APP_URL` уже записан с верным адресом, кнопка осталась старой — не менялось.
 - Разбор опирается на фразу `Your quick Tunnel has been created!`; проверено на `cloudflared 2026.9.3` (мак).
-
----
