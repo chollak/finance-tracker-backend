@@ -187,12 +187,16 @@ describe('the note while it is typed (FT-147)', () => {
     expect(note().value).toBe('Обед');
   });
 
-  it('Enter that confirms a word of an input method keeps the note open', async () => {
+  it.each([
+    ['while composing', { isComposing: true }],
+    // Safari ends the composition before the keydown, which then says so only by keyCode 229
+    ['in Safari, after the composition ended', { keyCode: 229 }],
+  ])('Enter that confirms a word of an input method keeps the note open (%s)', async (_, init) => {
     await renderScreen();
     await focusNote();
 
     await act(async () => {
-      note().dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', isComposing: true, bubbles: true }));
+      note().dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, ...init }));
     });
 
     expect(document.activeElement).toBe(note());
@@ -211,29 +215,73 @@ describe('the note while it is typed (FT-147)', () => {
   it('Tab from the note to «Готово» keeps the note open, so «Готово» can be pressed from a computer keyboard', async () => {
     await renderScreen();
     await focusNote();
+    const button = done()!;
 
-    await act(async () => done()!.focus());
-
+    // A browser renders between the field's blur and the button's focus: in one `act` they would merge and a
+    // screen that closed on the blur would open again on the focus unseen
+    await act(async () => {
+      note().dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: button }));
+    });
     expect(keypad()).toBeNull();
-    expect(document.activeElement).toBe(done());
+    expect(done()).toBe(button);
+
+    await act(async () => button.focus());
+    expect(keypad()).toBeNull();
+    expect(document.activeElement).toBe(button);
   });
 
-  it('after the note the lists scroll to it, so the typed note is in view on a low screen', async () => {
-    await renderScreen();
-    await focusNote();
+  /**
+   * A low screen: the lists' box ends at 350px and the note row, once the lists are back, stands at 400–448px,
+   * below it. Returns what the box was scrolled to, or null when it was not scrolled.
+   */
+  function lowScreen(): () => number | null {
     const lists = note().closest<HTMLElement>('.overflow-y-auto')!;
-    Object.defineProperty(lists, 'scrollHeight', { configurable: true, value: 420 });
-    let scrolledTo = -1;
+    const row = note().closest('label')!.parentElement!;
+    const rect = (top: number, bottom: number) => ({ top, bottom, left: 0, right: 0, width: 0, height: bottom - top, x: 0, y: top }) as DOMRect;
+    lists.getBoundingClientRect = () => rect(200, 350);
+    row.getBoundingClientRect = () => rect(400, 448);
+    let scrolledTo: number | null = null;
     Object.defineProperty(lists, 'scrollTop', {
       configurable: true,
-      get: () => Math.max(scrolledTo, 0),
+      get: () => scrolledTo ?? 0,
       set: (value: number) => {
         scrolledTo = value;
       },
     });
+    return () => scrolledTo;
+  }
+
+  it('after «Готово» the lists show the note with the least scroll: its bottom at the box bottom', async () => {
+    await renderScreen();
+    await focusNote();
+    const scrolled = lowScreen();
 
     await act(async () => done()!.click());
 
-    expect(scrolledTo).toBe(420);
+    expect(scrolled()).toBe(448 - 350);
+  });
+
+  it('after Enter too', async () => {
+    await renderScreen();
+    await focusNote();
+    const scrolled = lowScreen();
+
+    await act(async () => {
+      note().dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    });
+
+    expect(scrolled()).toBe(448 - 350);
+  });
+
+  it('leaving the note for another control (the date) keeps the lists at their top: the next step is there', async () => {
+    await renderScreen();
+    await focusNote();
+    const scrolled = lowScreen();
+    const date = container.querySelector<HTMLButtonElement>('button[aria-label^="Дата"]')!;
+
+    await act(async () => date.focus());
+
+    expectBoard();
+    expect(scrolled()).toBeNull();
   });
 });

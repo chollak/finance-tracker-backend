@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FocusEvent, type ReactNode } from 'react';
+import { useLayoutEffect, useRef, useState, type FocusEvent, type ReactNode, type RefObject } from 'react';
 import { cn } from '@/shared/lib/utils';
 import type { KeypadKey } from '@/shared/lib/money';
 import { BackButton, Button, CategoryTile, Keypad, Segmented, SkeletonBlock } from '@/shared/ui/pastel';
@@ -68,31 +68,49 @@ function ReadFailed({ what, onRetry }: { what: string; onRetry: () => void }) {
 }
 
 /**
+ * Scrolls `box` by the least that shows all of `item`, like `scrollIntoView({ block: 'nearest' })` but only
+ * inside the box — never the page, which the closing phone keyboard is still moving.
+ */
+function revealInside(box: HTMLElement, item: HTMLElement): void {
+  const boxRect = box.getBoundingClientRect();
+  const itemRect = item.getBoundingClientRect();
+  if (itemRect.bottom > boxRect.bottom) box.scrollTop += itemRect.bottom - boxRect.bottom;
+  else if (itemRect.top < boxRect.top) box.scrollTop -= boxRect.top - itemRect.top;
+}
+
+/**
  * Whether the note is being typed (FT-147): the note row — the field or its «Готово» — has the focus. The
  * focus decides, not the size of the phone keyboard: Telegram's WebView reports the keyboard differently on
  * iOS (`dvh` and the layout stay, the page is panned) and Android (the window shrinks); the focus is the
- * same everywhere. When the note is done, the lists scroll to their end, where the note is.
+ * same everywhere.
  */
 function useNoteFocus() {
   const [focused, setFocused] = useState(false);
   const listsRef = useRef<HTMLDivElement>(null);
-  const wasFocused = useRef(false);
+  const rowRef = useRef<HTMLDivElement>(null);
+  const revealNote = useRef(false);
 
-  // The lists are back: scroll them to their end, where the typed note is, so a low screen shows it. Only
-  // the lists' own box scrolls — never the page, which the closing phone keyboard is still moving.
-  useEffect(() => {
-    const lists = listsRef.current;
-    if (wasFocused.current && !focused && lists) lists.scrollTop = lists.scrollHeight;
-    wasFocused.current = focused;
+  // The lists are back after the note was done: on a low screen they show the note again, with the least
+  // scroll. Before the paint, so they do not flash at their top first
+  useLayoutEffect(() => {
+    if (focused || !revealNote.current) return;
+    revealNote.current = false;
+    if (listsRef.current && rowRef.current) revealInside(listsRef.current, rowRef.current);
   }, [focused]);
 
   return {
     focused,
     listsRef,
+    rowRef,
     onFocus: () => setFocused(true),
-    // Tab from the field to «Готово» stays inside the note row and keeps it open
     onBlur: (event: FocusEvent<HTMLElement>) => {
-      if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setFocused(false);
+      const next = event.relatedTarget as Node | null;
+      // Tab from the field to «Готово» stays inside the note row and keeps it open
+      if (event.currentTarget.contains(next)) return;
+      // Done with the note itself — «Готово», Enter, a tap on an empty place — the focus goes nowhere: show the
+      // note. Taken by another control — «Доход», the date — the next step is there: the lists stay at their top
+      revealNote.current = next === null;
+      setFocused(false);
     },
   };
 }
@@ -105,9 +123,11 @@ function useNoteFocus() {
  * the amount and the keypad scroll, so the amount, the keypad and the main button stay where they are.
  *
  * While the note has the focus (FT-147) the phone's keyboard covers the bottom of the screen, so the screen
- * keeps the header, the amount and the note at the top, with «Готово» next to the note, as the record
- * sheet's note mode does (TxnSheet.md); the lists, the keypad and the main button come back when the note is
- * done. The field itself never moves to another place in the tree, so it keeps the focus and the keyboard.
+ * keeps the header, the amount and the note at the top, with «Готово» next to the note — a simplified form of
+ * the record sheet's note mode (TxnSheet.md), which has «Назад», a heading and «Готово» in one row and the
+ * field under them; here there is no «Назад» or heading, only «Готово» to the right of the field. The lists,
+ * the keypad and the main button come back when the note is done. The field itself never moves to another
+ * place in the tree, so it keeps the focus and the keyboard.
  */
 export function ManualEntryView({
   type,
@@ -126,7 +146,7 @@ export function ManualEntryView({
   onSave,
   onRetry,
 }: ManualEntryViewProps) {
-  const { focused: noteFocused, listsRef, onFocus: onNoteFocus, onBlur: onNoteBlur } = useNoteFocus();
+  const { focused: noteFocused, listsRef, rowRef, onFocus: onNoteFocus, onBlur: onNoteBlur } = useNoteFocus();
 
   return (
     <div className="mx-auto flex h-[calc(100dvh-env(safe-area-inset-bottom))] w-full max-w-md flex-col gap-3 bg-bg px-4 pb-4 pt-2 text-ink">
@@ -232,7 +252,14 @@ export function ManualEntryView({
           </>
         )}
 
-        <NoteRow note={note} onNote={onNote} focused={noteFocused} onFocus={onNoteFocus} onBlur={onNoteBlur} />
+        <NoteRow
+          rowRef={rowRef}
+          note={note}
+          onNote={onNote}
+          focused={noteFocused}
+          onFocus={onNoteFocus}
+          onBlur={onNoteBlur}
+        />
       </div>
 
       {!noteFocused && (
@@ -253,18 +280,19 @@ export function ManualEntryView({
 }
 
 /**
- * The note field and, while it is typed, «Готово» next to it — the record sheet's note mode keeps its
- * «Готово» on the field's row the same way (TxnSheet.md). «Готово» and Enter («Готово» on the phone
- * keyboard, `enterKeyHint`) end the note; the press does not take the focus first, so the screen does not
- * change under the finger.
+ * The note field and, while it is typed, «Готово» to the right of it (the record sheet's note mode, simplified:
+ * no «Назад» or heading row). «Готово» and Enter («Готово» on the phone keyboard, `enterKeyHint`) end the
+ * note; the press does not take the focus first, so the screen does not change under the finger.
  */
 function NoteRow({
+  rowRef,
   note,
   onNote,
   focused,
   onFocus,
   onBlur,
 }: {
+  rowRef: RefObject<HTMLDivElement | null>;
   note: string;
   onNote: (note: string) => void;
   focused: boolean;
@@ -278,7 +306,7 @@ function NoteRow({
   };
 
   return (
-    <div onFocus={onFocus} onBlur={onBlur} className="flex shrink-0 items-center gap-2">
+    <div ref={rowRef} onFocus={onFocus} onBlur={onBlur} className="flex shrink-0 items-center gap-2">
       <label className="flex h-key min-w-0 flex-1 items-center gap-3 rounded-pill bg-card px-5 focus-within:ring-2 focus-within:ring-ink">
         {/* Next to «Готово» the board's example would be cut at 390px: the word stays only for screen readers */}
         <span className={cn('shrink-0 text-[13px] font-bold text-ink-muted', focused && 'sr-only')}>Заметка</span>
@@ -288,8 +316,9 @@ function NoteRow({
           value={note}
           onChange={(event) => onNote(event.target.value)}
           onKeyDown={(event) => {
-            // Enter that confirms a word being composed (an input method) belongs to the word
-            if (event.key !== 'Enter' || event.nativeEvent.isComposing) return;
+            // Enter that confirms a word being composed (an input method) belongs to the word. Safari ends the
+            // composition before this keydown, so it says so only by keyCode 229
+            if (event.key !== 'Enter' || event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return;
             event.preventDefault();
             end();
           }}
