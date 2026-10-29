@@ -34,7 +34,8 @@ describe('the window of a notice that did not leave (FT-164)', () => {
     expect(notSentReason(21, error)).toContain('21 попытка');
     expect(notSentReason(22, error)).toContain('22 попытки');
     expect(notSentReason(3, null)).toBe('не ушло: нет сети, 3 попытки');
-    expect(notSentReason(0, null)).toBe('не ушло: ни одной попытки — бот не работал');
+    // None tried: the bot was not running, the summaries were off, or the row was given up before FT-164
+    expect(notSentReason(0, null)).toBe('не ушло: ни одной попытки');
   });
 
   it('a long error is cut so the reason fits the column', () => {

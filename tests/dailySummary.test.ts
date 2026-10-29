@@ -530,7 +530,7 @@ describe('daily summary (FT-124)', () => {
       at('2026-10-15', '06:30');
       expect(await tick()).toEqual([]);
       expect(await logEntry(owner, 'daily_summary', '2026-10-14')).toMatchObject({
-        status: 'failed', attempts: 0, error: 'не ушло: ни одной попытки — бот не работал',
+        status: 'failed', attempts: 0, error: 'не ушло: ни одной попытки',
       });
 
       // What is decided at night survives a restart
@@ -540,13 +540,16 @@ describe('daily summary (FT-124)', () => {
       expect(sent.map(message => message.text)).toEqual([LATE_14]);
     });
 
-    it('the bot comes back after 08:00: «Итоги за вчера» at once', async () => {
+    it('the bot comes back after 08:00: «Итоги за вчера» at once; the month is told up to that day, without today\'s records', async () => {
       const owner = await user();
       await summaryOfThe13thSent(owner);
       await record(owner, '2026-10-14', 'Кафе', 45_000);
+      // Written in the morning, before the bot is back: not in yesterday's month line
+      await record(owner, '2026-10-15', 'Продукты', 100_000);
 
-      at('2026-10-15', '10:30');
+      at('2026-10-15', '10:00');
       expect(await tick()).toEqual([{ userId: owner, day: '2026-10-14', outcome: 'sent', late: true }]);
+      expect(sent.map(message => message.text)).toEqual([LATE_14]);
     });
 
     it('«Итоги за вчера» are tried until the next day ends, across a restart; then kept failed and the next day is the one caught up', async () => {
@@ -609,17 +612,37 @@ describe('daily summary (FT-124)', () => {
         `<b>Итоги за вчера · 14${NB}октября</b>`,
         'Записей нет. Трат правда не было?',
         '',
-        '<i>Если что-то было — просто напишите, например «обед 45к».</i>',
+        // Plain «обед 45к» would be written for today
+        '<i>Если что-то было — просто напишите, например «вчера обед 45к».</i>',
       ].join('\n'));
       expect(sent[0].keyboard).toEqual([[{ text: 'Да, не было', callback_data: 'n:none:2026-10-14', hide: false }]]);
 
-      await pressNoSpending(sent[0]);
+      const ctx = await pressNoSpending(sent[0]);
+      expect(ctx.editMessageText).toHaveBeenCalledWith(
+        `<b>Итоги за вчера · 14${NB}октября</b>\nОтметил: 14${NB}октября трат не было.`,
+        { parse_mode: 'HTML', reply_markup: { inline_keyboard: [] } }
+      );
       expect(await logEntry(owner, 'daily_summary_late', '2026-10-14')).toMatchObject({ variant: 'empty', answer: 'no_spending' });
 
       at('2026-10-15', '21:00');
       expect((await tick()).map(result => result.outcome)).toEqual(['asked']);
       at('2026-10-16', '21:00');
       expect((await tick()).map(result => result.outcome)).toEqual(['skipped']);
+    });
+
+    it('«Да, не было» under «Итоги за вчера» after «вчера обед 45к»: the question becomes yesterday\'s summary, still «за вчера»', async () => {
+      const owner = await user();
+      await summaryOfThe13thSent(owner);
+      at('2026-10-15', '08:00');
+      expect(await tick()).toEqual([{ userId: owner, day: '2026-10-14', outcome: 'asked', late: true }]);
+      await record(owner, '2026-10-14', 'Кафе', 45_000);
+
+      const ctx = await pressNoSpending(sent[0]);
+
+      const [text, extra] = ctx.editMessageText.mock.calls[0];
+      expect(text).toBe(LATE_14);
+      expect(extra.reply_markup.inline_keyboard).toEqual([[expect.objectContaining({ text: 'Открыть Kapelka ↗' })]]);
+      expect(await logEntry(owner, 'daily_summary_late', '2026-10-14')).toMatchObject({ variant: 'empty', answer: null });
     });
 
     it('a summary claimed but never finished (the process stopped mid-send) is not tried again, nor caught up', async () => {

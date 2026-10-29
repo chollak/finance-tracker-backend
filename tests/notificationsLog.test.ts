@@ -153,15 +153,14 @@ describe('notifications log (FT-124)', () => {
       const b = await connect();
       expect(await a.log.find('user-1', 'daily_summary', '2026-10-26')).toMatchObject({ status: 'not_sent', attempts: 1, error: 'getaddrinfo ENOTFOUND api.telegram.org' });
 
-      const taken = await Promise.all([
-        a.log.transition('n-1', 'not_sent', { status: 'sending', attempts: 2 }),
-        b.log.transition('n-1', 'not_sent', { status: 'sending', attempts: 2 }),
-      ]);
+      const taken = await Promise.all([a.log.retake('n-1'), b.log.retake('n-1')]);
 
-      expect(taken.filter(Boolean)).toHaveLength(1);
+      // The winner gets the attempt counted in the same UPDATE, not from what it read before
+      expect(taken.filter(attempt => attempt !== null)).toEqual([2]);
       expect(await a.log.find('user-1', 'daily_summary', '2026-10-26')).toMatchObject({ status: 'sending', attempts: 2 });
       // A row being sent is never taken again: at most once
-      expect(await a.log.transition('n-1', 'not_sent', { status: 'sending', attempts: 3 })).toBe(false);
+      expect(await a.log.retake('n-1')).toBeNull();
+      expect(await a.log.transition('n-1', 'not_sent', { status: 'failed' })).toBe(false);
     });
 
     it('lists the user\'s notices of the asked kinds still not_sent after their last day', async () => {
