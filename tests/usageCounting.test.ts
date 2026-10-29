@@ -1,12 +1,12 @@
 import express from 'express';
 import http from 'http';
-import { AddressInfo } from 'net';
 
 import { CreateTransactionUseCase } from '../src/modules/transaction/application/createTransaction';
 import { createTransactionRouter } from '../src/modules/transaction/presentation/controllers/transactionController';
 import { createTextMessageHandler } from '../src/delivery/messaging/telegram/handlers/messageHandlers';
 import { buildCaptureAck } from '../src/modules/quickCapture/application/buildCaptureAck';
 import { CapturedTransaction, QuickCaptureResult } from '../src/modules/quickCapture/domain/quickCaptureTypes';
+import { listenOnLoopback } from './helpers/testServer';
 
 /**
  * A created transaction is counted against the free limit in exactly one place:
@@ -130,7 +130,7 @@ describe('POST /api/transactions does not count transactions a second time', () 
   let increment: jest.Mock;
   let createExecute: jest.Mock;
 
-  beforeEach((done) => {
+  beforeEach(async () => {
     const subscription = subscriptionMock();
     increment = subscription.increment;
     createExecute = jest.fn().mockResolvedValue({ success: true, data: 'tx-1' });
@@ -158,10 +158,7 @@ describe('POST /api/transactions does not count transactions a second time', () 
 
     const app = express();
     app.use('/api', router);
-    server = app.listen(0, () => {
-      baseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
-      done();
-    });
+    ({ server, baseUrl } = await listenOnLoopback(app));
   });
 
   afterEach((done) => {

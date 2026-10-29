@@ -5,13 +5,30 @@
  * Uses express-rate-limit with different limits for different endpoint types.
  */
 
-import rateLimit, { ipKeyGenerator, RateLimitRequestHandler } from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator, MemoryStore, RateLimitRequestHandler, Store } from 'express-rate-limit';
 import { Request, Response } from 'express';
 import { createLogger, LogCategory } from '../../../../shared/infrastructure/logging';
 import { AppConfig } from '../../../../shared/infrastructure/config/appConfig';
 import { signedInTelegramId } from './authMiddleware';
 
 const logger = createLogger(LogCategory.RATE_LIMIT);
+
+/** The counters of the shared limiters below, one store each (express-rate-limit refuses a store used twice). */
+const sharedStores: MemoryStore[] = [];
+
+function sharedStore(): MemoryStore {
+  const store = new MemoryStore();
+  sharedStores.push(store);
+  return store;
+}
+
+/**
+ * Forgets every request the shared limiters counted. For tests (FT-151): a test server starts with empty counters, as
+ * the app does on start, so one test's requests never count against the next. The limits themselves do not change.
+ */
+export async function resetSharedRateLimiters(): Promise<void> {
+  await Promise.all(sharedStores.map(store => store.resetAll()));
+}
 
 /** Requests per 15 minutes for one signed-in Telegram user (decision of 2026-10-20, FT-139). */
 const SIGNED_IN_REQUEST_LIMIT = 600;
@@ -32,10 +49,10 @@ interface Requester {
  * counter: 600 requests per 15 minutes each. Requests without sign-in count per address: 100.
  *
  * It runs before the route's authentication, so it checks the sign-in itself; initData that does not
- * verify counts as no sign-in. The options exist for tests: each call has its own counters.
+ * verify counts as no sign-in. The options exist for tests: each call has its own counters, unless it is given a store.
  */
 export function createStandardRateLimiter(
-  options: { botToken?: string } = {}
+  options: { botToken?: string; store?: Store } = {}
 ): RateLimitRequestHandler {
   const botToken = options.botToken ?? AppConfig.TG_BOT_API_KEY;
   // The key and the limit both need the requester: verify initData once per request.
@@ -53,6 +70,7 @@ export function createStandardRateLimiter(
   };
 
   return rateLimit({
+    store: options.store,
     windowMs: 15 * 60 * 1000, // 15 minutes
     limit: (req: Request): number =>
       requesterOf(req).telegramId === null ? ANONYMOUS_REQUEST_LIMIT : SIGNED_IN_REQUEST_LIMIT,
@@ -79,7 +97,7 @@ export function createStandardRateLimiter(
 }
 
 /** The general limiter the API routers share (one counter set for the whole API). */
-export const standardRateLimiter: RateLimitRequestHandler = createStandardRateLimiter();
+export const standardRateLimiter: RateLimitRequestHandler = createStandardRateLimiter({ store: sharedStore() });
 
 /**
  * Strict rate limiter for sensitive operations
@@ -88,6 +106,7 @@ export const standardRateLimiter: RateLimitRequestHandler = createStandardRateLi
  * Limits: 10 requests per 15 minutes per IP
  */
 export const strictRateLimiter: RateLimitRequestHandler = rateLimit({
+  store: sharedStore(),
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 10, // 10 requests per window
   message: {
@@ -118,6 +137,7 @@ export const strictRateLimiter: RateLimitRequestHandler = rateLimit({
  * Limits: 300 requests per 15 minutes per IP
  */
 export const readOnlyRateLimiter: RateLimitRequestHandler = rateLimit({
+  store: sharedStore(),
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 300, // 300 requests per window
   message: {
@@ -137,6 +157,7 @@ export const readOnlyRateLimiter: RateLimitRequestHandler = rateLimit({
  * Limits: 20 requests per 15 minutes per IP
  */
 export const aiRateLimiter: RateLimitRequestHandler = rateLimit({
+  store: sharedStore(),
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 20, // 20 requests per window
   message: {
@@ -168,6 +189,7 @@ export const aiRateLimiter: RateLimitRequestHandler = rateLimit({
  * Limits: 5 requests per 15 minutes per IP
  */
 export const adminRateLimiter: RateLimitRequestHandler = rateLimit({
+  store: sharedStore(),
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 5, // 5 requests per window
   message: {

@@ -2,7 +2,6 @@ import 'reflect-metadata';
 import crypto from 'crypto';
 import express from 'express';
 import http from 'http';
-import { AddressInfo } from 'net';
 import { parseTelegramIds, telegramAccess } from '../src/shared/domain/access/telegramAccess';
 import { AppConfig } from '../src/shared/infrastructure/config/appConfig';
 import { buildServer } from '../src/delivery/web/express/expressServer';
@@ -14,6 +13,7 @@ import { SqliteUserRepository } from '../src/modules/user/infrastructure/persist
 import { SqliteUserSettingsRepository } from '../src/modules/user/infrastructure/persistence/SqliteUserSettingsRepository';
 import { openMigratedDatabase, TestDatabase } from './helpers/testDatabase';
 import { appConfigWith } from './helpers/appConfigWith';
+import { listenOnLoopback } from './helpers/testServer';
 
 /**
  * FT-153: closed access by ALLOWED_TELEGRAM_IDS (decision 2026-10-26, «живой экземпляр на своём ПК»). The bot, the API
@@ -131,10 +131,7 @@ describe('the API lets in only the allowed (FT-153)', () => {
     authModule = new AuthModule(new SqliteLoginTokenRepository(db.dataSource), { botUsername: { username: async () => 'KapelkaBot' } });
     const app = express();
     app.use('/api', buildServer(unusedModule, unusedModule, unusedModule, unusedModule, unusedModule, userModule, undefined, undefined, { authModule }));
-    server = await new Promise<http.Server>(resolve => {
-      const listening = app.listen(0, () => resolve(listening));
-    });
-    baseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+    ({ server, baseUrl } = await listenOnLoopback(app));
   }
 
   async function get(path: string, headers: Record<string, string> = {}) {
@@ -266,10 +263,7 @@ describe('the iPhone Shortcut captures only for an allowed owner (FT-153)', () =
     app.post('/capture', allowShortcutCapture, (req, res) => {
       res.json({ userId: req.body.userId });
     });
-    server = await new Promise<http.Server>(resolve => {
-      const listening = app.listen(0, () => resolve(listening));
-    });
-    baseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+    ({ server, baseUrl } = await listenOnLoopback(app));
   });
 
   afterEach(async () => {
