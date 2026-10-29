@@ -17,7 +17,7 @@ export type {
 export { useAccounts, useAccountOperations } from './api/queries';
 export { accountKeys } from './api/keys';
 export { createAccount, updateAccount, deleteAccount, adjustBalance, createMove, deleteMove, restoreMove } from './api/writes';
-export { visibleAccounts, accountCaption, accountIcon, type AccountIcon } from './lib/accounts';
+export { visibleAccounts, defaultRecordAccount, accountCaption, accountIcon, type AccountIcon } from './lib/accounts';
 export {
   OPERATIONS_WINDOW_DAYS,
   firstOperationsWindow,
