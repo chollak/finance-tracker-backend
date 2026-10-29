@@ -12,6 +12,7 @@ import { ROUTES } from '@/shared/lib/constants/routes';
 import { useUndoToastStore, visibleEntry } from '@/shared/lib/undo';
 import { useCaptureStore } from '../model/captureStore';
 import type { CapturedTransaction, QuickCaptureResult } from '../model/types';
+import { capturedRecordKeys } from './invalidation';
 import { useQuickCapture } from './mutations';
 import { useSendCapture } from './useSendCapture';
 
@@ -85,10 +86,10 @@ function Probe({ onRender }: { onRender: (hook: SendHook) => void }) {
   return null;
 }
 
-function mountSend(): SendHook {
+function mountSend(client = new QueryClient()): SendHook {
   let hook: SendHook | undefined;
   renderToStaticMarkup(
-    <QueryClientProvider client={new QueryClient()}>
+    <QueryClientProvider client={client}>
       <Probe onRender={(rendered) => { hook = rendered; }} />
     </QueryClientProvider>
   );
@@ -186,6 +187,28 @@ describe('a send that failed', () => {
     expect(useCaptureStore.getState().draft).toBe('кофе 25к, такси 18к');
     expect(navigate).not.toHaveBeenCalled();
     expect(shownToast()).toMatchObject({ kind: 'info', title: 'Не дождался ответа', detail: 'Текст остался в поле — отправьте ещё раз' });
+  });
+
+  it('after a timeout the records are read again: the server may have written them all the same (FT-146)', async () => {
+    mutateAsync.mockRejectedValue({ message: 'Request timed out', statusCode: 0, code: REQUEST_TIMEOUT_CODE });
+    const client = new QueryClient();
+    const invalidate = vi.spyOn(client, 'invalidateQueries');
+
+    const outcome = await mountSend(client).send('кофе 25к');
+
+    expect(outcome).toBe('timed-out');
+    expect(invalidate.mock.calls.map(([filters]) => filters?.queryKey)).toEqual(capturedRecordKeys('900000001'));
+  });
+
+  it('a send that got an answer, even a refusal, does not read them again', async () => {
+    mutateAsync.mockRejectedValue({ message: 'Request failed', statusCode: 502 });
+    const client = new QueryClient();
+    const invalidate = vi.spyOn(client, 'invalidateQueries');
+
+    const outcome = await mountSend(client).send('кофе 25к');
+
+    expect(outcome).toBe('kept');
+    expect(invalidate).not.toHaveBeenCalled();
   });
 
   it('a press again after a timeout sends the same client id: the server may have written it after all', async () => {

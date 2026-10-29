@@ -139,6 +139,19 @@ describe('while the phrase is being read (FT-146)', () => {
     expect(html.match(STATUS)?.[1]).toBe('');
   });
 
+  it('the round button says «Распознаю…» to a screen reader while it waits', () => {
+    const round = buttons(view({ text: 'такси 18к', sending: true })).find((tag) => tag.includes('size-button'));
+
+    expect(round).toContain('aria-label="Распознаю…"');
+  });
+
+  it('a long phrase ends with an ellipsis, a clear gap before «Распознаю…»', () => {
+    const html = view({ text: 'обед в центре с коллегами 145к и такси домой 32к', sending: true });
+
+    expect(html).toMatch(/<input[^>]*class="[^"]*truncate/);
+    expect(html).toMatch(/<span[^>]*role="status"[^>]*class="[^"]*pl-2/);
+  });
+
   it('the round button stays the main one, with pulsing dots instead of the arrow', () => {
     const round = buttons(view({ text: 'такси 18к', sending: true })).find((tag) => tag.includes('size-button'));
 

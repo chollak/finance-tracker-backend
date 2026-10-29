@@ -1,3 +1,4 @@
+import type { Ref } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/shared/lib/utils';
 import { ROUTES } from '@/shared/lib/constants/routes';
@@ -12,6 +13,8 @@ export interface ComposerViewProps {
   text: string;
   /** The phrase is being read: the round button waits, the field keeps the text. */
   sending: boolean;
+  /** The text field, for the composer to give it the focus back after a send that timed out (FT-146). */
+  inputRef?: Ref<HTMLInputElement>;
   onText: (text: string) => void;
   onSend: () => void;
   onChip: (chip: QuickChip) => void;
@@ -91,7 +94,18 @@ const READING = 'Распознаю…';
  * `primary` button: the microphone while the field is empty, the send arrow once there is text. Without a connection
  * the microphone is on `track` (FT-129).
  */
-export function ComposerView({ chips, text, sending, onText, onSend, onChip, onVoice, onCamera, offline = false }: ComposerViewProps) {
+export function ComposerView({
+  chips,
+  text,
+  sending,
+  inputRef,
+  onText,
+  onSend,
+  onChip,
+  onVoice,
+  onCamera,
+  offline = false,
+}: ComposerViewProps) {
   const { pathname } = useLocation();
   const openedFrom: OpenedFromState = { from: pathname };
   const hasText = text.trim().length > 0;
@@ -134,7 +148,9 @@ export function ComposerView({ chips, text, sending, onText, onSend, onChip, onV
         <div className="flex h-button min-w-0 flex-1 items-center gap-1 rounded-pill bg-card pl-5 pr-1.5 focus-within:ring-2 focus-within:ring-ink">
           <label className="flex h-full min-w-0 flex-1 items-center">
             <span className="sr-only">Новая запись текстом</span>
+            {/* A long phrase ends with «…» rather than mid-letter where the field ends (FT-146) */}
             <input
+              ref={inputRef}
               type="text"
               value={text}
               onChange={(event) => onText(event.target.value)}
@@ -142,13 +158,13 @@ export function ComposerView({ chips, text, sending, onText, onSend, onChip, onV
               maxLength={MAX_CAPTURE_TEXT_LENGTH}
               enterKeyHint="send"
               readOnly={sending}
-              className="h-touch min-w-0 flex-1 bg-transparent text-[15px] font-medium text-ink outline-none placeholder:text-ink-muted"
+              className="h-touch min-w-0 flex-1 truncate bg-transparent text-[15px] font-medium text-ink outline-none placeholder:text-ink-muted"
             />
           </label>
           <span
             role="status"
             aria-live="polite"
-            className={sending ? 'shrink-0 whitespace-nowrap pr-3.5 type-label text-ink-muted' : 'sr-only'}
+            className={sending ? 'shrink-0 whitespace-nowrap pl-2 pr-3.5 type-label text-ink-muted' : 'sr-only'}
           >
             {sending ? READING : ''}
           </span>
@@ -178,7 +194,7 @@ export function ComposerView({ chips, text, sending, onText, onSend, onChip, onV
           <Button
             type="submit"
             variant="round"
-            aria-label={offline ? 'Записать без связи' : 'Распознать текст'}
+            aria-label={sending ? READING : offline ? 'Записать без связи' : 'Распознать текст'}
             disabled={sending}
             aria-busy={sending}
             // Busy, not missing something (Button.md: grey is «what is missing»): it stays the main button

@@ -246,7 +246,23 @@ describe('sending a phrase (FT-146)', () => {
 
     expect(status()).toBe('Распознаю…');
     expect(field()?.value).toBe(PHRASE);
-    expect(container.querySelector('button[type="submit"]')?.getAttribute('aria-busy')).toBe('true');
+    const round = container.querySelector('button[type="submit"]');
+    expect(round?.getAttribute('aria-busy')).toBe('true');
+    expect(round?.getAttribute('aria-label')).toBe('Распознаю…');
+  });
+
+  it('waits for the server’s own worst case: an answer after both AI attempts (~41 s) still opens the review', async () => {
+    await renderComposer();
+    await typeAndSend(PHRASE);
+
+    await wait(42_000);
+    expect(status()).toBe('Распознаю…');
+    expect(captureSignal?.aborted).toBe(false);
+
+    await serverAnswers(SAVED);
+
+    expect(shownPath).toBe(ROUTES.CAPTURE_REVIEW);
+    expect(shownToast()?.title).not.toBe(CAPTURE_TIMED_OUT.title);
   });
 
   it('stops when the records came: the review opens', async () => {
@@ -289,6 +305,26 @@ describe('sending a phrase (FT-146)', () => {
       title: CAPTURE_TIMED_OUT.title,
       detail: CAPTURE_TIMED_OUT.detail,
     });
+  });
+
+  it('after the timeout the field has the focus again, to send once more', async () => {
+    await renderComposer();
+    await typeAndSend(PHRASE);
+    expect(document.activeElement).not.toBe(field());
+
+    await wait(QUICK_CAPTURE_TIMEOUT_MS);
+
+    expect(document.activeElement).toBe(field());
+    expect(container.querySelector('button[type="submit"]')?.getAttribute('aria-label')).toBe('Распознать текст');
+  });
+
+  it('a failed send that got an answer leaves the focus where it was', async () => {
+    await renderComposer();
+    await typeAndSend(PHRASE);
+
+    await serverAnswers({ success: false, error: { code: 'EXTERNAL_SERVICE_ERROR' } }, 502);
+
+    expect(document.activeElement).not.toBe(field());
   });
 });
 
