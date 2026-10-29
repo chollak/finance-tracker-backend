@@ -79,6 +79,23 @@ export class SqliteNotificationLogRepository implements NotificationLogRepositor
     return (result.affected ?? 0) > 0;
   }
 
+  /**
+   * `UPDATE … SET status = 'sending', attempts = attempts + 1 WHERE id = ? AND status = 'not_sent'`: the count comes from
+   * the row as the winning UPDATE sees it; read back after, when the row is this call's and nobody else changes it.
+   */
+  async retake(id: string): Promise<number | null> {
+    const result = await this.repository
+      .createQueryBuilder()
+      .update(NotificationLogEntity)
+      .set({ status: 'sending', attempts: () => 'attempts + 1' })
+      .where('id = :id', { id })
+      .andWhere('status = :from', { from: 'not_sent' })
+      .execute();
+    if ((result.affected ?? 0) === 0) return null;
+    const entity = await this.repository.findOne({ where: { id } });
+    return entity ? Number(entity.attempts) : null;
+  }
+
   async expired(userId: string, kinds: readonly NotificationKind[], today: string): Promise<NotificationEntry[]> {
     const entities = await this.repository.find({
       where: { userId, kind: In([...kinds]), status: 'not_sent', sendUntil: LessThan(today) },

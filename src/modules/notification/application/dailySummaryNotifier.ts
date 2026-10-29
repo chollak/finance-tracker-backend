@@ -58,8 +58,9 @@ export type SummaryOutcome = 'sent' | 'asked' | 'skipped' | 'failed' | 'retry';
 /**
  * «Да, не было» pressed: `confirmed` — the day still has no records and the answer is kept with the notice;
  * `recorded` — something was recorded for the day since, nothing is kept and the message shows the day instead.
+ * `late` — the question was «Итоги за вчера»: the message keeps that title (FT-164).
  */
-export type NoSpendingAnswer = { kind: 'confirmed' } | { kind: 'recorded'; summary: DaySummary };
+export type NoSpendingAnswer = { kind: 'confirmed'; late: boolean } | { kind: 'recorded'; summary: DaySummary; late: boolean };
 
 export interface TickResult {
   userId: string;
@@ -136,10 +137,11 @@ export class DailySummaryNotifier {
    * a day that has records by now (written after the question) keeps nothing and gets its summary instead.
    */
   async answerNoSpending(userId: string, day: string): Promise<NoSpendingAnswer> {
-    if (await this.summaries.hasRecords(userId, day, day)) return { kind: 'recorded', summary: await this.summaries.day(userId, day) };
     const entry = await this.askedAbout(userId, day);
+    const late = entry?.kind === LATE;
+    if (await this.summaries.hasRecords(userId, day, day)) return { kind: 'recorded', summary: await this.summaries.day(userId, day), late };
     if (entry && entry.answer !== 'no_spending') await this.log.update(entry.id, { answer: 'no_spending' });
-    return { kind: 'confirmed' };
+    return { kind: 'confirmed', late };
   }
 
   /** Overdue notices first, then «Итоги за вчера», then the day's own summary. */

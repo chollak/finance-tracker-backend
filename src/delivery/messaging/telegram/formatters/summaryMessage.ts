@@ -108,8 +108,10 @@ export function formatDaySummary(
   const title = dayTitle(summary.day, options.today, options.late);
   if (summary.recordCount === 0) {
     if (!options.scheduled) return { text: `${title}\nЗаписей пока нет.`, keyboard: [] };
+    // The morning after, plain «обед 45к» would be written for today
+    const example = options.late ? 'вчера обед 45к' : 'обед 45к';
     return {
-      text: blocks([title, 'Записей нет. Трат правда не было?'], ['<i>Если что-то было — просто напишите, например «обед 45к».</i>']),
+      text: blocks([title, 'Записей нет. Трат правда не было?'], [`<i>Если что-то было — просто напишите, например «${example}».</i>`]),
       keyboard: [[Markup.button.callback('Да, не было', noSpendingCallback(summary.day))]],
     };
   }
@@ -129,9 +131,9 @@ export function formatDaySummary(
   };
 }
 
-/** «Да, не было» pressed: the question becomes the answer, without buttons. */
-export function formatNoSpending(day: string, today: string): BotNotice {
-  return { text: `${dayTitle(day, today)}\nОтметил: ${absoluteDate(day, today)} трат не было.`, keyboard: [] };
+/** «Да, не было» pressed: the question becomes the answer, without buttons; under «Итоги за вчера» it keeps that title. */
+export function formatNoSpending(day: string, today: string, late = false): BotNotice {
+  return { text: `${dayTitle(day, today, late)}\nОтметил: ${absoluteDate(day, today)} трат не было.`, keyboard: [] };
 }
 
 /** /month: «Октябрь · 1–14», what was spent against the same days before, the 3 largest categories. */

@@ -40,10 +40,11 @@ function attemptsWord(count: number): string {
 
 /**
  * What a notice closed as failed keeps: «не ушло: нет сети, 12 попыток, последняя ошибка getaddrinfo ENOTFOUND
- * api.telegram.org». None tried — the bot was not running while the notice was due.
+ * api.telegram.org». None tried: the bot was not running while it was due, the summaries were off, or the row was
+ * given up by the code before FT-164 — the log cannot tell which.
  */
 export function notSentReason(attempts: number, lastError: string | null): string {
-  if (attempts <= 0) return 'не ушло: ни одной попытки — бот не работал';
+  if (attempts <= 0) return 'не ушло: ни одной попытки';
   const reason = `не ушло: нет сети, ${attemptsWord(attempts)}${lastError ? `, последняя ошибка ${lastError}` : ''}`;
   return reason.slice(0, NOTICE_WINDOW.reasonLength);
 }

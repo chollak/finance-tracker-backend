@@ -82,6 +82,11 @@ export interface NotificationLogRepository {
   update(id: string, changes: NotificationChanges): Promise<void>;
   /** Changes the row only while it is in `from`: true when this call changed it — of two ticks one wins (FT-164). */
   transition(id: string, from: NotificationStatus, changes: NotificationChanges): Promise<boolean>;
+  /**
+   * Takes back a notice `not_sent` for another attempt — `sending`, `attempts + 1` — in one statement: the number of
+   * this attempt, or null when it is not `not_sent` any more (another tick took it, or it was closed) (FT-164).
+   */
+  retake(id: string): Promise<number | null>;
   /** The user's notices of these kinds still `not_sent` whose last day is before `today` (FT-164). */
   expired(userId: string, kinds: readonly NotificationKind[], today: string): Promise<NotificationEntry[]>;
   /** Whether the user has a notice of this kind for a period before this one, whatever became of it (FT-164). */

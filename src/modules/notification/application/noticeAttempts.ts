@@ -22,11 +22,14 @@ export function isOpen(entry: NotificationEntry, today: string): boolean {
   return entry.status === 'not_sent' && entry.sendUntil !== null && entry.sendUntil >= today;
 }
 
-/** Takes back a notice that did not leave earlier, atomically: of two ticks one gets it. Null when it is not open. */
+/**
+ * Takes back a notice that did not leave earlier, atomically: of two ticks one gets it, and its attempt is counted in
+ * the same UPDATE. Null when it is not open.
+ */
 export async function takeOpen(log: NotificationLogRepository, entry: NotificationEntry | null, today: string): Promise<TakenNotice | null> {
   if (!entry || !isOpen(entry, today)) return null;
-  const attempt = entry.attempts + 1;
-  return (await log.transition(entry.id, 'not_sent', { status: 'sending', attempts: attempt })) ? { id: entry.id, attempt } : null;
+  const attempt = await log.retake(entry.id);
+  return attempt === null ? null : { id: entry.id, attempt };
 }
 
 /**
