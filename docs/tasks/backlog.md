@@ -444,31 +444,6 @@ Definition of Done:
 
 ---
 
-### FT-162: Legacy :userId routes take the user from authentication
-
-Status: backlog
-Priority: low
-Owner: Claude Code, QA by Hermes
-Type: security
-Size: S
-
-Context:
-Пункт 4 раздела «Ещё ждёт вас» в `docs/pastel/handoff.md`. С 2026-10-21 чужой `userId` в теле, пути или строке
-запроса получает 403 (`writeAsSignedInUser`, строгий `verifyOwnership`), так что дыры нет. Осталось: в старых
-маршрутах с `:userId` (подписка — `subscriptionRoutes.ts`, бюджеты, долги, дашборд) `resolveUser` стоит до
-`verifyOwnership` и создаёт строку пользователя для чужого id; `userId` числом или массивом даёт 500 вместо 400;
-контроллер подписки берёт `req.body.userId` запасным путём (`subscriptionController.ts:104-105`). После FT-153 и с API
-только в tailnet это не блокер (решение 2026-10-26). Делать вместе с FT-136 — она убирает гостевые ветки тех же
-контроллеров.
-
-Definition of Done:
-- [ ] Маршруты подписки и `POST /api/transactions` берут пользователя только из авторизации; `userId` в теле не читается
-- [ ] Где в пути ещё есть `:userId`, проверка владельца идёт до `resolveUser`; чужой id не создаёт строку в `users`; тест
-- [ ] `userId` не строкой — 400; тест
-- [ ] Матрица авторизации обновлена
-
----
-
 ### FT-169: A sign for Kapelka
 
 Status: backlog
@@ -539,5 +514,28 @@ Definition of Done:
 - [ ] Подписка с «Напомнить», чей день прошёл без единого тика, получает строку `failed` «не ушло: ни одной попытки»; тест
 - [ ] Ревизия 1-го числа, пропущенная целиком, получает такую же строку, если в тот день было что звать (`open`, `left > 0`); тест
 - [ ] Ничего не отправляется задним числом; «не больше одного раза» не меняется
+
+---
+
+### FT-174: Dead admin routes without requireAuth
+
+Status: backlog
+Priority: low
+Owner: Claude Code, QA — под-чат проверки
+Type: repo-hygiene
+Size: S
+
+Context:
+Найдено при проверке FT-162 (2026-10-29). `requireAdmin` смотрит на `req.telegramUser`, а его ставит только
+`requireAuth`, которого перед этими маршрутами нет. Поэтому с 2026-01-22 они всегда отвечают `401` (fail-closed):
+- `GET /api/transactions/analytics` — `transactionController.ts:96`;
+- `GET /api/openai/usage`, `GET /api/openai/usage/summary`, `POST /api/openai/usage/refresh` — `openAIUsageRoutes.ts:14,17,20`.
+
+Дыры нет, но это мёртвый код, который выглядит рабочим. Webapp и бот эти маршруты не вызывают.
+
+Definition of Done:
+- [ ] Маршруты убраны — или перед `requireAdmin` стоит `requireAuth`, и есть тест: без входа `401`, не админ `403`,
+      админ `200`
+- [ ] `auth-user-resolution-boundary-matrix.md` и `api-route-coverage-matrix.md` обновлены
 
 ---

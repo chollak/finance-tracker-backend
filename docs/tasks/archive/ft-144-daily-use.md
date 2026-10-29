@@ -2,7 +2,7 @@
 
 Задачи с FT-144: надёжность, закрытый доступ, переезд живого экземпляра на ПК.
 
-Закрыто задач: **22**. Это архив: задачи здесь не переоткрываются и не редактируются.
+Закрыто задач: **23**. Это архив: задачи здесь не переоткрываются и не редактируются.
 Активная доска — [`TASKS.md`](../../../TASKS.md), решения по плану — [`decisions.md`](../decisions.md).
 
 ---
@@ -1482,3 +1482,81 @@ Definition of Done:
   логика `openingText`, FT-148 её не трогал.
 - Короткая заметка, которая влезла бы целиком в меньше чем 56px, рядом с меткой не показывается: порог один на все
   заметки.
+
+---
+
+### FT-162: Legacy :userId routes take the user from authentication
+
+Status: done
+Priority: low
+Owner: Claude Code, QA — под-чат проверки
+Type: security
+Size: S
+
+Context:
+Пункт 4 раздела «Ещё ждёт вас» в `docs/pastel/handoff.md`. С 2026-10-21 чужой `userId` в теле, пути или строке
+запроса получает 403 (`writeAsSignedInUser`, строгий `verifyOwnership`), так что дыры нет. Осталось: в старых
+маршрутах с `:userId` (подписка — `subscriptionRoutes.ts`, бюджеты, долги, дашборд) `resolveUser` стоит до
+`verifyOwnership` и создаёт строку пользователя для чужого id; `userId` числом или массивом даёт 500 вместо 400;
+контроллер подписки берёт `req.body.userId` запасным путём (`subscriptionController.ts:104-105`). После FT-153 и с API
+только в tailnet это не блокер (решение 2026-10-26). Делать вместе с FT-136 — она убирает гостевые ветки тех же
+контроллеров (решение 2026-10-29: делается отдельно, FT-136 ждёт голоса и чеков).
+
+Definition of Done:
+- [x] Маршруты подписки и `POST /api/transactions` берут пользователя только из авторизации; `userId` в теле не читается
+- [x] Где в пути ещё есть `:userId`, проверка владельца идёт до `resolveUser`; чужой id не создаёт строку в `users`; тест
+- [x] `userId` не строкой — 400; тест
+- [x] Матрица авторизации обновлена
+
+Реализовано 2026-10-29 (`ec2d204`, `1e1fd28`, `7a7a7a7`, PR #124):
+- **Проверка владельца до резолюции** на всех 22 старых маршрутах с `:userId` — транзакции ×8, бюджеты ×4, долги ×3,
+  дашборд ×7 — и на `GET /api/subscription/:userId`: `allowGuestMode, verifyOwnership, resolveUser`. Отклонённый запрос
+  никого не резолвит и строку в `users` не создаёт, в том числе для `0131184740` вместо `131184740`: резолюция завела бы
+  его как нового пользователя.
+- `verifyOwnership` проверяет **каждый** `userId` запроса — путь, query и тело, — а не первый найденный, и больше не
+  читает `req.resolvedUser`, поэтому стоит первым. Чужой — `403 ACCESS_DENIED`. Число, массив (`?userId=a&userId=b`),
+  объект, `null`, пустая строка или строка из пробелов — `400 INVALID_USER_ID`. Ту же проверку делает
+  `writeAsSignedInUser` (quick capture, голос). Вторая линия: `createUserResolutionMiddleware` сама отвечает 400 на id не
+  строкой — это закрывает admin `grant`, который называет цель в теле.
+- **Пользователь из авторизации** у `GET /api/subscription/:userId`, `POST /check-limit`, `/cancel`, `/start-trial` и
+  `POST /api/transactions`: `requireAuth, verifyOwnership, createResolveCurrentUserMiddleware` (половина
+  `createCurrentUserMiddleware`, вынесена, чтобы проверка встала между входом и резолюцией), контроллер берёт
+  `currentUserId(req)`. Запасные `req.body.userId` в `subscriptionController.ts` убраны; `userId` в теле или пути только
+  проверяется. `POST /api/transactions` регистрируется только с `UserModule`, как `GET /`, `/totals`, `/frequent`.
+- Почему так, а не «резолюция без создания для чужого id»: одно правило в одном месте перед любой резолюцией, нового
+  режима резолвера нет, а `resolveUser` и `requirePremium` после проверки видят только свой id.
+- **Изменение поведения:** свой `userId` **числом** на записи (`POST /api/transactions`, quick capture, голос) теперь
+  `400`, раньше принимался — клиенты шлют строку. `check-limit`, `cancel` и `start-trial` без `userId` в теле работают за
+  вошедшего, раньше отвечали `400 userId is required`.
+- Тесты: `tests/legacyUserIdRoutes.test.ts` — 111 случаев через `tests/helpers/testServer.ts` на настоящей таблице
+  `users`. По каждому старому маршруту: чужой id → 403 без новой строки; пустой, массив или не строка → 400; query или
+  тело с чужим id рядом со своим путём → 403; свой id — как раньше, а use case получает свой UUID. Подписка и
+  `POST /api/transactions`: свой пользователь без `userId` и со своим `userId` в теле или пути (use case получает
+  `myUuid()`), чужой → 403 без строки и записи, не строка → 400; admin `grant` с целью числом → 400. Изменены случаи в
+  `tests/userFromAuth.test.ts` (числом → 400, `?userId=a&userId=b` → 400) и `tests/idempotentCreate.test.ts` (роутер
+  получил `UserModule`).
+- Документы: `auth-user-resolution-boundary-matrix.md` (раздел FT-162, `verifyOwnership` и резолюция, строки матрицы,
+  `GET /api/transactions` — история с FT-107), `api-route-coverage-matrix.md`, `docs/QUICK_CAPTURE_API.md` (400),
+  `docs/pastel/handoff.md` (пункт 4 закрыт).
+- Вживую (под-чат разработки): `main` на 3101 и ветка на 3100, у каждого свежая SQLite, бот выключен, `curl` с
+  `X-Dev-User-Id: 131184740`. Чужой id, `0131184740`, `%20` и `?userId` дважды по 23 маршрутам: `main` —
+  403 / 403 / **500** / 200 и 2 фантомные строки `users` (`0131184740`, `597843119`); ветка — 403 / 403 / **400** /
+  **400** и 0 строк. Тело: `check-limit`, `cancel`, `start-trial` с `userId` числом `500 → 400`, без `userId`
+  `400 → 200`; admin `grant` с целью числом `500 → 400`. Свой id на всех маршрутах — как раньше.
+
+Проверка 2026-10-29:
+- Под-чат проверки: новый набор на `main` красный — 82 из 127. Мутанты M1, M3–M7 краснят тесты. M2, M8–M10 (вернуть в
+  `subscriptionController.ts` `req.body.userId || currentUserId(req)` для check-limit, start-trial, cancel или
+  `req.params.userId` для status) выживали; добавлены случаи со своим `userId` в теле и пути и проверкой UUID в use case
+  (`7a7a7a7`) — теперь каждый из четырёх краснит тест.
+- Живой запуск в dev и в production: 18 чужих запросов → 403, строк `users` 1 → 1; 11 невалидных → 400. Клиенты —
+  webapp, бот, Shortcut, голос — шлют `userId` строкой. `requireAdmin` без входа — 401; `X-Dev-User-Id` в production
+  игнорируется.
+- `npm run verify` зелёный.
+
+Известно:
+- `GET /api/transactions/analytics` и `/api/openai/usage*` — `requireAdmin` без `requireAuth`, всегда 401
+  (fail-closed): FT-174.
+- Лог отказа `Request naming another user refused` (`authMiddleware.ts:427`) не прорежен, как в FT-166: сюда доходят
+  только разрешённые `ALLOWED_TELEGRAM_IDS`.
+- Гостевая ветка `subscriptionController.ts:81` мёртвая: `currentUserId` всегда UUID. Убирает FT-136.
