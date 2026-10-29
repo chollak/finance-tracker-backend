@@ -32,11 +32,18 @@ type LoggerFactory = (category: LogCategoryType | string) => ILogger;
 let loggerFactory: LoggerFactory | null = null;
 
 /**
+ * Jest output stays focused on assertions unless TEST_LOGS=true. Decided once at load, as Winston decides `silent`:
+ * the fallback is built on every write, and a test that sets NODE_ENV=production for a while would otherwise
+ * print to the console (FT-165).
+ */
+const SILENT_IN_TESTS = process.env.NODE_ENV === 'test' && process.env.TEST_LOGS !== 'true';
+
+/**
  * Fallback console logger for when no factory is registered
  * This ensures the application doesn't crash if logging isn't configured
  */
 function createConsoleLogger(category: LogCategoryType | string): ILogger {
-  if (process.env.NODE_ENV === 'test' && process.env.TEST_LOGS !== 'true') {
+  if (SILENT_IN_TESTS) {
     return {
       debug: () => undefined,
       info: () => undefined,
@@ -71,18 +78,38 @@ export function registerLoggerFactory(factory: LoggerFactory): void {
  * Get a logger for a specific category
  *
  * This is the main entry point for application layer logging.
- * It uses the registered factory or falls back to console logging.
+ * The factory is looked up on every call, not here: application files take their logger at import
+ * (`const logger = getLogger(…)`), before the composition root registers the factory, and a logger resolved
+ * then would write through the console fallback for good — without time and level (FT-165).
+ * Until a factory is registered, lines go to the console fallback.
  *
  * @example
  * const logger = getLogger(LogCategory.TRANSACTION);
  * logger.info('Transaction created', { transactionId: '123' });
  */
 export function getLogger(category: LogCategoryType | string): ILogger {
-  if (loggerFactory) {
-    return loggerFactory(category);
-  }
-  // Fallback to console logger if no factory registered
-  return createConsoleLogger(category);
+  const current = (): ILogger => (loggerFactory ? loggerFactory(category) : createConsoleLogger(category));
+  return {
+    debug: (message, context) => current().debug(message, context),
+    info: (message, context) => current().info(message, context),
+    warn: (message, context) => current().warn(message, context),
+    error: (message, error, context) => current().error(message, error, context),
+  };
+}
+
+/**
+ * What a `warn` line says about an error: its message and, for an AppError, what it keeps about its cause
+ * (`errorContext`, as `logger.error` writes it) — «Request timed out.» behind «External service error: OpenAI Chat».
+ *
+ * @example
+ * logger.warn('The AI could not read a simple phrase; its label is kept', errorFields(error));
+ */
+export function errorFields(error: unknown): { error: string; errorContext?: Record<string, unknown> } {
+  const message = error instanceof Error ? error.message : String(error);
+  const context = (error as { context?: unknown } | null | undefined)?.context;
+  return context && typeof context === 'object'
+    ? { error: message, errorContext: context as Record<string, unknown> }
+    : { error: message };
 }
 
 /**

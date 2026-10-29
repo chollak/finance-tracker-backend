@@ -492,34 +492,6 @@ Definition of Done:
 
 ---
 
-
----
-
-### FT-165: Application-layer logs without time and level
-
-Status: backlog
-Priority: low
-Owner: Claude Code, QA — под-чат проверки
-Type: tech-debt
-Size: S
-
-Context:
-Найдено при проверке FT-144 (2026-10-27): строки планировщиков итогов и напоминаний в живом логе идут без времени и
-уровня. `getLogger` на уровне модуля вызывается при импорте, раньше `registerLoggerFactory` (`src/index.ts:15`), и
-навсегда возвращает консольный запасной логгер — так в 38 файлах `src/modules/*/application`. Разбирать сбои на ПК
-по journald без времени трудно. Заодно две мелочи FT-145: на пути «простая фраза» в лог идёт только
-`External service error`, без причины (`processTextInput.ts:607` логирует `.message`, а не `context.originalError`), и
-пример «такси 18000» в `docs/knowledge-base/07-data-flow/voice-to-transaction.md:307` неверен — «такси» пишется в
-«Транспорт» без ИИ.
-
-Definition of Done:
-- [ ] Логгер слоя application разрешается лениво (при вызове) или фабрика регистрируется до импорта модулей; тест на порядок
-- [ ] Строки `Daily summary …` и `Reminder …` в логе сервера идут с временем и уровнем — проверено на запуске
-- [ ] Сбой ИИ на простой фразе пишет в лог причину («Request timed out.»)
-- [ ] Пример в `voice-to-transaction.md` исправлен
-
----
-
 ### FT-169: A sign for Kapelka
 
 Status: backlog

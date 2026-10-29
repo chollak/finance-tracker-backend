@@ -2,7 +2,7 @@
 
 Задачи с FT-144: надёжность, закрытый доступ, переезд живого экземпляра на ПК.
 
-Закрыто задач: **20**. Это архив: задачи здесь не переоткрываются и не редактируются.
+Закрыто задач: **21**. Это архив: задачи здесь не переоткрываются и не редактируются.
 Активная доска — [`TASKS.md`](../../../TASKS.md), решения по плану — [`decisions.md`](../decisions.md).
 
 ---
@@ -1304,3 +1304,81 @@ Definition of Done:
 - `entryAccountId` (`features/manual-entry/model/manualEntry.ts:104-107`) дублирует `defaultRecordAccount` и не знает
   правила сумов: при долларовом счёте по умолчанию, сохранённом до FT-149, ручной ввод открывается на нём. Свести после
   FT-147.
+
+---
+
+### FT-165: Application-layer logs without time and level
+
+Status: done
+Priority: low
+Owner: Claude Code, QA — под-чат проверки
+Type: tech-debt
+Size: S
+
+Context:
+Найдено при проверке FT-144 (2026-10-27): строки планировщиков итогов и напоминаний в живом логе идут без времени и
+уровня. `getLogger` на уровне модуля вызывается при импорте, раньше `registerLoggerFactory` (`src/index.ts:15`), и
+навсегда возвращает консольный запасной логгер — так в 38 файлах `src/modules/*/application`. Разбирать сбои на ПК
+по journald без времени трудно. Заодно две мелочи FT-145: на пути «простая фраза» в лог идёт только
+`External service error`, без причины (`processTextInput.ts:607` логирует `.message`, а не `context.originalError`), и
+пример «такси 18000» в `docs/knowledge-base/07-data-flow/voice-to-transaction.md:307` неверен — «такси» пишется в
+«Транспорт» без ИИ.
+
+Definition of Done:
+- [x] Логгер слоя application разрешается лениво (при вызове) или фабрика регистрируется до импорта модулей; тест на порядок
+- [x] Строки `Daily summary …` и `Reminder …` в логе сервера идут с временем и уровнем — проверено на запуске
+- [x] Сбой ИИ на простой фразе пишет в лог причину («Request timed out.»)
+- [x] Пример в `voice-to-transaction.md` исправлен
+- [x] (добавлено штабом по проверке) `LOG_LEVEL` и `NODE_ENV` из `.env.local` / `.env` доходят до логгера; тест
+
+Реализовано 2026-10-29 (`4946f8b`, `f9fbe44`, `0ed3ccb`, `641e133`, `22fbfae`, PR #122):
+- **Причина — замер порядка модулей.** `src/index.ts` регистрирует фабрику Winston в теле модуля, после всех
+  `import`. Проба `Module._load` на `dist/index.js` показала: до `registerLoggerFactory` вычисляется 333 модуля
+  проекта, среди них `dailySummaryNotifier` (#71), `processTextInput` (#255), `fxRateService` (#303),
+  `remindersNotifier` (#310). Каждый на импорте берёт `const logger = getLogger(…)` и получал запасной
+  `console`-логгер насовсем. Так во всех 39 файлах `src/modules/*/application` (в задаче насчитано 38); delivery и
+  infrastructure берут Winston напрямую, у них время было.
+- **Ленивый `getLogger`.** Логгер ищет фабрику при каждой записи, кеша нет — фабрика собирает маленький объект поверх
+  одного экземпляра Winston. Регистрацию раньше импортов не переносили: она держится, только пока никто не
+  импортирует application-файл раньше. Запасной логгер решает «молчать в Jest» один раз при загрузке
+  (`SILENT_IN_TESTS`), как Winston решает `silent` — правка по проверке.
+- **Причина сбоя ИИ.** `errorFields()` в `src/shared/application/logging`: `warn` на пути «простая фраза»
+  (`processTextInput.readByAI`) пишет `error` и `errorContext` — то же поле, что `logger.error` пишет для `AppError`,
+  и под тем же `sanitizeContext`.
+- **Пример в доке.** `voice-to-transaction.md`: «стрижка 50000» вместо «такси 18000» («такси» — «Транспорт» без ИИ) и
+  строка лога, которую фраза оставляет.
+- **Env до логгера** (добавлено штабом по проверке). `logger.js` вычислялся 14-м, `appConfig.js` с `dotenv` — 21-м:
+  `LOG_LEVEL` и `NODE_ENV` из `.env.local` логгер не видел. `loadEnvironment()` вынесен в
+  `src/shared/infrastructure/config/loadEnvironment.ts` и загружает файл один раз; его первым импортируют
+  `appConfig.ts` и `logger.ts`. Переменные процесса по-прежнему главнее; строка «Environment variables loaded …» —
+  одна. Доки: `CLAUDE.md` (env file policy, `LOG_LEVEL` по умолчанию), `quick-start.md`, `troubleshooting.md`.
+- **Шум в Jest.** `tests/helpers/appConfigWith.ts` глушит и `console.warn` «No .env.local or .env file found» — в
+  копии и в CI env-файла нет; это было и до FT-165.
+- Тесты: `tests/applicationLogging.test.ts` — логгер взят до регистрации и пишет через фабрику; `Ticker`, импортированный
+  до регистрации, как в `index.ts`; запасной логгер молчит в Jest после смены `NODE_ENV`, с `TEST_LOGS=true` пишет
+  `[CATEGORY] …`; сбой ИИ на «стрижка 50000» пишет `errorContext.originalError`. `tests/loggerEnvironment.test.ts` —
+  `LOG_LEVEL` из `.env.local` и из `.env` доходит до `winstonLogger.level`, процесс главнее файла, строка о загрузке
+  одна. Все красные до своих исправлений.
+- Вживую, порт 3100: бот с фиктивным токеном через локальную заглушку Telegram (`sendMessage` — 400), OpenAI —
+  фиктивный ключ и `OPENAI_BASE_URL` на молчащий локальный порт (`OPENAI_TIMEOUT_MS=1500`). До — `[TELEGRAM] Daily
+  summary not sent { … }` без времени; после — `12:49:19 warn [TELEGRAM] Daily summary not sent {…}`,
+  `12:49:19 warn [TELEGRAM] Reminder not sent {"kind":"goal_over",…}`, `12:48:32 warn [OPENAI] The AI could not read a
+  simple phrase; its label is kept {"errorContext":{"originalError":"Request timed out."}}`. С `NODE_ENV=production`
+  и `LOG_LEVEL=warn` только в `.env.local`: `/api/health` — `production`, лог — JSON, только `warn`.
+
+Проверка 2026-10-29:
+- Под-чат проверки: откат к eager-разрешению — 3 из 5 тестов красные; живые строки
+  `13:11:58 warn [TELEGRAM] Daily summary not sent`, `13:02:33 warn [OPENAI] … Request timed out.`; замер — 631 и
+  644 нс на вызов (1 млн вызовов, один транспорт), разница в пределах шума; ключ и текст фразы в `errorContext` не
+  попадают. Найдено и исправлено в том же PR: запасной логгер печатал в Jest 13 строк `[TRANSACTION] …` под
+  `NODE_ENV=production` в `shortcutCaptureOwner.test.ts`; тест «does not throw» ничего не ловил при откате — заменён;
+  Winston создавался раньше загрузки `.env` (`/api/health` — production, а лог цветной с debug).
+- Под-чат разработки: `verify` после слияния `main` (FT-163, FT-170, FT-166) — Jest 102 набора, 1529 + 1 skipped;
+  Vitest 122 файла, 1202; сборка, fonts, tokens, dependency-cruiser (336 модулей), madge. В выводе Jest нет строк
+  логгеров приложения, остался только вывод TypeORM (`query failed`, ожидаемый отказ миграции в тесте).
+
+Известно:
+- Ошибки запросов TypeORM идут через `console.log` с `PARAMETERS` — вне задачи.
+- «Environment variables loaded from …» печатается через `console`: логгера ещё нет.
+- `scripts/run-migration.ts`, `create-tables.ts`, `simple-test.ts` загружают env своими копиями — не трогали.
+- На ПК по `journalctl` вживую не смотрели: строки там изменятся после `scripts/live-update.sh`.
