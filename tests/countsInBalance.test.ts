@@ -31,6 +31,13 @@ describe('countsInBalance', () => {
     expect(at('2026-10-29T09:00:00.000Z', '2026-10-29T09:00:00.000Z')).toBe(true);
   });
 
+  it('leaves out an opening-day operation whose moment is missing or unreadable, as the SQL of the balance does', () => {
+    // strftime of NULL or of a bad moment is NULL in SQLite, and the comparison is not true
+    expect(at('2026-10-29', null)).toBe(false);
+    expect(at('2026-10-29', 'not a moment')).toBe(false);
+    expect(at('2026-10-30', null)).toBe(true);
+  });
+
   it('counts the whole opening day when the opening balance has no moment', () => {
     const added = { openingDate: '2026-10-29', openingAt: null };
     expect(countsInBalance(added, { date: '2026-10-29', createdAt: '2026-10-29T00:00:01.000Z' })).toBe(true);

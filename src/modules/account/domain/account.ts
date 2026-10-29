@@ -38,7 +38,7 @@ export interface Account {
 export interface BalanceOperation {
   /** YYYY-MM-DD; records written before FT-100 may keep a full moment, whose first ten characters are the day. */
   date: string;
-  /** ISO moment it was written. */
+  /** ISO moment it was written; stored ones always have it. */
   createdAt: string | null;
 }
 
@@ -49,12 +49,14 @@ const secondOf = (iso: string) => Math.floor(Date.parse(iso) / 1000);
  * Whether an operation counts in the account's balance (money-model «Остаток счёта»): from the opening date on, and
  * on the opening day only what was written from the moment the opening balance was entered (FT-163) — a coffee
  * written in the bot in the morning is already in «Сколько у вас сейчас денег?». One written in the same second as
- * the first launch counts. Same rule as `balanceChanges` of the repository, which sums in SQL.
+ * the first launch counts. Same rule as `balanceChanges` of the repository, which sums in SQL — down to a missing or
+ * unreadable moment on the opening day, which is not «from the first launch on» there either (strftime gives NULL).
  */
 export function countsInBalance(account: Pick<Account, 'openingDate' | 'openingAt'>, operation: BalanceOperation): boolean {
   const day = operation.date.slice(0, 10);
   if (day !== account.openingDate) return day > account.openingDate;
-  if (!account.openingAt || !operation.createdAt) return true;
+  if (!account.openingAt) return true;
+  if (!operation.createdAt) return false;
   return secondOf(operation.createdAt) >= secondOf(account.openingAt);
 }
 
