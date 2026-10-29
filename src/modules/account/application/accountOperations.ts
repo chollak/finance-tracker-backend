@@ -3,7 +3,7 @@ import { BusinessLogicError, NotFoundError, ValidationError } from '../../../sha
 import { getLogger, LogCategory } from '../../../shared/application/logging';
 import { isValidDateOnly } from '../../../shared/domain/dates/dateOnly';
 import { Transaction } from '../../transaction/domain/transactionEntity';
-import { AccountWithBalance } from '../domain/account';
+import { AccountWithBalance, countsInBalance } from '../domain/account';
 import { AccountMove, MoveKind, moveChangeFor } from '../domain/accountMove';
 import { AccountMoveRepository } from '../domain/accountMoveRepository';
 import { AccountRecordSource } from '../domain/accountRecords';
@@ -19,7 +19,10 @@ interface OperationBase {
   createdAt: string | null;
   /** Signed change of this account's balance, minor units of its currency. */
   amountMinor: number;
-  /** False for operations dated before the opening date, or a record in another currency. */
+  /**
+   * False for operations dated before the opening date, those of the opening day written before the first launch
+   * entered the opening balance (FT-163), or a record in another currency.
+   */
   countsInBalance: boolean;
 }
 
@@ -92,20 +95,21 @@ export class GetAccountOperationsUseCase {
         const date = dayOf(stored);
         if (from !== undefined && date < from && (earlierDate === null || date > earlierDate)) earlierDate = date;
       };
-      const counts = (date: string) => date >= account.openingDate;
       const names = new Map(summary.accounts.map(candidate => [candidate.id, candidate]));
 
       const records = this.records ? await this.records.recordsOf(input.userId, account.id) : [];
       records.forEach(record => noteEarlier(record.date));
       const recordOperations: AccountOperation[] = records.filter(record => inRange(record.date)).map(record => {
         const amountMinor = record.amountMinor ?? 0;
+        const createdAt = record.createdAt ?? null;
         return {
           type: 'record',
           id: record.id!,
           date: record.date,
-          createdAt: record.createdAt ?? null,
+          createdAt,
           amountMinor: record.type === 'income' ? amountMinor : -amountMinor,
-          countsInBalance: counts(record.date) && (record.currency ?? 'UZS') === account.currency,
+          countsInBalance: countsInBalance(account, { date: record.date, createdAt })
+            && (record.currency ?? 'UZS') === account.currency,
           record,
         };
       });
@@ -115,13 +119,14 @@ export class GetAccountOperationsUseCase {
       const moveOperations: AccountOperation[] = moves.filter(move => inRange(move.date)).map(move => {
         const otherId = move.fromAccountId === account.id ? move.toAccountId : move.fromAccountId;
         const other = otherId ? names.get(otherId) : undefined;
+        const createdAt = move.createdAt.toISOString();
         return {
           type: 'move',
           id: move.id,
           date: move.date,
-          createdAt: move.createdAt.toISOString(),
+          createdAt,
           amountMinor: moveChangeFor(move, account.id),
-          countsInBalance: counts(move.date),
+          countsInBalance: countsInBalance(account, { date: move.date, createdAt }),
           kind: move.kind,
           counterpart: other ? { id: other.id, name: other.name, currency: other.currency } : null,
           move,

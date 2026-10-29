@@ -28,6 +28,9 @@ describe('first launch with opening balances (FT-109)', () => {
     const accountModule = new AccountModule(new SqliteAccountRepository(db.dataSource), undefined, records.moveRepository);
     const userModule = new UserModule(new SqliteUserRepository(db.dataSource), new SqliteUserSettingsRepository(db.dataSource));
     accountModule.getBook().setDefaultAccountSource(userId => userModule.defaultAccountId(userId));
+    accountModule.setRecordSource({
+      recordsOf: async (userId, accountId) => (await records.repository.findByUserId(userId)).filter(r => r.accountId === accountId),
+    });
     server = await startTestServer({
       '/accounts': createAccountRoutes(accountModule, userModule),
       '/settings': createSettingsRoutes(userModule),
@@ -94,6 +97,109 @@ describe('first launch with opening balances (FT-109)', () => {
 
     // A record made from today on counts
     await records.create.execute({ userId, accountId: card.id, amount: 25000, type: 'expense', category: 'Другое', description: 'x', date: todayDateOnly() });
+    expect(byName((await as('GET', '/api/accounts')).body.data)['Карта'].balanceMinor).toBe((2_000_000 - 25_000) * 100);
+  });
+
+  /** Moves a record's creation back: as if it was written in the bot or the Shortcut a while ago. */
+  const madeMinutesAgo = async (recordId: string, minutes: number) => {
+    const moment = new Date(Date.now() - minutes * 60 * 1000);
+    // The way SQLite stores `createdAt` of a record: UTC, to the second
+    await db.dataSource.query(`UPDATE transactions SET "createdAt" = ? WHERE id = ?`, [
+      moment.toISOString().replace('T', ' ').slice(0, 19), recordId,
+    ]);
+  };
+  const recordToday = async (userId: string, accountId: string, amount: number, description: string) => {
+    const created = await records.create.execute({
+      userId, accountId, amount, type: 'expense', category: 'Другое', description, date: todayDateOnly(),
+    });
+    if (!created.success) throw created.error;
+    return created.data;
+  };
+
+  it('leaves out the records of today made before the first launch: the amount entered has them (FT-163)', async () => {
+    // A new user wrote «кофе 25000» in the bot this morning: it went to «Карта», created on first need
+    const [card] = (await as('GET', '/api/accounts')).body.data.accounts;
+    const userId = (await as('GET', '/api/settings')).body.data.userId;
+    const coffee = await recordToday(userId, card.id, 25000, 'кофе');
+    await madeMinutesAgo(coffee, 30);
+
+    const launched = await start({ cardMinor: 2_000_000_00 });
+
+    expect(launched.status).toBe(200);
+    // The three accounts keep the moment the amounts were entered: the moment of the first launch
+    expect(launched.body.data.accounts.map((account: { openingAt: string }) => account.openingAt))
+      .toEqual(Array(3).fill(launched.body.data.onboardedAt));
+    expect(byName((await as('GET', '/api/accounts')).body.data)['Карта']).toMatchObject({
+      id: card.id, openingDate: todayDateOnly(), balanceMinor: 2_000_000_00,
+    });
+    // Still in history and in analytics
+    expect(await records.repository.findByUserId(userId)).toHaveLength(1);
+    expect(await new AnalyticsService(records.repository).getAnalyticsSummary(userId)).toMatchObject({ totalExpense: 25000 });
+
+    // A record of the same day made after the first launch counts, as before
+    const taxi = await recordToday(userId, card.id, 18000, 'такси');
+    expect(byName((await as('GET', '/api/accounts')).body.data)['Карта'].balanceMinor).toBe((2_000_000 - 18_000) * 100);
+
+    // The account screen lists both and says which one is in the balance
+    const [today] = (await as('GET', `/api/accounts/${card.id}/operations`)).body.data.days;
+    expect(today.date).toBe(todayDateOnly());
+    expect(Object.fromEntries(today.operations.map((o: { id: string; countsInBalance: boolean }) => [o.id, o.countsInBalance])))
+      .toEqual({ [coffee]: false, [taxi]: true });
+  });
+
+  it('keeps the balance and the marks of the account screen in step, whatever the day of a record (FT-163)', async () => {
+    const [card] = (await as('GET', '/api/accounts')).body.data.accounts;
+    const userId = (await as('GET', '/api/settings')).body.data.userId;
+    const write = async (amount: number, date: string) => {
+      const created = await records.create.execute({ userId, accountId: card.id, amount, type: 'expense', category: 'Другое', description: 'x', date });
+      if (!created.success) throw created.error;
+      await madeMinutesAgo(created.data, 30);
+    };
+    await write(10000, daysAgo(1)); // before the opening date: never
+    await write(20000, todayDateOnly()); // today, before the first launch: already in the amount
+    await write(40000, todayDateOnly(new Date(Date.now() + 24 * 60 * 60 * 1000))); // tomorrow: the money has not moved yet
+
+    expect((await start({ cardMinor: 1_000_000_00 })).status).toBe(200);
+
+    const { account, days } = (await as('GET', `/api/accounts/${card.id}/operations`)).body.data;
+    const counted = days.flatMap((day: { operations: Array<{ amountMinor: number; countsInBalance: boolean }> }) => day.operations)
+      .filter((operation: { countsInBalance: boolean }) => operation.countsInBalance);
+    expect(account.balanceMinor).toBe((1_000_000 - 40_000) * 100);
+    expect(account.balanceMinor).toBe(account.openingBalanceMinor
+      + counted.reduce((sum: number, operation: { amountMinor: number }) => sum + operation.amountMinor, 0));
+  });
+
+  it('leaves out a move of today made before the first launch too (FT-163)', async () => {
+    const [card] = (await as('GET', '/api/accounts')).body.data.accounts;
+    const userId = (await as('GET', '/api/settings')).body.data.userId;
+    const move = {
+      userId, kind: 'adjustment' as const, fromAccountId: null, toAccountId: card.id, fromAmountMinor: null,
+      dealRateMinor: null, cbuRateMinor: null, date: todayDateOnly(), note: null, deletedAt: null,
+    };
+    await records.moveRepository.create({
+      ...move, id: 'move-before', toAmountMinor: 500_000_00, createdAt: new Date(Date.now() - 30 * 60 * 1000),
+    });
+
+    expect((await start({ cardMinor: 2_000_000_00 })).status).toBe(200);
+    expect(byName((await as('GET', '/api/accounts')).body.data)['Карта'].balanceMinor).toBe(2_000_000_00);
+
+    await records.moveRepository.create({ ...move, id: 'move-after', toAmountMinor: -100_000_00, createdAt: new Date() });
+    expect(byName((await as('GET', '/api/accounts')).body.data)['Карта'].balanceMinor).toBe(1_900_000_00);
+    const [today] = (await as('GET', `/api/accounts/${card.id}/operations`)).body.data.days;
+    expect(Object.fromEntries(today.operations.map((o: { id: string; countsInBalance: boolean }) => [o.id, o.countsInBalance])))
+      .toEqual({ 'move-before': false, 'move-after': true });
+  });
+
+  it('keeps the date rule for an opening balance without a moment: a first launch before FT-163 is not recounted', async () => {
+    const [card] = (await as('GET', '/api/accounts')).body.data.accounts;
+    const userId = (await as('GET', '/api/settings')).body.data.userId;
+    const coffee = await recordToday(userId, card.id, 25000, 'кофе');
+    await madeMinutesAgo(coffee, 30);
+    expect((await start({ cardMinor: 2_000_000_00 })).status).toBe(200);
+
+    // The migration leaves the moment empty on accounts that exist: their balances do not change
+    await db.dataSource.query(`UPDATE accounts SET opening_at = NULL WHERE id = ?`, [card.id]);
+
     expect(byName((await as('GET', '/api/accounts')).body.data)['Карта'].balanceMinor).toBe((2_000_000 - 25_000) * 100);
   });
 

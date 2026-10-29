@@ -1,9 +1,9 @@
 import { Account } from './account';
 
-/** What an update may change; the opening balance and date are set by the first launch (FT-109), the balance
- * also with a new currency while the account has no operations (FT-118). */
+/** What an update may change; the opening balance, date and moment are set by the first launch (FT-109, FT-163),
+ * the balance also with a new currency while the account has no operations (FT-118). */
 export type AccountChanges = Partial<
-  Pick<Account, 'name' | 'kind' | 'currency' | 'isHidden' | 'sortOrder' | 'openingBalanceMinor' | 'openingDate'>
+  Pick<Account, 'name' | 'kind' | 'currency' | 'isHidden' | 'sortOrder' | 'openingBalanceMinor' | 'openingDate' | 'openingAt'>
 >;
 
 export interface AccountRepository {
