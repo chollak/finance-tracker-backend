@@ -32,7 +32,7 @@ const lines = (text: string) => text.replace(BOM, '').split('\r\n').filter(Boole
 
 const account = (overrides: Partial<Account>): Account => ({
   id: 'card', userId: 'u1', name: 'Карта', kind: 'card', currency: 'UZS', openingBalanceMinor: 0, openingDate: '2026-09-01',
-  isHidden: false, sortOrder: 20, ...overrides,
+  openingAt: null, isHidden: false, sortOrder: 20, ...overrides,
 });
 
 const record = (overrides: Partial<Transaction>): Transaction => ({

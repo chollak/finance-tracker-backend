@@ -26,6 +26,10 @@ export class Account {
   @Column('date', { name: 'opening_date' })
   openingDate!: string;
 
+  /** The moment the first launch entered the opening balance (FT-163); null for other accounts. */
+  @Column('datetime', { name: 'opening_at', nullable: true })
+  openingAt!: Date | null;
+
   @Column({ name: 'is_hidden', default: false })
   isHidden!: boolean;
 
