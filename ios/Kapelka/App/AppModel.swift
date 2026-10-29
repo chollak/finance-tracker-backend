@@ -59,15 +59,13 @@ final class AppModel {
     /// The app was closed right after a phrase: iOS gives about half a minute to finish the request in flight, then
     /// the background refresh takes over.
     func appMovedToBackground() async {
-        let application = UIApplication.shared
-        let finishing = application.beginBackgroundTask(withName: "kapelka.finish-sending") { [queue = services.queue] in
+        let finishing = FinishingTime()
+        finishing.begin { [queue = services.queue] in
             Task { await queue.cancelSending() }
         }
         await services.queue.flush()
         await services.background.schedule()
-        if finishing != .invalid {
-            application.endBackgroundTask(finishing)
-        }
+        finishing.end()
     }
 
     func saveSettings(address: String, token: String) async throws(SettingsError) {
@@ -84,6 +82,26 @@ final class AppModel {
         case let .answered(status): return "Сервер ответил с ошибкой \(status)"
         case .unreachable: return "Не отвечает"
         }
+    }
+}
+
+/// `beginBackgroundTask` for the request in flight. Out of time, iOS calls the handler, and the task must end right
+/// there — an app that ends it later is killed.
+@MainActor
+private final class FinishingTime {
+    private var task: UIBackgroundTaskIdentifier = .invalid
+
+    func begin(onExpiration: @escaping @MainActor () -> Void) {
+        task = UIApplication.shared.beginBackgroundTask(withName: "kapelka.finish-sending") { [self] in
+            onExpiration()
+            end()
+        }
+    }
+
+    func end() {
+        guard task != .invalid else { return }
+        UIApplication.shared.endBackgroundTask(task)
+        task = .invalid
     }
 }
 
