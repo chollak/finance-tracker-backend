@@ -4,6 +4,20 @@ import { Account as AccountEntity } from '../../../shared/infrastructure/databas
 import { Account, isAccountKind, isCurrency } from '../domain/account';
 import { AccountChanges, AccountRepository } from '../domain/accountRepository';
 
+/**
+ * `countsInBalance` in SQL for an operation on the account `a`: from the opening date on, and on the opening day,
+ * when the first launch kept its moment (FT-163), only what was written from that moment on — to the second, as
+ * records keep `createdAt`.
+ */
+function countsInBalanceSql(date: string, createdAt: string): string {
+  return `${date} >= a."opening_date"
+           AND (a."opening_at" IS NULL OR substr(${date}, 1, 10) > a."opening_date"
+                OR strftime('%Y-%m-%d %H:%M:%S', ${createdAt}) >= strftime('%Y-%m-%d %H:%M:%S', a."opening_at"))`;
+}
+
+/** The domain keeps moments as ISO strings; the column is a datetime. */
+const toMoment = (iso: string | null): Date | null => (iso ? new Date(iso) : null);
+
 export class SqliteAccountRepository implements AccountRepository {
   private repository: Repository<AccountEntity>;
 
@@ -23,18 +37,20 @@ export class SqliteAccountRepository implements AccountRepository {
 
   /** Inserts, never overwrites: a second create with the same id fails on the key. */
   async create(account: Account): Promise<Account> {
-    await this.repository.insert(this.repository.create({ ...account }));
+    await this.repository.insert(this.repository.create({ ...account, openingAt: toMoment(account.openingAt) }));
     const created = await this.findById(account.id);
     if (!created) throw new Error(`Account ${account.id} not found after create`);
     return created;
   }
 
   async createIfMissing(account: Account): Promise<void> {
-    await this.repository.createQueryBuilder().insert().values({ ...account }).orIgnore().execute();
+    await this.repository.createQueryBuilder().insert().values({ ...account, openingAt: toMoment(account.openingAt) }).orIgnore().execute();
   }
 
   async update(id: string, changes: AccountChanges): Promise<Account> {
-    if (Object.keys(changes).length > 0) await this.repository.update(id, changes);
+    const { openingAt, ...rest } = changes;
+    const columns = openingAt === undefined ? rest : { ...rest, openingAt: toMoment(openingAt) };
+    if (Object.keys(columns).length > 0) await this.repository.update(id, columns);
     const updated = await this.findById(id);
     if (!updated) throw new Error(`Account ${id} not found after update`);
     return updated;
@@ -45,7 +61,8 @@ export class SqliteAccountRepository implements AccountRepository {
    * that is not archived or deleted (FT-105) counts by its type — whatever its semanticType and even while it awaits review,
    * because the money did leave or reach the account — and every move that is not deleted (FT-104):
    * what arrived adds, what left subtracts, an adjustment adds its signed difference. Records and moves
-   * dated before the opening date do not count, nor do records in another currency than the account's —
+   * dated before the opening date do not count, nor those of the opening day written before the first launch
+   * entered the opening balance (FT-163, `countsInBalance`), nor records in another currency than the account's —
    * a «55$» parked on a сум account for lack of a dollar account waits for review (FT-103) and counts
    * once it is moved.
    */
@@ -57,17 +74,17 @@ export class SqliteAccountRepository implements AccountRepository {
          FROM "transactions" t
          JOIN "accounts" a ON a."id" = t."account_id"
          WHERE a."user_id" = ? AND t."isArchived" = 0 AND t."deleted_at" IS NULL
-           AND t."date" >= a."opening_date" AND t."currency" = a."currency"
+           AND ${countsInBalanceSql('t."date"', 't."createdAt"')} AND t."currency" = a."currency"
          UNION ALL
          SELECT m."to_account_id", m."to_amount_minor"
          FROM "account_moves" m
          JOIN "accounts" a ON a."id" = m."to_account_id"
-         WHERE a."user_id" = ? AND m."deleted_at" IS NULL AND m."date" >= a."opening_date"
+         WHERE a."user_id" = ? AND m."deleted_at" IS NULL AND ${countsInBalanceSql('m."date"', 'm."created_at"')}
          UNION ALL
          SELECT m."from_account_id", -m."from_amount_minor"
          FROM "account_moves" m
          JOIN "accounts" a ON a."id" = m."from_account_id"
-         WHERE a."user_id" = ? AND m."deleted_at" IS NULL AND m."date" >= a."opening_date"
+         WHERE a."user_id" = ? AND m."deleted_at" IS NULL AND ${countsInBalanceSql('m."date"', 'm."created_at"')}
        ) GROUP BY "accountId"`,
       [userId, userId, userId]
     );
@@ -106,6 +123,7 @@ export class SqliteAccountRepository implements AccountRepository {
       currency: isCurrency(entity.currency) ? entity.currency : 'UZS',
       openingBalanceMinor: Number(entity.openingBalanceMinor ?? 0),
       openingDate: entity.openingDate,
+      openingAt: entity.openingAt ? new Date(entity.openingAt).toISOString() : null,
       isHidden: Boolean(entity.isHidden),
       sortOrder: Number(entity.sortOrder),
     };
