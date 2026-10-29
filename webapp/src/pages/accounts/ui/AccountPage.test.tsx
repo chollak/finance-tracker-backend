@@ -272,9 +272,11 @@ describe('Account screen', () => {
     expect(marks.map((mark) => mark.textContent)).toEqual(['Не входит в остаток', 'Не входит в остаток']);
     const record7 = button(`Продукты, ${MINUS}25${NBSP}000${NBSP}сум, Кофе утром, не входит в остаток. Открыть в истории`);
     const move7 = button(`Перевод, Карта → Наличные, ${MINUS}300${NBSP}000${NBSP}сум, не входит в остаток. Не в аналитике. Подробнее`);
-    // The mark leads the caption, so an ellipsis cuts the note, never the mark
+    // A record's note goes after the mark, so an ellipsis cuts the note, never the mark
     expect(record7.textContent?.replace(/\s+/g, ' ')).toContain('Не входит в остаток · Кофе утром');
-    expect(move7.textContent?.replace(/\s+/g, ' ')).toContain('Не входит в остаток · Карта → Наличные');
+    // A move's direction is its own line under the mark: where the money went is not cut for the mark
+    expect(move7.querySelector('[data-balance-note]')?.textContent).toBe('Карта → Наличные');
+    expect(move7.textContent).not.toContain('·');
     // The operations that count are as before
     expect(button(`Продукты, ${MINUS}186${NBSP}400${NBSP}сум, Супермаркет. Открыть в истории`).querySelector('[data-balance-mark]')).toBeNull();
     expect(button(`Обмен, Доллары → Карта, +1${NBSP}260${NBSP}000${NBSP}сум. Не в аналитике. Подробнее`).querySelector('[data-balance-mark]')).toBeNull();

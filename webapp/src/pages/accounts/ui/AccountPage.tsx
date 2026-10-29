@@ -17,7 +17,8 @@ import { FOCUS, FOCUS_INSET, Icon, ReadFailed } from './parts';
 
 /**
  * A transfer, an exchange or an adjustment among the records: a neutral circle, the amount in ink (AccountMoves.md).
- * One the balance leaves out leads its caption with «Не входит в остаток», as a record does (FT-148).
+ * One the balance leaves out says «Не входит в остаток», as a record does, with the direction on its own line under
+ * it: where the money went is not cut for the mark (FT-148).
  */
 function MoveRowItem({ row, onOpen }: { row: MoveRow; onOpen: () => void }) {
   return (
@@ -37,7 +38,7 @@ function MoveRowItem({ row, onOpen }: { row: MoveRow; onOpen: () => void }) {
         <span className="flex min-w-0 flex-1 flex-col gap-px py-2.5 pl-2 pr-3">
           <span className="type-body-strong truncate">{row.title}</span>
           {row.notInBalance ? (
-            <NotInBalanceCaption note={row.caption} />
+            <NotInBalanceCaption note={row.caption} stacked />
           ) : (
             <span className="truncate text-[13px] leading-snug text-ink-muted">{row.caption}</span>
           )}

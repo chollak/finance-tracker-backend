@@ -255,6 +255,21 @@ describe('account screen', () => {
       expect(item('m-in').row.notInBalance).toBeUndefined();
     });
 
+    it('an answer without `countsInBalance` marks nothing: only `false` from the server is a mark', () => {
+      const withoutField: AccountOperations = {
+        account: { ...OPENED, hasOperations: true },
+        days: operations.days.map((day) => ({
+          ...day,
+          operations: day.operations.map((operation) => ({ ...operation, countsInBalance: undefined as unknown as boolean })),
+        })),
+      };
+
+      const rows = accountDays(withoutField, { today: TODAY, categoryOf }).flatMap((day) => day.items.map((candidate) => candidate.row));
+
+      expect(rows.filter((row) => row.notInBalance)).toEqual([]);
+      expect(rows.some((row) => row.ariaLabel.includes('не входит в остаток'))).toBe(false);
+    });
+
     it('a marked row keeps its note and says it to screen readers; «Без заметки» adds nothing to the mark', () => {
       const morning = item('t-morning');
       expect(morning.type === 'record' && [morning.row.note, morning.row.ariaLabel]).toEqual([

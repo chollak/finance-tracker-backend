@@ -96,7 +96,9 @@ function moveRow(operation: MoveOperation, account: Account): MoveRow {
   const { from, to } = direction(operation, account);
   const caption = adjustment ? 'Остаток сверен вручную' : `${from} → ${to}`;
   const currency: Currency = account.currency;
-  const marked = operation.countsInBalance ? [] : [NOT_IN_BALANCE.toLocaleLowerCase('ru-RU')];
+  // Only `false` from the server is a mark: an answer without the field leaves every row as it was
+  const notInBalance = operation.countsInBalance === false;
+  const marked = notInBalance ? [NOT_IN_BALANCE.toLocaleLowerCase('ru-RU')] : [];
   const said = [title, caption, formatMinor(operation.amountMinor, currency, { sign: 'always' }), ...marked];
   return {
     id: operation.id,
@@ -105,7 +107,7 @@ function moveRow(operation: MoveOperation, account: Account): MoveRow {
     caption,
     amount: formatMinor(operation.amountMinor, currency, { sign: 'always', unit: currency !== 'UZS' }),
     ariaLabel: `${said.join(', ')}. Не в аналитике. Подробнее`,
-    ...(!operation.countsInBalance && { notInBalance: true as const }),
+    ...(notInBalance && { notInBalance: true as const }),
   };
 }
 
@@ -129,7 +131,7 @@ export function accountDays(
         ? {
             type: 'record',
             id: operation.id,
-            row: recordRow(operation.record, { categoryOf: context.categoryOf, opens: 'history', notInBalance: !operation.countsInBalance }),
+            row: recordRow(operation.record, { categoryOf: context.categoryOf, opens: 'history', notInBalance: operation.countsInBalance === false }),
             record: operation.record,
           }
         : { type: 'move', id: operation.id, row: moveRow(operation, account), operation }
