@@ -1157,7 +1157,9 @@ Definition of Done:
   попадают. Найдено и исправлено в том же PR: запасной логгер печатал в Jest 13 строк `[TRANSACTION] …` под
   `NODE_ENV=production` в `shortcutCaptureOwner.test.ts`; тест «does not throw» ничего не ловил при откате — заменён;
   Winston создавался раньше загрузки `.env` (`/api/health` — production, а лог цветной с debug).
-- Под-чат разработки: `verify` после слияния `main` (FT-163, FT-170) — Jest 101 набор, 1509 + 1 skipped; Vitest 122 файла, 1202; сборка, fonts, tokens, dependency-cruiser (335 модулей), madge. В выводе Jest нет строк логгеров приложения, остались только `query failed` TypeORM.
+- Под-чат разработки: `verify` после слияния `main` (FT-163, FT-170, FT-166) — Jest 102 набора, 1529 + 1 skipped;
+  Vitest 122 файла, 1202; сборка, fonts, tokens, dependency-cruiser (336 модулей), madge. В выводе Jest нет строк
+  логгеров приложения, остался только вывод TypeORM (`query failed`, ожидаемый отказ миграции в тесте).
 
 Известно:
 - Ошибки запросов TypeORM идут через `console.log` с `PARAMETERS` — вне задачи.
