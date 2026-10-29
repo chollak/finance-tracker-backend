@@ -1,0 +1,9 @@
+# Signing is personal: the Team ID stays on the Mac (Config/Signing.local.xcconfig.example)
+Config/Signing.local.xcconfig
+
+# Xcode
+DerivedData/
+build/
+xcuserdata/
+*.xcuserstate
+*.xcresult
