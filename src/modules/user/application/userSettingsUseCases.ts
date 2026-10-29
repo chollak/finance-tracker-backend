@@ -45,7 +45,7 @@ const tipsCount: FieldRule = value =>
 
 /**
  * Fields PATCH /api/settings accepts and how each is checked. `defaultAccountId` must also be one of
- * the user's visible accounts (checked in the use case); the own USD rate is set through FT-102.
+ * the user's visible accounts in сум (checked in the use case, FT-149); the own USD rate is set through FT-102.
  */
 const RULES: Record<string, FieldRule> = {
   theme: oneOf(THEME_PREFERENCES),
@@ -104,7 +104,7 @@ export class GetUserSettingsUseCase {
   }
 }
 
-/** Whether an id is one of the user's visible accounts; provided by the account module (FT-101). */
+/** Whether an id can be the default account — visible and in сум; provided by the account module (FT-101, FT-149). */
 export type AccountCheck = (userId: string, accountId: string) => Promise<boolean>;
 
 export class UpdateUserSettingsUseCase {
@@ -123,7 +123,7 @@ export class UpdateUserSettingsUseCase {
     try {
       const accountId = validated.data.defaultAccountId;
       if (typeof accountId === 'string' && !(this.accountCheck && (await this.accountCheck(input.userId, accountId)))) {
-        return ResultHelper.failure(new ValidationError('defaultAccountId must be one of your visible accounts', 'defaultAccountId'));
+        return ResultHelper.failure(new ValidationError('defaultAccountId must be one of your visible accounts in сум', 'defaultAccountId'));
       }
 
       const saved = await this.repository.write(input.userId, validated.data);

@@ -6,6 +6,7 @@ import { useCategories } from '@/entities/category';
 import { useUsdRate } from '@/entities/rate';
 import { useSettings, useUpdateSettings } from '@/entities/settings';
 import { useUserStore } from '@/entities/user';
+import { DefaultAccountRow } from '@/features/default-account';
 import { useExportRecords } from '@/features/export-records';
 import { useSignOut } from '@/features/web-login';
 import { ThemeSheet, themeLabel, useThemeChoice } from '@/features/theme-choice';
@@ -41,8 +42,8 @@ const NOTIFICATION_ICONS: Record<NotificationKind, ReactNode> = {
 
 /**
  * «Ещё» (FT-125, boards «„Ещё“ — разделы и настройки», «Сводка дня в боте», «Тема», «„Ещё“ в браузере», «„Ещё“ ·
- * тёмная»): sections, not a settings screen with «Сохранить». «Деньги» — the accounts and the rate, the categories,
- * the audit; «Бот в Telegram» — the summary, the audit call and goal alerts, which drive the bot's scheduler (FT-124);
+ * тёмная»): sections, not a settings screen with «Сохранить». «Деньги» — the accounts and the rate, the default account
+ * (FT-149), the categories, the audit; «Бот в Telegram» — the summary, the audit call and goal alerts, which drive the bot's scheduler (FT-124);
  * «Вид» — the theme; «Данные» — the export; by a direct link also «Аккаунт» with «Выйти» (FT-128). Every row says its state, every change
  * applies at once. Budgets and debts are not here (Д2). «Скачать все записи» (FT-126) sends the CSV to the chat with the
  * bot in Telegram and downloads it in a browser. «Категории» opens the categories screen (FT-127), «Ревизия трат» the
@@ -109,6 +110,7 @@ export function MorePage() {
               title="Счета и курс доллара"
               subtitle={accountsState(accounts.data, rates.data)}
             />
+            <DefaultAccountRow />
             <SettingsRow
               kind="link"
               to={ROUTES.CATEGORIES}
