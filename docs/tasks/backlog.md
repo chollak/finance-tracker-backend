@@ -364,6 +364,10 @@ Context:
 `accountScreen.ts:109-123`, `AccountPage.tsx:45-71`). Ранние записи выглядят как обычные, и список не сходится с
 остатком.
 
+После FT-163 (PR #116) `countsInBalance: false` бывает по двум причинам: операция раньше даты открытия, и операция дня
+открытия, записанная до момента первого запуска (`account.openingAt`). Правило одно — `countsInBalance()` в
+`src/modules/account/domain/account.ts`. Поэтому метка общая — «не входит в остаток», без «до даты открытия».
+
 Definition of Done:
 - [ ] Запись до даты открытия на экране счёта отмечена (вид — по холсту), понятно, что она не входит в остаток
 - [ ] Тест `accountDays`: флаг доходит до строки
@@ -543,24 +547,6 @@ Definition of Done:
 
 ---
 
-### FT-163: Records made before first launch are counted twice in the balance
-
-Status: backlog
-Priority: low
-Owner: Claude Code, QA — под-чат проверки
-Type: bug
-Size: S
-
-Context:
-Замечание из локальной проверки 2026-10-21 (`docs/pastel/handoff.md`, «Проверено в браузере»); задачи в backlog не
-было. Первый запуск (FT-109) спрашивает «Сколько у вас сейчас денег?» и пишет ответ начальными остатками с сегодняшней
-датой. Записи, сделанные в тот же день до первого запуска (бот, Shortcut), входят в остаток поверх введённой суммы:
-расход вычитается дважды. Встречается только у того, кто записывал до первого запуска; у Шукура первый запуск уже был.
-
-Definition of Done:
-- [ ] Записи, сделанные до ввода начальных остатков (по моменту, а не по дате), в остаток не входят; тест
-- [ ] Записи после первого запуска в тот же день входят в остаток, как раньше; тест
-- [ ] История и аналитика показывают все записи, как сейчас
 
 ---
 
@@ -625,28 +611,6 @@ Definition of Done:
 - [ ] Знак согласован с Шукуром на холсте
 - [ ] Заменён в `wordmark.tsx` и `docs/pastel/design-system.md`
 - [ ] Скриншоты шапки 390 px в обеих темах
-
----
-
-### FT-170: dev:miniapp writes a wrong WEB_APP_URL when the quick tunnel fails
-
-Status: backlog
-Priority: low
-Owner: Claude Code, QA — под-чат проверки
-Type: bug
-Size: S
-
-Context:
-2026-10-28 без сети `cloudflared` ответил «failed to request quick Tunnel: Post "https://api.trycloudflare.com/tunnel":
-context deadline exceeded», и `scripts/dev-miniapp.js` записал в `.env.local` `WEB_APP_URL=https://api.trycloudflare.com`
-— адрес из текста ошибки, а не туннеля; затем вышел на «Request timed out: api.telegram.org». Следующий удачный запуск
-перезаписал адрес, но кнопка меню могла уйти на неверный адрес. После переезда (FT-159) `dev:miniapp` нужен только для
-разработки на маке.
-
-Definition of Done:
-- [ ] Адрес туннеля берётся только из строки об успешной регистрации (`https://<slug>.trycloudflare.com`, не `api.`)
-- [ ] При ошибке `.env.local` и кнопка меню не меняются, сообщение понятное
-- [ ] Тест на разбор вывода `cloudflared`
 
 ---
 

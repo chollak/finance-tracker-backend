@@ -85,6 +85,7 @@ export class CreateAccountUseCase {
         currency: body.currency,
         openingBalanceMinor,
         openingDate,
+        openingAt: null,
         isHidden: false,
         sortOrder,
       });

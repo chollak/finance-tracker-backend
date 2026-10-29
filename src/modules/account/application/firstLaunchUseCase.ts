@@ -63,8 +63,9 @@ function existingAccountFor(row: FirstLaunchAccount, accounts: Account[], taken:
 
 /**
  * POST /api/accounts/opening-balances (FT-109): «Сколько у вас сейчас денег?». Cash, card and dollars
- * become the opening balances of «Наличные», «Карта» and «Доллары», dated today: records and moves before
- * today no longer count in the balance (money-model «Остаток счёта») but stay in history and analytics.
+ * become the opening balances of «Наличные», «Карта» and «Доллары», dated today and kept with this moment:
+ * records and moves before today, and those of today written before now (the bot, the Shortcut — FT-163), no
+ * longer count in the balance (money-model «Остаток счёта») but stay in history and analytics.
  * The three stand first, in the order of the screen and the boards: Наличные, Карта, Доллары (FT-137) — a
  * migrated or new user's «Карта» was created first and would otherwise lead; any other account follows them
  * in its own order. Then the first launch is marked done. It happens once; later corrections go through
@@ -89,11 +90,14 @@ export class CompleteFirstLaunchUseCase {
 
       const moment = this.now();
       const openingDate = todayDateOnly(moment);
+      const openingAt = moment.toISOString();
       const accounts = await this.book.listForUser(input.userId);
       const used = new Set<string>();
 
       for (const [position, row] of FIRST_LAUNCH_ACCOUNTS.entries()) {
-        const opening = { openingBalanceMinor: amounts.data[row.field], openingDate, sortOrder: firstLaunchSortOrder(position) };
+        const opening = {
+          openingBalanceMinor: amounts.data[row.field], openingDate, openingAt, sortOrder: firstLaunchSortOrder(position),
+        };
         const existing = existingAccountFor(row, accounts, used);
         if (existing) {
           used.add(existing.id);
@@ -122,10 +126,9 @@ export class CompleteFirstLaunchUseCase {
         if (account.sortOrder !== sortOrder) await this.repository.update(account.id, { sortOrder });
       }
 
-      const onboardedAt = moment.toISOString();
-      await this.progress.markOnboarded(input.userId, onboardedAt);
+      await this.progress.markOnboarded(input.userId, openingAt);
       logger.info('First launch completed', { userId: input.userId, openingDate });
-      return ResultHelper.success({ ...(await this.book.summary(input.userId)), onboardedAt });
+      return ResultHelper.success({ ...(await this.book.summary(input.userId)), onboardedAt: openingAt });
     } catch (error) {
       logger.error('Failed to complete the first launch', error as Error);
       return ResultHelper.failure(new BusinessLogicError('Failed to save opening balances'));
