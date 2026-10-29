@@ -1,3 +1,5 @@
+import { REQUEST_TIMEOUT_CODE } from '@/shared/api';
+
 /**
  * The short notices of the composer and the review (FT-114), shown as an info toast (Toast.md: two lines,
  * the second cut with an ellipsis): what went wrong and what to do. Nothing here claims a record was saved.
@@ -33,7 +35,13 @@ export const NO_DOLLAR_ACCOUNT: CaptureNotice = {
   detail: 'Запишите в сумах или добавьте счёт «Доллары»',
 };
 
-function field(error: unknown, key: 'name' | 'message' | 'statusCode'): unknown {
+/**
+ * The phrase got no answer in QUICK_CAPTURE_TIMEOUT_MS (FT-146). Not «Нет связи»: the connection may be fine and the
+ * reading slow. The same client id goes with the next send, so pressing again does not write twice.
+ */
+export const CAPTURE_TIMED_OUT: CaptureNotice = { title: 'Не дождался ответа', detail: 'Текст остался в поле — отправьте ещё раз' };
+
+function field(error: unknown, key: 'name' | 'message' | 'statusCode' | 'code'): unknown {
   return typeof error === 'object' && error !== null ? (error as Record<string, unknown>)[key] : undefined;
 }
 
@@ -46,6 +54,7 @@ export function sendFailedNotice(error: unknown): CaptureNotice {
     const message = field(error, 'message');
     return { title: typeof message === 'string' ? message : 'Не удалось разобрать текст', detail: 'Исправьте текст и отправьте снова' };
   }
+  if (field(error, 'code') === REQUEST_TIMEOUT_CODE) return CAPTURE_TIMED_OUT;
   switch (field(error, 'statusCode')) {
     case 0:
       return { title: 'Нет связи с сервером', detail: 'Текст остался в поле — отправьте, когда связь вернётся' };

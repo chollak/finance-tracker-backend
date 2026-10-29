@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAccounts } from '@/entities/account';
 import { useCategories } from '@/entities/category';
@@ -38,6 +39,12 @@ export function Composer() {
   const settings = useSettings();
   const { send, isPending } = useSendCapture();
   const { write } = useQuickChip();
+  const field = useRef<HTMLInputElement>(null);
+
+  const sendDraft = async () => {
+    // The wait ran out and the phrase is still there (FT-146): back to the field, ready to send again
+    if ((await send(draft)) === 'timed-out') field.current?.focus();
+  };
 
   // A failed read of the frequent records falls back to the starters
   const frequentRecords = frequent.isError ? [] : frequent.data;
@@ -53,8 +60,9 @@ export function Composer() {
       chips={chips}
       text={draft}
       sending={isPending}
+      inputRef={field}
       onText={setDraft}
-      onSend={() => void send(draft)}
+      onSend={() => void sendDraft()}
       onChip={(chip) => void write(chip)}
       onVoice={() => (offline ? navigate(ROUTES.VOICE_OFFLINE, { state: openedFrom }) : notify(VOICE_NOT_YET))}
       onCamera={() => (offline ? navigate(ROUTES.RECEIPT_OFFLINE, { state: openedFrom }) : notify(RECEIPT_NOT_YET))}

@@ -24,6 +24,20 @@ export class CaptureTextError extends Error {
   }
 }
 
+/**
+ * How long the composer waits for a phrase to be read (FT-146) before it gives up and keeps the text in the field.
+ *
+ * Longer than the server's own worst case, so a slow AI still ends in the server's answer: the AI usually answers in
+ * 1–5 s, but the server waits for it `OPENAI_TIMEOUT_MS` (20 s), asks once more after the SDK's pause (under 1 s) and
+ * waits 20 s again (FT-145) — about 41 s before it answers, with records or with its 502. 45 s leaves a margin for the
+ * write and the trip. A shorter wait gave up on answers that came at 30–41 s: the records were written, and a phrase
+ * corrected and sent again wrote a second set.
+ *
+ * Giving up therefore means the server did not answer at all (the connection or the tunnel hung). Sending again is safe:
+ * the same client id (FT-106) returns the records the server may have written instead of writing them twice.
+ */
+export const QUICK_CAPTURE_TIMEOUT_MS = 45_000;
+
 export interface QuickCaptureInput {
   text: string;
   userId: string;
@@ -48,13 +62,17 @@ export function useQuickCapture() {
         throw new CaptureTextError(validation.reason);
       }
 
-      const response = await apiClient.post<QuickCaptureResult>(API_ENDPOINTS.QUICK_CAPTURE, {
-        text: validation.text,
-        userId,
-        userName,
-        source: 'miniapp',
-        ...(clientId ? { clientId } : {}),
-      });
+      const response = await apiClient.post<QuickCaptureResult>(
+        API_ENDPOINTS.QUICK_CAPTURE,
+        {
+          text: validation.text,
+          userId,
+          userName,
+          source: 'miniapp',
+          ...(clientId ? { clientId } : {}),
+        },
+        { timeoutMs: QUICK_CAPTURE_TIMEOUT_MS }
+      );
 
       return response.data;
     },
