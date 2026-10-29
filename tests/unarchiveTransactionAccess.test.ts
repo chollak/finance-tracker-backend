@@ -1,5 +1,4 @@
 import express, { Express } from 'express';
-import { AddressInfo } from 'net';
 import http from 'http';
 
 import {
@@ -26,6 +25,7 @@ import { GetArchivedTransactionsUseCase } from '../src/modules/transaction/appli
 import { TransactionRepository } from '../src/modules/transaction/domain/transactionRepository';
 import { Transaction } from '../src/modules/transaction/domain/transactionEntity';
 import { UserModule } from '../src/modules/user/userModule';
+import { listenOnLoopback } from './helpers/testServer';
 
 // Telegram user 131184740 is signed in through the local dev header and owns the records of OWNER_UUID
 const TELEGRAM_ID = '131184740';
@@ -143,13 +143,9 @@ describe('POST /transactions/:id/unarchive', () => {
   let baseUrl: string;
   let built: ReturnType<typeof buildApp>;
 
-  beforeEach((done) => {
+  beforeEach(async () => {
     built = buildApp();
-    server = built.app.listen(0, () => {
-      const { port } = server.address() as AddressInfo;
-      baseUrl = `http://127.0.0.1:${port}`;
-      done();
-    });
+    ({ server, baseUrl } = await listenOnLoopback(built.app));
   });
 
   afterEach((done) => {
@@ -193,14 +189,13 @@ describe('POST /transactions/:id/unarchive', () => {
     router.use(errorHandler);
     app.use('/api', router);
 
-    const s = app.listen(0);
-    const { port } = s.address() as AddressInfo;
+    const other = await listenOnLoopback(app);
     // Signed in as the owner of OWNER_UUID, asking for a record of another user
-    const res = await fetch(`http://127.0.0.1:${port}/api/transactions/tx-owned/unarchive`, {
+    const res = await fetch(`${other.baseUrl}/api/transactions/tx-owned/unarchive`, {
       method: 'POST',
       headers: { 'X-Dev-User-Id': TELEGRAM_ID },
     });
-    s.close();
+    await other.close();
 
     expect(res.status).toBe(403);
     expect(repository.unarchive).not.toHaveBeenCalled();

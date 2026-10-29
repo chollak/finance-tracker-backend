@@ -1,6 +1,5 @@
 import express from 'express';
 import http from 'http';
-import { AddressInfo } from 'net';
 import { createTransactionRouter } from '../src/modules/transaction/presentation/controllers/transactionController';
 import { GetTransactionByIdUseCase } from '../src/modules/transaction/application/getTransactionById';
 import { Transaction } from '../src/modules/transaction/domain/transactionEntity';
@@ -10,6 +9,7 @@ import { QuickCaptureService } from '../src/modules/quickCapture/application/qui
 import { errorHandler } from '../src/delivery/web/express/middleware/errorMiddleware';
 import { openMigratedDatabase, TestDatabase } from './helpers/testDatabase';
 import { recordsOn } from './helpers/records';
+import { listenOnLoopback } from './helpers/testServer';
 
 const CLIENT_ID = '6f1c2b3a-4d5e-4f60-8a7b-9c0d1e2f3a4b';
 const unused = { execute: jest.fn() } as never;
@@ -82,7 +82,7 @@ describe('idempotent create for the offline queue (FT-106)', () => {
     let server: http.Server;
     let baseUrl: string;
 
-    beforeEach(done => {
+    beforeEach(async () => {
       const app = express();
       app.use(express.json());
       app.use('/api/transactions', createTransactionRouter(
@@ -90,10 +90,7 @@ describe('idempotent create for the offline queue (FT-106)', () => {
         unused, records.update, unused, unused, unused, unused, unused, unused
       ));
       app.use(errorHandler);
-      server = app.listen(0, () => {
-        baseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
-        done();
-      });
+      ({ server, baseUrl } = await listenOnLoopback(app));
     });
 
     afterEach(done => {

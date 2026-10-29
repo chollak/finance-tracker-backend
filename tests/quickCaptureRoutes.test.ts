@@ -1,5 +1,4 @@
 import express, { Express } from 'express';
-import { AddressInfo } from 'net';
 import http from 'http';
 
 import {
@@ -9,10 +8,10 @@ import {
   corsHeaders,
   securityHeaders,
 } from '../src/delivery/web/express/middleware/errorMiddleware';
-import { aiRateLimiter } from '../src/delivery/web/express/middleware/rateLimitMiddleware';
 import { createQuickCaptureRouter } from '../src/modules/quickCapture/presentation/controllers/quickCaptureController';
 import { QuickCaptureService } from '../src/modules/quickCapture/application/quickCaptureService';
 import { QuickCaptureResult } from '../src/modules/quickCapture/domain/quickCaptureTypes';
+import { listenOnLoopback } from './helpers/testServer';
 
 /**
  * Route-contract tests for POST /api/quick-capture.
@@ -89,18 +88,11 @@ describe('POST /api/quick-capture', () => {
     });
   }
 
-  beforeEach((done) => {
+  beforeEach(async () => {
     // aiRateLimiter is a single module-level instance shared by every test in this file (20 req /
-    // 15 min per IP). Reset the loopback key so test count never silently turns into 429s.
-    aiRateLimiter.resetKey('127.0.0.1');
-    aiRateLimiter.resetKey('::ffff:127.0.0.1');
-
+    // 15 min per IP); the test server starts it with empty counters, so test count never turns into 429s.
     mocks = buildTestApp();
-    server = mocks.app.listen(0, () => {
-      const { port } = server.address() as AddressInfo;
-      baseUrl = `http://127.0.0.1:${port}`;
-      done();
-    });
+    ({ server, baseUrl } = await listenOnLoopback(mocks.app));
   });
 
   afterEach((done) => {
