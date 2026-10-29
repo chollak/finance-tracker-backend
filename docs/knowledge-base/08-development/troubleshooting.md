@@ -317,6 +317,25 @@ npm run dev
 
 ---
 
+### `dev:miniapp`: cloudflared did not open a quick tunnel (FT-170)
+
+**Error:**
+```
+ERROR: cloudflared did not open a quick tunnel (exited with code 1): failed to request quick Tunnel: Post "https://api.trycloudflare.com/tunnel": context deadline exceeded. Cloudflare is out of reach — is the network up? WEB_APP_URL and the Telegram menu button are unchanged
+```
+
+**Cause:** `cloudflared` could not reach Cloudflare — usually there is no network. Before FT-170 the script took the
+API address from this line, `https://api.trycloudflare.com`, as the tunnel and wrote it to `.env.local` and the menu
+button. Now the address comes only from the box `Your quick Tunnel has been created!`, and on an error neither
+`WEB_APP_URL` nor the menu button is changed.
+
+**Solution:** check the network and run `npm run dev:miniapp` again. If an older run did leave
+`WEB_APP_URL=https://api.trycloudflare.com`, the next successful run overwrites it; `npm run miniapp:menu -- status`
+shows what the env file and the menu button hold now. After sleep the script retries by itself (30 s, 1, 2, 4,
+5 minutes) and prints the same reason as `Could not bring the tunnel back: …`.
+
+---
+
 ## Performance Issues
 
 ### Slow API Responses

@@ -614,28 +614,6 @@ Definition of Done:
 
 ---
 
-### FT-170: dev:miniapp writes a wrong WEB_APP_URL when the quick tunnel fails
-
-Status: backlog
-Priority: low
-Owner: Claude Code, QA — под-чат проверки
-Type: bug
-Size: S
-
-Context:
-2026-10-28 без сети `cloudflared` ответил «failed to request quick Tunnel: Post "https://api.trycloudflare.com/tunnel":
-context deadline exceeded», и `scripts/dev-miniapp.js` записал в `.env.local` `WEB_APP_URL=https://api.trycloudflare.com`
-— адрес из текста ошибки, а не туннеля; затем вышел на «Request timed out: api.telegram.org». Следующий удачный запуск
-перезаписал адрес, но кнопка меню могла уйти на неверный адрес. После переезда (FT-159) `dev:miniapp` нужен только для
-разработки на маке.
-
-Definition of Done:
-- [ ] Адрес туннеля берётся только из строки об успешной регистрации (`https://<slug>.trycloudflare.com`, не `api.`)
-- [ ] При ошибке `.env.local` и кнопка меню не меняются, сообщение понятное
-- [ ] Тест на разбор вывода `cloudflared`
-
----
-
 ### FT-172: Redelivered Telegram updates: remaining edges
 
 Status: backlog
