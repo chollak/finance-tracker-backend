@@ -2,14 +2,14 @@ import 'reflect-metadata'; // Required for TypeORM decorators
 import express from 'express';
 import path from 'path';
 import { buildServer } from './delivery/web/express/expressServer';
-import { startTelegramBot } from './delivery/messaging/telegram/telegramBot';
+import { startTelegramBot, TelegramBotHandle } from './delivery/messaging/telegram/telegramBot';
 import { createModules } from './appModules';
 import { AppConfig } from './shared/infrastructure/config/appConfig';
 import { ConfigurationError } from './shared/domain/errors/AppError';
 import { initializeDatabase, closeDatabase } from './shared/infrastructure/database/database.config';
 import { createLogger, LogCategory } from './shared/infrastructure/logging';
 import { registerLoggerFactory } from './shared/application/logging';
-import { closeHttpServer, createGracefulShutdown } from './delivery/runtime/gracefulShutdown';
+import { BOT_STOP_GRACE_MS, closeHttpServer, createGracefulShutdown } from './delivery/runtime/gracefulShutdown';
 import { createBotFailureHandler } from './delivery/runtime/botFailurePolicy';
 
 // Register infrastructure logger for application layer use
@@ -71,6 +71,9 @@ async function startApplication() {
 
     const port = process.env.PORT || 3000;
 
+    // Started once the server listens; a signal before that has no bot to stop
+    let telegramBot: TelegramBotHandle | undefined;
+
     // One way out (FT-154): a signal exits 0; the bot failing for good in production exits 1 so systemd restarts us
     const shutdown = createGracefulShutdown(
       {
@@ -79,6 +82,8 @@ async function startApplication() {
           notificationModule.getDailySummary().stop();
           notificationModule.getReminders()?.stop();
         },
+        // The message being handled finishes before the database closes (FT-167)
+        stopBot: () => telegramBot?.stop(BOT_STOP_GRACE_MS) ?? Promise.resolve(),
         closeHttpServer: () => closeHttpServer(server),
         closeDatabase,
       },
@@ -90,7 +95,7 @@ async function startApplication() {
     const server = app.listen(port, () => {
       logger.info('Server started', { port });
       // Start Telegram bot after HTTP server is ready
-      startTelegramBot(voiceModule, transactionModule, userModule, quickCaptureModule, subscriptionModule, categoryModule, accountModule, botMessageModule, notificationModule, authModule, { onPollingFailed });
+      telegramBot = startTelegramBot(voiceModule, transactionModule, userModule, quickCaptureModule, subscriptionModule, categoryModule, accountModule, botMessageModule, notificationModule, authModule, { onPollingFailed });
     });
 
     process.on('SIGTERM', () => void shutdown('SIGTERM', 0));

@@ -13,6 +13,10 @@ export function appConfigWith(env: Record<string, string>): Config {
     ALLOWED_TELEGRAM_IDS: '',
     SHORTCUT_CAPTURE_TOKEN: '',
     SHORTCUT_CAPTURE_OWNER: '',
+    // Production with polling on needs a token (FT-167)
+    TG_BOT_API_KEY: 'test-bot-token',
+    ENABLE_TELEGRAM_POLLING: 'true',
+    WEBHOOK_MODE: 'false',
     ...env,
   });
   // Outside NODE_ENV=test AppConfig says which env file it loaded
