@@ -77,10 +77,40 @@ describe('application-layer logger (FT-165)', () => {
     expect(lines).toEqual([{ category: 'TELEGRAM', level: 'error', args: ['Daily summary tick failed', failure] }]);
   });
 
-  it('without a registered factory, falls back to the console logger and does not throw', () => {
-    const logging = freshModules(() => require('../src/shared/application/logging') as LoggingModule);
+  describe('without a registered factory: the console fallback', () => {
+    const saved = { NODE_ENV: process.env.NODE_ENV, TEST_LOGS: process.env.TEST_LOGS };
+    let info: jest.SpyInstance;
 
-    expect(() => logging.getLogger('USER').warn('no factory yet', { a: 1 })).not.toThrow();
+    beforeEach(() => {
+      info = jest.spyOn(console, 'info').mockImplementation(() => undefined);
+    });
+
+    afterEach(() => {
+      info.mockRestore();
+      process.env.NODE_ENV = saved.NODE_ENV;
+      if (saved.TEST_LOGS === undefined) delete process.env.TEST_LOGS;
+      else process.env.TEST_LOGS = saved.TEST_LOGS;
+    });
+
+    it('stays silent in Jest when a test switches NODE_ENV afterwards, as Winston does', () => {
+      // tests/shortcutCaptureOwner.test.ts runs requests with NODE_ENV=production: Jest output stays clean
+      const logging = freshModules(() => require('../src/shared/application/logging') as LoggingModule);
+      const logger = logging.getLogger('TRANSACTION');
+
+      process.env.NODE_ENV = 'production';
+      logger.info('Transaction created', { transactionId: 't-1' });
+
+      expect(info).not.toHaveBeenCalled();
+    });
+
+    it('with TEST_LOGS=true, writes to the console with its category', () => {
+      process.env.TEST_LOGS = 'true';
+      const logging = freshModules(() => require('../src/shared/application/logging') as LoggingModule);
+
+      logging.getLogger('USER').info('no factory yet', { a: 1 });
+
+      expect(info).toHaveBeenCalledWith('[USER]', 'no factory yet', { a: 1 });
+    });
   });
 });
 

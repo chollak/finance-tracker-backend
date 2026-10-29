@@ -32,11 +32,18 @@ type LoggerFactory = (category: LogCategoryType | string) => ILogger;
 let loggerFactory: LoggerFactory | null = null;
 
 /**
+ * Jest output stays focused on assertions unless TEST_LOGS=true. Decided once at load, as Winston decides `silent`:
+ * the fallback is built on every write, and a test that sets NODE_ENV=production for a while would otherwise
+ * print to the console (FT-165).
+ */
+const SILENT_IN_TESTS = process.env.NODE_ENV === 'test' && process.env.TEST_LOGS !== 'true';
+
+/**
  * Fallback console logger for when no factory is registered
  * This ensures the application doesn't crash if logging isn't configured
  */
 function createConsoleLogger(category: LogCategoryType | string): ILogger {
-  if (process.env.NODE_ENV === 'test' && process.env.TEST_LOGS !== 'true') {
+  if (SILENT_IN_TESTS) {
     return {
       debug: () => undefined,
       info: () => undefined,
