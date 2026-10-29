@@ -77,6 +77,9 @@ OPENAI_API_KEY=sk-...
 - `.env.local` is ignored and preferred for machine-specific overrides.
 - `.env.development` is ignored legacy/local naming; the app does not load it.
 - Loading order: existing `process.env` values stay highest priority; then `.env.local` if present; otherwise `.env`.
+  The file is loaded by `src/shared/infrastructure/config/loadEnvironment.ts` before the logger is created, so
+  `LOG_LEVEL` and `NODE_ENV` from it set the log level and format too (FT-165; before that only the process
+  environment did).
 
 **Получить OpenAI API Key:**
 1. Перейти на [platform.openai.com](https://platform.openai.com/)

@@ -19,13 +19,15 @@ export function appConfigWith(env: Record<string, string>): Config {
     WEBHOOK_MODE: 'false',
     ...env,
   });
-  // Outside NODE_ENV=test AppConfig says which env file it loaded
+  // Outside NODE_ENV=test the env file loader says which file it loaded — or warns that there is none (a worktree, CI)
   const log = jest.spyOn(console, 'log').mockImplementation(() => undefined);
+  const warn = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
   let config!: Config;
   jest.isolateModules(() => {
     config = require('../../src/shared/infrastructure/config/appConfig').AppConfig;
   });
   log.mockRestore();
+  warn.mockRestore();
   process.env = saved;
   return config;
 }

@@ -52,7 +52,7 @@ export class UserModule {
     return this.updateUserUseCase;
   }
 
-  /** The default account setting must name a visible account (FT-101); wired by createModules(). */
+  /** The default account setting must name a visible account in сум (FT-101, FT-149); wired by createModules(). */
   setAccountCheck(check: AccountCheck): void {
     this.updateUserSettingsUseCase?.setAccountCheck(check);
   }
