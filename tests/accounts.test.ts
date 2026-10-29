@@ -224,7 +224,7 @@ describe('accounts and balances (FT-101)', () => {
         const accountModule = new AccountModule(new SqliteAccountRepository(db.dataSource), undefined, records.moveRepository);
         const userModule = new UserModule(new SqliteUserRepository(db.dataSource), new SqliteUserSettingsRepository(db.dataSource));
         accountModule.getBook().setDefaultAccountSource(userId => userModule.defaultAccountId(userId));
-        userModule.setAccountCheck((userId, accountId) => accountModule.getBook().isVisibleAccount(userId, accountId));
+        userModule.setAccountCheck((userId, accountId) => accountModule.getBook().canBeDefaultAccount(userId, accountId));
         server = await startTestServer({
           '/accounts': createAccountRoutes(accountModule, userModule),
           '/settings': createSettingsRoutes(userModule),
@@ -347,6 +347,32 @@ describe('accounts and balances (FT-101)', () => {
         expect((await as('PATCH', '/api/settings', { defaultAccountId: card.id })).status).toBe(400);
         expect((await as('PATCH', '/api/settings', { defaultAccountId: 'nope' })).status).toBe(400);
         expect((await as('PATCH', '/api/settings', { defaultAccountId: null })).body.data.defaultAccountId).toBeNull();
+      });
+
+      it('accepts only an account in сум as the default (FT-149): a record with «$» goes to the dollar account anyway', async () => {
+        const card = (await as('GET', '/api/accounts')).body.data.accounts[0];
+        const dollars = (await as('POST', '/api/accounts', { name: 'Доллары', kind: 'cash', currency: 'USD' })).body.data;
+
+        const refused = await as('PATCH', '/api/settings', { defaultAccountId: dollars.id });
+        expect(refused.status).toBe(400);
+        expect(refused.body.error.message).toBe('defaultAccountId must be one of your visible accounts in сум');
+        expect((await as('GET', '/api/settings')).body.data.defaultAccountId).toBeNull();
+        expect((await as('PATCH', '/api/settings', { defaultAccountId: card.id })).body.data.defaultAccountId).toBe(card.id);
+      });
+    });
+
+    describe('a dollar default saved before FT-149', () => {
+      it('a record in сум goes to the first visible account in сум, a record in dollars to the dollar account', async () => {
+        const [card] = await records.book.listForUser('user-1');
+        const dollars = await account('Доллары', 'USD');
+        // Listed first, so «the first visible account» alone would be the dollar one
+        await records.accountRepository.update(dollars.id, { sortOrder: 1 });
+        records.book.setDefaultAccountSource(async () => dollars.id);
+
+        const inSum = await records.book.resolveForRecord({ userId: 'user-1', currency: 'UZS' });
+        expect(inSum.success && inSum.data.id).toBe(card.id);
+        const inDollars = await records.book.resolveForRecord({ userId: 'user-1', currency: 'USD' });
+        expect(inDollars.success && inDollars.data.id).toBe(dollars.id);
       });
     });
   });

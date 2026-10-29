@@ -32,7 +32,7 @@ export function createModules() {
   const accountModule = AccountModule.create();
   transactionModule.setAccountResolver(accountModule.getBook());
   accountModule.getBook().setDefaultAccountSource(userId => userModule.defaultAccountId(userId));
-  userModule.setAccountCheck((userId, accountId) => accountModule.getBook().isVisibleAccount(userId, accountId));
+  userModule.setAccountCheck((userId, accountId) => accountModule.getBook().canBeDefaultAccount(userId, accountId));
   // The account screen lists the account's records next to its moves (FT-104)
   accountModule.setRecordSource({ recordsOf: (userId, accountId) => transactionModule.recordsOfAccount(userId, accountId) });
 
