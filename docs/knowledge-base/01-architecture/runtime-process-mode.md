@@ -196,27 +196,34 @@ first one had been written.
   at most `BOT_STOP_GRACE_MS` (5 s), at the same time as the HTTP server's 5 s, so the database closes well inside the
   10 s timeout. A handler still running after that is left to Telegram: its update was not confirmed and comes again.
   A signal while `getMe` is still answering ends the launch there (the bot's `onLaunch` throws), before polling takes
-  any update.
-- **A message sent again writes nothing twice.** Every record a Telegram message writes carries the message's client
-  id `tg-<chat id>-<message id>` (`utils/messageClientId.ts`) — the same unique (user, client id) as the Mini App's
-  offline queue (FT-106): the text and voice captures (`<id>`, `<id>:1`, …), the amount after a quick-add category,
-  the answer to «Сколько?». First in the text and voice chains, `createRepeatedMessageGuard` looks the id up: when the
-  message's records exist, nothing is parsed, downloaded or written; the confirmation is sent only if no recent bot
-  message (`bot_messages`) shows those records yet — the process may have stopped before sending it. A record the
-  person cancelled stays cancelled. Corrections («не 25, а 28», the answer to «Сумму») write no record and are applied
-  again with the same result.
+  any update. A signal during the next step, `deleteWebhook`, is not caught: Telegraf has no hook between it and the
+  first `getUpdates`, so polling still starts and runs until the process exits — a window of one Bot API request at
+  start, and whatever it takes then is guarded as below.
+- **A message sent again writes nothing twice.** What a Telegram message does carries its client id
+  `tg-<bot id>-<chat id>-<message id>` (`utils/messageClientId.ts`; 48 characters at the largest ids). The bot's id is
+  in it because a private chat has the person's id with every bot and a new bot numbers its messages from 1 again,
+  while the records stay (the move to Kapelka clears only `bot_messages`). Every record the message writes takes it —
+  the same unique (user, client id) as the Mini App's offline queue (FT-106): the text and voice captures (`<id>`,
+  `<id>:1`, …), the amount after a quick-add category, the answer to «Сколько?». An amount answer writes no record —
+  the answer to «Сумму» or to a large amount, «не 25, а 28» — so `changeAmount` keeps the id in the bot message's
+  state (`answeredBy`). First in the text and voice chains, `createRepeatedMessageGuard` looks the id up in both
+  places: when the message's records exist or a recent bot message was answered by it, nothing is parsed, downloaded,
+  written or changed. Written records are confirmed only if no recent bot message shows them yet — the process may
+  have stopped before sending it. A record the person cancelled stays cancelled.
 - **The launch count starts anew.** A launch that has polled for `POLLING_STABLE_MS` without an error counts as
   started: the next failure is the first of a new count, so a `409` days later is retried instead of `failed` at once.
   `POLLING_STABLE_MS` is longer than one long poll (50 s) and twice the longest pause between launches (80 s with the
-  defaults), so two processes taking the token from each other still reach `failed`.
+  defaults), so two processes taking the token from each other still reach `failed`. Pauses never pass a timer's limit
+  (2^31 − 1 ms), which Node would fire at once.
 - **Production needs the token.** With `NODE_ENV=production` and polling on (`ENABLE_TELEGRAM_POLLING` not `false`,
   `WEBHOOK_MODE` not `true`), an empty `TG_BOT_API_KEY` fails `AppConfig.validate()`: the start stops with
   `Configuration validation failed` instead of a silent `disabled` bot with health `200`. With
   `ENABLE_TELEGRAM_POLLING=false` (the `api` preview config, the PC before the move) the start goes on without a token.
 - **What the journal shows** on a restart: `Shutting down`, `Stopping Telegram bot`, then `Telegram bot stopped` — or
-  `Telegram updates still being handled; Telegram sends them again after the restart` when the 5 s ran out — and
-  `Shutdown complete`. After the restart a message sent again logs `Telegram sent a handled message again; its records
-  are not written twice`.
+  `Telegram bot did not stop in time; Telegram sends the updates it did not confirm again after the restart` when the
+  5 s ran out (an update still handled, or a launch still waiting for `getMe`) — and `Shutdown complete`. After the
+  restart a message sent again logs `Telegram sent a handled message again; its records are not written twice`, an
+  amount answer sent again `Telegram sent an amount answer again; it is not applied twice`.
 
 ## Proposed Mode Semantics
 

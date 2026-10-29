@@ -432,10 +432,11 @@ journalctl -u <service> -n 50 | grep -E "Telegram bot polling failed permanently
 
 On `SIGTERM` the bot stops taking updates and finishes the one it is handling — up to 5 s — before the database closes
 (FT-167). The journal shows `Stopping Telegram bot`, then `Telegram bot stopped`. With
-`Telegram updates still being handled; Telegram sends them again after the restart` the handler did not finish in
-time: Telegram sends that message again after the start, and `Telegram sent a handled message again; its records are
-not written twice` says the bot found its records by the message's client id instead of writing them again. If the
-person got no confirmation the first time, the bot sends it then.
+`Telegram bot did not stop in time; Telegram sends the updates it did not confirm again after the restart` the handler
+(or a launch still waiting for Telegram) did not finish in time: Telegram sends that message again after the start, and
+`Telegram sent a handled message again; its records are not written twice` says the bot found its records by the
+message's client id instead of writing them again (`… an amount answer again; it is not applied twice` — the same for
+an answer to «Сумму»). If the person got no confirmation the first time, the bot sends it then.
 
 ---
 
