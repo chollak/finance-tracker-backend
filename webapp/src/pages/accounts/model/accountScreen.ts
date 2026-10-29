@@ -1,5 +1,5 @@
 import { accountCaption, type Account, type AccountOperations, type MoveOperation } from '@/entities/account';
-import { recordRow, type RecordCategory, type RecordRow } from '@/entities/transaction';
+import { NOT_IN_BALANCE, recordRow, type RecordCategory, type RecordRow } from '@/entities/transaction';
 import { dayGroupLabel, dayMonth, parseLocalDate, type LocalDate } from '@/shared/lib/dates';
 import { CURRENCY_UNIT, formatMinor, type Currency } from '@/shared/lib/money';
 import type { Transaction } from '@/shared/types';
@@ -64,6 +64,11 @@ export interface MoveRow {
   /** Always ink with its sign: a move is not income. Сум without a unit, dollars with one. */
   amount: string;
   ariaLabel: string;
+  /**
+   * Not in the balance (FT-148): dated before the opening date, or made on the opening day before the first launch
+   * (FT-163). The caption leads with «Не входит в остаток», as a record's does.
+   */
+  notInBalance?: true;
 }
 
 export type OperationItem =
@@ -91,20 +96,27 @@ function moveRow(operation: MoveOperation, account: Account): MoveRow {
   const { from, to } = direction(operation, account);
   const caption = adjustment ? 'Остаток сверен вручную' : `${from} → ${to}`;
   const currency: Currency = account.currency;
+  // Only `false` from the server is a mark: an answer without the field leaves every row as it was
+  const notInBalance = operation.countsInBalance === false;
+  const marked = notInBalance ? [NOT_IN_BALANCE.toLocaleLowerCase('ru-RU')] : [];
+  const said = [title, caption, formatMinor(operation.amountMinor, currency, { sign: 'always' }), ...marked];
   return {
     id: operation.id,
     icon: adjustment ? 'adjust' : 'move',
     title,
     caption,
     amount: formatMinor(operation.amountMinor, currency, { sign: 'always', unit: currency !== 'UZS' }),
-    ariaLabel: `${title}, ${caption}, ${formatMinor(operation.amountMinor, currency, { sign: 'always' })}. Не в аналитике. Подробнее`,
+    ariaLabel: `${said.join(', ')}. Не в аналитике. Подробнее`,
+    ...(notInBalance && { notInBalance: true as const }),
   };
 }
 
 /**
  * The operations of the account by day, in the server's order (newest first, inside a day by when they were made):
  * records exactly as History shows them — a row opens the record in History — and moves among them on a neutral
- * circle (design-system «Экран счёта»).
+ * circle (design-system «Экран счёта»). One the balance leaves out (`countsInBalance: false`: before the opening
+ * date, on the opening day before the first launch, or in another currency) is marked «Не входит в остаток»
+ * (FT-148), so the opening balance and the rest add up to the balance at the top.
  */
 export function accountDays(
   operations: AccountOperations,
@@ -116,7 +128,12 @@ export function accountDays(
     label: dayGroupLabel(day.date, context.today, { withDate: true }),
     items: day.operations.map((operation): OperationItem =>
       operation.type === 'record'
-        ? { type: 'record', id: operation.id, row: recordRow(operation.record, { categoryOf: context.categoryOf, opens: 'history' }), record: operation.record }
+        ? {
+            type: 'record',
+            id: operation.id,
+            row: recordRow(operation.record, { categoryOf: context.categoryOf, opens: 'history', notInBalance: operation.countsInBalance === false }),
+            record: operation.record,
+          }
         : { type: 'move', id: operation.id, row: moveRow(operation, account), operation }
     ),
   }));

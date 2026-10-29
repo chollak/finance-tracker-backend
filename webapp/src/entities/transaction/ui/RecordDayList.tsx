@@ -1,6 +1,7 @@
+import { NBSP } from '@/shared/lib/money';
 import { cn } from '@/shared/lib/utils';
 import { CategoryDot } from '@/shared/ui/pastel';
-import type { RecordDay, RecordRow } from '../lib/recordDays';
+import { NOT_IN_BALANCE, type RecordDay, type RecordRow } from '../lib/recordDays';
 
 interface RecordDayListProps {
   days: RecordDay[];
@@ -37,12 +38,54 @@ function PendingClock({ className }: { className?: string }) {
   );
 }
 
+/**
+ * The caption of an operation the account's balance leaves out (FT-148): «Не входит в остаток» in the label's weight,
+ * then the note. The mark is never cut: a mark wider than the whole caption (+30% labels on a narrow phone) wraps to
+ * a second line.
+ *
+ * - A record's note goes beside the mark, cut with an ellipsis. With less than 56px left — room for «· » and three
+ *   letters — it is not shown at all, so a lone «· …» never stands after the mark (the room is a container query).
+ * - A move's direction (`stacked`) says where the money went and is not given up: it goes on its own line under the
+ *   mark, cut only when it is wider than the whole caption.
+ */
+export function NotInBalanceCaption({ note, stacked = false }: { note: string; stacked?: boolean }) {
+  const mark = (
+    <span data-balance-mark="" className="max-w-full shrink-0 font-semibold">
+      {NOT_IN_BALANCE}
+    </span>
+  );
+  if (stacked) {
+    return (
+      <span className="flex min-w-0 flex-col text-[13px] leading-snug text-ink-muted">
+        {mark}
+        {note && (
+          <span data-balance-note="" className="truncate">
+            {note}
+          </span>
+        )}
+      </span>
+    );
+  }
+  return (
+    <span className="flex min-w-0 items-start text-[13px] leading-snug text-ink-muted">
+      {mark}
+      {note && (
+        <span className="@container min-w-0 flex-1">
+          <span data-balance-note="" className="hidden truncate @min-[3.5rem]:block">{`${NBSP}· ${note}`}</span>
+        </span>
+      )}
+    </span>
+  );
+}
+
 function RowText({ row }: { row: RecordRow }) {
   return (
     <>
       <span className="flex min-w-0 flex-1 flex-col gap-px py-2.5 pl-2 pr-3">
         <span className="type-body-strong truncate">{row.title}</span>
-        {row.pending ? (
+        {row.notInBalance ? (
+          <NotInBalanceCaption note={row.note} />
+        ) : row.pending ? (
           <span
             className={cn(
               'flex min-w-0 gap-1 text-[13px] leading-snug text-ink-muted',

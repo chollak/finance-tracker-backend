@@ -315,29 +315,6 @@ Context:
 
 ---
 
-### FT-148: Mark records before the account's opening date
-
-Status: backlog
-Priority: low
-Owner: Claude Code, QA by Hermes
-Type: quick-action-ui
-Size: S
-
-Context:
-Остаток счёта считает записи и переводы с даты открытия (`SqliteAccountRepository.ts:60`, `:65`, `:70`;
-`accountBook.ts:81`). Список операций счёта отдаёт и более ранние — с `countsInBalance: false`
-(`accountOperations.ts:95`, `:108`, `:124`), но webapp это поле не читает (`entities/account/model/types.ts:76-77`,
-`accountScreen.ts:109-123`, `AccountPage.tsx:45-71`). Ранние записи выглядят как обычные, и список не сходится с
-остатком.
-
-После FT-163 (PR #116) `countsInBalance: false` бывает по двум причинам: операция раньше даты открытия, и операция дня
-открытия, записанная до момента первого запуска (`account.openingAt`). Правило одно — `countsInBalance()` в
-`src/modules/account/domain/account.ts`. Поэтому метка общая — «не входит в остаток», без «до даты открытия».
-
-Definition of Done:
-- [ ] Запись до даты открытия на экране счёта отмечена (вид — по холсту), понятно, что она не входит в остаток
-- [ ] Тест `accountDays`: флаг доходит до строки
-- [ ] Скриншоты в светлой и тёмной теме
 
 ---
 
