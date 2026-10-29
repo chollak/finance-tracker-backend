@@ -13,7 +13,8 @@ import { ROUTES } from '@/shared/lib/constants/routes';
 import { NBSP } from '@/shared/lib/money';
 import { useUndoToastStore, visibleEntry } from '@/shared/lib/undo';
 import { memoryOfflineStorage, setOfflineStorage, useConnectivityStore, useOutboxStore } from '@/shared/lib/offline';
-import { RECEIPT_NOT_YET, VOICE_NOT_YET } from '../model/captureNotices';
+import { QUICK_CAPTURE_TIMEOUT_MS } from '../api/mutations';
+import { CAPTURE_TIMED_OUT, RECEIPT_NOT_YET, VOICE_NOT_YET } from '../model/captureNotices';
 import { useCaptureStore } from '../model/captureStore';
 import { Composer } from './Composer';
 
@@ -150,6 +151,180 @@ describe('the quick chips', () => {
     await renderComposer();
 
     expect(chipNames()).toEqual(STARTERS);
+  });
+});
+
+/**
+ * FT-146: after a send the field says «Распознаю…» at once and the round button waits with pulsing dots, until the
+ * server answers or fails. The wait has an end on the device too: with no answer in QUICK_CAPTURE_TIMEOUT_MS the toast
+ * says so and the phrase stays in the field, to send again. Real mutation, `fetch` stubbed.
+ */
+describe('sending a phrase (FT-146)', () => {
+  const PHRASE = 'кофе 25к';
+  const SAVED = {
+    success: true,
+    data: {
+      status: 'saved',
+      text: PHRASE,
+      transactions: [
+        {
+          id: 't1', amount: 25000, amountMinor: 2_500_000, currency: 'UZS', type: 'expense', semanticType: 'expense', category: 'Кафе',
+          categoryId: 'c-cafe', accountId: 'card', date: '2026-10-14', needsReview: false, countsAsRealExpense: true,
+        },
+      ],
+      debts: [],
+      ack: { title: '', summary: '', actions: [] },
+      review: { reasons: [] },
+    },
+  };
+
+  /** The answer of POST /api/quick-capture, given by hand; every other request gets an empty list. */
+  let answer: { resolve: (response: Response) => void } | null;
+  let captureSignal: AbortSignal | undefined;
+
+  const status = () => container.querySelector('[role="status"][aria-live="polite"]')?.textContent ?? null;
+  const field = () => container.querySelector<HTMLInputElement>('input[type="text"]');
+
+  /**
+   * Lets `ms` pass, then a few more. TanStack Query tells the screen about a mutation's state on the next tick
+   * (`setTimeout(0)`), which fake timers hold until time moves — and a zero timer set while time is moving is due 1 ms
+   * later — and a settled request needs a few promise hops to get there.
+   */
+  async function wait(ms: number): Promise<void> {
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(ms);
+      for (let tick = 0; tick < 5; tick += 1) await vi.advanceTimersByTimeAsync(1);
+    });
+  }
+
+  async function typeAndSend(text: string): Promise<void> {
+    await act(async () => {
+      useCaptureStore.setState({ draft: text });
+    });
+    await act(async () => {
+      container.querySelector<HTMLFormElement>('form')!.requestSubmit();
+    });
+    await wait(0);
+  }
+
+  async function serverAnswers(body: unknown, statusCode = 200): Promise<void> {
+    await act(async () => {
+      answer?.resolve(new Response(JSON.stringify(body), { status: statusCode, headers: { 'Content-Type': 'application/json' } }));
+    });
+    await wait(0);
+  }
+
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    answer = null;
+    captureSignal = undefined;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string, init?: RequestInit) => {
+        if (!String(url).endsWith('/quick-capture')) {
+          return Promise.resolve(new Response(JSON.stringify({ success: true, data: [] }), { status: 200 }));
+        }
+        captureSignal = init?.signal ?? undefined;
+        return new Promise<Response>((resolve, reject) => {
+          answer = { resolve };
+          init?.signal?.addEventListener('abort', () => reject(new DOMException('The operation was aborted.', 'AbortError')));
+        });
+      })
+    );
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  it('says «Распознаю…» right after the send, before any answer', async () => {
+    await renderComposer();
+    expect(status()).toBe('');
+
+    await typeAndSend(PHRASE);
+
+    expect(status()).toBe('Распознаю…');
+    expect(field()?.value).toBe(PHRASE);
+    const round = container.querySelector('button[type="submit"]');
+    expect(round?.getAttribute('aria-busy')).toBe('true');
+    expect(round?.getAttribute('aria-label')).toBe('Распознаю…');
+  });
+
+  it('waits for the server’s own worst case: an answer after both AI attempts (~41 s) still opens the review', async () => {
+    await renderComposer();
+    await typeAndSend(PHRASE);
+
+    await wait(42_000);
+    expect(status()).toBe('Распознаю…');
+    expect(captureSignal?.aborted).toBe(false);
+
+    await serverAnswers(SAVED);
+
+    expect(shownPath).toBe(ROUTES.CAPTURE_REVIEW);
+    expect(shownToast()?.title).not.toBe(CAPTURE_TIMED_OUT.title);
+  });
+
+  it('stops when the records came: the review opens', async () => {
+    await renderComposer();
+    await typeAndSend(PHRASE);
+
+    await serverAnswers(SAVED);
+
+    expect(status()).toBe('');
+    expect(shownPath).toBe(ROUTES.CAPTURE_REVIEW);
+  });
+
+  it('stops when the send failed, and the phrase stays in the field', async () => {
+    await renderComposer();
+    await typeAndSend(PHRASE);
+
+    await serverAnswers({ success: false, error: { code: 'EXTERNAL_SERVICE_ERROR', message: 'Request timed out.' } }, 502);
+
+    expect(status()).toBe('');
+    expect(field()?.value).toBe(PHRASE);
+    expect(shownToast()).toMatchObject({ kind: 'info', title: 'Не удалось записать' });
+  });
+
+  it('gives up after QUICK_CAPTURE_TIMEOUT_MS: the toast says so and the phrase stays in the field', async () => {
+    await renderComposer();
+    await typeAndSend(PHRASE);
+
+    await wait(QUICK_CAPTURE_TIMEOUT_MS - 1_000);
+    expect(status()).toBe('Распознаю…');
+    expect(captureSignal?.aborted).toBe(false);
+
+    await wait(1_000);
+
+    expect(captureSignal?.aborted).toBe(true);
+    expect(status()).toBe('');
+    expect(field()?.value).toBe(PHRASE);
+    expect(shownPath).toBe(ROUTES.HOME);
+    expect(shownToast()).toMatchObject({
+      kind: 'info',
+      title: CAPTURE_TIMED_OUT.title,
+      detail: CAPTURE_TIMED_OUT.detail,
+    });
+  });
+
+  it('after the timeout the field has the focus again, to send once more', async () => {
+    await renderComposer();
+    await typeAndSend(PHRASE);
+    expect(document.activeElement).not.toBe(field());
+
+    await wait(QUICK_CAPTURE_TIMEOUT_MS);
+
+    expect(document.activeElement).toBe(field());
+    expect(container.querySelector('button[type="submit"]')?.getAttribute('aria-label')).toBe('Распознать текст');
+  });
+
+  it('a failed send that got an answer leaves the focus where it was', async () => {
+    await renderComposer();
+    await typeAndSend(PHRASE);
+
+    await serverAnswers({ success: false, error: { code: 'EXTERNAL_SERVICE_ERROR' } }, 502);
+
+    expect(document.activeElement).not.toBe(field());
   });
 });
 

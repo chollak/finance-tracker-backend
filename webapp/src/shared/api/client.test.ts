@@ -138,3 +138,42 @@ describe('whether a write reached the server (FT-129)', () => {
     expect(useConnectivityStore.getState().lost).toBe(true);
   });
 });
+
+/**
+ * FT-146: a write may wait only so long (`timeoutMs`). Giving up is still «no answer» (`statusCode: 0`, so the outbox
+ * keeps treating it as one), but it says it was the wait that ran out, not the network: the composer tells the two apart.
+ */
+describe('a write that waits too long', () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    fetchMock.mockImplementation(
+      (_url: string, init?: RequestInit) =>
+        new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () => reject(new DOMException('The operation was aborted.', 'AbortError')));
+        })
+    );
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('is given up after timeoutMs as no answer that ran out of time', async () => {
+    const { apiClient, REQUEST_TIMEOUT_CODE } = await client();
+
+    const sent = apiClient.post('/quick-capture', { text: 'кофе 25к' }, { timeoutMs: 30_000 });
+    const failed = expect(sent).rejects.toMatchObject({ statusCode: 0, code: REQUEST_TIMEOUT_CODE });
+    await vi.advanceTimersByTimeAsync(30_000);
+
+    await failed;
+  });
+
+  it('a network failure is not a timeout', async () => {
+    fetchMock.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+    const { apiClient } = await client();
+
+    const error = await apiClient.post('/quick-capture', { text: 'кофе 25к' }, { timeoutMs: 30_000 }).catch((reason: unknown) => reason);
+
+    expect(error).toEqual({ message: 'Network error', statusCode: 0 });
+  });
+});
