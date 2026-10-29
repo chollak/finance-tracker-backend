@@ -128,7 +128,9 @@ Mini App); нет заголовка — сессия браузера. Без �
 запрос, который входит как пользователь не из списка (initData, сессия браузера, вне production `X-Dev-User-Id`), получает
 `403 ACCESS_NOT_ALLOWED` — до разрешения пользователя, строка в `users` не появляется. `X-Dev-User-Id` не из цифр тоже
 `403` (`requireAuth` впустил бы его как `NaN`). Запрос без входа идёт дальше: маршрут ответит `401`, если ему нужен вход.
-Пустой список пускает всех. Владельца Shortcut (`SHORTCUT_CAPTURE_OWNER`, вне production без него — `X-Shortcut-User-Id`)
+Пустой список пускает всех. `403` приходит раньше лимитеров маршрутов, поэтому лог отказов ограничен (FT-166): первый
+отказ id — строка `warn` сразу, повторы за 10 минут — одна строка `(repeats)` с `skipped` (`createRefusalLog`, общий
+с ботом). Владельца Shortcut (`SHORTCUT_CAPTURE_OWNER`, вне production без него — `X-Shortcut-User-Id`)
 проверяет `allowShortcutCapture` — после токена, чтобы ответ на неверный токен не выдавал, кто в списке (FT-155).
 
 **Файл:** [`src/delivery/web/express/middleware/authMiddleware.ts`](../../../src/delivery/web/express/middleware/authMiddleware.ts)

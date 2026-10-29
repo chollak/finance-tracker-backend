@@ -7,8 +7,11 @@ import { DaySummary, DayTotals, MonthExpenses, MonthSummary, daySummaryOf, month
 export interface SummaryNumbers {
   /** Totals of the user's records from one day to another, both included. */
   periodTotals(userId: string, from: string, to: string): Promise<DayTotals>;
-  /** The expense analytics of the month `today` is in, as the analytics screen shows it on that day. */
-  monthExpenses(userId: string, today: string): Promise<MonthExpenses>;
+  /**
+   * The expense analytics of the month `today` is in, as the analytics screen shows it on that day; `throughToday` —
+   * only up to that day, as the summary of a day tells it (FT-164).
+   */
+  monthExpenses(userId: string, today: string, options?: { throughToday?: boolean }): Promise<MonthExpenses>;
   /** The day of the user's earliest record (YYYY-MM-DD), null before the first one. */
   firstRecordDate(userId: string): Promise<string | null>;
 }
@@ -21,8 +24,15 @@ export class SummaryService {
     return monthSummaryOf(await this.numbers.monthExpenses(userId, today));
   }
 
+  /**
+   * The day and the month up to it: «Итоги за вчера» sent the next morning do not count what was recorded since, and
+   * the month line matches its comparison with «1–14 сентября» (FT-164).
+   */
   async day(userId: string, day: string): Promise<DaySummary> {
-    const [totals, month] = await Promise.all([this.numbers.periodTotals(userId, day, day), this.month(userId, day)]);
+    const [totals, month] = await Promise.all([
+      this.numbers.periodTotals(userId, day, day),
+      this.numbers.monthExpenses(userId, day, { throughToday: true }).then(monthSummaryOf),
+    ]);
     return daySummaryOf(day, totals, month);
   }
 

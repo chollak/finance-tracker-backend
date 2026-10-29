@@ -463,6 +463,11 @@ Ubuntu первый пользователь в ней); если `journalctl -u
 Сервис `failed` после лимита стартов:
 `sudo systemctl reset-failed kapelka.service && sudo systemctl start kapelka.service` — сначала причину в журнале.
 
+Кого не пустил `ALLOWED_TELEGRAM_IDS`: `journalctl -u kapelka.service --grep "not allowed" --no-pager | tail -n 20`.
+Каждый чужой id — строка сразу при первом отказе; его повторы за 10 минут — одна строка `(repeats)` с `skipped`
+(FT-166), так что тот, кто засыпает бота или API, не наполнит журнал. Подробнее —
+[Troubleshooting → Who was turned away](troubleshooting.md#who-was-turned-away-by-allowed_telegram_ids).
+
 ### Адрес клиента и лимиты запросов
 
 `tailscale serve` ставит запросу заголовок `X-Forwarded-For` с адресом устройства в tailnet (`100.x.y.z`) и
