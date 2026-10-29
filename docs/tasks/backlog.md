@@ -575,25 +575,6 @@ Definition of Done:
 
 ---
 
-### FT-166: Refused Telegram updates do not flood the log
-
-Status: backlog
-Priority: low
-Owner: Claude Code, QA — под-чат проверки
-Type: reliability
-Size: S
-
-Context:
-Замечание к FT-153 (2026-10-27): каждое отклонённое обновление бота и каждый отклонённый запрос API пишут строку
-`warn` без ограничения. Кто-то, кто засыпает бота сообщениями, наполнит journald на ПК. Отклонённые запросы к API не
-доходят до лимитеров маршрутов: 403 приходит раньше.
-
-Definition of Done:
-- [ ] Отказы одному Telegram id пишутся в лог не чаще раза в N минут, с числом пропущенных; тест
-- [ ] Первый отказ новому id виден в логе сразу (чтобы было видно, кого отсекли)
-
----
-
 ### FT-169: A sign for Kapelka
 
 Status: backlog
@@ -611,28 +592,6 @@ Definition of Done:
 - [ ] Знак согласован с Шукуром на холсте
 - [ ] Заменён в `wordmark.tsx` и `docs/pastel/design-system.md`
 - [ ] Скриншоты шапки 390 px в обеих темах
-
----
-
-### FT-170: dev:miniapp writes a wrong WEB_APP_URL when the quick tunnel fails
-
-Status: backlog
-Priority: low
-Owner: Claude Code, QA — под-чат проверки
-Type: bug
-Size: S
-
-Context:
-2026-10-28 без сети `cloudflared` ответил «failed to request quick Tunnel: Post "https://api.trycloudflare.com/tunnel":
-context deadline exceeded», и `scripts/dev-miniapp.js` записал в `.env.local` `WEB_APP_URL=https://api.trycloudflare.com`
-— адрес из текста ошибки, а не туннеля; затем вышел на «Request timed out: api.telegram.org». Следующий удачный запуск
-перезаписал адрес, но кнопка меню могла уйти на неверный адрес. После переезда (FT-159) `dev:miniapp` нужен только для
-разработки на маке.
-
-Definition of Done:
-- [ ] Адрес туннеля берётся только из строки об успешной регистрации (`https://<slug>.trycloudflare.com`, не `api.`)
-- [ ] При ошибке `.env.local` и кнопка меню не меняются, сообщение понятное
-- [ ] Тест на разбор вывода `cloudflared`
 
 ---
 
