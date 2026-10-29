@@ -101,14 +101,14 @@ Required environment variables in `.env` file:
 - **Production Domain:** `https://sapaev.uz` (owned by Shukur but not an active deployment target as of 2026-08-13)
 
 **Logging:**
-- `LOG_LEVEL` - Log level: `error`, `warn`, `info` (default), `debug`
+- `LOG_LEVEL` - Log level: `error`, `warn`, `info`, `debug`; without it `info` in production and `debug` elsewhere. Read from the env file too: it is loaded before the logger is created (FT-165)
 
 The application validates these on startup and will exit with descriptive errors if required variables are missing.
 
 **Environment file policy:**
 - Tracked: `.env.example` (development) and `ops/live/env.local.example` (the live instance, FT-156) — templates without values.
 - Ignored/local: `.env`, `.env.local`, `.env.development`, `.env.*.local`.
-- `AppConfig` loads `.env.local` if present, otherwise `.env`; existing `process.env` values remain highest priority.
+- `loadEnvironment.ts` (`src/shared/infrastructure/config/`) loads `.env.local` if present, otherwise `.env`; existing `process.env` values remain highest priority. It runs once, on the first import of `appConfig.ts` or of the Winston logger — both import it first, so `LOG_LEVEL` and `NODE_ENV` from the file reach the logger too (FT-165).
 - `.env.development` is ignored for backwards compatibility but is not loaded by the app. Use `.env.local` for machine-specific local values.
 - Never print real env values in logs/reports; list keys only with values redacted.
 

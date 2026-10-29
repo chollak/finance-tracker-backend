@@ -524,6 +524,7 @@ journalctl -u kapelka.service -n 100 --no-pager   # без группы adm — 
 | `Configuration validation failed` | Настройка в `.env.local` не проходит проверку на старте; список ошибок — в той же записи (`errors`). Например, `ALLOWED_TELEGRAM_IDS is required in production` (FT-153) или Shortcut задан наполовину, токен короче 32 символов, владелец не в `ALLOWED_TELEGRAM_IDS` (FT-155) |
 | `Telegram bot polling failed permanently` сразу после старта, без `409` | Нет сети на старте: в production процесс выходит (FT-154), systemd запускает его снова с растущей паузой |
 | `NODE_MODULE_VERSION` | `node_modules` собраны под другой Node: `scripts/nvm-exec.sh npm ci --include=dev` |
+| Строки без времени и уровня, не JSON (`[TELEGRAM] Daily summary not sent { … }` в несколько строк); `LOG_LEVEL` из `.env.local` не действует | Сборка до FT-165: логгеры слоя application писали через запасной `console`, а Winston создавался раньше, чем загружался `.env.local`. Обновить живую копию (`scripts/live-update.sh`) |
 | `start request repeated too quickly` | Сработал лимит стартов (на systemd 249 / Ubuntu 22.04 — после ~20 быстрых перезапусков, например при долгом отсутствии сети). Исправить причину, затем `sudo systemctl reset-failed kapelka.service && sudo systemctl start kapelka.service` |
 
 ### Backup Fails
