@@ -287,6 +287,23 @@ describe('the subscription actions take the user from authentication (FT-162)', 
     expect(subscriptions.activeAskedFor.at(-1)).toBe(await myUuid());
   });
 
+  // The own Telegram id in the body or path is accepted, but the use case gets the user's UUID from authentication —
+  // never the id the request carried
+  it.each(ACTIONS)('%s: the own userId in the body reaches the use case as the own UUID', async (_name, url, body) => {
+    const res = await call('POST', url, { ...body, userId: MINE });
+
+    expect(res.status).toBe(200);
+    const asked = url.endsWith('start-trial') ? subscriptions.created.at(-1)?.userId : subscriptions.activeAskedFor.at(-1);
+    expect(asked).toBe(await myUuid());
+  });
+
+  it('GET /api/subscription/:userId with the own id reads the own UUID', async () => {
+    const res = await call('GET', `/api/subscription/${MINE}`);
+
+    expect(res.status).toBe(200);
+    expect(subscriptions.activeAskedFor.at(-1)).toBe(await myUuid());
+  });
+
   it.each(ACTIONS)('%s: a body or query naming someone else is 403 and adds no user', async (_name, url, body) => {
     const before = await telegramIds();
 

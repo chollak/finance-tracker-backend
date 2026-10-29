@@ -18,8 +18,9 @@ user from the body. Budgets and debts are out of the UI (Д2), but their routes 
 | `POST /api/transactions`: `writeAsSignedInUser` put the signed-in id into the body, user resolution read it from there | `requireAuth, verifyOwnership, createResolveCurrentUserMiddleware`: the record's owner is `currentUserId`. The Mini App outbox still sends its own `userId` as a string — accepted. The route needs a `UserModule`, as the other milestone-10 routes |
 
 Unchanged: the admin grant (`POST /api/subscription/grant`) names whom it is for in the body and creates that user on
-first contact — it is the admin's choice; `requireAdmin` routes in the transaction router still have no `requireAuth`
-before them (always `401`); the guest branches in the same controllers are dead code until FT-136.
+first contact — it is the admin's choice; `GET /api/transactions/analytics` and `/api/openai/usage*` have `requireAdmin`
+without `requireAuth` before them (always `401`, fail-closed — FT-174); the guest branches in the same controllers are
+dead code until FT-136.
 Tests: `tests/legacyUserIdRoutes.test.ts` (every legacy route: someone else's id `403` and no `users` row, a blank or
 non-string id `400`, the own id as before), the FT-162 cases in `tests/userFromAuth.test.ts`.
 
@@ -216,7 +217,8 @@ FT-017D decision: do not globally change this helper to fail-closed yet.
 |---|---|---|---|---|---:|---|
 | Health | global | none | none | none | n/a | open |
 | User routes | `/api/users/*` | `requireAuth` | use case by telegramId/id | controller self-access check | no | strict |
-| Transaction global/admin | `/api/transactions`, `/analytics` | `requireAdmin` | none | admin only | no | strict/admin |
+| Transaction history, totals, frequent | `GET /api/transactions` (FT-107), `/totals`, `/frequent` | `requireAuth` | signed-in user (`createCurrentUserMiddleware`) | none — no userId taken | no | strict |
+| Transaction global analytics (admin) | `GET /api/transactions/analytics` | `requireAdmin` without `requireAuth` — always `401` (fail-closed, FT-174) | none | admin only | no | strict/dead |
 | Transaction create | `POST /api/transactions` | `requireAuth` | signed-in user (`createResolveCurrentUserMiddleware`) | `verifyOwnership` on a body/query userId, before resolution (FT-162) | no | strict |
 | Transaction user-scoped analytics/list | `/api/transactions/.../:userId` | `allowGuestMode` (= `requireAuth`) | route middleware, after the check (FT-162) | `verifyOwnership` | no | strict |
 | Transaction by-id CRUD/archive | `/api/transactions/:id` | `allowGuestMode` | controller/helper | `verifyResourceOwnership` | yes for guest-owned resources | hybrid/resource-strict |
@@ -229,7 +231,7 @@ FT-017D decision: do not globally change this helper to fail-closed yet.
 | Dashboard | `/api/dashboard/:userId...` | `allowGuestMode` (= `requireAuth`) + sometimes premium | route middleware, after the check (FT-162) | `verifyOwnership` | no | strict/premium |
 | Subscription (own) | `GET /api/subscription/:userId`, `POST /check-limit`, `/cancel`, `/start-trial` | `requireAuth` | signed-in user (`createResolveCurrentUserMiddleware`, FT-162) | `verifyOwnership` on any path/body/query userId, before resolution | no | strict |
 | Subscription grant | `POST /api/subscription/grant` | `requireAuth` + `requireAdmin` | body userId (the admin's target; a non-string is `400`) | admin only | no | strict/admin |
-| OpenAI usage | `/api/openai/usage...` | `requireAdmin` | none | admin only | no | strict/admin |
+| OpenAI usage | `/api/openai/usage...` | `requireAdmin` without `requireAuth` — always `401` (fail-closed, FT-174) | none | admin only | no | strict/dead |
 
 ## Strict vs Loose Recommendations
 
