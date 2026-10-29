@@ -392,28 +392,6 @@ Definition of Done:
 
 ---
 
-### FT-150: Bare «яндекс» and «uber» should not mean Transport
-
-Status: backlog
-Priority: medium
-Owner: Claude Code, QA by Hermes
-Type: bug
-Size: S
-
-Context:
-У старой категории `taxi` синонимы `яндекс`, `yandex`, `uber` (`Category.ts:68`); их забирает стартовая «Транспорт»
-(`categoryPresets.ts:26`, `:98-106`). В выученных словах тоже есть `yandex` (`data/patterns.seed.json:16-24`). Быстрый
-путь FT-143 ищет категорию по словам подписи (`processTextInput.ts:570-588`, `categoryGuess.ts:72-95`), поэтому
-«яндекс плюс 99000» и «uber eats 120000» уходят в «Транспорт» без ИИ, хотя «Яндекс Плюс» — подписка
-(`subscriptionCatalog.ts:44-53`). Записано в `docs/pastel/handoff.md`.
-
-Definition of Done:
-- [ ] Голые «яндекс», «yandex», «uber» категорию не дают — фраза идёт к ИИ; «яндекс такси», «yandex go», «такси» — «Транспорт» без ИИ
-- [ ] «яндекс плюс 99000» и «uber eats 120000» не попадают в «Транспорт»; тесты
-- [ ] `patterns.seed.json` не учит голое «yandex» как транспорт
-
----
-
 ### FT-152: Queue a complex phrase offline and parse it when the connection returns
 
 Status: backlog

@@ -1,6 +1,6 @@
 import { CATEGORY_PRESETS, presetHints } from '../../category/domain/categoryPresets';
 import { categoryNameKey } from '../../category/domain/category';
-import { CategoryOfRecord } from './categoryGuess';
+import { CategoryOfRecord, mentionsBareBrand } from './categoryGuess';
 
 const HINTS_PER_CATEGORY = 8;
 
@@ -37,11 +37,16 @@ export function starterRecordCategories(): CategoryOfRecord[] {
   return CATEGORY_PRESETS.map(preset => ({ type: preset.type, name: preset.name, presetKey: preset.key }));
 }
 
-/** A hint that is itself the name of a category of the list («кэшбэк» under «Возврат») would mislead. */
+/**
+ * A hint that is itself the name of a category of the list («кэшбэк» under «Возврат») would mislead, and so would
+ * one with a bare brand in it (FT-150): with «яндекс го» under «Транспорт» the AI put «яндекс плюс» there too.
+ */
 function lines(categories: PromptCategory[], names: Set<string>): string {
   return categories
     .map(category => {
-      const hints = category.hints.filter(hint => !names.has(categoryNameKey(hint))).slice(0, HINTS_PER_CATEGORY);
+      const hints = category.hints
+        .filter(hint => !names.has(categoryNameKey(hint)) && !mentionsBareBrand(hint))
+        .slice(0, HINTS_PER_CATEGORY);
       return `  - ${category.name}${hints.length > 0 ? ` (${hints.join(', ')})` : ''}`;
     })
     .join('\n');
