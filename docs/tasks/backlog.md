@@ -561,7 +561,7 @@ Definition of Done:
 
 ### FT-175: Quick capture keeps the time of input
 
-Status: backlog
+Status: in_progress — под-чат разработки, 2026-10-29
 Priority: medium
 Owner: Claude Code, QA — под-чат проверки
 Type: feature
@@ -597,7 +597,7 @@ Definition of Done:
 
 ### FT-176: Quick capture takes a ready amount from Apple Pay
 
-Status: backlog — после FT-175
+Status: backlog — в очереди, после FT-175
 Priority: medium
 Owner: Claude Code, QA — под-чат проверки
 Type: feature
@@ -631,12 +631,12 @@ Definition of Done:
 
 ### FT-177: iOS app skeleton: settings, the token in Keychain and the queue
 
-Status: backlog
+Status: in_progress — под-чат разработки, 2026-10-29
 Priority: medium
 Owner: Claude Code, Shukur (Xcode, iPhone), QA — под-чат проверки
 Type: feature
 Size: M
-Depends on: Xcode на маке (ставит Шукур; сейчас только Command Line Tools). `capturedAt` клиент шлёт сразу: до FT-175
+Depends on: Xcode 27.1 и симулятор iOS 27.1 на маке (Шукур, 2026-10-29). `capturedAt` клиент шлёт сразу: до FT-175
 сервер лишние поля пропускает
 
 Context:
@@ -670,7 +670,7 @@ Definition of Done:
 
 ### FT-178: Voice from the Action Button and the main screen
 
-Status: backlog
+Status: backlog — в очереди, после FT-177
 Priority: medium
 Owner: Claude Code, Shukur (iPhone), QA — под-чат проверки
 Type: feature
@@ -704,7 +704,7 @@ Definition of Done:
 
 ### FT-179: Apple Pay payments record themselves
 
-Status: backlog
+Status: backlog — в очереди, после FT-176 и FT-177
 Priority: medium
 Owner: Claude Code, Shukur (iPhone), QA — под-чат проверки
 Type: feature
