@@ -66,9 +66,9 @@ export const EXPENSE_CATEGORIES: Category[] = [
     type: 'expense',
     icon: '🚕',
     // Not the bare brands «яндекс», «yandex», «uber» (FT-150): «яндекс плюс» is a subscription, «uber eats» food.
-    // «яндекс такси», «uber taxi» name it by «такси», «taxi». No «яндекс го» either: Cyrillic aliases are hints of
-    // the AI prompt, and «яндекс» there sent «яндекс плюс» to «Транспорт»
-    aliases: ['такси', 'yandex go', 'taxi'],
+    // «яндекс такси», «uber taxi» name it by «такси», «taxi». «яндекс го» is never a hint of the AI prompt
+    // (`buildCategoryPrompt`): «яндекс» there sent «яндекс плюс» to «Транспорт»
+    aliases: ['такси', 'yandex go', 'яндекс го', 'taxi'],
   },
   {
     id: 'public-transport',

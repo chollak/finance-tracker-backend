@@ -57,9 +57,10 @@ const GENERIC_WORDS = [
  * food, «яндекс такси» a ride. The dictionary has none of them as a word of its own, and a learned pattern does
  * not tie one to a category either: a correction teaches every word of its phrase, and a learning file may
  * still hold «yandex» of the seed it was copied from. So a bare brand goes to the AI, and the learned patterns its
- * prompt shows leave it out; a merchant alias with more words («yandex go») still names its category.
+ * prompt shows leave it out; a merchant alias with more words («yandex go») still names its category. A hint of
+ * the prompt never has one, not even inside «яндекс го»: the AI then sent every «яндекс …» to that category.
  */
-const BARE_BRANDS = ['яндекс', 'yandex', 'uber'];
+const BARE_BRANDS = ['яндекс', 'yandex', 'uber', 'убер'];
 
 function fold(value: string): string {
   return value.toLocaleLowerCase('ru-RU').replace(/ё/g, 'е');
@@ -121,6 +122,11 @@ export function recordWordsOf(phrase: string, item: { description?: string; merc
 export function isBareBrand(text: string): boolean {
   const words = wordsOf(text);
   return words.length === 1 && BARE_BRANDS.some(brand => sameWord(words[0], brand));
+}
+
+/** Whether any word of the text is a bare brand: «яндекс го», «убер такси». */
+export function mentionsBareBrand(text: string): boolean {
+  return wordsOf(text).some(word => isBareBrand(word));
 }
 
 /** A word of a learned pattern that names nothing: generic, a bare brand, too short, or with digits («25к»). */

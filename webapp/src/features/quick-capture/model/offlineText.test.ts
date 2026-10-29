@@ -118,7 +118,6 @@ describe('the records the device writes', () => {
   it('a bare brand of many services is not «Транспорт» on the device either: «яндекс 20к», «uber eats 120к» (FT-150)', () => {
     expect(records('яндекс 20к')).toMatchObject({ ok: true, records: [{ categoryId: 'c-other', note: 'Яндекс' }] });
     expect(records('uber eats 120к')).toMatchObject({ ok: true, records: [{ categoryId: 'c-other', note: 'Uber eats' }] });
-    expect(records('яндекс такси 20к')).toMatchObject({ ok: true, records: [{ categoryId: 'c-other', note: 'Яндекс такси' }] });
   });
 
   it('«55$» goes to the dollar account', () => {

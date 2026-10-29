@@ -17,7 +17,7 @@ import { recordsOn } from './helpers/records';
  */
 
 const TRANSPORT = { name: 'Транспорт', type: 'expense' as const, presetKey: 'transport' };
-const BARE_BRANDS = ['яндекс', 'yandex', 'uber'];
+const BARE_BRANDS = ['яндекс', 'yandex', 'uber', 'убер'];
 const SEED = path.join(__dirname, '..', 'data', 'patterns.seed.json');
 /** patterns.json is written on the first correction from the seed of its day, so a live one may still hold «yandex». */
 const OLD_SEED_FILE = {
@@ -33,11 +33,10 @@ describe('a bare brand in the category dictionary (FT-150)', () => {
   });
 
   it('names no category; with its service word it names «Транспорт»', () => {
-    // «яндекс го» too: a Cyrillic alias is a hint of the AI prompt, and «яндекс» there pulled «яндекс плюс» into «Транспорт»
-    for (const text of ['яндекс', 'Yandex', 'uber', 'яндекс плюс', 'uber eats', 'Яндекс Го']) {
+    for (const text of ['яндекс', 'Yandex', 'uber', 'убер', 'яндекс плюс', 'uber eats']) {
       expect(categoryNamedIn(text, TRANSPORT)).toBe(false);
     }
-    for (const text of ['такси', 'яндекс такси', 'Yandex Go', 'uber taxi']) {
+    for (const text of ['такси', 'яндекс такси', 'Yandex Go', 'Яндекс Го', 'uber taxi']) {
       expect(categoryNamedIn(text, TRANSPORT)).toBe(true);
     }
   });
@@ -47,24 +46,34 @@ describe('a bare brand in the category dictionary (FT-150)', () => {
     ['Yandex', 'Другое'],
     ['uber', 'Другое'],
     ['yandex go', 'Транспорт'],
-    ['Яндекс Го', 'Другое'],
+    ['Яндекс Го', 'Транспорт'],
     ['такси', 'Транспорт'],
   ])('as a value to resolve — an AI-less label, a record queued offline — «%s» is «%s»', (value, name) => {
     expect(presetForLegacyCategory(value, 'expense').name).toBe(name);
   });
 
-  it('is not a hint of «Транспорт» in the AI prompt', () => {
+  it('is not a hint of «Транспорт» in the AI prompt, not even inside «яндекс го»', () => {
     const transport = buildCategoryPrompt().split('\n').find(line => line.startsWith('  - Транспорт'))!;
 
     expect(transport).toContain('такси');
-    expect(transport).not.toMatch(/яндекс|yandex|uber/i);
+    // A brand in a hint pulled every «яндекс …» there: «яндекс плюс 99000» came back «Транспорт» 3 times of 3
+    expect(transport).not.toMatch(/яндекс|yandex|uber|убер/i);
+  });
+
+  it('a hint with a bare brand in it is left out of the prompt line', () => {
+    const prompt = buildCategoryPrompt([
+      { type: 'expense', name: 'Транспорт', hints: ['такси', 'яндекс го', 'убер такси', 'метро'] },
+      { type: 'expense', name: 'Другое', hints: [] },
+    ]);
+
+    expect(prompt).toContain('  - Транспорт (такси, метро)');
   });
 });
 
 describe('a bare brand in learned patterns (FT-150)', () => {
   it('names nothing as a keyword or a merchant alias; an alias with more words still does', () => {
     const words = namingWordsOf({
-      categories: [{ key: 'transport', keywords: ['такси', 'yandex', 'яндекса', 'uber'] }],
+      categories: [{ key: 'transport', keywords: ['такси', 'yandex', 'яндекса', 'uber', 'убера'] }],
       merchants: [{ key: 'transport', aliases: ['яндекс', 'yandex go'] }],
     });
 
@@ -124,7 +133,7 @@ describe('a bare brand on the text fast path (FT-150)', () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  it.each(['яндекс 20000', 'yandex 20000', 'uber 20000', 'Яндекс Го 20000'])('«%s» goes to the AI, and its choice is a guess', async phrase => {
+  it.each(['яндекс 20000', 'yandex 20000', 'uber 20000', 'убер 20000'])('«%s» goes to the AI, and its choice is a guess', async phrase => {
     openAI.analyzeInput.mockResolvedValue(answer('Транспорт', 20000, phrase.split(' ')[0]));
 
     const result = await capture.execute(phrase, 'user-1');
@@ -134,7 +143,7 @@ describe('a bare brand on the text fast path (FT-150)', () => {
     expect(guessOf(result.transactions[0].assumptions)).toEqual({ kind: 'category', name: 'Транспорт' });
   });
 
-  it.each(['такси 18000', 'яндекс такси 18000', 'yandex go 18000', 'uber taxi 18000'])('«%s» is «Транспорт» without the AI', async phrase => {
+  it.each(['такси 18000', 'яндекс такси 18000', 'yandex go 18000', 'Яндекс Го 18000', 'uber taxi 18000'])('«%s» is «Транспорт» without the AI', async phrase => {
     const result = await capture.execute(phrase, 'user-1');
 
     expect(openAI.analyzeInput).not.toHaveBeenCalled();
@@ -178,5 +187,18 @@ describe('a bare brand on the text fast path (FT-150)', () => {
 
     expect(openAI.analyzeInput.mock.calls.map(([text]) => text)).toEqual(['yandex 20000', 'яндекс 20000']);
     expect(refuelled.transactions[0].category).toBe('Транспорт');
+  });
+
+  it('«убер» learned from a correction does not pull «убер итс» into «Транспорт»', async () => {
+    fs.writeFileSync(path.join(tempDir, 'data', 'patterns.json'), JSON.stringify({
+      categories: [{ keywords: ['убер', 'поездка'], category: 'transport', confidence: 0.6, usageCount: 2 }],
+      merchants: [],
+    }));
+    openAI.analyzeInput.mockResolvedValue(answer('Кафе', 120000, 'Убер итс'));
+
+    const eats = await capture.execute('убер итс 120000', 'user-1');
+
+    expect(openAI.analyzeInput).toHaveBeenCalledTimes(1);
+    expect(eats.transactions[0].category).toBe('Кафе');
   });
 });
