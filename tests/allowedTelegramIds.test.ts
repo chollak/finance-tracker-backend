@@ -5,7 +5,8 @@ import http from 'http';
 import { parseTelegramIds, telegramAccess } from '../src/shared/domain/access/telegramAccess';
 import { AppConfig } from '../src/shared/infrastructure/config/appConfig';
 import { buildServer } from '../src/delivery/web/express/expressServer';
-import { allowShortcutCapture } from '../src/delivery/web/express/middleware/authMiddleware';
+import { allowShortcutCapture, createAllowedUsersMiddleware } from '../src/delivery/web/express/middleware/authMiddleware';
+import { winstonLogger } from '../src/shared/infrastructure/logging';
 import { AuthModule } from '../src/modules/auth/authModule';
 import { SqliteLoginTokenRepository } from '../src/modules/auth/infrastructure/SqliteLoginTokenRepository';
 import { UserModule } from '../src/modules/user/userModule';
@@ -100,6 +101,7 @@ describe('ALLOWED_TELEGRAM_IDS in AppConfig (FT-153)', () => {
 const BOT_TOKEN = 'test-bot-token-ft153';
 const ALLOWED = 111;
 const STRANGER = 222;
+const OTHER_STRANGER = 333;
 
 /** Telegram Mini App initData signed the way Telegram signs it (HMAC-SHA256 with the bot token). */
 function initData(userId: number): string {
@@ -247,6 +249,60 @@ describe('the API lets in only the allowed (FT-153)', () => {
 
     expect((await get('/api/settings', { Authorization: `tma ${initData(STRANGER)}` })).status).toBe(200);
     expect(await usersInDb()).toEqual([String(STRANGER)]);
+  });
+
+  it('logs a stranger who keeps asking once, not on every request; a new stranger at once (FT-166)', async () => {
+    const warn = jest.spyOn(winstonLogger, 'warn').mockImplementation(() => winstonLogger);
+    await serve([String(ALLOWED)]);
+
+    const statuses: number[] = [];
+    for (let i = 0; i < 50; i++) {
+      statuses.push((await get('/api/settings', { Authorization: `tma ${initData(STRANGER)}` })).status);
+    }
+    statuses.push((await get('/api/settings', { 'X-Dev-User-Id': String(OTHER_STRANGER) })).status);
+
+    expect(statuses.every(status => status === 403)).toBe(true);
+    const refusals = warn.mock.calls.filter(([text]) => String(text).includes('not allowed'));
+    expect(refusals).toEqual([
+      [expect.any(String), expect.objectContaining({ category: 'AUTH', telegramId: STRANGER, path: '/api/settings' })],
+      [expect.any(String), expect.objectContaining({ category: 'AUTH', telegramId: OTHER_STRANGER, path: '/api/settings' })],
+    ]);
+  });
+});
+
+describe('refused requests in the log (FT-166)', () => {
+  beforeEach(() => jest.useFakeTimers());
+
+  afterEach(() => {
+    jest.useRealTimers();
+    jest.restoreAllMocks();
+  });
+
+  it('writes how many requests of a stranger were skipped once the ten minutes are over; the answers stay 403', () => {
+    jest.replaceProperty(AppConfig, 'TELEGRAM_ACCESS', telegramAccess([String(ALLOWED)]));
+    const warn = jest.spyOn(winstonLogger, 'warn').mockImplementation(() => winstonLogger);
+    const gate = createAllowedUsersMiddleware();
+    const req: any = {
+      headers: { host: 'localhost:3100', 'x-dev-user-id': String(STRANGER) },
+      socket: { remoteAddress: '127.0.0.1' },
+      originalUrl: '/api/settings',
+    };
+    const res: any = { status: jest.fn().mockReturnThis(), json: jest.fn().mockReturnThis() };
+    const next = jest.fn();
+
+    for (let i = 0; i < 50; i++) gate(req, res, next);
+    expect(warn).toHaveBeenCalledTimes(1);
+
+    jest.advanceTimersByTime(10 * 60 * 1000);
+
+    expect(warn).toHaveBeenCalledTimes(2);
+    expect(warn).toHaveBeenLastCalledWith(
+      expect.stringContaining('not allowed'),
+      expect.objectContaining({ category: 'AUTH', telegramId: STRANGER, skipped: 49, windowMinutes: 10 })
+    );
+    expect(next).not.toHaveBeenCalled();
+    expect(res.status.mock.calls).toEqual(Array(50).fill([403]));
+    expect(res.json).toHaveBeenLastCalledWith(expect.objectContaining({ code: 'ACCESS_NOT_ALLOWED' }));
   });
 });
 
