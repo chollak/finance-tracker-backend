@@ -2,6 +2,27 @@
 
 > Status: FT-024 audit/decision matrix. This document records current auth, guest, ownership, and userId-resolution boundaries before any strict resolver implementation.
 
+## 2026-10-29 — the legacy userId routes act only for the signed-in user (FT-162)
+
+Since 2026-10-21 someone else's `userId` got `403`, so nothing leaked. Left from the security review of that day: user
+resolution ran before the ownership check and created a `users` row for any Telegram id it was given (the shadow-user
+problem); a `userId` that was not a string gave `500`; the subscription actions and `POST /api/transactions` took the
+user from the body. Budgets and debts are out of the UI (Д2), but their routes are live — FT-136 removes them.
+
+| Was | Now |
+|---|---|
+| `:userId` routes: `allowGuestMode, resolveUser, verifyOwnership` — `GET /api/budgets/users/597843119/budgets` signed in as someone else made a `users` row for `597843119`, then `403` | `allowGuestMode, verifyOwnership, resolveUser`: refused before anything is resolved, no row. Also `0131184740` for `131184740` — resolving it would have made a row |
+| `verifyOwnership` checked one userId (path, else body, else query) against what resolution left | Every userId the request carries — path, query and body — must be the signed-in Telegram id, compared as the string resolution would look up; one naming anyone else is `403 ACCESS_DENIED` |
+| A userId that is a number, an array (`?userId=a&userId=b`), an object or a blank string: `500 USER_RESOLUTION_ERROR`, or let through by `writeAsSignedInUser` | `400 INVALID_USER_ID` everywhere — `verifyOwnership`, `writeAsSignedInUser` (quick capture, voice) and user resolution itself (it still serves the admin grant). `null` counts as given; only a missing userId is "none" |
+| `GET /api/subscription/:userId`, `POST /check-limit`, `/cancel`, `/start-trial`: the user from the path or the body (`req.resolvedUser?.id \|\| req.body.userId`); without a body userId the actions were `400 userId is required` | `requireAuth, verifyOwnership, createResolveCurrentUserMiddleware`: the signed-in user (`currentUserId`); a body or path userId is only checked, never read as the user |
+| `POST /api/transactions`: `writeAsSignedInUser` put the signed-in id into the body, user resolution read it from there | `requireAuth, verifyOwnership, createResolveCurrentUserMiddleware`: the record's owner is `currentUserId`. The Mini App outbox still sends its own `userId` as a string — accepted. The route needs a `UserModule`, as the other milestone-10 routes |
+
+Unchanged: the admin grant (`POST /api/subscription/grant`) names whom it is for in the body and creates that user on
+first contact — it is the admin's choice; `requireAdmin` routes in the transaction router still have no `requireAuth`
+before them (always `401`); the guest branches in the same controllers are dead code until FT-136.
+Tests: `tests/legacyUserIdRoutes.test.ts` (every legacy route: someone else's id `403` and no `users` row, a blank or
+non-string id `400`, the own id as before), the FT-162 cases in `tests/userFromAuth.test.ts`.
+
 ## 2026-10-27 — the iPhone Shortcut's token bound to its owner, in production too (FT-155)
 
 The quick capture from the iPhone (Shortcut on the Action Button, FT-160) writes to the live instance, which runs with
@@ -69,8 +90,9 @@ Tests: `tests/localDevAuth.test.ts`, `tests/userFromAuth.test.ts`.
 
 Known and left (security review 2026-10-21): with `SHORTCUT_CAPTURE_TOKEN` set, the token holder still chooses the
 owner by `X-Shortcut-User-Id` (closed by FT-155: the token is bound to `SHORTCUT_CAPTURE_OWNER`); user resolution creates a
-user row for an unknown Telegram id before the ownership check refuses it (the shadow-user problem); an array or a
-number in `userId` on routes with user resolution gives `500` instead of `400`; with `trust proxy 1` a Wi-Fi client can
+user row for an unknown Telegram id before the ownership check refuses it (the shadow-user problem — closed by FT-162 on
+these routes); an array or a number in `userId` on routes with user resolution gives `500` instead of `400` (closed by
+FT-162); with `trust proxy 1` a Wi-Fi client can
 set `X-Forwarded-For` to dodge IP rate limits (`isLocalRequest` reads the socket, not `req.ip`); `requireAdmin` routes
 have no `requireAuth` before them and always answer `401`. Not changed: the legacy user-scoped routes keep their
 `:userId` paths (budgets, debts, dashboard, subscription — out of the UI since Д2); with the strict `verifyOwnership` they
@@ -139,11 +161,13 @@ Used for:
 
 ### `verifyOwnership`
 
-Route-param/body ownership guard.
+Route-param/query/body ownership guard (strict since 2026-10-21, before user resolution since FT-162).
 
-- Works with `allowGuestMode` / resolved user data.
-- Ensures non-guest callers cannot access another user's user-scoped route.
-- Guest users are allowed for matching `guest_*` flows.
+- Runs after `requireAuth` / `allowGuestMode` and **before** `resolveUser` / `createResolveCurrentUserMiddleware`.
+- Every `userId` in the path, query and body must be the signed-in Telegram id as a non-blank string:
+  someone else's id (also a UUID, a `guest_*` id, `0131184740` for `131184740`) — `403 ACCESS_DENIED`;
+  a number, an array, an object, `null` or a blank string — `400 INVALID_USER_ID`.
+- No `userId` at all — passes: the route takes the user from authentication.
 
 ### `verifyResourceOwnership`
 
@@ -170,7 +194,10 @@ User ID normalization boundary.
 - UUID passes through.
 - Other values resolve through `resolveUserIdToUUID(...)`.
 - Missing userId usually skips by default (`skipIfNoUserId=true`).
+- A userId that is not a non-blank string — `400 INVALID_USER_ID` (FT-162), not a resolver error.
 - Resolver errors map to `USER_RESOLUTION_ERROR` in this middleware.
+- Creates the user for a Telegram id it does not know (`GetOrCreateUserUseCase`), so on user routes it runs only
+  after `verifyOwnership` (FT-162). Only the admin grant uses it for an id other than the signed-in user's.
 
 ### `resolveUserIdToUUID`
 
@@ -190,16 +217,18 @@ FT-017D decision: do not globally change this helper to fail-closed yet.
 | Health | global | none | none | none | n/a | open |
 | User routes | `/api/users/*` | `requireAuth` | use case by telegramId/id | controller self-access check | no | strict |
 | Transaction global/admin | `/api/transactions`, `/analytics` | `requireAdmin` | none | admin only | no | strict/admin |
-| Transaction user-scoped analytics/list | `/api/transactions/.../:userId` | `allowGuestMode` | route middleware | `verifyOwnership` | yes | hybrid |
+| Transaction create | `POST /api/transactions` | `requireAuth` | signed-in user (`createResolveCurrentUserMiddleware`) | `verifyOwnership` on a body/query userId, before resolution (FT-162) | no | strict |
+| Transaction user-scoped analytics/list | `/api/transactions/.../:userId` | `allowGuestMode` (= `requireAuth`) | route middleware, after the check (FT-162) | `verifyOwnership` | no | strict |
 | Transaction by-id CRUD/archive | `/api/transactions/:id` | `allowGuestMode` | controller/helper | `verifyResourceOwnership` | yes for guest-owned resources | hybrid/resource-strict |
 | Voice text-input | `/api/voice/text-input` | `allowGuestMode` | controller resolver if available | auth/guest only, no resource owner | yes | hybrid/compat |
 | Voice upload | `/api/voice/voice-input` | `allowGuestMode` | controller resolver if available | auth/guest only, no resource owner | yes | hybrid/compat |
-| Budget user-scoped | `/api/budgets/users/:userId/...` | `allowGuestMode` | route middleware | `verifyOwnership` | yes | hybrid |
+| Budget user-scoped | `/api/budgets/users/:userId/...` | `allowGuestMode` (= `requireAuth`) | route middleware, after the check (FT-162) | `verifyOwnership` | no | strict |
 | Budget by-id | `/api/budgets/:budgetId` | `optionalAuth` | controller/resource lookup | `verifyResourceOwnership` | yes for guest-owned resources | resource-strict |
-| Debt user-scoped | `/api/debts/user/:userId` | `allowGuestMode` | route middleware | `verifyOwnership` | yes | hybrid |
+| Debt user-scoped | `/api/debts/user/:userId` | `allowGuestMode` (= `requireAuth`) | route middleware, after the check (FT-162) | `verifyOwnership` | no | strict |
 | Debt by-id/payment | `/api/debts/:debtId...` | `optionalAuth` | controller/resource lookup | `verifyResourceOwnership` | yes for guest-owned resources | resource-strict |
-| Dashboard | `/api/dashboard/:userId...` | `allowGuestMode` + sometimes premium | route middleware | `verifyOwnership` | yes | hybrid/premium |
-| Subscription | `/api/subscription/...` | route-dependent middleware | route/body resolver | varies | yes for free-tier status | policy-dependent |
+| Dashboard | `/api/dashboard/:userId...` | `allowGuestMode` (= `requireAuth`) + sometimes premium | route middleware, after the check (FT-162) | `verifyOwnership` | no | strict/premium |
+| Subscription (own) | `GET /api/subscription/:userId`, `POST /check-limit`, `/cancel`, `/start-trial` | `requireAuth` | signed-in user (`createResolveCurrentUserMiddleware`, FT-162) | `verifyOwnership` on any path/body/query userId, before resolution | no | strict |
+| Subscription grant | `POST /api/subscription/grant` | `requireAuth` + `requireAdmin` | body userId (the admin's target; a non-string is `400`) | admin only | no | strict/admin |
 | OpenAI usage | `/api/openai/usage...` | `requireAdmin` | none | admin only | no | strict/admin |
 
 ## Strict vs Loose Recommendations
