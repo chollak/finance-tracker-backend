@@ -22,7 +22,16 @@ declare global {
 }
 
 export function createCurrentUserMiddleware(userModule: UserModule): RequestHandler[] {
-  const resolve = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  return [requireAuth, createResolveCurrentUserMiddleware(userModule)];
+}
+
+/**
+ * The resolving half of createCurrentUserMiddleware, for a route that checks something between signing in and
+ * resolving: the legacy routes refuse a userId naming someone else first (`verifyOwnership`, FT-162), so a refused
+ * request resolves no one. Behind requireAuth.
+ */
+export function createResolveCurrentUserMiddleware(userModule: UserModule): RequestHandler {
+  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const telegramUser = req.telegramUser;
       if (!telegramUser) {
@@ -41,7 +50,6 @@ export function createCurrentUserMiddleware(userModule: UserModule): RequestHand
       handleControllerError(error, res);
     }
   };
-  return [requireAuth, resolve];
 }
 
 /** The authenticated user's id; only valid behind createCurrentUserMiddleware. */

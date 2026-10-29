@@ -9,7 +9,12 @@ import { FREE_TIER_LIMITS, getCurrentMonthPeriod } from '../domain/usageLimit';
 import { SubscriptionStatus } from '../application/getSubscription';
 import { handleControllerSuccess, handleControllerError } from '../../../shared/infrastructure/utils/controllerHelpers';
 import { ErrorFactory } from '../../../shared/domain/errors/AppError';
+import { currentUserId } from '../../../delivery/web/express/middleware/currentUserMiddleware';
 
+/**
+ * The user's own subscription routes act for the signed-in user (`currentUserId`, FT-162); a userId in the body is
+ * never read. Only the admin grant names whom it is for.
+ */
 export class SubscriptionController {
   constructor(private subscriptionModule: SubscriptionModule) {}
 
@@ -65,21 +70,15 @@ export class SubscriptionController {
 
   /**
    * GET /api/subscription/:userId
-   * Get subscription status for a user
-   * Note: userId is resolved to UUID by middleware
+   * Get subscription status of the signed-in user (the path id is checked to be theirs before this, FT-162)
    * Guest users (starting with "guest_") get default free tier response
    */
   async getSubscriptionStatus(req: Request, res: Response): Promise<void> {
     try {
-      // Use resolved UUID from middleware, fallback to raw param
-      const userId = req.resolvedUser?.id || req.params.userId;
-
-      if (!userId) {
-        return handleControllerError(ErrorFactory.validation('userId is required'), res);
-      }
+      const userId = currentUserId(req);
 
       // Guest users get default free tier response
-      if (req.resolvedUser?.isGuest || this.isGuestUser(userId)) {
+      if (this.isGuestUser(userId)) {
         handleControllerSuccess(this.createGuestUserResponse(userId), res);
         return;
       }
@@ -96,19 +95,15 @@ export class SubscriptionController {
 
   /**
    * POST /api/subscription/check-limit
-   * Check if user can perform an action
+   * Check if the signed-in user can perform an action
    */
   async checkLimit(req: Request, res: Response): Promise<void> {
     try {
       const { limitType } = req.body;
-      // Use resolved UUID from middleware, fallback to body.userId
-      const userId = req.resolvedUser?.id || req.body.userId;
+      const userId = currentUserId(req);
 
-      if (!userId || !limitType) {
-        return handleControllerError(
-          ErrorFactory.validation('userId and limitType are required'),
-          res
-        );
+      if (!limitType) {
+        return handleControllerError(ErrorFactory.validation('limitType is required'), res);
       }
 
       const validLimitTypes = ['transactions', 'voice_inputs', 'debts'];
@@ -138,8 +133,8 @@ export class SubscriptionController {
   async grantPremium(req: Request, res: Response): Promise<void> {
     try {
       const { grantedBy, grantNote, isLifetime, durationDays } = req.body;
-      // Use resolved UUID from middleware, fallback to body.userId
-      const userId = req.resolvedUser?.id || req.body.userId;
+      // The user the admin names in the body, resolved to UUID by middleware
+      const userId = req.resolvedUser?.id;
 
       if (!userId || !grantedBy) {
         return handleControllerError(
@@ -166,17 +161,12 @@ export class SubscriptionController {
 
   /**
    * POST /api/subscription/cancel
-   * Cancel subscription
+   * Cancel the signed-in user's subscription
    */
   async cancelSubscription(req: Request, res: Response): Promise<void> {
     try {
       const { reason } = req.body;
-      // Use resolved UUID from middleware, fallback to body.userId
-      const userId = req.resolvedUser?.id || req.body.userId;
-
-      if (!userId) {
-        return handleControllerError(ErrorFactory.validation('userId is required'), res);
-      }
+      const userId = currentUserId(req);
 
       const result = await this.subscriptionModule
         .getCancelSubscriptionUseCase()
@@ -190,16 +180,11 @@ export class SubscriptionController {
 
   /**
    * POST /api/subscription/start-trial
-   * Start trial for a new user
+   * Start trial for the signed-in user
    */
   async startTrial(req: Request, res: Response): Promise<void> {
     try {
-      // Use resolved UUID from middleware, fallback to body.userId
-      const userId = req.resolvedUser?.id || req.body.userId;
-
-      if (!userId) {
-        return handleControllerError(ErrorFactory.validation('userId is required'), res);
-      }
+      const userId = currentUserId(req);
 
       const subscription = await this.subscriptionModule
         .getStartTrialUseCase()

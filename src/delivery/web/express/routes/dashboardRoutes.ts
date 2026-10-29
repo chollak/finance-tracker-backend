@@ -39,19 +39,19 @@ export function createDashboardRouter(
 
   // Dashboard insights endpoints - PREMIUM ONLY
   // Protected with auth + ownership verification (guests allowed)
-  router.get('/insights/:userId', allowGuestMode, resolveUser, verifyOwnership, requirePremium, controller.getDashboardInsights);
-  router.get('/insights/:userId/weekly', allowGuestMode, resolveUser, verifyOwnership, requirePremium, controller.getWeeklyInsights);
-  router.get('/insights/:userId/health-score', allowGuestMode, resolveUser, verifyOwnership, requirePremium, controller.getFinancialHealthScore);
+  router.get('/insights/:userId', allowGuestMode, verifyOwnership, resolveUser, requirePremium, controller.getDashboardInsights);
+  router.get('/insights/:userId/weekly', allowGuestMode, verifyOwnership, resolveUser, requirePremium, controller.getWeeklyInsights);
+  router.get('/insights/:userId/health-score', allowGuestMode, verifyOwnership, resolveUser, requirePremium, controller.getFinancialHealthScore);
 
   // Alert endpoints - FREE (alerts help users)
-  router.get('/alerts/:userId', allowGuestMode, resolveUser, verifyOwnership, controller.getAlerts);
-  router.get('/alerts/:userId/summary', allowGuestMode, resolveUser, verifyOwnership, controller.getAlertSummary);
+  router.get('/alerts/:userId', allowGuestMode, verifyOwnership, resolveUser, controller.getAlerts);
+  router.get('/alerts/:userId/summary', allowGuestMode, verifyOwnership, resolveUser, controller.getAlertSummary);
 
   // Combined dashboard endpoint - FREE (basic overview)
-  router.get('/:userId', allowGuestMode, resolveUser, verifyOwnership, controller.getCompleteDashboard);
+  router.get('/:userId', allowGuestMode, verifyOwnership, resolveUser, controller.getCompleteDashboard);
 
   // Quick stats for widgets - FREE
-  router.get('/:userId/quick-stats', allowGuestMode, resolveUser, verifyOwnership, controller.getQuickStats);
+  router.get('/:userId/quick-stats', allowGuestMode, verifyOwnership, resolveUser, controller.getQuickStats);
 
   return router;
 }

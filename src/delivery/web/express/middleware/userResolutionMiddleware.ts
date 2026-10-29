@@ -44,17 +44,17 @@ declare global {
  * Note: This function expects req.params to be populated, so middleware
  * should be applied at the route level, not globally before route matching.
  */
-function extractUserIdFromRequest(req: Request): string | undefined {
+function extractUserIdFromRequest(req: Request): unknown {
   // Check params (populated when middleware is applied at route level)
   const paramUserId = req.params?.userId || req.params?.telegramId || req.params?.id;
   if (paramUserId) return paramUserId;
 
-  // Check query
-  const queryUserId = req.query?.userId as string | undefined;
+  // Check query: an array for `?userId=a&userId=b`
+  const queryUserId: unknown = req.query?.userId;
   if (queryUserId) return queryUserId;
 
-  // Check body
-  const bodyUserId = req.body?.userId;
+  // Check body: any JSON value
+  const bodyUserId: unknown = req.body?.userId;
   if (bodyUserId) return bodyUserId;
 
   return undefined;
@@ -106,8 +106,19 @@ export function createUserResolutionMiddleware(
         }
       }
 
+      // A number, an array, an object or a blank string names no user: 400, not a 500 from resolving it (FT-162).
+      // On user routes verifyOwnership refuses it first; this covers the admin grant, which names whom to grant
+      if (rawUserId && (typeof rawUserId !== 'string' || !rawUserId.trim())) {
+        res.status(400).json({
+          success: false,
+          error: 'userId must be one Telegram id, as a string',
+          code: 'INVALID_USER_ID',
+        });
+        return;
+      }
+
       // userId found, resolve it
-      if (rawUserId) {
+      if (typeof rawUserId === 'string') {
         const trimmedId = rawUserId.trim();
 
         // Check if guest user (no resolution needed)
@@ -167,7 +178,8 @@ export function getResolvedUserId(req: Request): string | undefined {
   }
 
   // Fallback to raw extraction (for backwards compatibility)
-  return extractUserIdFromRequest(req);
+  const rawUserId = extractUserIdFromRequest(req);
+  return typeof rawUserId === 'string' ? rawUserId : undefined;
 }
 
 /**

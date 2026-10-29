@@ -36,12 +36,12 @@ Prefer unit/use-case tests for pure business logic and route tests for HTTP/midd
 |---|---|---:|---|---|
 | Health / global middleware | `GET /api/health`, 404, CORS, malformed JSON, global error handler | partial/high-value covered | low | Keep current coverage. |
 | Voice | `POST /api/voice/text-input`, `POST /api/voice/voice-input` | text-input covered for JSON parsing, guest, auth, validation | medium | Add voice upload coverage only if endpoint changes; avoid heavy file tests for now. |
-| Debt | `POST /api/debts/user/:userId`, `GET /api/debts/user/:userId`, `GET /api/debts/:debtId`, pay/cancel/delete | create/list auth covered; null getDebt not-found covered | high | Next route tests should cover pay debt auth/ownership and validation errors. |
-| Transaction | CRUD, analytics, archive, batch archive | resource by-id ownership/404/update validation covered; broader CRUD/archive gaps remain | high | Add more focused coverage before any transaction controller split/refactor. |
-| Budget | user budgets, summaries, alerts, by-id update/delete/recalculate | not covered at route level | medium | Add missing-user validation and ownership route tests before controller cleanup. |
-| Subscription | status, check-limit, grant, cancel, start-trial | covered at use-case level, not route level | medium-high | Add route tests around guest status/check-limit and invalid limitType. |
+| Debt | `POST /api/debts/user/:userId`, `GET /api/debts/user/:userId`, `GET /api/debts/:debtId`, pay/cancel/delete | create/list auth covered; null getDebt not-found covered; `:userId` ownership, no shadow user, `400` for a non-string id (FT-162) | high | Next route tests should cover pay debt auth/ownership and validation errors. |
+| Transaction | CRUD, analytics, archive, batch archive | resource by-id ownership/404/update validation covered; every `:userId` route and `POST /` user-from-auth covered (FT-162); broader CRUD/archive gaps remain | high | Add more focused coverage before any transaction controller split/refactor. |
+| Budget | user budgets, summaries, alerts, by-id update/delete/recalculate | `:userId` routes: ownership, no shadow user, `400` for a non-string id (FT-162); by-id routes not covered | medium | Add missing-user validation and ownership route tests before controller cleanup. |
+| Subscription | status, check-limit, grant, cancel, start-trial | use-case level; routes: user from auth, someone else's id `403`, non-string `400` (FT-162) | medium-high | Add route tests around guest status/check-limit and invalid limitType. |
 | User | get/create/update user | covered at use-case/helper level, not route level | medium | Add auth/self-access tests if user routes become active frontend surface. |
-| Dashboard | insights/alerts/quick-stats with premium/read-only middleware | not covered at route level | medium | Add one auth/premium boundary test if dashboard route behavior changes. |
+| Dashboard | insights/alerts/quick-stats with premium/read-only middleware | ownership before resolution, premium gate after it (FT-162) | medium | Add one auth/premium boundary test if dashboard route behavior changes. |
 | OpenAI usage | admin-only usage endpoints | not covered at route level | low-medium | Add admin auth tests only if exposing this UI/API more actively. |
 
 ## Current Tested API Behaviors
@@ -65,6 +65,16 @@ From `tests/apiRoutes.test.ts`:
   - `ValidationError` → 400
   - generic `Error` → 500
   - malformed JSON → 400 `INVALID_JSON`
+
+From `tests/legacyUserIdRoutes.test.ts` (FT-162), for every legacy route with `:userId` (transactions, budgets, debts,
+dashboard, subscription status), on a real SQLite `users` table:
+
+- someone else's id in the path (`597843119`, `0131184740`, `1311847400`) — `403 ACCESS_DENIED`, no `users` row added
+- a blank path id, `?userId=a&userId=b`, `?userId=`, a body userId that is a number, array, object, `null` or `''` — `400 INVALID_USER_ID`
+- a query or body naming someone else next to the own path id — `403`
+- the own id — as before (`200`/`201`; insights `403 PREMIUM_REQUIRED` for a free user)
+- subscription actions and `POST /api/transactions` act for the signed-in user without a body userId; someone else's
+  — `403`; a non-string — `400`; the admin grant's non-string target — `400`, not `500`
 
 ## High-Value Next Route Tests
 

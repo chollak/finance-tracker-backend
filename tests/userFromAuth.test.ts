@@ -92,7 +92,13 @@ describe('a write', () => {
 
   it('is for the signed-in user when the body names them — the Mini App’s outbox still sends it', async () => {
     expect((await call('POST', '/write', ME, { userId: ME })).body).toEqual({ userId: ME });
-    expect((await call('POST', '/write', ME, { userId: Number(ME) })).body).toEqual({ userId: ME });
+  });
+
+  it('is refused when the userId is not one string — the outbox sends a string (FT-162)', async () => {
+    for (const userId of [Number(ME), [ME], '', null]) {
+      const res = await call('POST', '/write', ME, { userId });
+      expect({ userId, status: res.status, code: res.body.code }).toEqual({ userId, status: 400, code: 'INVALID_USER_ID' });
+    }
   });
 
   it('is refused when the body names someone else', async () => {
@@ -103,7 +109,8 @@ describe('a write', () => {
 
   it('is refused when the query names someone else — user resolution reads the query before the body', async () => {
     expect((await call('POST', `/write?userId=${SOMEONE}`, ME, { text: 'кофе 25к' })).status).toBe(403);
-    expect((await call('POST', `/write?userId=${SOMEONE}&userId=${ME}`, ME, { text: 'кофе 25к' })).status).toBe(403);
+    // Twice in the query is an array: not one id (FT-162)
+    expect((await call('POST', `/write?userId=${SOMEONE}&userId=${ME}`, ME, { text: 'кофе 25к' })).status).toBe(400);
     expect((await call('POST', `/write?userId=${ME}`, ME, { text: 'кофе 25к' })).body).toEqual({ userId: ME });
   });
 

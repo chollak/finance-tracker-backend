@@ -163,7 +163,7 @@ so even rejected requests consume budget.
 | Field | Type | Required | Behavior |
 |---|---|---|---|
 | `text` | `string` | yes | Must be a non-empty string with non-whitespace content. Max **2000 characters** (checked on the raw string, before trimming). Trimmed before parsing; the trimmed value is echoed back as `data.text`. |
-| `userId` | `string` | no | The signed-in user's Telegram id, if sent at all (the Mini App still sends it); anything else is `403 ACCESS_DENIED`. The owner is always the signed-in user. |
+| `userId` | `string` | no | The signed-in user's Telegram id, if sent at all (the Mini App still sends it); someone else's is `403 ACCESS_DENIED`, a value that is not one non-blank string is `400 INVALID_USER_ID` (FT-162). The owner is always the signed-in user. |
 | `userName` | `string` | no | Passed to the parser/user pipeline. A non-string value is silently treated as absent. |
 | `source` | `"telegram" \| "miniapp" \| "ios_shortcut"` | no | Validated against the enum and echoed back. Since FT-103 it is **stored on every created record** (`transactions.source`); without it the records get `miniapp`. |
 
@@ -304,6 +304,7 @@ Auth and rate-limit middleware answer earlier in the chain and use a **flat** sh
 | 400 | `VALIDATION_ERROR` | `Text is too long (maximum 2000 characters)` |
 | 400 | `VALIDATION_ERROR` | `Source must be one of: telegram, miniapp, ios_shortcut` |
 | 400 | `INVALID_JSON` | Malformed JSON body (global error handler) |
+| 400 | `INVALID_USER_ID` | A body or query `userId` that is not one non-blank string — a number, an array, `null`, `''` (FT-162) |
 | 401 | `MISSING_AUTH_HEADER` | No `Authorization` header, no browser session |
 | 403 | `ACCESS_DENIED` | The body `userId` is not the signed-in user |
 | 403 | `ACCESS_DENIED` | A Shortcut's `X-Shortcut-User-Id` is not `SHORTCUT_CAPTURE_OWNER` (or not a Telegram id) |
