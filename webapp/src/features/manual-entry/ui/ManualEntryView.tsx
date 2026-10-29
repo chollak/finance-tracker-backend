@@ -280,7 +280,8 @@ function NoteRow({
   return (
     <div onFocus={onFocus} onBlur={onBlur} className="flex shrink-0 items-center gap-2">
       <label className="flex h-key min-w-0 flex-1 items-center gap-3 rounded-pill bg-card px-5 focus-within:ring-2 focus-within:ring-ink">
-        <span className="shrink-0 text-[13px] font-bold text-ink-muted">Заметка</span>
+        {/* Next to «Готово» the board's example would be cut at 390px: the word stays only for screen readers */}
+        <span className={cn('shrink-0 text-[13px] font-bold text-ink-muted', focused && 'sr-only')}>Заметка</span>
         <input
           ref={fieldRef}
           type="text"

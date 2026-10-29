@@ -106,6 +106,7 @@ function expectBoard(): void {
   expect(accountList()).not.toBeNull();
   expect(categoryList()).not.toBeNull();
   expect(done()).toBeUndefined();
+  expect(note().closest('label')?.querySelector('span')?.className).not.toMatch(/\bsr-only\b/);
 }
 
 beforeEach(() => {
@@ -140,6 +141,9 @@ describe('the note while it is typed (FT-147)', () => {
     expect(header()).not.toBeNull();
     expect(amount()).not.toBeNull();
     expect(done()).toBeDefined();
+    // «Заметка» still names the field, for screen readers only: next to «Готово» the example needs the room
+    expect(field.closest('label')?.textContent).toBe('Заметка');
+    expect(field.closest('label')?.querySelector('span')?.className).toMatch(/\bsr-only\b/);
     // The same field keeps the focus: the phone's keyboard stays open while the screen changes around it
     expect(note()).toBe(field);
     expect(document.activeElement).toBe(field);
