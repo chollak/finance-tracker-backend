@@ -34,8 +34,8 @@ limits are off (Д3), so anyone who found the bot would spend the OpenAI key. Wi
 
 | Boundary | Someone not on the list |
 |---|---|
-| Bot | `allowedUsersOnly` is the first `bot.use`: no user row, no OpenAI, nothing written, no answer; `warn` with the Telegram id. An update with no sender is dropped |
-| API | `createAllowedUsersMiddleware` in `buildServer`, right after the web session: initData, the session cookie or `X-Dev-User-Id` of someone else — `403 ACCESS_NOT_ALLOWED` before any route resolves the user. A request that proves no user goes on to its route |
+| Bot | `allowedUsersOnly` is the first `bot.use`: no user row, no OpenAI, nothing written, no answer; `warn` with the Telegram id — the first refusal of an id at once, its repeats as one `(repeats)` line with `skipped` per 10 minutes (FT-166). An update with no sender is dropped |
+| API | `createAllowedUsersMiddleware` in `buildServer`, right after the web session: initData, the session cookie or `X-Dev-User-Id` of someone else — `403 ACCESS_NOT_ALLOWED` before any route resolves the user; logged like the bot's refusals (FT-166). A request that proves no user goes on to its route |
 | Shortcut | `allowShortcutCapture`: an owner (`X-Shortcut-User-Id`) not on the list — `403 ACCESS_NOT_ALLOWED`, after the token check. In production the owner is `SHORTCUT_CAPTURE_OWNER`, which must be on the list (FT-155) |
 | Web login (FT-128) | The bot ignores `/start login_…` and the buttons, so the login is never confirmed. `OpenWebSessionUseCase` also refuses a login confirmed before the list changed (`POST /api/auth/session` — `403 ACCESS_NOT_ALLOWED`, no user row); a session issued before the change gets `403` from the API gate |
 | Notices | Итоги дня and reminders go only to the users on the list (`NotificationModule` takes it from `AppConfig` unless given one); the other rows of `users` (test users) stay as they are |

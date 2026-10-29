@@ -139,15 +139,18 @@ export function firstDaysOf(trackingDays: number): AnalyticsFirstDays | null {
  * The month and what it is compared with: the current month against the same days of the previous month, up to
  * today's («1–14 октября» against «1–14 сентября»), a past month and income of the current month against the whole
  * previous month. The current month's records are the whole calendar month, as on Home's tiles (FT-141): a record
- * dated later this month counts in it. Nothing before the first month of recording.
+ * dated later this month counts in it — unless `throughToday`: the bot's summary of a day tells the month up to that
+ * day, so «Итоги за вчера» sent the next morning leave out what was recorded since (FT-164). Nothing before the first
+ * month of recording.
  */
-export function analyticsPeriods(input: { month: string; today: string; type: AnalyticsType; firstMonth: string }): {
+export function analyticsPeriods(input: { month: string; today: string; type: AnalyticsType; firstMonth: string; throughToday?: boolean }): {
   period: AnalyticsPeriod;
   previous: AnalyticsPeriod | null;
 } {
   const { month, today, type, firstMonth } = input;
   const ongoing = month === today.slice(0, 7);
-  const period: AnalyticsPeriod = { month, from: `${month}-01`, to: `${month}-${pad(daysInMonth(month))}`, wholeMonth: !ongoing };
+  const to = ongoing && input.throughToday ? today : `${month}-${pad(daysInMonth(month))}`;
+  const period: AnalyticsPeriod = { month, from: `${month}-01`, to, wholeMonth: !ongoing };
 
   const previousMonth = shiftMonth(month, -1);
   if (previousMonth < firstMonth) return { period, previous: null };

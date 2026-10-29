@@ -14,6 +14,12 @@ export interface RequestOptions {
 }
 
 /**
+ * `ApiError.code` of a request given up after `timeoutMs` (FT-146). Still «no answer» (`statusCode: 0`), but the wait ran
+ * out rather than the network failing: the composer says «Не дождался ответа», not «Нет связи».
+ */
+export const REQUEST_TIMEOUT_CODE = 'REQUEST_TIMEOUT';
+
+/**
  * Get Telegram Web App initData for authentication
  * Returns null if not running in Telegram or no initData available
  */
@@ -117,6 +123,10 @@ class ApiClient {
     } catch (error) {
       if ((error as ApiError).statusCode) {
         throw error;
+      }
+
+      if (abort?.signal.aborted) {
+        throw { message: 'Request timed out', statusCode: 0, code: REQUEST_TIMEOUT_CODE } as ApiError;
       }
 
       throw {

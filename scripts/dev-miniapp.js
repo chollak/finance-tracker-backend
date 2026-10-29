@@ -147,17 +147,21 @@ function requestJson(url, { method = 'GET', body = null, timeoutMs = 15000 } = {
       });
     });
     req.on('timeout', () => req.destroy(new Error(`Request timed out: ${parsed.hostname}`)));
-    req.on('error', reject);
+    // No answer at all — no network, no DNS, a timeout — as opposed to an answer that is not JSON
+    req.on('error', (error) => reject(Object.assign(new Error(error.message), { unreachable: true })));
     if (data) req.write(data);
     req.end();
   });
 }
 
-async function telegramCall(token, method, body = null) {
+// `apiBase` is for tests. Messages never carry the URL: it holds the bot token.
+async function telegramCall(token, method, body = null, { apiBase = 'https://api.telegram.org' } = {}) {
   if (!token) throw new Error('TG_BOT_API_KEY is missing in env file or process env');
-  const response = await requestJson(`https://api.telegram.org/bot${token}/${method}`, {
+  const response = await requestJson(`${apiBase}/bot${token}/${method}`, {
     method: body ? 'POST' : 'GET',
     body,
+  }).catch((error) => {
+    throw error.unreachable ? new Error(`Telegram is out of reach — is the network up? (${error.message})`) : error;
   });
   if (!response.json.ok) {
     throw new Error(`Telegram ${method} failed: ${response.json.description || `HTTP ${response.status}`}`);
@@ -194,33 +198,61 @@ function runCommand(command, args, options = {}) {
   if (result.status !== 0) throw new Error(`Command failed: ${command} ${args.join(' ')}`);
 }
 
-function waitForOutput(child, regex, timeoutMs, label) {
+const echoToStdout = (text) => process.stdout.write(text);
+
+/**
+ * Echoes the child's output and resolves with the first truthy `find(all output so far)`: what is looked for can
+ * span chunks. Rejects with `fail(reason, output)` when the child exits, cannot start or finds nothing in time.
+ */
+function waitForOutput(child, { find, timeoutMs, fail, echo = echoToStdout }) {
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(`${label} did not become ready within ${timeoutMs}ms`)), timeoutMs);
+    let output = '';
+    let settled = false;
+    const settle = (callback, value) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      callback(value);
+    };
+    const timer = setTimeout(() => settle(reject, fail(`not ready within ${timeoutMs}ms`, output)), timeoutMs);
     const onData = (data) => {
       const text = data.toString();
-      process.stdout.write(text);
-      const match = text.match(regex);
-      if (match) {
-        clearTimeout(timer);
-        resolve(match);
-      }
+      echo(text);
+      if (settled) return;
+      output += text;
+      const found = find(output);
+      if (found) settle(resolve, found);
     };
     child.stdout.on('data', onData);
     child.stderr.on('data', onData);
-    child.on('exit', (code) => {
-      clearTimeout(timer);
-      reject(new Error(`${label} exited before readiness (code=${code})`));
-    });
+    // 'close', not 'exit': by then all the output is read, the last line too — that is where cloudflared puts the error
+    child.on('close', (code) => settle(reject, fail(`exited with code ${code}`, output)));
     // A binary that cannot be started emits 'error', not 'exit'
-    child.on('error', (error) => {
-      clearTimeout(timer);
-      reject(new Error(`${label} could not start: ${error.message}`));
-    });
+    child.on('error', (error) => settle(reject, fail(`could not start: ${error.message}`, output)));
   });
 }
 
-const TUNNEL_URL_PATTERN = /(https:\/\/[a-z0-9-]+\.trycloudflare\.com)/i;
+// cloudflared prints the new tunnel's address in a box, on the line after this one. Any trycloudflare.com address
+// before it is not the tunnel: without the network cloudflared names the API it could not reach,
+// «failed to request quick Tunnel: Post "https://api.trycloudflare.com/tunnel": …» (FT-170).
+const TUNNEL_CREATED = /Your quick Tunnel has been created!/i;
+const TUNNEL_URL_PATTERN = /https:\/\/(?!api\.)[a-z0-9-]+\.trycloudflare\.com/i;
+
+/** The address of the quick tunnel cloudflared reports in `output`, or null until it has reported one. */
+function tunnelUrlFrom(output) {
+  const created = output.match(TUNNEL_CREATED);
+  if (!created) return null;
+  const url = output.slice(created.index + created[0].length).match(TUNNEL_URL_PATTERN);
+  return url ? url[0] : null;
+}
+
+function tunnelFailure(reason, output) {
+  const lastLine = output.trim().split(/\r?\n/).pop();
+  const said = lastLine ? `: ${lastLine}` : '';
+  const hint = /failed to request quick Tunnel/i.test(output) ? ' Cloudflare is out of reach — is the network up?' : '';
+  // No full stop at the end: the supervisor adds «. Next attempt in 30 s.» after the message
+  return new Error(`cloudflared did not open a quick tunnel (${reason})${said}.${hint} WEB_APP_URL and the Telegram menu button are unchanged`);
+}
 
 // cloudflared's answer when Cloudflare has deleted a quick tunnel — what happens while the machine sleeps. A dropped
 // connection («Failed to dial a quic connection») is not this: cloudflared reconnects to the same tunnel by itself.
@@ -259,11 +291,12 @@ function createTunnelSupervisor({ recover, wait = (ms) => new Promise((resolve) 
   };
 }
 
-async function openTunnel(cloudflared, port) {
+// Used at start and when the tunnel comes back after sleep. It throws before WEB_APP_URL or the menu button is touched.
+async function openTunnel(cloudflared, port, { timeoutMs = 45000, echo } = {}) {
   const child = spawn(cloudflared, ['tunnel', '--url', `http://127.0.0.1:${port}`], { cwd: root, stdio: ['ignore', 'pipe', 'pipe'] });
   try {
-    const match = await waitForOutput(child, TUNNEL_URL_PATTERN, 45000, 'cloudflared');
-    return { child, url: match[1] };
+    const url = await waitForOutput(child, { find: tunnelUrlFrom, timeoutMs, fail: tunnelFailure, echo });
+    return { child, url };
   } catch (error) {
     if (child.exitCode === null) child.kill('SIGTERM');
     throw error;
@@ -409,7 +442,11 @@ async function commandRun({ flags }) {
       console.error(`Server exited (code=${code}); stopping the helper.`);
       stop();
     });
-    await waitForOutput(child, /Server started/, 45000, 'server');
+    await waitForOutput(child, {
+      find: (output) => /Server started/.test(output),
+      timeoutMs: 45000,
+      fail: (reason) => new Error(`server ${reason}`),
+    });
   };
 
   // The server reads WEB_APP_URL once, at start, for the links the bot sends: a new tunnel needs a new server
@@ -457,11 +494,12 @@ async function commandRun({ flags }) {
         tunnel = opened.child;
         watchTunnel(opened.child);
         await commandSet({ flags: setFlags(opened.url) });
+        const menuNote = flags['no-menu'] ? 'menu button left as it was (--no-menu)' : 'menu button updated';
         if (server) {
           await restartServer();
-          console.log(`Tunnel is back: ${opened.url} — menu button updated, server restarted.`);
+          console.log(`Tunnel is back: ${opened.url} — ${menuNote}, server restarted.`);
         } else {
-          console.log(`Tunnel is back: ${opened.url} — menu button updated.`);
+          console.log(`Tunnel is back: ${opened.url} — ${menuNote}.`);
           console.warn('The server was not started by this helper: restart it so the bot links use the new address.');
         }
       },
@@ -505,4 +543,7 @@ if (require.main === module) {
   });
 }
 
-module.exports = { envFileFor, findCloudflared, isPortListening, isTunnelGone, retryDelayMs, createTunnelSupervisor };
+module.exports = {
+  envFileFor, findCloudflared, isPortListening, isTunnelGone, retryDelayMs, createTunnelSupervisor, tunnelUrlFrom, openTunnel,
+  telegramCall,
+};
