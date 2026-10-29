@@ -10,6 +10,7 @@ import path from 'path';
  */
 const {
   envFileFor, findCloudflared, isPortListening, isTunnelGone, retryDelayMs, createTunnelSupervisor, tunnelUrlFrom, openTunnel,
+  telegramCall,
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 } = require('../scripts/dev-miniapp.js');
 
@@ -149,11 +150,26 @@ describe('opening a quick tunnel, at start and again after the machine slept', (
     );
   });
 
+  // Whether the stand-in has printed anything by then depends on how busy the machine is — the check does not
   it('fails when cloudflared names no tunnel in time', async () => {
     const bin = fakeCloudflared(STARTING);
     await expect(openTunnel(bin, 1, { echo: quiet, timeoutMs: 300 })).rejects.toThrow(
-      /did not open a quick tunnel.*Requesting new quick Tunnel.*unchanged/,
+      /did not open a quick tunnel \(not ready within 300ms\).*unchanged/,
     );
+  });
+});
+
+describe('Telegram out of reach', () => {
+  it('is said so, without the bot token, when the request gets no answer', async () => {
+    const server = net.createServer();
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const { port } = server.address() as net.AddressInfo;
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+
+    const call = telegramCall('123:secret-token', 'setChatMenuButton', { chat_id: 1 }, { apiBase: `http://127.0.0.1:${port}` });
+
+    await expect(call).rejects.toThrow(/^Telegram is out of reach — is the network up\? \(.*ECONNREFUSED.*\)$/);
+    await expect(call).rejects.not.toThrow(/secret-token/);
   });
 });
 

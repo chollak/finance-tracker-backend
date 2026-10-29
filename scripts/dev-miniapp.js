@@ -147,17 +147,21 @@ function requestJson(url, { method = 'GET', body = null, timeoutMs = 15000 } = {
       });
     });
     req.on('timeout', () => req.destroy(new Error(`Request timed out: ${parsed.hostname}`)));
-    req.on('error', reject);
+    // No answer at all — no network, no DNS, a timeout — as opposed to an answer that is not JSON
+    req.on('error', (error) => reject(Object.assign(new Error(error.message), { unreachable: true })));
     if (data) req.write(data);
     req.end();
   });
 }
 
-async function telegramCall(token, method, body = null) {
+// `apiBase` is for tests. Messages never carry the URL: it holds the bot token.
+async function telegramCall(token, method, body = null, { apiBase = 'https://api.telegram.org' } = {}) {
   if (!token) throw new Error('TG_BOT_API_KEY is missing in env file or process env');
-  const response = await requestJson(`https://api.telegram.org/bot${token}/${method}`, {
+  const response = await requestJson(`${apiBase}/bot${token}/${method}`, {
     method: body ? 'POST' : 'GET',
     body,
+  }).catch((error) => {
+    throw error.unreachable ? new Error(`Telegram is out of reach — is the network up? (${error.message})`) : error;
   });
   if (!response.json.ok) {
     throw new Error(`Telegram ${method} failed: ${response.json.description || `HTTP ${response.status}`}`);
@@ -490,11 +494,12 @@ async function commandRun({ flags }) {
         tunnel = opened.child;
         watchTunnel(opened.child);
         await commandSet({ flags: setFlags(opened.url) });
+        const menuNote = flags['no-menu'] ? 'menu button left as it was (--no-menu)' : 'menu button updated';
         if (server) {
           await restartServer();
-          console.log(`Tunnel is back: ${opened.url} — menu button updated, server restarted.`);
+          console.log(`Tunnel is back: ${opened.url} — ${menuNote}, server restarted.`);
         } else {
-          console.log(`Tunnel is back: ${opened.url} — menu button updated.`);
+          console.log(`Tunnel is back: ${opened.url} — ${menuNote}.`);
           console.warn('The server was not started by this helper: restart it so the bot links use the new address.');
         }
       },
@@ -540,4 +545,5 @@ if (require.main === module) {
 
 module.exports = {
   envFileFor, findCloudflared, isPortListening, isTunnelGone, retryDelayMs, createTunnelSupervisor, tunnelUrlFrom, openTunnel,
+  telegramCall,
 };

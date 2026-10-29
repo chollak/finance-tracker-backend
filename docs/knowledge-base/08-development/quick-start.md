@@ -129,8 +129,8 @@ npm run dev:miniapp -- --chat-id=<telegram_chat_id>
 1. Поднимает Cloudflare quick tunnel и получает публичный HTTPS-адрес. `cloudflared` ищет в `CLOUDFLARED_BIN`,
    `~/.local/bin` (WSL) и в `PATH` (Homebrew на macOS). Адрес берётся только из рамки
    `Your quick Tunnel has been created!`, которую печатает `cloudflared`. Если туннель не поднялся (нет сети,
-   `cloudflared` завершился или молчит 45 с), скрипт останавливается с `cloudflared did not open a quick tunnel …`
-   и не трогает ни env-файл, ни menu-кнопку (FT-170).
+   `cloudflared` завершился или не назвал адрес за 45 с), скрипт останавливается с
+   `cloudflared did not open a quick tunnel …` и не трогает ни env-файл, ни menu-кнопку (FT-170).
 2. Записывает этот адрес как `WEB_APP_URL` в тот env-файл, который читает приложение: `.env.local`, если он есть,
    иначе `.env` (`--env-file` меняет выбор).
 3. Обновляет постоянную menu-кнопку бота в Telegram через `setChatMenuButton`.
