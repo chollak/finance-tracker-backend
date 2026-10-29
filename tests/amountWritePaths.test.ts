@@ -1,6 +1,5 @@
 import express from 'express';
 import http from 'http';
-import { AddressInfo } from 'net';
 import { createTransactionRouter } from '../src/modules/transaction/presentation/controllers/transactionController';
 import { errorHandler } from '../src/delivery/web/express/middleware/errorMiddleware';
 import { CreateTransactionUseCase } from '../src/modules/transaction/application/createTransaction';
@@ -15,6 +14,7 @@ import { TransactionRepository } from '../src/modules/transaction/domain/transac
 import { fromMinor, toMinor } from '../src/shared/domain/money/money';
 import { transactionLearning } from '../src/shared/application/learning/transactionLearning';
 import { UserModule } from '../src/modules/user/userModule';
+import { listenOnLoopback } from './helpers/testServer';
 
 jest.mock('../src/shared/application/learning/transactionLearning', () => ({
   transactionLearning: { recordCorrection: jest.fn().mockResolvedValue(undefined) },
@@ -65,7 +65,7 @@ describe('FT-097: every writer may send amountMinor or the old amount', () => {
   let server: http.Server;
   let baseUrl: string;
 
-  beforeEach(done => {
+  beforeEach(async () => {
     repository = new MemoryTransactions();
     const repo = repository as unknown as TransactionRepository;
     const app = express();
@@ -84,10 +84,7 @@ describe('FT-097: every writer may send amountMinor or the old amount', () => {
       users
     ));
     app.use(errorHandler);
-    server = app.listen(0, () => {
-      baseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
-      done();
-    });
+    ({ server, baseUrl } = await listenOnLoopback(app));
   });
 
   afterEach(done => {

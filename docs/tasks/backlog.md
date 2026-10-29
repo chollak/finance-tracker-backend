@@ -414,34 +414,6 @@ Definition of Done:
 
 ---
 
-### FT-151: Flaky HTTP tests: webLogin, transactionRoutes, accounts
-
-Status: backlog
-Priority: low
-Owner: Claude Code, QA by Hermes
-Type: repo-hygiene
-Size: S
-
-Context:
-`tests/webLogin.test.ts` один раз упал в полном прогоне `npm run verify` при проверке ветки
-`claude/new-session-uv5og7` и прошёл на повторе. Кандидаты:
-- каждый `beforeEach` создаёт SQLite и прогоняет все миграции с копией базы (`:87-96`, `tests/helpers/testDatabase.ts:15-28`), а в `jest.config.js` нет `testTimeout` — под нагрузкой хук может не уложиться в 5 с;
-- ограничители частоты общие на весь файл и на реальных часах: `strictRateLimiter` — 10 POST за 15 минут на `/api/auth/web-login` (`rateLimitMiddleware.ts:90-112`), в блоке маршрутов уже 8 таких запросов (`:397`…`:514`).
-
-Так же нестабилен `tests/transactionRoutes.test.ts`, тест «creates a record without a description»: дважды
-2026-10-27 упал в полном прогоне (`fetch failed` / `ECONNRESET` / «other side closed»), отдельно — 20 прогонов из 20
-зелёные (проверка FT-155). 2026-10-28 при закрытии FT-168 (коммит только с документами) в полном прогоне по
-одному разу упали `transactionRoutes.test.ts` («creates a record without a description», 404 вместо 201) и
-`tests/accounts.test.ts` («creates an account», 404 вместо 201); отдельно оба — 36 из 36. Машина была под нагрузкой
-(load average около 5) — похоже на общую причину HTTP-тестов, а не на конкретный файл.
-
-Definition of Done:
-- [ ] Причина найдена и записана здесь
-- [ ] Ограничители не общие между тестами (сброс или внедрение)
-- [ ] 20 полных прогонов `npm run test:ci` подряд без падения этого файла
-
----
-
 ### FT-152: Queue a complex phrase offline and parse it when the connection returns
 
 Status: backlog
