@@ -547,25 +547,6 @@ Definition of Done:
 
 ---
 
-### FT-166: Refused Telegram updates do not flood the log
-
-Status: backlog
-Priority: low
-Owner: Claude Code, QA — под-чат проверки
-Type: reliability
-Size: S
-
-Context:
-Замечание к FT-153 (2026-10-27): каждое отклонённое обновление бота и каждый отклонённый запрос API пишут строку
-`warn` без ограничения. Кто-то, кто засыпает бота сообщениями, наполнит journald на ПК. Отклонённые запросы к API не
-доходят до лимитеров маршрутов: 403 приходит раньше.
-
-Definition of Done:
-- [ ] Отказы одному Telegram id пишутся в лог не чаще раза в N минут, с числом пропущенных; тест
-- [ ] Первый отказ новому id виден в логе сразу (чтобы было видно, кого отсекли)
-
----
-
 ### FT-169: A sign for Kapelka
 
 Status: backlog

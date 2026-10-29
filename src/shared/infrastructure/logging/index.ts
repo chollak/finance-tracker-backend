@@ -11,3 +11,5 @@
 
 export { createLogger, logger, LogCategory, winstonLogger } from './logger';
 export type { ILogger, LogCategoryType } from './logger';
+export { createRefusalLog, REFUSAL_LOG_MAX_IDS, REFUSAL_LOG_WINDOW_MS } from './refusalLog';
+export type { RefusalLog, RefusalLogOptions } from './refusalLog';

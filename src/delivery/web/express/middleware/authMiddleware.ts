@@ -12,7 +12,7 @@ import crypto from 'crypto';
 import { AppConfig } from '../../../../shared/infrastructure/config/appConfig';
 import { telegramIdOf } from '../../../../shared/domain/access/telegramAccess';
 import { ShortcutCaptureAccess, shortcutCaptureAccess } from '../../../../shared/domain/access/shortcutCaptureAccess';
-import { createLogger, LogCategory } from '../../../../shared/infrastructure/logging';
+import { createLogger, createRefusalLog, LogCategory } from '../../../../shared/infrastructure/logging';
 
 const logger = createLogger(LogCategory.AUTH);
 
@@ -196,9 +196,13 @@ export function signedInTelegramId(req: Request, botToken: string = AppConfig.TG
  * browser's session cookie or `X-Dev-User-Id` — gets 403 before any route, so no route resolves or creates its user.
  * A dev header that names no Telegram id is refused too: `requireAuth` would sign it in as NaN. A request that proves
  * no user goes on to its route, which answers 401 if it needs sign-in. With an empty list everyone goes on.
+ *
+ * The 403 comes before the routes' rate limits, so the log is what a stranger could flood: the first refusal of an id
+ * is written at once, its repeats as one line per ten minutes (FT-166).
  */
 export function createAllowedUsersMiddleware(): RequestHandler {
   const access = AppConfig.TELEGRAM_ACCESS;
+  const refusals = createRefusalLog(logger, 'Request from a Telegram user who is not allowed refused');
 
   return (req: Request, res: Response, next: NextFunction): void => {
     if (access.open) {
@@ -214,7 +218,7 @@ export function createAllowedUsersMiddleware(): RequestHandler {
       return;
     }
 
-    logger.warn('Request from a Telegram user who is not allowed refused', { telegramId, path: req.originalUrl });
+    refusals.refused(telegramId, { path: req.originalUrl });
     res.status(403).json({
       success: false,
       error: 'This Telegram account has no access',
