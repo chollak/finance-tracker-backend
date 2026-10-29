@@ -64,6 +64,7 @@ export class AccountBook implements AccountResolver {
       ...DEFAULT_ACCOUNT,
       openingBalanceMinor: 0,
       openingDate: todayDateOnly(),
+      openingAt: null,
       isHidden: false,
       sortOrder: 10,
     });

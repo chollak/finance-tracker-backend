@@ -53,6 +53,7 @@ jest.mock('telegraf', () => {
 
 const ALLOWED = 111;
 const STRANGER = 222;
+const OTHER_STRANGER = 333;
 
 describe('the bot answers only the allowed (FT-153)', () => {
   let db: TestDatabase;
@@ -150,6 +151,18 @@ describe('the bot answers only the allowed (FT-153)', () => {
     );
   });
 
+  it('a stranger who keeps writing is logged once, not on every message; a new stranger at once (FT-166)', async () => {
+    for (let i = 0; i < 50; i++) await message(STRANGER, { text: `кофе ${i}` });
+    await press(OTHER_STRANGER, 'login:ok:00000000-0000-4000-8000-000000000000');
+
+    const refusals = warn.mock.calls.filter(([text]) => String(text).includes('not allowed'));
+    expect(refusals).toEqual([
+      [expect.any(String), expect.objectContaining({ category: 'TELEGRAM', telegramId: STRANGER, updateType: 'message' })],
+      [expect.any(String), expect.objectContaining({ category: 'TELEGRAM', telegramId: OTHER_STRANGER, updateType: 'callback_query' })],
+    ]);
+    expect(sent()).toEqual([]);
+  });
+
   it('the web login link opened by someone not on the list gives them no login', async () => {
     const { payload, browserSecret } = await startLogin();
 
@@ -203,5 +216,33 @@ describe('an update without a sender (FT-153)', () => {
 
     await allowedUsersOnly(telegramAccess([]))(channelPost, next);
     expect(next).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('refused updates in the log (FT-166)', () => {
+  beforeEach(() => jest.useFakeTimers());
+
+  afterEach(() => {
+    jest.useRealTimers();
+    jest.restoreAllMocks();
+  });
+
+  it('writes how many updates of a stranger were skipped once the ten minutes are over', async () => {
+    const warn = jest.spyOn(winstonLogger, 'warn').mockImplementation(() => winstonLogger);
+    const gate = allowedUsersOnly(telegramAccess([String(ALLOWED)]));
+    const next = jest.fn().mockResolvedValue(undefined);
+    const update: any = { from: { id: STRANGER, is_bot: false, first_name: 'Test' }, updateType: 'message' };
+
+    for (let i = 0; i < 50; i++) await gate(update, next);
+    expect(warn).toHaveBeenCalledTimes(1);
+
+    jest.advanceTimersByTime(10 * 60 * 1000);
+
+    expect(warn).toHaveBeenCalledTimes(2);
+    expect(warn).toHaveBeenLastCalledWith(
+      expect.stringContaining('not allowed'),
+      expect.objectContaining({ category: 'TELEGRAM', telegramId: STRANGER, skipped: 49, windowMinutes: 10 })
+    );
+    expect(next).not.toHaveBeenCalled();
   });
 });

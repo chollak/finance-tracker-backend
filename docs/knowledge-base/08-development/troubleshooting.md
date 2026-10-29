@@ -317,6 +317,25 @@ npm run dev
 
 ---
 
+### `dev:miniapp`: cloudflared did not open a quick tunnel (FT-170)
+
+**Error:**
+```
+ERROR: cloudflared did not open a quick tunnel (exited with code 1): failed to request quick Tunnel: Post "https://api.trycloudflare.com/tunnel": context deadline exceeded. Cloudflare is out of reach — is the network up? WEB_APP_URL and the Telegram menu button are unchanged
+```
+
+**Cause:** `cloudflared` could not reach Cloudflare — usually there is no network. Before FT-170 the script took the
+API address from this line, `https://api.trycloudflare.com`, as the tunnel and wrote it to `.env.local` and the menu
+button. Now the address comes only from the box `Your quick Tunnel has been created!`, and on an error neither
+`WEB_APP_URL` nor the menu button is changed.
+
+**Solution:** check the network and run `npm run dev:miniapp` again. If an older run did leave
+`WEB_APP_URL=https://api.trycloudflare.com`, the next successful run overwrites it; `npm run miniapp:menu -- status`
+shows what the env file and the menu button hold now. After sleep the script retries by itself (30 s, 1, 2, 4,
+5 minutes) and prints the same reason as `Could not bring the tunnel back: …`.
+
+---
+
 ## Performance Issues
 
 ### Slow API Responses
@@ -461,6 +480,26 @@ On `SIGTERM` the bot stops taking updates and finishes the one it is handling �
 `Telegram sent a handled message again; its records are not written twice` says the bot found its records by the
 message's client id instead of writing them again (`… an amount answer again; it is not applied twice` — the same for
 an answer to «Сумму»). If the person got no confirmation the first time, the bot sends it then.
+
+### Who was turned away by `ALLOWED_TELEGRAM_IDS`
+
+With a list set, the bot ignores everyone else and the API answers them `403 ACCESS_NOT_ALLOWED` (FT-153). The log
+names each refused Telegram id once, at its first refusal: `Telegram update from a user who is not allowed ignored`
+(bot) or `Request from a Telegram user who is not allowed refused` (API), with `telegramId`. That is also how to find
+your own id. Repeats of the same id within 10 minutes are not written one by one (FT-166): when the 10 minutes are
+over, one line with `(repeats)` says how many were skipped (`skipped`, `windowMinutes`). Someone who keeps writing
+costs one line per 10 minutes, not one per message. The windows chain: the next one starts at the `(repeats)` line, so
+a refusal of the same id within 10 minutes after it goes into the next summary, without its `path` or `updateType`.
+
+```bash
+journalctl -u <service> --grep "not allowed" --no-pager | tail -n 20
+```
+
+- No `(repeats)` line — the id was refused once in those 10 minutes.
+- The counts live in the process: a restart forgets them, and refusals not yet summarised at the restart are not
+  written. After it, the first refusal of an id is written at once again.
+- The process remembers up to 1000 refused ids. Past that, the id refused longest ago is forgotten — its `(repeats)`
+  line goes out first — and is written again as new when it comes back.
 
 ---
 

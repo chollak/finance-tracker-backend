@@ -127,7 +127,10 @@ npm run dev:miniapp -- --chat-id=<telegram_chat_id>
 Что делает команда (`scripts/dev-miniapp.js`):
 
 1. Поднимает Cloudflare quick tunnel и получает публичный HTTPS-адрес. `cloudflared` ищет в `CLOUDFLARED_BIN`,
-   `~/.local/bin` (WSL) и в `PATH` (Homebrew на macOS).
+   `~/.local/bin` (WSL) и в `PATH` (Homebrew на macOS). Адрес берётся только из рамки
+   `Your quick Tunnel has been created!`, которую печатает `cloudflared`. Если туннель не поднялся (нет сети,
+   `cloudflared` завершился или не назвал адрес за 45 с), скрипт останавливается с
+   `cloudflared did not open a quick tunnel …` и не трогает ни env-файл, ни menu-кнопку (FT-170).
 2. Записывает этот адрес как `WEB_APP_URL` в тот env-файл, который читает приложение: `.env.local`, если он есть,
    иначе `.env` (`--env-file` меняет выбор).
 3. Обновляет постоянную menu-кнопку бота в Telegram через `setChatMenuButton`.
@@ -135,7 +138,8 @@ npm run dev:miniapp -- --chat-id=<telegram_chat_id>
 5. Следит за туннелем. Временный туннель не переживает сон компьютера: Cloudflare его удаляет, и `cloudflared` пишет
    `Unauthorized: Tunnel not found`. Тогда (и если `cloudflared` завершился) скрипт поднимает новый туннель, пишет адрес
    в env-файл, обновляет menu-кнопку и перезапускает сервер, который запустил сам: сервер читает `WEB_APP_URL` при
-   старте для ссылок бота. Без сети пробует снова через 30 с, 1, 2, 4 и 5 минут. Пока компьютер спит, не работает
+   старте для ссылок бота. Без сети пробует снова через 30 с, 1, 2, 4 и 5 минут; пока новый туннель не поднялся,
+   env-файл и menu-кнопка остаются прежними. Пока компьютер спит, не работает
    ничего; старые кнопки в чате ведут на прежний адрес — `/start` пришлёт новые.
 
 Точечные команды, если туннель уже поднят:
@@ -380,7 +384,7 @@ SELECT * FROM transaction LIMIT 10;
 | `DATABASE_TYPE` | `sqlite` | только `sqlite`; любое другое значение — ошибка запуска |
 | `FREE_LIMITS_ENABLED` | `false` | `true` включает лимиты бесплатного тарифа. На время вехи 10 выключены (решение Д3); использование всё равно считается |
 | `TG_BOT_API_KEY` | - | Telegram bot token; required in production while polling is on (FT-167) |
-| `ALLOWED_TELEGRAM_IDS` | - | Закрытый доступ (FT-153): Telegram id через запятую. Остальным бот молчит (в логе `warn` с id), API отвечает `403 ACCESS_NOT_ALLOWED` до создания пользователя, итоги дня и напоминания им не уходят. Пусто — пускает всех, но при `NODE_ENV=production` пустой список — ошибка запуска; запись не из цифр — ошибка запуска всегда. Свой id виден в логе: с непустым списком бот пишет `warn` с id каждого, кого не пустил |
+| `ALLOWED_TELEGRAM_IDS` | - | Закрытый доступ (FT-153): Telegram id через запятую. Остальным бот молчит (в логе `warn` с id), API отвечает `403 ACCESS_NOT_ALLOWED` до создания пользователя, итоги дня и напоминания им не уходят. Пусто — пускает всех, но при `NODE_ENV=production` пустой список — ошибка запуска; запись не из цифр — ошибка запуска всегда. Свой id виден в логе: с непустым списком бот пишет `warn` с id каждого, кого не пустил — первый отказ сразу, повторы того же id одной строкой `(repeats)` с числом пропущенных раз в 10 минут (FT-166) |
 | `TG_BOT_USERNAME` | - | @username бота без `@` для ссылки входа в браузере `t.me/<bot>?start=login_…` (FT-128). Пусто — спрашивается у Telegram (`getMe`) |
 | `WEB_APP_URL` | `http://localhost:3000` | Public URL (перезаписывается `npm run dev:miniapp`; у живого экземпляра — адрес tailnet, [live-instance.md](live-instance.md)) |
 | `OPENAI_MODEL` | `gpt-4.1-mini` | Модель разбора текста (`gpt-4-turbo` OpenAI снял) |

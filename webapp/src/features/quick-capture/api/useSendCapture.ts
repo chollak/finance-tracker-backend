@@ -6,6 +6,7 @@ import { useCategories } from '@/entities/category';
 import { useSettings } from '@/entities/settings';
 import { writeOnDevice } from '@/entities/transaction';
 import { useUserStore } from '@/entities/user';
+import { REQUEST_TIMEOUT_CODE } from '@/shared/api';
 import { ROUTES } from '@/shared/lib/constants/routes';
 import { toLocalDate } from '@/shared/lib/dates';
 import type { OpenedFromState } from '@/shared/lib/navigation';
@@ -22,11 +23,22 @@ import { offlineRecords, parseOfflineText } from '../model/offlineText';
 import { reviewSessionFrom } from '../model/captureReview';
 import { useCaptureStore } from '../model/captureStore';
 import { validateCaptureText } from '../model/validateCaptureText';
+import { capturedRecordKeys } from './invalidation';
 import { useQuickCapture } from './mutations';
 
 function notify(notice: CaptureNotice): void {
   showUndoToast({ kind: 'info', title: notice.title, detail: notice.detail });
 }
+
+/**
+ * How a send ended: the review opened, the records were written on the device, the text stayed in the field (nothing
+ * understood, or a send that failed), the wait ran out (FT-146: the composer gives the field its focus back), or
+ * nothing was sent at all.
+ */
+export type SendOutcome = 'review' | 'on-device' | 'kept' | 'timed-out' | 'skipped';
+
+const timedOut = (error: unknown): boolean =>
+  typeof error === 'object' && error !== null && (error as { code?: unknown }).code === REQUEST_TIMEOUT_CODE;
 
 /**
  * The composer's send (FT-114): the phrase goes to POST /api/quick-capture, which writes its records at once;
@@ -52,16 +64,13 @@ export function useSendCapture() {
   // already wrote instead of writing them twice. A written phrase is done: the next send is a new capture.
   const attempt = useRef<{ text: string; clientId: string } | null>(null);
 
-  const send = async (raw: string) => {
-    if (!userId || capture.isPending) return;
+  const send = async (raw: string): Promise<SendOutcome> => {
+    if (!userId || capture.isPending) return 'skipped';
     const validation = validateCaptureText(raw);
-    if (!validation.ok) return;
+    if (!validation.ok) return 'skipped';
 
     const text = validation.text;
-    if (isOffline()) {
-      writeOffline(text, userId);
-      return;
-    }
+    if (isOffline()) return writeOffline(text, userId);
     if (attempt.current?.text !== text) attempt.current = { text, clientId: crypto.randomUUID() };
 
     let result;
@@ -69,14 +78,17 @@ export function useSendCapture() {
       result = await capture.mutateAsync({ text, userId, userName: userName || undefined, clientId: attempt.current.clientId });
     } catch (error) {
       notify(sendFailedNotice(error));
-      return;
+      if (!timedOut(error)) return 'kept';
+      // No answer at all: the server may have written the records anyway, and Home should show them
+      for (const queryKey of capturedRecordKeys(userId)) queryClient.invalidateQueries({ queryKey });
+      return 'timed-out';
     }
     attempt.current = null;
 
     const session = reviewSessionFrom(result, categories.data ?? []);
     if (!session.items.some((item) => !item.removed)) {
       notify(NOT_UNDERSTOOD);
-      return;
+      return 'kept';
     }
 
     const store = useCaptureStore.getState();
@@ -84,14 +96,15 @@ export function useSendCapture() {
     store.setDraft('');
     const state: OpenedFromState = { from: pathname };
     navigate(ROUTES.CAPTURE_REVIEW, { state });
+    return 'review';
   };
 
   /** A simple phrase read on the device and written into the outbox (board «Главная без связи»). */
-  const writeOffline = (text: string, userId: string) => {
+  const writeOffline = (text: string, userId: string): SendOutcome => {
     const items = parseOfflineText(text);
     if (!items) {
       notify(OFFLINE_NOT_UNDERSTOOD);
-      return;
+      return 'kept';
     }
     const result = offlineRecords(items, {
       categories: categories.data ?? [],
@@ -101,10 +114,11 @@ export function useSendCapture() {
     });
     if (!result.ok) {
       notify(NO_DOLLAR_ACCOUNT);
-      return;
+      return 'kept';
     }
     writeOnDevice(queryClient, userId, result.records);
     useCaptureStore.getState().setDraft('');
+    return 'on-device';
   };
 
   return { send, isPending: capture.isPending };

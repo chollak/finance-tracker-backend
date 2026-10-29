@@ -1,3 +1,4 @@
+import { spawnSync, type ChildProcess } from 'child_process';
 import fs from 'fs';
 import net from 'net';
 import os from 'os';
@@ -7,8 +8,31 @@ import path from 'path';
  * `npm run dev:miniapp` on macOS as well as WSL: the env file it updates is the one the app reads, cloudflared is
  * found where Homebrew puts it, and a busy port is seen without the Linux-only `ss`.
  */
+const {
+  envFileFor, findCloudflared, isPortListening, isTunnelGone, retryDelayMs, createTunnelSupervisor, tunnelUrlFrom, openTunnel,
+  telegramCall,
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { envFileFor, findCloudflared, isPortListening, isTunnelGone, retryDelayMs, createTunnelSupervisor } = require('../scripts/dev-miniapp.js');
+} = require('../scripts/dev-miniapp.js');
+
+const SCRIPT = path.resolve(__dirname, '..', 'scripts', 'dev-miniapp.js');
+
+// What cloudflared 2026.9.3 printed to stderr for `cloudflared tunnel --url http://127.0.0.1:1` on 2026-10-29 (macOS).
+const STARTING = [
+  '2026-10-29T04:55:37Z INF Thank you for trying Cloudflare Tunnel. Doing so, without a Cloudflare account, is a quick way to experiment and try it out. However, be aware that these account-less Tunnels have no uptime guarantee, are subject to the Cloudflare Online Services Terms of Use (https://www.cloudflare.com/website-terms/), and Cloudflare reserves the right to investigate your use of Tunnels for violations of such terms. If you intend to use Tunnels in production you should use a pre-created named tunnel by following: https://developers.cloudflare.com/cloudflare-one/connections/connect-apps',
+  '2026-10-29T04:55:37Z INF Requesting new quick Tunnel on trycloudflare.com...',
+];
+// With the network
+const CREATED = [
+  '2026-10-29T04:55:42Z INF +--------------------------------------------------------------------------------------------+',
+  '2026-10-29T04:55:42Z INF |  Your quick Tunnel has been created! Visit it at (it may take some time to be reachable):  |',
+  '2026-10-29T04:55:42Z INF |  https://kerry-wait-activated-pro.trycloudflare.com                                        |',
+  '2026-10-29T04:55:42Z INF +--------------------------------------------------------------------------------------------+',
+  '2026-10-29T04:55:42Z INF Registered tunnel connection connIndex=0 connection=7d0a8c0f-2a83-4518-acb6-1d4e49a0f6c4 event=0 ip=198.41.192.77 location=waw03 protocol=quic',
+];
+// Without it (outgoing connections blocked by sandbox-exec); cloudflared exits with code 1 after this line
+const NO_NETWORK = 'failed to request quick Tunnel: Post "https://api.trycloudflare.com/tunnel": dial tcp 104.16.231.132:443: connect: operation not permitted';
+// The incident of 2026-10-28 (FT-170): the Mac had no network
+const TIMED_OUT = 'failed to request quick Tunnel: Post "https://api.trycloudflare.com/tunnel": context deadline exceeded';
 
 let dir: string;
 
@@ -77,6 +101,98 @@ describe('cloudflared', () => {
 
   it('is missing when it is nowhere', () => {
     expect(findCloudflared({ HOME: dir, PATH: '/nowhere' })).toBeNull();
+  });
+});
+
+describe('the address of a new quick tunnel', () => {
+  it('is the one in the box cloudflared prints once the tunnel is created', () => {
+    expect(tunnelUrlFrom([...STARTING, ...CREATED].join('\n'))).toBe('https://kerry-wait-activated-pro.trycloudflare.com');
+  });
+
+  it('is not the API cloudflared failed to reach, without the network (FT-170)', () => {
+    expect(tunnelUrlFrom([...STARTING, TIMED_OUT].join('\n'))).toBeNull();
+    expect(tunnelUrlFrom([...STARTING, NO_NETWORK].join('\n'))).toBeNull();
+  });
+
+  it('is not known yet while only the first lines of the box have come', () => {
+    expect(tunnelUrlFrom([...STARTING, ...CREATED.slice(0, 2)].join('\n'))).toBeNull();
+  });
+});
+
+/** A stand-in for cloudflared: prints `lines` to stderr, `pause` seconds apart, then exits with `exit` or keeps running. */
+function fakeCloudflared(lines: string[], { exit, pause = 0 }: { exit?: number; pause?: number } = {}): string {
+  const file = executable('bin', 'cloudflared');
+  const body = lines.map((line) => `printf '%s\\n' '${line.replace(/'/g, "'\\''")}' >&2${pause ? `\nsleep ${pause}` : ''}`);
+  fs.writeFileSync(file, ['#!/bin/sh', ...body, exit === undefined ? 'exec sleep 30' : `exit ${exit}`].join('\n'));
+  return file;
+}
+
+describe('opening a quick tunnel, at start and again after the machine slept', () => {
+  const quiet = () => undefined;
+  let child: ChildProcess | undefined;
+
+  afterEach(() => {
+    if (child && child.exitCode === null) child.kill('SIGKILL');
+    child = undefined;
+  });
+
+  it('gives the address cloudflared printed, also when the box comes line by line', async () => {
+    const bin = fakeCloudflared([...STARTING, ...CREATED], { pause: 0.05 });
+    const opened = await openTunnel(bin, 1, { echo: quiet });
+    child = opened.child;
+    expect(opened.url).toBe('https://kerry-wait-activated-pro.trycloudflare.com');
+  });
+
+  it('fails, saying what cloudflared said, when cloudflared could not get a tunnel', async () => {
+    const bin = fakeCloudflared([...STARTING, TIMED_OUT], { exit: 1 });
+    await expect(openTunnel(bin, 1, { echo: quiet })).rejects.toThrow(
+      /did not open a quick tunnel.*context deadline exceeded.*WEB_APP_URL and the Telegram menu button are unchanged/,
+    );
+  });
+
+  // Whether the stand-in has printed anything by then depends on how busy the machine is — the check does not
+  it('fails when cloudflared names no tunnel in time', async () => {
+    const bin = fakeCloudflared(STARTING);
+    await expect(openTunnel(bin, 1, { echo: quiet, timeoutMs: 300 })).rejects.toThrow(
+      /did not open a quick tunnel \(not ready within 300ms\).*unchanged/,
+    );
+  });
+});
+
+describe('Telegram out of reach', () => {
+  it('is said so, without the bot token, when the request gets no answer', async () => {
+    const server = net.createServer();
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const { port } = server.address() as net.AddressInfo;
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+
+    const call = telegramCall('123:secret-token', 'setChatMenuButton', { chat_id: 1 }, { apiBase: `http://127.0.0.1:${port}` });
+
+    await expect(call).rejects.toThrow(/^Telegram is out of reach — is the network up\? \(.*ECONNREFUSED.*\)$/);
+    await expect(call).rejects.not.toThrow(/secret-token/);
+  });
+});
+
+describe('dev:miniapp without the network', () => {
+  it('stops with a clear error and leaves the env file alone, before any Telegram call', () => {
+    const envFile = path.join(dir, '.env.local');
+    const before = 'WEB_APP_URL=https://kerry-wait-activated-pro.trycloudflare.com\nPORT=3999\n';
+    fs.writeFileSync(envFile, before);
+    const bin = fakeCloudflared([...STARTING, NO_NETWORK], { exit: 1 });
+
+    // No TG_BOT_API_KEY: a run that went on to the menu button would fail on it, not on the tunnel
+    const run = spawnSync(process.execPath, [SCRIPT, 'run', '--chat-id=1', `--env-file=${envFile}`, '--skip-build', '--no-serve'], {
+      env: { PATH: process.env.PATH, HOME: dir, CLOUDFLARED_BIN: bin },
+      encoding: 'utf8',
+      timeout: 10_000,
+    });
+
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain('did not open a quick tunnel');
+    expect(run.stderr).toContain('Cloudflare is out of reach');
+    expect(run.stderr).not.toContain('TG_BOT_API_KEY');
+    expect(run.stdout).not.toContain('Updated');
+    expect(fs.readFileSync(envFile, 'utf8')).toBe(before);
   });
 });
 
