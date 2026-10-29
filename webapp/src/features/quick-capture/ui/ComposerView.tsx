@@ -67,6 +67,23 @@ function SendIcon() {
 }
 
 /**
+ * The phrase is being read (FT-146): the «…» of the row «Распознаю» on the board «Голосовой ввод», its dots pulsing one
+ * after another with the login's waiting pulse; still under prefers-reduced-motion, where the words beside say it.
+ */
+function ReadingIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 20 20" aria-hidden="true" fill="currentColor">
+      {[4, 10, 16].map((cx, index) => (
+        <circle key={cx} cx={cx} cy="10" r="2" className="motion-safe:animate-waiting-pulse" style={{ animationDelay: `${index * 0.2}s` }} />
+      ))}
+    </svg>
+  );
+}
+
+/** Words while the phrase is read: a live region from the start, silent until then, so the change is announced. */
+const READING = 'Распознаю…';
+
+/**
  * The composer at the bottom of Home as the board «Главная» and Composer.md draw it (FT-114), from given
  * chips and text; `Composer` reads them and acts. On the screen's background, fixed to the bottom: the quick
  * chips in one row that scrolls sideways (44px pills in their category's pastel, the name 14px/700 and the
@@ -128,22 +145,33 @@ export function ComposerView({ chips, text, sending, onText, onSend, onChip, onV
               className="h-touch min-w-0 flex-1 bg-transparent text-[15px] font-medium text-ink outline-none placeholder:text-ink-muted"
             />
           </label>
-          <button
-            type="button"
-            onClick={onCamera}
-            aria-label="Фото чека"
-            className={cn('flex size-touch shrink-0 items-center justify-center rounded-pill text-ink', FOCUS)}
+          <span
+            role="status"
+            aria-live="polite"
+            className={sending ? 'shrink-0 whitespace-nowrap pr-3.5 type-label text-ink-muted' : 'sr-only'}
           >
-            <CameraIcon />
-          </button>
-          <Link
-            to={ROUTES.MANUAL_ENTRY}
-            state={openedFrom}
-            aria-label="Ввести вручную"
-            className={cn('flex size-touch shrink-0 items-center justify-center rounded-pill text-ink', FOCUS)}
-          >
-            <KeypadIcon />
-          </Link>
+            {sending ? READING : ''}
+          </span>
+          {!sending && (
+            <>
+              <button
+                type="button"
+                onClick={onCamera}
+                aria-label="Фото чека"
+                className={cn('flex size-touch shrink-0 items-center justify-center rounded-pill text-ink', FOCUS)}
+              >
+                <CameraIcon />
+              </button>
+              <Link
+                to={ROUTES.MANUAL_ENTRY}
+                state={openedFrom}
+                aria-label="Ввести вручную"
+                className={cn('flex size-touch shrink-0 items-center justify-center rounded-pill text-ink', FOCUS)}
+              >
+                <KeypadIcon />
+              </Link>
+            </>
+          )}
         </div>
 
         {hasText ? (
@@ -153,8 +181,10 @@ export function ComposerView({ chips, text, sending, onText, onSend, onChip, onV
             aria-label={offline ? 'Записать без связи' : 'Распознать текст'}
             disabled={sending}
             aria-busy={sending}
+            // Busy, not missing something (Button.md: grey is «what is missing»): it stays the main button
+            className={sending ? 'disabled:cursor-progress disabled:bg-primary disabled:text-on-primary' : undefined}
           >
-            <SendIcon />
+            {sending ? <ReadingIcon /> : <SendIcon />}
           </Button>
         ) : offline ? (
           <Button variant="round" aria-label="Голосовой ввод — без связи не работает" onClick={onVoice} className="bg-track text-ink">

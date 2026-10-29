@@ -119,6 +119,51 @@ describe('the round button', () => {
 });
 
 /**
+ * FT-146: after a send nothing seemed to happen — the field went read-only and the round button grey. While the phrase
+ * is read the field says «Распознаю…» (the word of the board «Голосовой ввод») in a live region, and the round button
+ * stays the main one with three pulsing dots: it is busy with the phrase, not missing something.
+ */
+describe('while the phrase is being read (FT-146)', () => {
+  const STATUS = /<span[^>]*role="status"[^>]*aria-live="polite"[^>]*>(.*?)<\/span>/;
+
+  it('the field says «Распознаю…» in a live region', () => {
+    const html = view({ text: 'такси 18к', sending: true });
+
+    expect(html.match(STATUS)?.[1]).toBe('Распознаю…');
+  });
+
+  it('the live region is there before the send and silent, so the change is announced', () => {
+    const html = view({ text: 'такси 18к' });
+
+    expect(html).toMatch(STATUS);
+    expect(html.match(STATUS)?.[1]).toBe('');
+  });
+
+  it('the round button stays the main one, with pulsing dots instead of the arrow', () => {
+    const round = buttons(view({ text: 'такси 18к', sending: true })).find((tag) => tag.includes('size-button'));
+
+    expect(round).toMatch(/disabled:bg-primary/);
+    expect(round).toMatch(/disabled:text-on-primary/);
+    expect(round).toContain('motion-safe:animate-waiting-pulse');
+    expect(round).not.toContain('M10 16V4');
+  });
+
+  it('the camera and «Ввести вручную» step aside for the words, and come back after', () => {
+    const sending = view({ text: 'такси 18к', sending: true });
+    const idle = view({ text: 'такси 18к' });
+
+    expect(sending).not.toContain('aria-label="Фото чека"');
+    expect(sending).not.toContain('aria-label="Ввести вручную"');
+    expect(idle).toContain('aria-label="Фото чека"');
+    expect(idle).toContain('aria-label="Ввести вручную"');
+  });
+
+  it('the phrase stays the user’s own: `ink`, not grey', () => {
+    expect(view({ text: 'такси 18к', sending: true })).toMatch(/<input[^>]*class="[^"]*text-ink(?!-)/);
+  });
+});
+
+/**
  * FT-129, board «Главная без связи»: without a connection the microphone is a `track` circle with `ink`, not the main
  * button, and says it does not work; the send arrow writes on the device.
  */
