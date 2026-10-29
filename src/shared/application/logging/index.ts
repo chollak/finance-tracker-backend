@@ -71,18 +71,23 @@ export function registerLoggerFactory(factory: LoggerFactory): void {
  * Get a logger for a specific category
  *
  * This is the main entry point for application layer logging.
- * It uses the registered factory or falls back to console logging.
+ * The factory is looked up on every call, not here: application files take their logger at import
+ * (`const logger = getLogger(…)`), before the composition root registers the factory, and a logger resolved
+ * then would write through the console fallback for good — without time and level (FT-165).
+ * Until a factory is registered, lines go to the console fallback.
  *
  * @example
  * const logger = getLogger(LogCategory.TRANSACTION);
  * logger.info('Transaction created', { transactionId: '123' });
  */
 export function getLogger(category: LogCategoryType | string): ILogger {
-  if (loggerFactory) {
-    return loggerFactory(category);
-  }
-  // Fallback to console logger if no factory registered
-  return createConsoleLogger(category);
+  const current = (): ILogger => (loggerFactory ? loggerFactory(category) : createConsoleLogger(category));
+  return {
+    debug: (message, context) => current().debug(message, context),
+    info: (message, context) => current().info(message, context),
+    warn: (message, context) => current().warn(message, context),
+    error: (message, error, context) => current().error(message, error, context),
+  };
 }
 
 /**
