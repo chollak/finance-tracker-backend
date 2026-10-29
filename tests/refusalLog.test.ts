@@ -174,4 +174,142 @@ describe('refusals in the log (FT-166)', () => {
     expect(REFUSAL_LOG_WINDOW_MS).toBe(10 * MINUTE);
     expect(REFUSAL_LOG_MAX_IDS).toBe(1000);
   });
+
+  it('without options remembers a thousand ids: the first is forgotten after a thousand more, the last is not', () => {
+    const log = createRefusalLog(logger, MESSAGE);
+    for (let id = 1; id <= REFUSAL_LOG_MAX_IDS + 1; id++) log.refused(id);
+    expect(lines).toHaveLength(REFUSAL_LOG_MAX_IDS + 1);
+
+    log.refused(REFUSAL_LOG_MAX_IDS + 1);
+    expect(lines).toHaveLength(REFUSAL_LOG_MAX_IDS + 1);
+
+    log.refused(1);
+    expect(lines).toHaveLength(REFUSAL_LOG_MAX_IDS + 2);
+  });
+});
+
+describe('the edges of the refusal window (FT-166)', () => {
+  let lines: Line[];
+  let logger: ILogger;
+  let start: number;
+
+  /** When each line was written, from the start of the test. */
+  const timeline = () => lines.map(line => [line.at - start, line.message, line.context]);
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    start = Date.now();
+    lines = [];
+    logger = {
+      debug: jest.fn(),
+      info: jest.fn(),
+      error: jest.fn(),
+      warn: (message, context) => lines.push({ at: Date.now(), message, context }),
+    };
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('a refusal exactly when the window ends opens a new one: written in full, no summary, no timer', () => {
+    const log = createRefusalLog(logger, MESSAGE);
+    log.refused(STRANGER, { updateType: 'message' });
+    jest.advanceTimersByTime(REFUSAL_LOG_WINDOW_MS);
+
+    log.refused(STRANGER, { updateType: 'callback_query' });
+    jest.advanceTimersByTime(3 * REFUSAL_LOG_WINDOW_MS);
+
+    expect(timeline()).toEqual([
+      [0, MESSAGE, { telegramId: STRANGER, updateType: 'message' }],
+      [REFUSAL_LOG_WINDOW_MS, MESSAGE, { telegramId: STRANGER, updateType: 'callback_query' }],
+    ]);
+    expect(jest.getTimerCount()).toBe(0);
+  });
+
+  it('a refusal a millisecond before the window ends is counted and summarised when it ends', () => {
+    const log = createRefusalLog(logger, MESSAGE);
+    log.refused(STRANGER);
+    jest.advanceTimersByTime(REFUSAL_LOG_WINDOW_MS - 1);
+
+    log.refused(STRANGER);
+    expect(jest.getTimerCount()).toBe(1);
+    jest.advanceTimersByTime(5 * REFUSAL_LOG_WINDOW_MS);
+
+    expect(timeline()).toEqual([
+      [0, MESSAGE, { telegramId: STRANGER }],
+      [REFUSAL_LOG_WINDOW_MS, `${MESSAGE} (repeats)`, { telegramId: STRANGER, skipped: 1, windowMinutes: 10 }],
+    ]);
+    expect(jest.getTimerCount()).toBe(0);
+  });
+
+  it('windows chain: a refusal soon after a summary goes into the next summary, without its context', () => {
+    const log = createRefusalLog(logger, MESSAGE);
+    log.refused(STRANGER, { path: '/api/settings' });
+    jest.advanceTimersByTime(MINUTE);
+    log.refused(STRANGER, { path: '/api/settings' });
+    // The summary at 10 minutes opens the next window, so 6 minutes after it is still inside
+    jest.advanceTimersByTime(REFUSAL_LOG_WINDOW_MS + 5 * MINUTE);
+
+    log.refused(STRANGER, { path: '/api/accounts' });
+    jest.advanceTimersByTime(3 * REFUSAL_LOG_WINDOW_MS);
+
+    expect(timeline()).toEqual([
+      [0, MESSAGE, { telegramId: STRANGER, path: '/api/settings' }],
+      [REFUSAL_LOG_WINDOW_MS, `${MESSAGE} (repeats)`, { telegramId: STRANGER, skipped: 1, windowMinutes: 10 }],
+      [2 * REFUSAL_LOG_WINDOW_MS, `${MESSAGE} (repeats)`, { telegramId: STRANGER, skipped: 1, windowMinutes: 10 }],
+    ]);
+  });
+
+  it('a summary late behind a busy event loop goes out before the new line, and only once', () => {
+    const log = createRefusalLog(logger, MESSAGE);
+    log.refused(STRANGER);
+    log.refused(STRANGER);
+    // The clock passes the window without the timer firing
+    jest.setSystemTime(Date.now() + REFUSAL_LOG_WINDOW_MS + 1000);
+
+    log.refused(STRANGER, { updateType: 'message' });
+    jest.advanceTimersByTime(5 * REFUSAL_LOG_WINDOW_MS);
+
+    expect(lines.map(line => [line.message, line.context])).toEqual([
+      [MESSAGE, { telegramId: STRANGER }],
+      [`${MESSAGE} (repeats)`, { telegramId: STRANGER, skipped: 1, windowMinutes: 10 }],
+      [MESSAGE, { telegramId: STRANGER, updateType: 'message' }],
+    ]);
+    expect(jest.getTimerCount()).toBe(0);
+  });
+
+  it('keeps one timer per id with skipped refusals, and a forgotten id takes its timer with it', () => {
+    const log = createRefusalLog(logger, MESSAGE);
+    for (let id = 1; id <= REFUSAL_LOG_MAX_IDS; id++) {
+      log.refused(id);
+      log.refused(id);
+    }
+    expect(jest.getTimerCount()).toBe(REFUSAL_LOG_MAX_IDS);
+    for (let i = 0; i < 100; i++) log.refused(500);
+    expect(jest.getTimerCount()).toBe(REFUSAL_LOG_MAX_IDS);
+
+    // One more id forgets id 1: its summary first, then the new id; its timer is gone
+    lines = [];
+    log.refused(REFUSAL_LOG_MAX_IDS + 1);
+    expect(lines.map(line => line.context)).toEqual([
+      { telegramId: 1, skipped: 1, windowMinutes: 10 },
+      { telegramId: REFUSAL_LOG_MAX_IDS + 1 },
+    ]);
+    expect(jest.getTimerCount()).toBe(REFUSAL_LOG_MAX_IDS - 1);
+
+    // Id 1 comes back as new and forgets id 2 the same way
+    log.refused(1);
+    expect(lines.slice(-2).map(line => line.context)).toEqual([
+      { telegramId: 2, skipped: 1, windowMinutes: 10 },
+      { telegramId: 1 },
+    ]);
+
+    // The window ends: ids 3…1000 write their summaries, 500 with its 101, and no timer is left
+    lines = [];
+    jest.advanceTimersByTime(REFUSAL_LOG_WINDOW_MS);
+    expect(lines).toHaveLength(REFUSAL_LOG_MAX_IDS - 2);
+    expect(lines.find(line => line.context?.telegramId === 500)?.context?.skipped).toBe(101);
+    expect(jest.getTimerCount()).toBe(0);
+  });
 });

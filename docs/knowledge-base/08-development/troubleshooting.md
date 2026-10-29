@@ -469,7 +469,8 @@ names each refused Telegram id once, at its first refusal: `Telegram update from
 (bot) or `Request from a Telegram user who is not allowed refused` (API), with `telegramId`. That is also how to find
 your own id. Repeats of the same id within 10 minutes are not written one by one (FT-166): when the 10 minutes are
 over, one line with `(repeats)` says how many were skipped (`skipped`, `windowMinutes`). Someone who keeps writing
-costs one line per 10 minutes, not one per message.
+costs one line per 10 minutes, not one per message. The windows chain: the next one starts at the `(repeats)` line, so
+a refusal of the same id within 10 minutes after it goes into the next summary, without its `path` or `updateType`.
 
 ```bash
 journalctl -u <service> --grep "not allowed" --no-pager | tail -n 20
