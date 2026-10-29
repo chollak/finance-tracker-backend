@@ -468,6 +468,27 @@ describe('startTelegramBot', () => {
       expect(onPollingFailed).toHaveBeenCalledTimes(1);
     });
 
+    it('stays within a timer’s limit: past it Node would fire at once and count every launch as started', async () => {
+      jest.useFakeTimers();
+      process.env.TELEGRAM_POLLING_MAX_RETRIES = '20';
+      const { start, launch, launches } = await loadBotWithMocks();
+      const { getTelegramBotStatus, POLLING_STABLE_MS } = await import('../src/delivery/messaging/telegram/telegramBot');
+      // 5 s doubling 19 times is 2 621 440 s, over 2^31 − 1 ms
+      expect(POLLING_STABLE_MS).toBe(2_147_483_647);
+
+      start();
+      (launch.mock.calls[0] as unknown as [() => void])[0]();
+      await jest.advanceTimersByTimeAsync(1_000);
+      launches[0].reject(conflict());
+      await jest.advanceTimersByTimeAsync(5_000);
+      (launch.mock.calls[1] as unknown as [() => void])[0]();
+      await jest.advanceTimersByTimeAsync(1_000);
+      launches[1].reject(conflict());
+      await jest.advanceTimersByTimeAsync(0);
+
+      expect(getTelegramBotStatus()).toEqual(expect.objectContaining({ state: 'retrying', attempts: 2 }));
+    });
+
     it('counts a launch as started after longer than one long poll (50 s) and twice the longest pause', async () => {
       const { POLLING_STABLE_MS } = await import('../src/delivery/messaging/telegram/telegramBot');
 

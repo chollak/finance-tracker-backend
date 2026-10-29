@@ -41,8 +41,12 @@ const MAX_POLLING_RETRY_ATTEMPTS = AppConfig.TELEGRAM_POLLING_MAX_RETRIES;
 const POLLING_RETRY_BASE_DELAY_MS = AppConfig.TELEGRAM_POLLING_RETRY_BASE_MS;
 let telegramBotStatus: TelegramBotRuntimeStatus = { state: 'disabled', attempts: 0 };
 
+/** Above this `setTimeout` fires at once (Node's 2^31 − 1 ms). */
+const MAX_TIMER_MS = 2_147_483_647;
+
+/** The pause before a launch, doubling; never past a timer's limit, which would make it no pause at all. */
 function retryDelay(attempt: number): number {
-  return POLLING_RETRY_BASE_DELAY_MS * Math.pow(2, Math.max(0, attempt - 1));
+  return Math.min(POLLING_RETRY_BASE_DELAY_MS * Math.pow(2, Math.max(0, attempt - 1)), MAX_TIMER_MS);
 }
 
 /**
@@ -386,7 +390,8 @@ export function startTelegramBot(
         logger.info('Telegram bot stopped');
         return;
       }
-      logger.warn('Telegram updates still being handled; Telegram sends them again after the restart', { graceMs });
+      // Updates still handled, or a launch still waiting for Telegram (getMe, deleteWebhook)
+      logger.warn('Telegram bot did not stop in time; Telegram sends the updates it did not confirm again after the restart', { graceMs });
     };
     return { stop };
 
