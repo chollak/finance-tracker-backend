@@ -17,6 +17,11 @@ export interface AnalysisContext {
   categories?: PromptCategory[];
   /** The user's current names of starter categories by key — learned patterns are shown in them. */
   presetNames?: Map<string, string>;
+  /**
+   * The day the phrase was said, YYYY-MM-DD on the user's calendar (FT-175): «вчера» and a weekday count from it,
+   * and a record without a date gets it. Today when absent.
+   */
+  today?: string;
 }
 
 /** Where the text and voice use cases get the user's categories; implemented by the category module. */
