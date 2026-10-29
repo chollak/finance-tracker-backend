@@ -7,17 +7,17 @@
 |---|---|
 | Как устроена доска, статусы, роли | [`docs/tasks/README.md`](docs/tasks/README.md) |
 | Почему план такой — лог решений | [`docs/tasks/decisions.md`](docs/tasks/decisions.md) |
-| Отложенные задачи, полные описания (24) | [`docs/tasks/backlog.md`](docs/tasks/backlog.md) |
+| Отложенные задачи, полные описания (21) | [`docs/tasks/backlog.md`](docs/tasks/backlog.md) |
 | Открытые задачи вехи 10 | [`docs/pastel/tasks.md`](docs/pastel/tasks.md) |
-| Закрытые задачи с отчётами (182) | [`docs/tasks/archive/`](docs/tasks/archive/) |
+| Закрытые задачи с отчётами (183) | [`docs/tasks/archive/`](docs/tasks/archive/) |
 
 ---
 
 ## Текущий фокус — iOS: быстрая запись с iPhone
 
 Этап «Стабилизация перед iOS» пройден 2026-10-29: 13 задач, PR #112–#124 (`docs/tasks/decisions.md`). Обсуждение
-iOS прошло в тот же день: первым — Shortcut FT-160 (кода нет), iOS-приложение FT-161 разбито на FT-175…FT-181,
-FT-152 остаётся в backlog. В очередь задачи ставит штаб.
+iOS прошло в тот же день: минимальное нативное приложение FT-161 с готовыми командами, разбито на FT-175…FT-179;
+Shortcut FT-160 отменён, FT-152 остаётся в backlog. В очередь задачи ставит штаб.
 
 Что сделал этап: перезапуск бота не теряет и не задваивает записи (FT-167); итог дня, не ушедший при выключенном ПК,
 догоняется утром (FT-164); остаток не считает дважды записи до первого запуска (FT-163), а экран счёта помечает
@@ -85,19 +85,16 @@ iPhone при выключенном ПК.
 | [FT-071](docs/tasks/backlog.md) | Rate limits тесноваты под реальное использование | политика лимитов |
 | [FT-152](docs/tasks/backlog.md) | Без сети класть сложную фразу в очередь и разбирать на сервере | детали — с Шукуром; время ввода даст FT-175 |
 | [FT-159](docs/tasks/backlog.md) | Переезд с мака на ПК — сделан, кроме одной проверки | Шукур: Mini App на iPhone при выключенном ПК |
-| [FT-160](docs/tasks/backlog.md) | Shortcut на Action Button через Tailscale; проверки диктовки и Wallet для FT-161 | первым, кода нет (решение 2026-10-29); Шукур собирает на iPhone |
-| [FT-161](docs/tasks/backlog.md) | Минимальное iOS-приложение для быстрой записи — общая задача, решения 2026-10-29 | FT-160, FT-175…FT-181 |
+| [FT-161](docs/tasks/backlog.md) | Минимальное нативное iOS-приложение для быстрой записи — общая задача, решения 2026-10-29 | FT-175…FT-179 |
 | [FT-169](docs/tasks/backlog.md) | Свой знак для Kapelka вместо страницы тетради | знак на холсте от Шукура |
 | [FT-172](docs/tasks/backlog.md) | Повторная доставка апдейтов Telegram: `/undo`, полное подтверждение, `answeredBy` | команды Шукура взять в работу |
 | [FT-173](docs/tasks/backlog.md) | След у подписки и ревизии, пропущенных при выключенном боте | найдено при проверке FT-164; не в этапе стабилизации |
 | [FT-174](docs/tasks/backlog.md) | Мёртвые admin-маршруты: `requireAdmin` без `requireAuth`, всегда 401 | найдено при проверке FT-162; убрать или поставить `requireAuth` |
 | [FT-175](docs/tasks/backlog.md) | Quick capture помнит время ввода (`capturedAt`) | старта iOS-работы; параллельно с FT-177 |
 | [FT-176](docs/tasks/backlog.md) | Quick capture принимает оплату Apple Pay готовой суммой | FT-175 |
-| [FT-177](docs/tasks/backlog.md) | iOS: каркас `ios/`, настройки, токен в Keychain | старта iOS-работы; Xcode на маке (Шукур) |
-| [FT-178](docs/tasks/backlog.md) | iOS: очередь записей и отправка | FT-175, FT-177 |
-| [FT-179](docs/tasks/backlog.md) | iOS: intent на Action Button и «Отправить очередь» | FT-178 |
-| [FT-180](docs/tasks/backlog.md) | iOS: экран со списком фраз и статусами | FT-178 |
-| [FT-181](docs/tasks/backlog.md) | iOS: оплаты Apple Pay записываются сами | FT-176, FT-178; данные Wallet из FT-160 |
+| [FT-177](docs/tasks/backlog.md) | iOS: каркас, настройки, токен в Keychain, очередь | старта iOS-работы; Xcode на маке (Шукур); параллельно с FT-175 |
+| [FT-178](docs/tasks/backlog.md) | iOS: голос с Action Button и главный экран | FT-177 |
+| [FT-179](docs/tasks/backlog.md) | iOS: оплаты Apple Pay записываются сами | FT-176, FT-177 |
 
 ---
 
