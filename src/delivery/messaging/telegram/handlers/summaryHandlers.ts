@@ -13,12 +13,18 @@ const logger = createLogger(LogCategory.TELEGRAM);
 /**
  * The daily summary sent by the scheduler (FT-124) into the user's private chat with the bot — its id is the
  * user's Telegram id. Telegram's refusal (the bot blocked, the chat never started) is thrown to the scheduler; a
- * request that never left the machine is thrown as NoticeNotSentError, so the scheduler tries again (FT-144).
+ * request that never left the machine is thrown as NoticeNotSentError, so the scheduler tries again (FT-144). The
+ * summary of a day that did not go out by its midnight comes the next morning as «Итоги за вчера» (FT-164).
  */
 export function summarySender(telegram: Pick<Telegram, 'sendMessage'>): DailySummarySender {
   return {
-    async send(recipient, summary) {
-      const notice = formatDaySummary(summary, { today: summary.day, appUrl: appLinks.home(recipient.telegramId), scheduled: true });
+    async send(recipient, summary, options = {}) {
+      const notice = formatDaySummary(summary, {
+        today: summary.day,
+        appUrl: appLinks.home(recipient.telegramId),
+        scheduled: true,
+        late: options.late,
+      });
       const message = await sendOrNotSent(() => telegram.sendMessage(recipient.telegramId, notice.text, {
         parse_mode: 'HTML',
         reply_markup: { inline_keyboard: notice.keyboard },
@@ -36,7 +42,7 @@ export function registerSummaryHandlers(bot: Telegraf<BotContext>) {
 /**
  * The question becomes the answer «Отметил: 19 октября трат не было.», kept with the notice. If something was
  * recorded for the day since the question («обед 45к» as the hint says), nothing is kept: the question becomes
- * the day's summary, without the button.
+ * the day's summary, without the button. Under «Итоги за вчера» both keep that title (FT-164).
  */
 async function handleNoSpending(ctx: BotContext) {
   const day = ((ctx as unknown as { match?: RegExpExecArray }).match ?? [])[1];
@@ -48,8 +54,8 @@ async function handleNoSpending(ctx: BotContext) {
     const answer = await notifier.answerNoSpending(await botUserId(ctx), day);
     const today = todayDateOnly();
     const notice = answer.kind === 'recorded'
-      ? formatDaySummary(answer.summary, { today, appUrl: appLinks.home(String(ctx.from?.id ?? '')), scheduled: true })
-      : formatNoSpending(day, today);
+      ? formatDaySummary(answer.summary, { today, appUrl: appLinks.home(String(ctx.from?.id ?? '')), scheduled: true, late: answer.late })
+      : formatNoSpending(day, today, answer.late);
     await ctx.editMessageText(notice.text, { parse_mode: 'HTML', reply_markup: { inline_keyboard: notice.keyboard } });
   } catch (error) {
     logger.error('«Да, не было» failed', error as Error, { day });
