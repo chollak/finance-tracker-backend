@@ -28,7 +28,8 @@ struct MainView: View {
 
                 Section {
                     Text(model.statusLine)
-                    if model.pendingCount > 0 {
+                    // After a refused token only new settings send again
+                    if model.pendingCount > 0, model.isConfigured, !model.queueState.tokenRefused {
                         Button("Отправить сейчас") {
                             Task { await model.sendNow() }
                         }
@@ -66,6 +67,8 @@ struct MainView: View {
                 try await model.add(phrase)
                 text = ""
                 error = nil
+                // The next phrase follows often: Return must not close the keyboard
+                fieldFocused = true
             } catch CaptureTextError.empty {
                 error = nil
             } catch CaptureTextError.tooLong {

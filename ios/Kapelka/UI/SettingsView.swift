@@ -10,6 +10,12 @@ struct SettingsView: View {
     @State private var checkResult: String?
     @State private var isChecking = false
     @State private var error: String?
+    @FocusState private var focusedField: Field?
+
+    private enum Field {
+        case address
+        case token
+    }
 
     init(model: AppModel) {
         self.model = model
@@ -25,6 +31,7 @@ struct SettingsView: View {
                         .textContentType(.URL)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
+                        .focused($focusedField, equals: .address)
                 } header: {
                     Text("Адрес сервера")
                 } footer: {
@@ -35,6 +42,7 @@ struct SettingsView: View {
                     SecureField(model.hasToken ? "Сохранён — вставь новый, чтобы заменить" : "Токен", text: $token)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
+                        .focused($focusedField, equals: .token)
                 } header: {
                     Text("Токен")
                 } footer: {
@@ -57,6 +65,7 @@ struct SettingsView: View {
                     }
                 }
             }
+            .scrollDismissesKeyboard(.interactively)
             .navigationTitle("Настройки")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -72,6 +81,8 @@ struct SettingsView: View {
     }
 
     private func check() {
+        // The answer is under the fields: the keyboard would cover it
+        focusedField = nil
         isChecking = true
         checkResult = nil
         Task {
