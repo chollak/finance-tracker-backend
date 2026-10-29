@@ -5,6 +5,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useCategories, type Category } from '@/entities/category';
 import type { Account } from '@/entities/account';
 import { pendingRecordsOf } from '@/entities/transaction';
+import { REQUEST_TIMEOUT_CODE } from '@/shared/api';
 import { memoryOfflineStorage, setOfflineStorage, useConnectivityStore, useOutboxStore } from '@/shared/lib/offline';
 import { MINUS, NBSP } from '@/shared/lib/money';
 import { ROUTES } from '@/shared/lib/constants/routes';
@@ -175,6 +176,27 @@ describe('a send that failed', () => {
 
     expect(useCaptureStore.getState().draft).toBe('кофе 25к, такси 18к');
     expect(shownToast()).toMatchObject({ kind: 'info', title: 'Нет связи с сервером' });
+  });
+
+  it('that waited too long keeps the text and says the answer did not come, not that the connection is gone (FT-146)', async () => {
+    mutateAsync.mockRejectedValue({ message: 'Request timed out', statusCode: 0, code: REQUEST_TIMEOUT_CODE });
+
+    await mountSend().send('кофе 25к');
+
+    expect(useCaptureStore.getState().draft).toBe('кофе 25к, такси 18к');
+    expect(navigate).not.toHaveBeenCalled();
+    expect(shownToast()).toMatchObject({ kind: 'info', title: 'Не дождался ответа', detail: 'Текст остался в поле — отправьте ещё раз' });
+  });
+
+  it('a press again after a timeout sends the same client id: the server may have written it after all', async () => {
+    mutateAsync.mockRejectedValueOnce({ message: 'Request timed out', statusCode: 0, code: REQUEST_TIMEOUT_CODE }).mockResolvedValueOnce(result([{}]));
+    const { send } = mountSend();
+
+    await send('кофе 25к');
+    await send('кофе 25к');
+
+    const [first, second] = sentClientIds();
+    expect(second).toBe(first);
   });
 
   it('a press again sends the same client id, so a lost answer does not write twice (FT-106)', async () => {

@@ -24,6 +24,14 @@ export class CaptureTextError extends Error {
   }
 }
 
+/**
+ * How long the composer waits for a phrase to be read (FT-146) before it gives up and keeps the text in the field. The
+ * AI answers in 1–5 s; the server waits for it `OPENAI_TIMEOUT_MS` (20 s) and asks once more (FT-145), so 30 s still
+ * lets that one retry come back. Sending again after giving up is safe: the same client id (FT-106) returns the records
+ * the server may have written after all instead of writing them twice.
+ */
+export const QUICK_CAPTURE_TIMEOUT_MS = 30_000;
+
 export interface QuickCaptureInput {
   text: string;
   userId: string;
@@ -48,13 +56,17 @@ export function useQuickCapture() {
         throw new CaptureTextError(validation.reason);
       }
 
-      const response = await apiClient.post<QuickCaptureResult>(API_ENDPOINTS.QUICK_CAPTURE, {
-        text: validation.text,
-        userId,
-        userName,
-        source: 'miniapp',
-        ...(clientId ? { clientId } : {}),
-      });
+      const response = await apiClient.post<QuickCaptureResult>(
+        API_ENDPOINTS.QUICK_CAPTURE,
+        {
+          text: validation.text,
+          userId,
+          userName,
+          source: 'miniapp',
+          ...(clientId ? { clientId } : {}),
+        },
+        { timeoutMs: QUICK_CAPTURE_TIMEOUT_MS }
+      );
 
       return response.data;
     },
