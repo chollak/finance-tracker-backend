@@ -2,7 +2,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { createLogger, LogCategory } from '../logging';
 import { CATEGORY_PRESETS, presetKeyForLearning } from '../../../modules/category/domain/categoryPresets';
-import { namingWordsOf } from '../../../modules/voiceProcessing/domain/categoryGuess';
+import { isBareBrand, namingWordsOf } from '../../../modules/voiceProcessing/domain/categoryGuess';
 
 const logger = createLogger(LogCategory.LEARNING);
 
@@ -125,8 +125,11 @@ export class TransactionLearningService {
         return CATEGORY_PRESETS.find(preset => preset.key === key)?.name;
       };
 
+      // A bare brand («yandex» of an old seed, FT-150) would tell the AI that «yandex plus» is transport too
+      const shown = (words: string[]) => words.filter(word => !isBareBrand(word));
+
       let enhancement = '\n\nИЗУЧЕННЫЕ ПАТТЕРНЫ (используй для точной категоризации):\n';
-      
+
       // Add learned category patterns
       if (patterns.categories.length > 0) {
         enhancement += '\nКАТЕГОРИИ:\n';
@@ -136,7 +139,8 @@ export class TransactionLearningService {
           .slice(0, 20) // Top 20 patterns
           .forEach(pattern => {
             const name = categoryName(pattern.category);
-            if (name) enhancement += `• "${pattern.keywords.join('", "')}" → ${name}\n`;
+            const keywords = shown(pattern.keywords);
+            if (name && keywords.length > 0) enhancement += `• "${keywords.join('", "')}" → ${name}\n`;
           });
       }
 
@@ -148,7 +152,9 @@ export class TransactionLearningService {
           .sort((a, b) => b.usageCount - a.usageCount)
           .slice(0, 15) // Top 15 merchants
           .forEach(pattern => {
-            enhancement += `• "${pattern.aliases.join('", "')}" → ${pattern.normalizedName}`;
+            const aliases = shown(pattern.aliases);
+            if (aliases.length === 0) return;
+            enhancement += `• "${aliases.join('", "')}" → ${pattern.normalizedName}`;
             const name = categoryName(pattern.category);
             if (name) enhancement += ` (${name})`;
             enhancement += '\n';
