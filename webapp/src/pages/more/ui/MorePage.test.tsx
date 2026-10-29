@@ -356,7 +356,7 @@ describe('«Ещё» in Telegram', () => {
     const choices = () => [...sheet()!.querySelectorAll('[role="radio"]')].map((option) => parts(option));
     const checked = () => parts(sheet()!.querySelector('[role="radio"][aria-checked="true"]')!)[0];
     const toasts = () => useUndoToastStore.getState().stack.map((entry) => [entry.title, entry.detail]);
-    const NOTE = 'Сюда пойдут новые записи, если в них не назван другой счёт или валюта: «нал», «картой», «55$».';
+    const NOTE = 'Сюда пойдут новые записи в сумах, если в них не назван другой счёт: «нал», «картой»; записи с «$» — на счёт в долларах.';
 
     it('sits under the accounts and opens a sheet, as a row with a chevron does', async () => {
       await renderMore();
@@ -366,7 +366,7 @@ describe('«Ещё» in Telegram', () => {
       expect(defaultState()).toBe('Счёт по умолчанию · Наличные · первый в списке');
     });
 
-    it('offers the visible accounts with their balance, the one records go to now checked; a hidden account is not offered', async () => {
+    it('offers the visible accounts in сум with their balance, the one records go to now checked; hidden and dollar ones are not offered', async () => {
       await renderMore();
 
       await press(defaultRow());
@@ -375,9 +375,10 @@ describe('«Ещё» in Telegram', () => {
       expect(choices()).toEqual([
         ['Наличные', `0${NBSP}сум`],
         ['Карта', `0${NBSP}сум`],
-        ['Доллары', `0,00${NBSP}USD`],
       ]);
       expect(squash(sheet()?.textContent)).not.toContain('Старая карта');
+      // Only сум (Shukur, 2026-10-29): a record with «$» goes to the dollar account by its currency
+      expect(choices().map(([name]) => name)).not.toContain('Доллары');
       expect(checked()).toBe('Наличные');
       expect(squash(sheet()?.textContent)).toContain(NOTE);
     });
@@ -399,11 +400,11 @@ describe('«Ещё» in Telegram', () => {
       await renderMore();
 
       await press(defaultRow());
-      await press(inSheet('Доллары'));
-      expect(defaultState()).toBe('Счёт по умолчанию · Доллары');
+      await press(inSheet('Карта'));
+      expect(defaultState()).toBe('Счёт по умолчанию · Карта');
 
       await press(defaultRow());
-      expect(checked()).toBe('Доллары');
+      expect(checked()).toBe('Карта');
     });
 
     it('pressing the account already chosen saves nothing', async () => {
@@ -436,7 +437,7 @@ describe('«Ещё» in Telegram', () => {
         if (url === '/settings') return { success: true, data: settings } as never;
         return new Promise<never>(() => {});
       });
-      vi.mocked(apiClient.patch).mockRejectedValue({ statusCode: 400, code: 'VALIDATION_ERROR', message: 'defaultAccountId must be one of your visible accounts' });
+      vi.mocked(apiClient.patch).mockRejectedValue({ statusCode: 400, code: 'VALIDATION_ERROR', message: 'defaultAccountId must be one of your visible accounts in сум' });
       const accountReads = () => vi.mocked(apiClient.get).mock.calls.filter(([url]) => url === '/accounts').length;
       await renderMore();
       await press(defaultRow());
@@ -450,7 +451,7 @@ describe('«Ещё» in Telegram', () => {
       expect(defaultState()).toBe('Счёт по умолчанию · Наличные · первый в списке');
       expect(accountReads()).toBeGreaterThan(readsBefore);
       await press(defaultRow());
-      expect(choices().map(([name]) => name)).toEqual(['Наличные', 'Доллары']);
+      expect(choices().map(([name]) => name)).toEqual(['Наличные']);
     });
 
     it('when the chosen account is hidden, the row and the sheet say records go to the first visible one', async () => {
@@ -462,12 +463,24 @@ describe('«Ещё» in Telegram', () => {
 
       expect(checked()).toBe('Наличные');
       expect(squash(sheet()?.textContent)).toContain('Счёт «Старая карта» скрыт — записи идут на первый в списке, «Наличные».');
-      expect(choices().map(([name]) => name)).toEqual(['Наличные', 'Карта', 'Доллары']);
+      expect(choices().map(([name]) => name)).toEqual(['Наличные', 'Карта']);
 
       // Choosing the first one makes it the default for good: a new order of accounts no longer moves it
       await press(inSheet('Наличные'));
       expect(apiClient.patch).toHaveBeenCalledWith('/settings', { defaultAccountId: 'cash' });
       expect(defaultState()).toBe('Счёт по умолчанию · Наличные');
+    });
+
+    it('a dollar account saved as the default before FT-149: records in сум go to the first in сум, and the row says why', async () => {
+      settings = { ...SETTINGS, defaultAccountId: 'usd' };
+      await renderMore();
+
+      expect(defaultState()).toBe('Счёт по умолчанию · Наличные · счёт «Доллары» не в сумах');
+      await press(defaultRow());
+
+      expect(checked()).toBe('Наличные');
+      expect(squash(sheet()?.textContent)).toContain('Счёт «Доллары» не в сумах — записи в сумах идут на первый в списке, «Наличные».');
+      expect(choices().map(([name]) => name)).toEqual(['Наличные', 'Карта']);
     });
 
     it('settings that did not load: the row says so and a press reads them again', async () => {

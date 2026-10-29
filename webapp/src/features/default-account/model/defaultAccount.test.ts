@@ -15,8 +15,9 @@ const ACCOUNTS = [CASH, CARD, USD, OLD];
 
 /**
  * FT-149: «Счёт по умолчанию» in «Ещё» (SettingsList.md: the row says its state; Picker.md: the accounts with their
- * balance and a radio). The account named is where new records go, as the server picks it (`accountBook.ts`): the
- * chosen one while visible, else the first visible — and the row says why when it is not the chosen one.
+ * balance and a radio). The account named is where new records in сум go, as the server picks it (`accountBook.ts`):
+ * the chosen one while visible and in сум, else the first visible in сум — and the row says why when it is not the chosen
+ * one. Only accounts in сум are offered: a record with «$» goes to a dollar account anyway (Shukur, 2026-10-29).
  */
 describe('defaultAccountView', () => {
   it('names the chosen account', () => {
@@ -27,13 +28,12 @@ describe('defaultAccountView', () => {
     expect(view.notes).toEqual([DEFAULT_ACCOUNT_NOTE]);
   });
 
-  it('offers only the visible accounts, with their balance, in their order', () => {
+  it('offers only the visible accounts in сум, with their balance, in their order: no hidden, no dollar ones', () => {
     const view = defaultAccountView(ACCOUNTS, 'card');
 
     expect(view.options).toEqual([
       { id: 'cash', name: 'Наличные', balance: `1${NBSP}250${NBSP}000${NBSP}сум` },
       { id: 'card', name: 'Карта', balance: `3${NBSP}180${NBSP}000${NBSP}сум` },
-      { id: 'usd', name: 'Доллары', balance: `420,00${NBSP}USD` },
     ]);
   });
 
@@ -56,15 +56,31 @@ describe('defaultAccountView', () => {
     expect(view.state).toBe('Наличные · счёт «Старая карта» скрыт');
     expect(view.notes).toEqual(['Счёт «Старая карта» скрыт — записи идут на первый в списке, «Наличные».', DEFAULT_ACCOUNT_NOTE]);
     // The hidden one is never offered
-    expect(view.options.map((option) => option.id)).toEqual(['cash', 'card', 'usd']);
+    expect(view.options.map((option) => option.id)).toEqual(['cash', 'card']);
   });
 
-  it('without a visible account there is nothing to choose', () => {
-    const view = defaultAccountView([], null);
+  it('a dollar account saved as the default before FT-149: the first visible in сум, and the row says why', () => {
+    const view = defaultAccountView(ACCOUNTS, 'usd');
 
-    expect(view.account).toBeNull();
-    expect(view.state).toBe('Счетов пока нет');
-    expect(view.options).toEqual([]);
+    expect(view.account?.id).toBe('cash');
+    expect(view.state).toBe('Наличные · счёт «Доллары» не в сумах');
+    expect(view.notes).toEqual(['Счёт «Доллары» не в сумах — записи в сумах идут на первый в списке, «Наличные».', DEFAULT_ACCOUNT_NOTE]);
+  });
+
+  it('a dollar account listed first is not «первый в списке»: the first in сум is', () => {
+    const view = defaultAccountView([USD, CARD, CASH], null);
+
+    expect(view.state).toBe('Карта · первый в списке');
+    expect(view.options.map((option) => option.id)).toEqual(['card', 'cash']);
+  });
+
+  it('says what the setting does for records in сум and where records with «$» go', () => {
+    expect(DEFAULT_ACCOUNT_NOTE).toBe('Сюда пойдут новые записи в сумах, если в них не назван другой счёт: «нал», «картой»; записи с «$» — на счёт в долларах.');
+  });
+
+  it('without a visible account in сум there is nothing to choose', () => {
+    expect(defaultAccountView([], null)).toMatchObject({ account: null, state: 'Счетов пока нет', options: [] });
+    expect(defaultAccountView([USD, OLD], 'usd')).toMatchObject({ account: null, state: 'Нет видимого счёта в сумах', options: [] });
   });
 });
 
