@@ -379,7 +379,7 @@ SELECT * FROM transaction LIMIT 10;
 | `PORT` | `3000` | Server port |
 | `DATABASE_TYPE` | `sqlite` | только `sqlite`; любое другое значение — ошибка запуска |
 | `FREE_LIMITS_ENABLED` | `false` | `true` включает лимиты бесплатного тарифа. На время вехи 10 выключены (решение Д3); использование всё равно считается |
-| `TG_BOT_API_KEY` | - | Telegram bot token |
+| `TG_BOT_API_KEY` | - | Telegram bot token; required in production while polling is on (FT-167) |
 | `ALLOWED_TELEGRAM_IDS` | - | Закрытый доступ (FT-153): Telegram id через запятую. Остальным бот молчит (в логе `warn` с id), API отвечает `403 ACCESS_NOT_ALLOWED` до создания пользователя, итоги дня и напоминания им не уходят. Пусто — пускает всех, но при `NODE_ENV=production` пустой список — ошибка запуска; запись не из цифр — ошибка запуска всегда. Свой id виден в логе: с непустым списком бот пишет `warn` с id каждого, кого не пустил |
 | `TG_BOT_USERNAME` | - | @username бота без `@` для ссылки входа в браузере `t.me/<bot>?start=login_…` (FT-128). Пусто — спрашивается у Telegram (`getMe`) |
 | `WEB_APP_URL` | `http://localhost:3000` | Public URL (перезаписывается `npm run dev:miniapp`; у живого экземпляра — адрес tailnet, [live-instance.md](live-instance.md)) |

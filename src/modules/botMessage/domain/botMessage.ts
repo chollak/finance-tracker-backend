@@ -74,6 +74,12 @@ export interface RecordMessageState {
   declined?: string[];
   /** Where «‹ Назад» of the category picker leads: back to the confirmation after «Другая» (FT-123). */
   back?: 'confirm';
+  /**
+   * The client id of the chat message whose amount changed a record here — the answer to «Сумму» or to a large
+   * amount, «не 25, а 28» (FT-167). Such an answer writes no record of its own: sent again after a restart, it is
+   * found by this instead, and changes nothing more.
+   */
+  answeredBy?: string;
 }
 
 /** The question the message asks, if any; at most one message of a chat has one. */

@@ -143,6 +143,16 @@ export class AppConfig {
       );
     }
 
+    // Polling on without a token left the bot `disabled` and /api/health at 200: in production the live instance went
+    // on without a word from the bot (FT-167). Running it without the bot is a choice: ENABLE_TELEGRAM_POLLING=false
+    const pollingOn = this.ENABLE_TELEGRAM_POLLING && !this.WEBHOOK_MODE;
+    if (this.NODE_ENV === 'production' && pollingOn && !this.TG_BOT_API_KEY.trim()) {
+      errors.push(
+        'TG_BOT_API_KEY is required in production while Telegram polling is on: without it the bot is silent and ' +
+        'the health check still says 200. Set the bot token, or ENABLE_TELEGRAM_POLLING=false to run without the bot'
+      );
+    }
+
     // A Shortcut token that is short or bound to nobody — or to someone without access — is a mistake, not a choice:
     // leaving both unset is how production goes without the Shortcut
     errors.push(...shortcutCapture.problems);
