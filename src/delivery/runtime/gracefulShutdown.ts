@@ -4,11 +4,13 @@ import { ILogger } from '../../shared/domain/ports/Logger';
 /** Under systemd's default `TimeoutStopSec` (90 s), so a hung close is ours to end, not SIGKILL's. */
 export const SHUTDOWN_TIMEOUT_MS = 10_000;
 
-/** What the process closes on its way out, in this order. */
+/** What the process closes on its way out, in this order; the bot and the HTTP server at once. */
 export interface ShutdownSteps {
   /** Timers that start work on their own: the bot's notices, the USD rate refresh. */
   stopSchedulers: () => void;
-  /** No new requests; the open ones finish (bounded by the timeout). */
+  /** No new updates; the ones being handled finish (bounded by `BOT_STOP_GRACE_MS`), FT-167. */
+  stopBot: () => Promise<void>;
+  /** No new requests; the open ones finish (bounded by `HTTP_CLOSE_GRACE_MS`). */
   closeHttpServer: () => Promise<void>;
   closeDatabase: () => Promise<void>;
 }
@@ -23,6 +25,7 @@ export type Shutdown = (reason: string, exitCode: number) => Promise<void>;
 
 /**
  * One way out of the process (FT-154): a signal exits 0, the bot failing for good in production exits non-zero.
+ * The bot and the HTTP server finish their work in flight before the database closes (FT-167).
  * A step that throws is logged and the next one still runs; a step that hangs is cut off by the timeout, which exits
  * with the same code. Only the first call counts — a SIGTERM during a failure exit does not turn it into exit 0.
  */
@@ -60,7 +63,9 @@ export function createGracefulShutdown(steps: ShutdownSteps, options: ShutdownOp
     }, timeoutMs);
 
     await runStep('stopSchedulers');
-    await runStep('closeHttpServer');
+    // Both stop taking work and finish what is in flight before the database closes (FT-167). At once: one after the
+    // other their grace periods would use up the whole timeout, and the database would be cut instead of closed
+    await Promise.all([runStep('stopBot'), runStep('closeHttpServer')]);
     await runStep('closeDatabase');
 
     clearTimeout(timer);
@@ -71,6 +76,13 @@ export function createGracefulShutdown(steps: ShutdownSteps, options: ShutdownOp
 
 /** Half of the shutdown timeout: open requests get this long, then the database still has time to close. */
 export const HTTP_CLOSE_GRACE_MS = 5_000;
+
+/**
+ * The same half for the bot's updates in flight (FT-167), which run at the same time as the open requests. An update
+ * still handled after it is left to Telegram: its offset was not confirmed, so it comes again after the restart, and
+ * the record it was writing is not written twice (the message's client id).
+ */
+export const BOT_STOP_GRACE_MS = 5_000;
 
 /**
  * `server.close()` as a promise: no new connections, idle keep-alive ones dropped (Node 19+). A request still open

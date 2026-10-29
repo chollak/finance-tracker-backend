@@ -93,7 +93,7 @@ export class QuickCaptureService {
       request.answer,
       request.userId,
       request.userName,
-      { source: request.source ?? 'miniapp' }
+      { source: request.source ?? 'miniapp', ...(request.clientId ? { clientId: request.clientId } : {}) }
     );
     const text = `${request.item.description} ${request.answer.text}`.trim();
     return buildResult(text, request.source, written ? [toCapturedTransaction(written)] : [], []);

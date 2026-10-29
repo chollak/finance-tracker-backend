@@ -640,6 +640,8 @@ export class ProcessTextInputUseCase {
       text,
       hints: detectPaymentHints(text),
       itemCount: 1,
+      // One record per answer: its id as is (FT-167)
+      clientId: options.clientId,
       source: options.source ?? 'miniapp',
       userId,
       userName,
