@@ -1,7 +1,6 @@
 import 'reflect-metadata';
 import express from 'express';
 import http from 'http';
-import { AddressInfo } from 'net';
 import { AuthModule } from '../src/modules/auth/authModule';
 import { SqliteLoginTokenRepository } from '../src/modules/auth/infrastructure/SqliteLoginTokenRepository';
 import { createAuthRoutes } from '../src/modules/auth/presentation/authController';
@@ -14,6 +13,7 @@ import { createWebSessionMiddleware } from '../src/delivery/web/express/middlewa
 import { signedInTelegramId } from '../src/delivery/web/express/middleware/authMiddleware';
 import { errorHandler, notFoundHandler } from '../src/delivery/web/express/middleware/errorMiddleware';
 import { openMigratedDatabase, TestDatabase } from './helpers/testDatabase';
+import { listenOnLoopback } from './helpers/testServer';
 
 /**
  * FT-128: signing in to the web app through the bot (decision Д4). `POST /api/auth/web-login` gives a one-time link
@@ -377,10 +377,8 @@ describe('web login through the bot (FT-128)', () => {
       });
       app.use('*', notFoundHandler);
       app.use(errorHandler);
-      server = await new Promise<http.Server>(resolve => {
-        const listening = app.listen(0, () => resolve(listening));
-      });
-      baseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+      // The strict limiter allows 10 logins per 15 minutes: the test server starts it with empty counters
+      ({ server, baseUrl } = await listenOnLoopback(app));
       // The bot created the user when it saw /start
       await userModule.getGetOrCreateUserUseCase().execute({ telegramId: TELEGRAM_ID, firstName: 'Шукур', userName: 'shukur' });
     });

@@ -1,6 +1,5 @@
 import express from 'express';
 import http from 'http';
-import { AddressInfo } from 'net';
 import {
   allowShortcutCapture,
   isLocalRequest,
@@ -8,6 +7,7 @@ import {
   requireAuth,
   signedInTelegramId,
 } from '../src/delivery/web/express/middleware/authMiddleware';
+import { listenOnLoopback } from './helpers/testServer';
 
 /**
  * The dev headers sign in without any proof: `X-Dev-User-Id` as any user, `X-Shortcut-User-Id` as the owner of a
@@ -39,10 +39,7 @@ beforeAll(async () => {
   app.post('/capture', allowShortcutCapture, (req, res) => {
     res.json({ userId: req.body.userId, source: req.body.source });
   });
-  server = await new Promise<http.Server>(resolve => {
-    const listening = app.listen(0, () => resolve(listening));
-  });
-  baseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  ({ server, baseUrl } = await listenOnLoopback(app));
 });
 
 afterAll(async () => {

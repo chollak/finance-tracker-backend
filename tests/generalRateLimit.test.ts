@@ -1,7 +1,5 @@
 import crypto from 'crypto';
 import express from 'express';
-import http from 'http';
-import { AddressInfo } from 'net';
 import {
   aiRateLimiter,
   createStandardRateLimiter,
@@ -11,6 +9,7 @@ import { UserModule } from '../src/modules/user/userModule';
 import { SqliteUserRepository } from '../src/modules/user/infrastructure/persistence/SqliteUserRepository';
 import { SqliteUserSettingsRepository } from '../src/modules/user/infrastructure/persistence/SqliteUserSettingsRepository';
 import { openMigratedDatabase, TestDatabase } from './helpers/testDatabase';
+import { listenOnLoopback } from './helpers/testServer';
 
 /**
  * FT-139: the general API limit counts per Telegram user, not per address.
@@ -31,10 +30,7 @@ interface App {
 }
 
 async function serve(app: express.Express): Promise<App> {
-  const server = await new Promise<http.Server>(resolve => {
-    const listening = app.listen(0, () => resolve(listening));
-  });
-  const baseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  const { baseUrl, close } = await listenOnLoopback(app);
   const get = (headers: Headers, path: string) => fetch(`${baseUrl}${path}`, { headers });
 
   return {
@@ -56,7 +52,7 @@ async function serve(app: express.Express): Promise<App> {
       const text = await res.text();
       return { status: res.status, body: text ? JSON.parse(text) : null, limit: res.headers.get('ratelimit-limit') };
     },
-    close: () => new Promise<void>(resolve => server.close(() => resolve())),
+    close,
   };
 }
 
@@ -186,8 +182,7 @@ describe('AI rate limit is unchanged (FT-139)', () => {
   let app: App;
 
   beforeEach(async () => {
-    aiRateLimiter.resetKey('127.0.0.1');
-    aiRateLimiter.resetKey('::ffff:127.0.0.1');
+    // serve() starts the shared AI limiter with empty counters
     const voiceApp = express();
     voiceApp.use('/api/voice', aiRateLimiter, (_req, res) => {
       res.json({ success: true });
