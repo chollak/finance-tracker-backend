@@ -288,7 +288,8 @@ function NoteRow({
           value={note}
           onChange={(event) => onNote(event.target.value)}
           onKeyDown={(event) => {
-            if (event.key !== 'Enter') return;
+            // Enter that confirms a word being composed (an input method) belongs to the word
+            if (event.key !== 'Enter' || event.nativeEvent.isComposing) return;
             event.preventDefault();
             end();
           }}

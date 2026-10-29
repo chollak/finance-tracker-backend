@@ -187,6 +187,18 @@ describe('the note while it is typed (FT-147)', () => {
     expect(note().value).toBe('Обед');
   });
 
+  it('Enter that confirms a word of an input method keeps the note open', async () => {
+    await renderScreen();
+    await focusNote();
+
+    await act(async () => {
+      note().dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', isComposing: true, bubbles: true }));
+    });
+
+    expect(document.activeElement).toBe(note());
+    expect(keypad()).toBeNull();
+  });
+
   it('the focus leaving the note brings the screen back', async () => {
     await renderScreen();
     await focusNote();
