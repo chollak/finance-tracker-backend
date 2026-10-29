@@ -172,7 +172,8 @@ describe('learned words for the guess rule (FT-138)', () => {
     const words = await new TransactionLearningService(tempDir).learnedCategoryWords();
 
     expect(words.get('cafe')).toEqual(['evos', 'maxway']);
-    expect(words.get('transport')).toEqual(['заправился', 'азс', 'такси', 'yandex']);
+    // A bare «yandex» is not taught as transport (FT-150)
+    expect(words.get('transport')).toEqual(['заправился', 'азс', 'такси']);
   });
 });
 
