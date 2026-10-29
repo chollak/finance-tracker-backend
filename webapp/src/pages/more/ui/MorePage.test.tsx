@@ -179,7 +179,15 @@ describe('«Ещё» in Telegram', () => {
 
     expect(document.body.querySelector('h1')?.textContent).toBe('Ещё');
     expect(sections()).toEqual([
-      { title: 'Деньги', rows: [`Счета и курс доллара · 3 счёта · курс ЦБ 12${NBSP}650`, 'Категории · 8 для расходов, 8 для доходов', 'Ревизия трат · Сентябрь · 6 трат на проверку'] },
+      {
+        title: 'Деньги',
+        rows: [
+          `Счета и курс доллара · 3 счёта · курс ЦБ 12${NBSP}650`,
+          'Счёт по умолчанию · Наличные · первый в списке',
+          'Категории · 8 для расходов, 8 для доходов',
+          'Ревизия трат · Сентябрь · 6 трат на проверку',
+        ],
+      },
       {
         title: 'Бот в Telegram',
         rows: [
@@ -239,7 +247,8 @@ describe('«Ещё» in Telegram', () => {
     });
     await renderMore();
 
-    expect(sections()[0].rows.slice(0, 2)).toEqual([`Счета и курс доллара · 3 счёта · свой курс 12${NBSP}700`, 'Категории · 7 для расходов, 8 для доходов']);
+    expect(sections()[0].rows[0]).toBe(`Счета и курс доллара · 3 счёта · свой курс 12${NBSP}700`);
+    expect(sections()[0].rows[2]).toBe('Категории · 7 для расходов, 8 для доходов');
   });
 
   it('«Сводка дня»: switch and time apply at once, are saved, and the row says the new state', async () => {
@@ -339,6 +348,122 @@ describe('«Ещё» in Telegram', () => {
     expect(inSheet('Светлая').getAttribute('aria-checked')).toBe('true');
     await press(inSheet('Закрыть'));
     expect(sections()[2].rows).toEqual(['Тема · Светлая']);
+  });
+
+  describe('«Счёт по умолчанию» (FT-149; SettingsList.md, Picker.md)', () => {
+    const defaultRow = () => row('Счёт по умолчанию');
+    const defaultState = () => sections()[0].rows[1];
+    const choices = () => [...sheet()!.querySelectorAll('[role="radio"]')].map((option) => parts(option));
+    const checked = () => parts(sheet()!.querySelector('[role="radio"][aria-checked="true"]')!)[0];
+    const toasts = () => useUndoToastStore.getState().stack.map((entry) => [entry.title, entry.detail]);
+    const NOTE = 'Сюда пойдут новые записи, если в них не назван другой счёт или валюта: «нал», «картой», «55$».';
+
+    it('sits under the accounts and opens a sheet, as a row with a chevron does', async () => {
+      await renderMore();
+
+      expect(defaultRow().tagName).toBe('BUTTON');
+      expect(defaultRow().getAttribute('aria-haspopup')).toBe('dialog');
+      expect(defaultState()).toBe('Счёт по умолчанию · Наличные · первый в списке');
+    });
+
+    it('offers the visible accounts with their balance, the one records go to now checked; a hidden account is not offered', async () => {
+      await renderMore();
+
+      await press(defaultRow());
+
+      expect(sheet()?.querySelector('h2')?.textContent).toBe('Счёт по умолчанию');
+      expect(choices()).toEqual([
+        ['Наличные', `0${NBSP}сум`],
+        ['Карта', `0${NBSP}сум`],
+        ['Доллары', `0,00${NBSP}USD`],
+      ]);
+      expect(squash(sheet()?.textContent)).not.toContain('Старая карта');
+      expect(checked()).toBe('Наличные');
+      expect(squash(sheet()?.textContent)).toContain(NOTE);
+    });
+
+    it('a choice is saved with PATCH /api/settings, closes the sheet and shows in the row before the answer', async () => {
+      vi.mocked(apiClient.patch).mockImplementation(() => new Promise<never>(() => {}));
+      await renderMore();
+
+      await press(defaultRow());
+      await press(inSheet('Карта'));
+
+      expect(apiClient.patch).toHaveBeenCalledTimes(1);
+      expect(apiClient.patch).toHaveBeenCalledWith('/settings', { defaultAccountId: 'card' });
+      expect(sheet()).toBeNull();
+      expect(defaultState()).toBe('Счёт по умолчанию · Карта');
+    });
+
+    it('the choice stays after the answer, and the sheet checks it next time', async () => {
+      await renderMore();
+
+      await press(defaultRow());
+      await press(inSheet('Доллары'));
+      expect(defaultState()).toBe('Счёт по умолчанию · Доллары');
+
+      await press(defaultRow());
+      expect(checked()).toBe('Доллары');
+    });
+
+    it('pressing the account already chosen saves nothing', async () => {
+      settings = { ...SETTINGS, defaultAccountId: 'card' };
+      await renderMore();
+
+      expect(defaultState()).toBe('Счёт по умолчанию · Карта');
+      await press(defaultRow());
+      await press(inSheet('Карта'));
+
+      expect(apiClient.patch).not.toHaveBeenCalled();
+      expect(sheet()).toBeNull();
+    });
+
+    it('a choice that was not saved puts the row back and says so', async () => {
+      vi.mocked(apiClient.patch).mockRejectedValue({ statusCode: 0, message: 'Network error' });
+      await renderMore();
+
+      await press(defaultRow());
+      await press(inSheet('Карта'));
+
+      expect(defaultState()).toBe('Счёт по умолчанию · Наличные · первый в списке');
+      expect(toasts()).toEqual([['Не получилось сменить счёт', 'Проверьте связь и попробуйте ещё раз']]);
+    });
+
+    it('when the chosen account is hidden, the row and the sheet say records go to the first visible one', async () => {
+      settings = { ...SETTINGS, defaultAccountId: 'old' };
+      await renderMore();
+
+      expect(defaultState()).toBe('Счёт по умолчанию · Наличные · счёт «Старая карта» скрыт');
+      await press(defaultRow());
+
+      expect(checked()).toBe('Наличные');
+      expect(squash(sheet()?.textContent)).toContain('Счёт «Старая карта» скрыт — записи идут на первый в списке, «Наличные».');
+      expect(choices().map(([name]) => name)).toEqual(['Наличные', 'Карта', 'Доллары']);
+
+      // Choosing the first one makes it the default for good: a new order of accounts no longer moves it
+      await press(inSheet('Наличные'));
+      expect(apiClient.patch).toHaveBeenCalledWith('/settings', { defaultAccountId: 'cash' });
+      expect(defaultState()).toBe('Счёт по умолчанию · Наличные');
+    });
+
+    it('settings that did not load: the row says so and a press reads them again', async () => {
+      let failed = true;
+      vi.mocked(apiClient.get).mockImplementation(async (url: string) => {
+        if (url === '/accounts') return { success: true, data: ACCOUNTS } as never;
+        if (url === '/settings') {
+          if (failed) throw { statusCode: 500, message: 'Server error' };
+          return { success: true, data: settings } as never;
+        }
+        return new Promise<never>(() => {});
+      });
+      await renderMore();
+
+      expect(defaultState()).toBe('Счёт по умолчанию · Не загрузилось. Нажмите, чтобы повторить');
+      failed = false;
+      await press(defaultRow());
+
+      expect(defaultState()).toBe('Счёт по умолчанию · Наличные · первый в списке');
+    });
   });
 
   describe('«Скачать все записи» (FT-126, board «Выгрузка записей»)', () => {
