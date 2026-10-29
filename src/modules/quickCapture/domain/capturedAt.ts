@@ -1,14 +1,16 @@
 import { isValidDateOnly, todayDateOnly } from '../../../shared/domain/dates/dateOnly';
 
-/**
- * How far the time of input may be from the server's clock (FT-175, docs/QUICK_CAPTURE_API.md «Time of input»).
- * Outside the limits it is not the time a phrase was typed — a wrong phone clock or a stuck record — so the capture
- * is refused rather than dated by a guess.
- */
+/** How far the time of input may be from the server's clock (FT-175, docs/QUICK_CAPTURE_API.md «Time of input»). */
 export const CAPTURED_AT_LIMITS = {
-  /** Ahead of the server: the phone's and the PC's clocks drift apart a little. */
+  /**
+   * Ahead of the server: the phone's and the PC's clocks drift apart a little. Further ahead one of them is wrong — a
+   * phrase is not typed after it arrives — so the server's clock dates it.
+   */
   aheadMs: 5 * 60 * 1000,
-  /** Behind the server: longer than the queue waits while the PC is off. */
+  /**
+   * Behind the server: longer than the queue waits while the PC is off. Older is a wrong phone clock or a stuck record,
+   * so the capture is refused rather than dated by a guess.
+   */
   ageMs: 30 * 24 * 60 * 60 * 1000,
 } as const;
 

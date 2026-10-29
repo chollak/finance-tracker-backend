@@ -3,7 +3,7 @@ import { getLogger, LogCategory } from '../../../shared/application/logging';
 import { ErrorFactory } from '../../../shared/domain/errors/AppError';
 import { buildCaptureAck } from './buildCaptureAck';
 import { capturedFromRecord, toCapturedTransaction } from './toCapturedTransaction';
-import { CAPTURED_AT_LIMITS, CapturedAtProblem, capturedAtProblem, inputDayOf } from '../domain/capturedAt';
+import { CAPTURED_AT_LIMITS, capturedAtProblem, inputDayOf } from '../domain/capturedAt';
 import {
   AmountAnswerRequest,
   CaptureReplay,
@@ -18,10 +18,7 @@ import {
 
 const logger = getLogger(LogCategory.TRANSACTION);
 
-const CAPTURED_AT_REFUSALS: Record<CapturedAtProblem, string> = {
-  ahead: `capturedAt is more than ${CAPTURED_AT_LIMITS.aheadMs / 60_000} minutes ahead of the server clock`,
-  too_old: `capturedAt is older than ${CAPTURED_AT_LIMITS.ageMs / 86_400_000} days`,
-};
+const CAPTURED_AT_TOO_OLD = `capturedAt is older than ${CAPTURED_AT_LIMITS.ageMs / 86_400_000} days`;
 
 /**
  * The shared quick-capture boundary. It owns the client-facing contract (status + ack)
@@ -99,10 +96,20 @@ export class QuickCaptureService {
     return result;
   }
 
-  /** The day the phrase was typed (FT-175); a time outside the limits is not one, so the capture is refused. */
+  /**
+   * The day the phrase was typed (FT-175). A time too far ahead is dated by the server's clock — the PC's in WSL lags
+   * after a sleep — and a time too old is not the time of input, so the capture is refused.
+   */
   private inputDay(capturedAt: Date): string {
-    const problem = capturedAtProblem(capturedAt, this.now());
-    if (problem) throw ErrorFactory.validation(CAPTURED_AT_REFUSALS[problem], 'capturedAt');
+    const now = this.now();
+    const problem = capturedAtProblem(capturedAt, now);
+    if (problem === 'too_old') throw ErrorFactory.validation(CAPTURED_AT_TOO_OLD, 'capturedAt');
+    if (problem === 'ahead') {
+      logger.warn('capturedAt is ahead of the server clock; dated by the server', {
+        aheadMinutes: Math.round((capturedAt.getTime() - now.getTime()) / 60_000),
+      });
+      return inputDayOf(now);
+    }
     return inputDayOf(capturedAt);
   }
 

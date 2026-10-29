@@ -187,26 +187,34 @@ A phrase from the iOS app's offline queue (FT-161) reaches the server hours or d
   record date is kept in (`toDateOnly` on create, `DEFAULT_TIME_ZONE`). The zone written in `capturedAt` only fixes the
   moment, it does not choose the day: JavaScript's `toISOString()` and many iOS formatters write UTC (`…Z`), and a
   phrase sent to the bot or typed in the Mini App at the same moment must land on the same day. On a trip the record
-  still lands on the Tashkent day, as it does through the bot.
+  still lands on the Tashkent day, as it does through the bot. `users.timezone` (which the bot's summaries of FT-124
+  read) is not read here, as by no record write yet: every user has the default, and when one does not, the day of
+  input and `toDateOnly` move to it together.
 - **The fast paths** (`такси 18к`, `перевел 500к на Alif`, `зарплата 5 млн`) write the record on the day of input;
-  «сегодня», «вчера», «позавчера» in the phrase move it back 0, 1 or 2 days and leave the record's note
-  (`src/modules/voiceProcessing/domain/phraseDay.ts`). A phrase that names any other day — a weekday («в
-  понедельник»), a month, «завтра», «неделю назад», «на прошлой неделе» — goes to the AI.
+  «сегодня», «вчера», «позавчера» (also `bugun`, `kecha`, `today`, `yesterday`) in the phrase move it back 0, 1 or
+  2 days and leave the record's note with the comma next to them (`src/modules/voiceProcessing/domain/phraseDay.ts`).
+  A phrase that names any other day — a weekday («в понедельник»), «завтра», «неделю назад», «на прошлой неделе»,
+  «вчерашний», «на днях», «в выходные» — goes to the AI. A month alone does not: «аренда на ноябрь» is a period, and
+  «5 ноября» holds a second number, which sends the phrase to the AI anyway.
 - **The AI** is told the day of input and its weekday («Сегодня 2026-10-27, вторник») and counts «вчера», a weekday
   and the rest from it; a record it gives no date gets the day of input.
-- **Limits**, by the server's clock: at most **5 minutes ahead** (the phone's and the PC's clocks drift a little) and at
-  most **30 days old** (longer than the queue waits while the PC is off; an older record would land in a month already
-  summed up and audited). Outside them it is not the time of input but a wrong phone clock or a stuck record.
-- **Outside the limits — `400 VALIDATION_ERROR`, nothing written**, not «now»: a record dated by «now» would sit on a
-  silently wrong day, while the iOS app keeps a refused record on the phone with its text and the error (FT-161:
-  «400 — ошибка у записи, больше не уходит»), so it can be written again by hand. A malformed value is `400` too.
-- **A repeat** of a `clientId` is answered with the first records **whatever its `capturedAt`** — another time, one out
-  of the limits, none: the limits are checked only for a capture that is about to be parsed, so a record written once
-  is never refused on a retry.
+- **Ahead of the server** by up to **5 minutes** the time is taken as is: the phone's and the PC's clocks drift a
+  little. **Further ahead it is dated by the server's clock** («now») with a warning in the log: a phrase is not typed
+  after it arrives, so one of the clocks is wrong — and the PC's in WSL is known to lag after a sleep, which with a
+  refusal would turn every capture from the phone into an error.
+- **Older than 30 days — `400 VALIDATION_ERROR`, nothing written**, not «now». 30 days is longer than the queue waits
+  while the PC is off, and an older record would land in a month already summed up and audited; such a time is a wrong
+  phone clock or a stuck record, and «now» would put the record on a silently wrong day. The iOS app keeps a refused
+  record on the phone with its text and the error (FT-161: «400 — ошибка у записи, больше не уходит»), so it can be
+  written again by hand. A malformed value is `400` too.
+- **A repeat** of a `clientId` is answered with the first records **whatever its `capturedAt`** — another time, one
+  older than 30 days, none: the limits are checked only for a capture that is about to be parsed, so a record written
+  once is never refused on a retry.
 - **Without `capturedAt`** the day of input is the server's today on the user's calendar, as before. One fix applies
   to every capture: «today» used to be the UTC day (`new Date().toISOString()`), so from 00:00 to 05:00 in Tashkent the
-  AI was told yesterday and the fast paths wrote yesterday's date (FT-175); it is now the Tashkent day, in the bot's
-  confirmation («Сегодня») too.
+  AI was told yesterday and the fast paths wrote yesterday's date (FT-175); it is now the Tashkent day, in the
+  response's `ack` («Сегодня») too. The bot words its confirmation itself (`recordMessageView.ts`) and already counted
+  in Tashkent.
 
 ---
 
@@ -339,7 +347,7 @@ Auth and rate-limit middleware answer earlier in the chain and use a **flat** sh
 | 400 | `VALIDATION_ERROR` | `Text is too long (maximum 2000 characters)` |
 | 400 | `VALIDATION_ERROR` | `Source must be one of: telegram, miniapp, ios_shortcut` |
 | 400 | `VALIDATION_ERROR` | `capturedAt must be an ISO 8601 time with seconds and a time zone, …` — field `capturedAt` |
-| 400 | `VALIDATION_ERROR` | `capturedAt is more than 5 minutes ahead of the server clock` · `capturedAt is older than 30 days` (not for a repeat of a `clientId`) |
+| 400 | `VALIDATION_ERROR` | `capturedAt is older than 30 days` (not for a repeat of a `clientId`); a time ahead of the server is not an error |
 | 400 | `INVALID_JSON` | Malformed JSON body (global error handler) |
 | 400 | `INVALID_USER_ID` | A body or query `userId` that is not one non-blank string — a number, an array, `null`, `''` (FT-162) |
 | 401 | `MISSING_AUTH_HEADER` | No `Authorization` header, no browser session |
@@ -481,8 +489,8 @@ curl -sS -X POST https://<tunnel-host>/api/quick-capture \
    retried request still creates duplicate transactions.
 4. **Rate limit is coarse.** The AI limiter is per-IP and its 20/15min budget is *shared* with `/api/voice/*`; it is not
    per-user and cannot be tuned separately for capture.
-5. **The time of input, not a date.** `capturedAt` (FT-175) dates a capture by when it was typed, within 5 minutes
-   ahead and 30 days back; a client cannot set a record's date directly. A day in the phrase («5 октября») still goes
+5. **The time of input, not a date.** `capturedAt` (FT-175) dates a capture by when it was typed, at most 30 days back
+   and never after the server's clock (beyond 5 minutes); a client cannot set a record's date directly. A day in the phrase («5 октября») still goes
    through the parser.
 6. **The Mini App Home composer calls this endpoint** (FT-114, replacing the quick-capture card). Authenticated
    Telegram Mini App users send a phrase through `POST /api/quick-capture` with a `clientId` per phrase; its records

@@ -19,6 +19,7 @@ import { openMigratedDatabase, TestDatabase } from './helpers/testDatabase';
 import { recordsOn } from './helpers/records';
 import { appConfigWith } from './helpers/appConfigWith';
 import { listenOnLoopback } from './helpers/testServer';
+import { todayDateOnly } from '../src/shared/domain/dates/dateOnly';
 
 /**
  * FT-155: the iPhone Shortcut writes on the live instance (NODE_ENV=production, decision 2026-10-26) with a token bound
@@ -249,6 +250,23 @@ describe('POST /api/quick-capture from the iPhone in production (FT-155)', () =>
     expect(repeat.body.data.transactions.map((t: { id: string }) => t.id)).toEqual(first.body.data.transactions.map((t: { id: string }) => t.id));
     expect(await written()).toHaveLength(1);
     expect(analyzeInput.mock.calls.length).toBeLessThanOrEqual(1);
+  });
+
+  it('dates a capture by its time of input and answers its repeat whatever time the repeat carries (FT-175)', async () => {
+    const typedAt = new Date(Date.now() - 2 * 86_400_000);
+    const first = await capture({ 'X-Shortcut-Capture-Token': TOKEN }, { text: 'кофе 25000', clientId: CLIENT_ID, capturedAt: typedAt.toISOString() });
+    const tooOld = new Date(Date.now() - 40 * 86_400_000).toISOString();
+    const repeat = await capture({ 'X-Shortcut-Capture-Token': TOKEN }, { text: 'кофе 25000', clientId: CLIENT_ID, capturedAt: tooOld });
+    const fresh = await capture({ 'X-Shortcut-Capture-Token': TOKEN }, { text: 'чай 5000', clientId: `${CLIENT_ID.slice(0, -1)}0`, capturedAt: tooOld });
+
+    expect(first.status).toBe(200);
+    expect(first.body.data.transactions[0].date).toBe(todayDateOnly(typedAt));
+    expect(repeat.status).toBe(200);
+    expect(repeat.body.data.repeated).toBe(true);
+    expect(repeat.body.data.transactions.map((t: { id: string }) => t.id)).toEqual(first.body.data.transactions.map((t: { id: string }) => t.id));
+    expect(fresh.status).toBe(400);
+    expect(fresh.body.error).toMatchObject({ code: 'VALIDATION_ERROR', message: 'capturedAt is older than 30 days' });
+    expect(await written()).toHaveLength(1);
   });
 
   it('ignores X-Dev-User-Id, even from this machine: alone it is 401, with the token the record is the owner’s', async () => {

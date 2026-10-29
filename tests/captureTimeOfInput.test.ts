@@ -20,13 +20,15 @@ describe('quick capture keeps the time of input (FT-175)', () => {
   let db: TestDatabase;
   let openAI: { analyzeInput: jest.Mock };
   let service: QuickCaptureService;
+  let serviceAt: (now: Date) => QuickCaptureService;
 
   beforeEach(async () => {
     db = await openMigratedDatabase();
     const records = recordsOn(db.dataSource);
     openAI = { analyzeInput: jest.fn() };
     const pipeline = new ProcessTextInputUseCase(openAI as unknown as TranscriptionService, records.create, undefined, records.catalog);
-    service = new QuickCaptureService(pipeline, records.repository, () => NOW);
+    serviceAt = now => new QuickCaptureService(pipeline, records.repository, () => now);
+    service = serviceAt(NOW);
   });
 
   afterEach(async () => {
@@ -79,15 +81,31 @@ describe('quick capture keeps the time of input (FT-175)', () => {
     expect(await storedDates()).toEqual([todayDateOnly()]);
   });
 
-  it.each([
-    ['more than 5 minutes ahead of the server', new Date('2026-10-29T12:05:01.000Z'), /ahead of the server clock/],
-    ['older than 30 days', new Date('2026-09-29T11:59:59.000Z'), /older than 30 days/],
-  ])('refuses a time of input %s and writes nothing', async (_why, capturedAt, message) => {
+  it('refuses a time of input older than 30 days and writes nothing', async () => {
+    const capturedAt = new Date('2026-09-29T11:59:59.000Z');
+
     const refused = await capture('кофе 25000', { capturedAt, clientId: CLIENT_ID }).catch((error: unknown) => error);
 
-    expect(refused).toMatchObject({ code: 'VALIDATION_ERROR', field: 'capturedAt', message: expect.stringMatching(message) });
+    expect(refused).toMatchObject({ code: 'VALIDATION_ERROR', field: 'capturedAt', message: 'capturedAt is older than 30 days' });
     expect(await storedDates()).toEqual([]);
     expect(openAI.analyzeInput).not.toHaveBeenCalled();
+  });
+
+  it('dates a time of input ahead of the server by the server\'s clock: it was not typed after it arrived', async () => {
+    // Typed at 00:10 on Friday by the phone; the server (WSL after a sleep) still says Thursday 17:00
+    const result = await capture('вчера такси 18000', { capturedAt: new Date('2026-10-30T00:10:00+05:00') });
+
+    expect(result.transactions[0].date).toBe('2026-10-28');
+    expect(await storedDates()).toEqual(['2026-10-28']);
+  });
+
+  it('trusts a phone up to 5 minutes ahead of the server', async () => {
+    // 00:03 on Friday by the phone, 23:59 on Thursday by the server
+    service = serviceAt(new Date('2026-10-29T18:59:00.000Z'));
+
+    await capture('кофе 25000', { capturedAt: new Date('2026-10-30T00:03:00+05:00') });
+
+    expect(await storedDates()).toEqual(['2026-10-30']);
   });
 
   it.each([

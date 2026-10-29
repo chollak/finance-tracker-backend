@@ -1,17 +1,24 @@
 import { addDaysToDateOnly } from '../../../shared/domain/dates/dateOnly';
 import { conservativeKeywordPattern } from '../../../shared/domain/semantics/semanticKeywords';
 
-/** «сегодня», «вчера», «позавчера»: how many days before the day the phrase was said. */
-const DAYS_BACK: Record<string, number> = { сегодня: 0, вчера: 1, позавчера: 2 };
+/** «сегодня», «вчера», «позавчера» — and in Uzbek and English: how many days before the day the phrase was said. */
+const DAYS_BACK: Record<string, number> = {
+  сегодня: 0, вчера: 1, позавчера: 2,
+  bugun: 0, kecha: 1, бугун: 0, кеча: 1,
+  today: 0, yesterday: 1,
+};
 
-const DAY_WORD_PATTERN = conservativeKeywordPattern(Object.keys(DAYS_BACK), 'giu');
+// The word with the commas and colons around it, so «вчера, такси 18000» leaves «такси 18000»
+const DAY_WORD_PATTERN = new RegExp(`[\\s,:]*${conservativeKeywordPattern(Object.keys(DAYS_BACK)).source}[\\s,:]*`, 'giu');
 
-/** Any other day a phrase can name — a weekday, a month, «завтра», «неделю назад», «на прошлой неделе». */
+/**
+ * Any other day a phrase can name — a weekday, «завтра», «неделю назад», «на прошлой неделе», «вчерашний», «на днях»,
+ * «в выходные». A month alone is not here: «аренда на ноябрь» names a period, and «5 ноября» holds a second number,
+ * which the fast paths leave to the AI anyway.
+ */
 const OTHER_DAY_PATTERN = conservativeKeywordPattern([
   'понедельник\\p{L}*', 'вторник\\p{L}*', 'сред[аыу]', 'четверг\\p{L}*', 'пятниц[аыу]', 'суббот[аыу]', 'воскресень[еяю]',
-  'январ\\p{L}*', 'феврал\\p{L}*', 'март[аеу]?', 'апрел\\p{L}*', 'ма[йяе]', 'июн\\p{L}*', 'июл\\p{L}*', 'август\\p{L}*',
-  'сентябр\\p{L}*', 'октябр\\p{L}*', 'ноябр\\p{L}*', 'декабр\\p{L}*',
-  'завтра', 'послезавтра', 'назад', 'прошл\\p{L}*',
+  'завтра', 'послезавтра', 'назад', 'прошл\\p{L}*', 'вчерашн\\p{L}*', 'позавчерашн\\p{L}*', 'на днях', 'выходн\\p{L}*',
 ]);
 
 export interface PhraseDay {
@@ -34,8 +41,9 @@ export function phraseDayOf(text: string, today: string): PhraseDay | null {
   const [word] = words;
   if (!word) return { text, date: today };
 
+  const daysBack = DAYS_BACK[word.replace(/[\s,:]/g, '').toLocaleLowerCase('ru-RU')];
   return {
     text: text.replace(DAY_WORD_PATTERN, ' ').replace(/\s+/g, ' ').trim(),
-    date: addDaysToDateOnly(today, -DAYS_BACK[word.toLocaleLowerCase('ru-RU')]),
+    date: addDaysToDateOnly(today, -daysBack),
   };
 }

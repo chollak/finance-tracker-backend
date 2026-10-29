@@ -101,7 +101,7 @@ ${categoryPrompt}
       ПРАВИЛА ДАТ:
       - "вчера" = вчерашняя дата
       - "позавчера" = позавчерашняя дата
-      - "в понедельник", "в субботу" = ближайший прошедший такой день недели
+      - "в понедельник", "в субботу" = ближайший такой день недели не позже сегодняшнего
       - "25го", "25 числа" = 25-е число текущего/следующего месяца
       - "на прошлой неделе" = примерно 7 дней назад
       - Если дата не указана — сегодня
@@ -186,7 +186,7 @@ ${categoryPrompt}
       DATE RULES:
       - "yesterday" = yesterday's date from today
       - "day before yesterday" = day before yesterday from today
-      - "on Monday", "on Saturday" = the latest such weekday that has passed
+      - "on Monday", "on Saturday" = the latest such weekday, today included
       - "last week" = approximately 7 days ago
       - If no date specified, use today
 
