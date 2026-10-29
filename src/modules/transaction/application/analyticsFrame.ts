@@ -64,7 +64,7 @@ export const failAnalytics = (message: string, field: string) => ResultHelper.fa
 export async function readAnalyticsFrame(
   repository: TransactionRepository,
   periodTotals: PeriodTotalsService,
-  input: { userId: string; month: unknown; type: AnalyticsType; now: Date; today?: string }
+  input: { userId: string; month: unknown; type: AnalyticsType; now: Date; today?: string; throughToday?: boolean }
 ): Promise<Result<ReadFrame>> {
   const today = isValidDateOnly(input.today) ? input.today : todayDateOnly(input.now);
   const currentMonth = today.slice(0, 7);
@@ -74,7 +74,7 @@ export async function readAnalyticsFrame(
 
   const firstRecordDate = await repository.findFirstRecordDate(input.userId);
   const firstMonth = firstRecordDate && firstRecordDate.slice(0, 7) < currentMonth ? firstRecordDate.slice(0, 7) : currentMonth;
-  const { period, previous } = analyticsPeriods({ month, today, type: input.type, firstMonth });
+  const { period, previous } = analyticsPeriods({ month, today, type: input.type, firstMonth, throughToday: input.throughToday });
   const trackingDays = trackingDaysOf(firstRecordDate, today);
 
   const records = await repository.getByUserIdAndDateRange(input.userId, new Date((previous ?? period).from), new Date(period.to));

@@ -61,8 +61,10 @@ export class NotificationModule {
 function summaryNumbers(transactionModule: TransactionModule): SummaryNumbers {
   return {
     periodTotals: (userId, from, to) => transactionModule.getPeriodTotalsUseCase().forPeriod(userId, from, to),
-    monthExpenses: async (userId, today) => {
-      const result = await transactionModule.getMonthAnalyticsUseCase().execute({ userId, query: { type: 'expense' }, today });
+    monthExpenses: async (userId, today, options = {}) => {
+      const result = await transactionModule.getMonthAnalyticsUseCase().execute({
+        userId, query: { type: 'expense' }, today, throughToday: options.throughToday,
+      });
       if (!result.success) throw result.error;
       return result.data;
     },

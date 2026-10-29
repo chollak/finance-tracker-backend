@@ -37,6 +37,14 @@ describe('month analytics rules (FT-120)', () => {
       expect(previous).toEqual({ month: '2026-09', from: '2026-09-01', to: '2026-09-14', wholeMonth: false });
     });
 
+    it('up to today when asked: the bot\'s summary of a day tells the month up to that day (FT-164)', () => {
+      const { period, previous } = analyticsPeriods({ month: '2026-10', today: '2026-10-14', type: 'expense', firstMonth: '2026-08', throughToday: true });
+      expect(period).toEqual({ month: '2026-10', from: '2026-10-01', to: '2026-10-14', wholeMonth: false });
+      expect(previous).toEqual({ month: '2026-09', from: '2026-09-01', to: '2026-09-14', wholeMonth: false });
+      // A past month stays whole
+      expect(analyticsPeriods({ month: '2026-09', today: '2026-10-14', type: 'expense', firstMonth: '2026-08', throughToday: true }).period.to).toBe('2026-09-30');
+    });
+
     it('compares a past month with the whole month before it', () => {
       const { period, previous } = analyticsPeriods({ month: '2026-09', today: '2026-10-14', type: 'expense', firstMonth: '2026-08' });
       expect(period).toEqual({ month: '2026-09', from: '2026-09-01', to: '2026-09-30', wholeMonth: true });
