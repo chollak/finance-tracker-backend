@@ -120,6 +120,7 @@ final class AppleSpeech: VoiceSystem, SpeechListening {
     /// The end of a phrase: the last words came, recognition failed, or the wait after the tap ran out.
     private func ended(session: Int, failed: Bool) {
         guard session == self.session, let continuation else { return }
+        task?.cancel()
         stopAudio()
         // After the tap an error is iOS saying it heard nothing more: the phrase ends as it is
         if failed && !isFinishing {

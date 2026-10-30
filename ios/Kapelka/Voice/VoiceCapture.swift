@@ -32,6 +32,8 @@ final class VoiceCapture {
         case listening
         /// Tapped or paused: waiting for the last words.
         case finishing
+        /// The phrase is being written to the phone; past cancelling.
+        case saving
     }
 
     /// The pause after the last word that ends the phrase.
@@ -43,6 +45,8 @@ final class VoiceCapture {
     /// What was heard; stays on the screen after the phrase went to the queue.
     private(set) var transcript = ""
     private(set) var problem: VoiceProblem?
+    /// Grows with every problem shown, so the same one twice in a row still opens the keyboard again.
+    private(set) var problemCount = 0
 
     private let system: any VoiceSystem
     private let listener: any SpeechListening
@@ -72,7 +76,7 @@ final class VoiceCapture {
         case .idle: start()
         case .starting: cancel()
         case .listening: finish()
-        case .finishing: break
+        case .finishing, .saving: break
         }
     }
 
@@ -93,9 +97,9 @@ final class VoiceCapture {
         listener.finish()
     }
 
-    /// Stops without writing anything.
+    /// Stops without writing anything. A phrase already being written stays written.
     func cancel() {
-        guard phase != .idle, !cancelled else { return }
+        guard phase != .idle, phase != .saving, !cancelled else { return }
         cancelled = true
         timer?.cancel()
         if phase != .starting {
@@ -143,6 +147,7 @@ final class VoiceCapture {
             end(with: .nothingHeard)
             return
         }
+        phase = .saving
         do {
             try await submit(phrase)
             end(with: nil)
@@ -157,6 +162,9 @@ final class VoiceCapture {
             transcript = ""
         }
         self.problem = problem
+        if problem != nil {
+            problemCount += 1
+        }
         phase = .idle
     }
 

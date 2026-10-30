@@ -34,8 +34,12 @@ struct CaptureListTests {
         return capture
     }
 
-    private func rows(_ captures: [Capture], now: Date = inputTime.addingTimeInterval(3600)) -> [CaptureRow] {
-        CaptureRow.rows(captures, now: now, calendar: calendar)
+    private func rows(
+        _ captures: [Capture],
+        sendingId: UUID? = nil,
+        now: Date = inputTime.addingTimeInterval(3600)
+    ) -> [CaptureRow] {
+        CaptureRow.rows(captures, sendingId: sendingId, now: now, calendar: calendar)
     }
 
     @Test("ждёт — время ввода и фраза; удалить можно")
@@ -46,6 +50,17 @@ struct CaptureListTests {
         #expect(row.status == "Ждёт · 14:32")
         #expect(row.text == "кофе 25 тысяч")
         #expect(row.canDelete)
+    }
+
+    @Test("запрос в пути — «Отправляю», удалить нельзя")
+    func sending() throws {
+        let waiting = capture("кофе 25 тысяч")
+        let row = try #require(rows([waiting], sendingId: waiting.clientId).first)
+
+        #expect(row.kind == .sending)
+        #expect(row.status == "Отправляю · 14:32")
+        #expect(row.text == "кофе 25 тысяч")
+        #expect(row.canDelete == false)
     }
 
     @Test(

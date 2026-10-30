@@ -41,27 +41,26 @@ struct CaptureDeleteTests {
         #expect(try harness.store.load().captures.map(\.state) == [.rejected, .sent])
     }
 
-    @Test("удалили, пока запрос в пути, а сервер её записал — запись возвращается записанной")
-    func deletedInFlightButWritten() async throws {
+    @Test("запись, чей запрос в пути, не удаляется: сервер может её записать")
+    func sendingIsNotDeleted() async throws {
         let harness = try QueueHarness(transport: FakeTransport(latency: .milliseconds(100)))
         let queue = harness.makeQueue()
         let capture = try await queue.add("кофе 250к")
 
         async let sending: Void = queue.flush()
         #expect(await eventually { await harness.transport.requests.count == 1 })
-        #expect(try await queue.remove(capture.clientId))
-        #expect(await queue.state().captures.isEmpty)
+        #expect(await queue.state().sendingId == capture.clientId)
+        #expect(try await queue.remove(capture.clientId) == false)
         await sending
 
-        let captures = try harness.store.load().captures
-        #expect(captures.map(\.clientId) == [capture.clientId])
-        #expect(captures.map(\.state) == [.sent])
+        #expect(try harness.store.load().captures.map(\.state) == [.sent])
+        #expect(await queue.state().sendingId == nil)
     }
 
-    @Test("удалили, пока запрос в пути, а сервер не ответил — запись больше не уходит, остальные уходят")
-    func deletedInFlightNotWritten() async throws {
+    @Test("запрос не дошёл — запись снова ждёт, её можно удалить, и она больше не уходит")
+    func deletableAgainAfterFailedSend() async throws {
         let harness = try QueueHarness(transport: FakeTransport(
-            [.failure(.cannotConnectToHost)],
+            [.failure(.timedOut)],
             latency: .milliseconds(100)
         ))
         let queue = harness.makeQueue()
@@ -70,12 +69,26 @@ struct CaptureDeleteTests {
 
         async let sending: Void = queue.flush()
         #expect(await eventually { await harness.transport.requests.count == 1 })
-        #expect(try await queue.remove(wrong.clientId))
+        #expect(try await queue.remove(wrong.clientId) == false)
         await sending
-        #expect(try harness.store.load().captures.map(\.text) == ["такси 18к"])
+        #expect(try await queue.remove(wrong.clientId))
         await queue.flush()
 
         #expect(try await harness.transport.bodies().map(\.text) == ["кофе 250к", "такси 18к"])
-        #expect(try harness.store.load().captures.map(\.state) == [.sent])
+        #expect(try harness.store.load().captures.map(\.text) == ["такси 18к"])
+    }
+
+    @Test("номер записи в пути на диск не пишется")
+    func sendingIdNotSaved() async throws {
+        let harness = try QueueHarness(transport: FakeTransport(latency: .milliseconds(100)))
+        let queue = harness.makeQueue()
+        _ = try await queue.add("кофе 25к")
+
+        async let sending: Void = queue.flush()
+        #expect(await eventually { await queue.state().sendingId != nil })
+        let file = try String(contentsOf: harness.store.fileURL, encoding: .utf8)
+        await sending
+
+        #expect(!file.contains("sendingId"))
     }
 }

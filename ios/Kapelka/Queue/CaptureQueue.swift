@@ -2,7 +2,7 @@ import Foundation
 import os
 
 /// The phone's queue of phrases (FT-161, «Как устроено»). A record is written to disk before anything is sent and
-/// leaves the pending ones only on the server's answer or when deleted. One sending run at a time, one record at a
+/// leaves the pending ones only on the server's answer or when deleted while it waits. One sending run at a time, one record at a
 /// time, oldest first, so two triggers at once cannot send a record twice; a record interrupted mid-request goes again
 /// with the same `clientId`, which the server answers without writing a second one (FT-106).
 actor CaptureQueue {
@@ -24,15 +24,12 @@ actor CaptureQueue {
     private var isLoaded: Bool
     /// Bumped on every settings change, so a 401 to a request sent with the old token does not stop the queue.
     private var settingsGeneration = 0
-    /// The sending run: passes over the pending records until no trigger is left.
-    private var sending: Task<Void, Never>?
+    /// The sending run: passes over the pending records until no trigger is left. `true` when `cancelSending()`
+    /// stopped it.
+    private var sending: Task<Bool, Never>?
     /// A trigger came while a run was going — a new network path, a new phrase. The pass may already be failing on
     /// the old path, so one more pass follows it.
     private var passRequested = false
-    /// The record whose request is out now.
-    private var inFlight: UUID?
-    /// That record, deleted while its request was out.
-    private var deletedInFlight: Capture?
     /// Sends again when a 429 pause is over, while the app runs.
     private var retryTimer: Task<Void, Never>?
 
@@ -82,45 +79,43 @@ actor CaptureQueue {
         return capture
     }
 
-    /// Deletes a pending record, so it is never sent; `false` when it is not pending any more. One whose request is
-    /// out right now leaves the list at once; if the server still writes it, it comes back as sent — the phone must not
-    /// hide a record that exists.
+    /// Deletes a waiting record, so it is never sent; `false` when it does not wait any more. One whose request is
+    /// out right now is not deleted: a timeout or a lost connection does not say whether the server wrote it, and the
+    /// phone must not hide a record that may exist.
     func remove(_ clientId: UUID) throws -> Bool {
         guard loadIfNeeded() else { throw QueueError.unavailable }
-        guard let index = current.captures.firstIndex(where: { $0.clientId == clientId && $0.state == .pending }) else {
-            return false
-        }
+        guard
+            current.sendingId != clientId,
+            let index = current.captures.firstIndex(where: { $0.clientId == clientId && $0.state == .pending })
+        else { return false }
         var next = current
-        let removed = next.captures.remove(at: index)
+        next.captures.remove(at: index)
         try store.save(next)
-        if inFlight == clientId {
-            deletedInFlight = removed
-        }
         publish(next)
         return true
     }
 
     /// Sends the pending records. A call while a run is going joins it and returns when the run is over — its trigger
-    /// served by one more pass. A run stopped by `cancelSending()` before that pass is started again by a caller that is
-    /// not cancelled itself; a caller already cancelled (a background refresh out of time) starts nothing.
+    /// served by one more pass. A run stopped by `cancelSending()` is started again by every waiting call that is not
+    /// cancelled itself, so a stop meant for the background refresh does not cost the open app its send. A caller
+    /// already cancelled (a background refresh out of time) starts nothing.
     func flush() async {
         while !Task.isCancelled {
+            let run: Task<Bool, Never>
             if let sending {
                 passRequested = true
-                await sending.value
-                // Still set: the run was stopped before the pass this call asked for
-                guard passRequested else { return }
-                continue
+                run = sending
+            } else {
+                guard loadIfNeeded() else { return }
+                run = Task { await sendWhileRequested() }
+                sending = run
             }
-            guard loadIfNeeded() else { return }
-            let run = Task { await sendWhileRequested() }
-            sending = run
-            await run.value
-            return
+            guard await run.value else { return }
         }
     }
 
-    /// Stops the running pass, for a background refresh that is out of time. The record in flight stays pending.
+    /// Stops the running pass, for a background refresh that is out of time: it cancels its own call first, then this.
+    /// The record in flight stays pending; callers that still wait start the run again.
     func cancelSending() {
         sending?.cancel()
     }
@@ -134,7 +129,8 @@ actor CaptureQueue {
         persist(next)
     }
 
-    private func sendWhileRequested() async {
+    /// `true` when stopped by `cancelSending()`.
+    private func sendWhileRequested() async -> Bool {
         repeat {
             passRequested = false
             await sendPending()
@@ -142,26 +138,27 @@ actor CaptureQueue {
         // On the actor right after the last check for triggers, so a later call starts a new run
         sending = nil
         scheduleRetry()
+        return Task.isCancelled
     }
 
     private func sendPending() async {
         while !Task.isCancelled, let capture = nextToSend() {
             let generation = settingsGeneration
-            inFlight = capture.clientId
+            markSending(capture.clientId)
             let outcome = await sender.send(capture)
-            inFlight = nil
+            markSending(nil)
             // Cut short by `cancelSending()`: not the server's answer, so not an attempt
-            if Task.isCancelled, case .retryLater = outcome {
-                deletedInFlight = nil
-                break
-            }
+            if Task.isCancelled, case .retryLater = outcome { break }
             // Refused with the settings of before: the next round goes with the new ones
-            if outcome == .tokenRefused, generation != settingsGeneration {
-                deletedInFlight = nil
-                continue
-            }
-            guard apply(outcome, to: capture) else { break }
+            if outcome == .tokenRefused, generation != settingsGeneration { continue }
+            guard apply(outcome, to: capture.clientId) else { break }
         }
+    }
+
+    private func markSending(_ clientId: UUID?) {
+        var next = current
+        next.sendingId = clientId
+        publish(next)
     }
 
     /// After 429 the queue waits for `notBefore`. The app open, it sends then by itself, without a new trigger.
@@ -180,6 +177,8 @@ actor CaptureQueue {
             } catch {
                 return
             }
+            // Replaced while waking up: the newer timer is the one to keep
+            guard !Task.isCancelled else { return }
             await retryDue()
         }
     }
@@ -210,12 +209,10 @@ actor CaptureQueue {
     }
 
     /// Records the outcome; `true` when the pass may go on with the next record.
-    private func apply(_ outcome: SendOutcome, to sent: Capture) -> Bool {
+    private func apply(_ outcome: SendOutcome, to clientId: UUID) -> Bool {
+        guard let index = current.captures.firstIndex(where: { $0.clientId == clientId }) else { return true }
         var next = current
-        let index = next.captures.firstIndex { $0.clientId == sent.clientId }
-        // Deleted while its request was out: only a record the server wrote comes back
-        var capture = index.map { next.captures[$0] } ?? deletedInFlight ?? sent
-        deletedInFlight = nil
+        var capture = next.captures[index]
         let goOn: Bool
         switch outcome {
         case .notConfigured:
@@ -241,12 +238,7 @@ actor CaptureQueue {
             next.tokenRefused = true
             goOn = false
         }
-        if let index {
-            next.captures[index] = capture
-        } else if capture.state == .sent {
-            let position = next.captures.firstIndex { $0.capturedAt > capture.capturedAt } ?? next.captures.endIndex
-            next.captures.insert(capture, at: position)
-        }
+        next.captures[index] = capture
         persist(Self.trimmed(next))
         return goOn
     }

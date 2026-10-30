@@ -72,19 +72,60 @@ struct CaptureTimingTests {
         #expect(await harness.transport.requests.count == 2)
     }
 
-    @Test("отменённый вызов, ждавший отправку, после отмены её снова не начинает")
-    func cancelledCallerDoesNotRestart() async throws {
+    @Test("отмена чужим вызовом (лимит «Отправить очередь») — вызов, начавший отправку, начинает её снова")
+    func ownerRestartsAfterOthersCancel() async throws {
         let harness = try QueueHarness(transport: FakeTransport([.hang]))
         let queue = harness.makeQueue()
         _ = try await queue.add("кофе 25к")
 
-        async let background: Void = queue.flush()
+        async let opened: Void = queue.flush()
+        #expect(await eventually { await harness.transport.requests.count == 1 })
+        let shortcut = Task { await queue.flush() }
+        try await Task.sleep(for: .milliseconds(50))
+        shortcut.cancel()
+        await queue.cancelSending()
+        await shortcut.value
+        await opened
+
+        #expect(try harness.store.load().captures.map(\.state) == [.sent])
+        #expect(await harness.transport.requests.count == 2)
+    }
+
+    @Test("дополнительный проход для присоединившегося вызова оборвали — он начинается снова")
+    func cutExtraPassRestarts() async throws {
+        let harness = try QueueHarness(transport: FakeTransport(
+            [.failure(.cannotConnectToHost), .hang],
+            latency: .milliseconds(50)
+        ))
+        let queue = harness.makeQueue()
+        _ = try await queue.add("кофе 25к")
+
+        async let first: Void = queue.flush()
+        #expect(await eventually { await harness.transport.requests.count == 1 })
+        async let joined: Void = queue.flush()
+        #expect(await eventually { await harness.transport.requests.count == 2 })
+        await queue.cancelSending()
+        await first
+        await joined
+
+        #expect(try harness.store.load().captures.map(\.state) == [.sent])
+        #expect(await harness.transport.requests.count == 3)
+    }
+
+    @Test("отменённые вызовы после отмены отправку снова не начинают — так фон укладывается во время iOS")
+    func cancelledCallersDoNotRestart() async throws {
+        let harness = try QueueHarness(transport: FakeTransport([.hang]))
+        let queue = harness.makeQueue()
+        _ = try await queue.add("кофе 25к")
+
+        let background = Task { await queue.flush() }
         #expect(await eventually { await harness.transport.requests.count == 1 })
         let joined = Task { await queue.flush() }
         try await Task.sleep(for: .milliseconds(50))
+        background.cancel()
         joined.cancel()
         await queue.cancelSending()
-        await background
+        await background.value
         await joined.value
 
         #expect(await harness.transport.requests.count == 1)

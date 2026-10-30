@@ -12,6 +12,24 @@ final class Phrases {
     }
 }
 
+/// Holds the phrase's write until the test opens it.
+@MainActor
+final class Gate {
+    private var waiting: CheckedContinuation<Void, Never>?
+    private var isOpen = false
+
+    func wait() async {
+        guard !isOpen else { return }
+        await withCheckedContinuation { waiting = $0 }
+    }
+
+    func open() {
+        isOpen = true
+        waiting?.resume()
+        waiting = nil
+    }
+}
+
 @MainActor
 @Suite("Голос")
 struct VoiceCaptureTests {
@@ -46,13 +64,13 @@ struct VoiceCaptureTests {
     func pauseCountsFromLastWords() async throws {
         let speech = FakeSpeech()
         let phrases = Phrases()
-        let voice = makeVoice(speech, pause: .milliseconds(300), submit: phrases.add)
+        let voice = makeVoice(speech, pause: .milliseconds(800), submit: phrases.add)
 
         voice.start()
         #expect(await eventually { await speech.isListening })
         for words in ["обед", "обед 60", "обед 60 тысяч"] {
             speech.hear(words)
-            try await Task.sleep(for: .milliseconds(150))
+            try await Task.sleep(for: .milliseconds(200))
         }
         #expect(phrases.all.isEmpty)
 
@@ -236,6 +254,72 @@ struct VoiceCaptureTests {
 
         #expect(await eventually { await voice.problem == .notSaved })
         #expect(voice.transcript == "кофе 25 тысяч")
+    }
+
+    @Test("отмена, пока iOS ещё спрашивает разрешение, — слушать не начинает")
+    func cancelWhileAsking() async {
+        let speech = FakeSpeech()
+        speech.microphoneState = .notAsked
+        speech.holdsDialog = true
+        let voice = makeVoice(speech)
+
+        voice.start()
+        #expect(await eventually { await speech.microphoneRequests == 1 })
+        voice.toggle()
+        speech.answerDialog()
+
+        #expect(await eventually { await voice.phase == .idle })
+        #expect(speech.starts == 0)
+        #expect(voice.problem == nil)
+    }
+
+    @Test("«Отмена», пока фраза уже пишется на телефон, ничего не ломает: фраза записана и видна")
+    func cancelWhileSaving() async throws {
+        let speech = FakeSpeech()
+        let gate = Gate()
+        let phrases = Phrases()
+        let voice = makeVoice(speech) { phrase in
+            await gate.wait()
+            phrases.add(phrase)
+        }
+
+        voice.start()
+        #expect(await eventually { await speech.isListening })
+        speech.hear("кофе 25 тысяч")
+        voice.toggle()
+        #expect(await eventually { await voice.phase == .saving })
+        voice.cancel()
+        gate.open()
+
+        #expect(await eventually { await phrases.all == ["кофе 25 тысяч"] })
+        #expect(voice.transcript == "кофе 25 тысяч")
+        #expect(speech.cancels == 0)
+    }
+
+    @Test("та же ошибка второй раз подряд — снова сообщение (и клавиатура)")
+    func sameProblemAgainIsReported() async {
+        let speech = FakeSpeech()
+        speech.startFails = true
+        let voice = makeVoice(speech)
+
+        voice.start()
+        #expect(await eventually { await voice.problemCount == 1 })
+        voice.start()
+
+        #expect(await eventually { await voice.problemCount == 2 })
+        #expect(voice.problem == .failed)
+    }
+
+    @Test("нажатие Action Button — одно прослушивание: просьба берётся один раз")
+    func listenRequestTakenOnce() {
+        let request = ListenRequest()
+        #expect(request.take() == false)
+
+        request.ask()
+        request.ask()
+
+        #expect(request.take())
+        #expect(request.take() == false)
     }
 
     @Test("сообщения — по-русски, у «скачай диктовку» путь в Настройках")

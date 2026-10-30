@@ -31,7 +31,7 @@ final class AppModel {
 
     /// The list on the main screen, newest first.
     var rows: [CaptureRow] {
-        CaptureRow.rows(queueState.captures, now: Date(), calendar: .current)
+        CaptureRow.rows(queueState.captures, sendingId: queueState.sendingId, now: Date(), calendar: .current)
     }
 
     var hasToken: Bool {
@@ -51,8 +51,9 @@ final class AppModel {
     /// A waiting record goes, never sent; `nil` or what went wrong.
     func remove(_ id: UUID) async -> String? {
         do {
-            _ = try await services.queue.remove(id)
-            return nil
+            let removed = try await services.queue.remove(id)
+            // Its request went out between the swipe and the tap
+            return removed ? nil : "Запись уже отправляется — если сервер её запишет, удали её в Mini App"
         } catch {
             return "Не удалилось: \(error.localizedDescription)"
         }

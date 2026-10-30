@@ -10,6 +10,9 @@ final class FakeSpeech: VoiceSystem, SpeechListening {
     var answer: Permission = .granted
     var russianState: RussianRecognition = .ready
     var startFails = false
+    /// The iOS dialog stays up until `answerDialog()`.
+    var holdsDialog = false
+    private var dialog: CheckedContinuation<Void, Never>?
     /// What `start()` throws when it fails; by default a broken audio start.
     var startError: any Error = URLError(.unknown)
 
@@ -26,6 +29,9 @@ final class FakeSpeech: VoiceSystem, SpeechListening {
 
     func requestMicrophone() async -> Permission {
         microphoneRequests += 1
+        if holdsDialog {
+            await withCheckedContinuation { dialog = $0 }
+        }
         microphoneState = answer
         return answer
     }
@@ -56,6 +62,11 @@ final class FakeSpeech: VoiceSystem, SpeechListening {
     func cancel() {
         cancels += 1
         end(throwing: CancellationError())
+    }
+
+    func answerDialog() {
+        dialog?.resume()
+        dialog = nil
     }
 
     /// The whole phrase heard so far, as Apple reports it.

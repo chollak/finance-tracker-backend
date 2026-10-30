@@ -47,8 +47,10 @@ struct MainView: View {
             }
             .onChange(of: listenRequest.isPending) { listenIfAsked() }
             .onChange(of: scenePhase) { listenIfAsked() }
-            .onChange(of: voice.problem) { _, problem in
-                guard let problem, problem.needsKeyboard else { return }
+            // A second press while the last phrase is still finishing waits for it
+            .onChange(of: voice.phase) { listenIfAsked() }
+            .onChange(of: voice.problemCount) {
+                guard let problem = voice.problem, problem.needsKeyboard else { return }
                 // What was heard before recognition broke off is not lost: it waits in the field
                 if text.isEmpty {
                     text = voice.transcript
@@ -71,7 +73,7 @@ struct MainView: View {
                     .multilineTextAlignment(.center)
                     .foregroundStyle(voice.transcript.isEmpty ? .secondary : .primary)
                     .frame(maxWidth: .infinity)
-                if voice.phase != .idle {
+                if voice.phase != .idle, voice.phase != .saving {
                     Button("Отмена", action: voice.cancel)
                         .buttonStyle(.borderless)
                 }
@@ -141,9 +143,12 @@ struct MainView: View {
         }
     }
 
-    /// Starts listening for «Записать трату» once the screen is active: the microphone does not start in background.
+    /// Starts listening for «Записать трату» once the screen is active (the microphone does not start in background)
+    /// and the last phrase is done.
     private func listenIfAsked() {
-        guard scenePhase == .active, listenRequest.take() else { return }
+        guard scenePhase == .active, voice.phase == .idle, listenRequest.take() else { return }
+        // Opened before the address was set: the settings would cover what is heard; the queue keeps the phrase
+        showsSettings = false
         fieldFocused = false
         voice.start()
     }
