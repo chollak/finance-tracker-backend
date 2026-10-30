@@ -70,26 +70,6 @@ Definition of Done:
 
 Схема и правила — [money-model.md](money-model.md). Закрыты: FT-097…FT-107 — в архиве.
 
-### FT-108: Apply historical semantic backfill
-
-Status: backlog
-Priority: medium
-Owner: Claude Code, QA by Hermes
-Type: data
-Size: S
-Depends: FT-090
-
-Context:
-Все старые записи — `semanticType = expense` (backfill из FT-045 не применён), поэтому прежние переводы
-себе и снятия наличных считаются расходами в аналитике прошлых месяцев.
-
-Definition of Done:
-- [ ] Превью FT-045 пересобрано и показано Шукуру списком
-- [ ] Миграция применяет только одобренные строки; копия базы до неё
-- [ ] Итоги прошлых месяцев до и после — в отчёте
-
----
-
 ## Фаза 3. Ввод и исправление
 
 Закрыты: FT-109…FT-116 и добавленные в фазу FT-137…FT-143 — в архиве.
