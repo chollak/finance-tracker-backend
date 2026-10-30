@@ -6,6 +6,8 @@ enum SettingsError: Error, Equatable {
     /// No token in the field and none saved before.
     case noToken
     case keychain(OSStatus)
+    /// The account's name of this Wallet card is longer than the server takes (FT-179).
+    case accountTooLong(card: String)
 }
 
 /// The PC's address in the tailnet, as typed or pasted: `https://<pc>.<tailnet>.ts.net`.

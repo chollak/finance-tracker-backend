@@ -79,6 +79,32 @@ actor CaptureQueue {
         return capture
     }
 
+    /// Writes a payment from the Wallet automation to disk (FT-179). One that cannot be sent — another currency, no
+    /// amount or one in a form not understood — is written all the same, already refused: the list shows it with the
+    /// reason and nothing sends it.
+    @discardableResult
+    func addPayment(_ input: PaymentInput) throws -> Capture {
+        guard loadIfNeeded() else { throw QueueError.unavailable }
+        let (payment, problem) = Payment.from(input)
+        var capture = Capture(
+            clientId: UUID(),
+            text: "",
+            capturedAt: now(),
+            timeZoneIdentifier: timeZone().identifier,
+            payment: payment
+        )
+        if let problem {
+            capture.state = .rejected
+            capture.rejection = problem
+        }
+        var next = current
+        next.captures.append(capture)
+        next = Self.trimmed(next)
+        try store.save(next)
+        publish(next)
+        return capture
+    }
+
     /// Deletes a waiting record, so it is never sent; `false` when it does not wait any more. One whose request is
     /// out right now is not deleted: a timeout or a lost connection does not say whether the server wrote it, and the
     /// phone must not hide a record that may exist.

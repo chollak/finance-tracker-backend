@@ -98,6 +98,98 @@ struct CaptureListTests {
         #expect(row.canDelete == false)
     }
 
+    private func payment(
+        _ state: Capture.State = .pending,
+        merchant: String? = "Ooo Mazzali Super Food",
+        reply: CaptureReply? = nil,
+        rejection: String? = nil,
+        attempts: Int = 0
+    ) -> Capture {
+        let input = PaymentInput(amount: "28\u{00A0}000,00\u{00A0}UZS", merchant: merchant, card: "TBC Uzbekistan")
+        var capture = Capture(
+            clientId: UUID(),
+            text: "",
+            capturedAt: Self.inputTime,
+            timeZoneIdentifier: "Asia/Tashkent",
+            payment: Payment.from(input).payment
+        )
+        capture.state = state
+        capture.reply = reply
+        capture.rejection = rejection
+        capture.attempts = attempts
+        return capture
+    }
+
+    @Test("оплата ждёт — магазин и сумма как в Wallet, пометка Apple Pay; удалить можно")
+    func waitingPayment() throws {
+        let row = try #require(rows([payment()]).first)
+
+        #expect(row.kind == .waiting)
+        #expect(row.status == "Ждёт · 14:32 · Apple Pay")
+        #expect(row.text == "Ooo Mazzali Super Food · 28\u{00A0}000,00\u{00A0}UZS")
+        #expect(row.canDelete)
+    }
+
+    @Test("оплата без магазина")
+    func paymentWithoutMerchant() throws {
+        let row = try #require(rows([payment(merchant: nil)]).first)
+        #expect(row.text == "Оплата Apple Pay · 28\u{00A0}000,00\u{00A0}UZS")
+    }
+
+    @Test("оплата без суммы (команду запустили не из Wallet) — без висящей точки")
+    func paymentWithoutAmount() throws {
+        let input = PaymentInput(amount: nil, merchant: "Shop")
+        var bare = Capture(
+            clientId: UUID(),
+            text: "",
+            capturedAt: Self.inputTime,
+            timeZoneIdentifier: "Asia/Tashkent",
+            payment: Payment.from(input).payment
+        )
+        bare.state = .rejected
+        let empty = Capture(
+            clientId: UUID(),
+            text: "",
+            capturedAt: Self.inputTime,
+            timeZoneIdentifier: "Asia/Tashkent",
+            payment: Payment.from(PaymentInput()).payment
+        )
+
+        #expect(rows([bare]).first?.text == "Shop")
+        #expect(rows([empty]).first?.text == "Оплата Apple Pay")
+    }
+
+    @Test("оплата записана — итог сервера, как у фразы")
+    func savedPayment() throws {
+        let reply = CaptureReply(status: "needs_review", title: "Нужно проверить", summary: "Ooo Mazzali Super Food · 28 000 сум · Кафе?")
+        let row = try #require(rows([payment(.sent, reply: reply, attempts: 1)]).first)
+
+        #expect(row.kind == .needsReview)
+        #expect(row.status == "Нужно проверить · 14:32 · Apple Pay")
+        #expect(row.text == "Ooo Mazzali Super Food · 28 000 сум · Кафе?")
+    }
+
+    @Test("оплата не ушла с телефона — «Не отправлено» и причина; ответ 400 — «Ошибка»")
+    func refusedPayment() throws {
+        let kept = try #require(rows([payment(.rejected, rejection: "валюта EUR — Kapelka пишет только сумы и доллары, запиши в Mini App")]).first)
+        #expect(kept.kind == .error)
+        #expect(kept.status == "Не отправлено · 14:32 · Apple Pay")
+        #expect(kept.text == "Ooo Mazzali Super Food · 28\u{00A0}000,00\u{00A0}UZS")
+        #expect(kept.reason == "валюта EUR — Kapelka пишет только сумы и доллары, запиши в Mini App")
+        #expect(kept.canDelete == false)
+
+        let refused = try #require(rows([payment(.rejected, rejection: "currency must be UZS or USD", attempts: 1)]).first)
+        #expect(refused.status == "Ошибка · 14:32 · Apple Pay")
+        #expect(refused.reason == "сервер пишет только сумы и доллары")
+    }
+
+    @Test("строка под микрофоном и для оплаты, не ушедшей с телефона")
+    func statusLineForPayment() {
+        var state = QueueState()
+        state.captures = [payment(.rejected, rejection: "валюта EUR — Kapelka пишет только сумы и доллары, запиши в Mini App")]
+        #expect(QueueStatus.line(for: state, configured: true) == "Не записано: валюта EUR — Kapelka пишет только сумы и доллары, запиши в Mini App")
+    }
+
     @Test("новые сверху")
     func newestFirst() {
         let list = rows([capture("первая"), capture("вторая", minutesLater: 1), capture("третья", minutesLater: 2)])
