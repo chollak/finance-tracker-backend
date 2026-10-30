@@ -129,6 +129,22 @@ ${categoryPrompt}
 
       КРИТИЧНО: В поле "category" возвращай только название из списка категорий; если ни одна не подходит — "Другое".`,
 
+    /**
+     * The category of a card payment by its merchant (FT-176): the amount, currency, date and account came ready, so the
+     * model is asked for the category alone. The merchant follows as a message of its own.
+     */
+    SYSTEM_MERCHANT_CATEGORY:
+      `Ты помогаешь вести учёт трат. Оплата картой уже записана: сумма, валюта, дата и счёт известны.
+      По названию магазина или сервиса из банковской оплаты выбери одну категорию расходов.
+      Ответ — JSON: { "category": "название категории ровно как в списке" }.
+      Если магазин незнаком или ни одна категория не подходит — "Другое". Больше ничего не определяй.`,
+
+    /** `categoryPrompt` lists the user's visible expense categories (buildExpenseCategoryPrompt). */
+    USER_MERCHANT_CATEGORY: (categoryPrompt: string) =>
+      `Выбери категорию для оплаты в магазине из следующего сообщения.
+
+${categoryPrompt}`,
+
     TRANSCRIPTION_PROMPT: 'финансовые транзакции, покупки, расходы, доходы, долги, одолжил, занял'
   },
   
@@ -202,6 +218,17 @@ ${categoryPrompt}
       - If amount not clearly specified, confidence = 0.3
       - If a spend or an income is named without an amount ("taxi" in "coffee 25k, taxi"), return it as its own
         item with "amount": null — do not invent an amount or take a neighbour's`,
+
+    SYSTEM_MERCHANT_CATEGORY:
+      `You help keep track of spending. A card payment is already recorded: its amount, currency, date and account are known.
+      Choose one expense category by the name of the shop or service from the bank payment.
+      Answer in JSON: { "category": "the category name exactly as in the list" }.
+      If the shop is unknown or no category fits, answer "Другое". Determine nothing else.`,
+
+    USER_MERCHANT_CATEGORY: (categoryPrompt: string) =>
+      `Choose the category for the payment at the shop in the next message.
+
+${categoryPrompt}`,
 
     TRANSCRIPTION_PROMPT: 'financial transactions, purchases, expenses, income'
   }

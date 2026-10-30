@@ -73,3 +73,13 @@ ${lines(income, names)}
 
 Если ни одна категория не подходит — "Другое".`;
 }
+
+/** The expense categories alone, for the category of a card payment (FT-176): a payment is never income. */
+export function buildExpenseCategoryPrompt(categories: PromptCategory[] = starterPromptCategories()): string {
+  const expense = categories.filter(category => category.type === 'expense');
+  const names = new Set(categories.map(category => categoryNameKey(category.name)));
+  return `КАТЕГОРИИ РАСХОДОВ (в поле "category" — название ровно как здесь):
+${lines(expense, names)}
+
+Если ни одна категория не подходит — "Другое".`;
+}

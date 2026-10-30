@@ -11,7 +11,7 @@ import { AppConfig } from '../../../shared/infrastructure/config/appConfig';
 import { ExternalServiceError, ErrorFactory } from '../../../shared/domain/errors/AppError';
 import { OPENAI_PROMPTS, ERROR_MESSAGES } from '../../../shared/domain/constants/messages';
 import { transactionLearning } from '../../../shared/application/learning/transactionLearning';
-import { AnalysisContext, buildCategoryPrompt } from '../domain/categoryPrompt';
+import { AnalysisContext, buildCategoryPrompt, buildExpenseCategoryPrompt } from '../domain/categoryPrompt';
 import { ItemWithoutAmount } from '../domain/processedTransaction';
 import { normalizeSemanticType } from '../../transaction/domain/transactionSemanticType';
 import { createLogger, LogCategory } from '../../../shared/infrastructure/logging';
@@ -24,6 +24,14 @@ function weekUpTo(today: string, locale: string): string {
   return Array.from({ length: 7 }, (_, back) => addDaysToDateOnly(today, -back))
     .map(date => `${weekdayOfDateOnly(date, locale)} ${date}`)
     .join(', ');
+}
+
+/** The JSON of an answer, without the ```json fence a model sometimes wraps it in. */
+function withoutCodeFence(content: string): string {
+  const trimmed = content.trim();
+  if (trimmed.startsWith('```json')) return trimmed.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+  if (trimmed.startsWith('```')) return trimmed.replace(/^```\s*/, '').replace(/\s*```$/, '');
+  return trimmed;
 }
 
 export class OpenAITranscriptionService implements TranscriptionService {
@@ -120,6 +128,38 @@ export class OpenAITranscriptionService implements TranscriptionService {
   }
 
   /**
+   * The category of a card payment by its merchant alone (FT-176): the user's expense categories and the learned
+   * patterns are the list, the merchant is a message of its own, and the answer is one name — «Другое» when the model
+   * gives none. A failure throws: the caller writes the payment into «Другое» with a «?».
+   */
+  async categoryOfMerchant(merchant: string, context: AnalysisContext = {}): Promise<string> {
+    try {
+      const prompts = OPENAI_PROMPTS[AppConfig.DEFAULT_LANGUAGE.toUpperCase() as keyof typeof OPENAI_PROMPTS];
+      const userPrompt = await transactionLearning.getEnhancedPrompts(
+        prompts.USER_MERCHANT_CATEGORY(buildExpenseCategoryPrompt(context.categories)),
+        context.presetNames
+      );
+      const response = await this.openai.chat.completions.create({
+        model: AppConfig.OPENAI_MODEL,
+        messages: [
+          { role: 'system', content: prompts.SYSTEM_MERCHANT_CATEGORY },
+          { role: 'user', content: userPrompt },
+          { role: 'user', content: merchant },
+        ],
+        response_format: { type: 'json_object' },
+      });
+
+      const content = response.choices[0]?.message?.content;
+      if (!content) throw new Error(ERROR_MESSAGES.OPENAI_ERROR);
+      const category = JSON.parse(withoutCodeFence(content))?.category;
+      return typeof category === 'string' && category.trim() ? category.trim() : 'Другое';
+    } catch (error) {
+      if (error instanceof ExternalServiceError) throw error;
+      throw ErrorFactory.externalService('OpenAI Chat', error instanceof Error ? error : undefined);
+    }
+  }
+
+  /**
    * @deprecated Use analyzeInput instead
    * Kept for backward compatibility
    */
@@ -134,14 +174,7 @@ export class OpenAITranscriptionService implements TranscriptionService {
    * Parse the new response format with items array; an item without a date gets `today`
    */
   private parseAnalysisResponse(content: string, today: string = todayDateOnly()): AnalysisResult {
-    let cleanContent = content.trim();
-
-    // Remove markdown code block wrappers if present
-    if (cleanContent.startsWith('```json')) {
-      cleanContent = cleanContent.replace(/^```json\s*/, '').replace(/\s*```$/, '');
-    } else if (cleanContent.startsWith('```')) {
-      cleanContent = cleanContent.replace(/^```\s*/, '').replace(/\s*```$/, '');
-    }
+    const cleanContent = withoutCodeFence(content);
 
     try {
       const parsed = JSON.parse(cleanContent);

@@ -11,8 +11,7 @@ import { detectPaymentHints, PaymentHints, stripPaymentWords } from '../domain/p
 import { RecordSource } from '../../transaction/domain/recordSource';
 import { ResolvedAccount } from '../../transaction/domain/accountResolver';
 import { ResolvedCategory } from '../../transaction/domain/categoryResolver';
-import { categoryNamedIn, CategoryOfRecord, LearnedCategoryWords, recordWordsOf } from '../domain/categoryGuess';
-import { categoryNameKey } from '../../category/domain/category';
+import { categoryNamedBy, CategoryOfRecord, LearnedCategoryWords, recordWordsOf } from '../domain/categoryGuess';
 import { captureAssumptions } from './captureAssumptions';
 import { captureMoneyOf } from './captureMoney';
 import { itemClientId } from '../../transaction/domain/clientId';
@@ -587,18 +586,8 @@ export class ProcessTextInputUseCase {
     learned: ReadonlyMap<string, readonly string[]>
   ): Promise<AnalysisResult | null> {
     const [record] = simple.transactions;
-    const label = record.category;
-    const categories = (await recordCategoriesFor(this.categorySource, userId)).filter(category => category.type === 'expense');
-    // The first kind of match that finds anything decides: the user's own name of a category, whole («кофе» is
-    // their «Кофе», not the starter «Кафе»); then names and the dictionary by words; then learned words, which every
-    // correction of every user adds to, so they never outvote the dictionary
-    const tiers = [
-      categories.filter(category => categoryNameKey(category.name) === categoryNameKey(label)),
-      categories.filter(category => categoryNamedIn(label, category)),
-      categories.filter(category => categoryNamedIn(label, category, category.presetKey ? learned.get(category.presetKey) : undefined)),
-    ];
-    const named = tiers.find(tier => tier.length > 0) ?? [];
-    return named.length === 1 ? { ...simple, transactions: [{ ...record, category: named[0].name }] } : null;
+    const named = categoryNamedBy(record.category, await recordCategoriesFor(this.categorySource, userId), learned);
+    return named ? { ...simple, transactions: [{ ...record, category: named.name }] } : null;
   }
 
   /**

@@ -22,7 +22,17 @@ export interface CreateTransactionOptions {
    * What the wording said about the account (FT-103): the text to look for account names in, and
    * cash or card.
    */
-  accountHint?: { text?: string; kind?: 'cash' | 'card' };
+  accountHint?: {
+    text?: string;
+    kind?: 'cash' | 'card';
+    /** An account's whole name, compared exactly (`AccountResolutionInput.name`, FT-176). */
+    name?: string;
+    /**
+     * The writer means one account by its name (FT-176: the account of a payment's card): a record that goes to any
+     * other — the name not found, not given, in another currency — awaits review.
+     */
+    reviewUnlessNamed?: boolean;
+  };
   /**
    * Automatic paths may write an amount whose currency no visible account has («55$» without a dollar
    * account): the record keeps its currency on the default account and is flagged for review. Explicit
@@ -137,6 +147,7 @@ export class CreateTransactionUseCase {
         userId: transaction.userId,
         accountId: transaction.accountId,
         text: options.accountHint?.text,
+        name: options.accountHint?.name,
         kind: options.accountHint?.kind,
         currency: transaction.accountId ? undefined : transaction.currency ?? 'UZS',
       });
@@ -145,6 +156,7 @@ export class CreateTransactionUseCase {
       }
       transaction.accountId = account.data.id;
       resolvedAccount = account.data;
+      if (options.accountHint?.reviewUnlessNamed && account.data.matchedBy !== 'name') transaction.needsReview = true;
 
       const currency = transaction.currency ?? account.data.currency;
       if (currency !== account.data.currency) {

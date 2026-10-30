@@ -1,6 +1,7 @@
 import { TransactionSemanticType } from '../../transaction/domain/transactionSemanticType';
 import { Transaction } from '../../transaction/domain/transactionEntity';
 import { CaptureAssumption, DetectedDebt, ItemWithoutAmount } from '../../voiceProcessing/domain/processedTransaction';
+import { RecordCurrency, RecordSource } from '../../transaction/domain/recordSource';
 
 /**
  * Quick Capture is the shared application boundary every client (Telegram, Mini App,
@@ -37,6 +38,26 @@ export interface QuickCaptureRequest {
    * When the phrase was typed on the phone (FT-175): it is dated by that day, not by the day it arrived — «вчера» is the
    * day before it. Within `CAPTURED_AT_LIMITS` of the server's clock; a repeat of a `clientId` answers whatever it is.
    */
+  capturedAt?: Date;
+}
+
+/**
+ * A card payment the iOS app sends ready (FT-176, docs/QUICK_CAPTURE_API.md «Payments»): written as it came, only its
+ * category is chosen — by the merchant.
+ */
+export interface PaymentCaptureRequest {
+  userId: string;
+  userName?: string;
+  /** Exactly as it came, in minor units of `currency` (100 per сум or dollar). */
+  amountMinor: number;
+  currency: RecordCurrency;
+  /** As Wallet names it: «KORZINKA 24». The category is chosen by it. */
+  merchant?: string;
+  /** The Kapelka account the phone maps the payment's card to, by name; without one the default awaits review. */
+  accountName?: string;
+  /** Required: the phone's queue repeats a payment until it gets an answer. */
+  clientId: string;
+  /** When the payment was made, by the phone; the record is dated by its day (FT-175). */
   capturedAt?: Date;
 }
 
@@ -120,8 +141,13 @@ export interface CaptureReview {
 
 export interface QuickCaptureResult {
   status: QuickCaptureStatus;
+  /** The trimmed phrase; for a payment its merchant, '' without one. */
   text: string;
-  source?: CaptureSource;
+  /**
+   * A phrase's source as sent. A payment's is `apple_pay` (FT-176) — a phrase cannot claim it, it is not a
+   * `CaptureSource`; on a repeat of a payment, the source of the record found by its `clientId`.
+   */
+  source?: RecordSource;
   transactions: CapturedTransaction[];
   debts: CapturedDebt[];
   ack: CaptureAck;
