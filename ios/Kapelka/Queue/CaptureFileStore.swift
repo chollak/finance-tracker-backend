@@ -9,6 +9,25 @@ struct QueueState: Codable, Equatable, Sendable {
     var tokenRefused = false
     /// After 429: no attempt before this moment (`Retry-After`).
     var notBefore: Date?
+
+    init() {}
+
+    // A file from an older build lacks the keys added since: they take their defaults instead of failing the file
+    init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        captures = try container.decodeIfPresent([Capture].self, forKey: .captures) ?? []
+        tokenRefused = try container.decodeIfPresent(Bool.self, forKey: .tokenRefused) ?? false
+        notBefore = try container.decodeIfPresent(Date.self, forKey: .notBefore)
+    }
+}
+
+enum QueueError: Error, Equatable, LocalizedError {
+    /// The queue file cannot be opened yet (before the first unlock after a restart).
+    case unavailable
+
+    var errorDescription: String? {
+        "очередь на телефоне пока закрыта — разблокируй телефон и попробуй ещё раз"
+    }
 }
 
 /// The queue on disk: one JSON file, replaced atomically on every change, readable after the first unlock — so the
@@ -27,10 +46,16 @@ struct CaptureFileStore: Sendable {
         return CaptureFileStore(fileURL: folder.appending(path: "captures.json"))
     }
 
-    /// No file yet — an empty queue. A file that cannot be read is moved aside, not overwritten: whatever is in it
-    /// can still be recovered by hand.
-    func load() -> QueueState {
-        guard let data = try? Data(contentsOf: fileURL) else { return QueueState() }
+    /// No file yet — an empty queue. A file that does not decode is moved aside, not overwritten: whatever is in it
+    /// can still be recovered by hand. A file that cannot be opened — before the first unlock after a restart — throws:
+    /// it is not empty, and the queue must not write over it.
+    func load() throws -> QueueState {
+        let data: Data
+        do {
+            data = try Data(contentsOf: fileURL)
+        } catch CocoaError.fileReadNoSuchFile {
+            return QueueState()
+        }
         do {
             return try JSONDecoder().decode(QueueState.self, from: data)
         } catch {

@@ -52,17 +52,21 @@ final class AppModel {
         await services.queue.flush()
     }
 
+    /// Keychain and the queue file open only after the first unlock: a launch before it is caught up here.
     func appBecameActive() async {
+        isConfigured = services.settings.configuration() != nil
         await services.queue.flush()
     }
 
     /// The app was closed right after a phrase: iOS gives about half a minute to finish the request in flight, then
-    /// the background refresh takes over.
+    /// the background refresh takes over. The refresh is asked for first — a sleeping PC keeps the request open past
+    /// that half minute, and iOS suspends the app without running what comes after.
     func appMovedToBackground() async {
         let finishing = FinishingTime()
         finishing.begin { [queue = services.queue] in
             Task { await queue.cancelSending() }
         }
+        await services.background.schedule()
         await services.queue.flush()
         await services.background.schedule()
         finishing.end()

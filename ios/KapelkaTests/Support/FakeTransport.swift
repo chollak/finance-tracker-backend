@@ -25,6 +25,9 @@ actor FakeTransport: HTTPTransport {
 
     private var replies: [Reply]
     private(set) var requests: [URLRequest] = []
+    /// The most requests that were waiting for an answer at once.
+    private(set) var maxInFlight = 0
+    private var inFlight = 0
     private let latency: Duration
 
     init(_ replies: [Reply] = [], latency: Duration = .zero) {
@@ -39,6 +42,9 @@ actor FakeTransport: HTTPTransport {
     func data(for request: URLRequest) async throws -> (Data, URLResponse) {
         requests.append(request)
         let reply = replies.isEmpty ? .http(200) : replies.removeFirst()
+        inFlight += 1
+        maxInFlight = max(maxInFlight, inFlight)
+        defer { inFlight -= 1 }
         if latency > .zero {
             try await Task.sleep(for: latency)
         }

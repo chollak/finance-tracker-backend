@@ -25,6 +25,26 @@ struct Capture: Codable, Equatable, Identifiable, Sendable {
     var rejection: String?
 
     var id: UUID { clientId }
+
+    init(clientId: UUID, text: String, capturedAt: Date, timeZoneIdentifier: String) {
+        self.clientId = clientId
+        self.text = text
+        self.capturedAt = capturedAt
+        self.timeZoneIdentifier = timeZoneIdentifier
+    }
+
+    // A record from an older build lacks the keys added since: they take their defaults, so it stays pending
+    init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        clientId = try container.decode(UUID.self, forKey: .clientId)
+        text = try container.decode(String.self, forKey: .text)
+        capturedAt = try container.decode(Date.self, forKey: .capturedAt)
+        timeZoneIdentifier = try container.decode(String.self, forKey: .timeZoneIdentifier)
+        state = try container.decodeIfPresent(State.self, forKey: .state) ?? .pending
+        attempts = try container.decodeIfPresent(Int.self, forKey: .attempts) ?? 0
+        reply = try container.decodeIfPresent(CaptureReply.self, forKey: .reply)
+        rejection = try container.decodeIfPresent(String.self, forKey: .rejection)
+    }
 }
 
 /// The server's `data.status` and `data.ack` for a sent record.
@@ -40,13 +60,13 @@ enum CaptureTextError: Error, Equatable {
 }
 
 enum CaptureText {
-    /// The server's limit on `text` (`docs/QUICK_CAPTURE_API.md`).
+    /// The server's limit on `text` (`docs/QUICK_CAPTURE_API.md`), in UTF-16 units like JavaScript's `length`.
     static let maxLength = 2000
 
     static func validated(_ raw: String) throws(CaptureTextError) -> String {
         let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { throw .empty }
-        guard text.count <= maxLength else { throw .tooLong }
+        guard text.utf16.count <= maxLength else { throw .tooLong }
         return text
     }
 }

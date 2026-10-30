@@ -30,6 +30,8 @@ struct CaptureClient: CaptureSending {
     static let timeout: TimeInterval = 60
     /// 429 without `Retry-After`.
     static let defaultRetryAfter: TimeInterval = 60
+    /// A `Retry-After` longer than this would freeze the queue; the AI limit's window is 15 minutes.
+    static let maxRetryAfter: TimeInterval = 3600
 
     private static let logger = Logger(subsystem: "kapelka", category: "capture-client")
 
@@ -83,7 +85,8 @@ struct CaptureClient: CaptureSending {
         case 401, 403:
             return .tokenRefused
         case 429:
-            return .retryLater(after: retryAfter.flatMap(TimeInterval.init) ?? defaultRetryAfter)
+            let seconds = retryAfter.flatMap(TimeInterval.init).flatMap { $0.isFinite ? $0 : nil }
+            return .retryLater(after: min(max(seconds ?? defaultRetryAfter, 0), maxRetryAfter))
         default:
             return .retryLater(after: nil)
         }

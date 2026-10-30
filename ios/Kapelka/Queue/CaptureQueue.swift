@@ -19,7 +19,14 @@ actor CaptureQueue {
     private let timeZone: @Sendable () -> TimeZone
     private let continuation: AsyncStream<QueueState>.Continuation
     private var current: QueueState
+    /// `false` while the file could not be opened: then nothing is written over it (`QueueError.unavailable`).
+    private var isLoaded: Bool
+    /// Bumped on every settings change, so a 401 to a request sent with the old token does not stop the queue.
+    private var settingsGeneration = 0
     private var sending: Task<Void, Never>?
+    /// A trigger came while a pass ran — a new network path, a new phrase. The pass may already be failing on the old
+    /// path, so one more pass follows it.
+    private var passRequested = false
 
     init(
         store: CaptureFileStore,
@@ -31,22 +38,27 @@ actor CaptureQueue {
         self.sender = sender
         self.now = now
         self.timeZone = timeZone
-        let loaded = store.load()
-        current = loaded
+        let loaded = try? store.load()
+        current = loaded ?? QueueState()
+        isLoaded = loaded != nil
         let (stream, continuation) = AsyncStream.makeStream(of: QueueState.self, bufferingPolicy: .bufferingNewest(1))
         updates = stream
         self.continuation = continuation
-        continuation.yield(loaded)
+        if let loaded {
+            continuation.yield(loaded)
+        }
     }
 
     func state() -> QueueState {
-        current
+        _ = loadIfNeeded()
+        return current
     }
 
     /// Writes the phrase to disk. Throws when the phrase is empty or too long, or the disk write failed — then the
     /// record does not exist and the screen must say so.
     @discardableResult
     func add(_ text: String) throws -> Capture {
+        guard loadIfNeeded() else { throw QueueError.unavailable }
         let capture = Capture(
             clientId: UUID(),
             text: try CaptureText.validated(text),
@@ -60,25 +72,34 @@ actor CaptureQueue {
         return capture
     }
 
-    /// Sends the pending records. A call while a pass is running waits for that pass instead of starting another.
+    /// Sends the pending records. A call while a pass is running waits for that pass instead of starting another,
+    /// and asks for one more pass after it. A caller already cancelled (a background refresh out of time) starts nothing.
     func flush() async {
         if let sending {
+            passRequested = true
             await sending.value
             return
         }
-        let pass = Task { await sendPending() }
-        sending = pass
-        await pass.value
+        guard !Task.isCancelled, loadIfNeeded() else { return }
+        var pass: Task<Void, Never>
+        repeat {
+            passRequested = false
+            pass = Task { await sendPending() }
+            sending = pass
+            await pass.value
+        } while passRequested && !pass.isCancelled && !Task.isCancelled
     }
 
     /// Stops the running pass, for a background refresh that is out of time. The record in flight stays pending.
     func cancelSending() {
+        passRequested = false
         sending?.cancel()
     }
 
     /// The address or the token changed: try again after a refused token.
     func settingsChanged() {
-        guard current.tokenRefused else { return }
+        settingsGeneration += 1
+        guard loadIfNeeded(), current.tokenRefused else { return }
         var next = current
         next.tokenRefused = false
         persist(next)
@@ -88,10 +109,27 @@ actor CaptureQueue {
         // Runs on the actor right after the last check for work, so a record added later starts a new pass
         defer { sending = nil }
         while !Task.isCancelled, let capture = nextToSend() {
+            let generation = settingsGeneration
             let outcome = await sender.send(capture)
             // Cut short by `cancelSending()`: not the server's answer, so not an attempt
             if Task.isCancelled, case .retryLater = outcome { break }
+            // Refused with the settings of before: the next round goes with the new ones
+            if outcome == .tokenRefused, generation != settingsGeneration { continue }
             guard apply(outcome, to: capture.clientId) else { break }
+        }
+    }
+
+    /// Reads the file once it can be opened. Until then the queue neither takes records nor sends.
+    private func loadIfNeeded() -> Bool {
+        guard !isLoaded else { return true }
+        do {
+            let loaded = try store.load()
+            isLoaded = true
+            publish(loaded)
+            return true
+        } catch {
+            Self.logger.error("Queue file not readable yet: \(error.localizedDescription, privacy: .public)")
+            return false
         }
     }
 

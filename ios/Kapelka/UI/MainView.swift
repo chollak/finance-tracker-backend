@@ -62,18 +62,21 @@ struct MainView: View {
 
     private func save() {
         let phrase = text
+        // Cleared at once: Return and a tap on «Записать» together must not save the phrase twice
+        text = ""
         Task {
             do {
                 try await model.add(phrase)
-                text = ""
                 error = nil
                 // The next phrase follows often: Return must not close the keyboard
                 fieldFocused = true
             } catch CaptureTextError.empty {
                 error = nil
             } catch CaptureTextError.tooLong {
+                text = phrase
                 error = "Длиннее \(CaptureText.maxLength) символов — сократи"
             } catch {
+                text = phrase
                 self.error = "Не сохранилось на телефоне: \(error.localizedDescription)"
             }
         }

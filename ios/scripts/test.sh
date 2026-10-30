@@ -7,6 +7,13 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
+# Picking a team in Xcode writes the Team ID into the project; it belongs in Config/Signing.local.xcconfig
+if grep -Eq 'DEVELOPMENT_TEAM = [A-Z0-9]{10};' Kapelka.xcodeproj/project.pbxproj; then
+  echo "project.pbxproj holds a Team ID: put it into Config/Signing.local.xcconfig," \
+    "then git checkout ios/Kapelka.xcodeproj/project.pbxproj" >&2
+  exit 1
+fi
+
 device="${KAPELKA_SIMULATOR:-}"
 if [ -z "$device" ]; then
   device="$(xcrun simctl list devices available | sed -n 's/^ *\(iPhone[^(]*\) (\([0-9A-F-]\{36\}\)).*/\2/p' | head -n 1)"

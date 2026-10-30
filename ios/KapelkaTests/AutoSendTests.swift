@@ -55,7 +55,7 @@ struct AutoSendTests {
 
         watcher.emit(satisfied: true)
         #expect(await eventually { await harness.transport.requests.count == 3 })
-        #expect(harness.store.load().captures.map(\.state) == [.sent, .sent, .sent])
+        #expect(try harness.store.load().captures.map(\.state) == [.sent, .sent, .sent])
     }
 
     @Test("новая сеть при той же связи (включился Tailscale) — ещё попытка")
@@ -69,15 +69,35 @@ struct AutoSendTests {
         watcher.emit(satisfied: true)
         #expect(await eventually { await harness.transport.requests.count == 1 })
         watcher.emit(satisfied: true)
-        #expect(await eventually { harness.store.load().captures.map(\.state) == [.sent] })
+        #expect(try await eventually { try harness.store.load().captures.map(\.state) == [.sent] })
     }
 }
 
 @Suite("Отправка в фоне")
 struct BackgroundSendTests {
-    private func makeBackground(_ harness: QueueHarness, queue: CaptureQueue, scheduler: FakeRefreshScheduler) -> BackgroundSend {
+    private func makeBackground(
+        _ harness: QueueHarness,
+        queue: CaptureQueue,
+        scheduler: FakeRefreshScheduler,
+        budget: Duration = .seconds(25)
+    ) -> BackgroundSend {
         let clock = harness.clock
-        return BackgroundSend(queue: queue, scheduler: scheduler, now: { clock.now })
+        return BackgroundSend(queue: queue, scheduler: scheduler, now: { clock.now }, budget: budget)
+    }
+
+    @Test("сервер молчит дольше времени фона — отправка обрывается сама, следующее обновление запрошено")
+    func refreshStopsWithinBudget() async throws {
+        let harness = try QueueHarness(transport: FakeTransport(latency: .seconds(10)))
+        let queue = harness.makeQueue()
+        try await queue.add("кофе 25к")
+        let scheduler = FakeRefreshScheduler()
+
+        let started = ContinuousClock.now
+        await makeBackground(harness, queue: queue, scheduler: scheduler, budget: .milliseconds(200)).run()
+
+        #expect(ContinuousClock.now - started < .seconds(2))
+        #expect(try harness.store.load().captures.map(\.state) == [.pending])
+        #expect(scheduler.calls == [.submit("kapelka.send-queue", harness.clock.now.addingTimeInterval(15 * 60))])
     }
 
     @Test("ушло в фон с ждущими — просим iOS разбудить не раньше чем через 15 минут")
@@ -112,7 +132,7 @@ struct BackgroundSendTests {
 
         await makeBackground(harness, queue: queue, scheduler: scheduler).run()
 
-        #expect(harness.store.load().captures.map(\.state) == [.sent, .sent])
+        #expect(try harness.store.load().captures.map(\.state) == [.sent, .sent])
         #expect(scheduler.calls == [.cancel("kapelka.send-queue")])
     }
 
@@ -125,7 +145,7 @@ struct BackgroundSendTests {
 
         await makeBackground(harness, queue: queue, scheduler: scheduler).run()
 
-        #expect(harness.store.load().captures.map(\.state) == [.pending])
+        #expect(try harness.store.load().captures.map(\.state) == [.pending])
         #expect(scheduler.calls == [.submit("kapelka.send-queue", harness.clock.now.addingTimeInterval(15 * 60))])
     }
 
@@ -143,6 +163,6 @@ struct BackgroundSendTests {
         await refresh.value
 
         #expect(ContinuousClock.now - started < .seconds(2))
-        #expect(harness.store.load().captures.map(\.state) == [.pending])
+        #expect(try harness.store.load().captures.map(\.state) == [.pending])
     }
 }

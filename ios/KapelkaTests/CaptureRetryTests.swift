@@ -18,7 +18,7 @@ struct CaptureRetryTests {
 
         let id = capture.clientId.uuidString.lowercased()
         #expect(try await harness.transport.sentClientIds() == [id, id])
-        #expect(harness.store.load().captures.map(\.state) == [.sent])
+        #expect(try harness.store.load().captures.map(\.state) == [.sent])
     }
 
     @Test("две отправки одновременно не шлют одну запись дважды")
@@ -36,9 +36,10 @@ struct CaptureRetryTests {
         }
 
         let ids = try await harness.transport.sentClientIds()
+        #expect(await harness.transport.maxInFlight == 1)
         #expect(ids.count == 3)
         #expect(Set(ids).count == 3)
-        #expect(harness.store.load().captures.map(\.state) == [.sent, .sent, .sent])
+        #expect(try harness.store.load().captures.map(\.state) == [.sent, .sent, .sent])
     }
 
     @Test("запись, добавленная во время отправки, уходит в ту же отправку")
@@ -53,7 +54,25 @@ struct CaptureRetryTests {
         await queue.flush()
         await sending
 
-        #expect(harness.store.load().captures.map(\.state) == [.sent, .sent])
+        #expect(try harness.store.load().captures.map(\.state) == [.sent, .sent])
+        #expect(await harness.transport.requests.count == 2)
+    }
+
+    @Test("повод отправить, пришедший во время неудачной попытки, даёт ещё одну — а не теряется")
+    func triggerDuringFailingPassRetries() async throws {
+        let harness = try QueueHarness(transport: FakeTransport(
+            [.failure(.cannotConnectToHost)],
+            latency: .milliseconds(50)
+        ))
+        let queue = harness.makeQueue()
+        _ = try await queue.add("кофе 25к")
+
+        async let sending: Void = queue.flush()
+        #expect(await eventually { await harness.transport.requests.count == 1 })
+        await queue.flush()
+        await sending
+
+        #expect(try harness.store.load().captures.map(\.state) == [.sent])
         #expect(await harness.transport.requests.count == 2)
     }
 
@@ -81,6 +100,24 @@ struct CaptureRetryTests {
         await queue.cancelSending()
         await sending
 
-        #expect(harness.store.load().captures.map(\.state) == [.pending])
+        let captures = try harness.store.load().captures
+        #expect(captures.map(\.state) == [.pending])
+        #expect(captures.map(\.attempts) == [0])
+    }
+
+    @Test("отправка, отменённая ещё до начала, не начинается")
+    func cancelledCallerDoesNotStart() async throws {
+        let harness = try QueueHarness()
+        let queue = harness.makeQueue()
+        _ = try await queue.add("кофе 25к")
+
+        let refresh = Task {
+            try? await Task.sleep(for: .seconds(5))
+            await queue.flush()
+        }
+        refresh.cancel()
+        await refresh.value
+
+        #expect(await harness.transport.requests.isEmpty)
     }
 }

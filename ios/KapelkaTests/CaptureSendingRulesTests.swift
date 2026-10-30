@@ -34,7 +34,7 @@ struct CaptureSendingRulesTests {
         _ = try await queue.add("перевел 500к")
         await queue.flush()
 
-        let capture = try #require(harness.store.load().captures.first)
+        let capture = try #require(try harness.store.load().captures.first)
         #expect(capture.state == .sent)
         #expect(capture.reply == CaptureReply(status: "needs_review", title: "Нужно проверить", summary: "Перевел · 500 000 сум"))
         #expect(capture.attempts == 1)
@@ -47,7 +47,7 @@ struct CaptureSendingRulesTests {
         _ = try await queue.add("кофе 25к")
         await queue.flush()
 
-        #expect(harness.store.load().captures.map(\.state) == [.pending])
+        #expect(try harness.store.load().captures.map(\.state) == [.pending])
     }
 
     @Test(
@@ -72,12 +72,12 @@ struct CaptureSendingRulesTests {
         await queue.flush()
 
         #expect(await harness.transport.requests.count == 1)
-        let captures = harness.store.load().captures
+        let captures = try harness.store.load().captures
         #expect(captures.map(\.state) == [.pending, .pending])
         #expect(captures.map(\.attempts) == [1, 0])
 
         await queue.flush()
-        #expect(harness.store.load().captures.map(\.state) == [.sent, .sent])
+        #expect(try harness.store.load().captures.map(\.state) == [.sent, .sent])
     }
 
     @Test("429 — следующая попытка не раньше Retry-After")
@@ -92,12 +92,12 @@ struct CaptureSendingRulesTests {
         harness.clock.advance(by: 119)
         await queue.flush()
         #expect(await harness.transport.requests.count == 1)
-        #expect(harness.store.load().captures.map(\.state) == [.pending])
+        #expect(try harness.store.load().captures.map(\.state) == [.pending])
 
         harness.clock.advance(by: 1)
         await queue.flush()
         #expect(await harness.transport.requests.count == 2)
-        #expect(harness.store.load().captures.map(\.state) == [.sent])
+        #expect(try harness.store.load().captures.map(\.state) == [.sent])
     }
 
     @Test("429 без Retry-After — пауза минута")
@@ -127,6 +127,42 @@ struct CaptureSendingRulesTests {
         #expect(await harness.transport.requests.count == 1)
     }
 
+    @Test("Retry-After больше часа или не число — пауза не дольше часа")
+    func retryAfterIsClamped() async throws {
+        let harness = try QueueHarness(transport: FakeTransport([
+            .http(429, body: ServerReply.rateLimited, headers: ["Retry-After": "99999999"]),
+            .http(429, body: ServerReply.rateLimited, headers: ["Retry-After": "inf"]),
+        ]))
+        let queue = harness.makeQueue()
+        _ = try await queue.add("кофе 25к")
+        await queue.flush()
+        harness.clock.advance(by: 3600)
+        await queue.flush()
+        #expect(await harness.transport.requests.count == 2)
+
+        harness.clock.advance(by: 60)
+        await queue.flush()
+        #expect(try harness.store.load().captures.map(\.state) == [.sent])
+    }
+
+    @Test("401 на запрос со старым токеном не останавливает очередь, если токен уже сменили")
+    func lateRefusalAfterNewToken() async throws {
+        let harness = try QueueHarness(transport: FakeTransport(
+            [.http(401, body: ServerReply.invalidToken)],
+            latency: .milliseconds(100)
+        ))
+        let queue = harness.makeQueue()
+        _ = try await queue.add("кофе 25к")
+
+        async let sending: Void = queue.flush()
+        #expect(await eventually { await harness.transport.requests.count == 1 })
+        await queue.settingsChanged()
+        await sending
+
+        #expect(try harness.store.load().tokenRefused == false)
+        #expect(try harness.store.load().captures.map(\.state) == [.sent])
+    }
+
     @Test("401 и 403 — стоп, «проверь токен»; после смены настроек очередь уходит", arguments: [401, 403])
     func refusedTokenStopsQueue(status: Int) async throws {
         let harness = try QueueHarness(transport: FakeTransport([.http(status, body: ServerReply.invalidToken)]))
@@ -135,16 +171,16 @@ struct CaptureSendingRulesTests {
         _ = try await queue.add("такси 18к")
         await queue.flush()
 
-        #expect(harness.store.load().tokenRefused)
+        #expect(try harness.store.load().tokenRefused)
         await queue.flush()
         await harness.makeQueue().flush()
         #expect(await harness.transport.requests.count == 1)
-        #expect(harness.store.load().captures.map(\.state) == [.pending, .pending])
+        #expect(try harness.store.load().captures.map(\.state) == [.pending, .pending])
 
         await queue.settingsChanged()
         await queue.flush()
-        #expect(harness.store.load().tokenRefused == false)
-        #expect(harness.store.load().captures.map(\.state) == [.sent, .sent])
+        #expect(try harness.store.load().tokenRefused == false)
+        #expect(try harness.store.load().captures.map(\.state) == [.sent, .sent])
     }
 
     @Test("400 — ошибка у записи, больше не уходит; очередь идёт дальше")
@@ -154,9 +190,8 @@ struct CaptureSendingRulesTests {
         _ = try await queue.add("кофе 25к")
         _ = try await queue.add("такси 18к")
         await queue.flush()
-        await queue.flush()
 
-        let captures = harness.store.load().captures
+        let captures = try harness.store.load().captures
         #expect(captures.map(\.state) == [.rejected, .sent])
         #expect(captures.first?.rejection == "Text is too long (maximum 2000 characters)")
         #expect(await harness.transport.requests.count == 2)
@@ -169,12 +204,12 @@ struct CaptureSendingRulesTests {
         _ = try await queue.add("кофе 25к")
         await queue.flush()
         #expect(await harness.transport.requests.isEmpty)
-        #expect(harness.store.load().captures.first?.attempts == 0)
+        #expect(try harness.store.load().captures.first?.attempts == 0)
 
         harness.settings.set(ServerConfiguration(baseURL: TestSettings.address, token: TestSettings.token))
         await queue.settingsChanged()
         await queue.flush()
-        #expect(harness.store.load().captures.map(\.state) == [.sent])
+        #expect(try harness.store.load().captures.map(\.state) == [.sent])
     }
 
     @Test("уходят по одной, старые первыми")
