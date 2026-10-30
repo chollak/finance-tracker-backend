@@ -1,6 +1,7 @@
 import { ResolvedAccount } from '../../transaction/domain/accountResolver';
 import { CaptureAssumption } from '../domain/processedTransaction';
 import { categoryNamedIn, CategoryOfRecord } from '../domain/categoryGuess';
+import { readWrittenNumber } from '../domain/writtenNumber';
 
 const AMOUNT_TOKEN = /[+-]?\d[\d\s.,]*/g;
 const MAGNITUDE_AFTER = /^\s?(?:млрд|миллиард\p{L}*|mlrd|млн|миллион\p{L}*|mln|тысяч\p{L}*|тыщ\p{L}*|тыс|ming|[кk])(?![\p{L}\p{N}_])/iu;
@@ -15,7 +16,7 @@ function bareNumbers(text: string): string[] {
 }
 
 function asNumber(token: string): number {
-  return Number(token.replace(/\s/g, '').replace(',', '.'));
+  return readWrittenNumber(token) ?? NaN;
 }
 
 /**

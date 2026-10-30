@@ -3,6 +3,7 @@ import { ProcessTextInputUseCase } from '../src/modules/voiceProcessing/applicat
 import { ProcessVoiceInputUseCase } from '../src/modules/voiceProcessing/application/processVoiceInput';
 import { AnalysisResult, ParsedTransaction, TranscriptionService } from '../src/modules/voiceProcessing/domain/transcriptionService';
 import { CreateTransactionUseCase } from '../src/modules/transaction/application/createTransaction';
+import { readWrittenNumber } from '../src/modules/voiceProcessing/domain/writtenNumber';
 
 jest.mock('../src/modules/voiceProcessing/infrastructure/openAITranscriptionService');
 
@@ -39,6 +40,26 @@ function written(create: jest.Mock): { amount: number; currency: string; needsRe
 }
 
 describe('a decimal comma in a phrase (FT-185)', () => {
+  it.each([
+    [`28${NBSP}000,00`, 28_000],
+    ['28 000,00', 28_000],
+    ['28000,00', 28_000],
+    ['1 234,50', 1_234.5],
+    ['4,5', 4.5],
+    ['150,000', 150_000],
+    ['1,234,567', 1_234_567],
+    ['28,000.50', 28_000.5],
+    ['4.50', 4.5],
+    ['25 000', 25_000],
+    ['500', 500],
+  ])('reads «%s» as %d', (token, value) => {
+    expect(readWrittenNumber(token)).toBe(value);
+  });
+
+  it.each(['1.234.567', '1.234,50'])('reads no number from «%s»', token => {
+    expect(readWrittenNumber(token)).toBeNull();
+  });
+
   describe('on the text fast path', () => {
     it.each([
       [`Ooo Mazzali Super Food 28${NBSP}000,00${NBSP}UZS`, 28_000, 'UZS'],

@@ -18,6 +18,7 @@ import { itemClientId } from '../../transaction/domain/clientId';
 import { fromMinor } from '../../../shared/domain/money/money';
 import { todayDateOnly } from '../../../shared/domain/dates/dateOnly';
 import { phraseDayOf } from '../domain/phraseDay';
+import { readWrittenNumber } from '../domain/writtenNumber';
 import { normalizeSemanticType, TransactionSemanticType } from '../../transaction/domain/transactionSemanticType';
 import { AnalysisResult, ParsedTransaction } from '../domain/transcriptionService';
 import {
@@ -101,13 +102,13 @@ function parseSingleAmount(normalizedText: string): ParsedAmount | null {
     return null;
   }
 
-  const amount = Number(token.replace(/[\s,]/g, '')) * magnitudeFactor(suffix);
-  if (!Number.isFinite(amount) || amount <= 0) {
+  const written = readWrittenNumber(token);
+  if (written === null || written <= 0) {
     return null;
   }
 
   return {
-    amount,
+    amount: written * magnitudeFactor(suffix),
     textBefore: normalizedText.slice(0, start),
     textAfter: normalizedText.slice(tokenEnd + suffix.length),
   };
@@ -132,13 +133,13 @@ function readTextAmounts(text: string): TextAmount[] {
     const afterToken = normalizedText.slice(start + token.length);
     const suffix = MAGNITUDE_SUFFIX_PATTERN.exec(afterToken)?.[0] ?? '';
 
-    const value = Number(token.replace(/[\s,]/g, '')) * magnitudeFactor(suffix);
-    if (!Number.isFinite(value) || value <= 0) {
+    const written = readWrittenNumber(token);
+    if (written === null || written <= 0) {
       return [];
     }
 
     return [{
-      value,
+      value: written * magnitudeFactor(suffix),
       currencyMarked: CURRENCY_UNIT_AFTER_AMOUNT_PATTERN.test(afterToken.slice(suffix.length)),
     }];
   });
