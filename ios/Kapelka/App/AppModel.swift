@@ -63,11 +63,14 @@ final class AppModel {
     /// that half minute, and iOS suspends the app without running what comes after.
     func appMovedToBackground() async {
         let finishing = FinishingTime()
+        let sending = Task { [queue = services.queue] in await queue.flush() }
         finishing.begin { [queue = services.queue] in
+            // The call waiting for the queue goes first, so it does not start the stopped run again
+            sending.cancel()
             Task { await queue.cancelSending() }
         }
         await services.background.schedule()
-        await services.queue.flush()
+        await sending.value
         await services.background.schedule()
         finishing.end()
     }

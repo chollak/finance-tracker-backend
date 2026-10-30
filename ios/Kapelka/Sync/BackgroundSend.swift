@@ -39,14 +39,18 @@ struct BackgroundSend: Sendable {
     }
 
     /// The refresh itself. Out of time, iOS cancels the task: the pass stops and the record in flight stays pending.
+    /// The call that waits for the queue is cancelled first, so it does not start the stopped run again.
     func run() async {
+        let sending = Task { [queue] in await queue.flush() }
         let deadline = Task { [queue, budget] in
             try await Task.sleep(for: budget)
+            sending.cancel()
             await queue.cancelSending()
         }
         await withTaskCancellationHandler {
-            await queue.flush()
+            await sending.value
         } onCancel: { [queue] in
+            sending.cancel()
             Task { await queue.cancelSending() }
         }
         deadline.cancel()

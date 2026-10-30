@@ -20,4 +20,9 @@ struct AppBundleTests {
         let keys = (Bundle.main.infoDictionary ?? [:]).keys
         #expect(!keys.contains { $0.localizedCaseInsensitiveContains("token") })
     }
+
+    @Test("под тестами приложение только хозяин: очередь и сеть не запускаются")
+    func testHostStartsNothing() {
+        #expect(TestRun.isActive)
+    }
 }

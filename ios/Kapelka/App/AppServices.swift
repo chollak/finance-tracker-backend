@@ -8,7 +8,11 @@ struct AppServices: Sendable {
     let background: BackgroundSend
     let health: HealthCheck
 
-    static func live() -> AppServices {
+    /// One per process: the screen, the background refresh and the App Shortcuts share the queue, so two of them
+    /// never send at once.
+    static let shared = live()
+
+    private static func live() -> AppServices {
         let settings = SettingsStore()
         let transport = URLSessionTransport.shared
         let queue = CaptureQueue(

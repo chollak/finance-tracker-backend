@@ -8,11 +8,14 @@ actor FakeTransport: HTTPTransport {
     enum Reply: Sendable, CustomTestStringConvertible {
         case http(Int, body: String = ServerReply.saved(), headers: [String: String] = [:])
         case failure(URLError.Code)
+        /// No answer until the request is cancelled: the PC asleep behind Tailscale.
+        case hang
 
         var testDescription: String {
             switch self {
             case let .http(status, _, _): "HTTP \(status)"
             case let .failure(code): "URLError \(code.rawValue)"
+            case .hang: "no answer"
             }
         }
     }
@@ -57,6 +60,9 @@ actor FakeTransport: HTTPTransport {
             return (Data(body.utf8), response)
         case let .failure(code):
             throw URLError(code)
+        case .hang:
+            try await Task.sleep(for: .seconds(600))
+            throw URLError(.timedOut)
         }
     }
 

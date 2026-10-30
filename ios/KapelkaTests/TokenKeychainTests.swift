@@ -3,14 +3,18 @@ import Security
 import Testing
 @testable import Kapelka
 
-/// Keychain needs the app as the test host, so these run only in `xcodebuild test` on the simulator.
-@Suite("Токен в Keychain")
-struct TokenKeychainTests {
-    private let tokens = KeychainTokenStore(service: "kapelka.tests.\(UUID().uuidString)")
+/// Keychain needs the app as the test host, so these run only in `xcodebuild test` on the simulator. Each suite has one
+/// fixed item and runs its tests one by one; a suite is a class, so the item goes in `deinit` after every test.
+@Suite("Токен в Keychain", .serialized)
+final class TokenKeychainTests {
+    private let tokens = KeychainTokenStore(service: "kapelka.tests.keychain")
+
+    deinit {
+        try? tokens.delete()
+    }
 
     @Test("сохранить, прочитать, заменить, удалить")
     func roundTrip() throws {
-        defer { try? tokens.delete() }
         #expect(try tokens.read() == nil)
 
         try tokens.save(TestSettings.token)
@@ -25,7 +29,6 @@ struct TokenKeychainTests {
 
     @Test("доступен после первой разблокировки и только на этом телефоне — для отправки в фоне")
     func readableInBackground() throws {
-        defer { try? tokens.delete() }
         try tokens.save(TestSettings.token)
 
         let attributes = try #require(try tokens.attributes())
@@ -33,10 +36,16 @@ struct TokenKeychainTests {
     }
 }
 
-@Suite("Настройки")
-struct SettingsStoreTests {
-    private let suite = "kapelka.tests.\(UUID().uuidString)"
-    private let tokens = KeychainTokenStore(service: "kapelka.tests.\(UUID().uuidString)")
+/// A fixed defaults suite: a new name every test would leave one more empty file in the simulator.
+@Suite("Настройки", .serialized)
+final class SettingsStoreTests {
+    private let suite = "kapelka.tests.settings"
+    private let tokens = KeychainTokenStore(service: "kapelka.tests.settings")
+
+    deinit {
+        try? tokens.delete()
+        UserDefaults.standard.removePersistentDomain(forName: suite)
+    }
 
     private func makeStore() throws -> SettingsStore {
         SettingsStore(defaults: try #require(UserDefaults(suiteName: suite)), tokens: tokens)
@@ -44,7 +53,6 @@ struct SettingsStoreTests {
 
     @Test("адрес — в настройках приложения, токен — только в Keychain")
     func tokenOnlyInKeychain() throws {
-        defer { try? tokens.delete() }
         let store = try makeStore()
         try store.save(address: "kapelka-pc.example-tailnet.ts.net", token: TestSettings.token)
 
@@ -57,7 +65,6 @@ struct SettingsStoreTests {
 
     @Test("пустое поле токена оставляет сохранённый")
     func emptyTokenKeepsSaved() throws {
-        defer { try? tokens.delete() }
         let store = try makeStore()
         try store.save(address: "kapelka-pc.example-tailnet.ts.net", token: TestSettings.token)
         try store.save(address: "http://localhost:3177", token: "  ")
@@ -68,7 +75,6 @@ struct SettingsStoreTests {
 
     @Test("без адреса или без токена отправлять некуда")
     func incompleteSettings() throws {
-        defer { try? tokens.delete() }
         let store = try makeStore()
         #expect(store.configuration() == nil)
 
@@ -82,7 +88,6 @@ struct SettingsStoreTests {
 
     @Test("настройки переживают новый экземпляр — как после переустановки поверх")
     func survivesNewInstance() throws {
-        defer { try? tokens.delete() }
         try makeStore().save(address: "kapelka-pc.example-tailnet.ts.net", token: TestSettings.token)
 
         #expect(try makeStore().configuration() == ServerConfiguration(baseURL: TestSettings.address, token: TestSettings.token))

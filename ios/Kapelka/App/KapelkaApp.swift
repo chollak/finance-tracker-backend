@@ -1,13 +1,13 @@
 import SwiftUI
 
-@main
+/// The app itself; `KapelkaMain` starts it unless the tests run.
 struct KapelkaApp: App {
     private let services: AppServices
     @State private var model: AppModel
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
-        let services = AppServices.live()
+        let services = AppServices.shared
         self.services = services
         _model = State(initialValue: AppModel(services: services))
         services.autoSender.start()
