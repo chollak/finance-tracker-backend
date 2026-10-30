@@ -1,11 +1,17 @@
 import Foundation
 import Observation
 
+/// Why listening could not start, as far as the screen needs to know.
+enum ListeningError: Error {
+    /// No microphone to open — none on the device, or the simulator, whose CoreAudio aborts the app on it.
+    case noMicrophone
+}
+
 /// Listening to the microphone; the phrase so far comes as the whole text each time.
 @MainActor
 protocol SpeechListening: AnyObject {
-    /// Starts the microphone. The stream ends after `finish()` with the last words, or throws when recognition broke
-    /// off or was cancelled.
+    /// Starts the microphone; throws `ListeningError.noMicrophone` when there is none. The stream ends after
+    /// `finish()` with the last words, or throws when recognition broke off or was cancelled.
     func start() throws -> AsyncThrowingStream<String, any Error>
     /// The phrase is complete: the last words come, then the stream ends.
     func finish()
@@ -109,6 +115,9 @@ final class VoiceCapture {
         let words: AsyncThrowingStream<String, any Error>
         do {
             words = try listener.start()
+        } catch ListeningError.noMicrophone {
+            end(with: .noMicrophone)
+            return
         } catch {
             end(with: .failed)
             return

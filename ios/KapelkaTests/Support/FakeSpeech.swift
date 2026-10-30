@@ -10,6 +10,8 @@ final class FakeSpeech: VoiceSystem, SpeechListening {
     var answer: Permission = .granted
     var russianState: RussianRecognition = .ready
     var startFails = false
+    /// What `start()` throws when it fails; by default a broken audio start.
+    var startError: any Error = URLError(.unknown)
 
     private(set) var microphoneRequests = 0
     private(set) var recognitionRequests = 0
@@ -40,7 +42,7 @@ final class FakeSpeech: VoiceSystem, SpeechListening {
 
     func start() throws -> AsyncThrowingStream<String, any Error> {
         starts += 1
-        if startFails { throw URLError(.unknown) }
+        if startFails { throw startError }
         let (words, continuation) = AsyncThrowingStream.makeStream(of: String.self)
         self.continuation = continuation
         return words

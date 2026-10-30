@@ -210,6 +210,21 @@ struct VoiceCaptureTests {
         #expect(voice.phase == .idle)
     }
 
+    @Test("микрофона нет (или симулятор) — «микрофон недоступен» и клавиатура, без падения")
+    func noMicrophone() async {
+        let speech = FakeSpeech()
+        speech.startFails = true
+        speech.startError = ListeningError.noMicrophone
+        let voice = makeVoice(speech)
+
+        voice.start()
+
+        #expect(await eventually { await voice.problem == .noMicrophone })
+        #expect(voice.phase == .idle)
+        #expect(VoiceProblem.noMicrophone.needsKeyboard)
+        #expect(VoiceProblem.noMicrophone.message == "Микрофон недоступен — напиши текстом")
+    }
+
     @Test("фраза не сохранилась на телефоне — сообщение, фраза остаётся на экране")
     func notSaved() async throws {
         let speech = FakeSpeech()

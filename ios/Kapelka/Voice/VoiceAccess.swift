@@ -34,6 +34,7 @@ enum VoiceProblem: Sendable, Equatable {
     case recognitionDenied
     case noRussianDictation
     case unavailable
+    case noMicrophone
     case nothingHeard
     case failed
     /// The phrase was heard but not written to the phone.
@@ -50,6 +51,8 @@ enum VoiceProblem: Sendable, Equatable {
                 + "«Русская». Пока — текстом"
         case .unavailable:
             "Распознавание речи сейчас недоступно — напиши текстом"
+        case .noMicrophone:
+            "Микрофон недоступен — напиши текстом"
         case .nothingHeard:
             "Не расслышал — скажи ещё раз или напиши"
         case .failed:

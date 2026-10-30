@@ -19,6 +19,8 @@ final class AppleSpeech: VoiceSystem, SpeechListening {
     /// Tells a late callback of an earlier phrase from the current one.
     private var session = 0
     private var isFinishing = false
+    /// The input node is opened only once a microphone is known to be there.
+    private var hasTap = false
 
     func microphone() -> Permission {
         switch AVAudioApplication.shared.recordPermission {
@@ -47,17 +49,34 @@ final class AppleSpeech: VoiceSystem, SpeechListening {
     }
 
     func start() throws -> AsyncThrowingStream<String, any Error> {
+        #if targetEnvironment(simulator)
+        // The simulator's audio input aborts the app inside CoreAudio when the input node is first touched
+        // (`AURemoteIO::Initialize`, «RPC timeout… Apparently deadlocked»), and an abort cannot be caught.
+        // Voice is checked on the iPhone.
+        throw ListeningError.noMicrophone
+        #else
         guard let recognizer else { throw SpeechStartError.noRecognizer }
         let audio = AVAudioSession.sharedInstance()
         try audio.setCategory(.record, mode: .measurement, options: .duckOthers)
         try audio.setActive(true, options: .notifyOthersOnDeactivation)
+        // Asked of the session before the engine opens its input node, which has no way to fail softly
+        guard audio.isInputAvailable, audio.inputNumberOfChannels > 0, audio.sampleRate > 0 else {
+            try? audio.setActive(false, options: .notifyOthersOnDeactivation)
+            throw ListeningError.noMicrophone
+        }
+        let input = engine.inputNode
+        let format = input.outputFormat(forBus: 0)
+        guard format.channelCount > 0, format.sampleRate > 0 else {
+            stopAudio()
+            throw ListeningError.noMicrophone
+        }
 
         let request = SFSpeechAudioBufferRecognitionRequest()
         request.requiresOnDeviceRecognition = true
         request.shouldReportPartialResults = true
         request.taskHint = .dictation
-        let input = engine.inputNode
-        input.installTap(onBus: 0, bufferSize: 1024, format: input.outputFormat(forBus: 0), block: Self.feeding(request))
+        input.installTap(onBus: 0, bufferSize: 1024, format: format, block: Self.feeding(request))
+        hasTap = true
         engine.prepare()
         do {
             try engine.start()
@@ -76,6 +95,7 @@ final class AppleSpeech: VoiceSystem, SpeechListening {
             resultHandler: Self.reporting(to: continuation, owner: self, session: session)
         )
         return words
+        #endif
     }
 
     func finish() {
@@ -115,7 +135,10 @@ final class AppleSpeech: VoiceSystem, SpeechListening {
         if engine.isRunning {
             engine.stop()
         }
-        engine.inputNode.removeTap(onBus: 0)
+        if hasTap {
+            engine.inputNode.removeTap(onBus: 0)
+            hasTap = false
+        }
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
     }
 
