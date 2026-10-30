@@ -38,7 +38,8 @@ struct AppServices: Sendable {
                 queue: queue,
                 cards: cards,
                 send: { await background.run() },
-                isConfigured: { settings.configuration() != nil }
+                isConfigured: { settings.configuration() != nil },
+                notify: { await SystemNotices.post($0, $1) }
             )
         )
     }

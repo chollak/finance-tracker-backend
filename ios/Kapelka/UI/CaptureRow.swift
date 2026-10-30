@@ -49,7 +49,7 @@ struct CaptureRow: Identifiable, Equatable {
     private static func row(for capture: Capture, isSending: Bool, time: TimeOfInput) -> CaptureRow {
         let kind = isSending ? .sending : kind(of: capture)
         // A payment shows what Wallet gave until the server's summary comes
-        let said = capture.payment.map(paymentLine) ?? capture.text
+        let said = capture.payment?.line ?? capture.text
         let label: String
         let text: String
         switch kind {
@@ -78,12 +78,6 @@ struct CaptureRow: Identifiable, Equatable {
             text: text,
             reason: kind == .error ? RejectionText.shown(for: capture.rejection) : nil
         )
-    }
-
-    /// «Ooo Mazzali Super Food · 28 000,00 UZS»; without an amount (run by Siri, not Wallet) only the merchant.
-    private static func paymentLine(_ payment: Payment) -> String {
-        let amount = payment.walletAmount.trimmingCharacters(in: .whitespacesAndNewlines)
-        return [payment.merchant ?? "Оплата Apple Pay", amount.isEmpty ? nil : amount].compactMap { $0 }.joined(separator: " · ")
     }
 
     private static func kind(of capture: Capture) -> Kind {

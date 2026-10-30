@@ -92,7 +92,7 @@ struct KapelkaShortcuts: AppShortcutsProvider {
 
 /// «Записать оплату» for the Wallet automation «Транзакция» (FT-179). iOS lets no app create that automation: it is set
 /// up once by hand (the settings show how), each field taken from «Ввод команды». Runs without opening the app, so
-/// «Выполнять сразу» needs no tap; the payment is on the phone before anything is sent.
+/// «Выполнять сразу» needs no tap; the payment is on the phone before anything is sent, its result a notification.
 struct RecordPaymentIntent: AppIntent {
     static var title: LocalizedStringResource { "Записать оплату" }
     static var description: IntentDescription {
@@ -121,12 +121,13 @@ struct RecordPaymentIntent: AppIntent {
         }
     }
 
-    /// Only a dialog, no output value: a value makes iOS ask «Allow … to output» when another app runs the command,
-    /// and the automation must need no tap.
-    func perform() async throws -> some IntentResult & ProvidesDialog {
+    /// No dialog and no output value: the automation must need no tap (Shukur's decision of 2026-10-30). A dialog waits
+    /// for «Готово» after each payment, a value makes iOS ask «Allow … to output» when another app runs the command.
+    /// The result comes as a notification that goes away by itself.
+    func perform() async throws -> some IntentResult {
         let input = PaymentInput(amount: amount, currency: currency, merchant: merchant, card: card)
-        let answer = try await AppServices.shared.payments.record(input)
-        return .result(dialog: IntentDialog(stringLiteral: answer))
+        try await AppServices.shared.payments.record(input)
+        return .result()
     }
 }
 

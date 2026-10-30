@@ -29,6 +29,13 @@ extension Payment {
     /// The server's limit on `merchant`, in UTF-16 units like JavaScript's `length`.
     static let merchantLimit = 200
 
+    /// What Wallet gave, for the list and the notification: «Ooo Mazzali Super Food · 28 000,00 UZS»; without an amount
+    /// (run by Siri, not Wallet) only the merchant.
+    var line: String {
+        let amount = walletAmount.trimmingCharacters(in: .whitespacesAndNewlines)
+        return [merchant ?? "Оплата Apple Pay", amount.isEmpty ? nil : amount].compactMap { $0 }.joined(separator: " · ")
+    }
+
     /// The payment as it goes into the queue, and why it stays on the phone when it cannot be sent.
     static func from(_ input: PaymentInput) -> (payment: Payment, problem: String?) {
         let wallet = input.amount ?? ""

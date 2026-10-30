@@ -20,19 +20,6 @@ enum QueueStatus {
         return pending > 0 ? "В очереди: \(pending) — сервер пока недоступен" : "Всё отправлено"
     }
 
-    /// What «Записать оплату» answers about its payment once it has tried to send it.
-    static func afterPayment(_ capture: Capture, _ state: QueueState, configured: Bool) -> String {
-        switch capture.state {
-        case .sent:
-            return [capture.reply?.title, capture.reply?.summary].compactMap { $0 }.joined(separator: " · ")
-        case .rejected:
-            return "Не записано: \(RejectionText.shown(for: capture.rejection))"
-        case .pending:
-            if let problem = problem(state, configured: configured) { return "Оплата в очереди. \(problem)" }
-            return "Оплата в очереди: уйдёт, когда сервер будет доступен"
-        }
-    }
-
     static func pendingCount(_ state: QueueState) -> Int {
         state.captures.count { $0.state == .pending }
     }
