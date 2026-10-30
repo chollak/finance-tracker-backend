@@ -106,8 +106,9 @@ Core module системы — управление финансовыми тр�
 - `GetTransactionsUseCase` - получение всех транзакций
 - `GetUserTransactionsUseCase` - транзакции пользователя
 - `UpdateTransactionUseCase` - обновление транзакции; правка категории учит разбор через порт `CategoryLessons`
-  (FT-184, `application/teachCategoryCorrection.ts`, реализует `TransactionLearningService`): слова и категорию разбора
-  берёт из сохранённой записи, своя категория без `presetKey` не учит, возврат к категории разбора снимает урок
+  (FT-184, `application/teachCategoryCorrection.ts`, реализует `TransactionLearningService`): сначала снимает уроки
+  записи (`unlearnRecord`), затем учит магазин оплаты целиком или слова фразы (`lessonWordsOf`, без слов оплаты и
+  названий счетов — `AccountResolver.accountNames`); своя категория без `presetKey` не учит
 - `DeleteTransactionUseCase` - удаление транзакции
 - `UpdateTransactionWithLearningUseCase` - обновление с ML записью по `originalText`/`originalParsing` из тела запроса;
   сейчас так не шлёт ни один клиент
