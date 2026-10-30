@@ -138,7 +138,9 @@ describe('TransactionLearningService runtime data policy', () => {
 
   describe('lessons of a category correction (FT-184)', () => {
     const parsing = { amount: 25000, category: 'Покупки', type: 'expense' as const };
-    const lesson = (words: string, presetKey: string, userId = 'user-1') => ({ userId, words, presetKey, originalParsing: parsing });
+    // One record per text unless a test says otherwise: a lesson is the record's
+    const lesson = (words: string, presetKey: string, recordId = `record-${words}`) =>
+      ({ recordId, userId: 'user-1', words, presetKey, originalParsing: parsing });
     const readPatterns = () => JSON.parse(fs.readFileSync(path.join(tempDir, 'data', 'patterns.json'), 'utf-8'));
     const patternOf = (key: string) => readPatterns().categories.find((pattern: { category: string }) => pattern.category === key);
     const seed = (categories: unknown[]) =>
@@ -186,17 +188,46 @@ describe('TransactionLearningService runtime data policy', () => {
       expect(patternOf('groceries')).toBeUndefined();
     });
 
-    it('unlearning what no lesson taught — another category, another user, a record edited before FT-184 — changes nothing', async () => {
+    it('unlearning what no lesson taught — another category, another record, a record edited before FT-184 — changes nothing', async () => {
       seed([{ keywords: ['evos'], category: 'cafe', confidence: 0.8, usageCount: 2 }]);
       const service = new TransactionLearningService(tempDir);
       await service.learnCategory(lesson('ZZQX 77', 'groceries'));
 
       await service.unlearnCategory(lesson('ZZQX 77', 'shopping'));
-      await service.unlearnCategory(lesson('ZZQX 77', 'groceries', 'user-2'));
+      // Another payment at the same merchant, in «Продукты» without a lesson of its own
+      await service.unlearnCategory(lesson('ZZQX 77', 'groceries', 'record-other'));
       await service.unlearnCategory(lesson('evos', 'cafe'));
 
       expect(patternOf('groceries')).toMatchObject({ keywords: ['zzqx'], usageCount: 1 });
       expect(patternOf('cafe')).toMatchObject({ keywords: ['evos'], usageCount: 2 });
+    });
+
+    it('a lesson is taken back by its record, even when the record’s words read differently since (its note was edited)', async () => {
+      const service = new TransactionLearningService(tempDir);
+      await service.learnCategory(lesson('zzqx', 'groceries', 'record-1'));
+
+      await service.unlearnCategory(lesson('zzqx маркет', 'groceries', 'record-1'));
+
+      expect(patternOf('groceries')).toBeUndefined();
+    });
+
+    it('lessons learned at the same moment are all kept', async () => {
+      const service = new TransactionLearningService(tempDir);
+      const merchants = ['aaqx', 'bbqx', 'ccqx', 'ddqx', 'eeqx'];
+
+      await Promise.all(merchants.map(merchant => service.learnCategory(lesson(merchant, 'groceries'))));
+
+      expect(patternOf('groceries')).toMatchObject({ usageCount: 5 });
+      expect([...patternOf('groceries').keywords].sort()).toEqual(merchants);
+      expect(JSON.parse(fs.readFileSync(path.join(tempDir, 'data', 'learning-data.json'), 'utf-8'))).toHaveLength(5);
+    });
+
+    it('amounts and punctuation are not words of a lesson', async () => {
+      const service = new TransactionLearningService(tempDir);
+
+      await service.learnCategory(lesson('Кофе, zzqx 50000 25к!', 'cafe'));
+
+      expect(patternOf('cafe').keywords).toEqual(['кофе', 'zzqx']);
     });
   });
 });

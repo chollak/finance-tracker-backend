@@ -34,27 +34,43 @@ export async function teachCategoryCorrection(
   const categoryNamed = request.categoryId !== undefined || request.category !== undefined;
   const text = before.originalText?.trim();
   const parsing = before.originalParsing;
-  if (!categoryResolver || !categoryLessons || !categoryNamed || !to || to.id === before.categoryId || !text || !parsing) {
+  const recordId = before.id;
+  if (!categoryResolver || !categoryLessons || !categoryNamed || !to || to.id === before.categoryId || !text || !parsing || !recordId) {
     return;
   }
 
   try {
     const words = await ownWords(deps.repository, before, text);
     if (!words) return;
-    const parsed = await categoryResolver.resolveForRecord({
-      userId: before.userId,
-      type: parsing.type ?? before.type,
-      category: parsing.category,
-    });
-    if (!parsed.success) return;
+    const parsedId = await parsedCategoryId(categoryResolver, before, parsing);
+    if (!parsedId) return;
     const from = before.categoryId ? await categoryResolver.findForUser(before.userId, before.categoryId) : null;
 
-    const lesson = (presetKey: string) => ({ userId: before.userId, words, presetKey, originalParsing: parsing });
-    if (from?.presetKey && from.id !== parsed.data.id) await categoryLessons.unlearnCategory(lesson(from.presetKey));
-    if (to.presetKey && to.id !== parsed.data.id) await categoryLessons.learnCategory(lesson(to.presetKey));
+    const lesson = (presetKey: string) => ({ recordId, userId: before.userId, words, presetKey, originalParsing: parsing });
+    if (from?.presetKey && from.id !== parsedId) await categoryLessons.unlearnCategory(lesson(from.presetKey));
+    if (to.presetKey && to.id !== parsedId) await categoryLessons.learnCategory(lesson(to.presetKey));
   } catch (error) {
     logger.error('Failed to learn from a category correction', error as Error, { transactionId: before.id });
   }
+}
+
+/**
+ * The category the parse gave the record: stored when it was written. A record written before FT-184 has only the
+ * parse's name, resolved again the way it was then — so a category renamed since is not found by it.
+ */
+async function parsedCategoryId(
+  resolver: CategoryResolver,
+  record: Transaction,
+  parsing: NonNullable<Transaction['originalParsing']>
+): Promise<string | undefined> {
+  if (parsing.categoryId) return parsing.categoryId;
+  const resolved = await resolver.resolveForRecord({
+    userId: record.userId,
+    type: parsing.type ?? record.type,
+    category: parsing.category,
+    visibleOnly: true,
+  });
+  return resolved.success ? resolved.data.id : undefined;
 }
 
 /**

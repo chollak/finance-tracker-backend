@@ -9,11 +9,13 @@ import { Transaction } from './transactionEntity';
 export interface CategoryLessons {
   /** The words now point at the starter category: the record was corrected into it. */
   learnCategory(lesson: CategoryLesson): Promise<void>;
-  /** Takes back what `learnCategory` taught for the same words and category: the record left it again. */
+  /** Takes back what `learnCategory` taught the category for the same record: the record left it again. */
   unlearnCategory(lesson: CategoryLesson): Promise<void>;
 }
 
 export interface CategoryLesson {
+  /** The record that teaches: its lesson is taken back by it, whatever its words read by then. */
+  recordId: string;
   /** The owner of the record. */
   userId: string;
   /** The record's own words: its phrase — of a phrase of several records only this one's — or a payment's merchant. */

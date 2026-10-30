@@ -314,7 +314,8 @@ One expense (`type` and `semanticType` `expense`), through the same `CreateTrans
   `{ "kind": "currency", "reason": "no_usd_account" }` (FT-103).
 - **Merchant** in `merchant`; the note (`description`) is the merchant, or «Оплата Apple Pay» without one;
   `originalText` is the merchant, and without one it is empty — the note is the server's words, not the payment's, and
-  a correction must not teach them (FT-184); `originalParsing` holds the category the record went to (not the AI's raw name); `source: "apple_pay"`;
+  a correction must not teach them (FT-184); `originalParsing` holds the category the record went to (not the AI's raw name) and its id (`categoryId`, FT-184: what
+  a later correction is compared with); `source: "apple_pay"`;
   `clientId` as sent.
 
 ### Payment response

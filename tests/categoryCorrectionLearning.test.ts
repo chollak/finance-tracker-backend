@@ -10,7 +10,7 @@ import { GetTransactionByIdUseCase } from '../src/modules/transaction/applicatio
 import { ProcessTextInputUseCase } from '../src/modules/voiceProcessing/application/processTextInput';
 import { RecordPaymentUseCase } from '../src/modules/voiceProcessing/application/recordPayment';
 import { TranscriptionService } from '../src/modules/voiceProcessing/domain/transcriptionService';
-import { CreateCategoryUseCase } from '../src/modules/category/application/categoryUseCases';
+import { CreateCategoryUseCase, UpdateCategoryUseCase } from '../src/modules/category/application/categoryUseCases';
 import { SqliteCategoryRepository } from '../src/modules/category/infrastructure/SqliteCategoryRepository';
 import { TransactionLearningService } from '../src/shared/application/learning/transactionLearning';
 import { UserModule } from '../src/modules/user/userModule';
@@ -106,6 +106,18 @@ describe('a category correction teaches (FT-184)', () => {
 
   const learnedFor = async (key: string) => (await learning.learnedCategoryWords()).get(key) ?? [];
 
+  /** Every keyword of a category pattern, counted or not: what the AI prompt is shown once the pattern counts. */
+  const keywordsOf = (key: string): string[] => {
+    const file = path.join(dir, 'data', 'patterns.json');
+    if (!fs.existsSync(file)) return [];
+    const patterns = JSON.parse(fs.readFileSync(file, 'utf-8'));
+    return patterns.categories.find((pattern: { category: string }) => pattern.category === key)?.keywords ?? [];
+  };
+
+  const changeCategory = async (name: string, body: Record<string, unknown>) =>
+    new UpdateCategoryUseCase(records.catalog, new SqliteCategoryRepository(db.dataSource))
+      .execute({ userId: USER, categoryId: await categoryId(name), body });
+
   it('a phrase record corrected with PUT { categoryId } teaches its words: the next phrase there needs no AI', async () => {
     // A pattern counts from its second use (MIN_PATTERN_USES)
     for (const amount of [50_000, 70_000]) {
@@ -173,8 +185,8 @@ describe('a category correction teaches (FT-184)', () => {
     expect(await learnedFor('groceries')).toContain('zzqx');
     for (const record of paid) await moveTo(record.id, 'Покупки');
 
-    expect(await learnedFor('groceries')).not.toContain('zzqx');
-    expect(await learnedFor('shopping')).not.toContain('zzqx');
+    expect(keywordsOf('groceries')).not.toContain('zzqx');
+    expect(keywordsOf('shopping')).not.toContain('zzqx');
     openAI.categoryOfMerchant.mockClear();
     await pay('ZZQX 79');
     expect(openAI.categoryOfMerchant).toHaveBeenCalledTimes(1);
@@ -188,7 +200,58 @@ describe('a category correction teaches (FT-184)', () => {
     }
 
     expect(await learnedFor('cafe')).toContain('zzqx');
-    expect(await learnedFor('groceries')).not.toContain('zzqx');
+    expect(keywordsOf('groceries')).not.toContain('zzqx');
+  });
+
+  it('«Отменить» back to a starter renamed since the record was written only takes the lesson back', async () => {
+    aiReads({ category: 'Дом', amount: 50_000, description: 'ZZQX' });
+    const [record] = await say('zzqx 50000');
+    expect((await changeCategory('Дом', { name: 'Квартира' })).success).toBe(true);
+
+    await moveTo(record.id, 'Покупки');
+    expect(keywordsOf('shopping')).toContain('zzqx');
+    await moveTo(record.id, 'Квартира');
+
+    expect(keywordsOf('shopping')).not.toContain('zzqx');
+    expect(keywordsOf('home')).not.toContain('zzqx');
+  });
+
+  it('«Отменить» back to «Другое» of a record the AI named a hidden starter for teaches «Другое» nothing', async () => {
+    expect((await changeCategory('Дом', { isHidden: true })).success).toBe(true);
+    aiReads({ category: 'Дом', amount: 50_000, description: 'ZZQX' });
+    const [record] = await say('zzqx 50000');
+    expect(record.category).toBe('Другое');
+
+    await moveTo(record.id, 'Покупки');
+    await moveTo(record.id, 'Другое');
+
+    expect(keywordsOf('other')).not.toContain('zzqx');
+    expect(keywordsOf('shopping')).not.toContain('zzqx');
+  });
+
+  it('an edit of the amount, the day or the note of a phrase record teaches nothing', async () => {
+    aiReads({ category: 'Покупки', amount: 50_000, description: 'ZZQX' });
+    const [record] = await say('zzqx 50000');
+
+    for (const body of [{ amountMinor: 6_000_000 }, { date: '2026-10-29' }, { description: 'ZZQX маркет' }]) {
+      const response = await fetch(`${api.baseUrl}/api/transactions/${record.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'X-Dev-User-Id': TELEGRAM_ID },
+        body: JSON.stringify(body),
+      });
+      expect(response.status).toBe(200);
+    }
+
+    expect(fs.existsSync(path.join(dir, 'data', 'patterns.json'))).toBe(false);
+  });
+
+  it('the amount of a phrase is not a word of its lesson', async () => {
+    aiReads({ category: 'Покупки', amount: 50_000, description: 'ZZQX' });
+    const [record] = await say('zzqx 50000');
+
+    await moveTo(record.id, 'Продукты');
+
+    expect(keywordsOf('groceries')).toEqual(['zzqx']);
   });
 
   it('in a phrase of several records a correction teaches only the corrected record’s words', async () => {
