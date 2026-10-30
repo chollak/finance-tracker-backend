@@ -22,6 +22,7 @@ import { AnalysisContext } from '../src/modules/voiceProcessing/domain/categoryP
 import { ProcessTextInputUseCase } from '../src/modules/voiceProcessing/application/processTextInput';
 import { ProcessVoiceInputUseCase } from '../src/modules/voiceProcessing/application/processVoiceInput';
 import { QuickCaptureService } from '../src/modules/quickCapture/application/quickCaptureService';
+import { winstonLogger } from '../src/shared/infrastructure/logging';
 import { openMigratedDatabase, TestDatabase } from './helpers/testDatabase';
 
 // A voice message is not downloaded in tests
@@ -33,9 +34,9 @@ jest.mock('../src/delivery/messaging/telegram/utils', () => ({
 /**
  * FT-182: while the PC is off Telegram keeps a message up to 24 hours, and the bot reads it once the PC is on. The
  * message is dated by the time it was sent (`message.date`), not by the time it was handled: a phrase sent on Thursday
- * evening and read on Friday morning is Thursday's, its «вчера» is Wednesday. The limits are those of `capturedAt`
- * (FT-175). Real SQLite file, the real capture pipelines with the parser faked, the handlers registered the way
- * telegramBot.ts registers them; only the clock is fake.
+ * evening and read on Friday morning is Thursday's, its «вчера» is Wednesday — whatever the server's clock says, for
+ * Telegram's is the right one (decision 2026-10-30). Real SQLite file, the real capture pipelines with the parser
+ * faked, the handlers registered the way telegramBot.ts registers them; only the clock is fake.
  */
 
 const NB = ' ';
@@ -82,6 +83,7 @@ describe('the bot dates a message by the time it was sent (FT-182)', () => {
   const shown = new Map<number, { text: string; keyboard: Button[][] }>();
   let nextBotMessageId: number;
   let nextMessageId: number;
+  let warn: jest.SpyInstance;
   const parser = {
     transcribe: jest.fn(),
     analyzeInput: jest.fn(),
@@ -94,6 +96,7 @@ describe('the bot dates a message by the time it was sent (FT-182)', () => {
       doNotFake: ['nextTick', 'setImmediate', 'clearImmediate', 'setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'queueMicrotask', 'hrtime', 'performance'],
     });
     jest.spyOn(AppConfig, 'getWebAppUrl').mockReturnValue('https://miniapp.test');
+    warn = jest.spyOn(winstonLogger, 'warn');
     sent = [];
     shown.clear();
     nextBotMessageId = 1000;
@@ -271,21 +274,27 @@ describe('the bot dates a message by the time it was sent (FT-182)', () => {
     });
   });
 
-  describe('the limits of the time of input (FT-175)', () => {
-    it('a message older than 30 days is not refused: it is written on the server\'s today', async () => {
-      // Telegram keeps a message 24 hours, so this is a server clock gone wrong; an error would answer every message
+  describe('beyond the limits of a phone\'s time of input (FT-175): the server\'s clock is off', () => {
+    // Telegram's clock is right and it keeps a message 24 hours: off the limits, the server's day would be the wrong one
+    // (decision 2026-10-30). Each such message is logged
+    const clockWarnings = () => warn.mock.calls.filter(([text]) => String(text).includes('server clock'));
+    const quickAdd = { pendingAction: { type: 'awaiting_amount', category: 'Кафе' } };
+
+    it('a message sent more than 30 days ago is written on the day it was sent, not refused', async () => {
       const longAgo = new Date('2026-09-25T12:00:00+05:00');
       aiAnswers({ amount: 18000, category: 'Транспорт', description: 'такси' });
 
       await sendText('такси 18000', longAgo);
       await sendVoice('такси восемнадцать тысяч', longAgo);
+      await sendText('500', longAgo, quickAdd);
 
-      expect(await storedDates()).toEqual(['2026-10-30', '2026-10-30']);
-      expect(toldDay()).toBe('2026-10-30');
+      expect(await storedDates()).toEqual(['2026-09-25', '2026-09-25', '2026-09-25']);
+      expect(toldDay()).toBe('2026-09-25');
       expect(sent.join('\n')).not.toMatch(/❌|30 days|capturedAt/);
+      expect(clockWarnings()).toHaveLength(3);
     });
 
-    it('a message ahead of the server\'s clock is still its own day: WSL lags after a sleep', async () => {
+    it('a message ahead of the server\'s clock is its own day: WSL lags after a sleep', async () => {
       // The PC woke at 08:00 on Friday, WSL still says Thursday 23:30; the message was sent at 07:30 on Friday
       jest.setSystemTime(new Date('2026-10-29T23:30:00+05:00'));
       const fridayEarly = new Date('2026-10-30T07:30:00+05:00');
@@ -293,8 +302,35 @@ describe('the bot dates a message by the time it was sent (FT-182)', () => {
 
       await sendText('такси 18000', fridayEarly);
       await sendVoice('такси восемнадцать тысяч', fridayEarly);
+      await sendText('500', fridayEarly, quickAdd);
+
+      expect(await storedDates()).toEqual(['2026-10-30', '2026-10-30', '2026-10-30']);
+      expect(clockWarnings()).toEqual([
+        [expect.any(String), expect.objectContaining({ category: 'TELEGRAM_MSG', aheadMinutes: 480 })],
+        [expect.any(String), expect.objectContaining({ aheadMinutes: 480 })],
+        [expect.any(String), expect.objectContaining({ aheadMinutes: 480 })],
+      ]);
+    });
+
+    it('a message more than a day ahead of the server\'s clock is its own day too', async () => {
+      // WSL slept through a day: it says Wednesday, the message was sent on Friday
+      jest.setSystemTime(new Date('2026-10-28T08:00:00+05:00'));
+      const fridayEarly = new Date('2026-10-30T07:30:00+05:00');
+      aiAnswers({ amount: 18000, category: 'Транспорт', description: 'такси' });
+
+      await sendText('такси 18000', fridayEarly);
+      await sendVoice('такси восемнадцать тысяч', fridayEarly);
 
       expect(await storedDates()).toEqual(['2026-10-30', '2026-10-30']);
+      expect(toldDay()).toBe('2026-10-30');
+      expect(clockWarnings()).toHaveLength(2);
+    });
+
+    it('a message read hours after it was sent is within the limits: nothing is logged', async () => {
+      await sendText('такси 18000');
+
+      expect(await storedDates()).toEqual(['2026-10-29']);
+      expect(clockWarnings()).toEqual([]);
     });
 
     it('a message without a date is written on today, as before', async () => {

@@ -6,7 +6,7 @@ import { downloadVoiceFile, cleanupFile } from '../utils';
 import { quickAddCategory } from '../utils/userCategories';
 import { assumedThousands, botMessageLog, chatIdOf, guessedIds, sendRecordMessage } from '../utils/recordMessageView';
 import { messageClientId, withMessageClientId } from '../utils/messageClientId';
-import { messageDay, withMessageSentAt } from '../utils/messageTime';
+import { messageDay } from '../utils/messageTime';
 import { answerAmountQuestion } from './recordHandlers';
 import { AppError, ExternalServiceError } from '../../../../shared/domain/errors/AppError';
 import { DetectedDebt } from '../../../../modules/voiceProcessing/domain/processedTransaction';
@@ -246,15 +246,16 @@ export function createTextMessageHandler(userModule?: UserModule, _subscriptionM
 
       // Telegram is a client of the shared capture boundary; parsing, the conservative
       // semantic safeguards and persistence all stay inside it.
-      // The message's client id: sent again after a restart, it does not write its records twice (FT-167). Its time:
+      // The message's client id: sent again after a restart, it does not write its records twice (FT-167). Its day:
       // read the morning after, an evening's phrase is still the evening's (FT-182)
+      const inputDay = messageDay(ctx);
       const result = await quickCaptureModule.getQuickCaptureService().capture({
         text,
         userId,
         userName,
         source: 'telegram',
         ...withMessageClientId(ctx),
-        ...withMessageSentAt(ctx),
+        ...(inputDay ? { inputDay } : {}),
       });
 
       const withoutAmount = result.withoutAmount ?? [];

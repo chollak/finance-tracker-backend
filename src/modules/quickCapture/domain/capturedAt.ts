@@ -50,7 +50,8 @@ export function inputDayOf(capturedAt: Date): string {
 
 /**
  * The day a capture is dated by: its day of input, or the server's day when the time of input is more than a day ahead
- * — that clock is the wrong one. A time too old is not dated: the caller refuses it (FT-175) or drops it (FT-182).
+ * — that clock is the wrong one. A time too old is not dated: the capture is refused (FT-175). The bot does not use
+ * it: Telegram's clock is the right one, so a message is always dated by its own day (FT-182).
  */
 export function captureDayOf(capturedAt: Date, now: Date): string {
   return inputDayOf(capturedAtProblem(capturedAt, now) === 'far_ahead' ? now : capturedAt);

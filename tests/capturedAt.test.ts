@@ -1,4 +1,4 @@
-import { capturedAtProblem, inputDayOf, parseCapturedAt } from '../src/modules/quickCapture/domain/capturedAt';
+import { captureDayOf, capturedAtProblem, inputDayOf, parseCapturedAt } from '../src/modules/quickCapture/domain/capturedAt';
 
 /** FT-175: the time a phrase was typed on the phone, as the client sends it, and what the server accepts. */
 describe('capturedAt', () => {
@@ -55,6 +55,27 @@ describe('capturedAt', () => {
       expect(inputDayOf(parseCapturedAt('2026-10-29T01:30:00+05:00')!)).toBe('2026-10-29');
       // 23:30 on the 28th in Istanbul is already the 29th in Tashkent
       expect(inputDayOf(parseCapturedAt('2026-10-28T23:30:00+03:00')!)).toBe('2026-10-29');
+    });
+  });
+
+  describe('the day a phone\'s capture is dated by', () => {
+    // The server's clock: Thursday 2026-10-29, 17:00 in Tashkent
+    const now = new Date('2026-10-29T12:00:00.000Z');
+
+    it('is the day of input when the time is behind the server or a little ahead of it', () => {
+      expect(captureDayOf(new Date('2026-10-27T09:15:00+05:00'), now)).toBe('2026-10-27');
+      expect(captureDayOf(new Date('2026-10-29T23:58:00+05:00'), now)).toBe('2026-10-29');
+    });
+
+    it('is the day of input up to 24 hours ahead: the PC\'s clock in WSL lags after a sleep', () => {
+      // 08:00 on Friday by the phone is 15 hours ahead of the server
+      expect(captureDayOf(new Date('2026-10-30T08:00:00+05:00'), now)).toBe('2026-10-30');
+      expect(captureDayOf(new Date('2026-10-30T12:00:00.000Z'), now)).toBe('2026-10-30');
+    });
+
+    it('is the server\'s day more than 24 hours ahead: then the phone\'s clock is the wrong one', () => {
+      expect(captureDayOf(new Date('2026-10-30T12:00:00.001Z'), now)).toBe('2026-10-29');
+      expect(captureDayOf(new Date('2026-11-05T09:00:00+05:00'), now)).toBe('2026-10-29');
     });
   });
 });

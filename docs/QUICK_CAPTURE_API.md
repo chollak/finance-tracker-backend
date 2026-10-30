@@ -187,8 +187,8 @@ Validation order inside the handler: `text` present/non-blank → `text` length 
 
 A phrase from the iOS app's offline queue (FT-161) reaches the server hours or days after it was typed. With
 `capturedAt` the server counts the day from the time of input, not from the time of the request
-(`src/modules/quickCapture/domain/capturedAt.ts`, decisions of FT-175). The bot sends the time a Telegram message was
-sent the same way (FT-182, [Telegram uses the same boundary](#telegram-uses-the-same-boundary)).
+(`src/modules/quickCapture/domain/capturedAt.ts`, decisions of FT-175). The bot dates a Telegram message by the time it was
+sent, but without these limits (FT-182, [Telegram uses the same boundary](#telegram-uses-the-same-boundary)).
 
 - **The day of input** is that moment's day **on the user's calendar** — Tashkent for every user now, the zone every
   record date is kept in (`toDateOnly` on create, `DEFAULT_TIME_ZONE`). The zone written in `capturedAt` only fixes the
@@ -678,8 +678,8 @@ curl -sS -X POST https://<tunnel-host>/api/quick-capture \
 
 - **Text messages** (`createTextMessageHandler`, `src/delivery/messaging/telegram/handlers/messageHandlers.ts`) call
   `quickCaptureModule.getQuickCaptureService().capture({ text, userId, userName, source: 'telegram', clientId,
-  capturedAt })` — the exact same service the HTTP route calls. Telegram is a client of the boundary, not a parallel
-  implementation. `clientId` is the message's (FT-167); `capturedAt` is when it was sent (FT-182, below).
+  inputDay })` — the exact same service the HTTP route calls. Telegram is a client of the boundary, not a parallel
+  implementation. `clientId` is the message's (FT-167); `inputDay` is the day it was sent (FT-182, below).
 - **Voice messages** still go through `ProcessVoiceInputUseCase` (download → transcription → parse); `capture()` takes
   text only. The result is then mapped with `toCapturedTransaction()` and formatted with `buildCaptureAck()`, so a voice
   confirmation reads exactly like a text one apart from the 🎤 prefix. Voice does **not** produce a
@@ -687,15 +687,18 @@ curl -sS -X POST https://<tunnel-host>/api/quick-capture \
   `VoiceInput.today`.
 - **The time of input is when the message was sent** (FT-182, `utils/messageTime.ts`). While the PC is off, Telegram
   keeps a message up to 24 hours, and the bot reads it once the PC is on. Dated by the time it was read, a phrase sent
-  on Thursday evening would land on Friday and its «вчера» on Thursday. So the bot takes Telegram's `message.date`
-  (Unix seconds):
-  - text sends it as `capturedAt`;
-  - voice and the amount after a quick-add category take its day by the same rule (`captureDayOf`).
+  on Thursday evening would land on Friday and its «вчера» on Thursday. So the bot dates every record of a message by
+  the day of Telegram's `message.date` (Unix seconds) on the user's calendar (`messageDay`):
+  - text sends that day as `inputDay`, which the service takes as is (the HTTP route never sets it);
+  - voice sends it as `VoiceInput.today`;
+  - the amount after a quick-add category is written on it.
 
-  The limits are those of [Time of input](#time-of-input-capturedat), with one difference: a time **older than 30 days**
-  is dropped with a `warn`, and the records get the server's today; the bot never refuses it. Telegram keeps nothing that
-  long, so such a time means the server's clock is off, and a refusal would answer every message with an error. A time
-  ahead of the server is still trusted up to 24 hours: Telegram's clock is right, and WSL's lags after a sleep.
+  **The bot always trusts that time** (decision 2026-10-30); the limits of [Time of input](#time-of-input-capturedat)
+  are a phone's, not the bot's. A phone's clock can be wrong; Telegram's is right, and it keeps a message only 24
+  hours. So a message time more than 30 days old or more than 24 hours ahead means the server's clock is off, and its
+  day would be the wrong one. Such a time is logged with a `warn` (`problem`, `aheadMinutes`), as is one more than
+  5 minutes ahead, the WSL lag after a sleep; the records still get the message's day. A message without a date (there
+  is none in practice) is written on the server's today.
 - **What else needs no time of input.** The bot does not read an edited message (`edited_message`): only `message`
   updates reach the handlers, so an edit writes nothing. The buttons («Изменить», «Отменить», «Вернуть») and `/undo`
   change records already written, which keep their day. The answer to «Сколько?» writes the item on the phrase's day:

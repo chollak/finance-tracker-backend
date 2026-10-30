@@ -56,7 +56,11 @@ export interface ItemWithoutAmount {
   category: string;
   type: 'income' | 'expense';
   semanticType?: TransactionSemanticType;
-  /** YYYY-MM-DD; today when the phrase does not say. */
+  /**
+   * YYYY-MM-DD: the day the phrase names, else the day it was said (FT-182). Kept under the bot's question, so the
+   * answer to «Сколько?» the next morning still writes the phrase's day. Absent only on an item asked before FT-182:
+   * the answer's day then.
+   */
   date?: string;
   /** «нал», «картой» said of this item. */
   paymentKind?: 'cash' | 'card';
