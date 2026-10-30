@@ -778,3 +778,35 @@ Definition of Done:
 - [ ] «150,000» → 150 000, «1,500» → 1 500, «28 000,00» → 28 000; тест
 - [ ] «500» и «25к» — по выбранному правилу; тест
 - [ ] Описано, где Quick Add доступен
+
+---
+
+### FT-208: Uzbek legal forms «YTT», «ЯТТ» are taught as words
+
+Status: backlog — найдено при оплате Apple Pay Шукура 2026-10-30, FT-179
+Priority: low
+Owner: Claude Code, QA — под-чат проверки
+Type: bug
+Size: S
+
+Context:
+Wallet называет магазин так, как он записан в банке: «Ooo Mazzali Super Food», «Ytt Abduvoxidov Davronbek». «YTT»
+(«ЯТТ», «YaTT», yakka tartibdagi tadbirkor) — индивидуальный предприниматель, служебное слово, как «ООО». iOS магазин
+не трогает, только убирает лишние пробелы; это работа сервера.
+
+FT-184 уже не учит формам юрлиц: `SERVICE_WORDS` в `lessonWords.ts` — `ooo`, `ооо`, `llc`, `mchj`, `мчж`, `chp`, `чп`…
+Узбекских `ytt`, `yatt`, `ятт`, `duk`, `дук` там нет. Двухбуквенные `xk`, `aj`, `ип` и так отсекает `namesNothing`.
+
+Что будет: две правки категории у фраз с «YTT …» в одну категорию научат слово «ytt» наверняка
+(`MIN_WORD_LESSONS`). После этого оплата любого ИП уйдёт в эту категорию по словам, без «?»: `categoryNamedBy`
+в `recordPayment.ts` с `learnedCategoryWords`. Правка самой оплаты учит магазин целиком (`merchantKey`) — с ней беды нет.
+
+«Другое?» у «Ytt Abduvoxidov Davronbek» — честный ответ: имя ИП категорию не называет. Одна правка в Mini App, и
+следующая оплата этому ИП идёт в её категорию (FT-184, `learnedMerchants`).
+
+Можно заодно: `merchantKey` без формы юрлица, чтобы «YTT X» и «ЯТТ X» были одним магазином. Ключи считаются при чтении
+(`merchantCategories`), так что выученные магазины не теряются.
+
+Definition of Done:
+- [ ] `ytt`, `yatt`, `ятт`, `duk`, `дук` в `SERVICE_WORDS`; тест: правка фразы «ytt zzqx 25000» не учит «ytt»
+- [ ] Решено про `merchantKey` без формы юрлица; если да — тест «YTT X» = «X»
