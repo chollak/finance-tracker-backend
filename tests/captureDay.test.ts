@@ -3,6 +3,7 @@ import { TranscriptionService } from '../src/modules/voiceProcessing/domain/tran
 import { CreateTransactionUseCase } from '../src/modules/transaction/application/createTransaction';
 import { OpenAITranscriptionService } from '../src/modules/voiceProcessing/infrastructure/openAITranscriptionService';
 import { buildCaptureAck } from '../src/modules/quickCapture/application/buildCaptureAck';
+import { TransactionValidator } from '../src/shared/application/validation/transactionValidator';
 
 /**
  * FT-175: the day of a record is counted on the user's calendar (Tashkent), from the day the phrase was said.
@@ -70,6 +71,14 @@ describe('the day of a record is the user\'s day, not the UTC day', () => {
     await new ProcessTextInputUseCase(parser() as unknown as TranscriptionService, create.useCase).execute('вчера такси 18000', 'user-1');
 
     expect(writtenDate(create.execute)).toBe('2026-10-28');
+  });
+
+  it('dates a record sent without a date by the Tashkent day after midnight there', () => {
+    jest.useFakeTimers().setSystemTime(TASHKENT_NIGHT);
+
+    const result = TransactionValidator.validate({ amount: 25000, category: 'Кафе', type: 'expense', userId: 'user-1' });
+
+    expect(result.success && result.data.date).toBe('2026-10-29');
   });
 
   it('calls the record of the Tashkent day «Сегодня» after midnight there', () => {

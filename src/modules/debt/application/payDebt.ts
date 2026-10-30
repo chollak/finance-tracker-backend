@@ -7,6 +7,7 @@ import { SubscriptionModule } from '../../subscription/subscriptionModule';
 import { UserModule } from '../../user/userModule';
 import { isUUID } from '../../../shared/application/helpers/userIdResolver';
 import { getLogger, LogCategory } from '../../../shared/application/logging';
+import { todayDateOnly } from '../../../shared/domain/dates/dateOnly';
 
 const logger = getLogger(LogCategory.DEBT);
 
@@ -77,7 +78,7 @@ export class PayDebtUseCase {
           type: isExpense ? 'expense' : 'income',
           category: DEBT_CATEGORY,
           description: data.note || description,
-          date: new Date().toISOString().split('T')[0],
+          date: todayDateOnly(),
           // Debt movements are not real spending/income — keep them out of expense/income totals
           semanticType: 'debt',
           needsReview: false,
