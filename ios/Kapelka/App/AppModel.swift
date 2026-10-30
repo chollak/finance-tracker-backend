@@ -110,7 +110,7 @@ private final class FinishingTime {
 }
 
 enum SettingsMessage {
-    static let badAddress = "Не похоже на адрес: нужен вида https://пк.tailnet.ts.net"
+    static let badAddress = "Нужен адрес вида https://пк.tailnet.ts.net (http — только localhost)"
 
     static func text(for error: SettingsError) -> String {
         switch error {

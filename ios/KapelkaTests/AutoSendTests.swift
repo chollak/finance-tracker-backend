@@ -41,7 +41,7 @@ final class FakeRefreshScheduler: RefreshScheduling, @unchecked Sendable {
 struct AutoSendTests {
     @Test("появилась сеть при открытом приложении — очередь уходит")
     func sendsWhenNetworkAppears() async throws {
-        let harness = try QueueHarness()
+        let harness = try QueueHarness(transport: FakeTransport(latency: .milliseconds(20)))
         let queue = harness.makeQueue()
         for text in ["кофе 25к", "такси 18к", "обед 60к"] {
             try await queue.add(text)
@@ -54,8 +54,8 @@ struct AutoSendTests {
         #expect(await harness.transport.requests.isEmpty)
 
         watcher.emit(satisfied: true)
-        #expect(await eventually { await harness.transport.requests.count == 3 })
-        #expect(try harness.store.load().captures.map(\.state) == [.sent, .sent, .sent])
+        #expect(try await eventually { try harness.store.load().captures.map(\.state) == [.sent, .sent, .sent] })
+        #expect(await harness.transport.requests.count == 3)
     }
 
     @Test("новая сеть при той же связи (включился Tailscale) — ещё попытка")

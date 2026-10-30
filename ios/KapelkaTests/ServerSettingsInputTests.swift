@@ -11,13 +11,20 @@ struct ServerSettingsInputTests {
             ("https://kapelka-pc.example-tailnet.ts.net/", "https://kapelka-pc.example-tailnet.ts.net"),
             ("  https://kapelka-pc.example-tailnet.ts.net/webapp/  ", "https://kapelka-pc.example-tailnet.ts.net"),
             ("http://localhost:3177", "http://localhost:3177"),
+            ("http://127.0.0.1:3177", "http://127.0.0.1:3177"),
         ]
     )
     func normalizesAddress(raw: String, expected: String) {
         #expect(ServerAddress.normalized(raw)?.absoluteString == expected)
     }
 
-    @Test("не адрес — отказ", arguments: ["", "   ", "ftp://kapelka.ts.net", "https://", "два слова"])
+    @Test(
+        "не адрес или http не на этой машине — отказ: токен ушёл бы открытым текстом",
+        arguments: [
+            "", "   ", "ftp://kapelka.ts.net", "https://", "два слова",
+            "http://kapelka-pc.example-tailnet.ts.net", "http://192.168.1.5:3000",
+        ]
+    )
     func refusesAddress(raw: String) {
         #expect(ServerAddress.normalized(raw) == nil)
     }

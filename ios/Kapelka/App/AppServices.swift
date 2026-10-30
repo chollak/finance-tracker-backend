@@ -11,11 +11,8 @@ struct AppServices: Sendable {
     static func live() -> AppServices {
         let settings = SettingsStore()
         let transport = URLSessionTransport.shared
-        // Application Support is always there; Documents only if iOS refused to create the folder
-        let store = (try? CaptureFileStore.inApplicationSupport())
-            ?? CaptureFileStore(fileURL: URL.documentsDirectory.appending(path: "captures.json"))
         let queue = CaptureQueue(
-            store: store,
+            store: .inApplicationSupport,
             sender: CaptureClient(configuration: { settings.configuration() }, transport: transport)
         )
         return AppServices(

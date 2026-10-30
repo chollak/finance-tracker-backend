@@ -32,6 +32,18 @@ struct CaptureStorageTests {
         #expect(capture.text == "кофе 25к")
     }
 
+    @Test("папки очереди ещё нет — первая запись создаёт её, а не ложится в другой файл")
+    func createsFolderOnFirstSave() async throws {
+        let folder = FileManager.default.temporaryDirectory
+            .appending(path: "ft177-queue-\(UUID().uuidString)/Kapelka", directoryHint: .isDirectory)
+        let store = CaptureFileStore(fileURL: folder.appending(path: "captures.json"))
+        let queue = CaptureQueue(store: store, sender: try QueueHarness().client)
+
+        _ = try await queue.add("кофе 25к")
+
+        #expect(try store.load().captures.map(\.text) == ["кофе 25к"])
+    }
+
     @Test("пустая фраза и фраза длиннее 2000 символов в очередь не попадают")
     func refusesBadText() async throws {
         let harness = try QueueHarness()

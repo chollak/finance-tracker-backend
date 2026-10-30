@@ -10,6 +10,10 @@ enum SettingsError: Error, Equatable {
 
 /// The PC's address in the tailnet, as typed or pasted: `https://<pc>.<tailnet>.ts.net`.
 enum ServerAddress {
+    /// Plain http only for a server on this machine (tests, the simulator): elsewhere the token would cross the
+    /// network in clear text.
+    private static let plainHTTPHosts: Set<String> = ["localhost", "127.0.0.1"]
+
     /// Scheme, host and port only. No scheme means https; a pasted Mini App link loses its path — the API is always
     /// at `/api` from the root.
     static func normalized(_ raw: String) -> URL? {
@@ -21,7 +25,8 @@ enum ServerAddress {
         guard
             let parsed = URLComponents(string: text),
             let scheme = parsed.scheme?.lowercased(), ["https", "http"].contains(scheme),
-            let host = parsed.host, isHostName(host)
+            let host = parsed.host, isHostName(host),
+            scheme == "https" || plainHTTPHosts.contains(host.lowercased())
         else { return nil }
 
         var components = URLComponents()

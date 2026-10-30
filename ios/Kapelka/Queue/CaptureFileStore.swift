@@ -37,14 +37,11 @@ struct CaptureFileStore: Sendable {
 
     let fileURL: URL
 
-    /// `Application Support/Kapelka/captures.json`: kept across app updates and reinstalls over the old build.
-    static func inApplicationSupport() throws -> CaptureFileStore {
-        let folder = try FileManager.default
-            .url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
-            .appending(path: "Kapelka", directoryHint: .isDirectory)
-        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        return CaptureFileStore(fileURL: folder.appending(path: "captures.json"))
-    }
+    /// `Application Support/Kapelka/captures.json`: kept across app updates and reinstalls over the old build. The
+    /// one place: a second file somewhere else would hide its records from the next launch.
+    static let inApplicationSupport = CaptureFileStore(
+        fileURL: URL.applicationSupportDirectory.appending(path: "Kapelka/captures.json")
+    )
 
     /// No file yet — an empty queue. A file that does not decode is moved aside, not overwritten: whatever is in it
     /// can still be recovered by hand. A file that cannot be opened — before the first unlock after a restart — throws:
@@ -64,7 +61,12 @@ struct CaptureFileStore: Sendable {
         }
     }
 
+    /// Makes the folder on the first save; if that fails the record is refused, never written elsewhere.
     func save(_ state: QueueState) throws {
+        try FileManager.default.createDirectory(
+            at: fileURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
         try encoder.encode(state).write(to: fileURL, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
