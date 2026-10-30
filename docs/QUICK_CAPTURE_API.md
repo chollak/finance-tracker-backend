@@ -187,7 +187,8 @@ Validation order inside the handler: `text` present/non-blank → `text` length 
 
 A phrase from the iOS app's offline queue (FT-161) reaches the server hours or days after it was typed. With
 `capturedAt` the server counts the day from the time of input, not from the time of the request
-(`src/modules/quickCapture/domain/capturedAt.ts`, decisions of FT-175):
+(`src/modules/quickCapture/domain/capturedAt.ts`, decisions of FT-175). The bot sends the time a Telegram message was
+sent the same way (FT-182, [Telegram uses the same boundary](#telegram-uses-the-same-boundary)).
 
 - **The day of input** is that moment's day **on the user's calendar** — Tashkent for every user now, the zone every
   record date is kept in (`toDateOnly` on create, `DEFAULT_TIME_ZONE`). The zone written in `capturedAt` only fixes the
@@ -676,12 +677,29 @@ curl -sS -X POST https://<tunnel-host>/api/quick-capture \
 ## Telegram uses the same boundary
 
 - **Text messages** (`createTextMessageHandler`, `src/delivery/messaging/telegram/handlers/messageHandlers.ts`) call
-  `quickCaptureModule.getQuickCaptureService().capture({ text, userId, userName, source: 'telegram' })` — the exact same
-  service the HTTP route calls. Telegram is a client of the boundary, not a parallel implementation.
+  `quickCaptureModule.getQuickCaptureService().capture({ text, userId, userName, source: 'telegram', clientId,
+  capturedAt })` — the exact same service the HTTP route calls. Telegram is a client of the boundary, not a parallel
+  implementation. `clientId` is the message's (FT-167); `capturedAt` is when it was sent (FT-182, below).
 - **Voice messages** still go through `ProcessVoiceInputUseCase` (download → transcription → parse); `capture()` takes
   text only. The result is then mapped with `toCapturedTransaction()` and formatted with `buildCaptureAck()`, so a voice
   confirmation reads exactly like a text one apart from the 🎤 prefix. Voice does **not** produce a
-  `QuickCaptureResult` and never sets a `source`.
+  `QuickCaptureResult`; its records get `source: 'telegram'` from `VoiceInput.source`, and its day of input comes as
+  `VoiceInput.today`.
+- **The time of input is when the message was sent** (FT-182, `utils/messageTime.ts`). While the PC is off, Telegram
+  keeps a message up to 24 hours, and the bot reads it once the PC is on. Dated by the time it was read, a phrase sent
+  on Thursday evening would land on Friday and its «вчера» on Thursday. So the bot takes Telegram's `message.date`
+  (Unix seconds):
+  - text sends it as `capturedAt`;
+  - voice and the amount after a quick-add category take its day by the same rule (`captureDayOf`).
+
+  The limits are those of [Time of input](#time-of-input-capturedat), with one difference: a time **older than 30 days**
+  is dropped with a `warn`, and the records get the server's today; the bot never refuses it. Telegram keeps nothing that
+  long, so such a time means the server's clock is off, and a refusal would answer every message with an error. A time
+  ahead of the server is still trusted up to 24 hours: Telegram's clock is right, and WSL's lags after a sleep.
+- **What else needs no time of input.** The bot does not read an edited message (`edited_message`): only `message`
+  updates reach the handlers, so an edit writes nothing. The buttons («Изменить», «Отменить», «Вернуть») and `/undo`
+  change records already written, which keep their day. The answer to «Сколько?» writes the item on the phrase's day:
+  an item the AI gives neither an amount nor a date gets the day the phrase was said when it is parsed.
 - The bot sends one message per captured transaction so each keeps its own edit/delete keyboard, and renders the ack via
   `formatCaptureMessage()`.
 - Telegram keeps a separate, older confidence gate: `confidence < 0.6` switches to the confirmation keyboard. That is a
