@@ -1,5 +1,8 @@
-/** Where a record came from (FT-103, docs/pastel/money-model.md). */
-export const RECORD_SOURCES = ['telegram', 'miniapp', 'ios_shortcut', 'receipt', 'manual'] as const;
+/**
+ * Where a record came from (FT-103, docs/pastel/money-model.md). `apple_pay` — a card payment the iOS app sent ready,
+ * with its amount and merchant (FT-176).
+ */
+export const RECORD_SOURCES = ['telegram', 'miniapp', 'ios_shortcut', 'apple_pay', 'receipt', 'manual'] as const;
 export type RecordSource = (typeof RECORD_SOURCES)[number];
 
 export function isRecordSource(value: unknown): value is RecordSource {

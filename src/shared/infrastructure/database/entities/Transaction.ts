@@ -76,7 +76,7 @@ export class Transaction {
   @Column({ default: 'UZS' })
   currency!: string;
 
-  /** Where the record came from: telegram, miniapp, ios_shortcut, receipt, manual (FT-103); null for older records. */
+  /** Where the record came from: telegram, miniapp, ios_shortcut, apple_pay (FT-176), receipt, manual (FT-103); null for older records. */
   @Column('varchar', { nullable: true })
   source?: string | null;
 

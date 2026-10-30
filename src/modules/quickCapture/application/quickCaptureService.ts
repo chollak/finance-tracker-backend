@@ -1,16 +1,20 @@
 import { ProcessTextInputUseCase } from '../../voiceProcessing/application/processTextInput';
+import { RecordPaymentUseCase } from '../../voiceProcessing/application/recordPayment';
 import { getLogger, LogCategory } from '../../../shared/application/logging';
 import { ErrorFactory } from '../../../shared/domain/errors/AppError';
 import { buildCaptureAck } from './buildCaptureAck';
 import { capturedFromRecord, toCapturedTransaction } from './toCapturedTransaction';
 import { CAPTURED_AT_LIMITS, capturedAtProblem, inputDayOf } from '../domain/capturedAt';
+import { todayDateOnly } from '../../../shared/domain/dates/dateOnly';
 import {
   AmountAnswerRequest,
   CaptureReplay,
+  CaptureResultSource,
   CaptureReviewReason,
-  CaptureSource,
   CapturedDebt,
   CapturedTransaction,
+  PAYMENT_SOURCE,
+  PaymentCaptureRequest,
   QuickCaptureRequest,
   QuickCaptureResult,
   QuickCaptureStatus,
@@ -33,20 +37,74 @@ export class QuickCaptureService {
     private processTextInputUseCase: ProcessTextInputUseCase,
     private replay?: CaptureReplay,
     /** The server's clock, for the limits of `capturedAt`. */
-    private now: () => Date = () => new Date()
+    private now: () => Date = () => new Date(),
+    /** Writes a payment the iOS app sends ready (FT-176). */
+    private recordPayment?: RecordPaymentUseCase
   ) {}
 
   async capture(request: QuickCaptureRequest): Promise<QuickCaptureResult> {
-    if (!request.clientId) return this.captureOnce(request);
+    return this.once(request.userId, request.clientId, () => this.captureOnce(request));
+  }
 
-    // A retry that arrives while the first request is still with the parser (a client timeout) waits
-    // for it: two parses of one text may differ, and their records must not mix (FT-106)
-    const key = `${request.userId}\u0000${request.clientId}`;
+  /**
+   * A card payment from Apple Pay, written as it came (FT-176): the same repeats and time of input as a phrase, and no
+   * parser — only the category is chosen, by the merchant.
+   */
+  async capturePayment(request: PaymentCaptureRequest): Promise<QuickCaptureResult> {
+    return this.once(request.userId, request.clientId, () => this.capturePaymentOnce(request));
+  }
+
+  /**
+   * A retry that arrives while the first request is still being written (a client timeout) waits for it: two parses of
+   * one text may differ, and their records must not mix (FT-106).
+   */
+  private once(userId: string, clientId: string | undefined, capture: () => Promise<QuickCaptureResult>): Promise<QuickCaptureResult> {
+    if (!clientId) return capture();
+    const key = `${userId}\u0000${clientId}`;
     const running = this.inFlight.get(key);
-    if (running) return { ...(await running), repeated: true };
-    const capture = this.captureOnce(request).finally(() => this.inFlight.delete(key));
-    this.inFlight.set(key, capture);
-    return capture;
+    if (running) return running.then(result => ({ ...result, repeated: true }));
+    const first = capture().finally(() => this.inFlight.delete(key));
+    this.inFlight.set(key, first);
+    return first;
+  }
+
+  private async capturePaymentOnce(request: PaymentCaptureRequest): Promise<QuickCaptureResult> {
+    const text = request.merchant ?? '';
+    const earlier = await this.earlierRecords(request.userId, request.clientId);
+    if (earlier) return { ...buildResult(text, PAYMENT_SOURCE, earlier, []), repeated: true };
+
+    if (!this.recordPayment) throw ErrorFactory.configuration('Payments are not wired into quick capture');
+    const written = await this.recordPayment.execute({
+      userId: request.userId,
+      userName: request.userName,
+      amountMinor: request.amountMinor,
+      currency: request.currency,
+      merchant: request.merchant,
+      accountName: request.accountName,
+      clientId: request.clientId,
+      // Checked after the repeat, as for a phrase (FT-175)
+      date: request.capturedAt ? this.inputDay(request.capturedAt) : todayDateOnly(this.now()),
+    });
+    if (!written.success) throw written.error;
+
+    const result = buildResult(text, PAYMENT_SOURCE, [toCapturedTransaction(written.data)], []);
+    // The merchant and the account are the user's data: only what was given and what came out are logged
+    logger.info('Payment captured', {
+      currency: request.currency,
+      status: result.status,
+      merchant: Boolean(request.merchant),
+      accountName: Boolean(request.accountName),
+    });
+    return result;
+  }
+
+  /** What the first capture with this client id wrote, for its repeat (FT-106); null when there is none. */
+  private async earlierRecords(userId: string, clientId: string | undefined): Promise<CapturedTransaction[] | null> {
+    if (!clientId || !this.replay) return null;
+    const earlier = await this.replay.findByClientId(userId, clientId);
+    if (earlier.length === 0) return null;
+    logger.info('Quick capture repeated', { transactions: earlier.length });
+    return earlier.map(capturedFromRecord);
   }
 
   private async captureOnce(request: QuickCaptureRequest): Promise<QuickCaptureResult> {
@@ -58,13 +116,8 @@ export class QuickCaptureService {
     }
 
     // A repeat from the offline queue answers with what the first request wrote (FT-106)
-    if (request.clientId && this.replay) {
-      const earlier = await this.replay.findByClientId(request.userId, request.clientId);
-      if (earlier.length > 0) {
-        logger.info('Quick capture repeated', { transactions: earlier.length });
-        return { ...buildResult(text, request.source, earlier.map(capturedFromRecord), []), repeated: true };
-      }
-    }
+    const earlier = await this.earlierRecords(request.userId, request.clientId);
+    if (earlier) return { ...buildResult(text, request.source, earlier, []), repeated: true };
 
     // Checked after the repeat: a capture written once is answered, whatever time its retry carries (FT-175)
     const today = request.capturedAt ? this.inputDay(request.capturedAt) : undefined;
@@ -133,7 +186,7 @@ export class QuickCaptureService {
 
 function buildResult(
   text: string,
-  source: CaptureSource | undefined,
+  source: CaptureResultSource | undefined,
   transactions: CapturedTransaction[],
   debts: CapturedDebt[]
 ): QuickCaptureResult {

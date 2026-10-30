@@ -1,6 +1,7 @@
 import { TranscriptionService } from './domain/transcriptionService';
 import { ProcessVoiceInputUseCase } from './application/processVoiceInput';
 import { ProcessTextInputUseCase } from './application/processTextInput';
+import { RecordPaymentUseCase } from './application/recordPayment';
 import { TransactionModule } from '../transaction/transactionModule';
 import { DebtModule } from '../debt/debtModule';
 import { UserCategorySource } from './domain/categoryPrompt';
@@ -22,6 +23,16 @@ export class VoiceProcessingModule {
       this.openAIService,
       this.transactionModule.getCreateTransactionUseCase(),
       this.debtModule?.createDebtUseCase,
+      this.categorySource,
+      this.learnedWords
+    );
+  }
+
+  /** A card payment the iOS app sends ready: only its category is chosen (FT-176). */
+  getRecordPaymentUseCase(): RecordPaymentUseCase {
+    return new RecordPaymentUseCase(
+      this.openAIService,
+      this.transactionModule.getCreateTransactionUseCase(),
       this.categorySource,
       this.learnedWords
     );

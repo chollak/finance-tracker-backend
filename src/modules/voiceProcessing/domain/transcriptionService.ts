@@ -65,4 +65,11 @@ export interface TranscriptionService {
    * Analyze text and extract transactions, choosing among the user's categories when given
    */
   analyzeInput(text: string, context?: AnalysisContext): Promise<AnalysisResult>;
+
+  /**
+   * The expense category of a card payment by its merchant alone (FT-176): the name of one of the user's categories
+   * (`context.categories`), «Другое» when none fits. Nothing else is read — the amount, currency, date and account of a
+   * payment come ready.
+   */
+  categoryOfMerchant(merchant: string, context?: AnalysisContext): Promise<string>;
 }

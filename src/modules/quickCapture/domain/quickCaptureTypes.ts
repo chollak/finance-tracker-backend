@@ -1,6 +1,7 @@
 import { TransactionSemanticType } from '../../transaction/domain/transactionSemanticType';
 import { Transaction } from '../../transaction/domain/transactionEntity';
 import { CaptureAssumption, DetectedDebt, ItemWithoutAmount } from '../../voiceProcessing/domain/processedTransaction';
+import { RecordCurrency, RecordSource } from '../../transaction/domain/recordSource';
 
 /**
  * Quick Capture is the shared application boundary every client (Telegram, Mini App,
@@ -15,6 +16,15 @@ export type CaptureSource = typeof CAPTURE_SOURCES[number];
 export function isCaptureSource(value: unknown): value is CaptureSource {
   return typeof value === 'string' && (CAPTURE_SOURCES as readonly string[]).includes(value);
 }
+
+/**
+ * The source of a payment the iOS app sends ready (FT-176). Set by the server, never by a client: a phrase cannot claim
+ * it, so it is not a `CaptureSource`.
+ */
+export const PAYMENT_SOURCE = 'apple_pay' satisfies RecordSource;
+
+/** What a capture result says it came from: a phrase's source, or a payment's. */
+export type CaptureResultSource = CaptureSource | typeof PAYMENT_SOURCE;
 
 /**
  * `draft` is intentionally absent: there is no parse-without-save path today, and a
@@ -37,6 +47,26 @@ export interface QuickCaptureRequest {
    * When the phrase was typed on the phone (FT-175): it is dated by that day, not by the day it arrived — «вчера» is the
    * day before it. Within `CAPTURED_AT_LIMITS` of the server's clock; a repeat of a `clientId` answers whatever it is.
    */
+  capturedAt?: Date;
+}
+
+/**
+ * A card payment the iOS app sends ready (FT-176, docs/QUICK_CAPTURE_API.md «Payments»): written as it came, only its
+ * category is chosen — by the merchant.
+ */
+export interface PaymentCaptureRequest {
+  userId: string;
+  userName?: string;
+  /** Exactly as it came, in minor units of `currency` (100 per сум or dollar). */
+  amountMinor: number;
+  currency: RecordCurrency;
+  /** As Wallet names it: «KORZINKA 24». The category is chosen by it. */
+  merchant?: string;
+  /** The Kapelka account the phone maps the payment's card to, by name; without one the default awaits review. */
+  accountName?: string;
+  /** Required: the phone's queue repeats a payment until it gets an answer. */
+  clientId: string;
+  /** When the payment was made, by the phone; the record is dated by its day (FT-175). */
   capturedAt?: Date;
 }
 
@@ -120,8 +150,9 @@ export interface CaptureReview {
 
 export interface QuickCaptureResult {
   status: QuickCaptureStatus;
+  /** The trimmed phrase; for a payment its merchant, '' without one. */
   text: string;
-  source?: CaptureSource;
+  source?: CaptureResultSource;
   transactions: CapturedTransaction[];
   debts: CapturedDebt[];
   ack: CaptureAck;
