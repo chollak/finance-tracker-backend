@@ -559,40 +559,6 @@ Definition of Done:
 
 ---
 
-### FT-176: Quick capture takes a ready amount from Apple Pay
-
-Status: backlog — в очереди, после FT-175
-Priority: medium
-Owner: Claude Code, QA — под-чат проверки
-Type: feature
-Size: M
-Depends on: FT-175 (те же файлы quick-capture)
-
-Context:
-Оплата Apple Pay (FT-179) приходит в iOS-приложение уже разобранной: сумма, валюта, магазин, карта. Слать её фразой
-нельзя (решение 2026-10-29): разбор читает голое число меньше 1000 в сумах как тысячи (`amountReply.ts:8`, «500» →
-500 000 сум), а цифры в названии магазина («KORZINKA 24») путают сумму.
-
-Идея: quick-capture по токену принимает оплату полями — сумма, валюта `UZS` | `USD`, магазин, название счёта (из
-сопоставления карт в приложении), `clientId`, `capturedAt`. Сумма, валюта и дата пишутся как есть. Категорию даёт
-магазин: своё имя категории, словарь и выученные слова (FT-138, FT-143), иначе ИИ выбирает только категорию, иначе
-«Другое» с предположением `category`. Счёт ищется по названию, как подсказка счёта во фразе (FT-103); не нашёлся или не
-пришёл — счёт по умолчанию с предположением `account` и `needsReview`. Ответ — тот же `QuickCaptureResult` с `ack`.
-
-Решить в задаче: та же точка `POST /api/quick-capture` с объектом оплаты вместо `text` или отдельная
-`POST /api/quick-capture/payment` (тот же токен и лимит); сумма числом в минимальных единицах или строкой; где хранить
-магазин (`merchant`, описание); `source` у таких записей.
-
-Definition of Done:
-- [ ] Контракт оплаты описан в `docs/QUICK_CAPTURE_API.md` — FT-179 строится на нём
-- [ ] Сумма записана ровно как пришла: 500 сум — 500, 4.50 USD — 4.50; тест
-- [ ] Категория по магазину: выученный магазин — без ИИ; незнакомый — ИИ выбирает только категорию; ИИ недоступен — «Другое» с пометкой; тесты
-- [ ] Счёт по названию; неизвестное название или без него — счёт по умолчанию и `needsReview`; тест
-- [ ] Валюта не `UZS` и не `USD` — 400; тест
-- [ ] Повтор с тем же `clientId` не создаёт дубля; токен и владелец — как у фразы (FT-155); тесты
-
----
-
 ### FT-178: Voice from the Action Button and the main screen
 
 Status: backlog — в очереди, после FT-177
@@ -739,3 +705,34 @@ Definition of Done:
 - [ ] Живая проверка на настоящем ключе: 5 фраз (бот-формат и quick capture) и одно голосовое — результат как до обновления
 - [ ] `npm run verify` зелёный; `npm audit fix --force` не запускался
 - [ ] Записано в «Реализовано», какие пакеты и версии сменились
+
+---
+
+### FT-184: A category correction in the Mini App teaches
+
+Status: backlog
+Priority: medium
+Owner: Claude Code, QA — под-чат проверки
+Type: bug
+Size: S
+
+Context:
+Найдено под-чатом проверки FT-176 (2026-10-30). Правка категории в Mini App ничему не учит — ни у фразы, ни у оплаты
+Apple Pay. Mini App шлёт только `PUT /api/transactions/:id` с `{ categoryId }` (`patchTransaction`,
+`webapp/src/entities/transaction/api/mutations.ts:233`; вызовы — `useRecordEdits.ts`, `useCaptureReview.ts`), а
+сервер учится, только если в теле запроса есть `originalText` и `originalParsing`
+(`transactionController.ts:424` → `UpdateTransactionWithLearningUseCase`, `recordLearningData`); их никто не шлёт.
+Проверено на живом сервере: две оплаты «ZZQX 77» и «ZZQX 78» исправлены в «Продукты», третья всё равно ушла к ИИ.
+Выученные паттерны (FT-138) пополняются только сидом.
+
+Идея: сервер берёт `originalText` и `originalParsing` из сохранённой записи (они пишутся при создании: текст фразы,
+магазин оплаты), а не из тела запроса; тело с ними — как раньше, но не обязательно. Учит только смена категории, как
+сейчас (`userCorrection.category` — `presetKey` стартовой категории; своя категория пользователя ничему не учит).
+
+Definition of Done:
+- [ ] Правка категории записи из фразы через `PUT /api/transactions/:id { categoryId }` записывает урок; тест
+- [ ] То же для оплаты Apple Pay: две правки «ZZQX 77/78» в «Продукты» → третья оплата «ZZQX» — «Продукты» без ИИ; тест
+- [ ] Запись без `originalText` (ручная форма, `POST /api/transactions`) ничему не учит и не падает; тест
+- [ ] Проверено, учит ли правка категории в боте; если нет — здесь же или отдельной задачей
+- [ ] `docs/QUICK_CAPTURE_API.md` («Payments», шаг 3) и `voice-to-transaction.md` («Learning System Integration»)
+      говорят, что правка учит

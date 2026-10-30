@@ -1,4 +1,5 @@
 import { presetByKey, presetSynonyms } from '../../category/domain/categoryPresets';
+import { categoryNameKey } from '../../category/domain/category';
 
 /**
  * When a category is a guess (FT-138, decision of 2026-10-20). The review shows «?» and the bot «Покупки?»
@@ -102,6 +103,27 @@ export function categoryNamedIn(text: string, category: CategoryOfRecord, learne
   const preset = category.presetKey ? presetByKey(category.presetKey, category.type) : undefined;
   const dictionary = [category.name, ...(preset ? presetSynonyms(preset) : []), ...learnedWords];
   return dictionary.some(word => hasWord(words, word));
+}
+
+/**
+ * The one expense category a label names (FT-143; a payment's merchant, FT-176), or null. The first kind of match that
+ * finds anything decides: the user's own name of a category, whole («кофе» is their «Кофе», not the starter «Кафе»);
+ * then names and the dictionary by words; then learned words, which every correction of every user adds to, so they
+ * never outvote the dictionary. Two categories named by the same kind of match are no answer.
+ */
+export function categoryNamedBy<T extends CategoryOfRecord>(
+  label: string,
+  categories: readonly T[],
+  learned: ReadonlyMap<string, readonly string[]>
+): T | null {
+  const expense = categories.filter(category => category.type === 'expense');
+  const tiers = [
+    expense.filter(category => categoryNameKey(category.name) === categoryNameKey(label)),
+    expense.filter(category => categoryNamedIn(label, category)),
+    expense.filter(category => categoryNamedIn(label, category, category.presetKey ? learned.get(category.presetKey) : undefined)),
+  ];
+  const named = tiers.find(tier => tier.length > 0) ?? [];
+  return named.length === 1 ? named[0] : null;
 }
 
 /**

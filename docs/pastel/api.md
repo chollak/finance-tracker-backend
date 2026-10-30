@@ -62,7 +62,7 @@
 | Поле | Что |
 |---|---|
 | `currency` | `UZS` или `USD`; сумма записи — в этой валюте. Без поля: валюта выбранного счёта, без счёта — `UZS` |
-| `source` | откуда запись: `telegram`, `miniapp`, `ios_shortcut`, `receipt`, `manual`. Пишет сервер; у `POST /api/transactions` всегда `manual` |
+| `source` | откуда запись: `telegram`, `miniapp`, `ios_shortcut`, `apple_pay` (оплата из Wallet, FT-176), `receipt`, `manual`. Пишет сервер; у `POST /api/transactions` всегда `manual` |
 
 - **Валюта записи = валюта счёта.** `POST` с `accountId` и другой `currency` — `400`. Без `accountId`, но с
   `currency: USD` запись идёт на долларовый счёт (по умолчанию, если он долларовый, иначе первый видимый
