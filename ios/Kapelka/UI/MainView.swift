@@ -128,9 +128,13 @@ struct MainView: View {
                 CaptureRowView(row: row)
                     .swipeActions {
                         if row.canDelete {
-                            Button("Удалить", role: .destructive) {
+                            Button(role: .destructive) {
                                 Task { error = await model.remove(row.id) }
+                            } label: {
+                                Label("Удалить", systemImage: "trash")
                             }
+                            // The screen's black-or-white tint would make it white on white in the dark theme
+                            .tint(Color(uiColor: .systemGray))
                         }
                     }
             }
