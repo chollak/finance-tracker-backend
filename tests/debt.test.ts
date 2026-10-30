@@ -308,6 +308,22 @@ describe('Debt module', () => {
     });
   });
 
+  describe('the day of a debt\'s transaction (FT-175)', () => {
+    // 01:30 on the 29th in Tashkent, still the 28th by UTC
+    beforeEach(() => jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate'] }).setSystemTime(new Date('2026-10-28T20:30:00.000Z')));
+    afterEach(() => jest.useRealTimers());
+
+    it('is the Tashkent day, when the debt is given and when it is paid', async () => {
+      await createDebtUseCase.execute({ userId: 'user-1', type: DebtType.OWED_TO_ME, personName: 'Bob', amount: 500, moneyTransferred: true });
+      const debt = await createActiveDebt({ amount: 1000 });
+      await payDebtUseCase.execute({ debtId: debt.id, amount: 400 });
+
+      const dates = (createTransactionUseCase.execute as jest.Mock).mock.calls.map(([transaction]) => transaction.date);
+      expect(dates.length).toBeGreaterThanOrEqual(2);
+      expect(new Set(dates)).toEqual(new Set(['2026-10-29']));
+    });
+  });
+
   describe('PayDebtUseCase', () => {
     it('partial payment decreases remaining amount, keeps debt active, and records payment history', async () => {
       const debt = await createActiveDebt({ amount: 1000 });

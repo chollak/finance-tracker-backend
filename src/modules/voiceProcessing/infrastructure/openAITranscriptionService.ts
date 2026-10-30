@@ -15,8 +15,16 @@ import { AnalysisContext, buildCategoryPrompt } from '../domain/categoryPrompt';
 import { ItemWithoutAmount } from '../domain/processedTransaction';
 import { normalizeSemanticType } from '../../transaction/domain/transactionSemanticType';
 import { createLogger, LogCategory } from '../../../shared/infrastructure/logging';
+import { addDaysToDateOnly, todayDateOnly, weekdayOfDateOnly } from '../../../shared/domain/dates/dateOnly';
 
 const logger = createLogger(LogCategory.OPENAI);
+
+/** The 7 days up to `today`, newest first: «воскресенье 2026-10-25, суббота 2026-10-24, …». */
+function weekUpTo(today: string, locale: string): string {
+  return Array.from({ length: 7 }, (_, back) => addDaysToDateOnly(today, -back))
+    .map(date => `${weekdayOfDateOnly(date, locale)} ${date}`)
+    .join(', ');
+}
 
 export class OpenAITranscriptionService implements TranscriptionService {
   private openai: OpenAI;
@@ -69,7 +77,8 @@ export class OpenAITranscriptionService implements TranscriptionService {
     }
 
     try {
-      const today = new Date().toISOString().split('T')[0];
+      // The user's day, not the UTC one: before 05:00 in Tashkent that is still yesterday (FT-175)
+      const today = context.today ?? todayDateOnly();
       const language = AppConfig.DEFAULT_LANGUAGE.toUpperCase() as keyof typeof OPENAI_PROMPTS;
       const prompts = OPENAI_PROMPTS[language];
 
@@ -80,7 +89,10 @@ export class OpenAITranscriptionService implements TranscriptionService {
       );
 
       const messages: ChatCompletionMessageParam[] = [
-        { role: 'system', content: prompts.SYSTEM_FINANCIAL_ASSISTANT(today) },
+        {
+          role: 'system',
+          content: prompts.SYSTEM_FINANCIAL_ASSISTANT(today, weekdayOfDateOnly(today, prompts.LOCALE), weekUpTo(today, prompts.LOCALE)),
+        },
         { role: 'user', content: enhancedUserPrompt },
         { role: 'user', content: text },
       ];
@@ -95,7 +107,7 @@ export class OpenAITranscriptionService implements TranscriptionService {
         throw ErrorFactory.externalService('OpenAI Chat', new Error(ERROR_MESSAGES.OPENAI_ERROR));
       }
 
-      return this.parseAnalysisResponse(response.choices[0].message.content);
+      return this.parseAnalysisResponse(response.choices[0].message.content, today);
     } catch (error) {
       if (error instanceof ExternalServiceError) {
         throw error;
@@ -119,9 +131,9 @@ export class OpenAITranscriptionService implements TranscriptionService {
   }
 
   /**
-   * Parse the new response format with items array
+   * Parse the new response format with items array; an item without a date gets `today`
    */
-  private parseAnalysisResponse(content: string): AnalysisResult {
+  private parseAnalysisResponse(content: string, today: string = todayDateOnly()): AnalysisResult {
     let cleanContent = content.trim();
 
     // Remove markdown code block wrappers if present
@@ -162,7 +174,7 @@ export class OpenAITranscriptionService implements TranscriptionService {
         const intent = item.intent || 'transaction';
 
         // Debt parsing is off (decision Д2): a debt the model still reports is an expense in «Другое»
-        const transaction = intent === 'debt' ? this.debtAsExpense(item) : this.parseTransactionItem(item);
+        const transaction = intent === 'debt' ? this.debtAsExpense(item, today) : this.parseTransactionItem(item, today);
         if (transaction) transactions.push(transaction);
         // Named without an amount: kept aside, the bot asks how much (FT-123)
         const unpriced = !transaction && intent !== 'debt' ? this.parseItemWithoutAmount(item) : null;
@@ -185,7 +197,7 @@ export class OpenAITranscriptionService implements TranscriptionService {
    * A debt item («одолжил», «взял в долг», «кредит», «рассрочка») becomes an ordinary expense in
    * «Другое» — decision Д2; the debt module stays but is no longer filled from text.
    */
-  private debtAsExpense(item: any): ParsedTransaction | null {
+  private debtAsExpense(item: any, today: string): ParsedTransaction | null {
     const amount = typeof item.amount === 'number' ? item.amount : parseFloat(item.amount) || 0;
     if (amount <= 0) return null;
 
@@ -200,7 +212,7 @@ export class OpenAITranscriptionService implements TranscriptionService {
       type: 'expense',
       semanticType: 'expense',
       needsReview: false,
-      date: new Date().toISOString().split('T')[0],
+      date: today,
       merchant: personName || undefined,
       confidence,
       description,
@@ -232,7 +244,7 @@ export class OpenAITranscriptionService implements TranscriptionService {
   /**
    * Parse a transaction item from OpenAI response
    */
-  private parseTransactionItem(item: any): ParsedTransaction | null {
+  private parseTransactionItem(item: any, today: string): ParsedTransaction | null {
     const amount = typeof item.amount === 'number' ? item.amount : parseFloat(item.amount) || 0;
     if (amount <= 0) return null;
 
@@ -258,7 +270,7 @@ export class OpenAITranscriptionService implements TranscriptionService {
       type,
       semanticType: normalizeSemanticType(item.semanticType, type),
       needsReview: item.needsReview === true,
-      date: String(item.date || new Date().toISOString().split('T')[0]),
+      date: String(item.date || today),
       merchant,
       confidence,
       description: item.description ? String(item.description) : undefined,

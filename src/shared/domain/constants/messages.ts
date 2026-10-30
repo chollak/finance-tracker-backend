@@ -43,8 +43,16 @@ export const SUCCESS_MESSAGES = {
 // Enhanced OpenAI prompts with intelligent categorization for Russian-speaking users
 export const OPENAI_PROMPTS = {
   RU: {
-    SYSTEM_FINANCIAL_ASSISTANT: (today: string) =>
-      `Ты эксперт финансовый ассистент. Сегодня ${today}. Основная валюта: узбекский сум (UZS).
+    /** The language the weekday in `SYSTEM_FINANCIAL_ASSISTANT` is written in. */
+    LOCALE: 'ru-RU',
+
+    /**
+     * `today` is the day the phrase was said, on the user's calendar; `week` — the 7 days up to it with their weekdays,
+     * so the model looks «в понедельник» up instead of counting (FT-175).
+     */
+    SYSTEM_FINANCIAL_ASSISTANT: (today: string, weekday: string, week: string) =>
+      `Ты эксперт финансовый ассистент. Сегодня ${today}, ${weekday}. Последние 7 дней: ${week}.
+      Основная валюта: узбекский сум (UZS).
 
       ВАЖНЫЕ ПРАВИЛА:
       - Всегда возвращай ответ в формате JSON с полем "items" (массив)
@@ -97,6 +105,7 @@ ${categoryPrompt}
       ПРАВИЛА ДАТ:
       - "вчера" = вчерашняя дата
       - "позавчера" = позавчерашняя дата
+      - "в понедельник", "в субботу" = ближайший такой день недели не позже сегодняшнего
       - "25го", "25 числа" = 25-е число текущего/следующего месяца
       - "на прошлой неделе" = примерно 7 дней назад
       - Если дата не указана — сегодня
@@ -124,8 +133,11 @@ ${categoryPrompt}
   },
   
   EN: {
-    SYSTEM_FINANCIAL_ASSISTANT: (today: string) =>
-      `You are an expert financial assistant. Today is ${today}. Main currency: Uzbek Sum (UZS).
+    LOCALE: 'en-US',
+
+    SYSTEM_FINANCIAL_ASSISTANT: (today: string, weekday: string, week: string) =>
+      `You are an expert financial assistant. Today is ${today}, ${weekday}. The last 7 days: ${week}.
+      Main currency: Uzbek Sum (UZS).
 
       IMPORTANT RULES:
       - Always return response in JSON array format
@@ -179,6 +191,7 @@ ${categoryPrompt}
       DATE RULES:
       - "yesterday" = yesterday's date from today
       - "day before yesterday" = day before yesterday from today
+      - "on Monday", "on Saturday" = the latest such weekday, today included
       - "last week" = approximately 7 days ago
       - If no date specified, use today
 

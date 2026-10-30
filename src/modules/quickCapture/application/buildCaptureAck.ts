@@ -1,9 +1,10 @@
 import { getCategoryById } from '../../../shared/domain/entities/Category';
+import { todayDateOnly } from '../../../shared/domain/dates/dateOnly';
 import { CaptureAck, CaptureAckAction, CapturedTransaction } from '../domain/quickCaptureTypes';
 
 export interface BuildCaptureAckOptions {
   debtsDetected?: number;
-  /** ISO date (YYYY-MM-DD) used to render "Сегодня". Injectable so the formatter stays pure in tests. */
+  /** ISO date (YYYY-MM-DD) used to render "Сегодня"; the user's today by default. Injectable so the formatter stays pure in tests. */
   today?: string;
 }
 
@@ -99,7 +100,7 @@ export function buildCaptureAck(
   options: BuildCaptureAckOptions = {}
 ): CaptureAck {
   const debtsDetected = options.debtsDetected ?? 0;
-  const today = options.today ?? new Date().toISOString().split('T')[0];
+  const today = options.today ?? todayDateOnly();
 
   if (transactions.length === 0) {
     // A debt was persisted even though no transaction was: do not report "nothing found".

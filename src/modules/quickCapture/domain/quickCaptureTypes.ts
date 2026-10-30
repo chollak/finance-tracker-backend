@@ -33,6 +33,11 @@ export interface QuickCaptureRequest {
    * deleted ones with `deletedAt` — without parsing the text again.
    */
   clientId?: string;
+  /**
+   * When the phrase was typed on the phone (FT-175): it is dated by that day, not by the day it arrived — «вчера» is the
+   * day before it. Within `CAPTURED_AT_LIMITS` of the server's clock; a repeat of a `clientId` answers whatever it is.
+   */
+  capturedAt?: Date;
 }
 
 /** Port to the transaction module: the records a capture with this client id created (FT-106). */

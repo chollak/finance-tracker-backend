@@ -5,6 +5,7 @@ import { Validators, ValidationChain } from './validators';
 import { normalizeSemanticType } from '../../../modules/transaction/domain/transactionSemanticType';
 import { fromMinor } from '../../domain/money/money';
 import { isClientId } from '../../../modules/transaction/domain/clientId';
+import { todayDateOnly } from '../../domain/dates/dateOnly';
 
 export class TransactionValidator {
   static validate(data: any): Result<Transaction, ValidationError[]> {
@@ -86,8 +87,8 @@ export class TransactionValidator {
     }
 
     // If all validations pass, create the transaction object
-    // Default date to today if not provided
-    const defaultDate = new Date().toISOString().split('T')[0];
+    // Default date to the user's today, not the UTC one (FT-175)
+    const defaultDate = todayDateOnly();
 
     const transaction: Transaction = {
       amountMinor: amountMinor.data,
