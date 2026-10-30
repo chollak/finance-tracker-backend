@@ -83,7 +83,7 @@
 | `category_id` uuid | вместо строки `category`; старое значение временно в `legacy_category` |
 | `deleted_at` timestamp, null | мягкое удаление. Репозиторий по умолчанию отбирает только `deleted_at IS NULL` |
 | `client_id` uuid, null | уникален в паре с `user_id`: повтор из офлайн-очереди возвращает ту же запись (удалённую — с `deletedAt`), новую не создаёт |
-| `source` varchar | `telegram`, `miniapp`, `ios_shortcut`, `receipt`, `manual` |
+| `source` varchar | `telegram`, `miniapp`, `ios_shortcut`, `apple_pay` (FT-176), `receipt`, `manual` |
 | `receipt_ref` varchar, null | фискальный признак чека: тот же чек дважды не записывается |
 | `search_text` varchar | заметка и магазин в нижнем регистре, нормализованные в коде: `LIKE` в SQLite не складывает регистр кириллицы. Название категории ищется по таблице категорий в момент поиска, поэтому переименование не требует пересчёта |
 

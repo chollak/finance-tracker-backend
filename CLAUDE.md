@@ -180,7 +180,7 @@ This project follows **Clean Architecture** principles with clear separation bet
 2. **BudgetModule** - Budget management (depends on TransactionModule; leaves the UI per decision Д2)
 3. **DebtModule** - Debt management with payment history (depends on TransactionModule, SubscriptionModule, UserModule; no longer filled from text per Д2)
 4. **VoiceProcessingModule** - AI-powered voice/text processing (depends on TransactionModule; the user's categories go into the prompt)
-5. **QuickCaptureModule** - `POST /api/quick-capture` over the text pipeline (depends on VoiceProcessingModule)
+5. **QuickCaptureModule** - `POST /api/quick-capture` over the text pipeline, and `POST /api/quick-capture/payment` for an Apple Pay payment sent ready — amount as is, only the category chosen (FT-176) (depends on VoiceProcessingModule)
 6. **CategoryModule** - User categories (FT-099): 8 + 8 starters per user, rename, colour, hide; resolves the category of every record
 7. **OpenAIUsageModule** - OpenAI API usage monitoring
 8. **UserModule** - User management (telegramId → UUID resolution) and settings (FT-098)

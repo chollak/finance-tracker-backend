@@ -1,8 +1,9 @@
 # Quick Capture API
 
 > **Status:** describes the **shipped** implementation as of 2026-09-04 (commits `50d84ef` → `03a39a3`), plus the
-> iOS Shortcut token from `FT-075`, bound to one owner and allowed in production since `FT-155` (2026-10-27), and the
-> time of input `capturedAt` from `FT-175` (2026-10-29).
+> iOS Shortcut token from `FT-075`, bound to one owner and allowed in production since `FT-155` (2026-10-27), the
+> time of input `capturedAt` from `FT-175` (2026-10-29), and the Apple Pay payment route
+> `POST /api/quick-capture/payment` from `FT-176` (2026-10-30).
 > This document is derived from the code and tests listed under [Source of truth](#source-of-truth), **not** from the
 > earlier speculative spec in `.hermes/plans/2026-09-02_130400-api-first-quick-actions-spec.md`. Where the old spec and
 > the shipped contract disagree, the shipped contract wins; the differences are listed in
@@ -11,7 +12,8 @@
 Quick Capture is the shared application boundary that turns one line of natural-language text into saved
 transactions/debts and a ready-to-render acknowledgement. It is a thin wrapper around the existing text pipeline
 (`ProcessTextInputUseCase`) — parsing, the conservative transfer/savings/withdrawal safeguards and persistence all stay
-inside that use case.
+inside that use case. A card payment from Apple Pay comes ready and is not parsed: it has a route of its own,
+[Payments](#payments-post-apiquick-capturepayment) (FT-176).
 
 ---
 
@@ -27,14 +29,16 @@ Mounting: `buildServer()` mounts the router at `/quick-capture`
 path is `POST /api/quick-capture`. The router is only registered when a `QuickCaptureModule` is passed to
 `buildServer()`; `createModules()` always creates one, so the route is present in the normal app.
 
-There is exactly **one** Quick Capture route. There is no `GET`, no parse/commit split, and no per-transaction
-sub-resource.
+There are exactly **two** Quick Capture routes on one router: `POST /api/quick-capture` for a phrase and
+[`POST /api/quick-capture/payment`](#payments-post-apiquick-capturepayment) for a card payment from Apple Pay
+(FT-176). Both have the same auth, rate limit and response. There is no `GET`, no parse/commit split, and no
+per-transaction sub-resource.
 
 ---
 
 ## Auth
 
-The route uses `allowShortcutCapture` (`src/delivery/web/express/middleware/authMiddleware.ts`): a Shortcut request
+Both routes use `allowShortcutCapture` (`src/delivery/web/express/middleware/authMiddleware.ts`): a Shortcut request
 goes by its token, anything else through `requireAuth` and `writeAsSignedInUser`. Before both,
 `createAllowedUsersMiddleware` in `buildServer` refuses a signed-in user who is not in `ALLOWED_TELEGRAM_IDS`
 (`403 ACCESS_NOT_ALLOWED`, FT-153).
@@ -91,6 +95,7 @@ A request is a Shortcut request when it carries `X-Shortcut-Capture-Token` (even
    refused such an owner).
 6. Otherwise `req.body.userId` is **overridden** with the owner and `req.body.source` is **forced** to `ios_shortcut`, so
    the Shortcut body only has to carry `text` (and, best, a `clientId`). A `userId`/`source` in the body is ignored.
+   A payment's records are `apple_pay` all the same: its route sets the source itself.
 
 A request with neither header changes nothing: it signs in through `requireAuth` exactly as before, so the Mini App path
 is unaffected. `X-Dev-User-Id` never counts in production, also not next to a Shortcut token: the record is the owner's.
@@ -141,7 +146,8 @@ When a `UserModule` is wired (it is, in `buildServer`), `userId` goes through
 ## Rate limiting
 
 `aiRateLimiter` is applied to the whole router: **20 requests per 15 minutes, keyed by IP**, responding `429` with
-`{"success": false, "error": "...", "code": "AI_RATE_LIMIT_EXCEEDED"}`.
+`{"success": false, "error": "...", "code": "AI_RATE_LIMIT_EXCEEDED"}`. A payment counts too, also one whose category
+needs no AI: the limiter runs before the route.
 
 Caveat: `aiRateLimiter` is a **single shared middleware instance**, also used by
 `src/modules/voiceProcessing/presentation/controllers/voiceProcessingController.ts`. The 20-request budget is therefore
@@ -223,6 +229,185 @@ A phrase from the iOS app's offline queue (FT-161) reaches the server hours or d
 
 ---
 
+## Payments (`POST /api/quick-capture/payment`)
+
+A card payment the iOS app gets from the Wallet automation «Транзакция» (FT-179) comes already split: amount,
+currency, merchant, card. It is sent as fields and written as it came, not as a phrase: the text pipeline reads a bare
+number under 1000 in сум as thousands («500» → 500 000 сум, `amountReply.ts`, `captureMoney.ts`), and the digits of a
+merchant («KORZINKA 24») would be taken for the amount (decision 2026-10-29, FT-161). Only the category is chosen.
+
+```http
+POST /api/quick-capture/payment
+Content-Type: application/json
+X-Shortcut-Capture-Token: <SHORTCUT_CAPTURE_TOKEN>
+```
+
+### Decisions (FT-176)
+
+| Question | Decision | Why |
+|---|---|---|
+| Route | A separate `POST /api/quick-capture/payment` on the same router | A payment has no `text`, and its fields have rules of their own. One route taking either `text` or a payment object would need a rule for a body with both and would change the errors of the phrase route the Mini App and the bot rely on. On the same router the payment gets the same token, owner, rate limit and response without new code; the phone's queue knows the kind of each record and picks the path. |
+| Amount | A decimal string of major units with a dot: `"25000"`, `"4.50"` | Wallet shows a payment in major units («25 000 сум», «$4.50»), so the client sends it without arithmetic: minor units are a factor of 100 to get wrong, and libraries disagree on them for UZS (ISO 4217 says 2 decimals, cash practice 0; the server counts 100 per unit for both currencies). A string is exact, a JSON number need not be: Swift's `JSONEncoder` writes a `Decimal` through `Double` (`3.133` can come out `3.1330000000000004`). What exactly Wallet gives is learned only in FT-179; whatever it is, the client brings it to this strict format and the server never guesses. |
+| Merchant | In `merchant`, and as the record's note (`description`) | `merchant` is where every record keeps it and what search reads (`search_text`); the note is what the list and the ack show. The record's `originalText` is the merchant too, so a correction of the category in the Mini App teaches it, as for a phrase: the next payment there is categorized without the AI. |
+| `source` | `apple_pay`, a new value, set by the server | The list, and later a duplicate check, can tell a payment Wallet sent from a phrase typed for the same purchase (FT-161: «оплату через Apple Pay голосом не повторять»). The phrase route keeps `ios_shortcut`; a phrase cannot claim `apple_pay`, it is not a `CaptureSource`. |
+| `clientId` | Required | A payment is always sent from the phone's queue, which repeats it until it gets an answer; without an id a lost answer is a second record. |
+
+### Payment request
+
+```json
+{
+  "amount": "25000",
+  "currency": "UZS",
+  "merchant": "KORZINKA 24",
+  "accountName": "Humo",
+  "clientId": "0b7e7c1e-5d1a-4f0e-9a3c-2f6d8b1c4e77",
+  "capturedAt": "2026-10-30T13:42:10+05:00"
+}
+```
+
+| Field | Type | Required | Behavior |
+|---|---|---|---|
+| `amount` | `string` | yes | Major units: digits with an optional dot and one or two decimals — `"25000"`, `"25000.00"`, `"4.5"`, `"4.50"`, `"0.99"`. No sign, spaces, grouping, comma, exponent, currency or leading zero. A third decimal is refused, not rounded. Written exactly: `"500"` with `UZS` is 500 сум. At least 0.01 and at most 1 000 000 000, the limit of every record. A JSON number is refused. |
+| `currency` | `"UZS" \| "USD"` | yes | Exactly these, upper case. Another currency is refused; the app does not send it and shows it in its list (FT-179). |
+| `merchant` | `string` | no | As Wallet names it, up to 200 characters once runs of spaces are made one. Chooses the category. Blank or `null` is none. |
+| `accountName` | `string` | no | The Kapelka account the phone maps the card to (FT-179 settings), up to 100 characters. Blank or `null` is none. |
+| `clientId` | `string` | **yes** | One per payment, the same on every retry: letters, digits and `-`, up to 64 (a UUID). |
+| `capturedAt` | `string` | no — send it | When the payment was made (the automation ran), in the format of [Time of input](#time-of-input-capturedat). The record is dated by its Tashkent day, with the same limits: older than 30 days — `400`, more than 24 hours ahead — the server's day. Without it — the server's today. |
+| `userName` | `string` | no | As for a phrase. |
+
+`userId`, `source` and `text` in the body are ignored: the owner comes from auth (a Shortcut token writes for
+`SHORTCUT_CAPTURE_OWNER`), the source is always `apple_pay`. Unknown fields are ignored.
+
+Validation order: `amount` format → `amount` range → `currency` → `merchant` → `accountName` → `clientId` →
+`capturedAt` format. The limits of `capturedAt` are checked after a repeat of the `clientId` is answered.
+
+### What is written
+
+One expense (`type` and `semanticType` `expense`), through the same `CreateTransactionUseCase` as every record
+(`RecordPaymentUseCase`, `src/modules/voiceProcessing/application/recordPayment.ts`):
+
+- **Amount and currency** as sent; never read as thousands, no `thousands` assumption.
+- **Day** — the day of `capturedAt` on the user's calendar (Tashkent), else the server's today.
+- **Category** — by the merchant; the first step that finds one category decides, the rule of the simple phrase
+  (FT-138, FT-143, `categoryNamedBy`):
+  1. the user's visible expense category whose name is the whole merchant;
+  2. the one category whose name or dictionary word stands among the merchant's words («EVOS CHILONZOR» → «Кафе»);
+  3. the one category learned words tie to (corrections of earlier records, FT-138);
+  4. otherwise the AI chooses **only the category** (`categoryOfMerchant`): it is told the merchant, the user's visible
+     expense categories and the learned patterns, and answers with one name; a name the user has no visible category
+     of is «Другое»;
+  5. no merchant, or the AI fails (timeout, error, an answer that is not JSON) — «Другое»; the payment is written all
+     the same.
+
+  A category of steps 4–5 is a guess: the assumption `{ "kind": "category", "name": … }` and «?» in the ack
+  («Продукты?»), unless the merchant's words name it after all. Steps 1–3 are not guesses. The category never sets
+  `needsReview`.
+- **Account** — the visible account in the payment's currency whose name stands in `accountName`, compared without case
+  and «ё», as an account name in a phrase is found (FT-103); of several, the longest name («Карта Visa», not «Карта»).
+  Then the assumption `{ "kind": "account", "reason": "hint" }`. Otherwise — no `accountName`, an unknown or hidden
+  one, one in another currency — the account a phrase without an account word gets (for dollars a dollar account,
+  else the default), the assumption `"reason": "default"` and **`needsReview: true`**. Dollars without a dollar account
+  stay dollars on the default account with `{ "kind": "currency", "reason": "no_usd_account" }` (FT-103).
+- **Merchant** in `merchant`; the note (`description`) is the merchant, or «Оплата Apple Pay» without one;
+  `source: "apple_pay"`; `clientId` as sent.
+
+### Payment response
+
+The same envelope and [`QuickCaptureResult`](#data--quickcaptureresult) as a phrase, with one record:
+
+- `source: "apple_pay"`; `text` — the merchant as written, `""` without one.
+- `status` — `saved`, or `needs_review` when the account is not the card's or dollars landed on a сум account. Never
+  `no_transaction`: a payment is written or refused.
+- `ack` — `Записал` / `Нужно проверить`; `summary` like `KORZINKA 24 · 25 000 сум · Продукты?`; `details` `Сегодня` or
+  the day. `ack.summary` is what the app shows in its list.
+- `repeated: true` on a repeat of the `clientId`: the first record, nothing written, no AI call, whatever the repeat's
+  fields.
+
+An unknown merchant, the card's account named — answered on a test server with the real AI (2026-10-30):
+
+```bash
+curl -sS -X POST https://<pc>.<tailnet>.ts.net/api/quick-capture/payment \
+  -H 'Content-Type: application/json' \
+  -H 'X-Shortcut-Capture-Token: <SHORTCUT_CAPTURE_TOKEN>' \
+  -d '{"amount":"25000","currency":"UZS","merchant":"KORZINKA 24","accountName":"Карта","clientId":"<one id per payment>","capturedAt":"2026-10-29T21:40:00+05:00"}'
+```
+
+```json
+{
+  "success": true,
+  "data": {
+    "status": "saved",
+    "text": "KORZINKA 24",
+    "source": "apple_pay",
+    "transactions": [
+      {
+        "id": "ff1a09d9-b1d4-410a-9f8f-10f872ab580a",
+        "amount": 25000,
+        "amountMinor": 2500000,
+        "currency": "UZS",
+        "accountId": "…",
+        "accountName": "Карта",
+        "assumptions": [
+          { "kind": "category", "name": "Продукты" },
+          { "kind": "account", "name": "Карта", "reason": "hint" }
+        ],
+        "type": "expense",
+        "semanticType": "expense",
+        "category": "Продукты",
+        "categoryId": "…",
+        "description": "KORZINKA 24",
+        "merchant": "KORZINKA 24",
+        "date": "2026-10-29",
+        "needsReview": false,
+        "countsAsRealExpense": true
+      }
+    ],
+    "debts": [],
+    "ack": { "title": "Записал", "summary": "KORZINKA 24 · 25 000 сум · Продукты?", "details": "2026-10-29", "actions": ["edit", "delete"] },
+    "review": { "reasons": [] }
+  },
+  "message": "Quick capture processed",
+  "timestamp": "2026-10-30T05:52:43.110Z"
+}
+```
+
+The same server, other payments: `"500"` `UZS` at `EVOS` without `accountName` — 500 сум in «Кафе» (the dictionary, no
+AI), on «Карта» with `reason: default`, `needs_review`; `"4.50"` `USD` at `APPLE.COM/BILL` — 4,50 USD in «Другое?» on
+the сум account with `no_usd_account`, `needs_review`; `OXYMED APTEKA` — «Здоровье?» by the AI. A repeat of the
+`clientId` answers with the same record and `"repeated": true`; its ack has no «?», since assumptions are not stored
+(FT-106).
+
+### Payment errors
+
+The errors of [the phrase route](#errors) — auth, rate limit, `INVALID_JSON`, `INVALID_USER_ID` — and these, all
+`400 VALIDATION_ERROR` with the field in `error.context.field`. A refused payment writes nothing and costs no AI call.
+
+| `context.field` | `message` | Cause |
+|---|---|---|
+| `amount` | `amount must be a decimal string of сум or dollars with a dot, like "25000" or "4.50"` | Missing, a number, another format |
+| `amount` | `Amount must be at least 0.01` · `Amount must be no more than 1,000,000,000` | Zero, or above the limit of a record |
+| `currency` | `currency must be UZS or USD` | Missing, another currency, lower case |
+| `merchant` | `merchant must be a string of up to 200 characters` | Not a string, or longer |
+| `accountName` | `accountName must be a string of up to 100 characters` | Not a string, or longer |
+| `clientId` | `clientId is required for a payment: up to 64 letters, digits or «-»` | Missing, or another format |
+| `capturedAt` | `capturedAt must be an ISO 8601 time with seconds and a time zone, …` · `capturedAt is older than 30 days` | As for a phrase; the age not for a repeat |
+| `accountId` | `No visible account to record into` | Every account of the user is hidden |
+
+For the queue of FT-161: `400` — an error at the record, it is not sent again; `401`/`403` — stop, «проверь токен»;
+`429`, `5xx`, no network — later, with the same `clientId` and `capturedAt`.
+
+### For the iOS client (FT-179)
+
+- **Amount.** Bring Wallet's value to the strict string: a `Decimal` formatted with the `en_US_POSIX` locale, without
+  grouping, with a dot and at most two decimals — never through `Double`. What Wallet gives for Shukur's cards is found
+  in FT-179's first step; a test there pins that format to this one.
+- **Currency.** Wallet's code or symbol → `UZS` or `USD`; anything else stays on the phone and is shown, not sent.
+- **Account.** The name from the card → account mapping in the settings; an unmapped card sends no `accountName`.
+- **Queue.** `clientId` and `capturedAt` are fixed when the payment lands in the queue and sent unchanged on every
+  retry.
+
+---
+
 ## Response
 
 Success responses use the shared controller envelope from
@@ -246,7 +431,7 @@ succeeded).
 |---|---|---|
 | `status` | `"saved" \| "needs_review" \| "no_transaction"` | See table below. |
 | `text` | `string` | The trimmed input text, echoed back. |
-| `source` | `CaptureSource` \| absent | Echoed from the request; the key is omitted from JSON when no source was sent. |
+| `source` | `CaptureSource` \| `"apple_pay"` \| absent | Echoed from the request; the key is omitted from JSON when no source was sent. Always `apple_pay` for a [payment](#payments-post-apiquick-capturepayment). |
 | `transactions` | `CapturedTransaction[]` | Transactions the pipeline **already persisted**. May be empty. |
 | `debts` | `CapturedDebt[]` | Debts the pipeline **already persisted**. May be empty. |
 | `ack` | `CaptureAck` | Ready-to-render confirmation (Russian), shared by all clients. |
@@ -506,6 +691,9 @@ curl -sS -X POST https://<tunnel-host>/api/quick-capture \
 8. **Blank-text guard exists in two places.** The route rejects blank text with `400`; the service additionally
    short-circuits blank input to `no_transaction` without calling the parser. The service-level path is only reachable
    by in-process callers such as the Telegram handler.
+9. **A payment is not matched to a phrase.** The same purchase paid by Apple Pay and also typed or said is two records
+   (FT-161, «Дубль Apple Pay»); `source: apple_pay` marks the paid one. A payment is always an expense: a refund from
+   Wallet, if it ever comes, is not told apart (FT-179 learns what Wallet sends).
 
 ## Planned but not implemented
 
@@ -533,7 +721,12 @@ Read these before changing the contract:
 - `src/modules/quickCapture/application/toCapturedTransaction.ts` — shared transaction mapping (also used by voice)
 - `src/modules/quickCapture/domain/capturedAt.ts` — the format, limits and day of `capturedAt` (FT-175)
 - `src/modules/voiceProcessing/domain/phraseDay.ts` — «сегодня», «вчера», «позавчера» on the fast paths (FT-175)
-- `src/modules/quickCapture/presentation/controllers/quickCaptureController.ts` — HTTP validation, auth, rate limit
+- `src/modules/quickCapture/domain/paymentCapture.ts` — the amount format and name limits of a payment (FT-176)
+- `src/modules/quickCapture/presentation/controllers/paymentRequest.ts` — the payment body, field by field (FT-176)
+- `src/modules/voiceProcessing/application/recordPayment.ts` — how a payment is written: category, account, assumptions
+- `src/modules/voiceProcessing/domain/categoryGuess.ts` — `categoryNamedBy`, the category a label or merchant names
+- `src/modules/quickCapture/presentation/controllers/quickCaptureController.ts` — HTTP validation, auth, rate limit,
+  both routes
 - `src/delivery/web/express/middleware/authMiddleware.ts` — `allowShortcutCapture` (the Shortcut token and its owner)
 - `src/shared/domain/access/shortcutCaptureAccess.ts` — the Shortcut setting rules, also checked at start
 - `src/delivery/web/express/expressServer.ts` + `src/index.ts` — mount path
@@ -547,5 +740,7 @@ Tests that pin this behavior:
 - `tests/quickCaptureService.test.ts` — status resolution, semantic safeguards, multi-item, debts
 - `tests/captureTimeOfInput.test.ts`, `tests/capturedAt.test.ts`, `tests/captureDay.test.ts` — the time of input, its
   limits and repeats, the day words of the fast paths, the Tashkent day before 05:00 (FT-175)
+- `tests/paymentAmount.test.ts`, `tests/recordPayment.test.ts`, `tests/paymentCaptureRoutes.test.ts` — payments: the
+  amount as it came, the category by the merchant, the account, repeats, the route's errors and auth (FT-176)
 - `tests/buildCaptureAck.test.ts` — ack wording
 - `tests/telegramMessageHandlers.test.ts` — Telegram routing through the boundary
