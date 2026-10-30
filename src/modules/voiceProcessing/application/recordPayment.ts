@@ -69,8 +69,9 @@ export class RecordPaymentUseCase {
       userId: input.userId,
       userName: input.userName,
       merchant: input.merchant,
-      // The words a learned correction ties to a category (FT-138): the merchant's, for the next payment there
-      originalText: note,
+      // The words a correction teaches (FT-138, FT-184): the merchant's, for the next payment there — never the
+      // note of a payment without one, which is the server's words
+      originalText: input.merchant,
     };
 
     let account: ResolvedAccount | undefined;

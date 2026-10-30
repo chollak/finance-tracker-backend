@@ -25,6 +25,8 @@ export function createModules() {
   const transactionModule = TransactionModule.create();
   // Records point at the user's categories (FT-099)
   transactionModule.setCategoryResolver(categoryModule.getCatalog());
+  // A category correction in the Mini App or the bot teaches the parser (FT-184)
+  transactionModule.setCategoryLessons(transactionLearning);
   const budgetModule = BudgetModule.create(transactionModule);
   const userModule = UserModule.create();
 

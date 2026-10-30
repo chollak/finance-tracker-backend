@@ -245,7 +245,7 @@ HTTP API → Controller → Use Case → Repository → Database
 - **Postgres later** - if needed, it becomes another TypeORM `DataSource` behind the same repositories, not a second set of repositories
 
 ### Machine Learning System
-- Система обучается на пользовательских исправлениях транзакций
+- Система обучается на пользовательских исправлениях транзакций: правка категории в Mini App (`PUT { categoryId }`) или в боте учит слова сохранённой записи — фразы или магазина оплаты (FT-184); своя категория без `presetKey` не учит, «Отменить» снимает урок. Правила: `docs/knowledge-base/07-data-flow/voice-to-transaction.md` («Learning System Integration»)
 - Улучшает категоризацию и распознавание merchant names со временем
 - Loads seed patterns from `data/patterns.seed.json` and writes runtime learned patterns to ignored `data/patterns.json`
 - Enhances OpenAI prompts с historical data

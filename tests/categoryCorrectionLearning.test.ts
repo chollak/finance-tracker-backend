@@ -83,7 +83,7 @@ describe('a category correction teaches (FT-184)', () => {
 
   const say = async (phrase: string) => (await phrases.execute(phrase, USER, undefined, { clientId: randomUUID() })).transactions;
 
-  const pay = async (merchant: string) => {
+  const pay = async (merchant: string | undefined) => {
     const paid = await payments.execute({
       userId: USER, amountMinor: 2_500_000, currency: 'UZS', merchant, clientId: randomUUID(), date: '2026-10-30',
     });
@@ -145,6 +145,12 @@ describe('a category correction teaches (FT-184)', () => {
     await moveTo(created.data, 'Кафе');
 
     expect((await records.repository.findById(created.data))!.category).toBe('Кафе');
+    expect(fs.existsSync(path.join(dir, 'data', 'patterns.json'))).toBe(false);
+  });
+
+  it('a payment without a merchant teaches nothing: «Оплата Apple Pay» is the server’s note, not words of the payment', async () => {
+    for (let paid = 0; paid < 2; paid += 1) await moveTo((await pay(undefined)).id, 'Продукты');
+
     expect(fs.existsSync(path.join(dir, 'data', 'patterns.json'))).toBe(false);
   });
 

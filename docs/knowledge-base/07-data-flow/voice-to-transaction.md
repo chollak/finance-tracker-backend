@@ -349,17 +349,36 @@ if (description.length < 3) confidence -= 0.05;
 
 ## Learning System Integration
 
-**After User Correction:**
+**After a category correction (FT-184):**
 
-Если пользователь редактирует auto-saved транзакцию:
+Клиенты меняют категорию одной новой категорией: Mini App шлёт `PUT /api/transactions/:id { categoryId }`
+(`patchTransaction`), бот — «Изменить» → «Категорию». Оба идут в `UpdateTransactionUseCase`, и тот учится сам
+(`teachCategoryCorrection`): слова и категорию разбора он берёт из сохранённой записи, а не из тела запроса.
 
-1. `UpdateTransactionWithLearningUseCase` вызывается
-2. `TransactionLearningService.recordCorrection()` сохраняет:
-   - Original parsing (что AI распознал)
-   - User correction (что пользователь исправил)
-   - Timestamp и userId
-3. `updatePatterns()` обновляет ignored runtime-файл `data/patterns.json`; tracked seed остаётся неизменным
-4. Следующие парсинги используют улучшенные patterns
+1. Учит только явно выбранная категория (`categoryId` или `category` в запросе), которая отличается от текущей.
+   Категория, которая лишь последовала за сменой типа, не учит.
+2. Слова урока — `originalText` записи: текст фразы или магазин оплаты Apple Pay (FT-176). Во фразе из нескольких
+   записей (одна запись `«<id>»`, `«<id>:1»`, …) — только слова этой записи, которые есть в её заметке или магазине
+   (`recordWordsOf`). Запись без `originalText` — ручная форма, оплата без магазина — ничему не учит.
+3. Запись даёт не больше одного урока: категорию, в которой она в итоге стоит, если та не совпадает с категорией
+   разбора (`originalParsing.category`, разрешённой для пользователя). Правка снимает урок, который запись дала
+   категории, откуда уходит, и учит новую. Возврат к категории разбора — «Отменить» в Mini App — только снимает
+   урок.
+4. Учат только стартовые категории: выученные паттерны общие для всех пользователей и хранят `presetKey`. Своя
+   категория пользователя (`presetKey: null`) ничему не учит — ни при переносе в неё, ни при уходе из неё.
+5. `TransactionLearningService.learnCategory()` → `recordCorrection()`: запись в историю `data/learning-data.json`
+   (с `learnedKeywords` — словами, которые урок добавил в паттерн) и `updatePatterns()` в ignored runtime-файл
+   `data/patterns.json`; tracked seed не меняется. Паттерн категории учитывается со второго урока
+   (`MIN_PATTERN_USES`).
+6. `unlearnCategory()` убирает из истории последний такой урок (те же слова, категория и пользователь) и из паттерна
+   — только добавленные им слова. Слово, которое есть и в другом уроке той же категории, остаётся и переходит к нему.
+   Слова сида и правки до FT-184, которых нет в истории, не трогаются.
+7. Следующая запись с этими словами получает категорию по выученным словам (`categoryNamedBy`), без ИИ.
+
+Обучение не ломает правку: ошибка пишется в лог, запись всё равно меняется.
+
+`PUT` с `originalText` и `originalParsing` в теле — как раньше: идёт в `UpdateTransactionWithLearningUseCase`,
+который учит по присланному тексту. Сейчас так не шлёт ни один клиент.
 
 ---
 
@@ -379,4 +398,4 @@ if (description.length < 3) confidence -= 0.05;
 - [Modules](../01-architecture/modules.md) - VoiceProcessingModule details
 - [Оплата Apple Pay](../../QUICK_CAPTURE_API.md#payments-post-apiquick-capturepayment) - FT-176: оплата из Wallet
   приходит готовой суммой и мимо разбора (`RecordPaymentUseCase`); ИИ выбирает только категорию по магазину.
-  `originalText` записи — магазин, но исправление в Mini App пока ничему не учит — ни оплату, ни фразу (FT-184)
+  `originalText` записи — магазин, и исправление категории учит его слова, как и слова фразы (FT-184)

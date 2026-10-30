@@ -18,6 +18,7 @@ import { GetArchivedTransactionsUseCase } from './application/getArchivedTransac
 import { TransactionRepository } from './domain/transactionRepository';
 import { CategoryResolver } from './domain/categoryResolver';
 import { AccountResolver } from './domain/accountResolver';
+import { CategoryLessons } from './domain/categoryLessons';
 import { PeriodTotalsService, UsdRateSource } from './application/periodTotalsService';
 import { Transaction } from './domain/transactionEntity';
 import { RepositoryFactory } from '../../shared/infrastructure/database/repositoryFactory';
@@ -29,6 +30,7 @@ export class TransactionModule {
   private createTransactionUseCase: CreateTransactionUseCase;
   private categoryResolver?: CategoryResolver;
   private accountResolver?: AccountResolver;
+  private categoryLessons?: CategoryLessons;
   private periodTotals = new PeriodTotalsService();
 
   private restoreTransactionUseCase: RestoreTransactionUseCase;
@@ -67,6 +69,11 @@ export class TransactionModule {
   setCategoryResolver(categoryResolver: CategoryResolver): void {
     this.categoryResolver = categoryResolver;
     this.createTransactionUseCase.setCategoryResolver(categoryResolver);
+  }
+
+  /** A category correction teaches the parser (FT-184); wired by createModules(). */
+  setCategoryLessons(categoryLessons: CategoryLessons): void {
+    this.categoryLessons = categoryLessons;
   }
 
   /** Dollars in totals convert at the user's effective rate (FT-103); wired by createModules(). */
@@ -140,7 +147,7 @@ export class TransactionModule {
   }
 
   getUpdateTransactionUseCase(): UpdateTransactionUseCase {
-    return new UpdateTransactionUseCase(this.repository, this.categoryResolver, this.accountResolver);
+    return new UpdateTransactionUseCase(this.repository, this.categoryResolver, this.accountResolver, this.categoryLessons);
   }
 
   getUpdateTransactionWithLearningUseCase(): UpdateTransactionWithLearningUseCase {
