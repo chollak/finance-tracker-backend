@@ -152,7 +152,7 @@ export function mentionsBareBrand(text: string): boolean {
 }
 
 /** A word of a learned pattern that names nothing: generic, a bare brand, too short, or with digits («25к»). */
-function namesNothing(word: string): boolean {
+export function namesNothing(word: string): boolean {
   return word.length < 3
     || /\p{N}/u.test(word)
     || GENERIC_WORDS.some(generic => sameWord(word, generic))
