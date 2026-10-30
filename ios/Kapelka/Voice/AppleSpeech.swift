@@ -21,6 +21,7 @@ final class AppleSpeech: VoiceSystem, SpeechListening {
     private var isFinishing = false
     /// The input node is opened only once a microphone is known to be there.
     private var hasTap = false
+    private var interruptions: [any NSObjectProtocol] = []
 
     func microphone() -> Permission {
         switch AVAudioApplication.shared.recordPermission {
@@ -87,6 +88,7 @@ final class AppleSpeech: VoiceSystem, SpeechListening {
 
         session += 1
         isFinishing = false
+        interruptions = Self.observeInterruptions(of: audio) { [weak self] in self?.finish() }
         let (words, continuation) = AsyncThrowingStream.makeStream(of: String.self)
         self.continuation = continuation
         self.request = request
@@ -144,6 +146,8 @@ final class AppleSpeech: VoiceSystem, SpeechListening {
     }
 
     private func clear() {
+        interruptions.forEach(NotificationCenter.default.removeObserver)
+        interruptions = []
         continuation = nil
         request = nil
         task = nil
@@ -164,6 +168,34 @@ final class AppleSpeech: VoiceSystem, SpeechListening {
         await withCheckedContinuation { continuation in
             SFSpeechRecognizer.requestAuthorization { continuation.resume(returning: $0) }
         }
+    }
+
+    /// A call, Siri, the lock screen or headphones taken out stop the microphone: the phrase ends with what was heard
+    /// (decision 2026-10-30). The notifications come on the main queue.
+    nonisolated private static func observeInterruptions(
+        of audio: AVAudioSession,
+        endPhrase: @escaping @MainActor @Sendable () -> Void
+    ) -> [any NSObjectProtocol] {
+        let center = NotificationCenter.default
+        let interrupted = center.addObserver(
+            forName: AVAudioSession.interruptionNotification,
+            object: audio,
+            queue: .main
+        ) { note in
+            let type = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt
+            guard type == AVAudioSession.InterruptionType.began.rawValue else { return }
+            MainActor.assumeIsolated { endPhrase() }
+        }
+        let routeLost = center.addObserver(
+            forName: AVAudioSession.routeChangeNotification,
+            object: audio,
+            queue: .main
+        ) { note in
+            let reason = note.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt
+            guard reason == AVAudioSession.RouteChangeReason.oldDeviceUnavailable.rawValue else { return }
+            MainActor.assumeIsolated { endPhrase() }
+        }
+        return [interrupted, routeLost]
     }
 
     nonisolated private static func feeding(_ request: SFSpeechAudioBufferRecognitionRequest) -> AVAudioNodeTapBlock {

@@ -48,12 +48,15 @@ final class AppModel {
         try await Self.write(text, to: services.queue)
     }
 
-    /// A waiting record goes, never sent; `nil` or what went wrong.
+    /// A waiting record goes, never sent; `nil` or what to tell.
     func remove(_ id: UUID) async -> String? {
+        let triedBefore = queueState.captures.first { $0.clientId == id }.map { $0.attempts > 0 } ?? false
         do {
             let removed = try await services.queue.remove(id)
             // Its request went out between the swipe and the tap
-            return removed ? nil : "Запись уже отправляется — если сервер её запишет, удали её в Mini App"
+            guard removed else { return "Запись уже отправляется — если сервер её запишет, удали её в Mini App" }
+            // A timeout says nothing about whether the server wrote it
+            return triedBefore ? "Удалено. Запись уже уходила на сервер — проверь Mini App" : nil
         } catch {
             return "Не удалилось: \(error.localizedDescription)"
         }
@@ -74,14 +77,17 @@ final class AppModel {
         await services.queue.flush()
     }
 
-    /// The app was closed right after a phrase: iOS gives about half a minute to finish the request in flight, then
-    /// the background refresh takes over. The refresh is asked for first — a sleeping PC keeps the request open past
-    /// that half minute, and iOS suspends the app without running what comes after.
+    /// The app left the screen. What the microphone heard is written first (decision 2026-10-30), then the queue is sent
+    /// within the half minute iOS gives. The refresh is asked for first: a sleeping PC keeps the request open past that
+    /// half minute, and iOS suspends the app without running what comes after. Out of time, this call stops the run;
+    /// another call still waiting for the queue (a new network path, the phrase's own send) may start it again, and iOS
+    /// suspends the app mid-request — the record goes again later with the same `clientId`.
     func appMovedToBackground() async {
-        // No recording in the background: a phrase cut off halfway is not written
-        voice.cancel()
         let finishing = FinishingTime()
-        let sending = Task { [queue = services.queue] in await queue.flush() }
+        let sending = Task { [voice, queue = services.queue] in
+            await voice.wrapUp()
+            await queue.flush()
+        }
         finishing.begin { [queue = services.queue] in
             // The call waiting for the queue goes first, so it does not start the stopped run again
             sending.cancel()

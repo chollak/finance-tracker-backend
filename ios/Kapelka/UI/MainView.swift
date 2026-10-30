@@ -47,8 +47,8 @@ struct MainView: View {
             }
             .onChange(of: listenRequest.isPending) { listenIfAsked() }
             .onChange(of: scenePhase) { listenIfAsked() }
-            // A second press while the last phrase is still finishing waits for it
-            .onChange(of: voice.phase) { listenIfAsked() }
+            // A press while the settings were open listens once they close
+            .onChange(of: showsSettings) { listenIfAsked() }
             .onChange(of: voice.problemCount) {
                 guard let problem = voice.problem, problem.needsKeyboard else { return }
                 // What was heard before recognition broke off is not lost: it waits in the field
@@ -143,14 +143,13 @@ struct MainView: View {
         }
     }
 
-    /// Starts listening for «Записать трату» once the screen is active (the microphone does not start in background)
-    /// and the last phrase is done.
+    /// «Записать трату» once the screen is active (the microphone does not start in background) and the settings are
+    /// closed — they may hold an address or a token not saved yet. The first press listens, a press while listening ends
+    /// the phrase.
     private func listenIfAsked() {
-        guard scenePhase == .active, voice.phase == .idle, listenRequest.take() else { return }
-        // Opened before the address was set: the settings would cover what is heard; the queue keeps the phrase
-        showsSettings = false
+        guard scenePhase == .active, !showsSettings, listenRequest.take() else { return }
         fieldFocused = false
-        voice.start()
+        voice.commandPressed()
     }
 
     private func save() {

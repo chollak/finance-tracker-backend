@@ -56,6 +56,7 @@ final class VoiceCapture {
     @ObservationIgnored private var timer: Task<Void, Never>?
     @ObservationIgnored private var cancelled = false
     @ObservationIgnored private var heard = HeardPhrase()
+    @ObservationIgnored private var listening: Task<Void, Never>?
 
     init(
         system: any VoiceSystem,
@@ -69,6 +70,12 @@ final class VoiceCapture {
         self.pause = pause
         self.silenceAtStart = silenceAtStart
         self.submit = submit
+    }
+
+    /// «Записать трату» from the Action Button (decision 2026-10-30): the first press listens, a press while listening
+    /// ends the phrase — the same as the microphone button.
+    func commandPressed() {
+        toggle()
     }
 
     /// The microphone button: starts, ends the phrase, or stops a start that is still asking.
@@ -88,7 +95,28 @@ final class VoiceCapture {
         heard = HeardPhrase()
         problem = nil
         cancelled = false
-        Task { await listen() }
+        listening = Task { await listen() }
+    }
+
+    /// The app leaves the screen — the phone locked, «Домой» — while voice is on (decision 2026-10-30): what was heard
+    /// is written, a silent start writes nothing, and a phrase already ending is let finish. Returns once the phrase
+    /// is on the phone.
+    func wrapUp() async {
+        switch phase {
+        case .idle:
+            return
+        case .starting:
+            cancel()
+        case .listening:
+            if heard.text.isEmpty {
+                cancel()
+            } else {
+                finish()
+            }
+        case .finishing, .saving:
+            break
+        }
+        await listening?.value
     }
 
     /// Ends the phrase now, without waiting for the pause.
@@ -130,6 +158,7 @@ final class VoiceCapture {
         }
         phase = .listening
         restartTimer(after: silenceAtStart)
+        var brokeOff = false
         do {
             for try await result in words {
                 guard heard.hear(result) else { continue }
@@ -137,17 +166,17 @@ final class VoiceCapture {
                 restartTimer(after: pause)
             }
         } catch {
-            end(with: cancelled ? nil : .failed)
-            return
+            // A call, Siri, unplugged headphones: what was heard is written all the same (decision 2026-10-30)
+            brokeOff = true
         }
         timer?.cancel()
-        let phrase = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+        let phrase = heard.text
         guard !cancelled else {
             end(with: nil)
             return
         }
         guard !phrase.isEmpty else {
-            end(with: .nothingHeard)
+            end(with: brokeOff ? .failed : .nothingHeard)
             return
         }
         phase = .saving
@@ -180,6 +209,8 @@ final class VoiceCapture {
             } catch {
                 return
             }
+            // Replaced right as it woke up: the newer timer decides
+            guard !Task.isCancelled else { return }
             self?.finish()
         }
     }

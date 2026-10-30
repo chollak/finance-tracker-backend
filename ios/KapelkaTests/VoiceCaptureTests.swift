@@ -156,20 +156,109 @@ struct VoiceCaptureTests {
         #expect(VoiceProblem.nothingHeard.needsKeyboard == false)
     }
 
-    @Test("распознавание оборвалось — сообщение и клавиатура, ничего не записано")
-    func recognitionBrokeOff() async throws {
+    @Test("распознавание оборвалось (звонок, Siri, наушники) — услышанное записано")
+    func recognitionBrokeOffWritesHeard() async throws {
+        let speech = FakeSpeech()
+        let phrases = Phrases()
+        let voice = makeVoice(speech, pause: .seconds(30), submit: phrases.add)
+
+        voice.start()
+        #expect(await eventually { await speech.isListening })
+        speech.hear("кофе 25 тысяч")
+        #expect(await eventually { await voice.transcript == "кофе 25 тысяч" })
+        speech.fail()
+
+        #expect(await eventually { await phrases.all == ["кофе 25 тысяч"] })
+        #expect(voice.problem == nil)
+    }
+
+    @Test("распознавание оборвалось, ничего не услышано — сообщение и клавиатура")
+    func recognitionBrokeOffSilent() async throws {
         let speech = FakeSpeech()
         let phrases = Phrases()
         let voice = makeVoice(speech, submit: phrases.add)
 
         voice.start()
         #expect(await eventually { await speech.isListening })
-        speech.hear("кофе 25")
         speech.fail()
 
         #expect(await eventually { await voice.problem == .failed })
         #expect(phrases.all.isEmpty)
         #expect(VoiceProblem.failed.needsKeyboard)
+    }
+
+    @Test("телефон заблокировали или ушли «Домой», пока слушали, — услышанное записано")
+    func leavingWritesHeard() async throws {
+        let speech = FakeSpeech()
+        let phrases = Phrases()
+        let voice = makeVoice(speech, pause: .seconds(30), submit: phrases.add)
+
+        voice.start()
+        #expect(await eventually { await speech.isListening })
+        speech.hear("такси 18 тысяч")
+        #expect(await eventually { await voice.transcript == "такси 18 тысяч" })
+        await voice.wrapUp()
+
+        #expect(phrases.all == ["такси 18 тысяч"])
+        #expect(voice.phase == .idle)
+        #expect(speech.finishes == 1)
+    }
+
+    @Test("ушли, ничего не сказав, — ничего не записано и без сообщения")
+    func leavingSilentWritesNothing() async throws {
+        let speech = FakeSpeech()
+        let phrases = Phrases()
+        let voice = makeVoice(speech, submit: phrases.add)
+
+        voice.start()
+        #expect(await eventually { await speech.isListening })
+        await voice.wrapUp()
+
+        #expect(phrases.all.isEmpty)
+        #expect(voice.phase == .idle)
+        #expect(voice.problem == nil)
+    }
+
+    @Test("ушли, пока фраза дописывается, — она дописывается до конца")
+    func leavingWhileSavingFinishes() async throws {
+        let speech = FakeSpeech()
+        let gate = Gate()
+        let phrases = Phrases()
+        let voice = makeVoice(speech) { phrase in
+            await gate.wait()
+            phrases.add(phrase)
+        }
+
+        voice.start()
+        #expect(await eventually { await speech.isListening })
+        speech.hear("обед 60 тысяч")
+        voice.toggle()
+        #expect(await eventually { await voice.phase == .saving })
+        let leaving = Task { await voice.wrapUp() }
+        gate.open()
+        await leaving.value
+
+        #expect(phrases.all == ["обед 60 тысяч"])
+        #expect(voice.phase == .idle)
+    }
+
+    @Test("второе нажатие Action Button во время записи заканчивает фразу, как кнопка в приложении")
+    func secondCommandEndsPhrase() async throws {
+        let speech = FakeSpeech()
+        let phrases = Phrases()
+        let voice = makeVoice(speech, pause: .seconds(30), submit: phrases.add)
+        let request = ListenRequest()
+
+        request.ask()
+        if request.take() { voice.commandPressed() }
+        #expect(await eventually { await speech.isListening })
+        speech.hear("кофе 25 тысяч")
+        #expect(await eventually { await voice.transcript == "кофе 25 тысяч" })
+        request.ask()
+        if request.take() { voice.commandPressed() }
+
+        #expect(await eventually { await phrases.all == ["кофе 25 тысяч"] })
+        #expect(speech.starts == 1)
     }
 
     @Test(

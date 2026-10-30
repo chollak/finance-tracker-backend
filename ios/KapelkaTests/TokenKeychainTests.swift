@@ -9,6 +9,11 @@ import Testing
 final class TokenKeychainTests {
     private let tokens = KeychainTokenStore(service: "kapelka.tests.keychain")
 
+    /// A run that stopped halfway may have left the item behind.
+    init() {
+        try? tokens.delete()
+    }
+
     deinit {
         try? tokens.delete()
     }
@@ -41,6 +46,12 @@ final class TokenKeychainTests {
 final class SettingsStoreTests {
     private let suite = "kapelka.tests.settings"
     private let tokens = KeychainTokenStore(service: "kapelka.tests.settings")
+
+    /// A run that stopped halfway may have left the item and the suite behind.
+    init() {
+        try? tokens.delete()
+        UserDefaults.standard.removePersistentDomain(forName: suite)
+    }
 
     deinit {
         try? tokens.delete()
