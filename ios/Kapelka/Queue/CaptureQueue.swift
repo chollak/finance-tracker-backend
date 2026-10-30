@@ -2,9 +2,9 @@ import Foundation
 import os
 
 /// The phone's queue of phrases (FT-161, «Как устроено»). A record is written to disk before anything is sent and
-/// leaves the pending ones only on the server's answer. One sending pass at a time, one record at a time, oldest
-/// first, so two triggers at once cannot send a record twice; a record interrupted mid-request goes again with the
-/// same `clientId`, which the server answers without writing a second one (FT-106).
+/// leaves the pending ones only on the server's answer or when deleted while it waits. One sending run at a time, one record at a
+/// time, oldest first, so two triggers at once cannot send a record twice; a record interrupted mid-request goes again
+/// with the same `clientId`, which the server answers without writing a second one (FT-106).
 actor CaptureQueue {
     /// Sent and refused records kept for the list on the main screen (FT-178). Pending ones are never dropped.
     static let keptFinished = 50
@@ -17,27 +17,34 @@ actor CaptureQueue {
     private let sender: any CaptureSending
     private let now: @Sendable () -> Date
     private let timeZone: @Sendable () -> TimeZone
+    private let waitForRetry: @Sendable (TimeInterval) async throws -> Void
     private let continuation: AsyncStream<QueueState>.Continuation
     private var current: QueueState
     /// `false` while the file could not be opened: then nothing is written over it (`QueueError.unavailable`).
     private var isLoaded: Bool
     /// Bumped on every settings change, so a 401 to a request sent with the old token does not stop the queue.
     private var settingsGeneration = 0
-    private var sending: Task<Void, Never>?
-    /// A trigger came while a pass ran — a new network path, a new phrase. The pass may already be failing on the old
-    /// path, so one more pass follows it.
+    /// The sending run: passes over the pending records until no trigger is left. `true` when `cancelSending()`
+    /// stopped it.
+    private var sending: Task<Bool, Never>?
+    /// A trigger came while a run was going — a new network path, a new phrase. The pass may already be failing on
+    /// the old path, so one more pass follows it.
     private var passRequested = false
+    /// Sends again when a 429 pause is over, while the app runs.
+    private var retryTimer: Task<Void, Never>?
 
     init(
         store: CaptureFileStore,
         sender: any CaptureSending,
         now: @escaping @Sendable () -> Date = { Date() },
-        timeZone: @escaping @Sendable () -> TimeZone = { .current }
+        timeZone: @escaping @Sendable () -> TimeZone = { .current },
+        waitForRetry: @escaping @Sendable (TimeInterval) async throws -> Void = { try await Task.sleep(for: .seconds($0)) }
     ) {
         self.store = store
         self.sender = sender
         self.now = now
         self.timeZone = timeZone
+        self.waitForRetry = waitForRetry
         let loaded = try? store.load()
         current = loaded ?? QueueState()
         isLoaded = loaded != nil
@@ -72,27 +79,44 @@ actor CaptureQueue {
         return capture
     }
 
-    /// Sends the pending records. A call while a pass is running waits for that pass instead of starting another,
-    /// and asks for one more pass after it. A caller already cancelled (a background refresh out of time) starts nothing.
-    func flush() async {
-        if let sending {
-            passRequested = true
-            await sending.value
-            return
-        }
-        guard !Task.isCancelled, loadIfNeeded() else { return }
-        var pass: Task<Void, Never>
-        repeat {
-            passRequested = false
-            pass = Task { await sendPending() }
-            sending = pass
-            await pass.value
-        } while passRequested && !pass.isCancelled && !Task.isCancelled
+    /// Deletes a waiting record, so it is never sent; `false` when it does not wait any more. One whose request is
+    /// out right now is not deleted: a timeout or a lost connection does not say whether the server wrote it, and the
+    /// phone must not hide a record that may exist.
+    func remove(_ clientId: UUID) throws -> Bool {
+        guard loadIfNeeded() else { throw QueueError.unavailable }
+        guard
+            current.sendingId != clientId,
+            let index = current.captures.firstIndex(where: { $0.clientId == clientId && $0.state == .pending })
+        else { return false }
+        var next = current
+        next.captures.remove(at: index)
+        try store.save(next)
+        publish(next)
+        return true
     }
 
-    /// Stops the running pass, for a background refresh that is out of time. The record in flight stays pending.
+    /// Sends the pending records. A call while a run is going joins it and returns when the run is over — its trigger
+    /// served by one more pass. A run stopped by `cancelSending()` is started again by every waiting call that is not
+    /// cancelled itself, so a stop meant for the background refresh does not cost the open app its send. A caller
+    /// already cancelled (a background refresh out of time) starts nothing.
+    func flush() async {
+        while !Task.isCancelled {
+            let run: Task<Bool, Never>
+            if let sending {
+                passRequested = true
+                run = sending
+            } else {
+                guard loadIfNeeded() else { return }
+                run = Task { await sendWhileRequested() }
+                sending = run
+            }
+            guard await run.value else { return }
+        }
+    }
+
+    /// Stops the running pass, for a background refresh that is out of time: it cancels its own call first, then this.
+    /// The record in flight stays pending; callers that still wait start the run again.
     func cancelSending() {
-        passRequested = false
         sending?.cancel()
     }
 
@@ -105,18 +129,63 @@ actor CaptureQueue {
         persist(next)
     }
 
+    /// `true` when stopped by `cancelSending()`.
+    private func sendWhileRequested() async -> Bool {
+        repeat {
+            passRequested = false
+            await sendPending()
+        } while passRequested && !Task.isCancelled
+        // On the actor right after the last check for triggers, so a later call starts a new run
+        sending = nil
+        scheduleRetry()
+        return Task.isCancelled
+    }
+
     private func sendPending() async {
-        // Runs on the actor right after the last check for work, so a record added later starts a new pass
-        defer { sending = nil }
         while !Task.isCancelled, let capture = nextToSend() {
             let generation = settingsGeneration
+            markSending(capture.clientId)
             let outcome = await sender.send(capture)
+            markSending(nil)
             // Cut short by `cancelSending()`: not the server's answer, so not an attempt
             if Task.isCancelled, case .retryLater = outcome { break }
             // Refused with the settings of before: the next round goes with the new ones
             if outcome == .tokenRefused, generation != settingsGeneration { continue }
             guard apply(outcome, to: capture.clientId) else { break }
         }
+    }
+
+    private func markSending(_ clientId: UUID?) {
+        var next = current
+        next.sendingId = clientId
+        publish(next)
+    }
+
+    /// After 429 the queue waits for `notBefore`. The app open, it sends then by itself, without a new trigger.
+    private func scheduleRetry() {
+        retryTimer?.cancel()
+        retryTimer = nil
+        guard
+            let notBefore = current.notBefore, !current.tokenRefused,
+            current.captures.contains(where: { $0.state == .pending })
+        else { return }
+        let delay = notBefore.timeIntervalSince(now())
+        guard delay > 0 else { return }
+        retryTimer = Task { [waitForRetry] in
+            do {
+                try await waitForRetry(delay)
+            } catch {
+                return
+            }
+            // Replaced while waking up: the newer timer is the one to keep
+            guard !Task.isCancelled else { return }
+            await retryDue()
+        }
+    }
+
+    private func retryDue() async {
+        retryTimer = nil
+        await flush()
     }
 
     /// Reads the file once it can be opened. Until then the queue neither takes records nor sends.

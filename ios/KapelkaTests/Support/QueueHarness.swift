@@ -37,28 +37,82 @@ final class TestSettings: @unchecked Sendable {
     }
 }
 
-/// One queue file in its own temporary folder. `makeQueue()` again over the same file is the app started anew —
-/// after it was killed or the phone restarted.
-struct QueueHarness {
+/// The wait for a 429 pause to end, as the test sees it: by default it never ends, so a test sees only the sends it
+/// starts itself; `passes` moves the test clock past the pause at once.
+final class TestRetryWait: @unchecked Sendable {
+    private let lock = NSLock()
+    private var asked: [TimeInterval] = []
+    private let clock: TestClock?
+
+    private init(clock: TestClock?) {
+        self.clock = clock
+    }
+
+    static let never = TestRetryWait(clock: nil)
+
+    static func passes(_ clock: TestClock) -> TestRetryWait {
+        TestRetryWait(clock: clock)
+    }
+
+    /// Every pause the queue waited for, in seconds.
+    var waits: [TimeInterval] { lock.withLock { asked } }
+
+    func wait(_ seconds: TimeInterval) async throws {
+        lock.withLock { asked.append(seconds) }
+        guard let clock else {
+            try await Task.sleep(for: .seconds(3600))
+            return
+        }
+        clock.advance(by: seconds)
+    }
+}
+
+/// Folders of this test run. One left by an earlier run — a test that stopped halfway — goes when the next run starts.
+enum TestFolders {
+    private static let prefix = "kapelka-tests-"
+
+    static let root: URL = {
+        let temporary = FileManager.default.temporaryDirectory
+        let names = (try? FileManager.default.contentsOfDirectory(atPath: temporary.path())) ?? []
+        for name in names where name.hasPrefix(prefix) || name.hasPrefix("ft177-queue-") {
+            try? FileManager.default.removeItem(at: temporary.appending(path: name))
+        }
+        return temporary.appending(path: "\(prefix)\(UUID().uuidString)", directoryHint: .isDirectory)
+    }()
+
+    static func make() throws -> URL {
+        let folder = root.appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        return folder
+    }
+}
+
+/// One queue file in its own temporary folder, removed with the harness. `makeQueue()` again over the same file is
+/// the app started anew — after it was killed or the phone restarted.
+final class QueueHarness: Sendable {
     let store: CaptureFileStore
     let clock: TestClock
     let transport: FakeTransport
     let settings: TestSettings
     let timeZone: TimeZone
+    let retryWait: TestRetryWait
 
     init(
         transport: FakeTransport = FakeTransport(),
         settings: TestSettings = TestSettings(),
-        timeZone: TimeZone = TimeZone(identifier: "Asia/Tashkent")!
+        timeZone: TimeZone = TimeZone(identifier: "Asia/Tashkent")!,
+        retryWait: ((TestClock) -> TestRetryWait)? = nil
     ) throws {
-        let directory = FileManager.default.temporaryDirectory
-            .appending(path: "ft177-queue-\(UUID().uuidString)", directoryHint: .isDirectory)
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        store = CaptureFileStore(fileURL: directory.appending(path: "captures.json"))
+        store = CaptureFileStore(fileURL: try TestFolders.make().appending(path: "captures.json"))
         clock = TestClock()
         self.transport = transport
         self.settings = settings
         self.timeZone = timeZone
+        self.retryWait = retryWait?(clock) ?? .never
+    }
+
+    deinit {
+        try? FileManager.default.removeItem(at: store.fileURL.deletingLastPathComponent())
     }
 
     var client: CaptureClient {
@@ -66,10 +120,17 @@ struct QueueHarness {
         return CaptureClient(configuration: { settings.configuration }, transport: transport)
     }
 
-    func makeQueue() -> CaptureQueue {
+    func makeQueue(retryWait: TestRetryWait? = nil) -> CaptureQueue {
         let clock = clock
         let timeZone = timeZone
-        return CaptureQueue(store: store, sender: client, now: { clock.now }, timeZone: { timeZone })
+        let retryWait = retryWait ?? self.retryWait
+        return CaptureQueue(
+            store: store,
+            sender: client,
+            now: { clock.now },
+            timeZone: { timeZone },
+            waitForRetry: { try await retryWait.wait($0) }
+        )
     }
 }
 

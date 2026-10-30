@@ -95,10 +95,11 @@ struct CaptureRetryTests {
         let queue = harness.makeQueue()
         _ = try await queue.add("кофе 25к")
 
-        async let sending: Void = queue.flush()
+        let sending = Task { await queue.flush() }
         #expect(await eventually { await harness.transport.requests.count == 1 })
+        sending.cancel()
         await queue.cancelSending()
-        await sending
+        await sending.value
 
         let captures = try harness.store.load().captures
         #expect(captures.map(\.state) == [.pending])

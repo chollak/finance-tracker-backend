@@ -10,6 +10,10 @@
 	<array>
 		<string>fetch</string>
 	</array>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Слушаю фразу, чтобы записать трату. Звук остаётся на телефоне.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Фразу распознаёт сам телефон — звук никуда не уходит.</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsLocalNetworking</key>

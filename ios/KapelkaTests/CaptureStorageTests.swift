@@ -28,16 +28,17 @@ struct CaptureStorageTests {
 
     @Test("фраза хранится без пробелов по краям")
     func trimsText() async throws {
-        let capture = try await QueueHarness().makeQueue().add("  кофе 25к \n")
+        let harness = try QueueHarness()
+        let capture = try await harness.makeQueue().add("  кофе 25к \n")
         #expect(capture.text == "кофе 25к")
     }
 
     @Test("папки очереди ещё нет — первая запись создаёт её, а не ложится в другой файл")
     func createsFolderOnFirstSave() async throws {
-        let folder = FileManager.default.temporaryDirectory
-            .appending(path: "ft177-queue-\(UUID().uuidString)/Kapelka", directoryHint: .isDirectory)
+        let harness = try QueueHarness()
+        let folder = harness.store.fileURL.deletingLastPathComponent().appending(path: "Kapelka", directoryHint: .isDirectory)
         let store = CaptureFileStore(fileURL: folder.appending(path: "captures.json"))
-        let queue = CaptureQueue(store: store, sender: try QueueHarness().client)
+        let queue = CaptureQueue(store: store, sender: harness.client)
 
         _ = try await queue.add("кофе 25к")
 
@@ -113,7 +114,8 @@ struct CaptureStorageTests {
 
     @Test("длина — в единицах UTF-16, как считает сервер")
     func lengthInUTF16() async throws {
-        let queue = try QueueHarness().makeQueue()
+        let harness = try QueueHarness()
+        let queue = harness.makeQueue()
         await #expect(throws: CaptureTextError.tooLong) { try await queue.add(String(repeating: "😀", count: 1001)) }
         _ = try await queue.add(String(repeating: "😀", count: 1000))
     }

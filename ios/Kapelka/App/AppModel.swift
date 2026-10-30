@@ -7,11 +7,15 @@ import UIKit
 @Observable
 final class AppModel {
     let services: AppServices
+    let voice: VoiceCapture
     private(set) var queueState: QueueState
     private(set) var isConfigured: Bool
 
-    init(services: AppServices) {
+    init(services: AppServices, speech: AppleSpeech = AppleSpeech()) {
         self.services = services
+        voice = VoiceCapture(system: speech, listener: speech) { [queue = services.queue] phrase in
+            try await Self.write(phrase, to: queue)
+        }
         queueState = QueueState()
         isConfigured = services.settings.configuration() != nil
         Task { [weak self, updates = services.queue.updates] in
@@ -22,30 +26,45 @@ final class AppModel {
     }
 
     var pendingCount: Int {
-        queueState.captures.count { $0.state == .pending }
+        QueueStatus.pendingCount(queueState)
+    }
+
+    /// The list on the main screen, newest first.
+    var rows: [CaptureRow] {
+        CaptureRow.rows(queueState.captures, sendingId: queueState.sendingId, now: Date(), calendar: .current)
     }
 
     var hasToken: Bool {
         services.settings.hasToken
     }
 
-    /// The line under the field: what happens to the queue now.
+    /// The answer to the last phrase: the server's summary or «в очереди N».
     var statusLine: String {
-        if !isConfigured { return "Укажи адрес и токен в настройках" }
-        if queueState.tokenRefused { return "Сервер не принял токен — проверь токен в настройках" }
-        if pendingCount > 0 { return "В очереди: \(pendingCount)" }
-        guard let last = queueState.captures.last else { return "Очередь пуста" }
-        switch last.state {
-        case .sent: return [last.reply?.title, last.reply?.summary].compactMap { $0 }.joined(separator: " · ")
-        case .rejected: return "Не записано: \(last.rejection ?? "сервер не принял запись")"
-        case .pending: return "В очереди: \(pendingCount)"
-        }
+        QueueStatus.line(for: queueState, configured: isConfigured)
     }
 
     /// The phrase is on disk when this returns; sending goes on by itself.
     func add(_ text: String) async throws {
-        try await services.queue.add(text)
-        Task { await services.queue.flush() }
+        try await Self.write(text, to: services.queue)
+    }
+
+    /// A waiting record goes, never sent; `nil` or what to tell.
+    func remove(_ id: UUID) async -> String? {
+        let triedBefore = queueState.captures.first { $0.clientId == id }.map { $0.attempts > 0 } ?? false
+        do {
+            let removed = try await services.queue.remove(id)
+            // Its request went out between the swipe and the tap
+            guard removed else { return "Запись уже отправляется — если сервер её запишет, удали её в Mini App" }
+            // A timeout says nothing about whether the server wrote it
+            return triedBefore ? "Удалено. Запись уже уходила на сервер — проверь Mini App" : nil
+        } catch {
+            return "Не удалилось: \(error.localizedDescription)"
+        }
+    }
+
+    private static func write(_ text: String, to queue: CaptureQueue) async throws {
+        try await queue.add(text)
+        Task { await queue.flush() }
     }
 
     func sendNow() async {
@@ -58,16 +77,24 @@ final class AppModel {
         await services.queue.flush()
     }
 
-    /// The app was closed right after a phrase: iOS gives about half a minute to finish the request in flight, then
-    /// the background refresh takes over. The refresh is asked for first — a sleeping PC keeps the request open past
-    /// that half minute, and iOS suspends the app without running what comes after.
+    /// The app left the screen. What the microphone heard is written first (decision 2026-10-30), then the queue is sent
+    /// within the half minute iOS gives. The refresh is asked for first: a sleeping PC keeps the request open past that
+    /// half minute, and iOS suspends the app without running what comes after. Out of time, this call stops the run;
+    /// another call still waiting for the queue (a new network path, the phrase's own send) may start it again, and iOS
+    /// suspends the app mid-request — the record goes again later with the same `clientId`.
     func appMovedToBackground() async {
         let finishing = FinishingTime()
+        let sending = Task { [voice, queue = services.queue] in
+            await voice.wrapUp()
+            await queue.flush()
+        }
         finishing.begin { [queue = services.queue] in
+            // The call waiting for the queue goes first, so it does not start the stopped run again
+            sending.cancel()
             Task { await queue.cancelSending() }
         }
         await services.background.schedule()
-        await services.queue.flush()
+        await sending.value
         await services.background.schedule()
         finishing.end()
     }
