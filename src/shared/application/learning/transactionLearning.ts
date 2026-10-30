@@ -184,7 +184,8 @@ export class TransactionLearningService implements CategoryLessons {
       if (patterns.merchants.length > 0) {
         enhancement += '\nМЕРЧАНТЫ:\n';
         patterns.merchants
-          .filter(p => p.usageCount >= MIN_PATTERN_USES)
+          // A payment's merchant is matched only whole (FT-184): the AI is not told to read it as a word
+          .filter(p => p.usageCount >= MIN_PATTERN_USES && !p.fromPayments)
           .sort((a, b) => b.usageCount - a.usageCount)
           .slice(0, 15) // Top 15 merchants
           .forEach(pattern => {
@@ -217,7 +218,7 @@ export class TransactionLearningService implements CategoryLessons {
         .filter(pattern => pattern.usageCount >= MIN_PATTERN_USES)
         .map(pattern => ({ key: pattern.category, keywords: pattern.keywords })),
       merchants: patterns.merchants
-        .filter(merchant => merchant.usageCount >= MIN_PATTERN_USES && merchant.category)
+        .filter(merchant => merchant.usageCount >= MIN_PATTERN_USES && merchant.category && !merchant.fromPayments)
         .map(merchant => ({ key: merchant.category!, aliases: merchant.aliases })),
     });
     for (const [key, words] of lessonWordsByCategory(patterns.words ?? [], true)) {

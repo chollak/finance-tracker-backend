@@ -5,8 +5,9 @@ import { LearnedPatterns, LearnedWord, LearningData, MerchantPattern } from './l
 /**
  * Lessons of category corrections in the learned patterns (FT-184). A phrase's words are counted one by one: a word
  * gives its category as a guess after one lesson and for sure from `MIN_WORD_LESSONS`. A payment's merchant is a merchant
- * pattern of exactly its `merchantKey`, which the latest correction moves. The seed's category patterns are not touched.
- */
+ * pattern of exactly its `merchantKey` (`fromPayments`), which the latest correction moves; its count is of the lessons
+ * into its current category, so a correction into another one starts it again. The seed's category patterns are not
+ * touched.
 
 /** A word gives its category for sure from this many lessons; with fewer, as a guess («Продукты?»). */
 export const MIN_WORD_LESSONS = 2;
@@ -105,21 +106,28 @@ function countedOnce(words: readonly LearnedWord[], word: string, category: stri
 
 function withMerchant(merchants: readonly MerchantPattern[], key: string, category: string): MerchantPattern[] {
   const known = merchants.find(merchant => merchant.normalizedName === key);
-  if (!known) return [...merchants, { aliases: [key], normalizedName: key, category, usageCount: 1 }];
+  if (!known) return [...merchants, paymentMerchant(key, category, 1)];
   return merchants.map(merchant => merchant === known
     ? {
       ...merchant,
       aliases: merchant.aliases.includes(key) ? merchant.aliases : [...merchant.aliases, key],
       category,
-      usageCount: merchant.usageCount + 1,
+      usageCount: merchant.category === category ? merchant.usageCount + 1 : 1,
+      fromPayments: true,
     }
     : merchant);
 }
 
+/** The merchant as the lessons left in the history make it: the latest category, counted by its lessons since the last other one. */
 function merchantFromHistory(merchants: readonly MerchantPattern[], key: string, history: readonly LearningData[]): MerchantPattern[] {
   const lessons = history.filter(entry => entry.merchant === key);
   const others = merchants.filter(merchant => merchant.normalizedName !== key);
   if (lessons.length === 0) return others;
-  const category = lessons[lessons.length - 1].userCorrection.category;
-  return [...others, { aliases: [key], normalizedName: key, category, usageCount: lessons.length }];
+  const category = lessons[lessons.length - 1].userCorrection.category ?? '';
+  const otherAt = lessons.map(entry => entry.userCorrection.category !== category).lastIndexOf(true);
+  return [...others, paymentMerchant(key, category, lessons.length - 1 - otherAt)];
+}
+
+function paymentMerchant(key: string, category: string, usageCount: number): MerchantPattern {
+  return { aliases: [key], normalizedName: key, category, usageCount, fromPayments: true };
 }

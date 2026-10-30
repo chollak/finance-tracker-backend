@@ -189,6 +189,21 @@ describe('a category correction teaches (FT-184)', () => {
     expect(openAI.categoryOfMerchant.mock.calls.map(([merchant]) => merchant)).toEqual(['PAYNET MOBILE']);
   });
 
+  it('«PAYNET 0123» corrected to «Дом» and «PAYNET 0456» to «Связь»: «PAYNET MOBILE» and «PAYNET KOMMUNAL GAZ» still ask the AI', async () => {
+    await moveTo((await pay('PAYNET 0123')).id, 'Дом');
+    await moveTo((await pay('PAYNET 0456')).id, 'Связь');
+    openAI.categoryOfMerchant.mockClear();
+
+    const mobile = await pay('PAYNET MOBILE');
+    const gas = await pay('PAYNET KOMMUNAL GAZ');
+    const exact = await pay('PAYNET 0789');
+
+    expect(openAI.categoryOfMerchant.mock.calls.map(([name]) => name)).toEqual(['PAYNET MOBILE', 'PAYNET KOMMUNAL GAZ']);
+    expect([guess(mobile), guess(gas)]).toEqual([{ kind: 'category', name: 'Покупки' }, { kind: 'category', name: 'Покупки' }]);
+    expect(exact.category).toBe('Связь');
+    expect(guess(exact)).toBeUndefined();
+  });
+
   it('a record made by hand, without a phrase, is changed and teaches nothing', async () => {
     const created = await records.create.execute({
       userId: USER, amount: 25_000, category: 'Покупки', type: 'expense', description: 'ZZQX', date: '2026-10-30',

@@ -36,6 +36,11 @@ export interface MerchantPattern {
   normalizedName: string;
   category?: string;
   usageCount: number;
+  /**
+   * Taught by a payment correction (FT-184): found only whole, by `learnedMerchants` — never a word of a label nor a line
+   * of the AI prompt, or «PAYNET» corrected twice would send every «PAYNET …» payment to its category.
+   */
+  fromPayments?: boolean;
 }
 
 /** A word phrase corrections tied to a starter category, and how many of them (FT-184). */

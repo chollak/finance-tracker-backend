@@ -14,12 +14,20 @@ describe('the words a phrase correction teaches (FT-184)', () => {
     ['yigirma ming zzqx naqd', ['zzqx']],
     ['купил продукты, zzqx и ещё zzqx!', ['продукты', 'zzqx']],
     ['ёлочные игрушки', ['елочные', 'игрушки']],
+    ['zzqx восьмое марта', ['zzqx']],
+    ['zzqx 8 марта, третьего января и двадцать первого', ['zzqx']],
+    ['zzqx sakkizinchi mart, oktyabr', ['zzqx']],
+    ['пятёрочка 30000', ['пятерочка']],
   ])('«%s» teaches %j', (phrase, words) => {
     expect(lessonWordsOf(phrase, [])).toEqual(words);
   });
 
   it('never the words of the user’s account names: «Капитал», «Black» of «Humo Black»', () => {
     expect(lessonWordsOf('zzqx капитал black 30000', ['Humo Black', 'Капитал'])).toEqual(['zzqx']);
+  });
+
+  it('«сто» is a number: «СТО» of a car service is not taught (accepted, FT-184)', () => {
+    expect(lessonWordsOf('сто 300000', [])).toEqual([]);
   });
 
   it('nothing for a phrase of numbers and service words', () => {

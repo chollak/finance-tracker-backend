@@ -34,17 +34,41 @@ const NUMBER_WORDS = new Set([
   'one', 'two', 'three', 'five', 'ten', 'hundred', 'thousand',
 ]);
 
-/** When, beyond «вчера» and «сегодня» of the generic words: weekdays and other days, in Russian, Uzbek and English. */
+/**
+ * When, beyond «вчера» and «сегодня» of the generic words: weekdays, other days and months, in Russian, Uzbek and
+ * English.
+ */
 const DAY_WORDS = new Set([
   'понедельник', 'вторник', 'среда', 'среду', 'четверг', 'пятница', 'пятницу', 'суббота', 'субботу', 'воскресенье',
   'неделе', 'неделю', 'прошлой', 'прошлый', 'послезавтра', 'назад',
   'bugun', 'kecha', 'ertaga', 'бугун', 'кеча', 'today', 'yesterday', 'tomorrow',
+  'январь', 'января', 'январе', 'февраль', 'февраля', 'феврале', 'март', 'марта', 'марте', 'апрель', 'апреля',
+  'апреле', 'май', 'мая', 'мае', 'июнь', 'июня', 'июне', 'июль', 'июля', 'июле', 'август', 'августа', 'августе',
+  'сентябрь', 'сентября', 'сентябре', 'октябрь', 'октября', 'октябре', 'ноябрь', 'ноября', 'ноябре', 'декабрь',
+  'декабря', 'декабре',
+  'yanvar', 'fevral', 'mart', 'aprel', 'may', 'iyun', 'iyul', 'avgust', 'sentabr', 'sentyabr', 'oktabr', 'oktyabr',
+  'noyabr', 'dekabr',
+  'january', 'february', 'march', 'april', 'june', 'july', 'august', 'september', 'october', 'november', 'december',
 ]);
 
 /**
+ * A day of the month in words: Russian ordinals up to «тридцатое» in any ending («восьмое», «третьего», «первого»), and
+ * Uzbek ones («sakkizinchi»; «to‘rtinchi» splits to «rtinchi»).
+ */
+const ORDINAL_PATTERN = new RegExp(
+  '^(?:(?:перв|втор|четверт|пят|шест|седьм|восьм|девят|десят'
+  + '|(?:одиннадц|двенадц|тринадц|четырнадц|пятнадц|шестнадц|семнадц|восемнадц|девятнадц|двадц|тридц)ат)'
+  + '(?:ый|ой|ая|ое|ого|ому|ом|ую|ые|ых)'
+  + '|трет(?:ий|ья|ье|ьего|ьему|ьем|ью|ьи|ьих)'
+  + '|\\p{L}+nchi)$',
+  'u'
+);
+
+/**
  * The words a correction of a phrase teaches: those longer than two letters that are not a way to pay («картой»,
- * «uzcard», `stripPaymentWords`), not generic («купил», «деньги»), not an amount or a number word, not a day, not a
- * legal form, shop word or city, and not a word of the user's account names. Each once.
+ * «uzcard», `stripPaymentWords`), not generic («купил», «деньги»), not an amount or a number word, not a day, month or
+ * day of the month, not a legal form, shop word or city, and not a word of the user's account names. Each once. «сто»
+ * is a number, so «СТО» of a car service is not taught.
  */
 export function lessonWordsOf(phrase: string, accountNames: readonly string[]): string[] {
   const accountWords = new Set(accountNames.flatMap(wordsOf));
@@ -53,6 +77,7 @@ export function lessonWordsOf(phrase: string, accountNames: readonly string[]): 
     && !SERVICE_WORDS.has(word)
     && !NUMBER_WORDS.has(word)
     && !DAY_WORDS.has(word)
+    && !ORDINAL_PATTERN.test(word)
     && !accountWords.has(word));
   return [...new Set(words)];
 }

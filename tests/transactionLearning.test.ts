@@ -212,6 +212,40 @@ describe('TransactionLearningService runtime data policy', () => {
       expect((await service.learnedMerchants()).get('kkwq paynet uzcard')).toBe('groceries');
     });
 
+    it('a merchant corrected into two categories counts from the latest one only, and is never a word of a label', async () => {
+      const service = new TransactionLearningService(tempDir);
+
+      // «PAYNET 0123» corrected to «Дом», «PAYNET 0456» to «Связь»
+      await service.learnCategory(merchant('r1', 'home', 'paynet'));
+      await service.learnCategory(merchant('r2', 'telecom', 'paynet'));
+
+      expect((await service.learnedMerchants()).get('paynet')).toBe('telecom');
+      expect(readPatterns().merchants).toEqual([{ aliases: ['paynet'], normalizedName: 'paynet', category: 'telecom', usageCount: 1, fromPayments: true }]);
+      expect((await service.learnedCategoryWords()).get('telecom')).toBeUndefined();
+    });
+
+    it('a merchant corrected twice into one category is still found only whole: not a word of labels, not in the AI prompt', async () => {
+      const service = new TransactionLearningService(tempDir);
+
+      await service.learnCategory(merchant('r1', 'telecom', 'paynet'));
+      await service.learnCategory(merchant('r2', 'telecom', 'paynet'));
+
+      expect(readPatterns().merchants[0]).toMatchObject({ usageCount: 2 });
+      expect((await service.learnedCategoryWords()).get('telecom')).toBeUndefined();
+      expect(await service.getEnhancedPrompts('BASE')).not.toContain('paynet');
+    });
+
+    it('taking a merchant lesson back counts the latest category from the lessons left', async () => {
+      const service = new TransactionLearningService(tempDir);
+      await service.learnCategory(merchant('r1', 'home', 'paynet'));
+      await service.learnCategory(merchant('r2', 'telecom', 'paynet'));
+      await service.learnCategory(merchant('r3', 'telecom', 'paynet'));
+
+      await service.unlearnRecord('r3');
+
+      expect(readPatterns().merchants).toEqual([{ aliases: ['paynet'], normalizedName: 'paynet', category: 'telecom', usageCount: 1, fromPayments: true }]);
+    });
+
     it('unlearning a record takes back exactly its lesson: the counts of its words, its merchant', async () => {
       const service = new TransactionLearningService(tempDir);
       await service.learnCategory(words('r1', 'groceries', 'zzqx', 'wwpt'));
