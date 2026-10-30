@@ -192,9 +192,10 @@ A phrase from the iOS app's offline queue (FT-161) reaches the server hours or d
   input and `toDateOnly` move to it together.
 - **The fast paths** (`такси 18к`, `перевел 500к на Alif`, `зарплата 5 млн`) write the record on the day of input;
   «сегодня», «вчера», «позавчера» (also `bugun`, `kecha`, `today`, `yesterday`) in the phrase move it back 0, 1 or
-  2 days and leave the record's note with the comma next to them (`src/modules/voiceProcessing/domain/phraseDay.ts`).
-  A phrase that names any other day — a weekday («в понедельник»), «завтра», «неделю назад», «на прошлой неделе»,
-  «вчерашний», «на днях», «в выходные» — goes to the AI. A month alone does not: «аренда на ноябрь» is a period, and
+  2 days and leave the record's note with the comma, dash or brackets next to them
+  (`src/modules/voiceProcessing/domain/phraseDay.ts`). A phrase that names any other day goes to the AI: a weekday
+  («в понедельник», «в пн», `monday`, `dushanba`), «завтра» (`tomorrow`, `ertaga`), «неделю назад», «на прошлой
+  неделе» (`last week`, `o'tgan hafta`), «вчерашний», «на днях», «в выходные». A month alone does not: «аренда на ноябрь» is a period, and
   «5 ноября» holds a second number, which sends the phrase to the AI anyway.
 - **The AI** is told the day of input with its weekday and the 7 days up to it («Сегодня 2026-10-27, вторник.
   Последние 7 дней: вторник 2026-10-27, понедельник 2026-10-26, …») and counts «вчера», a weekday and the rest from

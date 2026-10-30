@@ -25,7 +25,10 @@ describe('phraseDayOf', () => {
     ['такси, вчера 18000'],
     ['вчера: такси 18000'],
     ['такси 18000, вчера'],
-  ])('leaves no comma of «%s» in the note', text => {
+    ['такси (вчера) 18000'],
+    ['вчера-такси 18000'],
+    ['вчера — такси 18000'],
+  ])('leaves no comma, bracket or dash of «%s» in the note', text => {
     expect(phraseDayOf(text, SAID_ON)).toEqual({ text: 'такси 18000', date: '2026-10-26' });
   });
 
@@ -40,6 +43,19 @@ describe('phraseDayOf', () => {
     'на днях кофе 20000',
     'в выходные кино 80000',
     'вчера позавчера такси 18000',
+    // English and Uzbek, and the short weekdays
+    'tomorrow taxi 18000',
+    'ertaga taksi 18000',
+    'on monday taxi 18000',
+    'Friday dinner 120000',
+    'dushanba taksi 18000',
+    'juma kuni kofe 25000',
+    'yakshanba kino 80000',
+    'last week taxi 18000',
+    "o'tgan hafta taksi 18000",
+    'oʻtgan hafta taksi 18000',
+    'в пн такси 18000',
+    'такси 18000 в сб',
   ])('leaves «%s» to the AI: it names a day the fast path does not read', text => {
     expect(phraseDayOf(text, SAID_ON)).toBeNull();
   });
