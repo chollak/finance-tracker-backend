@@ -412,9 +412,10 @@ For the queue of FT-161: `400` — an error at the record, it is not sent again;
 
 ### For the iOS client (FT-179)
 
-- **Amount.** Bring Wallet's value to the strict string: a `Decimal` formatted with the `en_US_POSIX` locale, without
-  grouping, with a dot and at most two decimals — never through `Double`. What Wallet gives for Shukur's cards is found
-  in FT-179's first step; a test there pins that format to this one.
+- **Amount.** Bring Wallet's value to the strict string with a dot and at most two decimals — never through
+  `Double`. Wallet gives Shukur's TBC card «28 000,00 UZS»: non-breaking spaces between thousands, a comma before the
+  decimals, the code after the number (its notice, 2026-10-30). The app rewrites the text itself (`WalletAmount`,
+  `ios/Kapelka/Payments/`), and `WalletAmountTests` pins this format to `"28000.00"` `UZS`.
 - **Currency.** Wallet's code or symbol → `UZS` or `USD`; anything else stays on the phone and is shown, not sent.
 - **Account.** The name from the card → account mapping in the settings, typed there by hand: the server compares it
   with the account's whole name (case, «ё» and spaces around aside), so it must be the account's name as it is in
@@ -736,7 +737,8 @@ curl -sS -X POST https://<tunnel-host>/api/quick-capture \
    by in-process callers such as the Telegram handler.
 9. **A payment is not matched to a phrase.** The same purchase paid by Apple Pay and also typed or said is two records
    (FT-161, «Дубль Apple Pay»); `source: apple_pay` marks the paid one. A payment is always an expense: a refund from
-   Wallet, if it ever comes, is not told apart (FT-179 learns what Wallet sends).
+   Wallet, if it ever comes, is not told apart; the app refuses a signed amount as a format it does not know, so a
+   «-5,00 UZS» stays on the phone (FT-179).
 
 ## Planned but not implemented
 

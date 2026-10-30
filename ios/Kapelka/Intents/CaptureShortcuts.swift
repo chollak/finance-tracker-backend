@@ -70,6 +70,15 @@ struct KapelkaShortcuts: AppShortcutsProvider {
             systemImageName: "mic"
         )
         AppShortcut(
+            intent: RecordPaymentIntent(),
+            phrases: [
+                "Записать оплату в \(.applicationName)",
+                "\(.applicationName), записать оплату",
+            ],
+            shortTitle: "Записать оплату",
+            systemImageName: "creditcard"
+        )
+        AppShortcut(
             intent: SendQueueIntent(),
             phrases: [
                 "Отправить очередь \(.applicationName)",
@@ -78,5 +87,53 @@ struct KapelkaShortcuts: AppShortcutsProvider {
             shortTitle: "Отправить очередь",
             systemImageName: "arrow.up.circle"
         )
+    }
+}
+
+/// «Записать оплату» for the Wallet automation «Транзакция» (FT-179). iOS lets no app create that automation: it is set
+/// up once by hand (the settings show how), each field taken from «Ввод команды». Runs without opening the app, so
+/// «Выполнять сразу» needs no tap; the payment is on the phone before anything is sent, its result a notification.
+struct RecordPaymentIntent: AppIntent {
+    static var title: LocalizedStringResource { "Записать оплату" }
+    static var description: IntentDescription {
+        IntentDescription("Для автоматизации «Транзакция» (на iOS 26 — «Wallet»): записывает оплату Apple Pay.")
+    }
+    static var openAppWhenRun: Bool { false }
+
+    @Parameter(title: "Сумма", description: "«Ввод команды» → сумма, как её даёт Wallet: «28 000,00 UZS».")
+    var amount: String?
+
+    @Parameter(title: "Магазин", description: "«Ввод команды» → продавец.")
+    var merchant: String?
+
+    @Parameter(title: "Карта", description: "«Ввод команды» → карта. Счёт для неё — в настройках Kapelka.")
+    var card: String?
+
+    @Parameter(
+        title: "Валюта",
+        description: "Только если в сумме нет кода и все карты автоматизации в одной валюте. Иначе — валюта карты в настройках Kapelka."
+    )
+    var currency: PaymentCurrency?
+
+    static var parameterSummary: some ParameterSummary {
+        Summary("Записать оплату \(\.$amount) в \(\.$merchant) с карты \(\.$card)") {
+            \.$currency
+        }
+    }
+
+    /// No dialog and no output value: the automation must need no tap (Shukur's decision of 2026-10-30). A dialog waits
+    /// for «Готово» after each payment, a value makes iOS ask «Allow … to output» when another app runs the command.
+    /// The result comes as a notification that goes away by itself.
+    func perform() async throws -> some IntentResult {
+        let input = PaymentInput(amount: amount, currency: currency, merchant: merchant, card: card)
+        try await AppServices.shared.payments.record(input)
+        return .result()
+    }
+}
+
+extension PaymentCurrency: AppEnum {
+    static var typeDisplayRepresentation: TypeDisplayRepresentation { "Валюта" }
+    static var caseDisplayRepresentations: [PaymentCurrency: DisplayRepresentation] {
+        [.uzs: "Сум", .usd: "Доллар"]
     }
 }

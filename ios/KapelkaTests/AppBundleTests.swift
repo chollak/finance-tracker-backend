@@ -40,12 +40,15 @@ struct AppBundleTests {
         #expect(text.contains("SendQueueIntent"))
         #expect(text.contains("Записать трату"))
         #expect(text.contains("Отправить очередь"))
+        #expect(text.contains("RecordPaymentIntent"))
+        #expect(text.contains("Записать оплату"))
     }
 
-    @Test("«Записать трату» открывает приложение, «Отправить очередь» — нет")
+    @Test("«Записать трату» открывает приложение, «Отправить очередь» и «Записать оплату» — нет")
     func intentsOpenApp() {
         #expect(RecordExpenseIntent.openAppWhenRun)
         #expect(SendQueueIntent.openAppWhenRun == false)
+        #expect(RecordPaymentIntent.openAppWhenRun == false)
     }
 
     @Test("под тестами приложение только хозяин: очередь и сеть не запускаются")
