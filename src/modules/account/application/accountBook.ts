@@ -96,7 +96,7 @@ export class AccountBook implements AccountResolver {
 
   /**
    * The account a new record is written to (FT-101, FT-103): the one picked; else, among visible
-   * accounts in the record's currency, one named in the text (the longest name there), then one of the kind the text names
+   * accounts in the record's currency, the one of exactly the given name (FT-176), one named in the text, then one of the kind the text names
    * («нал», «картой»), preferring the default; else the default account, else the first visible.
    * Without an account in the currency («55$» and no dollar account) the default is returned and the
    * caller sees the mismatch.
@@ -123,10 +123,10 @@ export class AccountBook implements AccountResolver {
     const inCurrency = input.currency ? visible.filter(account => account.currency === input.currency) : visible;
     const preferDefault = (candidates: Account[]) => candidates.find(account => account.id === fallback.id) ?? candidates[0];
 
-    // Of the accounts named in the text the longest name is meant: «Карта Visa» holds «Карта» too (FT-176)
-    const byName = input.text
-      ? inCurrency.filter(account => namedIn(input.text!, account)).sort((a, b) => b.name.length - a.name.length)[0]
-      : undefined;
+    const exact = input.name ? inCurrency.find(account => accountNameKey(account.name) === accountNameKey(input.name!)) : undefined;
+    if (exact) return ResultHelper.success(toResolved(exact, 'name'));
+
+    const byName = input.text ? inCurrency.find(account => namedIn(input.text!, account)) : undefined;
     if (byName) return ResultHelper.success(toResolved(byName, 'name'));
 
     const ofKind = input.kind ? inCurrency.filter(account => account.kind === input.kind) : [];

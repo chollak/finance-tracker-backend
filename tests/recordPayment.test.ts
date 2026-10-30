@@ -165,16 +165,19 @@ describe('a payment from Apple Pay (FT-176)', () => {
       expect(await storedCount()).toBe(1);
     });
 
-    it('is «Другое» for a name the AI gives that the user has no category of', async () => {
+    it('is «Другое» for a name the AI gives that the user has no category of, and the record remembers «Другое»', async () => {
       openAI.categoryOfMerchant.mockResolvedValue('Казино');
 
       const result = await pay();
 
       expect(result.transactions[0].category).toBe('Другое');
       expect(result.transactions[0].assumptions).toContainEqual({ kind: 'category', name: 'Другое' });
+      expect((await stored(result.transactions[0].id)).originalParsing).toMatchObject({ category: 'Другое', amount: 25_000 });
     });
 
-    it('a correction of the category in the Mini App teaches the merchant: the next payment there needs no AI', async () => {
+    // A correction made in the Mini App does not teach yet: it sends no originalText (FT-184). This is what learning
+    // does with the record's own originalText once it does
+    it('of a merchant learned from the merchant’s earlier records needs no AI', async () => {
       const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ft176-learning-'));
       try {
         fs.mkdirSync(path.join(dir, 'data'));
@@ -210,17 +213,25 @@ describe('a payment from Apple Pay (FT-176)', () => {
       expect(result.transactions[0].assumptions).toContainEqual({ kind: 'account', name: 'Humo', reason: 'hint' });
     });
 
-    it('is the one of exactly that name, not one whose name it holds: «Карта Visa», not «Карта»', async () => {
+    it('is the one of exactly that name, without case, spaces around and «ё»: «Карта Visa», «карта», «Ёлка»', async () => {
       const visa = await account('Карта Visa');
+      const tree = await account('Ёлка');
 
-      const result = await pay({ merchant: 'EVOS', accountName: 'Карта Visa' });
+      const ofVisa = await pay({ merchant: 'EVOS', accountName: 'Карта Visa' });
+      const ofCard = await pay({ merchant: 'EVOS', accountName: 'карта' });
+      const ofTree = await pay({ merchant: 'EVOS', accountName: ' елка ' });
 
-      expect(result.transactions[0]).toMatchObject({ accountId: visa.id, needsReview: false });
+      expect(ofVisa.transactions[0]).toMatchObject({ accountId: visa.id, needsReview: false });
+      expect(ofCard.transactions[0]).toMatchObject({ accountName: 'Карта', needsReview: false });
+      expect(ofTree.transactions[0]).toMatchObject({ accountId: tree.id, needsReview: false });
     });
 
     it.each([
       ['an unknown name', { accountName: 'Kapitalbank' }],
       ['no name', {}],
+      // The phone's names are typed by hand: a longer or another name is not the account, whatever it holds
+      ['a name that only holds an account’s name', { accountName: 'Humo Black' }],
+      ['an account’s name with another word', { accountName: 'Visa карта' }],
     ])('with %s is the default account, and the payment awaits review', async (_why, extra) => {
       await account('Humo');
 
@@ -252,6 +263,17 @@ describe('a payment from Apple Pay (FT-176)', () => {
       expect(repeat.source).toBe('apple_pay');
       expect(await storedCount()).toBe(1);
       expect(openAI.categoryOfMerchant).toHaveBeenCalledTimes(1);
+    });
+
+    it('of a clientId a phrase used answers with that record and says where it came from', async () => {
+      const clientId = randomUUID();
+      const phrase = await service.capture({ text: 'кофе 25000', userId: USER, source: 'ios_shortcut', clientId });
+
+      const repeat = await pay({ clientId });
+
+      expect(repeat).toMatchObject({ repeated: true, source: 'ios_shortcut' });
+      expect(repeat.transactions.map(record => record.id)).toEqual(phrase.transactions.map(record => record.id));
+      expect(await storedCount()).toBe(1);
     });
 
     it('sent twice at once writes one record', async () => {

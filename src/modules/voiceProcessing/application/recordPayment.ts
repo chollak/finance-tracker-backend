@@ -1,6 +1,6 @@
 import { CreateTransactionUseCase } from '../../transaction/application/createTransaction';
 import { Transaction } from '../../transaction/domain/transactionEntity';
-import { RecordCurrency } from '../../transaction/domain/recordSource';
+import { APPLE_PAY_SOURCE, RecordCurrency } from '../../transaction/domain/recordSource';
 import { ResolvedAccount } from '../../transaction/domain/accountResolver';
 import { ResolvedCategory } from '../../transaction/domain/categoryResolver';
 import { Result, ResultHelper } from '../../../shared/domain/types/Result';
@@ -39,7 +39,7 @@ type CategoryChoice = { name: string; chosenBy: 'words' | 'ai' | 'fallback' };
  * Writes a card payment the iOS app sent ready (FT-176): the amount, currency and day as they came, never parsed like
  * a phrase. The category is the one the merchant names — the user's category name, the dictionary, learned words — else
  * the AI's choice of the category alone, else «Другое»; either of the last two is a guess («?»). The account is the
- * one of the card's account name, as a name in a phrase finds it (FT-103); any other awaits review.
+ * one of exactly the card's account name — the phone's names are typed by hand; any other awaits review.
  */
 export class RecordPaymentUseCase {
   constructor(
@@ -61,7 +61,7 @@ export class RecordPaymentUseCase {
       amount,
       amountMinor: input.amountMinor,
       currency: input.currency,
-      source: 'apple_pay',
+      source: APPLE_PAY_SOURCE,
       clientId: input.clientId,
       type: 'expense',
       semanticType: 'expense',
@@ -69,18 +69,26 @@ export class RecordPaymentUseCase {
       userId: input.userId,
       userName: input.userName,
       merchant: input.merchant,
-      // What a correction in the Mini App teaches: the merchant's words, for the next payment there
+      // The words a learned correction ties to a category (FT-138): the merchant's, for the next payment there
       originalText: note,
-      originalParsing: { amount, category: choice.name, type: 'expense', semanticType: 'expense', needsReview: false, merchant: input.merchant },
     };
 
     let account: ResolvedAccount | undefined;
     let category: ResolvedCategory | undefined;
     const created = await this.createTransactionUseCase.execute(transaction, {
       visibleCategoriesOnly: true,
-      accountHint: { text: input.accountName, reviewUnlessNamed: true },
+      // Typed by hand on the phone, so only the whole name counts: «Humo Black» is not «Humo» (FT-176 review)
+      accountHint: { name: input.accountName, reviewUnlessNamed: true },
       allowCurrencyMismatch: true,
-      onResolved: resolved => { account = resolved.account; category = resolved.category; },
+      onResolved: resolved => {
+        account = resolved.account;
+        category = resolved.category;
+        // Told before the record is stored: what the parse gave is the category it went to, not the AI's raw name
+        transaction.originalParsing = {
+          amount, category: resolved.category?.name ?? choice.name, type: 'expense', semanticType: 'expense', needsReview: false,
+          merchant: input.merchant,
+        };
+      },
     });
     if (!created.success) return ResultHelper.failure(created.error);
 

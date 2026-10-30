@@ -204,17 +204,6 @@ describe('accounts and balances (FT-101)', () => {
         expect(!foreign.success && (foreign.error as { statusCode?: number }).statusCode).toBe(404);
       });
 
-      it('named in the text, is the one of the longest name there: «Карта Visa», not «Карта» (FT-176)', async () => {
-        await records.book.listForUser('user-1'); // «Карта»
-        await account('Карта Visa', 'UZS');
-
-        const visa = await records.book.resolveForRecord({ userId: 'user-1', text: 'Карта Visa', currency: 'UZS' });
-        const card = await records.book.resolveForRecord({ userId: 'user-1', text: 'карта', currency: 'UZS' });
-
-        expect(visa.success && [visa.data.name, visa.data.matchedBy]).toEqual(['Карта Visa', 'name']);
-        expect(card.success && [card.data.name, card.data.matchedBy]).toEqual(['Карта', 'name']);
-      });
-
       it('moves with an edit to another visible account', async () => {
         const [card] = await records.book.listForUser('user-1');
         const cash = await account('Наличные', 'UZS');

@@ -25,6 +25,8 @@ export interface CreateTransactionOptions {
   accountHint?: {
     text?: string;
     kind?: 'cash' | 'card';
+    /** An account's whole name, compared exactly (`AccountResolutionInput.name`, FT-176). */
+    name?: string;
     /**
      * The writer means one account by its name (FT-176: the account of a payment's card): a record that goes to any
      * other — the name not found, not given, in another currency — awaits review.
@@ -145,6 +147,7 @@ export class CreateTransactionUseCase {
         userId: transaction.userId,
         accountId: transaction.accountId,
         text: options.accountHint?.text,
+        name: options.accountHint?.name,
         kind: options.accountHint?.kind,
         currency: transaction.accountId ? undefined : transaction.currency ?? 'UZS',
       });

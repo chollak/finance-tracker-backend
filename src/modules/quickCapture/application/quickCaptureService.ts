@@ -6,14 +6,14 @@ import { buildCaptureAck } from './buildCaptureAck';
 import { capturedFromRecord, toCapturedTransaction } from './toCapturedTransaction';
 import { CAPTURED_AT_LIMITS, capturedAtProblem, inputDayOf } from '../domain/capturedAt';
 import { todayDateOnly } from '../../../shared/domain/dates/dateOnly';
+import { APPLE_PAY_SOURCE, RecordSource } from '../../transaction/domain/recordSource';
+import { Transaction } from '../../transaction/domain/transactionEntity';
 import {
   AmountAnswerRequest,
   CaptureReplay,
-  CaptureResultSource,
   CaptureReviewReason,
   CapturedDebt,
   CapturedTransaction,
-  PAYMENT_SOURCE,
   PaymentCaptureRequest,
   QuickCaptureRequest,
   QuickCaptureResult,
@@ -71,7 +71,8 @@ export class QuickCaptureService {
   private async capturePaymentOnce(request: PaymentCaptureRequest): Promise<QuickCaptureResult> {
     const text = request.merchant ?? '';
     const earlier = await this.earlierRecords(request.userId, request.clientId);
-    if (earlier) return { ...buildResult(text, PAYMENT_SOURCE, earlier, []), repeated: true };
+    // The clientId may be a phrase's or a form's too: the answer says where the record found came from
+    if (earlier) return { ...buildResult(text, earlier[0].source ?? APPLE_PAY_SOURCE, earlier.map(capturedFromRecord), []), repeated: true };
 
     if (!this.recordPayment) throw ErrorFactory.configuration('Payments are not wired into quick capture');
     const written = await this.recordPayment.execute({
@@ -87,7 +88,7 @@ export class QuickCaptureService {
     });
     if (!written.success) throw written.error;
 
-    const result = buildResult(text, PAYMENT_SOURCE, [toCapturedTransaction(written.data)], []);
+    const result = buildResult(text, APPLE_PAY_SOURCE, [toCapturedTransaction(written.data)], []);
     // The merchant and the account are the user's data: only what was given and what came out are logged
     logger.info('Payment captured', {
       currency: request.currency,
@@ -99,12 +100,12 @@ export class QuickCaptureService {
   }
 
   /** What the first capture with this client id wrote, for its repeat (FT-106); null when there is none. */
-  private async earlierRecords(userId: string, clientId: string | undefined): Promise<CapturedTransaction[] | null> {
+  private async earlierRecords(userId: string, clientId: string | undefined): Promise<Transaction[] | null> {
     if (!clientId || !this.replay) return null;
     const earlier = await this.replay.findByClientId(userId, clientId);
     if (earlier.length === 0) return null;
     logger.info('Quick capture repeated', { transactions: earlier.length });
-    return earlier.map(capturedFromRecord);
+    return earlier;
   }
 
   private async captureOnce(request: QuickCaptureRequest): Promise<QuickCaptureResult> {
@@ -117,7 +118,7 @@ export class QuickCaptureService {
 
     // A repeat from the offline queue answers with what the first request wrote (FT-106)
     const earlier = await this.earlierRecords(request.userId, request.clientId);
-    if (earlier) return { ...buildResult(text, request.source, earlier, []), repeated: true };
+    if (earlier) return { ...buildResult(text, request.source, earlier.map(capturedFromRecord), []), repeated: true };
 
     // Checked after the repeat: a capture written once is answered, whatever time its retry carries (FT-175)
     const today = request.capturedAt ? this.inputDay(request.capturedAt) : undefined;
@@ -186,7 +187,7 @@ export class QuickCaptureService {
 
 function buildResult(
   text: string,
-  source: CaptureResultSource | undefined,
+  source: RecordSource | undefined,
   transactions: CapturedTransaction[],
   debts: CapturedDebt[]
 ): QuickCaptureResult {

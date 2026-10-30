@@ -248,7 +248,7 @@ X-Shortcut-Capture-Token: <SHORTCUT_CAPTURE_TOKEN>
 |---|---|---|
 | Route | A separate `POST /api/quick-capture/payment` on the same router | A payment has no `text`, and its fields have rules of their own. One route taking either `text` or a payment object would need a rule for a body with both and would change the errors of the phrase route the Mini App and the bot rely on. On the same router the payment gets the same token, owner, rate limit and response without new code; the phone's queue knows the kind of each record and picks the path. |
 | Amount | A decimal string of major units with a dot: `"25000"`, `"4.50"` | Wallet shows a payment in major units («25 000 сум», «$4.50»), so the client sends it without arithmetic: minor units are a factor of 100 to get wrong, and libraries disagree on them for UZS (ISO 4217 says 2 decimals, cash practice 0; the server counts 100 per unit for both currencies). A string is exact, a JSON number need not be: Swift's `JSONEncoder` writes a `Decimal` through `Double` (`3.133` can come out `3.1330000000000004`). What exactly Wallet gives is learned only in FT-179; whatever it is, the client brings it to this strict format and the server never guesses. |
-| Merchant | In `merchant`, and as the record's note (`description`) | `merchant` is where every record keeps it and what search reads (`search_text`); the note is what the list and the ack show. The record's `originalText` is the merchant too, so a correction of the category in the Mini App teaches it, as for a phrase: the next payment there is categorized without the AI. |
+| Merchant | In `merchant`, and as the record's note (`description`) | `merchant` is where every record keeps it and what search reads (`search_text`); the note is what the list and the ack show. The record's `originalText` is the merchant too, as a phrase's is its text, so once a correction teaches (below) it teaches the merchant's words. **A correction in the Mini App does not teach yet**, for phrases neither: it sends only `categoryId`, and the server learns only from an `originalText`/`originalParsing` in the request body (FT-184). |
 | `source` | `apple_pay`, a new value, set by the server | The list, and later a duplicate check, can tell a payment Wallet sent from a phrase typed for the same purchase (FT-161: «оплату через Apple Pay голосом не повторять»). The phrase route keeps `ios_shortcut`; a phrase cannot claim `apple_pay`, it is not a `CaptureSource`. |
 | `clientId` | Required | A payment is always sent from the phone's queue, which repeats it until it gets an answer; without an id a lost answer is a second record. |
 
@@ -292,7 +292,9 @@ One expense (`type` and `semanticType` `expense`), through the same `CreateTrans
   (FT-138, FT-143, `categoryNamedBy`):
   1. the user's visible expense category whose name is the whole merchant;
   2. the one category whose name or dictionary word stands among the merchant's words («EVOS CHILONZOR» → «Кафе»);
-  3. the one category learned words tie to (corrections of earlier records, FT-138);
+  3. the one category learned words tie to (FT-138: learned patterns, `data/patterns.json` and its seed). A correction
+     of a payment in the Mini App does not add to them yet (FT-184), so this step finds what the seed and earlier
+     learning hold;
   4. otherwise the AI chooses **only the category** (`categoryOfMerchant`): it is told the merchant, the user's visible
      expense categories and the learned patterns, and answers with one name; a name the user has no visible category
      of is «Другое»;
@@ -302,26 +304,31 @@ One expense (`type` and `semanticType` `expense`), through the same `CreateTrans
   A category of steps 4–5 is a guess: the assumption `{ "kind": "category", "name": … }` and «?» in the ack
   («Продукты?»), unless the merchant's words name it after all. Steps 1–3 are not guesses. The category never sets
   `needsReview`.
-- **Account** — the visible account in the payment's currency whose name stands in `accountName`, compared without case
-  and «ё», as an account name in a phrase is found (FT-103); of several, the longest name («Карта Visa», not «Карта»).
-  Then the assumption `{ "kind": "account", "reason": "hint" }`. Otherwise — no `accountName`, an unknown or hidden
-  one, one in another currency — the account a phrase without an account word gets (for dollars a dollar account,
-  else the default), the assumption `"reason": "default"` and **`needsReview: true`**. Dollars without a dollar account
-  stay dollars on the default account with `{ "kind": "currency", "reason": "no_usd_account" }` (FT-103).
-- **Merchant** in `merchant`; the note (`description`) is the merchant, or «Оплата Apple Pay» without one;
-  `source: "apple_pay"`; `clientId` as sent.
+- **Account** — the visible account in the payment's currency whose **whole name is `accountName`**, compared without
+  case, «ё» and spaces around (`accountNameKey`). Only the whole name counts, not a name that stands in it as in a
+  phrase (FT-103): the app has no list of accounts, its names are typed by hand and may go stale, so «Humo Black» is
+  not «Humo» and «Visa карта» is not «Карта». Then the assumption `{ "kind": "account", "reason": "hint" }`.
+  Otherwise — no `accountName`, an unknown, longer, hidden one, or one in another currency — the account a phrase
+  without an account word gets (for dollars a dollar account, else the default), the assumption `"reason": "default"`
+  and **`needsReview: true`**. Dollars without a dollar account stay dollars on the default account with
+  `{ "kind": "currency", "reason": "no_usd_account" }` (FT-103).
+- **Merchant** in `merchant`; the note (`description`) and `originalText` are the merchant, or «Оплата Apple Pay»
+  without one; `originalParsing` holds the category the record went to (not the AI's raw name); `source: "apple_pay"`;
+  `clientId` as sent.
 
 ### Payment response
 
 The same envelope and [`QuickCaptureResult`](#data--quickcaptureresult) as a phrase, with one record:
 
-- `source: "apple_pay"`; `text` — the merchant as written, `""` without one.
+- `source: "apple_pay"` — on a repeat, the source of the record found (`ios_shortcut` when the `clientId` was a
+  phrase's); `text` — the merchant as written, `""` without one.
 - `status` — `saved`, or `needs_review` when the account is not the card's or dollars landed on a сум account. Never
   `no_transaction`: a payment is written or refused.
 - `ack` — `Записал` / `Нужно проверить`; `summary` like `KORZINKA 24 · 25 000 сум · Продукты?`; `details` `Сегодня` or
   the day. `ack.summary` is what the app shows in its list.
 - `repeated: true` on a repeat of the `clientId`: the first record, nothing written, no AI call, whatever the repeat's
-  fields.
+  fields. A repeat is told by the `clientId` of **any** record of the user — a phrase's, a payment's, one from
+  `POST /api/transactions` (FT-106): the ids share one space, so the app must not reuse one.
 
 An unknown merchant, the card's account named — answered on a test server with the real AI (2026-10-30):
 
@@ -380,7 +387,8 @@ the сум account with `no_usd_account`, `needs_review`; `OXYMED APTEKA` — «
 ### Payment errors
 
 The errors of [the phrase route](#errors) — auth, rate limit, `INVALID_JSON`, `INVALID_USER_ID` — and these, all
-`400 VALIDATION_ERROR` with the field in `error.context.field`. A refused payment writes nothing and costs no AI call.
+`400 VALIDATION_ERROR` with the field in `error.context.field`. A refused payment writes nothing and calls no AI, but
+it still counts against the AI limit: the limiter runs before validation.
 
 | `context.field` | `message` | Cause |
 |---|---|---|
@@ -402,9 +410,18 @@ For the queue of FT-161: `400` — an error at the record, it is not sent again;
   grouping, with a dot and at most two decimals — never through `Double`. What Wallet gives for Shukur's cards is found
   in FT-179's first step; a test there pins that format to this one.
 - **Currency.** Wallet's code or symbol → `UZS` or `USD`; anything else stays on the phone and is shown, not sent.
-- **Account.** The name from the card → account mapping in the settings; an unmapped card sends no `accountName`.
+- **Account.** The name from the card → account mapping in the settings, typed there by hand: the server compares it
+  with the account's whole name (case, «ё» and spaces around aside), so it must be the account's name as it is in
+  Kapelka. A wrong or stale name is not an error — the payment lands on the default account with «проверить счёт». An
+  unmapped card sends no `accountName`.
 - **Queue.** `clientId` and `capturedAt` are fixed when the payment lands in the queue and sent unchanged on every
-  retry.
+  retry. A `clientId` is unique among all the owner's records, phrases too.
+- **Limit.** Every request counts against the shared AI limit — 20 per 15 minutes for the address, and behind
+  `tailscale serve` all requests come from `127.0.0.1`, the Mini App's too; `400` answers count as well. After a long
+  time offline the queue sends one by one and on `429` waits for `Retry-After`; the rest go in the next 15 minutes.
+- **Timeout.** A payment whose category goes to the AI waits for it: up to `OPENAI_TIMEOUT_MS` (20 s) and one retry,
+  so the worst answer comes after about 40 s. The client's request timeout must be longer — 60 s; a timeout is
+  «later», and the repeat with the same `clientId` writes nothing new.
 
 ---
 
@@ -431,7 +448,7 @@ succeeded).
 |---|---|---|
 | `status` | `"saved" \| "needs_review" \| "no_transaction"` | See table below. |
 | `text` | `string` | The trimmed input text, echoed back. |
-| `source` | `CaptureSource` \| `"apple_pay"` \| absent | Echoed from the request; the key is omitted from JSON when no source was sent. Always `apple_pay` for a [payment](#payments-post-apiquick-capturepayment). |
+| `source` | `RecordSource` \| absent | Echoed from the request; the key is omitted from JSON when no source was sent. `apple_pay` for a [payment](#payments-post-apiquick-capturepayment); on a repeat of a payment, the source of the record found by its `clientId`. |
 | `transactions` | `CapturedTransaction[]` | Transactions the pipeline **already persisted**. May be empty. |
 | `debts` | `CapturedDebt[]` | Debts the pipeline **already persisted**. May be empty. |
 | `ack` | `CaptureAck` | Ready-to-render confirmation (Russian), shared by all clients. |

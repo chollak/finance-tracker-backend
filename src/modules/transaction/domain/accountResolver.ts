@@ -15,6 +15,11 @@ export interface AccountResolutionInput {
   accountId?: string;
   /** Words the record was written with: an account whose name appears there is chosen (FT-103). */
   text?: string;
+  /**
+   * An account named exactly (FT-176: the account a payment's card is mapped to on the phone, typed by hand): the one
+   * whose whole name is this, without case and «ё» (`accountNameKey`) — never one whose name only stands in it.
+   */
+  name?: string;
   /** «нал» → cash, «картой» → card. */
   kind?: 'cash' | 'card';
   /**

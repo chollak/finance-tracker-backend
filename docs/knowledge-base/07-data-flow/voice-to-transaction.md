@@ -378,5 +378,5 @@ if (description.length < 3) confidence -= 0.05;
 - [Architecture Overview](../01-architecture/overview.md) - Clean Architecture layers
 - [Modules](../01-architecture/modules.md) - VoiceProcessingModule details
 - [Оплата Apple Pay](../../QUICK_CAPTURE_API.md#payments-post-apiquick-capturepayment) - FT-176: оплата из Wallet
-  приходит готовой суммой и мимо разбора (`RecordPaymentUseCase`); ИИ выбирает только категорию по магазину, а
-  исправление категории в Mini App учит магазин так же, как фразу
+  приходит готовой суммой и мимо разбора (`RecordPaymentUseCase`); ИИ выбирает только категорию по магазину.
+  `originalText` записи — магазин, но исправление в Mini App пока ничему не учит — ни оплату, ни фразу (FT-184)

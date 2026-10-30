@@ -18,15 +18,6 @@ export function isCaptureSource(value: unknown): value is CaptureSource {
 }
 
 /**
- * The source of a payment the iOS app sends ready (FT-176). Set by the server, never by a client: a phrase cannot claim
- * it, so it is not a `CaptureSource`.
- */
-export const PAYMENT_SOURCE = 'apple_pay' satisfies RecordSource;
-
-/** What a capture result says it came from: a phrase's source, or a payment's. */
-export type CaptureResultSource = CaptureSource | typeof PAYMENT_SOURCE;
-
-/**
  * `draft` is intentionally absent: there is no parse-without-save path today, and a
  * status the code cannot produce would be a lie in the contract.
  */
@@ -152,7 +143,11 @@ export interface QuickCaptureResult {
   status: QuickCaptureStatus;
   /** The trimmed phrase; for a payment its merchant, '' without one. */
   text: string;
-  source?: CaptureResultSource;
+  /**
+   * A phrase's source as sent. A payment's is `apple_pay` (FT-176) — a phrase cannot claim it, it is not a
+   * `CaptureSource`; on a repeat of a payment, the source of the record found by its `clientId`.
+   */
+  source?: RecordSource;
   transactions: CapturedTransaction[];
   debts: CapturedDebt[];
   ack: CaptureAck;
