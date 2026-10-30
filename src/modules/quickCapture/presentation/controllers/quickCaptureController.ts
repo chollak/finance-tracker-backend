@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { QuickCaptureService } from '../../application/quickCaptureService';
 import { CAPTURE_SOURCES, isCaptureSource } from '../../domain/quickCaptureTypes';
 import { parseCapturedAt } from '../../domain/capturedAt';
+import { readPayment } from './paymentRequest';
 import { isClientId } from '../../../transaction/domain/clientId';
 import { handleControllerError, handleControllerSuccess } from '../../../../shared/infrastructure/utils/controllerHelpers';
 import { ErrorFactory } from '../../../../shared/domain/errors/AppError';
@@ -13,7 +14,8 @@ import { aiRateLimiter } from '../../../../delivery/web/express/middleware/rateL
 const MAX_TEXT_LENGTH = 2000;
 
 /**
- * Mounted at `/quick-capture` inside buildServer, so the public route is POST /api/quick-capture.
+ * Mounted at `/quick-capture` inside buildServer, so the public routes are POST /api/quick-capture (a phrase) and
+ * POST /api/quick-capture/payment (a card payment from Apple Pay, FT-176).
  */
 export function createQuickCaptureRouter(
   quickCaptureService: QuickCaptureService,
@@ -77,6 +79,31 @@ export function createQuickCaptureRouter(
         ...(capturedAtMoment ? { capturedAt: capturedAtMoment } : {}),
       });
 
+      handleControllerSuccess(result, res, 200, 'Quick capture processed');
+    } catch (error) {
+      handleControllerError(error, res);
+    }
+  });
+
+  // A card payment from Apple Pay, sent ready (FT-176): the same token, owner and limit as a phrase. The body's
+  // `source` is ignored — the records are `apple_pay`, set by the service
+  router.post('/payment', allowShortcutCapture, async (req: Request, res: Response) => {
+    try {
+      const body = req.body && typeof req.body === 'object' ? req.body : {};
+      const payment = readPayment(body);
+      if (!payment.success) return handleControllerError(payment.error, res);
+
+      // Set by the auth middleware (signed-in user or Shortcut owner); kept as a guard against a misconfigured route
+      const { userId, userName } = body;
+      if (!userId || typeof userId !== 'string') {
+        return handleControllerError(ErrorFactory.validation('User ID is required', 'userId'), res);
+      }
+
+      const result = await quickCaptureService.capturePayment({
+        ...payment.data,
+        userId: userModule ? await resolveUserIdToUUID(userId, userModule) : userId,
+        userName: typeof userName === 'string' ? userName : undefined,
+      });
       handleControllerSuccess(result, res, 200, 'Quick capture processed');
     } catch (error) {
       handleControllerError(error, res);
