@@ -1,7 +1,7 @@
 import Foundation
 
 /// The two currencies Kapelka writes (decision 2026-10-29, FT-161).
-enum PaymentCurrency: String, Codable, Sendable {
+enum PaymentCurrency: String, CaseIterable, Codable, Sendable {
     case uzs = "UZS"
     case usd = "USD"
 }

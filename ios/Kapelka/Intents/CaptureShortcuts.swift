@@ -70,6 +70,15 @@ struct KapelkaShortcuts: AppShortcutsProvider {
             systemImageName: "mic"
         )
         AppShortcut(
+            intent: RecordPaymentIntent(),
+            phrases: [
+                "Записать оплату в \(.applicationName)",
+                "\(.applicationName), записать оплату",
+            ],
+            shortTitle: "Записать оплату",
+            systemImageName: "creditcard"
+        )
+        AppShortcut(
             intent: SendQueueIntent(),
             phrases: [
                 "Отправить очередь \(.applicationName)",
@@ -78,5 +87,47 @@ struct KapelkaShortcuts: AppShortcutsProvider {
             shortTitle: "Отправить очередь",
             systemImageName: "arrow.up.circle"
         )
+    }
+}
+
+/// «Записать оплату» for the Wallet automation «Транзакция» (FT-179). iOS lets no app create that automation: it is set
+/// up once by hand (the settings show how), each field taken from «Ввод команды». Runs without opening the app, so
+/// «Выполнять сразу» needs no tap; the payment is on the phone before anything is sent.
+struct RecordPaymentIntent: AppIntent {
+    static var title: LocalizedStringResource { "Записать оплату" }
+    static var description: IntentDescription {
+        IntentDescription("Для автоматизации «Транзакция»: записывает оплату Apple Pay. Без сети оплата ждёт на телефоне.")
+    }
+    static var openAppWhenRun: Bool { false }
+
+    @Parameter(title: "Сумма", description: "«Ввод команды» → сумма, как её даёт Wallet: «28 000,00 UZS».")
+    var amount: String?
+
+    @Parameter(title: "Магазин", description: "«Ввод команды» → продавец.")
+    var merchant: String?
+
+    @Parameter(title: "Карта", description: "«Ввод команды» → карта. Счёт для неё — в настройках Kapelka.")
+    var card: String?
+
+    @Parameter(title: "Валюта", description: "Только если в сумме нет валюты.")
+    var currency: PaymentCurrency?
+
+    static var parameterSummary: some ParameterSummary {
+        Summary("Записать оплату \(\.$amount) в \(\.$merchant) с карты \(\.$card)") {
+            \.$currency
+        }
+    }
+
+    func perform() async throws -> some IntentResult & ReturnsValue<String> & ProvidesDialog {
+        let input = PaymentInput(amount: amount, currency: currency, merchant: merchant, card: card)
+        let answer = try await AppServices.shared.payments.record(input)
+        return .result(value: answer, dialog: IntentDialog(stringLiteral: answer))
+    }
+}
+
+extension PaymentCurrency: AppEnum {
+    static var typeDisplayRepresentation: TypeDisplayRepresentation { "Валюта" }
+    static var caseDisplayRepresentations: [PaymentCurrency: DisplayRepresentation] {
+        [.uzs: "Сум", .usd: "Доллар"]
     }
 }

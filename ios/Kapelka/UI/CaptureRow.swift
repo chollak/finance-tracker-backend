@@ -27,9 +27,9 @@ struct CaptureRow: Identifiable, Equatable {
 
     let id: UUID
     let kind: Kind
-    /// «Ждёт · 14:32», «Записал · 14:32».
+    /// «Ждёт · 14:32», «Записал · 14:32», «Ждёт · 14:32 · Apple Pay».
     let status: String
-    /// The server's summary for a written record, the phrase otherwise.
+    /// The server's summary for a written record, the phrase or the payment as Wallet gave it otherwise.
     let text: String
     /// Why the server refused it.
     let reason: String?
@@ -48,32 +48,41 @@ struct CaptureRow: Identifiable, Equatable {
 
     private static func row(for capture: Capture, isSending: Bool, time: TimeOfInput) -> CaptureRow {
         let kind = isSending ? .sending : kind(of: capture)
+        // A payment shows what Wallet gave until the server's summary comes
+        let said = capture.payment.map(paymentLine) ?? capture.text
         let label: String
         let text: String
         switch kind {
         case .waiting:
             label = "Ждёт"
-            text = capture.text
+            text = said
         case .sending:
             label = "Отправляю"
-            text = capture.text
+            text = said
         case .saved, .needsReview:
             label = capture.reply?.title ?? "Записал"
-            text = capture.reply?.summary ?? capture.text
+            text = capture.reply?.summary ?? said
         case .notFound:
             label = capture.reply?.title ?? "Не нашёл операцию"
-            text = capture.text
+            text = said
         case .error:
-            label = "Ошибка"
-            text = capture.text
+            // Refused by the phone itself: another currency, no amount
+            label = capture.payment != nil && capture.attempts == 0 ? "Не отправлено" : "Ошибка"
+            text = said
         }
+        let status = [label, time.shown(capture.capturedAt), capture.payment == nil ? nil : "Apple Pay"]
         return CaptureRow(
             id: capture.clientId,
             kind: kind,
-            status: "\(label) · \(time.shown(capture.capturedAt))",
+            status: status.compactMap { $0 }.joined(separator: " · "),
             text: text,
             reason: kind == .error ? RejectionText.shown(for: capture.rejection) : nil
         )
+    }
+
+    /// «Ooo Mazzali Super Food · 28 000,00 UZS».
+    private static func paymentLine(_ payment: Payment) -> String {
+        "\(payment.merchant ?? "Оплата Apple Pay") · \(payment.walletAmount)"
     }
 
     private static func kind(of capture: Capture) -> Kind {

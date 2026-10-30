@@ -99,8 +99,29 @@ final class AppModel {
         finishing.end()
     }
 
-    func saveSettings(address: String, token: String) async throws(SettingsError) {
+    /// Wallet cards → Kapelka accounts, in the order the cards first paid (FT-179).
+    var cards: [CardAccount] {
+        services.cards.cards
+    }
+
+    /// Every field is checked before any is written. A payment waiting on the phone goes with the new account.
+    func saveSettings(
+        address: String,
+        token: String,
+        cards: [CardAccount],
+        removedCards: Set<String>
+    ) async throws(SettingsError) {
+        let accounts = Dictionary(cards.map { ($0.card, $0.account) }) { _, last in last }
+        do {
+            try CardAccountStore.check(accounts)
+        } catch {
+            switch error {
+            case let .tooLong(card): throw .accountTooLong(card: card)
+            }
+        }
         try services.settings.save(address: address, token: token)
+        // Checked above, so it does not throw here
+        try? services.cards.save(accounts, removing: removedCards)
         isConfigured = services.settings.configuration() != nil
         await services.queue.settingsChanged()
         Task { await services.queue.flush() }
@@ -145,6 +166,7 @@ enum SettingsMessage {
         case .badToken: "Токен — латиница и цифры, без пробелов"
         case .noToken: "Вставь токен"
         case let .keychain(status): "Keychain не сохранил токен (код \(status))"
+        case let .accountTooLong(card): "Счёт для «\(card)» длиннее \(CardAccountStore.accountLimit) символов"
         }
     }
 }
