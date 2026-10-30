@@ -4,6 +4,8 @@ import { parseAmountCorrection, parseAmountReply, writtenAmountMatches } from '.
  * «Сумму» under a record asks «Напишите новую сумму — например, 150к.» (FT-122): the next text counts
  * only if it is an amount, written the way people write sums in the chat.
  */
+const NBSP = '\u00a0';
+
 describe('amount reply (FT-122)', () => {
   const sumExpense = { currency: 'UZS' as const };
   const usd = { currency: 'USD' as const };
@@ -30,7 +32,7 @@ describe('amount reply (FT-122)', () => {
 
   // FT-185: a comma before kopecks is the decimal one, as Wallet writes it; «500» and «25к» stay thousands
   it.each([
-    ['28 000,00 UZS', 2_800_000, 'UZS'],
+    [`28${NBSP}000,00${NBSP}UZS`, 2_800_000, 'UZS'],
     ['28 000,00 UZS', 2_800_000, 'UZS'],
     ['28 000,00', 2_800_000, 'UZS'],
     ['28000,00', 2_800_000, 'UZS'],

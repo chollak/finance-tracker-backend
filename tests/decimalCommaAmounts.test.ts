@@ -12,7 +12,7 @@ jest.mock('../src/modules/voiceProcessing/infrastructure/openAITranscriptionServ
  * comma, the code after the number. The text fast path took the comma for a thousands separator and wrote
  * 2 800 000 сум. A comma before one or two digits at the end is the decimal one; before three, a thousands group.
  */
-const NBSP = ' ';
+const NBSP = '\u00a0';
 
 function aiReading(amount: number, extra: Partial<ParsedTransaction> = {}): AnalysisResult {
   return {
