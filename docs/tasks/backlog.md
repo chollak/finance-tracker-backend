@@ -663,37 +663,6 @@ Definition of Done:
 
 ---
 
-### FT-184: A category correction in the Mini App teaches
-
-Status: in_progress — под-чат разработки, 2026-10-30
-Priority: medium
-Owner: Claude Code, QA — под-чат проверки
-Type: bug
-Size: S
-
-Context:
-Найдено под-чатом проверки FT-176 (2026-10-30). Правка категории в Mini App ничему не учит — ни у фразы, ни у оплаты
-Apple Pay. Mini App шлёт только `PUT /api/transactions/:id` с `{ categoryId }` (`patchTransaction`,
-`webapp/src/entities/transaction/api/mutations.ts:233`; вызовы — `useRecordEdits.ts`, `useCaptureReview.ts`), а
-сервер учится, только если в теле запроса есть `originalText` и `originalParsing`
-(`transactionController.ts:424` → `UpdateTransactionWithLearningUseCase`, `recordLearningData`); их никто не шлёт.
-Проверено на живом сервере: две оплаты «ZZQX 77» и «ZZQX 78» исправлены в «Продукты», третья всё равно ушла к ИИ.
-Выученные паттерны (FT-138) пополняются только сидом.
-
-Идея: сервер берёт `originalText` и `originalParsing` из сохранённой записи (они пишутся при создании: текст фразы,
-магазин оплаты), а не из тела запроса; тело с ними — как раньше, но не обязательно. Учит только смена категории, как
-сейчас (`userCorrection.category` — `presetKey` стартовой категории; своя категория пользователя ничему не учит).
-
-Definition of Done:
-- [ ] Правка категории записи из фразы через `PUT /api/transactions/:id { categoryId }` записывает урок; тест
-- [ ] То же для оплаты Apple Pay: две правки «ZZQX 77/78» в «Продукты» → третья оплата «ZZQX» — «Продукты» без ИИ; тест
-- [ ] Запись без `originalText` (ручная форма, `POST /api/transactions`) ничему не учит и не падает; тест
-- [ ] Проверено, учит ли правка категории в боте; если нет — здесь же или отдельной задачей
-- [ ] `docs/QUICK_CAPTURE_API.md` («Payments», шаг 3) и `voice-to-transaction.md` («Learning System Integration»)
-      говорят, что правка учит
-
----
-
 ### FT-185: A phrase amount with a decimal comma is read a hundred times larger
 
 Status: backlog — в очереди, 1-я после iOS (Шукур, 2026-10-30)
@@ -719,6 +688,33 @@ Definition of Done:
 - [ ] `28 000,00 UZS`, `28 000,00`, `28000,00`, `1 234,50 сум`, `4,50 $`, `25 000` и `25000` дают верные суммы — и у быстрого пути, и у ИИ (настоящий ключ, живая проверка); тесты
 - [ ] «500» и «25к» по-прежнему 500 000 и 25 000 (`amountReply.ts`); тест
 - [ ] То же в боте: фраза текстом и голосом; тест или живая проверка
+
+---
+
+### FT-200: A correction teaches the words of an item named without an amount
+
+Status: backlog
+Priority: low
+Owner: Claude Code
+Type: bug
+Size: S
+Depends on: FT-184, FT-185 (те же файлы разбора фразы)
+
+Context:
+Найдено при проверке FT-184 (2026-10-30). Правка категории записи из фразы учит слова этой записи
+(`teachCategoryCorrection.ts`, `ownWords`). Записи одной фразы сервер узнаёт по `clientId` (`«<id>»`, `«<id>:1»`, …)
+и берёт слова записи через `recordWordsOf`. Позицию без суммы («zzqx 50000 и wwpt») бот спрашивает отдельно
+(«Сколько?», FT-123), и среди записей фразы её не видно. Поэтому правка zzqx учит и слову «wwpt». Так же учит вся
+фраза из нескольких записей без `clientId` — Shortcut, где он необязателен.
+
+Точное решение: конвейер фразы (`processTextInput.ts`, `processVoiceInput.ts`) при записи сохраняет собственные слова
+записи (`recordWordsOf(text, p, itemCount)`) в `originalParsing`, а `ownWords` берёт их оттуда; у старых записей —
+как сейчас.
+
+Definition of Done:
+- [ ] Правка zzqx в «zzqx 50000 и wwpt» учит только «zzqx»; тест
+- [ ] Фраза из нескольких записей без `clientId` учит только слова исправленной записи; тест
+- [ ] Записи, сделанные до задачи, учат как раньше; тест
 
 ---
 

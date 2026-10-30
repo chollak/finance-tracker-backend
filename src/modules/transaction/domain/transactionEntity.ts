@@ -46,6 +46,8 @@ export interface Transaction {
         needsReview?: boolean;
         merchant?: string;
         confidence?: number;
+        /** The category the record was written to (FT-184); not on records written before it. */
+        categoryId?: string;
     };
     // Archive support
     isArchived?: boolean;

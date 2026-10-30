@@ -55,6 +55,10 @@ export class AccountBook implements AccountResolver {
    * from the user (`starterAccountId`), so concurrent first requests end up with one «Карта»: the
    * insert that loses the race is skipped (FT-140).
    */
+  async accountNames(userId: string): Promise<string[]> {
+    return (await this.listForUser(userId)).map(account => account.name);
+  }
+
   async listForUser(userId: string): Promise<Account[]> {
     const accounts = await this.repository.findByUserId(userId);
     if (accounts.length > 0) return accounts;
