@@ -47,3 +47,11 @@ export function capturedAtProblem(capturedAt: Date, now: Date): CapturedAtProble
 export function inputDayOf(capturedAt: Date): string {
   return todayDateOnly(capturedAt);
 }
+
+/**
+ * The day a capture is dated by: its day of input, or the server's day when the time of input is more than a day ahead
+ * — that clock is the wrong one. A time too old is not dated: the caller refuses it (FT-175) or drops it (FT-182).
+ */
+export function captureDayOf(capturedAt: Date, now: Date): string {
+  return inputDayOf(capturedAtProblem(capturedAt, now) === 'far_ahead' ? now : capturedAt);
+}

@@ -4,7 +4,7 @@ import { getLogger, LogCategory } from '../../../shared/application/logging';
 import { ErrorFactory } from '../../../shared/domain/errors/AppError';
 import { buildCaptureAck } from './buildCaptureAck';
 import { capturedFromRecord, toCapturedTransaction } from './toCapturedTransaction';
-import { CAPTURED_AT_LIMITS, capturedAtProblem, inputDayOf } from '../domain/capturedAt';
+import { CAPTURED_AT_LIMITS, captureDayOf, capturedAtProblem } from '../domain/capturedAt';
 import { todayDateOnly } from '../../../shared/domain/dates/dateOnly';
 import { APPLE_PAY_SOURCE, RecordSource } from '../../transaction/domain/recordSource';
 import { Transaction } from '../../transaction/domain/transactionEntity';
@@ -165,7 +165,7 @@ export class QuickCaptureService {
         datedBy: problem === 'ahead' ? 'capturedAt' : 'server',
       });
     }
-    return inputDayOf(problem === 'far_ahead' ? now : capturedAt);
+    return captureDayOf(capturedAt, now);
   }
 
   /**
