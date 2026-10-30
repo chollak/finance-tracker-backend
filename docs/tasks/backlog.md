@@ -561,7 +561,7 @@ Definition of Done:
 
 ### FT-179: Apple Pay payments record themselves
 
-Status: backlog — в очереди, после FT-176 и FT-177
+Status: in_progress — под-чат разработки, 2026-10-30
 Priority: medium
 Owner: Claude Code, Shukur (iPhone), QA — под-чат проверки
 Type: feature
@@ -596,7 +596,7 @@ Definition of Done:
 
 ### FT-182: The bot dates a phrase by the time the message was sent
 
-Status: backlog
+Status: backlog — в очереди, 2-я после iOS (Шукур, 2026-10-30)
 Priority: low
 Owner: Claude Code, QA — под-чат проверки
 Type: feature
@@ -623,7 +623,7 @@ Definition of Done:
 
 ### FT-183: Dependencies: safe updates and openai v7
 
-Status: backlog — в очереди, после iOS-задач (Шукур, 2026-10-30)
+Status: backlog — в очереди, последней (Шукур, 2026-10-30)
 Priority: medium
 Owner: Claude Code, QA — под-чат проверки
 Type: chore
@@ -665,7 +665,7 @@ Definition of Done:
 
 ### FT-184: A category correction in the Mini App teaches
 
-Status: backlog
+Status: in_progress — под-чат разработки, 2026-10-30
 Priority: medium
 Owner: Claude Code, QA — под-чат проверки
 Type: bug
@@ -696,7 +696,7 @@ Definition of Done:
 
 ### FT-185: A phrase amount with a decimal comma is read a hundred times larger
 
-Status: backlog
+Status: backlog — в очереди, 1-я после iOS (Шукур, 2026-10-30)
 Priority: medium
 Owner: Claude Code, QA — под-чат проверки
 Type: bug
