@@ -7,7 +7,7 @@ enum ListeningError: Error {
     case noMicrophone
 }
 
-/// Listening to the microphone; the phrase so far comes as the whole text each time.
+/// Listening to the microphone; each result is the whole current segment (see `HeardPhrase`).
 @MainActor
 protocol SpeechListening: AnyObject {
     /// Starts the microphone; throws `ListeningError.noMicrophone` when there is none. The stream ends after
@@ -55,6 +55,7 @@ final class VoiceCapture {
     private let submit: @MainActor (String) async throws -> Void
     @ObservationIgnored private var timer: Task<Void, Never>?
     @ObservationIgnored private var cancelled = false
+    @ObservationIgnored private var heard = HeardPhrase()
 
     init(
         system: any VoiceSystem,
@@ -84,6 +85,7 @@ final class VoiceCapture {
         guard phase == .idle else { return }
         phase = .starting
         transcript = ""
+        heard = HeardPhrase()
         problem = nil
         cancelled = false
         Task { await listen() }
@@ -129,8 +131,9 @@ final class VoiceCapture {
         phase = .listening
         restartTimer(after: silenceAtStart)
         do {
-            for try await text in words {
-                transcript = text
+            for try await result in words {
+                guard heard.hear(result) else { continue }
+                transcript = heard.text
                 restartTimer(after: pause)
             }
         } catch {
@@ -179,5 +182,36 @@ final class VoiceCapture {
             }
             self?.finish()
         }
+    }
+}
+
+/// The phrase pieced together from Apple's results. Each result is the whole segment so far, but on the phone the
+/// recognizer closes a segment after a pause: it sends an empty result, then only the new words, and after the tap it
+/// may send the closed segment once more. So an empty result keeps what was heard, new words after a pause are added
+/// to it, and a closed segment sent again is not added twice.
+struct HeardPhrase {
+    private(set) var text = ""
+    /// Segments closed by a pause.
+    private var closed = ""
+    private var lastClosedSegment = ""
+    private var segment = ""
+
+    /// `true` when the phrase changed: only then the pause that ends it starts over.
+    @discardableResult
+    mutating func hear(_ result: String) -> Bool {
+        let words = result.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !words.isEmpty else {
+            if !segment.isEmpty {
+                closed = text
+                lastClosedSegment = segment
+                segment = ""
+            }
+            return false
+        }
+        if segment.isEmpty, words == lastClosedSegment { return false }
+        guard words != segment else { return false }
+        segment = words
+        text = closed.isEmpty ? words : "\(closed) \(words)"
+        return true
     }
 }

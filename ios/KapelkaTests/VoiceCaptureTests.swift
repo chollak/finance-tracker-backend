@@ -60,6 +60,38 @@ struct VoiceCaptureTests {
         #expect(voice.problem == nil)
     }
 
+    @Test("после паузы распознавание присылает пустой текст — фраза не стирается и уходит в очередь")
+    func emptyResultAfterPauseKeepsPhrase() async throws {
+        let speech = FakeSpeech()
+        let phrases = Phrases()
+        let voice = makeVoice(speech, submit: phrases.add)
+
+        voice.start()
+        #expect(await eventually { await speech.isListening })
+        speech.hear("кофе 25 тысяч")
+        speech.hear("")
+
+        #expect(await eventually { await phrases.all == ["кофе 25 тысяч"] })
+        #expect(voice.problem == nil)
+        #expect(voice.transcript == "кофе 25 тысяч")
+    }
+
+    @Test("последний ответ распознавания после «стоп» пустой — фраза всё равно записана")
+    func emptyFinalResultKeepsPhrase() async throws {
+        let speech = FakeSpeech()
+        speech.lastWordsOnFinish = ""
+        let phrases = Phrases()
+        let voice = makeVoice(speech, pause: .seconds(30), submit: phrases.add)
+
+        voice.start()
+        #expect(await eventually { await speech.isListening })
+        speech.hear("такси 18 тысяч")
+        #expect(await eventually { await voice.transcript == "такси 18 тысяч" })
+        voice.toggle()
+
+        #expect(await eventually { await phrases.all == ["такси 18 тысяч"] })
+    }
+
     @Test("пока говорят, фраза не уходит: пауза считается от последних слов")
     func pauseCountsFromLastWords() async throws {
         let speech = FakeSpeech()

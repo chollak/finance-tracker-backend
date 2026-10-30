@@ -10,6 +10,8 @@ final class FakeSpeech: VoiceSystem, SpeechListening {
     var answer: Permission = .granted
     var russianState: RussianRecognition = .ready
     var startFails = false
+    /// What Apple sends once more after the tap, before the stream ends.
+    var lastWordsOnFinish: String?
     /// The iOS dialog stays up until `answerDialog()`.
     var holdsDialog = false
     private var dialog: CheckedContinuation<Void, Never>?
@@ -56,6 +58,9 @@ final class FakeSpeech: VoiceSystem, SpeechListening {
 
     func finish() {
         finishes += 1
+        if let lastWordsOnFinish {
+            hear(lastWordsOnFinish)
+        }
         end()
     }
 
