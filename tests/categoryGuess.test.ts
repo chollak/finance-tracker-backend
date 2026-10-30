@@ -4,7 +4,7 @@ import path from 'path';
 import { ProcessTextInputUseCase } from '../src/modules/voiceProcessing/application/processTextInput';
 import { ProcessVoiceInputUseCase } from '../src/modules/voiceProcessing/application/processVoiceInput';
 import { TranscriptionService } from '../src/modules/voiceProcessing/domain/transcriptionService';
-import { categoryNamedIn, LearnedCategoryWords, namingWordsOf, recordWordsOf } from '../src/modules/voiceProcessing/domain/categoryGuess';
+import { categoryNamedBy, categoryNamedIn, LearnedCategoryWords, namingWordsOf, recordWordsOf } from '../src/modules/voiceProcessing/domain/categoryGuess';
 import { TransactionLearningService } from '../src/shared/application/learning/transactionLearning';
 import { buildCaptureAck } from '../src/modules/quickCapture/application/buildCaptureAck';
 import { toCapturedTransaction } from '../src/modules/quickCapture/application/toCapturedTransaction';
@@ -83,6 +83,30 @@ describe('whether the words name the category (FT-138)', () => {
   it('words that point at another category do not name this one', () => {
     expect(categoryNamedIn('за лендинг', FREELANCE)).toBe(false);
     expect(categoryNamedIn('такси до работы', CAFE)).toBe(false);
+  });
+});
+
+describe('the one category a label names (FT-143, a payment’s merchant in FT-176)', () => {
+  const MY_COFFEE = { name: 'Кофе', type: 'expense' as const, presetKey: null };
+
+  it('is the user’s own category of that whole name first, before the dictionary', () => {
+    expect(categoryNamedBy('кофе', [CAFE, MY_COFFEE], new Map())).toEqual(MY_COFFEE);
+  });
+
+  it('is the category the dictionary names by a word', () => {
+    expect(categoryNamedBy('EVOS CHILONZOR', [CAFE, GROCERIES, TRANSPORT], new Map())).toEqual(CAFE);
+  });
+
+  it('is the category a learned word ties to, when nothing else names one', () => {
+    const learned = new Map([['groceries', ['korzinka']]]);
+
+    expect(categoryNamedBy('KORZINKA 24', [CAFE, GROCERIES], learned)).toEqual(GROCERIES);
+    expect(categoryNamedBy('KORZINKA 24', [CAFE, GROCERIES], new Map())).toBeNull();
+  });
+
+  it('is none when the words name two categories, or only an income one', () => {
+    expect(categoryNamedBy('кофе и такси', [CAFE, TRANSPORT], new Map())).toBeNull();
+    expect(categoryNamedBy('фриланс', [FREELANCE, CAFE], new Map())).toBeNull();
   });
 });
 
