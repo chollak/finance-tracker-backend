@@ -118,10 +118,12 @@ struct RecordPaymentIntent: AppIntent {
         }
     }
 
-    func perform() async throws -> some IntentResult & ReturnsValue<String> & ProvidesDialog {
+    /// Only a dialog, no output value: a value makes iOS ask «Allow … to output» when another app runs the command,
+    /// and the automation must need no tap.
+    func perform() async throws -> some IntentResult & ProvidesDialog {
         let input = PaymentInput(amount: amount, currency: currency, merchant: merchant, card: card)
         let answer = try await AppServices.shared.payments.record(input)
-        return .result(value: answer, dialog: IntentDialog(stringLiteral: answer))
+        return .result(dialog: IntentDialog(stringLiteral: answer))
     }
 }
 
