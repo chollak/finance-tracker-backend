@@ -7,7 +7,7 @@
 |---|---|
 | Как устроена доска, статусы, роли | [`docs/tasks/README.md`](docs/tasks/README.md) |
 | Почему план такой — лог решений | [`docs/tasks/decisions.md`](docs/tasks/decisions.md) |
-| Отложенные задачи, полные описания (20) | [`docs/tasks/backlog.md`](docs/tasks/backlog.md) |
+| Отложенные задачи, полные описания (21) | [`docs/tasks/backlog.md`](docs/tasks/backlog.md) |
 | Открытые задачи вехи 10 | [`docs/pastel/tasks.md`](docs/pastel/tasks.md) |
 | Закрытые задачи с отчётами (187) | [`docs/tasks/archive/`](docs/tasks/archive/) |
 
@@ -103,6 +103,7 @@ iOS-приложение FT-161. Описания — в [`docs/tasks/backlog.md
 | [FT-174](docs/tasks/backlog.md) | Мёртвые admin-маршруты: `requireAdmin` без `requireAuth`, всегда 401 | найдено при проверке FT-162; убрать или поставить `requireAuth` |
 | [FT-182](docs/tasks/backlog.md) | Бот датирует фразу временем отправки сообщения (`capturedAt` из Telegram) | найдено в FT-175; можно брать |
 | [FT-184](docs/tasks/backlog.md) | Правка категории в Mini App учит: сервер берёт `originalText`/`originalParsing` из сохранённой записи | найдено при проверке FT-176; можно брать |
+| [FT-185](docs/tasks/backlog.md) | Сумма с копейками через запятую («28 000,00») читается в 100 раз больше | найдено в FT-179; после неё оплаты идут готовой суммой |
 
 ---
 
