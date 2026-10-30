@@ -26,6 +26,16 @@ actor FakeTransport: HTTPTransport {
         let capturedAt: String
     }
 
+    /// The body of `POST /api/quick-capture/payment`.
+    struct SentPayment: Decodable, Equatable {
+        let amount: String
+        let currency: String
+        let merchant: String?
+        let accountName: String?
+        let clientId: String
+        let capturedAt: String
+    }
+
     private var replies: [Reply]
     private(set) var requests: [URLRequest] = []
     /// The most requests that were waiting for an answer at once.
@@ -72,6 +82,20 @@ actor FakeTransport: HTTPTransport {
         }
     }
 
+    func paymentBodies() throws -> [SentPayment] {
+        try requests.map { request in
+            try JSONDecoder().decode(SentPayment.self, from: try #require(request.httpBody))
+        }
+    }
+
+    /// The keys of each body, sorted: what is not sent at all.
+    func bodyKeys() throws -> [[String]] {
+        try requests.map { request in
+            let object = try JSONSerialization.jsonObject(with: try #require(request.httpBody))
+            return try #require(object as? [String: Any]).keys.sorted()
+        }
+    }
+
     func sentClientIds() throws -> [String] {
         try bodies().map(\.clientId)
     }
@@ -94,6 +118,12 @@ enum ServerReply {
     static let textTooLong = """
         {"success":false,"error":{"code":"VALIDATION_ERROR",\
         "message":"Text is too long (maximum 2000 characters)","timestamp":"2026-10-29T10:00:00.000Z"}}
+        """
+
+    static let paymentAmountRefused = """
+        {"success":false,"error":{"code":"VALIDATION_ERROR",\
+        "message":"amount must be a decimal string of сум or dollars with a dot, like \\"25000\\" or \\"4.50\\"",\
+        "context":{"field":"amount"},"timestamp":"2026-10-30T10:00:00.000Z"}}
         """
 
     static let invalidToken = """

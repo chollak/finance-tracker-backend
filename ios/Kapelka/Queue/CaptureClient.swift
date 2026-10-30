@@ -24,7 +24,8 @@ protocol CaptureSending: Sendable {
     func send(_ capture: Capture) async -> SendOutcome
 }
 
-/// `POST /api/quick-capture` with the Shortcut token (`docs/QUICK_CAPTURE_API.md`).
+/// `POST /api/quick-capture` for a phrase and `POST /api/quick-capture/payment` for a payment, with the Shortcut token
+/// (`docs/QUICK_CAPTURE_API.md`).
 struct CaptureClient: CaptureSending {
     /// The server parses with OpenAI: up to 20 s and one retry (FT-145), so a short timeout would only cause repeats.
     static let timeout: TimeInterval = 60
@@ -37,12 +38,22 @@ struct CaptureClient: CaptureSending {
 
     let configuration: @Sendable () -> ServerConfiguration?
     let transport: any HTTPTransport
+    /// The Kapelka account the settings map a Wallet card to, read when the payment is sent (FT-179).
+    var accountName: @Sendable (String) -> String? = { _ in nil }
 
     func send(_ capture: Capture) async -> SendOutcome {
         guard let configuration = configuration() else { return .notConfigured }
+        let request: URLRequest
+        do {
+            let account = capture.payment?.card.flatMap(accountName)
+            request = try Self.request(for: capture, to: configuration, accountName: account)
+        } catch {
+            // A payment without an amount is refused when queued and never pending; this only keeps it from looping
+            return .rejected("Kapelka не может отправить эту запись — запиши её в Mini App")
+        }
         let outcome: SendOutcome
         do {
-            let (data, response) = try await transport.data(for: Self.request(for: capture, to: configuration))
+            let (data, response) = try await transport.data(for: request)
             guard let http = response as? HTTPURLResponse else { return .retryLater(after: nil) }
             outcome = Self.outcome(
                 status: http.statusCode,
@@ -61,14 +72,23 @@ struct CaptureClient: CaptureSending {
         return outcome
     }
 
-    static func request(for capture: Capture, to configuration: ServerConfiguration) throws -> URLRequest {
-        var request = URLRequest(url: configuration.baseURL.appending(path: "api/quick-capture"))
+    static func request(
+        for capture: Capture,
+        to configuration: ServerConfiguration,
+        accountName: String? = nil
+    ) throws -> URLRequest {
+        let path = capture.payment == nil ? "api/quick-capture" : "api/quick-capture/payment"
+        var request = URLRequest(url: configuration.baseURL.appending(path: path))
         request.httpMethod = "POST"
         request.timeoutInterval = timeout
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue(configuration.token, forHTTPHeaderField: "X-Shortcut-Capture-Token")
-        request.httpBody = try JSONEncoder().encode(RequestBody(capture))
+        if let payment = capture.payment {
+            request.httpBody = try JSONEncoder().encode(try PaymentBody(capture, payment, accountName: accountName))
+        } else {
+            request.httpBody = try JSONEncoder().encode(RequestBody(capture))
+        }
         return request
     }
 
@@ -101,10 +121,42 @@ private struct RequestBody: Encodable {
     init(_ capture: Capture) {
         text = capture.text
         clientId = capture.clientId.uuidString.lowercased()
+        capturedAt = CapturedAt.string(capture)
+    }
+}
+
+/// The fields of a payment (`docs/QUICK_CAPTURE_API.md`, «Payment request»). A `nil` key is not sent at all.
+private struct PaymentBody: Encodable {
+    let amount: String
+    let currency: String
+    let merchant: String?
+    let accountName: String?
+    let clientId: String
+    let capturedAt: String
+
+    /// Throws for a payment that stays on the phone: one never goes out without an amount and its currency.
+    init(_ capture: Capture, _ payment: Payment, accountName: String?) throws(PaymentNotSendable) {
+        guard let amount = payment.amount, let currency = payment.currency.flatMap(PaymentCurrency.init(rawValue:)) else {
+            throw PaymentNotSendable()
+        }
+        self.amount = amount
+        self.currency = currency.rawValue
+        merchant = payment.merchant
+        self.accountName = accountName
+        clientId = capture.clientId.uuidString.lowercased()
+        capturedAt = CapturedAt.string(capture)
+    }
+}
+
+struct PaymentNotSendable: Error {}
+
+/// The moment of input with the offset the phone had then: `2026-10-29T14:32:05+05:00` (FT-175).
+private enum CapturedAt {
+    static func string(_ capture: Capture) -> String {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime]
         formatter.timeZone = TimeZone(identifier: capture.timeZoneIdentifier) ?? .current
-        capturedAt = formatter.string(from: capture.capturedAt)
+        return formatter.string(from: capture.capturedAt)
     }
 }
 

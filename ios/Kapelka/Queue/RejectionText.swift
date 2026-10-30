@@ -3,12 +3,20 @@
 enum RejectionText {
     static let fallback = "сервер не принял запись"
 
-    /// The messages of `docs/QUICK_CAPTURE_API.md`, «Errors», by their start.
+    /// The messages of `docs/QUICK_CAPTURE_API.md`, «Errors» and «Payment errors», by their start.
     private static let known: [(prefix: String, shown: String)] = [
         ("capturedAt is older than", "старше 30 дней — сервер такие не берёт, запиши в Mini App"),
         ("capturedAt must be", "сервер не понял время ввода"),
         ("Text is too long", "длиннее \(CaptureText.maxLength) символов"),
         ("Text is required", "пустая фраза"),
+        // A payment's fields (FT-176, «Payment errors»)
+        ("amount must be", "сервер не понял сумму"),
+        ("Amount must be at least", "сумма меньше 0,01"),
+        ("Amount must be no more than", "больше 1 000 000 000 — сервер такую запись не берёт"),
+        ("currency must be", "сервер пишет только сумы и доллары"),
+        ("merchant must be", "название магазина длиннее \(Payment.merchantLimit) символов"),
+        ("accountName must be", "имя счёта длиннее 100 символов — поправь в настройках Kapelka"),
+        ("No visible account", "в Kapelka все счета скрыты — открой счёт в Mini App"),
     ]
 
     static func shown(for server: String?) -> String {

@@ -1,7 +1,7 @@
 import Foundation
 
-/// One phrase typed on the phone. It is on disk before the first attempt to send it and leaves the pending ones only
-/// when the server answered (FT-161, «Как устроено»).
+/// One phrase typed or said on the phone, or one payment from Wallet. It is on disk before the first attempt to send
+/// it and leaves the pending ones only when the server answered (FT-161, «Как устроено»).
 struct Capture: Codable, Equatable, Identifiable, Sendable {
     enum State: String, Codable, Sendable {
         /// Waits on the phone.
@@ -14,11 +14,14 @@ struct Capture: Codable, Equatable, Identifiable, Sendable {
 
     /// `clientId` of `POST /api/quick-capture`: a repeat with it writes nothing new (FT-106).
     let clientId: UUID
+    /// The phrase; empty for a payment, so a build before FT-179 that reads it gets a 400, not a phrase to parse.
     let text: String
     /// The moment of input; the server counts «сегодня» and «вчера» from it (FT-175).
     let capturedAt: Date
     /// The phone's time zone at input, so `capturedAt` goes out with the offset the person had then.
     let timeZoneIdentifier: String
+    /// A payment from Wallet (FT-179), sent to `POST /api/quick-capture/payment`; `nil` for a phrase.
+    let payment: Payment?
     var state: State = .pending
     var attempts = 0
     var reply: CaptureReply?
@@ -26,11 +29,12 @@ struct Capture: Codable, Equatable, Identifiable, Sendable {
 
     var id: UUID { clientId }
 
-    init(clientId: UUID, text: String, capturedAt: Date, timeZoneIdentifier: String) {
+    init(clientId: UUID, text: String, capturedAt: Date, timeZoneIdentifier: String, payment: Payment? = nil) {
         self.clientId = clientId
         self.text = text
         self.capturedAt = capturedAt
         self.timeZoneIdentifier = timeZoneIdentifier
+        self.payment = payment
     }
 
     // A record from an older build lacks the keys added since: they take their defaults, so it stays pending
@@ -44,6 +48,7 @@ struct Capture: Codable, Equatable, Identifiable, Sendable {
         attempts = try container.decodeIfPresent(Int.self, forKey: .attempts) ?? 0
         reply = try container.decodeIfPresent(CaptureReply.self, forKey: .reply)
         rejection = try container.decodeIfPresent(String.self, forKey: .rejection)
+        payment = try container.decodeIfPresent(Payment.self, forKey: .payment)
     }
 }
 

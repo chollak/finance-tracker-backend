@@ -37,6 +37,20 @@ final class TestSettings: @unchecked Sendable {
     }
 }
 
+/// The card → account mapping of the settings, as the test sets it.
+final class TestCards: @unchecked Sendable {
+    private let lock = NSLock()
+    private var accounts: [String: String] = [:]
+
+    func map(_ card: String, to account: String) {
+        lock.withLock { accounts[card] = account }
+    }
+
+    func account(for card: String) -> String? {
+        lock.withLock { accounts[card] }
+    }
+}
+
 /// The wait for a 429 pause to end, as the test sees it: by default it never ends, so a test sees only the sends it
 /// starts itself; `passes` moves the test clock past the pause at once.
 final class TestRetryWait: @unchecked Sendable {
@@ -94,6 +108,7 @@ final class QueueHarness: Sendable {
     let clock: TestClock
     let transport: FakeTransport
     let settings: TestSettings
+    let cards = TestCards()
     let timeZone: TimeZone
     let retryWait: TestRetryWait
 
@@ -117,7 +132,12 @@ final class QueueHarness: Sendable {
 
     var client: CaptureClient {
         let settings = settings
-        return CaptureClient(configuration: { settings.configuration }, transport: transport)
+        let cards = cards
+        return CaptureClient(
+            configuration: { settings.configuration },
+            transport: transport,
+            accountName: { cards.account(for: $0) }
+        )
     }
 
     func makeQueue(retryWait: TestRetryWait? = nil) -> CaptureQueue {
