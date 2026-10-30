@@ -135,4 +135,170 @@ describe('TransactionLearningService runtime data policy', () => {
       expect(prompt).not.toContain('азс');
     });
   });
+
+  describe('lessons of a category correction (FT-184)', () => {
+    const parsing = { amount: 25000, category: 'Покупки', type: 'expense' as const };
+    const words = (recordId: string, presetKey: string, ...lessonWords: string[]) =>
+      ({ kind: 'words' as const, recordId, userId: 'user-1', presetKey, originalParsing: parsing, words: lessonWords });
+    const merchant = (recordId: string, presetKey: string, key: string) =>
+      ({ kind: 'merchant' as const, recordId, userId: 'user-1', presetKey, originalParsing: parsing, merchant: key });
+    const dataFile = (name: string) => path.join(tempDir, 'data', name);
+    const readPatterns = () => JSON.parse(fs.readFileSync(dataFile('patterns.json'), 'utf-8'));
+    const readHistory = () => JSON.parse(fs.readFileSync(dataFile('learning-data.json'), 'utf-8'));
+    const seed = (categories: unknown[]) =>
+      fs.writeFileSync(dataFile('patterns.seed.json'), JSON.stringify({ categories, merchants: [] }));
+
+    it('a word gives its category as a guess after one lesson and for sure after two, counted per word', async () => {
+      const service = new TransactionLearningService(tempDir);
+
+      await service.learnCategory(words('r1', 'groceries', 'zzqx'));
+      expect((await service.tentativeCategoryWords()).get('groceries')).toEqual(['zzqx']);
+      expect((await service.learnedCategoryWords()).get('groceries')).toBeUndefined();
+
+      // Another word's lesson for the same category does not count for «zzqx»
+      await service.learnCategory(words('r2', 'groceries', 'wwpt'));
+      expect((await service.learnedCategoryWords()).get('groceries')).toBeUndefined();
+
+      await service.learnCategory(words('r3', 'groceries', 'zzqx'));
+      expect((await service.learnedCategoryWords()).get('groceries')).toEqual(['zzqx']);
+      expect((await service.tentativeCategoryWords()).get('groceries')).toEqual(['wwpt']);
+      expect(readHistory()).toHaveLength(3);
+      expect(readHistory()[0]).toMatchObject({ recordId: 'r1', userCorrection: { category: 'groceries' }, lessonWords: ['zzqx'] });
+    });
+
+    it('a word two categories were taught gives neither', async () => {
+      const service = new TransactionLearningService(tempDir);
+
+      for (const [recordId, key] of [['r1', 'groceries'], ['r2', 'groceries'], ['r3', 'shopping']]) {
+        await service.learnCategory(words(recordId, key, 'zzqx'));
+      }
+
+      expect((await service.learnedCategoryWords()).get('groceries')).toBeUndefined();
+      expect((await service.tentativeCategoryWords()).get('shopping')).toBeUndefined();
+    });
+
+    it('a lesson without words counts nothing', async () => {
+      const service = new TransactionLearningService(tempDir);
+
+      await service.learnCategory(words('r1', 'groceries'));
+      await service.learnCategory(merchant('r2', 'groceries', ''));
+
+      expect(fs.existsSync(dataFile('patterns.json'))).toBe(false);
+      expect(fs.existsSync(dataFile('learning-data.json'))).toBe(false);
+    });
+
+    it('the seed keeps its own rule: a pattern counts from its second use, whatever the lessons of words do', async () => {
+      seed([{ keywords: ['evos'], category: 'cafe', confidence: 0.8, usageCount: 2 }]);
+      const service = new TransactionLearningService(tempDir);
+
+      await service.learnCategory(words('r1', 'cafe', 'zzqx'));
+
+      expect((await service.learnedCategoryWords()).get('cafe')).toEqual(['evos']);
+      expect((await service.tentativeCategoryWords()).get('cafe')).toEqual(['zzqx']);
+      expect(readPatterns().categories).toEqual([{ keywords: ['evos'], category: 'cafe', confidence: 0.8, usageCount: 2 }]);
+    });
+
+    it('a payment teaches its whole merchant at once; a later correction moves it', async () => {
+      const service = new TransactionLearningService(tempDir);
+
+      await service.learnCategory(merchant('r1', 'cafe', 'kkwq paynet uzcard'));
+      expect((await service.learnedMerchants()).get('kkwq paynet uzcard')).toBe('cafe');
+      expect((await service.learnedMerchants()).get('paynet mobile')).toBeUndefined();
+      // Not a word of phrases
+      expect((await service.learnedCategoryWords()).get('cafe')).toBeUndefined();
+      expect((await service.tentativeCategoryWords()).get('cafe')).toBeUndefined();
+
+      await service.learnCategory(merchant('r2', 'groceries', 'kkwq paynet uzcard'));
+      expect((await service.learnedMerchants()).get('kkwq paynet uzcard')).toBe('groceries');
+    });
+
+    it('a merchant corrected into two categories counts from the latest one only, and is never a word of a label', async () => {
+      const service = new TransactionLearningService(tempDir);
+
+      // «PAYNET 0123» corrected to «Дом», «PAYNET 0456» to «Связь»
+      await service.learnCategory(merchant('r1', 'home', 'paynet'));
+      await service.learnCategory(merchant('r2', 'telecom', 'paynet'));
+
+      expect((await service.learnedMerchants()).get('paynet')).toBe('telecom');
+      expect(readPatterns().merchants).toEqual([{ aliases: ['paynet'], normalizedName: 'paynet', category: 'telecom', usageCount: 1, fromPayments: true }]);
+      expect((await service.learnedCategoryWords()).get('telecom')).toBeUndefined();
+    });
+
+    it('a merchant corrected twice into one category is still found only whole: not a word of labels, not in the AI prompt', async () => {
+      const service = new TransactionLearningService(tempDir);
+
+      await service.learnCategory(merchant('r1', 'telecom', 'paynet'));
+      await service.learnCategory(merchant('r2', 'telecom', 'paynet'));
+
+      expect(readPatterns().merchants[0]).toMatchObject({ usageCount: 2 });
+      expect((await service.learnedCategoryWords()).get('telecom')).toBeUndefined();
+      expect(await service.getEnhancedPrompts('BASE')).not.toContain('paynet');
+    });
+
+    it('taking a merchant lesson back counts the latest category from the lessons left', async () => {
+      const service = new TransactionLearningService(tempDir);
+      await service.learnCategory(merchant('r1', 'home', 'paynet'));
+      await service.learnCategory(merchant('r2', 'telecom', 'paynet'));
+      await service.learnCategory(merchant('r3', 'telecom', 'paynet'));
+
+      await service.unlearnRecord('r3');
+
+      expect(readPatterns().merchants).toEqual([{ aliases: ['paynet'], normalizedName: 'paynet', category: 'telecom', usageCount: 1, fromPayments: true }]);
+    });
+
+    it('unlearning a record takes back exactly its lesson: the counts of its words, its merchant', async () => {
+      const service = new TransactionLearningService(tempDir);
+      await service.learnCategory(words('r1', 'groceries', 'zzqx', 'wwpt'));
+      await service.learnCategory(words('r2', 'groceries', 'zzqx'));
+      await service.learnCategory(merchant('r3', 'cafe', 'kkwq'));
+      await service.learnCategory(merchant('r4', 'groceries', 'kkwq'));
+
+      await service.unlearnRecord('r1');
+      await service.unlearnRecord('r4');
+
+      expect((await service.tentativeCategoryWords()).get('groceries')).toEqual(['zzqx']);
+      expect((await service.learnedMerchants()).get('kkwq')).toBe('cafe');
+
+      await service.unlearnRecord('r2');
+      await service.unlearnRecord('r3');
+      await service.unlearnRecord('r-never-taught');
+
+      expect(readPatterns()).toMatchObject({ words: [], merchants: [] });
+      expect(readHistory()).toEqual([]);
+    });
+
+    it('lessons learned at the same moment are all kept', async () => {
+      const service = new TransactionLearningService(tempDir);
+      const merchants = ['aaqx', 'bbqx', 'ccqx', 'ddqx', 'eeqx'];
+
+      await Promise.all(merchants.map((word, index) => service.learnCategory(words(`r${index}`, 'groceries', word))));
+
+      expect([...(await service.tentativeCategoryWords()).get('groceries')!].sort()).toEqual(merchants);
+      expect(readHistory()).toHaveLength(5);
+    });
+
+    it.each(['patterns.json', 'learning-data.json'])('a broken %s is kept beside it before it is written anew', async name => {
+      fs.writeFileSync(dataFile(name), '{ not json');
+      const service = new TransactionLearningService(tempDir);
+
+      await service.learnCategory(words('r1', 'groceries', 'zzqx'));
+
+      const kept = fs.readdirSync(path.join(tempDir, 'data')).filter(file => file.startsWith(`${name}.corrupt-`));
+      expect(kept).toHaveLength(1);
+      expect(fs.readFileSync(dataFile(kept[0]), 'utf-8')).toBe('{ not json');
+      expect(() => JSON.parse(fs.readFileSync(dataFile(name), 'utf-8'))).not.toThrow();
+    });
+
+    it('the AI prompt shows a learned word only once it gives its category for sure', async () => {
+      const service = new TransactionLearningService(tempDir);
+      await service.learnCategory(words('r1', 'groceries', 'zzqx'));
+      await service.learnCategory(words('r2', 'groceries', 'wwpt'));
+      await service.learnCategory(words('r3', 'groceries', 'zzqx'));
+
+      const prompt = await service.getEnhancedPrompts('BASE');
+
+      expect(prompt).toContain('"zzqx" → Продукты');
+      expect(prompt).not.toContain('wwpt');
+    });
+  });
 });

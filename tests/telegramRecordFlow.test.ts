@@ -32,6 +32,7 @@ import { NoSpeechDetectedError } from '../src/modules/voiceProcessing/domain/voi
 import { TranscriptionService } from '../src/modules/voiceProcessing/domain/transcriptionService';
 import { ProcessTextInputUseCase } from '../src/modules/voiceProcessing/application/processTextInput';
 import { QuickCaptureService } from '../src/modules/quickCapture/application/quickCaptureService';
+import { TransactionLearningService } from '../src/shared/application/learning/transactionLearning';
 
 // A voice message is not downloaded in tests; what it «says» is set by the test
 jest.mock('../src/delivery/messaging/telegram/utils', () => ({
@@ -64,6 +65,8 @@ interface PlannedRecord {
   guessed?: boolean;
   /** «45» written for 45 000 (FT-123). */
   assumed?: string;
+  /** The phrase, stored with the record as the parser stores it: what a category correction teaches (FT-184). */
+  phrase?: string;
 }
 
 type Middleware = (ctx: any, next: () => Promise<void>) => Promise<void> | void;
@@ -157,6 +160,10 @@ describe('bot record messages (FT-122)', () => {
         source: 'telegram',
         accountId: accounts.find(account => account.name === (planned.account ?? 'Карта'))?.id,
         currency: planned.currency,
+        ...(planned.phrase ? {
+          originalText: planned.phrase,
+          originalParsing: { amount: planned.amountMinor / 100, category: planned.category, type: planned.type ?? 'expense' },
+        } : {}),
       } as any);
       if (!created.success) throw created.error;
       const assumptions: CaptureAssumption[] = planned.guessed ? [{ kind: 'category', name: planned.category }] : [];
@@ -177,6 +184,7 @@ describe('bot record messages (FT-122)', () => {
     const transactionModule = new TransactionModule(new SqliteTransactionRepository(ds));
     transactionModule.setCategoryResolver(categoryModule.getCatalog());
     transactionModule.setAccountResolver(accountModule.getBook());
+    transactionModule.setCategoryLessons(new TransactionLearningService(dir));
     const userModule = new UserModule(new SqliteUserRepository(ds), new SqliteUserSettingsRepository(ds));
     const botMessageModule = new BotMessageModule(new SqliteBotMessageRepository(ds));
 
@@ -396,6 +404,20 @@ describe('bot record messages (FT-122)', () => {
     expect(text(message)).toContain('Кафе · «Такси»');
     expect(text(message)).toMatch(/<i>Категория: Кафе\.<\/i>$/);
     expect(labels(message)).toEqual([['Изменить', 'Отменить']]);
+  });
+
+  it('a category picked with «Изменить» teaches the parser, as a correction in the Mini App does (FT-184)', async () => {
+    const zzqx: PlannedRecord = { amountMinor: 5_000_000, category: 'Покупки', description: 'ZZQX', phrase: 'zzqx 50000', guessed: true };
+    // A pattern counts from its second use (MIN_PATTERN_USES)
+    for (let written = 0; written < 2; written += 1) {
+      const message = await write('zzqx 50000', [zzqx]);
+      await press(message, 'Изменить');
+      await press(message, 'Категорию');
+      await press(message, 'Продукты');
+    }
+
+    const learned = await new TransactionLearningService(dir).learnedCategoryWords();
+    expect(learned.get('groceries')).toContain('zzqx');
   });
 
   it('«Это доход» switches the record to income only once an income category is picked', async () => {

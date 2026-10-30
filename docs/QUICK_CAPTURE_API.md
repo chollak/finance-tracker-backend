@@ -248,7 +248,7 @@ X-Shortcut-Capture-Token: <SHORTCUT_CAPTURE_TOKEN>
 |---|---|---|
 | Route | A separate `POST /api/quick-capture/payment` on the same router | A payment has no `text`, and its fields have rules of their own. One route taking either `text` or a payment object would need a rule for a body with both and would change the errors of the phrase route the Mini App and the bot rely on. On the same router the payment gets the same token, owner, rate limit and response without new code; the phone's queue knows the kind of each record and picks the path. |
 | Amount | A decimal string of major units with a dot: `"25000"`, `"4.50"` | Wallet shows a payment in major units («25 000 сум», «$4.50»), so the client sends it without arithmetic: minor units are a factor of 100 to get wrong, and libraries disagree on them for UZS (ISO 4217 says 2 decimals, cash practice 0; the server counts 100 per unit for both currencies). A string is exact, a JSON number need not be: Swift's `JSONEncoder` writes a `Decimal` through `Double` (`3.133` can come out `3.1330000000000004`). What exactly Wallet gives is learned only in FT-179; whatever it is, the client brings it to this strict format and the server never guesses. |
-| Merchant | In `merchant`, and as the record's note (`description`) | `merchant` is where every record keeps it and what search reads (`search_text`); the note is what the list and the ack show. The record's `originalText` is the merchant too, as a phrase's is its text, so once a correction teaches (below) it teaches the merchant's words. **A correction in the Mini App does not teach yet**, for phrases neither: it sends only `categoryId`, and the server learns only from an `originalText`/`originalParsing` in the request body (FT-184). |
+| Merchant | In `merchant`, and as the record's note (`description`) | `merchant` is where every record keeps it and what search reads (`search_text`); the note is what the list and the ack show. A category correction of a payment teaches its whole merchant, not its words: the Mini App sends only `categoryId`, and the server takes the merchant and the parse's category from the stored record (FT-184, [Learning System Integration](knowledge-base/07-data-flow/voice-to-transaction.md#learning-system-integration)). The next payment with the same `merchantKey` (folded words without digits: «ZZQX 77» = «ZZQX 78») gets that category without the AI. A payment without a merchant stores no `originalText` and teaches nothing. |
 | `source` | `apple_pay`, a new value, set by the server | The list, and later a duplicate check, can tell a payment Wallet sent from a phrase typed for the same purchase (FT-161: «оплату через Apple Pay голосом не повторять»). The phrase route keeps `ios_shortcut`; a phrase cannot claim `apple_pay`, it is not a `CaptureSource`. |
 | `clientId` | Required | A payment is always sent from the phone's queue, which repeats it until it gets an answer; without an id a lost answer is a second record. |
 
@@ -288,13 +288,16 @@ One expense (`type` and `semanticType` `expense`), through the same `CreateTrans
 
 - **Amount and currency** as sent; never read as thousands, no `thousands` assumption.
 - **Day** — the day of `capturedAt` on the user's calendar (Tashkent), else the server's today.
-- **Category** — by the merchant; the first step that finds one category decides, the rule of the simple phrase
-  (FT-138, FT-143, `categoryNamedBy`):
+- **Category** — by the merchant; the first step that finds one category decides:
+  0. the visible starter category a correction tied **exactly this merchant** to (FT-184: `merchantKey`, folded words
+     without digits; one correction is enough, the latest one decides);
+
+  then the rule of the simple phrase (FT-138, FT-143, `categoryNamedBy`):
   1. the user's visible expense category whose name is the whole merchant;
   2. the one category whose name or dictionary word stands among the merchant's words («EVOS CHILONZOR» → «Кафе»);
-  3. the one category learned words tie to (FT-138: learned patterns, `data/patterns.json` and its seed). A correction
-     of a payment in the Mini App does not add to them yet (FT-184), so this step finds what the seed and earlier
-     learning hold;
+  3. the one category learned words tie to for sure (FT-138: learned patterns, `data/patterns.json` and its seed; FT-184:
+     words phrase corrections taught at least twice). A payment correction adds no words: it teaches its merchant
+     (step 0);
   4. otherwise the AI chooses **only the category** (`categoryOfMerchant`): it is told the merchant, the user's visible
      expense categories and the learned patterns, and answers with one name; a name the user has no visible category
      of is «Другое»;
@@ -302,7 +305,7 @@ One expense (`type` and `semanticType` `expense`), through the same `CreateTrans
      the same.
 
   A category of steps 4–5 is a guess: the assumption `{ "kind": "category", "name": … }` and «?» in the ack
-  («Продукты?»), unless the merchant's words name it after all. Steps 1–3 are not guesses. The category never sets
+  («Продукты?»), unless the merchant's words name it after all. Steps 0–3 are not guesses. The category never sets
   `needsReview`.
 - **Account** — the visible account in the payment's currency whose **whole name is `accountName`**, compared without
   case, «ё» and spaces around (`accountNameKey`). Only the whole name counts, not a name that stands in it as in a
@@ -312,8 +315,10 @@ One expense (`type` and `semanticType` `expense`), through the same `CreateTrans
   without an account word gets (for dollars a dollar account, else the default), the assumption `"reason": "default"`
   and **`needsReview: true`**. Dollars without a dollar account stay dollars on the default account with
   `{ "kind": "currency", "reason": "no_usd_account" }` (FT-103).
-- **Merchant** in `merchant`; the note (`description`) and `originalText` are the merchant, or «Оплата Apple Pay»
-  without one; `originalParsing` holds the category the record went to (not the AI's raw name); `source: "apple_pay"`;
+- **Merchant** in `merchant`; the note (`description`) is the merchant, or «Оплата Apple Pay» without one;
+  `originalText` is the merchant, and without one it is empty — the note is the server's words, not the payment's, and
+  a correction must not teach them (FT-184); `originalParsing` holds the category the record went to (not the AI's raw name) and its id (`categoryId`, FT-184: what
+  a later correction is compared with); `source: "apple_pay"`;
   `clientId` as sent.
 
 ### Payment response
