@@ -18,6 +18,7 @@ import { itemClientId } from '../../transaction/domain/clientId';
 import { fromMinor } from '../../../shared/domain/money/money';
 import { todayDateOnly } from '../../../shared/domain/dates/dateOnly';
 import { phraseDayOf } from '../domain/phraseDay';
+import { readWrittenNumber } from '../domain/writtenNumber';
 import { normalizeSemanticType, TransactionSemanticType } from '../../transaction/domain/transactionSemanticType';
 import { AnalysisResult, ParsedTransaction } from '../domain/transcriptionService';
 import {
@@ -101,13 +102,13 @@ function parseSingleAmount(normalizedText: string): ParsedAmount | null {
     return null;
   }
 
-  const amount = Number(token.replace(/[\s,]/g, '')) * magnitudeFactor(suffix);
-  if (!Number.isFinite(amount) || amount <= 0) {
+  const written = readWrittenNumber(token);
+  if (written === null || written <= 0) {
     return null;
   }
 
   return {
-    amount,
+    amount: written * magnitudeFactor(suffix),
     textBefore: normalizedText.slice(0, start),
     textAfter: normalizedText.slice(tokenEnd + suffix.length),
   };
@@ -132,13 +133,13 @@ function readTextAmounts(text: string): TextAmount[] {
     const afterToken = normalizedText.slice(start + token.length);
     const suffix = MAGNITUDE_SUFFIX_PATTERN.exec(afterToken)?.[0] ?? '';
 
-    const value = Number(token.replace(/[\s,]/g, '')) * magnitudeFactor(suffix);
-    if (!Number.isFinite(value) || value <= 0) {
+    const written = readWrittenNumber(token);
+    if (written === null || written <= 0) {
       return [];
     }
 
     return [{
-      value,
+      value: written * magnitudeFactor(suffix),
       currencyMarked: CURRENCY_UNIT_AFTER_AMOUNT_PATTERN.test(afterToken.slice(suffix.length)),
     }];
   });
@@ -432,6 +433,17 @@ export async function recordCategoriesFor(source: UserCategorySource | undefined
  * Learned words of the starter categories, for the category guess rule (FT-138). Without them every
  * category the words do not name stays a guess — the capture goes on.
  */
+/** Words one correction taught (FT-184): they give their category on the fast path, as a guess. */
+export async function tentativeWordsFor(source: LearnedCategoryWords | undefined): Promise<ReadonlyMap<string, readonly string[]>> {
+  if (!source?.tentativeCategoryWords) return new Map();
+  try {
+    return await source.tentativeCategoryWords();
+  } catch (error) {
+    logger.error('Failed to read tentative category words', error as Error);
+    return new Map();
+  }
+}
+
 export async function learnedWordsFor(source: LearnedCategoryWords | undefined): Promise<ReadonlyMap<string, readonly string[]>> {
   if (!source) return new Map();
   try {
@@ -477,7 +489,7 @@ export class ProcessTextInputUseCase {
     // A category no word of the record names is a guess (FT-138): the AI's own choice, or «Другое» for a
     // label nothing recognised. The same words decide whether the simple path keeps its label (FT-143)
     const learned = await learnedWordsFor(this.learnedWords);
-    const local = obvious ?? (simple ? await this.withNamedCategory(simple, userId, learned) : null);
+    const local = obvious ?? (simple ? await this.withNamedCategory(simple, userId, learned, await tentativeWordsFor(this.learnedWords)) : null);
     // Fall back to OpenAI for complex/natural-language inputs, with the user's categories
     const { parsed, fastPath } = local ? { parsed: local, fastPath: true } : await this.readByAI(text, userId, simple, today);
 
@@ -583,10 +595,11 @@ export class ProcessTextInputUseCase {
   private async withNamedCategory(
     simple: AnalysisResult,
     userId: string,
-    learned: ReadonlyMap<string, readonly string[]>
+    learned: ReadonlyMap<string, readonly string[]>,
+    tentative: ReadonlyMap<string, readonly string[]>
   ): Promise<AnalysisResult | null> {
     const [record] = simple.transactions;
-    const named = categoryNamedBy(record.category, await recordCategoriesFor(this.categorySource, userId), learned);
+    const named = categoryNamedBy(record.category, await recordCategoriesFor(this.categorySource, userId), learned, tentative);
     return named ? { ...simple, transactions: [{ ...record, category: named.name }] } : null;
   }
 

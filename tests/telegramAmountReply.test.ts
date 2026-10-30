@@ -4,6 +4,8 @@ import { parseAmountCorrection, parseAmountReply, writtenAmountMatches } from '.
  * «Сумму» under a record asks «Напишите новую сумму — например, 150к.» (FT-122): the next text counts
  * only if it is an amount, written the way people write sums in the chat.
  */
+const NBSP = '\u00a0';
+
 describe('amount reply (FT-122)', () => {
   const sumExpense = { currency: 'UZS' as const };
   const usd = { currency: 'USD' as const };
@@ -26,6 +28,29 @@ describe('amount reply (FT-122)', () => {
     ['  28000. ', 2_800_000],
   ])('«%s» is %i minor units of сум', (text, amountMinor) => {
     expect(parseAmountReply(text, sumExpense)).toEqual({ kind: 'amount', amountMinor, currency: 'UZS' });
+  });
+
+  // FT-185: a comma before kopecks is the decimal one, as Wallet writes it; «500» and «25к» stay thousands
+  it.each([
+    [`28${NBSP}000,00${NBSP}UZS`, 2_800_000, 'UZS'],
+    ['28 000,00 UZS', 2_800_000, 'UZS'],
+    ['28 000,00', 2_800_000, 'UZS'],
+    ['28000,00', 2_800_000, 'UZS'],
+    // An answer in сум is whole сум: kopecks are rounded
+    ['1 234,50 сум', 123_500, 'UZS'],
+    ['4,50 $', 450, 'USD'],
+    ['4.50 USD', 450, 'USD'],
+    ['25 000', 2_500_000, 'UZS'],
+    ['25000', 2_500_000, 'UZS'],
+    ['25к', 2_500_000, 'UZS'],
+    ['3,2 млн', 320_000_000, 'UZS'],
+    ['1.5к', 150_000, 'UZS'],
+  ])('«%s» is %i minor units of %s (FT-185)', (text, amountMinor, currency) => {
+    expect(parseAmountReply(text, sumExpense)).toEqual({ kind: 'amount', amountMinor, currency });
+  });
+
+  it('reads «500» as 500 000 сум, as before (FT-185)', () => {
+    expect(parseAmountReply('500', sumExpense)).toEqual({ kind: 'amount', amountMinor: 50_000_000, currency: 'UZS', written: '500' });
   });
 
   it('reads a bare number under a thousand as thousands of сум, and says it did', () => {

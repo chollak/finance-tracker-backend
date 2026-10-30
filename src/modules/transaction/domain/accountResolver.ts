@@ -35,4 +35,6 @@ export interface AccountResolutionInput {
  */
 export interface AccountResolver {
   resolveForRecord(input: AccountResolutionInput): Promise<Result<ResolvedAccount>>;
+  /** The names of the user's accounts, hidden ones too: words a category correction does not teach (FT-184). */
+  accountNames(userId: string): Promise<string[]>;
 }

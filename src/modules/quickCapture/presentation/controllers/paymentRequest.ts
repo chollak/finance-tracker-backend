@@ -1,6 +1,7 @@
 import { Result, ResultHelper } from '../../../../shared/domain/types/Result';
 import { ValidationError } from '../../../../shared/domain/errors/AppError';
 import { Validators } from '../../../../shared/application/validation/validators';
+import { wholeSumMinor } from '../../../../shared/domain/money/money';
 import { isRecordCurrency } from '../../../transaction/domain/recordSource';
 import { isClientId } from '../../../transaction/domain/clientId';
 import { parseCapturedAt } from '../../domain/capturedAt';
@@ -32,8 +33,10 @@ function optionalName(value: unknown, field: string, limit: number): Result<stri
  * service, after a repeat is answered (FT-175).
  */
 export function readPayment(body: Record<string, unknown>): Result<PaymentFields, ValidationError> {
-  const amountMinor = paymentAmountMinor(body.amount);
-  if (amountMinor === null) return refused(AMOUNT_FORMAT, 'amount');
+  const asWritten = paymentAmountMinor(body.amount);
+  if (asWritten === null) return refused(AMOUNT_FORMAT, 'amount');
+  // Сумы are whole (FT-185): «1234.50» UZS is 1 235 сум, and «0.49» is no сум at all, refused by the range below
+  const amountMinor = body.currency === 'UZS' ? wholeSumMinor(asWritten) : asWritten;
   const inRange = Validators.moneyAmount({ amountMinor });
   if (!inRange.success) return refused(inRange.error.message, 'amount');
 

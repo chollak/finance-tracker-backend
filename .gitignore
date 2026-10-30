@@ -43,6 +43,9 @@ downloads/
 # Runtime learning data (tracked seed files are data/*.seed.json)
 data/learning-data.json
 data/patterns.json
+# A learning file written beside itself before the rename, and a broken one kept before it is replaced (FT-184)
+data/*.tmp
+data/*.corrupt-*
 !data/*.seed.json
 
 # OS generated files

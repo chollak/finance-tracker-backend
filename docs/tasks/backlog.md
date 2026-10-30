@@ -561,7 +561,7 @@ Definition of Done:
 
 ### FT-179: Apple Pay payments record themselves
 
-Status: backlog — в очереди, после FT-176 и FT-177
+Status: in_progress — под-чат разработки, 2026-10-30
 Priority: medium
 Owner: Claude Code, Shukur (iPhone), QA — под-чат проверки
 Type: feature
@@ -608,7 +608,7 @@ Definition of Done:
 
 ### FT-182: The bot dates a phrase by the time the message was sent
 
-Status: backlog
+Status: backlog — в очереди, 2-я после iOS (Шукур, 2026-10-30)
 Priority: low
 Owner: Claude Code, QA — под-чат проверки
 Type: feature
@@ -635,7 +635,7 @@ Definition of Done:
 
 ### FT-183: Dependencies: safe updates and openai v7
 
-Status: backlog — в очереди, после iOS-задач (Шукур, 2026-10-30)
+Status: backlog — в очереди, последней (Шукур, 2026-10-30)
 Priority: medium
 Owner: Claude Code, QA — под-чат проверки
 Type: chore
@@ -675,31 +675,106 @@ Definition of Done:
 
 ---
 
-### FT-184: A category correction in the Mini App teaches
+### FT-200: A correction teaches the words of an item named without an amount
 
 Status: backlog
-Priority: medium
+Priority: low
+Owner: Claude Code
+Type: bug
+Size: S
+Depends on: FT-184, FT-185 (те же файлы разбора фразы)
+
+Context:
+Найдено при проверке FT-184 (2026-10-30). Правка категории записи из фразы учит слова этой записи
+(`teachCategoryCorrection.ts`, `ownWords`). Записи одной фразы сервер узнаёт по `clientId` (`«<id>»`, `«<id>:1»`, …)
+и берёт слова записи через `recordWordsOf`. Позицию без суммы («zzqx 50000 и wwpt») бот спрашивает отдельно
+(«Сколько?», FT-123), и среди записей фразы её не видно. Поэтому правка zzqx учит и слову «wwpt». Так же учит вся
+фраза из нескольких записей без `clientId` — Shortcut, где он необязателен.
+
+Точное решение: конвейер фразы (`processTextInput.ts`, `processVoiceInput.ts`) при записи сохраняет собственные слова
+записи (`recordWordsOf(text, p, itemCount)`) в `originalParsing`, а `ownWords` берёт их оттуда; у старых записей —
+как сейчас.
+
+Definition of Done:
+- [ ] Правка zzqx в «zzqx 50000 и wwpt» учит только «zzqx»; тест
+- [ ] Фраза из нескольких записей без `clientId` учит только слова исправленной записи; тест
+- [ ] Записи, сделанные до задачи, учат как раньше; тест
+
+---
+
+### FT-205: Two amounts in a row without a word between them are read as one
+
+Status: backlog — найдено при проверке FT-185 (2026-10-30)
+Priority: low
 Owner: Claude Code, QA — под-чат проверки
 Type: bug
 Size: S
 
 Context:
-Найдено под-чатом проверки FT-176 (2026-10-30). Правка категории в Mini App ничему не учит — ни у фразы, ни у оплаты
-Apple Pay. Mini App шлёт только `PUT /api/transactions/:id` с `{ categoryId }` (`patchTransaction`,
-`webapp/src/entities/transaction/api/mutations.ts:233`; вызовы — `useRecordEdits.ts`, `useCaptureReview.ts`), а
-сервер учится, только если в теле запроса есть `originalText` и `originalParsing`
-(`transactionController.ts:424` → `UpdateTransactionWithLearningUseCase`, `recordLearningData`); их никто не шлёт.
-Проверено на живом сервере: две оплаты «ZZQX 77» и «ZZQX 78» исправлены в «Продукты», третья всё равно ушла к ИИ.
-Выученные паттерны (FT-138) пополняются только сидом.
+Старая ошибка, до FT-185 тоже. Число фразы ищет `AMOUNT_TOKEN` — `[+-]?\d[\d\s.,]*`. Он берёт внутрь числа любые
+пробелы и запятые, поэтому две суммы подряд без слова между ними склеиваются в одну:
+- «кофе 25 000, 18 000» → 2 500 018 000;
+- «обед 45000 5,10» → 450 005,1.
 
-Идея: сервер берёт `originalText` и `originalParsing` из сохранённой записи (они пишутся при создании: текст фразы,
-магазин оплаты), а не из тела запроса; тело с ними — как раньше, но не обязательно. Учит только смена категории, как
-сейчас (`userCorrection.category` — `presetKey` стартовой категории; своя категория пользователя ничему не учит).
+Тот же шаблон — в `processTextInput.ts`, `captureMoney.ts` и `captureAssumptions.ts`.
+
+Идея: пробел делит тысячи, только если за ним ровно три цифры (`28 000`, `1 234 567`); иначе число кончается. Тогда в
+такой фразе две суммы, быстрый путь её не берёт, и она уходит к ИИ.
 
 Definition of Done:
-- [ ] Правка категории записи из фразы через `PUT /api/transactions/:id { categoryId }` записывает урок; тест
-- [ ] То же для оплаты Apple Pay: две правки «ZZQX 77/78» в «Продукты» → третья оплата «ZZQX» — «Продукты» без ИИ; тест
-- [ ] Запись без `originalText` (ручная форма, `POST /api/transactions`) ничему не учит и не падает; тест
-- [ ] Проверено, учит ли правка категории в боте; если нет — здесь же или отдельной задачей
-- [ ] `docs/QUICK_CAPTURE_API.md` («Payments», шаг 3) и `voice-to-transaction.md` («Learning System Integration»)
-      говорят, что правка учит
+- [ ] «кофе 25 000, 18 000» и «обед 45000 5,10» не склеиваются в одну сумму; тест
+- [ ] «25 000», «28 000,00 UZS», «1 234,50 сум», «+998 90 123 45 67» в тексте читаются как раньше; тест
+- [ ] Одно правило для всех трёх мест; живая проверка с ИИ
+
+---
+
+### FT-206: A point as a thousands separator
+
+Status: backlog — найдено при проверке FT-185 (2026-10-30)
+Priority: low
+Owner: Claude Code, QA — под-чат проверки
+Type: bug
+Size: S
+
+Context:
+`readWrittenNumber` (FT-185) читает точку как `Number`: «25.000» — это 25. Дальше правило «голое число меньше 1000 —
+тысячи» делает 25 000, и ответ пишет «"25.000" понял как 25 000» — пометка лишняя, человек написал 25 000.
+
+ИИ однажды прочёл «1.500» как 1,5. Ответ на «Сколько?» (`amountReply.ts`) читает «150.000» как 150 000.
+
+Фразу с точкой быстрый путь отдаёт ИИ: точку он считает концом предложения.
+
+Решить с Шукуром: точка перед ровно тремя цифрами — разделитель тысяч, как в ответе на «Сколько?»? Сомнительный случай —
+доллары: «4.500 $».
+
+Definition of Done:
+- [ ] Правило про точку решено и записано в `voice-to-transaction.md`
+- [ ] `readWrittenNumber` и промпт ИИ читают по нему «25.000» и «1.500»; тест
+- [ ] «"25.000" понял как 25 000» больше не показывается, если правило — «тысячи»; тест
+- [ ] Живая проверка с ИИ: «кофе 1.500», «такси 25.000»
+
+---
+
+### FT-207: Quick Add in the bot reads a comma as a decimal point
+
+Status: backlog — найдено при проверке FT-185 (2026-10-30)
+Priority: low
+Owner: Claude Code, QA — под-чат проверки
+Type: bug
+Size: S
+
+Context:
+После кнопки категории бот ждёт сумму (`awaiting_amount`, `handleQuickAddAmount` в `messageHandlers.ts`). Сумму он читает
+так: `text.replace(/[^\d.,]/g, '').replace(',', '.')`, затем `parseFloat`. Поэтому:
+- «150,000» → 150;
+- «1,500» → 1,5.
+
+Сначала проверить, где Quick Add ещё доступен после «Пастели».
+
+Идея: читать ответ, как ответ на «Сколько?» (`parseAmountReply`, FT-122): «150к», «нал», голое число меньше 1000 —
+тысячи, целые сумы. Если это меняет поведение — спросить Шукура. Минимум — `readWrittenNumber` (FT-185).
+
+Definition of Done:
+- [ ] «150,000» → 150 000, «1,500» → 1 500, «28 000,00» → 28 000; тест
+- [ ] «500» и «25к» — по выбранному правилу; тест
+- [ ] Описано, где Quick Add доступен

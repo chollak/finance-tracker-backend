@@ -175,8 +175,8 @@ describe('a payment from Apple Pay (FT-176)', () => {
       expect((await stored(result.transactions[0].id)).originalParsing).toMatchObject({ category: 'Другое', amount: 25_000 });
     });
 
-    // A correction made in the Mini App does not teach yet: it sends no originalText (FT-184). This is what learning
-    // does with the record's own originalText once it does
+    // What learning does with the record's own originalText; the correction through PUT { categoryId } that records
+    // it is tested in categoryCorrectionLearning.test.ts (FT-184)
     it('of a merchant learned from the merchant’s earlier records needs no AI', async () => {
       const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ft176-learning-'));
       try {

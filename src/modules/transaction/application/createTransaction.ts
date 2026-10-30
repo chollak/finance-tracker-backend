@@ -174,6 +174,10 @@ export class CreateTransactionUseCase {
     transaction.currency = transaction.currency ?? 'UZS';
     transaction.source = transaction.source ?? 'manual';
     options.onResolved?.({ category: resolvedCategory, account: resolvedAccount });
+    // The category the parse went to (FT-184): a later correction is compared with it, and a rename does not move it
+    if (transaction.originalParsing && resolvedCategory) {
+      transaction.originalParsing = { ...transaction.originalParsing, categoryId: resolvedCategory.id };
+    }
 
     try {
       const created = await this.primaryRepository.create(transaction);
