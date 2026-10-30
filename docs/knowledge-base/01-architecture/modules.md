@@ -105,9 +105,12 @@ Core module системы — управление финансовыми тр�
 - `CreateTransactionUseCase` - создание транзакции
 - `GetTransactionsUseCase` - получение всех транзакций
 - `GetUserTransactionsUseCase` - транзакции пользователя
-- `UpdateTransactionUseCase` - обновление транзакции
+- `UpdateTransactionUseCase` - обновление транзакции; правка категории учит разбор через порт `CategoryLessons`
+  (FT-184, `application/teachCategoryCorrection.ts`, реализует `TransactionLearningService`): слова и категорию разбора
+  берёт из сохранённой записи, своя категория без `presetKey` не учит, возврат к категории разбора снимает урок
 - `DeleteTransactionUseCase` - удаление транзакции
-- `UpdateTransactionWithLearningUseCase` - обновление с ML записью
+- `UpdateTransactionWithLearningUseCase` - обновление с ML записью по `originalText`/`originalParsing` из тела запроса;
+  сейчас так не шлёт ни один клиент
 
 - `GetMonthAnalyticsUseCase`, `GetCategoryAnalyticsUseCase` - аналитика «Пастели» с честным сравнением (FT-120): `GET /api/analytics`, `GET /api/analytics/categories/:id`, каждый в своём файле; общее чтение месяца — `application/analyticsFrame.ts`; правила — `domain/monthAnalytics.ts`, суммы — через `PeriodTotalsService`; категорию ищет порт `CategoryResolver.findForUser`
 
@@ -634,6 +637,7 @@ export function createModules() {
   const categoryModule = CategoryModule.create();
   const transactionModule = TransactionModule.create();
   transactionModule.setCategoryResolver(categoryModule.getCatalog()); // FT-099
+  transactionModule.setCategoryLessons(transactionLearning); // FT-184
   const budgetModule = BudgetModule.create(transactionModule);
   const userModule = UserModule.create();
   const openAIUsageModule = createOpenAIUsageModule();
