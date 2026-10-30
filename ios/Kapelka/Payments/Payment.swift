@@ -4,7 +4,7 @@ import Foundation
 struct PaymentInput: Equatable, Sendable {
     /// Wallet's «Сумма»: «28 000,00 UZS».
     var amount: String?
-    /// The currency chosen in the automation, for an amount that names none.
+    /// For an amount that names none: the card's currency from the settings, else the one chosen in the automation.
     var currency: PaymentCurrency?
     var merchant: String?
     /// The card's name in Wallet.
@@ -72,7 +72,7 @@ extension WalletAmount.Problem {
         case .zero: "Wallet передал сумму 0 — запиши в Mini App"
         case .unreadable: "не понял сумму «\(wallet)» — запиши в Mini App"
         case .tooLarge: "больше 1 000 000 000 — сервер такую запись не берёт"
-        case .noCurrency: "в сумме нет валюты — выбери «Валюта» в автоматизации, а эту оплату запиши в Mini App"
+        case .noCurrency: "в сумме нет валюты — укажи валюту карты в настройках Kapelka, а эту оплату запиши в Mini App"
         case let .otherCurrency(code): "валюта \(code) — Kapelka пишет только сумы и доллары, запиши в Mini App"
         }
     }

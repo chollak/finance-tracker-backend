@@ -136,6 +136,29 @@ struct CaptureListTests {
         #expect(row.text == "Оплата Apple Pay · 28\u{00A0}000,00\u{00A0}UZS")
     }
 
+    @Test("оплата без суммы (команду запустили не из Wallet) — без висящей точки")
+    func paymentWithoutAmount() throws {
+        let input = PaymentInput(amount: nil, merchant: "Shop")
+        var bare = Capture(
+            clientId: UUID(),
+            text: "",
+            capturedAt: Self.inputTime,
+            timeZoneIdentifier: "Asia/Tashkent",
+            payment: Payment.from(input).payment
+        )
+        bare.state = .rejected
+        let empty = Capture(
+            clientId: UUID(),
+            text: "",
+            capturedAt: Self.inputTime,
+            timeZoneIdentifier: "Asia/Tashkent",
+            payment: Payment.from(PaymentInput()).payment
+        )
+
+        #expect(rows([bare]).first?.text == "Shop")
+        #expect(rows([empty]).first?.text == "Оплата Apple Pay")
+    }
+
     @Test("оплата записана — итог сервера, как у фразы")
     func savedPayment() throws {
         let reply = CaptureReply(status: "needs_review", title: "Нужно проверить", summary: "Ooo Mazzali Super Food · 28 000 сум · Кафе?")

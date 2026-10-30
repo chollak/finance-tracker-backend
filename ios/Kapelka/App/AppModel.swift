@@ -104,16 +104,16 @@ final class AppModel {
         services.cards.cards
     }
 
-    /// Every field is checked before any is written. A payment waiting on the phone goes with the new account.
+    /// Every field is checked before any is written. A payment waiting on the phone goes with the new account; a card's
+    /// currency counts from the next payment, since a payment's amount is read when it lands in the queue.
     func saveSettings(
         address: String,
         token: String,
         cards: [CardAccount],
         removedCards: Set<String>
     ) async throws(SettingsError) {
-        let accounts = Dictionary(cards.map { ($0.card, $0.account) }) { _, last in last }
         do {
-            try CardAccountStore.check(accounts)
+            try CardAccountStore.check(cards)
         } catch {
             switch error {
             case let .tooLong(card): throw .accountTooLong(card: card)
@@ -121,7 +121,7 @@ final class AppModel {
         }
         try services.settings.save(address: address, token: token)
         // Checked above, so it does not throw here
-        try? services.cards.save(accounts, removing: removedCards)
+        try? services.cards.save(cards, removing: removedCards)
         isConfigured = services.settings.configuration() != nil
         await services.queue.settingsChanged()
         Task { await services.queue.flush() }

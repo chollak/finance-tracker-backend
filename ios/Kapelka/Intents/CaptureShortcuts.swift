@@ -109,7 +109,10 @@ struct RecordPaymentIntent: AppIntent {
     @Parameter(title: "Карта", description: "«Ввод команды» → карта. Счёт для неё — в настройках Kapelka.")
     var card: String?
 
-    @Parameter(title: "Валюта", description: "Только если в сумме нет валюты.")
+    @Parameter(
+        title: "Валюта",
+        description: "Только если в сумме нет кода и все карты автоматизации в одной валюте. Иначе — валюта карты в настройках Kapelka."
+    )
     var currency: PaymentCurrency?
 
     static var parameterSummary: some ParameterSummary {

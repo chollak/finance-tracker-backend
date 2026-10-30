@@ -117,6 +117,45 @@ final class PaymentRecorderTests {
         #expect(try harness.store.load().captures.map(\.state) == [.sent])
     }
 
+    @Test("сумма без кода: валюта карты из настроек важнее валюты автоматизации — $4.50 не ляжет как 4,50 сум")
+    func cardCurrencyBeforeAutomation() async throws {
+        let harness = try QueueHarness()
+        let (recorder, cards) = try makeRecorder(harness)
+        cards.noticed("Visa Kapitalbank")
+        try cards.save([CardAccount(card: "Visa Kapitalbank", account: "", currency: .usd)], removing: [])
+
+        _ = try await recorder.record(PaymentInput(amount: "4.50", currency: .uzs, merchant: "APPLE.COM/BILL", card: "Visa Kapitalbank"))
+
+        let body = try #require(try await harness.transport.paymentBodies().first)
+        #expect(body.amount == "4.50")
+        #expect(body.currency == "USD")
+    }
+
+    @Test("код в сумме важнее валюты карты")
+    func walletCodeBeforeCardCurrency() async throws {
+        let harness = try QueueHarness()
+        let (recorder, cards) = try makeRecorder(harness)
+        cards.noticed("TBC Uzbekistan")
+        try cards.save([CardAccount(card: "TBC Uzbekistan", account: "", currency: .usd)], removing: [])
+
+        _ = try await recorder.record(Self.mazzali)
+
+        #expect(try await harness.transport.paymentBodies().map(\.currency) == ["UZS"])
+    }
+
+    @Test("у карты нет валюты — валюта автоматизации; нет и её — не отправлено, причина про валюту карты")
+    func automationCurrencyThenNothing() async throws {
+        let harness = try QueueHarness()
+        let (recorder, _) = try makeRecorder(harness)
+
+        _ = try await recorder.record(PaymentInput(amount: "4.50", currency: .usd, merchant: "Shop", card: "Visa"))
+        let answer = try await recorder.record(PaymentInput(amount: "4.50", merchant: "Shop", card: "Visa"))
+
+        #expect(try await harness.transport.paymentBodies().map(\.currency) == ["USD"])
+        #expect(answer.contains("укажи валюту карты в настройках Kapelka"))
+        #expect(try harness.store.load().captures.map(\.state) == [.sent, .rejected])
+    }
+
     @Test("карта оплаты появляется в настройках без счёта")
     func cardNoticed() async throws {
         let harness = try QueueHarness()

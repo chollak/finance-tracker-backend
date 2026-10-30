@@ -10,10 +10,13 @@ struct PaymentRecorder: Sendable {
     let send: @Sendable () async -> Void
     let isConfigured: @Sendable () -> Bool
 
-    /// Throws when the payment could not be written to the phone — the automation must fail loudly then.
+    /// An amount that names no currency takes the card's from the settings, then the automation's «Валюта». Throws
+    /// when the payment could not be written to the phone — the automation must fail loudly then.
     func record(_ input: PaymentInput) async throws -> String {
         cards.noticed(input.card)
-        let capture = try await queue.addPayment(input)
+        var payment = input
+        payment.currency = input.card.flatMap(cards.currency(for:)) ?? input.currency
+        let capture = try await queue.addPayment(payment)
         if capture.state == .pending {
             await send()
         }

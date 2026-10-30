@@ -142,10 +142,17 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
             ForEach($cards) { $row in
-                LabeledContent(row.card) {
-                    TextField("Счёт", text: $row.account)
-                        .multilineTextAlignment(.trailing)
-                        .autocorrectionDisabled()
+                VStack(alignment: .leading, spacing: 8) {
+                    LabeledContent(row.card) {
+                        TextField("Счёт", text: $row.account)
+                            .multilineTextAlignment(.trailing)
+                            .autocorrectionDisabled()
+                    }
+                    Picker("Валюта", selection: $row.currency) {
+                        Text("Как в сумме").tag(PaymentCurrency?.none)
+                        Text("Сум").tag(PaymentCurrency?.some(.uzs))
+                        Text("Доллар").tag(PaymentCurrency?.some(.usd))
+                    }
                 }
             }
             .onDelete { offsets in
@@ -156,7 +163,7 @@ struct SettingsView: View {
             Text("Карты → счета")
         } footer: {
             Text("Имя счёта целиком, как в Kapelka. Пусто или не совпало — оплата ляжет на счёт по умолчанию "
-                + "с пометкой «проверить счёт».")
+                + "с пометкой «проверить счёт». Валюта карты — для суммы, в которой Wallet не пишет код.")
         }
     }
 

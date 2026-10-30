@@ -80,9 +80,10 @@ struct CaptureRow: Identifiable, Equatable {
         )
     }
 
-    /// «Ooo Mazzali Super Food · 28 000,00 UZS».
+    /// «Ooo Mazzali Super Food · 28 000,00 UZS»; without an amount (run by Siri, not Wallet) only the merchant.
     private static func paymentLine(_ payment: Payment) -> String {
-        "\(payment.merchant ?? "Оплата Apple Pay") · \(payment.walletAmount)"
+        let amount = payment.walletAmount.trimmingCharacters(in: .whitespacesAndNewlines)
+        return [payment.merchant ?? "Оплата Apple Pay", amount.isEmpty ? nil : amount].compactMap { $0 }.joined(separator: " · ")
     }
 
     private static func kind(of capture: Capture) -> Kind {
