@@ -106,8 +106,10 @@ export class UpdateTransactionUseCase {
         semanticType,
         needsReview,
       });
-      const { repository, categoryResolver, categoryLessons } = this;
-      await teachCategoryCorrection({ repository, categoryResolver, categoryLessons }, existing, request, categoryResult.data);
+      const { repository, categoryResolver, accountResolver, categoryLessons } = this;
+      await teachCategoryCorrection(
+        { repository, categoryResolver, accountResolver, categoryLessons }, existing, request, categoryResult.data
+      );
 
       logger.info('Transaction updated', { transactionId: id });
       return ResultHelper.success(updatedTransaction);

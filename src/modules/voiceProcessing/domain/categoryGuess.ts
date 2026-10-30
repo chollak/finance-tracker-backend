@@ -12,6 +12,10 @@ import { categoryNameKey } from '../../category/domain/category';
 /** Learned words of the starter categories, by starter key: what users' corrections taught the parser. */
 export interface LearnedCategoryWords {
   learnedCategoryWords(): Promise<ReadonlyMap<string, readonly string[]>>;
+  /** Words one correction taught (FT-184): they give their category, but as a guess. Optional for older sources. */
+  tentativeCategoryWords?(): Promise<ReadonlyMap<string, readonly string[]>>;
+  /** Merchants payment corrections taught, by `merchantKey` → starter key (FT-184). Optional for older sources. */
+  learnedMerchants?(): Promise<ReadonlyMap<string, string>>;
 }
 
 export interface CategoryOfRecord {
@@ -109,18 +113,23 @@ export function categoryNamedIn(text: string, category: CategoryOfRecord, learne
  * The one expense category a label names (FT-143; a payment's merchant, FT-176), or null. The first kind of match that
  * finds anything decides: the user's own name of a category, whole («кофе» is their «Кофе», not the starter «Кафе»);
  * then names and the dictionary by words; then learned words, which every correction of every user adds to, so they
- * never outvote the dictionary. Two categories named by the same kind of match are no answer.
+ * never outvote the dictionary; then words one correction taught (`tentative`, FT-184) — the category they give is a
+ * guess, since no word of the label names it for sure. Two categories named by the same kind of match are no answer.
  */
 export function categoryNamedBy<T extends CategoryOfRecord>(
   label: string,
   categories: readonly T[],
-  learned: ReadonlyMap<string, readonly string[]>
+  learned: ReadonlyMap<string, readonly string[]>,
+  tentative: ReadonlyMap<string, readonly string[]> = new Map()
 ): T | null {
   const expense = categories.filter(category => category.type === 'expense');
+  const byWords = (words: ReadonlyMap<string, readonly string[]>) =>
+    expense.filter(category => categoryNamedIn(label, category, category.presetKey ? words.get(category.presetKey) : undefined));
   const tiers = [
     expense.filter(category => categoryNameKey(category.name) === categoryNameKey(label)),
     expense.filter(category => categoryNamedIn(label, category)),
-    expense.filter(category => categoryNamedIn(label, category, category.presetKey ? learned.get(category.presetKey) : undefined)),
+    byWords(learned),
+    byWords(tentative),
   ];
   const named = tiers.find(tier => tier.length > 0) ?? [];
   return named.length === 1 ? named[0] : null;

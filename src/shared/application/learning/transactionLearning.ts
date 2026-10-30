@@ -1,52 +1,28 @@
-import fs from 'fs/promises';
 import path from 'path';
 import { createLogger, LogCategory } from '../logging';
 import { CATEGORY_PRESETS, presetKeyForLearning } from '../../../modules/category/domain/categoryPresets';
-import { isBareBrand, namingWordsOf, wordsOf } from '../../../modules/voiceProcessing/domain/categoryGuess';
+import { isBareBrand, namingWordsOf } from '../../../modules/voiceProcessing/domain/categoryGuess';
 import { CategoryLesson, CategoryLessons } from '../../../modules/transaction/domain/categoryLessons';
+import { CategoryPattern, LearnedPatterns, LearningData } from './learningTypes';
+import { readLearningFile, writeLearningFile } from './learningFiles';
+import {
+  historyEntryOf,
+  lessonWordsByCategory,
+  merchantCategories,
+  teachesAnything,
+  withLesson,
+  withoutLessonsOf,
+} from './categoryLessonStore';
+
+export { CategoryPattern, LearnedPatterns, LearningData, MerchantPattern } from './learningTypes';
 
 const logger = createLogger(LogCategory.LEARNING);
 
 /** A pattern counts once it has been used this many times: the AI prompt shows it, and it names a category (FT-138). */
 export const MIN_PATTERN_USES = 2;
 
-export interface LearningData {
-  originalText: string;
-  originalParsing: {
-    amount: number;
-    category: string;
-    type: 'income' | 'expense';
-    merchant?: string;
-  };
-  userCorrection: {
-    amount?: number;
-    category?: string;
-    type?: 'income' | 'expense';
-    merchant?: string;
-  };
-  userId: string;
-  timestamp: string;
-  confidence: number;
-  /** The record a category correction came from (FT-184): taking the correction back finds it by the record. */
-  recordId?: string;
-  /** Words this correction added to its category pattern (FT-184): what taking the correction back removes. */
-  learnedKeywords?: string[];
-}
-
-export interface CategoryPattern {
-  keywords: string[];
-  /** Starter category key (FT-099); files written before it hold old static ids, mapped on load. */
-  category: string;
-  confidence: number;
-  usageCount: number;
-}
-
-export interface MerchantPattern {
-  aliases: string[];
-  normalizedName: string;
-  category?: string;
-  usageCount: number;
-}
+/** The history keeps the latest corrections only. */
+const HISTORY_LIMIT = 1000;
 
 export class TransactionLearningService implements CategoryLessons {
   private learningDataPath: string;
@@ -74,115 +50,91 @@ export class TransactionLearningService implements CategoryLessons {
     userId: string,
     confidence: number
   ): Promise<void> {
-    await this.storeCorrection({
-      originalText: originalText.toLowerCase(),
-      originalParsing,
-      userCorrection,
-      userId,
-      timestamp: new Date().toISOString(),
-      confidence
-    });
+    return this.oneAtATime(() => this.storeCorrection(originalText, originalParsing, userCorrection, userId, confidence));
   }
 
-  /** A record corrected into a starter category (FT-184): its words now point at it. */
-  async learnCategory(lesson: CategoryLesson): Promise<void> {
-    await this.storeCorrection({
-      originalText: lesson.words.toLowerCase(),
-      originalParsing: lesson.originalParsing,
-      userCorrection: { category: lesson.presetKey },
-      userId: lesson.userId,
-      timestamp: new Date().toISOString(),
-      confidence: lesson.originalParsing.confidence ?? 0.8,
-      recordId: lesson.recordId,
-    });
-  }
+  private async storeCorrection(
+    originalText: string,
+    originalParsing: any,
+    userCorrection: any,
+    userId: string,
+    confidence: number
+  ): Promise<void> {
+    try {
+      const learningEntry: LearningData = {
+        originalText: originalText.toLowerCase(),
+        originalParsing,
+        userCorrection,
+        userId,
+        timestamp: new Date().toISOString(),
+        confidence
+      };
 
-  private storeCorrection(learningEntry: LearningData): Promise<void> {
-    return this.oneAtATime(async () => {
-      try {
-        const learnedKeywords = await this.updatePatterns(learningEntry);
+      // Load existing learning data
+      const existingData = await this.loadLearningData(true);
+      existingData.push(learningEntry);
 
-        // Load existing learning data
-        const existingData = await this.loadLearningData();
-        existingData.push(learnedKeywords.length > 0 ? { ...learningEntry, learnedKeywords } : learningEntry);
-
-        // Keep only last 1000 entries to prevent file from growing too large
-        if (existingData.length > 1000) {
-          existingData.splice(0, existingData.length - 1000);
-        }
-
-        await this.saveLearningData(existingData);
-
-        logger.info('Learning data recorded successfully', {
-          text: learningEntry.originalText.substring(0, 50),
-          correction: learningEntry.userCorrection,
-          userId: learningEntry.userId.substring(0, 8),
-          confidence: learningEntry.confidence,
-          dataFile: this.learningDataPath,
-          totalEntries: existingData.length
-        });
-      } catch (error) {
-        logger.error('Failed to record learning data', error as Error, {
-          dataPath: this.learningDataPath,
-          patternsPath: this.patternsPath,
-          originalText: learningEntry.originalText.substring(0, 50),
-          userId: learningEntry.userId.substring(0, 8)
-        });
+      // Keep only last 1000 entries to prevent file from growing too large
+      if (existingData.length > HISTORY_LIMIT) {
+        existingData.splice(0, existingData.length - HISTORY_LIMIT);
       }
-    });
+
+      await this.saveLearningData(existingData);
+      await this.updatePatterns(learningEntry);
+
+      logger.info('Learning data recorded successfully', {
+        text: originalText.substring(0, 50),
+        correction: userCorrection,
+        userId: userId.substring(0, 8),
+        confidence: confidence,
+        dataFile: this.learningDataPath,
+        totalEntries: existingData.length
+      });
+    } catch (error) {
+      logger.error('Failed to record learning data', error as Error, {
+        dataPath: this.learningDataPath,
+        patternsPath: this.patternsPath,
+        originalText: originalText.substring(0, 50),
+        userId: userId.substring(0, 8)
+      });
+    }
   }
 
   /**
-   * A record left the category it was corrected into (FT-184): «Отменить» in the Mini App, or a second correction.
-   * The record's last correction into the category leaves the history, and so do the words it added to the pattern —
-   * unless another correction of that category has them too, which then holds them. The seed's words stay, and a record
-   * whose correction nobody recorded (an edit made before FT-184) takes nothing back.
+   * A record corrected into a starter category (FT-184): a phrase's words are counted, a payment's merchant is tied to
+   * it. A lesson with nothing to teach changes nothing.
    */
-  unlearnCategory(lesson: CategoryLesson): Promise<void> {
-    return this.oneAtATime(() => this.takeBack(lesson));
+  learnCategory(lesson: CategoryLesson): Promise<void> {
+    if (!teachesAnything(lesson)) return Promise.resolve();
+    return this.oneAtATime(async () => {
+      try {
+        const patterns = withLesson(await this.loadPatterns(true), lesson);
+        const history = [...(await this.loadLearningData(true)), historyEntryOf(lesson, new Date().toISOString())]
+          .slice(-HISTORY_LIMIT);
+        await this.savePatterns(patterns);
+        await this.saveLearningData(history);
+        logger.info('Category lesson learned', {
+          kind: lesson.kind, category: lesson.presetKey, userId: lesson.userId.substring(0, 8),
+        });
+      } catch (error) {
+        logger.error('Failed to learn a category lesson', error as Error, { category: lesson.presetKey });
+      }
+    });
   }
 
-  private async takeBack(lesson: CategoryLesson): Promise<void> {
-    try {
-      const history = await this.loadLearningData();
-      const isTheLesson = (entry: LearningData) =>
-        entry.recordId === lesson.recordId && entry.userCorrection.category === lesson.presetKey;
-      const index = history.map(isTheLesson).lastIndexOf(true);
-      if (index === -1) return;
-
-      const taken = history[index];
-      let rest = history.filter((_, position) => position !== index);
-      const dropped: string[] = [];
-      for (const word of taken.learnedKeywords ?? []) {
-        const heir = rest.findIndex(entry =>
-          entry.userCorrection.category === lesson.presetKey && lessonWords(entry.originalText).includes(word));
-        if (heir === -1) {
-          dropped.push(word);
-          continue;
-        }
-        rest = rest.map((entry, position) => position === heir
-          ? { ...entry, learnedKeywords: [...(entry.learnedKeywords ?? []), word] }
-          : entry);
+  /** A record left the category it was corrected into (FT-184): every lesson it taught is taken back. */
+  unlearnRecord(recordId: string): Promise<void> {
+    return this.oneAtATime(async () => {
+      try {
+        const left = withoutLessonsOf(recordId, await this.loadPatterns(true), await this.loadLearningData(true));
+        if (left.taken === 0) return;
+        await this.savePatterns(left.patterns);
+        await this.saveLearningData(left.history);
+        logger.info('Category lessons taken back', { recordId, lessons: left.taken });
+      } catch (error) {
+        logger.error('Failed to take category lessons back', error as Error, { recordId });
       }
-
-      const patterns = await this.loadPatterns();
-      const categories = patterns.categories
-        .map(pattern => pattern.category === lesson.presetKey
-          ? {
-            ...pattern,
-            keywords: pattern.keywords.filter(keyword => !dropped.includes(keyword)),
-            usageCount: Math.max(0, pattern.usageCount - 1),
-            confidence: Math.max(0.5, pattern.confidence - 0.1),
-          }
-          : pattern)
-        .filter(pattern => pattern.keywords.length > 0 || pattern.usageCount > 0);
-
-      await this.saveLearningData(rest);
-      await this.savePatterns({ ...patterns, categories });
-      logger.info('Learning taken back', { category: lesson.presetKey, dropped, userId: lesson.userId.substring(0, 8) });
-    } catch (error) {
-      logger.error('Failed to take learning back', error as Error, { category: lesson.presetKey });
-    }
+    });
   }
 
   /**
@@ -193,7 +145,9 @@ export class TransactionLearningService implements CategoryLessons {
     try {
       const patterns = await this.loadPatterns();
       
-      if (!patterns.categories.length && !patterns.merchants.length) {
+      // Words of corrections only once they give their category for sure (FT-184)
+      const lessonWords = lessonWordsByCategory(patterns.words ?? [], true);
+      if (!patterns.categories.length && !patterns.merchants.length && lessonWords.size === 0) {
         return basePrompt;
       }
 
@@ -209,7 +163,7 @@ export class TransactionLearningService implements CategoryLessons {
       let enhancement = '\n\nИЗУЧЕННЫЕ ПАТТЕРНЫ (используй для точной категоризации):\n';
 
       // Add learned category patterns
-      if (patterns.categories.length > 0) {
+      if (patterns.categories.length > 0 || lessonWords.size > 0) {
         enhancement += '\nКАТЕГОРИИ:\n';
         patterns.categories
           .filter(p => p.usageCount >= MIN_PATTERN_USES)
@@ -220,6 +174,10 @@ export class TransactionLearningService implements CategoryLessons {
             const keywords = shown(pattern.keywords);
             if (name && keywords.length > 0) enhancement += `• "${keywords.join('", "')}" → ${name}\n`;
           });
+        lessonWords.forEach((words, key) => {
+          const name = categoryName(key);
+          if (name) enhancement += `• "${words.join('", "')}" → ${name}\n`;
+        });
       }
 
       // Add learned merchant patterns
@@ -249,11 +207,12 @@ export class TransactionLearningService implements CategoryLessons {
   /**
    * Learned words that name a starter category, by its key (FT-138): from the patterns the AI prompt shows,
    * the aliases of merchants with a category and those keywords of category patterns that point at it —
-   * not «купил», «деньги» or a word two categories share (`namingWordsOf`).
+   * not «купил», «деньги» or a word two categories share (`namingWordsOf`); and the words corrections taught it at
+   * least twice (FT-184, `MIN_WORD_LESSONS`).
    */
   async learnedCategoryWords(): Promise<Map<string, string[]>> {
     const patterns = await this.loadPatterns();
-    return namingWordsOf({
+    const named = namingWordsOf({
       categories: patterns.categories
         .filter(pattern => pattern.usageCount >= MIN_PATTERN_USES)
         .map(pattern => ({ key: pattern.category, keywords: pattern.keywords })),
@@ -261,18 +220,33 @@ export class TransactionLearningService implements CategoryLessons {
         .filter(merchant => merchant.usageCount >= MIN_PATTERN_USES && merchant.category)
         .map(merchant => ({ key: merchant.category!, aliases: merchant.aliases })),
     });
+    for (const [key, words] of lessonWordsByCategory(patterns.words ?? [], true)) {
+      named.set(key, [...new Set([...(named.get(key) ?? []), ...words])]);
+    }
+    return named;
   }
 
-  /** Applies a correction to the patterns; returns the words it added to its category pattern. */
-  private async updatePatterns(learningEntry: LearningData): Promise<string[]> {
-    const patterns = await this.loadPatterns();
-    const learnedKeywords: string[] = [];
+  /** Words one correction taught a starter category (FT-184): they give it as a guess, «Продукты?». */
+  async tentativeCategoryWords(): Promise<Map<string, string[]>> {
+    return lessonWordsByCategory((await this.loadPatterns()).words ?? [], false);
+  }
+
+  /** Merchants corrections tied to a starter category, by `merchantKey` (FT-184): a payment there needs no AI. */
+  async learnedMerchants(): Promise<Map<string, string>> {
+    return merchantCategories((await this.loadPatterns()).merchants);
+  }
+
+  private async updatePatterns(learningEntry: LearningData): Promise<void> {
+    const patterns = await this.loadPatterns(true);
     
     // Update category patterns
     if (learningEntry.userCorrection.category && 
         learningEntry.userCorrection.category !== learningEntry.originalParsing.category) {
       
-      const words = lessonWords(learningEntry.originalText);
+      const words = learningEntry.originalText
+        .toLowerCase()
+        .split(/\s+/)
+        .filter(word => word.length > 2);
       
       const correctedCategory = learningEntry.userCorrection.category;
       
@@ -292,7 +266,6 @@ export class TransactionLearningService implements CategoryLessons {
       words.forEach(word => {
         if (!categoryPattern!.keywords.includes(word)) {
           categoryPattern!.keywords.push(word);
-          learnedKeywords.push(word);
         }
       });
       
@@ -331,7 +304,6 @@ export class TransactionLearningService implements CategoryLessons {
     }
     
     await this.savePatterns(patterns);
-    return learnedKeywords;
   }
 
   private oneAtATime<T>(change: () => Promise<T>): Promise<T> {
@@ -340,84 +312,36 @@ export class TransactionLearningService implements CategoryLessons {
     return next;
   }
 
-  private async loadLearningData(): Promise<LearningData[]> {
-    try {
-      const data = await fs.readFile(this.learningDataPath, 'utf-8');
-      return migrateLearningData(JSON.parse(data));
-    } catch (error) {
-      return this.loadSeedLearningData();
-    }
-  }
-
-  private async loadSeedLearningData(): Promise<LearningData[]> {
-    try {
-      const data = await fs.readFile(this.learningDataSeedPath, 'utf-8');
-      return migrateLearningData(JSON.parse(data));
-    } catch (error) {
-      return [];
-    }
+  /** `forChange`: the read is followed by a write, so a broken file is kept beside it first. */
+  private async loadLearningData(forChange = false): Promise<LearningData[]> {
+    const data = await readLearningFile(this.learningDataPath, forChange);
+    if (data !== undefined) return migrateLearningData(data as LearningData[]);
+    const seed = await readLearningFile(this.learningDataSeedPath);
+    return seed !== undefined ? migrateLearningData(seed as LearningData[]) : [];
   }
 
   private async saveLearningData(data: LearningData[]): Promise<void> {
     try {
-      const dir = path.dirname(this.learningDataPath);
-      await fs.mkdir(dir, { recursive: true });
-      await writeWhole(this.learningDataPath, JSON.stringify(data, null, 2));
+      await writeLearningFile(this.learningDataPath, data);
     } catch (error) {
       logger.error('Failed to save learning data', error as Error);
     }
   }
 
-  private async loadPatterns(): Promise<LearnedPatterns> {
-    try {
-      const data = await fs.readFile(this.patternsPath, 'utf-8');
-      return migratePatterns(JSON.parse(data));
-    } catch (error) {
-      return this.loadSeedPatterns();
-    }
+  private async loadPatterns(forChange = false): Promise<LearnedPatterns> {
+    const data = await readLearningFile(this.patternsPath, forChange);
+    if (data !== undefined) return migratePatterns(data as LearnedPatterns);
+    const seed = await readLearningFile(this.patternsSeedPath);
+    return seed !== undefined ? migratePatterns(seed as LearnedPatterns) : { categories: [], merchants: [] };
   }
 
-  private async loadSeedPatterns(): Promise<LearnedPatterns> {
+  private async savePatterns(patterns: LearnedPatterns): Promise<void> {
     try {
-      const data = await fs.readFile(this.patternsSeedPath, 'utf-8');
-      return migratePatterns(JSON.parse(data));
-    } catch (error) {
-      return { categories: [], merchants: [] };
-    }
-  }
-
-  private async savePatterns(patterns: {categories: CategoryPattern[], merchants: MerchantPattern[]}): Promise<void> {
-    try {
-      const dir = path.dirname(this.patternsPath);
-      await fs.mkdir(dir, { recursive: true });
-      await writeWhole(this.patternsPath, JSON.stringify(patterns, null, 2));
+      await writeLearningFile(this.patternsPath, patterns);
     } catch (error) {
       logger.error('Failed to save patterns', error as Error);
     }
   }
-}
-
-/**
- * The words a correction teaches its category: every word of its text longer than two letters, without punctuation
- * and without numbers — an amount («50000», «25к») names no category.
- */
-function lessonWords(text: string): string[] {
-  return wordsOf(text).filter(word => word.length > 2 && !/\p{N}/u.test(word));
-}
-
-/**
- * Replaces a file in one step (FT-184): written beside it and renamed over it, so a reader never gets half a file —
- * which `loadPatterns` would take for no file and fall back to the seed.
- */
-async function writeWhole(file: string, content: string): Promise<void> {
-  const temporary = `${file}.${process.pid}.tmp`;
-  await fs.writeFile(temporary, content);
-  await fs.rename(temporary, file);
-}
-
-export interface LearnedPatterns {
-  categories: CategoryPattern[];
-  merchants: MerchantPattern[];
 }
 
 /**
@@ -445,6 +369,7 @@ export function migratePatterns(patterns: LearnedPatterns): LearnedPatterns {
       ...merchant,
       category: merchant.category ? presetKeyForLearning(merchant.category) : merchant.category,
     })),
+    words: patterns.words ?? [],
   };
 }
 

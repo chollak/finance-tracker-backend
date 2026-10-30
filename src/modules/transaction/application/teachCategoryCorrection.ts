@@ -1,8 +1,11 @@
 import { Transaction } from '../domain/transactionEntity';
 import { TransactionRepository } from '../domain/transactionRepository';
 import { CategoryResolver, ResolvedCategory } from '../domain/categoryResolver';
-import { CategoryLessons } from '../domain/categoryLessons';
+import { AccountResolver } from '../domain/accountResolver';
+import { CategoryLesson, CategoryLessons } from '../domain/categoryLessons';
+import { APPLE_PAY_SOURCE } from '../domain/recordSource';
 import { recordWordsOf } from '../../voiceProcessing/domain/categoryGuess';
+import { lessonWordsOf, merchantKey } from '../../voiceProcessing/domain/lessonWords';
 import { getLogger, LogCategory } from '../../../shared/application/logging';
 
 const logger = getLogger(LogCategory.LEARNING);
@@ -10,19 +13,23 @@ const logger = getLogger(LogCategory.LEARNING);
 export interface CategoryCorrectionDeps {
   repository: TransactionRepository;
   categoryResolver?: CategoryResolver;
+  accountResolver?: AccountResolver;
   categoryLessons?: CategoryLessons;
 }
 
+/** What a record can teach, without the record and category it is taught for. */
+type Teaching = { kind: 'merchant'; merchant: string } | { kind: 'words'; words: string[] };
+
 /**
  * What a category correction teaches the parser (FT-184). Clients change a category with the new one alone — the Mini
- * App's `PUT { categoryId }`, the bot's «Изменить» — so the lesson is read from the stored record: the words it was made
- * from (the phrase, a payment's merchant) and the category the parse gave it.
+ * App's `PUT { categoryId }`, the bot's «Изменить» — so the lesson is read from the stored record: a card payment's
+ * merchant, a phrase's own words, and the category the parse gave it.
  *
- * A record teaches at most one lesson: the category it ends in, when that is not the parse's. A correction takes back
- * what the record taught the category it leaves and teaches the new one; a move back to the parse's category
- * («Отменить» in the Mini App) only takes back. Only starter categories learn — the patterns are shared by every user
- * and keyed by starter key — so the user's own category teaches nothing, and neither does a record made by hand,
- * without a phrase, or a category that only followed a change of type. Learning never fails the edit.
+ * A record teaches at most one lesson: the category it ends in, when that is not the parse's. Every change of its
+ * category first takes back what it taught, then teaches the new one; back to the parse's category («Отменить» in the
+ * Mini App) it only takes back. Only starter categories learn — the patterns are shared by every user and keyed by
+ * starter key — so the user's own category teaches nothing, and neither does a record made by hand, without a phrase,
+ * or a category that only followed a change of type. Learning never fails the edit.
  */
 export async function teachCategoryCorrection(
   deps: CategoryCorrectionDeps,
@@ -32,26 +39,41 @@ export async function teachCategoryCorrection(
 ): Promise<void> {
   const { categoryResolver, categoryLessons } = deps;
   const categoryNamed = request.categoryId !== undefined || request.category !== undefined;
-  const text = before.originalText?.trim();
-  const parsing = before.originalParsing;
   const recordId = before.id;
-  if (!categoryResolver || !categoryLessons || !categoryNamed || !to || to.id === before.categoryId || !text || !parsing || !recordId) {
-    return;
-  }
+  if (!categoryResolver || !categoryLessons || !categoryNamed || !to || to.id === before.categoryId || !recordId) return;
 
   try {
-    const words = await ownWords(deps.repository, before, text);
-    if (!words) return;
-    const parsedId = await parsedCategoryId(categoryResolver, before, parsing);
-    if (!parsedId) return;
-    const from = before.categoryId ? await categoryResolver.findForUser(before.userId, before.categoryId) : null;
+    // The record left the category it may have been corrected into, wherever it goes now
+    await categoryLessons.unlearnRecord(recordId);
 
-    const lesson = (presetKey: string) => ({ recordId, userId: before.userId, words, presetKey, originalParsing: parsing });
-    if (from?.presetKey && from.id !== parsedId) await categoryLessons.unlearnCategory(lesson(from.presetKey));
-    if (to.presetKey && to.id !== parsedId) await categoryLessons.learnCategory(lesson(to.presetKey));
+    const parsing = before.originalParsing;
+    if (!to.presetKey || !parsing) return;
+    const parsedId = await parsedCategoryId(categoryResolver, before, parsing);
+    if (!parsedId || to.id === parsedId) return;
+    const teaching = await teachingOf(deps, before);
+    if (!teaching) return;
+
+    const lesson: CategoryLesson = { ...teaching, recordId, userId: before.userId, presetKey: to.presetKey, originalParsing: parsing };
+    await categoryLessons.learnCategory(lesson);
   } catch (error) {
     logger.error('Failed to learn from a category correction', error as Error, { transactionId: before.id });
   }
+}
+
+/**
+ * A card payment teaches its whole merchant — not a payment without one, whose text («Оплата Apple Pay») is the
+ * server's; a phrase teaches the words of it that can name a category. A record made by hand teaches nothing.
+ */
+async function teachingOf(deps: CategoryCorrectionDeps, record: Transaction): Promise<Teaching | null> {
+  if (record.source === APPLE_PAY_SOURCE) {
+    const merchant = record.merchant ? merchantKey(record.merchant) : '';
+    return merchant ? { kind: 'merchant', merchant } : null;
+  }
+  const text = record.originalText?.trim();
+  if (!text) return null;
+  const accountNames = deps.accountResolver ? await deps.accountResolver.accountNames(record.userId) : [];
+  const words = lessonWordsOf(await ownWords(deps.repository, record, text), accountNames);
+  return words.length > 0 ? { kind: 'words', words } : null;
 }
 
 /**

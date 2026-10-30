@@ -14,6 +14,7 @@ import { CreateCategoryUseCase, UpdateCategoryUseCase } from '../src/modules/cat
 import { SqliteCategoryRepository } from '../src/modules/category/infrastructure/SqliteCategoryRepository';
 import { TransactionLearningService } from '../src/shared/application/learning/transactionLearning';
 import { UserModule } from '../src/modules/user/userModule';
+import { AccountModule } from '../src/modules/account/accountModule';
 import { openMigratedDatabase, TestDatabase } from './helpers/testDatabase';
 import { recordsOn } from './helpers/records';
 import { listenOnLoopback, LoopbackServer } from './helpers/testServer';
@@ -21,7 +22,9 @@ import { listenOnLoopback, LoopbackServer } from './helpers/testServer';
 /**
  * FT-184: the Mini App changes a record's category with `PUT /api/transactions/:id { categoryId }` alone. The server
  * takes what the record was made from — the phrase, a payment's merchant — from the stored record, so the correction
- * teaches the parser: the next record there gets the category by the learned words, without the AI.
+ * teaches the parser. A payment teaches its whole merchant: the next payment there needs no AI. A phrase teaches the
+ * words of it that can name a category, counted per word: after one lesson the word gives its category as a guess,
+ * from two for sure.
  */
 const TELEGRAM_ID = '131184740';
 const USER = 'owner-uuid-ft184';
@@ -106,45 +109,84 @@ describe('a category correction teaches (FT-184)', () => {
 
   const learnedFor = async (key: string) => (await learning.learnedCategoryWords()).get(key) ?? [];
 
-  /** Every keyword of a category pattern, counted or not: what the AI prompt is shown once the pattern counts. */
-  const keywordsOf = (key: string): string[] => {
+  /** The words corrections counted for a category, with their counts. */
+  const lessonsOf = (key: string): Record<string, number> => {
     const file = path.join(dir, 'data', 'patterns.json');
-    if (!fs.existsSync(file)) return [];
-    const patterns = JSON.parse(fs.readFileSync(file, 'utf-8'));
-    return patterns.categories.find((pattern: { category: string }) => pattern.category === key)?.keywords ?? [];
+    if (!fs.existsSync(file)) return {};
+    const words: Array<{ word: string; category: string; uses: number }> = JSON.parse(fs.readFileSync(file, 'utf-8')).words ?? [];
+    return Object.fromEntries(words.filter(entry => entry.category === key).map(entry => [entry.word, entry.uses]));
   };
+  const merchantCategory = async (key: string) => (await learning.learnedMerchants()).get(key);
+  const guess = (record: { assumptions?: Array<{ kind: string }> }) => record.assumptions?.find(assumption => assumption.kind === 'category');
 
   const changeCategory = async (name: string, body: Record<string, unknown>) =>
     new UpdateCategoryUseCase(records.catalog, new SqliteCategoryRepository(db.dataSource))
       .execute({ userId: USER, categoryId: await categoryId(name), body });
 
   it('a phrase record corrected with PUT { categoryId } teaches its words: the next phrase there needs no AI', async () => {
-    // A pattern counts from its second use (MIN_PATTERN_USES)
+    // Two records written before either is corrected: a word gives its category for sure from its second lesson
+    const written = [];
     for (const amount of [50_000, 70_000]) {
       aiReads({ category: 'Покупки', amount, description: 'ZZQX' });
-      const [record] = await say(`zzqx ${amount}`);
-      await moveTo(record.id, 'Продукты');
+      written.push((await say(`zzqx ${amount}`))[0]);
     }
+    for (const record of written) await moveTo(record.id, 'Продукты');
 
     expect(await learnedFor('groceries')).toContain('zzqx');
     openAI.analyzeInput.mockClear();
     const [next] = await say('zzqx 30000');
     expect(next.category).toBe('Продукты');
+    expect(guess(next)).toBeUndefined();
     expect(openAI.analyzeInput).not.toHaveBeenCalled();
   });
 
+  it('after one correction the next phrase there gets the category as a guess, «Продукты?», without the AI', async () => {
+    aiReads({ category: 'Покупки', amount: 50_000, description: 'ZZQX' });
+    await moveTo((await say('zzqx 50000'))[0].id, 'Продукты');
+
+    openAI.analyzeInput.mockClear();
+    const [next] = await say('zzqx 30000');
+
+    expect(next.category).toBe('Продукты');
+    expect(guess(next)).toEqual({ kind: 'category', name: 'Продукты' });
+    expect(openAI.analyzeInput).not.toHaveBeenCalled();
+  });
+
+  it('a phrase teaches no way to pay, city, number or account name: «kkwq paynet uzcard tashkent капитал 50000»', async () => {
+    await new AccountModule(records.accountRepository, undefined, records.moveRepository).getCreateAccountUseCase().execute({
+      userId: USER, body: { name: 'Капитал', kind: 'card', currency: 'UZS', openingDate: '2026-10-01' },
+    });
+    aiReads({ category: 'Покупки', amount: 50_000, description: 'KKWQ' });
+
+    await moveTo((await say('kkwq paynet uzcard tashkent капитал 50000'))[0].id, 'Кафе');
+
+    expect(lessonsOf('cafe')).toEqual({ kkwq: 1 });
+  });
+
   it('two Apple Pay payments «ZZQX 77/78» corrected to «Продукты»: the third «ZZQX» payment is «Продукты» without the AI', async () => {
-    for (const merchant of ['ZZQX 77', 'ZZQX 78']) {
-      const payment = await pay(merchant);
-      expect(payment.category).toBe('Покупки');
-      await moveTo(payment.id, 'Продукты');
-    }
+    const paid = [await pay('ZZQX 77'), await pay('ZZQX 78')];
+    expect(paid.map(payment => payment.category)).toEqual(['Покупки', 'Покупки']);
+    for (const payment of paid) await moveTo(payment.id, 'Продукты');
 
     openAI.categoryOfMerchant.mockClear();
     const third = await pay('ZZQX 79');
     expect(third.category).toBe('Продукты');
     expect(third.assumptions).not.toContainEqual(expect.objectContaining({ kind: 'category' }));
     expect(openAI.categoryOfMerchant).not.toHaveBeenCalled();
+  });
+
+  it('one correction of «KKWQ PAYNET UZCARD» to «Кафе»: the same merchant needs no AI, «PAYNET MOBILE» still asks it', async () => {
+    await moveTo((await pay('KKWQ PAYNET UZCARD')).id, 'Кафе');
+    openAI.categoryOfMerchant.mockClear();
+
+    const same = await pay('KKWQ PAYNET UZCARD');
+    const other = await pay('PAYNET MOBILE');
+
+    expect(same.category).toBe('Кафе');
+    expect(guess(same)).toBeUndefined();
+    expect(other.category).toBe('Покупки');
+    expect(guess(other)).toEqual({ kind: 'category', name: 'Покупки' });
+    expect(openAI.categoryOfMerchant.mock.calls.map(([merchant]) => merchant)).toEqual(['PAYNET MOBILE']);
   });
 
   it('a record made by hand, without a phrase, is changed and teaches nothing', async () => {
@@ -166,6 +208,19 @@ describe('a category correction teaches (FT-184)', () => {
     expect(fs.existsSync(path.join(dir, 'data', 'patterns.json'))).toBe(false);
   });
 
+  it('a payment written before, with «Оплата Apple Pay» as its text and no merchant, teaches nothing', async () => {
+    const created = await records.create.execute({
+      userId: USER, amount: 25_000, category: 'Покупки', type: 'expense', description: 'Оплата Apple Pay', date: '2026-10-30',
+      source: 'apple_pay', originalText: 'Оплата Apple Pay',
+      originalParsing: { amount: 25_000, category: 'Покупки', type: 'expense' },
+    });
+    if (!created.success) throw created.error;
+
+    await moveTo(created.data, 'Продукты');
+
+    expect(fs.existsSync(path.join(dir, 'data', 'patterns.json'))).toBe(false);
+  });
+
   it('a correction into the user’s own category teaches nothing: learned words name starter categories only', async () => {
     const own = await new CreateCategoryUseCase(records.catalog, new SqliteCategoryRepository(db.dataSource))
       .execute({ userId: USER, body: { type: 'expense', name: 'Хобби', color: 'peach' } });
@@ -182,11 +237,10 @@ describe('a category correction teaches (FT-184)', () => {
   it('«Отменить» after a correction — back to the category the record was given — takes the lesson back', async () => {
     const paid = [await pay('ZZQX 77'), await pay('ZZQX 78')];
     for (const record of paid) await moveTo(record.id, 'Продукты');
-    expect(await learnedFor('groceries')).toContain('zzqx');
+    expect(await merchantCategory('zzqx')).toBe('groceries');
     for (const record of paid) await moveTo(record.id, 'Покупки');
 
-    expect(keywordsOf('groceries')).not.toContain('zzqx');
-    expect(keywordsOf('shopping')).not.toContain('zzqx');
+    expect(await merchantCategory('zzqx')).toBeUndefined();
     openAI.categoryOfMerchant.mockClear();
     await pay('ZZQX 79');
     expect(openAI.categoryOfMerchant).toHaveBeenCalledTimes(1);
@@ -199,8 +253,19 @@ describe('a category correction teaches (FT-184)', () => {
       await moveTo(payment.id, 'Кафе');
     }
 
-    expect(await learnedFor('cafe')).toContain('zzqx');
-    expect(keywordsOf('groceries')).not.toContain('zzqx');
+    expect(await merchantCategory('zzqx')).toBe('cafe');
+  });
+
+  it('a record moved on into the user’s own category takes its lesson back', async () => {
+    const own = await new CreateCategoryUseCase(records.catalog, new SqliteCategoryRepository(db.dataSource))
+      .execute({ userId: USER, body: { type: 'expense', name: 'Хобби', color: 'peach' } });
+    expect(own.success).toBe(true);
+    const payment = await pay('ZZQX 77');
+
+    await moveTo(payment.id, 'Продукты');
+    await moveTo(payment.id, 'Хобби');
+
+    expect(await merchantCategory('zzqx')).toBeUndefined();
   });
 
   it('«Отменить» back to a starter renamed since the record was written only takes the lesson back', async () => {
@@ -209,11 +274,11 @@ describe('a category correction teaches (FT-184)', () => {
     expect((await changeCategory('Дом', { name: 'Квартира' })).success).toBe(true);
 
     await moveTo(record.id, 'Покупки');
-    expect(keywordsOf('shopping')).toContain('zzqx');
+    expect(lessonsOf('shopping')).toEqual({ zzqx: 1 });
     await moveTo(record.id, 'Квартира');
 
-    expect(keywordsOf('shopping')).not.toContain('zzqx');
-    expect(keywordsOf('home')).not.toContain('zzqx');
+    expect(lessonsOf('shopping')).toEqual({});
+    expect(lessonsOf('home')).toEqual({});
   });
 
   it('«Отменить» back to «Другое» of a record the AI named a hidden starter for teaches «Другое» nothing', async () => {
@@ -225,8 +290,8 @@ describe('a category correction teaches (FT-184)', () => {
     await moveTo(record.id, 'Покупки');
     await moveTo(record.id, 'Другое');
 
-    expect(keywordsOf('other')).not.toContain('zzqx');
-    expect(keywordsOf('shopping')).not.toContain('zzqx');
+    expect(lessonsOf('other')).toEqual({});
+    expect(lessonsOf('shopping')).toEqual({});
   });
 
   it('an edit of the amount, the day or the note of a phrase record teaches nothing', async () => {
@@ -251,7 +316,7 @@ describe('a category correction teaches (FT-184)', () => {
 
     await moveTo(record.id, 'Продукты');
 
-    expect(keywordsOf('groceries')).toEqual(['zzqx']);
+    expect(lessonsOf('groceries')).toEqual({ zzqx: 1 });
   });
 
   it('in a phrase of several records a correction teaches only the corrected record’s words', async () => {
@@ -264,7 +329,6 @@ describe('a category correction teaches (FT-184)', () => {
       await moveTo(zzqx.id, 'Продукты');
     }
 
-    expect(await learnedFor('groceries')).toContain('zzqx');
-    expect(await learnedFor('groceries')).not.toContain('wwpt');
+    expect(lessonsOf('groceries')).toEqual({ zzqx: 2 });
   });
 });

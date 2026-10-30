@@ -8,7 +8,8 @@ import { fromMinor } from '../../../shared/domain/money/money';
 import { errorFields, getLogger, LogCategory } from '../../../shared/application/logging';
 import { TranscriptionService } from '../domain/transcriptionService';
 import { UserCategorySource } from '../domain/categoryPrompt';
-import { categoryNamedBy, categoryNamedIn, LearnedCategoryWords } from '../domain/categoryGuess';
+import { categoryNamedBy, categoryNamedIn, CategoryOfRecord, LearnedCategoryWords } from '../domain/categoryGuess';
+import { merchantKey } from '../domain/lessonWords';
 import { CaptureAssumption, DetectedTransaction } from '../domain/processedTransaction';
 import { analysisContextFor, learnedWordsFor, recordCategoriesFor } from './processTextInput';
 
@@ -32,13 +33,17 @@ export interface RecordPaymentInput {
   date: string;
 }
 
-/** How the category was chosen: by the merchant's words, by the AI, or «Другое» because neither could. */
-type CategoryChoice = { name: string; chosenBy: 'words' | 'ai' | 'fallback' };
+/**
+ * How the category was chosen: by a correction of a payment at this very merchant (FT-184), by the merchant's words,
+ * by the AI, or «Другое» because none could.
+ */
+type CategoryChoice = { name: string; chosenBy: 'merchant' | 'words' | 'ai' | 'fallback' };
 
 /**
  * Writes a card payment the iOS app sent ready (FT-176): the amount, currency and day as they came, never parsed like
- * a phrase. The category is the one the merchant names — the user's category name, the dictionary, learned words — else
- * the AI's choice of the category alone, else «Другое»; either of the last two is a guess («?»). The account is the
+ * a phrase. The category is the one a correction tied to exactly this merchant (FT-184), else the one the merchant
+ * names — the user's category name, the dictionary, learned words — else the AI's choice of the category alone, else
+ * «Другое»; either of the last two is a guess («?»). The account is the
  * one of exactly the card's account name — the phone's names are typed by hand; any other awaits review.
  */
 export class RecordPaymentUseCase {
@@ -118,7 +123,10 @@ export class RecordPaymentUseCase {
     learned: ReadonlyMap<string, readonly string[]>
   ): Promise<CategoryChoice> {
     if (!merchant) return { name: OTHER, chosenBy: 'fallback' };
-    const named = categoryNamedBy(merchant, await recordCategoriesFor(this.categorySource, userId), learned);
+    const categories = await recordCategoriesFor(this.categorySource, userId);
+    const corrected = await this.correctedCategoryOf(merchant, categories);
+    if (corrected) return { name: corrected.name, chosenBy: 'merchant' };
+    const named = categoryNamedBy(merchant, categories, learned);
     if (named) return { name: named.name, chosenBy: 'words' };
     try {
       const name = await this.openAIService.categoryOfMerchant(merchant, await analysisContextFor(this.categorySource, userId));
@@ -126,6 +134,18 @@ export class RecordPaymentUseCase {
     } catch (error) {
       logger.warn('The AI could not choose the category of a payment; it goes to «Другое»', errorFields(error));
       return { name: OTHER, chosenBy: 'fallback' };
+    }
+  }
+
+  /** The visible starter category a correction tied this merchant to, matched whole (`merchantKey`, FT-184). */
+  private async correctedCategoryOf(merchant: string, categories: readonly CategoryOfRecord[]): Promise<CategoryOfRecord | null> {
+    try {
+      const presetKey = (await this.learnedWords?.learnedMerchants?.())?.get(merchantKey(merchant));
+      if (!presetKey) return null;
+      return categories.find(category => category.type === 'expense' && category.presetKey === presetKey) ?? null;
+    } catch (error) {
+      logger.warn('Learned merchants could not be read; the payment is categorised without them', errorFields(error));
+      return null;
     }
   }
 }
@@ -150,7 +170,8 @@ function paymentAssumptions(input: {
   const namedByMerchant = category
     ? categoryNamedIn(input.merchant, { name, type: category.type, presetKey: category.presetKey }, learnedWords)
     : false;
-  if (input.choice.chosenBy !== 'words' && !namedByMerchant) {
+  const chosenByWords = input.choice.chosenBy === 'words' || input.choice.chosenBy === 'merchant';
+  if (!chosenByWords && !namedByMerchant) {
     assumptions.push({ kind: 'category', name });
   }
 
