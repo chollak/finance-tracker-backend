@@ -96,7 +96,7 @@ struct KapelkaShortcuts: AppShortcutsProvider {
 struct RecordPaymentIntent: AppIntent {
     static var title: LocalizedStringResource { "Записать оплату" }
     static var description: IntentDescription {
-        IntentDescription("Для автоматизации «Транзакция»: записывает оплату Apple Pay. Без сети оплата ждёт на телефоне.")
+        IntentDescription("Для автоматизации «Транзакция» (на iOS 26 — «Wallet»): записывает оплату Apple Pay.")
     }
     static var openAppWhenRun: Bool { false }
 

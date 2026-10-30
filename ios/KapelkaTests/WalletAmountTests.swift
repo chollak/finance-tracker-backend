@@ -85,10 +85,38 @@ struct WalletAmountTests {
             "1e5 USD",
             "12,34,56 USD",
             "2 500 000 x UZS",
+            // The first group is one to three digits without a leading zero, or the number is not grouped (review)
+            "0.125 USD",
+            "0,500 UZS",
+            "1234,567 UZS",
+            "12345 678 UZS",
+            "0 500 UZS",
         ]
     )
     func unreadable(wallet: String) {
         #expect(WalletAmount.read(wallet, fallback: .uzs) == .problem(.unreadable))
+    }
+
+    @Test(
+        "доллары с одной точкой или запятой и тремя цифрами — это не копейки и не наверняка тысячи: не угадывается",
+        arguments: ["12.345 USD", "1.500 USD", "1,500 USD", "$1,234"]
+    )
+    func ambiguousDollars(wallet: String) {
+        #expect(WalletAmount.read(wallet) == .problem(.unreadable))
+    }
+
+    @Test("то же для суммы без валюты, когда автоматизация говорит «доллар»")
+    func ambiguousDollarsFromAutomation() {
+        #expect(WalletAmount.read("0.125", fallback: .usd) == .problem(.unreadable))
+        #expect(WalletAmount.read("1.500", fallback: .usd) == .problem(.unreadable))
+    }
+
+    @Test("сумы без копеек с точкой или запятой между тысячами читаются; доллары с копейками и тысячами — тоже")
+    func unambiguousGrouping() {
+        #expect(WalletAmount.read("28.000 сум") == .amount("28000", .uzs))
+        #expect(WalletAmount.read("1,500", fallback: .uzs) == .amount("1500", .uzs))
+        #expect(WalletAmount.read("1,234,567 USD") == .amount("1234567", .usd))
+        #expect(WalletAmount.read("$1,500.00") == .amount("1500.00", .usd))
     }
 
     @Test("больше 1 000 000 000 — сервер такую запись не берёт")

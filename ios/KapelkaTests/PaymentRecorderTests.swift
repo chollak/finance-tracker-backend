@@ -88,6 +88,35 @@ final class PaymentRecorderTests {
         )
     }
 
+    @Test("ПК спит: команда отвечает в срок фона, оплата ждёт, повтор — с тем же clientId")
+    func sleepingServer() async throws {
+        let harness = try QueueHarness(transport: FakeTransport([.hang]))
+        let cards = CardAccountStore(defaults: try #require(UserDefaults(suiteName: suite)))
+        let queue = harness.makeQueue()
+        let clock = harness.clock
+        let background = BackgroundSend(
+            queue: queue,
+            scheduler: FakeRefreshScheduler(),
+            now: { clock.now },
+            budget: .milliseconds(200)
+        )
+        let recorder = PaymentRecorder(queue: queue, cards: cards, send: { await background.run() }, isConfigured: { true })
+
+        let started = ContinuousClock.now
+        let answer = try await recorder.record(Self.mazzali)
+
+        #expect(ContinuousClock.now - started < .seconds(2))
+        #expect(answer == "Оплата в очереди: уйдёт, когда сервер будет доступен")
+        let waiting = try #require(try harness.store.load().captures.first)
+        #expect(waiting.state == .pending)
+        #expect(waiting.attempts == 0)
+
+        await queue.flush()
+        let ids = try await harness.transport.paymentBodies().map(\.clientId)
+        #expect(ids == [waiting.clientId.uuidString.lowercased(), waiting.clientId.uuidString.lowercased()])
+        #expect(try harness.store.load().captures.map(\.state) == [.sent])
+    }
+
     @Test("карта оплаты появляется в настройках без счёта")
     func cardNoticed() async throws {
         let harness = try QueueHarness()

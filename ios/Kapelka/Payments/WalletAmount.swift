@@ -52,7 +52,7 @@ enum WalletAmount: Equatable, Sendable {
             currency = fallback
         }
 
-        guard let number = Number.read(String(text[first...last])) else { return .problem(.unreadable) }
+        guard let number = Number.read(String(text[first...last]), currency: currency) else { return .problem(.unreadable) }
         guard let value = Decimal(string: number, locale: Locale(identifier: "en_US_POSIX")) else {
             return .problem(.unreadable)
         }
@@ -69,6 +69,8 @@ private enum CurrencyMark {
     case other(String)
     case unreadable
 
+    // A bare «$» is the dollar of a phone set to Russian or Uzbek; a phone in Canada or Australia would write its own
+    // dollar this way, and its payments would go out as USD
     private static let words: [String: PaymentCurrency] = [
         "UZS": .uzs, "СУМ": .uzs, "СЎМ": .uzs, "SO'M": .uzs, "SOʻM": .uzs, "SO‘M": .uzs, "SO’M": .uzs, "SUM": .uzs,
         "USD": .usd, "$": .usd, "US$": .usd,
@@ -93,9 +95,10 @@ private enum CurrencyMark {
 /// last dot or comma followed by one or two digits is the decimal point.
 private enum Number {
     private static let groupSeparators: Set<Character> = [" ", "'", "’", ".", ","]
+    private static let points: Set<Character> = [".", ","]
 
     /// `"28000.00"`; `nil` for anything else than digits and separators in a form a currency is written in.
-    static func read(_ text: String) -> String? {
+    static func read(_ text: String, currency: PaymentCurrency) -> String? {
         guard text.allSatisfy({ $0.isASCIIDigit || groupSeparators.contains($0) }) else { return nil }
         var integer = text
         var fraction: String?
@@ -109,21 +112,26 @@ private enum Number {
                 fraction = String(decimals)
             }
         }
+        // «1.500 USD» is fifteen hundred in one locale and one and a half in another; dollars always show their cents
+        if fraction == nil, currency == .usd, text.count(where: points.contains) == 1 { return nil }
         guard let digits = groupedDigits(integer) else { return nil }
         let trimmed = String(digits.drop { $0 == "0" })
         let whole = trimmed.isEmpty ? "0" : trimmed
         return fraction.map { "\(whole).\($0)" } ?? whole
     }
 
-    /// `"28 000"` → `"28000"`: every group after the first has three digits, one kind of separator between them.
+    /// `"28 000"` → `"28000"`: in a grouped number the first group is one to three digits without a leading zero and
+    /// every other has three, one kind of separator between them — so «0,500» and «1234,567» are not read as thousands.
     private static func groupedDigits(_ text: String) -> String? {
         let groups = text.split(omittingEmptySubsequences: false) { groupSeparators.contains($0) }
         let separators = Set(text.filter { groupSeparators.contains($0) })
-        guard
-            let head = groups.first, !head.isEmpty,
-            groups.dropFirst().allSatisfy({ $0.count == 3 }),
-            separators.count <= 1
-        else { return nil }
+        guard let head = groups.first, !head.isEmpty, separators.count <= 1 else { return nil }
+        if groups.count > 1 {
+            guard
+                (1...3).contains(head.count), head.first != "0",
+                groups.dropFirst().allSatisfy({ $0.count == 3 })
+            else { return nil }
+        }
         return groups.joined()
     }
 }

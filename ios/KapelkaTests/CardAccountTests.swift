@@ -105,6 +105,20 @@ final class CardAccountTests {
         #expect(try makeStore().account(for: "TBC Uzbekistan") == "Карта")
     }
 
+    @Test("нечитаемое сопоставление откладывается рядом, а не затирается следующей картой")
+    func unreadableMappingSetAside() throws {
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        let broken = Data("{ не json".utf8)
+        defaults.set(broken, forKey: "cardAccounts")
+        let store = try makeStore()
+
+        store.noticed("TBC Uzbekistan")
+
+        #expect(store.cards.map(\.card) == ["TBC Uzbekistan"])
+        let aside = defaults.dictionaryRepresentation().filter { $0.key.hasPrefix("cardAccounts.unreadable-") }
+        #expect(aside.values.compactMap { $0 as? Data } == [broken])
+    }
+
     @Test("карта сравнивается так же, как её запишет оплата: пробелы внутри сведены")
     func cardNameTidied() throws {
         let store = try makeStore()

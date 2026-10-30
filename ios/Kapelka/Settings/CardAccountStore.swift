@@ -73,9 +73,14 @@ final class CardAccountStore: @unchecked Sendable {
         if let long { throw .tooLong(long.key) }
     }
 
+    /// A mapping that does not decode is moved aside under its own key, not written over by the next card: it can
+    /// still be read back by hand.
     private func load() -> [CardAccount] {
         guard let data = defaults.data(forKey: Self.key) else { return [] }
-        return (try? JSONDecoder().decode([CardAccount].self, from: data)) ?? []
+        if let cards = try? JSONDecoder().decode([CardAccount].self, from: data) { return cards }
+        defaults.set(data, forKey: "\(Self.key).unreadable-\(Int(Date().timeIntervalSince1970))")
+        defaults.removeObject(forKey: Self.key)
+        return []
     }
 
     private func store(_ cards: [CardAccount]) {

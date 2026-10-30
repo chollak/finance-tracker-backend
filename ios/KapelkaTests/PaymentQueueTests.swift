@@ -199,6 +199,38 @@ struct PaymentQueueTests {
         #expect(body.capturedAt == "2026-10-29T14:32:05+05:00")
     }
 
+    @Test("оплата пришла, пока идёт отправка, — уходит в том же проходе, по одной, один раз")
+    func paymentDuringSend() async throws {
+        let harness = try QueueHarness(transport: FakeTransport(latency: .milliseconds(50)))
+        let queue = harness.makeQueue()
+        _ = try await queue.add("кофе 25к")
+        let sending = Task { await queue.flush() }
+        #expect(await eventually { await harness.transport.requests.count == 1 })
+        let payment = try await queue.addPayment(Self.mazzali)
+        await queue.flush()
+        await sending.value
+
+        #expect(try harness.store.load().captures.map(\.state) == [.sent, .sent])
+        #expect(await harness.transport.maxInFlight == 1)
+        let ids = await harness.transport.requests.compactMap { $0.url?.path() }
+        #expect(ids == ["/api/quick-capture", "/api/quick-capture/payment"])
+        #expect(try harness.store.load().captures.last?.clientId == payment.clientId)
+    }
+
+    @Test("оплата, не ушедшая с телефона, после перезапуска так и не уходит")
+    func refusedSurvivesRestart() async throws {
+        let harness = try QueueHarness()
+        _ = try await harness.makeQueue().addPayment(PaymentInput(amount: "10,00 €", merchant: "Shop"))
+
+        let restarted = harness.makeQueue()
+        await restarted.flush()
+
+        #expect(await harness.transport.requests.isEmpty)
+        let saved = try #require(try harness.store.load().captures.first)
+        #expect(saved.state == .rejected)
+        #expect(saved.payment?.walletAmount == "10,00 €")
+    }
+
     @Test("файл прошлой версии без оплат читается: записи остаются фразами")
     func olderFileHasPhrasesOnly() async throws {
         let harness = try QueueHarness()
