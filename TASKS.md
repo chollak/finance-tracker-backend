@@ -103,6 +103,7 @@ iOS-приложение FT-161. Описания — в [`docs/tasks/backlog.md
 | [FT-172](docs/tasks/backlog.md) | Повторная доставка апдейтов Telegram: `/undo`, полное подтверждение, `answeredBy` | команды Шукура взять в работу |
 | [FT-173](docs/tasks/backlog.md) | След у подписки и ревизии, пропущенных при выключенном боте | найдено при проверке FT-164; не в этапе стабилизации |
 | [FT-174](docs/tasks/backlog.md) | Мёртвые admin-маршруты: `requireAdmin` без `requireAuth`, всегда 401 | найдено при проверке FT-162; убрать или поставить `requireAuth` |
+| [FT-182](docs/tasks/backlog.md) | Бот датирует фразу временем отправки сообщения (`capturedAt` из Telegram) | найдено в FT-175; можно брать |
 
 ---
 

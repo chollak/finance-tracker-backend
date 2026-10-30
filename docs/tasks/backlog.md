@@ -734,3 +734,30 @@ Definition of Done:
 - [ ] Инструкция автоматизации — в настройках приложения
 - [ ] Оплата без сети на телефоне ложится в очередь и уходит после связи, по одному разу
 - [ ] Проверено на iPhone: оплата Apple Pay → запись с суммой как в Wallet, на счёт своей карты; при выключенном ПК — после включения, по одному разу
+
+---
+
+### FT-182: The bot dates a phrase by the time the message was sent
+
+Status: backlog
+Priority: low
+Owner: Claude Code, QA — под-чат проверки
+Type: feature
+Size: S
+
+Context:
+Найдено в FT-175 (2026-10-29). Бот датирует запись днём обработки: пока ПК выключен, Telegram хранит сообщения до
+24 часов, и фраза, отправленная вечером, после включения утром ложится сегодняшним днём, «вчера» — позавчерашним.
+Telegram присылает время отправки (`ctx.message.date`, секунды Unix), а quick capture с FT-175 умеет `capturedAt`:
+бот текстом зовёт `capture()` (`messageHandlers.ts:248`) и может передать его. Голос идёт через
+`ProcessVoiceInputUseCase` — там `today` в `analyzeInput` нужно передать отдельно.
+
+Идея: текст и голос из Telegram передают время отправки сообщения как время ввода; пределы и день — как у
+`capturedAt` (`docs/QUICK_CAPTURE_API.md`, «Time of input»). Повтор апдейта после перезапуска (FT-167) уже отвечает
+первыми записями.
+
+Definition of Done:
+- [ ] Текст из Telegram: запись без даты — днём отправки сообщения, «вчера» — днём раньше него; тест
+- [ ] Голос из Telegram: то же; тест
+- [ ] Сообщение старше 30 дней не бывает (Telegram хранит 24 часа) — проверено, что бот не отвечает на него ошибкой
+- [ ] `docs/QUICK_CAPTURE_API.md` («Telegram uses the same boundary») и `voice-to-transaction.md` обновлены
