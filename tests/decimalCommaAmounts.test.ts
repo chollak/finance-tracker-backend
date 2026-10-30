@@ -66,7 +66,8 @@ describe('a decimal comma in a phrase (FT-185)', () => {
       ['Ooo Mazzali Super Food 28 000,00 UZS', 28_000, 'UZS'],
       ['кофе 28 000,00', 28_000, 'UZS'],
       ['кофе 28000,00', 28_000, 'UZS'],
-      ['кофе 1 234,50 сум', 1_234.5, 'UZS'],
+      // Сумы are whole: tiyin round to the nearest сум (Shukur, 2026-10-30)
+      ['кофе 1 234,50 сум', 1_235, 'UZS'],
       ['кофе 4,50 $', 4.5, 'USD'],
       ['кофе 25 000', 25_000, 'UZS'],
       ['кофе 25000', 25_000, 'UZS'],
@@ -100,6 +101,53 @@ describe('a decimal comma in a phrase (FT-185)', () => {
 
       const result = await useCase.execute('кофе 150,000', 'user1');
 
+      expect(result.transactions[0].assumptions).not.toContainEqual(expect.objectContaining({ kind: 'thousands' }));
+    });
+  });
+
+  describe('fractions of сум (Shukur, 2026-10-30)', () => {
+    it.each([
+      ['кофе 1,5', 1_500, '1,5'],
+      ['обед 12,50', 12_500, '12,50'],
+      ['кофе 0,5', 500, '0,5'],
+      // 1.1 × 1000 is 1100.0000000000002 in floating point
+      ['кофе 1,1', 1_100, '1,1'],
+    ])('a bare «%s» on an expense is %d сум, and the answer says so', async (phrase, amount, writtenAs) => {
+      const { create, useCase } = makeText();
+
+      const result = await useCase.execute(phrase, 'user1');
+
+      expect(written(create)).toEqual(expect.objectContaining({ amount, currency: 'UZS' }));
+      expect(result.transactions[0].assumptions).toContainEqual({ kind: 'thousands', written: writtenAs, amount });
+    });
+
+    it.each([
+      ['кофе 28 000,00', 28_000, 'UZS'],
+      ['кофе 1 234,49 сум', 1_234, 'UZS'],
+      ['кофе 4,50 $', 4.5, 'USD'],
+    ])('«%s» is %d %s, with nothing said about thousands', async (phrase, amount, currency) => {
+      const { create, useCase } = makeText();
+
+      const result = await useCase.execute(phrase, 'user1');
+
+      expect(written(create)).toEqual(expect.objectContaining({ amount, currency }));
+      expect(result.transactions[0].assumptions).not.toContainEqual(expect.objectContaining({ kind: 'thousands' }));
+    });
+
+    it('rounds the AI\'s tiyin to whole сум', async () => {
+      const { create, useCase } = makeText(aiReading(1_234.5));
+
+      await useCase.execute('Mazzali 1 234,50 сум', 'user1');
+
+      expect(written(create)).toEqual(expect.objectContaining({ amount: 1_235, currency: 'UZS' }));
+    });
+
+    it('reads an income as written, in whole сум: cashback is not thousands', async () => {
+      const { create, useCase } = makeText(aiReading(870.4, { type: 'income', semanticType: 'income' }));
+
+      const result = await useCase.execute('Mazzali кэшбэк 870,40', 'user1');
+
+      expect(written(create)).toEqual(expect.objectContaining({ amount: 870, currency: 'UZS', type: 'income' }));
       expect(result.transactions[0].assumptions).not.toContainEqual(expect.objectContaining({ kind: 'thousands' }));
     });
   });
@@ -156,7 +204,9 @@ describe('a decimal comma in a phrase (FT-185)', () => {
     it.each([
       ['кофе 28 000,00 сум', aiReading(28_000), 28_000, 'UZS'],
       ['кофе 4,50 доллара', aiReading(4.5, { currency: 'USD' }), 4.5, 'USD'],
-    ])('«%s» is written as the AI read it', async (heard, ai, amount, currency) => {
+      ['кофе 12,50', aiReading(12.5), 12_500, 'UZS'],
+      ['кофе 1 234,50 сум', aiReading(1_234.5), 1_235, 'UZS'],
+    ])('«%s» is written from what the AI read, сум whole', async (heard, ai, amount, currency) => {
       const openAIService = {
         transcribe: jest.fn().mockResolvedValue(heard),
         analyzeInput: jest.fn().mockResolvedValue(ai),

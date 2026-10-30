@@ -49,7 +49,8 @@ export function captureAssumptions(input: {
 
   const numbers = bareNumbers(input.text);
   const writtenAsIs = numbers.some(token => asNumber(token) === input.amount);
-  const shortened = numbers.find(token => asNumber(token) * 1000 === input.amount);
+  // Rounded as captureMoney rounds it: «1,1» is 1 100, not 1100.0000000000002
+  const shortened = numbers.find(token => Math.round(asNumber(token) * 1000) === input.amount);
   if (!writtenAsIs && shortened) {
     assumptions.push({ kind: 'thousands', written: shortened, amount: input.amount });
   }

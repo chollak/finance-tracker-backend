@@ -53,6 +53,14 @@ export function toMinor(major: number | string): number {
   return minor === 0 ? 0 : minor; // no -0
 }
 
+/**
+ * A сум amount in whole сум (design-system «в сумах дробей нет», Shukur 2026-10-30, FT-185): tiyin round to the nearest
+ * сум, half up — «1 234,50 сум» is 1 235. Dollars keep their cents; this is for сум only.
+ */
+export function wholeSumMinor(minor: number): number {
+  return Math.round(minor / MINOR_PER_MAJOR) * MINOR_PER_MAJOR;
+}
+
 /** Minor units → major units as a JS number, for the legacy `amount` field and display only. */
 export function fromMinor(minor: number): number {
   return minor / MINOR_PER_MAJOR;
