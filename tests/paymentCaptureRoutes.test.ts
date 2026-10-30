@@ -114,6 +114,20 @@ describe('POST /api/quick-capture/payment (FT-176)', () => {
     expect(res.body.data.transactions[0]).toMatchObject({ amount: 4.5, amountMinor: 450, currency: 'USD' });
   });
 
+  // Сумы are whole (Shukur, 2026-10-30, FT-185): Wallet may give «1 234,50 UZS»; dollars keep their cents
+  it.each([
+    ['1234.50', 123_500],
+    ['1234.49', 123_400],
+    ['28000.00', 2_800_000],
+    ['0.50', 100],
+  ])('writes %s сум in whole сум, %d minor units', async (amount, amountMinor) => {
+    const res = await pay({ ...PAYMENT, amount, currency: 'UZS' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.transactions[0]).toMatchObject({ amountMinor, currency: 'UZS' });
+    expect(await written()).toEqual([expect.objectContaining({ amountMinor, currency: 'UZS' })]);
+  });
+
   it('ignores the userId, source and text the body names', async () => {
     const res = await pay({ ...PAYMENT, userId: OTHER_ALLOWED, source: 'miniapp', text: 'кофе 500' });
 
@@ -130,6 +144,7 @@ describe('POST /api/quick-capture/payment (FT-176)', () => {
     ['an amount with three decimals', { amount: '4.505' }, 'amount'],
     ['no amount', { amount: undefined }, 'amount'],
     ['a zero amount', { amount: '0' }, 'amount'],
+    ['less than half a сум, which is no whole сум', { amount: '0.49', currency: 'UZS' }, 'amount'],
     ['an amount over the limit of a record', { amount: '1000000001' }, 'amount'],
     ['a merchant that is not a string', { merchant: 24 }, 'merchant'],
     ['a merchant longer than 200 characters', { merchant: 'K'.repeat(201) }, 'merchant'],

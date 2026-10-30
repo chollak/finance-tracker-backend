@@ -267,7 +267,7 @@ X-Shortcut-Capture-Token: <SHORTCUT_CAPTURE_TOKEN>
 
 | Field | Type | Required | Behavior |
 |---|---|---|---|
-| `amount` | `string` | yes | Major units: digits with an optional dot and one or two decimals — `"25000"`, `"25000.00"`, `"4.5"`, `"4.50"`, `"0.99"`. No sign, spaces, grouping, comma, exponent, currency or leading zero. A third decimal is refused, not rounded. Written exactly: `"500"` with `UZS` is 500 сум. At least 0.01 and at most 1 000 000 000, the limit of every record. A JSON number is refused. |
+| `amount` | `string` | yes | Major units: digits with an optional dot and one or two decimals — `"25000"`, `"25000.00"`, `"4.5"`, `"4.50"`, `"0.99"`. No sign, spaces, grouping, comma, exponent, currency or leading zero. A third decimal is refused, not rounded. Never read as thousands: `"500"` with `UZS` is 500 сум. Сумы are whole (FT-185, design-system «В сумах дробей нет»): with `UZS` the tiyin round to the nearest сум, half up — `"1234.50"` is 1 235 сум, `"28000.00"` 28 000, and `"0.49"` rounds to nothing and is refused; dollars keep their cents. At least 0.01 (in сум, 0.50 after rounding) and at most 1 000 000 000, the limit of every record. A JSON number is refused. |
 | `currency` | `"UZS" \| "USD"` | yes | Exactly these, upper case. Another currency is refused; the app does not send it and shows it in its list (FT-179). |
 | `merchant` | `string` | no | As Wallet names it, up to 200 characters once runs of spaces are made one. Chooses the category. Blank or `null` is none. |
 | `accountName` | `string` | no | The Kapelka account the phone maps the card to (FT-179 settings), up to 100 characters. Blank or `null` is none. |
@@ -286,7 +286,7 @@ Validation order: `amount` format → `amount` range → `currency` → `merchan
 One expense (`type` and `semanticType` `expense`), through the same `CreateTransactionUseCase` as every record
 (`RecordPaymentUseCase`, `src/modules/voiceProcessing/application/recordPayment.ts`):
 
-- **Amount and currency** as sent; never read as thousands, no `thousands` assumption.
+- **Amount and currency** as sent, сум in whole сум (`"1234.50"` UZS is 1 235); never read as thousands, no `thousands` assumption.
 - **Day** — the day of `capturedAt` on the user's calendar (Tashkent), else the server's today.
 - **Category** — by the merchant; the first step that finds one category decides:
   0. the visible starter category a correction tied **exactly this merchant** to (FT-184: `merchantKey`, folded words

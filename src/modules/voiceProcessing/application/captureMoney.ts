@@ -1,6 +1,7 @@
 import { ParsedTransaction } from '../domain/transcriptionService';
 import { PaymentHints } from '../domain/paymentHints';
 import { TransactionSemanticType } from '../../transaction/domain/transactionSemanticType';
+import { readWrittenNumber } from '../domain/writtenNumber';
 
 const AMOUNT_TOKEN = /[+-]?\d[\d\s.,]*/g;
 // A magnitude word («к», «тыс», «млн») or a currency word right after the number: written in full.
@@ -10,10 +11,11 @@ const UNIT_AFTER = /^\s?(?:млрд|миллиард\p{L}*|mlrd|млн|милл�
 const SHORTENED_BELOW = 1000;
 
 /**
- * «кофе 45» means 45 000 сум: a whole number under a thousand, written bare — without «к», «тыс» or
- * «сум» — is read as thousands, and the answer says so («"45" понял как 45 000 сум»,
- * captureAssumptions). Only for money going out: small incomes are real («кэшбэк 870», interest).
- * Dollars, fractions and numbers the text does not spell out stay as they are.
+ * «кофе 45» means 45 000 сум: a number under a thousand, written bare — without «к», «тыс» or «сум» — is read as
+ * thousands, and the answer says so («"45" понял как 45 000 сум», captureAssumptions). A fraction too, as in the answer
+ * to «Сколько?»: «кофе 1,5» is 1 500 сум, «12,50» 12 500 — there are no sums under one сум (Shukur, 2026-10-30, FT-185).
+ * Only for money going out: small incomes are real («кэшбэк 870», interest). Dollars and numbers the text does not
+ * spell out stay as they are.
  */
 export function expandShortenedThousands(
   amount: number,
@@ -21,14 +23,15 @@ export function expandShortenedThousands(
   currency: 'UZS' | 'USD',
   type: 'income' | 'expense' = 'expense'
 ): number {
-  if (type !== 'expense' || currency !== 'UZS' || !Number.isInteger(amount) || amount < 1 || amount >= SHORTENED_BELOW) return amount;
+  if (type !== 'expense' || currency !== 'UZS' || amount <= 0 || amount >= SHORTENED_BELOW) return amount;
   const writtenBare = [...text.matchAll(AMOUNT_TOKEN)].some(match => {
     const token = match[0].replace(/[\s.,]+$/, '');
     const before = text.slice(0, match.index ?? 0);
     const after = text.slice((match.index ?? 0) + token.length);
-    return Number(token.replace(/\s/g, '')) === amount && !/\$\s?$/.test(before) && !UNIT_AFTER.test(after);
+    return readWrittenNumber(token) === amount && !/\$\s?$/.test(before) && !UNIT_AFTER.test(after);
   });
-  return writtenBare ? amount * 1000 : amount;
+  // Whole сум: 1.1 × 1000 is 1100.0000000000002 in floating point
+  return writtenBare ? Math.round(amount * 1000) : amount;
 }
 
 export interface CaptureMoney {
@@ -63,8 +66,10 @@ export function captureMoneyOf(
   const ownMovement = isOwnMovement(semanticType);
   const currency = item.currency === 'USD' || (single && hints.currency === 'USD') ? 'USD' : 'UZS';
   const kind = ownMovement ? undefined : item.paymentKind ?? (single ? hints.kind : undefined);
+  const amount = expandShortenedThousands(item.amount || 0, text, currency, item.type === 'income' ? 'income' : 'expense');
   return {
-    amount: expandShortenedThousands(item.amount || 0, text, currency, item.type === 'income' ? 'income' : 'expense'),
+    // Сумы are whole, tiyin round half up: «1 234,50 сум» is 1 235 (Shukur, 2026-10-30, FT-185); dollars keep cents
+    amount: currency === 'UZS' ? Math.round(amount) : amount,
     currency,
     kind,
     accountText: single && !ownMovement ? text : undefined,
