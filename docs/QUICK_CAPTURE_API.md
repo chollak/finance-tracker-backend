@@ -200,10 +200,12 @@ A phrase from the iOS app's offline queue (FT-161) reaches the server hours or d
   Последние 7 дней: вторник 2026-10-27, понедельник 2026-10-26, …») and counts «вчера», a weekday and the rest from
   it; a record it gives no date gets the day of input. The list is there because the model miscounted weekdays from
   the date alone (`gpt-4.1-mini`: «в понедельник» typed on Tuesday the 27th came back as Sunday the 25th).
-- **Ahead of the server** by up to **5 minutes** the time is taken as is: the phone's and the PC's clocks drift a
-  little. **Further ahead it is dated by the server's clock** («now») with a warning in the log: a phrase is not typed
-  after it arrives, so one of the clocks is wrong — and the PC's in WSL is known to lag after a sleep, which with a
-  refusal would turn every capture from the phone into an error.
+- **Ahead of the server** the phone's time is trusted **up to 24 hours**: up to 5 minutes quietly (the clocks drift
+  a little), further with a warning in the log. A phrase is not typed after it arrives, so one of the clocks is wrong,
+  and the one known to be wrong is the PC's: in WSL it lags after a sleep, by hours. The PC woke at 08:00, WSL still
+  says yesterday 23:30 — a phrase typed at 07:30 is today's, as the phone says; dated by the server it would land
+  yesterday, refused it would turn every capture from the phone into an error. **More than 24 hours ahead** the phone's
+  clock is the wrong one: the capture is dated by the server's clock («now»), with a warning.
 - **Older than 30 days — `400 VALIDATION_ERROR`, nothing written**, not «now». 30 days is longer than the queue waits
   while the PC is off, and an older record would land in a month already summed up and audited; such a time is a wrong
   phone clock or a stuck record, and «now» would put the record on a silently wrong day. The iOS app keeps a refused
@@ -492,7 +494,7 @@ curl -sS -X POST https://<tunnel-host>/api/quick-capture \
 4. **Rate limit is coarse.** The AI limiter is per-IP and its 20/15min budget is *shared* with `/api/voice/*`; it is not
    per-user and cannot be tuned separately for capture.
 5. **The time of input, not a date.** `capturedAt` (FT-175) dates a capture by when it was typed, at most 30 days back
-   and never after the server's clock (beyond 5 minutes); a client cannot set a record's date directly. A day in the phrase («5 октября») still goes
+   and at most 24 hours ahead of the server's clock; a client cannot set a record's date directly. A day in the phrase («5 октября») still goes
    through the parser.
 6. **The Mini App Home composer calls this endpoint** (FT-114, replacing the quick-capture card). Authenticated
    Telegram Mini App users send a phrase through `POST /api/quick-capture` with a `clientId` per phrase; its records

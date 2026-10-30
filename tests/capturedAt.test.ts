@@ -32,9 +32,14 @@ describe('capturedAt', () => {
     const now = new Date('2026-10-29T12:00:00.000Z');
     const at = (iso: string) => new Date(iso);
 
-    it('accepts up to 5 minutes ahead: the phone\'s and the server\'s clocks drift apart a little', () => {
+    it('takes up to 5 minutes ahead quietly: the phone\'s and the server\'s clocks drift apart a little', () => {
       expect(capturedAtProblem(at('2026-10-29T12:05:00.000Z'), now)).toBeNull();
       expect(capturedAtProblem(at('2026-10-29T12:05:00.001Z'), now)).toBe('ahead');
+    });
+
+    it('calls more than 24 hours ahead far ahead: the PC\'s clock does not lag by a day', () => {
+      expect(capturedAtProblem(at('2026-10-30T12:00:00.000Z'), now)).toBe('ahead');
+      expect(capturedAtProblem(at('2026-10-30T12:00:00.001Z'), now)).toBe('far_ahead');
     });
 
     it('accepts up to 30 days old: longer than the queue waits while the PC is off', () => {

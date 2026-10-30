@@ -97,20 +97,21 @@ export class QuickCaptureService {
   }
 
   /**
-   * The day the phrase was typed (FT-175). A time too far ahead is dated by the server's clock — the PC's in WSL lags
-   * after a sleep — and a time too old is not the time of input, so the capture is refused.
+   * The day the phrase was typed (FT-175). Up to a day ahead of the server it is still the phone's time — the PC's clock
+   * in WSL lags after a sleep; further ahead the phone's clock is wrong and the server's dates it. A time too old is not
+   * the time of input, so the capture is refused.
    */
   private inputDay(capturedAt: Date): string {
     const now = this.now();
     const problem = capturedAtProblem(capturedAt, now);
     if (problem === 'too_old') throw ErrorFactory.validation(CAPTURED_AT_TOO_OLD, 'capturedAt');
-    if (problem === 'ahead') {
-      logger.warn('capturedAt is ahead of the server clock; dated by the server', {
+    if (problem === 'ahead' || problem === 'far_ahead') {
+      logger.warn('capturedAt is ahead of the server clock', {
         aheadMinutes: Math.round((capturedAt.getTime() - now.getTime()) / 60_000),
+        datedBy: problem === 'ahead' ? 'capturedAt' : 'server',
       });
-      return inputDayOf(now);
     }
-    return inputDayOf(capturedAt);
+    return inputDayOf(problem === 'far_ahead' ? now : capturedAt);
   }
 
   /**

@@ -91,12 +91,21 @@ describe('quick capture keeps the time of input (FT-175)', () => {
     expect(openAI.analyzeInput).not.toHaveBeenCalled();
   });
 
-  it('dates a time of input ahead of the server by the server\'s clock: it was not typed after it arrived', async () => {
-    // Typed at 00:10 on Friday by the phone; the server (WSL after a sleep) still says Thursday 17:00
-    const result = await capture('вчера такси 18000', { capturedAt: new Date('2026-10-30T00:10:00+05:00') });
+  it('trusts a phone up to 24 hours ahead of the server: the PC\'s WSL clock lags after a sleep', async () => {
+    // The PC woke at 08:00 on Friday, WSL still says Thursday 23:30; the phrase was typed at 07:30 on Friday
+    service = serviceAt(new Date('2026-10-29T23:30:00+05:00'));
 
-    expect(result.transactions[0].date).toBe('2026-10-28');
-    expect(await storedDates()).toEqual(['2026-10-28']);
+    const result = await capture('вчера такси 18000', { capturedAt: new Date('2026-10-30T07:30:00+05:00') });
+
+    expect(result.transactions[0].date).toBe('2026-10-29');
+    expect(await storedDates()).toEqual(['2026-10-29']);
+  });
+
+  it('dates a time more than 24 hours ahead by the server\'s clock: that is a wrong phone clock', async () => {
+    const result = await capture('кофе 25000', { capturedAt: new Date('2026-10-31T12:00:00.000Z') });
+
+    expect(result.transactions[0].date).toBe('2026-10-29');
+    expect(await storedDates()).toEqual(['2026-10-29']);
   });
 
   it('trusts a phone up to 5 minutes ahead of the server', async () => {
