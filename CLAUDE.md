@@ -68,6 +68,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npm run test:ci` - Run Jest tests serially for CI and the review sub-chat
 - `npm run analyze` - Run dependency-cruiser and circular dependency checks
 - `npm run verify` - Full pre-commit/pre-push gate: backend build, serial Jest tests, webapp Vitest tests, webapp build, architecture checks
+- `ios/scripts/test.sh` - iOS app (FT-177): `xcodebuild test` on the first available iPhone simulator; `verify` does not see `ios/` ([`ios/README.md`](ios/README.md))
 - Tests use ts-jest preset and target Node.js environment
 
 **Web App (React + Vite):**
@@ -715,6 +716,7 @@ See: [Adding Features Guide](docs/knowledge-base/08-development/adding-features.
 
 - **Source**: All TypeScript code in `src/` compiles to `dist/`
 - **Frontend**: React app in `webapp/` builds to `public/webapp/` for Express serving
+- **iOS**: SwiftUI app Kapelka in `ios/` (FT-161): an offline queue to `POST /api/quick-capture` with the Shortcut token in Keychain; signing in the ignored `ios/Config/Signing.local.xcconfig`
 - **Tests**: Jest tests in `tests/` folder with `.test.ts` suffix
 - **Static Assets**: Express serves webapp at `/webapp` path and API at `/api`
 

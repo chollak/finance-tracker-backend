@@ -1,0 +1,9 @@
+// Settings shared by the app and the tests. Signing is personal and stays out of git: copy
+// Signing.local.xcconfig.example to Signing.local.xcconfig next to this file and fill it in (ios/README.md).
+// Without it the project still builds and tests on the simulator.
+
+KAPELKA_BUNDLE_ID = uz.kapelka.app
+CODE_SIGN_STYLE = Automatic
+DEVELOPMENT_TEAM =
+
+#include? "Signing.local.xcconfig"

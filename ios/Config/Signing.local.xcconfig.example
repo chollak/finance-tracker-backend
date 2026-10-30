@@ -1,0 +1,9 @@
+// Copy to Signing.local.xcconfig (ignored by git) and fill in. Never commit the filled file.
+//
+// DEVELOPMENT_TEAM: the Team ID of your Apple ID's Personal Team. Xcode → Settings → Apple Accounts → your account →
+// the team row; or Signing & Capabilities shows it after picking the team once (then undo that change in the project).
+DEVELOPMENT_TEAM = ABCDE12345
+
+// Optional: a bundle id of your own if Xcode says uz.kapelka.app is taken. Keep it the same between installs —
+// a new id is a new app, and the queue and the token of the old one stay behind.
+// KAPELKA_BUNDLE_ID = uz.yourname.kapelka
