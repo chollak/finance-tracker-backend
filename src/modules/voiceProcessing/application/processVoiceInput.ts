@@ -23,6 +23,7 @@ import { captureMoneyOf } from './captureMoney';
 import { fromMinor } from '../../../shared/domain/money/money';
 import { NoSpeechDetectedError } from '../domain/voiceErrors';
 import { itemClientId } from '../../transaction/domain/clientId';
+import { todayDateOnly } from '../../../shared/domain/dates/dateOnly';
 
 const logger = getLogger(LogCategory.OPENAI);
 
@@ -160,7 +161,7 @@ export class ProcessVoiceInputUseCase {
           const money = captureMoneyOf(p, recognizedText, hints, itemCount, semanticType);
           const { currency } = money;
           const transaction: Transaction = {
-            date: p.date || new Date().toISOString().split('T')[0],
+            date: p.date || todayDateOnly(),
             category: p.category || 'Другое',
             description: p.description || recognizedText.substring(0, 500),
             amount: money.amount,

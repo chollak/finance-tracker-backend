@@ -17,6 +17,8 @@ import { captureAssumptions } from './captureAssumptions';
 import { captureMoneyOf } from './captureMoney';
 import { itemClientId } from '../../transaction/domain/clientId';
 import { fromMinor } from '../../../shared/domain/money/money';
+import { todayDateOnly } from '../../../shared/domain/dates/dateOnly';
+import { phraseDayOf } from '../domain/phraseDay';
 import { normalizeSemanticType, TransactionSemanticType } from '../../transaction/domain/transactionSemanticType';
 import { AnalysisResult, ParsedTransaction } from '../domain/transcriptionService';
 import {
@@ -233,9 +235,9 @@ function isUnambiguousLendingPhrase(text: string): boolean {
 /**
  * Conservative fast path for obvious single-amount phrases whose semantic meaning
  * (transfer/savings/cash withdrawal/income) is unambiguous, so OpenAI is only used
- * for genuinely ambiguous or multi-item text.
+ * for genuinely ambiguous or multi-item text. The record is of `date`.
  */
-function parseObviousSemanticTransaction(text: string): AnalysisResult | null {
+function parseObviousSemanticTransaction(text: string, date: string): AnalysisResult | null {
   const normalizedText = text.trim().replace(/\s+/g, ' ');
 
   if (isComplexText(normalizedText)) {
@@ -306,7 +308,7 @@ function parseObviousSemanticTransaction(text: string): AnalysisResult | null {
     type,
     semanticType,
     needsReview: false,
-    date: new Date().toISOString().split('T')[0],
+    date,
     merchant: remainder,
     confidence: 1,
     description: remainder,
@@ -315,7 +317,7 @@ function parseObviousSemanticTransaction(text: string): AnalysisResult | null {
   return { transactions: [transaction], debts: [] };
 }
 
-function parseSimpleTextTransaction(text: string): AnalysisResult | null {
+function parseSimpleTextTransaction(text: string, date: string): AnalysisResult | null {
   // «такси 18000 наличными», «наушники 55$» parse like «такси 18000» — the payment words are read
   // separately as account and currency hints (FT-103)
   const normalizedText = stripPaymentWords(text.trim().replace(/\s+/g, ' '));
@@ -352,7 +354,7 @@ function parseSimpleTextTransaction(text: string): AnalysisResult | null {
     type: 'expense',
     semanticType: 'expense',
     needsReview: false,
-    date: new Date().toISOString().split('T')[0],
+    date,
     merchant: label,
     confidence: 1,
     description: label,
@@ -388,6 +390,8 @@ interface RecordWrite {
   /** Read by a text fast path, not by the AI (FT-138). */
   fastPath: boolean;
   learned: ReadonlyMap<string, readonly string[]>;
+  /** The day the phrase was said: the date of a record the parser gave none. */
+  today: string;
 }
 
 export interface TextInputOptions {
@@ -395,6 +399,11 @@ export interface TextInputOptions {
   source?: RecordSource;
   /** The client's id for the capture (FT-106); its records get «<id>», «<id>:1», … */
   clientId?: string;
+  /**
+   * The day the phrase was said, YYYY-MM-DD on the user's calendar (FT-175): a phrase from the phone's queue is dated
+   * by the day it was typed, not the day it arrived. Today when absent.
+   */
+  today?: string;
 }
 
 /** The user's categories for the parser prompt; the starter set if they cannot be read. */
@@ -459,15 +468,19 @@ export class ProcessTextInputUseCase {
     const source: RecordSource = options.source ?? 'miniapp';
     // «нал», «картой», «$» in the text: which account and currency (FT-103)
     const hints = detectPaymentHints(text);
+    // The user's day, not the UTC one: before 05:00 in Tashkent that is still yesterday (FT-175)
+    const today = options.today ?? todayDateOnly();
 
-    const obvious = parseObviousSemanticTransaction(text);
-    const simple = obvious ? null : parseSimpleTextTransaction(text);
+    // «вчера такси 18к» is the fast paths' too: read without its day word, on the day it names (FT-175)
+    const day = phraseDayOf(text, today);
+    const obvious = day ? parseObviousSemanticTransaction(day.text, day.date) : null;
+    const simple = obvious || !day ? null : parseSimpleTextTransaction(day.text, day.date);
     // A category no word of the record names is a guess (FT-138): the AI's own choice, or «Другое» for a
     // label nothing recognised. The same words decide whether the simple path keeps its label (FT-143)
     const learned = await learnedWordsFor(this.learnedWords);
     const local = obvious ?? (simple ? await this.withNamedCategory(simple, userId, learned) : null);
     // Fall back to OpenAI for complex/natural-language inputs, with the user's categories
-    const { parsed, fastPath } = local ? { parsed: local, fastPath: true } : await this.readByAI(text, userId, simple);
+    const { parsed, fastPath } = local ? { parsed: local, fastPath: true } : await this.readByAI(text, userId, simple, today);
 
     // Only a single-transaction parse is checked against the text's currency markers. In
     // multi-item text ("продукты 12000 сум и такси 30000") each number belongs to its own
@@ -505,6 +518,7 @@ export class ProcessTextInputUseCase {
         userName,
         fastPath,
         learned,
+        today,
       });
       if (written) transactionResults.push(written);
     }
@@ -594,9 +608,11 @@ export class ProcessTextInputUseCase {
   private async readByAI(
     text: string,
     userId: string,
-    simple: AnalysisResult | null
+    simple: AnalysisResult | null,
+    today: string
   ): Promise<{ parsed: AnalysisResult; fastPath: boolean }> {
-    const ask = async () => this.openAIService.analyzeInput(text, await analysisContextFor(this.categorySource, userId));
+    const ask = async () =>
+      this.openAIService.analyzeInput(text, { ...(await analysisContextFor(this.categorySource, userId)), today });
     if (!simple) return { parsed: await ask(), fastPath: false };
 
     try {
@@ -623,6 +639,7 @@ export class ProcessTextInputUseCase {
     options: TextInputOptions = {}
   ): Promise<DetectedTransaction | null> {
     const text = `${item.description} ${answer.text}`.trim();
+    const today = options.today ?? todayDateOnly();
     const parsed: ParsedTransaction = {
       intent: 'transaction',
       amount: answer.amount,
@@ -632,7 +649,7 @@ export class ProcessTextInputUseCase {
       type: item.type,
       semanticType: item.semanticType,
       needsReview: false,
-      date: item.date || new Date().toISOString().split('T')[0],
+      date: item.date || today,
       merchant: item.merchant,
       description: item.description,
     };
@@ -648,6 +665,7 @@ export class ProcessTextInputUseCase {
       // The parser chose the item's category when it read the phrase
       fastPath: false,
       learned: await learnedWordsFor(this.learnedWords),
+      today,
     });
   }
 
@@ -661,7 +679,7 @@ export class ProcessTextInputUseCase {
       const money = captureMoneyOf(p, text, hints, write.itemCount, semanticType);
       const { currency } = money;
       const transaction: Transaction = {
-        date: p.date || new Date().toISOString().split('T')[0],
+        date: p.date || write.today,
         category: p.category || 'Другое',
         description: p.description || text,
         amount: money.amount,

@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { QuickCaptureService } from '../../application/quickCaptureService';
 import { CAPTURE_SOURCES, isCaptureSource } from '../../domain/quickCaptureTypes';
+import { parseCapturedAt } from '../../domain/capturedAt';
 import { isClientId } from '../../../transaction/domain/clientId';
 import { handleControllerError, handleControllerSuccess } from '../../../../shared/infrastructure/utils/controllerHelpers';
 import { ErrorFactory } from '../../../../shared/domain/errors/AppError';
@@ -27,7 +28,7 @@ export function createQuickCaptureRouter(
   // signs in and body.userId becomes the signed-in user (writeAsSignedInUser), so a capture is never for someone else.
   router.post('/', allowShortcutCapture, async (req: Request, res: Response) => {
     try {
-      const { text, source, userId, userName, clientId } = req.body ?? {};
+      const { text, source, userId, userName, clientId, capturedAt } = req.body ?? {};
 
       if (!text || typeof text !== 'string' || text.trim().length === 0) {
         const error = ErrorFactory.validation('Text is required and cannot be empty', 'text');
@@ -49,6 +50,16 @@ export function createQuickCaptureRouter(
         return handleControllerError(error, res);
       }
 
+      // The format only: its limits are checked after a repeat is answered (FT-175)
+      const capturedAtMoment = capturedAt === undefined || capturedAt === null ? undefined : parseCapturedAt(capturedAt);
+      if (capturedAtMoment === null) {
+        const error = ErrorFactory.validation(
+          'capturedAt must be an ISO 8601 time with seconds and a time zone, like 2026-10-27T09:15:00+05:00',
+          'capturedAt'
+        );
+        return handleControllerError(error, res);
+      }
+
       // Set by the auth middleware (signed-in user or Shortcut owner); kept as a guard against a misconfigured route
       if (!userId || typeof userId !== 'string') {
         const error = ErrorFactory.validation('User ID is required', 'userId');
@@ -63,6 +74,7 @@ export function createQuickCaptureRouter(
         userName: typeof userName === 'string' ? userName : undefined,
         source,
         ...(isClientId(clientId) ? { clientId } : {}),
+        ...(capturedAtMoment ? { capturedAt: capturedAtMoment } : {}),
       });
 
       handleControllerSuccess(result, res, 200, 'Quick capture processed');

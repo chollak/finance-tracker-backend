@@ -361,6 +361,37 @@ describe('POST /api/quick-capture', () => {
       expect(mocks.quickCaptureService.capture).toHaveBeenCalledTimes(1);
     });
 
+    it('passes the time of input through and refuses a malformed one (FT-175)', async () => {
+      (mocks.quickCaptureService.capture as jest.Mock).mockResolvedValue(SAVED_RESULT);
+
+      const ok = await post({ userId: '555111', text: 'такси 18к', capturedAt: '2026-10-27T09:15:00+05:00' }, SIGNED_IN);
+      expect(ok.status).toBe(200);
+      expect((mocks.quickCaptureService.capture as jest.Mock).mock.calls[0][0].capturedAt).toEqual(new Date('2026-10-27T04:15:00Z'));
+
+      // null is no time, as an absent field
+      const none = await post({ userId: '555111', text: 'такси 18к', capturedAt: null }, SIGNED_IN);
+      expect(none.status).toBe(200);
+      expect((mocks.quickCaptureService.capture as jest.Mock).mock.calls[1][0]).not.toHaveProperty('capturedAt');
+
+      for (const capturedAt of ['2026-10-27T09:15:00', '2026-10-27', 'вчера', '', 1761542100000]) {
+        const bad = await post({ userId: '555111', text: 'такси 18к', capturedAt }, SIGNED_IN);
+        expect(bad.status).toBe(400);
+        expect((await bad.json()).error).toMatchObject({ code: 'VALIDATION_ERROR', message: expect.stringMatching(/^capturedAt must be/) });
+      }
+      expect(mocks.quickCaptureService.capture).toHaveBeenCalledTimes(2);
+    });
+
+    it('answers 400 when the service refuses the time of input (FT-175)', async () => {
+      const { ErrorFactory } = jest.requireActual('../src/shared/domain/errors/AppError');
+      (mocks.quickCaptureService.capture as jest.Mock)
+        .mockRejectedValue(ErrorFactory.validation('capturedAt is older than 30 days', 'capturedAt'));
+
+      const res = await post({ userId: '555111', text: 'такси 18к', capturedAt: '2026-08-01T09:15:00+05:00' }, SIGNED_IN);
+
+      expect(res.status).toBe(400);
+      expect((await res.json()).error).toMatchObject({ code: 'VALIDATION_ERROR', message: 'capturedAt is older than 30 days' });
+    });
+
     it('accepts a capture without a source', async () => {
       (mocks.quickCaptureService.capture as jest.Mock).mockResolvedValue({
         ...SAVED_RESULT,

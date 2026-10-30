@@ -1,7 +1,9 @@
 import { ProcessTextInputUseCase } from '../../voiceProcessing/application/processTextInput';
 import { getLogger, LogCategory } from '../../../shared/application/logging';
+import { ErrorFactory } from '../../../shared/domain/errors/AppError';
 import { buildCaptureAck } from './buildCaptureAck';
 import { capturedFromRecord, toCapturedTransaction } from './toCapturedTransaction';
+import { CAPTURED_AT_LIMITS, capturedAtProblem, inputDayOf } from '../domain/capturedAt';
 import {
   AmountAnswerRequest,
   CaptureReplay,
@@ -16,6 +18,8 @@ import {
 
 const logger = getLogger(LogCategory.TRANSACTION);
 
+const CAPTURED_AT_TOO_OLD = `capturedAt is older than ${CAPTURED_AT_LIMITS.ageMs / 86_400_000} days`;
+
 /**
  * The shared quick-capture boundary. It owns the client-facing contract (status + ack)
  * and nothing else: parsing, the conservative transfer/savings/withdrawal safeguards and
@@ -25,7 +29,12 @@ export class QuickCaptureService {
   /** Captures with a clientId still being parsed, so a retry waits for them instead of parsing again. */
   private inFlight = new Map<string, Promise<QuickCaptureResult>>();
 
-  constructor(private processTextInputUseCase: ProcessTextInputUseCase, private replay?: CaptureReplay) {}
+  constructor(
+    private processTextInputUseCase: ProcessTextInputUseCase,
+    private replay?: CaptureReplay,
+    /** The server's clock, for the limits of `capturedAt`. */
+    private now: () => Date = () => new Date()
+  ) {}
 
   async capture(request: QuickCaptureRequest): Promise<QuickCaptureResult> {
     if (!request.clientId) return this.captureOnce(request);
@@ -57,10 +66,14 @@ export class QuickCaptureService {
       }
     }
 
+    // Checked after the repeat: a capture written once is answered, whatever time its retry carries (FT-175)
+    const today = request.capturedAt ? this.inputDay(request.capturedAt) : undefined;
+
     // The source is now stored on every record (FT-103); a client that does not say is the Mini App
     const processed = await this.processTextInputUseCase.execute(text, request.userId, request.userName, {
       source: request.source ?? 'miniapp',
       ...(request.clientId ? { clientId: request.clientId } : {}),
+      ...(today ? { today } : {}),
     });
     const result = buildResult(
       text,
@@ -81,6 +94,24 @@ export class QuickCaptureService {
     });
 
     return result;
+  }
+
+  /**
+   * The day the phrase was typed (FT-175). Up to a day ahead of the server it is still the phone's time — the PC's clock
+   * in WSL lags after a sleep; further ahead the phone's clock is wrong and the server's dates it. A time too old is not
+   * the time of input, so the capture is refused.
+   */
+  private inputDay(capturedAt: Date): string {
+    const now = this.now();
+    const problem = capturedAtProblem(capturedAt, now);
+    if (problem === 'too_old') throw ErrorFactory.validation(CAPTURED_AT_TOO_OLD, 'capturedAt');
+    if (problem === 'ahead' || problem === 'far_ahead') {
+      logger.warn('capturedAt is ahead of the server clock', {
+        aheadMinutes: Math.round((capturedAt.getTime() - now.getTime()) / 60_000),
+        datedBy: problem === 'ahead' ? 'capturedAt' : 'server',
+      });
+    }
+    return inputDayOf(problem === 'far_ahead' ? now : capturedAt);
   }
 
   /**

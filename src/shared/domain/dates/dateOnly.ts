@@ -35,3 +35,8 @@ export function addDaysToDateOnly(date: string, days: number): string {
   const [year, month, day] = date.split('-').map(Number);
   return new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10);
 }
+
+/** The day of the week of a YYYY-MM-DD date in the locale's words: «вторник», «Tuesday». */
+export function weekdayOfDateOnly(date: string, locale: string): string {
+  return new Intl.DateTimeFormat(locale, { weekday: 'long', timeZone: 'UTC' }).format(new Date(`${date}T00:00:00Z`));
+}
