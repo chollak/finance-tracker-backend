@@ -663,37 +663,6 @@ Definition of Done:
 
 ---
 
-### FT-184: A category correction in the Mini App teaches
-
-Status: in_progress — под-чат разработки, 2026-10-30
-Priority: medium
-Owner: Claude Code, QA — под-чат проверки
-Type: bug
-Size: S
-
-Context:
-Найдено под-чатом проверки FT-176 (2026-10-30). Правка категории в Mini App ничему не учит — ни у фразы, ни у оплаты
-Apple Pay. Mini App шлёт только `PUT /api/transactions/:id` с `{ categoryId }` (`patchTransaction`,
-`webapp/src/entities/transaction/api/mutations.ts:233`; вызовы — `useRecordEdits.ts`, `useCaptureReview.ts`), а
-сервер учится, только если в теле запроса есть `originalText` и `originalParsing`
-(`transactionController.ts:424` → `UpdateTransactionWithLearningUseCase`, `recordLearningData`); их никто не шлёт.
-Проверено на живом сервере: две оплаты «ZZQX 77» и «ZZQX 78» исправлены в «Продукты», третья всё равно ушла к ИИ.
-Выученные паттерны (FT-138) пополняются только сидом.
-
-Идея: сервер берёт `originalText` и `originalParsing` из сохранённой записи (они пишутся при создании: текст фразы,
-магазин оплаты), а не из тела запроса; тело с ними — как раньше, но не обязательно. Учит только смена категории, как
-сейчас (`userCorrection.category` — `presetKey` стартовой категории; своя категория пользователя ничему не учит).
-
-Definition of Done:
-- [ ] Правка категории записи из фразы через `PUT /api/transactions/:id { categoryId }` записывает урок; тест
-- [ ] То же для оплаты Apple Pay: две правки «ZZQX 77/78» в «Продукты» → третья оплата «ZZQX» — «Продукты» без ИИ; тест
-- [ ] Запись без `originalText` (ручная форма, `POST /api/transactions`) ничему не учит и не падает; тест
-- [ ] Проверено, учит ли правка категории в боте; если нет — здесь же или отдельной задачей
-- [ ] `docs/QUICK_CAPTURE_API.md` («Payments», шаг 3) и `voice-to-transaction.md` («Learning System Integration»)
-      говорят, что правка учит
-
----
-
 ### FT-185: A phrase amount with a decimal comma is read a hundred times larger
 
 Status: backlog — в очереди, 1-я после iOS (Шукур, 2026-10-30)
