@@ -9,6 +9,8 @@ import { CategoryResolver } from '../domain/categoryResolver';
 import { resolveCategoryForUpdate } from './resolveCategoryForUpdate';
 import { AccountResolver } from '../domain/accountResolver';
 import { resolveAccountForUpdate } from './resolveAccountForUpdate';
+import { CategoryLessons } from '../domain/categoryLessons';
+import { teachCategoryCorrection } from './teachCategoryCorrection';
 
 const logger = getLogger(LogCategory.TRANSACTION);
 
@@ -35,7 +37,8 @@ export class UpdateTransactionUseCase {
   constructor(
     private repository: TransactionRepository,
     private categoryResolver?: CategoryResolver,
-    private accountResolver?: AccountResolver
+    private accountResolver?: AccountResolver,
+    private categoryLessons?: CategoryLessons
   ) {}
 
   async execute(request: UpdateTransactionRequest): Promise<Result<Transaction>> {
@@ -103,6 +106,8 @@ export class UpdateTransactionUseCase {
         semanticType,
         needsReview,
       });
+      const { repository, categoryResolver, categoryLessons } = this;
+      await teachCategoryCorrection({ repository, categoryResolver, categoryLessons }, existing, request, categoryResult.data);
 
       logger.info('Transaction updated', { transactionId: id });
       return ResultHelper.success(updatedTransaction);

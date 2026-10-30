@@ -135,4 +135,68 @@ describe('TransactionLearningService runtime data policy', () => {
       expect(prompt).not.toContain('азс');
     });
   });
+
+  describe('lessons of a category correction (FT-184)', () => {
+    const parsing = { amount: 25000, category: 'Покупки', type: 'expense' as const };
+    const lesson = (words: string, presetKey: string, userId = 'user-1') => ({ userId, words, presetKey, originalParsing: parsing });
+    const readPatterns = () => JSON.parse(fs.readFileSync(path.join(tempDir, 'data', 'patterns.json'), 'utf-8'));
+    const patternOf = (key: string) => readPatterns().categories.find((pattern: { category: string }) => pattern.category === key);
+    const seed = (categories: unknown[]) =>
+      fs.writeFileSync(path.join(tempDir, 'data', 'patterns.seed.json'), JSON.stringify({ categories, merchants: [] }));
+
+    it('learning ties the words to the starter key and keeps the correction in the history', async () => {
+      const service = new TransactionLearningService(tempDir);
+
+      await service.learnCategory(lesson('ZZQX 77', 'groceries'));
+      await service.learnCategory(lesson('ZZQX 78', 'groceries'));
+
+      expect(patternOf('groceries')).toMatchObject({ keywords: ['zzqx'], usageCount: 2 });
+      expect((await service.learnedCategoryWords()).get('groceries')).toEqual(['zzqx']);
+      const history = JSON.parse(fs.readFileSync(path.join(tempDir, 'data', 'learning-data.json'), 'utf-8'));
+      expect(history).toHaveLength(2);
+      // The history keeps starter keys (FT-099): «Покупки» of the parse is read back as `shopping`
+      expect(history[0]).toMatchObject({
+        originalText: 'zzqx 77', originalParsing: { amount: 25000, type: 'expense' }, userCorrection: { category: 'groceries' }, userId: 'user-1',
+      });
+    });
+
+    it('unlearning takes back only the words the lesson added: the seed’s words and count stay', async () => {
+      seed([{ keywords: ['evos'], category: 'cafe', confidence: 0.8, usageCount: 2 }]);
+      const service = new TransactionLearningService(tempDir);
+
+      await service.learnCategory(lesson('evos zzqx', 'cafe'));
+      await service.unlearnCategory(lesson('evos zzqx', 'cafe'));
+
+      expect(patternOf('cafe')).toMatchObject({ keywords: ['evos'], usageCount: 2 });
+      expect((await service.learnedCategoryWords()).get('cafe')).toEqual(['evos']);
+      expect(JSON.parse(fs.readFileSync(path.join(tempDir, 'data', 'learning-data.json'), 'utf-8'))).toEqual([]);
+    });
+
+    it('unlearning keeps a word another lesson of the category taught too, and that lesson can take it back later', async () => {
+      const service = new TransactionLearningService(tempDir);
+
+      await service.learnCategory(lesson('ZZQX 77', 'groceries'));
+      await service.learnCategory(lesson('ZZQX 78', 'groceries'));
+      await service.unlearnCategory(lesson('ZZQX 77', 'groceries'));
+
+      expect(patternOf('groceries')).toMatchObject({ keywords: ['zzqx'], usageCount: 1 });
+
+      await service.unlearnCategory(lesson('ZZQX 78', 'groceries'));
+
+      expect(patternOf('groceries')).toBeUndefined();
+    });
+
+    it('unlearning what no lesson taught — another category, another user, a record edited before FT-184 — changes nothing', async () => {
+      seed([{ keywords: ['evos'], category: 'cafe', confidence: 0.8, usageCount: 2 }]);
+      const service = new TransactionLearningService(tempDir);
+      await service.learnCategory(lesson('ZZQX 77', 'groceries'));
+
+      await service.unlearnCategory(lesson('ZZQX 77', 'shopping'));
+      await service.unlearnCategory(lesson('ZZQX 77', 'groceries', 'user-2'));
+      await service.unlearnCategory(lesson('evos', 'cafe'));
+
+      expect(patternOf('groceries')).toMatchObject({ keywords: ['zzqx'], usageCount: 1 });
+      expect(patternOf('cafe')).toMatchObject({ keywords: ['evos'], usageCount: 2 });
+    });
+  });
 });

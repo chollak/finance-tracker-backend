@@ -3,6 +3,7 @@ import path from 'path';
 import { createLogger, LogCategory } from '../logging';
 import { CATEGORY_PRESETS, presetKeyForLearning } from '../../../modules/category/domain/categoryPresets';
 import { isBareBrand, namingWordsOf } from '../../../modules/voiceProcessing/domain/categoryGuess';
+import { CategoryLesson, CategoryLessons } from '../../../modules/transaction/domain/categoryLessons';
 
 const logger = createLogger(LogCategory.LEARNING);
 
@@ -26,6 +27,8 @@ export interface LearningData {
   userId: string;
   timestamp: string;
   confidence: number;
+  /** Words this correction added to its category pattern (FT-184): what taking the correction back removes. */
+  learnedKeywords?: string[];
 }
 
 export interface CategoryPattern {
@@ -43,7 +46,7 @@ export interface MerchantPattern {
   usageCount: number;
 }
 
-export class TransactionLearningService {
+export class TransactionLearningService implements CategoryLessons {
   private learningDataPath: string;
   private patternsPath: string;
   private learningDataSeedPath: string;
@@ -77,9 +80,11 @@ export class TransactionLearningService {
         confidence
       };
 
+      const learnedKeywords = await this.updatePatterns(learningEntry);
+
       // Load existing learning data
       const existingData = await this.loadLearningData();
-      existingData.push(learningEntry);
+      existingData.push(learnedKeywords.length > 0 ? { ...learningEntry, learnedKeywords } : learningEntry);
 
       // Keep only last 1000 entries to prevent file from growing too large
       if (existingData.length > 1000) {
@@ -87,7 +92,6 @@ export class TransactionLearningService {
       }
 
       await this.saveLearningData(existingData);
-      await this.updatePatterns(learningEntry);
 
       logger.info('Learning data recorded successfully', {
         text: originalText.substring(0, 50),
@@ -104,6 +108,67 @@ export class TransactionLearningService {
         originalText: originalText.substring(0, 50),
         userId: userId.substring(0, 8)
       });
+    }
+  }
+
+  /** A record corrected into a starter category (FT-184): its words now point at it. */
+  async learnCategory(lesson: CategoryLesson): Promise<void> {
+    await this.recordCorrection(
+      lesson.words,
+      lesson.originalParsing,
+      { category: lesson.presetKey },
+      lesson.userId,
+      lesson.originalParsing.confidence ?? 0.8
+    );
+  }
+
+  /**
+   * A record left the category it was corrected into (FT-184): «Отменить» in the Mini App, or a second correction.
+   * The last correction of the same words into the category by the same user leaves the history, and so do the words
+   * it added to the pattern — unless another correction of that category has them too, which then holds them. The
+   * seed's words stay, and a correction nobody recorded (an edit made before FT-184) takes nothing back.
+   */
+  async unlearnCategory(lesson: CategoryLesson): Promise<void> {
+    try {
+      const text = lesson.words.toLowerCase();
+      const history = await this.loadLearningData();
+      const isTheLesson = (entry: LearningData) =>
+        entry.originalText === text && entry.userId === lesson.userId && entry.userCorrection.category === lesson.presetKey;
+      const index = history.map(isTheLesson).lastIndexOf(true);
+      if (index === -1) return;
+
+      const taken = history[index];
+      let rest = history.filter((_, position) => position !== index);
+      const dropped: string[] = [];
+      for (const word of taken.learnedKeywords ?? []) {
+        const heir = rest.findIndex(entry =>
+          entry.userCorrection.category === lesson.presetKey && lessonWords(entry.originalText).includes(word));
+        if (heir === -1) {
+          dropped.push(word);
+          continue;
+        }
+        rest = rest.map((entry, position) => position === heir
+          ? { ...entry, learnedKeywords: [...(entry.learnedKeywords ?? []), word] }
+          : entry);
+      }
+
+      const patterns = await this.loadPatterns();
+      const categories = patterns.categories
+        .map(pattern => pattern.category === lesson.presetKey
+          ? {
+            ...pattern,
+            keywords: pattern.keywords.filter(keyword => !dropped.includes(keyword)),
+            usageCount: Math.max(0, pattern.usageCount - 1),
+            confidence: Math.max(0.5, pattern.confidence - 0.1),
+          }
+          : pattern)
+        .filter(pattern => pattern.keywords.length > 0 || pattern.usageCount > 0);
+
+      await this.saveLearningData(rest);
+      await this.savePatterns({ ...patterns, categories });
+      logger.info('Learning taken back', { category: lesson.presetKey, dropped, userId: lesson.userId.substring(0, 8) });
+    } catch (error) {
+      logger.error('Failed to take learning back', error as Error, { category: lesson.presetKey });
     }
   }
 
@@ -185,17 +250,16 @@ export class TransactionLearningService {
     });
   }
 
-  private async updatePatterns(learningEntry: LearningData): Promise<void> {
+  /** Applies a correction to the patterns; returns the words it added to its category pattern. */
+  private async updatePatterns(learningEntry: LearningData): Promise<string[]> {
     const patterns = await this.loadPatterns();
+    const learnedKeywords: string[] = [];
     
     // Update category patterns
     if (learningEntry.userCorrection.category && 
         learningEntry.userCorrection.category !== learningEntry.originalParsing.category) {
       
-      const words = learningEntry.originalText
-        .toLowerCase()
-        .split(/\s+/)
-        .filter(word => word.length > 2);
+      const words = lessonWords(learningEntry.originalText);
       
       const correctedCategory = learningEntry.userCorrection.category;
       
@@ -215,6 +279,7 @@ export class TransactionLearningService {
       words.forEach(word => {
         if (!categoryPattern!.keywords.includes(word)) {
           categoryPattern!.keywords.push(word);
+          learnedKeywords.push(word);
         }
       });
       
@@ -253,6 +318,7 @@ export class TransactionLearningService {
     }
     
     await this.savePatterns(patterns);
+    return learnedKeywords;
   }
 
   private async loadLearningData(): Promise<LearningData[]> {
@@ -310,6 +376,14 @@ export class TransactionLearningService {
       logger.error('Failed to save patterns', error as Error);
     }
   }
+}
+
+/** The words a correction teaches its category: every word of its text longer than two letters. */
+function lessonWords(text: string): string[] {
+  return text
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(word => word.length > 2);
 }
 
 export interface LearnedPatterns {
