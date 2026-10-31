@@ -6,7 +6,7 @@ import Testing
 /// and the card of FT-251…FT-254.
 @Suite("Ответ сервера по каждой записи")
 struct CaptureReplyTests {
-    @Test("оплата из QUICK_CAPTURE_API.md: id, сумма, валюта, категория, счёт, «проверить», догадки")
+    @Test("оплата из QUICK_CAPTURE_API.md: id, сумма, валюта, категория, счёт, заметка, «проверить», догадки")
     func paymentFromDocs() throws {
         #expect(try CaptureReplyBodies.reply(CaptureReplyBodies.paymentFromDocs) == CaptureReply(
             status: "saved",
@@ -15,8 +15,10 @@ struct CaptureReplyTests {
             records: [
                 CapturedRecord(
                     id: "ff1a09d9-b1d4-410a-9f8f-10f872ab580a", type: .expense, amountMinor: 2_500_000,
-                    currency: "UZS", category: "Продукты", accountName: "Карта", needsReview: false,
-                    assumptions: [.category(name: "Продукты"), .account(name: "Карта", reason: .hint)]
+                    currency: "UZS", categoryId: "…", category: "Продукты", accountId: "…", accountName: "Карта",
+                    description: "KORZINKA 24", needsReview: false,
+                    assumptions: [.category(name: "Продукты"), .account(name: "Карта", reason: .hint)],
+                    deletedAt: nil
                 ),
             ]
         ))
@@ -28,8 +30,9 @@ struct CaptureReplyTests {
 
         #expect(reply.records == [
             CapturedRecord(
-                id: "tx-1", type: .expense, amountMinor: 1_800_000, currency: "UZS", category: "Транспорт",
-                accountName: "Карта", needsReview: false, assumptions: [.account(name: "Карта", reason: .byDefault)]
+                id: "tx-1", type: .expense, amountMinor: 1_800_000, currency: "UZS", categoryId: "cat-transport",
+                category: "Транспорт", accountId: "acc-1", accountName: "Карта", description: "такси",
+                needsReview: false, assumptions: [.account(name: "Карта", reason: .byDefault)], deletedAt: nil
             ),
         ])
         #expect(reply.withoutAmount.isEmpty)
@@ -71,35 +74,79 @@ struct CaptureReplyTests {
         #expect(reply.records.map(\.id) == ["rec-coffee", "rec-headphones"])
         #expect(reply.records.map(\.needsReview) == [false, true])
         #expect(reply.records[1] == CapturedRecord(
-            id: "rec-headphones", type: .expense, amountMinor: 5500, currency: "USD", category: "Покупки",
-            accountName: "Карта", needsReview: true,
+            id: "rec-headphones", type: .expense, amountMinor: 5500, currency: "USD", categoryId: "cat-shopping",
+            category: "Покупки", accountId: "acc-card", accountName: "Карта", description: "наушники",
+            needsReview: true,
             assumptions: [
                 .category(name: "Покупки"),
                 .account(name: "Карта", reason: .byDefault),
                 .currency(code: "USD", reason: .noUsdAccount),
-            ]
+            ],
+            deletedAt: nil
         ))
+    }
+
+    @Test("«хлеб 5к и бензин 200к» с сервера с ИИ: у каждой записи своя заметка, категория и счёт по id")
+    func eachRecordItsNote() throws {
+        let reply = try CaptureReplyBodies.reply(CaptureReplyBodies.breadAndPetrol)
+
+        #expect(reply.records.map(\.description) == ["хлеб", "бензин"])
+        #expect(reply.records.map(\.categoryId) == [
+            "3e630b99-d1dc-456b-b791-61cf21d5f46e", "19cfc603-92f8-451b-8ba1-e5868c36a8ae",
+        ])
+        #expect(reply.records.map(\.accountId) == [
+            "3cacdec0-0136-11a2-62a2-12e4e96411cf", "3cacdec0-0136-11a2-62a2-12e4e96411cf",
+        ])
     }
 
     @Test("без суммы: «такси» в «кофе 25к, такси» — в withoutAmount, записи под него нет")
     func withoutAmount() throws {
         let reply = try CaptureReplyBodies.reply(CaptureReplyBodies.coffeeAndTaxiWithoutAmount)
 
-        #expect(reply.records.map(\.id) == ["rec-coffee"])
+        #expect(reply.records.map(\.id) == ["c5b63732-5ffd-455e-851d-f9eb80f3ea38"])
         #expect(reply.withoutAmount == [CapturedWithoutAmount(description: "такси", category: "Транспорт")])
     }
 
-    @Test("повтор с сервера: repeated, без счёта и догадок; удалённая запись читается")
+    @Test("повтор после потерянного ответа: без названия счёта и догадок, но с id счёта и категории")
     func repeatFromServer() throws {
         let reply = try CaptureReplyBodies.reply(CaptureReplyBodies.coffeeRepeated)
 
         #expect(reply.repeated)
+        #expect(reply.withoutAmount.isEmpty)
         #expect(reply.records == [
             CapturedRecord(
                 id: CaptureReplyBodies.coffeeId, type: .expense, amountMinor: 4_500_000, currency: "UZS",
-                category: "Кафе", accountName: nil, needsReview: false, assumptions: []
+                categoryId: "637c7a38-2079-4094-a0dd-c40c5d36c211", category: "Кафе",
+                accountId: "26da76bc-f575-46c8-74d7-8ffd3e562694", accountName: nil, description: "кофе",
+                needsReview: false, assumptions: [], deletedAt: "2026-10-31T20:58:13.433Z"
             ),
         ])
+    }
+
+    @Test("повтор после удаления на сервере с ИИ: удалённая запись остаётся с deletedAt, вторая — записанной")
+    func repeatAfterDeletion() throws {
+        let reply = try CaptureReplyBodies.reply(CaptureReplyBodies.breadAndPetrolRepeatedAfterDeletion)
+
+        #expect(reply.records.map(\.id) == [
+            "c4b400f6-62a2-4fd0-8624-b71d7dcd23fa", "9df8b6e3-e460-4377-83cb-8c31806cf31b",
+        ])
+        #expect(reply.records.map(\.deletedAt) == [nil, "2026-10-31T21:31:57.397Z"])
+        #expect(reply.records.map(\.isDeleted) == [false, true])
+        #expect(reply.records.map(\.accountName) == [nil, nil])
+        #expect(reply.records.map(\.description) == ["хлеб", "бензин"])
+    }
+
+    @Test("удалённая запись переживает файл очереди и перезапуск с той же отметкой")
+    func deletionKeptOnDisk() async throws {
+        let body = CaptureReplyBodies.breadAndPetrolRepeatedAfterDeletion
+        let harness = try QueueHarness(transport: FakeTransport([.http(200, body: body)]))
+        let queue = harness.makeQueue()
+        _ = try await queue.add("хлеб 5к и бензин 200к картой")
+        await queue.flush()
+
+        let kept = try #require(await harness.makeQueue().state().captures.first?.reply)
+        #expect(kept.records.map(\.isDeleted) == [false, true])
+        #expect(kept == (try CaptureReplyBodies.reply(body)))
     }
 
     @Test("непонятная догадка и нечитаемая запись выпадают — ответ всё равно «записано», а не «ждёт»")
@@ -117,8 +164,9 @@ struct CaptureReplyTests {
 
         #expect(reply.records == [
             CapturedRecord(
-                id: "good", type: .expense, amountMinor: 2_500_000, currency: "UZS", category: "Кафе",
-                accountName: nil, needsReview: false, assumptions: [.category(name: "Кафе")]
+                id: "good", type: .expense, amountMinor: 2_500_000, currency: "UZS", categoryId: nil, category: "Кафе",
+                accountId: nil, accountName: nil, description: "", needsReview: false,
+                assumptions: [.category(name: "Кафе")], deletedAt: nil
             ),
         ])
         #expect(reply.withoutAmount == [CapturedWithoutAmount(description: "такси", category: "")])

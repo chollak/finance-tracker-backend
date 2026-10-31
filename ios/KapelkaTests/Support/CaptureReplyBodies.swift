@@ -3,8 +3,8 @@ import Foundation
 
 /// Whole answers of `POST /api/quick-capture` and `/payment` with records in them (FT-255). «из документации» — word
 /// for word from `docs/QUICK_CAPTURE_API.md`; «с сервера» — what the server of this repository answered on 2026-11-01
-/// (a test database, the dictionary without the AI, ids as it gave them); the rest is built by the contract of
-/// `QUICK_CAPTURE_API.md` where the dictionary cannot answer without the AI.
+/// (a test database, the dictionary without the AI, ids as it gave them); «с сервера с ИИ» — the same with the real
+/// AI, from the review of PR #167; the rest is built by the contract of `QUICK_CAPTURE_API.md`.
 enum CaptureReplyBodies {
     struct NotSent: Error {
         let outcome: SendOutcome
@@ -155,18 +155,51 @@ enum CaptureReplyBodies {
         "isArchived":false,"createdAt":"2026-10-31T20:57:48.000Z","clientId":"11111111-2222-4333-8444-555555555502"}
         """
 
-    /// «кофе 25к, такси»: «такси» has no amount, so only the coffee is written (FT-123). The parse needs the AI, so
-    /// the body follows the contract: `withoutAmount` with `description`, `category`, `type`, `semanticType`, `date`.
+    /// С сервера с ИИ: «кофе 25к, такси» — «такси» has no amount, so only the coffee is written (FT-123).
     static let coffeeAndTaxiWithoutAmount = """
-        {"success":true,"data":{"status":"saved","text":"кофе 25к, такси","source":"ios_shortcut","transactions":[\
-        {"id":"rec-coffee","amount":25000,"amountMinor":2500000,"currency":"UZS","accountId":"acc-card",\
-        "accountName":"Карта","assumptions":[{"kind":"account","name":"Карта","reason":"default"}],\
-        "type":"expense","semanticType":"expense","category":"Кафе","categoryId":"cat-cafe","description":"кофе",\
-        "merchant":"кофе","date":"2026-10-31","needsReview":false,"countsAsRealExpense":true}],"debts":[],\
+        {"success":true,"data":{"status":"saved","text":"кофе 25к, такси","source":"ios_shortcut",\
+        "transactions":[{"id":"c5b63732-5ffd-455e-851d-f9eb80f3ea38","amount":25000,"amountMinor":2500000,\
+        "currency":"UZS","accountId":"3cacdec0-0136-11a2-62a2-12e4e96411cf","accountName":"Карта",\
+        "assumptions":[{"kind":"account","name":"Карта","reason":"default"}],"type":"expense","semanticType":"expense",\
+        "category":"Кафе","categoryId":"92c6b80d-4b33-438b-a628-d40e21c5d1fc","description":"кофе","merchant":"кофе",\
+        "date":"2026-11-01","confidence":0.9,"needsReview":false,"countsAsRealExpense":true}],"debts":[],\
         "ack":{"title":"Записал","summary":"Кофе · 25 000 сум · Кафе","details":"Сегодня","actions":["edit","delete"]},\
         "review":{"reasons":[]},"withoutAmount":[{"description":"такси","category":"Транспорт","type":"expense",\
-        "semanticType":"expense","date":"2026-10-31"}]},"message":"Quick capture processed",\
-        "timestamp":"2026-10-31T21:00:00.000Z"}
+        "semanticType":"expense","date":"2026-11-01","merchant":"такси"}]},"message":"Quick capture processed",\
+        "timestamp":"2026-10-31T21:31:14.538Z"}
+        """
+
+    /// С сервера с ИИ: «хлеб 5к и бензин 200к картой» — two records, each with its own note.
+    static let breadAndPetrol = """
+        {"success":true,"data":{"status":"saved","text":"хлеб 5к и бензин 200к картой","source":"ios_shortcut",\
+        "transactions":[{"id":"c4b400f6-62a2-4fd0-8624-b71d7dcd23fa","amount":5000,"amountMinor":500000,\
+        "currency":"UZS","accountId":"3cacdec0-0136-11a2-62a2-12e4e96411cf","accountName":"Карта",\
+        "assumptions":[{"kind":"category","name":"Продукты"},{"kind":"account","name":"Карта","reason":"default"}],\
+        "type":"expense","semanticType":"expense","category":"Продукты",\
+        "categoryId":"3e630b99-d1dc-456b-b791-61cf21d5f46e","description":"хлеб","date":"2026-11-01","confidence":0.6,\
+        "needsReview":false,"countsAsRealExpense":true},{"id":"9df8b6e3-e460-4377-83cb-8c31806cf31b","amount":200000,\
+        "amountMinor":20000000,"currency":"UZS","accountId":"3cacdec0-0136-11a2-62a2-12e4e96411cf",\
+        "accountName":"Карта","assumptions":[{"kind":"account","name":"Карта","reason":"hint"}],"type":"expense",\
+        "semanticType":"expense","category":"Транспорт","categoryId":"19cfc603-92f8-451b-8ba1-e5868c36a8ae",\
+        "description":"бензин","date":"2026-11-01","confidence":0.6,"needsReview":false,"countsAsRealExpense":true}],\
+        "debts":[],"ack":{"title":"Записал 2","summary":"Хлеб · 5 000 сум\\nБензин · 200 000 сум","actions":["edit",\
+        "delete"]},"review":{"reasons":[]}},"message":"Quick capture processed","timestamp":"2026-10-31T21:31:16.812Z"}
+        """
+
+    /// С сервера с ИИ: the same `clientId` again after «бензин» was deleted — `deletedAt` on it, the bread as it was.
+    static let breadAndPetrolRepeatedAfterDeletion = """
+        {"success":true,"data":{"status":"saved","text":"хлеб 5к и бензин 200к картой","source":"ios_shortcut",\
+        "transactions":[{"id":"c4b400f6-62a2-4fd0-8624-b71d7dcd23fa","amount":5000,"amountMinor":500000,\
+        "currency":"UZS","accountId":"3cacdec0-0136-11a2-62a2-12e4e96411cf","type":"expense","semanticType":"expense",\
+        "category":"Продукты","categoryId":"3e630b99-d1dc-456b-b791-61cf21d5f46e","description":"хлеб","merchant":null,\
+        "date":"2026-11-01","confidence":0.6,"needsReview":false,"countsAsRealExpense":true},\
+        {"id":"9df8b6e3-e460-4377-83cb-8c31806cf31b","amount":200000,"amountMinor":20000000,"currency":"UZS",\
+        "accountId":"3cacdec0-0136-11a2-62a2-12e4e96411cf","type":"expense","semanticType":"expense",\
+        "category":"Транспорт","categoryId":"19cfc603-92f8-451b-8ba1-e5868c36a8ae","description":"бензин",\
+        "merchant":null,"date":"2026-11-01","confidence":0.6,"needsReview":false,"countsAsRealExpense":true,\
+        "deletedAt":"2026-10-31T21:31:57.397Z"}],"debts":[],"ack":{"title":"Записал 2",\
+        "summary":"Хлеб · 5 000 сум\\nБензин · 200 000 сум","actions":["edit","delete"]},"review":{"reasons":[]},\
+        "repeated":true},"message":"Quick capture processed","timestamp":"2026-10-31T21:32:06.227Z"}
         """
 
     /// «кофе 25к и наушники 55$»: two records of one phrase — the second's `clientId` on the server is

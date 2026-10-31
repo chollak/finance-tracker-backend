@@ -56,14 +56,27 @@ struct CapturedRecord: Codable, Equatable, Sendable {
     let amountMinor: Int
     /// `UZS` or `USD` (FT-103).
     let currency: String
+    /// The user's category the record went to (FT-099): a record of «Записи» with another one was changed since.
+    let categoryId: String?
     /// The category's name when it was written.
     let category: String
+    /// The account the record went to (FT-103); a repeat has it too, so the account can be named from
+    /// `GET /api/accounts`.
+    let accountId: String?
     /// The account's name when it was written; `nil` on a repeat (FT-106).
     let accountName: String?
+    /// The note: «хлеб», «бензин»; the merchant for a payment. Empty when there is none.
+    let description: String
     /// «Проверить»: the parse was unsure.
     let needsReview: Bool
     /// What the parse took for granted (FT-103); none on a repeat.
     let assumptions: [CaptureAssumption]
+    /// When the record was deleted on the server: only a repeat after the deletion says so (FT-106). The record is
+    /// kept, not dropped, so the id still names it — for «Удалено» and «Вернуть» (FT-221) — and a phrase whose records
+    /// are all deleted does not look like «не нашёл операцию».
+    let deletedAt: String?
+
+    var isDeleted: Bool { deletedAt != nil }
 }
 
 extension CapturedRecord {
@@ -75,10 +88,14 @@ extension CapturedRecord {
         type = try container.decode(Record.Kind.self, forKey: .type)
         amountMinor = try container.decode(Int.self, forKey: .amountMinor)
         currency = try container.decodeIfPresent(String.self, forKey: .currency) ?? "UZS"
+        categoryId = try container.decodeIfPresent(String.self, forKey: .categoryId)
         category = try container.decodeIfPresent(String.self, forKey: .category) ?? ""
+        accountId = try container.decodeIfPresent(String.self, forKey: .accountId)
         accountName = try container.decodeIfPresent(String.self, forKey: .accountName)
+        description = try container.decodeIfPresent(String.self, forKey: .description) ?? ""
         needsReview = try container.decodeIfPresent(Bool.self, forKey: .needsReview) ?? false
         assumptions = container.lenientList(CaptureAssumption.self, forKey: .assumptions)
+        deletedAt = try container.decodeIfPresent(String.self, forKey: .deletedAt)
     }
 }
 

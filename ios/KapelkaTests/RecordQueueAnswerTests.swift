@@ -82,8 +82,32 @@ struct RecordQueueAnswerTests {
         #expect(answer.assumptions.first == .thousands(written: "45", amount: 45_000))
     }
 
-    private func record(_ id: String, clientId: String?) throws -> Record {
-        let json = RecordsReply.record(id: id, clientId: clientId)
+    @Test("ответ хранит категорию и счёт записи по id: после смены категории в «Записях» они расходятся")
+    func answerKeepsIdsToCompare() throws {
+        let clientId = CaptureReplyBodies.coffeeClientId.uuidString.lowercased()
+        let state = try queueState(CaptureReplyBodies.coffeeClientId, CaptureReplyBodies.coffee)
+        let asWritten = try record(
+            CaptureReplyBodies.coffeeId, clientId: clientId,
+            categoryId: "637c7a38-2079-4094-a0dd-c40c5d36c211", accountId: "26da76bc-f575-46c8-74d7-8ffd3e562694"
+        )
+        let recategorised = try record(
+            CaptureReplyBodies.coffeeId, clientId: clientId,
+            categoryId: "cat-groceries", accountId: "26da76bc-f575-46c8-74d7-8ffd3e562694"
+        )
+
+        let answer = try #require(state.answer(for: asWritten))
+        #expect(answer.categoryId == asWritten.categoryId)
+        #expect(answer.accountId == asWritten.accountId)
+        #expect(state.answer(for: recategorised)?.categoryId != recategorised.categoryId)
+    }
+
+    private func record(
+        _ id: String,
+        clientId: String?,
+        categoryId: String = "cat-cafe",
+        accountId: String? = "acc-card"
+    ) throws -> Record {
+        let json = RecordsReply.record(id: id, categoryId: categoryId, accountId: accountId, clientId: clientId)
         return try JSONDecoder().decode(Record.self, from: Data(json.utf8))
     }
 
