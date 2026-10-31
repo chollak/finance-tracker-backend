@@ -1,5 +1,6 @@
+import { randomUUID } from 'crypto';
 import { getLogger, LogCategory } from '../../../shared/application/logging';
-import { todayDateOnly } from '../../../shared/domain/dates/dateOnly';
+import { addDaysToDateOnly, todayDateOnly } from '../../../shared/domain/dates/dateOnly';
 import { LocalClock, localClock } from '../domain/dailySummary';
 import { NotificationKind, NotificationLogRepository } from '../domain/notificationLog';
 import { NoticeNotSentError } from '../domain/noticeNotSent';
@@ -13,6 +14,7 @@ import {
   auditMonthOf,
   goalAlertLevel,
   isAuditCallDue,
+  isAuditDay,
   isGoalAlertTime,
   isSubscriptionReminderTime,
 } from '../domain/reminders';
@@ -81,7 +83,9 @@ const REMINDER_KINDS: readonly NotificationKind[] = ['goal_near', 'goal_over', '
  * - **The audit**: on the 1st at the chosen time while there are spendings to mark; «Позже» brings it back the next day
  *   at the same time, once, without «Позже».
  *
- * A switched-off setting sends nothing and claims nothing: switched on again, what is still due that day goes out.
+ * A switched-off setting sends nothing and claims nothing: switched on again, what is still due that day goes out. A
+ * subscription reminder or an audit call whose day the bot was not running at their time keeps a failed row the next
+ * day, «не ушло: ни одной попытки», and is not sent late (FT-173).
  */
 export class RemindersNotifier {
   /** Notices settled in this process (sent, skipped, failed, being sent): a tick does not ask the log about them again. */
@@ -105,7 +109,7 @@ export class RemindersNotifier {
       if (!TELEGRAM_CHAT.test(recipient.telegramId)) continue;
       const clock = localClock(now, recipient.timeZone);
       try {
-        await this.closeOverdue(recipient.userId, clock.date);
+        await this.closeOverdue(recipient, clock.date);
         if (recipient.auditEnabled) results.push(...(await this.auditCalls(recipient, clock, sender)));
         if (recipient.goalAlertsEnabled) results.push(...(await this.goalAlerts(recipient, clock, sender)));
       } catch (error) {
@@ -199,11 +203,46 @@ export class RemindersNotifier {
     return results;
   }
 
-  /** Once a day on the user's clock: the reminders that did not leave before their last day ended are kept failed (FT-164). */
-  private async closeOverdue(userId: string, today: string): Promise<void> {
+  /**
+   * Once a day on the user's clock: yesterday's reminders no tick got to keep a trace (FT-173), and the reminders that
+   * did not leave before their last day ended are kept failed with the reason (FT-164).
+   */
+  private async closeOverdue(recipient: ReminderRecipient, today: string): Promise<void> {
+    const { userId } = recipient;
     if (this.closed.get(userId) === today) return;
+    await this.markMissed(recipient, addDaysToDateOnly(today, -1));
     await closeExpired(this.log, userId, REMINDER_KINDS, today);
     this.closed.set(userId, today);
+  }
+
+  /**
+   * The subscription reminders and the audit call of `day` that have no row — the bot was not running at their time —
+   * are claimed waiting with `day` as their last day, so `closeExpired` keeps them failed «не ушло: ни одной попытки».
+   * Nothing is sent late (decision 2026-10-29) and only the day before is looked at, as for the daily summary. A
+   * switched-off setting leaves no trace, nor does an audit with nothing to call to (FT-173).
+   */
+  private async markMissed(recipient: ReminderRecipient, day: string): Promise<void> {
+    const { userId } = recipient;
+    const unclaimed = async (kind: NotificationKind, period: string) => !(await this.log.find(userId, kind, period));
+    const missed: Array<{ kind: NotificationKind; period: string }> = [];
+
+    if (recipient.goalAlertsEnabled) {
+      for (const goal of (await this.sources.goals(userId, day)).subscriptions) {
+        const period = `${goal.id}:${day}`;
+        if (await unclaimed('subscription', period)) missed.push({ kind: 'subscription', period });
+      }
+    }
+    const month = auditMonthOf(day);
+    if (recipient.auditEnabled && isAuditDay(day) && (await unclaimed('audit', month))) {
+      const audit = await this.sources.audit(userId, day);
+      if (audit.state === 'open' && audit.left > 0) missed.push({ kind: 'audit', period: month });
+    }
+
+    for (const { kind, period } of missed) {
+      // Claimed twice by two ticks — one row
+      await this.log.claim({ id: randomUUID(), userId, kind, period, sendUntil: day, waiting: true });
+      logger.warn('Reminder day passed with the bot not running, kept as failed', { userId, kind, period });
+    }
   }
 
   /** In the log and settled; a notice that did not leave and may still go out today is not (FT-164). */
