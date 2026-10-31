@@ -9,6 +9,8 @@ struct AppServices: Sendable {
     let background: BackgroundSend
     let health: HealthCheck
     let payments: PaymentRecorder
+    /// The server's records for the list, with the queue's address and token (FT-219); no screen reads it yet.
+    let records: RecordsFeed
 
     /// One per process: the screen, the background refresh and the App Shortcuts share the queue, so two of them
     /// never send at once. «Записать оплату» runs here too, the app not opened.
@@ -40,6 +42,10 @@ struct AppServices: Sendable {
                 send: { await background.run() },
                 isConfigured: { settings.configuration() != nil },
                 notify: { await SystemNotices.post($0, $1) }
+            ),
+            records: RecordsFeed(
+                client: RecordsClient(configuration: { settings.configuration() }, transport: transport),
+                cache: .inApplicationSupport
             )
         )
     }

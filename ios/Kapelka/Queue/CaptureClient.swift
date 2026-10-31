@@ -101,7 +101,7 @@ struct CaptureClient: CaptureSending {
             }
             return .sent(CaptureReply(status: reply.data.status, title: reply.data.ack.title, summary: reply.data.ack.summary))
         case 400:
-            return .rejected(ErrorBody.message(in: body) ?? "Сервер не принял запись")
+            return .rejected(ServerError(body: body)?.message ?? "Сервер не принял запись")
         case 401, 403:
             return .tokenRefused
         case 429:
@@ -173,22 +173,4 @@ private struct SuccessBody: Decodable {
 
     let success: Bool
     let data: Payload
-}
-
-/// Errors come nested from the handler and flat from middleware (`docs/QUICK_CAPTURE_API.md`, «Errors»).
-private enum ErrorBody {
-    private struct Nested: Decodable {
-        struct Detail: Decodable { let message: String }
-        let error: Detail
-    }
-
-    private struct Flat: Decodable {
-        let error: String
-    }
-
-    static func message(in body: Data) -> String? {
-        let decoder = JSONDecoder()
-        if let nested = try? decoder.decode(Nested.self, from: body) { return nested.error.message }
-        return (try? decoder.decode(Flat.self, from: body))?.error
-    }
 }
