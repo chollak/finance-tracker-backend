@@ -541,7 +541,7 @@ type ShortcutOwner = { owner: string } | { refused: { code: string; error: strin
 function shortcutOwner(configured: string | null, claimedRaw: string): ShortcutOwner {
   const claimed = claimedRaw ? telegramIdOf(claimedRaw) : null;
   if (claimedRaw && (claimed === null || (configured !== null && claimed !== configured))) {
-    return { refused: { code: 'ACCESS_DENIED', error: 'This capture token writes only for its owner' } };
+    return { refused: { code: 'ACCESS_DENIED', error: 'This token acts only for its owner' } };
   }
   const owner = configured ?? claimed;
   if (owner === null) {
@@ -550,86 +550,153 @@ function shortcutOwner(configured: string | null, claimedRaw: string): ShortcutO
   return { owner };
 }
 
+/** The Shortcut's header that may name the owner, trimmed; '' when not sent. */
+function claimedShortcutOwner(req: Request): string {
+  const rawUserId = req.headers[SHORTCUT_USER_ID_HEADER];
+  return typeof rawUserId === 'string' ? rawUserId.trim() : '';
+}
+
 /**
- * The iPhone Shortcut's way in (FT-075, FT-155). A Shortcut cannot produce Telegram initData, so it sends the capture
- * token, `X-Shortcut-Capture-Token`, and optionally `X-Shortcut-User-Id`. The capture is written for
- * SHORTCUT_CAPTURE_OWNER, and the source is forced to `ios_shortcut`, so the Shortcut body only has to carry `text`.
+ * A request that goes by the Shortcut's token: it carries `X-Shortcut-Capture-Token` (even empty) or a non-blank
+ * `X-Shortcut-User-Id`. Then the token decides alone — initData, the session cookie or `X-Dev-User-Id` next to it do
+ * not count — so a wrong token is refused loudly and never falls through to another way in.
+ */
+function isShortcutRequest(req: Request): boolean {
+  return claimedShortcutOwner(req) !== '' || req.headers[SHORTCUT_TOKEN_HEADER] !== undefined;
+}
+
+/** What a Shortcut request is for: a capture (FT-075) or the iOS app's records routes (FT-218). */
+type ShortcutUse = 'capture' | 'records';
+
+/**
+ * The owner a Shortcut request goes for (FT-075, FT-155), or null once the refusal is answered. A Shortcut cannot
+ * produce Telegram initData, so it sends the token, `X-Shortcut-Capture-Token`, and optionally `X-Shortcut-User-Id`.
  *
  * - Production (the live instance): on only with a token of 32+ characters and an owner on ALLOWED_TELEGRAM_IDS —
- *   otherwise `403 SHORTCUT_CAPTURE_DISABLED`, loudly, so a Shortcut never falls through to another auth path. The
- *   token is always required.
+ *   otherwise `403 SHORTCUT_CAPTURE_DISABLED`, loudly. The token is always required.
  * - Outside production, as before: without an owner the header names it; without a token only a request from this
- *   machine goes through (`403 SHORTCUT_CAPTURE_TOKEN_REQUIRED` through the tunnel or the Wi-Fi).
+ *   machine goes through (`403 SHORTCUT_CAPTURE_TOKEN_REQUIRED` through the tunnel or the Wi-Fi). On the records
+ *   routes the header names the owner only from this machine, like `X-Dev-User-Id`: through the tunnel the token holder
+ *   would read and edit anyone's records (`403 SHORTCUT_OWNER_REQUIRED`, review of FT-218).
  *
  * The token is checked first, in constant time (`401 INVALID_SHORTCUT_TOKEN`), so an answer to a wrong token says
- * nothing about the owner or the list. A header naming anyone but the owner is `403 ACCESS_DENIED`. A request with
- * neither header signs in and captures for the signed-in user (`writeAsSignedInUser`).
- *
- * `req.telegramUser` is deliberately NOT fabricated here: the token proves nothing about a Telegram session, so
- * ownership-sensitive middleware (`verifyOwnership`, `requireAdmin`) stays fail-closed for shortcut requests.
+ * nothing about the owner or the list. A header naming anyone but the owner is `403 ACCESS_DENIED`. The log names the
+ * route's pattern, never the token or a record id.
  */
-export function allowShortcutCapture(req: Request, res: Response, next: NextFunction): void {
-  const rawUserId = req.headers[SHORTCUT_USER_ID_HEADER];
-  const claimedOwner = typeof rawUserId === 'string' ? rawUserId.trim() : '';
-  const rawToken = req.headers[SHORTCUT_TOKEN_HEADER];
-
-  // Not a Shortcut request: the signed-in user captures for themselves
-  if (!claimedOwner && rawToken === undefined) {
-    requireAuth(req, res, () => writeAsSignedInUser(req, res, next));
-    return;
-  }
-
+function shortcutOwnerOrRefuse(req: Request, res: Response, use: ShortcutUse): string | null {
+  const route = `${req.baseUrl}${req.route?.path ?? ''}`;
   const setting = currentShortcutCapture();
   if (!setting.enabled) {
-    logger.warn('Shortcut capture rejected: the path is off', { problems: setting.problems.length });
+    logger.warn('Shortcut token request rejected: the path is off', { route, problems: setting.problems.length });
     refuse(res, 403, 'SHORTCUT_CAPTURE_DISABLED', 'Shortcut capture is not set up on this server');
-    return;
+    return null;
   }
 
   // Without a token the header alone names the owner, so it counts only from this machine (never in production, where
-  // the path is off without a token): through the tunnel anyone with the link could write as anyone
+  // the path is off without a token): through the tunnel anyone with the link could act as anyone
   if (!setting.token && !isLocalRequest(req)) {
-    logger.warn('Shortcut capture without a token from outside this machine rejected');
+    logger.warn('Shortcut request without a token from outside this machine rejected', { route });
     refuse(res, 403, 'SHORTCUT_CAPTURE_TOKEN_REQUIRED', 'Shortcut capture through a tunnel or the network needs SHORTCUT_CAPTURE_TOKEN');
-    return;
+    return null;
   }
 
   if (setting.token) {
+    const rawToken = req.headers[SHORTCUT_TOKEN_HEADER];
     const providedToken = typeof rawToken === 'string' ? rawToken.trim() : '';
     if (!providedToken || !safeTokenEquals(providedToken, setting.token)) {
-      logger.warn('Shortcut capture token rejected');
+      logger.warn('Shortcut token rejected', { route });
       refuse(res, 401, 'INVALID_SHORTCUT_TOKEN', 'Invalid or missing shortcut capture token');
-      return;
+      return null;
     }
   }
 
-  const resolved = shortcutOwner(setting.owner, claimedOwner);
+  // Outside production without SHORTCUT_CAPTURE_OWNER the header says whom the token acts for. A capture may still be
+  // written so through the tunnel (FT-075); reading and editing records only from this machine
+  if (use === 'records' && setting.owner === null && !isLocalRequest(req)) {
+    logger.warn('Shortcut records request without an owner from outside this machine refused', { route });
+    refuse(res, 403, 'SHORTCUT_OWNER_REQUIRED', 'Reading and editing records by the token needs SHORTCUT_CAPTURE_OWNER on this server');
+    return null;
+  }
+
+  const resolved = shortcutOwner(setting.owner, claimedShortcutOwner(req));
   if ('refused' in resolved) {
-    logger.warn('Shortcut capture for someone other than its owner refused', { code: resolved.refused.code });
+    logger.warn('Shortcut request for someone other than its owner refused', { route, code: resolved.refused.code });
     refuse(res, 403, resolved.refused.code, resolved.refused.error);
-    return;
+    return null;
   }
 
   // Closed access (FT-153): the owner is checked as initData would be. Production does not start with an owner off the
   // list, so this matters outside production, where the header may name the owner
   if (!AppConfig.TELEGRAM_ACCESS.allows(resolved.owner)) {
-    logger.warn('Shortcut capture for a Telegram user who is not allowed refused', { shortcutUserId: resolved.owner });
+    logger.warn('Shortcut request for a Telegram user who is not allowed refused', { route, shortcutUserId: resolved.owner });
     refuse(res, 403, 'ACCESS_NOT_ALLOWED', 'This Telegram account has no access');
+    return null;
+  }
+
+  logger.debug('Shortcut token request accepted', { route, tokenRequired: Boolean(setting.token), boundOwner: setting.owner !== null });
+  return resolved.owner;
+}
+
+/**
+ * The iPhone Shortcut's and the iOS app's capture (FT-075, FT-155): by the token (`shortcutOwnerOrRefuse`) the capture is
+ * written for SHORTCUT_CAPTURE_OWNER, and the source is forced to `ios_shortcut`, so the body only has to carry `text`.
+ * A request with neither header signs in and captures for the signed-in user (`writeAsSignedInUser`).
+ *
+ * `req.telegramUser` is deliberately NOT fabricated here: a capture needs only the owner in the body, so
+ * ownership-sensitive middleware (`verifyOwnership`, `requireAdmin`) stays fail-closed for shortcut requests.
+ */
+export function allowShortcutCapture(req: Request, res: Response, next: NextFunction): void {
+  // Not a Shortcut request: the signed-in user captures for themselves
+  if (!isShortcutRequest(req)) {
+    requireAuth(req, res, () => writeAsSignedInUser(req, res, next));
     return;
   }
 
-  logger.debug('Shortcut capture accepted', { tokenRequired: Boolean(setting.token), boundOwner: setting.owner !== null });
+  const owner = shortcutOwnerOrRefuse(req, res, 'capture');
+  if (owner === null) return;
 
   req.isAuthenticated = true;
 
   // The owner is the authoritative id for this flow, so it overrides whatever the body said.
   if (req.body && typeof req.body === 'object') {
-    req.body.userId = resolved.owner;
+    req.body.userId = owner;
     req.body.source = 'ios_shortcut';
   }
 
   next();
 }
+
+/**
+ * The app token as one more way to sign in (FT-218, decision 2026-10-31), next to initData and the session cookie: a
+ * Shortcut request signs in as SHORTCUT_CAPTURE_OWNER, by the rules of `shortcutOwnerOrRefuse`; any other request goes
+ * to `signIn` as before. The owner is then `req.telegramUser`, so user resolution and the record ownership check work
+ * as for the owner's initData — someone else's record gets the answer the Mini App gets.
+ *
+ * Only on the routes the iOS app reads and edits records with, named one by one (`requireAuthOrAppToken`,
+ * `optionalAuthOrAppToken`). Every other route does not look at the token: a token there signs nobody in.
+ */
+function signInWithAppTokenOr(signIn: RequestHandler): RequestHandler {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    if (!isShortcutRequest(req)) {
+      signIn(req, res, next);
+      return;
+    }
+
+    const owner = shortcutOwnerOrRefuse(req, res, 'records');
+    if (owner === null) return;
+
+    // The owner is a whole Telegram id: `telegramIdOf` and the start checks allow no other
+    req.telegramUser = { id: Number(owner), first_name: '' };
+    req.isAuthenticated = true;
+    next();
+  };
+}
+
+/** `requireAuth`, or the app token as its owner (FT-218): the history, the categories and the accounts list. */
+export const requireAuthOrAppToken: RequestHandler = signInWithAppTokenOr(requireAuth);
+
+/** `optionalAuth`, or the app token as its owner (FT-218): delete, restore and edit a record. */
+export const optionalAuthOrAppToken: RequestHandler = signInWithAppTokenOr(optionalAuth);
 
 /**
  * Formerly guest mode: a `guest_*` userId went through without signing in. There are no guests any more (decision Д4,

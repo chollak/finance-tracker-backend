@@ -2,7 +2,7 @@
 
 Задачи с FT-144: надёжность, закрытый доступ, переезд живого экземпляра на ПК.
 
-Закрыто задач: **43**. Это архив: задачи здесь не переоткрываются и не редактируются.
+Закрыто задач: **44**. Это архив: задачи здесь не переоткрываются и не редактируются.
 Активная доска — [`TASKS.md`](../../../TASKS.md), решения по плану — [`decisions.md`](../decisions.md).
 
 ---
@@ -3342,3 +3342,101 @@ Definition of Done:
 - Dockerfile (`node:20-alpine`, отложен вместе с production) не проверялся;
 - `undici` 6.29.1 пришёл с `node-gyp` 12 — необязательная зависимость, нужна только для сборки из исходников;
 - в рабочих зависимостях остались 3 moderate — `typeorm` → `glob`, `minimatch`, FT-215.
+
+---
+
+### FT-218: The app token reads and edits its owner's records
+
+Status: done
+Priority: high
+Owner: Claude Code, QA — под-чат проверки
+Type: feature
+Size: S
+Depends on: FT-174 (обе правят `auth-user-resolution-boundary-matrix.md`, FT-174 — ещё и `transactionController.ts`)
+
+Context:
+Решение Шукура 2026-10-31 (`docs/tasks/decisions.md`): iOS-приложение показывает записи с сервера, удаляет их и меняет
+категорию (FT-219…FT-221). Сейчас токен приложения `SHORTCUT_CAPTURE_TOKEN` пускает только на запись:
+`allowShortcutCapture` (`authMiddleware.ts:571`) стоит на двух маршрутах, `quickCaptureController.ts:31,90`. Нужны ещё
+шесть, все для `SHORTCUT_CAPTURE_OWNER`:
+- `GET /api/transactions` — история FT-107 с курсором (`transactionController.ts:257`, `createCurrentUserMiddleware`);
+- `GET /api/categories` (`expressServer.ts:172`);
+- `GET /api/accounts` — только список, имя счёта для строки «категория · счёт» в FT-220 (`expressServer.ts:175`,
+  решение 2026-10-31 после FT-219); остальные маршруты `/api/accounts` токену закрыты;
+- `DELETE /api/transactions/:id` (`transactionController.ts:335`, `optionalAuth` и проверка владельца);
+- `POST /api/transactions/:id/restore` (`:369`);
+- `PUT /api/transactions/:id` (`:392`); iOS шлёт только `{ categoryId }`, поля не ограничиваем (решение).
+
+Токен — ещё один способ узнать текущего пользователя, рядом с initData и cookie, и только на этих маршрутах, по явному
+списку. Контракты маршрутов не меняются: iOS читает те же ответы, что Mini App (`docs/pastel/api.md`).
+
+Definition of Done:
+- [x] С верным токеном шесть маршрутов работают для владельца так же, как с его initData: история с курсором, категории,
+      список счетов, удалить, вернуть, `PUT { categoryId }`; тесты
+- [x] На любом другом маршруте токен не пускает — ответ как без входа; тест хотя бы на `POST /api/transactions`,
+      `PATCH /api/categories/:id`, `POST /api/accounts`, `GET /api/accounts/:id/operations`, `GET /api/export`
+- [x] Чужая запись по токену — тот же ответ, что Mini App даёт на чужую запись; тест
+- [x] Неверный токен — `401 INVALID_SHORTCUT_TOKEN`; путь не настроен — `403 SHORTCUT_CAPTURE_DISABLED`; правила вне
+      production — как у записи (FT-155); тесты
+- [x] `PUT { categoryId }` по токену учит так же, как из Mini App (FT-184); тест
+- [x] Mini App и бот не затронуты: initData и cookie работают как раньше, весь `npm run verify` зелёный
+- [x] Токена нет в логах; лимиты запросов не меняются (политика — FT-071)
+- [x] Документация: что даёт токен — `docs/QUICK_CAPTURE_API.md` и `docs/pastel/api.md`;
+      `auth-user-resolution-boundary-matrix.md`, `api-route-coverage-matrix.md`; строка `SHORTCUT_CAPTURE_TOKEN` в `CLAUDE.md`
+- [ ] Шукуру после мержа: `scripts/live-update.sh` на ПК. Если токен лежит в быстрой команде FT-075 открытым текстом —
+      выпустить новый (`live-instance.md`, раздел 5) и вставить его в приложение — за Шукуром
+
+Реализовано 2026-10-31 (`ccb4341`, `b3e1e9d`, `f85f6f5`, `3f8fb63`, `fcf1ad5`; PR #151):
+- **`authMiddleware.ts`.** Правила токена — в общей `shortcutOwnerOrRefuse(req, res, use)`, одной для записи и шести
+  маршрутов записей. `requireAuthOrAppToken` и `optionalAuthOrAppToken` (`signInWithAppTokenOr`) ставят владельца в
+  `req.telegramUser`; дальше запрос идёт как с initData владельца: разрешение пользователя, `verifyResourceOwnership`,
+  обработчик. Запись (`allowShortcutCapture`) `req.telegramUser` по-прежнему не ставит.
+- **Решает только токен.** С `X-Shortcut-Capture-Token` (даже пустым) или непустым `X-Shortcut-User-Id` initData, cookie
+  и `X-Dev-User-Id` рядом не считаются; неверный токен — `401` и рядом с верным initData. Без этих заголовков вход как
+  раньше.
+- **Маршруты.** История, удаление, возврат и `PUT` — смена middleware (`createCurrentUserOrAppTokenMiddleware`,
+  `optionalAuthOrAppToken`). В `/api/categories` и `/api/accounts` `GET /` стоит до `router.use(createCurrentUserMiddleware)`,
+  остальные маршруты идут через этот `use` — новый маршрут там закрыт для токена по умолчанию.
+- **После проверки безопасности.** Вне production без `SHORTCUT_CAPTURE_OWNER` маршруты записей принимают
+  `X-Shortcut-User-Id` только с этой машины, как `X-Dev-User-Id`; через туннель — `403 SHORTCUT_OWNER_REQUIRED` после
+  проверки токена. Запись через туннель — по-прежнему по FT-075. Ошибка старта (`shortcutCaptureAccess.ts`) и текст
+  `ACCESS_DENIED` больше не говорят, что токен только пишет.
+- **Лог.** В отказах и debug-строке — шаблон маршрута (`/api/transactions/:id`), токена нет.
+- **Документация.** `QUICK_CAPTURE_API.md` — раздел «The app token on the records routes (FT-218)»; `pastel/api.md` —
+  общие правила, и исправлено: возврат чужой записи — `403`, не `404`; обе матрицы; строка в `CLAUDE.md`;
+  `IOS_SHORTCUT_ACTION_BUTTON.md` и `live-instance.md` (раздел 5) — что токен теперь и читает; вводные в FT-071.
+- **Тесты.** `tests/appTokenRecords.test.ts` (26), случаи FT-218 в `tests/localDevAuth.test.ts` (14),
+  `tests/helpers/telegramInitData.ts`.
+
+Проверка 2026-10-31:
+- **verify.** `npm run verify` на `3f8fb63`: Jest 121 сьют / 2124 теста (+1 пропущен), webapp 127 файлов / 1277 тестов,
+  сборки, `check:fonts`, `check:tokens`, dependency-cruiser и madge — чисто. До проверки безопасности — 121 / 2121.
+  Тесты писались первыми, падение видно до кода.
+- **Живой production-сервер.** Своя копия на `127.0.0.1:3218` (процесс проверен через `lsof`), временная база,
+  `ENABLE_TELEGRAM_POLLING=false`, выдуманные токен и владелец в `.env.local` копии — после проверки удалены. Шесть
+  маршрутов — `200`: история по курсору 2 + 1, 16 категорий, «Карта», удалить, вернуть, `PUT` → «Продукты». Закрытые
+  маршруты (`POST /transactions`, `PATCH /categories/:id`, `POST /accounts`, `/accounts/:id/operations`, `/export`,
+  `/settings`, `GET /transactions/:id`) с токеном и без — одинаковые `401` / `403`; неверный токен — `401`, чужой
+  `X-Shortcut-User-Id` — `403 ACCESS_DENIED`, чужая запись — `403 AUTHORIZATION_ERROR`.
+- **Все маршруты.** Тест обходит все маршруты `buildServer` с одним токеном и без: отличаются ровно 2 маршрута записи и
+  6 маршрутов записей. Мутацией (токен на `/:id/archive`) тест падает.
+- **Проверка безопасности (под-чат проверки): «можно мержить», блокеров и серьёзного нет.** Обходы — регистр, слэши,
+  %-кодирование, method override, `/:id`-маршруты, operations, opening-balances и др. — отвечают как без входа. Подмена
+  пользователя не проходит, фантомных пользователей нет. `SHORTCUT_CAPTURE_DISABLED` и ошибка старта на месте; токен
+  сравнивается `safeTokenEquals`. Логи на debug — 0 кусков токена. Обучение: `uses` 1 → 2 (токен, затем Mini App), третья
+  фраза — без ИИ. Лимит: 100 запросов, 101-й — `429`. Находка «вне production токен без владельца через туннель читает
+  чужие записи» исправлена в `3f8fb63`.
+
+Известно (принятые риски):
+- утёкший токен читает все записи владельца, удаляет и правит их (цена решения 2026-10-31): сервер только в tailnet,
+  iOS держит токен в Keychain; токен из быстрой команды FT-075 заменить новым;
+- iOS (`RecordsClient.swift:110`) переводит любой `403` в «проверь токен», в том числе `403` на чужую запись. Для одного
+  владельца это допустимо; если понадобится различать — у такого ответа код `AUTHORIZATION_ERROR`;
+- лимит: токен считается по адресу в общем счётчике 100 / 15 минут вместе с запросами без входа и с попытками угадать
+  токен (`401`). За `tailscale serve` весь tailnet может попасть в один счётчик: IPv6 /56 или `127.0.0.1` без
+  `X-Forwarded-For`. Обновление iOS — 1–3 запроса, около 30 обновлений за 15 минут; `429` iOS покажет как «Нет связи».
+  Вводные — в FT-071;
+- `requestLogger` пишет `req.url`: токен в query попал бы в лог, но клиент шлёт токен только заголовком;
+- `PUT` по токену правит любые поля, не только `categoryId` (решение);
+- обход маршрутов в тесте читает внутренности Express 4 (`router.stack`, `layer.regexp`): непонятный путь — явная
+  ошибка теста; при переходе на Express 5 разбор обновить.

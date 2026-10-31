@@ -22,9 +22,20 @@ import { SUCCESS_MESSAGES } from '../../../../shared/domain/constants/messages';
 import { SubscriptionModule } from '../../../subscription/subscriptionModule';
 import { UserModule } from '../../../user/userModule';
 import { createUserResolutionMiddleware } from '../../../../delivery/web/express/middleware/userResolutionMiddleware';
-import { allowGuestMode, optionalAuth, verifyOwnership, requireAuth } from '../../../../delivery/web/express/middleware/authMiddleware';
+import {
+  allowGuestMode,
+  optionalAuth,
+  optionalAuthOrAppToken,
+  verifyOwnership,
+  requireAuth,
+} from '../../../../delivery/web/express/middleware/authMiddleware';
 import { standardRateLimiter } from '../../../../delivery/web/express/middleware/rateLimitMiddleware';
-import { createCurrentUserMiddleware, createResolveCurrentUserMiddleware, currentUserId } from '../../../../delivery/web/express/middleware/currentUserMiddleware';
+import {
+  createCurrentUserMiddleware,
+  createCurrentUserOrAppTokenMiddleware,
+  createResolveCurrentUserMiddleware,
+  currentUserId,
+} from '../../../../delivery/web/express/middleware/currentUserMiddleware';
 import { verifyResourceOwnership } from '../../../../shared/infrastructure/utils/ownershipVerification';
 import { createLogger, LogCategory } from '../../../../shared/infrastructure/logging';
 // Import for type extensions on Express.Request
@@ -236,9 +247,9 @@ export function createTransactionRouter(
   }
 
   // History with search and filters (FT-107): the user from authentication, never from the query.
-  // Replaces the admin list of everyone's records.
+  // Replaces the admin list of everyone's records. The iOS app reads it with its token (FT-218).
   if (userModule) {
-    router.get('/', ...createCurrentUserMiddleware(userModule), async (req, res) => {
+    router.get('/', ...createCurrentUserOrAppTokenMiddleware(userModule), async (req, res) => {
       try {
         const result = await historyUseCase.execute({ userId: currentUserId(req), query: req.query as Record<string, unknown> });
         if (!result.success) return handleControllerError(result.error, res);
@@ -316,7 +327,8 @@ export function createTransactionRouter(
     }
   });
 
-  router.delete('/:id', optionalAuth, async (req, res) => {
+  // The iOS app deletes, restores and changes the category of its owner's records with its token (FT-218)
+  router.delete('/:id', optionalAuthOrAppToken, async (req, res) => {
     try {
       const transactionId = getStringParam(req, 'id');
 
@@ -350,7 +362,7 @@ export function createTransactionRouter(
 
   if (restoreUseCase) {
     /** «Отменить» after a delete (FT-105): the record comes back to lists, balances and totals. */
-    router.post('/:id/restore', optionalAuth, async (req, res) => {
+    router.post('/:id/restore', optionalAuthOrAppToken, async (req, res) => {
       try {
         const transactionId = getStringParam(req, 'id');
         if (!transactionId) {
@@ -373,7 +385,7 @@ export function createTransactionRouter(
     });
   }
 
-  router.put('/:id', optionalAuth, async (req, res) => {
+  router.put('/:id', optionalAuthOrAppToken, async (req, res) => {
     try {
       const transactionId = getStringParam(req, 'id');
 

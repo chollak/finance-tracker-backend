@@ -67,7 +67,8 @@ function productionProblems(token: string, rawOwner: string): string[] {
   }
   if (token && !rawOwner) {
     problems.push(
-      'SHORTCUT_CAPTURE_TOKEN is set without SHORTCUT_CAPTURE_OWNER: in production the token writes only for its owner. ' +
+      'SHORTCUT_CAPTURE_TOKEN is set without SHORTCUT_CAPTURE_OWNER: in production the token writes, reads and edits ' +
+      'records only for its owner (FT-155, FT-218). ' +
       "Set the owner's Telegram id, or remove the token to turn the Shortcut off"
     );
   }

@@ -1,6 +1,10 @@
 import { Request, Response, Router } from 'express';
 import { handleControllerError, handleControllerSuccess } from '../../../shared/infrastructure/utils/controllerHelpers';
-import { createCurrentUserMiddleware, currentUserId } from '../../../delivery/web/express/middleware/currentUserMiddleware';
+import {
+  createCurrentUserMiddleware,
+  createCurrentUserOrAppTokenMiddleware,
+  currentUserId,
+} from '../../../delivery/web/express/middleware/currentUserMiddleware';
 import { standardRateLimiter } from '../../../delivery/web/express/middleware/rateLimitMiddleware';
 import { UserModule } from '../../user/userModule';
 import { CategoryModule } from '../categoryModule';
@@ -72,8 +76,10 @@ export function createCategoryRoutes(categoryModule: CategoryModule, userModule:
   );
   const router = Router();
   router.use(standardRateLimiter);
+  // The list is also the iOS app's, by its token (FT-218). It is registered before the sign-in below, which every other
+  // route goes through: changing categories stays with the Mini App, and a new route is closed to the token by default
+  router.get('/', ...createCurrentUserOrAppTokenMiddleware(userModule), controller.getAll);
   router.use(...createCurrentUserMiddleware(userModule));
-  router.get('/', controller.getAll);
   router.post('/', controller.post);
   router.patch('/:id', controller.patch);
   router.delete('/:id', controller.delete);

@@ -43,6 +43,7 @@ Prefer unit/use-case tests for pure business logic and route tests for HTTP/midd
 | User | get/create/update user | covered at use-case/helper level, not route level | medium | Add auth/self-access tests if user routes become active frontend surface. |
 | Dashboard | insights/alerts/quick-stats with premium/read-only middleware | ownership before resolution, premium gate after it (FT-162) | medium | Add one auth/premium boundary test if dashboard route behavior changes. |
 | OpenAI usage | removed with `OpenAIUsageModule` (FT-174): `requireAdmin` without `requireAuth` always answered `401`, nothing called it | `tests/deadAdminRoutes.test.ts`: the routes are `404` | — | — |
+| App token (FT-218) | the iOS app's six records routes: `GET /api/transactions`, `GET /api/categories`, `GET /api/accounts`, `DELETE /api/transactions/:id`, `POST …/restore`, `PUT /api/transactions/:id`; capture: `POST /api/quick-capture`, `/payment` | `tests/appTokenRecords.test.ts`: each of the six as with initData, refusals, someone else's record; **every route of `buildServer`** with the token only vs. without — exactly these eight differ | high | When a route is added or its sign-in changes, the sweep says whether the token opens it |
 
 ## Current Tested API Behaviors
 
@@ -75,6 +76,19 @@ dashboard, subscription status), on a real SQLite `users` table:
 - the own id — as before (`200`/`201`; insights `403 PREMIUM_REQUIRED` for a free user)
 - subscription actions and `POST /api/transactions` act for the signed-in user without a body userId; someone else's
   — `403`; a non-string — `400`; the admin grant's non-string target — `400`, not `500`
+
+From `tests/appTokenRecords.test.ts` (FT-218), production with `SHORTCUT_CAPTURE_TOKEN` and `SHORTCUT_CAPTURE_OWNER`:
+
+- the six records routes with the token answer exactly as with the owner's initData: history with `cursor`, categories,
+  accounts, delete, restore, `PUT { categoryId }` (which teaches as from the Mini App, FT-184)
+- someone else's record — the Mini App's answer (`403`), nothing changes
+- a wrong, empty or cut token — `401 INVALID_SHORTCUT_TOKEN` on all six, also beside valid initData; the path off —
+  `403 SHORTCUT_CAPTURE_DISABLED`; `X-Shortcut-User-Id` naming someone else — `403 ACCESS_DENIED`
+- `POST /api/transactions`, `PATCH /api/categories/:id`, `POST`/`PATCH /api/accounts`, `GET /api/accounts/:id/operations`,
+  `GET /api/export` and others with the token — the same answer as without sign-in
+- every route of `buildServer` (read from the routers' stacks) sent with the token only and without it: only the two
+  capture routes and the six records routes answer differently
+- the token never in the log; a token request counts against the general limit by address (100 / 15 minutes)
 
 ## High-Value Next Route Tests
 

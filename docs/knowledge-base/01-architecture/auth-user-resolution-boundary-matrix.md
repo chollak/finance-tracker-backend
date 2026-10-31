@@ -2,6 +2,38 @@
 
 > Status: FT-024 audit/decision matrix. This document records current auth, guest, ownership, and userId-resolution boundaries before any strict resolver implementation.
 
+## 2026-10-31 — the app token reads and edits its owner's records (FT-218)
+
+The iOS app shows the owner's records from the server, deletes them and changes their category (decision 2026-10-31,
+FT-219…FT-221). Before, the token `SHORTCUT_CAPTURE_TOKEN` opened only the two capture routes.
+
+| Was | Now |
+|---|---|
+| The token signed nobody in: on capture it put the owner into the body (`allowShortcutCapture`), `req.telegramUser` unset | Also on six routes, named one by one: `GET /api/transactions`, `GET /api/categories`, `GET /api/accounts` (the list only), `DELETE /api/transactions/:id`, `POST /api/transactions/:id/restore`, `PUT /api/transactions/:id`. There it signs in as `SHORTCUT_CAPTURE_OWNER` — `req.telegramUser` — and the request goes on as the owner's initData: user resolution, `verifyResourceOwnership`, the handler (`requireAuthOrAppToken`, `optionalAuthOrAppToken`, `createCurrentUserOrAppTokenMiddleware`) |
+| The token's rules lived in `allowShortcutCapture` | `shortcutOwnerOrRefuse`, one function for capture and the records routes: the same answers in production (`401 INVALID_SHORTCUT_TOKEN`, `403 SHORTCUT_CAPTURE_DISABLED`, `403 ACCESS_DENIED`) and the FT-155 rules outside it. The log names the route's pattern, never the token |
+| `/api/categories` and `/api/accounts` signed in with one `router.use` for every route | `GET /` of each is registered before that `router.use`, with the token-aware sign-in; every other route of theirs still goes through it, so a new route there is closed to the token by default |
+
+A request with `X-Shortcut-Capture-Token` (even empty) or a non-blank `X-Shortcut-User-Id` goes by the token alone:
+initData, the session cookie or `X-Dev-User-Id` beside it do not count. Someone else's record gets what the Mini App gets
+— `403 AUTHORIZATION_ERROR`.
+
+| Outside production, a token, no `SHORTCUT_CAPTURE_OWNER` (security review 2026-10-31) | Capture | Records routes |
+|---|---|---|
+| From this machine, `X-Shortcut-User-Id` names someone | for them (FT-075) | as them — like `X-Dev-User-Id` (2026-10-21) |
+| Through the tunnel or the Wi-Fi, `X-Shortcut-User-Id` names someone | for them (FT-075) | `403 SHORTCUT_OWNER_REQUIRED`, after the token check: the token holder would read and edit anyone's records |
+
+Unchanged: no other route reads the token — there it signs nobody in and the answer is that of a request without
+sign-in; a capture still does not set `req.telegramUser`; `createAllowedUsersMiddleware` lets a token request on to its
+route, where the owner is checked against the list; the rate limits (FT-071) — the general limiter counts a token
+request by address, as one without sign-in (100 per 15 minutes).
+Known and accepted (decision 2026-10-31): a leaked token now reads all the owner's records and can delete and edit them.
+The API is only in the tailnet and the iOS app keeps the token in Keychain; a token kept in a Shortcut in plain text is
+replaced after FT-218. `PUT` fields are not limited for the token.
+Tests: `tests/appTokenRecords.test.ts` — in production the six routes as with initData, someone else's record, wrong
+token, path off, `X-Dev-User-Id`, FT-184 learning, the log, the limit, and every route of `buildServer` sent with the token
+only and without it: exactly the two capture routes and these six answer differently. Outside production: the FT-218
+cases in `tests/localDevAuth.test.ts`.
+
 ## 2026-10-29 — the legacy userId routes act only for the signed-in user (FT-162)
 
 Since 2026-10-21 someone else's `userId` got `403`, so nothing leaked. Left from the security review of that day: user

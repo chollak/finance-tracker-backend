@@ -275,6 +275,11 @@ Context:
 - Общий лимит — 100 запросов / 15 минут (`rateLimitMiddleware.ts:21`). Один обход шести экранов Mini App стоит 17 запросов (Главная 4, Аналитика 4, История 3, Долги 3, Бюджеты 2, Ещё 1). То есть около шести обходов на окно, без учёта повторных запросов TanStack Query при возврате фокуса — а в Telegram Mini App сворачивание и разворачивание происходит постоянно.
 - Лимит на AI — 10 запросов / 15 минут (`rateLimitMiddleware.ts:57`). Основной способ ввода в продукте — написать или надиктовать боту. Пользователь, заносящий траты за день, упирается в потолок на одиннадцатой операции и получает `AI_RATE_LIMIT_EXCEEDED`.
 
+- **Токен приложения (FT-218, проверка безопасности 2026-10-31).** Запрос с `X-Shortcut-Capture-Token` считается по
+  адресу в общем счётчике 100 / 15 минут — вместе с запросами без входа и с попытками угадать токен (`401`). За
+  `tailscale serve` весь tailnet может попасть в один счётчик: IPv6 /56 или `127.0.0.1` без `X-Forwarded-For`.
+  Обновление в iOS — 1–3 запроса, то есть около 30 обновлений за 15 минут; `429` iOS покажет как «Нет связи».
+
 Оба значения могут быть осознанной защитой от расходов на OpenAI. Задача — не поменять числа, а проверить их против сценария «человек заносит день трат».
 
 Definition of Done:
@@ -549,49 +554,6 @@ Definition of Done:
 - [ ] Тест на временной базе с подготовленными записями
 - [ ] Инструкция запуска на ПК в `live-instance.md` (копия базы → скрипт)
 - [ ] Ничего, что раскрывает суммы или описания записей, не уходит дальше терминала Шукура
-
----
-
-### FT-218: The app token reads and edits its owner's records
-
-Status: in_progress — под-чат разработки, 2026-10-31 (FT-174 в main, PR #145)
-Priority: high
-Owner: Claude Code, QA — под-чат проверки
-Type: feature
-Size: S
-Depends on: FT-174 (обе правят `auth-user-resolution-boundary-matrix.md`, FT-174 — ещё и `transactionController.ts`)
-
-Context:
-Решение Шукура 2026-10-31 (`docs/tasks/decisions.md`): iOS-приложение показывает записи с сервера, удаляет их и меняет
-категорию (FT-219…FT-221). Сейчас токен приложения `SHORTCUT_CAPTURE_TOKEN` пускает только на запись:
-`allowShortcutCapture` (`authMiddleware.ts:571`) стоит на двух маршрутах, `quickCaptureController.ts:31,90`. Нужны ещё
-шесть, все для `SHORTCUT_CAPTURE_OWNER`:
-- `GET /api/transactions` — история FT-107 с курсором (`transactionController.ts:257`, `createCurrentUserMiddleware`);
-- `GET /api/categories` (`expressServer.ts:172`);
-- `GET /api/accounts` — только список, имя счёта для строки «категория · счёт» в FT-220 (`expressServer.ts:175`,
-  решение 2026-10-31 после FT-219); остальные маршруты `/api/accounts` токену закрыты;
-- `DELETE /api/transactions/:id` (`transactionController.ts:335`, `optionalAuth` и проверка владельца);
-- `POST /api/transactions/:id/restore` (`:369`);
-- `PUT /api/transactions/:id` (`:392`); iOS шлёт только `{ categoryId }`, поля не ограничиваем (решение).
-
-Токен — ещё один способ узнать текущего пользователя, рядом с initData и cookie, и только на этих маршрутах, по явному
-списку. Контракты маршрутов не меняются: iOS читает те же ответы, что Mini App (`docs/pastel/api.md`).
-
-Definition of Done:
-- [ ] С верным токеном шесть маршрутов работают для владельца так же, как с его initData: история с курсором, категории,
-      список счетов, удалить, вернуть, `PUT { categoryId }`; тесты
-- [ ] На любом другом маршруте токен не пускает — ответ как без входа; тест хотя бы на `POST /api/transactions`,
-      `PATCH /api/categories/:id`, `POST /api/accounts`, `GET /api/accounts/:id/operations`, `GET /api/export`
-- [ ] Чужая запись по токену — тот же ответ, что Mini App даёт на чужую запись; тест
-- [ ] Неверный токен — `401 INVALID_SHORTCUT_TOKEN`; путь не настроен — `403 SHORTCUT_CAPTURE_DISABLED`; правила вне
-      production — как у записи (FT-155); тесты
-- [ ] `PUT { categoryId }` по токену учит так же, как из Mini App (FT-184); тест
-- [ ] Mini App и бот не затронуты: initData и cookie работают как раньше, весь `npm run verify` зелёный
-- [ ] Токена нет в логах; лимиты запросов не меняются (политика — FT-071)
-- [ ] Документация: что даёт токен — `docs/QUICK_CAPTURE_API.md` и `docs/pastel/api.md`;
-      `auth-user-resolution-boundary-matrix.md`, `api-route-coverage-matrix.md`; строка `SHORTCUT_CAPTURE_TOKEN` в `CLAUDE.md`
-- [ ] Шукуру после мержа: `scripts/live-update.sh` на ПК. Если токен лежит в быстрой команде FT-075 открытым текстом —
-      выпустить новый (`live-instance.md`, раздел 5) и вставить его в приложение
 
 ---
 
