@@ -1,5 +1,6 @@
 import { MAX_ABS_AMOUNT_MINOR, MINOR_PER_MAJOR } from '../../../../shared/domain/money/money';
 import { detectPaymentHints, stripPaymentWords } from '../../../../modules/voiceProcessing/domain/paymentHints';
+import { readWrittenNumber } from '../../../../modules/voiceProcessing/domain/writtenNumber';
 
 /**
  * A text that is only an amount (FT-122) — the answer to «Напишите новую сумму — например, 150к.»:
@@ -38,18 +39,6 @@ function factorOf(magnitude: string | undefined): number {
   return FACTORS.find(([pattern]) => pattern.test(magnitude))?.[1] ?? 1;
 }
 
-/**
- * «150 000», «150.000» and «150,000» are thousands groups; «1,5» and «60.50» are fractions. With a
- * magnitude word a single separator is always a fraction: «1.5 млн», «1,5к».
- */
-function readNumber(raw: string, hasMagnitude: boolean): number | null {
-  const compact = raw.replace(/[\s ]/g, '');
-  if (/^\d+$/.test(compact)) return Number(compact);
-  if (!hasMagnitude && /^\d{1,3}(?:[.,]\d{3})+$/.test(compact)) return Number(compact.replace(/[.,]/g, ''));
-  if (/^\d+[.,]\d+$/.test(compact)) return Number(compact.replace(',', '.'));
-  return null;
-}
-
 export function parseAmountReply(text: string, record: AmountReplyRecord): AmountReply | null {
   // «$», «долл», «нал», «картой» are read as hints and taken out; what is left must be the amount alone
   const hints = detectPaymentHints(text);
@@ -59,7 +48,9 @@ export function parseAmountReply(text: string, record: AmountReplyRecord): Amoun
   const [, rawNumber, magnitude, sumUnit] = match;
 
   const negative = /^[-−]/.test(rawNumber);
-  const value = readNumber(rawNumber.replace(/^[-−]/, ''), Boolean(magnitude));
+  // As a phrase reads it (FT-206): «150 000», «150.000» and «150,000» are thousands groups; «1,5», «60.50» and
+  // «28 000,00» are fractions. With a magnitude word a single separator is always a fraction: «1.5 млн», «1,5к»
+  const value = readWrittenNumber(rawNumber.replace(/^[-−]/, ''), { beforeMagnitude: Boolean(magnitude) });
   if (value === null || !Number.isFinite(value)) return null;
   if (negative || value === 0) return { kind: 'not_positive' };
 
