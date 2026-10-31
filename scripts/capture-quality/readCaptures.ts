@@ -8,14 +8,22 @@ import { TASHKENT_OFFSET_HOURS } from './period';
  * `PRAGMA query_only` is on, and only `PRAGMA table_info` and one `SELECT` are issued. TypeORM is not used: its data
  * source would apply pending migrations.
  *
- * Private by construction: the query compares amounts, categories and texts inside SQLite and returns only a day, a
- * source and yes/no facts. No amount, note, merchant, phrase or name ever reaches this process, so none can be printed.
+ * Private by construction: the query compares amounts, categories and texts inside SQLite and returns only days, a
+ * source and yes/no facts, and the time of the newest record. No amount, note, merchant, phrase or name ever reaches
+ * this process, so none can be printed.
  */
 
 /** One record of the period, as facts only. */
 export interface CaptureRow {
-  /** YYYY-MM-DD on the Tashkent calendar of `createdAt`: the day it was written. */
+  /**
+   * The day of the operation, `transactions.date`: the day said in the phrase, the payment's or the phrase's
+   * `capturedAt` for iOS and Apple Pay, the message's time for the bot (FT-182), the day picked in the Mini App.
+   */
   day: string;
+  /** YYYY-MM-DD on the Tashkent calendar of `createdAt`: the day it reached the server. */
+  sentDay: string;
+  /** Written two days or more before the report's moment: time enough to have been corrected. */
+  aged: boolean;
   /** Counted, never printed. */
   userId: string;
   /** `transactions.source` as stored: telegram, miniapp, ios_shortcut, apple_pay, receipt, manual; null for old ones. */
@@ -51,15 +59,24 @@ export interface CaptureRow {
 
 export interface CaptureQuery {
   dbPath: string;
+  /** The period, by the day of the operation; records sent in it are read too, for the series by the day sent. */
   from: string;
   to: string;
   /** A Telegram id or a user id; all users when absent. */
   user?: string;
+  /** The report's moment: what is two days old is counted from it. */
+  now: Date;
+}
+
+export interface CaptureRead {
+  rows: CaptureRow[];
+  /** The newest `createdAt` in the whole copy, YYYY-MM-DD HH:MM in Tashkent; null when it has no records. */
+  lastRecordAt: string | null;
 }
 
 const REQUIRED_COLUMNS: Record<string, readonly string[]> = {
   transactions: [
-    'id', 'userId', 'source', 'createdAt', 'updatedAt', 'deleted_at', 'needsReview', 'originalParsing', 'category_id',
+    'id', 'userId', 'source', 'date', 'createdAt', 'updatedAt', 'deleted_at', 'needsReview', 'originalParsing', 'category_id',
     'account_id', 'amount_minor', 'type', 'semanticType', 'currency',
   ],
   bot_messages: ['record_ids', 'state', 'heard'],
@@ -67,7 +84,12 @@ const REQUIRED_COLUMNS: Record<string, readonly string[]> = {
   users: ['id', 'telegram_id'],
 };
 
-const DAY_OF = (column: string) => `date(${column}, '+${TASHKENT_OFFSET_HOURS} hours')`;
+const TASHKENT = `'+${TASHKENT_OFFSET_HOURS} hours'`;
+const SENT_DAY = (column: string) => `date(${column}, ${TASHKENT})`;
+/** Records saved before FT-100 may keep a full moment in `date`: its day is the first ten characters. */
+const OPERATION_DAY = (column: string) => `substr(${column}, 1, 10)`;
+/** Days a record has had to be corrected before it counts among the older ones. */
+const AGED_DAYS = 2;
 
 /** Booleans from SQLite come as 0/1 (or NULL); the parse JSON is read only where it is valid JSON. */
 const CAPTURES_SQL = `
@@ -92,11 +114,13 @@ last_change AS (
 records AS (
   SELECT t.*, CASE WHEN json_valid(t.originalParsing) THEN t.originalParsing END AS parse
   FROM transactions t
-  WHERE ${DAY_OF('t.createdAt')} BETWEEN $from AND $to
+  WHERE (${OPERATION_DAY('t.date')} BETWEEN $from AND $to OR ${SENT_DAY('t.createdAt')} BETWEEN $from AND $to)
     AND ($user IS NULL OR t.userId = $user OR t.userId IN (SELECT id FROM users WHERE telegram_id = $user))
 )
 SELECT
-  ${DAY_OF('r.createdAt')} AS day,
+  ${OPERATION_DAY('r.date')} AS day,
+  ${SENT_DAY('r.createdAt')} AS sentDay,
+  COALESCE(julianday($now) - julianday(r.createdAt) >= ${AGED_DAYS}, 0) AS aged,
   r.userId AS userId,
   r.source AS source,
   s.voiced AS botVoice,
@@ -164,6 +188,8 @@ const flag = (value: string | number | null) => Number(value) === 1;
 function toRow(raw: Raw): CaptureRow {
   return {
     day: String(raw.day),
+    sentDay: String(raw.sentDay),
+    aged: flag(raw.aged),
     userId: String(raw.userId),
     source: raw.source === null ? null : String(raw.source),
     botVoice: raw.botVoice === null ? null : flag(raw.botVoice),
@@ -184,13 +210,24 @@ function toRow(raw: Raw): CaptureRow {
   };
 }
 
-export async function readCaptures(query: CaptureQuery): Promise<CaptureRow[]> {
+/** SQLite's own text for a moment, UTC: what `createdAt` is compared with. */
+const sqliteMoment = (moment: Date) => moment.toISOString().replace('T', ' ').slice(0, 19);
+
+const LAST_RECORD_SQL = `SELECT strftime('%Y-%m-%d %H:%M', MAX(julianday(createdAt)), ${TASHKENT}) AS lastRecordAt FROM transactions`;
+
+export async function readCaptures(query: CaptureQuery): Promise<CaptureRead> {
   const db = await openReadOnly(query.dbPath);
   try {
     await all(db, 'PRAGMA query_only = ON');
     await assertSchema(db);
-    const rows = await all(db, CAPTURES_SQL, { $from: query.from, $to: query.to, $user: query.user ?? null });
-    return rows.map(toRow);
+    const rows = await all(db, CAPTURES_SQL, {
+      $from: query.from,
+      $to: query.to,
+      $user: query.user ?? null,
+      $now: sqliteMoment(query.now),
+    });
+    const lastRecordAt = (await all(db, LAST_RECORD_SQL))[0]?.lastRecordAt;
+    return { rows: rows.map(toRow), lastRecordAt: typeof lastRecordAt === 'string' ? lastRecordAt : null };
   } finally {
     await close(db);
   }

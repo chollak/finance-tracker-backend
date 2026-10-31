@@ -2,15 +2,17 @@
  * FT-217 — capture quality report after two weeks of daily use (31 October — 14 November 2026).
  *
  * How many records needed a correction after they were written, and where: per day, per source, by field, the
- * «Нужно проверить» and «?» flags, Apple Pay payments without a matched card. The headline is the September goal:
- * «N из 10 без правки» and «дней подряд». How each number is reached is printed with it.
+ * «Нужно проверить» and «?» flags, Apple Pay payments without a matched card. The headline is the September goal over
+ * automatic capture: «N из 10 без правки» as a range, and «дней подряд» by the day of the operation. How each number
+ * is reached is printed with it.
  *
  * Reads a COPY of the database only, read-only: the live `data/database.sqlite` is refused. No network, no AI, no
- * TypeORM (its data source would apply migrations). Prints counts, shares and dates — never an amount, a note, a
- * merchant, a phrase or a name: the query does not even return them.
+ * TypeORM (its data source would apply migrations). Prints counts, shares, dates and the time of the newest record —
+ * never an amount, a note, a merchant, a phrase or a name: the query does not even return them.
  *
  * Usage (on the PC — docs/knowledge-base/08-development/live-instance.md, «Отчёт о качестве записи (FT-217)»):
- *   sqlite3 data/database.sqlite ".backup /tmp/kapelka-report.sqlite"
+ *   rm -f /tmp/kapelka-report.sqlite && test -s data/database.sqlite &&
+ *     sqlite3 -bail -init /dev/null data/database.sqlite ".timeout 30000" ".backup /tmp/kapelka-report.sqlite"
  *   scripts/nvm-exec.sh npm run report:quality -- --db=/tmp/kapelka-report.sqlite
  */
 
@@ -30,12 +32,12 @@ const USAGE = `FT-217 отчёт о качестве записи (только 
   npm run report:quality -- --db=<копия базы> [--from=ГГГГ-ММ-ДД] [--to=ГГГГ-ММ-ДД] [--user=<Telegram id>]
 
   --db=<путь>      копия базы, снятая sqlite3 … ".backup …"; живая data/database.sqlite не читается
-  --from=<день>    первый день периода, календарь Ташкента (по умолчанию ${DEFAULT_FROM})
+  --from=<день>    первый день периода — день операции, календарь Ташкента (по умолчанию ${DEFAULT_FROM})
   --to=<день>      последний день периода, включительно (по умолчанию ${DEFAULT_TO})
   --user=<id>      только записи одного пользователя: Telegram id или id пользователя в базе
   --help           эта справка
 
-Ничего не пишет: файл открывается только для чтения. Печатает только числа, доли и даты.`;
+Ничего не пишет: файл открывается только для чтения. Печатает только числа, доли, даты и время последней записи.`;
 
 export interface CliIo {
   out(text: string): void;
@@ -132,8 +134,8 @@ export async function main(argv: readonly string[], io: CliIo): Promise<number> 
     }
     const dbPath = options.dbPath!;
     checkCopy(dbPath, io.appRoot);
-    const rows = await readCaptures({ dbPath, from: options.from, to: options.to, user: options.user });
-    const report = summarize(rows, { from: options.from, to: options.to }, tashkentDay(io.now));
+    const read = await readCaptures({ dbPath, from: options.from, to: options.to, user: options.user, now: io.now });
+    const report = summarize(read, { from: options.from, to: options.to }, tashkentDay(io.now));
     io.out(formatReport(report, { dbPath }));
     return 0;
   } catch (error) {
