@@ -6,7 +6,7 @@ struct Capture: Codable, Equatable, Identifiable, Sendable {
     enum State: String, Codable, Sendable {
         /// Waits on the phone.
         case pending
-        /// The server took it (2xx); `reply` is what it said.
+        /// The server took it (2xx); `reply` is what it said and wrote (`CaptureReply`).
         case sent
         /// The server refused the record itself (400); never sent again.
         case rejected
@@ -50,13 +50,6 @@ struct Capture: Codable, Equatable, Identifiable, Sendable {
         rejection = try container.decodeIfPresent(String.self, forKey: .rejection)
         payment = try container.decodeIfPresent(Payment.self, forKey: .payment)
     }
-}
-
-/// The server's `data.status` and `data.ack` for a sent record.
-struct CaptureReply: Codable, Equatable, Sendable {
-    let status: String
-    let title: String
-    let summary: String
 }
 
 enum CaptureTextError: Error, Equatable {
