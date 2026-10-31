@@ -227,6 +227,19 @@ describe.each([
     expect([other.status, other.body.code]).toEqual([403, 'ACCESS_DENIED']);
   });
 
+  it('with the token but no owner, the header names nobody through the tunnel: 403 SHORTCUT_OWNER_REQUIRED (review 2026-10-31)', async () => {
+    process.env.SHORTCUT_CAPTURE_TOKEN = 'test-token-value';
+    const headers = { 'X-Shortcut-Capture-Token': 'test-token-value', 'X-Shortcut-User-Id': '900000152' };
+
+    const tunnelled = await call(method, path, { ...headers, ...TUNNEL });
+    expect([tunnelled.status, tunnelled.body.code]).toEqual([403, 'SHORTCUT_OWNER_REQUIRED']);
+    // From this machine the header still names the owner, as X-Dev-User-Id does (2026-10-21)
+    expect((await call(method, path, headers)).body).toEqual({ id: 900000152 });
+    // A capture through the tunnel keeps the FT-075 rule: the header names whom it is written for
+    expect((await call('POST', '/capture', { ...headers, ...TUNNEL }, { text: 'такси 18к' })).body)
+      .toEqual({ userId: '900000152', source: 'ios_shortcut' });
+  });
+
   it('without an owner the token alone signs in nobody: 403 SHORTCUT_OWNER_REQUIRED', async () => {
     process.env.SHORTCUT_CAPTURE_TOKEN = 'test-token-value';
     const res = await call(method, path, { 'X-Shortcut-Capture-Token': 'test-token-value' });

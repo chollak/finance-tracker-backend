@@ -323,6 +323,31 @@ describe('the app token reads and edits its owner’s records (FT-218)', () => {
     });
   });
 
+  it('outside production a token without an owner reads nobody’s records through the tunnel (review 2026-10-31)', async () => {
+    const theirs = await recordOf(OTHER);
+    process.env.NODE_ENV = 'development';
+    delete process.env.SHORTCUT_CAPTURE_OWNER;
+    const naming = { ...byToken, 'X-Shortcut-User-Id': String(OTHER) };
+    const tunnel = { 'Cf-Connecting-Ip': '203.0.113.7', 'X-Forwarded-For': '203.0.113.7' };
+
+    for (const [method, url, body] of [
+      ['GET', '/transactions', undefined],
+      ['GET', '/categories', undefined],
+      ['GET', '/accounts', undefined],
+      ['DELETE', `/transactions/${theirs}`, undefined],
+      ['POST', `/transactions/${theirs}/restore`, undefined],
+      ['PUT', `/transactions/${theirs}`, { description: 'чай' }],
+    ] as const) {
+      const res = await call(method, url, { ...naming, ...tunnel }, body);
+      expect([method, url, res.status, res.body.code]).toEqual([method, url, 403, 'SHORTCUT_OWNER_REQUIRED']);
+    }
+    expect(await transactionModule.getRepository().findById(theirs)).toMatchObject({ description: 'кофе' });
+
+    // From this machine the header names the owner, as X-Dev-User-Id does outside production
+    const local = await call('GET', '/transactions', naming);
+    expect(local.body.data.items.map((item: { id: string }) => item.id)).toEqual([theirs]);
+  });
+
   describe('a wrong token, a path that is off, someone else named', () => {
     const everyRoute = async (): Promise<Array<[string, string, unknown]>> => {
       const id = await recordOf(OWNER);

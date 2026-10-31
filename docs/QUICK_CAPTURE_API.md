@@ -55,7 +55,8 @@ Notes:
 - Authentication runs **before** the handler's own validation: a request that does not sign in gets `401` even if
   `text` is missing.
 - In production the way in is valid Telegram `initData`, the browser session, or the Shortcut's capture token, which
-  writes only for its owner (FT-155). There is no other API key.
+  acts only for its owner: it writes (FT-155) and, on six routes, reads and edits records (FT-218). There is no other
+  API key.
 - Closed access (FT-153): with `ALLOWED_TELEGRAM_IDS` set, a request signed in as anyone else gets **`403
   ACCESS_NOT_ALLOWED`** before the route, and the Shortcut owner must be on the list.
 - The owner is the signed-in user (`writeAsSignedInUser`, 2026-10-21): a body `userId` naming anyone else is `403
@@ -158,6 +159,11 @@ one, the token is one more way to sign in, next to initData and the browser sess
   `401 INVALID_SHORTCUT_TOKEN`, `403 ACCESS_DENIED` / `SHORTCUT_OWNER_REQUIRED`, `403 ACCESS_NOT_ALLOWED`. Then the
   request is signed in as `SHORTCUT_CAPTURE_OWNER` — `req.telegramUser` — and goes on as the owner's initData would:
   user resolution, the record's ownership check, the handler.
+- **Outside production without an owner** one rule is stricter than for a capture (review 2026-10-31): with a token
+  but no `SHORTCUT_CAPTURE_OWNER`, `X-Shortcut-User-Id` names whom the token acts for only on a request from this
+  machine (`isLocalRequest`, as `X-Dev-User-Id`). Through the tunnel or the Wi-Fi the records routes answer
+  **`403 SHORTCUT_OWNER_REQUIRED`** after the token check: otherwise the token holder would read and edit anyone's
+  records. A capture through the tunnel keeps the FT-075 rule — the header names the owner.
 - **The Mini App's answers** ([`docs/pastel/api.md`](pastel/api.md)): the same envelopes and fields. Someone else's
   record is `403 AUTHORIZATION_ERROR`, as it is for the Mini App; a record already deleted — `404` on delete and edit.
 - **Everything else is closed.** No other route reads the token: there a token signs nobody in, and the answer is that of

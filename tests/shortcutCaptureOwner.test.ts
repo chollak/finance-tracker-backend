@@ -54,7 +54,8 @@ describe('the Shortcut capture setting (FT-155)', () => {
 
   it.each([
     ['a token shorter than 32 characters', { token: SHORT_TOKEN, owner: OWNER }, /SHORTCUT_CAPTURE_TOKEN.*32/],
-    ['a token without an owner', { token: TOKEN }, /SHORTCUT_CAPTURE_OWNER/],
+    // Since FT-218 the token also reads and edits the owner's records: the message says so
+    ['a token without an owner', { token: TOKEN }, /without SHORTCUT_CAPTURE_OWNER.*writes, reads and edits records only for its owner/],
     ['an owner without a token', { owner: OWNER }, /SHORTCUT_CAPTURE_TOKEN/],
     ['an owner not on the list', { token: TOKEN, owner: STRANGER }, /SHORTCUT_CAPTURE_OWNER.*ALLOWED_TELEGRAM_IDS/],
     ['an owner that is not one Telegram id', { token: TOKEN, owner: `${OWNER},${OTHER_ALLOWED}` }, /SHORTCUT_CAPTURE_OWNER/],

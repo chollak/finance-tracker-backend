@@ -541,7 +541,7 @@ type ShortcutOwner = { owner: string } | { refused: { code: string; error: strin
 function shortcutOwner(configured: string | null, claimedRaw: string): ShortcutOwner {
   const claimed = claimedRaw ? telegramIdOf(claimedRaw) : null;
   if (claimedRaw && (claimed === null || (configured !== null && claimed !== configured))) {
-    return { refused: { code: 'ACCESS_DENIED', error: 'This capture token writes only for its owner' } };
+    return { refused: { code: 'ACCESS_DENIED', error: 'This token acts only for its owner' } };
   }
   const owner = configured ?? claimed;
   if (owner === null) {
@@ -565,6 +565,9 @@ function isShortcutRequest(req: Request): boolean {
   return claimedShortcutOwner(req) !== '' || req.headers[SHORTCUT_TOKEN_HEADER] !== undefined;
 }
 
+/** What a Shortcut request is for: a capture (FT-075) or the iOS app's records routes (FT-218). */
+type ShortcutUse = 'capture' | 'records';
+
 /**
  * The owner a Shortcut request goes for (FT-075, FT-155), or null once the refusal is answered. A Shortcut cannot
  * produce Telegram initData, so it sends the token, `X-Shortcut-Capture-Token`, and optionally `X-Shortcut-User-Id`.
@@ -572,13 +575,15 @@ function isShortcutRequest(req: Request): boolean {
  * - Production (the live instance): on only with a token of 32+ characters and an owner on ALLOWED_TELEGRAM_IDS —
  *   otherwise `403 SHORTCUT_CAPTURE_DISABLED`, loudly. The token is always required.
  * - Outside production, as before: without an owner the header names it; without a token only a request from this
- *   machine goes through (`403 SHORTCUT_CAPTURE_TOKEN_REQUIRED` through the tunnel or the Wi-Fi).
+ *   machine goes through (`403 SHORTCUT_CAPTURE_TOKEN_REQUIRED` through the tunnel or the Wi-Fi). On the records
+ *   routes the header names the owner only from this machine, like `X-Dev-User-Id`: through the tunnel the token holder
+ *   would read and edit anyone's records (`403 SHORTCUT_OWNER_REQUIRED`, review of FT-218).
  *
  * The token is checked first, in constant time (`401 INVALID_SHORTCUT_TOKEN`), so an answer to a wrong token says
  * nothing about the owner or the list. A header naming anyone but the owner is `403 ACCESS_DENIED`. The log names the
  * route's pattern, never the token or a record id.
  */
-function shortcutOwnerOrRefuse(req: Request, res: Response): string | null {
+function shortcutOwnerOrRefuse(req: Request, res: Response, use: ShortcutUse): string | null {
   const route = `${req.baseUrl}${req.route?.path ?? ''}`;
   const setting = currentShortcutCapture();
   if (!setting.enabled) {
@@ -603,6 +608,14 @@ function shortcutOwnerOrRefuse(req: Request, res: Response): string | null {
       refuse(res, 401, 'INVALID_SHORTCUT_TOKEN', 'Invalid or missing shortcut capture token');
       return null;
     }
+  }
+
+  // Outside production without SHORTCUT_CAPTURE_OWNER the header says whom the token acts for. A capture may still be
+  // written so through the tunnel (FT-075); reading and editing records only from this machine
+  if (use === 'records' && setting.owner === null && !isLocalRequest(req)) {
+    logger.warn('Shortcut records request without an owner from outside this machine refused', { route });
+    refuse(res, 403, 'SHORTCUT_OWNER_REQUIRED', 'Reading and editing records by the token needs SHORTCUT_CAPTURE_OWNER on this server');
+    return null;
   }
 
   const resolved = shortcutOwner(setting.owner, claimedShortcutOwner(req));
@@ -639,7 +652,7 @@ export function allowShortcutCapture(req: Request, res: Response, next: NextFunc
     return;
   }
 
-  const owner = shortcutOwnerOrRefuse(req, res);
+  const owner = shortcutOwnerOrRefuse(req, res, 'capture');
   if (owner === null) return;
 
   req.isAuthenticated = true;
@@ -669,7 +682,7 @@ function signInWithAppTokenOr(signIn: RequestHandler): RequestHandler {
       return;
     }
 
-    const owner = shortcutOwnerOrRefuse(req, res);
+    const owner = shortcutOwnerOrRefuse(req, res, 'records');
     if (owner === null) return;
 
     // The owner is a whole Telegram id: `telegramIdOf` and the start checks allow no other

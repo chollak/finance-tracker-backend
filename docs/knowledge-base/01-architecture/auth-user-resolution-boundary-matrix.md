@@ -17,6 +17,11 @@ A request with `X-Shortcut-Capture-Token` (even empty) or a non-blank `X-Shortcu
 initData, the session cookie or `X-Dev-User-Id` beside it do not count. Someone else's record gets what the Mini App gets
 — `403 AUTHORIZATION_ERROR`.
 
+| Outside production, a token, no `SHORTCUT_CAPTURE_OWNER` (security review 2026-10-31) | Capture | Records routes |
+|---|---|---|
+| From this machine, `X-Shortcut-User-Id` names someone | for them (FT-075) | as them — like `X-Dev-User-Id` (2026-10-21) |
+| Through the tunnel or the Wi-Fi, `X-Shortcut-User-Id` names someone | for them (FT-075) | `403 SHORTCUT_OWNER_REQUIRED`, after the token check: the token holder would read and edit anyone's records |
+
 Unchanged: no other route reads the token — there it signs nobody in and the answer is that of a request without
 sign-in; a capture still does not set `req.telegramUser`; `createAllowedUsersMiddleware` lets a token request on to its
 route, where the owner is checked against the list; the rate limits (FT-071) — the general limiter counts a token
