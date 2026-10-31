@@ -116,7 +116,7 @@ describe('the amount after a quick-add category (FT-207)', () => {
     const two = await sendAmount('25000 300');
 
     expect(two.create).not.toHaveBeenCalled();
-    expect(lastReply(two.reply)).toBe(`Сумма — одно число. Напишите её ещё раз — например, 25${NB}000 или 25к.`);
+    expect(lastReply(two.reply)).toBe(`Вижу несколько чисел. Напишите одну сумму — например, 25${NB}000 или 25к.`);
     expect(two.session.pendingAction).toEqual({ type: 'awaiting_amount', category: 'coffee' });
 
     const one = await sendAmount('25 000 300');

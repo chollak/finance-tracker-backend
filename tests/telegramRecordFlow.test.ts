@@ -51,7 +51,7 @@ const NB = ' ';
 const MINUS = '−';
 const TELEGRAM_ID = 131184740;
 /** What the bot says to an amount answer of two numbers or more (FT-224). */
-const ONE_AMOUNT = `Сумма — одно число. Напишите её ещё раз — например, 25${NB}000 или 25к.`;
+const ONE_AMOUNT = `Вижу несколько чисел. Напишите одну сумму — например, 25${NB}000 или 25к.`;
 
 interface Button { text: string; callback_data?: string; web_app?: { url: string } }
 interface ChatMessage { text: string; keyboard: Button[][] }
