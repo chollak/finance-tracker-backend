@@ -62,6 +62,14 @@ describe('a point as a thousands separator (FT-206)', () => {
     expect(readWrittenNumber(token)).toBe(value);
   });
 
+  // A leading zero is no thousands group: «0.250» is a quarter (review of PR #144)
+  it.each([
+    ['0.250', 0.25],
+    ['0.005', 0.005],
+  ])('reads «%s» as the fraction %d', (token, value) => {
+    expect(readWrittenNumber(token)).toBe(value);
+  });
+
   it.each(['1.234.5', '1.23.456'])('reads no number from «%s»', token => {
     expect(readWrittenNumber(token)).toBeNull();
   });
@@ -147,6 +155,14 @@ describe('a point as a thousands separator (FT-206)', () => {
       expect(writtenRecords(create)).toEqual([{ amount: 4_500, currency: 'USD' }, { amount: 1_500, currency: 'UZS' }]);
     });
 
+    it('keeps «0.250 $» read as 0,25 $: a leading zero is no thousands group', async () => {
+      const { create, useCase } = makeText(aiReading({ amount: 0.25, currency: 'USD' }, 25_000));
+
+      await useCase.execute('чаевые 0.250 $ и кофе 25к', 'user1');
+
+      expect(writtenRecords(create)).toEqual([{ amount: 0.25, currency: 'USD' }, { amount: 25_000, currency: 'UZS' }]);
+    });
+
     it('keeps a fraction the phrase writes as one: «4.50 $» is 4,50 $', async () => {
       const { create, useCase } = makeText(aiReading({ amount: 4.5, currency: 'USD' }));
 
@@ -203,6 +219,7 @@ describe('a point as a thousands separator (FT-206)', () => {
       ['4.50 $', 450, 'USD'],
       ['1.234,50', 123_500, 'UZS'],
       ['1.500 млн', 150_000_000, 'UZS'],
+      ['0.250 $', 25, 'USD'],
     ])('«%s» is %i minor units of %s', (text, amountMinor, currency) => {
       expect(parseAmountReply(text, sumExpense)).toEqual({ kind: 'amount', amountMinor, currency });
     });

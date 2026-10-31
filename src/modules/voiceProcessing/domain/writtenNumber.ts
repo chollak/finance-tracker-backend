@@ -1,7 +1,7 @@
 // A comma before one or two closing digits: «28 000,00», «4,50»
 const DECIMAL_COMMA = /^([+-]?[\d.,]+),(\d{1,2})$/;
-// Points before exactly three digits: «25.000», «1.234.567»
-const POINT_GROUPS = /^[+-]?\d{1,3}(?:\.\d{3})+$/;
+// Points before exactly three digits: «25.000», «1.234.567»; not after a zero, «0.250» is a quarter
+const POINT_GROUPS = /^[+-]?[1-9]\d{0,2}(?:\.\d{3})+$/;
 // One point or comma at most: «1.5», «3,2»
 const ONE_SEPARATOR = /^[+-]?\d+(?:[.,]\d+)?$/;
 
