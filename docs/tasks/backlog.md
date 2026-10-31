@@ -499,7 +499,7 @@ Definition of Done:
 
 ### FT-215: typeorm 1.x: the glob and minimatch advisories
 
-Status: in_progress — под-чат разработки, 2026-10-31 (FT-048 в main)
+Status: backlog — отложена: Шукур 2026-10-31 «пока остаёмся» на `typeorm` 0.3.31; вместе с FT-233
 Priority: low
 Owner: Claude Code, QA — под-чат проверки
 Type: chore
@@ -512,6 +512,18 @@ Context:
 DoS). В рабочих зависимостях сервера они приходят через `typeorm` 0.3.31 (`glob` 10.5.0) и через цепочку `sqlite3`
 (`node-gyp` → `glob` 7 — это FT-048). В `npm audit --omit=dev` это moderate. `npm audit fix` без `--force` их не
 закрывает: исправление — `typeorm` 1.1.2, мажорное обновление.
+
+**2026-10-31, проба (PR #154 закрыт, ветка `claude/ft-215-typeorm-1` сохранена, коммит `b734b5b9`):** в `typeorm` 1.x
+драйвера `sqlite` (`sqlite3`) больше нет — только `better-sqlite3` ^12. Значит, обновление — это и смена драйвера (FT-233).
+В пробе: `typeorm` 1.1.2 + `better-sqlite3` 12.11.1 явной установкой; в коде 8 строк (`type: 'better-sqlite3'` в
+`database.config.ts` и 4 тестах миграций, `relations: ['payments']` → `{ payments: true }` в `SqliteDebtRepository`);
+`verify` зелёный (Jest 2124 — за 82 с вместо 318), `npm audit --omit=dev` 3 moderate → 0; копия базы мака — миграции,
+revert/run, строки и `.schema` совпали; откат на `sqlite3` 6 открывает базу. Осталось до перехода (S, ~полдня):
+`live-update.sh` проверять `require('better-sqlite3')`; убрать ли `sqlite3` (`tests/backupDb.test.ts`,
+`scripts/preview-semantic-backfill.ts`, `npm rebuild` в Dockerfile); документация (`database-guide.md`,
+`live-instance.md`, `troubleshooting.md`); Docker-проверка готовой сборки `better-sqlite3` на ubuntu:24.04 / Node 22.
+1.x ещё бросает ошибку на `null`/`undefined` в `where` (у нас 63 места, все параметры обязательные). Шукур решил пока
+остаться на 0.3.31: три moderate касаются поиска файлов по шаблону, а сущности и миграции у нас — списки классов.
 
 `glob` нужен typeorm, чтобы находить сущности и миграции по строкам-путям. У нас и то и другое — списки классов
 (`DATABASE_ENTITIES`, `migrations/index.ts`), так что риск низкий.
@@ -695,7 +707,7 @@ Priority: low
 Owner: Claude Code
 Type: tech-debt
 Size: S
-Depends on: FT-215 (решение штаба после него)
+Depends on: — (FT-215 ждёт её: `typeorm` 1.x — только `better-sqlite3`)
 
 Context:
 Найдено в FT-048 (2026-10-31). `TryGhost/node-sqlite3` с 2026-03-12 помечен unmaintained: в README сказано, что
@@ -704,7 +716,8 @@ issues и PR больше не разбираются (PR #1844). 6.0.1 — по
 срочности нет.
 
 Кандидаты:
-- `better-sqlite3` — TypeORM 0.3 его поддерживает (`type: 'better-sqlite3'`), синхронный нативный модуль;
+- `better-sqlite3` — TypeORM 0.3 его поддерживает (`type: 'better-sqlite3'`), а 1.x — только его; синхронный нативный
+  модуль. Проба перехода вместе с `typeorm` 1.x — в FT-215 (PR #154);
 - `node:sqlite` — встроен в Node 22, без нативной сборки, но пока экспериментальный; драйвер TypeORM для него не
   проверен.
 
