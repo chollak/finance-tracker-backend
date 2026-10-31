@@ -194,7 +194,9 @@ Shortcut выключен (`403 SHORTCUT_CAPTURE_DISABLED`), а неполная
 старт. С `Restart=always` это цикл перезапусков — `journalctl -u kapelka.service -n 20` покажет
 `Configuration validation failed` и список ошибок. Отзыв токена — новое значение и
 `sudo systemctl restart kapelka.service`: старый перестаёт работать сразу. Сам Shortcut —
-[`docs/IOS_SHORTCUT_ACTION_BUTTON.md`](../../IOS_SHORTCUT_ACTION_BUTTON.md) (FT-160).
+[`docs/IOS_SHORTCUT_ACTION_BUTTON.md`](../../IOS_SHORTCUT_ACTION_BUTTON.md) (FT-160). С FT-218 тот же токен читает и правит
+записи владельца в iOS-приложении (шесть маршрутов, [`QUICK_CAPTURE_API.md`](../../QUICK_CAPTURE_API.md#the-app-token-on-the-records-routes-ft-218)):
+токен, который лежал в быстрой команде открытым текстом, заменить новым.
 
 ## 6. Сборка и сервис systemd
 

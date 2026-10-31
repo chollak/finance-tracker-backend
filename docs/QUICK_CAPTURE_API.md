@@ -2,8 +2,9 @@
 
 > **Status:** describes the **shipped** implementation as of 2026-09-04 (commits `50d84ef` → `03a39a3`), plus the
 > iOS Shortcut token from `FT-075`, bound to one owner and allowed in production since `FT-155` (2026-10-27), the
-> time of input `capturedAt` from `FT-175` (2026-10-29), and the Apple Pay payment route
-> `POST /api/quick-capture/payment` from `FT-176` (2026-10-30).
+> time of input `capturedAt` from `FT-175` (2026-10-29), the Apple Pay payment route
+> `POST /api/quick-capture/payment` from `FT-176` (2026-10-30), and the same token reading and editing the owner's
+> records on six routes for the iOS app from `FT-218` (2026-10-31, [below](#the-app-token-on-the-records-routes-ft-218)).
 > This document is derived from the code and tests listed under [Source of truth](#source-of-truth), **not** from the
 > earlier speculative spec in `.hermes/plans/2026-09-02_130400-api-first-quick-actions-spec.md`. Where the old spec and
 > the shipped contract disagree, the shipped contract wins; the differences are listed in
@@ -100,8 +101,9 @@ A request is a Shortcut request when it carries `X-Shortcut-Capture-Token` (even
 A request with neither header changes nothing: it signs in through `requireAuth` exactly as before, so the Mini App path
 is unaffected. `X-Dev-User-Id` never counts in production, also not next to a Shortcut token: the record is the owner's.
 
-`req.telegramUser` is deliberately **not** fabricated for shortcut requests — the token proves nothing about a Telegram
-session, so `verifyOwnership`/`requireAdmin` stay fail-closed if they are ever added to this route.
+`req.telegramUser` is deliberately **not** fabricated for a capture — it needs only the owner in the body, so
+`verifyOwnership`/`requireAdmin` stay fail-closed if they are ever added to this route. The six records routes of the
+iOS app do sign the owner in ([below](#the-app-token-on-the-records-routes-ft-218)).
 
 ```bash
 # the live instance, from a device in the tailnet
@@ -128,8 +130,45 @@ token stops working at once (the server keeps only the current value). Then put 
 What it still is not (decision 2026-10-26: one owner, the API only in the tailnet):
 
 - One token per server, not per user or device: no issuance, expiry or audit trail. Anyone holding the token writes
-  for the owner — the Shortcut keeps it in plain text on the phone.
+  for the owner and, since FT-218, reads all the owner's records, deletes them and edits them. The iOS app keeps it in
+  Keychain; a Shortcut keeps it in plain text on the phone — after FT-218 such a token is replaced by a new one.
 - The rate limit is still the shared per-IP AI limiter (see below); there is no separate budget for the Shortcut.
+
+### The app token on the records routes (FT-218)
+
+The iOS app shows the owner's records from the server, deletes them and changes their category with the same token
+(decision 2026-10-31; the client: `ios/Kapelka/Records/RecordsClient.swift`, FT-219). On exactly six routes, named one by
+one, the token is one more way to sign in, next to initData and the browser session:
+
+| Route | Sign-in | The iOS app |
+|---|---|---|
+| `GET /api/transactions` | `createCurrentUserOrAppTokenMiddleware` | the history page by page with `cursor` (FT-107) |
+| `GET /api/categories` | `createCurrentUserOrAppTokenMiddleware` | category names and colours, hidden ones too |
+| `GET /api/accounts` | `createCurrentUserOrAppTokenMiddleware` | account names for «категория · счёт»; **only the list** — `POST`, `PATCH`, `DELETE`, `/:id/operations`, `/opening-balances` stay closed |
+| `DELETE /api/transactions/:id` | `optionalAuthOrAppToken` | delete softly (FT-105) |
+| `POST /api/transactions/:id/restore` | `optionalAuthOrAppToken` | «Вернуть» |
+| `PUT /api/transactions/:id` | `optionalAuthOrAppToken` | `{ categoryId }`; teaches as from the Mini App (FT-184). The fields are not limited (decision): the token can read and delete anyway |
+
+- **Which request.** A token request is told apart as for a capture: `X-Shortcut-Capture-Token` (even empty) or a
+  non-blank `X-Shortcut-User-Id`. Then the token decides alone: initData, the session cookie or `X-Dev-User-Id` next to it
+  do not count, and a wrong token is `401` even beside valid initData. A request without those headers signs in exactly
+  as before (`requireAuth` / `optionalAuth`), so the Mini App path is unaffected.
+- **The same steps as a capture** — steps 1–5 [above](#ios-shortcut-capture), one function for both
+  (`shortcutOwnerOrRefuse`): `403 SHORTCUT_CAPTURE_DISABLED`, outside production `403 SHORTCUT_CAPTURE_TOKEN_REQUIRED`,
+  `401 INVALID_SHORTCUT_TOKEN`, `403 ACCESS_DENIED` / `SHORTCUT_OWNER_REQUIRED`, `403 ACCESS_NOT_ALLOWED`. Then the
+  request is signed in as `SHORTCUT_CAPTURE_OWNER` — `req.telegramUser` — and goes on as the owner's initData would:
+  user resolution, the record's ownership check, the handler.
+- **The Mini App's answers** ([`docs/pastel/api.md`](pastel/api.md)): the same envelopes and fields. Someone else's
+  record is `403 AUTHORIZATION_ERROR`, as it is for the Mini App; a record already deleted — `404` on delete and edit.
+- **Everything else is closed.** No other route reads the token: there a token signs nobody in, and the answer is that of
+  a request without sign-in (`401`, or `403` from a record's ownership check). On `/api/categories` and `/api/accounts`
+  only `GET /` is registered before the router's own sign-in, which every other route of theirs goes through — a new
+  route there is closed to the token by default.
+- **Limits do not change (FT-071).** These routes are behind the general limiter, which counts a token request by
+  address, as one without sign-in: 100 requests per 15 minutes (initData: 600 per user). The token never appears in
+  the log; a refusal names the route's pattern.
+- **What the token now gives.** Whoever holds it reads all the owner's records and can delete and edit them. The API is
+  reachable only in the tailnet, and the iOS app keeps the token in Keychain.
 
 ### User id resolution
 
@@ -772,7 +811,8 @@ Read these before changing the contract:
 - `src/modules/voiceProcessing/domain/categoryGuess.ts` — `categoryNamedBy`, the category a label or merchant names
 - `src/modules/quickCapture/presentation/controllers/quickCaptureController.ts` — HTTP validation, auth, rate limit,
   both routes
-- `src/delivery/web/express/middleware/authMiddleware.ts` — `allowShortcutCapture` (the Shortcut token and its owner)
+- `src/delivery/web/express/middleware/authMiddleware.ts` — `allowShortcutCapture` (the Shortcut token and its owner);
+  `requireAuthOrAppToken` / `optionalAuthOrAppToken` on the records routes (FT-218), both over `shortcutOwnerOrRefuse`
 - `src/shared/domain/access/shortcutCaptureAccess.ts` — the Shortcut setting rules, also checked at start
 - `src/delivery/web/express/expressServer.ts` + `src/index.ts` — mount path
 - `src/delivery/messaging/telegram/handlers/messageHandlers.ts` — Telegram as a client
@@ -781,6 +821,9 @@ Tests that pin this behavior:
 
 - `tests/quickCaptureRoutes.test.ts` — HTTP validation, auth, envelope, error mapping
 - `tests/shortcutCaptureOwner.test.ts` — the Shortcut in production: owner binding, token, repeats, start checks (FT-155)
+- `tests/appTokenRecords.test.ts` — the token on the six records routes in production: answers as with initData,
+  someone else's record, refusals, learning, the log, the limit, and every route of `buildServer` with the token only
+  (FT-218); outside production — the FT-218 cases in `tests/localDevAuth.test.ts`
 - `tests/localDevAuth.test.ts`, `tests/allowedTelegramIds.test.ts` — the Shortcut outside production and the list
 - `tests/quickCaptureService.test.ts` — status resolution, semantic safeguards, multi-item, debts
 - `tests/captureTimeOfInput.test.ts`, `tests/capturedAt.test.ts`, `tests/captureDay.test.ts` — the time of input, its
