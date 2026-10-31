@@ -729,8 +729,13 @@ async function correctAmount(ctx: BotContext, log: BotMessageLog, chatId: string
     await ctx.reply(RU.record.correctionNotAnAmount);
     return true;
   }
-  if (reply.kind !== 'amount') {
-    await ctx.reply(refusalText(reply));
+  // No question waits for the next text here: «Напишите одну сумму» would send «25 300» to a new record (FT-224)
+  if (reply.kind === 'several_numbers') {
+    await ctx.reply(RU.record.correctionOneNumber);
+    return true;
+  }
+  if (reply.kind === 'too_big') {
+    await ctx.reply(RU.record.amountTooBig);
     return true;
   }
 

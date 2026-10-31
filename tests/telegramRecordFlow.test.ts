@@ -986,14 +986,28 @@ describe('bot record messages (FT-122)', () => {
         expect(running.capture).toHaveBeenCalledTimes(1);
       });
 
-      it('asks again when the new amount is two numbers (FT-224)', async () => {
+      // No question is open after «не 25, а …»: «Напишите одну сумму» would send the next «25 300» to a new record
+      it('shows how to write the correction when the new amount is two numbers (FT-224)', async () => {
         const message = await write('кофе 25к', [coffee]);
         const [id] = await recordIdsOf(message);
 
-        expect(text(await write('не 25, а 25000 300'))).toBe(ONE_AMOUNT);
+        expect(text(await write('не 25, а 25000 300'))).toBe('Новая сумма — одно число: «не 25, а 28».');
 
         expect((await record(id)).amountMinor).toBe(2_500_000);
         expect(running.capture).toHaveBeenCalledTimes(1);
+        expect(await awaiting()).toBeNull();
+      });
+
+      it('asks the open «Сумму» question again when its correction is two numbers (FT-224)', async () => {
+        const message = await write('кофе 25к', [coffee]);
+        const [id] = await recordIdsOf(message);
+        await press(message, 'Изменить');
+        await press(message, 'Сумму');
+
+        expect(text(await write('не 25, а 25000 300'))).toBe('Новая сумма — одно число: «не 25, а 28».');
+
+        expect((await record(id)).amountMinor).toBe(2_500_000);
+        expect((await awaiting())?.messageId).toBe(message);
       });
 
       it('a voice «не двадцать пять, а двадцать восемь» heard as digits corrects too', async () => {

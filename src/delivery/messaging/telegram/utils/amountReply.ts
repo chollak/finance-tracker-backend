@@ -25,8 +25,8 @@ export type AmountReply =
 export type AmountRefusal = Exclude<AmountReply, { kind: 'amount' }>;
 
 /**
- * What the bot says to such an answer, keeping the question open — the same after «Сумму», «Сколько?», a large amount,
- * «не 25, а …» and a quick-add category (FT-224).
+ * What the bot says to such an answer, keeping the question open — the same after «Сумму», «Сколько?», a large amount
+ * and a quick-add category (FT-224). «не 25, а …» opens no question and says its own.
  */
 export function refusalText(refusal: AmountRefusal): string {
   switch (refusal.kind) {
