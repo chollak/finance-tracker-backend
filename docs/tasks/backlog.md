@@ -499,7 +499,7 @@ Definition of Done:
 
 ### FT-215: typeorm 1.x: the glob and minimatch advisories
 
-Status: backlog — в очереди, FT-048 в main
+Status: in_progress — под-чат разработки, 2026-10-31 (FT-048 в main)
 Priority: low
 Owner: Claude Code, QA — под-чат проверки
 Type: chore
@@ -522,7 +522,8 @@ DoS). В рабочих зависимостях сервера они прих�
 Идея: `typeorm` 1.x — changelog, `DataSource`, миграции; проверка на копии настоящей базы по правилам миграций; тесты.
 
 Definition of Done:
-- [ ] `typeorm` 1.x; в `npm audit --omit=dev` в корне `typeorm`, `glob`, `minimatch` остались только в цепочке `sqlite3`
+- [ ] `typeorm` 1.x; в `npm audit --omit=dev` в корне нет `typeorm`, `glob`, `minimatch` (цепочки `sqlite3` больше нет —
+      FT-048, 2026-10-31)
 - [ ] `npm run migration:show` на копии настоящей базы: применённые миграции те же, расхождений схемы нет
 - [ ] `npm run verify` зелёный
 
@@ -559,7 +560,7 @@ Definition of Done:
 
 ### FT-220: iOS tabs «Записать» and «Записи»: the server list by day
 
-Status: backlog — в очереди
+Status: in_progress — под-чат разработки, 2026-10-31 (FT-218 и FT-219 в main)
 Priority: high
 Owner: Claude Code, Shukur (iPhone), QA — под-чат проверки
 Type: feature
