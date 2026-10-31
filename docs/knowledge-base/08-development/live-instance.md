@@ -698,20 +698,27 @@ sqlite3 -readonly data/database.sqlite 'SELECT count(*) FROM transactions;'   # 
 «сегодня, день не закончен» и не будет считать его пропуском.
 
 ```bash
-cd ~/dev/projects/kapelka-live
-ls scripts/capture-quality-report.ts        # нет файла — сначала scripts/live-update.sh (FT-217 в main)
-rm -f /tmp/kapelka-report.sqlite && test -s data/database.sqlite &&
-  sqlite3 -bail -init /dev/null data/database.sqlite ".timeout 30000" ".backup /tmp/kapelka-report.sqlite"
-sqlite3 -init /dev/null -readonly /tmp/kapelka-report.sqlite 'PRAGMA integrity_check;'   # ok
-scripts/nvm-exec.sh npm run report:quality -- --db=/tmp/kapelka-report.sqlite
-rm /tmp/kapelka-report.sqlite               # в копии все записи — удалить сразу
+cd ~/dev/projects/kapelka-live &&
+  test -f scripts/capture-quality-report.ts &&     # нет файла — сначала scripts/live-update.sh
+  rm -f /tmp/kapelka-report.sqlite && test -s data/database.sqlite &&
+  sqlite3 -bail -init /dev/null data/database.sqlite ".timeout 30000" ".backup /tmp/kapelka-report.sqlite" &&
+  test -s /tmp/kapelka-report.sqlite &&
+  [ "$(sqlite3 -init /dev/null -readonly /tmp/kapelka-report.sqlite 'PRAGMA integrity_check;')" = ok ] &&
+  scripts/nvm-exec.sh npm run report:quality -- --db=/tmp/kapelka-report.sqlite
+rm -f /tmp/kapelka-report.sqlite                   # в копии все записи — удалить, и после ошибки тоже
 ```
 
 - Копия снимается так же, как в [бэкапе](#бэкап-ft-157): `.backup` безопасен, пока приложение пишет, `.timeout` ждёт
   его блокировку, `-init /dev/null` — без `~/.sqliterc`. Сервис останавливать не нужно.
-- Почему `rm -f` и `test -s`: без них упавший `.backup` оставил бы в `/tmp` прошлую копию, и отчёт молча посчитал бы
-  её; а `sqlite3` с опечаткой в пути создал бы пустую базу. `-bail` останавливает на первой ошибке. В шапке отчёта —
-  «Последняя запись в копии»: она должна быть сегодняшней.
+- Весь блок до отчёта — одна цепочка `&&`: первая же ошибка останавливает её, и отчёт не считает неверную копию.
+  Последняя строка, `rm -f`, — отдельно: копия удаляется и после ошибки.
+  - `rm -f` в начале — иначе упавший `.backup` оставил бы в `/tmp` прошлую копию, и отчёт молча посчитал бы её.
+  - `test -s data/database.sqlite` — `sqlite3` с опечаткой в пути создал бы пустую базу.
+  - `-bail` останавливает `sqlite3` на первой ошибке.
+  - `test -s` копии и `integrity_check` = `ok` — после «database is locked» `.backup` оставляет файл в 0 байт, а
+    `integrity_check` на нём отвечает `ok`. Если до отчёта всё же дошла пустая копия, он скажет «Копия пустая —
+    .backup не удался, повтори копирование» и покажет эту команду.
+  - В шапке отчёта — «Последняя запись в копии»: она должна быть сегодняшней.
 - Другой период: `--from=2026-10-31 --to=2026-11-14` (дни операции по Ташкенту, включительно; по умолчанию — эти две
   недели). Период выбирается по дню операции, поэтому запись 14-го, ушедшая 15-го, в нём.
 - «Пользователей с записями» больше одного — свои записи: `--user=<свой Telegram id>`.
@@ -724,11 +731,13 @@ rm /tmp/kapelka-report.sqlite               # в копии все записи 
   - цель «7 из 10» — только автоматическая запись: бот, iOS, Apple Pay, фраза или голос в Mini App
     ([решение 2026-11-01](../../tasks/decisions.md)); ручной ввод — отдельной строкой;
   - удалённые записи считаются правкой;
-  - дни и «дней подряд» — по дню операции (`date`), вторая серия — по дню отправки (`createdAt`);
+  - дни — по дню операции, то есть дню траты (`date`). «Дней подряд» в итоге — две серии: по дню траты и по дню
+    отправки (`createdAt`). «Не в свой день» — опоздавшая отправка, поправленная дата, ручной ввод задним числом;
   - категория, сумма и тип — по снимку разбора; счёт и дата — только по времени изменения (в боте — ещё последняя
     правка сообщения); «?» хранится только у бота.
 
-Проверено 2026-10-31 и 2026-11-01 на маке: тесты на временной базе из миграций приложения
+Цепочка проверена на маке на временной базе: занятая база — «database is locked», файл в 0 байт, отчёт не запускается,
+копия удалена. Проверено 2026-10-31 и 2026-11-01 на маке: тесты на временной базе из миграций приложения
 (`tests/captureQualityReport.test.ts`) и запуск на копии старой базы мака за октябрь — файл копии после отчёта тот же
 (SHA-256), рядом ничего не появилось. На ПК не запускался.
 

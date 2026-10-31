@@ -1,5 +1,6 @@
 import sqlite3 from 'sqlite3';
 import { TASHKENT_OFFSET_HOURS } from './period';
+import { EMPTY_COPY_MESSAGE } from './copyCommand';
 
 /**
  * Reads the records of a period from a copy of the database for the capture quality report (FT-217).
@@ -164,8 +165,13 @@ function close(db: sqlite3.Database): Promise<void> {
   return new Promise(resolve => db.close(() => resolve()));
 }
 
-/** The tables and columns the query reads: a database older than them is named, not half read. */
+/**
+ * The tables and columns the query reads: a database older than them is named, not half read. A file without a single
+ * table is an empty copy — a `.backup` that failed — not an old schema.
+ */
 async function assertSchema(db: sqlite3.Database): Promise<void> {
+  const [tables] = await all(db, "SELECT count(*) AS count FROM sqlite_master WHERE type = 'table'");
+  if (Number(tables?.count ?? 0) === 0) throw new Error(EMPTY_COPY_MESSAGE);
   const missing: string[] = [];
   for (const [table, columns] of Object.entries(REQUIRED_COLUMNS)) {
     const present = new Set((await all(db, `PRAGMA table_info("${table}")`)).map(column => String(column.name)));

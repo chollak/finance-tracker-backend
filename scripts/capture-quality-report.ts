@@ -12,7 +12,7 @@
  *
  * Usage (on the PC — docs/knowledge-base/08-development/live-instance.md, «Отчёт о качестве записи (FT-217)»):
  *   rm -f /tmp/kapelka-report.sqlite && test -s data/database.sqlite &&
- *     sqlite3 -bail -init /dev/null data/database.sqlite ".timeout 30000" ".backup /tmp/kapelka-report.sqlite"
+ *     sqlite3 -bail -init /dev/null data/database.sqlite ".timeout 30000" ".backup /tmp/kapelka-report.sqlite" &&
  *   scripts/nvm-exec.sh npm run report:quality -- --db=/tmp/kapelka-report.sqlite
  */
 
@@ -22,6 +22,7 @@ import { readCaptures } from './capture-quality/readCaptures';
 import { summarize } from './capture-quality/summarize';
 import { formatReport } from './capture-quality/formatReport';
 import { daysBetween, isDay, tashkentDay } from './capture-quality/period';
+import { SAFE_COPY_COMMAND } from './capture-quality/copyCommand';
 
 const DEFAULT_FROM = '2026-10-31';
 const DEFAULT_TO = '2026-11-14';
@@ -117,11 +118,10 @@ function isLiveDatabase(file: string, appRoot: string): boolean {
 function checkCopy(dbPath: string, appRoot: string): void {
   if (isLiveDatabase(dbPath, appRoot)) {
     throw new UsageError(
-      `${dbPath} — живая база. Отчёт читает только копию: ` +
-      `sqlite3 data/database.sqlite ".backup /tmp/kapelka-report.sqlite" и --db=/tmp/kapelka-report.sqlite`
+      `${dbPath} — живая база. Отчёт читает только копию: ${SAFE_COPY_COMMAND} и --db=/tmp/kapelka-report.sqlite`
     );
   }
-  if (!fs.existsSync(dbPath)) throw new UsageError(`нет файла ${dbPath}: сначала сними копию базы (.backup)`);
+  if (!fs.existsSync(dbPath)) throw new UsageError(`нет файла ${dbPath}: сначала сними копию базы — ${SAFE_COPY_COMMAND}`);
   if (!fs.statSync(dbPath).isFile()) throw new UsageError(`${dbPath} — не файл`);
 }
 
