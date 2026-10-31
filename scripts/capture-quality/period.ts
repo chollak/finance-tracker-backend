@@ -31,7 +31,7 @@ export function daysBetween(from: string, to: string): string[] {
   return Array.from({ length: count }, (_, index) => new Date(start + index * DAY_MS).toISOString().slice(0, 10));
 }
 
-/** Sorted days as ranges of consecutive ones: «2026-10-01 — 2026-10-03», a lone day as it is. */
+/** Sorted days as ranges of consecutive ones: «2026-10-01…2026-10-03», a lone day as it is. */
 export function dayRanges(days: readonly string[]): string[] {
   const ranges: string[][] = [];
   for (const day of days) {
@@ -43,7 +43,7 @@ export function dayRanges(days: readonly string[]): string[] {
       ranges.push([day]);
     }
   }
-  return ranges.map(range => (range.length === 1 ? range[0] : `${range[0]} — ${range[range.length - 1]}`));
+  return ranges.map(range => (range.length === 1 ? range[0] : `${range[0]}…${range[range.length - 1]}`));
 }
 
 /** «пн» … «вс». */

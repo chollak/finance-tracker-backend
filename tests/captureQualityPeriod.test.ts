@@ -41,7 +41,7 @@ describe('capture quality report: period (FT-217)', () => {
 
   it('writes days as ranges of consecutive ones', () => {
     expect(dayRanges(['2026-10-01', '2026-10-02', '2026-10-03', '2026-10-05', '2026-10-07', '2026-10-08']))
-      .toEqual(['2026-10-01 — 2026-10-03', '2026-10-05', '2026-10-07 — 2026-10-08']);
+      .toEqual(['2026-10-01…2026-10-03', '2026-10-05', '2026-10-07…2026-10-08']);
     expect(dayRanges([])).toEqual([]);
   });
 
