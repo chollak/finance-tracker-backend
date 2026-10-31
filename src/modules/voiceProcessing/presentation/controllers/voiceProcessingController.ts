@@ -1,4 +1,4 @@
-import { Router, Request, Response } from 'express';
+import { NextFunction, Router, Request, Response } from 'express';
 import multer, { FileFilterCallback } from 'multer';
 import { ProcessVoiceInputUseCase, removeVoiceFile } from '../../application/processVoiceInput';
 import { ProcessTextInputUseCase } from '../../application/processTextInput';
@@ -36,6 +36,16 @@ const audioFileFilter = (
   }
 };
 
+/**
+ * An upload refused before the handler — `writeAsSignedInUser` answers 403 for someone else's userId, 400 for a blank
+ * one — is removed once that answer has gone; the handler removes its own before answering (FT-216).
+ */
+function removeUploadOnceAnswered(req: Request, res: Response, next: NextFunction): void {
+  const file = req.file;
+  if (file) res.on('close', () => void removeVoiceFile(file.path));
+  next();
+}
+
 export interface VoiceRouterOptions {
   /** Where multer keeps an upload while it is read; `uploads/` of the working folder, ignored by git (FT-216). */
   uploadDir?: string;
@@ -61,51 +71,38 @@ export function createVoiceProcessingRouter(
   // Apply AI rate limiting to all voice/text processing routes
   router.use(aiRateLimiter);
 
+  /** The voice of an upload, read; a refused one throws its validation error. */
+  async function readVoice(req: Request) {
+    if (!req.file) throw ErrorFactory.validation('Audio file is required');
+    if (!req.body.userId) throw ErrorFactory.validation('User ID is required');
+    if (req.file.size === 0) throw ErrorFactory.validation('Audio file cannot be empty');
+
+    // Resolve telegramId to UUID if userModule is available
+    let userId = req.body.userId;
+    if (userModule) {
+      userId = await resolveUserIdToUUID(userId, userModule);
+    }
+
+    return voiceUseCase.execute({
+      filePath: req.file.path,
+      userId,
+      userName: req.body.userName || 'Unknown User',
+    });
+  }
+
   // The signed-in user, never a userId of the form (2026-10-21); the form is read by multer, so the check comes after it
-  router.post('/voice-input', requireAuth, upload.single('audio'), writeAsSignedInUser, async (req: Request, res: Response) => {
+  router.post('/voice-input', requireAuth, upload.single('audio'), removeUploadOnceAnswered, writeAsSignedInUser, async (req: Request, res: Response) => {
+    let outcome: { result: Awaited<ReturnType<typeof readVoice>> } | { error: unknown };
     try {
-      // Input validation
-      if (!req.file) {
-        const error = ErrorFactory.validation('Audio file is required');
-        return handleControllerError(error, res);
-      }
-
-      if (!req.body.userId) {
-        const error = ErrorFactory.validation('User ID is required');
-        return handleControllerError(error, res);
-      }
-
-      // Validate file type and size
-      if (req.file.size === 0) {
-        const error = ErrorFactory.validation('Audio file cannot be empty');
-        return handleControllerError(error, res);
-      }
-
-      // Resolve telegramId to UUID if userModule is available
-      let userId = req.body.userId;
-      if (userModule) {
-        userId = await resolveUserIdToUUID(userId, userModule);
-      }
-
-      // Process voice input
-      const result = await voiceUseCase.execute({
-        filePath: req.file.path,
-        userId,
-        userName: req.body.userName || 'Unknown User',
-      });
-
-      handleControllerSuccess(
-        result,
-        res,
-        200,
-        SUCCESS_MESSAGES.FILE_PROCESSED
-      );
+      outcome = { result: await readVoice(req) };
     } catch (error) {
-      handleControllerError(error, res);
+      outcome = { error };
     } finally {
-      // The use case removes the voice it read; an upload refused before it is not left in uploads/ either (FT-216)
+      // Removed before the answer, so uploads/ is empty when it arrives; the use case removes what it read (FT-216)
       if (req.file) await removeVoiceFile(req.file.path);
     }
+    if ('error' in outcome) return handleControllerError(outcome.error, res);
+    handleControllerSuccess(outcome.result, res, 200, SUCCESS_MESSAGES.FILE_PROCESSED);
   });
 
   router.post('/text-input', requireAuth, writeAsSignedInUser, async (req: Request, res: Response) => {

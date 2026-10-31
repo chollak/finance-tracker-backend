@@ -81,8 +81,9 @@ describe('a voice leaves no files behind (FT-216)', () => {
 
     afterEach(() => api.close());
 
-    async function send(audio: string): Promise<number> {
+    async function send(audio: string, fields: Record<string, string> = {}): Promise<number> {
       const form = new FormData();
+      for (const [name, value] of Object.entries(fields)) form.append(name, value);
       form.append('audio', new Blob([audio], { type: 'audio/wav' }), 'voice.wav');
       const response = await fetch(`${api.baseUrl}/api/voice/voice-input`, {
         method: 'POST',
@@ -104,9 +105,26 @@ describe('a voice leaves no files behind (FT-216)', () => {
       expect(fs.readdirSync(uploads)).toEqual([]);
     });
 
-    it('an empty upload, refused before the voice is read: nothing stays', async () => {
+    it('an empty upload, refused before the voice is read: removed before the answer', async () => {
       expect(await send('')).toBe(400);
       expect(fs.readdirSync(uploads)).toEqual([]);
+    });
+
+    /** Refused by a middleware, the upload is removed once the answer has gone: shortly after the client reads it. */
+    async function settledUploads(): Promise<string[]> {
+      for (let waited = 0; waited < 5000 && fs.readdirSync(uploads).length > 0; waited += 20) {
+        await new Promise(resolve => setTimeout(resolve, 20));
+      }
+      return fs.readdirSync(uploads);
+    }
+
+    it.each([
+      ['someone else’s userId', '999999', 403],
+      ['a blank userId', ' ', 400],
+    ])('%s, refused before the handler: nothing stays', async (_case, userId, status) => {
+      expect(await send('wav', { userId })).toBe(status);
+      expect(await settledUploads()).toEqual([]);
+      expect(transcribe).not.toHaveBeenCalled();
     });
   });
 
