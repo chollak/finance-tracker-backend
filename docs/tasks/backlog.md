@@ -581,49 +581,6 @@ Definition of Done:
 
 ---
 
-### FT-218: The app token reads and edits its owner's records
-
-Status: in_progress — под-чат разработки, 2026-10-31 (FT-174 в main, PR #145)
-Priority: high
-Owner: Claude Code, QA — под-чат проверки
-Type: feature
-Size: S
-Depends on: FT-174 (обе правят `auth-user-resolution-boundary-matrix.md`, FT-174 — ещё и `transactionController.ts`)
-
-Context:
-Решение Шукура 2026-10-31 (`docs/tasks/decisions.md`): iOS-приложение показывает записи с сервера, удаляет их и меняет
-категорию (FT-219…FT-221). Сейчас токен приложения `SHORTCUT_CAPTURE_TOKEN` пускает только на запись:
-`allowShortcutCapture` (`authMiddleware.ts:571`) стоит на двух маршрутах, `quickCaptureController.ts:31,90`. Нужны ещё
-шесть, все для `SHORTCUT_CAPTURE_OWNER`:
-- `GET /api/transactions` — история FT-107 с курсором (`transactionController.ts:257`, `createCurrentUserMiddleware`);
-- `GET /api/categories` (`expressServer.ts:172`);
-- `GET /api/accounts` — только список, имя счёта для строки «категория · счёт» в FT-220 (`expressServer.ts:175`,
-  решение 2026-10-31 после FT-219); остальные маршруты `/api/accounts` токену закрыты;
-- `DELETE /api/transactions/:id` (`transactionController.ts:335`, `optionalAuth` и проверка владельца);
-- `POST /api/transactions/:id/restore` (`:369`);
-- `PUT /api/transactions/:id` (`:392`); iOS шлёт только `{ categoryId }`, поля не ограничиваем (решение).
-
-Токен — ещё один способ узнать текущего пользователя, рядом с initData и cookie, и только на этих маршрутах, по явному
-списку. Контракты маршрутов не меняются: iOS читает те же ответы, что Mini App (`docs/pastel/api.md`).
-
-Definition of Done:
-- [ ] С верным токеном шесть маршрутов работают для владельца так же, как с его initData: история с курсором, категории,
-      список счетов, удалить, вернуть, `PUT { categoryId }`; тесты
-- [ ] На любом другом маршруте токен не пускает — ответ как без входа; тест хотя бы на `POST /api/transactions`,
-      `PATCH /api/categories/:id`, `POST /api/accounts`, `GET /api/accounts/:id/operations`, `GET /api/export`
-- [ ] Чужая запись по токену — тот же ответ, что Mini App даёт на чужую запись; тест
-- [ ] Неверный токен — `401 INVALID_SHORTCUT_TOKEN`; путь не настроен — `403 SHORTCUT_CAPTURE_DISABLED`; правила вне
-      production — как у записи (FT-155); тесты
-- [ ] `PUT { categoryId }` по токену учит так же, как из Mini App (FT-184); тест
-- [ ] Mini App и бот не затронуты: initData и cookie работают как раньше, весь `npm run verify` зелёный
-- [ ] Токена нет в логах; лимиты запросов не меняются (политика — FT-071)
-- [ ] Документация: что даёт токен — `docs/QUICK_CAPTURE_API.md` и `docs/pastel/api.md`;
-      `auth-user-resolution-boundary-matrix.md`, `api-route-coverage-matrix.md`; строка `SHORTCUT_CAPTURE_TOKEN` в `CLAUDE.md`
-- [ ] Шукуру после мержа: `scripts/live-update.sh` на ПК. Если токен лежит в быстрой команде FT-075 открытым текстом —
-      выпустить новый (`live-instance.md`, раздел 5) и вставить его в приложение
-
----
-
 ### FT-220: iOS tabs «Записать» and «Записи»: the server list by day
 
 Status: backlog — в очереди
