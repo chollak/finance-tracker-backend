@@ -8,7 +8,7 @@ import { assumedThousands, botMessageLog, chatIdOf, guessedIds, sendKeptConfirma
 import { messageClientId, withMessageClientId } from '../utils/messageClientId';
 import { messageDay } from '../utils/messageTime';
 import { answerAmountQuestion } from './recordHandlers';
-import { parseAmountReply } from '../utils/amountReply';
+import { parseAmountReply, refusalText } from '../utils/amountReply';
 import { fromMinor } from '../../../../shared/domain/money/money';
 import { AppError, ExternalServiceError } from '../../../../shared/domain/errors/AppError';
 import { DetectedDebt } from '../../../../modules/voiceProcessing/domain/processedTransaction';
@@ -434,12 +434,8 @@ async function handleQuickAddAmount(
     });
     return;
   }
-  if (reply.kind === 'not_positive') {
-    await ctx.reply(RU.record.amountNotPositive);
-    return;
-  }
-  if (reply.kind === 'too_big') {
-    await ctx.reply(RU.record.amountTooBig);
+  if (reply.kind !== 'amount') {
+    await ctx.reply(refusalText(reply));
     return;
   }
 

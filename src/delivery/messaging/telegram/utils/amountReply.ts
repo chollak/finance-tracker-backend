@@ -1,6 +1,7 @@
 import { MAX_ABS_AMOUNT_MINOR, MINOR_PER_MAJOR } from '../../../../shared/domain/money/money';
 import { detectPaymentHints, stripPaymentWords } from '../../../../modules/voiceProcessing/domain/paymentHints';
-import { readWrittenNumber } from '../../../../modules/voiceProcessing/domain/writtenNumber';
+import { readWrittenNumber, writtenNumbersIn } from '../../../../modules/voiceProcessing/domain/writtenNumber';
+import { RU } from '../i18n/ru';
 
 /**
  * A text that is only an amount (FT-122) — the answer to «Напишите новую сумму — например, 150к.»:
@@ -11,12 +12,32 @@ import { readWrittenNumber } from '../../../../modules/voiceProcessing/domain/wr
  * - «к», «тыс», «млн» without a unit are сум, also under a dollar record: the record then moves to a
  *   сум account;
  * - «нал», «наличными», «картой» move the record to an account of that kind.
+ * Two numbers («25000 300», «25 000, 18 000») are not one amount, as in a phrase (FT-205): the bot asks again (FT-224).
  */
 
 export type AmountReply =
   | { kind: 'amount'; amountMinor: number; currency: 'UZS' | 'USD'; written?: string; account?: 'cash' | 'card' }
   | { kind: 'not_positive' }
-  | { kind: 'too_big' };
+  | { kind: 'too_big' }
+  | { kind: 'several_numbers' };
+
+/** An answer of numbers only that is no amount to write. */
+export type AmountRefusal = Exclude<AmountReply, { kind: 'amount' }>;
+
+/**
+ * What the bot says to such an answer, keeping the question open — the same after «Сумму», «Сколько?», a large amount,
+ * «не 25, а …» and a quick-add category (FT-224).
+ */
+export function refusalText(refusal: AmountRefusal): string {
+  switch (refusal.kind) {
+    case 'not_positive':
+      return RU.record.amountNotPositive;
+    case 'too_big':
+      return RU.record.amountTooBig;
+    case 'several_numbers':
+      return RU.record.amountOneNumber;
+  }
+}
 
 export interface AmountReplyRecord {
   currency: 'UZS' | 'USD';
@@ -46,6 +67,8 @@ export function parseAmountReply(text: string, record: AmountReplyRecord): Amoun
   const match = AMOUNT_ONLY.exec(trimmed);
   if (!match) return null;
   const [, rawNumber, magnitude, sumUnit] = match;
+  // A space groups thousands only before exactly three digits (FT-205): «25000 300» is two numbers, «25 000 300» one
+  if (writtenNumbersIn(rawNumber).length > 1) return { kind: 'several_numbers' };
 
   const negative = /^[-−]/.test(rawNumber);
   // As a phrase reads it (FT-206): «150 000», «150.000» and «150,000» are thousands groups; «1,5», «60.50» and
