@@ -14,7 +14,7 @@ Kapelka для ежедневного пользования живёт на П�
 | Windows | задача Планировщика `Kapelka WSL` | запускает WSL при старте системы и держит его: без неё WSL гасит дистрибутив, когда закрыт последний терминал |
 | Windows | сон от сети выключен | спящий ПК — молчащий бот |
 | WSL (Ubuntu, systemd) | сервис `kapelka.service` → `node dist/index.js` | сам поднимается и перезапускается, логи в journald |
-| `~/kapelka-live` | копия репозитория на `main`, своя `data/` и `.env.local` | ветки разработки и их миграции не трогают живую базу |
+| `~/dev/projects/kapelka-live` | копия репозитория на `main`, своя `data/` и `.env.local` | ветки разработки и их миграции не трогают живую базу |
 | WSL → Windows | таймер `kapelka-backup.timer` → копия базы в `C:\KapelkaBackup`, Google Drive выгружает её в облако | база переживёт потерю `ext4.vhdx` — [«Бэкап»](#бэкап-ft-157) |
 
 Бот работает через long polling — только исходящие запросы, адрес tailnet ему не нужен. Пока ПК выключен, Telegram
@@ -146,14 +146,14 @@ systemctl --version | head -n 1  # 254 и выше — пауза перезап
 Журнал между перезагрузками: после перезагрузки `journalctl --list-boots` показывает больше одной строки. Если одну —
 `sudo mkdir -p /var/log/journal && sudo systemctl restart systemd-journald`.
 
-## 4. WSL: Node и копия `~/kapelka-live`
+## 4. WSL: Node и копия `~/dev/projects/kapelka-live`
 
 ```bash
 sudo apt-get update && sudo apt-get install -y git curl build-essential python3 sqlite3
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.8/install.sh | bash
 exec bash                        # перечитать профиль, чтобы появился nvm
-git clone https://github.com/chollak/finance-tracker-backend.git ~/kapelka-live
-cd ~/kapelka-live
+git clone https://github.com/chollak/finance-tracker-backend.git ~/dev/projects/kapelka-live
+cd ~/dev/projects/kapelka-live
 nvm install                      # версия из .nvmrc
 scripts/nvm-exec.sh npm ci --include=dev
 ```
@@ -171,7 +171,7 @@ scripts/nvm-exec.sh npm ci --include=dev
 ## 5. `.env.local`
 
 ```bash
-cd ~/kapelka-live
+cd ~/dev/projects/kapelka-live
 cp ops/live/env.local.example .env.local
 chmod 600 .env.local
 nano .env.local
@@ -207,9 +207,9 @@ Shortcut выключен (`403 SHORTCUT_CAPTURE_DISABLED`), а неполная
 `npm ci` в шаге 4 уже собрал webapp (это делает `postinstall`); осталось собрать сервер и поставить сервис:
 
 ```bash
-cd ~/kapelka-live
+cd ~/dev/projects/kapelka-live
 scripts/nvm-exec.sh npm run build
-sed -e "s|__USER__|$USER|g" -e "s|__APP_DIR__|$HOME/kapelka-live|g" ops/live/kapelka.service \
+sed -e "s|__USER__|$USER|g" -e "s|__APP_DIR__|$HOME/dev/projects/kapelka-live|g" ops/live/kapelka.service \
   | sudo tee /etc/systemd/system/kapelka.service >/dev/null
 sudo systemctl daemon-reload
 sudo systemctl enable --now kapelka.service
@@ -236,7 +236,7 @@ git tag -f live-good             # эта сборка работает: на н
 для репетиции. Кнопка меню @FinanceTrackerDevBot остаётся маку. Делается один раз — адрес постоянный:
 
 ```bash
-cd ~/kapelka-live
+cd ~/dev/projects/kapelka-live
 scripts/nvm-exec.sh npm run miniapp:menu -- set --url=https://<пк>.<tailnet>.ts.net --chat-id=<ваш id>
 sudo systemctl restart kapelka.service
 scripts/nvm-exec.sh npm run miniapp:menu -- status --chat-id=<ваш id>
@@ -354,21 +354,21 @@ Hyper-V, пока их не разрешить, — и разрешать не �
      `/setcommands` не нужен.
 2. **Остановить живой экземпляр на маке** (`kill -TERM` процессу `scripts/dev-miniapp.js`, `pgrep -fl dev-miniapp.js`)
    и убедиться, что он не запустится снова.
-3. **Перенести базу с мака** на ПК в `~/kapelka-live/data/` при остановленном `kapelka.service` (FT-159) — до того, как
-   ПК начнёт принимать сообщения.
+3. **Перенести базу с мака** на ПК в `~/dev/projects/kapelka-live/data/` при остановленном `kapelka.service`
+   (FT-159) — до того, как ПК начнёт принимать сообщения.
 4. **Очистить `bot_messages` в перенесённой базе** — сервис всё ещё остановлен, до первого запуска с ботом Kapelka
    («да» Шукура 2026-10-28):
 
    ```bash
-   sqlite3 ~/kapelka-live/data/database.sqlite "DELETE FROM bot_messages;"
-   sqlite3 ~/kapelka-live/data/database.sqlite "SELECT count(*) FROM bot_messages;"   # 0
+   sqlite3 ~/dev/projects/kapelka-live/data/database.sqlite "DELETE FROM bot_messages;"
+   sqlite3 ~/dev/projects/kapelka-live/data/database.sqlite "SELECT count(*) FROM bot_messages;"   # 0
    ```
 
    Таблица помнит, какие записи показаны в каком сообщении бота. Чат тот же (Telegram id пользователя), а номера
    сообщений нового бота начнутся с 1 и совпадут со старыми: кнопки «Изменить» и «Отменить», `/undo` и ответ на
    открытый вопрос «Сколько?» нашли бы старые сообщения. Записи, счета и настройки таблица не трогает; кнопки под
    старыми сообщениями остаются в чате @FinanceTrackerDevBot, и ПК их не получает.
-5. В `~/kapelka-live/.env.local`: `TG_BOT_API_KEY` и `TG_BOT_USERNAME` (без `@`) бота Kapelka из шага 1 и
+5. В `~/dev/projects/kapelka-live/.env.local`: `TG_BOT_API_KEY` и `TG_BOT_USERNAME` (без `@`) бота Kapelka из шага 1 и
    `ENABLE_TELEGRAM_POLLING=true`. С включённым опросом и пустым токеном production не стартует (FT-167): в журнале
    `Configuration validation failed` и `TG_BOT_API_KEY is required in production`.
 6. `sudo systemctl restart kapelka.service`, затем `curl -s http://127.0.0.1:3000/api/health` — `"state":"running"`.
@@ -388,7 +388,7 @@ Hyper-V, пока их не разрешить, — и разрешать не �
 ## Обновление
 
 ```bash
-cd ~/kapelka-live
+cd ~/dev/projects/kapelka-live
 scripts/live-update.sh
 ```
 
@@ -423,7 +423,7 @@ scripts/live-update.sh
 
 **Обновление на `sqlite3` 6 (FT-048).** На ПК Ubuntu 24.04, glibc 2.39 (проверено 2026-10-31) — ничего делать не
 нужно. Дальше — только для 22.04: до обновления `echo build_from_source=sqlite3 >> ~/.npmrc`
-([шаг 4](#4-wsl-node-и-копия-kapelka-live)). Без этой строки скрипт остановится до перезапуска на
+([шаг 4](#4-wsl-node-и-копия-devprojectskapelka-live)). Без этой строки скрипт остановится до перезапуска на
 `the native sqlite3 module does not load`, старая версия продолжит работать, а `live-good` останется на прошлой
 сборке. Тогда — строчка в `~/.npmrc` и `scripts/live-update.sh` ещё раз, или [откат](#откат) на `live-good`. Сам
 FT-048 миграций не добавляет, а базу, записанную `sqlite3` 6, прежний `sqlite3` 5 открывает и пишет.
@@ -432,7 +432,7 @@ FT-048 миграций не добавляет, а базу, записанну
 
 Откатываются на тег `live-good` — последнюю сборку, которая ответила 200 (`git log -1 --oneline live-good`). Его
 ставит шаг 6 при установке и двигает `live-update.sh`. Нет тега — прошлый коммит из `git reflog`. Всё — в
-`~/kapelka-live`.
+`~/dev/projects/kapelka-live`.
 
 1. Остановить сервис: `sudo systemctl stop kapelka.service`.
 2. Проверить, применило ли обновление миграции:
@@ -514,9 +514,9 @@ Google Drive for desktop выгружает эту папку в облако. �
 Зачем: весь WSL — один файл `ext4.vhdx`. `wsl --unregister`, переустановка Windows или отказ диска уносят базу, а
 копии, которые приложение делает перед миграциями, лежат в `data/backups/` — там же.
 
-- **Живую базу в облачную папку не класть.** Ни `data/`, ни `~/kapelka-live` целиком не должны лежать в папке, которую
-  синхронизирует Google Drive (или OneDrive, Dropbox): клиент синхронизации копирует файл посреди записи и может
-  подменить его своей версией, а SQLite от этого портится. В облако идут только готовые копии, снятые
+- **Живую базу в облачную папку не класть.** Ни `data/`, ни `~/dev/projects/kapelka-live` целиком не должны лежать в
+  папке, которую синхронизирует Google Drive (или OneDrive, Dropbox): клиент синхронизации копирует файл посреди записи
+  и может подменить его своей версией, а SQLite от этого портится. В облако идут только готовые копии, снятые
   `sqlite3 … ".backup …"`, — это и делает скрипт.
 
 Файлы: [`ops/live/kapelka-backup.service`](../../../ops/live/kapelka-backup.service) — шаблон сервиса (те же
@@ -596,12 +596,12 @@ Google Drive for desktop выгружает эту папку в облако. �
    > самой свежей, а следующие начнут вытеснять хорошие (скрипт предупредит в журнале, но не остановится).
 
    ```bash
-   cd ~/kapelka-live
+   cd ~/dev/projects/kapelka-live
    grep -q '^BACKUP_DIR=' .env.local || printf '\nBACKUP_DIR=/mnt/c/KapelkaBackup\n' >> .env.local
    ls -ld /mnt/c/KapelkaBackup       # папка видна из WSL
    scripts/backup-db.sh             # первая копия руками: «done: … integrity ok»
    for unit in kapelka-backup.service kapelka-backup.timer; do
-     sed -e "s|__USER__|$USER|g" -e "s|__APP_DIR__|$HOME/kapelka-live|g" "ops/live/$unit" \
+     sed -e "s|__USER__|$USER|g" -e "s|__APP_DIR__|$HOME/dev/projects/kapelka-live|g" "ops/live/$unit" \
        | sudo tee "/etc/systemd/system/$unit" >/dev/null
    done
    sudo systemctl daemon-reload
@@ -638,7 +638,7 @@ ls -lt /mnt/c/KapelkaBackup | head -n 4                # свежие файлы
 
 ### Восстановление
 
-Пример — копия из `C:\KapelkaBackup`. Всё в WSL, в `~/kapelka-live`.
+Пример — копия из `C:\KapelkaBackup`. Всё в WSL, в `~/dev/projects/kapelka-live`.
 
 - **Сначала восстановить, потом ставить таймер.** После переустановки WSL установка FT-156 создаёт пустую базу; если
   поставить бэкап раньше, её копии станут самыми свежими и начнут вытеснять хорошие. Таймер уже стоит — остановить его
@@ -647,7 +647,7 @@ ls -lt /mnt/c/KapelkaBackup | head -n 4                # свежие файлы
   уже с пустой или испорченной базы.
 
 ```bash
-cd ~/kapelka-live
+cd ~/dev/projects/kapelka-live
 sudo systemctl stop kapelka.service
 for f in /mnt/c/KapelkaBackup/kapelka-[0-9]*.sqlite; do
   echo "$f $(sqlite3 -readonly "$f" 'SELECT count(*) FROM transactions;')"

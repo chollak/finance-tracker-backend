@@ -2,7 +2,7 @@
 # Backs up the live instance's database (FT-157): an online copy of data/database.sqlite checked with
 # PRAGMA integrity_check, plus data/patterns.json and data/learning-data.json, into BACKUP_DIR — a plain folder on
 # drive C: that Google Drive for desktop uploads. Keeps the newest 30 copies. kapelka-backup.timer runs it once a day;
-# by hand, in the live copy on the PC (~/kapelka-live):
+# by hand, in the live copy on the PC (~/dev/projects/kapelka-live):
 #
 #   scripts/backup-db.sh
 #

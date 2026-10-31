@@ -27,7 +27,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Source of truth for current work:** `TASKS.md` — секция «Текущий фокус» и раздел «В работе» (раскладку см. в блоке выше). GitHub Issues/Wiki may contain stale January-era planning; use them only when a task explicitly asks to reconcile them.
 
-**Runtime target now:** the live instance is a systemd service on Shukur's Windows PC (WSL, copy `~/kapelka-live` on `main`, `NODE_ENV=production`, SQLite, Telegram polling of the bot Kapelka) at a fixed tailnet address from `tailscale serve`, updated by `scripts/live-update.sh` — [`docs/knowledge-base/08-development/live-instance.md`](docs/knowledge-base/08-development/live-instance.md) (FT-156; until the move FT-159 it still runs on the Mac through `dev:miniapp`). Development: macOS or WSL (Node 22, `.nvmrc`) + SQLite; `npm run dev:miniapp` (Cloudflare quick tunnel) stays for phone testing of a branch. Production/AWS is intentionally parked; `sapaev.uz` and Supabase are not the active dev path.
+**Runtime target now:** the live instance is a systemd service on Shukur's Windows PC (WSL, copy `~/dev/projects/kapelka-live` on `main`, `NODE_ENV=production`, SQLite, Telegram polling of the bot Kapelka) at a fixed tailnet address from `tailscale serve`, updated by `scripts/live-update.sh` — [`docs/knowledge-base/08-development/live-instance.md`](docs/knowledge-base/08-development/live-instance.md) (FT-156; until the move FT-159 it still runs on the Mac through `dev:miniapp`). Development: macOS or WSL (Node 22, `.nvmrc`) + SQLite; `npm run dev:miniapp` (Cloudflare quick tunnel) stays for phone testing of a branch. Production/AWS is intentionally parked; `sapaev.uz` and Supabase are not the active dev path.
 
 **Home/Capture UX (2026-10-16):** целевой интерфейс — «Пастель»: правила, токены и компоненты в `docs/pastel/`, экраны — на холсте (ссылка в `docs/pastel/README.md`). Нижнего бара (`FT-086`) больше нет (FT-110): главная — шапка с «Ещё», карточка баланса, плитки месяца и последние операции (FT-111), внизу — поле ввода с чипами частых трат (FT-114; карточка ввода `FT-073`, `FT-074` удалена), фраза открывает проверку записей `/review`. Раздел Design System ниже описывает «Пастель»; гайды в `docs/knowledge-base/10-design-guidelines/` — архив (FT-096).
 
@@ -44,7 +44,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **Build and Run:**
 - `npm run build` - Compile TypeScript to JavaScript in `dist/` folder
 - `npm run serve` - Run the compiled application from `dist/index.js`
-- `scripts/live-update.sh` - live instance on the PC only (`~/kapelka-live`, FT-156): refuses off `main` or on a dirty tree, then `git pull --ff-only`, `npm ci`, webapp and server builds, restart of `kapelka.service`, health check
+- `scripts/live-update.sh` - live instance on the PC only (`~/dev/projects/kapelka-live`, FT-156): refuses off `main` or on a dirty tree, then `git pull --ff-only`, `npm ci`, webapp and server builds, restart of `kapelka.service`, health check
 
 **Development (Choose one):**
 - `npm run dev:full` - Full-stack development with hot reload

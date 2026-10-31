@@ -105,7 +105,7 @@ Supabase как отдельный путь к базе убран (решени
 
 ### Живой экземпляр (ПК с Windows + WSL)
 
-Kapelka для ежедневного пользования — systemd-сервис на ПК с WSL: копия `~/kapelka-live` на `main`,
+Kapelka для ежедневного пользования — systemd-сервис на ПК с WSL: копия `~/dev/projects/kapelka-live` на `main`,
 `NODE_ENV=production`, постоянный адрес `https://<пк>.<tailnet>.ts.net` через `tailscale serve`, свой бот Kapelka,
 кнопка меню ставится один раз. Установка, проверка, логи и откат — [live-instance.md](live-instance.md) (FT-156).
 Обновление — одна команда в живой копии:
