@@ -17,7 +17,7 @@ struct KapelkaApp: App {
 
     var body: some Scene {
         WindowGroup {
-            MainView(model: model)
+            RootView(model: model)
                 // Once, on the screen: a payment's command runs in the background and asks nothing
                 .task { await SystemNotices.askOnce() }
         }

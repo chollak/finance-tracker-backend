@@ -9,7 +9,7 @@ struct AppServices: Sendable {
     let background: BackgroundSend
     let health: HealthCheck
     let payments: PaymentRecorder
-    /// The server's records for the list, with the queue's address and token (FT-219); no screen reads it yet.
+    /// The server's records for «Записи», with the queue's address and token (FT-219, FT-220).
     let records: RecordsFeed
 
     /// One per process: the screen, the background refresh and the App Shortcuts share the queue, so two of them

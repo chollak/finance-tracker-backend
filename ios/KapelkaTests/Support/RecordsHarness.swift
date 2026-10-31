@@ -15,14 +15,16 @@ enum RecordsReply {
         category: String = "Кафе",
         description: String = "кофе",
         merchant: String? = nil,
-        needsReview: Bool = false
+        needsReview: Bool = false,
+        accountId: String? = "acc-card"
     ) -> String {
         let merchantJSON = merchant.map { "\"\($0)\"" } ?? "null"
+        let accountJSON = accountId.map { "\"\($0)\"" } ?? "null"
         return """
             {"id":"\(id)","amountMinor":\(amountMinor),"amount":\(Double(amountMinor) / 100),"type":"\(type)",\
             "semanticType":"\(type)","needsReview":\(needsReview),"description":"\(description)","date":"\(date)",\
             "userId":"user-uuid","merchant":\(merchantJSON),"originalText":"\(description)","categoryId":"\(categoryId)",\
-            "category":"\(category)","categoryColor":"rose","accountId":"acc-card","currency":"\(currency)",\
+            "category":"\(category)","categoryColor":"rose","accountId":\(accountJSON),"currency":"\(currency)",\
             "source":"ios_shortcut","isArchived":false,"createdAt":"\(createdAt)"}
             """
     }
@@ -119,11 +121,21 @@ final class RecordsHarness: Sendable {
     let clock = TestClock()
     let transport: FakeTransport
     let settings: TestSettings
+    /// What the client sends through: `transport`, or a server with a script per route (`RoutedTransport`).
+    private let http: any HTTPTransport
 
     init(transport: FakeTransport = FakeTransport(), settings: TestSettings = TestSettings()) throws {
         cache = RecordsCacheFile(fileURL: try TestFolders.make().appending(path: "records.json"))
         self.transport = transport
         self.settings = settings
+        http = transport
+    }
+
+    init(routes: RoutedTransport, settings: TestSettings = TestSettings()) throws {
+        cache = RecordsCacheFile(fileURL: try TestFolders.make().appending(path: "records.json"))
+        transport = FakeTransport()
+        self.settings = settings
+        http = routes
     }
 
     deinit {
@@ -132,7 +144,7 @@ final class RecordsHarness: Sendable {
 
     var client: RecordsClient {
         let settings = settings
-        return RecordsClient(configuration: { settings.configuration }, transport: transport)
+        return RecordsClient(configuration: { settings.configuration }, transport: http)
     }
 
     func makeFeed() -> RecordsFeed {

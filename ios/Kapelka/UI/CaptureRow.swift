@@ -1,6 +1,6 @@
 import Foundation
 
-/// One line of the list of recent records: what happened to it, when it was said, and what it says.
+/// One line of the queue's list on «Записать»: what happened to it, when it was said, and what it says.
 struct CaptureRow: Identifiable, Equatable {
     enum Kind: Equatable, Sendable {
         case waiting
@@ -23,6 +23,15 @@ struct CaptureRow: Identifiable, Equatable {
             case .error: "xmark.circle"
             }
         }
+
+        /// Shown on «Записать» (FT-220): what is not on the server yet or never will be. A written record is in
+        /// «Записи», with what the server has now.
+        var needsAttention: Bool {
+            switch self {
+            case .waiting, .sending, .error, .notFound: true
+            case .saved, .needsReview: false
+            }
+        }
     }
 
     let id: UUID
@@ -38,12 +47,26 @@ struct CaptureRow: Identifiable, Equatable {
     /// changed in the Mini App.
     var canDelete: Bool { kind == .waiting }
 
+    /// «Убрать»: the server wrote nothing for it, so it only leaves the phone (FT-220).
+    var canDismiss: Bool { kind == .notFound || kind == .error }
+
     /// Newest first.
     static func rows(_ captures: [Capture], sendingId: UUID?, now: Date, calendar: Calendar) -> [CaptureRow] {
         let time = TimeOfInput(now: now, calendar: calendar)
         return captures
             .sorted { $0.capturedAt > $1.capturedAt }
             .map { row(for: $0, isSending: $0.clientId == sendingId, time: time) }
+    }
+
+    /// The rows of «Записать»: waiting, sending, refused, «не нашёл операцию» — newest first. «Не нашёл операцию» wrote
+    /// nothing on the server, so it stays here.
+    static func needingAttention(
+        _ captures: [Capture],
+        sendingId: UUID?,
+        now: Date,
+        calendar: Calendar
+    ) -> [CaptureRow] {
+        rows(captures, sendingId: sendingId, now: now, calendar: calendar).filter(\.kind.needsAttention)
     }
 
     private static func row(for capture: Capture, isSending: Bool, time: TimeOfInput) -> CaptureRow {
