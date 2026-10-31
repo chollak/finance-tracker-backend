@@ -413,11 +413,16 @@ new ProcessVoiceInputUseCase(
 сумма, категория, счёт, дата; с FT-123 — `large`, крупная сумма до подтверждения), последнюю правку и догадки о
 категории (`state`; с FT-123 там же «45» → 45 000, названное без суммы, строки «не записал», отказ от крупной суммы),
 что бот расслышал (`heard`) и открытый вопрос (`question`, FT-123: выводится из `mode` и `state`). Поэтому
-«Изменить», «Вернуть», ответ суммой, «Сколько?» и `/undo` работают и после перезапуска.
+«Изменить», «Вернуть», ответ суммой, «Сколько?» и `/undo` работают и после перезапуска. С FT-172 таблица
+`handled_messages` помнит сообщения чата, которые бот обработал (по client id `tg-<bot>-<chat>-<message>`, два дня):
+какое сообщение бота изменил ответ на «Сумму» или `/undo` и какое подтверждение записей вот-вот уйдёт — так
+сообщение, которое Telegram прислал снова после перезапуска, ничего не меняет второй раз, а не ушедшее подтверждение
+уходит таким же, как первое.
 
 ### Состав
 - `BotMessageLog` — `remember`, `find(chat, message)`, `recent(chat)` (для `/undo`), `awaitingAmount(chat)` (открытый
-  вопрос чата — один за раз), `otherQuestions(message)`, `save`.
+  вопрос чата — один за раз), `otherQuestions(message)`, `save`; с FT-172 — `handled(clientId)`, `markHandled`,
+  `keepConfirmation`, `dropConfirmation` (домен — `handledMessage.ts`).
 - Домен — `openQuestion(mode, state)`: что чат ждёт следующим текстом. Тип названного без суммы
   (`ItemWithoutAmount`) берётся из домена VoiceProcessingModule.
 - `SqliteBotMessageRepository` — TypeORM; строка на сообщение, уникальна пара `chat_id` + `message_id`.

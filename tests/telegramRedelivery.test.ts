@@ -76,7 +76,11 @@ class Bot {
   use(middleware: Middleware) { this.middleware.push(middleware); }
   on(filter: (update: any) => boolean, ...chain: Middleware[]) { this.handlers.push({ filter, chain }); }
   action(trigger: RegExp | string, handler: (ctx: any) => Promise<void>) { this.actions.push({ trigger, handler }); }
-  command() { /* no commands sent here */ }
+  /** «/name», maybe addressed to the bot by name; registered before the text handlers, so matched first. */
+  command(name: string, ...chain: Middleware[]) {
+    const pattern = new RegExp(`^/${name}(@\\w+)?(\\s|$)`);
+    this.handlers.push({ filter: update => pattern.test(update.message?.text ?? ''), chain });
+  }
   async handle(ctx: any): Promise<void> {
     await run([...this.middleware, ...(this.handlers.find(({ filter }) => filter(ctx.update))?.chain ?? [])], ctx);
   }
@@ -372,6 +376,169 @@ describe('a message Telegram sends again after a restart (FT-167)', () => {
 
     expect(await records()).toEqual([expect.objectContaining({ amountMinor: 3_000_000, description: 'кофе' })]);
     expect(sent).toHaveLength(before);
+  });
+
+  describe('the edges left after FT-167 (FT-172)', () => {
+    const taxi = { intent: 'transaction', amount: 30000, category: 'Транспорт', type: 'expense', date: today, description: 'такси' };
+    const live = async () => (await records()).filter(record => record.deletedAt === null).map(record => record.description);
+    const undoReplies = () => sent.filter(text => text.startsWith('Отменил последнюю запись'));
+
+    beforeEach(() => {
+      parser.analyzeInput.mockImplementation(async (text: string) => ({ transactions: [text.startsWith('такси') ? taxi : coffee], debts: [] }));
+    });
+
+    it('/undo sent again cancels nothing more', async () => {
+      await deliver({ message_id: 10, text: 'кофе 25 тысяч' });
+      await deliver({ message_id: 11, text: 'такси 30 тысяч' });
+      await deliver({ message_id: 12, text: '/undo' });
+      expect(await live()).toEqual(['кофе']);
+      expect(undoReplies()).toHaveLength(1);
+      const before = sent.length;
+
+      await restart();
+      await deliver({ message_id: 12, text: '/undo' });
+
+      expect(await live()).toEqual(['кофе']);
+      expect(sent).toHaveLength(before);
+      // A new /undo is a new one
+      await deliver({ message_id: 13, text: '/undo' });
+      expect(await live()).toEqual([]);
+    });
+
+    it('/undo stopped before its reply went out: the repeat says what was cancelled, and cancels nothing more', async () => {
+      await deliver({ message_id: 10, text: 'кофе 25 тысяч' });
+      await deliver({ message_id: 11, text: 'такси 30 тысяч' });
+      const taxiConfirmation = lastBotMessage();
+      replyHangs = true;
+      void deliver({ message_id: 12, text: '/undo' });
+      await new Promise(resolve => setTimeout(resolve, 200));
+      expect(await live()).toEqual(['кофе']);
+      expect(undoReplies()).toHaveLength(0);
+
+      replyHangs = false;
+      await restart();
+      await deliver({ message_id: 12, text: '/undo' });
+
+      expect(await live()).toEqual(['кофе']);
+      expect(undoReplies()).toEqual([expect.stringContaining('Такси')]);
+      // The confirmation is struck through with «Вернуть», and «Вернуть» under the reply brings the record back
+      expect(shown.get(taxiConfirmation)?.keyboard.flat().map(button => button.text)).toContain('Вернуть');
+      await press(lastBotMessage(), 'Вернуть');
+      expect(await live()).toEqual(['кофе', 'такси']);
+    });
+
+    it('a phrase whose confirmation did not go out: the repeat asks «Сколько?» and shows «?» and «понял как» as the first would', async () => {
+      const unnamed = { intent: 'transaction', amount: 25000, category: 'Кафе', type: 'expense', date: today, description: 'zzqx' };
+      const noAmount = { description: 'такси', category: 'Транспорт', type: 'expense', date: today };
+      parser.analyzeInput.mockResolvedValue({ transactions: [unnamed], debts: [], withoutAmount: [noAmount] });
+      // The confirmation as it goes out when nothing stops the bot
+      await deliver({ message_id: 20, text: 'zzqx 25 и такси' });
+      const firstTime = sent[sent.length - 1];
+      expect(firstTime).toContain('Кафе?');
+      expect(firstTime).toContain('«25» понял как 25');
+      expect(firstTime).toContain('Сколько?');
+
+      replyHangs = true;
+      void deliver({ message_id: 21, text: 'zzqx 25 и такси' });
+      await new Promise(resolve => setTimeout(resolve, 200));
+      const parsed = parser.analyzeInput.mock.calls.length;
+      replyHangs = false;
+      await restart();
+      await deliver({ message_id: 21, text: 'zzqx 25 и такси' });
+
+      expect(sent[sent.length - 1]).toBe(firstTime);
+      expect(parser.analyzeInput).toHaveBeenCalledTimes(parsed);
+      expect((await records()).filter(record => record.description === 'zzqx')).toHaveLength(2);
+      // The question is open: the next amount is the taxi's
+      await deliver({ message_id: 22, text: '18000' });
+      expect(await records()).toContainEqual(expect.objectContaining({ description: 'такси', amountMinor: 1_800_000 }));
+    });
+
+    it('a voice whose confirmation did not go out: the repeat shows «Расслышал», without downloading it again', async () => {
+      jest.spyOn(fsPromises, 'access').mockResolvedValue(undefined);
+      jest.spyOn(fsPromises, 'rename').mockResolvedValue(undefined);
+      jest.spyOn(fsPromises, 'unlink').mockResolvedValue(undefined);
+      parser.transcribe.mockResolvedValue('кофе 25 тысяч');
+      const voice = { message_id: 12, voice: { file_id: 'voice-12', duration: 2 } };
+
+      replyHangs = true;
+      void deliver(voice);
+      await new Promise(resolve => setTimeout(resolve, 200));
+      expect(await records()).toHaveLength(1);
+      replyHangs = false;
+      await restart();
+      await deliver(voice);
+
+      expect(confirmations()).toEqual([expect.stringContaining('Расслышал: «кофе 25 тысяч»')]);
+      expect(await records()).toHaveLength(1);
+      expect(downloadVoiceFile).toHaveBeenCalledTimes(1);
+    });
+
+    it('a large amount whose question did not go out: the repeat asks it, the records still held', async () => {
+      parser.analyzeInput.mockImplementation(async (text: string) => ({
+        transactions: [text.startsWith('кофе')
+          ? { ...coffee, amount: 25_000_000 }
+          : { intent: 'transaction', amount: 25000, category: 'Другое', type: 'expense', date: today, description: text }],
+        debts: [],
+      }));
+      replyHangs = true;
+      void deliver({ message_id: 10, text: 'кофе 25000000' });
+      await new Promise(resolve => setTimeout(resolve, 200));
+      expect(await records()).toEqual([expect.objectContaining({ deletedAt: expect.any(String) })]);
+
+      replyHangs = false;
+      await restart();
+      await deliver({ message_id: 10, text: 'кофе 25000000' });
+
+      expect(shown.get(lastBotMessage())?.text).toContain('Сумма большая');
+      expect(await records()).toEqual([expect.objectContaining({ deletedAt: expect.any(String) })]);
+      await deliver({ message_id: 11, text: '25000' });
+      expect(await records()).toEqual([expect.objectContaining({ amountMinor: 2_500_000, description: 'кофе', deletedAt: null })]);
+    });
+
+    it('two answers to «Сумму» of one message, both sent again: neither writes a record', async () => {
+      parser.analyzeInput.mockImplementation(async (text: string) => ({
+        transactions: [text.startsWith('кофе') ? coffee : { intent: 'transaction', amount: Number(text), category: 'Другое', type: 'expense', date: today, description: text }],
+        debts: [],
+      }));
+      await deliver({ message_id: 10, text: 'кофе 25 тысяч' });
+      const confirmation = lastBotMessage();
+      await press(confirmation, 'Изменить');
+      await press(confirmation, 'Сумму');
+      await deliver({ message_id: 11, text: '30000' });
+      await press(confirmation, 'Изменить');
+      await press(confirmation, 'Сумму');
+      await deliver({ message_id: 12, text: '35000' });
+      expect(await records()).toEqual([expect.objectContaining({ amountMinor: 3_500_000, description: 'кофе' })]);
+      const before = sent.length;
+
+      await restart();
+      await deliver({ message_id: 11, text: '30000' });
+      await deliver({ message_id: 12, text: '35000' });
+
+      expect(await records()).toEqual([expect.objectContaining({ amountMinor: 3_500_000, description: 'кофе' })]);
+      expect(sent).toHaveLength(before);
+    });
+
+    it('an answer to «Сумму» of a message more than 20 bot messages back writes no record when sent again', async () => {
+      parser.analyzeInput.mockImplementation(async (text: string) => ({
+        transactions: [text.startsWith('кофе') ? coffee : { intent: 'transaction', amount: Number(text.replace(/\D/g, '')), category: 'Другое', type: 'expense', date: today, description: text }],
+        debts: [],
+      }));
+      await deliver({ message_id: 10, text: 'кофе 25 тысяч' });
+      const confirmation = lastBotMessage();
+      for (let n = 0; n < 21; n++) await deliver({ message_id: 100 + n, text: `обед ${1000 + n}` });
+      await press(confirmation, 'Изменить');
+      await press(confirmation, 'Сумму');
+      await deliver({ message_id: 200, text: '30000' });
+      expect(await records()).toHaveLength(22);
+      expect(await records()).toContainEqual(expect.objectContaining({ amountMinor: 3_000_000, description: 'кофе' }));
+
+      await restart();
+      await deliver({ message_id: 200, text: '30000' });
+
+      expect(await records()).toHaveLength(22);
+    });
   });
 
   it('the typed answer to a large amount writes the record once', async () => {

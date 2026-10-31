@@ -12,6 +12,7 @@ import {
 } from '../formatters/recordMessage';
 import { recordKeyboard } from '../keyboards/recordKeyboard';
 import { createWebAppUrl, isWebAppConfigured, WEB_APP_PATHS } from './webAppUrl';
+import { messageClientId } from './messageClientId';
 import {
   AssumedThousands,
   BotMessage,
@@ -20,6 +21,7 @@ import {
   RecordMessageState,
 } from '../../../../modules/botMessage/domain/botMessage';
 import { BotMessageLog } from '../../../../modules/botMessage/application/botMessageLog';
+import { RecordMessageDraft } from '../../../../modules/botMessage/domain/handledMessage';
 import { Transaction } from '../../../../modules/transaction/domain/transactionEntity';
 import { normalizeSemanticType } from '../../../../modules/transaction/domain/transactionSemanticType';
 import { CapturedTransaction } from '../../../../modules/quickCapture/domain/quickCaptureTypes';
@@ -327,6 +329,65 @@ export async function sendRecordMessage(ctx: BotContext, input: SendRecordMessag
     }
   }
   const content: RecordMessageContent = { userId: input.userId, recordIds: input.recordIds, mode, state, heard };
+  await keepConfirmation(ctx, content);
+  await sendRecordContent(ctx, content, held);
+}
+
+/**
+ * The confirmation of a chat message Telegram sent again, as it was kept before its first sending did not go out
+ * (FT-172): «Сколько?», «Расслышал», «?» and «понял как» as the first would show them, a large amount's question with
+ * its records still held.
+ */
+export async function sendKeptConfirmation(ctx: BotContext, userId: string, kept: RecordMessageDraft): Promise<void> {
+  const content: RecordMessageContent = { userId, ...kept };
+  const held = kept.mode === 'large' ? (await recordMessageInput(ctx, content)).records : [];
+  await sendRecordContent(ctx, content, held);
+}
+
+/** The chat message the confirmation is for, and its chat; none without the log, which keeps it. */
+function confirmationOwner(ctx: BotContext): { log: BotMessageLog; clientId: string; chatId: string } | null {
+  const log = botMessageLog(ctx);
+  const clientId = messageClientId(ctx);
+  const chatId = chatIdOf(ctx);
+  return log && clientId && chatId ? { log, clientId, chatId } : null;
+}
+
+/** Kept before it is sent: the bot may stop while sending it, and Telegram then sends the chat message again (FT-172). */
+async function keepConfirmation(ctx: BotContext, content: RecordMessageContent): Promise<void> {
+  const owner = confirmationOwner(ctx);
+  if (!owner) return;
+  const { userId, recordIds, mode, state, heard } = content;
+  try {
+    await owner.log.keepConfirmation(owner.clientId, { userId, chatId: owner.chatId }, { recordIds, mode, state, heard });
+  } catch (error) {
+    // Only a repeat after a stop needs it: the confirmation goes out without
+    logger.error('Failed to keep a confirmation before sending it', error as Error, { userId });
+  }
+}
+
+/** The confirmation went out, or failed while the bot was running: a repeat finds the records, not the kept copy. */
+async function dropConfirmation(ctx: BotContext, userId: string): Promise<void> {
+  const owner = confirmationOwner(ctx);
+  if (!owner) return;
+  try {
+    await owner.log.dropConfirmation(owner.clientId, { userId, chatId: owner.chatId });
+  } catch (error) {
+    logger.error('Failed to drop a kept confirmation', error as Error, { userId });
+  }
+}
+
+/** Sends the record message and remembers it; whatever came of it, the kept copy is no longer needed. */
+async function sendRecordContent(ctx: BotContext, content: RecordMessageContent, held: RecordView[]): Promise<void> {
+  try {
+    await sendAndRemember(ctx, content, held);
+  } finally {
+    await dropConfirmation(ctx, content.userId);
+  }
+}
+
+async function sendAndRemember(ctx: BotContext, content: RecordMessageContent, held: RecordView[]): Promise<void> {
+  const log = botMessageLog(ctx);
+  const { userId, mode, state } = content;
   let sent: Awaited<ReturnType<BotContext['reply']>> | undefined;
   try {
     const drawn = await drawRecordMessage(ctx, content);
@@ -349,13 +410,13 @@ export async function sendRecordMessage(ctx: BotContext, input: SendRecordMessag
   try {
     remembered = await log.remember({ ...content, chatId, messageId: sent.message_id });
   } catch (error) {
-    logger.error('Failed to remember a bot record message', error as Error, { userId: input.userId, messageId: sent.message_id });
+    logger.error('Failed to remember a bot record message', error as Error, { userId, messageId: sent.message_id });
     await writeHeldAsIs(ctx, held, content, { chatId, messageId: sent.message_id });
     return;
   }
   try {
     if (openQuestion(mode, state)) await closeOtherQuestions(ctx, log, remembered);
   } catch (error) {
-    logger.error('Failed to close the other questions of the chat', error as Error, { userId: input.userId, messageId: sent.message_id });
+    logger.error('Failed to close the other questions of the chat', error as Error, { userId, messageId: sent.message_id });
   }
 }

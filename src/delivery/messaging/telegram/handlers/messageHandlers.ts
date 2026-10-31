@@ -4,7 +4,7 @@ import { BotContext } from '../types';
 import { RU, formatAmount } from '../i18n/ru';
 import { downloadVoiceFile, cleanupFile } from '../utils';
 import { quickAddCategory } from '../utils/userCategories';
-import { assumedThousands, botMessageLog, chatIdOf, guessedIds, sendRecordMessage } from '../utils/recordMessageView';
+import { assumedThousands, botMessageLog, chatIdOf, guessedIds, sendKeptConfirmation, sendRecordMessage } from '../utils/recordMessageView';
 import { messageClientId, withMessageClientId } from '../utils/messageClientId';
 import { messageDay } from '../utils/messageTime';
 import { answerAmountQuestion } from './recordHandlers';
@@ -22,6 +22,7 @@ import { toCapturedTransaction } from '../../../../modules/quickCapture/applicat
 import { NoSpeechDetectedError } from '../../../../modules/voiceProcessing/domain/voiceErrors';
 import { Transaction } from '../../../../modules/transaction/domain/transactionEntity';
 import { BotMessage } from '../../../../modules/botMessage/domain/botMessage';
+import { HandledMessage } from '../../../../modules/botMessage/domain/handledMessage';
 import { todayDateOnly } from '../../../../shared/domain/dates/dateOnly';
 
 const logger = createLogger(LogCategory.TELEGRAM_MSG);
@@ -104,12 +105,19 @@ async function recentBotMessages(ctx: BotContext): Promise<BotMessage[]> {
   return log && chatId ? log.recent(chatId) : [];
 }
 
+/** What the bot did with the chat message, as `handled_messages` keeps it; null without the log. */
+async function handledMessage(ctx: BotContext, clientId: string): Promise<HandledMessage | null> {
+  const log = botMessageLog(ctx);
+  return log ? log.handled(clientId) : null;
+}
+
 /**
  * A message Telegram sends again (FT-167): the bot stopped before confirming it to Telegram — a restart while it was
- * being handled — and what it did carries the message's client id: the records it wrote, or a bot message whose amount
- * it answered (`answeredBy`). Nothing is written, changed or parsed again (a voice is not even downloaded). Written
- * records are confirmed only if no bot message shows them yet, for the process may have stopped before sending it.
- * First in the text and voice chains, ahead of the questions and the free limit.
+ * being handled — and what it did carries the message's client id: the records it wrote, or the row of
+ * `handled_messages` — a bot message whose question it answered, the confirmation it was about to send (FT-172).
+ * Nothing is written, changed or parsed again (a voice is not even downloaded). The confirmation is sent only if no bot
+ * message shows the records yet, for the process may have stopped before sending it — as it was kept, with «Сколько?»,
+ * «Расслышал», «?» and «понял как». First in the text and voice chains, ahead of the questions and the free limit.
  */
 export function createRepeatedMessageGuard(userModule?: UserModule) {
   return async function skipRepeatedMessage(ctx: BotContext, next: () => Promise<void>): Promise<void> {
@@ -118,28 +126,34 @@ export function createRepeatedMessageGuard(userModule?: UserModule) {
 
     const userId = await resolveUserId(ctx, userModule, 'repeated message check');
     let earlier: Transaction[];
+    let handled: HandledMessage | null;
     let recent: BotMessage[];
     try {
-      [earlier, recent] = await Promise.all([ctx.modules.transactionModule.findByClientId(userId, clientId), recentBotMessages(ctx)]);
+      [earlier, handled, recent] = await Promise.all([
+        ctx.modules.transactionModule.findByClientId(userId, clientId),
+        handledMessage(ctx, clientId),
+        recentBotMessages(ctx),
+      ]);
     } catch (error) {
       logger.error('Failed to look for what a repeated message did', error as Error, { userId });
       return next();
     }
 
-    if (earlier.length > 0) {
-      const recordIds = earlier.map(record => record.id!);
+    const kept = handled?.confirmation ?? null;
+    if (kept || earlier.length > 0) {
+      const recordIds = kept ? kept.recordIds : earlier.map(record => record.id!);
       logger.info('Telegram sent a handled message again; its records are not written twice', { userId, records: recordIds.length });
       const shown = recent.some(message => message.recordIds.some(id => recordIds.includes(id)));
       try {
-        if (!shown) await sendRecordMessage(ctx, { userId, recordIds });
+        if (!shown) await (kept ? sendKeptConfirmation(ctx, userId, kept) : sendRecordMessage(ctx, { userId, recordIds }));
       } catch (error) {
         logger.error('Failed to confirm the records of a repeated message', error as Error, { userId });
       }
       return;
     }
 
-    if (recent.some(message => message.state.answeredBy === clientId)) {
-      logger.info('Telegram sent an amount answer again; it is not applied twice', { userId });
+    if (handled) {
+      logger.info('Telegram sent a handled message again; it changes nothing more', { userId });
       return;
     }
     return next();

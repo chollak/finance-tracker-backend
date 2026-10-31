@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto';
 import { BotMessage, BotMessageChanges, RecordMessageMode, RecordMessageState } from '../domain/botMessage';
 import { BotMessageRepository } from '../domain/botMessageRepository';
+import { HANDLED_MESSAGE_DAYS, HandledMessage, RecordMessageDraft } from '../domain/handledMessage';
 
 /** How far back /undo looks for the last message with records still in place. */
 export const RECENT_MESSAGES_LIMIT = 20;
@@ -65,5 +66,27 @@ export class BotMessageLog {
 
   save(message: BotMessage, changes: BotMessageChanges): Promise<BotMessage> {
     return this.repository.update(message.id, changes);
+  }
+
+  /** What the bot did with a chat message Telegram sent again (FT-172); null when nothing is kept. */
+  handled(clientId: string): Promise<HandledMessage | null> {
+    return this.repository.findHandled(clientId);
+  }
+
+  /** The chat message changed this record message: answered its question, or /undo cancelled its records. */
+  async markHandled(clientId: string, message: BotMessage): Promise<void> {
+    await this.repository.saveHandled({ clientId, userId: message.userId, chatId: message.chatId, botMessageId: message.messageId });
+    await this.repository.deleteHandledOlderThan(HANDLED_MESSAGE_DAYS);
+  }
+
+  /** The confirmation of the chat message's records, about to be sent: sent again, the message sends it (FT-172). */
+  async keepConfirmation(clientId: string, owner: { userId: string; chatId: string }, confirmation: RecordMessageDraft): Promise<void> {
+    await this.repository.saveHandled({ clientId, ...owner, confirmation });
+    await this.repository.deleteHandledOlderThan(HANDLED_MESSAGE_DAYS);
+  }
+
+  /** The confirmation went out, or will not: the row stays to say the message was handled. */
+  dropConfirmation(clientId: string, owner: { userId: string; chatId: string }): Promise<void> {
+    return this.repository.saveHandled({ clientId, ...owner, confirmation: null });
   }
 }
