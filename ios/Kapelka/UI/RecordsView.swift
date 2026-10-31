@@ -1,10 +1,13 @@
 import SwiftUI
 
 /// The tab «Записи» (FT-220): the server's records by day, standard iOS components only. Pull to refresh; the next
-/// page comes as the list's end scrolls into view. Each row is a row of a `List`, ready for swipe actions (FT-221).
+/// page comes as the list's end scrolls into view. A swipe deletes, with «Вернуть» on the bar at the bottom for 5 s;
+/// a tap opens the sheet of categories (FT-221).
 struct RecordsView: View {
     let list: RecordsList
     let openSettings: () -> Void
+
+    @State private var picker: CategoryPicker?
 
     var body: some View {
         NavigationStack {
@@ -20,7 +23,7 @@ struct RecordsView: View {
                     ForEach(list.days) { day in
                         Section(day.title) {
                             ForEach(day.rows) { row in
-                                RecordRowView(row: row)
+                                recordRow(row)
                             }
                         }
                     }
@@ -30,13 +33,58 @@ struct RecordsView: View {
                 }
             }
             .overlay { placeholder }
+            .safeAreaInset(edge: .bottom) { noticeBar }
+            .animation(.default, value: list.notice)
             .refreshable { await list.refresh() }
+            .sheet(item: $picker) { CategorySheet(picker: $0) }
             .navigationTitle("Записи")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     SettingsButton(action: openSettings)
                 }
             }
+        }
+    }
+
+    private func recordRow(_ row: RecordRow) -> some View {
+        Button {
+            if let record = list.record(id: row.id) {
+                picker = CategoryPicker(record: record, list: list)
+            }
+        } label: {
+            RecordRowView(row: row)
+        }
+        .accessibilityHint("Сменить категорию")
+        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+            Button(role: .destructive) {
+                Task { await list.delete(row.id) }
+            } label: {
+                Label("Удалить", systemImage: "trash")
+            }
+            // The screen's black-or-white tint would make it white on white in the dark theme
+            .tint(.red)
+        }
+    }
+
+    /// «Удалено · Вернуть» for 5 s, or what went wrong with an edit: plain `Text` and `Button` over the tab bar.
+    @ViewBuilder
+    private var noticeBar: some View {
+        if let notice = list.notice {
+            HStack(spacing: 12) {
+                Text(notice.text)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                if notice.restorable != nil {
+                    Button("Вернуть") {
+                        Task { await list.restoreDeleted() }
+                    }
+                    .buttonStyle(.bordered)
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 10)
+            .frame(minHeight: 44)
+            .background(.bar)
+            .transition(.move(edge: .bottom).combined(with: .opacity))
         }
     }
 
@@ -132,7 +180,9 @@ private struct RecordRowView: View {
         layout {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    // In a button: without its own style the title would take the tint
                     Text(row.title)
+                        .foregroundStyle(.primary)
                         .lineLimit(2)
                     if row.needsReview {
                         Image(systemName: "exclamationmark.circle")
