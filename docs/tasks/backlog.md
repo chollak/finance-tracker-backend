@@ -736,3 +736,34 @@ FT-184 уже не учит формам юрлиц: `SERVICE_WORDS` в `lessonW
 Definition of Done:
 - [ ] `ytt`, `yatt`, `ятт`, `duk`, `дук` в `SERVICE_WORDS`; тест: правка фразы «ytt zzqx 25000» не учит «ytt»
 - [ ] Решено про `merchantKey` без формы юрлица; если да — тест «YTT X» = «X»
+
+---
+
+### FT-215: typeorm 1.x: the glob and minimatch advisories
+
+Status: backlog — найдено при FT-183 (2026-10-31)
+Priority: low
+Owner: Claude Code, QA — под-чат проверки
+Type: chore
+Size: M
+Depends on: FT-048 (тот же lock-файл, не параллельно)
+
+Context:
+31 октября вышли advisory на `glob` 3.0.0–14.0.1 ([GHSA-3g3m-2fjr-6pw4](https://github.com/advisories/GHSA-3g3m-2fjr-6pw4),
+обход отмены по `AbortSignal`) и `minimatch` < 11.0.1 ([GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249),
+DoS). В рабочих зависимостях сервера они приходят через `typeorm` 0.3.31 (`glob` 10.5.0) и через цепочку `sqlite3`
+(`node-gyp` → `glob` 7 — это FT-048). В `npm audit --omit=dev` это moderate. `npm audit fix` без `--force` их не
+закрывает: исправление — `typeorm` 1.1.2, мажорное обновление.
+
+`glob` нужен typeorm, чтобы находить сущности и миграции по строкам-путям. У нас и то и другое — списки классов
+(`DATABASE_ENTITIES`, `migrations/index.ts`), так что риск низкий.
+
+В webapp те же advisory сидят в dev-зависимостях: eslint и `workbox-build` через `vite-plugin-pwa`. npm предлагает
+только откат `vite-plugin-pwa` до 1.1.0 и `typescript-eslint` до 8.36.0. Этого не делать — ждать исправленных версий.
+
+Идея: `typeorm` 1.x — changelog, `DataSource`, миграции; проверка на копии настоящей базы по правилам миграций; тесты.
+
+Definition of Done:
+- [ ] `typeorm` 1.x; в `npm audit --omit=dev` в корне `typeorm`, `glob`, `minimatch` остались только в цепочке `sqlite3`
+- [ ] `npm run migration:show` на копии настоящей базы: применённые миграции те же, расхождений схемы нет
+- [ ] `npm run verify` зелёный
