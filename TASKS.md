@@ -7,7 +7,7 @@
 |---|---|
 | Как устроена доска, статусы, роли | [`docs/tasks/README.md`](docs/tasks/README.md) |
 | Почему план такой — лог решений | [`docs/tasks/decisions.md`](docs/tasks/decisions.md) |
-| Отложенные задачи, полные описания (24) | [`docs/tasks/backlog.md`](docs/tasks/backlog.md) |
+| Отложенные задачи, полные описания (25) | [`docs/tasks/backlog.md`](docs/tasks/backlog.md) |
 | Открытые задачи вехи 10 | [`docs/pastel/tasks.md`](docs/pastel/tasks.md) |
 | Закрытые задачи с отчётами (196) | [`docs/tasks/archive/`](docs/tasks/archive/) |
 
@@ -93,6 +93,7 @@ iPhone при выключенном ПК.
 | [FT-161](docs/tasks/backlog.md) | Минимальное нативное iOS-приложение для быстрой записи — общая задача, решения 2026-10-29 | FT-175…FT-179 |
 | [FT-169](docs/tasks/backlog.md) | Свой знак для Kapelka вместо страницы тетради | знак на холсте от Шукура |
 | [FT-200](docs/tasks/backlog.md) | Правка учит и слову позиции без суммы («zzqx 50000 и wwpt») | Шукур 2026-10-31: пока не нужно — вернуться по отчёту FT-217 |
+| [FT-218](docs/tasks/backlog.md) | Два одинаковых голосовых сразу делят один файл в `downloads/` | очереди; мелочь, найдена при проверке FT-216 |
 
 ---
 
