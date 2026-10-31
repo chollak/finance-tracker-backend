@@ -163,6 +163,30 @@ describe('a category correction teaches (FT-184)', () => {
     expect(lessonsOf('cafe')).toEqual({ kkwq: 1 });
   });
 
+  it('two phrases «ytt …» corrected to «Кафе» do not teach «ytt»: a payment to another «YTT» still asks the AI (FT-208)', async () => {
+    const written = [];
+    for (const [amount, name] of [[25_000, 'zzqx'], [30_000, 'wwpt']] as const) {
+      aiReads({ category: 'Покупки', amount, description: name.toUpperCase() });
+      written.push((await say(`ytt ${name} ${amount}`))[0]);
+    }
+    for (const record of written) await moveTo(record.id, 'Кафе');
+
+    expect(lessonsOf('cafe')).toEqual({ zzqx: 1, wwpt: 1 });
+    openAI.categoryOfMerchant.mockClear();
+    const other = await pay('Ytt Abduvoxidov Davronbek');
+    expect(other.category).toBe('Покупки');
+    expect(openAI.categoryOfMerchant).toHaveBeenCalledTimes(1);
+  });
+
+  it('a payment to «YTT X» corrected once: «ЯТТ X» and «X» are the same merchant (FT-208)', async () => {
+    await moveTo((await pay('Ytt Abduvoxidov Davronbek')).id, 'Кафе');
+    openAI.categoryOfMerchant.mockClear();
+
+    expect((await pay('ЯТТ Abduvoxidov Davronbek')).category).toBe('Кафе');
+    expect((await pay('Abduvoxidov Davronbek')).category).toBe('Кафе');
+    expect(openAI.categoryOfMerchant).not.toHaveBeenCalled();
+  });
+
   it('two Apple Pay payments «ZZQX 77/78» corrected to «Продукты»: the third «ZZQX» payment is «Продукты» without the AI', async () => {
     const paid = [await pay('ZZQX 77'), await pay('ZZQX 78')];
     expect(paid.map(payment => payment.category)).toEqual(['Покупки', 'Покупки']);

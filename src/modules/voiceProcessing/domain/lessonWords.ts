@@ -1,5 +1,6 @@
 import { stripPaymentWords } from './paymentHints';
 import { namesNothing, wordsOf } from './categoryGuess';
+import { isLegalForm } from './legalForms';
 
 /**
  * What a category correction may teach (FT-184, review of 2026-10-30). A correction used to teach every word of its
@@ -7,9 +8,11 @@ import { namesNothing, wordsOf } from './categoryGuess';
  * A phrase now teaches only the words that can name a place or a thing; a payment teaches its whole merchant.
  */
 
-/** Legal forms, shop words, payment services and places: on a receipt or in a phrase they name no category. */
+/**
+ * Shop words, payment services and places: on a receipt or in a phrase they name no category. Legal forms («ООО»,
+ * «YTT», `legalForms.ts`) name nothing either (`namesNothing`), so a learned one is left out too (FT-208).
+ */
 const SERVICE_WORDS = new Set([
-  'ooo', 'ооо', 'llc', 'ltd', 'inc', 'mchj', 'мчж', 'chp', 'чп', 'оао', 'зао', 'плс', 'plc',
   'market', 'маркет', 'shop', 'store', 'mall', 'city', 'center', 'centre', 'центр', 'filial', 'филиал', 'branch',
   'paynet', 'пайнет', 'click', 'клик', 'payme', 'пейми', 'apelsin', 'oson', 'upay', 'pay', 'apple', 'google',
   'tashkent', 'toshkent', 'ташкент', 'тошкент', 'samarkand', 'samarqand', 'самарканд', 'bukhara', 'buxoro', 'бухара',
@@ -83,9 +86,11 @@ export function lessonWordsOf(phrase: string, accountNames: readonly string[]): 
 }
 
 /**
- * The merchant a payment correction teaches, as it is looked up: its words folded, without the ones with digits — so
- * «ZZQX 77» and «ZZQX 78» are one merchant, «KKWQ PAYNET UZCARD» and «PAYNET MOBILE» two. Empty for «7777».
+ * The merchant a payment correction teaches, as it is looked up: its words folded, without the ones with digits and
+ * without a legal form — so «ZZQX 77» and «ZZQX 78» are one merchant, «YTT X», «ЯТТ X» and «X» one too (FT-208),
+ * «KKWQ PAYNET UZCARD» and «PAYNET MOBILE» two. Empty for «7777». Learned merchants are keyed when read, so the ones
+ * taught with their legal form are found by the new key.
  */
 export function merchantKey(merchant: string): string {
-  return wordsOf(merchant).filter(word => !/\p{N}/u.test(word)).join(' ');
+  return wordsOf(merchant).filter(word => !/\p{N}/u.test(word) && !isLegalForm(word)).join(' ');
 }

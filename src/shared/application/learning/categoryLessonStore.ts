@@ -1,5 +1,6 @@
 import { CategoryLesson } from '../../../modules/transaction/domain/categoryLessons';
 import { merchantKey } from '../../../modules/voiceProcessing/domain/lessonWords';
+import { namesNothing } from '../../../modules/voiceProcessing/domain/categoryGuess';
 import { LearnedPatterns, LearnedWord, LearningData, MerchantPattern } from './learningTypes';
 
 /**
@@ -66,12 +67,12 @@ export function withoutLessonsOf(
 
 /**
  * Words that give a starter category, by its key: for sure (`sure`) or as a guess. A word two categories were taught
- * gives neither.
+ * gives neither, nor does one that names nothing by today's rules — a legal form taught before FT-208.
  */
 export function lessonWordsByCategory(words: readonly LearnedWord[], sure: boolean): Map<string, string[]> {
   const categoriesOf = new Map<string, LearnedWord[]>();
   for (const entry of words) {
-    if (entry.uses > 0) categoriesOf.set(entry.word, [...(categoriesOf.get(entry.word) ?? []), entry]);
+    if (entry.uses > 0 && !namesNothing(entry.word)) categoriesOf.set(entry.word, [...(categoriesOf.get(entry.word) ?? []), entry]);
   }
   const byCategory = new Map<string, string[]>();
   for (const [word, entries] of categoriesOf) {
