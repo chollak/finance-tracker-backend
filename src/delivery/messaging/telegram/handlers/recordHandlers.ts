@@ -442,15 +442,9 @@ async function handleUndo(ctx: BotContext) {
       const live = input.records.filter(record => !record.cancelled);
       if (live.length === 0) continue;
 
-      await cancelRecords(ctx, live);
-      const state = withoutPick({ ...message.state, undone: live.map(record => record.id) });
-      delete state.changed;
-      // The reply of this /undo, not of an earlier one, once it is sent
-      delete state.undoMessageId;
-      const undone = await log.save(message, { mode: 'confirm', state });
-      // Kept before the reply: the bot may stop while sending it, and Telegram then sends /undo again (FT-172)
-      if (clientId) await log.markHandled(clientId, undone);
-      await sayUndone(ctx, log, undone, live);
+      // Kept before anything changes: the bot may stop at any step, and Telegram then sends /undo again (FT-172)
+      if (clientId) await log.markHandled(clientId, message);
+      await undoRecords(ctx, log, message, live);
       return;
     }
 
@@ -459,6 +453,20 @@ async function handleUndo(ctx: BotContext) {
     logger.error('/undo failed', error as Error, { userId: ctx.from?.id });
     await ctx.reply(RU.errors.generic);
   }
+}
+
+/**
+ * Cancels the records /undo took and says so. What it cancels is kept in the message before the records are touched,
+ * so a repeat after a stop finishes this /undo instead of guessing which records were its (FT-172).
+ */
+async function undoRecords(ctx: BotContext, log: BotMessageLog, message: BotMessage, live: RecordView[]): Promise<void> {
+  const state = withoutPick({ ...message.state, undone: live.map(record => record.id) });
+  delete state.changed;
+  // The reply of this /undo, not of an earlier one, once it is sent
+  delete state.undoMessageId;
+  const undone = await log.save(message, { mode: 'confirm', state });
+  await cancelRecords(ctx, live);
+  await sayUndone(ctx, log, undone, live);
 }
 
 /** The /undo reply — what was cancelled, with «Вернуть» — and the message redrawn with the records struck through. */
@@ -473,16 +481,25 @@ async function sayUndone(ctx: BotContext, log: BotMessageLog, message: BotMessag
 }
 
 /**
- * /undo sent again after a restart (FT-172): what the first one cancelled stays so, and nothing more is. Its reply, if
- * the bot stopped before it went out, is sent now — the records still cancelled by it, «Вернуть» not pressed.
+ * /undo sent again after a restart (FT-172): it takes no other message. If the bot stopped before the first one was
+ * done, it is finished on its own message: before it kept what it cancels — nothing is cancelled yet, so it is done
+ * now; after — the records it kept are cancelled if they are not yet, and the reply goes out. Once the reply went out,
+ * nothing more happens.
  */
 async function finishRepeatedUndo(ctx: BotContext, log: BotMessageLog, handled: HandledMessage): Promise<void> {
   logger.info('Telegram sent /undo again; it cancels nothing more', { userId: ctx.from?.id });
   const message = handled.botMessageId === null ? null : await log.find(handled.chatId, handled.botMessageId);
-  const undone = message?.state.undone ?? [];
-  if (!message || message.state.undoMessageId !== undefined || undone.length === 0) return;
-  const records = (await recordMessageInput(ctx, message)).records.filter(record => record.cancelled && undone.includes(record.id));
-  if (records.length > 0) await sayUndone(ctx, log, message, records);
+  if (!message || message.state.undoMessageId !== undefined) return;
+  const records = (await recordMessageInput(ctx, message)).records;
+  const undone = message.state.undone ?? [];
+  if (undone.length === 0) {
+    const live = records.filter(record => !record.cancelled);
+    if (live.length > 0) await undoRecords(ctx, log, message, live);
+    return;
+  }
+  const its = records.filter(record => undone.includes(record.id));
+  await cancelRecords(ctx, its.filter(record => !record.cancelled));
+  if (its.length > 0) await sayUndone(ctx, log, message, its);
 }
 
 /** «Вернуть» under the /undo reply: the records come back and the reply says so. */
@@ -544,11 +561,11 @@ async function changeAmount(
   // deleted record cannot be changed (FT-123)
   const result = message.mode === 'large' ? await releaseLarge(ctx, message, input, changed) : confirmed(message.state, changed);
   await update(ctx, record.id, changes);
-  const saved = await log.save(message, result);
-  // The chat message that answered: sent again after a restart, it changes nothing more (FT-167, FT-172)
+  // The chat message that answered, kept before its question closes: sent again after a restart, it is skipped, or —
+  // stopped before this — it answers the open question again with the same amount (FT-167, FT-172)
   const answeredBy = messageClientId(ctx);
-  if (answeredBy) await log.markHandled(answeredBy, saved);
-  await redrawRecordMessage(ctx, saved);
+  if (answeredBy) await log.markHandled(answeredBy, message);
+  await redrawRecordMessage(ctx, await log.save(message, result));
 
   const view: RecordView = { ...record, amountMinor: reply.amountMinor, currency: reply.currency };
   const assumed = reply.written && sayAssumed ? `. ${quoted(reply.written)} понял как ${amountWithUnit(reply.amountMinor, reply.currency)}` : '';

@@ -427,6 +427,76 @@ describe('a message Telegram sends again after a restart (FT-167)', () => {
       expect(await live()).toEqual(['кофе', 'такси']);
     });
 
+    /** The bot message log of the running process; a step that never returns stands for the process being killed there. */
+    const runningLog = () => (running.modules.botMessageModule as BotMessageModule).getLog();
+    const stopsHere = () => new Promise<never>(() => undefined);
+    const settle = () => new Promise(resolve => setTimeout(resolve, 200));
+
+    it('/undo killed right after it was marked: the repeat does it on that message, and takes no other', async () => {
+      await deliver({ message_id: 10, text: 'кофе 25 тысяч' });
+      await deliver({ message_id: 11, text: 'такси 30 тысяч' });
+      jest.spyOn(runningLog(), 'save').mockImplementation(stopsHere);
+      void deliver({ message_id: 12, text: '/undo' });
+      await settle();
+      expect(await live()).toEqual(['кофе', 'такси']);
+
+      await restart();
+      await deliver({ message_id: 12, text: '/undo' });
+
+      expect(await live()).toEqual(['кофе']);
+      expect(undoReplies()).toEqual([expect.stringContaining('Такси')]);
+    });
+
+    it('/undo killed while cancelling: the repeat cancels what it kept, and takes no other', async () => {
+      await deliver({ message_id: 10, text: 'кофе 25 тысяч' });
+      await deliver({ message_id: 11, text: 'такси 30 тысяч' });
+      jest.spyOn(running.modules.transactionModule as TransactionModule, 'getDeleteTransactionUseCase')
+        .mockReturnValue({ execute: stopsHere } as never);
+      void deliver({ message_id: 12, text: '/undo' });
+      await settle();
+
+      await restart();
+      await deliver({ message_id: 12, text: '/undo' });
+
+      expect(await live()).toEqual(['кофе']);
+      expect(undoReplies()).toEqual([expect.stringContaining('Такси')]);
+    });
+
+    it('an answer to «Сумму» killed before it was marked: the repeat answers the still open question, no record written', async () => {
+      parser.analyzeInput.mockImplementation(async (text: string) => ({
+        transactions: [text.startsWith('кофе') ? coffee : { intent: 'transaction', amount: Number(text), category: 'Другое', type: 'expense', date: today, description: text }],
+        debts: [],
+      }));
+      await deliver({ message_id: 10, text: 'кофе 25 тысяч' });
+      const confirmation = lastBotMessage();
+      await press(confirmation, 'Изменить');
+      await press(confirmation, 'Сумму');
+      jest.spyOn(runningLog(), 'markHandled').mockImplementation(stopsHere);
+      void deliver({ message_id: 11, text: '30000' });
+      await settle();
+
+      await restart();
+      await deliver({ message_id: 11, text: '30000' });
+
+      expect(await records()).toEqual([expect.objectContaining({ amountMinor: 3_000_000, description: 'кофе' })]);
+    });
+
+    it('«Сколько?» of a phrase with no amount, killed while closing the other questions: not asked twice', async () => {
+      const noAmount = { description: 'такси', category: 'Транспорт', type: 'expense', date: today };
+      parser.analyzeInput.mockResolvedValue({ transactions: [], debts: [], withoutAmount: [noAmount] });
+      const asked = () => sent.filter(text => text.includes('Сколько?'));
+      jest.spyOn(runningLog(), 'otherQuestions').mockImplementation(stopsHere);
+      void deliver({ message_id: 30, text: 'такси' });
+      await settle();
+      expect(asked()).toHaveLength(1);
+
+      await restart();
+      await deliver({ message_id: 30, text: 'такси' });
+
+      expect(asked()).toHaveLength(1);
+      expect(parser.analyzeInput).toHaveBeenCalledTimes(1);
+    });
+
     it('a phrase whose confirmation did not go out: the repeat asks «Сколько?» and shows «?» and «понял как» as the first would', async () => {
       const unnamed = { intent: 'transaction', amount: 25000, category: 'Кафе', type: 'expense', date: today, description: 'zzqx' };
       const noAmount = { description: 'такси', category: 'Транспорт', type: 'expense', date: today };

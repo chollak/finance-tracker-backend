@@ -376,16 +376,11 @@ async function dropConfirmation(ctx: BotContext, userId: string): Promise<void> 
   }
 }
 
-/** Sends the record message and remembers it; whatever came of it, the kept copy is no longer needed. */
+/**
+ * Sends the record message and remembers it. The kept copy is dropped as soon as the message is remembered — before the
+ * other questions of the chat are closed, which may take Telegram a while — or when the sending ended otherwise.
+ */
 async function sendRecordContent(ctx: BotContext, content: RecordMessageContent, held: RecordView[]): Promise<void> {
-  try {
-    await sendAndRemember(ctx, content, held);
-  } finally {
-    await dropConfirmation(ctx, content.userId);
-  }
-}
-
-async function sendAndRemember(ctx: BotContext, content: RecordMessageContent, held: RecordView[]): Promise<void> {
   const log = botMessageLog(ctx);
   const { userId, mode, state } = content;
   let sent: Awaited<ReturnType<BotContext['reply']>> | undefined;
@@ -398,12 +393,14 @@ async function sendAndRemember(ctx: BotContext, content: RecordMessageContent, h
     });
   } catch (error) {
     await writeHeldAsIs(ctx, held, content);
+    await dropConfirmation(ctx, userId);
     throw error;
   }
 
   const chatId = chatIdOf(ctx);
   if (!log || !sent?.message_id || !chatId) {
     await writeHeldAsIs(ctx, held, content, chatId && sent?.message_id ? { chatId, messageId: sent.message_id } : undefined);
+    await dropConfirmation(ctx, userId);
     return;
   }
   let remembered: BotMessage;
@@ -412,8 +409,10 @@ async function sendAndRemember(ctx: BotContext, content: RecordMessageContent, h
   } catch (error) {
     logger.error('Failed to remember a bot record message', error as Error, { userId, messageId: sent.message_id });
     await writeHeldAsIs(ctx, held, content, { chatId, messageId: sent.message_id });
+    await dropConfirmation(ctx, userId);
     return;
   }
+  await dropConfirmation(ctx, userId);
   try {
     if (openQuestion(mode, state)) await closeOtherQuestions(ctx, log, remembered);
   } catch (error) {
