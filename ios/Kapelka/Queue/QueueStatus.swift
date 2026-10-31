@@ -1,3 +1,5 @@
+import Foundation
+
 /// One line on what the queue is doing, for the screen and for «Отправить очередь».
 enum QueueStatus {
     /// Under the microphone: the answer to the last phrase — the server's summary or «в очереди N».
@@ -18,6 +20,17 @@ enum QueueStatus {
         if let problem = problem(state, configured: configured) { return problem }
         let pending = pendingCount(state)
         return pending > 0 ? "В очереди: \(pending) — сервер пока недоступен" : "Всё отправлено"
+    }
+
+    /// The queue got a record onto the server between two states: «Записи» refresh (FT-220). «Не нашёл операцию»
+    /// wrote nothing there.
+    static func wroteRecords(from old: QueueState, to new: QueueState) -> Bool {
+        let before = written(old)
+        return !written(new).isSubset(of: before)
+    }
+
+    private static func written(_ state: QueueState) -> Set<UUID> {
+        Set(state.captures.lazy.filter { $0.state == .sent && $0.reply?.status != "no_transaction" }.map(\.clientId))
     }
 
     static func pendingCount(_ state: QueueState) -> Int {

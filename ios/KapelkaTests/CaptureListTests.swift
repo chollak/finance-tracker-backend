@@ -190,6 +190,66 @@ struct CaptureListTests {
         #expect(QueueStatus.line(for: state, configured: true) == "Не записано: валюта EUR — Kapelka пишет только сумы и доллары, запиши в Mini App")
     }
 
+    @Test("«Записать» — только ждущие, отправляемые, ошибки и «не нашёл операцию»; записанное — во вкладке «Записи»")
+    func attentionOnly() {
+        let sending = capture("такси 30к", minutesLater: 1)
+        let captures = [
+            capture("кофе 25к", .sent, reply: CaptureReply(status: "saved", title: "Записал", summary: "Кофе · 25 000 сум")),
+            capture(
+                "перевёл 500к", .sent,
+                reply: CaptureReply(status: "needs_review", title: "Нужно проверить", summary: "Перевел · 500 000 сум"),
+                minutesLater: 2
+            ),
+            capture(
+                "привет", .sent,
+                reply: CaptureReply(status: "no_transaction", title: "Не нашёл операцию", summary: "…"),
+                minutesLater: 3
+            ),
+            capture("обед", .rejected, rejection: "Text is too long (maximum 2000 characters)", minutesLater: 4),
+            capture("хлеб 5к", minutesLater: 5),
+            sending,
+        ]
+
+        let shown = CaptureRow.needingAttention(captures, sendingId: sending.clientId, now: Self.inputTime, calendar: calendar)
+
+        #expect(shown.map(\.text) == ["хлеб 5к", "обед", "привет", "такси 30к"])
+        #expect(shown.map(\.kind) == [.waiting, .error, .notFound, .sending])
+        let kinds: [CaptureRow.Kind] = [.waiting, .sending, .error, .notFound, .saved, .needsReview]
+        let attention = kinds.map(\.needsAttention)
+        #expect(attention == [true, true, true, true, false, false])
+    }
+
+    @Test("очередь записала запись — «Записи» обновляются; «не нашёл операцию», ошибка и первое чтение файла — нет")
+    func queueWroteRecords() {
+        let waiting = capture("кофе 25к")
+        var before = QueueState()
+        before.captures = [waiting]
+
+        var written = waiting
+        written.state = .sent
+        written.reply = CaptureReply(status: "needs_review", title: "Нужно проверить", summary: "Кофе · 25 000 сум")
+        var after = QueueState()
+        after.captures = [written]
+        #expect(QueueStatus.wroteRecords(from: before, to: after))
+        #expect(!QueueStatus.wroteRecords(from: after, to: after))
+
+        var notFound = waiting
+        notFound.state = .sent
+        notFound.reply = CaptureReply(status: "no_transaction", title: "Не нашёл операцию", summary: "…")
+        after.captures = [notFound]
+        #expect(!QueueStatus.wroteRecords(from: before, to: after))
+
+        var refused = waiting
+        refused.state = .rejected
+        after.captures = [refused]
+        #expect(!QueueStatus.wroteRecords(from: before, to: after))
+
+        // Sending started: not written yet
+        after = before
+        after.sendingId = waiting.clientId
+        #expect(!QueueStatus.wroteRecords(from: before, to: after))
+    }
+
     @Test("новые сверху")
     func newestFirst() {
         let list = rows([capture("первая"), capture("вторая", minutesLater: 1), capture("третья", minutesLater: 2)])
