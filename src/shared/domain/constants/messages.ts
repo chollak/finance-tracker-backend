@@ -121,6 +121,8 @@ ${categoryPrompt}
 
       ПРАВИЛА СУММ:
       - Записывай числа как есть (50000, 100, 25.5)
+      - Точка или запятая перед ровно тремя цифрами разделяет тысячи: «25.000» = 25000, «1.500» = 1500, «150,000» = 150000;
+        перед одной-двумя цифрами — дробь: «4.50» = 4.5, «28 000,00» = 28000
       - Ищи числа с любыми валютами (сум, сўм, UZS, $, €, руб)
       - НЕ КОНВЕРТИРУЙ валюты - записывай оригинальную сумму
       - Если сумма не указана четко, confidence = 0.3
@@ -213,6 +215,8 @@ ${categoryPrompt}
 
       AMOUNT RULES:
       - Record numbers as is (50000, 100, 25.5)
+      - A point or a comma before exactly three digits separates thousands: «25.000» = 25000, «1.500» = 1500,
+        «150,000» = 150000; before one or two digits it is a fraction: «4.50» = 4.5, «28 000,00» = 28000
       - Look for numbers with any currencies (sum, сўм, UZS, $, €, rub)
       - DON'T CONVERT currencies - record original amount
       - If amount not clearly specified, confidence = 0.3

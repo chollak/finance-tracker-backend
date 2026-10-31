@@ -8,6 +8,8 @@ import { assumedThousands, botMessageLog, chatIdOf, guessedIds, sendKeptConfirma
 import { messageClientId, withMessageClientId } from '../utils/messageClientId';
 import { messageDay } from '../utils/messageTime';
 import { answerAmountQuestion } from './recordHandlers';
+import { parseAmountReply } from '../utils/amountReply';
+import { fromMinor } from '../../../../shared/domain/money/money';
 import { AppError, ExternalServiceError } from '../../../../shared/domain/errors/AppError';
 import { DetectedDebt } from '../../../../modules/voiceProcessing/domain/processedTransaction';
 import { SubscriptionModule } from '../../../../modules/subscription/subscriptionModule';
@@ -406,7 +408,9 @@ export function createVoiceMessageHandler(userModule?: UserModule, subscriptionM
 }
 
 /**
- * Handle Quick Add amount input after category selection
+ * The amount after a quick-add category button of a message sent before FT-124. Read as the answer to «Сколько?»
+ * reads it (FT-207): «150,000» and «150к» are 150 000, a bare «500» is 500 000 сум and the confirmation says so,
+ * сумы are whole, «$» and «нал» count. It was `parseFloat` with the first comma for a point: «150,000» was 150.
  */
 async function handleQuickAddAmount(
   ctx: BotContext,
@@ -423,14 +427,19 @@ async function handleQuickAddAmount(
     return;
   }
 
-  // Parse amount - support formats: "500", "500р", "500 рублей", "1,500"
-  const cleanText = text.replace(/[^\d.,]/g, '').replace(',', '.');
-  const amount = parseFloat(cleanText);
-
-  if (isNaN(amount) || amount <= 0) {
-    await ctx.reply(RU.errors.emptyMessage + '\n\nНапример: <b>500</b> или <b>1500</b>', {
+  const reply = parseAmountReply(text, { currency: 'UZS' });
+  if (!reply) {
+    await ctx.reply(RU.errors.emptyMessage + '\n\nНапример: <b>25к</b> или <b>25 000</b>', {
       parse_mode: 'HTML',
     });
+    return;
+  }
+  if (reply.kind === 'not_positive') {
+    await ctx.reply(RU.record.amountNotPositive);
+    return;
+  }
+  if (reply.kind === 'too_big') {
+    await ctx.reply(RU.record.amountTooBig);
     return;
   }
 
@@ -448,7 +457,9 @@ async function handleQuickAddAmount(
     const transactionData = {
       userId,
       userName,
-      amount,
+      amount: fromMinor(reply.amountMinor),
+      amountMinor: reply.amountMinor,
+      currency: reply.currency,
       source: 'telegram' as const,
       category: picked.category,
       categoryId: picked.categoryId,
@@ -460,14 +471,20 @@ async function handleQuickAddAmount(
       ...withMessageClientId(ctx),
     };
 
-    const createResult = await transactionModule.getCreateTransactionUseCase().execute(transactionData);
+    // As the answer to «Сколько?» is written: «нал» chooses the account, «60$» without a dollar account awaits review
+    const createResult = await transactionModule.getCreateTransactionUseCase().execute(transactionData, {
+      ...(reply.account ? { accountHint: { kind: reply.account } } : {}),
+      allowCurrencyMismatch: true,
+    });
 
     if (!createResult.success) {
       throw createResult.error;
     }
 
-    // The same confirmation as a record written by text (FT-122)
-    await sendRecordMessage(ctx, { userId, recordIds: [createResult.data] });
+    // The same confirmation as a record written by text (FT-122), with «"500" понял как 500 000 сум»
+    const recordId = createResult.data;
+    const assumed = reply.written ? { [recordId]: { written: reply.written, amountMinor: reply.amountMinor } } : undefined;
+    await sendRecordMessage(ctx, { userId, recordIds: [recordId], assumed });
 
   } catch (error) {
     logger.error('Quick add error', error as Error);
