@@ -60,7 +60,8 @@ export function withoutLessonsOf(
       (current, word) => countedOnce(current, word, entry.userCorrection.category ?? '', -1), counts),
     patterns.words ?? []
   );
-  const merchantKeys = [...new Set(taken.flatMap(entry => (entry.merchant ? [entry.merchant] : [])))];
+  // A lesson kept before FT-208 names its merchant with the legal form: it is the same merchant now
+  const merchantKeys = [...new Set(taken.flatMap(entry => (entry.merchant ? [merchantKey(entry.merchant)] : [])))];
   const merchants = merchantKeys.reduce((current, key) => merchantFromHistory(current, key, rest), patterns.merchants);
   return { patterns: { ...patterns, words, merchants }, history: rest, taken: taken.length };
 }
@@ -84,14 +85,23 @@ export function lessonWordsByCategory(words: readonly LearnedWord[], sure: boole
   return byCategory;
 }
 
-/** The starter category of each learned merchant, by `merchantKey`. */
+/**
+ * The starter category of each learned merchant, by `merchantKey`. Taught apart before FT-208, «korzinka» and «ytt
+ * korzinka» meet at one key: the alias spelled as its key wins over one that meets it only without its legal form. The
+ * next correction of the merchant makes them one pattern (`withMerchant`).
+ */
 export function merchantCategories(merchants: readonly MerchantPattern[]): Map<string, string> {
   const categories = new Map<string, string>();
+  const asSpelled = new Set<string>();
   for (const merchant of merchants) {
     if (!merchant.category) continue;
     for (const alias of merchant.aliases) {
       const key = merchantKey(alias);
-      if (key) categories.set(key, merchant.category);
+      if (!key) continue;
+      const spelled = key === alias;
+      if (asSpelled.has(key) && !spelled) continue;
+      categories.set(key, merchant.category);
+      if (spelled) asSpelled.add(key);
     }
   }
   return categories;
@@ -105,24 +115,36 @@ function countedOnce(words: readonly LearnedWord[], word: string, category: stri
   return counted.filter(entry => entry.uses > 0);
 }
 
+/**
+ * The payment pattern of this merchant, whatever legal form it was taught with before FT-208. Patterns of the seed and
+ * of the learning before FT-184 are not payments' and stay as they are.
+ */
+const isMerchant = (key: string) => (merchant: MerchantPattern) =>
+  merchant.fromPayments === true && merchantKey(merchant.normalizedName) === key;
+
+/**
+ * The merchant moved to its latest correction. Patterns that meet at its key — «korzinka» and «ytt korzinka» taught
+ * apart before FT-208 — become one, with all their aliases, so none of them can keep the old category.
+ */
 function withMerchant(merchants: readonly MerchantPattern[], key: string, category: string): MerchantPattern[] {
-  const known = merchants.find(merchant => merchant.normalizedName === key);
-  if (!known) return [...merchants, paymentMerchant(key, category, 1)];
-  return merchants.map(merchant => merchant === known
-    ? {
-      ...merchant,
-      aliases: merchant.aliases.includes(key) ? merchant.aliases : [...merchant.aliases, key],
-      category,
-      usageCount: merchant.category === category ? merchant.usageCount + 1 : 1,
-      fromPayments: true,
-    }
-    : merchant);
+  const known = merchants.filter(isMerchant(key));
+  if (known.length === 0) return [...merchants, paymentMerchant(key, category, 1)];
+  const counted = known.find(merchant => merchant.category === category);
+  const merged: MerchantPattern = {
+    ...known[0],
+    aliases: [...new Set([...known.flatMap(merchant => merchant.aliases), key])],
+    normalizedName: key,
+    category,
+    usageCount: counted ? counted.usageCount + 1 : 1,
+    fromPayments: true,
+  };
+  return merchants.flatMap(merchant => (merchant === known[0] ? [merged] : known.includes(merchant) ? [] : [merchant]));
 }
 
 /** The merchant as the lessons left in the history make it: the latest category, counted by its lessons since the last other one. */
 function merchantFromHistory(merchants: readonly MerchantPattern[], key: string, history: readonly LearningData[]): MerchantPattern[] {
-  const lessons = history.filter(entry => entry.merchant === key);
-  const others = merchants.filter(merchant => merchant.normalizedName !== key);
+  const lessons = history.filter(entry => entry.merchant !== undefined && merchantKey(entry.merchant) === key);
+  const others = merchants.filter(merchant => !isMerchant(key)(merchant));
   if (lessons.length === 0) return others;
   const category = lessons[lessons.length - 1].userCorrection.category ?? '';
   const otherAt = lessons.map(entry => entry.userCorrection.category !== category).lastIndexOf(true);

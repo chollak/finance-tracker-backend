@@ -187,6 +187,43 @@ describe('a category correction teaches (FT-184)', () => {
     expect(openAI.categoryOfMerchant).not.toHaveBeenCalled();
   });
 
+  /** Merchants payment corrections taught before FT-208, when the legal form was part of the key. */
+  const learnedBefore = (merchants: Array<{ name: string; category: string }>) => fs.writeFileSync(
+    path.join(dir, 'data', 'patterns.json'),
+    JSON.stringify({
+      categories: [],
+      words: [],
+      merchants: merchants.map(({ name, category }) => ({ aliases: [name], normalizedName: name, category, usageCount: 1, fromPayments: true })),
+    })
+  );
+
+  it('a merchant taught with its legal form before FT-208 is found without it: «ytt x», then a payment «X»', async () => {
+    learnedBefore([{ name: 'ytt abduvoxidov davronbek', category: 'cafe' }]);
+
+    const payment = await pay('Abduvoxidov Davronbek');
+
+    expect(payment.category).toBe('Кафе');
+    expect(guess(payment)).toBeUndefined();
+    expect(openAI.categoryOfMerchant).not.toHaveBeenCalled();
+  });
+
+  it('«Korzinka» and «YTT Korzinka» taught apart before FT-208: one correction of «Korzinka» holds for every spelling', async () => {
+    learnedBefore([{ name: 'korzinka', category: 'shopping' }, { name: 'ytt korzinka', category: 'groceries' }]);
+    // Until then the spelling taught as it is wins over the one that only meets it without its legal form
+    const first = await pay('Korzinka');
+    expect(first.category).toBe('Покупки');
+
+    await moveTo(first.id, 'Транспорт');
+
+    for (const merchant of ['Korzinka', 'YTT Korzinka', 'ЯТТ Korzinka']) {
+      const payment = await pay(merchant);
+      expect([merchant, payment.category, guess(payment)]).toEqual([merchant, 'Транспорт', undefined]);
+    }
+    expect(openAI.categoryOfMerchant).not.toHaveBeenCalled();
+    const stored = JSON.parse(fs.readFileSync(path.join(dir, 'data', 'patterns.json'), 'utf-8')).merchants;
+    expect(stored).toEqual([expect.objectContaining({ normalizedName: 'korzinka', category: 'transport' })]);
+  });
+
   it('two Apple Pay payments «ZZQX 77/78» corrected to «Продукты»: the third «ZZQX» payment is «Продукты» without the AI', async () => {
     const paid = [await pay('ZZQX 77'), await pay('ZZQX 78')];
     expect(paid.map(payment => payment.category)).toEqual(['Покупки', 'Покупки']);
