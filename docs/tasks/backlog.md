@@ -677,7 +677,7 @@ Definition of Done:
 
 ### FT-224: A comma before three digits after a zero, and two numbers in the answer to «Сколько?»
 
-Status: backlog — в очереди
+Status: in_progress — под-чат разработки, 2026-10-31
 Priority: low
 Owner: Claude Code, QA — под-чат проверки
 Type: bug
