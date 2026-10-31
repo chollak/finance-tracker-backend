@@ -248,7 +248,7 @@ struct RecordsListTests {
         #expect(await routes.pages.requests.count == 3)
     }
 
-    @Test("обновления подряд, пока первое в пути, — одно следом, а не по одному на каждое")
+    @Test("обновления подряд, пока первое в пути, — одно следом, а не по одному на каждое и не два сразу")
     func refreshesJoin() async throws {
         let routes = RoutedTransport(page: [
             .after(.milliseconds(200), page(["a"])),
@@ -264,6 +264,8 @@ struct RecordsListTests {
         _ = await (first, second, third)
 
         #expect(await routes.pages.requests.count == 2)
+        // The pass after waits for the first: the pages go one by one
+        #expect(await routes.pages.maxInFlight == 1)
         #expect(ids(list) == ["new", "a"])
     }
 }
