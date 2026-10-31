@@ -543,7 +543,7 @@ Definition of Done:
 
 ### FT-217: Capture quality report after two weeks of daily use
 
-Status: backlog — в очереди; отчёт — 2026-11-14
+Status: in_progress — под-чат разработки, 2026-10-31; отчёт — 2026-11-14
 Priority: medium
 Owner: Claude Code (скрипт), Шукур (запуск на ПК)
 Type: analytics
