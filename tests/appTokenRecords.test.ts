@@ -205,19 +205,22 @@ describe('the app token reads and edits its owner’s records (FT-218)', () => {
       expect(second.body.data.nextCursor).toBeNull();
     });
 
-    it('GET /api/categories and GET /api/accounts: the owner’s lists, hidden ones too', async () => {
+    it('GET /api/categories and GET /api/accounts: the owner’s lists, not someone else’s', async () => {
       await recordOf(OTHER);
 
       const categories = await call('GET', '/categories', byToken);
       expect(categories.status).toBe(200);
       expect(categories).toEqual(await call('GET', '/categories', asOwner()));
+      const owner = await userIdOf(OWNER);
       expect(categories.body.data.length).toBeGreaterThan(0);
+      expect(new Set(categories.body.data.map((category: { userId: string }) => category.userId))).toEqual(new Set([owner]));
 
       // The first read creates the owner's «Карта», as it does for the Mini App
       const accounts = await call('GET', '/accounts', byToken);
       expect(accounts.status).toBe(200);
       expect(accounts).toEqual(await call('GET', '/accounts', asOwner()));
-      expect(accounts.body.data.accounts.map((account: { name: string }) => account.name)).toEqual(['Карта']);
+      expect(accounts.body.data.accounts.map((account: { name: string; userId: string }) => [account.name, account.userId]))
+        .toEqual([['Карта', owner]]);
     });
 
     it('DELETE /api/transactions/:id and POST …/restore: deleted softly, back again — the Mini App’s answers', async () => {
