@@ -50,6 +50,8 @@ jest.mock('../src/delivery/messaging/telegram/utils', () => ({
 const NB = ' ';
 const MINUS = '−';
 const TELEGRAM_ID = 131184740;
+/** What the bot says to an amount answer of two numbers or more (FT-224). */
+const ONE_AMOUNT = `Сумма — одно число. Напишите её ещё раз — например, 25${NB}000 или 25к.`;
 
 interface Button { text: string; callback_data?: string; web_app?: { url: string } }
 interface ChatMessage { text: string; keyboard: Button[][] }
@@ -532,6 +534,25 @@ describe('bot record messages (FT-122)', () => {
     expect((await running.botMessageModule.getLog().awaitingAmount(String(TELEGRAM_ID)))?.messageId).toBe(message);
   });
 
+  // FT-224: «25000 300» was glued into 25 000 300 сум; two numbers are not one amount
+  it('asks again when the answer is two numbers, and «25 000 300» is one', async () => {
+    const message = await write('наушники 600к', [{ amountMinor: 60_000_000, category: 'Покупки', description: 'наушники' }]);
+    const [id] = await recordIdsOf(message);
+    await press(message, 'Изменить');
+    await press(message, 'Сумму');
+
+    expect(text(await write('25000 300'))).toBe(ONE_AMOUNT);
+    expect(text(await write('25 000, 18 000'))).toBe(ONE_AMOUNT);
+
+    expect(running.capture).toHaveBeenCalledTimes(1);
+    expect((await record(id)).amountMinor).toBe(60_000_000);
+    expect((await awaiting())?.messageId).toBe(message);
+
+    await write('25 000 300');
+    expect((await record(id)).amountMinor).toBe(2_500_030_000);
+    expect(await awaiting()).toBeNull();
+  });
+
   it('closes the amount question when the next text is something else, and records that text', async () => {
     const message = await write('обед с командой 145к', [lunch]);
     const [id] = await recordIdsOf(message);
@@ -965,6 +986,16 @@ describe('bot record messages (FT-122)', () => {
         expect(running.capture).toHaveBeenCalledTimes(1);
       });
 
+      it('asks again when the new amount is two numbers (FT-224)', async () => {
+        const message = await write('кофе 25к', [coffee]);
+        const [id] = await recordIdsOf(message);
+
+        expect(text(await write('не 25, а 25000 300'))).toBe(ONE_AMOUNT);
+
+        expect((await record(id)).amountMinor).toBe(2_500_000);
+        expect(running.capture).toHaveBeenCalledTimes(1);
+      });
+
       it('a voice «не двадцать пять, а двадцать восемь» heard as digits corrects too', async () => {
         const message = await write('кофе 25к', [coffee]);
         const [id] = await recordIdsOf(message);
@@ -1054,6 +1085,22 @@ describe('bot record messages (FT-122)', () => {
         const answer = await write('18');
 
         expect(text(answer)).toContain(`<b>Расход ${MINUS}18${NB}000${NB}сум</b>\n<i>«18» понял как 18${NB}000${NB}сум.</i>`);
+      });
+
+      it('asks again when the answer is two numbers, and writes nothing (FT-224)', async () => {
+        const message = await write('кофе 25к, такси', [coffee], { missing: [taxiItem] });
+
+        expect(text(await write('25000 300'))).toBe(ONE_AMOUNT);
+
+        expect(running.captureWithAmount).not.toHaveBeenCalled();
+        expect(running.capture).toHaveBeenCalledTimes(1);
+        expect((await awaiting())?.messageId).toBe(message);
+        expect(text(message)).toMatch(/\n\n«Такси» — без суммы\. Сколько\? Напишите числом\.$/);
+
+        const answer = await write('25 000');
+        const [taxiId] = await recordIdsOf(answer);
+        expect((await record(taxiId)).amountMinor).toBe(2_500_000);
+        expect(await awaiting()).toBeNull();
       });
 
       it('any other text closes it honestly and is recorded as usual', async () => {
@@ -1273,6 +1320,19 @@ describe('bot record messages (FT-122)', () => {
         expect(await inApp(ignoredId)).toBe(false);
         await write('25000', [coffee]);
         expect(await inApp(ignoredId)).toBe(false); // the hint is gone: «25000» was a phrase of its own
+      });
+
+      it('asks again when the typed amount is two numbers (FT-224)', async () => {
+        const message = await write('кофе 25000000', [bigCoffee]);
+        const [id] = await recordIdsOf(message);
+
+        expect(text(await write('25000 300'))).toBe(ONE_AMOUNT);
+        expect(await inApp(id)).toBe(false);
+        expect((await awaiting())?.messageId).toBe(message);
+
+        await write('25000');
+        expect(await inApp(id)).toBe(true);
+        expect((await record(id)).amountMinor).toBe(2_500_000);
       });
 
       it('«не 25000000, а 25000» corrects it too, after the hint is gone; another amount is not it', async () => {

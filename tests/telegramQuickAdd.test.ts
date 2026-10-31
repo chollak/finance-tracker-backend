@@ -111,6 +111,18 @@ describe('the amount after a quick-add category (FT-207)', () => {
     expect(session.pendingAction).toEqual({ type: 'awaiting_amount', category: 'coffee' });
   });
 
+  // FT-224: «25000 300» was glued into 25 000 300 сум, as in the answer to «Сколько?»
+  it('writes nothing for two numbers and asks for one amount; «25 000 300» is one', async () => {
+    const two = await sendAmount('25000 300');
+
+    expect(two.create).not.toHaveBeenCalled();
+    expect(lastReply(two.reply)).toBe(`Сумма — одно число. Напишите её ещё раз — например, 25${NB}000 или 25к.`);
+    expect(two.session.pendingAction).toEqual({ type: 'awaiting_amount', category: 'coffee' });
+
+    const one = await sendAmount('25 000 300');
+    expect(one.create.mock.calls[0][0]).toEqual(expect.objectContaining({ amountMinor: 2_500_030_000, currency: 'UZS' }));
+  });
+
   it('writes nothing for a text that is not an amount and asks for one', async () => {
     const { create, reply, session } = await sendAmount('кофе 25000');
 
