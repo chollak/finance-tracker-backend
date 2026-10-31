@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Updates the live instance (FT-156) to the latest main: pull, install, build, restart the service, check health.
-# Run it in the live copy on the PC (~/kapelka-live):
+# Run it in the live copy on the PC (~/dev/projects/kapelka-live):
 #
 #   scripts/live-update.sh
 #
