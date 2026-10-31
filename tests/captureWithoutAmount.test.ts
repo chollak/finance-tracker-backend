@@ -36,7 +36,7 @@ function creator(id = 'new-1', resolved: { presetKey?: string } = {}) {
 
 describe('the parser reports what was named without an amount (FT-123)', () => {
   const service = new OpenAITranscriptionService('test-api-key') as unknown as {
-    parseAnalysisResponse(content: string): { transactions: unknown[]; withoutAmount?: ItemWithoutAmount[] };
+    parseAnalysisResponse(content: string, today?: string): { transactions: unknown[]; withoutAmount?: ItemWithoutAmount[] };
   };
 
   it('keeps an item with no amount aside instead of dropping it', () => {
@@ -63,6 +63,15 @@ describe('the parser reports what was named without an amount (FT-123)', () => {
 
     expect(result.transactions).toHaveLength(0);
     expect(result.withoutAmount).toEqual([expect.objectContaining({ description: 'Uzum', category: 'Покупки' })]);
+  });
+
+  it('dates an item the model gave no date by the day the phrase was said, as a record (FT-182)', () => {
+    // The answer to «Сколько?» comes later — the next morning, for a message the bot read then
+    const result = service.parseAnalysisResponse(JSON.stringify({
+      items: [{ intent: 'transaction', amount: null, category: 'Транспорт', type: 'expense', description: 'такси' }],
+    }), '2026-10-29');
+
+    expect(result.withoutAmount).toEqual([expect.objectContaining({ description: 'такси', date: '2026-10-29' })]);
   });
 
   it('tells the model to return such an item with a null amount', () => {

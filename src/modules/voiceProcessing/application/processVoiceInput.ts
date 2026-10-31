@@ -125,10 +125,11 @@ export class ProcessVoiceInputUseCase {
         return { text: recognizedText, transactions: [], debts: [] };
       }
 
-      // Analyze the text with the user's categories (FT-099)
+      // Analyze the text with the user's categories (FT-099), counting «вчера» from the day it was said (FT-182)
+      const today = input.today ?? todayDateOnly();
       const parsed = await this.openAIService.analyzeInput(
         recognizedText,
-        await analysisContextFor(this.categorySource, input.userId.trim())
+        { ...(await analysisContextFor(this.categorySource, input.userId.trim())), today }
       );
 
       const transactionResults: DetectedTransaction[] = [];
@@ -161,7 +162,7 @@ export class ProcessVoiceInputUseCase {
           const money = captureMoneyOf(p, recognizedText, hints, itemCount, semanticType);
           const { currency } = money;
           const transaction: Transaction = {
-            date: p.date || todayDateOnly(),
+            date: p.date || today,
             category: p.category || 'Другое',
             description: p.description || recognizedText.substring(0, 500),
             amount: money.amount,

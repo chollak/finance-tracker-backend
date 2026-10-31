@@ -4,7 +4,7 @@ import { getLogger, LogCategory } from '../../../shared/application/logging';
 import { ErrorFactory } from '../../../shared/domain/errors/AppError';
 import { buildCaptureAck } from './buildCaptureAck';
 import { capturedFromRecord, toCapturedTransaction } from './toCapturedTransaction';
-import { CAPTURED_AT_LIMITS, capturedAtProblem, inputDayOf } from '../domain/capturedAt';
+import { CAPTURED_AT_LIMITS, captureDayOf, capturedAtProblem } from '../domain/capturedAt';
 import { todayDateOnly } from '../../../shared/domain/dates/dateOnly';
 import { APPLE_PAY_SOURCE, RecordSource } from '../../transaction/domain/recordSource';
 import { Transaction } from '../../transaction/domain/transactionEntity';
@@ -84,7 +84,7 @@ export class QuickCaptureService {
       accountName: request.accountName,
       clientId: request.clientId,
       // Checked after the repeat, as for a phrase (FT-175)
-      date: request.capturedAt ? this.inputDay(request.capturedAt) : todayDateOnly(this.now()),
+      date: request.capturedAt ? this.dayOfCapturedAt(request.capturedAt) : todayDateOnly(this.now()),
     });
     if (!written.success) throw written.error;
 
@@ -120,8 +120,9 @@ export class QuickCaptureService {
     const earlier = await this.earlierRecords(request.userId, request.clientId);
     if (earlier) return { ...buildResult(text, request.source, earlier.map(capturedFromRecord), []), repeated: true };
 
-    // Checked after the repeat: a capture written once is answered, whatever time its retry carries (FT-175)
-    const today = request.capturedAt ? this.inputDay(request.capturedAt) : undefined;
+    // Checked after the repeat: a capture written once is answered, whatever time its retry carries (FT-175). The bot
+    // counts its day by Telegram's clock, which needs no check (FT-182)
+    const today = request.capturedAt ? this.dayOfCapturedAt(request.capturedAt) : request.inputDay;
 
     // The source is now stored on every record (FT-103); a client that does not say is the Mini App
     const processed = await this.processTextInputUseCase.execute(text, request.userId, request.userName, {
@@ -155,7 +156,7 @@ export class QuickCaptureService {
    * in WSL lags after a sleep; further ahead the phone's clock is wrong and the server's dates it. A time too old is not
    * the time of input, so the capture is refused.
    */
-  private inputDay(capturedAt: Date): string {
+  private dayOfCapturedAt(capturedAt: Date): string {
     const now = this.now();
     const problem = capturedAtProblem(capturedAt, now);
     if (problem === 'too_old') throw ErrorFactory.validation(CAPTURED_AT_TOO_OLD, 'capturedAt');
@@ -165,7 +166,7 @@ export class QuickCaptureService {
         datedBy: problem === 'ahead' ? 'capturedAt' : 'server',
       });
     }
-    return inputDayOf(problem === 'far_ahead' ? now : capturedAt);
+    return captureDayOf(capturedAt, now);
   }
 
   /**
