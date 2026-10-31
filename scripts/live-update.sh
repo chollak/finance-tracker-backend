@@ -71,6 +71,13 @@ build() {
     return 1
   fi
   rm -f "$marker"
+  # npm ci exits 0 even when the native sqlite3 it downloaded cannot load here (sqlite3 6 needs glibc 2.38+, FT-048);
+  # the restarted service would then fail on start. Load it now, while the old version still runs
+  if ! "$NVM_EXEC" node -e "require('sqlite3')"; then
+    printf 'live-update: the native sqlite3 module does not load (above). See «live-update.sh Refuses to Run» in %s\n' \
+      "docs/knowledge-base/08-development/troubleshooting.md" >&2
+    return 1
+  fi
   say "building the server"
   "$NVM_EXEC" npm run build
 }
