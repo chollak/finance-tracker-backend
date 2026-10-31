@@ -10,6 +10,8 @@ import { CategoryResolver, ResolvedCategory } from '../domain/categoryResolver';
 import { resolveCategoryForUpdate } from './resolveCategoryForUpdate';
 import { AccountResolver } from '../domain/accountResolver';
 import { resolveAccountForUpdate } from './resolveAccountForUpdate';
+import { changesRecord, RecordEdit } from '../domain/recordEdit';
+import { TransactionSemanticType } from '../domain/transactionSemanticType';
 
 const logger = getLogger(LogCategory.LEARNING);
 
@@ -28,6 +30,9 @@ export interface UpdateTransactionWithLearningRequest {
   description?: string;
   date?: string;
   type?: 'income' | 'expense';
+  /** The controller passes every allowed field on, and `...request` writes these two as well. */
+  semanticType?: TransactionSemanticType;
+  needsReview?: boolean;
   merchant?: string;
   // Learning context
   userId?: string;
@@ -93,6 +98,24 @@ export class UpdateTransactionWithLearningUseCase {
       const moved = await resolveAccountForUpdate(this.accountResolver, originalTransaction, request);
       if (!moved.success) return ResultHelper.failure(moved.error);
       const { accountId, currency } = moved.data;
+
+      const edit: RecordEdit = {
+        amountMinor,
+        categoryId: categoryResult.data?.id,
+        accountId,
+        currency,
+        description: request.description,
+        date,
+        type,
+        semanticType: request.semanticType,
+        needsReview: request.needsReview,
+        merchant: request.merchant,
+      };
+      // Nothing changes: no write, so updatedAt stays (FT-248), and no correction to record
+      if (!changesRecord(originalTransaction, edit)) {
+        logger.debug('Transaction update changes nothing', { transactionId: id });
+        return ResultHelper.success(originalTransaction);
+      }
 
       // Update the transaction
       const updatedTransaction = await this.repository.update(id.trim(), {
