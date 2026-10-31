@@ -759,7 +759,7 @@ DoS). В рабочих зависимостях сервера они прих�
 (`DATABASE_ENTITIES`, `migrations/index.ts`), так что риск низкий.
 
 В webapp те же advisory сидят в dev-зависимостях: eslint и `workbox-build` через `vite-plugin-pwa`. npm предлагает
-только откат `vite-plugin-pwa` до 1.1.0 и `typescript-eslint` до 8.36.0. Этого не делать — ждать исправленных версий.
+только откат `vite-plugin-pwa` до 1.1.0 и `typescript-eslint` до 8.14.0. Этого не делать — ждать исправленных версий.
 
 Идея: `typeorm` 1.x — changelog, `DataSource`, миграции; проверка на копии настоящей базы по правилам миграций; тесты.
 
@@ -767,3 +767,33 @@ Definition of Done:
 - [ ] `typeorm` 1.x; в `npm audit --omit=dev` в корне `typeorm`, `glob`, `minimatch` остались только в цепочке `sqlite3`
 - [ ] `npm run migration:show` на копии настоящей базы: применённые миграции те же, расхождений схемы нет
 - [ ] `npm run verify` зелёный
+
+---
+
+### FT-216: Voice through the API leaves its upload in `uploads/`
+
+Status: backlog — найдено при проверке FT-183 (2026-10-31)
+Priority: low
+Owner: Claude Code, QA — под-чат проверки
+Type: bug
+Size: S
+
+Context:
+`POST /api/voice/voice-input` принимает файл через multer (`dest: 'uploads/'`, имя без расширения) и отдаёт путь в
+`ProcessVoiceInputUseCase`. Тот конвертирует файл в `<путь>.mp3` и в `finally` (`processVoiceInput.ts:303-310`) удаляет
+только один файл:
+- конвертация удалась — удаляется `.mp3`, исходник multer остаётся в `uploads/`;
+- ffmpeg упал и запасной путь переименовал исходник в `.mp3` — удаляется исходник, которого уже нет, и остаётся `.mp3`.
+  Так и у бота: он после разбора удаляет свой скачанный файл (`messageHandlers.ts:388`, `cleanupFile` из
+  `fileDownloader.ts`), а `.mp3` остаётся в `downloads/`.
+
+При живой проверке FT-183 после каждого голосового в `uploads/` оставался исходный wav (180 108 байт), и с `openai` 4,
+и с 7. `uploads/` нет в `.gitignore` (там только `downloads/`). Значит, на ПК такой файл делает дерево грязным, и
+`scripts/live-update.sh` откажется обновлять. Сейчас маршрут никто не зовёт: голос в Mini App пока «скоро» (FT-117).
+
+Идея: `finally` удаляет и исходник, и `.mp3`, каждый — если он есть; `uploads/` — в `.gitignore`, как `downloads/`.
+
+Definition of Done:
+- [ ] После голосового через `/api/voice/voice-input` в `uploads/` пусто — и когда конвертация удалась, и на запасном пути; тест
+- [ ] У бота на запасном пути `.mp3` не остаётся в `downloads/`; тест
+- [ ] `uploads/` в `.gitignore`

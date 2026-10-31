@@ -106,6 +106,7 @@ iPhone при выключенном ПК.
 | [FT-207](docs/tasks/backlog.md) | Quick Add в боте читает запятую как точку («150,000» → 150) | найдено при проверке FT-185 |
 | [FT-208](docs/tasks/backlog.md) | Узбекские формы юрлиц «YTT», «ЯТТ» учатся как слова | найдено при оплате Apple Pay, FT-179 |
 | [FT-215](docs/tasks/backlog.md) | typeorm 1.x: advisory на `glob` и `minimatch` (moderate) | мажорное обновление; после FT-048; найдено при FT-183 |
+| [FT-216](docs/tasks/backlog.md) | Голос через API оставляет файл в `uploads/`, а на ПК он остановит `live-update.sh` | найдено при проверке FT-183; маршрут пока никто не зовёт |
 
 ---
 
