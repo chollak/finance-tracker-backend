@@ -24,7 +24,7 @@ import { listenOnLoopback } from './helpers/testServer';
  * and the global error handler's status-code mapping.
  *
  * SCOPE NOTE: `buildServer()` wires 5+ full modules (Transaction, Voice, Budget,
- * Debt, OpenAIUsage), several of which need a dozen+ use-case getters just to
+ * Debt), several of which need a dozen+ use-case getters just to
  * construct their routers, and DashboardRouter's factory eagerly `new`s services
  * from them. Faithfully stubbing all of that adds risk without adding coverage.
  * Instead, this suite assembles a minimal app using the *real* middleware and

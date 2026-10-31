@@ -1,5 +1,6 @@
 import { presetByKey, presetSynonyms } from '../../category/domain/categoryPresets';
 import { categoryNameKey } from '../../category/domain/category';
+import { isLegalForm } from './legalForms';
 
 /**
  * When a category is a guess (FT-138, decision of 2026-10-20). The review shows «?» and the bot «Покупки?»
@@ -160,10 +161,14 @@ export function mentionsBareBrand(text: string): boolean {
   return wordsOf(text).some(word => isBareBrand(word));
 }
 
-/** A word of a learned pattern that names nothing: generic, a bare brand, too short, or with digits («25к»). */
+/**
+ * A word of a learned pattern that names nothing: generic, a bare brand, too short, with digits («25к»), or a legal form
+ * («ооо», «ytt», FT-208).
+ */
 export function namesNothing(word: string): boolean {
   return word.length < 3
     || /\p{N}/u.test(word)
+    || isLegalForm(word)
     || GENERIC_WORDS.some(generic => sameWord(word, generic))
     || isBareBrand(word);
 }

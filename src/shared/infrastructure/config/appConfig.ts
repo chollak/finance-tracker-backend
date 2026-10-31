@@ -26,7 +26,6 @@ export class AppConfig {
 
   // API Keys
   static readonly OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
-  static readonly OPENAI_ORG_ID = process.env.OPENAI_ORG_ID || '';
   static readonly TG_BOT_API_KEY = process.env.TG_BOT_API_KEY || '';
   // The bot's @username for the web login link t.me/<bot>?start=login_… (FT-128); optional — asked from Telegram when empty
   static readonly TG_BOT_USERNAME = process.env.TG_BOT_USERNAME || '';

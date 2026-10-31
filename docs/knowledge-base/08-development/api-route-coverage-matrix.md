@@ -35,14 +35,14 @@ Prefer unit/use-case tests for pure business logic and route tests for HTTP/midd
 | Route family | Representative routes | Current route-test coverage | Risk | Recommendation |
 |---|---|---:|---|---|
 | Health / global middleware | `GET /api/health`, 404, CORS, malformed JSON, global error handler | partial/high-value covered | low | Keep current coverage. |
-| Voice | `POST /api/voice/text-input`, `POST /api/voice/voice-input` | text-input covered for JSON parsing, guest, auth, validation | medium | Add voice upload coverage only if endpoint changes; avoid heavy file tests for now. |
+| Voice | `POST /api/voice/text-input`, `POST /api/voice/voice-input` | text-input covered for JSON parsing, guest, auth, validation; voice-input covered through real HTTP with ffmpeg faked (`tests/voiceUploadCleanup.test.ts`, FT-216): success and the rename fallback, an empty file `400`, someone else's userId `403` and a blank one `400` — no upload left in any case | low | Keep current coverage. |
 | Debt | `POST /api/debts/user/:userId`, `GET /api/debts/user/:userId`, `GET /api/debts/:debtId`, pay/cancel/delete | create/list auth covered; null getDebt not-found covered; `:userId` ownership, no shadow user, `400` for a non-string id (FT-162) | high | Next route tests should cover pay debt auth/ownership and validation errors. |
-| Transaction | CRUD, analytics, archive, batch archive | resource by-id ownership/404/update validation covered; every `:userId` route and `POST /` user-from-auth covered (FT-162); broader CRUD/archive gaps remain | high | Add more focused coverage before any transaction controller split/refactor. |
+| Transaction | CRUD, analytics, archive, batch archive (the global admin `GET /analytics` removed in FT-174) | resource by-id ownership/404/update validation covered; every `:userId` route and `POST /` user-from-auth covered (FT-162); broader CRUD/archive gaps remain | high | Add more focused coverage before any transaction controller split/refactor. |
 | Budget | user budgets, summaries, alerts, by-id update/delete/recalculate | `:userId` routes: ownership, no shadow user, `400` for a non-string id (FT-162); by-id routes not covered | medium | Add missing-user validation and ownership route tests before controller cleanup. |
 | Subscription | status, check-limit, grant, cancel, start-trial | use-case level; routes: user from auth, someone else's id `403`, non-string `400` (FT-162) | medium-high | Add route tests around guest status/check-limit and invalid limitType. |
 | User | get/create/update user | covered at use-case/helper level, not route level | medium | Add auth/self-access tests if user routes become active frontend surface. |
 | Dashboard | insights/alerts/quick-stats with premium/read-only middleware | ownership before resolution, premium gate after it (FT-162) | medium | Add one auth/premium boundary test if dashboard route behavior changes. |
-| OpenAI usage | admin-only usage endpoints | not covered at route level | low-medium | Add admin auth tests only if exposing this UI/API more actively. |
+| OpenAI usage | removed with `OpenAIUsageModule` (FT-174): `requireAdmin` without `requireAuth` always answered `401`, nothing called it | `tests/deadAdminRoutes.test.ts`: the routes are `404` | — | — |
 
 ## Current Tested API Behaviors
 
@@ -131,7 +131,6 @@ Candidate tests:
 Avoid broad route test expansion for:
 
 - every dashboard insight endpoint
-- every OpenAI usage admin endpoint
 - full voice file upload behavior
 - all transaction archive/batch variants
 

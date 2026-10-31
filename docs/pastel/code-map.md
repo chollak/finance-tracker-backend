@@ -18,7 +18,7 @@ Architecture: `domain → application → infrastructure → presentation` вн�
 | `subscription` | Telegram Stars, пробный период, лимиты free (50 записей и 10 голосовых в месяц, 5 долгов) | Остаётся в коде. Лимиты — решение Шукура (см. README) |
 | `budget` | Бюджеты по категориям и периодам, пересчёт `spent` | Из интерфейса уходит. Цели ревизии — отдельная сущность |
 | `debt` | Долги, частичные платежи, связанная запись | Из интерфейса уходит, код остаётся; разбор долгов в ИИ выключается |
-| `openai-usage` | Расход OpenAI по организации | Без изменений |
+| `openai-usage` | Расход OpenAI по организации | Удалён в FT-174: админские маршруты не работали, их никто не звал |
 | `dashboard` (не модуль) | Инсайты, health score, алерты | Заменяется аналитикой и ревизией «Пастели», удаляется в уборке |
 
 **Бот** (`src/delivery/messaging/telegram/`): `/start`, `/today`, `/stats`, `/budget`, `/week`, `/weekly`,
@@ -65,7 +65,7 @@ webapp, проверка архитектуры и шрифтов.
 | `SqliteTransactionRepository.update()` | нет ветки для `category` — смена категории молча теряется на SQLite | Карточка операции и проверка записей правят категорию |
 | `callbackHandlers.ts`, «Удалить» в боте | `DeleteTransactionUseCase.execute(transactionId)` вызывается строкой вместо `{ id }`; проверка «последней записи» сравнивает разные ключи | Исправлено в FT-087; с FT-122 «Удалить» старых сообщений — отмена с «Вернуть», память о «последней записи» убрана |
 | `CreateTransactionUseCase` + обработчики бота + middleware `POST /transactions` | счётчик записей free-лимита увеличивается дважды | Лимит наступает вдвое раньше |
-| `requireAdmin` на `transactionController.ts:97, 254` и в `openAIUsageRoutes.ts` | перед ним нет авторизации — всегда 401 (на `/subscription/grant` авторизация есть) | Не мешает. Мёртвый `GET /api/transactions` убран в FT-107: путь занят историей |
+| `requireAdmin` на `transactionController.ts:97, 254` и в `openAIUsageRoutes.ts` (до FT-174) | перед ним нет авторизации — всегда 401 (на `/subscription/grant` авторизация есть) | Мёртвый `GET /api/transactions` убран в FT-107: путь занят историей. `GET /api/transactions/analytics` и `/api/openai/usage*` убраны в FT-174 вместе с `OpenAIUsageModule`; `requireAdmin` остался только на `/subscription/grant` |
 | Репозитории транзакций | `isDebtRelated`, `relatedDebtId`, `tags`, `splitGroupId` не сохраняются | Не мешает, если долги уходят из интерфейса |
 
 ## Webapp — `webapp/src/`

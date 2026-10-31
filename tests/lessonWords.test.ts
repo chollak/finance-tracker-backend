@@ -18,6 +18,13 @@ describe('the words a phrase correction teaches (FT-184)', () => {
     ['zzqx 8 марта, третьего января и двадцать первого', ['zzqx']],
     ['zzqx sakkizinchi mart, oktyabr', ['zzqx']],
     ['пятёрочка 30000', ['пятерочка']],
+    // Uzbek legal forms (FT-208): yakka tartibdagi tadbirkor and davlat unitar korxonasi, in Latin and Cyrillic
+    ['ytt zzqx 25000', ['zzqx']],
+    ['Ytt Abduvoxidov Davronbek', ['abduvoxidov', 'davronbek']],
+    ['YaTT zzqx', ['zzqx']],
+    ['ЯТТ zzqx', ['zzqx']],
+    ['DUK zzqx', ['zzqx']],
+    ['ДУК zzqx', ['zzqx']],
   ])('«%s» teaches %j', (phrase, words) => {
     expect(lessonWordsOf(phrase, [])).toEqual(words);
   });
@@ -43,6 +50,11 @@ describe('the merchant a payment correction teaches (FT-184)', () => {
     ['  EVOS  Chilonzor ', 'evos chilonzor'],
     ['Ёлка-2', 'елка'],
     ['7777', ''],
+    // Without its legal form (FT-208): «YTT X», «ЯТТ X» and «X» are one merchant
+    ['Ytt Abduvoxidov Davronbek', 'abduvoxidov davronbek'],
+    ['ЯТТ Abduvoxidov Davronbek', 'abduvoxidov davronbek'],
+    ['Ooo Mazzali Super Food', 'mazzali super food'],
+    ['ООО 777', ''],
   ])('«%s» is «%s»', (merchant, key) => {
     expect(merchantKey(merchant)).toBe(key);
   });

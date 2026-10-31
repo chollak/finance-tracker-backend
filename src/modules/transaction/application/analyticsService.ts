@@ -1,8 +1,8 @@
 import { TransactionRepository } from "../domain/transactionRepository";
 import { Transaction } from "../domain/transactionEntity";
 import { countsAsIncome, countsAsRealExpense, normalizeSemanticType } from "../domain/transactionSemanticType";
-import { fromMinor, minorOf } from "../../../shared/domain/money/money";
-import { PeriodTotals, summarizePeriod, uzsMinorOf } from "../domain/periodTotals";
+import { fromMinor } from "../../../shared/domain/money/money";
+import { PeriodTotals, uzsMinorOf } from "../domain/periodTotals";
 import { PeriodTotalsService } from "./periodTotalsService";
 
 // Sums are integer minor units (FT-097) through the shared period totals (FT-103): dollars at the
@@ -61,17 +61,6 @@ export class AnalyticsService {
 
     private totals(userId: string, transactions: Transaction[]): Promise<PeriodTotals> {
         return this.periodTotals.summarize(userId, transactions);
-    }
-
-    // Original methods for backward compatibility (admin, all users: dollars cannot share one rate and are left out)
-    async getSummary(): Promise<{ totalIncome: number; totalExpense: number }> {
-        const transactions = await this.repository.getAll();
-        return this.calculateBasicSummary(transactions);
-    }
-
-    async getCategoryBreakdown(): Promise<{ [category: string]: number }> {
-        const transactions = await this.repository.getAll();
-        return this.calculateSimpleCategoryBreakdown(transactions);
     }
 
     // Enhanced methods with time filtering
@@ -232,24 +221,6 @@ export class AnalyticsService {
         }
 
         return await this.repository.getByUserIdAndDateRange(userId, timeRange.startDate, timeRange.endDate);
-    }
-
-    private calculateBasicSummary(transactions: Transaction[]): { totalIncome: number; totalExpense: number } {
-        const { incomeMinor, expenseMinor } = summarizePeriod(transactions, { usdRateMinor: null });
-        return { totalIncome: fromMinor(incomeMinor), totalExpense: fromMinor(expenseMinor) };
-    }
-
-    private calculateSimpleCategoryBreakdown(transactions: Transaction[]): { [category: string]: number } {
-        const minorByCategory = transactions.reduce((acc, transaction) => {
-            if (transaction.currency === 'USD') return acc; // no common rate across users
-            acc[transaction.category] = (acc[transaction.category] || 0) + minorOf(transaction);
-            return acc;
-        }, {} as { [category: string]: number });
-        const result: { [category: string]: number } = {};
-        for (const [category, minor] of Object.entries(minorByCategory)) {
-            result[category] = fromMinor(minor);
-        }
-        return result;
     }
 
     private formatPeriod(timeRange?: TimeRange): string {

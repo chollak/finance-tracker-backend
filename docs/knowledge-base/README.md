@@ -75,7 +75,6 @@ Finance Tracker Backend — это backend система для управле�
 - [`src/modules/budget/budgetModule.ts`](../../src/modules/budget/budgetModule.ts) - Budget Module
 - [`src/modules/debt/debtModule.ts`](../../src/modules/debt/debtModule.ts) - Debt Module
 - [`src/modules/voiceProcessing/voiceProcessingModule.ts`](../../src/modules/voiceProcessing/voiceProcessingModule.ts) - Voice Processing Module
-- [`src/modules/openai-usage/openAIUsageModule.ts`](../../src/modules/openai-usage/openAIUsageModule.ts) - OpenAI Usage Module
 - [`src/modules/subscription/subscriptionModule.ts`](../../src/modules/subscription/subscriptionModule.ts) - Subscription Module
 - [`src/modules/user/userModule.ts`](../../src/modules/user/userModule.ts) - User Module
 
@@ -146,7 +145,7 @@ TransactionModule (independent)
     ├─── DebtModule (linked-транзакции при передаче денег; + Subscription, User)
     └─── VoiceProcessingModule (использует CreateTransactionUseCase; + DebtModule)
 
-OpenAIUsageModule, UserModule — независимые модули
+UserModule — независимый модуль
 SubscriptionModule — использует UserModule на уровне контроллера (telegram_id → UUID)
 
 DashboardService — не модуль: собирается в createDashboardRouter() из

@@ -158,7 +158,7 @@ describe('POST /api/quick-capture from the iPhone in production (FT-155)', () =>
     const userModule = new UserModule(new SqliteUserRepository(db.dataSource), new SqliteUserSettingsRepository(db.dataSource));
 
     const app = express();
-    app.use('/api', buildServer(unusedModule, unusedModule, unusedModule, unusedModule, unusedModule, userModule, undefined, quickCaptureModule));
+    app.use('/api', buildServer(unusedModule, unusedModule, unusedModule, unusedModule, userModule, undefined, quickCaptureModule));
     // The test server starts the shared AI limiter (20 per address) with empty counters
     ({ server, baseUrl } = await listenOnLoopback(app));
   });

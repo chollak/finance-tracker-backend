@@ -192,7 +192,7 @@ The code follows Clean Architecture principles with layers for `domain`, `applic
 
 ### Module interactions
 
-The application is organized into 7 app modules (`TransactionModule`, `BudgetModule`, `DebtModule`, `VoiceProcessingModule`, `OpenAIUsageModule`, `UserModule`, `SubscriptionModule`), created once in `createModules()` (`src/appModules.ts`) and shared between the HTTP server and the Telegram bot. For example, `voiceProcessing` depends on `transaction` through `CreateTransactionUseCase` — voice commands are transcribed and immediately recorded as transactions.
+The application is organized into 15 app modules (`TransactionModule`, `VoiceProcessingModule`, `QuickCaptureModule`, `CategoryModule`, `AccountModule`, `UserModule`, `BotMessageModule`, `NotificationModule`, `AuditModule` and others — the full list is in `CLAUDE.md`), created once in `createModules()` (`src/appModules.ts`) and shared between the HTTP server and the Telegram bot. For example, `voiceProcessing` depends on `transaction` through `CreateTransactionUseCase` — voice commands are transcribed and immediately recorded as transactions.
 
 Dashboard is not one of these modules: `src/modules/dashboard/` ships only `DashboardService` and `DashboardController`, which the Express layer assembles in `createDashboardRouter()` from the Transaction analytics service and the Budget service.
 

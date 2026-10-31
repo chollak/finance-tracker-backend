@@ -392,6 +392,7 @@ SELECT * FROM transaction LIMIT 10;
 | `TG_BOT_USERNAME` | - | @username бота без `@` для ссылки входа в браузере `t.me/<bot>?start=login_…` (FT-128). Пусто — спрашивается у Telegram (`getMe`) |
 | `WEB_APP_URL` | `http://localhost:3000` | Public URL (перезаписывается `npm run dev:miniapp`; у живого экземпляра — адрес tailnet, [live-instance.md](live-instance.md)) |
 | `OPENAI_MODEL` | `gpt-4.1-mini` | Модель разбора текста (`gpt-4-turbo` OpenAI снял) |
+| `OPENAI_ORG_ID` | - | Приложение её не читает (с FT-174), но SDK `openai` сам подхватывает её из окружения, если она задана, — с неверным значением запросы, и расшифровка голоса тоже, падают `401`. На живом экземпляре не задавать |
 | `OPENAI_TIMEOUT_MS` | `20000` | Сколько ждать ответа OpenAI на разбор текста и расшифровку голоса (FT-145). Без него SDK ждёт 10 минут |
 | `OPENAI_MAX_RETRIES` | `1` | Сколько раз повторить разбор текста после таймаута или сбоя, 0–5 (FT-145). Голос не повторяется |
 | `SHORTCUT_CAPTURE_TOKEN` | - | Токен Shortcut с iPhone для `POST /api/quick-capture`, заголовок `X-Shortcut-Capture-Token` (FT-075, FT-155). При `NODE_ENV=production` — не короче 32 символов и только вместе с `SHORTCUT_CAPTURE_OWNER`, иначе ошибка запуска; оба пустые — Shortcut выключен. Отзыв — новое значение и перезапуск. [QUICK_CAPTURE_API.md](../../QUICK_CAPTURE_API.md#ios-shortcut-capture) |

@@ -58,7 +58,7 @@ Recent foundation work already improved several contracts:
 | `dashboardController.ts` | 196 lines | Mostly service calls; uses raw `new Error(...)` for missing user. |
 | `voiceProcessingController.ts` | 139 lines | Validates body manually; text input defaults missing `userId` to `'1'` for backward compatibility. |
 | `userController.ts` | 124 lines | Improved by FT-017; still manually maps use-case Results. |
-| `openAIUsageController.ts` | 105 lines | Admin surface; smaller controller. |
+| `openAIUsageController.ts` | 105 lines | Admin surface; smaller controller. Removed in FT-174 with `OpenAIUsageModule`. |
 
 ### Route Surfaces
 

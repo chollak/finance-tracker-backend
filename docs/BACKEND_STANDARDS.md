@@ -420,7 +420,7 @@ interface Transaction {
 
 ```typescript
 // ❌ НЕПРАВИЛЬНО - class с методами
-class OpenAIUsageEntity {
+class TransactionEntity {
   constructor(
     public readonly id: string,
     public readonly amount: number
@@ -524,7 +524,7 @@ export class BudgetModule {
 
 ```typescript
 // ❌ НЕПРАВИЛЬНО - функция вместо класса
-export function createOpenAIUsageModule() {
+export function createBudgetModule() {
   return { useCase, controller, routes };
 }
 

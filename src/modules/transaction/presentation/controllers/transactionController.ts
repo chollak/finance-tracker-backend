@@ -22,7 +22,7 @@ import { SUCCESS_MESSAGES } from '../../../../shared/domain/constants/messages';
 import { SubscriptionModule } from '../../../subscription/subscriptionModule';
 import { UserModule } from '../../../user/userModule';
 import { createUserResolutionMiddleware } from '../../../../delivery/web/express/middleware/userResolutionMiddleware';
-import { allowGuestMode, optionalAuth, verifyOwnership, requireAdmin, requireAuth } from '../../../../delivery/web/express/middleware/authMiddleware';
+import { allowGuestMode, optionalAuth, verifyOwnership, requireAuth } from '../../../../delivery/web/express/middleware/authMiddleware';
 import { standardRateLimiter } from '../../../../delivery/web/express/middleware/rateLimitMiddleware';
 import { createCurrentUserMiddleware, createResolveCurrentUserMiddleware, currentUserId } from '../../../../delivery/web/express/middleware/currentUserMiddleware';
 import { verifyResourceOwnership } from '../../../../shared/infrastructure/utils/ownershipVerification';
@@ -91,22 +91,6 @@ export function createTransactionRouter(
 
   // Apply rate limiting to all routes
   router.use(standardRateLimiter);
-
-  // Global analytics - ADMIN ONLY (returns data for all users)
-  router.get('/analytics', requireAdmin, async (_req, res) => {
-    try {
-      const summary = await analyticsService.getSummary();
-      const categoryBreakdown = await analyticsService.getCategoryBreakdown();
-
-      handleControllerSuccess({
-        totalIncome: summary.totalIncome,
-        totalExpense: summary.totalExpense,
-        categoryBreakdown
-      }, res);
-    } catch (error) {
-      handleControllerError(error, res);
-    }
-  });
 
   // Enhanced analytics endpoints with time filtering
   // Protected with auth + ownership verification
