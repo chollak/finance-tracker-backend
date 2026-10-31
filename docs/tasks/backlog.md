@@ -572,7 +572,7 @@ Definition of Done:
 
 ### FT-221: iOS: delete with undo and change the category
 
-Status: backlog — в очереди
+Status: in_progress — под-чат разработки, 2026-10-31 (FT-220 в main)
 Priority: high
 Owner: Claude Code, Shukur (iPhone), QA — под-чат проверки
 Type: feature
