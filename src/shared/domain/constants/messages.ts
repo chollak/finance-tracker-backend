@@ -123,6 +123,7 @@ ${categoryPrompt}
       - Записывай числа как есть (50000, 100, 25.5)
       - Точка или запятая перед ровно тремя цифрами разделяет тысячи: «25.000» = 25000, «1.500» = 1500, «150,000» = 150000;
         перед одной-двумя цифрами — дробь: «4.50» = 4.5, «28 000,00» = 28000
+      - После нуля точка и запятая — дробь, а не тысячи: «0.250» = 0.25, «0,500» = 0.5
       - Ищи числа с любыми валютами (сум, сўм, UZS, $, €, руб)
       - НЕ КОНВЕРТИРУЙ валюты - записывай оригинальную сумму
       - Если сумма не указана четко, confidence = 0.3
@@ -217,6 +218,7 @@ ${categoryPrompt}
       - Record numbers as is (50000, 100, 25.5)
       - A point or a comma before exactly three digits separates thousands: «25.000» = 25000, «1.500» = 1500,
         «150,000» = 150000; before one or two digits it is a fraction: «4.50» = 4.5, «28 000,00» = 28000
+      - After a zero a point or a comma is a fraction, not thousands: «0.250» = 0.25, «0,500» = 0.5
       - Look for numbers with any currencies (sum, сўм, UZS, $, €, rub)
       - DON'T CONVERT currencies - record original amount
       - If amount not clearly specified, confidence = 0.3

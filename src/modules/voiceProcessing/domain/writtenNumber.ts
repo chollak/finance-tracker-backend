@@ -2,6 +2,8 @@
 const DECIMAL_COMMA = /^([+-]?[\d.,]+),(\d{1,2})$/;
 // Points before exactly three digits: «25.000», «1.234.567»; not after a zero, «0.250» is a quarter
 const POINT_GROUPS = /^[+-]?[1-9]\d{0,2}(?:\.\d{3})+$/;
+// A comma after a zero head is no thousands group either: «0,500» is a half (FT-224)
+const ZERO_HEAD_COMMA = /^[+-]?0\d*,/;
 // One point or comma at most: «1.5», «3,2»
 const ONE_SEPARATOR = /^[+-]?\d+(?:[.,]\d+)?$/;
 
@@ -30,18 +32,26 @@ export function writtenNumbersIn(text: string): WrittenNumber[] {
 /**
  * A number as a phrase writes it (FT-185, FT-206): «28 000,00», «1 234,50», «150,000», «25.000», «4.50».
  * Spaces group thousands. A comma before one or two closing digits is the decimal one — Wallet writes a payment as
- * «28 000,00 UZS», and taking that comma for a group made it 2 800 000; any other comma groups thousands («150,000»).
+ * «28 000,00 UZS», and taking that comma for a group made it 2 800 000; any other comma groups thousands («150,000»),
+ * but not after a zero (FT-224): «0,500» is a half, as «0.500» is, not 500.
  * A point before exactly three digits groups thousands too: «25.000» is 25 000, «4.500 $» 4 500 $ (Shukur,
  * 2026-10-31); before one or two it is the decimal one, «4.50», «1.5». Before «к», «тыс», «млн» (`beforeMagnitude`)
  * a single point or comma is a fraction, as in the answer to «Сколько?»: «1.5к», «3,2 млн», «1.500 млн» is 1,5
- * million. Null when the token is no number this way («1.234.5»).
+ * million. Null when the token is no number this way («1.234.5», «0,500,000»).
  */
 export function readWrittenNumber(token: string, { beforeMagnitude = false }: { beforeMagnitude?: boolean } = {}): number | null {
   const compact = token.replace(/\s/g, '');
   if (beforeMagnitude) return ONE_SEPARATOR.test(compact) ? Number(compact.replace(',', '.')) : null;
   const decimal = DECIMAL_COMMA.exec(compact);
-  const whole = decimal ? decimal[1] : compact;
-  const grouped = POINT_GROUPS.test(whole) ? whole.replace(/\./g, '') : whole.replace(/,/g, '');
-  const value = Number(decimal ? `${grouped}.${decimal[2]}` : grouped);
+  const whole = wholePartOf(decimal ? decimal[1] : compact);
+  const value = Number(decimal ? `${whole}.${decimal[2]}` : whole);
   return Number.isFinite(value) ? value : null;
+}
+
+/** The part before a decimal comma, its group separators taken out; a zero head keeps its comma as the decimal point. */
+function wholePartOf(whole: string): string {
+  if (POINT_GROUPS.test(whole)) return whole.replace(/\./g, '');
+  // «0,500» is 0.5; a second comma there leaves no number, as «0.500.000» does
+  if (ZERO_HEAD_COMMA.test(whole)) return whole.replace(',', '.');
+  return whole.replace(/,/g, '');
 }
