@@ -20,17 +20,23 @@ struct RecordsDeleteTests {
     }
 
     private func list(_ routes: RoutedTransport) throws -> RecordsList {
+        try make(routes).list
+    }
+
+    /// The list and its harness, for a look at the page on disk.
+    private func make(_ routes: RoutedTransport) throws -> (list: RecordsList, harness: RecordsHarness) {
         let harness = try RecordsHarness(routes: routes)
         let clock = harness.clock
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(identifier: "Asia/Tashkent")!
         let timer = timer
-        return RecordsList(
+        let list = RecordsList(
             feed: harness.makeFeed(),
             now: { clock.now },
             calendar: calendar,
             wait: { await timer.wait($0) }
         )
+        return (list, harness)
     }
 
     private func ids(_ list: RecordsList) -> [String] {
@@ -238,5 +244,62 @@ struct RecordsDeleteTests {
         await deleting
         #expect(ids(list) == ["c", "b", "a"])
         #expect(list.notice?.text == "Нет связи — попробуй позже")
+    }
+
+    @Test("«Вернуть» последней загруженной строки, пока следующая страница в пути, — строка снова в конце, и на диске")
+    func restoreLastLoadedRow() async throws {
+        let routes = RoutedTransport(
+            page: [page([Self.c, Self.b], next: "cursor-1"), .after(.milliseconds(300), page([Self.a]))],
+            edits: [.http(200, body: RecordsReply.deleted("b")), .http(200, body: RecordsReply.one(Self.b))]
+        )
+        let (list, harness) = try make(routes)
+        await list.refresh()
+
+        async let more: Void = list.loadMore()
+        #expect(await eventually { await routes.pages.requests.count == 2 })
+        await list.delete("b")
+        await list.restoreDeleted()
+
+        // The next page goes on after b: b must come back here, no page will bring it again
+        #expect(ids(list) == ["c", "b"])
+        #expect(harness.cache.load()?.page.items.map(\.id) == ["c", "b"])
+        await more
+        #expect(ids(list) == ["c", "b", "a"])
+    }
+
+    @Test("«Вернуть» последней строки, когда следующая страница не пришла, — строка на месте, «Загрузить ещё» приносит дальше")
+    func restoreLastRowAfterFailedPage() async throws {
+        let routes = RoutedTransport(
+            page: [page([Self.c, Self.b], next: "cursor-1"), .failure(.timedOut), page([Self.a])],
+            edits: [.http(200, body: RecordsReply.deleted("b")), .http(200, body: RecordsReply.one(Self.b))]
+        )
+        let list = try list(routes)
+        await list.refresh()
+        await list.loadMore()
+        #expect(list.moreProblem == .unreachable)
+
+        await list.delete("b")
+        await list.restoreDeleted()
+        #expect(ids(list) == ["c", "b"])
+
+        await list.loadMore()
+        #expect(ids(list) == ["c", "b", "a"])
+    }
+
+    @Test("вернули запись, которой нет среди загруженных — список начат заново, — а дальше есть страницы: список обновляется")
+    func restoreWithoutPlaceRefreshes() async throws {
+        let routes = RoutedTransport(
+            page: [page([Self.c, Self.b], next: "cursor-1"), page([Self.c], next: "cursor-2"), page([Self.c, Self.b], next: "cursor-1")],
+            edits: [.http(200, body: RecordsReply.deleted("b")), .http(200, body: RecordsReply.one(Self.b))]
+        )
+        let list = try list(routes)
+        await list.refresh()
+        await list.delete("b")
+        await list.refresh()
+
+        await list.restoreDeleted()
+
+        #expect(await eventually { await routes.pages.requests.count == 3 })
+        #expect(await eventually { @MainActor in self.ids(list) == ["c", "b"] })
     }
 }

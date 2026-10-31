@@ -195,8 +195,13 @@ final class RecordsList {
         let edit = startEdit()
         do {
             let record = try await feed.restore(id)
-            deleted.remove(id)
-            shownRecords = shownRecords.restoring(record, morePagesFollow: hasMore)
+            let wasShown = deleted.remove(id) != nil
+            if let placed = shownRecords.restoring(record, wasShown: wasShown, morePagesFollow: hasMore) {
+                shownRecords = placed
+            } else {
+                // The list started again since the delete: a fresh start brings it on its page
+                refreshLater()
+            }
             rebuild()
         } catch {
             guard edit == lastEdit else { return }
@@ -339,7 +344,10 @@ final class RecordsList {
 
     private func rebuild() {
         let hidden = deleting.union(deleted)
-        let records = ((shown?.page.items ?? []) + more).filter { !hidden.contains($0.id) }
+        let first = shown?.page.items ?? []
+        let onFirst = Set(first.map(\.id))
+        // A record put back last on the disk's page and first on a scrolled one shows once
+        let records = (first + more.filter { !onFirst.contains($0.id) }).filter { !hidden.contains($0.id) }
         let moment = now()
         days = RecordDays.days(records, accountNames: accountNames, now: moment, calendar: calendar)
         caption = RecordsCaption.text(problem: problem, updatedAt: shown?.updatedAt, now: moment, calendar: calendar)

@@ -19,17 +19,18 @@ struct ShownRecords: Equatable, Sendable {
         )
     }
 
-    /// «Вернуть»: the record goes to its place in the server's order. Older than everything shown while more pages
-    /// follow — its place is on one of them, and the scroll brings it. It goes into the part the disk's page would
-    /// hold it in too (`RecordsFeed`), so a refresh without a network that keeps the scrolled pages shows it once.
-    func restoring(_ record: Record, morePagesFollow: Bool) -> ShownRecords {
+    /// «Вернуть»: the record goes to its place in the server's order. `nil` when it has none here: older than
+    /// everything shown while more pages follow. Then its place is on one of them — unless it was shown here before
+    /// its delete (`wasShown`): the cursor of the next page is already behind it, no page brings it again, and it goes
+    /// last. A record that ends up in both parts — on the disk's first page and on a scrolled one — shows once (`RecordsList`).
+    func restoring(_ record: Record, wasShown: Bool, morePagesFollow: Bool) -> ShownRecords? {
         if (first + more).contains(where: { $0.id == record.id }) {
             return replacing(record)
         }
         let all = first + more
         let index = all.firstIndex { record.precedes($0) } ?? all.endIndex
-        if index == all.endIndex, morePagesFollow {
-            return self
+        if index == all.endIndex, morePagesFollow, !wasShown {
+            return nil
         }
         if index < first.count || more.isEmpty {
             return ShownRecords(first: Self.inserting(record, at: index, into: first), more: more)

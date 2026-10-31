@@ -72,6 +72,21 @@ struct RecordsEditTests {
         #expect(cachedIds(harness) == ["c", "b", "a"])
     }
 
+    @Test("вернуть последнюю запись страницы, когда дальше есть страницы, — она снова в кэше: курсор уже за ней")
+    func restoreLastOfPage() async throws {
+        let harness = try primed(
+            [.http(200, body: RecordsReply.deleted("a")), .http(200, body: RecordsReply.one(third))],
+            nextCursor: "next"
+        )
+        let feed = harness.makeFeed()
+        try await feed.delete("a")
+        #expect(cachedIds(harness) == ["c", "b"])
+
+        _ = try await feed.restore("a")
+
+        #expect(cachedIds(harness) == ["c", "b", "a"])
+    }
+
     @Test("вернуть самую старую на последней странице — она в конце кэша")
     func restoreOldestOnLastPage() async throws {
         let older = RecordsReply.record(id: "z", date: "2026-10-01", createdAt: "2026-10-01T10:00:00.000Z")
