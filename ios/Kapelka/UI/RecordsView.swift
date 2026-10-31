@@ -1,12 +1,14 @@
 import SwiftUI
 
 /// The tab «Записи» (FT-220): the server's records by day, standard iOS components only. Pull to refresh; the next
-/// page comes as the list's end scrolls into view. Each row is a row of a `List`, ready for swipe actions (FT-221).
+/// page comes as the list's end scrolls into view. A swipe deletes, with «Вернуть» on the bar at the bottom for 5 s;
+/// a tap opens the sheet of categories (FT-221).
 struct RecordsView: View {
     let list: RecordsList
     let openSettings: () -> Void
 
     var body: some View {
+        @Bindable var list = list
         NavigationStack {
             List {
                 if list.screen == .list {
@@ -20,7 +22,7 @@ struct RecordsView: View {
                     ForEach(list.days) { day in
                         Section(day.title) {
                             ForEach(day.rows) { row in
-                                RecordRowView(row: row)
+                                recordRow(row)
                             }
                         }
                     }
@@ -30,13 +32,48 @@ struct RecordsView: View {
                 }
             }
             .overlay { placeholder }
+            .safeAreaInset(edge: .bottom) {
+                if let notice = list.notice {
+                    RecordsNoticeView(
+                        notice: notice,
+                        restore: { Task { await list.restoreDeleted() } },
+                        dismiss: list.dismissNotice
+                    )
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+            }
+            .animation(.default, value: list.notice)
+            // VoiceOver hears each bar; «Вернуть» on its way is not news
+            .onChange(of: list.notice?.id) {
+                guard let notice = list.notice, notice.undo?.isRestoring != true else { return }
+                AccessibilityNotification.Announcement(notice.text).post()
+            }
             .refreshable { await list.refresh() }
+            .sheet(item: $list.picker) { CategorySheet(picker: $0) }
             .navigationTitle("Записи")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     SettingsButton(action: openSettings)
                 }
             }
+        }
+    }
+
+    private func recordRow(_ row: RecordRow) -> some View {
+        Button {
+            list.openPicker(for: row.id)
+        } label: {
+            RecordRowView(row: row)
+        }
+        .accessibilityHint("Сменить категорию")
+        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+            Button(role: .destructive) {
+                Task { await list.delete(row.id) }
+            } label: {
+                Label("Удалить", systemImage: "trash")
+            }
+            // The screen's black-or-white tint would make it white on white in the dark theme
+            .tint(.red)
         }
     }
 
@@ -132,7 +169,9 @@ private struct RecordRowView: View {
         layout {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    // In a button: without its own style the title would take the tint
                     Text(row.title)
+                        .foregroundStyle(.primary)
                         .lineLimit(2)
                     if row.needsReview {
                         Image(systemName: "exclamationmark.circle")
