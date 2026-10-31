@@ -4,7 +4,7 @@
 
 ## Prerequisites
 
-- **Node.js**: 22 (`.nvmrc`; `nvm use`). Webapp на Vite 7 и Vitest 4 требует 20.19+, на Node 16–18 `npm install` падает на сборке webapp
+- **Node.js**: 22 (`.nvmrc`; `nvm use`). Сервер на `openai` 7 требует 22+ (FT-183); webapp на Vite 7 и Vitest 4 — 20.19+, на Node 16–18 `npm install` падает на сборке webapp
 - **npm**: 8+ (comes with Node.js)
 - **SQLite3**: Встроено в Node.js (для SQLite database)
 - **Optional**: FFmpeg для voice processing
@@ -311,7 +311,8 @@ docker compose down
 ```
 
 **Docker Config:**
-- Base image: `node:20-alpine` (multi-stage build: `builder` → `production`)
+- Base image: `node:20-alpine` (multi-stage build: `builder` → `production`). Docker отложен вместе с production; `openai` 7 требует
+  Node 22 (FT-183), поэтому до возвращения Docker образ нужно поднять до `node:22-alpine` и проверить сборку `sqlite3`
 - Ports: 3000 (backend)
 - Volume: `./data` (for SQLite database)
 - Environment: From `.env` file

@@ -2,7 +2,7 @@
 
 Задачи с FT-144: надёжность, закрытый доступ, переезд живого экземпляра на ПК.
 
-Закрыто задач: **32**. Это архив: задачи здесь не переоткрываются и не редактируются.
+Закрыто задач: **33**. Это архив: задачи здесь не переоткрываются и не редактируются.
 Активная доска — [`TASKS.md`](../../../TASKS.md), решения по плану — [`decisions.md`](../decisions.md).
 
 ---
@@ -2474,3 +2474,154 @@ Definition of Done:
 - сообщение без `date` (на деле не бывает) ложится днём сервера;
 - живая проверка на @FinanceTrackerDevBot: остановить бота вечером, отправить «такси 18к», запустить после полуночи.
   Запись должна лечь вчерашним днём, а в логе — ни одного `warn` про часы сервера.
+
+---
+
+### FT-183: Dependencies: safe updates and openai v7
+
+Status: done
+Priority: medium
+Owner: Claude Code, QA — под-чат проверки
+Type: chore
+Size: M
+Depends on: — (после FT-176…FT-179: те же lock-файлы не трогать параллельно)
+
+Context:
+2026-10-30, при обновлении ПК, `npm ci` показал 25 уязвимостей. `npm audit --omit=dev` на `main` (266ddc9):
+
+| Где | Что | Как закрывается |
+|---|---|---|
+| сервер | `proxy-addr` (critical), `body-parser`, `brace-expansion` (high) — Express | `npm audit fix` без `--force` |
+| сервер | `openai` (high, прямая), `zod` (high) | `openai` ^4.89 → 7.x — мажорное обновление |
+| сервер | `tar` (critical), `node-gyp`, `cacache`, `make-fetch-happen` (high) — через `sqlite3` | `sqlite3` 6 — это FT-048, не здесь |
+| webapp | `zod` (high) | `npm audit fix` |
+| оба | dev-зависимости: в webapp 16, в корне — остальное | `npm audit fix` без `--force`, если не ломает сборку и тесты |
+
+Сервер доступен только в tailnet и только Шукуру (FT-153), риск низкий, но держать так не стоит. `npm audit fix --force`
+по правилам Stop/ask не запускать; мажорное обновление `openai` — осознанное, с проверкой разбора.
+
+Идея:
+1. `npm audit fix` без `--force` в корне и в `webapp/`; `npm run verify` зелёный.
+2. `openai` → 7.x: изменения API клиента (чат, транскрипция голоса, таймауты и повторы FT-145, ошибки), тесты; живой
+   разбор фраз и голоса на настоящем ключе — как раньше. Если переход тянет большую переделку — остановиться, записать
+   что мешает и сделать пункт 1 отдельно.
+3. `sqlite3` не трогать — FT-048.
+
+На ПК обновление придёт через `scripts/live-update.sh` (`npm ci` по новому lock-файлу); в ПК-копии руками `npm audit fix`
+не запускать — дерево станет грязным и `live-update.sh` откажется.
+
+Definition of Done:
+- [x] `npm audit --omit=dev` в корне: high/critical остались только в цепочке `sqlite3` (FT-048); в `webapp/` — ноль
+- [x] `openai` 7.x: разбор текста, голос, таймаут и повтор (FT-145) — тесты зелёные
+- [x] Живая проверка на настоящем ключе: 5 фраз (бот-формат и quick capture) и одно голосовое — результат как до обновления
+- [x] `npm run verify` зелёный; `npm audit fix --force` не запускался
+- [x] Записано в «Реализовано», какие пакеты и версии сменились
+
+Реализовано 2026-10-31 (`cf01d50`, `1f3fe69`, `735b36f`, PR #141):
+- **`npm audit fix` без `--force`.**
+  - Корень — три прохода. Со второго express доехал до 4.22.3; третий, после `openai`, поднял dev-цепочку madge.
+  - webapp — через `npx npm@11.21.1 audit fix`. npm 10.9.9 на нём падает: `Cannot read properties of null (reading
+    'edgesOut')` в arborist `#loadPeerSet`, на необязательных peer у vite 7.3.7 (`@vitejs/devtools` → vitest → jsdom →
+    canvas). npm 10 ставит такой lock с нуля, а `npm ci` и `npm install` его не меняют.
+- **`openai` 4.89.0 → 7.47.0** (`^7.47.0`).
+  - Для наших вызовов API тот же: опции клиента, `chat.completions.create` с `json_object`, загрузка в Whisper из
+    `fs.createReadStream`, `APIConnectionTimeoutError` («Request timed out.»).
+  - Код не менялся, кроме комментария у `maxRetries: 0` для голоса. openai 7 отправляет файл потоком и поток сам не
+    повторяет; опция оставлена, чтобы поведение не зависело от SDK.
+  - `openai` 7 требует Node 22 — `.nvmrc` уже 22.
+- **`zod` 3.25.76 удалён из корня.** Он стоял от openai 4. У openai 7 `zod` — необязательный peer, но npm держит уже
+  стоящий пакет. `npm uninstall zod` его не убирает: пакета нет в `package.json`. Запись `node_modules/zod` удалена из
+  lock руками, и `npm install` её не возвращает.
+- **Пакеты** (lock-файлы против `main` `1a0e45e`; в корне сменились 94, в webapp — 49):
+
+  | Где | Пакет | Было → стало |
+  |---|---|---|
+  | корень, рабочие | `openai` | 4.89.0 → 7.47.0 |
+  | | `zod` | 3.25.76 → удалён |
+  | | `formdata-node`, `form-data-encoder`, `web-streams-polyfill`, `@types/node-fetch` — зависимости openai 4 | удалены |
+  | | `express` | 4.22.2 → 4.22.3 |
+  | | `body-parser` | 1.20.6 → 1.20.9 |
+  | | `proxy-addr` | 2.0.7 → 2.0.8 |
+  | | `qs` | 6.15.3 → 6.16.2 |
+  | | `ip-address` | 10.5.0 → 10.7.5 |
+  | | `brace-expansion` | 1.1.18, 2.1.4 → 1.1.21, 2.1.7 |
+  | корень, dev | `ts-jest` | 29.3.4 → 29.4.15 |
+  | | `typescript` | 5.9.2 → 5.9.3 |
+  | | `shell-quote` | 1.10.0 → 1.12.0 |
+  | | `fast-uri` | 3.1.5 → 3.1.9 |
+  | | `js-yaml` | 3.15.1 → 3.15.2 |
+  | | `dependency-tree` (madge) | 11.2.0 → 11.5.0 |
+  | webapp, рабочие | `zod` | 4.3.5 → 4.6.7 |
+  | webapp, dev | `vite` | 7.3.6 → 7.3.7 |
+  | | `vitest` | 4.1.10 → 4.1.12 |
+  | | `vite-plugin-pwa` | 1.2.0 → 1.3.0 |
+  | | `eslint` | 9.39.2 → 9.39.5 |
+  | | `typescript-eslint` | 8.53.0 → 8.72.1 |
+  | | `browserslist` | 4.28.1 → 4.29.5 |
+  | | `immer` | 10.2.0 → удалён: необязательный peer у zustand, код его не импортирует |
+
+- **`npm audit`.** Оба столбца посчитаны 2026-10-31: за ночь вышли moderate-advisory на `glob` и `minimatch`.
+
+  | | `main` | после |
+  |---|---|---|
+  | корень `--omit=dev` | 19: critical 2, high 8, moderate 7, low 2 | 12: critical 1, high 4, moderate 5, low 2 |
+  | корень, всё | 52: 3 / 11 / 32 / 6 | 38: 1 / 4 / 27 / 6 |
+  | webapp `--omit=dev` | 1: high 1 (`zod`) | 0 |
+  | webapp, всё | 33: 0 / 7 / 23 / 3 | 21: 0 / 0 / 19 / 2 |
+
+  2026-10-30, до новых advisory, на `main` было: корень `--omit=dev` — 14 (2 / 8 / 2 / 2), всё — 25; webapp — 1 и 16.
+- **Документы:** `voice-to-transaction.md` — почему голос не повторяется; `quick-start.md` — openai 7 требует Node 22,
+  а Dockerfile на `node:20-alpine`.
+- **Тест:** в `openAITimeout.test.ts` тест голоса назван по тому, что проверяет: одна попытка. Она держится и без
+  `maxRetries: 0`, раз openai 7 поток не повторяет; прежняя причина в названии устарела.
+- **В backlog:** FT-215 (typeorm 1.x — advisory `glob` и `minimatch`) и FT-216 (голос через API оставляет файл в
+  `uploads/`).
+
+Проверка 2026-10-30…31:
+- **Под-чат разработки.**
+  - `npm run verify` после `npm audit fix`: Jest 1932 прошли, Vitest 1277. Первый прогон упал на четырёх таймаутах
+    по 5 с — мак уснул посреди прогона; повтор под `caffeinate` чистый.
+  - Итоговое дерево с нуля, как на ПК. Удалены `node_modules`, `webapp/node_modules`, `dist`, `public/webapp`, затем
+    `npm ci --include=dev` на npm 10.9.9 и Node 22.23.3: postinstall сделал `npm install` в webapp и собрал её, lock-файлы
+    не изменились.
+  - `npm run verify` на нём: Jest 114 наборов — 1950 прошли, 1 пропущен; Vitest 127 файлов, 1277; шрифты, токены,
+    dependency-cruiser (349 модулей) и madge чистые.
+  - `npm run lint` в webapp — 35 замечаний, те же, что на `main` (сравнено по JSON). В `verify` lint не входит.
+  - **Живая проверка на настоящем ключе**, до (openai 4.89.0, `main` `1517ba5`, 2026-10-30) и после (openai 7.47.0,
+    ветка с FT-182, 2026-10-31). Сервер — `dist/` из ветки, запущенный из временной папки: своя SQLite, только
+    seed-паттерны, порт 3183, `ENABLE_TELEGRAM_POLLING=false`, одноразовый токен Shortcut, владелец 900000183, ключ из
+    `~/.config/daftar/dev.env`. Оба маршрута, `/api/quick-capture` и `/api/voice/text-input`, дали одни записи:
+    - «вчера в корзинке продукты на 245 тысяч и такси домой 18к» → 245 000 «Продукты» + 18 000 «Транспорт», вчерашним днём;
+    - «обед с коллегами в плове 180 тысяч наличными» → 180 000 «Кафе»;
+    - «получил зарплату 12 млн на карту» → доход 12 000 000 «Зарплата»;
+    - «заплатил за интернет 150000 и мобильную связь 50000» → 150 000 + 50 000 «Связь»;
+    - «купил кроссовки за 85 долларов» → 85 USD «Покупки?», на проверку: долларового счёта нет;
+    - голос (`say -v Milena` → wav → `/api/voice/voice-input`, Whisper): услышано «Купил кофе за 25 тысяч и заправился
+      на 300 тысяч» → 25 000 «Кафе» + 300 000 «Транспорт?»;
+    - оплаты незнакомых магазинов (`/api/quick-capture/payment`, 64 000 UZS): SAFIA BAKERY 14 → «Продукты?»,
+      TEXNOMART SERGELI → «Покупки?».
+
+    18 записей из 18 совпали по сумме, типу, валюте, категории, `needsReview` и допущениям. Даты — на сутки позже, по
+    дню прогона. Различались только свободные `description` и `merchant` — это разброс модели: в прогоне «до» одна
+    фраза дала разный `merchant` на двух маршрутах.
+- **Под-чат проверки**: блокеров и серьёзного нет.
+  - Проверил:
+    - чистый `npm ci`, `verify` и `npm audit` — совпал;
+    - diff lock-файлов: нет `--force` и лишних мажорных версий;
+    - совместимость с openai 7: запросы v4 и v7 побайтно одинаковы;
+    - живую проверку, включая недоступный ИИ: таймаут и повтор FT-145 работают как раньше.
+  - Замечания исправлены: тест голоса переименован, версия отката `typescript-eslint` в FT-215 (8.14.0), FT-216 в
+    backlog, счётчики доски.
+
+Известно (принятые риски):
+- в корне high/critical остались в цепочке `sqlite3`: `tar` (critical), `node-gyp`, `make-fetch-happen`, `cacache`,
+  `sqlite3` — FT-048;
+- в рабочих зависимостях корня moderate у `typeorm` → `glob` и `minimatch` — FT-215 (typeorm 1.x, мажорное обновление);
+- в webapp 19 moderate и 2 low в dev-зависимостях (eslint, `workbox-build` через `vite-plugin-pwa`). npm чинит их только
+  откатом: `vite-plugin-pwa` до 1.1.0 и `typescript-eslint` до 8.14.0. Этого не делали;
+- `openai` 7 требует Node 22, а Dockerfile на `node:20-alpine`. Docker отложен вместе с production; когда он вернётся,
+  поднять образ до `node:22-alpine` и проверить сборку `sqlite3` (`quick-start.md`);
+- в webapp `npm audit fix` на npm 10.9.9 падает так же — запускать через `npx npm@11 audit fix`, затем проверить
+  `npm ci` на npm 10;
+- на ПК `npm audit fix` руками не запускать: дерево станет грязным, и `live-update.sh` откажется. Обновление придёт
+  через `scripts/live-update.sh` (`npm ci` по новому lock-файлу).

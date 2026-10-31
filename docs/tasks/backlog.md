@@ -559,48 +559,6 @@ Definition of Done:
 
 ---
 
-### FT-183: Dependencies: safe updates and openai v7
-
-Status: backlog — в очереди, последней (Шукур, 2026-10-30)
-Priority: medium
-Owner: Claude Code, QA — под-чат проверки
-Type: chore
-Size: M
-Depends on: — (после FT-176…FT-179: те же lock-файлы не трогать параллельно)
-
-Context:
-2026-10-30, при обновлении ПК, `npm ci` показал 25 уязвимостей. `npm audit --omit=dev` на `main` (266ddc9):
-
-| Где | Что | Как закрывается |
-|---|---|---|
-| сервер | `proxy-addr` (critical), `body-parser`, `brace-expansion` (high) — Express | `npm audit fix` без `--force` |
-| сервер | `openai` (high, прямая), `zod` (high) | `openai` ^4.89 → 7.x — мажорное обновление |
-| сервер | `tar` (critical), `node-gyp`, `cacache`, `make-fetch-happen` (high) — через `sqlite3` | `sqlite3` 6 — это FT-048, не здесь |
-| webapp | `zod` (high) | `npm audit fix` |
-| оба | dev-зависимости: в webapp 16, в корне — остальное | `npm audit fix` без `--force`, если не ломает сборку и тесты |
-
-Сервер доступен только в tailnet и только Шукуру (FT-153), риск низкий, но держать так не стоит. `npm audit fix --force`
-по правилам Stop/ask не запускать; мажорное обновление `openai` — осознанное, с проверкой разбора.
-
-Идея:
-1. `npm audit fix` без `--force` в корне и в `webapp/`; `npm run verify` зелёный.
-2. `openai` → 7.x: изменения API клиента (чат, транскрипция голоса, таймауты и повторы FT-145, ошибки), тесты; живой
-   разбор фраз и голоса на настоящем ключе — как раньше. Если переход тянет большую переделку — остановиться, записать
-   что мешает и сделать пункт 1 отдельно.
-3. `sqlite3` не трогать — FT-048.
-
-На ПК обновление придёт через `scripts/live-update.sh` (`npm ci` по новому lock-файлу); в ПК-копии руками `npm audit fix`
-не запускать — дерево станет грязным и `live-update.sh` откажется.
-
-Definition of Done:
-- [ ] `npm audit --omit=dev` в корне: high/critical остались только в цепочке `sqlite3` (FT-048); в `webapp/` — ноль
-- [ ] `openai` 7.x: разбор текста, голос, таймаут и повтор (FT-145) — тесты зелёные
-- [ ] Живая проверка на настоящем ключе: 5 фраз (бот-формат и quick capture) и одно голосовое — результат как до обновления
-- [ ] `npm run verify` зелёный; `npm audit fix --force` не запускался
-- [ ] Записано в «Реализовано», какие пакеты и версии сменились
-
----
-
 ### FT-200: A correction teaches the words of an item named without an amount
 
 Status: backlog
@@ -736,3 +694,64 @@ FT-184 уже не учит формам юрлиц: `SERVICE_WORDS` в `lessonW
 Definition of Done:
 - [ ] `ytt`, `yatt`, `ятт`, `duk`, `дук` в `SERVICE_WORDS`; тест: правка фразы «ytt zzqx 25000» не учит «ytt»
 - [ ] Решено про `merchantKey` без формы юрлица; если да — тест «YTT X» = «X»
+
+---
+
+### FT-215: typeorm 1.x: the glob and minimatch advisories
+
+Status: backlog — найдено при FT-183 (2026-10-31)
+Priority: low
+Owner: Claude Code, QA — под-чат проверки
+Type: chore
+Size: M
+Depends on: FT-048 (тот же lock-файл, не параллельно)
+
+Context:
+31 октября вышли advisory на `glob` 3.0.0–14.0.1 ([GHSA-3g3m-2fjr-6pw4](https://github.com/advisories/GHSA-3g3m-2fjr-6pw4),
+обход отмены по `AbortSignal`) и `minimatch` < 11.0.1 ([GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249),
+DoS). В рабочих зависимостях сервера они приходят через `typeorm` 0.3.31 (`glob` 10.5.0) и через цепочку `sqlite3`
+(`node-gyp` → `glob` 7 — это FT-048). В `npm audit --omit=dev` это moderate. `npm audit fix` без `--force` их не
+закрывает: исправление — `typeorm` 1.1.2, мажорное обновление.
+
+`glob` нужен typeorm, чтобы находить сущности и миграции по строкам-путям. У нас и то и другое — списки классов
+(`DATABASE_ENTITIES`, `migrations/index.ts`), так что риск низкий.
+
+В webapp те же advisory сидят в dev-зависимостях: eslint и `workbox-build` через `vite-plugin-pwa`. npm предлагает
+только откат `vite-plugin-pwa` до 1.1.0 и `typescript-eslint` до 8.14.0. Этого не делать — ждать исправленных версий.
+
+Идея: `typeorm` 1.x — changelog, `DataSource`, миграции; проверка на копии настоящей базы по правилам миграций; тесты.
+
+Definition of Done:
+- [ ] `typeorm` 1.x; в `npm audit --omit=dev` в корне `typeorm`, `glob`, `minimatch` остались только в цепочке `sqlite3`
+- [ ] `npm run migration:show` на копии настоящей базы: применённые миграции те же, расхождений схемы нет
+- [ ] `npm run verify` зелёный
+
+---
+
+### FT-216: Voice through the API leaves its upload in `uploads/`
+
+Status: backlog — найдено при проверке FT-183 (2026-10-31)
+Priority: low
+Owner: Claude Code, QA — под-чат проверки
+Type: bug
+Size: S
+
+Context:
+`POST /api/voice/voice-input` принимает файл через multer (`dest: 'uploads/'`, имя без расширения) и отдаёт путь в
+`ProcessVoiceInputUseCase`. Тот конвертирует файл в `<путь>.mp3` и в `finally` (`processVoiceInput.ts:303-310`) удаляет
+только один файл:
+- конвертация удалась — удаляется `.mp3`, исходник multer остаётся в `uploads/`;
+- ffmpeg упал и запасной путь переименовал исходник в `.mp3` — удаляется исходник, которого уже нет, и остаётся `.mp3`.
+  Так и у бота: он после разбора удаляет свой скачанный файл (`messageHandlers.ts:388`, `cleanupFile` из
+  `fileDownloader.ts`), а `.mp3` остаётся в `downloads/`.
+
+При живой проверке FT-183 после каждого голосового в `uploads/` оставался исходный wav (180 108 байт), и с `openai` 4,
+и с 7. `uploads/` нет в `.gitignore` (там только `downloads/`). Значит, на ПК такой файл делает дерево грязным, и
+`scripts/live-update.sh` откажется обновлять. Сейчас маршрут никто не зовёт: голос в Mini App пока «скоро» (FT-117).
+
+Идея: `finally` удаляет и исходник, и `.mp3`, каждый — если он есть; `uploads/` — в `.gitignore`, как `downloads/`.
+
+Definition of Done:
+- [ ] После голосового через `/api/voice/voice-input` в `uploads/` пусто — и когда конвертация удалась, и на запасном пути; тест
+- [ ] У бота на запасном пути `.mp3` не остаётся в `downloads/`; тест
+- [ ] `uploads/` в `.gitignore`

@@ -64,7 +64,7 @@ export class OpenAITranscriptionService implements TranscriptionService {
             OPENAI_PROMPTS[AppConfig.DEFAULT_LANGUAGE.toUpperCase() as keyof typeof OPENAI_PROMPTS]
               .TRANSCRIPTION_PROMPT,
         },
-        // No retry: the SDK builds the upload once and would resend the stream it already read (FT-145)
+        // No retry (FT-145): the file goes up as a stream, which cannot be sent a second time
         { maxRetries: 0 }
       );
       return response.text;
