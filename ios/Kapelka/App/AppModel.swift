@@ -8,6 +8,8 @@ import UIKit
 final class AppModel {
     let services: AppServices
     let voice: VoiceCapture
+    /// The tab «Записи» (FT-220).
+    let records: RecordsList
     private(set) var queueState: QueueState
     private(set) var isConfigured: Bool
 
@@ -16,10 +18,17 @@ final class AppModel {
         voice = VoiceCapture(system: speech, listener: speech) { [queue = services.queue] phrase in
             try await Self.write(phrase, to: queue)
         }
+        records = RecordsList(feed: services.records)
         queueState = QueueState()
         isConfigured = services.settings.configuration() != nil
         Task { [weak self, updates = services.queue.updates] in
+            // The first state is the file as it was read: nothing was sent yet
+            var previous: QueueState?
             for await state in updates {
+                if let previous, QueueStatus.wroteRecords(from: previous, to: state) {
+                    Task { await self?.records.queueWroteRecords() }
+                }
+                previous = state
                 self?.queueState = state
             }
         }
@@ -29,9 +38,9 @@ final class AppModel {
         QueueStatus.pendingCount(queueState)
     }
 
-    /// The list on the main screen, newest first.
-    var rows: [CaptureRow] {
-        CaptureRow.rows(queueState.captures, sendingId: queueState.sendingId, now: Date(), calendar: .current)
+    /// The queue's rows on «Записать», newest first: only what is not in «Записи».
+    var attentionRows: [CaptureRow] {
+        CaptureRow.needingAttention(queueState.captures, sendingId: queueState.sendingId, now: Date(), calendar: .current)
     }
 
     var hasToken: Bool {
