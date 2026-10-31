@@ -1,4 +1,5 @@
 import Observation
+import SwiftUI
 
 /// The two tabs and the settings sheet over them (FT-220).
 @MainActor
@@ -33,9 +34,11 @@ final class AppNavigation {
     var listenPending: Bool { listenRequest.isPending }
 
     /// «Записи» is seen: it refreshes on opening, on coming back to the app and when the settings close — the
-    /// address or the token may be new.
-    func recordsOnScreen(sceneActive: Bool) -> Bool {
-        sceneActive && tab == .records && !showsSettings
+    /// address or the token may be new. Only the background takes it off screen: the notification shade, Control
+    /// Center or the app switcher over the app make it `.inactive`, and the list under them must not refresh — two
+    /// requests and the scrolled pages gone each time. The microphone still waits for `.active`.
+    func recordsOnScreen(scenePhase: ScenePhase) -> Bool {
+        scenePhase != .background && tab == .records && !showsSettings
     }
 
     /// The first launch opens the settings; «Записать трату» before the address is set listens first, and the queue

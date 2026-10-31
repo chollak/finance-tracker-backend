@@ -39,11 +39,10 @@ struct RootView: View {
 
     /// The first press listens, a press while listening ends the phrase.
     private func screenChanged() {
-        let active = scenePhase == .active
-        if navigation.takeListenRequest(sceneActive: active) {
+        if navigation.takeListenRequest(sceneActive: scenePhase == .active) {
             model.voice.commandPressed()
         }
-        if model.records.setOnScreen(navigation.recordsOnScreen(sceneActive: active)) {
+        if model.records.setOnScreen(navigation.recordsOnScreen(scenePhase: scenePhase)) {
             Task { await model.records.refresh() }
         }
     }

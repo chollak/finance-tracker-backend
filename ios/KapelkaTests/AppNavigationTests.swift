@@ -1,3 +1,4 @@
+import SwiftUI
 import Testing
 @testable import Kapelka
 
@@ -54,16 +55,33 @@ struct AppNavigationTests {
         #expect(navigation.tab == .records)
     }
 
-    @Test("«Записи» на экране — только своя вкладка в активном приложении, без шторки настроек поверх")
+    @Test("«Записи» на экране — своя вкладка, приложение не в фоне, шторки настроек поверх нет")
     func recordsOnScreen() {
         let navigation = AppNavigation(listenRequest: request)
-        #expect(navigation.recordsOnScreen(sceneActive: true) == false)
+        #expect(navigation.recordsOnScreen(scenePhase: .active) == false)
         navigation.tab = .records
-        #expect(navigation.recordsOnScreen(sceneActive: true))
-        #expect(navigation.recordsOnScreen(sceneActive: false) == false)
+        #expect(navigation.recordsOnScreen(scenePhase: .active))
+        // Пункт управления, шторка уведомлений, переключатель приложений: список под ними на экране
+        #expect(navigation.recordsOnScreen(scenePhase: .inactive))
+        #expect(navigation.recordsOnScreen(scenePhase: .background) == false)
         // Closing the settings refreshes: the address or the token may be new
         navigation.showsSettings = true
-        #expect(navigation.recordsOnScreen(sceneActive: true) == false)
+        #expect(navigation.recordsOnScreen(scenePhase: .active) == false)
+    }
+
+    @Test("обновляет только возврат из фона, а не шторка или Пункт управления поверх приложения")
+    func refreshOnlyAfterBackground() throws {
+        let navigation = AppNavigation(listenRequest: request)
+        navigation.tab = .records
+        let list = try RecordsList(feed: RecordsHarness().makeFeed())
+        let refreshes = { (phases: [ScenePhase]) in
+            phases.filter { list.setOnScreen(navigation.recordsOnScreen(scenePhase: $0)) }.count
+        }
+
+        // Opened the tab, then the shade and Control Center came and went
+        #expect(refreshes([.active, .inactive, .active, .inactive, .active]) == 1)
+        // Home, then back to the app
+        #expect(refreshes([.inactive, .background, .inactive, .active]) == 1)
     }
 
     @Test("первый запуск без адреса открывает настройки — если не просили слушать")
