@@ -49,7 +49,13 @@ const TELEGRAM_ID = 131184740;
 /** The bot the chat writes to, and another one: a private chat has the person's id with every bot. */
 const BOT_ID = 7_000_000_001;
 const OTHER_BOT_ID = 8_000_000_002;
-const today = todayDateOnly();
+/**
+ * Every message was sent on Thursday at 21:40 in Tashkent, and the bot reads it a minute later; only the clock is fake.
+ * Its day dates the records (FT-182), so the repeats below carry a real time of input.
+ */
+const SENT_AT = new Date('2026-10-29T21:40:00+05:00');
+const NOW = new Date(SENT_AT.getTime() + 60_000);
+const today = todayDateOnly(SENT_AT);
 
 interface Button { text: string; callback_data?: string }
 
@@ -182,7 +188,7 @@ describe('a message Telegram sends again after a restart (FT-167)', () => {
   /** One update from Telegram, handled to the end — unless a reply hangs, as when the process is stopped. */
   function deliver(message: Record<string, unknown>, session: Record<string, unknown> = {}, botId = BOT_ID): Promise<void> {
     const base = baseContext(botId);
-    const full = { message_id: 10, date: 1_761_700_000, chat: base.chat, from: base.from, ...message };
+    const full = { message_id: 10, date: Math.floor(SENT_AT.getTime() / 1000), chat: base.chat, from: base.from, ...message };
     return running.bot.handle({ ...base, message: full, update: { update_id: 500 + Number(full.message_id), message: full }, session });
   }
 
@@ -201,8 +207,8 @@ describe('a message Telegram sends again after a restart (FT-167)', () => {
   /** The id of the bot message sent last. */
   const lastBotMessage = () => nextBotMessageId - 1;
 
-  async function records(): Promise<Array<{ amountMinor: number; description: string; deletedAt: string | null }>> {
-    const rows = await running.ds.query('SELECT amount_minor AS amountMinor, description, deleted_at AS deletedAt FROM transactions ORDER BY createdAt, rowid');
+  async function records(): Promise<Array<{ amountMinor: number; description: string; date: string; deletedAt: string | null }>> {
+    const rows = await running.ds.query('SELECT amount_minor AS amountMinor, description, date, deleted_at AS deletedAt FROM transactions ORDER BY createdAt, rowid');
     return rows.map((row: any) => ({ ...row, amountMinor: Number(row.amountMinor) }));
   }
 
@@ -210,6 +216,10 @@ describe('a message Telegram sends again after a restart (FT-167)', () => {
   const coffee = { intent: 'transaction', amount: 25000, category: 'Кафе', type: 'expense', date: today, description: 'кофе' };
 
   beforeEach(async () => {
+    jest.useFakeTimers({
+      now: NOW,
+      doNotFake: ['nextTick', 'setImmediate', 'clearImmediate', 'setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'queueMicrotask', 'hrtime', 'performance'],
+    });
     sent = [];
     shown.clear();
     replyHangs = false;
@@ -224,6 +234,7 @@ describe('a message Telegram sends again after a restart (FT-167)', () => {
   });
 
   afterEach(async () => {
+    jest.useRealTimers();
     jest.restoreAllMocks();
     (downloadVoiceFile as jest.Mock).mockClear();
     for (const ds of open.splice(0)) if (ds.isInitialized) await ds.destroy();
@@ -239,7 +250,7 @@ describe('a message Telegram sends again after a restart (FT-167)', () => {
     await restart();
     await deliver({ message_id: 10, text: 'кофе 25 тысяч' });
 
-    expect(await records()).toEqual([expect.objectContaining({ amountMinor: 2_500_000 })]);
+    expect(await records()).toEqual([expect.objectContaining({ amountMinor: 2_500_000, date: '2026-10-29' })]);
     expect(sent).toHaveLength(before);
     expect(parser.analyzeInput.mock.calls.length).toBeLessThanOrEqual(1);
     // The same words in a new message are a new record

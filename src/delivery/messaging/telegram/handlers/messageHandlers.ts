@@ -6,6 +6,7 @@ import { downloadVoiceFile, cleanupFile } from '../utils';
 import { quickAddCategory } from '../utils/userCategories';
 import { assumedThousands, botMessageLog, chatIdOf, guessedIds, sendRecordMessage } from '../utils/recordMessageView';
 import { messageClientId, withMessageClientId } from '../utils/messageClientId';
+import { messageDay } from '../utils/messageTime';
 import { answerAmountQuestion } from './recordHandlers';
 import { AppError, ExternalServiceError } from '../../../../shared/domain/errors/AppError';
 import { DetectedDebt } from '../../../../modules/voiceProcessing/domain/processedTransaction';
@@ -21,6 +22,7 @@ import { toCapturedTransaction } from '../../../../modules/quickCapture/applicat
 import { NoSpeechDetectedError } from '../../../../modules/voiceProcessing/domain/voiceErrors';
 import { Transaction } from '../../../../modules/transaction/domain/transactionEntity';
 import { BotMessage } from '../../../../modules/botMessage/domain/botMessage';
+import { todayDateOnly } from '../../../../shared/domain/dates/dateOnly';
 
 const logger = createLogger(LogCategory.TELEGRAM_MSG);
 
@@ -244,13 +246,16 @@ export function createTextMessageHandler(userModule?: UserModule, _subscriptionM
 
       // Telegram is a client of the shared capture boundary; parsing, the conservative
       // semantic safeguards and persistence all stay inside it.
-      // The message's client id: sent again after a restart, it does not write its records twice (FT-167)
+      // The message's client id: sent again after a restart, it does not write its records twice (FT-167). Its day:
+      // read the morning after, an evening's phrase is still the evening's (FT-182)
+      const inputDay = messageDay(ctx);
       const result = await quickCaptureModule.getQuickCaptureService().capture({
         text,
         userId,
         userName,
         source: 'telegram',
         ...withMessageClientId(ctx),
+        ...(inputDay ? { inputDay } : {}),
       });
 
       const withoutAmount = result.withoutAmount ?? [];
@@ -319,10 +324,12 @@ export function createVoiceMessageHandler(userModule?: UserModule, subscriptionM
       const { voiceModule } = ctx.modules;
 
       // Process voice input. «Сумму» under a record waits for an amount: a voice that is only an amount
-      // answers it, any other closes it before its records are written (FT-122, «Один вопрос за раз»)
+      // answers it, any other closes it before its records are written (FT-122, «Один вопрос за раз»).
+      // Dated by the day it was sent, as a text (FT-182)
       let answered = false;
+      const today = messageDay(ctx);
       const result = await voiceModule.getProcessVoiceInputUseCase().execute(
-        { filePath, userId, userName, source: 'telegram', ...withMessageClientId(ctx) },
+        { filePath, userId, userName, source: 'telegram', ...withMessageClientId(ctx), ...(today ? { today } : {}) },
         { takeHeardText: async heard => (answered = await answerAmountQuestion(ctx, heard, userId)) }
       );
 
@@ -433,7 +440,8 @@ async function handleQuickAddAmount(
       categoryId: picked.categoryId,
       type: 'expense' as const,
       description: categoryDisplay,
-      date: new Date().toISOString(),
+      // The day the amount was sent (FT-182)
+      date: messageDay(ctx) ?? todayDateOnly(),
       // Sent again after a restart, when the session that asked for it is gone, the amount writes nothing (FT-167)
       ...withMessageClientId(ctx),
     };

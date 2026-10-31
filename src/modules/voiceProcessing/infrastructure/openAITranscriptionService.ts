@@ -210,7 +210,7 @@ export class OpenAITranscriptionService implements TranscriptionService {
         const transaction = intent === 'debt' ? this.debtAsExpense(item, today) : this.parseTransactionItem(item, today);
         if (transaction) transactions.push(transaction);
         // Named without an amount: kept aside, the bot asks how much (FT-123)
-        const unpriced = !transaction && intent !== 'debt' ? this.parseItemWithoutAmount(item) : null;
+        const unpriced = !transaction && intent !== 'debt' ? this.parseItemWithoutAmount(item, today) : null;
         if (unpriced) withoutAmount.push(unpriced);
       }
 
@@ -254,9 +254,10 @@ export class OpenAITranscriptionService implements TranscriptionService {
 
   /**
    * An item the model returned without an amount («такси» in «кофе 25к, такси»): what it is and where it
-   * would go, so the bot can ask «Сколько?» (FT-123). An item that names nothing is dropped.
+   * would go, so the bot can ask «Сколько?» (FT-123). An item that names nothing is dropped. Without a date of its
+   * own it gets the phrase's day, as a record does: the answer may come the next morning (FT-182).
    */
-  private parseItemWithoutAmount(item: any): ItemWithoutAmount | null {
+  private parseItemWithoutAmount(item: any, today: string): ItemWithoutAmount | null {
     const amount = typeof item.amount === 'number' ? item.amount : parseFloat(item.amount);
     if (Number.isFinite(amount) && amount !== 0) return null;
     const description = String(item.description || item.merchant || '').trim();
@@ -268,7 +269,7 @@ export class OpenAITranscriptionService implements TranscriptionService {
       category: String(item.category || '').trim() || 'Другое',
       type,
       semanticType: normalizeSemanticType(item.semanticType, type),
-      ...(item.date ? { date: String(item.date) } : {}),
+      date: String(item.date || today),
       ...(paymentKind ? { paymentKind } : {}),
       ...(item.merchant ? { merchant: String(item.merchant) } : {}),
     };

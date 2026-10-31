@@ -39,6 +39,12 @@ export interface QuickCaptureRequest {
    * day before it. Within `CAPTURED_AT_LIMITS` of the server's clock; a repeat of a `clientId` answers whatever it is.
    */
   capturedAt?: Date;
+  /**
+   * The day of input, YYYY-MM-DD on the user's calendar, counted by a clock the server trusts more than its own: the
+   * bot's, from the time Telegram says the message was sent (FT-182). Taken as is, without the limits of `capturedAt`;
+   * the HTTP route never sets it. `capturedAt` wins when both are given.
+   */
+  inputDay?: string;
 }
 
 /**

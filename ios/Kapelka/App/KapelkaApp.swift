@@ -1,4 +1,5 @@
 import SwiftUI
+import UserNotifications
 
 /// The app itself; `KapelkaMain` starts it unless the tests run.
 struct KapelkaApp: App {
@@ -11,11 +12,14 @@ struct KapelkaApp: App {
         self.services = services
         _model = State(initialValue: AppModel(services: services))
         services.autoSender.start()
+        UNUserNotificationCenter.current().delegate = NoticePresenter.shared
     }
 
     var body: some Scene {
         WindowGroup {
             MainView(model: model)
+                // Once, on the screen: a payment's command runs in the background and asks nothing
+                .task { await SystemNotices.askOnce() }
         }
         .onChange(of: scenePhase) { _, phase in
             switch phase {
