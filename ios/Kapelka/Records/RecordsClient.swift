@@ -17,6 +17,18 @@ enum RecordsFailure: Error, Equatable, Sendable {
     /// 400 and the other 4xx: the server refused the request itself. Its own text, for the log.
     case refused(String)
 
+    /// The short reason after «Не вернул «такси» —».
+    var reason: String {
+        switch self {
+        case .notConfigured: "нет адреса и токена"
+        case .tokenRefused: "сервер не принял токен"
+        case .recordGone: "запись уже удалена"
+        case .categoryGone: "категории уже нет"
+        case .unreachable: "нет связи"
+        case .refused: "сервер не принял запрос"
+        }
+    }
+
     /// What the screen says.
     var message: String {
         switch self {

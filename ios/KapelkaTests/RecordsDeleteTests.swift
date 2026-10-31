@@ -171,7 +171,7 @@ struct RecordsDeleteTests {
 
         await list.restoreDeleted()
         #expect(ids(list) == ["c", "a"])
-        #expect(list.notice?.text == "Нет связи — попробуй позже")
+        #expect(list.notice?.message == "Не вернул «кофе» — нет связи")
         #expect(list.notice?.restorable == "b")
 
         await list.restoreDeleted()

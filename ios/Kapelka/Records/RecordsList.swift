@@ -40,16 +40,13 @@ final class RecordsList {
     var nextPageKey: String? { nextCursor.map { "\(generation)/\($0)" } }
     /// The next page did not come; the list keeps its rows and the next scroll or tap asks again.
     private(set) var moreProblem: RecordsFailure?
-    /// «Удалено · Вернуть», or what went wrong with an edit, at the bottom for `noticeTime`.
-    private(set) var notice: RecordsNotice?
-
-    /// How long the bar stays: there is no ready toast in iOS, and the project undoes instead of asking first.
-    static let noticeTime: Duration = .seconds(5)
+    /// «Удалено · Вернуть», or what went wrong with an edit, at the bottom for 5 s (`RecordsNoticeBar`).
+    var notice: RecordsNotice? { bar.notice }
 
     private let feed: RecordsFeed
     private let now: @Sendable () -> Date
     private let calendar: Calendar
-    private let wait: @Sendable (Duration) async -> Void
+    private let bar: RecordsNoticeBar
 
     /// The first page as the server or the disk gave it.
     private var shown: RecordsSnapshot?
@@ -71,20 +68,21 @@ final class RecordsList {
     /// Deleted on the server since the list last started from the first page: a page read before the delete — the
     /// next one, on its way meanwhile — must not bring it back.
     private var deleted: Set<String> = []
-    private var noticesShown = 0
-    /// The last delete or «Вернуть» started: only its answer changes the bar.
-    private var lastEdit = 0
+    /// The last delete started: only its answer offers «Вернуть».
+    private var lastDelete = 0
 
+    /// `keepsNotices`: VoiceOver is on — the bar stays until it is closed or another edit starts.
     init(
         feed: RecordsFeed,
         now: @escaping @Sendable () -> Date = { Date() },
         calendar: Calendar = .current,
-        wait: @escaping @Sendable (Duration) async -> Void = { try? await Task.sleep(for: $0) }
+        wait: @escaping @Sendable (Duration) async -> Void = { try? await Task.sleep(for: $0) },
+        keepsNotices: @escaping @MainActor () -> Bool = { false }
     ) {
         self.feed = feed
         self.now = now
         self.calendar = calendar
-        self.wait = wait
+        bar = RecordsNoticeBar(wait: wait, keepsOpen: keepsNotices)
     }
 
     /// The record behind a row, on the first page or a scrolled one.
@@ -162,9 +160,13 @@ final class RecordsList {
 
     /// The swipe. The row goes at once, the server deletes the record, and «Удалено · Вернуть» stays for 5 s. A delete
     /// while the bar is up takes the bar over: the record before stays deleted. Without a network the row comes back
-    /// and the bar says why; deleted elsewhere already (404) — the row stays gone and the list refreshes.
+    /// and the bar says why — for an older delete too; deleted elsewhere already (404) — the row stays gone and the
+    /// list refreshes.
     func delete(_ id: String) async {
-        let edit = startEdit()
+        let title = record(id: id).map(RecordDays.title(of:)) ?? ""
+        lastDelete += 1
+        let started = lastDelete
+        bar.takeOver()
         deleting.insert(id)
         rebuild()
         do {
@@ -172,8 +174,8 @@ final class RecordsList {
             deleting.remove(id)
             leave(id)
             rebuild()
-            if edit == lastEdit {
-                show("Удалено", restoring: id)
+            if started == lastDelete {
+                bar.offerUndo(RecordsNotice.Undo(id: id, title: title))
             }
         } catch {
             deleting.remove(id)
@@ -182,20 +184,19 @@ final class RecordsList {
                 refreshLater()
             }
             rebuild()
-            if edit == lastEdit {
-                show(error.message)
-            }
+            let latest = started == lastDelete || error == .recordGone
+            bar.say(latest ? error.message : "Не удалил «\(title)» — \(error.reason)")
         }
     }
 
-    /// «Вернуть» on the bar: the record the server gives back goes to its place, on a scrolled page too. Without a
-    /// network it stays deleted and the bar offers «Вернуть» again.
+    /// «Вернуть» on the bar: the record the server gives back goes to its place, on a scrolled page too. The bar
+    /// waits for the answer with the button off. Without a network the record stays deleted, and the bar says so
+    /// with its own «Вернуть» — even when another delete has taken the bar meanwhile.
     func restoreDeleted() async {
-        guard let id = notice?.restorable else { return }
-        let edit = startEdit()
+        guard let undo = notice?.undo, bar.startRestoring(undo.id) else { return }
         do {
-            let record = try await feed.restore(id)
-            let wasShown = deleted.remove(id) != nil
+            let record = try await feed.restore(undo.id)
+            let wasShown = deleted.remove(undo.id) != nil
             if let placed = shownRecords.restoring(record, wasShown: wasShown, morePagesFollow: hasMore) {
                 shownRecords = placed
             } else {
@@ -203,15 +204,20 @@ final class RecordsList {
                 refreshLater()
             }
             rebuild()
+            bar.restored(undo.id)
         } catch {
-            guard edit == lastEdit else { return }
             if error == .recordGone {
-                show(error.message)
+                bar.restoreGone(undo.id, message: error.message)
                 refreshLater()
             } else {
-                show(error.message, restoring: id)
+                bar.restoreFailed(undo, message: "Не вернул «\(undo.title)» — \(error.reason)")
             }
         }
+    }
+
+    /// VoiceOver closes the bar that does not go by itself.
+    func dismissNotice() {
+        bar.dismiss()
     }
 
     /// The categories for the sheet: not kept, since without a network they cannot be changed anyway (FT-219).
@@ -230,18 +236,12 @@ final class RecordsList {
             if error == .recordGone {
                 leave(id)
                 rebuild()
-                show(error.message)
+                // Next to «Вернуть» of a delete on its way, which keeps it when it comes
+                bar.say(error.message)
                 refreshLater()
             }
             throw error
         }
-    }
-
-    /// A new delete or «Вернуть»: the bar of the one before goes, its record stays as the server has it.
-    private func startEdit() -> Int {
-        lastEdit += 1
-        notice = nil
-        return lastEdit
     }
 
     /// Gone on the server: off the first page and the scrolled ones, and kept off a next page on its way.
@@ -252,19 +252,6 @@ final class RecordsList {
 
     private func refreshLater() {
         Task { await refresh() }
-    }
-
-    private func show(_ text: String, restoring id: String? = nil) {
-        noticesShown += 1
-        let shownNow = RecordsNotice(id: noticesShown, text: text, restorable: id)
-        notice = shownNow
-        Task { [wait] in
-            await wait(Self.noticeTime)
-            // A newer bar keeps its own 5 s
-            if notice?.id == shownNow.id {
-                notice = nil
-            }
-        }
     }
 
     private var shownRecords: ShownRecords {
@@ -363,13 +350,4 @@ final class RecordsList {
         default: return .unreachable
         }
     }
-}
-
-/// The bar at the bottom of «Записи» (FT-221): «Удалено» with «Вернуть», or what went wrong with an edit.
-struct RecordsNotice: Equatable, Identifiable, Sendable {
-    /// New for each bar: the 5 s of one bar do not end the next.
-    let id: Int
-    let text: String
-    /// The record «Вернуть» brings back; `nil` — no button.
-    let restorable: String?
 }
