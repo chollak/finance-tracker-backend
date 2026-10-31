@@ -322,6 +322,37 @@ describe('a category correction teaches (FT-184)', () => {
     expect(openAI.categoryOfMerchant).toHaveBeenCalledTimes(1);
   });
 
+  it('the category the AI gave, confirmed with PUT { categoryId } — «?» in the Mini App — teaches nothing (FT-248)', async () => {
+    const unlearn = jest.spyOn(learning, 'unlearnRecord');
+    const learn = jest.spyOn(learning, 'learnCategory');
+    aiReads({ category: 'Покупки', amount: 50_000, description: 'ZZQX' });
+    const [phrase] = await say('zzqx 50000');
+    const payment = await pay('ZZQX 77');
+
+    for (const record of [phrase, payment]) await moveTo(record.id, 'Покупки');
+
+    expect(lessonsOf('shopping')).toEqual({});
+    expect(await merchantCategory('zzqx')).toBeUndefined();
+    expect(fs.existsSync(path.join(dir, 'data', 'patterns.json'))).toBe(false);
+    expect(unlearn).not.toHaveBeenCalled();
+    expect(learn).not.toHaveBeenCalled();
+  });
+
+  it('a correction sent again with the same category does not count its words twice (FT-248)', async () => {
+    aiReads({ category: 'Покупки', amount: 50_000, description: 'ZZQX' });
+    const [record] = await say('zzqx 50000');
+
+    await moveTo(record.id, 'Продукты');
+    expect(lessonsOf('groceries')).toEqual({ zzqx: 1 });
+    const learn = jest.spyOn(learning, 'learnCategory');
+    const unlearn = jest.spyOn(learning, 'unlearnRecord');
+    await moveTo(record.id, 'Продукты');
+
+    expect(lessonsOf('groceries')).toEqual({ zzqx: 1 });
+    expect(learn).not.toHaveBeenCalled();
+    expect(unlearn).not.toHaveBeenCalled();
+  });
+
   it('a record corrected twice teaches only the category it ends in', async () => {
     for (const merchant of ['ZZQX 77', 'ZZQX 78']) {
       const payment = await pay(merchant);

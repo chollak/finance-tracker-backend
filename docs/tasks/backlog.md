@@ -822,32 +822,26 @@ Definition of Done:
 
 ---
 
-### FT-248: A PUT that changes nothing writes nothing
+### FT-249: `PUT { description: null }` clears the note instead of failing
 
-Status: in_progress — PR #166 на проверке, 2026-11-01 (до отчёта FT-217 14 ноября)
-Priority: medium
+Status: backlog
+Priority: low
 Owner: Claude Code, QA — под-чат проверки
 Type: fix
 Size: S
 Depends on: —
 
 Context:
-Найдено проверкой FT-217 (2026-11-01). В базе нет истории правок, и отчёт о качестве записи считает запись тронутой,
-если `updatedAt` > `createdAt`. Подтверждение без изменений тоже двигает `updatedAt`: Mini App на «?» отправляет
-`PUT /api/transactions/:id` с той же категорией (`webapp/src/features/quick-capture/api/useCaptureReview.ts`,
-`captureReview.ts`), сервер сохраняет запись, и в отчёте она становится «правкой». Чем раньше это уйдёт, тем больше
-дней из двух недель (31.10–14.11) будут посчитаны честно.
+Найдено при FT-248 (2026-11-01). `PUT /api/transactions/:id { description: null }` на записи с заметкой отвечает
+`422 BUSINESS_LOGIC_ERROR`: `null` доходит до репозитория (`SqliteTransactionRepository.ts:232`, `updateData.description
+= updates.description`) и падает на `NOT NULL` колонки `transactions.description`. `POST` уже превращает `null` в пустую
+заметку (FT-113, `docs/pastel/api.md` «Записи: заметка»). После FT-248 на записи без заметки тот же запрос даёт `200` —
+изменений нет, — а на записи с заметкой по-прежнему `422`.
 
-Нужно: `PUT`, в котором ни одно разрешённое поле не меняет значения (сравнивать с хранимым: `categoryId` с учётом
-`category`, сумма в minor units, дата как день, счёт, валюта, описание, тип, `needsReview`, `merchant`), ничего не
-пишет — `updatedAt` прежний, ответ тот же, что сейчас (200 с записью), урока нет (`teachCategoryCorrection` и так не
-учит той же категории — проверить). Не входит: «Да, верная» в боте (удаление и восстановление крупной суммы — это не
-`PUT`), снятие «Нужно проверить» (`needsReview: false` — настоящая правка).
+Нужно: `description: null` в `PUT` — пустая заметка `''`, как в `POST`.
 
 Definition of Done:
-- [ ] `PUT` без изменений не меняет строку и `updatedAt`; ответ 200 с записью; тест на каждое поле и на смешанный
-      случай (одно поле то же, другое новое — пишет)
-- [ ] Подтверждение «?» в Mini App работает как раньше; тест по пути Mini App и по токену приложения (FT-218)
-- [ ] Урока на ту же категорию нет; тест
+- [ ] `null` → `''` в обоих сценариях обновления (`UpdateTransactionUseCase`, `UpdateTransactionWithLearningUseCase`)
+- [ ] Тест на запись с заметкой (заметка очищена, `200`) и без заметки (ничего не пишет, `200`)
 - [ ] `npm run verify` зелёный
 

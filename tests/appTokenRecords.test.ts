@@ -450,6 +450,26 @@ describe('the app token reads and edits its owner’s records (FT-218)', () => {
       expect(next.assumptions?.find(assumption => assumption.kind === 'category')).toBeUndefined();
       expect(analyzeInput).not.toHaveBeenCalled();
     });
+
+    it('«Покупки?» confirmed with the same category by the token and from the Mini App: the record, no write, no lesson (FT-248)', async () => {
+      const purchases = await categoryIdOf('Покупки');
+      const id = await say('zzqx 50000', 50_000);
+      const before = '2026-10-30 08:00:00';
+      await db.dataSource.query('UPDATE transactions SET updatedAt = ? WHERE id = ?', [before, id]);
+      const rowOf = async () => (await db.dataSource.query('SELECT * FROM transactions WHERE id = ?', [id]))[0];
+      const stored = await rowOf();
+
+      const byApp = await call('PUT', `/transactions/${id}`, byToken, { categoryId: purchases });
+      const inMiniApp = await call('PUT', `/transactions/${id}`, asOwner(), { categoryId: purchases });
+
+      expect([byApp.status, inMiniApp.status]).toEqual([200, 200]);
+      expect(byApp.body.data).toMatchObject({ id, categoryId: purchases, category: 'Покупки', amountMinor: 5_000_000 });
+      expect(inMiniApp).toEqual(byApp);
+      expect(byApp.body.data).toEqual(JSON.parse(JSON.stringify(await transactionModule.getRepository().findById(id))));
+      expect(await rowOf()).toEqual(stored);
+      expect(stored.updatedAt).toBe(before);
+      expect(lessons()).toEqual([]);
+    });
   });
 
   it('never writes the token to the log, on success or refusal', async () => {
