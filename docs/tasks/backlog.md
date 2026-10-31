@@ -541,35 +541,6 @@ Definition of Done:
 
 ---
 
-### FT-217: Capture quality report after two weeks of daily use
-
-Status: in_progress — под-чат разработки, 2026-10-31; отчёт — 2026-11-14
-Priority: medium
-Owner: Claude Code (скрипт), Шукур (запуск на ПК)
-Type: analytics
-Size: S
-
-Context:
-Этап «Две недели ежедневного пользования» (решение Шукура 2026-10-31) кончается отчётом: сколько записей пришлось
-править и где. Цель сентября — 7 из 10 записей без правки и 14 дней подряд без пропусков. Решения о больших фичах —
-по этому отчёту, а не по догадкам.
-
-Идея: скрипт только для чтения (`sqlite3 -readonly` или TypeORM на копии базы), без сети и без ИИ. За период:
-- записей всего и по дням; дни без записей;
-- по источнику: бот текстом, бот голосом, iOS голос/текст (`ios_shortcut`), Apple Pay (`apple_pay`), Mini App;
-- сколько исправлено после записи: категория, сумма, дата, счёт — по истории правок и урокам (`learning-data.json`),
-  где их нет — по `updated_at` против `created_at`;
-- доля «Нужно проверить» и «?» на момент записи и сколько из них так и не тронуты;
-- оплаты Apple Pay: сколько ушло без счёта (несопоставленная карта).
-
-Definition of Done:
-- [ ] Скрипт в `scripts/`, работает на копии базы, ничего не пишет; печатает таблицу и итог «N из 10 без правки», «дней подряд»
-- [ ] Тест на временной базе с подготовленными записями
-- [ ] Инструкция запуска на ПК в `live-instance.md` (копия базы → скрипт)
-- [ ] Ничего, что раскрывает суммы или описания записей, не уходит дальше терминала Шукура
-
----
-
 ### FT-222: Two identical voices at once share one file in `downloads/`
 
 Status: backlog
@@ -627,7 +598,7 @@ Definition of Done:
 
 ### FT-255: iOS: the queue keeps the server's answer per record
 
-Status: backlog — в очереди, первой из FT-251…FT-255 (FT-221 в main)
+Status: in_progress — под-чат разработки, 2026-11-01 (FT-221 в main)
 Priority: medium
 Owner: Claude Code, QA — под-чат проверки
 Type: feature
@@ -853,7 +824,7 @@ Definition of Done:
 
 ### FT-248: A PUT that changes nothing writes nothing
 
-Status: backlog — в очереди, первой (до отчёта FT-217 14 ноября)
+Status: in_progress — PR #166 на проверке, 2026-11-01 (до отчёта FT-217 14 ноября)
 Priority: medium
 Owner: Claude Code, QA — под-чат проверки
 Type: fix
