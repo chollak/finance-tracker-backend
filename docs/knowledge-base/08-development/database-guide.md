@@ -186,7 +186,7 @@ SELECT * FROM migrations;
 
 - **`DriverPackageNotInstalledError: SQLite package has not been found`** — не собран нативный модуль
   `sqlite3` (например, после `npm ci --ignore-scripts`). Выполнить `npm rebuild sqlite3`. Причину показывает
-  `node -e "require('sqlite3')"`: `GLIBC_2.38' not found` — Linux старше Ubuntu 24.04, и готовая сборка `sqlite3` 6
+  `node -e "require('sqlite3')"`: `GLIBC_2.38' not found` — Linux ниже Ubuntu 24.04 (glibc < 2.38), и готовая сборка `sqlite3` 6
   не подходит (FT-048); что делать — [Troubleshooting](troubleshooting.md#service-restarts-in-a-loop-or-is-failed).
 - **`SQLITE_BUSY: database is locked`** — писать в файл может один процесс. Остановить второй экземпляр
   приложения или открытый `sqlite3` с незавершённой транзакцией.
