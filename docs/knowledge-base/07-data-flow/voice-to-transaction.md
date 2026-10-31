@@ -93,6 +93,11 @@ ffmpeg -i input.ogg -acodec libmp3lame -ab 128k output.mp3
 - Если FFmpeg недоступен: простое переименование файла
 - Whisper API может обработать OGG, но MP3 надежнее
 
+**Файлы после разбора (FT-216):** use case удаляет и сам голос, и `<файл>.mp3` — тот, что есть: после конвертации
+есть оба, после запасного пути голос переименован в `.mp3`. Так и при ошибке. `POST /api/voice/voice-input` убирает
+загрузку multer и тогда, когда отказал до разбора (пустой файл). `uploads/` и `downloads/` — в `.gitignore`: лишний
+файл в рабочем дереве живого экземпляра остановил бы `scripts/live-update.sh`.
+
 ---
 
 ### 4. OpenAI Whisper Transcription

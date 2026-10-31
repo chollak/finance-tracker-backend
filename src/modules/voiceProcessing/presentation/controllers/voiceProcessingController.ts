@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import multer, { FileFilterCallback } from 'multer';
-import { ProcessVoiceInputUseCase } from '../../application/processVoiceInput';
+import { ProcessVoiceInputUseCase, removeVoiceFile } from '../../application/processVoiceInput';
 import { ProcessTextInputUseCase } from '../../application/processTextInput';
 import { handleControllerError, handleControllerSuccess } from '../../../../shared/infrastructure/utils/controllerHelpers';
 import { ErrorFactory } from '../../../../shared/domain/errors/AppError';
@@ -36,16 +36,22 @@ const audioFileFilter = (
   }
 };
 
+export interface VoiceRouterOptions {
+  /** Where multer keeps an upload while it is read; `uploads/` of the working folder, ignored by git (FT-216). */
+  uploadDir?: string;
+}
+
 export function createVoiceProcessingRouter(
   voiceUseCase: ProcessVoiceInputUseCase,
   textUseCase: ProcessTextInputUseCase,
-  userModule?: UserModule
+  userModule?: UserModule,
+  options: VoiceRouterOptions = {}
 ): Router {
   const router = Router();
 
   // Multer configuration with file type and size validation
   const upload = multer({
-    dest: 'uploads/',
+    dest: options.uploadDir ?? 'uploads/',
     limits: {
       fileSize: 25 * 1024 * 1024, // 25MB max (Telegram voice limit)
     },
@@ -96,6 +102,9 @@ export function createVoiceProcessingRouter(
       );
     } catch (error) {
       handleControllerError(error, res);
+    } finally {
+      // The use case removes the voice it read; an upload refused before it is not left in uploads/ either (FT-216)
+      if (req.file) await removeVoiceFile(req.file.path);
     }
   });
 

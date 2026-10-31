@@ -54,6 +54,17 @@ function convertOggToMp3(input: string, output: string): Promise<void> {
   });
 }
 
+/** Removes a voice file if it is there; one already gone is fine. */
+export async function removeVoiceFile(file: string): Promise<void> {
+  try {
+    await fs.unlink(file);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      logger.warn('Failed to remove a voice file', { error: (error as Error).message });
+    }
+  }
+}
+
 export interface ProcessVoiceOptions {
   /**
    * What was heard, before it is parsed into records. It returns true when the caller has used the text
@@ -88,7 +99,6 @@ export class ProcessVoiceInputUseCase {
 
     const fileExt = '.mp3';
     const newFilePath = input.filePath + fileExt;
-    let conversionAttempted = false;
 
     try {
       // Check if input file exists
@@ -101,7 +111,6 @@ export class ProcessVoiceInputUseCase {
       // Try to convert audio format
       try {
         await convertOggToMp3(input.filePath, newFilePath);
-        conversionAttempted = true;
       } catch (ffmpegError) {
         logger.warn('FFmpeg conversion failed, trying fallback rename', { error: (ffmpegError as Error).message });
         try {
@@ -301,16 +310,9 @@ export class ProcessVoiceInputUseCase {
         userId: input.userId,
       });
     } finally {
-      // Clean up files
-      try {
-        if (conversionAttempted) {
-          await fs.unlink(newFilePath).catch(() => {});
-        } else {
-          await fs.unlink(input.filePath).catch(() => {});
-        }
-      } catch (cleanupError) {
-        logger.warn('Failed to cleanup voice files', { error: (cleanupError as Error).message });
-      }
+      // Both the voice and its .mp3, whichever is there: converted, both are; after a failed ffmpeg the voice was
+      // renamed to the .mp3. A file left in uploads/ or downloads/ would stop live-update.sh (FT-216)
+      await Promise.all([input.filePath, newFilePath].map(removeVoiceFile));
     }
   }
 }
