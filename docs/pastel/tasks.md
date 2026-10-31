@@ -24,44 +24,6 @@
 
 Закрыты: FT-087, FT-090, FT-091 — в архиве.
 
-### FT-088: Spike voice recording inside Telegram Mini App
-
-Status: backlog
-Priority: high
-Owner: Claude Code, QA by Hermes
-Type: spike
-Size: S
-Design: «Голосовой ввод», «Нет доступа к микрофону», «Микрофон в браузере»
-
-Context:
-В дизайне голос записывается в mini app. Неизвестно, даст ли WebView Telegram микрофон на iOS, Android и
-Desktop и в каком формате придёт звук. От ответа зависит FT-117.
-
-Definition of Done:
-- [ ] Тестовая страница за туннелем пишет 5 секунд через `getUserMedia` + `MediaRecorder` и шлёт в `POST /api/voice/voice-input`
-- [ ] Таблица: iOS, Android, Desktop, браузер — разрешение, формат, распознал ли Whisper
-- [ ] Вывод в `docs/tasks/decisions.md`: голос в mini app везде / с запасным «Голосовое — в чат бота» / не делаем
-
-### FT-089: Spike fiscal receipt QR and photo recognition
-
-Status: backlog
-Priority: medium
-Owner: Claude Code, QA by Hermes
-Type: spike
-Size: S
-Design: ряд «Фото чека»
-
-Context:
-QR фискального чека ведёт на `https://ofd.soliq.uz/check?t=…`; открытого API нет. Для чеков без QR нужен
-разбор фото моделью с vision. От ответа зависят FT-134 и FT-135.
-
-Definition of Done:
-- [ ] На 10 реальных чеках: получаются ли по ссылке из QR магазин, дата и время, позиции, итог
-- [ ] Те же чеки по фото: точность итога и позиций, время ответа, цена запроса
-- [ ] Вывод в `docs/tasks/decisions.md`: QR + фото / только фото / откладываем чек
-
----
-
 ## Фаза 1. Основа интерфейса — закрыта (FT-092…FT-096), в архиве
 
 ---
@@ -73,23 +35,6 @@ Definition of Done:
 ## Фаза 3. Ввод и исправление
 
 Закрыты: FT-109…FT-116 и добавленные в фазу FT-137…FT-143 — в архиве.
-
-### FT-117: Voice capture inside the Mini App
-
-Status: backlog
-Priority: medium
-Owner: Claude Code, QA by Hermes
-Type: feature
-Size: M
-Depends: FT-088, FT-114
-Design: «Голосовой ввод», «Нет доступа к микрофону», «Микрофон в браузере», «Ничего не расслышал»
-
-Definition of Done:
-- [ ] Объём — по выводу FT-088
-- [ ] Запись, «Расслышал: «…»», переход к проверке
-- [ ] Нет доступа: как включить и «Написать текстом» (в браузере — свой текст); не расслышал: пример фразы и «Ещё раз»
-
----
 
 ## Фаза 4. Счета — закрыта (FT-118, FT-119), в архиве
 
@@ -149,10 +94,11 @@ Priority: low
 Owner: Claude Code, QA by Hermes
 Type: repo-hygiene
 Size: S
-Depends: все задачи вехи
+Depends: FT-134, FT-135 (FT-088 и FT-117 сняты 2026-10-31)
 
 Definition of Done:
 - [ ] Удалены `transactions.amount` и `legacy_category`, backend `dashboard`, статический `Category.ts` (кроме стартовых пресетов), неиспользуемые виджеты и хуки webapp
 - [ ] Удалены гостевые ветки backend (`guest_*`, решение Д4, ревью FT-128): `allowGuestMode`, `verifyOwnership` в `authMiddleware.ts`, `userIdResolver.ts`, `userResolutionMiddleware.ts`, `ownershipVerification.ts`, `subscriptionController.ts`, `transactionController.ts`; запрос без входа к `/api/dashboard/guest_abc/quick-stats` получает 401
+- [ ] Удалена страница `/dev/voice-check` и её код (спайк FT-088 снят)
 - [ ] Документация (`knowledge-base`, `CLAUDE.md`) описывает новую модель
 - [ ] `npm run verify` проходит

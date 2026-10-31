@@ -36,7 +36,7 @@ Notes:
 
 ### FT-048: Upgrade sqlite3 to v6
 
-Status: backlog
+Status: backlog — в очереди, 1-я (Шукур, 2026-10-31)
 Priority: low
 Owner: Claude Code
 Type: tech-debt
@@ -46,8 +46,12 @@ Context:
 
 Status note 2026-08-16: blocked until Shukur explicitly approves `npm audit fix --force` / major sqlite3 upgrade. Do not run force dependency upgrades autonomously.
 
+**2026-10-31:** Шукур взял FT-048 в пачку мелочей. Мажорное обновление делается явной установкой `sqlite3@6`, а не
+`npm audit fix --force`. Нативный модуль: на ПК `scripts/live-update.sh` (`npm ci`) должен собрать или скачать его под
+Node 22 — проверить заранее в WSL-подобной среде или описать откат (`live-good`).
+
 Definition of Done:
-- [ ] `npm audit fix --force` поднимает `sqlite3` до v6
+- [ ] `sqlite3` v6 поставлен явной установкой, без `npm audit fix --force`
 - [ ] `npm run verify` зелёный
 - [ ] SQLite-путь проверен вручную: создание, чтение, обновление транзакции
 - [ ] `npm audit` не содержит critical
@@ -485,7 +489,7 @@ Definition of Done:
 
 ### FT-172: Redelivered Telegram updates: remaining edges
 
-Status: backlog
+Status: in_progress — пачка Б (бот и уборка), 2026-10-31
 Priority: low
 Owner: Claude Code, QA — под-чат проверки
 Type: reliability
@@ -515,7 +519,7 @@ Definition of Done:
 
 ### FT-173: Missed subscription and audit notices leave a trace
 
-Status: backlog
+Status: in_progress — пачка Б (бот и уборка), 2026-10-31
 Priority: low
 Owner: Claude Code, QA — под-чат проверки
 Type: reliability
@@ -538,7 +542,7 @@ Definition of Done:
 
 ### FT-174: Dead admin routes without requireAuth
 
-Status: backlog
+Status: in_progress — пачка Б (бот и уборка), 2026-10-31
 Priority: low
 Owner: Claude Code, QA — под-чат проверки
 Type: repo-hygiene
@@ -588,7 +592,7 @@ Definition of Done:
 
 ### FT-205: Two amounts in a row without a word between them are read as one
 
-Status: backlog — найдено при проверке FT-185 (2026-10-30)
+Status: in_progress — пачка А (суммы), 2026-10-31
 Priority: low
 Owner: Claude Code, QA — под-чат проверки
 Type: bug
@@ -614,7 +618,7 @@ Definition of Done:
 
 ### FT-206: A point as a thousands separator
 
-Status: backlog — найдено при проверке FT-185 (2026-10-30)
+Status: in_progress — пачка А (суммы), 2026-10-31
 Priority: low
 Owner: Claude Code, QA — под-чат проверки
 Type: bug
@@ -631,6 +635,11 @@ Context:
 Решить с Шукуром: точка перед ровно тремя цифрами — разделитель тысяч, как в ответе на «Сколько?»? Сомнительный случай —
 доллары: «4.500 $».
 
+
+**Решение Шукура 2026-10-31:** точка перед ровно тремя цифрами — разделитель тысяч: «25.000» → 25 000, «1.500» → 1 500,
+«150.000» → 150 000, и в долларах так же («4.500 $» → 4 500 $). Точка перед одной-двумя цифрами — дробь: «4.50 $» → 4,50 $;
+в сумах дробь меньше 1000 — тысячи, как решено в FT-185 («1.5» → 1 500).
+
 Definition of Done:
 - [ ] Правило про точку решено и записано в `voice-to-transaction.md`
 - [ ] `readWrittenNumber` и промпт ИИ читают по нему «25.000» и «1.500»; тест
@@ -641,7 +650,7 @@ Definition of Done:
 
 ### FT-207: Quick Add in the bot reads a comma as a decimal point
 
-Status: backlog — найдено при проверке FT-185 (2026-10-30)
+Status: in_progress — пачка А (суммы), 2026-10-31
 Priority: low
 Owner: Claude Code, QA — под-чат проверки
 Type: bug
@@ -667,7 +676,7 @@ Definition of Done:
 
 ### FT-208: Uzbek legal forms «YTT», «ЯТТ» are taught as words
 
-Status: backlog — найдено при оплате Apple Pay Шукура 2026-10-30, FT-179
+Status: in_progress — пачка Б (бот и уборка), 2026-10-31
 Priority: low
 Owner: Claude Code, QA — под-чат проверки
 Type: bug
@@ -699,7 +708,7 @@ Definition of Done:
 
 ### FT-215: typeorm 1.x: the glob and minimatch advisories
 
-Status: backlog — найдено при FT-183 (2026-10-31)
+Status: backlog — в очереди, после FT-048
 Priority: low
 Owner: Claude Code, QA — под-чат проверки
 Type: chore
@@ -730,7 +739,7 @@ Definition of Done:
 
 ### FT-216: Voice through the API leaves its upload in `uploads/`
 
-Status: backlog — найдено при проверке FT-183 (2026-10-31)
+Status: in_progress — пачка Б (бот и уборка), 2026-10-31
 Priority: low
 Owner: Claude Code, QA — под-чат проверки
 Type: bug
@@ -755,3 +764,32 @@ Definition of Done:
 - [ ] После голосового через `/api/voice/voice-input` в `uploads/` пусто — и когда конвертация удалась, и на запасном пути; тест
 - [ ] У бота на запасном пути `.mp3` не остаётся в `downloads/`; тест
 - [ ] `uploads/` в `.gitignore`
+
+---
+
+### FT-217: Capture quality report after two weeks of daily use
+
+Status: backlog — в очереди; отчёт — 2026-11-14
+Priority: medium
+Owner: Claude Code (скрипт), Шукур (запуск на ПК)
+Type: analytics
+Size: S
+
+Context:
+Этап «Две недели ежедневного пользования» (решение Шукура 2026-10-31) кончается отчётом: сколько записей пришлось
+править и где. Цель сентября — 7 из 10 записей без правки и 14 дней подряд без пропусков. Решения о больших фичах —
+по этому отчёту, а не по догадкам.
+
+Идея: скрипт только для чтения (`sqlite3 -readonly` или TypeORM на копии базы), без сети и без ИИ. За период:
+- записей всего и по дням; дни без записей;
+- по источнику: бот текстом, бот голосом, iOS голос/текст (`ios_shortcut`), Apple Pay (`apple_pay`), Mini App;
+- сколько исправлено после записи: категория, сумма, дата, счёт — по истории правок и урокам (`learning-data.json`),
+  где их нет — по `updated_at` против `created_at`;
+- доля «Нужно проверить» и «?» на момент записи и сколько из них так и не тронуты;
+- оплаты Apple Pay: сколько ушло без счёта (несопоставленная карта).
+
+Definition of Done:
+- [ ] Скрипт в `scripts/`, работает на копии базы, ничего не пишет; печатает таблицу и итог «N из 10 без правки», «дней подряд»
+- [ ] Тест на временной базе с подготовленными записями
+- [ ] Инструкция запуска на ПК в `live-instance.md` (копия базы → скрипт)
+- [ ] Ничего, что раскрывает суммы или описания записей, не уходит дальше терминала Шукура
