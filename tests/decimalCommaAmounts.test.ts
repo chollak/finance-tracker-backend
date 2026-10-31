@@ -56,8 +56,16 @@ describe('a decimal comma in a phrase (FT-185)', () => {
     expect(readWrittenNumber(token)).toBe(value);
   });
 
-  it.each(['1.234.567', '1.234,50'])('reads no number from «%s»', token => {
-    expect(readWrittenNumber(token)).toBeNull();
+  // FT-206: a point before exactly three digits groups thousands, so these are numbers now
+  it.each([
+    ['1.234.567', 1_234_567],
+    ['1.234,50', 1_234.5],
+  ])('reads «%s» as %d (FT-206)', (token, value) => {
+    expect(readWrittenNumber(token)).toBe(value);
+  });
+
+  it('reads no number from «1.234.5»', () => {
+    expect(readWrittenNumber('1.234.5')).toBeNull();
   });
 
   describe('on the text fast path', () => {
