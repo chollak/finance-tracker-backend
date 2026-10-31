@@ -31,6 +31,10 @@ final class RecordsList {
     private(set) var nextCursor: String?
     /// Another page waits on the server.
     var hasMore: Bool { nextCursor != nil }
+    /// The identity of the row at the list's end, which asks for the next page once on screen. New with each cursor
+    /// and each start from the first page: a refresh that brings the same first page drops the page on its way, and
+    /// the row must ask again even though the cursor is the same.
+    var nextPageKey: String? { nextCursor.map { "\(generation)/\($0)" } }
     /// The next page did not come; the list keeps its rows and the next scroll or tap asks again.
     private(set) var moreProblem: RecordsFailure?
 

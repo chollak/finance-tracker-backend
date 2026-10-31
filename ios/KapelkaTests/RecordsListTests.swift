@@ -103,6 +103,31 @@ struct RecordsListTests {
         #expect(last.query()?.contains("cursor=cursor-2") == true)
     }
 
+    @Test("обновление с той же первой страницей, пока следующая в пути, — конец списка новый и просит её снова")
+    func sameCursorAfterRefresh() async throws {
+        let routes = RoutedTransport(page: [
+            page(["a"], next: "cursor-1"),
+            .after(.milliseconds(300), page(["old"], date: "2026-10-27")),
+            page(["a"], next: "cursor-1"),
+            page(["b"], date: "2026-10-27"),
+        ])
+        let list = list(try RecordsHarness(routes: routes))
+        await list.refresh()
+        let before = try #require(list.nextPageKey)
+
+        async let late: Void = list.loadMore()
+        #expect(await eventually { await routes.pages.requests.count == 2 })
+        await list.refresh()
+        // The row at the list's end is a new one: on screen it asks for the page again by itself
+        #expect(list.nextPageKey != before)
+        await late
+        #expect(ids(list) == ["a"])
+
+        await list.loadMore()
+        #expect(ids(list) == ["a", "b"])
+        #expect(list.nextPageKey == nil)
+    }
+
     @Test("следующая страница без связи — «Нет связи», строки на месте; потом догружается")
     func nextPageOffline() async throws {
         let routes = RoutedTransport(page: [page(["a"], next: "cursor-1"), .failure(.notConnectedToInternet), page(["b"])])
