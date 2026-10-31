@@ -36,7 +36,7 @@ Notes:
 
 ### FT-048: Upgrade sqlite3 to v6
 
-Status: backlog — в очереди, 1-я (Шукур, 2026-10-31)
+Status: in_progress — под-чат разработки, 2026-10-31
 Priority: low
 Owner: Claude Code
 Type: tech-debt
@@ -578,7 +578,7 @@ Definition of Done:
 
 ### FT-218: The app token reads and edits its owner's records
 
-Status: backlog — в очереди, после FT-174
+Status: in_progress — под-чат разработки, 2026-10-31 (FT-174 в main, PR #145)
 Priority: high
 Owner: Claude Code, QA — под-чат проверки
 Type: feature
@@ -721,3 +721,28 @@ Context:
 Definition of Done:
 - [ ] Два одновременных голосовых с одним `file_id` записываются оба; тест с двумя параллельными обработчиками
 - [ ] После обоих в `downloads/` пусто
+
+---
+
+### FT-224: A comma before three digits after a zero, and two numbers in the answer to «Сколько?»
+
+Status: backlog — в очереди
+Priority: low
+Owner: Claude Code, QA — под-чат проверки
+Type: bug
+Size: S
+Depends on: —
+
+Context:
+Найдено повторной проверкой пачки А (PR #144, 2026-10-31). Обе ошибки были и до неё, пачка их не задела:
+- **запятая с ведущим нулём** (`writtenNumber.ts`): точку FT-206 перед тремя цифрами после нуля больше не читает как
+  тысячи («0.500» — дробь), а запятую читает: «кофе 0,500» → 500 → 500 000 сум с «понял как». Правило — как у точки:
+  группа тысяч только после ненулевой головы;
+- **два числа в ответе на «Сколько?»** (`amountReply.ts` → `readWrittenNumber`): ответ «25000 300» склеивается в
+  25 000 300 сум, потому что `readWrittenNumber` убирает все пробелы, а `amountReply` даёт ему весь ответ. Во фразе
+  FT-205 это уже два числа. Ответ из двух сумм — не сумма: переспросить, как на ответ не числом.
+
+Definition of Done:
+- [ ] «кофе 0,500» — не 500 000 сум; «28 000,00», «1,5» (FT-185) и «1.500», «0.250 $» (FT-206) — как сейчас; тесты
+- [ ] Ответ «25000 300» на «Сколько?» не записывается суммой, бот переспрашивает; «25 000 300» — одно число; тесты
+- [ ] `npm run verify` зелёный
