@@ -34,30 +34,6 @@ Notes:
 
 ---
 
-### FT-048: Upgrade sqlite3 to v6
-
-Status: in_progress — под-чат разработки, 2026-10-31
-Priority: low
-Owner: Claude Code
-Type: tech-debt
-
-Context:
-После `npm audit fix` осталось 7 уязвимостей, все в цепочке `sqlite3@5.1.7` → `node-gyp` → `tar` (critical) + `cacache`. Закрывается только мажорным апгрейдом. После ревизии 2026-08-13 локальный SQLite — основной рабочий контур, поэтому major upgrade может сломать именно то, чем сейчас пользуемся.
-
-Status note 2026-08-16: blocked until Shukur explicitly approves `npm audit fix --force` / major sqlite3 upgrade. Do not run force dependency upgrades autonomously.
-
-**2026-10-31:** Шукур взял FT-048 в пачку мелочей. Мажорное обновление делается явной установкой `sqlite3@6`, а не
-`npm audit fix --force`. Нативный модуль: на ПК `scripts/live-update.sh` (`npm ci`) должен собрать или скачать его под
-Node 22 — проверить заранее в WSL-подобной среде или описать откат (`live-good`).
-
-Definition of Done:
-- [ ] `sqlite3` v6 поставлен явной установкой, без `npm audit fix --force`
-- [ ] `npm run verify` зелёный
-- [ ] SQLite-путь проверен вручную: создание, чтение, обновление транзакции
-- [ ] `npm audit` не содержит critical
-
----
-
 ### FT-049: Reconcile task board with GitHub Issues
 
 Status: backlog
@@ -523,7 +499,7 @@ Definition of Done:
 
 ### FT-215: typeorm 1.x: the glob and minimatch advisories
 
-Status: backlog — в очереди, после FT-048
+Status: backlog — в очереди, FT-048 в main
 Priority: low
 Owner: Claude Code, QA — под-чат проверки
 Type: chore
@@ -708,3 +684,33 @@ Definition of Done:
 - [ ] «кофе 0,500» — не 500 000 сум; «28 000,00», «1,5» (FT-185) и «1.500», «0.250 $» (FT-206) — как сейчас; тесты
 - [ ] Ответ «25000 300» на «Сколько?» не записывается суммой, бот переспрашивает; «25 000 300» — одно число; тесты
 - [ ] `npm run verify` зелёный
+
+---
+
+### FT-233: Evaluate replacing sqlite3 (unmaintained) with better-sqlite3 or node:sqlite
+
+Status: backlog
+Priority: low
+Owner: Claude Code
+Type: tech-debt
+Size: S
+Depends on: FT-215 (решение штаба после него)
+
+Context:
+Найдено в FT-048 (2026-10-31). `TryGhost/node-sqlite3` с 2026-03-12 помечен unmaintained: в README сказано, что
+issues и PR больше не разбираются (PR #1844). 6.0.1 — последний релиз: новые версии SQLite и исправления через него не
+придут. Его готовая сборка под Linux x64 уже требует glibc 2.38+ (FT-048; на ПК — 2.39). Сейчас всё работает,
+срочности нет.
+
+Кандидаты:
+- `better-sqlite3` — TypeORM 0.3 его поддерживает (`type: 'better-sqlite3'`), синхронный нативный модуль;
+- `node:sqlite` — встроен в Node 22, без нативной сборки, но пока экспериментальный; драйвер TypeORM для него не
+  проверен.
+
+Что держится на нынешнем драйвере: одно соединение и `INSERT … ON CONFLICT` (FT-140, FT-141), миграции с бэкапом
+(FT-090), `.backup` в `scripts/backup-db.sh` (FT-157).
+
+Definition of Done:
+- [ ] Сравнение `sqlite3`, `better-sqlite3` и `node:sqlite`: поддержка в TypeORM (0.3 и 1.x после FT-215), сборка на
+      ПК (WSL, Node 22) и на маке, одно соединение и транзакции, миграции, что менять в коде и тестах
+- [ ] Рекомендация с оценкой работы записана в этой задаче; перехода в коде нет

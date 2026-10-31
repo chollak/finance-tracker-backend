@@ -2,7 +2,7 @@
 
 Задачи с FT-144: надёжность, закрытый доступ, переезд живого экземпляра на ПК.
 
-Закрыто задач: **43**. Это архив: задачи здесь не переоткрываются и не редактируются.
+Закрыто задач: **44**. Это архив: задачи здесь не переоткрываются и не редактируются.
 Активная доска — [`TASKS.md`](../../../TASKS.md), решения по плану — [`decisions.md`](../decisions.md).
 
 ---
@@ -3251,6 +3251,97 @@ Definition of Done:
 - записи до FT-100 хранят в `date` полный момент; модель держит строку как есть, по дню группирует FT-220;
 - типы функций с typed throws требуют рантайм iOS 18, а цель — iOS 17: в тестах такие замыкания с обычным `throws`;
 - против живого сервера с токеном (FT-218) клиент проверит FT-220.
+
+---
+
+### FT-048: Upgrade sqlite3 to v6
+
+Status: done
+Priority: low
+Owner: Claude Code, QA — под-чат проверки
+Type: tech-debt
+
+Context:
+После `npm audit fix` осталось 7 уязвимостей, все в цепочке `sqlite3@5.1.7` → `node-gyp` → `tar` (critical) + `cacache`. Закрывается только мажорным апгрейдом. После ревизии 2026-08-13 локальный SQLite — основной рабочий контур, поэтому major upgrade может сломать именно то, чем сейчас пользуемся.
+
+Status note 2026-08-16: blocked until Shukur explicitly approves `npm audit fix --force` / major sqlite3 upgrade. Do not run force dependency upgrades autonomously.
+
+**2026-10-31:** Шукур взял FT-048 в пачку мелочей. Мажорное обновление делается явной установкой `sqlite3@6`, а не
+`npm audit fix --force`. Нативный модуль: на ПК `scripts/live-update.sh` (`npm ci`) должен собрать или скачать его под
+Node 22 — проверить заранее в WSL-подобной среде или описать откат (`live-good`).
+
+Definition of Done:
+- [x] `sqlite3` v6 поставлен явной установкой, без `npm audit fix --force`
+- [x] `npm run verify` зелёный
+- [x] SQLite-путь проверен вручную: создание, чтение, обновление транзакции
+- [x] `npm audit` не содержит critical
+
+Реализовано 2026-10-31 (`4271249`, `9cf5c8a`, `b062971`; PR #150):
+- **`sqlite3` 5.1.7 → 6.0.1** (`^6.0.1`) явной установкой `npm install sqlite3@^6.0.1`.
+  - Обошлось без `--force`, `--legacy-peer-deps` и обновления typeorm: `typeorm` 0.3.31 допускает `sqlite3`
+    `^5.0.3 || ^6.0.0`. В `src/` изменений нет.
+  - Что меняет sqlite3 6: Node ≥ 20.17; `tar` 6 → 7; `node-gyp` 8 → 12, теперь необязательный — только для сборки из
+    исходников; SQLite 3.44.2 → 3.52.0. JS API тот же.
+  - Lock против `main` `ae048be`: 6 пакетов добавлено, 66 удалено, 26 изменено — все в цепочке sqlite3. `tar` 6.2.1 →
+    7.5.22, `node-addon-api` 7.1.1 → 8.9.2, `minipass` 3.3.6 → 7.1.3, `minizlib` 2 → 3, `chownr` 2 → 3; необязательные
+    `node-gyp` 8.4.1 → 12.4.0, `nopt`, `abbrev` и зависимости node-gyp 12 (`undici`, `proc-log`, `which`). Ушла вся
+    цепочка node-gyp 8: `make-fetch-happen`, `cacache`, `npmlog`, `socks`, `http-proxy-agent`, `@tootallnate/once`.
+- **Готовая сборка под Linux x64 требует glibc 2.38+.** Сборки 6.0.x собраны на ubuntu-24.04: `GLIBC_2.38` (`fmod`) и
+  `GLIBCXX_3.4.31`; сборке 5.1.7 хватало `GLIBC_2.4`.
+  - Ниже 2.38 `npm ci` проходит (prebuild-install glibc не проверяет), но модуль не грузится, а TypeORM пишет только
+    `SQLite package has not been found installed`.
+  - На ПК Ubuntu 24.04, glibc 2.39 (проверено 2026-10-31) — ничего не нужно. Для 22.04 — `build_from_source=sqlite3`
+    в `~/.npmrc`, модуль собирается из исходников.
+- **`scripts/live-update.sh`** после `npm ci` загружает `sqlite3` (`node -e "require('sqlite3')"`). Не грузится —
+  обновление останавливается до перезапуска, старая версия работает, `live-good` не двигается. Сообщение
+  `the native sqlite3 module does not load` отправляет в `troubleshooting.md`. Тестов у скрипта нет; проверено в
+  Docker (ниже).
+- **Документы:**
+  - `live-instance.md`: шаг 4 — готовая сборка на 24.04 и новее, на 22.04 — сборка из исходников; в «Обновлении» —
+    проверка `sqlite3` и заметка про переход на sqlite3 6 с откатом на `live-good`;
+  - `troubleshooting.md`: строки `the native sqlite3 module does not load` и `SQLite package has not been found
+    installed`;
+  - `database-guide.md`: как увидеть настоящую причину `DriverPackageNotInstalledError`.
+- **В backlog:** FT-233 — оценить замену `sqlite3` на `better-sqlite3` или `node:sqlite`.
+
+Проверка 2026-10-31:
+- **Под-чат разработки.**
+  - `npm ci --include=dev` с нуля по новому lock: lock-файлы не изменились. `npm run verify`: Jest 120 наборов —
+    2084 прошли, 1 пропущен; Vitest 127 файлов, 1277; шрифты, токены, dependency-cruiser (346 модулей) и madge чистые.
+    После проверки `sqlite3` в `live-update.sh` — ещё прогон, те же числа.
+  - `npm audit` в корне, `main` → ветка:
+    - всё: 38 (critical 1, high 4, moderate 27, low 6) → 30 (0 / 0 / 26 / 4) — без critical и high;
+    - `--omit=dev`: 12 (1 / 4 / 5 / 2) → 3 moderate — `typeorm` → `glob`, `minimatch` (FT-215).
+  - Руками: API из ветки на порту 3048, свежая база, `X-Dev-User-Id`. Создание → 201, чтение, обновление суммы и
+    описания, список, удаление (потом 404), возврат; в файле — новые значения. `lsof` — порт у своего процесса из
+    worktree, с бинарником `sqlite3` 6.
+  - Копия базы мака (`sqlite3 -readonly … ".backup …"`, исходник не менялся):
+    - на старте приложение сделало бэкап и применило 3 ждущие миграции — с пересозданием `accounts` и
+      `notifications_log`;
+    - `GET /api/transactions` — 36 записей, столько же активных строк в файле;
+    - `migration:show` — 22 из 22, схема совпадает с сущностями;
+    - строки совпали во всех таблицах с данными, `integrity_check` — ok. Отличия ожидаемые: `migrations` 19 → 22, новая
+      пустая `handled_messages`, `fx_rates` +1 (курс ЦБ на старте).
+  - Docker `linux/amd64`, Node 22.23.4:
+    - ubuntu:24.04 (glibc 2.39) — готовая сборка грузится, TypeORM пишет и читает;
+    - node:22-bookworm (2.36) и ubuntu:22.04 (2.35) — `npm ci` проходит, `require` падает на `GLIBC_2.38' not found`;
+    - на 22.04 `npm rebuild sqlite3 --build-from-source` и `build_from_source=sqlite3` в `~/.npmrc` чинят — около 90 с
+      под эмуляцией;
+    - `live-update.sh` на копии ветки (перезапуск подменён, health пропущен): ubuntu:22.04 — после `npm ci` отказ
+      `the native sqlite3 module does not load`, код 1, до сборки сервера и перезапуска; ubuntu:24.04 — проверка
+      проходит, сервер собран, перезапуск вызван, код 0.
+  - Откат: базу, записанную приложением на v6 (22 миграции), открывает `sqlite3` 5.1.7 (SQLite 3.44.2) из lock `main`:
+    `integrity_check` — ok, чтение и запись проходят.
+- **Под-чат проверки**: «можно мержить», блокеров нет. Повторил Docker ubuntu:24.04 и 22.04 и откат на v5. Замечания
+  исправлены: проверка `sqlite3` в `live-update.sh`, факт про ПК в `live-instance.md`, «ниже 24.04 (glibc < 2.38)»
+  вместо «старше», пункт про Ubuntu в шаге 4.
+
+Известно (принятые риски):
+- `TryGhost/node-sqlite3` помечен unmaintained (README, PR #1844, 2026-03-12); 6.0.1 — последний релиз, новые
+  исправления SQLite через него не придут — FT-233;
+- Dockerfile (`node:20-alpine`, отложен вместе с production) не проверялся;
+- `undici` 6.29.1 пришёл с `node-gyp` 12 — необязательная зависимость, нужна только для сборки из исходников;
+- в рабочих зависимостях остались 3 moderate — `typeorm` → `glob`, `minimatch`, FT-215.
 
 ---
 

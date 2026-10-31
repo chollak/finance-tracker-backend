@@ -533,6 +533,7 @@ journalctl -u <service> --grep "not allowed" --no-pager | tail -n 20
 | `the working tree has changes` | В живой копии правили файлы. `git status`, `git diff` — нужное перенести в репозиторий через PR, потом `git restore .`; лишние файлы — сначала `git clean -n` (список), затем `git clean -f`. `data/` и `.env.local` в git не входят, их это не трогает |
 | `.env.local is missing` | Шаг 5 в [live-instance.md](live-instance.md) |
 | `commit(s) that are not in origin/main` | В живой копии сделали коммит: `git log --oneline origin/main..HEAD`. Нужное перенести через PR, затем `git reset --hard origin/main` |
+| `the native sqlite3 module does not load` | `npm ci` поставил сборку `sqlite3`, которая здесь не грузится; причина — строками выше. `GLIBC_2.38' not found` — Ubuntu ниже 24.04 (glibc < 2.38), готовой сборке `sqlite3` 6 её мало (FT-048): `echo build_from_source=sqlite3 >> ~/.npmrc`, затем `scripts/live-update.sh` ещё раз — `npm ci` соберёт модуль из исходников ([live-instance.md](live-instance.md#4-wsl-node-и-копия-kapelka-live), шаг 4). Сервис не перезапускался и работает на прошлой версии, но его следующий старт уже не поднимется: повторить сразу или откатиться на `live-good` |
 
 ### Git Pull Fails on the PC
 
@@ -563,6 +564,7 @@ journalctl -u kapelka.service -n 100 --no-pager   # без группы adm — 
 | `Configuration validation failed` | Настройка в `.env.local` не проходит проверку на старте; список ошибок — в той же записи (`errors`). Например, `ALLOWED_TELEGRAM_IDS is required in production` (FT-153) или Shortcut задан наполовину, токен короче 32 символов, владелец не в `ALLOWED_TELEGRAM_IDS` (FT-155) |
 | `Telegram bot polling failed permanently` сразу после старта, без `409` | Нет сети на старте: в production процесс выходит (FT-154), systemd запускает его снова с растущей паузой |
 | `NODE_MODULE_VERSION` | `node_modules` собраны под другой Node: `scripts/nvm-exec.sh npm ci --include=dev` |
+| `SQLite package has not been found installed` | Нативный модуль `sqlite3` не загрузился; TypeORM прячет причину. Показать её: `scripts/nvm-exec.sh node -e "require('sqlite3')"`. `GLIBC_2.38' not found` — Ubuntu ниже 24.04 (glibc < 2.38), готовая сборка `sqlite3` 6 ей не подходит (FT-048): `echo build_from_source=sqlite3 >> ~/.npmrc`, затем `scripts/live-update.sh` — его `npm ci` соберёт модуль из исходников ([live-instance.md](live-instance.md#4-wsl-node-и-копия-kapelka-live), шаг 4) |
 | Строки без времени и уровня, не JSON (`[TELEGRAM] Daily summary not sent { … }` в несколько строк); `LOG_LEVEL` из `.env.local` не действует | Сборка до FT-165: логгеры слоя application писали через запасной `console`, а Winston создавался раньше, чем загружался `.env.local`. Обновить живую копию (`scripts/live-update.sh`) |
 | `start request repeated too quickly` | Сработал лимит стартов (на systemd 249 / Ubuntu 22.04 — после ~20 быстрых перезапусков, например при долгом отсутствии сети). Исправить причину, затем `sudo systemctl reset-failed kapelka.service && sudo systemctl start kapelka.service` |
 
