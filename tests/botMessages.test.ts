@@ -225,6 +225,20 @@ describe('bot messages (FT-122)', () => {
       expect(await log.handled('tg-7-1-12')).toMatchObject({ confirmation: null });
     });
 
+    it('a failed tidying of old rows does not fail what was kept (FT-172 review)', async () => {
+      const { ds } = await startBot();
+      const repository = new SqliteBotMessageRepository(ds);
+      jest.spyOn(repository, 'deleteHandledOlderThan').mockRejectedValue(new Error('SQLITE_BUSY: database is locked'));
+      const log = new BotMessageModule(repository).getLog();
+      const message = await log.remember({ ...owner, messageId: 10, recordIds: ['tx-1'] });
+
+      await expect(log.markHandled('tg-7-1-11', message)).resolves.toBeUndefined();
+      await expect(log.keepConfirmation('tg-7-1-12', owner, draft)).resolves.toBeUndefined();
+
+      expect(await log.handled('tg-7-1-11')).toMatchObject({ botMessageId: 10 });
+      expect(await log.handled('tg-7-1-12')).toMatchObject({ confirmation: draft });
+    });
+
     it('forgets a message after two days, when the next one is kept', async () => {
       const { ds, module } = await startBot();
       const log = module.getLog();

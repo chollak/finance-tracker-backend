@@ -210,7 +210,13 @@ export class RemindersNotifier {
   private async closeOverdue(recipient: ReminderRecipient, today: string): Promise<void> {
     const { userId } = recipient;
     if (this.closed.get(userId) === today) return;
-    await this.markMissed(recipient, addDaysToDateOnly(today, -1));
+    const yesterday = addDaysToDateOnly(today, -1);
+    try {
+      await this.markMissed(recipient, yesterday);
+    } catch (error) {
+      // Only a trace: today's reminders go out without it
+      logger.error('Yesterday\'s missed reminders could not be looked at', error as Error, { userId, day: yesterday });
+    }
     await closeExpired(this.log, userId, REMINDER_KINDS, today);
     this.closed.set(userId, today);
   }

@@ -803,6 +803,21 @@ describe('goal, subscription and audit reminders in the bot (FT-133)', () => {
       expect(await logEntry('audit', '2026-11')).toBeNull();
     });
 
+    it('yesterday that cannot be read leaves no trace, and today\'s reminders still go out', async () => {
+      await auditedOnOctober14();
+      await record('2026-10-27', 'Транспорт', 60_000, 'Такси');
+      const goals = running.auditModule.getListGoalRemindersUseCase.bind(running.auditModule);
+      jest.spyOn(running.auditModule, 'getListGoalRemindersUseCase').mockImplementation(() => {
+        const useCase = goals();
+        return { execute: (input: { userId: string; today?: string }) => (input.today === '2026-10-26'
+          ? Promise.reject(new Error('SQLITE_BUSY: database is locked'))
+          : useCase.execute(input)) } as never;
+      });
+
+      at('2026-10-27', '12:30');
+      expect(await outcomes()).toEqual(['goal_near:sent']);
+    });
+
     it('a reminder that went out on its day is left as it was', async () => {
       await auditedOnOctober14();
       await remindAboutKinopoisk();
