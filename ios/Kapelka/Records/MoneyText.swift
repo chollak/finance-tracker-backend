@@ -1,6 +1,7 @@
 /// Amounts as the Mini App shows them (`formatMinor` in `webapp/src/shared/lib/money`, `docs/pastel/money-model.md`):
 /// a real minus or «+», digit groups by a non-breaking space, сумы whole, dollars with cents after a comma —
-/// «−25 000 сум», «+1 200,50 $». Integer arithmetic only: amounts are hundredths, never `Double`.
+/// «−25 000 сум», «+1 200,50 USD», the unit as the Mini App and the server's ack write it (`design-system.md`).
+/// Integer arithmetic only: amounts are hundredths, never `Double`.
 enum MoneyText {
     enum Sign {
         /// A minus for a negative amount only.
@@ -29,15 +30,9 @@ enum MoneyText {
             body = "\(grouped(magnitude / 100)),\(cents < 10 ? "0" : "")\(cents)"
         }
         let prefix = minor < 0 ? minus : (sign == .always && minor > 0 ? "+" : "")
-        return "\(prefix)\(body)\(nonBreakingSpace)\(unit(currency))"
-    }
-
-    private static func unit(_ currency: String) -> String {
-        switch currency {
-        case "UZS": "сум"
-        case "USD": "$"
-        default: currency
-        }
+        // «сум» for сумы; «USD» and any other code as it is
+        let unit = currency == "UZS" ? "сум" : currency
+        return "\(prefix)\(body)\(nonBreakingSpace)\(unit)"
     }
 
     private static func grouped(_ number: UInt) -> String {

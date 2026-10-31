@@ -3,27 +3,29 @@ import Testing
 @testable import Kapelka
 
 /// Amounts as the Mini App shows them (`formatMinor` in `webapp/src/shared/lib/money`, `docs/pastel/money-model.md`),
-/// with «$» for dollars (FT-219).
+/// «USD» after dollars as in the Mini App and the server's ack (`design-system.md`: one product, one unit).
 @Suite("Суммы записей")
 struct MoneyTextTests {
     private let nbsp = "\u{00A0}"
     private let minus = "\u{2212}"
 
-    @Test("расход в сумах — «−25 000 сум», доход в долларах — «+1 200,50 $»")
+    @Test("расход в сумах — «−25 000 сум», доход в долларах — «+1 200,50 USD»")
     func recordAmounts() throws {
         let expense = try record(RecordsReply.record(type: "expense", amountMinor: 2_500_000, currency: "UZS"))
         let income = try record(RecordsReply.record(type: "income", amountMinor: 120_050, currency: "USD"))
 
         #expect(MoneyText.signed(expense) == "\(minus)25\(nbsp)000\(nbsp)сум")
-        #expect(MoneyText.signed(income) == "+1\(nbsp)200,50\(nbsp)$")
+        #expect(MoneyText.signed(income) == "+1\(nbsp)200,50\(nbsp)USD")
     }
 
     @Test("сумы без дробей, с округлением как в Mini App; доллары всегда с центами")
-    func fractions() {
+    func fractions() throws {
+        let expense = try record(RecordsReply.record(type: "expense", amountMinor: 450, currency: "USD"))
+        #expect(MoneyText.signed(expense) == "\(minus)4,50\(nbsp)USD")
         #expect(MoneyText.format(minor: 2_500_050, currency: "UZS") == "25\(nbsp)001\(nbsp)сум")
         #expect(MoneyText.format(minor: 2_500_049, currency: "UZS") == "25\(nbsp)000\(nbsp)сум")
-        #expect(MoneyText.format(minor: 450, currency: "USD") == "4,50\(nbsp)$")
-        #expect(MoneyText.format(minor: 5, currency: "USD") == "0,05\(nbsp)$")
+        #expect(MoneyText.format(minor: 450, currency: "USD") == "4,50\(nbsp)USD")
+        #expect(MoneyText.format(minor: 5, currency: "USD") == "0,05\(nbsp)USD")
     }
 
     @Test("разряды по три неразрывным пробелом; знак — настоящий минус или «+»")
