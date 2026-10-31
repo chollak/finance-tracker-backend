@@ -7,9 +7,8 @@ struct RecordsView: View {
     let list: RecordsList
     let openSettings: () -> Void
 
-    @State private var picker: CategoryPicker?
-
     var body: some View {
+        @Bindable var list = list
         NavigationStack {
             List {
                 if list.screen == .list {
@@ -36,7 +35,7 @@ struct RecordsView: View {
             .safeAreaInset(edge: .bottom) { noticeBar }
             .animation(.default, value: list.notice)
             .refreshable { await list.refresh() }
-            .sheet(item: $picker) { CategorySheet(picker: $0) }
+            .sheet(item: $list.picker) { CategorySheet(picker: $0) }
             .navigationTitle("Записи")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -48,9 +47,7 @@ struct RecordsView: View {
 
     private func recordRow(_ row: RecordRow) -> some View {
         Button {
-            if let record = list.record(id: row.id) {
-                picker = CategoryPicker(record: record, list: list)
-            }
+            list.openPicker(for: row.id)
         } label: {
             RecordRowView(row: row)
         }

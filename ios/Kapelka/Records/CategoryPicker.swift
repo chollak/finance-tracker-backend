@@ -1,16 +1,24 @@
 import Foundation
 import Observation
 
+/// What the sheet of categories offers (FT-221).
+struct CategoryChoices: Equatable, Sendable {
+    /// The visible categories of the record's type, in the server's order.
+    let visible: [RecordCategory]
+    /// The record's own category when it is hidden: shown apart with its checkmark, so the sheet never lacks one.
+    let hiddenCurrent: RecordCategory?
+}
+
 /// The sheet a tap on a row of «Записи» opens (FT-221): the visible categories of the record's type, the current one
-/// checked. A choice saves at once; the sheet closes when the server took it. The correction teaches the server
-/// (FT-184: an Apple Pay payment teaches its merchant whole, a phrase its words). Amount, account and date stay in
-/// the Mini App (decision 2026-10-31).
+/// checked. A choice saves at once; the sheet closes when the server took it — this sheet only, not one opened since
+/// for another row. The correction teaches the server (FT-184: an Apple Pay payment teaches its merchant whole, a
+/// phrase its words). Amount, account and date stay in the Mini App (decision 2026-10-31).
 @MainActor
 @Observable
 final class CategoryPicker: Identifiable {
     enum Choices: Equatable {
         case loading
-        case loaded([RecordCategory])
+        case loaded(CategoryChoices)
         /// What to say; «Повторить» loads again.
         case failed(String)
     }
@@ -35,11 +43,12 @@ final class CategoryPicker: Identifiable {
         self.list = list
     }
 
+    /// Without a network the sheet says so — after why the last choice did not save, if it did not.
     func load() async {
         do {
-            choices = .loaded(Self.visible(try await list.categories(), for: kind))
+            choices = .loaded(Self.choices(try await list.categories(), for: kind, current: currentId))
         } catch {
-            choices = .failed(error.message)
+            choices = .failed([problem, error.message].compactMap { $0 }.joined(separator: ". "))
         }
     }
 
@@ -47,19 +56,24 @@ final class CategoryPicker: Identifiable {
     /// the list says so itself. Without a network nothing changes, and the sheet says why.
     func choose(_ categoryId: String) async -> Bool {
         guard savingId == nil else { return false }
-        guard categoryId != currentId else { return true }
+        guard categoryId != currentId else {
+            close()
+            return true
+        }
         savingId = categoryId
         problem = nil
         defer { savingId = nil }
         do {
             try await list.setCategory(categoryId, of: id)
+            close()
             return true
         } catch {
             switch error {
             case .recordGone:
+                close()
                 return true
             case .categoryGone:
-                // Hidden or deleted in the Mini App meanwhile: the record keeps its category, the list is new
+                // Deleted in the Mini App meanwhile: the record keeps its category, the list is new
                 problem = error.message
                 await load()
                 return false
@@ -70,9 +84,18 @@ final class CategoryPicker: Identifiable {
         }
     }
 
-    /// What the sheet offers: the record's type only — a type change is the Mini App's — without the hidden ones, in
-    /// the server's order.
-    static func visible(_ categories: [RecordCategory], for kind: Record.Kind) -> [RecordCategory] {
-        categories.filter { $0.type == kind && !$0.isHidden }
+    /// «Закрыть», or the server took the choice.
+    func close() {
+        list.closePicker(id)
+    }
+
+    /// The record's type only — a type change is the Mini App's — without the hidden ones, in the server's order; the
+    /// record's own hidden category apart.
+    static func choices(_ categories: [RecordCategory], for kind: Record.Kind, current: String?) -> CategoryChoices {
+        let ofKind = categories.filter { $0.type == kind }
+        return CategoryChoices(
+            visible: ofKind.filter { !$0.isHidden },
+            hiddenCurrent: ofKind.first { $0.isHidden && $0.id == current }
+        )
     }
 }

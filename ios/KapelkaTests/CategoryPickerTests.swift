@@ -51,12 +51,12 @@ struct CategoryPickerTests {
 
         let expense = try picker(for: "b", in: list)
         await expense.load()
-        #expect(expense.choices == .loaded(try decoded([Self.cafe, Self.food])))
+        #expect(try expense.choices == loaded([Self.cafe, Self.food]))
         #expect(expense.currentId == "cat-cafe")
 
         let income = try picker(for: "a", in: list)
         await income.load()
-        #expect(income.choices == .loaded(try decoded([Self.salary])))
+        #expect(try income.choices == loaded([Self.salary]))
         #expect(income.currentId == "cat-salary")
     }
 
@@ -132,7 +132,7 @@ struct CategoryPickerTests {
         #expect(picker.choices == .failed("Нет связи — попробуй позже"))
 
         await picker.load()
-        #expect(picker.choices == .loaded(try decoded([Self.cafe, Self.food])))
+        #expect(try picker.choices == loaded([Self.cafe, Self.food]))
     }
 
     @Test("запись уже удалена (404) — шторка закрывается, строки нет, «Запись уже удалена», список обновляется")
@@ -169,10 +169,95 @@ struct CategoryPickerTests {
         #expect(await picker.choose("cat-food") == false)
 
         #expect(picker.problem == "Категории уже нет")
-        #expect(picker.choices == .loaded(try decoded([Self.cafe])))
+        #expect(try picker.choices == loaded([Self.cafe]))
         #expect(await routes.categoryLists.requests.count == 2)
         #expect(row("b", in: list)?.details == "Кафе")
         #expect(list.notice == nil)
+    }
+
+    @Test("текущая категория скрыта — в шторке отдельной строкой с галочкой; среди видимых её нет")
+    func hiddenCurrentCategory() async throws {
+        let hiddenOne = RecordsReply.record(
+            id: "h", date: "2026-10-29", createdAt: "2026-10-29T13:00:00.000Z", categoryId: "cat-old", category: "Подписки"
+        )
+        let routes = RoutedTransport(
+            page: [.http(200, body: RecordsReply.page([hiddenOne, Self.c]))],
+            categories: [Self.categories]
+        )
+        let list = try list(routes)
+        await list.refresh()
+        let picker = try picker(for: "h", in: list)
+
+        await picker.load()
+
+        #expect(try picker.choices == loaded([Self.cafe, Self.food], hiddenCurrent: Self.hidden))
+        #expect(picker.currentId == "cat-old")
+        // The checked one again: nothing to send
+        #expect(await picker.choose("cat-old"))
+        #expect(await routes.recordEdits.requests.isEmpty)
+    }
+
+    @Test("категории уже нет, и список категорий без связи не загрузился — в шторке оба сообщения")
+    func categoryGoneThenOffline() async throws {
+        let routes = RoutedTransport(
+            page: [Self.firstPage],
+            categories: [Self.categories, .failure(.notConnectedToInternet)],
+            edits: [.http(404, body: RecordsReply.categoryNotFound("cat-food"))]
+        )
+        let list = try list(routes)
+        await list.refresh()
+        let picker = try picker(for: "b", in: list)
+        await picker.load()
+
+        #expect(await picker.choose("cat-food") == false)
+
+        #expect(picker.choices == .failed("Категории уже нет. Нет связи — попробуй позже"))
+    }
+
+    @Test("ответ по шторке одной записи закрывает только её, а не шторку, уже открытую у другой")
+    func slowAnswerClosesOnlyItsSheet() async throws {
+        let edited = RecordsReply.record(
+            id: "b", date: "2026-10-29", createdAt: "2026-10-29T09:00:00.000Z",
+            categoryId: "cat-food", category: "Продукты", merchant: "KORZINKA 12", needsReview: true
+        )
+        let routes = RoutedTransport(
+            page: [Self.firstPage],
+            categories: [Self.categories],
+            edits: [.after(.milliseconds(300), .http(200, body: RecordsReply.one(edited)))]
+        )
+        let list = try list(routes)
+        await list.refresh()
+        list.openPicker(for: "b")
+        let first = try #require(list.picker)
+        await first.load()
+
+        async let closes = first.choose("cat-food")
+        #expect(await eventually { await routes.recordEdits.requests.count == 1 })
+        // Closed with a swipe down, then a tap on another row
+        list.picker = nil
+        list.openPicker(for: "c")
+        #expect(await closes)
+
+        #expect(list.picker?.id == "c")
+        list.closePicker("c")
+        #expect(list.picker == nil)
+    }
+
+    @Test("выбор закрывает свою шторку")
+    func choiceClosesItsSheet() async throws {
+        let routes = RoutedTransport(page: [Self.firstPage], categories: [Self.categories])
+        let list = try list(routes)
+        await list.refresh()
+        list.openPicker(for: "b")
+        let picker = try #require(list.picker)
+        await picker.load()
+
+        #expect(await picker.choose("cat-cafe"))
+        #expect(list.picker == nil)
+    }
+
+    private func loaded(_ visible: [String], hiddenCurrent: String? = nil) throws -> CategoryPicker.Choices {
+        .loaded(CategoryChoices(visible: try decoded(visible), hiddenCurrent: try hiddenCurrent.map { try decoded([$0])[0] }))
     }
 
     private func decoded(_ categories: [String]) throws -> [RecordCategory] {

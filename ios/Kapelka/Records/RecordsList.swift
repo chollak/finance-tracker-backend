@@ -42,6 +42,8 @@ final class RecordsList {
     private(set) var moreProblem: RecordsFailure?
     /// «Удалено · Вернуть», or what went wrong with an edit, at the bottom for 5 s (`RecordsNoticeBar`).
     var notice: RecordsNotice? { bar.notice }
+    /// The sheet of categories open now (FT-221); its own swipe down sets `nil`.
+    var picker: CategoryPicker?
 
     private let feed: RecordsFeed
     private let now: @Sendable () -> Date
@@ -218,6 +220,19 @@ final class RecordsList {
     /// VoiceOver closes the bar that does not go by itself.
     func dismissNotice() {
         bar.dismiss()
+    }
+
+    /// A tap on a row: the sheet of its categories.
+    func openPicker(for id: String) {
+        picker = record(id: id).map { CategoryPicker(record: $0, list: self) }
+    }
+
+    /// Closes the sheet of this record only: a slow answer for one row must not close the sheet opened since for
+    /// another.
+    func closePicker(_ id: String) {
+        if picker?.id == id {
+            picker = nil
+        }
     }
 
     /// The categories for the sheet: not kept, since without a network they cannot be changed anyway (FT-219).
