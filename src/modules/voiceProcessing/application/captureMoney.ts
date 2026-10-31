@@ -1,9 +1,8 @@
 import { ParsedTransaction } from '../domain/transcriptionService';
 import { PaymentHints } from '../domain/paymentHints';
 import { TransactionSemanticType } from '../../transaction/domain/transactionSemanticType';
-import { readWrittenNumber } from '../domain/writtenNumber';
+import { readWrittenNumber, writtenNumbersIn } from '../domain/writtenNumber';
 
-const AMOUNT_TOKEN = /[+-]?\d[\d\s.,]*/g;
 // A magnitude word («к», «тыс», «млн») or a currency word right after the number: written in full.
 const UNIT_AFTER = /^\s?(?:млрд|миллиард\p{L}*|mlrd|млн|миллион\p{L}*|mln|тысяч\p{L}*|тыщ\p{L}*|тыс|ming|[кk]|сум|sum|uzs|\$)(?![\p{L}\p{N}_])/iu;
 
@@ -24,10 +23,9 @@ export function expandShortenedThousands(
   type: 'income' | 'expense' = 'expense'
 ): number {
   if (type !== 'expense' || currency !== 'UZS' || amount <= 0 || amount >= SHORTENED_BELOW) return amount;
-  const writtenBare = [...text.matchAll(AMOUNT_TOKEN)].some(match => {
-    const token = match[0].replace(/[\s.,]+$/, '');
-    const before = text.slice(0, match.index ?? 0);
-    const after = text.slice((match.index ?? 0) + token.length);
+  const writtenBare = writtenNumbersIn(text).some(({ token, index }) => {
+    const before = text.slice(0, index);
+    const after = text.slice(index + token.length);
     return readWrittenNumber(token) === amount && !/\$\s?$/.test(before) && !UNIT_AFTER.test(after);
   });
   // Whole сум: 1.1 × 1000 is 1100.0000000000002 in floating point

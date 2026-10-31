@@ -18,7 +18,7 @@ import { itemClientId } from '../../transaction/domain/clientId';
 import { fromMinor } from '../../../shared/domain/money/money';
 import { todayDateOnly } from '../../../shared/domain/dates/dateOnly';
 import { phraseDayOf } from '../domain/phraseDay';
-import { readWrittenNumber } from '../domain/writtenNumber';
+import { readWrittenNumber, writtenNumbersIn } from '../domain/writtenNumber';
 import { normalizeSemanticType, TransactionSemanticType } from '../../transaction/domain/transactionSemanticType';
 import { AnalysisResult, ParsedTransaction } from '../domain/transcriptionService';
 import {
@@ -46,8 +46,6 @@ const CURRENCY_UNIT_AFTER_AMOUNT_PATTERN = new RegExp(
   `^\\s?(?:${CURRENCY_WORD_ALTERNATIVES.join('|')})(?![\\p{L}\\p{N}_])`,
   'iu'
 );
-
-const AMOUNT_TOKEN_PATTERN = /[+-]?\d[\d\s.,]*/g;
 
 // Magnitude words directly after an amount: "12 млн", "25 тыс", "15к". A bare "к"/"k" only counts
 // when glued to the digits, so the preposition ("500000 к маме") and units ("4кг") stay untouched.
@@ -85,15 +83,12 @@ interface ParsedAmount {
  * Returns null when the phrase does not hold exactly one usable amount.
  */
 function parseSingleAmount(normalizedText: string): ParsedAmount | null {
-  const matches = [...normalizedText.matchAll(AMOUNT_TOKEN_PATTERN)];
-  if (matches.length !== 1) {
+  const numbers = writtenNumbersIn(normalizedText);
+  if (numbers.length !== 1) {
     return null;
   }
 
-  const match = matches[0];
-  const start = match.index ?? 0;
-  // Separators swallowed at the end of the loose token belong to the text, not to the number.
-  const token = match[0].replace(/[\s.,]+$/, '');
+  const [{ token, index: start }] = numbers;
   const tokenEnd = start + token.length;
 
   const suffix = MAGNITUDE_SUFFIX_PATTERN.exec(normalizedText.slice(tokenEnd))?.[0] ?? '';
@@ -127,9 +122,7 @@ interface TextAmount {
 function readTextAmounts(text: string): TextAmount[] {
   const normalizedText = text.trim().replace(/\s+/g, ' ');
 
-  return [...normalizedText.matchAll(AMOUNT_TOKEN_PATTERN)].flatMap(match => {
-    const start = match.index ?? 0;
-    const token = match[0].replace(/[\s.,]+$/, '');
+  return writtenNumbersIn(normalizedText).flatMap(({ token, index: start }) => {
     const afterToken = normalizedText.slice(start + token.length);
     const suffix = MAGNITUDE_SUFFIX_PATTERN.exec(afterToken)?.[0] ?? '';
 
