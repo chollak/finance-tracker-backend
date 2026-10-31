@@ -44,7 +44,9 @@ describe('OpenAI timeout and retries (FT-145)', () => {
     expect(Date.now() - started).toBeLessThan(5_000);
   });
 
-  it('gives up on a voice without a retry: the SDK would resend the upload it already read', async () => {
+  // The behaviour, not its cause: the service passes `maxRetries: 0`, and openai 7 does not resend a stream upload
+  // either (FT-183), so this one attempt holds with or without the option
+  it('gives up on a voice after the configured timeout in one attempt', async () => {
     const OpenAITranscriptionService = loadService({ OPENAI_TIMEOUT_MS: '50' });
     const fetch = hangingFetch();
     const service = new OpenAITranscriptionService('test-api-key', { fetch: fetch as any });
