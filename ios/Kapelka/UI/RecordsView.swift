@@ -32,8 +32,22 @@ struct RecordsView: View {
                 }
             }
             .overlay { placeholder }
-            .safeAreaInset(edge: .bottom) { noticeBar }
+            .safeAreaInset(edge: .bottom) {
+                if let notice = list.notice {
+                    RecordsNoticeView(
+                        notice: notice,
+                        restore: { Task { await list.restoreDeleted() } },
+                        dismiss: list.dismissNotice
+                    )
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+            }
             .animation(.default, value: list.notice)
+            // VoiceOver hears each bar; «Вернуть» on its way is not news
+            .onChange(of: list.notice?.id) {
+                guard let notice = list.notice, notice.undo?.isRestoring != true else { return }
+                AccessibilityNotification.Announcement(notice.text).post()
+            }
             .refreshable { await list.refresh() }
             .sheet(item: $list.picker) { CategorySheet(picker: $0) }
             .navigationTitle("Записи")
@@ -60,28 +74,6 @@ struct RecordsView: View {
             }
             // The screen's black-or-white tint would make it white on white in the dark theme
             .tint(.red)
-        }
-    }
-
-    /// «Удалено · Вернуть» for 5 s, or what went wrong with an edit: plain `Text` and `Button` over the tab bar.
-    @ViewBuilder
-    private var noticeBar: some View {
-        if let notice = list.notice {
-            HStack(spacing: 12) {
-                Text(notice.text)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                if notice.restorable != nil {
-                    Button("Вернуть") {
-                        Task { await list.restoreDeleted() }
-                    }
-                    .buttonStyle(.bordered)
-                }
-            }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 10)
-            .frame(minHeight: 44)
-            .background(.bar)
-            .transition(.move(edge: .bottom).combined(with: .opacity))
         }
     }
 
