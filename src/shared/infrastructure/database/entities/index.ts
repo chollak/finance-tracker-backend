@@ -11,6 +11,7 @@ export { Account } from './Account';
 export { FxRate } from './FxRate';
 export { AccountMove } from './AccountMove';
 export { BotMessage } from './BotMessage';
+export { HandledMessage } from './HandledMessage';
 export { NotificationLog } from './NotificationLog';
 export { LoginToken } from './LoginToken';
 export { Audit } from './Audit';

@@ -212,12 +212,19 @@ first one had been written.
   in it because a private chat has the person's id with every bot and a new bot numbers its messages from 1 again,
   while the records stay (the move to Kapelka clears only `bot_messages`). Every record the message writes takes it —
   the same unique (user, client id) as the Mini App's offline queue (FT-106): the text and voice captures (`<id>`,
-  `<id>:1`, …), the amount after a quick-add category, the answer to «Сколько?». An amount answer writes no record —
-  the answer to «Сумму» or to a large amount, «не 25, а 28» — so `changeAmount` keeps the id in the bot message's
-  state (`answeredBy`). First in the text and voice chains, `createRepeatedMessageGuard` looks the id up in both
-  places: when the message's records exist or a recent bot message was answered by it, nothing is parsed, downloaded,
-  written or changed. Written records are confirmed only if no recent bot message shows them yet — the process may
-  have stopped before sending it. A record the person cancelled stays cancelled.
+  `<id>:1`, …), the amount after a quick-add category, the answer to «Сколько?». What writes no record keeps the id
+  in `handled_messages` (FT-172): the answer to «Сумму» or to a large amount, «не 25, а 28» (`changeAmount`), and
+  /undo — each with the bot message it changed. First in the text and voice chains, `createRepeatedMessageGuard`
+  looks the id up in both places: when the message's records exist or the message is in `handled_messages`, nothing
+  is parsed, downloaded, written or changed — whichever bot message it answered, however many answers came, however
+  old the message. Written records are confirmed only if no recent bot message shows them yet — the process may have
+  stopped before sending it. A record the person cancelled stays cancelled.
+- **The confirmation is kept before it is sent (FT-172).** `sendRecordMessage` writes what it is about to show —
+  records, screen, state with «Сколько?», «?» and «понял как», what a voice was heard as — to the message's row in
+  `handled_messages` (`confirmation`) and clears it once the message is out. A repeat whose first confirmation did not
+  go out sends the kept one (`sendKeptConfirmation`), a large amount's question with its records still held. /undo
+  sent again cancels nothing more (`handleUndo` finds its own row); if its reply did not go out, the reply is sent then.
+  Rows are kept two days (`HANDLED_MESSAGE_DAYS`): Telegram sends an update again for up to a day.
 - **The launch count starts anew.** A launch that has polled for `POLLING_STABLE_MS` without an error counts as
   started: the next failure is the first of a new count, so a `409` days later is retried instead of `failed` at once.
   `POLLING_STABLE_MS` is longer than one long poll (50 s) and twice the longest pause between launches (80 s with the
