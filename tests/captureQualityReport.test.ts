@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import sqlite3 from 'sqlite3';
 import { createAppDataSource } from '../src/shared/infrastructure/database/database.config';
 import { main } from '../scripts/capture-quality-report';
 
@@ -205,9 +206,13 @@ describe('capture quality report (FT-217)', () => {
     });
 
     it('counts days in a row by the day of the operation, and also by the day sent', () => {
-      expect(out).toMatch(/Дней подряд: 3 — самая длинная серия; сейчас: 0; сегодня записей пока нет \(цель — 14\)/);
+      expect(out).toMatch(
+        /Дней подряд: 3 по дню траты · 2 по дню отправки — самые длинные серии; сейчас: 0 · 2; сегодня записей пока нет \(цель — 14\)/
+      );
       expect(out).toMatch(/По дню отправки \(createdAt\): самая длинная серия 2, сейчас 2; дней без отправки: 2 — 2026-11-02, 2026-11-04/);
-      expect(out).toMatch(/Записей, отправленных не в свой день: 2/);
+      expect(out).toMatch(
+        /Записей, отправленных не в свой день: 2 — опоздавшая отправка, поправленная дата, ручной ввод задним числом/
+      );
     });
 
     it('counts records per day of the operation; a day with only a deleted record is a day without records', () => {
@@ -241,14 +246,14 @@ describe('capture quality report (FT-217)', () => {
     });
 
     it('says what was corrected and on what each number is based', () => {
-      expect(out).toMatch(/правка \(по времени изменения\)»: 7 из 20 оставшихся/);
+      expect(out).toMatch(/правка \(по времени изменения\)»: 7 из 20 оставшихся записей\n/);
       expect(out).toMatch(/категория — по снимку разбора: 1 \(снимок категории есть у 14 из 20\)/);
       expect(out).toMatch(/сумма — по снимку разбора: 1 \(снимок суммы есть у 15 из 20\)/);
       expect(out).toMatch(/тип — по снимку разбора: 1\n/);
       expect(out).toMatch(/остальное — счёт, дата, заметка, пометка, «Вернуть»: 4/);
       expect(out).toMatch(/в боте последней правкой сообщения были счёт: 1, дата: 1/);
       expect(out).toMatch(/Удалены после записи: 2 — считаются правкой/);
-      expect(out).toMatch(/Снимка разбора нет у 5 из 20/);
+      expect(out).toMatch(/Снимка разбора нет у 5 из 20 оставшихся записей/);
     });
 
     it('counts «Нужно проверить» and «?» at capture and how many were never touched', () => {
@@ -287,6 +292,15 @@ describe('capture quality report (FT-217)', () => {
     expect(out).toMatch(/Mini App · фраза или голос\s+1\s+5%\s+1\s+0\s+0\s+0 из 1/);
   });
 
+  it('puts the word after a number in its form: из 1 записи, из 1 оставшейся записи', async () => {
+    const { code, out } = await run([`--db=${copy}`, ...period, '--user=222']);
+    expect(code).toBe(0);
+    expect(out).toMatch(/Без правки: 10,0 из 10 — 1 из 1 записи \(цель/);
+    expect(out).toMatch(/правка \(по времени изменения\)»: 0 из 1 оставшейся записи\n/);
+    expect(out).toMatch(/так и не сняли у 0 из 0 записей бота/);
+    expect(out).toMatch(/Вручную \(в цель не входит\): 0 записей/);
+  });
+
   it('chooses the period by the day of the operation: a payment of the last day sent the next day is in', async () => {
     const { code, out } = await run([`--db=${copy}`, '--from=2026-10-31', '--to=2026-11-05']);
     expect(code).toBe(0);
@@ -321,11 +335,56 @@ describe('capture quality report (FT-217)', () => {
       expect(code).toBe(1);
       expect(out).toBe('');
       expect(err).toMatch(/живая база/);
-      expect(err).toMatch(/\.backup/);
+      // The safe copy: no old copy counted silently, no empty database from a typo, stop on the first error
+      expect(err).toContain('rm -f /tmp/kapelka-report.sqlite && test -s data/database.sqlite && sqlite3 -bail');
+      expect(err).toMatch(/\.backup \/tmp\/kapelka-report\.sqlite/);
       expect(sha256(live)).toBe(before);
     } finally {
       fs.rmSync(app, { recursive: true, force: true });
     }
+  });
+
+  describe('an empty copy — .backup failed', () => {
+    const EMPTY = /Копия пустая — \.backup не удался, повтори копирование/;
+
+    it('says so for a file of 0 bytes, and leaves it as it is', async () => {
+      const empty = path.join(dir, 'ft217-empty.sqlite');
+      fs.writeFileSync(empty, '');
+      try {
+        const files = fs.readdirSync(dir).sort();
+        const { code, out, err } = await run([`--db=${empty}`, ...period]);
+        expect(code).toBe(1);
+        expect(out).toBe('');
+        expect(err).toMatch(EMPTY);
+        expect(err).toContain('rm -f /tmp/kapelka-report.sqlite');
+        expect(err).not.toMatch(/старее схемы/);
+        expect(fs.statSync(empty).size).toBe(0);
+        expect(fs.readdirSync(dir).sort()).toEqual(files);
+      } finally {
+        fs.rmSync(empty, { force: true });
+      }
+    });
+
+    it('says so for a database without a single table', async () => {
+      const bare = path.join(dir, 'ft217-bare.sqlite');
+      await new Promise<void>((resolve, reject) => {
+        const db = new sqlite3.Database(bare, error => {
+          if (error) return reject(error);
+          db.exec('PRAGMA user_version = 1', execError => db.close(() => (execError ? reject(execError) : resolve())));
+        });
+      });
+      try {
+        expect(fs.statSync(bare).size).toBeGreaterThan(0);
+        const before = sha256(bare);
+        const { code, err } = await run([`--db=${bare}`, ...period]);
+        expect(code).toBe(1);
+        expect(err).toMatch(EMPTY);
+        expect(err).not.toMatch(/старее схемы/);
+        expect(sha256(bare)).toBe(before);
+      } finally {
+        fs.rmSync(bare, { force: true });
+      }
+    });
   });
 
   it('never creates a database that is not there', async () => {

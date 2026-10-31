@@ -1,5 +1,6 @@
 import { Calendar, QualityReport, SourceTally, Tally } from './summarize';
 import { dayRanges, daysBetween, TASHKENT_OFFSET_HOURS, weekdayOf } from './period';
+import { afterOutOf, plural } from './words';
 
 /**
  * The capture quality report (FT-217) as text for the terminal: counts, shares, dates and the time of the newest record
@@ -9,16 +10,11 @@ import { dayRanges, daysBetween, TASHKENT_OFFSET_HOURS, weekdayOf } from './peri
 const GOAL_CLEAN_OF_TEN = 7;
 const GOAL_DAYS_IN_A_ROW = 14;
 
-function plural(n: number, forms: [string, string, string]): string {
-  const tens = n % 100;
-  const ones = n % 10;
-  if (tens >= 11 && tens <= 14) return forms[2];
-  if (ones === 1) return forms[0];
-  if (ones >= 2 && ones <= 4) return forms[1];
-  return forms[2];
-}
-
 const RECORDS: [string, string, string] = ['запись', 'записи', 'записей'];
+/** «из 18 записей», «из 21 записи». */
+const outOfRecords = (n: number) => `из ${n} ${afterOutOf(n, ['записи', 'записей'])}`;
+/** «из 20 оставшихся записей», «из 1 оставшейся записи». */
+const outOfKept = (n: number) => `из ${n} ${afterOutOf(n, ['оставшейся записи', 'оставшихся записей'])}`;
 const percent = (part: number, whole: number) => (whole === 0 ? '—' : `${Math.round((part * 100) / whole)}%`);
 const outOfTen = (part: number, whole: number) => ((part * 10) / whole).toFixed(1).replace('.', ',');
 const range = (low: string, high: string) => (low === high ? low : `${low}–${high}`);
@@ -44,9 +40,10 @@ function header(report: QualityReport, dbPath: string): string[] {
 function headline(report: QualityReport): string[] {
   const { goal, goalAged, manual, others } = report;
   const { streaks } = report.calendar;
+  const sent = report.sentCalendar.streaks;
   const clean = goal.captured === 0
     ? 'Без правки: записей нет'
-    : `Без правки: ${cleanOfTen(goal)} из 10 — ${cleanCount(goal)} из ${goal.captured} записей (цель — ${GOAL_CLEAN_OF_TEN} из 10)`;
+    : `Без правки: ${cleanOfTen(goal)} из 10 — ${cleanCount(goal)} ${outOfRecords(goal.captured)} (цель — ${GOAL_CLEAN_OF_TEN} из 10)`;
   const aged = goalAged.captured === 0
     ? 'среди записей старше 2 дней: таких нет'
     : `среди записей старше 2 дней: ${cleanOfTen(goalAged)} из 10 — ${cleanCount(goalAged)} из ${goalAged.captured}`;
@@ -65,8 +62,8 @@ function headline(report: QualityReport): string[] {
     );
   }
   lines.push(
-    `  Дней подряд: ${streaks.longest} — самая длинная серия; сейчас: ${streaks.current}${today} ` +
-      `(цель — ${GOAL_DAYS_IN_A_ROW}) — по дню операции, все источники`
+    `  Дней подряд: ${streaks.longest} по дню траты · ${sent.longest} по дню отправки — самые длинные серии; ` +
+      `сейчас: ${streaks.current} · ${sent.current}${today} (цель — ${GOAL_DAYS_IN_A_ROW}), все источники`
   );
   return lines;
 }
@@ -93,8 +90,8 @@ function dayLines(report: QualityReport): string[] {
   lines.push(`  Дней без записей: ${listed(calendar.daysWithout)}.`);
   lines.push(sentLine(report.sentCalendar));
   lines.push(
-    `  Записей, отправленных не в свой день: ${report.late} — день операции не день отправки: сказано про прошлый день, ` +
-      'очередь iOS, повтор Telegram.'
+    `  Записей, отправленных не в свой день: ${report.late} — опоздавшая отправка, поправленная дата, ручной ввод задним ` +
+      'числом, трата, названная прошлым днём: день траты не день отправки.'
   );
   return lines;
 }
@@ -129,14 +126,14 @@ function correctionLines(report: QualityReport): string[] {
   const c = report.corrections;
   return [
     'ПРАВКИ ПОСЛЕ ЗАПИСИ',
-    `  Тронуты после записи — «правка (по времени изменения)»: ${c.edited} из ${c.kept} оставшихся`,
+    `  Тронуты после записи — «правка (по времени изменения)»: ${c.edited} ${outOfKept(c.kept)}`,
     `    категория — по снимку разбора: ${c.category} (снимок категории есть у ${c.categorySnapshot} из ${c.kept})`,
     `    сумма — по снимку разбора: ${c.amount} (снимок суммы есть у ${c.amountSnapshot} из ${c.kept})`,
     `    тип — по снимку разбора: ${c.type}`,
     `    остальное — счёт, дата, заметка, пометка, «Вернуть»: ${c.other}`,
     `      в боте последней правкой сообщения были счёт: ${c.botAccount}, дата: ${c.botDate}`,
     `  Удалены после записи: ${report.totals.deleted} — считаются правкой.`,
-    `  Снимка разбора нет у ${c.withoutParse} из ${c.kept} оставшихся (вручную, сумма боту без фразы): ` +
+    `  Снимка разбора нет у ${c.withoutParse} ${outOfKept(c.kept)} (вручную, сумма боту без фразы): ` +
       'у них видно только время изменения.',
   ];
 }
@@ -147,7 +144,7 @@ function flagLines(report: QualityReport): string[] {
     'ПОМЕТКИ ПРИ ЗАПИСИ',
     `  «Нужно проверить» при записи: ${flags.flagged} из ${totals.captured} (${percent(flags.flagged, totals.captured)}) — ` +
       `так и не тронуты: ${flags.untouched}, пометка стоит сейчас: ${flags.standing}, удалены: ${flags.deleted}`,
-    `  «?» у категории (бот): так и не сняли у ${guess.still} из ${guess.botRecords} записей бота; ` +
+    `  «?» у категории (бот): так и не сняли у ${guess.still} ${outOfRecords(guess.botRecords)} бота; ` +
       `из них запись не тронута: ${guess.stillUntouched}`,
   ];
 }
@@ -175,9 +172,9 @@ const BASIS = [
   '  • Ждут проверки — на записи сейчас стоит «Нужно проверить» или «?»: её ещё никто не проверил, в «без правки» она',
   '    не входит ни нижней, ни верхней границей.',
   '  • Удалённые записи входят в «записано» и считаются правкой: удаление после записи — тоже исправление.',
-  '  • День — день операции (date): у iOS и Apple Pay это время с телефона (capturedAt), у бота — время сообщения',
-  '    (FT-182). Период выбирается по нему же: запись последнего дня, ушедшая на следующий, в периоде. Вторая серия —',
-  '    по дню отправки (createdAt).',
+  '  • День — день операции, то есть день траты (date): у iOS и Apple Pay это время с телефона (capturedAt), у бота —',
+  '    время сообщения (FT-182). Период выбирается по нему же: запись последнего дня, ушедшая на следующий, в периоде.',
+  '    Вторая серия — по дню отправки (createdAt).',
   '  • «правка (по времени изменения)» — updatedAt позже createdAt: в записи что-то меняли. Истории правок в базе нет:',
   '    что именно меняли, видно только там, где есть снимок.',
   '  • Категория, сумма, тип — снимок разбора при записи против записи сейчас; категория — по categoryId снимка',
