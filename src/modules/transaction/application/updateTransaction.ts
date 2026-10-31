@@ -11,6 +11,7 @@ import { AccountResolver } from '../domain/accountResolver';
 import { resolveAccountForUpdate } from './resolveAccountForUpdate';
 import { CategoryLessons } from '../domain/categoryLessons';
 import { teachCategoryCorrection } from './teachCategoryCorrection';
+import { changesRecord, RecordEdit } from '../domain/recordEdit';
 
 const logger = getLogger(LogCategory.TRANSACTION);
 
@@ -95,7 +96,7 @@ export class UpdateTransactionUseCase {
       if (!moved.success) return ResultHelper.failure(moved.error);
       const { accountId, currency } = moved.data;
 
-      const updatedTransaction = await this.repository.update(id.trim(), {
+      const edit: RecordEdit = {
         amountMinor,
         categoryId: categoryResult.data?.id,
         accountId,
@@ -105,7 +106,14 @@ export class UpdateTransactionUseCase {
         type,
         semanticType,
         needsReview,
-      });
+      };
+      // Nothing changes («?» confirmed with the same category): no write, so updatedAt stays, and nothing to learn
+      if (!changesRecord(existing, edit)) {
+        logger.debug('Transaction update changes nothing', { transactionId: id });
+        return ResultHelper.success(existing);
+      }
+
+      const updatedTransaction = await this.repository.update(id.trim(), edit);
       const { repository, categoryResolver, accountResolver, categoryLessons } = this;
       await teachCategoryCorrection(
         { repository, categoryResolver, accountResolver, categoryLessons }, existing, request, categoryResult.data
