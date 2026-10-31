@@ -1,16 +1,14 @@
 import { ResolvedAccount } from '../../transaction/domain/accountResolver';
 import { CaptureAssumption } from '../domain/processedTransaction';
 import { categoryNamedIn, CategoryOfRecord } from '../domain/categoryGuess';
-import { readWrittenNumber } from '../domain/writtenNumber';
+import { readWrittenNumber, writtenNumbersIn } from '../domain/writtenNumber';
 
-const AMOUNT_TOKEN = /[+-]?\d[\d\s.,]*/g;
 const MAGNITUDE_AFTER = /^\s?(?:млрд|миллиард\p{L}*|mlrd|млн|миллион\p{L}*|mln|тысяч\p{L}*|тыщ\p{L}*|тыс|ming|[кk])(?![\p{L}\p{N}_])/iu;
 
 /** The numbers the text spells out as written, without magnitude words («45», but not «45к»). */
 function bareNumbers(text: string): string[] {
-  return [...text.matchAll(AMOUNT_TOKEN)].flatMap(match => {
-    const token = match[0].replace(/[\s.,]+$/, '');
-    const after = text.slice((match.index ?? 0) + token.length);
+  return writtenNumbersIn(text).flatMap(({ token, index }) => {
+    const after = text.slice(index + token.length);
     return MAGNITUDE_AFTER.test(after) ? [] : [token];
   });
 }

@@ -1,9 +1,8 @@
 import { ParsedTransaction } from '../domain/transcriptionService';
 import { PaymentHints } from '../domain/paymentHints';
 import { TransactionSemanticType } from '../../transaction/domain/transactionSemanticType';
-import { readWrittenNumber } from '../domain/writtenNumber';
+import { readWrittenNumber, writtenNumbersIn } from '../domain/writtenNumber';
 
-const AMOUNT_TOKEN = /[+-]?\d[\d\s.,]*/g;
 // A magnitude word («к», «тыс», «млн») or a currency word right after the number: written in full.
 const UNIT_AFTER = /^\s?(?:млрд|миллиард\p{L}*|mlrd|млн|миллион\p{L}*|mln|тысяч\p{L}*|тыщ\p{L}*|тыс|ming|[кk]|сум|sum|uzs|\$)(?![\p{L}\p{N}_])/iu;
 
@@ -24,14 +23,25 @@ export function expandShortenedThousands(
   type: 'income' | 'expense' = 'expense'
 ): number {
   if (type !== 'expense' || currency !== 'UZS' || amount <= 0 || amount >= SHORTENED_BELOW) return amount;
-  const writtenBare = [...text.matchAll(AMOUNT_TOKEN)].some(match => {
-    const token = match[0].replace(/[\s.,]+$/, '');
-    const before = text.slice(0, match.index ?? 0);
-    const after = text.slice((match.index ?? 0) + token.length);
+  const writtenBare = writtenNumbersIn(text).some(({ token, index }) => {
+    const before = text.slice(0, index);
+    const after = text.slice(index + token.length);
     return readWrittenNumber(token) === amount && !/\$\s?$/.test(before) && !UNIT_AFTER.test(after);
   });
   // Whole сум: 1.1 × 1000 is 1100.0000000000002 in floating point
   return writtenBare ? Math.round(amount * 1000) : amount;
+}
+
+/**
+ * «1.500» is 1 500 (FT-206), and the AI once read it as 1,5: an amount that is the decimal reading of a number the
+ * text writes with a thousands point is that number — «4.500 $» read as 4,5 is 4 500 $. Not when another number of
+ * the text reads as the amount: «чай 1.5» keeps its 1,5.
+ */
+export function readThousandsPoint(amount: number, text: string): number {
+  const numbers = writtenNumbersIn(text);
+  if (numbers.some(({ token }) => readWrittenNumber(token) === amount)) return amount;
+  const misread = numbers.find(({ token }) => token.includes('.') && Number(token.replace(/\s/g, '')) === amount);
+  return misread ? readWrittenNumber(misread.token) ?? amount : amount;
 }
 
 export interface CaptureMoney {
@@ -66,7 +76,8 @@ export function captureMoneyOf(
   const ownMovement = isOwnMovement(semanticType);
   const currency = item.currency === 'USD' || (single && hints.currency === 'USD') ? 'USD' : 'UZS';
   const kind = ownMovement ? undefined : item.paymentKind ?? (single ? hints.kind : undefined);
-  const amount = expandShortenedThousands(item.amount || 0, text, currency, item.type === 'income' ? 'income' : 'expense');
+  const read = readThousandsPoint(item.amount || 0, text);
+  const amount = expandShortenedThousands(read, text, currency, item.type === 'income' ? 'income' : 'expense');
   return {
     // Сумы are whole, tiyin round half up: «1 234,50 сум» is 1 235 (Shukur, 2026-10-30, FT-185); dollars keep cents
     amount: currency === 'UZS' ? Math.round(amount) : amount,

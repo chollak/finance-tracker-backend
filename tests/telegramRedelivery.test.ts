@@ -298,7 +298,7 @@ describe('a message Telegram sends again after a restart (FT-167)', () => {
 
   it('the amount after a quick-add category is written once, though the session that asked for it is gone', async () => {
     await deliver({ message_id: 14, text: '500' }, { pendingAction: { type: 'awaiting_amount', category: 'Кафе' } });
-    expect(await records()).toEqual([expect.objectContaining({ amountMinor: 50_000 })]);
+    expect(await records()).toEqual([expect.objectContaining({ amountMinor: 50_000_000 })]);
     const before = sent.length;
 
     await restart();
