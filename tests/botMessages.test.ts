@@ -199,6 +199,77 @@ describe('bot messages (FT-122)', () => {
     expect(await findSchemaDrift(ds)).toEqual([]);
   });
 
+  describe('the chat messages the bot handled (FT-172)', () => {
+    const draft = {
+      recordIds: ['tx-1'],
+      mode: 'confirm' as const,
+      state: { selected: 0, guessed: ['tx-1'], assumed: { 'tx-1': { written: '25', amountMinor: 2_500_000 } }, missing: [{ description: 'такси', category: 'Транспорт', type: 'expense' as const }] },
+      heard: 'zzqx 25 и такси',
+    };
+    const owner = { userId: 'user-1', chatId: '1' };
+
+    it('keeps what a message did and the confirmation it was about to send, across a restart', async () => {
+      const first = await startBot();
+      const message = await first.module.getLog().remember({ ...owner, messageId: 10, recordIds: ['tx-1'] });
+      await first.module.getLog().markHandled('tg-7-1-11', message);
+      await first.module.getLog().keepConfirmation('tg-7-1-12', owner, draft);
+      await stopBot(first.ds);
+
+      const log = (await startBot()).module.getLog();
+      expect(await log.handled('tg-7-1-11')).toMatchObject({ ...owner, botMessageId: 10, confirmation: null });
+      expect(await log.handled('tg-7-1-12')).toMatchObject({ ...owner, botMessageId: null, confirmation: draft });
+      expect(await log.handled('tg-7-1-13')).toBeNull();
+
+      // Sent: the row stays, to say the message was handled
+      await log.dropConfirmation('tg-7-1-12', owner);
+      expect(await log.handled('tg-7-1-12')).toMatchObject({ confirmation: null });
+    });
+
+    it('a failed tidying of old rows does not fail what was kept (FT-172 review)', async () => {
+      const { ds } = await startBot();
+      const repository = new SqliteBotMessageRepository(ds);
+      jest.spyOn(repository, 'deleteHandledOlderThan').mockRejectedValue(new Error('SQLITE_BUSY: database is locked'));
+      const log = new BotMessageModule(repository).getLog();
+      const message = await log.remember({ ...owner, messageId: 10, recordIds: ['tx-1'] });
+
+      await expect(log.markHandled('tg-7-1-11', message)).resolves.toBeUndefined();
+      await expect(log.keepConfirmation('tg-7-1-12', owner, draft)).resolves.toBeUndefined();
+
+      expect(await log.handled('tg-7-1-11')).toMatchObject({ botMessageId: 10 });
+      expect(await log.handled('tg-7-1-12')).toMatchObject({ confirmation: draft });
+    });
+
+    it('forgets a message after two days, when the next one is kept', async () => {
+      const { ds, module } = await startBot();
+      const log = module.getLog();
+      const message = await log.remember({ ...owner, messageId: 10, recordIds: ['tx-1'] });
+      await ds.query(`INSERT INTO "handled_messages" ("client_id", "user_id", "chat_id", "bot_message_id", "created_at") VALUES ('tg-7-1-3', 'user-1', '1', 10, datetime('now', '-3 days'))`);
+      await ds.query(`INSERT INTO "handled_messages" ("client_id", "user_id", "chat_id", "bot_message_id", "created_at") VALUES ('tg-7-1-4', 'user-1', '1', 10, datetime('now', '-1 days'))`);
+
+      await log.markHandled('tg-7-1-5', message);
+
+      expect(await log.handled('tg-7-1-3')).toBeNull();
+      expect(await log.handled('tg-7-1-4')).not.toBeNull();
+      expect(await log.handled('tg-7-1-5')).not.toBeNull();
+    });
+
+    it('an answer kept in the state before the update is found after it', async () => {
+      const { ds } = await startBot();
+      await revertThrough(ds, 'HandledMessages1762700000000');
+      await ds.query(`INSERT INTO "bot_messages" ("id", "user_id", "chat_id", "message_id", "record_ids", "mode", "state") VALUES ('m-1', 'user-1', '1', 10, '["tx-1"]', 'edit', '{"selected":0,"guessed":[],"answeredBy":"tg-7-1-11"}')`);
+      await ds.query(`INSERT INTO "bot_messages" ("id", "user_id", "chat_id", "message_id", "record_ids", "mode", "state") VALUES ('m-2', 'user-1', '1', 12, '["tx-2"]', 'confirm', '{"answeredBy": broken')`);
+      await ds.runMigrations({ transaction: 'each' });
+
+      const log = new BotMessageModule(new SqliteBotMessageRepository(ds)).getLog();
+      expect(await log.handled('tg-7-1-11')).toMatchObject({ ...owner, botMessageId: 10, confirmation: null });
+      expect(await ds.query(`SELECT COUNT(*) AS count FROM "handled_messages"`)).toEqual([{ count: 1 }]);
+      expect(await findSchemaDrift(ds)).toEqual([]);
+
+      await revertThrough(ds, 'HandledMessages1762700000000');
+      expect(await ds.query(`SELECT name FROM sqlite_master WHERE name = 'handled_messages'`)).toEqual([]);
+    });
+  });
+
   it('is removed by reverting its migration', async () => {
     const { ds } = await startBot();
 
