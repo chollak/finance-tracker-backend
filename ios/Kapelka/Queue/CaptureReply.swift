@@ -12,8 +12,10 @@ struct CaptureReply: Codable, Equatable, Sendable {
     let records: [CapturedRecord]
     /// What the phrase named without an amount: nothing was written for it (FT-123).
     let withoutAmount: [CapturedWithoutAmount]
-    /// The answer to a repeat of the `clientId` (FT-106): read from the database, which keeps neither the account's
-    /// name nor the assumptions.
+    /// The answer to a repeat of the `clientId` (FT-106). The queue sends a record again only when the first answer
+    /// was lost (a timeout, the PC asleep), so there is no earlier answer on the phone. The server reads a repeat from
+    /// the database, which keeps neither the account's name, nor the assumptions, nor what was named without an
+    /// amount: they come empty, and FT-252 and FT-254 take that for «нет данных», not for «не было».
     let repeated: Bool
 
     init(
@@ -41,24 +43,6 @@ struct CaptureReply: Codable, Equatable, Sendable {
         records = container.lenientList(CapturedRecord.self, forKey: .records)
         withoutAmount = container.lenientList(CapturedWithoutAmount.self, forKey: .withoutAmount)
         repeated = (try? container.decodeIfPresent(Bool.self, forKey: .repeated)) ?? false
-    }
-
-    /// This answer over the one kept before for the same record. A repeat of the `clientId` (FT-106) is read from the
-    /// database, which keeps neither the account's name, nor the assumptions, nor what was named without an amount:
-    /// those of the earlier answer stay. The rest — which records, their amounts, categories and «проверить», the
-    /// status and the ack — is the repeat's: the database as it is now. A repeat that waited for the first request
-    /// carries the parse whole and keeps its own.
-    func merged(over earlier: CaptureReply?) -> CaptureReply {
-        guard repeated, let earlier else { return self }
-        let before = Dictionary(earlier.records.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
-        return CaptureReply(
-            status: status,
-            title: title,
-            summary: summary,
-            records: records.map { record in before[record.id].map(record.merged(over:)) ?? record },
-            withoutAmount: withoutAmount.isEmpty ? earlier.withoutAmount : withoutAmount,
-            repeated: repeated
-        )
     }
 }
 
@@ -95,19 +79,6 @@ extension CapturedRecord {
         accountName = try container.decodeIfPresent(String.self, forKey: .accountName)
         needsReview = try container.decodeIfPresent(Bool.self, forKey: .needsReview) ?? false
         assumptions = container.lenientList(CaptureAssumption.self, forKey: .assumptions)
-    }
-
-    fileprivate func merged(over earlier: CapturedRecord) -> CapturedRecord {
-        CapturedRecord(
-            id: id,
-            type: type,
-            amountMinor: amountMinor,
-            currency: currency,
-            category: category,
-            accountName: accountName ?? earlier.accountName,
-            needsReview: needsReview,
-            assumptions: assumptions.isEmpty ? earlier.assumptions : assumptions
-        )
     }
 }
 

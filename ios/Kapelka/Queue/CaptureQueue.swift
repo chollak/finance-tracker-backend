@@ -266,8 +266,7 @@ actor CaptureQueue {
         case let .sent(reply):
             capture.attempts += 1
             capture.state = .sent
-            // A repeat knows neither the account's name nor the assumptions: the earlier answer's stay (FT-255)
-            capture.reply = reply.merged(over: capture.reply)
+            capture.reply = reply
             next.notBefore = nil
             goOn = true
         case let .rejected(message):
