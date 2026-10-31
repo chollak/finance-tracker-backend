@@ -18,7 +18,8 @@ final class AppModel {
         voice = VoiceCapture(system: speech, listener: speech) { [queue = services.queue] phrase in
             try await Self.write(phrase, to: queue)
         }
-        records = RecordsList(feed: services.records)
+        // With VoiceOver on the bar of «Записи» stays until it is closed: 5 s is too short to reach «Вернуть»
+        records = RecordsList(feed: services.records, keepsNotices: { UIAccessibility.isVoiceOverRunning })
         queueState = QueueState()
         isConfigured = services.settings.configuration() != nil
         Task { [weak self, updates = services.queue.updates] in

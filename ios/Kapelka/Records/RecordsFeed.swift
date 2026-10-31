@@ -27,6 +27,9 @@ actor RecordsFeed {
     private var refreshesStarted = 0
     /// The number of the refresh whose page is on disk. A page of an earlier one is older even when it comes later.
     private var savedRefresh = 0
+    /// Deleted off the page on disk: «Вернуть» puts them back on it even past its last record — the page's cursor
+    /// may be the deleted record's own, and the next page starts behind it.
+    private var removedFromSaved: Set<String> = []
 
     init(client: RecordsClient, cache: RecordsCacheFile, now: @escaping @Sendable () -> Date = { Date() }) {
         self.client = client
@@ -82,9 +85,9 @@ actor RecordsFeed {
     func delete(_ id: String) async throws(RecordsFailure) {
         do {
             try await client.delete(id)
-            apply(.removed(id: id))
+            remove(id)
         } catch {
-            if error == .recordGone { apply(.removed(id: id)) }
+            if error == .recordGone { remove(id) }
             throw error
         }
     }
@@ -92,7 +95,7 @@ actor RecordsFeed {
     /// «Вернуть»: the record the server gave back goes to its place on the page on disk.
     func restore(_ id: String) async throws(RecordsFailure) -> Record {
         let record = try await client.restore(id)
-        apply(.restored(record))
+        apply(.restored(record, wasOnPage: removedFromSaved.remove(id) != nil))
         return record
     }
 
@@ -113,6 +116,13 @@ actor RecordsFeed {
         if refreshing == 0 {
             editsDuringRefresh = []
         }
+    }
+
+    private func remove(_ id: String) {
+        if saved()?.page.items.contains(where: { $0.id == id }) == true {
+            removedFromSaved.insert(id)
+        }
+        apply(.removed(id: id))
     }
 
     private func apply(_ edit: RecordEdit) {
@@ -141,7 +151,8 @@ actor RecordsFeed {
 /// nothing more.
 private enum RecordEdit: Sendable {
     case removed(id: String)
-    case restored(Record)
+    /// `wasOnPage`: deleted off this page, so it goes back even past the page's last record.
+    case restored(Record, wasOnPage: Bool)
     case changed(Record)
 
     func applied(to page: RecordsPage) -> RecordsPage {
@@ -150,11 +161,12 @@ private enum RecordEdit: Sendable {
             return RecordsPage(items: page.items.filter { $0.id != id }, nextCursor: page.nextCursor)
         case let .changed(record):
             return replacing(record, in: page)
-        case let .restored(record):
+        case let .restored(record, wasOnPage):
             guard !page.items.contains(where: { $0.id == record.id }) else { return replacing(record, in: page) }
             let index = page.items.firstIndex { record.precedes($0) } ?? page.items.endIndex
-            // Older than the whole page while more pages follow: its place is on one of them
-            guard index < page.items.endIndex || page.nextCursor == nil else { return page }
+            // Older than the whole page while more pages follow: its place is on one of them — unless it was on this
+            // one, and the next page starts behind it
+            guard index < page.items.endIndex || page.nextCursor == nil || wasOnPage else { return page }
             let items = Array(page.items[..<index]) + [record] + Array(page.items[index...])
             return RecordsPage(items: items, nextCursor: page.nextCursor)
         }

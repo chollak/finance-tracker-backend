@@ -82,7 +82,7 @@ struct RecordsFailureTests {
         let harness = try RecordsHarness(transport: FakeTransport([.http(404, body: RecordsReply.categoryNotFound("cat-x"))]))
         let client = harness.client
         await #expect(throws: RecordsFailure.categoryGone) { try await client.setCategory("cat-x", of: id) }
-        #expect(RecordsFailure.categoryGone.message == "Этой категории уже нет — открой список заново")
+        #expect(RecordsFailure.categoryGone.message == "Категории уже нет")
     }
 
     @Test(

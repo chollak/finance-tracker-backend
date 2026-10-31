@@ -123,8 +123,9 @@ struct CaptureView: View {
                             } label: {
                                 Label("Удалить", systemImage: "trash")
                             }
-                            // The screen's black-or-white tint would make it white on white in the dark theme
-                            .tint(Color(uiColor: .systemGray))
+                            // Red, as «Удалить» on «Записи»: the screen's black-or-white tint would make it white on
+                            // white in the dark theme
+                            .tint(.red)
                         }
                         if row.canDismiss {
                             Button {

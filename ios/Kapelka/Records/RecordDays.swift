@@ -13,7 +13,7 @@ struct RecordRow: Identifiable, Equatable, Sendable {
     let amount: String
     /// Income is green with «+».
     let isIncome: Bool
-    /// «Проверить»: the server was unsure and waits for a correction in the Mini App.
+    /// «Проверить»: the server was unsure and waits for a correction — in the Mini App; a new category does not clear it.
     let needsReview: Bool
 }
 
@@ -57,16 +57,25 @@ enum RecordDays {
         return String(format: "%04d-%02d-%02d", parts.year ?? 0, parts.month ?? 0, parts.day ?? 0)
     }
 
-    private static func row(for record: Record, accountNames: [String: String]) -> RecordRow {
-        let note = [record.description, record.merchant ?? ""]
+    /// The row's title: the note, else the merchant, else the category.
+    static func title(of record: Record) -> String {
+        note(of: record) ?? (record.category.isEmpty ? nil : record.category) ?? "Без заметки"
+    }
+
+    private static func note(of record: Record) -> String? {
+        [record.description, record.merchant ?? ""]
             .lazy
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .first { !$0.isEmpty }
+    }
+
+    private static func row(for record: Record, accountNames: [String: String]) -> RecordRow {
+        let note = note(of: record)
         let account = record.accountId.flatMap { accountNames[$0] }
         let category = record.category.isEmpty ? nil : record.category
         return RecordRow(
             id: record.id,
-            title: note ?? category ?? "Без заметки",
+            title: title(of: record),
             details: [note == nil ? nil : category, account].compactMap { $0 }.joined(separator: " · "),
             amount: MoneyText.signed(record),
             isIncome: record.type == .income,

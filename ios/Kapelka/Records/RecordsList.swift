@@ -5,6 +5,9 @@ import Observation
 /// network. It refreshes when the tab opens, when the app comes back with the tab open, on a pull, and after the queue
 /// wrote a record while the tab is open; never on a timer (decision 2026-10-31). The tab's own refresh on opening
 /// covers the queue's records written while it was closed.
+///
+/// FT-221: a swipe deletes, «Вернуть» brings the record back for 5 s, the sheet changes the category. The server
+/// decides each edit; without a network nothing changes and nothing waits on the phone (decision 2026-10-31).
 @MainActor
 @Observable
 final class RecordsList {
@@ -37,10 +40,15 @@ final class RecordsList {
     var nextPageKey: String? { nextCursor.map { "\(generation)/\($0)" } }
     /// The next page did not come; the list keeps its rows and the next scroll or tap asks again.
     private(set) var moreProblem: RecordsFailure?
+    /// «Удалено · Вернуть», or what went wrong with an edit, at the bottom for 5 s (`RecordsNoticeBar`).
+    var notice: RecordsNotice? { bar.notice }
+    /// The sheet of categories open now (FT-221); its own swipe down sets `nil`.
+    var picker: CategoryPicker?
 
     private let feed: RecordsFeed
     private let now: @Sendable () -> Date
     private let calendar: Calendar
+    private let bar: RecordsNoticeBar
 
     /// The first page as the server or the disk gave it.
     private var shown: RecordsSnapshot?
@@ -57,11 +65,31 @@ final class RecordsList {
     /// The refresh running now; calls during it join it with one more pass after it.
     private var refreshing: Task<Void, Never>?
     private var refreshAgain = false
+    /// Swiped away, the server has not answered yet: hidden, and back if the delete fails.
+    private var deleting: Set<String> = []
+    /// Deleted on the server since the list last started from the first page: a page read before the delete — the
+    /// next one, on its way meanwhile — must not bring it back.
+    private var deleted: Set<String> = []
+    /// The last delete started: only its answer offers «Вернуть».
+    private var lastDelete = 0
 
-    init(feed: RecordsFeed, now: @escaping @Sendable () -> Date = { Date() }, calendar: Calendar = .current) {
+    /// `keepsNotices`: VoiceOver is on — the bar stays until it is closed or another edit starts.
+    init(
+        feed: RecordsFeed,
+        now: @escaping @Sendable () -> Date = { Date() },
+        calendar: Calendar = .current,
+        wait: @escaping @Sendable (Duration) async -> Void = { try? await Task.sleep(for: $0) },
+        keepsNotices: @escaping @MainActor () -> Bool = { false }
+    ) {
         self.feed = feed
         self.now = now
         self.calendar = calendar
+        bar = RecordsNoticeBar(wait: wait, keepsOpen: keepsNotices)
+    }
+
+    /// The record behind a row, on the first page or a scrolled one.
+    func record(id: String) -> Record? {
+        (shown?.page.items ?? []).first { $0.id == id } ?? more.first { $0.id == id }
     }
 
     /// `true` when the tab just opened in the active app, or the app came back to it: then it refreshes. Off screen
@@ -121,7 +149,7 @@ final class RecordsList {
         loadingMoreIn = nil
         switch result {
         case let .success(page):
-            let known = Set((shown?.page.items ?? []).map(\.id) + more.map(\.id))
+            let known = Set((shown?.page.items ?? []).map(\.id) + more.map(\.id)).union(deleted)
             more += page.items.filter { !known.contains($0.id) }
             nextCursor = page.nextCursor
         case let .failure(failure):
@@ -129,6 +157,133 @@ final class RecordsList {
         }
         rebuild()
     }
+
+    // MARK: Edits (FT-221)
+
+    /// The swipe. The row goes at once, the server deletes the record, and «Удалено · Вернуть» stays for 5 s. A delete
+    /// while the bar is up takes the bar over: the record before stays deleted. Without a network the row comes back
+    /// and the bar says why — for an older delete too; deleted elsewhere already (404) — the row stays gone and the
+    /// list refreshes.
+    func delete(_ id: String) async {
+        let title = record(id: id).map(RecordDays.title(of:)) ?? ""
+        lastDelete += 1
+        let started = lastDelete
+        bar.takeOver()
+        deleting.insert(id)
+        rebuild()
+        do {
+            try await feed.delete(id)
+            deleting.remove(id)
+            leave(id)
+            rebuild()
+            if started == lastDelete {
+                bar.offerUndo(RecordsNotice.Undo(id: id, title: title))
+            }
+        } catch {
+            deleting.remove(id)
+            if error == .recordGone {
+                leave(id)
+                refreshLater()
+            }
+            rebuild()
+            let latest = started == lastDelete || error == .recordGone
+            bar.say(latest ? error.message : "Не удалил «\(title)» — \(error.reason)")
+        }
+    }
+
+    /// «Вернуть» on the bar: the record the server gives back goes to its place, on a scrolled page too. The bar
+    /// waits for the answer with the button off. Without a network the record stays deleted, and the bar says so
+    /// with its own «Вернуть» — even when another delete has taken the bar meanwhile.
+    func restoreDeleted() async {
+        guard let undo = notice?.undo, bar.startRestoring(undo.id) else { return }
+        do {
+            let record = try await feed.restore(undo.id)
+            let wasShown = deleted.remove(undo.id) != nil
+            if let placed = shownRecords.restoring(record, wasShown: wasShown, morePagesFollow: hasMore) {
+                shownRecords = placed
+            } else {
+                // The list started again since the delete: a fresh start brings it on its page
+                refreshLater()
+            }
+            rebuild()
+            bar.restored(undo.id)
+        } catch {
+            if error == .recordGone {
+                bar.restoreGone(undo.id, message: error.message)
+                refreshLater()
+            } else {
+                bar.restoreFailed(undo, message: "Не вернул «\(undo.title)» — \(error.reason)")
+            }
+        }
+    }
+
+    /// VoiceOver closes the bar that does not go by itself.
+    func dismissNotice() {
+        bar.dismiss()
+    }
+
+    /// A tap on a row: the sheet of its categories.
+    func openPicker(for id: String) {
+        picker = record(id: id).map { CategoryPicker(record: $0, list: self) }
+    }
+
+    /// Closes the sheet of this record only: a slow answer for one row must not close the sheet opened since for
+    /// another.
+    func closePicker(_ id: String) {
+        if picker?.id == id {
+            picker = nil
+        }
+    }
+
+    /// The categories for the sheet: not kept, since without a network they cannot be changed anyway (FT-219).
+    func categories() async throws(RecordsFailure) -> [RecordCategory] {
+        try await feed.categories()
+    }
+
+    /// The sheet's choice: the row takes the record as the server saved it. Only `categoryId` goes, so «проверить»
+    /// stays as the server keeps it, as in the Mini App. A record deleted elsewhere leaves the list, which refreshes.
+    func setCategory(_ categoryId: String, of id: String) async throws(RecordsFailure) {
+        do {
+            let record = try await feed.setCategory(categoryId, of: id)
+            shownRecords = shownRecords.replacing(record)
+            rebuild()
+        } catch {
+            if error == .recordGone {
+                leave(id)
+                rebuild()
+                // Next to «Вернуть» of a delete on its way, which keeps it when it comes
+                bar.say(error.message)
+                refreshLater()
+            }
+            throw error
+        }
+    }
+
+    /// Gone on the server: off the first page and the scrolled ones, and kept off a next page on its way.
+    private func leave(_ id: String) {
+        deleted.insert(id)
+        shownRecords = shownRecords.removing(id)
+    }
+
+    private func refreshLater() {
+        Task { await refresh() }
+    }
+
+    private var shownRecords: ShownRecords {
+        get { ShownRecords(first: shown?.page.items ?? [], more: more) }
+        set {
+            if let shown {
+                self.shown = RecordsSnapshot(
+                    address: shown.address,
+                    page: RecordsPage(items: newValue.first, nextCursor: shown.page.nextCursor),
+                    updatedAt: shown.updatedAt
+                )
+            }
+            more = newValue.more
+        }
+    }
+
+    // MARK: Refresh
 
     private func refreshOnce() async {
         if !checkedDisk {
@@ -162,6 +317,7 @@ final class RecordsList {
                 shown = nil
                 more = []
                 nextCursor = nil
+                deleted = []
                 generation += 1
             }
         }
@@ -183,11 +339,17 @@ final class RecordsList {
         more = []
         nextCursor = snapshot.page.nextCursor
         moreProblem = nil
+        // The feed's page already leaves out what was deleted, the deletes confirmed while it was on its way too
+        deleted = []
         generation += 1
     }
 
     private func rebuild() {
-        let records = (shown?.page.items ?? []) + more
+        let hidden = deleting.union(deleted)
+        let first = shown?.page.items ?? []
+        let onFirst = Set(first.map(\.id))
+        // A record put back last on the disk's page and first on a scrolled one shows once
+        let records = (first + more.filter { !onFirst.contains($0.id) }).filter { !hidden.contains($0.id) }
         let moment = now()
         days = RecordDays.days(records, accountNames: accountNames, now: moment, calendar: calendar)
         caption = RecordsCaption.text(problem: problem, updatedAt: shown?.updatedAt, now: moment, calendar: calendar)
