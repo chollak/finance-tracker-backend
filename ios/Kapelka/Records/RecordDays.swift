@@ -3,8 +3,8 @@ import Foundation
 /// One row of «Записи» (FT-220).
 struct RecordRow: Identifiable, Equatable, Sendable {
     let id: String
-    /// The note, else the merchant, else the category — the order of the Mini App and of the server's summary
-    /// («Кофе · 25 000 сум»), so a record reads the same in both tabs.
+    /// The note, else the merchant, else the category. Only «the note, else the merchant» is shared with the server's
+    /// summary («Кофе · 25 000 сум» on «Записать») and the Mini App's caption; the Mini App's row title is the category.
     let title: String
     /// «Кафе · Карта»: the category and the account's name; without the account when the list of accounts does not
     /// name it. The category is left out when it is the title already.
