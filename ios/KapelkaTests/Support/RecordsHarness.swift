@@ -16,16 +16,19 @@ enum RecordsReply {
         description: String = "кофе",
         merchant: String? = nil,
         needsReview: Bool = false,
-        accountId: String? = "acc-card"
+        accountId: String? = "acc-card",
+        clientId: String? = nil
     ) -> String {
         let merchantJSON = merchant.map { "\"\($0)\"" } ?? "null"
         let accountJSON = accountId.map { "\"\($0)\"" } ?? "null"
+        // Only a record sent with a client id carries the key (FT-106)
+        let clientIdJSON = clientId.map { #","clientId":"\#($0)""# } ?? ""
         return """
             {"id":"\(id)","amountMinor":\(amountMinor),"amount":\(Double(amountMinor) / 100),"type":"\(type)",\
             "semanticType":"\(type)","needsReview":\(needsReview),"description":"\(description)","date":"\(date)",\
             "userId":"user-uuid","merchant":\(merchantJSON),"originalText":"\(description)","categoryId":"\(categoryId)",\
             "category":"\(category)","categoryColor":"rose","accountId":\(accountJSON),"currency":"\(currency)",\
-            "source":"ios_shortcut","isArchived":false,"createdAt":"\(createdAt)"}
+            "source":"ios_shortcut","isArchived":false,"createdAt":"\(createdAt)"\(clientIdJSON)}
             """
     }
 

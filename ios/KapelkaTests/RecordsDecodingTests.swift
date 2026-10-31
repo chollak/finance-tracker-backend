@@ -28,13 +28,13 @@ struct RecordsDecodingTests {
                 id: "3f1c0d2e-7a4b-4c55-9d8e-2a6f1b3c4d5e", date: "2026-10-29", type: .expense, amountMinor: 2_500_000,
                 currency: "UZS", categoryId: "cat-cafe", category: "Кафе", categoryColor: "rose", accountId: "acc-card",
                 description: "кофе", merchant: nil, needsReview: false, source: "ios_shortcut",
-                createdAt: "2026-10-29T09:32:05.000Z"
+                createdAt: "2026-10-29T09:32:05.000Z", clientId: nil
             ),
             Record(
                 id: "b2", date: "2026-10-28", type: .income, amountMinor: 120_050, currency: "USD",
                 categoryId: "cat-salary", category: "Зарплата", categoryColor: "rose", accountId: "acc-card",
                 description: "", merchant: "Acme LLC", needsReview: true, source: "ios_shortcut",
-                createdAt: "2026-10-28T05:00:00.000Z"
+                createdAt: "2026-10-28T05:00:00.000Z", clientId: nil
             ),
         ])
     }

@@ -99,7 +99,7 @@ struct CaptureClient: CaptureSending {
                 // Not Kapelka's answer (a login page, a proxy): the same clientId makes the next try safe
                 return .retryLater(after: nil)
             }
-            return .sent(CaptureReply(status: reply.data.status, title: reply.data.ack.title, summary: reply.data.ack.summary))
+            return .sent(reply.data.reply)
         case 400:
             return .rejected(ServerError(body: body)?.message ?? "Сервер не принял запись")
         case 401, 403:
@@ -169,6 +169,38 @@ private struct SuccessBody: Decodable {
 
         let status: String
         let ack: Ack
+        let transactions: [CapturedRecord]
+        let withoutAmount: [CapturedWithoutAmount]
+        let repeated: Bool
+
+        private enum CodingKeys: String, CodingKey {
+            case status
+            case ack
+            case transactions
+            case withoutAmount
+            case repeated
+        }
+
+        // The status and the ack make it Kapelka's answer; what was written is read as far as this build can
+        init(from decoder: any Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            status = try container.decode(String.self, forKey: .status)
+            ack = try container.decode(Ack.self, forKey: .ack)
+            transactions = container.lenientList(CapturedRecord.self, forKey: .transactions)
+            withoutAmount = container.lenientList(CapturedWithoutAmount.self, forKey: .withoutAmount)
+            repeated = (try? container.decodeIfPresent(Bool.self, forKey: .repeated)) ?? false
+        }
+
+        var reply: CaptureReply {
+            CaptureReply(
+                status: status,
+                title: ack.title,
+                summary: ack.summary,
+                records: transactions,
+                withoutAmount: withoutAmount,
+                repeated: repeated
+            )
+        }
     }
 
     let success: Bool

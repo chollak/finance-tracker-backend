@@ -34,6 +34,9 @@ struct Record: Codable, Equatable, Identifiable, Sendable {
     let source: String?
     /// ISO moment the record was written; orders the records of one day.
     let createdAt: String?
+    /// The client's id it was sent with (FT-106): the phone's queue gives a phrase or payment its UUID, and the
+    /// server marks the records it wrote for it `<clientId>`, `<clientId>:1`…; `nil` for one sent without.
+    let clientId: String?
 }
 
 extension Record {
@@ -55,6 +58,13 @@ extension Record {
         needsReview = try container.decodeIfPresent(Bool.self, forKey: .needsReview) ?? false
         source = try container.decodeIfPresent(String.self, forKey: .source)
         createdAt = try container.decodeIfPresent(String.self, forKey: .createdAt)
+        clientId = try container.decodeIfPresent(String.self, forKey: .clientId)
+    }
+
+    /// The `clientId` of the phrase or payment of a phone's queue the record came from: the part before «:».
+    /// `nil` when that is not a UUID — a record from the bot or sent without a client id.
+    var captureClientId: UUID? {
+        clientId.flatMap { UUID(uuidString: String($0.prefix { $0 != ":" })) }
     }
 
     /// `true` when `self` comes before `other` in the history: newest first by day, then by the moment of creation,
