@@ -40,7 +40,7 @@ struct RecordsView: View {
         }
     }
 
-    /// The list's end: it asks for the next page once on screen — again for each new cursor, since the row is new.
+    /// The list's end: it asks for the next page once on screen — again for each `nextPageKey`, since the row is new.
     private var nextPageSection: some View {
         Section {
             if let problem = list.moreProblem {
@@ -53,7 +53,7 @@ struct RecordsView: View {
             } else {
                 ProgressView()
                     .frame(maxWidth: .infinity)
-                    .id(list.nextCursor)
+                    .id(list.nextPageKey)
                     // Not `.task`: scrolling past the end would cancel the request and show «Нет связи»
                     .onAppear {
                         Task { await list.loadMore() }
@@ -109,16 +109,31 @@ struct RecordsView: View {
     }
 }
 
+/// How a row of «Записи» lays out at a text size.
+enum RecordRowLayout {
+    /// At the accessibility sizes the amount goes under the title: side by side the title shrank to «С…» and a long
+    /// one to a lone «…» (FT-220 review).
+    static func stacks(at size: DynamicTypeSize) -> Bool {
+        size.isAccessibilitySize
+    }
+}
+
 /// The note or the merchant, «категория · счёт» under it, the amount with its sign; «проверить» as a mark.
 private struct RecordRowView: View {
     let row: RecordRow
 
+    @Environment(\.dynamicTypeSize) private var typeSize
+
     var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 12) {
+        let stacked = RecordRowLayout.stacks(at: typeSize)
+        let layout = stacked
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 4))
+            : AnyLayout(HStackLayout(alignment: .firstTextBaseline, spacing: 12))
+        layout {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
                     Text(row.title)
-                        .lineLimit(1)
+                        .lineLimit(2)
                     if row.needsReview {
                         Image(systemName: "exclamationmark.circle")
                             .foregroundStyle(.orange)
@@ -126,17 +141,22 @@ private struct RecordRowView: View {
                     }
                 }
                 if !row.details.isEmpty {
+                    // Two lines: at the largest sizes before the accessibility ones the account's name was cut off
                     Text(row.details)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
-                        .lineLimit(1)
+                        .lineLimit(2)
                 }
             }
-            Spacer(minLength: 8)
+            if !stacked {
+                Spacer(minLength: 8)
+            }
             Text(row.amount)
                 .monospacedDigit()
                 .foregroundStyle(row.isIncome ? Color.green : Color.primary)
                 .lineLimit(1)
+                // Digit groups hold together with non-breaking spaces: under the title it shrinks rather than cuts
+                .minimumScaleFactor(stacked ? 0.7 : 1)
                 .layoutPriority(1)
         }
         .accessibilityElement(children: .combine)

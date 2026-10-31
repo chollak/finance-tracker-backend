@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 import Testing
 @testable import Kapelka
 
@@ -136,5 +137,12 @@ struct RecordDaysTests {
     @Test("пустой список — без секций")
     func empty() {
         #expect(days([]).isEmpty)
+    }
+
+    @Test("крупный шрифт для доступности — сумма под заголовком, иначе рядом")
+    func rowLayout() {
+        let sizes: [DynamicTypeSize] = [.large, .xxxLarge, .accessibility1, .accessibility3, .accessibility5]
+        let stacked = sizes.map { RecordRowLayout.stacks(at: $0) }
+        #expect(stacked == [false, false, true, true, true])
     }
 }
