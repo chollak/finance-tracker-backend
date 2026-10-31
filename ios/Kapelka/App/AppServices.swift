@@ -11,6 +11,9 @@ struct AppServices: Sendable {
     let payments: PaymentRecorder
     /// The server's records for «Записи», with the queue's address and token (FT-219, FT-220).
     let records: RecordsFeed
+    /// The one entry for what the phone answers (FT-251): each pass of the queue, from the screen and the commands
+    /// alike, and the screen's own events — a haptic on screen, the notifications off it (FT-253).
+    let feedback: FeedbackEntry
 
     /// One per process: the screen, the background refresh and the App Shortcuts share the queue, so two of them
     /// never send at once. «Записать оплату» runs here too, the app not opened.
@@ -20,13 +23,15 @@ struct AppServices: Sendable {
         let settings = SettingsStore()
         let cards = CardAccountStore()
         let transport = URLSessionTransport.shared
+        let feedback = FeedbackEntry()
         let queue = CaptureQueue(
             store: .inApplicationSupport,
             sender: CaptureClient(
                 configuration: { settings.configuration() },
                 transport: transport,
                 accountName: { cards.account(for: $0) }
-            )
+            ),
+            onPass: { await feedback.queuePassed($0) }
         )
         let background = BackgroundSend(queue: queue, scheduler: SystemRefreshScheduler())
         return AppServices(
@@ -46,7 +51,8 @@ struct AppServices: Sendable {
             records: RecordsFeed(
                 client: RecordsClient(configuration: { settings.configuration() }, transport: transport),
                 cache: .inApplicationSupport
-            )
+            ),
+            feedback: feedback
         )
     }
 }
