@@ -45,6 +45,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npm run build` - Compile TypeScript to JavaScript in `dist/` folder
 - `npm run serve` - Run the compiled application from `dist/index.js`
 - `scripts/live-update.sh` - live instance on the PC only (`~/dev/projects/kapelka-live`, FT-156): refuses off `main` or on a dirty tree, then `git pull --ff-only`, `npm ci`, webapp and server builds, restart of `kapelka.service`, health check
+- `npm run report:quality -- --db=<copy of the DB>` - FT-217 capture quality report: read-only on a `.backup` copy (the live `data/database.sqlite` is refused), counts only; on the PC — `live-instance.md`, «Отчёт о качестве записи (FT-217)»
 
 **Development (Choose one):**
 - `npm run dev:full` - Full-stack development with hot reload
