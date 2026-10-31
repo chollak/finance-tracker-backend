@@ -140,7 +140,10 @@ final class QueueHarness: Sendable {
         )
     }
 
-    func makeQueue(retryWait: TestRetryWait? = nil) -> CaptureQueue {
+    func makeQueue(
+        retryWait: TestRetryWait? = nil,
+        onPass: @escaping @Sendable ([QueueEvent]) async -> Void = { _ in }
+    ) -> CaptureQueue {
         let clock = clock
         let timeZone = timeZone
         let retryWait = retryWait ?? self.retryWait
@@ -149,7 +152,8 @@ final class QueueHarness: Sendable {
             sender: client,
             now: { clock.now },
             timeZone: { timeZone },
-            waitForRetry: { try await retryWait.wait($0) }
+            waitForRetry: { try await retryWait.wait($0) },
+            onPass: onPass
         )
     }
 }

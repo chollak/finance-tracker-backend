@@ -18,6 +18,8 @@ actor CaptureQueue {
     private let now: @Sendable () -> Date
     private let timeZone: @Sendable () -> TimeZone
     private let waitForRetry: @Sendable (TimeInterval) async throws -> Void
+    /// What each pass did (`QueueEvents.between`), when it did anything: the one entry of `AppServices` (FT-251).
+    private let onPass: @Sendable ([QueueEvent]) async -> Void
     private let continuation: AsyncStream<QueueState>.Continuation
     private var current: QueueState
     /// `false` while the file could not be opened: then nothing is written over it (`QueueError.unavailable`).
@@ -38,13 +40,15 @@ actor CaptureQueue {
         sender: any CaptureSending,
         now: @escaping @Sendable () -> Date = { Date() },
         timeZone: @escaping @Sendable () -> TimeZone = { .current },
-        waitForRetry: @escaping @Sendable (TimeInterval) async throws -> Void = { try await Task.sleep(for: .seconds($0)) }
+        waitForRetry: @escaping @Sendable (TimeInterval) async throws -> Void = { try await Task.sleep(for: .seconds($0)) },
+        onPass: @escaping @Sendable ([QueueEvent]) async -> Void = { _ in }
     ) {
         self.store = store
         self.sender = sender
         self.now = now
         self.timeZone = timeZone
         self.waitForRetry = waitForRetry
+        self.onPass = onPass
         let loaded = try? store.load()
         current = loaded ?? QueueState()
         isLoaded = loaded != nil
@@ -186,7 +190,19 @@ actor CaptureQueue {
         return Task.isCancelled
     }
 
+    /// One pass, and one report on it however many records it sent. The report is awaited: a background refresh or
+    /// a command ends only after the notices of what it sent (FT-253). The pass may already be cancelled by then — the
+    /// records it wrote are news all the same.
     private func sendPending() async {
+        let before = current
+        await sendEach()
+        let events = QueueEvents.between(before, current)
+        if !events.isEmpty {
+            await onPass(events)
+        }
+    }
+
+    private func sendEach() async {
         while !Task.isCancelled, let capture = nextToSend() {
             let generation = settingsGeneration
             markSending(capture.clientId)
