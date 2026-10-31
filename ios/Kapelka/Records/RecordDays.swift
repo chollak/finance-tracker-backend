@@ -13,7 +13,7 @@ struct RecordRow: Identifiable, Equatable, Sendable {
     let amount: String
     /// Income is green with «+».
     let isIncome: Bool
-    /// «Проверить»: the server was unsure and waits for a correction in the Mini App.
+    /// «Проверить»: the server was unsure and waits for a correction — in the Mini App; a new category does not clear it.
     let needsReview: Bool
 }
 

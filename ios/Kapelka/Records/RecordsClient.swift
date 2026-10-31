@@ -23,7 +23,7 @@ enum RecordsFailure: Error, Equatable, Sendable {
         case .notConfigured: "Укажи адрес и токен в настройках Kapelka"
         case .tokenRefused: "Сервер не принял токен — проверь токен в настройках Kapelka"
         case .recordGone: "Запись уже удалена"
-        case .categoryGone: "Этой категории уже нет — открой список заново"
+        case .categoryGone: "Категории уже нет"
         case .unreachable: "Нет связи — попробуй позже"
         case .refused: "Сервер не принял запрос"
         }
