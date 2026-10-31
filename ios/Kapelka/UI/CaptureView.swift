@@ -1,19 +1,18 @@
 import SwiftUI
 
-/// The one screen (FT-178): the microphone and what it heard, a field for typing, the answer to the last phrase and
-/// the recent records. «Записать трату» from the Action Button opens it already listening.
-struct MainView: View {
+/// The tab «Записать» (FT-178, FT-220): the microphone and what it heard, a field for typing, the answer to the last
+/// phrase and what in the queue needs attention. A written record goes to «Записи». «Записать трату» from the Action
+/// Button lands here already listening (`RootView`).
+struct CaptureView: View {
     let model: AppModel
+    let openSettings: () -> Void
 
     @State private var text = ""
     @State private var error: String?
-    @State private var showsSettings = false
     @FocusState private var fieldFocused: Bool
-    @Environment(\.scenePhase) private var scenePhase
     @Environment(\.openURL) private var openURL
 
     private var voice: VoiceCapture { model.voice }
-    private var listenRequest: ListenRequest { .shared }
 
     var body: some View {
         NavigationStack {
@@ -21,34 +20,23 @@ struct MainView: View {
                 voiceSection
                 typingSection
                 queueSection
-                if !model.rows.isEmpty {
-                    recentSection
+                let rows = model.attentionRows
+                if !rows.isEmpty {
+                    attentionSection(rows)
                 }
             }
             .navigationTitle("Kapelka")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        showsSettings = true
-                    } label: {
-                        Label("Настройки", systemImage: "gearshape")
-                    }
+                    SettingsButton(action: openSettings)
                 }
             }
-            .sheet(isPresented: $showsSettings) {
-                SettingsView(model: model)
-            }
-            .onAppear {
-                // Opened by «Записать трату» before the address is set: listen first, the queue keeps the phrase
-                if !model.isConfigured, !listenRequest.isPending {
-                    showsSettings = true
+            // The Action Button starts the microphone from any tab: the keyboard gives way to it
+            .onChange(of: voice.phase) {
+                if voice.phase != .idle {
+                    fieldFocused = false
                 }
-                listenIfAsked()
             }
-            .onChange(of: listenRequest.isPending) { listenIfAsked() }
-            .onChange(of: scenePhase) { listenIfAsked() }
-            // A press while the settings were open listens once they close
-            .onChange(of: showsSettings) { listenIfAsked() }
             .onChange(of: voice.problemCount) {
                 guard let problem = voice.problem, problem.needsKeyboard else { return }
                 // What was heard before recognition broke off is not lost: it waits in the field
@@ -58,7 +46,6 @@ struct MainView: View {
                 fieldFocused = true
             }
         }
-        .tint(.primary)
     }
 
     private var voiceSection: some View {
@@ -124,9 +111,10 @@ struct MainView: View {
         }
     }
 
-    private var recentSection: some View {
-        Section("Последние") {
-            ForEach(model.rows) { row in
+    /// Waiting, sending, refused, «не нашёл операцию»: what is not in «Записи».
+    private func attentionSection(_ rows: [CaptureRow]) -> some View {
+        Section("Требует внимания") {
+            ForEach(rows) { row in
                 CaptureRowView(row: row)
                     .swipeActions {
                         if row.canDelete {
@@ -138,18 +126,17 @@ struct MainView: View {
                             // The screen's black-or-white tint would make it white on white in the dark theme
                             .tint(Color(uiColor: .systemGray))
                         }
+                        if row.canDismiss {
+                            Button {
+                                Task { error = await model.dismiss(row.id) }
+                            } label: {
+                                Label("Убрать", systemImage: "xmark")
+                            }
+                            .tint(Color(uiColor: .systemGray))
+                        }
                     }
             }
         }
-    }
-
-    /// «Записать трату» once the screen is active (the microphone does not start in background) and the settings are
-    /// closed — they may hold an address or a token not saved yet. The first press listens, a press while listening ends
-    /// the phrase.
-    private func listenIfAsked() {
-        guard scenePhase == .active, !showsSettings, listenRequest.take() else { return }
-        fieldFocused = false
-        voice.commandPressed()
     }
 
     private func save() {
