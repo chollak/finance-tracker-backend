@@ -47,7 +47,7 @@ describe('database migrations (FT-090)', () => {
    * SQL is exactly what `synchronize` produced for the entities of that time.
    */
   async function legacyDatabase(file: string): Promise<void> {
-    const ds = new DataSource({ type: 'sqlite', database: file });
+    const ds = new DataSource({ type: 'better-sqlite3', database: file });
     await ds.initialize();
     for (const sql of BASELINE_TABLES) await ds.query(sql);
     await ds.query(
@@ -86,7 +86,7 @@ describe('database migrations (FT-090)', () => {
     expect(await ds.query('SELECT id, description FROM transactions')).toEqual([{ id: 'tx-1', description: 'Кофе' }]);
     expect(await findSchemaDrift(ds)).toEqual([]);
 
-    const backup = new DataSource({ type: 'sqlite', database: result.backupPath! });
+    const backup = new DataSource({ type: 'better-sqlite3', database: result.backupPath! });
     open.push(backup);
     await backup.initialize();
     expect(await backup.query('SELECT id FROM transactions')).toEqual([{ id: 'tx-1' }]);
@@ -94,7 +94,7 @@ describe('database migrations (FT-090)', () => {
 
   it('refuses to adopt a database whose tables miss baseline columns, and changes nothing', async () => {
     const file = path.join(dir, 'old.sqlite');
-    const old = new DataSource({ type: 'sqlite', database: file });
+    const old = new DataSource({ type: 'better-sqlite3', database: file });
     await old.initialize();
     await old.query(
       `CREATE TABLE "transactions" ("id" varchar PRIMARY KEY NOT NULL, "amount" decimal(10,2) NOT NULL, "type" varchar NOT NULL,

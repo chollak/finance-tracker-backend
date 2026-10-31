@@ -28,7 +28,7 @@ describe('FT-097 amount_minor migration', () => {
 
   /** A pre-migration database (what `synchronize` created) holding the given amounts. */
   async function oldDatabase(file: string, amounts: Array<number | string>): Promise<void> {
-    const ds = new DataSource({ type: 'sqlite', database: file });
+    const ds = new DataSource({ type: 'better-sqlite3', database: file });
     await ds.initialize();
     for (const sql of BASELINE_TABLES) await ds.query(sql);
     for (const [index, amount] of amounts.entries()) {

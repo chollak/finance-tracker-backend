@@ -69,7 +69,7 @@ describe('categories in the database (FT-099)', () => {
     });
 
     async function oldDatabase(file: string): Promise<void> {
-      const ds = new DataSource({ type: 'sqlite', database: file });
+      const ds = new DataSource({ type: 'better-sqlite3', database: file });
       await ds.initialize();
       for (const sql of BASELINE_TABLES) await ds.query(sql);
       const rows: Array<[string, string, string, string | null]> = [

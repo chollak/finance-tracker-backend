@@ -36,7 +36,7 @@ describe('accounts and balances (FT-101)', () => {
 
     it('gives every user «Карта» and moves all history onto it, opening today', async () => {
       const file = path.join(dir, 'db.sqlite');
-      const old = new DataSource({ type: 'sqlite', database: file });
+      const old = new DataSource({ type: 'better-sqlite3', database: file });
       await old.initialize();
       for (const sql of BASELINE_TABLES) await old.query(sql);
       await old.query(`INSERT INTO users (id, telegram_id) VALUES ('user-c', '555')`);

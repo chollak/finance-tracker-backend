@@ -94,7 +94,7 @@ export class SqliteDebtRepository implements DebtRepository {
   async findWithPayments(id: string): Promise<DebtWithPayments | null> {
     const debt = await this.debtRepository.findOne({
       where: { id },
-      relations: ['payments']
+      relations: { payments: true }
     });
 
     if (!debt) return null;

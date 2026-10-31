@@ -22,7 +22,7 @@ export const DATABASE_ENTITIES = [
  */
 export function createAppDataSource(databaseFile: string = DATABASE_FILE): DataSource {
   return new DataSource({
-    type: 'sqlite',
+    type: 'better-sqlite3',
     database: databaseFile,
     entities: DATABASE_ENTITIES,
     migrations: MIGRATIONS,
