@@ -42,6 +42,9 @@ describe('two amounts in a row (FT-205)', () => {
     ['обед 45000 5,10', ['45000', '5,10']],
     ['такси 18 000 45', ['18 000', '45']],
     ['кофе 25 000, такси 18 000', ['25 000', '18 000']],
+    // A group of three after a number of more than three digits is a number of its own (review of PR #144)
+    ['такси 25000 300', ['25000', '300']],
+    ['обед 45000 500', ['45000', '500']],
   ])('«%s» writes the numbers %j', (text, numbers) => {
     expect(writtenNumbersIn(text).map(number => number.token)).toEqual(numbers);
   });
@@ -52,6 +55,7 @@ describe('two amounts in a row (FT-205)', () => {
     [`кофе 28${NBSP}000,00${NBSP}UZS`, `28${NBSP}000,00`],
     ['кофе 1 234,50 сум', '1 234,50'],
     ['машина 1 234 567', '1 234 567'],
+    ['машина 25 000 300', '25 000 300'],
     ['кофе 25 000.', '25 000'],
     // A phone number is one number, as before
     ['позвонить +998 90 123 45 67', '+998 90 123 45 67'],
@@ -63,7 +67,7 @@ describe('two amounts in a row (FT-205)', () => {
     expect(writtenNumbersIn('кофе 25 000, 18 000')).toEqual([{ token: '25 000', index: 5 }, { token: '18 000', index: 13 }]);
   });
 
-  it.each(['кофе 25 000, 18 000', 'обед 45000 5,10'])('«%s» is not one amount: the AI reads it', async phrase => {
+  it.each(['кофе 25 000, 18 000', 'обед 45000 5,10', 'такси 25000 300', 'обед 45000 500'])('«%s» is not one amount: the AI reads it', async phrase => {
     const { analyzeInput, useCase } = makeText();
 
     await useCase.execute(phrase, 'user1');

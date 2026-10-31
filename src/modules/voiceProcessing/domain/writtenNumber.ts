@@ -7,8 +7,9 @@ const ONE_SEPARATOR = /^[+-]?\d+(?:[.,]\d+)?$/;
 
 // A phone number keeps its spaces, whatever its groups: «+998 90 123 45 67»
 const PHONE = String.raw`\+\d+(?:\s\d+){2,}`;
-// A space groups thousands only before exactly three digits; a point or a comma stands between digits
-const NUMBER = String.raw`[+-]?\d+(?:\s\d{3}(?!\d)|[.,]\d+)*`;
+// A space groups thousands only after a head of one to three digits and before exactly three: «25 000», not
+// «25000 300»; a point or a comma stands between digits
+const NUMBER = String.raw`[+-]?(?:\d{1,3}(?:\s\d{3}(?!\d))+|\d+)(?:[.,]\d+)*`;
 const WRITTEN_NUMBER = new RegExp(`${PHONE}|${NUMBER}`, 'g');
 
 /** A number a phrase writes, as written, and where it starts. */
