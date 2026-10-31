@@ -1,5 +1,9 @@
 // A comma before one or two closing digits: «28 000,00», «4,50»
 const DECIMAL_COMMA = /^([+-]?[\d.,]+),(\d{1,2})$/;
+// Points before exactly three digits: «25.000», «1.234.567»
+const POINT_GROUPS = /^[+-]?\d{1,3}(?:\.\d{3})+$/;
+// One point or comma at most: «1.5», «3,2»
+const ONE_SEPARATOR = /^[+-]?\d+(?:[.,]\d+)?$/;
 
 // A phone number keeps its spaces, whatever its groups: «+998 90 123 45 67»
 const PHONE = String.raw`\+\d+(?:\s\d+){2,}`;
@@ -23,14 +27,20 @@ export function writtenNumbersIn(text: string): WrittenNumber[] {
 }
 
 /**
- * A number as a phrase writes it (FT-185): «28 000,00», «28000,00», «1 234,50», «150,000», «3.5».
+ * A number as a phrase writes it (FT-185, FT-206): «28 000,00», «1 234,50», «150,000», «25.000», «4.50».
  * Spaces group thousands. A comma before one or two closing digits is the decimal one — Wallet writes a payment as
  * «28 000,00 UZS», and taking that comma for a group made it 2 800 000; any other comma groups thousands («150,000»).
- * A point reads as `Number` reads it. Null when the token is no number this way («1.234.567», «1.234,50»).
+ * A point before exactly three digits groups thousands too: «25.000» is 25 000, «4.500 $» 4 500 $ (Shukur,
+ * 2026-10-31); before one or two it is the decimal one, «4.50», «1.5». Before «к», «тыс», «млн» (`beforeMagnitude`)
+ * a single point or comma is a fraction, as in the answer to «Сколько?»: «1.5к», «3,2 млн», «1.500 млн» is 1,5
+ * million. Null when the token is no number this way («1.234.5»).
  */
-export function readWrittenNumber(token: string): number | null {
+export function readWrittenNumber(token: string, { beforeMagnitude = false }: { beforeMagnitude?: boolean } = {}): number | null {
   const compact = token.replace(/\s/g, '');
+  if (beforeMagnitude) return ONE_SEPARATOR.test(compact) ? Number(compact.replace(',', '.')) : null;
   const decimal = DECIMAL_COMMA.exec(compact);
-  const value = Number(decimal ? `${decimal[1].replace(/,/g, '')}.${decimal[2]}` : compact.replace(/,/g, ''));
+  const whole = decimal ? decimal[1] : compact;
+  const grouped = POINT_GROUPS.test(whole) ? whole.replace(/\./g, '') : whole.replace(/,/g, '');
+  const value = Number(decimal ? `${grouped}.${decimal[2]}` : grouped);
   return Number.isFinite(value) ? value : null;
 }

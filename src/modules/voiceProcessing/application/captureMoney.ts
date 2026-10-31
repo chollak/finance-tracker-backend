@@ -32,6 +32,18 @@ export function expandShortenedThousands(
   return writtenBare ? Math.round(amount * 1000) : amount;
 }
 
+/**
+ * «1.500» is 1 500 (FT-206), and the AI once read it as 1,5: an amount that is the decimal reading of a number the
+ * text writes with a thousands point is that number — «4.500 $» read as 4,5 is 4 500 $. Not when another number of
+ * the text reads as the amount: «чай 1.5» keeps its 1,5.
+ */
+export function readThousandsPoint(amount: number, text: string): number {
+  const numbers = writtenNumbersIn(text);
+  if (numbers.some(({ token }) => readWrittenNumber(token) === amount)) return amount;
+  const misread = numbers.find(({ token }) => token.includes('.') && Number(token.replace(/\s/g, '')) === amount);
+  return misread ? readWrittenNumber(misread.token) ?? amount : amount;
+}
+
 export interface CaptureMoney {
   amount: number;
   currency: 'UZS' | 'USD';
@@ -64,7 +76,8 @@ export function captureMoneyOf(
   const ownMovement = isOwnMovement(semanticType);
   const currency = item.currency === 'USD' || (single && hints.currency === 'USD') ? 'USD' : 'UZS';
   const kind = ownMovement ? undefined : item.paymentKind ?? (single ? hints.kind : undefined);
-  const amount = expandShortenedThousands(item.amount || 0, text, currency, item.type === 'income' ? 'income' : 'expense');
+  const read = readThousandsPoint(item.amount || 0, text);
+  const amount = expandShortenedThousands(read, text, currency, item.type === 'income' ? 'income' : 'expense');
   return {
     // Сумы are whole, tiyin round half up: «1 234,50 сум» is 1 235 (Shukur, 2026-10-30, FT-185); dollars keep cents
     amount: currency === 'UZS' ? Math.round(amount) : amount,

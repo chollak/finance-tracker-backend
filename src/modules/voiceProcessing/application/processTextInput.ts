@@ -54,6 +54,8 @@ const MAGNITUDE_SUFFIX_SOURCE =
 const MAGNITUDE_SUFFIX_PATTERN = new RegExp(`^${MAGNITUDE_SUFFIX_SOURCE}`, 'iu');
 // A decimal point inside a magnitude amount ("3.5 млн") is not sentence punctuation.
 const MAGNITUDE_DECIMAL_POINT_PATTERN = new RegExp(`(\\d)\\.(\\d+${MAGNITUDE_SUFFIX_SOURCE})`, 'giu');
+// Nor is a point that groups thousands ("25.000", "1.234.567", FT-206).
+const THOUSANDS_POINT_PATTERN = /(?<=\d)\.(?=\d{3}(?!\d))/g;
 
 const MAGNITUDE_FACTORS: Array<[RegExp, number]> = [
   [/^(?:млрд|миллиард|mlrd)/iu, 1_000_000_000],
@@ -97,7 +99,7 @@ function parseSingleAmount(normalizedText: string): ParsedAmount | null {
     return null;
   }
 
-  const written = readWrittenNumber(token);
+  const written = readWrittenNumber(token, { beforeMagnitude: Boolean(suffix) });
   if (written === null || written <= 0) {
     return null;
   }
@@ -126,7 +128,7 @@ function readTextAmounts(text: string): TextAmount[] {
     const afterToken = normalizedText.slice(start + token.length);
     const suffix = MAGNITUDE_SUFFIX_PATTERN.exec(afterToken)?.[0] ?? '';
 
-    const written = readWrittenNumber(token);
+    const written = readWrittenNumber(token, { beforeMagnitude: Boolean(suffix) });
     if (written === null || written <= 0) {
       return [];
     }
@@ -178,7 +180,8 @@ function reconcileAmountWithCurrencyMarkedText(
 }
 
 function isComplexText(normalizedText: string): boolean {
-  return COMPLEX_TEXT_MARKERS_PATTERN.test(normalizedText.replace(MAGNITUDE_DECIMAL_POINT_PATTERN, '$1$2'))
+  const withoutNumberPoints = normalizedText.replace(MAGNITUDE_DECIMAL_POINT_PATTERN, '$1$2').replace(THOUSANDS_POINT_PATTERN, '');
+  return COMPLEX_TEXT_MARKERS_PATTERN.test(withoutNumberPoints)
     || COMPLEX_TEXT_WORDS_PATTERN.test(normalizedText)
     || DEBT_KEYWORDS_PATTERN.test(normalizedText)
     // "мне вернули 100000" reads to the simple parser as the label "мне вернули" plus an amount,
