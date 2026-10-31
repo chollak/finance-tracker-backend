@@ -1,6 +1,6 @@
 # Module System
 
-`createModules()` (`src/appModules.ts`) возвращает **16 модулей приложения**, каждый с чётко определённой ответственностью. `CategoryModule` добавлен в FT-099, `AccountModule` — в FT-101, `FxModule` — в FT-102, `BotMessageModule` — в FT-122, `NotificationModule` — в FT-124, `ExportModule` — в FT-126, `AuthModule` — в FT-128, `AuditModule` — в FT-131, `QuickCaptureModule` — обёртка над текстовым разбором для `POST /api/quick-capture`.
+`createModules()` (`src/appModules.ts`) возвращает **15 модулей приложения**, каждый с чётко определённой ответственностью. `CategoryModule` добавлен в FT-099, `AccountModule` — в FT-101, `FxModule` — в FT-102, `BotMessageModule` — в FT-122, `NotificationModule` — в FT-124, `ExportModule` — в FT-126, `AuthModule` — в FT-128, `AuditModule` — в FT-131, `QuickCaptureModule` — обёртка над текстовым разбором для `POST /api/quick-capture`. `OpenAIUsageModule` удалён в FT-174: его админские маршруты с января отвечали `401`, и их никто не вызывал.
 
 Dashboard модулем не является: в `src/modules/dashboard/` лежат только `DashboardService` и `DashboardController`, файла `dashboardModule.ts` нет. Сборка происходит в Express-слое — см. [Dashboard: сервис, а не модуль](#dashboard-сервис-а-не-модуль).
 
@@ -12,7 +12,6 @@ graph TD
     BM[BudgetModule<br/>Budget Management]
     DeM[DebtModule<br/>Debt Management]
     VM[VoiceProcessingModule<br/>Voice/Text Processing]
-    OM[OpenAIUsageModule<br/>Usage Monitoring]
     SM[SubscriptionModule<br/>Premium + Payments]
     UM[UserModule<br/>Users + Settings]
     CM[CategoryModule<br/>User Categories]
@@ -57,7 +56,6 @@ graph TD
     style BM fill:#2196F3,stroke:#1565C0,color:#fff
     style DeM fill:#FF5722,stroke:#BF360C,color:#fff
     style VM fill:#FF9800,stroke:#E65100,color:#fff
-    style OM fill:#9C27B0,stroke:#6A1B9A,color:#fff
     style SM fill:#FFD700,stroke:#B8860B,color:#000
     style UM fill:#00BCD4,stroke:#00838F,color:#fff
     style CM fill:#8BC34A,stroke:#558B2F,color:#fff
@@ -77,7 +75,6 @@ graph TD
 | **AccountModule** | Счета (FT-101): остатки на чтении, итог в сумах, счёт новой записи | Независимый; TransactionModule получает его как `AccountResolver`; счёт по умолчанию — из настроек UserModule | `accountModule.ts` |
 | **FxModule** | Курс доллара (FT-102): ЦБ по датам, свой курс, действующий курс | Свой курс хранится в настройках UserModule; AccountModule получает его как `EffectiveRateProvider` | `fxModule.ts` |
 | **CategoryModule** | Категории пользователя (FT-099): 8 + 8 стартовых, переименование, цвет, скрытие; разрешение категории записи | Независимый; TransactionModule получает его как `CategoryResolver` | `categoryModule.ts` |
-| **OpenAIUsageModule** | Мониторинг OpenAI costs | Независимый | `openAIUsageModule.ts` |
 | **SubscriptionModule** | Premium подписки + Telegram Stars | UserModule (controller) | `subscriptionModule.ts` |
 | **UserModule** | Пользователи и их настройки (FT-098) | Независимый | `userModule.ts` |
 | **BotMessageModule** | Сообщения бота о записях (FT-122): какие записи показывает подтверждение и какой экран кнопок открыт — таблица `bot_messages`, кнопки и `/undo` переживают перезапуск | Независимый; записи меняет бот через use cases TransactionModule | `botMessageModule.ts` |
@@ -318,27 +315,7 @@ new ProcessVoiceInputUseCase(
 
 ---
 
-## 6. OpenAIUsageModule
-
-**Файл:** [`src/modules/openai-usage/openAIUsageModule.ts`](../../../src/modules/openai-usage/openAIUsageModule.ts)
-
-### Назначение
-Мониторинг использования и стоимости OpenAI API.
-
-### Use Cases
-- `GetOpenAIUsageUseCase` - получение usage data, billing limits, credit balance
-
-### Repository
-- `OpenAIUsageRepositoryImpl` - прямые API calls к OpenAI
-
-### Features
-- In-memory кеширование (5 минут)
-- Расчет процента использования лимитов
-- Алерты при приближении к лимиту
-
----
-
-## 7. UserModule
+## 6. UserModule
 
 **Файл:** [`src/modules/user/userModule.ts`](../../../src/modules/user/userModule.ts)
 
@@ -353,7 +330,7 @@ new ProcessVoiceInputUseCase(
 
 ---
 
-## 8. CategoryModule
+## 7. CategoryModule
 
 **Файл:** [`src/modules/category/categoryModule.ts`](../../../src/modules/category/categoryModule.ts)
 
@@ -371,7 +348,7 @@ new ProcessVoiceInputUseCase(
 
 ---
 
-## 9. AccountModule
+## 8. AccountModule
 
 **Файл:** [`src/modules/account/accountModule.ts`](../../../src/modules/account/accountModule.ts)
 
@@ -389,7 +366,7 @@ new ProcessVoiceInputUseCase(
 
 ---
 
-## 10. FxModule
+## 9. FxModule
 
 **Файл:** [`src/modules/fx/fxModule.ts`](../../../src/modules/fx/fxModule.ts)
 
@@ -403,7 +380,7 @@ new ProcessVoiceInputUseCase(
 
 ---
 
-## 11. BotMessageModule
+## 10. BotMessageModule
 
 **Файл:** [`src/modules/botMessage/botMessageModule.ts`](../../../src/modules/botMessage/botMessageModule.ts)
 
@@ -426,7 +403,7 @@ new ProcessVoiceInputUseCase(
 
 ---
 
-## 12. NotificationModule
+## 11. NotificationModule
 
 **Файл:** [`src/modules/notification/notificationModule.ts`](../../../src/modules/notification/notificationModule.ts)
 
@@ -498,7 +475,7 @@ new ProcessVoiceInputUseCase(
 
 ---
 
-## 13. ExportModule
+## 12. ExportModule
 
 **Файл:** [`src/modules/export/exportModule.ts`](../../../src/modules/export/exportModule.ts)
 
@@ -520,7 +497,7 @@ new ProcessVoiceInputUseCase(
 
 ---
 
-## 14. AuthModule
+## 13. AuthModule
 
 **Файл:** [`src/modules/auth/authModule.ts`](../../../src/modules/auth/authModule.ts)
 
@@ -550,7 +527,7 @@ new ProcessVoiceInputUseCase(
 
 ---
 
-## 15. AuditModule
+## 14. AuditModule
 
 **Файл:** [`src/modules/audit/auditModule.ts`](../../../src/modules/audit/auditModule.ts)
 
@@ -641,7 +618,6 @@ export function createModules() {
   transactionModule.setCategoryLessons(transactionLearning); // FT-184
   const budgetModule = BudgetModule.create(transactionModule);
   const userModule = UserModule.create();
-  const openAIUsageModule = createOpenAIUsageModule();
 
   // 2. SubscriptionModule с repositories
   const subscriptionModule = new SubscriptionModule(subscriptionRepository, usageLimitRepository, {
@@ -663,7 +639,7 @@ export function createModules() {
   const notificationModule = NotificationModule.create(transactionModule, userModule, auditModule);
 
   return { categoryModule, transactionModule, budgetModule, debtModule, voiceModule, quickCaptureModule,
-    openAIUsageModule, userModule, subscriptionModule, botMessageModule, notificationModule };
+    userModule, subscriptionModule, botMessageModule, notificationModule };
 }
 ```
 

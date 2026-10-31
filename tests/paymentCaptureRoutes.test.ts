@@ -62,7 +62,7 @@ describe('POST /api/quick-capture/payment (FT-176)', () => {
     const userModule = new UserModule(new SqliteUserRepository(db.dataSource), new SqliteUserSettingsRepository(db.dataSource));
 
     const app = express();
-    app.use('/api', buildServer(unusedModule, unusedModule, unusedModule, unusedModule, unusedModule, userModule, undefined, new QuickCaptureModule(service)));
+    app.use('/api', buildServer(unusedModule, unusedModule, unusedModule, unusedModule, userModule, undefined, new QuickCaptureModule(service)));
     ({ server, baseUrl } = await listenOnLoopback(app));
   });
 

@@ -5,7 +5,6 @@ import { VoiceProcessingModule } from './modules/voiceProcessing/voiceProcessing
 import { QuickCaptureModule } from './modules/quickCapture/quickCaptureModule';
 import { BudgetModule } from './modules/budget/budgetModule';
 import { DebtModule } from './modules/debt/debtModule';
-import { createOpenAIUsageModule } from './modules/openai-usage/openAIUsageModule';
 import { UserModule } from './modules/user/userModule';
 import { SubscriptionModule } from './modules/subscription/subscriptionModule';
 import { RepositoryFactory } from './shared/infrastructure/database/repositoryFactory';
@@ -46,7 +45,6 @@ export function createModules() {
   accountModule.getBook().setRateProvider(fxModule.getService());
   accountModule.setCbuRates(fxModule.getService());
   transactionModule.setUsdRateSource(fxModule.getService());
-  const openAIUsageModule = createOpenAIUsageModule();
 
   // Create SubscriptionModule with repositories
   const subscriptionRepository = RepositoryFactory.createSubscriptionRepository();
@@ -105,7 +103,6 @@ export function createModules() {
     debtModule,
     voiceModule,
     quickCaptureModule,
-    openAIUsageModule,
     userModule,
     subscriptionModule,
     botMessageModule,

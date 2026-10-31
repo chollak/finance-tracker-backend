@@ -132,7 +132,7 @@ describe('the API lets in only the allowed (FT-153)', () => {
     jest.replaceProperty(AppConfig, 'TG_BOT_API_KEY', BOT_TOKEN);
     authModule = new AuthModule(new SqliteLoginTokenRepository(db.dataSource), { botUsername: { username: async () => 'KapelkaBot' } });
     const app = express();
-    app.use('/api', buildServer(unusedModule, unusedModule, unusedModule, unusedModule, unusedModule, userModule, undefined, undefined, { authModule }));
+    app.use('/api', buildServer(unusedModule, unusedModule, unusedModule, unusedModule, userModule, undefined, undefined, { authModule }));
     ({ server, baseUrl } = await listenOnLoopback(app));
   }
 
