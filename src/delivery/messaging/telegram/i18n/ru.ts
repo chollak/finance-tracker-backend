@@ -55,6 +55,10 @@ export const RU = {
     reverted: (count: number) => (count > 1 ? 'Вернул записи.' : 'Вернул запись.'),
     amountNotPositive: 'Сумма должна быть больше нуля.',
     amountTooBig: 'Сумма слишком большая — проверьте её и напишите ещё раз.',
+    // FT-224: «25000 300» is two numbers, not 25 000 300
+    amountOneNumber: 'Вижу несколько чисел. Напишите одну сумму — например, 25\u00a0000 или 25к.',
+    // FT-224: «не 25, а 25000 300» — no question is open: the bot shows how a correction is written
+    correctionOneNumber: 'Новая сумма — одно число: «не 25, а 28».',
     noAccountIn: (currency: 'UZS' | 'USD') =>
       currency === 'USD' ? 'Счёта в долларах нет — добавьте его в Kapelka.' : 'Счёта в сумах нет — добавьте его в Kapelka.',
     // FT-123: what was named without an amount, «не 25, а 28»

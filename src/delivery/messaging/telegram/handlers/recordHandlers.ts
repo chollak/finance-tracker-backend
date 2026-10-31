@@ -35,7 +35,7 @@ import {
   restoreRecords,
   sendRecordMessage,
 } from '../utils/recordMessageView';
-import { AmountReply, parseAmountCorrection, parseAmountReply, writtenAmountMatches } from '../utils/amountReply';
+import { AmountReply, parseAmountCorrection, parseAmountReply, refusalText, writtenAmountMatches } from '../utils/amountReply';
 import { botUserId } from '../utils/userCategories';
 import { messageClientId, withMessageClientId } from '../utils/messageClientId';
 import { checkTelegramLimit } from '../middleware/subscriptionMiddleware';
@@ -585,12 +585,9 @@ async function answerWithAmount(
     await closeQuestion(ctx, log, target.message);
     return false;
   }
-  if (reply.kind === 'not_positive') {
-    await ctx.reply(RU.record.amountNotPositive);
-    return true;
-  }
-  if (reply.kind === 'too_big') {
-    await ctx.reply(RU.record.amountTooBig);
+  // Zero, too much or two numbers: said, and the question stays open
+  if (reply.kind !== 'amount') {
+    await ctx.reply(refusalText(reply));
     return true;
   }
   await changeAmount(ctx, log, target, reply, userId);
@@ -614,12 +611,8 @@ async function answerMissing(ctx: BotContext, log: BotMessageLog, message: BotMe
     await closeQuestion(ctx, log, message);
     return false;
   }
-  if (reply.kind === 'not_positive') {
-    await ctx.reply(RU.record.amountNotPositive);
-    return true;
-  }
-  if (reply.kind === 'too_big') {
-    await ctx.reply(RU.record.amountTooBig);
+  if (reply.kind !== 'amount') {
+    await ctx.reply(refusalText(reply));
     return true;
   }
   // Unlike «Сумму», this answer adds a record: the free limit meets it as it meets a phrase, and the
@@ -734,6 +727,11 @@ async function correctAmount(ctx: BotContext, log: BotMessageLog, chatId: string
   const reply = parseAmountReply(correction.now, target.record);
   if (!reply || reply.kind === 'not_positive') {
     await ctx.reply(RU.record.correctionNotAnAmount);
+    return true;
+  }
+  // No question waits for the next text here: «Напишите одну сумму» would send «25 300» to a new record (FT-224)
+  if (reply.kind === 'several_numbers') {
+    await ctx.reply(RU.record.correctionOneNumber);
     return true;
   }
   if (reply.kind === 'too_big') {
