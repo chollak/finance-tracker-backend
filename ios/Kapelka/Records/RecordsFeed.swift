@@ -23,6 +23,10 @@ actor RecordsFeed {
     private var refreshing = 0
     /// Edits the server confirmed while a refresh was on the way: its page may have been read before them.
     private var editsDuringRefresh: [RecordEdit] = []
+    /// Refreshes started so far: each gets the next number.
+    private var refreshesStarted = 0
+    /// The number of the refresh whose page is on disk. A page of an earlier one is older even when it comes later.
+    private var savedRefresh = 0
 
     init(client: RecordsClient, cache: RecordsCacheFile, now: @escaping @Sendable () -> Date = { Date() }) {
         self.client = client
@@ -35,17 +39,24 @@ actor RecordsFeed {
         client.configuration().flatMap { snapshot(for: $0.baseURL.absoluteString) }
     }
 
-    /// The first page from the server, saved with the moment it came; without the server — the copy on disk.
+    /// The first page from the server, saved with the moment it came; without the server — the copy on disk. When a
+    /// refresh started later has already saved its page, this one's older page is dropped and the newer one returned.
     func refresh() async -> FirstPage {
         guard let configuration = client.configuration() else { return .saved(nil, .notConfigured) }
         let address = configuration.baseURL.absoluteString
         let firstEdit = editsDuringRefresh.count
+        refreshesStarted += 1
+        let number = refreshesStarted
         refreshing += 1
         defer { finishRefresh() }
         do {
             let page = try await client.pinned(to: configuration).page()
             let edited = editsDuringRefresh[firstEdit...].reduce(page) { $1.applied(to: $0) }
             let snapshot = RecordsSnapshot(address: address, page: edited, updatedAt: now())
+            guard number > savedRefresh else {
+                return .fresh(self.snapshot(for: address) ?? snapshot)
+            }
+            savedRefresh = number
             store(snapshot)
             return .fresh(snapshot)
         } catch {
@@ -60,6 +71,11 @@ actor RecordsFeed {
 
     func categories() async throws(RecordsFailure) -> [RecordCategory] {
         try await client.categories()
+    }
+
+    /// Not kept on disk: without a network a row shows its category alone (FT-220, «счёт, которого нет в списке»).
+    func accounts() async throws(RecordsFailure) -> [RecordAccount] {
+        try await client.accounts()
     }
 
     /// Gone on the server — deleted here or already elsewhere (`recordGone`) — gone on disk too.

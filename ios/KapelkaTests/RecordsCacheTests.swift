@@ -74,6 +74,52 @@ struct RecordsCacheTests {
         #expect(saved.updatedAt == harness.clock.now)
     }
 
+    @Test("два обновления: первое ответило позже второго — на диске и на экране страница второго")
+    func olderRefreshAnsweringLastLoses() async throws {
+        let transport = FakeTransport([
+            .after(.milliseconds(300), .http(200, body: RecordsReply.page([RecordsReply.record(id: "a")]))),
+            .http(200, body: RecordsReply.page([RecordsReply.record(id: "new"), RecordsReply.record(id: "a")])),
+        ])
+        let harness = try RecordsHarness(transport: transport)
+        let feed = harness.makeFeed()
+
+        async let older = feed.refresh()
+        #expect(await eventually { await transport.requests.count == 1 })
+        harness.clock.advance(by: 5)
+        let newer = await feed.refresh()
+        let olderResult = await older
+
+        guard case let .fresh(newerSnapshot) = newer, case let .fresh(olderSnapshot) = olderResult else {
+            Issue.record("the server answered both")
+            return
+        }
+        #expect(newerSnapshot.page.items.map(\.id) == ["new", "a"])
+        #expect(olderSnapshot == newerSnapshot)
+        #expect(harness.cache.load() == newerSnapshot)
+    }
+
+    @Test("новое обновление не ответило — страница старого, пришедшая позже, сохраняется")
+    func olderRefreshSavedWhenNewerFailed() async throws {
+        let transport = FakeTransport([
+            .after(.milliseconds(300), .http(200, body: RecordsReply.page([RecordsReply.record(id: "a")]))),
+            .failure(.notConnectedToInternet),
+        ])
+        let harness = try RecordsHarness(transport: transport)
+        let feed = harness.makeFeed()
+
+        async let older = feed.refresh()
+        #expect(await eventually { await transport.requests.count == 1 })
+        #expect(await feed.refresh() == .saved(nil, .unreachable))
+        let olderResult = await older
+
+        guard case let .fresh(snapshot) = olderResult else {
+            Issue.record("the server answered")
+            return
+        }
+        #expect(snapshot.page.items.map(\.id) == ["a"])
+        #expect(harness.cache.load() == snapshot)
+    }
+
     @Test("кэш другого адреса не показывается: это записи другого сервера")
     func otherAddressNotShown() async throws {
         let harness = try RecordsHarness(transport: FakeTransport([

@@ -53,6 +53,24 @@ enum RecordsReply {
         #"{"success":true,"data":[\#(items.joined(separator: ","))],"timestamp":"2026-10-29T10:00:00.000Z"}"#
     }
 
+    /// An account of `api.md`, «Счета (FT-101)», word for word.
+    static func account(id: String = "acc-card", name: String = "Карта", isHidden: Bool = false) -> String {
+        """
+        {"id":"\(id)","name":"\(name)","kind":"card","currency":"UZS","openingBalanceMinor":0,\
+        "openingDate":"2026-10-16","openingAt":"2026-10-16T05:12:40.118Z","isHidden":\(isHidden),"sortOrder":10,\
+        "balanceMinor":12345600,"userId":"user-uuid"}
+        """
+    }
+
+    /// `GET /api/accounts`: the accounts, hidden too, with the total and the rate.
+    static func accounts(_ items: [String]) -> String {
+        """
+        {"success":true,"data":{"accounts":[\(items.joined(separator: ","))],"totalMinor":12345600,\
+        "rate":{"rateMinor":1285000,"source":"cbu","date":"2026-10-16"},"missingRate":false},\
+        "timestamp":"2026-10-29T10:00:00.000Z"}
+        """
+    }
+
     /// `POST /:id/restore` and `PUT /:id`: the record whole.
     static func one(_ record: String, message: String? = nil) -> String {
         let messageJSON = message.map { #","message":"\#($0)""# } ?? ""

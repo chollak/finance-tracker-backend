@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import Kapelka
 
-/// The five routes the app token opens (FT-218), as the records client calls them (FT-219).
+/// The six routes the app token opens (FT-218), as the records client calls them (FT-219).
 @Suite("Клиент записей: запросы")
 struct RecordsClientTests {
     private let base = "https://kapelka-pc.example-tailnet.ts.net"
@@ -40,6 +40,18 @@ struct RecordsClientTests {
         #expect(request.httpMethod == "GET")
         #expect(request.url?.absoluteString == "\(base)/api/categories")
         #expect(request.value(forHTTPHeaderField: "X-Shortcut-Capture-Token") == TestSettings.token)
+    }
+
+    @Test("счета: GET /api/accounts — ради имени счёта в строке")
+    func accounts() async throws {
+        let harness = try RecordsHarness(transport: FakeTransport([.http(200, body: RecordsReply.accounts([]))]))
+        #expect(try await harness.client.accounts().isEmpty)
+
+        let request = try #require(await harness.transport.requests.first)
+        #expect(request.httpMethod == "GET")
+        #expect(request.url?.absoluteString == "\(base)/api/accounts")
+        #expect(request.value(forHTTPHeaderField: "X-Shortcut-Capture-Token") == TestSettings.token)
+        #expect(request.httpBody == nil)
     }
 
     @Test("удалить: DELETE /api/transactions/:id")
@@ -95,6 +107,7 @@ struct RecordsClientTests {
 
         await #expect(throws: RecordsFailure.notConfigured) { try await client.page() }
         await #expect(throws: RecordsFailure.notConfigured) { try await client.categories() }
+        await #expect(throws: RecordsFailure.notConfigured) { try await client.accounts() }
         await #expect(throws: RecordsFailure.notConfigured) { try await client.delete(id) }
         await #expect(throws: RecordsFailure.notConfigured) { try await client.restore(id) }
         await #expect(throws: RecordsFailure.notConfigured) { try await client.setCategory("cat-food", of: id) }

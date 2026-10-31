@@ -13,6 +13,7 @@ struct RecordsFailureTests {
     private static let calls: [(String, @Sendable (RecordsClient) async throws -> Void)] = [
         ("page", { client in _ = try await client.page() }),
         ("categories", { client in _ = try await client.categories() }),
+        ("accounts", { client in _ = try await client.accounts() }),
         ("delete", { client in try await client.delete("r") }),
         ("restore", { client in _ = try await client.restore("r") }),
         ("category", { client in _ = try await client.setCategory("c", of: "r") }),

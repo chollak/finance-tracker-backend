@@ -3,7 +3,7 @@ import Testing
 @testable import Kapelka
 
 /// The answers of `docs/pastel/api.md` the records client reads: the history page (FT-107), the categories (FT-099),
-/// a record after restore or edit (FT-105).
+/// the accounts (FT-101), a record after restore or edit (FT-105).
 @Suite("Записи и категории из ответа сервера")
 struct RecordsDecodingTests {
     @Test("страница истории из api.md: записи, nextCursor; summary не мешает")
@@ -98,6 +98,42 @@ struct RecordsDecodingTests {
         ])
     }
 
+    @Test("счета из api.md: id и название, скрытые тоже; итог и курс не мешают")
+    func accountsFromDocs() async throws {
+        let transport = FakeTransport([.http(200, body: RecordsReply.accounts([
+            RecordsReply.account(),
+            RecordsReply.account(id: "acc-cash", name: "Наличные", isHidden: true),
+            #"{"id":"acc-broken","kind":"card"}"#,
+            RecordsReply.account(id: "acc-usd", name: "Доллары"),
+        ]))])
+        let accounts = try await client(transport).accounts()
+
+        #expect(accounts == [
+            RecordAccount(id: "acc-card", name: "Карта"),
+            RecordAccount(id: "acc-cash", name: "Наличные"),
+            RecordAccount(id: "acc-usd", name: "Доллары"),
+        ])
+    }
+
+    @Test("плохой элемент посередине пропущен, следующий хороший — на месте")
+    func badElementInTheMiddle() throws {
+        let numbers = try JSONDecoder().decode(
+            LossyList<Int>.self,
+            from: Data(#"[1, "x", 2, null, {"a": [3]}, 3, [4], 4]"#.utf8)
+        )
+        #expect(numbers.elements == [1, 2, 3, 4])
+
+        let json = RecordsReply.page([
+            RecordsReply.record(id: "a"),
+            #"{"id":"bad","type":"expense","date":"2026-10-29","amountMinor":"25000","category":{"name":"Кафе"}}"#,
+            RecordsReply.record(id: "b"),
+            #"{"id":5,"type":"expense","date":"2026-10-29","amountMinor":100}"#,
+            RecordsReply.record(id: "c"),
+        ])
+        let page = try JSONDecoder().decode(Envelope.self, from: Data(json.utf8)).data
+        #expect(page.items.map(\.id) == ["a", "b", "c"])
+    }
+
     @Test("запись после «Вернуть» и смены категории — целиком, с ответа сервера")
     func recordAfterRestoreAndEdit() async throws {
         let edited = RecordsReply.record(categoryId: "cat-food", category: "Продукты")
@@ -120,6 +156,10 @@ struct RecordsDecodingTests {
 
         let decoded = try JSONDecoder().decode(RecordsPage.self, from: try JSONEncoder().encode(page))
         #expect(decoded == page)
+    }
+
+    private struct Envelope: Decodable {
+        let data: RecordsPage
     }
 
     private func client(_ transport: FakeTransport) -> RecordsClient {

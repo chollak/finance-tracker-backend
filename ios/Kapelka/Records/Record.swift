@@ -98,31 +98,49 @@ extension RecordCategory {
     }
 }
 
+/// An account of `GET /api/accounts` (FT-101), only for its name in the row «категория · счёт» (FT-220): balances
+/// and the total stay in the Mini App. Hidden ones come too — their records keep their account's name.
+struct RecordAccount: Codable, Equatable, Identifiable, Sendable {
+    let id: String
+    let name: String
+}
+
+/// `GET /api/accounts` answers `{ accounts, totalMinor, rate, missingRate }`.
+struct RecordAccounts: Decodable {
+    let accounts: [RecordAccount]
+
+    private enum CodingKeys: String, CodingKey {
+        case accounts
+    }
+
+    init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        accounts = try container.decode(LossyList<RecordAccount>.self, forKey: .accounts).elements
+    }
+}
+
 /// A list in which an element the phone cannot read is left out instead of failing the whole answer: one odd record
 /// must not turn the list into «нет связи». The record stays visible in the Mini App.
 struct LossyList<Element: Decodable>: Decodable {
     let elements: [Element]
 
     init(from decoder: any Decoder) throws {
-        var container = try decoder.unkeyedContainer()
-        var elements: [Element] = []
-        var skipped = 0
-        while !container.isAtEnd {
-            if let element = try? container.decode(Element.self) {
-                elements.append(element)
-            } else {
-                // A failed decode does not move the container on; this one reads anything and does
-                _ = try container.decode(Skipped.self)
-                skipped += 1
-            }
-        }
+        // Each slot decodes as `Lossy`, which never fails: the list moves on after a bad element by itself, not by
+        // relying on how a failed decode leaves the container
+        let slots = try [Lossy<Element>](from: decoder)
+        let elements = slots.compactMap(\.value)
+        let skipped = slots.count - elements.count
         if skipped > 0 {
-            logger.error("\(skipped, privacy: .public) of \(elements.count + skipped, privacy: .public) not readable, left out")
+            logger.error("\(skipped, privacy: .public) of \(slots.count, privacy: .public) not readable, left out")
         }
         self.elements = elements
     }
 
-    private struct Skipped: Decodable {
-        init(from decoder: any Decoder) throws {}
+    private struct Lossy<Wrapped: Decodable>: Decodable {
+        let value: Wrapped?
+
+        init(from decoder: any Decoder) {
+            value = try? Wrapped(from: decoder)
+        }
     }
 }
