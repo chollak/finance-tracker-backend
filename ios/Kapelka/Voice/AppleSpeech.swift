@@ -58,8 +58,8 @@ final class AppleSpeech: VoiceSystem, SpeechListening {
         #else
         guard let recognizer else { throw SpeechStartError.noRecognizer }
         let audio = AVAudioSession.sharedInstance()
-        try audio.setCategory(.record, mode: .measurement, options: .duckOthers)
-        try audio.setActive(true, options: .notifyOthersOnDeactivation)
+        // With haptics allowed: the start of listening is felt (FT-251)
+        try ListeningSession.activate(audio)
         // Asked of the session before the engine opens its input node, which has no way to fail softly
         guard audio.isInputAvailable, audio.inputNumberOfChannels > 0, audio.sampleRate > 0 else {
             try? audio.setActive(false, options: .notifyOthersOnDeactivation)
