@@ -1,6 +1,7 @@
 import { DataSource, IsNull, Not, Repository } from 'typeorm';
 import { AppDataSource } from '../../../shared/infrastructure/database/database.config';
 import { BotMessage as BotMessageEntity } from '../../../shared/infrastructure/database/entities/BotMessage';
+import { HandledMessage as HandledMessageEntity } from '../../../shared/infrastructure/database/entities/HandledMessage';
 import {
   AssumedThousands,
   BotMessage,
@@ -10,13 +11,16 @@ import {
   RecordMessageState,
 } from '../domain/botMessage';
 import { ItemWithoutAmount } from '../../voiceProcessing/domain/processedTransaction';
-import { BotMessageRepository, NewBotMessage } from '../domain/botMessageRepository';
+import { BotMessageRepository, HandledMessageWrite, NewBotMessage } from '../domain/botMessageRepository';
+import { HandledMessage, RecordMessageDraft } from '../domain/handledMessage';
 
 export class SqliteBotMessageRepository implements BotMessageRepository {
   private repository: Repository<BotMessageEntity>;
+  private handled: Repository<HandledMessageEntity>;
 
   constructor(dataSource: DataSource = AppDataSource) {
     this.repository = dataSource.getRepository(BotMessageEntity);
+    this.handled = dataSource.getRepository(HandledMessageEntity);
   }
 
   async create(message: NewBotMessage): Promise<BotMessage> {
@@ -64,6 +68,42 @@ export class SqliteBotMessageRepository implements BotMessageRepository {
     return this.toDomain(updated);
   }
 
+  async findHandled(clientId: string): Promise<HandledMessage | null> {
+    const entity = await this.handled.findOne({ where: { clientId } });
+    if (!entity) return null;
+    return {
+      clientId: entity.clientId,
+      userId: entity.userId,
+      chatId: entity.chatId,
+      botMessageId: entity.botMessageId === null ? null : Number(entity.botMessageId),
+      confirmation: entity.confirmation === null ? null : parseDraft(entity.confirmation),
+      createdAt: new Date(entity.createdAt),
+    };
+  }
+
+  async saveHandled(message: HandledMessageWrite): Promise<void> {
+    // Only the fields given are written over a row kept before
+    const over = [
+      ...(message.botMessageId !== undefined ? ['"bot_message_id" = excluded."bot_message_id"'] : []),
+      ...(message.confirmation !== undefined ? ['"confirmation" = excluded."confirmation"'] : []),
+    ];
+    await this.handled.query(
+      `INSERT INTO "handled_messages" ("client_id", "user_id", "chat_id", "bot_message_id", "confirmation") VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT ("client_id") DO ${over.length > 0 ? `UPDATE SET ${over.join(', ')}` : 'NOTHING'}`,
+      [message.clientId, message.userId, message.chatId, message.botMessageId ?? null, message.confirmation ? JSON.stringify(message.confirmation) : null]
+    );
+  }
+
+  async deleteHandledOlderThan(days: number): Promise<number> {
+    const result = await this.handled
+      .createQueryBuilder()
+      .delete()
+      .from(HandledMessageEntity)
+      .where(`created_at < datetime('now', :shift)`, { shift: `-${days} days` })
+      .execute();
+    return result.affected ?? 0;
+  }
+
   private toDomain(entity: BotMessageEntity): BotMessage {
     return {
       id: entity.id,
@@ -89,15 +129,34 @@ function parseIds(value: string): string[] {
   }
 }
 
-/** A state written by an older version may lack fields: the confirmation screen fills them in. */
-function parseState(value: string): RecordMessageState {
-  let parsed: Partial<RecordMessageState> = {};
+/** A confirmation kept before it is sent (FT-172), as `bot_messages` reads its columns. */
+function parseDraft(value: string): RecordMessageDraft {
+  let raw: Record<string, unknown> = {};
   try {
-    const raw = JSON.parse(value);
-    if (raw && typeof raw === 'object') parsed = raw;
+    const parsed = JSON.parse(value);
+    if (parsed && typeof parsed === 'object') raw = parsed;
   } catch {
-    // keep the defaults
+    // an empty confirmation
   }
+  return {
+    recordIds: Array.isArray(raw.recordIds) ? raw.recordIds.filter((id): id is string => typeof id === 'string') : [],
+    mode: isRecordMessageMode(raw.mode) ? raw.mode : 'confirm',
+    state: stateOf(raw.state),
+    heard: typeof raw.heard === 'string' && raw.heard ? raw.heard : null,
+  };
+}
+
+function parseState(value: string): RecordMessageState {
+  try {
+    return stateOf(JSON.parse(value));
+  } catch {
+    return stateOf(null);
+  }
+}
+
+/** A state written by an older version may lack fields: the confirmation screen fills them in. */
+function stateOf(raw: unknown): RecordMessageState {
+  const parsed: Partial<RecordMessageState> = raw && typeof raw === 'object' ? raw : {};
   const state: RecordMessageState = {
     selected: Number.isInteger(parsed.selected) && (parsed.selected as number) >= 0 ? (parsed.selected as number) : 0,
     guessed: Array.isArray(parsed.guessed) ? parsed.guessed.filter((id): id is string => typeof id === 'string') : [],
@@ -127,7 +186,6 @@ function parseState(value: string): RecordMessageState {
     if (declined.length > 0) state.declined = declined;
   }
   if (parsed.back === 'confirm') state.back = 'confirm';
-  if (typeof parsed.answeredBy === 'string' && parsed.answeredBy) state.answeredBy = parsed.answeredBy;
   return state;
 }
 

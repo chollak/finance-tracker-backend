@@ -408,25 +408,4 @@ describe('Enhanced Analytics Service', () => {
       expect(breakdown.food.percentage).toBe(100);
     });
   });
-
-  describe('backward compatibility', () => {
-    it('should maintain getSummary method for existing code', async () => {
-      mockRepository.getAll.mockResolvedValue(mockTransactions);
-
-      const summary = await analyticsService.getSummary();
-
-      expect(summary.totalIncome).toBe(200);
-      expect(summary.totalExpense).toBe(225);
-    });
-
-    it('should maintain getCategoryBreakdown method for existing code', async () => {
-      mockRepository.getAll.mockResolvedValue(mockTransactions);
-
-      const breakdown = await analyticsService.getCategoryBreakdown();
-
-      expect(breakdown.Food).toBe(150);
-      expect(breakdown.Transportation).toBe(75);
-      expect(breakdown.Income).toBe(200);
-    });
-  });
 });

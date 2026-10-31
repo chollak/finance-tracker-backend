@@ -132,6 +132,15 @@ describe('which learned words name a category (FT-138 review)', () => {
     expect(words.get('cafe')).toEqual(['шаурму']);
   });
 
+  it('not a legal form an older correction taught: «ooo», «ytt», «ятт», «duk» (FT-208)', () => {
+    const words = namingWordsOf({
+      categories: [{ key: 'cafe', keywords: ['ooo', 'ytt', 'ятт', 'duk', 'zzqx'] }],
+      merchants: [],
+    });
+
+    expect(words.get('cafe')).toEqual(['zzqx']);
+  });
+
   it('not a word the patterns of two categories share', () => {
     const words = namingWordsOf({
       categories: [
@@ -184,6 +193,19 @@ describe('learned words for the guess rule (FT-138)', () => {
     expect(words.get('cafe')).toEqual(['evos']);
     // a pattern used once is not shown to the AI, so it does not count either
     expect(words.get('shopping')).toEqual(['uzum market', 'узум']);
+  });
+
+  it('leave out a legal form corrections taught before FT-208: «ytt» counted twice gives no category', async () => {
+    fs.writeFileSync(path.join(tempDir, 'data', 'patterns.json'), JSON.stringify({
+      categories: [],
+      merchants: [],
+      words: [
+        { word: 'ytt', category: 'cafe', uses: 2 },
+        { word: 'zzqx', category: 'cafe', uses: 2 },
+      ],
+    }));
+
+    expect((await new TransactionLearningService(tempDir).learnedCategoryWords()).get('cafe')).toEqual(['zzqx']);
   });
 
   it('are empty without patterns', async () => {

@@ -39,6 +39,8 @@ data/backups/
 
 # Voice files the bot downloads (DOWNLOADS_PATH); one left by a crash must not block scripts/live-update.sh
 downloads/
+# Voice uploads of POST /api/voice/voice-input while they are read (multer); the same reason (FT-216)
+uploads/
 
 # Runtime learning data (tracked seed files are data/*.seed.json)
 data/learning-data.json

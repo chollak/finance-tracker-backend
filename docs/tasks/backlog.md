@@ -489,82 +489,6 @@ Definition of Done:
 
 ---
 
-### FT-172: Redelivered Telegram updates: remaining edges
-
-Status: in_progress — пачка Б (бот и уборка), 2026-10-31
-Priority: low
-Owner: Claude Code, QA — под-чат проверки
-Type: reliability
-Size: S
-
-Context:
-Найдено при проверке FT-167 (2026-10-29). Сообщение, которое Telegram прислал снова после перезапуска, охранник
-(`createRepeatedMessageGuard`, `messageHandlers.ts`) узнаёт по client id `tg-<bot>-<chat>-<message>`: по записям с этим
-id и по `answeredBy` в сообщениях бота. Повтор случается, только если обработчик не уложился в 5 с остановки или
-процесс убит. Остались три края:
-- Повторный `/undo` после перезапуска отменяет ещё одно сообщение (`recordHandlers.ts:420`, `handleUndo`): команда
-  записей не создаёт, и охранник её не видит.
-- Подтверждение от охранника (`messageHandlers.ts:132`) уходит без `missing`, `heard`, `guessed` и `assumed`: если
-  первое подтверждение фразы из нескольких позиций не ушло, вопрос «Сколько?» о позиции без суммы теряется, у голоса нет
-  «Расслышал», у угаданной категории нет «?».
-- `answeredBy` помнит только последний ответ на вопрос сообщения бота и ищется в последних 20 сообщениях бота
-  (`RECENT_MESSAGES_LIMIT`): два ответа в одной пачке или ответ дальше 20 сообщений охранник не узнает.
-
-Definition of Done:
-- [ ] Повторный `/undo` после перезапуска ничего больше не отменяет; тест
-- [ ] Подтверждение повторённой фразы, первое подтверждение которой не ушло, спрашивает «Сколько?» и показывает
-      «Расслышал», «?» и «понял как» так же, как первое; тест
-- [ ] `answeredBy` узнаёт повтор и после второго ответа на вопрос того же сообщения; или решено и записано, что одного
-      ответа и 20 сообщений хватает
-
----
-
-### FT-173: Missed subscription and audit notices leave a trace
-
-Status: in_progress — пачка Б (бот и уборка), 2026-10-31
-Priority: low
-Owner: Claude Code, QA — под-чат проверки
-Type: reliability
-Size: S
-
-Context:
-Найдено при проверке FT-164 (2026-10-29). FT-164 оставляет след `failed` с причиной у уведомления, которое пробовали и
-которое не ушло до конца окна, а у итога дня — и когда бот не работал весь вечер («не ушло: ни одной попытки», затем
-«Итоги за вчера»). Напоминание о подписке (её день, `subscription`, период `<id цели>:<день>`) и зов на ревизию
-(1-е число, `audit`) при боте, выключенном весь их день, не оставляют строки: на следующий день источник
-(`getListGoalRemindersUseCase`, `isAuditCallDue`) их уже не отдаёт, и тик о них не знает. Догонять их не нужно (решение
-2026-10-29), нужен только след.
-
-Definition of Done:
-- [ ] Подписка с «Напомнить», чей день прошёл без единого тика, получает строку `failed` «не ушло: ни одной попытки»; тест
-- [ ] Ревизия 1-го числа, пропущенная целиком, получает такую же строку, если в тот день было что звать (`open`, `left > 0`); тест
-- [ ] Ничего не отправляется задним числом; «не больше одного раза» не меняется
-
----
-
-### FT-174: Dead admin routes without requireAuth
-
-Status: in_progress — пачка Б (бот и уборка), 2026-10-31
-Priority: low
-Owner: Claude Code, QA — под-чат проверки
-Type: repo-hygiene
-Size: S
-
-Context:
-Найдено при проверке FT-162 (2026-10-29). `requireAdmin` смотрит на `req.telegramUser`, а его ставит только
-`requireAuth`, которого перед этими маршрутами нет. Поэтому с 2026-01-22 они всегда отвечают `401` (fail-closed):
-- `GET /api/transactions/analytics` — `transactionController.ts:96`;
-- `GET /api/openai/usage`, `GET /api/openai/usage/summary`, `POST /api/openai/usage/refresh` — `openAIUsageRoutes.ts:14,17,20`.
-
-Дыры нет, но это мёртвый код, который выглядит рабочим. Webapp и бот эти маршруты не вызывают.
-
-Definition of Done:
-- [ ] Маршруты убраны — или перед `requireAdmin` стоит `requireAuth`, и есть тест: без входа `401`, не админ `403`,
-      админ `200`
-- [ ] `auth-user-resolution-boundary-matrix.md` и `api-route-coverage-matrix.md` обновлены
-
----
-
 ### FT-200: A correction teaches the words of an item named without an amount
 
 Status: backlog
@@ -589,38 +513,6 @@ Definition of Done:
 - [ ] Правка zzqx в «zzqx 50000 и wwpt» учит только «zzqx»; тест
 - [ ] Фраза из нескольких записей без `clientId` учит только слова исправленной записи; тест
 - [ ] Записи, сделанные до задачи, учат как раньше; тест
-
----
-
-### FT-208: Uzbek legal forms «YTT», «ЯТТ» are taught as words
-
-Status: in_progress — пачка Б (бот и уборка), 2026-10-31
-Priority: low
-Owner: Claude Code, QA — под-чат проверки
-Type: bug
-Size: S
-
-Context:
-Wallet называет магазин так, как он записан в банке: «Ooo Mazzali Super Food», «Ytt Abduvoxidov Davronbek». «YTT»
-(«ЯТТ», «YaTT», yakka tartibdagi tadbirkor) — индивидуальный предприниматель, служебное слово, как «ООО». iOS магазин
-не трогает, только убирает лишние пробелы; это работа сервера.
-
-FT-184 уже не учит формам юрлиц: `SERVICE_WORDS` в `lessonWords.ts` — `ooo`, `ооо`, `llc`, `mchj`, `мчж`, `chp`, `чп`…
-Узбекских `ytt`, `yatt`, `ятт`, `duk`, `дук` там нет. Двухбуквенные `xk`, `aj`, `ип` и так отсекает `namesNothing`.
-
-Что будет: две правки категории у фраз с «YTT …» в одну категорию научат слово «ytt» наверняка
-(`MIN_WORD_LESSONS`). После этого оплата любого ИП уйдёт в эту категорию по словам, без «?»: `categoryNamedBy`
-в `recordPayment.ts` с `learnedCategoryWords`. Правка самой оплаты учит магазин целиком (`merchantKey`) — с ней беды нет.
-
-«Другое?» у «Ytt Abduvoxidov Davronbek» — честный ответ: имя ИП категорию не называет. Одна правка в Mini App, и
-следующая оплата этому ИП идёт в её категорию (FT-184, `learnedMerchants`).
-
-Можно заодно: `merchantKey` без формы юрлица, чтобы «YTT X» и «ЯТТ X» были одним магазином. Ключи считаются при чтении
-(`merchantCategories`), так что выученные магазины не теряются.
-
-Definition of Done:
-- [ ] `ytt`, `yatt`, `ятт`, `duk`, `дук` в `SERVICE_WORDS`; тест: правка фразы «ytt zzqx 25000» не учит «ytt»
-- [ ] Решено про `merchantKey` без формы юрлица; если да — тест «YTT X» = «X»
 
 ---
 
@@ -652,36 +544,6 @@ Definition of Done:
 - [ ] `typeorm` 1.x; в `npm audit --omit=dev` в корне `typeorm`, `glob`, `minimatch` остались только в цепочке `sqlite3`
 - [ ] `npm run migration:show` на копии настоящей базы: применённые миграции те же, расхождений схемы нет
 - [ ] `npm run verify` зелёный
-
----
-
-### FT-216: Voice through the API leaves its upload in `uploads/`
-
-Status: in_progress — пачка Б (бот и уборка), 2026-10-31
-Priority: low
-Owner: Claude Code, QA — под-чат проверки
-Type: bug
-Size: S
-
-Context:
-`POST /api/voice/voice-input` принимает файл через multer (`dest: 'uploads/'`, имя без расширения) и отдаёт путь в
-`ProcessVoiceInputUseCase`. Тот конвертирует файл в `<путь>.mp3` и в `finally` (`processVoiceInput.ts:303-310`) удаляет
-только один файл:
-- конвертация удалась — удаляется `.mp3`, исходник multer остаётся в `uploads/`;
-- ffmpeg упал и запасной путь переименовал исходник в `.mp3` — удаляется исходник, которого уже нет, и остаётся `.mp3`.
-  Так и у бота: он после разбора удаляет свой скачанный файл (`messageHandlers.ts:388`, `cleanupFile` из
-  `fileDownloader.ts`), а `.mp3` остаётся в `downloads/`.
-
-При живой проверке FT-183 после каждого голосового в `uploads/` оставался исходный wav (180 108 байт), и с `openai` 4,
-и с 7. `uploads/` нет в `.gitignore` (там только `downloads/`). Значит, на ПК такой файл делает дерево грязным, и
-`scripts/live-update.sh` откажется обновлять. Сейчас маршрут никто не зовёт: голос в Mini App пока «скоро» (FT-117).
-
-Идея: `finally` удаляет и исходник, и `.mp3`, каждый — если он есть; `uploads/` — в `.gitignore`, как `downloads/`.
-
-Definition of Done:
-- [ ] После голосового через `/api/voice/voice-input` в `uploads/` пусто — и когда конвертация удалась, и на запасном пути; тест
-- [ ] У бота на запасном пути `.mp3` не остаётся в `downloads/`; тест
-- [ ] `uploads/` в `.gitignore`
 
 ---
 
@@ -835,3 +697,27 @@ Definition of Done:
 - [ ] `ios/README.md` обновлён (в «Как устроено» — больше не «правят в Mini App» для удаления и категории);
       `ios/scripts/test.sh` зелёный
 - [ ] Шукуру — на iPhone: удалить и вернуть запись, сменить категорию оплате Apple Pay → в Mini App то же
+
+---
+
+### FT-222: Two identical voices at once share one file in `downloads/`
+
+Status: backlog
+Priority: low
+Owner: Claude Code, QA — под-чат проверки
+Type: bug
+Size: S
+
+Context:
+Найдено при проверке FT-216 (2026-10-31). Бот кладёт голосовое в `downloads/<file_id>` (`downloadVoiceFile` в
+`fileDownloader.ts`), а `ProcessVoiceInputUseCase` конвертирует его в `<путь>.mp3` и в `finally` удаляет оба файла
+(FT-216). `file_id` у одного и того же голосового одинаковый: если его переслать боту дважды подряд, два обработчика
+идут параллельно с одним путём. Первый, закончив, удаляет файлы второго, и второй падает на расшифровке — «не смог
+обработать голосовое» вместо записи. До FT-216 было так же: удалялся один из двух файлов.
+
+Идея: путь на сообщение, а не на файл — например, `downloads/<chat>-<message>-<file_id>` или отдельная временная папка
+на каждое голосовое; удалять только свои файлы.
+
+Definition of Done:
+- [ ] Два одновременных голосовых с одним `file_id` записываются оба; тест с двумя параллельными обработчиками
+- [ ] После обоих в `downloads/` пусто

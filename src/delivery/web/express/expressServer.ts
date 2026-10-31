@@ -4,7 +4,6 @@ import { TransactionModule } from '../../../modules/transaction/transactionModul
 import { VoiceProcessingModule } from '../../../modules/voiceProcessing/voiceProcessingModule';
 import { BudgetModule } from '../../../modules/budget/budgetModule';
 import { DebtModule } from '../../../modules/debt/debtModule';
-import { OpenAIUsageModule } from '../../../modules/openai-usage/openAIUsageModule';
 import { UserModule } from '../../../modules/user/userModule';
 import { SubscriptionModule } from '../../../modules/subscription/subscriptionModule';
 import { QuickCaptureModule } from '../../../modules/quickCapture/quickCaptureModule';
@@ -61,7 +60,6 @@ export function buildServer(
   voiceModule: VoiceProcessingModule,
   budgetModule: BudgetModule,
   debtModule: DebtModule,
-  openAIUsageModule: OpenAIUsageModule,
   userModule?: UserModule,
   subscriptionModule?: SubscriptionModule,
   // Kept last and optional: existing callers pass a subset of these positional arguments.
@@ -153,11 +151,6 @@ export function buildServer(
       subscriptionModule,
       userModule
     )
-  );
-
-  router.use(
-    '/openai',
-    openAIUsageModule.routes
   );
 
   // User routes (optional - only if userModule is provided)

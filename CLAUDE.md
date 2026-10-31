@@ -140,7 +140,7 @@ For detailed documentation, see **[docs/knowledge-base/](docs/knowledge-base/)**
 
 - **[Architecture](docs/knowledge-base/01-architecture/)** - Clean Architecture, modules, design patterns
   - [Overview](docs/knowledge-base/01-architecture/overview.md) - Layers and dependency flow
-  - [Modules](docs/knowledge-base/01-architecture/modules.md) - 16 модулей системы
+  - [Modules](docs/knowledge-base/01-architecture/modules.md) - 15 модулей системы
   - [Patterns](docs/knowledge-base/01-architecture/patterns.md) - Repository, DI, Factory, Use Case
   - [Runtime / Process Mode](docs/knowledge-base/01-architecture/runtime-process-mode.md) - API/Bot/Worker process-mode decision
   - [API / Domain Consistency Audit](docs/knowledge-base/01-architecture/api-domain-consistency-audit.md) - FT-018 controller/use-case/API contract audit
@@ -175,7 +175,7 @@ This project follows **Clean Architecture** principles with clear separation bet
 
 ### Module System
 
-`createModules()` in `src/appModules.ts` returns **16 app modules**:
+`createModules()` in `src/appModules.ts` returns **15 app modules** (OpenAIUsageModule was removed in FT-174: its admin routes never worked and nothing called them):
 
 1. **TransactionModule** - CRUD operations for transactions + analytics; gets its categories through the `CategoryResolver` port
 2. **BudgetModule** - Budget management (depends on TransactionModule; leaves the UI per decision Д2)
@@ -183,16 +183,15 @@ This project follows **Clean Architecture** principles with clear separation bet
 4. **VoiceProcessingModule** - AI-powered voice/text processing (depends on TransactionModule; the user's categories go into the prompt)
 5. **QuickCaptureModule** - `POST /api/quick-capture` over the text pipeline, and `POST /api/quick-capture/payment` for an Apple Pay payment sent ready — amount as is, only the category chosen (FT-176) (depends on VoiceProcessingModule)
 6. **CategoryModule** - User categories (FT-099): 8 + 8 starters per user, rename, colour, hide; resolves the category of every record
-7. **OpenAIUsageModule** - OpenAI API usage monitoring
-8. **UserModule** - User management (telegramId → UUID resolution) and settings (FT-098)
-9. **SubscriptionModule** - Premium subscriptions with Telegram Stars payments
-10. **AccountModule** - Accounts (FT-101): balances on read, the total in сум, the account of every new record
-11. **FxModule** - USD rate (FT-102): Central Bank rate by date, loaded at start and hourly until today's is in; the user's own rate
-12. **BotMessageModule** - Bot record messages (FT-122): which records each confirmation shows and which keyboard screen is open (`bot_messages`), so «Изменить», «Вернуть» and `/undo` survive a restart
-13. **NotificationModule** - Notices the bot sends on its own: the daily summary at the chosen time on the user's clock and the summaries behind `/today` and `/month` (FT-124); the reminders after the audit — a goal at 80% of its limit and over it, a subscription the day before its charge, the audit on the 1st with «Позже» once (FT-133); each sent at most once (`notifications_log`). One that never left the machine waits there as `not_sent` with its `attempts` until its last day (`send_until`), then is kept `failed` with the reason; a summary missed by midnight comes the next morning from 08:00 as «Итоги за вчера», a goal reminder may come the next day (FT-164). Depends on TransactionModule, UserModule and AuditModule (through the `ReminderSources` port); its schedulers run in the bot's process
-14. **ExportModule** - «Скачать все записи» (FT-126): a CSV of all records and moves that are not deleted — `GET /api/export` downloads it, `POST /api/export/chat` sends it to the chat with the bot (`sendDocument`); reads TransactionModule and AccountModule through the `ExportSources` port
-15. **AuthModule** - Web login through the bot (FT-128, decision Д4): a one-time link `t.me/<bot>?start=login_<token>` for 5 minutes (`login_tokens`), «Подтвердить» / «Это не я» in the bot, the browser's httpOnly session cookie read by `webSessionMiddleware` next to initData, «Выйти». No guest mode in the browser any more
-16. **AuditModule** - Spending audit and goals (FT-130, FT-131): the audit rules over flexible categories, `audits` (candidates and decisions, carried to the next audit) and `goals`; `/api/audits`, `/api/goals`; reads TransactionModule and CategoryModule through the `AuditSources` port
+7. **UserModule** - User management (telegramId → UUID resolution) and settings (FT-098)
+8. **SubscriptionModule** - Premium subscriptions with Telegram Stars payments
+9. **AccountModule** - Accounts (FT-101): balances on read, the total in сум, the account of every new record
+10. **FxModule** - USD rate (FT-102): Central Bank rate by date, loaded at start and hourly until today's is in; the user's own rate
+11. **BotMessageModule** - Bot record messages (FT-122): which records each confirmation shows and which keyboard screen is open (`bot_messages`), so «Изменить», «Вернуть» and `/undo` survive a restart; and the chat messages the bot handled (`handled_messages`, FT-172), so a message Telegram sends again after a restart changes nothing twice and its unsent confirmation goes out as the first would
+12. **NotificationModule** - Notices the bot sends on its own: the daily summary at the chosen time on the user's clock and the summaries behind `/today` and `/month` (FT-124); the reminders after the audit — a goal at 80% of its limit and over it, a subscription the day before its charge, the audit on the 1st with «Позже» once (FT-133); each sent at most once (`notifications_log`). One that never left the machine waits there as `not_sent` with its `attempts` until its last day (`send_until`), then is kept `failed` with the reason; a summary missed by midnight comes the next morning from 08:00 as «Итоги за вчера», a goal reminder may come the next day (FT-164); a subscription reminder or an audit call whose day the bot was not running at their time gets a `failed` row «не ушло: ни одной попытки» the next day, and nothing is sent late (FT-173). Depends on TransactionModule, UserModule and AuditModule (through the `ReminderSources` port); its schedulers run in the bot's process
+13. **ExportModule** - «Скачать все записи» (FT-126): a CSV of all records and moves that are not deleted — `GET /api/export` downloads it, `POST /api/export/chat` sends it to the chat with the bot (`sendDocument`); reads TransactionModule and AccountModule through the `ExportSources` port
+14. **AuthModule** - Web login through the bot (FT-128, decision Д4): a one-time link `t.me/<bot>?start=login_<token>` for 5 minutes (`login_tokens`), «Подтвердить» / «Это не я» in the bot, the browser's httpOnly session cookie read by `webSessionMiddleware` next to initData, «Выйти». No guest mode in the browser any more
+15. **AuditModule** - Spending audit and goals (FT-130, FT-131): the audit rules over flexible categories, `audits` (candidates and decisions, carried to the next audit) and `goals`; `/api/audits`, `/api/goals`; reads TransactionModule and CategoryModule through the `AuditSources` port
 
 **Dashboard is not an app module.** `src/modules/dashboard/` contains only `DashboardService` and `DashboardController`; there is no `dashboardModule.ts` and `createModules()` does not return a `dashboardModule`. The dashboard is assembled in the Express delivery layer: `createDashboardRouter()` (`src/delivery/web/express/routes/dashboardRoutes.ts`) builds `DashboardService` from `transactionModule.getAnalyticsService()` and `budgetModule.budgetService`.
 
@@ -509,7 +508,7 @@ interface Category {
 |----------|-----------|-----------------|
 | Home | Навигация по wiki | При добавлении новых страниц |
 | Architecture Overview | Clean Architecture, слои, data flow | При изменении архитектуры |
-| Module System | 16 модулей, зависимости | При добавлении/удалении модуля |
+| Module System | 15 модулей, зависимости | При добавлении/удалении модуля |
 | Design Patterns | Repository, Use Case, Result, DI | При использовании нового паттерна |
 | Quick Start | Установка, запуск, env vars | При изменении процесса запуска |
 | API Reference | Все endpoints | При добавлении/изменении endpoint |

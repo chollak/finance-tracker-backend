@@ -44,7 +44,12 @@ export function isSubscriptionReminderTime(time: string): boolean {
  * 12:00, one that starts on the 2nd does not: the invitation on Home is there all month.
  */
 export function isAuditCallDue(clock: LocalClock, auditTime: string): boolean {
-  return clock.date.endsWith('-01') && clock.time >= auditTime;
+  return isAuditDay(clock.date) && clock.time >= auditTime;
+}
+
+/** The audit is called on the 1st of the month (YYYY-MM-DD). */
+export function isAuditDay(day: string): boolean {
+  return day.endsWith('-01');
 }
 
 /** The month whose audit is held on `today`: the month before («Ревизия октября» on 1 November). */

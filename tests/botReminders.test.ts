@@ -745,6 +745,95 @@ describe('goal, subscription and audit reminders in the bot (FT-133)', () => {
     });
   });
 
+  describe('a reminder whose day the bot was not running (FT-173)', () => {
+    const missed = { status: 'failed', attempts: 0, error: 'не ушло: ни одной попытки' };
+
+    it('a subscription with «Напомнить»: its day keeps a failed row the next day; nothing is sent then or later', async () => {
+      await auditedOnOctober14();
+      await remindAboutKinopoisk();
+      const goal = (await goalNamed('Кинопоиск'))!;
+      // The bot ran in the morning of the reminder day, before 10:00, and then not at all
+      at('2026-11-02', '09:30');
+      await tick();
+
+      at('2026-11-03', '10:00');
+      expect((await tick()).filter(result => result.kind === 'subscription')).toEqual([]);
+      expect(await logEntry('subscription', `${goal.id}:2026-11-02`)).toMatchObject(missed);
+
+      await restart();
+      at('2026-11-03', '18:00');
+      expect((await tick()).filter(result => result.kind === 'subscription')).toEqual([]);
+      expect(sent.filter(message => message.text.includes('Кинопоиск'))).toEqual([]);
+      expect(await logEntry('subscription', `${goal.id}:2026-11-02`)).toMatchObject(missed);
+    });
+
+    it('the audit call of the 1st, with spendings to mark: a failed row on the 2nd; nothing is sent', async () => {
+      await auditedOnOctober14();
+      at('2026-11-02', '10:00');
+      expect((await tick()).filter(result => result.kind.startsWith('audit'))).toEqual([]);
+      expect(await logEntry('audit', '2026-10')).toMatchObject(missed);
+
+      at('2026-11-02', '20:00');
+      expect((await tick()).filter(result => result.kind.startsWith('audit'))).toEqual([]);
+      expect(sent.filter(message => message.text.startsWith('<b>Ревизия'))).toEqual([]);
+    });
+
+    it('nothing to call to on the 1st, or the setting off: no row', async () => {
+      await auditedOnOctober14();
+      await remindAboutKinopoisk();
+      const goal = (await goalNamed('Кинопоиск'))!;
+      await save({ goalAlertsEnabled: false, auditEnabled: false });
+      at('2026-11-02', '10:00');
+      await tick();
+      expect(await logEntry('audit', '2026-10')).toBeNull();
+      at('2026-11-03', '10:00');
+      await tick();
+      expect(await logEntry('subscription', `${goal.id}:2026-11-02`)).toBeNull();
+
+      await save({ auditEnabled: true });
+      const opened = await audit('2026-12-01');
+      for (const candidate of opened.candidates) {
+        await running.auditModule.getDecideAuditCandidateUseCase().execute({
+          userId: owner, auditId: opened.id!, candidateId: candidate.id, body: { decision: 'need' }, today: '2026-12-01',
+        });
+      }
+      unwrap(await running.auditModule.getFinishAuditUseCase().execute({ userId: owner, auditId: opened.id!, today: '2026-12-01' }));
+      at('2026-12-02', '10:00');
+      await tick();
+      expect(await logEntry('audit', '2026-11')).toBeNull();
+    });
+
+    it('yesterday that cannot be read leaves no trace, and today\'s reminders still go out', async () => {
+      await auditedOnOctober14();
+      await record('2026-10-27', 'Транспорт', 60_000, 'Такси');
+      const goals = running.auditModule.getListGoalRemindersUseCase.bind(running.auditModule);
+      jest.spyOn(running.auditModule, 'getListGoalRemindersUseCase').mockImplementation(() => {
+        const useCase = goals();
+        return { execute: (input: { userId: string; today?: string }) => (input.today === '2026-10-26'
+          ? Promise.reject(new Error('SQLITE_BUSY: database is locked'))
+          : useCase.execute(input)) } as never;
+      });
+
+      at('2026-10-27', '12:30');
+      expect(await outcomes()).toEqual(['goal_near:sent']);
+    });
+
+    it('a reminder that went out on its day is left as it was', async () => {
+      await auditedOnOctober14();
+      await remindAboutKinopoisk();
+      const goal = (await goalNamed('Кинопоиск'))!;
+      at('2026-11-01', '10:00');
+      await tick();
+      at('2026-11-02', '10:00');
+      await tick();
+
+      at('2026-11-03', '10:00');
+      await tick();
+      expect(await logEntry('subscription', `${goal.id}:2026-11-02`)).toMatchObject({ status: 'sent', attempts: 1 });
+      expect(await logEntry('audit', '2026-10')).toMatchObject({ status: 'sent', attempts: 1 });
+    });
+  });
+
   it('two bot processes over the same file at the same minute: one message', async () => {
     await auditedOnOctober14();
     await record('2026-10-27', 'Транспорт', 60_000, 'Такси');

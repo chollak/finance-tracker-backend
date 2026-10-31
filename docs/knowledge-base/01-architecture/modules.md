@@ -1,6 +1,6 @@
 # Module System
 
-`createModules()` (`src/appModules.ts`) возвращает **16 модулей приложения**, каждый с чётко определённой ответственностью. `CategoryModule` добавлен в FT-099, `AccountModule` — в FT-101, `FxModule` — в FT-102, `BotMessageModule` — в FT-122, `NotificationModule` — в FT-124, `ExportModule` — в FT-126, `AuthModule` — в FT-128, `AuditModule` — в FT-131, `QuickCaptureModule` — обёртка над текстовым разбором для `POST /api/quick-capture`.
+`createModules()` (`src/appModules.ts`) возвращает **15 модулей приложения**, каждый с чётко определённой ответственностью. `CategoryModule` добавлен в FT-099, `AccountModule` — в FT-101, `FxModule` — в FT-102, `BotMessageModule` — в FT-122, `NotificationModule` — в FT-124, `ExportModule` — в FT-126, `AuthModule` — в FT-128, `AuditModule` — в FT-131, `QuickCaptureModule` — обёртка над текстовым разбором для `POST /api/quick-capture`. `OpenAIUsageModule` удалён в FT-174: его админские маршруты с января отвечали `401`, и их никто не вызывал.
 
 Dashboard модулем не является: в `src/modules/dashboard/` лежат только `DashboardService` и `DashboardController`, файла `dashboardModule.ts` нет. Сборка происходит в Express-слое — см. [Dashboard: сервис, а не модуль](#dashboard-сервис-а-не-модуль).
 
@@ -12,7 +12,6 @@ graph TD
     BM[BudgetModule<br/>Budget Management]
     DeM[DebtModule<br/>Debt Management]
     VM[VoiceProcessingModule<br/>Voice/Text Processing]
-    OM[OpenAIUsageModule<br/>Usage Monitoring]
     SM[SubscriptionModule<br/>Premium + Payments]
     UM[UserModule<br/>Users + Settings]
     CM[CategoryModule<br/>User Categories]
@@ -57,7 +56,6 @@ graph TD
     style BM fill:#2196F3,stroke:#1565C0,color:#fff
     style DeM fill:#FF5722,stroke:#BF360C,color:#fff
     style VM fill:#FF9800,stroke:#E65100,color:#fff
-    style OM fill:#9C27B0,stroke:#6A1B9A,color:#fff
     style SM fill:#FFD700,stroke:#B8860B,color:#000
     style UM fill:#00BCD4,stroke:#00838F,color:#fff
     style CM fill:#8BC34A,stroke:#558B2F,color:#fff
@@ -77,7 +75,6 @@ graph TD
 | **AccountModule** | Счета (FT-101): остатки на чтении, итог в сумах, счёт новой записи | Независимый; TransactionModule получает его как `AccountResolver`; счёт по умолчанию — из настроек UserModule | `accountModule.ts` |
 | **FxModule** | Курс доллара (FT-102): ЦБ по датам, свой курс, действующий курс | Свой курс хранится в настройках UserModule; AccountModule получает его как `EffectiveRateProvider` | `fxModule.ts` |
 | **CategoryModule** | Категории пользователя (FT-099): 8 + 8 стартовых, переименование, цвет, скрытие; разрешение категории записи | Независимый; TransactionModule получает его как `CategoryResolver` | `categoryModule.ts` |
-| **OpenAIUsageModule** | Мониторинг OpenAI costs | Независимый | `openAIUsageModule.ts` |
 | **SubscriptionModule** | Premium подписки + Telegram Stars | UserModule (controller) | `subscriptionModule.ts` |
 | **UserModule** | Пользователи и их настройки (FT-098) | Независимый | `userModule.ts` |
 | **BotMessageModule** | Сообщения бота о записях (FT-122): какие записи показывает подтверждение и какой экран кнопок открыт — таблица `bot_messages`, кнопки и `/undo` переживают перезапуск | Независимый; записи меняет бот через use cases TransactionModule | `botMessageModule.ts` |
@@ -318,27 +315,7 @@ new ProcessVoiceInputUseCase(
 
 ---
 
-## 6. OpenAIUsageModule
-
-**Файл:** [`src/modules/openai-usage/openAIUsageModule.ts`](../../../src/modules/openai-usage/openAIUsageModule.ts)
-
-### Назначение
-Мониторинг использования и стоимости OpenAI API.
-
-### Use Cases
-- `GetOpenAIUsageUseCase` - получение usage data, billing limits, credit balance
-
-### Repository
-- `OpenAIUsageRepositoryImpl` - прямые API calls к OpenAI
-
-### Features
-- In-memory кеширование (5 минут)
-- Расчет процента использования лимитов
-- Алерты при приближении к лимиту
-
----
-
-## 7. UserModule
+## 6. UserModule
 
 **Файл:** [`src/modules/user/userModule.ts`](../../../src/modules/user/userModule.ts)
 
@@ -353,7 +330,7 @@ new ProcessVoiceInputUseCase(
 
 ---
 
-## 8. CategoryModule
+## 7. CategoryModule
 
 **Файл:** [`src/modules/category/categoryModule.ts`](../../../src/modules/category/categoryModule.ts)
 
@@ -371,7 +348,7 @@ new ProcessVoiceInputUseCase(
 
 ---
 
-## 9. AccountModule
+## 8. AccountModule
 
 **Файл:** [`src/modules/account/accountModule.ts`](../../../src/modules/account/accountModule.ts)
 
@@ -389,7 +366,7 @@ new ProcessVoiceInputUseCase(
 
 ---
 
-## 10. FxModule
+## 9. FxModule
 
 **Файл:** [`src/modules/fx/fxModule.ts`](../../../src/modules/fx/fxModule.ts)
 
@@ -403,7 +380,7 @@ new ProcessVoiceInputUseCase(
 
 ---
 
-## 11. BotMessageModule
+## 10. BotMessageModule
 
 **Файл:** [`src/modules/botMessage/botMessageModule.ts`](../../../src/modules/botMessage/botMessageModule.ts)
 
@@ -413,11 +390,16 @@ new ProcessVoiceInputUseCase(
 сумма, категория, счёт, дата; с FT-123 — `large`, крупная сумма до подтверждения), последнюю правку и догадки о
 категории (`state`; с FT-123 там же «45» → 45 000, названное без суммы, строки «не записал», отказ от крупной суммы),
 что бот расслышал (`heard`) и открытый вопрос (`question`, FT-123: выводится из `mode` и `state`). Поэтому
-«Изменить», «Вернуть», ответ суммой, «Сколько?» и `/undo` работают и после перезапуска.
+«Изменить», «Вернуть», ответ суммой, «Сколько?» и `/undo` работают и после перезапуска. С FT-172 таблица
+`handled_messages` помнит сообщения чата, которые бот обработал (по client id `tg-<bot>-<chat>-<message>`, два дня):
+какое сообщение бота изменил ответ на «Сумму» или `/undo` и какое подтверждение записей вот-вот уйдёт — так
+сообщение, которое Telegram прислал снова после перезапуска, ничего не меняет второй раз, а не ушедшее подтверждение
+уходит таким же, как первое.
 
 ### Состав
 - `BotMessageLog` — `remember`, `find(chat, message)`, `recent(chat)` (для `/undo`), `awaitingAmount(chat)` (открытый
-  вопрос чата — один за раз), `otherQuestions(message)`, `save`.
+  вопрос чата — один за раз), `otherQuestions(message)`, `save`; с FT-172 — `handled(clientId)`, `markHandled`,
+  `keepConfirmation`, `dropConfirmation` (домен — `handledMessage.ts`).
 - Домен — `openQuestion(mode, state)`: что чат ждёт следующим текстом. Тип названного без суммы
   (`ItemWithoutAmount`) берётся из домена VoiceProcessingModule.
 - `SqliteBotMessageRepository` — TypeORM; строка на сообщение, уникальна пара `chat_id` + `message_id`.
@@ -426,7 +408,7 @@ new ProcessVoiceInputUseCase(
 
 ---
 
-## 12. NotificationModule
+## 11. NotificationModule
 
 **Файл:** [`src/modules/notification/notificationModule.ts`](../../../src/modules/notification/notificationModule.ts)
 
@@ -449,7 +431,9 @@ new ProcessVoiceInputUseCase(
 день раньше вчерашнего — какая угодно, `sent`, `skipped` или `failed`: о новом пользователе бот ничего не знает. Строка
 о месяце — до того дня, без записей, сделанных после. Свои итоги дня приходят как обычно; время итогов — 20:00–23:00,
 поэтому вчерашние всегда приходят раньше сегодняшних (будь время итогов раньше 08:00, сегодняшние пришли бы первыми).
-Напоминание о цели может прийти на следующий день; подписка и ревизия — только в свой день.
+Напоминание о цели может прийти на следующий день; подписка и ревизия — только в свой день. Подписка и ревизия, чей день
+бот пропустил целиком (не работал в их время), не догоняются, но на следующий день получают строку `failed` «не ушло:
+ни одной попытки» — ревизия, только если в тот день было что звать (FT-173).
 
 ### Состав
 - Домен — `dailySummary.ts`: часы пользователя (`localClock`), когда итоги пора слать (`isSummaryDue`), что в них
@@ -484,7 +468,10 @@ new ProcessVoiceInputUseCase(
   занимается в `notifications_log` (`goal_near` / `goal_over` — id цели, `subscription` — id цели и день напоминания,
   `audit` / `audit_again` — месяц ревизии) и уходит не больше одного раза; не ушедшее с машины ждёт `not_sent` и
   пробуется, пока напоминание «пора»: цель — до конца следующего дня после первой попытки, остальное — до конца дня
-  первой попытки; первый тик после этого закрывает его `failed` с причиной (FT-144, FT-164). Цель, сразу ушедшая сверх лимита, получает
+  первой попытки; первый тик после этого закрывает его `failed` с причиной (FT-144, FT-164). Первый тик дня (раз в день
+  на пользователя) смотрит вчерашний день: подписка с «Напомнить» без строки за вчера и ревизия 1-го числа без строки,
+  где было что звать (`open`, `left > 0`), занимаются в ожидании с последним днём «вчера» и сразу закрываются `failed`
+  «не ушло: ни одной попытки» — след без отправки задним числом, только за вчера (FT-173). Цель, сразу ушедшая сверх лимита, получает
   только второе сообщение, первое остаётся `skipped`. «Позже» (`answerAuditLater`) пишет `answer = 'later'` и `due_on` —
   завтра; «Отменено» и «Оставить» (`answerSubscription`) идут в модуль ревизии через `ReminderSources`. Общий таймер
   обоих планировщиков — `Ticker` (`application/ticker.ts`).
@@ -498,7 +485,7 @@ new ProcessVoiceInputUseCase(
 
 ---
 
-## 13. ExportModule
+## 12. ExportModule
 
 **Файл:** [`src/modules/export/exportModule.ts`](../../../src/modules/export/exportModule.ts)
 
@@ -520,7 +507,7 @@ new ProcessVoiceInputUseCase(
 
 ---
 
-## 14. AuthModule
+## 13. AuthModule
 
 **Файл:** [`src/modules/auth/authModule.ts`](../../../src/modules/auth/authModule.ts)
 
@@ -550,7 +537,7 @@ new ProcessVoiceInputUseCase(
 
 ---
 
-## 15. AuditModule
+## 14. AuditModule
 
 **Файл:** [`src/modules/audit/auditModule.ts`](../../../src/modules/audit/auditModule.ts)
 
@@ -641,7 +628,6 @@ export function createModules() {
   transactionModule.setCategoryLessons(transactionLearning); // FT-184
   const budgetModule = BudgetModule.create(transactionModule);
   const userModule = UserModule.create();
-  const openAIUsageModule = createOpenAIUsageModule();
 
   // 2. SubscriptionModule с repositories
   const subscriptionModule = new SubscriptionModule(subscriptionRepository, usageLimitRepository, {
@@ -663,7 +649,7 @@ export function createModules() {
   const notificationModule = NotificationModule.create(transactionModule, userModule, auditModule);
 
   return { categoryModule, transactionModule, budgetModule, debtModule, voiceModule, quickCaptureModule,
-    openAIUsageModule, userModule, subscriptionModule, botMessageModule, notificationModule };
+    userModule, subscriptionModule, botMessageModule, notificationModule };
 }
 ```
 
