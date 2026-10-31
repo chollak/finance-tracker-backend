@@ -4,7 +4,9 @@ import {
   allowShortcutCapture,
   isLocalRequest,
   optionalAuth,
+  optionalAuthOrAppToken,
   requireAuth,
+  requireAuthOrAppToken,
   signedInTelegramId,
 } from '../src/delivery/web/express/middleware/authMiddleware';
 import { listenOnLoopback } from './helpers/testServer';
@@ -38,6 +40,13 @@ beforeAll(async () => {
   });
   app.post('/capture', allowShortcutCapture, (req, res) => {
     res.json({ userId: req.body.userId, source: req.body.source });
+  });
+  // The app token's records routes (FT-218): the history, categories and accounts sign in, a record's routes optionally
+  app.get('/records', requireAuthOrAppToken, (req, res) => {
+    res.json({ id: req.telegramUser?.id ?? null });
+  });
+  app.delete('/records/:id', optionalAuthOrAppToken, (req, res) => {
+    res.json({ id: req.telegramUser?.id ?? null });
   });
   ({ server, baseUrl } = await listenOnLoopback(app));
 });
@@ -174,5 +183,53 @@ describe('X-Shortcut-User-Id (FT-075)', () => {
     const res = await call('POST', '/capture', { 'X-Shortcut-Capture-Token': 'test-token-value' }, { text: 'такси 18к' });
     expect(res.status).toBe(403);
     expect(res.body.code).toBe('SHORTCUT_OWNER_REQUIRED');
+  });
+});
+
+/**
+ * FT-218: the iOS app reads and edits its owner's records with the capture token, by the same rules outside production
+ * as a capture (FT-075, FT-155) — the same middleware decides. Production is in `tests/appTokenRecords.test.ts`.
+ */
+describe.each([
+  ['GET', '/records'],
+  ['DELETE', '/records/r1'],
+])('the app token on the records routes outside production (FT-218): %s %s', (method, path) => {
+  it('without the Shortcut headers signs in as before: initData or, from this machine, X-Dev-User-Id', async () => {
+    const bare = await call(method, path, {});
+    if (method === 'GET') expect([bare.status, bare.body.code]).toEqual([401, 'MISSING_AUTH_HEADER']);
+    else expect(bare.body).toEqual({ id: null });
+    expect((await call(method, path, { 'X-Dev-User-Id': '131184740' })).body).toEqual({ id: 131184740 });
+  });
+
+  it('from this machine without a token the header names the owner, as for a capture', async () => {
+    delete process.env.SHORTCUT_CAPTURE_TOKEN;
+    expect((await call(method, path, { 'X-Shortcut-User-Id': '131184740' })).body).toEqual({ id: 131184740 });
+  });
+
+  it('through the tunnel without SHORTCUT_CAPTURE_TOKEN is 403 SHORTCUT_CAPTURE_TOKEN_REQUIRED', async () => {
+    delete process.env.SHORTCUT_CAPTURE_TOKEN;
+    const res = await call(method, path, { 'X-Shortcut-User-Id': '131184740', ...TUNNEL });
+    expect([res.status, res.body.code]).toEqual([403, 'SHORTCUT_CAPTURE_TOKEN_REQUIRED']);
+  });
+
+  it('with SHORTCUT_CAPTURE_OWNER the token alone signs in as the owner, through the tunnel too', async () => {
+    process.env.SHORTCUT_CAPTURE_TOKEN = 'test-token-value';
+    process.env.SHORTCUT_CAPTURE_OWNER = '131184740';
+    expect((await call(method, path, { 'X-Shortcut-Capture-Token': 'test-token-value', ...TUNNEL })).body).toEqual({ id: 131184740 });
+  });
+
+  it('a wrong token is 401 INVALID_SHORTCUT_TOKEN; a header naming anyone but the owner is 403 ACCESS_DENIED', async () => {
+    process.env.SHORTCUT_CAPTURE_TOKEN = 'test-token-value';
+    process.env.SHORTCUT_CAPTURE_OWNER = '131184740';
+    const wrong = await call(method, path, { 'X-Shortcut-Capture-Token': 'test-token-valuex', 'X-Dev-User-Id': '131184740' });
+    expect([wrong.status, wrong.body.code]).toEqual([401, 'INVALID_SHORTCUT_TOKEN']);
+    const other = await call(method, path, { 'X-Shortcut-Capture-Token': 'test-token-value', 'X-Shortcut-User-Id': '597843119' });
+    expect([other.status, other.body.code]).toEqual([403, 'ACCESS_DENIED']);
+  });
+
+  it('without an owner the token alone signs in nobody: 403 SHORTCUT_OWNER_REQUIRED', async () => {
+    process.env.SHORTCUT_CAPTURE_TOKEN = 'test-token-value';
+    const res = await call(method, path, { 'X-Shortcut-Capture-Token': 'test-token-value' });
+    expect([res.status, res.body.code]).toEqual([403, 'SHORTCUT_OWNER_REQUIRED']);
   });
 });

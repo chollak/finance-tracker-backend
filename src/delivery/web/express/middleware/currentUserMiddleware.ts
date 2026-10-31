@@ -1,16 +1,16 @@
 /**
  * Current user for the routes added in milestone 10 (docs/pastel/money-model.md, «Что меняется в API»).
  *
- * The user comes only from authentication — Telegram initData, or `X-Dev-User-Id` outside production —
- * never from the path, query or body. The Telegram id is resolved to the internal UUID, creating the
- * user on first contact, and stored in `req.currentUserId`.
+ * The user comes only from authentication — Telegram initData, the browser's session cookie, `X-Dev-User-Id` outside
+ * production, and on the routes the iOS app reads (FT-218) its token — never from the path, query or body. The
+ * Telegram id is resolved to the internal UUID, creating the user on first contact, and stored in `req.currentUserId`.
  */
 
 import { NextFunction, Request, RequestHandler, Response } from 'express';
 import { UserModule } from '../../../../modules/user/userModule';
 import { ErrorFactory } from '../../../../shared/domain/errors/AppError';
 import { handleControllerError } from '../../../../shared/infrastructure/utils/controllerHelpers';
-import { requireAuth } from './authMiddleware';
+import { requireAuth, requireAuthOrAppToken } from './authMiddleware';
 
 declare global {
   namespace Express {
@@ -23,6 +23,15 @@ declare global {
 
 export function createCurrentUserMiddleware(userModule: UserModule): RequestHandler[] {
   return [requireAuth, createResolveCurrentUserMiddleware(userModule)];
+}
+
+/**
+ * createCurrentUserMiddleware for the read routes the iOS app's token opens too (FT-218): the history, the categories
+ * and the accounts list. The token signs in as SHORTCUT_CAPTURE_OWNER (`requireAuthOrAppToken`); put it on a route only
+ * by name — `tests/appTokenRecords.test.ts` lists every route the token opens.
+ */
+export function createCurrentUserOrAppTokenMiddleware(userModule: UserModule): RequestHandler[] {
+  return [requireAuthOrAppToken, createResolveCurrentUserMiddleware(userModule)];
 }
 
 /**
