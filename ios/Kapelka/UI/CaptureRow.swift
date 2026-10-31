@@ -47,6 +47,9 @@ struct CaptureRow: Identifiable, Equatable {
     /// changed in the Mini App.
     var canDelete: Bool { kind == .waiting }
 
+    /// «Убрать»: the server wrote nothing for it, so it only leaves the phone (FT-220).
+    var canDismiss: Bool { kind == .notFound || kind == .error }
+
     /// Newest first.
     static func rows(_ captures: [Capture], sendingId: UUID?, now: Date, calendar: Calendar) -> [CaptureRow] {
         let time = TimeOfInput(now: now, calendar: calendar)

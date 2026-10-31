@@ -121,6 +121,25 @@ actor CaptureQueue {
         return true
     }
 
+    /// «Убрать» (FT-220): takes a record the server refused or found no operation in off the phone. Neither wrote
+    /// anything on the server, so nothing is lost. `false` for any other record: a waiting one may still go, a written
+    /// one is in «Записи».
+    func dismiss(_ clientId: UUID) throws -> Bool {
+        guard loadIfNeeded() else { throw QueueError.unavailable }
+        guard let index = current.captures.firstIndex(where: { $0.clientId == clientId && Self.wroteNothing($0) }) else {
+            return false
+        }
+        var next = current
+        next.captures.remove(at: index)
+        try store.save(next)
+        publish(next)
+        return true
+    }
+
+    private static func wroteNothing(_ capture: Capture) -> Bool {
+        capture.state == .rejected || (capture.state == .sent && capture.reply?.status == "no_transaction")
+    }
+
     /// Sends the pending records. A call while a run is going joins it and returns when the run is over — its trigger
     /// served by one more pass. A run stopped by `cancelSending()` is started again by every waiting call that is not
     /// cancelled itself, so a stop meant for the background refresh does not cost the open app its send. A caller

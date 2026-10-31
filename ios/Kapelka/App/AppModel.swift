@@ -71,6 +71,16 @@ final class AppModel {
         }
     }
 
+    /// «Убрать» a row the server wrote nothing for; `nil` or what to tell.
+    func dismiss(_ id: UUID) async -> String? {
+        do {
+            _ = try await services.queue.dismiss(id)
+            return nil
+        } catch {
+            return "Не убралось: \(error.localizedDescription)"
+        }
+    }
+
     private static func write(_ text: String, to queue: CaptureQueue) async throws {
         try await queue.add(text)
         Task { await queue.flush() }

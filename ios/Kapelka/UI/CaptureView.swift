@@ -113,7 +113,7 @@ struct CaptureView: View {
 
     /// Waiting, sending, refused, «не нашёл операцию»: what is not in «Записи».
     private func attentionSection(_ rows: [CaptureRow]) -> some View {
-        Section("Очередь") {
+        Section("Требует внимания") {
             ForEach(rows) { row in
                 CaptureRowView(row: row)
                     .swipeActions {
@@ -124,6 +124,14 @@ struct CaptureView: View {
                                 Label("Удалить", systemImage: "trash")
                             }
                             // The screen's black-or-white tint would make it white on white in the dark theme
+                            .tint(Color(uiColor: .systemGray))
+                        }
+                        if row.canDismiss {
+                            Button {
+                                Task { error = await model.dismiss(row.id) }
+                            } label: {
+                                Label("Убрать", systemImage: "xmark")
+                            }
                             .tint(Color(uiColor: .systemGray))
                         }
                     }
