@@ -796,7 +796,7 @@ Definition of Done:
 
 ---
 
-### FT-218: Two identical voices at once share one file in `downloads/`
+### FT-222: Two identical voices at once share one file in `downloads/`
 
 Status: backlog
 Priority: low
