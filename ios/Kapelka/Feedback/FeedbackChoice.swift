@@ -21,7 +21,7 @@ enum Haptic: Equatable, Sendable {
     /// `.impact(weight: .medium)`: `.start` vibrates on Apple Watch only.
     case listening
     case success
-    /// «Записал, проверь».
+    /// «Записал, проверь», or a part of the phrase not written for want of an amount.
     case warning
     /// `.impact(weight: .light)`: the record waits in the queue.
     case queued
@@ -64,8 +64,14 @@ enum FeedbackChoice {
             case .queued: queued = true
             }
         }
-        if written.contains(where: QueueEvents.needsReview) { return .warning }
+        if written.contains(where: asksForLook) { return .warning }
         if !written.isEmpty { return .success }
         return queued ? .queued : nil
+    }
+
+    /// «Записал, проверь», or written in part: «кофе 25к, такси» is `saved`, and «такси» went to `withoutAmount`
+    /// unwritten (decision of the coordinator on PR #168).
+    private static func asksForLook(_ capture: Capture) -> Bool {
+        QueueEvents.needsReview(capture) || !(capture.reply?.withoutAmount.isEmpty ?? true)
     }
 }

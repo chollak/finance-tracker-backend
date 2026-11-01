@@ -46,28 +46,23 @@ final class FeedbackEntry {
 
     /// A pass of the queue. Off screen it returns once the notices are posted.
     func queuePassed(_ events: [QueueEvent]) async {
-        let response = FeedbackChoice.response(to: .queue(events), onScreen: isOnScreen)
-        guard case let .notices(events) = response else {
-            answer(response)
-            return
+        switch FeedbackChoice.response(to: .queue(events), onScreen: isOnScreen) {
+        case let .haptic(haptic): play(haptic)
+        case let .notices(events): await notices.post(events)
+        case .nothing: break
         }
-        await notices.post(events)
     }
 
-    /// The screen's own events: the microphone, an edit of «Записи».
+    /// The screen's own events: the microphone, an edit of «Записи». Off screen they are no news; a pass of the queue
+    /// comes through `queuePassed`.
     func happened(_ event: FeedbackEvent) {
-        answer(FeedbackChoice.response(to: event, onScreen: isOnScreen))
+        if case let .haptic(haptic) = FeedbackChoice.response(to: event, onScreen: isOnScreen) {
+            play(haptic)
+        }
     }
 
-    private func answer(_ response: FeedbackResponse) {
-        switch response {
-        case let .haptic(haptic):
-            played += 1
-            pulse = HapticPulse(number: played, haptic: haptic)
-        case let .notices(events):
-            Task { [notices] in await notices.post(events) }
-        case .nothing:
-            break
-        }
+    private func play(_ haptic: Haptic) {
+        played += 1
+        pulse = HapticPulse(number: played, haptic: haptic)
     }
 }

@@ -45,6 +45,16 @@ struct FeedbackChoiceTests {
         #expect(onScreen(.queue([.wrote([unsure])])) == .haptic(.warning))
     }
 
+    @Test("записал, но часть фразы без суммы («кофе 25к, такси») — warning, а не «успех»")
+    func wroteWithoutAmount() throws {
+        let partly = try capture("кофе 25к, такси", body: CaptureReplyBodies.coffeeAndTaxiWithoutAmount)
+
+        #expect(partly.reply?.status == "saved")
+        #expect(partly.reply?.withoutAmount.map(\.description) == ["такси"])
+        #expect(onScreen(.queue([.wrote([partly])])) == .haptic(.warning))
+        #expect(onScreen(.queue([.wrote([try capture(body: CaptureReplyBodies.coffee), partly])])) == .haptic(.warning))
+    }
+
     @Test("первая попытка кончилась «позже» — impact light")
     func queued() throws {
         #expect(onScreen(.queue([.queued([try capture()])])) == .haptic(.queued))

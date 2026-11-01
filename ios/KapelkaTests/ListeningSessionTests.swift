@@ -5,8 +5,15 @@ import Testing
 
 /// `AVAudioSession` as the microphone sets it up, call by call.
 final class RecordedSession: RecordingSession {
-    private(set) var calls: [String] = []
+    enum Call: Equatable {
+        case category(AVAudioSession.Category, AVAudioSession.Mode, AVAudioSession.CategoryOptions)
+        case haptics(Bool)
+        case active(Bool, AVAudioSession.SetActiveOptions)
+    }
+
+    private(set) var calls: [Call] = []
     var failsCategory = false
+    var failsHaptics = false
 
     func setCategory(
         _ category: AVAudioSession.Category,
@@ -14,15 +21,16 @@ final class RecordedSession: RecordingSession {
         options: AVAudioSession.CategoryOptions
     ) throws {
         if failsCategory { throw URLError(.unknown) }
-        calls.append("category \(category.rawValue) \(mode.rawValue) duckOthers=\(options.contains(.duckOthers))")
+        calls.append(.category(category, mode, options))
     }
 
     func setAllowHapticsAndSystemSoundsDuringRecording(_ inValue: Bool) throws {
-        calls.append("haptics \(inValue)")
+        if failsHaptics { throw URLError(.unknown) }
+        calls.append(.haptics(inValue))
     }
 
     func setActive(_ active: Bool, options: AVAudioSession.SetActiveOptions) throws {
-        calls.append("active \(active) notifyOthers=\(options.contains(.notifyOthersOnDeactivation))")
+        calls.append(.active(active, options))
     }
 }
 
@@ -30,16 +38,29 @@ final class RecordedSession: RecordingSession {
 /// would not be felt.
 @Suite("Голос: сессия звука")
 struct ListeningSessionTests {
-    @Test("вибрация разрешена во время записи, и до setActive")
+    @Test("вибрация разрешена во время записи, и до setActive; опции — ровно эти")
     func hapticsAllowedBeforeActivation() throws {
         let session = RecordedSession()
 
         try ListeningSession.activate(session)
 
         #expect(session.calls == [
-            "category \(AVAudioSession.Category.record.rawValue) \(AVAudioSession.Mode.measurement.rawValue) duckOthers=true",
-            "haptics true",
-            "active true notifyOthers=true",
+            .category(.record, .measurement, .duckOthers),
+            .haptics(true),
+            .active(true, .notifyOthersOnDeactivation),
+        ])
+    }
+
+    @Test("вибрацию не разрешили — голос всё равно слушает, только без вибрации")
+    func hapticsRefusedStillListens() throws {
+        let session = RecordedSession()
+        session.failsHaptics = true
+
+        try ListeningSession.activate(session)
+
+        #expect(session.calls == [
+            .category(.record, .measurement, .duckOthers),
+            .active(true, .notifyOthersOnDeactivation),
         ])
     }
 
