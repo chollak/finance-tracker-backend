@@ -8,6 +8,9 @@ import Observation
 ///
 /// FT-221: a swipe deletes, «Вернуть» brings the record back for 5 s, the sheet changes the category. The server
 /// decides each edit; without a network nothing changes and nothing waits on the phone (decision 2026-10-31).
+///
+/// FT-254: the refresh shows itself («Обновляю…», then how old the list is), each day has its total, «!» explains
+/// itself in the sheet with «Да, верно», and a tap on «Записал: …» scrolls to the record.
 @MainActor
 @Observable
 final class RecordsList {
@@ -28,8 +31,12 @@ final class RecordsList {
 
     private(set) var days: [RecordDay] = []
     private(set) var screen: Screen = .loading
-    /// «Нет связи · обновлено в 14:32» over a list the server did not refresh.
-    private(set) var caption: String?
+    /// What the line over the list says; the screen renders it with the clock (`caption(at:)`).
+    private(set) var status: RecordsStatus?
+    /// The row to scroll to, once (`scrolled`): a tap on «Записал: …» (FT-254).
+    private(set) var scroll: RecordsScroll?
+    /// The row lit for a second after the scroll.
+    private(set) var highlighted: String?
     /// The cursor of the page after the shown ones; `nil` after the last.
     private(set) var nextCursor: String?
     /// Another page waits on the server.
@@ -51,6 +58,9 @@ final class RecordsList {
     private let bar: RecordsNoticeBar
     /// What became of an edit, for the haptics (FT-251).
     private let feedback: @MainActor (FeedbackEvent) -> Void
+    /// The queue's answer for a record written from this phone (FT-255): the guesses behind «!».
+    private let answer: @Sendable (Record) async -> CapturedRecord?
+    private let wait: @Sendable (Duration) async -> Void
 
     /// The first page as the server or the disk gave it.
     private var shown: RecordsSnapshot?
@@ -67,6 +77,11 @@ final class RecordsList {
     /// The refresh running now; calls during it join it with one more pass after it.
     private var refreshing: Task<Void, Never>?
     private var refreshAgain = false
+    /// A refresh that is not a pull runs: «Обновляю…».
+    private var showsRefreshing = false
+    /// The record a tap asked for: shown once the refresh on its way is over.
+    private var revealing: String?
+    private var scrollCount = 0
     /// Swiped away, the server has not answered yet: hidden, and back if the delete fails.
     private var deleting: Set<String> = []
     /// Deleted on the server since the list last started from the first page: a page read before the delete — the
@@ -75,6 +90,9 @@ final class RecordsList {
     /// The last delete started: only its answer offers «Вернуть».
     private var lastDelete = 0
 
+    /// The highlight of a row a tap scrolled to.
+    static let highlightTime: Duration = .seconds(1)
+
     /// `keepsNotices`: VoiceOver is on — the bar stays until it is closed or another edit starts.
     init(
         feed: RecordsFeed,
@@ -82,14 +100,25 @@ final class RecordsList {
         calendar: Calendar = .current,
         wait: @escaping @Sendable (Duration) async -> Void = { try? await Task.sleep(for: $0) },
         keepsNotices: @escaping @MainActor () -> Bool = { false },
-        feedback: @escaping @MainActor (FeedbackEvent) -> Void = { _ in }
+        feedback: @escaping @MainActor (FeedbackEvent) -> Void = { _ in },
+        answer: @escaping @Sendable (Record) async -> CapturedRecord? = { _ in nil }
     ) {
         self.feed = feed
         self.now = now
         self.calendar = calendar
         bar = RecordsNoticeBar(wait: wait, keepsOpen: keepsNotices)
         self.feedback = feedback
+        self.answer = answer
+        self.wait = wait
     }
+
+    /// The line over the list at this moment: «Обновляю…», «Обновлено 5 мин назад», «Нет связи · обновлено в 14:32».
+    func caption(at moment: Date) -> String? {
+        RecordsCaption.text(status, now: moment, calendar: calendar)
+    }
+
+    /// The line now.
+    var caption: String? { caption(at: now()) }
 
     /// The record behind a row, on the first page or a scrolled one.
     func record(id: String) -> Record? {
@@ -117,12 +146,26 @@ final class RecordsList {
     }
 
     /// The first page and the account names. A call while a refresh runs waits for it and one more pass after it:
-    /// the pass that runs may have read the page before the call's reason — a record just sent.
-    func refresh() async {
+    /// the pass that runs may have read the page before the call's reason — a record just sent. `pulled`: the pull
+    /// shows the system's indicator, so the line over the list stays as it was; any other refresh says «Обновляю…».
+    func refresh(pulled: Bool = false) async {
+        await run(pulled: pulled).value
+    }
+
+    /// The same, started at once: a tap on a notification asks for its record right after, and the record waits for
+    /// this refresh (`reveal`).
+    func startRefresh() {
+        _ = run(pulled: false)
+    }
+
+    private func run(pulled: Bool) -> Task<Void, Never> {
         refreshAgain = true
+        if !pulled, !showsRefreshing {
+            showsRefreshing = true
+            status = .refreshing
+        }
         if let refreshing {
-            await refreshing.value
-            return
+            return refreshing
         }
         let run = Task {
             while refreshAgain {
@@ -131,9 +174,49 @@ final class RecordsList {
             }
             // The last check and this run in one turn of the main actor: no call slips in between
             refreshing = nil
+            showsRefreshing = false
+            rebuild()
+            finishReveal()
         }
         refreshing = run
-        await run.value
+        return run
+    }
+
+    // MARK: To a record (FT-254)
+
+    /// A tap on «Записал: …»: the list scrolls to the record and lights it for a second. A refresh on its way comes
+    /// first — the record may be new; off screen the tab's own refresh does. Not on the loaded pages (older, or not
+    /// there without a network) — the tab opens at the top.
+    func reveal(_ id: String) {
+        revealing = id
+        if refreshing == nil, isOnScreen {
+            finishReveal()
+        }
+    }
+
+    /// The screen scrolled: the same request is not applied again.
+    func scrolled(_ number: Int) {
+        if scroll?.number == number {
+            scroll = nil
+        }
+    }
+
+    private func finishReveal() {
+        guard let id = revealing else { return }
+        revealing = nil
+        scrollCount += 1
+        let number = scrollCount
+        let shown = days.contains { $0.rows.contains { $0.id == id } }
+        scroll = RecordsScroll(number: number, target: shown ? .record(id) : .top)
+        highlighted = shown ? id : nil
+        guard shown else { return }
+        Task { [wait] in
+            await wait(Self.highlightTime)
+            // A later tap keeps its own second
+            if scrollCount == number {
+                highlighted = nil
+            }
+        }
     }
 
     /// The page after the last one shown; nothing when none is left or it is already on its way.
@@ -250,8 +333,35 @@ final class RecordsList {
     /// The sheet's choice: the row takes the record as the server saved it. Only `categoryId` goes, so «проверить»
     /// stays as the server keeps it, as in the Mini App. A record deleted elsewhere leaves the list, which refreshes.
     func setCategory(_ categoryId: String, of id: String) async throws(RecordsFailure) {
+        try await edit(id) { [feed] () async throws(RecordsFailure) -> Record in
+            try await feed.setCategory(categoryId, of: id)
+        }
+    }
+
+    // MARK: «!» (FT-254)
+
+    /// Why the record has «!»: the queue's guesses while the record is as written, the general phrase otherwise.
+    func review(of id: String) async -> RecordReview {
+        guard let record = record(id: id) else { return .unsure }
+        return RecordReview.of(record, answer: await answer(record))
+    }
+
+    /// «Да, верно»: `PUT { needsReview: false }`, the row takes the server's record — without «!» — with «успех».
+    /// Without a network nothing changes; deleted elsewhere — the row goes and the list refreshes, as with the
+    /// category (FT-221).
+    func confirm(_ id: String) async throws(RecordsFailure) {
+        try await edit(id) { [feed] () async throws(RecordsFailure) -> Record in
+            try await feed.confirm(id)
+        }
+    }
+
+    /// One edit of a record: the server's copy on screen; the record gone — off the list, which refreshes.
+    private func edit(
+        _ id: String,
+        by call: () async throws(RecordsFailure) -> Record
+    ) async throws(RecordsFailure) {
         do {
-            let record = try await feed.setCategory(categoryId, of: id)
+            let record = try await call()
             shownRecords = shownRecords.replacing(record)
             rebuild()
             feedback(.editSaved)
@@ -359,10 +469,17 @@ final class RecordsList {
         let onFirst = Set(first.map(\.id))
         // A record put back last on the disk's page and first on a scrolled one shows once
         let records = (first + more.filter { !onFirst.contains($0.id) }).filter { !hidden.contains($0.id) }
-        let moment = now()
-        days = RecordDays.days(records, accountNames: accountNames, now: moment, calendar: calendar)
-        caption = RecordsCaption.text(problem: problem, updatedAt: shown?.updatedAt, now: moment, calendar: calendar)
+        days = RecordDays.days(
+            records, accountNames: accountNames, now: now(), calendar: calendar, lastDayComplete: nextCursor == nil
+        )
+        status = Self.status(refreshing: showsRefreshing, problem: problem, updatedAt: shown?.updatedAt)
         screen = Self.screen(hasRecords: !records.isEmpty, answered: shown != nil, problem: problem)
+    }
+
+    private static func status(refreshing: Bool, problem: RecordsFailure?, updatedAt: Date?) -> RecordsStatus? {
+        if refreshing { return .refreshing }
+        if let problem { return .stale(problem, updatedAt: updatedAt) }
+        return updatedAt.map(RecordsStatus.updated)
     }
 
     private static func screen(hasRecords: Bool, answered: Bool, problem: RecordsFailure?) -> Screen {
@@ -374,4 +491,16 @@ final class RecordsList {
         default: return .unreachable
         }
     }
+}
+
+/// A scroll the screen applies once: to a record, or to the top when the record is not on the loaded pages.
+struct RecordsScroll: Equatable, Sendable {
+    enum Target: Equatable, Sendable {
+        case record(String)
+        case top
+    }
+
+    /// New for each tap: the same record twice scrolls twice.
+    let number: Int
+    let target: Target
 }

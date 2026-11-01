@@ -101,8 +101,25 @@ actor RecordsFeed {
 
     /// The record as the server saved it replaces the one on disk.
     func setCategory(_ categoryId: String, of id: String) async throws(RecordsFailure) -> Record {
+        try await replaced(id) { [client] () async throws(RecordsFailure) -> Record in
+            try await client.setCategory(categoryId, of: id)
+        }
+    }
+
+    /// «Да, верно» (FT-254): the record as the server saved it, without «!», replaces the one on disk.
+    func confirm(_ id: String) async throws(RecordsFailure) -> Record {
+        try await replaced(id) { [client] () async throws(RecordsFailure) -> Record in
+            try await client.confirm(id)
+        }
+    }
+
+    /// An edit of one record: the server's copy replaces the one on disk; deleted elsewhere — gone from it.
+    private func replaced(
+        _ id: String,
+        by edit: () async throws(RecordsFailure) -> Record
+    ) async throws(RecordsFailure) -> Record {
         do {
-            let record = try await client.setCategory(categoryId, of: id)
+            let record = try await edit()
             apply(.changed(record))
             return record
         } catch {

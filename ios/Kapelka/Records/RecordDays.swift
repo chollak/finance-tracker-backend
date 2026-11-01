@@ -22,29 +22,67 @@ struct RecordDay: Identifiable, Equatable, Sendable {
     /// The day, `YYYY-MM-DD`.
     let id: String
     let title: String
+    /// The day's net, as the Mini App's history sums it (FT-254): «−120 000 сум», dollars apart — «· −12,00 USD».
+    /// `nil` for the last loaded day while the next page may go on with it.
+    let total: String?
     let rows: [RecordRow]
+
+    /// «Сегодня · −120 000 сум · −12,00 USD».
+    var header: String {
+        [title, total].compactMap { $0 }.joined(separator: " · ")
+    }
 }
 
 /// The history by day, in the server's order — newest first. Pages are joined before grouping, so a day the next page
 /// goes on stays one section.
 enum RecordDays {
+    /// `lastDayComplete`: no page follows the loaded ones. Until then the last day may go on there, and its total
+    /// waits — as `lastDayComplete` of the Mini App's history (`recordDays.ts`).
     static func days(
         _ records: [Record],
         accountNames: [String: String],
         now: Date,
-        calendar: Calendar
+        calendar: Calendar,
+        lastDayComplete: Bool
     ) -> [RecordDay] {
         let titles = DayTitles(now: now, calendar: calendar)
         var order: [String] = []
-        var rowsOfDay: [String: [RecordRow]] = [:]
+        var recordsOfDay: [String: [Record]] = [:]
         for record in records {
             let day = day(of: record, calendar: calendar)
-            if rowsOfDay[day] == nil {
+            if recordsOfDay[day] == nil {
                 order.append(day)
             }
-            rowsOfDay[day, default: []].append(row(for: record, accountNames: accountNames))
+            recordsOfDay[day, default: []].append(record)
         }
-        return order.map { RecordDay(id: $0, title: titles.title(of: $0), rows: rowsOfDay[$0] ?? []) }
+        return order.enumerated().map { index, day in
+            let ofDay = recordsOfDay[day] ?? []
+            let complete = index < order.count - 1 || lastDayComplete
+            return RecordDay(
+                id: day,
+                title: titles.title(of: day),
+                total: complete ? total(of: ofDay) : nil,
+                rows: ofDay.map { row(for: $0, accountNames: accountNames) }
+            )
+        }
+    }
+
+    /// The net of the records, as the Mini App's history sums a day (`netInUzs`, `formatNetMinor`): all of them,
+    /// «проверить» ones too; income adds, expenses subtract; summed in hundredths and rounded once, by `MoneyText`.
+    /// Each currency apart and as it is — сумы first, then dollars, not at a rate (decision 2026-10-31).
+    static func total(of records: [Record]) -> String {
+        var currencies: [String] = []
+        var net: [String: Int] = [:]
+        for record in records {
+            if net[record.currency] == nil {
+                currencies.append(record.currency)
+            }
+            net[record.currency, default: 0] += record.type == .income ? record.amountMinor : -record.amountMinor
+        }
+        let sumFirst = currencies.filter { $0 == "UZS" } + currencies.filter { $0 != "UZS" }
+        return sumFirst
+            .map { MoneyText.format(minor: net[$0] ?? 0, currency: $0, sign: .always) }
+            .joined(separator: " · ")
     }
 
     /// The record's day: `date` as it is; a record saved before FT-100 keeps a full moment there — its day on the

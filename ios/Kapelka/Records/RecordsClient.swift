@@ -85,6 +85,12 @@ struct RecordsClient: Sendable {
         try await call(.setCategory(id: id, categoryId: categoryId), answer: Record.self)
     }
 
+    /// «Да, верно» (FT-254): `PUT { needsReview: false }` only — «!» goes, nothing else changes. The server learns
+    /// nothing from it: no category changed.
+    func confirm(_ id: String) async throws(RecordsFailure) -> Record {
+        try await call(.confirm(id: id), answer: Record.self)
+    }
+
     /// The same client with the settings of this moment: a page is saved under the address it came from.
     func pinned(to configuration: ServerConfiguration) -> RecordsClient {
         RecordsClient(configuration: { configuration }, transport: transport)
@@ -142,6 +148,7 @@ private enum Route {
     case delete(id: String)
     case restore(id: String)
     case setCategory(id: String, categoryId: String)
+    case confirm(id: String)
 
     /// For the log: never ids, amounts or names.
     var name: String {
@@ -152,6 +159,7 @@ private enum Route {
         case .delete: "delete"
         case .restore: "restore"
         case .setCategory: "category"
+        case .confirm: "confirm"
         }
     }
 
@@ -159,7 +167,7 @@ private enum Route {
     var editsRecord: Bool {
         switch self {
         case .page, .categories, .accounts: false
-        case .delete, .restore, .setCategory: true
+        case .delete, .restore, .setCategory, .confirm: true
         }
     }
 
@@ -189,6 +197,11 @@ private enum Route {
             request.httpMethod = "PUT"
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             request.httpBody = try? JSONEncoder().encode(["categoryId": categoryId])
+        case let .confirm(id):
+            request = URLRequest(url: Self.record(id, in: api))
+            request.httpMethod = "PUT"
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.httpBody = try? JSONEncoder().encode(["needsReview": false])
         }
         request.timeoutInterval = RecordsClient.timeout
         request.setValue("application/json", forHTTPHeaderField: "Accept")

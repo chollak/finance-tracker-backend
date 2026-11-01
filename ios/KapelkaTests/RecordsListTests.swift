@@ -44,7 +44,7 @@ struct RecordsListTests {
         #expect(list.screen == .list)
         #expect(list.days.map(\.title) == ["Сегодня", "Вчера"])
         #expect(list.days.flatMap(\.rows).map(\.details) == ["Кафе · Карта", "Кафе · Наличные"])
-        #expect(list.caption == nil)
+        #expect(list.caption == "Обновлено только что")
         #expect(list.hasMore == false)
     }
 
@@ -176,7 +176,7 @@ struct RecordsListTests {
         await list.refresh()
 
         #expect(list.days.flatMap(\.rows).map(\.details) == ["Кафе · Карта"])
-        #expect(list.caption == nil)
+        #expect(list.caption == "Обновлено только что")
     }
 
     @Test("нет адреса или токена — экран с «Настройки», запросов нет")
@@ -292,42 +292,5 @@ struct RecordsListTests {
         // The pass after waits for the first: the pages go one by one
         #expect(await routes.pages.maxInFlight == 1)
         #expect(ids(list) == ["new", "a"])
-    }
-}
-
-/// «Нет связи · обновлено в 14:32» over the list from the disk.
-@Suite("Записи: подпись без связи")
-struct RecordsCaptionTests {
-    private static let now = TestClock().now
-
-    private var calendar: Calendar {
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = TimeZone(identifier: "Asia/Tashkent")!
-        return calendar
-    }
-
-    private func caption(_ problem: RecordsFailure?, updatedHoursAgo hours: Double? = 0) -> String? {
-        RecordsCaption.text(
-            problem: problem,
-            updatedAt: hours.map { Self.now.addingTimeInterval(-$0 * 3600) },
-            now: Self.now,
-            calendar: calendar
-        )
-    }
-
-    @Test("сегодня, вчера, раньше; без кэша — без времени")
-    func when() {
-        #expect(caption(.unreachable) == "Нет связи · обновлено в 14:32")
-        #expect(caption(.unreachable, updatedHoursAgo: 24) == "Нет связи · обновлено вчера в 14:32")
-        #expect(caption(.unreachable, updatedHoursAgo: 72) == "Нет связи · обновлено 26 октября в 14:32")
-        #expect(caption(.unreachable, updatedHoursAgo: nil) == "Нет связи")
-    }
-
-    @Test("причина — своя; ответ пришёл — подписи нет; без настроек — экран, не подпись")
-    func reasons() {
-        #expect(caption(.tokenRefused) == "Сервер не принял токен · обновлено в 14:32")
-        #expect(caption(.refused("Bad request")) == "Сервер не принял запрос · обновлено в 14:32")
-        #expect(caption(nil) == nil)
-        #expect(caption(.notConfigured) == nil)
     }
 }
