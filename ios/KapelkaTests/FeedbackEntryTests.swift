@@ -2,12 +2,22 @@ import Foundation
 import Testing
 @testable import Kapelka
 
-/// The notices half, as FT-253 will fill it: what reached it.
+/// The notices half (FT-253) as the entry sees it: what reached it.
 actor PassNotices: QueueNotices {
     private(set) var posted: [[QueueEvent]] = []
+    private(set) var withdrawn: [[QueueEvent]] = []
+    private(set) var settingsChanges = 0
 
     func post(_ events: [QueueEvent]) async {
         posted.append(events)
+    }
+
+    func withdraw(_ events: [QueueEvent]) async {
+        withdrawn.append(events)
+    }
+
+    func settingsChanged() async {
+        settingsChanges += 1
     }
 }
 
@@ -90,6 +100,59 @@ struct FeedbackEntryTests {
 
         #expect(entry.pulse == nil)
         #expect(await notices.posted.isEmpty)
+    }
+
+    @Test("на экране проход отдаётся и в уведомления — снять «уйдёт позже» оплат (FT-253)")
+    func onScreenWithdraws() async throws {
+        let notices = PassNotices()
+        let entry = FeedbackEntry(notices: notices)
+        entry.screenChanged(isActive: true)
+        let pass = [try written()]
+
+        await entry.queuePassed(pass)
+
+        #expect(await notices.withdrawn == [pass])
+        #expect(await notices.posted.isEmpty)
+    }
+
+    @Test("«Отправить очередь» (quietly): вне экрана уведомлений нет, «уйдёт позже» снимается; после — снова уведомления")
+    func quietly() async throws {
+        let notices = PassNotices()
+        let entry = FeedbackEntry(notices: notices)
+        let pass = [try written()]
+
+        await entry.quietly { await entry.queuePassed(pass) }
+
+        #expect(await notices.posted.isEmpty)
+        #expect(await notices.withdrawn == [pass])
+        #expect(entry.pulse == nil)
+
+        await entry.queuePassed(pass)
+        #expect(await notices.posted == [pass])
+    }
+
+    @Test("quietly вложенные и параллельные: тихо, пока идёт хоть один")
+    func quietlyNested() async throws {
+        let notices = PassNotices()
+        let entry = FeedbackEntry(notices: notices)
+        let pass = [try written()]
+
+        await entry.quietly {
+            await entry.quietly {}
+            await entry.queuePassed(pass)
+        }
+
+        #expect(await notices.posted.isEmpty)
+    }
+
+    @Test("новые настройки доходят до уведомлений")
+    func settingsChanged() async {
+        let notices = PassNotices()
+        let entry = FeedbackEntry(notices: notices)
+
+        await entry.settingsChanged()
+
+        #expect(await notices.settingsChanges == 1)
     }
 
     @Test("пачка через настоящую очередь на экране — одна вибрация")

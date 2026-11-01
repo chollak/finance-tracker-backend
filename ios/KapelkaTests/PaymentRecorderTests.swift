@@ -4,7 +4,8 @@ import Testing
 
 /// «Записать оплату» from the Wallet automation: the payment on disk first, the card noticed for the settings, one try
 /// to send, and one notification line on the result instead of a dialog to dismiss (FT-179, Shukur's decision of
-/// 2026-10-30).
+/// 2026-10-30). What the server answered is the pass's notification (FT-253, `BackgroundNoticeFlowTests`): the command
+/// itself tells only «уйдёт позже» and a refusal on the phone.
 @Suite("Команда «Записать оплату»")
 final class PaymentRecorderTests {
     private static let mazzali = PaymentInput(
@@ -30,29 +31,18 @@ final class PaymentRecorderTests {
             cards: cards,
             send: { await queue.flush() },
             isConfigured: { configured },
-            notify: { await notices.post($0, $1) }
+            notify: { await notices.post($0) }
         )
         return (recorder, cards)
     }
 
-    private static let mazzaliLine = "Ooo Mazzali Super Food · 28\u{00A0}000,00\u{00A0}UZS"
+    /// A waiting payment names the amount as its later «Записал: …» will (`MoneyText`), not as Wallet wrote it.
+    private static let mazzaliLine = "Ooo Mazzali Super Food · \u{2212}28\u{00A0}000\u{00A0}сум"
 
-    @Test("записалось — в уведомлении итог сервера: что, сколько, куда")
+    @Test("записалось или «нужно проверить» — команда своего уведомления не шлёт: «Записал: …» даёт проход (FT-253)")
     func recordedOnline() async throws {
         let harness = try QueueHarness(transport: FakeTransport([
             .http(200, body: ServerReply.saved(summary: "Ooo Mazzali Super Food · 28 000 сум · Кафе")),
-        ]))
-        let (recorder, _) = try makeRecorder(harness)
-
-        try await recorder.record(Self.mazzali)
-
-        #expect(await notices.texts == ["Ooo Mazzali Super Food · 28 000 сум · Кафе"])
-        #expect(try harness.store.load().captures.map(\.state) == [.sent])
-    }
-
-    @Test("нужно проверить — итог сервера с пометкой «проверь в Mini App»: оплата Шукура 2026-10-30")
-    func needsReview() async throws {
-        let harness = try QueueHarness(transport: FakeTransport([
             .http(200, body: ServerReply.saved(
                 status: "needs_review",
                 title: "Нужно проверить",
@@ -61,19 +51,22 @@ final class PaymentRecorderTests {
         ]))
         let (recorder, _) = try makeRecorder(harness)
 
+        try await recorder.record(Self.mazzali)
         try await recorder.record(PaymentInput(amount: "25 000,00 UZS", merchant: "Ytt Abduvoxidov Davronbek", card: "TBC Uzbekistan"))
 
-        #expect(await notices.texts == ["Ytt Abduvoxidov Davronbek · 25 000 сум · Другое? — проверь в Mini App"])
+        #expect(await notices.texts.isEmpty)
+        #expect(try harness.store.load().captures.map(\.state) == [.sent, .sent])
     }
 
-    @Test("сервера нет — оплата в очереди, в уведомлении: нет связи, уйдёт позже")
+    @Test("сервера нет — оплата в очереди, в уведомлении: уйдёт позже, сумма как в «Записал: …»")
     func queuedOffline() async throws {
         let harness = try QueueHarness(transport: FakeTransport([.failure(.notConnectedToInternet)]))
         let (recorder, _) = try makeRecorder(harness)
 
         try await recorder.record(Self.mazzali)
 
-        #expect(await notices.texts == ["\(Self.mazzaliLine) — нет связи, уйдёт позже"])
+        #expect(await notices.texts == ["\(Self.mazzaliLine) — уйдёт позже"])
+        #expect(await notices.places == [.capture])
         #expect(try harness.store.load().captures.map(\.state) == [.pending])
     }
 
@@ -85,8 +78,9 @@ final class PaymentRecorderTests {
         try await recorder.record(PaymentInput(amount: "10,00 €", merchant: "Shop", card: "Visa"))
 
         #expect(await notices.texts == [
-            "Shop · 10,00 € — не записалось: валюта EUR — Kapelka пишет только сумы и доллары, запиши в Mini App",
+            "Не записал: Shop · 10,00 €\nВалюта EUR — Kapelka пишет только сумы и доллары, запиши в Mini App",
         ])
+        #expect(await notices.places == [.capture])
         #expect(await harness.transport.requests.isEmpty)
     }
 
@@ -97,17 +91,18 @@ final class PaymentRecorderTests {
 
         try await recorder.record(PaymentInput())
 
-        #expect(await notices.texts == ["Оплата Apple Pay — не записалось: Wallet не передал сумму — запиши в Mini App"])
+        #expect(await notices.texts == ["Не записал: Оплата Apple Pay\nWallet не передал сумму — запиши в Mini App"])
     }
 
-    @Test("сервер отказал (400) — в уведомлении причина")
+    @Test("сервер отказал (400) — команда молчит: «Не записал: …» даёт проход (FT-253)")
     func refusedByServer() async throws {
         let harness = try QueueHarness(transport: FakeTransport([.http(400, body: ServerReply.paymentAmountRefused)]))
         let (recorder, _) = try makeRecorder(harness)
 
         try await recorder.record(Self.mazzali)
 
-        #expect(await notices.texts == ["\(Self.mazzaliLine) — не записалось: сервер не понял сумму"])
+        #expect(await notices.texts.isEmpty)
+        #expect(try harness.store.load().captures.map(\.state) == [.rejected])
     }
 
     @Test("без адреса или с отказом в токене — оплата в очереди, уведомление просит настройки")
@@ -122,19 +117,60 @@ final class PaymentRecorderTests {
 
         #expect(await notices.texts == [
             "\(Self.mazzaliLine) — в очереди: укажи адрес и токен в настройках Kapelka",
-            "\(Self.mazzaliLine) — в очереди: сервер не принял токен, проверь его в настройках Kapelka",
+            // Why the token: the token's own one notice says it (FT-253)
+            "\(Self.mazzaliLine) — в очереди до нового токена",
         ])
+        #expect(await notices.places == [.settings, .settings])
+    }
+
+    @Test("429 — «сервер просит подождать», а не «нет связи»")
+    func rateLimited() async throws {
+        let harness = try QueueHarness(transport: FakeTransport([
+            .http(429, body: ServerReply.rateLimited, headers: ["Retry-After": "120"]),
+        ]))
+        let (recorder, _) = try makeRecorder(harness)
+
+        try await recorder.record(Self.mazzali)
+
+        #expect(await notices.texts == ["\(Self.mazzaliLine) — сервер просит подождать, уйдёт позже"])
+        #expect(await notices.places == [.capture])
+    }
+
+    @Test("сумма ждущей оплаты — в сотых, как её покажет «Записал: …»; доллары с центами")
+    func waitingAmount() async throws {
+        let harness = try QueueHarness(transport: FakeTransport([.failure(.notConnectedToInternet)]))
+        let (recorder, _) = try makeRecorder(harness)
+
+        try await recorder.record(PaymentInput(amount: "4.50", currency: .usd, merchant: "APPLE.COM/BILL"))
+
+        #expect(await notices.texts == ["APPLE.COM/BILL · \u{2212}4,50\u{00A0}USD — уйдёт позже"])
+        let payment = try #require(try harness.store.load().captures.first?.payment)
+        #expect(payment.amountMinor == 450)
+    }
+
+    @Test("сумма контракта в сотых: целые, копейки, нет суммы")
+    func amountMinor() {
+        func payment(_ amount: String?) -> Payment {
+            Payment(walletAmount: "", amount: amount, currency: "UZS", merchant: nil, card: nil)
+        }
+        #expect(payment("28000.00").amountMinor == 2_800_000)
+        #expect(payment("25000").amountMinor == 2_500_000)
+        #expect(payment("4.5").amountMinor == 450)
+        #expect(payment("1000000000.00").amountMinor == 100_000_000_000)
+        #expect(payment(nil).amountMinor == nil)
+        #expect(payment("12,50").amountMinor == nil)
+        #expect(payment("1.234").amountMinor == nil)
     }
 
     @Test("одно уведомление на оплату, под её clientId; оплата уже на диске, когда оно уходит")
     func oneNoticePerPayment() async throws {
-        let harness = try QueueHarness()
+        let harness = try QueueHarness(transport: FakeTransport([.failure(.notConnectedToInternet)]))
         let (recorder, _) = try makeRecorder(harness)
 
         try await recorder.record(Self.mazzali)
         try await recorder.record(PaymentInput(amount: "10,00 €", merchant: "Shop"))
 
-        let ids = try harness.store.load().captures.map(\.clientId)
+        let ids = try harness.store.load().captures.map(\.clientId.uuidString)
         #expect(await notices.ids == ids)
     }
 
@@ -156,14 +192,15 @@ final class PaymentRecorderTests {
             cards: cards,
             send: { await background.run() },
             isConfigured: { true },
-            notify: { await notices.post($0, $1) }
+            notify: { await notices.post($0) }
         )
 
         let started = ContinuousClock.now
         try await recorder.record(Self.mazzali)
 
         #expect(ContinuousClock.now - started < .seconds(2))
-        #expect(await notices.texts == ["\(Self.mazzaliLine) — нет связи, уйдёт позже"])
+        // Not «нет связи»: the network is there, the PC does not answer
+        #expect(await notices.texts == ["\(Self.mazzaliLine) — уйдёт позже"])
         let waiting = try #require(try harness.store.load().captures.first)
         #expect(waiting.state == .pending)
         #expect(waiting.attempts == 0)
@@ -239,12 +276,13 @@ final class PaymentRecorderTests {
 
 /// The notifications «Записать оплату» posted, in order.
 actor PostedNotices {
-    private var posted: [(id: UUID, text: String)] = []
+    private var posted: [Notice] = []
 
-    var texts: [String] { posted.map(\.text) }
-    var ids: [UUID] { posted.map(\.id) }
+    var texts: [String] { posted.map(\.body) }
+    var ids: [String] { posted.map(\.id) }
+    var places: [AppPlace] { posted.map(\.opens) }
 
-    func post(_ id: UUID, _ text: String) {
-        posted.append((id, text))
+    func post(_ notice: Notice) {
+        posted.append(notice)
     }
 }

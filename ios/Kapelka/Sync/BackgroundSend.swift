@@ -38,6 +38,14 @@ struct BackgroundSend: Sendable {
         }
     }
 
+    /// The app left the screen (`AppModel.appMovedToBackground`): what the microphone heard is written first, then the
+    /// queue goes within the same budget as a refresh. iOS gives about 30 s there too: a pass it cut short would end
+    /// without the notice of what it wrote before (FT-253), and a sleeping PC keeps a request open for 60 s.
+    func afterLeaving(_ wrapUp: @escaping @Sendable () async -> Void) async {
+        await wrapUp()
+        await run()
+    }
+
     /// The refresh itself. Out of time, iOS cancels the task: the pass stops and the record in flight stays pending.
     /// This refresh's own call is cancelled first, so it does not start the stopped run again. Another call still waiting
     /// (a new network path) may; iOS then suspends the app mid-request, and the record goes again later with the same

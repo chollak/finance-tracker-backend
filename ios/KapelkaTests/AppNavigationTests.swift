@@ -1,5 +1,6 @@
 import SwiftUI
 import Testing
+import UserNotifications
 @testable import Kapelka
 
 /// Two tabs (FT-220): «Записать трату» from the Action Button always lands on «Записать» and listens, whichever tab
@@ -82,6 +83,64 @@ struct AppNavigationTests {
         #expect(refreshes([.active, .inactive, .active, .inactive, .active]) == 1)
         // Home, then back to the app
         #expect(refreshes([.inactive, .background, .inactive, .active]) == 1)
+    }
+
+    // MARK: A tap on a notification (FT-253)
+
+    @Test("нажатие на уведомление: «Записи», «Записать» или настройки — один раз")
+    func openFromNotice() {
+        let open = OpenRequest()
+        let navigation = AppNavigation(listenRequest: request, openRequest: open)
+
+        open.ask(.records)
+        #expect(navigation.openPending == .records)
+        navigation.takeOpenRequest()
+        #expect(navigation.tab == .records)
+        #expect(navigation.openPending == nil)
+
+        open.ask(.capture)
+        navigation.takeOpenRequest()
+        #expect(navigation.tab == .capture)
+
+        open.ask(.settings)
+        navigation.takeOpenRequest()
+        #expect(navigation.showsSettings)
+        #expect(navigation.tab == .capture)
+
+        // Taken once: nothing changes without a new tap
+        navigation.showsSettings = false
+        navigation.takeOpenRequest()
+        #expect(navigation.showsSettings == false)
+    }
+
+    @Test("последнее нажатие важнее прежнего, пока экран его не взял")
+    func lastTapWins() {
+        let open = OpenRequest()
+        let navigation = AppNavigation(listenRequest: request, openRequest: open)
+
+        open.ask(.settings)
+        open.ask(.records)
+        navigation.takeOpenRequest()
+
+        #expect(navigation.tab == .records)
+        #expect(navigation.showsSettings == false)
+    }
+
+    @Test("уведомление несёт, куда открыть; чужое или старое (FT-179, без места) — никуда")
+    func placeOfNotice() {
+        #expect(AppPlace(userInfo: [AppPlace.userInfoKey: "records"]) == .records)
+        #expect(AppPlace(userInfo: [AppPlace.userInfoKey: "capture"]) == .capture)
+        #expect(AppPlace(userInfo: [AppPlace.userInfoKey: "settings"]) == .settings)
+        #expect(AppPlace(userInfo: [:]) == nil)
+        #expect(AppPlace(userInfo: [AppPlace.userInfoKey: "shop"]) == nil)
+        #expect(AppPlace(userInfo: [AppPlace.userInfoKey: 1]) == nil)
+        #expect(AppPlace.records.userInfo[AppPlace.userInfoKey] as? String == "records")
+    }
+
+    @Test("открытое приложение уведомлений не показывает; шторка, Wallet, фон — баннер и список")
+    func presentation() {
+        #expect(NoticePresenter.presentation(onScreen: true) == [])
+        #expect(NoticePresenter.presentation(onScreen: false) == [.banner, .list])
     }
 
     @Test("первый запуск без адреса открывает настройки — если не просили слушать")

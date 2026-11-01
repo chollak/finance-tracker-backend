@@ -28,6 +28,7 @@ struct RootView: View {
             screenChanged()
         }
         .onChange(of: navigation.listenPending) { screenChanged() }
+        .onChange(of: navigation.openPending) { screenChanged() }
         .onChange(of: scenePhase) { screenChanged() }
         // A press while the settings were open listens once they close; new settings refresh the list
         .onChange(of: navigation.showsSettings) { screenChanged() }
@@ -38,8 +39,10 @@ struct RootView: View {
         navigation.showsSettings = true
     }
 
-    /// The first press listens, a press while listening ends the phrase.
+    /// A tap on a notification opens its place first; the first press listens, a press while listening ends the
+    /// phrase.
     private func screenChanged() {
+        navigation.takeOpenRequest()
         if navigation.takeListenRequest(sceneActive: scenePhase == .active) {
             model.voice.commandPressed()
         }

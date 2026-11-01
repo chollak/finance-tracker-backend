@@ -12,13 +12,14 @@ struct KapelkaApp: App {
         self.services = services
         _model = State(initialValue: AppModel(services: services))
         services.autoSender.start()
+        // Before the launch ends: a tap on a notification that launched the app comes to it (FT-253)
         UNUserNotificationCenter.current().delegate = NoticePresenter.shared
     }
 
     var body: some Scene {
         WindowGroup {
             RootView(model: model)
-                // Once, on the screen: a payment's command runs in the background and asks nothing
+                // Once, on the screen: a command or a background refresh has none and asks nothing
                 .task { await SystemNotices.askOnce() }
         }
         // On screen a haptic answers, off it a notification (FT-251): the phase from the start, before any change
