@@ -10,8 +10,9 @@ struct ServerConfiguration: Equatable, Sendable {
 /// What one attempt to send a record ended with.
 enum SendOutcome: Equatable, Sendable {
     case sent(CaptureReply)
-    /// No network, timeout, 5xx, 429 and anything unexpected: the record waits. `after` — the server's `Retry-After`.
-    case retryLater(after: TimeInterval?)
+    /// No network, timeout, 5xx, 429 and anything unexpected: the record waits. `after` — the server's `Retry-After`;
+    /// `wait` — why, for the card on «Записать» (FT-252).
+    case retryLater(after: TimeInterval?, wait: QueueWait)
     /// 401, 403: the token or the owner is wrong; nothing goes out until the settings change.
     case tokenRefused
     /// 400: the server refused this record; it is not sent again.
@@ -54,7 +55,7 @@ struct CaptureClient: CaptureSending {
         let outcome: SendOutcome
         do {
             let (data, response) = try await transport.data(for: request)
-            guard let http = response as? HTTPURLResponse else { return .retryLater(after: nil) }
+            guard let http = response as? HTTPURLResponse else { return .retryLater(after: nil, wait: .noAnswer) }
             outcome = Self.outcome(
                 status: http.statusCode,
                 retryAfter: http.value(forHTTPHeaderField: "Retry-After"),
@@ -67,7 +68,7 @@ struct CaptureClient: CaptureSending {
             Self.logger.info(
                 "Capture \(capture.clientId, privacy: .public): no answer, \(error.localizedDescription, privacy: .public)"
             )
-            outcome = .retryLater(after: nil)
+            outcome = .retryLater(after: nil, wait: QueueWait.of(error))
         }
         return outcome
     }
@@ -97,7 +98,7 @@ struct CaptureClient: CaptureSending {
         case 200..<300:
             guard let reply = try? JSONDecoder().decode(SuccessBody.self, from: body), reply.success else {
                 // Not Kapelka's answer (a login page, a proxy): the same clientId makes the next try safe
-                return .retryLater(after: nil)
+                return .retryLater(after: nil, wait: .noAnswer)
             }
             return .sent(reply.data.reply)
         case 400:
@@ -106,9 +107,9 @@ struct CaptureClient: CaptureSending {
             return .tokenRefused
         case 429:
             let seconds = retryAfter.flatMap(TimeInterval.init).flatMap { $0.isFinite ? $0 : nil }
-            return .retryLater(after: min(max(seconds ?? defaultRetryAfter, 0), maxRetryAfter))
+            return .retryLater(after: min(max(seconds ?? defaultRetryAfter, 0), maxRetryAfter), wait: .busy)
         default:
-            return .retryLater(after: nil)
+            return .retryLater(after: nil, wait: .noAnswer)
         }
     }
 }

@@ -291,15 +291,19 @@ actor CaptureQueue {
             capture.state = .sent
             capture.reply = reply
             next.notBefore = nil
+            next.wait = nil
             goOn = true
         case let .rejected(message):
             capture.attempts += 1
             capture.state = .rejected
             capture.rejection = message
+            // The server answered: it is reachable
+            next.wait = nil
             goOn = true
-        case let .retryLater(after):
+        case let .retryLater(after, wait):
             capture.attempts += 1
             next.notBefore = after.map { now().addingTimeInterval($0) }
+            next.wait = wait
             goOn = false
         case .tokenRefused:
             capture.attempts += 1
