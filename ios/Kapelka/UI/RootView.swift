@@ -40,14 +40,17 @@ struct RootView: View {
     }
 
     /// A tap on a notification opens its place first; the first press listens, a press while listening ends the
-    /// phrase.
+    /// phrase. The record a tap names waits for the refresh started here: it may have come with it (FT-254).
     private func screenChanged() {
-        navigation.takeOpenRequest()
+        let record = navigation.takeOpenRequest()
         if navigation.takeListenRequest(sceneActive: scenePhase == .active) {
             model.voice.commandPressed()
         }
         if model.records.setOnScreen(navigation.recordsOnScreen(scenePhase: scenePhase)) {
-            Task { await model.records.refresh() }
+            model.records.startRefresh()
+        }
+        if let record {
+            model.records.reveal(record)
         }
     }
 }

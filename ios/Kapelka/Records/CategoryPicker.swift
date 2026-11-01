@@ -33,6 +33,14 @@ final class CategoryPicker: Identifiable {
     private(set) var savingId: String?
     /// Why the last choice did not save; the sheet stays open.
     private(set) var problem: String?
+    /// «!» (FT-254): the sheet says why and offers «Да, верно» over the categories.
+    let needsReview: Bool
+    /// Why the record has «!»; `nil` until read, and for a record without it.
+    private(set) var review: RecordReview?
+    /// «Да, верно» is on its way: the sheet waits for the server.
+    private(set) var isConfirming = false
+    /// Why «Да, верно» did not go through; the sheet stays open.
+    private(set) var reviewProblem: String?
 
     private let list: RecordsList
 
@@ -40,11 +48,19 @@ final class CategoryPicker: Identifiable {
         id = record.id
         kind = record.type
         currentId = record.categoryId
+        needsReview = record.needsReview
         self.list = list
     }
 
-    /// Without a network the sheet says so — after why the last choice did not save, if it did not.
+    /// One edit at a time: a category and «Да, верно» do not cross.
+    var isBusy: Bool { savingId != nil || isConfirming }
+
+    /// The reason of «!» first — it is on the phone — then the categories. Without a network the sheet says so — after
+    /// why the last choice did not save, if it did not.
     func load() async {
+        if needsReview, review == nil {
+            review = await list.review(of: id)
+        }
         do {
             choices = .loaded(Self.choices(try await list.categories(), for: kind, current: currentId))
         } catch {
@@ -55,7 +71,7 @@ final class CategoryPicker: Identifiable {
     /// `true` when the sheet closes: the server saved it, it is the current one already, or the record is gone — then
     /// the list says so itself. Without a network nothing changes, and the sheet says why.
     func choose(_ categoryId: String) async -> Bool {
-        guard savingId == nil else { return false }
+        guard !isBusy else { return false }
         guard categoryId != currentId else {
             close()
             return true
@@ -81,6 +97,27 @@ final class CategoryPicker: Identifiable {
                 problem = error.message
                 return false
             }
+        }
+    }
+
+    /// «Да, верно» (FT-254): `true` when the sheet closes — «!» is off, or the record is gone and the list says so.
+    /// Without a network «!» stays, and the sheet says why. A category choice does not take «!» off: this does.
+    func confirm() async -> Bool {
+        guard !isBusy else { return false }
+        isConfirming = true
+        reviewProblem = nil
+        defer { isConfirming = false }
+        do {
+            try await list.confirm(id)
+            close()
+            return true
+        } catch {
+            guard error != .recordGone else {
+                close()
+                return true
+            }
+            reviewProblem = error.message
+            return false
         }
     }
 

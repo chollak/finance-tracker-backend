@@ -2,34 +2,24 @@ import SwiftUI
 
 /// The tab «Записи» (FT-220): the server's records by day, standard iOS components only. Pull to refresh; the next
 /// page comes as the list's end scrolls into view. A swipe deletes, with «Вернуть» on the bar at the bottom for 5 s;
-/// a tap opens the sheet of categories (FT-221).
+/// a tap opens the sheet of categories (FT-221). FT-254: the line over the list says how fresh it is, each day's
+/// header has its total, a tap on «Записал: …» scrolls to its record and lights it.
 struct RecordsView: View {
     let list: RecordsList
     let openSettings: () -> Void
 
+    /// The line over the list: where «вкладка сверху» scrolls to.
+    private static let top = "records-top"
+
     var body: some View {
         @Bindable var list = list
         NavigationStack {
-            List {
-                if list.screen == .list {
-                    if let caption = list.caption {
-                        Section {
-                            Text(caption)
-                                .font(.footnote)
-                                .foregroundStyle(.secondary)
-                        }
+            ScrollViewReader { proxy in
+                records
+                    // `initial`: the tab may first appear with the scroll already asked for
+                    .onChange(of: list.scroll, initial: true) {
+                        scroll(proxy)
                     }
-                    ForEach(list.days) { day in
-                        Section(day.title) {
-                            ForEach(day.rows) { row in
-                                recordRow(row)
-                            }
-                        }
-                    }
-                    if list.hasMore {
-                        nextPageSection
-                    }
-                }
             }
             .overlay { placeholder }
             .safeAreaInset(edge: .bottom) {
@@ -48,7 +38,8 @@ struct RecordsView: View {
                 guard let notice = list.notice, notice.undo?.isRestoring != true else { return }
                 AccessibilityNotification.Announcement(notice.text).post()
             }
-            .refreshable { await list.refresh() }
+            // The system's indicator alone: the line over the list stays as it was
+            .refreshable { await list.refresh(pulled: true) }
             .sheet(item: $list.picker) { CategorySheet(picker: $0) }
             .navigationTitle("Записи")
             .toolbar {
@@ -59,13 +50,58 @@ struct RecordsView: View {
         }
     }
 
+    private var records: some View {
+        List {
+            if list.screen == .list {
+                if list.status != nil {
+                    Section {
+                        RecordsCaptionView(list: list)
+                            .id(Self.top)
+                    }
+                }
+                ForEach(list.days) { day in
+                    Section {
+                        ForEach(day.rows) { row in
+                            recordRow(row)
+                                // The system's look of a tapped row, for a second
+                                .listRowBackground(row.id == list.highlighted ? Color(uiColor: .systemGray4) : nil)
+                        }
+                    } header: {
+                        DayHeader(day: day)
+                    }
+                }
+                if list.hasMore {
+                    nextPageSection
+                }
+            }
+        }
+        .animation(.easeOut(duration: 0.4), value: list.highlighted)
+    }
+
+    /// Once per request: to the record, or to the top when it is not on the loaded pages.
+    private func scroll(_ proxy: ScrollViewProxy) {
+        guard let scroll = list.scroll else { return }
+        list.scrolled(scroll.number)
+        withAnimation {
+            switch scroll.target {
+            case let .record(id):
+                proxy.scrollTo(id, anchor: .center)
+            case .top:
+                // The first row under the title; the large title stays collapsed — `ScrollViewReader` cannot reach
+                // above the first row (PR #170, «Известно»)
+                proxy.scrollTo(Self.top, anchor: .top)
+            }
+        }
+    }
+
     private func recordRow(_ row: RecordRow) -> some View {
         Button {
             list.openPicker(for: row.id)
         } label: {
             RecordRowView(row: row)
         }
-        .accessibilityHint("Сменить категорию")
+        // «!» opens the same sheet, with why and «Да, верно» over the categories (FT-254)
+        .accessibilityHint(row.needsReview ? "Почему «проверить» и сменить категорию" : "Сменить категорию")
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
             Button(role: .destructive) {
                 Task { await list.delete(row.id) }
@@ -143,6 +179,21 @@ struct RecordsView: View {
                 .buttonStyle(.bordered)
             }
         }
+    }
+}
+
+/// «Сегодня · −120 000 сум · +12,00 USD» (FT-254): a net above zero green with «+», as income is in the rows and in the
+/// Mini App's history; the rest in the header's own colour. One text, so it wraps as one at the large sizes.
+private struct DayHeader: View {
+    let day: RecordDay
+
+    var body: some View {
+        day.totals.reduce(Text(verbatim: day.title)) { header, total in
+            // A style on the rest would apply on top of the header's own grey and pale it
+            let amount = total.isIncome ? Text(verbatim: total.text).foregroundStyle(.green) : Text(verbatim: total.text)
+            return Text("\(header) · \(amount)")
+        }
+        .accessibilityLabel(day.header)
     }
 }
 

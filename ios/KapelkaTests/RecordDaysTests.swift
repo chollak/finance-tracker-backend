@@ -36,7 +36,7 @@ struct RecordDaysTests {
     }
 
     private func days(_ records: [Record], accounts: [String: String] = ["acc-card": "Карта"]) -> [RecordDay] {
-        RecordDays.days(records, accountNames: accounts, now: Self.now, calendar: calendar)
+        RecordDays.days(records, accountNames: accounts, now: Self.now, calendar: calendar, lastDayComplete: true)
     }
 
     @Test("секции: «Сегодня», «Вчера», «27 октября», другой год — с годом; порядок сервера")
@@ -60,7 +60,7 @@ struct RecordDaysTests {
         let newYear = Date(timeIntervalSince1970: 1_798_779_600)
         let list = RecordDays.days(
             [try record("a", date: "2026-12-31"), try record("b", date: "2026-12-30")],
-            accountNames: [:], now: newYear, calendar: calendar
+            accountNames: [:], now: newYear, calendar: calendar, lastDayComplete: true
         )
         #expect(list.map(\.title) == ["Вчера", "30 декабря 2026"])
     }

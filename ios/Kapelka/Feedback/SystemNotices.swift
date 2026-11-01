@@ -19,7 +19,7 @@ struct SystemNoticeCenter: NoticeCenter {
         let content = UNMutableNotificationContent()
         content.body = notice.body
         content.threadIdentifier = Self.thread
-        content.userInfo = notice.opens.userInfo
+        content.userInfo = notice.userInfo
         let request = UNNotificationRequest(identifier: notice.id, content: content, trigger: nil)
         // Without permission iOS refuses it; the record is on the phone already, so nothing else fails
         try? await UNUserNotificationCenter.current().add(request)
@@ -34,9 +34,15 @@ struct SystemNoticeCenter: NoticeCenter {
 
 /// While Kapelka is open iOS shows a notification only if asked (FT-253): on screen the haptic answers, so nothing is
 /// shown; `.inactive` — the Wallet sheet, the notification shade over the app — is off screen, and the banner comes.
-/// A tap opens the place the notification names.
-final class NoticePresenter: NSObject, UNUserNotificationCenterDelegate, Sendable {
-    @MainActor static let shared = NoticePresenter(feedback: AppServices.shared.feedback, open: .shared)
+/// A tap opens the place the notification names, and its record (FT-254).
+///
+/// On the main actor, the whole class: iOS calls UIKit from the completion handler of each method, and a nonisolated
+/// `async` method returns on a background thread — a tap on a notification crashed the app (SIGABRT in
+/// `-[UIApplication _performBlockAfterCATransactionCommitSynchronizes:]`, laid in FT-253, found by the review of
+/// PR #170). `@preconcurrency`: the protocol is Objective-C's and says nothing of actors; iOS calls it on the main thread.
+@MainActor
+final class NoticePresenter: NSObject, @preconcurrency UNUserNotificationCenterDelegate {
+    static let shared = NoticePresenter(feedback: AppServices.shared.feedback, open: .shared)
 
     private let feedback: FeedbackEntry
     private let open: OpenRequest
@@ -46,7 +52,7 @@ final class NoticePresenter: NSObject, UNUserNotificationCenterDelegate, Sendabl
         self.open = open
     }
 
-    static func presentation(onScreen: Bool) -> UNNotificationPresentationOptions {
+    nonisolated static func presentation(onScreen: Bool) -> UNNotificationPresentationOptions {
         onScreen ? [] : [.banner, .list]
     }
 
@@ -54,11 +60,16 @@ final class NoticePresenter: NSObject, UNUserNotificationCenterDelegate, Sendabl
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification
     ) async -> UNNotificationPresentationOptions {
-        Self.presentation(onScreen: await feedback.isOnScreen)
+        Self.presentation(onScreen: feedback.isOnScreen)
     }
 
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {
-        guard let place = AppPlace(userInfo: response.notification.request.content.userInfo) else { return }
-        await open.ask(place)
+        opened(userInfo: response.notification.request.content.userInfo)
+    }
+
+    /// The place the tapped notification names, and its record; someone else's or an old one names none.
+    func opened(userInfo: [AnyHashable: Any]) {
+        guard let target = OpenTarget(userInfo: userInfo) else { return }
+        open.ask(target)
     }
 }

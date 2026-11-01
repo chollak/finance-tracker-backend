@@ -20,10 +20,12 @@ final class AppModel {
             try await Self.write(phrase, to: queue)
         }
         // With VoiceOver on the bar of «Записи» stays until it is closed: 5 s is too short to reach «Вернуть»
+        // The queue's answer explains «!» of a record sent from this phone (FT-254)
         records = RecordsList(
             feed: services.records,
             keepsNotices: { UIAccessibility.isVoiceOverRunning },
-            feedback: feedback.happened
+            feedback: feedback.happened,
+            answer: { [queue = services.queue] record in await queue.state().answer(for: record) }
         )
         queueState = QueueState()
         isConfigured = services.settings.configuration() != nil

@@ -24,18 +24,21 @@ final class AppNavigation {
     }
 
     /// A tap on a notification (FT-253): its tab, or the settings over the tab that was open. A tab opens under the
-    /// settings if they are open: they may hold an address or a token not saved yet.
-    func takeOpenRequest() {
-        switch openRequest.take() {
+    /// settings if they are open: they may hold an address or a token not saved yet. Returns the record «Записи»
+    /// should scroll to (FT-254), if the tap names one.
+    @discardableResult
+    func takeOpenRequest() -> String? {
+        guard let target = openRequest.take() else { return nil }
+        switch target.place {
         case .capture: tab = .capture
         case .records: tab = .records
         case .settings: showsSettings = true
-        case nil: break
         }
+        return target.place == .records ? target.record : nil
     }
 
     /// Observed by the screen: a tap on a notification while the app is open or opening.
-    var openPending: AppPlace? { openRequest.place }
+    var openPending: OpenTarget? { openRequest.target }
 
     /// «Записать трату» from the Action Button: `true` once per press when the microphone should start now — with
     /// «Записать» open, whichever tab was. It waits while the app is not active (the microphone does not start in the

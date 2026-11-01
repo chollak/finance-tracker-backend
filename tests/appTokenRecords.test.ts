@@ -255,6 +255,21 @@ describe('the app token reads and edits its owner’s records (FT-218)', () => {
       const inMiniApp = await call('PUT', `/transactions/${id}`, asOwner(), { categoryId: groceries });
       expect({ ...inMiniApp.body.data, updatedAt: null }).toEqual({ ...moved.body.data, updatedAt: null });
     });
+
+    it('PUT /api/transactions/:id { needsReview: false }: «Да, верно» of the app takes «!» off, nothing else (FT-254)', async () => {
+      const id = await recordOf(OWNER, { needsReview: true });
+      const flagged = (await call('GET', '/transactions', byToken)).body.data.items[0];
+      expect(flagged).toMatchObject({ id, needsReview: true });
+
+      const confirmed = await call('PUT', `/transactions/${id}`, byToken, { needsReview: false });
+      expect(confirmed.status).toBe(200);
+      expect(confirmed.body.data).toEqual({ ...flagged, needsReview: false });
+      expect((await call('GET', '/transactions', byToken)).body.data.items[0]).toMatchObject({ id, needsReview: false });
+
+      // From the Mini App the same request changes nothing more and answers the record as it is (FT-248)
+      const inMiniApp = await call('PUT', `/transactions/${id}`, asOwner(), { needsReview: false });
+      expect(inMiniApp).toEqual(confirmed);
+    });
   });
 
   describe('everything else is closed to the token: the answer of a request that does not sign in', () => {

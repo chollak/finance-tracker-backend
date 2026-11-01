@@ -101,14 +101,15 @@ struct NoticeTextTests {
 
     // MARK: Written in the background
 
-    @Test("одна запись — «Записал: заметка · категория · сумма», с переходом во «Записи», id по фразе")
+    @Test("одна запись — «Записал: заметка · категория · сумма», с переходом к ней во «Записях», id по фразе")
     func oneRecord() throws {
         let coffee = try phrase("кофе 45", CaptureReplyBodies.coffee)
 
         #expect(notices([.wrote([coffee])]) == [Notice(
             id: "wrote-\(coffee.clientId.uuidString)",
             body: "Записал: кофе · Кафе · \u{2212}45\u{00A0}000\u{00A0}сум",
-            opens: .records
+            opens: .records,
+            record: CaptureReplyBodies.coffeeId
         )])
     }
 
@@ -124,6 +125,8 @@ struct NoticeTextTests {
 
         #expect(posted.map(\.body) == ["Записал 3 записи\nБез суммы, не записал: такси"])
         #expect(posted.map(\.id) == ["wrote-\(pass[0].clientId.uuidString)"])
+        // Several records: the tab at the top, no record to scroll to (FT-254)
+        #expect(posted.map(\.record) == [nil])
     }
 
     @Test("считаются записи, а не фразы: «хлеб и бензин» — две записи, одна к проверке")
@@ -196,7 +199,8 @@ struct NoticeTextTests {
         #expect(notices([.wrote([korzinka])]) == [Notice(
             id: korzinka.clientId.uuidString,
             body: "Записал: KORZINKA 24 · Продукты? · \u{2212}25\u{00A0}000\u{00A0}сум",
-            opens: .records
+            opens: .records,
+            record: "ff1a09d9-b1d4-410a-9f8f-10f872ab580a"
         )])
     }
 
