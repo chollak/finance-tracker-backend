@@ -87,6 +87,8 @@ struct RecordsView: View {
             case let .record(id):
                 proxy.scrollTo(id, anchor: .center)
             case .top:
+                // The first row under the title; the large title stays collapsed — `ScrollViewReader` cannot reach
+                // above the first row (PR #170, «Известно»)
                 proxy.scrollTo(Self.top, anchor: .top)
             }
         }
@@ -187,8 +189,8 @@ private struct DayHeader: View {
 
     var body: some View {
         day.totals.reduce(Text(verbatim: day.title)) { header, total in
-            let amount = Text(verbatim: total.text)
-                .foregroundStyle(total.isIncome ? AnyShapeStyle(Color.green) : AnyShapeStyle(.secondary))
+            // A style on the rest would apply on top of the header's own grey and pale it
+            let amount = total.isIncome ? Text(verbatim: total.text).foregroundStyle(.green) : Text(verbatim: total.text)
             return Text("\(header) · \(amount)")
         }
         .accessibilityLabel(day.header)
