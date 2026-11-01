@@ -103,15 +103,15 @@ final class AppModel {
     }
 
     /// The app left the screen. What the microphone heard is written first (decision 2026-10-30), then the queue is sent
-    /// within the half minute iOS gives. The refresh is asked for first: a sleeping PC keeps the request open past that
-    /// half minute, and iOS suspends the app without running what comes after. Out of time, this call stops the run;
-    /// another call still waiting for the queue (a new network path, the phrase's own send) may start it again, and iOS
-    /// suspends the app mid-request — the record goes again later with the same `clientId`.
+    /// within the 25 s of a background refresh (`BackgroundSend.afterLeaving`), inside the half minute iOS gives: the
+    /// pass ends by itself, so its notice of what it wrote before a sleeping PC is posted (FT-253). The refresh is asked
+    /// for first: should iOS still suspend the app early, what comes after does not run. Out of time, this call stops the
+    /// run; another call still waiting for the queue (a new network path, the phrase's own send) may start it again, and
+    /// iOS suspends the app mid-request — the record goes again later with the same `clientId`.
     func appMovedToBackground() async {
         let finishing = FinishingTime()
-        let sending = Task { [voice, queue = services.queue] in
-            await voice.wrapUp()
-            await queue.flush()
+        let sending = Task { [voice, background = services.background] in
+            await background.afterLeaving { await voice.wrapUp() }
         }
         finishing.begin { [queue = services.queue] in
             // The call waiting for the queue goes first, so it does not start the stopped run again
@@ -119,8 +119,8 @@ final class AppModel {
             Task { await queue.cancelSending() }
         }
         await services.background.schedule()
+        // `run()` asks for the next refresh itself once the pass is over
         await sending.value
-        await services.background.schedule()
         finishing.end()
     }
 

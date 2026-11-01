@@ -93,7 +93,11 @@ struct BackgroundNoticeFlowTests {
 
         try await rig.recorder.record(Self.korzinka)
         let id = try #require(try clientIds(rig).first)
-        #expect(await rig.center.delivered == [Notice(id: id, body: "KORZINKA 24 · 25 000,00 UZS — нет связи, уйдёт позже", opens: .capture)])
+        #expect(await rig.center.delivered == [Notice(
+            id: id,
+            body: "KORZINKA 24 · \u{2212}25\u{00A0}000\u{00A0}сум — уйдёт позже",
+            opens: .capture
+        )])
 
         await rig.background.run()
 

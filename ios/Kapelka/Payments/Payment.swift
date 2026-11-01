@@ -29,11 +29,22 @@ extension Payment {
     /// The server's limit on `merchant`, in UTF-16 units like JavaScript's `length`.
     static let merchantLimit = 200
 
-    /// What Wallet gave, for the list and the notification: «Ooo Mazzali Super Food · 28 000,00 UZS»; without an amount
-    /// (run by Siri, not Wallet) only the merchant.
+    /// What Wallet gave, for the list and a refusal: «Ooo Mazzali Super Food · 28 000,00 UZS»; without an amount (run
+    /// by Siri, not Wallet) only the merchant.
     var line: String {
         let amount = walletAmount.trimmingCharacters(in: .whitespacesAndNewlines)
         return [merchant ?? "Оплата Apple Pay", amount.isEmpty ? nil : amount].compactMap { $0 }.joined(separator: " · ")
+    }
+
+    /// The contract's amount in hundredths, `"28000.00"` → 2 800 000, for `MoneyText`; `nil` when it stays on the phone.
+    /// Integer arithmetic only, like the rest of the money.
+    var amountMinor: Int? {
+        guard let amount else { return nil }
+        let parts = amount.split(separator: ".", omittingEmptySubsequences: false)
+        guard parts.count <= 2, let whole = Int(parts[0]), whole >= 0 else { return nil }
+        let fraction = parts.count == 2 ? String(parts[1]) : ""
+        guard fraction.count <= 2, fraction.allSatisfy(\.isASCII), fraction.allSatisfy(\.isNumber) else { return nil }
+        return whole * 100 + (Int(fraction.padding(toLength: 2, withPad: "0", startingAt: 0)) ?? 0)
     }
 
     /// The payment as it goes into the queue, and why it stays on the phone when it cannot be sent.

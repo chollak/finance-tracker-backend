@@ -85,6 +85,32 @@ struct BackgroundSendTests {
         return BackgroundSend(queue: queue, scheduler: scheduler, now: { clock.now }, budget: budget)
     }
 
+    @Test("уход с экрана: сначала услышанное, потом отправка в том же бюджете; записанное до срока — в отчёте прохода")
+    func leavingKeepsToBudget() async throws {
+        let harness = try QueueHarness(transport: FakeTransport([.http(200, body: CaptureReplyBodies.coffee), .hang]))
+        let log = PassLog()
+        let queue = harness.makeQueue(onPass: { await log.record($0) })
+        try await queue.add("кофе 45")
+        let scheduler = FakeRefreshScheduler()
+
+        let started = ContinuousClock.now
+        await makeBackground(harness, queue: queue, scheduler: scheduler, budget: .milliseconds(200)).afterLeaving {
+            // What the microphone heard is on disk before anything is sent
+            _ = try? await queue.add("такси 18к")
+        }
+
+        // The PC asleep on the second phrase does not keep the app past the time iOS gives
+        #expect(ContinuousClock.now - started < .seconds(2))
+        let captures = try harness.store.load().captures
+        #expect(captures.map(\.text) == ["кофе 45", "такси 18к"])
+        #expect(captures.map(\.state) == [.sent, .pending])
+        let wrote = await log.passes.flatMap { $0 }.flatMap { event -> [String] in
+            if case let .wrote(written) = event { written.map(\.text) } else { [] }
+        }
+        #expect(wrote == ["кофе 45"])
+        #expect(scheduler.calls.last == .submit("kapelka.send-queue", harness.clock.now.addingTimeInterval(15 * 60)))
+    }
+
     @Test("сервер молчит дольше времени фона — отправка обрывается сама, следующее обновление запрошено")
     func refreshStopsWithinBudget() async throws {
         let harness = try QueueHarness(transport: FakeTransport(latency: .seconds(10)))
