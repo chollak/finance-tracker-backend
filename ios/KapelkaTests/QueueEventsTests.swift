@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import Kapelka
 
-/// What one pass of the queue did, read from the states before and after it (FT-251): the haptic on screen and the
+/// What changed since the queue last reported, read at the end of each pass (FT-251): the haptic on screen and the
 /// notices in the background (FT-253) are built on it. One event per kind, however many records the pass sent.
 @Suite("События очереди")
 struct QueueEventsTests {
@@ -90,31 +90,65 @@ struct QueueEventsTests {
         #expect(QueueEvents.between(state([phrase]), state([refused])) == [.rejected([refused])])
     }
 
-    @Test("первая попытка кончилась «позже» — запись ждёт в очереди")
+    @Test("новая фраза, первая попытка кончилась «позже», — запись ждёт в очереди")
     func firstAttemptQueued() {
-        let phrase = pending()
-        let waiting = triedAgain(phrase)
+        let waiting = triedAgain(pending())
 
-        #expect(QueueEvents.between(state([phrase]), state([waiting])) == [.queued([waiting])])
+        #expect(QueueEvents.between(state([]), state([waiting])) == [.queued([waiting])])
     }
 
-    @Test("вторая неудачная попытка — не новость")
-    func laterAttemptIsNoNews() {
-        let phrase = pending(attempts: 1)
+    @Test("новая фраза, до которой проход не дошёл (старая не ушла, пауза 429), — тоже «в очереди»")
+    func notReachedQueued() {
+        let older = pending("кофе 25к", attempts: 1)
+        let added = pending("такси 18к")
 
-        #expect(QueueEvents.between(state([phrase]), state([triedAgain(phrase)])).isEmpty)
+        let events = QueueEvents.between(state([older]), state([triedAgain(older), added]))
+
+        #expect(events == [.queued([added])])
+    }
+
+    @Test("о ждущей уже сказали — её неудачные попытки не новость")
+    func knownWaitingIsNoNews() {
+        let never = pending()
+        let once = pending(attempts: 1)
+
+        #expect(QueueEvents.between(state([never, once]), state([triedAgain(never), triedAgain(once)])).isEmpty)
     }
 
     @Test("токен не принят — одно событие, запись не считается ждущей")
     func tokenRefused() {
         let phrase = pending()
 
-        let events = QueueEvents.between(state([phrase]), state([triedAgain(phrase)], tokenRefused: true))
+        let events = QueueEvents.between(state([]), state([triedAgain(phrase)], tokenRefused: true))
 
         #expect(events == [.tokenRefused])
     }
 
-    @Test("токен уже был не принят — нового события нет")
+    @Test("пока токен не принят, новая фраза — снова «токен», а не «в очереди»")
+    func newPhraseWhileRefused() {
+        let refused = pending(attempts: 1)
+
+        let events = QueueEvents.between(
+            state([refused], tokenRefused: true),
+            state([refused, pending("такси 18к")], tokenRefused: true)
+        )
+
+        #expect(events == [.tokenRefused])
+    }
+
+    @Test("новые настройки, и токен снова не принят — «токен», хотя в прошлом отчёте он тоже был не принят")
+    func refusedAgainAfterSettings() {
+        let refused = pending(attempts: 1)
+
+        let events = QueueEvents.between(
+            state([refused], tokenRefused: true),
+            state([triedAgain(refused)], tokenRefused: true)
+        )
+
+        #expect(events == [.tokenRefused])
+    }
+
+    @Test("токен уже был не принят, ничего нового — события нет")
     func tokenRefusedAlready() {
         let phrase = pending(attempts: 1)
 
@@ -137,7 +171,7 @@ struct QueueEventsTests {
         let hello = pending("привет")
         let long = pending("длинная фраза")
         let taxi = pending("такси 18к")
-        let before = state([coffee, hello, long, taxi])
+        let before = state([coffee, hello, long])
         let wroteCoffee = try sent(coffee, body: CaptureReplyBodies.coffee)
         let notFound = try sent(hello, body: ServerReply.saved(status: "no_transaction"))
         let refused = rejected(long)
@@ -167,8 +201,8 @@ struct QueueEventsTests {
         #expect(QueueEvents.between(state([earlier]), state([earlier, added])) == [.wrote([added])])
     }
 
-    @Test("фраза, только добавленная, и оплата, отклонённая на телефоне, — не ответ сервера")
-    func addedWithoutAttempt() {
+    @Test("оплата, отклонённая на телефоне, — не ответ сервера")
+    func localRefusalIsNoNews() {
         var localRefusal = Capture(
             clientId: UUID(), text: "", capturedAt: Self.at, timeZoneIdentifier: "Asia/Tashkent",
             payment: Payment(walletAmount: "5,00 EUR", amount: nil, currency: "EUR", merchant: "EVOS", card: "TBC")
@@ -176,7 +210,7 @@ struct QueueEventsTests {
         localRefusal.state = .rejected
         localRefusal.rejection = "Другая валюта"
 
-        #expect(QueueEvents.between(state([]), state([pending(), localRefusal])).isEmpty)
+        #expect(QueueEvents.between(state([]), state([localRefusal])).isEmpty)
     }
 
     @Test("удалённая и убранная записи — не новость")

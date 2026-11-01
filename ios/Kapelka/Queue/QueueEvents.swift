@@ -11,48 +11,55 @@ enum QueueEvent: Equatable, Sendable {
     case noOperation([Capture])
     /// The server refused these (400): they are not sent again.
     case rejected([Capture])
-    /// Their first attempt ended «позже» — no network, the PC asleep, 429 — and they wait on the phone. An attempt
-    /// after it that fails again is no news.
+    /// New since the last report and still waiting on the phone: the attempt ended «позже» (no network, the PC
+    /// asleep, 429), or the pass did not reach them — the old record did not go, a 429 pause, no address. A later
+    /// attempt that fails again is no news.
     case queued([Capture])
-    /// The server refused the token: nothing goes until the settings change.
+    /// The server refused the token, or a new phrase came while it is refused: nothing goes until the settings
+    /// change.
     case tokenRefused
 }
 
 enum QueueEvents {
-    /// The events between two states of the queue, like `QueueStatus.wroteRecords`: the queue reads them before and
-    /// after each pass. Only the server's answers count — a record whose attempts grew in between; a phrase just
-    /// added, a payment refused on the phone, a record deleted or taken off are no news.
+    /// The events between two reports of the queue (`CaptureQueue` reads them at the end of each pass), like
+    /// `QueueStatus.wroteRecords`. Written and refused — the server's answers: a record whose attempts grew. Waiting —
+    /// a record new since the last report. A payment refused on the phone, a record deleted or taken off are no news.
     static func between(_ old: QueueState, _ new: QueueState) -> [QueueEvent] {
         let earlier = Dictionary(old.captures.map { ($0.clientId, $0.attempts) }, uniquingKeysWith: { first, _ in first })
-        let tokenRefused = new.tokenRefused && !old.tokenRefused
         var wrote: [Capture] = []
         var noOperation: [Capture] = []
         var rejected: [Capture] = []
-        var queued: [Capture] = []
+        var waiting: [Capture] = []
+        var triedAgain = false
         for capture in new.captures {
-            let attemptsBefore = earlier[capture.clientId] ?? 0
-            guard capture.attempts > attemptsBefore else { continue }
+            let attemptsBefore = earlier[capture.clientId]
+            let answered = capture.attempts > (attemptsBefore ?? 0)
             switch capture.state {
-            case .sent:
+            case .sent where answered:
                 switch capture.reply.flatMap(written(_:)) {
                 case true?: wrote.append(capture)
                 case false?: noOperation.append(capture)
                 case nil: break
                 }
-            case .rejected:
+            case .rejected where answered:
                 rejected.append(capture)
             case .pending:
-                // A refused token says it all: nothing goes until new settings
-                if !tokenRefused, attemptsBefore == 0 {
-                    queued.append(capture)
+                if attemptsBefore == nil {
+                    waiting.append(capture)
+                } else if answered {
+                    triedAgain = true
                 }
+            default:
+                break
             }
         }
+        // Refused now, or again after new settings, or a new phrase meets a refused token: an error, not «в очереди»
+        let tokenRefused = new.tokenRefused && (!old.tokenRefused || triedAgain || !waiting.isEmpty)
         var events: [QueueEvent] = []
         if !wrote.isEmpty { events.append(.wrote(wrote)) }
         if !noOperation.isEmpty { events.append(.noOperation(noOperation)) }
         if !rejected.isEmpty { events.append(.rejected(rejected)) }
-        if !queued.isEmpty { events.append(.queued(queued)) }
+        if !waiting.isEmpty, !tokenRefused { events.append(.queued(waiting)) }
         if tokenRefused { events.append(.tokenRefused) }
         return events
     }

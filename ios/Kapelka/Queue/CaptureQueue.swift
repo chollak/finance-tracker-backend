@@ -22,6 +22,10 @@ actor CaptureQueue {
     private let onPass: @Sendable ([QueueEvent]) async -> Void
     private let continuation: AsyncStream<QueueState>.Continuation
     private var current: QueueState
+    /// The state the last report on a pass was read up to (FT-251): the next report says what changed since — a
+    /// phrase added meanwhile that no pass reached, too (the old one did not go, a 429 pause, a refused token). At
+    /// first the file as read: what was in it before the launch is no news.
+    private var reported: QueueState
     /// `false` while the file could not be opened: then nothing is written over it (`QueueError.unavailable`).
     private var isLoaded: Bool
     /// Bumped on every settings change, so a 401 to a request sent with the old token does not stop the queue.
@@ -51,6 +55,7 @@ actor CaptureQueue {
         self.onPass = onPass
         let loaded = try? store.load()
         current = loaded ?? QueueState()
+        reported = current
         isLoaded = loaded != nil
         let (stream, continuation) = AsyncStream.makeStream(of: QueueState.self, bufferingPolicy: .bufferingNewest(1))
         updates = stream
@@ -190,13 +195,14 @@ actor CaptureQueue {
         return Task.isCancelled
     }
 
-    /// One pass, and one report on it however many records it sent. The report is awaited: a background refresh or
-    /// a command ends only after the notices of what it sent (FT-253). The pass may already be cancelled by then — the
-    /// records it wrote are news all the same.
+    /// One pass, and one report on it however many records it sent: what changed since the last report. The report
+    /// is awaited: a background refresh or a command ends only after the notices of what it sent (FT-253). The pass
+    /// may already be cancelled by then — the records it wrote are news all the same.
     private func sendPending() async {
-        let before = current
         await sendEach()
-        let events = QueueEvents.between(before, current)
+        let events = QueueEvents.between(reported, current)
+        // Before the wait: a phrase added meanwhile goes into the next report
+        reported = current
         if !events.isEmpty {
             await onPass(events)
         }
@@ -255,6 +261,7 @@ actor CaptureQueue {
         do {
             let loaded = try store.load()
             isLoaded = true
+            reported = loaded
             publish(loaded)
             return true
         } catch {

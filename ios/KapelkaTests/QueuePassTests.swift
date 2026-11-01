@@ -33,6 +33,17 @@ struct QueuePassTests {
         harness.makeQueue(onPass: { await log.record($0) })
     }
 
+    /// The ids of each pass's «в очереди»; a pass with anything else fails the test.
+    private func queuedIds(_ log: PassLog) async -> [[UUID]] {
+        await log.passes.map { events in
+            guard events.count == 1, case let .queued(captures) = events[0] else {
+                Issue.record("not «в очереди» alone: \(events)")
+                return []
+            }
+            return captures.map(\.clientId)
+        }
+    }
+
     @Test("три фразы за проход — один вызов с одним «записал» на три записи")
     func batchIsOnePass() async throws {
         let harness = try QueueHarness()
@@ -112,16 +123,101 @@ struct QueuePassTests {
         #expect(await log.passes.isEmpty)
     }
 
-    @Test("не настроено — попытки нет, вызова нет")
-    func notConfiguredIsSilent() async throws {
+    @Test("не настроено — попытки нет, запись ждёт настроек: «в очереди» один раз")
+    func notConfiguredQueuedOnce() async throws {
         let harness = try QueueHarness(settings: TestSettings(configured: false))
         let log = PassLog()
         let queue = queue(harness, log)
-        _ = try await queue.add("кофе 25к")
+        let phrase = try await queue.add("кофе 25к")
 
         await queue.flush()
+        await queue.flush()
 
-        #expect(await log.passes.isEmpty)
+        #expect(await queuedIds(log) == [[phrase.clientId]])
+    }
+
+    @Test("вторая фраза без сети — «в очереди», хотя проход оборвался на первой")
+    func secondPhraseOffline() async throws {
+        let harness = try QueueHarness(transport: FakeTransport([
+            .failure(.notConnectedToInternet),
+            .failure(.notConnectedToInternet),
+        ]))
+        let log = PassLog()
+        let queue = queue(harness, log)
+        let coffee = try await queue.add("кофе 25к")
+        await queue.flush()
+
+        let taxi = try await queue.add("такси 18к")
+        await queue.flush()
+
+        #expect(await queuedIds(log) == [[coffee.clientId], [taxi.clientId]])
+        // The pass tried the old one only: the new one is not even attempted
+        #expect(try harness.store.load().captures.map(\.attempts) == [2, 0])
+    }
+
+    @Test("фраза во время паузы 429 — «в очереди»")
+    func phraseDuringRateLimit() async throws {
+        let harness = try QueueHarness(transport: FakeTransport([
+            .http(429, body: ServerReply.rateLimited, headers: ["Retry-After": "120"]),
+        ]))
+        let log = PassLog()
+        let queue = queue(harness, log)
+        let coffee = try await queue.add("кофе 25к")
+        await queue.flush()
+
+        let taxi = try await queue.add("такси 18к")
+        await queue.flush()
+
+        #expect(await queuedIds(log) == [[coffee.clientId], [taxi.clientId]])
+        #expect(await harness.transport.requests.count == 1)
+    }
+
+    @Test("ПК спит: фраза, сказанная пока висит запрос, — в том же «в очереди»")
+    func phraseWhilePCSleeps() async throws {
+        let harness = try QueueHarness(transport: FakeTransport([
+            .after(.milliseconds(150), .failure(.timedOut)),
+        ]))
+        let log = PassLog()
+        let queue = queue(harness, log)
+        let coffee = try await queue.add("кофе 25к")
+
+        async let sending: Void = queue.flush()
+        #expect(await eventually { await harness.transport.requests.count == 1 })
+        let taxi = try await queue.add("такси 18к")
+        await sending
+
+        #expect(await queuedIds(log) == [[coffee.clientId, taxi.clientId]])
+    }
+
+    @Test("новая фраза, пока токен не принят, — ошибка «токен», а не «в очереди» и не тишина")
+    func newPhraseWhileTokenRefused() async throws {
+        let harness = try QueueHarness(transport: FakeTransport([.http(401, body: ServerReply.invalidToken)]))
+        let log = PassLog()
+        let queue = queue(harness, log)
+        _ = try await queue.add("кофе 25к")
+        await queue.flush()
+
+        _ = try await queue.add("такси 18к")
+        await queue.flush()
+
+        #expect(await log.passes == [[.tokenRefused], [.tokenRefused]])
+    }
+
+    @Test("новые настройки, и токен снова не принят — снова «токен»")
+    func refusedAgainAfterSettings() async throws {
+        let harness = try QueueHarness(transport: FakeTransport([
+            .http(401, body: ServerReply.invalidToken),
+            .http(401, body: ServerReply.invalidToken),
+        ]))
+        let log = PassLog()
+        let queue = queue(harness, log)
+        _ = try await queue.add("кофе 25к")
+        await queue.flush()
+
+        await queue.settingsChanged()
+        await queue.flush()
+
+        #expect(await log.passes == [[.tokenRefused], [.tokenRefused]])
     }
 
     @Test("отправка кончается после входа: фон не уходит, пока уведомления не отправлены")
