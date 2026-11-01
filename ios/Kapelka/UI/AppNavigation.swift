@@ -16,10 +16,26 @@ final class AppNavigation {
     var showsSettings = false
 
     private let listenRequest: ListenRequest
+    private let openRequest: OpenRequest
 
-    init(listenRequest: ListenRequest = .shared) {
+    init(listenRequest: ListenRequest = .shared, openRequest: OpenRequest = .shared) {
         self.listenRequest = listenRequest
+        self.openRequest = openRequest
     }
+
+    /// A tap on a notification (FT-253): its tab, or the settings over the tab that was open. A tab opens under the
+    /// settings if they are open: they may hold an address or a token not saved yet.
+    func takeOpenRequest() {
+        switch openRequest.take() {
+        case .capture: tab = .capture
+        case .records: tab = .records
+        case .settings: showsSettings = true
+        case nil: break
+        }
+    }
+
+    /// Observed by the screen: a tap on a notification while the app is open or opening.
+    var openPending: AppPlace? { openRequest.place }
 
     /// «Записать трату» from the Action Button: `true` once per press when the microphone should start now — with
     /// «Записать» open, whichever tab was. It waits while the app is not active (the microphone does not start in the

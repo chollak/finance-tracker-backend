@@ -38,7 +38,8 @@ struct RecordExpenseIntent: AppIntent {
 }
 
 /// «Отправить очередь» for automations like «подключился к домашнему Wi-Fi»: sends what waits on the phone without
-/// opening the app, within the time iOS gives a command.
+/// opening the app, within the time iOS gives a command. It answers with its dialog, so what it sends posts no
+/// notification (FT-253); a payment's «уйдёт позже» it sent is taken off.
 struct SendQueueIntent: AppIntent {
     static var title: LocalizedStringResource { "Отправить очередь" }
     static var description: IntentDescription {
@@ -48,7 +49,7 @@ struct SendQueueIntent: AppIntent {
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
         let services = AppServices.shared
-        await services.background.run()
+        await services.feedback.quietly { [background = services.background] in await background.run() }
         let report = QueueStatus.afterSending(
             await services.queue.state(),
             configured: services.settings.configuration() != nil

@@ -69,9 +69,9 @@ final class AppModel {
         do {
             let removed = try await services.queue.remove(id)
             // Its request went out between the swipe and the tap
-            guard removed else { return "Запись уже отправляется — если сервер её запишет, удали её в Mini App" }
-            // A timeout says nothing about whether the server wrote it
-            return triedBefore ? "Удалено. Запись уже уходила на сервер — проверь Mini App" : nil
+            guard removed else { return "Запись уже отправляется — если сервер её запишет, удали её в «Записях»" }
+            // A timeout says nothing about whether the server wrote it; «Записи» show what it wrote (FT-220)
+            return triedBefore ? "Удалено. Запись уже уходила на сервер — проверь «Записи»" : nil
         } catch {
             return "Не удалилось: \(error.localizedDescription)"
         }
@@ -149,6 +149,8 @@ final class AppModel {
         try? services.cards.save(cards, removing: removedCards)
         isConfigured = services.settings.configuration() != nil
         await services.queue.settingsChanged()
+        // The token's notification goes, and a new refusal is news again (FT-253)
+        await services.feedback.settingsChanged()
         Task { await services.queue.flush() }
     }
 
