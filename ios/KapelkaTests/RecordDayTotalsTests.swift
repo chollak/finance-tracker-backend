@@ -90,6 +90,23 @@ struct RecordDayTotalsTests {
         #expect(list.map(\.total) == ["\u{2212}50\u{00A0}001\u{00A0}сум"])
     }
 
+    @Test("итог выше нуля — зелёный с «+», как доход; ниже нуля и ноль — обычным цветом; по каждой валюте отдельно")
+    func incomeIsGreen() throws {
+        let list = try days([
+            record("salary", type: "income", amountMinor: 1_000_000_000),
+            record("app", amountMinor: 999, currency: "USD"),
+            record("bread", date: "2026-10-28", amountMinor: 500_000),
+        ])
+
+        #expect(list.map(\.totals) == [
+            [
+                DayTotal(text: "+10\u{00A0}000\u{00A0}000\u{00A0}сум", isIncome: true),
+                DayTotal(text: "\u{2212}9,99\u{00A0}USD", isIncome: false),
+            ],
+            [DayTotal(text: "\u{2212}5\u{00A0}000\u{00A0}сум", isIncome: false)],
+        ])
+    }
+
     @Test("ноль — «0 сум» без знака, как у Mini App")
     func zero() throws {
         let list = try days([
@@ -97,7 +114,7 @@ struct RecordDayTotalsTests {
             record("out", amountMinor: 2_500_000),
         ])
 
-        #expect(list.map(\.total) == ["0\u{00A0}сум"])
+        #expect(list.map(\.totals) == [[DayTotal(text: "0\u{00A0}сум", isIncome: false)]])
     }
 
     @Test("последний день загруженных страниц — без итога, пока не пришла следующая; остальные — с итогом")

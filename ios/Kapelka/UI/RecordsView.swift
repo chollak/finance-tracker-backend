@@ -60,12 +60,14 @@ struct RecordsView: View {
                     }
                 }
                 ForEach(list.days) { day in
-                    Section(day.header) {
+                    Section {
                         ForEach(day.rows) { row in
                             recordRow(row)
                                 // The system's look of a tapped row, for a second
                                 .listRowBackground(row.id == list.highlighted ? Color(uiColor: .systemGray4) : nil)
                         }
+                    } header: {
+                        DayHeader(day: day)
                     }
                 }
                 if list.hasMore {
@@ -175,6 +177,21 @@ struct RecordsView: View {
                 .buttonStyle(.bordered)
             }
         }
+    }
+}
+
+/// «Сегодня · −120 000 сум · +12,00 USD» (FT-254): a net above zero green with «+», as income is in the rows and in the
+/// Mini App's history; the rest in the header's own colour. One text, so it wraps as one at the large sizes.
+private struct DayHeader: View {
+    let day: RecordDay
+
+    var body: some View {
+        day.totals.reduce(Text(verbatim: day.title)) { header, total in
+            let amount = Text(verbatim: total.text)
+                .foregroundStyle(total.isIncome ? AnyShapeStyle(Color.green) : AnyShapeStyle(.secondary))
+            return Text("\(header) · \(amount)")
+        }
+        .accessibilityLabel(day.header)
     }
 }
 

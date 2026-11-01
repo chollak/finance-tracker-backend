@@ -17,15 +17,27 @@ struct RecordRow: Identifiable, Equatable, Sendable {
     let needsReview: Bool
 }
 
+/// One currency of a day's net: «−120 000 сум», «+12,00 USD».
+struct DayTotal: Equatable, Sendable {
+    let text: String
+    /// Above zero: green with «+», as in the Mini App's history and as income is everywhere («Пастель»).
+    let isIncome: Bool
+}
+
 /// The records of one day, under «Сегодня», «Вчера» or «27 октября».
 struct RecordDay: Identifiable, Equatable, Sendable {
     /// The day, `YYYY-MM-DD`.
     let id: String
     let title: String
-    /// The day's net, as the Mini App's history sums it (FT-254): «−120 000 сум», dollars apart — «· −12,00 USD».
-    /// `nil` for the last loaded day while the next page may go on with it.
-    let total: String?
+    /// The day's net, as the Mini App's history sums it (FT-254): сумы, then dollars apart. Empty for the last loaded
+    /// day while the next page may go on with it.
+    let totals: [DayTotal]
     let rows: [RecordRow]
+
+    /// «−120 000 сум · −12,00 USD»; `nil` while the day waits for the next page.
+    var total: String? {
+        totals.isEmpty ? nil : totals.map(\.text).joined(separator: " · ")
+    }
 
     /// «Сегодня · −120 000 сум · −12,00 USD».
     var header: String {
@@ -61,7 +73,7 @@ enum RecordDays {
             return RecordDay(
                 id: day,
                 title: titles.title(of: day),
-                total: complete ? total(of: ofDay) : nil,
+                totals: complete ? totals(of: ofDay) : [],
                 rows: ofDay.map { row(for: $0, accountNames: accountNames) }
             )
         }
@@ -70,7 +82,7 @@ enum RecordDays {
     /// The net of the records, as the Mini App's history sums a day (`netInUzs`, `formatNetMinor`): all of them,
     /// «проверить» ones too; income adds, expenses subtract; summed in hundredths and rounded once, by `MoneyText`.
     /// Each currency apart and as it is — сумы first, then dollars, not at a rate (decision 2026-10-31).
-    static func total(of records: [Record]) -> String {
+    static func totals(of records: [Record]) -> [DayTotal] {
         var currencies: [String] = []
         var net: [String: Int] = [:]
         for record in records {
@@ -80,9 +92,10 @@ enum RecordDays {
             net[record.currency, default: 0] += record.type == .income ? record.amountMinor : -record.amountMinor
         }
         let sumFirst = currencies.filter { $0 == "UZS" } + currencies.filter { $0 != "UZS" }
-        return sumFirst
-            .map { MoneyText.format(minor: net[$0] ?? 0, currency: $0, sign: .always) }
-            .joined(separator: " · ")
+        return sumFirst.map { currency in
+            let minor = net[currency] ?? 0
+            return DayTotal(text: MoneyText.format(minor: minor, currency: currency, sign: .always), isIncome: minor > 0)
+        }
     }
 
     /// The record's day: `date` as it is; a record saved before FT-100 keeps a full moment there — its day on the
