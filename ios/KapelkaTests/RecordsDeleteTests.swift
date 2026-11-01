@@ -64,7 +64,7 @@ struct RecordsDeleteTests {
 
         #expect(ids(list) == ["c", "a"])
         #expect(list.notice?.text == "Удалено")
-        #expect(list.notice?.restorable == "b")
+        #expect(list.notice?.restorable == ["b"])
         #expect(await eventually { timer.durations == [.seconds(5)] })
 
         await list.restoreDeleted()
@@ -80,7 +80,7 @@ struct RecordsDeleteTests {
         let list = try list(routes)
         await list.refresh()
         await list.delete("b")
-        #expect(list.notice?.restorable == "b")
+        #expect(list.notice?.restorable == ["b"])
 
         #expect(await eventually { timer.durations.count == 1 })
         timer.fire()
@@ -104,16 +104,16 @@ struct RecordsDeleteTests {
         let list = try list(routes)
         await list.refresh()
         await list.delete("c")
-        #expect(list.notice?.restorable == "c")
+        #expect(list.notice?.restorable == ["c"])
 
         await list.delete("a")
-        #expect(list.notice?.restorable == "a")
+        #expect(list.notice?.restorable == ["a"])
         #expect(ids(list) == ["b"])
         // The first bar's 5 s end: the second bar stays
         #expect(await eventually { timer.durations.count == 2 })
         timer.fireOldest()
         try await Task.sleep(for: .milliseconds(50))
-        #expect(list.notice?.restorable == "a")
+        #expect(list.notice?.restorable == ["a"])
 
         await list.restoreDeleted()
 
@@ -135,7 +135,7 @@ struct RecordsDeleteTests {
 
         #expect(ids(list) == ["c", "b", "a"])
         #expect(list.notice?.text == "Нет связи — попробуй позже")
-        #expect(list.notice?.restorable == nil)
+        #expect(list.notice?.restorable.isEmpty == true)
     }
 
     @Test("запись уже удалена где-то ещё (404) — строки нет, «Запись уже удалена», список обновляется")
@@ -151,7 +151,7 @@ struct RecordsDeleteTests {
 
         #expect(ids(list) == ["c", "a"])
         #expect(list.notice?.text == "Запись уже удалена")
-        #expect(list.notice?.restorable == nil)
+        #expect(list.notice?.restorable.isEmpty == true)
         #expect(await eventually { await routes.pages.requests.count == 2 })
     }
 
@@ -172,7 +172,7 @@ struct RecordsDeleteTests {
         await list.restoreDeleted()
         #expect(ids(list) == ["c", "a"])
         #expect(list.notice?.message == "Не вернул «кофе» — нет связи")
-        #expect(list.notice?.restorable == "b")
+        #expect(list.notice?.restorable == ["b"])
 
         await list.restoreDeleted()
         #expect(ids(list) == ["c", "b", "a"])

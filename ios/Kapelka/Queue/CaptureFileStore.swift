@@ -9,6 +9,8 @@ struct QueueState: Codable, Equatable, Sendable {
     var tokenRefused = false
     /// After 429: no attempt before this moment (`Retry-After`).
     var notBefore: Date?
+    /// Why the last attempt ended «позже» (FT-252); `nil` once the server answers.
+    var wait: QueueWait?
     /// The record whose request is out now: shown as «Отправляю» and not deleted. Not kept on disk.
     var sendingId: UUID?
 
@@ -16,6 +18,7 @@ struct QueueState: Codable, Equatable, Sendable {
         case captures
         case tokenRefused
         case notBefore
+        case wait
     }
 
     init() {}
@@ -26,6 +29,8 @@ struct QueueState: Codable, Equatable, Sendable {
         captures = try container.decodeIfPresent([Capture].self, forKey: .captures) ?? []
         tokenRefused = try container.decodeIfPresent(Bool.self, forKey: .tokenRefused) ?? false
         notBefore = try container.decodeIfPresent(Date.self, forKey: .notBefore)
+        // A reason this build does not know is no reason, not a broken file
+        wait = try? container.decodeIfPresent(QueueWait.self, forKey: .wait)
     }
 }
 

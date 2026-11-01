@@ -1,15 +1,33 @@
 import Foundation
 import Observation
 
-/// The bar at the bottom of «Записи» (FT-221): «Удалено» with «Вернуть», what went wrong with an edit, or both.
+/// The bar at the bottom of «Записи» and «Записать» (FT-221, FT-252): «Удалено» with «Вернуть», what went wrong with an
+/// edit, or both.
 struct RecordsNotice: Equatable, Identifiable, Sendable {
-    /// The record «Вернуть» brings back.
-    struct Undo: Equatable, Sendable {
+    /// A record «Вернуть» brings back, with its title for «Не вернул «такси» — нет связи».
+    struct Item: Equatable, Sendable {
         let id: String
-        /// The row's title, for «Не вернул «такси» — нет связи».
         let title: String
+    }
+
+    /// What «Вернуть» brings back: the record of a swipe, or every record of a phrase from the card on «Записать»
+    /// (FT-252).
+    struct Undo: Equatable, Sendable {
+        let items: [Item]
         /// «Вернуть» is on its way: the button is off until the server answers.
         var isRestoring = false
+
+        var ids: [String] { items.map(\.id) }
+
+        /// «Удалено», «Удалено 2».
+        var label: String {
+            items.count > 1 ? "Удалено \(items.count)" : "Удалено"
+        }
+
+        /// «такси» in quotes, or «2 записи»: after «Не вернул».
+        var what: String {
+            items.count == 1 ? "«\(items[0].title)»" : WrittenText.records(items.count)
+        }
     }
 
     /// New for each bar: the 5 s of one bar do not end the next.
@@ -18,11 +36,12 @@ struct RecordsNotice: Equatable, Identifiable, Sendable {
     /// What went wrong with an edit; over «Удалено · Вернуть» when there is both.
     let message: String?
 
-    var restorable: String? { undo?.id }
+    /// The records «Вернуть» brings back; none when the bar does not offer it.
+    var restorable: [String] { undo?.ids ?? [] }
 
     /// The whole bar in one line: what VoiceOver says.
     var text: String {
-        [message, undo == nil ? nil : "Удалено"].compactMap { $0 }.joined(separator: ". ")
+        [message, undo?.label].compactMap { $0 }.joined(separator: ". ")
     }
 }
 
@@ -63,28 +82,28 @@ final class RecordsNoticeBar {
         put(undo: notice?.undo, message: message)
     }
 
-    /// `false` when the bar does not offer this record or its «Вернуть» is on its way already.
-    func startRestoring(_ id: String) -> Bool {
-        guard var undo = notice?.undo, undo.id == id, !undo.isRestoring else { return false }
+    /// `false` when the bar does not offer these records or its «Вернуть» is on its way already.
+    func startRestoring(_ ids: [String]) -> Bool {
+        guard var undo = notice?.undo, undo.ids == ids, !undo.isRestoring else { return false }
         undo.isRestoring = true
         put(undo: undo, message: nil)
         return true
     }
 
     /// Back on the server: its «Вернуть» goes; a message that came meanwhile stays.
-    func restored(_ id: String) {
-        guard notice?.undo?.id == id else { return }
+    func restored(_ ids: [String]) {
+        guard notice?.undo?.ids == ids else { return }
         put(undo: nil, message: notice?.message)
     }
 
-    /// Never lost to a newer bar: the record stays deleted unless this one brings it back.
-    func restoreFailed(_ undo: RecordsNotice.Undo, message: String) {
-        put(undo: RecordsNotice.Undo(id: undo.id, title: undo.title), message: message)
+    /// Never lost to a newer bar: the records stay deleted unless this one brings them back.
+    func restoreFailed(_ items: [RecordsNotice.Item], message: String) {
+        put(undo: RecordsNotice.Undo(items: items), message: message)
     }
 
     /// Gone on the server: nothing to bring back.
-    func restoreGone(_ id: String, message: String) {
-        put(undo: notice?.undo?.id == id ? nil : notice?.undo, message: message)
+    func restoreGone(_ ids: [String], message: String) {
+        put(undo: notice?.undo?.ids == ids ? nil : notice?.undo, message: message)
     }
 
     /// Closed with VoiceOver («Закрыть» or the escape gesture).

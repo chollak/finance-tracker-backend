@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import Kapelka
 
-/// The list of recent records on the main screen and the line under the microphone (FT-161, «Как устроено»).
+/// The list of recent records on the main screen (FT-161, «Как устроено») and the answer of «Отправить очередь».
 @Suite("Список записей")
 struct CaptureListTests {
     private static let tashkent = TimeZone(identifier: "Asia/Tashkent")!
@@ -183,13 +183,6 @@ struct CaptureListTests {
         #expect(refused.reason == "сервер пишет только сумы и доллары")
     }
 
-    @Test("строка под микрофоном и для оплаты, не ушедшей с телефона")
-    func statusLineForPayment() {
-        var state = QueueState()
-        state.captures = [payment(.rejected, rejection: "валюта EUR — Kapelka пишет только сумы и доллары, запиши в Mini App")]
-        #expect(QueueStatus.line(for: state, configured: true) == "Не записано: валюта EUR — Kapelka пишет только сумы и доллары, запиши в Mini App")
-    }
-
     @Test("«Записать» — только ждущие, отправляемые, ошибки и «не нашёл операцию»; записанное — во вкладке «Записи»")
     func attentionOnly() {
         let sending = capture("такси 30к", minutesLater: 1)
@@ -263,24 +256,21 @@ struct CaptureListTests {
         #expect(row.status.hasSuffix("14:32"))
     }
 
-    @Test("строка под микрофоном: итог сервера или «в очереди N»")
-    func statusLine() {
-        let saved = capture("кофе", .sent, reply: CaptureReply(status: "saved", title: "Записал", summary: "Кофе · 25 000 сум"))
+    @Test("ответ «Отправить очередь»: «в очереди N» или «всё отправлено»; токен и настройки — первыми")
+    func afterSending() {
         var state = QueueState()
-        state.captures = [saved]
-        #expect(QueueStatus.line(for: state, configured: true) == "Записал · Кофе · 25 000 сум")
-
-        state.captures.append(capture("такси"))
-        state.captures.append(capture("обед"))
-        #expect(QueueStatus.line(for: state, configured: true) == "В очереди: 2")
+        state.captures = [
+            capture("кофе", .sent, reply: CaptureReply(status: "saved", title: "Записал", summary: "Кофе · 25 000 сум")),
+            capture("такси"),
+            capture("обед"),
+        ]
         #expect(QueueStatus.afterSending(state, configured: true) == "В очереди: 2 — сервер пока недоступен")
 
         state.captures = [capture("кофе", .rejected, rejection: "Text is too long (maximum 2000 characters)")]
-        #expect(QueueStatus.line(for: state, configured: true) == "Не записано: длиннее 2000 символов")
         #expect(QueueStatus.afterSending(state, configured: true) == "Всё отправлено")
 
         state.tokenRefused = true
-        #expect(QueueStatus.line(for: state, configured: true) == "Сервер не принял токен — проверь токен в настройках Kapelka")
-        #expect(QueueStatus.line(for: state, configured: false) == "Укажи адрес и токен в настройках Kapelka")
+        #expect(QueueStatus.afterSending(state, configured: true) == "Сервер не принял токен — проверь токен в настройках Kapelka")
+        #expect(QueueStatus.afterSending(state, configured: false) == "Укажи адрес и токен в настройках Kapelka")
     }
 }

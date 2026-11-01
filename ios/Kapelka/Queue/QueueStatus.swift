@@ -1,20 +1,8 @@
 import Foundation
 
-/// One line on what the queue is doing, for the screen and for «Отправить очередь».
+/// What the queue is doing, for «Отправить очередь» and «Записи». Under the microphone the card of the last phrase
+/// says it (FT-252, `LastPhrase`).
 enum QueueStatus {
-    /// Under the microphone: the answer to the last phrase — the server's summary or «в очереди N».
-    static func line(for state: QueueState, configured: Bool) -> String {
-        if let problem = problem(state, configured: configured) { return problem }
-        let pending = pendingCount(state)
-        if pending > 0 { return "В очереди: \(pending)" }
-        guard let last = state.captures.last else { return "Очередь пуста" }
-        switch last.state {
-        case .sent: return [last.reply?.title, last.reply?.summary].compactMap { $0 }.joined(separator: " · ")
-        case .rejected: return "Не записано: \(RejectionText.shown(for: last.rejection))"
-        case .pending: return "В очереди: \(pending)"
-        }
-    }
-
     /// What «Отправить очередь» answers once it has sent what it could.
     static func afterSending(_ state: QueueState, configured: Bool) -> String {
         if let problem = problem(state, configured: configured) { return problem }

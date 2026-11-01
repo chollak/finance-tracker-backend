@@ -22,22 +22,7 @@ struct RecordsView: View {
                     }
             }
             .overlay { placeholder }
-            .safeAreaInset(edge: .bottom) {
-                if let notice = list.notice {
-                    RecordsNoticeView(
-                        notice: notice,
-                        restore: { Task { await list.restoreDeleted() } },
-                        dismiss: list.dismissNotice
-                    )
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-                }
-            }
-            .animation(.default, value: list.notice)
-            // VoiceOver hears each bar; «Вернуть» on its way is not news
-            .onChange(of: list.notice?.id) {
-                guard let notice = list.notice, notice.undo?.isRestoring != true else { return }
-                AccessibilityNotification.Announcement(notice.text).post()
-            }
+            .recordsNoticeBar(list)
             // The system's indicator alone: the line over the list stays as it was
             .refreshable { await list.refresh(pulled: true) }
             .sheet(item: $list.picker) { CategorySheet(picker: $0) }

@@ -23,7 +23,13 @@ struct RecordReview: Equatable, Sendable {
     /// without assumptions), or one whose only «guess» is the account the phrase named.
     static func of(_ record: Record, answer: CapturedRecord?) -> RecordReview {
         guard let answer, isAsWritten(record, answer) else { return RecordReview(assumed: []) }
-        return RecordReview(assumed: answer.assumptions.compactMap { line($0, record: record) })
+        return RecordReview(assumed: lines(answer.assumptions, category: record.category))
+    }
+
+    /// A line per guess — here and on the card of «Записать» (FT-252). The category by its name now, when there is one:
+    /// a rename keeps its id.
+    static func lines(_ assumptions: [CaptureAssumption], category: String) -> [String] {
+        assumptions.compactMap { line($0, category: category) }
     }
 
     private static func isAsWritten(_ record: Record, _ answer: CapturedRecord) -> Bool {
@@ -33,13 +39,13 @@ struct RecordReview: Equatable, Sendable {
             && record.currency == answer.currency
     }
 
-    /// The account the phrase named is no guess. The category by the record's name now: a rename keeps its id.
-    private static func line(_ assumption: CaptureAssumption, record: Record) -> String? {
+    /// The account the phrase named is no guess.
+    private static func line(_ assumption: CaptureAssumption, category: String) -> String? {
         switch assumption {
         case let .thousands(written, amount):
             "«\(written)» понял как \(MoneyText.format(minor: amount * 100, currency: "UZS"))"
         case let .category(name):
-            "Категорию «\(record.category.isEmpty ? name : record.category)» выбрал сам"
+            "Категорию «\(category.isEmpty ? name : category)» выбрал сам"
         case let .account(name, reason):
             reason == .byDefault ? "Счёт «\(name)» — по умолчанию" : nil
         case .currency(_, .noUsdAccount):
