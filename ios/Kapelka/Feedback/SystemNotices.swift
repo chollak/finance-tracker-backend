@@ -19,7 +19,7 @@ struct SystemNoticeCenter: NoticeCenter {
         let content = UNMutableNotificationContent()
         content.body = notice.body
         content.threadIdentifier = Self.thread
-        content.userInfo = notice.opens.userInfo
+        content.userInfo = notice.userInfo
         let request = UNNotificationRequest(identifier: notice.id, content: content, trigger: nil)
         // Without permission iOS refuses it; the record is on the phone already, so nothing else fails
         try? await UNUserNotificationCenter.current().add(request)
@@ -58,7 +58,7 @@ final class NoticePresenter: NSObject, UNUserNotificationCenterDelegate, Sendabl
     }
 
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {
-        guard let place = AppPlace(userInfo: response.notification.request.content.userInfo) else { return }
-        await open.ask(place)
+        guard let target = OpenTarget(userInfo: response.notification.request.content.userInfo) else { return }
+        await open.ask(target)
     }
 }

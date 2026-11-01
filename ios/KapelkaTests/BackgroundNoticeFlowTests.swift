@@ -104,7 +104,8 @@ struct BackgroundNoticeFlowTests {
         #expect(await rig.center.delivered == [Notice(
             id: id,
             body: "Записал: KORZINKA 24 · Продукты? · \u{2212}25\u{00A0}000\u{00A0}сум",
-            opens: .records
+            opens: .records,
+            record: "ff1a09d9-b1d4-410a-9f8f-10f872ab580a"
         )])
     }
 

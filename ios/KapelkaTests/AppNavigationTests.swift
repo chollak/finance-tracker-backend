@@ -93,8 +93,8 @@ struct AppNavigationTests {
         let navigation = AppNavigation(listenRequest: request, openRequest: open)
 
         open.ask(.records)
-        #expect(navigation.openPending == .records)
-        navigation.takeOpenRequest()
+        #expect(navigation.openPending == OpenTarget(.records))
+        #expect(navigation.takeOpenRequest() == nil)
         #expect(navigation.tab == .records)
         #expect(navigation.openPending == nil)
 
@@ -135,6 +135,37 @@ struct AppNavigationTests {
         #expect(AppPlace(userInfo: [AppPlace.userInfoKey: "shop"]) == nil)
         #expect(AppPlace(userInfo: [AppPlace.userInfoKey: 1]) == nil)
         #expect(AppPlace.records.userInfo[AppPlace.userInfoKey] as? String == "records")
+    }
+
+    @Test("нажатие на «Записал: …» — «Записи» и запись, к которой перейти (FT-254); у других мест записи нет")
+    func openRecord() {
+        let open = OpenRequest()
+        let navigation = AppNavigation(listenRequest: request, openRequest: open)
+
+        open.ask(.records, record: "rec-1")
+        #expect(navigation.openPending == OpenTarget(.records, record: "rec-1"))
+        #expect(navigation.takeOpenRequest() == "rec-1")
+        #expect(navigation.tab == .records)
+        #expect(navigation.takeOpenRequest() == nil)
+
+        open.ask(.capture, record: "rec-2")
+        #expect(navigation.takeOpenRequest() == nil)
+        #expect(navigation.tab == .capture)
+    }
+
+    @Test("запись едет в userInfo уведомления рядом с местом; без неё и у старых — только место")
+    func recordInUserInfo() {
+        let notice = Notice(id: "wrote-x", body: "Записал: кофе", opens: .records, record: "rec-1")
+        #expect(notice.userInfo[AppPlace.userInfoKey] as? String == "records")
+        #expect(notice.userInfo[OpenTarget.recordKey] as? String == "rec-1")
+        #expect(OpenTarget(userInfo: notice.userInfo) == OpenTarget(.records, record: "rec-1"))
+
+        let plain = Notice(id: "kapelka.token", body: "…", opens: .settings)
+        #expect(plain.userInfo[OpenTarget.recordKey] == nil)
+        #expect(OpenTarget(userInfo: plain.userInfo) == OpenTarget(.settings))
+        #expect(OpenTarget(userInfo: [AppPlace.userInfoKey: "records"]) == OpenTarget(.records))
+        #expect(OpenTarget(userInfo: [AppPlace.userInfoKey: "records", OpenTarget.recordKey: 7]) == OpenTarget(.records))
+        #expect(OpenTarget(userInfo: [:]) == nil)
     }
 
     @Test("открытое приложение уведомлений не показывает; шторка, Wallet, фон — баннер и список")

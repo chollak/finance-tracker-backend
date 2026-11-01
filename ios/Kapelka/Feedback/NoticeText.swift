@@ -72,7 +72,9 @@ enum NoticeText {
             body = "\(WrittenText.title(needsReview: QueueEvents.needsReview(capture))): "
                 + (summary.isEmpty ? capture.payment?.line ?? "" : summary)
         }
-        return Notice(id: capture.clientId.uuidString, body: body, opens: .records)
+        // One record: a tap scrolls to it (FT-254); several — «Записи» at the top
+        let one = records.count == 1 ? records.first?.id : nil
+        return Notice(id: capture.clientId.uuidString, body: body, opens: .records, record: one)
     }
 
     /// One for all the phrases of the pass, records counted without the ones deleted on the server.
@@ -96,7 +98,8 @@ enum NoticeText {
         if !withoutAmount.isEmpty {
             body += "\n\(withoutAmountLine(withoutAmount))"
         }
-        return Notice(id: "wrote-\(first.clientId.uuidString)", body: body, opens: .records)
+        let one = count == 1 ? records.first?.id : nil
+        return Notice(id: "wrote-\(first.clientId.uuidString)", body: body, opens: .records, record: one)
     }
 
     private static func withoutAmountLine(_ names: [String]) -> String {
