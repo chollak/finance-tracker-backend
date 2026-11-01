@@ -69,20 +69,32 @@ private struct LastPhraseLineView: View {
     let line: LastPhrase.Line
     let opens: Bool
 
+    @Environment(\.dynamicTypeSize) private var typeSize
+
     var body: some View {
+        // At the accessibility sizes a `Label` indents the first line of each paragraph to flow around its icon: the
+        // guesses go under it there, and the chevron gives the text its room — beside it «Записал» broke by syllables
+        let large = typeSize.isAccessibilitySize
         HStack(alignment: .firstTextBaseline) {
-            Label {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(line.text)
-                        // In a button: without its own style the text would take the tint
-                        .foregroundStyle(line.kind == .deleted ? .secondary : .primary)
-                        .fixedSize(horizontal: false, vertical: true)
+            VStack(alignment: .leading, spacing: 4) {
+                Label {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(line.text)
+                            // In a button: without its own style the text would take the tint
+                            .foregroundStyle(line.kind == .deleted ? .secondary : .primary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        if !large {
+                            explanation
+                        }
+                    }
+                } icon: {
+                    icon
+                }
+                if large {
                     explanation
                 }
-            } icon: {
-                icon
             }
-            if opens {
+            if opens, !large {
                 Spacer(minLength: 8)
                 Image(systemName: "chevron.right")
                     .font(.footnote.weight(.semibold))
@@ -96,13 +108,11 @@ private struct LastPhraseLineView: View {
     private var explanation: some View {
         switch line.explanation {
         case let .assumed(lines)?:
-            VStack(alignment: .leading, spacing: 2) {
-                Text(RecordReview.assumedTitle)
-                    .font(.footnote.weight(.semibold))
-                ForEach(lines, id: \.self) { Text($0) }
-            }
-            .font(.footnote)
-            .foregroundStyle(.secondary)
+            let title = Text(RecordReview.assumedTitle).fontWeight(.semibold)
+            Text("\(title)\n\(lines.joined(separator: "\n"))")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
         case .unsure?:
             Text(RecordReview.unsureText)
                 .font(.footnote)
@@ -116,7 +126,9 @@ private struct LastPhraseLineView: View {
     private var icon: some View {
         switch line.kind {
         case .sending:
+            // New each time: in a reused `List` row a spinner stayed blank (seen in the simulator)
             ProgressView()
+                .id(UUID())
         case .review:
             Image(systemName: "exclamationmark.circle")
                 .foregroundStyle(.orange)

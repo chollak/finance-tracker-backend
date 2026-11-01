@@ -300,6 +300,44 @@ struct LastPhraseCardTests {
         #expect(shown(card)?.lines.map(\.kind) == [.sending])
     }
 
+    // MARK: Voice
+
+    @Test("голос: «Услышал: …» и «Отправляю…», пока фраза пишется на телефон; ответ сервера — «Записал: …»")
+    func voice() async throws {
+        defer { cleanUp() }
+        let parts = try parts(capture: [.http(200, body: CaptureReplyBodies.coffee)])
+        let card = await card(parts)
+        let speech = FakeSpeech()
+        let gate = Gate()
+        let queue = parts.capture
+        let voice = VoiceCapture(
+            system: speech, listener: speech, pause: .milliseconds(150), silenceAtStart: .seconds(5)
+        ) { phrase in
+            await gate.wait()
+            try await queue.add(phrase)
+        }
+        // As `AppModel.lastPhrase` reads the microphone
+        func shownNow() -> LastPhrase? {
+            card.shown(
+                configured: true, saving: voice.phase == .saving ? voice.transcript : nil, now: Date(), calendar: calendar
+            )
+        }
+
+        voice.start()
+        #expect(await eventually { await speech.isListening })
+        speech.hear("кофе 45")
+        #expect(await eventually { @MainActor in voice.phase == .saving })
+        #expect(shownNow()?.heard == "Услышал: кофе 45")
+        #expect(shownNow()?.lines.map(\.text) == ["Отправляю…"])
+
+        gate.open()
+        #expect(await eventually { @MainActor in voice.phase == .idle })
+        await queue.flush()
+        await refresh(card, parts)
+        #expect(shownNow()?.heard == "Услышал: кофе 45")
+        #expect(shownNow()?.lines.map(\.text) == ["Записал: кофе · Кафе · −45\u{00A0}000\u{00A0}сум · Карта"])
+    }
+
     // MARK: After a lost answer
 
     @Test("повтор без имени счёта — имена из GET /api/accounts, один раз на фразу")
