@@ -51,6 +51,9 @@ final class RecordsList {
     var notice: RecordsNotice? { bar.notice }
     /// The sheet of categories open now (FT-221); its own swipe down sets `nil`.
     var picker: CategoryPicker?
+    /// What the server deleted and gave back through this list — a swipe or the card's «Удалить» (FT-252): the card on
+    /// «Записать» shows its phrase's records as deleted, and as written again after «Вернуть».
+    @ObservationIgnored var changed: @MainActor (RecordsChange) -> Void = { _ in }
 
     private let feed: RecordsFeed
     private let now: @Sendable () -> Date
@@ -253,57 +256,115 @@ final class RecordsList {
     /// list refreshes.
     func delete(_ id: String) async {
         let title = record(id: id).map(RecordDays.title(of:)) ?? ""
+        await delete([RecordsNotice.Item(id: id, title: title)])
+    }
+
+    /// «Удалить» on the card of «Записать» (FT-252): every record of a phrase, one by one, as the swipe deletes one —
+    /// «Записи» hide them, loaded or not yet. One bar «Удалено N · Вернуть» for those the server deleted; one that
+    /// did not go is named on it and stays.
+    func delete(_ items: [RecordsNotice.Item]) async {
+        guard !items.isEmpty else { return }
         lastDelete += 1
         let started = lastDelete
         bar.takeOver()
-        deleting.insert(id)
+        deleting.formUnion(items.map(\.id))
         rebuild()
-        do {
-            try await feed.delete(id)
-            deleting.remove(id)
-            leave(id)
-            rebuild()
-            if started == lastDelete {
-                bar.offerUndo(RecordsNotice.Undo(id: id, title: title))
+        var deletedNow: [RecordsNotice.Item] = []
+        var gone = false
+        var failed: [(item: RecordsNotice.Item, failure: RecordsFailure)] = []
+        for item in items {
+            do {
+                try await feed.delete(item.id)
+                deletedNow.append(item)
+                leave(item.id)
+            } catch {
+                if error == .recordGone {
+                    gone = true
+                    leave(item.id)
+                } else {
+                    failed.append((item, error))
+                }
             }
-        } catch {
-            deleting.remove(id)
-            if error == .recordGone {
-                leave(id)
-                refreshLater()
-            }
+            deleting.remove(item.id)
             rebuild()
-            let latest = started == lastDelete || error == .recordGone
-            bar.say(latest ? error.message : "Не удалил «\(title)» — \(error.reason)")
-            feedback(.editFailed)
         }
+        let off = items.filter { item in !failed.contains { $0.item == item } }
+        if !off.isEmpty {
+            changed(.deleted(off.map(\.id)))
+        }
+        if gone {
+            refreshLater()
+        }
+        let latest = started == lastDelete
+        if latest, !deletedNow.isEmpty {
+            bar.offerUndo(RecordsNotice.Undo(items: deletedNow))
+        }
+        guard let message = Self.deleteMessage(failed: failed, gone: gone, alone: latest && off.isEmpty) else {
+            return
+        }
+        bar.say(message)
+        feedback(.editFailed)
     }
 
-    /// «Вернуть» on the bar: the record the server gives back goes to its place, on a scrolled page too. The bar
-    /// waits for the answer with the button off. Without a network the record stays deleted, and the bar says so
+    /// What the bar says about a delete that did not all go: the server's reason when nothing else happened and it is
+    /// the latest delete, otherwise the records named.
+    private static func deleteMessage(
+        failed: [(item: RecordsNotice.Item, failure: RecordsFailure)],
+        gone: Bool,
+        alone: Bool
+    ) -> String? {
+        guard let first = failed.first else {
+            return gone ? RecordsFailure.recordGone.message : nil
+        }
+        if alone { return first.failure.message }
+        return "Не удалил \(RecordsNotice.Undo(items: failed.map(\.item)).what) — \(first.failure.reason)"
+    }
+
+    /// «Вернуть» on the bar: the records the server gives back go to their places, on a scrolled page too. The bar
+    /// waits for the answers with the button off. Without a network a record stays deleted, and the bar says so
     /// with its own «Вернуть» — even when another delete has taken the bar meanwhile.
     func restoreDeleted() async {
-        guard let undo = notice?.undo, bar.startRestoring(undo.id) else { return }
-        do {
-            let record = try await feed.restore(undo.id)
-            let wasShown = deleted.remove(undo.id) != nil
-            if let placed = shownRecords.restoring(record, wasShown: wasShown, morePagesFollow: hasMore) {
-                shownRecords = placed
-            } else {
-                // The list started again since the delete: a fresh start brings it on its page
-                refreshLater()
+        guard let undo = notice?.undo, bar.startRestoring(undo.ids) else { return }
+        var restored: [String] = []
+        var gone = false
+        var failed: [(item: RecordsNotice.Item, failure: RecordsFailure)] = []
+        var refreshes = false
+        for item in undo.items {
+            do {
+                let record = try await feed.restore(item.id)
+                let wasShown = deleted.remove(item.id) != nil
+                if let placed = shownRecords.restoring(record, wasShown: wasShown, morePagesFollow: hasMore) {
+                    shownRecords = placed
+                } else {
+                    // The list started again since the delete: a fresh start brings it on its page
+                    refreshes = true
+                }
+                restored.append(item.id)
+            } catch {
+                if error == .recordGone {
+                    gone = true
+                } else {
+                    failed.append((item, error))
+                }
             }
-            rebuild()
-            bar.restored(undo.id)
-            feedback(.editSaved)
-        } catch {
-            if error == .recordGone {
-                bar.restoreGone(undo.id, message: error.message)
-                refreshLater()
-            } else {
-                bar.restoreFailed(undo, message: "Не вернул «\(undo.title)» — \(error.reason)")
-            }
+        }
+        rebuild()
+        if !restored.isEmpty {
+            changed(.restored(restored))
+        }
+        if refreshes || gone {
+            refreshLater()
+        }
+        if let first = failed.first {
+            let left = failed.map(\.item)
+            bar.restoreFailed(left, message: "Не вернул \(RecordsNotice.Undo(items: left).what) — \(first.failure.reason)")
             feedback(.editFailed)
+        } else if gone {
+            bar.restoreGone(undo.ids, message: RecordsFailure.recordGone.message)
+            feedback(.editFailed)
+        } else {
+            bar.restored(undo.ids)
+            feedback(.editSaved)
         }
     }
 
@@ -370,6 +431,7 @@ final class RecordsList {
             if error == .recordGone {
                 leave(id)
                 rebuild()
+                changed(.deleted([id]))
                 // Next to «Вернуть» of a delete on its way, which keeps it when it comes
                 bar.say(error.message)
                 refreshLater()
@@ -491,6 +553,14 @@ final class RecordsList {
         default: return .unreachable
         }
     }
+}
+
+/// A change the server made to records through the list (FT-252), in the order of the records asked for.
+enum RecordsChange: Equatable, Sendable {
+    /// Deleted now, or found deleted elsewhere already (404).
+    case deleted([String])
+    /// Back after «Вернуть».
+    case restored([String])
 }
 
 /// A scroll the screen applies once: to a record, or to the top when the record is not on the loaded pages.

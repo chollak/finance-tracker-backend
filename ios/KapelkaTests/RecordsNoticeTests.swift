@@ -52,7 +52,7 @@ struct RecordsNoticeTests {
 
         async let restoring: Void = list.restoreDeleted()
         #expect(await eventually { @MainActor in list.notice?.undo?.isRestoring == true })
-        #expect(list.notice?.restorable == "b")
+        #expect(list.notice?.restorable == ["b"])
         // Its 5 s end meanwhile: the bar waits for the answer
         timer.fire()
         try await Task.sleep(for: .milliseconds(50))
@@ -84,11 +84,11 @@ struct RecordsNoticeTests {
         async let restoring: Void = list.restoreDeleted()
         #expect(await eventually { await routes.recordEdits.requests.count == 2 })
         await list.delete("c")
-        #expect(list.notice?.restorable == "c")
+        #expect(list.notice?.restorable == ["c"])
         await restoring
 
         #expect(list.notice?.message == "Не вернул «такси» — нет связи")
-        #expect(list.notice?.restorable == "b")
+        #expect(list.notice?.restorable == ["b"])
         #expect(ids(list) == ["a"])
 
         await list.restoreDeleted()
@@ -114,7 +114,7 @@ struct RecordsNoticeTests {
 
         #expect(ids(list) == ["b", "a"])
         #expect(list.notice?.message == "Не удалил «такси» — нет связи")
-        #expect(list.notice?.restorable == "c")
+        #expect(list.notice?.restorable == ["c"])
     }
 
     @Test("«Запись уже удалена» при смене категории не теряется, когда приходит ответ на другое удаление")
@@ -136,7 +136,7 @@ struct RecordsNoticeTests {
         await deleting
 
         #expect(list.notice?.message == "Запись уже удалена")
-        #expect(list.notice?.restorable == "c")
+        #expect(list.notice?.restorable == ["c"])
     }
 
     @Test("с VoiceOver плашка не уходит по таймеру — пока её не закроют или не начнётся новое действие")
@@ -152,10 +152,10 @@ struct RecordsNoticeTests {
         #expect(await eventually { timer.durations.count == 1 })
         timer.fire()
         try await Task.sleep(for: .milliseconds(50))
-        #expect(list.notice?.restorable == "b")
+        #expect(list.notice?.restorable == ["b"])
 
         await list.delete("c")
-        #expect(list.notice?.restorable == "c")
+        #expect(list.notice?.restorable == ["c"])
 
         list.dismissNotice()
         #expect(list.notice == nil)
