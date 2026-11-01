@@ -96,7 +96,8 @@ struct RecordsView: View {
         } label: {
             RecordRowView(row: row)
         }
-        .accessibilityHint("Сменить категорию")
+        // «!» opens the same sheet, with why and «Да, верно» over the categories (FT-254)
+        .accessibilityHint(row.needsReview ? "Почему «проверить» и сменить категорию" : "Сменить категорию")
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
             Button(role: .destructive) {
                 Task { await list.delete(row.id) }
