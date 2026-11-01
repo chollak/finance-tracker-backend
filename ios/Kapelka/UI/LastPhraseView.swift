@@ -32,16 +32,20 @@ struct LastPhraseSection: View {
                 Text(footnote)
                     .font(.footnote)
                     .foregroundStyle(.secondary)
+                    .id(Part.footnote)
             }
             if let note = phrase.note {
                 Text(note)
                     .font(.footnote)
+                    .id(Part.note)
             }
             if phrase.opensSettings {
                 Button("Настройки", action: openSettings)
+                    .id(Part.settings)
             }
             if phrase.offersSendNow {
                 Button("Отправить сейчас", action: sendNow)
+                    .id(Part.sendNow)
             }
             if let deletion = phrase.deletion {
                 Button(role: .destructive) {
@@ -52,8 +56,28 @@ struct LastPhraseSection: View {
                 // Red, as the swipes: the screen's black-or-white tint would make it white on white in the dark theme
                 .foregroundStyle(.red)
                 .accessibilityLabel(Self.deleteLabel(deletion))
+                .id(Part.delete)
             }
         }
+    }
+
+    /// The rows under the lines, by their ids in the list; a line's id is its own.
+    private enum Part {
+        static let footnote = "last-phrase-footnote"
+        static let note = "last-phrase-note"
+        static let settings = "last-phrase-settings"
+        static let sendNow = "last-phrase-send-now"
+        static let delete = "last-phrase-delete"
+    }
+
+    /// The card's last row, for `ScrollViewReader`: «Удалить», else the last button, note or line.
+    nonisolated static func end(of phrase: LastPhrase) -> String {
+        if phrase.deletion != nil { return Part.delete }
+        if phrase.offersSendNow { return Part.sendNow }
+        if phrase.opensSettings { return Part.settings }
+        if phrase.note != nil { return Part.note }
+        if phrase.footnote != nil { return Part.footnote }
+        return phrase.lines.last?.id ?? Part.footnote
     }
 
     private static func deleteLabel(_ deletion: LastPhrase.Deletion) -> String {

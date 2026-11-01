@@ -309,6 +309,35 @@ struct LastPhraseTests {
         #expect(shown.lines.first?.explanation == .unsure)
     }
 
+    /// A repeat while the first request is still written: the server waits for it and gives its whole answer, with
+    /// `repeated: true` (`quickCaptureService.ts`, `once`).
+    private static func repeatedWhole(_ body: String) throws -> CaptureReply {
+        let whole = try CaptureReplyBodies.reply(body)
+        return CaptureReply(
+            status: whole.status, title: whole.title, summary: whole.summary,
+            records: whole.records, withoutAmount: whole.withoutAmount, repeated: true
+        )
+    }
+
+    @Test("повтор во время первого запроса — ответ целый: «без суммы» и догадки показаны, сноски нет")
+    func repeatWhileFirstIsWritten() throws {
+        let taxi = phrase("кофе 25к, такси", .sent, attempts: 2, reply: try Self.repeatedWhole(CaptureReplyBodies.coffeeAndTaxiWithoutAmount))
+        let withoutAmount = try #require(card(state([taxi])))
+        #expect(texts(withoutAmount).last == "Без суммы, не записал: такси — скажи с суммой")
+        #expect(withoutAmount.footnote == nil)
+
+        let headphones = phrase(
+            "кофе 25к и наушники 55$", .sent, attempts: 2, reply: try Self.repeatedWhole(CaptureReplyBodies.coffeeAndHeadphones)
+        )
+        let review = try #require(card(state([headphones])))
+        #expect(review.lines.last?.explanation == .assumed([
+            "Категорию «Покупки» выбрал сам",
+            "Счёт «Карта» — по умолчанию",
+            "Доллары — на сумовом счёте: долларового нет",
+        ]))
+        #expect(review.footnote == nil)
+    }
+
     @Test("удалена на сервере до повтора — «Удалено», без «Удалить» и без перехода")
     func deletedBeforeRepeat() throws {
         let capture = try written("кофе 45", body: CaptureReplyBodies.coffeeRepeated)
@@ -430,14 +459,70 @@ struct LastPhraseTests {
         #expect(card(state([older, newer]), marks: removed)?.heard == "Услышал: обед 60к")
     }
 
-    @Test("заметка о неудачном «Удалить» — пока фраза ждёт")
+    @Test("заметка «Уже отправляется» — только пока её запрос в пути; не дошёл — заметки нет, «Удалить» снова работает")
     func note() throws {
         let capture = phrase("кофе 25к", attempts: 1)
-        let note = LastPhrase.Note(clientId: capture.clientId, text: "Уже отправляется — удалить можно, когда запишется")
-        #expect(card(state([capture]) { $0.wait = .noAnswer }, note: note)?.note == note.text)
+        let note = LastPhrase.Note(
+            clientId: capture.clientId, text: "Уже отправляется — удалить можно, когда запишется", whileSending: true
+        )
+        #expect(card(state([capture]) { $0.sendingId = capture.clientId }, note: note)?.note == note.text)
+
+        // The request timed out: the note would contradict «Сервер не ответил» and the working «Удалить»
+        let timedOut = try #require(card(state([capture]) { $0.wait = .noAnswer }, note: note))
+        #expect(timedOut.note == nil)
+        #expect(timedOut.deletion == .fromPhone(capture.clientId))
+
+        // The phone's own failure stays while the phrase waits
+        let closed = LastPhrase.Note(clientId: capture.clientId, text: "Не удалилось: очередь на телефоне пока закрыта")
+        #expect(card(state([capture]) { $0.wait = .noAnswer }, note: closed)?.note == closed.text)
 
         let sent = try written("кофе 45", body: CaptureReplyBodies.coffee)
         #expect(card(state([sent]), note: LastPhrase.Note(clientId: sent.clientId, text: note.text))?.note == nil)
+    }
+
+    @Test("новая фраза после прошлой «нет связи» — «Отправляю…», а не прежняя причина")
+    func newPhraseAfterOldReason() throws {
+        let capture = phrase("кофе 25к")
+        let shown = try #require(card(state([capture]) { $0.wait = .offline }))
+        #expect(texts(shown) == ["Отправляю…"])
+        #expect(!shown.offersSendNow)
+    }
+
+    @Test("конец карточки для прокрутки над клавиатурой — её последняя строка")
+    func end() throws {
+        let written = try written("кофе 45", body: CaptureReplyBodies.coffee)
+        #expect(LastPhraseSection.end(of: try #require(card(state([written])))) == "last-phrase-delete")
+
+        let waiting = phrase("кофе 25к", attempts: 1)
+        let pause = state([waiting]) { $0.wait = .busy; $0.notBefore = Self.inputTime.addingTimeInterval(600) }
+        #expect(LastPhraseSection.end(of: try #require(card(pause))) == "last-phrase-delete")
+        #expect(LastPhraseSection.end(of: try #require(card(state([phrase("кофе 25к")])))) == "way")
+
+        let notFound = phrase(
+            "привет", .sent, attempts: 1,
+            reply: CaptureReply(status: "no_transaction", title: "Не нашёл операцию", summary: "…")
+        )
+        #expect(LastPhraseSection.end(of: try #require(card(state([notFound])))) == "not-found")
+
+        let gone = try self.written("кофе 45", body: CaptureReplyBodies.coffeeRepeated)
+        #expect(LastPhraseSection.end(of: try #require(card(state([gone])))) == "last-phrase-footnote")
+    }
+
+    @Test("исход сменился или фраза новая — `progress` другой; тот же исход — тот же")
+    func progress() throws {
+        let capture = phrase("кофе 45")
+        let sending = try #require(card(state([capture])))
+        #expect(card(state([capture]))?.progress == sending.progress)
+
+        var answered = capture
+        answered.state = .sent
+        answered.attempts = 1
+        answered.reply = try CaptureReplyBodies.reply(CaptureReplyBodies.coffee)
+        let wrote = try #require(card(state([answered])))
+        #expect(wrote.progress != sending.progress)
+
+        let another = phrase("кофе 45", minutesLater: 1)
+        #expect(card(state([capture, another]))?.progress != sending.progress)
     }
 
     // MARK: Only phrases

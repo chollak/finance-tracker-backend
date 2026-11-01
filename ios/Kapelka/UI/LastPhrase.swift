@@ -60,6 +60,9 @@ struct LastPhrase: Equatable, Sendable {
     struct Note: Equatable, Sendable {
         let clientId: UUID
         let text: String
+        /// «Уже отправляется»: true only while that request is out — once it failed, «Удалить» works again (review of
+        /// PR #171).
+        var whileSending = false
     }
 
     /// What the card is built from besides the queue.
@@ -93,6 +96,12 @@ struct LastPhrase: Equatable, Sendable {
     let opensSettings: Bool
     /// «Отправить сейчас»: it waits for a network or the server, and a try now may go.
     let offersSendNow: Bool
+
+    /// What changes when the phrase moves on — a new phrase, «Отправляю…» → «Записал»: then the screen brings the card
+    /// into sight over the keyboard (review of PR #171).
+    var progress: [String] {
+        [id?.uuidString ?? heard] + lines.map { "\($0.id) \($0.kind)" }
+    }
 
     static let sendingText = "Отправляю…"
     static let notFoundText = "Не нашёл операцию — скажи с суммой, например: „кофе 25 тысяч“"
@@ -154,7 +163,10 @@ struct LastPhrase: Equatable, Sendable {
 
     private static func pending(_ capture: Capture, _ state: QueueState, _ context: Context) -> LastPhrase {
         let removable = Deletion.fromPhone(capture.clientId)
-        let note = context.note.flatMap { $0.clientId == capture.clientId ? $0.text : nil }
+        let note = context.note.flatMap { note in
+            note.clientId == capture.clientId && (!note.whileSending || state.sendingId == capture.clientId)
+                ? note.text : nil
+        }
         func card(_ kind: Line.Kind, _ text: String, settings: Bool = false, sendNow: Bool = false) -> LastPhrase {
             LastPhrase(
                 id: capture.clientId,
@@ -176,6 +188,10 @@ struct LastPhrase: Equatable, Sendable {
             let time = RussianDate.formatter("HH:mm", context.calendar).string(from: notBefore)
             return card(.busy, "Сервер просит подождать — уйдёт в \(time)")
         }
+        // Never tried and first in line: the reason is an older attempt's — a phrase taken off the phone, other
+        // settings — and this one goes now. Behind a waiting record it waits for the same reason
+        let waitsBehind = state.captures.prefix { $0.clientId != capture.clientId }.contains { $0.state == .pending }
+        if capture.attempts == 0, !waitsBehind { return sending }
         let noAnswer = "Сервер не ответил — уйдёт позже"
         switch state.wait {
         case .offline?:
@@ -186,8 +202,8 @@ struct LastPhrase: Equatable, Sendable {
             // The pause is over: the queue sends it now
             return sending
         case nil:
-            // Never went — it goes now; went before, and the file does not say why (a build before FT-252)
-            return capture.attempts == 0 ? sending : card(.noAnswer, noAnswer, sendNow: true)
+            // Went before, and the file does not say why (a build before FT-252)
+            return card(.noAnswer, noAnswer, sendNow: true)
         }
     }
 
@@ -218,7 +234,7 @@ struct LastPhrase: Equatable, Sendable {
                 id: record.id,
                 kind: record.needsReview ? .review : .written,
                 text: "\(WrittenText.title(needsReview: record.needsReview)): \(line)",
-                explanation: record.needsReview ? explanation(of: record, repeated: reply.repeated) : nil,
+                explanation: record.needsReview ? explanation(of: record) : nil,
                 record: offered ? nil : record.id
             ))
             if !offered {
@@ -230,9 +246,16 @@ struct LastPhrase: Equatable, Sendable {
             id: capture.clientId,
             heard: heard(capture.text),
             lines: lines,
-            footnote: reply.repeated ? repeatedFootnote : nil,
+            footnote: lostDetails(reply) ? repeatedFootnote : nil,
             deletion: live.isEmpty || context.deleting ? nil : .onServer(live)
         )
+    }
+
+    /// A repeat read from the database: no account names, guesses or «без суммы» (FT-255). A repeat that came while the
+    /// first request was still written carries the first's whole answer (`quickCaptureService.ts`, `once`) — the
+    /// account names or «без суммы» in it tell it apart (review of PR #171).
+    private static func lostDetails(_ reply: CaptureReply) -> Bool {
+        reply.repeated && reply.withoutAmount.isEmpty && reply.records.allSatisfy { $0.accountName == nil }
     }
 
     /// «без суммы» and «не нашёл»; an answer of a server before FT-255 — its ack alone.
@@ -260,9 +283,10 @@ struct LastPhrase: Equatable, Sendable {
         return [WrittenText.line(record), account].compactMap { $0 }.joined(separator: " · ")
     }
 
-    /// The guesses of the answer; none kept — the general phrase. A repeat comes without them (FT-255).
-    private static func explanation(of record: CapturedRecord, repeated: Bool) -> Line.Explanation {
-        let assumed = repeated ? [] : RecordReview.lines(record.assumptions, category: record.category)
+    /// The guesses of the answer, whenever they came — a repeat from the database has none (FT-255); none — the general
+    /// phrase.
+    private static func explanation(of record: CapturedRecord) -> Line.Explanation {
+        let assumed = RecordReview.lines(record.assumptions, category: record.category)
         return assumed.isEmpty ? .unsure : .assumed(assumed)
     }
 

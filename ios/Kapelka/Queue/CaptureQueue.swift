@@ -125,6 +125,10 @@ actor CaptureQueue {
         else { return false }
         var next = current
         next.captures.remove(at: index)
+        // Nothing waits any more: why it waited is no reason for the next phrase (review of PR #171)
+        if !next.captures.contains(where: { $0.state == .pending }) {
+            next.wait = nil
+        }
         try store.save(next)
         publish(next)
         return true
@@ -174,12 +178,14 @@ actor CaptureQueue {
         sending?.cancel()
     }
 
-    /// The address or the token changed: try again after a refused token.
+    /// The address or the token changed: try again after a refused token. Why the last attempt failed says nothing
+    /// about the new address (FT-252).
     func settingsChanged() {
         settingsGeneration += 1
-        guard loadIfNeeded(), current.tokenRefused else { return }
+        guard loadIfNeeded(), current.tokenRefused || current.wait != nil else { return }
         var next = current
         next.tokenRefused = false
+        next.wait = nil
         persist(next)
     }
 
@@ -308,6 +314,8 @@ actor CaptureQueue {
         case .tokenRefused:
             capture.attempts += 1
             next.tokenRefused = true
+            // The server answered: the token is the reason now
+            next.wait = nil
             goOn = false
         }
         next.captures[index] = capture

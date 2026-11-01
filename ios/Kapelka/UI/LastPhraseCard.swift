@@ -14,8 +14,11 @@ final class LastPhraseCard {
     private var accountNames: [String: String] = [:]
     private var deleting = false
     private var note: LastPhrase.Note?
-    /// The phrase whose account names were asked for already: once per phrase.
-    @ObservationIgnored private var askedAccounts: UUID?
+    /// The phrase whose account names came: once per phrase. One that did not come is asked again on the next state of
+    /// the queue (review of PR #171).
+    @ObservationIgnored private var namedAccounts: UUID?
+    /// `GET /api/accounts` is on its way: the states meanwhile ask nothing more.
+    @ObservationIgnored private var askingAccounts = false
 
     @ObservationIgnored private let queue: CaptureQueue
     @ObservationIgnored private let records: RecordsList
@@ -75,7 +78,11 @@ final class LastPhraseCard {
         guard let capture = state.captures.first(where: { $0.clientId == clientId }) else { return }
         do {
             guard try await queue.remove(clientId) else {
-                note = LastPhrase.Note(clientId: clientId, text: "Уже отправляется — удалить можно, когда запишется")
+                note = LastPhrase.Note(
+                    clientId: clientId,
+                    text: "Уже отправляется — удалить можно, когда запишется",
+                    whileSending: true
+                )
                 return
             }
             let removed = LastPhraseMarks.Removed(
@@ -120,14 +127,19 @@ final class LastPhraseCard {
     private func askAccountNamesIfNeeded() {
         guard
             let capture = LastPhrase.shownCapture(in: state, marks: marks),
-            askedAccounts != capture.clientId,
+            namedAccounts != capture.clientId,
+            !askingAccounts,
             let reply = capture.reply,
             reply.records.contains(where: { $0.accountName == nil && $0.accountId != nil })
         else { return }
-        askedAccounts = capture.clientId
+        askingAccounts = true
+        let clientId = capture.clientId
         Task { [accounts] in
-            guard let list = await accounts() else { return }
+            let list = await accounts()
+            askingAccounts = false
+            guard let list else { return }
             accountNames = Dictionary(list.map { ($0.id, $0.name) }, uniquingKeysWith: { first, _ in first })
+            namedAccounts = clientId
         }
     }
 }

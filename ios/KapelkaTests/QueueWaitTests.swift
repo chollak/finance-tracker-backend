@@ -57,6 +57,48 @@ struct QueueWaitTests {
         #expect(try harness.store.load().wait == nil)
     }
 
+    @Test("токен не принят, новые настройки — прежней причины нет")
+    func tokenAndSettingsClearTheReason() async throws {
+        let harness = try QueueHarness(transport: FakeTransport([
+            .failure(.notConnectedToInternet),
+            .http(401, body: ServerReply.invalidToken),
+            .failure(.timedOut),
+        ]))
+        let queue = harness.makeQueue()
+        _ = try await queue.add("кофе 25к")
+        await queue.flush()
+        #expect(await queue.state().wait == .offline)
+
+        // The server answered: it is reachable, the token is the reason now
+        await queue.flush()
+        #expect(await queue.state().tokenRefused)
+        #expect(await queue.state().wait == nil)
+
+        await queue.settingsChanged()
+        await queue.flush()
+        #expect(await queue.state().wait == .noAnswer)
+        // New address or token: what the old ones met says nothing about the next attempt
+        await queue.settingsChanged()
+        #expect(await queue.state().wait == nil)
+        #expect(try harness.store.load().wait == nil)
+    }
+
+    @Test("удалена последняя ждущая — причины нет; другая ещё ждёт — причина остаётся")
+    func removingTheLastWaiting() async throws {
+        let harness = try QueueHarness(transport: FakeTransport([.failure(.notConnectedToInternet)]))
+        let queue = harness.makeQueue()
+        let first = try await queue.add("кофе 25к")
+        let second = try await queue.add("такси 18к")
+        await queue.flush()
+        #expect(await queue.state().wait == .offline)
+
+        #expect(try await queue.remove(second.clientId))
+        #expect(await queue.state().wait == .offline)
+        #expect(try await queue.remove(first.clientId))
+        #expect(await queue.state().wait == nil)
+        #expect(try harness.store.load().wait == nil)
+    }
+
     @Test("переживает перезапуск; файл до FT-252 без причины читается")
     func keptOnDisk() async throws {
         let harness = try QueueHarness(transport: FakeTransport([.failure(.timedOut)]))

@@ -365,6 +365,50 @@ struct LastPhraseCardTests {
         #expect(shown(card)?.footnote == LastPhrase.repeatedFootnote)
     }
 
+    @Test("имена счетов не пришли — следующий отчёт очереди спрашивает снова")
+    func accountsAgainAfterFailure() async throws {
+        defer { cleanUp() }
+        let parts = try parts(
+            capture: [.http(200, body: Self.breadAndPetrolRepeated)],
+            routes: RoutedTransport(accounts: [
+                .failure(.notConnectedToInternet),
+                .http(200, body: RecordsReply.accounts([RecordsReply.account(id: "3cacdec0-0136-11a2-62a2-12e4e96411cf")])),
+            ])
+        )
+        _ = try await parts.capture.add(Self.phrase)
+        await parts.capture.flush()
+        let card = await card(parts)
+        #expect(await eventually { await parts.accountsAsked.count == 1 })
+
+        // Each state of the queue asks again until the names come
+        #expect(await eventually { @MainActor in
+            await self.refresh(card, parts)
+            return self.texts(card).first == "Записал: хлеб · Продукты · −5\u{00A0}000\u{00A0}сум · Карта"
+        })
+        #expect(await parts.accountsAsked.count == 2)
+
+        await refresh(card, parts)
+        #expect(await parts.accountsAsked.count == 2)
+    }
+
+    @Test("без связи удалил с телефона, связь вернулась, новая фраза — «Отправляю…», а не прежняя «нет связи»")
+    func newPhraseAfterRemovedOffline() async throws {
+        defer { cleanUp() }
+        let parts = try parts(capture: [.failure(.notConnectedToInternet)])
+        let first = try await parts.capture.add("кофе 25к")
+        await parts.capture.flush()
+        let card = await card(parts)
+        #expect(texts(card) == ["Нет связи — уйдёт, когда появится сеть"])
+
+        await card.delete(.fromPhone(first.clientId))
+        _ = try await parts.capture.add("такси 18к")
+        await refresh(card, parts)
+
+        #expect(shown(card)?.heard == "Услышал: такси 18к")
+        #expect(texts(card) == ["Отправляю…"])
+        #expect(shown(card)?.offersSendNow == false)
+    }
+
     /// «хлеб 5к и бензин 200к картой» sent again after a lost answer: the records from the database, without the
     /// account's name and the assumptions (`breadAndPetrolRepeatedAfterDeletion` without the deletion).
     private static let breadAndPetrolRepeated = CaptureReplyBodies.breadAndPetrolRepeatedAfterDeletion
