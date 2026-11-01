@@ -596,56 +596,9 @@ Definition of Done:
 
 ---
 
-### FT-251: iOS: haptic feedback and one entry for queue events
-
-Status: backlog — в очереди, первой (FT-255 в main)
-Priority: medium
-Owner: Claude Code, Shukur (iPhone), QA — под-чат проверки
-Type: feature
-Size: M
-Depends on: FT-255
-
-Context:
-Решение Шукура 2026-10-31 «iOS: отклик на каждое действие» (`docs/tasks/decisions.md`). Только стандартные
-компоненты iOS; приложение — только для Шукура. Сейчас телефон ни на что не отвечает вибрацией. Отклик — `sensoryFeedback`
-(iOS 17). **`.start` не годится:** на iPhone он не вибрирует (только watchOS). **Во время записи iOS глушит
-вибрацию:** `Voice/AppleSpeech.swift` ставит категорию `.record` без
-`setAllowHapticsAndSystemSoundsDuringRecording(true)` — его нужно включить перед `setActive`.
-
-**Одно событие очереди — один вход.** Переходы очереди (записал, в очереди, отказ, токен) живут в actor `CaptureQueue`;
-единственный потребитель `updates` — цикл в `App/AppModel.swift` (`AsyncStream`, `bufferingNewest(1)`), второй
-слушатель копий не получит. Задача вводит `QueueEvents.between(old, new)` (по образцу `QueueStatus.wroteRecords`) и
-один вход, который живёт в `AppServices` (не в `AppModel`: отправка идёт и из App Intent — `PaymentRecorder`,
-`SendQueueIntent`): событие + приложение на экране (`scenePhase == .active`) → вибрация; иначе → уведомление
-(FT-253 подключает свою половину). Один проход очереди — один отклик, а не по одному на запись.
-
-| Момент | Отклик |
-|---|---|
-| Микрофон начал слушать (кнопка, Action Button, App Shortcut) — `VoiceCapture` → `.listening` | `.impact(weight: .medium)` |
-| Сервер записал (фразу или оплату на открытом приложении) | `.success` |
-| Записал, но «проверь» (`needsReview`) | `.warning` |
-| Первая попытка кончилась `retryLater` — запись ждёт в очереди (без сети сразу, со спящим ПК — до 60 с) | `.impact(weight: .light)` |
-| Ошибка: `VoiceProblem` (не расслышал, нет доступа, не сохранилось), «Не нашёл операцию», отказ 400, токен не принят, удаление или категория без связи (FT-221) | `.error` |
-| Категория сохранена, «Вернуть» сработало (FT-221) | `.success` |
-
-Без звуков; без своего переключателя — системная настройка «Системные тактильные сигналы». Места:
-`Voice/VoiceCapture.swift`, `Voice/AppleSpeech.swift`, `Queue/CaptureQueue.swift`, `Queue/QueueStatus.swift`,
-`App/AppServices.swift`, `App/AppModel.swift`, `UI/CaptureView.swift`, `UI/RecordsView.swift`,
-`Records/CategoryPicker.swift`, `UI/CategorySheet.swift`.
-
-Definition of Done:
-- [ ] `QueueEvents.between(old, new)` выдаёт события прохода; тесты на каждый переход и на пачку (одно событие)
-- [ ] Выбор «вибрация / уведомление / ничего» по событию и фазе — чистая функция; тест на каждую строку таблицы и на
-      фоновую фазу (вибрации нет, событие уходит в уведомления)
-- [ ] Старт микрофона вибрирует во время записи (`allowHapticsAndSystemSoundsDuringRecording`); тест на настройку сессии
-- [ ] `ios/README.md` — строка про отклик; `ios/scripts/test.sh` зелёный
-- [ ] Шукуру — на iPhone: Action Button, не глядя — чувствуется старт; «кофе 25 тысяч» — «успех»; «привет» — «ошибка»
-
----
-
 ### FT-253: iOS: notifications about what happened in the background
 
-Status: backlog — в очереди, после FT-251
+Status: backlog — в очереди, первой (FT-251 в main)
 Priority: medium
 Owner: Claude Code, Shukur (iPhone), QA — под-чат проверки
 Type: feature
@@ -680,6 +633,23 @@ FT-179); оплата при открытом приложении отвеча�
 
 **Переход по нажатию** — эта задача строит общий запрос перехода по образцу `ListenRequest` (вкладка «Записи» /
 «Записать» / настройки) и `didReceive` в `NoticePresenter`; прокрутку к записи и подсветку добавляет FT-254.
+
+**Шов FT-251 и что дополнить** (PR #168):
+- `QueueNotices.post(_ events: [QueueEvent]) async` (`ios/Kapelka/Feedback/FeedbackEntry.swift`) получает проход
+  целиком и только вне экрана; реализацию передать в `FeedbackEntry(notices:)` в `AppServices.live()`. События несут
+  `Capture` (`payment`, `reply.records`, `clientId` — id уведомления). Очередь ждёт `post`, поэтому внутри нельзя ждать
+  `flush` — будет взаимоблокировка; `queue.state()` читать можно. `post` укладывается в срок фоновой отправки и
+  проверяет отмену. `.tokenRefused` приходит и на новую фразу, пока токен не принят: на экране это ошибка, уведомление
+  — одно, без повторов.
+- **«Отправить очередь» без уведомлений**: `FeedbackEntry.quietly { … }` — счётчик вокруг `background.run()` в
+  `SendQueueIntent`. Через `flush` не передать: прогоны объединяются.
+- **Снять «уйдёт позже» на экране**: `withdraw(_:)` или `passed(_:onScreen:)` у `QueueNotices`, вызывать в обеих ветках
+  `FeedbackEntry.queuePassed` (сейчас на экране вход только вибрирует).
+- **Снять уведомление о токене после новых настроек**: `QueueNotices.settingsChanged()` из `AppModel.saveSettings`.
+- **`PaymentRecorder`** сам вызывает `notify` с тем же `clientId` и перезапишет текст FT-253: у него остаются только
+  «уйдёт позже» и отказ.
+- **`willPresent`** смотрит на `feedback.isOnScreen`: `false` — `[.banner, .list]`, `true` — `[]`. `.inactive` (шторка
+  Wallet, шторка уведомлений) считается «не на экране», иначе там не будет ни вибрации, ни баннера.
 
 Definition of Done:
 - [ ] Каждый из четырёх случаев даёт своё уведомление только в фоне; `UNUserNotificationCenter` за портом; тесты
