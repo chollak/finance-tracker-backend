@@ -340,9 +340,9 @@ final class RecordsList {
 
     // MARK: «!» (FT-254)
 
-    /// Why the record has «!»: the queue's guesses while the record is as written, the general phrase otherwise.
+    /// Why the record has «!»: the general phrase, and the queue's guesses under it while the record is as written.
     func review(of id: String) async -> RecordReview {
-        guard let record = record(id: id) else { return .unsure }
+        guard let record = record(id: id) else { return RecordReview(assumed: []) }
         return RecordReview.of(record, answer: await answer(record))
     }
 

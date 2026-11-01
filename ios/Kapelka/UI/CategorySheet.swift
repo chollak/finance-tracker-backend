@@ -7,6 +7,8 @@ import SwiftUI
 struct CategorySheet: View {
     let picker: CategoryPicker
 
+    @Environment(\.dynamicTypeSize) private var typeSize
+
     var body: some View {
         NavigationStack {
             content
@@ -18,7 +20,8 @@ struct CategorySheet: View {
                     }
                 }
         }
-        .presentationDetents([.medium, .large])
+        // At the accessibility sizes half a screen holds the reason alone (review of PR #170)
+        .presentationDetents(CategorySheetLayout.detents(at: typeSize))
         .task { await picker.load() }
     }
 
@@ -141,23 +144,25 @@ struct CategorySheet: View {
     }
 }
 
-/// «!» of a record (FT-254): what the server took for granted, or that it was unsure; «Да, верно» takes «!» off.
-/// A category below does not — the reason stays until «Да, верно» (decision 2026-10-31).
+/// «!» of a record (FT-254): the general phrase first, then «Что я предположил» — what the server took for granted, when
+/// the phone knows it — and «Да, верно», which takes «!» off. A category below does not — the reason stays until
+/// «Да, верно» (decision 2026-10-31).
 private struct ReviewSection: View {
     let picker: CategoryPicker
 
     var body: some View {
         Section {
-            switch picker.review {
-            case nil:
-                ProgressView()
-                    .frame(maxWidth: .infinity)
-            case let .assumed(lines):
-                ForEach(lines, id: \.self) { line in
-                    Text(line)
+            Text(RecordReview.unsureText)
+            if let assumed = picker.review?.assumed, !assumed.isEmpty {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(RecordReview.assumedTitle)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    ForEach(assumed, id: \.self) { line in
+                        Text(line)
+                    }
                 }
-            case .unsure:
-                Text(RecordReview.unsureText)
+                .accessibilityElement(children: .combine)
             }
             if let problem = picker.reviewProblem {
                 Text(problem)
@@ -177,14 +182,17 @@ private struct ReviewSection: View {
             }
             .disabled(picker.isBusy)
         } header: {
-            if case .assumed = picker.review {
-                Text(RecordReview.assumedTitle)
-            } else {
-                Label("Проверить", systemImage: "exclamationmark.circle")
-                    .foregroundStyle(.orange)
-            }
+            Label("Проверить", systemImage: "exclamationmark.circle")
+                .foregroundStyle(.orange)
         } footer: {
             Text(RecordReview.editedElsewhere)
         }
+    }
+}
+
+/// How tall the sheet of categories opens.
+enum CategorySheetLayout {
+    static func detents(at size: DynamicTypeSize) -> Set<PresentationDetent> {
+        size.isAccessibilitySize ? [.large] : [.medium, .large]
     }
 }

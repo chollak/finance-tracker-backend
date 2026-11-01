@@ -2,9 +2,10 @@ import Foundation
 import Testing
 @testable import Kapelka
 
-/// «!» explains itself (FT-254): what the parse took for granted, from the answer the queue kept (FT-255) — only while
-/// the record is as the server wrote it. Edited since, written elsewhere, a repeat without assumptions — the general
-/// phrase: the guesses may be stale or were never kept.
+/// «!» explains itself (FT-254): the general phrase first, always — the queue does not keep why the server flagged the
+/// record — and under it what the parse took for granted, from the answer the queue kept (FT-255), only while
+/// the record is as the server wrote it. Edited since, written elsewhere, a repeat without assumptions — no details:
+/// the guesses may be stale or were never kept (review of PR #170, the coordinator's choice «а»).
 @Suite("Записи: почему «!»")
 struct RecordReviewTests {
     private func record(
@@ -50,7 +51,7 @@ struct RecordReviewTests {
 
     @Test("запись как записана — «Что я предположил»: категория, счёт по умолчанию, доллары на сумовом счёте")
     func assumed() throws {
-        #expect(RecordReview.of(try record(), answer: answer()) == .assumed([
+        #expect(RecordReview.of(try record(), answer: answer()) == RecordReview(assumed: [
             "Категорию «Покупки» выбрал сам",
             "Счёт «Карта» — по умолчанию",
             "Доллары — на сумовом счёте: долларового нет",
@@ -66,12 +67,12 @@ struct RecordReviewTests {
         )
 
         // The account named by the phrase is no guess
-        #expect(RecordReview.of(coffee, answer: kept) == .assumed(["«45» понял как 45\u{00A0}000\u{00A0}сум"]))
+        #expect(RecordReview.of(coffee, answer: kept) == RecordReview(assumed: ["«45» понял как 45\u{00A0}000\u{00A0}сум"]))
     }
 
     @Test("категорию назвали по-новому в Mini App — новое имя: id тот же")
     func renamedCategory() throws {
-        #expect(RecordReview.of(try record(category: "Техника"), answer: answer()) == .assumed([
+        #expect(RecordReview.of(try record(category: "Техника"), answer: answer()) == RecordReview(assumed: [
             "Категорию «Техника» выбрал сам",
             "Счёт «Карта» — по умолчанию",
             "Доллары — на сумовом счёте: долларового нет",
@@ -79,7 +80,7 @@ struct RecordReviewTests {
     }
 
     @Test(
-        "запись правили после записи — общая фраза: другая категория, счёт, сумма или валюта",
+        "запись правили после записи — без подробностей: другая категория, счёт, сумма или валюта",
         arguments: [
             ("категория", "cat-gadgets", "acc-card", 5_500, "USD"),
             ("счёт", "cat-shopping", "acc-cash", 5_500, "USD"),
@@ -89,15 +90,30 @@ struct RecordReviewTests {
     )
     func editedSince(what: String, categoryId: String, accountId: String, amountMinor: Int, currency: String) throws {
         let edited = try record(categoryId: categoryId, amountMinor: amountMinor, currency: currency, accountId: accountId)
-        #expect(RecordReview.of(edited, answer: answer()) == .unsure, "\(what)")
+        #expect(RecordReview.of(edited, answer: answer()) == RecordReview(assumed: []), "\(what)")
     }
 
-    @Test("ответа нет (бот, Mini App, старая сборка), догадок нет (повтор после потерянного ответа) — общая фраза")
+    @Test("ответа нет (бот, Mini App, старая сборка), догадок нет (повтор после потерянного ответа) — без подробностей")
     func noGuesses() throws {
-        #expect(RecordReview.of(try record(), answer: nil) == .unsure)
-        #expect(RecordReview.of(try record(), answer: answer(assumptions: [])) == .unsure)
+        #expect(RecordReview.of(try record(), answer: nil) == RecordReview(assumed: []))
+        #expect(RecordReview.of(try record(), answer: answer(assumptions: [])) == RecordReview(assumed: []))
         // Only the account the phrase named: nothing was taken for granted
-        #expect(RecordReview.of(try record(), answer: answer(assumptions: [.account(name: "Карта", reason: .hint)])) == .unsure)
+        #expect(RecordReview.of(try record(), answer: answer(assumptions: [.account(name: "Карта", reason: .hint)])) == RecordReview(assumed: []))
+    }
+
+    @Test("«мне вернули 100к»: «!» за «вернули», а догадки — категория и счёт по умолчанию: первой — общая фраза")
+    func reasonFirst() throws {
+        let returned = try record(categoryId: "cat-return", category: "Возврат", amountMinor: 10_000_000, currency: "UZS")
+        let kept = answer(
+            categoryId: "cat-return", amountMinor: 10_000_000, currency: "UZS",
+            assumptions: [.category(name: "Возврат"), .account(name: "Карта", reason: .byDefault)]
+        )
+
+        let review = RecordReview.of(returned, answer: kept)
+
+        #expect(review.reason == "Сервер не был уверен — проверь сумму, категорию и счёт")
+        #expect(review.assumed == ["Категорию «Возврат» выбрал сам", "Счёт «Карта» — по умолчанию"])
+        #expect(RecordReview.of(returned, answer: nil).reason == review.reason)
     }
 
     @Test("тексты шторки")

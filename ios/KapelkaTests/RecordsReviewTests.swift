@@ -1,10 +1,11 @@
 import Foundation
+import SwiftUI
 import Testing
 @testable import Kapelka
 
-/// «!» in the sheet of FT-221 (FT-254): why — from the queue's answer while the record is as written, the general
-/// phrase otherwise — and «Да, верно», `PUT { needsReview: false }`, which takes «!» off with «успех». Without a
-/// network and on 404 as the category is (FT-221). A new category does not take «!» off (decision 2026-10-31).
+/// «!» in the sheet of FT-221 (FT-254): the general phrase, and under it the queue's guesses while the record is as
+/// written — and «Да, верно», `PUT { needsReview: false }`, which takes «!» off with «успех». Without a network and on
+/// 404 as the category is (FT-221). A new category does not take «!» off (decision 2026-10-31).
 @MainActor
 @Suite("Записи: «!» и «Да, верно»")
 struct RecordsReviewTests {
@@ -63,14 +64,14 @@ struct RecordsReviewTests {
         list.days.flatMap(\.rows).first { $0.id == id }
     }
 
-    @Test("«!» с ответом очереди — «Что я предположил»; без ответа — общая фраза; без «!» — ничего")
+    @Test("«!» с ответом очереди — общая фраза и под ней «Что я предположил»; без ответа — только фраза; без «!» — ничего")
     func reasonInSheet() async throws {
         let routes = RoutedTransport(page: [Self.firstPage], categories: [Self.categories, Self.categories, Self.categories])
         let harness = try RecordsHarness(routes: routes)
         let list = list(harness)
         await list.refresh()
 
-        #expect(try await opened("b", in: list).review == .assumed([
+        #expect(try await opened("b", in: list).review == RecordReview(assumed: [
             "«45» понял как 45\u{00A0}000\u{00A0}сум",
             "Счёт «Карта» — по умолчанию",
         ]))
@@ -78,7 +79,7 @@ struct RecordsReviewTests {
 
         let elsewhere = self.list(harness, answer: nil)
         await elsewhere.refresh()
-        #expect(try await opened("b", in: elsewhere).review == .unsure)
+        #expect(try await opened("b", in: elsewhere).review == RecordReview(assumed: []))
     }
 
     @Test("«Да, верно» — PUT { needsReview: false }, «!» снят и на диске, «успех», шторка закрыта")
@@ -150,7 +151,7 @@ struct RecordsReviewTests {
         #expect(await eventually { await routes.pages.requests.count == 2 })
     }
 
-    @Test("выбор категории «!» не снимает; потом догадки устарели — общая фраза")
+    @Test("выбор категории «!» не снимает; потом догадки устарели — только общая фраза")
     func categoryKeepsFlag() async throws {
         let moved = Self.flagged(categoryId: "cat-food", category: "Продукты")
         let routes = RoutedTransport(
@@ -166,7 +167,7 @@ struct RecordsReviewTests {
 
         #expect(row("b", in: list)?.needsReview == true)
         #expect(try await routes.recordEdits.bodyKeys() == [["categoryId"]])
-        #expect(try await opened("b", in: list).review == .unsure)
+        #expect(try await opened("b", in: list).review == RecordReview(assumed: []))
     }
 
     @Test("пока «Да, верно» в пути — категории не выбрать, и наоборот")
@@ -186,5 +187,13 @@ struct RecordsReviewTests {
         #expect(await picker.confirm() == false)
         #expect(await confirmed)
         #expect(await routes.recordEdits.requests.count == 1)
+    }
+
+    @Test("на размерах для доступности шторка открывается во весь экран: на половине помещается одна причина")
+    func sheetHeight() {
+        #expect(CategorySheetLayout.detents(at: .large) == [.medium, .large])
+        #expect(CategorySheetLayout.detents(at: .xxxLarge) == [.medium, .large])
+        #expect(CategorySheetLayout.detents(at: .accessibility1) == [.large])
+        #expect(CategorySheetLayout.detents(at: .accessibility5) == [.large])
     }
 }
