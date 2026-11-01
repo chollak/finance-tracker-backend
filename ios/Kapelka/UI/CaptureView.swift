@@ -16,25 +16,30 @@ struct CaptureView: View {
 
     private var voice: VoiceCapture { model.voice }
 
+    /// Long enough for the focus to come back and the list to insert the card's new rows, short enough to read as one
+    /// movement.
+    private static let scrollDelay: Duration = .milliseconds(250)
+
     var body: some View {
         NavigationStack {
-            List {
-                voiceSection
-                typingSection
+            ScrollViewReader { proxy in
                 let phrase = model.lastPhrase
-                if let phrase {
-                    LastPhraseSection(
-                        phrase: phrase,
-                        open: open,
-                        openSettings: openSettings,
-                        sendNow: sendNow,
-                        delete: { deletion in Task { await model.card.delete(deletion) } }
-                    )
-                }
-                let rows = model.attentionRows(excluding: phrase?.id)
-                if !rows.isEmpty {
-                    attentionSection(rows, offersSendNow: phrase?.offersSendNow != true)
-                }
+                list(phrase)
+                    // Typed with Return, the field keeps the keyboard up, and the card under it would hide behind
+                    // it: as the phrase moves on — new, «Отправляю…», «Записал» — its end comes into sight over the
+                    // keyboard (review of PR #171). Voice or no keyboard — the list stays where it is.
+                    .onChange(of: phrase?.progress) {
+                        // Checked after a moment: Return takes the focus off the field, and `save()` gives it back only
+                        // once the phrase is on the phone — right when the card changes. By then the list has also laid
+                        // the new rows out; in the same update the row was not there yet
+                        Task {
+                            try? await Task.sleep(for: Self.scrollDelay)
+                            guard fieldFocused, let shown = model.lastPhrase else { return }
+                            withAnimation {
+                                proxy.scrollTo(LastPhraseSection.end(of: shown), anchor: .bottom)
+                            }
+                        }
+                    }
             }
             // «Удалено N · Вернуть» of the card's «Удалить» — the bar of «Записи», here too
             .recordsNoticeBar(model.records)
@@ -57,6 +62,26 @@ struct CaptureView: View {
                     text = voice.transcript
                 }
                 fieldFocused = true
+            }
+        }
+    }
+
+    private func list(_ phrase: LastPhrase?) -> some View {
+        List {
+            voiceSection
+            typingSection
+            if let phrase {
+                LastPhraseSection(
+                    phrase: phrase,
+                    open: open,
+                    openSettings: openSettings,
+                    sendNow: sendNow,
+                    delete: { deletion in Task { await model.card.delete(deletion) } }
+                )
+            }
+            let rows = model.attentionRows(excluding: phrase?.id)
+            if !rows.isEmpty {
+                attentionSection(rows, offersSendNow: phrase?.offersSendNow != true)
             }
         }
     }
