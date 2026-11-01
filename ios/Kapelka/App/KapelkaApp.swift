@@ -21,6 +21,10 @@ struct KapelkaApp: App {
                 // Once, on the screen: a payment's command runs in the background and asks nothing
                 .task { await SystemNotices.askOnce() }
         }
+        // On screen a haptic answers, off it a notification (FT-251): the phase from the start, before any change
+        .onChange(of: scenePhase, initial: true) { _, phase in
+            services.feedback.screenChanged(isActive: phase == .active)
+        }
         .onChange(of: scenePhase) { _, phase in
             switch phase {
             case .active: Task { await model.appBecameActive() }

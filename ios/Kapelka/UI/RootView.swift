@@ -19,6 +19,7 @@ struct RootView: View {
                 .tag(AppNavigation.Tab.records)
         }
         .tint(.primary)
+        .playsHaptics(of: model.services.feedback)
         .sheet(isPresented: $navigation.showsSettings) {
             SettingsView(model: model)
         }

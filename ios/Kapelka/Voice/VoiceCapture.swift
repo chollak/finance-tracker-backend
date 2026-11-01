@@ -53,6 +53,8 @@ final class VoiceCapture {
     private let pause: Duration
     private let silenceAtStart: Duration
     private let submit: @MainActor (String) async throws -> Void
+    /// The start of listening and a problem, for the haptics (FT-251).
+    private let feedback: @MainActor (FeedbackEvent) -> Void
     @ObservationIgnored private var timer: Task<Void, Never>?
     @ObservationIgnored private var cancelled = false
     @ObservationIgnored private var heard = HeardPhrase()
@@ -63,12 +65,14 @@ final class VoiceCapture {
         listener: any SpeechListening,
         pause: Duration = VoiceCapture.pause,
         silenceAtStart: Duration = VoiceCapture.silenceAtStart,
+        feedback: @escaping @MainActor (FeedbackEvent) -> Void = { _ in },
         submit: @escaping @MainActor (String) async throws -> Void
     ) {
         self.system = system
         self.listener = listener
         self.pause = pause
         self.silenceAtStart = silenceAtStart
+        self.feedback = feedback
         self.submit = submit
     }
 
@@ -157,6 +161,7 @@ final class VoiceCapture {
             return
         }
         phase = .listening
+        feedback(.listening)
         restartTimer(after: silenceAtStart)
         var brokeOff = false
         do {
@@ -196,6 +201,7 @@ final class VoiceCapture {
         self.problem = problem
         if problem != nil {
             problemCount += 1
+            feedback(.voiceFailed)
         }
         phase = .idle
     }

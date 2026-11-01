@@ -49,6 +49,8 @@ final class RecordsList {
     private let now: @Sendable () -> Date
     private let calendar: Calendar
     private let bar: RecordsNoticeBar
+    /// What became of an edit, for the haptics (FT-251).
+    private let feedback: @MainActor (FeedbackEvent) -> Void
 
     /// The first page as the server or the disk gave it.
     private var shown: RecordsSnapshot?
@@ -79,12 +81,14 @@ final class RecordsList {
         now: @escaping @Sendable () -> Date = { Date() },
         calendar: Calendar = .current,
         wait: @escaping @Sendable (Duration) async -> Void = { try? await Task.sleep(for: $0) },
-        keepsNotices: @escaping @MainActor () -> Bool = { false }
+        keepsNotices: @escaping @MainActor () -> Bool = { false },
+        feedback: @escaping @MainActor (FeedbackEvent) -> Void = { _ in }
     ) {
         self.feed = feed
         self.now = now
         self.calendar = calendar
         bar = RecordsNoticeBar(wait: wait, keepsOpen: keepsNotices)
+        self.feedback = feedback
     }
 
     /// The record behind a row, on the first page or a scrolled one.
@@ -188,6 +192,7 @@ final class RecordsList {
             rebuild()
             let latest = started == lastDelete || error == .recordGone
             bar.say(latest ? error.message : "Не удалил «\(title)» — \(error.reason)")
+            feedback(.editFailed)
         }
     }
 
@@ -207,6 +212,7 @@ final class RecordsList {
             }
             rebuild()
             bar.restored(undo.id)
+            feedback(.editSaved)
         } catch {
             if error == .recordGone {
                 bar.restoreGone(undo.id, message: error.message)
@@ -214,6 +220,7 @@ final class RecordsList {
             } else {
                 bar.restoreFailed(undo, message: "Не вернул «\(undo.title)» — \(error.reason)")
             }
+            feedback(.editFailed)
         }
     }
 
@@ -247,7 +254,9 @@ final class RecordsList {
             let record = try await feed.setCategory(categoryId, of: id)
             shownRecords = shownRecords.replacing(record)
             rebuild()
+            feedback(.editSaved)
         } catch {
+            feedback(.editFailed)
             if error == .recordGone {
                 leave(id)
                 rebuild()

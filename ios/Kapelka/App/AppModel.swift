@@ -15,11 +15,16 @@ final class AppModel {
 
     init(services: AppServices, speech: AppleSpeech = AppleSpeech()) {
         self.services = services
-        voice = VoiceCapture(system: speech, listener: speech) { [queue = services.queue] phrase in
+        let feedback = services.feedback
+        voice = VoiceCapture(system: speech, listener: speech, feedback: feedback.happened) { [queue = services.queue] phrase in
             try await Self.write(phrase, to: queue)
         }
         // With VoiceOver on the bar of «Записи» stays until it is closed: 5 s is too short to reach «Вернуть»
-        records = RecordsList(feed: services.records, keepsNotices: { UIAccessibility.isVoiceOverRunning })
+        records = RecordsList(
+            feed: services.records,
+            keepsNotices: { UIAccessibility.isVoiceOverRunning },
+            feedback: feedback.happened
+        )
         queueState = QueueState()
         isConfigured = services.settings.configuration() != nil
         Task { [weak self, updates = services.queue.updates] in
