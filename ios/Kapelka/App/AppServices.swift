@@ -23,7 +23,8 @@ struct AppServices: Sendable {
         let settings = SettingsStore()
         let cards = CardAccountStore()
         let transport = URLSessionTransport.shared
-        let feedback = FeedbackEntry()
+        let center = SystemNoticeCenter()
+        let feedback = FeedbackEntry(notices: BackgroundNotices(center: center, memory: NoticeMemory()))
         let queue = CaptureQueue(
             store: .inApplicationSupport,
             sender: CaptureClient(
@@ -46,7 +47,7 @@ struct AppServices: Sendable {
                 cards: cards,
                 send: { await background.run() },
                 isConfigured: { settings.configuration() != nil },
-                notify: { await SystemNotices.post($0, $1) }
+                notify: { await center.add($0) }
             ),
             records: RecordsFeed(
                 client: RecordsClient(configuration: { settings.configuration() }, transport: transport),

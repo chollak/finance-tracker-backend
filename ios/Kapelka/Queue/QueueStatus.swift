@@ -37,9 +37,12 @@ enum QueueStatus {
         state.captures.count { $0.state == .pending }
     }
 
+    /// On the screen and in the notification of FT-253 alike.
+    static let tokenRefusedText = "Сервер не принял токен — проверь токен в настройках Kapelka"
+
     private static func problem(_ state: QueueState, configured: Bool) -> String? {
         if !configured { return "Укажи адрес и токен в настройках Kapelka" }
-        if state.tokenRefused { return "Сервер не принял токен — проверь токен в настройках Kapelka" }
+        if state.tokenRefused { return tokenRefusedText }
         return nil
     }
 }
