@@ -11,7 +11,7 @@ struct RootView: View {
     var body: some View {
         @Bindable var navigation = navigation
         TabView(selection: $navigation.tab) {
-            CaptureView(model: model, openSettings: openSettings)
+            CaptureView(model: model, openSettings: openSettings, open: navigation.open)
                 .tabItem { Label("Записать", systemImage: "mic") }
                 .tag(AppNavigation.Tab.capture)
             RecordsView(list: model.records, openSettings: openSettings)
@@ -33,6 +33,11 @@ struct RootView: View {
         // A press while the settings were open listens once they close; new settings refresh the list
         .onChange(of: navigation.showsSettings) { screenChanged() }
         .onChange(of: navigation.tab) { screenChanged() }
+        // VoiceOver hears each bar once, whichever tab shows it (FT-252); «Вернуть» on its way is not news
+        .onChange(of: model.records.notice?.id) {
+            guard let notice = model.records.notice, notice.undo?.isRestoring != true else { return }
+            AccessibilityNotification.Announcement(notice.text).post()
+        }
     }
 
     private func openSettings() {

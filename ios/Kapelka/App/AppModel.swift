@@ -10,6 +10,8 @@ final class AppModel {
     let voice: VoiceCapture
     /// The tab «Записи» (FT-220).
     let records: RecordsList
+    /// The card «Последняя фраза» on «Записать» (FT-252).
+    let card: LastPhraseCard
     private(set) var queueState: QueueState
     private(set) var isConfigured: Bool
 
@@ -27,6 +29,13 @@ final class AppModel {
             feedback: feedback.happened,
             answer: { [queue = services.queue] record in await queue.state().answer(for: record) }
         )
+        // After a lost answer the card names the account by its id (FT-255)
+        card = LastPhraseCard(
+            queue: services.queue,
+            records: records,
+            memory: LastPhraseMemory(),
+            accounts: { [feed = services.records] in try? await feed.accounts() }
+        )
         queueState = QueueState()
         isConfigured = services.settings.configuration() != nil
         Task { [weak self, updates = services.queue.updates] in
@@ -38,26 +47,30 @@ final class AppModel {
                 }
                 previous = state
                 self?.queueState = state
+                self?.card.queueChanged(state)
             }
         }
     }
 
-    var pendingCount: Int {
-        QueueStatus.pendingCount(queueState)
+    /// The card «Последняя фраза» now: the queue's last phrase — or the one the microphone writes to the phone.
+    var lastPhrase: LastPhrase? {
+        let saving = voice.phase == .saving ? voice.transcript : nil
+        return card.shown(configured: isConfigured, saving: saving, now: Date(), calendar: .current)
     }
 
-    /// The queue's rows on «Записать», newest first: only what is not in «Записи».
-    var attentionRows: [CaptureRow] {
-        CaptureRow.needingAttention(queueState.captures, sendingId: queueState.sendingId, now: Date(), calendar: .current)
+    /// The queue's rows on «Записать», newest first: only what is not in «Записи», and not the card's phrase.
+    func attentionRows(excluding cardPhrase: UUID?) -> [CaptureRow] {
+        CaptureRow.needingAttention(
+            queueState.captures,
+            sendingId: queueState.sendingId,
+            now: Date(),
+            calendar: .current,
+            excluding: cardPhrase
+        )
     }
 
     var hasToken: Bool {
         services.settings.hasToken
-    }
-
-    /// The answer to the last phrase: the server's summary or «в очереди N».
-    var statusLine: String {
-        QueueStatus.line(for: queueState, configured: isConfigured)
     }
 
     /// The phrase is on disk when this returns; sending goes on by itself.

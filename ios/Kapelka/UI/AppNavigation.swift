@@ -40,6 +40,12 @@ final class AppNavigation {
     /// Observed by the screen: a tap on a notification while the app is open or opening.
     var openPending: OpenTarget? { openRequest.target }
 
+    /// A tap on a record of the card on «Записать» (FT-252): the same way as a notification's, so «Записи» refresh,
+    /// scroll to it and light it (FT-254).
+    func open(_ target: OpenTarget) {
+        openRequest.ask(target)
+    }
+
     /// «Записать трату» from the Action Button: `true` once per press when the microphone should start now — with
     /// «Записать» open, whichever tab was. It waits while the app is not active (the microphone does not start in the
     /// background) or the settings are open: they may hold an address or a token not saved yet.

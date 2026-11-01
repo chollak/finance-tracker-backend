@@ -1,11 +1,13 @@
 import SwiftUI
 
-/// The tab «Записать» (FT-178, FT-220): the microphone and what it heard, a field for typing, the answer to the last
-/// phrase and what in the queue needs attention. A written record goes to «Записи». «Записать трату» from the Action
-/// Button lands here already listening (`RootView`).
+/// The tab «Записать» (FT-178, FT-220): the microphone and what it heard, a field for typing, the card of the last
+/// phrase (FT-252) and what else in the queue needs attention. A written record goes to «Записи». «Записать трату»
+/// from the Action Button lands here already listening (`RootView`).
 struct CaptureView: View {
     let model: AppModel
     let openSettings: () -> Void
+    /// A tap on a written record of the card: «Записи», scrolled to it (FT-254).
+    let open: (OpenTarget) -> Void
 
     @State private var text = ""
     @State private var error: String?
@@ -19,12 +21,23 @@ struct CaptureView: View {
             List {
                 voiceSection
                 typingSection
-                queueSection
-                let rows = model.attentionRows
+                let phrase = model.lastPhrase
+                if let phrase {
+                    LastPhraseSection(
+                        phrase: phrase,
+                        open: open,
+                        openSettings: openSettings,
+                        sendNow: sendNow,
+                        delete: { deletion in Task { await model.card.delete(deletion) } }
+                    )
+                }
+                let rows = model.attentionRows(excluding: phrase?.id)
                 if !rows.isEmpty {
-                    attentionSection(rows)
+                    attentionSection(rows, offersSendNow: phrase?.offersSendNow != true)
                 }
             }
+            // «Удалено N · Вернуть» of the card's «Удалить» — the bar of «Записи», here too
+            .recordsNoticeBar(model.records)
             .navigationTitle("Kapelka")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -58,7 +71,7 @@ struct CaptureView: View {
                 Text(voiceCaption)
                     .font(.title3)
                     .multilineTextAlignment(.center)
-                    .foregroundStyle(voice.transcript.isEmpty ? .secondary : .primary)
+                    .foregroundStyle(voiceCaption == Self.prompt ? .secondary : .primary)
                     .frame(maxWidth: .infinity)
                 if voice.phase != .idle, voice.phase != .saving {
                     Button("Отмена", action: voice.cancel)
@@ -76,13 +89,17 @@ struct CaptureView: View {
         }
     }
 
+    /// The words while listening; once the phrase is written the card says «Услышал: …», and the prompt is back.
     private var voiceCaption: String {
         switch voice.phase {
         case .starting: return "Включаю микрофон…"
         case .listening where voice.transcript.isEmpty: return "Слушаю…"
-        default: return voice.transcript.isEmpty ? "Нажми и скажи: «кофе 25 тысяч»" : voice.transcript
+        case .idle: return Self.prompt
+        default: return voice.transcript.isEmpty ? Self.prompt : voice.transcript
         }
     }
+
+    private static let prompt = "Нажми и скажи: «кофе 25 тысяч»"
 
     private var typingSection: some View {
         Section {
@@ -99,20 +116,13 @@ struct CaptureView: View {
         }
     }
 
-    private var queueSection: some View {
-        Section {
-            Text(model.statusLine)
-            // After a refused token only new settings send again
-            if model.pendingCount > 0, model.isConfigured, !model.queueState.tokenRefused {
-                Button("Отправить сейчас") {
-                    Task { await model.sendNow() }
-                }
-            }
-        }
+    private func sendNow() {
+        Task { await model.sendNow() }
     }
 
-    /// Waiting, sending, refused, «не нашёл операцию»: what is not in «Записи».
-    private func attentionSection(_ rows: [CaptureRow]) -> some View {
+    /// Waiting, sending, refused, «не нашёл операцию»: what is not in «Записи», the card's phrase left out. «Отправить
+    /// сейчас» here when the card does not offer it already.
+    private func attentionSection(_ rows: [CaptureRow], offersSendNow: Bool) -> some View {
         Section("Требует внимания") {
             ForEach(rows) { row in
                 CaptureRowView(row: row)
@@ -136,6 +146,11 @@ struct CaptureView: View {
                             .tint(Color(uiColor: .systemGray))
                         }
                     }
+            }
+            // After a refused token only new settings send again
+            if offersSendNow, rows.contains(where: { $0.kind == .waiting }), model.isConfigured,
+               !model.queueState.tokenRefused {
+                Button("Отправить сейчас", action: sendNow)
             }
         }
     }

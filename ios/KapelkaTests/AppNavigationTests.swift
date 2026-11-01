@@ -153,6 +153,26 @@ struct AppNavigationTests {
         #expect(navigation.tab == .capture)
     }
 
+    @Test("нажатие на запись карточки «Записать» — тот же запрос: «Записи» и эта запись (FT-252)")
+    func cardOpensItsRecord() throws {
+        let open = OpenRequest()
+        let navigation = AppNavigation(listenRequest: request, openRequest: open)
+        var capture = Capture(clientId: UUID(), text: "кофе 45", capturedAt: Date(), timeZoneIdentifier: "Asia/Tashkent")
+        capture.state = .sent
+        capture.attempts = 1
+        capture.reply = try CaptureReplyBodies.reply(CaptureReplyBodies.coffee)
+        var state = QueueState()
+        state.captures = [capture]
+        let card = LastPhrase.of(state, LastPhrase.Context(configured: true, now: Date(), calendar: .current))
+        let target = try #require(card?.lines.first?.opens)
+
+        navigation.open(target)
+
+        #expect(navigation.openPending == OpenTarget(.records, record: CaptureReplyBodies.coffeeId))
+        #expect(navigation.takeOpenRequest() == CaptureReplyBodies.coffeeId)
+        #expect(navigation.tab == .records)
+    }
+
     @Test("запись едет в userInfo уведомления рядом с местом; без неё и у старых — только место")
     func recordInUserInfo() {
         let notice = Notice(id: "wrote-x", body: "Записал: кофе", opens: .records, record: "rec-1")

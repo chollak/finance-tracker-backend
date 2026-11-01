@@ -59,14 +59,17 @@ struct CaptureRow: Identifiable, Equatable {
     }
 
     /// The rows of «Записать»: waiting, sending, refused, «не нашёл операцию» — newest first. «Не нашёл операцию» wrote
-    /// nothing on the server, so it stays here.
+    /// nothing on the server, so it stays here. `excluding`: the phrase of the card above (FT-252) — one answer on the
+    /// screen once.
     static func needingAttention(
         _ captures: [Capture],
         sendingId: UUID?,
         now: Date,
-        calendar: Calendar
+        calendar: Calendar,
+        excluding: UUID? = nil
     ) -> [CaptureRow] {
-        rows(captures, sendingId: sendingId, now: now, calendar: calendar).filter(\.kind.needsAttention)
+        rows(captures.filter { $0.clientId != excluding }, sendingId: sendingId, now: now, calendar: calendar)
+            .filter(\.kind.needsAttention)
     }
 
     private static func row(for capture: Capture, isSending: Bool, time: TimeOfInput) -> CaptureRow {
