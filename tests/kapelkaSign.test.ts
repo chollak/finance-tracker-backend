@@ -163,4 +163,16 @@ describe('where the sign is used (FT-169)', () => {
     const referenced = [html, JSON.stringify(manifest), viteConfig].join('\n').match(/\/icons\/[\w.-]+/g) ?? [];
     for (const icon of referenced) expect(fs.existsSync(path.join(ROOT, 'webapp/public', icon))).toBe(true);
   });
+
+  it('web: every asset the service worker precaches is there', () => {
+    const patterns = /includeAssets: \[([^\]]*)\]/.exec(read('webapp/vite.config.ts'))?.[1].match(/'[^']+'/g) ?? [];
+    const publicFiles = (fs.readdirSync(path.join(ROOT, 'webapp/public'), { recursive: true }) as string[])
+      .map((file) => file.split(path.sep).join('/'));
+
+    expect(patterns.length).toBeGreaterThan(0);
+    for (const pattern of patterns) {
+      const glob = new RegExp(`^${pattern.slice(1, -1).replace(/\./g, '\\.').replace(/\*/g, '[^/]*')}$`);
+      expect([pattern, publicFiles.some((file) => glob.test(file))]).toEqual([pattern, true]);
+    }
+  });
 });
