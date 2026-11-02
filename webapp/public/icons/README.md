@@ -18,7 +18,8 @@ scripts/nvm-exec.sh node scripts/render-sign-png.js
 ```
 
 Он открывает каждый SVG в Chrome через Playwright проекта (его Chromium, а если он не скачан — установленный
-Google Chrome или браузер из `CHROMIUM_PATH`), снимает ровно в нужном размере, 1x, и пишет PNG заново как 8-битный
-RGB без альфа-канала. Тем же проходом рисуются иконка iOS (`ios/Kapelka/Assets.xcassets/AppIcon.appiconset/AppIcon.png`,
-1024) и аватар бота (`docs/pastel/logo/kapelka-avatar-640.png`). Проверка — `npm test -- kapelkaSign`: геометрия SVG
-как в задаче, размеры PNG, нет альфы, чёрный край.
+Google Chrome или браузер из `CHROMIUM_PATH`), на своей странице ровно нужного размера, 1x, и пишет PNG заново как
+8-битный RGB без альфа-канала (`scripts/png-pixels.js`). Тем же проходом рисуются иконка iOS
+(`ios/Kapelka/Assets.xcassets/AppIcon.appiconset/AppIcon.png`, 1024) и аватар бота
+(`docs/pastel/logo/kapelka-avatar-640.png`). Проверка — `npm test -- kapelkaSign`: геометрия SVG как в задаче, размеры
+PNG, нет альфы, и каждый пиксель на месте: центр каждой полоски белый, всё дальше 1 px от полосок — `#141416`.
