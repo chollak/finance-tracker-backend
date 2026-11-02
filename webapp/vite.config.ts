@@ -20,13 +20,9 @@ export default defineConfig({
         background_color: '#F5F5F7',
         theme_color: '#1C1C1E',
         orientation: 'portrait',
+        // The bars of the sign on a black square, inside the maskable safe zone (FT-169). Not icon.svg: that is the
+        // tab's silhouette, for 16–32px only
         icons: [
-          {
-            src: '/icons/icon.svg',
-            sizes: 'any',
-            type: 'image/svg+xml',
-            purpose: 'any',
-          },
           {
             src: '/icons/icon-192x192.png',
             sizes: '192x192',
