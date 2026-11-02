@@ -1,6 +1,17 @@
 import fs from 'fs';
 import path from 'path';
-import zlib from 'zlib';
+
+interface PngImage {
+  width: number;
+  height: number;
+  bitDepth: number;
+  colourType: number;
+  chunkTypes: string[];
+  channels: number;
+  pixels: Buffer;
+}
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { readPng }: { readPng: (png: Buffer) => PngImage } = require('../scripts/png-pixels.js');
 
 /**
  * FT-169: the Kapelka sign — two drops of different size joined at their tips into «∞», drawn with the bars of a
@@ -32,33 +43,34 @@ const APP_ICON = 'translate(10.48 30.24) scale(1.04)';
 const AVATAR = 'translate(15.8 32.9) scale(0.9)';
 
 const IOS_ICON_SET = 'ios/Kapelka/Assets.xcassets/AppIcon.appiconset';
-const PNGS: Array<[file: string, size: number]> = [
-  [`${IOS_ICON_SET}/AppIcon.png`, 1024],
-  ['docs/pastel/logo/kapelka-avatar-640.png', 640],
-  ['webapp/public/icons/icon-192x192.png', 192],
-  ['webapp/public/icons/icon-512x512.png', 512],
-  ['webapp/public/icons/apple-touch-icon.png', 180],
+// Each PNG and the transform of the SVG it is drawn from (scripts/render-sign-png.js)
+const PNGS: Array<[file: string, size: number, transform: string]> = [
+  [`${IOS_ICON_SET}/AppIcon.png`, 1024, APP_ICON],
+  ['docs/pastel/logo/kapelka-avatar-640.png', 640, AVATAR],
+  ['webapp/public/icons/icon-512x512.png', 512, AVATAR],
+  ['webapp/public/icons/icon-192x192.png', 192, AVATAR],
+  ['webapp/public/icons/apple-touch-icon.png', 180, AVATAR],
 ];
 
-/** IHDR and the first pixel of a PNG: whatever the row filter, the first byte triple of the first row is raw. */
-function pngHeader(file: string) {
-  const png = fs.readFileSync(path.join(ROOT, file));
-  const chunks: Array<{ type: string; data: Buffer }> = [];
-  for (let at = 8; at < png.length; ) {
-    const length = png.readUInt32BE(at);
-    chunks.push({ type: png.toString('ascii', at + 4, at + 8), data: png.subarray(at + 8, at + 8 + length) });
-    at += 12 + length;
-  }
-  const ihdr = chunks[0].data;
-  const pixels = zlib.inflateSync(Buffer.concat(chunks.filter((c) => c.type === 'IDAT').map((c) => c.data)));
-  return {
-    width: ihdr.readUInt32BE(0),
-    height: ihdr.readUInt32BE(4),
-    bitDepth: ihdr[8],
-    colourType: ihdr[9],
-    hasTransparency: chunks.some((c) => c.type === 'tRNS'),
-    corner: `#${pixels.subarray(1, 4).toString('hex')}`,
-  };
+const images = new Map<string, PngImage>();
+function readImage(file: string) {
+  if (!images.has(file)) images.set(file, readPng(fs.readFileSync(path.join(ROOT, file))));
+  return images.get(file) as PngImage;
+}
+
+/** The bars where `translate(tx ty) scale(k)` puts them on the 100×100 square, in pixels of a `size` image. */
+function barsInPixels(transform: string, size: number) {
+  const [tx, ty, k] = (transform.match(/[\d.]+/g) ?? []).map(Number);
+  const unit = size / 100;
+  return [...BARS.matchAll(/x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)"/g)].map((match) => {
+    const [x, y, width, height] = match.slice(1).map(Number);
+    return {
+      left: (tx + x * k) * unit,
+      top: (ty + y * k) * unit,
+      right: (tx + (x + width) * k) * unit,
+      bottom: (ty + (y + height) * k) * unit,
+    };
+  });
 }
 
 describe('the Kapelka sign (FT-169)', () => {
@@ -88,17 +100,39 @@ describe('the Kapelka sign (FT-169)', () => {
     }
   });
 
-  it.each(PNGS)('%s is %ipx square, opaque and black at the edge', (file, size) => {
-    const png = pngHeader(file);
+  it.each(PNGS)('%s is %ipx square and opaque', (file, size) => {
+    const png = readImage(file);
 
     expect({ width: png.width, height: png.height }).toEqual({ width: size, height: size });
     // 8-bit RGB, no alpha channel and no transparent colour: iOS turns an icon with alpha black or rejects it
-    expect({ bitDepth: png.bitDepth, colourType: png.colourType, hasTransparency: png.hasTransparency }).toEqual({
-      bitDepth: 8,
-      colourType: 2,
-      hasTransparency: false,
-    });
-    expect(png.corner).toBe('#141416');
+    expect({ bitDepth: png.bitDepth, colourType: png.colourType, hasTransparency: png.chunkTypes.includes('tRNS') })
+      .toEqual({ bitDepth: 8, colourType: 2, hasTransparency: false });
+  });
+
+  // The review of PR #173 found an apple-touch-icon with two squashed copies of the sign: Chrome had shot a frame
+  // from before the viewport took the new size. Every pixel is checked against where the transform puts the bars.
+  it.each(PNGS)('%s (%ipx, %s): white bar centres, #141416 everywhere else', (file, size, transform) => {
+    const png = readImage(file);
+    const colourAt = (x: number, y: number) => {
+      const at = (Math.floor(y) * png.width + Math.floor(x)) * png.channels;
+      return `#${png.pixels.subarray(at, at + 3).toString('hex')}`;
+    };
+    const bars = barsInPixels(transform, size);
+
+    expect(bars.map((bar) => colourAt((bar.left + bar.right) / 2, (bar.top + bar.bottom) / 2))).toEqual(
+      bars.map(() => '#ffffff')
+    );
+
+    // Anti-aliasing greys a pixel at most 1px away from a bar's edge; every other pixel is the background
+    const nearBar = (x: number, y: number) =>
+      bars.some((bar) => x >= bar.left - 1 && x <= bar.right + 1 && y >= bar.top - 1 && y <= bar.bottom + 1);
+    const stray: string[] = [];
+    for (let y = 0; y < png.height; y++) {
+      for (let x = 0; x < png.width; x++) {
+        if (!nearBar(x + 0.5, y + 0.5) && colourAt(x, y) !== '#141416') stray.push(`${x},${y} ${colourAt(x, y)}`);
+      }
+    }
+    expect({ strayPixels: stray.length, first: stray.slice(0, 3) }).toEqual({ strayPixels: 0, first: [] });
   });
 });
 
