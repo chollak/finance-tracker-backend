@@ -56,17 +56,19 @@ function withoutAlpha(png) {
 
 async function main() {
   const browser = await launch();
-  const page = await browser.newPage({ deviceScaleFactor: 1 });
   try {
     for (const { from, to, size } of TARGETS) {
       const svg = fs.readFileSync(path.join(ROOT, from)).toString('base64');
-      await page.setViewportSize({ width: size, height: size });
+      // A fresh page with its size set from the start: one page resized with setViewportSize could hand over a frame
+      // from before the resize, and the review of PR #173 got a squashed, doubled sign that way
+      const page = await browser.newPage({ viewport: { width: size, height: size }, deviceScaleFactor: 1 });
       await page.setContent(
         `<!doctype html><body style="margin:0;background:${BLACK}">` +
           `<img src="data:image/svg+xml;base64,${svg}" width="${size}" height="${size}" style="display:block"></body>`
       );
       await page.locator('img').evaluate((img) => img.decode());
       const shot = await page.screenshot({ type: 'png', clip: { x: 0, y: 0, width: size, height: size } });
+      await page.close();
       fs.mkdirSync(path.dirname(path.join(ROOT, to)), { recursive: true });
       fs.writeFileSync(path.join(ROOT, to), withoutAlpha(shot));
       process.stdout.write(`${to}  ${size}×${size}  from ${from}\n`);
