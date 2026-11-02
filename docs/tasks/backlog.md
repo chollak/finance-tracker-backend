@@ -450,68 +450,6 @@ Definition of Done:
 
 ---
 
-### FT-169: A sign for Kapelka
-
-Status: backlog — в очереди, первой (знак выбран 2026-11-02)
-Priority: medium
-Owner: Claude Code, Shukur (BotFather, iPhone), QA — под-чат проверки
-Type: design
-Size: M
-
-Context:
-Знак рядом с wordmark — страница тетради-ведомости (`wordmark.tsx`), нарисован под смысл «daftar» (тетрадь). Иконка
-веба — старый «$» с градиентом (`webapp/public/icons/icon.svg`, PNG 192 и 512 — заглушки). У iOS-приложения иконки
-нет совсем: ни `Assets.xcassets`, ни `ASSETCATALOG_COMPILER_APPICON_NAME` в `ios/Kapelka.xcodeproj/project.pbxproj`.
-Холст и артефакт дизайн-системы — у Шукура, они ещё говорят Daftar.
-
-Знак выбран Шукуром 2026-11-02 (`docs/tasks/decisions.md`): две капли разного размера, сложенные кончиками в «∞»,
-собраны из полосок, как голосовое сообщение. Только чёрный и белый. Две формы в одной сетке 76×38, геометрия
-окончательная — переносить как есть, без правок на глаз.
-
-Полоски — основной знак, везде от 20 px:
-
-```svg
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 76 38" fill="currentColor"><rect x="1.2" y="10.56" width="5.2" height="16.87" rx="2.6"/><rect x="8.8" y="3.03" width="5.2" height="31.94" rx="2.6"/><rect x="16.4" y="1.01" width="5.2" height="35.97" rx="2.6"/><rect x="24" y="2.13" width="5.2" height="33.75" rx="2.6"/><rect x="31.6" y="6.03" width="5.2" height="25.93" rx="2.6"/><rect x="39.2" y="12.42" width="5.2" height="13.16" rx="2.6"/><rect x="46.8" y="16.4" width="5.2" height="5.2" rx="2.6"/><rect x="54.4" y="12.46" width="5.2" height="13.09" rx="2.6"/><rect x="62" y="9.51" width="5.2" height="18.98" rx="2.6"/><rect x="69.6" y="12.72" width="5.2" height="12.57" rx="2.6"/></svg>
-```
-
-Сплошной силуэт — только 16–32 px (вкладка браузера): полоски там сливаются.
-
-```svg
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 76 38" fill="currentColor"><path d="M49.4 19C43.17 15.4 34.1 1 19.7 1A18 18 0 0 0 19.7 37C34.1 37 43.17 22.6 49.4 19ZM49.4 19C52.69 17.1 57.48 9.5 65.08 9.5A9.5 9.5 0 0 1 65.08 28.5C57.48 28.5 52.69 20.9 49.4 19Z"/></svg>
-```
-
-Где какая форма. Квадрат — `viewBox="0 0 100 100"`, знак внутри — `<g transform="…">` над формой 76×38:
-
-| Место | Фон | Знак | `transform` |
-|---|---|---|---|
-| Шапка Mini App, вход, первый запуск (`Wordmark`) | нет | полоски `currentColor` (`text-ink`), высота около 20 px | — |
-| iOS AppIcon, 1024×1024 PNG | квадрат `#141416` без скругления и прозрачности: углы срезает iOS | полоски `#fff` | `translate(10.48 30.24) scale(1.04)` |
-| Аватар бота, 640×640 PNG | квадрат `#141416`: Telegram сам режет круг | полоски `#fff` | `translate(15.8 32.9) scale(0.9)` |
-| PWA 192 и 512, apple-touch-icon | квадрат `#141416` | полоски `#fff` — в безопасной зоне maskable | `translate(15.8 32.9) scale(0.9)` |
-| Вкладка браузера, `icon.svg` | скруглённый квадрат `#141416`, `rx="22.5"` | силуэт `#fff` | `translate(10.48 30.24) scale(1.04)` |
-
-`#141416` — `primary` и `ink` светлой темы. Иконка и аватар чёрные в обеих темах: картинка одна, а белая теряется на
-светлом экране.
-
-Definition of Done:
-- [x] Знак выбран Шукуром — 2026-11-02, в чате; холст дизайн-системы Шукур обновит сам
-- [ ] `docs/pastel/logo/`: `kapelka-mark.svg`, `kapelka-mark-solid.svg`, `kapelka-icon.svg`, `kapelka-avatar.svg` и
-  `kapelka-avatar-640.png` — геометрия из этой задачи
-- [ ] `wordmark.tsx`: полоски вместо страницы тетради, комментарий без «No logo file yet»; `Wordmark` одинаково
-  выглядит в `HomeHeader`, `HomeSkeleton`, `LoginView`, `FirstLaunchPage`
-- [ ] `webapp/public/icons/`: новые `icon.svg` (силуэт), `icon-192x192.png`, `icon-512x512.png`; README иконок
-  переписан под знак; `index.html`, `manifest.json` и `vite.config.ts` указывают на них
-- [ ] iOS: `Assets.xcassets` с `AppIcon` (1024, один размер), в проекте `ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon`;
-  `ios/scripts/test.sh` зелёный; скриншот главного экрана симулятора с иконкой
-- [ ] `docs/pastel/design-system.md`: раздел «Знак» — что он значит, две формы и где какая, цвета, чего нельзя (цвет и
-  пастель в знаке, животные — см. решение 2026-11-02)
-- [ ] Скриншоты шапки 390 px в обеих темах и вкладки браузера с новой иконкой
-- [ ] `npm run verify` зелёный
-- [ ] В отчёте штаба для Шукура: аватар через BotFather `/setuserpic` для @kapelka_app_bot; переустановить
-  iOS-приложение, чтобы появилась иконка (подпись и так истекает 2026-11-06)
-
----
-
 ### FT-200: A correction teaches the words of an item named without an amount
 
 Status: backlog
@@ -688,3 +626,31 @@ Definition of Done:
 - [ ] Очередь хранит у записи, дошла ли хоть одна попытка до сервера; файл до задачи читается; тест
 - [ ] «уже уходила на сервер» — только если дошла: карточка FT-252 и свайп FT-220; тесты
 - [ ] `ios/README.md` обновлён; `ios/scripts/test.sh` зелёный
+
+---
+
+### FT-257: Webapp: манифест PWA — цвета Пастели, русское описание, один манифест
+
+Status: backlog
+Priority: low
+Owner: Claude Code, QA — под-чат проверки
+Type: repo-hygiene
+Size: S
+
+Context:
+Найдено при проверке PR #173 (FT-169, 2026-11-02). Иконки PWA теперь — знак Kapelka, а остальное в манифесте
+осталось с времён до «Пастели»:
+- `theme_color: #1C1C1E` и `background_color: #F5F5F7` в `webapp/vite.config.ts` и `webapp/public/manifest.json` — не
+  токены «Пастели». `index.html` ставит `theme-color` по теме: `bg` — `#f3f3f5` светлой и `#111214` тёмной;
+- `description` по-английски — «Track your income and expenses easily»;
+- два манифеста: `index.html` ссылается на `/manifest.json` из `public/`, а `vite-plugin-pwa` добавляет в собранный
+  `index.html` свой `/manifest.webmanifest`. Два списка иконок и цветов, которые надо держать одинаковыми;
+- `webapp/public/vite.svg` — остаток шаблона Vite, нигде не используется;
+- `webapp/public/icons/README.md` копируется в сборку и отдаётся сервером как `/icons/README.md`.
+
+Definition of Done:
+- [ ] Один манифест — из `vite.config.ts`; `public/manifest.json` и его `<link>` убраны; тест на ссылки в `index.html`
+  (`tests/kapelkaSign.test.ts`) обновлён
+- [ ] `theme_color` и `background_color` — токен `bg` светлой темы; описание по-русски
+- [ ] `vite.svg` удалён; README иконок не попадает в `public/webapp/`
+- [ ] `npm run verify` зелёный
