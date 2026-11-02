@@ -21,6 +21,15 @@ struct AppBundleTests {
         #expect(!keys.contains { $0.localizedCaseInsensitiveContains("token") })
     }
 
+    @Test("у приложения есть иконка — знак Kapelka из Assets.xcassets (FT-169)")
+    func appIconInBundle() {
+        let icons = Bundle.main.infoDictionary?["CFBundleIcons"] as? [String: Any]
+        let primary = icons?["CFBundlePrimaryIcon"] as? [String: Any]
+
+        #expect(primary?["CFBundleIconName"] as? String == "AppIcon")
+        #expect(Bundle.main.url(forResource: "Assets", withExtension: "car") != nil)
+    }
+
     @Test("микрофон и распознавание объясняют, зачем: без этого iOS не покажет вопрос")
     func voicePermissionTexts() {
         let info = Bundle.main.infoDictionary ?? [:]

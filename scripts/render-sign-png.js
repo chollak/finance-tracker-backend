@@ -1,0 +1,84 @@
+#!/usr/bin/env node
+/*
+ * Renders the PNGs of the Kapelka sign (FT-169) from its SVGs in docs/pastel/logo/:
+ *
+ *   scripts/nvm-exec.sh node scripts/render-sign-png.js
+ *
+ * Chrome draws each SVG at the exact pixel size, 1x, on the sign's black. The screenshot comes with an alpha channel,
+ * so the PNG is written again as 8-bit RGB without it: iOS turns an app icon with alpha black or rejects it.
+ * Uses the project's Playwright with its own Chromium; when that one is not downloaded, the installed Google Chrome
+ * (or the browser CHROMIUM_PATH names). After a change to the sign: run this, then `npm test -- kapelkaSign`.
+ */
+
+const fs = require('fs');
+const path = require('path');
+const { chromium } = require('playwright');
+const { readPng, writeRgbPng } = require('./png-pixels');
+
+const ROOT = path.resolve(__dirname, '..');
+const LOGO = 'docs/pastel/logo';
+const ICONS = 'webapp/public/icons';
+const BLACK = '#141416';
+
+// The square SVG of each place (task FT-169, «где какая форма») and the PNG drawn from it
+const TARGETS = [
+  { from: `${LOGO}/kapelka-icon.svg`, to: 'ios/Kapelka/Assets.xcassets/AppIcon.appiconset/AppIcon.png', size: 1024 },
+  { from: `${LOGO}/kapelka-avatar.svg`, to: `${LOGO}/kapelka-avatar-640.png`, size: 640 },
+  { from: `${LOGO}/kapelka-avatar.svg`, to: `${ICONS}/icon-512x512.png`, size: 512 },
+  { from: `${LOGO}/kapelka-avatar.svg`, to: `${ICONS}/icon-192x192.png`, size: 192 },
+  { from: `${LOGO}/kapelka-avatar.svg`, to: `${ICONS}/apple-touch-icon.png`, size: 180 },
+];
+
+const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+
+async function launch() {
+  if (process.env.CHROMIUM_PATH) return chromium.launch({ executablePath: process.env.CHROMIUM_PATH });
+  try {
+    return await chromium.launch();
+  } catch (error) {
+    if (!fs.existsSync(CHROME)) throw error;
+    return chromium.launch({ executablePath: CHROME });
+  }
+}
+
+/** The same picture as 8-bit RGB: fails if any pixel is not fully opaque. */
+function withoutAlpha(png) {
+  const { width, height, channels, pixels } = readPng(png);
+  const rgb = Buffer.alloc(width * height * 3);
+  for (let at = 0; at < width * height; at++) {
+    if (channels === 4 && pixels[at * 4 + 3] !== 255) {
+      throw new Error(`pixel ${at % width},${Math.floor(at / width)} is not opaque`);
+    }
+    pixels.copy(rgb, at * 3, at * channels, at * channels + 3);
+  }
+  return writeRgbPng(width, height, rgb);
+}
+
+async function main() {
+  const browser = await launch();
+  try {
+    for (const { from, to, size } of TARGETS) {
+      const svg = fs.readFileSync(path.join(ROOT, from)).toString('base64');
+      // A fresh page with its size set from the start: one page resized with setViewportSize could hand over a frame
+      // from before the resize, and the review of PR #173 got a squashed, doubled sign that way
+      const page = await browser.newPage({ viewport: { width: size, height: size }, deviceScaleFactor: 1 });
+      await page.setContent(
+        `<!doctype html><body style="margin:0;background:${BLACK}">` +
+          `<img src="data:image/svg+xml;base64,${svg}" width="${size}" height="${size}" style="display:block"></body>`
+      );
+      await page.locator('img').evaluate((img) => img.decode());
+      const shot = await page.screenshot({ type: 'png', clip: { x: 0, y: 0, width: size, height: size } });
+      await page.close();
+      fs.mkdirSync(path.dirname(path.join(ROOT, to)), { recursive: true });
+      fs.writeFileSync(path.join(ROOT, to), withoutAlpha(shot));
+      process.stdout.write(`${to}  ${size}×${size}  from ${from}\n`);
+    }
+  } finally {
+    await browser.close();
+  }
+}
+
+main().catch((error) => {
+  process.stderr.write(`${error.stack || error}\n`);
+  process.exit(1);
+});
