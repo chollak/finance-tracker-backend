@@ -223,9 +223,8 @@ https://claude.ai/artifact/YapZ1j6TCuaLwRzArgGQSj (приватная). Отли
 
 Ещё ждёт вас:
 
-1. **`CLAUDE_CODE_OAUTH_TOKEN`** в секретах репозитория просрочен. Автоматическое ревью claude-review убрано
-   (2026-10-21) — на PR теперь гоняется `npm run verify` (`.github/workflows/verify.yml`); токен нужен только для
-   `@claude` в комментариях (`claude.yml`). Обновить: `claude setup-token` и новый секрет в Settings → Secrets → Actions.
+1. ~~**`CLAUDE_CODE_OAUTH_TOKEN`** в секретах репозитория просрочен.~~ Снято 2026-11-03 (FT-050): `claude.yml` и
+   секрет удалены, на PR гоняется `npm run verify` (`.github/workflows/verify.yml`).
 2. **Старые даты.** Быстрое добавление в боте до FT-100 сохраняло в `date` полный момент. Код это выдерживает,
    но такие записи не попадают в отчёты, где конец периода — этот день. Нормализовать — отдельной миграцией
    после просмотра списка.

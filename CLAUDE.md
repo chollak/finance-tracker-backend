@@ -25,7 +25,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Product name (2026-10-28):** Kapelka — one name for the bot, the Mini App and the future iOS app (decision 2026-10-28, renamed in FT-168). The repository and the npm package stay `finance-tracker-backend`. Kept on purpose under the old name, because a new one would break data or sign-ins: the cookies `daftar_session` / `daftar_login`, the Dexie database `daftar-offline`, the `localStorage` key `daftar-theme`. The live instance on the PC polls its own new bot Kapelka; @FinanceTrackerDevBot is the Mac's development bot.
 
-**Source of truth for current work:** `TASKS.md` — секция «Текущий фокус» и раздел «В работе» (раскладку см. в блоке выше). GitHub Issues/Wiki may contain stale January-era planning; use them only when a task explicitly asks to reconcile them.
+**Source of truth for current work:** `TASKS.md` — секция «Текущий фокус» и раздел «В работе» (раскладку см. в блоке выше). GitHub Issues hold only the future ideas #77, #83, #84 until the board moves there (FT-049, decision 2026-11-03); the Wiki is off.
 
 **Runtime target now:** the live instance is a systemd service on Shukur's Windows PC (WSL, copy `~/dev/projects/kapelka-live` on `main`, `NODE_ENV=production`, SQLite, Telegram polling of the bot Kapelka) at a fixed tailnet address from `tailscale serve`, updated by `scripts/live-update.sh` — [`docs/knowledge-base/08-development/live-instance.md`](docs/knowledge-base/08-development/live-instance.md) (FT-156; until the move FT-159 it still runs on the Mac through `dev:miniapp`). Development: macOS or WSL (Node 22, `.nvmrc`) + SQLite; `npm run dev:miniapp` (Cloudflare quick tunnel) stays for phone testing of a branch. Production/AWS is intentionally parked; `sapaev.uz` and Supabase are not the active dev path.
 
@@ -472,7 +472,9 @@ interface Category {
 
 ## Task Workflow — Current Source of Truth (MUST FOLLOW)
 
-**Current decision (2026-08-16):** `TASKS.md` is the active source of truth for the relaunch/local-daily-use plan. GitHub Issues/Project/Wiki are useful but may be stale; do not create/move/close issues unless the active task explicitly asks for GitHub reconciliation (for example FT-049).
+**Current decision (2026-08-16):** `TASKS.md` is the active source of truth for the relaunch/local-daily-use plan. Do not create/move/close issues unless the active task explicitly asks for GitHub reconciliation (for example FT-049).
+
+**2026-11-03:** the board moves to GitHub Issues + Project of this repository, public (FT-049); until the move is done `TASKS.md` stays the source of truth. GitHub was cleaned the same day (FT-050): January issues closed except the future ideas #77, #83, #84, Wiki and Discussions off, only `main` and `claude/ft-215-typeorm-1` left on `origin`, head branches are deleted on merge.
 
 ### Local Task Board
 
@@ -492,39 +494,11 @@ interface Category {
 
 ### Milestones
 
-| Milestone | Фокус |
-|-----------|-------|
-| v1.1 — Core Features | Recurring, Export, Quick-add |
-| v1.2 — Analytics & Insights | Analytics v2, UX фиксы, Drawer, Tabs |
-| v1.3 — Growth & Monetization | Multi-currency, Savings, Onboarding, Telegram insights |
+The January milestones v1.1 — Core Features, v1.2 — Analytics & Insights and v1.3 — Growth & Monetization are left from the January plan; their issues are closed except #77 (in v1.3). What to do with them is open in FT-049.
 
-### GitHub Wiki (secondary unless task asks for it)
+### GitHub Wiki — off (2026-11-03)
 
-- **URL:** https://github.com/chollak/finance-tracker-backend/wiki
-- **Repo:** клонировать `finance-tracker-backend.wiki.git` в `/tmp/finance-tracker-wiki` для редактирования
-
-**Страницы Wiki:**
-
-| Страница | Содержание | Когда обновлять |
-|----------|-----------|-----------------|
-| Home | Навигация по wiki | При добавлении новых страниц |
-| Architecture Overview | Clean Architecture, слои, data flow | При изменении архитектуры |
-| Module System | 15 модулей, зависимости | При добавлении/удалении модуля |
-| Design Patterns | Repository, Use Case, Result, DI | При использовании нового паттерна |
-| Quick Start | Установка, запуск, env vars | При изменении процесса запуска |
-| API Reference | Все endpoints | При добавлении/изменении endpoint |
-| Environment Variables | Все env vars | При добавлении новой переменной |
-| Design Guidelines | Цвета, шрифты, правила UI | При изменении design system |
-| Roadmap | Milestones, ICE scores, план | При создании/закрытии milestones |
-| Product Decisions | Лог ключевых решений | При каждом значимом решении |
-| Competitors | Анализ конкурентов, gap analysis | При competitive research |
-
-**Процесс обновления Wiki:**
-1. `git clone https://github.com/chollak/finance-tracker-backend.wiki.git /tmp/finance-tracker-wiki`
-2. Редактировать `.md` файлы (имена через дефис: `Module-System.md`)
-3. `cd /tmp/finance-tracker-wiki && git add -A && git commit -m "docs: ..." && git push`
-
-**Current rule:** update repo docs (`CLAUDE.md`, `docs/knowledge-base/`, `TASKS.md`, `AUTONOMOUS_REPORT.md`) first. Update GitHub Wiki only when the task explicitly includes Wiki/GitHub reconciliation or Shukur asks for it.
+The Wiki was a January 2026 snapshot and is turned off; its pages are hidden, not deleted. Documentation lives in the repository (`CLAUDE.md`, `docs/`); the competitor analysis was moved to [`docs/COMPETITORS_2026-01.md`](docs/COMPETITORS_2026-01.md). Do not turn the Wiki back on or write to it.
 
 ### GitHub Issues
 
@@ -637,10 +611,10 @@ fixes #70"
 | Отложенные задачи | `docs/tasks/backlog.md` |
 | Закрытые задачи с отчётами | `docs/tasks/archive/` |
 | Решения, менявшие направление | `docs/tasks/decisions.md` |
-| Будущая GitHub-синхронизация | FT-049, then GitHub Issues/Project if Shukur confirms |
-| Архитектурные решения | GitHub Wiki (Product Decisions) + `docs/knowledge-base/` |
-| API документация | GitHub Wiki (API Reference) |
-| Конкурентный анализ | GitHub Wiki (Competitors) |
+| Переезд доски в GitHub Issues/Project | FT-049 (решение 2026-11-03) |
+| Архитектурные решения | `docs/tasks/decisions.md` + `docs/knowledge-base/` |
+| API документация | `docs/QUICK_CAPTURE_API.md`, `docs/pastel/api.md` |
+| Конкурентный анализ | `docs/COMPETITORS_2026-01.md` (снимок января 2026) |
 | Временные заметки сессии | `.claude/plans/` (локально, не в git) |
 
 ---
