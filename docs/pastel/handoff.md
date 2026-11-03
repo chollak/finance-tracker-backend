@@ -73,7 +73,7 @@ auth-user-resolution-boundary-matrix.md`, раздел 2026-10-21. **Shortcut с
 | #85 | `docs/pastel-migration-plan` → `main` | План и доска вехи 10, `docs/pastel/` |
 | #86 | `fix/ft-087-category-delete-usage` → `main` | FT-087: правка категории, удаление в боте, счётчик лимита один раз |
 | — | `pastel/m10` | Интеграционная ветка: `main` + #85 + #86 |
-| #87 | `pastel/phase-0` → `pastel/m10` | FT-090 миграции TypeORM, FT-091 выключатель лимитов, страница проверки голоса (FT-088) |
+| #87 | `pastel/phase-0` → `pastel/m10` | FT-090 миграции TypeORM, FT-091 выключатель лимитов, страница проверки голоса (FT-088; убрана в #207) |
 | #88 | `pastel/phase-1` → `pastel/phase-0` | FT-092…096: токены, Manrope, темы, компоненты «Пастели», `/dev/pastel` |
 | #89 | `pastel/phase-2` → `pastel/phase-1` | FT-097…107: модель денег на backend; копия досок холста `design/` |
 | — | `claude/new-session-uv5og7` → `pastel/phase-2` | Фазы 3–8 (таблица ниже) |
@@ -202,8 +202,8 @@ auth-user-resolution-boundary-matrix.md`, раздел 2026-10-21. **Shortcut с
 
 ### Голос (FT-088)
 
-- [ ] С тем же туннелем откройте `/dev/voice-check` на iOS, Android и Desktop — порядок и таблица в
-      [`voice-check.md`](voice-check.md). Вывод — в `docs/tasks/decisions.md`; от него зависит FT-117
+Снято 2026-10-31: голос есть в iOS-приложении и в боте, проверять его внутри Mini App незачем
+([`decisions.md`](../tasks/decisions.md), запись 2026-10-31). Страница проверки голоса и её описание убраны в #207.
 
 ## Что осталось
 
