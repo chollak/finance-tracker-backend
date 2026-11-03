@@ -23,7 +23,6 @@ import { SubscriptionModule } from '../../../subscription/subscriptionModule';
 import { UserModule } from '../../../user/userModule';
 import { createUserResolutionMiddleware } from '../../../../delivery/web/express/middleware/userResolutionMiddleware';
 import {
-  allowGuestMode,
   optionalAuth,
   optionalAuthOrAppToken,
   verifyOwnership,
@@ -105,7 +104,7 @@ export function createTransactionRouter(
 
   // Enhanced analytics endpoints with time filtering
   // Protected with auth + ownership verification
-  router.get('/analytics/summary/:userId', allowGuestMode, verifyOwnership, resolveUser, async (req, res) => {
+  router.get('/analytics/summary/:userId', requireAuth, verifyOwnership, resolveUser, async (req, res) => {
     try {
       // Use resolved UUID from middleware (falls back to raw param if not resolved)
       const userId = req.resolvedUser?.id || req.params.userId;
@@ -126,7 +125,7 @@ export function createTransactionRouter(
     }
   });
 
-  router.get('/analytics/categories/:userId', allowGuestMode, verifyOwnership, resolveUser, async (req, res) => {
+  router.get('/analytics/categories/:userId', requireAuth, verifyOwnership, resolveUser, async (req, res) => {
     try {
       // Use resolved UUID from middleware
       const userId = req.resolvedUser?.id || req.params.userId;
@@ -147,7 +146,7 @@ export function createTransactionRouter(
     }
   });
 
-  router.get('/analytics/trends/:userId', allowGuestMode, verifyOwnership, resolveUser, async (req, res) => {
+  router.get('/analytics/trends/:userId', requireAuth, verifyOwnership, resolveUser, async (req, res) => {
     try {
       // Use resolved UUID from middleware
       const userId = req.resolvedUser?.id || req.params.userId;
@@ -160,7 +159,7 @@ export function createTransactionRouter(
     }
   });
 
-  router.get('/analytics/patterns/:userId', allowGuestMode, verifyOwnership, resolveUser, async (req, res) => {
+  router.get('/analytics/patterns/:userId', requireAuth, verifyOwnership, resolveUser, async (req, res) => {
     try {
       // Use resolved UUID from middleware
       const userId = req.resolvedUser?.id || req.params.userId;
@@ -181,7 +180,7 @@ export function createTransactionRouter(
     }
   });
 
-  router.get('/analytics/top-categories/:userId', allowGuestMode, verifyOwnership, resolveUser, async (req, res) => {
+  router.get('/analytics/top-categories/:userId', requireAuth, verifyOwnership, resolveUser, async (req, res) => {
     try {
       // Use resolved UUID from middleware
       const userId = req.resolvedUser?.id || req.params.userId;
@@ -288,7 +287,7 @@ export function createTransactionRouter(
     });
   }
 
-  router.get('/user/:userId', allowGuestMode, verifyOwnership, resolveUser, async (req, res) => {
+  router.get('/user/:userId', requireAuth, verifyOwnership, resolveUser, async (req, res) => {
     try {
       // Use resolved UUID from middleware
       const userId = req.resolvedUser?.id || getStringParam(req, 'userId');
@@ -554,7 +553,7 @@ export function createTransactionRouter(
     }
   });
 
-  router.post('/archive/all/:userId', allowGuestMode, verifyOwnership, resolveUser, async (req, res) => {
+  router.post('/archive/all/:userId', requireAuth, verifyOwnership, resolveUser, async (req, res) => {
     try {
       // Use resolved UUID from middleware
       const userId = req.resolvedUser?.id || getStringParam(req, 'userId');
@@ -571,7 +570,7 @@ export function createTransactionRouter(
     }
   });
 
-  router.get('/archived/user/:userId', allowGuestMode, verifyOwnership, resolveUser, async (req, res) => {
+  router.get('/archived/user/:userId', requireAuth, verifyOwnership, resolveUser, async (req, res) => {
     try {
       // Use resolved UUID from middleware
       const userId = req.resolvedUser?.id || getStringParam(req, 'userId');

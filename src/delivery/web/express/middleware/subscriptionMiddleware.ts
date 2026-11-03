@@ -7,7 +7,7 @@ import { Request, Response, NextFunction } from 'express';
 import { SubscriptionModule } from '../../../../modules/subscription/subscriptionModule';
 import { UserModule } from '../../../../modules/user/userModule';
 import { LimitType } from '../../../../modules/subscription/domain/usageLimit';
-import { resolveUserIdToUUID, isGuestUser } from '../../../../shared/application/helpers/userIdResolver';
+import { resolveUserIdToUUID } from '../../../../shared/application/helpers/userIdResolver';
 import { createLogger, LogCategory } from '../../../../shared/infrastructure/logging';
 
 const logger = createLogger(LogCategory.SUBSCRIPTION);
@@ -48,10 +48,6 @@ async function resolveUserUUID(
   userModule: UserModule
 ): Promise<string | null> {
   try {
-    // Skip guest users
-    if (isGuestUser(userId)) {
-      return null;
-    }
     // Use shared resolver which checks isUUID first
     return await resolveUserIdToUUID(userId, userModule);
   } catch (error) {

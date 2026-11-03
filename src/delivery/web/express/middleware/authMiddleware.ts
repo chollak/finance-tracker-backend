@@ -338,13 +338,11 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
 /**
  * Optional authentication middleware
  *
- * Validates auth if present, but allows unauthenticated requests.
- * Useful for endpoints that work with or without auth (e.g., guest mode).
+ * Validates auth if present, but lets an unauthenticated request on. Only for routes on one record, whose handler
+ * fetches it and checks its owner (`verifyResourceOwnership`), which refuses a request without a signed-in user.
  */
 export function optionalAuth(req: Request, _res: Response, next: NextFunction): void {
-  // Development mode bypass: allow the same local dev header as requireAuth.
-  // This keeps browser-only Mini App QA working for routes that allow guest mode
-  // but still need ownership checks for real user resources.
+  // Development mode bypass: the same local dev header as requireAuth
   if (devHeadersAllowed(req)) {
     const devUserId = req.headers['x-dev-user-id'];
     if (devUserId && typeof devUserId === 'string') {
@@ -413,8 +411,8 @@ function userIdClaims(req: Request): unknown[] {
  * - 400 `INVALID_USER_ID`: a userId that is not one non-blank string — a number, the array `?userId=a&userId=b` makes,
  *   an object, null, an empty string. User resolution would fail on it with 500.
  * - 403 `ACCESS_DENIED`: a userId naming anyone else. Ids compare as the strings user resolution would look up, so
- *   `0131184740` is someone else — resolving it would create a user row for it. A UUID or a `guest_*` id is someone
- *   else too: it says nothing about who sent the request, and there are no guests any more (decision Д4).
+ *   `0131184740` is someone else — resolving it would create a user row for it. A UUID or any other id is someone
+ *   else too: it says nothing about who sent the request.
  */
 function refusedUserIdClaims(req: Request, res: Response, signedIn: string, refusal: string): boolean {
   const claimed = userIdClaims(req).map(claim => (typeof claim === 'string' ? claim.trim() : ''));
@@ -697,14 +695,6 @@ export const requireAuthOrAppToken: RequestHandler = signInWithAppTokenOr(requir
 
 /** `optionalAuth`, or the app token as its owner (FT-218): delete, restore and edit a record. */
 export const optionalAuthOrAppToken: RequestHandler = signInWithAppTokenOr(optionalAuth);
-
-/**
- * Formerly guest mode: a `guest_*` userId went through without signing in. There are no guests any more (decision Д4,
- * FT-128), so every request signs in (2026-10-21). Kept under its old name for the routes that use it until FT-136.
- */
-export function allowGuestMode(req: Request, res: Response, next: NextFunction): void {
-  requireAuth(req, res, next);
-}
 
 /**
  * A write for the signed-in user (2026-10-21). A `userId` the path, query or body still carries — the Mini App's

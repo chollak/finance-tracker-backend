@@ -24,18 +24,13 @@ export function isUUID(str: string): boolean {
 }
 
 /**
- * Check if userId is a guest user
- */
-export function isGuestUser(userId: string): boolean {
-  return userId.startsWith('guest_');
-}
-
-/**
- * Resolve any userId format to UUID
+ * Resolve any userId format to UUID. There are no guests (decision Д4, #206): every id that is not a UUID is resolved
+ * as a Telegram id, creating the user on first contact — so an HTTP route checks the id is the signed-in user's own
+ * (`verifyOwnership`) before resolving it.
  *
- * @param userId - Can be telegramId (string of numbers), UUID, or guest_* prefix
+ * @param userId - Can be telegramId (string of numbers) or UUID
  * @param userModule - UserModule instance for resolving telegramId to UUID
- * @returns UUID string (or original for guest users)
+ * @returns UUID string (the id as given if resolution fails: fail-open)
  *
  * @example
  * // telegramId → UUID
@@ -43,9 +38,6 @@ export function isGuestUser(userId: string): boolean {
  *
  * // Already UUID → returns as-is
  * resolveUserIdToUUID("a1b2c3d4-e5f6-...", userModule) → "a1b2c3d4-e5f6-..."
- *
- * // Guest user → returns as-is
- * resolveUserIdToUUID("guest_abc123", userModule) → "guest_abc123"
  */
 export async function resolveUserIdToUUID(
   userId: string,
@@ -56,11 +48,6 @@ export async function resolveUserIdToUUID(
 
   if (!trimmedId) {
     throw new ValidationError('userId is required', 'userId');
-  }
-
-  // Guest users don't need resolution
-  if (isGuestUser(trimmedId)) {
-    return trimmedId;
   }
 
   // Already a UUID - return as-is
@@ -87,7 +74,7 @@ export async function resolveUserIdToUUID(
  * Use this for future security-sensitive HTTP/API boundaries where silently
  * falling back to a raw telegramId would be unsafe. The existing
  * `resolveUserIdToUUID()` helper remains fail-open for backwards-compatible
- * Telegram/guest flows until individual routes are explicitly migrated.
+ * Telegram flows until individual routes are explicitly migrated.
  */
 export async function resolveUserIdToUUIDStrict(
   userId: string,
@@ -97,10 +84,6 @@ export async function resolveUserIdToUUIDStrict(
 
   if (!trimmedId) {
     throw new ValidationError('userId is required', 'userId');
-  }
-
-  if (isGuestUser(trimmedId)) {
-    return trimmedId;
   }
 
   if (isUUID(trimmedId)) {
@@ -119,13 +102,13 @@ export async function resolveUserIdToUUIDStrict(
 }
 
 /**
- * Resolve userId synchronously if possible (UUID or guest)
+ * Resolve userId synchronously if possible (a UUID)
  * Returns null if async resolution is needed
  */
 export function tryResolveUserIdSync(userId: string): string | null {
   const trimmedId = userId.trim();
 
-  if (isGuestUser(trimmedId) || isUUID(trimmedId)) {
+  if (isUUID(trimmedId)) {
     return trimmedId;
   }
 

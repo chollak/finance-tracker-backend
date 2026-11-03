@@ -3,7 +3,7 @@ import { BudgetController } from './budgetController';
 import { BudgetModule } from '../budgetModule';
 import { UserModule } from '../../user/userModule';
 import { createUserResolutionMiddleware } from '../../../delivery/web/express/middleware/userResolutionMiddleware';
-import { allowGuestMode, optionalAuth, verifyOwnership } from '../../../delivery/web/express/middleware/authMiddleware';
+import { optionalAuth, requireAuth, verifyOwnership } from '../../../delivery/web/express/middleware/authMiddleware';
 import { standardRateLimiter } from '../../../delivery/web/express/middleware/rateLimitMiddleware';
 
 export function createBudgetRouter(
@@ -22,17 +22,17 @@ export function createBudgetRouter(
     : (_req: any, _res: any, next: any) => next();
 
   // Budget CRUD operations (user-scoped)
-  // Protected with auth + ownership verification (guests allowed)
-  router.post('/users/:userId/budgets', allowGuestMode, verifyOwnership, resolveUser, controller.createBudget);
-  router.get('/users/:userId/budgets', allowGuestMode, verifyOwnership, resolveUser, controller.getBudgets);
+  // Signed in, and the path id must be the signed-in user's own (no guests, #206)
+  router.post('/users/:userId/budgets', requireAuth, verifyOwnership, resolveUser, controller.createBudget);
+  router.get('/users/:userId/budgets', requireAuth, verifyOwnership, resolveUser, controller.getBudgets);
 
   // Budget analytics and summaries
-  router.get('/users/:userId/budgets/summaries', allowGuestMode, verifyOwnership, resolveUser, controller.getBudgetSummaries);
-  router.get('/users/:userId/budgets/alerts', allowGuestMode, verifyOwnership, resolveUser, controller.getBudgetAlerts);
+  router.get('/users/:userId/budgets/summaries', requireAuth, verifyOwnership, resolveUser, controller.getBudgetSummaries);
+  router.get('/users/:userId/budgets/alerts', requireAuth, verifyOwnership, resolveUser, controller.getBudgetAlerts);
 
   // Budget CRUD operations (budget-scoped)
   // Ownership verification is done in controller by fetching budget and checking userId
-  // optionalAuth: validates auth if present, allows unauthenticated for guest resources
+  // optionalAuth: the controller checks the record's owner and refuses a request without a signed-in user (403)
   router.get('/:budgetId', optionalAuth, controller.getBudget);
   router.put('/:budgetId', optionalAuth, controller.updateBudget);
   router.delete('/:budgetId', optionalAuth, controller.deleteBudget);
