@@ -192,7 +192,7 @@ This project follows **Clean Architecture** principles with clear separation bet
 14. **AuthModule** - Web login through the bot (FT-128, decision Д4): a one-time link `t.me/<bot>?start=login_<token>` for 5 minutes (`login_tokens`), «Подтвердить» / «Это не я» in the bot, the browser's httpOnly session cookie read by `webSessionMiddleware` next to initData, «Выйти». No guest mode in the browser any more
 15. **AuditModule** - Spending audit and goals (FT-130, FT-131): the audit rules over flexible categories, `audits` (candidates and decisions, carried to the next audit) and `goals`; `/api/audits`, `/api/goals`; reads TransactionModule and CategoryModule through the `AuditSources` port
 
-**Dashboard is not an app module.** `src/modules/dashboard/` contains only `DashboardService` and `DashboardController`; there is no `dashboardModule.ts` and `createModules()` does not return a `dashboardModule`. The dashboard is assembled in the Express delivery layer: `createDashboardRouter()` (`src/delivery/web/express/routes/dashboardRoutes.ts`) builds `DashboardService` from `transactionModule.getAnalyticsService()` and `budgetModule.budgetService`.
+**No backend dashboard (#205).** `GET /api/dashboard/*` with `DashboardService`, `AlertService` and the premium-only insights is removed: Home reads `/api/transactions/totals` and `/api/accounts` (FT-111), Analytics reads `/api/analytics` (FT-120), the bot never read it.
 
 ### Module Dependencies
 
@@ -202,9 +202,6 @@ TransactionModule (core)
     ├─── BudgetModule (для расчета spent)
     ├─── DebtModule (для создания linked транзакций)
     └─── VoiceProcessingModule (CreateTransactionUseCase)
-
-DashboardService (не модуль) ← AnalyticsService (Transaction) + BudgetService (Budget),
-                                собирается в createDashboardRouter()
 ```
 
 ### Layer Structure

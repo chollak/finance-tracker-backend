@@ -11,7 +11,7 @@ struct CaptureDeleteTests {
         let wrong = try await queue.add("кофе 250к")
         let right = try await queue.add("кофе 25к")
 
-        #expect(try await queue.remove(wrong.clientId))
+        #expect(try await queue.remove(wrong.clientId) != nil)
         await queue.flush()
 
         #expect(try await harness.transport.sentClientIds() == [right.clientId.uuidString.lowercased()])
@@ -23,7 +23,7 @@ struct CaptureDeleteTests {
         let harness = try QueueHarness(settings: TestSettings(configured: false))
         let capture = try await harness.makeQueue().add("кофе 250к")
 
-        #expect(try await harness.makeQueue().remove(capture.clientId))
+        #expect(try await harness.makeQueue().remove(capture.clientId) != nil)
 
         #expect(try harness.store.load().captures.isEmpty)
     }
@@ -36,8 +36,8 @@ struct CaptureDeleteTests {
         let sent = try await queue.add("кофе 25к")
         await queue.flush()
 
-        #expect(try await queue.remove(rejected.clientId) == false)
-        #expect(try await queue.remove(sent.clientId) == false)
+        #expect(try await queue.remove(rejected.clientId) == nil)
+        #expect(try await queue.remove(sent.clientId) == nil)
         #expect(try harness.store.load().captures.map(\.state) == [.rejected, .sent])
     }
 
@@ -50,7 +50,7 @@ struct CaptureDeleteTests {
         async let sending: Void = queue.flush()
         #expect(await eventually { await harness.transport.requests.count == 1 })
         #expect(await queue.state().sendingId == capture.clientId)
-        #expect(try await queue.remove(capture.clientId) == false)
+        #expect(try await queue.remove(capture.clientId) == nil)
         await sending
 
         #expect(try harness.store.load().captures.map(\.state) == [.sent])
@@ -69,13 +69,34 @@ struct CaptureDeleteTests {
 
         async let sending: Void = queue.flush()
         #expect(await eventually { await harness.transport.requests.count == 1 })
-        #expect(try await queue.remove(wrong.clientId) == false)
+        #expect(try await queue.remove(wrong.clientId) == nil)
         await sending
-        #expect(try await queue.remove(wrong.clientId))
+        #expect(try await queue.remove(wrong.clientId) != nil)
         await queue.flush()
 
         #expect(try await harness.transport.bodies().map(\.text) == ["кофе 250к", "такси 18к"])
         #expect(try harness.store.load().captures.map(\.text) == ["такси 18к"])
+    }
+
+    @Test("свайп «Удалить»: запрос не уходил с телефона (нет сети) — молча; уходил (таймаут) — «проверь «Записи»» (FT-256)")
+    func swipeTellsOnlyWhenItMayBeOnServer() async throws {
+        let harness = try QueueHarness(transport: FakeTransport([.failure(.notConnectedToInternet), .failure(.timedOut)]))
+        let queue = harness.makeQueue()
+        let offline = try await queue.add("кофе 250к")
+        await queue.flush()
+        #expect(CaptureRow.deleteNote(try await queue.remove(offline.clientId)) == nil)
+
+        let timedOut = try await queue.add("такси 18к")
+        await queue.flush()
+        #expect(
+            CaptureRow.deleteNote(try await queue.remove(timedOut.clientId))
+                == "Удалено. Запись уже уходила на сервер — проверь «Записи»"
+        )
+    }
+
+    @Test("свайп «Удалить», а запрос уже ушёл — не удалено, и сказано почему")
+    func swipeWhileSending() {
+        #expect(CaptureRow.deleteNote(nil) == "Запись уже отправляется — если сервер её запишет, удали её в «Записях»")
     }
 
     @Test("номер записи в пути на диск не пишется")

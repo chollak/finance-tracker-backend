@@ -87,7 +87,7 @@ struct BackgroundNoticeFlowTests {
         #expect(await rig.center.added.map(\.opens) == [.capture])
     }
 
-    @Test("оплата без связи — «уйдёт позже»; ушла позже в фоне — «Записал: …» на месте прежнего, тот же id")
+    @Test("оплата без связи — «нет связи, уйдёт, когда появится сеть»; ушла позже в фоне — «Записал: …» на месте прежнего, тот же id")
     func latePaymentReplacesItsNotice() async throws {
         let rig = try rig([.failure(.notConnectedToInternet), .http(200, body: CaptureReplyBodies.paymentFromDocs)])
 
@@ -95,7 +95,7 @@ struct BackgroundNoticeFlowTests {
         let id = try #require(try clientIds(rig).first)
         #expect(await rig.center.delivered == [Notice(
             id: id,
-            body: "KORZINKA 24 · \u{2212}25\u{00A0}000\u{00A0}сум — уйдёт позже",
+            body: "KORZINKA 24 · \u{2212}25\u{00A0}000\u{00A0}сум — нет связи, уйдёт, когда появится сеть",
             opens: .capture
         )])
 

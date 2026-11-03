@@ -8,8 +8,16 @@ struct LastPhraseMarks: Codable, Equatable, Sendable {
     struct Removed: Codable, Equatable, Sendable {
         let text: String
         let capturedAt: Date
-        /// It had gone to the server before: a timeout does not say whether the server wrote it.
-        let triedBefore: Bool
+        /// It may have been written by the server before (`Capture.mayBeOnServer`, FT-256): a timeout does not say
+        /// whether the server wrote it.
+        let mayBeOnServer: Bool
+
+        // The key of the builds before FT-256, where it meant any attempt
+        private enum CodingKeys: String, CodingKey {
+            case text
+            case capturedAt
+            case mayBeOnServer = "triedBefore"
+        }
     }
 
     /// The phrase the marks are about; marks of an older phrase mean nothing for a newer one.

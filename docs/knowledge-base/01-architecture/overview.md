@@ -24,7 +24,7 @@
 
 **Содержит:**
 - Use Cases (CreateTransactionUseCase, GetBudgetsUseCase)
-- Application Services (AnalyticsService, BudgetService, DashboardService)
+- Application Services (AnalyticsService, BudgetService)
 - DTOs (Data Transfer Objects)
 
 **Зависимости:** Domain Layer
@@ -105,7 +105,7 @@
 | **BotMessageModule** | Сообщения бота о записях (FT-122): связь «сообщение → записи» в `bot_messages` | Независимый |
 | **NotificationModule** | Уведомления бота: итоги дня в выбранное время, `/today` и `/month` (FT-124); напоминания о целях, подписках и ревизии (FT-133); что отправлено — в `notifications_log` | TransactionModule, UserModule, AuditModule |
 
-**Dashboard — не модуль.** В `src/modules/dashboard/` есть только `DashboardService` и `DashboardController`; `dashboardModule.ts` отсутствует, и `createModules()` не возвращает `dashboardModule`. Сборка идёт в Express-слое: `createDashboardRouter()` строит `DashboardService` из `transactionModule.getAnalyticsService()` и `budgetModule.budgetService`.
+**Backend-дашборда нет (#205).** `GET /api/dashboard/*` с `DashboardService`, `AlertService` и платными insights удалён: его никто не вызывал. Главная читает свои маршруты (FT-111), аналитика — `/api/analytics` (FT-120).
 
 Подробнее: [Modules](modules.md)
 

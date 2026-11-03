@@ -41,7 +41,7 @@ Prefer unit/use-case tests for pure business logic and route tests for HTTP/midd
 | Budget | user budgets, summaries, alerts, by-id update/delete/recalculate | `:userId` routes: ownership, no shadow user, `400` for a non-string id (FT-162); by-id routes not covered | medium | Add missing-user validation and ownership route tests before controller cleanup. |
 | Subscription | status, check-limit, grant, cancel, start-trial | use-case level; routes: user from auth, someone else's id `403`, non-string `400` (FT-162) | medium-high | Add route tests around guest status/check-limit and invalid limitType. |
 | User | get/create/update user | covered at use-case/helper level, not route level | medium | Add auth/self-access tests if user routes become active frontend surface. |
-| Dashboard | insights/alerts/quick-stats with premium/read-only middleware | ownership before resolution, premium gate after it (FT-162) | medium | Add one auth/premium boundary test if dashboard route behavior changes. |
+| Dashboard | removed in #205 with `DashboardService`, `AlertService` and `requirePremium`: nothing called it | `tests/deadDashboardRoutes.test.ts`: the seven routes are `404` | — | — |
 | OpenAI usage | removed with `OpenAIUsageModule` (FT-174): `requireAdmin` without `requireAuth` always answered `401`, nothing called it | `tests/deadAdminRoutes.test.ts`: the routes are `404` | — | — |
 | App token (FT-218) | the iOS app's six records routes: `GET /api/transactions`, `GET /api/categories`, `GET /api/accounts`, `DELETE /api/transactions/:id`, `POST …/restore`, `PUT /api/transactions/:id`; capture: `POST /api/quick-capture`, `/payment` | `tests/appTokenRecords.test.ts`: each of the six as with initData, refusals, someone else's record; **every route of `buildServer`** with the token only vs. without — exactly these eight differ | high | When a route is added or its sign-in changes, the sweep says whether the token opens it |
 
@@ -68,12 +68,12 @@ From `tests/apiRoutes.test.ts`:
   - malformed JSON → 400 `INVALID_JSON`
 
 From `tests/legacyUserIdRoutes.test.ts` (FT-162), for every legacy route with `:userId` (transactions, budgets, debts,
-dashboard, subscription status), on a real SQLite `users` table:
+subscription status; the dashboard ones until #205 removed them), on a real SQLite `users` table:
 
 - someone else's id in the path (`597843119`, `0131184740`, `1311847400`) — `403 ACCESS_DENIED`, no `users` row added
 - a blank path id, `?userId=a&userId=b`, `?userId=`, a body userId that is a number, array, object, `null` or `''` — `400 INVALID_USER_ID`
 - a query or body naming someone else next to the own path id — `403`
-- the own id — as before (`200`/`201`; insights `403 PREMIUM_REQUIRED` for a free user)
+- the own id — as before (`200`/`201`; until #205 the dashboard insights answered `403 PREMIUM_REQUIRED` to a free user)
 - subscription actions and `POST /api/transactions` act for the signed-in user without a body userId; someone else's
   — `403`; a non-string — `400`; the admin grant's non-string target — `400`, not `500`
 
@@ -144,7 +144,7 @@ Candidate tests:
 
 Avoid broad route test expansion for:
 
-- every dashboard insight endpoint
+- every dashboard insight endpoint (moot: removed in #205)
 - full voice file upload behavior
 - all transaction archive/batch variants
 

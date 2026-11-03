@@ -123,19 +123,51 @@ struct LastPhraseCardTests {
 
         await card.delete(.fromPhone(id))
 
-        // At once, before the queue's next state reaches the screen
-        #expect(texts(card) == ["Удалено с телефона — она уже уходила на сервер, проверь «Записи»"])
+        // At once, before the queue's next state reaches the screen. Without a network the request never left the
+        // phone: nothing to check in «Записи» (FT-256)
+        #expect(texts(card) == ["Удалено с телефона"])
         await refresh(card, parts)
         #expect(await parts.capture.state().captures.isEmpty)
         #expect(shown(card)?.heard == "Услышал: кофе 25к")
         #expect(shown(card)?.deletion == nil)
 
         let restarted = await self.card(parts)
-        #expect(texts(restarted) == ["Удалено с телефона — она уже уходила на сервер, проверь «Записи»"])
+        #expect(texts(restarted) == ["Удалено с телефона"])
 
         _ = try await parts.capture.add("такси 18к")
         await refresh(restarted, parts)
         #expect(shown(restarted)?.heard == "Услышал: такси 18к")
+    }
+
+    @Test("ждёт после таймаута — «Удалено с телефона — она уже уходила на сервер», и после перезапуска (FT-256)")
+    func removeAfterNoAnswer() async throws {
+        defer { cleanUp() }
+        let parts = try parts(capture: [.failure(.notConnectedToInternet), .failure(.timedOut), .failure(.notConnectedToInternet)])
+        _ = try await parts.capture.add("кофе 25к")
+        // Timed out once among attempts without a network: the server may have written it
+        await parts.capture.flush()
+        await parts.capture.flush()
+        await parts.capture.flush()
+        let card = await card(parts)
+        let id = try #require(shown(card)?.id)
+        #expect(texts(card) == ["Нет связи — уйдёт, когда появится сеть"])
+
+        await card.delete(.fromPhone(id))
+
+        #expect(texts(card) == ["Удалено с телефона — она уже уходила на сервер, проверь «Записи»"])
+        let restarted = await self.card(parts)
+        #expect(texts(restarted) == ["Удалено с телефона — она уже уходила на сервер, проверь «Записи»"])
+    }
+
+    @Test("отметка «удалено с телефона», сохранённая до FT-256, читается")
+    func marksBeforeTheFlag() throws {
+        let older = #"{"clientId":"3903229C-4ACB-4547-8620-13DC3B9FAA9E","deleted":[],"#
+            + #""removed":{"capturedAt":815000000,"text":"кофе 25к","triedBefore":true}}"#
+
+        let marks = try JSONDecoder().decode(LastPhraseMarks.self, from: Data(older.utf8))
+
+        #expect(marks.removed?.mayBeOnServer == true)
+        #expect(marks.removed?.text == "кофе 25к")
     }
 
     @Test("запрос ушёл между показом и нажатием — не удаляет, говорит почему")

@@ -25,8 +25,7 @@ import { listenOnLoopback } from './helpers/testServer';
  *
  * SCOPE NOTE: `buildServer()` wires 5+ full modules (Transaction, Voice, Budget,
  * Debt), several of which need a dozen+ use-case getters just to
- * construct their routers, and DashboardRouter's factory eagerly `new`s services
- * from them. Faithfully stubbing all of that adds risk without adding coverage.
+ * construct their routers. Faithfully stubbing all of that adds risk without adding coverage.
  * Instead, this suite assembles a minimal app using the *real* middleware and
  * router factories buildServer uses (same imports, same order: requestLogger ->
  * securityHeaders -> corsHeaders -> json/urlencoded -> routes -> notFoundHandler ->

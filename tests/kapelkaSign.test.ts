@@ -23,6 +23,24 @@ const { readPng }: { readPng: (png: Buffer) => PngImage } = require('../scripts/
 const ROOT = path.join(__dirname, '..');
 const read = (file: string) => fs.readFileSync(path.join(ROOT, file), 'utf8');
 
+/** The `manifest: { … }` of vite.config.ts: vite-plugin-pwa writes it as manifest.webmanifest, the only manifest (FT-257). */
+function pwaManifestSource() {
+  const config = read('webapp/vite.config.ts');
+  const start = config.indexOf('manifest: {');
+  const end = config.indexOf('workbox: {', start);
+  if (start < 0 || end < 0) throw new Error('vite.config.ts: no `manifest: {` before `workbox: {` in VitePWA()');
+  return config.slice(start, end);
+}
+
+/** Files under webapp/public: Vite copies the folder into the build as is, so everything here is served. */
+function publicFiles() {
+  const dir = path.join(ROOT, 'webapp/public');
+  return (fs.readdirSync(dir, { recursive: true }) as string[])
+    .filter((file) => fs.statSync(path.join(dir, file)).isFile())
+    .map((file) => file.split(path.sep).join('/'))
+    .sort();
+}
+
 // The task's geometry as Shukur chose it, letter for letter
 const BARS =
   '<rect x="1.2" y="10.56" width="5.2" height="16.87" rx="2.6"/><rect x="8.8" y="3.03" width="5.2" height="31.94" rx="2.6"/>' +
@@ -146,21 +164,22 @@ describe('where the sign is used (FT-169)', () => {
 
   it('web: the tab takes icon.svg, the home screen the bars; nothing points at a missing file', () => {
     const html = read('webapp/index.html');
-    const manifest = JSON.parse(read('webapp/public/manifest.json'));
     const viteConfig = read('webapp/vite.config.ts');
-    const pwaIcons = [
-      { src: '/icons/icon-192x192.png', sizes: '192x192', type: 'image/png', purpose: 'any maskable' },
-      { src: '/icons/icon-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
-    ];
+    const iconsInManifest = [
+      ...pwaManifestSource().matchAll(/\{\s*src: '([^']+)',\s*sizes: '([^']+)',\s*type: '([^']+)',\s*purpose: '([^']+)',\s*\}/g),
+    ].map(([, src, sizes, type, purpose]) => ({ src, sizes, type, purpose }));
 
     expect(html.match(/<link rel="(icon|apple-touch-icon)"[^>]*>/g)).toEqual([
       '<link rel="icon" type="image/svg+xml" href="/icons/icon.svg" />',
       '<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />',
     ]);
-    expect(manifest.icons).toEqual(pwaIcons);
-    expect(viteConfig.match(/src: '\/icons\/[^']+'/g)).toEqual(pwaIcons.map((icon) => `src: '${icon.src}'`));
+    expect(iconsInManifest).toEqual([
+      { src: '/icons/icon-192x192.png', sizes: '192x192', type: 'image/png', purpose: 'any maskable' },
+      { src: '/icons/icon-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
+    ]);
+    expect(viteConfig.match(/src: '\/icons\/[^']+'/g)).toEqual(iconsInManifest.map((icon) => `src: '${icon.src}'`));
 
-    const referenced = [html, JSON.stringify(manifest), viteConfig].join('\n').match(/\/icons\/[\w.-]+/g) ?? [];
+    const referenced = [html, viteConfig].join('\n').match(/\/icons\/[\w.-]+/g) ?? [];
     for (const icon of referenced) expect(fs.existsSync(path.join(ROOT, 'webapp/public', icon))).toBe(true);
   });
 
@@ -174,5 +193,46 @@ describe('where the sign is used (FT-169)', () => {
       const glob = new RegExp(`^${pattern.slice(1, -1).replace(/\./g, '\\.').replace(/\*/g, '[^/]*')}$`);
       expect([pattern, publicFiles.some((file) => glob.test(file))]).toEqual([pattern, true]);
     }
+  });
+});
+
+describe('the PWA manifest (FT-257)', () => {
+  it('is one: vite-plugin-pwa writes and links it; index.html and public/ have no manifest of their own', () => {
+    expect(read('webapp/vite.config.ts')).toMatch(/VitePWA\(\{[\s\S]*manifest: \{/);
+    expect(read('webapp/index.html')).not.toMatch(/rel="manifest"/);
+    expect(publicFiles().filter((file) => /manifest/i.test(file))).toEqual([]);
+  });
+
+  it('takes theme_color and background_color from the light `bg` token of «Пастель», not a copy of it', () => {
+    const bg = JSON.parse(read('docs/pastel/tokens.json')).color.tokens.find(
+      (token: { name: string }) => token.name === 'bg'
+    ).value;
+    const generated = /export const pastelColors = ([\s\S]*?) as const;/.exec(
+      read('webapp/src/shared/config/pastelTokens.ts')
+    )?.[1];
+
+    expect(JSON.parse(generated ?? 'null').light.bg).toBe(bg.light);
+    expect(read('webapp/vite.config.ts')).toContain("import { pastelColors } from './src/shared/config/pastelTokens'");
+    expect(pwaManifestSource().match(/\w+_color: [^,\n]+/g)).toEqual([
+      'background_color: pastelColors.light.bg',
+      'theme_color: pastelColors.light.bg',
+    ]);
+    expect(pwaManifestSource()).not.toMatch(/#[\da-f]{3,8}\b/i);
+  });
+
+  it('describes Kapelka in Russian', () => {
+    expect(/lang: '([^']*)'/.exec(pwaManifestSource())?.[1]).toBe('ru');
+    expect(/description: '([^']*)'/.exec(pwaManifestSource())?.[1]).toMatch(/^[А-ЯЁ][а-яё]*( [а-яё]+)+$/);
+  });
+
+  it('ships only the icons: no vite.svg left from the template, no README in the build', () => {
+    expect(publicFiles()).toEqual([
+      'icons/apple-touch-icon.png',
+      'icons/icon-192x192.png',
+      'icons/icon-512x512.png',
+      'icons/icon.svg',
+    ]);
+    // The icons README lives with the sign's sources, which scripts/render-sign-png.js draws the PNGs from
+    expect(fs.existsSync(path.join(ROOT, 'docs/pastel/logo/README.md'))).toBe(true);
   });
 });
