@@ -151,7 +151,7 @@ Routes are defined in `webapp/src/app/router/routes.tsx`:
 | `/analytics` | Analytics and insights |
 | `/more` | Settings and secondary sections |
 
-There is no `/dashboard` or `/stats` route in the webapp; dashboard data is an API concern (`/api/dashboard/:userId`) consumed by the Home and Analytics pages.
+There is no `/dashboard` or `/stats` route in the webapp, and no `/api/dashboard` on the server since #205: Home reads `/api/transactions/totals` and `/api/accounts`, Analytics reads `/api/analytics`.
 
 See [USER_GUIDE.md](USER_GUIDE.md) for detailed usage instructions.
 
@@ -193,8 +193,6 @@ The code follows Clean Architecture principles with layers for `domain`, `applic
 ### Module interactions
 
 The application is organized into 15 app modules (`TransactionModule`, `VoiceProcessingModule`, `QuickCaptureModule`, `CategoryModule`, `AccountModule`, `UserModule`, `BotMessageModule`, `NotificationModule`, `AuditModule` and others — the full list is in `CLAUDE.md`), created once in `createModules()` (`src/appModules.ts`) and shared between the HTTP server and the Telegram bot. For example, `voiceProcessing` depends on `transaction` through `CreateTransactionUseCase` — voice commands are transcribed and immediately recorded as transactions.
-
-Dashboard is not one of these modules: `src/modules/dashboard/` ships only `DashboardService` and `DashboardController`, which the Express layer assembles in `createDashboardRouter()` from the Transaction analytics service and the Budget service.
 
 See [docs/knowledge-base/01-architecture/modules.md](docs/knowledge-base/01-architecture/modules.md) for the full module dependency graph.
 

@@ -29,7 +29,7 @@ if (!userId) {
 
 Current examples:
 
-- DashboardController missing `userId`
+- DashboardController missing `userId` (removed in #205 with the backend dashboard)
 - BudgetController missing `userId`
 - DebtController missing `userId` / `debtId` / `paymentId`
 - SubscriptionController missing `userId`, `limitType`, invalid `limitType`

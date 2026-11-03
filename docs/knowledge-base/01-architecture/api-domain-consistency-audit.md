@@ -1,6 +1,8 @@
 # API / Domain Consistency Audit
 
 > Status: FT-018 audit. This document records API/domain consistency findings after the foundation cleanup. It is intentionally an audit and task-splitting document, not a broad refactor.
+>
+> #205 (2026-11-03): the backend dashboard — `/api/dashboard`, `dashboardController.ts`, `DashboardService`, `AlertService` — is removed; the dashboard findings below are history.
 
 ## Scope
 
@@ -55,7 +57,7 @@ Recent foundation work already improved several contracts:
 | `debtController.ts` | 320 lines | Class controller; consistent enough but repeated manual `if (!result.success)` handling. |
 | `budgetController.ts` | 230 lines | Similar to debt; uses `new Error(...)` for validation in several places. |
 | `subscriptionController.ts` | 221 lines | Does not use Result pattern in application use cases; has special guest response behavior. |
-| `dashboardController.ts` | 196 lines | Mostly service calls; uses raw `new Error(...)` for missing user. |
+| `dashboardController.ts` | 196 lines | Mostly service calls; uses raw `new Error(...)` for missing user. Removed in #205 with the backend dashboard. |
 | `voiceProcessingController.ts` | 139 lines | Validates body manually; text input defaults missing `userId` to `'1'` for backward compatibility. |
 | `userController.ts` | 124 lines | Improved by FT-017; still manually maps use-case Results. |
 | `openAIUsageController.ts` | 105 lines | Admin surface; smaller controller. Removed in FT-174 with `OpenAIUsageModule`. |
@@ -70,7 +72,7 @@ Main route families:
 /api/voice
 /api/budgets
 /api/debts
-/api/dashboard
+/api/dashboard      (removed in #205)
 /api/subscription
 /api/users
 /api/openai
@@ -349,7 +351,7 @@ Missing route-family coverage examples:
 - budget routes
 - subscription controller routes
 - user controller auth/self-access routes
-- dashboard premium/read-only routes
+- dashboard premium/read-only routes (removed in #205)
 - OpenAI admin routes
 
 **Recommendation:** Build a coverage matrix first, then add only high-value route tests.

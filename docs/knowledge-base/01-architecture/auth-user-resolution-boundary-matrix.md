@@ -128,8 +128,8 @@ these routes); an array or a number in `userId` on routes with user resolution g
 FT-162); with `trust proxy 1` a Wi-Fi client can
 set `X-Forwarded-For` to dodge IP rate limits (`isLocalRequest` reads the socket, not `req.ip`); `requireAdmin` routes
 had no `requireAuth` before them and always answered `401` (closed by FT-174: removed). Not changed: the legacy user-scoped routes keep their
-`:userId` paths (budgets, debts, dashboard, subscription — out of the UI since Д2); with the strict `verifyOwnership` they
-answer only their own user. FT-136 removes the guest branches that are now dead code.
+`:userId` paths (budgets, debts, subscription — out of the UI since Д2; the dashboard ones are removed in #205);
+with the strict `verifyOwnership` they answer only their own user. FT-136 removes the guest branches that are now dead code.
 
 ## Purpose
 
@@ -187,8 +187,9 @@ Used for:
 - transaction user-scoped routes
 - budget user-scoped routes
 - debt user-scoped routes
-- dashboard routes
 - voice text/voice input routes
+
+(The dashboard routes used it too until they were removed in #205.)
 
 ### `verifyOwnership`
 
@@ -257,7 +258,7 @@ FT-017D decision: do not globally change this helper to fail-closed yet.
 | Budget by-id | `/api/budgets/:budgetId` | `optionalAuth` | controller/resource lookup | `verifyResourceOwnership` | yes for guest-owned resources | resource-strict |
 | Debt user-scoped | `/api/debts/user/:userId` | `allowGuestMode` (= `requireAuth`) | route middleware, after the check (FT-162) | `verifyOwnership` | no | strict |
 | Debt by-id/payment | `/api/debts/:debtId...` | `optionalAuth` | controller/resource lookup | `verifyResourceOwnership` | yes for guest-owned resources | resource-strict |
-| Dashboard | `/api/dashboard/:userId...` | `allowGuestMode` (= `requireAuth`) + sometimes premium | route middleware, after the check (FT-162) | `verifyOwnership` | no | strict/premium |
+| Dashboard — removed in #205 | `/api/dashboard/:userId...` | — (`404`) | — | — | — | — |
 | Subscription (own) | `GET /api/subscription/:userId`, `POST /check-limit`, `/cancel`, `/start-trial` | `requireAuth` | signed-in user (`createResolveCurrentUserMiddleware`, FT-162) | `verifyOwnership` on any path/body/query userId, before resolution | no | strict |
 | Subscription grant | `POST /api/subscription/grant` | `requireAuth` + `requireAdmin` | body userId (the admin's target; a non-string is `400`) | admin only | no | strict/admin |
 
