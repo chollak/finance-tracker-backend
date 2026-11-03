@@ -1,0 +1,45 @@
+name: Баг
+description: Что-то работает не так
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Issue публичная: без токенов, ключей, содержимого `.env*`, адресов серверов и сумм из настоящих записей. На доску её ставит владелец репозитория.
+  - type: textarea
+    id: what
+    attributes:
+      label: Что случилось
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Как повторить
+      value: |
+        1. 
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Как должно быть
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Где
+      options:
+        - iOS-приложение
+        - Mini App
+        - Бот
+        - Сервер
+        - Другое
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Скриншоты, логи
+      description: Без настоящих сумм и записей.

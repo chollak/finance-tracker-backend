@@ -387,6 +387,6 @@ curl -sS -X POST <BASE_URL>/api/quick-capture \
 ## Связанные документы и задачи
 
 - [`docs/QUICK_CAPTURE_API.md`](QUICK_CAPTURE_API.md) — контракт Quick Capture, auth, лимиты, ограничения.
-- `TASKS.md` → `FT-076` — Telegram-вариант этой инструкции; `FT-075` — прямой API из Shortcut; `FT-155` — токен
+- Архив задач [`docs/tasks/archive/`](tasks/archive/) → `FT-076` — Telegram-вариант этой инструкции; `FT-075` — прямой API из Shortcut; `FT-155` — токен
   владельца в production; `FT-160` — Shortcut на живом экземпляре, проверка на iPhone.
 - `.hermes/plans/2026-09-02_125800-quick-capture-product-spec.md` §6.3 — исходная продуктовая формулировка Flow B.

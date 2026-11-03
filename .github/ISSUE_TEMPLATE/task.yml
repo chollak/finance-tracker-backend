@@ -1,38 +1,28 @@
-name: Task
-description: Техническая задача или рефакторинг
-title: "chore: "
-labels: ["tech-debt"]
+name: Задача
+description: Описанная задача — Context и Definition of Done
 body:
-  - type: textarea
-    id: description
+  - type: markdown
     attributes:
-      label: Описание задачи
-      description: Что нужно сделать?
-    validations:
-      required: true
-  - type: textarea
-    id: motivation
-    attributes:
-      label: Зачем?
-      description: Почему это важно сделать?
-    validations:
-      required: true
-  - type: textarea
-    id: files
-    attributes:
-      label: Files to Modify
-      description: Какие файлы затронет изменение?
-      placeholder: |
-        - `src/modules/...`
-        - `webapp/src/...`
-    validations:
-      required: false
-  - type: textarea
-    id: acceptance
-    attributes:
-      label: Done Criteria
       value: |
-        - [ ] Критерий 1
-        - [ ] Критерий 2
+        На доску [Kapelka](https://github.com/users/chollak/projects/1) задачу ставит владелец репозитория. Issue публичная: без токенов, ключей, содержимого `.env*`, адресов серверов и сумм из настоящих записей.
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: "Что не так и почему это важно. Ссылки на файлы и строки. Для экрана — строка `Design: «Название доски»`."
     validations:
       required: true
+  - type: textarea
+    id: dod
+    attributes:
+      label: Definition of Done
+      description: Проверяемые пункты, а не намерения.
+      value: |
+        - [ ] 
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Заметки
+      description: Риски, что уже пробовали. Необязательно.

@@ -10,7 +10,7 @@ const sections = index.filter((l) => l.startsWith('## ')).map((l) => norm(l.slic
 
 let task = null; let refs = 0; const unresolved = [];
 for (const line of fs.readFileSync(tasksFile, 'utf8').split('\n')) {
-  const m = /^### (FT-\d+)/.exec(line); if (m) task = m[1];
+  const m = /^### (FT-\d+|#\d+)/.exec(line); if (m) task = m[1]; // FT-xxx — old task file, #N — issue
   if (!line.startsWith('Design:')) continue;
   const text = line.slice('Design:'.length).trim().replace(/^ряд /, '');
   if (!text.startsWith('«') && !text.startsWith('„')) continue; // component references, not boards

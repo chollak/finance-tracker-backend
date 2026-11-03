@@ -2,7 +2,7 @@
 
 > **⚠️ Historical audit — point-in-time snapshot from 2026-01-20 (banner added 2026-08-16).** Findings, counts, and endpoint inventories reflect the repo as of that date and are not kept in sync. In particular, the "8 modules" counts and Issue #16 (module-count mismatch) are resolved differently today: there are **7** app modules and dashboard is a service/controller assembled in Express, not a module.
 >
-> Current sources of truth: [TASKS.md](TASKS.md) (текущий фокус) and [CLAUDE.md](CLAUDE.md).
+> Current sources of truth: the task board [Kapelka](https://github.com/users/chollak/projects/1) (текущий фокус — в её README) and [CLAUDE.md](CLAUDE.md).
 
 **Date:** 2026-01-20
 **Status:** ✅ Complete (historical)
