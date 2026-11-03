@@ -22,6 +22,16 @@ body:
     validations:
       required: true
   - type: textarea
+    id: touches
+    attributes:
+      label: Затрагивает
+      description: "Файлы и папки; область (backend, webapp, ios, bot); миграция БД — да или нет. Нужно для Очереди, можно дописать потом."
+  - type: textarea
+    id: manual
+    attributes:
+      label: Руками после мержа
+      description: "Что проверить самому после мержа (iPhone, Mini App в Telegram, голос, Apple Pay, ПК) или «ничего». Нужно для Очереди, можно дописать потом."
+  - type: textarea
     id: notes
     attributes:
       label: Заметки
