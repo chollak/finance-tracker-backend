@@ -283,11 +283,7 @@ await budgetService.recalculateAllUserBudgets(userId);
 await budgetService.recalculateBudgetSpending(budgetId);
 ```
 
-### 3. On Dashboard Load
-```typescript
-// GET /api/dashboard/:userId
-// DashboardService internally calls recalculation
-```
+Третьего пути — пересчёта при загрузке `GET /api/dashboard/:userId` — больше нет: backend-дашборд удалён в #205.
 
 ---
 

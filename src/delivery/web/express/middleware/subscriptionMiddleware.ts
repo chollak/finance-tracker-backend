@@ -1,6 +1,6 @@
 /**
  * Subscription Middleware for Express
- * Checks limits and premium access before actions
+ * Checks limits before actions
  */
 
 import { Request, Response, NextFunction } from 'express';
@@ -169,61 +169,5 @@ export function createIncrementUsageMiddleware(
     };
 
     next();
-  };
-}
-
-/**
- * Middleware to require premium access
- */
-export function createRequirePremiumMiddleware(
-  subscriptionModule: SubscriptionModule,
-  userModule: UserModule
-) {
-  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    try {
-      const telegramId = getUserIdFromRequest(req);
-
-      if (!telegramId) {
-        res.status(400).json({
-          error: 'userId is required',
-          code: 'MISSING_USER_ID',
-        });
-        return;
-      }
-
-      // Resolve telegram_id to UUID
-      const userId = await resolveUserUUID(telegramId, userModule);
-      if (!userId) {
-        // User doesn't exist - not premium
-        res.status(403).json({
-          error: 'Premium subscription required',
-          code: 'PREMIUM_REQUIRED',
-        });
-        return;
-      }
-
-      // Store resolved UUID for downstream handlers
-      req.userUUID = userId;
-
-      const isPremium = await subscriptionModule
-        .getSubscriptionService()
-        .isPremium(userId);
-
-      if (!isPremium) {
-        res.status(403).json({
-          error: 'Premium subscription required',
-          code: 'PREMIUM_REQUIRED',
-        });
-        return;
-      }
-
-      next();
-    } catch (error) {
-      logger.error('Error in require premium middleware', error as Error);
-      res.status(500).json({
-        error: 'Failed to check premium status',
-        code: 'PREMIUM_CHECK_ERROR',
-      });
-    }
   };
 }

@@ -2,7 +2,7 @@
 
 `createModules()` (`src/appModules.ts`) возвращает **15 модулей приложения**, каждый с чётко определённой ответственностью. `CategoryModule` добавлен в FT-099, `AccountModule` — в FT-101, `FxModule` — в FT-102, `BotMessageModule` — в FT-122, `NotificationModule` — в FT-124, `ExportModule` — в FT-126, `AuthModule` — в FT-128, `AuditModule` — в FT-131, `QuickCaptureModule` — обёртка над текстовым разбором для `POST /api/quick-capture`. `OpenAIUsageModule` удалён в FT-174: его админские маршруты с января отвечали `401`, и их никто не вызывал.
 
-Dashboard модулем не является: в `src/modules/dashboard/` лежат только `DashboardService` и `DashboardController`, файла `dashboardModule.ts` нет. Сборка происходит в Express-слое — см. [Dashboard: сервис, а не модуль](#dashboard-сервис-а-не-модуль).
+Backend-дашборда больше нет (#205): `GET /api/dashboard/*` вместе с `DashboardService`, `DashboardController`, `AlertService` и платными insights удалён — его никто не вызывал. Главная читает свои маршруты (FT-111), аналитика — `/api/analytics` (FT-120).
 
 ## Module Dependencies
 
@@ -23,7 +23,6 @@ graph TD
     EM[ExportModule<br/>All records as CSV]
     AuM[AuthModule<br/>Web login through the bot]
     AuD[AuditModule<br/>Spending audit + goals]
-    DS[DashboardService<br/>не модуль, собирается в Express]
 
     BM -->|depends on| TM
     DeM -->|depends on| TM
@@ -49,8 +48,6 @@ graph TD
     AuD -.->|records + rate: AuditSources| TM
     AuD -.->|categories: AuditSources| CM
     SM -.->|controller uses| UM
-    DS -.->|AnalyticsService| TM
-    DS -.->|BudgetService| BM
 
     style TM fill:#4CAF50,stroke:#2E7D32,color:#fff
     style BM fill:#2196F3,stroke:#1565C0,color:#fff
@@ -60,7 +57,6 @@ graph TD
     style UM fill:#00BCD4,stroke:#00838F,color:#fff
     style CM fill:#8BC34A,stroke:#558B2F,color:#fff
     style QM fill:#FFB74D,stroke:#E65100,color:#000
-    style DS fill:#ECEFF1,stroke:#90A4AE,color:#000,stroke-dasharray: 4 4
 ```
 
 ## Module Overview
@@ -82,12 +78,6 @@ graph TD
 | **AuthModule** | Вход в браузере через бота (FT-128, Д4): одноразовая ссылка `t.me/<bot>?start=login_<token>` на 5 минут, «Подтвердить» / «Это не я» в боте, сессия браузера — httpOnly-cookie; `login_tokens` | Независимый; имена для `GET /api/auth/session` — из UserModule в контроллере; сессию читает `webSessionMiddleware` в Express | `authModule.ts` |
 | **AuditModule** | Ревизия трат и цели (FT-130 правила, FT-131 хранение): ревизия прошлого месяца открывается при первом запросе и хранит кандидатов с решениями (`audits`), «Готово» делает цели (`goals`) — лимит с дня ревизии, сравнение с теми же днями прошлого месяца, подписки «Уже отменено» / «Напомнить»; неразобранное приходит в следующую ревизию | TransactionModule (записи, первая запись, курс через сервис итогов FT-103) и CategoryModule через порт `AuditSources` (подключается в `createModules()`) | `auditModule.ts` |
 | **ExportModule** | «Скачать все записи» (FT-126): CSV всех неудалённых записей и перемещений — скачивание в браузере (`GET /api/export`) или файл в чат с ботом (`POST /api/export/chat`, `sendDocument`) | TransactionModule и AccountModule через порт `ExportSources` (подключается в `createModules()`); Bot API — по токену бота | `exportModule.ts` |
-
-Отдельно, **не как модуль**:
-
-| Компонент | Роль | Зависимости | Ключевые файлы |
-|-----------|------|-------------|----------------|
-| `DashboardService` / `DashboardController` | Агрегация insights для dashboard-эндпоинтов | AnalyticsService (Transaction) + BudgetService (Budget) | `src/modules/dashboard/application/services/dashboardService.ts`, `src/modules/dashboard/presentation/controllers/dashboardController.ts` |
 
 ---
 
@@ -279,7 +269,7 @@ bot.on('pre_checkout_query', async (ctx) => {
 ```
 
 ### Middleware
-- Express: `checkLimit`, `incrementUsage`, `requirePremium`
+- Express: `checkLimit`, `incrementUsage` (`requirePremium` удалён в #205 вместе с платными insights дашборда)
 - Telegram: `createTelegramCheckLimitMiddleware`, `createTelegramIncrementUsageMiddleware`
 
 ---
@@ -569,49 +559,12 @@ new ProcessVoiceInputUseCase(
 
 ---
 
-## Dashboard: сервис, а не модуль
+## Backend-дашборд — удалён (#205)
 
-**Файлы:**
-- [`src/modules/dashboard/application/services/dashboardService.ts`](../../../src/modules/dashboard/application/services/dashboardService.ts)
-- [`src/modules/dashboard/presentation/controllers/dashboardController.ts`](../../../src/modules/dashboard/presentation/controllers/dashboardController.ts)
-- [`src/delivery/web/express/routes/dashboardRoutes.ts`](../../../src/delivery/web/express/routes/dashboardRoutes.ts)
-
-### Назначение
-Агрегация данных из множества источников для dashboard view.
-
-### Services
-- `DashboardService` - полная dashboard сводка
-  - Financial summary (из AnalyticsService)
-  - Budget overview (из BudgetService)
-  - Insights (savings rate, trends, рекомендации)
-  - Financial Health Score (0-100)
-
-### Где собирается
-
-Файла `dashboardModule.ts` **нет**, и `createModules()` не возвращает `dashboardModule`. Сервис и контроллер создаются в Express-слое, внутри `createDashboardRouter()`:
-
-```typescript
-// src/delivery/web/express/routes/dashboardRoutes.ts
-const dashboardService = new DashboardService(analyticsService, budgetService);
-const alertService = new AlertService(budgetService, analyticsService);
-const controller = new DashboardController(dashboardService, alertService);
-```
-
-А `expressServer.ts` передаёт туда зависимости уже из готовых модулей:
-
-```typescript
-router.use(
-  '/dashboard',
-  createDashboardRouter(
-    transactionModule.getAnalyticsService(),
-    budgetModule.budgetService,
-    subscriptionModule,
-    userModule
-  )
-);
-```
-
-**Особенность:** нет собственных use cases и нет модуля — только service для агрегации, поднимаемый delivery-слоем.
+До #205 Express-слой собирал в `createDashboardRouter()` сервис `DashboardService` (сводка, insights, «Financial
+Health Score») и `AlertService` из `AnalyticsService` и `BudgetService`; insights, weekly и health score стояли за
+`requirePremium`. Модулем дашборд не был. Главная «Пастели» его не читала (FT-111), webapp перестал читать с FT-121, бот —
+никогда, поэтому `GET /api/dashboard/*` удалён целиком и отвечает `404` (`tests/deadDashboardRoutes.test.ts`).
 
 ---
 

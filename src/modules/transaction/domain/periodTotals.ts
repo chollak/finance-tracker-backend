@@ -24,7 +24,7 @@ export interface CategoryTotal {
 
 /**
  * Income, real expenses and categories of a set of records — one rule for every reader (FT-103):
- * analytics, dashboard, Home's tiles, the bot's daily summary, /today and /month.
+ * analytics, Home's tiles, the bot's daily summary, /today and /month.
  *
  * - Amounts are in сум (minor units); dollars are converted at one rate, rounded to whole сум. Without
  *   a rate they are left out and `usd.missingRate` says so — dollars are never added to сум as is;

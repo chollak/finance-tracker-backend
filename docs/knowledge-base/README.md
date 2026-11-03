@@ -78,11 +78,6 @@ Finance Tracker Backend — это backend система для управле�
 - [`src/modules/subscription/subscriptionModule.ts`](../../src/modules/subscription/subscriptionModule.ts) - Subscription Module
 - [`src/modules/user/userModule.ts`](../../src/modules/user/userModule.ts) - User Module
 
-### Dashboard (не модуль)
-- [`src/modules/dashboard/application/services/dashboardService.ts`](../../src/modules/dashboard/application/services/dashboardService.ts) - Dashboard Service
-- [`src/modules/dashboard/presentation/controllers/dashboardController.ts`](../../src/modules/dashboard/presentation/controllers/dashboardController.ts) - Dashboard Controller
-- [`src/delivery/web/express/routes/dashboardRoutes.ts`](../../src/delivery/web/express/routes/dashboardRoutes.ts) - сборка сервиса в Express-слое
-
 ### Infrastructure
 - [`src/shared/infrastructure/database/repositoryFactory.ts`](../../src/shared/infrastructure/database/repositoryFactory.ts) - Repository Factory (SQLite/Supabase)
 - [`src/shared/infrastructure/database/database.config.ts`](../../src/shared/infrastructure/database/database.config.ts) - Database configuration
@@ -148,8 +143,7 @@ TransactionModule (independent)
 UserModule — независимый модуль
 SubscriptionModule — использует UserModule на уровне контроллера (telegram_id → UUID)
 
-DashboardService — не модуль: собирается в createDashboardRouter() из
-AnalyticsService (Transaction) и BudgetService (Budget)
+Backend-дашборда (/api/dashboard, DashboardService) нет с #205
 ```
 
 Полная схема с 7 модулями и mermaid-диаграммой — в [Modules](01-architecture/modules.md).

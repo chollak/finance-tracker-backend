@@ -78,8 +78,8 @@
 
 Все 7 модулей backend уже реализованы и покрыты кодом: `TransactionModule`, `BudgetModule`,
 `DebtModule`, `VoiceProcessingModule`, `OpenAIUsageModule` (удалён в FT-174: его маршруты не работали), `UserModule`,
-`SubscriptionModule`. Dashboard модулем не является — это `DashboardService`/`DashboardController`,
-которые собираются в Express-слое из Transaction analytics и Budget service. Подробности и зависимости — в
+`SubscriptionModule`. Dashboard модулем не являлся — это были `DashboardService`/`DashboardController`,
+которые собирались в Express-слое из Transaction analytics и Budget service (удалены в #205: их никто не вызывал). Подробности и зависимости — в
 [docs/knowledge-base/01-architecture/modules.md](knowledge-base/01-architecture/modules.md).
 
 Ранее этот документ отмечал DebtModule и SubscriptionModule (а также Payment Integration и
