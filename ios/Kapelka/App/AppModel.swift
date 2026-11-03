@@ -80,13 +80,8 @@ final class AppModel {
 
     /// A waiting record goes, never sent; `nil` or what to tell.
     func remove(_ id: UUID) async -> String? {
-        let triedBefore = queueState.captures.first { $0.clientId == id }.map { $0.attempts > 0 } ?? false
         do {
-            let removed = try await services.queue.remove(id)
-            // Its request went out between the swipe and the tap
-            guard removed else { return "Запись уже отправляется — если сервер её запишет, удали её в «Записях»" }
-            // A timeout says nothing about whether the server wrote it; «Записи» show what it wrote (FT-220)
-            return triedBefore ? "Удалено. Запись уже уходила на сервер — проверь «Записи»" : nil
+            return CaptureRow.deleteNote(try await services.queue.remove(id))
         } catch {
             return "Не удалилось: \(error.localizedDescription)"
         }

@@ -4,7 +4,8 @@ import Foundation
 /// 2026-10-30: no dialog with «Готово» after each payment — a notification goes away by itself, and the result stays
 /// in the Kapelka list and in the Mini App. What the server answered is the pass's news since FT-253 (`NoticeText`):
 /// off screen «Записал: …» or «Не записал: …» under the same `clientId`, on screen a haptic. The command itself tells
-/// what no pass reports: «уйдёт позже», which a later «Записал: …» replaces, and a refusal on the phone.
+/// what no pass reports: «уйдёт позже» and why — no network, the server did not answer, it asks to wait (FT-256) —
+/// which a later «Записал: …» replaces, and a refusal on the phone.
 enum PaymentNotice {
     /// `nil` when the server answered: the pass has said it already.
     static func notice(for capture: Capture, _ state: QueueState, configured: Bool) -> Notice? {
@@ -24,9 +25,23 @@ enum PaymentNotice {
             if state.tokenRefused {
                 return Notice(id: id, body: "\(line) — в очереди до нового токена", opens: .settings)
             }
-            // Only a 429 leaves `notBefore`; no network and a sleeping PC look alike from here, so no reason for them
-            let reason = state.notBefore == nil ? "уйдёт позже" : "сервер просит подождать, уйдёт позже"
-            return Notice(id: id, body: "\(line) — \(reason)", opens: .capture)
+            return Notice(id: id, body: "\(line) — \(later(state))", opens: .capture)
+        }
+    }
+
+    /// Why it goes later, as the card on «Записать» says it (FT-252, FT-256): by the reason the queue kept.
+    private static func later(_ state: QueueState) -> String {
+        let busy = "сервер просит подождать, уйдёт позже"
+        switch state.wait {
+        case .offline?:
+            return "нет связи, уйдёт, когда появится сеть"
+        case .noAnswer?:
+            return "сервер не ответил, уйдёт позже"
+        case .busy?:
+            return busy
+        case nil:
+            // Not tried, or a file before FT-252: only a 429 leaves `notBefore`
+            return state.notBefore == nil ? "уйдёт позже" : busy
         }
     }
 

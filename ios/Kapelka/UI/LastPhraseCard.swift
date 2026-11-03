@@ -75,9 +75,9 @@ final class LastPhraseCard {
 
     /// As the swipe «Удалить» on «Записать»: a phrase whose request went out meanwhile stays — the server may write it.
     private func removeFromPhone(_ clientId: UUID) async {
-        guard let capture = state.captures.first(where: { $0.clientId == clientId }) else { return }
+        guard state.captures.contains(where: { $0.clientId == clientId }) else { return }
         do {
-            guard try await queue.remove(clientId) else {
+            guard let capture = try await queue.remove(clientId) else {
                 note = LastPhrase.Note(
                     clientId: clientId,
                     text: "Уже отправляется — удалить можно, когда запишется",
@@ -88,7 +88,7 @@ final class LastPhraseCard {
             let removed = LastPhraseMarks.Removed(
                 text: capture.text,
                 capturedAt: capture.capturedAt,
-                triedBefore: capture.attempts > 0
+                mayBeOnServer: capture.mayBeOnServer
             )
             remember(LastPhraseMarks(clientId: clientId, removed: removed))
         } catch {
