@@ -207,43 +207,6 @@ class ApiClient {
       } as ApiError;
     }
   }
-
-  async upload<T>(endpoint: string, formData: FormData): Promise<ApiResponse<T>> {
-    const url = `${this.baseUrl}${endpoint}`;
-
-    try {
-      const response = await fetch(url, {
-        method: 'POST',
-        body: formData,
-        headers: {
-          // Don't set Content-Type for FormData - browser will set it with boundary
-          ...getAuthHeaders(),
-        },
-      });
-
-      if (!response.ok) {
-        noticeUnauthorized(endpoint, response.status);
-        const errorData = await response.json().catch(() => ({}));
-        throw {
-          message: errorData.message || 'Upload failed',
-          statusCode: response.status,
-          ...readServerError(errorData),
-        } as ApiError;
-      }
-
-      const data = await response.json();
-      return data;
-    } catch (error) {
-      if ((error as ApiError).statusCode) {
-        throw error;
-      }
-
-      throw {
-        message: 'Upload error',
-        statusCode: 0,
-      } as ApiError;
-    }
-  }
 }
 
 // Singleton instance

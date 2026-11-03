@@ -23,8 +23,6 @@ const CategoryAnalyticsPage = lazy(() => import('@/pages').then(m => ({ default:
 const MorePage = lazy(() => import('@/pages').then(m => ({ default: m.MorePage })));
 // The categories (FT-127), opened from «Ещё»
 const CategoriesPage = lazy(() => import('@/pages').then(m => ({ default: m.CategoriesPage })));
-// FT-088 spike page: not linked from the app, opened by URL inside Telegram on each device
-const VoiceCheckPage = lazy(() => import('@/pages').then(m => ({ default: m.VoiceCheckPage })));
 // Pastel component showcase in both themes (FT-093), not linked from the app
 const PastelShowcasePage = lazy(() => import('@/pages').then(m => ({ default: m.PastelShowcasePage })));
 // Manual entry with the app's own keypad (FT-113), opened from Home, «Ещё» and an empty History
@@ -98,14 +96,10 @@ function RouterErrorPage() {
  * without a browser.
  */
 export const appRoutes: RouteObject[] = [
-  // Showcase and device checks: outside the first launch, not linked from the app
+  // The showcase: outside the login and the first launch, not linked from the app
   {
     path: '/dev/pastel',
     element: <PageLoader><PastelShowcasePage /></PageLoader>,
-  },
-  {
-    path: '/dev/voice-check',
-    element: <PageLoader><VoiceCheckPage /></PageLoader>,
   },
   {
     // Every app screen needs a signed-in account (FT-128): in a browser without a session — the login screen
