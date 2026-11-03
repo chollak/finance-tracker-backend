@@ -14,6 +14,12 @@ export type RecordEdit = Partial<Pick<Transaction,
 const text = (value: string | null | undefined): string => value ?? '';
 
 /**
+ * The note an edit writes (FT-249): a JSON null is an empty note, as in `POST` (FT-113) — the column is NOT NULL.
+ * A note not sent stays undefined: the edit does not touch it.
+ */
+export const noteEdit = (sent: string | null | undefined): string | undefined => (sent === null ? '' : sent);
+
+/**
  * Whether the edit changes a value of the stored record (FT-248). An edit that changes nothing is not written, so the
  * record's `updatedAt` keeps saying when it was last really changed — the capture quality report (FT-217) counts a
  * record as edited by it.
