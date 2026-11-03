@@ -24,6 +24,11 @@ struct Capture: Codable, Equatable, Identifiable, Sendable {
     let payment: Payment?
     var state: State = .pending
     var attempts = 0
+    /// The server may have written it already (FT-256): a request got no answer to trust after it had left the phone —
+    /// a timeout, 5xx, a page not Kapelka's, the connection lost on the way, a request cut short. No network on the
+    /// phone, a connection never made, 429, 401 and 403 wrote nothing. Deleting a waiting record on the phone tells
+    /// «уже уходила на сервер» by it.
+    var mayBeOnServer = false
     var reply: CaptureReply?
     var rejection: String?
 
@@ -46,6 +51,8 @@ struct Capture: Codable, Equatable, Identifiable, Sendable {
         timeZoneIdentifier = try container.decode(String.self, forKey: .timeZoneIdentifier)
         state = try container.decodeIfPresent(State.self, forKey: .state) ?? .pending
         attempts = try container.decodeIfPresent(Int.self, forKey: .attempts) ?? 0
+        // A build before FT-256 kept no such flag: any attempt counts, as it did there
+        mayBeOnServer = try container.decodeIfPresent(Bool.self, forKey: .mayBeOnServer) ?? (attempts > 0)
         reply = try container.decodeIfPresent(CaptureReply.self, forKey: .reply)
         rejection = try container.decodeIfPresent(String.self, forKey: .rejection)
         payment = try container.decodeIfPresent(Payment.self, forKey: .payment)

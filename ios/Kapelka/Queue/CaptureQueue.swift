@@ -114,24 +114,25 @@ actor CaptureQueue {
         return capture
     }
 
-    /// Deletes a waiting record, so it is never sent; `false` when it does not wait any more. One whose request is
-    /// out right now is not deleted: a timeout or a lost connection does not say whether the server wrote it, and the
-    /// phone must not hide a record that may exist.
-    func remove(_ clientId: UUID) throws -> Bool {
+    /// Deletes a waiting record, so it is never sent: the record as it left, with whether the server may have written
+    /// it already (FT-256); `nil` when it does not wait any more. One whose request is out right now is not deleted: a
+    /// timeout or a lost connection does not say whether the server wrote it, and the phone must not hide a record that
+    /// may exist.
+    func remove(_ clientId: UUID) throws -> Capture? {
         guard loadIfNeeded() else { throw QueueError.unavailable }
         guard
             current.sendingId != clientId,
             let index = current.captures.firstIndex(where: { $0.clientId == clientId && $0.state == .pending })
-        else { return false }
+        else { return nil }
         var next = current
-        next.captures.remove(at: index)
+        let removed = next.captures.remove(at: index)
         // Nothing waits any more: why it waited is no reason for the next phrase (review of PR #171)
         if !next.captures.contains(where: { $0.state == .pending }) {
             next.wait = nil
         }
         try store.save(next)
         publish(next)
-        return true
+        return removed
     }
 
     /// «Убрать» (FT-220): takes a record the server refused or found no operation in off the phone. Neither wrote
@@ -221,11 +222,24 @@ actor CaptureQueue {
             let outcome = await sender.send(capture)
             markSending(nil)
             // Cut short by `cancelSending()`: not the server's answer, so not an attempt
-            if Task.isCancelled, case .retryLater = outcome { break }
+            if Task.isCancelled, case let .retryLater(_, wait, mayBeOnServer) = outcome {
+                cutShort(capture.clientId, wait: wait, mayBeOnServer: mayBeOnServer)
+                break
+            }
             // Refused with the settings of before: the next round goes with the new ones
             if outcome == .tokenRefused, generation != settingsGeneration { continue }
             guard apply(outcome, to: capture.clientId) else { break }
         }
+    }
+
+    /// A request cut short still tells something (FT-256): the PC had not answered by then — the payment's «уйдёт
+    /// позже» says «сервер не ответил» — and it may have been written.
+    private func cutShort(_ clientId: UUID, wait: QueueWait, mayBeOnServer: Bool) {
+        guard let index = current.captures.firstIndex(where: { $0.clientId == clientId }) else { return }
+        var next = current
+        next.captures[index].mayBeOnServer = next.captures[index].mayBeOnServer || mayBeOnServer
+        next.wait = wait
+        persist(next)
     }
 
     private func markSending(_ clientId: UUID?) {
@@ -306,8 +320,10 @@ actor CaptureQueue {
             // The server answered: it is reachable
             next.wait = nil
             goOn = true
-        case let .retryLater(after, wait):
+        case let .retryLater(after, wait, mayBeOnServer):
             capture.attempts += 1
+            // Once it may be on the server, a later try without a network does not take that back
+            capture.mayBeOnServer = capture.mayBeOnServer || mayBeOnServer
             next.notBefore = after.map { now().addingTimeInterval($0) }
             next.wait = wait
             goOn = false

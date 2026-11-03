@@ -439,7 +439,7 @@ struct LastPhraseTests {
         let removedId = UUID()
         let removed = LastPhraseMarks(
             clientId: removedId,
-            removed: .init(text: "такси 18к", capturedAt: Self.inputTime.addingTimeInterval(60), triedBefore: false)
+            removed: .init(text: "такси 18к", capturedAt: Self.inputTime.addingTimeInterval(60), mayBeOnServer: false)
         )
         let shown = try #require(card(state([older]), marks: removed))
 
@@ -451,7 +451,7 @@ struct LastPhraseTests {
 
         let tried = LastPhraseMarks(
             clientId: removedId,
-            removed: .init(text: "такси 18к", capturedAt: Self.inputTime.addingTimeInterval(60), triedBefore: true)
+            removed: .init(text: "такси 18к", capturedAt: Self.inputTime.addingTimeInterval(60), mayBeOnServer: true)
         )
         #expect(texts(card(state([older]), marks: tried)) == ["Удалено с телефона — она уже уходила на сервер, проверь «Записи»"])
 
