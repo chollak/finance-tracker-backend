@@ -9,7 +9,7 @@ struct QueueState: Codable, Equatable, Sendable {
     var tokenRefused = false
     /// After 429: no attempt before this moment (`Retry-After`).
     var notBefore: Date?
-    /// Why the last attempt ended «позже» (FT-252); `nil` once the server answers.
+    /// Why the last attempt ended «позже» (FT-252), a request cut short too (FT-256); `nil` once the server answers.
     var wait: QueueWait?
     /// The record whose request is out now: shown as «Отправляю» and not deleted. Not kept on disk.
     var sendingId: UUID?

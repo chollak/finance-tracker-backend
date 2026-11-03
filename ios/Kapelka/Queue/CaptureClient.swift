@@ -11,8 +11,9 @@ struct ServerConfiguration: Equatable, Sendable {
 enum SendOutcome: Equatable, Sendable {
     case sent(CaptureReply)
     /// No network, timeout, 5xx, 429 and anything unexpected: the record waits. `after` — the server's `Retry-After`;
-    /// `wait` — why, for the card on «Записать» (FT-252).
-    case retryLater(after: TimeInterval?, wait: QueueWait)
+    /// `wait` — why, for the card on «Записать» (FT-252); `mayBeOnServer` — the server may have written it all the
+    /// same (FT-256, `Capture.mayBeOnServer`).
+    case retryLater(after: TimeInterval?, wait: QueueWait, mayBeOnServer: Bool)
     /// 401, 403: the token or the owner is wrong; nothing goes out until the settings change.
     case tokenRefused
     /// 400: the server refused this record; it is not sent again.
@@ -55,7 +56,9 @@ struct CaptureClient: CaptureSending {
         let outcome: SendOutcome
         do {
             let (data, response) = try await transport.data(for: request)
-            guard let http = response as? HTTPURLResponse else { return .retryLater(after: nil, wait: .noAnswer) }
+            guard let http = response as? HTTPURLResponse else {
+                return .retryLater(after: nil, wait: .noAnswer, mayBeOnServer: true)
+            }
             outcome = Self.outcome(
                 status: http.statusCode,
                 retryAfter: http.value(forHTTPHeaderField: "Retry-After"),
@@ -68,9 +71,26 @@ struct CaptureClient: CaptureSending {
             Self.logger.info(
                 "Capture \(capture.clientId, privacy: .public): no answer, \(error.localizedDescription, privacy: .public)"
             )
-            outcome = .retryLater(after: nil, wait: QueueWait.of(error))
+            outcome = .retryLater(after: nil, wait: QueueWait.of(error), mayBeOnServer: Self.mayHaveLeft(error))
         }
         return outcome
+    }
+
+    /// Errors met before the request left the phone: the server cannot have written it (FT-256). Not «the connection
+    /// was lost» — that may come after the request went out.
+    private static let neverSent: Set<URLError.Code> = [
+        .notConnectedToInternet,
+        .dataNotAllowed,
+        .internationalRoamingOff,
+        .cannotFindHost,
+        .dnsLookupFailed,
+        .cannotConnectToHost,
+    ]
+
+    /// Anything else may have reached the server before it failed, a request cut short too.
+    private static func mayHaveLeft(_ error: any Error) -> Bool {
+        guard let code = (error as? URLError)?.code else { return true }
+        return !neverSent.contains(code)
     }
 
     static func request(
@@ -98,7 +118,7 @@ struct CaptureClient: CaptureSending {
         case 200..<300:
             guard let reply = try? JSONDecoder().decode(SuccessBody.self, from: body), reply.success else {
                 // Not Kapelka's answer (a login page, a proxy): the same clientId makes the next try safe
-                return .retryLater(after: nil, wait: .noAnswer)
+                return .retryLater(after: nil, wait: .noAnswer, mayBeOnServer: true)
             }
             return .sent(reply.data.reply)
         case 400:
@@ -107,9 +127,12 @@ struct CaptureClient: CaptureSending {
             return .tokenRefused
         case 429:
             let seconds = retryAfter.flatMap(TimeInterval.init).flatMap { $0.isFinite ? $0 : nil }
-            return .retryLater(after: min(max(seconds ?? defaultRetryAfter, 0), maxRetryAfter), wait: .busy)
+            // The limiter answers before the router reads the record (`aiRateLimiter`): nothing written
+            let after = min(max(seconds ?? defaultRetryAfter, 0), maxRetryAfter)
+            return .retryLater(after: after, wait: .busy, mayBeOnServer: false)
         default:
-            return .retryLater(after: nil, wait: .noAnswer)
+            // A 5xx may come after the write
+            return .retryLater(after: nil, wait: .noAnswer, mayBeOnServer: true)
         }
     }
 }

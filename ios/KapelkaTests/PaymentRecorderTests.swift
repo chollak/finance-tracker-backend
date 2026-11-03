@@ -58,16 +58,31 @@ final class PaymentRecorderTests {
         #expect(try harness.store.load().captures.map(\.state) == [.sent, .sent])
     }
 
-    @Test("сервера нет — оплата в очереди, в уведомлении: уйдёт позже, сумма как в «Записал: …»")
+    @Test("сети нет — оплата в очереди, в уведомлении: нет связи, уйдёт, когда появится сеть; сумма как в «Записал: …»")
     func queuedOffline() async throws {
         let harness = try QueueHarness(transport: FakeTransport([.failure(.notConnectedToInternet)]))
         let (recorder, _) = try makeRecorder(harness)
 
         try await recorder.record(Self.mazzali)
 
-        #expect(await notices.texts == ["\(Self.mazzaliLine) — уйдёт позже"])
+        #expect(await notices.texts == ["\(Self.mazzaliLine) — нет связи, уйдёт, когда появится сеть"])
         #expect(await notices.places == [.capture])
         #expect(try harness.store.load().captures.map(\.state) == [.pending])
+    }
+
+    @Test("сеть есть, сервер не ответил (таймаут, 5xx) — «сервер не ответил, уйдёт позже» (FT-256)")
+    func queuedNoAnswer() async throws {
+        let harness = try QueueHarness(transport: FakeTransport([.failure(.timedOut), .http(502, body: "Bad Gateway")]))
+        let (recorder, _) = try makeRecorder(harness)
+
+        try await recorder.record(Self.mazzali)
+        try await recorder.record(Self.mazzali)
+
+        #expect(await notices.texts == [
+            "\(Self.mazzaliLine) — сервер не ответил, уйдёт позже",
+            "\(Self.mazzaliLine) — сервер не ответил, уйдёт позже",
+        ])
+        #expect(await notices.places == [.capture, .capture])
     }
 
     @Test("другая валюта — не отправляется, в уведомлении причина")
@@ -143,7 +158,7 @@ final class PaymentRecorderTests {
 
         try await recorder.record(PaymentInput(amount: "4.50", currency: .usd, merchant: "APPLE.COM/BILL"))
 
-        #expect(await notices.texts == ["APPLE.COM/BILL · \u{2212}4,50\u{00A0}USD — уйдёт позже"])
+        #expect(await notices.texts == ["APPLE.COM/BILL · \u{2212}4,50\u{00A0}USD — нет связи, уйдёт, когда появится сеть"])
         let payment = try #require(try harness.store.load().captures.first?.payment)
         #expect(payment.amountMinor == 450)
     }
@@ -199,8 +214,8 @@ final class PaymentRecorderTests {
         try await recorder.record(Self.mazzali)
 
         #expect(ContinuousClock.now - started < .seconds(2))
-        // Not «нет связи»: the network is there, the PC does not answer
-        #expect(await notices.texts == ["\(Self.mazzaliLine) — уйдёт позже"])
+        // Not «нет связи»: the network is there, the PC does not answer — the request cut short says so (FT-256)
+        #expect(await notices.texts == ["\(Self.mazzaliLine) — сервер не ответил, уйдёт позже"])
         let waiting = try #require(try harness.store.load().captures.first)
         #expect(waiting.state == .pending)
         #expect(waiting.attempts == 0)

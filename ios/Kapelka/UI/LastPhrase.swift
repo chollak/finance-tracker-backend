@@ -208,7 +208,7 @@ struct LastPhrase: Equatable, Sendable {
     }
 
     private static func removedCard(_ clientId: UUID, _ removed: LastPhraseMarks.Removed) -> LastPhrase {
-        let text = removed.triedBefore
+        let text = removed.mayBeOnServer
             ? "Удалено с телефона — она уже уходила на сервер, проверь «Записи»"
             : "Удалено с телефона"
         let line = Line(id: "removed", kind: .deleted, text: text, explanation: nil, record: nil)

@@ -92,9 +92,9 @@ struct QueueWaitTests {
         await queue.flush()
         #expect(await queue.state().wait == .offline)
 
-        #expect(try await queue.remove(second.clientId))
+        #expect(try await queue.remove(second.clientId) != nil)
         #expect(await queue.state().wait == .offline)
-        #expect(try await queue.remove(first.clientId))
+        #expect(try await queue.remove(first.clientId) != nil)
         #expect(await queue.state().wait == nil)
         #expect(try harness.store.load().wait == nil)
     }

@@ -50,6 +50,15 @@ struct CaptureRow: Identifiable, Equatable {
     /// «Убрать»: the server wrote nothing for it, so it only leaves the phone (FT-220).
     var canDismiss: Bool { kind == .notFound || kind == .error }
 
+    /// What the swipe «Удалить» says (FT-220): `removed` — the record as the queue took it off the phone, `nil` when its
+    /// request went out between the swipe and the tap. `nil` — nothing to say.
+    static func deleteNote(_ removed: Capture?) -> String? {
+        guard let removed else { return "Запись уже отправляется — если сервер её запишет, удали её в «Записях»" }
+        // A timeout says nothing about whether the server wrote it; «Записи» show what it wrote. Without a network it
+        // never left the phone (FT-256)
+        return removed.mayBeOnServer ? "Удалено. Запись уже уходила на сервер — проверь «Записи»" : nil
+    }
+
     /// Newest first.
     static func rows(_ captures: [Capture], sendingId: UUID?, now: Date, calendar: Calendar) -> [CaptureRow] {
         let time = TimeOfInput(now: now, calendar: calendar)
