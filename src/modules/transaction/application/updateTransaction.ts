@@ -11,7 +11,7 @@ import { AccountResolver } from '../domain/accountResolver';
 import { resolveAccountForUpdate } from './resolveAccountForUpdate';
 import { CategoryLessons } from '../domain/categoryLessons';
 import { teachCategoryCorrection } from './teachCategoryCorrection';
-import { changesRecord, RecordEdit } from '../domain/recordEdit';
+import { changesRecord, noteEdit, RecordEdit } from '../domain/recordEdit';
 
 const logger = getLogger(LogCategory.TRANSACTION);
 
@@ -27,7 +27,8 @@ export interface UpdateTransactionRequest {
   accountId?: string;
   /** Only together with accountId: the record's currency must be the new account's (FT-103). */
   currency?: 'UZS' | 'USD';
-  description?: string;
+  /** `null` clears the note, as in POST (FT-249). */
+  description?: string | null;
   date?: string;
   type?: 'income' | 'expense';
   semanticType?: TransactionSemanticType;
@@ -43,7 +44,8 @@ export class UpdateTransactionUseCase {
   ) {}
 
   async execute(request: UpdateTransactionRequest): Promise<Result<Transaction>> {
-    const { id, category, description, date, type, semanticType, needsReview } = request;
+    const { id, category, date, type, semanticType, needsReview } = request;
+    const description = noteEdit(request.description);
 
     // Validate ID
     if (!id?.trim()) {

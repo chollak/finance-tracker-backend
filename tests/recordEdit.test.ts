@@ -1,4 +1,4 @@
-import { changesRecord, RecordEdit } from '../src/modules/transaction/domain/recordEdit';
+import { changesRecord, noteEdit, RecordEdit } from '../src/modules/transaction/domain/recordEdit';
 import { Transaction } from '../src/modules/transaction/domain/transactionEntity';
 
 /**
@@ -102,5 +102,17 @@ describe('changesRecord (FT-248)', () => {
     // 2026-10-29 in UTC, 2026-10-30 in Tashkent: neither is taken as the same day
     expect(changesRecord(moment, { date: '2026-10-29' })).toBe(true);
     expect(changesRecord(moment, { date: '2026-10-30' })).toBe(true);
+  });
+});
+
+describe('noteEdit (FT-249)', () => {
+  it('a JSON null is an empty note, as in POST: the column is NOT NULL', () => {
+    expect(noteEdit(null)).toBe('');
+  });
+
+  it('a note not sent stays untouched, a sent one as it is', () => {
+    expect(noteEdit(undefined)).toBeUndefined();
+    expect(noteEdit('')).toBe('');
+    expect(noteEdit('кофе')).toBe('кофе');
   });
 });
