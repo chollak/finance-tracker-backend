@@ -57,4 +57,10 @@
    Без скачанного браузера Playwright: `CHROMIUM_PATH=<путь к chromium>`. Сеть не нужна: запрос шрифта к
    Google Fonts скрипт отвечает локальным Manrope.
 4. Проверить, что каждое название из полей `Design` находится в указателе (доской или рядом):
-   `node design/tools/check-design-refs.js docs/pastel/tasks.md design/index.md` — в выводе `unresolved: 0`.
+   поля `Design` живут в телах issues на доске, поэтому сначала собрать их в файл:
+
+   ```bash
+   gh issue list -R chollak/finance-tracker-backend --label board --state open --limit 200 --json number,title,body \
+     --jq '.[] | "### #\(.number) \(.title)\n\(.body)"' > /tmp/design-refs.md
+   node design/tools/check-design-refs.js /tmp/design-refs.md design/index.md   # в выводе unresolved: 0
+   ```

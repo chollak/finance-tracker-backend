@@ -2,7 +2,7 @@
 
 > **⚠️ Not the active path (as of 2026-08-16).** Production/AWS deployment is parked: the prod host was removed from the active plan on 2026-08-13, and `sapaev.uz` / Supabase are not current targets. Current work is local-only — WSL + SQLite + Telegram polling + Cloudflare quick tunnel for phone testing.
 >
-> Source of truth for current work: [TASKS.md](TASKS.md) (текущий фокус) and [CLAUDE.md](CLAUDE.md).
+> Source of truth for current work: the task board [Kapelka](https://github.com/users/chollak/projects/1) (текущий фокус — в её README) and [CLAUDE.md](CLAUDE.md).
 > For local setup, use [docs/knowledge-base/08-development/quick-start.md](docs/knowledge-base/08-development/quick-start.md).
 > The live instance runs on Shukur's PC (WSL, systemd, `tailscale serve`): [docs/knowledge-base/08-development/live-instance.md](docs/knowledge-base/08-development/live-instance.md) (FT-156).
 >

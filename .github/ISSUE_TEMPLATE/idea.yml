@@ -1,0 +1,15 @@
+name: Идея
+description: Мысль на будущее — коротко, без Definition of Done
+labels: ["idea"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Идея ложится на доску [Kapelka](https://github.com/users/chollak/projects/1) в Backlog, когда её туда поставит владелец репозитория.
+  - type: textarea
+    id: idea
+    attributes:
+      label: Идея
+      description: Что и зачем — пара строк.
+    validations:
+      required: true

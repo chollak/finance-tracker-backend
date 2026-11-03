@@ -1,151 +1,43 @@
 # Task Workflow Decision
 
-> Status: current project workflow decision. Applies until Shukur explicitly chooses GitHub Issues as the primary planning UI.
+> Статус: действует с 2026-11-03 (FT-049). Заменяет решение 2026-07 (FT-016) «оставить `TASKS.md`, в GitHub Issues
+> пока не переносить».
 
-## Decision
+## Решение
 
-Keep `TASKS.md` as the source of truth for now.
+Задачи, статусы и очередь живут в GitHub: issues этого репозитория с меткой `board` на публичной доске
+[Kapelka](https://github.com/users/chollak/projects/1) (GitHub Project). В репозитории остаются правила работы
+([`docs/tasks/README.md`](../../tasks/README.md)), лог решений ([`docs/tasks/decisions.md`](../../tasks/decisions.md))
+и архив задач, закрытых до переезда ([`docs/tasks/archive/`](../../tasks/archive/), только чтение). Техническая
+документация — по-прежнему в `docs/`.
 
-Do not migrate the backlog to GitHub Issues yet.
+## Почему
 
-## Why
+- Шукуру стало непонятно, что открыто: задачи лежали в `TASKS.md`, `docs/tasks/backlog.md` и `docs/pastel/tasks.md`
+  среди тысяч строк истории.
+- Доска с колонками и видом «Ждёт меня» одним взглядом отвечает, что в работе, что в очереди и что ждёт решения
+  или рук Шукура.
+- Условия решения 2026-07 выполнены: Шукур выбрал GitHub, backlog устоялся, меток мало, `gh` с scope `project`
+  есть у штаба.
+- Статусы меняются без PR: раньше каждое движение задачи было коммитом в `main`.
 
-The project is still transitioning from foundation cleanup into product feature development. During this phase, a local task board is faster and less noisy because:
+## Что поменялось
 
-- Hermes can update it atomically with code/docs/report changes.
-- It stays close to the repository context.
-- It avoids creating external GitHub issue noise for tasks that are still being reshaped.
-- Current environment does not have `gh` installed, so GitHub Issues would require extra auth/tooling setup or API calls.
-- Shukur has not explicitly chosen GitHub UI as the primary tracking surface.
+| Было | Стало |
+|---|---|
+| `TASKS.md`: в работе, очередь, таблица backlog | колонки доски; `TASKS.md` — отсылка на неё |
+| `docs/tasks/backlog.md`, `docs/pastel/tasks.md` | issues в Backlog; файлы — таблица «FT → issue» |
+| Строки `Status`, `Priority`, `Type`, `Size`, `Depends`, `Owner` | колонка, поля, метки, blocked by; `Owner` — нет |
+| `blocked` | метки `ждёт: решение` и `ждёт: руки` |
+| «Реализовано» и «Проверка» в теле задачи, задача — в архив | описание PR и отчёт комментарием в PR |
+| Номер FT-xxx | номер issue `#N`; перенесённые сохраняют FT-xxx в заголовке |
 
-## Current Source of Truth
+Как работать: цикл задачи, «Чему верить», «Что не писать», ID доски и команды — [`docs/tasks/README.md`](../../tasks/README.md).
+Схема и как переезжали — FT-049 в [`archive/ft-144-daily-use.md`](../../tasks/archive/ft-144-daily-use.md), решение —
+`decisions.md`, записи 2026-11-03.
 
-Primary task board (разделён 2026-09-06):
+## История
 
-```text
-TASKS.md                  # только живая работа: в работе + очередь + таблица backlog
-docs/tasks/README.md      # правила, статусы, роли, формат задачи
-docs/tasks/decisions.md   # лог решений по плану, новые сверху
-docs/tasks/backlog.md     # отложенные задачи с полными описаниями
-docs/tasks/archive/       # закрытые задачи с отчётами «Реализовано / Проверка»
-```
-
-Execution/report log:
-
-```text
-AUTONOMOUS_REPORT.md
-```
-
-Detailed decision/planning docs:
-
-```text
-docs/knowledge-base/
-.hermes/plans/
-```
-
-## How to Use `TASKS.md`
-
-`TASKS.md` should remain a high-level dashboard, not a raw activity log.
-
-Правило разделения: в `TASKS.md` живёт только то, над чем идёт или пойдёт работа. Закрытая задача
-переносится целиком в соответствующий файл `docs/tasks/archive/`, а не остаётся в доске с пометкой
-`done`; снятая с очереди — в `docs/tasks/backlog.md`, в доске от неё остаётся строка таблицы.
-
-Use it for:
-
-- task status
-- priority
-- owner
-- concise goal
-- definition of done
-- important implementation notes
-- links to detailed docs
-
-Do not use it for:
-
-- large tool outputs
-- full test logs
-- long debugging transcripts
-- duplicated report text
-
-## How to Use `AUTONOMOUS_REPORT.md`
-
-Use it as the durable chronological work log.
-
-Include:
-
-- what changed
-- why it changed
-- verification commands/results
-- findings and follow-ups
-- commit references when useful
-
-Avoid:
-
-- secrets
-- raw `.env` values
-- huge logs
-- transient scratch notes
-
-## When to Move to GitHub Issues
-
-Move to GitHub Issues when most of these are true:
-
-- Shukur wants GitHub UI as the primary task surface.
-- There is a stable product backlog, not just foundation cleanup.
-- Tasks are small enough to become independently trackable issues.
-- Labels are clear and few.
-- GitHub tooling/auth is available locally or through configured automation.
-- We need collaboration/review outside this local Hermes workflow.
-
-## Recommended Labels Later
-
-Keep labels simple:
-
-```text
-foundation
-feature
-bug
-tech-debt
-docs
-test
-blocked
-```
-
-Avoid over-labeling early.
-
-## GitHub Issues Migration Plan Later
-
-When ready:
-
-1. Keep `TASKS.md` as a dashboard/index.
-2. Create GitHub Issues only for active or upcoming work, not every historical completed task.
-3. Use one issue per independently shippable task.
-4. Link issue IDs back from `TASKS.md`.
-5. Keep `AUTONOMOUS_REPORT.md` for detailed run logs unless GitHub issue comments become the preferred log.
-
-## Current Backlog Handling
-
-Short-term:
-
-- Keep foundation tasks in `TASKS.md`.
-- Keep findings docs in `docs/knowledge-base/`.
-- Start product backlog only after Shukur chooses the product direction.
-
-Recommended next decision after foundation:
-
-```text
-FT-004: Decide first product vector after stabilization
-```
-
-Candidate vectors are still tracked in `TASKS.md`.
-
-## Non-Goals
-
-This decision does not:
-
-- create GitHub Issues
-- create labels/milestones/projects
-- change CI/deploy behavior
-- require `gh` installation
-- move historical task history out of the repository
+- **2026-07 (FT-016):** доска — `TASKS.md`; GitHub Issues отложены, пока нет стабильного backlog и `gh`.
+- **2026-09-06:** доска разделена: `TASKS.md` — только живая работа, `backlog.md`, архив, `decisions.md`.
+- **2026-11-03 (FT-050, FT-049):** GitHub убран (январские issues, вехи, Wiki), доска переехала в GitHub.
