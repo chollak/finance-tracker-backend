@@ -225,7 +225,7 @@ describe('API routes and middleware (characterization)', () => {
       expect(mocks.debtModule.getDebtsUseCase.executeGetAll).not.toHaveBeenCalled();
     });
 
-    it('allows a non-guest request via the X-Dev-User-Id bypass (non-production only)', async () => {
+    it('allows a signed-in request via the X-Dev-User-Id bypass (non-production only)', async () => {
       (mocks.debtModule.getDebtsUseCase.executeGetAll as jest.Mock).mockResolvedValue({
         success: true,
         data: [],

@@ -37,6 +37,8 @@ import { SqliteUserRepository } from '../src/modules/user/infrastructure/persist
 const ME = 131184740;
 const MINE = String(ME);
 const SOMEONE = '597843119';
+/** An id of the old guest mode: there are no guests (decision Д4), and the backend's guest branches went in #206. */
+const GUEST = 'guest_abc';
 
 /** Budgets: none stored; remembers whose budgets it was asked for. */
 class NoBudgets implements BudgetRepository {
@@ -187,7 +189,7 @@ describe('a legacy route with :userId in the path (FT-162)', () => {
   it.each(named)('%s: someone else’s id is 403 and adds no user', async (_name, route) => {
     const before = await telegramIds();
 
-    for (const someone of [SOMEONE, `0${MINE}`, `${MINE}0`]) {
+    for (const someone of [SOMEONE, `0${MINE}`, `${MINE}0`, GUEST]) {
       const res = await call(route.method, route.path(someone), route.body);
       expect({ someone, status: res.status, code: res.body?.code }).toEqual({ someone, status: 403, code: 'ACCESS_DENIED' });
     }
@@ -232,6 +234,25 @@ describe('a legacy route with :userId in the path (FT-162)', () => {
 
     expect({ status: res.status, code: res.body?.code }).toEqual({ status: route.own.status, code: route.own.code });
     expect(await telegramIds()).toEqual([MINE]);
+  });
+
+  it.each(named)('%s: a guest id without signing in is 401 and adds no user (#206)', async (_name, route) => {
+    const before = await telegramIds();
+
+    const res = await server.request(route.method, route.path(GUEST), { body: route.body });
+
+    expect({ status: res.status, code: res.body?.code }).toEqual({ status: 401, code: 'MISSING_AUTH_HEADER' });
+    expect(await telegramIds()).toEqual(before);
+  });
+
+  it('GET /api/budgets/users/guest_abc/budgets without signing in reaches no budget (#206)', async () => {
+    const asked = budgets.askedFor.length;
+
+    const res = await server.request('GET', `/api/budgets/users/${GUEST}/budgets`);
+
+    expect(res.status).toBe(401);
+    expect(res.body).toMatchObject({ success: false, code: 'MISSING_AUTH_HEADER' });
+    expect(budgets.askedFor).toHaveLength(asked);
   });
 
   it('the own id reaches the use cases as the own user, not as the id in the path', async () => {

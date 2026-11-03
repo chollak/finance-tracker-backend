@@ -8,7 +8,6 @@ import { User, CreateUserDTO, UpdateUserDTO } from '../src/modules/user/domain/u
 import { ValidationError } from '../src/shared/domain/errors/AppError';
 import {
   isUUID,
-  isGuestUser,
   resolveUserIdToUUID,
   resolveUserIdToUUIDStrict,
   tryResolveUserIdSync,
@@ -242,25 +241,14 @@ describe('userIdResolver', () => {
     });
   });
 
-  describe('isGuestUser', () => {
-    it('recognizes the guest_ prefix', () => {
-      expect(isGuestUser('guest_abc123')).toBe(true);
-    });
-
-    it('rejects strings without the guest_ prefix', () => {
-      expect(isGuestUser('guest')).toBe(false);
-      expect(isGuestUser('guestabc')).toBe(false);
-      expect(isGuestUser('123456789')).toBe(false);
-    });
-  });
-
   describe('tryResolveUserIdSync', () => {
     it('resolves a UUID synchronously', () => {
       expect(tryResolveUserIdSync(VALID_UUID)).toBe(VALID_UUID);
     });
 
-    it('resolves a guest id synchronously', () => {
-      expect(tryResolveUserIdSync('guest_xyz')).toBe('guest_xyz');
+    // There are no guests (#206): a `guest_*` id is no shortcut, it needs the user module like any other id
+    it('does not resolve a guest id synchronously', () => {
+      expect(tryResolveUserIdSync('guest_xyz')).toBeNull();
     });
 
     it('trims whitespace before matching', () => {
@@ -294,18 +282,13 @@ describe('userIdResolver', () => {
       expect(spy).not.toHaveBeenCalled();
     });
 
-    it('returns a guest id as-is without calling the user module', async () => {
+    it('trims whitespace before checking the UUID shortcut', async () => {
       const spy = jest.spyOn(userModule, 'getGetOrCreateUserUseCase');
 
-      const result = await resolveUserIdToUUID('guest_abc123', userModule);
+      const result = await resolveUserIdToUUID(`  ${VALID_UUID}  `, userModule);
 
-      expect(result).toBe('guest_abc123');
+      expect(result).toBe(VALID_UUID);
       expect(spy).not.toHaveBeenCalled();
-    });
-
-    it('trims whitespace before checking guest/UUID shortcuts', async () => {
-      const result = await resolveUserIdToUUID(`  guest_abc123  `, userModule);
-      expect(result).toBe('guest_abc123');
     });
 
     it('resolves a numeric telegramId to the backing user id, creating the user on first use', async () => {
@@ -365,11 +348,10 @@ describe('userIdResolver', () => {
       userModule = new UserModule(repo);
     });
 
-    it('returns UUID and guest ids without calling the user module', async () => {
+    it('returns a UUID without calling the user module', async () => {
       const spy = jest.spyOn(userModule, 'getGetOrCreateUserUseCase');
 
       await expect(resolveUserIdToUUIDStrict(VALID_UUID, userModule)).resolves.toBe(VALID_UUID);
-      await expect(resolveUserIdToUUIDStrict('guest_abc123', userModule)).resolves.toBe('guest_abc123');
       expect(spy).not.toHaveBeenCalled();
     });
 
@@ -412,7 +394,7 @@ describe('ownershipVerification', () => {
   }
 
   describe('verifyResourceOwnership', () => {
-    // There are no guests any more (decision Д4): a guest-owned resource is nobody's to open
+    // There are no guests (decision Д4, #206): a record left with a `guest_*` owner is nobody's to open
     it('does not open a guest-owned resource to a signed-in user either', async () => {
       const resource: OwnedResource = { userId: 'guest_abc' };
       const signedIn: User = {

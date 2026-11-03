@@ -138,7 +138,7 @@ describe('Transaction API route boundaries', () => {
     });
   });
 
-  it('fails closed for a non-guest transaction when no auth is provided', async () => {
+  it('fails closed for a transaction when no auth is provided', async () => {
     (mocks.getByIdUseCase.execute as jest.Mock).mockResolvedValue({
       success: true,
       data: { id: 'tx-1', userId: 'real-user-id', amount: 100 },
@@ -155,7 +155,7 @@ describe('Transaction API route boundaries', () => {
     });
   });
 
-  it('fails closed for a guest-owned transaction too when no auth is provided', async () => {
+  it('fails closed for a record left with a guest_ owner by the old guest mode too', async () => {
     (mocks.getByIdUseCase.execute as jest.Mock).mockResolvedValue({
       success: true,
       data: { id: 'tx-guest', userId: 'guest_abc123', amount: 100 },
