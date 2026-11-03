@@ -3,6 +3,7 @@ import https from 'https';
 import http from 'http';
 import path from 'path';
 import os from 'os';
+import { randomUUID } from 'crypto';
 import { pipeline } from 'stream/promises';
 import { AppConfig } from '../../../../shared/infrastructure/config/appConfig';
 import { ErrorFactory } from '../../../../shared/domain/errors/AppError';
@@ -92,16 +93,26 @@ export function getTempDir(): string {
 }
 
 /**
+ * A name of its own for every download. One voice forwarded twice is two messages with one `file_id`, handled side by
+ * side; with the `file_id` alone for a name they shared a file, and the first, done, removed the second's (FT-222).
+ * The `file_id` stays in the name to match a stray file with the log.
+ */
+function voiceFileName(fileId: string): string {
+  return `${fileId}-${randomUUID()}`;
+}
+
+/**
  * Downloads a voice file with fallback to temp directory
  * @param fileUrl - URL of the voice file
  * @param fileId - Telegram file ID for naming
- * @returns Promise resolving to the local file path
+ * @returns Promise resolving to the local file path, a new one on every call
  */
 export async function downloadVoiceFile(fileUrl: string, fileId: string): Promise<string> {
+  const name = voiceFileName(fileId);
   // Try primary downloads directory
   try {
     const downloadsDir = getDownloadsDir();
-    const filePath = path.join(downloadsDir, fileId);
+    const filePath = path.join(downloadsDir, name);
     await downloadFile(fileUrl, filePath);
     return filePath;
   } catch (primaryError) {
@@ -110,7 +121,7 @@ export async function downloadVoiceFile(fileUrl: string, fileId: string): Promis
     });
 
     // Fallback to temp directory
-    const filePath = path.join(getTempDir(), `voice_${fileId}`);
+    const filePath = path.join(getTempDir(), `voice_${name}`);
     await downloadFile(fileUrl, filePath);
     return filePath;
   }
