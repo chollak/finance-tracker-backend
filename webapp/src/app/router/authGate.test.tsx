@@ -12,7 +12,7 @@ import { appRoutes } from './appRoutes';
 /**
  * FT-128, decision Д4: there is no guest mode. A browser without a session sees the login screen at whatever address
  * it opened, and that address opens once the bot confirmed the login. While the session is still being checked the
- * app shows its loading, not the login. The device checks under /dev stay outside.
+ * app shows its loading, not the login. The showcase under /dev stays outside.
  */
 
 vi.mock('@/shared/api/client', () => {
@@ -105,7 +105,7 @@ describe('the gate before the app', () => {
     expect(reads()).toContain('/settings');
   });
 
-  it('the device checks under /dev open without a session', async () => {
+  it('the showcase under /dev opens without a session', async () => {
     useUserStore.setState({ signedOut: true });
     await open('/dev/pastel');
 
