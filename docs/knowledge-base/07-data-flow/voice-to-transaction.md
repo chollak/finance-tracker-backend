@@ -74,8 +74,11 @@ flowchart TD
 ### 2. Download Audio File
 **Method:** `bot.telegram.getFileLink(fileId)`
 
-- Primary: Сохранение в `DOWNLOADS_PATH` (настраиваемая директория)
-- Fallback: OS temp directory (`os.tmpdir()`)
+- Primary: Сохранение в `DOWNLOADS_PATH` (настраиваемая директория) как `<file_id>-<uuid>`
+- Fallback: OS temp directory (`os.tmpdir()`) как `voice_<file_id>-<uuid>`
+- Имя своё у каждого скачивания (FT-222): одно голосовое, пересланное дважды, — два сообщения с одним `file_id`,
+  их обработчики идут параллельно. С именем по одному `file_id` они делили файл, и первый, закончив, удалял файл
+  второго. Теперь каждый удаляет только свои файлы
 - Timeout: 30 секунд
 - Error handling: Retry с alternative location
 
