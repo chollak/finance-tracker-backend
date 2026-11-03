@@ -181,9 +181,9 @@ one, the token is one more way to sign in, next to initData and the browser sess
 When a `UserModule` is wired (it is, in `buildServer`), `userId` goes through
 `resolveUserIdToUUID()` (`src/shared/application/helpers/userIdResolver.ts`):
 
-- `guest_*` → passed through unchanged
 - UUID v4 → passed through unchanged
-- anything else (e.g. a numeric Telegram id) → resolved/created into a user UUID
+- anything else (e.g. a numeric Telegram id) → resolved/created into a user UUID (a `guest_*` id was passed through
+  unchanged until #206; there are no guests)
 - resolution failure is **fail-open**: the raw string is used as the owner id
 
 ---
@@ -621,7 +621,7 @@ Auth and rate-limit middleware answer earlier in the chain and use a **flat** sh
 | 401 | `INVALID_AUTH` | initData hash mismatch or older than 1 hour |
 | 401 | `MISSING_USER_DATA` | Valid initData without a `user` payload |
 | 429 | `AI_RATE_LIMIT_EXCEEDED` | Shared AI rate limit exhausted for the IP |
-| 500 | `AUTH_NOT_CONFIGURED` | `TG_BOT_API_KEY` missing while validating a non-guest request |
+| 500 | `AUTH_NOT_CONFIGURED` | `TG_BOT_API_KEY` missing while validating initData |
 | 500 | `INTERNAL_ERROR` | Parser/persistence failure. The underlying error message is **not** leaked to the client. |
 
 Validation failures never reach the service, so they cost no OpenAI call and write nothing.
@@ -773,8 +773,8 @@ curl -sS -X POST https://<tunnel-host>/api/quick-capture \
    through the parser.
 6. **The Mini App Home composer calls this endpoint** (FT-114, replacing the quick-capture card). Authenticated
    Telegram Mini App users send a phrase through `POST /api/quick-capture` with a `clientId` per phrase; its records
-   — one or several — open one review screen. Guest mode keeps data in browser-local IndexedDB, so server-side quick
-   capture is intentionally disabled for guests.
+   — one or several — open one review screen. There is no guest mode (decision Д4 in the Mini App, #206 in the
+   backend): every capture is for a signed-in user or the Shortcut's owner.
 7. **One Shortcut token per server.** See [iOS Shortcut capture](#ios-shortcut-capture) — a shared token bound to one
    owner (FT-155); revoked by a new value and a restart; no per-device tokens, expiry or audit trail.
 8. **Blank-text guard exists in two places.** The route rejects blank text with `400`; the service additionally

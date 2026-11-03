@@ -235,20 +235,14 @@ API принимает telegram_id (например, `131184740`), но БД и
 
 ### User ID Resolution
 
-Controller обрабатывает 3 типа user ID:
-
-| ID Type | Пример | Обработка |
-|---------|--------|-----------|
-| **Guest** | `guest_abc123-...` | Default free tier (без обращения к БД) |
-| **Telegram ID** | `131184740` | Резолв через UserModule → UUID |
-| **UUID** | `6c7c7a0e-...` | Прямой запрос к БД |
+Свои маршруты подписки берут пользователя из входа (FT-162): `requireAuth, verifyOwnership,
+createResolveCurrentUserMiddleware`, controller читает `currentUserId(req)` — UUID вошедшего пользователя. `userId` в пути
+или теле только проверяется: чужой — `403`. Гостей нет: ветка `guest_*` с бесплатным тарифом по умолчанию удалена в #206.
 
 ```typescript
 // В SubscriptionController
-if (this.isGuestUser(userId)) {
-  return this.createGuestUserResponse(userId); // Free tier по умолчанию
-}
-const userUUID = await this.resolveUserId(userId); // telegram_id → UUID
+const userId = currentUserId(req); // UUID вошедшего пользователя
+const status = await this.subscriptionModule.getGetSubscriptionUseCase().execute(userId);
 ```
 
 ### Telegram Stars Integration

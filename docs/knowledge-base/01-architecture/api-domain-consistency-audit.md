@@ -266,7 +266,7 @@ Potential future grouping:
 **Type:** security/architecture  
 **Evidence:** User identity can flow through:
 
-- `allowGuestMode`
+- `allowGuestMode` (removed in #206: there are no guests)
 - `optionalAuth`
 - `verifyOwnership`
 - `createUserResolutionMiddleware`

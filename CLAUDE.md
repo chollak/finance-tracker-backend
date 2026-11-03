@@ -143,7 +143,7 @@ For detailed documentation, see **[docs/knowledge-base/](docs/knowledge-base/)**
   - [Patterns](docs/knowledge-base/01-architecture/patterns.md) - Repository, DI, Factory, Use Case
   - [Runtime / Process Mode](docs/knowledge-base/01-architecture/runtime-process-mode.md) - API/Bot/Worker process-mode decision
   - [API / Domain Consistency Audit](docs/knowledge-base/01-architecture/api-domain-consistency-audit.md) - FT-018 controller/use-case/API contract audit
-  - [Auth / User Resolution Boundary Matrix](docs/knowledge-base/01-architecture/auth-user-resolution-boundary-matrix.md) - FT-024 auth/guest/ownership boundaries
+  - [Auth / User Resolution Boundary Matrix](docs/knowledge-base/01-architecture/auth-user-resolution-boundary-matrix.md) - FT-024 auth/ownership boundaries (no guests since #206)
   - [Transaction / Debt Relationship Audit](docs/knowledge-base/01-architecture/transaction-debt-relationship-audit.md) - FT-021 debt/transaction accounting semantics
   - [DTO / Schema Validation Consistency Audit](docs/knowledge-base/01-architecture/dto-schema-validation-audit.md) - FT-023 validation layering policy
 - **[Data Flow](docs/knowledge-base/07-data-flow/)** - How data moves through the system
