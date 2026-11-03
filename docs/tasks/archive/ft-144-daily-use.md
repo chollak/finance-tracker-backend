@@ -4675,3 +4675,136 @@ Definition of Done:
 - `design/prototype/*.dc.html`, холст и артефакт дизайн-системы ещё показывают прежний знак — Шукур обновит их сам.
 - За Шукуром: аватар @kapelka_app_bot — BotFather `/setuserpic`, файл `docs/pastel/logo/kapelka-avatar-640.png`;
   переустановить iOS-приложение, чтобы появилась иконка (подпись и так истекает 2026-11-06).
+
+---
+
+### FT-050: Prune stale branches
+
+Status: done
+Priority: low
+Owner: Claude Code (штаб)
+Type: repo-hygiene
+
+Context:
+75 удалённых веток на `origin`, большинство мёртвые (`codex/*`, `*-codex`, `by-codex`, `fix/dockerfile`). Шум мешает видеть реальную работу. Локально осталась только `main`.
+
+Definition of Done:
+- [x] Для каждой ветки определено, влита она или содержит незабранные изменения
+- [x] Невлитые изменения либо забраны, либо описаны здесь перед удалением — у веток без страховки PR теги `archive/*`
+- [x] Удалены только подтверждённые к удалению ветки — Шукур 2026-11-03, пункты 10–14 уборки GitHub
+- [x] Ни одного force push и ни одного удаления без явного подтверждения
+
+Инвентаризация 2026-09-05 (Claude Code, только чтение — ничего не удалено):
+
+Локальных веток кроме `main` не осталось — весь шум на `origin`: **75 удалённых веток**.
+Решение Шукура 2026-09-05: **ничего не удалять**, запись сохранена для будущего решения.
+
+**A. Влиты в `main` (10) — уникальных коммитов нет, удаление ничего не теряет:**
+
+| Ветка | Последний коммит | SHA |
+|---|---|---|
+| `3hk994-codex/-react` | 2025-07-08 | `478adc2` |
+| `add-claude-github-actions-1754910333051` | 2025-08-11 | `86dba33` |
+| `bxw3u5-codex/создать-workflow-для-деплоя-в-github-actions` | 2025-07-02 | `8d7919a` |
+| `codex/-userid` | 2025-07-08 | `90b0a9b` |
+| `codex/add-configuration-module-with-dotenv` | 2025-06-08 | `8ba08a9` |
+| `codex/fix-missing-environment-variables` | 2025-07-08 | `e1676ae` |
+| `codex/refactor-file-system-operations` | 2025-06-08 | `be8d67b` |
+| `codex/remove-localfilerepository-and-service-files` | 2025-06-08 | `71a82b4` |
+| `codex/remove-unused-imports` | 2025-06-08 | `b29339a` |
+| `codex/вывести-ссылку-на-страницу-транзакций-для-бота` | 2025-07-02 | `555acfd` |
+
+**B. Не влиты, мёртвые codex-эксперименты (63) — все против кодовой базы до перехода на Clean Architecture:**
+
+| Ветка | Своих коммитов | Последний коммит | Tip SHA |
+|---|---|---|---|
+| `by-codex` | 14 | 2025-06-26 | `6cd4c75` |
+| `codex/refactor-createopenaichatservice-to-accept-tools-array` | 14 | 2025-06-26 | `373642e` |
+| `codex/add-constructor-for-categoryvectorrepository` | 13 | 2025-06-26 | `a4a49c6` |
+| `codex/replace-ada-002-with-text-embedding-3-small` | 12 | 2025-06-26 | `2338276` |
+| `codex/add-analytics-service-to-docker-compose` | 11 | 2025-06-26 | `b0855a3` |
+| `codex/implement-worker-with-cli-entry` | 10 | 2025-06-26 | `fd0d99b` |
+| `codex/implement-controller-with-sse-chunking` | 9 | 2025-06-26 | `2781db9` |
+| `codex/create-testable-middleware-with-service-injection` | 4 | 2025-06-26 | `f9b951c` |
+| `codex/implement-openaiembeddingservice-class` | 4 | 2025-06-26 | `a5b6441` |
+| `codex/implement-repository-with-cosine-similarity` | 4 | 2025-06-26 | `4c1a115` |
+| `codex/implement-openai-moderation-service` | 3 | 2025-06-26 | `c47cc44` |
+| `codex/implement-openaichatservice-with-extracttransaction` | 2 | 2025-06-26 | `d7fb13e` |
+| `codex/implement-routing-for-3-intents` | 2 | 2025-06-26 | `9d537c1` |
+| `codex/создать-фронтенд-для-mini-app-в-телеграм` | 2 | 2025-07-03 | `d9909fd` |
+| `add-claude-github-actions-1754910467326` | 2 | 2025-08-11 | `788de77` |
+| `6hor3t-codex/удалить-неиспользуемые-директории-и-файлы` | 1 | 2025-06-08 | `1fe8d94` |
+| `codex/complete-or-remove-last-line-in-dockerfile` | 1 | 2025-06-08 | `5e9533d` |
+| `codex/fix-missing-jest-types-for-tests` | 1 | 2025-06-08 | `1a4e67a` |
+| `codex/fix-openai-import-in-openaitranscriptionservice` | 1 | 2025-06-08 | `8c6b6e8` |
+| `codex/refactor-voice-processing-module-structure` | 1 | 2025-06-08 | `314d440` |
+| `codex/remove-unused-packages-from-package.json` | 1 | 2025-06-08 | `c97bfa4` |
+| `codex/replace-notionrepository-with-transactionrepository` | 1 | 2025-06-08 | `a0a9683` |
+| `codex/исправить-ошибки-ts6059-в-tsconfig.json` | 1 | 2025-06-08 | `3c2091d` |
+| `codex/исправить-ошибки-компиляции-typescript` | 1 | 2025-06-08 | `e0db6ac` |
+| `codex/найти-и-исправить-ошибку` | 1 | 2025-06-08 | `be0968a` |
+| `codex/отрефакторить-структуру-под-чистую-архитектуру` | 1 | 2025-06-08 | `b051796` |
+| `codex/удалить-неиспользуемые-директории-и-файлы` | 1 | 2025-06-08 | `d243b3e` |
+| `codex/интегрировать-бота-с-проектом` | 1 | 2025-06-09 | `b04013a` |
+| `codex/проверить-архитектурные-проблемы-и-зависимость-модулей` | 1 | 2025-06-09 | `414616b` |
+| `codex/вывести-транзакции-пользователя-в-боте` | 1 | 2025-06-10 | `b7a1a91` |
+| `codex/create-transactiondto-class-with-zod-validation` | 1 | 2025-06-26 | `31f3dbe` |
+| `codex/добавить-конструктор-параметр-repo-и-тест` | 1 | 2025-06-26 | `b7d763f` |
+| `h8wxar-codex/implement-repository-with-cosine-similarity` | 1 | 2025-06-26 | `0d8d6b2` |
+| `ch019d-codex/создать-workflow-для-деплоя-в-github-actions` | 1 | 2025-07-02 | `0df39e8` |
+| `codex/document-docker-compose-build-and-run-commands` | 1 | 2025-07-02 | `45750ce` |
+| `codex/modify-start-script-and-dockerfile` | 1 | 2025-07-02 | `ab21433` |
+| `codex/update-node-version-in-dockerfile` | 1 | 2025-07-02 | `2266d92` |
+| `codex/обзор-текущего-состояния-проекта` | 1 | 2025-07-02 | `9c1cd39` |
+| `codex/обновить-ссылку-в-telegram-mini-app` | 1 | 2025-07-02 | `dedefb7` |
+| `codex/создать-workflow-для-деплоя-в-github-actions` | 1 | 2025-07-02 | `8a08e69` |
+| `lksk66-codex/вывести-ссылку-на-страницу-транзакций-для-бота` | 1 | 2025-07-02 | `de36de7` |
+| `codex/изменить-верстку-на-mobile-first` | 1 | 2025-07-03 | `a02879b` |
+| `codex/исправить-ошибку-при-деплое` | 1 | 2025-07-03 | `ba54a46` |
+| `codex/настроить-auto-deploy-и-маршруты-для-приложения` | 1 | 2025-07-03 | `4358907` |
+| `codex/улучшить-uiux-телеграм-бота` | 1 | 2025-07-03 | `35d9b7f` |
+| `9irwrz-codex` | 1 | 2025-07-08 | `0985925` |
+| `a42ytd-codex` | 1 | 2025-07-08 | `0ead7ab` |
+| `codex/-css` | 1 | 2025-07-08 | `9d6de3e` |
+| `codex/-enoent-index.html` | 1 | 2025-07-08 | `685628f` |
+| `codex/-react` | 1 | 2025-07-08 | `4acdad9` |
+| `codex/-react-backend` | 1 | 2025-07-08 | `9fd7ff4` |
+| `codex/-telegram` | 1 | 2025-07-08 | `76aa005` |
+| `codex/fix-invalid-request-url-error` | 1 | 2025-07-08 | `1753b9b` |
+| `du2pcz-codex/fix-missing-environment-variables` | 1 | 2025-07-08 | `0b73757` |
+| `z0c5my-codex/-react` | 1 | 2025-07-08 | `c8dfefd` |
+| `a1ng3d-codex` | 1 | 2025-07-09 | `b00a43a` |
+| `codex/fix-enoent-error-on-file-open` | 1 | 2025-07-10 | `a1e8e9c` |
+| `codex/fix-error-handling-for-voice-message` | 1 | 2025-07-10 | `9b240f4` |
+| `ed5wol-codex` | 1 | 2025-07-10 | `ef9b40f` |
+| `p8cbpf-codex` | 1 | 2025-07-10 | `81162f5` |
+| `ruzlh3-codex` | 1 | 2025-07-10 | `c37dc54` |
+| `codex/-enoent` | 1 | 2025-07-15 | `46a6c01` |
+| `fix/dockerfile` | 1 | 2025-07-15 | `2e2b15c` |
+
+**C. Живые параллельные линии (2) — не удалять:**
+
+| Ветка | Своих коммитов | Последний коммит | Tip SHA | Что это |
+|---|---|---|---|---|
+| `docs/capture-core-design` | 57 | 2026-08-28 | `c697146` | параллельная линия «capture core»: новый каркас мини-аппа, разошлась с `main` от 2026-08-13 |
+| `feat/new-frontend` | 31 | 2026-01-15 | `988f053` | старый фронтенд-эксперимент, январь 2026 |
+
+Tip SHA записаны намеренно: после удаления ветки коммит остаётся достижим по SHA, пока GitHub не соберёт мусор.
+
+Реализовано 2026-11-03 (уборка GitHub, решение Шукура — `docs/tasks/decisions.md`, 2026-11-03):
+- Решение 2026-09-05 «ничего не удалять» отменено. К 2026-11-03 на `origin` было 167 веток: к старым 75 добавились
+  ветки задач, которые не удалялись после merge.
+- **Удалено 165.** 99 влиты в `main`. У 61 последний коммит совпадает с head влитого или закрытого PR — ветку
+  возвращает «Restore branch» на странице PR. У 5 такой страховки нет — сначала тег `archive/<имя ветки>`, потом
+  удаление: `by-codex`, `ch019d-codex/создать-workflow-для-деплоя-в-github-actions`, `chore/ownyourcode-setup`,
+  `codex/-react`, `docs/capture-core-design`. Вернуть такую ветку: `git push origin archive/<имя>:refs/heads/<имя>`.
+- **Остались** `main` и `claude/ft-215-typeorm-1` (проба FT-215, решение 2026-10-31).
+- Включено «Automatically delete head branches»: ветка PR удаляется после merge сама.
+- В тот же день по FT-049: закрыты январские issues, удалены пустые проекты, выключены Wiki и Discussions, удалены
+  окружение `finance-tracker-node-ts` и `claude.yml`.
+
+Проверка 2026-11-03:
+- `git ls-remote --heads origin` — две ветки: `main` и `claude/ft-215-typeorm-1`.
+- Каждый тег `archive/*` на `origin` указывает на тот же коммит, что ветка до удаления.
+- Открытых PR не было: ни одна удалённая ветка не принадлежала открытому PR.
+- Локальные ветки и worktree под-чатов в `.claude/worktrees/` не тронуты — это локальная уборка, не GitHub.
