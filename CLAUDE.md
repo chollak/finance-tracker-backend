@@ -494,7 +494,7 @@ interface Category {
 
 ### Milestones
 
-The January milestones v1.1 — Core Features, v1.2 — Analytics & Insights and v1.3 — Growth & Monetization are left from the January plan; their issues are closed except #77 (in v1.3). What to do with them is open in FT-049.
+The January milestones v1.1–v1.3 were closed on 2026-11-03 together with their issues; #77 stays open without a milestone. Whether the new board uses milestones is part of the move (FT-049).
 
 ### GitHub Wiki — off (2026-11-03)
 
