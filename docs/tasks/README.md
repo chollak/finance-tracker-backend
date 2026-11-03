@@ -91,8 +91,7 @@ issues этого репозитория с меткой `board`** (с 2026-11-0
    - миграция БД, если есть, проверена на копии настоящей базы (раздел «Как проверяем», пункт 5);
    - PR не правит настоящие данные Шукура (backfill вроде FT-108) — такое только после его «да».
 
-   `Closes #N` закрывает issue, карточка уезжает в «Готово»; пока workflows не проверены (#199), штаб после мержа
-   смотрит, что карточка в «Готово», и ставит её туда руками. Мерж не трогает живой экземпляр: миграция применится,
+   `Closes #N` закрывает issue, карточка уезжает в «Готово». Мерж не трогает живой экземпляр: миграция применится,
    когда Шукур его обновит, и приложение сначала скопирует базу в `data/backups/`.
 6. **Ручные проверки после мержа** (телефон, Mini App в Telegram, Action Button, голос) — новая issue с
    `ждёт: руки` и ссылкой на PR: в закрытой issue их никто не увидит.
@@ -266,13 +265,14 @@ gh api graphql -f query='mutation($p:ID!,$r:String!){updateProjectV2(input:{proj
 ## Настройка доски
 
 Через API настроено всё, кроме встроенных workflows: название, публичность, колонки, поля, метки, виды, README. Workflows
-— только в интерфейсе, https://github.com/users/chollak/projects/1/workflows:
+— только в интерфейсе, https://github.com/users/chollak/projects/1/workflows. Всё ниже включено 2026-11-03 (#199); на
+тестовых issue проверены Auto-add, Item added и Item closed. Список — на случай, если доску придётся настраивать заново:
 
-- [ ] Item added to project → Status **Backlog**
-- [ ] Item closed → **Готово**; Pull request merged → **Готово**
-- [ ] Pull request linked to issue → **В работе**
-- [ ] Auto-close issue и Auto-add sub-issues — включены
-- [ ] **Auto-add to project**: репозиторий `finance-tracker-backend`, фильтр ровно `is:issue label:board`
+- [x] Item added to project → Status **Backlog**
+- [x] Item closed → **Готово**; Pull request merged → **Готово**
+- [x] Pull request linked to issue → **В работе**
+- [x] Auto-close issue и Auto-add sub-issues — включены
+- [x] **Auto-add to project**: репозиторий `finance-tracker-backend`, фильтр ровно `is:issue label:board`
 
 Почему только `board`: метки из формы GitHub ставит любому автору, а `board` в формах нет — так issue постороннего на
 доску сама не попадёт. Колонки Status переименовывать, а не пересоздавать: у нового варианта новый id, и привязки
