@@ -13,7 +13,6 @@ import { createVoiceProcessingRouter } from '../../../modules/voiceProcessing/pr
 import { createQuickCaptureRouter } from '../../../modules/quickCapture/presentation/controllers/quickCaptureController';
 import { createBudgetRouter } from '../../../modules/budget/interfaces/budgetRoutes';
 import { createDebtRouter } from '../../../modules/debt/presentation/controllers/debtRoutes';
-import { createDashboardRouter } from './routes/dashboardRoutes';
 import { createUserController } from '../../../modules/user/presentation/controllers/userController';
 import { createSettingsRoutes } from '../../../modules/user/presentation/controllers/settingsController';
 import { CategoryModule } from '../../../modules/category/categoryModule';
@@ -141,16 +140,6 @@ export function buildServer(
   router.use(
     '/debts',
     createDebtRouter(debtModule, userModule)
-  );
-
-  router.use(
-    '/dashboard',
-    createDashboardRouter(
-      transactionModule.getAnalyticsService(),
-      budgetModule.budgetService,
-      subscriptionModule,
-      userModule
-    )
   );
 
   // User routes (optional - only if userModule is provided)

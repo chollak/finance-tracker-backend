@@ -4,7 +4,6 @@ import { startTestServer, TestServer } from './helpers/testServer';
 import { recordsOn } from './helpers/records';
 import { resetSharedRateLimiters } from '../src/delivery/web/express/middleware/rateLimitMiddleware';
 import { createSubscriptionRoutes } from '../src/delivery/web/express/routes/subscriptionRoutes';
-import { createDashboardRouter } from '../src/delivery/web/express/routes/dashboardRoutes';
 import { createBudgetRouter } from '../src/modules/budget/interfaces/budgetRoutes';
 import { createDebtRouter } from '../src/modules/debt/presentation/controllers/debtRoutes';
 import { createTransactionRouter } from '../src/modules/transaction/presentation/controllers/transactionController';
@@ -27,9 +26,9 @@ import { UserModule } from '../src/modules/user/userModule';
 import { SqliteUserRepository } from '../src/modules/user/infrastructure/persistence/SqliteUserRepository';
 
 /**
- * FT-162: the legacy routes that still carry a userId — `:userId` in the path (transactions, budgets, debts, dashboard,
- * subscription status) or `userId` in the body (subscription actions, `POST /api/transactions`) — act only for the
- * signed-in user, and refusing someone else's id touches nothing. Before, user resolution ran before the ownership
+ * FT-162: the legacy routes that still carry a userId — `:userId` in the path (transactions, budgets, debts,
+ * subscription status; the dashboard is gone since #205) or `userId` in the body (subscription actions,
+ * `POST /api/transactions`) — act only for the signed-in user, and refusing someone else's id touches nothing. Before, user resolution ran before the ownership
  * check and created a `users` row for any Telegram id it was given, and a userId that was not a string gave 500.
  *
  * Every request signs in through the local dev header as ME, over 127.0.0.1 (the shared test server).
@@ -119,7 +118,6 @@ beforeAll(async () => {
     ),
     '/budgets': createBudgetRouter(budgetModule, users),
     '/debts': createDebtRouter(debtsFor(debtsAskedFor), users),
-    '/dashboard': createDashboardRouter(analytics, budgetService, subscriptionModule, users),
     '/subscription': createSubscriptionRoutes(subscriptionModule, users),
   });
 });
@@ -160,8 +158,6 @@ interface LegacyRoute {
 
 const OK = { status: 200 };
 const CREATED = { status: 201 };
-// The insights are for premium users: ownership passes, then the premium check refuses, as before
-const PREMIUM_ONLY = { status: 403, code: 'PREMIUM_REQUIRED' };
 const BUDGET = { name: 'Еда', amount: 1000000, period: 'monthly', categoryIds: [] };
 const DEBT = { type: 'i_owe', personName: 'Ali', amount: 50000, currency: 'UZS' };
 
@@ -182,13 +178,6 @@ const PATH_ROUTES: LegacyRoute[] = [
   { method: 'POST', path: id => `/api/debts/user/${id}`, own: CREATED, body: DEBT },
   { method: 'GET', path: id => `/api/debts/user/${id}`, own: OK },
   { method: 'GET', path: id => `/api/debts/user/${id}/summary`, own: OK },
-  { method: 'GET', path: id => `/api/dashboard/insights/${id}`, own: PREMIUM_ONLY },
-  { method: 'GET', path: id => `/api/dashboard/insights/${id}/weekly`, own: PREMIUM_ONLY },
-  { method: 'GET', path: id => `/api/dashboard/insights/${id}/health-score`, own: PREMIUM_ONLY },
-  { method: 'GET', path: id => `/api/dashboard/alerts/${id}`, own: OK },
-  { method: 'GET', path: id => `/api/dashboard/alerts/${id}/summary`, own: OK },
-  { method: 'GET', path: id => `/api/dashboard/${id}`, own: OK },
-  { method: 'GET', path: id => `/api/dashboard/${id}/quick-stats`, own: OK },
   { method: 'GET', path: id => `/api/subscription/${id}`, own: OK },
 ];
 
