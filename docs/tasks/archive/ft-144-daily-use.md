@@ -4988,7 +4988,7 @@ Definition of Done:
   вариантов, а не созданы заново — новые id сбросили бы привязки встроенных workflows. Поля Priority (high / medium /
   low) и Size (S / M / L). Меток 12: тип, область, `ждёт: решение`, `ждёт: руки`, `board`; остальные удалены,
   `frontend` стала `webapp`, `documentation` — `docs`. Виды «Доска», «Ждёт меня», «Все».
-- **Перенос.** 19 задач → [#176](https://github.com/chollak/finance-tracker-backend/issues/176)…#194: 16 из
+- **Перенос.** 19 задач → [#176](https://github.com/chollak/finance-tracker-backend/issues/176)…#194: 15 из
   `backlog.md`, FT-134, FT-135, FT-136 из `docs/pastel/tasks.md`, FT-089 из архива вехи 10. Тело целиком, первая строка —
   откуда перенесена; строки Status и Depends — цитатой в начале, Priority, Type и Size — полями и метками, Owner —
   убран. Все в Backlog. Связи blocked by: #186 ← #185, #192 ← #191, #193 ← #192, #194 ← #192 и #193. Ручные шаги
@@ -5006,6 +5006,7 @@ Definition of Done:
 
 Проверка:
 - Доска перечитана запросом GraphQL после переноса: каждая карточка в Backlog, у каждой `board`, поля, метки и связи —
-  как в таблице, показанной Шукуру; открытых issues без `board` нет (итог — в PR).
+  как в таблице, показанной Шукуру; открытых issues без `board` нет. После #199 на доске 27 карточек: 19 задач, 5 ручных шагов,
+  3 идеи.
 - `node design/tools/check-design-refs.js` по телам открытых issues: `Design references: 2, unresolved: 0`.
 - `npm run verify` — в CI на PR (правки только в документах и формах issues).

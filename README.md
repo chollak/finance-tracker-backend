@@ -184,7 +184,7 @@ Both workflows set up Node.js from `.nvmrc`, install with `npm ci` and run `npm 
 - **`verify.yml`** — on every pull request.
 - **`quality-gate.yml`** — on every push to `main` (and on manual dispatch), so the merged result is checked too.
 
-There is no deploy workflow. The SSH deploy to the AWS host (removed from the plan on 2026-08-13) was deleted in FT-158 together with `docker-cleanup.yml`; the live instance moves to Shukur's PC and is updated there by hand (FT-156). See [TASKS.md](TASKS.md) and [CLAUDE.md](CLAUDE.md).
+There is no deploy workflow. The SSH deploy to the AWS host (removed from the plan on 2026-08-13) was deleted in FT-158 together with `docker-cleanup.yml`; the live instance moves to Shukur's PC and is updated there by hand (FT-156). See the task board [Kapelka](https://github.com/users/chollak/projects/1) and [CLAUDE.md](CLAUDE.md).
 
 ## Project Structure
 
