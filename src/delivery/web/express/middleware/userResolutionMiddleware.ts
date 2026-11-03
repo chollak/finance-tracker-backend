@@ -7,12 +7,13 @@
  * Поддерживаемые форматы userId:
  * - telegramId (числовой): "597843119" → резолвится в UUID
  * - UUID: "02c5718f-b6db-4990-894e-3fc080bb2a83" → проходит как есть
- * - guest: "guest_abc123" → проходит как есть (без резолва)
+ * Гостей нет (решение Д4, #206): любой другой id резолвится как telegramId, поэтому на маршрутах пользователя
+ * middleware стоит после verifyOwnership.
  */
 
 import { Request, Response, NextFunction } from 'express';
 import { UserModule } from '../../../../modules/user/userModule';
-import { resolveUserIdToUUID, isUUID, isGuestUser } from '../../../../shared/application/helpers/userIdResolver';
+import { resolveUserIdToUUID, isUUID } from '../../../../shared/application/helpers/userIdResolver';
 import { createLogger, LogCategory } from '../../../../shared/infrastructure/logging';
 
 const logger = createLogger(LogCategory.USER);
@@ -21,12 +22,10 @@ const logger = createLogger(LogCategory.USER);
  * Resolved user info attached to request
  */
 export interface ResolvedUser {
-  /** UUID (or guest_* for guest users) */
+  /** UUID */
   id: string;
   /** Original telegramId if resolved, null otherwise */
   telegramId: string | null;
-  /** Whether this is a guest user */
-  isGuest: boolean;
 }
 
 // Extend Express Request type
@@ -121,23 +120,11 @@ export function createUserResolutionMiddleware(
       if (typeof rawUserId === 'string') {
         const trimmedId = rawUserId.trim();
 
-        // Check if guest user (no resolution needed)
-        if (isGuestUser(trimmedId)) {
-          req.resolvedUser = {
-            id: trimmedId,
-            telegramId: null,
-            isGuest: true,
-          };
-          next();
-          return;
-        }
-
         // Check if already UUID (no resolution needed)
         if (isUUID(trimmedId)) {
           req.resolvedUser = {
             id: trimmedId,
             telegramId: null, // Unknown - could be either
-            isGuest: false,
           };
           next();
           return;
@@ -149,7 +136,6 @@ export function createUserResolutionMiddleware(
         req.resolvedUser = {
           id: resolvedUUID,
           telegramId: trimmedId,
-          isGuest: false,
         };
       }
 
@@ -182,9 +168,3 @@ export function getResolvedUserId(req: Request): string | undefined {
   return typeof rawUserId === 'string' ? rawUserId : undefined;
 }
 
-/**
- * Helper to check if user is a guest
- */
-export function isResolvedUserGuest(req: Request): boolean {
-  return req.resolvedUser?.isGuest ?? false;
-}

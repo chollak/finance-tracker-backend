@@ -262,19 +262,16 @@ Failed to create usage limit: invalid input syntax for type uuid: "131184740"
 ```
 
 **Cause:**
-API получает telegram_id (числовой) или guest_id вместо UUID. Это происходит когда:
-- Webapp передает telegram_id напрямую
-- Guest user (без Telegram аутентификации) делает запрос
+API получает telegram_id (числовой) вместо UUID — например, когда webapp передает telegram_id напрямую. (Гостевых id
+`guest_*` больше нет: гостевой режим убран решением Д4 и в backend — #206.)
 
 **Solution:**
-Controller должен резолвить telegram_id → UUID через UserModule:
+Пользователь берётся из входа и резолвится в UUID через UserModule (FT-162):
 
 ```typescript
+// В subscriptionRoutes: requireAuth, verifyOwnership, createResolveCurrentUserMiddleware(userModule)
 // В SubscriptionController
-if (this.isGuestUser(userId)) {
-  return this.createGuestUserResponse(userId); // Free tier без БД
-}
-const userUUID = await this.resolveUserId(userId); // telegram_id → UUID
+const userId = currentUserId(req); // UUID вошедшего пользователя
 ```
 
 **Files:**

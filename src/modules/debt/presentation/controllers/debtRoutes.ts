@@ -3,7 +3,7 @@ import { DebtController } from './debtController';
 import { DebtModule } from '../../debtModule';
 import { UserModule } from '../../../user/userModule';
 import { createUserResolutionMiddleware } from '../../../../delivery/web/express/middleware/userResolutionMiddleware';
-import { allowGuestMode, optionalAuth, verifyOwnership } from '../../../../delivery/web/express/middleware/authMiddleware';
+import { optionalAuth, requireAuth, verifyOwnership } from '../../../../delivery/web/express/middleware/authMiddleware';
 import { standardRateLimiter } from '../../../../delivery/web/express/middleware/rateLimitMiddleware';
 
 export function createDebtRouter(
@@ -23,14 +23,14 @@ export function createDebtRouter(
 
   // ==================== USER-SCOPED ROUTES ====================
   // Debts for a specific user (consistent with /transactions/user/:userId pattern)
-  // Protected with auth + ownership verification (guests allowed)
-  router.post('/user/:userId', allowGuestMode, verifyOwnership, resolveUser, controller.createDebt);
-  router.get('/user/:userId', allowGuestMode, verifyOwnership, resolveUser, controller.getDebts);
-  router.get('/user/:userId/summary', allowGuestMode, verifyOwnership, resolveUser, controller.getSummary);
+  // Signed in, and the path id must be the signed-in user's own (no guests, #206)
+  router.post('/user/:userId', requireAuth, verifyOwnership, resolveUser, controller.createDebt);
+  router.get('/user/:userId', requireAuth, verifyOwnership, resolveUser, controller.getDebts);
+  router.get('/user/:userId/summary', requireAuth, verifyOwnership, resolveUser, controller.getSummary);
 
   // ==================== DEBT-SCOPED ROUTES ====================
   // Single debt operations
-  // optionalAuth: validates auth if present, allows unauthenticated for guest resources
+  // optionalAuth: the controller checks the record's owner and refuses a request without a signed-in user (403)
   // Ownership verification is done in controller by fetching debt and checking userId
   router.get('/:debtId', optionalAuth, controller.getDebt);
   router.put('/:debtId', optionalAuth, controller.updateDebt);

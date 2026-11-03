@@ -1,7 +1,8 @@
 import express, { NextFunction, Request, Response } from 'express';
+import fs from 'fs';
 import http from 'http';
+import path from 'path';
 import {
-  allowGuestMode,
   verifyOwnership,
   writeAsSignedInUser,
   requireAuth,
@@ -11,9 +12,10 @@ import { UserModule } from '../src/modules/user/userModule';
 import { listenOnLoopback } from './helpers/testServer';
 
 /**
- * The user a request reads or writes is the one it signed in as (2026-10-21). There are no guests (decision Д4), so a
- * `guest_*` id opens nothing; a userId in the path, query or body must be the signed-in user's own Telegram id — a UUID
- * proves nothing about who sent it; and a write takes the signed-in user, refusing a body that names someone else.
+ * The user a request reads or writes is the one it signed in as (2026-10-21). There are no guests (decision Д4; the
+ * backend's guest branches went in #206), so a `guest_*` id opens nothing; a userId in the path, query or body must be
+ * the signed-in user's own Telegram id — a UUID proves nothing about who sent it; and a write takes the signed-in user,
+ * refusing a body that names someone else.
  */
 
 const ME = '131184740';
@@ -25,16 +27,13 @@ let baseUrl: string;
 
 /** What the userResolution middleware leaves for a UUID: the owner's Telegram id is not known. */
 function resolvedAsUuid(req: Request, _res: Response, next: NextFunction) {
-  if (req.params.userId === SOMEONES_UUID) req.resolvedUser = { id: SOMEONES_UUID, telegramId: null, isGuest: false };
+  if (req.params.userId === SOMEONES_UUID) req.resolvedUser = { id: SOMEONES_UUID, telegramId: null };
   next();
 }
 
 beforeAll(async () => {
   const app = express();
   app.use(express.json());
-  app.get('/guest/:userId', allowGuestMode, (_req, res) => {
-    res.json({ ok: true });
-  });
   app.get('/own/:userId', requireAuth, resolvedAsUuid, verifyOwnership, (_req, res) => {
     res.json({ ok: true });
   });
@@ -62,8 +61,9 @@ async function call(method: string, path: string, devUser?: string, body?: unkno
 
 describe('a guest id', () => {
   it('opens nothing without signing in', async () => {
-    const res = await call('GET', '/guest/guest_abc123');
+    const res = await call('GET', '/own/guest_abc123');
     expect(res.status).toBe(401);
+    expect(res.body.code).toBe('MISSING_AUTH_HEADER');
   });
 
   it('is not anyone’s own id, so a signed-in user cannot use it either', async () => {
@@ -126,5 +126,25 @@ describe('a record owned by a guest id', () => {
     await expect(
       verifyResourceOwnership(req, { userId: 'guest_abc123' }, userModule, { resourceType: 'transaction' })
     ).rejects.toThrow('Authentication required');
+  });
+});
+
+/** The backend's TypeScript files under `dir`. */
+function sourceFiles(dir: string): string[] {
+  return fs.readdirSync(dir, { withFileTypes: true }).flatMap(entry => {
+    const file = path.join(dir, entry.name);
+    if (entry.isDirectory()) return sourceFiles(file);
+    return file.endsWith('.ts') ? [file] : [];
+  });
+}
+
+describe('guest mode', () => {
+  it('is gone from the backend: no `guest_` id, `allowGuestMode` or `isGuest` left in src/ (#206)', () => {
+    const src = path.join(__dirname, '..', 'src');
+    const left = sourceFiles(src)
+      .filter(file => /guest_|allowGuestMode|isGuest/.test(fs.readFileSync(file, 'utf8')))
+      .map(file => path.relative(src, file));
+
+    expect(left).toEqual([]);
   });
 });

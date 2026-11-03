@@ -5,8 +5,6 @@
 
 import { Request, Response } from 'express';
 import { SubscriptionModule } from '../subscriptionModule';
-import { FREE_TIER_LIMITS, getCurrentMonthPeriod } from '../domain/usageLimit';
-import { SubscriptionStatus } from '../application/getSubscription';
 import { handleControllerSuccess, handleControllerError } from '../../../shared/infrastructure/utils/controllerHelpers';
 import { ErrorFactory } from '../../../shared/domain/errors/AppError';
 import { currentUserId } from '../../../delivery/web/express/middleware/currentUserMiddleware';
@@ -19,70 +17,12 @@ export class SubscriptionController {
   constructor(private subscriptionModule: SubscriptionModule) {}
 
   /**
-   * Check if userId is a guest user (webapp anonymous user)
-   */
-  private isGuestUser(userId: string): boolean {
-    return userId.startsWith('guest_');
-  }
-
-  /**
-   * Create default free tier response for guest users
-   */
-  private createGuestUserResponse(userId: string): SubscriptionStatus {
-    const period = getCurrentMonthPeriod();
-    const limitsOn = this.subscriptionModule.freeLimitsEnabled;
-    return {
-      subscription: null,
-      usageLimit: {
-        id: `guest-usage-${userId}`,
-        userId,
-        periodStart: period.start,
-        periodEnd: period.end,
-        transactionsCount: 0,
-        voiceInputsCount: 0,
-        activeDebtsCount: 0,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-      isPremium: false,
-      isTrialActive: false,
-      trialDaysLeft: null,
-      subscriptionDaysLeft: null,
-      limits: {
-        transactions: {
-          used: 0,
-          limit: limitsOn ? FREE_TIER_LIMITS.transactions : null,
-          remaining: limitsOn ? FREE_TIER_LIMITS.transactions : null,
-        },
-        voiceInputs: {
-          used: 0,
-          limit: limitsOn ? FREE_TIER_LIMITS.voiceInputs : null,
-          remaining: limitsOn ? FREE_TIER_LIMITS.voiceInputs : null,
-        },
-        activeDebts: {
-          used: 0,
-          limit: limitsOn ? FREE_TIER_LIMITS.activeDebts : null,
-          remaining: limitsOn ? FREE_TIER_LIMITS.activeDebts : null,
-        },
-      },
-    };
-  }
-
-  /**
    * GET /api/subscription/:userId
    * Get subscription status of the signed-in user (the path id is checked to be theirs before this, FT-162)
-   * Guest users (starting with "guest_") get default free tier response
    */
   async getSubscriptionStatus(req: Request, res: Response): Promise<void> {
     try {
       const userId = currentUserId(req);
-
-      // Guest users get default free tier response
-      if (this.isGuestUser(userId)) {
-        handleControllerSuccess(this.createGuestUserResponse(userId), res);
-        return;
-      }
-
       const status = await this.subscriptionModule
         .getGetSubscriptionUseCase()
         .execute(userId);
