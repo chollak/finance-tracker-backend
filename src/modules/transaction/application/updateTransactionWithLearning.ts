@@ -10,7 +10,7 @@ import { CategoryResolver, ResolvedCategory } from '../domain/categoryResolver';
 import { resolveCategoryForUpdate } from './resolveCategoryForUpdate';
 import { AccountResolver } from '../domain/accountResolver';
 import { resolveAccountForUpdate } from './resolveAccountForUpdate';
-import { changesRecord, RecordEdit } from '../domain/recordEdit';
+import { changesRecord, noteEdit, RecordEdit } from '../domain/recordEdit';
 import { TransactionSemanticType } from '../domain/transactionSemanticType';
 
 const logger = getLogger(LogCategory.LEARNING);
@@ -27,7 +27,8 @@ export interface UpdateTransactionWithLearningRequest {
   accountId?: string;
   /** Only together with accountId: the record's currency must be the new account's (FT-103). */
   currency?: 'UZS' | 'USD';
-  description?: string;
+  /** `null` clears the note, as in POST (FT-249). */
+  description?: string | null;
   date?: string;
   type?: 'income' | 'expense';
   /** The controller passes every allowed field on, and `...request` writes these two as well. */
@@ -55,6 +56,7 @@ export class UpdateTransactionWithLearningUseCase {
 
   async execute(request: UpdateTransactionWithLearningRequest): Promise<Result<Transaction>> {
     const { id, category, date, type } = request;
+    const description = noteEdit(request.description);
 
     // Validate ID
     if (!id?.trim()) {
@@ -104,7 +106,7 @@ export class UpdateTransactionWithLearningUseCase {
         categoryId: categoryResult.data?.id,
         accountId,
         currency,
-        description: request.description,
+        description,
         date,
         type,
         semanticType: request.semanticType,
@@ -126,6 +128,7 @@ export class UpdateTransactionWithLearningUseCase {
         categoryId: categoryResult.data?.id,
         accountId,
         currency,
+        description,
       });
 
       // Record learning data if we have the necessary context
