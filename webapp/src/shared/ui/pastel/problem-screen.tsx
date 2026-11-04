@@ -28,8 +28,8 @@ interface ProblemScreenProps {
   /**
    * `entry` — the screen starts something rather than reports what went wrong (the login boards): the content sits
    * 72px under a 48px header, the circle is 56px, the title 28px. `centered` — the voice and receipt boards («Голос без
-   * связи», «Чек без связи»): the content in the middle between the 48px header and the button, the circle 64px, the
-   * title 26px, the text with a line height of 1.5.
+   * связи», «Чек без связи») and «Страница не найдена» with the logo in the header: the content in the middle between
+   * the 48px header and the button, the circle 64px, the title 26px, the text with a line height of 1.5.
    */
   layout?: 'problem' | 'entry' | 'centered';
   /** A whole screen (default) or embedded, e.g. in the component showcase. */
