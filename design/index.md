@@ -35,6 +35,8 @@
 | Загрузка | светлая | 390×844 | [png](screens/Pastel_Loading.png) | [Pastel_Loading.dc.html](prototype/Pastel_Loading.dc.html) |
 | Загрузка дольше обычного | светлая | 390×844 | [png](screens/Pastel_LoadingSlow.png) | [Pastel_LoadingSlow.dc.html](prototype/Pastel_LoadingSlow.dc.html) |
 | Загрузка · тёмная | тёмная | 390×844 | [png](screens/Pastel_LoadingDark.png) | [Pastel_LoadingDark.dc.html](prototype/Pastel_LoadingDark.dc.html) |
+| Страница не найдена | светлая | 390×844 | [png](screens/Pastel_NotFound.png) | [Pastel_NotFound.dc.html](prototype/Pastel_NotFound.dc.html) |
+| Страница не найдена · тёмная | тёмная | 390×844 | [png](screens/Pastel_NotFoundDark.png) | [Pastel_NotFoundDark.dc.html](prototype/Pastel_NotFoundDark.dc.html) |
 
 ## Сквозное — «Ещё», категории, первый запуск, вход
 
