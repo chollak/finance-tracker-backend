@@ -90,7 +90,7 @@ export function createDeepLink(botUsername: string, startParam: string): string 
 
 /**
  * Parse deep link start parameter
- * Format: action_id (e.g., edit_123, add, budgets)
+ * Format: action_id (e.g., edit_123, add)
  */
 export function parseStartParam(startParam: string): { action: string; id?: string } {
   const [action, id] = startParam.split('_');

@@ -4,19 +4,12 @@ import { startTestServer, TestServer } from './helpers/testServer';
 import { recordsOn } from './helpers/records';
 import { resetSharedRateLimiters } from '../src/delivery/web/express/middleware/rateLimitMiddleware';
 import { createSubscriptionRoutes } from '../src/delivery/web/express/routes/subscriptionRoutes';
-import { createBudgetRouter } from '../src/modules/budget/interfaces/budgetRoutes';
 import { createDebtRouter } from '../src/modules/debt/presentation/controllers/debtRoutes';
 import { createTransactionRouter } from '../src/modules/transaction/presentation/controllers/transactionController';
 import { AnalyticsService } from '../src/modules/transaction/application/analyticsService';
 import { GetUserTransactionsUseCase } from '../src/modules/transaction/application/getUserTransactions';
 import { ArchiveAllByUserUseCase } from '../src/modules/transaction/application/archiveAllByUser';
 import { GetArchivedTransactionsUseCase } from '../src/modules/transaction/application/getArchivedTransactions';
-import { BudgetModule } from '../src/modules/budget/budgetModule';
-import { BudgetRepository } from '../src/modules/budget/domain/budgetRepository';
-import { BudgetEntity, CreateBudgetData } from '../src/modules/budget/domain/budgetEntity';
-import { CreateBudgetUseCase } from '../src/modules/budget/application/createBudget';
-import { GetBudgetsUseCase } from '../src/modules/budget/application/getBudgets';
-import { BudgetService } from '../src/modules/budget/application/budgetService';
 import { DebtModule } from '../src/modules/debt/debtModule';
 import { SubscriptionModule } from '../src/modules/subscription/subscriptionModule';
 import { SubscriptionRepository } from '../src/modules/subscription/domain/subscriptionRepository';
@@ -26,8 +19,8 @@ import { UserModule } from '../src/modules/user/userModule';
 import { SqliteUserRepository } from '../src/modules/user/infrastructure/persistence/SqliteUserRepository';
 
 /**
- * FT-162: the legacy routes that still carry a userId — `:userId` in the path (transactions, budgets, debts,
- * subscription status; the dashboard is gone since #205) or `userId` in the body (subscription actions,
+ * FT-162: the legacy routes that still carry a userId — `:userId` in the path (transactions, debts,
+ * subscription status; the dashboard is gone since #205, budgets since #264) or `userId` in the body (subscription actions,
  * `POST /api/transactions`) — act only for the signed-in user, and refusing someone else's id touches nothing. Before, user resolution ran before the ownership
  * check and created a `users` row for any Telegram id it was given, and a userId that was not a string gave 500.
  *
@@ -43,23 +36,6 @@ const GUEST = 'guest_abc';
 const GUEST_ZZZ = 'guest_zzz';
 /** A UUID v4 no `users` row has: the admin grant gave it a subscription before #230. */
 const NOBODY_UUID = 'a1b2c3d4-e5f6-4a1b-8c2d-1234567890ab';
-
-/** Budgets: none stored; remembers whose budgets it was asked for. */
-class NoBudgets implements BudgetRepository {
-  readonly askedFor: string[] = [];
-  async create(data: CreateBudgetData): Promise<BudgetEntity> {
-    this.askedFor.push(data.userId);
-    return { ...data, id: 'budget-1', spent: 0, isActive: true, createdAt: new Date(), updatedAt: new Date() } as unknown as BudgetEntity;
-  }
-  async findById(): Promise<BudgetEntity | null> { return null; }
-  async findByUserId(userId: string): Promise<BudgetEntity[]> { this.askedFor.push(userId); return []; }
-  async findActiveByUserId(userId: string): Promise<BudgetEntity[]> { this.askedFor.push(userId); return []; }
-  async update(): Promise<BudgetEntity> { throw new Error('not stored'); }
-  async delete(): Promise<void> {}
-  async getBudgetSummary(): Promise<null> { return null; }
-  async getBudgetSummaries(userId: string): Promise<[]> { this.askedFor.push(userId); return []; }
-  async updateSpentAmount(): Promise<void> {}
-}
 
 /** Subscriptions: none until a trial starts; remembers whose active one was looked for and whose trial started. */
 class NoSubscriptions implements SubscriptionRepository {
@@ -92,7 +68,7 @@ const unused = {} as never;
 
 let db: TestDatabase;
 let server: TestServer;
-let budgets: NoBudgets;
+let userTransactions: GetUserTransactionsUseCase;
 let subscriptions: NoSubscriptions;
 let debtsAskedFor: string[];
 let records: ReturnType<typeof recordsOn>;
@@ -101,17 +77,11 @@ beforeAll(async () => {
   db = await openMigratedDatabase();
   records = recordsOn(db.dataSource);
   const users = new UserModule(new SqliteUserRepository(db.dataSource));
-  budgets = new NoBudgets();
   subscriptions = new NoSubscriptions();
   debtsAskedFor = [];
 
   const analytics = new AnalyticsService(records.repository);
-  const budgetService = new BudgetService(budgets, records.repository);
-  const budgetModule = {
-    createBudgetUseCase: new CreateBudgetUseCase(budgets),
-    getBudgetsUseCase: new GetBudgetsUseCase(budgets),
-    budgetService,
-  } as unknown as BudgetModule;
+  userTransactions = new GetUserTransactionsUseCase(records.repository);
   // The grant goes only to a user that exists (#230), wired as in createModules()
   const grantTargets = { exists: (userId: string) => users.exists(userId) };
   const subscriptionModule = new SubscriptionModule(subscriptions, new SqliteUsageLimitRepository(db.dataSource), grantTargets, {
@@ -120,11 +90,10 @@ beforeAll(async () => {
 
   server = await startTestServer({
     '/transactions': createTransactionRouter(
-      records.create, unused, analytics, new GetUserTransactionsUseCase(records.repository), unused, unused, unused,
+      records.create, unused, analytics, userTransactions, unused, unused, unused,
       unused, unused, unused, unused, new ArchiveAllByUserUseCase(records.repository),
       new GetArchivedTransactionsUseCase(records.repository), subscriptionModule, users
     ),
-    '/budgets': createBudgetRouter(budgetModule, users),
     '/debts': createDebtRouter(debtsFor(debtsAskedFor), users),
     '/subscription': createSubscriptionRoutes(subscriptionModule, users),
   });
@@ -166,7 +135,6 @@ interface LegacyRoute {
 
 const OK = { status: 200 };
 const CREATED = { status: 201 };
-const BUDGET = { name: 'Еда', amount: 1000000, period: 'monthly', categoryIds: [] };
 const DEBT = { type: 'i_owe', personName: 'Ali', amount: 50000, currency: 'UZS' };
 
 /** Every legacy route with `:userId` in the path. */
@@ -179,10 +147,6 @@ const PATH_ROUTES: LegacyRoute[] = [
   { method: 'GET', path: id => `/api/transactions/user/${id}`, own: OK },
   { method: 'POST', path: id => `/api/transactions/archive/all/${id}`, own: OK, body: {} },
   { method: 'GET', path: id => `/api/transactions/archived/user/${id}`, own: OK },
-  { method: 'POST', path: id => `/api/budgets/users/${id}/budgets`, own: CREATED, body: BUDGET },
-  { method: 'GET', path: id => `/api/budgets/users/${id}/budgets`, own: OK },
-  { method: 'GET', path: id => `/api/budgets/users/${id}/budgets/summaries`, own: OK },
-  { method: 'GET', path: id => `/api/budgets/users/${id}/budgets/alerts`, own: OK },
   { method: 'POST', path: id => `/api/debts/user/${id}`, own: CREATED, body: DEBT },
   { method: 'GET', path: id => `/api/debts/user/${id}`, own: OK },
   { method: 'GET', path: id => `/api/debts/user/${id}/summary`, own: OK },
@@ -251,23 +215,27 @@ describe('a legacy route with :userId in the path (FT-162)', () => {
     expect(await telegramIds()).toEqual(before);
   });
 
-  it('GET /api/budgets/users/guest_abc/budgets without signing in reaches no budget (#206)', async () => {
-    const asked = budgets.askedFor.length;
+  // Was asked of the budget routes until they went (#264); the records route keeps the same check
+  it('GET /api/transactions/user/guest_abc without signing in reaches no record (#206)', async () => {
+    const asked = jest.spyOn(userTransactions, 'execute');
 
-    const res = await server.request('GET', `/api/budgets/users/${GUEST}/budgets`);
+    const res = await server.request('GET', `/api/transactions/user/${GUEST}`);
 
     expect(res.status).toBe(401);
     expect(res.body).toMatchObject({ success: false, code: 'MISSING_AUTH_HEADER' });
-    expect(budgets.askedFor).toHaveLength(asked);
+    expect(asked).not.toHaveBeenCalled();
+    asked.mockRestore();
   });
 
   it('the own id reaches the use cases as the own user, not as the id in the path', async () => {
-    await call('GET', `/api/budgets/users/${MINE}/budgets`);
+    const asked = jest.spyOn(userTransactions, 'execute');
+    await call('GET', `/api/transactions/user/${MINE}`);
     await call('GET', `/api/debts/user/${MINE}/summary`);
 
     const uuid = await myUuid();
-    expect(budgets.askedFor.at(-1)).toBe(uuid);
+    expect(asked).toHaveBeenLastCalledWith(uuid);
     expect(debtsAskedFor.at(-1)).toBe(uuid);
+    asked.mockRestore();
   });
 });
 
