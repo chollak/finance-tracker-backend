@@ -8,11 +8,8 @@ import {
   corsHeaders,
   securityHeaders,
 } from '../src/delivery/web/express/middleware/errorMiddleware';
-import { createVoiceProcessingRouter } from '../src/modules/voiceProcessing/presentation/controllers/voiceProcessingController';
 import { createDebtRouter } from '../src/modules/debt/presentation/controllers/debtRoutes';
 import { createHealthHandler } from '../src/delivery/web/express/routes/healthRoutes';
-import { ProcessTextInputUseCase } from '../src/modules/voiceProcessing/application/processTextInput';
-import { ProcessVoiceInputUseCase } from '../src/modules/voiceProcessing/application/processVoiceInput';
 import { DebtModule } from '../src/modules/debt/debtModule';
 import { UserModule } from '../src/modules/user/userModule';
 import { ValidationError } from '../src/shared/domain/errors/AppError';
@@ -23,14 +20,14 @@ import { listenOnLoopback } from './helpers/testServer';
  * health check, 404 handling, JSON body parsing, sign-in (no guests since 2026-10-21),
  * and the global error handler's status-code mapping.
  *
- * SCOPE NOTE: `buildServer()` wires 5+ full modules (Transaction, Voice, Budget,
- * Debt), several of which need a dozen+ use-case getters just to
+ * SCOPE NOTE: `buildServer()` wires 5+ full modules (Transaction, Budget, Debt, …),
+ * several of which need a dozen+ use-case getters just to
  * construct their routers. Faithfully stubbing all of that adds risk without adding coverage.
  * Instead, this suite assembles a minimal app using the *real* middleware and
  * router factories buildServer uses (same imports, same order: requestLogger ->
  * securityHeaders -> corsHeaders -> json/urlencoded -> routes -> notFoundHandler ->
- * errorHandler), with mocked module/use-case dependencies for the routers that are
- * exercised (voice, debt). `/health` uses the same handler as expressServer.ts
+ * errorHandler), with mocked module/use-case dependencies for the router that is
+ * exercised (debt; the voice routes it used to exercise are gone, #221). `/health` uses the same handler as expressServer.ts
  * (`createHealthHandler`, FT-154) with the bot switched off; its 503 is in healthRoute.test.ts.
  */
 
@@ -46,10 +43,6 @@ function buildTestApp() {
   router.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
   router.get('/health', createHealthHandler(() => ({ state: 'disabled', attempts: 0 })));
-
-  const textUseCase = { execute: jest.fn() } as unknown as ProcessTextInputUseCase;
-  const voiceUseCase = { execute: jest.fn() } as unknown as ProcessVoiceInputUseCase;
-  router.use('/voice', createVoiceProcessingRouter(voiceUseCase, textUseCase));
 
   const debtModule = {
     createDebtUseCase: { execute: jest.fn() },
@@ -91,7 +84,7 @@ function buildTestApp() {
   const app: Express = express();
   app.use('/api', router);
 
-  return { app, textUseCase, voiceUseCase, debtModule };
+  return { app, debtModule };
 }
 
 describe('API routes and middleware (characterization)', () => {
@@ -139,73 +132,24 @@ describe('API routes and middleware (characterization)', () => {
     });
   });
 
-  describe('voice text-input route (JSON parsing + sign-in)', () => {
-    it('processes JSON body for the signed-in user', async () => {
-      (mocks.textUseCase.execute as jest.Mock).mockResolvedValue({
-        text: 'coffee 5',
-        transactions: [],
-        debts: [],
-      });
+  describe('debt route (sign-in + dev auth bypass)', () => {
+    // The JSON body of a signed-in write; it was checked on /api/voice/text-input until that route went (#221)
+    it('reads the JSON body of a signed-in user’s debt', async () => {
+      (mocks.debtModule.createDebtUseCase.execute as jest.Mock).mockResolvedValue({ success: true, data: { id: 'debt-1' } });
 
-      const res = await fetch(`${baseUrl}/api/voice/text-input`, {
+      const res = await fetch(`${baseUrl}/api/debts/user/555111`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Dev-User-Id': '555111' },
-        body: JSON.stringify({ userId: '555111', text: 'coffee 5' }),
+        body: JSON.stringify({ type: 'lent', personName: 'Bob', amount: '100', currency: 'UZS' }),
       });
 
-      expect(res.status).toBe(200);
-      const body = await res.json();
-      expect(body.success).toBe(true);
-      expect(body.data).toEqual({ text: 'coffee 5', transactions: [], debts: [] });
-      expect(mocks.textUseCase.execute).toHaveBeenCalledWith(
-        'coffee 5',
-        '555111',
-        'Unknown User'
+      expect(res.status).toBe(201);
+      expect(await res.json()).toMatchObject({ success: true, data: { id: 'debt-1' } });
+      expect(mocks.debtModule.createDebtUseCase.execute).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: DEBT_OWNER_UUID, type: 'lent', personName: 'Bob', amount: 100, currency: 'UZS' })
       );
     });
 
-    it('rejects a guest id with no auth header (401)', async () => {
-      const res = await fetch(`${baseUrl}/api/voice/text-input`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: 'guest_abc123', text: 'coffee 5' }),
-      });
-
-      expect(res.status).toBe(401);
-      expect(mocks.textUseCase.execute).not.toHaveBeenCalled();
-    });
-
-    it('rejects a request with no auth header (401)', async () => {
-      const res = await fetch(`${baseUrl}/api/voice/text-input`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: '555111', text: 'coffee 5' }),
-      });
-
-      expect(res.status).toBe(401);
-      const body = await res.json();
-      expect(body).toMatchObject({ success: false, code: 'MISSING_AUTH_HEADER' });
-      expect(mocks.textUseCase.execute).not.toHaveBeenCalled();
-    });
-
-    it('returns 400 validation error when text is missing', async () => {
-      const res = await fetch(`${baseUrl}/api/voice/text-input`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Dev-User-Id': '555111' },
-        body: JSON.stringify({ userId: '555111' }),
-      });
-
-      expect(res.status).toBe(400);
-      const body = await res.json();
-      expect(body.success).toBe(false);
-      expect(body.error).toMatchObject({
-        code: 'VALIDATION_ERROR',
-        message: 'Text is required and cannot be empty',
-      });
-    });
-  });
-
-  describe('debt route (sign-in + dev auth bypass)', () => {
     it('refuses to create a debt for a guest id without auth (401)', async () => {
       const res = await fetch(`${baseUrl}/api/debts/user/guest_abc123`, {
         method: 'POST',
@@ -284,7 +228,7 @@ describe('API routes and middleware (characterization)', () => {
     });
 
     it('maps malformed JSON bodies to a 400 INVALID_JSON response', async () => {
-      const res = await fetch(`${baseUrl}/api/voice/text-input`, {
+      const res = await fetch(`${baseUrl}/api/debts/user/555111`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: '{ this is not valid json',

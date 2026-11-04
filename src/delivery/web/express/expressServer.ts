@@ -1,7 +1,6 @@
 import express, { Router } from 'express';
 // Note: Using custom corsHeaders middleware instead of cors package for security
 import { TransactionModule } from '../../../modules/transaction/transactionModule';
-import { VoiceProcessingModule } from '../../../modules/voiceProcessing/voiceProcessingModule';
 import { BudgetModule } from '../../../modules/budget/budgetModule';
 import { DebtModule } from '../../../modules/debt/debtModule';
 import { UserModule } from '../../../modules/user/userModule';
@@ -9,7 +8,6 @@ import { SubscriptionModule } from '../../../modules/subscription/subscriptionMo
 import { QuickCaptureModule } from '../../../modules/quickCapture/quickCaptureModule';
 import { createTransactionRouter } from '../../../modules/transaction/presentation/controllers/transactionController';
 import { createAnalyticsRoutes } from '../../../modules/transaction/presentation/controllers/analyticsController';
-import { createVoiceProcessingRouter } from '../../../modules/voiceProcessing/presentation/controllers/voiceProcessingController';
 import { createQuickCaptureRouter } from '../../../modules/quickCapture/presentation/controllers/quickCaptureController';
 import { createBudgetRouter } from '../../../modules/budget/interfaces/budgetRoutes';
 import { createDebtRouter } from '../../../modules/debt/presentation/controllers/debtRoutes';
@@ -56,7 +54,6 @@ import { createHealthHandler } from './routes/healthRoutes';
 
 export function buildServer(
   transactionModule: TransactionModule,
-  voiceModule: VoiceProcessingModule,
   budgetModule: BudgetModule,
   debtModule: DebtModule,
   userModule?: UserModule,
@@ -115,16 +112,8 @@ export function buildServer(
     )
   );
 
-  router.use(
-    '/voice',
-    createVoiceProcessingRouter(
-      voiceModule.getProcessVoiceInputUseCase(),
-      voiceModule.getProcessTextInputUseCase(),
-      userModule
-    )
-  );
-
-  // Public route: POST /api/quick-capture (the /api prefix is added in src/index.ts)
+  // Public route: POST /api/quick-capture (the /api prefix is added in src/index.ts). The web voice routes /api/voice/*
+  // are gone (#221): the bot takes a voice from Telegram itself, the iOS app hears it on the phone and sends text here
   if (quickCaptureModule) {
     router.use(
       '/quick-capture',

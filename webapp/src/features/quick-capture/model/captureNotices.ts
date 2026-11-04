@@ -62,7 +62,7 @@ export function sendFailedNotice(error: unknown): CaptureNotice {
       // In a browser the session is over: the login screen opens (FT-128)
       return { title: 'Нужно войти снова', detail: 'Вход — через Telegram, текст останется в поле' };
     case 429:
-      // The AI limit is per-IP and shared with /api/voice/* (docs/QUICK_CAPTURE_API.md)
+      // The AI limit is per-IP: everyone on this address shares it (docs/QUICK_CAPTURE_API.md)
       return { title: 'Слишком много запросов', detail: 'Попробуйте через несколько минут' };
     default:
       return { title: 'Не удалось записать', detail: 'Текст остался в поле — попробуйте ещё раз' };

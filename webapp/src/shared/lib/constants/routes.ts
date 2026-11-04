@@ -213,11 +213,6 @@ export const API_ENDPOINTS = {
       `/budgets/users/${userId}/budgets/alerts?threshold=${threshold}`,
   },
 
-  // Voice
-  VOICE: {
-    TEXT_INPUT: '/voice/text-input',
-  },
-
   // Quick Capture — one line of natural text → saved transactions/debts (docs/QUICK_CAPTURE_API.md)
   QUICK_CAPTURE: '/quick-capture',
 

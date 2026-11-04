@@ -67,8 +67,8 @@ COPY --from=builder --chown=node:node /app/public ./public
 COPY --from=builder --chown=node:node /app/scripts ./scripts
 
 # Create necessary directories with correct permissions
-RUN mkdir -p downloads uploads data && \
-    chown -R node:node downloads uploads data
+RUN mkdir -p downloads data && \
+    chown -R node:node downloads data
 
 # Switch to non-root user for security  
 USER node

@@ -39,7 +39,8 @@ data/backups/
 
 # Voice files the bot downloads (DOWNLOADS_PATH); one left by a crash must not block scripts/live-update.sh
 downloads/
-# Voice uploads of POST /api/voice/voice-input while they are read (multer); the same reason (FT-216)
+# Voice uploads of POST /api/voice/voice-input (FT-216). The route is gone (#221) and nothing writes here any more;
+# kept so a folder left on an older copy, the live one too, cannot make its tree dirty and stop live-update.sh
 uploads/
 
 # Runtime learning data (tracked seed files are data/*.seed.json)

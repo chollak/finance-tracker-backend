@@ -37,7 +37,6 @@ export const SUCCESS_MESSAGES = {
   TRANSACTION_CREATED: 'Transaction created successfully',
   TRANSACTION_UPDATED: 'Transaction updated successfully',
   TRANSACTION_DELETED: 'Transaction deleted successfully',
-  FILE_PROCESSED: 'File processed successfully',
 } as const;
 
 // Enhanced OpenAI prompts with intelligent categorization for Russian-speaking users

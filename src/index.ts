@@ -47,7 +47,7 @@ async function startApplication() {
     // See: https://expressjs.com/en/guide/behind-proxies.html
     app.set('trust proxy', 1);
 
-    app.use('/api', buildServer(transactionModule, voiceModule, budgetModule, debtModule, userModule, subscriptionModule, quickCaptureModule, { categoryModule, accountModule, fxModule, exportModule, authModule, auditModule }));
+    app.use('/api', buildServer(transactionModule, budgetModule, debtModule, userModule, subscriptionModule, quickCaptureModule, { categoryModule, accountModule, fxModule, exportModule, authModule, auditModule }));
 
     // The Central Bank USD rate: at start, then until today's rate is in (FT-102)
     fxModule.getService().startDailyRefresh();
