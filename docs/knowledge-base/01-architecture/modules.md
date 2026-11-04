@@ -1,6 +1,6 @@
 # Module System
 
-`createModules()` (`src/appModules.ts`) возвращает **14 модулей приложения**, каждый с чётко определённой ответственностью. `CategoryModule` добавлен в FT-099, `AccountModule` — в FT-101, `FxModule` — в FT-102, `BotMessageModule` — в FT-122, `NotificationModule` — в FT-124, `ExportModule` — в FT-126, `AuthModule` — в FT-128, `AuditModule` — в FT-131, `QuickCaptureModule` — обёртка над текстовым разбором для `POST /api/quick-capture`. `OpenAIUsageModule` удалён в FT-174: его админские маршруты с января отвечали `401`, и их никто не вызывал. `BudgetModule` удалён в #264 (решение 2026-11-04) — ниже, «Бюджеты — удалены».
+`createModules()` (`src/appModules.ts`) возвращает **13 модулей приложения**, каждый с чётко определённой ответственностью. `CategoryModule` добавлен в FT-099, `AccountModule` — в FT-101, `FxModule` — в FT-102, `BotMessageModule` — в FT-122, `NotificationModule` — в FT-124, `ExportModule` — в FT-126, `AuthModule` — в FT-128, `AuditModule` — в FT-131, `QuickCaptureModule` — обёртка над текстовым разбором для `POST /api/quick-capture`. `OpenAIUsageModule` удалён в FT-174: его админские маршруты с января отвечали `401`, и их никто не вызывал. `BudgetModule` удалён в #264, `DebtModule` — в #265 (решение 2026-11-04) — ниже, «Бюджеты — удалены» и «Долги — удалены вне пути записи».
 
 Backend-дашборда больше нет (#205): `GET /api/dashboard/*` вместе с `DashboardService`, `DashboardController`, `AlertService` и платными insights удалён — его никто не вызывал. Главная читает свои маршруты (FT-111), аналитика — `/api/analytics` (FT-120).
 
@@ -9,7 +9,6 @@ Backend-дашборда больше нет (#205): `GET /api/dashboard/*` вм
 ```mermaid
 graph TD
     TM[TransactionModule<br/>CRUD + Analytics]
-    DeM[DebtModule<br/>Debt Management]
     VM[VoiceProcessingModule<br/>Voice/Text Processing]
     SM[SubscriptionModule<br/>Premium + Payments]
     UM[UserModule<br/>Users + Settings]
@@ -23,11 +22,7 @@ graph TD
     AuM[AuthModule<br/>Web login through the bot]
     AuD[AuditModule<br/>Spending audit + goals]
 
-    DeM -->|depends on| TM
-    DeM -->|depends on| SM
-    DeM -->|depends on| UM
     VM -->|depends on| TM
-    VM -->|depends on| DeM
     TM -.->|setSubscriptionDependencies| SM
     TM -.->|setCategoryResolver| CM
     TM -.->|setAccountResolver| AM
@@ -48,7 +43,6 @@ graph TD
     SM -.->|grant: GrantTargets| UM
 
     style TM fill:#4CAF50,stroke:#2E7D32,color:#fff
-    style DeM fill:#FF5722,stroke:#BF360C,color:#fff
     style VM fill:#FF9800,stroke:#E65100,color:#fff
     style SM fill:#FFD700,stroke:#B8860B,color:#000
     style UM fill:#00BCD4,stroke:#00838F,color:#fff
@@ -61,8 +55,7 @@ graph TD
 | Модуль | Роль | Зависимости | Ключевые файлы |
 |--------|------|-------------|----------------|
 | **TransactionModule** | Core: транзакции и аналитика | Независимый при создании; позже получает Subscription + User через `setSubscriptionDependencies()` | `transactionModule.ts` |
-| **DebtModule** | Управление долгами | TransactionModule, SubscriptionModule, UserModule | `debtModule.ts` |
-| **VoiceProcessingModule** | AI обработка голоса/текста | TransactionModule, DebtModule (не используется с Д2), категории пользователя для промпта, выученные слова для правила догадки о категории (FT-138) | `voiceProcessingModule.ts` |
+| **VoiceProcessingModule** | AI обработка голоса/текста | TransactionModule, остаток `DebtModule` до #266 (не используется с Д2), категории пользователя для промпта, выученные слова для правила догадки о категории (FT-138) | `voiceProcessingModule.ts` |
 | **QuickCaptureModule** | `POST /api/quick-capture` поверх текстового разбора; `POST /api/quick-capture/payment` — оплата Apple Pay готовой суммой (FT-176, `RecordPaymentUseCase`) | VoiceProcessingModule | `quickCaptureModule.ts` |
 | **AccountModule** | Счета (FT-101): остатки на чтении, итог в сумах, счёт новой записи | Независимый; TransactionModule получает его как `AccountResolver`; счёт по умолчанию — из настроек UserModule | `accountModule.ts` |
 | **FxModule** | Курс доллара (FT-102): ЦБ по датам, свой курс, действующий курс | Свой курс хранится в настройках UserModule; AccountModule получает его как `EffectiveRateProvider` | `fxModule.ts` |
@@ -115,44 +108,7 @@ const transactionModule = TransactionModule.create();
 
 ---
 
-## 2. DebtModule
-
-**Файл:** [`src/modules/debt/debtModule.ts`](../../../src/modules/debt/debtModule.ts)
-
-### Назначение
-Управление долгами (кто кому должен) с историей погашений.
-
-### Use Cases
-- `CreateDebtUseCase` - создание долга (+ опциональная транзакция)
-- `GetDebtsUseCase` - получение долгов пользователя, summary
-- `UpdateDebtUseCase` - обновление и отмена долга
-- `DeleteDebtUseCase` - удаление долга
-- `PayDebtUseCase` - частичное/полное погашение долга
-
-### Entities
-- `Debt` - долг с типом (i_owe / owed_to_me), суммой, статусом
-- `DebtPayment` - запись о платеже по долгу
-
-### Key Dependency
-```typescript
-new CreateDebtUseCase(
-  debtRepository,
-  transactionModule.getCreateTransactionUseCase() // Для создания linked транзакции
-)
-```
-
-**Почему зависимость?**
-При создании долга с флагом `moneyTransferred=true` создается связанная транзакция (income/expense) для отражения реального движения денег.
-
-### Hybrid Approach
-- Долги как отдельная сущность (не транзакции)
-- При передаче денег создается linked транзакция
-- Баланс отражает реальность
-- Долги не загрязняют бюджетную аналитику
-
----
-
-## 3. SubscriptionModule
+## 2. SubscriptionModule
 
 **Файл:** [`src/modules/subscription/subscriptionModule.ts`](../../../src/modules/subscription/subscriptionModule.ts)
 
@@ -161,10 +117,13 @@ Freemium модель с Telegram Stars: лимиты для free tier, безл
 
 ### Tier System
 
-| Tier | Транзакции | Голосовые | Долги | Аналитика |
-|------|------------|-----------|-------|-----------|
-| **Free** | 50/месяц | 10/месяц | 5 активных | Скрыта |
-| **Premium** | ∞ | ∞ | ∞ | Полная |
+| Tier | Транзакции | Голосовые | Аналитика |
+|------|------------|-----------|-----------|
+| **Free** | 50/месяц | 10/месяц | Скрыта |
+| **Premium** | ∞ | ∞ | Полная |
+
+Лимит активных долгов (5 у free) удалён вместе с долгами в #265: `limitType: 'debts'` и `limits.activeDebts` больше
+нет. Колонка `usage_limits.active_debts_count` осталась со своими строками, её никто не читает.
 
 ### Subscription Sources
 - `payment` - оплата через Telegram Stars (100 Stars/месяц)
@@ -241,7 +200,7 @@ bot.on('pre_checkout_query', async (ctx) => {
 
 ---
 
-## 4. VoiceProcessingModule
+## 3. VoiceProcessingModule
 
 **Файл:** [`src/modules/voiceProcessing/voiceProcessingModule.ts`](../../../src/modules/voiceProcessing/voiceProcessingModule.ts)
 
@@ -272,7 +231,7 @@ new ProcessVoiceInputUseCase(
 
 ---
 
-## 5. UserModule
+## 4. UserModule
 
 **Файл:** [`src/modules/user/userModule.ts`](../../../src/modules/user/userModule.ts)
 
@@ -280,14 +239,14 @@ new ProcessVoiceInputUseCase(
 Управление пользователями и резолв внешних идентификаторов (`telegramId` → внутренний UUID).
 
 ### Использование
-`SubscriptionController` и роутеры транзакций и долгов используют модуль, чтобы принять `telegram_id` во внешнем API и работать с UUID внутри. Маршруты вехи 10 берут пользователя только из авторизации через `createCurrentUserMiddleware(userModule)`.
+`SubscriptionController` и роутер транзакций используют модуль, чтобы принять `telegram_id` во внешнем API и работать с UUID внутри. Маршруты вехи 10 берут пользователя только из авторизации через `createCurrentUserMiddleware(userModule)`.
 
 ### Настройки (FT-098)
 `GetUserSettingsUseCase`, `UpdateUserSettingsUseCase` и таблица `user_settings`; маршрут `GET/PATCH /api/settings`. Контракт — [`docs/pastel/api.md`](../../pastel/api.md).
 
 ---
 
-## 6. CategoryModule
+## 5. CategoryModule
 
 **Файл:** [`src/modules/category/categoryModule.ts`](../../../src/modules/category/categoryModule.ts)
 
@@ -305,7 +264,7 @@ new ProcessVoiceInputUseCase(
 
 ---
 
-## 7. AccountModule
+## 6. AccountModule
 
 **Файл:** [`src/modules/account/accountModule.ts`](../../../src/modules/account/accountModule.ts)
 
@@ -323,7 +282,7 @@ new ProcessVoiceInputUseCase(
 
 ---
 
-## 8. FxModule
+## 7. FxModule
 
 **Файл:** [`src/modules/fx/fxModule.ts`](../../../src/modules/fx/fxModule.ts)
 
@@ -337,7 +296,7 @@ new ProcessVoiceInputUseCase(
 
 ---
 
-## 9. BotMessageModule
+## 8. BotMessageModule
 
 **Файл:** [`src/modules/botMessage/botMessageModule.ts`](../../../src/modules/botMessage/botMessageModule.ts)
 
@@ -365,7 +324,7 @@ new ProcessVoiceInputUseCase(
 
 ---
 
-## 10. NotificationModule
+## 9. NotificationModule
 
 **Файл:** [`src/modules/notification/notificationModule.ts`](../../../src/modules/notification/notificationModule.ts)
 
@@ -442,7 +401,7 @@ new ProcessVoiceInputUseCase(
 
 ---
 
-## 11. ExportModule
+## 10. ExportModule
 
 **Файл:** [`src/modules/export/exportModule.ts`](../../../src/modules/export/exportModule.ts)
 
@@ -464,7 +423,7 @@ new ProcessVoiceInputUseCase(
 
 ---
 
-## 12. AuthModule
+## 11. AuthModule
 
 **Файл:** [`src/modules/auth/authModule.ts`](../../../src/modules/auth/authModule.ts)
 
@@ -494,7 +453,7 @@ new ProcessVoiceInputUseCase(
 
 ---
 
-## 13. AuditModule
+## 12. AuditModule
 
 **Файл:** [`src/modules/audit/auditModule.ts`](../../../src/modules/audit/auditModule.ts)
 
@@ -546,6 +505,25 @@ Health Score») и `AlertService` из `AnalyticsService` и `BudgetService`; in
 
 ---
 
+## Долги — удалены вне пути записи (#265)
+
+Долги ушли из интерфейса с решением Д2, разбор фразы их больше не создаёт: пункт ИИ с `intent: "debt"` пишется расходом
+в «Другое». По решению 2026-11-04 удалены маршруты `/api/debts*` (отвечают `404`, `tests/deadDebtRoutes.test.ts`),
+`GetDebts`, `UpdateDebt`, `DeleteDebt`, `PayDebt`, контроллер, чтение и платежи репозитория, лимит активных долгов в
+подписке, строки о долгах в `/premium` бота, экраны, сущность и типы долгов в webapp.
+
+Записи, которые когда-то создал долг или платёж по нему (`isDebtRelated`, `relatedDebtId`, `semanticType: debt`,
+старая категория `debt`), — обычные записи: читаются, правятся, удаляются и возвращаются как все, в итогах — движение
+по долгу вне доходов и расходов, как раньше (`tests/debtLinkedRecords.test.ts`). Таблицы `debts` и `debt_payments`,
+их entity и строки остаются, миграции нет.
+
+**Что осталось до #266 (после FT-217).** Путь записи заморожен до отчёта и импортирует модуль долгов, поэтому в
+`src/modules/debt/` остались `debtModule.ts` (только `createDebtUseCase`), `application/createDebt.ts` (без лимитов),
+`domain/debtEntity.ts`, `domain/errors.ts` и одна запись `create` в `debtRepository.ts` / `SqliteDebtRepository.ts`.
+`createModules()` создаёт `DebtModule` только чтобы передать его в `VoiceProcessingModule`, и не возвращает его.
+
+---
+
 ## Module Creation в appModules.ts
 
 **Файл:** [`src/appModules.ts`](../../../src/appModules.ts)
@@ -568,8 +546,8 @@ export function createModules() {
   // 3. Обратная связь: транзакциям нужен subscription для декремента при удалении
   transactionModule.setSubscriptionDependencies(subscriptionModule, userModule);
 
-  // 4. Модули, которым нужны subscription/limits и категории
-  const debtModule = DebtModule.create(transactionModule, subscriptionModule, userModule);
+  // 4. Модули, которым нужны категории; остаток долгов — только для пути записи до #266
+  const debtModule = DebtModule.create(transactionModule);
   const voiceModule = new VoiceProcessingModule(openAIService, transactionModule, debtModule, categoryModule.getCatalog(), transactionLearning);
   const quickCaptureModule = QuickCaptureModule.create(voiceModule);
 
@@ -579,7 +557,7 @@ export function createModules() {
   // 6. Итоги дня, /today и /month (FT-124), напоминания после ревизии (FT-133) — после auditModule
   const notificationModule = NotificationModule.create(transactionModule, userModule, auditModule);
 
-  return { categoryModule, transactionModule, debtModule, voiceModule, quickCaptureModule,
+  return { categoryModule, transactionModule, voiceModule, quickCaptureModule,
     userModule, subscriptionModule, botMessageModule, notificationModule };
 }
 ```
@@ -587,7 +565,7 @@ export function createModules() {
 **Порядок важен:**
 1. Сначала создаются модули без зависимости от subscription; категории подключаются к транзакциям сразу
 2. Затем `SubscriptionModule`, после чего `transactionModule.setSubscriptionDependencies()` замыкает обратную связь
-3. Затем модули, которым нужны лимиты (`DebtModule`) и уже готовые модули (`VoiceProcessingModule`)
+3. Затем модули, которым нужны уже готовые модули (`VoiceProcessingModule`)
 
 ---
 

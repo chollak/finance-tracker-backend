@@ -1,5 +1,12 @@
 # Transaction / Debt Relationship Audit
 
+> **Архив (#265, 2026-11-04).** Долги удалены из кода вне пути записи: маршруты `/api/debts*`, `PayDebtUseCase`,
+> `GetDebts`/`UpdateDebt`/`DeleteDebt`, контроллер, лимит активных долгов и экраны webapp (решение 2026-11-04). Остаток
+> в пути записи — `CreateDebtUseCase` и типы — уходит в #266 после FT-217. Записи, которые создал долг или платёж по нему,
+> — обычные записи: читаются, правятся и удаляются как все, в итогах — вне доходов и расходов
+> (`tests/debtLinkedRecords.test.ts`). Таблицы `debts` и `debt_payments` с данными остаются. Ниже — снимок FT-021,
+> поведение долгов в нём — история.
+>
 > Status: FT-021 audit. This document records current debt ↔ transaction behavior and accounting ambiguities before changing any money semantics.
 
 ## Scope

@@ -6,8 +6,9 @@
 **Дата:** 2026-01-22
 **Статус:** Утверждено
 
-> Примеры ниже построены на сущности `Budget`. Код бюджетов удалён в #264 (решение 2026-11-04), но примеры — только
-> иллюстрация правил: они относятся к любому модулю (счета, ревизия, категории). Живые модули — `CLAUDE.md`, «Module System».
+> Примеры ниже построены на сущностях `Budget` и `Debt`. Код бюджетов удалён в #264, долгов — в #265 (решение
+> 2026-11-04), но примеры — только иллюстрация правил: они относятся к любому модулю (счета, ревизия, категории). Живые
+> модули — `CLAUDE.md`, «Module System».
 
 ---
 
@@ -588,7 +589,7 @@ const logger = createLogger(LogCategory.TRANSACTION);
 | `AUTH` | Authentication, authorization |
 | `RATE_LIMIT` | Rate limiting events |
 | `TRANSACTION` | Transaction operations |
-| `DEBT` | Debt operations |
+| `DEBT` | `CreateDebtUseCase` — остаток долгов в пути записи до #266 |
 | `OPENAI` | OpenAI API calls |
 | `TELEGRAM` | Telegram bot (все handlers) |
 | `HTTP` | HTTP requests/responses |
