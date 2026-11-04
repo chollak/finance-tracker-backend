@@ -260,3 +260,72 @@ struct HealthCheckTests {
         #expect(requests.allSatisfy { $0.httpBody == nil })
     }
 }
+
+/// The line under «Проверить связь» belongs to the fields it was checked with (#283): «токен принят» must not stay on
+/// screen under another token.
+@Suite("Проверить связь: строка под кнопкой")
+struct ConnectionCheckLineTests {
+    @Test("ответ виден, пока поля не менялись")
+    func showsAnswer() {
+        var line = ConnectionCheckLine()
+        let run = line.start()
+        #expect(line.isChecking)
+        #expect(line.text == nil)
+
+        line.finish(run, with: "Сервер доступен, токен принят")
+
+        #expect(!line.isChecking)
+        #expect(line.text == "Сервер доступен, токен принят")
+    }
+
+    @Test("адрес или токен поменялся — ответ сброшен")
+    func fieldsChangedClearsAnswer() {
+        var line = ConnectionCheckLine()
+        line.finish(line.start(), with: "Сервер доступен, токен принят")
+
+        line.fieldsChanged()
+
+        #expect(line.text == nil)
+        #expect(!line.isChecking)
+    }
+
+    @Test("поля поменялись во время проверки — её ответ не показывается, кнопка снова доступна")
+    func answerForOldFieldsIsDropped() {
+        var line = ConnectionCheckLine()
+        let run = line.start()
+
+        line.fieldsChanged()
+        #expect(!line.isChecking)
+        line.finish(run, with: "Сервер доступен, токен принят")
+
+        #expect(line.text == nil)
+        #expect(!line.isChecking)
+    }
+
+    @Test("новая проверка после правки — виден её ответ, а не прежней")
+    func newCheckWins() {
+        var line = ConnectionCheckLine()
+        let old = line.start()
+        line.fieldsChanged()
+        let new = line.start()
+
+        line.finish(old, with: "Сервер доступен, токен принят")
+        #expect(line.isChecking)
+        #expect(line.text == nil)
+        line.finish(new, with: "Сервер не принял токен")
+
+        #expect(line.text == "Сервер не принял токен")
+        #expect(!line.isChecking)
+    }
+
+    @Test("вторая проверка тех же полей стирает прежний ответ, пока идёт")
+    func recheckClearsAnswer() {
+        var line = ConnectionCheckLine()
+        line.finish(line.start(), with: "Сервер не ответил — ПК спит или Kapelka не запущена")
+
+        _ = line.start()
+
+        #expect(line.text == nil)
+        #expect(line.isChecking)
+    }
+}

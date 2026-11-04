@@ -14,8 +14,7 @@ struct SettingsView: View {
     @State private var token = ""
     @State private var cards: [CardAccount]
     @State private var removedCards: Set<String> = []
-    @State private var checkResult: String?
-    @State private var isChecking = false
+    @State private var checkLine = ConnectionCheckLine()
     @State private var error: String?
     @FocusState private var focusedField: Field?
 
@@ -59,11 +58,11 @@ struct SettingsView: View {
 
                 Section {
                     Button("Проверить связь", action: check)
-                        .disabled(isChecking)
-                    if isChecking {
+                        .disabled(checkLine.isChecking)
+                    if checkLine.isChecking {
                         ProgressView()
-                    } else if let checkResult {
-                        Text(checkResult)
+                    } else if let text = checkLine.text {
+                        Text(text)
                     }
                 }
 
@@ -132,6 +131,9 @@ struct SettingsView: View {
                 }
             }
             .scrollDismissesKeyboard(.interactively)
+            // The answer was for the fields as they were (#283)
+            .onChange(of: address) { checkLine.fieldsChanged() }
+            .onChange(of: token) { checkLine.fieldsChanged() }
             .navigationTitle("Настройки")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -181,11 +183,11 @@ struct SettingsView: View {
     private func check() {
         // The answer is under the fields: the keyboard would cover it
         focusedField = nil
-        isChecking = true
-        checkResult = nil
+        let check = checkLine.start()
+        let (address, token) = (address, token)
         Task {
-            checkResult = await model.checkConnection(address: address, token: token)
-            isChecking = false
+            let answer = await model.checkConnection(address: address, token: token)
+            checkLine.finish(check, with: answer)
         }
     }
 
