@@ -1,4 +1,6 @@
 import fs from 'fs/promises';
+import os from 'os';
+import path from 'path';
 import { ProcessTextInputUseCase } from '../src/modules/voiceProcessing/application/processTextInput';
 import { ProcessVoiceInputUseCase } from '../src/modules/voiceProcessing/application/processVoiceInput';
 import { AnalysisResult, ParsedTransaction, TranscriptionService } from '../src/modules/voiceProcessing/domain/transcriptionService';
@@ -198,7 +200,18 @@ describe('a decimal comma in a phrase (FT-185)', () => {
   });
 
   describe('in a voice message', () => {
-    const filePath = '/tmp/ft185-voice-test-input.ogg';
+    /** In a folder of this run: a fixed path in /tmp was shared by parallel Jest runs, which took each other's file (#250). */
+    let dir: string;
+    let filePath: string;
+
+    beforeAll(async () => {
+      dir = await fs.mkdtemp(path.join(os.tmpdir(), 'ft185-voice-'));
+      filePath = path.join(dir, 'input.ogg');
+    });
+
+    afterAll(async () => {
+      await fs.rm(dir, { recursive: true, force: true });
+    });
 
     beforeEach(async () => {
       await fs.writeFile(filePath, 'fake audio content');
