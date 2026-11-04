@@ -1,4 +1,5 @@
 import { createLogger, winstonLogger } from '../src/shared/infrastructure/logging';
+import * as redact from '../src/shared/infrastructure/logging/redact';
 import { redactText, redactValue } from '../src/shared/infrastructure/logging/redact';
 import { ExternalServiceError } from '../src/shared/domain/errors/AppError';
 import { captureLogLines, LogCapture } from './helpers/logLines';
@@ -103,6 +104,7 @@ describe('redactText (#269)', () => {
     ['«sk-» with a short key over and over', 'sk-aaaa '.repeat(15_000)],
     ['letters, digits and dashes', 'a1-'.repeat(35_000)],
   ])('masks a long line in linear time: %s', (_name, text) => {
+    // The line is built in the table above, before the clock starts: only the masking is timed
     const started = performance.now();
 
     redactText(text);
@@ -201,20 +203,34 @@ describe('a line of a level that is off costs nothing (review of PR #331)', () =
   });
 
   it('is neither masked nor handed to Winston', () => {
-    winstonLogger.level = 'info';
+    winstonLogger.level = 'warn';
+    const maskText = jest.spyOn(redact, 'redactText');
+    const maskContext = jest.spyOn(redact, 'redactContext');
     const debug = jest.spyOn(winstonLogger, 'debug');
-    const info = jest.spyOn(winstonLogger, 'info').mockImplementation(() => winstonLogger);
+    const info = jest.spyOn(winstonLogger, 'info');
     const logger = createLogger('TEST');
 
-    const started = performance.now();
-    logger.debug(`GET /api/${'1'.repeat(100_000)}:${'a'.repeat(29)}`, { userAgent: '1'.repeat(100_000) });
-    const took = performance.now() - started;
-    logger.info(`Downloading ${FILE_LINK}`);
+    logger.debug(`GET /api/${FILE_LINK}`, { userAgent: FILE_LINK });
+    logger.info(`Downloading ${FILE_LINK}`, { url: FILE_LINK });
 
+    expect(maskText).not.toHaveBeenCalled();
+    expect(maskContext).not.toHaveBeenCalled();
     expect(debug).not.toHaveBeenCalled();
-    expect(took).toBeLessThan(5);
-    // A level that is on is still written, masked
-    expect(info).toHaveBeenCalledWith('Downloading https://api.telegram.org/file/bot123456:[REDACTED]/voice/file_7.oga', expect.anything());
+    expect(info).not.toHaveBeenCalled();
+  });
+
+  it('a level that is on is still masked and written', () => {
+    winstonLogger.level = 'warn';
+    const maskText = jest.spyOn(redact, 'redactText');
+    const warn = jest.spyOn(winstonLogger, 'warn').mockImplementation(() => winstonLogger);
+
+    createLogger('TEST').warn(`Download retried ${FILE_LINK}`);
+
+    expect(maskText).toHaveBeenCalled();
+    expect(warn).toHaveBeenCalledWith(
+      'Download retried https://api.telegram.org/file/bot123456:[REDACTED]/voice/file_7.oga',
+      expect.anything()
+    );
   });
 });
 
