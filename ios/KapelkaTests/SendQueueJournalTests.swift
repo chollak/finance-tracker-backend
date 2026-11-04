@@ -86,6 +86,26 @@ final class SendQueueJournalTests {
         #expect(try #require(await journal.runs().first).texts.dropFirst(2).first == "отправка: ждут 1 — не настроено")
     }
 
+    @Test("iOS отменил команду, процесс жив — «iOS отменил команду» перед концом")
+    func cancelledByIOS() async throws {
+        let harness = try QueueHarness()
+        let journal = journals.makeJournal()
+        let queue = harness.makeQueue()
+        let command = SendQueueCommand(
+            queue: queue,
+            send: { withUnsafeCurrentTask { $0?.cancel() } },
+            isConfigured: { true },
+            journal: journal
+        )
+        _ = try await queue.add("кофе 25к")
+
+        _ = await Task { await command.run() }.value
+
+        let run = try #require(await journal.runs().first)
+        #expect(Array(run.texts.suffix(2)) == ["окно: «В очереди: 1 — сервер пока недоступен»", "iOS отменил команду"])
+        #expect(run.outcome == .finished(ms: 0))
+    }
+
     @Test("журнал не пишется — очередь уходит, ответ тот же")
     func brokenJournal() async throws {
         let harness = try QueueHarness()

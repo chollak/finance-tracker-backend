@@ -7,6 +7,8 @@ struct CommandJournalView: View {
     let load: @MainActor () async -> [JournalRun]
 
     @State private var runs: [JournalRun]?
+    /// At the top of the shared text: the app is rebuilt every week.
+    @State private var build = AppBuild.current()
 
     var body: some View {
         List {
@@ -30,7 +32,7 @@ struct CommandJournalView: View {
         .toolbar {
             if let runs, !runs.isEmpty {
                 ToolbarItem(placement: .topBarTrailing) {
-                    ShareLink(item: JournalText.shared(runs, calendar: .current)) {
+                    ShareLink(item: JournalText.shared(runs, calendar: .current, build: build)) {
                         Label("Поделиться", systemImage: "square.and.arrow.up")
                     }
                 }
@@ -48,6 +50,10 @@ private struct RunSection: View {
     var body: some View {
         Section {
             VStack(alignment: .leading, spacing: 8) {
+                if let launch = run.launch {
+                    Text(JournalText.launch(launch))
+                        .foregroundStyle(.secondary)
+                }
                 Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 12, verticalSpacing: 4) {
                     ForEach(Array(run.steps.enumerated()), id: \.offset) { _, step in
                         GridRow {

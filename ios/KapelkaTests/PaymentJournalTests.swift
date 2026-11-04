@@ -149,6 +149,31 @@ final class PaymentJournalTests {
         #expect(run.outcome == .finished(ms: 1834))
     }
 
+    @Test("iOS отменил команду посреди отправки, процесс жив — «iOS отменил команду» перед концом")
+    func cancelledByIOS() async throws {
+        let harness = try QueueHarness()
+        let journal = journals.makeJournal()
+        let notices = notices
+        let recorder = PaymentRecorder(
+            queue: harness.makeQueue(),
+            cards: CardAccountStore(defaults: try #require(UserDefaults(suiteName: suite))),
+            send: { withUnsafeCurrentTask { $0?.cancel() } },
+            isConfigured: { true },
+            notify: { await notices.post($0) },
+            journal: journal
+        )
+
+        try await Task { try await recorder.record(Self.input) }.value
+
+        let run = try #require(await journal.runs().first)
+        #expect(Array(run.texts.dropFirst(2)) == [
+            "отправка: не успела, уйдёт позже",
+            "уведомление поставлено",
+            "iOS отменил команду",
+        ])
+        #expect(run.outcome == .finished(ms: 0))
+    }
+
     @Test("журнал не пишется — оплата, отправка и уведомление те же, ошибка очереди та же")
     func brokenJournal() async throws {
         let broken = CommandJournal(storage: BrokenStorage(), uptime: { .zero })

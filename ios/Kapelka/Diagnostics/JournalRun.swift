@@ -35,6 +35,17 @@ struct JournalLine: Codable, Equatable, Sendable {
     var text: String?
     /// Since the run's start, on the monotonic clock (`CommandJournal`).
     var ms: Int?
+    /// The start: nothing came before it in the process — no command, no opening of the app.
+    var cold: Bool?
+    /// The start: since the kernel started the process, in ms on the phone's clock.
+    var sinceProcessStart: Int?
+}
+
+/// How the process stood when a command started: whether it was started for it and how long ago.
+struct JournalLaunch: Equatable, Sendable {
+    let cold: Bool
+    /// `nil` when the process's start could not be told.
+    let sinceProcessStartMs: Int?
 }
 
 /// One run as the screen shows it.
@@ -61,6 +72,8 @@ struct JournalRun: Equatable, Identifiable, Sendable {
     let startedAt: Date
     var steps: [Step]
     var outcome: Outcome
+    /// `nil` in a file written before it was kept.
+    var launch: JournalLaunch?
 
     var lastStep: String {
         steps.last?.text ?? Self.startText
@@ -79,7 +92,8 @@ struct JournalRun: Equatable, Identifiable, Sendable {
                     command: command,
                     startedAt: line.at,
                     steps: [Step(ms: 0, text: startText)],
-                    outcome: .going
+                    outcome: .going,
+                    launch: line.cold.map { JournalLaunch(cold: $0, sinceProcessStartMs: line.sinceProcessStart) }
                 )
                 continue
             }

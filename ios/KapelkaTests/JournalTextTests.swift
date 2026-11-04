@@ -78,6 +78,29 @@ struct JournalTextTests {
         #expect(JournalText.duration(ms: 1834) == "1,8\u{00A0}с")
         #expect(JournalText.duration(ms: 25_000) == "25,0\u{00A0}с")
         #expect(JournalText.duration(ms: 65_400) == "1\u{00A0}мин 5\u{00A0}с")
+        #expect(JournalText.duration(ms: 7_500_000) == "2\u{00A0}ч 5\u{00A0}мин")
+        #expect(JournalText.exact(ms: 25_012) == "25012\u{00A0}мс")
+    }
+
+    @Test("начало запуска: холодный ли запуск и сколько от старта процесса")
+    func launch() {
+        #expect(JournalText.launch(JournalLaunch(cold: true, sinceProcessStartMs: 340))
+            == "холодный запуск · 340\u{00A0}мс от старта процесса")
+        #expect(JournalText.launch(JournalLaunch(cold: false, sinceProcessStartMs: 7_500_000))
+            == "процесс уже работал · 2\u{00A0}ч 5\u{00A0}мин от старта процесса")
+        #expect(JournalText.launch(JournalLaunch(cold: true, sinceProcessStartMs: nil)) == "холодный запуск")
+    }
+
+    @Test("сборка этого приложения и iOS — настоящие: версия, номер, время сборки; процесс знает свой старт")
+    func thisBuild() throws {
+        let build = AppBuild.current()
+        #expect(build.version != "?")
+        #expect(build.build != "?")
+        #expect(build.system.hasPrefix("iOS "))
+        #expect(build.builtAt != nil)
+        let start = try #require(ProcessStart.date())
+        #expect(start <= Date())
+        #expect(start > Date().addingTimeInterval(-24 * 3600))
     }
 
     @Test("итог запуска: конец, ошибка, оборвана iOS с последним шагом, идёт")
@@ -100,26 +123,38 @@ struct JournalTextTests {
                 command: .recordPayment,
                 startedAt: start.addingTimeInterval(60),
                 steps: [.init(ms: 0, text: "начало"), .init(ms: 12, text: "в очереди · 1")],
-                outcome: .interrupted(lastStep: "в очереди · 1")
+                outcome: .interrupted(lastStep: "в очереди · 1"),
+                launch: JournalLaunch(cold: true, sinceProcessStartMs: 340)
             ),
             JournalRun(
                 id: UUID(),
                 command: .sendQueue,
                 startedAt: start,
-                steps: [.init(ms: 0, text: "начало")],
-                outcome: .finished(ms: 2300)
+                steps: [.init(ms: 0, text: "начало"), .init(ms: 25_012, text: "отправка: всё отправлено")],
+                outcome: .finished(ms: 25_013)
             ),
         ]
+        let build = AppBuild(version: "0.1", build: "7", system: "iOS 26.1", builtAt: start.addingTimeInterval(-3600))
 
-        #expect(JournalText.shared(runs, calendar: calendar) == """
+        #expect(JournalText.shared(runs, calendar: calendar, build: build) == """
         Журнал команд Kapelka · запусков: 2, новые сверху
+        Kapelka 0.1 (7), собрана 29 окт., 13:32 · iOS 26.1
 
         29 окт., 14:33:05 · Записать оплату — оборвана iOS после шага «в очереди · 1»
+          холодный запуск · 340\u{00A0}мс от старта процесса
           0\u{00A0}мс · начало
           12\u{00A0}мс · в очереди · 1
 
-        29 окт., 14:32:05 · Отправить очередь — конец · 2,3\u{00A0}с
+        29 окт., 14:32:05 · Отправить очередь — конец · 25013\u{00A0}мс
           0\u{00A0}мс · начало
+          25012\u{00A0}мс · отправка: всё отправлено
         """)
+    }
+
+    @Test("на экране длительность дольше секунды — в секундах, в «Поделиться» — в мс")
+    func outcomeExact() {
+        #expect(JournalText.outcome(.finished(ms: 1834)) == "конец · 1,8\u{00A0}с")
+        #expect(JournalText.outcome(.finished(ms: 1834), exact: true) == "конец · 1834\u{00A0}мс")
+        #expect(JournalText.outcome(.failed(ms: 1834, message: "x"), exact: true) == "ошибка: x · 1834\u{00A0}мс")
     }
 }

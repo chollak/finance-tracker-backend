@@ -8,6 +8,15 @@ enum JournalText {
     static let noticePosted = "уведомление поставлено"
     /// The pass told the server's answer itself (FT-253), or nothing needed telling.
     static let noOwnNotice = "без своего уведомления"
+    /// The command's own task was cancelled by its end: iOS stopped `perform` and left the process alive.
+    static let cancelled = "iOS отменил команду"
+
+    /// «холодный запуск · 340 мс от старта процесса»: the process was started for this command, or it already ran.
+    static func launch(_ launch: JournalLaunch) -> String {
+        let kind = launch.cold ? "холодный запуск" : "процесс уже работал"
+        guard let ms = launch.sinceProcessStartMs else { return kind }
+        return "\(kind) · \(duration(ms: ms)) от старта процесса"
+    }
 
     /// The screen took a press of «Записать трату» (`ExpenseRuns`): what the press does to the microphone.
     static func pressed(_ phase: VoiceCapture.Phase) -> String {
@@ -86,45 +95,63 @@ enum JournalText {
         }
     }
 
-    /// «640 мс», «1,8 с», «1 мин 5 с». Under a second the milliseconds themselves; the file keeps them all.
+    /// For the screen: «640 мс», «1,8 с», «1 мин 5 с», «2 ч 5 мин». Under a second the milliseconds themselves; the
+    /// file and «Поделиться» keep them all (`exact`).
     static func duration(ms: Int) -> String {
         if ms < 1000 { return "\(ms)\u{00A0}мс" }
         let tenths = (ms + 50) / 100
         if tenths < 600 { return "\(tenths / 10),\(tenths % 10)\u{00A0}с" }
         let seconds = (ms + 500) / 1000
-        return "\(seconds / 60)\u{00A0}мин \(seconds % 60)\u{00A0}с"
+        if seconds < 3600 { return "\(seconds / 60)\u{00A0}мин \(seconds % 60)\u{00A0}с" }
+        return "\(seconds / 3600)\u{00A0}ч \(seconds % 3600 / 60)\u{00A0}мин"
     }
 
-    static func outcome(_ outcome: JournalRun.Outcome) -> String {
-        switch outcome {
+    /// For «Поделиться»: «1834 мс», as the Definition of Done asks — the 25 s budget is read to the millisecond.
+    static func exact(ms: Int) -> String {
+        "\(ms)\u{00A0}мс"
+    }
+
+    /// How the run ended; `exact` gives its time in milliseconds.
+    static func outcome(_ outcome: JournalRun.Outcome, exact: Bool = false) -> String {
+        let time: (Int) -> String = exact ? { Self.exact(ms: $0) } : { duration(ms: $0) }
+        return switch outcome {
         case .going: "идёт"
-        case let .finished(ms): "конец · \(duration(ms: ms))"
-        case let .failed(ms, message): "ошибка: \(message) · \(duration(ms: ms))"
+        case let .finished(ms): "конец · \(time(ms))"
+        case let .failed(ms, message): "ошибка: \(message) · \(time(ms))"
         case let .interrupted(lastStep): "оборвана iOS после шага «\(lastStep)»"
         }
     }
 
     /// «3 нояб., 08:05:12 · Записать оплату».
     static func title(_ run: JournalRun, calendar: Calendar) -> String {
-        "\(startTime(run.startedAt, calendar: calendar)) · \(run.command.title)"
+        "\(format(run.startedAt, "d MMM HH:mm:ss", calendar)) · \(run.command.title)"
     }
 
-    /// What «Поделиться» sends: every run, newest first, each with its steps.
-    static func shared(_ runs: [JournalRun], calendar: Calendar) -> String {
-        let header = "Журнал команд Kapelka · запусков: \(runs.count), новые сверху"
+    /// «Kapelka 0.1 (1), собрана 4 нояб., 14:40 · iOS 26.1».
+    static func build(_ build: AppBuild, calendar: Calendar) -> String {
+        let built = build.builtAt.map { ", собрана \(format($0, "d MMM HH:mm", calendar))" } ?? ""
+        return "Kapelka \(build.version) (\(build.build))\(built) · \(build.system)"
+    }
+
+    /// What «Поделиться» sends: the build and iOS, then every run, newest first — how the process stood at its start,
+    /// each step and the end with their times in milliseconds.
+    static func shared(_ runs: [JournalRun], calendar: Calendar, build: AppBuild) -> String {
+        let header = "Журнал команд Kapelka · запусков: \(runs.count), новые сверху\n\(Self.build(build, calendar: calendar))"
         let blocks = runs.map { run in
-            let steps = run.steps.map { "  \(duration(ms: $0.ms)) · \($0.text)" }
-            return (["\(title(run, calendar: calendar)) — \(outcome(run.outcome))"] + steps).joined(separator: "\n")
+            let launch = run.launch.map { ["  \(Self.launch($0))"] } ?? []
+            let steps = run.steps.map { "  \(exact(ms: $0.ms)) · \($0.text)" }
+            let heading = "\(title(run, calendar: calendar)) — \(outcome(run.outcome, exact: true))"
+            return ([heading] + launch + steps).joined(separator: "\n")
         }
         return ([header] + blocks).joined(separator: "\n\n")
     }
 
-    private static func startTime(_ date: Date, calendar: Calendar) -> String {
+    private static func format(_ date: Date, _ template: String, _ calendar: Calendar) -> String {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "ru_RU")
         formatter.calendar = calendar
         formatter.timeZone = calendar.timeZone
-        formatter.setLocalizedDateFormatFromTemplate("d MMM HH:mm:ss")
+        formatter.setLocalizedDateFormatFromTemplate(template)
         return formatter.string(from: date)
     }
 }

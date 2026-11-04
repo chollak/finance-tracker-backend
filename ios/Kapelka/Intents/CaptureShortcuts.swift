@@ -53,6 +53,10 @@ struct RecordExpenseIntent: AppIntent {
         let run = await journal.begin(.recordExpense)
         await journal.step(run, JournalText.waitingForScreen)
         request.ask(run: run)
+        // The screen goes on with the run; that iOS cancelled the command itself shows here
+        if Task.isCancelled {
+            await journal.step(run, JournalText.cancelled)
+        }
     }
 }
 

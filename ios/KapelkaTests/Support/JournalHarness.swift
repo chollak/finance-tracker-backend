@@ -68,10 +68,15 @@ final class JournalHarness: Sendable {
         try? FileManager.default.removeItem(at: file.fileURL.deletingLastPathComponent())
     }
 
-    func makeJournal(storage: (any JournalStorage)? = nil) -> CommandJournal {
+    func makeJournal(storage: (any JournalStorage)? = nil, processStart: Date? = nil) -> CommandJournal {
         let clock = clock
         let uptime = uptime
-        return CommandJournal(storage: storage ?? file, now: { clock.now }, uptime: { uptime.now })
+        return CommandJournal(
+            storage: storage ?? file,
+            now: { clock.now },
+            uptime: { uptime.now },
+            processStart: processStart
+        )
     }
 
     /// The file's lines as written.

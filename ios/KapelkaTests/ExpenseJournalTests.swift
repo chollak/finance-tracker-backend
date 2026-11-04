@@ -150,6 +150,22 @@ final class ExpenseJournalTests {
         #expect(voice.problem == nil)
     }
 
+    @Test("iOS отменил саму команду — шаг после «жду экран»; запуск идёт дальше на экране")
+    func cancelledAsk() async throws {
+        let journal = journals.makeJournal()
+        let request = ListenRequest()
+
+        await Task { @MainActor in
+            withUnsafeCurrentTask { $0?.cancel() }
+            await RecordExpenseIntent.ask(journal: journal, request: request)
+        }.value
+
+        let run = try #require(await journal.runs().first)
+        #expect(run.texts == ["начало", "жду экран", "iOS отменил команду"])
+        #expect(run.outcome == .going)
+        #expect(request.takeRuns() == [run.id])
+    }
+
     @Test("нажатия, которые экран ещё не взял, держат свои запуски; просьба берётся один раз")
     func requestKeepsRuns() {
         let request = ListenRequest()

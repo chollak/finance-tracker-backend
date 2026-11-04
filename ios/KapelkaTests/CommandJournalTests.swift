@@ -24,9 +24,67 @@ struct CommandJournalTests {
                 command: .recordPayment,
                 startedAt: harness.clock.now,
                 steps: [.init(ms: 0, text: "начало"), .init(ms: 15, text: "в очереди")],
-                outcome: .finished(ms: 1834)
+                outcome: .finished(ms: 1834),
+                launch: JournalLaunch(cold: true, sinceProcessStartMs: nil)
             ),
         ])
+    }
+
+    @Test("начало: холодный ли запуск процесса и сколько прошло от его старта; дальше — «процесс уже работал»")
+    func launch() async throws {
+        let harness = try JournalHarness()
+        let journal = harness.makeJournal(processStart: harness.clock.now.addingTimeInterval(-0.34))
+
+        let first = await journal.begin(.recordPayment)
+        harness.clock.advance(by: 7200)
+        let second = await journal.begin(.sendQueue)
+
+        let launches = await journal.runs().map(\.launch)
+        #expect(launches == [
+            JournalLaunch(cold: false, sinceProcessStartMs: 7_200_340),
+            JournalLaunch(cold: true, sinceProcessStartMs: 340),
+        ])
+        #expect(first != second)
+    }
+
+    @Test("приложение открыли раньше команды — команда уже не холодная")
+    func openedBeforeCommand() async throws {
+        let harness = try JournalHarness()
+        let journal = harness.makeJournal()
+
+        await journal.tidy()
+        _ = await journal.begin(.recordExpense)
+
+        #expect(await journal.runs().first?.launch == JournalLaunch(cold: false, sinceProcessStartMs: nil))
+    }
+
+    @Test("iOS отменил команду, но процесс оставил — шаг «iOS отменил команду» перед концом")
+    func cancelledCommand() async throws {
+        let harness = try JournalHarness()
+        let journal = harness.makeJournal()
+
+        let run = await Task {
+            let run = await journal.begin(.recordPayment)
+            await journal.step(run, "в очереди")
+            withUnsafeCurrentTask { $0?.cancel() }
+            await journal.finish(run)
+            return run
+        }.value
+        let failed = await Task {
+            let run = await journal.begin(.recordPayment)
+            withUnsafeCurrentTask { $0?.cancel() }
+            await journal.fail(run, "очередь закрыта")
+            return run
+        }.value
+
+        let runs = await journal.runs()
+        #expect(runs.first { $0.id == run }?.texts == ["начало", "в очереди", "iOS отменил команду"])
+        #expect(runs.first { $0.id == run }?.outcome == .finished(ms: 0))
+        #expect(runs.first { $0.id == failed }?.texts == ["начало", "iOS отменил команду"])
+        // Not cancelled — no such step
+        let plain = await journal.begin(.sendQueue)
+        await journal.finish(plain)
+        #expect(await journal.runs().first?.texts == ["начало"])
     }
 
     @Test("ошибка — её текст и сколько шла команда")
@@ -57,30 +115,29 @@ struct CommandJournalTests {
         #expect(runs.map(\.outcome) == [.going, .finished(ms: 0)])
     }
 
-    @Test("шаг — дозапись строки: файл не читается и не переписывается")
+    @Test("команда только дописывает: ни первая в процессе, ни следующие файл не читают и не переписывают")
     func appendOnly() async throws {
         let harness = try JournalHarness()
+        // A run an earlier process left without an end: the first command does not go looking for it
+        _ = await harness.makeJournal().begin(.recordPayment)
         let storage = CountingStorage(harness.file)
         let journal = harness.makeJournal(storage: storage)
-        let run = await journal.begin(.recordPayment)
-        let readsAfterStart = storage.reads
         let before = try harness.file.read()
 
+        let run = await journal.begin(.recordPayment)
         await journal.step(run, "в очереди")
         await journal.step(run, "отправка: записано")
         await journal.finish(run)
         let second = await journal.begin(.sendQueue)
         await journal.finish(second)
 
-        #expect(storage.reads == readsAfterStart)
+        #expect(storage.reads == 0)
         #expect(storage.replaces == 0)
         #expect(storage.appends == 6)
-        let after = try harness.file.read()
-        #expect(after.starts(with: before))
-        #expect(try harness.lines().count == 6)
+        #expect(try harness.file.read().starts(with: before))
     }
 
-    @Test("запуск без конца — при следующем запуске команды «оборвана iOS», с последним шагом")
+    @Test("запуск без конца: на экране «оборвана iOS» с последним шагом сразу, в файле — при открытии приложения")
     func interruptedOnNextCommand() async throws {
         let harness = try JournalHarness()
         let killed = harness.makeJournal()
@@ -95,8 +152,41 @@ struct CommandJournalTests {
         let runs = await next.runs()
         #expect(runs.map(\.id) == [later, run])
         #expect(runs.last?.outcome == .interrupted(lastStep: "отправка: сервер не ответил"))
-        // Marked in the file, not only on the screen
+        #expect(try !harness.lines().contains { $0.contains("\"interrupted\"") })
+
+        await next.tidy()
         #expect(try harness.lines().contains { $0.contains("\"interrupted\"") })
+    }
+
+    @Test("при открытии приложения файл читается один раз за процесс")
+    func tidyReadsOnce() async throws {
+        let harness = try JournalHarness()
+        let storage = CountingStorage(harness.file)
+        let journal = harness.makeJournal(storage: storage)
+        await journal.finish(await journal.begin(.sendQueue))
+
+        await journal.tidy()
+        await journal.tidy()
+
+        #expect(storage.reads == 1)
+    }
+
+    @Test("строка, оборванная на середине записи, не склеивается со следующей: следующий запуск читается")
+    func brokenLastLine() async throws {
+        let harness = try JournalHarness()
+        let earlier = harness.makeJournal()
+        await earlier.finish(await earlier.begin(.recordPayment))
+        // The process killed in the middle of writing a line: its line break came first, nothing after it
+        try harness.file.append(Data("\n{\"run\":\"5D0C7A1E-3B2F-4C8A-9E61-0F2B7D4A8C13\",\"event\":\"st".utf8))
+
+        let next = harness.makeJournal()
+        let run = await next.begin(.sendQueue)
+        await next.finish(run)
+
+        let runs = await next.runs()
+        #expect(runs.map(\.command) == [.sendQueue, .recordPayment])
+        #expect(runs.map(\.outcome) == [.finished(ms: 0), .finished(ms: 0)])
+        #expect(try harness.lines().count == 5)
     }
 
     @Test("… и при открытии приложения; запуск, оборванный сразу, — после «начало»")
@@ -191,10 +281,12 @@ struct CommandJournalTests {
         let harness = try JournalHarness()
         let journal = harness.makeJournal()
         let run = await journal.begin(.sendQueue)
-        try harness.file.append(Data("{\"run\":\"оборвано\n{\"event\":\"future\"}\n".utf8))
+        // As the journal writes a line: a line break first
+        try harness.file.append(Data("\n{\"run\":\"оборвано\n{\"event\":\"future\"}".utf8))
         await journal.finish(run)
 
-        #expect(await journal.runs().map(\.outcome) == [.finished(ms: 0)])
+        let outcomes = await journal.runs().map(\.outcome)
+        #expect(outcomes == [.finished(ms: 0)])
     }
 
     @Test("файл — в той же папке, что очередь: команда и приложение видят один журнал")
