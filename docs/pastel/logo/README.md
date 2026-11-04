@@ -9,7 +9,7 @@ Vite копирует `public/` в сборку как есть, и сервер
 | Файл в `webapp/public/icons/` | Где | Что на нём |
 |---|---|---|
 | `icon.svg` | вкладка браузера (`index.html`) | белый сплошной силуэт на скруглённом квадрате `#141416` (`rx="22.5"`): в 16–32 px полоски сливаются |
-| `icon-192x192.png`, `icon-512x512.png` | PWA (манифест из `vite.config.ts`), `any maskable` | белые полоски на квадрате `#141416`, в безопасной зоне maskable — из `kapelka-avatar.svg` |
+| `icon-192x192.png`, `icon-512x512.png` | PWA (манифест — `webapp/pwaManifest.ts`), `any maskable` | белые полоски на квадрате `#141416`, в безопасной зоне maskable — из `kapelka-avatar.svg` |
 | `apple-touch-icon.png`, 180×180 | «На экран Домой» в Safari (`index.html`) | то же, что PWA |
 
 ## Как сделаны PNG
