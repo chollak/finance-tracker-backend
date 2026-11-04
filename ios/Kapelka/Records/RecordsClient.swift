@@ -11,33 +11,39 @@ enum RecordsFailure: Error, Equatable, Sendable {
     case recordGone
     /// 404 «Category not found» on edit: the record lives, the list of categories is old.
     case categoryGone
-    /// No network, timeout, 5xx, 408, 429, and any answer that is not Kapelka's (a proxy, a Wi-Fi login page): the
-    /// list from the cache.
-    case unreachable
-    /// 400 and the other 4xx: the server refused the request itself. Its own text, for the log.
-    case refused(String)
+    /// No answer to go by, for the reason the queue names (#282, `QueueWait`): no network or Tailscale off —
+    /// `offline`; a timeout (the PC asleep), 5xx, 408, a 404 or a 2xx that is not Kapelka's (a proxy, a Wi-Fi login
+    /// page) — `noAnswer`; 429 — `busy`. The list from the cache; an edit changes nothing.
+    case later(QueueWait)
+    /// 400 and the other 4xx: the server refused the request itself. Its text goes to the log (`RecordsClient`).
+    case refused
 
-    /// The short reason after «Не вернул «такси» —».
+    /// The short reason after «Не вернул «такси» —», in the words of the card on «Записать» (`LastPhrase`).
     var reason: String {
         switch self {
         case .notConfigured: "нет адреса и токена"
         case .tokenRefused: "сервер не принял токен"
         case .recordGone: "запись уже удалена"
         case .categoryGone: "категории уже нет"
-        case .unreachable: "нет связи"
+        case .later(.offline): "нет связи"
+        case .later(.noAnswer): "сервер не ответил"
+        case .later(.busy): "сервер просит подождать"
         case .refused: "сервер не принял запрос"
         }
     }
 
-    /// What the screen says.
+    /// The reason alone, as a sentence starts: the line over the list, the screen without a cache.
+    var title: String {
+        reason.prefix(1).uppercased() + reason.dropFirst()
+    }
+
+    /// What the bar and the sheet say.
     var message: String {
         switch self {
         case .notConfigured: "Укажи адрес и токен в настройках Kapelka"
         case .tokenRefused: "Сервер не принял токен — проверь токен в настройках Kapelka"
-        case .recordGone: "Запись уже удалена"
-        case .categoryGone: "Категории уже нет"
-        case .unreachable: "Нет связи — попробуй позже"
-        case .refused: "Сервер не принял запрос"
+        case .recordGone, .categoryGone, .refused: title
+        case .later: "\(title) — попробуй позже"
         }
     }
 }
@@ -108,36 +114,57 @@ struct RecordsClient: Sendable {
             (data, response) = try await transport.data(for: request)
         } catch {
             Self.logger.info("Records \(route.name, privacy: .public): no answer, \(error.localizedDescription, privacy: .public)")
-            throw .unreachable
+            // The queue's own reading of the error: «Записи» and the card on «Записать» say the same at the same minute
+            throw .later(QueueWait.of(error))
         }
-        guard let http = response as? HTTPURLResponse else { throw .unreachable }
+        guard let http = response as? HTTPURLResponse else { throw .later(.noAnswer) }
         Self.logger.info("Records \(route.name, privacy: .public): HTTP \(http.statusCode, privacy: .public)")
         guard (200..<300).contains(http.statusCode) else {
-            throw Self.failure(status: http.statusCode, body: data, editsRecord: route.editsRecord)
+            let failure = Self.failure(status: http.statusCode, body: data, editsRecord: route.editsRecord)
+            if failure == .refused {
+                Self.logRefusal(route, status: http.statusCode, body: data)
+            }
+            throw failure
         }
         guard let envelope = try? JSONDecoder().decode(Envelope<Answer>.self, from: data), envelope.success else {
             // Not Kapelka's answer: a login page or a proxy; or a contract the app does not know yet
             Self.logger.error("Records \(route.name, privacy: .public): the answer is not readable")
-            throw .unreachable
+            throw .later(.noAnswer)
         }
         return envelope.data
     }
 
+    /// As the queue reads the codes (`CaptureClient.outcome`): only a 4xx of its own is the server saying no to the
+    /// request; any other answer that is not the records' is «сервер не ответил».
     static func failure(status: Int, body: Data, editsRecord: Bool) -> RecordsFailure {
         switch status {
         case 401, 403:
             return .tokenRefused
         case 404:
             // Only the record's own «not found»; a route the server lacks or a proxy's 404 says nothing about it
-            guard editsRecord, let notFound = ServerError(body: body)?.notFound else { return .unreachable }
+            guard editsRecord, let notFound = ServerError(body: body)?.notFound else { return .later(.noAnswer) }
             return notFound
-        case 408, 429:
-            return .unreachable
+        case 429:
+            return .later(.busy)
+        case 408:
+            return .later(.noAnswer)
         case 400..<500:
-            return .refused(ServerError(body: body)?.message ?? "HTTP \(status)")
+            return .refused
         default:
-            return .unreachable
+            return .later(.noAnswer)
         }
+    }
+
+    /// The route, the status and the server's code in the open; its text private — it may name a category or carry an
+    /// id («Category «Кафе» is for expenses…»), and the device's log is not only the app's.
+    private static func logRefusal(_ route: Route, status: Int, body: Data) {
+        let server = ServerError(body: body)
+        let code = server?.code ?? "no code"
+        let text = server?.message ?? "no text"
+        logger.notice("""
+            Records \(route.name, privacy: .public): refused, HTTP \(status, privacy: .public) \
+            \(code, privacy: .public): \(text, privacy: .private)
+            """)
     }
 }
 

@@ -130,7 +130,7 @@ struct RecordAccounts: Decodable {
 }
 
 /// A list in which an element the phone cannot read is left out instead of failing the whole answer: one odd record
-/// must not turn the list into «нет связи». The record stays visible in the Mini App.
+/// must not turn the list into «сервер не ответил». The record stays visible in the Mini App.
 struct LossyList<Element: Decodable>: Decodable {
     let elements: [Element]
 

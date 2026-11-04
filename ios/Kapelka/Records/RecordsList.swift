@@ -23,10 +23,13 @@ final class RecordsList {
         case list
         /// The server answered with no records.
         case empty
-        /// No records to show and no answer.
-        case unreachable
+        /// No records to show and no answer, for this reason: «Нет связи», «Сервер не ответил», «Сервер просит
+        /// подождать» (#282).
+        case later(QueueWait)
         /// The server refused the token, and nothing is on disk.
         case tokenRefused
+        /// The server refused the request itself (400 and the other 4xx), and nothing is on disk: not «Нет связи».
+        case refused
     }
 
     private(set) var days: [RecordDay] = []
@@ -115,7 +118,8 @@ final class RecordsList {
         self.wait = wait
     }
 
-    /// The line over the list at this moment: «Обновляю…», «Обновлено 5 мин назад», «Нет связи · обновлено в 14:32».
+    /// The line over the list at this moment: «Обновляю…», «Обновлено 5 мин назад», «Нет связи · обновлено в 14:32»,
+    /// «Сервер не ответил · обновлено в 14:32».
     func caption(at moment: Date) -> String? {
         RecordsCaption.text(status, now: moment, calendar: calendar)
     }
@@ -550,7 +554,10 @@ final class RecordsList {
         case _ where hasRecords: return .list
         case nil: return answered ? .empty : .loading
         case .tokenRefused: return .tokenRefused
-        default: return .unreachable
+        case .refused: return .refused
+        case let .later(wait): return .later(wait)
+        // A refresh meets neither: a 404 there is not about a record
+        case .recordGone, .categoryGone: return .later(.noAnswer)
         }
     }
 }
