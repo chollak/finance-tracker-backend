@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Kapelka — что-то пошло не так</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; position: relative; overflow: hidden; display: flex; flex-direction: column; gap: 20px; padding: 8px 16px 16px; background: {{t.bg}}; color: {{t.ink}}; font-family: 'Manrope', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;">
+
+<header style="flex: 0 0 auto; display: flex; align-items: center; gap: 10px; height: 48px;">
+<svg width="40" height="20" viewBox="0 0 76 38" fill="currentColor" aria-hidden="true" style="flex: 0 0 auto;"><rect x="1.2" y="10.56" width="5.2" height="16.87" rx="2.6"></rect><rect x="8.8" y="3.03" width="5.2" height="31.94" rx="2.6"></rect><rect x="16.4" y="1.01" width="5.2" height="35.97" rx="2.6"></rect><rect x="24" y="2.13" width="5.2" height="33.75" rx="2.6"></rect><rect x="31.6" y="6.03" width="5.2" height="25.93" rx="2.6"></rect><rect x="39.2" y="12.42" width="5.2" height="13.16" rx="2.6"></rect><rect x="46.8" y="16.4" width="5.2" height="5.2" rx="2.6"></rect><rect x="54.4" y="12.46" width="5.2" height="13.09" rx="2.6"></rect><rect x="62" y="9.51" width="5.2" height="18.98" rx="2.6"></rect><rect x="69.6" y="12.72" width="5.2" height="12.57" rx="2.6"></rect></svg>
+<span style="font-size: 23px; line-height: 1; font-weight: 800; letter-spacing: -0.7px;">kapelka</span>
+</header>
+
+<div style="flex: 1 1 auto; display: flex; flex-direction: column; justify-content: center; gap: 16px; padding: 0 4px;">
+<span aria-hidden="true" style="width: 64px; height: 64px; display: flex; align-items: center; justify-content: center; border-radius: 9999px; background: {{t.track}}; color: {{t.ink}};"><svg width="28" height="28" viewBox="0 0 24 24"><path d="M20.5 12a8.5 8.5 0 1 1-2.49-6.01L20.5 8.5M20.5 3.5v5h-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+<h1 id="re-title" tabindex="-1" style="margin: 0; outline: none; font-size: 26px; line-height: 1.2; font-weight: 800; letter-spacing: -0.8px;">{{title}}</h1>
+<p style="margin: 0; font-size: 16px; line-height: 1.5; font-weight: 500; color: {{t.muted}};">{{text}}</p>
+</div>
+
+<div style="flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; gap: 4px;">
+<a href="{{reloadHref}}" style="align-self: stretch; height: 56px; display: flex; align-items: center; justify-content: center; padding: 0 24px; border-radius: 9999px; background: {{t.primaryBg}}; color: {{t.primaryInk}}; text-decoration: none; font-size: 16px; font-weight: 800;">{{action}}</a>
+<a href="{{homeHref}}" style="height: 44px; display: flex; align-items: center; padding: 0 16px; border-radius: 9999px; color: {{t.ink}}; font-size: 14px; font-weight: 800; text-decoration: underline; text-underline-offset: 4px;">{{secondary}}</a>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"homeHref":{"editor":null},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  theme() {
+    if (this.props.dark) {
+      return { bg: "#111214", ink: "#f4f4f6", muted: "#9d9da6", track: "#26272b", primaryBg: "#f4f4f6", primaryInk: "#141416" };
+    }
+    return { bg: "#f3f3f5", ink: "#141416", muted: "#6b6b74", track: "#e7e7ec", primaryBg: "#141416", primaryInk: "#ffffff" };
+  }
+  // Иконка в разметке — стрелка по кругу («обновить»): круг почти замкнут, наконечник уголком вверху справа.
+  // Экран показывается, когда маршрут не открылся не из-за неизвестного адреса: не загрузился кусок приложения
+  // (часто сразу после обновления Kapelka) или экран упал при отрисовке. Обновление помогает в первом случае,
+  // главная — во втором, поэтому главная кнопка — «Обновить», а «На главную» — ссылкой под ней.
+  renderVals() {
+    const dk = this.props.dark ? "Dark" : "";
+    return {
+      t: this.theme(),
+      title: "Экран не открылся",
+      text: "Записи на месте. Нажмите «Обновить» — обычно это помогает.",
+      action: "Обновить",
+      secondary: "На главную",
+      reloadHref: "Pastel_RouteError" + dk + ".dc.html",
+      homeHref: this.props.homeHref ?? "Pastel_Home" + dk + ".dc.html"
+    };
+  }
+}
+</script>
+</body>
+</html>
