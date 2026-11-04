@@ -52,6 +52,11 @@ export class UserModule {
     return this.updateUserUseCase;
   }
 
+  /** Whether a user has this id (#230): the admin grant goes only to one that exists. */
+  async exists(userId: string): Promise<boolean> {
+    return (await this.repository.findById(userId)) !== null;
+  }
+
   /** The default account setting must name a visible account in сум (FT-101, FT-149); wired by createModules(). */
   setAccountCheck(check: AccountCheck): void {
     this.updateUserSettingsUseCase?.setAccountCheck(check);

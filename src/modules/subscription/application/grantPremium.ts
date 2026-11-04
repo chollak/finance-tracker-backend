@@ -5,6 +5,9 @@
 
 import { SubscriptionRepository } from '../domain/subscriptionRepository';
 import { Subscription } from '../domain/subscription';
+import { GrantTargets } from '../domain/grantTargets';
+import { Result, ResultHelper } from '../../../shared/domain/types/Result';
+import { NotFoundError } from '../../../shared/domain/errors/AppError';
 
 export interface GrantPremiumInput {
   userId: string;
@@ -15,10 +18,18 @@ export interface GrantPremiumInput {
 }
 
 export class GrantPremiumUseCase {
-  constructor(private subscriptionRepository: SubscriptionRepository) {}
+  constructor(
+    private subscriptionRepository: SubscriptionRepository,
+    private grantTargets: GrantTargets
+  ) {}
 
-  async execute(input: GrantPremiumInput): Promise<Subscription> {
+  /** A NotFoundError for an id no user has (#230): no subscription is made and none expires. */
+  async execute(input: GrantPremiumInput): Promise<Result<Subscription>> {
     const { userId, grantedBy, grantNote, isLifetime, durationDays } = input;
+
+    if (!(await this.grantTargets.exists(userId))) {
+      return ResultHelper.failure(new NotFoundError('User', userId));
+    }
 
     // Mark any existing active subscription as expired
     const existingActive = await this.subscriptionRepository.findActiveByUserId(userId);
@@ -27,7 +38,7 @@ export class GrantPremiumUseCase {
     }
 
     // Create new gift/lifetime subscription
-    return this.subscriptionRepository.create({
+    const subscription = await this.subscriptionRepository.create({
       userId,
       tier: 'premium',
       source: isLifetime ? 'lifetime' : 'gift',
@@ -36,6 +47,7 @@ export class GrantPremiumUseCase {
       grantedBy,
       grantNote,
     });
+    return ResultHelper.success(subscription);
   }
 }
 

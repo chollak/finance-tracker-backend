@@ -83,7 +83,8 @@ export class SubscriptionController {
         );
       }
 
-      const subscription = await this.subscriptionModule
+      // A UUID no user has is 404 NOT_FOUND (#230)
+      const result = await this.subscriptionModule
         .getGrantPremiumUseCase()
         .execute({
           userId,
@@ -92,8 +93,9 @@ export class SubscriptionController {
           isLifetime: isLifetime || false,
           durationDays,
         });
+      if (!result.success) return handleControllerError(result.error, res);
 
-      handleControllerSuccess({ subscription }, res);
+      handleControllerSuccess({ subscription: result.data }, res);
     } catch (error) {
       handleControllerError(error, res);
     }

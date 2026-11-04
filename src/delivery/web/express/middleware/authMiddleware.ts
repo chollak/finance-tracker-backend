@@ -410,9 +410,9 @@ function userIdClaims(req: Request): unknown[] {
  *
  * - 400 `INVALID_USER_ID`: a userId that is not one non-blank string — a number, the array `?userId=a&userId=b` makes,
  *   an object, null, an empty string. User resolution would fail on it with 500.
- * - 403 `ACCESS_DENIED`: a userId naming anyone else. Ids compare as the strings user resolution would look up, so
- *   `0131184740` is someone else — resolving it would create a user row for it. A UUID or any other id is someone
- *   else too: it says nothing about who sent the request.
+ * - 403 `ACCESS_DENIED`: a userId naming anyone else. Ids compare as written: `0131184740` is refused for `131184740`,
+ *   though user resolution reads it as the same user since #230 — stricter, it lets no one else in. A UUID or any
+ *   other id is someone else too: it says nothing about who sent the request.
  */
 function refusedUserIdClaims(req: Request, res: Response, signedIn: string, refusal: string): boolean {
   const claimed = userIdClaims(req).map(claim => (typeof claim === 'string' ? claim.trim() : ''));
