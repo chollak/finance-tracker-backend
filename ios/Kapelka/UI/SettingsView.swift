@@ -184,7 +184,7 @@ struct SettingsView: View {
         isChecking = true
         checkResult = nil
         Task {
-            checkResult = await model.checkConnection(address: address)
+            checkResult = await model.checkConnection(address: address, token: token)
             isChecking = false
         }
     }
