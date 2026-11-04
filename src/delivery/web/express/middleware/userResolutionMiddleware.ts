@@ -7,13 +7,14 @@
  * Поддерживаемые форматы userId:
  * - telegramId (числовой): "597843119" → резолвится в UUID
  * - UUID: "02c5718f-b6db-4990-894e-3fc080bb2a83" → проходит как есть
- * Гостей нет (решение Д4, #206): любой другой id резолвится как telegramId, поэтому на маршрутах пользователя
- * middleware стоит после verifyOwnership.
+ * Гостей нет (решение Д4, #206), поэтому на маршрутах пользователя middleware стоит после verifyOwnership: telegramId
+ * резолвится с созданием пользователя. Любой другой id (`abc`, `-5`, старый гостевой) — 400 INVALID_USER_ID, пользователь
+ * не создаётся (#224).
  */
 
 import { Request, Response, NextFunction } from 'express';
 import { UserModule } from '../../../../modules/user/userModule';
-import { resolveUserIdToUUID, isUUID } from '../../../../shared/application/helpers/userIdResolver';
+import { resolveUserIdToUUID, isUUID, isResolvableUserId } from '../../../../shared/application/helpers/userIdResolver';
 import { createLogger, LogCategory } from '../../../../shared/infrastructure/logging';
 
 const logger = createLogger(LogCategory.USER);
@@ -106,11 +107,13 @@ export function createUserResolutionMiddleware(
       }
 
       // A number, an array, an object or a blank string names no user: 400, not a 500 from resolving it (FT-162).
-      // On user routes verifyOwnership refuses it first; this covers the admin grant, which names whom to grant
-      if (rawUserId && (typeof rawUserId !== 'string' || !rawUserId.trim())) {
+      // Nor does a string that is no UUID and no Telegram id — `abc`, `-5`, an old guest id: resolving it would create a
+      // `users` row for it (#224). On user routes verifyOwnership refuses it first; this covers the admin grant, which
+      // names whom to grant
+      if (rawUserId && (typeof rawUserId !== 'string' || !isResolvableUserId(rawUserId))) {
         res.status(400).json({
           success: false,
-          error: 'userId must be one Telegram id, as a string',
+          error: 'userId must be one Telegram id or user UUID, as a string',
           code: 'INVALID_USER_ID',
         });
         return;

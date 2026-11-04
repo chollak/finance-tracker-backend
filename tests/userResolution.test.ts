@@ -7,6 +7,7 @@ import { UserRepository } from '../src/modules/user/domain/userRepository';
 import { User, CreateUserDTO, UpdateUserDTO } from '../src/modules/user/domain/userEntity';
 import { ValidationError } from '../src/shared/domain/errors/AppError';
 import {
+  isResolvableUserId,
   isUUID,
   resolveUserIdToUUID,
   resolveUserIdToUUIDStrict,
@@ -19,6 +20,12 @@ import {
 } from '../src/shared/infrastructure/utils/ownershipVerification';
 
 const VALID_UUID = 'a1b2c3d4-e5f6-4a1b-8c2d-1234567890ab';
+
+/** Ids that are neither a UUID nor a positive whole number (#224): no user may be made of them. */
+const NOT_USER_IDS = ['guest_zzz', 'abc', '-5', '1.5', '0', '000', '1e5', '0x1F', '12 34', '+5', 'NaN', 'undefined'];
+
+/** Telegram ids past 32 bits (ids grow past 2^32; Telegram promises at most 52 significant bits). */
+const BIG_TELEGRAM_IDS = ['7123456789', '4503599627370495'];
 
 /**
  * In-memory fake mirroring SqliteUserRepository's getOrCreate()/update() contract:
@@ -337,6 +344,25 @@ describe('userIdResolver', () => {
       const stored = await repo.findByTelegramId('');
       expect(stored).toBeNull();
     });
+
+    // #224: before, any id that was not a UUID went to getOrCreate as a Telegram id and made a `users` row
+    it.each(NOT_USER_IDS)('refuses %p, which is no UUID and no Telegram id, creating no user', async id => {
+      await expect(resolveUserIdToUUID(id, userModule)).rejects.toThrow(ValidationError);
+      expect(repo.size()).toBe(0);
+    });
+
+    it.each(BIG_TELEGRAM_IDS)('resolves the big Telegram id %s as before', async id => {
+      const result = await resolveUserIdToUUID(id, userModule);
+
+      expect((await repo.findByTelegramId(id))?.id).toBe(result);
+    });
+
+    // A whole number still, so not refused; the user is looked up as written, as before #224
+    it('resolves a Telegram id with leading zeros as written', async () => {
+      const result = await resolveUserIdToUUID('0900000143', userModule);
+
+      expect((await repo.findByTelegramId('0900000143'))?.id).toBe(result);
+    });
   });
 
   describe('resolveUserIdToUUIDStrict', () => {
@@ -378,6 +404,21 @@ describe('userIdResolver', () => {
     it('rejects empty ids before attempting resolution', async () => {
       await expect(resolveUserIdToUUIDStrict('', userModule)).rejects.toThrow('userId is required');
       await expect(resolveUserIdToUUIDStrict('   ', userModule)).rejects.toThrow('userId is required');
+    });
+
+    it.each(NOT_USER_IDS)('refuses %p, which is no UUID and no Telegram id, creating no user', async id => {
+      await expect(resolveUserIdToUUIDStrict(id, userModule)).rejects.toThrow(ValidationError);
+      expect(repo.size()).toBe(0);
+    });
+  });
+
+  describe('isResolvableUserId', () => {
+    it.each([VALID_UUID, `  ${VALID_UUID}  `, '1', '131184740', ' 597843119 ', ...BIG_TELEGRAM_IDS])('accepts %p', id => {
+      expect(isResolvableUserId(id)).toBe(true);
+    });
+
+    it.each(['', '   ', ...NOT_USER_IDS])('refuses %p', id => {
+      expect(isResolvableUserId(id)).toBe(false);
     });
   });
 });

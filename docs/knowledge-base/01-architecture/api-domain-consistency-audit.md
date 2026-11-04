@@ -292,7 +292,7 @@ This should precede any strict resolver implementation.
 
 **Risk:** product/security medium  
 **Type:** product behavior decision  
-**Evidence:** In `subscriptionMiddleware.ts`, if user UUID cannot be resolved:
+**Evidence:** In `subscriptionMiddleware.ts` (the Express one, removed in #220: nothing mounted it; the bot's `checkTelegramLimit` fails open the same way), if user UUID cannot be resolved:
 
 ```ts
 // If user doesn't exist, allow action (fail open)
