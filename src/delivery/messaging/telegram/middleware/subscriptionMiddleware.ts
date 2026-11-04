@@ -149,62 +149,6 @@ export function createTelegramIncrementUsageMiddleware(
 }
 
 /**
- * Middleware to check if user has premium before analytics
- */
-export function createTelegramRequirePremiumMiddleware(
-  subscriptionModule: SubscriptionModule,
-  userModule: UserModule
-): Middleware<SubscriptionContext> {
-  return async (ctx, next) => {
-    if (!ctx.from) {
-      return next();
-    }
-
-    const userId = await getUserUUID(ctx, userModule);
-    if (!userId) {
-      return next(); // Fail open if can't get user
-    }
-
-    try {
-      const isPremium = await subscriptionModule
-        .getSubscriptionService()
-        .isPremium(userId);
-
-      if (!isPremium) {
-        await ctx.reply(
-          '⭐ *Эта функция доступна только для Premium пользователей*\n\n' +
-            'Оформите подписку, чтобы получить доступ к:\n' +
-            '📊 Полной аналитике расходов\n' +
-            '📈 Детальным отчетам\n' +
-            '🎯 Рекомендациям по бюджету\n\n' +
-            `Цена: ${SUBSCRIPTION_PRICE_STARS} Stars/месяц`,
-          {
-            parse_mode: 'Markdown',
-            reply_markup: {
-              inline_keyboard: [
-                [
-                  {
-                    text: `⭐ Купить Premium (${SUBSCRIPTION_PRICE_STARS} Stars)`,
-                    callback_data: 'buy_premium',
-                  },
-                ],
-              ],
-            },
-          }
-        );
-        return;
-      }
-
-      return next();
-    } catch (error) {
-      logger.error('Error in telegram premium middleware', error as Error);
-      // Allow action on error (fail open)
-      return next();
-    }
-  };
-}
-
-/**
  * Show remaining usage warning after action (optional)
  */
 export function createUsageWarningMiddleware(

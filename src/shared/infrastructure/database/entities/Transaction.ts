@@ -34,8 +34,9 @@ export class Transaction {
   @Column({ type: 'date' })
   date!: string;
 
-  @Column({ nullable: true })
-  merchant?: string;
+  /** NULL when the record has none (#210): written without one, or cleared by an edit. */
+  @Column('varchar', { nullable: true })
+  merchant?: string | null;
 
   @Column('decimal', { precision: 3, scale: 2, nullable: true })
   confidence?: number; // AI confidence score

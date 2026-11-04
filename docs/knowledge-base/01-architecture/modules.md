@@ -263,8 +263,10 @@ bot.on('pre_checkout_query', async (ctx) => {
 ```
 
 ### Middleware
-- Express: `checkLimit`, `incrementUsage` (`requirePremium` удалён в #205 вместе с платными insights дашборда)
-- Telegram: `createTelegramCheckLimitMiddleware`, `createTelegramIncrementUsageMiddleware`
+- Express: нет. `requirePremium` удалён в #205 вместе с платными insights дашборда, `checkLimit` и `incrementUsage`
+  (их никто не подключал) — в #220
+- Telegram: `createTelegramCheckLimitMiddleware` на тексте и голосе, `checkTelegramLimit` — для ответа на «Сколько?»
+  (FT-123); `createTelegramRequirePremiumMiddleware` удалён в #220
 
 ---
 

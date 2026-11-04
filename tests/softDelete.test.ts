@@ -64,7 +64,9 @@ describe('soft delete and restore of records (FT-105)', () => {
   });
 
   it('the record counter goes down on delete and up on restore, once', async () => {
-    const id = await record(25000);
+    // An old record owned by a Telegram id: the counter resolves it to the owner's UUID. A placeholder like 'user-1'
+    // is no UUID and no Telegram id, so the resolver refuses it (#224)
+    const id = await record(25000, '131184740');
     const increment = jest.fn().mockResolvedValue(undefined);
     const decrement = jest.fn().mockResolvedValue(undefined);
     const subscriptions = {
