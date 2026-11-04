@@ -29,10 +29,6 @@ export function countsAsRealExpense(semanticType: TransactionSemanticType | unde
   return semanticType === 'expense';
 }
 
-export function countsAsBudgetSpending(semanticType: TransactionSemanticType | undefined): boolean {
-  return semanticType === 'expense';
-}
-
 export function countsAsIncome(semanticType: TransactionSemanticType | undefined): boolean {
   return semanticType === 'income';
 }

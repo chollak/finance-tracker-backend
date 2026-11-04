@@ -1,6 +1,6 @@
 # Module System
 
-`createModules()` (`src/appModules.ts`) возвращает **15 модулей приложения**, каждый с чётко определённой ответственностью. `CategoryModule` добавлен в FT-099, `AccountModule` — в FT-101, `FxModule` — в FT-102, `BotMessageModule` — в FT-122, `NotificationModule` — в FT-124, `ExportModule` — в FT-126, `AuthModule` — в FT-128, `AuditModule` — в FT-131, `QuickCaptureModule` — обёртка над текстовым разбором для `POST /api/quick-capture`. `OpenAIUsageModule` удалён в FT-174: его админские маршруты с января отвечали `401`, и их никто не вызывал.
+`createModules()` (`src/appModules.ts`) возвращает **14 модулей приложения**, каждый с чётко определённой ответственностью. `CategoryModule` добавлен в FT-099, `AccountModule` — в FT-101, `FxModule` — в FT-102, `BotMessageModule` — в FT-122, `NotificationModule` — в FT-124, `ExportModule` — в FT-126, `AuthModule` — в FT-128, `AuditModule` — в FT-131, `QuickCaptureModule` — обёртка над текстовым разбором для `POST /api/quick-capture`. `OpenAIUsageModule` удалён в FT-174: его админские маршруты с января отвечали `401`, и их никто не вызывал. `BudgetModule` удалён в #264 (решение 2026-11-04) — ниже, «Бюджеты — удалены».
 
 Backend-дашборда больше нет (#205): `GET /api/dashboard/*` вместе с `DashboardService`, `DashboardController`, `AlertService` и платными insights удалён — его никто не вызывал. Главная читает свои маршруты (FT-111), аналитика — `/api/analytics` (FT-120).
 
@@ -9,7 +9,6 @@ Backend-дашборда больше нет (#205): `GET /api/dashboard/*` вм
 ```mermaid
 graph TD
     TM[TransactionModule<br/>CRUD + Analytics]
-    BM[BudgetModule<br/>Budget Management]
     DeM[DebtModule<br/>Debt Management]
     VM[VoiceProcessingModule<br/>Voice/Text Processing]
     SM[SubscriptionModule<br/>Premium + Payments]
@@ -24,7 +23,6 @@ graph TD
     AuM[AuthModule<br/>Web login through the bot]
     AuD[AuditModule<br/>Spending audit + goals]
 
-    BM -->|depends on| TM
     DeM -->|depends on| TM
     DeM -->|depends on| SM
     DeM -->|depends on| UM
@@ -50,7 +48,6 @@ graph TD
     SM -.->|grant: GrantTargets| UM
 
     style TM fill:#4CAF50,stroke:#2E7D32,color:#fff
-    style BM fill:#2196F3,stroke:#1565C0,color:#fff
     style DeM fill:#FF5722,stroke:#BF360C,color:#fff
     style VM fill:#FF9800,stroke:#E65100,color:#fff
     style SM fill:#FFD700,stroke:#B8860B,color:#000
@@ -64,7 +61,6 @@ graph TD
 | Модуль | Роль | Зависимости | Ключевые файлы |
 |--------|------|-------------|----------------|
 | **TransactionModule** | Core: транзакции и аналитика | Независимый при создании; позже получает Subscription + User через `setSubscriptionDependencies()` | `transactionModule.ts` |
-| **BudgetModule** | Управление бюджетами | TransactionModule | `budgetModule.ts` |
 | **DebtModule** | Управление долгами | TransactionModule, SubscriptionModule, UserModule | `debtModule.ts` |
 | **VoiceProcessingModule** | AI обработка голоса/текста | TransactionModule, DebtModule (не используется с Д2), категории пользователя для промпта, выученные слова для правила догадки о категории (FT-138) | `voiceProcessingModule.ts` |
 | **QuickCaptureModule** | `POST /api/quick-capture` поверх текстового разбора; `POST /api/quick-capture/payment` — оплата Apple Pay готовой суммой (FT-176, `RecordPaymentUseCase`) | VoiceProcessingModule | `quickCaptureModule.ts` |
@@ -119,36 +115,7 @@ const transactionModule = TransactionModule.create();
 
 ---
 
-## 2. BudgetModule
-
-**Файл:** [`src/modules/budget/budgetModule.ts`](../../../src/modules/budget/budgetModule.ts)
-
-### Назначение
-Управление бюджетами с автоматическим расчетом потраченной суммы.
-
-### Use Cases
-- `CreateBudgetUseCase` - создание бюджета
-- `GetBudgetsUseCase` - получение бюджетов пользователя
-- `UpdateBudgetUseCase` - обновление бюджета
-- `DeleteBudgetUseCase` - удаление бюджета
-
-### Services
-- `BudgetService` - расчет spent, budget summaries, alerts
-
-### Key Dependency
-```typescript
-new BudgetService(
-  budgetRepository,
-  transactionModule.getRepository() // Нужен для расчета spent
-)
-```
-
-**Почему зависимость?**
-Для расчета `spent` нужно суммировать транзакции пользователя в периоде бюджета через `transactionRepository.getByUserIdAndDateRange()`.
-
----
-
-## 3. DebtModule
+## 2. DebtModule
 
 **Файл:** [`src/modules/debt/debtModule.ts`](../../../src/modules/debt/debtModule.ts)
 
@@ -185,7 +152,7 @@ new CreateDebtUseCase(
 
 ---
 
-## 4. SubscriptionModule
+## 3. SubscriptionModule
 
 **Файл:** [`src/modules/subscription/subscriptionModule.ts`](../../../src/modules/subscription/subscriptionModule.ts)
 
@@ -274,7 +241,7 @@ bot.on('pre_checkout_query', async (ctx) => {
 
 ---
 
-## 5. VoiceProcessingModule
+## 4. VoiceProcessingModule
 
 **Файл:** [`src/modules/voiceProcessing/voiceProcessingModule.ts`](../../../src/modules/voiceProcessing/voiceProcessingModule.ts)
 
@@ -305,7 +272,7 @@ new ProcessVoiceInputUseCase(
 
 ---
 
-## 6. UserModule
+## 5. UserModule
 
 **Файл:** [`src/modules/user/userModule.ts`](../../../src/modules/user/userModule.ts)
 
@@ -313,14 +280,14 @@ new ProcessVoiceInputUseCase(
 Управление пользователями и резолв внешних идентификаторов (`telegramId` → внутренний UUID).
 
 ### Использование
-`SubscriptionController` и роутеры транзакций/бюджетов/долгов используют модуль, чтобы принять `telegram_id` во внешнем API и работать с UUID внутри. Маршруты вехи 10 берут пользователя только из авторизации через `createCurrentUserMiddleware(userModule)`.
+`SubscriptionController` и роутеры транзакций и долгов используют модуль, чтобы принять `telegram_id` во внешнем API и работать с UUID внутри. Маршруты вехи 10 берут пользователя только из авторизации через `createCurrentUserMiddleware(userModule)`.
 
 ### Настройки (FT-098)
 `GetUserSettingsUseCase`, `UpdateUserSettingsUseCase` и таблица `user_settings`; маршрут `GET/PATCH /api/settings`. Контракт — [`docs/pastel/api.md`](../../pastel/api.md).
 
 ---
 
-## 7. CategoryModule
+## 6. CategoryModule
 
 **Файл:** [`src/modules/category/categoryModule.ts`](../../../src/modules/category/categoryModule.ts)
 
@@ -338,7 +305,7 @@ new ProcessVoiceInputUseCase(
 
 ---
 
-## 8. AccountModule
+## 7. AccountModule
 
 **Файл:** [`src/modules/account/accountModule.ts`](../../../src/modules/account/accountModule.ts)
 
@@ -356,7 +323,7 @@ new ProcessVoiceInputUseCase(
 
 ---
 
-## 9. FxModule
+## 8. FxModule
 
 **Файл:** [`src/modules/fx/fxModule.ts`](../../../src/modules/fx/fxModule.ts)
 
@@ -370,7 +337,7 @@ new ProcessVoiceInputUseCase(
 
 ---
 
-## 10. BotMessageModule
+## 9. BotMessageModule
 
 **Файл:** [`src/modules/botMessage/botMessageModule.ts`](../../../src/modules/botMessage/botMessageModule.ts)
 
@@ -398,7 +365,7 @@ new ProcessVoiceInputUseCase(
 
 ---
 
-## 11. NotificationModule
+## 10. NotificationModule
 
 **Файл:** [`src/modules/notification/notificationModule.ts`](../../../src/modules/notification/notificationModule.ts)
 
@@ -475,7 +442,7 @@ new ProcessVoiceInputUseCase(
 
 ---
 
-## 12. ExportModule
+## 11. ExportModule
 
 **Файл:** [`src/modules/export/exportModule.ts`](../../../src/modules/export/exportModule.ts)
 
@@ -497,7 +464,7 @@ new ProcessVoiceInputUseCase(
 
 ---
 
-## 13. AuthModule
+## 12. AuthModule
 
 **Файл:** [`src/modules/auth/authModule.ts`](../../../src/modules/auth/authModule.ts)
 
@@ -527,7 +494,7 @@ new ProcessVoiceInputUseCase(
 
 ---
 
-## 14. AuditModule
+## 13. AuditModule
 
 **Файл:** [`src/modules/audit/auditModule.ts`](../../../src/modules/audit/auditModule.ts)
 
@@ -568,6 +535,17 @@ Health Score») и `AlertService` из `AnalyticsService` и `BudgetService`; in
 
 ---
 
+## Бюджеты — удалены (#264)
+
+`BudgetModule` (`src/modules/budget/`: создание, правка, удаление, сводки и `spent` по записям периода) ушёл из
+интерфейса с решением Д2 и с тех пор не читался: ни бот, ни webapp, ни итоги, аналитика, ревизия и цели. По решению
+2026-11-04 модуль, маршруты `/api/budgets/*` и экраны webapp удалены; маршруты отвечают `404`
+(`tests/deadBudgetRoutes.test.ts`). Таблица `budgets` и её строки остаются: entity
+`src/shared/infrastructure/database/entities/Budget.ts` держится только ради проверки схемы, а удалить таблицу —
+правка настоящих данных, только по отдельному «да».
+
+---
+
 ## Module Creation в appModules.ts
 
 **Файл:** [`src/appModules.ts`](../../../src/appModules.ts)
@@ -579,7 +557,6 @@ export function createModules() {
   const transactionModule = TransactionModule.create();
   transactionModule.setCategoryResolver(categoryModule.getCatalog()); // FT-099
   transactionModule.setCategoryLessons(transactionLearning); // FT-184
-  const budgetModule = BudgetModule.create(transactionModule);
   const userModule = UserModule.create();
 
   // 2. SubscriptionModule с repositories; выдача premium — только существующему пользователю (#230)
@@ -602,7 +579,7 @@ export function createModules() {
   // 6. Итоги дня, /today и /month (FT-124), напоминания после ревизии (FT-133) — после auditModule
   const notificationModule = NotificationModule.create(transactionModule, userModule, auditModule);
 
-  return { categoryModule, transactionModule, budgetModule, debtModule, voiceModule, quickCaptureModule,
+  return { categoryModule, transactionModule, debtModule, voiceModule, quickCaptureModule,
     userModule, subscriptionModule, botMessageModule, notificationModule };
 }
 ```
@@ -621,13 +598,19 @@ export function createModules() {
 Каждый модуль получает зависимости через конструктор:
 
 ```typescript
-class BudgetModule {
-  constructor(private transactionModule: TransactionModule) {
-    this.repository = RepositoryFactory.createBudgetRepository();
-    this.budgetService = new BudgetService(
-      this.repository,
-      transactionModule.getRepository()
-    );
+class AuditModule {
+  constructor(dependencies: AuditModuleDependencies) {
+    const { audits, goals, sources } = dependencies; // репозитории + порт AuditSources
+    const reader = new AuditReader(sources, goals, dependencies.now ?? (() => new Date()));
+    this.getCurrent = new GetCurrentAuditUseCase(audits, goals, sources, reader);
+  }
+
+  static create(sources: AuditSources): AuditModule {
+    return new AuditModule({
+      audits: RepositoryFactory.createAuditRepository(),
+      goals: RepositoryFactory.createGoalRepository(),
+      sources,
+    });
   }
 }
 ```
@@ -670,8 +653,8 @@ class RepositoryFactory {
     return new SqliteTransactionRepository();
   }
 
-  static createBudgetRepository(): BudgetRepository {
-    return new SqliteBudgetRepository();
+  static createAuditRepository(): AuditRepository {
+    return new SqliteAuditRepository();
   }
 }
 ```

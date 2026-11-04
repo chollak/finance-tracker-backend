@@ -9,7 +9,6 @@
  */
 
 export type TransactionType = 'income' | 'expense';
-export type BudgetStatus = 'safe' | 'warning' | 'danger' | 'exceeded';
 
 /**
  * Get text color class for amount display
@@ -40,58 +39,6 @@ export function getTransactionColorClasses(type: TransactionType) {
         hover: 'hover:bg-expense/90',
         border: 'border-expense',
       };
-}
-
-/**
- * Get progress bar color class based on budget percentage
- */
-export function getProgressColorClass(percentage: number): string {
-  if (percentage >= 100) return 'bg-expense';
-  if (percentage >= 90) return 'bg-warning';
-  if (percentage >= 75) return 'bg-warning/70';
-  return 'bg-success';
-}
-
-/**
- * Get budget status from percentage
- */
-export function getBudgetStatus(percentage: number): BudgetStatus {
-  if (percentage >= 100) return 'exceeded';
-  if (percentage >= 90) return 'danger';
-  if (percentage >= 75) return 'warning';
-  return 'safe';
-}
-
-/**
- * Get status badge colors for budget display
- */
-export function getStatusColorClasses(percentage: number) {
-  if (percentage >= 100) {
-    return {
-      text: 'text-expense',
-      bg: 'bg-expense-muted',
-      border: 'border-expense/30',
-    };
-  }
-  if (percentage >= 90) {
-    return {
-      text: 'text-expense',
-      bg: 'bg-expense-muted',
-      border: 'border-expense/30',
-    };
-  }
-  if (percentage >= 75) {
-    return {
-      text: 'text-warning',
-      bg: 'bg-warning-muted',
-      border: 'border-warning/30',
-    };
-  }
-  return {
-    text: 'text-success',
-    bg: 'bg-success-muted',
-    border: 'border-success/30',
-  };
 }
 
 /**

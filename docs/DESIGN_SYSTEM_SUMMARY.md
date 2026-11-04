@@ -67,7 +67,7 @@ npm run verify
 For visual QA:
 
 ```bash
-BASE_URL=http://127.0.0.1:3000 VIEWPORT_WIDTH=390 VIEWPORT_HEIGHT=844 OUT_DIR=/tmp/ui-audit ROUTES=/,/transactions,/budgets,/more npm run design:audit
+BASE_URL=http://127.0.0.1:3000 VIEWPORT_WIDTH=390 VIEWPORT_HEIGHT=844 OUT_DIR=/tmp/ui-audit ROUTES=/,/transactions,/analytics,/more npm run design:audit
 ```
 
 Check screenshots visually; build/console checks are not enough for design QA.

@@ -51,11 +51,6 @@ export const ROUTES = {
   VOICE_OFFLINE: '/offline-voice',
   RECEIPT_OFFLINE: '/offline-receipt',
 
-  // Budgets
-  BUDGETS: '/budgets',
-  ADD_BUDGET: '/budgets/add',
-  EDIT_BUDGET: (id: string) => `/budgets/${id}/edit`,
-
   // Debts
   DEBTS: '/debts',
   ADD_DEBT: '/debts/add',
@@ -199,18 +194,6 @@ export const API_ENDPOINTS = {
   GOALS: {
     LIST: '/goals',
     UPDATE: (goalId: string) => `/goals/${encodeURIComponent(goalId)}`,
-  },
-
-  // Budgets
-  BUDGETS: {
-    LIST: (userId: string, active?: boolean) =>
-      `/budgets/users/${userId}/budgets${active !== undefined ? `?active=${active}` : ''}`,
-    CREATE: (userId: string) => `/budgets/users/${userId}/budgets`,
-    UPDATE: (budgetId: string) => `/budgets/${budgetId}`,
-    DELETE: (budgetId: string) => `/budgets/${budgetId}`,
-    SUMMARIES: (userId: string) => `/budgets/users/${userId}/budgets/summaries`,
-    ALERTS: (userId: string, threshold: number = 0.8) =>
-      `/budgets/users/${userId}/budgets/alerts?threshold=${threshold}`,
   },
 
   // Quick Capture — one line of natural text → saved transactions/debts (docs/QUICK_CAPTURE_API.md)

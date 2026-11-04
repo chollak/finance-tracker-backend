@@ -142,16 +142,13 @@ Routes are defined in `webapp/src/app/router/routes.tsx`:
 | `/add` | Manual entry — own keypad, account, category, date, note (FT-113) |
 | `/transactions` | Transactions list — search, filter, edit, delete |
 | `/?record=<id>` | Home with the record sheet open (FT-115; the bot's «Изменить»). A record has no page of its own |
-| `/budgets` | Budgets — progress, alerts |
-| `/budgets/add` | Create budget form |
-| `/budgets/:id/edit` | Edit budget form |
 | `/debts` | Debts list |
 | `/debts/add` | Create debt form |
 | `/debts/:id` | Debt details and payments |
 | `/analytics` | Analytics and insights |
 | `/more` | Settings and secondary sections |
 
-There is no `/dashboard` or `/stats` route in the webapp, and no `/api/dashboard` on the server since #205: Home reads `/api/transactions/totals` and `/api/accounts`, Analytics reads `/api/analytics`.
+There is no `/dashboard` or `/stats` route in the webapp, and no `/api/dashboard` on the server since #205: Home reads `/api/transactions/totals` and `/api/accounts`, Analytics reads `/api/analytics`. Budgets — the `/budgets` screens and `/api/budgets` — are gone since #264.
 
 See [USER_GUIDE.md](USER_GUIDE.md) for detailed usage instructions.
 
@@ -192,7 +189,7 @@ The code follows Clean Architecture principles with layers for `domain`, `applic
 
 ### Module interactions
 
-The application is organized into 15 app modules (`TransactionModule`, `VoiceProcessingModule`, `QuickCaptureModule`, `CategoryModule`, `AccountModule`, `UserModule`, `BotMessageModule`, `NotificationModule`, `AuditModule` and others — the full list is in `CLAUDE.md`), created once in `createModules()` (`src/appModules.ts`) and shared between the HTTP server and the Telegram bot. For example, `voiceProcessing` depends on `transaction` through `CreateTransactionUseCase` — voice commands are transcribed and immediately recorded as transactions.
+The application is organized into 14 app modules (`TransactionModule`, `VoiceProcessingModule`, `QuickCaptureModule`, `CategoryModule`, `AccountModule`, `UserModule`, `BotMessageModule`, `NotificationModule`, `AuditModule` and others — the full list is in `CLAUDE.md`), created once in `createModules()` (`src/appModules.ts`) and shared between the HTTP server and the Telegram bot. For example, `voiceProcessing` depends on `transaction` through `CreateTransactionUseCase` — voice commands are transcribed and immediately recorded as transactions.
 
 See [docs/knowledge-base/01-architecture/modules.md](docs/knowledge-base/01-architecture/modules.md) for the full module dependency graph.
 

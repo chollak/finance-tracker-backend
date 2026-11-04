@@ -97,6 +97,12 @@ describe('an unknown address', () => {
     expect(matchRoutes(appRoutes, UNKNOWN)?.at(-1)?.route.path).toBe('*');
   });
 
+  it('includes the old budget screens: they are gone from the code (#264)', () => {
+    for (const path of ['/budgets', '/budgets/add', '/budgets/b1/edit']) {
+      expect({ path, route: matchRoutes(appRoutes, path)?.at(-1)?.route.path }).toEqual({ path, route: '*' });
+    }
+  });
+
   it('says the page is not there and where the records are, under the Kapelka sign, with «На главную»', async () => {
     await open(UNKNOWN);
     await until(() => title() === TITLE);

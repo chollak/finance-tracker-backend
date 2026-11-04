@@ -2,7 +2,7 @@
  * Shared Ownership Verification Utility
  *
  * Provides a generic, reusable way to verify that an authenticated user
- * owns a resource. Used across Budget, Debt, and Transaction controllers.
+ * owns a resource. Used across the Debt and Transaction controllers.
  *
  * Follows fail-closed pattern: denies access if verification cannot be completed.
  */
@@ -24,7 +24,7 @@ export interface OwnedResource {
  * Options for ownership verification
  */
 export interface VerifyOwnershipOptions {
-  /** Resource type name for error messages (e.g., 'budget', 'debt', 'transaction') */
+  /** Resource type name for error messages (e.g., 'debt', 'transaction') */
   resourceType: string;
 }
 

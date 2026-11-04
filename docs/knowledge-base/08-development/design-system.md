@@ -116,7 +116,7 @@ npm run verify
 For mobile visual QA, capture at least 375, 390, and 412 px with relevant routes:
 
 ```bash
-BASE_URL=http://127.0.0.1:3000 VIEWPORT_WIDTH=390 VIEWPORT_HEIGHT=844 OUT_DIR=/tmp/ui-audit ROUTES=/,/transactions,/budgets,/more npm run design:audit
+BASE_URL=http://127.0.0.1:3000 VIEWPORT_WIDTH=390 VIEWPORT_HEIGHT=844 OUT_DIR=/tmp/ui-audit ROUTES=/,/transactions,/analytics,/more npm run design:audit
 ```
 
 A technical pass is not enough. Inspect screenshots for visual hierarchy, spacing rhythm, color semantics, and content running into the bottom system zone.

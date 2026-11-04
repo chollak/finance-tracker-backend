@@ -20,7 +20,7 @@ import { listenOnLoopback } from './helpers/testServer';
  * health check, 404 handling, JSON body parsing, sign-in (no guests since 2026-10-21),
  * and the global error handler's status-code mapping.
  *
- * SCOPE NOTE: `buildServer()` wires 5+ full modules (Transaction, Budget, Debt, …),
+ * SCOPE NOTE: `buildServer()` wires 5+ full modules (Transaction, Debt, User, …),
  * several of which need a dozen+ use-case getters just to
  * construct their routers. Faithfully stubbing all of that adds risk without adding coverage.
  * Instead, this suite assembles a minimal app using the *real* middleware and
