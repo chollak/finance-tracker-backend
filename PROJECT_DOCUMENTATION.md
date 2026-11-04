@@ -1,6 +1,6 @@
 # Finance Tracker Backend - Complete Developer Documentation
 
-> **⚠️ Historical document — verify before relying on it (banner added 2026-08-16).** This file is kept as a broad reference snapshot and is not maintained per change. Known drift: the Module System section below lists 8 modules including a `DashboardModule`, but `createModules()` (`src/appModules.ts`) returns **7** modules and there is no `dashboardModule.ts` — dashboard is a `DashboardService`/`DashboardController` pair assembled in the Express layer.
+> **⚠️ Historical document — verify before relying on it (banner added 2026-08-16).** This file is kept as a broad reference snapshot and is not maintained per change. Known drift: the Module System section below lists 8 modules including a `DashboardModule` and an `OpenAIUsageModule`, but `createModules()` (`src/appModules.ts`) returns **15** modules (list in [CLAUDE.md](CLAUDE.md)). There is no backend dashboard: `DashboardService`, `DashboardController`, `/api/dashboard/*` with insights, alerts and the financial health score were removed in #205, so the «DashboardModule» section and the «Dashboard (`/api/dashboard`)» endpoints below are history; `OpenAIUsageModule` was removed in FT-174.
 >
 > Current sources of truth: the task board [Kapelka](https://github.com/users/chollak/projects/1) (текущий фокус — в её README), [CLAUDE.md](CLAUDE.md) (operating mode and commands), and [docs/knowledge-base/](docs/knowledge-base/) (architecture and development guides).
 
