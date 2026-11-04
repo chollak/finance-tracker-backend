@@ -9,8 +9,13 @@ final class ListenRequest {
     static let shared = ListenRequest()
 
     private(set) var isPending = false
+    /// The journal's runs of the presses not taken yet (#241): the screen goes on with them (`ExpenseRuns`).
+    @ObservationIgnored private var runs: [UUID] = []
 
-    func ask() {
+    func ask(run: UUID? = nil) {
+        if let run {
+            runs.append(run)
+        }
         isPending = true
     }
 
@@ -19,6 +24,12 @@ final class ListenRequest {
         guard isPending else { return false }
         isPending = false
         return true
+    }
+
+    /// The runs behind the request just taken; each once.
+    func takeRuns() -> [UUID] {
+        defer { runs = [] }
+        return runs
     }
 }
 
@@ -32,14 +43,22 @@ struct RecordExpenseIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult {
-        ListenRequest.shared.ask()
+        await Self.ask(journal: AppServices.shared.journal, request: .shared)
         return .result()
+    }
+
+    /// The run starts here and goes on on the screen (`ExpenseRuns`): the command itself only asks to listen.
+    @MainActor
+    static func ask(journal: CommandJournal, request: ListenRequest) async {
+        let run = await journal.begin(.recordExpense)
+        await journal.step(run, JournalText.waitingForScreen)
+        request.ask(run: run)
     }
 }
 
 /// «Отправить очередь» for automations like «подключился к домашнему Wi-Fi»: sends what waits on the phone without
 /// opening the app, within the time iOS gives a command. It answers with its dialog, so what it sends posts no
-/// notification (FT-253); a payment's «уйдёт позже» it sent is taken off.
+/// notification (FT-253); a payment's «уйдёт позже» it sent is taken off. The work is `SendQueueCommand`.
 struct SendQueueIntent: AppIntent {
     static var title: LocalizedStringResource { "Отправить очередь" }
     static var description: IntentDescription {
@@ -48,12 +67,7 @@ struct SendQueueIntent: AppIntent {
     static var openAppWhenRun: Bool { false }
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        let services = AppServices.shared
-        await services.feedback.quietly { [background = services.background] in await background.run() }
-        let report = QueueStatus.afterSending(
-            await services.queue.state(),
-            configured: services.settings.configuration() != nil
-        )
+        let report = await AppServices.shared.sendQueue.run()
         return .result(dialog: IntentDialog(stringLiteral: report))
     }
 }

@@ -31,7 +31,8 @@ final class PaymentRecorderTests {
             cards: cards,
             send: { await queue.flush() },
             isConfigured: { configured },
-            notify: { await notices.post($0) }
+            notify: { await notices.post($0) },
+            journal: .scratch()
         )
         return (recorder, cards)
     }
@@ -53,7 +54,8 @@ final class PaymentRecorderTests {
             cards: cards,
             send: { await background.run() },
             isConfigured: { true },
-            notify: { await notices.post($0) }
+            notify: { await notices.post($0) },
+            journal: .scratch()
         )
         return (recorder, queue)
     }

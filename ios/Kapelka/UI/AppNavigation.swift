@@ -55,6 +55,11 @@ final class AppNavigation {
         return true
     }
 
+    /// The journal's runs of the presses just taken (#241).
+    func takeListenRuns() -> [UUID] {
+        listenRequest.takeRuns()
+    }
+
     /// Observed by the screen: a press of the Action Button while the app is open.
     var listenPending: Bool { listenRequest.isPending }
 
