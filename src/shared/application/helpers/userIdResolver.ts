@@ -28,7 +28,7 @@ export function isUUID(str: string): boolean {
 
 /**
  * Whether resolution may take the id (#224): a UUID, or a Telegram id — a positive whole number in digits. Anything
- * else (`guest_zzz`, `abc`, `-5`, `1.5`, `0`) names no user, and resolving it would create a `users` row for it.
+ * else (`abc`, `-5`, `1.5`, `0`, an old guest id) names no user, and resolving it would create a `users` row for it.
  * Spaces around the id are fine, as in the resolver.
  */
 export function isResolvableUserId(userId: string): boolean {
