@@ -600,8 +600,8 @@ const logger = createLogger(LogCategory.TRANSACTION);
 
 ```typescript
 // ✅ ПРАВИЛЬНО
-logger.info('Transaction created', { transactionId, userId, amount });
-logger.error('Failed to create transaction', error, { userId, input });
+logger.info('Transaction created', { transactionId, userId });
+logger.error('Failed to create transaction', error, { userId, textLength: text.length });
 logger.warn('Goal limit approaching', { goalId, spent, limit });
 
 // ❌ НЕПРАВИЛЬНО - без контекста
@@ -620,8 +620,7 @@ logger.info('Created');
 
 ### Что не логировать (#269)
 
-Журнал живого экземпляра читают под-чаты и пересылают куски в чаты и issues. Поэтому — и это сильнее примера выше
-с `amount` и `input`:
+Журнал живого экземпляра читают под-чаты и пересылают куски в чаты и issues. Поэтому:
 
 - **Не логировать то, что пользователь написал или сказал:** фразу, услышанное, сумму, заметку, мерчанта, ответ ИИ,
   поисковый запрос. Вместо них — счётчики и признаки: `textLength`, `contentLength`, имена исправленных полей,
