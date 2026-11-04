@@ -11,8 +11,9 @@ enum RecordsStatus: Equatable, Sendable {
     case stale(RecordsFailure, updatedAt: Date?)
 }
 
-/// The line over «Записи»: «Обновляю…», «Обновлено 5 мин назад», «Нет связи · обновлено в 14:32». A pure function of
-/// the moment, so the screen redraws it with the clock (`TimelineView`) while the list stays as it is (decision FT-220).
+/// The line over «Записи»: «Обновляю…», «Обновлено 5 мин назад», «Нет связи · обновлено в 14:32», «Сервер не ответил ·
+/// обновлено в 14:32». A pure function of the moment, so the screen redraws it with the clock (`TimelineView`) while the
+/// list stays as it is (decision FT-220).
 enum RecordsCaption {
     /// Up to an hour the age is in minutes; from then on — the clock.
     static let minutesUpTo: TimeInterval = 60 * 60
@@ -28,7 +29,7 @@ enum RecordsCaption {
         case let .stale(problem, updatedAt):
             guard let reason = reason(problem) else { return nil }
             guard let updatedAt else { return reason }
-            // Without a network the clock, as before FT-254: «Нет связи · обновлено в 14:32»
+            // Without an answer the clock, as before FT-254: «Нет связи · обновлено в 14:32»
             return "\(reason) · обновлено \(when(updatedAt, now: now, calendar: calendar))"
         }
     }
@@ -41,15 +42,10 @@ enum RecordsCaption {
         return minutes == 0 ? "только что" : "\(minutes) мин назад"
     }
 
-    /// `nil` when the screen says it instead (no address or token).
+    /// «Нет связи», «Сервер не ответил», «Сервер просит подождать», «Сервер не принял запрос», «Сервер не принял токен»
+    /// (#282); `nil` when the screen says it instead (no address or token).
     private static func reason(_ problem: RecordsFailure) -> String? {
-        switch problem {
-        case .notConfigured: nil
-        case .tokenRefused: "Сервер не принял токен"
-        case .refused: "Сервер не принял запрос"
-        // A refresh meets no others; they belong to the edits of FT-221
-        case .unreachable, .recordGone, .categoryGone: "Нет связи"
-        }
+        problem == .notConfigured ? nil : problem.title
     }
 
     /// «в 14:32», «вчера в 14:32», «26 октября в 14:32».

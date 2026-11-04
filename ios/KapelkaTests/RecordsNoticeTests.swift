@@ -87,7 +87,7 @@ struct RecordsNoticeTests {
         #expect(list.notice?.restorable == ["c"])
         await restoring
 
-        #expect(list.notice?.message == "Не вернул «такси» — нет связи")
+        #expect(list.notice?.message == "Не вернул «такси» — сервер не ответил")
         #expect(list.notice?.restorable == ["b"])
         #expect(ids(list) == ["a"])
 

@@ -166,6 +166,9 @@ one, the token is one more way to sign in, next to initData and the browser sess
   records. A capture through the tunnel keeps the FT-075 rule — the header names the owner.
 - **The Mini App's answers** ([`docs/pastel/api.md`](pastel/api.md)): the same envelopes and fields. Someone else's
   record is `403 AUTHORIZATION_ERROR`, as it is for the Mini App; a record already deleted — `404` on delete and edit.
+  The iOS app tells the two `404 NOT_FOUND` apart by the start of the message — «Transaction not found…» on `DELETE`,
+  `PUT` and `POST …/restore`, «Category not found…» on `PUT { categoryId }` with a category the owner lacks — and
+  reads any other `404` as «сервер не ответил» (#282). `tests/appTokenRecords.test.ts` pins both texts.
 - **Everything else is closed.** No other route reads the token: there a token signs nobody in, and the answer is that of
   a request without sign-in (`401`, or `403` from a record's ownership check). On `/api/categories` and `/api/accounts`
   only `GET /` is registered before the router's own sign-in, which every other route of theirs goes through — a new

@@ -121,15 +121,15 @@ struct CategoryPickerTests {
         #expect(list.record(id: "b")?.categoryId == "cat-cafe")
     }
 
-    @Test("категории без связи не загрузились — сообщение в шторке; «Повторить» загружает")
-    func categoriesOffline() async throws {
+    @Test("категории не загрузились, сервер не ответил — шторка называет причину; «Повторить» загружает")
+    func categoriesNoAnswer() async throws {
         let routes = RoutedTransport(page: [Self.firstPage], categories: [.failure(.timedOut), Self.categories])
         let list = try list(routes)
         await list.refresh()
         let picker = try picker(for: "b", in: list)
 
         await picker.load()
-        #expect(picker.choices == .failed("Нет связи — попробуй позже"))
+        #expect(picker.choices == .failed(.later(.noAnswer), message: "Сервер не ответил — попробуй позже"))
 
         await picker.load()
         #expect(try picker.choices == loaded([Self.cafe, Self.food]))
@@ -211,7 +211,29 @@ struct CategoryPickerTests {
 
         #expect(await picker.choose("cat-food") == false)
 
-        #expect(picker.choices == .failed("Категории уже нет. Нет связи — попробуй позже"))
+        #expect(picker.choices == .failed(.later(.offline), message: "Категории уже нет. Нет связи — попробуй позже"))
+    }
+
+    @Test(
+        "категории не загрузились — причина своя, не всегда «нет связи»: токен, просит подождать, не принял (#282)",
+        arguments: [
+            (FakeTransport.Reply.http(401, body: ServerReply.invalidToken), RecordsFailure.tokenRefused,
+             "Сервер не принял токен — проверь токен в настройках Kapelka"),
+            (.failure(.notConnectedToInternet), .later(.offline), "Нет связи — попробуй позже"),
+            (.http(429, body: ServerReply.rateLimited, headers: ["Retry-After": "60"]), .later(.busy),
+             "Сервер просит подождать — попробуй позже"),
+            (.http(400, body: "bad"), .refused, "Сервер не принял запрос"),
+        ]
+    )
+    func categoriesFailWithTheirReason(reply: FakeTransport.Reply, failure: RecordsFailure, message: String) async throws {
+        let routes = RoutedTransport(page: [Self.firstPage], categories: [reply])
+        let list = try list(routes)
+        await list.refresh()
+        let picker = try picker(for: "b", in: list)
+
+        await picker.load()
+
+        #expect(picker.choices == .failed(failure, message: message))
     }
 
     @Test("ответ по шторке одной записи закрывает только её, а не шторку, уже открытую у другой")
