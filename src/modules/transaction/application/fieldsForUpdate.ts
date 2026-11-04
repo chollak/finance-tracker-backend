@@ -9,6 +9,7 @@ export interface FieldsOfUpdate {
   amount?: unknown;
   amountMinor?: unknown;
   category?: unknown;
+  categoryId?: unknown;
   date?: string;
   type?: 'income' | 'expense';
   semanticType?: unknown;
@@ -63,12 +64,18 @@ function amountOf(request: FieldsOfUpdate): Result<number | undefined, Validatio
   return Validators.moneyAmount(request);
 }
 
-function refusedCategoryDateOrType({ category, date, type }: FieldsOfUpdate): ValidationError | undefined {
+function refusedCategoryDateOrType({ category, categoryId, date, type }: FieldsOfUpdate): ValidationError | undefined {
   if (category !== undefined) {
     // Not text is refused as in POST, not a 500 from `.trim()` (#229)
     const text = Validators.string(category, 'category');
     if (!text.success) return text.error;
     if (!text.data.trim()) return new ValidationError('Category cannot be empty');
+  }
+  if (categoryId !== undefined) {
+    // An id or nothing: `null` or blank must not reach the resolver, which falls back to «Другое» (#229)
+    const id = Validators.string(categoryId, 'categoryId');
+    if (!id.success) return id.error;
+    if (!id.data.trim()) return new ValidationError('categoryId cannot be empty', 'categoryId');
   }
   if (date !== undefined && !isDayString(date)) {
     return new ValidationError('Invalid date format. Use YYYY-MM-DD');

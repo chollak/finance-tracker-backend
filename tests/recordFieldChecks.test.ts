@@ -48,6 +48,13 @@ const REFUSED: Array<[string, Record<string, unknown>, string]> = [
   ['category null', { category: null }, 'category must be a string'],
   ['category an object', { category: { name: 'Кафе' } }, 'category must be a string'],
   ['category a list', { category: ['Кафе'] }, 'category must be a string'],
+  // Not a non-empty id: was a 404 from the resolver, and null or blank silently moved the record to «Другое»
+  ['categoryId a number', { categoryId: 5 }, 'categoryId must be a string'],
+  ['categoryId true', { categoryId: true }, 'categoryId must be a string'],
+  ['categoryId an object', { categoryId: { id: 'cafe' } }, 'categoryId must be a string'],
+  ['categoryId null', { categoryId: null }, 'categoryId must be a string'],
+  ['categoryId an empty string', { categoryId: '' }, 'categoryId cannot be empty'],
+  ['categoryId only spaces', { categoryId: '   ' }, 'categoryId cannot be empty'],
 ];
 
 describe('record fields are checked alike (#229)', () => {
