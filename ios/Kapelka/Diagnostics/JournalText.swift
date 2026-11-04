@@ -43,10 +43,13 @@ enum JournalText {
         "окно: «\(report)»"
     }
 
+    /// «Записать трату»'s phrase is on the phone: from this step on the queue keeps it, whatever becomes of the app.
+    private static let phraseQueued = "фраза в очереди"
+
     /// «в очереди · <clientId> · KORZINKA 24 · 25 000,00 UZS»; a phrase by its `clientId` only.
     static func queued(_ capture: Capture) -> String {
         let id = capture.clientId.uuidString
-        guard let payment = capture.payment else { return "фраза в очереди · \(id)" }
+        guard let payment = capture.payment else { return "\(phraseQueued) · \(id)" }
         return "в очереди · \(id) · \(payment.line)"
     }
 
@@ -118,8 +121,26 @@ enum JournalText {
         case .going: "идёт"
         case let .finished(ms): "конец · \(time(ms))"
         case let .failed(ms, message): "ошибка: \(message) · \(time(ms))"
-        case let .interrupted(lastStep): "оборвана iOS после шага «\(lastStep)»"
+        case let .interrupted(lastStep): interrupted(after: lastStep)
         }
+    }
+
+    /// The process was gone before the run's end — iOS unloaded the app, it crashed or was swiped away; the journal
+    /// cannot tell which (#243). «Записать трату» cut off after its phrase was on the phone lost nothing: the command
+    /// itself was over long before, only the send was cut, and the queue's next pass sends the phrase.
+    private static func interrupted(after lastStep: String) -> String {
+        let cut = "оборвана: приложение закрылось после шага «\(lastStep)»"
+        return lastStep.hasPrefix(phraseQueued) ? "\(cut), фраза цела и уйдёт сама" : cut
+    }
+
+    /// VoiceOver: a step as one phrase, «12 мс — в очереди · 0B9C2F5E · KORZINKA 24 · 25 000,00 UZS».
+    static func spoken(_ step: JournalRun.Step) -> String {
+        "\(duration(ms: step.ms)) — \(spoken(step.text))"
+    }
+
+    /// VoiceOver: each UUID by its first eight characters — read out whole, it is 36 of them.
+    static func spoken(_ text: String) -> String {
+        text.replacing(/[0-9A-Fa-f]{8}(?:-[0-9A-Fa-f]{4}){3}-[0-9A-Fa-f]{12}/) { String($0.output.prefix(8)) }
     }
 
     /// «3 нояб., 08:05:12 · Записать оплату».

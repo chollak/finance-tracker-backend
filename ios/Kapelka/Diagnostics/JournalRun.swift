@@ -16,14 +16,15 @@ enum JournalCommand: String, Codable, Sendable {
 }
 
 /// One line of the journal file. A run is its lines with the same `run`: the start, the steps, then an end, an error
-/// or — found by the next process — «оборвана iOS».
+/// or — found by the next process — «оборвана».
 struct JournalLine: Codable, Equatable, Sendable {
     enum Event: String, Codable, Sendable {
         case start
         case step
         case end
         case failed
-        /// A later process found the run without an end: iOS stopped the command or the app. `text` is the last step.
+        /// A later process found the run without an end: the app closed before it — unloaded by iOS, crashed or swiped
+        /// away. `text` is the last step.
         case interrupted
     }
 

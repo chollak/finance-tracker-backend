@@ -103,13 +103,34 @@ struct JournalTextTests {
         #expect(start > Date().addingTimeInterval(-24 * 3600))
     }
 
-    @Test("итог запуска: конец, ошибка, оборвана iOS с последним шагом, идёт")
+    @Test("итог запуска: конец, ошибка, оборвана — приложение закрылось — с последним шагом, идёт")
     func outcome() {
         #expect(JournalText.outcome(.finished(ms: 1834)) == "конец · 1,8\u{00A0}с")
         #expect(JournalText.outcome(.failed(ms: 20, message: "очередь закрыта")) == "ошибка: очередь закрыта · 20\u{00A0}мс")
         #expect(JournalText.outcome(.interrupted(lastStep: "отправка: нет связи"))
-            == "оборвана iOS после шага «отправка: нет связи»")
+            == "оборвана: приложение закрылось после шага «отправка: нет связи»")
         #expect(JournalText.outcome(.going) == "идёт")
+    }
+
+    @Test("«Записать трату» оборвана после «фраза в очереди» — фраза цела и уйдёт; до неё — без этих слов")
+    func interruptedAfterPhrase() {
+        let phrase = Capture(clientId: Self.id, text: "кофе 25к", capturedAt: Date(), timeZoneIdentifier: "Asia/Tashkent")
+        let queued = JournalText.queued(phrase)
+        #expect(JournalText.outcome(.interrupted(lastStep: queued))
+            == "оборвана: приложение закрылось после шага «\(queued)», фраза цела и уйдёт сама")
+        #expect(JournalText.outcome(.interrupted(lastStep: JournalText.pressed(.idle)))
+            == "оборвана: приложение закрылось после шага «слушаю»")
+        // A payment's queued step is the command's own: cut off there is what the journal hunts
+        #expect(!JournalText.outcome(.interrupted(lastStep: JournalText.queued(Self.payment()))).contains("цела"))
+    }
+
+    @Test("VoiceOver: шаг — одна фраза «время — текст», UUID — первые 8 знаков")
+    func spoken() {
+        #expect(JournalText.spoken(JournalRun.Step(ms: 12, text: JournalText.queued(Self.payment())))
+            == "12\u{00A0}мс — в очереди · 0B9C2F5E · Магазин у дома · 12 345,00 UZS")
+        #expect(JournalText.spoken(JournalRun.Step(ms: 1834, text: "отправка: записано")) == "1,8\u{00A0}с — отправка: записано")
+        #expect(JournalText.spoken("оборвана после шага «фраза в очереди · \(Self.id.uuidString.lowercased())»")
+            == "оборвана после шага «фраза в очереди · 0b9c2f5e»")
     }
 
     @Test("«Поделиться» — текстом: заголовок, запуски новые сверху, у каждого шаги со временем от начала")
@@ -140,7 +161,7 @@ struct JournalTextTests {
         Журнал команд Kapelka · запусков: 2, новые сверху
         Kapelka 0.1 (7), собрана 29 окт., 13:32 · iOS 26.1
 
-        29 окт., 14:33:05 · Записать оплату — оборвана iOS после шага «в очереди · 1»
+        29 окт., 14:33:05 · Записать оплату — оборвана: приложение закрылось после шага «в очереди · 1»
           холодный запуск · 340\u{00A0}мс от старта процесса
           0\u{00A0}мс · начало
           12\u{00A0}мс · в очереди · 1
