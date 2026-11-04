@@ -3,8 +3,7 @@ import { TransactionRepository } from '../domain/transactionRepository';
 import { Result, ResultHelper } from '../../../shared/domain/types/Result';
 import { ValidationError, NotFoundError, BusinessLogicError } from '../../../shared/domain/errors/AppError';
 import { getLogger, LogCategory } from '../../../shared/application/logging';
-import { isTransactionSemanticType, TransactionSemanticType } from '../domain/transactionSemanticType';
-import { Validators } from '../../../shared/application/validation/validators';
+import { TransactionSemanticType } from '../domain/transactionSemanticType';
 import { CategoryResolver } from '../domain/categoryResolver';
 import { resolveCategoryForUpdate } from './resolveCategoryForUpdate';
 import { AccountResolver } from '../domain/accountResolver';
@@ -12,7 +11,7 @@ import { resolveAccountForUpdate } from './resolveAccountForUpdate';
 import { CategoryLessons } from '../domain/categoryLessons';
 import { teachCategoryCorrection } from './teachCategoryCorrection';
 import { changesRecord, RecordEdit } from '../domain/recordEdit';
-import { noteAndMerchantForUpdate } from './noteAndMerchantForUpdate';
+import { fieldsForUpdate } from './fieldsForUpdate';
 
 const logger = getLogger(LogCategory.TRANSACTION);
 
@@ -47,46 +46,16 @@ export class UpdateTransactionUseCase {
   ) {}
 
   async execute(request: UpdateTransactionRequest): Promise<Result<Transaction>> {
-    const { id, category, date, type, semanticType, needsReview } = request;
+    const { id } = request;
 
     // Validate ID
     if (!id?.trim()) {
       return ResultHelper.failure(new ValidationError('Transaction ID is required'));
     }
 
-    // Validate update fields if provided
-    let amountMinor: number | undefined;
-    if (request.amount !== undefined || request.amountMinor !== undefined) {
-      const resolved = Validators.moneyAmount(request);
-      if (!resolved.success) {
-        return ResultHelper.failure(new ValidationError(resolved.error.message, 'amount'));
-      }
-      amountMinor = resolved.data;
-    }
-
-    if (category !== undefined && !category.trim()) {
-      return ResultHelper.failure(new ValidationError('Category cannot be empty'));
-    }
-
-    if (date !== undefined && !this.isValidDateString(date)) {
-      return ResultHelper.failure(new ValidationError('Invalid date format. Use YYYY-MM-DD'));
-    }
-
-    if (type !== undefined && !['income', 'expense'].includes(type)) {
-      return ResultHelper.failure(new ValidationError('Type must be "income" or "expense"'));
-    }
-
-    if (semanticType !== undefined && !isTransactionSemanticType(semanticType)) {
-      return ResultHelper.failure(new ValidationError('Invalid semanticType'));
-    }
-
-    if (needsReview !== undefined && typeof needsReview !== 'boolean') {
-      return ResultHelper.failure(new ValidationError('needsReview must be a boolean'));
-    }
-
-    const texts = noteAndMerchantForUpdate(request);
-    if (!texts.success) return ResultHelper.failure(texts.error);
-    const { description, merchant } = texts.data;
+    // The same check as the learning update (#229), before the record is read
+    const fields = fieldsForUpdate(request);
+    if (!fields.success) return ResultHelper.failure(fields.error);
 
     try {
       // Check if transaction exists
@@ -104,18 +73,7 @@ export class UpdateTransactionUseCase {
       if (!moved.success) return ResultHelper.failure(moved.error);
       const { accountId, currency } = moved.data;
 
-      const edit: RecordEdit = {
-        amountMinor,
-        categoryId: categoryResult.data?.id,
-        accountId,
-        currency,
-        description,
-        date,
-        type,
-        semanticType,
-        needsReview,
-        merchant,
-      };
+      const edit: RecordEdit = { ...fields.data, categoryId: categoryResult.data?.id, accountId, currency };
       // Nothing changes («?» confirmed with the same category): no write, so updatedAt stays, and nothing to learn
       if (!changesRecord(existing, edit)) {
         logger.debug('Transaction update changes nothing', { transactionId: id });
@@ -136,12 +94,5 @@ export class UpdateTransactionUseCase {
         new BusinessLogicError('Failed to update transaction', { transactionId: id })
       );
     }
-  }
-
-  private isValidDateString(date: string): boolean {
-    const regex = /^\d{4}-\d{2}-\d{2}$/;
-    if (!regex.test(date)) return false;
-    const parsed = new Date(date);
-    return !isNaN(parsed.getTime());
   }
 }

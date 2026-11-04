@@ -27,9 +27,9 @@ final class CountingStorage: JournalStorage, @unchecked Sendable {
     var appends: Int { lock.withLock { counts.appends } }
     var replaces: Int { lock.withLock { counts.replaces } }
 
-    func append(_ line: Data) throws {
+    func append(_ line: Data) throws -> Int {
         lock.withLock { counts.appends += 1 }
-        try file.append(line)
+        return try file.append(line)
     }
 
     func read() throws -> Data {
@@ -47,7 +47,7 @@ final class CountingStorage: JournalStorage, @unchecked Sendable {
 struct BrokenStorage: JournalStorage {
     struct Broken: Error {}
 
-    func append(_ line: Data) throws { throw Broken() }
+    func append(_ line: Data) throws -> Int { throw Broken() }
     func read() throws -> Data { throw Broken() }
     func replace(with data: Data) throws { throw Broken() }
 }
@@ -82,6 +82,28 @@ final class JournalHarness: Sendable {
     /// The file's lines as written.
     func lines() throws -> [String] {
         String(decoding: try file.read(), as: UTF8.self).split(separator: "\n").map(String.init)
+    }
+
+    /// The file's size in bytes.
+    func size() throws -> Int {
+        try file.read().count
+    }
+
+    /// Finished runs an earlier process left — a start, one step, an end each, oldest first — written in one go: a big
+    /// journal without appending it line by line.
+    @discardableResult
+    func fill(_ command: JournalCommand, runs count: Int, step: String = "в очереди") throws -> [UUID] {
+        let encoder = JSONEncoder()
+        let ids = (0 ..< count).map { _ in UUID() }
+        let lines = try ids.flatMap { run in
+            try [
+                JournalLine(run: run, event: .start, at: clock.now, command: command),
+                JournalLine(run: run, event: .step, at: clock.now, text: step, ms: 1),
+                JournalLine(run: run, event: .end, at: clock.now, ms: 2),
+            ].map { "\n" + String(decoding: try encoder.encode($0), as: UTF8.self) }
+        }
+        try file.append(Data(lines.joined().utf8))
+        return ids
     }
 }
 

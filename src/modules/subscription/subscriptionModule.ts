@@ -5,6 +5,7 @@
 
 import { SubscriptionRepository } from './domain/subscriptionRepository';
 import { UsageLimitRepository } from './domain/usageLimitRepository';
+import { GrantTargets } from './domain/grantTargets';
 
 import { CreateSubscriptionUseCase } from './application/createSubscription';
 import { GetSubscriptionUseCase } from './application/getSubscription';
@@ -37,9 +38,11 @@ export class SubscriptionModule {
   /** Whether free-tier limits are enforced (AppConfig.FREE_LIMITS_ENABLED, decision Д3). */
   readonly freeLimitsEnabled: boolean;
 
+  /** `grantTargets`: whom the admin grant may go to — a user that exists (#230). */
   constructor(
     subscriptionRepository: SubscriptionRepository,
     usageLimitRepository: UsageLimitRepository,
+    grantTargets: GrantTargets,
     options: SubscriptionModuleOptions = {}
   ) {
     // Initialize use cases
@@ -58,7 +61,7 @@ export class SubscriptionModule {
     this.incrementUsageUseCase = new IncrementUsageUseCase(usageLimitRepository);
     this.decrementUsageUseCase = new DecrementUsageUseCase(usageLimitRepository);
     this.setActiveDebtsCountUseCase = new SetActiveDebtsCountUseCase(usageLimitRepository);
-    this.grantPremiumUseCase = new GrantPremiumUseCase(subscriptionRepository);
+    this.grantPremiumUseCase = new GrantPremiumUseCase(subscriptionRepository, grantTargets);
     this.startTrialUseCase = new StartTrialUseCase(subscriptionRepository);
     this.cancelSubscriptionUseCase = new CancelSubscriptionUseCase(subscriptionRepository);
     this.subscriptionService = new SubscriptionService(
