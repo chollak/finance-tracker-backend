@@ -76,15 +76,6 @@ export function errorHandler(
     return;
   }
 
-  if (error.name === 'MulterError') {
-    res.status(400).json({
-      success: false,
-      error: 'File upload error: ' + error.message,
-      code: 'FILE_UPLOAD_ERROR'
-    });
-    return;
-  }
-
   // Handle unexpected errors
   res.status(500).json({
     success: false,

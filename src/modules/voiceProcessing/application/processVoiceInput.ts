@@ -311,7 +311,7 @@ export class ProcessVoiceInputUseCase {
       });
     } finally {
       // Both the voice and its .mp3, whichever is there: converted, both are; after a failed ffmpeg the voice was
-      // renamed to the .mp3. A file left in uploads/ or downloads/ would stop live-update.sh (FT-216)
+      // renamed to the .mp3. A file left in the bot's downloads/ would stop live-update.sh (FT-216)
       await Promise.all([input.filePath, newFilePath].map(removeVoiceFile));
     }
   }

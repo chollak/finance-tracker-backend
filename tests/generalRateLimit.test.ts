@@ -183,11 +183,11 @@ describe('AI rate limit is unchanged (FT-139)', () => {
 
   beforeEach(async () => {
     // serve() starts the shared AI limiter with empty counters
-    const voiceApp = express();
-    voiceApp.use('/api/voice', aiRateLimiter, (_req, res) => {
+    const aiApp = express();
+    aiApp.use('/api/quick-capture', aiRateLimiter, (_req, res) => {
       res.json({ success: true });
     });
-    app = await serve(voiceApp);
+    app = await serve(aiApp);
   });
 
   afterEach(async () => {
@@ -195,10 +195,10 @@ describe('AI rate limit is unchanged (FT-139)', () => {
   });
 
   it('still allows 20 AI requests per address, shared by everyone on it', async () => {
-    expect(count(await app.hit(10, devUser(801), '/api/voice'), 200)).toBe(10);
-    expect(count(await app.hit(10, devUser(802), '/api/voice'), 200)).toBe(10);
+    expect(count(await app.hit(10, devUser(801), '/api/quick-capture'), 200)).toBe(10);
+    expect(count(await app.hit(10, devUser(802), '/api/quick-capture'), 200)).toBe(10);
 
-    const over = await app.one(devUser(803), '/api/voice');
+    const over = await app.one(devUser(803), '/api/quick-capture');
     expect(over.status).toBe(429);
     expect(over.body).toMatchObject({ code: 'AI_RATE_LIMIT_EXCEEDED' });
   });

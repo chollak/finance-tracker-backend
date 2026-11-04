@@ -15,7 +15,6 @@ services:
     volumes:
       # Persist data directories
       - ./downloads:/app/downloads
-      - ./uploads:/app/uploads
       - ./data:/app/data
 
   # Database initialization service - run with: docker compose run db-init

@@ -141,7 +141,7 @@ Mini App); нет заголовка — сессия браузера. Без �
 |---|---|---|---|
 | `standardRateLimiter` — общий (FT-139) | 15 минут | пользователю Telegram: проверенный initData (`Authorization: tma …`), сессия браузера (FT-128), вне production — `X-Dev-User-Id` | 600 |
 | | | адресу, если входа нет или initData не прошёл проверку | 100 |
-| `aiRateLimiter` — разбор фраз, голос, быстрая запись | 15 минут | адресу | 20 |
+| `aiRateLimiter` — быстрая запись `/api/quick-capture` (до #221 и `/voice/*`) | 15 минут | адресу | 20 |
 | `readOnlyRateLimiter` — опрос `GET /api/auth/web-login` (до #205 и `/dashboard`) | 15 минут | адресу | 300 |
 | `strictRateLimiter` / `adminRateLimiter` | 15 минут | адресу | 10 / 5 |
 
@@ -164,7 +164,7 @@ Mini App); нет заголовка — сессия браузера. Без �
 
 ```typescript
 app.use('/api/transactions', transactionRoutes);
-app.use('/api/voice', voiceRoutes);
+app.use('/api/quick-capture', quickCaptureRoutes);
 app.use('/api/budgets', budgetRoutes);
 ```
 

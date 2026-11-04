@@ -2,6 +2,11 @@
 
 > Status: FT-024 audit/decision matrix. This document records current auth, ownership, and userId-resolution boundaries before any strict resolver implementation. There are no guests: the browser's guest mode went with decision Д4 (FT-128), the backend's guest branches in #206.
 
+## 2026-11-04 — the web voice routes are gone (#221)
+
+`POST /api/voice/text-input` and `/voice-input` had no client: the bot takes a voice from Telegram, the iOS app sends
+text to `/api/quick-capture`. Both are `404` now (`tests/deadVoiceRoutes.test.ts`); their rows below stay as history.
+
 ## 2026-11-04 — the resolver makes no user of an id that is no UUID and no Telegram id (#224)
 
 Found in the review of #206: `resolveUserIdToUUID` resolved every id that was not a UUID as a Telegram id, so
@@ -136,7 +141,7 @@ Tests: `tests/shortcutCaptureOwner.test.ts`, the FT-155 cases in `tests/localDev
 `tests/allowedTelegramIds.test.ts`.
 
 Known and left: one token per server (no per-device tokens, expiry or audit trail); the Shortcut shares the per-IP AI
-limit (20 requests / 15 minutes with `/api/voice/*`) — no separate limit for a non-Telegram source; behind
+limit (20 requests / 15 minutes, shared with `/api/voice/*` until #221) — no separate limit for a non-Telegram source; behind
 `tailscale serve` the address it counts is the tailnet device's, from `X-Forwarded-For` with `trust proxy 1`.
 
 ## 2026-10-27 — closed access by `ALLOWED_TELEGRAM_IDS` (FT-153)
@@ -220,7 +225,7 @@ Used for:
 - admin/global surfaces (the subscription grant)
 - `/api/users/*`
 - the `:userId` routes of transactions, budgets and debts, before `verifyOwnership` (`allowGuestMode` until #206)
-- voice text/voice input routes, before `writeAsSignedInUser`
+- voice text/voice input routes, before `writeAsSignedInUser` (removed in #221)
 
 ### `optionalAuth`
 
@@ -307,8 +312,7 @@ FT-017D decision: do not globally change this helper to fail-closed yet.
 | Transaction create | `POST /api/transactions` | `requireAuth` | signed-in user (`createResolveCurrentUserMiddleware`) | `verifyOwnership` on a body/query userId, before resolution (FT-162) | strict |
 | Transaction user-scoped analytics/list | `/api/transactions/.../:userId` | `requireAuth` (`allowGuestMode` until #206) | route middleware, after the check (FT-162) | `verifyOwnership` | strict |
 | Transaction by-id CRUD/archive | `/api/transactions/:id` | `optionalAuth`; delete, restore, edit `optionalAuthOrAppToken` (FT-218) | controller/helper | `verifyResourceOwnership` | resource-strict |
-| Voice text-input | `/api/voice/text-input` | `requireAuth` + `writeAsSignedInUser` | controller resolver | signed-in user only, no resource owner | strict |
-| Voice upload | `/api/voice/voice-input` | `requireAuth` + `writeAsSignedInUser` | controller resolver | signed-in user only, no resource owner | strict |
+| Voice text-input and upload — removed in #221 | `/api/voice/text-input`, `/api/voice/voice-input` | — (`404`) | — | — | — |
 | Quick capture | `POST /api/quick-capture`, `/payment` | `allowShortcutCapture`: `requireAuth` + `writeAsSignedInUser`, or the Shortcut token (FT-155) | controller resolver | signed-in user or `SHORTCUT_CAPTURE_OWNER` | strict |
 | Budget user-scoped | `/api/budgets/users/:userId/...` | `requireAuth` (`allowGuestMode` until #206) | route middleware, after the check (FT-162) | `verifyOwnership` | strict |
 | Budget by-id | `/api/budgets/:budgetId` | `optionalAuth` | controller/resource lookup | `verifyResourceOwnership` | resource-strict |
@@ -340,7 +344,7 @@ Keep current compatibility behavior for:
 
 - Telegram bot text/voice handlers
 - Telegram stats/today/budget commands
-- backward-compatible voice text-input behavior until product policy changes
+- backward-compatible voice text-input behavior until product policy changes (moot: removed in #221)
 
 ### Prefer strict for future implementation
 
@@ -391,6 +395,8 @@ Do not change without product/security decision.
 
 `voiceProcessingController` still supports compatibility behavior around userId input. Do not change without product decision and route tests.
 
+Moot: the controller and its routes are gone (#221).
+
 ## Recommended Next Tasks
 
 ### FT-024A — Add strict resolver helper without migrating routes
@@ -427,6 +433,6 @@ Risk: low.
 Stop for Shukur decision before changing:
 
 - subscription fail-open/fail-closed behavior
-- voice text-input missing userId behavior
+- voice text-input missing userId behavior (moot: removed in #221)
 - guest access policy for debt/budget/transaction resources (closed: no guests, Д4 and #206)
 - production auth behavior
