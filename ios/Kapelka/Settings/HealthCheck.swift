@@ -130,6 +130,7 @@ private struct HealthBody: Decodable {
     }
 
     let status: String
+    /// Not read: it tells Kapelka's body from another server's `{"status":"healthy"}`, and only then the token goes.
     let telegramBot: Bot
 
     var isKapelka: Bool {
