@@ -127,7 +127,7 @@ enum JournalText {
 
     /// The process was gone before the run's end — iOS unloaded the app, it crashed or was swiped away; the journal
     /// cannot tell which (#243). «Записать трату» cut off after its phrase was on the phone lost nothing: the command
-    /// itself was over long before, only the send was cut, and the queue sends the phrase again.
+    /// itself was over long before, only the send was cut, and the queue's next pass sends the phrase.
     private static func interrupted(after lastStep: String) -> String {
         let cut = "оборвана: приложение закрылось после шага «\(lastStep)»"
         return lastStep.hasPrefix(phraseQueued) ? "\(cut), фраза цела и уйдёт сама" : cut
