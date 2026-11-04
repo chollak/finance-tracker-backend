@@ -65,6 +65,15 @@ From `tests/apiRoutes.test.ts`:
   - generic `Error` → 500
   - malformed JSON → 400 `INVALID_JSON`
 
+From `tests/httpHardening.test.ts` (#272), on `createHttpApp` over the real `buildServer`:
+
+- `/webapp//…`, `/webapp/\…`, `%2F%2F`, `%5C` and their root forms send nobody to another host (no open redirect)
+- no `X-Powered-By`; `Cache-Control: no-store` on every `/api` answer — 200, 401, 403, 404, 400, 413, preflight
+- a JSON body over 100 KB → 413 `PAYLOAD_TOO_LARGE` (with and without `Content-Length`); a stranger's body is not read
+  (403 first); a form body is not read; the longest phrase and payment of the iPhone by token still pass
+- the log of a broken body and of a stranger's request: path and code, no body, no query
+- CORS only for the origin of `WEB_APP_URL` (and Vite in development), with credentials and `PATCH`, never `*`
+
 From `tests/legacyUserIdRoutes.test.ts` (FT-162), for every legacy route with `:userId` (transactions, debts,
 subscription status; the dashboard ones until #205 removed them, the budget ones until #264), on a real SQLite `users` table:
 

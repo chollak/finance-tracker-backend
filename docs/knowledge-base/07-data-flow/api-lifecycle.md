@@ -63,7 +63,10 @@ flowchart LR
 
 ### 2. Express Server
 
-**Entry Point:** [`src/delivery/web/express/expressServer.ts`](../../../src/delivery/web/express/expressServer.ts)
+**Entry Point:** [`src/delivery/web/express/httpApp.ts`](../../../src/delivery/web/express/httpApp.ts) — `createHttpApp`:
+API (`buildServer` из [`expressServer.ts`](../../../src/delivery/web/express/expressServer.ts)) под `/api`, webapp из
+`public/webapp` на корне, любой другой путь — её `index.html`. Без `X-Powered-By`; редиректа `/webapp/*` больше нет — он
+переносил остаток пути в `Location`, и `/webapp//evil.example` уводил браузер на чужой сайт (#272).
 
 Server слушает на порту из `process.env.PORT` (default: 3000).
 
@@ -88,35 +91,26 @@ function requestLogger(req, res, next) {
 - Warning при > 5000ms
 
 #### B. Security Headers
-```typescript
-function securityHeaders(req, res, next) {
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-Frame-Options', 'DENY');
-  res.setHeader('X-XSS-Protection', '1; mode=block');
-}
-```
+
+`X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Content-Security-Policy: default-src
+'none'`, в production — HSTS. **Каждый ответ `/api`** — `Cache-Control: no-store` (и `Pragma`/`Expires` для старых
+прокси): в ответах записи, суммы и сессии. Раньше условие смотрело `req.path` на «/api/», а внутри роутера путь без
+префикса — заголовок не ставился никогда (#272).
 
 #### C. CORS Headers
-```typescript
-function corsHeaders(req, res, next) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', '...');
-}
-```
 
-#### D. Body Parsers
-```typescript
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-```
+Mini App и сайт отдаёт этот же сервер — их запросы same-origin, CORS им не нужен; сайты Telegram API не зовут (Mini App
+внутри web.telegram.org — фрейм со своим origin). CORS-заголовки получает только разрешённый origin (#272): origin из
+`WEB_APP_URL` и в development Vite (`localhost:5173`, `127.0.0.1:5173` — для `VITE_API_BASE_URL`). Ему — сам этот origin
+с `Allow-Credentials: true`, методы `GET, POST, PUT, PATCH, DELETE, OPTIONS`; `*` не отдаётся никогда. Запрос без
+`Origin` (iPhone, curl) и чужой origin заголовков не получают. `Vary: Origin` — всегда; `OPTIONS` отвечает `200` сразу.
 
 **Файл:** [`src/delivery/web/express/middleware/errorMiddleware.ts`](../../../src/delivery/web/express/middleware/errorMiddleware.ts)
 
 #### D2. Web session (FT-128)
 
 Браузер вне Telegram входит через бота и получает httpOnly-cookie `daftar_session` (SameSite=Lax, `Path=/api`, 30
-дней). `createWebSessionMiddleware` стоит сразу после парсеров, до всех роутеров и лимитов: находит сессию по хешу
+дней). `createWebSessionMiddleware` стоит сразу после CORS, до всех роутеров и лимитов: находит сессию по хешу
 cookie и кладёт её пользователя в `req.webSession`. Дальше вход определяется так (`requireAuth`, `optionalAuth`,
 `signedInTelegramId`): вне production `X-Dev-User-Id`; есть заголовок `Authorization` — только он (`tma <initData>`
 Mini App); нет заголовка — сессия браузера. Без всего этого — `401`.
@@ -133,8 +127,23 @@ Mini App); нет заголовка — сессия браузера. Без �
 отказ id — строка `warn` сразу, повторы за 10 минут — одна строка `(repeats)` с `skipped` (`createRefusalLog`, общий
 с ботом). Владельца Shortcut (`SHORTCUT_CAPTURE_OWNER`, вне production без него — `X-Shortcut-User-Id`)
 проверяет `allowShortcutCapture` — после токена, чтобы ответ на неверный токен не выдавал, кто в списке (FT-155).
+В строке отказа — путь без query (#272).
 
 **Файл:** [`src/delivery/web/express/middleware/authMiddleware.ts`](../../../src/delivery/web/express/middleware/authMiddleware.ts)
+
+#### D4. JSON body (#272)
+
+```typescript
+router.use(express.json({ limit: JSON_BODY_LIMIT_BYTES })); // 100 KB
+```
+
+Тело читается **после** закрытого доступа: тело чужого запроса не читается вовсе. Только JSON — все клиенты шлют JSON,
+у парсера форм (`urlencoded`) клиента не было. 100 KB: загрузок нет с #221, самое большое тело — запись или фраза
+(quick capture — до 2000 символов, не больше 12 KB JSON). Отказ парсера отвечает своим статусом, не `500`: больше лимита —
+`413 PAYLOAD_TOO_LARGE`, не JSON — `400 INVALID_JSON`, другое (неизвестная кодировка…) — его `4xx` с `INVALID_BODY`. В лог —
+`Request body refused` с путём и кодом, без сообщения парсера: оно цитирует начало тела.
+
+**Файл:** [`src/delivery/web/express/expressServer.ts`](../../../src/delivery/web/express/expressServer.ts)
 
 #### E. Rate limits (в каждом роутере, до его авторизации)
 
@@ -406,17 +415,18 @@ function errorHandler(err, req, res, next) {
 ## Middleware Order (ВАЖНО!)
 
 ```
-1. requestLogger        - Logging
-2. securityHeaders      - Security
-3. corsHeaders          - CORS
-4. express.json()       - Body parsing
-5. express.urlencoded() - Form parsing
-6. Routes               - Application routes
-7. notFoundHandler      - 404 handling
-8. errorHandler         - Error handling
+1. requestLogger                 - Logging
+2. securityHeaders               - Security, no-store
+3. corsHeaders                   - CORS
+4. webSessionMiddleware          - Browser session (FT-128)
+5. createAllowedUsersMiddleware  - Closed access (FT-153)
+6. express.json(100 KB)          - Body parsing (#272)
+7. Routes                        - Application routes
+8. notFoundHandler               - 404 handling
+9. errorHandler                  - Error handling
 ```
 
-**Порядок критичен:** body parsers должны быть до routes!
+**Порядок критичен:** body parser — после закрытого доступа (тело чужого не читается) и до routes (#272).
 
 ---
 
@@ -446,9 +456,10 @@ res.on('finish', () => {
 ## Security Considerations
 
 ### Implemented
-✅ Security headers (XSS, frame options)
-✅ CORS headers
-✅ Request size limits (10MB)
+✅ Security headers (XSS, frame options), `no-store` on every `/api` answer, no `X-Powered-By` (#272)
+✅ CORS only for the allowed origins, never `*` (#272)
+✅ JSON body up to 100 KB, read after closed access; over it — `413 PAYLOAD_TOO_LARGE` (#272)
+✅ No open redirect: the `/webapp/*` redirect is gone (#272)
 ✅ Input validation на controller level
 ✅ Error message sanitization (no stack traces)
 ✅ Secrets masked in every log line, the query left out of HTTP lines (#269, `CLAUDE.md` → «Logging»)

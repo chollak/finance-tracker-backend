@@ -629,4 +629,4 @@ See: [Adding Features Guide](docs/knowledge-base/08-development/adding-features.
 - **Database**: SQLite via TypeORM, schema managed by migrations
 - **OpenAI**: Voice transcription using openai package
 - **Telegram**: Bot interface using telegraf package
-- **Express**: HTTP server with custom CORS headers; no file uploads since the web voice routes went (#221)
+- **Express**: HTTP server built by `createHttpApp` (`src/delivery/web/express/httpApp.ts`): no file uploads since the web voice routes went (#221); a JSON body up to 100 KB, read after closed access (over it — `413 PAYLOAD_TOO_LARGE`), `no-store` on every `/api` answer, CORS only for the origin of `WEB_APP_URL` (and Vite in development), no `X-Powered-By`, no `/webapp/*` redirect (#272)
