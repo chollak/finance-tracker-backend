@@ -28,14 +28,9 @@ export interface UsageLimitRepository {
   incrementCounter(userId: string, limitType: LimitType): Promise<UsageLimit>;
 
   /**
-   * Decrement a specific counter (e.g., when deleting a debt)
+   * Decrement a specific counter (e.g., when deleting a transaction)
    */
   decrementCounter(userId: string, limitType: LimitType): Promise<UsageLimit>;
-
-  /**
-   * Set active debts count directly (not monthly, but current state)
-   */
-  setActiveDebtsCount(userId: string, count: number): Promise<UsageLimit>;
 
   /**
    * Reset monthly counters (transactions and voice_inputs)

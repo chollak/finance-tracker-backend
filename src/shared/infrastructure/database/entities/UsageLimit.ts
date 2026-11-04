@@ -20,6 +20,7 @@ export class UsageLimit {
   @Column({ name: 'voice_inputs_count', default: 0 })
   voiceInputsCount!: number;
 
+  // The column stays with its rows (decision 2026-11-04); nothing reads or counts debts since #265
   @Column({ name: 'active_debts_count', default: 0 })
   activeDebtsCount!: number;
 

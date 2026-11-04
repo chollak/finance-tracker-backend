@@ -37,21 +37,3 @@ export class DecrementUsageUseCase {
     return this.usageLimitRepository.decrementCounter(userId, limitType);
   }
 }
-
-/**
- * SetActiveDebtsCount Use Case
- * Sets the exact count of active debts (for sync purposes)
- */
-export interface SetActiveDebtsCountInput {
-  userId: string;
-  count: number;
-}
-
-export class SetActiveDebtsCountUseCase {
-  constructor(private usageLimitRepository: UsageLimitRepository) {}
-
-  async execute(input: SetActiveDebtsCountInput): Promise<UsageLimit> {
-    const { userId, count } = input;
-    return this.usageLimitRepository.setActiveDebtsCount(userId, count);
-  }
-}

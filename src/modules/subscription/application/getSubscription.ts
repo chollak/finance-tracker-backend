@@ -22,7 +22,6 @@ export interface SubscriptionStatus {
   limits: {
     transactions: { used: number; limit: number | null; remaining: number | null };
     voiceInputs: { used: number; limit: number | null; remaining: number | null };
-    activeDebts: { used: number; limit: number | null; remaining: number | null };
   };
 }
 
@@ -55,7 +54,6 @@ export class GetSubscriptionUseCase {
     const unlimited = isPremium || !this.options.limitsEnabled;
     const txLimit = unlimited ? null : FREE_TIER_LIMITS.transactions;
     const voiceLimit = unlimited ? null : FREE_TIER_LIMITS.voiceInputs;
-    const debtLimit = unlimited ? null : FREE_TIER_LIMITS.activeDebts;
 
     return {
       subscription,
@@ -74,11 +72,6 @@ export class GetSubscriptionUseCase {
           used: usageLimit.voiceInputsCount,
           limit: voiceLimit,
           remaining: voiceLimit !== null ? Math.max(0, voiceLimit - usageLimit.voiceInputsCount) : null,
-        },
-        activeDebts: {
-          used: usageLimit.activeDebtsCount,
-          limit: debtLimit,
-          remaining: debtLimit !== null ? Math.max(0, debtLimit - usageLimit.activeDebtsCount) : null,
         },
       },
     };
