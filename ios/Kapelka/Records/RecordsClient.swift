@@ -12,8 +12,8 @@ enum RecordsFailure: Error, Equatable, Sendable {
     /// 404 «Category not found» on edit: the record lives, the list of categories is old.
     case categoryGone
     /// No answer to go by, for the reason the queue names (#282, `QueueWait`): no network or Tailscale off —
-    /// `offline`; a timeout (the PC asleep), 5xx, 408, a 404 or a 2xx that is not Kapelka's (a proxy, a Wi-Fi login
-    /// page) — `noAnswer`; 429 — `busy`. The list from the cache; an edit changes nothing.
+    /// `offline`; a timeout (the PC asleep), 5xx, 408, a 404 not about the record, an answer that is not Kapelka's (a
+    /// proxy, a Wi-Fi login page) — `noAnswer`; 429 — `busy`. The list from the cache; an edit changes nothing.
     case later(QueueWait)
     /// 400 and the other 4xx: the server refused the request itself. Its text goes to the log (`RecordsClient`).
     case refused
@@ -134,8 +134,8 @@ struct RecordsClient: Sendable {
         return envelope.data
     }
 
-    /// As the queue reads the codes (`CaptureClient.outcome`): only a 4xx of its own is the server saying no to the
-    /// request; any other answer that is not the records' is «сервер не ответил».
+    /// A 4xx other than 401, 403, 404, 408 and 429 is the server refusing the request; 429 is «просит подождать», as for
+    /// the queue (`CaptureClient.outcome`); anything else that is not the records' answer is «сервер не ответил».
     static func failure(status: Int, body: Data, editsRecord: Bool) -> RecordsFailure {
         switch status {
         case 401, 403:
