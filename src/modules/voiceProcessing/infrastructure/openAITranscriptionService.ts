@@ -34,6 +34,19 @@ function withoutCodeFence(content: string): string {
   return trimmed;
 }
 
+/**
+ * The parse error as the log may keep it (#269). V8 quotes a piece of the input in «Unexpected token 'К', "Кофе у
+ * Али"... is not valid JSON», and the model's answer repeats the user's phrase: that error becomes one that says only
+ * that the answer is not JSON. Any other — a position («… in JSON at position 57»), a bug in reading the items — quotes
+ * nothing and stays as it is, with its stack.
+ */
+function loggableParseError(error: unknown): Error {
+  if (error instanceof Error && error.name === 'SyntaxError' && / is not valid JSON$/.test(error.message)) {
+    return new SyntaxError('The answer is not valid JSON');
+  }
+  return error instanceof Error ? error : new Error('Unknown parsing error');
+}
+
 export class OpenAITranscriptionService implements TranscriptionService {
   private openai: OpenAI;
 
@@ -216,12 +229,12 @@ export class OpenAITranscriptionService implements TranscriptionService {
 
       return { transactions, debts, ...(withoutAmount.length ? { withoutAmount } : {}) };
     } catch (error) {
-      logger.error('Failed to parse OpenAI response', error as Error, { content: cleanContent.substring(0, 200) });
+      // How long the answer was, not the answer: it holds the user's notes and amounts (#269)
+      const loggable = loggableParseError(error);
+      logger.error('Failed to parse OpenAI response', loggable, { contentLength: cleanContent.length });
       throw ErrorFactory.externalService(
         'OpenAI Response Parser',
-        new Error(
-          `Invalid JSON response: ${error instanceof Error ? error.message : 'Unknown parsing error'}`
-        )
+        new Error(`Invalid JSON response: ${loggable.message}`)
       );
     }
   }

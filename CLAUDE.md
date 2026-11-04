@@ -123,7 +123,7 @@ The application uses **Winston** for structured logging with category-based filt
 import { createLogger, LogCategory } from '../shared/infrastructure/logging';
 
 const logger = createLogger(LogCategory.TRANSACTION);
-logger.info('Transaction created', { id: '123', amount: 100 });
+logger.info('Transaction created', { transactionId: '123', userId });
 logger.error('Failed to save', error);
 ```
 
@@ -132,6 +132,10 @@ logger.error('Failed to save', error);
 **Output Format:**
 - Development: Colorized, human-readable
 - Production: JSON (for log aggregators)
+
+**What never reaches the log (#269):** the journal on the PC is read by sub-chats and pasted into chats and issues.
+- **Secrets — masked by the logger itself** (`redact.ts`), in the message, the error, its stack and every field, however deep: a Telegram bot token `<id>:<secret>`, the colon plain or `%3A` (Telegraf puts it in every link, `…/file/bot<TOKEN>/…`; the bot id stays), an OpenAI key `sk-…`, and the values of `TG_BOT_API_KEY`, `OPENAI_API_KEY`, `SHORTCUT_CAPTURE_TOKEN`, plain or URL-encoded. Fields named like `token`, `authorization`, `cookie`, `initData`, `secret`, `password` are `[REDACTED]` whatever they hold. Still, do not log a URL from `getFileLink` or a request header — the mask is the backstop, not the rule. The patterns must stay linear (a match starts only where a run starts — the request logger writes a path anyone can send; `tests/logRedaction.test.ts` times 100 000 digits), and a line of a level that is off is dropped before it is masked.
+- **What the user wrote or said — not logged, by the code that logs:** no phrase, heard text, amount, note, merchant, AI answer or search query (`?q=` — HTTP lines write `req.path`, not `req.url`). Log counts and signs instead: `textLength`, `contentLength`, the corrected field names, a record's shape (`transactionLogFields()` in `voiceProcessing/application/captureLogFields.ts`: type, currency, `hasAmount`, `hasMerchant`, `hasNote`, confidence) — as quick capture does.
 
 ## Documentation
 

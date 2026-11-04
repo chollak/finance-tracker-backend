@@ -298,9 +298,10 @@ export function createTextMessageHandler(userModule?: UserModule, _subscriptionM
       // Transactions are counted against the free limit by CreateTransactionUseCase, once per
       // created transaction; counting here as well doubled the usage.
     } catch (error) {
+      // How long the phrase was, not its words (#269)
       logger.error('Text message error', error instanceof Error ? error : new Error(String(error)), {
         userId,
-        text: text.substring(0, 50),
+        textLength: text.length,
       });
 
       await replyWithError(ctx, error);
