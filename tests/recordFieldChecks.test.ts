@@ -43,6 +43,11 @@ const REFUSED: Array<[string, Record<string, unknown>, string]> = [
   ['a date not YYYY-MM-DD', { date: '30.10.2026' }, 'Invalid date format. Use YYYY-MM-DD'],
   ['a type other than income or expense', { type: 'transfer' }, 'Type must be "income" or "expense"'],
   ['a blank category', { category: '  ' }, 'Category cannot be empty'],
+  // Not text: was a 500 from `.trim()` on both paths
+  ['category a number', { category: 5 }, 'category must be a string'],
+  ['category null', { category: null }, 'category must be a string'],
+  ['category an object', { category: { name: 'Кафе' } }, 'category must be a string'],
+  ['category a list', { category: ['Кафе'] }, 'category must be a string'],
 ];
 
 describe('record fields are checked alike (#229)', () => {

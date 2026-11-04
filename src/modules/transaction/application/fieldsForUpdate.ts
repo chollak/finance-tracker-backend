@@ -8,7 +8,7 @@ import { isTransactionSemanticType, TransactionSemanticType } from '../domain/tr
 export interface FieldsOfUpdate {
   amount?: unknown;
   amountMinor?: unknown;
-  category?: string;
+  category?: unknown;
   date?: string;
   type?: 'income' | 'expense';
   semanticType?: unknown;
@@ -64,8 +64,11 @@ function amountOf(request: FieldsOfUpdate): Result<number | undefined, Validatio
 }
 
 function refusedCategoryDateOrType({ category, date, type }: FieldsOfUpdate): ValidationError | undefined {
-  if (category !== undefined && !category.trim()) {
-    return new ValidationError('Category cannot be empty');
+  if (category !== undefined) {
+    // Not text is refused as in POST, not a 500 from `.trim()` (#229)
+    const text = Validators.string(category, 'category');
+    if (!text.success) return text.error;
+    if (!text.data.trim()) return new ValidationError('Category cannot be empty');
   }
   if (date !== undefined && !isDayString(date)) {
     return new ValidationError('Invalid date format. Use YYYY-MM-DD');
