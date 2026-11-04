@@ -216,6 +216,8 @@ actor CaptureQueue {
     }
 
     private func sendEach() async {
+        // The server answered in this pass: the PC is up, and a request cut short later ran out of time (#219)
+        var answered = false
         while !Task.isCancelled, let capture = nextToSend() {
             let generation = settingsGeneration
             markSending(capture.clientId)
@@ -223,22 +225,37 @@ actor CaptureQueue {
             markSending(nil)
             // Cut short by `cancelSending()`: not the server's answer, so not an attempt
             if Task.isCancelled, case let .retryLater(_, wait, mayBeOnServer) = outcome {
-                cutShort(capture.clientId, wait: wait, mayBeOnServer: mayBeOnServer)
+                cutShort(capture.clientId, wait: answered ? nil : wait, mayBeOnServer: mayBeOnServer)
                 break
             }
+            answered = answered || Self.isAnswer(outcome)
             // Refused with the settings of before: the next round goes with the new ones
             if outcome == .tokenRefused, generation != settingsGeneration { continue }
             guard apply(outcome, to: capture.clientId) else { break }
         }
     }
 
-    /// A request cut short still tells something (FT-256): the PC had not answered by then — the payment's «уйдёт
-    /// позже» says «сервер не ответил» — and it may have been written.
-    private func cutShort(_ clientId: UUID, wait: QueueWait, mayBeOnServer: Bool) {
+    /// The server's own answer that lets the pass go on: written, refused (400), a token refused with the settings of
+    /// before. A `retryLater` — a 5xx or a 429 among them — stops the pass, so nothing in it is cut short after one.
+    private static func isAnswer(_ outcome: SendOutcome) -> Bool {
+        switch outcome {
+        case .sent, .rejected, .tokenRefused: true
+        case .retryLater, .notConfigured: false
+        }
+    }
+
+    /// A request cut short still tells something (FT-256): it may have been written, and the PC had not answered by
+    /// then — the payment's «уйдёт позже» says «сервер не ответил». `wait` is `nil` when the server answered earlier
+    /// in the pass: the time ran out on a long queue, not on a silent PC, and the reason stays as it is — none: a
+    /// record written or refused cleared it, a token refused with the settings of before was cleared by the new
+    /// settings (#219).
+    private func cutShort(_ clientId: UUID, wait: QueueWait?, mayBeOnServer: Bool) {
         guard let index = current.captures.firstIndex(where: { $0.clientId == clientId }) else { return }
         var next = current
         next.captures[index].mayBeOnServer = next.captures[index].mayBeOnServer || mayBeOnServer
-        next.wait = wait
+        if let wait {
+            next.wait = wait
+        }
         persist(next)
     }
 
@@ -317,7 +334,9 @@ actor CaptureQueue {
             capture.attempts += 1
             capture.state = .rejected
             capture.rejection = message
-            // The server answered: it is reachable
+            // The server answered: it is reachable, and a 429 pause from before is over — a request goes only after
+            // it, so `PaymentNotice` must not read «просит подождать» from it (#219)
+            next.notBefore = nil
             next.wait = nil
             goOn = true
         case let .retryLater(after, wait, mayBeOnServer):
