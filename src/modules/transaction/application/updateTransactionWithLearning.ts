@@ -10,7 +10,8 @@ import { CategoryResolver, ResolvedCategory } from '../domain/categoryResolver';
 import { resolveCategoryForUpdate } from './resolveCategoryForUpdate';
 import { AccountResolver } from '../domain/accountResolver';
 import { resolveAccountForUpdate } from './resolveAccountForUpdate';
-import { changesRecord, noteEdit, RecordEdit } from '../domain/recordEdit';
+import { changesRecord, RecordEdit } from '../domain/recordEdit';
+import { noteAndMerchantForUpdate } from './noteAndMerchantForUpdate';
 import { TransactionSemanticType } from '../domain/transactionSemanticType';
 
 const logger = getLogger(LogCategory.LEARNING);
@@ -27,14 +28,14 @@ export interface UpdateTransactionWithLearningRequest {
   accountId?: string;
   /** Only together with accountId: the record's currency must be the new account's (FT-103). */
   currency?: 'UZS' | 'USD';
-  /** `null` clears the note, as in POST (FT-249). */
+  /** Checked and trimmed as in POST; `null` clears the note (FT-249, #210). */
   description?: string | null;
   date?: string;
   type?: 'income' | 'expense';
-  /** The controller passes every allowed field on, and `...request` writes these two as well. */
   semanticType?: TransactionSemanticType;
   needsReview?: boolean;
-  merchant?: string;
+  /** Checked and trimmed as the note; `null`, empty or blank clears the merchant (#210). */
+  merchant?: string | null;
   // Learning context
   userId?: string;
   originalText?: string;
@@ -56,7 +57,6 @@ export class UpdateTransactionWithLearningUseCase {
 
   async execute(request: UpdateTransactionWithLearningRequest): Promise<Result<Transaction>> {
     const { id, category, date, type } = request;
-    const description = noteEdit(request.description);
 
     // Validate ID
     if (!id?.trim()) {
@@ -85,6 +85,10 @@ export class UpdateTransactionWithLearningUseCase {
       return ResultHelper.failure(new ValidationError('Type must be "income" or "expense"'));
     }
 
+    const texts = noteAndMerchantForUpdate(request);
+    if (!texts.success) return ResultHelper.failure(texts.error);
+    const { description, merchant } = texts.data;
+
     try {
       // Get original transaction for comparison
       const originalTransaction = await this.repository.findById(id.trim());
@@ -111,7 +115,7 @@ export class UpdateTransactionWithLearningUseCase {
         type,
         semanticType: request.semanticType,
         needsReview: request.needsReview,
-        merchant: request.merchant,
+        merchant,
       };
       // Nothing changes: no write, so updatedAt stays (FT-248), and no correction to record
       if (!changesRecord(originalTransaction, edit)) {
@@ -119,21 +123,12 @@ export class UpdateTransactionWithLearningUseCase {
         return ResultHelper.success(originalTransaction);
       }
 
-      // Update the transaction
-      const updatedTransaction = await this.repository.update(id.trim(), {
-        ...request,
-        amount: undefined,
-        amountMinor,
-        category: undefined,
-        categoryId: categoryResult.data?.id,
-        accountId,
-        currency,
-        description,
-      });
+      // The same write as the regular update: the checked edit, not the request (#210)
+      const updatedTransaction = await this.repository.update(id.trim(), edit);
 
       // Record learning data if we have the necessary context
       if (request.userId && request.originalText && request.originalParsing) {
-        await this.recordLearningData(request, amountMinor, categoryResult.data, originalTransaction, updatedTransaction);
+        await this.recordLearningData(request, edit, categoryResult.data, originalTransaction);
       }
 
       logger.info('Transaction updated with learning', { transactionId: id });
@@ -155,11 +150,11 @@ export class UpdateTransactionWithLearningUseCase {
 
   private async recordLearningData(
     request: UpdateTransactionWithLearningRequest,
-    amountMinor: number | undefined,
+    edit: RecordEdit,
     category: ResolvedCategory | undefined,
-    originalTransaction: Transaction,
-    _updatedTransaction: Transaction
+    originalTransaction: Transaction
   ): Promise<void> {
+    const { amountMinor, merchant } = edit;
     try {
       const userCorrection: Record<string, unknown> = {};
 
@@ -179,11 +174,9 @@ export class UpdateTransactionWithLearningUseCase {
         userCorrection.type = request.type;
       }
 
-      if (
-        request.merchant !== undefined &&
-        request.merchant !== (originalTransaction as { merchant?: string }).merchant
-      ) {
-        userCorrection.merchant = request.merchant;
+      // A cleared merchant has no name to learn
+      if (merchant && merchant !== originalTransaction.merchant) {
+        userCorrection.merchant = merchant;
       }
 
       // Only record if there are actual corrections

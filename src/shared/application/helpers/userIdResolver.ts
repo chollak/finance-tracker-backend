@@ -16,6 +16,9 @@ const logger = createLogger(LogCategory.USER);
  */
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+/** A Telegram user id as text: a positive whole number in digits, of any length (#224). */
+const TELEGRAM_ID_PATTERN = /^0*[1-9]\d*$/;
+
 /**
  * Check if a string is a valid UUID v4
  */
@@ -24,13 +27,39 @@ export function isUUID(str: string): boolean {
 }
 
 /**
- * Resolve any userId format to UUID. There are no guests (decision Д4, #206): every id that is not a UUID is resolved
- * as a Telegram id, creating the user on first contact — so an HTTP route checks the id is the signed-in user's own
- * (`verifyOwnership`) before resolving it.
+ * Whether resolution may take the id (#224): a UUID, or a Telegram id — a positive whole number in digits. Anything
+ * else (`abc`, `-5`, `1.5`, `0`, an old guest id) names no user, and resolving it would create a `users` row for it.
+ * Spaces around the id are fine, as in the resolver.
+ */
+export function isResolvableUserId(userId: string): boolean {
+  const trimmedId = userId.trim();
+  return isUUID(trimmedId) || TELEGRAM_ID_PATTERN.test(trimmedId);
+}
+
+/** The trimmed id, or a ValidationError for an empty id or one that is no UUID and no Telegram id (#224). */
+function checkedUserId(userId: string): string {
+  const trimmedId = userId.trim();
+
+  if (!trimmedId) {
+    throw new ValidationError('userId is required', 'userId');
+  }
+
+  if (!isResolvableUserId(trimmedId)) {
+    throw new ValidationError('userId must be a user UUID or a Telegram id', 'userId');
+  }
+
+  return trimmedId;
+}
+
+/**
+ * Resolve a userId to UUID. There are no guests (decision Д4, #206): a UUID passes as it is, a Telegram id is resolved,
+ * creating the user on first contact — so an HTTP route checks the id is the signed-in user's own (`verifyOwnership`)
+ * before resolving it. Any other id is a ValidationError and creates no user (#224).
  *
  * @param userId - Can be telegramId (string of numbers) or UUID
  * @param userModule - UserModule instance for resolving telegramId to UUID
  * @returns UUID string (the id as given if resolution fails: fail-open)
+ * @throws ValidationError for an empty id or one that is no UUID and no Telegram id
  *
  * @example
  * // telegramId → UUID
@@ -43,12 +72,7 @@ export async function resolveUserIdToUUID(
   userId: string,
   userModule: UserModule
 ): Promise<string> {
-  // Trim whitespace
-  const trimmedId = userId.trim();
-
-  if (!trimmedId) {
-    throw new ValidationError('userId is required', 'userId');
-  }
+  const trimmedId = checkedUserId(userId);
 
   // Already a UUID - return as-is
   if (isUUID(trimmedId)) {
@@ -74,17 +98,14 @@ export async function resolveUserIdToUUID(
  * Use this for future security-sensitive HTTP/API boundaries where silently
  * falling back to a raw telegramId would be unsafe. The existing
  * `resolveUserIdToUUID()` helper remains fail-open for backwards-compatible
- * Telegram flows until individual routes are explicitly migrated.
+ * Telegram flows until individual routes are explicitly migrated. An id that is
+ * no UUID and no Telegram id is refused the same way in both (#224).
  */
 export async function resolveUserIdToUUIDStrict(
   userId: string,
   userModule: UserModule
 ): Promise<string> {
-  const trimmedId = userId.trim();
-
-  if (!trimmedId) {
-    throw new ValidationError('userId is required', 'userId');
-  }
+  const trimmedId = checkedUserId(userId);
 
   if (isUUID(trimmedId)) {
     return trimmedId;

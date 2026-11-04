@@ -1,4 +1,4 @@
-import { changesRecord, noteEdit, RecordEdit } from '../src/modules/transaction/domain/recordEdit';
+import { changesRecord, textEdit, RecordEdit } from '../src/modules/transaction/domain/recordEdit';
 import { Transaction } from '../src/modules/transaction/domain/transactionEntity';
 
 /**
@@ -105,14 +105,19 @@ describe('changesRecord (FT-248)', () => {
   });
 });
 
-describe('noteEdit (FT-249)', () => {
-  it('a JSON null is an empty note, as in POST: the column is NOT NULL', () => {
-    expect(noteEdit(null)).toBe('');
+describe('textEdit (FT-249, #210)', () => {
+  it('a JSON null is none, as in POST: an empty note', () => {
+    expect(textEdit(null)).toBe('');
   });
 
-  it('a note not sent stays untouched, a sent one as it is', () => {
-    expect(noteEdit(undefined)).toBeUndefined();
-    expect(noteEdit('')).toBe('');
-    expect(noteEdit('кофе')).toBe('кофе');
+  it('a text not sent stays untouched', () => {
+    expect(textEdit(undefined)).toBeUndefined();
+  });
+
+  it('a sent one is trimmed, as in POST: blank is none', () => {
+    expect(textEdit('кофе')).toBe('кофе');
+    expect(textEdit('  кофе \n')).toBe('кофе');
+    expect(textEdit('')).toBe('');
+    expect(textEdit('   ')).toBe('');
   });
 });

@@ -235,14 +235,15 @@ export class SqliteTransactionRepository implements TransactionRepository {
     if (updates.accountId !== undefined) updateData.accountId = updates.accountId;
     if (updates.currency !== undefined) updateData.currency = updates.currency;
     if (updates.date !== undefined) updateData.date = updates.date;
-    if (updates.merchant !== undefined) updateData.merchant = updates.merchant;
+    // No merchant is NULL, as on a record written without one (#210)
+    if (updates.merchant !== undefined) updateData.merchant = updates.merchant || null;
     if (updates.confidence !== undefined) updateData.confidence = updates.confidence;
-    // The search text follows the note and the merchant (FT-107)
+    // The search text follows the note and the merchant as written now, a cleared one too (FT-107, #210)
     if (updates.description !== undefined || updates.merchant !== undefined) {
       const current = await this.repository.findOne({ where: { id } });
       updateData.searchText = recordSearchText({
-        description: updates.description ?? current?.description,
-        merchant: updates.merchant ?? current?.merchant,
+        description: updates.description !== undefined ? updates.description : current?.description,
+        merchant: updates.merchant !== undefined ? updates.merchant : current?.merchant,
       });
     }
 
@@ -307,7 +308,7 @@ export class SqliteTransactionRepository implements TransactionRepository {
       description: entity.description,
       date: entity.date,
       userId: entity.userId,
-      merchant: entity.merchant,
+      merchant: entity.merchant ?? undefined,
       confidence: entity.confidence ? Number(entity.confidence) : undefined,
       originalText: entity.originalText,
       originalParsing: entity.originalParsing ? JSON.parse(entity.originalParsing) : undefined,

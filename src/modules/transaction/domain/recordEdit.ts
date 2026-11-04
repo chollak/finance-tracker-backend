@@ -14,10 +14,10 @@ export type RecordEdit = Partial<Pick<Transaction,
 const text = (value: string | null | undefined): string => value ?? '';
 
 /**
- * The note an edit writes (FT-249): a JSON null is an empty note, as in `POST` (FT-113) — the column is NOT NULL.
- * A note not sent stays undefined: the edit does not touch it.
+ * The note or the merchant an edit writes, as `POST` writes them (FT-113, #210): trimmed, and a JSON null is none —
+ * `''`, like an empty or blank one (FT-249). Not sent stays undefined: the edit does not touch it.
  */
-export const noteEdit = (sent: string | null | undefined): string | undefined => (sent === null ? '' : sent);
+export const textEdit = (sent: string | null | undefined): string | undefined => (sent === null ? '' : sent?.trim());
 
 /**
  * Whether the edit changes a value of the stored record (FT-248). An edit that changes nothing is not written, so the
