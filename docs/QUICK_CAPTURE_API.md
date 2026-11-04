@@ -182,7 +182,7 @@ When a `UserModule` is wired (it is, in `buildServer`), `userId` goes through
 `resolveUserIdToUUID()` (`src/shared/application/helpers/userIdResolver.ts`). The `userId` is the one the auth
 middleware set — the signed-in user's or the Shortcut owner's Telegram id — so in practice it is always a Telegram id.
 
-- UUID v4 → passed through unchanged
+- UUID v4 → passed through, in lower case: ids are stored so and looked up exactly (#230)
 - a Telegram id → resolved into the user's UUID, creating the user on first contact. It is read by `telegramIdOf`,
   the rule of `ALLOWED_TELEGRAM_IDS` and `SHORTCUT_CAPTURE_OWNER` (#230): a positive whole number below 2^53, spaces
   around it are fine, and leading zeros name the same user — `0597843119` is `597843119`
