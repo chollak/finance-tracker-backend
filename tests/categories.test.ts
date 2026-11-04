@@ -19,7 +19,7 @@ import { ProcessTextInputUseCase } from '../src/modules/voiceProcessing/applicat
 import { TranscriptionService } from '../src/modules/voiceProcessing/domain/transcriptionService';
 import { buildCategoryPrompt } from '../src/modules/voiceProcessing/domain/categoryPrompt';
 import { OpenAITranscriptionService } from '../src/modules/voiceProcessing/infrastructure/openAITranscriptionService';
-import { openMigratedDatabase, TestDatabase } from './helpers/testDatabase';
+import { prepareDatabaseOnce, TestDatabase } from './helpers/testDatabase';
 import { startTestServer, TestServer } from './helpers/testServer';
 
 describe('categories in the database (FT-099)', () => {
@@ -150,9 +150,11 @@ describe('categories in the database (FT-099)', () => {
   describe('with a migrated database', () => {
     let db: TestDatabase;
     let catalog: CategoryCatalog;
+    /** Migrated once for the block; each test starts on its own copy (#250). */
+    const migrated = prepareDatabaseOnce();
 
     beforeEach(async () => {
-      db = await openMigratedDatabase();
+      db = await migrated.open();
       catalog = new CategoryCatalog(new SqliteCategoryRepository(db.dataSource));
     });
 

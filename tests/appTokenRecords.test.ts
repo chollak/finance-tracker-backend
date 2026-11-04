@@ -20,7 +20,7 @@ import { SqliteUserSettingsRepository } from '../src/modules/user/infrastructure
 import { TransactionLearningService } from '../src/shared/application/learning/transactionLearning';
 import { ProcessTextInputUseCase } from '../src/modules/voiceProcessing/application/processTextInput';
 import { TranscriptionService } from '../src/modules/voiceProcessing/domain/transcriptionService';
-import { openMigratedDatabase, TestDatabase } from './helpers/testDatabase';
+import { prepareDatabaseOnce, TestDatabase } from './helpers/testDatabase';
 import { recordsOn } from './helpers/records';
 import { listenOnLoopback, LoopbackServer } from './helpers/testServer';
 import { signedInitData } from './helpers/telegramInitData';
@@ -109,6 +109,8 @@ describe('the app token reads and edits its owner’s records (FT-218)', () => {
   let userModule: UserModule;
   let router: Router;
   let api: LoopbackServer;
+  /** Migrated once for the file; each test starts on its own copy (#250). */
+  const migrated = prepareDatabaseOnce();
 
   beforeEach(async () => {
     process.env.NODE_ENV = 'production';
@@ -117,7 +119,7 @@ describe('the app token reads and edits its owner’s records (FT-218)', () => {
     jest.replaceProperty(AppConfig, 'TELEGRAM_ACCESS', telegramAccess([String(OWNER), String(OTHER)]));
     jest.replaceProperty(AppConfig, 'TG_BOT_API_KEY', BOT_TOKEN);
 
-    db = await openMigratedDatabase();
+    db = await migrated.open();
     dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ft218-learning-'));
     fs.mkdirSync(path.join(dir, 'data'));
     learning = new TransactionLearningService(dir);
