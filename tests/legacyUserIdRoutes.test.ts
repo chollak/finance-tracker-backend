@@ -39,6 +39,8 @@ const MINE = String(ME);
 const SOMEONE = '597843119';
 /** An id of the old guest mode: there are no guests (decision Д4), and the backend's guest branches went in #206. */
 const GUEST = 'guest_abc';
+/** The id the admin grant made a `users` row of before #224. */
+const GUEST_ZZZ = 'guest_zzz';
 
 /** Budgets: none stored; remembers whose budgets it was asked for. */
 class NoBudgets implements BudgetRepository {
@@ -335,17 +337,60 @@ describe('the subscription actions take the user from authentication (FT-162)', 
     expect(await telegramIds()).toEqual(before);
   });
 
-  it('grant (admin) refuses a target userId that is not a string with 400, not 500', async () => {
+  /** Runs the requests as an admin: ADMIN_TELEGRAM_IDS is read on every request. */
+  async function asAdmin(requests: () => Promise<void>): Promise<void> {
     const admins = process.env.ADMIN_TELEGRAM_IDS;
     process.env.ADMIN_TELEGRAM_IDS = MINE;
     try {
-      for (const userId of [Number(SOMEONE), [SOMEONE]]) {
-        const res = await call('POST', '/api/subscription/grant', { userId, grantedBy: 'test', durationDays: 30 });
-        expect({ userId, status: res.status, code: res.body?.code }).toEqual({ userId, status: 400, code: 'INVALID_USER_ID' });
-      }
+      await requests();
     } finally {
       process.env.ADMIN_TELEGRAM_IDS = admins;
     }
+  }
+
+  const grant = (userId: unknown) => call('POST', '/api/subscription/grant', { userId, grantedBy: 'test', durationDays: 30 });
+
+  it('grant (admin) refuses a target userId that is not a string with 400, not 500', async () => {
+    await asAdmin(async () => {
+      for (const userId of [Number(SOMEONE), [SOMEONE]]) {
+        const res = await grant(userId);
+        expect({ userId, status: res.status, code: res.body?.code }).toEqual({ userId, status: 400, code: 'INVALID_USER_ID' });
+      }
+    });
+  });
+
+  // #224: before, `guest_zzz` became a `users` row with a premium subscription — any id that was no UUID was resolved as
+  // a Telegram id. The admin limit is 5 requests per window, so five ids here
+  it('grant (admin) refuses a target that is no UUID and no Telegram id with 400, adding no user and no subscription', async () => {
+    const before = await telegramIds();
+    const granted = subscriptions.created.length;
+
+    await asAdmin(async () => {
+      for (const userId of [GUEST_ZZZ, 'abc', '-5', '1.5', '0']) {
+        const res = await grant(userId);
+        expect({ userId, status: res.status, code: res.body?.code }).toEqual({ userId, status: 400, code: 'INVALID_USER_ID' });
+      }
+    });
+
+    expect(await telegramIds()).toEqual(before);
+    expect(subscriptions.created).toHaveLength(granted);
+  });
+
+  it('grant (admin) gives premium to a Telegram id, creating the user on first contact, and to a UUID, as before', async () => {
+    const before = await telegramIds();
+
+    await asAdmin(async () => {
+      const byTelegramId = await grant(SOMEONE);
+      expect(byTelegramId.status).toBe(200);
+      const [someone]: Array<{ id: string }> = await db.dataSource.query(`SELECT id FROM users WHERE telegram_id = ?`, [SOMEONE]);
+      expect(subscriptions.created.at(-1)?.userId).toBe(someone.id);
+
+      const byUuid = await grant(someone.id);
+      expect(byUuid.status).toBe(200);
+      expect(subscriptions.created.at(-1)?.userId).toBe(someone.id);
+    });
+
+    expect(await telegramIds()).toEqual([...before, SOMEONE].sort());
   });
 });
 
