@@ -40,9 +40,11 @@ describe('idempotent create for the offline queue (FT-106)', () => {
       { getIncrementUsageUseCase: () => ({ execute: increment }) } as never,
       { getGetOrCreateUserUseCase: () => ({ execute: jest.fn().mockResolvedValue({ id: 'uuid-1' }) }) } as never
     );
-    const first = await records.create.execute(coffee());
+    // An owner the counter can resolve: a placeholder like 'user-1' is no UUID and no Telegram id (#224)
+    const owner = '131184740';
+    const first = await records.create.execute(coffee({ userId: owner }));
     const onRepeat = jest.fn();
-    const second = await records.create.execute(coffee({ amount: 99999 }), { onRepeat });
+    const second = await records.create.execute(coffee({ userId: owner, amount: 99999 }), { onRepeat });
 
     expect(first.success && second.success && first.data === second.data).toBe(true);
     expect(onRepeat).toHaveBeenCalledWith(expect.objectContaining({ amountMinor: 2500000, clientId: CLIENT_ID }));
@@ -50,7 +52,7 @@ describe('idempotent create for the offline queue (FT-106)', () => {
     expect(increment).toHaveBeenCalledTimes(1);
 
     // The same clientId of another user is another record
-    const other = await records.create.execute(coffee({ userId: 'user-2' }));
+    const other = await records.create.execute(coffee({ userId: '597843119' }));
     expect(other.success && first.success && other.data !== first.data).toBe(true);
   });
 
