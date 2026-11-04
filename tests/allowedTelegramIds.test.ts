@@ -285,7 +285,8 @@ describe('refused requests in the log (FT-166)', () => {
     const req: any = {
       headers: { host: 'localhost:3100', 'x-dev-user-id': String(STRANGER) },
       socket: { remoteAddress: '127.0.0.1' },
-      originalUrl: '/api/settings',
+      baseUrl: '/api',
+      path: '/settings',
     };
     const res: any = { status: jest.fn().mockReturnThis(), json: jest.fn().mockReturnThis() };
     const next = jest.fn();
