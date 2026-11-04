@@ -210,7 +210,7 @@ struct RecordsListTests {
 
         let asleep = self.list(try RecordsHarness(routes: RoutedTransport(page: [.failure(.timedOut)])))
         await asleep.refresh()
-        #expect(asleep.screen == .later(.noAnswer))
+        #expect(asleep.screen == .failed(.later(.noAnswer)))
     }
 
     @Test("неверный токен при кэше — список и подпись о токене")
@@ -225,7 +225,7 @@ struct RecordsListTests {
     }
 
     /// What the server or the network does, one reply for each reason of #282. Read by `@Test` off the main actor.
-    nonisolated private static let reasons: [(FakeTransport.Reply, RecordsList.Screen, String)] = [
+    nonisolated private static let reasons: [(FakeTransport.Reply, RecordsFailure, String)] = [
         (.failure(.notConnectedToInternet), .later(.offline), "Нет связи"),
         // Tailscale off: the name of the PC in the tailnet does not resolve
         (.failure(.cannotFindHost), .later(.offline), "Нет связи"),
@@ -241,18 +241,20 @@ struct RecordsListTests {
     ]
 
     @Test("без кэша экран называет причину: нет связи, сервер не ответил, просит подождать, не принял запрос (#282)", arguments: RecordsListTests.reasons)
-    func screenWithoutCache(reply: FakeTransport.Reply, screen: RecordsList.Screen, reason: String) async throws {
+    func screenWithoutCache(reply: FakeTransport.Reply, failure: RecordsFailure, reason: String) async throws {
         let list = list(try RecordsHarness(routes: RoutedTransport(page: [reply])))
 
         await list.refresh()
 
-        #expect(list.screen == screen)
+        #expect(list.screen == .failed(failure))
         #expect(list.days.isEmpty)
+        // The screen's title and the line over the list are the same words
+        #expect(failure.title == reason)
         #expect(list.caption == reason)
     }
 
     @Test("с кэшем — список и над ним причина: «Сервер не ответил · обновлено в 14:32» (#282)", arguments: RecordsListTests.reasons)
-    func captionWithCache(reply: FakeTransport.Reply, screen _: RecordsList.Screen, reason: String) async throws {
+    func captionWithCache(reply: FakeTransport.Reply, failure _: RecordsFailure, reason: String) async throws {
         let list = list(try RecordsHarness(routes: RoutedTransport(page: [page(["a"]), reply])))
         await list.refresh()
 
@@ -294,7 +296,7 @@ struct RecordsListTests {
         await list.refresh()
 
         #expect(list.days.isEmpty)
-        #expect(list.screen == .later(.noAnswer))
+        #expect(list.screen == .failed(.later(.noAnswer)))
     }
 
     @Test("без связи прокрученные страницы остаются на экране")

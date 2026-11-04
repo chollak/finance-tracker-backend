@@ -152,30 +152,23 @@ struct RecordsView: View {
                 Button("Настройки", action: openSettings)
                     .buttonStyle(.bordered)
             }
-        case let .later(wait):
-            // «Нет связи», «Сервер не ответил», «Сервер просит подождать» — as the card on «Записать» says it (#282)
-            let failure = RecordsFailure.later(wait)
+        case let .failed(failure):
+            // «Нет связи», «Сервер не ответил», «Сервер просит подождать» — as the card on «Записать» says it; a
+            // refusal — «Сервер не принял запрос» (#282)
             ContentUnavailableView {
                 Label(failure.title, systemImage: failure.systemImage)
             } description: {
-                Text("Записи появятся, когда сервер ответит")
+                // Only while no answer came: a server that refused has answered
+                if case .later = failure {
+                    Text("Записи появятся, когда сервер ответит")
+                }
             } actions: {
-                retryButton
-            }
-        case .refused:
-            ContentUnavailableView {
-                Label(RecordsFailure.refused.title, systemImage: RecordsFailure.refused.systemImage)
-            } actions: {
-                retryButton
+                Button("Повторить") {
+                    Task { await list.refresh() }
+                }
+                .buttonStyle(.bordered)
             }
         }
-    }
-
-    private var retryButton: some View {
-        Button("Повторить") {
-            Task { await list.refresh() }
-        }
-        .buttonStyle(.bordered)
     }
 }
 

@@ -18,6 +18,8 @@ struct RecordsFailureTests {
         ("delete", { client in try await client.delete("r") }),
         ("restore", { client in _ = try await client.restore("r") }),
         ("category", { client in _ = try await client.setCategory("c", of: "r") }),
+        // «Да, верно» (FT-254): `PUT { needsReview: false }`
+        ("confirm", { client in _ = try await client.confirm("r") }),
     ]
 
     @Test(
@@ -110,10 +112,10 @@ struct RecordsFailureTests {
         }
     }
 
-    @Test("404 «запись не найдена» на удаление, возврат и смену категории — «запись уже удалена»")
+    @Test("404 «запись не найдена» на удаление, возврат, смену категории и «Да, верно» — «запись уже удалена»")
     func recordGone() async throws {
         let reply = FakeTransport.Reply.http(404, body: RecordsReply.recordNotFound(id))
-        for (name, call) in Self.calls where ["delete", "restore", "category"].contains(name) {
+        for (name, call) in Self.calls where ["delete", "restore", "category", "confirm"].contains(name) {
             let failure = try await failure(of: call, answering: reply)
             #expect(failure == .recordGone, "\(name)")
         }

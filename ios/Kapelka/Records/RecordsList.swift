@@ -23,13 +23,11 @@ final class RecordsList {
         case list
         /// The server answered with no records.
         case empty
-        /// No records to show and no answer, for this reason: «Нет связи», «Сервер не ответил», «Сервер просит
-        /// подождать» (#282).
-        case later(QueueWait)
         /// The server refused the token, and nothing is on disk.
         case tokenRefused
-        /// The server refused the request itself (400 and the other 4xx), and nothing is on disk: not «Нет связи».
-        case refused
+        /// No records to show, and why — the title of the line over the list (`RecordsFailure.title`, #282): «Нет
+        /// связи», «Сервер не ответил», «Сервер просит подождать», «Сервер не принял запрос».
+        case failed(RecordsFailure)
     }
 
     private(set) var days: [RecordDay] = []
@@ -554,10 +552,8 @@ final class RecordsList {
         case _ where hasRecords: return .list
         case nil: return answered ? .empty : .loading
         case .tokenRefused: return .tokenRefused
-        case .refused: return .refused
-        case let .later(wait): return .later(wait)
-        // A refresh meets neither: a 404 there is not about a record
-        case .recordGone, .categoryGone: return .later(.noAnswer)
+        // Each reason as the line over the list names it, the record's 404s too, though a refresh never meets them
+        case let problem?: return .failed(problem)
         }
     }
 }
