@@ -51,11 +51,6 @@ export const ROUTES = {
   VOICE_OFFLINE: '/offline-voice',
   RECEIPT_OFFLINE: '/offline-receipt',
 
-  // Debts
-  DEBTS: '/debts',
-  ADD_DEBT: '/debts/add',
-  DEBT_DETAILS: (id: string) => `/debts/${id}`,
-
   // Analytics (FT-121): the month's expenses or income by category, opened from Home's tiles; a category opens its
   // own screen with the days and the operations
   ANALYTICS: '/analytics',
@@ -196,28 +191,8 @@ export const API_ENDPOINTS = {
     UPDATE: (goalId: string) => `/goals/${encodeURIComponent(goalId)}`,
   },
 
-  // Quick Capture — one line of natural text → saved transactions/debts (docs/QUICK_CAPTURE_API.md)
+  // Quick Capture — one line of natural text → saved records (docs/QUICK_CAPTURE_API.md)
   QUICK_CAPTURE: '/quick-capture',
-
-  // Debts
-  DEBTS: {
-    LIST: (userId: string, status?: string, type?: string) => {
-      const query = new URLSearchParams();
-      if (status) query.append('status', status);
-      if (type) query.append('type', type);
-      return `/debts/user/${userId}${query.toString() ? `?${query}` : ''}`;
-    },
-    CREATE: (userId: string) => `/debts/user/${userId}`,
-    DETAIL: (debtId: string) => `/debts/${debtId}`,
-    WITH_PAYMENTS: (debtId: string) => `/debts/${debtId}?withPayments=true`,
-    UPDATE: (debtId: string) => `/debts/${debtId}`,
-    DELETE: (debtId: string) => `/debts/${debtId}`,
-    CANCEL: (debtId: string) => `/debts/${debtId}/cancel`,
-    PAY: (debtId: string) => `/debts/${debtId}/pay`,
-    PAY_FULL: (debtId: string) => `/debts/${debtId}/pay-full`,
-    DELETE_PAYMENT: (paymentId: string) => `/debts/payments/${paymentId}`,
-    SUMMARY: (userId: string) => `/debts/user/${userId}/summary`,
-  },
 
   // Subscription
   SUBSCRIPTION: {

@@ -1,5 +1,4 @@
 @import "tailwindcss";
-@import "react-day-picker/style.css";
 @import "./fonts.css";
 @import "./pastel-tokens.css";
 
@@ -11,33 +10,6 @@
    The shadcn names below point at Pastel tokens so screens not yet redesigned
    follow the theme too.
    ======================================== */
-
-/* Override react-day-picker selection colors to match shadcn */
-.rdp-selected .rdp-day_button,
-.rdp-day_button[data-selected="true"],
-.rdp-day_button[aria-selected="true"] {
-  background-color: var(--primary) !important;
-  color: var(--on-primary) !important;
-  border-color: var(--primary) !important;
-  border-radius: 9999px !important;
-}
-
-.rdp-selected .rdp-day_button:hover,
-.rdp-day_button[data-selected="true"]:hover {
-  background-color: var(--primary) !important;
-  color: var(--on-primary) !important;
-}
-
-.rdp-today:not(.rdp-selected) .rdp-day_button {
-  background-color: var(--track);
-  color: var(--ink);
-}
-
-/* Remove default focus ring styling */
-.rdp-focused .rdp-day_button {
-  outline: none !important;
-  box-shadow: none !important;
-}
 
 /* Colours that only screens not yet redesigned use. Old screens put ink, muted or income text on
    these tints, so in the dark theme they must be dark tints, not the light pastels (which are only

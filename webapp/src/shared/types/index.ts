@@ -1,6 +1,5 @@
 // Barrel export for all types
 export * from './transaction';
-export * from './debt';
 export * from './analytics';
 export * from './api';
 export * from './common';

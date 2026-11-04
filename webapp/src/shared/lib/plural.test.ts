@@ -4,8 +4,6 @@ import {
   pluralWithCount,
   pluralDays,
   pluralTransactions,
-  pluralDebts,
-  pluralActiveDebts,
   pluralCategories,
   pluralVoiceInputs,
 } from './plural';
@@ -80,18 +78,6 @@ describe('domain helpers', () => {
     [
       pluralTransactions,
       ['транзакция', 'транзакции', 'транзакций', 'транзакций', 'транзакция', 'транзакция'],
-    ],
-    [pluralDebts, ['долг', 'долга', 'долгов', 'долгов', 'долг', 'долг']],
-    [
-      pluralActiveDebts,
-      [
-        'активный долг',
-        'активных долга',
-        'активных долгов',
-        'активных долгов',
-        'активный долг',
-        'активный долг',
-      ],
     ],
     [
       pluralCategories,

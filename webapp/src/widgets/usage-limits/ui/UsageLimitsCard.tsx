@@ -4,7 +4,7 @@ import { Skeleton } from '@/shared/ui/skeleton';
 import { useSubscription, UsageBar } from '@/entities/subscription';
 import { useUserStore } from '@/entities/user/model/store';
 import { PremiumStatusCard } from './PremiumStatusCard';
-import { CreditCard, Mic, Wallet } from 'lucide-react';
+import { CreditCard, Mic } from 'lucide-react';
 
 // Bot username from environment variable
 const BOT_USERNAME = import.meta.env.VITE_TG_BOT_USERNAME || 'FinanceTrackerAppBot';
@@ -49,8 +49,7 @@ export function UsageLimitsCard() {
   const hasUnlimitedLocalLimits = Boolean(
     limits &&
       limits.transactions.limit === null &&
-      limits.voiceInputs.limit === null &&
-      limits.activeDebts.limit === null
+      limits.voiceInputs.limit === null
   );
 
   if (hasUnlimitedLocalLimits) {
@@ -117,12 +116,6 @@ export function UsageLimitsCard() {
           icon={<Mic className="w-3.5 h-3.5" />}
           used={limits.voiceInputs.used}
           limit={limits.voiceInputs.limit}
-        />
-        <UsageBar
-          label="Активные долги"
-          icon={<Wallet className="w-3.5 h-3.5" />}
-          used={limits.activeDebts.used}
-          limit={limits.activeDebts.limit}
         />
 
         <Button

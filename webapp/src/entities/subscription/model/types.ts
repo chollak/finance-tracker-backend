@@ -11,7 +11,6 @@ export interface UsageLimit {
 export interface SubscriptionLimits {
   transactions: UsageLimit;
   voiceInputs: UsageLimit;
-  activeDebts: UsageLimit;
 }
 
 export interface SubscriptionStatus {
