@@ -18,3 +18,4 @@ export * from './accounts';
 export * from './categories';
 export * from './login';
 export * from './audit';
+export * from './not-found';

@@ -4,6 +4,8 @@ import { Button } from '@/shared/ui/button';
 import { EmptyState } from '@/shared/ui/empty-state';
 import { Loading } from '@/shared/ui/loading';
 import { HomeSkeleton } from '@/widgets/home-skeleton';
+// Not lazy: it is also the router's error page for a 404, which must show even when a page's code cannot load (#222)
+import { NotFoundPage } from '@/pages/not-found';
 import { AppShell } from './AppShell';
 import { FirstLaunchGate } from './FirstLaunchGate';
 import { AuthGate } from './AuthGate';
@@ -43,26 +45,6 @@ const AuditPage = lazy(() => import('@/pages').then(m => ({ default: m.AuditPage
 // Wrapper component with Suspense; Home's code loads behind Home's skeleton (FT-112)
 function PageLoader({ children, fallback = <Loading fullScreen /> }: { children: React.ReactNode; fallback?: React.ReactNode }) {
   return <Suspense fallback={fallback}>{children}</Suspense>;
-}
-
-function NotFoundPage() {
-  return (
-    <div className="container mx-auto px-4 py-10">
-      <div className="rounded-2xl border border-dashed bg-card">
-        <EmptyState
-          icon="🧭"
-          title="Страница не найдена"
-          description="Похоже, ссылка устарела или адрес введён с ошибкой. Вернитесь на главную и продолжите работу с финансами."
-          action={
-            <Button asChild>
-              <Link to="/">На главную</Link>
-            </Button>
-          }
-          size="lg"
-        />
-      </div>
-    </div>
-  );
 }
 
 function RouterErrorPage() {
