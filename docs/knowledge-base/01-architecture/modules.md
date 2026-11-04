@@ -104,7 +104,7 @@ Core module системы — управление финансовыми тр�
 
 ### Services
 - `AnalyticsService` - старая аналитика (summary, categories, trends, patterns)
-- `PeriodTotalsService` - итоги периода (FT-103): одно правило для главной, аналитики, дашборда и итогов бота
+- `PeriodTotalsService` - итоги периода (FT-103): одно правило для главной, аналитики и итогов бота
 
 ### Repository
 - Interface: `src/modules/transaction/domain/transactionRepository.ts`
@@ -268,7 +268,8 @@ bot.on('pre_checkout_query', async (ctx) => {
 - Express: нет. `requirePremium` удалён в #205 вместе с платными insights дашборда, `checkLimit` и `incrementUsage`
   (их никто не подключал) — в #220
 - Telegram: `createTelegramCheckLimitMiddleware` на тексте и голосе, `checkTelegramLimit` — для ответа на «Сколько?»
-  (FT-123); `createTelegramRequirePremiumMiddleware` удалён в #220
+  (FT-123); `createTelegramRequirePremiumMiddleware` удалён в #220, `createTelegramIncrementUsageMiddleware` и
+  `createUsageWarningMiddleware` (их никто не подключал) — в #231
 
 ---
 

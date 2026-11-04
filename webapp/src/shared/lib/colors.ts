@@ -9,7 +9,6 @@
  */
 
 export type TransactionType = 'income' | 'expense';
-export type AlertSeverity = 'critical' | 'warning' | 'info' | 'success';
 export type BudgetStatus = 'safe' | 'warning' | 'danger' | 'exceeded';
 
 /**
@@ -92,71 +91,6 @@ export function getStatusColorClasses(percentage: number) {
     text: 'text-success',
     bg: 'bg-success-muted',
     border: 'border-success/30',
-  };
-}
-
-/**
- * Get alert severity colors
- */
-export function getAlertColorClasses(severity: AlertSeverity) {
-  const colorMap = {
-    critical: {
-      text: 'text-expense',
-      bg: 'bg-expense-muted',
-      icon: 'text-expense',
-      border: 'border-expense/30',
-    },
-    warning: {
-      text: 'text-warning',
-      bg: 'bg-warning-muted',
-      icon: 'text-warning',
-      border: 'border-warning/30',
-    },
-    info: {
-      text: 'text-foreground',
-      bg: 'bg-muted',
-      icon: 'text-muted-foreground',
-      border: 'border-border',
-    },
-    success: {
-      text: 'text-success',
-      bg: 'bg-success-muted',
-      icon: 'text-success',
-      border: 'border-success/30',
-    },
-  };
-  return colorMap[severity];
-}
-
-/**
- * Get financial health indicator colors
- */
-export function getHealthColorClasses(score: number) {
-  if (score >= 80) {
-    return {
-      text: 'text-success',
-      bg: 'bg-success',
-      label: 'Excellent',
-    };
-  }
-  if (score >= 60) {
-    return {
-      text: 'text-success',
-      bg: 'bg-success/70',
-      label: 'Good',
-    };
-  }
-  if (score >= 40) {
-    return {
-      text: 'text-warning',
-      bg: 'bg-warning',
-      label: 'Fair',
-    };
-  }
-  return {
-    text: 'text-expense',
-    bg: 'bg-expense',
-    label: 'Needs Attention',
   };
 }
 
