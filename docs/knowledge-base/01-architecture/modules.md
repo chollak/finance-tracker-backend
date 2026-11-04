@@ -98,7 +98,8 @@ Core module системы — управление финансовыми тр�
   названий счетов — `AccountResolver.accountNames`); своя категория без `presetKey` не учит
 - `DeleteTransactionUseCase` - удаление транзакции
 - `UpdateTransactionWithLearningUseCase` - обновление с ML записью по `originalText`/`originalParsing` из тела запроса;
-  сейчас так не шлёт ни один клиент
+  `PUT` идёт в него, только когда в теле непустые `userId`, `originalText` и `originalParsing` — все три; сейчас так не
+  шлёт ни один клиент
 
 - `GetMonthAnalyticsUseCase`, `GetCategoryAnalyticsUseCase` - аналитика «Пастели» с честным сравнением (FT-120): `GET /api/analytics`, `GET /api/analytics/categories/:id`, каждый в своём файле; общее чтение месяца — `application/analyticsFrame.ts`; правила — `domain/monthAnalytics.ts`, суммы — через `PeriodTotalsService`; категорию ищет порт `CategoryResolver.findForUser`
 

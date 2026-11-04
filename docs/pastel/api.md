@@ -38,8 +38,10 @@
 `POST /api/transactions`: `description` — заметка, необязательна (ручной ввод сохраняет без неё). Нет поля,
 `null`, пустая строка или одни пробелы — запись с пустой заметкой. Не строка или длиннее 500 символов — `400`.
 
-`PUT /api/transactions/:id` проверяет заметку так же, как `POST` (#210), — и при правке с обучением
-(`originalText` + `originalParsing` в теле), и без неё:
+`PUT /api/transactions/:id` проверяет заметку так же, как `POST` (#210), — и при правке с обучением, и без неё.
+Правка с обучением — запрос, в теле которого есть все три поля: непустые `userId`, `originalText` и `originalParsing`
+(`transactionController.ts`); без любого из них — обычная правка. `userId` из тела — только признак: урок пишется на
+владельца записи. Заметка:
 
 - Нет поля — заметка не меняется.
 - Не строка и не `null` — `400 VALIDATION_ERROR` «description must be a string»; длиннее 500 символов — `400` «description
@@ -91,7 +93,9 @@
 
 `POST /api/transactions` и `PUT /api/transactions/:id` принимают `accountId` — один из видимых счетов
 пользователя. Без него запись идёт на счёт по умолчанию (`defaultAccountId` в настройках, иначе первый
-видимый). Скрытый счёт — `400`, чужой — `404`. В ответах у записи `accountId`.
+видимый). Скрытый счёт — `400`, чужой — `404`. В ответах у записи `accountId`. В `PUT` `accountId`, который не
+непустая строка (`null`, `""`, `0`, `false`), — `400`, запись остаётся на своём счёте: «на счёт по умолчанию» им не
+перенести (#229).
 
 ## Записи: валюта и источник (FT-103)
 
@@ -199,11 +203,17 @@
 зависит от часового пояса. Если меняется хоть одно поле, запрос пишется целиком, как раньше. Неверное значение рядом
 с прежними — по-прежнему `400`.
 
-Поля `PUT` проверяет одна проверка — с обучением и без него одинаково (#229), до чтения записи: `semanticType` не из
-списка и `needsReview` не `true`/`false` (и `null` у обоих) — `400 VALIDATION_ERROR` «Invalid semanticType» и «needsReview
-must be a boolean»; `category` не строкой (число, `null`, объект, список) — `400` «category must be a string», как в
-`POST`; `categoryId` не строкой — «categoryId must be a string», пустой или из пробелов — «categoryId cannot be empty»;
-запись не меняется.
+Поля `PUT` проверяет одна проверка, одинаково с обучением и без него (#229; что считается правкой с обучением — в
+«Записи: заметка»), до чтения записи; на всё ниже — `400 VALIDATION_ERROR`, запись не меняется:
+
+- `semanticType` не из списка и `needsReview` не `true`/`false` (и `null` у обоих) — «Invalid semanticType» и
+  «needsReview must be a boolean»;
+- `category` не строкой (число, `null`, объект, список) — «category must be a string», как в `POST`;
+- `categoryId` и `accountId` не строкой (число, `true`/`false`, объект, `null`) — «categoryId must be a string» /
+  «accountId must be a string», пустые или из пробелов — «categoryId cannot be empty» / «accountId cannot be empty».
+  Неизвестный или чужой id — прежний ответ (`404`);
+- `date` не строкой (список, число, `null`) — «date must be a string»; строка не `YYYY-MM-DD` — «Invalid date format.
+  Use YYYY-MM-DD».
 
 ## Удаление и восстановление записей (FT-105)
 

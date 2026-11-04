@@ -243,11 +243,11 @@ Stop if response messages/statuses would change broadly.
 
 **Outcome (#210, PR #227; #229).** The update body is checked by `fieldsForUpdate()`
 (`src/modules/transaction/application/fieldsForUpdate.ts`): one check that both update use cases call —
-the regular `UpdateTransactionUseCase` and `UpdateTransactionWithLearningUseCase` (a body with `originalText`
-and `originalParsing`) — before the record is read. It reuses the shared validators where `POST` has them
+the regular `UpdateTransactionUseCase` and `UpdateTransactionWithLearningUseCase` (taken when the body has a non-empty
+`userId`, `originalText` and `originalParsing`, all three — `transactionController.ts`) — before the record is read. It reuses the shared validators where `POST` has them
 (`Validators.moneyAmount`, `Validators.description`, `Validators.string(…, 'merchant')`), so the limits live in one
 place. Before #229 each use case had its own copy, and the learning copy did not check `semanticType` and
-`needsReview`: `needsReview: "yes"` with `originalText` reached the repository.
+`needsReview`: `needsReview: "yes"` with `userId`, `originalText` and `originalParsing` reached the repository.
 
 `PUT` does **not** use `TransactionValidator.validatePartial()`, on purpose:
 

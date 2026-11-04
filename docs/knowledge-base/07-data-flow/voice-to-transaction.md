@@ -498,7 +498,8 @@ if (description.length < 3) confidence -= 0.05;
 
 Обучение не ломает правку: ошибка пишется в лог, запись всё равно меняется.
 
-`PUT` с `originalText` и `originalParsing` в теле работает как раньше: запрос идёт в
+`PUT` с непустыми `userId`, `originalText` и `originalParsing` в теле (все три — `transactionController.ts`) работает
+как раньше: запрос идёт в
 `UpdateTransactionWithLearningUseCase`, который учит по присланному тексту старым правилом паттернов. Сейчас так не
 шлёт ни один клиент.
 

@@ -26,7 +26,7 @@ const unused = { execute: jest.fn() } as never;
 /** A moment long before the test: a write moves `updatedAt` off it, SQLite counts in whole seconds. */
 const BEFORE = '2026-10-30 08:00:00';
 
-/** A body with originalText and originalParsing takes the learning update. */
+/** A body with a non-empty userId, originalText and originalParsing — all three — takes the learning update. */
 const LEARNING_CONTEXT = {
   userId: USER,
   originalText: 'капучино bon 25000',
