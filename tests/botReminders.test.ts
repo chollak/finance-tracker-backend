@@ -83,11 +83,14 @@ describe('goal, subscription and audit reminders in the bot (FT-133)', () => {
   let running: Running;
   let owner: string;
 
-  async function start(access?: TelegramAccess): Promise<Running> {
-    const ds = createAppDataSource(file);
+  /** The file the board's months and the audit are written to once, in `beforeAll`, and its owner (#237). */
+  const audited = { dir: '', file: '', owner: '' };
+
+  async function start(access?: TelegramAccess, databaseFile: string = file): Promise<Running> {
+    const ds = createAppDataSource(databaseFile);
     open.push(ds);
     await ds.initialize();
-    await runMigrationsWithBackup(ds, file, path.join(dir, 'backups'));
+    await runMigrationsWithBackup(ds, databaseFile, path.join(path.dirname(databaseFile), 'backups'));
     const categoryModule = new CategoryModule(new SqliteCategoryRepository(ds));
     const accountModule = new AccountModule(new SqliteAccountRepository(ds), undefined, new SqliteAccountMoveRepository(ds));
     const transactionModule = new TransactionModule(new SqliteTransactionRepository(ds));
@@ -139,9 +142,10 @@ describe('goal, subscription and audit reminders in the bot (FT-133)', () => {
   /**
    * The board's months (August, September, October 1–14) and the audit of September held on 14 October: «Такси» is
    * extra — «Вдвое меньше», a limit of 102 000 сум from the audit day; «Кинопоиск» is a subscription to cancel; the rest
-   * is needed.
+   * is needed. Written once for the whole file, in `beforeAll` (#237): the 197 records through the use case were ~80% of
+   * the suite's time, and written in each of the 33 tests they went over Jest's 5 s once the machine was loaded.
    */
-  async function auditedOnOctober14(): Promise<void> {
+  async function recordTheBoardAndAudit(): Promise<void> {
     for (const row of prototypeRecords()) await record(row.date, row.categoryName, row.amountMinor / 100, row.note);
     at('2026-10-14', '14:00');
     let view = await audit('2026-10-14');
@@ -152,6 +156,17 @@ describe('goal, subscription and audit reminders in the bot (FT-133)', () => {
       }));
     }
     unwrap(await running.auditModule.getFinishAuditUseCase().execute({ userId: owner, auditId: view.id!, today: '2026-10-14' }));
+  }
+
+  /**
+   * Where every test starts: 14 October after the audit. The bot starts over the test's own copy of the file audited in
+   * `beforeAll` — as if it was restarted after the audit — so no test sees another's records or notices.
+   */
+  async function auditedOnOctober14(): Promise<void> {
+    fs.copyFileSync(audited.file, file);
+    running = await start();
+    owner = audited.owner;
+    at('2026-10-14', '14:00');
   }
 
   /** «Напомнить 2 ноября» under «Кинопоиск» on the audit's result. */
@@ -195,7 +210,34 @@ describe('goal, subscription and audit reminders in the bot (FT-133)', () => {
     return { text, keyboard: extra.reply_markup.inline_keyboard };
   }
 
-  beforeEach(async () => {
+  const closeOpen = async () => {
+    for (const ds of open.splice(0)) if (ds.isInitialized) await ds.destroy();
+  };
+
+  /**
+   * Writing three months of records through the use case is legitimately long for a hook: ~0.4 s on an idle Mac, and
+   * the same work went over 5 s per test under load (#237). It now runs once per file, so only this setup gets a
+   * longer budget; every test keeps Jest's 5 s.
+   */
+  const AUDITED_FILE_TIMEOUT_MS = 60_000;
+
+  beforeAll(async () => {
+    audited.dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ft133-audited-'));
+    audited.file = path.join(audited.dir, 'db.sqlite');
+    at('2026-08-01', '09:00');
+    running = await start(undefined, audited.file);
+    owner = (await running.userModule.getGetOrCreateUserUseCase().execute({ telegramId: TELEGRAM_ID, firstName: 'Shukur' })).id;
+    await recordTheBoardAndAudit();
+    await closeOpen();
+    audited.owner = owner;
+  }, AUDITED_FILE_TIMEOUT_MS);
+
+  afterAll(async () => {
+    await closeOpen();
+    fs.rmSync(audited.dir, { recursive: true, force: true });
+  });
+
+  beforeEach(() => {
     dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ft133-'));
     file = path.join(dir, 'db.sqlite');
     sent = [];
@@ -203,14 +245,11 @@ describe('goal, subscription and audit reminders in the bot (FT-133)', () => {
     nextMessageId = 900;
     telegram.sendMessage.mockClear();
     jest.spyOn(AppConfig, 'getWebAppUrl').mockReturnValue(BASE_URL);
-    at('2026-08-01', '09:00');
-    running = await start();
-    owner = (await running.userModule.getGetOrCreateUserUseCase().execute({ telegramId: TELEGRAM_ID, firstName: 'Shukur' })).id;
   });
 
   afterEach(async () => {
     jest.restoreAllMocks();
-    for (const ds of open.splice(0)) if (ds.isInitialized) await ds.destroy();
+    await closeOpen();
     fs.rmSync(dir, { recursive: true, force: true });
   });
 
