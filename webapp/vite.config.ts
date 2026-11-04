@@ -3,7 +3,7 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 import path from 'path'
-import { pastelColors } from './src/shared/config/pastelTokens'
+import { pwaManifest } from './pwaManifest'
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -12,37 +12,8 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['icons/*.png', 'icons/*.svg'],
-      // The app's only manifest (FT-257): the plugin writes it as manifest.webmanifest and links it in index.html
-      manifest: {
-        name: 'Kapelka',
-        short_name: 'Kapelka',
-        description: 'Записывайте траты и доходы голосом и текстом',
-        start_url: '/',
-        display: 'standalone',
-        // A manifest has one colour per field, not one per theme: the light `bg` of «Пастель», the default theme.
-        // index.html and ThemeController set <meta name="theme-color"> to the `bg` of the theme in use
-        background_color: pastelColors.light.bg,
-        theme_color: pastelColors.light.bg,
-        orientation: 'portrait',
-        // The bars of the sign on a black square, inside the maskable safe zone (FT-169). Not icon.svg: that is the
-        // tab's silhouette, for 16–32px only
-        icons: [
-          {
-            src: '/icons/icon-192x192.png',
-            sizes: '192x192',
-            type: 'image/png',
-            purpose: 'any maskable',
-          },
-          {
-            src: '/icons/icon-512x512.png',
-            sizes: '512x512',
-            type: 'image/png',
-            purpose: 'any maskable',
-          },
-        ],
-        categories: ['finance', 'productivity'],
-        lang: 'ru',
-      },
+      // The app's only manifest (FT-257), in its own module: the tests read the object, not this file (#217)
+      manifest: pwaManifest,
       workbox: {
         // Cache strategies
         runtimeCaching: [

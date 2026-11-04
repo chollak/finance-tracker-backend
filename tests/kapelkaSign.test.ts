@@ -1,5 +1,8 @@
+import { execFileSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
+import { pwaManifest } from '../webapp/pwaManifest';
+import { pastelColors } from '../webapp/src/shared/config/pastelTokens';
 
 interface PngImage {
   width: number;
@@ -23,21 +26,20 @@ const { readPng }: { readPng: (png: Buffer) => PngImage } = require('../scripts/
 const ROOT = path.join(__dirname, '..');
 const read = (file: string) => fs.readFileSync(path.join(ROOT, file), 'utf8');
 
-/** The `manifest: { … }` of vite.config.ts: vite-plugin-pwa writes it as manifest.webmanifest, the only manifest (FT-257). */
-function pwaManifestSource() {
-  const config = read('webapp/vite.config.ts');
-  const start = config.indexOf('manifest: {');
-  const end = config.indexOf('workbox: {', start);
-  if (start < 0 || end < 0) throw new Error('vite.config.ts: no `manifest: {` before `workbox: {` in VitePWA()');
-  return config.slice(start, end);
-}
-
-/** Files under webapp/public: Vite copies the folder into the build as is, so everything here is served. */
+/**
+ * Files under webapp/public: Vite copies the folder into the build as is, so everything here is served. Listed by git,
+ * tracked and new alike, minus what .gitignore drops: a `.DS_Store` from Finder is not the project's, and a clone in CI
+ * never has one (#217). A tracked file deleted on disk is gone.
+ */
 function publicFiles() {
-  const dir = path.join(ROOT, 'webapp/public');
-  return (fs.readdirSync(dir, { recursive: true }) as string[])
-    .filter((file) => fs.statSync(path.join(dir, file)).isFile())
-    .map((file) => file.split(path.sep).join('/'))
+  const dir = 'webapp/public/';
+  return execFileSync('git', ['ls-files', '-z', '--cached', '--others', '--exclude-standard', '--', dir], {
+    cwd: ROOT,
+    encoding: 'utf8',
+  })
+    .split('\0')
+    .filter((file) => file && fs.existsSync(path.join(ROOT, file)))
+    .map((file) => file.slice(dir.length))
     .sort();
 }
 
@@ -164,42 +166,43 @@ describe('where the sign is used (FT-169)', () => {
 
   it('web: the tab takes icon.svg, the home screen the bars; nothing points at a missing file', () => {
     const html = read('webapp/index.html');
-    const viteConfig = read('webapp/vite.config.ts');
-    const iconsInManifest = [
-      ...pwaManifestSource().matchAll(/\{\s*src: '([^']+)',\s*sizes: '([^']+)',\s*type: '([^']+)',\s*purpose: '([^']+)',\s*\}/g),
-    ].map(([, src, sizes, type, purpose]) => ({ src, sizes, type, purpose }));
+    const manifestIcons = pwaManifest.icons ?? [];
 
     expect(html.match(/<link rel="(icon|apple-touch-icon)"[^>]*>/g)).toEqual([
       '<link rel="icon" type="image/svg+xml" href="/icons/icon.svg" />',
       '<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />',
     ]);
-    expect(iconsInManifest).toEqual([
+    expect(manifestIcons).toEqual([
       { src: '/icons/icon-192x192.png', sizes: '192x192', type: 'image/png', purpose: 'any maskable' },
       { src: '/icons/icon-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
     ]);
-    expect(viteConfig.match(/src: '\/icons\/[^']+'/g)).toEqual(iconsInManifest.map((icon) => `src: '${icon.src}'`));
 
-    const referenced = [html, viteConfig].join('\n').match(/\/icons\/[\w.-]+/g) ?? [];
-    for (const icon of referenced) expect(fs.existsSync(path.join(ROOT, 'webapp/public', icon))).toBe(true);
+    // The whole manifest, not only `icons`: `shortcuts`, `screenshots` and the like point at files in public/ too
+    const referenced =
+      [html, read('webapp/vite.config.ts'), JSON.stringify(pwaManifest)].join('\n').match(/\/icons\/[\w.-]+/g) ?? [];
+    const shipped = publicFiles();
+    for (const icon of referenced) expect([icon, shipped.includes(icon.slice(1))]).toEqual([icon, true]);
   });
 
   it('web: every asset the service worker precaches is there', () => {
     const patterns = /includeAssets: \[([^\]]*)\]/.exec(read('webapp/vite.config.ts'))?.[1].match(/'[^']+'/g) ?? [];
-    const publicFiles = (fs.readdirSync(path.join(ROOT, 'webapp/public'), { recursive: true }) as string[])
-      .map((file) => file.split(path.sep).join('/'));
+    const shipped = publicFiles();
 
     expect(patterns.length).toBeGreaterThan(0);
     for (const pattern of patterns) {
       const glob = new RegExp(`^${pattern.slice(1, -1).replace(/\./g, '\\.').replace(/\*/g, '[^/]*')}$`);
-      expect([pattern, publicFiles.some((file) => glob.test(file))]).toEqual([pattern, true]);
+      expect([pattern, shipped.some((file) => glob.test(file))]).toEqual([pattern, true]);
     }
   });
 });
 
+// The manifest is an object in webapp/pwaManifest.ts that vite.config.ts hands to VitePWA(): the tests read its
+// values, not the text of the config, so the order of keys and blocks there does not matter (#217)
 describe('the PWA manifest (FT-257)', () => {
   it('is one: vite-plugin-pwa writes and links it; index.html and public/ have no manifest of their own', () => {
-    expect(read('webapp/vite.config.ts')).toMatch(/VitePWA\(\{[\s\S]*manifest: \{/);
-    expect(read('webapp/index.html')).not.toMatch(/rel="manifest"/);
+    // The value is this object as it is, not a copy or a spread: a comma or the closing brace right after it
+    expect(read('webapp/vite.config.ts')).toMatch(/VitePWA\(\{[\s\S]*\bmanifest\s*:\s*pwaManifest\s*[,}]/);
+    expect(read('webapp/index.html')).not.toMatch(/rel="manifest"|manifest\.json/);
     expect(publicFiles().filter((file) => /manifest/i.test(file))).toEqual([]);
   });
 
@@ -207,22 +210,22 @@ describe('the PWA manifest (FT-257)', () => {
     const bg = JSON.parse(read('docs/pastel/tokens.json')).color.tokens.find(
       (token: { name: string }) => token.name === 'bg'
     ).value;
-    const generated = /export const pastelColors = ([\s\S]*?) as const;/.exec(
-      read('webapp/src/shared/config/pastelTokens.ts')
-    )?.[1];
+    const source = read('webapp/pwaManifest.ts');
 
-    expect(JSON.parse(generated ?? 'null').light.bg).toBe(bg.light);
-    expect(read('webapp/vite.config.ts')).toContain("import { pastelColors } from './src/shared/config/pastelTokens'");
-    expect(pwaManifestSource().match(/\w+_color: [^,\n]+/g)).toEqual([
-      'background_color: pastelColors.light.bg',
-      'theme_color: pastelColors.light.bg',
-    ]);
-    expect(pwaManifestSource()).not.toMatch(/#[\da-f]{3,8}\b/i);
+    expect(pastelColors.light.bg).toBe(bg.light);
+    expect({ background_color: pwaManifest.background_color, theme_color: pwaManifest.theme_color }).toEqual({
+      background_color: bg.light,
+      theme_color: bg.light,
+    });
+    // The values alone would pass with the hex copied in: the colour must come from the generated tokens. A string
+    // literal, not any `#…`: an issue number in a comment is not a colour
+    expect(source).toContain("import { pastelColors } from './src/shared/config/pastelTokens'");
+    expect(source).not.toMatch(/['"`]#[\da-f]{3,8}['"`]/i);
   });
 
   it('describes Kapelka in Russian', () => {
-    expect(/lang: '([^']*)'/.exec(pwaManifestSource())?.[1]).toBe('ru');
-    expect(/description: '([^']*)'/.exec(pwaManifestSource())?.[1]).toMatch(/^[А-ЯЁ][а-яё]*( [а-яё]+)+$/);
+    expect(pwaManifest.lang).toBe('ru');
+    expect(pwaManifest.description).toMatch(/^[А-ЯЁ][а-яё]*( [а-яё]+)+$/);
   });
 
   it('ships only the icons: no vite.svg left from the template, no README in the build', () => {
