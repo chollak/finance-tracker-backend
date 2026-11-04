@@ -182,6 +182,8 @@ FT-023A: use TransactionValidator.validatePartial for update route body validati
 
 Only after route tests cover current behavior.
 
+**Status (#210, #229):** done differently — see «FT-023A» below. `PUT` does not use `validatePartial()`.
+
 ## Validation Policy
 
 ### Keep this layering
@@ -238,6 +240,26 @@ Goal:
 - evaluate replacing manual update-body checks with `TransactionValidator.validatePartial(...)` for one route/use case boundary.
 
 Stop if response messages/statuses would change broadly.
+
+**Outcome (#210, PR #227; #229).** The update body is checked by `fieldsForUpdate()`
+(`src/modules/transaction/application/fieldsForUpdate.ts`): one check that both update use cases call —
+the regular `UpdateTransactionUseCase` and `UpdateTransactionWithLearningUseCase` (taken when the body has a non-empty
+`userId`, `originalText` and `originalParsing`, all three — `transactionController.ts`) — before the record is read. It reuses the shared validators where `POST` has them
+(`Validators.moneyAmount`, `Validators.description`, `Validators.string(…, 'merchant')`), so the limits live in one
+place. Before #229 each use case had its own copy, and the learning copy did not check `semanticType` and
+`needsReview`: `needsReview: "yes"` with `userId`, `originalText` and `originalParsing` reached the repository.
+
+`PUT` does **not** use `TransactionValidator.validatePartial()`, on purpose:
+
+- it refuses `description: null` («description must be a string»), and `null` is how a client clears the note
+  (FT-249); the same for `merchant: null`, which clears the merchant (#210);
+- it would change `PUT` answers broadly, which this task said to stop at: other messages (`semanticType must be one
+  of: …` instead of `Invalid semanticType`), any date `new Date()` reads instead of `YYYY-MM-DD` only, no check of a
+  blank category, and a list of errors instead of the first one;
+- it keeps a blank merchant as `''`, while a record without one stores `NULL` (`textEdit()` and the repository make
+  it none).
+
+Nothing calls `validatePartial()` today.
 
 ### FT-023B — Controller validation message field audit
 
