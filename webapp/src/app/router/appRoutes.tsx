@@ -1,11 +1,11 @@
-import { Link, useRouteError, type RouteObject } from 'react-router-dom';
+import { isRouteErrorResponse, useRouteError, type RouteObject } from 'react-router-dom';
 import { lazy, Suspense } from 'react';
-import { Button } from '@/shared/ui/button';
-import { EmptyState } from '@/shared/ui/empty-state';
 import { Loading } from '@/shared/ui/loading';
 import { HomeSkeleton } from '@/widgets/home-skeleton';
-// Not lazy: it is also the router's error page for a 404, which must show even when a page's code cannot load (#222)
+// Not lazy, so the router's error page below never needs a piece of code to load: a page whose code did not load is
+// one of its causes (#240). That failure is not a 404 — an unknown address is the `*` route at the end (#222)
 import { NotFoundPage } from '@/pages/not-found';
+import { RouteErrorPage } from '@/pages/route-error';
 import { AppShell } from './AppShell';
 import { FirstLaunchGate } from './FirstLaunchGate';
 import { AuthGate } from './AuthGate';
@@ -47,30 +47,18 @@ function PageLoader({ children, fallback = <Loading fullScreen /> }: { children:
   return <Suspense fallback={fallback}>{children}</Suspense>;
 }
 
+/**
+ * What the router shows when a route fails. A 404 is «Такой страницы нет»; anything else — a page whose code did not
+ * load or that fell while drawing — is «Экран не открылся» (#240). React Router has already logged the failure.
+ */
 function RouterErrorPage() {
   const error = useRouteError();
 
-  if (error && typeof error === 'object' && 'status' in error && error.status === 404) {
+  if (isRouteErrorResponse(error) && error.status === 404) {
     return <NotFoundPage />;
   }
 
-  return (
-    <div className="container mx-auto px-4 py-10">
-      <div className="rounded-2xl border border-dashed bg-card">
-        <EmptyState
-          icon="⚠️"
-          title="Что-то пошло не так"
-          description="Не удалось открыть страницу. Попробуйте вернуться на главную или обновить приложение."
-          action={
-            <Button asChild>
-              <Link to="/">На главную</Link>
-            </Button>
-          }
-          size="lg"
-        />
-      </div>
-    </div>
-  );
+  return <RouteErrorPage />;
 }
 
 /**
@@ -86,6 +74,9 @@ export const appRoutes: RouteObject[] = [
   {
     // Every app screen needs a signed-in account (FT-128): in a browser without a session — the login screen
     element: <AuthGate />,
+    // The login and the first launch load their own code too; without this their failure would be the router's
+    // technical page (#240). A screen inside the shell fails in the shell's place
+    errorElement: <RouterErrorPage />,
     children: [
       {
         // Every app screen opens only after the first launch (FT-109)

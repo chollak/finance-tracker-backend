@@ -19,3 +19,4 @@ export * from './categories';
 export * from './login';
 export * from './audit';
 export * from './not-found';
+export * from './route-error';

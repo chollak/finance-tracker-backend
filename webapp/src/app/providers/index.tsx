@@ -4,6 +4,7 @@ import { UserInitializer } from './UserInitializer';
 import { HydrationGate } from './HydrationGate';
 import { ErrorBoundary } from '@/shared/ui/error-boundary';
 import { Toaster } from '@/shared/ui/sonner';
+import { RouteErrorPage } from '@/pages/route-error';
 import { ThemeController } from './ThemeController';
 import { ThemeSettingsSync } from '@/features/theme-choice';
 import { OfflineSync } from './OfflineSync';
@@ -14,7 +15,8 @@ interface AppProvidersProps {
 
 export function AppProviders({ children }: AppProvidersProps) {
   return (
-    <ErrorBoundary>
+    // A failure outside the router shows the router's own «Экран не открылся» (#240)
+    <ErrorBoundary fallback={<RouteErrorPage />}>
       <ThemeController />
       <QueryProvider>
         <HydrationGate>
