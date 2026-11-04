@@ -45,9 +45,10 @@ struct CategorySheet: View {
         case .loading:
             ProgressView()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-        case let .failed(message):
+        case let .failed(failure, message):
+            // The symbol of the reason: «wifi.slash» only without a network, a key for the token (#282)
             ContentUnavailableView {
-                Label("Категории не загрузились", systemImage: "wifi.slash")
+                Label("Категории не загрузились", systemImage: failure.systemImage)
             } description: {
                 Text(message)
             } actions: {
@@ -69,7 +70,7 @@ struct CategorySheet: View {
                 ProgressView()
                     .frame(maxWidth: .infinity)
             }
-        case let .failed(message):
+        case let .failed(_, message):
             Section("Категории не загрузились") {
                 Text(message)
                     .foregroundStyle(.secondary)
