@@ -119,7 +119,7 @@ final class AppModel {
     }
 
     /// Keychain and the queue file open only after the first unlock: a launch before it is caught up here. The journal
-    /// marks the runs left without an end and keeps the last 200 (#241) — not while a command runs.
+    /// marks the runs left without an end and keeps the newest of each command (#241, #243) — not while a command runs.
     func appBecameActive() async {
         isConfigured = services.settings.configuration() != nil
         Task { [journal = services.journal] in await journal.tidy() }

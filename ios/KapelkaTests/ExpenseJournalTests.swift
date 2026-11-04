@@ -17,10 +17,11 @@ final class ExpenseJournalTests {
         _ harness: QueueHarness,
         journal: CommandJournal,
         speech: FakeSpeech,
+        queue: CaptureQueue? = nil,
         pause: Duration = .milliseconds(150),
         silenceAtStart: Duration = .seconds(5)
     ) -> (VoiceCapture, ExpenseRuns) {
-        let runs = ExpenseRuns(journal: journal, queue: harness.makeQueue(), isConfigured: { true })
+        let runs = ExpenseRuns(journal: journal, queue: queue ?? harness.makeQueue(), isConfigured: { true })
         let voice = VoiceCapture(
             system: speech,
             listener: speech,
@@ -61,6 +62,27 @@ final class ExpenseJournalTests {
         #expect(run.command == .recordExpense)
         #expect(run.texts == ["начало", "жду экран", "слушаю", "фраза в очереди · \(id)", "отправка: записано"])
         #expect(run.outcome == .finished(ms: 0))
+    }
+
+    @Test("приложение закрылось посреди отправки фразы — «оборвана», но фраза цела в очереди и уйдёт")
+    func closedWhileSending() async throws {
+        // The PC asleep behind Tailscale: the send hangs until the app is gone
+        let harness = try QueueHarness(transport: FakeTransport([.hang]))
+        let queue = harness.makeQueue()
+        let journal = journals.makeJournal()
+        let speech = FakeSpeech()
+        let (voice, runs) = makeVoice(harness, journal: journal, speech: speech, queue: queue)
+
+        await press(ListenRequest(), journal: journal, voice: voice, runs: runs)
+        #expect(await eventually { await speech.isListening })
+        speech.hear("кофе 25 тысяч")
+        #expect(await eventually { await journal.runs().first?.lastStep.hasPrefix("фраза в очереди") == true })
+
+        // The next process: iOS unloaded the app, or it was swiped away
+        let run = try #require(await journals.makeJournal().runs().first)
+        #expect(JournalText.outcome(run.outcome).hasSuffix("фраза цела и уйдёт сама"))
+        #expect(try harness.store.load().captures.map(\.state) == [.pending])
+        await queue.cancelSending()
     }
 
     @Test("ничего не сказано — «без фразы» с причиной и конец: запуск не висит")

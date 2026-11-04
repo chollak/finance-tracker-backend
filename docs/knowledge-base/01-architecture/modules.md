@@ -47,7 +47,7 @@ graph TD
     AuM -.->|session names: users table| UM
     AuD -.->|records + rate: AuditSources| TM
     AuD -.->|categories: AuditSources| CM
-    SM -.->|controller uses| UM
+    SM -.->|grant: GrantTargets| UM
 
     style TM fill:#4CAF50,stroke:#2E7D32,color:#fff
     style BM fill:#2196F3,stroke:#1565C0,color:#fff
@@ -71,7 +71,7 @@ graph TD
 | **AccountModule** | Счета (FT-101): остатки на чтении, итог в сумах, счёт новой записи | Независимый; TransactionModule получает его как `AccountResolver`; счёт по умолчанию — из настроек UserModule | `accountModule.ts` |
 | **FxModule** | Курс доллара (FT-102): ЦБ по датам, свой курс, действующий курс | Свой курс хранится в настройках UserModule; AccountModule получает его как `EffectiveRateProvider` | `fxModule.ts` |
 | **CategoryModule** | Категории пользователя (FT-099): 8 + 8 стартовых, переименование, цвет, скрытие; разрешение категории записи | Независимый; TransactionModule получает его как `CategoryResolver` | `categoryModule.ts` |
-| **SubscriptionModule** | Premium подписки + Telegram Stars | UserModule (controller) | `subscriptionModule.ts` |
+| **SubscriptionModule** | Premium подписки + Telegram Stars | UserModule через порт `GrantTargets` — premium админ выдаёт только существующему пользователю (#230; подключается в `createModules()`) | `subscriptionModule.ts` |
 | **UserModule** | Пользователи и их настройки (FT-098) | Независимый | `userModule.ts` |
 | **BotMessageModule** | Сообщения бота о записях (FT-122): какие записи показывает подтверждение и какой экран кнопок открыт — таблица `bot_messages`, кнопки и `/undo` переживают перезапуск | Независимый; записи меняет бот через use cases TransactionModule | `botMessageModule.ts` |
 | **NotificationModule** | Уведомления бота: итоги дня в выбранное время по часам пользователя и итоги для `/today` и `/month` (FT-124); напоминания после ревизии — цель на 80% и сверх лимита, подписка накануне списания, ревизия 1-го числа и «Позже» один раз (FT-133); каждое — не больше одного раза (`notifications_log`) | TransactionModule (сервис итогов FT-103, аналитика FT-120), UserModule (пользователи и настройки), AuditModule (ревизия, цели и ответы на напоминания — порт `ReminderSources`) | `notificationModule.ts` |
@@ -104,7 +104,7 @@ Core module системы — управление финансовыми тр�
 
 ### Services
 - `AnalyticsService` - старая аналитика (summary, categories, trends, patterns)
-- `PeriodTotalsService` - итоги периода (FT-103): одно правило для главной, аналитики, дашборда и итогов бота
+- `PeriodTotalsService` - итоги периода (FT-103): одно правило для главной, аналитики и итогов бота
 
 ### Repository
 - Interface: `src/modules/transaction/domain/transactionRepository.ts`
@@ -209,7 +209,7 @@ Freemium модель с Telegram Stars: лимиты для free tier, безл
 - `GetSubscriptionUseCase` - получение статуса подписки с лимитами
 - `CheckLimitUseCase` - проверка лимита перед действием
 - `IncrementUsageUseCase` - увеличение счетчика после действия
-- `GrantPremiumUseCase` - выдача premium админом
+- `GrantPremiumUseCase` - выдача premium админом; id, которого нет в `users`, — `NotFoundError` (404), подписка не создаётся (#230)
 - `StartTrialUseCase` - запуск trial для нового пользователя
 - `CancelSubscriptionUseCase` - отмена подписки
 
@@ -224,14 +224,16 @@ Freemium модель с Telegram Stars: лимиты для free tier, безл
 - Interface: `subscriptionRepository.ts`, `usageLimitRepository.ts`
 - Implementations: TypeORM (SQLite)
 
-### Key Dependency (Controller Layer)
+### Key Dependency (`GrantTargets`, #230)
 ```typescript
-// SubscriptionController получает UserModule для резолва telegram_id → UUID
-new SubscriptionController(subscriptionModule, userModule)
+// createModules(): выдача premium спрашивает UserModule, есть ли такой пользователь
+const grantTargets = { exists: (userId: string) => userModule.exists(userId) };
+new SubscriptionModule(subscriptionRepository, usageLimitRepository, grantTargets, { freeLimitsEnabled })
 ```
 
 **Почему зависимость?**
-API принимает telegram_id (например, `131184740`), но БД использует UUID. Controller резолвит ID через `GetOrCreateUserUseCase`.
+У `subscriptions.user_id` нет внешнего ключа: без вопроса UUID, которого нет в `users`, получал подписку ни для
+кого. Telegram id в `userId` маршрута выдачи резолвит в UUID `createUserResolutionMiddleware` до контроллера.
 
 ### User ID Resolution
 
@@ -266,7 +268,8 @@ bot.on('pre_checkout_query', async (ctx) => {
 - Express: нет. `requirePremium` удалён в #205 вместе с платными insights дашборда, `checkLimit` и `incrementUsage`
   (их никто не подключал) — в #220
 - Telegram: `createTelegramCheckLimitMiddleware` на тексте и голосе, `checkTelegramLimit` — для ответа на «Сколько?»
-  (FT-123); `createTelegramRequirePremiumMiddleware` удалён в #220
+  (FT-123); `createTelegramRequirePremiumMiddleware` удалён в #220, `createTelegramIncrementUsageMiddleware` и
+  `createUsageWarningMiddleware` (их никто не подключал) — в #231
 
 ---
 
@@ -578,8 +581,9 @@ export function createModules() {
   const budgetModule = BudgetModule.create(transactionModule);
   const userModule = UserModule.create();
 
-  // 2. SubscriptionModule с repositories
-  const subscriptionModule = new SubscriptionModule(subscriptionRepository, usageLimitRepository, {
+  // 2. SubscriptionModule с repositories; выдача premium — только существующему пользователю (#230)
+  const grantTargets = { exists: (userId: string) => userModule.exists(userId) };
+  const subscriptionModule = new SubscriptionModule(subscriptionRepository, usageLimitRepository, grantTargets, {
     freeLimitsEnabled: AppConfig.FREE_LIMITS_ENABLED,
   });
 

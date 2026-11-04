@@ -28,8 +28,20 @@ import {
   getCurrentMonthPeriod,
   isPeriodExpired,
 } from '../src/modules/subscription/domain/usageLimit';
+import { GrantTargets } from '../src/modules/subscription/domain/grantTargets';
+import { Result } from '../src/shared/domain/types/Result';
+import { NotFoundError } from '../src/shared/domain/errors/AppError';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** Every id is a user: the grant cases below are about the subscription, not the target (#230). */
+const ANYONE: GrantTargets = { exists: async () => true };
+
+/** The subscription a grant made; a refused grant fails the case with its error. */
+function grantedOf(result: Result<Subscription>): Subscription {
+  if (!result.success) throw result.error;
+  return result.data;
+}
 
 /**
  * In-memory fake mirroring SqliteSubscriptionRepository's create()/update()
@@ -303,7 +315,7 @@ describe('Subscription module', () => {
     });
 
     it('reports no limits in the subscription status while limits are switched off', async () => {
-      const module = new SubscriptionModule(subscriptionRepo, usageLimitRepo, { freeLimitsEnabled: false });
+      const module = new SubscriptionModule(subscriptionRepo, usageLimitRepo, ANYONE, { freeLimitsEnabled: false });
       await usageLimitRepo.incrementCounter('user-1', 'transactions');
 
       const status = await module.getGetSubscriptionUseCase().execute('user-1');
@@ -335,7 +347,7 @@ describe('Subscription module', () => {
     });
 
     it('SubscriptionModule passes the switch to the limit check', async () => {
-      const module = new SubscriptionModule(subscriptionRepo, usageLimitRepo, { freeLimitsEnabled: false });
+      const module = new SubscriptionModule(subscriptionRepo, usageLimitRepo, ANYONE, { freeLimitsEnabled: false });
       for (let i = 0; i < FREE_TIER_LIMITS.voiceInputs; i++) {
         await usageLimitRepo.incrementCounter('user-1', 'voice_inputs');
       }
@@ -478,14 +490,14 @@ describe('Subscription module', () => {
 
   describe('GrantPremiumUseCase', () => {
     it('grants a lifetime premium subscription with no end date', async () => {
-      const useCase = new GrantPremiumUseCase(subscriptionRepo);
+      const useCase = new GrantPremiumUseCase(subscriptionRepo, ANYONE);
 
-      const result = await useCase.execute({
+      const result = grantedOf(await useCase.execute({
         userId: 'user-1',
         grantedBy: 'admin-1',
         isLifetime: true,
         grantNote: 'Beta tester',
-      });
+      }));
 
       expect(result.tier).toBe('premium');
       expect(result.source).toBe('lifetime');
@@ -496,27 +508,27 @@ describe('Subscription module', () => {
     });
 
     it('grants a time-limited gift subscription defaulting to 30 days', async () => {
-      const useCase = new GrantPremiumUseCase(subscriptionRepo);
+      const useCase = new GrantPremiumUseCase(subscriptionRepo, ANYONE);
 
-      const result = await useCase.execute({
+      const result = grantedOf(await useCase.execute({
         userId: 'user-1',
         grantedBy: 'admin-1',
         isLifetime: false,
-      });
+      }));
 
       expect(result.source).toBe('gift');
       expect(result.endDate).toEqual(new Date(result.startDate.getTime() + 30 * DAY_MS));
     });
 
     it('grants a gift subscription honoring a custom duration', async () => {
-      const useCase = new GrantPremiumUseCase(subscriptionRepo);
+      const useCase = new GrantPremiumUseCase(subscriptionRepo, ANYONE);
 
-      const result = await useCase.execute({
+      const result = grantedOf(await useCase.execute({
         userId: 'user-1',
         grantedBy: 'admin-1',
         isLifetime: false,
         durationDays: 7,
-      });
+      }));
 
       expect(result.endDate).toEqual(new Date(result.startDate.getTime() + 7 * DAY_MS));
     });
@@ -525,13 +537,29 @@ describe('Subscription module', () => {
       const createUseCase = new CreateSubscriptionUseCase(subscriptionRepo);
       const original = await createUseCase.execute({ userId: 'user-1', tier: 'premium', source: 'payment' });
 
-      const useCase = new GrantPremiumUseCase(subscriptionRepo);
+      const useCase = new GrantPremiumUseCase(subscriptionRepo, ANYONE);
       await useCase.execute({ userId: 'user-1', grantedBy: 'admin-1', isLifetime: true });
 
       const previous = await subscriptionRepo.findById(original.id);
       expect(previous?.status).toBe('expired');
       const active = await subscriptionRepo.findActiveByUserId('user-1');
       expect(active?.source).toBe('lifetime');
+    });
+
+    // #230: `subscriptions.user_id` has no foreign key — before, a UUID of no one got a premium subscription
+    it('refuses a user that does not exist with NotFoundError, creating no subscription and expiring none', async () => {
+      const createUseCase = new CreateSubscriptionUseCase(subscriptionRepo);
+      const original = await createUseCase.execute({ userId: 'user-1', tier: 'premium', source: 'payment' });
+      const exists = jest.fn(async () => false);
+      const useCase = new GrantPremiumUseCase(subscriptionRepo, { exists });
+
+      const result = await useCase.execute({ userId: 'user-1', grantedBy: 'admin-1', isLifetime: true });
+
+      expect(exists).toHaveBeenCalledWith('user-1');
+      expect(result.success).toBe(false);
+      expect(!result.success && result.error).toBeInstanceOf(NotFoundError);
+      expect((await subscriptionRepo.findById(original.id))?.status).toBe('active');
+      expect((await subscriptionRepo.findActiveByUserId('user-1'))?.id).toBe(original.id);
     });
   });
 
@@ -620,7 +648,7 @@ describe('Subscription module', () => {
     });
 
     it('reports null days-left for a lifetime subscription', async () => {
-      const grant = new GrantPremiumUseCase(subscriptionRepo);
+      const grant = new GrantPremiumUseCase(subscriptionRepo, ANYONE);
       await grant.execute({ userId: 'user-1', grantedBy: 'admin-1', isLifetime: true });
 
       const useCase = new GetSubscriptionUseCase(subscriptionRepo, usageLimitRepo);
@@ -657,7 +685,7 @@ describe('Subscription module', () => {
     });
 
     it('refuses to cancel a lifetime subscription', async () => {
-      const grant = new GrantPremiumUseCase(subscriptionRepo);
+      const grant = new GrantPremiumUseCase(subscriptionRepo, ANYONE);
       await grant.execute({ userId: 'user-1', grantedBy: 'admin-1', isLifetime: true });
 
       const useCase = new CancelSubscriptionUseCase(subscriptionRepo);
@@ -669,7 +697,7 @@ describe('Subscription module', () => {
     });
 
     it('refuses to cancel a gifted subscription', async () => {
-      const grant = new GrantPremiumUseCase(subscriptionRepo);
+      const grant = new GrantPremiumUseCase(subscriptionRepo, ANYONE);
       await grant.execute({ userId: 'user-1', grantedBy: 'admin-1', isLifetime: false });
 
       const useCase = new CancelSubscriptionUseCase(subscriptionRepo);
