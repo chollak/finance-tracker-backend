@@ -177,10 +177,9 @@ describe('where the sign is used (FT-169)', () => {
       { src: '/icons/icon-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
     ]);
 
-    const referenced = [
-      ...[html, read('webapp/vite.config.ts')].join('\n').match(/\/icons\/[\w.-]+/g) ?? [],
-      ...manifestIcons.map((icon) => icon.src),
-    ];
+    // The whole manifest, not only `icons`: `shortcuts`, `screenshots` and the like point at files in public/ too
+    const referenced =
+      [html, read('webapp/vite.config.ts'), JSON.stringify(pwaManifest)].join('\n').match(/\/icons\/[\w.-]+/g) ?? [];
     const shipped = publicFiles();
     for (const icon of referenced) expect([icon, shipped.includes(icon.slice(1))]).toEqual([icon, true]);
   });
@@ -201,7 +200,8 @@ describe('where the sign is used (FT-169)', () => {
 // values, not the text of the config, so the order of keys and blocks there does not matter (#217)
 describe('the PWA manifest (FT-257)', () => {
   it('is one: vite-plugin-pwa writes and links it; index.html and public/ have no manifest of their own', () => {
-    expect(read('webapp/vite.config.ts')).toMatch(/VitePWA\(\{[\s\S]*manifest: pwaManifest,/);
+    // The value is this object as it is, not a copy or a spread: a comma or the closing brace right after it
+    expect(read('webapp/vite.config.ts')).toMatch(/VitePWA\(\{[\s\S]*\bmanifest\s*:\s*pwaManifest\s*[,}]/);
     expect(read('webapp/index.html')).not.toMatch(/rel="manifest"|manifest\.json/);
     expect(publicFiles().filter((file) => /manifest/i.test(file))).toEqual([]);
   });
