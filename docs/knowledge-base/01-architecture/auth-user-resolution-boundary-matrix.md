@@ -2,6 +2,34 @@
 
 > Status: FT-024 audit/decision matrix. This document records current auth, ownership, and userId-resolution boundaries before any strict resolver implementation. There are no guests: the browser's guest mode went with decision Д4 (FT-128), the backend's guest branches in #206.
 
+## 2026-11-04 — the resolver makes no user of an id that is no UUID and no Telegram id (#224)
+
+Found in the review of #206: `resolveUserIdToUUID` resolved every id that was not a UUID as a Telegram id, so
+`POST /api/subscription/grant` with `{"userId":"guest_zzz"}` made a `users` row and a premium subscription for it. No
+hole — the route is admin only — but garbage in the database; before #206 any other non-numeric id did the same.
+
+| Was | Now |
+|---|---|
+| `resolveUserIdToUUID` / `resolveUserIdToUUIDStrict`: a UUID passed as it is, any other id went to `GetOrCreateUserUseCase` as a Telegram id | Only a UUID or a Telegram id — a positive whole number in digits (`isResolvableUserId`); anything else (`guest_zzz`, `abc`, `-5`, `1.5`, `0`) is a `ValidationError` before the user module is asked, so no row |
+| `createUserResolutionMiddleware` refused only a userId that was not a non-blank string (`400 INVALID_USER_ID`, FT-162) | Also a string that is no UUID and no Telegram id, by the same `isResolvableUserId`, before resolving: the admin grant answers `400 INVALID_USER_ID`, no `users` row, no subscription |
+
+The check is in the resolver, the one door every caller goes through to `GetOrCreateUserUseCase` by a given id — the
+bot, quick capture and voice, the record counters, the middleware — so no new caller can bring the garbage back. The
+middleware checks first with the same function because its answer for a bad id is `400 INVALID_USER_ID` in its own
+shape (`{ success, error, code }`, as for a non-string id on the same route), while an error from resolving is `500`.
+Unchanged: a Telegram id, also a big one (past 2^32) and one with leading zeros, is resolved as it is written, creating
+the user on first contact; a UUID passes as it is. Every id the server itself produces is already one of the two:
+`ctx.from.id` in the bot, the signed-in Telegram id (initData, the session cookie, the Shortcut owner, the app token),
+a record's owner UUID — so a numeric `X-Dev-User-Id`, the Shortcut token with `X-Shortcut-User-Id`, the app token and
+`ALLOWED_TELEGRAM_IDS` work as before. A record counter that meets an old owner id of another form now skips counting
+with an error in the log instead of making a row. Not through the resolver, so not changed here: the milestone-10 routes
+(`createResolveCurrentUserMiddleware`) and the bot's `bot.use` that gives every sender a row hand the signed-in Telegram
+id to `GetOrCreateUserUseCase` themselves; the debt use cases resolve their owner with their own `isUUID` / `GetOrCreateUserUseCase` — they get a UUID
+from the route middleware or the debt record, never an id from a request.
+Tests: `tests/userResolution.test.ts` (the ids refused by both resolvers and `isResolvableUserId`, no user made; big
+Telegram ids and one with leading zeros resolved as written), `tests/legacyUserIdRoutes.test.ts` (the grant: `guest_zzz`, `abc`, `-5`, `1.5`, `0` — `400
+INVALID_USER_ID`, no row, no subscription; a Telegram id and a UUID granted as before).
+
 ## 2026-11-04 — no guest mode in the backend (#206)
 
 Since 2026-10-21 a `guest_*` id opened nothing: `allowGuestMode` was `requireAuth` under its old name, and
@@ -24,7 +52,8 @@ A record left in the database with a `guest_*` owner is nobody's to open.
 Answers (checked live with curl): `GET /api/budgets/users/guest_abc/budgets` without sign-in — `401 MISSING_AUTH_HEADER`;
 signed in — `403 ACCESS_DENIED`, no `users` row (`/api/users/guest_abc/budgets` is no route: `404`). A `guest_*` id that reached the resolver would now be resolved as a
 Telegram id and create a `users` row; on HTTP only the admin grant can pass one there — every other route checks the id
-with `verifyOwnership` first or takes the user from sign-in.
+with `verifyOwnership` first or takes the user from sign-in. Closed in #224: the resolver refuses such an id, the grant
+answers `400 INVALID_USER_ID`.
 Tests: `tests/legacyUserIdRoutes.test.ts` (a `guest_*` id on every `:userId` route: `401` without sign-in, `403` signed
 in, no `users` row), `tests/userFromAuth.test.ts` (no `guest_`, `allowGuestMode` or `isGuest` left in `src/`),
 `tests/userResolution.test.ts`.
@@ -246,9 +275,10 @@ User ID normalization boundary.
 
 - Extracts user ID from params/query/body.
 - UUID passes through.
-- Other values resolve through `resolveUserIdToUUID(...)` — a `guest_*` id too, since #206.
+- A Telegram id resolves through `resolveUserIdToUUID(...)`.
 - Missing userId usually skips by default (`skipIfNoUserId=true`).
-- A userId that is not a non-blank string — `400 INVALID_USER_ID` (FT-162), not a resolver error.
+- A userId that is not a non-blank string (FT-162), or a string that is no UUID and no Telegram id — `guest_*`, `abc`,
+  `-5` (#224, `isResolvableUserId`) — `400 INVALID_USER_ID`, not a resolver error; nothing is resolved or created.
 - Resolver errors map to `USER_RESOLUTION_ERROR` in this middleware.
 - Creates the user for a Telegram id it does not know (`GetOrCreateUserUseCase`), so on user routes it runs only
   after `verifyOwnership` (FT-162). Only the admin grant uses it for an id other than the signed-in user's.
@@ -258,8 +288,10 @@ User ID normalization boundary.
 Current loose resolver helper.
 
 - Rejects empty/whitespace-only IDs.
+- Rejects an id that is no UUID and no Telegram id (a positive whole number in digits) with a `ValidationError`
+  before the user module is asked, so it creates no user (#224). `resolveUserIdToUUIDStrict` does the same.
 - Passes through UUIDs (and `guest_*` ids until #206).
-- Resolves telegramId to UUID through `GetOrCreateUserUseCase`.
+- Resolves telegramId to UUID through `GetOrCreateUserUseCase`, as written (no leading zeros are dropped).
 - On resolver failure, logs and returns the original ID for backward compatibility.
 
 FT-017D decision: do not globally change this helper to fail-closed yet.
@@ -283,9 +315,21 @@ FT-017D decision: do not globally change this helper to fail-closed yet.
 | Debt by-id/payment | `/api/debts/:debtId...` | `optionalAuth` | controller/resource lookup | `verifyResourceOwnership` | resource-strict |
 | Dashboard — removed in #205 | `/api/dashboard/:userId...` | — (`404`) | — | — | — |
 | Subscription (own) | `GET /api/subscription/:userId`, `POST /check-limit`, `/cancel`, `/start-trial` | `requireAuth` | signed-in user (`createResolveCurrentUserMiddleware`, FT-162) | `verifyOwnership` on any path/body/query userId, before resolution | strict |
-| Subscription grant | `POST /api/subscription/grant` | `requireAuth` + `requireAdmin` | body userId (the admin's target; a non-string is `400`) | admin only | strict/admin |
+| Subscription grant | `POST /api/subscription/grant` | `requireAuth` + `requireAdmin` | body userId (the admin's target; a non-string or an id that is no UUID and no Telegram id is `400 INVALID_USER_ID`, #224) | admin only | strict/admin |
 
-The column «Guest allowed» went with the guests (#206): no route lets a request in without signing in, except health.
+The column «Guest allowed» went with the guests (#206). A request without sign-in reaches only these routes:
+
+- `GET /api/health`.
+- The web login through the bot (FT-128): `POST`, `GET` and `DELETE /api/auth/web-login`, `POST` and
+  `DELETE /api/auth/session` — they start, wait for, cancel a login by its one-time token and open or close the
+  browser's session; a session opens only after the owner confirmed the login in the bot. `GET /api/auth/session`
+  needs sign-in.
+- The by-id routes on `optionalAuth` (`optionalAuthOrAppToken` for delete, restore and edit of a record, FT-218):
+  `/api/transactions/:id` and its `/restore`, `/archive`, `/unarchive`, `POST /api/transactions/archive/batch`,
+  `/api/budgets/:budgetId…`, `/api/debts/:debtId…` and `DELETE /api/debts/payments/:paymentId`. The controller looks
+  the record up and its owner check answers a request without sign-in `403 AUTHORIZATION_ERROR`.
+- Quick capture (`POST /api/quick-capture`, `/payment`) and the six FT-218 routes with the Shortcut token, which signs
+  in as `SHORTCUT_CAPTURE_OWNER` instead of Telegram.
 
 ## Strict vs Loose Recommendations
 
