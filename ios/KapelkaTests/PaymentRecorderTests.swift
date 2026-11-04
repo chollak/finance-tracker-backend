@@ -36,6 +36,28 @@ final class PaymentRecorderTests {
         return (recorder, cards)
     }
 
+    /// The command as the automation runs it: the queue sent within `BackgroundSend.run`'s budget, here 200 ms.
+    private func makeBackgroundRecorder(_ harness: QueueHarness) throws -> (PaymentRecorder, CaptureQueue) {
+        let cards = CardAccountStore(defaults: try #require(UserDefaults(suiteName: suite)))
+        let queue = harness.makeQueue()
+        let clock = harness.clock
+        let background = BackgroundSend(
+            queue: queue,
+            scheduler: FakeRefreshScheduler(),
+            now: { clock.now },
+            budget: .milliseconds(200)
+        )
+        let notices = notices
+        let recorder = PaymentRecorder(
+            queue: queue,
+            cards: cards,
+            send: { await background.run() },
+            isConfigured: { true },
+            notify: { await notices.post($0) }
+        )
+        return (recorder, queue)
+    }
+
     /// A waiting payment names the amount as its later «Записал: …» will (`MoneyText`), not as Wallet wrote it.
     private static let mazzaliLine = "Ooo Mazzali Super Food · \u{2212}28\u{00A0}000\u{00A0}сум"
 
@@ -192,23 +214,7 @@ final class PaymentRecorderTests {
     @Test("ПК спит: уведомление в срок фона, оплата ждёт, повтор — с тем же clientId")
     func sleepingServer() async throws {
         let harness = try QueueHarness(transport: FakeTransport([.hang]))
-        let cards = CardAccountStore(defaults: try #require(UserDefaults(suiteName: suite)))
-        let queue = harness.makeQueue()
-        let clock = harness.clock
-        let background = BackgroundSend(
-            queue: queue,
-            scheduler: FakeRefreshScheduler(),
-            now: { clock.now },
-            budget: .milliseconds(200)
-        )
-        let notices = notices
-        let recorder = PaymentRecorder(
-            queue: queue,
-            cards: cards,
-            send: { await background.run() },
-            isConfigured: { true },
-            notify: { await notices.post($0) }
-        )
+        let (recorder, queue) = try makeBackgroundRecorder(harness)
 
         let started = ContinuousClock.now
         try await recorder.record(Self.mazzali)
@@ -229,23 +235,7 @@ final class PaymentRecorderTests {
     @Test("сервер записал фразу перед оплатой, на оплате вышло время команды — «уйдёт позже», а не «не ответил» (#219)")
     func outOfTimeAfterAnswer() async throws {
         let harness = try QueueHarness(transport: FakeTransport([.http(200), .hang]))
-        let cards = CardAccountStore(defaults: try #require(UserDefaults(suiteName: suite)))
-        let queue = harness.makeQueue()
-        let clock = harness.clock
-        let background = BackgroundSend(
-            queue: queue,
-            scheduler: FakeRefreshScheduler(),
-            now: { clock.now },
-            budget: .milliseconds(200)
-        )
-        let notices = notices
-        let recorder = PaymentRecorder(
-            queue: queue,
-            cards: cards,
-            send: { await background.run() },
-            isConfigured: { true },
-            notify: { await notices.post($0) }
-        )
+        let (recorder, queue) = try makeBackgroundRecorder(harness)
         // A phrase from before, still in the queue: it goes first
         _ = try await queue.add("кофе 25к")
 
@@ -253,6 +243,26 @@ final class PaymentRecorderTests {
 
         #expect(await notices.texts == ["\(Self.mazzaliLine) — уйдёт позже"])
         #expect(try harness.store.load().captures.map(\.state) == [.sent, .pending])
+    }
+
+    @Test("после паузы 429 сервер отказал фразе (400), на оплате вышло время — не «просит подождать»: паузы нет (#219)")
+    func outOfTimeAfterRefusalPastPause() async throws {
+        let harness = try QueueHarness(transport: FakeTransport([
+            .http(429, body: ServerReply.rateLimited, headers: ["Retry-After": "60"]),
+            .http(400, body: ServerReply.textTooLong),
+            .hang,
+        ]))
+        let (recorder, queue) = try makeBackgroundRecorder(harness)
+        _ = try await queue.add("кофе 25к")
+        await queue.flush()
+        harness.clock.advance(by: 120)
+
+        try await recorder.record(Self.mazzali)
+
+        #expect(await notices.texts == ["\(Self.mazzaliLine) — уйдёт позже"])
+        let saved = try harness.store.load()
+        #expect(saved.captures.map(\.state) == [.rejected, .pending])
+        #expect(saved.notBefore == nil)
     }
 
     @Test("сумма без кода: валюта карты из настроек важнее валюты автоматизации — $4.50 не ляжет как 4,50 сум")

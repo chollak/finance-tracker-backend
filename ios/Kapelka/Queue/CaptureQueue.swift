@@ -246,8 +246,9 @@ actor CaptureQueue {
 
     /// A request cut short still tells something (FT-256): it may have been written, and the PC had not answered by
     /// then — the payment's «уйдёт позже» says «сервер не ответил». `wait` is `nil` when the server answered earlier
-    /// in the pass: the time ran out on a long queue, not on a silent PC, and the reason stays as that answer left it
-    /// — none (#219).
+    /// in the pass: the time ran out on a long queue, not on a silent PC, and the reason stays as it is — none: a
+    /// record written or refused cleared it, a token refused with the settings of before was cleared by the new
+    /// settings (#219).
     private func cutShort(_ clientId: UUID, wait: QueueWait?, mayBeOnServer: Bool) {
         guard let index = current.captures.firstIndex(where: { $0.clientId == clientId }) else { return }
         var next = current
@@ -333,7 +334,9 @@ actor CaptureQueue {
             capture.attempts += 1
             capture.state = .rejected
             capture.rejection = message
-            // The server answered: it is reachable
+            // The server answered: it is reachable, and a 429 pause from before is over — a request goes only after
+            // it, so `PaymentNotice` must not read «просит подождать» from it (#219)
+            next.notBefore = nil
             next.wait = nil
             goOn = true
         case let .retryLater(after, wait, mayBeOnServer):

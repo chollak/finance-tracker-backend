@@ -68,9 +68,15 @@ struct QueueOnServerTests {
         #expect(saved.wait == .noAnswer)
     }
 
-    @Test("сервер в этом проходе ответил, потом время вышло на длинной очереди — не «сервер не ответил» (#219)")
-    func cutShortAfterAnswer() async throws {
-        let harness = try QueueHarness(transport: FakeTransport([.http(200), .hang]))
+    @Test(
+        "сервер в этом проходе записал или отказал, потом время вышло на длинной очереди — не «сервер не ответил» (#219)",
+        arguments: [
+            (FakeTransport.Reply.http(200), Capture.State.sent),
+            (.http(400, body: ServerReply.textTooLong), .rejected),
+        ]
+    )
+    func cutShortAfterAnswer(answer: FakeTransport.Reply, answered: Capture.State) async throws {
+        let harness = try QueueHarness(transport: FakeTransport([answer, .hang]))
         let queue = harness.makeQueue()
         _ = try await queue.add("кофе 25к")
         _ = try await queue.add("такси 18к")
@@ -78,7 +84,7 @@ struct QueueOnServerTests {
         await cutShortOnRequest(2, queue, harness)
 
         let saved = try harness.store.load()
-        #expect(saved.captures.map(\.state) == [.sent, .pending])
+        #expect(saved.captures.map(\.state) == [answered, .pending])
         #expect(saved.captures.map(\.attempts) == [1, 0])
         // Cut short, it may have been written all the same, as in `cutShort`
         #expect(saved.captures.last?.mayBeOnServer == true)
