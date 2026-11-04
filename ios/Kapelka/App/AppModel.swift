@@ -12,15 +12,27 @@ final class AppModel {
     let records: RecordsList
     /// The card «Последняя фраза» on «Записать» (FT-252).
     let card: LastPhraseCard
+    /// The journal's runs of «Записать трату», which go on with the phrase (#241).
+    private let expenseRuns: ExpenseRuns
     private(set) var queueState: QueueState
     private(set) var isConfigured: Bool
 
     init(services: AppServices, speech: AppleSpeech = AppleSpeech()) {
         self.services = services
         let feedback = services.feedback
-        voice = VoiceCapture(system: speech, listener: speech, feedback: feedback.happened) { [queue = services.queue] phrase in
-            try await Self.write(phrase, to: queue)
-        }
+        let expenseRuns = ExpenseRuns(
+            journal: services.journal,
+            queue: services.queue,
+            isConfigured: { [settings = services.settings] in settings.configuration() != nil }
+        )
+        self.expenseRuns = expenseRuns
+        voice = VoiceCapture(
+            system: speech,
+            listener: speech,
+            feedback: feedback.happened,
+            ended: { expenseRuns.voiceEnded($0) },
+            submit: { try await expenseRuns.write($0) }
+        )
         // With VoiceOver on the bar of «Записи» stays until it is closed: 5 s is too short to reach «Вернуть»
         // The queue's answer explains «!» of a record sent from this phone (FT-254)
         records = RecordsList(
@@ -106,10 +118,24 @@ final class AppModel {
         await services.queue.flush()
     }
 
-    /// Keychain and the queue file open only after the first unlock: a launch before it is caught up here.
+    /// Keychain and the queue file open only after the first unlock: a launch before it is caught up here. The journal
+    /// marks the runs left without an end and keeps the last 200 (#241) — not while a command runs.
     func appBecameActive() async {
         isConfigured = services.settings.configuration() != nil
+        Task { [journal = services.journal] in await journal.tidy() }
         await services.queue.flush()
+    }
+
+    /// «Записать трату» taken by the screen: the first press listens, a press while listening ends the phrase. Their
+    /// runs in the journal go on with the phrase (#241).
+    func commandPressed(runs: [UUID]) {
+        expenseRuns.pressed(runs, phase: voice.phase)
+        voice.commandPressed()
+    }
+
+    /// «Журнал команд» in the settings, newest first.
+    func journalRuns() async -> [JournalRun] {
+        await services.journal.runs()
     }
 
     /// The app left the screen. What the microphone heard is written first (decision 2026-10-30), then the queue is sent

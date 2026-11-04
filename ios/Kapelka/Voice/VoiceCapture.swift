@@ -55,6 +55,9 @@ final class VoiceCapture {
     private let submit: @MainActor (String) async throws -> Void
     /// The start of listening and a problem, for the haptics (FT-251).
     private let feedback: @MainActor (FeedbackEvent) -> Void
+    /// The listening is over, the phrase written or not, with the problem shown if any: the journal's runs of
+    /// «Записать трату» end there (`ExpenseRuns`, #241).
+    private let ended: @MainActor (VoiceProblem?) -> Void
     @ObservationIgnored private var timer: Task<Void, Never>?
     @ObservationIgnored private var cancelled = false
     @ObservationIgnored private var heard = HeardPhrase()
@@ -66,6 +69,7 @@ final class VoiceCapture {
         pause: Duration = VoiceCapture.pause,
         silenceAtStart: Duration = VoiceCapture.silenceAtStart,
         feedback: @escaping @MainActor (FeedbackEvent) -> Void = { _ in },
+        ended: @escaping @MainActor (VoiceProblem?) -> Void = { _ in },
         submit: @escaping @MainActor (String) async throws -> Void
     ) {
         self.system = system
@@ -73,6 +77,7 @@ final class VoiceCapture {
         self.pause = pause
         self.silenceAtStart = silenceAtStart
         self.feedback = feedback
+        self.ended = ended
         self.submit = submit
     }
 
@@ -204,6 +209,7 @@ final class VoiceCapture {
             feedback(.voiceFailed)
         }
         phase = .idle
+        ended(problem)
     }
 
     /// The silence that ends the phrase — or, before any word, the listening.

@@ -49,7 +49,7 @@ struct RootView: View {
     private func screenChanged() {
         let record = navigation.takeOpenRequest()
         if navigation.takeListenRequest(sceneActive: scenePhase == .active) {
-            model.voice.commandPressed()
+            model.commandPressed(runs: navigation.takeListenRuns())
         }
         if model.records.setOnScreen(navigation.recordsOnScreen(scenePhase: scenePhase)) {
             model.records.startRefresh()

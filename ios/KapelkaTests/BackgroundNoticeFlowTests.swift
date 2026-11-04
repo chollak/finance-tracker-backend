@@ -37,7 +37,8 @@ struct BackgroundNoticeFlowTests {
             cards: CardAccountStore(defaults: defaults.defaults),
             send: { await background.run() },
             isConfigured: { true },
-            notify: { await center.add($0) }
+            notify: { await center.add($0) },
+            journal: .scratch()
         )
         return Rig(harness: harness, queue: queue, center: center, entry: entry, background: background, recorder: recorder)
     }

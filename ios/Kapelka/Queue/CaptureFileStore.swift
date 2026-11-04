@@ -48,6 +48,10 @@ enum QueueError: Error, Equatable, LocalizedError {
 struct CaptureFileStore: Sendable {
     private static let logger = Logger(subsystem: "kapelka", category: "queue-file")
 
+    /// Readable after the first unlock: the background refresh and the Wallet automation run on a locked phone. The
+    /// journal of commands writes with it too (#241).
+    static let protection: Data.WritingOptions = .completeFileProtectionUntilFirstUserAuthentication
+
     let fileURL: URL
 
     /// `Application Support/Kapelka/captures.json`: kept across app updates and reinstalls over the old build. The
@@ -82,7 +86,7 @@ struct CaptureFileStore: Sendable {
         )
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
-        try encoder.encode(state).write(to: fileURL, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+        try encoder.encode(state).write(to: fileURL, options: [.atomic, Self.protection])
     }
 
     private func setAside() {

@@ -9,6 +9,10 @@ struct AppServices: Sendable {
     let background: BackgroundSend
     let health: HealthCheck
     let payments: PaymentRecorder
+    /// «Отправить очередь» (`SendQueueIntent`).
+    let sendQueue: SendQueueCommand
+    /// What each run of the three commands did, on the phone only (#241).
+    let journal: CommandJournal
     /// The server's records for «Записи», with the queue's address and token (FT-219, FT-220).
     let records: RecordsFeed
     /// The one entry for what the phone answers (FT-251): each pass of the queue, from the screen and the commands
@@ -20,6 +24,7 @@ struct AppServices: Sendable {
     static let shared = live()
 
     private static func live() -> AppServices {
+        let journal = CommandJournal.live()
         let settings = SettingsStore()
         let cards = CardAccountStore()
         let transport = URLSessionTransport.shared
@@ -47,8 +52,17 @@ struct AppServices: Sendable {
                 cards: cards,
                 send: { await background.run() },
                 isConfigured: { settings.configuration() != nil },
-                notify: { await center.add($0) }
+                notify: { await center.add($0) },
+                journal: journal
             ),
+            sendQueue: SendQueueCommand(
+                queue: queue,
+                // It answers with its dialog: what it sends posts no notification (FT-253)
+                send: { await feedback.quietly { await background.run() } },
+                isConfigured: { settings.configuration() != nil },
+                journal: journal
+            ),
+            journal: journal,
             records: RecordsFeed(
                 client: RecordsClient(configuration: { settings.configuration() }, transport: transport),
                 cache: .inApplicationSupport

@@ -120,6 +120,16 @@ struct SettingsView: View {
                 } footer: {
                     Text("Необязательно: очередь и так уходит, когда открываешь приложение или появляется сеть.")
                 }
+
+                // Why the Wallet automation fails now and then: iOS leaves no other trace (#241)
+                Section {
+                    NavigationLink("Журнал команд") {
+                        CommandJournalView(load: model.journalRuns)
+                    }
+                } footer: {
+                    Text("Что делали «Записать оплату», «Записать трату» и «Отправить очередь»: шаги, время, итог. "
+                        + "Хранится только на телефоне, на сервер не уходит.")
+                }
             }
             .scrollDismissesKeyboard(.interactively)
             .navigationTitle("Настройки")
