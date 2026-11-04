@@ -138,7 +138,7 @@ struct CommandJournalTests {
         #expect(try harness.file.read().starts(with: before))
     }
 
-    @Test("запуск без конца: на экране «оборвана iOS» с последним шагом сразу, в файле — при открытии приложения")
+    @Test("запуск без конца: на экране «оборвана» с последним шагом сразу, в файле — при открытии приложения")
     func interruptedOnNextCommand() async throws {
         let harness = try JournalHarness()
         let killed = harness.makeJournal()
@@ -314,6 +314,45 @@ struct CommandJournalTests {
         // The newest that fit, none of the oldest
         #expect(runs.count < 100)
         #expect(Array(runs.dropFirst(2).map(\.id)) == Array(earlier.suffix(runs.count - 2).reversed()))
+    }
+
+    @Test("обрезка помечает «оборванным» только запуск прошлого процесса, а не идущий в этом — ни командой, ни при открытии")
+    func trimKeepsGoingRuns() async throws {
+        let harness = try JournalHarness()
+        // A run an earlier process left without an end, kept by its command's limit: this one must get its mark
+        let killed = await harness.makeJournal().begin(.recordExpense)
+        try harness.fill(.recordPayment, runs: 900, step: String(repeating: "k", count: 1200))
+        let journal = harness.makeJournal()
+        let sending = await journal.begin(.sendQueue)
+
+        await journal.finish(await journal.begin(.recordPayment))
+        await journal.tidy()
+
+        let marked = try harness.lines().filter { $0.contains("\"interrupted\"") }
+        #expect(try harness.size() <= CommandJournal.keptBytes)
+        #expect(marked.count == 1)
+        #expect(marked.first?.contains(killed.uuidString) == true)
+        #expect(!marked.contains { $0.contains(sending.uuidString) })
+        await journal.finish(sending)
+        let runs = await harness.makeJournal().runs()
+        #expect(runs.first { $0.id == sending }?.outcome == .finished(ms: 0))
+    }
+
+    @Test("запуск длиннее 512 КБ, который закончился, обрезка не стирает: он остаётся целиком, старые уходят")
+    func trimKeepsEndedRun() async throws {
+        let harness = try JournalHarness()
+        try harness.fill(.recordPayment, runs: 500, step: String(repeating: "k", count: 1200))
+        let journal = harness.makeJournal()
+
+        let run = await journal.begin(.recordPayment)
+        await journal.step(run, String(repeating: "k", count: 600_000))
+        await journal.finish(run)
+
+        let runs = await harness.makeJournal().runs()
+        #expect(runs.map(\.id) == [run])
+        #expect(runs.first?.steps.count == 2)
+        #expect(runs.first?.outcome == .finished(ms: 0))
+        #expect(try harness.size() < CommandJournal.trimAboveBytes)
     }
 
     @Test("ошибка — тоже конец запуска: файл больше 1 МБ обрезается и после неё")

@@ -122,18 +122,19 @@ actor CommandJournal {
         append(JournalLine(run: run, event: .step, at: now(), text: JournalText.cancelled, ms: ms(since: start)))
     }
 
-    /// The run's last line. A file it leaves over `trimAboveBytes` is cut right away, once the run's own work is done.
+    /// The run's last line. A file it leaves over `trimAboveBytes` is cut right away, once the run's own work is done —
+    /// and never that run itself.
     private func end(_ line: JournalLine) {
         guard let size = append(line), size > Self.trimAboveBytes else { return }
-        markAndTrim()
+        markAndTrim(keeping: line.run)
     }
 
     /// One read: the runs an earlier process left without an end get their mark, and a file over its limits is cut
     /// down to the newest runs of each command (`keptRuns(of:)`), then to the newest lines within `keptBytes`. A run
-    /// that loses its start to the bytes is skipped on reading and gone with the next cut. `false` when the file cannot
-    /// be read.
+    /// that loses its start to the bytes is skipped on reading and gone with the next cut. The run `ended` — the one
+    /// whose end made the cut — stays whole, even alone over `keptBytes`. `false` when the file cannot be read.
     @discardableResult
-    private func markAndTrim() -> Bool {
+    private func markAndTrim(keeping ended: UUID? = nil) -> Bool {
         guard let file = readFile() else { return false }
         let runs = JournalRun.fold(file.lines.map(\.line))
         let marks = runs.filter { $0.outcome == .going && going[$0.id] == nil }.map {
@@ -146,10 +147,14 @@ actor CommandJournal {
             }
             return true
         }
-        let raw = file.lines.filter { kept.contains($0.line.run) }.map(\.raw)
-            + marks.filter { kept.contains($0.run) }.compactMap(encoded)
+        let keptAndEnded = kept.union(ended.map { [$0] } ?? [])
+        let lines = file.lines.filter { keptAndEnded.contains($0.line.run) }.map { (raw: $0.raw, run: $0.line.run) }
+            + marks.filter { keptAndEnded.contains($0.run) }.compactMap { mark in
+                encoded(mark).map { (raw: $0, run: mark.run) }
+            }
+        let fitting = Self.newest(lines, within: Self.keptBytes, keeping: ended)
         do {
-            try storage.replace(with: Data(Self.newest(raw, within: Self.keptBytes).map { "\n" + $0 }.joined().utf8))
+            try storage.replace(with: Data(fitting.map { "\n" + $0 }.joined().utf8))
         } catch {
             Self.logger.error("Journal not trimmed: \(error.localizedDescription, privacy: .public)")
         }
@@ -163,14 +168,23 @@ actor CommandJournal {
         })
     }
 
-    /// The newest lines that fit in `bytes` as written, each after its line break.
-    private static func newest(_ lines: [String], within bytes: Int) -> [String] {
-        var total = 0
+    /// The lines of `ended`, whatever their size, then the newest of the rest that still fit in `bytes` as written, each
+    /// after its line break.
+    private static func newest(_ lines: [(raw: String, run: UUID)], within bytes: Int, keeping ended: UUID?) -> [String] {
+        let size = { (line: (raw: String, run: UUID)) in line.raw.utf8.count + 1 }
+        var left = bytes - lines.filter { $0.run == ended }.map(size).reduce(0, +)
+        var full = false
         var fitting: [String] = []
         for line in lines.reversed() {
-            total += line.utf8.count + 1
-            guard total <= bytes else { break }
-            fitting.append(line)
+            if line.run == ended {
+                fitting.append(line.raw)
+                continue
+            }
+            left -= size(line)
+            // Once a line does not fit, no older one goes in: the rest stays the newest lines, with no gaps
+            full = full || left < 0
+            guard !full else { continue }
+            fitting.append(line.raw)
         }
         return fitting.reversed()
     }

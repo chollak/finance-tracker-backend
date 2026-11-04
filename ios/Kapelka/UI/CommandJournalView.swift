@@ -83,7 +83,7 @@ private struct RunSection: View {
         }
     }
 
-    /// Ended with an error or cut off by iOS: what the journal is for.
+    /// Ended with an error or «оборвана» — the app closed before the end: what the journal is for.
     private var isTrouble: Bool {
         switch run.outcome {
         case .failed, .interrupted: true
