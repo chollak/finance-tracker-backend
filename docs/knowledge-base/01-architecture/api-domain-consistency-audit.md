@@ -3,6 +3,9 @@
 > Status: FT-018 audit. This document records API/domain consistency findings after the foundation cleanup. It is intentionally an audit and task-splitting document, not a broad refactor.
 >
 > #205 (2026-11-03): the backend dashboard — `/api/dashboard`, `dashboardController.ts`, `DashboardService`, `AlertService` — is removed; the dashboard findings below are history.
+>
+> #221 (2026-11-04): the web voice routes — `/api/voice/*`, `voiceProcessingController.ts` — are removed: no client
+> called them. F7 and FT-026 below are history.
 
 ## Scope
 
@@ -58,7 +61,7 @@ Recent foundation work already improved several contracts:
 | `budgetController.ts` | 230 lines | Similar to debt; uses `new Error(...)` for validation in several places. |
 | `subscriptionController.ts` | 221 lines | Does not use Result pattern in application use cases; has special guest response behavior. |
 | `dashboardController.ts` | 196 lines | Mostly service calls; uses raw `new Error(...)` for missing user. Removed in #205 with the backend dashboard. |
-| `voiceProcessingController.ts` | 139 lines | Validates body manually; text input defaults missing `userId` to `'1'` for backward compatibility. |
+| `voiceProcessingController.ts` | 139 lines | Validates body manually; text input defaults missing `userId` to `'1'` for backward compatibility. Removed in #221 with `/api/voice/*`. |
 | `userController.ts` | 124 lines | Improved by FT-017; still manually maps use-case Results. |
 | `openAIUsageController.ts` | 105 lines | Admin surface; smaller controller. Removed in FT-174 with `OpenAIUsageModule`. |
 
@@ -69,7 +72,7 @@ Main route families:
 ```text
 /api/health
 /api/transactions
-/api/voice
+/api/voice         (removed in #221)
 /api/budgets
 /api/debts
 /api/dashboard      (removed in #205)
@@ -83,7 +86,7 @@ Route coverage currently exists for critical slices only:
 - health
 - 404
 - CORS preflight
-- voice text-input guest/auth/error behavior
+- voice text-input guest/auth/error behavior (removed in #221)
 - debt guest/dev-auth behavior
 - global error handler mapping
 
@@ -461,6 +464,7 @@ any change to transaction/debt accounting semantics
 
 1. Should subscription limit enforcement fail-open or fail-closed when user resolution/storage fails?
 2. Should `/api/voice/text-input` still default missing `userId` to `'1'`, or should it require explicit `userId` / guest id?
+   (Moot: the default went on 2026-10-21, the route in #221.)
 3. Should API error envelopes be made fully uniform now, or later after Mini App/product direction is clearer?
 4. Should transaction controller be split after route coverage improves?
 

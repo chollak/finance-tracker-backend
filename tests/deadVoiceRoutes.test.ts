@@ -6,7 +6,7 @@ import { listenOnLoopback, LoopbackServer } from './helpers/testServer';
 /**
  * #221: the web voice routes `/api/voice/*` had no client left. The webapp's only caller was the voice check page
  * removed in #207; the bot takes a voice from Telegram itself (`ProcessVoiceInputUseCase`), the iOS app hears speech on
- * the phone and sends text to `/api/quick-capture`, and nothing ever called `text-input`. They are gone with their
+ * the phone and sends text to `/api/quick-capture`, and no client called `text-input`. They are gone with their
  * multer upload into `uploads/`; the bot's voice path stays (`voiceUploadCleanup.test.ts`).
  */
 

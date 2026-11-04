@@ -194,10 +194,9 @@ When a `UserModule` is wired (it is, in `buildServer`), `userId` goes through
 `{"success": false, "error": "...", "code": "AI_RATE_LIMIT_EXCEEDED"}`. A payment counts too, also one whose category
 needs no AI: the limiter runs before the route.
 
-Caveat: `aiRateLimiter` is a **single shared middleware instance**, also used by
-`src/modules/voiceProcessing/presentation/controllers/voiceProcessingController.ts`. The 20-request budget is therefore
-shared between `/api/voice/*` and `/api/quick-capture` for the same IP — it is not 20 per endpoint. It is also per-IP,
-not per-user, so several users behind one NAT/tunnel share one budget. The limiter runs **before** auth and validation,
+Caveat: `aiRateLimiter` is a **single shared middleware instance**. Until #221 the web voice routes `/api/voice/*`
+shared its 20-request budget; they are gone, and `/api/quick-capture` with `/payment` is the only router behind it. It
+is per-IP, not per-user, so several users behind one NAT/tunnel share one budget. The limiter runs **before** auth and validation,
 so even rejected requests consume budget.
 
 ---
@@ -766,7 +765,7 @@ curl -sS -X POST https://<tunnel-host>/api/quick-capture \
    «Изменить» / «Назад» delete the capture's rows and return the text to the field.
 3. **Idempotency only with `clientId`.** Since FT-106 a request with a `clientId` is safe to retry; without one a
    retried request still creates duplicate transactions.
-4. **Rate limit is coarse.** The AI limiter is per-IP and its 20/15min budget is *shared* with `/api/voice/*`; it is not
+4. **Rate limit is coarse.** The AI limiter is per-IP (20/15min, shared with `/api/voice/*` until #221); it is not
    per-user and cannot be tuned separately for capture.
 5. **The time of input, not a date.** `capturedAt` (FT-175) dates a capture by when it was typed, at most 30 days back
    and at most 24 hours ahead of the server's clock; a client cannot set a record's date directly. A day in the phrase («5 октября») still goes

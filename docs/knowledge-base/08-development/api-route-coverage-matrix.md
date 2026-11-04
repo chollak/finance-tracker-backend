@@ -35,7 +35,7 @@ Prefer unit/use-case tests for pure business logic and route tests for HTTP/midd
 | Route family | Representative routes | Current route-test coverage | Risk | Recommendation |
 |---|---|---:|---|---|
 | Health / global middleware | `GET /api/health`, 404, CORS, malformed JSON, global error handler | partial/high-value covered | low | Keep current coverage. |
-| Voice | `POST /api/voice/text-input`, `POST /api/voice/voice-input` | text-input covered for JSON parsing, guest, auth, validation; voice-input covered through real HTTP with ffmpeg faked (`tests/voiceUploadCleanup.test.ts`, FT-216): success and the rename fallback, an empty file `400`, someone else's userId `403` and a blank one `400` — no upload left in any case | low | Keep current coverage. |
+| Voice | removed in #221 with the controller and its multer upload: no client called them (the bot takes a voice from Telegram, iOS sends text to `/api/quick-capture`) | `tests/deadVoiceRoutes.test.ts`: `POST /api/voice/text-input` and `/voice-input` are `404`; the bot's voice leaves no file (`tests/voiceUploadCleanup.test.ts`, FT-216) | — | — |
 | Debt | `POST /api/debts/user/:userId`, `GET /api/debts/user/:userId`, `GET /api/debts/:debtId`, pay/cancel/delete | create/list auth covered; null getDebt not-found covered; `:userId` ownership, no shadow user, `400` for a non-string id (FT-162) | high | Next route tests should cover pay debt auth/ownership and validation errors. |
 | Transaction | CRUD, analytics, archive, batch archive (the global admin `GET /analytics` removed in FT-174) | resource by-id ownership/404/update validation covered; every `:userId` route and `POST /` user-from-auth covered (FT-162); broader CRUD/archive gaps remain | high | Add more focused coverage before any transaction controller split/refactor. |
 | Budget | user budgets, summaries, alerts, by-id update/delete/recalculate | `:userId` routes: ownership, no shadow user, `400` for a non-string id (FT-162); by-id routes not covered | medium | Add missing-user validation and ownership route tests before controller cleanup. |
@@ -52,12 +52,10 @@ From `tests/apiRoutes.test.ts`:
 - `GET /api/health` returns healthy JSON; `tests/healthRoute.test.ts` — `503` when the bot failed for good, `200` otherwise (FT-154).
 - unknown API route returns 404 JSON with original path.
 - CORS preflight short-circuits with 200.
-- `POST /api/voice/text-input`:
-  - parses JSON body
-  - allows guest user without auth
-  - rejects non-guest without auth
-  - validates missing text as 400
+- `POST /api/voice/text-input` — its checks went with the route (#221); the JSON body of a signed-in write is now
+  checked on the debt route.
 - Debt routes:
+  - read the JSON body of a signed-in user's debt (`201`)
   - allow guest debt creation without auth
   - reject non-guest debt list without auth
   - allow dev auth bypass in non-production
@@ -145,7 +143,7 @@ Candidate tests:
 Avoid broad route test expansion for:
 
 - every dashboard insight endpoint (moot: removed in #205)
-- full voice file upload behavior
+- full voice file upload behavior (moot: removed in #221)
 - all transaction archive/batch variants
 
 Those should wait until the relevant controller is actively changed.
@@ -169,5 +167,5 @@ No product decision required for the matrix itself.
 Future behavior decisions still need Shukur before implementation:
 
 - subscription limit fail-open vs fail-closed
-- voice text-input missing userId default `'1'`
+- voice text-input missing userId default `'1'` (moot: the default went on 2026-10-21, the route in #221)
 - transaction/debt accounting semantics

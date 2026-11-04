@@ -628,4 +628,4 @@ See: [Adding Features Guide](docs/knowledge-base/08-development/adding-features.
 - **Database**: SQLite via TypeORM, schema managed by migrations
 - **OpenAI**: Voice transcription using openai package
 - **Telegram**: Bot interface using telegraf package
-- **Express**: HTTP server with custom CORS headers and multer for file uploads
+- **Express**: HTTP server with custom CORS headers; no file uploads since the web voice routes went (#221)
