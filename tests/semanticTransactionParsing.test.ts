@@ -125,7 +125,7 @@ describe('ProcessVoiceInputUseCase - semanticType flow-through', () => {
     } as unknown as CreateTransactionUseCase;
 
     const useCase = new ProcessVoiceInputUseCase(openAIService, createTransactionUseCase);
-    const result = await useCase.execute({ filePath, userId: 'user1' });
+    const result = await useCase.execute({ filePath, userId: 'user1', source: 'telegram' });
 
     expect(createTransactionUseCase.execute).toHaveBeenCalledWith(expect.objectContaining({
       semanticType: 'cash_withdrawal',
@@ -134,6 +134,29 @@ describe('ProcessVoiceInputUseCase - semanticType flow-through', () => {
     expect(result.transactions).toEqual([
       expect.objectContaining({ id: 'withdrawal-1', semanticType: 'cash_withdrawal' }),
     ]);
+  });
+
+  it('writes the source it is given on each record: a voice from the bot stays `telegram` (#234)', async () => {
+    const openAIService = {
+      transcribe: jest.fn().mockResolvedValue('кофе 25000 и такси 18000'),
+      analyzeInput: jest.fn().mockResolvedValue({
+        transactions: [
+          { intent: 'transaction', amount: 25000, category: 'Кафе', type: 'expense' },
+          { intent: 'transaction', amount: 18000, category: 'Такси', type: 'expense' },
+        ],
+        debts: [],
+      }),
+      analyzeTransactions: jest.fn(),
+    } as unknown as TranscriptionService;
+    const createTransactionUseCase = {
+      execute: jest.fn().mockResolvedValue({ success: true, data: 'voice-1' }),
+    } as unknown as CreateTransactionUseCase;
+
+    const useCase = new ProcessVoiceInputUseCase(openAIService, createTransactionUseCase);
+    await useCase.execute({ filePath, userId: 'user1', source: 'telegram' });
+
+    const written = (createTransactionUseCase.execute as jest.Mock).mock.calls.map(([transaction]) => transaction.source);
+    expect(written).toEqual(['telegram', 'telegram']);
   });
 
   it('hands what was heard to the caller first; when the caller takes it, nothing is parsed or written (FT-122)', async () => {
@@ -146,7 +169,7 @@ describe('ProcessVoiceInputUseCase - semanticType flow-through', () => {
     const takeHeardText = jest.fn().mockResolvedValue(true);
 
     const useCase = new ProcessVoiceInputUseCase(openAIService, createTransactionUseCase);
-    const result = await useCase.execute({ filePath, userId: 'user1' }, { takeHeardText });
+    const result = await useCase.execute({ filePath, userId: 'user1', source: 'telegram' }, { takeHeardText });
 
     expect(takeHeardText).toHaveBeenCalledWith('150 тысяч');
     expect(openAIService.analyzeInput).not.toHaveBeenCalled();
@@ -163,7 +186,7 @@ describe('ProcessVoiceInputUseCase - semanticType flow-through', () => {
     const createTransactionUseCase = { execute: jest.fn() } as unknown as CreateTransactionUseCase;
 
     const useCase = new ProcessVoiceInputUseCase(openAIService, createTransactionUseCase);
-    await useCase.execute({ filePath, userId: 'user1' }, { takeHeardText: jest.fn().mockResolvedValue(false) });
+    await useCase.execute({ filePath, userId: 'user1', source: 'telegram' }, { takeHeardText: jest.fn().mockResolvedValue(false) });
 
     expect(openAIService.analyzeInput).toHaveBeenCalledWith('такси 18000', expect.anything());
   });
@@ -189,7 +212,7 @@ describe('ProcessVoiceInputUseCase - semanticType flow-through', () => {
     } as unknown as CreateTransactionUseCase;
 
     const useCase = new ProcessVoiceInputUseCase(openAIService, createTransactionUseCase);
-    const result = await useCase.execute({ filePath, userId: 'user1' });
+    const result = await useCase.execute({ filePath, userId: 'user1', source: 'telegram' });
 
     expect(createTransactionUseCase.execute).toHaveBeenCalledWith(expect.objectContaining({
       semanticType: 'income',
@@ -221,7 +244,7 @@ describe('ProcessVoiceInputUseCase - semanticType flow-through', () => {
     } as unknown as CreateTransactionUseCase;
 
     const useCase = new ProcessVoiceInputUseCase(openAIService, createTransactionUseCase);
-    const result = await useCase.execute({ filePath, userId: 'user1' });
+    const result = await useCase.execute({ filePath, userId: 'user1', source: 'telegram' });
 
     expect(createTransactionUseCase.execute).toHaveBeenCalledWith(expect.objectContaining({
       needsReview: true,

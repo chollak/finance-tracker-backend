@@ -224,7 +224,7 @@ describe('a decimal comma in a phrase (FT-185)', () => {
         execute: jest.fn().mockResolvedValue({ success: true, data: 'voice-1' }),
       } as unknown as CreateTransactionUseCase;
 
-      await new ProcessVoiceInputUseCase(openAIService, createTransactionUseCase).execute({ filePath, userId: 'user1' });
+      await new ProcessVoiceInputUseCase(openAIService, createTransactionUseCase).execute({ filePath, userId: 'user1', source: 'telegram' });
 
       expect(written(createTransactionUseCase.execute as jest.Mock)).toEqual(expect.objectContaining({ amount, currency }));
     });

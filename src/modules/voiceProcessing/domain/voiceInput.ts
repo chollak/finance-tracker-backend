@@ -4,8 +4,11 @@ export interface VoiceInput {
     filePath: string;
     userId: string;
     userName?: string;
-    /** Where the voice came from (FT-103): the bot sends `telegram`; `miniapp` when absent (the web upload went in #221). */
-    source?: RecordSource;
+    /**
+     * Where the voice came from (FT-103), written on each of its records. Only the bot sends voices since the web upload
+     * went (#221), and it says `telegram`; required, so a new caller cannot forget it and get another source (#234).
+     */
+    source: RecordSource;
     /** The client's id for what was said (FT-106, FT-167): its records get «<id>», «<id>:1», … */
     clientId?: string;
     /**

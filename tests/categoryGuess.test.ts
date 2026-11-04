@@ -559,7 +559,7 @@ describe('the category guess of a capture (FT-138)', () => {
         debts: [],
       });
 
-      const result = await voice.execute({ filePath, userId: 'user-1' });
+      const result = await voice.execute({ filePath, userId: 'user-1', source: 'telegram' });
 
       expect(result.transactions.map(t => guessOf(t.assumptions))).toEqual([
         undefined,

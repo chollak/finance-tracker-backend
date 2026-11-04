@@ -129,7 +129,7 @@ describe('text and voice capture pass it through (FT-123)', () => {
       const created = creator('coffee-3', { presetKey: 'cafe' });
       const useCase = new ProcessVoiceInputUseCase(service, created.useCase);
 
-      await useCase.execute({ filePath: '/nowhere/voice.ogg', userId: 'user-1' });
+      await useCase.execute({ filePath: '/nowhere/voice.ogg', userId: 'user-1', source: 'telegram' });
 
       expect(created.execute).toHaveBeenCalledTimes(1);
       expect(created.execute.mock.calls[0][1].accountHint).toEqual({ text: undefined, kind: undefined });
@@ -155,7 +155,7 @@ describe('text and voice capture pass it through (FT-123)', () => {
     (service.transcribe as jest.Mock).mockResolvedValue('такси');
     const useCase = new ProcessVoiceInputUseCase(service, creator().useCase);
 
-    const result = await useCase.execute({ filePath: '/nowhere/voice.ogg', userId: 'user-1' });
+    const result = await useCase.execute({ filePath: '/nowhere/voice.ogg', userId: 'user-1', source: 'telegram' });
 
     expect(result.withoutAmount).toEqual([taxi]);
     expect(access).toHaveBeenCalled();
@@ -170,7 +170,7 @@ describe('text and voice capture pass it through (FT-123)', () => {
     (service.transcribe as jest.Mock).mockResolvedValue('   ');
     const useCase = new ProcessVoiceInputUseCase(service, creator().useCase);
 
-    await expect(useCase.execute({ filePath: '/nowhere/voice.ogg', userId: 'user-1' })).rejects.toBeInstanceOf(NoSpeechDetectedError);
+    await expect(useCase.execute({ filePath: '/nowhere/voice.ogg', userId: 'user-1', source: 'telegram' })).rejects.toBeInstanceOf(NoSpeechDetectedError);
     jest.restoreAllMocks();
   });
 });
