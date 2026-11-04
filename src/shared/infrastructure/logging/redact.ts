@@ -35,17 +35,21 @@ const SECRET_ENV_KEYS = ['TG_BOT_API_KEY', 'OPENAI_API_KEY', 'SHORTCUT_CAPTURE_T
 const MIN_SECRET_LENGTH = 8;
 
 /**
- * `<digits>:<secret>` — a bot token is the bot id, a colon and 35 letters, digits, `_` or `-`. No word boundary before
- * the digits: in a link they follow `bot`. Thirty characters and more after the colon: a time or a chat id with a
- * message id never has that many.
+ * `<digits>:<secret>` — a bot token is the bot id, a colon and 35 letters, digits, `_` or `-`; the colon may come
+ * URL-encoded (`%3A`). No word boundary before the digits: in a link they follow `bot`. But no digit either: the match
+ * starts only where a run of digits starts. Without that, a long run of digits made the pattern start again at every
+ * digit — quadratic, 25 s for 100 000 digits, and the request logger writes a path anyone can send (review of PR
+ * #331). Thirty characters and more after the colon: a time or a chat id with a message id never has that many.
  */
-const BOT_TOKEN = /(\d{3,}):[A-Za-z0-9_-]{30,}/g;
+const BOT_TOKEN = /(?<!\d)(\d{3,})(:|%3[Aa])[A-Za-z0-9_-]{30,}/g;
 
-/** `sk-…`, `sk-proj-…`: an OpenAI key. The boundary keeps «risk-…» out. */
+/** `sk-…`, `sk-proj-…`: an OpenAI key. The boundary keeps «risk-…» out, and a match starts only at a word's start. */
 const OPENAI_KEY = /\bsk-[A-Za-z0-9_-]{20,}/g;
 
+/** The secrets' values, and their URL-encoded forms where those differ: a value can reach a line inside a link. */
 function secretValues(): string[] {
-  return SECRET_ENV_KEYS.map(key => process.env[key]?.trim() ?? '').filter(value => value.length >= MIN_SECRET_LENGTH);
+  const values = SECRET_ENV_KEYS.map(key => process.env[key]?.trim() ?? '').filter(value => value.length >= MIN_SECRET_LENGTH);
+  return [...new Set(values.flatMap(value => [value, encodeURIComponent(value)]))];
 }
 
 function isSensitiveField(key: string): boolean {
@@ -58,23 +62,34 @@ function isSensitiveField(key: string): boolean {
  * token reads `bot<id>:[REDACTED]` like any other; the values then catch what has no telling look.
  */
 export function redactText(text: string): string {
-  const withoutPatterns = text.replace(BOT_TOKEN, `$1:${REDACTED}`).replace(OPENAI_KEY, `sk-${REDACTED}`);
+  const withoutPatterns = text.replace(BOT_TOKEN, `$1$2${REDACTED}`).replace(OPENAI_KEY, `sk-${REDACTED}`);
   return secretValues().reduce((current, secret) => current.split(secret).join(REDACTED), withoutPatterns);
 }
 
-function redactWithin(value: unknown, seen: WeakSet<object>): unknown {
+function copyWithin(value: object, ancestors: WeakSet<object>): unknown {
+  if (Array.isArray(value)) return value.map(item => redactWithin(item, ancestors));
+  if (value instanceof Error) return redactText(value.message);
+  return Object.fromEntries(
+    Object.entries(value).map(([key, item]) => [key, isSensitiveField(key) ? REDACTED : redactWithin(item, ancestors)])
+  );
+}
+
+/**
+ * `ancestors` — the objects on the way down to this one, not all seen so far: an object named twice side by side is
+ * written twice; only one that holds itself is `[Circular]`.
+ */
+function redactWithin(value: unknown, ancestors: WeakSet<object>): unknown {
   if (typeof value === 'string') return redactText(value);
   if (value === null || typeof value !== 'object') return value;
   if (value instanceof Date) return value;
-  if (seen.has(value)) return '[Circular]';
-  seen.add(value);
+  if (ancestors.has(value)) return '[Circular]';
 
-  if (Array.isArray(value)) return value.map(item => redactWithin(item, seen));
-  if (value instanceof Error) return redactText(value.message);
-
-  return Object.fromEntries(
-    Object.entries(value).map(([key, item]) => [key, isSensitiveField(key) ? REDACTED : redactWithin(item, seen)])
-  );
+  ancestors.add(value);
+  try {
+    return copyWithin(value, ancestors);
+  } finally {
+    ancestors.delete(value);
+  }
 }
 
 /**

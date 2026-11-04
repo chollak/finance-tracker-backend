@@ -61,6 +61,16 @@ describe('redactText (#269)', () => {
     expect(redactText(FILE_LINK)).toBe('https://api.telegram.org/file/bot123456:[REDACTED]/voice/file_7.oga');
   });
 
+  it('masks a token whose colon came URL-encoded, by its look and by its value', () => {
+    const encoded = `https://api.telegram.org/file/bot${BOT_TOKEN.replace(':', '%3A')}/voice/file_7.oga`;
+
+    expect(redactText(encoded)).toBe('https://api.telegram.org/file/bot123456%3A[REDACTED]/voice/file_7.oga');
+    expect(redactText(BOT_TOKEN.replace(':', '%3a'))).toBe('123456%3a[REDACTED]');
+
+    process.env.SHORTCUT_CAPTURE_TOKEN = 'shortcut/fake+token=0123456789';
+    expect(redactText(`q=${encodeURIComponent('shortcut/fake+token=0123456789')}`)).toBe('q=[REDACTED]');
+  });
+
   it('a short or empty secret value masks nothing: it would hide ordinary words', () => {
     process.env.SHORTCUT_CAPTURE_TOKEN = '1';
     process.env.OPENAI_API_KEY = '';
@@ -77,6 +87,27 @@ describe('redactText (#269)', () => {
     'sqlite:data/database.sqlite',
   ])('leaves ordinary text alone: %s', text => {
     expect(redactText(text)).toBe(text);
+  });
+
+  /**
+   * Review of PR #331: without an anchor before the digits, a long run of digits made the bot-token pattern start
+   * again at every digit — quadratic, 25 s for 100 000 digits. The request logger writes the path before any access
+   * check, so one `GET /api/<15 000 digits>` held the server for a third of a second. Each line is linear now.
+   */
+  it.each([
+    ['a run of digits', '1'.repeat(100_000)],
+    ['a run of digits and a colon', `${'1'.repeat(100_000)}:`],
+    ['a run of digits, a colon and a short secret', `${'1'.repeat(100_000)}:${'a'.repeat(29)}`],
+    ['an encoded colon after a run of digits', `${'1'.repeat(100_000)}%3A`],
+    ['«sk-» over and over', 'sk-'.repeat(35_000)],
+    ['«sk-» with a short key over and over', 'sk-aaaa '.repeat(15_000)],
+    ['letters, digits and dashes', 'a1-'.repeat(35_000)],
+  ])('masks a long line in linear time: %s', (_name, text) => {
+    const started = performance.now();
+
+    redactText(text);
+
+    expect(performance.now() - started).toBeLessThan(50);
   });
 });
 
@@ -118,6 +149,17 @@ describe('redactValue (#269)', () => {
 
     expect(redactValue(looped)).toEqual({ name: 'a', self: '[Circular]' });
   });
+
+  it('one object named twice is written twice: only a loop is [Circular]', () => {
+    const record = { id: 'a', href: FILE_LINK };
+    const masked = { id: 'a', href: 'https://api.telegram.org/file/bot123456:[REDACTED]/voice/file_7.oga' };
+
+    expect(redactValue({ first: record, second: record, both: [record, record] })).toEqual({
+      first: masked,
+      second: masked,
+      both: [masked, masked],
+    });
+  });
 });
 
 describe('the logger masks secrets in every part of a line (#269)', () => {
@@ -147,6 +189,32 @@ describe('the logger masks secrets in every part of a line (#269)', () => {
       expect(line).not.toContain(BOT_SECRET);
     }
     expect(lines.join('')).toContain('bot123456:[REDACTED]');
+  });
+});
+
+describe('a line of a level that is off costs nothing (review of PR #331)', () => {
+  const level = winstonLogger.level;
+
+  afterEach(() => {
+    winstonLogger.level = level;
+    jest.restoreAllMocks();
+  });
+
+  it('is neither masked nor handed to Winston', () => {
+    winstonLogger.level = 'info';
+    const debug = jest.spyOn(winstonLogger, 'debug');
+    const info = jest.spyOn(winstonLogger, 'info').mockImplementation(() => winstonLogger);
+    const logger = createLogger('TEST');
+
+    const started = performance.now();
+    logger.debug(`GET /api/${'1'.repeat(100_000)}:${'a'.repeat(29)}`, { userAgent: '1'.repeat(100_000) });
+    const took = performance.now() - started;
+    logger.info(`Downloading ${FILE_LINK}`);
+
+    expect(debug).not.toHaveBeenCalled();
+    expect(took).toBeLessThan(5);
+    // A level that is on is still written, masked
+    expect(info).toHaveBeenCalledWith('Downloading https://api.telegram.org/file/bot123456:[REDACTED]/voice/file_7.oga', expect.anything());
   });
 });
 

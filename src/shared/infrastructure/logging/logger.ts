@@ -81,7 +81,8 @@ function redactedOrNothing(text: unknown): string | undefined {
 
 /**
  * Create a category-specific logger. Everything it hands to Winston is masked already (#269): the message, the error,
- * its stack and every field — so any format and transport writes it masked.
+ * its stack and every field — so any format and transport writes it masked. A line of a level that is off is dropped
+ * before it is masked (review of PR #331): `debug` in production costs nothing, whatever a request put in it.
  *
  * @example
  * const logger = createLogger(LogCategory.AUTH);
@@ -91,6 +92,7 @@ function redactedOrNothing(text: unknown): string | undefined {
 export function createLogger(category: LogCategoryType | string): ILogger {
   return {
     debug(message: string, context?: Record<string, unknown>): void {
+      if (!winstonLogger.isLevelEnabled('debug')) return;
       winstonLogger.debug(redactText(message), {
         category,
         ...redactContext(context),
@@ -98,6 +100,7 @@ export function createLogger(category: LogCategoryType | string): ILogger {
     },
 
     info(message: string, context?: Record<string, unknown>): void {
+      if (!winstonLogger.isLevelEnabled('info')) return;
       winstonLogger.info(redactText(message), {
         category,
         ...redactContext(context),
@@ -105,6 +108,7 @@ export function createLogger(category: LogCategoryType | string): ILogger {
     },
 
     warn(message: string, context?: Record<string, unknown>): void {
+      if (!winstonLogger.isLevelEnabled('warn')) return;
       winstonLogger.warn(redactText(message), {
         category,
         ...redactContext(context),
@@ -112,6 +116,7 @@ export function createLogger(category: LogCategoryType | string): ILogger {
     },
 
     error(message: string, error?: Error | null, context?: Record<string, unknown>): void {
+      if (!winstonLogger.isLevelEnabled('error')) return;
       // An AppError keeps its cause in `context` (the OpenAI message behind «External service error: OpenAI Chat»)
       const errorContext = (error as { context?: unknown } | null | undefined)?.context;
       winstonLogger.error(redactText(message), {
