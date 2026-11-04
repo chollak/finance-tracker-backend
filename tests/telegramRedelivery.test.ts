@@ -93,6 +93,26 @@ interface Running {
   userModule: UserModule;
 }
 
+/** A step the process is killed at: it never returns, and the test learns the moment the handler gets there. */
+interface StopPoint {
+  /** Stands for the step. */
+  stop: () => Promise<never>;
+  /** Resolves once the handler has called the step. */
+  reached: Promise<void>;
+}
+
+function stopPoint(): StopPoint {
+  let reach: () => void = () => undefined;
+  const reached = new Promise<void>(resolve => { reach = resolve; });
+  return {
+    reached,
+    stop: () => {
+      reach();
+      return new Promise<never>(() => undefined);
+    },
+  };
+}
+
 describe('a message Telegram sends again after a restart (FT-167)', () => {
   let dir: string;
   let file: string;
@@ -102,8 +122,12 @@ describe('a message Telegram sends again after a restart (FT-167)', () => {
   let sent: string[] = [];
   const shown = new Map<number, { text: string; keyboard: Button[][] }>();
   let nextBotMessageId = 1000;
-  /** The bot's next reply never comes back: the process stops while it is being sent. */
-  let replyHangs = false;
+  /** While set, the bot's replies never come back: the process stops while one is being sent. */
+  let hangingReply: StopPoint | undefined;
+  function hangReplies(): StopPoint {
+    hangingReply = stopPoint();
+    return hangingReply;
+  }
   const parser = {
     transcribe: jest.fn(),
     analyzeInput: jest.fn(),
@@ -173,7 +197,7 @@ describe('a message Telegram sends again after a restart (FT-167)', () => {
       sendChatAction: jest.fn().mockResolvedValue(undefined),
       answerCbQuery: jest.fn().mockResolvedValue(undefined),
       reply: jest.fn((text: string, extra?: any) => {
-        if (replyHangs) return new Promise(() => undefined);
+        if (hangingReply) return hangingReply.stop();
         sent.push(text);
         const messageId = nextBotMessageId++;
         shown.set(messageId, { text, keyboard: extra?.reply_markup?.inline_keyboard ?? [] });
@@ -194,6 +218,18 @@ describe('a message Telegram sends again after a restart (FT-167)', () => {
     const base = baseContext(botId);
     const full = { message_id: 10, date: Math.floor(SENT_AT.getTime() / 1000), chat: base.chat, from: base.from, ...message };
     return running.bot.handle({ ...base, message: full, update: { update_id: 500 + Number(full.message_id), message: full }, session });
+  }
+
+  /**
+   * One update whose handling the process is killed at `point`: resolves as soon as the handler is stopped there, not
+   * after a guessed delay a slow CI runner may not keep (#261). A handler that ends, or fails, before it fails the test.
+   */
+  async function deliverUntilKilled(point: StopPoint, message: Record<string, unknown>): Promise<void> {
+    const outcome = await Promise.race([
+      point.reached.then(() => 'killed' as const),
+      deliver(message).then(() => 'ended' as const),
+    ]);
+    if (outcome === 'ended') throw new Error(`Message ${message.message_id} was handled to the end: the step it is killed at was never reached`);
   }
 
   /** The person presses a button under a bot message. */
@@ -226,7 +262,7 @@ describe('a message Telegram sends again after a restart (FT-167)', () => {
     });
     sent = [];
     shown.clear();
-    replyHangs = false;
+    hangingReply = undefined;
     parser.transcribe.mockReset();
     parser.analyzeInput.mockReset().mockResolvedValue({ transactions: [coffee], debts: [] });
     parser.analyzeTransactions.mockReset();
@@ -263,14 +299,12 @@ describe('a message Telegram sends again after a restart (FT-167)', () => {
   });
 
   it('stopped before the confirmation went out: the repeat confirms the record it wrote, and writes nothing', async () => {
-    replyHangs = true;
-    void deliver({ message_id: 10, text: 'кофе 25 тысяч' });
-    await new Promise(resolve => setTimeout(resolve, 200));
+    await deliverUntilKilled(hangReplies(), { message_id: 10, text: 'кофе 25 тысяч' });
     expect(await records()).toHaveLength(1);
     expect(confirmations()).toHaveLength(0);
     const parsed = parser.analyzeInput.mock.calls.length;
 
-    replyHangs = false;
+    hangingReply = undefined;
     await restart();
     await deliver({ message_id: 10, text: 'кофе 25 тысяч' });
 
@@ -409,13 +443,11 @@ describe('a message Telegram sends again after a restart (FT-167)', () => {
       await deliver({ message_id: 10, text: 'кофе 25 тысяч' });
       await deliver({ message_id: 11, text: 'такси 30 тысяч' });
       const taxiConfirmation = lastBotMessage();
-      replyHangs = true;
-      void deliver({ message_id: 12, text: '/undo' });
-      await new Promise(resolve => setTimeout(resolve, 200));
+      await deliverUntilKilled(hangReplies(), { message_id: 12, text: '/undo' });
       expect(await live()).toEqual(['кофе']);
       expect(undoReplies()).toHaveLength(0);
 
-      replyHangs = false;
+      hangingReply = undefined;
       await restart();
       await deliver({ message_id: 12, text: '/undo' });
 
@@ -429,15 +461,13 @@ describe('a message Telegram sends again after a restart (FT-167)', () => {
 
     /** The bot message log of the running process; a step that never returns stands for the process being killed there. */
     const runningLog = () => (running.modules.botMessageModule as BotMessageModule).getLog();
-    const stopsHere = () => new Promise<never>(() => undefined);
-    const settle = () => new Promise(resolve => setTimeout(resolve, 200));
 
     it('/undo killed right after it was marked: the repeat does it on that message, and takes no other', async () => {
       await deliver({ message_id: 10, text: 'кофе 25 тысяч' });
       await deliver({ message_id: 11, text: 'такси 30 тысяч' });
-      jest.spyOn(runningLog(), 'save').mockImplementation(stopsHere);
-      void deliver({ message_id: 12, text: '/undo' });
-      await settle();
+      const killed = stopPoint();
+      jest.spyOn(runningLog(), 'save').mockImplementation(killed.stop);
+      await deliverUntilKilled(killed, { message_id: 12, text: '/undo' });
       expect(await live()).toEqual(['кофе', 'такси']);
 
       await restart();
@@ -450,10 +480,10 @@ describe('a message Telegram sends again after a restart (FT-167)', () => {
     it('/undo killed while cancelling: the repeat cancels what it kept, and takes no other', async () => {
       await deliver({ message_id: 10, text: 'кофе 25 тысяч' });
       await deliver({ message_id: 11, text: 'такси 30 тысяч' });
+      const killed = stopPoint();
       jest.spyOn(running.modules.transactionModule as TransactionModule, 'getDeleteTransactionUseCase')
-        .mockReturnValue({ execute: stopsHere } as never);
-      void deliver({ message_id: 12, text: '/undo' });
-      await settle();
+        .mockReturnValue({ execute: killed.stop } as never);
+      await deliverUntilKilled(killed, { message_id: 12, text: '/undo' });
 
       await restart();
       await deliver({ message_id: 12, text: '/undo' });
@@ -471,9 +501,9 @@ describe('a message Telegram sends again after a restart (FT-167)', () => {
       const confirmation = lastBotMessage();
       await press(confirmation, 'Изменить');
       await press(confirmation, 'Сумму');
-      jest.spyOn(runningLog(), 'markHandled').mockImplementation(stopsHere);
-      void deliver({ message_id: 11, text: '30000' });
-      await settle();
+      const killed = stopPoint();
+      jest.spyOn(runningLog(), 'markHandled').mockImplementation(killed.stop);
+      await deliverUntilKilled(killed, { message_id: 11, text: '30000' });
 
       await restart();
       await deliver({ message_id: 11, text: '30000' });
@@ -485,9 +515,9 @@ describe('a message Telegram sends again after a restart (FT-167)', () => {
       const noAmount = { description: 'такси', category: 'Транспорт', type: 'expense', date: today };
       parser.analyzeInput.mockResolvedValue({ transactions: [], debts: [], withoutAmount: [noAmount] });
       const asked = () => sent.filter(text => text.includes('Сколько?'));
-      jest.spyOn(runningLog(), 'otherQuestions').mockImplementation(stopsHere);
-      void deliver({ message_id: 30, text: 'такси' });
-      await settle();
+      const killed = stopPoint();
+      jest.spyOn(runningLog(), 'otherQuestions').mockImplementation(killed.stop);
+      await deliverUntilKilled(killed, { message_id: 30, text: 'такси' });
       expect(asked()).toHaveLength(1);
 
       await restart();
@@ -508,11 +538,9 @@ describe('a message Telegram sends again after a restart (FT-167)', () => {
       expect(firstTime).toContain('«25» понял как 25');
       expect(firstTime).toContain('Сколько?');
 
-      replyHangs = true;
-      void deliver({ message_id: 21, text: 'zzqx 25 и такси' });
-      await new Promise(resolve => setTimeout(resolve, 200));
+      await deliverUntilKilled(hangReplies(), { message_id: 21, text: 'zzqx 25 и такси' });
       const parsed = parser.analyzeInput.mock.calls.length;
-      replyHangs = false;
+      hangingReply = undefined;
       await restart();
       await deliver({ message_id: 21, text: 'zzqx 25 и такси' });
 
@@ -531,11 +559,9 @@ describe('a message Telegram sends again after a restart (FT-167)', () => {
       parser.transcribe.mockResolvedValue('кофе 25 тысяч');
       const voice = { message_id: 12, voice: { file_id: 'voice-12', duration: 2 } };
 
-      replyHangs = true;
-      void deliver(voice);
-      await new Promise(resolve => setTimeout(resolve, 200));
+      await deliverUntilKilled(hangReplies(), voice);
       expect(await records()).toHaveLength(1);
-      replyHangs = false;
+      hangingReply = undefined;
       await restart();
       await deliver(voice);
 
@@ -551,12 +577,10 @@ describe('a message Telegram sends again after a restart (FT-167)', () => {
           : { intent: 'transaction', amount: 25000, category: 'Другое', type: 'expense', date: today, description: text }],
         debts: [],
       }));
-      replyHangs = true;
-      void deliver({ message_id: 10, text: 'кофе 25000000' });
-      await new Promise(resolve => setTimeout(resolve, 200));
+      await deliverUntilKilled(hangReplies(), { message_id: 10, text: 'кофе 25000000' });
       expect(await records()).toEqual([expect.objectContaining({ deletedAt: expect.any(String) })]);
 
-      replyHangs = false;
+      hangingReply = undefined;
       await restart();
       await deliver({ message_id: 10, text: 'кофе 25000000' });
 
