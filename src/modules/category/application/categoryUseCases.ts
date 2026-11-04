@@ -13,7 +13,7 @@ import {
   isCategoryColor,
   isCategoryType,
 } from '../domain/category';
-import { CategoryRepository } from '../domain/categoryRepository';
+import { CategoryNameTakenError, CategoryRepository } from '../domain/categoryRepository';
 import { CategoryCatalog } from './categoryCatalog';
 
 const logger = getLogger(LogCategory.TRANSACTION);
@@ -91,6 +91,8 @@ export class CreateCategoryUseCase {
       });
       return ResultHelper.success(created);
     } catch (error) {
+      // A request just like this one wrote the name a moment ago: taken, as the list would have said
+      if (error instanceof CategoryNameTakenError) return ResultHelper.failure(error);
       logger.error('Failed to create category', error as Error);
       return ResultHelper.failure(new StorageError('Failed to create category'));
     }
@@ -144,6 +146,7 @@ export class UpdateCategoryUseCase {
 
       return ResultHelper.success(await this.repository.update(category.id, changes));
     } catch (error) {
+      if (error instanceof CategoryNameTakenError) return ResultHelper.failure(error);
       logger.error('Failed to update category', error as Error);
       return ResultHelper.failure(new StorageError('Failed to update category'));
     }

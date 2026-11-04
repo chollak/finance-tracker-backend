@@ -225,9 +225,13 @@ describe('a failing database answers 500, not 422 (#270)', () => {
       }));
     });
 
-    it('POST /api/transactions/:id/archive and /unarchive: the write fails; archiving twice stays 422', async () => {
+    it('POST /api/transactions/:id/archive and /unarchive: the write fails; their rules keep their 4xx', async () => {
       const id = await recordOf(await ownerId());
+      const notArchived = await call('POST', `/transactions/${id}/unarchive`);
+      expect([notArchived.status, notArchived.body.error.code]).toEqual([422, 'BUSINESS_LOGIC_ERROR']);
       expect((await call('POST', `/transactions/${id}/archive`)).status).toBe(200);
+      // Archived twice: the route does not find an archived record (404); only the use case says 422
+      expect((await call('POST', `/transactions/${id}/archive`)).status).toBe(404);
       const twice = await transactionModule.getArchiveTransactionUseCase().execute(id);
       expect(!twice.success && twice.error).toMatchObject({ statusCode: 422, code: 'BUSINESS_LOGIC_ERROR' });
 

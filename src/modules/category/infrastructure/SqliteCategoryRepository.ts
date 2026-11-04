@@ -2,7 +2,20 @@ import { DataSource, Repository } from 'typeorm';
 import { AppDataSource } from '../../../shared/infrastructure/database/database.config';
 import { Category as CategoryEntity } from '../../../shared/infrastructure/database/entities/Category';
 import { Category, CategoryColor, CategoryType, categoryNameKey, isCategoryColor } from '../domain/category';
-import { CategoryRepository } from '../domain/categoryRepository';
+import { CategoryNameTakenError, CategoryRepository } from '../domain/categoryRepository';
+
+/** SQLite's words for a write the unique (user_id, type, name_key) index refused. */
+const NAME_TAKEN = /UNIQUE constraint failed: .*categories\.name_key/;
+
+/** Runs a write; a name the index refuses becomes CategoryNameTakenError, any other failure goes on as it was. */
+async function namedWrite<T>(name: string, write: () => Promise<T>): Promise<T> {
+  try {
+    return await write();
+  } catch (error) {
+    if (NAME_TAKEN.test((error as Error)?.message ?? '')) throw new CategoryNameTakenError(name);
+    throw error;
+  }
+}
 
 export class SqliteCategoryRepository implements CategoryRepository {
   private repository: Repository<CategoryEntity>;
@@ -35,7 +48,7 @@ export class SqliteCategoryRepository implements CategoryRepository {
   }
 
   async create(category: Category): Promise<Category> {
-    const saved = await this.repository.save(this.repository.create(this.toEntity(category)));
+    const saved = await namedWrite(category.name, () => this.repository.save(this.repository.create(this.toEntity(category))));
     return this.toDomain(saved);
   }
 
@@ -48,7 +61,7 @@ export class SqliteCategoryRepository implements CategoryRepository {
     if (changes.color !== undefined) data.color = changes.color;
     if (changes.isHidden !== undefined) data.isHidden = changes.isHidden;
     if (changes.sortOrder !== undefined) data.sortOrder = changes.sortOrder;
-    if (Object.keys(data).length > 0) await this.repository.update(id, data);
+    if (Object.keys(data).length > 0) await namedWrite(changes.name ?? '', () => this.repository.update(id, data));
 
     const updated = await this.findById(id);
     if (!updated) throw new Error(`Category ${id} not found after update`);
