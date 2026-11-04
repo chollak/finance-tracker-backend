@@ -53,10 +53,13 @@ function isSensitiveField(key: string): boolean {
   return SENSITIVE_FIELDS.some(field => name.includes(field));
 }
 
-/** The text with every secret replaced by `[REDACTED]`; the rest as it was. */
+/**
+ * The text with every secret replaced by `[REDACTED]`; the rest as it was. The patterns go first, so the live bot
+ * token reads `bot<id>:[REDACTED]` like any other; the values then catch what has no telling look.
+ */
 export function redactText(text: string): string {
-  const withoutValues = secretValues().reduce((current, secret) => current.split(secret).join(REDACTED), text);
-  return withoutValues.replace(BOT_TOKEN, `$1:${REDACTED}`).replace(OPENAI_KEY, `sk-${REDACTED}`);
+  const withoutPatterns = text.replace(BOT_TOKEN, `$1:${REDACTED}`).replace(OPENAI_KEY, `sk-${REDACTED}`);
+  return secretValues().reduce((current, secret) => current.split(secret).join(REDACTED), withoutPatterns);
 }
 
 function redactWithin(value: unknown, seen: WeakSet<object>): unknown {

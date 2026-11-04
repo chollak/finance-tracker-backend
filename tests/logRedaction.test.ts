@@ -55,6 +55,12 @@ describe('redactText (#269)', () => {
     );
   });
 
+  it('the live bot token reads like any other: the bot id stays', () => {
+    process.env.TG_BOT_API_KEY = BOT_TOKEN;
+
+    expect(redactText(FILE_LINK)).toBe('https://api.telegram.org/file/bot123456:[REDACTED]/voice/file_7.oga');
+  });
+
   it('a short or empty secret value masks nothing: it would hide ordinary words', () => {
     process.env.SHORTCUT_CAPTURE_TOKEN = '1';
     process.env.OPENAI_API_KEY = '';
