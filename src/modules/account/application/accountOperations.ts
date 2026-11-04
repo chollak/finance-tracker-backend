@@ -1,5 +1,5 @@
 import { Result, ResultHelper } from '../../../shared/domain/types/Result';
-import { BusinessLogicError, NotFoundError, ValidationError } from '../../../shared/domain/errors/AppError';
+import { NotFoundError, ValidationError, StorageError } from '../../../shared/domain/errors/AppError';
 import { getLogger, LogCategory } from '../../../shared/application/logging';
 import { isValidDateOnly } from '../../../shared/domain/dates/dateOnly';
 import { Transaction } from '../../transaction/domain/transactionEntity';
@@ -150,7 +150,7 @@ export class GetAccountOperationsUseCase {
       return ResultHelper.success({ account: { ...account, hasOperations }, days, earlierDate });
     } catch (error) {
       logger.error('Failed to read account operations', error as Error);
-      return ResultHelper.failure(new BusinessLogicError('Failed to read account operations'));
+      return ResultHelper.failure(new StorageError('Failed to read account operations'));
     }
   }
 }

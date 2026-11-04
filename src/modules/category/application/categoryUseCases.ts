@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 import { Result, ResultHelper } from '../../../shared/domain/types/Result';
-import { BusinessLogicError, ConflictError, NotFoundError, ValidationError } from '../../../shared/domain/errors/AppError';
+import { ConflictError, NotFoundError, ValidationError, StorageError } from '../../../shared/domain/errors/AppError';
 import { getLogger, LogCategory } from '../../../shared/application/logging';
 import {
   CATEGORY_COLORS,
@@ -53,7 +53,7 @@ export class ListCategoriesUseCase {
       return ResultHelper.success(input.type ? categories.filter(category => category.type === input.type) : categories);
     } catch (error) {
       logger.error('Failed to list categories', error as Error);
-      return ResultHelper.failure(new BusinessLogicError('Failed to list categories'));
+      return ResultHelper.failure(new StorageError('Failed to list categories'));
     }
   }
 }
@@ -92,7 +92,7 @@ export class CreateCategoryUseCase {
       return ResultHelper.success(created);
     } catch (error) {
       logger.error('Failed to create category', error as Error);
-      return ResultHelper.failure(new BusinessLogicError('Failed to create category'));
+      return ResultHelper.failure(new StorageError('Failed to create category'));
     }
   }
 }
@@ -145,7 +145,7 @@ export class UpdateCategoryUseCase {
       return ResultHelper.success(await this.repository.update(category.id, changes));
     } catch (error) {
       logger.error('Failed to update category', error as Error);
-      return ResultHelper.failure(new BusinessLogicError('Failed to update category'));
+      return ResultHelper.failure(new StorageError('Failed to update category'));
     }
   }
 }
@@ -172,7 +172,7 @@ export class DeleteCategoryUseCase {
       return ResultHelper.success({ id: category.id });
     } catch (error) {
       logger.error('Failed to delete category', error as Error);
-      return ResultHelper.failure(new BusinessLogicError('Failed to delete category'));
+      return ResultHelper.failure(new StorageError('Failed to delete category'));
     }
   }
 }

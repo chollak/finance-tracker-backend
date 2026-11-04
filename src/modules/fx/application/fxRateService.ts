@@ -1,5 +1,5 @@
 import { Result, ResultHelper } from '../../../shared/domain/types/Result';
-import { BusinessLogicError, ValidationError } from '../../../shared/domain/errors/AppError';
+import { ValidationError, StorageError } from '../../../shared/domain/errors/AppError';
 import { getLogger, LogCategory } from '../../../shared/application/logging';
 import { isValidDateOnly, todayDateOnly } from '../../../shared/domain/dates/dateOnly';
 import { EffectiveRate, EffectiveRateProvider } from '../../account/domain/fxRate';
@@ -93,7 +93,7 @@ export class FxRateService implements EffectiveRateProvider {
       return ResultHelper.success(await this.info(userId));
     } catch (error) {
       logger.error('Failed to set own rate', error as Error);
-      return ResultHelper.failure(new BusinessLogicError('Failed to set own rate'));
+      return ResultHelper.failure(new StorageError('Failed to set own rate'));
     }
   }
 

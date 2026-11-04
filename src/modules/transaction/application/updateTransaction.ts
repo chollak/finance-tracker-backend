@@ -1,7 +1,7 @@
 import { Transaction } from '../domain/transactionEntity';
 import { TransactionRepository } from '../domain/transactionRepository';
 import { Result, ResultHelper } from '../../../shared/domain/types/Result';
-import { ValidationError, NotFoundError, BusinessLogicError } from '../../../shared/domain/errors/AppError';
+import { ValidationError, NotFoundError, StorageError } from '../../../shared/domain/errors/AppError';
 import { getLogger, LogCategory } from '../../../shared/application/logging';
 import { TransactionSemanticType } from '../domain/transactionSemanticType';
 import { CategoryResolver } from '../domain/categoryResolver';
@@ -91,7 +91,7 @@ export class UpdateTransactionUseCase {
     } catch (error) {
       logger.error('Error updating transaction', error as Error, { transactionId: id });
       return ResultHelper.failure(
-        new BusinessLogicError('Failed to update transaction', { transactionId: id })
+        new StorageError('Failed to update transaction')
       );
     }
   }
