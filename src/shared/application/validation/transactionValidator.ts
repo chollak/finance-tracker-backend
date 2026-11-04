@@ -106,7 +106,8 @@ export class TransactionValidator {
       userId: String(data.userId).trim(),
       userName: data.userName ? String(data.userName).trim() : undefined,
       date: data.date ? String(data.date).trim() : defaultDate,
-      merchant: data.merchant ? String(data.merchant).trim() : undefined,
+      // Trimmed; empty or blank is none — stored NULL, as `PUT` clears one (#229, #210)
+      merchant: typeof data.merchant === 'string' ? data.merchant.trim() || undefined : undefined,
       ...(isClientId(data.clientId) ? { clientId: data.clientId } : {}),
     };
 
