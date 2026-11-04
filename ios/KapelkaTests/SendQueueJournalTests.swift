@@ -138,7 +138,8 @@ final class SendQueueJournalTests {
 
     @Test("оплата во время «Отправить очередь» — два запуска, у каждого свой id и свой конец")
     func paymentMeanwhile() async throws {
-        let harness = try QueueHarness(transport: FakeTransport([.after(.milliseconds(100), .http(200))]))
+        let answer = Gate()
+        let harness = try QueueHarness(transport: FakeTransport([.held(answer, .http(200))]))
         let journal = journals.makeJournal()
         let (command, queue) = makeCommand(harness, journal: journal)
         let suite = "kapelka-tests-send-journal-\(UUID().uuidString)"
@@ -153,8 +154,12 @@ final class SendQueueJournalTests {
         )
         _ = try await queue.add("кофе 25к")
 
+        // The payment comes while the queue's request is in flight, and is on the phone before the answer
         async let sending = command.run()
+        #expect(await eventually { await harness.transport.requests.count == 1 })
         async let paying: Void = recorder.record(PaymentInput(amount: "12 345,00 UZS", merchant: "Магазин у дома"))
+        #expect(try await eventually { try harness.store.load().captures.count == 2 })
+        answer.open()
         _ = await sending
         try await paying
 

@@ -345,7 +345,7 @@ struct LastPhraseCardTests {
         let voice = VoiceCapture(
             system: speech, listener: speech, pause: .milliseconds(150), silenceAtStart: .seconds(5)
         ) { phrase in
-            await gate.wait()
+            try await gate.wait()
             try await queue.add(phrase)
         }
         // As `AppModel.lastPhrase` reads the microphone

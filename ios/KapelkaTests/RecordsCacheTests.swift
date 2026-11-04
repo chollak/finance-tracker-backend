@@ -76,8 +76,9 @@ struct RecordsCacheTests {
 
     @Test("два обновления: первое ответило позже второго — на диске и на экране страница второго")
     func olderRefreshAnsweringLastLoses() async throws {
+        let answer = Gate()
         let transport = FakeTransport([
-            .after(.milliseconds(300), .http(200, body: RecordsReply.page([RecordsReply.record(id: "a")]))),
+            .held(answer, .http(200, body: RecordsReply.page([RecordsReply.record(id: "a")]))),
             .http(200, body: RecordsReply.page([RecordsReply.record(id: "new"), RecordsReply.record(id: "a")])),
         ])
         let harness = try RecordsHarness(transport: transport)
@@ -87,6 +88,7 @@ struct RecordsCacheTests {
         #expect(await eventually { await transport.requests.count == 1 })
         harness.clock.advance(by: 5)
         let newer = await feed.refresh()
+        answer.open()
         let olderResult = await older
 
         guard case let .fresh(newerSnapshot) = newer, case let .fresh(olderSnapshot) = olderResult else {
@@ -100,8 +102,9 @@ struct RecordsCacheTests {
 
     @Test("новое обновление не ответило — страница старого, пришедшая позже, сохраняется")
     func olderRefreshSavedWhenNewerFailed() async throws {
+        let answer = Gate()
         let transport = FakeTransport([
-            .after(.milliseconds(300), .http(200, body: RecordsReply.page([RecordsReply.record(id: "a")]))),
+            .held(answer, .http(200, body: RecordsReply.page([RecordsReply.record(id: "a")]))),
             .failure(.notConnectedToInternet),
         ])
         let harness = try RecordsHarness(transport: transport)
@@ -110,6 +113,7 @@ struct RecordsCacheTests {
         async let older = feed.refresh()
         #expect(await eventually { await transport.requests.count == 1 })
         #expect(await feed.refresh() == .saved(nil, .later(.offline)))
+        answer.open()
         let olderResult = await older
 
         guard case let .fresh(snapshot) = olderResult else {
