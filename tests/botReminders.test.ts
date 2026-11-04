@@ -163,10 +163,10 @@ describe('goal, subscription and audit reminders in the bot (FT-133)', () => {
    * `beforeAll` — as if it was restarted after the audit — so no test sees another's records or notices.
    */
   async function auditedOnOctober14(): Promise<void> {
+    at('2026-10-14', '14:00');
     fs.copyFileSync(audited.file, file);
     running = await start();
     owner = audited.owner;
-    at('2026-10-14', '14:00');
   }
 
   /** «Напомнить 2 ноября» under «Кинопоиск» on the audit's result. */
