@@ -35,7 +35,7 @@ const CLIENT_ID = '0b5e7c1a-2f4d-4e6a-9b8c-7d6e5f4a3b2c';
 const CAUSE = 'SQLITE_BUSY: database is locked';
 const SOME_ID = '00000000-0000-4000-8000-000000000000';
 
-/** Any module method buildServer calls gives an empty object: the subscription routes are not under test. */
+/** Any module method buildServer calls gives an empty object: the debt, subscription and capture routes are not under test. */
 const unusedModule = new Proxy({}, { get: () => () => ({}) }) as any;
 
 /** Every method of `target` — or only `names` — rejects as a locked database does. */
@@ -105,7 +105,7 @@ describe('a failing database answers 500, not 422 (#270)', () => {
 
     const app = express();
     app.use('/api', buildServer(
-      transactionModule, unusedModule, unusedModule, userModule, unusedModule, unusedModule,
+      transactionModule, unusedModule, userModule, unusedModule, unusedModule,
       { categoryModule, accountModule, fxModule, exportModule, auditModule }
     ));
     api = await listenOnLoopback(app);
