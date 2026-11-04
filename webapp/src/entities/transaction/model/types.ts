@@ -21,7 +21,7 @@ export interface TransactionViewModel extends Transaction {
   _semanticTypeLabel: string;            // "Долг", "Перевод себе", ...
   _semanticTypeBadgeVariant: NonNullable<BadgeProps['variant']>;
   _showSemanticTypeBadge: boolean;       // false for ordinary expenses — colour and sign already say it
-  _isNonExpenseMovement: boolean;        // true for movements excluded from expense/budget analytics
+  _isNonExpenseMovement: boolean;        // true for movements excluded from expense analytics
   _needsReview: boolean;                 // true when semanticType is uncertain and awaits user correction
 }
 

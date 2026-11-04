@@ -57,8 +57,7 @@ describe('parentPath — where «Назад» leads when there is no app screen 
     expect(parentPath('/transactions/')).toBe('/');
   });
 
-  it('budgets and debts are out of the navigation (Д2, FT-125): opened by an old link they return to Home', () => {
-    expect(parentPath('/budgets')).toBe('/');
+  it('debts are out of the navigation (Д2, FT-125): opened by an old link they return to Home', () => {
     expect(parentPath('/debts')).toBe('/');
   });
 
@@ -68,8 +67,9 @@ describe('parentPath — where «Назад» leads when there is no app screen 
 
   it('a form or a detail screen returns to its section', () => {
     expect(parentPath('/transactions/7f3a/edit')).toBe('/transactions');
-    expect(parentPath('/budgets/add')).toBe('/budgets');
-    expect(parentPath('/budgets/b1/edit')).toBe('/budgets');
+    expect(parentPath('/accounts/transfer')).toBe('/accounts');
+    expect(parentPath('/accounts/a1')).toBe('/accounts');
+    expect(parentPath('/more/categories')).toBe('/more');
     expect(parentPath('/debts/add')).toBe('/debts');
     expect(parentPath('/debts/d1')).toBe('/debts');
   });
@@ -86,12 +86,12 @@ describe('parentPath — where «Назад» leads when there is no app screen 
 describe('backStep', () => {
   it('goes one step back when an app screen opened this one', () => {
     expect(backStep('/transactions', 1)).toEqual({ kind: 'history' });
-    expect(backStep('/budgets/add', 3)).toEqual({ kind: 'history' });
+    expect(backStep('/accounts/transfer', 3)).toEqual({ kind: 'history' });
   });
 
   it('opened directly (a link from the bot, a reload) it goes to the parent screen instead of leaving the app', () => {
     expect(backStep('/transactions/7f3a/edit', 0)).toEqual({ kind: 'route', to: '/transactions' });
-    expect(backStep('/budgets', undefined)).toEqual({ kind: 'route', to: '/' });
+    expect(backStep('/accounts', undefined)).toEqual({ kind: 'route', to: '/' });
   });
 
   it('Home has no back', () => {
@@ -171,7 +171,7 @@ describe('syncTelegramBackButton', () => {
 
     const cleanup = syncTelegramBackButton(button, '/more', first);
     cleanup();
-    syncTelegramBackButton(button, '/budgets', second);
+    syncTelegramBackButton(button, '/accounts', second);
 
     button.press();
     expect(first).not.toHaveBeenCalled();
@@ -183,7 +183,7 @@ describe('syncTelegramBackButton', () => {
     const button = fakeButton();
     const cleanup = syncTelegramBackButton(button, '/more', vi.fn());
     cleanup();
-    syncTelegramBackButton(button, '/budgets', vi.fn());
+    syncTelegramBackButton(button, '/accounts', vi.fn());
 
     expect(button.hide).not.toHaveBeenCalled();
     expect(button.visible).toBe(true);
@@ -276,14 +276,14 @@ describe('closeStep — a form closes after a save or a delete the way «Наз�
     expect(backStep(history.path, 0)).toBeNull();
   });
 
-  it('a saved or deleted budget and a created budget or debt leave no form under their list', () => {
-    for (const form of ['/budgets/b1/edit', '/budgets/add']) {
+  it('a done transfer, a hidden account and a created debt leave no screen under their list', () => {
+    for (const form of ['/accounts/transfer', '/accounts/a1']) {
       const history = appHistory('/');
-      history.open('/budgets');
+      history.open('/accounts');
       history.open(form);
 
       history.close();
-      expect(history.stack).toEqual(['/', '/budgets']);
+      expect(history.stack).toEqual(['/', '/accounts']);
     }
 
     const history = appHistory('/');

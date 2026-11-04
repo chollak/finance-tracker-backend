@@ -38,7 +38,7 @@ Prefer unit/use-case tests for pure business logic and route tests for HTTP/midd
 | Voice | removed in #221 with the controller and its multer upload: no client called them (the bot takes a voice from Telegram, iOS sends text to `/api/quick-capture`) | `tests/deadVoiceRoutes.test.ts`: `POST /api/voice/text-input` and `/voice-input` are `404`; the bot's voice leaves no file (`tests/voiceUploadCleanup.test.ts`, FT-216) | — | — |
 | Debt | `POST /api/debts/user/:userId`, `GET /api/debts/user/:userId`, `GET /api/debts/:debtId`, pay/cancel/delete | create/list auth covered; null getDebt not-found covered; `:userId` ownership, no shadow user, `400` for a non-string id (FT-162) | high | Next route tests should cover pay debt auth/ownership and validation errors. |
 | Transaction | CRUD, analytics, archive, batch archive (the global admin `GET /analytics` removed in FT-174) | resource by-id ownership/404/update validation covered; every `:userId` route and `POST /` user-from-auth covered (FT-162); broader CRUD/archive gaps remain | high | Add more focused coverage before any transaction controller split/refactor. |
-| Budget | user budgets, summaries, alerts, by-id update/delete/recalculate | `:userId` routes: ownership, no shadow user, `400` for a non-string id (FT-162); by-id routes not covered | medium | Add missing-user validation and ownership route tests before controller cleanup. |
+| Budget | removed in #264 with `BudgetModule` (decision 2026-11-04): out of the interface since Д2, nothing called it; the `budgets` table stays | `tests/deadBudgetRoutes.test.ts`: the eight routes are `404` | — | — |
 | Subscription | status, check-limit, grant, cancel, start-trial | use-case level; routes: user from auth, someone else's id `403`, non-string `400` (FT-162) | medium-high | Add route tests around guest status/check-limit and invalid limitType. |
 | User | get/create/update user | covered at use-case/helper level, not route level | medium | Add auth/self-access tests if user routes become active frontend surface. |
 | Dashboard | removed in #205 with `DashboardService`, `AlertService` and `requirePremium`: nothing called it | `tests/deadDashboardRoutes.test.ts`: the seven routes are `404` | — | — |
@@ -65,8 +65,8 @@ From `tests/apiRoutes.test.ts`:
   - generic `Error` → 500
   - malformed JSON → 400 `INVALID_JSON`
 
-From `tests/legacyUserIdRoutes.test.ts` (FT-162), for every legacy route with `:userId` (transactions, budgets, debts,
-subscription status; the dashboard ones until #205 removed them), on a real SQLite `users` table:
+From `tests/legacyUserIdRoutes.test.ts` (FT-162), for every legacy route with `:userId` (transactions, debts,
+subscription status; the dashboard ones until #205 removed them, the budget ones until #264), on a real SQLite `users` table:
 
 - someone else's id in the path (`597843119`, `0131184740`, `1311847400`) — `403 ACCESS_DENIED`, no `users` row added
 - a blank path id, `?userId=a&userId=b`, `?userId=`, a body userId that is a number, array, object, `null` or `''` — `400 INVALID_USER_ID`

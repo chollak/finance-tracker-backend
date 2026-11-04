@@ -1,6 +1,8 @@
 # DTO / Schema Validation Consistency Audit
 
 > Status: FT-023 audit. This document records current validation patterns and the recommended policy before introducing any new validation framework.
+>
+> #264 (2026-11-04): `BudgetController` and the budget routes are removed; the budget findings below are history.
 
 ## Scope
 

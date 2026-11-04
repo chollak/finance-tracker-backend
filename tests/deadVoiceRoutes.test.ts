@@ -20,7 +20,7 @@ describe('the web voice routes are gone (#221)', () => {
 
   beforeAll(async () => {
     const app = express();
-    app.use('/api', buildServer(unusedModule, unusedModule, unusedModule, undefined));
+    app.use('/api', buildServer(unusedModule, unusedModule, undefined));
     server = await listenOnLoopback(app);
   });
 

@@ -27,7 +27,6 @@ export const LogCategory = {
   // Business Logic
   TRANSACTION: 'TRANSACTION',
   DEBT: 'DEBT',
-  BUDGET: 'BUDGET',
   SUBSCRIPTION: 'SUBSCRIPTION',
   USER: 'USER',
   LEARNING: 'LEARNING',

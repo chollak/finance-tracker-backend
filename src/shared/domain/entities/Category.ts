@@ -2,7 +2,7 @@
  * Category Entity - Single Source of Truth
  *
  * Все категории определены здесь. Используется:
- * - Backend: OpenAI prompts, budget matching, transactions
+ * - Backend: OpenAI prompts, transactions
  * - Frontend: UI категории (копия данных)
  * - Telegram: quick categories
  *

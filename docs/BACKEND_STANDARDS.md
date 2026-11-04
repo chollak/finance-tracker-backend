@@ -6,6 +6,9 @@
 **Дата:** 2026-01-22
 **Статус:** Утверждено
 
+> Примеры ниже построены на сущности `Budget`. Код бюджетов удалён в #264 (решение 2026-11-04), но примеры — только
+> иллюстрация правил: они относятся к любому модулю (счета, ревизия, категории). Живые модули — `CLAUDE.md`, «Module System».
+
 ---
 
 ## Содержание
@@ -595,7 +598,6 @@ const logger = createLogger(LogCategory.TRANSACTION);
 | `RATE_LIMIT` | Rate limiting events |
 | `TRANSACTION` | Transaction operations |
 | `DEBT` | Debt operations |
-| `BUDGET` | Budget operations |
 | `OPENAI` | OpenAI API calls |
 | `TELEGRAM` | Telegram bot (все handlers) |
 | `HTTP` | HTTP requests/responses |
@@ -609,7 +611,7 @@ const logger = createLogger(LogCategory.TRANSACTION);
 // ✅ ПРАВИЛЬНО
 logger.info('Transaction created', { transactionId, userId, amount });
 logger.error('Failed to create transaction', error, { userId, input });
-logger.warn('Budget limit approaching', { budgetId, spent, limit });
+logger.warn('Goal limit approaching', { goalId, spent, limit });
 
 // ❌ НЕПРАВИЛЬНО - без контекста
 logger.error('Error', error);

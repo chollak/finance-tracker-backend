@@ -423,6 +423,35 @@ struct LastPhraseCardTests {
         #expect(await parts.accountsAsked.count == 2)
     }
 
+    /// A long queue: the server wrote the first phrase, and the time ran out on the second — the PC answered, so not
+    /// «Сервер не ответил».
+    @Test("сервер в проходе ответил, время кончилось — «Уйдёт позже»; «Отправить сейчас» отправляет (#219, #249)")
+    func waitingAfterAnswerInThePass() async throws {
+        defer { cleanUp() }
+        let parts = try parts(capture: [.http(200), .hang])
+        _ = try await parts.capture.add("кофе 25к")
+        _ = try await parts.capture.add("такси 18к")
+        _ = try await parts.capture.add("хлеб 5к")
+        // The background's time runs out while the second request waits for its answer
+        let background = Task { await parts.capture.flush() }
+        #expect(await eventually { await parts.queue.transport.requests.count == 2 })
+        background.cancel()
+        await parts.capture.cancelSending()
+        await background.value
+
+        let card = await card(parts)
+        #expect(await parts.capture.state().wait == nil)
+        #expect(shown(card)?.heard == "Услышал: хлеб 5к")
+        #expect(texts(card) == ["Уйдёт позже"])
+        #expect(shown(card)?.offersSendNow == true)
+
+        // «Отправить сейчас» is the queue's pass (`AppModel.sendNow`); the server answers now
+        await parts.capture.flush()
+        await refresh(card, parts)
+        #expect(texts(card) == ["Записал: Кофе · 25 000 сум"])
+        #expect(await parts.queue.transport.requests.count == 4)
+    }
+
     @Test("без связи удалил с телефона, связь вернулась, новая фраза — «Отправляю…», а не прежняя «нет связи»")
     func newPhraseAfterRemovedOffline() async throws {
         defer { cleanUp() }

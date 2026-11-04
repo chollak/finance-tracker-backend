@@ -328,7 +328,7 @@ npm test                  # Run all tests
 npm run test:ci           # Run tests serially for CI/Hermes verification
 npm test -- --watch      # Watch mode
 npm test -- --verbose    # Detailed output
-npm test budget          # Run specific test file
+npm test transaction     # Run specific test file
 ```
 
 ### Code Quality
