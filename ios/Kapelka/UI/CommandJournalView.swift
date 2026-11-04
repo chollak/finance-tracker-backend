@@ -62,13 +62,18 @@ private struct RunSection: View {
                                 .monospacedDigit()
                                 .foregroundStyle(.secondary)
                                 .frame(minWidth: 52, alignment: .leading)
+                                .accessibilityHidden(true)
+                            // VoiceOver reads the step once, «время — текст», with short ids (#243): a cell of the
+                            // grid speaks for its row, the time cell stays silent
                             Text(step.text)
+                                .accessibilityLabel(JournalText.spoken(step))
                         }
                     }
                 }
                 Text(JournalText.outcome(run.outcome))
                     .fontWeight(.semibold)
                     .foregroundStyle(isTrouble ? Color.red : Color.primary)
+                    .accessibilityLabel(JournalText.spoken(JournalText.outcome(run.outcome)))
             }
             .font(.footnote)
             .padding(.vertical, 4)
