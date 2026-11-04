@@ -53,13 +53,31 @@ final class SendQueueJournalTests {
 
         let report = await command.run()
 
-        #expect(report == "В очереди: 1 — сервер пока недоступен")
+        #expect(report == "В очереди: 1 — нет связи, уйдёт, когда появится сеть")
         #expect(try #require(await journal.runs().first).texts == [
             "начало",
             "ждут: 1",
             "отправка: ждут 1 — нет связи",
-            "окно: «В очереди: 1 — сервер пока недоступен»",
+            "окно: «В очереди: 1 — нет связи, уйдёт, когда появится сеть»",
         ])
+    }
+
+    @Test(
+        "не ушло — окно говорит почему: нет связи, сервер не ответил, просит подождать (#236)",
+        arguments: [
+            (FakeTransport.Reply.failure(.notConnectedToInternet), "В очереди: 1 — нет связи, уйдёт, когда появится сеть"),
+            (.failure(.cannotFindHost), "В очереди: 1 — нет связи, уйдёт, когда появится сеть"),
+            (.failure(.timedOut), "В очереди: 1 — сервер не ответил, уйдёт позже"),
+            (.http(502, body: "Bad Gateway"), "В очереди: 1 — сервер не ответил, уйдёт позже"),
+            (.http(429, body: ServerReply.rateLimited, headers: ["Retry-After": "120"]), "В очереди: 1 — сервер просит подождать, уйдёт позже"),
+        ]
+    )
+    func waitsWithReason(reply: FakeTransport.Reply, dialog: String) async throws {
+        let harness = try QueueHarness(transport: FakeTransport([reply]))
+        let (command, queue) = makeCommand(harness, journal: journals.makeJournal())
+        _ = try await queue.add("кофе 25к")
+
+        #expect(await command.run() == dialog)
     }
 
     @Test("пусто — «нечего отправлять»")
@@ -102,7 +120,8 @@ final class SendQueueJournalTests {
         _ = await Task { await command.run() }.value
 
         let run = try #require(await journal.runs().first)
-        #expect(Array(run.texts.suffix(2)) == ["окно: «В очереди: 1 — сервер пока недоступен»", "iOS отменил команду"])
+        // Nothing went, so no reason: the neutral «уйдёт позже»
+        #expect(Array(run.texts.suffix(2)) == ["окно: «В очереди: 1 — уйдёт позже»", "iOS отменил команду"])
         #expect(run.outcome == .finished(ms: 0))
     }
 

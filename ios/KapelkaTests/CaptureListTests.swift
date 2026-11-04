@@ -256,16 +256,48 @@ struct CaptureListTests {
         #expect(row.status.hasSuffix("14:32"))
     }
 
-    @Test("ответ «Отправить очередь»: «в очереди N» или «всё отправлено»; токен и настройки — первыми")
-    func afterSending() {
+    /// One written, two waiting: what the queue is after a pass that did not get through.
+    private func waitingQueue(_ wait: QueueWait?, notBefore: Date? = nil) -> QueueState {
         var state = QueueState()
         state.captures = [
             capture("кофе", .sent, reply: CaptureReply(status: "saved", title: "Записал", summary: "Кофе · 25 000 сум")),
             capture("такси"),
             capture("обед"),
         ]
-        #expect(QueueStatus.afterSending(state, configured: true) == "В очереди: 2 — сервер пока недоступен")
+        state.wait = wait
+        state.notBefore = notBefore
+        return state
+    }
 
+    @Test(
+        "ответ «Отправить очередь» — почему ждёт, словами уведомления оплаты: нет связи, сервер не ответил, просит подождать",
+        arguments: [
+            (QueueWait.offline, "В очереди: 2 — нет связи, уйдёт, когда появится сеть"),
+            (.noAnswer, "В очереди: 2 — сервер не ответил, уйдёт позже"),
+            (.busy, "В очереди: 2 — сервер просит подождать, уйдёт позже"),
+        ]
+    )
+    func afterSendingSaysWhy(wait: QueueWait, text: String) {
+        #expect(QueueStatus.afterSending(waitingQueue(wait), configured: true) == text)
+    }
+
+    @Test("причины нет — «уйдёт позже» (сервер ответил, время прохода кончилось, #219); файл до FT-252 с паузой 429 — «просит подождать»")
+    func afterSendingWithoutReason() {
+        #expect(QueueStatus.afterSending(waitingQueue(nil), configured: true) == "В очереди: 2 — уйдёт позже")
+        #expect(
+            QueueStatus.afterSending(waitingQueue(nil, notBefore: Self.inputTime), configured: true)
+                == "В очереди: 2 — сервер просит подождать, уйдёт позже"
+        )
+    }
+
+    @Test("ответ «Отправить очередь»: «всё отправлено»; токен и настройки — первыми, какой бы ни была причина")
+    func afterSending() {
+        var state = waitingQueue(.offline)
+        #expect(QueueStatus.afterSending(state, configured: false) == "Укажи адрес и токен в настройках Kapelka")
+        state.tokenRefused = true
+        #expect(QueueStatus.afterSending(state, configured: true) == "Сервер не принял токен — проверь токен в настройках Kapelka")
+
+        state.tokenRefused = false
         state.captures = [capture("кофе", .rejected, rejection: "Text is too long (maximum 2000 characters)")]
         #expect(QueueStatus.afterSending(state, configured: true) == "Всё отправлено")
 
