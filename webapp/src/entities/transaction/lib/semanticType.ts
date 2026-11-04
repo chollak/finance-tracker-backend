@@ -37,7 +37,7 @@ const SEMANTIC_TYPE_BADGE_VARIANT: Record<TransactionSemanticType, NonNullable<B
 };
 
 // Semantic types that are neither a real expense nor income — excluded from
-// expense/budget analytics on the backend (see countsAsRealExpense / countsAsBudgetSpending).
+// expense analytics on the backend (see countsAsRealExpense).
 const NON_EXPENSE_MOVEMENT_TYPES = new Set<TransactionSemanticType>([
   'own_transfer',
   'saving_deposit',

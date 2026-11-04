@@ -76,7 +76,7 @@
 
 ## Текущий статус (обновлено 2026-07-19)
 
-Все 7 модулей backend уже реализованы и покрыты кодом: `TransactionModule`, `BudgetModule`,
+Все 7 модулей backend уже реализованы и покрыты кодом: `TransactionModule`, `BudgetModule` (удалён в #264),
 `DebtModule`, `VoiceProcessingModule`, `OpenAIUsageModule` (удалён в FT-174: его маршруты не работали), `UserModule`,
 `SubscriptionModule`. Dashboard модулем не являлся — это были `DashboardService`/`DashboardController`,
 которые собирались в Express-слое из Transaction analytics и Budget service (удалены в #205: их никто не вызывал). Подробности и зависимости — в

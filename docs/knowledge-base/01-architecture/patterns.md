@@ -42,7 +42,7 @@ class CreateTransactionUseCase {
 
 **Где используется:**
 - `TransactionRepository` - [`src/modules/transaction/domain/transactionRepository.ts`](../../../src/modules/transaction/domain/transactionRepository.ts)
-- `BudgetRepository` - [`src/modules/budget/domain/budgetRepository.ts`](../../../src/modules/budget/domain/budgetRepository.ts)
+- `AccountRepository` - [`src/modules/account/domain/accountRepository.ts`](../../../src/modules/account/domain/accountRepository.ts)
 
 ---
 
@@ -52,15 +52,15 @@ class CreateTransactionUseCase {
 
 **Реализация:**
 ```typescript
-class BudgetService {
+class AuditGoalSync {
   constructor(
-    private budgetRepository: BudgetRepository,
-    private transactionRepository: TransactionRepository
+    private audits: AuditRepository,
+    private goals: GoalRepository
   ) {}
 }
 
 // Создание с инъекцией
-const budgetService = new BudgetService(budgetRepo, transactionRepo);
+const goalSync = new AuditGoalSync(auditRepo, goalRepo);
 ```
 
 **Преимущества:**
@@ -136,7 +136,7 @@ class CreateTransactionUseCase {
 
 **Где используется:**
 - `CreateTransactionUseCase`, `GetTransactionsUseCase`, etc.
-- `CreateBudgetUseCase`, `UpdateBudgetUseCase`, etc.
+- `CreateAccountUseCase`, `UpdateAccountUseCase`, etc.
 - `ProcessVoiceInputUseCase`, `ProcessTextInputUseCase`
 
 ---
@@ -221,7 +221,7 @@ class TransactionModule {
 - ✅ Reusability - модули переиспользуемы
 
 **Где используется:**
-- `TransactionModule`, `BudgetModule`, `VoiceProcessingModule`, etc.
+- `TransactionModule`, `AccountModule`, `VoiceProcessingModule`, etc.
 
 ---
 

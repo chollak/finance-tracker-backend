@@ -1,6 +1,5 @@
 // Widgets barrel export
 export * from './balance-card';
-export * from './budget-overview';
 export * from './recent-transactions';
 export * from './home-trust-summary';
 export * from './home-header';

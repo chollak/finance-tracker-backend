@@ -137,7 +137,7 @@ describe('the app token reads and edits its owner’s records (FT-218)', () => {
     accountModule.setRecordSource({ recordsOf: (userId, accountId) => transactionModule.recordsOfAccount(userId, accountId) });
 
     router = buildServer(
-      transactionModule, unusedModule, unusedModule, userModule, unusedModule, unusedModule,
+      transactionModule, unusedModule, userModule, unusedModule, unusedModule,
       { categoryModule, accountModule, fxModule: unusedModule, exportModule: unusedModule, auditModule: unusedModule }
     );
     const app = express();
@@ -337,6 +337,54 @@ describe('the app token reads and edits its owner’s records (FT-218)', () => {
 
       // findById reads only records that are not deleted
       expect(await transactionModule.getRepository().findById(theirs)).toMatchObject({ id: theirs, category: 'Кафе' });
+    });
+  });
+
+  /**
+   * #282: the iOS app tells «запись уже удалена» from «категории уже нет» by the start of the message of a 404
+   * `NOT_FOUND` (`RecordsClient.swift`, `ServerError.notFound`) — the code alone is the same for both, and for a route
+   * the server lacks. If either text changes, the app shows «Сервер не ответил» instead; these answers are its contract.
+   */
+  describe('the 404 the iOS app reads (#282)', () => {
+    const recordGone = {
+      success: false,
+      error: { code: 'NOT_FOUND', message: expect.stringMatching(/^Transaction not found/) },
+    };
+
+    it.each([
+      ['DELETE', 'the swipe'],
+      ['PUT', 'a category'],
+      ['PUT', '«Да, верно»'],
+    ])('%s /api/transactions/:id (%s) of a record deleted elsewhere: 404 «Transaction not found»', async (method, edit) => {
+      const id = await recordOf(OWNER);
+      const body = { 'the swipe': undefined, 'a category': { categoryId: await categoryIdOf('Продукты') }, '«Да, верно»': { needsReview: false } }[edit];
+      // Deleted in the Mini App before the app's edit comes
+      expect((await call('DELETE', `/transactions/${id}`, asOwner())).status).toBe(200);
+
+      const res = await call(method, `/transactions/${id}`, byToken, body);
+
+      expect(res.status).toBe(404);
+      expect(res.body).toMatchObject(recordGone);
+    });
+
+    it('POST /api/transactions/:id/restore of a record the server does not have: 404 «Transaction not found»', async () => {
+      const res = await call('POST', `/transactions/${randomUUID()}/restore`, byToken);
+
+      expect(res.status).toBe(404);
+      expect(res.body).toMatchObject(recordGone);
+    });
+
+    it('PUT /api/transactions/:id { categoryId } of a category the owner does not have: 404 «Category not found», the record as it was', async () => {
+      const id = await recordOf(OWNER);
+
+      const res = await call('PUT', `/transactions/${id}`, byToken, { categoryId: randomUUID() });
+
+      expect(res.status).toBe(404);
+      expect(res.body).toMatchObject({
+        success: false,
+        error: { code: 'NOT_FOUND', message: expect.stringMatching(/^Category not found/) },
+      });
+      expect(await transactionModule.getRepository().findById(id)).toMatchObject({ id, category: 'Кафе' });
     });
   });
 

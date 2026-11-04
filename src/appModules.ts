@@ -3,7 +3,6 @@ import { TransactionModule } from './modules/transaction/transactionModule';
 import { OpenAITranscriptionService } from './modules/voiceProcessing/infrastructure/openAITranscriptionService';
 import { VoiceProcessingModule } from './modules/voiceProcessing/voiceProcessingModule';
 import { QuickCaptureModule } from './modules/quickCapture/quickCaptureModule';
-import { BudgetModule } from './modules/budget/budgetModule';
 import { DebtModule } from './modules/debt/debtModule';
 import { UserModule } from './modules/user/userModule';
 import { SubscriptionModule } from './modules/subscription/subscriptionModule';
@@ -26,7 +25,6 @@ export function createModules() {
   transactionModule.setCategoryResolver(categoryModule.getCatalog());
   // A category correction in the Mini App or the bot teaches the parser (FT-184)
   transactionModule.setCategoryLessons(transactionLearning);
-  const budgetModule = BudgetModule.create(transactionModule);
   const userModule = UserModule.create();
 
   // Records are written to the user's accounts (FT-101); the default account comes from settings
@@ -101,7 +99,6 @@ export function createModules() {
     accountModule,
     fxModule,
     transactionModule,
-    budgetModule,
     debtModule,
     voiceModule,
     quickCaptureModule,

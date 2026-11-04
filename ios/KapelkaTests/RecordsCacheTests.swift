@@ -29,14 +29,14 @@ struct RecordsCacheTests {
         #expect(await harness.transport.requests.count == 1)
 
         let offline = await restarted.refresh()
-        #expect(offline == .saved(fresh, .unreachable))
+        #expect(offline == .saved(fresh, .later(.offline)))
         #expect(try #require(harness.cache.load()).updatedAt == refreshedAt)
     }
 
-    @Test("без сети и без кэша — пусто и «нет связи»")
-    func offlineWithoutCache() async throws {
+    @Test("сервер не ответил и кэша нет — пусто и «сервер не ответил»")
+    func noAnswerWithoutCache() async throws {
         let harness = try RecordsHarness(transport: FakeTransport([.failure(.timedOut)]))
-        #expect(await harness.makeFeed().refresh() == .saved(nil, .unreachable))
+        #expect(await harness.makeFeed().refresh() == .saved(nil, .later(.noAnswer)))
         #expect(harness.cache.load() == nil)
     }
 
@@ -53,7 +53,7 @@ struct RecordsCacheTests {
             return
         }
 
-        #expect(await feed.refresh() == .saved(fresh, .unreachable))
+        #expect(await feed.refresh() == .saved(fresh, .later(.noAnswer)))
         #expect(await feed.refresh() == .saved(fresh, .tokenRefused))
         #expect(harness.cache.load() == fresh)
     }
@@ -109,7 +109,7 @@ struct RecordsCacheTests {
 
         async let older = feed.refresh()
         #expect(await eventually { await transport.requests.count == 1 })
-        #expect(await feed.refresh() == .saved(nil, .unreachable))
+        #expect(await feed.refresh() == .saved(nil, .later(.offline)))
         let olderResult = await older
 
         guard case let .fresh(snapshot) = olderResult else {
@@ -131,7 +131,7 @@ struct RecordsCacheTests {
         harness.settings.set(ServerConfiguration(baseURL: URL(string: "https://other-pc.example-tailnet.ts.net")!, token: TestSettings.token))
         let feed = harness.makeFeed()
         #expect(await feed.saved() == nil)
-        #expect(await feed.refresh() == .saved(nil, .unreachable))
+        #expect(await feed.refresh() == .saved(nil, .later(.offline)))
     }
 
     @Test("без настроек — ни запроса, ни кэша: экран с кнопкой «Настройки»")
@@ -153,7 +153,7 @@ struct RecordsCacheTests {
 
         let feed = harness.makeFeed()
         #expect(await feed.saved() == nil)
-        #expect(await feed.refresh() == .saved(nil, .unreachable))
+        #expect(await feed.refresh() == .saved(nil, .later(.offline)))
     }
 
     @Test("папки ещё нет — первый ответ создаёт её; токена в файле нет")

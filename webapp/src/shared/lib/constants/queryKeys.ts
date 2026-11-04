@@ -7,12 +7,6 @@ export const QUERY_KEYS = {
   TRANSACTION_DETAIL: 'transaction-detail',
   TRANSACTION_ANALYTICS: 'transaction-analytics',
 
-  // Budgets
-  BUDGETS: 'budgets',
-  BUDGET_DETAIL: 'budget-detail',
-  BUDGET_SUMMARIES: 'budget-summaries',
-  BUDGET_ALERTS: 'budget-alerts',
-
   // Analytics
   ANALYTICS_SUMMARY: 'analytics-summary',
   ANALYTICS_CATEGORIES: 'analytics-categories',
@@ -29,17 +23,6 @@ export const queryKeys = {
     detail: (id: string) => [QUERY_KEYS.TRANSACTION_DETAIL, id] as const,
     analytics: (userId: string, filters?: Record<string, unknown>) =>
       [QUERY_KEYS.TRANSACTION_ANALYTICS, userId, filters] as const,
-  },
-
-  // Budgets
-  budgets: {
-    all: [QUERY_KEYS.BUDGETS] as const,
-    list: (userId: string, active?: boolean) =>
-      [...queryKeys.budgets.all, 'list', userId, active] as const,
-    detail: (id: string) => [QUERY_KEYS.BUDGET_DETAIL, id] as const,
-    summaries: (userId: string) => [QUERY_KEYS.BUDGET_SUMMARIES, userId] as const,
-    alerts: (userId: string, threshold?: number) =>
-      [QUERY_KEYS.BUDGET_ALERTS, userId, threshold] as const,
   },
 
   // Analytics

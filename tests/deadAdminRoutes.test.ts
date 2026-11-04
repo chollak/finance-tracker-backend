@@ -18,7 +18,7 @@ describe('the dead admin routes are gone (FT-174)', () => {
 
   beforeAll(async () => {
     const app = express();
-    app.use('/api', buildServer(unusedModule, unusedModule, unusedModule, undefined));
+    app.use('/api', buildServer(unusedModule, unusedModule, undefined));
     server = await listenOnLoopback(app);
   });
 

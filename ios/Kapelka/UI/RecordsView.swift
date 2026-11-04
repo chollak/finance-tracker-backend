@@ -112,7 +112,7 @@ struct RecordsView: View {
                 ProgressView()
                     .frame(maxWidth: .infinity)
                     .id(list.nextPageKey)
-                    // Not `.task`: scrolling past the end would cancel the request and show «Нет связи»
+                    // Not `.task`: scrolling past the end would cancel the request and show «Сервер не ответил»
                     .onAppear {
                         Task { await list.loadMore() }
                     }
@@ -152,11 +152,16 @@ struct RecordsView: View {
                 Button("Настройки", action: openSettings)
                     .buttonStyle(.bordered)
             }
-        case .unreachable:
+        case let .failed(failure):
+            // «Нет связи», «Сервер не ответил», «Сервер просит подождать» — as the card on «Записать» says it; a
+            // refusal — «Сервер не принял запрос» (#282)
             ContentUnavailableView {
-                Label("Нет связи", systemImage: "wifi.slash")
+                Label(failure.title, systemImage: failure.systemImage)
             } description: {
-                Text("Записи появятся, когда сервер ответит")
+                // Only while no answer came: a server that refused has answered
+                if case .later = failure {
+                    Text("Записи появятся, когда сервер ответит")
+                }
             } actions: {
                 Button("Повторить") {
                     Task { await list.refresh() }

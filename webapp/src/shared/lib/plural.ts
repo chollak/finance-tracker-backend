@@ -25,10 +25,6 @@ export function pluralDays(count: number): string {
   return pluralRu(count, 'день', 'дня', 'дней');
 }
 
-export function pluralBudgets(count: number): string {
-  return pluralRu(count, 'бюджет', 'бюджета', 'бюджетов');
-}
-
 export function pluralTransactions(count: number): string {
   return pluralRu(count, 'транзакция', 'транзакции', 'транзакций');
 }

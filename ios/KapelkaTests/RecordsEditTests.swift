@@ -28,7 +28,7 @@ struct RecordsEditTests {
         let harness = try primed([.failure(.notConnectedToInternet)])
         let feed = harness.makeFeed()
 
-        await #expect(throws: RecordsFailure.unreachable) { try await feed.delete("b") }
+        await #expect(throws: RecordsFailure.later(.offline)) { try await feed.delete("b") }
 
         #expect(cachedIds(harness) == ["c", "b", "a"])
         harness.clock.advance(by: 60)
@@ -122,7 +122,7 @@ struct RecordsEditTests {
         ])
         let feed = harness.makeFeed()
 
-        await #expect(throws: RecordsFailure.unreachable) { try await feed.setCategory("cat-food", of: "b") }
+        await #expect(throws: RecordsFailure.later(.noAnswer)) { try await feed.setCategory("cat-food", of: "b") }
         #expect(cachedIds(harness) == ["c", "b", "a"])
 
         await #expect(throws: RecordsFailure.recordGone) { try await feed.setCategory("cat-food", of: "b") }
