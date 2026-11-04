@@ -17,8 +17,12 @@ enum ConnectionReport: Equatable, Sendable {
 enum TokenCheck: Equatable, Sendable {
     /// `GET /api/categories` answered with the records' envelope: the token signs the owner in (FT-218).
     case accepted
-    /// 401, 403 — as the queue's «проверь токен».
+    /// 401 and the other 403s — as the queue's «проверь токен».
     case refused
+    /// 403 `SHORTCUT_CAPTURE_DISABLED`: the server has no token at all — not set on the PC, or set and Kapelka not
+    /// restarted since (`docs/QUICK_CAPTURE_API.md`, «Errors»). Any token is refused there, so a new one on the phone
+    /// does not help.
+    case notSetUp
     /// No answer to go by: no network, a timeout, 429, 5xx, a body that is not Kapelka's.
     case unknown
     /// None in the field and none saved: nothing to check.
@@ -68,6 +72,8 @@ struct HealthCheck: Sendable {
         case 200..<300:
             let answer = try? JSONDecoder().decode(Envelope.self, from: body)
             return answer?.success == true ? .accepted : .unknown
+        case 403 where ServerError(body: body)?.code == "SHORTCUT_CAPTURE_DISABLED":
+            return .notSetUp
         case 401, 403:
             return .refused
         default:
@@ -167,6 +173,7 @@ private extension TokenCheck {
         switch self {
         case .accepted: "Сервер доступен, токен принят"
         case .refused: "Сервер не принял токен"
+        case .notSetUp: "На сервере не задан токен — задай его и перезапусти Kapelka"
         case .unknown: "Сервер доступен, токен не проверен — попробуй позже"
         case .missing: "Сервер доступен — вставь токен"
         case .malformed: "Сервер доступен. \(SettingsMessage.text(for: .badToken))"

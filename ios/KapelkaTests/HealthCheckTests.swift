@@ -19,6 +19,10 @@ struct HealthCheckTests {
         "environment":"production","telegramBot":{"state":"failed","attempts":5,"lastError":"409: Conflict"}}
         """
     static let categories = RecordsReply.categories([RecordsReply.category()])
+    /// `shortcutOwnerOrRefuse` in production without `SHORTCUT_CAPTURE_TOKEN` and `SHORTCUT_CAPTURE_OWNER`.
+    static let disabled = """
+        {"success":false,"error":"Shortcut capture is not set up on this server","code":"SHORTCUT_CAPTURE_DISABLED"}
+        """
 
     private static func check(
         _ health: FakeTransport.Reply,
@@ -58,8 +62,11 @@ struct HealthCheckTests {
         "401 и 403 — сервер не принял токен",
         arguments: [
             FakeTransport.Reply.http(401, body: ServerReply.invalidToken),
-            .http(403, body: #"{"success":false,"error":"Shortcut capture is not set up on this server","code":"SHORTCUT_CAPTURE_DISABLED"}"#),
             .http(403, body: #"{"success":false,"error":"This Telegram account has no access","code":"ACCESS_NOT_ALLOWED"}"#),
+            .http(403, body: #"{"success":false,"error":"Shortcut capture through a tunnel or the network needs SHORTCUT_CAPTURE_TOKEN","code":"SHORTCUT_CAPTURE_TOKEN_REQUIRED"}"#),
+            .http(403, body: ""),
+            // Only a 403 says the path is off
+            .http(401, body: Self.disabled),
         ]
     )
     func refused(reply: FakeTransport.Reply) async {
@@ -68,6 +75,14 @@ struct HealthCheckTests {
         #expect(report == .kapelka(botWorks: true, token: .refused))
         #expect(report.text == "Сервер не принял токен")
         #expect(requests.count == 2)
+    }
+
+    @Test("403 SHORTCUT_CAPTURE_DISABLED — на сервере не задан токен")
+    func notSetUpOnServer() async {
+        let (report, _) = await Self.check(.http(200, body: Self.healthy), .http(403, body: Self.disabled))
+
+        #expect(report == .kapelka(botWorks: true, token: .notSetUp))
+        #expect(report.text == "На сервере не задан токен — задай его и перезапусти Kapelka")
     }
 
     @Test("пустое поле — проверяется сохранённый токен", arguments: ["", "   \n"])
