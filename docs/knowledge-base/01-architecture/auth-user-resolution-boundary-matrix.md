@@ -24,11 +24,12 @@ a record's owner UUID — so a numeric `X-Dev-User-Id`, the Shortcut token with 
 `ALLOWED_TELEGRAM_IDS` work as before. A record counter that meets an old owner id of another form now skips counting
 with an error in the log instead of making a row. Not through the resolver, so not changed here: the milestone-10 routes
 (`createResolveCurrentUserMiddleware`) and the bot's `bot.use` that gives every sender a row hand the signed-in Telegram
-id to `GetOrCreateUserUseCase` themselves; the debt use cases resolve their owner with their own `isUUID` / `GetOrCreateUserUseCase` — they get a UUID
-from the route middleware or the debt record, never an id from a request.
+id to `GetOrCreateUserUseCase` themselves; the debt use cases resolve their owner with their own `isUUID` /
+`GetOrCreateUserUseCase` — they get a UUID from the route middleware or the debt record, never an id from a request.
 Tests: `tests/userResolution.test.ts` (the ids refused by both resolvers and `isResolvableUserId`, no user made; big
-Telegram ids and one with leading zeros resolved as written), `tests/legacyUserIdRoutes.test.ts` (the grant: `guest_zzz`, `abc`, `-5`, `1.5`, `0` — `400
-INVALID_USER_ID`, no row, no subscription; a Telegram id and a UUID granted as before).
+Telegram ids and one with leading zeros resolved as written), `tests/legacyUserIdRoutes.test.ts` (the grant:
+`guest_zzz`, `abc`, `-5`, `1.5`, `0` — `400 INVALID_USER_ID`, no row, no subscription; a Telegram id and a UUID granted
+as before).
 
 ## 2026-11-04 — no guest mode in the backend (#206)
 
