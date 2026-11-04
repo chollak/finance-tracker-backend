@@ -295,12 +295,14 @@ This should precede any strict resolver implementation.
 
 **Risk:** product/security medium  
 **Type:** product behavior decision  
-**Evidence:** In `subscriptionMiddleware.ts` (the Express one, removed in #220: nothing mounted it; the bot's `checkTelegramLimit` fails open the same way), if user UUID cannot be resolved:
+**Evidence:** In `subscriptionMiddleware.ts` (the Express one, removed in #220: nothing mounted it), if user UUID cannot be resolved:
 
 ```ts
 // If user doesn't exist, allow action (fail open)
 next();
 ```
+
+In the bot (`src/delivery/messaging/telegram/middleware/subscriptionMiddleware.ts`) the unresolved user is let through by `createTelegramCheckLimitMiddleware`: without `ctx.from`, or when `getUserUUID` returns `null` (get-or-create of the user failed), it calls `next()` with no check. `checkTelegramLimit` fails open in another case: when the limit check itself throws, it returns `true`. The «Сколько?» answer calls `checkTelegramLimit` with a user it has already resolved.
 
 This may be acceptable for early MVP/backward compatibility, but it is a product policy: resolution/storage errors can allow actions without enforcing limits.
 
