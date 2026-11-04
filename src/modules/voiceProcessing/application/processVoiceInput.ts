@@ -55,7 +55,7 @@ function convertOggToMp3(input: string, output: string): Promise<void> {
 }
 
 /** Removes a voice file if it is there; one already gone is fine. */
-export async function removeVoiceFile(file: string): Promise<void> {
+async function removeVoiceFile(file: string): Promise<void> {
   try {
     await fs.unlink(file);
   } catch (error) {
@@ -176,7 +176,7 @@ export class ProcessVoiceInputUseCase {
             description: p.description || recognizedText.substring(0, 500),
             amount: money.amount,
             currency,
-            source: input.source ?? 'miniapp',
+            source: input.source,
             type,
             semanticType,
             needsReview,

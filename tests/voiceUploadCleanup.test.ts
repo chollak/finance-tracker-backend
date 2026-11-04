@@ -66,7 +66,7 @@ describe('a voice leaves no files behind (FT-216)', () => {
     it('converted by ffmpeg and read: neither the voice nor its .mp3 stays', async () => {
       const file = downloaded();
 
-      await voice.execute({ filePath: file, userId: 'user-1' });
+      await voice.execute({ filePath: file, userId: 'user-1', source: 'telegram' });
 
       expect(transcribe).toHaveBeenCalledWith(`${file}.mp3`);
       expect(fs.readdirSync(dir)).toEqual([]);
@@ -76,7 +76,7 @@ describe('a voice leaves no files behind (FT-216)', () => {
       mockFfmpeg.missing = true;
       const file = downloaded();
 
-      await voice.execute({ filePath: file, userId: 'user-1' });
+      await voice.execute({ filePath: file, userId: 'user-1', source: 'telegram' });
 
       expect(fs.readdirSync(dir)).toEqual([]);
     });
@@ -85,7 +85,7 @@ describe('a voice leaves no files behind (FT-216)', () => {
       transcribe.mockRejectedValue(new Error('OpenAI is down'));
       const file = downloaded();
 
-      await expect(voice.execute({ filePath: file, userId: 'user-1' })).rejects.toThrow();
+      await expect(voice.execute({ filePath: file, userId: 'user-1', source: 'telegram' })).rejects.toThrow();
 
       expect(fs.readdirSync(dir)).toEqual([]);
     });
