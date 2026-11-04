@@ -42,6 +42,7 @@ describe('POST /api/quick-capture/payment (FT-176)', () => {
   let server: http.Server;
   let baseUrl: string;
   let openAI: { analyzeInput: jest.Mock; categoryOfMerchant: jest.Mock };
+  let records: ReturnType<typeof recordsOn>;
 
   beforeEach(async () => {
     process.env.NODE_ENV = 'production';
@@ -50,7 +51,7 @@ describe('POST /api/quick-capture/payment (FT-176)', () => {
     jest.replaceProperty(AppConfig, 'TELEGRAM_ACCESS', telegramAccess([OWNER, OTHER_ALLOWED]));
 
     db = await openMigratedDatabase();
-    const records = recordsOn(db.dataSource);
+    records = recordsOn(db.dataSource);
     openAI = { analyzeInput: jest.fn(), categoryOfMerchant: jest.fn().mockResolvedValue('Продукты') };
     const parser = openAI as unknown as TranscriptionService;
     const service = new QuickCaptureService(
@@ -178,6 +179,25 @@ describe('POST /api/quick-capture/payment (FT-176)', () => {
     expect(repeat.body.data.transactions.map((t: { id: string }) => t.id)).toEqual(first.body.data.transactions.map((t: { id: string }) => t.id));
     expect(await written()).toHaveLength(1);
     expect(openAI.categoryOfMerchant).toHaveBeenCalledTimes(1);
+  });
+
+  // #270: the phone's queue sends again on a 5xx with the same clientId (CaptureClient.swift); a 422 before meant the same
+  it('a database that fails the write answers 500 INTERNAL_ERROR; sent again, the payment is written once', async () => {
+    const create = jest.spyOn(records.repository, 'create').mockRejectedValueOnce(new Error('SQLITE_BUSY: database is locked'));
+
+    const failed = await pay(PAYMENT);
+    expect(failed.status).toBe(500);
+    expect(failed.body).toMatchObject({ success: false, error: { code: 'INTERNAL_ERROR', message: 'Failed to create transaction' } });
+    expect(failed.body.error.context).toBeUndefined();
+    expect(JSON.stringify(failed.body)).not.toMatch(/SQLITE/);
+    expect(await written()).toEqual([]);
+
+    const retried = await pay(PAYMENT);
+    const repeated = await pay(PAYMENT);
+    expect(retried.status).toBe(200);
+    expect(repeated.body.data.repeated).toBe(true);
+    expect(await written()).toHaveLength(1);
+    expect(create).toHaveBeenCalledTimes(2);
   });
 
   it('answers a wrong token with 401 and a header naming someone else with 403, as for a phrase', async () => {
