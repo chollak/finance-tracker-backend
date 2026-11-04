@@ -179,12 +179,16 @@ one, the token is one more way to sign in, next to initData and the browser sess
 ### User id resolution
 
 When a `UserModule` is wired (it is, in `buildServer`), `userId` goes through
-`resolveUserIdToUUID()` (`src/shared/application/helpers/userIdResolver.ts`):
+`resolveUserIdToUUID()` (`src/shared/application/helpers/userIdResolver.ts`). The `userId` is the one the auth
+middleware set — the signed-in user's or the Shortcut owner's Telegram id — so in practice it is always a Telegram id.
 
 - UUID v4 → passed through unchanged
-- anything else (e.g. a numeric Telegram id) → resolved/created into a user UUID (a `guest_*` id was passed through
-  unchanged until #206; there are no guests)
-- resolution failure is **fail-open**: the raw string is used as the owner id
+- a Telegram id → resolved into the user's UUID, creating the user on first contact. It is read by `telegramIdOf`,
+  the rule of `ALLOWED_TELEGRAM_IDS` and `SHORTCUT_CAPTURE_OWNER` (#230): a positive whole number below 2^53, spaces
+  around it are fine, and leading zeros name the same user — `0597843119` is `597843119`
+- anything else — `abc`, `-5`, `1.5`, `0`, an old `guest_*` id (#206), a number from 2^53 on — is a `ValidationError`
+  (`400 VALIDATION_ERROR`) and creates no user (#224, #230)
+- resolution failure is **fail-open**: the Telegram id, without leading zeros, is used as the owner id
 
 ---
 

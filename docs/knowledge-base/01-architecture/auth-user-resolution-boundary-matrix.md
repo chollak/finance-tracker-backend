@@ -2,6 +2,30 @@
 
 > Status: FT-024 audit/decision matrix. This document records current auth, ownership, and userId-resolution boundaries before any strict resolver implementation. There are no guests: the browser's guest mode went with decision Д4 (FT-128), the backend's guest branches in #206.
 
+## 2026-11-04 — one Telegram id rule in the resolver; no grant without a user (#230)
+
+Found in the review of #224: the resolver took a Telegram id by its own regex (`/^0*[1-9]\d*$/`, any length, looked
+up as written), while `ALLOWED_TELEGRAM_IDS` and the Shortcut owner go by `telegramIdOf` (below 2^53, leading zeros are
+the same id). So the admin grant with `"0597843119"` made a second user of the same person, 30 digits made a `users`
+row, and a UUID no user has got a subscription — `subscriptions.user_id` has no foreign key. Admin only, no hole.
+
+| Was | Now |
+|---|---|
+| Resolver: a Telegram id is any positive whole number in digits, looked up as written — `0597843119` and `597843119` are two users | `resolvableUserIdOf` (`userIdResolver.ts`) reads a Telegram id by `telegramIdOf`: `0597843119` is the user of `597843119`, created as `597843119` on first contact; a number from 2^53 on is no id. Both resolvers, `isResolvableUserId` and `createUserResolutionMiddleware` go by it, so the admin grant with such a number is `400 INVALID_USER_ID`, no row |
+| Admin grant to a UUID: passed through, `200`, a subscription for no one | `GrantPremiumUseCase` asks `GrantTargets.exists` (from `UserModule.exists`) first: `404 NOT_FOUND`, nothing created or expired |
+| Fail-open resolver returned the id as given | Returns the Telegram id without leading zeros |
+
+Chosen: leading zeros are the **same** user, not refused — one rule means one behaviour wherever a Telegram id is read,
+and the list and the Shortcut owner already read them so. Every id the server itself resolves has no leading zeros
+(`ctx.from.id`, the signed-in id from initData, the cookie, `X-Dev-User-Id` and the Shortcut owner are numbers or
+`telegramIdOf`-read), so only an id typed into the admin grant changes. Not changed: `verifyOwnership` still compares
+the path, query and body id with the signed-in id as written — `0131184740` for `131184740` stays `403`; stricter than
+the resolver, it lets no one else in. No migration: rows already in `users` are not touched.
+Tests: `tests/userResolution.test.ts` (leading zeros — the same user, created without them; 2^53, 2^53 + 1 and 30
+digits refused, no user; 2^53 − 1 resolved; fail-open without zeros), `tests/legacyUserIdRoutes.test.ts` (grant with
+`0597843119` — the same user; 2^53 + 1 and 30 digits — `400`; an unknown UUID — `404`, no subscription),
+`tests/subscription.test.ts` (`GrantPremiumUseCase` refuses an unknown user before touching subscriptions).
+
 ## 2026-11-04 — the web voice routes are gone (#221)
 
 `POST /api/voice/text-input` and `/voice-input` had no client: the bot takes a voice from Telegram, the iOS app sends
@@ -297,8 +321,9 @@ Current loose resolver helper.
 - Rejects an id that is no UUID and no Telegram id (a positive whole number in digits) with a `ValidationError`
   before the user module is asked, so it creates no user (#224). `resolveUserIdToUUIDStrict` does the same.
 - Passes through UUIDs (and `guest_*` ids until #206).
-- Resolves telegramId to UUID through `GetOrCreateUserUseCase`, as written (no leading zeros are dropped).
-- On resolver failure, logs and returns the original ID for backward compatibility.
+- Reads a Telegram id by `telegramIdOf` (#230), as `ALLOWED_TELEGRAM_IDS` does: below 2^53, leading zeros name the same
+  user; resolves it to UUID through `GetOrCreateUserUseCase`, creating the user without the zeros on first contact.
+- On resolver failure, logs and returns the Telegram id (without leading zeros) for backward compatibility.
 
 FT-017D decision: do not globally change this helper to fail-closed yet.
 
@@ -320,7 +345,7 @@ FT-017D decision: do not globally change this helper to fail-closed yet.
 | Debt by-id/payment | `/api/debts/:debtId...` | `optionalAuth` | controller/resource lookup | `verifyResourceOwnership` | resource-strict |
 | Dashboard — removed in #205 | `/api/dashboard/:userId...` | — (`404`) | — | — | — |
 | Subscription (own) | `GET /api/subscription/:userId`, `POST /check-limit`, `/cancel`, `/start-trial` | `requireAuth` | signed-in user (`createResolveCurrentUserMiddleware`, FT-162) | `verifyOwnership` on any path/body/query userId, before resolution | strict |
-| Subscription grant | `POST /api/subscription/grant` | `requireAuth` + `requireAdmin` | body userId (the admin's target; a non-string or an id that is no UUID and no Telegram id is `400 INVALID_USER_ID`, #224) | admin only | strict/admin |
+| Subscription grant | `POST /api/subscription/grant` | `requireAuth` + `requireAdmin` | body userId (the admin's target; a non-string or an id that is no UUID and no Telegram id is `400 INVALID_USER_ID`, #224; a Telegram id with leading zeros is the same user, a UUID no user has is `404 NOT_FOUND`, #230) | admin only | strict/admin |
 
 The column «Guest allowed» went with the guests (#206). A request without sign-in reaches only these routes:
 
