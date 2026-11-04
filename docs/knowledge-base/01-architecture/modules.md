@@ -104,7 +104,7 @@ Core module системы — управление финансовыми тр�
 
 ### Services
 - `AnalyticsService` - старая аналитика (summary, categories, trends, patterns)
-- `PeriodTotalsService` - итоги периода (FT-103): одно правило для главной, аналитики, дашборда и итогов бота
+- `PeriodTotalsService` - итоги периода (FT-103): одно правило для главной, аналитики и итогов бота
 
 ### Repository
 - Interface: `src/modules/transaction/domain/transactionRepository.ts`

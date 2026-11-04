@@ -302,7 +302,9 @@ This should precede any strict resolver implementation.
 next();
 ```
 
-In the bot (`src/delivery/messaging/telegram/middleware/subscriptionMiddleware.ts`) the unresolved user is let through by `createTelegramCheckLimitMiddleware`: without `ctx.from`, or when `getUserUUID` returns `null` (get-or-create of the user failed), it calls `next()` with no check. `checkTelegramLimit` fails open in another case: when the limit check itself throws, it returns `true`. The «Сколько?» answer calls `checkTelegramLimit` with a user it has already resolved.
+In the bot (`src/delivery/messaging/telegram/middleware/subscriptionMiddleware.ts`) text and voice go through `createTelegramCheckLimitMiddleware`, which lets the unresolved user through: without `ctx.from`, or when `getUserUUID` returns `null` (get-or-create of the user failed), it calls `next()` with no check. `checkTelegramLimit` returns `true` whenever its `try` throws: the limit check itself, or sending the paywall when the limit is reached.
+
+The «Сколько?» answer is checked by `checkTelegramLimit` alone (`answerMissing` in `recordHandlers.ts`): `answerAmount` runs before `checkTransactionLimit` in the text chain (`messageHandlers.ts`). It resolves the user with `resolveUserId` → `resolveUserIdToUUID`: the latter falls back to the raw Telegram id when get-or-create fails, the former does the same on any error it gets. The limit is then read for that id: `findOrCreateForCurrentPeriod` creates an empty `usage_limits` row for it (`user_id` has no foreign key to `users`), so the record is allowed; if the database itself fails, the check throws and fails open.
 
 This may be acceptable for early MVP/backward compatibility, but it is a product policy: resolution/storage errors can allow actions without enforcing limits.
 
