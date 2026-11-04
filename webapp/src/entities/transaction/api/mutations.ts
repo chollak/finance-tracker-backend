@@ -4,7 +4,6 @@ import { API_ENDPOINTS } from '@/shared/lib/constants';
 import type { Transaction, CreateTransactionDTO, UpdateTransactionDTO } from '@/shared/types';
 import type { TransactionViewModel } from '../model/types';
 import { transactionKeys } from './keys';
-import { budgetKeys } from '@/entities/budget/api/keys';
 import { subscriptionKeys } from '@/entities/subscription/api/keys';
 import { transactionToViewModel } from '../lib/toViewModel';
 import { transactionDataSource } from '@/shared/lib/db';
@@ -82,7 +81,6 @@ export function useCreateTransaction() {
       );
 
       // 2. Invalidate ONLY computed data that depends on transaction totals
-      queryClient.invalidateQueries({ queryKey: budgetKeys.summaries(userId) });
       invalidateBalanceReaders(queryClient, userId);
       // Invalidate subscription to refresh usage limits (transaction count increased)
       queryClient.invalidateQueries({ queryKey: subscriptionKeys.status(userId) });
@@ -139,7 +137,6 @@ export function useUpdateTransaction() {
       );
 
       // 3. Invalidate computed data (amount/category might have changed)
-      queryClient.invalidateQueries({ queryKey: budgetKeys.summaries(userId) });
       invalidateBalanceReaders(queryClient, userId);
     },
   });
@@ -182,7 +179,6 @@ function forgetDeletedTransaction(queryClient: QueryClient, { id, userId }: { id
   forgetRecordRead(queryClient, id);
 
   // 3. Invalidate computed data
-  queryClient.invalidateQueries({ queryKey: budgetKeys.summaries(userId) });
   invalidateBalanceReaders(queryClient, userId);
   // Invalidate subscription to refresh usage limits (transaction count decreased)
   queryClient.invalidateQueries({ queryKey: subscriptionKeys.status(userId) });
@@ -243,7 +239,6 @@ export async function patchTransaction(
  */
 export function refreshAfterRecordsChanged(queryClient: QueryClient, userId: string): void {
   queryClient.invalidateQueries({ queryKey: transactionKeys.list(userId) });
-  queryClient.invalidateQueries({ queryKey: budgetKeys.summaries(userId) });
   invalidateBalanceReaders(queryClient, userId);
   queryClient.invalidateQueries({ queryKey: subscriptionKeys.status(userId) });
 }

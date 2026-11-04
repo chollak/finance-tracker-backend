@@ -1,7 +1,6 @@
 import type { QueryKey } from '@tanstack/react-query';
 
 import { balanceReaderKeys, transactionKeys } from '@/entities/transaction';
-import { budgetKeys } from '@/entities/budget/api/keys';
 import { subscriptionKeys } from '@/entities/subscription/api/keys';
 import { debtKeys } from '@/entities/debt/api/keys';
 
@@ -15,7 +14,6 @@ import type { QuickCaptureResult } from '../model/types';
 export function capturedRecordKeys(userId: string): QueryKey[] {
   return [
     transactionKeys.list(userId),
-    budgetKeys.summaries(userId),
     subscriptionKeys.status(userId),
     // Home: the balances, the month tiles and the recent records (FT-111); History; Analytics (FT-121)
     ...balanceReaderKeys(userId),

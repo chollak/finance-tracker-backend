@@ -3,7 +3,6 @@ import {
   isTransactionSemanticType,
   normalizeSemanticType,
   countsAsRealExpense,
-  countsAsBudgetSpending,
   countsAsIncome,
 } from '../src/modules/transaction/domain/transactionSemanticType';
 
@@ -58,16 +57,6 @@ describe('countsAsRealExpense', () => {
     expect(countsAsRealExpense('cash_withdrawal')).toBe(false);
     expect(countsAsRealExpense('group_payment')).toBe(false);
     expect(countsAsRealExpense(undefined)).toBe(false);
-  });
-});
-
-describe('countsAsBudgetSpending', () => {
-  it('only "expense" counts as budget spending', () => {
-    expect(countsAsBudgetSpending('expense')).toBe(true);
-    expect(countsAsBudgetSpending('own_transfer')).toBe(false);
-    expect(countsAsBudgetSpending('saving_deposit')).toBe(false);
-    expect(countsAsBudgetSpending('debt')).toBe(false);
-    expect(countsAsBudgetSpending(undefined)).toBe(false);
   });
 });
 

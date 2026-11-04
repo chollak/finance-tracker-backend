@@ -3,7 +3,6 @@ import { describe, it, expect } from 'vitest';
 import { quickCaptureInvalidationKeys } from './invalidation';
 import type { QuickCaptureResult } from '../model/types';
 import { transactionKeys } from '@/entities/transaction';
-import { budgetKeys } from '@/entities/budget/api/keys';
 import { analyticsKeys } from '@/entities/analytics';
 import { subscriptionKeys } from '@/entities/subscription/api/keys';
 import { debtKeys } from '@/entities/debt/api/keys';
@@ -41,7 +40,6 @@ describe('quickCaptureInvalidationKeys', () => {
     const keys = quickCaptureInvalidationKeys(result(), 'user-1');
 
     expect(keys).toContainEqual(transactionKeys.list('user-1'));
-    expect(keys).toContainEqual(budgetKeys.summaries('user-1'));
     expect(keys).toContainEqual(subscriptionKeys.status('user-1'));
   });
 

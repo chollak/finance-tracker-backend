@@ -6,6 +6,9 @@
 >
 > #221 (2026-11-04): the web voice routes — `/api/voice/*`, `voiceProcessingController.ts` — are removed: no client
 > called them. F7 and FT-026 below are history.
+>
+> #264 (2026-11-04): budgets — `/api/budgets`, `budgetController.ts`, `BudgetModule` — are removed (decision
+> 2026-11-04); the budget findings below are history.
 
 ## Scope
 
@@ -73,7 +76,7 @@ Main route families:
 /api/health
 /api/transactions
 /api/voice         (removed in #221)
-/api/budgets
+/api/budgets       (removed in #264)
 /api/debts
 /api/dashboard      (removed in #205)
 /api/subscription

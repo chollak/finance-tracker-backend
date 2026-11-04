@@ -1,7 +1,6 @@
 import express, { Router } from 'express';
 // Note: Using custom corsHeaders middleware instead of cors package for security
 import { TransactionModule } from '../../../modules/transaction/transactionModule';
-import { BudgetModule } from '../../../modules/budget/budgetModule';
 import { DebtModule } from '../../../modules/debt/debtModule';
 import { UserModule } from '../../../modules/user/userModule';
 import { SubscriptionModule } from '../../../modules/subscription/subscriptionModule';
@@ -9,7 +8,6 @@ import { QuickCaptureModule } from '../../../modules/quickCapture/quickCaptureMo
 import { createTransactionRouter } from '../../../modules/transaction/presentation/controllers/transactionController';
 import { createAnalyticsRoutes } from '../../../modules/transaction/presentation/controllers/analyticsController';
 import { createQuickCaptureRouter } from '../../../modules/quickCapture/presentation/controllers/quickCaptureController';
-import { createBudgetRouter } from '../../../modules/budget/interfaces/budgetRoutes';
 import { createDebtRouter } from '../../../modules/debt/presentation/controllers/debtRoutes';
 import { createUserController } from '../../../modules/user/presentation/controllers/userController';
 import { createSettingsRoutes } from '../../../modules/user/presentation/controllers/settingsController';
@@ -54,7 +52,6 @@ import { createHealthHandler } from './routes/healthRoutes';
 
 export function buildServer(
   transactionModule: TransactionModule,
-  budgetModule: BudgetModule,
   debtModule: DebtModule,
   userModule?: UserModule,
   subscriptionModule?: SubscriptionModule,
@@ -120,11 +117,6 @@ export function buildServer(
       createQuickCaptureRouter(quickCaptureModule.getQuickCaptureService(), userModule)
     );
   }
-
-  router.use(
-    '/budgets',
-    createBudgetRouter(budgetModule, userModule)
-  );
 
   router.use(
     '/debts',
