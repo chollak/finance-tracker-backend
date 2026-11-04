@@ -31,7 +31,6 @@ export const LogCategory = {
   SUBSCRIPTION: 'SUBSCRIPTION',
   USER: 'USER',
   LEARNING: 'LEARNING',
-  DASHBOARD: 'DASHBOARD',
 
   // External Services
   OPENAI: 'OPENAI',

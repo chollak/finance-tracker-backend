@@ -11,7 +11,8 @@ import { AccountResolver } from '../domain/accountResolver';
 import { resolveAccountForUpdate } from './resolveAccountForUpdate';
 import { CategoryLessons } from '../domain/categoryLessons';
 import { teachCategoryCorrection } from './teachCategoryCorrection';
-import { changesRecord, noteEdit, RecordEdit } from '../domain/recordEdit';
+import { changesRecord, RecordEdit } from '../domain/recordEdit';
+import { noteAndMerchantForUpdate } from './noteAndMerchantForUpdate';
 
 const logger = getLogger(LogCategory.TRANSACTION);
 
@@ -27,12 +28,14 @@ export interface UpdateTransactionRequest {
   accountId?: string;
   /** Only together with accountId: the record's currency must be the new account's (FT-103). */
   currency?: 'UZS' | 'USD';
-  /** `null` clears the note, as in POST (FT-249). */
+  /** Checked and trimmed as in POST; `null` clears the note (FT-249, #210). */
   description?: string | null;
   date?: string;
   type?: 'income' | 'expense';
   semanticType?: TransactionSemanticType;
   needsReview?: boolean;
+  /** Checked and trimmed as the note; `null`, empty or blank clears the merchant (#210). */
+  merchant?: string | null;
 }
 
 export class UpdateTransactionUseCase {
@@ -45,7 +48,6 @@ export class UpdateTransactionUseCase {
 
   async execute(request: UpdateTransactionRequest): Promise<Result<Transaction>> {
     const { id, category, date, type, semanticType, needsReview } = request;
-    const description = noteEdit(request.description);
 
     // Validate ID
     if (!id?.trim()) {
@@ -82,6 +84,10 @@ export class UpdateTransactionUseCase {
       return ResultHelper.failure(new ValidationError('needsReview must be a boolean'));
     }
 
+    const texts = noteAndMerchantForUpdate(request);
+    if (!texts.success) return ResultHelper.failure(texts.error);
+    const { description, merchant } = texts.data;
+
     try {
       // Check if transaction exists
       const existing = await this.repository.findById(id.trim());
@@ -108,6 +114,7 @@ export class UpdateTransactionUseCase {
         type,
         semanticType,
         needsReview,
+        merchant,
       };
       // Nothing changes («?» confirmed with the same category): no write, so updatedAt stays, and nothing to learn
       if (!changesRecord(existing, edit)) {

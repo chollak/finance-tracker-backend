@@ -20,7 +20,7 @@ Finance Tracker Backend — это backend система для управле�
 - 🎤 Voice-to-Transaction через Telegram Bot
 - 💰 Transaction Management с CRUD операциями
 - 📊 Budget Tracking с алертами
-- 📈 Analytics & Financial Health Score
+- 📈 Аналитика месяца по категориям (`/api/analytics`, FT-120)
 - 🤖 Machine Learning для улучшения категоризации
 - 💻 Web Interface (React SPA)
 
