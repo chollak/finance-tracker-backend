@@ -20,6 +20,7 @@ import { NotificationModule } from '../src/modules/notification/notificationModu
 import { SqliteNotificationLogRepository } from '../src/modules/notification/infrastructure/SqliteNotificationLogRepository';
 import { registerSummaryHandlers, summarySender } from '../src/delivery/messaging/telegram/handlers/summaryHandlers';
 import { TelegramAccess, telegramAccess } from '../src/shared/domain/access/telegramAccess';
+import { prepareDatabaseOnce } from './helpers/testDatabase';
 
 /**
  * FT-124 end to end on a real SQLite file: the daily summary goes out at the user's chosen time on the user's
@@ -60,6 +61,8 @@ describe('daily summary (FT-124)', () => {
     notificationModule: NotificationModule;
   }
   let running: Running;
+  /** Migrated once for the file; each test's bot starts over its own copy (#250). */
+  const migrated = prepareDatabaseOnce();
 
   async function start(access?: TelegramAccess): Promise<Running> {
     const ds = createAppDataSource(file);
@@ -137,6 +140,7 @@ describe('daily summary (FT-124)', () => {
   beforeEach(async () => {
     dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ft124-'));
     file = path.join(dir, 'db.sqlite');
+    migrated.copyTo(file);
     sent = [];
     refuse = null;
     nextMessageId = 700;

@@ -405,6 +405,20 @@ OrbStack…). The request then goes to that program.
 limiters with empty counters. `tests/testServer.test.ts` fails on any `listen` call in `tests/` that does not name
 `'127.0.0.1'` itself.
 
+### A Test Times Out at 5 s Only When the Mac Is Loaded (#237, #250)
+
+**Error:** `Exceeded timeout of 5000 ms for a test` (or `for a hook`) in a suite that passes alone, while other Jest runs
+or sub-chats load the Mac.
+
+**Cause:** setup that is the same for every test done again in every test: all migrations on a fresh SQLite file, or
+the 197 records of a board written through the use case (~0.5 s of CPU on an idle Mac). Under load that work alone
+goes over Jest's 5 s.
+
+**Solution:** do it once per file with `prepareDatabaseOnce()` from `tests/helpers/testDatabase.ts` and give each test
+a copy: `open()` instead of `openMigratedDatabase()`, `copyTo(file)` for a suite that starts the bot over its own file,
+`copyRowsOf(owner, dataSource, userId)` to add the prepared records to a database the test already uses. Only that
+one-off setup gets 60 s; do not raise the timeout of tests.
+
 ### `npm run verify` Runs Out of Memory in the Main Folder
 
 **Error:** `FATAL ERROR: … JavaScript heap out of memory` during `test:ci`, or `jest-haste-map: Haste module naming

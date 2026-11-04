@@ -166,7 +166,7 @@ private struct LastPhraseLineView: View {
         switch kind {
         case .sending: "arrow.up.circle"
         case .offline: "wifi.slash"
-        case .noAnswer: "clock"
+        case .noAnswer, .later: "clock"
         case .busy: "hourglass"
         case .notConfigured: "gearshape"
         case .tokenRefused: "key"

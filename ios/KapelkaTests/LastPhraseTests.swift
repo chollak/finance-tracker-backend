@@ -155,9 +155,34 @@ struct LastPhraseTests {
         #expect(texts(card(state([older, capture]) { $0.wait = .offline })) == ["Нет связи — уйдёт, когда появится сеть"])
     }
 
-    @Test("ушла раньше, причины нет (файл до FT-252) — «Сервер не ответил — уйдёт позже»")
-    func waitingWithoutReason() {
-        #expect(texts(card(state([phrase("кофе 25к", attempts: 1)]))) == ["Сервер не ответил — уйдёт позже"])
+    /// No reason kept says no reason: the words of «Отправить очередь» (`QueueStatus.whyLater`, #236), not «Сервер не
+    /// ответил» — the server may have answered in that pass (#219).
+    @Test("ушла раньше, причины нет — «Уйдёт позже» с «Удалить» и «Отправить сейчас», не «Сервер не ответил» (#249)")
+    func waitingWithoutReason() throws {
+        let capture = phrase("кофе 25к", attempts: 1)
+        let shown = try #require(card(state([capture])))
+
+        #expect(texts(shown) == ["Уйдёт позже"])
+        #expect(shown.lines.map(\.kind) == [.later])
+        #expect(shown.deletion == .fromPhone(capture.clientId))
+        #expect(shown.offersSendNow)
+        #expect(!shown.opensSettings)
+    }
+
+    @Test("файл сборки до FT-252 — причины в нём нет: «Уйдёт позже» и «Отправить сейчас» (#249)")
+    func waitingInFileBeforeReasons() throws {
+        let older = """
+            {"captures":[\
+            {"attempts":1,"capturedAt":815000000,"clientId":"3903229C-4ACB-4547-8620-13DC3B9FAA9E","state":"pending",\
+            "text":"кофе 25к","timeZoneIdentifier":"Asia/Tashkent"}],\
+            "tokenRefused":false}
+            """
+        let saved = try JSONDecoder().decode(QueueState.self, from: Data(older.utf8))
+        let shown = try #require(card(saved))
+
+        #expect(shown.heard == "Услышал: кофе 25к")
+        #expect(texts(shown) == ["Уйдёт позже"])
+        #expect(shown.offersSendNow)
     }
 
     @Test("429 — «Сервер просит подождать — уйдёт в 14:47»; пауза прошла — «Отправляю…»")

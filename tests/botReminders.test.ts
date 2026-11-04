@@ -26,6 +26,7 @@ import { registerReminderHandlers, reminderSender } from '../src/delivery/messag
 import { Result } from '../src/shared/domain/types/Result';
 import { prototypeRecords } from './helpers/auditPrototype';
 import { TelegramAccess, telegramAccess } from '../src/shared/domain/access/telegramAccess';
+import { prepareDatabaseOnce } from './helpers/testDatabase';
 
 /**
  * FT-133 end to end on a real SQLite file (board «Бот · напоминания», BotNotice.md): a goal is told once at 80% of its
@@ -83,8 +84,8 @@ describe('goal, subscription and audit reminders in the bot (FT-133)', () => {
   let running: Running;
   let owner: string;
 
-  /** The file the board's months and the audit are written to once, in `beforeAll`, and its owner (#237). */
-  const audited = { dir: '', file: '', owner: '' };
+  /** The owner of the board's records in the file `audited` prepares (#237). */
+  let auditedOwner: string;
 
   async function start(access?: TelegramAccess, databaseFile: string = file): Promise<Running> {
     const ds = createAppDataSource(databaseFile);
@@ -164,9 +165,9 @@ describe('goal, subscription and audit reminders in the bot (FT-133)', () => {
    */
   async function auditedOnOctober14(): Promise<void> {
     at('2026-10-14', '14:00');
-    fs.copyFileSync(audited.file, file);
+    audited.copyTo(file);
     running = await start();
-    owner = audited.owner;
+    owner = auditedOwner;
   }
 
   /** «Напомнить 2 ноября» under «Кинопоиск» on the audit's result. */
@@ -215,27 +216,20 @@ describe('goal, subscription and audit reminders in the bot (FT-133)', () => {
   };
 
   /**
-   * Writing three months of records through the use case is legitimately long for a hook: ~0.4 s on an idle Mac, and
-   * the same work went over 5 s per test under load (#237). It now runs once per file, so only this setup gets a
-   * longer budget; every test keeps Jest's 5 s.
+   * The board's months and the audit, written once for the file (#237). Writing three months of records through the
+   * use case is legitimately long for a hook — ~0.4 s on an idle Mac, over 5 s per test under load — so this setup
+   * alone gets a longer budget (prepareDatabaseOnce); every test keeps Jest's 5 s.
    */
-  const AUDITED_FILE_TIMEOUT_MS = 60_000;
-
-  beforeAll(async () => {
-    audited.dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ft133-audited-'));
-    audited.file = path.join(audited.dir, 'db.sqlite');
+  const audited = prepareDatabaseOnce(async auditedFile => {
     at('2026-08-01', '09:00');
-    running = await start(undefined, audited.file);
+    running = await start(undefined, auditedFile);
     owner = (await running.userModule.getGetOrCreateUserUseCase().execute({ telegramId: TELEGRAM_ID, firstName: 'Shukur' })).id;
     await recordTheBoardAndAudit();
     await closeOpen();
-    audited.owner = owner;
-  }, AUDITED_FILE_TIMEOUT_MS);
-
-  afterAll(async () => {
-    await closeOpen();
-    if (audited.dir) fs.rmSync(audited.dir, { recursive: true, force: true });
+    auditedOwner = owner;
   });
+
+  afterAll(closeOpen);
 
   beforeEach(() => {
     dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ft133-'));
