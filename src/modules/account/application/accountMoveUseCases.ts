@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 import { Result, ResultHelper } from '../../../shared/domain/types/Result';
-import { BusinessLogicError, NotFoundError, ValidationError } from '../../../shared/domain/errors/AppError';
+import { NotFoundError, ValidationError, StorageError } from '../../../shared/domain/errors/AppError';
 import { getLogger, LogCategory } from '../../../shared/application/logging';
 import { MAX_ABS_AMOUNT_MINOR, isMinorInteger } from '../../../shared/domain/money/money';
 import { isValidDateOnly, todayDateOnly } from '../../../shared/domain/dates/dateOnly';
@@ -121,7 +121,7 @@ export class CreateMoveUseCase {
       }));
     } catch (error) {
       logger.error('Failed to record a move', error as Error);
-      return ResultHelper.failure(new BusinessLogicError('Failed to record a move'));
+      return ResultHelper.failure(new StorageError('Failed to record a move'));
     }
   }
 
@@ -184,7 +184,7 @@ export class SetMoveDeletedUseCase {
       return ResultHelper.success(await this.moves.setDeletedAt(move.id, input.deleted ? new Date() : null));
     } catch (error) {
       logger.error('Failed to delete or restore a move', error as Error);
-      return ResultHelper.failure(new BusinessLogicError('Failed to delete or restore a move'));
+      return ResultHelper.failure(new StorageError('Failed to delete or restore a move'));
     }
   }
 }

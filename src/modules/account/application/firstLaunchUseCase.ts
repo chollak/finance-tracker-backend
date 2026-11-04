@@ -1,5 +1,5 @@
 import { Result, ResultHelper } from '../../../shared/domain/types/Result';
-import { BusinessLogicError, ConflictError, ValidationError } from '../../../shared/domain/errors/AppError';
+import { ConflictError, ValidationError, StorageError } from '../../../shared/domain/errors/AppError';
 import { getLogger, LogCategory } from '../../../shared/application/logging';
 import { isMinorInteger } from '../../../shared/domain/money/money';
 import { todayDateOnly } from '../../../shared/domain/dates/dateOnly';
@@ -131,7 +131,7 @@ export class CompleteFirstLaunchUseCase {
       return ResultHelper.success({ ...(await this.book.summary(input.userId)), onboardedAt: openingAt });
     } catch (error) {
       logger.error('Failed to complete the first launch', error as Error);
-      return ResultHelper.failure(new BusinessLogicError('Failed to save opening balances'));
+      return ResultHelper.failure(new StorageError('Failed to save opening balances'));
     }
   }
 }

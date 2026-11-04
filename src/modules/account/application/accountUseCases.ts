@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 import { Result, ResultHelper } from '../../../shared/domain/types/Result';
-import { BusinessLogicError, ConflictError, NotFoundError, ValidationError } from '../../../shared/domain/errors/AppError';
+import { ConflictError, NotFoundError, ValidationError, StorageError } from '../../../shared/domain/errors/AppError';
 import { getLogger, LogCategory } from '../../../shared/application/logging';
 import { isMinorInteger } from '../../../shared/domain/money/money';
 import { isValidDateOnly, todayDateOnly } from '../../../shared/domain/dates/dateOnly';
@@ -40,7 +40,7 @@ export class ListAccountsUseCase {
       return ResultHelper.success(await this.book.summary(input.userId));
     } catch (error) {
       logger.error('Failed to list accounts', error as Error);
-      return ResultHelper.failure(new BusinessLogicError('Failed to list accounts'));
+      return ResultHelper.failure(new StorageError('Failed to list accounts'));
     }
   }
 }
@@ -92,7 +92,7 @@ export class CreateAccountUseCase {
       return ResultHelper.success(created);
     } catch (error) {
       logger.error('Failed to create account', error as Error);
-      return ResultHelper.failure(new BusinessLogicError('Failed to create account'));
+      return ResultHelper.failure(new StorageError('Failed to create account'));
     }
   }
 }
@@ -172,7 +172,7 @@ export class UpdateAccountUseCase {
       return ResultHelper.success(await this.repository.update(account.id, changes));
     } catch (error) {
       logger.error('Failed to update account', error as Error);
-      return ResultHelper.failure(new BusinessLogicError('Failed to update account'));
+      return ResultHelper.failure(new StorageError('Failed to update account'));
     }
   }
 }
@@ -199,7 +199,7 @@ export class DeleteAccountUseCase {
       return ResultHelper.success({ id: account.id });
     } catch (error) {
       logger.error('Failed to delete account', error as Error);
-      return ResultHelper.failure(new BusinessLogicError('Failed to delete account'));
+      return ResultHelper.failure(new StorageError('Failed to delete account'));
     }
   }
 }

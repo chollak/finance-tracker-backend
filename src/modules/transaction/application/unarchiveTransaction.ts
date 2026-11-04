@@ -1,6 +1,6 @@
 import { TransactionRepository } from '../domain/transactionRepository';
 import { Result, ResultHelper } from '../../../shared/domain/types/Result';
-import { NotFoundError, BusinessLogicError } from '../../../shared/domain/errors/AppError';
+import { NotFoundError, BusinessLogicError, StorageError } from '../../../shared/domain/errors/AppError';
 import { getLogger, LogCategory } from '../../../shared/application/logging';
 
 const logger = getLogger(LogCategory.TRANSACTION);
@@ -29,7 +29,7 @@ export class UnarchiveTransactionUseCase {
     } catch (error) {
       logger.error('Error unarchiving transaction', error as Error, { transactionId });
       return ResultHelper.failure(
-        new BusinessLogicError('Failed to unarchive transaction', { transactionId })
+        new StorageError('Failed to unarchive transaction')
       );
     }
   }

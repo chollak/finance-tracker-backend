@@ -1,7 +1,7 @@
 import { TransactionRepository } from '../domain/transactionRepository';
 import { Transaction } from '../domain/transactionEntity';
 import { Result, ResultHelper } from '../../../shared/domain/types/Result';
-import { ValidationError, NotFoundError, BusinessLogicError } from '../../../shared/domain/errors/AppError';
+import { ValidationError, NotFoundError, StorageError } from '../../../shared/domain/errors/AppError';
 import { SubscriptionModule } from '../../subscription/subscriptionModule';
 import { UserModule } from '../../user/userModule';
 import { resolveUserIdToUUID } from '../../../shared/application/helpers/userIdResolver';
@@ -83,7 +83,7 @@ export class DeleteTransactionUseCase {
     } catch (error) {
       logger.error('Error deleting transaction', error as Error, { transactionId: id });
       return ResultHelper.failure(
-        new BusinessLogicError('Failed to delete transaction', { transactionId: id })
+        new StorageError('Failed to delete transaction')
       );
     }
   }
@@ -114,7 +114,7 @@ export class RestoreTransactionUseCase {
       return ResultHelper.success(restored);
     } catch (error) {
       logger.error('Error restoring transaction', error as Error, { transactionId: id });
-      return ResultHelper.failure(new BusinessLogicError('Failed to restore transaction', { transactionId: id }));
+      return ResultHelper.failure(new StorageError('Failed to restore transaction'));
     }
   }
 }

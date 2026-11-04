@@ -1,5 +1,5 @@
 import { Result, ResultHelper } from '../../../shared/domain/types/Result';
-import { BusinessLogicError, NotFoundError } from '../../../shared/domain/errors/AppError';
+import { NotFoundError, StorageError } from '../../../shared/domain/errors/AppError';
 import { getLogger, LogCategory } from '../../../shared/application/logging';
 import { Transaction } from '../domain/transactionEntity';
 import { TransactionRepository } from '../domain/transactionRepository';
@@ -78,7 +78,7 @@ export class GetCategoryAnalyticsUseCase {
       });
     } catch (error) {
       logger.error('Failed to compute category analytics', error as Error);
-      return ResultHelper.failure(new BusinessLogicError('Failed to compute category analytics'));
+      return ResultHelper.failure(new StorageError('Failed to compute category analytics'));
     }
   }
 }

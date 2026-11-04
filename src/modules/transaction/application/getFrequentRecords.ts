@@ -1,5 +1,5 @@
 import { Result, ResultHelper } from '../../../shared/domain/types/Result';
-import { BusinessLogicError } from '../../../shared/domain/errors/AppError';
+import { StorageError } from '../../../shared/domain/errors/AppError';
 import { getLogger, LogCategory } from '../../../shared/application/logging';
 import { todayDateOnly } from '../../../shared/domain/dates/dateOnly';
 import { TransactionRepository } from '../domain/transactionRepository';
@@ -37,7 +37,7 @@ export class GetFrequentRecordsUseCase {
       return ResultHelper.success({ items: pickFrequentRecords(records, this.rule) });
     } catch (error) {
       logger.error('Failed to read frequent records', error as Error);
-      return ResultHelper.failure(new BusinessLogicError('Failed to read frequent records'));
+      return ResultHelper.failure(new StorageError('Failed to read frequent records'));
     }
   }
 }

@@ -1,5 +1,5 @@
 import { Result, ResultHelper } from '../../../shared/domain/types/Result';
-import { BusinessLogicError } from '../../../shared/domain/errors/AppError';
+import { StorageError } from '../../../shared/domain/errors/AppError';
 import { getLogger, LogCategory } from '../../../shared/application/logging';
 import { TransactionRepository } from '../domain/transactionRepository';
 import { AnalyticsType, MonthAnalyticsBody, buildMonthAnalytics } from '../domain/monthAnalytics';
@@ -48,7 +48,7 @@ export class GetMonthAnalyticsUseCase {
       return ResultHelper.success({ ...frame, type, ...body, usd: analyticsUsdOf(read.data, type, body.comparable) });
     } catch (error) {
       logger.error('Failed to compute analytics', error as Error);
-      return ResultHelper.failure(new BusinessLogicError('Failed to compute analytics'));
+      return ResultHelper.failure(new StorageError('Failed to compute analytics'));
     }
   }
 }
