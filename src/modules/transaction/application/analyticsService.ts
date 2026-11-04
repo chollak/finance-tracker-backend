@@ -204,15 +204,6 @@ export class AnalyticsService {
             .slice(0, limit);
     }
 
-    /**
-     * Get transactions for a user within a time range.
-     * Use this method when you need to process transactions in bulk (e.g., weekly insights)
-     * to avoid N+1 query problems.
-     */
-    async getTransactionsForUser(userId: string, timeRange?: TimeRange): Promise<Transaction[]> {
-        return this.getTransactionsInRange(userId, timeRange);
-    }
-
     // Helper methods
     private async getTransactionsInRange(userId: string, timeRange?: TimeRange): Promise<Transaction[]> {
         if (!timeRange) {
