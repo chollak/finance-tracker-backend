@@ -41,6 +41,8 @@ const SOMEONE = '597843119';
 const GUEST = 'guest_abc';
 /** The id the admin grant made a `users` row of before #224. */
 const GUEST_ZZZ = 'guest_zzz';
+/** A UUID v4 no `users` row has: the admin grant gave it a subscription before #230. */
+const NOBODY_UUID = 'a1b2c3d4-e5f6-4a1b-8c2d-1234567890ab';
 
 /** Budgets: none stored; remembers whose budgets it was asked for. */
 class NoBudgets implements BudgetRepository {
@@ -110,7 +112,9 @@ beforeAll(async () => {
     getBudgetsUseCase: new GetBudgetsUseCase(budgets),
     budgetService,
   } as unknown as BudgetModule;
-  const subscriptionModule = new SubscriptionModule(subscriptions, new SqliteUsageLimitRepository(db.dataSource), {
+  // The grant goes only to a user that exists (#230), wired as in createModules()
+  const grantTargets = { exists: (userId: string) => users.exists(userId) };
+  const subscriptionModule = new SubscriptionModule(subscriptions, new SqliteUsageLimitRepository(db.dataSource), grantTargets, {
     freeLimitsEnabled: false,
   });
 
@@ -391,6 +395,50 @@ describe('the subscription actions take the user from authentication (FT-162)', 
     });
 
     expect(await telegramIds()).toEqual([...before, SOMEONE].sort());
+  });
+
+  // #230: one rule with ALLOWED_TELEGRAM_IDS — before, `0597843119` made a second user of the same person
+  it('grant (admin) gives a Telegram id with leading zeros to the same user as without them', async () => {
+    const before = await telegramIds();
+
+    await asAdmin(async () => {
+      expect((await grant(SOMEONE)).status).toBe(200);
+      expect((await grant(`0${SOMEONE}`)).status).toBe(200);
+    });
+
+    const [someone]: Array<{ id: string }> = await db.dataSource.query(`SELECT id FROM users WHERE telegram_id = ?`, [SOMEONE]);
+    expect(subscriptions.created.slice(-2).map(created => created.userId)).toEqual([someone.id, someone.id]);
+    expect(await telegramIds()).toEqual([...before, SOMEONE].sort());
+  });
+
+  // #230: past 2^53 a number is no Telegram id and no longer exact; 30 digits made a `users` row before
+  it('grant (admin) refuses a number from 2^53 on with 400, adding no user and no subscription', async () => {
+    const before = await telegramIds();
+    const granted = subscriptions.created.length;
+
+    await asAdmin(async () => {
+      for (const userId of ['9007199254740993', '123456789012345678901234567890']) {
+        const res = await grant(userId);
+        expect({ userId, status: res.status, code: res.body?.code }).toEqual({ userId, status: 400, code: 'INVALID_USER_ID' });
+      }
+    });
+
+    expect(await telegramIds()).toEqual(before);
+    expect(subscriptions.created).toHaveLength(granted);
+  });
+
+  // #230: `subscriptions.user_id` has no foreign key — before, a UUID of no one got a premium subscription
+  it('grant (admin) to a UUID no user has is 404, creating no subscription and expiring none', async () => {
+    const granted = subscriptions.created.length;
+    const looked = subscriptions.activeAskedFor.length;
+
+    await asAdmin(async () => {
+      const res = await grant(NOBODY_UUID);
+      expect({ status: res.status, code: res.body?.error?.code }).toEqual({ status: 404, code: 'NOT_FOUND' });
+    });
+
+    expect(subscriptions.created).toHaveLength(granted);
+    expect(subscriptions.activeAskedFor).toHaveLength(looked);
   });
 });
 

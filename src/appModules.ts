@@ -49,7 +49,9 @@ export function createModules() {
   // Create SubscriptionModule with repositories
   const subscriptionRepository = RepositoryFactory.createSubscriptionRepository();
   const usageLimitRepository = RepositoryFactory.createUsageLimitRepository();
-  const subscriptionModule = new SubscriptionModule(subscriptionRepository, usageLimitRepository, {
+  // The admin grant goes only to a user that exists (#230)
+  const grantTargets = { exists: (userId: string) => userModule.exists(userId) };
+  const subscriptionModule = new SubscriptionModule(subscriptionRepository, usageLimitRepository, grantTargets, {
     freeLimitsEnabled: AppConfig.FREE_LIMITS_ENABLED,
   });
 
