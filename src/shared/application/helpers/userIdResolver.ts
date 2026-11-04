@@ -25,19 +25,14 @@ export function isUUID(str: string): boolean {
 }
 
 /**
- * The id resolution looks the user up by, or null when it names no user (#224, #230): a UUID as it is, a Telegram id
- * by the rule of ALLOWED_TELEGRAM_IDS (`telegramIdOf`) — a positive whole number below 2^53, leading zeros name the
- * same id (`0597843119` is `597843119`). Anything else (`abc`, `-5`, `1.5`, `0`, an old guest id, 30 digits) would
- * become a `users` row of no one. Spaces around the id are fine.
+ * The id resolution looks the user up by, or null when it names no user (#224, #230): a UUID in lower case — ids are
+ * stored so and looked up exactly; a Telegram id by the rule of ALLOWED_TELEGRAM_IDS (`telegramIdOf`) — a positive
+ * whole number below 2^53, leading zeros name the same id (`0597843119` is `597843119`). Anything else (`abc`, `-5`,
+ * `1.5`, `0`, an old guest id, 30 digits) would become a `users` row of no one. Spaces around the id are fine.
  */
 export function resolvableUserIdOf(userId: string): string | null {
   const trimmedId = userId.trim();
-  return isUUID(trimmedId) ? trimmedId : telegramIdOf(trimmedId);
-}
-
-/** Whether resolution may take the id: `resolvableUserIdOf` names someone by it. */
-export function isResolvableUserId(userId: string): boolean {
-  return resolvableUserIdOf(userId) !== null;
+  return isUUID(trimmedId) ? trimmedId.toLowerCase() : telegramIdOf(trimmedId);
 }
 
 /** The id to look the user up by, or a ValidationError for an empty id or one that names no user (#224, #230). */
@@ -55,10 +50,10 @@ function checkedUserId(userId: string): string {
 }
 
 /**
- * Resolve a userId to UUID. There are no guests (decision Д4, #206): a UUID passes as it is, a Telegram id is resolved,
- * creating the user on first contact — so an HTTP route checks the id is the signed-in user's own (`verifyOwnership`)
- * before resolving it. Any other id is a ValidationError and creates no user (#224). A Telegram id goes by
- * `telegramIdOf`, as in ALLOWED_TELEGRAM_IDS: `0597843119` is the user of `597843119` (#230).
+ * Resolve a userId to UUID. There are no guests (decision Д4, #206): a UUID passes in lower case, a Telegram id is
+ * resolved, creating the user on first contact — so an HTTP route checks the id is the signed-in user's own
+ * (`verifyOwnership`) before resolving it. Any other id is a ValidationError and creates no user (#224). A Telegram id
+ * goes by `telegramIdOf`, as in ALLOWED_TELEGRAM_IDS: `0597843119` is the user of `597843119` (#230).
  *
  * @param userId - Can be telegramId (string of numbers) or UUID
  * @param userModule - UserModule instance for resolving telegramId to UUID
@@ -70,7 +65,7 @@ function checkedUserId(userId: string): string {
  * resolveUserIdToUUID("123456789", userModule) → "a1b2c3d4-e5f6-..."
  * resolveUserIdToUUID("0123456789", userModule) → the same "a1b2c3d4-e5f6-..."
  *
- * // Already UUID → returns as-is
+ * // Already UUID → returns it, in lower case
  * resolveUserIdToUUID("a1b2c3d4-e5f6-...", userModule) → "a1b2c3d4-e5f6-..."
  */
 export async function resolveUserIdToUUID(
@@ -79,7 +74,7 @@ export async function resolveUserIdToUUID(
 ): Promise<string> {
   const resolvableId = checkedUserId(userId);
 
-  // Already a UUID - return as-is
+  // Already a UUID (in lower case) - return it
   if (isUUID(resolvableId)) {
     return resolvableId;
   }

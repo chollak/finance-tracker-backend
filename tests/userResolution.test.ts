@@ -7,8 +7,8 @@ import { UserRepository } from '../src/modules/user/domain/userRepository';
 import { User, CreateUserDTO, UpdateUserDTO } from '../src/modules/user/domain/userEntity';
 import { ValidationError } from '../src/shared/domain/errors/AppError';
 import {
-  isResolvableUserId,
   isUUID,
+  resolvableUserIdOf,
   resolveUserIdToUUID,
   resolveUserIdToUUIDStrict,
   tryResolveUserIdSync,
@@ -304,6 +304,14 @@ describe('userIdResolver', () => {
       expect(spy).not.toHaveBeenCalled();
     });
 
+    // #230: ids are stored in lower case and looked up exactly — an upper-case UUID found no one
+    it('returns an upper-case UUID in lower case without calling the user module', async () => {
+      const spy = jest.spyOn(userModule, 'getGetOrCreateUserUseCase');
+
+      await expect(resolveUserIdToUUID(VALID_UUID.toUpperCase(), userModule)).resolves.toBe(VALID_UUID);
+      expect(spy).not.toHaveBeenCalled();
+    });
+
     it('resolves a numeric telegramId to the backing user id, creating the user on first use', async () => {
       const result = await resolveUserIdToUUID('987654321', userModule);
 
@@ -449,13 +457,21 @@ describe('userIdResolver', () => {
     });
   });
 
-  describe('isResolvableUserId', () => {
+  describe('resolvableUserIdOf', () => {
     it.each([VALID_UUID, `  ${VALID_UUID}  `, '1', '131184740', ' 597843119 ', '0597843119', ...BIG_TELEGRAM_IDS])('accepts %p', id => {
-      expect(isResolvableUserId(id)).toBe(true);
+      expect(resolvableUserIdOf(id)).not.toBeNull();
     });
 
     it.each(['', '   ', ...NOT_USER_IDS, ...PAST_SAFE_IDS])('refuses %p', id => {
-      expect(isResolvableUserId(id)).toBe(false);
+      expect(resolvableUserIdOf(id)).toBeNull();
+    });
+
+    it('gives a Telegram id trimmed and without leading zeros (#230)', () => {
+      expect(resolvableUserIdOf(' 0597843119 ')).toBe('597843119');
+    });
+
+    it('gives a UUID trimmed and in lower case, as ids are stored (#230)', () => {
+      expect(resolvableUserIdOf(` ${VALID_UUID.toUpperCase()} `)).toBe(VALID_UUID);
     });
   });
 });

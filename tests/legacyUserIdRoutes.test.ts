@@ -411,6 +411,19 @@ describe('the subscription actions take the user from authentication (FT-162)', 
     expect(await telegramIds()).toEqual([...before, SOMEONE].sort());
   });
 
+  // #230: ids are stored in lower case and looked up exactly — an upper-case UUID of a user was 404
+  it('grant (admin) to a user UUID in upper case gives premium to that user', async () => {
+    await asAdmin(async () => {
+      expect((await grant(SOMEONE)).status).toBe(200);
+      const [someone]: Array<{ id: string }> = await db.dataSource.query(`SELECT id FROM users WHERE telegram_id = ?`, [SOMEONE]);
+
+      const res = await grant(someone.id.toUpperCase());
+
+      expect(res.status).toBe(200);
+      expect(subscriptions.created.at(-1)?.userId).toBe(someone.id);
+    });
+  });
+
   // #230: past 2^53 a number is no Telegram id and no longer exact; 30 digits made a `users` row before
   it('grant (admin) refuses a number from 2^53 on with 400, adding no user and no subscription', async () => {
     const before = await telegramIds();
