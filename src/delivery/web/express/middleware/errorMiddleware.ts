@@ -5,11 +5,21 @@ import { createLogger, LogCategory } from '../../../../shared/infrastructure/log
 
 const logger = createLogger(LogCategory.HTTP);
 
-/** How a body the JSON parser refused is answered (#272); any other refusal of it is INVALID_BODY with its status. */
-const BODY_REFUSALS: Readonly<Record<string, { code: string; error: string }>> = {
-  'entity.too.large': { code: 'PAYLOAD_TOO_LARGE', error: 'Request body is too large' },
-  'entity.parse.failed': { code: 'INVALID_JSON', error: 'Invalid JSON in request body' },
-};
+const UNREADABLE_BODY = { code: 'INVALID_BODY', error: 'Request body could not be read' };
+
+/**
+ * How a body the JSON parser (`express.json`, body-parser) refused is answered (#272), by the parser's `type`. Only its
+ * client errors are here: its 500s (a stream set up wrong) stay a server error. Named one by one, so another library's
+ * error with a `type` and a 4xx `status` (OpenAI's `invalid_request_error`) is not taken for one.
+ */
+const BODY_REFUSALS: ReadonlyMap<string, { code: string; error: string }> = new Map([
+  ['entity.too.large', { code: 'PAYLOAD_TOO_LARGE', error: 'Request body is too large' }],
+  ['entity.parse.failed', { code: 'INVALID_JSON', error: 'Invalid JSON in request body' }],
+  ['encoding.unsupported', UNREADABLE_BODY],
+  ['charset.unsupported', UNREADABLE_BODY],
+  ['request.aborted', UNREADABLE_BODY],
+  ['request.size.invalid', UNREADABLE_BODY],
+]);
 
 interface BodyRefusal {
   status: number;
@@ -17,14 +27,12 @@ interface BodyRefusal {
   error: string;
 }
 
-/**
- * The body parser's refusal of a request (`express.json`): an error with its own `type` and a 4xx `status`. The client
- * sent the body wrong — too large, not JSON, an unknown encoding — so it is answered with that status, not 500.
- */
+/** The parser's refusal of a body: the client sent it wrong, so it is answered with the parser's 4xx, not 500. */
 function bodyRefusalOf(error: Error): BodyRefusal | null {
   const { type, status } = error as { type?: unknown; status?: unknown };
-  if (typeof type !== 'string' || typeof status !== 'number' || status < 400 || status > 499) return null;
-  return { status, ...(BODY_REFUSALS[type] ?? { code: 'INVALID_BODY', error: 'Request body could not be read' }) };
+  const refusal = typeof type === 'string' ? BODY_REFUSALS.get(type) : undefined;
+  if (!refusal || typeof status !== 'number' || status < 400 || status > 499) return null;
+  return { status, ...refusal };
 }
 
 /**

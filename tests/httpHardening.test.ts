@@ -7,6 +7,7 @@ import { telegramAccess } from '../src/shared/domain/access/telegramAccess';
 import { AppConfig } from '../src/shared/infrastructure/config/appConfig';
 import { buildServer, JSON_BODY_LIMIT_BYTES } from '../src/delivery/web/express/expressServer';
 import { createHttpApp } from '../src/delivery/web/express/httpApp';
+import { errorHandler } from '../src/delivery/web/express/middleware/errorMiddleware';
 import { UserModule } from '../src/modules/user/userModule';
 import { QuickCaptureModule } from '../src/modules/quickCapture/quickCaptureModule';
 import { QuickCaptureService } from '../src/modules/quickCapture/application/quickCaptureService';
@@ -46,7 +47,7 @@ interface RawAnswer {
   body: string;
 }
 
-/** A request sent as written: fetch would turn `\` into `/` and drop nothing else, http.request keeps the path as is. */
+/** A request with its path as written: fetch would normalize it (`\` becomes `/`), http.request sends it as is. */
 function raw(baseUrl: string, method: string, requestPath: string, headers: http.OutgoingHttpHeaders = {}, body?: string): Promise<RawAnswer> {
   const { hostname, port } = new URL(baseUrl);
   return new Promise((resolve, reject) => {
@@ -62,7 +63,7 @@ function raw(baseUrl: string, method: string, requestPath: string, headers: http
 
 const json = (value: unknown) => JSON.stringify(value);
 const signedIn = (telegramId: number = SIGNED_IN) => ({ 'X-Dev-User-Id': String(telegramId) });
-/** A JSON body one byte over the limit: a phrase no client sends. */
+/** A JSON body twice the limit («ж» is two bytes): a phrase no client sends. */
 const oversizedBody = () => json({ text: 'ж'.repeat(JSON_BODY_LIMIT_BYTES) });
 
 describe('the HTTP app (#272)', () => {
@@ -179,6 +180,15 @@ describe('the HTTP app (#272)', () => {
 
       expect(res.status).toBe(413);
       expect(JSON.parse(res.body)).toEqual({ success: false, error: 'Request body is too large', code: 'PAYLOAD_TOO_LARGE' });
+
+      // Just under the limit the body is read and the route answers it
+      const justUnder = json({ description: 'a'.repeat(JSON_BODY_LIMIT_BYTES - 64) });
+      expect(Buffer.byteLength(justUnder)).toBeLessThanOrEqual(JSON_BODY_LIMIT_BYTES);
+      const read = await raw(
+        server.baseUrl, 'POST', '/api/transactions', { 'Content-Type': 'application/json', ...signedIn() }, justUnder
+      );
+      expect(read.status).not.toBe(413);
+      expect(JSON.parse(read.body).code).not.toBe('PAYLOAD_TOO_LARGE');
     });
 
     it('over the limit without Content-Length is 413 too', async () => {
@@ -213,6 +223,29 @@ describe('the HTTP app (#272)', () => {
 
       const allowed = await raw(server.baseUrl, 'POST', '/api/transactions', { ...headers, ...signedIn() }, oversizedBody());
       expect(allowed.status).toBe(413);
+    });
+
+    it('in an encoding the parser does not know is the parser’s 415 INVALID_BODY, not 500', async () => {
+      await serve();
+
+      const res = await raw(
+        server.baseUrl, 'POST', '/api/transactions',
+        { 'Content-Type': 'application/json', 'Content-Encoding': 'compress', ...signedIn() }, json({ amount: 100 })
+      );
+
+      expect(res.status).toBe(415);
+      expect(JSON.parse(res.body)).toEqual({ success: false, error: 'Request body could not be read', code: 'INVALID_BODY' });
+      expect(createRecord).not.toHaveBeenCalled();
+    });
+
+    it('another error with a `type` and a 4xx `status` — OpenAI’s — stays a 500', () => {
+      const res = { status: jest.fn().mockReturnThis(), json: jest.fn().mockReturnThis() } as any;
+      const openAIError = Object.assign(new Error('400 Invalid request'), { type: 'invalid_request_error', status: 400 });
+
+      errorHandler(openAIError, { path: '/quick-capture', method: 'POST', body: {}, params: {} } as any, res, jest.fn());
+
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ code: 'INTERNAL_ERROR' }));
     });
 
     it('is JSON only: a form body is not read', async () => {
