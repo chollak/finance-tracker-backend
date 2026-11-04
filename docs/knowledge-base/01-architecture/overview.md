@@ -10,7 +10,7 @@
 Бизнес-логика и правила, независимые от внешних технологий.
 
 **Содержит:**
-- Entities (Transaction, Budget)
+- Entities (Transaction, Account)
 - Repository Interfaces (абстракции доступа к данным)
 - Value Objects (Result, CreateTransactionData)
 - Domain Services (бизнес-правила)
@@ -23,8 +23,8 @@
 Оркестрация бизнес-логики, реализация сценариев использования.
 
 **Содержит:**
-- Use Cases (CreateTransactionUseCase, GetBudgetsUseCase)
-- Application Services (AnalyticsService, BudgetService)
+- Use Cases (CreateTransactionUseCase, GetCurrentAuditUseCase)
+- Application Services (AnalyticsService, PeriodTotalsService)
 - DTOs (Data Transfer Objects)
 
 **Зависимости:** Domain Layer
@@ -35,7 +35,7 @@
 Реализация технических деталей и интеграций с внешним миром.
 
 **Содержит:**
-- Repository Implementations (SqliteTransactionRepository, SqliteBudgetRepository)
+- Repository Implementations (SqliteTransactionRepository, SqliteAccountRepository)
 - External Services (OpenAITranscriptionService)
 - Database Configuration (database.config.ts, migrations/)
 - File System Operations
@@ -48,7 +48,7 @@
 Точки входа в систему, взаимодействие с внешними клиентами.
 
 **Содержит:**
-- Controllers (TransactionController, BudgetController)
+- Controllers (AnalyticsController, CategoryController)
 - REST API Routes (Express)
 - Telegram Bot Handlers
 - Middleware (error handling, logging)
@@ -88,12 +88,11 @@
 
 ## Модули системы
 
-`createModules()` (`src/appModules.ts`) возвращает 13 модулей приложения:
+`createModules()` (`src/appModules.ts`) возвращает 14 модулей приложения:
 
 | Модуль | Назначение | Зависимости |
 |--------|------------|-------------|
 | **TransactionModule** | CRUD операций транзакций + analytics | Независимый при создании; Subscription + User доинжектируются через `setSubscriptionDependencies()` |
-| **BudgetModule** | Управление бюджетами | TransactionModule (для расчета spent) |
 | **DebtModule** | Управление долгами (кто кому должен) | TransactionModule (linked транзакции), SubscriptionModule (лимиты), UserModule |
 | **VoiceProcessingModule** | Обработка голоса/текста | TransactionModule (CreateTransactionUseCase), DebtModule |
 | **UserModule** | Пользователи (telegramId → UUID) и их настройки (FT-098) | Независимый |
@@ -104,8 +103,13 @@
 | **SubscriptionModule** | Free/Premium подписки, лимиты, Telegram Stars | UserModule (на уровне контроллера) |
 | **BotMessageModule** | Сообщения бота о записях (FT-122): связь «сообщение → записи» в `bot_messages` | Независимый |
 | **NotificationModule** | Уведомления бота: итоги дня в выбранное время, `/today` и `/month` (FT-124); напоминания о целях, подписках и ревизии (FT-133); что отправлено — в `notifications_log` | TransactionModule, UserModule, AuditModule |
+| **ExportModule** | «Скачать все записи» (FT-126): CSV записей и переводов | TransactionModule, AccountModule (через `ExportSources`) |
+| **AuthModule** | Вход в webapp через бота (FT-128): одноразовая ссылка, cookie сессии | Независимый |
+| **AuditModule** | Ревизия трат и цели (FT-130, FT-131) | TransactionModule, CategoryModule (через `AuditSources`) |
 
 **Backend-дашборда нет (#205).** `GET /api/dashboard/*` с `DashboardService`, `AlertService` и платными insights удалён: его никто не вызывал. Главная читает свои маршруты (FT-111), аналитика — `/api/analytics` (FT-120).
+
+**Бюджетов нет (#264).** `BudgetModule` и `/api/budgets/*` удалены по решению 2026-11-04; таблица `budgets` с её строками осталась.
 
 Подробнее: [Modules](modules.md)
 

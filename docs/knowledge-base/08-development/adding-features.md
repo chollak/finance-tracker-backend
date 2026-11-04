@@ -222,12 +222,12 @@ import { NotificationModule } from './modules/notification/notificationModule';
 
 export function createModules() {
   const transactionModule = TransactionModule.create();
-  const budgetModule = BudgetModule.create(transactionModule);
+  const accountModule = AccountModule.create();
   const notificationModule = NotificationModule.create(); // ← New
 
   return {
     transactionModule,
-    budgetModule,
+    accountModule,
     notificationModule // ← New
   };
 }
@@ -289,7 +289,7 @@ export class Notification {
 import { Notification } from './entities/Notification';
 
 export const AppDataSource = new DataSource({
-  entities: [Transaction, Budget, Notification], // ← Add here
+  entities: [Transaction, Account, Notification], // ← Add here
   // ...
 });
 ```
@@ -353,15 +353,14 @@ describe('CreateNotificationUseCase', () => {
 
 ### Cross-Module Communication
 ```typescript
-// BudgetModule needs TransactionModule
-class BudgetModule {
-  constructor(transactionModule: TransactionModule) {
-    this.budgetService = new BudgetService(
-      this.repository,
-      transactionModule.getRepository() // ← Use getter
-    );
-  }
-}
+// AuditModule reads records through its AuditSources port, wired in createModules()
+const auditModule = AuditModule.create({
+  recordsBetween: (userId, from, to) =>
+    transactionModule.getRepository().getByUserIdAndDateRange(userId, new Date(from), new Date(to)), // ← Use getter
+  firstRecordDate: userId => transactionModule.getRepository().findFirstRecordDate(userId),
+  categories: userId => categoryModule.getCatalog().listForUser(userId),
+  usdRateMinor: (userId, records) => periodTotals.usdRateFor(userId, records),
+});
 ```
 
 ### Repository Factory Usage
