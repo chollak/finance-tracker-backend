@@ -133,9 +133,9 @@ struct CaptureClient: CaptureSending {
         default:
             // Every other status: a 5xx (the server may fail after the write), a 3xx (redirects are refused,
             // `RefuseRedirects`), 404 and any other 4xx — another server or a proxy at the address, a server without
-            // this route. Only 400, 401, 403 and 429 say nothing was written; none of these does, so the record may be
-            // on the server (FT-256), and the same `clientId` makes the next try safe. On the card — «Сервер не
-            // ответил» (`QueueWait.noAnswer`).
+            // this route. Unlike 400, 401, 403 and 429, none of them says the record was not written, so it may be on
+            // the server (FT-256); the same `clientId` makes the next try safe. On the card — «Сервер не ответил»
+            // (`QueueWait.noAnswer`).
             return .retryLater(after: nil, wait: .noAnswer, mayBeOnServer: true)
         }
     }
