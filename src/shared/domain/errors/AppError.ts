@@ -75,6 +75,21 @@ export class BusinessLogicError extends AppError {
   }
 }
 
+/**
+ * The storage failed (the database is busy, the disk) or something unexpected happened (#270): nothing was wrong with
+ * the request, and the same request may succeed later — the Mini App's queue and the iOS app send it again on a 5xx.
+ * `INTERNAL_ERROR`, the code of any unexpected exception; the cause stays in the log, the answer has the message only.
+ * A broken business rule is a `BusinessLogicError` (422), never this.
+ */
+export class StorageError extends AppError {
+  readonly code = 'INTERNAL_ERROR';
+  readonly statusCode = 500;
+
+  constructor(message: string) {
+    super(message);
+  }
+}
+
 export class AuthorizationError extends AppError {
   readonly code = 'AUTHORIZATION_ERROR';
   readonly statusCode = 403;

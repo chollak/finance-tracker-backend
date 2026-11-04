@@ -290,16 +290,26 @@ describe('categories in the database (FT-099)', () => {
 
     describe('/api/categories', () => {
       let server: TestServer;
+      let categoryModule: CategoryModule;
 
       beforeEach(async () => {
         const userModule = new UserModule(new SqliteUserRepository(db.dataSource));
-        const categoryModule = new CategoryModule(new SqliteCategoryRepository(db.dataSource));
+        categoryModule = new CategoryModule(new SqliteCategoryRepository(db.dataSource));
         server = await startTestServer({ '/categories': createCategoryRoutes(categoryModule, userModule) });
       });
 
       afterEach(async () => {
+        jest.restoreAllMocks();
         await server.close();
       });
+
+      /** The next request reads the user's categories as they were before `id` was written: two requests at once. */
+      function readBefore(id: string): void {
+        const catalog = categoryModule.getCatalog();
+        const listForUser = catalog.listForUser.bind(catalog);
+        jest.spyOn(catalog, 'listForUser').mockImplementationOnce(async userId =>
+          (await listForUser(userId)).filter(category => category.id !== id));
+      }
 
       const as = (method: string, url: string, body?: unknown) => server.request(method, url, { devUser: 777, body });
 
@@ -349,6 +359,28 @@ describe('categories in the database (FT-099)', () => {
 
         const stranger = await server.request('PATCH', `/api/categories/${cafe.id}`, { devUser: 888, body: { name: 'Чужое' } });
         expect(stranger.status).toBe(404);
+      });
+
+      // #270: both requests find the name free, the unique (user, type, name) index lets one in — the other is the same
+      // 409 as a name already taken, not the 500 of a failing database
+      it('the second of two identical requests at once is 409, when adding and when renaming', async () => {
+        const first = await as('POST', '/api/categories', { type: 'expense', name: 'Дети', color: 'lilac' });
+        expect(first.status).toBe(201);
+
+        readBefore(first.body.data.id);
+        const second = await as('POST', '/api/categories', { type: 'expense', name: 'дети', color: 'mint' });
+        expect(second.status).toBe(409);
+        expect(second.body.error).toMatchObject({ code: 'CONFLICT', message: 'Category «дети» already exists' });
+
+        const cafe = (await as('GET', '/api/categories?type=expense')).body.data.find((c: { name: string }) => c.name === 'Кафе');
+        readBefore(first.body.data.id);
+        const renamed = await as('PATCH', `/api/categories/${cafe.id}`, { name: 'ДЕТИ' });
+        expect(renamed.status).toBe(409);
+        expect(renamed.body.error).toMatchObject({ code: 'CONFLICT', message: 'Category «ДЕТИ» already exists' });
+
+        const names = (await as('GET', '/api/categories?type=expense')).body.data.map((c: { name: string }) => c.name);
+        expect(names.filter((name: string) => name.toLowerCase() === 'дети')).toEqual(['Дети']);
+        expect(names).toContain('Кафе');
       });
     });
   });

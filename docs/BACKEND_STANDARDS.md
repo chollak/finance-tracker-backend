@@ -83,7 +83,9 @@ class CreateBudgetUseCase {
 ValidationError    // 400 - невалидные данные
 NotFoundError      // 404 - ресурс не найден
 AuthorizationError // 403 - нет доступа
-BusinessLogicError // 400 - бизнес-правило нарушено
+ConflictError      // 409 - конфликт с данными (имя занято, у счёта есть операции)
+BusinessLogicError // 422 - бизнес-правило нарушено
+StorageError       // 500 INTERNAL_ERROR - сбой базы или неожиданная ошибка (#270)
 ExternalServiceError // 502 - внешний сервис недоступен
 RateLimitError     // 429 - превышен лимит
 
@@ -91,6 +93,11 @@ RateLimitError     // 429 - превышен лимит
 return ResultHelper.failure(new ValidationError('Email is invalid'));
 return ResultHelper.failure(new NotFoundError('Budget', budgetId));
 ```
+
+**Catch-блок use case («Failed to …») возвращает `StorageError`, не `BusinessLogicError` (#270).** Сбой хранилища —
+вина сервера, а не запроса: очередь Mini App и iOS повторяют запрос на `5xx` и выбрасывают его на `4xx`, так что `422`
+на занятую базу терял запись. `StorageError` несёт только сообщение — причину (текст SQLite) пишет лог, в ответ она не
+попадает. `422` — только для настоящего правила с причиной в `context.reason` (ревизия, цели, `BOT_CHAT_CLOSED`).
 
 ---
 
@@ -308,8 +315,10 @@ res.status(400).json({ error: 'Invalid data' });
 | Validation | `400` | Невалидные данные |
 | Authorization | `403` | Нет доступа |
 | Not Found | `404` | Ресурс не найден |
+| Conflict | `409` | Конфликт с существующими данными |
+| Business rule | `422` | Нарушено бизнес-правило |
 | Rate Limit | `429` | Превышен лимит |
-| Server Error | `500` | Внутренняя ошибка |
+| Server Error | `500` | Внутренняя ошибка, сбой базы (`StorageError`, `INTERNAL_ERROR`) |
 
 ### Controller Structure
 

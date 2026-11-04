@@ -1,5 +1,5 @@
 import { Result, ResultHelper } from '../../../shared/domain/types/Result';
-import { BusinessLogicError, ValidationError } from '../../../shared/domain/errors/AppError';
+import { ValidationError, StorageError } from '../../../shared/domain/errors/AppError';
 import { getLogger, LogCategory } from '../../../shared/application/logging';
 import { isValidDateOnly } from '../../../shared/domain/dates/dateOnly';
 import { TransactionRepository } from '../domain/transactionRepository';
@@ -58,7 +58,7 @@ export class GetPeriodTotalsUseCase {
       });
     } catch (error) {
       logger.error('Failed to compute period totals', error as Error);
-      return ResultHelper.failure(new BusinessLogicError('Failed to compute period totals'));
+      return ResultHelper.failure(new StorageError('Failed to compute period totals'));
     }
   }
 

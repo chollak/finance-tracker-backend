@@ -1,5 +1,5 @@
 import { Result, ResultHelper } from '../../../shared/domain/types/Result';
-import { BusinessLogicError, ValidationError } from '../../../shared/domain/errors/AppError';
+import { ValidationError, StorageError } from '../../../shared/domain/errors/AppError';
 import { getLogger, LogCategory } from '../../../shared/application/logging';
 import { isValidDateOnly } from '../../../shared/domain/dates/dateOnly';
 import { Transaction } from '../domain/transactionEntity';
@@ -123,7 +123,7 @@ export class GetTransactionHistoryUseCase {
       return ResultHelper.success({ items: page.items, nextCursor: page.next ? encodeCursor(page.next) : null, summary });
     } catch (error) {
       logger.error('Failed to read history', error as Error);
-      return ResultHelper.failure(new BusinessLogicError('Failed to read history'));
+      return ResultHelper.failure(new StorageError('Failed to read history'));
     }
   }
 }

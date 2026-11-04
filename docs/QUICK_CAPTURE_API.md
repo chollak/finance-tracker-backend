@@ -458,6 +458,10 @@ it still counts against the AI limit: the limiter runs before validation.
 | `capturedAt` | `capturedAt must be an ISO 8601 time with seconds and a time zone, …` · `capturedAt is older than 30 days` | As for a phrase; the age not for a repeat |
 | `accountId` | `No visible account to record into` | Every account of the user is hidden |
 
+A database that fails the write (busy, the disk) answers `500 INTERNAL_ERROR` with the message `Failed to create
+transaction` and no `context`, and writes nothing (#270; before it was `422 BUSINESS_LOGIC_ERROR`, which the iOS queue
+also sent again). Sent again with the same `clientId`, the payment is written once.
+
 For the queue of FT-161: `400` — an error at the record, it is not sent again; `401`/`403` — stop, «проверь токен»;
 `429`, `5xx`, no network — later, with the same `clientId` and `capturedAt`.
 
