@@ -33,7 +33,7 @@ Finance Tracker Backend — это backend система для управле�
 Как устроена система, модули, паттерны проектирования:
 
 - [**Overview**](01-architecture/overview.md) - Clean Architecture layers, dependency flow
-- [**Modules**](01-architecture/modules.md) - 7 модулей системы, их зависимости
+- [**Modules**](01-architecture/modules.md) - 15 модулей системы, их зависимости
 - [**Patterns**](01-architecture/patterns.md) - Repository, DI, Factory, Use Case, Result Pattern
 - [**Runtime / Process Mode**](01-architecture/runtime-process-mode.md) - API/Bot/Worker process-mode decision
 - [**API / Domain Consistency Audit**](01-architecture/api-domain-consistency-audit.md) - FT-018 controller/use-case/API contract audit
@@ -146,7 +146,7 @@ SubscriptionModule — использует UserModule на уровне кон�
 Backend-дашборда (/api/dashboard, DashboardService) нет с #205
 ```
 
-Полная схема с 7 модулями и mermaid-диаграммой — в [Modules](01-architecture/modules.md).
+Полная схема с 15 модулями и mermaid-диаграммой — в [Modules](01-architecture/modules.md).
 
 ---
 

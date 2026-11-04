@@ -4,12 +4,26 @@ import os
 /// What «Записать оплату», «Записать трату» and «Отправить очередь» did, step by step (#241): why the Wallet
 /// automation fails now and then. iOS leaves no trace when it stops a command; a run with a start and no end does.
 ///
-/// A command only appends lines and never reads the file: it pays for a line, not for the journal. The file is read
-/// when the app opens — once per process, to mark the runs an earlier process left without an end and cut it down to
-/// the last 200 runs — and when the journal's screen shows it. Nothing here throws: a journal that cannot write loses
-/// its lines, never the command. It stays on the phone; nothing sends it anywhere.
+/// A command only appends lines: it pays for a line, not for the journal. The file is read when the app opens — once
+/// per process, to mark the runs an earlier process left without an end and cut it down to the runs kept — and when
+/// the journal's screen shows it. A command reads it only to cut a file grown over `trimAboveBytes`, at the end of its
+/// run (#243): Wallet may pay day after day and never open the app. Nothing here throws: a journal that cannot write
+/// loses its lines, never the command. It stays on the phone; nothing sends it anywhere.
 actor CommandJournal {
-    static let keptRuns = 200
+    /// The file over this, as the end of a run leaves it, is cut by that command — once in hundreds of runs, one read.
+    static let trimAboveBytes = 1 << 20
+    /// What a cut leaves at most: half the trigger, so long runs never make every command cut again.
+    static let keptBytes = 1 << 19
+
+    /// How many of a command's newest runs a cut keeps — each command its own (#243): the «Wi-Fi дома» automation runs
+    /// «Отправить очередь» many times a day and never pushes the payments out. It mostly finds nothing to send, so
+    /// fewer of it.
+    static func keptRuns(of command: JournalCommand) -> Int {
+        switch command {
+        case .recordPayment, .recordExpense: 200
+        case .sendQueue: 50
+        }
+    }
 
     private static let logger = Logger(subsystem: "kapelka", category: "journal")
 
@@ -74,45 +88,27 @@ actor CommandJournal {
     func finish(_ run: UUID) {
         guard let start = going.removeValue(forKey: run) else { return }
         noteCancelled(run, since: start)
-        append(JournalLine(run: run, event: .end, at: now(), ms: ms(since: start)))
+        end(JournalLine(run: run, event: .end, at: now(), ms: ms(since: start)))
     }
 
     func fail(_ run: UUID, _ message: String) {
         guard let start = going.removeValue(forKey: run) else { return }
         noteCancelled(run, since: start)
-        append(JournalLine(run: run, event: .failed, at: now(), text: message, ms: ms(since: start)))
+        end(JournalLine(run: run, event: .failed, at: now(), text: message, ms: ms(since: start)))
     }
 
     /// The app opened: once per process, the runs an earlier process left without an end are marked and the file is
-    /// cut down to the last 200 runs — one read, never while a command waits for it at its start.
+    /// cut down to the runs kept — one read, never while a command waits for it at its start.
     func tidy() {
         isFresh = false
-        guard !tidied, let lines = readLines() else { return }
-        tidied = true
-        let runs = JournalRun.fold(lines.map(\.line))
-        let marks = runs.filter { $0.outcome == .going && going[$0.id] == nil }.map {
-            JournalLine(run: $0.id, event: .interrupted, at: now(), text: $0.lastStep)
-        }
-        guard runs.count > Self.keptRuns else {
-            for mark in marks {
-                append(mark)
-            }
-            return
-        }
-        let kept = Set(runs.suffix(Self.keptRuns).map(\.id))
-        let raw = lines.filter { kept.contains($0.line.run) }.map(\.raw)
-            + marks.filter { kept.contains($0.run) }.compactMap(encoded)
-        do {
-            try storage.replace(with: Data(raw.map { "\n" + $0 }.joined().utf8))
-        } catch {
-            Self.logger.error("Journal not trimmed: \(error.localizedDescription, privacy: .public)")
-        }
+        guard !tidied else { return }
+        tidied = markAndTrim()
     }
 
     /// Newest first. A run of another process without an end shows as «оборвана» whether its mark is in the file yet
     /// or not.
     func runs() -> [JournalRun] {
-        guard let lines = readLines() else { return [] }
+        guard let lines = readFile()?.lines else { return [] }
         return JournalRun.fold(lines.map(\.line)).reversed().map { run in
             guard run.outcome == .going, going[run.id] == nil else { return run }
             var interrupted = run
@@ -126,9 +122,77 @@ actor CommandJournal {
         append(JournalLine(run: run, event: .step, at: now(), text: JournalText.cancelled, ms: ms(since: start)))
     }
 
-    /// Lines that do not decode — one cut short, one from a newer build — and empty ones are skipped. `nil` when the
-    /// file cannot be read: before the first unlock it is closed, and nothing is marked or cut then.
-    private func readLines() -> [(raw: String, line: JournalLine)]? {
+    /// The run's last line. A file it leaves over `trimAboveBytes` is cut right away, once the run's own work is done —
+    /// and never that run itself.
+    private func end(_ line: JournalLine) {
+        guard let size = append(line), size > Self.trimAboveBytes else { return }
+        markAndTrim(keeping: line.run)
+    }
+
+    /// One read: the runs an earlier process left without an end get their mark, and a file over its limits is cut
+    /// down to the newest runs of each command (`keptRuns(of:)`), then to the newest lines within `keptBytes`. A run
+    /// that loses its start to the bytes is skipped on reading and gone with the next cut. The run `ended` — the one
+    /// whose end made the cut — stays whole, even alone over `keptBytes`. `false` when the file cannot be read.
+    @discardableResult
+    private func markAndTrim(keeping ended: UUID? = nil) -> Bool {
+        guard let file = readFile() else { return false }
+        let runs = JournalRun.fold(file.lines.map(\.line))
+        let marks = runs.filter { $0.outcome == .going && going[$0.id] == nil }.map {
+            JournalLine(run: $0.id, event: .interrupted, at: now(), text: $0.lastStep)
+        }
+        let kept = Self.kept(runs)
+        guard kept.count < runs.count || file.size > Self.trimAboveBytes else {
+            for mark in marks {
+                append(mark)
+            }
+            return true
+        }
+        let keptAndEnded = kept.union(ended.map { [$0] } ?? [])
+        let lines = file.lines.filter { keptAndEnded.contains($0.line.run) }.map { (raw: $0.raw, run: $0.line.run) }
+            + marks.filter { keptAndEnded.contains($0.run) }.compactMap { mark in
+                encoded(mark).map { (raw: $0, run: mark.run) }
+            }
+        let fitting = Self.newest(lines, within: Self.keptBytes, keeping: ended)
+        do {
+            try storage.replace(with: Data(fitting.map { "\n" + $0 }.joined().utf8))
+        } catch {
+            Self.logger.error("Journal not trimmed: \(error.localizedDescription, privacy: .public)")
+        }
+        return true
+    }
+
+    /// The newest runs of each command, up to its own limit.
+    private static func kept(_ runs: [JournalRun]) -> Set<UUID> {
+        Set(Dictionary(grouping: runs, by: \.command).flatMap { command, runs in
+            runs.suffix(keptRuns(of: command)).map(\.id)
+        })
+    }
+
+    /// The lines of `ended`, whatever their size, then the newest of the rest that still fit in `bytes` as written, each
+    /// after its line break.
+    private static func newest(_ lines: [(raw: String, run: UUID)], within bytes: Int, keeping ended: UUID?) -> [String] {
+        let size = { (line: (raw: String, run: UUID)) in line.raw.utf8.count + 1 }
+        var left = bytes - lines.filter { $0.run == ended }.map(size).reduce(0, +)
+        var full = false
+        var fitting: [String] = []
+        for line in lines.reversed() {
+            if line.run == ended {
+                fitting.append(line.raw)
+                continue
+            }
+            left -= size(line)
+            // Once a line does not fit, no older one goes in: the rest stays the newest lines, with no gaps
+            full = full || left < 0
+            guard !full else { continue }
+            fitting.append(line.raw)
+        }
+        return fitting.reversed()
+    }
+
+    /// Lines that do not decode — one cut short, one from a newer build — and empty ones are skipped; `size` is the
+    /// file's, in bytes. `nil` when the file cannot be read: before the first unlock it is closed, and nothing is
+    /// marked or cut then.
+    private func readFile() -> (lines: [(raw: String, line: JournalLine)], size: Int)? {
         let data: Data
         do {
             data = try storage.read()
@@ -137,20 +201,23 @@ actor CommandJournal {
             return nil
         }
         let decoder = JSONDecoder()
-        return String(decoding: data, as: UTF8.self).split(separator: "\n").compactMap { raw in
-            guard let line = try? decoder.decode(JournalLine.self, from: Data(raw.utf8)) else { return nil }
-            return (String(raw), line)
+        let lines = String(decoding: data, as: UTF8.self).split(separator: "\n").compactMap { raw in
+            (try? decoder.decode(JournalLine.self, from: Data(raw.utf8))).map { (raw: String(raw), line: $0) }
         }
+        return (lines, data.count)
     }
 
     /// Each line starts with a line break: a line the process was killed in the middle of writing is closed by the
-    /// next one, not glued to it. The empty line in front of the first one is skipped on reading.
-    private func append(_ line: JournalLine) {
-        guard let text = encoded(line) else { return }
+    /// next one, not glued to it. The empty line in front of the first one is skipped on reading. The file's size
+    /// after it; `nil` when it was not written.
+    @discardableResult
+    private func append(_ line: JournalLine) -> Int? {
+        guard let text = encoded(line) else { return nil }
         do {
-            try storage.append(Data(("\n" + text).utf8))
+            return try storage.append(Data(("\n" + text).utf8))
         } catch {
             Self.logger.error("Journal line lost: \(error.localizedDescription, privacy: .public)")
+            return nil
         }
     }
 

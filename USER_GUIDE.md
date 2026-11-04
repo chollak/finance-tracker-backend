@@ -85,10 +85,10 @@ After creating a transaction, you'll see buttons:
 - Debt details and payment history via `/debts/:id`
 
 **Analytics (`/analytics`):**
-- Financial Health Score (0-100)
-- Key metrics: Net Income, Budget Utilization, Savings Rate
-- Alerts for over-budget or near-limit budgets
-- Monthly trends, weekly spending patterns, top categories
+- Where the month's money went: the total, a fair comparison with the previous period and one insight
+- Categories as bars with a tick for the previous period; a category opens its records by day
+- Switch months and «Расходы / Доходы» (expenses / income)
+- Under the expenses of the audited month, a card opens the spending audit
 
 **More (`/more`):**
 - Settings, subscription status, and secondary sections
@@ -192,7 +192,7 @@ Set budgets for the month
 **Efficient Workflow:**
 - Use voice for quick logging on-the-go
 - Use web app for detailed review and editing
-- Check Analytics weekly for financial health
+- Check Analytics weekly to see where the money goes
 
 ### 10. Troubleshooting
 

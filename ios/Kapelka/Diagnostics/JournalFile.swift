@@ -2,8 +2,10 @@ import Foundation
 
 /// Where the journal's lines live; a seam for the tests, which count reads and break writes.
 protocol JournalStorage: Sendable {
-    /// Adds one line at the end; never reads what is already there.
-    func append(_ line: Data) throws
+    /// Adds one line at the end; never reads what is already there. The file's size after it, in bytes — known
+    /// without asking: the journal sees from it when the file has grown too big.
+    @discardableResult
+    func append(_ line: Data) throws -> Int
     /// Everything written so far; no file yet — nothing.
     func read() throws -> Data
     /// The whole file at once, for cutting it down to the runs kept.
@@ -23,19 +25,21 @@ struct JournalFile: JournalStorage {
         fileURL: URL.applicationSupportDirectory.appending(path: "Kapelka/commands.jsonl")
     )
 
-    func append(_ line: Data) throws {
+    @discardableResult
+    func append(_ line: Data) throws -> Int {
         guard FileManager.default.fileExists(atPath: fileURL.path(percentEncoded: false)) else {
             try FileManager.default.createDirectory(
                 at: fileURL.deletingLastPathComponent(),
                 withIntermediateDirectories: true
             )
             try line.write(to: fileURL, options: [.withoutOverwriting, Self.protection])
-            return
+            return line.count
         }
         let handle = try FileHandle(forWritingTo: fileURL)
         defer { try? handle.close() }
-        try handle.seekToEnd()
+        let end = try handle.seekToEnd()
         try handle.write(contentsOf: line)
+        return Int(clamping: end) + line.count
     }
 
     func read() throws -> Data {

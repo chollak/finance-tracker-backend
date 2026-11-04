@@ -8,6 +8,7 @@
 import { UserModule } from '../../../modules/user/userModule';
 import { createLogger, LogCategory } from '../logging';
 import { BusinessLogicError, ValidationError } from '../../domain/errors/AppError';
+import { telegramIdOf } from '../../domain/access/telegramAccess';
 
 const logger = createLogger(LogCategory.USER);
 
@@ -15,9 +16,6 @@ const logger = createLogger(LogCategory.USER);
  * UUID v4 regex pattern
  */
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-/** A Telegram user id as text: a positive whole number in digits, of any length (#224). */
-const TELEGRAM_ID_PATTERN = /^0*[1-9]\d*$/;
 
 /**
  * Check if a string is a valid UUID v4
@@ -27,68 +25,70 @@ export function isUUID(str: string): boolean {
 }
 
 /**
- * Whether resolution may take the id (#224): a UUID, or a Telegram id — a positive whole number in digits. Anything
- * else (`abc`, `-5`, `1.5`, `0`, an old guest id) names no user, and resolving it would create a `users` row for it.
- * Spaces around the id are fine, as in the resolver.
+ * The id resolution looks the user up by, or null when it names no user (#224, #230): a UUID in lower case — ids are
+ * stored so and looked up exactly; a Telegram id by the rule of ALLOWED_TELEGRAM_IDS (`telegramIdOf`) — a positive
+ * whole number below 2^53, leading zeros name the same id (`0597843119` is `597843119`). Anything else (`abc`, `-5`,
+ * `1.5`, `0`, an old guest id, 30 digits) would become a `users` row of no one. Spaces around the id are fine.
  */
-export function isResolvableUserId(userId: string): boolean {
+export function resolvableUserIdOf(userId: string): string | null {
   const trimmedId = userId.trim();
-  return isUUID(trimmedId) || TELEGRAM_ID_PATTERN.test(trimmedId);
+  return isUUID(trimmedId) ? trimmedId.toLowerCase() : telegramIdOf(trimmedId);
 }
 
-/** The trimmed id, or a ValidationError for an empty id or one that is no UUID and no Telegram id (#224). */
+/** The id to look the user up by, or a ValidationError for an empty id or one that names no user (#224, #230). */
 function checkedUserId(userId: string): string {
-  const trimmedId = userId.trim();
-
-  if (!trimmedId) {
+  if (!userId.trim()) {
     throw new ValidationError('userId is required', 'userId');
   }
 
-  if (!isResolvableUserId(trimmedId)) {
+  const resolvableId = resolvableUserIdOf(userId);
+  if (resolvableId === null) {
     throw new ValidationError('userId must be a user UUID or a Telegram id', 'userId');
   }
 
-  return trimmedId;
+  return resolvableId;
 }
 
 /**
- * Resolve a userId to UUID. There are no guests (decision Д4, #206): a UUID passes as it is, a Telegram id is resolved,
- * creating the user on first contact — so an HTTP route checks the id is the signed-in user's own (`verifyOwnership`)
- * before resolving it. Any other id is a ValidationError and creates no user (#224).
+ * Resolve a userId to UUID. There are no guests (decision Д4, #206): a UUID passes in lower case, a Telegram id is
+ * resolved, creating the user on first contact — so an HTTP route checks the id is the signed-in user's own
+ * (`verifyOwnership`) before resolving it. Any other id is a ValidationError and creates no user (#224). A Telegram id
+ * goes by `telegramIdOf`, as in ALLOWED_TELEGRAM_IDS: `0597843119` is the user of `597843119` (#230).
  *
  * @param userId - Can be telegramId (string of numbers) or UUID
  * @param userModule - UserModule instance for resolving telegramId to UUID
- * @returns UUID string (the id as given if resolution fails: fail-open)
+ * @returns UUID string (the Telegram id without leading zeros if resolution fails: fail-open)
  * @throws ValidationError for an empty id or one that is no UUID and no Telegram id
  *
  * @example
  * // telegramId → UUID
  * resolveUserIdToUUID("123456789", userModule) → "a1b2c3d4-e5f6-..."
+ * resolveUserIdToUUID("0123456789", userModule) → the same "a1b2c3d4-e5f6-..."
  *
- * // Already UUID → returns as-is
+ * // Already UUID → returns it, in lower case
  * resolveUserIdToUUID("a1b2c3d4-e5f6-...", userModule) → "a1b2c3d4-e5f6-..."
  */
 export async function resolveUserIdToUUID(
   userId: string,
   userModule: UserModule
 ): Promise<string> {
-  const trimmedId = checkedUserId(userId);
+  const resolvableId = checkedUserId(userId);
 
-  // Already a UUID - return as-is
-  if (isUUID(trimmedId)) {
-    return trimmedId;
+  // Already a UUID (in lower case) - return it
+  if (isUUID(resolvableId)) {
+    return resolvableId;
   }
 
   // Resolve telegramId to UUID via UserModule
   try {
     const user = await userModule.getGetOrCreateUserUseCase().execute({
-      telegramId: trimmedId,
+      telegramId: resolvableId,
     });
     return user.id;
   } catch (error) {
-    logger.error(`Failed to resolve userId "${trimmedId}" to UUID`, error as Error);
-    // Return original if resolution fails (fail-open for backwards compatibility)
-    return trimmedId;
+    logger.error(`Failed to resolve userId "${resolvableId}" to UUID`, error as Error);
+    // The Telegram id if resolution fails (fail-open for backwards compatibility)
+    return resolvableId;
   }
 }
 
@@ -105,20 +105,20 @@ export async function resolveUserIdToUUIDStrict(
   userId: string,
   userModule: UserModule
 ): Promise<string> {
-  const trimmedId = checkedUserId(userId);
+  const resolvableId = checkedUserId(userId);
 
-  if (isUUID(trimmedId)) {
-    return trimmedId;
+  if (isUUID(resolvableId)) {
+    return resolvableId;
   }
 
   try {
     const user = await userModule.getGetOrCreateUserUseCase().execute({
-      telegramId: trimmedId,
+      telegramId: resolvableId,
     });
     return user.id;
   } catch (error) {
-    logger.error(`Strict userId resolution failed for "${trimmedId}"`, error as Error);
-    throw new BusinessLogicError('Failed to resolve userId to UUID', { userId: trimmedId });
+    logger.error(`Strict userId resolution failed for "${resolvableId}"`, error as Error);
+    throw new BusinessLogicError('Failed to resolve userId to UUID', { userId: resolvableId });
   }
 }
 

@@ -25,8 +25,8 @@ describe('the record counter counts on the record owner (FT-171)', () => {
     db = await openMigratedDatabase();
     records = recordsOn(db.dataSource);
     users = new UserModule(new SqliteUserRepository(db.dataSource));
-    // Counting needs only the usage limits; subscriptions themselves are not read
-    subscriptions = new SubscriptionModule({} as never, new SqliteUsageLimitRepository(db.dataSource));
+    // Counting needs only the usage limits; subscriptions and grants are not touched
+    subscriptions = new SubscriptionModule({} as never, new SqliteUsageLimitRepository(db.dataSource), {} as never);
     records.create.setSubscriptionDependencies(subscriptions, users);
     // /start in the bot creates the user before the first record
     ownerId = (await users.getGetOrCreateUserUseCase().execute({ telegramId })).id;

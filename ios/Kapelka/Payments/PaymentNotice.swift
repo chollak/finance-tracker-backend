@@ -25,23 +25,8 @@ enum PaymentNotice {
             if state.tokenRefused {
                 return Notice(id: id, body: "\(line) — в очереди до нового токена", opens: .settings)
             }
-            return Notice(id: id, body: "\(line) — \(later(state))", opens: .capture)
-        }
-    }
-
-    /// Why it goes later, as the card on «Записать» says it (FT-252, FT-256): by the reason the queue kept.
-    private static func later(_ state: QueueState) -> String {
-        let busy = "сервер просит подождать, уйдёт позже"
-        switch state.wait {
-        case .offline?:
-            return "нет связи, уйдёт, когда появится сеть"
-        case .noAnswer?:
-            return "сервер не ответил, уйдёт позже"
-        case .busy?:
-            return busy
-        case nil:
-            // Not tried, or a file before FT-252: only a 429 leaves `notBefore`
-            return state.notBefore == nil ? "уйдёт позже" : busy
+            // Why it goes later, by the reason the queue kept: the words «Отправить очередь» answers with too (#236)
+            return Notice(id: id, body: "\(line) — \(QueueStatus.whyLater(state))", opens: .capture)
         }
     }
 
