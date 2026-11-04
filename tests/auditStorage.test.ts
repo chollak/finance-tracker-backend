@@ -13,8 +13,9 @@ import { SqliteUserSettingsRepository } from '../src/modules/user/infrastructure
 import { createSettingsRoutes } from '../src/modules/user/presentation/controllers/settingsController';
 import { Result } from '../src/shared/domain/types/Result';
 import { prototypeRecords } from './helpers/auditPrototype';
+import { createAppDataSource } from '../src/shared/infrastructure/database/database.config';
 import { findSchemaDrift } from '../src/shared/infrastructure/database/migrationRunner';
-import { openMigratedDatabase, TestDatabase } from './helpers/testDatabase';
+import { prepareDatabaseOnce, TestDatabase } from './helpers/testDatabase';
 import { recordsOn } from './helpers/records';
 import { startTestServer, TestServer } from './helpers/testServer';
 
@@ -22,6 +23,8 @@ const sum = (value: number) => value * 100;
 /** 14:00 in Tashkent on 14 October 2026 — the day of the board's audit of September. */
 const OCT_14 = new Date('2026-10-14T09:00:00Z');
 const NOV_2 = new Date('2026-11-02T09:00:00Z');
+/** Whose the board's records are in the prepared file; seedBoard gives them to the test's user. */
+const BOARD_OWNER = 'board-owner';
 
 const candidate = (audit: AuditView, name: string): AuditCandidateView => audit.candidates.find(entry => entry.name === name)!;
 const goalNamed = (goals: GoalView[], name: string): GoalView => goals.find(goal => goal.name === name)!;
@@ -47,8 +50,31 @@ describe('audit storage and goals (FT-131)', () => {
   let sources: AuditSources;
   let audits: AuditModule;
 
+  /** Migrated once for the file; every test starts on its own copy (#250). */
+  const migrated = prepareDatabaseOnce();
+  /**
+   * The records of the board «Ревизия трат» written once for the file, through the use case (#250). Written again in
+   * each of the 18 tests that start from them, they were ~85% of the suite's time and went over Jest's 5 s once the
+   * machine was loaded.
+   */
+  const board = prepareDatabaseOnce(async file => {
+    const dataSource = createAppDataSource(file);
+    await dataSource.initialize();
+    try {
+      const { create } = recordsOn(dataSource);
+      for (const row of prototypeRecords()) {
+        const created = await create.execute({
+          userId: BOARD_OWNER, type: 'expense', amount: row.amountMinor / 100, category: row.categoryName, description: row.note, date: row.date,
+        });
+        if (!created.success) throw created.error;
+      }
+    } finally {
+      await dataSource.destroy();
+    }
+  });
+
   beforeEach(async () => {
-    db = await openMigratedDatabase();
+    db = await migrated.open();
     records = recordsOn(db.dataSource);
     now = OCT_14;
     const periodTotals = new PeriodTotalsService({ effectiveUsdRate: async () => ({ rateMinor: 1265000, source: 'cbu' }) });
@@ -78,12 +104,8 @@ describe('audit storage and goals (FT-131)', () => {
     return created.data;
   }
 
-  /** The records of the board «Ревизия трат»: August and September whole, October 1–14. */
-  async function seedBoard(userId = 'user-1') {
-    for (const row of prototypeRecords()) {
-      await record({ amount: row.amountMinor / 100, category: row.categoryName, description: row.note, date: row.date }, userId);
-    }
-  }
+  /** The records of the board «Ревизия трат»: August and September whole, October 1–14 — `board`'s, now the user's. */
+  const seedBoard = (userId = 'user-1') => board.copyRowsOf(BOARD_OWNER, db.dataSource, userId);
 
   const current = async (userId = 'user-1') => unwrap(await audits.getCurrentAuditUseCase().execute({ userId }));
   const decide = (auditId: string, candidateId: string, body: Record<string, unknown>, userId = 'user-1') =>

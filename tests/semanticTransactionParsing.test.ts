@@ -1,4 +1,6 @@
 import fs from 'fs/promises';
+import os from 'os';
+import path from 'path';
 import { OpenAITranscriptionService } from '../src/modules/voiceProcessing/infrastructure/openAITranscriptionService';
 import { ProcessVoiceInputUseCase } from '../src/modules/voiceProcessing/application/processVoiceInput';
 import { TranscriptionService } from '../src/modules/voiceProcessing/domain/transcriptionService';
@@ -91,7 +93,18 @@ describe('OpenAITranscriptionService transaction parsing - needsReview', () => {
 });
 
 describe('ProcessVoiceInputUseCase - semanticType flow-through', () => {
-  const filePath = '/tmp/semantic-voice-test-input.ogg';
+  /** In a folder of this run: a fixed path in /tmp was shared by parallel Jest runs, which took each other's file (#250). */
+  let dir: string;
+  let filePath: string;
+
+  beforeAll(async () => {
+    dir = await fs.mkdtemp(path.join(os.tmpdir(), 'semantic-voice-'));
+    filePath = path.join(dir, 'input.ogg');
+  });
+
+  afterAll(async () => {
+    await fs.rm(dir, { recursive: true, force: true });
+  });
 
   beforeEach(async () => {
     await fs.writeFile(filePath, 'fake audio content');
