@@ -226,6 +226,35 @@ final class PaymentRecorderTests {
         #expect(try harness.store.load().captures.map(\.state) == [.sent])
     }
 
+    @Test("сервер записал фразу перед оплатой, на оплате вышло время команды — «уйдёт позже», а не «не ответил» (#219)")
+    func outOfTimeAfterAnswer() async throws {
+        let harness = try QueueHarness(transport: FakeTransport([.http(200), .hang]))
+        let cards = CardAccountStore(defaults: try #require(UserDefaults(suiteName: suite)))
+        let queue = harness.makeQueue()
+        let clock = harness.clock
+        let background = BackgroundSend(
+            queue: queue,
+            scheduler: FakeRefreshScheduler(),
+            now: { clock.now },
+            budget: .milliseconds(200)
+        )
+        let notices = notices
+        let recorder = PaymentRecorder(
+            queue: queue,
+            cards: cards,
+            send: { await background.run() },
+            isConfigured: { true },
+            notify: { await notices.post($0) }
+        )
+        // A phrase from before, still in the queue: it goes first
+        _ = try await queue.add("кофе 25к")
+
+        try await recorder.record(Self.mazzali)
+
+        #expect(await notices.texts == ["\(Self.mazzaliLine) — уйдёт позже"])
+        #expect(try harness.store.load().captures.map(\.state) == [.sent, .pending])
+    }
+
     @Test("сумма без кода: валюта карты из настроек важнее валюты автоматизации — $4.50 не ляжет как 4,50 сум")
     func cardCurrencyBeforeAutomation() async throws {
         let harness = try QueueHarness()

@@ -68,6 +68,48 @@ struct QueueOnServerTests {
         #expect(saved.wait == .noAnswer)
     }
 
+    @Test("сервер в этом проходе ответил, потом время вышло на длинной очереди — не «сервер не ответил» (#219)")
+    func cutShortAfterAnswer() async throws {
+        let harness = try QueueHarness(transport: FakeTransport([.http(200), .hang]))
+        let queue = harness.makeQueue()
+        _ = try await queue.add("кофе 25к")
+        _ = try await queue.add("такси 18к")
+
+        await cutShortOnRequest(2, queue, harness)
+
+        let saved = try harness.store.load()
+        #expect(saved.captures.map(\.state) == [.sent, .pending])
+        #expect(saved.captures.map(\.attempts) == [1, 0])
+        // Cut short, it may have been written all the same, as in `cutShort`
+        #expect(saved.captures.last?.mayBeOnServer == true)
+        // The reason the server's answer left: none
+        #expect(saved.wait == nil)
+    }
+
+    @Test("ответ был в прошлом проходе, в этом сервер молчит до обрыва — «сервер не ответил»")
+    func cutShortAfterEarlierPass() async throws {
+        let harness = try QueueHarness(transport: FakeTransport([.http(200), .hang]))
+        let queue = harness.makeQueue()
+        _ = try await queue.add("кофе 25к")
+        await queue.flush()
+        _ = try await queue.add("такси 18к")
+
+        await cutShortOnRequest(2, queue, harness)
+
+        let saved = try harness.store.load()
+        #expect(saved.captures.map(\.state) == [.sent, .pending])
+        #expect(saved.wait == .noAnswer)
+    }
+
+    /// The background's time runs out while request `number` waits for its answer.
+    private func cutShortOnRequest(_ number: Int, _ queue: CaptureQueue, _ harness: QueueHarness) async {
+        let background = Task { await queue.flush() }
+        #expect(await eventually { await harness.transport.requests.count == number })
+        background.cancel()
+        await queue.cancelSending()
+        await background.value
+    }
+
     @Test("удаление отдаёт запись, как её убрали с телефона, — с признаком; уже отправляется — ничего")
     func removeGivesTheRecord() async throws {
         let harness = try QueueHarness(transport: FakeTransport([.failure(.timedOut), .hang]))
