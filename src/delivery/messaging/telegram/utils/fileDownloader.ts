@@ -14,7 +14,10 @@ const logger = createLogger(LogCategory.TELEGRAM);
 const DOWNLOAD_TIMEOUT = 30000; // 30 seconds
 
 /**
- * Downloads a file from URL to local filesystem
+ * Downloads a file from URL to local filesystem.
+ *
+ * The URL is never logged (#269): Telegraf's file link is `https://api.telegram.org/file/bot<TOKEN>/<path>`, so it
+ * carries the bot token. A failure logs `dest` — its name holds the Telegram `file_id` — and the reason.
  * @param url - URL to download from
  * @param dest - Destination file path
  * @returns Promise resolving to the destination path
@@ -28,10 +31,7 @@ export async function downloadFile(url: string, dest: string): Promise<string> {
 
     return new Promise((resolve, reject) => {
       const handleError = async (err: Error) => {
-        logger.error('Download error', err, {
-          url: url.substring(0, 100), // Truncate for security
-          dest,
-        });
+        logger.error('Download error', err, { dest });
 
         try {
           if (!file.destroyed) {
@@ -67,10 +67,7 @@ export async function downloadFile(url: string, dest: string): Promise<string> {
       });
     });
   } catch (error) {
-    logger.error('Download setup error', error instanceof Error ? error : new Error(String(error)), {
-      url: url.substring(0, 100),
-      dest,
-    });
+    logger.error('Download setup error', error instanceof Error ? error : new Error(String(error)), { dest });
     throw ErrorFactory.externalService('File Download Setup', error instanceof Error ? error : undefined);
   }
 }

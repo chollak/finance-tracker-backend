@@ -81,6 +81,8 @@ flowchart TD
   второго. Теперь каждый удаляет только свои файлы
 - Timeout: 30 секунд
 - Error handling: Retry с alternative location
+- Ссылка `getFileLink` — `https://api.telegram.org/file/bot<TOKEN>/<путь>`, в ней токен бота: в лог не пишется
+  (#269). Сбой загрузки — `Download error` с `dest` (в имени `file_id`) и причиной
 
 ---
 
@@ -399,6 +401,9 @@ if (description.length < 3) confidence -= 0.05;
   (`errorContext`). Простая фраза, чья подпись не называет категорию («стрижка 50000»), записывается в «Другое ?»;
   в логе `warn` «The AI could not read a simple phrase» с той же причиной — `errorContext.originalError`, например
   «Request timed out.» (FT-165). Подпись, которая называет категорию («такси 18000» — «Транспорт»), до ИИ не доходит
+- В логе нет ни фразы, ни услышанного, ни ответа ИИ, ни сумм, заметок и мерчантов (#269): только длина
+  (`textLength`, `contentLength`) и признаки записи (`transactionLogFields()`). Ответ ИИ, который не JSON, пишется
+  «The answer is not valid JSON» — без куска ответа, который V8 цитирует в ошибке `JSON.parse`
 - Rate limit handling
 - Invalid API key detection
 

@@ -19,8 +19,8 @@ final class CategoryPicker: Identifiable {
     enum Choices: Equatable {
         case loading
         case loaded(CategoryChoices)
-        /// What to say; «Повторить» loads again.
-        case failed(String)
+        /// Why — for the sheet's symbol (#282) — and what to say; «Повторить» loads again.
+        case failed(RecordsFailure, message: String)
     }
 
     /// The record's id: one sheet per row.
@@ -55,8 +55,8 @@ final class CategoryPicker: Identifiable {
     /// One edit at a time: a category and «Да, верно» do not cross.
     var isBusy: Bool { savingId != nil || isConfirming }
 
-    /// The reason of «!» first — it is on the phone — then the categories. Without a network the sheet says so — after
-    /// why the last choice did not save, if it did not.
+    /// The reason of «!» first — it is on the phone — then the categories. Not loaded — the sheet says why — after why
+    /// the last choice did not save, if it did not.
     func load() async {
         if needsReview, review == nil {
             review = await list.review(of: id)
@@ -64,7 +64,7 @@ final class CategoryPicker: Identifiable {
         do {
             choices = .loaded(Self.choices(try await list.categories(), for: kind, current: currentId))
         } catch {
-            choices = .failed([problem, error.message].compactMap { $0 }.joined(separator: ". "))
+            choices = .failed(error, message: [problem, error.message].compactMap { $0 }.joined(separator: ". "))
         }
     }
 

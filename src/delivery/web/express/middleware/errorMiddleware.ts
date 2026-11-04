@@ -15,9 +15,9 @@ export function errorHandler(
   res: Response,
   _next: NextFunction
 ): void {
-  // Log error for debugging
+  // Log error for debugging: the path, not the query — the history search sends what the user looks for there (#269)
   logger.error('Express error handler', error, {
-    url: req.url,
+    path: req.path,
     method: req.method,
     userId: req.body?.userId || req.params?.userId || 'unknown',
   });
@@ -97,13 +97,14 @@ export function notFoundHandler(req: Request, res: Response): void {
 }
 
 /**
- * Request logging middleware
+ * Request logging middleware. It writes the path, not the query (#269): the history search sends what the user looks
+ * for there (`?q=…`).
  */
 export function requestLogger(req: Request, res: Response, next: NextFunction): void {
   const start = Date.now();
 
   // Log incoming request
-  logger.debug(`${req.method} ${req.url}`, {
+  logger.debug(`${req.method} ${req.path}`, {
     userAgent: req.get('User-Agent'),
     ip: req.ip,
   });
@@ -111,13 +112,13 @@ export function requestLogger(req: Request, res: Response, next: NextFunction): 
   // Log response when finished
   res.on('finish', () => {
     const duration = Date.now() - start;
-    logger.debug(`${req.method} ${req.url} - ${res.statusCode} (${duration}ms)`);
+    logger.debug(`${req.method} ${req.path} - ${res.statusCode} (${duration}ms)`);
 
     // Log slow requests
     if (duration > 5000) {
       logger.warn('Slow request detected', {
         method: req.method,
-        url: req.url,
+        path: req.path,
         duration,
         statusCode: res.statusCode,
       });

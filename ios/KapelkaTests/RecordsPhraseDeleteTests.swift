@@ -170,8 +170,8 @@ struct RecordsPhraseDeleteTests {
 
         await list.restoreDeleted()
         #expect(ids(list) == ["bread", "lunch"])
-        #expect(list.notice?.message == "Не вернул «молоко» — нет связи")
-        #expect(list.notice?.text == "Не вернул «молоко» — нет связи. Удалено")
+        #expect(list.notice?.message == "Не вернул «молоко» — сервер не ответил")
+        #expect(list.notice?.text == "Не вернул «молоко» — сервер не ответил. Удалено")
         #expect(list.notice?.restorable == ["milk"])
 
         await list.restoreDeleted()

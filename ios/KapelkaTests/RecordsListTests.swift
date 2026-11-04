@@ -136,7 +136,8 @@ struct RecordsListTests {
 
         await list.loadMore()
         #expect(ids(list) == ["a"])
-        #expect(list.moreProblem == .unreachable)
+        #expect(list.moreProblem == .later(.offline))
+        #expect(list.moreProblem?.message == "Нет связи — попробуй позже")
         #expect(list.hasMore)
 
         await list.loadMore()
@@ -191,7 +192,7 @@ struct RecordsListTests {
         #expect(await routes.accountLists.requests.isEmpty)
     }
 
-    @Test("пусто — «Записей пока нет»; неверный токен без кэша — экран токена; без связи без кэша — «Нет связи»")
+    @Test("пусто — «Записей пока нет»; неверный токен без кэша — экран токена; ПК молчит без кэша — «Сервер не ответил»")
     func emptyScreens() async throws {
         let routes = RoutedTransport(page: [
             .http(200, body: RecordsReply.page([])),
@@ -207,9 +208,9 @@ struct RecordsListTests {
         await list.refresh()
         #expect(list.screen == .tokenRefused)
 
-        let offline = self.list(try RecordsHarness(routes: RoutedTransport(page: [.failure(.timedOut)])))
-        await offline.refresh()
-        #expect(offline.screen == .unreachable)
+        let asleep = self.list(try RecordsHarness(routes: RoutedTransport(page: [.failure(.timedOut)])))
+        await asleep.refresh()
+        #expect(asleep.screen == .failed(.later(.noAnswer)))
     }
 
     @Test("неверный токен при кэше — список и подпись о токене")
@@ -223,6 +224,67 @@ struct RecordsListTests {
         #expect(list.caption == "Сервер не принял токен · обновлено в 14:32")
     }
 
+    /// What the server or the network does, one reply for each reason of #282. Read by `@Test` off the main actor.
+    nonisolated private static let reasons: [(FakeTransport.Reply, RecordsFailure, String)] = [
+        (.failure(.notConnectedToInternet), .later(.offline), "Нет связи"),
+        // Tailscale off: the name of the PC in the tailnet does not resolve
+        (.failure(.cannotFindHost), .later(.offline), "Нет связи"),
+        // The PC asleep: the request runs out of time
+        (.failure(.timedOut), .later(.noAnswer), "Сервер не ответил"),
+        (.http(502, body: "Bad Gateway"), .later(.noAnswer), "Сервер не ответил"),
+        (.http(500, body: #"{"success":false,"error":{"code":"INTERNAL_ERROR","message":"x"}}"#), .later(.noAnswer), "Сервер не ответил"),
+        (.http(200, body: "<html>Wi-Fi login</html>"), .later(.noAnswer), "Сервер не ответил"),
+        (.http(404, body: RecordsReply.routeNotFound), .later(.noAnswer), "Сервер не ответил"),
+        (.http(429, body: ServerReply.rateLimited, headers: ["Retry-After": "60"]), .later(.busy), "Сервер просит подождать"),
+        (.http(400, body: RecordsReply.categoryTypeMismatch), .refused, "Сервер не принял запрос"),
+        (.http(409, body: ""), .refused, "Сервер не принял запрос"),
+    ]
+
+    @Test("без кэша экран называет причину: нет связи, сервер не ответил, просит подождать, не принял запрос (#282)", arguments: RecordsListTests.reasons)
+    func screenWithoutCache(reply: FakeTransport.Reply, failure: RecordsFailure, reason: String) async throws {
+        let list = list(try RecordsHarness(routes: RoutedTransport(page: [reply])))
+
+        await list.refresh()
+
+        #expect(list.screen == .failed(failure))
+        #expect(list.days.isEmpty)
+        // The screen's title and the line over the list are the same words
+        #expect(failure.title == reason)
+        #expect(list.caption == reason)
+    }
+
+    @Test("с кэшем — список и над ним причина: «Сервер не ответил · обновлено в 14:32» (#282)", arguments: RecordsListTests.reasons)
+    func captionWithCache(reply: FakeTransport.Reply, failure _: RecordsFailure, reason: String) async throws {
+        let list = list(try RecordsHarness(routes: RoutedTransport(page: [page(["a"]), reply])))
+        await list.refresh()
+
+        await list.refresh()
+
+        #expect(list.screen == .list)
+        #expect(ids(list) == ["a"])
+        #expect(list.caption == "\(reason) · обновлено в 14:32")
+    }
+
+    @Test(
+        "плашка правки называет причину: «Сервер не ответил — попробуй позже», строка на месте (#282)",
+        arguments: [
+            (FakeTransport.Reply.failure(.notConnectedToInternet), "Нет связи — попробуй позже"),
+            (.failure(.timedOut), "Сервер не ответил — попробуй позже"),
+            (.http(503, body: ""), "Сервер не ответил — попробуй позже"),
+            (.http(429, body: ServerReply.rateLimited, headers: ["Retry-After": "60"]), "Сервер просит подождать — попробуй позже"),
+            (.http(400, body: RecordsReply.categoryTypeMismatch), "Сервер не принял запрос"),
+        ]
+    )
+    func editBarSaysWhy(reply: FakeTransport.Reply, message: String) async throws {
+        let list = list(try RecordsHarness(routes: RoutedTransport(page: [page(["a", "b"])], edits: [reply])))
+        await list.refresh()
+
+        await list.delete("b")
+
+        #expect(ids(list) == ["a", "b"])
+        #expect(list.notice?.text == message)
+    }
+
     @Test("сменили адрес, новый не отвечает — записей прошлого сервера на экране нет")
     func otherAddress() async throws {
         let routes = RoutedTransport(page: [page(["a"]), .failure(.cannotConnectToHost)])
@@ -234,12 +296,12 @@ struct RecordsListTests {
         await list.refresh()
 
         #expect(list.days.isEmpty)
-        #expect(list.screen == .unreachable)
+        #expect(list.screen == .failed(.later(.noAnswer)))
     }
 
     @Test("без связи прокрученные страницы остаются на экране")
     func offlineKeepsScrolledPages() async throws {
-        let routes = RoutedTransport(page: [page(["a"], next: "cursor-1"), page(["b"]), .failure(.timedOut)])
+        let routes = RoutedTransport(page: [page(["a"], next: "cursor-1"), page(["b"]), .failure(.notConnectedToInternet)])
         let list = list(try RecordsHarness(routes: routes))
         await list.refresh()
         await list.loadMore()

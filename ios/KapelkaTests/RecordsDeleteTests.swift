@@ -155,7 +155,7 @@ struct RecordsDeleteTests {
         #expect(await eventually { await routes.pages.requests.count == 2 })
     }
 
-    @Test("«Вернуть» без связи — запись остаётся удалённой, плашка снова с «Вернуть»")
+    @Test("«Вернуть», сервер не ответил — запись остаётся удалённой, плашка снова с «Вернуть» и называет причину")
     func restoreOffline() async throws {
         let routes = RoutedTransport(
             page: [page([Self.c, Self.b, Self.a])],
@@ -171,7 +171,7 @@ struct RecordsDeleteTests {
 
         await list.restoreDeleted()
         #expect(ids(list) == ["c", "a"])
-        #expect(list.notice?.message == "Не вернул «кофе» — нет связи")
+        #expect(list.notice?.message == "Не вернул «кофе» — сервер не ответил")
         #expect(list.notice?.restorable == ["b"])
 
         await list.restoreDeleted()
@@ -276,7 +276,7 @@ struct RecordsDeleteTests {
         let list = try list(routes)
         await list.refresh()
         await list.loadMore()
-        #expect(list.moreProblem == .unreachable)
+        #expect(list.moreProblem == .later(.noAnswer))
 
         await list.delete("b")
         await list.restoreDeleted()

@@ -14,6 +14,7 @@ import { ResolvedCategory } from '../../transaction/domain/categoryResolver';
 import { categoryNamedBy, CategoryOfRecord, LearnedCategoryWords, recordWordsOf } from '../domain/categoryGuess';
 import { captureAssumptions } from './captureAssumptions';
 import { captureMoneyOf } from './captureMoney';
+import { debtLogFields, transactionLogFields } from './captureLogFields';
 import { itemClientId } from '../../transaction/domain/clientId';
 import { fromMinor } from '../../../shared/domain/money/money';
 import { todayDateOnly } from '../../../shared/domain/dates/dateOnly';
@@ -572,7 +573,7 @@ export class ProcessTextInputUseCase {
             throw error;
           }
           logger.error('Failed to create debt from text input', error as Error, {
-            debtData: d,
+            debt: debtLogFields(d),
             userId,
           });
         }
@@ -750,7 +751,7 @@ export class ProcessTextInputUseCase {
       };
     } catch (error) {
       logger.error('Failed to create transaction from text input', error as Error, {
-        transactionData: p,
+        transaction: transactionLogFields(p),
         userId,
       });
       return null;
