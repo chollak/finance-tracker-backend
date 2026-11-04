@@ -12,7 +12,7 @@ import { listenOnLoopback, LoopbackServer } from './helpers/testServer';
 
 /**
  * #229: `PUT /api/transactions/:id` checks its fields alike on the regular update and on the learning one (a body with
- * `originalText` and `originalParsing`) — one check for both, so a `semanticType` or a `needsReview` of a wrong type
+ * a non-empty `userId`, `originalText` and `originalParsing`, all three) — one check for both, so a `semanticType` or a `needsReview` of a wrong type
  * is `400` on the learning path too and never reaches the repository. And `POST` stores a blank merchant as `NULL`,
  * as `PUT` clears one (#210).
  */
@@ -24,7 +24,10 @@ const users = {
 } as unknown as UserModule;
 const unused = { execute: jest.fn() } as never;
 
-/** A body with originalText and originalParsing takes the learning update. */
+/** A second account of the user: records are put on it, so a move to the default «Карта» shows. */
+const CASH = 'cash-account-229';
+
+/** A body with a non-empty userId, originalText and originalParsing — all three — takes the learning update. */
 const LEARNING_CONTEXT = {
   userId: USER,
   originalText: 'капучино bon 25000',
@@ -41,6 +44,10 @@ const REFUSED: Array<[string, Record<string, unknown>, string]> = [
   ['needsReview null', { needsReview: null }, 'needsReview must be a boolean'],
   ['an amount below 0.01', { amountMinor: 0 }, 'Amount must be at least 0.01'],
   ['a date not YYYY-MM-DD', { date: '30.10.2026' }, 'Invalid date format. Use YYYY-MM-DD'],
+  // Not text: a list passed the format check and was written as text of the list
+  ['date a list', { date: ['2026-10-30'] }, 'date must be a string'],
+  ['date a number', { date: 20261030 }, 'date must be a string'],
+  ['date null', { date: null }, 'date must be a string'],
   ['a type other than income or expense', { type: 'transfer' }, 'Type must be "income" or "expense"'],
   ['a blank category', { category: '  ' }, 'Category cannot be empty'],
   // Not text: was a 500 from `.trim()` on both paths
@@ -55,6 +62,14 @@ const REFUSED: Array<[string, Record<string, unknown>, string]> = [
   ['categoryId null', { categoryId: null }, 'categoryId must be a string'],
   ['categoryId an empty string', { categoryId: '' }, 'categoryId cannot be empty'],
   ['categoryId only spaces', { categoryId: '   ' }, 'categoryId cannot be empty'],
+  // Not a non-empty id: null, '', 0 and false silently moved the record to the default account, others were a 404
+  ['accountId null', { accountId: null }, 'accountId must be a string'],
+  ['accountId an empty string', { accountId: '' }, 'accountId cannot be empty'],
+  ['accountId only spaces', { accountId: '   ' }, 'accountId cannot be empty'],
+  ['accountId 0', { accountId: 0 }, 'accountId must be a string'],
+  ['accountId false', { accountId: false }, 'accountId must be a string'],
+  ['accountId a number', { accountId: 5 }, 'accountId must be a string'],
+  ['accountId an object', { accountId: { id: 'cash' } }, 'accountId must be a string'],
 ];
 
 describe('record fields are checked alike (#229)', () => {
@@ -105,11 +120,16 @@ describe('record fields are checked alike (#229)', () => {
     ['the regular update', {}],
     ['the learning update', LEARNING_CONTEXT],
   ])('PUT, %s', (_name, context) => {
-    /** «Кафе», 25 000 сум, «кофе» at Bon on 30 October. */
+    /** «Кафе», 25 000 сум, «кофе» at Bon on 30 October, on «Наличные» — not the default account. */
     async function record(): Promise<string> {
+      await records.book.listForUser(USER); // the starter «Карта» first: it stays the default
+      await records.accountRepository.create({
+        id: CASH, userId: USER, name: 'Наличные', kind: 'cash', currency: 'UZS', openingBalanceMinor: 0,
+        openingDate: '2026-10-01', openingAt: null, isHidden: false, sortOrder: 20,
+      });
       const created = await records.create.execute({
         userId: USER, amount: 25000, type: 'expense', category: 'Кафе', description: 'кофе', merchant: 'Bon',
-        date: '2026-10-30',
+        date: '2026-10-30', accountId: CASH,
       } as never);
       if (!created.success) throw created.error;
       return created.data;
@@ -123,6 +143,18 @@ describe('record fields are checked alike (#229)', () => {
 
       expect(answer.status).toBe(400);
       expect(answer.body.error).toMatchObject({ code: 'VALIDATION_ERROR', message });
+      expect(await rowOf(id)).toEqual(before);
+    });
+
+    it('the record is on the second account, and an unknown account is still 404 NOT_FOUND', async () => {
+      const id = await record();
+      const before = await rowOf(id);
+      expect(before.account_id ?? before.accountId).toBe(CASH);
+
+      const answer = await send('PUT', `/${id}`, { ...context, accountId: 'no-such-account' });
+
+      expect(answer.status).toBe(404);
+      expect(answer.body.error).toMatchObject({ code: 'NOT_FOUND', message: 'Account not found: no-such-account' });
       expect(await rowOf(id)).toEqual(before);
     });
 

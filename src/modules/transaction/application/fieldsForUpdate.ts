@@ -10,7 +10,8 @@ export interface FieldsOfUpdate {
   amountMinor?: unknown;
   category?: unknown;
   categoryId?: unknown;
-  date?: string;
+  accountId?: unknown;
+  date?: unknown;
   type?: 'income' | 'expense';
   semanticType?: unknown;
   needsReview?: unknown;
@@ -18,7 +19,7 @@ export interface FieldsOfUpdate {
   merchant?: unknown;
 }
 
-/** What the edit writes as sent, once checked: everything but the category and the account. */
+/** What the edit writes as sent, once checked: everything but the category and the account, which are resolved. */
 type CheckedFields = Pick<RecordEdit,
   'amountMinor' | 'description' | 'date' | 'type' | 'semanticType' | 'needsReview' | 'merchant'
 >;
@@ -26,7 +27,8 @@ type CheckedFields = Pick<RecordEdit,
 /**
  * The fields of an edit of a record, checked before the record is read (#229). One check for the regular update and
  * the learning one, so both refuse the same body with the same `400 VALIDATION_ERROR` and a refused body writes
- * nothing; before, the learning copy did not check `semanticType` and `needsReview`.
+ * nothing; before, the learning copy did not check `semanticType` and `needsReview`. `categoryId` and `accountId` are
+ * only checked to be ids here: which category or account they name is the resolvers' answer, against the record.
  *
  * The note and the merchant are checked with the validators of `POST` (`TransactionValidator`, FT-113, #210): text or
  * `null`, a note within the same limit; then trimmed, and `null`, empty or blank is none (`textEdit`). A field not sent
@@ -36,8 +38,13 @@ type CheckedFields = Pick<RecordEdit,
 export function fieldsForUpdate(request: FieldsOfUpdate): Result<CheckedFields, ValidationError> {
   const amountMinor = amountOf(request);
   if (!amountMinor.success) return amountMinor;
-  const refused = refusedCategoryDateOrType(request);
+  const refused = refusedCategoryOrAccount(request);
   if (refused) return ResultHelper.failure(refused);
+  const date = dayOf(request.date);
+  if (!date.success) return date;
+  if (request.type !== undefined && !['income', 'expense'].includes(request.type)) {
+    return ResultHelper.failure(new ValidationError('Type must be "income" or "expense"'));
+  }
   const semanticType = semanticTypeOf(request.semanticType);
   if (!semanticType.success) return semanticType;
   const needsReview = needsReviewOf(request.needsReview);
@@ -50,7 +57,7 @@ export function fieldsForUpdate(request: FieldsOfUpdate): Result<CheckedFields, 
   return ResultHelper.success({
     amountMinor: amountMinor.data,
     description: note.data,
-    date: request.date,
+    date: date.data,
     type: request.type,
     semanticType: semanticType.data,
     needsReview: needsReview.data,
@@ -64,30 +71,32 @@ function amountOf(request: FieldsOfUpdate): Result<number | undefined, Validatio
   return Validators.moneyAmount(request);
 }
 
-function refusedCategoryDateOrType({ category, categoryId, date, type }: FieldsOfUpdate): ValidationError | undefined {
+function refusedCategoryOrAccount({ category, categoryId, accountId }: FieldsOfUpdate): ValidationError | undefined {
   if (category !== undefined) {
     // Not text is refused as in POST, not a 500 from `.trim()` (#229)
     const text = Validators.string(category, 'category');
     if (!text.success) return text.error;
     if (!text.data.trim()) return new ValidationError('Category cannot be empty');
   }
-  if (categoryId !== undefined) {
-    // An id or nothing: `null` or blank must not reach the resolver, which falls back to «Другое» (#229)
-    const id = Validators.string(categoryId, 'categoryId');
-    if (!id.success) return id.error;
-    if (!id.data.trim()) return new ValidationError('categoryId cannot be empty', 'categoryId');
-  }
-  if (date !== undefined && !isDayString(date)) {
-    return new ValidationError('Invalid date format. Use YYYY-MM-DD');
-  }
-  if (type !== undefined && !['income', 'expense'].includes(type)) {
-    return new ValidationError('Type must be "income" or "expense"');
-  }
-  return undefined;
+  // An id or nothing: `null` or blank must not reach the resolvers, which fall back to «Другое» and to the default
+  // account (#229)
+  return refusedId(categoryId, 'categoryId') ?? refusedId(accountId, 'accountId');
 }
 
-function isDayString(date: string): boolean {
-  return /^\d{4}-\d{2}-\d{2}$/.test(date) && !isNaN(new Date(date).getTime());
+function refusedId(sent: unknown, field: 'categoryId' | 'accountId'): ValidationError | undefined {
+  if (sent === undefined) return undefined;
+  const id = Validators.string(sent, field);
+  if (!id.success) return id.error;
+  return id.data.trim() ? undefined : new ValidationError(`${field} cannot be empty`, field);
+}
+
+/** A day as `YYYY-MM-DD` text; not text is refused before the format, which would read a list as its text (#229). */
+function dayOf(sent: unknown): Result<string | undefined, ValidationError> {
+  if (sent === undefined) return ResultHelper.success(undefined);
+  const text = Validators.string(sent, 'date');
+  if (!text.success) return text;
+  const isDay = /^\d{4}-\d{2}-\d{2}$/.test(text.data) && !isNaN(new Date(text.data).getTime());
+  return isDay ? text : ResultHelper.failure(new ValidationError('Invalid date format. Use YYYY-MM-DD'));
 }
 
 function semanticTypeOf(sent: unknown): Result<TransactionSemanticType | undefined, ValidationError> {
