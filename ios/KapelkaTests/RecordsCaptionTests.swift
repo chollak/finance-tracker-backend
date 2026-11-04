@@ -3,7 +3,8 @@ import Testing
 @testable import Kapelka
 
 /// The line over «Записи» (FT-220, FT-254): «Обновляю…» while it refreshes by itself, then how old the list is —
-/// «только что», «N мин назад» up to an hour, the clock after it; without a network «Нет связи · обновлено в 14:32».
+/// «только что», «N мин назад» up to an hour, the clock after it; without an answer the reason and the clock — «Нет связи
+/// · обновлено в 14:32», «Сервер не ответил · обновлено в 14:32» (#282).
 @Suite("Записи: подпись над списком")
 struct RecordsCaptionTests {
     /// 14:32:05 in Tashkent.
@@ -55,17 +56,27 @@ struct RecordsCaptionTests {
 
     @Test("без связи — как раньше: «Нет связи · обновлено в 14:32», вчера, раньше; без кэша — без времени")
     func offline() {
-        #expect(stale(.unreachable) == "Нет связи · обновлено в 14:32")
-        #expect(stale(.unreachable, updatedHoursAgo: 0.5) == "Нет связи · обновлено в 14:02")
-        #expect(stale(.unreachable, updatedHoursAgo: 24) == "Нет связи · обновлено вчера в 14:32")
-        #expect(stale(.unreachable, updatedHoursAgo: 72) == "Нет связи · обновлено 26 октября в 14:32")
-        #expect(stale(.unreachable, updatedHoursAgo: nil) == "Нет связи")
+        #expect(stale(.later(.offline)) == "Нет связи · обновлено в 14:32")
+        #expect(stale(.later(.offline), updatedHoursAgo: 0.5) == "Нет связи · обновлено в 14:02")
+        #expect(stale(.later(.offline), updatedHoursAgo: 24) == "Нет связи · обновлено вчера в 14:32")
+        #expect(stale(.later(.offline), updatedHoursAgo: 72) == "Нет связи · обновлено 26 октября в 14:32")
+        #expect(stale(.later(.offline), updatedHoursAgo: nil) == "Нет связи")
+    }
+
+    @Test("ПК спит или сервер ошибся — «Сервер не ответил», 429 — «Сервер просит подождать», с кэшем и без (#282)")
+    func noAnswerAndBusy() {
+        #expect(stale(.later(.noAnswer)) == "Сервер не ответил · обновлено в 14:32")
+        #expect(stale(.later(.noAnswer), updatedHoursAgo: 24) == "Сервер не ответил · обновлено вчера в 14:32")
+        #expect(stale(.later(.noAnswer), updatedHoursAgo: nil) == "Сервер не ответил")
+        #expect(stale(.later(.busy)) == "Сервер просит подождать · обновлено в 14:32")
+        #expect(stale(.later(.busy), updatedHoursAgo: nil) == "Сервер просит подождать")
     }
 
     @Test("причина — своя; без настроек — экран, не подпись; нет состояния — нет подписи")
     func reasons() {
         #expect(stale(.tokenRefused) == "Сервер не принял токен · обновлено в 14:32")
-        #expect(stale(.refused("Bad request")) == "Сервер не принял запрос · обновлено в 14:32")
+        #expect(stale(.refused) == "Сервер не принял запрос · обновлено в 14:32")
+        #expect(stale(.refused, updatedHoursAgo: nil) == "Сервер не принял запрос")
         #expect(stale(.notConfigured) == nil)
         #expect(caption(nil) == nil)
     }
