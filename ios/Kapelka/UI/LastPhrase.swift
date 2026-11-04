@@ -13,6 +13,8 @@ struct LastPhrase: Equatable, Sendable {
             case sending
             case offline
             case noAnswer
+            /// Went before, and the queue kept no reason: «Уйдёт позже» (#249).
+            case later
             /// 429: until `QueueState.notBefore`.
             case busy
             case notConfigured
@@ -94,7 +96,8 @@ struct LastPhrase: Equatable, Sendable {
     let deletion: Deletion?
     /// «Настройки»: no address and token, or the token refused.
     let opensSettings: Bool
-    /// «Отправить сейчас»: it waits for a network or the server, and a try now may go.
+    /// «Отправить сейчас»: it waits for a network or the server, or went before with no reason kept, and a try now may
+    /// go.
     let offersSendNow: Bool
 
     /// What changes when the phrase moves on — a new phrase, «Отправляю…» → «Записал»: then the screen brings the card
@@ -192,20 +195,20 @@ struct LastPhrase: Equatable, Sendable {
         // settings — and this one goes now. Behind a waiting record it waits for the same reason
         let waitsBehind = state.captures.prefix { $0.clientId != capture.clientId }.contains { $0.state == .pending }
         if capture.attempts == 0, !waitsBehind { return sending }
-        let noAnswer = "Сервер не ответил — уйдёт позже"
         switch state.wait {
         case .offline?:
             return card(.offline, "Нет связи — уйдёт, когда появится сеть", sendNow: true)
         case .noAnswer?:
-            return card(.noAnswer, noAnswer, sendNow: true)
+            return card(.noAnswer, "Сервер не ответил — уйдёт позже", sendNow: true)
         case .busy?:
             // The pause is over: the queue sends it now
             return sending
         case nil:
             // Went before, and the queue kept no reason: a file of a build before FT-252, or the server answered the
-            // records before it in the same pass and the time ran out on a long queue (#219). The card has no line
-            // without a reason: «Сервер не ответил» with «Отправить сейчас», which sends it now
-            return card(.noAnswer, noAnswer, sendNow: true)
+            // records before it in the same pass and the time ran out on a long queue (#219) — «Сервер не ответил»
+            // would be untrue. No reason, no reason said: the words of «Отправить очередь» (`QueueStatus.whyLater`,
+            // #236, #249), and «Отправить сейчас» sends it now
+            return card(.later, "Уйдёт позже", sendNow: true)
         }
     }
 
