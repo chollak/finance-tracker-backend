@@ -8,54 +8,17 @@
  * - Pretty colored output in development
  * - Log levels controlled by LOG_LEVEL env var
  * - Category-based logging for filtering
- * - Sensitive data sanitization
+ * - Secrets masked in the message, the error, its stack and every field (#269, `redact.ts`)
  */
 
 // First: LOG_LEVEL and NODE_ENV from .env.local / .env are read below when the logger is created (FT-165)
 import '../config/loadEnvironment';
 import winston from 'winston';
 import { LogCategory, type LogCategoryType, type ILogger } from '../../domain/ports/Logger';
+import { redactContext, redactText } from './redact';
 
 // Re-export from domain for backward compatibility
 export { LogCategory, type LogCategoryType, type ILogger };
-
-/**
- * Fields that should be redacted from logs
- */
-const SENSITIVE_FIELDS = [
-  'password',
-  'token',
-  'apiKey',
-  'api_key',
-  'secret',
-  'authorization',
-  'initData',
-  'hash',
-  'OPENAI_API_KEY',
-  'TG_BOT_API_KEY',
-  'SUPABASE_ANON_KEY',
-];
-
-/**
- * Sanitize context object by redacting sensitive fields
- */
-function sanitizeContext(context?: Record<string, unknown>): Record<string, unknown> | undefined {
-  if (!context) return undefined;
-
-  const sanitized: Record<string, unknown> = {};
-
-  for (const [key, value] of Object.entries(context)) {
-    if (SENSITIVE_FIELDS.some((field) => key.toLowerCase().includes(field.toLowerCase()))) {
-      sanitized[key] = '[REDACTED]';
-    } else if (typeof value === 'object' && value !== null) {
-      sanitized[key] = sanitizeContext(value as Record<string, unknown>);
-    } else {
-      sanitized[key] = value;
-    }
-  }
-
-  return sanitized;
-}
 
 /**
  * Development format - colorized, human-readable
@@ -111,8 +74,14 @@ const winstonLogger = winston.createLogger({
   exitOnError: false,
 });
 
+/** An error's message or stack, masked; a value that is not text stays out, as before. */
+function redactedOrNothing(text: unknown): string | undefined {
+  return typeof text === 'string' ? redactText(text) : undefined;
+}
+
 /**
- * Create a category-specific logger
+ * Create a category-specific logger. Everything it hands to Winston is masked already (#269): the message, the error,
+ * its stack and every field — so any format and transport writes it masked.
  *
  * @example
  * const logger = createLogger(LogCategory.AUTH);
@@ -122,37 +91,37 @@ const winstonLogger = winston.createLogger({
 export function createLogger(category: LogCategoryType | string): ILogger {
   return {
     debug(message: string, context?: Record<string, unknown>): void {
-      winstonLogger.debug(message, {
+      winstonLogger.debug(redactText(message), {
         category,
-        ...sanitizeContext(context),
+        ...redactContext(context),
       });
     },
 
     info(message: string, context?: Record<string, unknown>): void {
-      winstonLogger.info(message, {
+      winstonLogger.info(redactText(message), {
         category,
-        ...sanitizeContext(context),
+        ...redactContext(context),
       });
     },
 
     warn(message: string, context?: Record<string, unknown>): void {
-      winstonLogger.warn(message, {
+      winstonLogger.warn(redactText(message), {
         category,
-        ...sanitizeContext(context),
+        ...redactContext(context),
       });
     },
 
     error(message: string, error?: Error | null, context?: Record<string, unknown>): void {
       // An AppError keeps its cause in `context` (the OpenAI message behind «External service error: OpenAI Chat»)
       const errorContext = (error as { context?: unknown } | null | undefined)?.context;
-      winstonLogger.error(message, {
+      winstonLogger.error(redactText(message), {
         category,
-        error: error?.message,
-        stack: error?.stack,
+        error: redactedOrNothing(error?.message),
+        stack: redactedOrNothing(error?.stack),
         ...(errorContext && typeof errorContext === 'object'
-          ? { errorContext: sanitizeContext(errorContext as Record<string, unknown>) }
+          ? { errorContext: redactContext(errorContext as Record<string, unknown>) }
           : {}),
-        ...sanitizeContext(context),
+        ...redactContext(context),
       });
     },
   };
