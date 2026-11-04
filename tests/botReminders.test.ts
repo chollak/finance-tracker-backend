@@ -234,7 +234,7 @@ describe('goal, subscription and audit reminders in the bot (FT-133)', () => {
 
   afterAll(async () => {
     await closeOpen();
-    fs.rmSync(audited.dir, { recursive: true, force: true });
+    if (audited.dir) fs.rmSync(audited.dir, { recursive: true, force: true });
   });
 
   beforeEach(() => {
