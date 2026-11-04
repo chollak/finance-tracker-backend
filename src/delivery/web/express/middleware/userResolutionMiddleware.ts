@@ -5,16 +5,16 @@
  * Применяется один раз на входе в API, все контроллеры получают уже UUID.
  *
  * Поддерживаемые форматы userId:
- * - telegramId (числовой): "597843119" → резолвится в UUID
+ * - telegramId (числовой): "597843119" → резолвится в UUID; "0597843119" — тот же пользователь (`telegramIdOf`, #230)
  * - UUID: "02c5718f-b6db-4990-894e-3fc080bb2a83" → проходит как есть
  * Гостей нет (решение Д4, #206), поэтому на маршрутах пользователя middleware стоит после verifyOwnership: telegramId
- * резолвится с созданием пользователя. Любой другой id (`abc`, `-5`, старый гостевой) — 400 INVALID_USER_ID, пользователь
- * не создаётся (#224).
+ * резолвится с созданием пользователя. Любой другой id (`abc`, `-5`, старый гостевой, число от 2^53) — 400
+ * INVALID_USER_ID, пользователь не создаётся (#224, #230).
  */
 
 import { Request, Response, NextFunction } from 'express';
 import { UserModule } from '../../../../modules/user/userModule';
-import { resolveUserIdToUUID, isUUID, isResolvableUserId } from '../../../../shared/application/helpers/userIdResolver';
+import { resolveUserIdToUUID, isUUID, resolvableUserIdOf } from '../../../../shared/application/helpers/userIdResolver';
 import { createLogger, LogCategory } from '../../../../shared/infrastructure/logging';
 
 const logger = createLogger(LogCategory.USER);
@@ -107,10 +107,11 @@ export function createUserResolutionMiddleware(
       }
 
       // A number, an array, an object or a blank string names no user: 400, not a 500 from resolving it (FT-162).
-      // Nor does a string that is no UUID and no Telegram id — `abc`, `-5`, an old guest id: resolving it would create a
-      // `users` row for it (#224). On user routes verifyOwnership refuses it first; this covers the admin grant, which
-      // names whom to grant
-      if (rawUserId && (typeof rawUserId !== 'string' || !isResolvableUserId(rawUserId))) {
+      // Nor does a string that is no UUID and no Telegram id — `abc`, `-5`, an old guest id, 30 digits: resolving it
+      // would create a `users` row for it (#224, #230). On user routes verifyOwnership refuses it first; this covers the
+      // admin grant, which names whom to grant
+      const resolvableId = typeof rawUserId === 'string' ? resolvableUserIdOf(rawUserId) : null;
+      if (rawUserId && resolvableId === null) {
         res.status(400).json({
           success: false,
           error: 'userId must be one Telegram id or user UUID, as a string',
@@ -120,25 +121,23 @@ export function createUserResolutionMiddleware(
       }
 
       // userId found, resolve it
-      if (typeof rawUserId === 'string') {
-        const trimmedId = rawUserId.trim();
-
+      if (resolvableId !== null) {
         // Check if already UUID (no resolution needed)
-        if (isUUID(trimmedId)) {
+        if (isUUID(resolvableId)) {
           req.resolvedUser = {
-            id: trimmedId,
+            id: resolvableId,
             telegramId: null, // Unknown - could be either
           };
           next();
           return;
         }
 
-        // Resolve telegramId to UUID
-        const resolvedUUID = await resolveUserIdToUUID(trimmedId, userModule);
+        // Resolve telegramId to UUID; the id as the list writes it, without leading zeros (#230)
+        const resolvedUUID = await resolveUserIdToUUID(resolvableId, userModule);
 
         req.resolvedUser = {
           id: resolvedUUID,
-          telegramId: trimmedId,
+          telegramId: resolvableId,
         };
       }
 

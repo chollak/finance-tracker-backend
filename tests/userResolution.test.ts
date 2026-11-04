@@ -24,8 +24,14 @@ const VALID_UUID = 'a1b2c3d4-e5f6-4a1b-8c2d-1234567890ab';
 /** Ids that are neither a UUID nor a positive whole number (#224): no user may be made of them. */
 const NOT_USER_IDS = ['guest_zzz', 'abc', '-5', '1.5', '0', '000', '1e5', '0x1F', '12 34', '+5', 'NaN', 'undefined'];
 
-/** Telegram ids past 32 bits (ids grow past 2^32; Telegram promises at most 52 significant bits). */
-const BIG_TELEGRAM_IDS = ['7123456789', '4503599627370495'];
+/** Telegram ids past 32 bits (ids grow past 2^32; Telegram promises at most 52 significant bits); the last is 2^53 − 1. */
+const BIG_TELEGRAM_IDS = ['7123456789', '4503599627370495', '9007199254740991'];
+
+/**
+ * Whole numbers from 2^53 on (#230): no Telegram id, and past it a number is no longer exact — `telegramIdOf` names no
+ * one by them, so neither does the resolver. The last is the 30 digits that made a `users` row before.
+ */
+const PAST_SAFE_IDS = ['9007199254740992', '9007199254740993', '123456789012345678901234567890'];
 
 /**
  * In-memory fake mirroring SqliteUserRepository's getOrCreate()/update() contract:
@@ -333,6 +339,16 @@ describe('userIdResolver', () => {
       expect(result).toBe('555555555');
     });
 
+    it('fails open with the Telegram id as the list writes it, without leading zeros (#230)', async () => {
+      const brokenUserModule = {
+        getGetOrCreateUserUseCase: () => ({
+          execute: jest.fn().mockRejectedValue(new Error('db unavailable')),
+        }),
+      } as unknown as UserModule;
+
+      await expect(resolveUserIdToUUID(' 0555555555 ', brokenUserModule)).resolves.toBe('555555555');
+    });
+
     it('rejects an empty userId before attempting async resolution', async () => {
       await expect(resolveUserIdToUUID('', userModule)).rejects.toThrow('userId is required');
       await expect(resolveUserIdToUUID('   ', userModule)).rejects.toThrow('userId is required');
@@ -357,11 +373,25 @@ describe('userIdResolver', () => {
       expect((await repo.findByTelegramId(id))?.id).toBe(result);
     });
 
-    // A whole number still, so not refused; the user is looked up as written, as before #224
-    it('resolves a Telegram id with leading zeros as written', async () => {
-      const result = await resolveUserIdToUUID('0900000143', userModule);
+    // #230: one rule with ALLOWED_TELEGRAM_IDS (`telegramIdOf`) — before, `0597843119` made a second user of the same person
+    it('resolves a Telegram id with leading zeros to the same user as without them', async () => {
+      const plain = await resolveUserIdToUUID('597843119', userModule);
+      const padded = await resolveUserIdToUUID('0597843119', userModule);
 
-      expect((await repo.findByTelegramId('0900000143'))?.id).toBe(result);
+      expect(padded).toBe(plain);
+      expect(repo.size()).toBe(1);
+    });
+
+    it('creates the user of a Telegram id with leading zeros under the id without them', async () => {
+      const result = await resolveUserIdToUUID('00900000143', userModule);
+
+      expect((await repo.findByTelegramId('900000143'))?.id).toBe(result);
+      expect(await repo.findByTelegramId('00900000143')).toBeNull();
+    });
+
+    it.each(PAST_SAFE_IDS)('refuses %s, a number from 2^53 on, creating no user', async id => {
+      await expect(resolveUserIdToUUID(id, userModule)).rejects.toThrow(ValidationError);
+      expect(repo.size()).toBe(0);
     });
   });
 
@@ -406,18 +436,25 @@ describe('userIdResolver', () => {
       await expect(resolveUserIdToUUIDStrict('   ', userModule)).rejects.toThrow('userId is required');
     });
 
-    it.each(NOT_USER_IDS)('refuses %p, which is no UUID and no Telegram id, creating no user', async id => {
+    it.each([...NOT_USER_IDS, ...PAST_SAFE_IDS])('refuses %p, which is no UUID and no Telegram id, creating no user', async id => {
       await expect(resolveUserIdToUUIDStrict(id, userModule)).rejects.toThrow(ValidationError);
       expect(repo.size()).toBe(0);
+    });
+
+    it('resolves a Telegram id with leading zeros to the same user as without them (#230)', async () => {
+      const plain = await resolveUserIdToUUIDStrict('597843119', userModule);
+
+      await expect(resolveUserIdToUUIDStrict(' 0597843119 ', userModule)).resolves.toBe(plain);
+      expect(repo.size()).toBe(1);
     });
   });
 
   describe('isResolvableUserId', () => {
-    it.each([VALID_UUID, `  ${VALID_UUID}  `, '1', '131184740', ' 597843119 ', ...BIG_TELEGRAM_IDS])('accepts %p', id => {
+    it.each([VALID_UUID, `  ${VALID_UUID}  `, '1', '131184740', ' 597843119 ', '0597843119', ...BIG_TELEGRAM_IDS])('accepts %p', id => {
       expect(isResolvableUserId(id)).toBe(true);
     });
 
-    it.each(['', '   ', ...NOT_USER_IDS])('refuses %p', id => {
+    it.each(['', '   ', ...NOT_USER_IDS, ...PAST_SAFE_IDS])('refuses %p', id => {
       expect(isResolvableUserId(id)).toBe(false);
     });
   });
