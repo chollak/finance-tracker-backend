@@ -609,8 +609,8 @@ const logger = createLogger(LogCategory.TRANSACTION);
 
 ```typescript
 // ✅ ПРАВИЛЬНО
-logger.info('Transaction created', { transactionId, userId, amount });
-logger.error('Failed to create transaction', error, { userId, input });
+logger.info('Transaction created', { transactionId, userId });
+logger.error('Failed to create transaction', error, { userId, textLength: text.length });
 logger.warn('Goal limit approaching', { goalId, spent, limit });
 
 // ❌ НЕПРАВИЛЬНО - без контекста
@@ -626,6 +626,18 @@ logger.info('Created');
 | `warn` | Потенциальные проблемы (лимиты, deprecated) |
 | `info` | Важные бизнес-события (create, delete) |
 | `debug` | Детали для отладки |
+
+### Что не логировать (#269)
+
+Журнал живого экземпляра читают под-чаты и пересылают куски в чаты и issues. Поэтому:
+
+- **Не логировать то, что пользователь написал или сказал:** фразу, услышанное, сумму, заметку, мерчанта, ответ ИИ,
+  поисковый запрос. Вместо них — счётчики и признаки: `textLength`, `contentLength`, имена исправленных полей,
+  `transactionLogFields()` (тип, валюта, `hasAmount`, `hasMerchant`, `hasNote`, confidence).
+- **Не логировать ссылки и заголовки с секретами:** ссылку `getFileLink` (в ней токен бота), `Authorization`,
+  `X-Shortcut-Capture-Token`, initData, cookie. Логгер маскирует токен бота, ключ OpenAI и значения секретов из
+  окружения в любом поле и в тексте (`src/shared/infrastructure/logging/redact.ts`), но это страховка, а не правило.
+- **HTTP:** `req.path`, не `req.url` — в query бывает то, что ищет пользователь.
 
 ---
 

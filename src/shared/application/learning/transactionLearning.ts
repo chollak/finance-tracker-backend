@@ -82,9 +82,10 @@ export class TransactionLearningService implements CategoryLessons {
       await this.saveLearningData(existingData);
       await this.updatePatterns(learningEntry);
 
+      // Which fields were corrected and how long the phrase was — not the phrase or the new values (#269)
       logger.info('Learning data recorded successfully', {
-        text: originalText.substring(0, 50),
-        correction: userCorrection,
+        textLength: originalText.length,
+        corrections: Object.keys(userCorrection ?? {}),
         userId: userId.substring(0, 8),
         confidence: confidence,
         dataFile: this.learningDataPath,
@@ -94,7 +95,7 @@ export class TransactionLearningService implements CategoryLessons {
       logger.error('Failed to record learning data', error as Error, {
         dataPath: this.learningDataPath,
         patternsPath: this.patternsPath,
-        originalText: originalText.substring(0, 50),
+        textLength: originalText.length,
         userId: userId.substring(0, 8)
       });
     }

@@ -20,6 +20,7 @@ import { ResolvedCategory } from '../../transaction/domain/categoryResolver';
 import { LearnedCategoryWords, recordWordsOf } from '../domain/categoryGuess';
 import { captureAssumptions } from './captureAssumptions';
 import { captureMoneyOf } from './captureMoney';
+import { debtLogFields, transactionLogFields } from './captureLogFields';
 import { fromMinor } from '../../../shared/domain/money/money';
 import { NoSpeechDetectedError } from '../domain/voiceErrors';
 import { itemClientId } from '../../transaction/domain/clientId';
@@ -150,10 +151,10 @@ export class ProcessVoiceInputUseCase {
       const withoutAmount = parsed.withoutAmount ?? [];
       const itemCount = parsed.transactions.length + withoutAmount.length;
 
-      // Log if nothing found
+      // Log if nothing found: how much was heard, not the words (#269)
       if (parsed.transactions.length === 0 && parsed.debts.length === 0) {
         logger.warn('No transactions or debts found in voice input', {
-          recognizedText: recognizedText.substring(0, 100),
+          textLength: recognizedText.length,
           withoutAmount: withoutAmount.length,
         });
         return { text: recognizedText, transactions: [], debts: [], ...(withoutAmount.length ? { withoutAmount } : {}) };
@@ -244,7 +245,7 @@ export class ProcessVoiceInputUseCase {
           }
         } catch (transactionError) {
           logger.error('Failed to create transaction from voice input', transactionError as Error, {
-            transactionData: p,
+            transaction: transactionLogFields(p),
             userId: input.userId,
           });
         }
@@ -292,7 +293,7 @@ export class ProcessVoiceInputUseCase {
               throw debtError;
             }
             logger.error('Failed to create debt from voice input', debtError as Error, {
-              debtData: d,
+              debt: debtLogFields(d),
               userId: input.userId,
             });
           }

@@ -74,14 +74,15 @@ Server слушает на порту из `process.env.PORT` (default: 3000).
 #### A. Request Logger
 ```typescript
 function requestLogger(req, res, next) {
-  console.log(`${req.method} ${req.url}`);
+  logger.debug(`${req.method} ${req.path}`, { userAgent, ip });
   const start = Date.now();
   // ...track response time
 }
 ```
 
 **Логирует:**
-- HTTP method, URL
+- HTTP method, path — без query: поиск по истории передаёт в `?q=` то, что ищет пользователь (#269); так же пишет
+  `errorHandler` (`path`, не `url`)
 - User agent, IP address
 - Response time
 - Warning при > 5000ms
@@ -450,6 +451,7 @@ res.on('finish', () => {
 ✅ Request size limits (10MB)
 ✅ Input validation на controller level
 ✅ Error message sanitization (no stack traces)
+✅ Secrets masked in every log line, the query left out of HTTP lines (#269, `CLAUDE.md` → «Logging»)
 ✅ Rate limits per Telegram user / per address (see 3.E)
 
 ### Missing (TODO)
