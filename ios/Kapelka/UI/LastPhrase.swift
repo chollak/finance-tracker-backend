@@ -202,7 +202,9 @@ struct LastPhrase: Equatable, Sendable {
             // The pause is over: the queue sends it now
             return sending
         case nil:
-            // Went before, and the file does not say why (a build before FT-252)
+            // Went before, and the queue kept no reason: a file of a build before FT-252, or the server answered the
+            // records before it in the same pass and the time ran out on a long queue (#219). The card has no line
+            // without a reason: «Сервер не ответил» with «Отправить сейчас», which sends it now
             return card(.noAnswer, noAnswer, sendNow: true)
         }
     }
