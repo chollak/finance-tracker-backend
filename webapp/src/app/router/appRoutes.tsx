@@ -13,9 +13,6 @@ import { AuthGate } from './AuthGate';
 // Lazy load pages for code splitting
 const HomePage = lazy(() => import('@/pages').then(m => ({ default: m.HomePage })));
 const TransactionsPage = lazy(() => import('@/pages').then(m => ({ default: m.TransactionsPage })));
-const BudgetsPage = lazy(() => import('@/pages').then(m => ({ default: m.BudgetsPage })));
-const AddBudgetPage = lazy(() => import('@/pages').then(m => ({ default: m.AddBudgetPage })));
-const EditBudgetPage = lazy(() => import('@/pages').then(m => ({ default: m.EditBudgetPage })));
 const DebtsPage = lazy(() => import('@/pages').then(m => ({ default: m.DebtsPage })));
 const AddDebtPage = lazy(() => import('@/pages').then(m => ({ default: m.AddDebtPage })));
 const DebtDetailsPage = lazy(() => import('@/pages').then(m => ({ default: m.DebtDetailsPage })));
@@ -97,10 +94,6 @@ export const appRoutes: RouteObject[] = [
                 element: <PageLoader><TransactionsPage /></PageLoader>,
               },
               {
-                path: '/budgets',
-                element: <PageLoader><BudgetsPage /></PageLoader>,
-              },
-              {
                 path: '/debts',
                 element: <PageLoader><DebtsPage /></PageLoader>,
               },
@@ -155,14 +148,6 @@ export const appRoutes: RouteObject[] = [
               },
               // Form and detail pages. A record has no page: its sheet opens over the list (FT-115), and a link
               // to a record is Home with `?record=` (ROUTES.RECORD)
-              {
-                path: '/budgets/add',
-                element: <PageLoader><AddBudgetPage /></PageLoader>,
-              },
-              {
-                path: '/budgets/:id/edit',
-                element: <PageLoader><EditBudgetPage /></PageLoader>,
-              },
               {
                 path: '/debts/add',
                 element: <PageLoader><AddDebtPage /></PageLoader>,
