@@ -166,7 +166,7 @@ Mini App); нет заголовка — сессия браузера. Без �
 ```typescript
 app.use('/api/transactions', transactionRoutes);
 app.use('/api/quick-capture', quickCaptureRoutes);
-app.use('/api/budgets', budgetRoutes);
+app.use('/api/accounts', accountRoutes);
 ```
 
 **Route Matching:**
@@ -473,5 +473,4 @@ res.on('finish', () => {
 ## См. также
 
 - [Voice → Transaction](voice-to-transaction.md) - Telegram bot flow
-- [Budget Calculation](budget-calculation.md) - Cross-repository calculations
 - [Architecture Overview](../01-architecture/overview.md) - Clean Architecture layers

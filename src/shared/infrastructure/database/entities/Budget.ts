@@ -1,7 +1,10 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 
-// Note: This mirrors the domain BudgetPeriod enum to avoid circular dependency
-export enum BudgetPeriod {
+// Budgets are gone from the code (#264, decision 2026-11-04): no module, route or screen reads or writes this table.
+// The entity stays only so the `budgets` table and its rows are kept and the schema check
+// (`findSchemaDrift`, `npm run migration:show`) still matches it; dropping the table is a change to real data and
+// waits for a separate «да».
+enum BudgetPeriod {
   DAILY = 'daily',
   WEEKLY = 'weekly',
   MONTHLY = 'monthly', 

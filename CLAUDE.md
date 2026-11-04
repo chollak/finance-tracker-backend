@@ -143,7 +143,7 @@ For detailed documentation, see **[docs/knowledge-base/](docs/knowledge-base/)**
 
 - **[Architecture](docs/knowledge-base/01-architecture/)** - Clean Architecture, modules, design patterns
   - [Overview](docs/knowledge-base/01-architecture/overview.md) - Layers and dependency flow
-  - [Modules](docs/knowledge-base/01-architecture/modules.md) - 15 модулей системы
+  - [Modules](docs/knowledge-base/01-architecture/modules.md) - 14 модулей системы
   - [Patterns](docs/knowledge-base/01-architecture/patterns.md) - Repository, DI, Factory, Use Case
   - [Runtime / Process Mode](docs/knowledge-base/01-architecture/runtime-process-mode.md) - API/Bot/Worker process-mode decision
   - [API / Domain Consistency Audit](docs/knowledge-base/01-architecture/api-domain-consistency-audit.md) - FT-018 controller/use-case/API contract audit
@@ -153,7 +153,6 @@ For detailed documentation, see **[docs/knowledge-base/](docs/knowledge-base/)**
 - **[Data Flow](docs/knowledge-base/07-data-flow/)** - How data moves through the system
   - [Voice → Transaction](docs/knowledge-base/07-data-flow/voice-to-transaction.md) - AI-powered voice processing
   - [API Lifecycle](docs/knowledge-base/07-data-flow/api-lifecycle.md) - HTTP request flow
-  - [Budget Calculation](docs/knowledge-base/07-data-flow/budget-calculation.md) - Cross-module calculations
 - **[Development Guide](docs/knowledge-base/08-development/)** - Quick start, adding features
   - [Quick Start](docs/knowledge-base/08-development/quick-start.md) - Setup and running
   - [Adding Features](docs/knowledge-base/08-development/adding-features.md) - Use cases, endpoints, modules
@@ -178,32 +177,32 @@ This project follows **Clean Architecture** principles with clear separation bet
 
 ### Module System
 
-`createModules()` in `src/appModules.ts` returns **15 app modules** (OpenAIUsageModule was removed in FT-174: its admin routes never worked and nothing called them):
+`createModules()` in `src/appModules.ts` returns **14 app modules** (OpenAIUsageModule was removed in FT-174: its admin routes never worked and nothing called them; BudgetModule in #264):
 
 1. **TransactionModule** - CRUD operations for transactions + analytics; gets its categories through the `CategoryResolver` port
-2. **BudgetModule** - Budget management (depends on TransactionModule; leaves the UI per decision Д2)
-3. **DebtModule** - Debt management with payment history (depends on TransactionModule, SubscriptionModule, UserModule; no longer filled from text per Д2)
-4. **VoiceProcessingModule** - AI-powered voice/text processing (depends on TransactionModule; the user's categories go into the prompt)
-5. **QuickCaptureModule** - `POST /api/quick-capture` over the text pipeline, and `POST /api/quick-capture/payment` for an Apple Pay payment sent ready — amount as is, only the category chosen (FT-176) (depends on VoiceProcessingModule)
-6. **CategoryModule** - User categories (FT-099): 8 + 8 starters per user, rename, colour, hide; resolves the category of every record
-7. **UserModule** - User management (telegramId → UUID resolution) and settings (FT-098)
-8. **SubscriptionModule** - Premium subscriptions with Telegram Stars payments
-9. **AccountModule** - Accounts (FT-101): balances on read, the total in сум, the account of every new record
-10. **FxModule** - USD rate (FT-102): Central Bank rate by date, loaded at start and hourly until today's is in; the user's own rate
-11. **BotMessageModule** - Bot record messages (FT-122): which records each confirmation shows and which keyboard screen is open (`bot_messages`), so «Изменить», «Вернуть» and `/undo` survive a restart; and the chat messages the bot handled (`handled_messages`, FT-172), so a message Telegram sends again after a restart changes nothing twice and its unsent confirmation goes out as the first would
-12. **NotificationModule** - Notices the bot sends on its own: the daily summary at the chosen time on the user's clock and the summaries behind `/today` and `/month` (FT-124); the reminders after the audit — a goal at 80% of its limit and over it, a subscription the day before its charge, the audit on the 1st with «Позже» once (FT-133); each sent at most once (`notifications_log`). One that never left the machine waits there as `not_sent` with its `attempts` until its last day (`send_until`), then is kept `failed` with the reason; a summary missed by midnight comes the next morning from 08:00 as «Итоги за вчера», a goal reminder may come the next day (FT-164); a subscription reminder or an audit call whose day the bot was not running at their time gets a `failed` row «не ушло: ни одной попытки» the next day, and nothing is sent late (FT-173). Depends on TransactionModule, UserModule and AuditModule (through the `ReminderSources` port); its schedulers run in the bot's process
-13. **ExportModule** - «Скачать все записи» (FT-126): a CSV of all records and moves that are not deleted — `GET /api/export` downloads it, `POST /api/export/chat` sends it to the chat with the bot (`sendDocument`); reads TransactionModule and AccountModule through the `ExportSources` port
-14. **AuthModule** - Web login through the bot (FT-128, decision Д4): a one-time link `t.me/<bot>?start=login_<token>` for 5 minutes (`login_tokens`), «Подтвердить» / «Это не я» in the bot, the browser's httpOnly session cookie read by `webSessionMiddleware` next to initData, «Выйти». No guest mode in the browser any more
-15. **AuditModule** - Spending audit and goals (FT-130, FT-131): the audit rules over flexible categories, `audits` (candidates and decisions, carried to the next audit) and `goals`; `/api/audits`, `/api/goals`; reads TransactionModule and CategoryModule through the `AuditSources` port
+2. **DebtModule** - Debt management with payment history (depends on TransactionModule, SubscriptionModule, UserModule; no longer filled from text per Д2)
+3. **VoiceProcessingModule** - AI-powered voice/text processing (depends on TransactionModule; the user's categories go into the prompt)
+4. **QuickCaptureModule** - `POST /api/quick-capture` over the text pipeline, and `POST /api/quick-capture/payment` for an Apple Pay payment sent ready — amount as is, only the category chosen (FT-176) (depends on VoiceProcessingModule)
+5. **CategoryModule** - User categories (FT-099): 8 + 8 starters per user, rename, colour, hide; resolves the category of every record
+6. **UserModule** - User management (telegramId → UUID resolution) and settings (FT-098)
+7. **SubscriptionModule** - Premium subscriptions with Telegram Stars payments
+8. **AccountModule** - Accounts (FT-101): balances on read, the total in сум, the account of every new record
+9. **FxModule** - USD rate (FT-102): Central Bank rate by date, loaded at start and hourly until today's is in; the user's own rate
+10. **BotMessageModule** - Bot record messages (FT-122): which records each confirmation shows and which keyboard screen is open (`bot_messages`), so «Изменить», «Вернуть» and `/undo` survive a restart; and the chat messages the bot handled (`handled_messages`, FT-172), so a message Telegram sends again after a restart changes nothing twice and its unsent confirmation goes out as the first would
+11. **NotificationModule** - Notices the bot sends on its own: the daily summary at the chosen time on the user's clock and the summaries behind `/today` and `/month` (FT-124); the reminders after the audit — a goal at 80% of its limit and over it, a subscription the day before its charge, the audit on the 1st with «Позже» once (FT-133); each sent at most once (`notifications_log`). One that never left the machine waits there as `not_sent` with its `attempts` until its last day (`send_until`), then is kept `failed` with the reason; a summary missed by midnight comes the next morning from 08:00 as «Итоги за вчера», a goal reminder may come the next day (FT-164); a subscription reminder or an audit call whose day the bot was not running at their time gets a `failed` row «не ушло: ни одной попытки» the next day, and nothing is sent late (FT-173). Depends on TransactionModule, UserModule and AuditModule (through the `ReminderSources` port); its schedulers run in the bot's process
+12. **ExportModule** - «Скачать все записи» (FT-126): a CSV of all records and moves that are not deleted — `GET /api/export` downloads it, `POST /api/export/chat` sends it to the chat with the bot (`sendDocument`); reads TransactionModule and AccountModule through the `ExportSources` port
+13. **AuthModule** - Web login through the bot (FT-128, decision Д4): a one-time link `t.me/<bot>?start=login_<token>` for 5 minutes (`login_tokens`), «Подтвердить» / «Это не я» in the bot, the browser's httpOnly session cookie read by `webSessionMiddleware` next to initData, «Выйти». No guest mode in the browser any more
+14. **AuditModule** - Spending audit and goals (FT-130, FT-131): the audit rules over flexible categories, `audits` (candidates and decisions, carried to the next audit) and `goals`; `/api/audits`, `/api/goals`; reads TransactionModule and CategoryModule through the `AuditSources` port
 
 **No backend dashboard (#205).** `GET /api/dashboard/*` with `DashboardService`, `AlertService` and the premium-only insights is removed: Home reads `/api/transactions/totals` and `/api/accounts` (FT-111), Analytics reads `/api/analytics` (FT-120), the bot never read it.
+
+**No budgets (#264, decision 2026-11-04).** `BudgetModule`, `/api/budgets/*` and the Mini App's budget screens are removed; they had left the interface with Д2. The `budgets` table and its rows stay: `src/shared/infrastructure/database/entities/Budget.ts` is kept only so the schema check matches the table, and dropping it is a change to real data that waits for a separate «да».
 
 ### Module Dependencies
 
 ```
 TransactionModule (core)
     ↑
-    ├─── BudgetModule (для расчета spent)
     ├─── DebtModule (для создания linked транзакций)
     └─── VoiceProcessingModule (CreateTransactionUseCase)
 ```
@@ -266,7 +265,6 @@ HTTP API → Controller → Use Case → Repository → Database
   - `src/shared/domain/entities/Category.ts` — только словарь старых 26 + 7 id и синонимов для перевода
     старых значений; новые категории туда не добавляются
 - **Transactions**: Entity в `src/modules/transaction/domain/transactionEntity.ts`
-- **Budgets**: Entity в `src/modules/budget/domain/Budget.ts`
 
 **Антипаттерн:** Дублирование данных в разных файлах без синхронизации.
 
@@ -381,7 +379,6 @@ interface Category {
 **Triggers:**
 - ✅ Изменен процесс обработки voice → transaction
 - ✅ Добавлены новые middleware в API lifecycle
-- ✅ Изменена логика расчета budget spent
 - ✅ Добавлен новый критичный поток данных
 
 **Обновить:**

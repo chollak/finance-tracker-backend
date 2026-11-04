@@ -47,9 +47,6 @@ The production build is emitted to `../public/webapp/` and served by the Express
 | `/transactions` | Transactions list |
 | `/add` | Manual entry (keypad, account, category, date) |
 | `/?record=<id>` | Home with the record sheet open (a record has no page; rows open the sheet) |
-| `/budgets` | Budgets list |
-| `/budgets/add` | Add budget |
-| `/budgets/:id/edit` | Edit budget |
 | `/debts` | Debts list |
 | `/debts/add` | Add debt |
 | `/debts/:id` | Debt details/payments |
@@ -57,7 +54,7 @@ The production build is emitted to `../public/webapp/` and served by the Express
 | `/analytics/categories/:id` | One category of the month: by day and its operations |
 | `/more` | Secondary sections/settings |
 
-There is no `/dashboard` or `/stats` route. The webapp no longer reads the backend's dashboard API (FT-121): Analytics reads `GET /api/analytics`.
+There is no `/dashboard` or `/stats` route. The webapp no longer reads the backend's dashboard API (FT-121): Analytics reads `GET /api/analytics`. The budget screens are gone since #264.
 
 ## Structure
 

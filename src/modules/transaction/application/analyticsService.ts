@@ -85,7 +85,7 @@ export class AnalyticsService {
 
     async getDetailedCategoryBreakdown(userId: string, timeRange?: TimeRange): Promise<CategoryBreakdown> {
         // This breakdown backs the "Расходы по категориям" chart, so it must hold the
-        // same real-spending set as the home screen and budgets: no income, no own
+        // same real-spending set as the home screen: no income, no own
         // transfers/savings/withdrawals/debt, nothing still awaiting review.
         // Percentages are shares of real spending, not of total turnover.
         const transactions = (await this.getTransactionsInRange(userId, timeRange)).filter(t => t.type === 'expense');

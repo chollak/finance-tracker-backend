@@ -1,6 +1,8 @@
 # Auth / User Resolution Boundary Matrix
 
 > Status: FT-024 audit/decision matrix. This document records current auth, ownership, and userId-resolution boundaries before any strict resolver implementation. There are no guests: the browser's guest mode went with decision Д4 (FT-128), the backend's guest branches in #206.
+>
+> #264 (2026-11-04): budgets — `BudgetModule`, `/api/budgets/*` — are removed; the budget routes in the dated sections below are history.
 
 ## 2026-11-04 — one Telegram id rule in the resolver; no grant without a user (#230)
 
@@ -343,8 +345,7 @@ FT-017D decision: do not globally change this helper to fail-closed yet.
 | Transaction by-id CRUD/archive | `/api/transactions/:id` | `optionalAuth`; delete, restore, edit `optionalAuthOrAppToken` (FT-218) | controller/helper | `verifyResourceOwnership` | resource-strict |
 | Voice text-input and upload — removed in #221 | `/api/voice/text-input`, `/api/voice/voice-input` | — (`404`) | — | — | — |
 | Quick capture | `POST /api/quick-capture`, `/payment` | `allowShortcutCapture`: `requireAuth` + `writeAsSignedInUser`, or the Shortcut token (FT-155) | controller resolver | signed-in user or `SHORTCUT_CAPTURE_OWNER` | strict |
-| Budget user-scoped | `/api/budgets/users/:userId/...` | `requireAuth` (`allowGuestMode` until #206) | route middleware, after the check (FT-162) | `verifyOwnership` | strict |
-| Budget by-id | `/api/budgets/:budgetId` | `optionalAuth` | controller/resource lookup | `verifyResourceOwnership` | resource-strict |
+| Budgets — removed in #264 | `/api/budgets/users/:userId/...`, `/api/budgets/:budgetId...` | — (`404`) | — | — | — |
 | Debt user-scoped | `/api/debts/user/:userId` | `requireAuth` (`allowGuestMode` until #206) | route middleware, after the check (FT-162) | `verifyOwnership` | strict |
 | Debt by-id/payment | `/api/debts/:debtId...` | `optionalAuth` | controller/resource lookup | `verifyResourceOwnership` | resource-strict |
 | Dashboard — removed in #205 | `/api/dashboard/:userId...` | — (`404`) | — | — | — |
@@ -360,7 +361,7 @@ The column «Guest allowed» went with the guests (#206). A request without sign
   needs sign-in.
 - The by-id routes on `optionalAuth` (`optionalAuthOrAppToken` for delete, restore and edit of a record, FT-218):
   `/api/transactions/:id` and its `/restore`, `/archive`, `/unarchive`, `POST /api/transactions/archive/batch`,
-  `/api/budgets/:budgetId…`, `/api/debts/:debtId…` and `DELETE /api/debts/payments/:paymentId`. The controller looks
+  `/api/debts/:debtId…` and `DELETE /api/debts/payments/:paymentId`. The controller looks
   the record up and its owner check answers a request without sign-in `403 AUTHORIZATION_ERROR`.
 - Quick capture (`POST /api/quick-capture`, `/payment`) and the six FT-218 routes with the Shortcut token, which signs
   in as `SHORTCUT_CAPTURE_OWNER` instead of Telegram.

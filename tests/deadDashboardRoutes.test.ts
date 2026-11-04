@@ -19,7 +19,7 @@ describe('the backend dashboard is gone (#205)', () => {
 
   beforeAll(async () => {
     const app = express();
-    app.use('/api', buildServer(unusedModule, unusedModule, unusedModule, undefined));
+    app.use('/api', buildServer(unusedModule, unusedModule, undefined));
     server = await listenOnLoopback(app);
   });
 

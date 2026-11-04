@@ -7,7 +7,7 @@
  * - ~50 records over the last 30 days in the starter categories, a few of them in dollars;
  * - a transfer «Карта → Наличные» and an exchange «Доллары → Карта».
  *
- * Budgets are no longer seeded: they leave the interface (decision Д2).
+ * Budgets are not seeded: they are gone from the code (#264).
  *
  * Usage: npm run seed:test [-- --db=path/to/database.sqlite]
  * The database is migrated first, with a backup, as on app start.

@@ -151,11 +151,11 @@ describe('every section is at most 2 taps from Home', () => {
     expect(SECTIONS.filter((section) => !taps.has(section))).toEqual([]);
   });
 
-  // Д2, FT-125: budgets and debts leave the navigation; their code and data stay
-  it.each<HomeState>(['empty', 'with-records'])('budgets and debts are not offered, while %s', (state) => {
+  // Д2, FT-125: debts leave the navigation; budgets are gone from the code (#264)
+  it.each<HomeState>(['empty', 'with-records'])('debts are not offered, while %s', (state) => {
     const taps = [...reachable(state)];
 
-    expect(taps.filter((href) => href.startsWith(ROUTES.BUDGETS) || href.startsWith(ROUTES.DEBTS))).toEqual([]);
+    expect(taps.filter((href) => href.startsWith(ROUTES.DEBTS))).toEqual([]);
   });
 });
 
@@ -180,7 +180,7 @@ describe('«Назад» on nested screens', () => {
   it('outside Telegram a nested screen draws its own «Назад»', () => {
     expect(render(<MorePage />, ROUTES.MORE)).toMatch(BACK_BUTTON);
     expect(render(<PageHeader title="История" />, ROUTES.TRANSACTIONS)).toMatch(BACK_BUTTON);
-    expect(render(<FormPageHeader title="Новый бюджет" />, ROUTES.ADD_BUDGET)).toMatch(BACK_BUTTON);
+    expect(render(<FormPageHeader title="Новый долг" />, ROUTES.ADD_DEBT)).toMatch(BACK_BUTTON);
   });
 
   it('a plain browser with the Telegram SDK loaded is still outside Telegram', () => {
@@ -193,6 +193,6 @@ describe('«Назад» on nested screens', () => {
     vi.stubGlobal('window', { Telegram: { WebApp: telegramWebApp() } });
 
     expect(render(<PageHeader title="История" />, ROUTES.TRANSACTIONS)).not.toMatch(BACK_BUTTON);
-    expect(render(<FormPageHeader title="Новый бюджет" />, ROUTES.ADD_BUDGET)).not.toMatch(BACK_BUTTON);
+    expect(render(<FormPageHeader title="Новый долг" />, ROUTES.ADD_DEBT)).not.toMatch(BACK_BUTTON);
   });
 });

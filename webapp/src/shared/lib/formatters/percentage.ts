@@ -32,19 +32,6 @@ export function formatPercentage(
 }
 
 /**
- * Formats budget usage percentage
- * @param spent - Amount spent
- * @param total - Budget total amount
- * @returns Formatted percentage string (e.g., "75%")
- */
-export function formatBudgetUsage(spent: number, total: number): string {
-  if (total === 0) return '0%';
-
-  const percentage = (spent / total) * 100;
-  return `${Math.round(percentage)}%`;
-}
-
-/**
  * Formats change percentage with sign
  * @param change - Change value (e.g., 0.15 for +15%)
  * @returns Formatted change with sign (e.g., "+15%")

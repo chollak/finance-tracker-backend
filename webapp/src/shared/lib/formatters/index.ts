@@ -17,6 +17,5 @@ export {
 
 export {
   formatPercentage,
-  formatBudgetUsage,
   formatChangePercentage,
 } from './percentage';

@@ -31,7 +31,7 @@ export function parentPath(pathname: string): string | null {
   if (segments.length === 0) return null;
 
   // A section of one segment returns to Home: History, Analytics, «Ещё», the accounts (opened from Home and from
-  // «Ещё»), manual entry. Budgets and debts are out of the navigation (Д2, FT-125); an old link to them returns Home
+  // «Ещё»), manual entry. Debts are out of the navigation (Д2, FT-125); an old link to them returns Home
   if (segments.length === 1) return ROUTES.HOME;
   return `/${segments[0]}`;
 }

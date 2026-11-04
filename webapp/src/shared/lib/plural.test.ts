@@ -3,7 +3,6 @@ import {
   pluralRu,
   pluralWithCount,
   pluralDays,
-  pluralBudgets,
   pluralTransactions,
   pluralDebts,
   pluralActiveDebts,
@@ -78,7 +77,6 @@ describe('pluralWithCount', () => {
 describe('domain helpers', () => {
   it.each([
     [pluralDays, ['день', 'дня', 'дней', 'дней', 'день', 'день']],
-    [pluralBudgets, ['бюджет', 'бюджета', 'бюджетов', 'бюджетов', 'бюджет', 'бюджет']],
     [
       pluralTransactions,
       ['транзакция', 'транзакции', 'транзакций', 'транзакций', 'транзакция', 'транзакция'],
