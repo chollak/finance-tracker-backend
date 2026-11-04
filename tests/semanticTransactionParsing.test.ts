@@ -136,7 +136,8 @@ describe('ProcessVoiceInputUseCase - semanticType flow-through', () => {
     ]);
   });
 
-  it('writes the source it is given on each record: a voice from the bot stays `telegram` (#234)', async () => {
+  // Two values, so a source fixed in the use case would not pass: the bot's `telegram` and another one
+  it.each(['telegram', 'ios_shortcut'] as const)('writes the source it is given, %s, on each record (#234)', async source => {
     const openAIService = {
       transcribe: jest.fn().mockResolvedValue('кофе 25000 и такси 18000'),
       analyzeInput: jest.fn().mockResolvedValue({
@@ -153,10 +154,10 @@ describe('ProcessVoiceInputUseCase - semanticType flow-through', () => {
     } as unknown as CreateTransactionUseCase;
 
     const useCase = new ProcessVoiceInputUseCase(openAIService, createTransactionUseCase);
-    await useCase.execute({ filePath, userId: 'user1', source: 'telegram' });
+    await useCase.execute({ filePath, userId: 'user1', source });
 
     const written = (createTransactionUseCase.execute as jest.Mock).mock.calls.map(([transaction]) => transaction.source);
-    expect(written).toEqual(['telegram', 'telegram']);
+    expect(written).toEqual([source, source]);
   });
 
   it('hands what was heard to the caller first; when the caller takes it, nothing is parsed or written (FT-122)', async () => {
