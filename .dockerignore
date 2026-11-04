@@ -68,12 +68,12 @@ pids/
 # Optional REPL history
 .node_repl_history
 
-# Uploads and downloads (will be mounted as volumes)
+# Downloads and data (will be mounted as volumes). Nothing writes uploads/ since #221; a folder left on an older copy
+# stays out of the build context
 uploads/*
 downloads/*
 data/*
 
 # Keep structure but ignore content
-!uploads/.gitkeep
 !downloads/.gitkeep
 !data/.gitkeep

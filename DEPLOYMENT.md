@@ -50,7 +50,8 @@ Persistent local directories mounted into the container:
 
 - `./data:/app/data`
 - `./downloads:/app/downloads`
-- `./uploads:/app/uploads`
+
+`./uploads` is no longer mounted: the web voice upload that wrote there was removed in #221.
 
 ## Deploy with Node.js
 
