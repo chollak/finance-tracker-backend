@@ -6,6 +6,7 @@ struct RootView: View {
     let model: AppModel
 
     @State private var navigation = AppNavigation()
+    @State private var speech = LastPhraseSpeech()
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
@@ -38,10 +39,20 @@ struct RootView: View {
             guard let notice = model.records.notice, notice.undo?.isRestoring != true else { return }
             AccessibilityNotification.Announcement(notice.text).post()
         }
+        // VoiceOver hears what became of the phrase, whichever tab is open — on screen, as the haptic (#285)
+        .onChange(of: model.lastPhrase, initial: true) { phraseChanged() }
+        .onChange(of: model.voice.phase) { phraseChanged() }
     }
 
     private func openSettings() {
         navigation.showsSettings = true
+    }
+
+    /// Off screen a notification says it (FT-253): what came meanwhile is not said on return.
+    private func phraseChanged() {
+        let words = speech.news(model.lastPhrase, voice: model.voice.phase)
+        guard let words, scenePhase == .active else { return }
+        AccessibilityNotification.Announcement(words).post()
     }
 
     /// A tap on a notification opens its place first; the first press listens, a press while listening ends the
