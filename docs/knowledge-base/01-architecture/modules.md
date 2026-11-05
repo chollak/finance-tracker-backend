@@ -9,6 +9,7 @@ Backend-дашборда больше нет (#205): `GET /api/dashboard/*` вм
 ```mermaid
 graph TD
     TM[TransactionModule<br/>CRUD + Analytics]
+    DeM[DebtModule — остаток до #266<br/>только CreateDebtUseCase]
     VM[VoiceProcessingModule<br/>Voice/Text Processing]
     SM[SubscriptionModule<br/>Premium + Payments]
     UM[UserModule<br/>Users + Settings]
@@ -23,6 +24,8 @@ graph TD
     AuD[AuditModule<br/>Spending audit + goals]
 
     VM -->|depends on| TM
+    VM -.->|frozen capture path, until #266| DeM
+    DeM -->|linked record| TM
     TM -.->|setSubscriptionDependencies| SM
     TM -.->|setCategoryResolver| CM
     TM -.->|setAccountResolver| AM
@@ -43,6 +46,7 @@ graph TD
     SM -.->|grant: GrantTargets| UM
 
     style TM fill:#4CAF50,stroke:#2E7D32,color:#fff
+    style DeM fill:#BDBDBD,stroke:#757575,color:#000,stroke-dasharray: 5 5
     style VM fill:#FF9800,stroke:#E65100,color:#fff
     style SM fill:#FFD700,stroke:#B8860B,color:#000
     style UM fill:#00BCD4,stroke:#00838F,color:#fff
@@ -513,8 +517,10 @@ Health Score») и `AlertService` из `AnalyticsService` и `BudgetService`; in
 подписке, строки о долгах в `/premium` бота, экраны, сущность и типы долгов в webapp.
 
 Записи, которые когда-то создал долг или платёж по нему (`isDebtRelated`, `relatedDebtId`, `semanticType: debt`,
-старая категория `debt`), — обычные записи: читаются, правятся, удаляются и возвращаются как все, в итогах — движение
-по долгу вне доходов и расходов, как раньше (`tests/debtLinkedRecords.test.ts`). Таблицы `debts` и `debt_payments`,
+старая категория `debt`), — обычные записи: читаются, правятся, удаляются и возвращаются как все
+(`tests/debtLinkedRecords.test.ts`). В итогах они вне доходов и расходов по `semanticType: debt`, как раньше. Колонки
+связи `SqliteTransactionRepository` не читает (так и на `main`), поэтому ветка `isDebtRelated` в `periodTotals.ts` для
+записей из базы не срабатывает: запись со связью, но с `semanticType: expense` (до FT-072), считается расходом. Таблицы `debts` и `debt_payments`,
 их entity и строки остаются, миграции нет.
 
 **Что осталось до #266 (после FT-217).** Путь записи заморожен до отчёта и импортирует модуль долгов, поэтому в

@@ -58,16 +58,19 @@
 
 ## Готовые фичи
 
+> Таблица — снимок 2026-07-19. С тех пор бюджеты и долги ушли из интерфейса (Д2) и удалены из кода (#264, #265),
+> Supabase на паузе (FT-090: один путь — SQLite через TypeORM). Что живо сейчас — `CLAUDE.md`, «Module System».
+
 | Фича | Статус |
 |------|--------|
 | Голосовой ввод транзакций | ✅ Ready |
 | Текстовый ввод | ✅ Ready |
 | Просмотр транзакций (список, фильтры) | ✅ Ready |
-| Бюджеты с лимитами | ✅ Ready |
+| Бюджеты с лимитами | Удалены (#264) |
 | Analytics (категории, тренды) | ✅ Ready |
 | Telegram Mini App | ✅ Ready |
-| Supabase Production | ✅ Ready |
-| Долги (DebtModule, кто кому должен) | ✅ Ready |
+| Supabase Production | На паузе (FT-090) |
+| Долги (DebtModule, кто кому должен) | Удалены вне пути записи (#265), остаток — #266 |
 | Premium подписка + лимиты (SubscriptionModule) | ✅ Ready |
 | Оплата Telegram Stars | ✅ Ready |
 | 14-дневный Free Trial | ✅ Ready |
@@ -88,7 +91,7 @@ Free Trial) как TODO-блокеры запуска. Это устарело: 
 
 | # | Что считалось блокером | Фактический статус | Где реализовано |
 |---|------------------------|--------------------|------------------|
-| 1 | DebtModule | ✅ Done | `src/modules/debt/` |
+| 1 | DebtModule | ✅ Done, удалён вне пути записи в #265 | `src/modules/debt/` (остаток до #266) |
 | 2 | SubscriptionModule (Free/Premium + лимиты) | ✅ Done | `src/modules/subscription/` |
 | 3 | Payment Integration (Telegram Stars) | ✅ Done | `src/modules/subscription/infrastructure/TelegramPaymentService.ts`, `src/delivery/messaging/telegram/handlers/paymentHandlers.ts` |
 | 4 | Free Trial (14 дней) | ✅ Done | `StartTrialUseCase` в `src/modules/subscription/application/grantPremium.ts` |

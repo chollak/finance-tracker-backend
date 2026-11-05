@@ -17,7 +17,8 @@ import { listenOnLoopback, LoopbackServer } from './helpers/testServer';
  * #265 (decision 2026-11-04): the debt module is gone outside the capture path, the data is not. A record a debt or a
  * debt payment wrote before Д2 keeps its link — `isDebtRelated`, `relatedDebtId`, the old category `debt` — and the
  * `debts` / `debt_payments` rows it points at stay. Such a record is read, changed, deleted and restored like any
- * other, and totals keep it out of income and expenses as a debt movement, as before.
+ * other, and totals keep it out of income and expenses as before — by its `semanticType: debt`: the repository does not
+ * read `isDebtRelated` / `relatedDebtId` (as before #265), so the link alone changes nothing in totals.
  */
 
 const TELEGRAM_ID = '131265000';
@@ -131,7 +132,7 @@ describe('a record once written by a debt is an ordinary record (#265)', () => {
     });
   });
 
-  it('stays out of income and expenses in totals, as a debt movement', async () => {
+  it('stays out of income and expenses in totals by its meaning (semanticType: debt)', async () => {
     await recordOfADebt();
 
     const totals = await call('GET', `/totals?from=${DAY}&to=${DAY}`);
