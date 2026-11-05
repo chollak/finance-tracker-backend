@@ -9,7 +9,6 @@ export {
   formatDate,
   formatDateShort,
   formatDateTime,
-  formatRelativeDate,
   formatTransactionDate,
   formatMonthYear,
   getMonthName,

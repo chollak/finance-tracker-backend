@@ -28,10 +28,6 @@ export function PageShell({ children, className, as: Component = 'div' }: PageSh
   );
 }
 
-export function SectionStack({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cn('space-y-4 md:space-y-5', className)}>{children}</div>;
-}
-
 interface AmountTextProps {
   amount: number;
   tone?: Tone;

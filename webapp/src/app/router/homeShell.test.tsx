@@ -4,7 +4,8 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { createMemoryRouter, MemoryRouter, RouterProvider } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { HomePage, MorePage } from '@/pages';
-import { FormPageHeader, PageHeader } from '@/shared/ui';
+import { PageHeader } from '@/shared/ui';
+import { BackButton } from '@/shared/ui/pastel';
 import { ROUTES } from '@/shared/lib/constants/routes';
 import { useUserStore } from '@/entities/user';
 import { transactionKeys } from '@/entities/transaction';
@@ -151,11 +152,11 @@ describe('every section is at most 2 taps from Home', () => {
     expect(SECTIONS.filter((section) => !taps.has(section))).toEqual([]);
   });
 
-  // Д2, FT-125: debts leave the navigation; budgets are gone from the code (#264)
+  // Д2, FT-125: debts left the navigation; budgets (#264) and debts (#265) are gone from the code
   it.each<HomeState>(['empty', 'with-records'])('debts are not offered, while %s', (state) => {
     const taps = [...reachable(state)];
 
-    expect(taps.filter((href) => href.startsWith(ROUTES.DEBTS))).toEqual([]);
+    expect(taps.filter((href) => href.startsWith('/debts'))).toEqual([]);
   });
 });
 
@@ -180,7 +181,8 @@ describe('«Назад» on nested screens', () => {
   it('outside Telegram a nested screen draws its own «Назад»', () => {
     expect(render(<MorePage />, ROUTES.MORE)).toMatch(BACK_BUTTON);
     expect(render(<PageHeader title="История" />, ROUTES.TRANSACTIONS)).toMatch(BACK_BUTTON);
-    expect(render(<FormPageHeader title="Новый долг" />, ROUTES.ADD_DEBT)).toMatch(BACK_BUTTON);
+    // A screen that draws the round «Назад» itself, like the transfer (the form header went with the debts, #265)
+    expect(render(<BackButton />, ROUTES.TRANSFER())).toMatch(BACK_BUTTON);
   });
 
   it('a plain browser with the Telegram SDK loaded is still outside Telegram', () => {
@@ -193,6 +195,6 @@ describe('«Назад» on nested screens', () => {
     vi.stubGlobal('window', { Telegram: { WebApp: telegramWebApp() } });
 
     expect(render(<PageHeader title="История" />, ROUTES.TRANSACTIONS)).not.toMatch(BACK_BUTTON);
-    expect(render(<FormPageHeader title="Новый долг" />, ROUTES.ADD_DEBT)).not.toMatch(BACK_BUTTON);
+    expect(render(<BackButton />, ROUTES.TRANSFER())).not.toMatch(BACK_BUTTON);
   });
 });

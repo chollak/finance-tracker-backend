@@ -59,7 +59,6 @@ export function PremiumStatusCard({ subscription }: PremiumStatusCardProps) {
         <div className="space-y-2.5">
           <BenefitRow label="Транзакции" />
           <BenefitRow label="Голосовой ввод" />
-          <BenefitRow label="Активные долги" />
         </div>
 
         {/* Expiration info */}

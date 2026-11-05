@@ -26,7 +26,7 @@ export function useSubscription(userId: string | null) {
 
 /**
  * Hook to invalidate subscription data
- * Use this after creating/deleting transactions, debts, etc.
+ * Use this after creating/deleting transactions, etc.
  */
 export function useInvalidateSubscription() {
   const queryClient = useQueryClient();

@@ -9,6 +9,9 @@
 >
 > #264 (2026-11-04): budgets — `/api/budgets`, `budgetController.ts`, `BudgetModule` — are removed (decision
 > 2026-11-04); the budget findings below are history.
+>
+> #265 (2026-11-04): debts outside the capture path — `/api/debts`, `debtController.ts`, the debt use cases but
+> `CreateDebtUseCase` — are removed; the debt findings below are history.
 
 ## Scope
 
@@ -77,7 +80,7 @@ Main route families:
 /api/transactions
 /api/voice         (removed in #221)
 /api/budgets       (removed in #264)
-/api/debts
+/api/debts         (removed in #265)
 /api/dashboard      (removed in #205)
 /api/subscription
 /api/users

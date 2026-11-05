@@ -3,7 +3,7 @@
  * Tracks user's usage for free tier limits
  */
 
-export type LimitType = 'transactions' | 'voice_inputs' | 'debts';
+export type LimitType = 'transactions' | 'voice_inputs';
 
 export interface UsageLimit {
   id: string;
@@ -16,7 +16,6 @@ export interface UsageLimit {
   // Usage counters
   transactionsCount: number; // Current month transactions
   voiceInputsCount: number; // Current month voice inputs
-  activeDebtsCount: number; // Current active debts (not monthly, but total)
 
   // Timestamps
   createdAt: Date;
@@ -29,7 +28,6 @@ export interface UsageLimit {
 export const FREE_TIER_LIMITS = {
   transactions: 50, // per month
   voiceInputs: 10, // per month
-  activeDebts: 5, // total active at any time
 } as const;
 
 /**

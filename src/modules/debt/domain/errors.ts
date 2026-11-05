@@ -5,8 +5,8 @@
 import { AppError } from '../../../shared/domain/errors/AppError';
 
 /**
- * Error thrown when user has reached the maximum number of active debts
- * for their subscription tier (Free: 5, Premium: unlimited)
+ * The limit of active debts on the free tier. The limit is gone (#265) and nothing throws this any more; the frozen
+ * capture path still checks for it until #266.
  */
 export class DebtLimitExceededError extends AppError {
   readonly code = 'DEBT_LIMIT_EXCEEDED';

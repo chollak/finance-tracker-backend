@@ -74,11 +74,9 @@ export function registerPaymentHandlers(
         const usage = (used: number, limit: number | null) => (limit === null ? `${used} · без лимита` : `${used}/${limit}`);
         message += `📝 Транзакции: ${usage(limits.transactions.used, limits.transactions.limit)}\n`;
         message += `🎤 Голосовые: ${usage(limits.voiceInputs.used, limits.voiceInputs.limit)}\n`;
-        message += `💰 Активные долги: ${usage(limits.activeDebts.used, limits.activeDebts.limit)}\n`;
         message += `\n⭐ *Premium (${SUBSCRIPTION_PRICE_STARS} Stars/мес):*\n`;
         message += '✅ Безлимитные транзакции\n';
         message += '✅ Безлимитные голосовые\n';
-        message += '✅ Безлимитные долги\n';
         message += '✅ Полная аналитика\n';
         message += '\nНажмите кнопку ниже для оплаты:';
 
@@ -186,7 +184,6 @@ export function registerPaymentHandlers(
           'Теперь вам доступны:\n' +
           '✅ Безлимитные транзакции\n' +
           '✅ Безлимитные голосовые\n' +
-          '✅ Безлимитные долги\n' +
           '✅ Полная аналитика\n\n' +
           'Приятного использования! 🚀',
         { parse_mode: 'Markdown' }

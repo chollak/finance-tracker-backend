@@ -32,12 +32,12 @@ Finance Tracker Backend — это backend система для управле�
 Как устроена система, модули, паттерны проектирования:
 
 - [**Overview**](01-architecture/overview.md) - Clean Architecture layers, dependency flow
-- [**Modules**](01-architecture/modules.md) - 14 модулей системы, их зависимости
+- [**Modules**](01-architecture/modules.md) - 13 модулей системы, их зависимости
 - [**Patterns**](01-architecture/patterns.md) - Repository, DI, Factory, Use Case, Result Pattern
 - [**Runtime / Process Mode**](01-architecture/runtime-process-mode.md) - API/Bot/Worker process-mode decision
 - [**API / Domain Consistency Audit**](01-architecture/api-domain-consistency-audit.md) - FT-018 controller/use-case/API contract audit
 - [**Auth / User Resolution Boundary Matrix**](01-architecture/auth-user-resolution-boundary-matrix.md) - FT-024 auth/guest/ownership boundaries
-- [**Transaction / Debt Relationship Audit**](01-architecture/transaction-debt-relationship-audit.md) - FT-021 debt/transaction accounting semantics
+- [**Transaction / Debt Relationship Audit**](01-architecture/transaction-debt-relationship-audit.md) - FT-021, архив: долги удалены в #265
 - [**DTO / Schema Validation Consistency Audit**](01-architecture/dto-schema-validation-audit.md) - FT-023 validation layering policy
 
 ### 🔄 [Data Flow](07-data-flow/)
@@ -70,7 +70,6 @@ Finance Tracker Backend — это backend система для управле�
 
 ### Module Structure
 - [`src/modules/transaction/transactionModule.ts`](../../src/modules/transaction/transactionModule.ts) - Transaction Module
-- [`src/modules/debt/debtModule.ts`](../../src/modules/debt/debtModule.ts) - Debt Module
 - [`src/modules/voiceProcessing/voiceProcessingModule.ts`](../../src/modules/voiceProcessing/voiceProcessingModule.ts) - Voice Processing Module
 - [`src/modules/subscription/subscriptionModule.ts`](../../src/modules/subscription/subscriptionModule.ts) - Subscription Module
 - [`src/modules/user/userModule.ts`](../../src/modules/user/userModule.ts) - User Module
@@ -133,8 +132,7 @@ docker compose up -d --build
 ```
 TransactionModule (independent)
     ↑
-    ├─── DebtModule (linked-транзакции при передаче денег; + Subscription, User)
-    └─── VoiceProcessingModule (использует CreateTransactionUseCase; + DebtModule)
+    └─── VoiceProcessingModule (использует CreateTransactionUseCase; до #266 — и остаток DebtModule)
 
 UserModule — независимый модуль
 SubscriptionModule — использует UserModule на уровне контроллера (telegram_id → UUID)
@@ -142,7 +140,7 @@ SubscriptionModule — использует UserModule на уровне кон�
 Backend-дашборда (/api/dashboard, DashboardService) нет с #205, бюджетов (BudgetModule, /api/budgets) — с #264
 ```
 
-Полная схема с 14 модулями и mermaid-диаграммой — в [Modules](01-architecture/modules.md).
+Полная схема с 13 модулями и mermaid-диаграммой — в [Modules](01-architecture/modules.md).
 
 ---
 

@@ -57,10 +57,6 @@ describe('parentPath — where «Назад» leads when there is no app screen 
     expect(parentPath('/transactions/')).toBe('/');
   });
 
-  it('debts are out of the navigation (Д2, FT-125): opened by an old link they return to Home', () => {
-    expect(parentPath('/debts')).toBe('/');
-  });
-
   it('the accounts open from Home and from «Ещё» and return to Home', () => {
     expect(parentPath('/accounts')).toBe('/');
   });
@@ -70,16 +66,16 @@ describe('parentPath — where «Назад» leads when there is no app screen 
     expect(parentPath('/accounts/transfer')).toBe('/accounts');
     expect(parentPath('/accounts/a1')).toBe('/accounts');
     expect(parentPath('/more/categories')).toBe('/more');
-    expect(parentPath('/debts/add')).toBe('/debts');
-    expect(parentPath('/debts/d1')).toBe('/debts');
+    expect(parentPath('/analytics/categories/c1')).toBe('/analytics');
   });
 
   it('manual entry is a way to write, not part of History: it returns to Home', () => {
     expect(parentPath('/add')).toBe('/');
   });
 
-  it('an unknown address returns to Home', () => {
+  it('an unknown address returns to Home, an old link to the debts too (gone since #265)', () => {
     expect(parentPath('/no-such-screen')).toBe('/');
+    expect(parentPath('/debts')).toBe('/');
   });
 });
 
@@ -134,7 +130,7 @@ describe('backControl — which «Назад» a screen gets', () => {
 
   it('nested screens outside Telegram draw their own «Назад»', () => {
     expect(backControl('/analytics', false)).toBe('own');
-    expect(backControl('/debts/d1', false)).toBe('own');
+    expect(backControl('/accounts/a1', false)).toBe('own');
   });
 
   it('Home has neither', () => {
@@ -262,21 +258,21 @@ describe('closeStep — a form closes after a save or a delete the way «Наз�
     expect(history.path).toBe('/transactions');
   });
 
-  it('a deleted debt is never shown again: «Назад» walks the list, then Home', () => {
+  it('a hidden account is never shown again: «Назад» walks the list, then Home', () => {
     const history = appHistory('/');
-    history.open('/debts');
-    history.open('/debts/d1');
+    history.open('/accounts');
+    history.open('/accounts/a1');
 
     history.close();
     const visited = [history.path];
     history.back();
     visited.push(history.path);
 
-    expect(visited).toEqual(['/debts', '/']);
+    expect(visited).toEqual(['/accounts', '/']);
     expect(backStep(history.path, 0)).toBeNull();
   });
 
-  it('a done transfer, a hidden account and a created debt leave no screen under their list', () => {
+  it('a done transfer, a hidden account and a changed category leave no screen under their list', () => {
     for (const form of ['/accounts/transfer', '/accounts/a1']) {
       const history = appHistory('/');
       history.open('/accounts');
@@ -287,10 +283,10 @@ describe('closeStep — a form closes after a save or a delete the way «Наз�
     }
 
     const history = appHistory('/');
-    history.open('/debts');
-    history.open('/debts/add');
+    history.open('/more');
+    history.open('/more/categories');
     history.close();
-    expect(history.stack).toEqual(['/', '/debts']);
+    expect(history.stack).toEqual(['/', '/more']);
   });
 
   it('a form opened by a link from the bot gives its place to its parent, so the app never shows it again', () => {

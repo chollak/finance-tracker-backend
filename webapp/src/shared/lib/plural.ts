@@ -29,15 +29,6 @@ export function pluralTransactions(count: number): string {
   return pluralRu(count, 'транзакция', 'транзакции', 'транзакций');
 }
 
-export function pluralDebts(count: number): string {
-  return pluralRu(count, 'долг', 'долга', 'долгов');
-}
-
-/** «1 активный долг» / «2 активных долга» / «5 активных долгов» */
-export function pluralActiveDebts(count: number): string {
-  return pluralRu(count, 'активный долг', 'активных долга', 'активных долгов');
-}
-
 export function pluralCategories(count: number): string {
   return pluralRu(count, 'категория', 'категории', 'категорий');
 }

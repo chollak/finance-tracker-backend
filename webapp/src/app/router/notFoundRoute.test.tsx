@@ -103,6 +103,19 @@ describe('an unknown address', () => {
     }
   });
 
+  it('includes the old debt screens: they are gone from the code (#265)', () => {
+    for (const path of ['/debts', '/debts/add', '/debts/d1']) {
+      expect({ path, route: matchRoutes(appRoutes, path)?.at(-1)?.route.path }).toEqual({ path, route: '*' });
+    }
+  });
+
+  it('an old link to a debt says «Такой страницы нет» (#265)', async () => {
+    await open('/debts/d1');
+    await until(() => title() === TITLE);
+
+    expect(squash(document.body.querySelector('h1 + p')?.textContent)).toBe(TEXT);
+  });
+
   it('says the page is not there and where the records are, under the Kapelka sign, with «На главную»', async () => {
     await open(UNKNOWN);
     await until(() => title() === TITLE);

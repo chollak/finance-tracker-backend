@@ -46,7 +46,7 @@ export class SubscriptionController {
         return handleControllerError(ErrorFactory.validation('limitType is required'), res);
       }
 
-      const validLimitTypes = ['transactions', 'voice_inputs', 'debts'];
+      const validLimitTypes = ['transactions', 'voice_inputs'];
       if (!validLimitTypes.includes(limitType)) {
         return handleControllerError(
           ErrorFactory.validation(

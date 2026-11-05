@@ -7,6 +7,10 @@ import {
   OneToMany
 } from 'typeorm';
 
+// Debts are gone from the code outside the capture path (#265, decision 2026-11-04): only CreateDebtUseCase, which the
+// frozen capture path holds until #266, can still write this table, and nothing reads it. The entity stays so the
+// `debts` table and its rows are kept and the schema check (`findSchemaDrift`, `npm run migration:show`) still matches
+// it; dropping the table is a change to real data and waits for a separate «да».
 type DebtPaymentRelation = {
   id: string;
   debtId: string;

@@ -6,7 +6,7 @@
  *   BASE_URL=http://127.0.0.1:3000 npm run design:audit
  *   VIEWPORT_WIDTH=390 VIEWPORT_HEIGHT=844 npm run design:audit
  *   AUTH_MODE=telegram TELEGRAM_USER_ID=131184740 npm run design:audit
- *   ROUTES=/add,/debts/add npm run design:audit
+ *   ROUTES=/add,/accounts npm run design:audit
  *   SCROLL_TO=bottom npm run design:audit
  *
  * The script expects a running app. It does not start servers.
@@ -51,10 +51,8 @@ const outDir = process.env.OUT_DIR || path.resolve(process.cwd(), 'tmp/mobile-ui
 const defaultRoutes = [
   { name: 'home', path: '/' },
   { name: 'transactions', path: '/transactions' },
-  { name: 'debts', path: '/debts' },
   { name: 'more', path: '/more' },
   { name: 'manual-entry', path: '/add' },
-  { name: 'add-debt', path: '/debts/add' },
   { name: 'analytics', path: '/analytics' },
 ];
 
