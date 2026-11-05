@@ -31,15 +31,18 @@ struct RecordsRevealTests {
     func refreshingShows() async throws {
         let answer = Gate()
         let routes = RoutedTransport(page: [.held(answer, .http(200, body: page(["a"])))])
-        let (list, _) = try list(routes)
+        let (list, clock) = try list(routes)
 
-        async let opened: Void = list.screenChanged(onScreen: true)
-        #expect(await eventually { await MainActor.run { list.status == .refreshing } })
-        #expect(list.caption == "Обновляю…")
+        // As `RootView` opens the tab: the line says it at once, and while the page is on its way
+        #expect(list.setOnScreen(true))
+        let opened = list.startRefresh()
+        #expect(list.status == .refreshing)
+        #expect(await eventually { await routes.pages.requests.count == 1 })
+        #expect(list.caption(at: clock.now) == "Обновляю…")
         answer.open()
-        await opened
+        await opened.value
 
-        #expect(list.caption == "Обновлено только что")
+        #expect(list.caption(at: clock.now) == "Обновлено только что")
     }
 
     @Test("потянул вниз — только системный индикатор: подпись прежняя, пока страница в пути")
@@ -55,11 +58,11 @@ struct RecordsRevealTests {
 
         async let pulled: Void = list.refresh(pulled: true)
         #expect(await eventually { await routes.pages.requests.count == 2 })
-        #expect(list.caption == "Обновлено 5 мин назад")
+        #expect(list.caption(at: clock.now) == "Обновлено 5 мин назад")
         answer.open()
         await pulled
 
-        #expect(list.caption == "Обновлено только что")
+        #expect(list.caption(at: clock.now) == "Обновлено только что")
     }
 
     @Test("подпись идёт со временем, список по таймеру не обновляется")
@@ -82,7 +85,7 @@ struct RecordsRevealTests {
 
         await list.refresh()
 
-        #expect(list.caption == "Нет связи · обновлено в 14:32")
+        #expect(list.caption(at: clock.now) == "Нет связи · обновлено в 14:32")
     }
 
     // MARK: To the record
@@ -91,7 +94,7 @@ struct RecordsRevealTests {
     func revealsLoaded() async throws {
         let routes = RoutedTransport(page: [.http(200, body: page(["a", "b"]))])
         let (list, _) = try list(routes)
-        await list.screenChanged(onScreen: true)
+        await list.rootViewChanged(onScreen: true)
 
         list.reveal("b")
 
@@ -109,7 +112,7 @@ struct RecordsRevealTests {
             .http(200, body: page(["old"], date: "2026-10-20")),
         ])
         let (list, _) = try list(routes)
-        await list.screenChanged(onScreen: true)
+        await list.rootViewChanged(onScreen: true)
         await list.loadMore()
 
         list.reveal("old")
@@ -122,7 +125,7 @@ struct RecordsRevealTests {
     func notLoadedOpensTop() async throws {
         let routes = RoutedTransport(page: [.http(200, body: page(["a"], next: "cursor-1"))])
         let (list, _) = try list(routes)
-        await list.screenChanged(onScreen: true)
+        await list.rootViewChanged(onScreen: true)
 
         list.reveal("day-before-yesterday")
 
@@ -138,7 +141,7 @@ struct RecordsRevealTests {
             .held(answer, .http(200, body: page(["new", "a"]))),
         ])
         let (list, _) = try list(routes)
-        await list.screenChanged(onScreen: true)
+        await list.rootViewChanged(onScreen: true)
 
         list.startRefresh()
         list.reveal("new")
@@ -157,7 +160,7 @@ struct RecordsRevealTests {
 
         list.reveal("new")
         #expect(list.scroll == nil)
-        await list.screenChanged(onScreen: true)
+        await list.rootViewChanged(onScreen: true)
 
         #expect(list.scroll?.target == .record("new"))
     }
@@ -166,7 +169,7 @@ struct RecordsRevealTests {
     func scrollTakenOnce() async throws {
         let routes = RoutedTransport(page: [.http(200, body: page(["a"]))])
         let (list, _) = try list(routes)
-        await list.screenChanged(onScreen: true)
+        await list.rootViewChanged(onScreen: true)
 
         list.reveal("a")
         let first = try #require(list.scroll)
@@ -185,7 +188,7 @@ struct RecordsRevealTests {
             edits: [.http(200, body: RecordsReply.deleted("b"))]
         )
         let (list, _) = try list(routes)
-        await list.screenChanged(onScreen: true)
+        await list.rootViewChanged(onScreen: true)
         await list.delete("b")
 
         list.reveal("b")
@@ -199,7 +202,7 @@ struct RecordsRevealTests {
     func focusFollowsReveal() async throws {
         let routes = RoutedTransport(page: [.http(200, body: page(["a", "b"], next: "cursor-1"))])
         let (list, _) = try list(routes)
-        await list.screenChanged(onScreen: true)
+        await list.rootViewChanged(onScreen: true)
 
         list.reveal("b")
         let loaded = try #require(list.scroll)
