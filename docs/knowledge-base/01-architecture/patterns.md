@@ -17,8 +17,8 @@
 ```typescript
 // Domain interface
 interface TransactionRepository {
-  save(transaction: Transaction): Promise<string>;
-  getAll(): Promise<Transaction[]>;
+  create(transaction: Transaction): Promise<Transaction>;
+  findByUserId(userId: string): Promise<Transaction[]>;
   findById(id: string): Promise<Transaction | null>;
 }
 
@@ -30,7 +30,7 @@ class CreateTransactionUseCase {
   constructor(private repository: TransactionRepository) {}
 
   async execute(data) {
-    return this.repository.save(data);
+    return this.repository.create(data);
   }
 }
 ```
@@ -135,7 +135,7 @@ class CreateTransactionUseCase {
 - ✅ Явная бизнес-логика
 
 **Где используется:**
-- `CreateTransactionUseCase`, `GetTransactionsUseCase`, etc.
+- `CreateTransactionUseCase`, `GetTransactionHistoryUseCase`, etc.
 - `CreateAccountUseCase`, `UpdateAccountUseCase`, etc.
 - `ProcessVoiceInputUseCase`, `ProcessTextInputUseCase`
 
