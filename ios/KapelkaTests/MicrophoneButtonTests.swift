@@ -6,7 +6,7 @@ import Testing
 @Suite("Записать: кнопка микрофона для VoiceOver")
 struct MicrophoneButtonTests {
     @Test(
-        "название по фазе: сказать трату, отменить включение, закончить фразу; пока фраза пишется — «Записываю…» и неактивна",
+        "название по фазе: сказать трату, отменить включение, закончить фразу; пока фраза пишется — «Записываю…», для VoiceOver неактивна",
         arguments: [
             (VoiceCapture.Phase.idle, "Сказать трату", true),
             (.starting, "Отменить", true),
@@ -17,6 +17,6 @@ struct MicrophoneButtonTests {
     )
     func byPhase(phase: VoiceCapture.Phase, label: String, enabled: Bool) {
         #expect(MicrophoneButtonState.label(phase) == label)
-        #expect(MicrophoneButtonState.isEnabled(phase) == enabled)
+        #expect(MicrophoneButtonState.respondsToPress(phase) == enabled)
     }
 }

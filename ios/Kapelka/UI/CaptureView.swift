@@ -217,15 +217,19 @@ private struct MicrophoneButton: View {
                 .background(Circle().fill(Color.primary))
         }
         .buttonStyle(.plain)
-        .disabled(!MicrophoneButtonState.isEnabled(phase))
         .frame(maxWidth: .infinity)
-        .accessibilityLabel(MicrophoneButtonState.label(phase))
+        // Off for VoiceOver only, «недоступно» after the name: the look and the taps stay as they are — they are the
+        // way of recording, frozen until FT-217 (#198). `.disabled` on the button itself would grey the circle
+        .accessibilityRepresentation {
+            Button(MicrophoneButtonState.label(phase), action: action)
+                .disabled(!MicrophoneButtonState.respondsToPress(phase))
+        }
     }
 }
 
-/// What the microphone button is in each phase (#285): its name for VoiceOver says what a press does
+/// What the microphone button is for VoiceOver in each phase (#285): its name says what a press does
 /// (`VoiceCapture.toggle`) — it cancels a start, ends the phrase being heard, and does nothing once the phrase ends and
-/// is written: the button is off then.
+/// is written: VoiceOver hears the button off then.
 enum MicrophoneButtonState {
     static func label(_ phase: VoiceCapture.Phase) -> String {
         switch phase {
@@ -236,7 +240,7 @@ enum MicrophoneButtonState {
         }
     }
 
-    static func isEnabled(_ phase: VoiceCapture.Phase) -> Bool {
+    static func respondsToPress(_ phase: VoiceCapture.Phase) -> Bool {
         switch phase {
         case .idle, .starting, .listening: true
         case .finishing, .saving: false
