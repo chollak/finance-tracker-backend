@@ -89,17 +89,11 @@ function buildTransactionTestApp(options: { userModule?: UserModule } = {}) {
   router.use('/transactions', createTransactionRouter(
     createUseCase,
     getUseCase,
-    analyticsService,
     getUserUseCase,
     getByIdUseCase,
     deleteUseCase,
     updateUseCase,
     updateWithLearningUseCase,
-    archiveUseCase,
-    unarchiveUseCase,
-    archiveMultipleUseCase,
-    archiveAllByUserUseCase,
-    getArchivedUseCase,
     undefined,
     options.userModule,
     restoreUseCase

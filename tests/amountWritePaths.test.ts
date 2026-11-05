@@ -74,12 +74,10 @@ describe('FT-097: every writer may send amountMinor or the old amount', () => {
       new CreateTransactionUseCase(repo),
       unused,
       unused,
-      unused,
       new GetTransactionByIdUseCase(repo),
       unused,
       new UpdateTransactionUseCase(repo),
       new UpdateTransactionWithLearningUseCase(repo),
-      unused, unused, unused, unused, unused,
       undefined,
       users
     ));

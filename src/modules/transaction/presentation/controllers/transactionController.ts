@@ -3,17 +3,11 @@ import { CreateTransactionUseCase } from '../../application/createTransaction';
 import { GetTransactionHistoryUseCase } from '../../application/getTransactionHistory';
 import { GetPeriodTotalsUseCase } from '../../application/getPeriodTotals';
 import { GetFrequentRecordsUseCase } from '../../application/getFrequentRecords';
-import { AnalyticsService } from '../../application/analyticsService';
 import { GetUserTransactionsUseCase } from '../../application/getUserTransactions';
 import { GetTransactionByIdUseCase } from '../../application/getTransactionById';
 import { DeleteTransactionUseCase, RestoreTransactionUseCase } from '../../application/deleteTransaction';
 import { UpdateTransactionUseCase } from '../../application/updateTransaction';
 import { UpdateTransactionWithLearningUseCase } from '../../application/updateTransactionWithLearning';
-import { ArchiveTransactionUseCase } from '../../application/archiveTransaction';
-import { UnarchiveTransactionUseCase } from '../../application/unarchiveTransaction';
-import { ArchiveMultipleTransactionsUseCase } from '../../application/archiveMultipleTransactions';
-import { ArchiveAllByUserUseCase } from '../../application/archiveAllByUser';
-import { GetArchivedTransactionsUseCase } from '../../application/getArchivedTransactions';
 import { Transaction } from '../../domain/transactionEntity';
 import { TransactionValidator } from '../../../../shared/application/validation/transactionValidator';
 import { handleControllerError, handleControllerSuccess, getStringParam } from '../../../../shared/infrastructure/utils/controllerHelpers';
@@ -52,7 +46,7 @@ async function verifyTransactionOwnershipWithResult(
   transactionId: string,
   getByIdUseCase: GetTransactionByIdUseCase,
   userModule?: UserModule,
-  options?: { includeArchived?: boolean; includeDeleted?: boolean }
+  options?: { includeDeleted?: boolean }
 ): Promise<{ success: true; transaction: Transaction } | { success: false; error: Error }> {
   const result = await getByIdUseCase.execute(transactionId, options);
 
@@ -73,17 +67,11 @@ async function verifyTransactionOwnershipWithResult(
 export function createTransactionRouter(
   createUseCase: CreateTransactionUseCase,
   historyUseCase: GetTransactionHistoryUseCase,
-  analyticsService: AnalyticsService,
   getUserUseCase: GetUserTransactionsUseCase,
   getByIdUseCase: GetTransactionByIdUseCase,
   deleteUseCase: DeleteTransactionUseCase,
   updateUseCase: UpdateTransactionUseCase,
   updateWithLearningUseCase: UpdateTransactionWithLearningUseCase,
-  archiveUseCase: ArchiveTransactionUseCase,
-  unarchiveUseCase: UnarchiveTransactionUseCase,
-  archiveMultipleUseCase: ArchiveMultipleTransactionsUseCase,
-  archiveAllByUserUseCase: ArchiveAllByUserUseCase,
-  getArchivedUseCase: GetArchivedTransactionsUseCase,
   // Kept for the router's call signature; usage is counted in CreateTransactionUseCase.
   _subscriptionModule?: SubscriptionModule,
   userModule?: UserModule,
@@ -100,106 +88,6 @@ export function createTransactionRouter(
 
   // Apply rate limiting to all routes
   router.use(standardRateLimiter);
-
-  // Enhanced analytics endpoints with time filtering
-  // Protected with auth + ownership verification
-  router.get('/analytics/summary/:userId', requireAuth, verifyOwnership, resolveUser, async (req, res) => {
-    try {
-      // Use resolved UUID from middleware (falls back to raw param if not resolved)
-      const userId = req.resolvedUser?.id || req.params.userId;
-      const { startDate, endDate } = req.query;
-
-      let timeRange = undefined;
-      if (startDate && endDate) {
-        timeRange = {
-          startDate: new Date(startDate as string),
-          endDate: new Date(endDate as string)
-        };
-      }
-
-      const summary = await analyticsService.getAnalyticsSummary(userId, timeRange);
-      handleControllerSuccess(summary, res);
-    } catch (error) {
-      handleControllerError(error, res);
-    }
-  });
-
-  router.get('/analytics/categories/:userId', requireAuth, verifyOwnership, resolveUser, async (req, res) => {
-    try {
-      // Use resolved UUID from middleware
-      const userId = req.resolvedUser?.id || req.params.userId;
-      const { startDate, endDate } = req.query;
-
-      let timeRange = undefined;
-      if (startDate && endDate) {
-        timeRange = {
-          startDate: new Date(startDate as string),
-          endDate: new Date(endDate as string)
-        };
-      }
-
-      const breakdown = await analyticsService.getDetailedCategoryBreakdown(userId, timeRange);
-      handleControllerSuccess(breakdown, res);
-    } catch (error) {
-      handleControllerError(error, res);
-    }
-  });
-
-  router.get('/analytics/trends/:userId', requireAuth, verifyOwnership, resolveUser, async (req, res) => {
-    try {
-      // Use resolved UUID from middleware
-      const userId = req.resolvedUser?.id || req.params.userId;
-      const months = req.query.months ? parseInt(req.query.months as string) : 12;
-
-      const trends = await analyticsService.getMonthlyTrends(userId, months);
-      handleControllerSuccess(trends, res);
-    } catch (error) {
-      handleControllerError(error, res);
-    }
-  });
-
-  router.get('/analytics/patterns/:userId', requireAuth, verifyOwnership, resolveUser, async (req, res) => {
-    try {
-      // Use resolved UUID from middleware
-      const userId = req.resolvedUser?.id || req.params.userId;
-      const { startDate, endDate } = req.query;
-
-      let timeRange = undefined;
-      if (startDate && endDate) {
-        timeRange = {
-          startDate: new Date(startDate as string),
-          endDate: new Date(endDate as string)
-        };
-      }
-
-      const patterns = await analyticsService.getSpendingPatterns(userId, timeRange);
-      handleControllerSuccess(patterns, res);
-    } catch (error) {
-      handleControllerError(error, res);
-    }
-  });
-
-  router.get('/analytics/top-categories/:userId', requireAuth, verifyOwnership, resolveUser, async (req, res) => {
-    try {
-      // Use resolved UUID from middleware
-      const userId = req.resolvedUser?.id || req.params.userId;
-      const { startDate, endDate, limit } = req.query;
-
-      let timeRange = undefined;
-      if (startDate && endDate) {
-        timeRange = {
-          startDate: new Date(startDate as string),
-          endDate: new Date(endDate as string)
-        };
-      }
-
-      const limitNum = limit ? parseInt(limit as string) : 5;
-      const topCategories = await analyticsService.getTopCategories(userId, timeRange, limitNum);
-      handleControllerSuccess(topCategories, res);
-    } catch (error) {
-      handleControllerError(error, res);
-    }
-  });
 
   // Usage is counted by CreateTransactionUseCase, once per created transaction — a route-level
   // increment here counted every POST twice.
@@ -456,133 +344,6 @@ export function createTransactionRouter(
         200,
         SUCCESS_MESSAGES.TRANSACTION_UPDATED
       );
-    } catch (error) {
-      handleControllerError(error, res);
-    }
-  });
-
-  // Archive endpoints - require ownership verification
-  router.post('/:id/archive', requireAuth, async (req, res) => {
-    try {
-      const transactionId = getStringParam(req, 'id');
-
-      if (!transactionId) {
-        const error = ErrorFactory.validation('Transaction ID is required');
-        return handleControllerError(error, res);
-      }
-
-      // Verify ownership before archiving
-      const ownershipResult = await verifyTransactionOwnershipWithResult(req, transactionId, getByIdUseCase, userModule);
-      if (!ownershipResult.success) {
-        return handleControllerError(ownershipResult.error, res);
-      }
-
-      const archiveResult = await archiveUseCase.execute(transactionId);
-      if (!archiveResult.success) {
-        return handleControllerError(archiveResult.error, res);
-      }
-
-      handleControllerSuccess(
-        { message: 'Transaction archived successfully' },
-        res,
-        200
-      );
-    } catch (error) {
-      handleControllerError(error, res);
-    }
-  });
-
-  router.post('/:id/unarchive', requireAuth, async (req, res) => {
-    try {
-      const transactionId = getStringParam(req, 'id');
-
-      if (!transactionId) {
-        const error = ErrorFactory.validation('Transaction ID is required');
-        return handleControllerError(error, res);
-      }
-
-      // Verify ownership before unarchiving. The transaction is archived by
-      // definition here, so the lookup has to include archived rows.
-      const ownershipResult = await verifyTransactionOwnershipWithResult(
-        req,
-        transactionId,
-        getByIdUseCase,
-        userModule,
-        { includeArchived: true }
-      );
-      if (!ownershipResult.success) {
-        return handleControllerError(ownershipResult.error, res);
-      }
-
-      const unarchiveResult = await unarchiveUseCase.execute(transactionId);
-      if (!unarchiveResult.success) {
-        return handleControllerError(unarchiveResult.error, res);
-      }
-
-      handleControllerSuccess(
-        { message: 'Transaction unarchived successfully' },
-        res,
-        200
-      );
-    } catch (error) {
-      handleControllerError(error, res);
-    }
-  });
-
-  router.post('/archive/batch', requireAuth, async (req, res) => {
-    try {
-      const { ids } = req.body;
-
-      if (!ids || !Array.isArray(ids) || ids.length === 0) {
-        const error = ErrorFactory.validation('Array of transaction IDs is required');
-        return handleControllerError(error, res);
-      }
-
-      // Verify ownership for ALL transactions before archiving any
-      for (const transactionId of ids) {
-        const ownershipResult = await verifyTransactionOwnershipWithResult(req, transactionId, getByIdUseCase, userModule);
-        if (!ownershipResult.success) {
-          return handleControllerError(ownershipResult.error, res);
-        }
-      }
-
-      const result = await archiveMultipleUseCase.execute(ids);
-      handleControllerSuccess(result, res, 200);
-    } catch (error) {
-      handleControllerError(error, res);
-    }
-  });
-
-  router.post('/archive/all/:userId', requireAuth, verifyOwnership, resolveUser, async (req, res) => {
-    try {
-      // Use resolved UUID from middleware
-      const userId = req.resolvedUser?.id || getStringParam(req, 'userId');
-
-      if (!userId) {
-        const error = ErrorFactory.validation('User ID is required');
-        return handleControllerError(error, res);
-      }
-
-      const result = await archiveAllByUserUseCase.execute(userId);
-      handleControllerSuccess(result, res, 200);
-    } catch (error) {
-      handleControllerError(error, res);
-    }
-  });
-
-  router.get('/archived/user/:userId', requireAuth, verifyOwnership, resolveUser, async (req, res) => {
-    try {
-      // Use resolved UUID from middleware
-      const userId = req.resolvedUser?.id || getStringParam(req, 'userId');
-      const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
-
-      if (!userId) {
-        const error = ErrorFactory.validation('User ID is required');
-        return handleControllerError(error, res);
-      }
-
-      const transactions = await getArchivedUseCase.execute(userId, limit);
-      handleControllerSuccess(transactions, res);
     } catch (error) {
       handleControllerError(error, res);
     }

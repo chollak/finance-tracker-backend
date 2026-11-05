@@ -103,10 +103,10 @@ describe('soft delete and restore of records (FT-105)', () => {
       const app = express();
       app.use(express.json());
       app.use('/api/transactions', createTransactionRouter(
-        records.create, unused, unused, unused,
+        records.create, unused, unused,
         new GetTransactionByIdUseCase(records.repository),
         new DeleteTransactionUseCase(records.repository),
-        records.update, unused, unused, unused, unused, unused, unused,
+        records.update, unused,
         undefined, users,
         new RestoreTransactionUseCase(records.repository)
       ));
