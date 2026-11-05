@@ -242,10 +242,11 @@ struct CategoryPickerTests {
             id: "b", date: "2026-10-29", createdAt: "2026-10-29T09:00:00.000Z",
             categoryId: "cat-food", category: "Продукты", merchant: "KORZINKA 12", needsReview: true
         )
+        let answer = Gate()
         let routes = RoutedTransport(
             page: [Self.firstPage],
             categories: [Self.categories],
-            edits: [.after(.milliseconds(300), .http(200, body: RecordsReply.one(edited)))]
+            edits: [.held(answer, .http(200, body: RecordsReply.one(edited)))]
         )
         let list = try list(routes)
         await list.refresh()
@@ -258,6 +259,7 @@ struct CategoryPickerTests {
         // Closed with a swipe down, then a tap on another row
         list.picker = nil
         list.openPicker(for: "c")
+        answer.open()
         #expect(await closes)
 
         #expect(list.picker?.id == "c")

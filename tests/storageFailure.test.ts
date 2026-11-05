@@ -105,7 +105,7 @@ describe('a failing database answers 500, not 422 (#270)', () => {
 
     const app = express();
     app.use('/api', buildServer(
-      transactionModule, unusedModule, userModule, unusedModule, unusedModule,
+      transactionModule, userModule, unusedModule, unusedModule,
       { categoryModule, accountModule, fxModule, exportModule, auditModule }
     ));
     api = await listenOnLoopback(app);

@@ -137,7 +137,7 @@ describe('the app token reads and edits its owner’s records (FT-218)', () => {
     accountModule.setRecordSource({ recordsOf: (userId, accountId) => transactionModule.recordsOfAccount(userId, accountId) });
 
     router = buildServer(
-      transactionModule, unusedModule, userModule, unusedModule, unusedModule,
+      transactionModule, userModule, unusedModule, unusedModule,
       { categoryModule, accountModule, fxModule: unusedModule, exportModule: unusedModule, auditModule: unusedModule }
     );
     const app = express();

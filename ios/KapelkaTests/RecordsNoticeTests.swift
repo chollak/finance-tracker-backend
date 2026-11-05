@@ -31,7 +31,7 @@ struct RecordsNoticeTests {
             feed: harness.makeFeed(),
             now: { clock.now },
             calendar: calendar,
-            wait: { await timer.wait($0) },
+            wait: timer.onMain,
             keepsNotices: { voiceOver }
         )
     }
@@ -42,9 +42,10 @@ struct RecordsNoticeTests {
 
     @Test("пока «Вернуть» в пути, плашка на месте и кнопка выключена; вернул — плашки нет")
     func restoringKeepsTheBar() async throws {
+        let answer = Gate()
         let routes = RoutedTransport(
             page: [Self.firstPage],
-            edits: [.http(200, body: RecordsReply.deleted("b")), .after(.milliseconds(300), .http(200, body: RecordsReply.one(Self.b)))]
+            edits: [.http(200, body: RecordsReply.deleted("b")), .held(answer, .http(200, body: RecordsReply.one(Self.b)))]
         )
         let list = try list(routes)
         await list.refresh()
@@ -53,12 +54,15 @@ struct RecordsNoticeTests {
         async let restoring: Void = list.restoreDeleted()
         #expect(await eventually { @MainActor in list.notice?.undo?.isRestoring == true })
         #expect(list.notice?.restorable == ["b"])
-        // Its 5 s end meanwhile: the bar waits for the answer
+        // Its 5 s end meanwhile — of the bar «Удалено» and of the bar with «Вернуть» on its way: the bar waits for the
+        // answer
+        #expect(await eventually { timer.durations.count == 2 })
         timer.fire()
-        try await Task.sleep(for: .milliseconds(50))
+        #expect(await eventually { timer.returned == 2 })
         #expect(list.notice?.undo?.isRestoring == true)
         // A second tap sends nothing more
         await list.restoreDeleted()
+        answer.open()
         await restoring
 
         #expect(list.notice == nil)
@@ -68,11 +72,12 @@ struct RecordsNoticeTests {
 
     @Test("«Вернуть» не прошёл, когда начато другое удаление, — сообщение со своим «Вернуть»")
     func failedRestoreSaysSoOverAnotherDelete() async throws {
+        let answer = Gate()
         let routes = RoutedTransport(
             page: [Self.firstPage],
             edits: [
                 .http(200, body: RecordsReply.deleted("b")),
-                .after(.milliseconds(300), .failure(.timedOut)),
+                .held(answer, .failure(.timedOut)),
                 .http(200, body: RecordsReply.deleted("c")),
                 .http(200, body: RecordsReply.one(Self.b)),
             ]
@@ -85,6 +90,7 @@ struct RecordsNoticeTests {
         #expect(await eventually { await routes.recordEdits.requests.count == 2 })
         await list.delete("c")
         #expect(list.notice?.restorable == ["c"])
+        answer.open()
         await restoring
 
         #expect(list.notice?.message == "Не вернул «такси» — сервер не ответил")
@@ -97,10 +103,11 @@ struct RecordsNoticeTests {
 
     @Test("удаление не прошло, когда начато другое, — сообщение, «Вернуть» другого на месте")
     func failedDeleteSaysSoBesideAnotherUndo() async throws {
+        let answer = Gate()
         let routes = RoutedTransport(
             page: [Self.firstPage],
             edits: [
-                .after(.milliseconds(300), .failure(.notConnectedToInternet)),
+                .held(answer, .failure(.notConnectedToInternet)),
                 .http(200, body: RecordsReply.deleted("c")),
             ]
         )
@@ -110,6 +117,7 @@ struct RecordsNoticeTests {
         async let deleting: Void = list.delete("b")
         #expect(await eventually { await routes.recordEdits.requests.count == 1 })
         await list.delete("c")
+        answer.open()
         await deleting
 
         #expect(ids(list) == ["b", "a"])
@@ -119,10 +127,11 @@ struct RecordsNoticeTests {
 
     @Test("«Запись уже удалена» при смене категории не теряется, когда приходит ответ на другое удаление")
     func recordGoneOnCategoryKeepsItsMessage() async throws {
+        let answer = Gate()
         let routes = RoutedTransport(
             page: [Self.firstPage, .http(200, body: RecordsReply.page([Self.a]))],
             edits: [
-                .after(.milliseconds(300), .http(200, body: RecordsReply.deleted("c"))),
+                .held(answer, .http(200, body: RecordsReply.deleted("c"))),
                 .http(404, body: RecordsReply.recordNotFound("b")),
             ]
         )
@@ -133,6 +142,7 @@ struct RecordsNoticeTests {
         #expect(await eventually { await routes.recordEdits.requests.count == 1 })
         await #expect(throws: RecordsFailure.recordGone) { try await list.setCategory("cat-food", of: "b") }
         #expect(list.notice?.message == "Запись уже удалена")
+        answer.open()
         await deleting
 
         #expect(list.notice?.message == "Запись уже удалена")
@@ -151,7 +161,7 @@ struct RecordsNoticeTests {
 
         #expect(await eventually { timer.durations.count == 1 })
         timer.fire()
-        try await Task.sleep(for: .milliseconds(50))
+        #expect(await eventually { timer.returned == 1 })
         #expect(list.notice?.restorable == ["b"])
 
         await list.delete("c")

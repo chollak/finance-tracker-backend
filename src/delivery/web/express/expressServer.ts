@@ -1,14 +1,12 @@
 import express, { Router } from 'express';
 // Note: Using custom corsHeaders middleware instead of cors package for security
 import { TransactionModule } from '../../../modules/transaction/transactionModule';
-import { DebtModule } from '../../../modules/debt/debtModule';
 import { UserModule } from '../../../modules/user/userModule';
 import { SubscriptionModule } from '../../../modules/subscription/subscriptionModule';
 import { QuickCaptureModule } from '../../../modules/quickCapture/quickCaptureModule';
 import { createTransactionRouter } from '../../../modules/transaction/presentation/controllers/transactionController';
 import { createAnalyticsRoutes } from '../../../modules/transaction/presentation/controllers/analyticsController';
 import { createQuickCaptureRouter } from '../../../modules/quickCapture/presentation/controllers/quickCaptureController';
-import { createDebtRouter } from '../../../modules/debt/presentation/controllers/debtRoutes';
 import { createUserController } from '../../../modules/user/presentation/controllers/userController';
 import { createSettingsRoutes } from '../../../modules/user/presentation/controllers/settingsController';
 import { CategoryModule } from '../../../modules/category/categoryModule';
@@ -50,9 +48,15 @@ import {
 import { getTelegramBotStatus } from '../../messaging/telegram/telegramBot';
 import { createHealthHandler } from './routes/healthRoutes';
 
+/**
+ * The largest JSON body the API reads (#272). Nothing is uploaded since #221; the biggest body a client sends is a
+ * record or a phrase — quick capture takes 2000 characters, at most 12 KB of JSON. 100 KB leaves room eight times over;
+ * the 10 MB before let anyone have the server read and parse that much on every request.
+ */
+export const JSON_BODY_LIMIT_BYTES = 100 * 1024;
+
 export function buildServer(
   transactionModule: TransactionModule,
-  debtModule: DebtModule,
   userModule?: UserModule,
   subscriptionModule?: SubscriptionModule,
   // Kept last and optional: existing callers pass a subset of these positional arguments.
@@ -65,9 +69,6 @@ export function buildServer(
   router.use(requestLogger);
   router.use(securityHeaders);
   router.use(corsHeaders);
-  router.use(express.json({ limit: '10mb' }));
-  router.use(express.urlencoded({ extended: true, limit: '10mb' }));
-  // Note: Using custom corsHeaders middleware (applied above) for secure CORS handling
 
   // A browser signed in through the bot (FT-128): its session cookie, read before any route and rate limit
   const authModule = moneyModules.authModule;
@@ -77,6 +78,10 @@ export function buildServer(
 
   // Closed access (FT-153): someone not in ALLOWED_TELEGRAM_IDS gets 403 here, before any route resolves the user
   router.use(createAllowedUsersMiddleware());
+
+  // The body after closed access (#272): a stranger's is not read at all. JSON only — every client sends JSON, and the
+  // form parser (`urlencoded`) had no client; a body over the limit is 413 (errorHandler)
+  router.use(express.json({ limit: JSON_BODY_LIMIT_BYTES }));
 
   // Note: User resolution middleware is applied at route level, not globally.
   // This ensures req.params is available when middleware runs.
@@ -117,11 +122,6 @@ export function buildServer(
       createQuickCaptureRouter(quickCaptureModule.getQuickCaptureService(), userModule)
     );
   }
-
-  router.use(
-    '/debts',
-    createDebtRouter(debtModule, userModule)
-  );
 
   // User routes (optional - only if userModule is provided)
   if (userModule) {

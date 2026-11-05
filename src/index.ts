@@ -1,7 +1,7 @@
 import 'reflect-metadata'; // Required for TypeORM decorators
-import express from 'express';
 import path from 'path';
 import { buildServer } from './delivery/web/express/expressServer';
+import { createHttpApp } from './delivery/web/express/httpApp';
 import { startTelegramBot, TelegramBotHandle } from './delivery/messaging/telegram/telegramBot';
 import { createModules } from './appModules';
 import { AppConfig } from './shared/infrastructure/config/appConfig';
@@ -40,34 +40,15 @@ async function startApplication() {
     // Initialize database first
     await initializeDatabase();
     
-    const { categoryModule, accountModule, fxModule, transactionModule, debtModule, voiceModule, quickCaptureModule, userModule, subscriptionModule, botMessageModule, notificationModule, exportModule, authModule, auditModule } = createModules();
-    const app = express();
-
-    // Trust first proxy (nginx/docker) - required for correct IP detection in rate limiting
-    // See: https://expressjs.com/en/guide/behind-proxies.html
-    app.set('trust proxy', 1);
-
-    app.use('/api', buildServer(transactionModule, debtModule, userModule, subscriptionModule, quickCaptureModule, { categoryModule, accountModule, fxModule, exportModule, authModule, auditModule }));
+    const { categoryModule, accountModule, fxModule, transactionModule, voiceModule, quickCaptureModule, userModule, subscriptionModule, botMessageModule, notificationModule, exportModule, authModule, auditModule } = createModules();
+    // The API under /api and the web app on the root (#272: no X-Powered-By, no /webapp redirect)
+    const app = createHttpApp(
+      buildServer(transactionModule, userModule, subscriptionModule, quickCaptureModule, { categoryModule, accountModule, fxModule, exportModule, authModule, auditModule }),
+      path.join(__dirname, '../public/webapp')
+    );
 
     // The Central Bank USD rate: at start, then until today's rate is in (FT-102)
     fxModule.getService().startDailyRefresh();
-
-    const buildPath = path.join(__dirname, '../public/webapp');
-    
-    // Redirect /webapp/* to root for backward compatibility
-    app.get('/webapp/*', (req, res) => {
-      const newPath = req.path.replace('/webapp', '') || '/';
-      const queryString = req.url.split('?')[1];
-      const redirectUrl = queryString ? `${newPath}?${queryString}` : newPath;
-      res.redirect(301, redirectUrl);
-    });
-    
-    // Serve the web app on root domain
-    app.use('/', express.static(buildPath));
-
-    app.get('*', (_req, res) => {
-      res.sendFile(path.join(buildPath, 'index.html'));
-    });
 
     const port = process.env.PORT || 3000;
 

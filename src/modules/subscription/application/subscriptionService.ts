@@ -87,13 +87,11 @@ export class SubscriptionService {
         return FREE_TIER_LIMITS.transactions;
       case 'voice_inputs':
         return FREE_TIER_LIMITS.voiceInputs;
-      case 'debts':
-        return FREE_TIER_LIMITS.activeDebts;
     }
   }
 
   private getCurrentUsage(
-    usageLimit: { transactionsCount: number; voiceInputsCount: number; activeDebtsCount: number },
+    usageLimit: { transactionsCount: number; voiceInputsCount: number },
     limitType: LimitType
   ): number {
     switch (limitType) {
@@ -101,8 +99,6 @@ export class SubscriptionService {
         return usageLimit.transactionsCount;
       case 'voice_inputs':
         return usageLimit.voiceInputsCount;
-      case 'debts':
-        return usageLimit.activeDebtsCount;
     }
   }
 }

@@ -82,9 +82,10 @@ struct RecordsListTests {
 
     @Test("обновление после прокрутки — снова первая страница; запоздавшая следующая страница не ложится")
     func refreshDropsLatePage() async throws {
+        let answer = Gate()
         let routes = RoutedTransport(page: [
             page(["a"], next: "cursor-1"),
-            .after(.milliseconds(300), page(["old"], date: "2026-10-27")),
+            .held(answer, page(["old"], date: "2026-10-27")),
             page(["new", "a"], next: "cursor-2"),
             page(["b"], date: "2026-10-27"),
         ])
@@ -94,6 +95,7 @@ struct RecordsListTests {
         async let late: Void = list.loadMore()
         #expect(await eventually { await routes.pages.requests.count == 2 })
         await list.refresh()
+        answer.open()
         await late
         #expect(ids(list) == ["new", "a"])
 
@@ -105,9 +107,10 @@ struct RecordsListTests {
 
     @Test("обновление с той же первой страницей, пока следующая в пути, — конец списка новый и просит её снова")
     func sameCursorAfterRefresh() async throws {
+        let answer = Gate()
         let routes = RoutedTransport(page: [
             page(["a"], next: "cursor-1"),
-            .after(.milliseconds(300), page(["old"], date: "2026-10-27")),
+            .held(answer, page(["old"], date: "2026-10-27")),
             page(["a"], next: "cursor-1"),
             page(["b"], date: "2026-10-27"),
         ])
@@ -120,6 +123,7 @@ struct RecordsListTests {
         await list.refresh()
         // The row at the list's end is a new one: on screen it asks for the page again by itself
         #expect(list.nextPageKey != before)
+        answer.open()
         await late
         #expect(ids(list) == ["a"])
 
@@ -147,8 +151,9 @@ struct RecordsListTests {
 
     @Test("без связи после перезапуска — сразу кэш, затем «Нет связи · обновлено в 14:32»; без имён счетов")
     func offlineShowsCache() async throws {
+        let answer = Gate()
         let routes = RoutedTransport(
-            page: [page(["a", "b"]), .after(.milliseconds(300), .failure(.notConnectedToInternet))],
+            page: [page(["a", "b"]), .held(answer, .failure(.notConnectedToInternet))],
             accounts: [.http(200, body: Self.accounts), .failure(.notConnectedToInternet)]
         )
         let harness = try RecordsHarness(routes: routes)
@@ -159,6 +164,7 @@ struct RecordsListTests {
         async let refreshing: Void = restarted.refresh()
         #expect(await eventually { @MainActor in restarted.days.isEmpty == false })
         #expect(ids(restarted) == ["a", "b"])
+        answer.open()
         await refreshing
 
         #expect(restarted.screen == .list)
@@ -337,8 +343,9 @@ struct RecordsListTests {
 
     @Test("обновления подряд, пока первое в пути, — одно следом, а не по одному на каждое и не два сразу")
     func refreshesJoin() async throws {
+        let answer = Gate()
         let routes = RoutedTransport(page: [
-            .after(.milliseconds(200), page(["a"])),
+            .held(answer, page(["a"])),
             page(["new", "a"]),
             page(["extra"]),
         ])
@@ -346,9 +353,13 @@ struct RecordsListTests {
 
         async let first: Void = list.refresh()
         #expect(await eventually { await routes.pages.requests.count == 1 })
-        async let second: Void = list.refresh()
-        async let third: Void = list.refresh()
-        _ = await (first, second, third)
+        // Tasks of the main actor start on it in the order made, before the test goes on after its yield: both
+        // calls have joined the refresh in flight when its page comes
+        let second = Task { await list.refresh() }
+        let third = Task { await list.refresh() }
+        await Task.yield()
+        answer.open()
+        _ = await (first, second.value, third.value)
 
         #expect(await routes.pages.requests.count == 2)
         // The pass after waits for the first: the pages go one by one

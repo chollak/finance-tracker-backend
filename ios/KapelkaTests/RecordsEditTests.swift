@@ -141,8 +141,9 @@ struct RecordsEditTests {
 
     @Test("удаление, пока обновление в пути: страница, прочитанная до удаления, не возвращает запись")
     func deleteDuringRefresh() async throws {
+        let answer = Gate()
         let transport = FakeTransport([
-            .after(.milliseconds(300), .http(200, body: RecordsReply.page([first, second, third]))),
+            .held(answer, .http(200, body: RecordsReply.page([first, second, third]))),
             .http(200, body: RecordsReply.deleted("b")),
         ])
         let harness = try RecordsHarness(transport: transport)
@@ -151,6 +152,7 @@ struct RecordsEditTests {
         async let refreshed = feed.refresh()
         #expect(await eventually { await transport.requests.count == 1 })
         try await feed.delete("b")
+        answer.open()
         let result = await refreshed
 
         guard case let .fresh(snapshot) = result else {
@@ -166,8 +168,9 @@ struct RecordsEditTests {
         let edited = RecordsReply.record(
             id: "b", date: "2026-10-29", createdAt: "2026-10-29T09:00:00.000Z", categoryId: "cat-food", category: "Продукты"
         )
+        let answer = Gate()
         let transport = FakeTransport([
-            .after(.milliseconds(300), .http(200, body: RecordsReply.page([first, second, third]))),
+            .held(answer, .http(200, body: RecordsReply.page([first, second, third]))),
             .http(200, body: RecordsReply.one(edited)),
         ])
         let harness = try RecordsHarness(transport: transport)
@@ -176,6 +179,7 @@ struct RecordsEditTests {
         async let refreshed = feed.refresh()
         #expect(await eventually { await transport.requests.count == 1 })
         _ = try await feed.setCategory("cat-food", of: "b")
+        answer.open()
         let result = await refreshed
 
         guard case let .fresh(snapshot) = result else {

@@ -44,18 +44,24 @@ struct CaptureRetryTests {
 
     @Test("запись, добавленная во время отправки, уходит в ту же отправку")
     func captureAddedWhileSendingIsSent() async throws {
-        let harness = try QueueHarness(transport: FakeTransport(latency: .milliseconds(50)))
-        let queue = harness.makeQueue()
+        let answer = Gate()
+        let harness = try QueueHarness(transport: FakeTransport([.held(answer, .http(200))]))
+        let log = PassLog()
+        let queue = harness.makeQueue(onPass: { await log.record($0) })
         _ = try await queue.add("кофе 25к")
 
         async let sending: Void = queue.flush()
-        try await Task.sleep(for: .milliseconds(10))
+        // The first request is out and waits for its answer: the second phrase comes while it is in flight
+        #expect(await eventually { await harness.transport.requests.count == 1 })
         _ = try await queue.add("такси 18к")
+        answer.open()
         await queue.flush()
         await sending
 
         #expect(try harness.store.load().captures.map(\.state) == [.sent, .sent])
         #expect(await harness.transport.requests.count == 2)
+        // Both went in the pass that was going: one report on both
+        #expect(await log.passes == [[.wrote(try harness.store.load().captures)]])
     }
 
     @Test("повод отправить, пришедший во время неудачной попытки, даёт ещё одну — а не теряется")

@@ -59,7 +59,6 @@ export class SqliteUsageLimitRepository implements UsageLimitRepository {
         periodEnd: dto.periodEnd || period.end,
         transactionsCount: 0,
         voiceInputsCount: 0,
-        activeDebtsCount: 0,
       })
       .orIgnore()
       .execute();
@@ -126,23 +125,7 @@ export class SqliteUsageLimitRepository implements UsageLimitRepository {
         return 'transactionsCount';
       case 'voice_inputs':
         return 'voiceInputsCount';
-      case 'debts':
-        return 'activeDebtsCount';
     }
-  }
-
-  async setActiveDebtsCount(userId: string, count: number): Promise<UsageLimit> {
-    await this.findOrCreateForCurrentPeriod(userId);
-
-    await this.repository.update({ userId }, {
-      activeDebtsCount: Math.max(0, count),
-    });
-
-    const updated = await this.findByUserId(userId);
-    if (!updated) {
-      throw new Error('UsageLimit not found after setting debts count');
-    }
-    return updated;
   }
 
   async resetMonthlyCounters(userId: string): Promise<UsageLimit> {
@@ -155,7 +138,6 @@ export class SqliteUsageLimitRepository implements UsageLimitRepository {
         periodEnd: period.end,
         transactionsCount: 0,
         voiceInputsCount: 0,
-        // Note: activeDebtsCount is NOT reset (it's current state, not monthly)
       });
 
       const updated = await this.findByUserId(userId);
@@ -176,7 +158,6 @@ export class SqliteUsageLimitRepository implements UsageLimitRepository {
       periodEnd: entity.periodEnd,
       transactionsCount: entity.transactionsCount,
       voiceInputsCount: entity.voiceInputsCount,
-      activeDebtsCount: entity.activeDebtsCount,
       createdAt: entity.createdAt,
       updatedAt: entity.updatedAt,
     };

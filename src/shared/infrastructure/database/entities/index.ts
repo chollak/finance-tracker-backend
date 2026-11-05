@@ -1,6 +1,6 @@
 export { Transaction, TransactionType } from './Transaction';
 export { Budget } from './Budget';
-export { Debt, DebtType, DebtStatus } from './Debt';
+export { Debt } from './Debt';
 export { DebtPayment } from './DebtPayment';
 export { User } from './User';
 export { Subscription } from './Subscription';

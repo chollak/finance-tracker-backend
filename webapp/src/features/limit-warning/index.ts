@@ -1,6 +1,6 @@
 import { toast } from 'sonner';
 import type { SubscriptionStatus } from '@/entities/subscription';
-import { pluralDebts, pluralTransactions, pluralVoiceInputs } from '@/shared/lib/plural';
+import { pluralTransactions, pluralVoiceInputs } from '@/shared/lib/plural';
 
 // Bot username from environment variable
 const BOT_USERNAME = import.meta.env.VITE_TG_BOT_USERNAME || 'FinanceTrackerAppBot';
@@ -8,11 +8,11 @@ const BOT_USERNAME = import.meta.env.VITE_TG_BOT_USERNAME || 'FinanceTrackerAppB
 // Warning threshold - 80% of limit
 const WARNING_THRESHOLD = 0.8;
 
-type LimitType = 'transactions' | 'voiceInputs' | 'activeDebts';
+type LimitType = 'transactions' | 'voiceInputs';
 
 /**
  * Check usage limit and show warning toast if approaching or exceeded
- * Call this after creating a transaction, voice input, or debt
+ * Call this after creating a transaction or a voice input
  */
 export function checkAndShowLimitWarning(
   subscription: SubscriptionStatus | undefined,
@@ -82,8 +82,6 @@ function getLimitExceededMessage(type: LimitType): string {
       return 'Достигнут лимит транзакций. Оформите Premium!';
     case 'voiceInputs':
       return 'Достигнут лимит голосового ввода. Оформите Premium!';
-    case 'activeDebts':
-      return 'Достигнут лимит активных долгов. Оформите Premium!';
   }
 }
 
@@ -96,7 +94,5 @@ function getLimitWarningMessage(type: LimitType, remaining: number): string {
       return `Осталось ${remaining} ${pluralTransactions(remaining)} в этом месяце`;
     case 'voiceInputs':
       return `Осталось ${remaining} ${pluralVoiceInputs(remaining)}`;
-    case 'activeDebts':
-      return `Можно добавить ещё ${remaining} ${pluralDebts(remaining)}`;
   }
 }

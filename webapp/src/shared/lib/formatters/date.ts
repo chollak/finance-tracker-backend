@@ -1,4 +1,4 @@
-import { format, formatDistanceToNow, isToday, isYesterday, parseISO } from 'date-fns';
+import { format, isToday, isYesterday, parseISO } from 'date-fns';
 import { ru } from 'date-fns/locale';
 
 const LOCALE = ru;
@@ -33,32 +33,6 @@ export function formatDateShort(dateString: string | Date): string {
  */
 export function formatDateTime(dateString: string | Date): string {
   return formatDate(dateString, 'd MMMM yyyy, HH:mm');
-}
-
-/**
- * Formats date in relative format (e.g., "Today", "Yesterday", "3 days ago")
- * @param dateString - ISO date string
- * @returns Relative date string
- */
-export function formatRelativeDate(dateString: string | Date): string {
-  const date = typeof dateString === 'string' ? parseISO(dateString) : dateString;
-
-  if (isToday(date)) {
-    return 'Сегодня';
-  }
-
-  if (isYesterday(date)) {
-    return 'Вчера';
-  }
-
-  // For dates within last 7 days, show relative time
-  const daysDiff = Math.floor((Date.now() - date.getTime()) / (1000 * 60 * 60 * 24));
-  if (daysDiff < 7 && daysDiff > 0) {
-    return formatDistanceToNow(date, { addSuffix: true, locale: LOCALE });
-  }
-
-  // For older dates, show full date
-  return formatDate(date, 'd MMM');
 }
 
 /**

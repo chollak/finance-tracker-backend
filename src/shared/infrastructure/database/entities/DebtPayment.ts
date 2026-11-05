@@ -7,6 +7,8 @@ import {
   JoinColumn
 } from 'typeorm';
 
+// Debt payments are gone from the code (#265, decision 2026-11-04): nothing reads or writes this table. The entity
+// stays so the `debt_payments` table and its rows are kept and the schema check still matches it (see Debt.ts).
 type DebtRelation = {
   id: string;
 };

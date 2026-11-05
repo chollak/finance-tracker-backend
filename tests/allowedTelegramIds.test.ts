@@ -132,7 +132,7 @@ describe('the API lets in only the allowed (FT-153)', () => {
     jest.replaceProperty(AppConfig, 'TG_BOT_API_KEY', BOT_TOKEN);
     authModule = new AuthModule(new SqliteLoginTokenRepository(db.dataSource), { botUsername: { username: async () => 'KapelkaBot' } });
     const app = express();
-    app.use('/api', buildServer(unusedModule, unusedModule, userModule, undefined, undefined, { authModule }));
+    app.use('/api', buildServer(unusedModule, userModule, undefined, undefined, { authModule }));
     ({ server, baseUrl } = await listenOnLoopback(app));
   }
 
@@ -285,7 +285,8 @@ describe('refused requests in the log (FT-166)', () => {
     const req: any = {
       headers: { host: 'localhost:3100', 'x-dev-user-id': String(STRANGER) },
       socket: { remoteAddress: '127.0.0.1' },
-      originalUrl: '/api/settings',
+      baseUrl: '/api',
+      path: '/settings',
     };
     const res: any = { status: jest.fn().mockReturnThis(), json: jest.fn().mockReturnThis() };
     const next = jest.fn();

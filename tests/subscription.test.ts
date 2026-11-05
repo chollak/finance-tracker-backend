@@ -3,11 +3,7 @@ import { CreateSubscriptionUseCase } from '../src/modules/subscription/applicati
 import { GetSubscriptionUseCase } from '../src/modules/subscription/application/getSubscription';
 import { GrantPremiumUseCase, StartTrialUseCase } from '../src/modules/subscription/application/grantPremium';
 import { CheckLimitUseCase } from '../src/modules/subscription/application/checkLimit';
-import {
-  IncrementUsageUseCase,
-  DecrementUsageUseCase,
-  SetActiveDebtsCountUseCase,
-} from '../src/modules/subscription/application/incrementUsage';
+import { IncrementUsageUseCase, DecrementUsageUseCase } from '../src/modules/subscription/application/incrementUsage';
 import { CancelSubscriptionUseCase } from '../src/modules/subscription/application/cancelSubscription';
 import { SubscriptionService } from '../src/modules/subscription/application/subscriptionService';
 import { SubscriptionRepository } from '../src/modules/subscription/domain/subscriptionRepository';
@@ -153,7 +149,7 @@ class InMemorySubscriptionRepository implements SubscriptionRepository {
 
 /**
  * In-memory fake mirroring SqliteUsageLimitRepository's period reset and
- * counter semantics (activeDebtsCount survives monthly reset).
+ * counter semantics.
  */
 class InMemoryUsageLimitRepository implements UsageLimitRepository {
   private records = new Map<string, UsageLimit>();
@@ -184,7 +180,6 @@ class InMemoryUsageLimitRepository implements UsageLimitRepository {
       periodEnd: dto.periodEnd ?? period.end,
       transactionsCount: 0,
       voiceInputsCount: 0,
-      activeDebtsCount: 0,
       createdAt: now,
       updatedAt: now,
     };
@@ -204,14 +199,6 @@ class InMemoryUsageLimitRepository implements UsageLimitRepository {
     await this.findOrCreateForCurrentPeriod(userId);
     const existing = this.records.get(userId)!;
     const updated = this.applyDelta(existing, limitType, -1);
-    this.records.set(userId, updated);
-    return updated;
-  }
-
-  async setActiveDebtsCount(userId: string, count: number): Promise<UsageLimit> {
-    await this.findOrCreateForCurrentPeriod(userId);
-    const existing = this.records.get(userId)!;
-    const updated: UsageLimit = { ...existing, activeDebtsCount: Math.max(0, count), updatedAt: new Date() };
     this.records.set(userId, updated);
     return updated;
   }
@@ -241,8 +228,6 @@ class InMemoryUsageLimitRepository implements UsageLimitRepository {
         return { ...existing, transactionsCount: Math.max(0, existing.transactionsCount + delta), updatedAt };
       case 'voice_inputs':
         return { ...existing, voiceInputsCount: Math.max(0, existing.voiceInputsCount + delta), updatedAt };
-      case 'debts':
-        return { ...existing, activeDebtsCount: Math.max(0, existing.activeDebtsCount + delta), updatedAt };
     }
   }
 }
@@ -415,24 +400,14 @@ describe('Subscription module', () => {
       jest.setSystemTime(new Date(sub.startDate.getTime() + 6 * DAY_MS));
 
       const useCase = new CheckLimitUseCase(subscriptionRepo, usageLimitRepo);
-      const result = await useCase.execute({ userId: 'user-1', limitType: 'debts' });
+      const result = await useCase.execute({ userId: 'user-1', limitType: 'transactions' });
 
       expect(result.isPremium).toBe(false);
-      expect(result.limit).toBe(FREE_TIER_LIMITS.activeDebts);
-    });
-
-    it('enforces the active-debts limit independently from monthly counters', async () => {
-      const useCase = new CheckLimitUseCase(subscriptionRepo, usageLimitRepo);
-      await usageLimitRepo.setActiveDebtsCount('user-1', FREE_TIER_LIMITS.activeDebts);
-
-      const result = await useCase.execute({ userId: 'user-1', limitType: 'debts' });
-
-      expect(result.allowed).toBe(false);
-      expect(result.currentUsage).toBe(FREE_TIER_LIMITS.activeDebts);
+      expect(result.limit).toBe(FREE_TIER_LIMITS.transactions);
     });
   });
 
-  describe('IncrementUsageUseCase / DecrementUsageUseCase / SetActiveDebtsCountUseCase', () => {
+  describe('IncrementUsageUseCase / DecrementUsageUseCase', () => {
     it('increments the requested counter and leaves the others untouched', async () => {
       const increment = new IncrementUsageUseCase(usageLimitRepo);
 
@@ -440,7 +415,6 @@ describe('Subscription module', () => {
 
       expect(result.voiceInputsCount).toBe(1);
       expect(result.transactionsCount).toBe(0);
-      expect(result.activeDebtsCount).toBe(0);
     });
 
     it('decrements a counter but never goes below zero', async () => {
@@ -463,19 +437,10 @@ describe('Subscription module', () => {
       expect(second.transactionsCount).toBe(0);
     });
 
-    it('sets the active debts count directly, clamped at zero', async () => {
-      const setCount = new SetActiveDebtsCountUseCase(usageLimitRepo);
-
-      const result = await setCount.execute({ userId: 'user-1', count: -3 });
-
-      expect(result.activeDebtsCount).toBe(0);
-    });
-
-    it('resets monthly counters but preserves activeDebtsCount once the period expires', async () => {
+    it('resets monthly counters once the period expires', async () => {
       const increment = new IncrementUsageUseCase(usageLimitRepo);
-      const setCount = new SetActiveDebtsCountUseCase(usageLimitRepo);
       await increment.execute({ userId: 'user-1', limitType: 'transactions' });
-      await setCount.execute({ userId: 'user-1', count: 2 });
+      await increment.execute({ userId: 'user-1', limitType: 'voice_inputs' });
 
       // Jump into next month so findOrCreateForCurrentPeriod triggers a reset.
       jest.setSystemTime(new Date('2026-09-01T00:00:00.000Z'));
@@ -484,7 +449,7 @@ describe('Subscription module', () => {
 
       expect(result.currentUsage).toBe(0);
       const usage = await usageLimitRepo.findByUserId('user-1');
-      expect(usage?.activeDebtsCount).toBe(2);
+      expect(usage?.voiceInputsCount).toBe(0);
     });
   });
 

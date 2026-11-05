@@ -143,12 +143,12 @@ For detailed documentation, see **[docs/knowledge-base/](docs/knowledge-base/)**
 
 - **[Architecture](docs/knowledge-base/01-architecture/)** - Clean Architecture, modules, design patterns
   - [Overview](docs/knowledge-base/01-architecture/overview.md) - Layers and dependency flow
-  - [Modules](docs/knowledge-base/01-architecture/modules.md) - 14 модулей системы
+  - [Modules](docs/knowledge-base/01-architecture/modules.md) - 13 модулей системы
   - [Patterns](docs/knowledge-base/01-architecture/patterns.md) - Repository, DI, Factory, Use Case
   - [Runtime / Process Mode](docs/knowledge-base/01-architecture/runtime-process-mode.md) - API/Bot/Worker process-mode decision
   - [API / Domain Consistency Audit](docs/knowledge-base/01-architecture/api-domain-consistency-audit.md) - FT-018 controller/use-case/API contract audit
   - [Auth / User Resolution Boundary Matrix](docs/knowledge-base/01-architecture/auth-user-resolution-boundary-matrix.md) - FT-024 auth/ownership boundaries (no guests since #206)
-  - [Transaction / Debt Relationship Audit](docs/knowledge-base/01-architecture/transaction-debt-relationship-audit.md) - FT-021 debt/transaction accounting semantics
+  - [Transaction / Debt Relationship Audit](docs/knowledge-base/01-architecture/transaction-debt-relationship-audit.md) - FT-021, архив: долги удалены в #265, записи с прежней связью с долгом — обычные
   - [DTO / Schema Validation Consistency Audit](docs/knowledge-base/01-architecture/dto-schema-validation-audit.md) - FT-023 validation layering policy
 - **[Data Flow](docs/knowledge-base/07-data-flow/)** - How data moves through the system
   - [Voice → Transaction](docs/knowledge-base/07-data-flow/voice-to-transaction.md) - AI-powered voice processing
@@ -177,24 +177,25 @@ This project follows **Clean Architecture** principles with clear separation bet
 
 ### Module System
 
-`createModules()` in `src/appModules.ts` returns **14 app modules** (OpenAIUsageModule was removed in FT-174: its admin routes never worked and nothing called them; BudgetModule in #264):
+`createModules()` in `src/appModules.ts` returns **13 app modules** (OpenAIUsageModule was removed in FT-174: its admin routes never worked and nothing called them; BudgetModule in #264; DebtModule in #265 — see «No debts» below):
 
 1. **TransactionModule** - CRUD operations for transactions + analytics; gets its categories through the `CategoryResolver` port
-2. **DebtModule** - Debt management with payment history (depends on TransactionModule, SubscriptionModule, UserModule; no longer filled from text per Д2)
-3. **VoiceProcessingModule** - AI-powered voice/text processing (depends on TransactionModule; the user's categories go into the prompt)
-4. **QuickCaptureModule** - `POST /api/quick-capture` over the text pipeline, and `POST /api/quick-capture/payment` for an Apple Pay payment sent ready — amount as is, only the category chosen (FT-176) (depends on VoiceProcessingModule)
-5. **CategoryModule** - User categories (FT-099): 8 + 8 starters per user, rename, colour, hide; resolves the category of every record
-6. **UserModule** - User management (telegramId → UUID resolution) and settings (FT-098)
-7. **SubscriptionModule** - Premium subscriptions with Telegram Stars payments
-8. **AccountModule** - Accounts (FT-101): balances on read, the total in сум, the account of every new record
-9. **FxModule** - USD rate (FT-102): Central Bank rate by date, loaded at start and hourly until today's is in; the user's own rate
-10. **BotMessageModule** - Bot record messages (FT-122): which records each confirmation shows and which keyboard screen is open (`bot_messages`), so «Изменить», «Вернуть» and `/undo` survive a restart; and the chat messages the bot handled (`handled_messages`, FT-172), so a message Telegram sends again after a restart changes nothing twice and its unsent confirmation goes out as the first would
-11. **NotificationModule** - Notices the bot sends on its own: the daily summary at the chosen time on the user's clock and the summaries behind `/today` and `/month` (FT-124); the reminders after the audit — a goal at 80% of its limit and over it, a subscription the day before its charge, the audit on the 1st with «Позже» once (FT-133); each sent at most once (`notifications_log`). One that never left the machine waits there as `not_sent` with its `attempts` until its last day (`send_until`), then is kept `failed` with the reason; a summary missed by midnight comes the next morning from 08:00 as «Итоги за вчера», a goal reminder may come the next day (FT-164); a subscription reminder or an audit call whose day the bot was not running at their time gets a `failed` row «не ушло: ни одной попытки» the next day, and nothing is sent late (FT-173). Depends on TransactionModule, UserModule and AuditModule (through the `ReminderSources` port); its schedulers run in the bot's process
-12. **ExportModule** - «Скачать все записи» (FT-126): a CSV of all records and moves that are not deleted — `GET /api/export` downloads it, `POST /api/export/chat` sends it to the chat with the bot (`sendDocument`); reads TransactionModule and AccountModule through the `ExportSources` port
-13. **AuthModule** - Web login through the bot (FT-128, decision Д4): a one-time link `t.me/<bot>?start=login_<token>` for 5 minutes (`login_tokens`), «Подтвердить» / «Это не я» in the bot, the browser's httpOnly session cookie read by `webSessionMiddleware` next to initData, «Выйти». No guest mode in the browser any more
-14. **AuditModule** - Spending audit and goals (FT-130, FT-131): the audit rules over flexible categories, `audits` (candidates and decisions, carried to the next audit) and `goals`; `/api/audits`, `/api/goals`; reads TransactionModule and CategoryModule through the `AuditSources` port
+2. **VoiceProcessingModule** - AI-powered voice/text processing (depends on TransactionModule; the user's categories go into the prompt)
+3. **QuickCaptureModule** - `POST /api/quick-capture` over the text pipeline, and `POST /api/quick-capture/payment` for an Apple Pay payment sent ready — amount as is, only the category chosen (FT-176) (depends on VoiceProcessingModule)
+4. **CategoryModule** - User categories (FT-099): 8 + 8 starters per user, rename, colour, hide; resolves the category of every record
+5. **UserModule** - User management (telegramId → UUID resolution) and settings (FT-098)
+6. **SubscriptionModule** - Premium subscriptions with Telegram Stars payments
+7. **AccountModule** - Accounts (FT-101): balances on read, the total in сум, the account of every new record
+8. **FxModule** - USD rate (FT-102): Central Bank rate by date, loaded at start and hourly until today's is in; the user's own rate
+9. **BotMessageModule** - Bot record messages (FT-122): which records each confirmation shows and which keyboard screen is open (`bot_messages`), so «Изменить», «Вернуть» and `/undo` survive a restart; and the chat messages the bot handled (`handled_messages`, FT-172), so a message Telegram sends again after a restart changes nothing twice and its unsent confirmation goes out as the first would
+10. **NotificationModule** - Notices the bot sends on its own: the daily summary at the chosen time on the user's clock and the summaries behind `/today` and `/month` (FT-124); the reminders after the audit — a goal at 80% of its limit and over it, a subscription the day before its charge, the audit on the 1st with «Позже» once (FT-133); each sent at most once (`notifications_log`). One that never left the machine waits there as `not_sent` with its `attempts` until its last day (`send_until`), then is kept `failed` with the reason; a summary missed by midnight comes the next morning from 08:00 as «Итоги за вчера», a goal reminder may come the next day (FT-164); a subscription reminder or an audit call whose day the bot was not running at their time gets a `failed` row «не ушло: ни одной попытки» the next day, and nothing is sent late (FT-173). Depends on TransactionModule, UserModule and AuditModule (through the `ReminderSources` port); its schedulers run in the bot's process
+11. **ExportModule** - «Скачать все записи» (FT-126): a CSV of all records and moves that are not deleted — `GET /api/export` downloads it, `POST /api/export/chat` sends it to the chat with the bot (`sendDocument`); reads TransactionModule and AccountModule through the `ExportSources` port
+12. **AuthModule** - Web login through the bot (FT-128, decision Д4): a one-time link `t.me/<bot>?start=login_<token>` for 5 minutes (`login_tokens`), «Подтвердить» / «Это не я» in the bot, the browser's httpOnly session cookie read by `webSessionMiddleware` next to initData, «Выйти». No guest mode in the browser any more
+13. **AuditModule** - Spending audit and goals (FT-130, FT-131): the audit rules over flexible categories, `audits` (candidates and decisions, carried to the next audit) and `goals`; `/api/audits`, `/api/goals`; reads TransactionModule and CategoryModule through the `AuditSources` port
 
 **No backend dashboard (#205).** `GET /api/dashboard/*` with `DashboardService`, `AlertService` and the premium-only insights is removed: Home reads `/api/transactions/totals` and `/api/accounts` (FT-111), Analytics reads `/api/analytics` (FT-120), the bot never read it.
+
+**No debts (#265, decision 2026-11-04).** `/api/debts*`, the debt use cases, the free-tier debt limit (`activeDebts`) and the Mini App's debt screens are removed; they had left the interface with Д2. Records once written by a debt or its payment (`isDebtRelated`, `relatedDebtId`, `semanticType: debt`) are ordinary records: read, changed and deleted like any other; totals keep a `semanticType: debt` record out of income and expenses, as before (the repository does not read the link columns, so `isDebtRelated` alone changes nothing). The `debts` and `debt_payments` tables, their entities and `usage_limits.active_debts_count` stay with their rows (no migration). Until #266 (after FT-217) the frozen capture path keeps what it imports: `src/modules/debt/` holds only `DebtModule` with `CreateDebtUseCase`, its repository write, `debtEntity.ts` and `errors.ts`; `createModules()` creates it only to hand it to `VoiceProcessingModule` and does not return it; the bot's `sendDebtResponse` with `RU.debt` and the webapp's `debtKeys` stay too.
 
 **No budgets (#264, decision 2026-11-04).** `BudgetModule`, `/api/budgets/*` and the Mini App's budget screens are removed; they had left the interface with Д2. The `budgets` table and its rows stay: `src/shared/infrastructure/database/entities/Budget.ts` is kept only so the schema check matches the table, and dropping it is a change to real data that waits for a separate «да».
 
@@ -203,8 +204,7 @@ This project follows **Clean Architecture** principles with clear separation bet
 ```
 TransactionModule (core)
     ↑
-    ├─── DebtModule (для создания linked транзакций)
-    └─── VoiceProcessingModule (CreateTransactionUseCase)
+    └─── VoiceProcessingModule (CreateTransactionUseCase; until #266 also the rest of DebtModule)
 ```
 
 ### Layer Structure
@@ -622,11 +622,11 @@ See: [Adding Features Guide](docs/knowledge-base/08-development/adding-features.
 - **Frontend**: React app in `webapp/` builds to `public/webapp/` for Express serving
 - **iOS**: SwiftUI app Kapelka in `ios/` (FT-161): an offline queue to `POST /api/quick-capture` with the Shortcut token in Keychain; signing in the ignored `ios/Config/Signing.local.xcconfig`
 - **Tests**: Jest tests in `tests/` folder with `.test.ts` suffix
-- **Static Assets**: Express serves webapp at `/webapp` path and API at `/api`
+- **Static Assets**: Express serves the webapp from `public/webapp/` on the root (any other path gets its `index.html`) and the API at `/api` (`createHttpApp`); the old `/webapp` path is gone (#272)
 
 ## Integration Points
 
 - **Database**: SQLite via TypeORM, schema managed by migrations
 - **OpenAI**: Voice transcription using openai package
 - **Telegram**: Bot interface using telegraf package
-- **Express**: HTTP server with custom CORS headers; no file uploads since the web voice routes went (#221)
+- **Express**: HTTP server built by `createHttpApp` (`src/delivery/web/express/httpApp.ts`): no file uploads since the web voice routes went (#221); a JSON body up to 100 KB, read after closed access (over it — `413 PAYLOAD_TOO_LARGE`), `no-store` on every `/api` answer, CORS only for the origin of `WEB_APP_URL` (development goes through Vite's proxy, same-origin), no `X-Powered-By`, no `/webapp/*` redirect (#272)

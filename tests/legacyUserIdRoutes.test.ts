@@ -4,13 +4,11 @@ import { startTestServer, TestServer } from './helpers/testServer';
 import { recordsOn } from './helpers/records';
 import { resetSharedRateLimiters } from '../src/delivery/web/express/middleware/rateLimitMiddleware';
 import { createSubscriptionRoutes } from '../src/delivery/web/express/routes/subscriptionRoutes';
-import { createDebtRouter } from '../src/modules/debt/presentation/controllers/debtRoutes';
 import { createTransactionRouter } from '../src/modules/transaction/presentation/controllers/transactionController';
 import { AnalyticsService } from '../src/modules/transaction/application/analyticsService';
 import { GetUserTransactionsUseCase } from '../src/modules/transaction/application/getUserTransactions';
 import { ArchiveAllByUserUseCase } from '../src/modules/transaction/application/archiveAllByUser';
 import { GetArchivedTransactionsUseCase } from '../src/modules/transaction/application/getArchivedTransactions';
-import { DebtModule } from '../src/modules/debt/debtModule';
 import { SubscriptionModule } from '../src/modules/subscription/subscriptionModule';
 import { SubscriptionRepository } from '../src/modules/subscription/domain/subscriptionRepository';
 import { CreateSubscriptionDTO, Subscription } from '../src/modules/subscription/domain/subscription';
@@ -19,8 +17,8 @@ import { UserModule } from '../src/modules/user/userModule';
 import { SqliteUserRepository } from '../src/modules/user/infrastructure/persistence/SqliteUserRepository';
 
 /**
- * FT-162: the legacy routes that still carry a userId — `:userId` in the path (transactions, debts,
- * subscription status; the dashboard is gone since #205, budgets since #264) or `userId` in the body (subscription actions,
+ * FT-162: the legacy routes that still carry a userId — `:userId` in the path (transactions,
+ * subscription status; the dashboard is gone since #205, budgets since #264, debts since #265) or `userId` in the body (subscription actions,
  * `POST /api/transactions`) — act only for the signed-in user, and refusing someone else's id touches nothing. Before, user resolution ran before the ownership
  * check and created a `users` row for any Telegram id it was given, and a userId that was not a string gave 500.
  *
@@ -55,22 +53,13 @@ class NoSubscriptions implements SubscriptionRepository {
   async markAsExpired(): Promise<Subscription> { throw new Error('not stored'); }
 }
 
-/** Debts: the route answers once the use case is reached; remembers whose debts it was asked for. */
-function debtsFor(askedFor: string[]): DebtModule {
-  const answer = (userId: string) => { askedFor.push(userId); return Promise.resolve({ success: true, data: [] }); };
-  return {
-    createDebtUseCase: { execute: (data: { userId: string }) => answer(data.userId) },
-    getDebtsUseCase: { executeGetAll: answer, executeGetByType: answer, executeGetSummary: answer },
-  } as unknown as DebtModule;
-}
-
 const unused = {} as never;
 
 let db: TestDatabase;
 let server: TestServer;
 let userTransactions: GetUserTransactionsUseCase;
+let archivedTransactions: GetArchivedTransactionsUseCase;
 let subscriptions: NoSubscriptions;
-let debtsAskedFor: string[];
 let records: ReturnType<typeof recordsOn>;
 
 beforeAll(async () => {
@@ -78,10 +67,10 @@ beforeAll(async () => {
   records = recordsOn(db.dataSource);
   const users = new UserModule(new SqliteUserRepository(db.dataSource));
   subscriptions = new NoSubscriptions();
-  debtsAskedFor = [];
 
   const analytics = new AnalyticsService(records.repository);
   userTransactions = new GetUserTransactionsUseCase(records.repository);
+  archivedTransactions = new GetArchivedTransactionsUseCase(records.repository);
   // The grant goes only to a user that exists (#230), wired as in createModules()
   const grantTargets = { exists: (userId: string) => users.exists(userId) };
   const subscriptionModule = new SubscriptionModule(subscriptions, new SqliteUsageLimitRepository(db.dataSource), grantTargets, {
@@ -92,9 +81,8 @@ beforeAll(async () => {
     '/transactions': createTransactionRouter(
       records.create, unused, analytics, userTransactions, unused, unused, unused,
       unused, unused, unused, unused, new ArchiveAllByUserUseCase(records.repository),
-      new GetArchivedTransactionsUseCase(records.repository), subscriptionModule, users
+      archivedTransactions, subscriptionModule, users
     ),
-    '/debts': createDebtRouter(debtsFor(debtsAskedFor), users),
     '/subscription': createSubscriptionRoutes(subscriptionModule, users),
   });
 });
@@ -134,8 +122,6 @@ interface LegacyRoute {
 }
 
 const OK = { status: 200 };
-const CREATED = { status: 201 };
-const DEBT = { type: 'i_owe', personName: 'Ali', amount: 50000, currency: 'UZS' };
 
 /** Every legacy route with `:userId` in the path. */
 const PATH_ROUTES: LegacyRoute[] = [
@@ -147,9 +133,6 @@ const PATH_ROUTES: LegacyRoute[] = [
   { method: 'GET', path: id => `/api/transactions/user/${id}`, own: OK },
   { method: 'POST', path: id => `/api/transactions/archive/all/${id}`, own: OK, body: {} },
   { method: 'GET', path: id => `/api/transactions/archived/user/${id}`, own: OK },
-  { method: 'POST', path: id => `/api/debts/user/${id}`, own: CREATED, body: DEBT },
-  { method: 'GET', path: id => `/api/debts/user/${id}`, own: OK },
-  { method: 'GET', path: id => `/api/debts/user/${id}/summary`, own: OK },
   { method: 'GET', path: id => `/api/subscription/${id}`, own: OK },
 ];
 
@@ -229,13 +212,16 @@ describe('a legacy route with :userId in the path (FT-162)', () => {
 
   it('the own id reaches the use cases as the own user, not as the id in the path', async () => {
     const asked = jest.spyOn(userTransactions, 'execute');
+    const archived = jest.spyOn(archivedTransactions, 'execute');
     await call('GET', `/api/transactions/user/${MINE}`);
-    await call('GET', `/api/debts/user/${MINE}/summary`);
+    // The second route was the debts' summary until they went (#265)
+    await call('GET', `/api/transactions/archived/user/${MINE}`);
 
     const uuid = await myUuid();
     expect(asked).toHaveBeenLastCalledWith(uuid);
-    expect(debtsAskedFor.at(-1)).toBe(uuid);
+    expect(archived.mock.calls.at(-1)?.[0]).toBe(uuid);
     asked.mockRestore();
+    archived.mockRestore();
   });
 });
 

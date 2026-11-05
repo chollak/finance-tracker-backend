@@ -174,8 +174,9 @@ struct QueuePassTests {
 
     @Test("ПК спит: фраза, сказанная пока висит запрос, — в том же «в очереди»")
     func phraseWhilePCSleeps() async throws {
+        let answer = Gate()
         let harness = try QueueHarness(transport: FakeTransport([
-            .after(.milliseconds(150), .failure(.timedOut)),
+            .held(answer, .failure(.timedOut)),
         ]))
         let log = PassLog()
         let queue = queue(harness, log)
@@ -184,6 +185,7 @@ struct QueuePassTests {
         async let sending: Void = queue.flush()
         #expect(await eventually { await harness.transport.requests.count == 1 })
         let taxi = try await queue.add("такси 18к")
+        answer.open()
         await sending
 
         #expect(await queuedIds(log) == [[coffee.clientId, taxi.clientId]])

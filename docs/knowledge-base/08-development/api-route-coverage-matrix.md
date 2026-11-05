@@ -36,7 +36,7 @@ Prefer unit/use-case tests for pure business logic and route tests for HTTP/midd
 |---|---|---:|---|---|
 | Health / global middleware | `GET /api/health`, 404, CORS, malformed JSON, global error handler | partial/high-value covered | low | Keep current coverage. |
 | Voice | removed in #221 with the controller and its multer upload: no client called them (the bot takes a voice from Telegram, iOS sends text to `/api/quick-capture`) | `tests/deadVoiceRoutes.test.ts`: `POST /api/voice/text-input` and `/voice-input` are `404`; the bot's voice leaves no file (`tests/voiceUploadCleanup.test.ts`, FT-216) | — | — |
-| Debt | `POST /api/debts/user/:userId`, `GET /api/debts/user/:userId`, `GET /api/debts/:debtId`, pay/cancel/delete | create/list auth covered; null getDebt not-found covered; `:userId` ownership, no shadow user, `400` for a non-string id (FT-162) | high | Next route tests should cover pay debt auth/ownership and validation errors. |
+| Debt | removed in #265 (decision 2026-11-04): out of the interface since Д2, nothing called them; the `debts` and `debt_payments` tables stay, and a record once written by a debt is read, changed and deleted like any other (`tests/debtLinkedRecords.test.ts`) | `tests/deadDebtRoutes.test.ts`: the eleven routes are `404` | — | — |
 | Transaction | CRUD, analytics, archive, batch archive (the global admin `GET /analytics` removed in FT-174) | resource by-id ownership/404/update validation covered; every `:userId` route and `POST /` user-from-auth covered (FT-162); broader CRUD/archive gaps remain | high | Add more focused coverage before any transaction controller split/refactor. |
 | Budget | removed in #264 with `BudgetModule` (decision 2026-11-04): out of the interface since Д2, nothing called it; the `budgets` table stays | `tests/deadBudgetRoutes.test.ts`: the eight routes are `404` | — | — |
 | Subscription | status, check-limit, grant, cancel, start-trial | use-case level; routes: user from auth, someone else's id `403`, non-string `400` (FT-162) | medium-high | Add route tests around guest status/check-limit and invalid limitType. |
@@ -52,21 +52,30 @@ From `tests/apiRoutes.test.ts`:
 - `GET /api/health` returns healthy JSON; `tests/healthRoute.test.ts` — `503` when the bot failed for good, `200` otherwise (FT-154).
 - unknown API route returns 404 JSON with original path.
 - CORS preflight short-circuits with 200.
-- `POST /api/voice/text-input` — its checks went with the route (#221); the JSON body of a signed-in write is now
-  checked on the debt route.
-- Debt routes:
-  - read the JSON body of a signed-in user's debt (`201`)
-  - allow guest debt creation without auth
-  - reject non-guest debt list without auth
-  - allow dev auth bypass in non-production
-  - map null `getDebt(...?withPayments=true)` lookup to 404, not 500
+- `POST /api/voice/text-input` — its checks went with the route (#221), then from the debt routes (#265); the JSON
+  body of a signed-in write is now checked on the records route.
+- Records routes:
+  - read the JSON body of a signed-in user's record (`201`)
+  - refuse a guest id without auth (`401`)
+  - reject a list without auth (`401 MISSING_AUTH_HEADER`)
+  - allow dev auth bypass in non-production; the Telegram id in the path reaches the use case as the owner's UUID
+  - map a record that is not there to 404, not 500
 - Global error handler:
   - `ValidationError` → 400
   - generic `Error` → 500
   - malformed JSON → 400 `INVALID_JSON`
 
-From `tests/legacyUserIdRoutes.test.ts` (FT-162), for every legacy route with `:userId` (transactions, debts,
-subscription status; the dashboard ones until #205 removed them, the budget ones until #264), on a real SQLite `users` table:
+From `tests/httpHardening.test.ts` (#272), on `createHttpApp` over the real `buildServer`:
+
+- `/webapp//…`, `/webapp/\…`, `%2F%2F`, `%5C` and their root forms send nobody to another host (no open redirect)
+- no `X-Powered-By`; `Cache-Control: no-store` on every `/api` answer — 200, 401, 403, 404, 400, 413, preflight
+- a JSON body over 100 KB → 413 `PAYLOAD_TOO_LARGE` (with and without `Content-Length`); a stranger's body is not read
+  (403 first); a form body is not read; the longest phrase and payment of the iPhone by token still pass
+- the log of a broken body and of a stranger's request: path and code, no body, no query
+- CORS only for the origin of `WEB_APP_URL`, with credentials and `PATCH`, never `*`
+
+From `tests/legacyUserIdRoutes.test.ts` (FT-162), for every legacy route with `:userId` (transactions,
+subscription status; the dashboard ones until #205 removed them, the budget ones until #264, the debt ones until #265), on a real SQLite `users` table:
 
 - someone else's id in the path (`597843119`, `0131184740`, `1311847400`) — `403 ACCESS_DENIED`, no `users` row added
 - a blank path id, `?userId=a&userId=b`, `?userId=`, a body userId that is a number, array, object, `null` or `''` — `400 INVALID_USER_ID`
