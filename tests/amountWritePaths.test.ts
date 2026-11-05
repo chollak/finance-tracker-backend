@@ -37,10 +37,6 @@ class MemoryTransactions implements Partial<TransactionRepository> {
     return this.rows.get(id) ?? null;
   }
 
-  async findByIdIncludingArchived(id: string): Promise<Transaction | null> {
-    return this.rows.get(id) ?? null;
-  }
-
   async update(id: string, updates: Partial<Transaction>): Promise<Transaction> {
     const current = this.rows.get(id)!;
     const amountMinor = updates.amountMinor ?? current.amountMinor!;

@@ -3,7 +3,7 @@ import http from 'http';
 import { createTransactionRouter } from '../src/modules/transaction/presentation/controllers/transactionController';
 import { DeleteTransactionUseCase, RestoreTransactionUseCase } from '../src/modules/transaction/application/deleteTransaction';
 import { GetTransactionByIdUseCase } from '../src/modules/transaction/application/getTransactionById';
-import { AnalyticsService } from '../src/modules/transaction/application/analyticsService';
+import { PeriodTotalsService } from '../src/modules/transaction/application/periodTotalsService';
 import { errorHandler } from '../src/delivery/web/express/middleware/errorMiddleware';
 import { openMigratedDatabase, TestDatabase } from './helpers/testDatabase';
 import { recordsOn } from './helpers/records';
@@ -43,13 +43,11 @@ describe('soft delete and restore of records (FT-105)', () => {
     await records.repository.delete(gone);
 
     expect(await records.repository.findById(gone)).toBeNull();
-    expect(await records.repository.findByIdIncludingArchived(gone)).toBeNull();
     expect((await records.repository.findByUserId('user-1')).map(r => r.id)).toEqual([kept]);
-    expect((await records.repository.getAll()).map(r => r.id)).toEqual([kept]);
     expect((await records.repository.getByUserIdAndDateRange('user-1', new Date(today), new Date(today))).map(r => r.id)).toEqual([kept]);
     expect(await balance()).toBe(-1000000);
-    const analytics = new AnalyticsService(records.repository);
-    expect((await analytics.getAnalyticsSummary('user-1')).totalExpense).toBe(10000);
+    const totals = await new PeriodTotalsService().summarize('user-1', await records.repository.findByUserId('user-1'));
+    expect(totals.expenseMinor).toBe(1_000_000);
 
     const deleted = await records.repository.findByIdIncludingDeleted(gone);
     expect(deleted?.deletedAt).toEqual(expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/));

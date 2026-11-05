@@ -67,8 +67,7 @@ describe('a record archived before #273 stays hidden everywhere (Д7)', () => {
     ownerId = (await userModule.getGetOrCreateUserUseCase().execute({ telegramId: String(TELEGRAM_ID) })).id;
     keptId = await recordOf(10000, 'кофе');
     archivedId = await recordOf(25000, 'кофе в зёрнах');
-    // As the archive left it before #273
-    await db.dataSource.query('UPDATE transactions SET isArchived = 1 WHERE id = ?', [archivedId]);
+    await records.markArchived(archivedId);
   });
 
   afterEach(async () => {

@@ -11,7 +11,6 @@ describe('GetUserTransactionsUseCase', () => {
 
     const repo: TransactionRepository = {
       save: jest.fn(),
-      getAll: jest.fn().mockResolvedValue(data),
       findByUserId: jest.fn().mockResolvedValue([data[0]]),
       delete: jest.fn()
     } as any;

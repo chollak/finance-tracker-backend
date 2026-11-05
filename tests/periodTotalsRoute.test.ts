@@ -88,7 +88,7 @@ describe('period totals for Home (FT-111)', () => {
     const deleted = await record({ amount: 70000 });
     const archived = await record({ amount: 80000 });
     await records.repository.delete(deleted);
-    await records.repository.archive(archived);
+    await records.markArchived(archived);
 
     const result = await october();
     // 300 × 12 650 = 3 795 000 сум
