@@ -279,7 +279,7 @@ Potential future grouping:
 **Evidence:** User identity can flow through:
 
 - `allowGuestMode` (removed in #206: there are no guests)
-- `optionalAuth`
+- `optionalAuth` (removed in #271: a record's routes sign in with `requireAuth`)
 - `verifyOwnership`
 - `createUserResolutionMiddleware`
 - `verifyResourceOwnership`

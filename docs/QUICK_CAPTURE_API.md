@@ -146,14 +146,15 @@ one, the token is one more way to sign in, next to initData and the browser sess
 | `GET /api/transactions` | `createCurrentUserOrAppTokenMiddleware` | the history page by page with `cursor` (FT-107) |
 | `GET /api/categories` | `createCurrentUserOrAppTokenMiddleware` | category names and colours, hidden ones too |
 | `GET /api/accounts` | `createCurrentUserOrAppTokenMiddleware` | account names for «категория · счёт»; **only the list** — `POST`, `PATCH`, `DELETE`, `/:id/operations`, `/opening-balances` stay closed |
-| `DELETE /api/transactions/:id` | `optionalAuthOrAppToken` | delete softly (FT-105) |
-| `POST /api/transactions/:id/restore` | `optionalAuthOrAppToken` | «Вернуть» |
-| `PUT /api/transactions/:id` | `optionalAuthOrAppToken` | `{ categoryId }`; teaches as from the Mini App (FT-184). The fields are not limited (decision): the token can read and delete anyway |
+| `DELETE /api/transactions/:id` | `requireAuthOrAppToken` | delete softly (FT-105) |
+| `POST /api/transactions/:id/restore` | `requireAuthOrAppToken` | «Вернуть» |
+| `PUT /api/transactions/:id` | `requireAuthOrAppToken` | `{ categoryId }`; teaches as from the Mini App (FT-184). The fields are not limited (decision): the token can read and delete anyway |
 
 - **Which request.** A token request is told apart as for a capture: `X-Shortcut-Capture-Token` (even empty) or a
   non-blank `X-Shortcut-User-Id`. Then the token decides alone: initData, the session cookie or `X-Dev-User-Id` next to it
   do not count, and a wrong token is `401` even beside valid initData. A request without those headers signs in exactly
-  as before (`requireAuth` / `optionalAuth`), so the Mini App path is unaffected.
+  as before (`requireAuth`; the three routes of one record were on `optionalAuth` until #271), so the Mini App path is
+  unaffected. Without any sign-in all six answer `401`.
 - **The same steps as a capture** — steps 1–5 [above](#ios-shortcut-capture), one function for both
   (`shortcutOwnerOrRefuse`): `403 SHORTCUT_CAPTURE_DISABLED`, outside production `403 SHORTCUT_CAPTURE_TOKEN_REQUIRED`,
   `401 INVALID_SHORTCUT_TOKEN`, `403 ACCESS_DENIED` / `SHORTCUT_OWNER_REQUIRED`, `403 ACCESS_NOT_ALLOWED`. Then the
@@ -829,7 +830,7 @@ Read these before changing the contract:
 - `src/modules/quickCapture/presentation/controllers/quickCaptureController.ts` — HTTP validation, auth, rate limit,
   both routes
 - `src/delivery/web/express/middleware/authMiddleware.ts` — `allowShortcutCapture` (the Shortcut token and its owner);
-  `requireAuthOrAppToken` / `optionalAuthOrAppToken` on the records routes (FT-218), both over `shortcutOwnerOrRefuse`
+  `requireAuthOrAppToken` on the records routes (FT-218; `optionalAuthOrAppToken` went in #271), over `shortcutOwnerOrRefuse`
 - `src/shared/domain/access/shortcutCaptureAccess.ts` — the Shortcut setting rules, also checked at start
 - `src/delivery/web/express/expressServer.ts` + `src/index.ts` — mount path
 - `src/delivery/messaging/telegram/handlers/messageHandlers.ts` — Telegram as a client

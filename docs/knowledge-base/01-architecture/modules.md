@@ -453,7 +453,7 @@ new ProcessVoiceInputUseCase(
   `LOGIN_ROW_KEEP_MS`; у сессии — по её 30-дневному сроку).
 - `ConfiguredBotUsername` — `TG_BOT_USERNAME`, иначе `getMe` бота (запоминается).
 - Delivery: `webSessionMiddleware.ts` читает cookie `daftar_session` до всех маршрутов и кладёт пользователя в
-  `req.webSession`; `requireAuth`, `optionalAuth` и общий лимит запросов (`signedInTelegramId`) принимают его, когда
+  `req.webSession`; `requireAuth` и общий лимит запросов (`signedInTelegramId`) принимают его, когда
   нет заголовка `Authorization`. Бот: `/start login_<token>` — `commandHandlers.ts`, кнопки —
   `handlers/loginHandlers.ts`, тексты — `formatters/loginMessage.ts`.
 

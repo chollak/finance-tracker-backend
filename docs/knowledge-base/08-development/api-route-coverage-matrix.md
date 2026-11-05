@@ -37,7 +37,7 @@ Prefer unit/use-case tests for pure business logic and route tests for HTTP/midd
 | Health / global middleware | `GET /api/health`, 404, CORS, malformed JSON, global error handler | partial/high-value covered | low | Keep current coverage. |
 | Voice | removed in #221 with the controller and its multer upload: no client called them (the bot takes a voice from Telegram, iOS sends text to `/api/quick-capture`) | `tests/deadVoiceRoutes.test.ts`: `POST /api/voice/text-input` and `/voice-input` are `404`; the bot's voice leaves no file (`tests/voiceUploadCleanup.test.ts`, FT-216) | — | — |
 | Debt | removed in #265 (decision 2026-11-04): out of the interface since Д2, nothing called them; the `debts` and `debt_payments` tables stay, and a record once written by a debt is read, changed and deleted like any other (`tests/debtLinkedRecords.test.ts`) | `tests/deadDebtRoutes.test.ts`: the eleven routes are `404` | — | — |
-| Transaction | CRUD, analytics, archive, batch archive (the global admin `GET /analytics` removed in FT-174) | resource by-id ownership/404/update validation covered; every `:userId` route and `POST /` user-from-auth covered (FT-162); broader CRUD/archive gaps remain | high | Add more focused coverage before any transaction controller split/refactor. |
+| Transaction | CRUD, analytics, archive, batch archive (the global admin `GET /analytics` removed in FT-174) | resource by-id ownership/404/update validation covered; every by-id route `401` without sign-in, someone else's record `403`, unknown `404` (#271, `tests/transactionRoutes.test.ts`); every `:userId` route and `POST /` user-from-auth covered (FT-162); broader CRUD/archive gaps remain | high | Add more focused coverage before any transaction controller split/refactor. |
 | Budget | removed in #264 with `BudgetModule` (decision 2026-11-04): out of the interface since Д2, nothing called it; the `budgets` table stays | `tests/deadBudgetRoutes.test.ts`: the eight routes are `404` | — | — |
 | Subscription | status, check-limit, grant, cancel, start-trial | use-case level; routes: user from auth, someone else's id `403`, non-string `400` (FT-162) | medium-high | Add route tests around guest status/check-limit and invalid limitType. |
 | User | removed in #274: `GET /api/users/:telegramId`, `POST /api/users`, `PUT /api/users/:id` had no client, and `PUT` wrote the time zone unchecked; a user is made on the first request, settings change through `PATCH /api/settings` | `tests/deadUserRoutes.test.ts`: the routes are `404` and change no `users` row; `PATCH /api/settings` refuses `timezone` (`400`) and still saves a setting | — | — |
@@ -108,14 +108,14 @@ Status: done.
 Implemented tests:
 
 - `GET /api/transactions/:id` returns 404 when use case returns `NotFoundError`.
-- `GET /api/transactions/:id` fails closed with 403 for non-guest resource without auth.
-- `GET /api/transactions/:id` allows guest-owned resource without auth.
+- `GET /api/transactions/:id` fails closed with 403 for non-guest resource without auth (`401` since #271).
+- `GET /api/transactions/:id` allows guest-owned resource without auth (closed 2026-10-21; `401` since #271).
 - `PUT /api/transactions/:id` rejects empty guest update body with 400 validation and does not call update use cases.
 
 Behavior fix discovered via RED → GREEN:
 
 - Transaction resource-scoped routes used `allowGuestMode`, which requires a `userId` in params/body/query before allowing guest mode. By-id routes only have transaction IDs, so they returned 401 before resource ownership could be checked.
-- Updated transaction resource-scoped routes to use `optionalAuth`, matching Budget/Debt resource-scoped route pattern. Controller-level `verifyResourceOwnership` still fails closed for non-guest resources and allows guest-owned resources.
+- Updated transaction resource-scoped routes to use `optionalAuth`, matching Budget/Debt resource-scoped route pattern. Controller-level `verifyResourceOwnership` still fails closed for non-guest resources and allows guest-owned resources. (Back to `requireAuth` in #271: no guests since #206, `optionalAuth` removed.)
 
 ### FT-022B — Budget/debt raw validation error slices
 
