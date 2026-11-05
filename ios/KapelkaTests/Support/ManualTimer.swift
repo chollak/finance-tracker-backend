@@ -5,6 +5,7 @@ final class ManualTimer: @unchecked Sendable {
     private let lock = NSLock()
     private var waiting: [CheckedContinuation<Void, Never>] = []
     private var asked: [Duration] = []
+    private var returnedCount = 0
 
     deinit {
         // A wait left over ends with the test: a continuation must not be dropped unresumed
@@ -20,6 +21,19 @@ final class ManualTimer: @unchecked Sendable {
             }
         }
     }
+
+    /// `wait:` of a caller on the main actor — `RecordsList` and its bar (#286). The wait ends on the main actor and
+    /// is counted there right before the caller goes on, in the same turn of the main actor: once `returned` counts
+    /// it, the caller's step after the wait has run, and a check that it changed nothing needs no sleep.
+    var onMain: @Sendable (Duration) async -> Void {
+        { @MainActor [self] duration in
+            await wait(duration)
+            markReturned()
+        }
+    }
+
+    /// The waits of `onMain` that ended and went back to their caller.
+    var returned: Int { lock.withLock { returnedCount } }
 
     /// The waits asked for so far, the ended ones too.
     var durations: [Duration] { lock.withLock { asked } }
@@ -38,5 +52,9 @@ final class ManualTimer: @unchecked Sendable {
             return all
         }
         ended.forEach { $0.resume() }
+    }
+
+    private func markReturned() {
+        lock.withLock { returnedCount += 1 }
     }
 }

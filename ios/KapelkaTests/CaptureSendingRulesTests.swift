@@ -147,16 +147,17 @@ struct CaptureSendingRulesTests {
 
     @Test("401 на запрос со старым токеном не останавливает очередь, если токен уже сменили")
     func lateRefusalAfterNewToken() async throws {
-        let harness = try QueueHarness(transport: FakeTransport(
-            [.http(401, body: ServerReply.invalidToken)],
-            latency: .milliseconds(100)
-        ))
+        let answer = Gate()
+        let harness = try QueueHarness(transport: FakeTransport([
+            .held(answer, .http(401, body: ServerReply.invalidToken)),
+        ]))
         let queue = harness.makeQueue()
         _ = try await queue.add("кофе 25к")
 
         async let sending: Void = queue.flush()
         #expect(await eventually { await harness.transport.requests.count == 1 })
         await queue.settingsChanged()
+        answer.open()
         await sending
 
         #expect(try harness.store.load().tokenRefused == false)

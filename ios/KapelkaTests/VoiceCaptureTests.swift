@@ -12,24 +12,6 @@ final class Phrases {
     }
 }
 
-/// Holds the phrase's write until the test opens it.
-@MainActor
-final class Gate {
-    private var waiting: CheckedContinuation<Void, Never>?
-    private var isOpen = false
-
-    func wait() async {
-        guard !isOpen else { return }
-        await withCheckedContinuation { waiting = $0 }
-    }
-
-    func open() {
-        isOpen = true
-        waiting?.resume()
-        waiting = nil
-    }
-}
-
 @MainActor
 @Suite("Голос")
 struct VoiceCaptureTests {
@@ -136,8 +118,8 @@ struct VoiceCaptureTests {
         speech.hear("кофе 250 тысяч")
         voice.cancel()
 
+        // The listening is over: a phrase it wrote would have gone before this
         #expect(await eventually { await voice.phase == .idle })
-        try await Task.sleep(for: .milliseconds(300))
         #expect(phrases.all.isEmpty)
         #expect(voice.problem == nil)
     }
@@ -225,7 +207,7 @@ struct VoiceCaptureTests {
         let gate = Gate()
         let phrases = Phrases()
         let voice = makeVoice(speech) { phrase in
-            await gate.wait()
+            try await gate.wait()
             phrases.add(phrase)
         }
 
@@ -400,7 +382,7 @@ struct VoiceCaptureTests {
         let gate = Gate()
         let phrases = Phrases()
         let voice = makeVoice(speech) { phrase in
-            await gate.wait()
+            try await gate.wait()
             phrases.add(phrase)
         }
 

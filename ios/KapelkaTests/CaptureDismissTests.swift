@@ -34,10 +34,11 @@ struct CaptureDismissTests {
 
     @Test("записанную, ждущую и ту, чей запрос в пути, не убрать")
     func othersStay() async throws {
-        let harness = try QueueHarness(transport: FakeTransport(
-            [.http(200, body: ServerReply.saved(status: "needs_review", title: "Нужно проверить"))],
-            latency: .milliseconds(100)
-        ))
+        let answer = Gate()
+        let harness = try QueueHarness(transport: FakeTransport([
+            .http(200, body: ServerReply.saved(status: "needs_review", title: "Нужно проверить")),
+            .held(answer, .http(200)),
+        ]))
         let queue = harness.makeQueue()
         let review = try await queue.add("перевёл 500к")
         await queue.flush()
@@ -48,6 +49,7 @@ struct CaptureDismissTests {
         async let sending: Void = queue.flush()
         #expect(await eventually { await harness.transport.requests.count == 2 })
         #expect(try await queue.dismiss(waiting.clientId) == false)
+        answer.open()
         await sending
         #expect(try await queue.dismiss(UUID()) == false)
 
