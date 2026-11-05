@@ -16,12 +16,9 @@ struct SettingsView: View {
     @State private var removedCards: Set<String> = []
     @State private var checkLine = ConnectionCheckLine()
     @State private var error: String?
-    @FocusState private var focusedField: Field?
-
-    private enum Field {
-        case address
-        case token
-    }
+    @FocusState private var addressFocused: Bool
+    /// The token's field is UIKit's (#338): `@FocusState` does not reach it.
+    @State private var tokenFocused = false
 
     init(model: AppModel) {
         self.model = model
@@ -38,7 +35,7 @@ struct SettingsView: View {
                         .textContentType(.URL)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
-                        .focused($focusedField, equals: .address)
+                        .focused($addressFocused)
                 } header: {
                     Text("Адрес сервера")
                 } footer: {
@@ -46,10 +43,11 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    SecureField(model.hasToken ? "Сохранён — вставь новый, чтобы заменить" : "Токен", text: $token)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .focused($focusedField, equals: .token)
+                    TokenField(
+                        placeholder: model.hasToken ? "Сохранён — вставь новый, чтобы заменить" : "Токен",
+                        text: $token,
+                        isFocused: $tokenFocused
+                    )
                 } header: {
                     Text("Токен")
                 } footer: {
@@ -182,7 +180,8 @@ struct SettingsView: View {
 
     private func check() {
         // The answer is under the fields: the keyboard would cover it
-        focusedField = nil
+        addressFocused = false
+        tokenFocused = false
         let check = checkLine.start()
         let (address, token) = (address, token)
         Task {
