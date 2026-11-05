@@ -236,9 +236,13 @@ export async function patchTransaction(
 /**
  * Everything a written, changed, deleted or restored record moves; the server computes it. The outbox (FT-129) runs it
  * after it sent what was written without a connection.
+ *
+ * The whole list only, `exact`: the recent records, the frequent expenses and History under it are balance readers.
+ * Invalidated twice in a row, a query is read twice — the second read cancels the first, but `apiClient` gives
+ * `fetch` no signal, so both reach the server (#288).
  */
 export function refreshAfterRecordsChanged(queryClient: QueryClient, userId: string): void {
-  queryClient.invalidateQueries({ queryKey: transactionKeys.list(userId) });
+  queryClient.invalidateQueries({ queryKey: transactionKeys.list(userId), exact: true });
   invalidateBalanceReaders(queryClient, userId);
   queryClient.invalidateQueries({ queryKey: subscriptionKeys.status(userId) });
 }
