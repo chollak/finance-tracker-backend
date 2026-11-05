@@ -12,6 +12,9 @@
 >
 > #265 (2026-11-04): debts outside the capture path — `/api/debts`, `debtController.ts`, the debt use cases but
 > `CreateDebtUseCase` — are removed; the debt findings below are history.
+>
+> #274 (2026-11-05): the user routes — `/api/users*`, `userController.ts`, `UpdateUserUseCase` — are removed: no client
+> called them, and `PUT` wrote the time zone unchecked. The user findings below are history.
 
 ## Scope
 
@@ -51,7 +54,7 @@ backend build + webapp build + dependency-cruiser + circular scan pass
 Recent foundation work already improved several contracts:
 
 - `GetUserUseCase` now returns `Result.failure(NotFoundError)` for missing users.
-- `UpdateUserUseCase.execute()` now returns `Result<User>`.
+- `UpdateUserUseCase.execute()` now returns `Result<User>` (removed in #274 with `/api/users`).
 - `resolveUserIdToUUID()` rejects empty user IDs.
 - API 404 responses report the original unmatched path.
 - Jest application logs are quiet by default.
@@ -68,7 +71,7 @@ Recent foundation work already improved several contracts:
 | `subscriptionController.ts` | 221 lines | Does not use Result pattern in application use cases; has special guest response behavior. |
 | `dashboardController.ts` | 196 lines | Mostly service calls; uses raw `new Error(...)` for missing user. Removed in #205 with the backend dashboard. |
 | `voiceProcessingController.ts` | 139 lines | Validates body manually; text input defaults missing `userId` to `'1'` for backward compatibility. Removed in #221 with `/api/voice/*`. |
-| `userController.ts` | 124 lines | Improved by FT-017; still manually maps use-case Results. |
+| `userController.ts` | 124 lines | Improved by FT-017; still manually maps use-case Results. Removed in #274 with `/api/users`. |
 | `openAIUsageController.ts` | 105 lines | Admin surface; smaller controller. Removed in FT-174 with `OpenAIUsageModule`. |
 
 ### Route Surfaces
@@ -83,7 +86,7 @@ Main route families:
 /api/debts         (removed in #265)
 /api/dashboard      (removed in #205)
 /api/subscription
-/api/users
+/api/users         (removed in #274)
 /api/openai
 ```
 
