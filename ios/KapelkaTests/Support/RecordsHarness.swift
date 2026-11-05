@@ -155,3 +155,13 @@ final class RecordsHarness: Sendable {
         return RecordsFeed(client: client, cache: cache, now: { clock.now })
     }
 }
+
+extension RecordsList {
+    /// The tab on screen or off the way `RootView.screenChanged` puts it (#284): `setOnScreen`, then `startRefresh`
+    /// once the tab opened. The test waits for that very refresh; the screen does not.
+    func rootViewChanged(onScreen: Bool) async {
+        if setOnScreen(onScreen) {
+            await startRefresh().value
+        }
+    }
+}

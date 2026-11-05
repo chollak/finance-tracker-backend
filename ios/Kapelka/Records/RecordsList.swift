@@ -158,9 +158,10 @@ final class RecordsList {
     }
 
     /// The same, started at once: a tap on a notification asks for its record right after, and the record waits for
-    /// this refresh (`reveal`).
-    func startRefresh() {
-        _ = run(pulled: false)
+    /// this refresh (`reveal`). The screen does not wait for it; a test does, through the run returned (#284).
+    @discardableResult
+    func startRefresh() -> Task<Void, Never> {
+        run(pulled: false)
     }
 
     private func run(pulled: Bool) -> Task<Void, Never> {
