@@ -5,7 +5,8 @@ import Foundation
 struct CardAccount: Codable, Equatable, Identifiable, Sendable {
     let card: String
     var account: String
-    /// A mapping saved before FT-179's review has none.
+    /// `nil` — «Как в сумме»: an amount without a code takes the currency chosen in the automation
+    /// (`PaymentRecorder`). A mapping saved before FT-179's review has none either.
     var currency: PaymentCurrency?
 
     var id: String { card }
@@ -23,9 +24,10 @@ enum CardAccountError: Error, Equatable {
 }
 
 /// Wallet cards → Kapelka accounts (FT-179), in the app's `UserDefaults`. A card appears by itself with its first
-/// payment; the account's name is typed by hand, since the token only writes and the app has no list of accounts. The
-/// server takes it only as an account's whole name (`docs/QUICK_CAPTURE_API.md`, «What is written»), otherwise the
-/// default account and «проверить счёт».
+/// payment; the account's name is typed by hand in the settings. The app does read the list of accounts since FT-218
+/// (`RecordsFeed.accounts`) — for the rows of «Записи» and the card on «Записать» — but the settings offer no choice
+/// from it. The server takes the name only as an account's whole name (`docs/QUICK_CAPTURE_API.md`, «What is
+/// written»), otherwise the default account and «проверить счёт».
 final class CardAccountStore: @unchecked Sendable {
     /// The server's limit on `accountName`.
     static let accountLimit = 100
