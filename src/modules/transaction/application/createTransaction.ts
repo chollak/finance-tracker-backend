@@ -1,7 +1,7 @@
 import { Transaction } from '../domain/transactionEntity';
 import { TransactionRepository } from '../domain/transactionRepository';
 import { Result, ResultHelper } from '../../../shared/domain/types/Result';
-import { ValidationError, BusinessLogicError } from '../../../shared/domain/errors/AppError';
+import { ValidationError, StorageError } from '../../../shared/domain/errors/AppError';
 import { normalizeSemanticType } from '../domain/transactionSemanticType';
 import { normalizeNeedsReview } from '../domain/transactionEntity';
 import { SubscriptionModule } from '../../subscription/subscriptionModule';
@@ -204,7 +204,7 @@ export class CreateTransactionUseCase {
       }
       logger.error('Error creating transaction', error as Error);
       return ResultHelper.failure(
-        new BusinessLogicError('Failed to create transaction', { userId: transaction.userId })
+        new StorageError('Failed to create transaction')
       );
     }
   }

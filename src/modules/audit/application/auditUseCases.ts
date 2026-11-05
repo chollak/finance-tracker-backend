@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 import { Result, ResultHelper } from '../../../shared/domain/types/Result';
-import { BusinessLogicError, ConflictError, NotFoundError, ValidationError } from '../../../shared/domain/errors/AppError';
+import { BusinessLogicError, ConflictError, NotFoundError, ValidationError, StorageError } from '../../../shared/domain/errors/AppError';
 import { getLogger, LogCategory } from '../../../shared/application/logging';
 import { daysInMonth, shiftMonth } from '../../transaction/domain/monthAnalytics';
 import {
@@ -29,7 +29,7 @@ const AUDIT_WRITE_ATTEMPTS = 10;
 
 const failed = (message: string, error: unknown) => {
   logger.error(message, error as Error);
-  return ResultHelper.failure(new BusinessLogicError(message));
+  return ResultHelper.failure(new StorageError(message));
 };
 
 /**

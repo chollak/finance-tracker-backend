@@ -197,6 +197,21 @@ describe('when the connection is back', () => {
     expect(pendingRecordsOf(USER)).toHaveLength(1);
   });
 
+  // #270: a database that failed (busy, the disk) answers 500 INTERNAL_ERROR — before it was a 422 that dropped the record
+  it('a database that failed on the server keeps the record, silently, and sends it again with the same client id', async () => {
+    const [taxi] = queueRecords(USER, [TAXI, COFFEE]);
+    vi.mocked(apiClient.post).mockRejectedValueOnce({ message: 'Failed to create transaction', statusCode: 500, code: 'INTERNAL_ERROR' });
+
+    expect(await flushRecordOutbox(queryClient, USER)).toEqual({ sent: 0, stopped: 'server' });
+    expect(pendingRecordsOf(USER)).toHaveLength(2);
+    expect(shownToast()).toBeNull();
+
+    expect(await flushRecordOutbox(queryClient, USER)).toEqual({ sent: 2, stopped: null });
+    expect(sentClientIds()[0]).toBe(taxi.clientId);
+    expect(sentClientIds()[1]).toBe(taxi.clientId);
+    expect(pendingRecordsOf(USER)).toEqual([]);
+  });
+
   it('the sent record shows among the recent ones at once, while they are read again', async () => {
     queryClient.setQueryData(transactionKeys.recent(USER, 5), []);
     queueRecords(USER, [TAXI]);

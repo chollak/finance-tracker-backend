@@ -1,5 +1,5 @@
 import { Result, ResultHelper } from '../../../shared/domain/types/Result';
-import { BusinessLogicError, NotFoundError, ValidationError } from '../../../shared/domain/errors/AppError';
+import { BusinessLogicError, NotFoundError, ValidationError, StorageError } from '../../../shared/domain/errors/AppError';
 import { getLogger, LogCategory } from '../../../shared/application/logging';
 import { GoalRepository } from '../domain/auditRepository';
 import { SubscriptionState, goalSavingMinor } from '../domain/goal';
@@ -29,7 +29,7 @@ export class ListGoalsUseCase {
       });
     } catch (error) {
       logger.error('Failed to read the goals', error as Error);
-      return ResultHelper.failure(new BusinessLogicError('Failed to read the goals'));
+      return ResultHelper.failure(new StorageError('Failed to read the goals'));
     }
   }
 }
@@ -64,7 +64,7 @@ export class ListGoalRemindersUseCase {
       });
     } catch (error) {
       logger.error('Failed to read the goals to remind of', error as Error);
-      return ResultHelper.failure(new BusinessLogicError('Failed to read the goals to remind of'));
+      return ResultHelper.failure(new StorageError('Failed to read the goals to remind of'));
     }
   }
 }
@@ -107,7 +107,7 @@ export class UpdateGoalUseCase {
       return ResultHelper.success(view);
     } catch (error) {
       logger.error('Failed to change the goal', error as Error);
-      return ResultHelper.failure(new BusinessLogicError('Failed to change the goal'));
+      return ResultHelper.failure(new StorageError('Failed to change the goal'));
     }
   }
 }

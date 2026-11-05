@@ -1,5 +1,5 @@
 import { Result, ResultHelper } from '../../../shared/domain/types/Result';
-import { BusinessLogicError, ValidationError } from '../../../shared/domain/errors/AppError';
+import { ValidationError, StorageError } from '../../../shared/domain/errors/AppError';
 import {
   AUDIT_TIMES,
   DAILY_SUMMARY_TIMES,
@@ -99,7 +99,7 @@ export class GetUserSettingsUseCase {
       return ResultHelper.success(stored ?? defaultUserSettings(input.userId));
     } catch (error) {
       logger.error('Failed to read settings', error as Error);
-      return ResultHelper.failure(new BusinessLogicError('Failed to read settings'));
+      return ResultHelper.failure(new StorageError('Failed to read settings'));
     }
   }
 }
@@ -130,7 +130,7 @@ export class UpdateUserSettingsUseCase {
       return ResultHelper.success(saved);
     } catch (error) {
       logger.error('Failed to save settings', error as Error);
-      return ResultHelper.failure(new BusinessLogicError('Failed to save settings'));
+      return ResultHelper.failure(new StorageError('Failed to save settings'));
     }
   }
 }

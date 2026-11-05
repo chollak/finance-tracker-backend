@@ -190,13 +190,9 @@ final class AppModel {
         Task { await services.queue.flush() }
     }
 
-    func checkConnection(address: String) async -> String {
-        guard let base = ServerAddress.normalized(address) else { return SettingsMessage.badAddress }
-        switch await services.health.run(base: base) {
-        case .available: return "Сервер доступен"
-        case let .answered(status): return "Сервер ответил с ошибкой \(status)"
-        case .unreachable: return "Не отвечает"
-        }
+    /// «Проверить связь» with the fields as typed (#283): nothing is saved before «Сохранить».
+    func checkConnection(address: String, token: String) async -> String {
+        await services.health.run(address: address, typedToken: token, savedToken: services.settings.savedToken).text
     }
 }
 

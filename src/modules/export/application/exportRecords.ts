@@ -1,5 +1,5 @@
 import { Result, ResultHelper } from '../../../shared/domain/types/Result';
-import { BusinessLogicError, ConflictError, ExternalServiceError } from '../../../shared/domain/errors/AppError';
+import { ConflictError, ExternalServiceError, StorageError } from '../../../shared/domain/errors/AppError';
 import { getLogger, LogCategory } from '../../../shared/application/logging';
 import { todayDateOnly } from '../../../shared/domain/dates/dateOnly';
 import { ChatClosedError, ChatFileSender, ExportSources, RecordsFile } from '../domain/exportPorts';
@@ -23,7 +23,7 @@ export class BuildRecordsFileUseCase {
       return ResultHelper.success({ fileName: exportFileName(date), text, count, date });
     } catch (error) {
       logger.error('Failed to build the export', error as Error, { userId: input.userId });
-      return ResultHelper.failure(new BusinessLogicError('Failed to build the export'));
+      return ResultHelper.failure(new StorageError('Failed to build the export'));
     }
   }
 }
