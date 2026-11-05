@@ -10,6 +10,12 @@ struct RecordsView: View {
 
     /// The line over the list: where «вкладка сверху» scrolls to.
     private static let top = "records-top"
+    /// Long enough for the scroll to bring the row in: off screen a row of the list is not there, and VoiceOver's focus
+    /// goes only to a row that is.
+    private static let focusDelay: Duration = .milliseconds(500)
+
+    /// The row VoiceOver reads: the one a tap on «Записал: …» scrolled to (#285).
+    @AccessibilityFocusState private var focusedRecord: String?
 
     var body: some View {
         @Bindable var list = list
@@ -50,6 +56,8 @@ struct RecordsView: View {
                             recordRow(row)
                                 // The system's look of a tapped row, for a second
                                 .listRowBackground(row.id == list.highlighted ? Color(uiColor: .systemGray4) : nil)
+                                // The highlight is a colour only: VoiceOver comes to the row (#285)
+                                .accessibilityFocused($focusedRecord, equals: row.id)
                         }
                     } header: {
                         DayHeader(day: day)
@@ -63,7 +71,8 @@ struct RecordsView: View {
         .animation(.easeOut(duration: 0.4), value: list.highlighted)
     }
 
-    /// Once per request: to the record, or to the top when it is not on the loaded pages.
+    /// Once per request: to the record, or to the top when it is not on the loaded pages. VoiceOver follows to the
+    /// record.
     private func scroll(_ proxy: ScrollViewProxy) {
         guard let scroll = list.scroll else { return }
         list.scrolled(scroll.number)
@@ -76,6 +85,11 @@ struct RecordsView: View {
                 // above the first row (PR #170, «Известно»)
                 proxy.scrollTo(Self.top, anchor: .top)
             }
+        }
+        guard let row = RecordsFocus.row(after: scroll) else { return }
+        Task {
+            try? await Task.sleep(for: Self.focusDelay)
+            focusedRecord = row
         }
     }
 
@@ -184,6 +198,15 @@ private struct DayHeader: View {
             return Text("\(header) · \(amount)")
         }
         .accessibilityLabel(day.header)
+    }
+}
+
+/// Where VoiceOver's focus goes after a scroll (#285): to the record's row when it is on the loaded pages; at the top of
+/// the tab it stays where it was.
+enum RecordsFocus {
+    static func row(after scroll: RecordsScroll) -> String? {
+        guard case let .record(id) = scroll.target else { return nil }
+        return id
     }
 }
 

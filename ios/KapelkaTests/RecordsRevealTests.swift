@@ -4,8 +4,8 @@ import Testing
 
 /// FT-254: the refresh shows itself — «Обновляю…» while the tab refreshes by itself, the system's indicator alone on a
 /// pull, «Обновлено N мин назад» after; the caption moves with the clock, the list does not (decision FT-220). A tap
-/// on «Записал: …» scrolls to the record and highlights it for a second; a record not on the loaded pages opens the
-/// tab at the top.
+/// on «Записал: …» scrolls to the record and highlights it for a second, VoiceOver's focus goes to its row (#285); a
+/// record not on the loaded pages opens the tab at the top.
 @MainActor
 @Suite("Записи: обновление видно, переход к записи")
 struct RecordsRevealTests {
@@ -191,5 +191,23 @@ struct RecordsRevealTests {
         list.reveal("b")
 
         #expect(list.scroll?.target == .top)
+    }
+
+    // MARK: VoiceOver (#285)
+
+    @Test("VoiceOver: переход к записи на загруженной странице — фокус на её строку; нет её — фокус не трогается")
+    func focusFollowsReveal() async throws {
+        let routes = RoutedTransport(page: [.http(200, body: page(["a", "b"], next: "cursor-1"))])
+        let (list, _) = try list(routes)
+        await list.screenChanged(onScreen: true)
+
+        list.reveal("b")
+        let loaded = try #require(list.scroll)
+        #expect(RecordsFocus.row(after: loaded) == "b")
+        list.scrolled(loaded.number)
+
+        list.reveal("day-before-yesterday")
+        let notLoaded = try #require(list.scroll)
+        #expect(RecordsFocus.row(after: notLoaded) == nil)
     }
 }
