@@ -92,17 +92,17 @@ struct AppNavigationTests {
         let open = OpenRequest()
         let navigation = AppNavigation(listenRequest: request, openRequest: open)
 
-        open.ask(.records)
+        open.ask(OpenTarget(.records))
         #expect(navigation.openPending == OpenTarget(.records))
         #expect(navigation.takeOpenRequest() == nil)
         #expect(navigation.tab == .records)
         #expect(navigation.openPending == nil)
 
-        open.ask(.capture)
+        open.ask(OpenTarget(.capture))
         navigation.takeOpenRequest()
         #expect(navigation.tab == .capture)
 
-        open.ask(.settings)
+        open.ask(OpenTarget(.settings))
         navigation.takeOpenRequest()
         #expect(navigation.showsSettings)
         #expect(navigation.tab == .capture)
@@ -118,8 +118,8 @@ struct AppNavigationTests {
         let open = OpenRequest()
         let navigation = AppNavigation(listenRequest: request, openRequest: open)
 
-        open.ask(.settings)
-        open.ask(.records)
+        open.ask(OpenTarget(.settings))
+        open.ask(OpenTarget(.records))
         navigation.takeOpenRequest()
 
         #expect(navigation.tab == .records)
@@ -142,13 +142,13 @@ struct AppNavigationTests {
         let open = OpenRequest()
         let navigation = AppNavigation(listenRequest: request, openRequest: open)
 
-        open.ask(.records, record: "rec-1")
+        open.ask(OpenTarget(.records, record: "rec-1"))
         #expect(navigation.openPending == OpenTarget(.records, record: "rec-1"))
         #expect(navigation.takeOpenRequest() == "rec-1")
         #expect(navigation.tab == .records)
         #expect(navigation.takeOpenRequest() == nil)
 
-        open.ask(.capture, record: "rec-2")
+        open.ask(OpenTarget(.capture, record: "rec-2"))
         #expect(navigation.takeOpenRequest() == nil)
         #expect(navigation.tab == .capture)
     }
