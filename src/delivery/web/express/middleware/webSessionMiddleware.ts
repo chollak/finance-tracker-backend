@@ -1,7 +1,7 @@
 /**
  * The browser's session (FT-128): outside Telegram the web app signs in through the bot and gets an httpOnly cookie.
  * This middleware runs before every /api route: it looks the cookie up and puts its user in `req.webSession`, where
- * `requireAuth`, `optionalAuth` and the general rate limit find it next to Telegram's initData.
+ * `requireAuth` and the general rate limit find it next to Telegram's initData.
  */
 
 import { CookieOptions, NextFunction, Request, RequestHandler, Response } from 'express';

@@ -111,8 +111,8 @@ Mini App и сайт отдаёт этот же сервер — их запро
 
 Браузер вне Telegram входит через бота и получает httpOnly-cookie `daftar_session` (SameSite=Lax, `Path=/api`, 30
 дней). `createWebSessionMiddleware` стоит сразу после CORS, до всех роутеров и лимитов: находит сессию по хешу
-cookie и кладёт её пользователя в `req.webSession`. Дальше вход определяется так (`requireAuth`, `optionalAuth`,
-`signedInTelegramId`): вне production `X-Dev-User-Id`; есть заголовок `Authorization` — только он (`tma <initData>`
+cookie и кладёт её пользователя в `req.webSession`. Дальше вход определяется так (`requireAuth`,
+`signedInTelegramId`; `optionalAuth` убран в #271): вне production `X-Dev-User-Id`; есть заголовок `Authorization` — только он (`tma <initData>`
 Mini App); нет заголовка — сессия браузера. Без всего этого — `401`.
 
 **Файл:** [`src/delivery/web/express/middleware/webSessionMiddleware.ts`](../../../src/delivery/web/express/middleware/webSessionMiddleware.ts)

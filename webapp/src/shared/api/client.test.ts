@@ -28,6 +28,8 @@ async function client() {
   return import('./client');
 }
 
+type ApiClient = Awaited<ReturnType<typeof client>>['apiClient'];
+
 const sentHeaders = () => (fetchMock.mock.calls[0][1] as RequestInit).headers as Record<string, string>;
 
 describe('a 401 outside Telegram', () => {
@@ -37,6 +39,22 @@ describe('a 401 outside Telegram', () => {
     onSessionLost(lost);
 
     await expect(apiClient.get('/settings')).rejects.toMatchObject({ statusCode: 401 });
+    expect(lost).toHaveBeenCalledTimes(1);
+  });
+
+  // #271: the record's routes answer 401 without a session too (they answered 403 before), so a browser whose 30-day
+  // session ended gets the login screen from a delete, an edit or «Отменить», not a failed toast
+  it.each([
+    ['a delete', (api: ApiClient) => api.delete('/transactions/tx-1?userId=597843119')],
+    ['an edit', (api: ApiClient) => api.put('/transactions/tx-1', { categoryId: 'cat-1' })],
+    ['«Отменить»', (api: ApiClient) => api.post('/transactions/tx-1/restore')],
+    ['the record read', (api: ApiClient) => api.get('/transactions/tx-1')],
+  ])('from %s of a record too: the handler is told', async (_case, send) => {
+    const { apiClient, onSessionLost } = await client();
+    const lost = vi.fn();
+    onSessionLost(lost);
+
+    await expect(send(apiClient)).rejects.toMatchObject({ statusCode: 401 });
     expect(lost).toHaveBeenCalledTimes(1);
   });
 

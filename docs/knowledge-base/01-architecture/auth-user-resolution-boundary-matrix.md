@@ -6,6 +6,31 @@
 >
 > #265 (2026-11-04): the debt routes — `/api/debts/*` — and the debt use cases that resolved their owner themselves are removed; the debt routes in the dated sections below are history.
 
+## 2026-11-05 — a record's routes sign in first; `optionalAuth` is gone (#271)
+
+The last routes on `optionalAuth` were a record's own: `GET`, `PUT`, `DELETE /api/transactions/:id`, `POST …/restore`
+and the archive's three. A remainder of the guest mode (no guests since #206): without sign-in the handler read the
+record and its owner check answered `403 AUTHORIZATION_ERROR`, an unknown id `404`. So a browser whose 30-day session
+ended got `403` on a delete, an edit or «Отменить» and never the login screen, which the webapp shows on a `401`
+(`webapp/src/shared/api/client.ts`); and the answer told a stranger which ids exist.
+
+| Was | Now |
+|---|---|
+| `GET /:id`, `POST /:id/archive`, `/:id/unarchive`, `POST /archive/batch` on `optionalAuth` | `requireAuth` |
+| `DELETE /:id`, `POST /:id/restore`, `PUT /:id` on `optionalAuthOrAppToken` (FT-218) | `requireAuthOrAppToken` — the token signs in as `SHORTCUT_CAPTURE_OWNER` exactly as before |
+| Without sign-in, or with an `Authorization` that is not valid initData: the record read, then `403` (or `404` for an unknown id) | `401` before the record is read — `MISSING_AUTH_HEADER`, `INVALID_AUTH_FORMAT` or `INVALID_AUTH`, the answer every other route gives; an id that exists and one that does not get the same answer |
+| `optionalAuth`, `optionalAuthOrAppToken` | Removed: no route used them any more |
+
+Unchanged: signed in (initData, the session cookie, `X-Dev-User-Id` outside production from this machine, the app
+token), someone else's record is `403 AUTHORIZATION_ERROR` and an unknown one `404` — `verifyResourceOwnership` after
+the record is read. The archive's routes went over too, though #273 removes them: they would have been the only users
+of `optionalAuth` left.
+Tests: `tests/transactionRoutes.test.ts` (all seven routes: `401` without sign-in and with a non-initData
+`Authorization`, the record not read; signed in by the dev header and by the session: own record `200`, someone else's
+`403`, unknown `404`), `tests/appTokenRecords.test.ts` (on the real stack: `401` for an id that exists and one that
+does not, the record unchanged; the token opens exactly its six routes as before), `tests/localDevAuth.test.ts`,
+`webapp/src/shared/api/client.test.ts` (a `401` from a record's routes is a lost session).
+
 ## 2026-11-04 — one Telegram id rule in the resolver; no grant without a user (#230)
 
 Found in the review of #224: the resolver took a Telegram id by its own regex (`/^0*[1-9]\d*$/`, any length, looked
@@ -102,7 +127,7 @@ FT-219…FT-221). Before, the token `SHORTCUT_CAPTURE_TOKEN` opened only the two
 
 | Was | Now |
 |---|---|
-| The token signed nobody in: on capture it put the owner into the body (`allowShortcutCapture`), `req.telegramUser` unset | Also on six routes, named one by one: `GET /api/transactions`, `GET /api/categories`, `GET /api/accounts` (the list only), `DELETE /api/transactions/:id`, `POST /api/transactions/:id/restore`, `PUT /api/transactions/:id`. There it signs in as `SHORTCUT_CAPTURE_OWNER` — `req.telegramUser` — and the request goes on as the owner's initData: user resolution, `verifyResourceOwnership`, the handler (`requireAuthOrAppToken`, `optionalAuthOrAppToken`, `createCurrentUserOrAppTokenMiddleware`) |
+| The token signed nobody in: on capture it put the owner into the body (`allowShortcutCapture`), `req.telegramUser` unset | Also on six routes, named one by one: `GET /api/transactions`, `GET /api/categories`, `GET /api/accounts` (the list only), `DELETE /api/transactions/:id`, `POST /api/transactions/:id/restore`, `PUT /api/transactions/:id`. There it signs in as `SHORTCUT_CAPTURE_OWNER` — `req.telegramUser` — and the request goes on as the owner's initData: user resolution, `verifyResourceOwnership`, the handler (`requireAuthOrAppToken`, `optionalAuthOrAppToken` until #271, `createCurrentUserOrAppTokenMiddleware`) |
 | The token's rules lived in `allowShortcutCapture` | `shortcutOwnerOrRefuse`, one function for capture and the records routes: the same answers in production (`401 INVALID_SHORTCUT_TOKEN`, `403 SHORTCUT_CAPTURE_DISABLED`, `403 ACCESS_DENIED`) and the FT-155 rules outside it. The log names the route's pattern, never the token |
 | `/api/categories` and `/api/accounts` signed in with one `router.use` for every route | `GET /` of each is registered before that `router.use`, with the token-aware sign-in; every other route of theirs still goes through it, so a new route there is closed to the token by default |
 
@@ -257,23 +282,15 @@ Used for:
 - `/api/users/*`
 - the `:userId` routes of transactions, budgets and debts, before `verifyOwnership` (`allowGuestMode` until #206)
 - voice text/voice input routes, before `writeAsSignedInUser` (removed in #221)
+- transaction by-id routes, before the controller's `verifyResourceOwnership` (#271; `requireAuthOrAppToken` on
+  delete, restore and edit — FT-218)
 
-### `optionalAuth`
+### `optionalAuth` — removed in #271
 
-Loose auth boundary.
-
-- If no auth header, continues unauthenticated.
-- If invalid auth format, continues unauthenticated.
-- If valid auth, attaches `telegramUser`.
-
-Used for resource-scoped routes where controller fetches the resource and calls `verifyResourceOwnership(...)`, which
-refuses a request without a signed-in user (`403 AUTHORIZATION_ERROR`).
-
-Current route families:
-
-- transaction by-id routes (`optionalAuthOrAppToken` on delete, restore and edit — FT-218)
-- budget by-id routes
-- debt by-id / payment routes
+Was a loose boundary: without an auth header, or with one not in the `tma <initData>` format, the request went on
+unsigned, and the controller's `verifyResourceOwnership` refused it `403 AUTHORIZATION_ERROR` after reading the record
+(an unknown id `404`). Its last routes, a record's own, use `requireAuth` / `requireAuthOrAppToken` now: `401` before
+the record is read. The by-id routes of budgets and debts used it too until #264 and #265.
 
 ### `allowGuestMode` — removed in #206
 
@@ -302,9 +319,9 @@ Resource-scoped ownership guard.
 
 Used inside:
 
-- transaction by-id operations
-- budget by-id operations
-- debt by-id/payment operations
+- transaction by-id operations, after `requireAuth` (#271)
+- budget by-id operations (removed in #264)
+- debt by-id/payment operations (removed in #265)
 
 ### `createUserResolutionMiddleware`
 
@@ -344,7 +361,7 @@ FT-017D decision: do not globally change this helper to fail-closed yet.
 | Transaction history, totals, frequent | `GET /api/transactions` (FT-107), `/totals`, `/frequent` | `requireAuth` (`GET /` also the app token, FT-218) | signed-in user (`createCurrentUserMiddleware`) | none — no userId taken | strict |
 | Transaction create | `POST /api/transactions` | `requireAuth` | signed-in user (`createResolveCurrentUserMiddleware`) | `verifyOwnership` on a body/query userId, before resolution (FT-162) | strict |
 | Transaction user-scoped analytics/list | `/api/transactions/.../:userId` | `requireAuth` (`allowGuestMode` until #206) | route middleware, after the check (FT-162) | `verifyOwnership` | strict |
-| Transaction by-id CRUD/archive | `/api/transactions/:id` | `optionalAuth`; delete, restore, edit `optionalAuthOrAppToken` (FT-218) | controller/helper | `verifyResourceOwnership` | resource-strict |
+| Transaction by-id CRUD/archive | `/api/transactions/:id` | `requireAuth`; delete, restore, edit `requireAuthOrAppToken` (FT-218); `optionalAuth` until #271 | controller/helper | `verifyResourceOwnership` | strict |
 | Voice text-input and upload — removed in #221 | `/api/voice/text-input`, `/api/voice/voice-input` | — (`404`) | — | — | — |
 | Quick capture | `POST /api/quick-capture`, `/payment` | `allowShortcutCapture`: `requireAuth` + `writeAsSignedInUser`, or the Shortcut token (FT-155) | controller resolver | signed-in user or `SHORTCUT_CAPTURE_OWNER` | strict |
 | Budgets — removed in #264 | `/api/budgets/users/:userId/...`, `/api/budgets/:budgetId...` | — (`404`) | — | — | — |
@@ -360,10 +377,6 @@ The column «Guest allowed» went with the guests (#206). A request without sign
   `DELETE /api/auth/session` — they start, wait for, cancel a login by its one-time token and open or close the
   browser's session; a session opens only after the owner confirmed the login in the bot. `GET /api/auth/session`
   needs sign-in.
-- The by-id routes on `optionalAuth` (`optionalAuthOrAppToken` for delete, restore and edit of a record, FT-218):
-  `/api/transactions/:id` and its `/restore`, `/archive`, `/unarchive`, `POST /api/transactions/archive/batch`.
-  The controller looks
-  the record up and its owner check answers a request without sign-in `403 AUTHORIZATION_ERROR`.
 - Quick capture (`POST /api/quick-capture`, `/payment`) and the six FT-218 routes with the Shortcut token, which signs
   in as `SHORTCUT_CAPTURE_OWNER` instead of Telegram.
 
@@ -406,6 +419,9 @@ This is intentional for resource-scoped routes, but surprising:
   were opened here until 2026-10-21
 
 Recommendation: keep for now, but test any route where invalid auth should fail immediately.
+
+Closed in #271: `optionalAuth` is gone; a record's routes answer an invalid or missing auth `401`
+(`tests/transactionRoutes.test.ts`).
 
 ### B2 — `allowGuestMode` is central to user-scoped route safety
 
@@ -458,6 +474,8 @@ Risk: low.
 
 - Lock current `optionalAuth` behavior if we intentionally keep it.
 - Or decide route families where invalid auth should be rejected.
+
+Status: done in #271 — every route rejects invalid auth; `optionalAuth` is removed.
 
 ## Stop Conditions
 
