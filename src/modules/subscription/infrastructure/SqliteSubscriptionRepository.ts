@@ -2,7 +2,7 @@
  * SQLite Subscription Repository Implementation
  */
 
-import { Repository, LessThan } from 'typeorm';
+import { DataSource, Repository, LessThan } from 'typeorm';
 import { AppDataSource } from '../../../shared/infrastructure/database/database.config';
 import { Subscription as SubscriptionEntity } from '../../../shared/infrastructure/database/entities/Subscription';
 import {
@@ -20,8 +20,8 @@ import {
 export class SqliteSubscriptionRepository implements SubscriptionRepository {
   private repository: Repository<SubscriptionEntity>;
 
-  constructor() {
-    this.repository = AppDataSource.getRepository(SubscriptionEntity);
+  constructor(dataSource: DataSource = AppDataSource) {
+    this.repository = dataSource.getRepository(SubscriptionEntity);
   }
 
   async findById(id: string): Promise<Subscription | null> {
@@ -66,7 +66,8 @@ export class SqliteSubscriptionRepository implements SubscriptionRepository {
       tier: dto.tier,
       source: dto.source,
       status: 'active',
-      priceStars: dto.priceStars || SUBSCRIPTION_PRICE_STARS,
+      // A gift, a lifetime grant and a trial cost 0: only a missing price gets the default (#256)
+      priceStars: dto.priceStars ?? SUBSCRIPTION_PRICE_STARS,
       currency: 'XTR',
       startDate,
       endDate,

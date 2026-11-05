@@ -77,6 +77,20 @@ export const TRIAL_DURATION_DAYS = 14;
 export const MONTHLY_DURATION_DAYS = 30;
 
 /**
+ * How long an admin gift may last, in days (#256): from one day to ten years
+ */
+export const GRANT_DURATION_DAYS = { min: 1, max: 3650 } as const;
+
+/**
+ * A whole number of days within GRANT_DURATION_DAYS — not `"30"`, `1.5`, `0` or `true`
+ */
+export function isGrantDuration(value: unknown): value is number {
+  return Number.isInteger(value)
+    && (value as number) >= GRANT_DURATION_DAYS.min
+    && (value as number) <= GRANT_DURATION_DAYS.max;
+}
+
+/**
  * Free tier limits (re-exported from usageLimit for convenience)
  */
 export { FREE_TIER_LIMITS } from './usageLimit';

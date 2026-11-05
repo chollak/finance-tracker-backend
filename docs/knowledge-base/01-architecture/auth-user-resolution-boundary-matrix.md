@@ -368,7 +368,7 @@ FT-017D decision: do not globally change this helper to fail-closed yet.
 | Debts — removed in #265 | `/api/debts/user/:userId...`, `/api/debts/:debtId...`, `/api/debts/payments/:paymentId` | — (`404`) | — | — | — |
 | Dashboard — removed in #205 | `/api/dashboard/:userId...` | — (`404`) | — | — | — |
 | Subscription (own) | `GET /api/subscription/:userId`, `POST /check-limit`, `/cancel`, `/start-trial` | `requireAuth` | signed-in user (`createResolveCurrentUserMiddleware`, FT-162) | `verifyOwnership` on any path/body/query userId, before resolution | strict |
-| Subscription grant | `POST /api/subscription/grant` | `requireAuth` + `requireAdmin` | body userId (the admin's target; a non-string or an id that is no UUID and no Telegram id is `400 INVALID_USER_ID`, #224; a Telegram id with leading zeros is the same user, a UUID no user has is `404 NOT_FOUND`, #230) | admin only | strict/admin |
+| Subscription grant | `POST /api/subscription/grant` | `requireAuth` + `requireAdmin` | body userId (the admin's target; a non-string or an id that is no UUID and no Telegram id is `400 INVALID_USER_ID`, #224; a Telegram id with leading zeros is the same user, a UUID no user has is `404 NOT_FOUND`, #230; no `grantedBy`, or a `durationDays` other than a whole number from 1 to 3650, is `400 VALIDATION_ERROR` after `requireAdmin` and before the target is resolved — no user, no subscription, #256) | admin only | strict/admin |
 
 The column «Guest allowed» went with the guests (#206). A request without sign-in reaches only these routes:
 
