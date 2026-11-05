@@ -56,10 +56,9 @@ export function createModules() {
   // Set subscription dependencies for TransactionModule (for decrementing on delete)
   transactionModule.setSubscriptionDependencies(subscriptionModule, userModule);
 
-  // DebtModule needs subscription for limit checking
-  const debtModule = DebtModule.create(transactionModule, subscriptionModule, userModule);
+  // What is left of debts (#265): the frozen capture path still takes CreateDebtUseCase until #266
+  const debtModule = DebtModule.create(transactionModule);
 
-  // VoiceProcessingModule now handles both transactions and debts
   const openAIService = new OpenAITranscriptionService(AppConfig.OPENAI_API_KEY);
   // Learned patterns: a category they give is not the AI's guess (FT-138)
   const voiceModule = new VoiceProcessingModule(openAIService, transactionModule, debtModule, categoryModule.getCatalog(), transactionLearning);
@@ -99,7 +98,6 @@ export function createModules() {
     accountModule,
     fxModule,
     transactionModule,
-    debtModule,
     voiceModule,
     quickCaptureModule,
     userModule,

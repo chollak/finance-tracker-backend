@@ -28,7 +28,7 @@ export const RU = {
     noTransactions: 'Транзакций не найдено',
   },
 
-  // Debt messages
+  // The debt confirmation of the capture path (messageHandlers, frozen until #266); the rest went with #265
   debt: {
     created: '🤝 Долг записан',
     iOwe: 'Я должен',
@@ -37,9 +37,7 @@ export const RU = {
     personFrom: 'Кто',
     amount: 'Сумма',
     dueDate: 'Вернуть до',
-    noDueDate: 'без срока',
     withTransaction: '+ транзакция создана',
-    noDebts: 'Долгов не найдено',
   },
 
   // A quick-add category button of a message sent before FT-124: the amount comes next

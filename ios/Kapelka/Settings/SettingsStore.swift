@@ -19,7 +19,12 @@ final class SettingsStore: @unchecked Sendable {
     }
 
     var hasToken: Bool {
-        (try? tokens.read()) != nil
+        savedToken != nil
+    }
+
+    /// For «Проверить связь» with an empty field (#283); never shown.
+    var savedToken: String? {
+        try? tokens.read()
     }
 
     func configuration() -> ServerConfiguration? {

@@ -1,7 +1,8 @@
 /**
  * Debt Entity - Domain Layer
  *
- * Represents debts (money owed to/by the user)
+ * What is left of the debt module (#265): the capture path still names these types until #266. The `debts` and
+ * `debt_payments` tables and their rows stay (decision 2026-11-04).
  */
 
 export enum DebtType {
@@ -36,22 +37,6 @@ export interface DebtEntity {
 
   // Link to transaction (when money was actually transferred)
   relatedTransactionId?: string;
-
-  // Split expenses support (for future)
-  splitGroupId?: string;
-  splitExpenseId?: string;
-}
-
-/**
- * Debt Payment entity - tracks partial/full payments
- */
-export interface DebtPaymentEntity {
-  id: string;
-  debtId: string;
-  amount: number;
-  note?: string;
-  paidAt: Date;
-  createdAt: Date;
 }
 
 /**
@@ -68,47 +53,4 @@ export interface CreateDebtData {
 
   // If true, creates a linked transaction (money already transferred)
   moneyTransferred?: boolean;
-
-  // For split expenses (future)
-  splitGroupId?: string;
-  splitExpenseId?: string;
-}
-
-/**
- * Data for updating an existing debt
- */
-export interface UpdateDebtData {
-  personName?: string;
-  description?: string;
-  dueDate?: string | null;
-  status?: DebtStatus;
-}
-
-/**
- * Data for making a payment on a debt
- */
-export interface PayDebtData {
-  debtId: string;
-  amount: number;
-  note?: string;
-}
-
-/**
- * Summary of debts for a user
- */
-export interface DebtSummary {
-  totalIOwe: number;        // Total I owe to others
-  totalOwedToMe: number;    // Total others owe to me
-  netBalance: number;       // Positive = others owe me more
-  activeDebtsCount: number;
-  iOweCount: number;        // Count of debts where I owe
-  owedToMeCount: number;    // Count of debts owed to me
-  currency: string;
-}
-
-/**
- * Debt with its payment history
- */
-export interface DebtWithPayments extends DebtEntity {
-  payments: DebtPaymentEntity[];
 }

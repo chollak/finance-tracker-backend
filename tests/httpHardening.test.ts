@@ -81,7 +81,7 @@ describe('the HTTP app (#272)', () => {
 
   async function serve(allowed: string[] = []) {
     jest.replaceProperty(AppConfig, 'TELEGRAM_ACCESS', telegramAccess(allowed));
-    const api = buildServer(emptyRecords, unusedModule, userModule, undefined, undefined);
+    const api = buildServer(emptyRecords, userModule, undefined, undefined);
     server = await listenOnLoopback(createHttpApp(api, webAppDir));
   }
 
@@ -383,7 +383,7 @@ describe('the largest capture of the iPhone fits the body limit (#272)', () => {
     process.env.SHORTCUT_CAPTURE_OWNER = OWNER;
     jest.replaceProperty(AppConfig, 'TELEGRAM_ACCESS', telegramAccess([OWNER]));
     const quickCapture = new QuickCaptureModule(service as unknown as QuickCaptureService);
-    server = await listenOnLoopback(createHttpApp(buildServer(unusedModule, unusedModule, undefined, undefined, quickCapture), os.tmpdir()));
+    server = await listenOnLoopback(createHttpApp(buildServer(unusedModule, undefined, undefined, quickCapture), os.tmpdir()));
   });
 
   afterEach(async () => {

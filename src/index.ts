@@ -40,10 +40,10 @@ async function startApplication() {
     // Initialize database first
     await initializeDatabase();
     
-    const { categoryModule, accountModule, fxModule, transactionModule, debtModule, voiceModule, quickCaptureModule, userModule, subscriptionModule, botMessageModule, notificationModule, exportModule, authModule, auditModule } = createModules();
+    const { categoryModule, accountModule, fxModule, transactionModule, voiceModule, quickCaptureModule, userModule, subscriptionModule, botMessageModule, notificationModule, exportModule, authModule, auditModule } = createModules();
     // The API under /api and the web app on the root (#272: no X-Powered-By, no /webapp redirect)
     const app = createHttpApp(
-      buildServer(transactionModule, debtModule, userModule, subscriptionModule, quickCaptureModule, { categoryModule, accountModule, fxModule, exportModule, authModule, auditModule }),
+      buildServer(transactionModule, userModule, subscriptionModule, quickCaptureModule, { categoryModule, accountModule, fxModule, exportModule, authModule, auditModule }),
       path.join(__dirname, '../public/webapp')
     );
 

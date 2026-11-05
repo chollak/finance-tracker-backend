@@ -93,7 +93,7 @@ export class CheckLimitUseCase {
   }
 
   private getCurrentUsage(
-    usageLimit: { transactionsCount: number; voiceInputsCount: number; activeDebtsCount: number },
+    usageLimit: { transactionsCount: number; voiceInputsCount: number },
     limitType: LimitType
   ): number {
     switch (limitType) {
@@ -101,8 +101,6 @@ export class CheckLimitUseCase {
         return usageLimit.transactionsCount;
       case 'voice_inputs':
         return usageLimit.voiceInputsCount;
-      case 'debts':
-        return usageLimit.activeDebtsCount;
     }
   }
 
@@ -112,8 +110,6 @@ export class CheckLimitUseCase {
         return FREE_TIER_LIMITS.transactions;
       case 'voice_inputs':
         return FREE_TIER_LIMITS.voiceInputs;
-      case 'debts':
-        return FREE_TIER_LIMITS.activeDebts;
     }
   }
 
@@ -123,8 +119,6 @@ export class CheckLimitUseCase {
         return `Вы достигли лимита ${limit} транзакций в месяц. Оформите Premium для безлимита! ⭐`;
       case 'voice_inputs':
         return `Вы достигли лимита ${limit} голосовых сообщений в месяц. Оформите Premium для безлимита! ⭐`;
-      case 'debts':
-        return `Вы достигли лимита ${limit} активных долгов. Оформите Premium для безлимита! ⭐`;
     }
   }
 }

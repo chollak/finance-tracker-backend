@@ -13,9 +13,6 @@ import { AuthGate } from './AuthGate';
 // Lazy load pages for code splitting
 const HomePage = lazy(() => import('@/pages').then(m => ({ default: m.HomePage })));
 const TransactionsPage = lazy(() => import('@/pages').then(m => ({ default: m.TransactionsPage })));
-const DebtsPage = lazy(() => import('@/pages').then(m => ({ default: m.DebtsPage })));
-const AddDebtPage = lazy(() => import('@/pages').then(m => ({ default: m.AddDebtPage })));
-const DebtDetailsPage = lazy(() => import('@/pages').then(m => ({ default: m.DebtDetailsPage })));
 const AnalyticsPage = lazy(() => import('@/pages').then(m => ({ default: m.AnalyticsPage })));
 // One category of the month: its days and operations (FT-121)
 const CategoryAnalyticsPage = lazy(() => import('@/pages').then(m => ({ default: m.CategoryAnalyticsPage })));
@@ -94,10 +91,6 @@ export const appRoutes: RouteObject[] = [
                 element: <PageLoader><TransactionsPage /></PageLoader>,
               },
               {
-                path: '/debts',
-                element: <PageLoader><DebtsPage /></PageLoader>,
-              },
-              {
                 path: '/analytics',
                 element: <PageLoader><AnalyticsPage /></PageLoader>,
               },
@@ -146,16 +139,8 @@ export const appRoutes: RouteObject[] = [
                 path: '/offline-receipt',
                 element: <PageLoader><ReceiptOfflinePage /></PageLoader>,
               },
-              // Form and detail pages. A record has no page: its sheet opens over the list (FT-115), and a link
-              // to a record is Home with `?record=` (ROUTES.RECORD)
-              {
-                path: '/debts/add',
-                element: <PageLoader><AddDebtPage /></PageLoader>,
-              },
-              {
-                path: '/debts/:id',
-                element: <PageLoader><DebtDetailsPage /></PageLoader>,
-              },
+              // A record has no page: its sheet opens over the list (FT-115), and a link to a record is Home with
+              // `?record=` (ROUTES.RECORD). The debt screens are gone (#265): an old link to them lands here
               {
                 path: '*',
                 element: <NotFoundPage />,

@@ -1,14 +1,12 @@
 import express, { Router } from 'express';
 // Note: Using custom corsHeaders middleware instead of cors package for security
 import { TransactionModule } from '../../../modules/transaction/transactionModule';
-import { DebtModule } from '../../../modules/debt/debtModule';
 import { UserModule } from '../../../modules/user/userModule';
 import { SubscriptionModule } from '../../../modules/subscription/subscriptionModule';
 import { QuickCaptureModule } from '../../../modules/quickCapture/quickCaptureModule';
 import { createTransactionRouter } from '../../../modules/transaction/presentation/controllers/transactionController';
 import { createAnalyticsRoutes } from '../../../modules/transaction/presentation/controllers/analyticsController';
 import { createQuickCaptureRouter } from '../../../modules/quickCapture/presentation/controllers/quickCaptureController';
-import { createDebtRouter } from '../../../modules/debt/presentation/controllers/debtRoutes';
 import { createUserController } from '../../../modules/user/presentation/controllers/userController';
 import { createSettingsRoutes } from '../../../modules/user/presentation/controllers/settingsController';
 import { CategoryModule } from '../../../modules/category/categoryModule';
@@ -59,7 +57,6 @@ export const JSON_BODY_LIMIT_BYTES = 100 * 1024;
 
 export function buildServer(
   transactionModule: TransactionModule,
-  debtModule: DebtModule,
   userModule?: UserModule,
   subscriptionModule?: SubscriptionModule,
   // Kept last and optional: existing callers pass a subset of these positional arguments.
@@ -125,11 +122,6 @@ export function buildServer(
       createQuickCaptureRouter(quickCaptureModule.getQuickCaptureService(), userModule)
     );
   }
-
-  router.use(
-    '/debts',
-    createDebtRouter(debtModule, userModule)
-  );
 
   // User routes (optional - only if userModule is provided)
   if (userModule) {
