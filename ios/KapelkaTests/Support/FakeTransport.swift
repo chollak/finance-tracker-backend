@@ -10,15 +10,16 @@ actor FakeTransport: HTTPTransport {
         case failure(URLError.Code)
         /// No answer until the request is cancelled: the PC asleep behind Tailscale.
         case hang
-        /// This answer comes only after a while: a request sent later can be answered first.
-        indirect case after(Duration, Reply)
+        /// This answer comes only once the test opens `gate`: the request is in flight until then, and one sent
+        /// later can be answered first (#286).
+        indirect case held(Gate, Reply)
 
         var testDescription: String {
             switch self {
             case let .http(status, _, _): "HTTP \(status)"
             case let .failure(code): "URLError \(code.rawValue)"
             case .hang: "no answer"
-            case let .after(delay, reply): "\(reply.testDescription) after \(delay)"
+            case let .held(_, reply): "\(reply.testDescription) once the gate opens"
             }
         }
     }
@@ -69,8 +70,8 @@ actor FakeTransport: HTTPTransport {
 
     private func answer(_ request: URLRequest, with reply: Reply) async throws -> (Data, URLResponse) {
         switch reply {
-        case let .after(delay, inner):
-            try await Task.sleep(for: delay)
+        case let .held(gate, inner):
+            try await gate.wait()
             return try await answer(request, with: inner)
         case let .http(status, body, headers):
             let url = try #require(request.url)

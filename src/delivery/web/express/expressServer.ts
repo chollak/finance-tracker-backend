@@ -48,6 +48,13 @@ import {
 import { getTelegramBotStatus } from '../../messaging/telegram/telegramBot';
 import { createHealthHandler } from './routes/healthRoutes';
 
+/**
+ * The largest JSON body the API reads (#272). Nothing is uploaded since #221; the biggest body a client sends is a
+ * record or a phrase — quick capture takes 2000 characters, at most 12 KB of JSON. 100 KB leaves room eight times over;
+ * the 10 MB before let anyone have the server read and parse that much on every request.
+ */
+export const JSON_BODY_LIMIT_BYTES = 100 * 1024;
+
 export function buildServer(
   transactionModule: TransactionModule,
   userModule?: UserModule,
@@ -62,9 +69,6 @@ export function buildServer(
   router.use(requestLogger);
   router.use(securityHeaders);
   router.use(corsHeaders);
-  router.use(express.json({ limit: '10mb' }));
-  router.use(express.urlencoded({ extended: true, limit: '10mb' }));
-  // Note: Using custom corsHeaders middleware (applied above) for secure CORS handling
 
   // A browser signed in through the bot (FT-128): its session cookie, read before any route and rate limit
   const authModule = moneyModules.authModule;
@@ -74,6 +78,10 @@ export function buildServer(
 
   // Closed access (FT-153): someone not in ALLOWED_TELEGRAM_IDS gets 403 here, before any route resolves the user
   router.use(createAllowedUsersMiddleware());
+
+  // The body after closed access (#272): a stranger's is not read at all. JSON only — every client sends JSON, and the
+  // form parser (`urlencoded`) had no client; a body over the limit is 413 (errorHandler)
+  router.use(express.json({ limit: JSON_BODY_LIMIT_BYTES }));
 
   // Note: User resolution middleware is applied at route level, not globally.
   // This ensures req.params is available when middleware runs.

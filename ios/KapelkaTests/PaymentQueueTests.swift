@@ -201,12 +201,14 @@ struct PaymentQueueTests {
 
     @Test("оплата пришла, пока идёт отправка, — уходит в том же проходе, по одной, один раз")
     func paymentDuringSend() async throws {
-        let harness = try QueueHarness(transport: FakeTransport(latency: .milliseconds(50)))
+        let answer = Gate()
+        let harness = try QueueHarness(transport: FakeTransport([.held(answer, .http(200))]))
         let queue = harness.makeQueue()
         _ = try await queue.add("кофе 25к")
         let sending = Task { await queue.flush() }
         #expect(await eventually { await harness.transport.requests.count == 1 })
         let payment = try await queue.addPayment(Self.mazzali)
+        answer.open()
         await queue.flush()
         await sending.value
 

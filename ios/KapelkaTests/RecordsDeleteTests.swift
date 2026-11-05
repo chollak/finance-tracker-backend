@@ -34,7 +34,7 @@ struct RecordsDeleteTests {
             feed: harness.makeFeed(),
             now: { clock.now },
             calendar: calendar,
-            wait: { await timer.wait($0) }
+            wait: timer.onMain
         )
         return (list, harness)
     }
@@ -49,9 +49,10 @@ struct RecordsDeleteTests {
 
     @Test("свайп: строка уходит сразу, сервер удаляет; «Вернуть» возвращает её на место")
     func deleteAndRestore() async throws {
+        let answer = Gate()
         let routes = RoutedTransport(
             page: [page([Self.c, Self.b, Self.a])],
-            edits: [.after(.milliseconds(200), .http(200, body: RecordsReply.deleted("b"))), .http(200, body: RecordsReply.one(Self.b))]
+            edits: [.held(answer, .http(200, body: RecordsReply.deleted("b"))), .http(200, body: RecordsReply.one(Self.b))]
         )
         let list = try list(routes)
         await list.refresh()
@@ -60,6 +61,7 @@ struct RecordsDeleteTests {
         // Gone before the server answers
         #expect(await eventually { @MainActor in self.ids(list) == ["c", "a"] })
         #expect(list.notice == nil)
+        answer.open()
         await deleting
 
         #expect(ids(list) == ["c", "a"])
@@ -112,7 +114,7 @@ struct RecordsDeleteTests {
         // The first bar's 5 s end: the second bar stays
         #expect(await eventually { timer.durations.count == 2 })
         timer.fireOldest()
-        try await Task.sleep(for: .milliseconds(50))
+        #expect(await eventually { timer.returned == 1 })
         #expect(list.notice?.restorable == ["a"])
 
         await list.restoreDeleted()
@@ -207,11 +209,12 @@ struct RecordsDeleteTests {
 
     @Test("следующая страница, пришедшая во время удаления, удалённую запись не возвращает")
     func nextPageDuringDelete() async throws {
+        let answer = Gate()
         let routes = RoutedTransport(
             page: [
                 page([Self.c, Self.b], next: "cursor-1"),
                 // Read before the delete: b's day was changed in the Mini App, and it came again
-                .after(.milliseconds(300), page([Self.b, Self.a])),
+                .held(answer, page([Self.b, Self.a])),
             ],
             edits: [.http(200, body: RecordsReply.deleted("b"))]
         )
@@ -221,6 +224,7 @@ struct RecordsDeleteTests {
         async let more: Void = list.loadMore()
         #expect(await eventually { await routes.pages.requests.count == 2 })
         await list.delete("b")
+        answer.open()
         await more
 
         #expect(ids(list) == ["c", "a"])
@@ -229,9 +233,10 @@ struct RecordsDeleteTests {
 
     @Test("обновление, пока удаление в пути, строку не возвращает; не удалилось — строка снова на месте")
     func refreshDuringDelete() async throws {
+        let answer = Gate()
         let routes = RoutedTransport(
             page: [page([Self.c, Self.b, Self.a]), page([Self.c, Self.b, Self.a])],
-            edits: [.after(.milliseconds(300), .failure(.networkConnectionLost))]
+            edits: [.held(answer, .failure(.networkConnectionLost))]
         )
         let list = try list(routes)
         await list.refresh()
@@ -241,6 +246,7 @@ struct RecordsDeleteTests {
         await list.refresh()
         #expect(ids(list) == ["c", "a"])
 
+        answer.open()
         await deleting
         #expect(ids(list) == ["c", "b", "a"])
         #expect(list.notice?.text == "Нет связи — попробуй позже")
@@ -248,8 +254,9 @@ struct RecordsDeleteTests {
 
     @Test("«Вернуть» последней загруженной строки, пока следующая страница в пути, — строка снова в конце, и на диске")
     func restoreLastLoadedRow() async throws {
+        let answer = Gate()
         let routes = RoutedTransport(
-            page: [page([Self.c, Self.b], next: "cursor-1"), .after(.milliseconds(300), page([Self.a]))],
+            page: [page([Self.c, Self.b], next: "cursor-1"), .held(answer, page([Self.a]))],
             edits: [.http(200, body: RecordsReply.deleted("b")), .http(200, body: RecordsReply.one(Self.b))]
         )
         let (list, harness) = try make(routes)
@@ -263,6 +270,7 @@ struct RecordsDeleteTests {
         // The next page goes on after b: b must come back here, no page will bring it again
         #expect(ids(list) == ["c", "b"])
         #expect(harness.cache.load()?.page.items.map(\.id) == ["c", "b"])
+        answer.open()
         await more
         #expect(ids(list) == ["c", "b", "a"])
     }

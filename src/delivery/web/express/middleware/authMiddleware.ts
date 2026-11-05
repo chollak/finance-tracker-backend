@@ -218,7 +218,8 @@ export function createAllowedUsersMiddleware(): RequestHandler {
       return;
     }
 
-    refusals.refused(telegramId, { path: req.originalUrl });
+    // The path without the query: it may carry what the user searches for (#272, as #269 for the HTTP log)
+    refusals.refused(telegramId, { path: `${req.baseUrl}${req.path}` });
     res.status(403).json({
       success: false,
       error: 'This Telegram account has no access',

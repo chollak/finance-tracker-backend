@@ -43,7 +43,8 @@ struct CaptureDeleteTests {
 
     @Test("запись, чей запрос в пути, не удаляется: сервер может её записать")
     func sendingIsNotDeleted() async throws {
-        let harness = try QueueHarness(transport: FakeTransport(latency: .milliseconds(100)))
+        let answer = Gate()
+        let harness = try QueueHarness(transport: FakeTransport([.held(answer, .http(200))]))
         let queue = harness.makeQueue()
         let capture = try await queue.add("кофе 250к")
 
@@ -51,6 +52,7 @@ struct CaptureDeleteTests {
         #expect(await eventually { await harness.transport.requests.count == 1 })
         #expect(await queue.state().sendingId == capture.clientId)
         #expect(try await queue.remove(capture.clientId) == nil)
+        answer.open()
         await sending
 
         #expect(try harness.store.load().captures.map(\.state) == [.sent])
@@ -59,10 +61,8 @@ struct CaptureDeleteTests {
 
     @Test("запрос не дошёл — запись снова ждёт, её можно удалить, и она больше не уходит")
     func deletableAgainAfterFailedSend() async throws {
-        let harness = try QueueHarness(transport: FakeTransport(
-            [.failure(.timedOut)],
-            latency: .milliseconds(100)
-        ))
+        let answer = Gate()
+        let harness = try QueueHarness(transport: FakeTransport([.held(answer, .failure(.timedOut))]))
         let queue = harness.makeQueue()
         let wrong = try await queue.add("кофе 250к")
         _ = try await queue.add("такси 18к")
@@ -70,6 +70,7 @@ struct CaptureDeleteTests {
         async let sending: Void = queue.flush()
         #expect(await eventually { await harness.transport.requests.count == 1 })
         #expect(try await queue.remove(wrong.clientId) == nil)
+        answer.open()
         await sending
         #expect(try await queue.remove(wrong.clientId) != nil)
         await queue.flush()
@@ -101,13 +102,15 @@ struct CaptureDeleteTests {
 
     @Test("номер записи в пути на диск не пишется")
     func sendingIdNotSaved() async throws {
-        let harness = try QueueHarness(transport: FakeTransport(latency: .milliseconds(100)))
+        let answer = Gate()
+        let harness = try QueueHarness(transport: FakeTransport([.held(answer, .http(200))]))
         let queue = harness.makeQueue()
         _ = try await queue.add("кофе 25к")
 
         async let sending: Void = queue.flush()
         #expect(await eventually { await queue.state().sendingId != nil })
         let file = try String(contentsOf: harness.store.fileURL, encoding: .utf8)
+        answer.open()
         await sending
 
         #expect(!file.contains("sendingId"))

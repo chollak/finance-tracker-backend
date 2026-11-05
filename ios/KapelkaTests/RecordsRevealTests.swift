@@ -29,12 +29,14 @@ struct RecordsRevealTests {
 
     @Test("открыл вкладку — «Обновляю…», пока страница в пути; потом «Обновлено только что»")
     func refreshingShows() async throws {
-        let routes = RoutedTransport(page: [.after(.milliseconds(300), .http(200, body: page(["a"])))])
+        let answer = Gate()
+        let routes = RoutedTransport(page: [.held(answer, .http(200, body: page(["a"])))])
         let (list, _) = try list(routes)
 
         async let opened: Void = list.screenChanged(onScreen: true)
         #expect(await eventually { await MainActor.run { list.status == .refreshing } })
         #expect(list.caption == "Обновляю…")
+        answer.open()
         await opened
 
         #expect(list.caption == "Обновлено только что")
@@ -42,9 +44,10 @@ struct RecordsRevealTests {
 
     @Test("потянул вниз — только системный индикатор: подпись прежняя, пока страница в пути")
     func pullShowsNoCaption() async throws {
+        let answer = Gate()
         let routes = RoutedTransport(page: [
             .http(200, body: page(["a"])),
-            .after(.milliseconds(300), .http(200, body: page(["b", "a"]))),
+            .held(answer, .http(200, body: page(["b", "a"]))),
         ])
         let (list, clock) = try list(routes)
         await list.refresh()
@@ -53,6 +56,7 @@ struct RecordsRevealTests {
         async let pulled: Void = list.refresh(pulled: true)
         #expect(await eventually { await routes.pages.requests.count == 2 })
         #expect(list.caption == "Обновлено 5 мин назад")
+        answer.open()
         await pulled
 
         #expect(list.caption == "Обновлено только что")
@@ -128,17 +132,20 @@ struct RecordsRevealTests {
 
     @Test("обновление в пути — переход ждёт его: запись приходит с новой страницей")
     func waitsForRefresh() async throws {
+        let answer = Gate()
         let routes = RoutedTransport(page: [
             .http(200, body: page(["a"])),
-            .after(.milliseconds(300), .http(200, body: page(["new", "a"]))),
+            .held(answer, .http(200, body: page(["new", "a"]))),
         ])
         let (list, _) = try list(routes)
         await list.screenChanged(onScreen: true)
 
         list.startRefresh()
         list.reveal("new")
+        #expect(await eventually { await routes.pages.requests.count == 2 })
         #expect(list.scroll == nil)
 
+        answer.open()
         #expect(await eventually { await MainActor.run { list.scroll?.target == .record("new") } })
         #expect(list.highlighted == "new")
     }

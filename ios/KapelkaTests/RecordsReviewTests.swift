@@ -172,10 +172,11 @@ struct RecordsReviewTests {
 
     @Test("пока «Да, верно» в пути — категории не выбрать, и наоборот")
     func oneEditAtATime() async throws {
+        let answer = Gate()
         let routes = RoutedTransport(
             page: [Self.firstPage],
             categories: [Self.categories],
-            edits: [.after(.milliseconds(200), .http(200, body: RecordsReply.one(Self.flagged(needsReview: false))))]
+            edits: [.held(answer, .http(200, body: RecordsReply.one(Self.flagged(needsReview: false))))]
         )
         let list = list(try RecordsHarness(routes: routes))
         await list.refresh()
@@ -185,6 +186,7 @@ struct RecordsReviewTests {
         #expect(await eventually { await MainActor.run { picker.isConfirming } })
         #expect(await picker.choose("cat-food") == false)
         #expect(await picker.confirm() == false)
+        answer.open()
         #expect(await confirmed)
         #expect(await routes.recordEdits.requests.count == 1)
     }
