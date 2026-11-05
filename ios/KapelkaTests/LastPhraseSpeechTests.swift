@@ -49,12 +49,14 @@ struct LastPhraseSpeechTests {
         _ state: QueueState,
         configured: Bool = true,
         marks: LastPhraseMarks? = nil,
+        accountNames: [String: String] = [:],
         undoing: Set<String> = [],
         saving: String? = nil
     ) -> LastPhrase? {
         LastPhrase.of(state, LastPhrase.Context(
             configured: configured,
             marks: marks,
+            accountNames: accountNames,
             undoing: undoing,
             saving: saving,
             now: Self.inputTime,
@@ -180,6 +182,47 @@ struct LastPhraseSpeechTests {
         #expect(speech.news(card(refused), voice: .idle) == "Сервер не принял токен")
     }
 
+    /// The line is known by its id and kind, not by its text: the text moves while the news stays the same.
+    @Test("новое время паузы 429 — не новое объявление")
+    func busyTimeMoves() throws {
+        var speech = try opened()
+        let older = try olderPhrase()
+        let capture = phrase("кофе 25к", attempts: 1, minutesLater: 1)
+        let pause = { (minutes: Double) in
+            self.state([older, capture]) {
+                $0.wait = .busy
+                $0.notBefore = Self.inputTime.addingTimeInterval(minutes * 60)
+            }
+        }
+
+        #expect(speech.news(card(pause(15)), voice: .idle) == "Сервер просит подождать — уйдёт в 14:47")
+        let later = try #require(card(pause(30)))
+        #expect(later.lines.map(\.text) == ["Сервер просит подождать — уйдёт в 15:02"])
+        #expect(speech.news(later, voice: .idle) == nil)
+    }
+
+    @Test("имя счёта пришло после повтора — «Записал» второй раз не звучит")
+    func accountNameComesLater() throws {
+        var speech = try opened()
+        let older = try olderPhrase()
+        let record = CapturedRecord(
+            id: "rec-coffee", type: .expense, amountMinor: 4_500_000, currency: "UZS", categoryId: "cat-cafe",
+            category: "Кафе", accountId: "acc-card", accountName: nil, description: "кофе",
+            needsReview: false, assumptions: [], deletedAt: nil
+        )
+        var capture = phrase("кофе 45", minutesLater: 1)
+        _ = speech.news(card(state([older, capture])), voice: .idle)
+        capture.state = .sent
+        capture.attempts = 2
+        capture.reply = CaptureReply(status: "saved", title: "Записал", summary: "кофе · 45 000 сум", records: [record])
+
+        #expect(speech.news(card(state([older, capture])), voice: .idle)
+            == "Записал: кофе · Кафе · −45\u{00A0}000\u{00A0}сум")
+        let named = try #require(card(state([older, capture]), accountNames: ["acc-card": "Карта"]))
+        #expect(named.lines.map(\.text) == ["Записал: кофе · Кафе · −45\u{00A0}000\u{00A0}сум · Карта"])
+        #expect(speech.news(named, voice: .idle) == nil)
+    }
+
     // MARK: No news
 
     @Test("карточка, с которой открылся экран, — не новость, даже с итогом")
@@ -242,6 +285,15 @@ struct LastPhraseSpeechTests {
         // The next phrase goes to the phone: the microphone is off, the card shows it already
         #expect(speech.news(card(state([older, sent]), saving: "такси 18к"), voice: .saving) == Self.coffee)
         #expect(speech.news(card(state([older, sent]), saving: "такси 18к"), voice: .idle) == nil)
+    }
+
+    @Test("голосовая фраза не записалась на телефон — прежний итог снова не звучит")
+    func voiceNotSaved() throws {
+        var speech = try opened()
+        let older = try olderPhrase()
+        // «Отправляю…» without an id while the microphone writes the phrase; then `.notSaved`: the older card is back
+        #expect(speech.news(card(state([older]), saving: "кофе 45"), voice: .saving) == nil)
+        #expect(speech.news(card(state([older])), voice: .idle) == nil)
     }
 
     @Test("голос пишет фразу на телефон — «Отправляю…» без id, потом она в очереди: не новость")

@@ -33,6 +33,9 @@ struct LastPhraseSpeech {
     }
 
     private mutating func newLines(of card: LastPhrase) -> [String] {
+        // «Отправляю…» while the microphone writes the phrase to the phone: no id and no outcome yet. Not remembered —
+        // a phrase not saved there (`.notSaved`) brings the older card back, and its outcome would sound again
+        guard card.id != nil else { return [] }
         let keys = card.lines.map(Self.key)
         guard let seen else {
             self.seen = Seen(phrase: card.id, lines: Set(keys))
