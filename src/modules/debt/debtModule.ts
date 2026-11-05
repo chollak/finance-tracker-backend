@@ -1,61 +1,26 @@
 import { DebtRepository } from './domain/debtRepository';
 import { CreateDebtUseCase } from './application/createDebt';
-import { GetDebtsUseCase } from './application/getDebts';
-import { UpdateDebtUseCase } from './application/updateDebt';
-import { DeleteDebtUseCase } from './application/deleteDebt';
-import { PayDebtUseCase } from './application/payDebt';
 import { RepositoryFactory } from '../../shared/infrastructure/database/repositoryFactory';
 import { TransactionModule } from '../transaction/transactionModule';
-import { SubscriptionModule } from '../subscription/subscriptionModule';
-import { UserModule } from '../user/userModule';
 
+/**
+ * What is left of the debt module (#265, decision 2026-11-04): only what the frozen capture path still holds —
+ * `VoiceProcessingModule` takes `createDebtUseCase` from it. The routes, reads, payments and limits are gone; the
+ * rest goes in #266, after FT-217.
+ */
 export class DebtModule {
   readonly repository: DebtRepository;
   readonly createDebtUseCase: CreateDebtUseCase;
-  readonly getDebtsUseCase: GetDebtsUseCase;
-  readonly updateDebtUseCase: UpdateDebtUseCase;
-  readonly deleteDebtUseCase: DeleteDebtUseCase;
-  readonly payDebtUseCase: PayDebtUseCase;
 
-  constructor(
-    transactionModule: TransactionModule,
-    subscriptionModule?: SubscriptionModule,
-    userModule?: UserModule
-  ) {
-    // Infrastructure
+  constructor(transactionModule: TransactionModule) {
     this.repository = RepositoryFactory.createDebtRepository();
-
-    // Application layer - Use Cases
     this.createDebtUseCase = new CreateDebtUseCase(
       this.repository,
-      transactionModule.getCreateTransactionUseCase(),
-      subscriptionModule,
-      userModule
-    );
-    this.getDebtsUseCase = new GetDebtsUseCase(this.repository);
-    this.updateDebtUseCase = new UpdateDebtUseCase(this.repository);
-    this.deleteDebtUseCase = new DeleteDebtUseCase(
-      this.repository,
-      subscriptionModule,
-      userModule
-    );
-    this.payDebtUseCase = new PayDebtUseCase(
-      this.repository,
-      transactionModule.getCreateTransactionUseCase(),
-      subscriptionModule,
-      userModule
+      transactionModule.getCreateTransactionUseCase()
     );
   }
 
-  static create(
-    transactionModule: TransactionModule,
-    subscriptionModule?: SubscriptionModule,
-    userModule?: UserModule
-  ): DebtModule {
-    return new DebtModule(transactionModule, subscriptionModule, userModule);
-  }
-
-  getRepository(): DebtRepository {
-    return this.repository;
+  static create(transactionModule: TransactionModule): DebtModule {
+    return new DebtModule(transactionModule);
   }
 }

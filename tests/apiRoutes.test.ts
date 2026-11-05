@@ -8,11 +8,10 @@ import {
   corsHeaders,
   securityHeaders,
 } from '../src/delivery/web/express/middleware/errorMiddleware';
-import { createDebtRouter } from '../src/modules/debt/presentation/controllers/debtRoutes';
+import { createTransactionRouter } from '../src/modules/transaction/presentation/controllers/transactionController';
 import { createHealthHandler } from '../src/delivery/web/express/routes/healthRoutes';
-import { DebtModule } from '../src/modules/debt/debtModule';
 import { UserModule } from '../src/modules/user/userModule';
-import { ValidationError } from '../src/shared/domain/errors/AppError';
+import { NotFoundError, ValidationError } from '../src/shared/domain/errors/AppError';
 import { listenOnLoopback } from './helpers/testServer';
 
 /**
@@ -20,18 +19,18 @@ import { listenOnLoopback } from './helpers/testServer';
  * health check, 404 handling, JSON body parsing, sign-in (no guests since 2026-10-21),
  * and the global error handler's status-code mapping.
  *
- * SCOPE NOTE: `buildServer()` wires 5+ full modules (Transaction, Debt, User, …),
+ * SCOPE NOTE: `buildServer()` wires 5+ full modules (Transaction, User, Subscription, …),
  * several of which need a dozen+ use-case getters just to
  * construct their routers. Faithfully stubbing all of that adds risk without adding coverage.
  * Instead, this suite assembles a minimal app using the *real* middleware and
  * router factories buildServer uses (same imports, same order: requestLogger ->
  * securityHeaders -> corsHeaders -> json/urlencoded -> routes -> notFoundHandler ->
  * errorHandler), with mocked module/use-case dependencies for the router that is
- * exercised (debt; the voice routes it used to exercise are gone, #221). `/health` uses the same handler as expressServer.ts
+ * exercised (records; the voice routes it used to exercise are gone, #221, the debt routes too, #265). `/health` uses the same handler as expressServer.ts
  * (`createHealthHandler`, FT-154) with the bot switched off; its 503 is in healthRoute.test.ts.
  */
 
-const DEBT_OWNER_UUID = 'debt-owner-uuid';
+const OWNER_UUID = 'record-owner-uuid';
 
 function buildTestApp() {
   const router = express.Router();
@@ -44,30 +43,23 @@ function buildTestApp() {
 
   router.get('/health', createHealthHandler(() => ({ state: 'disabled', attempts: 0 })));
 
-  const debtModule = {
-    createDebtUseCase: { execute: jest.fn() },
-    getDebtsUseCase: {
-      executeGetAll: jest.fn(),
-      executeGetByType: jest.fn(),
-      executeGetById: jest.fn(),
-      executeGetWithPayments: jest.fn(),
-      executeGetSummary: jest.fn(),
-    },
-    updateDebtUseCase: { execute: jest.fn(), executeCancel: jest.fn() },
-    deleteDebtUseCase: { execute: jest.fn() },
-    payDebtUseCase: {
-      execute: jest.fn(),
-      executePayFull: jest.fn(),
-      executeGetPaymentById: jest.fn(),
-      executeDeletePayment: jest.fn(),
-    },
-  } as unknown as DebtModule;
-  // The signed-in Telegram user 555111 owns the records stored under DEBT_OWNER_UUID
+  const records = {
+    create: { execute: jest.fn() },
+    ofUser: { execute: jest.fn() },
+    byId: { execute: jest.fn() },
+  };
+  const unused = { execute: jest.fn() } as never;
+  // The signed-in Telegram user 555111 owns the records stored under OWNER_UUID
   const userModule = {
-    getGetOrCreateUserUseCase: () => ({ execute: jest.fn().mockResolvedValue({ id: DEBT_OWNER_UUID }) }),
-    getGetUserUseCase: () => ({ execute: jest.fn().mockResolvedValue({ success: true, data: { id: DEBT_OWNER_UUID } }) }),
+    getGetOrCreateUserUseCase: () => ({ execute: jest.fn().mockResolvedValue({ id: OWNER_UUID }) }),
+    getGetUserUseCase: () => ({ execute: jest.fn().mockResolvedValue({ success: true, data: { id: OWNER_UUID } }) }),
   } as unknown as UserModule;
-  router.use('/debts', createDebtRouter(debtModule, userModule));
+  router.use('/transactions', createTransactionRouter(
+    records.create as never, unused, unused, records.ofUser as never, records.byId as never,
+    unused, unused, unused, unused, unused, unused, unused, unused,
+    undefined,
+    userModule
+  ));
 
   // Small test-only routes to directly exercise errorHandler's error-type mapping,
   // since the mounted controllers above catch errors internally and never call next(err).
@@ -84,13 +76,14 @@ function buildTestApp() {
   const app: Express = express();
   app.use('/api', router);
 
-  return { app, debtModule };
+  return { app, records };
 }
 
 describe('API routes and middleware (characterization)', () => {
   let server: http.Server;
   let baseUrl: string;
   let mocks: ReturnType<typeof buildTestApp>;
+  const records = () => mocks.records;
 
   beforeEach(async () => {
     mocks = buildTestApp();
@@ -132,50 +125,49 @@ describe('API routes and middleware (characterization)', () => {
     });
   });
 
-  describe('debt route (sign-in + dev auth bypass)', () => {
-    // The JSON body of a signed-in write; it was checked on /api/voice/text-input until that route went (#221)
-    it('reads the JSON body of a signed-in user’s debt', async () => {
-      (mocks.debtModule.createDebtUseCase.execute as jest.Mock).mockResolvedValue({ success: true, data: { id: 'debt-1' } });
+  describe('records route (sign-in + dev auth bypass)', () => {
+    // The JSON body of a signed-in write; it was checked on /api/voice/text-input until that route went (#221), then
+    // on the debt routes until they went (#265)
+    it('reads the JSON body of a signed-in user’s record', async () => {
+      records().create.execute.mockResolvedValue({ success: true, data: 'record-1' });
 
-      const res = await fetch(`${baseUrl}/api/debts/user/555111`, {
+      const res = await fetch(`${baseUrl}/api/transactions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Dev-User-Id': '555111' },
-        body: JSON.stringify({ type: 'lent', personName: 'Bob', amount: '100', currency: 'UZS' }),
+        body: JSON.stringify({ amount: 100, type: 'expense', category: 'Кафе', description: 'Bob', date: '2026-11-04' }),
       });
 
       expect(res.status).toBe(201);
-      expect(await res.json()).toMatchObject({ success: true, data: { id: 'debt-1' } });
-      expect(mocks.debtModule.createDebtUseCase.execute).toHaveBeenCalledWith(
-        expect.objectContaining({ userId: DEBT_OWNER_UUID, type: 'lent', personName: 'Bob', amount: 100, currency: 'UZS' })
+      expect(await res.json()).toMatchObject({ success: true, data: { id: 'record-1' } });
+      expect(records().create.execute).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: OWNER_UUID, amount: 100, type: 'expense', category: 'Кафе', description: 'Bob' }),
+        expect.anything()
       );
     });
 
-    it('refuses to create a debt for a guest id without auth (401)', async () => {
-      const res = await fetch(`${baseUrl}/api/debts/user/guest_abc123`, {
+    it('refuses to write a record for a guest id without auth (401)', async () => {
+      const res = await fetch(`${baseUrl}/api/transactions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'lent', personName: 'Bob', amount: '100', currency: 'UZS' }),
+        body: JSON.stringify({ userId: 'guest_abc123', amount: 100, type: 'expense', category: 'Кафе', description: 'Bob' }),
       });
 
       expect(res.status).toBe(401);
-      expect(mocks.debtModule.createDebtUseCase.execute).not.toHaveBeenCalled();
+      expect(records().create.execute).not.toHaveBeenCalled();
     });
 
     it('rejects a request with no auth header (401)', async () => {
-      const res = await fetch(`${baseUrl}/api/debts/user/555111`);
+      const res = await fetch(`${baseUrl}/api/transactions/user/555111`);
       expect(res.status).toBe(401);
       const body = await res.json();
       expect(body).toMatchObject({ success: false, code: 'MISSING_AUTH_HEADER' });
-      expect(mocks.debtModule.getDebtsUseCase.executeGetAll).not.toHaveBeenCalled();
+      expect(records().ofUser.execute).not.toHaveBeenCalled();
     });
 
     it('allows a signed-in request via the X-Dev-User-Id bypass (non-production only)', async () => {
-      (mocks.debtModule.getDebtsUseCase.executeGetAll as jest.Mock).mockResolvedValue({
-        success: true,
-        data: [],
-      });
+      records().ofUser.execute.mockResolvedValue({ success: true, data: [] });
 
-      const res = await fetch(`${baseUrl}/api/debts/user/555111`, {
+      const res = await fetch(`${baseUrl}/api/transactions/user/555111`, {
         headers: { 'X-Dev-User-Id': '555111' },
       });
 
@@ -183,20 +175,13 @@ describe('API routes and middleware (characterization)', () => {
       const body = await res.json();
       expect(body.success).toBe(true);
       // The Telegram id in the path is resolved to the owner's UUID
-      expect(mocks.debtModule.getDebtsUseCase.executeGetAll).toHaveBeenCalledWith(DEBT_OWNER_UUID, undefined);
+      expect(records().ofUser.execute).toHaveBeenCalledWith(OWNER_UUID);
     });
 
-    it('maps a null debt lookup after ownership verification to a 404, not a 500', async () => {
-      (mocks.debtModule.getDebtsUseCase.executeGetById as jest.Mock).mockResolvedValue({
-        success: true,
-        data: { id: 'debt-1', userId: DEBT_OWNER_UUID },
-      });
-      (mocks.debtModule.getDebtsUseCase.executeGetWithPayments as jest.Mock).mockResolvedValue({
-        success: true,
-        data: null,
-      });
+    it('maps a record that is not there to a 404, not a 500', async () => {
+      records().byId.execute.mockResolvedValue({ success: false, error: new NotFoundError('Transaction', 'record-1') });
 
-      const res = await fetch(`${baseUrl}/api/debts/debt-1?withPayments=true`, {
+      const res = await fetch(`${baseUrl}/api/transactions/record-1`, {
         headers: { 'X-Dev-User-Id': '555111' },
       });
 
@@ -204,7 +189,7 @@ describe('API routes and middleware (characterization)', () => {
       const body = await res.json();
       expect(body.success).toBe(false);
       expect(body.error).toMatchObject({ code: 'NOT_FOUND' });
-      expect(mocks.debtModule.getDebtsUseCase.executeGetWithPayments).toHaveBeenCalledWith('debt-1');
+      expect(records().byId.execute).toHaveBeenCalledWith('record-1', undefined);
     });
   });
 
@@ -228,7 +213,7 @@ describe('API routes and middleware (characterization)', () => {
     });
 
     it('maps malformed JSON bodies to a 400 INVALID_JSON response', async () => {
-      const res = await fetch(`${baseUrl}/api/debts/user/555111`, {
+      const res = await fetch(`${baseUrl}/api/transactions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: '{ this is not valid json',

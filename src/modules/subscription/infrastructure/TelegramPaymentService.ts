@@ -38,7 +38,6 @@ export class TelegramPaymentService {
       description: `Безлимитный доступ на ${MONTHLY_DURATION_DAYS} дней:\n` +
         '✅ Безлимит транзакций\n' +
         '✅ Безлимит голосовых\n' +
-        '✅ Безлимит долгов\n' +
         '✅ Полная аналитика',
       payload: JSON.stringify(payload),
       provider_token: '', // CRITICAL: Empty string for Telegram Stars

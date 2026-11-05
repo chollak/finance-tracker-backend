@@ -477,7 +477,7 @@ describe('userIdResolver', () => {
 });
 
 describe('ownershipVerification', () => {
-  const resourceType = 'debt';
+  const resourceType = 'transaction';
 
   function makeUserModuleReturning(user: User | null): UserModule {
     return {
@@ -581,7 +581,7 @@ describe('ownershipVerification', () => {
           makeUserModuleReturning(null),
           { resourceType }
         )
-      ).rejects.toThrow('Debt not found');
+      ).rejects.toThrow('Transaction not found');
     });
 
     it('returns the resource once ownership is verified', async () => {

@@ -10,11 +10,7 @@ import { GrantTargets } from './domain/grantTargets';
 import { CreateSubscriptionUseCase } from './application/createSubscription';
 import { GetSubscriptionUseCase } from './application/getSubscription';
 import { CheckLimitUseCase } from './application/checkLimit';
-import {
-  IncrementUsageUseCase,
-  DecrementUsageUseCase,
-  SetActiveDebtsCountUseCase,
-} from './application/incrementUsage';
+import { IncrementUsageUseCase, DecrementUsageUseCase } from './application/incrementUsage';
 import { GrantPremiumUseCase, StartTrialUseCase } from './application/grantPremium';
 import { CancelSubscriptionUseCase } from './application/cancelSubscription';
 import { SubscriptionService } from './application/subscriptionService';
@@ -30,7 +26,6 @@ export class SubscriptionModule {
   private checkLimitUseCase: CheckLimitUseCase;
   private incrementUsageUseCase: IncrementUsageUseCase;
   private decrementUsageUseCase: DecrementUsageUseCase;
-  private setActiveDebtsCountUseCase: SetActiveDebtsCountUseCase;
   private grantPremiumUseCase: GrantPremiumUseCase;
   private startTrialUseCase: StartTrialUseCase;
   private cancelSubscriptionUseCase: CancelSubscriptionUseCase;
@@ -60,7 +55,6 @@ export class SubscriptionModule {
     );
     this.incrementUsageUseCase = new IncrementUsageUseCase(usageLimitRepository);
     this.decrementUsageUseCase = new DecrementUsageUseCase(usageLimitRepository);
-    this.setActiveDebtsCountUseCase = new SetActiveDebtsCountUseCase(usageLimitRepository);
     this.grantPremiumUseCase = new GrantPremiumUseCase(subscriptionRepository, grantTargets);
     this.startTrialUseCase = new StartTrialUseCase(subscriptionRepository);
     this.cancelSubscriptionUseCase = new CancelSubscriptionUseCase(subscriptionRepository);
@@ -89,10 +83,6 @@ export class SubscriptionModule {
 
   getDecrementUsageUseCase(): DecrementUsageUseCase {
     return this.decrementUsageUseCase;
-  }
-
-  getSetActiveDebtsCountUseCase(): SetActiveDebtsCountUseCase {
-    return this.setActiveDebtsCountUseCase;
   }
 
   getGrantPremiumUseCase(): GrantPremiumUseCase {

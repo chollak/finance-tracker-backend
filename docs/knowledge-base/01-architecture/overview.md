@@ -88,13 +88,12 @@
 
 ## Модули системы
 
-`createModules()` (`src/appModules.ts`) возвращает 14 модулей приложения:
+`createModules()` (`src/appModules.ts`) возвращает 13 модулей приложения:
 
 | Модуль | Назначение | Зависимости |
 |--------|------------|-------------|
 | **TransactionModule** | CRUD операций транзакций + analytics | Независимый при создании; Subscription + User доинжектируются через `setSubscriptionDependencies()` |
-| **DebtModule** | Управление долгами (кто кому должен) | TransactionModule (linked транзакции), SubscriptionModule (лимиты), UserModule |
-| **VoiceProcessingModule** | Обработка голоса/текста | TransactionModule (CreateTransactionUseCase), DebtModule |
+| **VoiceProcessingModule** | Обработка голоса/текста | TransactionModule (CreateTransactionUseCase); остаток DebtModule до #266 |
 | **UserModule** | Пользователи (telegramId → UUID) и их настройки (FT-098) | Независимый |
 | **CategoryModule** | Категории пользователя (FT-099); разрешает категорию записи | Независимый; TransactionModule получает его как `CategoryResolver` |
 | **QuickCaptureModule** | `POST /api/quick-capture` поверх текстового разбора | VoiceProcessingModule |
@@ -110,6 +109,10 @@
 **Backend-дашборда нет (#205).** `GET /api/dashboard/*` с `DashboardService`, `AlertService` и платными insights удалён: его никто не вызывал. Главная читает свои маршруты (FT-111), аналитика — `/api/analytics` (FT-120).
 
 **Бюджетов нет (#264).** `BudgetModule` и `/api/budgets/*` удалены по решению 2026-11-04; таблица `budgets` с её строками осталась.
+
+**Долгов нет вне пути записи (#265).** `/api/debts*`, их use cases, лимит активных долгов и экраны webapp удалены по
+решению 2026-11-04; таблицы `debts` и `debt_payments` с их строками остались, записи с прежней связью с долгом —
+обычные. Путь записи держит `DebtModule` с одним `CreateDebtUseCase` до #266 — [Modules](modules.md), «Долги».
 
 Подробнее: [Modules](modules.md)
 

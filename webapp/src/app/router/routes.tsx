@@ -9,9 +9,6 @@ export const ROUTES = {
   TRANSACTIONS: '/transactions',
   MANUAL_ENTRY: '/add',
   CAPTURE_REVIEW: '/review',
-  DEBTS: '/debts',
-  ADD_DEBT: '/debts/add',
-  DEBT_DETAILS: (id: string) => `/debts/${id}`,
   ANALYTICS: '/analytics',
   MORE: '/more',
 } as const;

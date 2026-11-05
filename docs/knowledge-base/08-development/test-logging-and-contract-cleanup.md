@@ -6,7 +6,7 @@
 
 FT-014 added safety tests for:
 
-- Debt module
+- Debt module (removed outside the capture path in #265)
 - Subscription / limits / trial behavior
 - User resolution / guest behavior
 - Critical API route / middleware behavior
