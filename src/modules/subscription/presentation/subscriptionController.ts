@@ -68,23 +68,26 @@ export class SubscriptionController {
   }
 
   /**
-   * POST /api/subscription/grant, before the target is resolved: `durationDays`, when given, is a whole number of days
-   * within GRANT_DURATION_DAYS, for a lifetime grant too. Anything else is 400 VALIDATION_ERROR and adds nothing — no
-   * subscription and no user (#256). Without it the gift lasts 30 days, as before.
+   * POST /api/subscription/grant, after requireAdmin and before the target is resolved — resolving creates the user on
+   * first contact, so a refused grant adds nothing, no subscription and no user (#256): `grantedBy` is required, and
+   * `durationDays`, when given, is a whole number of days within GRANT_DURATION_DAYS, for a lifetime grant too.
+   * Otherwise 400 VALIDATION_ERROR. Without `durationDays` the gift lasts 30 days, as before.
    */
   checkGrantBody(req: Request, res: Response, next: NextFunction): void {
-    const durationDays = req.body?.durationDays;
-    if (durationDays === undefined || durationDays === null || isGrantDuration(durationDays)) {
-      next();
-      return;
+    const { grantedBy, durationDays } = req.body ?? {};
+    if (!grantedBy) {
+      return handleControllerError(ErrorFactory.validation('grantedBy is required', 'grantedBy'), res);
     }
-    handleControllerError(
-      ErrorFactory.validation(
-        `durationDays must be a whole number from ${GRANT_DURATION_DAYS.min} to ${GRANT_DURATION_DAYS.max}`,
-        'durationDays'
-      ),
-      res
-    );
+    if (durationDays !== undefined && durationDays !== null && !isGrantDuration(durationDays)) {
+      return handleControllerError(
+        ErrorFactory.validation(
+          `durationDays must be a whole number from ${GRANT_DURATION_DAYS.min} to ${GRANT_DURATION_DAYS.max}`,
+          'durationDays'
+        ),
+        res
+      );
+    }
+    next();
   }
 
   /**
@@ -93,15 +96,13 @@ export class SubscriptionController {
    */
   async grantPremium(req: Request, res: Response): Promise<void> {
     try {
+      // grantedBy and durationDays are checked by checkGrantBody before this (#256)
       const { grantedBy, grantNote, isLifetime, durationDays } = req.body;
       // The user the admin names in the body, resolved to UUID by middleware
       const userId = req.resolvedUser?.id;
 
-      if (!userId || !grantedBy) {
-        return handleControllerError(
-          ErrorFactory.validation('userId and grantedBy are required'),
-          res
-        );
+      if (!userId) {
+        return handleControllerError(ErrorFactory.validation('userId is required', 'userId'), res);
       }
 
       // A UUID no user has is 404 NOT_FOUND (#230)

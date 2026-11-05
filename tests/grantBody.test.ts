@@ -10,14 +10,17 @@ import { UserModule } from '../src/modules/user/userModule';
 import { SqliteUserRepository } from '../src/modules/user/infrastructure/persistence/SqliteUserRepository';
 
 /**
- * #256 (beyond its DoD): `durationDays` of the admin grant `POST /api/subscription/grant` is a whole number of days
- * from 1 to 3650. Before, any value went into the date: `0` became 30 days, `-5` a subscription expired at birth,
- * `"abc"` an invalid date. Now anything else is `400 VALIDATION_ERROR` before the target is resolved, so a refused grant
- * adds no subscription and no user. Without `durationDays` the gift is 30 days, as before. Real SQLite, real routes.
+ * #256 (beyond its DoD): the body of the admin grant `POST /api/subscription/grant` is checked after the admin and
+ * before the target is resolved — resolving creates the user on first contact, so a refused grant adds no subscription
+ * and no user. `durationDays` is a whole number of days from 1 to 3650: before, any value went into the date (`0` became
+ * 30 days, `-5` a subscription expired at birth, `"abc"` an invalid date), now anything else is `400 VALIDATION_ERROR`;
+ * without it the gift is 30 days, as before. A grant without `grantedBy` was 400 already, but after its target was
+ * created. Someone who is not the admin learns nothing of the body: 401 or 403 first. Real SQLite, real routes.
  */
 
 const ADMIN = 131256000;
 const TARGET = '131256001';
+const NOT_ADMIN = 131256002;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 let db: TestDatabase;
@@ -44,13 +47,25 @@ afterEach(async () => {
   await db.close();
 });
 
-/** One grant as the admin; the admin limit is 5 requests a window, so each starts with empty counters. */
-async function grant(body: Record<string, unknown>): Promise<{ status: number; body: any }> {
+/**
+ * One grant, as the admin unless `devUser` says otherwise (`null`: not signed in); the admin limit is 5 requests a
+ * window, so each starts with empty counters.
+ */
+async function grant(body: Record<string, unknown>, devUser: number | null = ADMIN): Promise<{ status: number; body: any }> {
   await resetSharedRateLimiters();
-  return server.request('POST', '/api/subscription/grant', { devUser: ADMIN, body: { userId: TARGET, grantedBy: 'admin', ...body } });
+  return server.request('POST', '/api/subscription/grant', {
+    devUser: devUser ?? undefined,
+    body: { userId: TARGET, grantedBy: 'admin', ...body },
+  });
 }
 
 const count = async (sql: string, params: unknown[] = []) => Number((await db.dataSource.query(sql, params))[0].n);
+
+/** Neither a subscription nor the target's `users` row: what a refused grant leaves. */
+async function expectNothingAdded(): Promise<void> {
+  expect(await count(`SELECT COUNT(*) AS n FROM subscriptions`)).toBe(0);
+  expect(await count(`SELECT COUNT(*) AS n FROM users WHERE telegram_id = ?`, [TARGET])).toBe(0);
+}
 
 /** Days between the start and the end of the subscription the grant answered with. */
 function daysOf(response: { body: any }): number {
@@ -58,7 +73,7 @@ function daysOf(response: { body: any }): number {
   return (new Date(endDate).getTime() - new Date(startDate).getTime()) / DAY_MS;
 }
 
-describe('durationDays of the admin grant (#256)', () => {
+describe('the body of the admin grant (#256)', () => {
   it.each([
     ['zero', 0],
     ['negative', -5],
@@ -73,15 +88,33 @@ describe('durationDays of the admin grant (#256)', () => {
     const response = await grant({ durationDays });
 
     expect({ status: response.status, code: response.body?.error?.code }).toEqual({ status: 400, code: 'VALIDATION_ERROR' });
-    expect(await count(`SELECT COUNT(*) AS n FROM subscriptions`)).toBe(0);
-    expect(await count(`SELECT COUNT(*) AS n FROM users WHERE telegram_id = ?`, [TARGET])).toBe(0);
+    await expectNothingAdded();
   });
 
-  it('refuses a bad value for a lifetime grant too: the body is wrong either way', async () => {
+  it('refuses a bad durationDays for a lifetime grant too: the body is wrong either way', async () => {
     const response = await grant({ isLifetime: true, durationDays: 0 });
 
     expect({ status: response.status, code: response.body?.error?.code }).toEqual({ status: 400, code: 'VALIDATION_ERROR' });
-    expect(await count(`SELECT COUNT(*) AS n FROM subscriptions`)).toBe(0);
+    await expectNothingAdded();
+  });
+
+  it.each([
+    ['without grantedBy', { grantedBy: undefined }],
+    ['with grantedBy empty', { grantedBy: '' }],
+    ['with grantedBy null', { grantedBy: null }],
+  ])('refuses a grant %s with 400 VALIDATION_ERROR, adding no subscription and no user', async (_name, body) => {
+    const response = await grant(body);
+
+    expect({ status: response.status, code: response.body?.error?.code }).toEqual({ status: 400, code: 'VALIDATION_ERROR' });
+    await expectNothingAdded();
+  });
+
+  it('answers someone who is not the admin 403, and no one signed in 401, before looking at the body', async () => {
+    const notAdmin = await grant({ durationDays: 0 }, NOT_ADMIN);
+    const signedOut = await grant({ durationDays: 0 }, null);
+
+    expect([notAdmin.status, signedOut.status]).toEqual([403, 401]);
+    await expectNothingAdded();
   });
 
   it.each([1, 3650])('gives a gift of %i days', async (durationDays) => {
