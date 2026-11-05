@@ -217,8 +217,30 @@ private struct MicrophoneButton: View {
                 .background(Circle().fill(Color.primary))
         }
         .buttonStyle(.plain)
+        .disabled(!MicrophoneButtonState.isEnabled(phase))
         .frame(maxWidth: .infinity)
-        .accessibilityLabel(phase == .idle ? "Сказать трату" : "Закончить фразу")
+        .accessibilityLabel(MicrophoneButtonState.label(phase))
+    }
+}
+
+/// What the microphone button is in each phase (#285): its name for VoiceOver says what a press does
+/// (`VoiceCapture.toggle`) — it cancels a start, ends the phrase being heard, and does nothing once the phrase ends and
+/// is written: the button is off then.
+enum MicrophoneButtonState {
+    static func label(_ phase: VoiceCapture.Phase) -> String {
+        switch phase {
+        case .idle: "Сказать трату"
+        case .starting: "Отменить"
+        case .listening: "Закончить фразу"
+        case .finishing, .saving: "Записываю…"
+        }
+    }
+
+    static func isEnabled(_ phase: VoiceCapture.Phase) -> Bool {
+        switch phase {
+        case .idle, .starting, .listening: true
+        case .finishing, .saving: false
+        }
     }
 }
 
