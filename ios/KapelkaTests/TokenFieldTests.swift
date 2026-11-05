@@ -65,14 +65,37 @@ struct TokenFieldTests {
         let coordinator = TokenField.Coordinator(
             TokenField(placeholder: "Токен", text: typed.binding, isFocused: Box(false).binding)
         )
-        let field = TokenTextField()
+        let field = coordinator.makeField()
         window.addSubview(field)
-        field.text = TestSettings.token
 
-        coordinator.edited(field)
+        type(TestSettings.token, into: field)
 
         #expect(typed.value == TestSettings.token)
         #expect(field.token == TestSettings.token)
+    }
+
+    @Test("уход с экрана не стирает токен в настройках: после «Журнала команд» он на месте")
+    func leavingKeepsSettingsToken() {
+        let typed = Box("")
+        let coordinator = TokenField.Coordinator(
+            TokenField(placeholder: "Токен", text: typed.binding, isFocused: Box(false).binding)
+        )
+        let field = coordinator.makeField()
+        window.addSubview(field)
+        type(TestSettings.token, into: field)
+
+        field.removeFromSuperview()
+        #expect(typed.value == TestSettings.token)
+
+        window.addSubview(field)
+        #expect(field.text == TestSettings.token)
+        #expect(typed.value == TestSettings.token)
+    }
+
+    /// What the keyboard does: new text, then `.editingChanged`.
+    private func type(_ text: String, into field: TokenTextField) {
+        field.text = text
+        field.sendActions(for: .editingChanged)
     }
 
     @Test("фокус поля виден настройкам: «Проверить связь» прячет клавиатуру")

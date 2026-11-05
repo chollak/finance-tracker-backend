@@ -11,10 +11,7 @@ struct TokenField: UIViewRepresentable {
     @Binding var isFocused: Bool
 
     func makeUIView(context: Context) -> TokenTextField {
-        let field = TokenTextField()
-        field.delegate = context.coordinator
-        field.addTarget(context.coordinator, action: #selector(Coordinator.edited(_:)), for: .editingChanged)
-        return field
+        context.coordinator.makeField()
     }
 
     func updateUIView(_ field: TokenTextField, context: Context) {
@@ -44,6 +41,14 @@ struct TokenField: UIViewRepresentable {
 
         init(_ parent: TokenField) {
             self.parent = parent
+        }
+
+        /// The field with its edits and focus sent here.
+        func makeField() -> TokenTextField {
+            let field = TokenTextField()
+            field.delegate = self
+            field.addTarget(self, action: #selector(edited(_:)), for: .editingChanged)
+            return field
         }
 
         @objc func edited(_ field: TokenTextField) {
