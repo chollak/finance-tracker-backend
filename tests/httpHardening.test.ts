@@ -347,16 +347,20 @@ describe('the HTTP app (#272)', () => {
       }
     });
 
-    it('in development a request without Origin gets no «*»; Vite’s dev server may call', async () => {
+    it('in development a request without Origin gets no «*», and Vite’s dev server no CORS: it goes through its proxy', async () => {
       process.env.NODE_ENV = 'development';
+      process.env.WEB_APP_URL = 'http://localhost:3000';
       await serve();
 
       const sameOrigin = await raw(server.baseUrl, 'GET', '/api/health');
       expect(sameOrigin.headers['access-control-allow-origin']).toBeUndefined();
       expect(sameOrigin.headers['access-control-allow-credentials']).toBeUndefined();
 
-      const vite = await raw(server.baseUrl, 'GET', '/api/health', { Origin: 'http://localhost:5173' });
-      expect(vite.headers['access-control-allow-origin']).toBe('http://localhost:5173');
+      for (const origin of ['http://localhost:5173', 'http://127.0.0.1:5173']) {
+        const vite = await raw(server.baseUrl, 'OPTIONS', '/api/settings', { Origin: origin, 'Access-Control-Request-Method': 'PATCH' });
+        expect(vite.headers['access-control-allow-origin']).toBeUndefined();
+        expect(vite.headers['access-control-allow-credentials']).toBeUndefined();
+      }
     });
   });
 });

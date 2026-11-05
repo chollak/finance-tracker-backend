@@ -156,9 +156,6 @@ export function requestLogger(req: Request, res: Response, next: NextFunction): 
   next();
 }
 
-/** Vite's dev server, when the webapp calls the API at its own address (`VITE_API_BASE_URL`, webapp/.env.example). */
-const DEV_SERVER_ORIGINS = ['http://localhost:5173', 'http://127.0.0.1:5173'];
-
 /** The origin of a URL — `https://host` without the path; null for an empty or malformed one. */
 function originOf(url: string | undefined): string | null {
   if (!url) return null;
@@ -172,15 +169,12 @@ function originOf(url: string | undefined): string | null {
 /**
  * The pages that may call the API from another origin (#272). The Mini App and the site are served by this server, so
  * their calls are same-origin and need none of this; Telegram's sites never call it — a Mini App inside
- * web.telegram.org is a frame of its own origin. Left: the web app's address WEB_APP_URL as an origin (an address with
- * a path or a trailing slash never matched before), and Vite's dev server in development.
+ * web.telegram.org is a frame of its own origin; in development the webapp goes through Vite's proxy, same-origin too.
+ * Left: the web app's address WEB_APP_URL as an origin (an address with a path or a trailing slash never matched before).
  */
 function allowedOrigins(): string[] {
   const webApp = originOf(process.env.WEB_APP_URL);
-  return [
-    ...(webApp ? [webApp] : []),
-    ...(process.env.NODE_ENV === 'development' ? DEV_SERVER_ORIGINS : []),
-  ];
+  return webApp ? [webApp] : [];
 }
 
 /**

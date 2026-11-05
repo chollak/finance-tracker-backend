@@ -622,11 +622,11 @@ See: [Adding Features Guide](docs/knowledge-base/08-development/adding-features.
 - **Frontend**: React app in `webapp/` builds to `public/webapp/` for Express serving
 - **iOS**: SwiftUI app Kapelka in `ios/` (FT-161): an offline queue to `POST /api/quick-capture` with the Shortcut token in Keychain; signing in the ignored `ios/Config/Signing.local.xcconfig`
 - **Tests**: Jest tests in `tests/` folder with `.test.ts` suffix
-- **Static Assets**: Express serves webapp at `/webapp` path and API at `/api`
+- **Static Assets**: Express serves the webapp from `public/webapp/` on the root (any other path gets its `index.html`) and the API at `/api` (`createHttpApp`); the old `/webapp` path is gone (#272)
 
 ## Integration Points
 
 - **Database**: SQLite via TypeORM, schema managed by migrations
 - **OpenAI**: Voice transcription using openai package
 - **Telegram**: Bot interface using telegraf package
-- **Express**: HTTP server built by `createHttpApp` (`src/delivery/web/express/httpApp.ts`): no file uploads since the web voice routes went (#221); a JSON body up to 100 KB, read after closed access (over it — `413 PAYLOAD_TOO_LARGE`), `no-store` on every `/api` answer, CORS only for the origin of `WEB_APP_URL` (and Vite in development), no `X-Powered-By`, no `/webapp/*` redirect (#272)
+- **Express**: HTTP server built by `createHttpApp` (`src/delivery/web/express/httpApp.ts`): no file uploads since the web voice routes went (#221); a JSON body up to 100 KB, read after closed access (over it — `413 PAYLOAD_TOO_LARGE`), `no-store` on every `/api` answer, CORS only for the origin of `WEB_APP_URL` (development goes through Vite's proxy, same-origin), no `X-Powered-By`, no `/webapp/*` redirect (#272)

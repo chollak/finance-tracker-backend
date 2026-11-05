@@ -100,8 +100,8 @@ function requestLogger(req, res, next) {
 #### C. CORS Headers
 
 Mini App и сайт отдаёт этот же сервер — их запросы same-origin, CORS им не нужен; сайты Telegram API не зовут (Mini App
-внутри web.telegram.org — фрейм со своим origin). CORS-заголовки получает только разрешённый origin (#272): origin из
-`WEB_APP_URL` и в development Vite (`localhost:5173`, `127.0.0.1:5173` — для `VITE_API_BASE_URL`). Ему — сам этот origin
+внутри web.telegram.org — фрейм со своим origin); в development webapp ходит в API через прокси Vite (`/api` →
+`API_PROXY_TARGET`), тоже same-origin. CORS-заголовки получает только origin из `WEB_APP_URL` (#272). Ему — сам этот origin
 с `Allow-Credentials: true`, методы `GET, POST, PUT, PATCH, DELETE, OPTIONS`; `*` не отдаётся никогда. Запрос без
 `Origin` (iPhone, curl) и чужой origin заголовков не получают. `Vary: Origin` — всегда; `OPTIONS` отвечает `200` сразу.
 
