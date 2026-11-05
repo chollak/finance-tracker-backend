@@ -5,6 +5,8 @@
 > #264 (2026-11-04): budgets — `BudgetModule`, `/api/budgets/*` — are removed; the budget routes in the dated sections below are history.
 >
 > #265 (2026-11-04): the debt routes — `/api/debts/*` — and the debt use cases that resolved their owner themselves are removed; the debt routes in the dated sections below are history.
+>
+> #274 (2026-11-05): the user routes — `/api/users/*` — are removed: no client called them, and `PUT /api/users/:id` answered `404` before its owner check, telling whether a UUID was someone's. A user is made only on the first request (`createCurrentUserMiddleware`, `getOrCreate`); settings change through `PATCH /api/settings`, the user taken from sign-in.
 
 ## 2026-11-05 — a record's routes sign in first; `optionalAuth` is gone (#271)
 
@@ -279,7 +281,7 @@ Strict auth boundary.
 Used for:
 
 - admin/global surfaces (the subscription grant)
-- `/api/users/*`
+- `/api/users/*` (removed in #274)
 - the `:userId` routes of transactions, budgets and debts, before `verifyOwnership` (`allowGuestMode` until #206)
 - voice text/voice input routes, before `writeAsSignedInUser` (removed in #221)
 - transaction by-id routes, before the controller's `verifyResourceOwnership` (#271; `requireAuthOrAppToken` on
@@ -357,7 +359,8 @@ FT-017D decision: do not globally change this helper to fail-closed yet.
 | Route family | Route style | Auth middleware | User resolution | Ownership check | Strictness |
 |---|---|---|---|---|---|
 | Health | global | none | none | none | open |
-| User routes | `/api/users/*` | `requireAuth` | use case by telegramId/id | controller self-access check | strict |
+| User routes — removed in #274 | `GET /api/users/:telegramId`, `POST /api/users`, `PUT /api/users/:id` | — (`404`) | — | — | — |
+| Settings | `GET`, `PATCH /api/settings` | `requireAuth` | signed-in user (`createCurrentUserMiddleware`) | none — no userId taken; an unknown field (`userId`, `timezone`) is `400` | strict |
 | Transaction history, totals, frequent | `GET /api/transactions` (FT-107), `/totals`, `/frequent` | `requireAuth` (`GET /` also the app token, FT-218) | signed-in user (`createCurrentUserMiddleware`) | none — no userId taken | strict |
 | Transaction create | `POST /api/transactions` | `requireAuth` | signed-in user (`createResolveCurrentUserMiddleware`) | `verifyOwnership` on a body/query userId, before resolution (FT-162) | strict |
 | Transaction user-scoped analytics/list | `/api/transactions/.../:userId` | `requireAuth` (`allowGuestMode` until #206) | route middleware, after the check (FT-162) | `verifyOwnership` | strict |

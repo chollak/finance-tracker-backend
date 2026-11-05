@@ -27,12 +27,3 @@ export interface CreateUserDTO {
   lastName?: string;
   languageCode?: string;
 }
-
-export interface UpdateUserDTO {
-  userName?: string;
-  firstName?: string;
-  lastName?: string;
-  languageCode?: string;
-  defaultCurrency?: string;
-  timezone?: string;
-}
