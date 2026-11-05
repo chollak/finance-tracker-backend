@@ -126,9 +126,9 @@ function buildTransactionTestApp(options: { userModule?: UserModule } = {}) {
 
 /**
  * Every route on one record (#271): the record sheet, an edit, a delete, «Отменить» — and the archive's three until
- * #273 removes them. Each signs in first, as every other route does, before it reads the record.
+ * #273 removes them. Each signs in first, as every other route does, before it reads the record. Three items in every
+ * row: with fewer, it.each would hand the test a `done` callback in place of the body.
  */
-// Three items in every row: with fewer, it.each would hand the test a `done` callback in place of the body
 const RECORD_ROUTES: Array<[method: string, path: string, body: unknown]> = [
   ['GET', '/api/transactions/tx-1', undefined],
   ['PUT', '/api/transactions/tx-1', { amount: 150 }],
