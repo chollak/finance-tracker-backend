@@ -48,12 +48,13 @@ export function createSubscriptionRoutes(
   );
 
   // POST /api/subscription/grant - Grant premium to user (ADMIN ONLY)
-  // Protected: requires authentication + admin role
+  // Protected: requires authentication + admin role; a bad durationDays is refused before the target user is created
   router.post(
     '/grant',
     adminRateLimiter,
     requireAuth,
     requireAdmin,
+    (req, res, next) => controller.checkGrantBody(req, res, next),
     resolveGrantTarget,
     (req, res) => controller.grantPremium(req, res)
   );

@@ -3,8 +3,9 @@
  * HTTP API endpoints for subscription management
  */
 
-import { Request, Response } from 'express';
+import { NextFunction, Request, Response } from 'express';
 import { SubscriptionModule } from '../subscriptionModule';
+import { GRANT_DURATION_DAYS, isGrantDuration } from '../domain/subscription';
 import { handleControllerSuccess, handleControllerError } from '../../../shared/infrastructure/utils/controllerHelpers';
 import { ErrorFactory } from '../../../shared/domain/errors/AppError';
 import { currentUserId } from '../../../delivery/web/express/middleware/currentUserMiddleware';
@@ -64,6 +65,26 @@ export class SubscriptionController {
     } catch (error) {
       handleControllerError(error, res);
     }
+  }
+
+  /**
+   * POST /api/subscription/grant, before the target is resolved: `durationDays`, when given, is a whole number of days
+   * within GRANT_DURATION_DAYS, for a lifetime grant too. Anything else is 400 VALIDATION_ERROR and adds nothing — no
+   * subscription and no user (#256). Without it the gift lasts 30 days, as before.
+   */
+  checkGrantBody(req: Request, res: Response, next: NextFunction): void {
+    const durationDays = req.body?.durationDays;
+    if (durationDays === undefined || durationDays === null || isGrantDuration(durationDays)) {
+      next();
+      return;
+    }
+    handleControllerError(
+      ErrorFactory.validation(
+        `durationDays must be a whole number from ${GRANT_DURATION_DAYS.min} to ${GRANT_DURATION_DAYS.max}`,
+        'durationDays'
+      ),
+      res
+    );
   }
 
   /**
