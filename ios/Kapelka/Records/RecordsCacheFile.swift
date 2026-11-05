@@ -12,6 +12,9 @@ struct RecordsSnapshot: Codable, Equatable, Sendable {
 /// does not read is simply not there, and the next answer writes it anew. Edits never wait in it (decision
 /// 2026-10-31). Readable after the first unlock, like the queue.
 struct RecordsCacheFile: Sendable {
+    /// The queue's, as the journal's (#284): one protection for the three files of the app.
+    static let protection = CaptureFileStore.protection
+
     let fileURL: URL
 
     static let inApplicationSupport = RecordsCacheFile(
@@ -30,9 +33,6 @@ struct RecordsCacheFile: Sendable {
         )
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
-        try encoder.encode(snapshot).write(
-            to: fileURL,
-            options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication]
-        )
+        try encoder.encode(snapshot).write(to: fileURL, options: [.atomic, Self.protection])
     }
 }
