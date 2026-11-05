@@ -6,7 +6,6 @@ struct RootView: View {
     let model: AppModel
 
     @State private var navigation = AppNavigation()
-    @State private var speech = LastPhraseSpeech()
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
@@ -39,20 +38,11 @@ struct RootView: View {
             guard let notice = model.records.notice, notice.undo?.isRestoring != true else { return }
             AccessibilityNotification.Announcement(notice.text).post()
         }
-        // VoiceOver hears what became of the phrase, whichever tab is open — on screen, as the haptic (#285)
-        .onChange(of: model.lastPhrase, initial: true) { phraseChanged() }
-        .onChange(of: model.voice.phase) { phraseChanged() }
+        .modifier(LastPhraseAnnouncements(model: model))
     }
 
     private func openSettings() {
         navigation.showsSettings = true
-    }
-
-    /// Off screen a notification says it (FT-253): what came meanwhile is not said on return.
-    private func phraseChanged() {
-        let words = speech.news(model.lastPhrase, voice: model.voice.phase)
-        guard let words, scenePhase == .active else { return }
-        AccessibilityNotification.Announcement(words).post()
     }
 
     /// A tap on a notification opens its place first; the first press listens, a press while listening ends the
@@ -68,6 +58,28 @@ struct RootView: View {
         if let record {
             model.records.reveal(record)
         }
+    }
+}
+
+/// VoiceOver hears what became of the phrase, whichever tab is open — on screen, as the haptic (#285). A modifier of its
+/// own: the card changes with each state of the queue and the microphone, and the tabs need not be built again for it.
+private struct LastPhraseAnnouncements: ViewModifier {
+    let model: AppModel
+
+    @State private var speech = LastPhraseSpeech()
+    @Environment(\.scenePhase) private var scenePhase
+
+    func body(content: Content) -> some View {
+        content
+            .onChange(of: model.lastPhrase, initial: true) { phraseChanged() }
+            .onChange(of: model.voice.phase) { phraseChanged() }
+    }
+
+    /// Off screen a notification says it (FT-253): what came meanwhile is not said on return.
+    private func phraseChanged() {
+        let words = speech.news(model.lastPhrase, voice: model.voice.phase)
+        guard let words, scenePhase == .active else { return }
+        AccessibilityNotification.Announcement(words).post()
     }
 }
 
