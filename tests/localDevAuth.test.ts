@@ -3,8 +3,6 @@ import http from 'http';
 import {
   allowShortcutCapture,
   isLocalRequest,
-  optionalAuth,
-  optionalAuthOrAppToken,
   requireAuth,
   requireAuthOrAppToken,
   signedInTelegramId,
@@ -32,20 +30,17 @@ beforeAll(async () => {
   app.get('/required', requireAuth, (req, res) => {
     res.json({ id: req.telegramUser?.id ?? null });
   });
-  app.get('/optional', optionalAuth, (req, res) => {
-    res.json({ id: req.telegramUser?.id ?? null });
-  });
   app.get('/signed', (req, res) => {
     res.json({ id: signedInTelegramId(req, 'bot-token') });
   });
   app.post('/capture', allowShortcutCapture, (req, res) => {
     res.json({ userId: req.body.userId, source: req.body.source });
   });
-  // The app token's records routes (FT-218): the history, categories and accounts sign in, a record's routes optionally
+  // The app token's records routes (FT-218): the history, categories and accounts, and a record's routes (#271)
   app.get('/records', requireAuthOrAppToken, (req, res) => {
     res.json({ id: req.telegramUser?.id ?? null });
   });
-  app.delete('/records/:id', optionalAuthOrAppToken, (req, res) => {
+  app.delete('/records/:id', requireAuthOrAppToken, (req, res) => {
     res.json({ id: req.telegramUser?.id ?? null });
   });
   ({ server, baseUrl } = await listenOnLoopback(app));
@@ -75,7 +70,6 @@ describe('X-Dev-User-Id', () => {
   it('signs in a request from this machine, as before', async () => {
     const dev = { 'X-Dev-User-Id': '131184740' };
     expect((await call('GET', '/required', dev)).body).toEqual({ id: 131184740 });
-    expect((await call('GET', '/optional', dev)).body).toEqual({ id: 131184740 });
     expect((await call('GET', '/signed', dev)).body).toEqual({ id: 131184740 });
   });
 
@@ -84,7 +78,6 @@ describe('X-Dev-User-Id', () => {
     const required = await call('GET', '/required', dev);
     expect(required.status).toBe(401);
     expect(required.body.code).toBe('MISSING_AUTH_HEADER');
-    expect((await call('GET', '/optional', dev)).body).toEqual({ id: null });
     expect((await call('GET', '/signed', dev)).body).toEqual({ id: null });
   });
 
@@ -196,8 +189,7 @@ describe.each([
 ])('the app token on the records routes outside production (FT-218): %s %s', (method, path) => {
   it('without the Shortcut headers signs in as before: initData or, from this machine, X-Dev-User-Id', async () => {
     const bare = await call(method, path, {});
-    if (method === 'GET') expect([bare.status, bare.body.code]).toEqual([401, 'MISSING_AUTH_HEADER']);
-    else expect(bare.body).toEqual({ id: null });
+    expect([bare.status, bare.body.code]).toEqual([401, 'MISSING_AUTH_HEADER']);
     expect((await call(method, path, { 'X-Dev-User-Id': '131184740' })).body).toEqual({ id: 131184740 });
   });
 

@@ -275,7 +275,7 @@ describe('the app token reads and edits its owner’s records (FT-218)', () => {
   });
 
   describe('everything else is closed to the token: the answer of a request that does not sign in', () => {
-    // 401 where the route signs in first; 403 where it looks the record up and then finds nobody signed in
+    // 401: every route signs in first, a record's routes too since #271
     it.each([
       ['POST', '/transactions', { amount: 25000, type: 'expense', category: 'Кафе', description: 'кофе', date: '2026-10-30' }, 401],
       ['PATCH', '/categories/:category', { name: 'Кофейни' }, 401],
@@ -285,8 +285,8 @@ describe('the app token reads and edits its owner’s records (FT-218)', () => {
       ['GET', '/export', undefined, 401],
       ['GET', '/transactions/totals', undefined, 401],
       ['GET', '/settings', undefined, 401],
-      ['GET', '/transactions/:record', undefined, 403],
-      ['POST', '/transactions/:record/archive', undefined, 403],
+      ['GET', '/transactions/:record', undefined, 401],
+      ['POST', '/transactions/:record/archive', undefined, 401],
     ])('%s %s', async (method, pattern, body, status) => {
       const record = await recordOf(OWNER);
       const category = await categoryIdOf('Кафе');
@@ -319,6 +319,32 @@ describe('the app token reads and edits its owner’s records (FT-218)', () => {
       }
 
       expect(opened.sort()).toEqual([...CAPTURE_ROUTES, ...RECORDS_ROUTES].sort());
+    });
+  });
+
+  /**
+   * #271: without the token, initData or a session the record's routes answer 401 before they read the record, as
+   * every other route does — not 403 for an id that exists and 404 for one that does not. A browser whose session
+   * ended gets the login screen from that 401 (`webapp/src/shared/api/client.ts`).
+   */
+  describe('a record’s routes without any sign-in (#271)', () => {
+    it.each([
+      ['GET', '', undefined],
+      ['DELETE', '', undefined],
+      ['POST', '/restore', undefined],
+      ['PUT', '', { description: 'чай' }],
+    ])('%s /api/transactions/:id%s: 401 MISSING_AUTH_HEADER for an id that exists and one that does not, nothing changes', async (method, suffix, body) => {
+      const id = await recordOf(OWNER);
+
+      const known = await call(method, `/transactions/${id}${suffix}`, {}, body);
+      const unknown = await call(method, `/transactions/${randomUUID()}${suffix}`, {}, body);
+
+      expect([known.status, known.body]).toEqual([401, { success: false, error: 'Authorization header required', code: 'MISSING_AUTH_HEADER' }]);
+      expect(unknown).toEqual(known);
+      // The same answer as a route that always signed in first
+      expect(known).toEqual(await call('GET', '/transactions/totals'));
+      expect(await historyIds()).toEqual([id]);
+      expect(await transactionModule.getRepository().findById(id)).toMatchObject({ id, description: 'кофе' });
     });
   });
 

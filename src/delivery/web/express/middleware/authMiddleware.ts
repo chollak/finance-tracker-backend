@@ -336,71 +336,6 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
   next();
 }
 
-/**
- * Optional authentication middleware
- *
- * Validates auth if present, but lets an unauthenticated request on. Only for routes on one record, whose handler
- * fetches it and checks its owner (`verifyResourceOwnership`), which refuses a request without a signed-in user.
- */
-export function optionalAuth(req: Request, _res: Response, next: NextFunction): void {
-  // Development mode bypass: the same local dev header as requireAuth
-  if (devHeadersAllowed(req)) {
-    const devUserId = req.headers['x-dev-user-id'];
-    if (devUserId && typeof devUserId === 'string') {
-      logger.debug('Development optional auth bypass', { devUserId });
-      req.telegramUser = {
-        id: parseInt(devUserId, 10),
-        first_name: 'Dev User',
-      };
-      req.isAuthenticated = true;
-      next();
-      return;
-    }
-  }
-
-  // A browser signed in through the bot (FT-128)
-  if (signInWithWebSession(req)) {
-    next();
-    return;
-  }
-
-  const authHeader = req.headers.authorization;
-
-  // No auth header - continue without authentication
-  if (!authHeader) {
-    req.isAuthenticated = false;
-    next();
-    return;
-  }
-
-  const [scheme, initData] = authHeader.split(' ');
-
-  // Invalid format - continue without authentication
-  if (scheme?.toLowerCase() !== 'tma' || !initData) {
-    req.isAuthenticated = false;
-    next();
-    return;
-  }
-
-  // Try to validate
-  const botToken = AppConfig.TG_BOT_API_KEY;
-
-  if (botToken) {
-    const validatedData = validateTelegramWebAppData(initData, botToken);
-
-    if (validatedData?.user) {
-      req.telegramUser = validatedData.user;
-      req.isAuthenticated = true;
-    } else {
-      req.isAuthenticated = false;
-    }
-  } else {
-    req.isAuthenticated = false;
-  }
-
-  next();
-}
-
 /** Every userId a request carries — in the path, the query and the body: user resolution reads any of them. */
 function userIdClaims(req: Request): unknown[] {
   return [req.params?.userId, req.query?.userId, req.body?.userId].filter(claim => claim !== undefined);
@@ -671,8 +606,8 @@ export function allowShortcutCapture(req: Request, res: Response, next: NextFunc
  * to `signIn` as before. The owner is then `req.telegramUser`, so user resolution and the record ownership check work
  * as for the owner's initData — someone else's record gets the answer the Mini App gets.
  *
- * Only on the routes the iOS app reads and edits records with, named one by one (`requireAuthOrAppToken`,
- * `optionalAuthOrAppToken`). Every other route does not look at the token: a token there signs nobody in.
+ * Only on the routes the iOS app reads and edits records with, named one by one (`requireAuthOrAppToken`). Every other
+ * route does not look at the token: a token there signs nobody in.
  */
 function signInWithAppTokenOr(signIn: RequestHandler): RequestHandler {
   return (req: Request, res: Response, next: NextFunction): void => {
@@ -691,11 +626,11 @@ function signInWithAppTokenOr(signIn: RequestHandler): RequestHandler {
   };
 }
 
-/** `requireAuth`, or the app token as its owner (FT-218): the history, the categories and the accounts list. */
+/**
+ * `requireAuth`, or the app token as its owner (FT-218): the history, the categories and the accounts list; delete,
+ * restore and edit a record (#271: these sign in first too, a request without a user is 401).
+ */
 export const requireAuthOrAppToken: RequestHandler = signInWithAppTokenOr(requireAuth);
-
-/** `optionalAuth`, or the app token as its owner (FT-218): delete, restore and edit a record. */
-export const optionalAuthOrAppToken: RequestHandler = signInWithAppTokenOr(optionalAuth);
 
 /**
  * A write for the signed-in user (2026-10-21). A `userId` the path, query or body still carries — the Mini App's
