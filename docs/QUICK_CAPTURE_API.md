@@ -618,6 +618,7 @@ Auth and rate-limit middleware answer earlier in the chain and use a **flat** sh
 | 400 | `VALIDATION_ERROR` | `capturedAt must be an ISO 8601 time with seconds and a time zone, …` — field `capturedAt` |
 | 400 | `VALIDATION_ERROR` | `capturedAt is older than 30 days` (not for a repeat of a `clientId`); a time ahead of the server is not an error |
 | 400 | `INVALID_JSON` | Malformed JSON body (global error handler) |
+| 413 | `PAYLOAD_TOO_LARGE` | A body over 100 KB (#272, `JSON_BODY_LIMIT_BYTES`); the longest phrase is at most 12 KB of JSON. The body is read only as JSON and after closed access |
 | 400 | `INVALID_USER_ID` | A body or query `userId` that is not one non-blank string — a number, an array, `null`, `''` (FT-162) |
 | 401 | `MISSING_AUTH_HEADER` | No `Authorization` header, no browser session |
 | 403 | `ACCESS_DENIED` | The body `userId` is not the signed-in user |

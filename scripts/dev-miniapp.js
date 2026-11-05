@@ -342,7 +342,7 @@ async function commandStatus({ flags }) {
   const envFile = envFileFor(flags);
   const env = { ...readEnv(envFile), ...process.env };
   const chatId = flags['chat-id'] || flags.chatId || env.MINIAPP_CHAT_ID || env.TELEGRAM_CHAT_ID;
-  const currentUrl = env.WEB_APP_URL || env.NGROK_URL || '';
+  const currentUrl = env.WEB_APP_URL || '';
 
   console.log(`envFile=${path.relative(root, envFile)}`);
   if (currentUrl) {
@@ -365,7 +365,7 @@ async function commandSet({ flags }) {
   const envFile = envFileFor(flags);
   const env = { ...readEnv(envFile), ...process.env };
   const chatId = flags['chat-id'] || flags.chatId || env.MINIAPP_CHAT_ID || env.TELEGRAM_CHAT_ID;
-  const baseUrl = flags.url || env.WEB_APP_URL || env.NGROK_URL;
+  const baseUrl = flags.url || env.WEB_APP_URL;
   const menuText = flags['menu-text'] || env.MINIAPP_MENU_TEXT || DEFAULT_MENU_TEXT;
 
   if (!chatId) throw new Error('Missing --chat-id (or MINIAPP_CHAT_ID / TELEGRAM_CHAT_ID)');

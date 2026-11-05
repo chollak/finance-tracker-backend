@@ -30,7 +30,6 @@ export class AppConfig {
   // The bot's @username for the web login link t.me/<bot>?start=login_… (FT-128); optional — asked from Telegram when empty
   static readonly TG_BOT_USERNAME = process.env.TG_BOT_USERNAME || '';
   static readonly WEB_APP_URL = process.env.WEB_APP_URL || '';
-  static readonly NGROK_URL = process.env.NGROK_URL || '';
 
   // Closed access (FT-153): the bot, the API and the notices only for these Telegram ids, comma-separated.
   // Empty lets everyone in outside production; production does not start without it
@@ -66,11 +65,9 @@ export class AppConfig {
   // Database Configuration: SQLite through TypeORM is the only path (decision Д6, FT-090).
   static readonly DATABASE_TYPE = process.env.DATABASE_TYPE || 'sqlite';
 
-  // Get the appropriate web app URL for current environment
+  // The web app's address for the bot's buttons. The tunnel of `npm run dev:miniapp` writes itself into WEB_APP_URL;
+  // NGROK_URL, which development preferred, is gone with ngrok (#272)
   static getWebAppUrl(): string {
-    if (this.IS_DEVELOPMENT && this.NGROK_URL) {
-      return this.NGROK_URL;
-    }
     return this.WEB_APP_URL;
   }
 
