@@ -23,10 +23,9 @@ import { SubscriptionModule } from '../../../subscription/subscriptionModule';
 import { UserModule } from '../../../user/userModule';
 import { createUserResolutionMiddleware } from '../../../../delivery/web/express/middleware/userResolutionMiddleware';
 import {
-  optionalAuth,
-  optionalAuthOrAppToken,
   verifyOwnership,
   requireAuth,
+  requireAuthOrAppToken,
 } from '../../../../delivery/web/express/middleware/authMiddleware';
 import { standardRateLimiter } from '../../../../delivery/web/express/middleware/rateLimitMiddleware';
 import {
@@ -304,8 +303,9 @@ export function createTransactionRouter(
     }
   });
 
-  // Transaction by ID routes - require auth + ownership verification
-  router.get('/:id', optionalAuth, async (req, res) => {
+  // The routes on one record sign in first, as every route does (#271): without a user 401 before the record is read,
+  // so the answer does not tell which ids exist. Then the record must be the signed-in user's: 403, unknown 404
+  router.get('/:id', requireAuth, async (req, res) => {
     try {
       const transactionId = getStringParam(req, 'id');
 
@@ -327,7 +327,7 @@ export function createTransactionRouter(
   });
 
   // The iOS app deletes, restores and changes the category of its owner's records with its token (FT-218)
-  router.delete('/:id', optionalAuthOrAppToken, async (req, res) => {
+  router.delete('/:id', requireAuthOrAppToken, async (req, res) => {
     try {
       const transactionId = getStringParam(req, 'id');
 
@@ -361,7 +361,7 @@ export function createTransactionRouter(
 
   if (restoreUseCase) {
     /** «Отменить» after a delete (FT-105): the record comes back to lists, balances and totals. */
-    router.post('/:id/restore', optionalAuthOrAppToken, async (req, res) => {
+    router.post('/:id/restore', requireAuthOrAppToken, async (req, res) => {
       try {
         const transactionId = getStringParam(req, 'id');
         if (!transactionId) {
@@ -384,7 +384,7 @@ export function createTransactionRouter(
     });
   }
 
-  router.put('/:id', optionalAuthOrAppToken, async (req, res) => {
+  router.put('/:id', requireAuthOrAppToken, async (req, res) => {
     try {
       const transactionId = getStringParam(req, 'id');
 
@@ -462,7 +462,7 @@ export function createTransactionRouter(
   });
 
   // Archive endpoints - require ownership verification
-  router.post('/:id/archive', optionalAuth, async (req, res) => {
+  router.post('/:id/archive', requireAuth, async (req, res) => {
     try {
       const transactionId = getStringParam(req, 'id');
 
@@ -492,7 +492,7 @@ export function createTransactionRouter(
     }
   });
 
-  router.post('/:id/unarchive', optionalAuth, async (req, res) => {
+  router.post('/:id/unarchive', requireAuth, async (req, res) => {
     try {
       const transactionId = getStringParam(req, 'id');
 
@@ -529,7 +529,7 @@ export function createTransactionRouter(
     }
   });
 
-  router.post('/archive/batch', optionalAuth, async (req, res) => {
+  router.post('/archive/batch', requireAuth, async (req, res) => {
     try {
       const { ids } = req.body;
 

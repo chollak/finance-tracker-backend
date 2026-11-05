@@ -14,7 +14,7 @@ import { GetTransactionHistoryUseCase } from '../src/modules/transaction/applica
 import { AnalyticsService } from '../src/modules/transaction/application/analyticsService';
 import { GetUserTransactionsUseCase } from '../src/modules/transaction/application/getUserTransactions';
 import { GetTransactionByIdUseCase } from '../src/modules/transaction/application/getTransactionById';
-import { DeleteTransactionUseCase } from '../src/modules/transaction/application/deleteTransaction';
+import { DeleteTransactionUseCase, RestoreTransactionUseCase } from '../src/modules/transaction/application/deleteTransaction';
 import { UpdateTransactionUseCase } from '../src/modules/transaction/application/updateTransaction';
 import { UpdateTransactionWithLearningUseCase } from '../src/modules/transaction/application/updateTransactionWithLearning';
 import { ArchiveTransactionUseCase } from '../src/modules/transaction/application/archiveTransaction';
@@ -40,10 +40,24 @@ function signedInUserModule(): UserModule {
   } as unknown as UserModule;
 }
 
+/**
+ * Stands in for webSessionMiddleware (FT-128), which puts the user of a valid session cookie in `req.webSession`: a
+ * browser signed in through the bot. A cookie that ended or was signed out leaves it unset, as no header does here.
+ */
+const SESSION_HEADER = 'x-test-web-session';
+const SIGNED_IN_BY_SESSION = { 'Content-Type': 'application/json', [SESSION_HEADER]: TELEGRAM_ID };
+
+function testWebSession(req: express.Request, _res: express.Response, next: express.NextFunction): void {
+  const telegramId = req.headers[SESSION_HEADER];
+  if (typeof telegramId === 'string') req.webSession = { telegramId: Number(telegramId) };
+  next();
+}
+
 function buildTransactionTestApp(options: { userModule?: UserModule } = {}) {
   const router = express.Router();
 
   router.use(requestLogger);
+  router.use(testWebSession);
   router.use(securityHeaders);
   router.use(corsHeaders);
   router.use(express.json({ limit: '10mb' }));
@@ -70,6 +84,7 @@ function buildTransactionTestApp(options: { userModule?: UserModule } = {}) {
   const archiveMultipleUseCase = { execute: jest.fn() } as unknown as ArchiveMultipleTransactionsUseCase;
   const archiveAllByUserUseCase = { execute: jest.fn() } as unknown as ArchiveAllByUserUseCase;
   const getArchivedUseCase = { execute: jest.fn() } as unknown as GetArchivedTransactionsUseCase;
+  const restoreUseCase = { execute: jest.fn() } as unknown as RestoreTransactionUseCase;
 
   router.use('/transactions', createTransactionRouter(
     createUseCase,
@@ -86,7 +101,8 @@ function buildTransactionTestApp(options: { userModule?: UserModule } = {}) {
     archiveAllByUserUseCase,
     getArchivedUseCase,
     undefined,
-    options.userModule
+    options.userModule,
+    restoreUseCase
   ));
 
   router.use('*', notFoundHandler);
@@ -104,8 +120,30 @@ function buildTransactionTestApp(options: { userModule?: UserModule } = {}) {
     archiveUseCase,
     unarchiveUseCase,
     archiveMultipleUseCase,
+    restoreUseCase,
   };
 }
+
+/**
+ * Every route on one record (#271): the record sheet, an edit, a delete, «Отменить» — and the archive's three until
+ * #273 removes them. Each signs in first, as every other route does, before it reads the record.
+ */
+// Three items in every row: with fewer, it.each would hand the test a `done` callback in place of the body
+const RECORD_ROUTES: Array<[method: string, path: string, body: unknown]> = [
+  ['GET', '/api/transactions/tx-1', undefined],
+  ['PUT', '/api/transactions/tx-1', { amount: 150 }],
+  ['DELETE', '/api/transactions/tx-1', undefined],
+  ['POST', '/api/transactions/tx-1/restore', undefined],
+  ['POST', '/api/transactions/tx-1/archive', undefined],
+  ['POST', '/api/transactions/tx-1/unarchive', undefined],
+  ['POST', '/api/transactions/archive/batch', { ids: ['tx-1'] }],
+];
+
+/** The routes the Mini App and the iOS app use on one record; the archive's go with #273. */
+const LIVE_RECORD_ROUTES = RECORD_ROUTES.slice(0, 4);
+
+const SOMEONE_ELSES_RECORD = { id: 'tx-1', userId: 'someone-elses-uuid', amount: 100, category: 'food', type: 'expense' };
+const OWN_RECORD = { ...SOMEONE_ELSES_RECORD, userId: USER_UUID };
 
 describe('Transaction API route boundaries', () => {
   let server: http.Server;
@@ -121,52 +159,113 @@ describe('Transaction API route boundaries', () => {
     server.close(done);
   });
 
-  it('maps a missing transaction lookup to 404 JSON', async () => {
-    (mocks.getByIdUseCase.execute as jest.Mock).mockResolvedValue({
-      success: false,
-      error: new NotFoundError('Transaction', 'missing-tx'),
+  async function call(method: string, path: string, headers: Record<string, string> = {}, body?: unknown) {
+    const res = await fetch(`${baseUrl}${path}`, {
+      method,
+      headers: body === undefined ? headers : { 'Content-Type': 'application/json', ...headers },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+    return { status: res.status, body: await res.json() };
+  }
+
+  /** The use cases a record route may run after it signed in and found the record its user's. */
+  const recordWrites = () => [
+    mocks.updateUseCase.execute,
+    mocks.deleteUseCase.execute,
+    mocks.restoreUseCase.execute,
+    mocks.archiveUseCase.execute,
+    mocks.unarchiveUseCase.execute,
+    mocks.archiveMultipleUseCase.execute,
+  ] as jest.Mock[];
+
+  describe('a record’s routes sign in first (#271)', () => {
+    beforeEach(() => {
+      (mocks.getByIdUseCase.execute as jest.Mock).mockResolvedValue({ success: true, data: SOMEONE_ELSES_RECORD });
     });
 
-    const res = await fetch(`${baseUrl}/api/transactions/missing-tx`);
+    it.each(RECORD_ROUTES)('%s %s without sign-in: 401 MISSING_AUTH_HEADER, the record is not even read', async (method, path, body) => {
+      const res = await call(method, path, {}, body);
 
-    expect(res.status).toBe(404);
-    const body = await res.json();
-    expect(body.success).toBe(false);
-    expect(body.error).toMatchObject({
-      code: 'NOT_FOUND',
-      message: 'Transaction not found: missing-tx',
+      expect([res.status, res.body]).toEqual([401, expect.objectContaining({ success: false, code: 'MISSING_AUTH_HEADER' })]);
+      expect(mocks.getByIdUseCase.execute).not.toHaveBeenCalled();
+      for (const write of recordWrites()) expect(write).not.toHaveBeenCalled();
+    });
+
+    it.each(RECORD_ROUTES)('%s %s with an Authorization that is not initData: 401, not a request let on unsigned', async (method, path, body) => {
+      const res = await call(method, path, { Authorization: 'Bearer something' }, body);
+
+      expect([res.status, res.body.code]).toEqual([401, 'INVALID_AUTH_FORMAT']);
+      expect(mocks.getByIdUseCase.execute).not.toHaveBeenCalled();
+    });
+
+    it('an unknown id without sign-in gets the same 401: the answer does not tell which ids exist', async () => {
+      (mocks.getByIdUseCase.execute as jest.Mock).mockImplementation(async (id: string) => (id === 'tx-1'
+        ? { success: true, data: SOMEONE_ELSES_RECORD }
+        : { success: false, error: new NotFoundError('Transaction', id) }));
+
+      const unknown = await call('GET', '/api/transactions/missing-tx');
+
+      expect(unknown.status).toBe(401);
+      expect(unknown).toEqual(await call('GET', '/api/transactions/tx-1'));
     });
   });
 
-  it('fails closed for a transaction when no auth is provided', async () => {
-    (mocks.getByIdUseCase.execute as jest.Mock).mockResolvedValue({
-      success: true,
-      data: { id: 'tx-1', userId: 'real-user-id', amount: 100 },
+  describe.each([
+    ['initData or the dev header', SIGNED_IN],
+    ['the browser’s session', SIGNED_IN_BY_SESSION],
+  ])('signed in by %s, as before', (_way, headers) => {
+    it('the user’s own record: read, changed, deleted, brought back', async () => {
+      (mocks.getByIdUseCase.execute as jest.Mock).mockResolvedValue({ success: true, data: OWN_RECORD });
+      (mocks.updateUseCase.execute as jest.Mock).mockResolvedValue({ success: true, data: { ...OWN_RECORD, amount: 150 } });
+      (mocks.deleteUseCase.execute as jest.Mock).mockResolvedValue({ success: true });
+      (mocks.restoreUseCase.execute as jest.Mock).mockResolvedValue({ success: true, data: OWN_RECORD });
+
+      const statuses = [];
+      for (const [method, path, body] of LIVE_RECORD_ROUTES) statuses.push((await call(method, path, headers, body)).status);
+
+      expect(statuses).toEqual([200, 200, 200, 200]);
+      expect(mocks.updateUseCase.execute).toHaveBeenCalledWith({ id: 'tx-1', amount: 150 });
+      expect(mocks.deleteUseCase.execute).toHaveBeenCalledWith({ id: 'tx-1' });
+      expect(mocks.restoreUseCase.execute).toHaveBeenCalledWith({ id: 'tx-1' });
     });
 
-    const res = await fetch(`${baseUrl}/api/transactions/tx-1`);
+    it.each(LIVE_RECORD_ROUTES)('%s %s of someone else’s record: 403 AUTHORIZATION_ERROR, nothing changes', async (method, path, body) => {
+      (mocks.getByIdUseCase.execute as jest.Mock).mockResolvedValue({ success: true, data: SOMEONE_ELSES_RECORD });
 
-    expect(res.status).toBe(403);
-    const body = await res.json();
-    expect(body.success).toBe(false);
-    expect(body.error).toMatchObject({
-      code: 'AUTHORIZATION_ERROR',
-      message: 'Authentication required to access this transaction',
+      const res = await call(method, path, headers, body);
+
+      expect(res.status).toBe(403);
+      expect(res.body).toMatchObject({
+        success: false,
+        error: { code: 'AUTHORIZATION_ERROR', message: 'You do not have permission to access this transaction' },
+      });
+      for (const write of recordWrites()) expect(write).not.toHaveBeenCalled();
+    });
+
+    it.each(LIVE_RECORD_ROUTES)('%s %s of an unknown record: 404 NOT_FOUND', async (method, path, body) => {
+      (mocks.getByIdUseCase.execute as jest.Mock).mockResolvedValue({
+        success: false,
+        error: new NotFoundError('Transaction', 'tx-1'),
+      });
+
+      const res = await call(method, path, headers, body);
+
+      expect(res.status).toBe(404);
+      expect(res.body).toMatchObject({ success: false, error: { code: 'NOT_FOUND', message: 'Transaction not found: tx-1' } });
+      for (const write of recordWrites()) expect(write).not.toHaveBeenCalled();
     });
   });
 
-  it('fails closed for a record left with a guest_ owner by the old guest mode too', async () => {
+  it('a record left with a guest_ owner by the old guest mode is nobody’s: 403 for a signed-in user', async () => {
     (mocks.getByIdUseCase.execute as jest.Mock).mockResolvedValue({
       success: true,
       data: { id: 'tx-guest', userId: 'guest_abc123', amount: 100 },
     });
 
-    const res = await fetch(`${baseUrl}/api/transactions/tx-guest`);
+    const res = await call('GET', '/api/transactions/tx-guest', SIGNED_IN);
 
     expect(res.status).toBe(403);
-    const body = await res.json();
-    expect(body.success).toBe(false);
-    expect(body.error).toMatchObject({ code: 'AUTHORIZATION_ERROR' });
+    expect(res.body).toMatchObject({ success: false, error: { code: 'AUTHORIZATION_ERROR' } });
   });
 
   it('refuses to create a transaction without signing in (401)', async () => {
