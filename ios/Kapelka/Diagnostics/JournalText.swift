@@ -144,35 +144,57 @@ enum JournalText {
     }
 
     /// «3 нояб., 08:05:12 · Записать оплату».
-    static func title(_ run: JournalRun, calendar: Calendar) -> String {
-        "\(format(run.startedAt, "d MMM HH:mm:ss", calendar)) · \(run.command.title)"
+    static func title(_ run: JournalRun, dates: JournalDates) -> String {
+        "\(dates.started(run.startedAt)) · \(run.command.title)"
     }
 
     /// «Kapelka 0.1 (1), собрана 4 нояб., 14:40 · iOS 26.1».
-    static func build(_ build: AppBuild, calendar: Calendar) -> String {
-        let built = build.builtAt.map { ", собрана \(format($0, "d MMM HH:mm", calendar))" } ?? ""
+    static func build(_ build: AppBuild, dates: JournalDates) -> String {
+        let built = build.builtAt.map { ", собрана \(dates.built($0))" } ?? ""
         return "Kapelka \(build.version) (\(build.build))\(built) · \(build.system)"
     }
 
     /// What «Поделиться» sends: the build and iOS, then every run, newest first — how the process stood at its start,
     /// each step and the end with their times in milliseconds.
-    static func shared(_ runs: [JournalRun], calendar: Calendar, build: AppBuild) -> String {
-        let header = "Журнал команд Kapelka · запусков: \(runs.count), новые сверху\n\(Self.build(build, calendar: calendar))"
+    static func shared(_ runs: [JournalRun], dates: JournalDates, build: AppBuild) -> String {
+        let header = "Журнал команд Kapelka · запусков: \(runs.count), новые сверху\n\(Self.build(build, dates: dates))"
         let blocks = runs.map { run in
             let launch = run.launch.map { ["  \(Self.launch($0))"] } ?? []
             let steps = run.steps.map { "  \(exact(ms: $0.ms)) · \($0.text)" }
-            let heading = "\(title(run, calendar: calendar)) — \(outcome(run.outcome, exact: true))"
+            let heading = "\(title(run, dates: dates)) — \(outcome(run.outcome, exact: true))"
             return ([heading] + launch + steps).joined(separator: "\n")
         }
         return ([header] + blocks).joined(separator: "\n\n")
     }
+}
 
-    private static func format(_ date: Date, _ template: String, _ calendar: Calendar) -> String {
+/// The journal's dates, in Russian on one calendar (#284): two formatters made once for a screen or a text, not for
+/// each of its runs — the journal keeps up to 450 of them.
+struct JournalDates {
+    private let startFormat: DateFormatter
+    private let buildFormat: DateFormatter
+
+    init(calendar: Calendar) {
+        startFormat = Self.formatter("d MMM HH:mm:ss", calendar)
+        buildFormat = Self.formatter("d MMM HH:mm", calendar)
+    }
+
+    /// When a run started: «3 нояб., 08:05:12».
+    func started(_ date: Date) -> String {
+        startFormat.string(from: date)
+    }
+
+    /// When the app was built: «4 нояб., 14:40».
+    func built(_ date: Date) -> String {
+        buildFormat.string(from: date)
+    }
+
+    private static func formatter(_ template: String, _ calendar: Calendar) -> DateFormatter {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "ru_RU")
         formatter.calendar = calendar
         formatter.timeZone = calendar.timeZone
         formatter.setLocalizedDateFormatFromTemplate(template)
-        return formatter.string(from: date)
+        return formatter
     }
 }

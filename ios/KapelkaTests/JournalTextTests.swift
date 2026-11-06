@@ -133,31 +133,37 @@ struct JournalTextTests {
             == "оборвана после шага «фраза в очереди · 0b9c2f5e»")
     }
 
-    @Test("«Поделиться» — текстом: заголовок, запуски новые сверху, у каждого шаги со временем от начала")
-    func shared() {
+    private static let start = Date(timeIntervalSince1970: 1_793_266_325)
+
+    private static var tashkent: Calendar {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(identifier: "Asia/Tashkent")!
-        let start = Date(timeIntervalSince1970: 1_793_266_325)
-        let runs = [
-            JournalRun(
-                id: UUID(),
-                command: .recordPayment,
-                startedAt: start.addingTimeInterval(60),
-                steps: [.init(ms: 0, text: "начало"), .init(ms: 12, text: "в очереди · 1")],
-                outcome: .interrupted(lastStep: "в очереди · 1"),
-                launch: JournalLaunch(cold: true, sinceProcessStartMs: 340)
-            ),
-            JournalRun(
-                id: UUID(),
-                command: .sendQueue,
-                startedAt: start,
-                steps: [.init(ms: 0, text: "начало"), .init(ms: 25_012, text: "отправка: всё отправлено")],
-                outcome: .finished(ms: 25_013)
-            ),
-        ]
-        let build = AppBuild(version: "0.1", build: "7", system: "iOS 26.1", builtAt: start.addingTimeInterval(-3600))
+        return calendar
+    }
 
-        #expect(JournalText.shared(runs, calendar: calendar, build: build) == """
+    private static let runs = [
+        JournalRun(
+            id: UUID(),
+            command: .recordPayment,
+            startedAt: start.addingTimeInterval(60),
+            steps: [.init(ms: 0, text: "начало"), .init(ms: 12, text: "в очереди · 1")],
+            outcome: .interrupted(lastStep: "в очереди · 1"),
+            launch: JournalLaunch(cold: true, sinceProcessStartMs: 340)
+        ),
+        JournalRun(
+            id: UUID(),
+            command: .sendQueue,
+            startedAt: start,
+            steps: [.init(ms: 0, text: "начало"), .init(ms: 25_012, text: "отправка: всё отправлено")],
+            outcome: .finished(ms: 25_013)
+        ),
+    ]
+
+    private static let build = AppBuild(version: "0.1", build: "7", system: "iOS 26.1", builtAt: start.addingTimeInterval(-3600))
+
+    @Test("«Поделиться» — текстом: заголовок, запуски новые сверху, у каждого шаги со временем от начала")
+    func shared() {
+        #expect(JournalText.shared(Self.runs, dates: JournalDates(calendar: Self.tashkent), build: Self.build) == """
         Журнал команд Kapelka · запусков: 2, новые сверху
         Kapelka 0.1 (7), собрана 29 окт., 13:32 · iOS 26.1
 
@@ -170,6 +176,16 @@ struct JournalTextTests {
           0\u{00A0}мс · начало
           25012\u{00A0}мс · отправка: всё отправлено
         """)
+    }
+
+    @Test("экран журнала собирается раз на загрузку: заголовки запусков и текст «Поделиться» (#284)")
+    func page() {
+        let page = JournalPage(runs: Self.runs, calendar: Self.tashkent, build: Self.build)
+
+        #expect(page.entries.map(\.run) == Self.runs)
+        #expect(page.entries.map(\.title) == ["29 окт., 14:33:05 · Записать оплату", "29 окт., 14:32:05 · Отправить очередь"])
+        #expect(page.shared == JournalText.shared(Self.runs, dates: JournalDates(calendar: Self.tashkent), build: Self.build))
+        #expect(JournalPage(runs: [], calendar: Self.tashkent, build: Self.build).entries.isEmpty)
     }
 
     @Test("на экране длительность дольше секунды — в секундах, в «Поделиться» — в мс")

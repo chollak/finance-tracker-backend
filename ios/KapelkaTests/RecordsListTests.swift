@@ -37,14 +37,15 @@ struct RecordsListTests {
             ]))],
             accounts: [.http(200, body: Self.accounts)]
         )
-        let list = list(try RecordsHarness(routes: routes))
+        let harness = try RecordsHarness(routes: routes)
+        let list = list(harness)
 
-        await list.screenChanged(onScreen: true)
+        await list.rootViewChanged(onScreen: true)
 
         #expect(list.screen == .list)
         #expect(list.days.map(\.title) == ["Сегодня", "Вчера"])
         #expect(list.days.flatMap(\.rows).map(\.details) == ["Кафе · Карта", "Кафе · Наличные"])
-        #expect(list.caption == "Обновлено только что")
+        #expect(list.caption(at: harness.clock.now) == "Обновлено только что")
         #expect(list.hasMore == false)
     }
 
@@ -168,7 +169,7 @@ struct RecordsListTests {
         await refreshing
 
         #expect(restarted.screen == .list)
-        #expect(restarted.caption == "Нет связи · обновлено в 14:32")
+        #expect(restarted.caption(at: harness.clock.now) == "Нет связи · обновлено в 14:32")
         #expect(restarted.days.flatMap(\.rows).map(\.details) == ["Кафе", "Кафе"])
     }
 
@@ -178,12 +179,13 @@ struct RecordsListTests {
             page: [page(["a"]), page(["a"])],
             accounts: [.http(200, body: Self.accounts), .http(502, body: "Bad Gateway")]
         )
-        let list = list(try RecordsHarness(routes: routes))
+        let harness = try RecordsHarness(routes: routes)
+        let list = list(harness)
         await list.refresh()
         await list.refresh()
 
         #expect(list.days.flatMap(\.rows).map(\.details) == ["Кафе · Карта"])
-        #expect(list.caption == "Обновлено только что")
+        #expect(list.caption(at: harness.clock.now) == "Обновлено только что")
     }
 
     @Test("нет адреса или токена — экран с «Настройки», запросов нет")
@@ -222,12 +224,13 @@ struct RecordsListTests {
     @Test("неверный токен при кэше — список и подпись о токене")
     func tokenRefusedWithCache() async throws {
         let routes = RoutedTransport(page: [page(["a"]), .http(403, body: ServerReply.invalidToken)])
-        let list = list(try RecordsHarness(routes: routes))
+        let harness = try RecordsHarness(routes: routes)
+        let list = list(harness)
         await list.refresh()
         await list.refresh()
 
         #expect(list.screen == .list)
-        #expect(list.caption == "Сервер не принял токен · обновлено в 14:32")
+        #expect(list.caption(at: harness.clock.now) == "Сервер не принял токен · обновлено в 14:32")
     }
 
     /// What the server or the network does, one reply for each reason of #282. Read by `@Test` off the main actor.
@@ -248,7 +251,8 @@ struct RecordsListTests {
 
     @Test("без кэша экран называет причину: нет связи, сервер не ответил, просит подождать, не принял запрос (#282)", arguments: RecordsListTests.reasons)
     func screenWithoutCache(reply: FakeTransport.Reply, failure: RecordsFailure, reason: String) async throws {
-        let list = list(try RecordsHarness(routes: RoutedTransport(page: [reply])))
+        let harness = try RecordsHarness(routes: RoutedTransport(page: [reply]))
+        let list = list(harness)
 
         await list.refresh()
 
@@ -256,19 +260,20 @@ struct RecordsListTests {
         #expect(list.days.isEmpty)
         // The screen's title and the line over the list are the same words
         #expect(failure.title == reason)
-        #expect(list.caption == reason)
+        #expect(list.caption(at: harness.clock.now) == reason)
     }
 
     @Test("с кэшем — список и над ним причина: «Сервер не ответил · обновлено в 14:32» (#282)", arguments: RecordsListTests.reasons)
     func captionWithCache(reply: FakeTransport.Reply, failure _: RecordsFailure, reason: String) async throws {
-        let list = list(try RecordsHarness(routes: RoutedTransport(page: [page(["a"]), reply])))
+        let harness = try RecordsHarness(routes: RoutedTransport(page: [page(["a"]), reply]))
+        let list = list(harness)
         await list.refresh()
 
         await list.refresh()
 
         #expect(list.screen == .list)
         #expect(ids(list) == ["a"])
-        #expect(list.caption == "\(reason) · обновлено в 14:32")
+        #expect(list.caption(at: harness.clock.now) == "\(reason) · обновлено в 14:32")
     }
 
     @Test(
@@ -308,14 +313,15 @@ struct RecordsListTests {
     @Test("без связи прокрученные страницы остаются на экране")
     func offlineKeepsScrolledPages() async throws {
         let routes = RoutedTransport(page: [page(["a"], next: "cursor-1"), page(["b"]), .failure(.notConnectedToInternet)])
-        let list = list(try RecordsHarness(routes: routes))
+        let harness = try RecordsHarness(routes: routes)
+        let list = list(harness)
         await list.refresh()
         await list.loadMore()
 
         await list.refresh()
 
         #expect(ids(list) == ["a", "b"])
-        #expect(list.caption == "Нет связи · обновлено в 14:32")
+        #expect(list.caption(at: harness.clock.now) == "Нет связи · обновлено в 14:32")
     }
 
     @Test("обновляется при открытии вкладки и возврате в приложение; после отправки очереди — только на экране")
@@ -323,21 +329,21 @@ struct RecordsListTests {
         let routes = RoutedTransport(page: [page(["a"]), page(["a"]), page(["a"]), page(["a"])])
         let list = list(try RecordsHarness(routes: routes))
 
-        await list.screenChanged(onScreen: false)
+        await list.rootViewChanged(onScreen: false)
         await list.queueWroteRecords()
         #expect(await routes.pages.requests.isEmpty)
 
         // Opened the tab
-        await list.screenChanged(onScreen: true)
+        await list.rootViewChanged(onScreen: true)
         #expect(await routes.pages.requests.count == 1)
         // The queue wrote a record while the list is on screen
         await list.queueWroteRecords()
         #expect(await routes.pages.requests.count == 2)
         // Left the app and came back
-        await list.screenChanged(onScreen: false)
+        await list.rootViewChanged(onScreen: false)
         await list.queueWroteRecords()
         #expect(await routes.pages.requests.count == 2)
-        await list.screenChanged(onScreen: true)
+        await list.rootViewChanged(onScreen: true)
         #expect(await routes.pages.requests.count == 3)
     }
 
