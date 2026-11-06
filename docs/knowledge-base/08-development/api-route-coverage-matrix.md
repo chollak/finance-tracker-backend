@@ -37,7 +37,7 @@ Prefer unit/use-case tests for pure business logic and route tests for HTTP/midd
 | Health / global middleware | `GET /api/health`, 404, CORS, malformed JSON, global error handler | partial/high-value covered | low | Keep current coverage. |
 | Voice | removed in #221 with the controller and its multer upload: no client called them (the bot takes a voice from Telegram, iOS sends text to `/api/quick-capture`) | `tests/deadVoiceRoutes.test.ts`: `POST /api/voice/text-input` and `/voice-input` are `404`; the bot's voice leaves no file (`tests/voiceUploadCleanup.test.ts`, FT-216) | — | — |
 | Debt | removed in #265 (decision 2026-11-04): out of the interface since Д2, nothing called them; the `debts` and `debt_payments` tables stay, and a record once written by a debt is read, changed and deleted like any other (`tests/debtLinkedRecords.test.ts`) | `tests/deadDebtRoutes.test.ts`: the eleven routes are `404` | — | — |
-| Transaction | CRUD, analytics, archive, batch archive (the global admin `GET /analytics` removed in FT-174) | resource by-id ownership/404/update validation covered; every by-id route `401` without sign-in, someone else's record `403`, unknown `404` (#271, `tests/transactionRoutes.test.ts`); every `:userId` route and `POST /` user-from-auth covered (FT-162); broader CRUD/archive gaps remain | high | Add more focused coverage before any transaction controller split/refactor. |
+| Transaction | history, totals, frequent, CRUD, restore (the global admin `GET /analytics` removed in FT-174; the archive and the old `/analytics/*/:userId` in #273 — analytics is `/api/analytics`, FT-120) | resource by-id ownership/404/update validation covered; every by-id route `401` without sign-in, someone else's record `403`, unknown `404` (#271, `tests/transactionRoutes.test.ts`); every `:userId` route and `POST /` user-from-auth covered (FT-162); `tests/deadTransactionRoutes.test.ts`: the ten removed routes are `404`; a record archived before #273 stays out of every read (`tests/archivedRecords.test.ts`); broader CRUD gaps remain | high | Add more focused coverage before any transaction controller split/refactor. |
 | Budget | removed in #264 with `BudgetModule` (decision 2026-11-04): out of the interface since Д2, nothing called it; the `budgets` table stays | `tests/deadBudgetRoutes.test.ts`: the eight routes are `404` | — | — |
 | Subscription | status, check-limit, grant, cancel, start-trial | use-case level; routes: user from auth, someone else's id `403`, non-string `400` (FT-162) | medium-high | Add route tests around guest status/check-limit and invalid limitType. |
 | User | removed in #274: `GET /api/users/:telegramId`, `POST /api/users`, `PUT /api/users/:id` had no client, and `PUT` wrote the time zone unchecked; a user is made on the first request, settings change through `PATCH /api/settings` | `tests/deadUserRoutes.test.ts`: the routes are `404` and change no `users` row; `PATCH /api/settings` refuses `timezone` (`400`) and still saves a setting | — | — |
@@ -155,7 +155,7 @@ Avoid broad route test expansion for:
 
 - every dashboard insight endpoint (moot: removed in #205)
 - full voice file upload behavior (moot: removed in #221)
-- all transaction archive/batch variants
+- all transaction archive/batch variants (moot: removed in #273)
 
 Those should wait until the relevant controller is actively changed.
 

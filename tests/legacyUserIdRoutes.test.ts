@@ -5,10 +5,7 @@ import { recordsOn } from './helpers/records';
 import { resetSharedRateLimiters } from '../src/delivery/web/express/middleware/rateLimitMiddleware';
 import { createSubscriptionRoutes } from '../src/delivery/web/express/routes/subscriptionRoutes';
 import { createTransactionRouter } from '../src/modules/transaction/presentation/controllers/transactionController';
-import { AnalyticsService } from '../src/modules/transaction/application/analyticsService';
 import { GetUserTransactionsUseCase } from '../src/modules/transaction/application/getUserTransactions';
-import { ArchiveAllByUserUseCase } from '../src/modules/transaction/application/archiveAllByUser';
-import { GetArchivedTransactionsUseCase } from '../src/modules/transaction/application/getArchivedTransactions';
 import { SubscriptionModule } from '../src/modules/subscription/subscriptionModule';
 import { SubscriptionRepository } from '../src/modules/subscription/domain/subscriptionRepository';
 import { CreateSubscriptionDTO, Subscription } from '../src/modules/subscription/domain/subscription';
@@ -58,7 +55,6 @@ const unused = {} as never;
 let db: TestDatabase;
 let server: TestServer;
 let userTransactions: GetUserTransactionsUseCase;
-let archivedTransactions: GetArchivedTransactionsUseCase;
 let subscriptions: NoSubscriptions;
 let records: ReturnType<typeof recordsOn>;
 
@@ -68,9 +64,7 @@ beforeAll(async () => {
   const users = new UserModule(new SqliteUserRepository(db.dataSource));
   subscriptions = new NoSubscriptions();
 
-  const analytics = new AnalyticsService(records.repository);
   userTransactions = new GetUserTransactionsUseCase(records.repository);
-  archivedTransactions = new GetArchivedTransactionsUseCase(records.repository);
   // The grant goes only to a user that exists (#230), wired as in createModules()
   const grantTargets = { exists: (userId: string) => users.exists(userId) };
   const subscriptionModule = new SubscriptionModule(subscriptions, new SqliteUsageLimitRepository(db.dataSource), grantTargets, {
@@ -79,9 +73,7 @@ beforeAll(async () => {
 
   server = await startTestServer({
     '/transactions': createTransactionRouter(
-      records.create, unused, analytics, userTransactions, unused, unused, unused,
-      unused, unused, unused, unused, new ArchiveAllByUserUseCase(records.repository),
-      archivedTransactions, subscriptionModule, users
+      records.create, unused, userTransactions, unused, unused, unused, unused, subscriptionModule, users
     ),
     '/subscription': createSubscriptionRoutes(subscriptionModule, users),
   });
@@ -114,25 +106,20 @@ async function myUuid(): Promise<string> {
 const call = (method: string, url: string, body?: unknown) => server.request(method, url, { devUser: ME, body });
 
 interface LegacyRoute {
-  method: 'GET' | 'POST';
+  method: 'GET';
   path: (userId: string) => string;
   /** What the route answers its own user, as before FT-162. */
   own: { status: number; code?: string };
-  body?: Record<string, unknown>;
 }
 
 const OK = { status: 200 };
 
-/** Every legacy route with `:userId` in the path. */
+/**
+ * Every legacy route with `:userId` in the path. The old analytics and the archive's two went in #273 — the archive's
+ * `POST …/archive/all/:userId` was the last POST among them.
+ */
 const PATH_ROUTES: LegacyRoute[] = [
-  { method: 'GET', path: id => `/api/transactions/analytics/summary/${id}`, own: OK },
-  { method: 'GET', path: id => `/api/transactions/analytics/categories/${id}`, own: OK },
-  { method: 'GET', path: id => `/api/transactions/analytics/trends/${id}`, own: OK },
-  { method: 'GET', path: id => `/api/transactions/analytics/patterns/${id}`, own: OK },
-  { method: 'GET', path: id => `/api/transactions/analytics/top-categories/${id}`, own: OK },
   { method: 'GET', path: id => `/api/transactions/user/${id}`, own: OK },
-  { method: 'POST', path: id => `/api/transactions/archive/all/${id}`, own: OK, body: {} },
-  { method: 'GET', path: id => `/api/transactions/archived/user/${id}`, own: OK },
   { method: 'GET', path: id => `/api/subscription/${id}`, own: OK },
 ];
 
@@ -143,7 +130,7 @@ describe('a legacy route with :userId in the path (FT-162)', () => {
     const before = await telegramIds();
 
     for (const someone of [SOMEONE, `0${MINE}`, `${MINE}0`, GUEST]) {
-      const res = await call(route.method, route.path(someone), route.body);
+      const res = await call(route.method, route.path(someone));
       expect({ someone, status: res.status, code: res.body?.code }).toEqual({ someone, status: 403, code: 'ACCESS_DENIED' });
     }
 
@@ -153,19 +140,13 @@ describe('a legacy route with :userId in the path (FT-162)', () => {
   it.each(named)('%s: a blank id or a userId that is not one string is 400 and adds no user', async (_name, route) => {
     const before = await telegramIds();
 
-    const blank = await call(route.method, route.path('%20'), route.body);
+    const blank = await call(route.method, route.path('%20'));
     // `?userId=a&userId=b` is an array
-    const twice = await call(route.method, `${route.path(MINE)}?userId=${MINE}&userId=${MINE}`, route.body);
-    const empty = await call(route.method, `${route.path(MINE)}?userId=`, route.body);
+    const twice = await call(route.method, `${route.path(MINE)}?userId=${MINE}&userId=${MINE}`);
+    const empty = await call(route.method, `${route.path(MINE)}?userId=`);
 
     for (const res of [blank, twice, empty]) {
       expect({ status: res.status, code: res.body?.code }).toEqual({ status: 400, code: 'INVALID_USER_ID' });
-    }
-    if (route.method === 'POST') {
-      for (const userId of [ME, [MINE], '', null, { id: MINE }]) {
-        const res = await call(route.method, route.path(MINE), { ...route.body, userId });
-        expect({ userId, status: res.status, code: res.body?.code }).toEqual({ userId, status: 400, code: 'INVALID_USER_ID' });
-      }
     }
     expect(await telegramIds()).toEqual(before);
   });
@@ -173,17 +154,13 @@ describe('a legacy route with :userId in the path (FT-162)', () => {
   it.each(named)('%s: a query or body naming someone else is 403 even with the own id in the path', async (_name, route) => {
     const before = await telegramIds();
 
-    const query = await call(route.method, `${route.path(MINE)}?userId=${SOMEONE}`, route.body);
+    const query = await call(route.method, `${route.path(MINE)}?userId=${SOMEONE}`);
     expect({ status: query.status, code: query.body?.code }).toEqual({ status: 403, code: 'ACCESS_DENIED' });
-    if (route.method === 'POST') {
-      const body = await call(route.method, route.path(MINE), { ...route.body, userId: SOMEONE });
-      expect({ status: body.status, code: body.body?.code }).toEqual({ status: 403, code: 'ACCESS_DENIED' });
-    }
     expect(await telegramIds()).toEqual(before);
   });
 
   it.each(named)('%s: the own id answers as before', async (_name, route) => {
-    const res = await call(route.method, route.path(MINE), route.body);
+    const res = await call(route.method, route.path(MINE));
 
     expect({ status: res.status, code: res.body?.code }).toEqual({ status: route.own.status, code: route.own.code });
     expect(await telegramIds()).toEqual([MINE]);
@@ -192,7 +169,7 @@ describe('a legacy route with :userId in the path (FT-162)', () => {
   it.each(named)('%s: a guest id without signing in is 401 and adds no user (#206)', async (_name, route) => {
     const before = await telegramIds();
 
-    const res = await server.request(route.method, route.path(GUEST), { body: route.body });
+    const res = await server.request(route.method, route.path(GUEST));
 
     expect({ status: res.status, code: res.body?.code }).toEqual({ status: 401, code: 'MISSING_AUTH_HEADER' });
     expect(await telegramIds()).toEqual(before);
@@ -210,18 +187,13 @@ describe('a legacy route with :userId in the path (FT-162)', () => {
     asked.mockRestore();
   });
 
-  it('the own id reaches the use cases as the own user, not as the id in the path', async () => {
+  // The debts' summary (#265) and the archive's list (#273) were asked the same until they went
+  it('the own id reaches the use case as the own user, not as the id in the path', async () => {
     const asked = jest.spyOn(userTransactions, 'execute');
-    const archived = jest.spyOn(archivedTransactions, 'execute');
     await call('GET', `/api/transactions/user/${MINE}`);
-    // The second route was the debts' summary until they went (#265)
-    await call('GET', `/api/transactions/archived/user/${MINE}`);
 
-    const uuid = await myUuid();
-    expect(asked).toHaveBeenLastCalledWith(uuid);
-    expect(archived.mock.calls.at(-1)?.[0]).toBe(uuid);
+    expect(asked).toHaveBeenLastCalledWith(await myUuid());
     asked.mockRestore();
-    archived.mockRestore();
   });
 });
 

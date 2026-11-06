@@ -83,7 +83,8 @@ Core module системы — управление финансовыми тр�
 
 ### Use Cases
 - `CreateTransactionUseCase` - создание транзакции
-- `GetTransactionsUseCase` - получение всех транзакций
+- `GetTransactionHistoryUseCase` - история с поиском и фильтрами (FT-107); список всех записей всех пользователей ушёл
+  в FT-107, `getAll()` репозитория без вызовов — в #273
 - `GetUserTransactionsUseCase` - транзакции пользователя
 - `UpdateTransactionUseCase` - обновление транзакции; правка категории учит разбор через порт `CategoryLessons`
   (FT-184, `application/teachCategoryCorrection.ts`, реализует `TransactionLearningService`): сначала снимает уроки
@@ -97,8 +98,8 @@ Core module системы — управление финансовыми тр�
 - `GetMonthAnalyticsUseCase`, `GetCategoryAnalyticsUseCase` - аналитика «Пастели» с честным сравнением (FT-120): `GET /api/analytics`, `GET /api/analytics/categories/:id`, каждый в своём файле; общее чтение месяца — `application/analyticsFrame.ts`; правила — `domain/monthAnalytics.ts`, суммы — через `PeriodTotalsService`; категорию ищет порт `CategoryResolver.findForUser`
 
 ### Services
-- `AnalyticsService` - старая аналитика (summary, categories, trends, patterns)
-- `PeriodTotalsService` - итоги периода (FT-103): одно правило для главной, аналитики и итогов бота
+- `PeriodTotalsService` - итоги периода (FT-103): одно правило для главной, аналитики и итогов бота. Старая аналитика
+  `AnalyticsService` (`/api/transactions/analytics/*/:userId`) удалена в #273 — ниже, «Архив записей и старая аналитика»
 
 ### Repository
 - Interface: `src/modules/transaction/domain/transactionRepository.ts`
@@ -500,6 +501,21 @@ Health Score») и `AlertService` из `AnalyticsService` и `BudgetService`; in
 
 ---
 
+## Архив записей и старая аналитика — удалены (#273)
+
+Архив записей (`POST /api/transactions/:id/archive`, `/:id/unarchive`, `/archive/batch`, `/archive/all/:userId`,
+`GET /archived/user/:userId`) и старая аналитика `GET /api/transactions/analytics/{summary,categories,trends,patterns,
+top-categories}/:userId` удалены вместе с use case архива, `AnalyticsService`, методами репозитория `archive`,
+`unarchive`, `archiveMultiple`, `archiveAllByUserId`, `findArchivedByUserId` и `getAll()`. Их не вызывали ни webapp, ни
+iOS, ни бот: удаление мягкое с FT-105, экран аналитики читает `/api/analytics` с FT-120. Маршруты отвечают `404`
+(`tests/deadTransactionRoutes.test.ts`).
+
+Колонка `isArchived` и фильтр в чтениях остались: запись, заархивированная раньше, скрыта везде — на главной, в истории
+и поиске, в итогах, остатках, аналитике, выгрузке и итогах бота, по id — `404` (решение Д7,
+`tests/archivedRecords.test.ts`). `isArchived` больше никто не ставит; вернуть такие записи — правка настоящих данных.
+
+---
+
 ## Бюджеты — удалены (#264)
 
 `BudgetModule` (`src/modules/budget/`: создание, правка, удаление, сводки и `spent` по записям периода) ушёл из
@@ -616,7 +632,7 @@ class AuditModule {
 ```typescript
 class TransactionModule {
   getCreateTransactionUseCase() { return this.createTransactionUseCase; }
-  getAnalyticsService() { return this.analyticsService; }
+  getPeriodTotalsService() { return this.periodTotals; }
   getRepository() { return this.repository; }
 }
 ```

@@ -167,8 +167,7 @@ describe('frequent expenses for the quick chips (FT-114)', () => {
         const userModule = new UserModule(new SqliteUserRepository(db.dataSource), new SqliteUserSettingsRepository(db.dataSource));
         server = await startTestServer({
           '/transactions': createTransactionRouter(
-            records.create, unused, unused, unused, unused, unused, records.update, unused, unused, unused, unused, unused,
-            unused, undefined, userModule, undefined, undefined, frequent
+            records.create, unused, unused, unused, unused, records.update, unused, undefined, userModule, undefined, undefined, frequent
           ),
           '/settings': createSettingsRoutes(userModule),
         });

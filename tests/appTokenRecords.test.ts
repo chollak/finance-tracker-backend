@@ -285,8 +285,8 @@ describe('the app token reads and edits its owner’s records (FT-218)', () => {
       ['GET', '/export', undefined, 401],
       ['GET', '/transactions/totals', undefined, 401],
       ['GET', '/settings', undefined, 401],
+      // The archive's routes went in #273 (tests/deadTransactionRoutes.test.ts)
       ['GET', '/transactions/:record', undefined, 401],
-      ['POST', '/transactions/:record/archive', undefined, 401],
     ])('%s %s', async (method, pattern, body, status) => {
       const record = await recordOf(OWNER);
       const category = await categoryIdOf('Кафе');

@@ -13,6 +13,11 @@
 > #265 (2026-11-04): debts outside the capture path — `/api/debts`, `debtController.ts`, the debt use cases but
 > `CreateDebtUseCase` — are removed; the debt findings below are history.
 >
+> #273 (2026-11-05): the archive of records — five routes, their use cases, the repository's archive methods — and
+> the old analytics `/api/transactions/analytics/*/:userId` with `AnalyticsService` are removed: nothing called them
+> (analytics is `/api/analytics`, FT-120). The archive and analytics findings below are history; records archived
+> before stay hidden everywhere (decision Д7).
+>
 > #274 (2026-11-05): the user routes — `/api/users*`, `userController.ts`, `UpdateUserUseCase` — are removed: no client
 > called them, and `PUT` wrote the time zone unchecked. The user findings below are history.
 
@@ -202,7 +207,7 @@ Good first slice:
 
 Result-pattern use cases:
 
-- transaction create/update/delete/archive/get-by-id
+- transaction create/update/delete/archive/get-by-id (archive removed in #273)
 - budget create/update/delete/get
 - debt create/update/delete/pay/get
 - user get/update after FT-017
@@ -213,7 +218,7 @@ Raw-return / service-style use cases:
 - `GetUserTransactionsUseCase.execute()` returns raw list
 - subscription use cases return raw objects/booleans/nulls
 - voice processing use cases return raw processed result and throw on some errors
-- dashboard/analytics services return raw objects
+- dashboard/analytics services return raw objects (both removed: #205, #273)
 
 This is not automatically wrong. Query services can return raw values. But the convention is not documented per category.
 
@@ -245,10 +250,10 @@ FT-021: Document use-case return conventions
 
 `transactionController.ts` is around 530 lines and contains:
 
-- admin analytics routes
-- user analytics routes
+- admin analytics routes (removed in FT-174)
+- user analytics routes (removed in #273)
 - transaction CRUD
-- archive/unarchive/batch archive
+- archive/unarchive/batch archive (removed in #273)
 - ownership helper
 - validation/mapping logic
 - learning-enabled update branching
@@ -267,8 +272,8 @@ FT-023: Transaction controller route-group split plan
 Potential future grouping:
 
 - transaction CRUD routes
-- transaction analytics routes
-- archive routes
+- transaction analytics routes (removed in #273)
+- archive routes (removed in #273)
 
 ---
 
@@ -363,7 +368,7 @@ FT-026: Voice text-input userId default policy
 
 Missing route-family coverage examples:
 
-- transaction CRUD/update/archive
+- transaction CRUD/update/archive (archive removed in #273)
 - budget routes
 - subscription controller routes
 - user controller auth/self-access routes
