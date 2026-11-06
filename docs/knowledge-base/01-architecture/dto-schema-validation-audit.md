@@ -6,6 +6,10 @@
 >
 > #265 (2026-11-04): `DebtController`, the debt routes and `PayDebtUseCase` are removed; `CreateDebtUseCase` stays in the
 > capture path until #266. The debt findings below are history.
+>
+> #274 (2026-11-05): `userController.ts`, the user routes and `UpdateUserUseCase` are removed; `PUT /api/users/:id`
+> wrote `timezone` and `defaultCurrency` without a check. Settings are checked field by field in
+> `validateSettingsPatch` (`PATCH /api/settings`), and an unknown field — `timezone` among them — is refused.
 
 ## Scope
 
@@ -62,7 +66,7 @@ Current examples:
 - `CreateDebtUseCase`
 - `PayDebtUseCase`
 - `GetUserUseCase`
-- `UpdateUserUseCase`
+- `UpdateUserUseCase` (removed in #274)
 - Subscription use cases
 
 Use-case validation should remain the source of truth for business/application invariants:

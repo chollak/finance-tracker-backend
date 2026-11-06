@@ -7,7 +7,6 @@ import { QuickCaptureModule } from '../../../modules/quickCapture/quickCaptureMo
 import { createTransactionRouter } from '../../../modules/transaction/presentation/controllers/transactionController';
 import { createAnalyticsRoutes } from '../../../modules/transaction/presentation/controllers/analyticsController';
 import { createQuickCaptureRouter } from '../../../modules/quickCapture/presentation/controllers/quickCaptureController';
-import { createUserController } from '../../../modules/user/presentation/controllers/userController';
 import { createSettingsRoutes } from '../../../modules/user/presentation/controllers/settingsController';
 import { CategoryModule } from '../../../modules/category/categoryModule';
 import { createCategoryRoutes } from '../../../modules/category/presentation/categoryController';
@@ -117,12 +116,9 @@ export function buildServer(
     );
   }
 
-  // User routes (optional - only if userModule is provided)
+  // Routes of the signed-in user (optional - only if userModule is provided). There is no /api/users (#274): a user is
+  // made on the first request (createCurrentUserMiddleware), and settings change through /api/settings
   if (userModule) {
-    router.use(
-      '/users',
-      createUserController(userModule)
-    );
     // Milestone 10 routes take the user from authentication, never from the path
     router.use('/settings', createSettingsRoutes(userModule));
     if (moneyModules.categoryModule) {

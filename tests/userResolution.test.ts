@@ -1,10 +1,9 @@
 import { Request } from 'express';
 import { GetOrCreateUserUseCase } from '../src/modules/user/application/getOrCreateUserUseCase';
 import { GetUserUseCase } from '../src/modules/user/application/getUserUseCase';
-import { UpdateUserUseCase } from '../src/modules/user/application/updateUserUseCase';
 import { UserModule } from '../src/modules/user/userModule';
 import { UserRepository } from '../src/modules/user/domain/userRepository';
-import { User, CreateUserDTO, UpdateUserDTO } from '../src/modules/user/domain/userEntity';
+import { User, CreateUserDTO } from '../src/modules/user/domain/userEntity';
 import { ValidationError } from '../src/shared/domain/errors/AppError';
 import {
   isUUID,
@@ -34,10 +33,9 @@ const BIG_TELEGRAM_IDS = ['7123456789', '4503599627370495', '9007199254740991'];
 const PAST_SAFE_IDS = ['9007199254740992', '9007199254740993', '123456789012345678901234567890'];
 
 /**
- * In-memory fake mirroring SqliteUserRepository's getOrCreate()/update() contract:
- * getOrCreate finds by telegramId and touches lastSeenAt on hit, creates otherwise;
- * update() throws if the user doesn't exist, so UpdateUserUseCase can normalize
- * repository errors into Result failures.
+ * In-memory fake mirroring SqliteUserRepository's getOrCreate() contract:
+ * getOrCreate finds by telegramId and touches lastSeenAt on hit, creates otherwise.
+ * There is no other way to make or change a user (#274).
  */
 class InMemoryUserRepository implements UserRepository {
   private usersById = new Map<string, User>();
@@ -56,7 +54,7 @@ class InMemoryUserRepository implements UserRepository {
     return [...this.usersById.values()];
   }
 
-  async create(dto: CreateUserDTO): Promise<User> {
+  private insert(dto: CreateUserDTO): User {
     const id = `user-${++this.seq}`;
     const now = new Date();
     const user: User = {
@@ -73,16 +71,6 @@ class InMemoryUserRepository implements UserRepository {
     return user;
   }
 
-  async update(id: string, dto: UpdateUserDTO): Promise<User> {
-    const existing = this.usersById.get(id);
-    if (!existing) {
-      throw new Error('User not found after update');
-    }
-    const updated: User = { ...existing, ...dto, updatedAt: new Date() };
-    this.usersById.set(id, updated);
-    return updated;
-  }
-
   async updateLastSeen(id: string): Promise<void> {
     this.updateLastSeenCalls.push(id);
     const existing = this.usersById.get(id);
@@ -91,17 +79,13 @@ class InMemoryUserRepository implements UserRepository {
     }
   }
 
-  async delete(id: string): Promise<void> {
-    this.usersById.delete(id);
-  }
-
   async getOrCreate(dto: CreateUserDTO): Promise<User> {
     const existing = await this.findByTelegramId(dto.telegramId);
     if (existing) {
       await this.updateLastSeen(existing.id);
       return existing;
     }
-    return this.create(dto);
+    return this.insert(dto);
   }
 
   size(): number {
@@ -117,13 +101,11 @@ describe('User module', () => {
   let repo: InMemoryUserRepository;
   let getOrCreateUserUseCase: GetOrCreateUserUseCase;
   let getUserUseCase: GetUserUseCase;
-  let updateUserUseCase: UpdateUserUseCase;
 
   beforeEach(() => {
     repo = new InMemoryUserRepository();
     getOrCreateUserUseCase = new GetOrCreateUserUseCase(repo);
     getUserUseCase = new GetUserUseCase(repo);
-    updateUserUseCase = new UpdateUserUseCase(repo);
   });
 
   describe('GetOrCreateUserUseCase', () => {
@@ -198,37 +180,6 @@ describe('User module', () => {
     });
   });
 
-  describe('UpdateUserUseCase', () => {
-    it('updates mutable fields on an existing user', async () => {
-      const created = await getOrCreateUserUseCase.execute({ telegramId: '555' });
-
-      const result = await updateUserUseCase.execute(created.id, { userName: 'newname', timezone: 'UTC' });
-
-      expect(result.success).toBe(true);
-      if (result.success) {
-        expect(result.data.userName).toBe('newname');
-        expect(result.data.timezone).toBe('UTC');
-      }
-    });
-
-    it('returns Result failure when updating a non-existent user', async () => {
-      const result = await updateUserUseCase.execute('missing-id', { userName: 'x' });
-
-      expect(result.success).toBe(false);
-      if (!result.success) {
-        expect(result.error.message).toBe('User not found after update');
-      }
-    });
-
-    it('delegates updateLastSeen to the repository', async () => {
-      const created = await getOrCreateUserUseCase.execute({ telegramId: '666' });
-      repo.updateLastSeenCalls = [];
-
-      await updateUserUseCase.updateLastSeen(created.id);
-
-      expect(repo.updateLastSeenCalls).toEqual([created.id]);
-    });
-  });
 });
 
 describe('userIdResolver', () => {

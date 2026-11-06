@@ -40,7 +40,7 @@ Prefer unit/use-case tests for pure business logic and route tests for HTTP/midd
 | Transaction | history, totals, frequent, CRUD, restore (the global admin `GET /analytics` removed in FT-174; the archive and the old `/analytics/*/:userId` in #273 — analytics is `/api/analytics`, FT-120) | resource by-id ownership/404/update validation covered; every by-id route `401` without sign-in, someone else's record `403`, unknown `404` (#271, `tests/transactionRoutes.test.ts`); every `:userId` route and `POST /` user-from-auth covered (FT-162); `tests/deadTransactionRoutes.test.ts`: the ten removed routes are `404`; a record archived before #273 stays out of every read (`tests/archivedRecords.test.ts`); broader CRUD gaps remain | high | Add more focused coverage before any transaction controller split/refactor. |
 | Budget | removed in #264 with `BudgetModule` (decision 2026-11-04): out of the interface since Д2, nothing called it; the `budgets` table stays | `tests/deadBudgetRoutes.test.ts`: the eight routes are `404` | — | — |
 | Subscription | status, check-limit, grant, cancel, start-trial | use-case level; routes: user from auth, someone else's id `403`, non-string `400` (FT-162) | medium-high | Add route tests around guest status/check-limit and invalid limitType. |
-| User | get/create/update user | covered at use-case/helper level, not route level | medium | Add auth/self-access tests if user routes become active frontend surface. |
+| User | removed in #274: `GET /api/users/:telegramId`, `POST /api/users`, `PUT /api/users/:id` had no client, and `PUT` wrote the time zone unchecked; a user is made on the first request, settings change through `PATCH /api/settings` | `tests/deadUserRoutes.test.ts`: the routes are `404` and change no `users` row; `PATCH /api/settings` refuses `timezone` (`400`) and still saves a setting | — | — |
 | Dashboard | removed in #205 with `DashboardService`, `AlertService` and `requirePremium`: nothing called it | `tests/deadDashboardRoutes.test.ts`: the seven routes are `404` | — | — |
 | OpenAI usage | removed with `OpenAIUsageModule` (FT-174): `requireAdmin` without `requireAuth` always answered `401`, nothing called it | `tests/deadAdminRoutes.test.ts`: the routes are `404` | — | — |
 | App token (FT-218) | the iOS app's six records routes: `GET /api/transactions`, `GET /api/categories`, `GET /api/accounts`, `DELETE /api/transactions/:id`, `POST …/restore`, `PUT /api/transactions/:id`; capture: `POST /api/quick-capture`, `/payment` | `tests/appTokenRecords.test.ts`: each of the six as with initData, refusals, someone else's record; **every route of `buildServer`** with the token only vs. without — exactly these eight differ | high | When a route is added or its sign-in changes, the sweep says whether the token opens it |
@@ -138,6 +138,8 @@ Candidate tests:
 - missing `userId` / `limitType` → 400 validation
 
 ### FT-022D — User route auth/self-access slice
+
+Status: moot — the user routes were removed in #274 instead (`tests/deadUserRoutes.test.ts`).
 
 **Why:** FT-017 changed user use-case contracts. Route-level auth/self-access behavior should be locked if frontend starts using `/api/users` directly.
 

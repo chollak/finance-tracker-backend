@@ -7,6 +7,8 @@
 > #265 (2026-11-04): the debt routes — `/api/debts/*` — and the debt use cases that resolved their owner themselves are removed; the debt routes in the dated sections below are history.
 >
 > #273 (2026-11-05): the archive's five routes and the old analytics `/api/transactions/analytics/*/:userId` are removed; they are history in the dated sections below.
+>
+> #274 (2026-11-05): the user routes — `/api/users/*` — are removed: no client called them, and `PUT /api/users/:id` answered `404` before its owner check, telling whether a UUID was someone's. A user is made only on the first request (`createCurrentUserMiddleware`, `getOrCreate`); settings change through `PATCH /api/settings`, the user taken from sign-in.
 
 ## 2026-11-05 — the archive and the old analytics are gone (#273)
 
@@ -296,7 +298,7 @@ Strict auth boundary.
 Used for:
 
 - admin/global surfaces (the subscription grant)
-- `/api/users/*`
+- `/api/users/*` (removed in #274)
 - the `:userId` routes of transactions, budgets and debts, before `verifyOwnership` (`allowGuestMode` until #206)
 - voice text/voice input routes, before `writeAsSignedInUser` (removed in #221)
 - transaction by-id routes, before the controller's `verifyResourceOwnership` (#271; `requireAuthOrAppToken` on
@@ -374,7 +376,8 @@ FT-017D decision: do not globally change this helper to fail-closed yet.
 | Route family | Route style | Auth middleware | User resolution | Ownership check | Strictness |
 |---|---|---|---|---|---|
 | Health | global | none | none | none | open |
-| User routes | `/api/users/*` | `requireAuth` | use case by telegramId/id | controller self-access check | strict |
+| User routes — removed in #274 | `GET /api/users/:telegramId`, `POST /api/users`, `PUT /api/users/:id` | — (`404`) | — | — | — |
+| Settings | `GET`, `PATCH /api/settings` | `requireAuth` | signed-in user (`createCurrentUserMiddleware`) | none — no userId taken; an unknown field (`userId`, `timezone`) is `400` | strict |
 | Transaction history, totals, frequent | `GET /api/transactions` (FT-107), `/totals`, `/frequent` | `requireAuth` (`GET /` also the app token, FT-218) | signed-in user (`createCurrentUserMiddleware`) | none — no userId taken | strict |
 | Transaction create | `POST /api/transactions` | `requireAuth` | signed-in user (`createResolveCurrentUserMiddleware`) | `verifyOwnership` on a body/query userId, before resolution (FT-162) | strict |
 | Transaction user-scoped list | `GET /api/transactions/user/:userId` (the old analytics and the archive's two went in #273) | `requireAuth` (`allowGuestMode` until #206) | route middleware, after the check (FT-162) | `verifyOwnership` | strict |
@@ -385,7 +388,7 @@ FT-017D decision: do not globally change this helper to fail-closed yet.
 | Debts — removed in #265 | `/api/debts/user/:userId...`, `/api/debts/:debtId...`, `/api/debts/payments/:paymentId` | — (`404`) | — | — | — |
 | Dashboard — removed in #205 | `/api/dashboard/:userId...` | — (`404`) | — | — | — |
 | Subscription (own) | `GET /api/subscription/:userId`, `POST /check-limit`, `/cancel`, `/start-trial` | `requireAuth` | signed-in user (`createResolveCurrentUserMiddleware`, FT-162) | `verifyOwnership` on any path/body/query userId, before resolution | strict |
-| Subscription grant | `POST /api/subscription/grant` | `requireAuth` + `requireAdmin` | body userId (the admin's target; a non-string or an id that is no UUID and no Telegram id is `400 INVALID_USER_ID`, #224; a Telegram id with leading zeros is the same user, a UUID no user has is `404 NOT_FOUND`, #230) | admin only | strict/admin |
+| Subscription grant | `POST /api/subscription/grant` | `requireAuth` + `requireAdmin` | body userId (the admin's target; a non-string or an id that is no UUID and no Telegram id is `400 INVALID_USER_ID`, #224; a Telegram id with leading zeros is the same user, a UUID no user has is `404 NOT_FOUND`, #230; no `grantedBy`, or a `durationDays` other than a whole number from 1 to 3650, is `400 VALIDATION_ERROR` after `requireAdmin` and before the target is resolved — no user, no subscription, #256) | admin only | strict/admin |
 
 The column «Guest allowed» went with the guests (#206). A request without sign-in reaches only these routes:
 

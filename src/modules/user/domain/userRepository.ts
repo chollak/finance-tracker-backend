@@ -1,8 +1,11 @@
 /**
  * User Repository Interface
+ *
+ * A user is made only by getOrCreate (FT-140), on the first request or message. No route changes a user's row since
+ * `/api/users` went (#274): settings live in `user_settings`.
  */
 
-import { User, CreateUserDTO, UpdateUserDTO } from './userEntity';
+import { User, CreateUserDTO } from './userEntity';
 
 export interface UserRepository {
   /**
@@ -16,24 +19,9 @@ export interface UserRepository {
   findByTelegramId(telegramId: string): Promise<User | null>;
 
   /**
-   * Create a new user
-   */
-  create(dto: CreateUserDTO): Promise<User>;
-
-  /**
-   * Update user
-   */
-  update(id: string, dto: UpdateUserDTO): Promise<User>;
-
-  /**
    * Update last seen timestamp
    */
   updateLastSeen(id: string): Promise<void>;
-
-  /**
-   * Delete user
-   */
-  delete(id: string): Promise<void>;
 
   /**
    * Get or create user by Telegram ID

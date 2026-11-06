@@ -139,7 +139,7 @@ Risk: medium because API response contracts may change.
 
 ### FT-017C — Normalize `UpdateUserUseCase` error handling
 
-Status: done.
+Status: done. Moot since #274: `UpdateUserUseCase` and `userController` are removed with `/api/users`.
 
 Goal: make missing-user behavior consistent with the project Result pattern.
 

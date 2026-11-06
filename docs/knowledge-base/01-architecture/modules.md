@@ -246,6 +246,8 @@ new ProcessVoiceInputUseCase(
 ### Использование
 `SubscriptionController` и роутер транзакций используют модуль, чтобы принять `telegram_id` во внешнем API и работать с UUID внутри. Маршруты вехи 10 берут пользователя только из авторизации через `createCurrentUserMiddleware(userModule)`.
 
+Своих маршрутов у пользователя нет (#274): `/api/users*` никто не вызывал, и `PUT` писал часовой пояс без проверки. Пользователь создаётся только `getOrCreate` при первом запросе или сообщении боту (FT-140); `users.timezone` читают уведомления и бот, но никто не меняет — все на часах Ташкента, как дни записей.
+
 ### Настройки (FT-098)
 `GetUserSettingsUseCase`, `UpdateUserSettingsUseCase` и таблица `user_settings`; маршрут `GET/PATCH /api/settings`. Контракт — [`docs/pastel/api.md`](../../pastel/api.md).
 
