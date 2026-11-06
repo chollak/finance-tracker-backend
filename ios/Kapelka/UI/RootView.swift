@@ -61,8 +61,9 @@ struct RootView: View {
     }
 }
 
-/// VoiceOver hears what became of the phrase, whichever tab is open — on screen, as the haptic (#285). A modifier of its
-/// own: the card changes with each state of the queue and the microphone, and the tabs need not be built again for it.
+/// VoiceOver hears what became of the phrase, whichever tab is open — on screen, as the haptic (#285); and what the
+/// card's «Удалить с телефона» did (#346). A modifier of its own: the card changes with each state of the queue and the
+/// microphone, and the tabs need not be built again for it.
 private struct LastPhraseAnnouncements: ViewModifier {
     let model: AppModel
 
@@ -73,6 +74,12 @@ private struct LastPhraseAnnouncements: ViewModifier {
         content
             .onChange(of: model.lastPhrase, initial: true) { phraseChanged() }
             .onChange(of: model.voice.phase) { phraseChanged() }
+            // Locked mid-phrase: what waited for the microphone is not said on return (`LastPhraseSpeech`)
+            .onChange(of: scenePhase) {
+                if scenePhase == .background {
+                    speech.appLeftScreen()
+                }
+            }
     }
 
     /// Off screen a notification says it (FT-253): what came meanwhile is not said on return.

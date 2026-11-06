@@ -281,7 +281,7 @@ struct LastPhraseSpeechTests {
         }
     }
 
-    private func waiting() throws -> Waiting {
+    private func phraseWaiting() throws -> Waiting {
         var waiting = Waiting(
             speech: try opened(),
             older: try olderPhrase(),
@@ -293,7 +293,7 @@ struct LastPhraseSpeechTests {
 
     @Test("удалена с телефона — «Удалено с телефона», как на карточке; следующий отчёт очереди — не новость")
     func removedFromPhone() throws {
-        var waiting = try waiting()
+        var waiting = try phraseWaiting()
         let marks = waiting.marks(mayBeOnServer: false)
 
         // At once, before the queue's next state reaches the screen: the phrase is still in it
@@ -305,7 +305,7 @@ struct LastPhraseSpeechTests {
 
     @Test("могла записаться — «Удалено с телефона — она уже уходила на сервер, проверь «Записи»»")
     func removedMayBeOnServer() throws {
-        var waiting = try waiting()
+        var waiting = try phraseWaiting()
 
         let removed = card(waiting.offline(), marks: waiting.marks(mayBeOnServer: true))
 
@@ -329,7 +329,7 @@ struct LastPhraseSpeechTests {
 
     @Test("запрос ушёл между показом и нажатием — заметка «Уже отправляется…»; записал — «Записал: …»")
     func noteWhileSending() throws {
-        var waiting = try waiting()
+        var waiting = try phraseWaiting()
         let capture = waiting.capture
         let note = LastPhrase.Note(clientId: capture.clientId, text: Self.whileSending, whileSending: true)
 
@@ -347,7 +347,7 @@ struct LastPhraseSpeechTests {
 
     @Test("заметка ушла и пришла снова — снова объявляется: не дошло, «Удалить» опять, а запрос опять в пути")
     func noteAgain() throws {
-        var waiting = try waiting()
+        var waiting = try phraseWaiting()
         let capture = waiting.capture
         let note = LastPhrase.Note(clientId: capture.clientId, text: Self.whileSending, whileSending: true)
         let sending = card(waiting.offline { $0.sendingId = capture.clientId }, note: note)
@@ -364,7 +364,7 @@ struct LastPhraseSpeechTests {
 
     @Test("не удалилось — заметка «Не удалилось: …», слово в слово")
     func noteNotRemoved() throws {
-        var waiting = try waiting()
+        var waiting = try phraseWaiting()
         let capture = waiting.capture
         let text = "Не удалилось: \(QueueError.unavailable.localizedDescription)"
 
@@ -397,7 +397,7 @@ struct LastPhraseSpeechTests {
 
     @Test("удалили с телефона, пока микрофон включён, — ждёт, как итог")
     func removedWhileListening() throws {
-        var waiting = try waiting()
+        var waiting = try phraseWaiting()
         let removed = card(waiting.offline(), marks: waiting.marks(mayBeOnServer: false))
 
         #expect(waiting.speech.news(removed, voice: .listening) == nil)

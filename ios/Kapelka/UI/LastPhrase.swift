@@ -107,6 +107,9 @@ struct LastPhrase: Equatable, Sendable {
     }
 
     static let sendingText = "Отправляю…"
+    /// The line of a phrase taken off the phone — «Удалено с телефона»; a record deleted on the server is a line
+    /// «Удалено: …» with the record's id.
+    static let removedLineId = "removed"
     static let notFoundText = "Не нашёл операцию — скажи с суммой, например: „кофе 25 тысяч“"
     static let repeatedFootnote = "Первый ответ потерялся — не знаю, было ли что-то без суммы"
 
@@ -216,7 +219,7 @@ struct LastPhrase: Equatable, Sendable {
         let text = removed.mayBeOnServer
             ? "Удалено с телефона — она уже уходила на сервер, проверь «Записи»"
             : "Удалено с телефона"
-        let line = Line(id: "removed", kind: .deleted, text: text, explanation: nil, record: nil)
+        let line = Line(id: removedLineId, kind: .deleted, text: text, explanation: nil, record: nil)
         return LastPhrase(id: clientId, heard: heard(removed.text), lines: [line])
     }
 
