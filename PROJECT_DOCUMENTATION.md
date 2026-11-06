@@ -223,7 +223,7 @@ The application is organized into 8 main modules, created in `src/appModules.ts`
 **Use Cases**:
 - `GetOrCreateUserUseCase` - Find or create a user by `telegramId`
 - `GetUserUseCase` - Fetch a user
-- `UpdateUserUseCase` - Update user profile fields
+- Settings (`GET/PATCH /api/settings`): `GetUserSettingsUseCase`, `UpdateUserSettingsUseCase`. There is no `/api/users` (#274)
 
 **Infrastructure**: `SqliteUserRepository` / `SupabaseUserRepository`
 

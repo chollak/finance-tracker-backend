@@ -12,6 +12,8 @@ struct SettingsView: View {
     @Environment(\.openURL) private var openURL
     @State private var address: String
     @State private var token = ""
+    /// Read from Keychain once, as the sheet opens (#284) — not on each redraw, which is each letter typed.
+    @State private var hasToken = false
     @State private var cards: [CardAccount]
     @State private var removedCards: Set<String> = []
     @State private var checkLine = ConnectionCheckLine()
@@ -44,7 +46,7 @@ struct SettingsView: View {
 
                 Section {
                     TokenField(
-                        placeholder: model.hasToken ? "Сохранён — вставь новый, чтобы заменить" : "Токен",
+                        placeholder: hasToken ? "Сохранён — вставь новый, чтобы заменить" : "Токен",
                         text: $token,
                         isFocused: $tokenFocused
                     )
@@ -144,6 +146,8 @@ struct SettingsView: View {
             }
         }
         .tint(.primary)
+        // Once per opening: «Журнал команд» and back stays in this stack
+        .onAppear { hasToken = model.hasToken }
     }
 
     private var cardsSection: some View {

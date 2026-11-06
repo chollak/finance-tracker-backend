@@ -122,26 +122,17 @@ final class RecordsList {
         RecordsCaption.text(status, now: moment, calendar: calendar)
     }
 
-    /// The line now.
-    var caption: String? { caption(at: now()) }
-
     /// The record behind a row, on the first page or a scrolled one.
     func record(id: String) -> Record? {
         (shown?.page.items ?? []).first { $0.id == id } ?? more.first { $0.id == id }
     }
 
-    /// `true` when the tab just opened in the active app, or the app came back to it: then it refreshes. Off screen
-    /// nothing is asked. Synchronous, so the screen's changes land in their order.
+    /// `true` when the tab just opened in the active app, or the app came back to it: then the screen starts a
+    /// refresh (`startRefresh`). Off screen nothing is asked. Synchronous, so the screen's changes land in their order.
     func setOnScreen(_ onScreen: Bool) -> Bool {
         let opened = onScreen && !isOnScreen
         isOnScreen = onScreen
         return opened
-    }
-
-    func screenChanged(onScreen: Bool) async {
-        if setOnScreen(onScreen) {
-            await refresh()
-        }
     }
 
     /// The queue got a record onto the server: the open list shows it.
@@ -158,9 +149,10 @@ final class RecordsList {
     }
 
     /// The same, started at once: a tap on a notification asks for its record right after, and the record waits for
-    /// this refresh (`reveal`).
-    func startRefresh() {
-        _ = run(pulled: false)
+    /// this refresh (`reveal`). The screen does not wait for it; a test does, through the run returned (#284).
+    @discardableResult
+    func startRefresh() -> Task<Void, Never> {
+        run(pulled: false)
     }
 
     private func run(pulled: Bool) -> Task<Void, Never> {

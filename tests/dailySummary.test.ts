@@ -240,7 +240,8 @@ describe('daily summary (FT-124)', () => {
 
   it('on the user\'s own clock: 21:00 in Moscow, about the Moscow day', async () => {
     const owner = await user();
-    await running.userModule.getUpdateUserUseCase().execute(owner, { timezone: 'Europe/Moscow' });
+    // No route sets the zone since #274 (every user is on Tashkent's clock); the column is still read
+    await running.ds.query('UPDATE users SET timezone = ? WHERE id = ?', ['Europe/Moscow', owner]);
     await record(owner, '2026-10-14', 'Кафе', 45_000);
 
     at('2026-10-14', '21:00'); // 19:00 in Moscow

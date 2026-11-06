@@ -15,10 +15,6 @@ final class OpenRequest {
         self.target = target
     }
 
-    func ask(_ place: AppPlace, record: String? = nil) {
-        ask(OpenTarget(place, record: record))
-    }
-
     /// The target once per request.
     func take() -> OpenTarget? {
         defer { target = nil }

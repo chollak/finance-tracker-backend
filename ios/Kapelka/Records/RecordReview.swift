@@ -9,12 +9,10 @@ struct RecordReview: Equatable, Sendable {
     /// `QueueState.answer(for:)`); empty when there is none to show.
     let assumed: [String]
 
+    /// First in the sheet, always, whatever the answer: why the server flagged it is not kept on the phone.
     static let unsureText = "Сервер не был уверен — проверь сумму, категорию и счёт"
-
-    /// First in the sheet, always: why the server flagged it is not kept on the phone.
-    var reason: String { Self.unsureText }
     static let assumedTitle = "Что я предположил"
-    /// Under the reason: the sheet changes the category only (decision 2026-10-31).
+    /// Under the phrase: the sheet changes the category only (decision 2026-10-31).
     static let editedElsewhere = "Сумма и счёт правятся в Mini App"
 
     /// The guesses only while the record is as the server wrote it — the same category, account, amount and currency

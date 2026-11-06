@@ -182,6 +182,12 @@ struct RecordsCacheTests {
         #expect(RecordsCacheFile.inApplicationSupport.fileURL.lastPathComponent == "records.json")
     }
 
+    @Test("файл защищён, как очередь и журнал: одна защита на три файла (#284)")
+    func fileProtection() {
+        // The simulator keeps no protection class on a file: the attribute itself is seen only on the iPhone
+        #expect(RecordsCacheFile.protection == CaptureFileStore.protection)
+    }
+
     @Test("следующие страницы на диск не ложатся")
     func laterPagesNotCached() async throws {
         let harness = try RecordsHarness(transport: FakeTransport([

@@ -109,11 +109,9 @@ struct RecordReviewTests {
             assumptions: [.category(name: "Возврат"), .account(name: "Карта", reason: .byDefault)]
         )
 
-        let review = RecordReview.of(returned, answer: kept)
-
-        #expect(review.reason == "Сервер не был уверен — проверь сумму, категорию и счёт")
-        #expect(review.assumed == ["Категорию «Возврат» выбрал сам", "Счёт «Карта» — по умолчанию"])
-        #expect(RecordReview.of(returned, answer: nil).reason == review.reason)
+        // The phrase itself is `unsureText`, first in the sheet whatever the answer (`ReviewSection`): the guesses
+        // come under it
+        #expect(RecordReview.of(returned, answer: kept).assumed == ["Категорию «Возврат» выбрал сам", "Счёт «Карта» — по умолчанию"])
     }
 
     @Test("тексты шторки")

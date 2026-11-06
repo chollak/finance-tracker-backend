@@ -44,26 +44,9 @@ struct KeychainTokenStore: Sendable {
         }
     }
 
-    func delete() throws(SettingsError) {
-        let status = SecItemDelete(baseQuery as CFDictionary)
-        guard status == errSecSuccess || status == errSecItemNotFound else { throw .keychain(status) }
-    }
-
-    /// The item's attributes without the token itself; for the test of its accessibility.
-    func attributes() throws(SettingsError) -> [String: Any]? {
-        var query = baseQuery
-        query[kSecReturnAttributes as String] = true
-        query[kSecMatchLimit as String] = kSecMatchLimitOne
-        var result: CFTypeRef?
-        let status = SecItemCopyMatching(query as CFDictionary, &result)
-        switch status {
-        case errSecSuccess: return result as? [String: Any]
-        case errSecItemNotFound: return nil
-        default: throw .keychain(status)
-        }
-    }
-
-    private var baseQuery: [String: Any] {
+    /// The item itself, for every query. Not private: the tests clean the item up and read its attributes through it
+    /// (`KapelkaTests/Support/KeychainTestItem.swift`); the app does neither.
+    var baseQuery: [String: Any] {
         [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
