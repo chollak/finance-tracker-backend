@@ -3,8 +3,9 @@ import Testing
 @testable import Kapelka
 
 /// #285: VoiceOver hears what became of the phrase — the lines of the card «Последняя фраза», word for word, each once.
-/// «Отправляю…» is no news, nor a line «Удалено…» (the bar «Удалено · Вернуть» answers a delete), nor the card the
-/// screen opens with. While the microphone is on nothing is said: VoiceOver's voice would go into the phrase.
+/// «Отправляю…» is no news, nor a line «Удалено: …» of the server (the bar «Удалено · Вернуть» answers that delete), nor
+/// the card the screen opens with. Taken off the phone, the card says it itself — «Удалено с телефона», or the note why
+/// it was not (#346). While the microphone is on nothing is said: VoiceOver's voice would go into the phrase.
 @Suite("Записать: VoiceOver слышит итог фразы")
 struct LastPhraseSpeechTests {
     private static let tashkent = TimeZone(identifier: "Asia/Tashkent")!
@@ -51,7 +52,8 @@ struct LastPhraseSpeechTests {
         marks: LastPhraseMarks? = nil,
         accountNames: [String: String] = [:],
         undoing: Set<String> = [],
-        saving: String? = nil
+        saving: String? = nil,
+        note: LastPhrase.Note? = nil
     ) -> LastPhrase? {
         LastPhrase.of(state, LastPhrase.Context(
             configured: configured,
@@ -59,6 +61,7 @@ struct LastPhraseSpeechTests {
             accountNames: accountNames,
             undoing: undoing,
             saving: saving,
+            note: note,
             now: Self.inputTime,
             calendar: Self.calendar
         ))
@@ -254,18 +257,123 @@ struct LastPhraseSpeechTests {
         #expect(speech.news(card(state([older, sent])), voice: .idle) == nil)
     }
 
-    @Test("удалена с телефона — «Удалено с телефона» не объявляется")
-    func removedFromPhone() throws {
-        var speech = try opened()
-        let older = try olderPhrase()
-        let capture = phrase("кофе 25к", attempts: 1, minutesLater: 1)
-        #expect(speech.news(card(state([older, capture]) { $0.wait = .offline }), voice: .idle) != nil)
+    // MARK: Taken off the phone (#346)
 
-        let removed = LastPhraseMarks(
-            clientId: capture.clientId,
-            removed: .init(text: capture.text, capturedAt: capture.capturedAt, mayBeOnServer: false)
+    /// A phrase waiting for a network, «Нет связи…» said already.
+    private struct Waiting {
+        var speech: LastPhraseSpeech
+        let older: Capture
+        let capture: Capture
+
+        func offline(_ change: (inout QueueState) -> Void = { _ in }) -> QueueState {
+            var state = QueueState()
+            state.captures = [older, capture]
+            state.wait = .offline
+            change(&state)
+            return state
+        }
+
+        func marks(mayBeOnServer: Bool) -> LastPhraseMarks {
+            LastPhraseMarks(
+                clientId: capture.clientId,
+                removed: .init(text: capture.text, capturedAt: capture.capturedAt, mayBeOnServer: mayBeOnServer)
+            )
+        }
+    }
+
+    private func waiting() throws -> Waiting {
+        var waiting = Waiting(
+            speech: try opened(),
+            older: try olderPhrase(),
+            capture: phrase("кофе 25к", attempts: 1, minutesLater: 1)
         )
-        #expect(speech.news(card(state([older]), marks: removed), voice: .idle) == nil)
+        #expect(waiting.speech.news(card(waiting.offline()), voice: .idle) == "Нет связи — уйдёт, когда появится сеть")
+        return waiting
+    }
+
+    @Test("удалена с телефона — «Удалено с телефона», как на карточке; следующий отчёт очереди — не новость")
+    func removedFromPhone() throws {
+        var waiting = try waiting()
+        let marks = waiting.marks(mayBeOnServer: false)
+
+        // At once, before the queue's next state reaches the screen: the phrase is still in it
+        let atOnce = try #require(card(waiting.offline(), marks: marks))
+        #expect(atOnce.lines.map(\.text) == ["Удалено с телефона"])
+        #expect(waiting.speech.news(atOnce, voice: .idle) == "Удалено с телефона")
+        #expect(waiting.speech.news(card(state([waiting.older]), marks: marks), voice: .idle) == nil)
+    }
+
+    @Test("могла записаться — «Удалено с телефона — она уже уходила на сервер, проверь «Записи»»")
+    func removedMayBeOnServer() throws {
+        var waiting = try waiting()
+
+        let removed = card(waiting.offline(), marks: waiting.marks(mayBeOnServer: true))
+
+        #expect(waiting.speech.news(removed, voice: .idle)
+            == "Удалено с телефона — она уже уходила на сервер, проверь «Записи»")
+    }
+
+    @Test("«Удалено с телефона», с которой открылся экран, — не новость")
+    func removedOnOpening() throws {
+        let older = try olderPhrase()
+        let marks = LastPhraseMarks(
+            clientId: UUID(),
+            removed: .init(text: "кофе 25к", capturedAt: Self.inputTime, mayBeOnServer: false)
+        )
+        var speech = LastPhraseSpeech()
+
+        #expect(speech.news(card(state([older]), marks: marks), voice: .idle) == nil)
+    }
+
+    private static let whileSending = "Уже отправляется — удалить можно, когда запишется"
+
+    @Test("запрос ушёл между показом и нажатием — заметка «Уже отправляется…»; записал — «Записал: …»")
+    func noteWhileSending() throws {
+        var waiting = try waiting()
+        let capture = waiting.capture
+        let note = LastPhrase.Note(clientId: capture.clientId, text: Self.whileSending, whileSending: true)
+
+        let sending = try #require(card(waiting.offline { $0.sendingId = capture.clientId }, note: note))
+        #expect(sending.lines.map(\.text) == [LastPhrase.sendingText])
+        #expect(sending.note == Self.whileSending)
+        #expect(waiting.speech.news(sending, voice: .idle) == Self.whileSending)
+        // The same card again — the next state of the queue — is no news
+        #expect(waiting.speech.news(sending, voice: .idle) == nil)
+
+        let sent = try written(capture, body: CaptureReplyBodies.coffee)
+        #expect(waiting.speech.news(card(state([waiting.older, sent]), note: note), voice: .idle)
+            == "Записал: кофе · Кафе · −45\u{00A0}000\u{00A0}сум · Карта")
+    }
+
+    @Test("заметка ушла и пришла снова — снова объявляется: не дошло, «Удалить» опять, а запрос опять в пути")
+    func noteAgain() throws {
+        var waiting = try waiting()
+        let capture = waiting.capture
+        let note = LastPhrase.Note(clientId: capture.clientId, text: Self.whileSending, whileSending: true)
+        let sending = card(waiting.offline { $0.sendingId = capture.clientId }, note: note)
+        #expect(waiting.speech.news(sending, voice: .idle) == Self.whileSending)
+
+        // Did not go: «Удалить» is back and the note goes; no network again is no news, as with the haptic
+        let failed = try #require(card(waiting.offline(), note: note))
+        #expect(failed.note == nil)
+        #expect(failed.deletion == .fromPhone(capture.clientId))
+        #expect(waiting.speech.news(failed, voice: .idle) == nil)
+
+        #expect(waiting.speech.news(sending, voice: .idle) == Self.whileSending)
+    }
+
+    @Test("не удалилось — заметка «Не удалилось: …», слово в слово")
+    func noteNotRemoved() throws {
+        var waiting = try waiting()
+        let capture = waiting.capture
+        let text = "Не удалилось: \(QueueError.unavailable.localizedDescription)"
+
+        let failed = try #require(card(waiting.offline(), note: LastPhrase.Note(clientId: capture.clientId, text: text)))
+
+        #expect(failed.note == text)
+        #expect(failed.deletion == .fromPhone(capture.clientId))
+        #expect(waiting.speech.news(failed, voice: .idle)
+            == "Не удалилось: очередь на телефоне пока закрыта — разблокируй телефон и попробуй ещё раз")
     }
 
     // MARK: The microphone
@@ -285,6 +393,33 @@ struct LastPhraseSpeechTests {
         // The next phrase goes to the phone: the microphone is off, the card shows it already
         #expect(speech.news(card(state([older, sent]), saving: "такси 18к"), voice: .saving) == Self.coffee)
         #expect(speech.news(card(state([older, sent]), saving: "такси 18к"), voice: .idle) == nil)
+    }
+
+    @Test("удалили с телефона, пока микрофон включён, — ждёт, как итог")
+    func removedWhileListening() throws {
+        var waiting = try waiting()
+        let removed = card(waiting.offline(), marks: waiting.marks(mayBeOnServer: false))
+
+        #expect(waiting.speech.news(removed, voice: .listening) == nil)
+        #expect(waiting.speech.news(removed, voice: .idle) == "Удалено с телефона")
+    }
+
+    /// The phone locked mid-phrase (review of PR #345): by the return the card shows the next phrase, and a line held
+    /// may be untrue — the queue sends in the background, «Нет связи» may be «Записал» by then.
+    @Test("приложение ушло с экрана, пока микрофон включён, — ждавшее не звучит и по возвращении")
+    func heldDroppedOffScreen() throws {
+        var speech = try opened()
+        let older = try olderPhrase()
+        let capture = phrase("кофе 45", minutesLater: 1)
+        _ = speech.news(card(state([older, capture])), voice: .idle)
+        let sent = try written(capture, body: CaptureReplyBodies.coffee)
+        #expect(speech.news(card(state([older, sent])), voice: .listening) == nil)
+
+        speech.appLeftScreen()
+
+        // The microphone writes what it heard and goes off; then the screen is back
+        #expect(speech.news(card(state([older, sent]), saving: "такси 18к"), voice: .saving) == nil)
+        #expect(speech.news(card(state([older, sent])), voice: .idle) == nil)
     }
 
     @Test("голосовая фраза не записалась на телефон — прежний итог снова не звучит")
