@@ -71,8 +71,8 @@ FT-099), `userId`. `isDebtRelated`, `relatedDebtId`, `tags` и `splitGroupId` в
 для всех: `src/shared/application/learning/`, начальные паттерны — `data/patterns.seed.json`, выученные —
 `data/patterns.json`. Фото и QR чеков нет (FT-089, FT-134, FT-135).
 
-**Проверки.** Jest — 148 файлов в `tests/` (TESTS_JEST тестов), Vitest — 136 файлов в `webapp/src/` (TESTS_VITEST
-тестов). `npm run verify` — сборка backend, типы тестов и скриптов, ESLint webapp, Jest по одному, Vitest, сборка
+**Проверки** (на 2026-11-16). Jest — 148 файлов в `tests/`, 2610 тестов (один пропущен); Vitest — 136 файлов в
+`webapp/src/`, 1339 тестов. `npm run verify` — сборка backend, типы тестов и скриптов, ESLint webapp, Jest по одному, Vitest, сборка
 webapp, проверка шрифтов и токенов, dependency-cruiser.
 
 ### Баги первого снимка — что с ними
