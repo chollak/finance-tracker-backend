@@ -1,4 +1,5 @@
 import { addDaysToDateOnly } from '../../../shared/domain/dates/dateOnly';
+import { plural } from '../../../shared/domain/text/russianWords';
 import { NotificationKind } from './notificationLog';
 
 /**
@@ -30,14 +31,6 @@ export function isCatchUpTime(time: string): boolean {
   return time >= NOTICE_WINDOW.catchUpFrom;
 }
 
-function attemptsWord(count: number): string {
-  const mod10 = count % 10;
-  const mod100 = count % 100;
-  if (mod10 === 1 && mod100 !== 11) return `${count} попытка`;
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return `${count} попытки`;
-  return `${count} попыток`;
-}
-
 /**
  * What a notice closed as failed keeps: «не ушло: нет сети, 12 попыток, последняя ошибка getaddrinfo ENOTFOUND
  * api.telegram.org». None tried: the bot was not running while it was due, the summaries were off, or the row was
@@ -45,6 +38,6 @@ function attemptsWord(count: number): string {
  */
 export function notSentReason(attempts: number, lastError: string | null): string {
   if (attempts <= 0) return 'не ушло: ни одной попытки';
-  const reason = `не ушло: нет сети, ${attemptsWord(attempts)}${lastError ? `, последняя ошибка ${lastError}` : ''}`;
+  const reason = `не ушло: нет сети, ${attempts} ${plural(attempts, 'попытка', 'попытки', 'попыток')}${lastError ? `, последняя ошибка ${lastError}` : ''}`;
   return reason.slice(0, NOTICE_WINDOW.reasonLength);
 }

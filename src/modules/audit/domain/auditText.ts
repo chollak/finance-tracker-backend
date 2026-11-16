@@ -1,21 +1,13 @@
+import { MONTHS_IN, MONTHS_OF, plural } from '../../../shared/domain/text/russianWords';
+
 /**
  * The words of the spending audit (FT-130): sums, counts, months and days as the boards «Ревизия трат» write them.
  * Numbers are grouped by a non-breaking space and «сум» stays on their line, as `formatMinor` does in the webapp.
  */
 export const NBSP = ' ';
 
-const MONTHS_OF = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
-const MONTHS_IN = ['январе', 'феврале', 'марте', 'апреле', 'мае', 'июне', 'июле', 'августе', 'сентябре', 'октябре', 'ноябре', 'декабре'];
 
 const monthIndex = (date: string) => Number(date.slice(5, 7)) - 1;
-
-export function plural(n: number, one: string, few: string, many: string): string {
-  const m10 = n % 10;
-  const m100 = n % 100;
-  if (m10 === 1 && m100 !== 11) return one;
-  if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return few;
-  return many;
-}
 
 /** «732 000 сум» from minor units, rounded to whole сум; never a sign. */
 export function sumText(minor: number): string {
