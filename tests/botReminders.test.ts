@@ -381,7 +381,7 @@ describe('goal, subscription and audit reminders in the bot (FT-133)', () => {
       at('2026-10-25', '12:00');
       expect(await outcomes()).toEqual(['goal_over:sent']);
 
-      unwrap(await running.transactionModule.getDeleteTransactionUseCase().execute({ id: taxi, userId: owner }));
+      unwrap(await running.transactionModule.getDeleteTransactionUseCase().execute({ id: taxi }));
       await record('2026-10-26', 'Транспорт', 60_000, 'Такси');
       at('2026-10-26', '12:00');
       expect(await tick()).toEqual([]);
