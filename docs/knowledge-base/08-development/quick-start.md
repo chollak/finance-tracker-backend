@@ -160,6 +160,7 @@ npm run miniapp:menu -- set --url=https://example.trycloudflare.com --chat-id=<t
 Важно:
 
 - Telegram Mini App на телефоне требует публичный HTTPS-адрес; `localhost` не подойдёт.
+- Кнопки-ссылки в боте («Открыть Kapelka ↗», «Открыть в Kapelka ↗», «Вернуться в браузер ↗») появляются только с HTTPS-адресом в `WEB_APP_URL` (`npm run dev:miniapp`); с `http://localhost:3000` бот отвечает без них (#278).
 - Старые inline-кнопки из `/start` хранят прежний URL. После смены туннеля отправьте `/start` заново и нажмите свежую кнопку.
 - Скрипты не выводят значение `TG_BOT_API_KEY` — не вставляйте токен в логи и отчёты вручную.
 
