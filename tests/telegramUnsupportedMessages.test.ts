@@ -70,15 +70,24 @@ const file = (id: string) => ({ file_id: id, file_unique_id: `u-${id}` });
 /** The five a person may send that the bot does not read, as the Bot API sends them. */
 const UNSUPPORTED: Array<[string, Record<string, unknown>]> = [
   ['a photo', { photo: [{ ...file('p1'), width: 90, height: 90 }] }],
-  ['a photo with a caption — the caption is not read as a text', { photo: [{ ...file('p2'), width: 90, height: 90 }], caption: 'такси 18к' }],
+  ['a photo with a caption (the caption is not read)', { photo: [{ ...file('p2'), width: 90, height: 90 }], caption: 'такси 18к' }],
   ['an audio file', { audio: { ...file('a1'), duration: 3 } }],
   ['a video note', { video_note: { ...file('vn1'), length: 240, duration: 3 } }],
   ['a document', { document: { ...file('d1'), file_name: 'чек.pdf' } }],
-  ['a GIF — Telegram sends it as a document too', { animation: { ...file('g1'), width: 90, height: 90, duration: 1 }, document: { ...file('g1') } }],
+  ['a GIF (Telegram sends it with a document too)', { animation: { ...file('g1'), width: 90, height: 90, duration: 1 }, document: { ...file('g1') } }],
   ['a sticker', { sticker: { ...file('s1'), type: 'regular', width: 512, height: 512, is_animated: false, is_video: false } }],
 ];
 
-describe('the bot answers what it does not read (#279)', () => {
+// The free limit lets everything through; the bot registers its text and voice chains with it, as in production
+const subscriptionModule = {
+  getCheckLimitUseCase: () => ({ execute: async () => ({ allowed: true }) }),
+  getIncrementUsageUseCase: () => ({ execute: async () => undefined }),
+};
+
+describe.each([
+  ['with the subscription module, as in production', subscriptionModule],
+  ['without the subscription module', undefined],
+])('the bot answers what it does not read (#279), %s', (_branch, subscription) => {
   let db: TestDatabase;
   let downloads: string;
   let bot: { calls: ApiCall[]; handleUpdate(update: unknown): Promise<void> };
@@ -122,7 +131,7 @@ describe('the bot answers what it does not read (#279)', () => {
     const quickCaptureModule = { getQuickCaptureService: () => ({ capture }) };
     const transactionModule = { findByClientId: async () => [] };
 
-    startTelegramBot(voiceModule as any, transactionModule as any, userModule, quickCaptureModule as any);
+    startTelegramBot(voiceModule as any, transactionModule as any, userModule, quickCaptureModule as any, subscription as any);
     bot = (jest.requireMock('telegraf') as any).Telegraf.last;
   });
 

@@ -1,6 +1,7 @@
 import { Telegraf } from 'telegraf';
 import { message } from 'telegraf/filters';
-import { BotContext } from '../types';
+import { Update } from 'telegraf/types';
+import { BotContext, MessageContext } from '../types';
 import { RU, formatAmount } from '../i18n/ru';
 import { downloadVoiceFile, cleanupFile } from '../utils';
 import { quickAddCategory } from '../utils/userCategories';
@@ -175,6 +176,23 @@ export async function answerUnknownCommand(ctx: BotContext, next: () => Promise<
   await ctx.reply(RU.commands.unknown);
 }
 
+/** What a person may send that the bot does not read (#279). A GIF comes with `document` too. */
+const UNSUPPORTED_MESSAGE_KEYS = ['photo', 'audio', 'video_note', 'document', 'sticker'] as const;
+
+/**
+ * A message with a photo, an audio file, a video note, a document or a sticker. One guard written by hand, not five
+ * `message(...)` filters, and the handler below typed with the context the guard gives: so `bot.on()` adds next to
+ * nothing to `tsc` (#328).
+ */
+export function isUnsupportedMessage(update: Update): update is Update.MessageUpdate {
+  return 'message' in update && UNSUPPORTED_MESSAGE_KEYS.some(key => key in update.message);
+}
+
+/** One line instead of silence (#279): the bot reads only a text and a voice; a caption is not read either. */
+export async function answerUnsupportedMessage(ctx: MessageContext): Promise<void> {
+  await ctx.reply(RU.capture.unsupported);
+}
+
 /**
  * Register message handlers with subscription limit checks
  */
@@ -226,6 +244,9 @@ export function registerMessageHandlers(
     bot.on(message('text'), skipRepeated, answerUnknownCommand, answerAmount, textHandler);
     bot.on(message('voice'), skipRepeated, voiceHandler);
   }
+
+  // A photo, an audio file, a video note, a document or a sticker: after the text and the voice, in both branches
+  bot.on(isUnsupportedMessage, answerUnsupportedMessage);
 }
 
 /**
