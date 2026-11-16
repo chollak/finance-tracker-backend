@@ -356,7 +356,7 @@ describe('CreateNotificationUseCase', () => {
 // AuditModule reads records through its AuditSources port, wired in createModules()
 const auditModule = AuditModule.create({
   recordsBetween: (userId, from, to) =>
-    transactionModule.getRepository().getByUserIdAndDateRange(userId, new Date(from), new Date(to)), // ← Use getter
+    transactionModule.getRepository().getByUserIdAndDateRange(userId, from, to), // ← Use getter; days YYYY-MM-DD
   firstRecordDate: userId => transactionModule.getRepository().findFirstRecordDate(userId),
   categories: userId => categoryModule.getCatalog().listForUser(userId),
   usdRateMinor: (userId, records) => periodTotals.usdRateFor(userId, records),

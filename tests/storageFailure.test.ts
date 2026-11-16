@@ -94,7 +94,7 @@ describe('a failing database answers 500, not 422 (#270)', () => {
     };
     const exportModule = new ExportModule(exportSources, { sendFile: jest.fn() });
     const auditSources: AuditSources = {
-      recordsBetween: (userId, from, to) => records.repository.getByUserIdAndDateRange(userId, new Date(from), new Date(to)),
+      recordsBetween: (userId, from, to) => records.repository.getByUserIdAndDateRange(userId, from, to),
       firstRecordDate: userId => records.repository.findFirstRecordDate(userId),
       categories: userId => categoryModule.getCatalog().listForUser(userId),
       usdRateMinor: async () => null,

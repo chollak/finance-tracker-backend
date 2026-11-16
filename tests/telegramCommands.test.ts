@@ -206,6 +206,28 @@ describe('bot commands (FT-124)', () => {
     expect(today.keyboard).toEqual([[expect.objectContaining({ text: 'Открыть Kapelka ↗' })]]);
   });
 
+  // The records of a period are read by their days, YYYY-MM-DD, and the day is Tashkent's (#275)
+  it('/today and /month at midnight: 23:59 is still 31 October, 00:01 is 1 November', async () => {
+    await record('2026-10-31', 'Кафе', 45_000);
+    await record('2026-11-01', 'Транспорт', 18_000);
+
+    jest.setSystemTime(new Date('2026-10-31T18:59:00.000Z')); // 23:59 in Tashkent
+    const [lastDay] = await send('/today');
+    const [october] = await send('/month');
+    expect(lastDay.text.split('\n').slice(0, 2)).toEqual([`<b>Итоги дня · 31${NB}октября</b>`, `Потрачено 45${NB}000${NB}сум · 1 запись`]);
+    expect(october.text.split('\n')[0]).toBe('<b>Октябрь · 1–31</b>');
+    expect(october.text).toContain(`Кафе · 45${NB}000`);
+    expect(october.text).not.toContain('Транспорт');
+
+    jest.setSystemTime(new Date('2026-10-31T19:01:00.000Z')); // 00:01 on 1 November in Tashkent
+    const [firstDay] = await send('/today');
+    const [november] = await send('/month');
+    expect(firstDay.text.split('\n').slice(0, 2)).toEqual([`<b>Итоги дня · 1${NB}ноября</b>`, `Потрачено 18${NB}000${NB}сум · 1 запись`]);
+    expect(november.text.split('\n')[0]).toBe('<b>Ноябрь · 1</b>');
+    expect(november.text).toContain(`Транспорт · 18${NB}000`);
+    expect(november.text).not.toContain('Кафе');
+  });
+
   describe('/today with dollars and records awaiting review: Home\'s numbers, every expense counted', () => {
     beforeEach(async () => {
       await record('2026-09-05', 'Продукты', 200_000);
