@@ -184,13 +184,16 @@ describe('startTelegramBot', () => {
     expect(launchCatch.mock.calls[0][0]).toEqual(expect.any(Function));
   });
 
-  it('marks the bot as running immediately after requesting long polling launch', async () => {
-    const { start } = await loadBotWithMocks();
+  // #280: /api/health said «running» while getMe was still on its way — or never came back
+  it('is «starting» until Telegram answers getMe, and «running» once it has (Telegraf\'s onLaunch)', async () => {
+    const { start, launch } = await loadBotWithMocks();
     const { getTelegramBotStatus } = await import('../src/delivery/messaging/telegram/telegramBot');
 
     start();
+    expect(getTelegramBotStatus()).toEqual({ state: 'starting', attempts: 1 });
 
-    expect(getTelegramBotStatus()).toEqual(expect.objectContaining({ state: 'running', attempts: 1 }));
+    (launch.mock.calls[0] as unknown as [() => void])[0]();
+    expect(getTelegramBotStatus()).toEqual({ state: 'running', attempts: 1 });
   });
 
   it('retries polling conflicts instead of staying disabled until process restart', async () => {
@@ -206,6 +209,8 @@ describe('startTelegramBot', () => {
     jest.advanceTimersByTime(5000);
 
     expect(launch).toHaveBeenCalledTimes(2);
+    expect(getTelegramBotStatus()).toEqual(expect.objectContaining({ state: 'starting', attempts: 2 }));
+    (launch.mock.calls[1] as unknown as [() => void])[0]();
     expect(getTelegramBotStatus()).toEqual(expect.objectContaining({ state: 'running', attempts: 2 }));
     jest.useRealTimers();
   });
@@ -433,10 +438,11 @@ describe('startTelegramBot', () => {
       start({ onPollingFailed });
       launches[0].reject(conflict());
       await jest.advanceTimersByTimeAsync(5_000);
-      expect(getTelegramBotStatus()).toEqual(expect.objectContaining({ state: 'running', attempts: 2 }));
+      expect(getTelegramBotStatus()).toEqual(expect.objectContaining({ state: 'starting', attempts: 2 }));
 
       // The second launch connects and polls past the point where a conflict would have shown up
       (launch.mock.calls[1] as unknown as [() => void])[0]();
+      expect(getTelegramBotStatus()).toEqual(expect.objectContaining({ state: 'running', attempts: 2 }));
       await jest.advanceTimersByTimeAsync(POLLING_STABLE_MS);
       launches[1].reject(conflict());
       await jest.advanceTimersByTimeAsync(0);
@@ -445,7 +451,7 @@ describe('startTelegramBot', () => {
       expect(onPollingFailed).not.toHaveBeenCalled();
       await jest.advanceTimersByTimeAsync(5_000);
       expect(launch).toHaveBeenCalledTimes(3);
-      expect(getTelegramBotStatus()).toEqual(expect.objectContaining({ state: 'running', attempts: 2 }));
+      expect(getTelegramBotStatus()).toEqual(expect.objectContaining({ state: 'starting', attempts: 2 }));
     });
 
     it('a 409 soon after connecting still counts, so two processes taking the token from each other reach «failed»', async () => {

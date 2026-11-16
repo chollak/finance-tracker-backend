@@ -171,7 +171,9 @@ silent. The rule:
   the cause and runs the shared graceful shutdown with exit code `1`; systemd starts the process again.
 - **Anywhere else** the app goes on without the bot, as before: development without the bot keeps working.
 - **`GET /api/health`** is `503` (`"status": "unhealthy"`) while the bot is `failed`, in every environment; `starting`,
-  `retrying`, `running` and `disabled` are `200`. The bot's state stays in the body (`telegramBot`). The webapp's
+  `retrying`, `running` and `disabled` are `200`. A launch is `starting` until Telegram has answered `getMe` and
+  `running` from Telegraf's `onLaunch` on (#280; before, it said `running` as soon as `launch()` was called). The bot's
+  state stays in the body (`telegramBot`). The webapp's
   offline mode asks this route only whether the server answers, so the server's own JSON `503` still counts as an
   answer there (`serverAnswers`).
 - **Graceful shutdown** (`src/delivery/runtime/gracefulShutdown.ts`), the same for `SIGTERM` / `SIGINT` (exit `0`):

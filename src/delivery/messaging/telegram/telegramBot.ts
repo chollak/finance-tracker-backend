@@ -327,13 +327,14 @@ export function startTelegramBot(
       const onLaunch = () => {
         // A throw here rejects the launch before deleteWebhook and getUpdates: no update is taken during the shutdown
         if (stopping) throw new Error(STOPPING_ERROR);
+        // Not before (#280): until Telegram has answered, /api/health says «starting»
+        telegramBotStatus = { state: 'running', attempts: attempt };
         startNotices();
         stableTimer = setTimeout(() => { started = true; }, POLLING_STABLE_MS);
         stableTimer.unref?.();
       };
 
       const launchPromise = bot.launch(onLaunch);
-      telegramBotStatus = { state: 'running', attempts: attempt };
       logger.info('Telegram bot long polling launch requested', { attempt });
 
       polling = launchPromise.catch((error) => {
