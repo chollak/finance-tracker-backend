@@ -46,7 +46,9 @@ buttons:
 - one record: «Изменить» and «Отменить»;
 - several records: one button per record, then «Отменить все»;
 - a cancelled record: «Вернуть»;
-- «Изменить» opens «Сумму», «Категорию», «Счёт», «Дату», «Открыть в Kapelka ↗», «Готово» and «Отменить запись».
+- «Изменить» opens «Сумму», «Категорию», «Дату», «Открыть в Kapelka ↗», «Готово» and «Отменить запись» (or
+  «Отменить «Такси»» when the message has several records). «Счёт» is there too when you have another account in the
+  record's currency.
 
 **When the bot asks:**
 
@@ -66,7 +68,7 @@ buttons:
 |---|---|
 | `/today` | Today's summary: spent, how many records, the top categories |
 | `/month` | Spending this month against the same days of the month before |
-| `/undo` | Cancels the last record made in the chat, with «Вернуть» |
+| `/undo` | Cancels the records of your last message in the chat that still has any («кофе 25к, такси 18к» — both), with «Вернуть» |
 | `/help` | How to write |
 | `/start` | What the bot does, and «Открыть Kapelka ↗» |
 
@@ -95,8 +97,9 @@ Apart from these, the bot only writes in reply to your messages.
 
 The input at the bottom of Home has these parts:
 
-- **Chips of frequent records** (category and amount). One tap writes the record, and the toast «Записано» has
-  «Отменить».
+- **Chips of frequent expenses:** a note and an amount you write often («Кофе 25 000»), in its category. Until you
+  have such expenses, four starter chips stand there. One tap writes the expense for today, and the toast «Записано»
+  has «Отменить».
 - **The field** («Кофе 25к, такси 18к…») takes the same phrases as the bot. The arrow sends the phrase and opens
   «Проверьте записи».
 - **«Ввести вручную»** opens manual entry (`/add`): the amount on the app's own keypad, with the category, account,
@@ -194,8 +197,8 @@ connection.
 ## 4. iPhone
 
 - **Action Button and Shortcuts** ([docs/IOS_SHORTCUT_ACTION_BUTTON.md](docs/IOS_SHORTCUT_ACTION_BUTTON.md)):
-  - Through Telegram: a Shortcut opens the chat with the bot so you can dictate or type the phrase. It needs no token
-    and works for anyone with access.
+  - Through Telegram: you dictate or type the phrase in the Shortcut. It copies the phrase and opens the chat with
+    the bot, where you paste it and send it. It needs no token and works for anyone with access.
   - Straight to the server: a Shortcut sends the phrase in one press. It is only for the server's owner: it uses a
     token bound to one Telegram account (`SHORTCUT_CAPTURE_TOKEN`, `SHORTCUT_CAPTURE_OWNER`).
 - **The Kapelka app for iPhone** ([ios/README.md](ios/README.md)) is only for the owner too, with the same token:
@@ -206,19 +209,29 @@ connection.
 
 ## 5. How recognition works
 
-- **A phrase** goes to an OpenAI model. It comes back as records: the amount, the currency, income or expense, a
-  category from your visible categories, the account, the date and the note.
-- **A voice message** is turned into text by OpenAI Whisper first, then read the same way.
+- **A simple phrase** of one item and an amount, whose word names one category («такси 18к», «обед 45 000 картой»,
+  «вчера продукты 186 400»), is read on the server itself.
+- **Any other phrase** («зарплата 12,5 млн», «наушники 55$», several items) goes to an OpenAI model, together with
+  the names of your visible categories. It comes back as records: the amount, the currency, income or expense, a
+  category from that list, the account, the date and the note.
+- **A voice message** from the bot goes to OpenAI Whisper as a recording. The text it hears then goes to the model
+  like any other phrase.
+- **An Apple Pay payment** from the iPhone app comes with its amount and merchant ready. Only the category is chosen:
+  from your earlier corrections or the merchant's words, and otherwise by the model from the merchant's name.
 - **What it cannot place** goes to «Другое». A guessed category is marked «?», so check it.
-- **Kapelka learns from your corrections.** If you change a record's category in the bot or the Mini App, the same
-  words or the same shop get that category next time. This works for the starter categories only, not for a category
-  you added. «Отменить» takes the lesson back. What it learns is shared by everyone on the server.
+- **Kapelka learns from your corrections.** If you change a record's category in the bot, the Mini App or the iPhone
+  app, the same words or the same shop get that category next time. This works for the starter categories only, not
+  for a category you added. «Отменить» takes the lesson back. What it learns is shared by everyone on the server.
 
 ## 6. Data and privacy
 
-- **Where it is kept:** one SQLite file on the server that runs Kapelka.
+- **Where it is kept:** one SQLite file on the server that runs Kapelka, and its backups. A copy goes to
+  `data/backups/` before each migration. On the live instance, `scripts/backup-db.sh` also copies the database to a
+  folder synced with Google Drive.
 - **What is kept:**
-  - records (amount, currency, category, account, date, note, merchant);
+  - records (amount, currency, category, account, date, note, merchant), each with the phrase as written or heard, or
+    the payment's merchant;
+  - what the bot heard in a voice message, kept with its reply;
   - accounts and their opening balances, transfers and exchanges;
   - categories and settings;
   - the dollar rate;
@@ -226,9 +239,11 @@ connection.
   - your Telegram id, name and username;
   - what was learned from your corrections;
   - how many records and voice messages you make a month (counted for free-tier limits, which are off by default).
-- **What leaves the server:** the text of phrases and voice messages, which go to OpenAI to be recognised. The bot's
-  messages go through Telegram.
-- **What is not kept:** voice files (deleted after recognition), bank details, card numbers and passwords.
+- **What leaves the server:**
+  - to OpenAI: the phrases the server cannot read itself, voice recordings and the text heard in them, and the
+    merchant of a payment whose category is not known yet, each with the names of your categories;
+  - through Telegram: the bot's messages.
+- **What is not kept:** voice recordings (deleted after recognition), bank details, card numbers and passwords.
 
 ## 7. Troubleshooting
 
@@ -246,7 +261,7 @@ connection.
 correction.
 
 **A record needs to go**
-→ In the bot: «Отменить» under it, or `/undo` for the last one. In the Mini App: the record's sheet →
+→ In the bot: «Отменить» under it, or `/undo` for your last message. In the Mini App: the record's sheet →
 «Удалить операцию».
 
 **The bot answers, but the Mini App does not open**
