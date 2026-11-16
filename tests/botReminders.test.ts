@@ -27,6 +27,7 @@ import { Result } from '../src/shared/domain/types/Result';
 import { prototypeRecords } from './helpers/auditPrototype';
 import { TelegramAccess, telegramAccess } from '../src/shared/domain/access/telegramAccess';
 import { prepareDatabaseOnce } from './helpers/testDatabase';
+import { refuseWebAppOffHttps } from './helpers/telegramWebAppRefusal';
 
 /**
  * FT-133 end to end on a real SQLite file (board «Бот · напоминания», BotNotice.md): a goal is told once at 80% of its
@@ -68,6 +69,7 @@ describe('goal, subscription and audit reminders in the bot (FT-133)', () => {
   const telegram = {
     sendMessage: jest.fn(async (chatId: string, text: string, extra?: any) => {
       if (refuse) throw refuse;
+      refuseWebAppOffHttps(extra);
       const message = { chatId: String(chatId), text, keyboard: extra?.reply_markup?.inline_keyboard ?? [], messageId: nextMessageId++ };
       sent.push(message);
       return { message_id: message.messageId, chat: { id: Number(chatId) } };
@@ -198,8 +200,14 @@ describe('goal, subscription and audit reminders in the bot (FT-133)', () => {
       callbackQuery: { data, message: { message_id: message.messageId, chat: { id: Number(TELEGRAM_ID) } } },
       modules: { userModule: running.userModule, notificationModule: running.notificationModule },
       answerCbQuery: jest.fn().mockResolvedValue(true),
-      editMessageText: jest.fn().mockResolvedValue(true),
-      editMessageReplyMarkup: jest.fn().mockResolvedValue(true),
+      editMessageText: jest.fn(async (_text: string, extra?: any) => {
+        refuseWebAppOffHttps(extra);
+        return true;
+      }),
+      editMessageReplyMarkup: jest.fn(async (markup?: any) => {
+        refuseWebAppOffHttps({ reply_markup: markup });
+        return true;
+      }),
     };
     await action.handler(ctx);
     return ctx;
@@ -275,6 +283,20 @@ describe('goal, subscription and audit reminders in the bot (FT-133)', () => {
       at('2026-10-28', '12:00');
       expect(await tick()).toEqual([]);
       expect(sent).toHaveLength(1);
+    });
+
+    it('without HTTPS — WEB_APP_URL=http://localhost:3000 — comes without «Открыть цели ↗» (#278)', async () => {
+      jest.spyOn(AppConfig, 'getWebAppUrl').mockReturnValue('http://localhost:3000');
+      await auditedOnOctober14();
+      await record('2026-10-20', 'Транспорт', 30_000, 'Такси');
+      await record('2026-10-27', 'Транспорт', 30_000, 'Такси');
+      at('2026-10-27', '12:30');
+      const goal = (await goalNamed('Такси'))!;
+
+      expect(await tick()).toEqual([{ userId: owner, kind: 'goal_near', period: goal.id, outcome: 'sent' }]);
+      expect(sent).toHaveLength(1);
+      expect(sent[0].text).toContain('<b>Цель «Такси»');
+      expect(sent[0].keyboard).toEqual([]);
     });
 
     it('only to the users on ALLOWED_TELEGRAM_IDS (FT-153)', async () => {
@@ -618,6 +640,28 @@ describe('goal, subscription and audit reminders in the bot (FT-133)', () => {
       expect(closed.editMessageText).not.toHaveBeenCalled();
       expect(closed.editMessageReplyMarkup).toHaveBeenCalledWith({ inline_keyboard: [[expect.objectContaining({ text: 'Открыть ревизию ↗' })]] });
       expect(closed.answerCbQuery).toHaveBeenCalledWith('Эта ревизия уже закрыта');
+    });
+
+    it('without HTTPS — WEB_APP_URL=http://localhost:3000 — the call and «Позже» go without «Открыть ревизию ↗» (#278)', async () => {
+      jest.spyOn(AppConfig, 'getWebAppUrl').mockReturnValue('http://localhost:3000');
+      await auditedOnOctober14();
+      at('2026-11-01', '10:00');
+
+      expect((await tick()).filter(result => result.kind === 'audit').map(result => result.outcome)).toEqual(['sent']);
+      const call = sent.find(message => message.text.startsWith('<b>Ревизия'))!;
+      expect(call.keyboard).toEqual([[expect.objectContaining({ text: 'Позже' })]]);
+
+      at('2026-11-01', '10:05');
+      const later = await press(call, 'Позже');
+      expect(edited(later).text).toContain(`Напомню 2${NB}ноября в 10:00, один раз.`);
+      expect(edited(later).keyboard).toEqual([]);
+      await expect(later.editMessageText.mock.results[0].value).resolves.toBe(true);
+
+      // Under last month's audit «Позже» only drops its button: editMessageReplyMarkup, no link either
+      at('2026-12-01', '08:00');
+      const closed = await press(call, 'Позже');
+      expect(closed.editMessageReplyMarkup).toHaveBeenCalledWith({ inline_keyboard: [] });
+      await expect(closed.editMessageReplyMarkup.mock.results[0].value).resolves.toBe(true);
     });
   });
 

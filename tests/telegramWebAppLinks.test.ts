@@ -2,7 +2,7 @@ import { AppConfig } from '../src/shared/infrastructure/config/appConfig';
 import { recordKeyboard } from '../src/delivery/messaging/telegram/keyboards';
 import { formatDaySummary, formatMonthSummary } from '../src/delivery/messaging/telegram/formatters/summaryMessage';
 import { formatReminder } from '../src/delivery/messaging/telegram/formatters/reminderMessage';
-import { appLinks, isHttpsUrl } from '../src/delivery/messaging/telegram/utils/webAppUrl';
+import { appLinks, canLinkMiniApp, createWebAppUrl, isHttpsUrl } from '../src/delivery/messaging/telegram/utils/webAppUrl';
 import { DaySummary, MonthSummary } from '../src/modules/notification/domain/dailySummary';
 import { RecordMessageInput, RecordView } from '../src/delivery/messaging/telegram/formatters/recordMessage';
 import { recordMessageInput } from '../src/delivery/messaging/telegram/utils/recordMessageView';
@@ -190,8 +190,21 @@ describe('no link to the Mini App without an HTTPS address (#278)', () => {
 
       for (const [, build] of keyboards) expect(webAppButtons(await build())).toEqual([]);
       expect([appLinks.home(USER_ID), appLinks.analytics(USER_ID), appLinks.audit(USER_ID)]).toEqual([undefined, undefined, undefined]);
+      expect(canLinkMiniApp()).toBe(false);
     }
   );
+
+  it('createWebAppUrl refuses such an address on its own, for a caller that does not ask canLinkMiniApp first', () => {
+    expect(canLinkMiniApp()).toBe(true);
+    jest.spyOn(AppConfig, 'getWebAppUrl').mockReturnValue('http://localhost:3000');
+
+    expect(() => createWebAppUrl(USER_ID)).toThrow('WEB_APP_URL is not an HTTPS address');
+    expect(() => createWebAppUrl(USER_ID, { edit: RECORD_ID })).toThrow('WEB_APP_URL is not an HTTPS address');
+    expect(() => createWebAppUrl(USER_ID, { path: 'transactions' })).toThrow('WEB_APP_URL is not an HTTPS address');
+
+    jest.spyOn(AppConfig, 'getWebAppUrl').mockReturnValue('');
+    expect(() => createWebAppUrl(USER_ID)).toThrow('WEB_APP_URL not configured');
+  });
 
   it('the one rule: an HTTPS address, whatever the case of its scheme', () => {
     expect(isHttpsUrl('https://miniapp.test')).toBe(true);
