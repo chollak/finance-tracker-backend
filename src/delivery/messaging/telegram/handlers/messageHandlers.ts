@@ -205,6 +205,15 @@ export function createUnsupportedMessageAnswer(albums: RecentMediaGroups = new R
 }
 
 /**
+ * The filters of the text and the voice chains as types, given to `bot.on<…>()` (#328). Left to inference, they took
+ * nearly all of `tsc`'s check time: `on()` inferred the filter from every handler typed with `BotContext`, member by
+ * member of the narrowed context. Given, it infers nothing; each handler is still checked against the context of its
+ * filter. Types only: the JavaScript of this file is the same byte for byte.
+ */
+type TextMessageFilter = ReturnType<typeof message<['text']>>;
+type VoiceMessageFilter = ReturnType<typeof message<['voice']>>;
+
+/**
  * Register message handlers with subscription limit checks
  */
 export function registerMessageHandlers(
@@ -234,7 +243,7 @@ export function registerMessageHandlers(
 
     // Text message handler with limit check; a message sent again, an unknown command and the answer to «Сумму» go
     // first
-    bot.on(
+    bot.on<TextMessageFilter>(
       message('text'),
       skipRepeated,
       answerUnknownCommand,
@@ -244,7 +253,7 @@ export function registerMessageHandlers(
     );
 
     // Voice message handler with limit check
-    bot.on(
+    bot.on<VoiceMessageFilter>(
       message('voice'),
       skipRepeated,
       checkVoiceLimit,
@@ -252,8 +261,8 @@ export function registerMessageHandlers(
     );
   } else {
     // Fallback without subscription checks
-    bot.on(message('text'), skipRepeated, answerUnknownCommand, answerAmount, textHandler);
-    bot.on(message('voice'), skipRepeated, voiceHandler);
+    bot.on<TextMessageFilter>(message('text'), skipRepeated, answerUnknownCommand, answerAmount, textHandler);
+    bot.on<VoiceMessageFilter>(message('voice'), skipRepeated, voiceHandler);
   }
 
   // A photo, an audio file, a video note, a video, a document or a sticker: after the text and the voice, in both
