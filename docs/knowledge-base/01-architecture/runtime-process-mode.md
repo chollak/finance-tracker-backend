@@ -253,17 +253,26 @@ cancelled the record before «Такси»; «такси» and «18к» made «1
   not, in the order Telegram sent them; each failure still reaches its own `bot.catch`. Chats do not wait for each
   other. It must stay before any middleware that awaits: Telegraf enters the middleware of a batch's updates in their
   order only up to the first `await`. An update without a chat (a payment's `pre_checkout_query`) is not held.
-- **No handler limit.** Telegraf's `handlerTimeout` (90 s) is off (`Infinity`). After it, `bot.catch` answered
-  «Произошла ошибка. Попробуйте снова.» while the handler went on and could still write and confirm, so the repeat was
-  a second record; with the queue the wait would count too. The slow parts have their own limits (OpenAI
-  `OPENAI_TIMEOUT_MS`, the voice download). An update still handled after `SLOW_UPDATE_MS` (90 s) logs `warn`
-  `A Telegram update is still being handled; the next updates of its chat wait for it` (`updateId`, `updateType`)
-  and runs on.
+- **Ten minutes, not 90 s.** Telegraf's `handlerTimeout` is `UPDATE_LIMIT_MS` (10 min, `chatQueue.ts`) instead of its
+  default 90 s. After the 90 s, `bot.catch` answered «Произошла ошибка. Попробуйте снова.» while the handler went on
+  and could still write and confirm, so the repeat was a second record; a slow voice in a bad network came close, and
+  with the queue the wait behind the chat's earlier updates counts too. No limit at all would let one hung update
+  (a Bot API call with no timeout, say) hold the batch — polling waits for all of it — and so every chat until a
+  restart. The slow parts have their own limits (OpenAI `OPENAI_TIMEOUT_MS`, the voice download), so only a hung update
+  reaches ten minutes.
+- **What happens on the way.** After `SLOW_UPDATE_MS` (90 s) an update still handled logs `warn`
+  `A Telegram update is still being handled; the next updates of its chat wait for it` and runs on. At ten minutes:
+  the queue lets its chat go — `error` `A Telegram update is not done after the limit; the next updates of its chat no
+  longer wait for it` — and Telegraf lets polling go: `bot.catch` logs `error` `A Telegram update is not done after the
+  limit; polling goes on without it` and answers nothing, because the handler may still write and confirm. Both lines
+  name the update (`updateId`, `updateType`), never what the person wrote. The update runs on; if it ends, its answer
+  still goes out. Polling's next `getUpdates` confirms the batch, so a restart does not bring a hung update back — as
+  with Telegraf's 90 s before. A chat's next update that waited out the ten minutes behind it is let go by Telegraf at
+  the same mark (its own limit counts from when polling handed it over): it still runs, after the hung one is let go,
+  in order. Any other error in `bot.catch` is answered «Произошла ошибка. Попробуйте снова.» as before.
 - **The stop is as before (FT-167).** Polling still waits for the whole batch before it confirms its offset, so the
   shutdown waits for the queued updates of the batch too, within the same `BOT_STOP_GRACE_MS`; what is left after it
-  is sent again by Telegram. The queue holds no timer that keeps the process running.
-- **Trade-off.** Polling waits for the slowest chat of a batch, as before; a handler that never ends would now hold
-  the bot instead of being let go after 90 s — the `warn` above names it, and a restart sends its update again.
+  is sent again by Telegram. The queue's timers keep nothing running.
 - **A second delete changes nothing.** `DeleteTransactionUseCase` leaves a record already deleted as it is — its
   `deleted_at` and the free-limit counter — and answers success, as a restore of a record that is not deleted does.
 

@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 import type { Update } from 'telegraf/types';
-import { chatQueue, SLOW_UPDATE_MS } from '../src/delivery/messaging/telegram/middleware/chatQueue';
+import { chatQueue, SLOW_UPDATE_MS, UPDATE_LIMIT_MS } from '../src/delivery/messaging/telegram/middleware/chatQueue';
 import { BotContext } from '../src/delivery/messaging/telegram/types';
 import { TransactionModule } from '../src/modules/transaction/transactionModule';
 import { SqliteTransactionRepository } from '../src/modules/transaction/infrastructure/persistence/SqliteTransactionRepository';
@@ -128,6 +128,38 @@ describe('one update of a chat at a time (#317)', () => {
       expect(handled).toHaveBeenCalled();
       expect(jest.getTimerCount()).toBe(0);
     });
+
+    it('lets its chat go after UPDATE_LIMIT_MS: the error names the update, not its text; it runs on, the next one no longer waits', async () => {
+      const queue = chatQueue();
+      const hung = deferred();
+      const started: number[] = [];
+      const handled: number[] = [];
+      const phrase = { ...contextOf(1, 10), message: { text: 'такси 18к' } } as unknown as BotContext;
+
+      const first = queue(phrase, async () => { started.push(10); await hung.promise; handled.push(10); });
+      const second = queue(contextOf(1, 11), async () => { started.push(11); handled.push(11); });
+      await flush();
+      jest.advanceTimersByTime(UPDATE_LIMIT_MS - 1);
+      await flush();
+      expect(started).toEqual([10]);
+
+      jest.advanceTimersByTime(1);
+      await second;
+      expect(handled).toEqual([11]);
+      const errors = (await log.lines()).filter(line => line.includes('not done after'));
+      expect(errors).toEqual([expect.stringContaining('error')]);
+      expect(errors[0]).toContain('"updateId":10');
+      expect(errors[0]).not.toContain('такси');
+
+      // The chat's updates from now on do not wait for the hung one either
+      await queue(contextOf(1, 12), async () => { handled.push(12); });
+      expect(handled).toEqual([11, 12]);
+
+      hung.resolve();
+      await first;
+      expect(handled).toEqual([11, 12, 10]);
+      expect(jest.getTimerCount()).toBe(0);
+    });
   });
 });
 
@@ -136,6 +168,8 @@ describe('the bot on the real Telegraf: one batch of getUpdates (#317)', () => {
   const OTHER_ID = 222000111;
   let db: TestDatabase;
   let stand: TelegramStand;
+  /** The log of a test that reads it; given back after the test. */
+  let logs: LogCapture | undefined;
   const capture = jest.fn();
 
   /** /help from someone else's chat, as Telegram delivers it. */
@@ -182,6 +216,8 @@ describe('the bot on the real Telegraf: one batch of getUpdates (#317)', () => {
   });
 
   afterEach(async () => {
+    logs?.restore();
+    logs = undefined;
     jest.useRealTimers();
     jest.restoreAllMocks();
     await db.close();
@@ -212,5 +248,42 @@ describe('the bot on the real Telegraf: one batch of getUpdates (#317)', () => {
       expect.stringContaining('/undo — отменить последнюю запись'),
     ]);
     expect(stand.caught).toEqual([]);
+  });
+
+  it('a phrase that hangs lets the batch and its chat go after 10 minutes, says nothing, and still answers when it ends', async () => {
+    jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate', 'clearImmediate', 'queueMicrotask', 'hrtime', 'performance', 'Date'] });
+    const log = captureLogLines();
+    logs = log;
+    const parsed = deferred<{ transactions: never[]; debts: never[] }>();
+    capture.mockImplementationOnce(() => parsed.promise);
+
+    // Polling waits for the batch as `deliver` does: it settles only once every update of the batch is let go
+    let batchDone = false;
+    const batch = stand.deliver([stand.textUpdate('такси 18к'), stand.textUpdate('/help')], { botCatch: 'allow' })
+      .then(() => { batchDone = true; });
+    await until(() => capture.mock.calls.length === 1);
+
+    jest.advanceTimersByTime(UPDATE_LIMIT_MS - 1);
+    await flush();
+    expect(batchDone).toBe(false);
+    expect(stand.caught).toEqual([]);
+
+    jest.advanceTimersByTime(1);
+    await batch;
+    await until(() => sentTo(TELEGRAM_ID).length === 1);
+
+    // The chat's /help no longer waits for the phrase; nobody is told to try again while the phrase may still be written
+    expect(sentTo(TELEGRAM_ID)).toEqual([expect.stringContaining('/undo — отменить последнюю запись')]);
+    expect(stand.caught).toEqual([expect.objectContaining({ name: 'TimeoutError' }), expect.objectContaining({ name: 'TimeoutError' })]);
+    // Polling let both updates of the batch go, the queue let the chat go past the phrase: each line names the update
+    const letGo = (await log.lines()).filter(line => line.includes('not done after the limit'));
+    expect(letGo.filter(line => line.includes('polling goes on'))).toHaveLength(2);
+    expect(letGo.filter(line => line.includes('its chat no longer wait'))).toEqual([expect.stringMatching(/"updateId":\d+/)]);
+    expect(letGo.join('\n')).not.toContain('такси');
+
+    parsed.resolve({ transactions: [], debts: [] });
+    await until(() => sentTo(TELEGRAM_ID).length === 2);
+    expect(sentTo(TELEGRAM_ID)[1]).toContain('Не нашёл, что записать');
+    expect(sentTo(TELEGRAM_ID).join('\n')).not.toContain('Произошла ошибка');
   });
 });
