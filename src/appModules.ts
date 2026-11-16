@@ -83,7 +83,7 @@ export function createModules() {
   // The spending audit and its goals (FT-130, FT-131): records, categories and the rate as in every total (FT-103)
   const periodTotals = transactionModule.getPeriodTotalsService();
   const auditModule = AuditModule.create({
-    recordsBetween: (userId, from, to) => transactionModule.getRepository().getByUserIdAndDateRange(userId, new Date(from), new Date(to)),
+    recordsBetween: (userId, from, to) => transactionModule.getRepository().getByUserIdAndDateRange(userId, from, to),
     firstRecordDate: userId => transactionModule.getRepository().findFirstRecordDate(userId),
     categories: userId => categoryModule.getCatalog().listForUser(userId),
     usdRateMinor: (userId, records) => periodTotals.usdRateFor(userId, records),

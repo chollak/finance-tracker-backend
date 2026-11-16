@@ -1,4 +1,7 @@
-/** Records are kept in the user's local calendar; every user is in Tashkent for now (users.timezone). */
+/**
+ * Records are kept in the user's local calendar; every user is in Tashkent for now. The column users.timezone is read by
+ * nobody (#275): the bot's summaries, /today and the login question take this zone too.
+ */
 export const DEFAULT_TIME_ZONE = 'Asia/Tashkent';
 
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;

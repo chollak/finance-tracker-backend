@@ -113,10 +113,11 @@ export function errorHandler(
 }
 
 /**
- * 404 handler for unmatched routes
+ * 404 handler for unmatched routes. It names the path, not the query, as the logs do (#269, #275): the history search
+ * sends what the user looks for there.
  */
 export function notFoundHandler(req: Request, res: Response): void {
-  const path = req.originalUrl || req.url || req.path;
+  const path = (req.originalUrl || req.url || req.path).split('?')[0];
   res.status(404).json({
     success: false,
     error: `Route ${req.method} ${path} not found`,

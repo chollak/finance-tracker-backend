@@ -67,7 +67,7 @@ export class GetPeriodTotalsUseCase {
    * and rule as the answer above. Days are YYYY-MM-DD, both included; storage errors are thrown.
    */
   async forPeriod(userId: string, from: string, to: string): Promise<PeriodTotals> {
-    const records = await this.repository.getByUserIdAndDateRange(userId, new Date(from), new Date(to));
+    const records = await this.repository.getByUserIdAndDateRange(userId, from, to);
     return this.periodTotals.summarize(userId, records);
   }
 }

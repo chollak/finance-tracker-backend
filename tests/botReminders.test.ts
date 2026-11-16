@@ -105,7 +105,7 @@ describe('goal, subscription and audit reminders in the bot (FT-133)', () => {
       audits: new SqliteAuditRepository(ds),
       goals: new SqliteGoalRepository(ds),
       sources: {
-        recordsBetween: (userId, from, to) => transactionModule.getRepository().getByUserIdAndDateRange(userId, new Date(from), new Date(to)),
+        recordsBetween: (userId, from, to) => transactionModule.getRepository().getByUserIdAndDateRange(userId, from, to),
         firstRecordDate: userId => transactionModule.getRepository().findFirstRecordDate(userId),
         categories: userId => categoryModule.getCatalog().listForUser(userId),
         usdRateMinor: (userId, records) => periodTotals.usdRateFor(userId, records),

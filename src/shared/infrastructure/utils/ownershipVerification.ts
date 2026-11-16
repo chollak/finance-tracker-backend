@@ -69,39 +69,3 @@ export async function verifyResourceOwnership<T extends OwnedResource>(
     throw ErrorFactory.authorization(`You do not have permission to access this ${resourceType}`);
   }
 }
-
-/**
- * Helper to verify ownership and return the resource in one call.
- * Fetches the resource, verifies ownership, and returns it.
- *
- * @param req - Express request
- * @param fetchResource - Async function to fetch the resource by ID
- * @param userModule - UserModule for ownership verification
- * @param options - Verification options
- * @returns The verified resource
- * @throws NotFoundError if resource doesn't exist
- * @throws AuthorizationError if ownership verification fails
- */
-export async function verifyAndGetResource<T extends OwnedResource>(
-  req: Request,
-  fetchResource: () => Promise<T | null>,
-  userModule: UserModule | undefined,
-  options: VerifyOwnershipOptions
-): Promise<T> {
-  const resource = await fetchResource();
-
-  if (!resource) {
-    throw ErrorFactory.notFound(`${capitalize(options.resourceType)} not found`);
-  }
-
-  await verifyResourceOwnership(req, resource, userModule, options);
-
-  return resource;
-}
-
-/**
- * Capitalize first letter of a string
- */
-function capitalize(str: string): string {
-  return str.charAt(0).toUpperCase() + str.slice(1);
-}

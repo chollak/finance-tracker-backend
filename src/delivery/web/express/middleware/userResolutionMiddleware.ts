@@ -43,10 +43,11 @@ declare global {
  * Extract userId from request (checks params → query → body)
  * Note: This function expects req.params to be populated, so middleware
  * should be applied at the route level, not globally before route matching.
+ * A route's `:id` is never a user: it names a record or an account (#275).
  */
 function extractUserIdFromRequest(req: Request): unknown {
   // Check params (populated when middleware is applied at route level)
-  const paramUserId = req.params?.userId || req.params?.telegramId || req.params?.id;
+  const paramUserId = req.params?.userId || req.params?.telegramId;
   if (paramUserId) return paramUserId;
 
   // Check query: an array for `?userId=a&userId=b`
@@ -61,49 +62,27 @@ function extractUserIdFromRequest(req: Request): unknown {
 }
 
 /**
- * Create middleware that resolves userId to UUID
+ * Create middleware that resolves userId to UUID. A request without one goes on unresolved: the route decides
+ * whether it needs it (the admin grant answers 400).
  *
  * @param userModule - UserModule for telegramId → UUID resolution
- * @param options - Configuration options
  * @returns Express middleware
  *
  * @example
- * // Apply to all routes
- * router.use(createUserResolutionMiddleware(userModule));
+ * router.post('/grant', requireAuth, requireAdmin, createUserResolutionMiddleware(userModule), handler);
  *
  * // In controller, use resolved UUID:
  * const userId = req.resolvedUser?.id;
  */
-export function createUserResolutionMiddleware(
-  userModule: UserModule,
-  options: {
-    /** If true, returns 400 when userId is missing (default: false) */
-    requireUserId?: boolean;
-    /** If true, skips routes without userId (default: true) */
-    skipIfNoUserId?: boolean;
-  } = {}
-) {
-  const { requireUserId = false, skipIfNoUserId = true } = options;
-
+export function createUserResolutionMiddleware(userModule: UserModule) {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const rawUserId = extractUserIdFromRequest(req);
 
-      // No userId found
+      // No userId: nothing to resolve
       if (!rawUserId) {
-        if (requireUserId) {
-          res.status(400).json({
-            error: 'userId is required',
-            code: 'MISSING_USER_ID',
-          });
-          return;
-        }
-
-        if (skipIfNoUserId) {
-          // No userId needed for this route, continue
-          next();
-          return;
-        }
+        next();
+        return;
       }
 
       // A number, an array, an object or a blank string names no user: 400, not a 500 from resolving it (FT-162).
@@ -111,7 +90,7 @@ export function createUserResolutionMiddleware(
       // would create a `users` row for it (#224, #230). On user routes verifyOwnership refuses it first; this covers the
       // admin grant, which names whom to grant
       const resolvableId = typeof rawUserId === 'string' ? resolvableUserIdOf(rawUserId) : null;
-      if (rawUserId && resolvableId === null) {
+      if (resolvableId === null) {
         res.status(400).json({
           success: false,
           error: 'userId must be one Telegram id or user UUID, as a string',
@@ -120,27 +99,23 @@ export function createUserResolutionMiddleware(
         return;
       }
 
-      // userId found, resolve it
-      if (resolvableId !== null) {
-        // Check if already UUID (no resolution needed)
-        if (isUUID(resolvableId)) {
-          req.resolvedUser = {
-            id: resolvableId,
-            telegramId: null, // Unknown - could be either
-          };
-          next();
-          return;
-        }
-
-        // Resolve telegramId to UUID; the id as the list writes it, without leading zeros (#230)
-        const resolvedUUID = await resolveUserIdToUUID(resolvableId, userModule);
-
+      // Check if already UUID (no resolution needed)
+      if (isUUID(resolvableId)) {
         req.resolvedUser = {
-          id: resolvedUUID,
-          telegramId: resolvableId,
+          id: resolvableId,
+          telegramId: null, // Unknown - could be either
         };
+        next();
+        return;
       }
 
+      // Resolve telegramId to UUID; the id as the list writes it, without leading zeros (#230)
+      const resolvedUUID = await resolveUserIdToUUID(resolvableId, userModule);
+
+      req.resolvedUser = {
+        id: resolvedUUID,
+        telegramId: resolvableId,
+      };
       next();
     } catch (error) {
       logger.error('Error in userResolutionMiddleware', error as Error);
@@ -151,22 +126,3 @@ export function createUserResolutionMiddleware(
     }
   };
 }
-
-/**
- * Helper to get resolved userId from request
- * Falls back to raw userId if middleware wasn't applied
- *
- * @param req - Express request
- * @returns Resolved userId (UUID) or undefined
- */
-export function getResolvedUserId(req: Request): string | undefined {
-  // Prefer resolved user
-  if (req.resolvedUser?.id) {
-    return req.resolvedUser.id;
-  }
-
-  // Fallback to raw extraction (for backwards compatibility)
-  const rawUserId = extractUserIdFromRequest(req);
-  return typeof rawUserId === 'string' ? rawUserId : undefined;
-}
-

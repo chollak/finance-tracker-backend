@@ -79,7 +79,7 @@ describe('audit storage and goals (FT-131)', () => {
     now = OCT_14;
     const periodTotals = new PeriodTotalsService({ effectiveUsdRate: async () => ({ rateMinor: 1265000, source: 'cbu' }) });
     sources = {
-      recordsBetween: (userId, from, to) => records.repository.getByUserIdAndDateRange(userId, new Date(from), new Date(to)),
+      recordsBetween: (userId, from, to) => records.repository.getByUserIdAndDateRange(userId, from, to),
       firstRecordDate: userId => records.repository.findFirstRecordDate(userId),
       categories: userId => records.catalog.listForUser(userId),
       usdRateMinor: (userId, list) => periodTotals.usdRateFor(userId, list),

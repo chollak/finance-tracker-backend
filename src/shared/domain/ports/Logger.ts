@@ -16,13 +16,11 @@
 export const LogCategory = {
   // System
   SYSTEM: 'SYSTEM',
-  CONFIG: 'CONFIG',
   DATABASE: 'DATABASE',
 
   // Security
   AUTH: 'AUTH',
   RATE_LIMIT: 'RATE_LIMIT',
-  SECURITY: 'SECURITY',
 
   // Business Logic
   TRANSACTION: 'TRANSACTION',
@@ -34,14 +32,10 @@ export const LogCategory = {
   // External Services
   OPENAI: 'OPENAI',
   TELEGRAM: 'TELEGRAM',
-  SUPABASE: 'SUPABASE',
 
   // Request Handling
   HTTP: 'HTTP',
   TELEGRAM_MSG: 'TELEGRAM_MSG',
-
-  // Performance
-  PERFORMANCE: 'PERFORMANCE',
 } as const;
 
 export type LogCategoryType = (typeof LogCategory)[keyof typeof LogCategory];

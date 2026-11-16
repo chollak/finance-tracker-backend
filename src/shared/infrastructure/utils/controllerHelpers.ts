@@ -6,10 +6,22 @@ import { createLogger, LogCategory } from '../logging';
 const logger = createLogger(LogCategory.HTTP);
 
 /**
- * Standardized error response handler for controllers
+ * Standardized error response handler for controllers. A refusal (4xx: a wrong request, someone else's record, nothing
+ * there) is a `warn` with its status and code; a fault of the server (5xx, an unexpected exception) is an `error` with
+ * the stack (#275: every 400 and 404 used to read in the journal as an error).
  */
 export function handleControllerError(error: unknown, res: Response): void {
-  logger.error('Controller error', error instanceof Error ? error : new Error(String(error)));
+  if (error instanceof AppError && error.statusCode < 500) {
+    // The reason in the text: Winston glues a `message` field to it with no separator. The context (`field`…) under
+    // `errorContext`, as the error line writes it
+    logger.warn(`Request refused: ${error.message}`, {
+      status: error.statusCode,
+      code: error.code,
+      ...(error.context && { errorContext: error.context }),
+    });
+  } else {
+    logger.error('Controller error', error instanceof Error ? error : new Error(String(error)));
+  }
 
   if (error instanceof AppError) {
     res.status(error.statusCode).json({
@@ -40,9 +52,9 @@ export function handleControllerError(error: unknown, res: Response): void {
  * Standardized success response handler
  */
 export function handleControllerSuccess<T>(
-  data: T, 
-  res: Response, 
-  statusCode: number = 200, 
+  data: T,
+  res: Response,
+  statusCode: number = 200,
   message?: string
 ): void {
   res.status(statusCode).json({
@@ -54,83 +66,9 @@ export function handleControllerSuccess<T>(
 }
 
 /**
- * Validate required fields in request body
- */
-export function validateRequiredFields(
-  body: any, 
-  requiredFields: string[]
-): { isValid: boolean; missingFields: string[] } {
-  const missingFields: string[] = [];
-  
-  for (const field of requiredFields) {
-    if (body[field] === undefined || body[field] === null || body[field] === '') {
-      missingFields.push(field);
-    }
-  }
-
-  return {
-    isValid: missingFields.length === 0,
-    missingFields
-  };
-}
-
-/**
- * Extract and validate pagination parameters
- */
-export function getPaginationParams(req: Request): { 
-  page: number; 
-  limit: number; 
-  offset: number; 
-} {
-  const page = Math.max(1, parseInt(req.query.page as string) || 1);
-  const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 50));
-  const offset = (page - 1) * limit;
-
-  return { page, limit, offset };
-}
-
-/**
  * Safe parameter extraction with type checking
  */
 export function getStringParam(req: Request, paramName: string): string | null {
   const value = req.params[paramName];
   return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
-}
-
-export function getQueryParam(req: Request, paramName: string): string | null {
-  const value = req.query[paramName];
-  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
-}
-
-/**
- * Handle Result pattern from use cases
- * Returns data if success, or sends error response and returns null
- */
-export function handleResult<T>(
-  result: { success: boolean; data?: T; error?: unknown },
-  res: Response
-): T | null {
-  if (!result.success) {
-    handleControllerError(result.error, res);
-    return null;
-  }
-  return result.data as T;
-}
-
-/**
- * Handle Result and send success response
- * For use cases where we want to immediately respond with the result
- */
-export function handleResultResponse<T>(
-  result: { success: boolean; data?: T; error?: unknown },
-  res: Response,
-  statusCode: number = 200,
-  message?: string
-): boolean {
-  if (!result.success) {
-    handleControllerError(result.error, res);
-    return false;
-  }
-  handleControllerSuccess(result.data, res, statusCode, message);
-  return true;
 }

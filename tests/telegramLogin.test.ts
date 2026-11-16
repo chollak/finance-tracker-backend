@@ -146,6 +146,17 @@ describe('the bot confirms a web login (FT-128)', () => {
     for (const button of messages.get(question)!.keyboard.flat()) expect(Buffer.byteLength(button.callback_data!)).toBeLessThanOrEqual(64);
   });
 
+  // users.timezone is read by nothing since #275: every user is on Tashkent's clock
+  it('names the time on Tashkent\'s clock, whatever users.timezone holds', async () => {
+    const user = await userModule.getGetOrCreateUserUseCase().execute({ telegramId: String(TELEGRAM_ID) });
+    await db.dataSource.query('UPDATE users SET timezone = ? WHERE id = ?', ['Europe/Moscow', user.id]);
+    const { payload } = await login();
+
+    const question = await start(payload);
+
+    expect(messages.get(question)!.text).toContain('Chrome · Windows, 14 октября в 19:42');
+  });
+
   it('«Подтвердить»: the browser opens, the message says so and leads back to the browser', async () => {
     const { payload, browserSecret } = await login();
     const question = await start(payload);

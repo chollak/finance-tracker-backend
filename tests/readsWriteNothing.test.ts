@@ -71,7 +71,7 @@ describe('the Mini App reads write nothing for a known user (#335)', () => {
       audits: new SqliteAuditRepository(db.dataSource),
       goals: new SqliteGoalRepository(db.dataSource),
       sources: {
-        recordsBetween: (userId, from, to) => records.repository.getByUserIdAndDateRange(userId, new Date(from), new Date(to)),
+        recordsBetween: (userId, from, to) => records.repository.getByUserIdAndDateRange(userId, from, to),
         firstRecordDate: userId => records.repository.findFirstRecordDate(userId),
         categories: userId => categoryModule.getCatalog().listForUser(userId),
         usdRateMinor: async () => null,

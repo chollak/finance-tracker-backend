@@ -44,7 +44,7 @@ describe('soft delete and restore of records (FT-105)', () => {
 
     expect(await records.repository.findById(gone)).toBeNull();
     expect((await records.repository.findByUserId('user-1')).map(r => r.id)).toEqual([kept]);
-    expect((await records.repository.getByUserIdAndDateRange('user-1', new Date(today), new Date(today))).map(r => r.id)).toEqual([kept]);
+    expect((await records.repository.getByUserIdAndDateRange('user-1', today, today)).map(r => r.id)).toEqual([kept]);
     expect(await balance()).toBe(-1000000);
     const totals = await new PeriodTotalsService().summarize('user-1', await records.repository.findByUserId('user-1'));
     expect(totals.expenseMinor).toBe(1_000_000);

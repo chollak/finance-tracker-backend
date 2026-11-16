@@ -250,13 +250,13 @@ export class SqliteTransactionRepository implements TransactionRepository {
     return updated;
   }
 
-  async getByUserIdAndDateRange(userId: string, startDate: Date, endDate: Date): Promise<Transaction[]> {
+  async getByUserIdAndDateRange(userId: string, from: string, to: string): Promise<Transaction[]> {
     // By the record's day: records saved before FT-100 may keep a full moment («2026-10-14T05:30:00.000Z»)
     const entities = await this.query()
       .andWhere('transaction.userId = :userId', { userId })
       .andWhere('transaction.isArchived = :isArchived', { isArchived: false })
-      .andWhere('substr(transaction.date, 1, 10) >= :startDate', { startDate: startDate.toISOString().split('T')[0] })
-      .andWhere('substr(transaction.date, 1, 10) <= :endDate', { endDate: endDate.toISOString().split('T')[0] })
+      .andWhere('substr(transaction.date, 1, 10) >= :from', { from })
+      .andWhere('substr(transaction.date, 1, 10) <= :to', { to })
       .orderBy('transaction.date', 'DESC')
       .getMany();
 

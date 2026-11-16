@@ -77,7 +77,7 @@ export async function readAnalyticsFrame(
   const { period, previous } = analyticsPeriods({ month, today, type: input.type, firstMonth, throughToday: input.throughToday });
   const trackingDays = trackingDaysOf(firstRecordDate, today);
 
-  const records = await repository.getByUserIdAndDateRange(input.userId, new Date((previous ?? period).from), new Date(period.to));
+  const records = await repository.getByUserIdAndDateRange(input.userId, (previous ?? period).from, period.to);
   const inPeriod = records.filter(record => isInPeriod(record, period));
   const inPrevious = previous ? records.filter(record => isInPeriod(record, previous)) : [];
   // One rate for both periods: the one in effect now

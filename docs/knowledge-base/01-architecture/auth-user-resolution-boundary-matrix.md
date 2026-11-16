@@ -381,10 +381,12 @@ Used inside:
 
 User ID normalization boundary.
 
-- Extracts user ID from params/query/body.
+- Extracts user ID from the path's `:userId` or `:telegramId`, the query and the body — never a route's `:id`, which
+  names a record or an account (#275).
 - UUID passes through, in lower case (#230).
 - A Telegram id resolves through `resolveUserIdToUUID(...)`.
-- Missing userId usually skips by default (`skipIfNoUserId=true`).
+- A missing userId skips: the route decides (the admin grant answers 400). The options `requireUserId` and
+  `skipIfNoUserId`, which nobody passed, and `getResolvedUserId` are gone (#275).
 - A userId that is not a non-blank string (FT-162), or a string that is no UUID and no Telegram id — `guest_*`, `abc`,
   `-5`, a number from 2^53 on (#224, #230, `resolvableUserIdOf`) — `400 INVALID_USER_ID`, not a resolver error;
   nothing is resolved or created.
@@ -398,7 +400,7 @@ Current loose resolver helper.
 
 - Rejects empty/whitespace-only IDs.
 - Rejects an id that is no UUID and no Telegram id (a positive whole number in digits) with a `ValidationError`
-  before the user module is asked, so it creates no user (#224). `resolveUserIdToUUIDStrict` does the same.
+  before the user module is asked, so it creates no user (#224).
 - Passes through UUIDs, in lower case since #230 (and `guest_*` ids until #206).
 - Reads a Telegram id by `telegramIdOf` (#230), as `ALLOWED_TELEGRAM_IDS` does: below 2^53, leading zeros name the same
   user; resolves it to UUID through `GetOrCreateUserUseCase`, creating the user without the zeros on first contact.
@@ -458,7 +460,7 @@ Recommended future API:
 
 ```ts
 resolveUserIdToUUIDLoose(...)  // current behavior
-resolveUserIdToUUIDStrict(...) // implemented; throws on resolver failure
+resolveUserIdToUUIDStrict(...) // was implemented (FT-024A); removed in #275, no route called it
 ```
 
 Do not silently change the current helper globally.
@@ -507,7 +509,8 @@ Status: done.
 
 Implemented:
 
-- Added `resolveUserIdToUUIDStrict(...)`.
+- Added `resolveUserIdToUUIDStrict(...)` (removed in #275: no route ever called it; the user's routes take the user
+  from authentication since FT-162).
 - Kept `resolveUserIdToUUID(...)` fail-open behavior unchanged.
 - Added focused tests for UUID/guest passthrough (the guest passthrough removed in #206), telegramId resolution, empty-id validation, and fail-closed resolver errors.
 - No routes were migrated yet.

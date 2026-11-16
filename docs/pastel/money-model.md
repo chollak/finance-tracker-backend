@@ -140,7 +140,7 @@
 | `audit_invite_snoozed_until` | нет |
 | `display_currency` | `UZS` — «Сум / USD» на главной (FT-137) |
 
-Время — по `users.timezone` (`Asia/Tashkent`).
+Время — по часам Ташкента (`DEFAULT_TIME_ZONE`, `Asia/Tashkent`); колонку `users.timezone` с #275 никто не читает.
 
 ### Прочие новые таблицы
 

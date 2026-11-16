@@ -4,7 +4,7 @@ import { BotContext } from '../types';
 import { RU } from '../i18n/ru';
 import { appLinkRows, formatDaySummary, formatMonthSummary } from '../formatters/summaryMessage';
 import { appLinks } from '../utils/webAppUrl';
-import { localClock } from '../../../../modules/notification/domain/dailySummary';
+import { todayDateOnly } from '../../../../shared/domain/dates/dateOnly';
 import { LOGIN_START_PREFIX } from '../../../../modules/auth/domain/webLogin';
 import { handleLoginStart } from './loginHandlers';
 import { createLogger, LogCategory } from '../../../../shared/infrastructure/logging';
@@ -47,11 +47,14 @@ function keyboard(rows: InlineKeyboardButton[][]) {
   return { reply_markup: { inline_keyboard: rows } };
 }
 
-/** The user behind the update with the day it is on their clock. */
+/**
+ * The user behind the update with the day it is: Tashkent's, as for every user (DEFAULT_TIME_ZONE). users.timezone is
+ * written by nobody since #274 and read by nobody since #275.
+ */
 async function botUser(ctx: BotContext): Promise<{ id: string; telegramId: string; today: string }> {
   const telegramId = String(ctx.from?.id);
   const user = await ctx.modules.userModule.getGetOrCreateUserUseCase().execute({ telegramId });
-  return { id: user.id, telegramId, today: localClock(new Date(), user.timezone).date };
+  return { id: user.id, telegramId, today: todayDateOnly() };
 }
 
 /** What follows /start: the parameter of a t.me/<bot>?start=… link. */
