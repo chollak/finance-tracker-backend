@@ -68,6 +68,9 @@ export const RU = {
     correctionNotFound: (was: string) => `Не нашёл запись на ${was}. Нажмите «Изменить» под нужной.`,
     correctionWhich: 'Не понял, какую сумму менять. Напишите так: «не 25, а 28».',
     correctionNotAnAmount: 'Новая сумма должна быть числом больше нуля.',
+    // #277: a category or an account button drawn before it was hidden or deleted in the app
+    categoryGone: 'Этой категории уже нет — выберите другую.',
+    accountGone: 'Этого счёта уже нет — выберите другой.',
   },
 
   // FT-123: nothing to write — with an example of what to write (board «Бот · не понял, не расслышал»)
