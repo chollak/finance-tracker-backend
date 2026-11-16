@@ -3,6 +3,10 @@ node_modules/
 dist/
 webapp/node_modules/
 public/webapp/
+# The build beside it and the one it replaces (scripts/build-webapp.js, #380): an interrupted build must not make
+# live-update.sh refuse a dirty tree
+public/webapp.next/
+public/webapp.old/
 
 # Environment variables
 .env
