@@ -157,7 +157,7 @@ auth-user-resolution-boundary-matrix.md`, раздел 2026-10-21. **Shortcut с
 - [x] Первый запуск: `npm run dev:miniapp -- --chat-id=<ваш chat id>`. В логе — список применённых миграций и
       путь копии в `data/backups/`. Если миграция откажет — база не тронута, причина в сообщении
 - [x] `npm run migration:show` после — ничего не ожидает
-- [x] `npm run report:categories` — как старые 26 + 7 категорий разошлись по новым 8 + 8
+- [x] `npm run report:categories` — как старые 26 + 7 категорий разошлись по новым 8 + 8 (команда удалена в #297)
 - [x] Курс ЦБ: `curl -H 'X-Dev-User-Id: <id>' localhost:3000/api/rates/usd` (без входа — 401) — 2026-10-21 живой ответ
       ЦБ: 12 012,30 сум
 
@@ -257,7 +257,7 @@ https://claude.ai/artifact/YapZ1j6TCuaLwRzArgGQSj (приватная). Отли
 
 > Прочитай CLAUDE.md, docs/pastel/README.md и docs/pastel/handoff.md. Мы на ветке claude/new-session-uv5og7.
 > Выполни раздел «Проверить на своей машине» до «Mini App на телефоне»: копия базы, npm install, npm run verify,
-> migration:show до и после первого запуска, report:categories, курс ЦБ. Запусти npm run dev:miniapp с моим
+> migration:show до и после первого запуска, курс ЦБ. Запусти npm run dev:miniapp с моим
 > chat id и скажи, когда открывать Mini App на телефоне. Ничего не исправляй без моего согласия — сначала отчёт.
 
 Дальше — по полю `Depends` в [`tasks.md`](tasks.md): FT-143 можно сразу (нужен только ключ OpenAI), FT-134
