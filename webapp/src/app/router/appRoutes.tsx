@@ -1,15 +1,14 @@
-import { isRouteErrorResponse, useRouteError, type RouteObject } from 'react-router-dom';
-import { lazy, Suspense } from 'react';
-import { LoadingScreen } from '@/shared/ui/pastel';
+import type { RouteObject } from 'react-router-dom';
+import { lazy } from 'react';
 import { HomeSkeleton } from '@/widgets/home-skeleton';
-// Not lazy, so the router's error page below never needs a piece of code to load: a page whose code did not load is
-// one of its causes (#240). That failure is not a 404 — an unknown address is the `*` route at the end (#222)
+// Not lazy, as the router's error page (`RouterErrorPage`): an unknown address is the `*` route at the end (#222)
 import { NotFoundPage } from '@/pages/not-found';
-import { RouteErrorPage } from '@/pages/route-error';
 import { AppShell } from './AppShell';
 import { FirstLaunchGate } from './FirstLaunchGate';
 import { AuthGate } from './AuthGate';
+import { PageLoader } from './PageLoader';
 import { pageLoaders } from './pageLoaders';
+import { RouterErrorPage } from './RouterErrorPage';
 import { PrefetchScreensAfterHome } from './screenPrefetch';
 
 // Each screen loads its own code (#291), through its page's loader (`pageLoaders`); once Home is drawn, the screens it
@@ -39,26 +38,6 @@ const AccountPage = lazy(() => pageLoaders.accounts().then((m) => ({ default: m.
 const TransferPage = lazy(() => pageLoaders.accounts().then((m) => ({ default: m.TransferPage })));
 // The spending audit of the month before (FT-132), from Home, «Ещё» and analytics
 const AuditPage = lazy(() => pageLoaders.audit().then((m) => ({ default: m.AuditPage })));
-
-// Wrapper component with Suspense; Home's code loads behind Home's skeleton (FT-112), another screen's behind the
-// theme's background and the Kapelka sign (#290)
-function PageLoader({ children, fallback = <LoadingScreen /> }: { children: React.ReactNode; fallback?: React.ReactNode }) {
-  return <Suspense fallback={fallback}>{children}</Suspense>;
-}
-
-/**
- * What the router shows when a route fails. A 404 is «Такой страницы нет»; anything else — a page whose code did not
- * load or that fell while drawing — is «Экран не открылся» (#240). React Router has already logged the failure.
- */
-function RouterErrorPage() {
-  const error = useRouteError();
-
-  if (isRouteErrorResponse(error) && error.status === 404) {
-    return <NotFoundPage />;
-  }
-
-  return <RouteErrorPage />;
-}
 
 /**
  * Every route of the app. `routes.tsx` makes the browser router of it; tests match addresses against it

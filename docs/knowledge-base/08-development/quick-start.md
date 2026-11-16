@@ -354,6 +354,7 @@ npm run format           # Format code with Prettier
 npm run check:deps       # Dependency rules, circular imports included (no-circular)
 npm run analyze          # The architecture step of verify: check:deps
 npm run test:webapp      # Webapp Vitest tests
+npm run lint:webapp      # Webapp ESLint, warnings fail it too
 npm run verify           # Full pre-commit gate (see below)
 ```
 
@@ -364,11 +365,13 @@ npm run verify           # Full pre-commit gate (see below)
    the files and checks no types (#293)
 3. `npm run typecheck:scripts` — types of the TypeScript scripts in `scripts/` (`tsconfig.scripts.json`, #297): ts-node
    checks a script only when it runs; the Supabase scripts are left out until #324
-4. `npm run test:ci` — Jest tests serially (`jest --runInBand`)
-5. `npm run test:webapp` — webapp Vitest tests
-6. `npm run build:webapp` — webapp production build
-7. `npm run check:fonts`, `npm run check:tokens` — self-hosted fonts in the build, generated Pastel tokens up to date
-8. `npm run analyze` — `dependency-cruiser` (`check:deps`): layer rules and `no-circular`, type-only imports included
+4. `npm run lint:webapp` — ESLint over `webapp/` (`webapp/eslint.config.js`); a warning fails it too
+   (`--max-warnings 0`, #296)
+5. `npm run test:ci` — Jest tests serially (`jest --runInBand`)
+6. `npm run test:webapp` — webapp Vitest tests
+7. `npm run build:webapp` — webapp production build
+8. `npm run check:fonts`, `npm run check:tokens` — self-hosted fonts in the build, generated Pastel tokens up to date
+9. `npm run analyze` — `dependency-cruiser` (`check:deps`): layer rules and `no-circular`, type-only imports included
 
 In CI the webapp is built twice: `npm ci` runs `postinstall` (`install:webapp` and `build:webapp`), then `verify` builds
 it again. Both stay on purpose: `scripts/live-update.sh` relies on the `postinstall` build, and `verify` has to build the
