@@ -166,10 +166,18 @@ npm run verify
 `npm run verify` runs, in order:
 
 1. `npm run build` — backend TypeScript build
-2. `npm run test:ci` — Jest tests serially (`jest --runInBand`)
-3. `npm run test:webapp` — webapp Vitest tests
-4. `npm run build:webapp` — webapp production build
-5. `npm run analyze` — `dependency-cruiser` + `madge` circular dependency scan
+2. `npm run typecheck:tests` — types of the tests and `src` with one `tsc` (`tsconfig.test.json`): Jest only translates
+   the files and checks no types (#293)
+3. `npm run test:ci` — Jest tests serially (`jest --runInBand`)
+4. `npm run test:webapp` — webapp Vitest tests
+5. `npm run build:webapp` — webapp production build
+6. `npm run check:fonts`, `npm run check:tokens` — self-hosted fonts in the build, generated Pastel tokens up to date
+7. `npm run analyze` — `dependency-cruiser` + `madge` circular dependency scan
+
+In CI the webapp is built twice: `npm ci` runs `postinstall` (`install:webapp` and `build:webapp`), then `verify` builds
+it again. Both stay on purpose: `scripts/live-update.sh` relies on the `postinstall` build, and `verify` has to build the
+tree it checks, which locally may be newer than the last install. Skipping one in CI would need `npm ci --ignore-scripts`
+(then `sqlite3` gets no native module) or a `postinstall` that behaves differently in CI — not worth ~11 s of a run.
 
 ## GitHub Actions
 
