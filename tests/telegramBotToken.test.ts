@@ -32,6 +32,17 @@ describe('TG_BOT_API_KEY in AppConfig (FT-167)', () => {
       .toEqual({ isValid: true, errors: [] });
   });
 
+  // #281: the flag is gone — it only switched the bot off. The live instance's env file may still have the line
+  it('a WEBHOOK_MODE left in an env file neither stops the start nor switches polling off', () => {
+    for (const WEBHOOK_MODE of ['false', 'true']) {
+      expect(appConfigWith({ ...production, TG_BOT_API_KEY: '123:token', WEBHOOK_MODE }).validate())
+        .toEqual({ isValid: true, errors: [] });
+      const { isValid, errors } = appConfigWith({ ...production, TG_BOT_API_KEY: '', ENABLE_TELEGRAM_POLLING: 'true', WEBHOOK_MODE }).validate();
+      expect(isValid).toBe(false);
+      expect(errors).toEqual([expect.stringMatching(/TG_BOT_API_KEY is required in production/)]);
+    }
+  });
+
   it('outside production an empty token still only disables the bot, as before', () => {
     for (const NODE_ENV of ['development', 'test']) {
       expect(appConfigWith({ NODE_ENV, TG_BOT_API_KEY: '', ENABLE_TELEGRAM_POLLING: 'true' }).validate())

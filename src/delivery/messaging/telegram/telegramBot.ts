@@ -181,12 +181,6 @@ export function startTelegramBot(
       return NO_BOT;
     }
 
-    if (AppConfig.WEBHOOK_MODE) {
-      telegramBotStatus = { state: 'disabled', attempts: 0, lastError: 'WEBHOOK_MODE=true' };
-      logger.warn('WEBHOOK_MODE=true, Telegram bot polling disabled');
-      return NO_BOT;
-    }
-
     // Ten minutes, not Telegraf's 90 s (#317): the 90 s cut a slow voice while it could still write and confirm, and
     // with the chat queue the wait behind the chat's earlier updates counts too. No limit would let one hung update
     // hold the whole batch — polling waits for all of it — so every chat. The queue lets the chat go at the same mark

@@ -107,7 +107,6 @@ describe('the bot answers only the allowed (FT-153)', () => {
     downloads = fs.mkdtempSync(path.join(os.tmpdir(), 'ft153-downloads-'));
     jest.replaceProperty(AppConfig, 'TG_BOT_API_KEY', '123:test');
     jest.replaceProperty(AppConfig, 'ENABLE_TELEGRAM_POLLING', true);
-    jest.replaceProperty(AppConfig, 'WEBHOOK_MODE', false);
     jest.replaceProperty(AppConfig, 'DOWNLOADS_PATH', downloads);
     jest.replaceProperty(AppConfig, 'TELEGRAM_ACCESS', telegramAccess([String(ALLOWED)]));
     jest.spyOn(process, 'once').mockImplementation(() => process);
