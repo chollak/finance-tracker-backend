@@ -20,6 +20,7 @@ import {
 } from '../domain/reminders';
 import { SentNotice } from './dailySummaryNotifier';
 import { TakenNotice, claimOrTake, closeExpired, isOpen, leaveNotSent, logLateAttempt } from './noticeAttempts';
+import { withTelegramChat } from './telegramChat';
 import { SchedulerOptions, Ticker } from './ticker';
 
 const logger = getLogger(LogCategory.TELEGRAM);
@@ -59,9 +60,6 @@ export interface ReminderTickResult {
 
 /** «Позже» pressed: the day the call comes again, or `closed` when the audit asked about is not the one held now. */
 export type AuditLaterAnswer = { kind: 'later'; dueOn: string } | { kind: 'closed' };
-
-/** A chat the bot can write to: a Telegram user id, not a guest or a dev id. */
-const TELEGRAM_CHAT = /^\d+$/;
 
 const settledKey = (userId: string, kind: NotificationKind, period: string) => `${userId}|${kind}|${period}`;
 
@@ -105,8 +103,10 @@ export class RemindersNotifier {
   async tick(sender: ReminderSender): Promise<ReminderTickResult[]> {
     const now = this.now();
     const results: ReminderTickResult[] = [];
-    for (const recipient of await this.recipients.list()) {
-      if (!TELEGRAM_CHAT.test(recipient.telegramId)) continue;
+    for (const listed of await this.recipients.list()) {
+      // Only a chat the bot can write to, by the rule of ALLOWED_TELEGRAM_IDS (#255): not a dev id
+      const recipient = withTelegramChat(listed);
+      if (recipient === null) continue;
       const clock = localClock(now, recipient.timeZone);
       try {
         await this.closeOverdue(recipient, clock.date);

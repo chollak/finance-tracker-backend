@@ -291,6 +291,32 @@ describe('goal, subscription and audit reminders in the bot (FT-133)', () => {
       expect(sent.map(message => message.chatId)).toEqual([TELEGRAM_ID]);
     });
 
+    /** The owner's Telegram id in `users` rewritten as given: rows the resolver did not write (#255). */
+    const ownerTelegramIdIs = (telegramId: string) => running.ds.query('UPDATE users SET telegram_id = ? WHERE id = ?', [telegramId, owner]);
+
+    it('only to a Telegram chat, by the rule of ALLOWED_TELEGRAM_IDS: `0` or a number from 2^53 on gets nothing (#255)', async () => {
+      await auditedOnOctober14();
+      await record('2026-10-27', 'Транспорт', 60_000, 'Такси');
+      at('2026-10-27', '12:30');
+
+      // The regex before let both through, and the bot wrote to chats no Telegram user has
+      for (const telegramId of ['0', '9007199254740993']) {
+        await ownerTelegramIdIs(telegramId);
+        expect(await tick()).toEqual([]);
+      }
+      expect(telegram.sendMessage).not.toHaveBeenCalled();
+    });
+
+    it('a Telegram id with leading zeros is its chat without them, as the list reads it (#255)', async () => {
+      await auditedOnOctober14();
+      await record('2026-10-27', 'Транспорт', 60_000, 'Такси');
+      at('2026-10-27', '12:30');
+      await ownerTelegramIdIs(`00${TELEGRAM_ID}`);
+
+      expect(await outcomes()).toEqual(['goal_near:sent']);
+      expect(sent.map(message => message.chatId)).toEqual([TELEGRAM_ID]);
+    });
+
     it('over its limit: once more, by how much; the 80% message never comes after it', async () => {
       await auditedOnOctober14();
       await record('2026-10-27', 'Транспорт', 60_000, 'Такси');
