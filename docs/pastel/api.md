@@ -36,7 +36,10 @@
 | плоская | `{ success: false, error: "<текст>", code }` | то, что стоит до обработчика: вход и закрытый доступ (`authMiddleware.ts`), лимиты запросов (`rateLimitMiddleware.ts`), тело, которое не прочитать, неизвестный маршрут и общий обработчик ошибок (`errorMiddleware.ts`) |
 
 Клиенты читают обе: webapp — `readServerError` (`webapp/src/shared/api/readServerError.ts`), iOS — `ServerError`
-(`ios/Kapelka/Queue/ServerError.swift`). Один `code` бывает в обеих формах — `403 ACCESS_NOT_ALLOWED` и `404 NOT_FOUND`.
+(`ios/Kapelka/Queue/ServerError.swift`). Один `code` бывает в обеих формах — `403 ACCESS_NOT_ALLOWED`, `404 NOT_FOUND` и
+`500 INTERNAL_ERROR` (строки таблицы ниже). Общий обработчик (`errorHandler`) отвечает плоско и ошибке с кодом
+(`AppError`) — её `code` и статусом, но обработчики маршрутов ловят свои ошибки сами (`handleControllerError`), поэтому
+ошибку с кодом клиент видит вложенной.
 Что именно не найдено, говорит только начало `message`: «Transaction not found: <id>», «Category not found: <id>», у
 маршрута — «Route GET /api/… not found».
 
@@ -68,7 +71,8 @@
 | 422 | `BUSINESS_LOGIC_ERROR`, `BOT_CHAT_CLOSED` | вложенная | нарушено правило — ниже |
 | 429 | `RATE_LIMIT_EXCEEDED` | плоская | лимит запросов за 15 минут: общий — 600 у вошедшего, 100 без входа (по адресу); `POST /api/auth/web-login` — 10, `GET /api/auth/web-login` — 300 с адреса |
 | 429 | `AI_RATE_LIMIT_EXCEEDED` | плоская | `POST /api/quick-capture`: 20 за 15 минут с адреса |
-| 500 | `INTERNAL_ERROR` | вложенная | сбой базы или неожиданная ошибка — ниже; плоская — если ошибка дошла до общего обработчика |
+| 500 | `INTERNAL_ERROR` | вложенная | сбой базы или неожиданная ошибка в обработчике маршрута — ниже |
+| 500 | `INTERNAL_ERROR` | плоская | неожиданная ошибка до обработчика маршрута или вне его `try` — её ловит общий обработчик (`errorHandler`) |
 | 500 | `AUTH_NOT_CONFIGURED` | плоская | нет `TG_BOT_API_KEY`: initData не проверить |
 | 502 | `EXTERNAL_SERVICE_ERROR` | вложенная | `POST /api/export/chat`: Telegram не ответил или токена бота нет |
 | 503 | `LOGIN_UNAVAILABLE` | вложенная | `POST /api/auth/web-login`: бот неизвестен |
