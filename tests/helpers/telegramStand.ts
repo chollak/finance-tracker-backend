@@ -209,7 +209,7 @@ export class TelegramStand {
     this.rules.push({ method, messageId, times, error });
   }
 
-  /** The person blocked the bot: Telegram refuses whatever the bot sends to the chat with 403. */
+  /** The person blocked the bot: Telegram refuses whatever the bot sends to the chat with 403 until they write again. */
   block(): void {
     this.blocked = true;
   }
@@ -316,8 +316,9 @@ export class TelegramStand {
     return [...this.messages.values()].filter(message => message.id >= firstNew);
   }
 
-  /** The person's message as Telegram delivers it. */
+  /** The person's message as Telegram delivers it; writing to a bot they blocked unblocks it. */
   messageUpdate(content: Record<string, unknown>, { replyTo }: { replyTo?: number } = {}): Update.MessageUpdate {
+    this.blocked = false;
     const replied = replyTo === undefined ? undefined : this.messages.get(replyTo);
     const reply = replyTo === undefined ? {} : {
       reply_to_message: { message_id: replyTo, date: nowSeconds(), chat: this.chat, from: STAND_BOT, text: replied?.text ?? '' },

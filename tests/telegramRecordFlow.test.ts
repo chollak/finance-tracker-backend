@@ -779,6 +779,45 @@ describe('bot record messages (FT-122)', () => {
     expect(labels(message)).toEqual([['Изменить', 'Отменить']]);
   });
 
+  describe('Telegram around the bot (#280)', () => {
+    const rows = async () => Number((await running.ds.query('SELECT COUNT(*) AS n FROM "transactions" WHERE "deleted_at" IS NULL'))[0].n);
+
+    // Polling hands a batch of getUpdates to the handlers side by side; the order inside one batch is #317
+    it('the same words twice in one batch of updates are two messages: two records, a confirmation each', async () => {
+      plan = [coffee];
+      planMissing = [];
+
+      const confirmations = await stand.deliver([stand.textUpdate('кофе 25к'), stand.textUpdate('кофе 25к')]);
+
+      expect(running.capture).toHaveBeenCalledTimes(2);
+      expect(await rows()).toBe(2);
+      expect(confirmations.map(message => message.text)).toEqual([expect.stringContaining('«Кофе»'), expect.stringContaining('«Кофе»')]);
+      const shown = await Promise.all(confirmations.map(message => recordIdsOf(message.id)));
+      expect(shown.map(ids => ids.length)).toEqual([1, 1]);
+      expect(new Set(shown.flat()).size).toBe(2);
+    });
+
+    it('a person who blocks the bot while the phrase is parsed keeps the record; the bot answers them when they come back', async () => {
+      const writeRecords = running.capture.getMockImplementation()!;
+      running.capture.mockImplementationOnce(async request => {
+        stand.block();
+        return writeRecords(request);
+      });
+      plan = [taxi];
+
+      // The confirmation and the error notices after it are all refused with 403; bot.catch gets the last one
+      await stand.write('такси 18к нал', { botCatch: 'allow' });
+
+      expect(await rows()).toBe(1);
+      expect(sent()).toEqual([]);
+      expect(stand.caught).toEqual([expect.objectContaining({ code: 403 })]);
+
+      const message = await write('кофе 25к', [coffee]);
+      expect(text(message)).toContain('«Кофе»');
+      expect(await rows()).toBe(2);
+    });
+  });
+
   describe('a bot message deleted from the chat (#277)', () => {
     const ERROR = 'Произошла ошибка. Попробуйте снова.';
 
