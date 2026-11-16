@@ -114,5 +114,4 @@ export class UserModule {
     if (!this.updateUserSettingsUseCase) throw new Error('UserModule was created without a settings repository');
     return this.updateUserSettingsUseCase;
   }
-
 }

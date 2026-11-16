@@ -126,4 +126,3 @@ export function createUserResolutionMiddleware(userModule: UserModule) {
     }
   };
 }
-
