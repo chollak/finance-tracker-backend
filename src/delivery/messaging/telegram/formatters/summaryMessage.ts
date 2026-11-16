@@ -81,7 +81,10 @@ function monthLine(month: MonthSummary): string | null {
   return month.comparison ? `${head}, ${comparisonWords(month.comparison)}.` : `${head}.`;
 }
 
-/** A link to the Mini App in a row of its own: «Открыть Kapelka ↗»; nothing when the Mini App is not configured. */
+/**
+ * A link to the Mini App in a row of its own: «Открыть Kapelka ↗»; nothing without a URL — `appLinks` gives none
+ * unless WEB_APP_URL is HTTPS (#278).
+ */
 export function appLinkRows(label: string, url: string | undefined): InlineKeyboardButton[][] {
   return url ? [[Markup.button.webApp(`${label} ↗`, url)]] : [];
 }

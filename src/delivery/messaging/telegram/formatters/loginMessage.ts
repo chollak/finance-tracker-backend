@@ -3,6 +3,7 @@ import { Markup } from 'telegraf';
 import { LoginAnswer } from '../../../../modules/auth/domain/webLogin';
 import { BotLoginAnswer } from '../../../../modules/auth/application/webLogin';
 import { localClock } from '../../../../modules/notification/domain/dailySummary';
+import { isHttpsUrl } from '../utils/webAppUrl';
 
 /**
  * The bot's side of the web login (FT-128; boards «Бот · подтверждение входа», «Бот, вход из браузера, тёмная»):
@@ -70,15 +71,15 @@ export function formatStaleLogin(): LoginNotice {
 }
 
 /**
- * What the question becomes after a press. «Вернуться в браузер ↗» opens the web app — only an HTTPS address: Telegram
- * refuses a button to http://localhost.
+ * What the question becomes after a press. «Вернуться в браузер ↗» opens the web app — only an HTTPS address, the rule
+ * of every link of the bot to the app (`isHttpsUrl`, #278): Telegram refuses a button to http://localhost.
  */
 export function formatLoginAnswer(answer: BotLoginAnswer, options: { webUrl?: string }): LoginNotice {
   switch (answer.kind) {
     case 'confirmed':
       return {
         text: `<b>Вход подтверждён</b>\n${escapeHtml(answer.device)}. Вернитесь в браузер — Kapelka уже открыта.`,
-        keyboard: options.webUrl?.startsWith('https://') ? [[Markup.button.url('Вернуться в браузер ↗', options.webUrl)]] : [],
+        keyboard: isHttpsUrl(options.webUrl) ? [[Markup.button.url('Вернуться в браузер ↗', options.webUrl)]] : [],
       };
     case 'rejected':
       return {
