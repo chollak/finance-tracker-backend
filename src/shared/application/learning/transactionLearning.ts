@@ -14,7 +14,7 @@ import {
   withoutLessonsOf,
 } from './categoryLessonStore';
 
-export { CategoryPattern, LearnedPatterns, LearningData, MerchantPattern } from './learningTypes';
+export type { CategoryPattern, LearnedPatterns, LearningData, MerchantPattern } from './learningTypes';
 
 const logger = createLogger(LogCategory.LEARNING);
 
