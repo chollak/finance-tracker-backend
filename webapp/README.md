@@ -68,7 +68,9 @@ webapp/
 
 The project follows a Feature-Sliced Design style layout. The components of «Пастель» live in `src/shared/ui/pastel/`; there is no separate design-system package and no shadcn layer (#290).
 
-Every page loads its own code (#291): the router's lazy imports name the page's module (`import('@/pages/home')`), and there is no `src/pages/index.ts` barrel — one import of a barrel of all the pages would put every screen into a single chunk, and Home would download all of them. The build names these chunks `page-<page>-*.js`; the screens of one page module (analytics, the accounts, voice and receipts offline) share its chunk.
+Every page loads its own code (#291): the router's lazy imports go through `src/app/router/pageLoaders.ts`, one `import('@/pages/<page>')` per page module, and there is no `src/pages/index.ts` barrel — one import of a barrel of all the pages would put every screen into a single chunk, and Home would download all of them. The build names these chunks `page-<page>-*.js`; the screens of one page module (analytics, the accounts, voice and receipts offline) share its chunk.
+
+Once Home is drawn, its reads are in and the browser is idle (`requestIdleCallback`, a one-second timer in Safari and the iOS WebView), the chunks of the screens Home leads to load ahead (`screenPrefetch.ts`), so the first move to a screen does not wait for its code. The login, the first launch and a screen opened straight away load only their own. The load ahead runs once, one screen after another, and stops quietly at the first failure: a browser remembers a failed `import()` until the app is loaded again (Chrome does), so it is not tried on a bad connection, and a failure costs at most one screen its «Обновить».
 
 ## Telegram Mini App notes
 
