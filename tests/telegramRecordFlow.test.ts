@@ -1098,6 +1098,43 @@ describe('bot record messages (FT-122)', () => {
     expect(labels(edited)[0]).toEqual(['Сумму', 'Категорию']);
   });
 
+  /**
+   * #281: a quick-add button of a message sent before FT-124 pressed while the bot was down or behind a long update:
+   * Telegram no longer takes an answer to the press («query is too old»). The handler answered again from its `catch`,
+   * that refusal reached `bot.catch`, and the chat got «Произошла ошибка». The spinner goes by itself; the press is not
+   * an error. (The stand's `pressData` fails a test whose update reaches `bot.catch`.)
+   */
+  describe('a quick-add button of a message sent before FT-124, pressed too late to answer (#281)', () => {
+    const tooOld: Refusal = { error_code: 400, description: 'Bad Request: query is too old and response timeout expired or query ID is invalid' };
+
+    async function cafeButton(): Promise<{ message: number; data: string }> {
+      const cafe = (await running.categoryModule.getCatalog().listForUser(userId)).find(category => category.name === 'Кафе')!;
+      const data = `quickadd:${cafe.id}`;
+      return { message: stand.sentBefore('Выберите категорию', [[{ text: 'Кафе', callback_data: data }]]), data };
+    }
+
+    it('still asks for the amount, and says nothing of an error', async () => {
+      const { message, data } = await cafeButton();
+      stand.refuse('answerCallbackQuery', tooOld, { times: Infinity });
+
+      await pressData(message, data);
+
+      expect(sent().map(shown => shown.text)).toEqual(['Выберите категорию', 'Кафе\n\nВведите сумму:']);
+    });
+
+    it('a press that fails is only logged when Telegram refuses its answer too', async () => {
+      const { message, data } = await cafeButton();
+      jest.spyOn(running.categoryModule, 'getCatalog').mockImplementation(() => { throw new Error('database is closed'); });
+
+      expect(await pressData(message, data)).toEqual(['Произошла ошибка. Попробуйте снова.']);
+
+      stand.refuse('answerCallbackQuery', tooOld, { times: Infinity });
+      await pressData(message, data);
+
+      expect(sent().map(shown => shown.text)).toEqual(['Выберите категорию']);
+    });
+  });
+
   it('answers every press so the button does not spin', async () => {
     const message = await write('такси 18к нал', [taxi]);
 
