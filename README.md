@@ -27,9 +27,8 @@ npm install
 - `TG_BOT_API_KEY` - Telegram bot token
 - `WEB_APP_URL` - Public URL for the web application
 
-**Database (choose one):**
-- `DATABASE_TYPE=sqlite` (default, no additional config needed)
-- `DATABASE_TYPE=supabase` (requires SUPABASE_URL and SUPABASE_ANON_KEY)
+**Database:**
+- `DATABASE_TYPE=sqlite` (default, no additional config needed) — the only one supported: the Supabase path was removed in FT-090
 
 See `.env.example` for full configuration options.
 
