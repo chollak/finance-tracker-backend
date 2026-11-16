@@ -17,6 +17,7 @@ import { SubscriptionModule } from '../src/modules/subscription/subscriptionModu
 import { SqliteSubscriptionRepository } from '../src/modules/subscription/infrastructure/SqliteSubscriptionRepository';
 import { SqliteUsageLimitRepository } from '../src/modules/subscription/infrastructure/SqliteUsageLimitRepository';
 import { UserModule } from '../src/modules/user/userModule';
+import { todayDateOnly } from '../src/shared/domain/dates/dateOnly';
 import { SqliteUserRepository } from '../src/modules/user/infrastructure/persistence/SqliteUserRepository';
 import { SqliteUserSettingsRepository } from '../src/modules/user/infrastructure/persistence/SqliteUserSettingsRepository';
 import { openMigratedDatabase, TestDatabase } from './helpers/testDatabase';
@@ -124,7 +125,8 @@ describe('the Mini App reads write nothing for a known user (#335)', () => {
 
   /** Every GET a Pastel screen sends (webapp `API_ENDPOINTS`), for the user's own account, category and record. */
   function screenReads(ids: { accountId: string; categoryId: string; recordId: string }): string[] {
-    const today = new Date().toISOString().slice(0, 10);
+    // Today and this month the way the app counts them — in Tashkent
+    const today = todayDateOnly();
     const month = today.slice(0, 7);
     return [
       '/settings',
@@ -153,7 +155,7 @@ describe('the Mini App reads write nothing for a known user (#335)', () => {
     expect((await get('/settings')).status).toBe(200);
     const userId = (await userModule.getGetOrCreateUserUseCase().execute({ telegramId: String(TELEGRAM_ID) })).id;
     const created = await transactionModule.getCreateTransactionUseCase().execute({
-      userId, amount: 25000, type: 'expense', category: 'Кафе', description: 'кофе', date: new Date().toISOString().slice(0, 10),
+      userId, amount: 25000, type: 'expense', category: 'Кафе', description: 'кофе', date: todayDateOnly(),
     } as never);
     if (!created.success) throw created.error;
     const [record] = await db.dataSource.query(

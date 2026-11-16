@@ -9,6 +9,9 @@ import { CreateTransactionUseCase } from '../src/modules/transaction/application
 import { QuickCaptureService } from '../src/modules/quickCapture/application/quickCaptureService';
 import { isSuspiciouslyLarge, LARGE_AMOUNT_MIN_MINOR } from '../src/modules/voiceProcessing/domain/largeAmount';
 
+// ffmpeg is faked: a real one on fake audio is one more process per voice test (#295)
+jest.mock('child_process', () => jest.requireActual('./helpers/fakeFfmpeg').childProcessWithFakeFfmpeg());
+
 /**
  * FT-123: a phrase may name something without an amount («кофе 25к, такси, обед 45»). Nothing is written
  * for «такси»; the capture says it was named, and the bot writes it once the person says how much.

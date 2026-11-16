@@ -1,9 +1,12 @@
+// @vitest-environment jsdom
 import { beforeEach, describe, expect, it } from 'vitest';
 import { useUserStore, withoutGuest } from './store';
 
 /**
  * FT-128, decision Д4: guest mode in the browser is gone. A browser signs in through the bot and keeps a session; a
  * guest an older version kept in localStorage is nobody now, so the login screen shows instead of a guest's Home.
+ *
+ * In jsdom, as in the browser, the store has its localStorage: without one zustand's persist warns on every change.
  */
 
 beforeEach(() => {

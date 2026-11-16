@@ -7,6 +7,7 @@ import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import { useUserStore } from '@/entities/user';
 import { apiClient } from '@/shared/api';
 import { appRoutes } from './appRoutes';
+import { ignoreWindowScroll, squash, until } from './screenTesting';
 
 /**
  * #291: every screen loads its own code, not one piece with all the screens. So Home does not wait for the code of
@@ -34,6 +35,7 @@ let logged: ReturnType<typeof vi.spyOn>;
 
 beforeEach(() => {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+  ignoreWindowScroll();
   logged = vi.spyOn(console, 'error').mockImplementation(() => {});
   vi.mocked(apiClient.get).mockReset();
   vi.mocked(apiClient.get).mockImplementation(async (url: string) => {
@@ -54,24 +56,9 @@ afterEach(() => {
   logged.mockRestore();
 });
 
-const squash = (value: string | null | undefined) => value?.replace(/\s+/g, ' ').trim() ?? '';
-const text = () => squash(document.body.textContent);
 const title = () => squash(document.body.querySelector('h1')?.textContent);
-
-async function wait(ms: number) {
-  await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, ms));
-  });
-}
-
-/** Waits (up to `timeout`) for the screen to show something; the gates and lazy pages take a few renders. */
-async function until(predicate: () => boolean, timeout = 10_000) {
-  const started = Date.now();
-  while (!predicate()) {
-    if (Date.now() - started > timeout) throw new Error(`Timed out; the screen says: ${text().slice(0, 300)}`);
-    await wait(20);
-  }
-}
+/** A screen's code loads in these tests: on a busy run it takes longer than the other route tests wait. */
+const LOAD_TIMEOUT = 10_000;
 
 async function open(path: string) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -89,12 +76,12 @@ async function open(path: string) {
 describe('every screen loads its own code', () => {
   it('the screen whose code did not load says «Экран не открылся»', async () => {
     await open('/analytics');
-    await until(() => title() === FAILED);
+    await until(() => title() === FAILED, LOAD_TIMEOUT);
   });
 
   it('another screen still opens', async () => {
     await open('/more');
-    await until(() => title() !== '');
+    await until(() => title() !== '', LOAD_TIMEOUT);
 
     expect(title()).toBe('Ещё');
   }, 15_000);
@@ -102,7 +89,7 @@ describe('every screen loads its own code', () => {
   it('Home still opens', async () => {
     await open('/');
     // The composer is Home's own: past the skeleton, Home's code is in
-    await until(() => document.body.querySelector('[aria-label="Быстрый ввод"]') !== null || title() === FAILED);
+    await until(() => document.body.querySelector('[aria-label="Быстрый ввод"]') !== null || title() === FAILED, LOAD_TIMEOUT);
 
     expect(title()).not.toBe(FAILED);
   }, 15_000);
@@ -111,7 +98,7 @@ describe('every screen loads its own code', () => {
     useUserStore.setState({ userId: null, userType: null, telegramId: null, userName: null, signedOut: true });
 
     await open('/');
-    await until(() => title() !== '');
+    await until(() => title() !== '', LOAD_TIMEOUT);
 
     expect(title()).not.toBe(FAILED);
   }, 15_000);

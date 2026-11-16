@@ -2,6 +2,7 @@ import { createTransactionRouter } from '../src/modules/transaction/presentation
 import { GetFrequentRecordsUseCase } from '../src/modules/transaction/application/getFrequentRecords';
 import { FREQUENT_RECORDS_RULE, pickFrequentRecords } from '../src/modules/transaction/domain/frequentRecords';
 import { Transaction } from '../src/modules/transaction/domain/transactionEntity';
+import { todayDateOnly } from '../src/shared/domain/dates/dateOnly';
 import { UserModule } from '../src/modules/user/userModule';
 import { SqliteUserRepository } from '../src/modules/user/infrastructure/persistence/SqliteUserRepository';
 import { SqliteUserSettingsRepository } from '../src/modules/user/infrastructure/persistence/SqliteUserSettingsRepository';
@@ -179,7 +180,8 @@ describe('frequent expenses for the quick chips (FT-114)', () => {
 
       it('answers the current user\'s frequent expenses and no one else\'s', async () => {
         const userId = (await server.request('GET', '/api/settings', { devUser: 4242 })).body.data.userId;
-        const now = new Date().toISOString().slice(0, 10);
+        // Today the way the app counts it — in Tashkent; the UTC day is yesterday there before 05:00
+        const now = todayDateOnly();
         for (let i = 0; i < 3; i += 1) await record({ userId, amount: 18000, category: 'Транспорт', description: 'Такси', date: now });
         for (let i = 0; i < 3; i += 1) await record({ amount: 99000, description: 'Чужое', date: now }, 'someone-else');
 

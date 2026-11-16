@@ -13,6 +13,9 @@ import { SqliteCategoryRepository } from '../src/modules/category/infrastructure
 import { openMigratedDatabase, TestDatabase } from './helpers/testDatabase';
 import { recordsOn } from './helpers/records';
 
+// ffmpeg is faked: a real one on fake audio is one more process per voice test (#295)
+jest.mock('child_process', () => jest.requireActual('./helpers/fakeFfmpeg').childProcessWithFakeFfmpeg());
+
 /**
  * FT-138, decision of 2026-10-20: «?» on a category only when no word of the record names it — by the user's
  * name of it, by a word of the category dictionary, or by a word a learned pattern ties to it. So the AI's own

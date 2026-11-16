@@ -7,6 +7,9 @@ import { AnalysisResult, ParsedTransaction, TranscriptionService } from '../src/
 import { CreateTransactionUseCase } from '../src/modules/transaction/application/createTransaction';
 import { readWrittenNumber } from '../src/modules/voiceProcessing/domain/writtenNumber';
 
+// ffmpeg is faked: a real one on fake audio is one more process per voice test (#295)
+jest.mock('child_process', () => jest.requireActual('./helpers/fakeFfmpeg').childProcessWithFakeFfmpeg());
+
 jest.mock('../src/modules/voiceProcessing/infrastructure/openAITranscriptionService');
 
 /**

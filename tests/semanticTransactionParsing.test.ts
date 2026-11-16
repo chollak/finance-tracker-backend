@@ -6,6 +6,9 @@ import { ProcessVoiceInputUseCase } from '../src/modules/voiceProcessing/applica
 import { TranscriptionService } from '../src/modules/voiceProcessing/domain/transcriptionService';
 import { CreateTransactionUseCase } from '../src/modules/transaction/application/createTransaction';
 
+// ffmpeg is faked: a real one on fake audio is one more process per voice test (#295)
+jest.mock('child_process', () => jest.requireActual('./helpers/fakeFfmpeg').childProcessWithFakeFfmpeg());
+
 /** Text and voice paths choose categories and accounts automatically (FT-099, FT-103). */
 const AUTOMATIC = expect.objectContaining({ visibleCategoriesOnly: true, allowCurrencyMismatch: true });
 
