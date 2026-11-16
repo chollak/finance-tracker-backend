@@ -242,6 +242,31 @@ first one had been written.
   restart a message sent again logs `Telegram sent a handled message again; its records are not written twice`, an
   amount answer sent again `Telegram sent an amount answer again; it is not applied twice`.
 
+**Update (#317): the updates of one chat one at a time.** Telegraf's polling hands a whole batch of `getUpdates` to
+the handlers side by side, and a batch is everything that came while the bot did not poll — the PC asleep, a restart,
+a slow voice message holding the loop. Inside a batch the order was lost: «такси 18к» and `/undo` sent together
+cancelled the record before «Такси»; «такси» and «18к» made «18к» a phrase of its own instead of the answer to
+«Сколько?».
+
+- **The chat queue.** `chatQueue()` (`src/delivery/messaging/telegram/middleware/chatQueue.ts`) is the second
+  `bot.use`, right after `allowedUsersOnly`: an update of a chat starts once the chat's previous one is done, failed or
+  not, in the order Telegram sent them; each failure still reaches its own `bot.catch`. Chats do not wait for each
+  other. It must stay before any middleware that awaits: Telegraf enters the middleware of a batch's updates in their
+  order only up to the first `await`. An update without a chat (a payment's `pre_checkout_query`) is not held.
+- **No handler limit.** Telegraf's `handlerTimeout` (90 s) is off (`Infinity`). After it, `bot.catch` answered
+  «Произошла ошибка. Попробуйте снова.» while the handler went on and could still write and confirm, so the repeat was
+  a second record; with the queue the wait would count too. The slow parts have their own limits (OpenAI
+  `OPENAI_TIMEOUT_MS`, the voice download). An update still handled after `SLOW_UPDATE_MS` (90 s) logs `warn`
+  `A Telegram update is still being handled; the next updates of its chat wait for it` (`updateId`, `updateType`)
+  and runs on.
+- **The stop is as before (FT-167).** Polling still waits for the whole batch before it confirms its offset, so the
+  shutdown waits for the queued updates of the batch too, within the same `BOT_STOP_GRACE_MS`; what is left after it
+  is sent again by Telegram. The queue holds no timer that keeps the process running.
+- **Trade-off.** Polling waits for the slowest chat of a batch, as before; a handler that never ends would now hold
+  the bot instead of being let go after 90 s — the `warn` above names it, and a restart sends its update again.
+- **A second delete changes nothing.** `DeleteTransactionUseCase` leaves a record already deleted as it is — its
+  `deleted_at` and the free-limit counter — and answers success, as a restore of a record that is not deleted does.
+
 ## Proposed Mode Semantics
 
 ### `APP_MODE=all`

@@ -343,8 +343,9 @@ Bot scenarios run on `tests/helpers/telegramStand.ts` (#280): the real `startTel
 Telegraf routes the commands, presses and handler order; only the Bot API is a fake private chat. It refuses as
 Telegram does (an edit of a deleted message, an edit that changes nothing, a second answer to a press, a Mini App
 button off HTTPS) and on demand (`refuse()` — 429, a network error; `block()` — 403), and takes updates one at a time
-or as one getUpdates batch (`deliver([...])`, handled side by side as polling does). An update that ends in `bot.catch`
-fails the delivery unless the test passes `botCatch: 'allow'`. Used by `telegramRecordFlow` and `telegramCommands`.
+or as one getUpdates batch (`deliver([...])`, handed over side by side as polling does; the bot's chat queue then takes
+one chat's updates in order, #317). An update that ends in `bot.catch` fails the delivery unless the test passes
+`botCatch: 'allow'`. Used by `telegramRecordFlow`, `telegramCommands` and `telegramChatQueue`.
 
 ### Code Quality
 
