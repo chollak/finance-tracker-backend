@@ -14,7 +14,7 @@ const CONTENT_HASH_IN_NAME = /-[\w-]{8}\.\w+$/;
  * copies as is from `webapp/public/assets/` lands in the same folder without a hash and would never be updated.
  * Everything else keeps express.static's `public, max-age=0` — index.html, the manifest, the service worker and the
  * icons reach the phone on the first open after an update. Only a file that is there gets here: a chunk gone with an
- * update falls through to index.html, which is not kept under the chunk's name.
+ * update falls through to `assetNotInBuild`.
  */
 function webAppCacheHeaders(webAppPath: string): (res: ServerResponse, filePath: string) => void {
   const assetsDir = path.resolve(webAppPath, 'assets') + path.sep;
@@ -24,6 +24,16 @@ function webAppCacheHeaders(webAppPath: string): (res: ServerResponse, filePath:
     }
   };
 }
+
+/**
+ * A file of `assets/` that is not in the build — a chunk of the version before an update — is 404 (#380). As a page of
+ * the web app it got index.html with 200, and the service worker's CacheFirst for `.js` (vite.config.ts) kept that HTML
+ * as the chunk; the import failed either way. `no-store`: the name may come back with a rollback.
+ */
+const assetNotInBuild: RequestHandler = (_req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  res.sendStatus(404);
+};
 
 /**
  * The HTTP app of the live instance: the API under `/api` and the web app on the root. Built here rather than in
@@ -47,6 +57,7 @@ export function createHttpApp(api: RequestHandler, webAppPath: string): Express 
 
   // The web app on the root; every other path is one of its pages (client-side routes)
   app.use('/', express.static(webAppPath, { setHeaders: webAppCacheHeaders(webAppPath) }));
+  app.use('/assets', assetNotInBuild);
   app.get('*', (_req, res) => {
     res.sendFile(path.join(webAppPath, 'index.html'));
   });

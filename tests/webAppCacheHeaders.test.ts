@@ -11,7 +11,8 @@ import { listenOnLoopback, LoopbackServer } from './helpers/testServer';
 /**
  * #380: how long a browser keeps a file of the web app. The files Vite names by their content (`assets/*-<hash>.*`)
  * are kept for good; everything else is asked about on every open, as before: index.html, the manifest and the service
- * worker must reach the phone on the first open after an update. The API keeps its `no-store` (#272).
+ * worker must reach the phone on the first open after an update. A file of `assets/` that is not in the build is 404,
+ * not index.html; every other path is still a page of the web app. The API keeps its `no-store` (#272).
  *
  * The folder mirrors `npm run build:webapp` (`public/webapp`), plus a file in `assets/` without a hash — what Vite
  * would copy there as is from `webapp/public/assets/`.
@@ -97,13 +98,30 @@ describe('the cache of the web app’s files (#380)', () => {
     expect(res.headers.get('cache-control')).toBe(ASK_EVERY_TIME);
   });
 
-  // A chunk of the version before an update is gone from the build: the answer is index.html, which must not be kept
-  // for good under the chunk's name
-  it('a hashed name that is not in the build is not kept for good', async () => {
-    const res = await get('/assets/page-home-Gone1234.js');
+  // A chunk of the version before an update is gone from the build. index.html with 200 under its name would be kept by
+  // the service worker's CacheFirst for `.js` (vite.config.ts) as that chunk; a 404 is kept by nobody
+  it.each([
+    '/assets/page-home-Gone1234.js',
+    '/assets/index-Gone1234.css',
+    '/assets/logo.svg',
+    '/assets/',
+    '/assets/nested/index-BLbtmfHV.js',
+  ])('%s, not in the build, is 404 — not index.html, not kept', async requestPath => {
+    const res = await get(requestPath);
 
-    expect(await res.text()).toContain('<title>Kapelka</title>');
-    expect(res.headers.get('cache-control')).toBe(ASK_EVERY_TIME);
+    expect(res.status).toBe(404);
+    expect(await res.text()).not.toContain('<title>Kapelka</title>');
+    expect(res.headers.get('cache-control')).toBe('no-store');
+  });
+
+  it('a page of the web app is still its index.html, a path that only starts like assets/ too', async () => {
+    for (const requestPath of ['/settings', '/transactions/42', '/assetsfoo', '/webapp/assets/index-BLbtmfHV.js']) {
+      const res = await get(requestPath);
+
+      expect(res.status).toBe(200);
+      expect(await res.text()).toContain('<title>Kapelka</title>');
+      expect(res.headers.get('cache-control')).toBe(ASK_EVERY_TIME);
+    }
   });
 
   it.each(['/api/health', '/api/does-not-exist', '/api/assets/index-BLbtmfHV.js'])(
