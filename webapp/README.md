@@ -68,6 +68,8 @@ webapp/
 
 The project follows a Feature-Sliced Design style layout. The components of «Пастель» live in `src/shared/ui/pastel/`; there is no separate design-system package and no shadcn layer (#290).
 
+Every page loads its own code (#291): the router's lazy imports name the page's module (`import('@/pages/home')`), and there is no `src/pages/index.ts` barrel — one import of a barrel of all the pages would put every screen into a single chunk, and Home would download all of them. The build names these chunks `page-<page>-*.js`; the screens of one page module (analytics, the accounts, voice and receipts offline) share its chunk.
+
 ## Telegram Mini App notes
 
 - Phone testing requires a public HTTPS URL; `localhost` is not enough.
