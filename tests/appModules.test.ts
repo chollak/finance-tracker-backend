@@ -66,6 +66,13 @@ describe('the app as createModules() assembles it (#294)', () => {
     // The app opens AppDataSource at data/database.sqlite of its folder; here it opens the temp file instead
     AppDataSource.setOptions({ database: file });
     await AppDataSource.initialize();
+    // Before anything is migrated or cleared: should setOptions ever stop moving the file (a TypeORM update), this
+    // stops here, not on the project's own database
+    const [main] = await AppDataSource.query('PRAGMA database_list');
+    if (main?.file !== fs.realpathSync(file)) {
+      await AppDataSource.destroy();
+      throw new Error(`AppDataSource opened ${main?.file}, not the temp file ${file}`);
+    }
     await runMigrationsWithBackup(AppDataSource, file, path.join(dir, 'backups'));
   });
 
@@ -160,6 +167,48 @@ describe('the app as createModules() assembles it (#294)', () => {
     // $10 at 12 800 сум, less the coffee
     expect(accounts.totalMinor).toBe(12_800_000 - 2_500_000);
     expect(accounts.rate).toMatchObject({ rateMinor: 1_280_000 });
+  });
+
+  it('a dollar record counts in Home\'s totals at the user\'s own rate', async () => {
+    await ok('PUT', '/rates/usd/own', { rateMinor: 1_280_000 });
+    const dollars = await ok('POST', '/accounts', { name: 'Доллары', kind: 'card', currency: 'USD' });
+    await write({});
+    await write({ amount: 5, currency: 'USD', accountId: dollars.id, description: 'наушники' });
+
+    const totals = await ok('GET', `/transactions/totals?from=${today}&to=${today}`);
+
+    // The coffee and $5 at 12 800 сум
+    expect(totals.expenseMinor).toBe(2_500_000 + 6_400_000);
+    expect(totals.usd).toMatchObject({ present: true, missingRate: false, rateMinor: 1_280_000 });
+  });
+
+  it('an exchange keeps the Central Bank rate of its day next to the deal\'s', async () => {
+    // The Central Bank's rate of the day, as the daily refresh keeps it: nothing is loaded here
+    await AppDataSource.query(
+      `INSERT INTO fx_rates (date, currency, rate_minor, source, fetched_at) VALUES (?, 'USD', ?, 'cbu', ?)`,
+      [today, 1_265_000, new Date().toISOString()]
+    );
+    const card = await accountNamed('Карта');
+    const dollars = await ok('POST', '/accounts', { name: 'Доллары', kind: 'card', currency: 'USD' });
+
+    const move = await ok('POST', '/moves', {
+      kind: 'exchange', fromAccountId: card.id, toAccountId: dollars.id, fromAmountMinor: 126_000_000, toAmountMinor: 10_000, date: today,
+    });
+
+    expect(move).toMatchObject({ kind: 'exchange', dealRateMinor: 1_260_000, cbuRateMinor: 1_265_000 });
+  });
+
+  it('a record counts in the month\'s usage, and its deletion and restoring count too', async () => {
+    const used = async () => (await ok('GET', `/subscription/${TELEGRAM_ID}`)).limits.transactions.used;
+
+    const { id } = await write({});
+    expect(await used()).toBe(1);
+
+    await ok('DELETE', `/transactions/${id}`);
+    expect(await used()).toBe(0);
+
+    await ok('POST', `/transactions/${id}/restore`);
+    expect(await used()).toBe(1);
   });
 
   it('a category corrected in the Mini App takes back what the record taught, through the shared learning', async () => {

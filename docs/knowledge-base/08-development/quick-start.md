@@ -354,16 +354,19 @@ at a time or as one getUpdates batch (`deliver([...])`, handed over side by side
 then takes one chat's updates in order, #317), from the person or `from` someone else, with `sentAt` as Telegram's
 `message.date`. An update that ends in `bot.catch` fails the delivery unless the test passes `botCatch: 'allow'`.
 `start(modules, { botId })` is a restart, as another bot if asked; the notices' schedulers send through
-`stand.telegram`, and `stand.sent()` is every message Telegram took, as sent. Every bot suite uses it; there is no other
-fake Telegraf in `tests/`.
+`stand.telegram`, and `stand.sent()` is every message Telegram took, as sent. The bot's scenarios use it. Three suites
+fake Telegram otherwise, for what the stand does not do: `telegramBot.test.ts` (`jest.doMock('telegraf')` — the launch,
+409 polling conflicts, the stop), `telegramBotGracefulStop.test.ts` (the Bot API under Telegraf's own polling loop) and
+`premiumWithoutDebts.test.ts` (an object that keeps what `registerPaymentHandlers` registers).
 
 A suite whose bot restarts opens the same file again: a `DatabaseFile` from `tests/helpers/testDatabase.ts`
 (`prepareDatabaseOnce().newFile()` — the file migrated once per suite — or `newDatabaseFile()`); each `open()` is a new
 connection made as the app makes one, `remove()` closes them and deletes the folder.
 
 `tests/appModules.test.ts` runs the app as `src/index.ts` assembles it (#294): `createModules()` on `AppDataSource`
-pointed at a temp file (`setOptions` before it connects; the project's `data/database.sqlite` is never opened),
-`buildServer` and `createHttpApp`, the bot from the same modules. A `set…` link `createModules()` forgets fails there;
+pointed at a temp file (`setOptions` before it connects, checked before anything is migrated; the project's
+`data/database.sqlite` is never opened), `buildServer` and `createHttpApp`, the bot from the same modules. Each of the
+ten `set…` links of `createModules()` fails a test there when it is left out — a new link gets its check there too;
 the other suites wire the modules they need by hand.
 
 ### Code Quality
