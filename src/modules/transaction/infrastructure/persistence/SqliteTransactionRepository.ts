@@ -1,4 +1,4 @@
-import { DataSource, Repository, SelectQueryBuilder } from 'typeorm';
+import { DataSource, IsNull, Repository, SelectQueryBuilder } from 'typeorm';
 import { QueryDeepPartialEntity } from 'typeorm/query-builder/QueryPartialEntity';
 import { AppDataSource } from '../../../../shared/infrastructure/database/database.config';
 import { Transaction as TransactionEntity, TransactionType } from '../../../../shared/infrastructure/database/entities/Transaction';
@@ -85,9 +85,13 @@ export class SqliteTransactionRepository implements TransactionRepository {
     return entity ? this.mapToTransaction(entity) : null;
   }
 
-  /** Deletes softly (FT-105); `restore` brings the record back. */
-  async delete(id: string): Promise<void> {
-    await this.repository.update(id, { deletedAt: new Date() });
+  /**
+   * Deletes softly (FT-105); `restore` brings the record back. One `UPDATE … WHERE deleted_at IS NULL` (#383): of two
+   * deletes of one record at once only one changes the row, and only it answers true.
+   */
+  async delete(id: string): Promise<boolean> {
+    const result = await this.repository.update({ id, deletedAt: IsNull() }, { deletedAt: new Date() });
+    return result.affected === 1;
   }
 
   async restore(id: string): Promise<Transaction> {

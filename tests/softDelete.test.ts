@@ -61,6 +61,17 @@ describe('soft delete and restore of records (FT-105)', () => {
     expect(await balance()).toBe(-3500000);
   });
 
+  it('a delete says whether it deleted the record: a record already deleted or unknown is not deleted again (#383)', async () => {
+    const id = await record(25000);
+
+    expect(await records.repository.delete(id)).toBe(true);
+    const deletedAt = (await records.repository.findByIdIncludingDeleted(id))?.deletedAt;
+
+    expect(await records.repository.delete(id)).toBe(false);
+    expect((await records.repository.findByIdIncludingDeleted(id))?.deletedAt).toBe(deletedAt);
+    expect(await records.repository.delete('unknown-id')).toBe(false);
+  });
+
   it('the record counter goes down on delete and up on restore, once', async () => {
     // An old record owned by a Telegram id: the counter resolves it to the owner's UUID. A placeholder like 'user-1'
     // is no UUID and no Telegram id, so the resolver refuses it (#224)

@@ -89,4 +89,40 @@ describe('the record counter counts on the record owner (FT-171)', () => {
     expect(await counted()).toEqual([{ user_id: ownerId, transactions_count: 1 }]);
     expect(await userRows()).toBe(1);
   });
+
+  it('two deletes of one record at once delete it once and free one slot (#383)', async () => {
+    const remove = new DeleteTransactionUseCase(records.repository);
+    remove.setSubscriptionDependencies(subscriptions, users);
+    const first = await record(ownerId);
+    await record(ownerId);
+    // The Mini App and the bot delete the same record at once: both read it not deleted before either writes
+    const bothRead = barrier(2);
+    const findById = records.repository.findById.bind(records.repository);
+    jest.spyOn(records.repository, 'findById').mockImplementation(async id => {
+      const found = await findById(id);
+      await bothRead();
+      return found;
+    });
+
+    const results = await Promise.all([remove.execute({ id: first }), remove.execute({ id: first })]);
+
+    expect(results.map(result => result.success)).toEqual([true, true]);
+    const deleted = await db.dataSource.query(`SELECT id FROM transactions WHERE deleted_at IS NOT NULL`);
+    expect(deleted).toEqual([{ id: first }]);
+    expect(await counted()).toEqual([{ user_id: ownerId, transactions_count: 1 }]);
+  });
 });
+
+/** Holds every caller until `count` of them wait, then lets them all go. */
+function barrier(count: number): () => Promise<void> {
+  let waiting = 0;
+  let release: () => void = () => undefined;
+  const allWaiting = new Promise<void>(resolve => {
+    release = resolve;
+  });
+  return () => {
+    waiting += 1;
+    if (waiting === count) release();
+    return allWaiting;
+  };
+}

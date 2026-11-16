@@ -11,8 +11,11 @@ export interface TransactionRepository {
      */
     findById(id: string): Promise<Transaction | null>;
     findByUserId(userId: string, limit?: number): Promise<Transaction[]>;
-    /** Deletes softly (FT-105). */
-    delete(id: string): Promise<void>;
+    /**
+     * Deletes softly (FT-105) in one write that changes only a record not deleted yet (#383): true when this call
+     * deleted it, false when it was deleted already — by another delete at the same moment too — or is unknown.
+     */
+    delete(id: string): Promise<boolean>;
     /** Brings a softly deleted record back. */
     restore(id: string): Promise<Transaction>;
     findByIdIncludingDeleted(id: string): Promise<Transaction | null>;
