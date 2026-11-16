@@ -1,9 +1,8 @@
 /**
  * Wording that carries the *meaning* of a money movement (transfer, savings, cash, debt, income).
  *
- * These patterns started out private to the text parser. The historical backfill preview needs the
- * exact same vocabulary to judge already-stored rows, and two copies of it would drift apart the
- * first time a keyword is added — so the vocabulary lives here and both callers read it.
+ * The text parser reads these patterns from here; the payment hints and the day of a phrase build
+ * theirs with the same `conservativeKeywordPattern`.
  *
  * Deliberately conservative: every pattern is meant to fire only on wording that leaves little
  * room for a second reading. Anything short of that belongs in `needsReview`, not in a rule here.
@@ -53,12 +52,6 @@ export const OWN_ACCOUNT_TARGET_PATTERN = conservativeKeywordPattern([
 // «Кэшбэк» is a starter income category (FT-099): «кэшбэк 870» is money in, not a purchase
 export const INCOME_KEYWORDS_PATTERN = conservativeKeywordPattern([
   'зарплат\\p{L}*', 'зп', 'аванс', 'оклад', 'salary', 'maosh', 'к[эе]шб[эе]к\\p{L}*', 'cashback',
-]);
-
-// Paying for a group and splitting it afterwards. Only used to *raise a question* about a stored
-// row — the wording alone never says whether the user was reimbursed, so it never decides a type.
-export const GROUP_PAYMENT_KEYWORDS_PATTERN = conservativeKeywordPattern([
-  'поровну', 'скинул\\p{L}*', 'скидыва\\p{L}*', 'компани\\p{L}*', 'на всех', 'split',
 ]);
 
 /**
