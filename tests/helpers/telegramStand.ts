@@ -293,11 +293,15 @@ export class TelegramStand {
     return { message_id: current.id, date: nowSeconds(), edit_date: nowSeconds(), chat: this.chat, from: STAND_BOT, text: next.text };
   }
 
-  /** A press is answered once: Telegram refuses a second answer. */
+  /**
+   * A press is answered once: Telegram refuses a second answer. The refused one is kept too, so a test sees every
+   * answer the bot tried — a handler that swallows the refusal would hide a second «Произошла ошибка» otherwise.
+   */
   private answerPress(method: string, payload: Record<string, any>): true {
     const answers = this.answers.get(payload.callback_query_id);
-    if (!answers || answers.length > 0) refused(QUERY_ANSWERED, method, payload);
+    if (!answers) refused(QUERY_ANSWERED, method, payload);
     answers.push(payload.text);
+    if (answers.length > 1) refused(QUERY_ANSWERED, method, payload);
     return true;
   }
 
@@ -363,7 +367,10 @@ export class TelegramStand {
     return this.deliver(this.voiceUpdate(), options);
   }
 
-  /** Presses the button with this data; returns what the bot answered the press with (the popup text, if any). */
+  /**
+   * Presses the button with this data; returns every answer the bot gave the press (the popup text, if any), the
+   * refused second one included: one answer is `[text]`.
+   */
   async pressData(messageId: number, data: string, { from, ...options }: PressOptions = {}): Promise<Array<string | undefined>> {
     const update = this.pressUpdate(messageId, data, { from });
     await this.deliver(update, options);
