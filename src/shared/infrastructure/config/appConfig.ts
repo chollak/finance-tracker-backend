@@ -28,7 +28,6 @@ export class AppConfig {
   // Environment
   static readonly NODE_ENV = process.env.NODE_ENV || 'development';
   static readonly PORT = parseInt(process.env.PORT || '3000', 10);
-  static readonly IS_DEVELOPMENT = process.env.NODE_ENV === 'development';
 
   // API Keys
   static readonly OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';

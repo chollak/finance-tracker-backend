@@ -59,7 +59,6 @@ export class AuthController {
       const result = await this.authModule.getWebLoginStatusUseCase().execute({ browserSecret: readCookie(req, LOGIN_COOKIE) });
       if (!result.success) return handleControllerError(result.error, res);
       if (result.data.status === 'rejected') res.clearCookie(LOGIN_COOKIE, clearCookieOptions(req, LOGIN_COOKIE_PATH));
-      res.set('Cache-Control', 'no-store');
       handleControllerSuccess(result.data, res);
     } catch (error) {
       handleControllerError(error, res);
@@ -96,7 +95,6 @@ export class AuthController {
     try {
       const user = await this.userModule.getGetUserUseCase().execute({ id: currentUserId(req) });
       if (!user.success || !user.data) return handleControllerError(new NotSignedInError(), res);
-      res.set('Cache-Control', 'no-store');
       handleControllerSuccess({ user: toSessionUser(user.data) }, res);
     } catch (error) {
       handleControllerError(error, res);

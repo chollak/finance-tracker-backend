@@ -49,6 +49,46 @@ describe('USD rate (FT-102)', () => {
     });
   });
 
+  describe('the hourly refresh (#275)', () => {
+    const HOUR_MS = 60 * 60 * 1000;
+
+    beforeEach(() => jest.useFakeTimers());
+    afterEach(() => jest.useRealTimers());
+
+    function serviceCountingRefreshes() {
+      const service = new FxRateService({} as never, {} as never, {} as never);
+      const refresh = jest.spyOn(service, 'refreshUsd').mockResolvedValue(null);
+      return { service, refresh };
+    }
+
+    it('a second start keeps the one timer: one refresh an hour, and stop ends it', () => {
+      const { service, refresh } = serviceCountingRefreshes();
+
+      service.startDailyRefresh();
+      service.startDailyRefresh();
+      expect(refresh).toHaveBeenCalledTimes(1);
+
+      jest.advanceTimersByTime(HOUR_MS);
+      expect(refresh).toHaveBeenCalledTimes(2);
+
+      service.stop();
+      jest.advanceTimersByTime(3 * HOUR_MS);
+      expect(refresh).toHaveBeenCalledTimes(2);
+    });
+
+    it('starts again after stop', () => {
+      const { service, refresh } = serviceCountingRefreshes();
+
+      service.startDailyRefresh();
+      service.stop();
+      service.startDailyRefresh();
+      jest.advanceTimersByTime(HOUR_MS);
+
+      expect(refresh).toHaveBeenCalledTimes(3);
+      service.stop();
+    });
+  });
+
   describe('with a migrated database', () => {
     let db: TestDatabase;
     let client: jest.Mocked<CbuClient>;

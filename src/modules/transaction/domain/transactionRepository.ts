@@ -26,8 +26,11 @@ export interface TransactionRepository {
     /** Type, currency and amount of every record the same filters find, all pages: the summary of a search (FT-116). */
     findHistoryAmounts(userId: string, filters: HistoryFilters): Promise<HistoryAmount[]>;
     update(id: string, updates: Partial<Transaction>): Promise<Transaction>;
-    /** Not archived, not deleted records of the user dated from startDate to endDate, both days included. */
-    getByUserIdAndDateRange(userId: string, startDate: Date, endDate: Date): Promise<Transaction[]>;
+    /**
+     * Not archived, not deleted records of the user dated from `from` to `to`, both days included. Days are YYYY-MM-DD
+     * on the user's calendar, as records keep them: no `Date` whose local day could differ (#275).
+     */
+    getByUserIdAndDateRange(userId: string, from: string, to: string): Promise<Transaction[]>;
     /** The day of the user's earliest record (not archived, not deleted) — when recording began (FT-120); null without records. */
     findFirstRecordDate(userId: string): Promise<string | null>;
 }

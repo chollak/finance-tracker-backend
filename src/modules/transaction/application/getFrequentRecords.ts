@@ -1,7 +1,7 @@
 import { Result, ResultHelper } from '../../../shared/domain/types/Result';
 import { StorageError } from '../../../shared/domain/errors/AppError';
 import { getLogger, LogCategory } from '../../../shared/application/logging';
-import { todayDateOnly } from '../../../shared/domain/dates/dateOnly';
+import { addDaysToDateOnly, todayDateOnly } from '../../../shared/domain/dates/dateOnly';
 import { TransactionRepository } from '../domain/transactionRepository';
 import { FREQUENT_RECORDS_RULE, FrequentRecord, FrequentRecordsRule, pickFrequentRecords } from '../domain/frequentRecords';
 
@@ -10,12 +10,6 @@ const logger = getLogger(LogCategory.TRANSACTION);
 /** `GET /api/transactions/frequent` — the user's frequent expenses for the quick chips (FT-114). */
 export interface FrequentRecords {
   items: FrequentRecord[];
-}
-
-/** YYYY-MM-DD `days` days before `date`. */
-function daysBefore(date: string, days: number): string {
-  const [year, month, day] = date.split('-').map(Number);
-  return new Date(Date.UTC(year, month - 1, day - days)).toISOString().slice(0, 10);
 }
 
 /**
@@ -30,10 +24,10 @@ export class GetFrequentRecordsUseCase {
 
   async execute(input: { userId: string; today?: string }): Promise<Result<FrequentRecords>> {
     const to = input.today ?? todayDateOnly();
-    const from = daysBefore(to, this.rule.days - 1);
+    const from = addDaysToDateOnly(to, -(this.rule.days - 1));
 
     try {
-      const records = await this.repository.getByUserIdAndDateRange(input.userId, new Date(from), new Date(to));
+      const records = await this.repository.getByUserIdAndDateRange(input.userId, from, to);
       return ResultHelper.success({ items: pickFrequentRecords(records, this.rule) });
     } catch (error) {
       logger.error('Failed to read frequent records', error as Error);

@@ -168,6 +168,30 @@ describe('the HTTP app (#272)', () => {
       expect(answers.map(res => res.status)).toEqual([401, 403, 404, 400, 413, 200]);
       for (const res of answers) expect(res.headers['cache-control']).toMatch(NO_STORE);
     });
+
+    // The login, the session and the CSV set no Cache-Control of their own: the API's one covers them (#275)
+    it('the login status, the session and the export carry the API\'s Cache-Control', async () => {
+      jest.replaceProperty(AppConfig, 'TELEGRAM_ACCESS', telegramAccess([]));
+      const ok = (data: unknown) => ({ execute: async () => ({ success: true, data }) });
+      const authModule = { getWebLoginStatusUseCase: () => ok({ status: 'none' }) };
+      const exportModule = {
+        getBuildRecordsFileUseCase: () => ok({ fileName: 'kapelka.csv', text: 'date;amount\n', count: 0 }),
+        getSendRecordsToChatUseCase: () => ok({ sent: true }),
+      };
+      const api = buildServer(emptyRecords, userModule, undefined, undefined, { authModule, exportModule } as never);
+      server = await listenOnLoopback(createHttpApp(api, webAppDir));
+
+      const answers = await Promise.all([
+        raw(server.baseUrl, 'GET', '/api/auth/web-login'),
+        raw(server.baseUrl, 'GET', '/api/auth/session', signedIn()),
+        raw(server.baseUrl, 'GET', '/api/export', signedIn()),
+      ]);
+
+      expect(answers.map(res => res.status)).toEqual([200, 200, 200]);
+      for (const res of answers) {
+        expect(res.headers['cache-control']).toBe('no-store, no-cache, must-revalidate, proxy-revalidate');
+      }
+    });
   });
 
   describe('the JSON body', () => {

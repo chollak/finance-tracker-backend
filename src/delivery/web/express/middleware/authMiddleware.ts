@@ -45,6 +45,9 @@ declare global {
   }
 }
 
+/** The hash Telegram signs initData with: HMAC-SHA256 as 64 lower-case hex digits. */
+const INIT_DATA_HASH = /^[0-9a-f]{64}$/;
+
 /**
  * Validate Telegram Web App initData hash
  *
@@ -61,6 +64,12 @@ function validateTelegramWebAppData(initData: string, botToken: string, quiet = 
 
     if (!hash) {
       if (!quiet) logger.warn('No hash in initData');
+      return null;
+    }
+
+    // A hash of another length or form is no signature; `timingSafeEqual` would throw on the length (#275)
+    if (!INIT_DATA_HASH.test(hash)) {
+      if (!quiet) logger.warn('Malformed hash in initData');
       return null;
     }
 

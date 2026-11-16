@@ -17,7 +17,10 @@ import { BuildRecordsFileUseCase, SendRecordsToChatUseCase } from '../applicatio
 export class ExportController {
   constructor(private buildFile: BuildRecordsFileUseCase, private sendToChat: SendRecordsToChatUseCase) {}
 
-  /** A file, not JSON: the one route that answers outside handleControllerSuccess. Errors are JSON as everywhere. */
+  /**
+   * A file, not JSON: the one route that answers outside handleControllerSuccess. Errors are JSON as everywhere. Not
+   * stored by a browser or a proxy: the API's own Cache-Control covers it (securityHeaders, #275).
+   */
   download = async (req: Request, res: Response): Promise<void> => {
     try {
       const result = await this.buildFile.execute({ userId: currentUserId(req) });
@@ -30,7 +33,6 @@ export class ExportController {
           'Content-Disposition': `attachment; filename="${fileName}"`,
           'X-Export-Count': String(count),
           'Access-Control-Expose-Headers': 'Content-Disposition, X-Export-Count',
-          'Cache-Control': 'no-store',
         })
         .send(Buffer.from(text, 'utf8'));
     } catch (error) {

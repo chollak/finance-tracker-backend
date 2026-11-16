@@ -97,8 +97,12 @@ export class FxRateService implements EffectiveRateProvider {
     }
   }
 
-  /** Refresh now and then every hour until today's rate is in; timers never keep the process alive. */
+  /**
+   * Refresh now and then every hour until today's rate is in; timers never keep the process alive. A second start
+   * while running does nothing — it would lose the first timer, which `stop` could then never clear (#275).
+   */
   startDailyRefresh(): void {
+    if (this.timer) return;
     const run = () => {
       this.refreshUsd().catch(error => logger.error('USD rate refresh failed', error as Error));
     };
@@ -109,6 +113,7 @@ export class FxRateService implements EffectiveRateProvider {
 
   stop(): void {
     if (this.timer) clearInterval(this.timer);
+    this.timer = undefined;
   }
 
   private async loadFromCbu(date: string): Promise<CbuRate | null> {

@@ -193,6 +193,9 @@ resolveUserIdToUUIDStrict(...) // throws on resolver failure
 
 Use strict behavior for ownership/security-sensitive API paths. Keep loose behavior only where backward compatibility is explicitly needed.
 
+(`resolveUserIdToUUIDStrict` was added in FT-024A and removed in #275: no route called it — the user's routes take the
+user from authentication since FT-162.)
+
 Definition of Done:
 
 - [x] Caller audit recorded.
@@ -212,6 +215,7 @@ Caller audit:
 - Telegram handlers pass `ctx.from.id.toString()`, so empty IDs should not occur in normal Telegram flows.
 - API and helper callers still benefit from resolver-level validation because empty IDs are never valid identifiers.
 - `tryResolveUserIdSync('')` remains `null`, because it only reports whether a value can be resolved synchronously.
+  (`tryResolveUserIdSync` is gone since #275: only tests called it.)
 
 Implemented approach:
 

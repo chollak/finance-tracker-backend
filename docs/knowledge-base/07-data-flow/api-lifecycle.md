@@ -95,7 +95,8 @@ function requestLogger(req, res, next) {
 `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Content-Security-Policy: default-src
 'none'`, в production — HSTS. **Каждый ответ `/api`** — `Cache-Control: no-store` (и `Pragma`/`Expires` для старых
 прокси): в ответах записи, суммы и сессии. Раньше условие смотрело `req.path` на «/api/», а внутри роутера путь без
-префикса — заголовок не ставился никогда (#272).
+префикса — заголовок не ставился никогда (#272). Свой `no-store` у входа, сессии и CSV убран: их закрывает этот же
+заголовок (#275).
 
 #### C. CORS Headers
 

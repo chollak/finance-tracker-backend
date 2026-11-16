@@ -9,12 +9,9 @@ import {
   isUUID,
   resolvableUserIdOf,
   resolveUserIdToUUID,
-  resolveUserIdToUUIDStrict,
-  tryResolveUserIdSync,
 } from '../src/shared/application/helpers/userIdResolver';
 import {
   verifyResourceOwnership,
-  verifyAndGetResource,
   OwnedResource,
 } from '../src/shared/infrastructure/utils/ownershipVerification';
 
@@ -198,29 +195,6 @@ describe('userIdResolver', () => {
     });
   });
 
-  describe('tryResolveUserIdSync', () => {
-    it('resolves a UUID synchronously', () => {
-      expect(tryResolveUserIdSync(VALID_UUID)).toBe(VALID_UUID);
-    });
-
-    // There are no guests (#206): a `guest_*` id is no shortcut, it needs the user module like any other id
-    it('does not resolve a guest id synchronously', () => {
-      expect(tryResolveUserIdSync('guest_xyz')).toBeNull();
-    });
-
-    it('trims whitespace before matching', () => {
-      expect(tryResolveUserIdSync(`  ${VALID_UUID}  `)).toBe(VALID_UUID);
-    });
-
-    it('returns null for a telegramId, signaling async resolution is needed', () => {
-      expect(tryResolveUserIdSync('123456789')).toBeNull();
-    });
-
-    it('returns null for an empty string', () => {
-      expect(tryResolveUserIdSync('')).toBeNull();
-    });
-  });
-
   describe('resolveUserIdToUUID', () => {
     let repo: InMemoryUserRepository;
     let userModule: UserModule;
@@ -347,60 +321,6 @@ describe('userIdResolver', () => {
     });
   });
 
-  describe('resolveUserIdToUUIDStrict', () => {
-    let repo: InMemoryUserRepository;
-    let userModule: UserModule;
-
-    beforeEach(() => {
-      repo = new InMemoryUserRepository();
-      userModule = new UserModule(repo);
-    });
-
-    it('returns a UUID without calling the user module', async () => {
-      const spy = jest.spyOn(userModule, 'getGetOrCreateUserUseCase');
-
-      await expect(resolveUserIdToUUIDStrict(VALID_UUID, userModule)).resolves.toBe(VALID_UUID);
-      expect(spy).not.toHaveBeenCalled();
-    });
-
-    it('resolves a telegramId to UUID like the loose resolver', async () => {
-      const result = await resolveUserIdToUUIDStrict('987654321', userModule);
-
-      const stored = await repo.findByTelegramId('987654321');
-      expect(stored?.id).toBe(result);
-      expect(result).not.toBe('987654321');
-    });
-
-    it('fails closed when telegramId resolution throws', async () => {
-      const brokenUserModule = {
-        getGetOrCreateUserUseCase: () => ({
-          execute: jest.fn().mockRejectedValue(new Error('db unavailable')),
-        }),
-      } as unknown as UserModule;
-
-      await expect(resolveUserIdToUUIDStrict('555555555', brokenUserModule)).rejects.toThrow(
-        'Failed to resolve userId to UUID'
-      );
-    });
-
-    it('rejects empty ids before attempting resolution', async () => {
-      await expect(resolveUserIdToUUIDStrict('', userModule)).rejects.toThrow('userId is required');
-      await expect(resolveUserIdToUUIDStrict('   ', userModule)).rejects.toThrow('userId is required');
-    });
-
-    it.each([...NOT_USER_IDS, ...PAST_SAFE_IDS])('refuses %p, which is no UUID and no Telegram id, creating no user', async id => {
-      await expect(resolveUserIdToUUIDStrict(id, userModule)).rejects.toThrow(ValidationError);
-      expect(repo.size()).toBe(0);
-    });
-
-    it('resolves a Telegram id with leading zeros to the same user as without them (#230)', async () => {
-      const plain = await resolveUserIdToUUIDStrict('597843119', userModule);
-
-      await expect(resolveUserIdToUUIDStrict(' 0597843119 ', userModule)).resolves.toBe(plain);
-      expect(repo.size()).toBe(1);
-    });
-  });
-
   describe('resolvableUserIdOf', () => {
     it.each([VALID_UUID, `  ${VALID_UUID}  `, '1', '131184740', ' 597843119 ', '0597843119', ...BIG_TELEGRAM_IDS])('accepts %p', id => {
       expect(resolvableUserIdOf(id)).not.toBeNull();
@@ -513,39 +433,6 @@ describe('ownershipVerification', () => {
       await expect(
         verifyResourceOwnership(req, resource, makeUserModuleReturning(owner), { resourceType })
       ).resolves.toBeUndefined();
-    });
-  });
-
-  describe('verifyAndGetResource', () => {
-    it('throws NotFoundError when the resource does not exist', async () => {
-      await expect(
-        verifyAndGetResource(
-          makeRequest({ id: 42, first_name: 'Bob' }),
-          async () => null,
-          makeUserModuleReturning(null),
-          { resourceType }
-        )
-      ).rejects.toThrow('Transaction not found');
-    });
-
-    it('returns the resource once ownership is verified', async () => {
-      const owner: User = {
-        id: 'user-1',
-        telegramId: '42',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-      const resource: OwnedResource & { name: string } = { userId: 'user-1', name: 'car loan' };
-      const req = makeRequest({ id: 42, first_name: 'Bob' });
-
-      const result = await verifyAndGetResource(
-        req,
-        async () => resource,
-        makeUserModuleReturning(owner),
-        { resourceType }
-      );
-
-      expect(result).toBe(resource);
     });
   });
 });

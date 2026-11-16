@@ -25,7 +25,6 @@ const SENSITIVE_FIELDS = [
   'hash',
   'OPENAI_API_KEY',
   'TG_BOT_API_KEY',
-  'SUPABASE_ANON_KEY',
 ].map(field => field.toLowerCase());
 
 /** The environment variables whose values are secrets: masked wherever they appear in a line. */

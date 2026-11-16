@@ -115,6 +115,16 @@ describe('API routes and middleware (characterization)', () => {
       });
       expect(body.error).toBe('Route GET /api/does-not-exist not found');
     });
+
+    // The path only, as the logs write it (#269, #275): the query may carry what the user searches for
+    it('names the path without the query', async () => {
+      const res = await fetch(`${baseUrl}/api/does-not-exist?q=${encodeURIComponent('аптека 45к')}&userId=597843119`);
+      expect(res.status).toBe(404);
+      const text = await res.text();
+      expect(JSON.parse(text).error).toBe('Route GET /api/does-not-exist not found');
+      expect(text).not.toContain('597843119');
+      expect(text).not.toContain('?');
+    });
   });
 
   describe('CORS preflight', () => {

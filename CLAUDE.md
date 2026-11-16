@@ -129,7 +129,7 @@ logger.info('Transaction created', { transactionId: '123', userId });
 logger.error('Failed to save', error);
 ```
 
-**Log Categories:** source of truth is the `LogCategory` const in `src/shared/domain/ports/Logger.ts` — read it instead of relying on a copy here. It groups categories into System, Security, Business Logic, External Services, Request Handling, and Performance.
+**Log Categories:** source of truth is the `LogCategory` const in `src/shared/domain/ports/Logger.ts` — read it instead of relying on a copy here. It groups categories into System, Security, Business Logic, External Services and Request Handling.
 
 **Output Format:**
 - Development: Colorized, human-readable

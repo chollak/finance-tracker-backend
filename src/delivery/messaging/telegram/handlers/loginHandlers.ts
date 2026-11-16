@@ -10,6 +10,7 @@ import {
   LoginNotice,
 } from '../formatters/loginMessage';
 import { AppConfig } from '../../../../shared/infrastructure/config/appConfig';
+import { DEFAULT_TIME_ZONE } from '../../../../shared/domain/dates/dateOnly';
 import { createLogger, LogCategory } from '../../../../shared/infrastructure/logging';
 
 const logger = createLogger(LogCategory.TELEGRAM);
@@ -48,8 +49,8 @@ export async function handleLoginStart(ctx: BotContext, token: string): Promise<
       await ctx.reply(formatStaleLogin().text, keyboard(formatStaleLogin()));
       return;
     }
-    const user = await ctx.modules.userModule.getGetOrCreateUserUseCase().execute({ telegramId });
-    const notice = formatLoginQuestion(opened.data, user.timezone);
+    // The time on Tashkent's clock, as for every user: users.timezone is read by nobody since #275
+    const notice = formatLoginQuestion(opened.data, DEFAULT_TIME_ZONE);
     await ctx.reply(notice.text, keyboard(notice));
   } catch (error) {
     logger.error('Web login /start failed', error as Error, { telegramId: ctx.from?.id });

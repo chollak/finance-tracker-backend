@@ -30,7 +30,10 @@ function clockParts(now: Date, timeZone: string): Intl.DateTimeFormatPart[] {
   }).formatToParts(now);
 }
 
-/** The moment on the user's clock; a time zone Intl does not know reads as Tashkent (users.timezone default). */
+/**
+ * The moment on a clock: the recipient's zone, which is Tashkent's for every user (DEFAULT_TIME_ZONE, #275); a zone Intl
+ * does not know reads as Tashkent.
+ */
 export function localClock(now: Date, timeZone: string | undefined): LocalClock {
   let parts: Intl.DateTimeFormatPart[];
   try {

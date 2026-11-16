@@ -43,3 +43,9 @@ export function captureLogLines(): LogCapture {
     },
   };
 }
+
+/** The level a captured line was written at: `warn` of «13:57:21 warn [HTTP] Request refused …», colours aside. */
+export function levelOf(line: string): string {
+  // eslint-disable-next-line no-control-regex
+  return line.replace(/\u001b\[[0-9;]*m/g, '').split(' ')[1] ?? '';
+}

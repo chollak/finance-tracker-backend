@@ -10,9 +10,9 @@ export interface User {
   lastName?: string;
   languageCode?: string;
 
-  // Settings
+  // Settings. The column users.timezone stays in the table (data) but is no part of the user: nothing writes it since
+  // #274, nothing reads it since #275 — every user is on Tashkent's clock (DEFAULT_TIME_ZONE)
   defaultCurrency?: string;
-  timezone?: string;
 
   // Metadata
   createdAt: Date;

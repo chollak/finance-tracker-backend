@@ -75,7 +75,6 @@ export class SqliteUserRepository implements UserRepository {
       lastName: entity.lastName,
       languageCode: entity.languageCode,
       defaultCurrency: entity.defaultCurrency,
-      timezone: entity.timezone,
       createdAt: entity.createdAt,
       updatedAt: entity.updatedAt,
     };
