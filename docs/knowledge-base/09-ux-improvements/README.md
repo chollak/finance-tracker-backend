@@ -64,7 +64,8 @@ This section tracks UI/UX improvements for the Finance Tracker webapp.
 3. Тап `[+10K]` → `85000`
 4. Или сразу: `50000+25000+10000`
 
-**Файлы:** `webapp/src/features/quick-add/ui/QuickAddForm.tsx`
+**Файлы:** форма Quick Add (`webapp/src/features/quick-add/`) удалена в FT-113; ручной ввод теперь — своя клавиатура в
+`webapp/src/features/manual-entry/` (экран `/add`).
 
 ---
 

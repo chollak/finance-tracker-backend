@@ -8,7 +8,7 @@ Supports SQLite (default) and Supabase databases.
 
 ## Prerequisites
 
-- Node.js >= 18
+- Node.js 22 (`.nvmrc`; `nvm use` picks it up)
 - npm
 - ffmpeg (for converting voice messages)
 
@@ -23,9 +23,15 @@ npm install
 2. Copy `.env.example` to `.env` and configure:
 
 **Required:**
-- `OPENAI_API_KEY` - For voice transcription and transaction parsing
-- `TG_BOT_API_KEY` - Telegram bot token
-- `WEB_APP_URL` - Public URL for the web application
+- `OPENAI_API_KEY` - For voice transcription and transaction parsing; the start stops without it
+
+**Usually set:**
+- `TG_BOT_API_KEY` - Telegram bot token; without it the bot is off (`ENABLE_TELEGRAM_POLLING=false` turns it off too)
+- `WEB_APP_URL` - Public URL for the web application; the bot links to it only when it is HTTPS
+- `ALLOWED_TELEGRAM_IDS` - who may use this instance; empty lets everyone in outside production
+
+With `NODE_ENV=production` the start also stops without `ALLOWED_TELEGRAM_IDS`, and without `TG_BOT_API_KEY` while
+polling is on (`AppConfig.validate()` in `src/shared/infrastructure/config/appConfig.ts`).
 
 **Database:**
 - `DATABASE_TYPE=sqlite` (default, no additional config needed) — the only one supported: the Supabase path was removed in FT-090
@@ -98,21 +104,21 @@ npm install
 npm run dev
 ```
 
-For Telegram Mini App testing on a phone, use the repo-local helper so the public HTTPS tunnel, `.env` `WEB_APP_URL`, and Telegram persistent menu button stay in sync:
+For Telegram Mini App testing on a phone, use the repo-local helper so the public HTTPS tunnel, `WEB_APP_URL` in the env file the app reads (`.env.local` if present, otherwise `.env`), and Telegram persistent menu button stay in sync:
 
 ```bash
-# Replace with your Telegram chat/user id.
-npm run dev:miniapp -- --chat-id=131184740
+# <telegram_chat_id> — your Telegram chat/user id; MINIAPP_CHAT_ID in the env file can stand in for --chat-id.
+npm run dev:miniapp -- --chat-id=<telegram_chat_id>
 ```
 
 Useful focused commands:
 
 ```bash
 # Inspect current WEB_APP_URL and Telegram menu button without printing the bot token.
-npm run miniapp:menu -- status --chat-id=131184740
+npm run miniapp:menu -- status --chat-id=<telegram_chat_id>
 
-# If you already have a public HTTPS tunnel, update .env + Telegram menu button.
-npm run miniapp:menu -- set --url=https://example.trycloudflare.com --chat-id=131184740
+# If you already have a public HTTPS tunnel, update WEB_APP_URL in the env file + Telegram menu button.
+npm run miniapp:menu -- set --url=https://example.trycloudflare.com --chat-id=<telegram_chat_id>
 ```
 
 Notes:
@@ -133,16 +139,23 @@ backend.
 
 ## Web App Features
 
-Routes are defined in `webapp/src/app/router/routes.tsx`:
+Routes are defined in `webapp/src/app/router/appRoutes.tsx` (`routes.tsx` makes the browser router of them). Every
+screen below needs a signed-in account (a browser without a session gets the login screen) and opens after the first
+launch (FT-109):
 
 | Route | Page |
 |-------|------|
-| `/` | Home — balance overview, quick access |
+| `/` | Home — balance card, month tiles, recent records, quick input |
 | `/add` | Manual entry — own keypad, account, category, date, note (FT-113) |
+| `/review` | Checking the records a phrase from Home's input made, before «Сохранить» (FT-114) |
 | `/transactions` | Transactions list — search, filter, edit, delete |
 | `/?record=<id>` | Home with the record sheet open (FT-115; the bot's «Изменить»). A record has no page of its own |
-| `/analytics` | Analytics and insights |
-| `/more` | Settings and secondary sections |
+| `/analytics`, `/analytics/categories/:id` | Analytics of the month and of one category (FT-120) |
+| `/accounts`, `/accounts/:id`, `/accounts/transfer` | Accounts, one account's operations, a transfer between accounts |
+| `/audit` | Spending audit and goals (FT-130, FT-131) |
+| `/more`, `/more/categories` | Settings and secondary sections; categories |
+| `/offline-voice`, `/offline-receipt` | Voice and receipts without a connection: both are read on the server, so the screen offers manual entry (FT-129) |
+| `/dev/pastel` | Component showcase, outside the login; not linked |
 
 There is no `/dashboard` or `/stats` route in the webapp, and no `/api/dashboard` on the server since #205: Home reads `/api/transactions/totals` and `/api/accounts`, Analytics reads `/api/analytics`. Budgets — the `/budgets` screens and `/api/budgets` — are gone since #264, debts — the `/debts` screens and `/api/debts` — since #265.
 

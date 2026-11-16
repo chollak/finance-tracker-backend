@@ -167,9 +167,13 @@ npm run build
 
 ### Circular Dependency Detected
 
-**Error:**
+**Error** (`npm run analyze` or `npm run check:deps`, dependency-cruiser):
 ```
-Warning: Circular dependency detected
+  error no-circular: src/modules/a/a.ts →
+      src/modules/b/b.ts →
+      src/modules/a/a.ts
+
+x 1 dependency violations (1 errors, 0 warnings). … modules, … dependencies cruised.
 ```
 
 **Solution:**
@@ -258,7 +262,7 @@ Error: No speech detected
 
 **Error:**
 ```
-Failed to create usage limit: invalid input syntax for type uuid: "131184740"
+Failed to create usage limit: invalid input syntax for type uuid: "<telegram_id>"
 ```
 
 **Cause:**
@@ -464,13 +468,16 @@ to see the errors without the whole `verify`.
 **Error:** `npm run build` or `npm run typecheck:tests` runs a minute or longer; `npx tsc --noEmit --extendedDiagnostics`
 shows a `Check time` far above a few seconds.
 
-**Cause:** a `bot.on(filter, ...handlers)` with handlers typed with `BotContext` (or `Context`): Telegraf's `on()` infers
+**Cause:** a `bot.on(filter, ...handlers)` with handlers typed with `BotContext`: Telegraf's `on()` infers
 the filter's type from every handler, member by member of the narrowed context. The four text and voice calls of
 `registerMessageHandlers()` took 80 of 82 seconds.
 
-**Solution:** give `on()` the filter's type, as `messageHandlers.ts` does —
-`bot.on<ReturnType<typeof message<['text']>>>(message('text'), …)` — or type the handler with the context its filter
-gives (`MessageContext` for `isUnsupportedMessage`). Not `Composer.compose(chain)`: it still takes ~15 s and throws
+**Solution:** for a `message(...)` filter, give `on()` the filter's type as an explicit type argument, as
+`messageHandlers.ts` does: `type TextMessageFilter = ReturnType<typeof message<['text']>>`, then
+`bot.on<TextMessageFilter>(message('text'), …)`. Typing the handlers with the narrowed context instead, without the
+type argument, ends in `TS2769`; that works only for a guard of our own such as `isUnsupportedMessage`, whose handler
+takes `MessageContext`. A handler on the plain `Context` is not the slow case (+0.05 s; `BotContext` was +20 s). Not
+`Composer.compose(chain)`: it still takes ~15 s and throws
 `next(ctx) called with invalid context` on the plain-object contexts of the bot tests. To find the slow call:
 `npx tsc --noEmit --generateTrace <dir>` and the longest `checkExpression` in `<dir>/trace.json`.
 
@@ -511,7 +518,8 @@ Expected response:
 `503` with `"status": "unhealthy"` means the bot's polling failed for good (`telegramBot.state = failed`, the cause in
 `telegramBot.lastError`); `starting`, `retrying`, `running` and `disabled` are `200` (FT-154). `starting` lasts until
 Telegram has answered the bot's `getMe`, usually under a second after a start (#280); one that stays means Telegram does
-not answer — the network or the token.
+not answer — the network. A wrong token is not it: `getMe` gets `401` and the bot is `failed` at once, the cause in
+`lastError`.
 
 ### Production process exits right after start
 
