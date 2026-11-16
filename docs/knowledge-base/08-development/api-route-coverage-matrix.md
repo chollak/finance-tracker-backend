@@ -78,7 +78,9 @@ From `tests/webAppCacheHeaders.test.ts` (#380), on `createHttpApp` over a folder
 
 - `/assets/*-<hash>.*` (js, css, woff2; GET and HEAD) — `public, max-age=31536000, immutable`
 - `/`, `/index.html`, a client route, `manifest.webmanifest`, `sw.js`, `registerSW.js`, `workbox-*.js`, icons, a file
-  in `assets/` without a hash, a hashed name that is not in the build — `public, max-age=0`
+  in `assets/` without a hash — `public, max-age=0`
+- a file of `/assets/` that is not in the build (an old chunk, `/assets/`, a nested path) — `404` with `no-store`, not
+  `index.html`; client routes, `/assetsfoo` and `/webapp/assets/…` are still `index.html`
 - `/api/*` keeps `no-store`, `/api/assets/…` included
 
 From `tests/legacyUserIdRoutes.test.ts` (FT-162), for every legacy route with `:userId` (transactions,

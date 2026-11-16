@@ -74,7 +74,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Web App (React + Vite):**
 - `npm run install:webapp` - Install webapp dependencies  
-- `npm run build:webapp` - Build React frontend to `public/webapp/`
+- `npm run build:webapp` - Build React frontend to `public/webapp/`: Vite builds into `public/webapp.next`, which takes the place of `public/webapp` whole only when complete, so a running server never serves a half-written file; a failed build leaves the old one (`scripts/build-webapp.js`, #380)
 
 **Docker:**
 - `docker compose up -d --build` - Build and run in container
@@ -625,7 +625,7 @@ See: [Adding Features Guide](docs/knowledge-base/08-development/adding-features.
 - **Frontend**: React app in `webapp/` builds to `public/webapp/` for Express serving
 - **iOS**: SwiftUI app Kapelka in `ios/` (FT-161, [`ios/README.md`](ios/README.md)): phrases by voice or keyboard and Apple Pay payments go through an offline queue to `POST /api/quick-capture` and `/payment` (FT-177…FT-179); the tab «Записи» reads the records, deletes them with «Вернуть» and changes their category (FT-218…FT-221); a journal of command runs in the settings (#241). The Shortcut token is in Keychain; signing in the ignored `ios/Config/Signing.local.xcconfig`
 - **Tests**: Jest tests in `tests/` folder with `.test.ts` suffix
-- **Static Assets**: Express serves the webapp from `public/webapp/` on the root (any other path gets its `index.html`) and the API at `/api` (`createHttpApp`); the old `/webapp` path is gone (#272). Files Vite names by their content (`/assets/*-<hash>.*`) are `public, max-age=31536000, immutable`; `index.html`, the manifest, the service worker and the icons stay `public, max-age=0`, so an update reaches the phone on the next open (#380)
+- **Static Assets**: Express serves the webapp from `public/webapp/` on the root (any other path gets its `index.html`) and the API at `/api` (`createHttpApp`); the old `/webapp` path is gone (#272). Files Vite names by their content (`/assets/*-<hash>.*`) are `public, max-age=31536000, immutable`; `index.html`, the manifest, the service worker and the icons stay `public, max-age=0`, so an update reaches the phone on the next open; a file of `/assets/` that is not in the build is `404` with `no-store`, not `index.html` (#380)
 
 ## Integration Points
 
