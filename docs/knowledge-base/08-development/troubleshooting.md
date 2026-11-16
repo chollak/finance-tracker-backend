@@ -419,6 +419,25 @@ a copy: `open()` instead of `openMigratedDatabase()`, `copyTo(file)` for a suite
 `copyRowsOf(owner, dataSource, userId)` to add the prepared records to a database the test already uses. Only that
 one-off setup gets 60 s; do not raise the timeout of tests.
 
+A voice suite has one more cause (#295): `ProcessVoiceInputUseCase` starts `ffmpeg`, and with the real one installed
+every voice test started a process on fake audio. A suite that runs voice fakes it —
+`jest.mock('child_process', () => jest.requireActual('./helpers/fakeFfmpeg').childProcessWithFakeFfmpeg())`
+(`tests/helpers/fakeFfmpeg.ts`: it copies the voice to the `.mp3`).
+
+### A Webapp Test Fails on Another Day (#295)
+
+**Error:** a webapp test that passed yesterday fails with a date in the message — `expected 'Обмен, 30 декабря 2026' to
+be 'Обмен, 30 декабря'`, `ЦБ на 14 окт`.
+
+**Cause:** the test's data has fixed dates (or dates counted from today), and the screen writes a date of another year
+with its year, «сегодня» and «вчера» for the nearest days. On a real clock the test depends on the day it runs.
+
+**Solution:** run such a test on a fixed day: `vi.setSystemTime(NOW)` in `beforeEach`, `vi.useRealTimers()` in
+`afterEach`, dates counted from `NOW` (`AccountsPage.test.tsx`, `AccountPage.test.tsx`). A test that waits for time to
+pass uses fake timers and lets more of it pass than the period it checks (`settingsReadFailure.test.tsx`; `wait()` of
+`webapp/src/app/router/screenTesting.ts` moves the fake clock when there is one). To check, run the suite with
+`new Date()` moved to the edge of a month and a year, in `Asia/Tashkent` and in `UTC` (CI).
+
 ### `npm run verify` Runs Out of Memory in the Main Folder
 
 **Error:** `FATAL ERROR: … JavaScript heap out of memory` during `test:ci`, or `jest-haste-map: Haste module naming
