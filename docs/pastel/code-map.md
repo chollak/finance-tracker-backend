@@ -28,7 +28,7 @@ presentation` внутри каждого модуля `src/modules/`; прав�
 | `audit` | Ревизия трат и цели (FT-130, FT-131): `/api/audits`, `/api/goals` |
 | `debt` | Только `CreateDebtUseCase` с записью в `debts` — для замороженного пути записи: `createModules()` создаёт модуль для `voiceProcessing` и не возвращает; уберёт #266 после FT-217 |
 
-**Бот** (`src/delivery/messaging/telegram/`; сверено с кодом в #281, остальной раздел — снимок): меню команд
+**Бот** (`src/delivery/messaging/telegram/`; сверено с кодом в #281): меню команд
 (`setMyCommands`, FT-124) — `/today`, `/month`, `/undo`, `/help`, `/start`; вне меню `/stats` отвечает как `/month`,
 `/premium` и `/cancel_subscription` работают (Д3), любая другая команда — «Такой команды нет. Список — /help»
 (`/budget`, `/week`, `/weekly`, `/transactions` тоже). `/start login_<token>` — подтверждение входа из браузера
