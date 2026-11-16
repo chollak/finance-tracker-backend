@@ -1,5 +1,4 @@
-// Components of the design system «Пастель» (docs/pastel/components/). New screens use these;
-// the shadcn primitives in shared/ui stay only for screens that have not been redesigned yet.
+// Components of the design system «Пастель» (docs/pastel/components/). Every screen is built of these (#290).
 export { Button, type ButtonProps } from './button';
 export { Segmented, type SegmentedOption } from './segmented';
 export { SwitchRow } from './switch-row';
@@ -9,6 +8,8 @@ export { CategoryDot, CategoryTile } from './category';
 export { ProblemScreen } from './problem-screen';
 export { EmptyState } from './empty-state';
 export { SkeletonBlock } from './skeleton-block';
+export { LoadingScreen } from './loading-screen';
+export { PageShell } from './page-shell';
 export { Keypad } from './keypad';
 export { UndoToast } from './undo-toast';
 export { Sheet } from './sheet';

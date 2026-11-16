@@ -12,8 +12,8 @@ Current source of truth for routes: `src/app/router/routes.tsx`.
 | Build | Vite 7 |
 | Routing | React Router 7 |
 | Server state | TanStack Query |
-| Forms/validation | React Hook Form + Zod |
-| Styling | Tailwind CSS 4 + shadcn/Radix primitives |
+| Styling | Tailwind CSS 4 + the design system «Пастель» (`src/shared/ui/pastel/`, rules in `docs/pastel/`); its sheet is a Radix dialog |
+| Offline | Dexie |
 | Tests | Vitest |
 
 ## Development
@@ -66,7 +66,7 @@ webapp/
     └── shared/     # UI primitives, API client, lib, hooks, config
 ```
 
-The project follows a Feature-Sliced Design style layout. Shared UI primitives live in `src/shared/ui/`; there is no separate design-system package.
+The project follows a Feature-Sliced Design style layout. The components of «Пастель» live in `src/shared/ui/pastel/`; there is no separate design-system package and no shadcn layer (#290).
 
 ## Telegram Mini App notes
 

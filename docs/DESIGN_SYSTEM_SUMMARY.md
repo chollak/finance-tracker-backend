@@ -1,6 +1,6 @@
 # Design System Summary
 
-Status: current summary for the Telegram Mini App frontend.
+Status: archived (#290). The design system is «Пастель»: rules in [`docs/pastel/design-system.md`](pastel/design-system.md), components in `webapp/src/shared/ui/pastel/`. The shadcn primitives, `PageHeader`, `FormPageHeader` and the Onest font described below are gone; this page is kept as history.
 
 The project previously had an experimental `webapp/src/design-system/` folder. That package was removed. The current design system is implemented through shared shadcn/Radix-style primitives in `webapp/src/shared/ui/` plus CSS tokens in `webapp/src/app/styles/globals.css`.
 

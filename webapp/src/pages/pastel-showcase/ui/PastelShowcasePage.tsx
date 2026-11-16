@@ -10,6 +10,7 @@ import {
   CategoryTile,
   ChoiceChips,
   Keypad,
+  LoadingScreen,
   OfflineBar,
   ProblemScreen,
   Segmented,
@@ -273,6 +274,12 @@ function Panel({ theme, long }: { theme: 'light' | 'dark'; long: boolean }) {
             action={{ label: 'Написать текстом', onClick: () => {} }}
             secondary={{ label: 'Доступ включён — попробовать снова', onClick: () => {} }}
           />
+        </div>
+      </Block>
+
+      <Block title="LoadingScreen">
+        <div className="overflow-hidden rounded-card border border-line">
+          <LoadingScreen fullScreen={false} />
         </div>
       </Block>
 

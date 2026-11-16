@@ -1,7 +1,7 @@
 import { lazy, Suspense } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { useUserStore } from '@/entities/user';
-import { Loading } from '@/shared/ui/loading';
+import { LoadingScreen } from '@/shared/ui/pastel';
 import { authDecision } from './authDecision';
 import { AppLoading } from './AppLoading';
 
@@ -19,7 +19,7 @@ export function AuthGate() {
   if (decision === 'wait') return <AppLoading pathname={pathname} />;
   if (decision === 'login') {
     return (
-      <Suspense fallback={<Loading fullScreen />}>
+      <Suspense fallback={<LoadingScreen />}>
         <LoginPage />
       </Suspense>
     );
