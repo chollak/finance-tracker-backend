@@ -1,5 +1,6 @@
 import 'reflect-metadata';
 import fs from 'fs';
+import http from 'http';
 import os from 'os';
 import path from 'path';
 import { telegramAccess } from '../src/shared/domain/access/telegramAccess';
@@ -31,8 +32,6 @@ const BUILD: Record<string, string> = {
   'assets/empty-state-JWQ5SC-v.js': 'export {}',
   'assets/createLucideIcon-WF_is0Jc.js': 'export {}',
   'assets/manrope-cyrillic-wght-normal-Dvxsihut.woff2': 'font',
-  // Disappears between stat and open, as at the moment of the swap (scripts/build-webapp.js)
-  'assets/query-vendor-Swapped1.js': 'export {}',
   'assets/logo.png': 'png',
   'manifest.webmanifest': '{"name":"Kapelka"}',
   'sw.js': 'self.addEventListener("install", () => {})',
@@ -133,31 +132,68 @@ describe('the cache of the web app’s files (#380)', () => {
   });
 
   // The moment of the swap: express.static found the file in the old folder, and the folder was renamed before it
-  // opened it. serve-static passes that error on; Express's final handler sent it as 404 with the `immutable` already
-  // set and the old file's ETag — a 404 the phone would keep for good under a name the new build may have too
-  it('a file gone between stat and open is 404 no-store, without the old file’s validators', async () => {
-    const vanishing = path.join(webAppDir, 'assets', 'query-vendor-Swapped1.js');
+  // opened it. serve-static passes that error on with the file's headers already set: `immutable`, its validators, its
+  // Content-Length (and Content-Range for a Range request). Sent as they were, the phone would keep the 404 for good,
+  // and the body would not match its length — the answer hung, or its extra bytes broke the next one on the connection
+  it.each([
+    ['a chunk of 50 KB asked by Range', 'query-vendor-Swapped1.js', `export const vendor = "${'v'.repeat(50_000)}"`, { Range: 'bytes=0-99' }],
+    ['a file shorter than the 404’s body', 'tiny-Swapped2.js', 'x=1;\n', {}],
+  ])('%s, gone between stat and open, is a whole 404 no-store without its headers', async (_what, name, content, headers) => {
+    const vanishing = path.join(webAppDir, 'assets', name);
+    fs.writeFileSync(vanishing, content);
     const open = fs.createReadStream;
     const swap = jest.spyOn(fs, 'createReadStream').mockImplementation(((file: fs.PathLike, options?: never) => {
       if (String(file) === vanishing) fs.rmSync(vanishing);
       return open(file, options);
     }) as typeof fs.createReadStream);
+    const oneConnection = new http.Agent({ keepAlive: true, maxSockets: 1 });
 
     try {
-      const res = await get('/assets/query-vendor-Swapped1.js');
+      const gone = await rawGet(oneConnection, `/assets/${name}`, headers);
+      // The next request on the same kept-alive connection gets its own answer: nothing of the 404 is left on it
+      const next = await rawGet(oneConnection, '/assets/index-BLbtmfHV.js');
 
       expect(swap).toHaveBeenCalledWith(vanishing, expect.anything());
-      expect(res.status).toBe(404);
-      expect(res.headers.get('cache-control')).toBe('no-store');
-      expect(res.headers.get('etag')).toBeNull();
-      expect(res.headers.get('last-modified')).toBeNull();
-      expect(await res.text()).not.toContain('<title>Kapelka</title>');
+      expect(gone.status).toBe(404);
+      expect(gone.body).toBe('Not Found');
+      expect(gone.headers['cache-control']).toBe('no-store');
+      for (const header of ['etag', 'last-modified', 'content-range']) expect(gone.headers[header]).toBeUndefined();
+      expect(gone.headers['content-length'] ?? String(gone.body.length)).toBe(String(gone.body.length));
+      expect(next.reusedSocket).toBe(true);
+      expect(next.status).toBe(200);
+      expect(next.body).toBe(BUILD['assets/index-BLbtmfHV.js']);
     } finally {
       swap.mockRestore();
+      oneConnection.destroy();
     }
   });
 
-  it.each(['/api/health','/api/does-not-exist', '/api/assets/index-BLbtmfHV.js'])(
+  interface RawAnswer {
+    status: number;
+    headers: http.IncomingHttpHeaders;
+    body: string;
+    /** Whether the request went on a connection an earlier one had used. */
+    reusedSocket: boolean;
+  }
+
+  /** A GET through `agent` that fails when the answer does not come whole within 2 s. */
+  function rawGet(agent: http.Agent, requestPath: string, headers: http.OutgoingHttpHeaders = {}): Promise<RawAnswer> {
+    const { hostname, port } = new URL(server.baseUrl);
+    return new Promise((resolve, reject) => {
+      const req = http.get({ hostname, port, path: requestPath, headers, agent }, res => {
+        const chunks: Buffer[] = [];
+        res.on('data', chunk => chunks.push(chunk));
+        res.on('end', () => resolve({
+          status: res.statusCode ?? 0, headers: res.headers, body: Buffer.concat(chunks).toString('utf8'), reusedSocket: req.reusedSocket,
+        }));
+        res.on('error', reject);
+      });
+      req.setTimeout(2000, () => req.destroy(new Error(`${requestPath}: no whole answer in 2 s`)));
+      req.on('error', reject);
+    });
+  }
+
+  it.each(['/api/health', '/api/does-not-exist', '/api/assets/index-BLbtmfHV.js'])(
     '%s keeps the API’s no-store',
     async requestPath => {
       const res = await get(requestPath);

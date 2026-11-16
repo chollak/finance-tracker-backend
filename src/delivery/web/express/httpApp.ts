@@ -28,11 +28,12 @@ function webAppCacheHeaders(webAppPath: string): (res: ServerResponse, filePath:
 /**
  * A file of `assets/` the server cannot give: nothing in the answer for a cache to keep or to ask about again — no
  * validators, and `end` rather than `send`, which would add an ETag of its own. `no-store`: the name may be served
- * again a moment later (after the swap) or with a rollback.
+ * again a moment later (after the swap) or with a rollback. The file's length and range go too: with the old file's
+ * Content-Length the answer hung, or its extra bytes broke the next answer on a kept-alive connection; Node sizes this
+ * one itself.
  */
 function answerWithoutFile(res: Response, status: number): void {
-  res.removeHeader('ETag');
-  res.removeHeader('Last-Modified');
+  for (const header of ['ETag', 'Last-Modified', 'Content-Length', 'Content-Range']) res.removeHeader(header);
   res.setHeader('Cache-Control', 'no-store');
   res.status(status).type('text/plain').end(STATUS_CODES[status]);
 }
