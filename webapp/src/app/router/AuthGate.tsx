@@ -4,8 +4,9 @@ import { useUserStore } from '@/entities/user';
 import { LoadingScreen } from '@/shared/ui/pastel';
 import { authDecision } from './authDecision';
 import { AppLoading } from './AppLoading';
+import { pageLoaders } from './pageLoaders';
 
-const LoginPage = lazy(() => import('@/pages').then((m) => ({ default: m.LoginPage })));
+const LoginPage = lazy(() => pageLoaders.login().then((m) => ({ default: m.LoginPage })));
 
 /**
  * Every app screen needs a signed-in Telegram account (FT-128, decision Д4): the Mini App's, or in a browser the
