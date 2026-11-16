@@ -7,8 +7,9 @@
  * `scripts/live-update.sh` builds the new one (npm ci → postinstall → this script). Built in place, Vite emptied the
  * folder and wrote it file by file: a phone opening the Mini App then could get a missing or a half-written file, and a
  * file of assets/ is kept for good (Cache-Control immutable, src/delivery/web/express/httpApp.ts). Now every file the
- * server reads is whole, from the old build or the new one. Between the two renames (microseconds) there is no folder,
- * which is a 404, never part of a file. A failed build leaves public/webapp as it was.
+ * server reads is whole, from the old build or the new one. Between the two renames (a moment) there is no folder, and a
+ * request then, or one whose file was found before the rename and opened after it, is a 404 with `no-store` — never part
+ * of a file, never kept (httpApp.ts). A failed build leaves public/webapp as it was.
  *
  * Same file system on purpose: a rename into another one (a temporary folder in /tmp) is not a rename but a copy.
  */
