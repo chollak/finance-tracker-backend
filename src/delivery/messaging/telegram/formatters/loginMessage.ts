@@ -3,7 +3,9 @@ import { Markup } from 'telegraf';
 import { LoginAnswer } from '../../../../modules/auth/domain/webLogin';
 import { BotLoginAnswer } from '../../../../modules/auth/application/webLogin';
 import { localClock } from '../../../../modules/notification/domain/dailySummary';
+import { MONTHS_OF } from '../../../../shared/domain/text/russianWords';
 import { isHttpsUrl } from '../utils/webAppUrl';
+import { escapeHtml } from './recordMessage';
 
 /**
  * The bot's side of the web login (FT-128; boards «Бот · подтверждение входа», «Бот, вход из браузера, тёмная»):
@@ -24,8 +26,6 @@ export interface LoginNotice {
   keyboard: InlineKeyboardButton[][];
 }
 
-const MONTHS_OF = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
-
 /** `login:ok:<id>` / `login:no:<id>` — 45 bytes of the 64 Telegram allows. */
 export const LOGIN_CALLBACK_PATTERN = /^login:(ok|no):([0-9a-f-]{36})$/;
 
@@ -43,8 +43,6 @@ function momentOn(at: Date, timeZone: string | undefined): string {
   const [, month, day] = clock.date.split('-').map(Number);
   return `${day} ${MONTHS_OF[month - 1]} в ${clock.time}`;
 }
-
-const escapeHtml = (text: string) => text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 /** The question under /start login_<token>. */
 export function formatLoginQuestion(login: { loginId: string; device: string; createdAt: Date }, timeZone: string | undefined): LoginNotice {

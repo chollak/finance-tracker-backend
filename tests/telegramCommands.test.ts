@@ -116,7 +116,7 @@ describe('bot commands (FT-124)', () => {
       '',
       '<i>Команды — «/» в поле ввода.</i>',
     ].join('\n'));
-    expect(greeting.keyboard).toEqual([[expect.objectContaining({ text: 'Открыть Kapelka ↗', web_app: { url: `${BASE_URL}/?userId=${TELEGRAM_ID}` } })]]);
+    expect(greeting.keyboard).toEqual([[expect.objectContaining({ text: 'Открыть Kapelka ↗', web_app: { url: `${BASE_URL}/` } })]]);
   });
 
   it('/help: how to write and the commands, no buttons', async () => {
@@ -363,7 +363,7 @@ describe('bot commands (FT-124)', () => {
       `Продукты · 600${NB}000`,
       `Кафе · 92${NB}000`,
     ].join('\n'));
-    expect(month.keyboard).toEqual([[expect.objectContaining({ text: 'Открыть аналитику ↗', web_app: { url: `${BASE_URL}/analytics?userId=${TELEGRAM_ID}` } })]]);
+    expect(month.keyboard).toEqual([[expect.objectContaining({ text: 'Открыть аналитику ↗', web_app: { url: `${BASE_URL}/analytics` } })]]);
   });
 
   it('/month in a month without spending says so', async () => {

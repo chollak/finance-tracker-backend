@@ -718,6 +718,25 @@ describe('bot record messages (FT-122)', () => {
     expect(text(second)).toMatch(/<i>Запись возвращена\.<\/i>$/);
   });
 
+  // #281: «Отменил последнюю запись: 2 записи» named one record and counted two
+  it('/undo of a message with several records says how many it cancelled, and «Вернуть» brings all back', async () => {
+    const message = await write('кофе 25к, такси 18к', [coffee, taxi]);
+    const [coffeeId, taxiId] = await recordIdsOf(message);
+
+    const reply = await write('/undo');
+
+    expect((await record(coffeeId)).deletedAt).toBeTruthy();
+    expect((await record(taxiId)).deletedAt).toBeTruthy();
+    expect(text(reply)).toBe('Отменил: 2 записи');
+    expect(labels(reply)).toEqual([['Вернуть']]);
+
+    await press(reply, 'Вернуть');
+
+    expect((await record(coffeeId)).deletedAt).toBeFalsy();
+    expect((await record(taxiId)).deletedAt).toBeFalsy();
+    expect(text(reply)).toBe('Вернул записи.');
+  });
+
   it('/undo again goes one record further back, and says when there is nothing left', async () => {
     const first = await write('кофе 25к', [coffee]);
     await write('такси 18к нал', [taxi]);
@@ -1077,6 +1096,43 @@ describe('bot record messages (FT-122)', () => {
     const edited = stand.sentBefore('✅ <b>Записал</b>\nТакси · 18 000 сум');
     await pressData(edited, `edit:${(await running.capture({ userId })).transactions[0].id}`);
     expect(labels(edited)[0]).toEqual(['Сумму', 'Категорию']);
+  });
+
+  /**
+   * #281: a quick-add button of a message sent before FT-124 pressed while the bot was down or behind a long update:
+   * Telegram no longer takes an answer to the press («query is too old»). The handler answered again from its `catch`,
+   * that refusal reached `bot.catch`, and the chat got «Произошла ошибка». The spinner goes by itself; the press is not
+   * an error. (The stand's `pressData` fails a test whose update reaches `bot.catch`.)
+   */
+  describe('a quick-add button of a message sent before FT-124, pressed too late to answer (#281)', () => {
+    const tooOld: Refusal = { error_code: 400, description: 'Bad Request: query is too old and response timeout expired or query ID is invalid' };
+
+    async function cafeButton(): Promise<{ message: number; data: string }> {
+      const cafe = (await running.categoryModule.getCatalog().listForUser(userId)).find(category => category.name === 'Кафе')!;
+      const data = `quickadd:${cafe.id}`;
+      return { message: stand.sentBefore('Выберите категорию', [[{ text: 'Кафе', callback_data: data }]]), data };
+    }
+
+    it('still asks for the amount, and says nothing of an error', async () => {
+      const { message, data } = await cafeButton();
+      stand.refuse('answerCallbackQuery', tooOld, { times: Infinity });
+
+      await pressData(message, data);
+
+      expect(sent().map(shown => shown.text)).toEqual(['Выберите категорию', 'Кафе\n\nВведите сумму:']);
+    });
+
+    it('a press that fails is only logged when Telegram refuses its answer too', async () => {
+      const { message, data } = await cafeButton();
+      jest.spyOn(running.categoryModule, 'getCatalog').mockImplementation(() => { throw new Error('database is closed'); });
+
+      expect(await pressData(message, data)).toEqual(['Произошла ошибка. Попробуйте снова.']);
+
+      stand.refuse('answerCallbackQuery', tooOld, { times: Infinity });
+      await pressData(message, data);
+
+      expect(sent().map(shown => shown.text)).toEqual(['Выберите категорию']);
+    });
   });
 
   it('answers every press so the button does not spin', async () => {

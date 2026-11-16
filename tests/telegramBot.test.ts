@@ -503,13 +503,17 @@ describe('startTelegramBot', () => {
     });
   });
 
-  it('does not launch polling when webhook mode is enabled', async () => {
+  // #281: there was never a webhook path — WEBHOOK_MODE=true only switched the bot off, as ENABLE_TELEGRAM_POLLING=false
+  // does. A line left in an old env file is read by nothing now
+  it('polls whatever WEBHOOK_MODE an old env file still has', async () => {
     process.env.WEBHOOK_MODE = 'true';
     const { start, Telegraf, launch } = await loadBotWithMocks();
+    const { getTelegramBotStatus } = await import('../src/delivery/messaging/telegram/telegramBot');
 
     start();
 
-    expect(Telegraf).not.toHaveBeenCalled();
-    expect(launch).not.toHaveBeenCalled();
+    expect(Telegraf).toHaveBeenCalledTimes(1);
+    expect(launch).toHaveBeenCalledTimes(1);
+    expect(getTelegramBotStatus()).toEqual(expect.objectContaining({ state: 'starting', attempts: 1 }));
   });
 });

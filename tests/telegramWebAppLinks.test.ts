@@ -61,7 +61,7 @@ function noticeKeyboard(notice: { keyboard: unknown }): Keyboard {
 
 /** «Открыть Kapelka ↗» under the daily summary and /today (/start: tests/telegramCommands.test.ts). */
 function summaryKeyboard(): Keyboard {
-  return noticeKeyboard(formatDaySummary(DAY, { today: DAY.day, appUrl: appLinks.home(USER_ID) }));
+  return noticeKeyboard(formatDaySummary(DAY, { today: DAY.day, appUrl: appLinks.home() }));
 }
 
 /** The Mini App buttons of a keyboard. */
@@ -88,38 +88,32 @@ describe('«Открыть Kapelka ↗» and «Открыть аналитику
   it('the daily summary and /today open Home', () => {
     const url = urlOf(summaryKeyboard(), 'Открыть Kapelka');
 
-    expect(url.origin).toBe(BASE_URL);
-    expect(url.pathname).toBe(ROUTES.HOME);
-    expect(url.searchParams.get('userId')).toBe(USER_ID);
+    expect(url.toString()).toBe(`${BASE_URL}${ROUTES.HOME}`);
   });
 
   it('/month opens the analytics of the month', () => {
-    const url = urlOf(noticeKeyboard(formatMonthSummary(MONTH, { analyticsUrl: appLinks.analytics(USER_ID) })), 'Открыть аналитику');
+    const url = urlOf(noticeKeyboard(formatMonthSummary(MONTH, { analyticsUrl: appLinks.analytics() })), 'Открыть аналитику');
 
-    expect(url.pathname).toBe(ROUTES.ANALYTICS);
-    expect(url.searchParams.get('userId')).toBe(USER_ID);
+    expect(url.toString()).toBe(`${BASE_URL}${ROUTES.ANALYTICS}`);
   });
 });
 
 /** «Открыть ревизию ↗» under the audit call and «Открыть цели ↗» under a goal (FT-133). */
 function auditCallKeyboard(): Keyboard {
-  return noticeKeyboard(formatReminder({ kind: 'audit', month: '2026-10', left: 5, repeat: false }, { appUrl: appLinks.audit(USER_ID) }));
+  return noticeKeyboard(formatReminder({ kind: 'audit', month: '2026-10', left: 5, repeat: false }, { appUrl: appLinks.audit() }));
 }
 
 function goalKeyboard(): Keyboard {
   return noticeKeyboard(formatReminder(
     { kind: 'goal_near', today: '2026-10-27', goal: { id: 'goal-1', name: 'Такси', spentMinor: 8_400_000, limitMinor: 10_200_000, endsOn: '2026-10-31' } },
-    { appUrl: appLinks.audit(USER_ID) }
+    { appUrl: appLinks.audit() }
   ));
 }
 
 describe('«Открыть ревизию ↗» and «Открыть цели ↗» (FT-133)', () => {
   it('open the audit: its screen shows the goals after «Готово»', () => {
     for (const [keyboard, label] of [[auditCallKeyboard(), 'Открыть ревизию'], [goalKeyboard(), 'Открыть цели']] as const) {
-      const url = urlOf(keyboard, label);
-      expect(url.origin).toBe(BASE_URL);
-      expect(url.pathname).toBe(ROUTES.AUDIT);
-      expect(url.searchParams.get('userId')).toBe(USER_ID);
+      expect(urlOf(keyboard, label).toString()).toBe(`${BASE_URL}${ROUTES.AUDIT}`);
     }
   });
 });
@@ -131,24 +125,20 @@ describe('«Открыть в Kapelka ↗» under a record opens its sheet', () 
   ])('from %s: Home with the record named, as the webapp links to a record', async (_name, mode, label) => {
     const url = urlOf(await recordMessageKeyboard(mode), label);
 
-    expect(url.origin).toBe(BASE_URL);
-    expect(url.pathname).toBe(ROUTES.HOME);
-    expect(url.searchParams.get('record')).toBe(RECORD_ID);
-    expect(`${url.pathname}?record=${url.searchParams.get('record')}`).toBe(ROUTES.RECORD(RECORD_ID));
-    expect(url.searchParams.get('userId')).toBe(USER_ID);
+    expect(url.toString()).toBe(`${BASE_URL}${ROUTES.RECORD(RECORD_ID)}`);
   });
 
   it('«Остальные — в Kapelka ↗» under a message with many records opens History', async () => {
     const url = urlOf(await recordMessageKeyboard('confirm', MANY), 'Остальные — в Kapelka');
 
-    expect(url.pathname).toBe(ROUTES.TRANSACTIONS);
+    expect(url.toString()).toBe(`${BASE_URL}${ROUTES.TRANSACTIONS}`);
   });
 });
 
 /** Every keyboard of the bot with a link to the Mini App. */
 const keyboards: Array<[string, () => Keyboard | Promise<Keyboard>]> = [
   ['the daily summary and /today', () => summaryKeyboard()],
-  ['/month', () => noticeKeyboard(formatMonthSummary(MONTH, { analyticsUrl: appLinks.analytics(USER_ID) }))],
+  ['/month', () => noticeKeyboard(formatMonthSummary(MONTH, { analyticsUrl: appLinks.analytics() }))],
   ['«Изменить» under a record', () => recordMessageKeyboard('edit')],
   ['the date picker under a record', () => recordMessageKeyboard('date')],
   ['a message with many records', () => recordMessageKeyboard('confirm', MANY)],
@@ -165,6 +155,18 @@ describe('every Mini App link of the bot is a screen of the webapp', () => {
     expect(buttons.length).toBeGreaterThan(0);
     for (const button of buttons) {
       expect(screens).toContain(new URL(button.web_app!.url).pathname);
+    }
+  });
+
+  // #281: `?userId=<Telegram id>` was left from the old sign-in; the webapp takes the user from initData and never read it
+  it('none of them carries the Telegram id: the Mini App knows the user from initData', async () => {
+    const built = await Promise.all(keyboards.map(([, build]) => build()));
+    const urls = built.flatMap((keyboard) => webAppButtons(keyboard).map((button) => button.web_app!.url));
+
+    expect(urls.length).toBeGreaterThan(0);
+    for (const url of urls) {
+      expect(new URL(url).searchParams.has('userId')).toBe(false);
+      expect(url).not.toContain(USER_ID);
     }
   });
 
@@ -189,7 +191,7 @@ describe('no link to the Mini App without an HTTPS address (#278)', () => {
       jest.spyOn(AppConfig, 'getWebAppUrl').mockReturnValue(address);
 
       for (const [, build] of keyboards) expect(webAppButtons(await build())).toEqual([]);
-      expect([appLinks.home(USER_ID), appLinks.analytics(USER_ID), appLinks.audit(USER_ID)]).toEqual([undefined, undefined, undefined]);
+      expect([appLinks.home(), appLinks.analytics(), appLinks.audit()]).toEqual([undefined, undefined, undefined]);
       expect(canLinkMiniApp()).toBe(false);
     }
   );
@@ -198,12 +200,12 @@ describe('no link to the Mini App without an HTTPS address (#278)', () => {
     expect(canLinkMiniApp()).toBe(true);
     jest.spyOn(AppConfig, 'getWebAppUrl').mockReturnValue('http://localhost:3000');
 
-    expect(() => createWebAppUrl(USER_ID)).toThrow('WEB_APP_URL is not an HTTPS address');
-    expect(() => createWebAppUrl(USER_ID, { edit: RECORD_ID })).toThrow('WEB_APP_URL is not an HTTPS address');
-    expect(() => createWebAppUrl(USER_ID, { path: 'transactions' })).toThrow('WEB_APP_URL is not an HTTPS address');
+    expect(() => createWebAppUrl()).toThrow('WEB_APP_URL is not an HTTPS address');
+    expect(() => createWebAppUrl({ edit: RECORD_ID })).toThrow('WEB_APP_URL is not an HTTPS address');
+    expect(() => createWebAppUrl({ path: 'transactions' })).toThrow('WEB_APP_URL is not an HTTPS address');
 
     jest.spyOn(AppConfig, 'getWebAppUrl').mockReturnValue('');
-    expect(() => createWebAppUrl(USER_ID)).toThrow('WEB_APP_URL not configured');
+    expect(() => createWebAppUrl()).toThrow('WEB_APP_URL not configured');
   });
 
   it('the one rule: an HTTPS address, whatever the case of its scheme', () => {

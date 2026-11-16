@@ -17,7 +17,6 @@ export function appConfigWith(env: Record<string, string>): Config {
     // Production with polling on needs a token (FT-167)
     TG_BOT_API_KEY: 'test-bot-token',
     ENABLE_TELEGRAM_POLLING: 'true',
-    WEBHOOK_MODE: 'false',
     ...env,
   });
   // Outside NODE_ENV=test the env file loader says which file it loaded — or warns that there is none (a worktree, CI)

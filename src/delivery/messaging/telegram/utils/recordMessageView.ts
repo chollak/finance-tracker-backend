@@ -138,7 +138,7 @@ async function pickerCategories(ctx: BotContext, userId: string): Promise<{ fact
 }
 
 /** «Открыть в Kapelka ↗», «Другая дата ↗», «Остальные — в Kapelka ↗»; none without an HTTPS WEB_APP_URL (#278). */
-function appLinks(telegramId: string): Pick<RecordMessageInput, 'recordUrl' | 'historyUrl'> {
+function appLinks(): Pick<RecordMessageInput, 'recordUrl' | 'historyUrl'> {
   if (!canLinkMiniApp()) return {};
   const safe = (build: () => string) => {
     try {
@@ -148,8 +148,8 @@ function appLinks(telegramId: string): Pick<RecordMessageInput, 'recordUrl' | 'h
     }
   };
   return {
-    recordUrl: id => safe(() => createWebAppUrl(telegramId, { edit: id })),
-    historyUrl: safe(() => createWebAppUrl(telegramId, { path: WEB_APP_PATHS.transactions })),
+    recordUrl: id => safe(() => createWebAppUrl({ edit: id })),
+    historyUrl: safe(() => createWebAppUrl({ path: WEB_APP_PATHS.transactions })),
   };
 }
 
@@ -172,7 +172,7 @@ export async function recordMessageInput(ctx: BotContext, content: RecordMessage
     today: todayDateOnly(),
     categories: categories.visible,
     accounts: accounts.visible,
-    ...appLinks(String(ctx.from?.id ?? '')),
+    ...appLinks(),
   };
 }
 

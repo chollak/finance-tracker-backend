@@ -1,6 +1,7 @@
 import { Markup } from 'telegraf';
 import { InlineKeyboardButton } from 'telegraf/types';
 import { ComparedPeriod, DaySummary, MonthSummary } from '../../../../modules/notification/domain/dailySummary';
+import { MONTH_NAMES, MONTHS_IN, MONTHS_OF } from '../../../../shared/domain/text/russianWords';
 import { absoluteDate, amountDigits, amountWithUnit, escapeHtml, NBSP, recordsWord } from './recordMessage';
 
 /**
@@ -26,10 +27,6 @@ export interface BotNotice {
   text: string;
   keyboard: InlineKeyboardButton[][];
 }
-
-const MONTHS_OF = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
-const MONTHS_IN = ['январе', 'феврале', 'марте', 'апреле', 'мае', 'июне', 'июле', 'августе', 'сентябре', 'октябре', 'ноябре', 'декабре'];
-const MONTH_NAMES = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
 
 /** «Да, не было» under the empty-day question; the argument is the day it is about. */
 export const NO_SPENDING_CALLBACK_PATTERN = /^n:none:(\d{4}-\d{2}-\d{2})$/;

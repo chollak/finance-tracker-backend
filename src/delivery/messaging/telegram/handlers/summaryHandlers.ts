@@ -21,7 +21,7 @@ export function summarySender(telegram: Pick<Telegram, 'sendMessage'>): DailySum
     async send(recipient, summary, options = {}) {
       const notice = formatDaySummary(summary, {
         today: summary.day,
-        appUrl: appLinks.home(recipient.telegramId),
+        appUrl: appLinks.home(),
         scheduled: true,
         late: options.late,
       });
@@ -54,7 +54,7 @@ async function handleNoSpending(ctx: BotContext) {
     const answer = await notifier.answerNoSpending(await botUserId(ctx), day);
     const today = todayDateOnly();
     const notice = answer.kind === 'recorded'
-      ? formatDaySummary(answer.summary, { today, appUrl: appLinks.home(String(ctx.from?.id ?? '')), scheduled: true, late: answer.late })
+      ? formatDaySummary(answer.summary, { today, appUrl: appLinks.home(), scheduled: true, late: answer.late })
       : formatNoSpending(day, today, answer.late);
     await ctx.editMessageText(notice.text, { parse_mode: 'HTML', reply_markup: { inline_keyboard: notice.keyboard } });
   } catch (error) {

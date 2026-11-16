@@ -15,7 +15,7 @@ import {
 
 const NB = ' ';
 const GOAL_ID = '3f1c2a4b-5d6e-4f70-8a9b-0c1d2e3f4a5b';
-const APP = 'https://miniapp.test/audit?userId=597843119';
+const APP = 'https://miniapp.test/audit';
 
 /**
  * FT-133 (BotNotice.md, board «Бот · напоминания»): when a goal, a subscription and the audit are told, and the words

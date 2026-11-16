@@ -37,7 +37,7 @@ describe('the bot stops after the updates it is handling (FT-167)', () => {
 
   beforeEach(() => {
     jest.resetModules();
-    process.env = { ...originalEnv, TG_BOT_API_KEY: '123:test-token', ENABLE_TELEGRAM_POLLING: 'true', WEBHOOK_MODE: 'false' };
+    process.env = { ...originalEnv, TG_BOT_API_KEY: '123:test-token', ENABLE_TELEGRAM_POLLING: 'true' };
   });
 
   afterEach(() => {
