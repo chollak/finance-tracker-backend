@@ -5,7 +5,8 @@
 #   scripts/live-update.sh
 #
 # The app applies pending migrations itself on start, after copying the database to data/backups/. While the build
-# runs the old version keeps serving from memory; the bot is silent only for the restart. After a healthy restart the
+# runs the old version keeps serving from memory, and the web app from the old public/webapp: build:webapp builds beside
+# it and swaps the complete build in (#380). The bot is silent only for the restart. After a healthy restart the
 # local tag `live-good` moves to the new commit: it is the commit to roll back to. Rollback and everything else:
 # docs/knowledge-base/08-development/live-instance.md
 #
@@ -58,7 +59,8 @@ check_preconditions() {
 build() {
   local marker
   marker="$(mktemp)"
-  # npm ci also builds the web app: the root package's postinstall runs install:webapp and build:webapp.
+  # npm ci also builds the web app: the root package's postinstall runs install:webapp and build:webapp, which builds
+  # into public/webapp.next and renames it into place only when complete (scripts/build-webapp.js, #380).
   # --include=dev: the builds need TypeScript and Vite even when the shell has NODE_ENV=production
   say "installing dependencies; npm ci also builds the web app"
   if ! "$NVM_EXEC" npm ci --include=dev; then
