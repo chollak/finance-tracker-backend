@@ -7,7 +7,7 @@ import { LoadingScreen } from '@/shared/ui/pastel';
 import { firstLaunchDecision } from './firstLaunchDecision';
 import { AppLoading } from './AppLoading';
 
-const FirstLaunchPage = lazy(() => import('@/pages').then((m) => ({ default: m.FirstLaunchPage })));
+const FirstLaunchPage = lazy(() => import('@/pages/first-launch').then((m) => ({ default: m.FirstLaunchPage })));
 
 /**
  * Every screen of the app sits behind the first launch (FT-109): until the user has said how much money

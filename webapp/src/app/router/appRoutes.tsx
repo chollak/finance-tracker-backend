@@ -10,32 +10,34 @@ import { AppShell } from './AppShell';
 import { FirstLaunchGate } from './FirstLaunchGate';
 import { AuthGate } from './AuthGate';
 
-// Lazy load pages for code splitting
-const HomePage = lazy(() => import('@/pages').then(m => ({ default: m.HomePage })));
-const TransactionsPage = lazy(() => import('@/pages').then(m => ({ default: m.TransactionsPage })));
-const AnalyticsPage = lazy(() => import('@/pages').then(m => ({ default: m.AnalyticsPage })));
+// Each screen loads its own code (#291): a lazy page imports its page's module, never a barrel of all the pages — one
+// import of a barrel would put every screen in a single piece, and Home would wait for all of them. The screens of one
+// page module (analytics, the accounts, voice and receipts offline) share its piece
+const HomePage = lazy(() => import('@/pages/home').then((m) => ({ default: m.HomePage })));
+const TransactionsPage = lazy(() => import('@/pages/transactions').then((m) => ({ default: m.TransactionsPage })));
+const AnalyticsPage = lazy(() => import('@/pages/analytics').then((m) => ({ default: m.AnalyticsPage })));
 // One category of the month: its days and operations (FT-121)
-const CategoryAnalyticsPage = lazy(() => import('@/pages').then(m => ({ default: m.CategoryAnalyticsPage })));
-const MorePage = lazy(() => import('@/pages').then(m => ({ default: m.MorePage })));
+const CategoryAnalyticsPage = lazy(() => import('@/pages/analytics').then((m) => ({ default: m.CategoryAnalyticsPage })));
+const MorePage = lazy(() => import('@/pages/more').then((m) => ({ default: m.MorePage })));
 // The categories (FT-127), opened from «Ещё»
-const CategoriesPage = lazy(() => import('@/pages').then(m => ({ default: m.CategoriesPage })));
+const CategoriesPage = lazy(() => import('@/pages/categories').then((m) => ({ default: m.CategoriesPage })));
 // Pastel component showcase in both themes (FT-093), not linked from the app
-const PastelShowcasePage = lazy(() => import('@/pages').then(m => ({ default: m.PastelShowcasePage })));
+const PastelShowcasePage = lazy(() => import('@/pages/pastel-showcase').then((m) => ({ default: m.PastelShowcasePage })));
 // Manual entry with the app's own keypad (FT-113), opened by the keypad button of Home's composer, by an empty month of
 // analytics (FT-121) and by «Ввести вручную» on the voice and receipt screens without a connection (FT-129)
-const ManualEntryPage = lazy(() => import('@/pages').then(m => ({ default: m.ManualEntryPage })));
+const ManualEntryPage = lazy(() => import('@/pages/manual-entry').then((m) => ({ default: m.ManualEntryPage })));
 // The review of the records a phrase from Home's composer made (FT-114)
-const CaptureReviewPage = lazy(() => import('@/pages').then(m => ({ default: m.CaptureReviewPage })));
+const CaptureReviewPage = lazy(() => import('@/pages/capture-review').then((m) => ({ default: m.CaptureReviewPage })));
 // Voice and receipts without a connection (FT-129): opened by the composer's microphone and camera offline
-const VoiceOfflinePage = lazy(() => import('@/pages').then(m => ({ default: m.VoiceOfflinePage })));
-const ReceiptOfflinePage = lazy(() => import('@/pages').then(m => ({ default: m.ReceiptOfflinePage })));
+const VoiceOfflinePage = lazy(() => import('@/pages/capture-offline').then((m) => ({ default: m.VoiceOfflinePage })));
+const ReceiptOfflinePage = lazy(() => import('@/pages/capture-offline').then((m) => ({ default: m.ReceiptOfflinePage })));
 // Accounts and the rate, opened from the balance card on Home, and one account's screen (FT-118)
-const AccountsPage = lazy(() => import('@/pages').then(m => ({ default: m.AccountsPage })));
-const AccountPage = lazy(() => import('@/pages').then(m => ({ default: m.AccountPage })));
+const AccountsPage = lazy(() => import('@/pages/accounts').then((m) => ({ default: m.AccountsPage })));
+const AccountPage = lazy(() => import('@/pages/accounts').then((m) => ({ default: m.AccountPage })));
 // Transfer and exchange between accounts (FT-119), from the accounts or an account
-const TransferPage = lazy(() => import('@/pages').then(m => ({ default: m.TransferPage })));
+const TransferPage = lazy(() => import('@/pages/accounts').then((m) => ({ default: m.TransferPage })));
 // The spending audit of the month before (FT-132), from Home, «Ещё» and analytics
-const AuditPage = lazy(() => import('@/pages').then(m => ({ default: m.AuditPage })));
+const AuditPage = lazy(() => import('@/pages/audit').then((m) => ({ default: m.AuditPage })));
 
 // Wrapper component with Suspense; Home's code loads behind Home's skeleton (FT-112), another screen's behind the
 // theme's background and the Kapelka sign (#290)
