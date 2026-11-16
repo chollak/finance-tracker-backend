@@ -90,7 +90,8 @@ Dexie, react-router 7 (recharts убран в FT-121, motion — в #289, сло
 `pages/not-found`). Экран, который не загрузился или упал, — «Экран не открылся» (#240, `pages/route-error`): его
 показывают страница ошибки роутера и верхний `ErrorBoundary`. Внутри Telegram ответ `401` — initData Mini App сервер
 больше не принимает (#316) — ставит на место всего приложения «Откройте Kapelka заново» (`pages/mini-app-reopen`,
-`app/providers/MiniAppReopenGate`): кнопка закрывает Mini App, записи в очереди уходят после нового открытия.
+`app/providers/MiniAppReopenGate`): кнопка закрывает Mini App, записи в очереди ждут — `OfflineSync` их до нового
+открытия не отправляет (#385) — и уходят после него.
 Нижний бар (FT-086): Главная · История · Записать · Ещё.
 `BackButton`/`MainButton` Telegram написаны, но не используются.
 
