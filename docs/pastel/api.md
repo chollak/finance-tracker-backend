@@ -10,12 +10,15 @@
   `X-Dev-User-Id: <telegram id>`, только вне production и только для запроса с этой машины (`isLocalRequest`,
   2026-10-21): адрес loopback, `Host` — `localhost`, `127.0.0.1` или `[::1]`, нет `Cf-Connecting-Ip` и `Forwarded`, а
   `X-Forwarded-For`, если есть, — только loopback. Через туннель `dev:miniapp` и из сети заголовок не читается: запрос
-  идёт как без него. Ни путь, ни query, ни тело не задают, чьи это данные. Middleware
+  идёт как без него. Id в нём читается по правилу `ALLOWED_TELEGRAM_IDS` (`telegramIdOf`): `0131184740` — 131184740;
+  не Telegram id (`123abc`) — `401 INVALID_DEV_USER_ID` (#255), а при заданном `ALLOWED_TELEGRAM_IDS` первым приходит
+  `403 ACCESS_NOT_ALLOWED` (закрытый доступ, до любого маршрута). Cookie сессии рядом с заголовком не считается. Ни
+  путь, ни query, ни тело не задают, чьи это данные. Middleware
   `createCurrentUserMiddleware` переводит Telegram id во внутренний UUID и создаёт пользователя при первом
   обращении. Без авторизации — `401`, и у маршрутов одной записи тоже (#271): `GET`, `PUT`, `DELETE /api/transactions/:id`
   и `POST …/restore` отвечают `401` до того, как читают запись, — ответ не выдаёт, есть ли такой id. Со входом чужая
   запись — `403 AUTHORIZATION_ERROR`, неизвестная — `404`. Ответ `401` — плоский (ниже, «Ошибки»), как у всех маршрутов:
-  `MISSING_AUTH_HEADER`, `INVALID_AUTH_FORMAT`, `INVALID_AUTH`, `MISSING_USER_DATA`.
+  `MISSING_AUTH_HEADER`, `INVALID_AUTH_FORMAT`, `INVALID_AUTH`, `MISSING_USER_DATA`, вне production — `INVALID_DEV_USER_ID`.
 - **iOS-приложение (FT-218)** входит токеном `X-Shortcut-Capture-Token` как `SHORTCUT_CAPTURE_OWNER` — только на шести
   маршрутах: `GET /api/transactions` (история), `GET /api/categories`, `GET /api/accounts` (только список),
   `DELETE /api/transactions/:id`, `POST /api/transactions/:id/restore`, `PUT /api/transactions/:id`. Ответы те же, что
@@ -56,6 +59,7 @@
 | 401 | `INVALID_AUTH_FORMAT` | плоская | `Authorization` не в виде `tma <initData>` |
 | 401 | `INVALID_AUTH` | плоская | initData не сошлась с токеном бота или старше часа |
 | 401 | `MISSING_USER_DATA` | плоская | в верной initData нет `user` |
+| 401 | `INVALID_DEV_USER_ID` | плоская | вне production, с этой машины: `X-Dev-User-Id` — не Telegram id (`123abc`, #255); при заданном `ALLOWED_TELEGRAM_IDS` первым — `403 ACCESS_NOT_ALLOWED` |
 | 401 | `INVALID_SHORTCUT_TOKEN` | плоская | токен приложения пустой или неверный: шесть маршрутов iOS (FT-218) и `quick-capture` |
 | 401 | `NOT_SIGNED_IN` | вложенная | `GET /api/auth/session`: пользователя этого входа нет |
 | 403 | `ACCESS_NOT_ALLOWED` | плоская | вошедшего нет в `ALLOWED_TELEGRAM_IDS` (FT-153) — до любого маршрута |
