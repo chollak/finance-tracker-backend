@@ -72,6 +72,18 @@ interface PressResult {
 
 class PressFailed extends Error {}
 
+/**
+ * A button drawn before its record, category or account went — hidden or deleted in the app (#277): the message is
+ * drawn with the buttons it has now and the popup says why, instead of «Произошла ошибка» on every press.
+ */
+class OptionGone extends PressFailed {
+  constructor(message: string, readonly reason: string) {
+    super(message);
+  }
+}
+
+const recordGone = () => new OptionGone('No such record', RU.record.notFound);
+
 function withoutPick(state: RecordMessageState): RecordMessageState {
   const { pickType: _pickType, back: _back, ...rest } = state;
   return rest;
@@ -124,7 +136,7 @@ async function closeUndoReply(ctx: BotContext, message: BotMessage, count: numbe
 async function revert(ctx: BotContext, message: BotMessage, input: RecordMessageInput, index?: number): Promise<PressResult> {
   if (index !== undefined) {
     const one = input.records[index];
-    if (!one) throw new PressFailed('No such record');
+    if (!one) throw recordGone();
     if (!one.cancelled) return confirmed(message.state);
     await restoreRecords(ctx, [one]);
     return confirmed(message.state, `${quoted(recordName(one))} возвращена`);
@@ -177,7 +189,7 @@ async function applyPress(
     }
     case RECORD_VERBS.pick: {
       const index = Number(arg);
-      if (!Number.isInteger(index) || !input.records[index]) throw new PressFailed('No such record');
+      if (!Number.isInteger(index) || !input.records[index]) throw recordGone();
       // Cancelled meanwhile, in the app: the message is drawn again, the button turns into «Вернуть»
       if (input.records[index].cancelled) return confirmed(state);
       const next = withoutPick({ ...state, selected: index });
@@ -196,7 +208,7 @@ async function applyPress(
     case RECORD_VERBS.done:
       return confirmed(state, state.changed);
     case RECORD_VERBS.switchType: {
-      if (!record) throw new PressFailed('No record');
+      if (!record) throw recordGone();
       const shown = state.pickType ?? record.type;
       const next = withoutPick(state);
       if (state.back) next.back = state.back;
@@ -205,10 +217,10 @@ async function applyPress(
       return { mode: 'category', state: next };
     }
     case RECORD_VERBS.category: {
-      if (!record) throw new PressFailed('No record');
+      if (!record) throw recordGone();
       const type = state.pickType ?? record.type;
       const category = input.categories.find(candidate => candidate.id === arg && candidate.type === type);
-      if (!category) throw new PressFailed('Category not offered');
+      if (!category) throw new OptionGone('Category not offered', RU.record.categoryGone);
       const switched = type !== record.type;
       await update(ctx, record.id, switched ? { categoryId: category.id, type, semanticType: type } : { categoryId: category.id });
       const next = { ...state, guessed: state.guessed.filter(id => id !== record.id) };
@@ -216,14 +228,15 @@ async function applyPress(
       return confirmed(next, changed);
     }
     case RECORD_VERBS.account: {
-      if (!record) throw new PressFailed('No record');
+      if (!record) throw recordGone();
       const account = accountsFor(record, input.accounts).find(candidate => candidate.id === arg);
-      if (!account) throw new PressFailed('Account not offered');
+      if (!account) throw new OptionGone('Account not offered', RU.record.accountGone);
       await update(ctx, record.id, { accountId: account.id });
       return confirmed(state, `Счёт: ${account.name}`);
     }
     case RECORD_VERBS.date: {
-      if (!record || !isValidDateOnly(arg)) throw new PressFailed('Not a date');
+      if (!record) throw recordGone();
+      if (!isValidDateOnly(arg)) throw new PressFailed('Not a date');
       await update(ctx, record.id, { date: arg });
       return confirmed(state, `Дата: ${absoluteDate(arg, input.today)}`);
     }
@@ -242,7 +255,7 @@ async function applyPress(
     case RECORD_VERBS.revert:
       return revert(ctx, message, input, arg === undefined ? undefined : Number(arg));
     case RECORD_VERBS.rightCategory: {
-      if (!record) throw new PressFailed('No record');
+      if (!record) throw recordGone();
       const next = { ...state, guessed: state.guessed.filter(id => id !== record.id) };
       return confirmed(next, `Категория: ${record.categoryName}`);
     }
@@ -346,7 +359,16 @@ async function pressMessage(ctx: BotContext, log: BotMessageLog, message: BotMes
     await answer(ctx, RU.record.notFound);
     return;
   }
-  const result = isStaleScreen(message, input, verb) ? confirmed(message.state) : await applyPress(ctx, log, message, input, verb, arg);
+  let result: PressResult | null;
+  try {
+    result = isStaleScreen(message, input, verb) ? confirmed(message.state) : await applyPress(ctx, log, message, input, verb, arg);
+  } catch (error) {
+    if (!(error instanceof OptionGone)) throw error;
+    logger.info('A button of something no longer offered; the message is drawn as it is now', { verb, why: error.message });
+    await redrawRecordMessage(ctx, message);
+    await answer(ctx, error.reason);
+    return;
+  }
   // A press about a question no longer asked is not saved: the message is drawn as it is now
   await redrawRecordMessage(ctx, result ? await log.save(message, result) : message);
   await answer(ctx);
