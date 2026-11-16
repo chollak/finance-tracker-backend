@@ -440,6 +440,21 @@ checking them in every test made Jest about ten times slower. Types of `tests/` 
 **Solution:** fix the type in the test; re-export a type with `export type { … } from …`. Run `npm run typecheck:tests`
 to see the errors without the whole `verify`.
 
+### `tsc` Takes a Minute or More (#328)
+
+**Error:** `npm run build` or `npm run typecheck:tests` runs a minute or longer; `npx tsc --noEmit --extendedDiagnostics`
+shows a `Check time` far above a few seconds.
+
+**Cause:** a `bot.on(filter, ...handlers)` with handlers typed with `BotContext` (or `Context`): Telegraf's `on()` infers
+the filter's type from every handler, member by member of the narrowed context. The four text and voice calls of
+`registerMessageHandlers()` took 80 of 82 seconds.
+
+**Solution:** give `on()` the filter's type, as `messageHandlers.ts` does —
+`bot.on<ReturnType<typeof message<['text']>>>(message('text'), …)` — or type the handler with the context its filter
+gives (`MessageContext` for `isUnsupportedMessage`). Not `Composer.compose(chain)`: it still takes ~15 s and throws
+`next(ctx) called with invalid context` on the plain-object contexts of the bot tests. To find the slow call:
+`npx tsc --noEmit --generateTrace <dir>` and the longest `checkExpression` in `<dir>/trace.json`.
+
 ---
 
 ## Logs & Debugging
