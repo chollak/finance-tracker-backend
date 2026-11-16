@@ -14,7 +14,7 @@ struct Capture: Codable, Equatable, Identifiable, Sendable {
 
     /// `clientId` of `POST /api/quick-capture`: a repeat with it writes nothing new (FT-106).
     let clientId: UUID
-    /// The phrase; empty for a payment, so a build before FT-179 that reads it gets a 400, not a phrase to parse.
+    /// The phrase; empty for a payment: it has no phrase and goes out as fields (`CaptureClient`, `PaymentBody`).
     let text: String
     /// The moment of input; the server counts «сегодня» and «вчера» from it (FT-175).
     let capturedAt: Date
