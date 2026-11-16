@@ -8,6 +8,7 @@ import { useUserStore } from '@/entities/user';
 import { apiClient } from '@/shared/api';
 import { appRoutes } from './appRoutes';
 import { pageLoaders, SCREENS_AFTER_HOME, type PageKey } from './pageLoaders';
+import { ignoreWindowScroll, squash, until, wait } from './screenTesting';
 
 /**
  * #291: Home drawn, the code of the screens it leads to loads ahead — the first move to a screen then does not wait
@@ -36,6 +37,7 @@ beforeAll(async () => {
 
 beforeEach(() => {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+  ignoreWindowScroll();
   // The idle moment comes soon, as in a browser: a few frames later
   vi.stubGlobal('requestIdleCallback', (run: () => void) => setTimeout(run, 50));
   vi.stubGlobal('cancelIdleCallback', (id: number) => clearTimeout(id));
@@ -60,24 +62,10 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-const squash = (value: string | null | undefined) => value?.replace(/\s+/g, ' ').trim() ?? '';
-const text = () => squash(document.body.textContent);
 const title = () => squash(document.body.querySelector('h1')?.textContent);
+/** A screen's code loads in these tests: on a busy run it takes longer than the other route tests wait. */
+const LOAD_TIMEOUT = 10_000;
 const called = () => KEYS.filter((key) => loaders[key].mock.calls.length > 0);
-
-async function wait(ms: number) {
-  await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, ms));
-  });
-}
-
-async function until(predicate: () => boolean, timeout = 10_000) {
-  const started = Date.now();
-  while (!predicate()) {
-    if (Date.now() - started > timeout) throw new Error(`Timed out; the screen says: ${text().slice(0, 300)}`);
-    await wait(20);
-  }
-}
 
 async function open(path: string) {
   // A failed read is tried once more, as in the app (QueryProvider), only sooner
@@ -96,7 +84,7 @@ async function open(path: string) {
 describe('before Home', () => {
   it('another screen opened straight away loads only its own code', async () => {
     await open('/more');
-    await until(() => title() === 'Ещё');
+    await until(() => title() === 'Ещё', LOAD_TIMEOUT);
     await wait(300);
 
     expect(called()).toEqual(['more']);
@@ -106,7 +94,7 @@ describe('before Home', () => {
     useUserStore.setState({ userId: null, userType: null, telegramId: null, userName: null, signedOut: true });
 
     await open('/');
-    await until(() => title() !== '');
+    await until(() => title() !== '', LOAD_TIMEOUT);
     await wait(300);
 
     expect(called()).toEqual(['login']);
@@ -116,7 +104,7 @@ describe('before Home', () => {
     onboardedAt = null;
 
     await open('/');
-    await until(() => title() === 'Сколько у вас сейчас денег?');
+    await until(() => title() === 'Сколько у вас сейчас денег?', LOAD_TIMEOUT);
     await wait(300);
 
     expect(called()).toEqual(['firstLaunch']);
@@ -134,7 +122,7 @@ describe('Home drawn on a bad connection', () => {
     });
 
     await open('/');
-    await until(() => document.body.querySelector('[aria-label="Быстрый ввод"]') !== null);
+    await until(() => document.body.querySelector('[aria-label="Быстрый ввод"]') !== null, LOAD_TIMEOUT);
     await wait(1500);
 
     expect(called()).toEqual(['home']);
@@ -144,8 +132,8 @@ describe('Home drawn on a bad connection', () => {
 describe('Home drawn', () => {
   it('loads the code of the screens it leads to, one after another — not the showcase', async () => {
     await open('/');
-    await until(() => document.body.querySelector('[aria-label="Быстрый ввод"]') !== null);
-    await until(() => SCREENS_AFTER_HOME.every((key) => loaders[key].mock.calls.length > 0));
+    await until(() => document.body.querySelector('[aria-label="Быстрый ввод"]') !== null, LOAD_TIMEOUT);
+    await until(() => SCREENS_AFTER_HOME.every((key) => loaders[key].mock.calls.length > 0), LOAD_TIMEOUT);
 
     // Home's own code came in the test before (`lazy()` keeps it); now the screens it leads to, and only they
     expect(called()).toEqual(KEYS.filter((key) => SCREENS_AFTER_HOME.includes(key)));
@@ -157,7 +145,7 @@ describe('Home drawn', () => {
 
   it('Home shown again loads nothing more', async () => {
     await open('/');
-    await until(() => document.body.querySelector('[aria-label="Быстрый ввод"]') !== null);
+    await until(() => document.body.querySelector('[aria-label="Быстрый ввод"]') !== null, LOAD_TIMEOUT);
     await wait(300);
 
     // Home's own code is in already: `lazy()` keeps it

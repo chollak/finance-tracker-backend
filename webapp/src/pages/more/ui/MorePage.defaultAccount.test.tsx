@@ -163,7 +163,8 @@ describe('the default account chosen in «Ещё» (FT-149)', () => {
     await chooseDefault('Наличные');
 
     await go('/');
-    useConnectivityStore.setState({ browserOnline: false });
+    // The composer on the page shows the lost connection: inside act, like every other change the test makes
+    act(() => useConnectivityStore.setState({ browserOnline: false }));
     await act(async () => useCaptureStore.getState().setDraft('такси 18к'));
     await press(button('Записать без связи'));
 

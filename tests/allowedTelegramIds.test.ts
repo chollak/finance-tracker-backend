@@ -1,5 +1,4 @@
 import 'reflect-metadata';
-import crypto from 'crypto';
 import express from 'express';
 import http from 'http';
 import { parseTelegramIds, telegramAccess } from '../src/shared/domain/access/telegramAccess';
@@ -15,6 +14,7 @@ import { SqliteUserSettingsRepository } from '../src/modules/user/infrastructure
 import { openMigratedDatabase, TestDatabase } from './helpers/testDatabase';
 import { appConfigWith } from './helpers/appConfigWith';
 import { listenOnLoopback } from './helpers/testServer';
+import { signedInitData } from './helpers/telegramInitData';
 
 /**
  * FT-153: closed access by ALLOWED_TELEGRAM_IDS (decision 2026-10-26, «живой экземпляр на своём ПК»). The bot, the API
@@ -103,19 +103,7 @@ const ALLOWED = 111;
 const STRANGER = 222;
 const OTHER_STRANGER = 333;
 
-/** Telegram Mini App initData signed the way Telegram signs it (HMAC-SHA256 with the bot token). */
-function initData(userId: number): string {
-  const params = new URLSearchParams();
-  params.set('auth_date', String(Math.floor(Date.now() / 1000)));
-  params.set('user', JSON.stringify({ id: userId, first_name: 'Test' }));
-  const dataCheckString = Array.from(params.entries())
-    .sort((a, b) => a[0].localeCompare(b[0]))
-    .map(([key, value]) => `${key}=${value}`)
-    .join('\n');
-  const secretKey = crypto.createHmac('sha256', 'WebAppData').update(BOT_TOKEN).digest();
-  params.set('hash', crypto.createHmac('sha256', secretKey).update(dataCheckString).digest('hex'));
-  return params.toString();
-}
+const initData = (userId: number): string => signedInitData(userId, BOT_TOKEN);
 
 /** Any module method buildServer calls gives an empty object: these tests go only to /api/settings and /api/health. */
 const unusedModule = new Proxy({}, { get: () => () => ({}) }) as any;

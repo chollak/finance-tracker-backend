@@ -32,26 +32,7 @@ import { listenOnLoopback, LoopbackServer } from './helpers/testServer';
  * is faked (it copies the voice to the `.mp3`), and so is OpenAI: it reads the file it is given, as the real one does.
  */
 
-jest.mock('child_process', () => {
-  const actual = jest.requireActual('child_process');
-  const { EventEmitter } = jest.requireActual('events');
-  const files = jest.requireActual('fs');
-  return {
-    ...actual,
-    spawn: jest.fn((_command: string, args: string[]) => {
-      const ffmpeg = new EventEmitter();
-      setImmediate(() => {
-        try {
-          files.copyFileSync(args[args.indexOf('-i') + 1], args[args.length - 1]);
-          ffmpeg.emit('close', 0, null);
-        } catch {
-          ffmpeg.emit('close', 1, null);
-        }
-      });
-      return ffmpeg;
-    }),
-  };
-});
+jest.mock('child_process', () => jest.requireActual('./helpers/fakeFfmpeg').childProcessWithFakeFfmpeg());
 
 const TELEGRAM_ID = 131184740;
 const FILE_ID = 'AwACAgIAAxkBAAIBVoice-the-same';

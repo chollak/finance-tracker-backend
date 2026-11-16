@@ -8,6 +8,7 @@ import { useUserStore } from '@/entities/user';
 import { apiClient } from '@/shared/api';
 import { ROUTES } from '@/shared/lib/constants/routes';
 import { appRoutes } from './appRoutes';
+import { ignoreWindowScroll, squash, until } from './screenTesting';
 
 /**
  * #222, boards «Страница не найдена» and «Страница не найдена · тёмная»: any unknown address of the app shows
@@ -37,6 +38,7 @@ beforeAll(async () => {
 
 beforeEach(() => {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+  ignoreWindowScroll();
   onboardedAt = '2026-10-01T09:00:00.000Z';
   vi.mocked(apiClient.get).mockReset();
   vi.mocked(apiClient.get).mockImplementation(async (url: string) => {
@@ -55,24 +57,8 @@ afterEach(() => {
   container.remove();
 });
 
-const squash = (value: string | null | undefined) => value?.replace(/\s+/g, ' ').trim() ?? '';
 const text = () => squash(document.body.textContent);
 const title = () => squash(document.body.querySelector('h1')?.textContent);
-
-async function wait(ms: number) {
-  await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, ms));
-  });
-}
-
-/** Waits (up to `timeout`) for the screen to show something; the gates and lazy pages take a few renders. */
-async function until(predicate: () => boolean, timeout = 4000) {
-  const started = Date.now();
-  while (!predicate()) {
-    if (Date.now() - started > timeout) throw new Error(`Timed out; the screen says: ${text().slice(0, 300)}`);
-    await wait(20);
-  }
-}
 
 async function open(path: string) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });

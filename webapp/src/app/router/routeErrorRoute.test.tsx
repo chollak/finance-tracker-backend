@@ -8,6 +8,7 @@ import { useUserStore } from '@/entities/user';
 import { reloadHere, reloadHome } from '@/pages/route-error/model/reload';
 import { apiClient } from '@/shared/api';
 import { appRoutes } from './appRoutes';
+import { ignoreWindowScroll, squash, until } from './screenTesting';
 
 /**
  * #240, boards «Что-то пошло не так» and «Что-то пошло не так · тёмная»: a screen that falls while drawing shows
@@ -47,6 +48,7 @@ beforeAll(async () => {
 
 beforeEach(() => {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+  ignoreWindowScroll();
   logged = vi.spyOn(console, 'error').mockImplementation(() => {});
   vi.mocked(reloadHere).mockReset();
   vi.mocked(reloadHome).mockReset();
@@ -68,24 +70,8 @@ afterEach(() => {
   logged.mockRestore();
 });
 
-const squash = (value: string | null | undefined) => value?.replace(/\s+/g, ' ').trim() ?? '';
 const text = () => squash(document.body.textContent);
 const title = () => squash(document.body.querySelector('h1')?.textContent);
-
-async function wait(ms: number) {
-  await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, ms));
-  });
-}
-
-/** Waits (up to `timeout`) for the screen to show something; the gates and lazy pages take a few renders. */
-async function until(predicate: () => boolean, timeout = 4000) {
-  const started = Date.now();
-  while (!predicate()) {
-    if (Date.now() - started > timeout) throw new Error(`Timed out; the screen says: ${text().slice(0, 300)}`);
-    await wait(20);
-  }
-}
 
 async function open(path: string) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });

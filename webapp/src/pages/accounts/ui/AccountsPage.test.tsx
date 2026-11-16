@@ -26,6 +26,9 @@ vi.mock('@/shared/api/client', () => {
 });
 
 const USER_ID = '900000001';
+// A fixed day (#295): the rates below are of 14 October 2026, and a date of another year is shown with its year —
+// on a real clock these tests would fail from 1 January 2027
+const NOW = new Date('2026-11-16T12:00:00+05:00');
 
 const account = (overrides: Partial<Account>): Account => ({
   id: 'card', name: 'Карта', kind: 'card', currency: 'UZS', openingBalanceMinor: 0, openingDate: '2026-08-01', isHidden: false, sortOrder: 20, balanceMinor: 0, ...overrides,
@@ -58,6 +61,7 @@ function AccountScreenStub() {
 
 beforeEach(() => {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+  vi.setSystemTime(NOW);
   overview = BOARD;
   vi.mocked(apiClient.get).mockImplementation(async (url: string) => {
     if (url === '/accounts') return { success: true, data: overview } as never;
@@ -78,6 +82,7 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.unmount());
   container.remove();
+  vi.useRealTimers();
 });
 
 async function renderAccounts() {

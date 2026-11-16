@@ -21,22 +21,7 @@ import { captureLogLines, LogCapture } from './helpers/logLines';
  */
 
 // ffmpeg is faked: it copies the voice to the `.mp3`, so the voice path reaches transcription
-jest.mock('child_process', () => {
-  const actual = jest.requireActual('child_process');
-  const { EventEmitter } = jest.requireActual('events');
-  const files = jest.requireActual('fs');
-  return {
-    ...actual,
-    spawn: jest.fn((_command: string, args: string[]) => {
-      const ffmpeg = new EventEmitter();
-      setImmediate(() => {
-        files.copyFileSync(args[args.indexOf('-i') + 1], args[args.length - 1]);
-        ffmpeg.emit('close', 0, null);
-      });
-      return ffmpeg;
-    }),
-  };
-});
+jest.mock('child_process', () => jest.requireActual('./helpers/fakeFfmpeg').childProcessWithFakeFfmpeg());
 
 const PHRASE = 'кофе у Алишера 47000 в Korzinka';
 /** Pieces of the phrase and of the record that must not be in any line. */
