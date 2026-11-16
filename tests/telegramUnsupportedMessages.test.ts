@@ -67,7 +67,10 @@ const EMOJI = /\p{Emoji_Presentation}|️/u;
 
 const file = (id: string) => ({ file_id: id, file_unique_id: `u-${id}` });
 
-/** The five a person may send that the bot does not read, as the Bot API sends them. */
+/**
+ * What a person may send that the bot does not read — the five of the issue, a photo with a caption and a GIF — as the
+ * Bot API sends them.
+ */
 const UNSUPPORTED: Array<[string, Record<string, unknown>]> = [
   ['a photo', { photo: [{ ...file('p1'), width: 90, height: 90 }] }],
   ['a photo with a caption (the caption is not read)', { photo: [{ ...file('p2'), width: 90, height: 90 }], caption: 'такси 18к' }],
