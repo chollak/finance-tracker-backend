@@ -114,7 +114,8 @@ Kapelka для ежедневного пользования — systemd-сер�
 scripts/live-update.sh
 ```
 
-До переезда (FT-159) живой экземпляр ещё работает на маке через `npm run dev:miniapp`.
+До переезда (FT-159, закончен 2026-10-29) живой экземпляр работал на маке через `npm run dev:miniapp`; теперь мак —
+только разработка.
 
 ### Phone / Telegram Mini App во время разработки
 
@@ -244,17 +245,21 @@ curl http://localhost:3000/api/health
 ```bash
 curl -X POST http://localhost:3000/api/transactions \
   -H "Content-Type: application/json" \
+  -H "X-Dev-User-Id: 900000001" \
   -d '{
-    "amount": 500,
+    "amountMinor": 2500000,
     "type": "expense",
-    "category": "groceries",
-    "description": "Хлеб",
-    "userId": "test-user"
+    "category": "Кафе",
+    "description": "кофе"
   }'
 ```
 
-> **Note:** `date` is optional and defaults to today. `category` uses English IDs (e.g., "food", "transport", "groceries", "utilities").
-> See `src/shared/domain/entities/Category.ts` for full list.
+> **Note:** без входа маршрут отвечает `401`; вне production с этой машины входит заголовок `X-Dev-User-Id` с
+> Telegram id (`900000001` — пользователь `npm run seed:test`; при непустом `ALLOWED_TELEGRAM_IDS` id должен быть в
+> списке). Запись — того, кто вошёл: `userId` в теле не нужен.
+> Сумма — `amountMinor` в минорных единицах (25 000 сум — `2500000`) или старое `amount` в сумах. `category` — название
+> категории пользователя (`GET /api/categories`) или `categoryId`; незнакомое уходит в «Другое». `date` — по желанию,
+> по умолчанию сегодня. Контракт — [`docs/pastel/api.md`](../../pastel/api.md).
 
 ---
 

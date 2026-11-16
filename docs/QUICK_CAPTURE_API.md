@@ -703,7 +703,7 @@ curl -sS -X POST http://localhost:3000/api/quick-capture \
 curl -sS -X POST https://<tunnel-host>/api/quick-capture \
   -H 'Content-Type: application/json' \
   -H "Authorization: tma $TELEGRAM_INIT_DATA" \
-  -d '{"text":"кофе 35000","userId":"597843119","userName":"Shukur","source":"miniapp"}'
+  -d '{"text":"кофе 35000","userId":"<TELEGRAM_ID>","userName":"Shukur","source":"miniapp"}'
 ```
 
 ### Needs review

@@ -19,6 +19,7 @@ Client ← HTTP Response ← Error/Success Handler ← Controller ← Use Case �
 POST /api/transactions HTTP/1.1
 Host: localhost:3000
 Content-Type: application/json
+Authorization: tma <initData>
 
 {
   "amount": 500,
@@ -26,7 +27,7 @@ Content-Type: application/json
   "category": "groceries",
   "description": "Хлеб",
   "date": "2026-01-09",
-  "userId": "131184740"
+  "userId": "<telegram_id>"
 }
 ```
 
@@ -206,7 +207,7 @@ app.use('/api/accounts', accountRoutes);
 
 ### 5. Controller
 
-**Файл:** [`src/modules/transaction/presentation/transactionController.ts`](../../../src/modules/transaction/presentation/transactionController.ts)
+**Файл:** [`src/modules/transaction/presentation/controllers/transactionController.ts`](../../../src/modules/transaction/presentation/controllers/transactionController.ts)
 
 ```typescript
 async function createTransaction(req, res, next) {
@@ -322,7 +323,7 @@ INSERT INTO transactions (
   category, user_id, created_at
 ) VALUES (
   500, 'expense', 'Хлеб', '2026-01-09',
-  'groceries', '131184740', NOW()
+  'groceries', '<user_uuid>', NOW()
 ) RETURNING id;
 ```
 
@@ -352,7 +353,7 @@ function handleControllerSuccess(data, res, statusCode = 200) {
     "category": "groceries",
     "description": "Хлеб",
     "date": "2026-01-09",
-    "userId": "131184740"
+    "userId": "<user_uuid>"
   },
   "timestamp": "2026-01-09T10:30:00.000Z"
 }

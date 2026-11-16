@@ -10,7 +10,7 @@ Finance Tracker Backend — это backend система для управле�
 
 - **Backend**: Node.js, TypeScript, Express
 - **Database**: SQLite (TypeORM), схема — миграциями; путь Supabase убран в FT-090
-- **AI**: OpenAI (Whisper для транскрипции, GPT-4 для парсинга)
+- **AI**: OpenAI (Whisper `whisper-1` для транскрипции, `gpt-4.1-mini` для парсинга; модели — `WHISPER_MODEL` и `OPENAI_MODEL`)
 - **Bot**: Telegraf (Telegram Bot Framework)
 - **Frontend**: React + Vite
 - **Development**: ts-node-dev, Jest, Docker
@@ -66,7 +66,7 @@ Finance Tracker Backend — это backend система для управле�
 
 ### Application Entry Points
 - [`src/index.ts:1`](../../src/index.ts) - Главная точка входа приложения
-- [`src/appModules.ts:8`](../../src/appModules.ts) - Создание и композиция модулей
+- [`src/appModules.ts`](../../src/appModules.ts) - `createModules()`: создание и композиция модулей
 
 ### Module Structure
 - [`src/modules/transaction/transactionModule.ts`](../../src/modules/transaction/transactionModule.ts) - Transaction Module

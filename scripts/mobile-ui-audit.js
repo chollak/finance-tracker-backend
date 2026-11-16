@@ -5,7 +5,7 @@
  * Usage:
  *   BASE_URL=http://127.0.0.1:3000 npm run design:audit
  *   VIEWPORT_WIDTH=390 VIEWPORT_HEIGHT=844 npm run design:audit
- *   AUTH_MODE=telegram TELEGRAM_USER_ID=131184740 npm run design:audit
+ *   AUTH_MODE=telegram TELEGRAM_USER_ID=<telegram_user_id> npm run design:audit
  *   ROUTES=/add,/accounts npm run design:audit
  *   SCROLL_TO=bottom npm run design:audit
  *
