@@ -71,7 +71,7 @@ FT-099), `userId`. `isDebtRelated`, `relatedDebtId`, `tags` и `splitGroupId` в
 для всех: `src/shared/application/learning/`, начальные паттерны — `data/patterns.seed.json`, выученные —
 `data/patterns.json`. Фото и QR чеков нет (FT-089, FT-134, FT-135).
 
-**Проверки** (на 2026-11-16). Jest — 148 файлов в `tests/`, 2610 тестов (один пропущен); Vitest — 136 файлов в
+**Проверки** (на 2026-11-16). Jest — 148 файлов в `tests/`, 2614 тестов (один пропущен); Vitest — 136 файлов в
 `webapp/src/`, 1339 тестов. `npm run verify` — сборка backend, типы тестов и скриптов, ESLint webapp, Jest по одному, Vitest, сборка
 webapp, проверка шрифтов и токенов, dependency-cruiser.
 
@@ -81,7 +81,7 @@ webapp, проверка шрифтов и токенов, dependency-cruiser.
 |---|---|---|
 | `SqliteTransactionRepository.update()` | нет ветки для категории — смена категории молча терялась на SQLite | Исправлено в FT-087; с FT-099 правится `categoryId` |
 | `callbackHandlers.ts`, «Удалить» в боте | `DeleteTransactionUseCase.execute(transactionId)` строкой вместо `{ id }`; «последняя запись» сравнивала разные ключи | Исправлено в FT-087; с FT-122 «Удалить» старых сообщений — отмена с «Вернуть», памяти о «последней записи» нет |
-| `CreateTransactionUseCase` + обработчики бота + middleware `POST /transactions` | счётчик записей free-лимита рос дважды | Исправлено в FT-087: записи считает только `CreateTransactionUseCase`, бот — только голосовые |
+| `CreateTransactionUseCase` + обработчики бота + middleware `POST /transactions` | счётчик записей free-лимита рос дважды | Исправлено в FT-087: к счётчику записей прибавляет только `CreateTransactionUseCase`, бот считает только голосовые |
 | `requireAdmin` | перед ним не было авторизации — всегда 401 | Маршруты с ним убраны в FT-107 и FT-174; остался только на `POST /api/subscription/grant`, после `requireAuth`; админы — `ADMIN_TELEGRAM_IDS` (#255) |
 | Репозитории транзакций | `isDebtRelated`, `relatedDebtId`, `tags`, `splitGroupId` не сохраняются | Так и есть; долги из текста не разбираются (Д2), остатки — #266 |
 
