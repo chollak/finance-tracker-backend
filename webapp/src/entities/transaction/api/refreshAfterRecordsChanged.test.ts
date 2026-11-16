@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { QueryClient, QueryObserver, type QueryKey } from '@tanstack/react-query';
 import { apiClient } from '@/shared/api/client';
-import { transactionDataSource } from '@/shared/lib/db';
+import { restoreRecord } from './serverRecords';
 import { memoryOfflineStorage, setOfflineStorage, useConnectivityStore, useOutboxStore } from '@/shared/lib/offline';
 import { useUserStore } from '@/entities/user';
 import { accountKeys } from '@/entities/account';
@@ -21,7 +21,7 @@ import { flushRecordOutbox, queueRecords } from './recordOutbox';
  */
 
 vi.mock('@/shared/api/client', () => ({ apiClient: { put: vi.fn(), post: vi.fn(), delete: vi.fn(), get: vi.fn() } }));
-vi.mock('@/shared/lib/db', () => ({ transactionDataSource: { restore: vi.fn(), delete: vi.fn() } }));
+vi.mock('./serverRecords', () => ({ createRecord: vi.fn(), deleteRecord: vi.fn(), restoreRecord: vi.fn() }));
 
 const USER = '900000001';
 const WHOLE_HISTORY = { text: '', categoryId: null, accountId: null, type: null };
@@ -36,8 +36,6 @@ const ON_SCREEN = {
   analytics: analyticsKeys.month(USER, undefined, 'expense'),
   audit: auditKeys.current(USER),
   subscription: subscriptionKeys.status(USER),
-  // `useTransactions`: the whole list, the key every other list of records is under
-  wholeList: transactionKeys.list(USER),
 } satisfies Record<string, QueryKey>;
 
 const READ_ONCE = Object.fromEntries(Object.keys(ON_SCREEN).map((name) => [name, 1]));
@@ -90,7 +88,7 @@ beforeEach(async () => {
   useUserStore.setState({ userId: USER, userType: 'telegram' });
   vi.mocked(apiClient.put).mockReset().mockResolvedValue({ data: SAVED });
   vi.mocked(apiClient.post).mockReset().mockResolvedValue({ data: { id: 'srv-1' } });
-  vi.mocked(transactionDataSource.restore).mockReset().mockResolvedValue(undefined);
+  vi.mocked(restoreRecord).mockReset().mockResolvedValue(undefined);
   client = new QueryClient();
   reads = new Map();
   await openScreens();

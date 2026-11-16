@@ -1,15 +1,12 @@
 import { useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/shared/api';
 import { API_ENDPOINTS } from '@/shared/lib/constants';
-import type { Transaction, CreateTransactionDTO, UpdateTransactionDTO } from '@/shared/types';
-import type { TransactionViewModel } from '../model/types';
+import type { Transaction, CreateTransactionDTO } from '@/shared/types';
 import { transactionKeys } from './keys';
 import { subscriptionKeys } from '@/entities/subscription/api/keys';
-import { transactionToViewModel } from '../lib/toViewModel';
-import { transactionDataSource } from '@/shared/lib/db';
-import type { LocalTransaction } from '@/shared/lib/db/schema';
 import { haptic } from '@/shared/lib/haptic';
 import { balanceReaderKeys } from './balanceReaders';
+import { createRecord, deleteRecord, restoreRecord } from './serverRecords';
 
 /** Home's balances, month totals and recent records move with every change of records (FT-111). */
 function invalidateBalanceReaders(queryClient: QueryClient, userId: string): void {
@@ -17,127 +14,19 @@ function invalidateBalanceReaders(queryClient: QueryClient, userId: string): voi
 }
 
 /**
- * Convert LocalTransaction to Transaction format for React Query cache
- */
-function localToTransaction(local: LocalTransaction): Transaction {
-  return {
-    id: local.id,
-    date: local.date,
-    category: local.category,
-    categoryId: local.categoryId,
-    categoryColor: local.categoryColor,
-    description: local.description,
-    amount: local.amount,
-    type: local.type,
-    semanticType: local.semanticType,
-    needsReview: local.needsReview,
-    userId: local.userId,
-    merchant: local.merchant,
-    createdAt: new Date(local.localCreatedAt).toISOString(),
-    isArchived: local.isArchived,
-  };
-}
-
-/**
- * Hook to create a new transaction on the server
+ * Writes a record on the server: manual entry (FT-113) and the quick chips (FT-114). What shows records is read again —
+ * the server computes balances and totals, so nothing is patched into the cache.
  */
 export function useCreateTransaction() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (data: CreateTransactionDTO) => {
-      const localTx = await transactionDataSource.create({
-        date: data.date,
-        category: data.category,
-        categoryId: data.categoryId,
-        description: data.description,
-        amount: data.amount,
-        type: data.type,
-        semanticType: data.semanticType,
-        needsReview: data.needsReview,
-        userId: data.userId,
-        merchant: data.merchant,
-        amountMinor: data.amountMinor,
-        currency: data.currency,
-        accountId: data.accountId,
-        clientId: data.clientId,
-      });
-      return localToTransaction(localTx);
-    },
-    onSuccess: (newTransaction, variables) => {
-      // Haptic feedback for successful creation
+    mutationFn: (data: CreateTransactionDTO) => createRecord(data),
+    onSuccess: (_saved, variables) => {
       haptic.success();
-
-      const userId = variables.userId;
-
-      // 1. Add to transaction list immediately (NO HTTP request)
-      queryClient.setQueryData<TransactionViewModel[]>(
-        transactionKeys.list(userId),
-        (old) => {
-          const newItem = transactionToViewModel(newTransaction);
-          if (!old) return [newItem];
-          return [newItem, ...old];
-        }
-      );
-
-      // 2. Invalidate ONLY computed data that depends on transaction totals
-      invalidateBalanceReaders(queryClient, userId);
-      // Invalidate subscription to refresh usage limits (transaction count increased)
-      queryClient.invalidateQueries({ queryKey: subscriptionKeys.status(userId) });
-    },
-  });
-}
-
-/**
- * Hook to update an existing transaction on the server
- */
-export function useUpdateTransaction() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({ id, data }: { id: string; userId: string; data: UpdateTransactionDTO }) => {
-      const localTx = await transactionDataSource.update(id, {
-        date: data.date,
-        category: data.category,
-        categoryId: data.categoryId,
-        description: data.description,
-        amount: data.amount,
-        type: data.type,
-        semanticType: data.semanticType,
-        needsReview: data.needsReview,
-        merchant: data.merchant,
-      });
-      if (!localTx) {
-        throw new Error('Transaction not found');
-      }
-      return localToTransaction(localTx);
-    },
-    onSuccess: (updatedTransaction, variables) => {
-      // Haptic feedback for successful update
-      haptic.success();
-
-      // Use userId from variables for reliable cache key targeting
-      const userId = variables.userId;
-
-      // 1. Update transaction in list cache (NO HTTP request)
-      queryClient.setQueryData<TransactionViewModel[]>(
-        transactionKeys.list(userId),
-        (old) => {
-          if (!old) return old;
-          return old.map((t) =>
-            t.id === updatedTransaction.id ? transactionToViewModel(updatedTransaction) : t
-          );
-        }
-      );
-
-      // 2. Update detail cache if it exists
-      queryClient.setQueryData(
-        transactionKeys.detail(updatedTransaction.id!),
-        transactionToViewModel(updatedTransaction)
-      );
-
-      // 3. Invalidate computed data (amount/category might have changed)
-      invalidateBalanceReaders(queryClient, userId);
+      invalidateBalanceReaders(queryClient, variables.userId);
+      // Usage limits count records (limits are off, decision Д3; their screens wait for #319)
+      queryClient.invalidateQueries({ queryKey: subscriptionKeys.status(variables.userId) });
     },
   });
 }
@@ -163,24 +52,10 @@ function forgetRecordRead(queryClient: QueryClient, id: string): void {
   if (query.getObserversCount() === 0) queryClient.removeQueries({ queryKey: transactionKeys.record(id), exact: true });
 }
 
-/** Takes a deleted record out of every cache it was in and refetches what it counted in. */
+/** Takes a deleted record out of the cache it was read into and refetches what it counted in. */
 function forgetDeletedTransaction(queryClient: QueryClient, { id, userId }: { id: string; userId: string }): void {
-  // 1. Remove from transaction list cache (NO HTTP request)
-  queryClient.setQueryData<TransactionViewModel[]>(
-    transactionKeys.list(userId),
-    (old) => {
-      if (!old) return old;
-      return old.filter((t) => t.id !== id);
-    }
-  );
-
-  // 2. Remove from detail cache
-  queryClient.removeQueries({ queryKey: transactionKeys.detail(id) });
   forgetRecordRead(queryClient, id);
-
-  // 3. Invalidate computed data
   invalidateBalanceReaders(queryClient, userId);
-  // Invalidate subscription to refresh usage limits (transaction count decreased)
   queryClient.invalidateQueries({ queryKey: subscriptionKeys.status(userId) });
 }
 
@@ -189,7 +64,7 @@ function forgetDeletedTransaction(queryClient: QueryClient, { id, userId }: { id
  * it. Not a hook: «Отменить» in a toast runs it after the screen that wrote the record is gone (FT-113).
  */
 export async function deleteTransaction(queryClient: QueryClient, variables: { id: string; userId: string }): Promise<void> {
-  await transactionDataSource.delete(variables.id);
+  await deleteRecord(variables.id);
   forgetDeletedTransaction(queryClient, variables);
 }
 
@@ -198,7 +73,7 @@ export async function deleteTransaction(queryClient: QueryClient, variables: { i
  * hook, like `deleteTransaction`: «Отменить» in a toast runs it.
  */
 export async function restoreTransaction(queryClient: QueryClient, { id, userId }: { id: string; userId: string }): Promise<void> {
-  await transactionDataSource.restore(id);
+  await restoreRecord(id);
   const known = deletedRecords.get(id);
   deletedRecords.delete(id);
   if (known) queryClient.setQueryData(transactionKeys.record(id), known);
@@ -227,9 +102,7 @@ export async function patchTransaction(
   { id, userId, patch }: { id: string; userId: string; patch: TransactionPatch }
 ): Promise<void> {
   const response = await apiClient.put<Transaction>(API_ENDPOINTS.TRANSACTIONS.UPDATE(id), patch);
-  const saved = response.data;
-  queryClient.removeQueries({ queryKey: transactionKeys.detail(id) });
-  queryClient.setQueryData(transactionKeys.record(id), saved);
+  queryClient.setQueryData(transactionKeys.record(id), response.data);
   refreshAfterRecordsChanged(queryClient, userId);
 }
 
@@ -237,12 +110,10 @@ export async function patchTransaction(
  * Everything a written, changed, deleted or restored record moves; the server computes it. The outbox (FT-129) runs it
  * after it sent what was written without a connection.
  *
- * The whole list only, `exact`: the recent records, the frequent expenses and History under it are balance readers.
- * Invalidated twice in a row, a query is read twice — the second read cancels the first, but `apiClient` gives
- * `fetch` no signal, so both reach the server (#288).
+ * Each reader once: invalidated twice in a row, a query is read twice — the second read cancels the first, but
+ * `apiClient` gives `fetch` no signal, so both reach the server (#288).
  */
 export function refreshAfterRecordsChanged(queryClient: QueryClient, userId: string): void {
-  queryClient.invalidateQueries({ queryKey: transactionKeys.list(userId), exact: true });
   invalidateBalanceReaders(queryClient, userId);
   queryClient.invalidateQueries({ queryKey: subscriptionKeys.status(userId) });
 }
