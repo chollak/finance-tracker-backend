@@ -71,7 +71,7 @@ webapp, проверка архитектуры и шрифтов.
 ## Webapp — `webapp/src/`
 
 React 19, Vite, Tailwind 4 (`@theme inline` в `app/styles/globals.css`), shadcn/Radix, React Query, zustand,
-Dexie, react-router 7, sonner, motion (recharts убран в FT-121). Feature-Sliced Design: `app`, `pages` (12), `widgets` (11),
+Dexie, react-router 7, sonner (recharts убран в FT-121, motion — в #289). Feature-Sliced Design: `app`, `pages` (12), `widgets` (11),
 `features` (12), `entities` (7), `shared`. Около 258 файлов, 20 файлов тестов Vitest (только чистые функции).
 
 **Маршруты.** `/` Главная, `/transactions` История (FT-116: поиск и фильтры), `/add[?type=income]` ручной ввод (FT-113; `/transactions/add`
@@ -95,12 +95,12 @@ Dexie, react-router 7, sonner, motion (recharts убран в FT-121). Feature-S
 **Что переиспользуется при переносе**
 
 - `shared/api/client.ts` — клиент с `Authorization: tma <initData>`.
-- `entities/*/api` — запросы и мутации React Query, ключи кэша, `toViewModel`.
+- `entities/*/api` — запросы и мутации React Query, ключи кэша (`toViewModel` и старые строки записей убраны в #289).
 - `features/quick-capture` — отправка текста, разбор ответа (`toCaptureFeedback`); с FT-114 там же `Composer`,
   чипы частых трат и экран проверки записей `/review`.
 - `entities/transaction/lib` — группировка по дням, подписи строк.
-- `shared/lib/formatters`, `plural.ts`, `haptic.ts`.
-- `useUserStore` (zustand), `shared/hooks/useTelegram.ts`.
+- `plural.ts`, `haptic.ts` (`shared/lib/formatters` убраны в #289: деньги считает `shared/lib/money`).
+- `useUserStore` (zustand) (`shared/hooks/useTelegram.ts` убран в #289).
 
 **Что заменяется целиком.** Токены и шрифт (Onest, нейтральный shadcn, только светлая тема), нижний бар,
 страницы и виджеты Главной, Истории, Аналитики, «Ещё», формы ввода и правки.

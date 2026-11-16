@@ -29,10 +29,6 @@ export function pluralTransactions(count: number): string {
   return pluralRu(count, 'транзакция', 'транзакции', 'транзакций');
 }
 
-export function pluralCategories(count: number): string {
-  return pluralRu(count, 'категория', 'категории', 'категорий');
-}
-
 export function pluralVoiceInputs(count: number): string {
   return pluralRu(count, 'голосовое сообщение', 'голосовых сообщения', 'голосовых сообщений');
 }
