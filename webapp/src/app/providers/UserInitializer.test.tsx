@@ -4,17 +4,19 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useUserStore } from '@/entities/user';
-import { apiClient, onSessionLost } from '@/shared/api';
+import { apiClient, onMiniAppRefused, onSessionLost } from '@/shared/api';
 import { UserInitializer } from './UserInitializer';
 
 /**
  * FT-128: who the app opens for. Inside Telegram — the Mini App's user; in a browser — the session the bot confirmed
- * (`GET /api/auth/session`), and without one the login screen. There is no guest any more (decision Д4).
+ * (`GET /api/auth/session`), and without one the login screen. There is no guest any more (decision Д4). A 401 later:
+ * in a browser the session ended — the login screen; inside Telegram the initData is refused (#316) — the app asks to
+ * open the Mini App again.
  */
 
 vi.mock('@/shared/api/client', () => {
   const pending = () => new Promise<never>(() => {});
-  return { apiClient: { get: vi.fn(pending), post: vi.fn(pending), put: vi.fn(pending), patch: vi.fn(pending), delete: vi.fn(pending) }, onSessionLost: vi.fn() };
+  return { apiClient: { get: vi.fn(pending), post: vi.fn(pending), put: vi.fn(pending), patch: vi.fn(pending), delete: vi.fn(pending) }, onSessionLost: vi.fn(), onMiniAppRefused: vi.fn() };
 });
 
 const USER = { telegramId: '597843119', firstName: 'Шукур', username: 'shukur' };
@@ -26,7 +28,8 @@ beforeEach(() => {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
   vi.mocked(apiClient.get).mockReset();
   vi.mocked(onSessionLost).mockReset();
-  useUserStore.setState({ userId: null, userName: null, username: null, userType: null, telegramId: null, signedOut: false });
+  vi.mocked(onMiniAppRefused).mockReset();
+  useUserStore.setState({ userId: null, userName: null, username: null, userType: null, telegramId: null, signedOut: false, miniAppRefused: false });
   container = document.createElement('div');
   document.body.appendChild(container);
   root = createRoot(container);
@@ -109,7 +112,7 @@ describe('in a browser', () => {
     expect(lost).toEqual(expect.any(Function));
     await act(async () => lost?.());
 
-    expect(useUserStore.getState()).toMatchObject({ userId: null, signedOut: true });
+    expect(useUserStore.getState()).toMatchObject({ userId: null, signedOut: true, miniAppRefused: false });
     expect(forget).toHaveBeenCalledWith('api-cache');
   });
 });
@@ -128,6 +131,34 @@ describe('inside Telegram', () => {
     await start();
 
     expect(apiClient.get).not.toHaveBeenCalled();
-    expect(useUserStore.getState()).toMatchObject({ userId: '597843119', userName: 'Шукур', signedOut: false });
+    expect(useUserStore.getState()).toMatchObject({ userId: '597843119', userName: 'Шукур', signedOut: false, miniAppRefused: false });
+  });
+
+  // #316: initData lives 24 hours and Telegram renews it only when the Mini App is opened again
+  it('when the server stops taking its initData, the app asks to open it again; the user and the kept answers stay', async () => {
+    vi.stubGlobal('Telegram', {
+      WebApp: {
+        initData: 'query_id=1&hash=abc',
+        initDataUnsafe: { user: { id: 597843119, first_name: 'Шукур', username: 'shukur' } },
+        ready: vi.fn(),
+        expand: vi.fn(),
+      },
+    });
+    const forget = vi.fn(async () => true);
+    vi.stubGlobal('caches', { delete: forget });
+    await start();
+
+    const refused = vi.mocked(onMiniAppRefused).mock.calls.at(-1)?.[0];
+    expect(refused).toEqual(expect.any(Function));
+    await act(async () => refused?.());
+
+    expect(useUserStore.getState()).toMatchObject({ userId: '597843119', signedOut: false, miniAppRefused: true });
+    expect(forget).not.toHaveBeenCalled();
+  });
+
+  it('a fresh start knows nothing of an earlier refusal: it is not kept on the device', () => {
+    useUserStore.getState().setMiniAppRefused();
+
+    expect(useUserStore.persist.getOptions().partialize?.(useUserStore.getState())).not.toHaveProperty('miniAppRefused');
   });
 });

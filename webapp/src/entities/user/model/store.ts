@@ -29,6 +29,13 @@ interface UserState {
    */
   signedOut: boolean;
 
+  /**
+   * Inside Telegram: the server stopped taking the Mini App's initData (#316) — it lives 24 hours, and Telegram renews
+   * it only when the Mini App is opened again. The app shows «Откройте Kapelka заново». Not persisted: a new opening
+   * brings new initData.
+   */
+  miniAppRefused: boolean;
+
   // Hydration state (not persisted)
   _hasHydrated: boolean;
 
@@ -38,6 +45,8 @@ interface UserState {
   setSessionUser: (user: SessionUser) => void;
   /** Nobody is signed in in this browser: the login screen. */
   setSignedOut: () => void;
+  /** Inside Telegram the server refused the Mini App's initData: the reopen screen. */
+  setMiniAppRefused: () => void;
   setHasHydrated: (state: boolean) => void;
 }
 
@@ -52,6 +61,7 @@ export const useUserStore = create<UserState>()(
     (set) => ({
       ...SIGNED_OUT,
       signedOut: false,
+      miniAppRefused: false,
 
       // Hydration state
       _hasHydrated: false,
@@ -81,6 +91,8 @@ export const useUserStore = create<UserState>()(
         }),
 
       setSignedOut: () => set({ ...SIGNED_OUT, signedOut: true }),
+
+      setMiniAppRefused: () => set({ miniAppRefused: true }),
     }),
     {
       name: 'finance-tracker-user',
@@ -88,7 +100,7 @@ export const useUserStore = create<UserState>()(
       version: 1,
       migrate: (persisted) => withoutGuest(persisted),
       partialize: (state) => ({
-        // Only persist these fields (exclude _hasHydrated and signedOut)
+        // Only persist these fields (exclude _hasHydrated, signedOut and miniAppRefused)
         userId: state.userId,
         userName: state.userName,
         username: state.username,

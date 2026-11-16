@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { insideTelegram, telegramColorScheme } from './telegramEnvironment';
+import { closeMiniApp, insideTelegram, telegramColorScheme } from './telegramEnvironment';
 
 /**
  * Inside Telegram or by a direct link (FT-125, board «„Ещё“ в браузере»): the Telegram SDK is loaded in a plain
@@ -29,5 +29,27 @@ describe('where the app runs', () => {
     vi.stubGlobal('window', undefined);
     expect(insideTelegram()).toBe(false);
     expect(telegramColorScheme()).toBeNull();
+  });
+});
+
+/** #316: the reopen screen's way out — Telegram gives every client the command to close the Mini App. */
+describe('closing the Mini App', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('asks Telegram to close it', () => {
+    const close = vi.fn();
+    vi.stubGlobal('window', { Telegram: { WebApp: { initData: 'query_id=1&hash=abc', close } } });
+
+    closeMiniApp();
+
+    expect(close).toHaveBeenCalledTimes(1);
+  });
+
+  it('does nothing without Telegram', () => {
+    vi.stubGlobal('window', {});
+    expect(() => closeMiniApp()).not.toThrow();
+
+    vi.stubGlobal('window', undefined);
+    expect(() => closeMiniApp()).not.toThrow();
   });
 });

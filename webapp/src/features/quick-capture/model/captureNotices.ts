@@ -1,4 +1,5 @@
 import { REQUEST_TIMEOUT_CODE } from '@/shared/api';
+import { insideTelegram } from '@/shared/lib/telegram';
 
 /**
  * The short notices of the composer and the review (FT-114), shown as an info toast (Toast.md: two lines,
@@ -59,8 +60,11 @@ export function sendFailedNotice(error: unknown): CaptureNotice {
     case 0:
       return { title: 'Нет связи с сервером', detail: 'Текст остался в поле — отправьте, когда связь вернётся' };
     case 401:
-      // In a browser the session is over: the login screen opens (FT-128)
-      return { title: 'Нужно войти снова', detail: 'Вход — через Telegram, текст останется в поле' };
+      // Inside Telegram the Mini App's initData is refused and the reopen screen shows (#316); in a browser the session
+      // is over: the login screen opens (FT-128)
+      return insideTelegram()
+        ? { title: 'Откройте Kapelka заново', detail: 'Закройте её и откройте снова из чата с ботом' }
+        : { title: 'Нужно войти снова', detail: 'Вход — через Telegram, текст останется в поле' };
     case 429:
       // The AI limit is per-IP: everyone on this address shares it (docs/QUICK_CAPTURE_API.md)
       return { title: 'Слишком много запросов', detail: 'Попробуйте через несколько минут' };

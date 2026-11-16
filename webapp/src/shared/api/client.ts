@@ -63,19 +63,33 @@ function answeredByServer(response: Response): boolean {
 }
 
 let sessionLost: (() => void) | null = null;
+let miniAppRefused: (() => void) | null = null;
 
 /**
  * What to do when the server stops taking the browser's session (FT-128): it ended, or «Выйти» was pressed in another
- * tab. Inside Telegram initData signs every request, so a 401 there is not a lost session.
+ * tab. Inside Telegram initData signs every request, so a 401 there is not a lost session (`onMiniAppRefused`).
  */
 export function onSessionLost(handler: (() => void) | null): void {
   sessionLost = handler;
 }
 
-/** A 401 outside Telegram from a route other than the login's own. */
+/**
+ * What to do when the server stops taking the Mini App's initData (#316): Telegram gives it once, when the Mini App is
+ * opened, and the server takes it for 24 hours — a Mini App left open or minimised longer gets 401 on every request.
+ * Only opening the Mini App again brings new initData.
+ */
+export function onMiniAppRefused(handler: (() => void) | null): void {
+  miniAppRefused = handler;
+}
+
+/** A 401 inside Telegram: initData refused; outside, from a route other than the login's own: the session ended. */
 function noticeUnauthorized(endpoint: string, status: number): void {
-  if (status !== 401 || getTelegramInitData() || endpoint.startsWith('/auth/')) return;
-  sessionLost?.();
+  if (status !== 401) return;
+  if (getTelegramInitData()) {
+    miniAppRefused?.();
+    return;
+  }
+  if (!endpoint.startsWith('/auth/')) sessionLost?.();
 }
 
 class ApiClient {

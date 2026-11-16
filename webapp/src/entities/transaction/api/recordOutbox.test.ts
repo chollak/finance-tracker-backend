@@ -212,6 +212,28 @@ describe('when the connection is back', () => {
     expect(pendingRecordsOf(USER)).toEqual([]);
   });
 
+  // #316: Telegram renews initData only when the Mini App is opened again; the server takes it for 24 hours
+  it('a 401 inside Telegram — the Mini App open too long — keeps the records on the device; opened again, they go', async () => {
+    const [taxi, coffee] = queueRecords(USER, [TAXI, COFFEE]);
+    vi.mocked(apiClient.post).mockRejectedValue({ message: 'Request failed', statusCode: 401, code: 'INIT_DATA_EXPIRED' });
+
+    expect(await flushRecordOutbox(queryClient, USER)).toEqual({ sent: 0, stopped: 'server' });
+    expect(await flushRecordOutbox(queryClient, USER)).toEqual({ sent: 0, stopped: 'server' });
+    expect(pendingRecordsOf(USER)).toHaveLength(2);
+    expect(await storage.listOutbox(USER)).toHaveLength(2);
+    expect(shownToast()).toBeNull();
+
+    // Opened again: a new start with new initData, the screens know nothing yet, the device has the outbox
+    vi.mocked(apiClient.post).mockReset().mockImplementation(async () => ({ data: { id: `srv-${(next += 1)}` } }));
+    useOutboxStore.setState({ entries: [] });
+    await loadOutbox(USER);
+
+    expect(await flushRecordOutbox(queryClient, USER)).toEqual({ sent: 2, stopped: null });
+    expect(sentClientIds()).toEqual([taxi.clientId, coffee.clientId]);
+    expect(pendingRecordsOf(USER)).toEqual([]);
+    expect(await storage.listOutbox(USER)).toEqual([]);
+  });
+
   it('the sent record shows among the recent ones at once, while they are read again', async () => {
     queryClient.setQueryData(transactionKeys.recent(USER, 5), []);
     queueRecords(USER, [TAXI]);
