@@ -238,15 +238,16 @@ describe('daily summary (FT-124)', () => {
     expect(sent.map(message => message.chatId)).toEqual(['597843120']);
   });
 
-  it('on the user\'s own clock: 21:00 in Moscow, about the Moscow day', async () => {
+  // No route writes users.timezone since #274, and nothing reads it since #275: every user is on Tashkent's clock
+  // (DEFAULT_TIME_ZONE). A zone left in the column moves nothing
+  it('on Tashkent\'s clock, whatever users.timezone holds', async () => {
     const owner = await user();
-    // No route sets the zone since #274 (every user is on Tashkent's clock); the column is still read
     await running.ds.query('UPDATE users SET timezone = ? WHERE id = ?', ['Europe/Moscow', owner]);
     await record(owner, '2026-10-14', 'Кафе', 45_000);
 
-    at('2026-10-14', '21:00'); // 19:00 in Moscow
+    at('2026-10-14', '20:59');
     expect(await tick()).toEqual([]);
-    at('2026-10-14', '23:00'); // 21:00 in Moscow
+    at('2026-10-14', '21:00'); // 19:00 in Moscow
     expect(await tick()).toEqual([{ userId: owner, day: '2026-10-14', outcome: 'sent' }]);
     expect(sent[0].text).toContain(`Потрачено 45${NB}000${NB}сум · 1 запись`);
   });

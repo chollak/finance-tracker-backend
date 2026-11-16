@@ -12,6 +12,7 @@ import { NotFoundError } from '../../shared/domain/errors/AppError';
 import { Result } from '../../shared/domain/types/Result';
 import { TelegramAccess, telegramIdOf } from '../../shared/domain/access/telegramAccess';
 import { AppConfig } from '../../shared/infrastructure/config/appConfig';
+import { DEFAULT_TIME_ZONE } from '../../shared/domain/dates/dateOnly';
 
 /**
  * Notices the bot sends on its own and the summaries behind them: итоги дня at the chosen time, /today and /month
@@ -73,7 +74,8 @@ function summaryNumbers(transactionModule: TransactionModule): SummaryNumbers {
 }
 
 /**
- * The users and their settings, of those allowed in (FT-153). A row's Telegram id is read as the list reads one
+ * The users and their settings, of those allowed in (FT-153). Every recipient is on Tashkent's clock
+ * (DEFAULT_TIME_ZONE): users.timezone is written by nobody since #274 and read by nobody since #275. A row's Telegram id is read as the list reads one
  * (`telegramIdOf`, #255): `0597843119` is the listed `597843119`, as the notifier then writes to it. A row with no
  * Telegram id passes only an open list, and the notifier drops it.
  */
@@ -86,7 +88,7 @@ function summaryRecipients(userModule: UserModule, access: TelegramAccess): Reci
     list: async () => (await allowedUsers(userModule, access)).map(({ user, settings }) => ({
       userId: user.id,
       telegramId: user.telegramId,
-      timeZone: user.timezone,
+      timeZone: DEFAULT_TIME_ZONE,
       joinedAt: user.createdAt,
       dailySummaryEnabled: settings.dailySummaryEnabled,
       dailySummaryTime: settings.dailySummaryTime,
@@ -99,7 +101,7 @@ function reminderRecipients(userModule: UserModule, access: TelegramAccess): Rem
     list: async () => (await allowedUsers(userModule, access)).map(({ user, settings }) => ({
       userId: user.id,
       telegramId: user.telegramId,
-      timeZone: user.timezone,
+      timeZone: DEFAULT_TIME_ZONE,
       auditEnabled: settings.auditEnabled,
       auditTime: settings.auditTime,
       goalAlertsEnabled: settings.goalAlertsEnabled,

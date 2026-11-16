@@ -246,9 +246,9 @@ sent, but without these limits (FT-182, [Telegram uses the same boundary](#teleg
   record date is kept in (`toDateOnly` on create, `DEFAULT_TIME_ZONE`). The zone written in `capturedAt` only fixes the
   moment, it does not choose the day: JavaScript's `toISOString()` and many iOS formatters write UTC (`…Z`), and a
   phrase sent to the bot or typed in the Mini App at the same moment must land on the same day. On a trip the record
-  still lands on the Tashkent day, as it does through the bot. `users.timezone` (which the bot's summaries of FT-124
-  read) is not read here, as by no record write yet: every user has the default, and when one does not, the day of
-  input and `toDateOnly` move to it together.
+  still lands on the Tashkent day, as it does through the bot. `users.timezone` is read by nothing since #275 — the
+  bot's summaries, `/today` and the login question take `DEFAULT_TIME_ZONE` too; when users get a zone of their own,
+  the day of input and `toDateOnly` move to it together.
 - **The fast paths** (`такси 18к`, `перевел 500к на Alif`, `зарплата 5 млн`) write the record on the day of input;
   «сегодня», «вчера», «позавчера» (also `bugun`, `kecha`, `today`, `yesterday`) in the phrase move it back 0, 1 or
   2 days and leave the record's note with the comma, dash or brackets next to them

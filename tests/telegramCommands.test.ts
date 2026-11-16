@@ -228,6 +228,16 @@ describe('bot commands (FT-124)', () => {
     expect(november.text).not.toContain('Кафе');
   });
 
+  // users.timezone is read by nothing since #275: in Kiritimati (UTC+14) it is already 15 October
+  it('/today is Tashkent\'s day, whatever users.timezone holds', async () => {
+    await db.dataSource.query('UPDATE users SET timezone = ? WHERE id = ?', ['Pacific/Kiritimati', owner]);
+    await record('2026-10-14', 'Кафе', 45_000);
+
+    const [today] = await send('/today');
+
+    expect(today.text.split('\n')[0]).toBe(`<b>Итоги дня · 14${NB}октября</b>`);
+  });
+
   describe('/today with dollars and records awaiting review: Home\'s numbers, every expense counted', () => {
     beforeEach(async () => {
       await record('2026-09-05', 'Продукты', 200_000);
