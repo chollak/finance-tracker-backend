@@ -6,7 +6,6 @@ import { MONTHS_IN, MONTHS_OF, plural } from '../../../shared/domain/text/russia
  */
 export const NBSP = ' ';
 
-
 const monthIndex = (date: string) => Number(date.slice(5, 7)) - 1;
 
 /** «732 000 сум» from minor units, rounded to whole сум; never a sign. */
