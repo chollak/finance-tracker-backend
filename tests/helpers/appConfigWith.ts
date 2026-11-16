@@ -11,6 +11,7 @@ export function appConfigWith(env: Record<string, string>): Config {
     PORT: '3000',
     DATABASE_TYPE: 'sqlite',
     ALLOWED_TELEGRAM_IDS: '',
+    ADMIN_TELEGRAM_IDS: '',
     SHORTCUT_CAPTURE_TOKEN: '',
     SHORTCUT_CAPTURE_OWNER: '',
     // Production with polling on needs a token (FT-167)
