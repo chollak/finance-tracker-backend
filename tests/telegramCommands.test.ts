@@ -12,52 +12,23 @@ import { SqliteUserRepository } from '../src/modules/user/infrastructure/persist
 import { SqliteUserSettingsRepository } from '../src/modules/user/infrastructure/persistence/SqliteUserSettingsRepository';
 import { NotificationModule } from '../src/modules/notification/notificationModule';
 import { SqliteNotificationLogRepository } from '../src/modules/notification/infrastructure/SqliteNotificationLogRepository';
-import { BOT_COMMANDS, registerCommandHandlers, setCommandMenu } from '../src/delivery/messaging/telegram/handlers/commandHandlers';
-import { registerMessageHandlers } from '../src/delivery/messaging/telegram/handlers/messageHandlers';
-import { registerRecordHandlers } from '../src/delivery/messaging/telegram/handlers/recordHandlers';
+import { BOT_COMMANDS, setCommandMenu } from '../src/delivery/messaging/telegram/handlers/commandHandlers';
+import { RU } from '../src/delivery/messaging/telegram/i18n/ru';
 import { openMigratedDatabase, TestDatabase } from './helpers/testDatabase';
-import { refuseWebAppOffHttps } from './helpers/telegramWebAppRefusal';
+import { StandButton, TelegramStand } from './helpers/telegramStand';
 
 /**
  * FT-124: /start and /help say what the boards «Бот · первое сообщение» and «Бот · меню команд» say; /today and
  * /month count with the totals service of FT-103, so their numbers are Home's; the menu is set with setMyCommands;
- * commands that left the bot with Д2 and Д3 answer «Такой команды нет».
+ * commands that left the bot with Д2 and Д3 answer «Такой команды нет». The bot is the one `startTelegramBot`
+ * assembles, on the real Telegraf (#280): Telegraf finds the command — by its entity, and only one to this bot.
  */
 
 const NB = ' ';
 const TELEGRAM_ID = 597843119;
 const BASE_URL = 'https://miniapp.test';
 
-interface Reply { text: string; keyboard: Array<Array<{ text: string; callback_data?: string; web_app?: { url: string } }>> }
-type Middleware = (ctx: any, next: () => Promise<void>) => Promise<void> | void;
-
-/** Telegraf as the handlers see it: commands first, then the first text handler whose filter matches. */
-class Bot {
-  readonly commands = new Map<string, (ctx: any) => Promise<void>>();
-  readonly handlers: Array<{ filter: (update: any) => boolean; chain: Middleware[] }> = [];
-
-  command(name: string, handler: (ctx: any) => Promise<void>) {
-    this.commands.set(name, handler);
-  }
-
-  on(filter: (update: any) => boolean, ...chain: Middleware[]) {
-    this.handlers.push({ filter, chain });
-  }
-
-  action() {}
-
-  use() {}
-
-  async handle(ctx: any): Promise<void> {
-    const text: string = ctx.message.text;
-    const command = text.startsWith('/') ? this.commands.get(text.slice(1).split(/[\s@]/)[0]) : undefined;
-    const chain: Middleware[] = command ? [async (c: any) => command(c)] : this.handlers.find(({ filter }) => filter(ctx.update))?.chain ?? [];
-    const step = async (index: number): Promise<void> => {
-      if (index < chain.length) await chain[index](ctx, () => step(index + 1));
-    };
-    await step(0);
-  }
-}
+interface Reply { text: string; keyboard: StandButton[][] }
 
 describe('bot commands (FT-124)', () => {
   let db: TestDatabase;
@@ -67,29 +38,14 @@ describe('bot commands (FT-124)', () => {
   let accountModule: AccountModule;
   /** The user's USD rate in minor units (12 800,00 сум), or none yet. */
   let rateMinor: number | null;
-  let bot: Bot;
-  let replies: Reply[];
+  let stand: TelegramStand;
+  /** What the capture is given: a text that is not a command goes there. */
+  const capture = jest.fn();
   let owner: string;
 
+  /** The person writes in the chat; the bot's answers, as Telegram keeps them. */
   async function send(text: string): Promise<Reply[]> {
-    replies = [];
-    const message = { text, chat: { id: TELEGRAM_ID } };
-    await bot.handle({
-      from: { id: TELEGRAM_ID, first_name: 'Shukur' },
-      chat: { id: TELEGRAM_ID },
-      message,
-      update: { message },
-      session: {},
-      modules: { transactionModule, userModule, notificationModule },
-      reply: jest.fn(async (body: string, extra?: any) => {
-        refuseWebAppOffHttps(extra);
-        replies.push({ text: body, keyboard: extra?.reply_markup?.inline_keyboard ?? [] });
-        return { message_id: 900 + replies.length, chat: { id: TELEGRAM_ID } };
-      }),
-      deleteMessage: jest.fn().mockResolvedValue(true),
-      sendChatAction: jest.fn().mockResolvedValue(true),
-    });
-    return replies;
+    return (await stand.write(text)).map(({ text: body, keyboard }) => ({ text: body, keyboard }));
   }
 
   async function record(date: string, category: string, sum: number, type: 'expense' | 'income' = 'expense', extra: Record<string, unknown> = {}) {
@@ -135,11 +91,10 @@ describe('bot commands (FT-124)', () => {
     notificationModule = new NotificationModule(new SqliteNotificationLogRepository(ds), { transactionModule, userModule });
     owner = (await userModule.getGetOrCreateUserUseCase().execute({ telegramId: String(TELEGRAM_ID) })).id;
 
-    // In the order telegramBot.ts registers them
-    bot = new Bot();
-    registerCommandHandlers(bot as any);
-    registerRecordHandlers(bot as any);
-    registerMessageHandlers(bot as any, undefined, userModule);
+    capture.mockReset().mockResolvedValue({ transactions: [], debts: [] });
+    stand = new TelegramStand({ id: TELEGRAM_ID, first_name: 'Shukur' });
+    stand.install();
+    stand.start({ transactionModule, userModule, notificationModule, quickCaptureModule: { getQuickCaptureService: () => ({ capture }) } });
   });
 
   afterEach(async () => {
@@ -399,8 +354,14 @@ describe('bot commands (FT-124)', () => {
       { command: 'help', description: 'Как записывать' },
       { command: 'start', description: 'Что умеет бот' },
     ]);
-    // Every command of the menu answers
-    for (const { command } of BOT_COMMANDS) expect(bot.commands.has(command)).toBe(true);
+    // The bot sets it as it starts
+    expect(stand.calls).toContainEqual({ method: 'setMyCommands', payload: { commands: BOT_COMMANDS } });
+    // Every command of the menu answers, none with «Такой команды нет»
+    for (const { command } of BOT_COMMANDS) {
+      const answers = await send(`/${command}`);
+      expect(answers).not.toEqual([]);
+      expect(answers.map(answer => answer.text)).not.toContain(RU.commands.unknown);
+    }
 
     const telegram = { setMyCommands: jest.fn().mockResolvedValue(true) };
     await setCommandMenu(telegram as any);
@@ -419,23 +380,21 @@ describe('bot commands (FT-124)', () => {
     }
   );
 
-  it('a text that only starts with «/» is not a command: it goes on to the capture', async () => {
-    const capture = jest.fn().mockResolvedValue({ transactions: [], debts: [] });
-    const message = { text: '/ 25к кофе', chat: { id: TELEGRAM_ID } };
-    replies = [];
-    await bot.handle({
-      from: { id: TELEGRAM_ID }, chat: { id: TELEGRAM_ID }, message, update: { message }, session: {},
-      modules: { transactionModule, userModule, notificationModule, quickCaptureModule: { getQuickCaptureService: () => ({ capture }) } },
-      reply: jest.fn(async (body: string) => { replies.push({ text: body, keyboard: [] }); return { message_id: 1 }; }),
-      sendChatAction: jest.fn().mockResolvedValue(true),
-    });
+  // What it gets instead is #309: today nothing at all — the text handler skips every text that starts with «/». A
+  // handler that threw would fail the test here: the stand does not let an error reach bot.catch unnoticed
+  it('a text that only starts with «/» is not taken for a command: no «Такой команды нет»', async () => {
+    const replies = await send('/ 25к кофе');
 
     expect(replies.map(reply => reply.text)).not.toContain('Такой команды нет. Список — /help');
   });
 
   it('a command named with the bot answers as the command itself', async () => {
+    await record('2026-10-14', 'Транспорт', 24_000);
+
     const [today] = await send('/today@KapelkaBot');
 
     expect(today.text).toContain('Итоги дня');
+    expect(await send('/today@KapelkaBot')).toEqual(await send('/today'));
+    expect(capture).not.toHaveBeenCalled();
   });
 });
