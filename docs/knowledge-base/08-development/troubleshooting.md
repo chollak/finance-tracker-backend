@@ -428,6 +428,18 @@ collision: finance-tracker-backend`; Jest reports far more than 93 suites.
 `package.json` too. **Solution:** `jest.config.js` ignores `<rootDir>/.claude/` and `<rootDir>/dist/`
 (`testPathIgnorePatterns`, `modulePathIgnorePatterns`). Check with `npx jest --listTests | grep -c test.ts`.
 
+### `npm test` Passes, `verify` Fails in `typecheck:tests` (#293)
+
+**Error:** `npm run typecheck:tests` (a step of `verify`) reports `error TS…` in a test, though `npm test` is green; or
+`TS1205: Re-exporting a type when 'isolatedModules' is enabled requires using 'export type'` in `src`.
+
+**Cause:** ts-jest only translates each file on its own (`isolatedModules` in `tsconfig.test.json`) and checks no types:
+checking them in every test made Jest about ten times slower. Types of `tests/` and `src/` are checked once, by
+`tsc -p tsconfig.test.json`. A file that is translated alone cannot tell a re-exported type from a value.
+
+**Solution:** fix the type in the test; re-export a type with `export type { … } from …`. Run `npm run typecheck:tests`
+to see the errors without the whole `verify`.
+
 ---
 
 ## Logs & Debugging

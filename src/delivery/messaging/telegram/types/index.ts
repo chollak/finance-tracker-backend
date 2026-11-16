@@ -69,6 +69,12 @@ export type TextMessageContext = NarrowedContext<BotContext, Update.MessageUpdat
 export type VoiceMessageContext = NarrowedContext<BotContext, Update.MessageUpdate<Message.VoiceMessage>>;
 
 /**
+ * Context for a handler of any message (#279). A handler typed with it costs `bot.on()` almost no type inference;
+ * one typed with `BotContext` made a single `bot.on()` take ~4 s of `tsc` (#328)
+ */
+export type MessageContext = NarrowedContext<BotContext, Update.MessageUpdate>;
+
+/**
  * Context for callback query handlers
  */
 export type CallbackContext = NarrowedContext<BotContext, Update.CallbackQueryUpdate<CallbackQuery.DataQuery>>;

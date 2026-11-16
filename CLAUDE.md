@@ -65,10 +65,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **Testing:**
 - `npm test` - Run Jest tests (located in `tests/` folder)
 - `npm run test:ci` - Run Jest tests serially for CI and the review sub-chat
+- `npm run typecheck:tests` - Types of `tests/` and `src/` with one `tsc` (`tsconfig.test.json`, #293): Jest does not check them
 - `npm run analyze` - Run dependency-cruiser and circular dependency checks
-- `npm run verify` - Full pre-commit/pre-push gate: backend build, serial Jest tests, webapp Vitest tests, webapp build, architecture checks
+- `npm run verify` - Full pre-commit/pre-push gate: backend build, test types, serial Jest tests, webapp Vitest tests, webapp build, `check:fonts` and `check:tokens`, architecture checks
 - `ios/scripts/test.sh` - iOS app (FT-177): `xcodebuild test` on the first available iPhone simulator; `verify` does not see `ios/` ([`ios/README.md`](ios/README.md))
-- Tests use ts-jest preset and target Node.js environment
+- Tests use ts-jest and target Node.js environment; ts-jest only translates each file (`isolatedModules` in `tsconfig.test.json`) and checks no types — a type error in a test fails `typecheck:tests`, not `npm test` (#293)
 
 **Web App (React + Vite):**
 - `npm run install:webapp` - Install webapp dependencies  

@@ -78,6 +78,8 @@ export const RU = {
     notUnderstood: 'Не нашёл, что записать.\nНапишите трату и сумму:\n'
       + '<blockquote><i>такси 18к, обед 45\u00a0000 картой</i></blockquote>\n\n<i>Подробнее — /help</i>',
     notHeard: 'Не расслышал.\nСкажите ещё раз — что купили и сколько, например: «такси восемнадцать тысяч». Или напишите текстом.',
+    // A photo, an audio file, a video note, a video, a document or a sticker: the bot reads none of them (#279)
+    unsupported: 'Пока понимаю текст и голосовые. Напишите: такси 18к.',
   },
 
   // Errors

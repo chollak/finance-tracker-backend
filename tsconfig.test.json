@@ -1,0 +1,12 @@
+// Types of the tests and of `src` together, for `npm run typecheck:tests` and for ts-jest (#293).
+// ts-jest only translates each file (`isolatedModules`) and checks no types: this one `tsc` does it for all of them,
+// and `isolatedModules` here also makes it fail on code that cannot be translated file by file.
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "rootDir": ".",
+    "isolatedModules": true
+  },
+  "include": ["src/**/*.ts", "tests/**/*.ts"]
+}

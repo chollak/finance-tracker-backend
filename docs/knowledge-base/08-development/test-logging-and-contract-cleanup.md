@@ -147,7 +147,7 @@ Caller audit:
 
 - `userController` is the only direct HTTP caller found.
 - Controller already verifies the user exists before update, so this is mostly a defensive consistency change.
-- `updateLastSeen()` remains unchanged because it is a side-effect helper, not a Result-returning command endpoint.
+- `updateLastSeen()` remains unchanged because it is a side-effect helper, not a Result-returning command endpoint. (Removed in #335: nothing read `last_seen_at`, and writing it made every request a write.)
 
 Implemented behavior:
 
