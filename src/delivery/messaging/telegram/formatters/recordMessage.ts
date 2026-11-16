@@ -1,6 +1,7 @@
 import { TransactionSemanticType } from '../../../../modules/transaction/domain/transactionSemanticType';
 import { RecordMessageMode, RecordMessageState } from '../../../../modules/botMessage/domain/botMessage';
 import { ItemWithoutAmount } from '../../../../modules/voiceProcessing/domain/processedTransaction';
+import { MONTHS_OF, plural } from '../../../../shared/domain/text/russianWords';
 
 /**
  * The bot's message about records (FT-122, docs/pastel/components/BotRecord.md). Telegram draws it, so
@@ -71,19 +72,11 @@ export interface RecordMessageInput {
   historyUrl?: string;
 }
 
-const MONTHS = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
 const NOTE_MAX_LENGTH = 40;
 
+/** Text inside a message sent with `parse_mode: 'HTML'`: a name or a note with «<» or «&» stays text. */
 export function escapeHtml(text: string): string {
   return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
-
-export function plural(n: number, one: string, few: string, many: string): string {
-  const m10 = n % 10;
-  const m100 = n % 100;
-  if (m10 === 1 && m100 !== 11) return one;
-  if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return few;
-  return many;
 }
 
 /** «1 запись», «2 записи», «5 записей». */
@@ -125,7 +118,7 @@ export function shortAmount(record: Pick<RecordView, 'type' | 'amountMinor' | 'c
 export function absoluteDate(date: string, today: string): string {
   const [year, month, day] = date.split('-').map(Number);
   if (!year || !month || !day) return date;
-  const label = `${day}${NBSP}${MONTHS[month - 1]}`;
+  const label = `${day}${NBSP}${MONTHS_OF[month - 1]}`;
   return today.slice(0, 4) === String(year) ? label : `${label} ${year}`;
 }
 

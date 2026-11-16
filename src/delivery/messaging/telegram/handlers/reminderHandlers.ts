@@ -25,7 +25,7 @@ const logger = createLogger(LogCategory.TELEGRAM);
 export function reminderSender(telegram: Pick<Telegram, 'sendMessage'>): ReminderSender {
   return {
     async send(recipient, notice) {
-      const drawn = formatReminder(notice, { appUrl: appLinks.audit(recipient.telegramId) });
+      const drawn = formatReminder(notice, { appUrl: appLinks.audit() });
       const message = await sendOrNotSent(() => telegram.sendMessage(recipient.telegramId, drawn.text, {
         parse_mode: 'HTML',
         reply_markup: { inline_keyboard: drawn.keyboard },
@@ -59,9 +59,8 @@ const edit = (ctx: BotContext, notice: BotNotice) =>
 async function handleAuditLater(ctx: BotContext) {
   const [, month, left] = match(ctx);
   try {
-    const telegramId = String(ctx.from?.id ?? '');
     const call = { month, left: Number(left) };
-    const appUrl = appLinks.audit(telegramId);
+    const appUrl = appLinks.audit();
     const userId = await botUserId(ctx);
     const answer = await reminders(ctx).answerAuditLater(userId, month);
     if (answer.kind === 'closed') {

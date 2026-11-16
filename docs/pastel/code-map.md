@@ -21,17 +21,19 @@ Architecture: `domain → application → infrastructure → presentation` вн�
 | `openai-usage` | Расход OpenAI по организации | Удалён в FT-174: админские маршруты не работали, их никто не звал |
 | `dashboard` (не модуль) | Инсайты, health score, алерты | Заменяется аналитикой и ревизией «Пастели», удаляется в уборке |
 
-**Бот** (`src/delivery/messaging/telegram/`): `/start`, `/today`, `/stats`, `/budget`, `/week`, `/weekly`,
-`/transactions`, `/help`, `/premium`, `/cancel_subscription`, `/undo` (FT-122). Текст и голос идут через `QuickCaptureService`;
-с FT-122 подтверждение — одно сообщение на фразу с «Изменить» (поля прямо в чате) и «Отменить», связь сообщения с
-записями — в `bot_messages`. Только русский. Планировщика нет: ни сводок, ни
-напоминаний. Payload у `/start` не читается.
-
-> С FT-124 меню команд (`setMyCommands`) — `/today`, `/month`, `/undo`, `/help`, `/start`; `/stats` отвечает как
-> `/month` вне меню, `/budget`, `/week`, `/weekly`, `/transactions` убраны («Такой команды нет. Список — /help»),
-> `/premium` и `/cancel_subscription` работают вне меню (Д3). Итоги дня шлёт планировщик `NotificationModule` в
-> процессе бота, отправленное — в `notifications_log`. С FT-133 там же — напоминания о целях, подписках и ревизии
-> (`RemindersNotifier`, `handlers/reminderHandlers.ts`).
+**Бот** (`src/delivery/messaging/telegram/`; сверено с кодом в #281, остальной раздел — снимок): меню команд
+(`setMyCommands`, FT-124) — `/today`, `/month`, `/undo`, `/help`, `/start`; вне меню `/stats` отвечает как `/month`,
+`/premium` и `/cancel_subscription` работают (Д3), любая другая команда — «Такой команды нет. Список — /help»
+(`/budget`, `/week`, `/weekly`, `/transactions` тоже). `/start login_<token>` — подтверждение входа из браузера
+(FT-128). Текст идёт через `QuickCaptureService`, голос — через `ProcessVoiceInputUseCase`; подтверждение — одно
+сообщение на фразу с «Изменить» (поля прямо в чате) и «Отменить» (FT-122), связь сообщения с записями — в
+`bot_messages`, обработанные сообщения чата — в `handled_messages`, чтобы повтор от Telegram ничего не менял дважды
+(FT-172). Фото, файлы и стикеры — «Пока понимаю текст и голосовые» (#279). Пускает только `ALLOWED_TELEGRAM_IDS`
+(FT-153; пустой список вне production — всех); сообщения одного чата — по одному, в порядке Telegram
+(`middleware/chatQueue.ts`, #317). В процессе бота,
+пока он опрашивает Telegram, работают планировщики `NotificationModule`: итоги дня (FT-124) и напоминания о целях,
+подписках и ревизии (FT-133), отправленное — в `notifications_log`. Ссылки в Mini App — только при HTTPS-адресе
+`WEB_APP_URL` (#278) и без Telegram id в адресе (#281). Только русский.
 
 **Данные.** TypeORM + SQLite (`data/database.sqlite`, `synchronize` в dev). Параллельно живёт путь Supabase
 через `supabase-js` со своими репозиториями и ручными SQL-миграциями в `migrations/` (проект на паузе).
@@ -90,7 +92,8 @@ Dexie, react-router 7 (recharts убран в FT-121, motion — в #289, сло
 `pages/not-found`). Экран, который не загрузился или упал, — «Экран не открылся» (#240, `pages/route-error`): его
 показывают страница ошибки роутера и верхний `ErrorBoundary`. Внутри Telegram ответ `401` — initData Mini App сервер
 больше не принимает (#316) — ставит на место всего приложения «Откройте Kapelka заново» (`pages/mini-app-reopen`,
-`app/providers/MiniAppReopenGate`): кнопка закрывает Mini App, записи в очереди уходят после нового открытия.
+`app/providers/MiniAppReopenGate`): кнопка закрывает Mini App, записи в очереди ждут — `OfflineSync` их до нового
+открытия не отправляет (#385) — и уходят после него.
 Нижний бар (FT-086): Главная · История · Записать · Ещё.
 `BackButton`/`MainButton` Telegram написаны, но не используются.
 

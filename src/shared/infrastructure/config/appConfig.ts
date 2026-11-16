@@ -48,7 +48,6 @@ export class AppConfig {
   // the last one the bot is `failed`, which in production ends the process (FT-154). A typo keeps the default
   static readonly TELEGRAM_POLLING_MAX_RETRIES = intFromEnv(process.env.TELEGRAM_POLLING_MAX_RETRIES, 5, 1, 20);
   static readonly TELEGRAM_POLLING_RETRY_BASE_MS = intFromEnv(process.env.TELEGRAM_POLLING_RETRY_BASE_MS, 5_000, 1, MAX_TIMER_MS);
-  static readonly WEBHOOK_MODE = process.env.WEBHOOK_MODE === 'true';
 
   // OpenAI Configuration
   static readonly OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4.1-mini';
@@ -104,8 +103,7 @@ export class AppConfig {
 
     // Polling on without a token left the bot `disabled` and /api/health at 200: in production the live instance went
     // on without a word from the bot (FT-167). Running it without the bot is a choice: ENABLE_TELEGRAM_POLLING=false
-    const pollingOn = this.ENABLE_TELEGRAM_POLLING && !this.WEBHOOK_MODE;
-    if (this.NODE_ENV === 'production' && pollingOn && !this.TG_BOT_API_KEY.trim()) {
+    if (this.NODE_ENV === 'production' && this.ENABLE_TELEGRAM_POLLING && !this.TG_BOT_API_KEY.trim()) {
       errors.push(
         'TG_BOT_API_KEY is required in production while Telegram polling is on: without it the bot is silent and ' +
         'the health check still says 200. Set the bot token, or ENABLE_TELEGRAM_POLLING=false to run without the bot'

@@ -1,6 +1,7 @@
 import { Markup } from 'telegraf';
 import { AnsweredSubscription, LimitGoal, ReminderNotice, SubscriptionAnswer, SubscriptionDue } from '../../../../modules/notification/domain/reminders';
-import { absoluteDate, amountDigits, amountWithUnit, escapeHtml, plural } from './recordMessage';
+import { MONTHS_IN, MONTHS_OF, plural } from '../../../../shared/domain/text/russianWords';
+import { absoluteDate, amountDigits, amountWithUnit, escapeHtml } from './recordMessage';
 import { appLinkRows, BotNotice } from './summaryMessage';
 
 /**
@@ -23,9 +24,6 @@ import { appLinkRows, BotNotice } from './summaryMessage';
  *   [ Открыть ревизию ↗ ]
  *   [ Позже ]
  */
-
-const MONTHS_OF = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
-const MONTHS_IN = ['январе', 'феврале', 'марте', 'апреле', 'мае', 'июне', 'июле', 'августе', 'сентябре', 'октябре', 'ноябре', 'декабре'];
 
 /** «Позже» under the audit call: the month audited and how many spendings the call named. */
 export const AUDIT_LATER_PATTERN = /^n:later:(\d{4}-\d{2}):(\d{1,4})$/;

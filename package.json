@@ -16,7 +16,7 @@
     "test": "jest",
     "test:ci": "jest --runInBand",
     "install:webapp": "cd webapp && npm install",
-    "build:webapp": "cd webapp && npm run build",
+    "build:webapp": "node scripts/build-webapp.js",
     "postinstall": "npm run install:webapp && npm run build:webapp",
     "format": "prettier --write src/**/*.ts",
     "check:deps": "dependency-cruiser --validate .dependency-cruiser.js src",

@@ -493,8 +493,10 @@ async function undoRecords(ctx: BotContext, log: BotMessageLog, message: BotMess
 
 /** The /undo reply — what was cancelled, with «Вернуть» — and the message redrawn with the records struck through. */
 async function sayUndone(ctx: BotContext, log: BotMessageLog, message: BotMessage, records: RecordView[]): Promise<void> {
-  const what = records.length === 1 ? `${signedAmount(records[0])} · ${quoted(recordName(records[0]))}` : recordsWord(records.length);
-  const reply = await ctx.reply(escapeHtml(RU.record.undone(what)), {
+  const said = records.length === 1
+    ? RU.record.undone(`${signedAmount(records[0])} · ${quoted(recordName(records[0]))}`)
+    : RU.record.undoneSeveral(recordsWord(records.length));
+  const reply = await ctx.reply(escapeHtml(said), {
     parse_mode: 'HTML',
     reply_markup: { inline_keyboard: undoKeyboard(message.messageId) },
   });

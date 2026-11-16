@@ -140,6 +140,10 @@ interface BudgetRepository {
 - `create()` всегда возвращает **полную Entity**, не только ID
 - `findById()` возвращает `Entity | null`, не бросает ошибку если не найдено
 - `update()` возвращает **обновлённую Entity**
+- `delete()` возвращает `void`; если за удалением идёт побочное действие (счётчик лимита), — `boolean`: изменил ли
+  строку один запрос с условием в `WHERE`. Так мягкое удаление и восстановление записи (#383): `delete` —
+  `UPDATE … WHERE deleted_at IS NULL`, `restore` — `UPDATE … WHERE deleted_at IS NOT NULL`, и из двух одновременных
+  счётчик трогает только тот, что изменил строку: решает число изменённых строк, а не чтение перед записью
 
 ### Error Handling в Repositories
 

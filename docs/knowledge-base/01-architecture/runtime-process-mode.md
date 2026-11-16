@@ -133,9 +133,9 @@ That preserves current behavior and avoids a breaking deploy change.
 No scheduler or product automation should be implemented as part of this decision document. When background jobs are actually implemented, they should run only in `APP_MODE=worker` or in an explicitly single-instance worker service.
 
 **Update (FT-124):** the first scheduler — the bot's daily summary — runs in the bot's process, as its task asks:
-`startTelegramBot()` starts `DailySummaryNotifier` only when the bot polls (no token, `ENABLE_TELEGRAM_POLLING=false`
-or `WEBHOOK_MODE=true` — no scheduler). It starts once Telegram has answered for the bot (Telegraf's `onLaunch`),
-looks at the clock a minute later and stops whenever polling fails — a `409` conflict with another instance (it
+`startTelegramBot()` starts `DailySummaryNotifier` only when the bot polls (no token or `ENABLE_TELEGRAM_POLLING=false`
+— no scheduler; `WEBHOOK_MODE`, which only switched the bot off, is read by nothing since #281). It starts once
+Telegram has answered for the bot (Telegraf's `onLaunch`), looks at the clock a minute later and stops whenever polling fails — a `409` conflict with another instance (it
 starts again when the retry connects) or a permanent failure. Telegram allows one poller per bot, so a process that
 lost the polling to another one does not send; and every notice is claimed in `notifications_log` (unique user +
 kind + period) before it is sent, so even two processes over one database send it once. When `APP_MODE` arrives, the notifier moves with the bot (`bot` or
@@ -232,8 +232,8 @@ first one had been written.
   `POLLING_STABLE_MS` is longer than one long poll (50 s) and twice the longest pause between launches (80 s with the
   defaults), so two processes taking the token from each other still reach `failed`. Pauses never pass a timer's limit
   (2^31 − 1 ms), which Node would fire at once.
-- **Production needs the token.** With `NODE_ENV=production` and polling on (`ENABLE_TELEGRAM_POLLING` not `false`,
-  `WEBHOOK_MODE` not `true`), an empty `TG_BOT_API_KEY` fails `AppConfig.validate()`: the start stops with
+- **Production needs the token.** With `NODE_ENV=production` and polling on (`ENABLE_TELEGRAM_POLLING` not `false`),
+  an empty `TG_BOT_API_KEY` fails `AppConfig.validate()`: the start stops with
   `Configuration validation failed` instead of a silent `disabled` bot with health `200`. With
   `ENABLE_TELEGRAM_POLLING=false` (the `api` preview config, the PC before the move) the start goes on without a token.
 - **What the journal shows** on a restart: `Shutting down`, `Stopping Telegram bot`, then `Telegram bot stopped` — or
@@ -275,6 +275,9 @@ cancelled the record before «Такси»; «такси» and «18к» made «1
   is sent again by Telegram. The queue's timers keep nothing running.
 - **A second delete changes nothing.** `DeleteTransactionUseCase` leaves a record already deleted as it is — its
   `deleted_at` and the free-limit counter — and answers success, as a restore of a record that is not deleted does.
+  The queue orders one chat only; two deletes or two restores of one record at once from different places (the Mini
+  App and the bot) are settled by the write itself (#383): one `UPDATE … WHERE deleted_at IS NULL` (a restore — `IS
+  NOT NULL`), and only the call that changed the row moves the counter.
 
 ## Proposed Mode Semantics
 

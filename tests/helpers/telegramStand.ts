@@ -170,7 +170,6 @@ export class TelegramStand {
     const stand = this;
     jest.replaceProperty(AppConfig, 'TG_BOT_API_KEY', TOKEN);
     jest.replaceProperty(AppConfig, 'ENABLE_TELEGRAM_POLLING', true);
-    jest.replaceProperty(AppConfig, 'WEBHOOK_MODE', false);
     // The voice is never downloaded in tests; the bot only makes sure the folder is there
     jest.replaceProperty(AppConfig, 'DOWNLOADS_PATH', os.tmpdir());
     jest.replaceProperty(AppConfig, 'TELEGRAM_ACCESS', telegramAccess(allowed.map(String)));

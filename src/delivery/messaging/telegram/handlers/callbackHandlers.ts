@@ -19,6 +19,15 @@ export function registerCallbackHandlers(bot: Telegraf<BotContext>) {
 }
 
 /**
+ * The answer to a press. Telegram refuses it for a press it no longer waits on — the bot was down or behind a long
+ * update («query is too old»); the spinner goes by itself then, and the refusal must not reach `bot.catch`, which
+ * would tell the chat «Произошла ошибка» (#281).
+ */
+async function answerPress(ctx: BotContext, text?: string): Promise<void> {
+  await ctx.answerCbQuery(text).catch(() => undefined);
+}
+
+/**
  * Handle quick add category selection
  */
 async function handleQuickAdd(ctx: BotContext) {
@@ -27,14 +36,14 @@ async function handleQuickAdd(ctx: BotContext) {
     const categoryId = match?.[1];
 
     if (!categoryId) {
-      await ctx.answerCbQuery(RU.errors.generic);
+      await answerPress(ctx, RU.errors.generic);
       return;
     }
 
     // A category id, or an old static id from a button sent before FT-099
     const { name: categoryDisplay } = await quickAddCategory(ctx, await botUserId(ctx), categoryId);
 
-    await ctx.answerCbQuery();
+    await answerPress(ctx);
 
     // Ask user for amount
     await ctx.reply(RU.quickCategories.enterAmount(categoryDisplay), {
@@ -55,7 +64,7 @@ async function handleQuickAdd(ctx: BotContext) {
     }
   } catch (error) {
     logger.error('Quick add callback error', error as Error);
-    await ctx.answerCbQuery(RU.errors.generic);
+    await answerPress(ctx, RU.errors.generic);
   }
 }
 
