@@ -82,7 +82,11 @@ const result = await archiveUseCase.execute(id);
 
 ### Шаг 4: Добавить Route
 
-**Location:** `src/delivery/web/express/routes/{module}Routes.ts`
+**Location:** роутер модуля — `create{Module}Routes()` рядом с контроллером в `src/modules/{module}/presentation/`
+(например, `createCategoryRoutes` в `categoryController.ts`, `createTransactionRouter` в
+`presentation/controllers/transactionController.ts`); подключается в `buildServer`
+(`src/delivery/web/express/expressServer.ts`) под `/api`. В `src/delivery/web/express/routes/` остались только
+`healthRoutes.ts` и `subscriptionRoutes.ts`.
 
 ```typescript
 router.put('/:id/archive', archiveTransaction(
@@ -118,7 +122,7 @@ export function permanentlyDeleteTransaction(useCase: PermanentlyDeleteTransacti
 
 #### 3. Route
 ```typescript
-// src/delivery/web/express/routes/transactionRoutes.ts
+// src/modules/transaction/presentation/controllers/transactionController.ts — createTransactionRouter()
 router.delete('/:id/permanently', permanentlyDeleteTransaction(
   transactionModule.getPermanentlyDeleteTransactionUseCase()
 ));
@@ -235,17 +239,17 @@ export function createModules() {
 
 #### 7. Presentation Layer
 
-**Controller + Routes:**
+**Controller + Routes** (пример условный: у настоящего `NotificationModule` маршрутов нет, его планировщики работают в
+процессе бота):
 ```typescript
-// src/modules/notification/presentation/notificationController.ts
-// src/delivery/web/express/routes/notificationRoutes.ts
+// src/modules/notification/presentation/notificationController.ts — controller и createNotificationRoutes()
 ```
 
 #### 8. Register Routes
 
 ```typescript
-// src/delivery/web/express/expressServer.ts
-app.use('/api/notifications', notificationRoutes);
+// src/delivery/web/express/expressServer.ts, buildServer(): роутер уже под /api
+router.use('/notifications', createNotificationRoutes(notificationModule, userModule));
 ```
 
 ---
