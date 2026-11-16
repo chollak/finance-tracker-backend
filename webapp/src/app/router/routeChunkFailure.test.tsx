@@ -14,16 +14,35 @@ import { appRoutes } from './appRoutes';
  * router's technical page. The 404 screen and this one are in the main piece, so they still draw.
  */
 
-const FAILURE = 'Failed to fetch dynamically imported module: /webapp/assets/pages-Bx1.js';
+const { FAILURE, gone } = vi.hoisted(() => {
+  const message = 'Failed to fetch dynamically imported module: /webapp/assets/page-home-Bx1.js';
+  return {
+    FAILURE: message,
+    gone: (): never => {
+      throw new TypeError(message);
+    },
+  };
+});
 
 vi.mock('@/shared/api/client', () => {
   const pending = () => new Promise<never>(() => {});
   return { apiClient: { get: vi.fn(pending), post: vi.fn(pending), put: vi.fn(pending), patch: vi.fn(pending), delete: vi.fn(pending) }, onSessionLost: vi.fn() };
 });
 
-vi.mock('@/pages', () => {
-  throw new TypeError('Failed to fetch dynamically imported module: /webapp/assets/pages-Bx1.js');
-});
+// Every screen loads its own piece (#291), and after an update none of the old pieces is there
+vi.mock('@/pages/home', () => gone());
+vi.mock('@/pages/transactions', () => gone());
+vi.mock('@/pages/analytics', () => gone());
+vi.mock('@/pages/more', () => gone());
+vi.mock('@/pages/categories', () => gone());
+vi.mock('@/pages/pastel-showcase', () => gone());
+vi.mock('@/pages/manual-entry', () => gone());
+vi.mock('@/pages/capture-review', () => gone());
+vi.mock('@/pages/capture-offline', () => gone());
+vi.mock('@/pages/accounts', () => gone());
+vi.mock('@/pages/audit', () => gone());
+vi.mock('@/pages/login', () => gone());
+vi.mock('@/pages/first-launch', () => gone());
 
 const USER_ID = '900000143';
 const TITLE = 'Экран не открылся';

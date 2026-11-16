@@ -25,8 +25,9 @@ const LOGIN_TITLE = 'Траты и доходы — голосом, тексто
 let root: Root;
 let container: HTMLDivElement;
 
+// The screens these tests open load their code once here, so a slow first import (a busy test run) does not decide
 beforeAll(async () => {
-  await import('@/pages');
+  await Promise.all([import('@/pages/login'), import('@/pages/analytics'), import('@/pages/pastel-showcase')]);
 }, 60_000);
 
 beforeEach(() => {

@@ -32,7 +32,7 @@ let container: HTMLDivElement;
 // The screens are lazy: load their code once here, so a slow first import (a busy test run) is not mistaken for the
 // gate's spinner
 beforeAll(async () => {
-  await import('@/pages');
+  await Promise.all([import('@/pages/home'), import('@/pages/more')]);
 }, 60_000);
 
 beforeEach(() => {
