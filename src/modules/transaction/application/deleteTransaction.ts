@@ -58,6 +58,8 @@ export class DeleteTransactionUseCase {
   /**
    * A record already deleted changes nothing (#317): its deletion time and the record counter stay — as a restore of a
    * record that is not deleted. Two deletes of one record, a double /undo or «Отменить» after the Mini App, free one slot.
+   * Two at the same moment (the Mini App and the bot, #383) both find the record, but only the delete whose write
+   * changed it frees the slot.
    */
   async execute(request: DeleteTransactionRequest): Promise<Result<void>> {
     const id = request.id?.trim();
@@ -75,7 +77,10 @@ export class DeleteTransactionUseCase {
         return ResultHelper.success(undefined);
       }
 
-      await this.repository.delete(id);
+      if (!(await this.repository.delete(id))) {
+        logger.debug('Transaction deleted by another request meanwhile; nothing changes', { transactionId: id });
+        return ResultHelper.success(undefined);
+      }
       logger.info('Transaction deleted', { transactionId: id });
 
       // The owner from the record: the counter is theirs (FT-171)
@@ -91,7 +96,11 @@ export class DeleteTransactionUseCase {
   }
 }
 
-/** «Отменить» after a delete (FT-105). Restoring a record that is not deleted changes nothing. */
+/**
+ * «Отменить» after a delete (FT-105). Restoring a record that is not deleted changes nothing. Two at the same moment
+ * (the Mini App and the bot, #383) both find the record deleted, but only the restore whose write changed it takes the
+ * slot back; both answer the record as it is now.
+ */
 export class RestoreTransactionUseCase {
   private counter = new TransactionCounter();
 
@@ -110,9 +119,14 @@ export class RestoreTransactionUseCase {
       if (!record) return ResultHelper.failure(new NotFoundError('Transaction', id));
       if (!record.deletedAt) return ResultHelper.success(record);
 
-      const restored = await this.repository.restore(id);
-      logger.info('Transaction restored', { transactionId: id });
-      await this.counter.change(record.userId, 'increment');
+      if (await this.repository.restore(id)) {
+        logger.info('Transaction restored', { transactionId: id });
+        await this.counter.change(record.userId, 'increment');
+      } else {
+        logger.debug('Transaction restored by another request meanwhile; nothing changes', { transactionId: id });
+      }
+      const restored = await this.repository.findByIdIncludingDeleted(id);
+      if (!restored) throw new Error(`Transaction ${id} not found after restore`);
       return ResultHelper.success(restored);
     } catch (error) {
       logger.error('Error restoring transaction', error as Error, { transactionId: id });

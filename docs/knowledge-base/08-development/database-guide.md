@@ -83,7 +83,10 @@
 
 С FT-105 (`TransactionDeletedAt1761400000000`) записи удаляются мягко: `transactions.deleted_at`. Все чтения
 `SqliteTransactionRepository` и запрос остатков их не видят; найти удалённую можно только по id
-(`findByIdIncludingDeleted`) — чтобы восстановить. Откат миграции удаляет такие записи насовсем.
+(`findByIdIncludingDeleted`) — чтобы восстановить. Откат миграции удаляет такие записи насовсем. Удаление — один
+`UPDATE … WHERE id = ? AND deleted_at IS NULL`, восстановление — один `UPDATE … SET deleted_at = NULL WHERE id = ?
+AND deleted_at IS NOT NULL` (#383): `delete` и `restore` отвечают, изменили ли они строку, и счётчик записей меняется
+только тогда — два одновременных удаления одной записи освобождают одно место, два «Отменить» занимают его один раз.
 
 С FT-106 (`TransactionClientId1761500000000`) у записи есть `client_id` с уникальным индексом
 (`userId`, `client_id`): повтор запроса из офлайн-очереди возвращает ту же запись. У старых записей `NULL`.
