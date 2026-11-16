@@ -28,11 +28,15 @@ import { listenOnLoopback, LoopbackServer } from './helpers/testServer';
  * `users.last_seen_at` for a user it found — each screen the Mini App opened was a write to SQLite, and with the file
  * locked every read failed before its use case. Nothing read the column, so nothing writes it now.
  *
- * Measured on the database itself: `total_changes()` counts the rows every INSERT, UPDATE and DELETE on the connection
- * changed (TypeORM keeps one connection to SQLite), so a write anywhere — not only in `users` — shows.
+ * Measured twice. Every statement the database gets on a pass must be a `SELECT` or a `PRAGMA`: an `INSERT OR IGNORE`
+ * that skips its row changes nothing, yet takes the write lock and fails on a locked file all the same. And
+ * `total_changes()` — the rows every INSERT, UPDATE and DELETE on the connection changed (TypeORM keeps one connection
+ * to SQLite) — stays as it was, so a write to any table, not only `users`, shows.
  */
 
 const TELEGRAM_ID = 4343;
+/** What a read may send: anything else — INSERT, UPDATE, DELETE, REPLACE, a transaction — is or leads to a write. */
+const READ_ONLY_SQL = /^\s*(SELECT|PRAGMA)\b/i;
 /** No screen reads quick capture: buildServer gets an empty module for it. */
 const unusedModule = new Proxy({}, { get: () => () => ({}) }) as any;
 
@@ -106,6 +110,18 @@ describe('the Mini App reads write nothing for a known user (#335)', () => {
 
   const writes = async (): Promise<number> => Number((await db.dataSource.query(`SELECT total_changes() AS n`))[0].n);
 
+  /** The statements the database got while `run` ran, read off TypeORM's query log, and those of them that write. */
+  async function statementsOf(run: () => Promise<void>): Promise<{ sent: number; writing: string[] }> {
+    const logged = jest.spyOn(db.dataSource.logger, 'logQuery');
+    try {
+      await run();
+      const sql = logged.mock.calls.map(([query]) => query);
+      return { sent: sql.length, writing: sql.filter(query => !READ_ONLY_SQL.test(query)) };
+    } finally {
+      logged.mockRestore();
+    }
+  }
+
   /** Every GET a Pastel screen sends (webapp `API_ENDPOINTS`), for the user's own account, category and record. */
   function screenReads(ids: { accountId: string; categoryId: string; recordId: string }): string[] {
     const today = new Date().toISOString().slice(0, 10);
@@ -133,7 +149,7 @@ describe('the Mini App reads write nothing for a known user (#335)', () => {
 
   /** The user, made by their first request, with one record: the ids the screens read by. */
   async function knownUserWithRecord(): Promise<string[]> {
-    // The first request of a new user makes the user, the settings, the starter categories and «Карта» (FT-140)
+    // The first request of a new user makes the user, the starter categories and «Карта» (FT-140)
     expect((await get('/settings')).status).toBe(200);
     const userId = (await userModule.getGetOrCreateUserUseCase().execute({ telegramId: String(TELEGRAM_ID) })).id;
     const created = await transactionModule.getCreateTransactionUseCase().execute({
@@ -155,12 +171,20 @@ describe('the Mini App reads write nothing for a known user (#335)', () => {
     const reads = await knownUserWithRecord();
 
     const changed: Record<string, number> = {};
+    const writing: Record<string, string[]> = {};
+    let sent = 0;
     for (const url of reads) {
       const before = await writes();
-      const res = await get(url);
-      changed[`${url} ${res.status}`] = (await writes()) - before;
+      let status = 0;
+      const statements = await statementsOf(async () => { status = (await get(url)).status; });
+      changed[`${url} ${status}`] = (await writes()) - before;
+      sent += statements.sent;
+      if (statements.writing.length > 0) writing[url] = statements.writing;
     }
 
+    // The log does see the reads — an empty one would let any statement through — and none of them writes
+    expect(sent).toBeGreaterThan(reads.length);
+    expect(writing).toEqual({});
     expect(changed).toEqual(Object.fromEntries(reads.map(url => [`${url} 200`, 0])));
     const [{ last_seen_at: lastSeenAt }] = await db.dataSource.query(`SELECT last_seen_at FROM users WHERE telegram_id = ?`, [String(TELEGRAM_ID)]);
     expect(lastSeenAt).toBeNull();
@@ -170,9 +194,12 @@ describe('the Mini App reads write nothing for a known user (#335)', () => {
     const reads = await knownUserWithRecord();
     const before = await writes();
 
-    const again = await Promise.all(reads.map(get));
+    let again: Array<{ url: string; status: number }> = [];
+    const statements = await statementsOf(async () => { again = await Promise.all(reads.map(get)); });
 
     expect(again.filter(res => res.status !== 200).map(res => `${res.url} ${res.status}`)).toEqual([]);
+    expect(statements.sent).toBeGreaterThan(reads.length);
+    expect(statements.writing).toEqual([]);
     expect(await writes()).toBe(before);
   });
 });
