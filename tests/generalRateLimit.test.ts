@@ -1,4 +1,3 @@
-import crypto from 'crypto';
 import express from 'express';
 import {
   aiRateLimiter,
@@ -10,6 +9,7 @@ import { SqliteUserRepository } from '../src/modules/user/infrastructure/persist
 import { SqliteUserSettingsRepository } from '../src/modules/user/infrastructure/persistence/SqliteUserSettingsRepository';
 import { openMigratedDatabase, TestDatabase } from './helpers/testDatabase';
 import { listenOnLoopback } from './helpers/testServer';
+import { signedInitData } from './helpers/telegramInitData';
 
 /**
  * FT-139: the general API limit counts per Telegram user, not per address.
@@ -67,22 +67,7 @@ function limitedApp(): Promise<App> {
 
 const devUser = (id: number): Headers => ({ 'X-Dev-User-Id': String(id) });
 
-/** Telegram Mini App initData signed the way Telegram signs it (HMAC-SHA256 with the bot token). */
-function initData(userId: number, botToken = BOT_TOKEN): string {
-  const params = new URLSearchParams();
-  params.set('auth_date', String(Math.floor(Date.now() / 1000)));
-  params.set('query_id', 'AAH-test');
-  params.set('user', JSON.stringify({ id: userId, first_name: 'Test' }));
-  const dataCheckString = Array.from(params.entries())
-    .sort((a, b) => a[0].localeCompare(b[0]))
-    .map(([key, value]) => `${key}=${value}`)
-    .join('\n');
-  const secretKey = crypto.createHmac('sha256', 'WebAppData').update(botToken).digest();
-  params.set('hash', crypto.createHmac('sha256', secretKey).update(dataCheckString).digest('hex'));
-  return params.toString();
-}
-
-const telegramUser = (id: number, botToken?: string): Headers => ({ Authorization: `tma ${initData(id, botToken)}` });
+const telegramUser = (id: number, botToken = BOT_TOKEN): Headers => ({ Authorization: `tma ${signedInitData(id, botToken)}` });
 
 const count = (statuses: number[], status: number) => statuses.filter(s => s === status).length;
 
