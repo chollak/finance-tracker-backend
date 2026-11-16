@@ -115,8 +115,4 @@ export class UserModule {
     return this.updateUserSettingsUseCase;
   }
 
-  // Repository (for direct access if needed)
-  getRepository(): UserRepository {
-    return this.repository;
-  }
 }

@@ -4,33 +4,8 @@
  */
 
 export const ERROR_MESSAGES = {
-  // Generic
   INTERNAL_ERROR: 'Internal server error',
-  INVALID_REQUEST: 'Invalid request data',
-  UNAUTHORIZED: 'Unauthorized access',
-  
-  // Configuration
-  MISSING_API_KEY: 'API key is missing or invalid',
-  INVALID_CONFIG: 'Invalid configuration',
-  
-  // Transactions
-  TRANSACTION_NOT_FOUND: 'Transaction not found',
-  TRANSACTION_CREATE_FAILED: 'Failed to create transaction',
-  TRANSACTION_UPDATE_FAILED: 'Failed to update transaction',
-  TRANSACTION_DELETE_FAILED: 'Failed to delete transaction',
-  
-  // External services
   OPENAI_ERROR: 'OpenAI service unavailable',
-  TELEGRAM_ERROR: 'Telegram service unavailable',
-  
-  // File processing
-  INVALID_FILE_FORMAT: 'Invalid file format',
-  FILE_TOO_LARGE: 'File size exceeds limit',
-  FILE_PROCESSING_FAILED: 'Failed to process file',
-  
-  // Voice processing
-  TRANSCRIPTION_FAILED: 'Voice transcription failed',
-  VOICE_PROCESSING_FAILED: 'Voice processing failed',
 } as const;
 
 export const SUCCESS_MESSAGES = {
@@ -237,44 +212,4 @@ ${categoryPrompt}`,
 
     TRANSCRIPTION_PROMPT: 'financial transactions, purchases, expenses, income'
   }
-} as const;
-
-export const HTTP_STATUS_MESSAGES = {
-  400: 'Bad Request',
-  401: 'Unauthorized', 
-  403: 'Forbidden',
-  404: 'Not Found',
-  422: 'Unprocessable Entity',
-  500: 'Internal Server Error',
-  502: 'Bad Gateway',
-  503: 'Service Unavailable',
-} as const;
-
-// Default categories for different languages
-export const DEFAULT_CATEGORIES = {
-  RU: [
-    'Еда',
-    'Транспорт', 
-    'Развлечения',
-    'Покупки',
-    'Здоровье',
-    'Образование',
-    'Жилье',
-    'Зарплата',
-    'Подарки',
-    'Другое'
-  ],
-  
-  EN: [
-    'Food',
-    'Transport',
-    'Entertainment', 
-    'Shopping',
-    'Health',
-    'Education',
-    'Housing',
-    'Salary',
-    'Gifts',
-    'Other'
-  ]
 } as const;
