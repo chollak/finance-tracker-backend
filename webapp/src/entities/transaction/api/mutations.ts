@@ -24,9 +24,7 @@ export function useCreateTransaction() {
     mutationFn: (data: CreateTransactionDTO) => createRecord(data),
     onSuccess: (_saved, variables) => {
       haptic.success();
-      invalidateBalanceReaders(queryClient, variables.userId);
-      // Usage limits count records (limits are off, decision Д3; their screens wait for #319)
-      queryClient.invalidateQueries({ queryKey: subscriptionKeys.status(variables.userId) });
+      refreshAfterRecordsChanged(queryClient, variables.userId);
     },
   });
 }
@@ -52,20 +50,14 @@ function forgetRecordRead(queryClient: QueryClient, id: string): void {
   if (query.getObserversCount() === 0) queryClient.removeQueries({ queryKey: transactionKeys.record(id), exact: true });
 }
 
-/** Takes a deleted record out of the cache it was read into and refetches what it counted in. */
-function forgetDeletedTransaction(queryClient: QueryClient, { id, userId }: { id: string; userId: string }): void {
-  forgetRecordRead(queryClient, id);
-  invalidateBalanceReaders(queryClient, userId);
-  queryClient.invalidateQueries({ queryKey: subscriptionKeys.status(userId) });
-}
-
 /**
- * Deletes a record — softly on the server (FT-105) — and refreshes what showed
- * it. Not a hook: «Отменить» in a toast runs it after the screen that wrote the record is gone (FT-113).
+ * Deletes a record — softly on the server (FT-105) — takes it out of the cache it was read into and refreshes what
+ * showed it. Not a hook: «Отменить» in a toast runs it after the screen that wrote the record is gone (FT-113).
  */
-export async function deleteTransaction(queryClient: QueryClient, variables: { id: string; userId: string }): Promise<void> {
-  await deleteRecord(variables.id);
-  forgetDeletedTransaction(queryClient, variables);
+export async function deleteTransaction(queryClient: QueryClient, { id, userId }: { id: string; userId: string }): Promise<void> {
+  await deleteRecord(id);
+  forgetRecordRead(queryClient, id);
+  refreshAfterRecordsChanged(queryClient, userId);
 }
 
 /**
@@ -115,5 +107,6 @@ export async function patchTransaction(
  */
 export function refreshAfterRecordsChanged(queryClient: QueryClient, userId: string): void {
   invalidateBalanceReaders(queryClient, userId);
+  // Usage limits count records (limits are off, decision Д3; their screens wait for #319)
   queryClient.invalidateQueries({ queryKey: subscriptionKeys.status(userId) });
 }
