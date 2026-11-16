@@ -36,8 +36,8 @@ beforeAll(async () => {
 
 beforeEach(() => {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
-  // The idle moment comes at once
-  vi.stubGlobal('requestIdleCallback', (run: () => void) => setTimeout(run, 0));
+  // The idle moment comes soon, as in a browser: a few frames later
+  vi.stubGlobal('requestIdleCallback', (run: () => void) => setTimeout(run, 50));
   vi.stubGlobal('cancelIdleCallback', (id: number) => clearTimeout(id));
   onboardedAt = '2026-10-01T09:00:00.000Z';
   vi.mocked(apiClient.get).mockReset();
@@ -80,7 +80,8 @@ async function until(predicate: () => boolean, timeout = 10_000) {
 }
 
 async function open(path: string) {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  // A failed read is tried once more, as in the app (QueryProvider), only sooner
+  const client = new QueryClient({ defaultOptions: { queries: { retry: 1, retryDelay: 100 } } });
   const router = createMemoryRouter(appRoutes, { initialEntries: [path] });
   await act(async () => {
     root.render(
@@ -122,13 +123,32 @@ describe('before Home', () => {
   });
 });
 
+describe('Home drawn on a bad connection', () => {
+  // Review of PR #377: the month's totals got no answer, Home asked for them again as it drew its sections, and the
+  // screens loaded ahead while that read was on its way — a failed piece would then break the screens that need it
+  it('a read of Home that gets no answer at all: nothing loads ahead', async () => {
+    const answer = vi.mocked(apiClient.get).getMockImplementation()!;
+    vi.mocked(apiClient.get).mockImplementation(async (url: string, ...rest) => {
+      if (url.startsWith('/transactions/totals')) throw Object.assign(new Error('Network Error'), { statusCode: 0 });
+      return answer(url, ...rest);
+    });
+
+    await open('/');
+    await until(() => document.body.querySelector('[aria-label="Быстрый ввод"]') !== null);
+    await wait(1500);
+
+    expect(called()).toEqual(['home']);
+  }, 15_000);
+});
+
 describe('Home drawn', () => {
   it('loads the code of the screens it leads to, one after another — not the showcase', async () => {
     await open('/');
     await until(() => document.body.querySelector('[aria-label="Быстрый ввод"]') !== null);
     await until(() => SCREENS_AFTER_HOME.every((key) => loaders[key].mock.calls.length > 0));
 
-    expect(called()).toEqual(KEYS.filter((key) => key === 'home' || SCREENS_AFTER_HOME.includes(key)));
+    // Home's own code came in the test before (`lazy()` keeps it); now the screens it leads to, and only they
+    expect(called()).toEqual(KEYS.filter((key) => SCREENS_AFTER_HOME.includes(key)));
     expect(SCREENS_AFTER_HOME).not.toContain('pastelShowcase');
     expect(SCREENS_AFTER_HOME).not.toContain('login');
     expect(SCREENS_AFTER_HOME).not.toContain('firstLaunch');

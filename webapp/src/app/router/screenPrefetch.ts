@@ -37,13 +37,14 @@ function whenReadsSettle(client: QueryClient, run: () => void): Stop {
 
 /**
  * Whether loading ahead is safe now. A piece that failed to load stays failed until the app is loaded again (Chrome
- * remembers a failed `import()`), so a load ahead on a bad connection would break a screen that would have opened
- * later: not while the app is offline, nor when a read on screen got no answer at all.
+ * remembers a failed `import()`), so a load ahead on a bad connection would break the screens that need that piece:
+ * not while the app is offline, nor when a read on screen got no answer at all — its error, or the failure of its last
+ * attempt while it waits for another (the error is cleared when a read without data is asked again).
  */
 function connectionLooksGood(client: QueryClient): boolean {
   if (isOffline()) return false;
   const onScreen = client.getQueryCache().findAll({ type: 'active' });
-  return !onScreen.some((query) => query.state.status === 'error' && isNoConnectionError(query.state.error));
+  return !onScreen.some((query) => isNoConnectionError(query.state.error) || isNoConnectionError(query.state.fetchFailureReason));
 }
 
 /** One screen after another; the first failure ends it, quietly — that screen shows «Экран не открылся» if opened. */
@@ -69,15 +70,26 @@ export function createScreenPrefetch(loads: readonly Load[], idle: (run: () => v
   return function prefetch(client: QueryClient): Stop {
     if (started) return () => {};
     let left = false;
+    let stopReads: Stop = () => {};
     let stopIdle: Stop = () => {};
-    const stopReads = whenReadsSettle(client, () => {
-      if (left) return;
-      stopIdle = idle(() => {
-        if (left || started || !connectionLooksGood(client)) return;
-        started = true;
-        void loadInTurn(loads);
+    const waitForCalm = () => {
+      stopReads = whenReadsSettle(client, () => {
+        if (left) return;
+        stopIdle = idle(() => {
+          if (left || started) return;
+          // A read started meanwhile — Home asks again for a read that has no data as it draws its sections: its answer
+          // decides, so wait for it once more
+          if (client.isFetching() > 0) {
+            waitForCalm();
+            return;
+          }
+          if (!connectionLooksGood(client)) return;
+          started = true;
+          void loadInTurn(loads);
+        });
       });
-    });
+    };
+    waitForCalm();
     return () => {
       left = true;
       stopReads();

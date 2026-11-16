@@ -151,6 +151,76 @@ describe('loading the screens ahead after Home', () => {
     stop();
   });
 
+  describe('a read Home asks for again before the moment (it has no data, so the error is cleared)', () => {
+    const noAnswer = () => Object.assign(new Error('Network Error'), { statusCode: 0 });
+
+    async function failedThenAskedAgain() {
+      const attempts = [deferred(), deferred()];
+      let attempt = 0;
+      const observer = new QueryObserver(client, { queryKey: ['totals'], queryFn: () => attempts[attempt++].promise });
+      const stop = observer.subscribe(() => {});
+      attempts[0].reject(noAnswer());
+      await vi.waitFor(() => expect(observer.getCurrentResult().status).toBe('error'));
+      const load = vi.fn(async () => {});
+      const { idle, come } = manualIdle();
+
+      createScreenPrefetch([load], idle)(client);
+      expect(idle).toHaveBeenCalledTimes(1);
+      void observer.refetch();
+      come();
+      await flush();
+      return { second: attempts[1], load, idle, come, stop };
+    }
+
+    it('waits for its answer; none again — nothing loads', async () => {
+      const { second, load, idle, come, stop } = await failedThenAskedAgain();
+      expect(load).not.toHaveBeenCalled();
+
+      second.reject(noAnswer());
+      await flush();
+      expect(idle).toHaveBeenCalledTimes(2);
+      come();
+      await flush();
+
+      expect(load).not.toHaveBeenCalled();
+      stop();
+    });
+
+    it('waits for its answer; an answer — the screens load', async () => {
+      const { second, load, come, stop } = await failedThenAskedAgain();
+
+      second.resolve({});
+      await flush();
+      come();
+      await flush();
+
+      expect(load).toHaveBeenCalledTimes(1);
+      stop();
+    });
+  });
+
+  it('a read waiting for another attempt after one with no answer: nothing loads', async () => {
+    const observer = new QueryObserver(client, { queryKey: ['totals'], queryFn: () => new Promise(() => {}) });
+    const stop = observer.subscribe(() => {});
+    // As TanStack leaves it when the connection goes during its retry: no error yet, the last attempt's failure kept
+    client.getQueryCache().find({ queryKey: ['totals'] })!.setState({
+      status: 'pending',
+      error: null,
+      fetchStatus: 'paused',
+      fetchFailureCount: 1,
+      fetchFailureReason: Object.assign(new Error('Network Error'), { statusCode: 0 }),
+    });
+    const load = vi.fn(async () => {});
+    const { idle, come } = manualIdle();
+
+    createScreenPrefetch([load], idle)(client);
+    come();
+    await flush();
+
+    expect(load).not.toHaveBeenCalled();
+    stop();
+  });
+
   it('a read the server refused is no reason to wait: the connection is there', async () => {
     const observer = new QueryObserver(client, {
       queryKey: ['home'],
