@@ -34,6 +34,7 @@ From `webapp/` only:
 npm install
 npm run dev      # Vite dev server; backend must run separately
 npm run test     # Vitest
+npm run lint     # ESLint; a warning fails it too (--max-warnings 0)
 npm run build    # TypeScript build + Vite production build
 ```
 
@@ -86,4 +87,4 @@ The root gate is:
 npm run verify
 ```
 
-It includes backend build, test types (`typecheck:tests`), script types (`typecheck:scripts`), serial Jest tests, webapp Vitest tests, webapp production build, font and token checks, and dependency-cruiser (layer rules and circular imports).
+It includes backend build, test types (`typecheck:tests`), script types (`typecheck:scripts`), this app's ESLint (`lint:webapp`), serial Jest tests, webapp Vitest tests, webapp production build, font and token checks, and dependency-cruiser (layer rules and circular imports).

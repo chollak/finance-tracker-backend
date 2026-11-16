@@ -68,7 +68,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npm run typecheck:tests` - Types of `tests/` and `src/` with one `tsc` (`tsconfig.test.json`, #293): Jest does not check them
 - `npm run typecheck:scripts` - Types of the TypeScript scripts in `scripts/` (`tsconfig.scripts.json`, #297); the Supabase scripts are left out until #324
 - `npm run analyze` - Run dependency-cruiser (`check:deps`): layer rules and circular imports
-- `npm run verify` - Full pre-commit/pre-push gate: backend build, test types, script types, serial Jest tests, webapp Vitest tests, webapp build, `check:fonts` and `check:tokens`, architecture checks
+- `npm run lint:webapp` - ESLint over `webapp/` (`webapp/eslint.config.js`); a warning fails it as an error does (`--max-warnings 0`, #296)
+- `npm run verify` - Full pre-commit/pre-push gate: backend build, test types, script types, webapp ESLint, serial Jest tests, webapp Vitest tests, webapp build, `check:fonts` and `check:tokens`, architecture checks
 - `ios/scripts/test.sh` - iOS app (FT-177): `xcodebuild test` on the first available iPhone simulator; `verify` does not see `ios/` ([`ios/README.md`](ios/README.md))
 - Tests use ts-jest and target Node.js environment; ts-jest only translates each file (`isolatedModules` in `tsconfig.test.json`) and checks no types — a type error in a test fails `typecheck:tests`, not `npm test` (#293)
 

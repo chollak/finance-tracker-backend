@@ -91,7 +91,7 @@ curl http://localhost:3000/api/health
 npm run verify
 ```
 
-`npm run verify` runs backend build → `typecheck:tests` (test types, one `tsc`) → `typecheck:scripts` (types of `scripts/`) → `test:ci` (Jest serially) → `test:webapp` (Vitest) → `build:webapp` → `check:fonts`, `check:tokens` → `analyze` (dependency-cruiser, cycles included).
+`npm run verify` runs backend build → `typecheck:tests` (test types, one `tsc`) → `typecheck:scripts` (types of `scripts/`) → `lint:webapp` (ESLint over `webapp/`, warnings fail it too) → `test:ci` (Jest serially) → `test:webapp` (Vitest) → `build:webapp` → `check:fonts`, `check:tokens` → `analyze` (dependency-cruiser, cycles included).
 
 ## Logs
 
