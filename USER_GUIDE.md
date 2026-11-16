@@ -269,6 +269,11 @@ correction.
 → In the bot: «Отменить» under it, or `/undo` for your last message. In the Mini App: the record's sheet →
 «Удалить операцию».
 
+**«Откройте Kapelka заново» (Mini App)**
+→ The Mini App stayed open or minimised longer than its sign-in lives: Telegram signs it in when it is opened, for 24
+hours. Press «Закрыть Kapelka» and open it again from the bot's chat. Records waiting to be sent stay on the device
+and go after the new opening; text typed in the field is not kept.
+
 **The bot answers, but the Mini App does not open**
 → Send `/start` again. On the live instance the phone needs Tailscale switched on. More in
 [live-instance.md](docs/knowledge-base/08-development/live-instance.md).
