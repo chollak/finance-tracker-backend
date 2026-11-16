@@ -39,7 +39,10 @@ vi.mock('@/entities/category', async (importOriginal) => {
 });
 
 const USER_ID = '900000001';
-const TODAY = toLocalDate(new Date());
+// A fixed day (#295): the exchange is two days before today — on 1 and 2 January that is last year, and the screen
+// adds the year to its date
+const NOW = new Date('2026-11-16T12:00:00+05:00');
+const TODAY = toLocalDate(NOW);
 const YESTERDAY = addDays(TODAY, -1);
 const EARLIER = addDays(TODAY, -2);
 
@@ -76,6 +79,7 @@ let router: ReturnType<typeof createMemoryRouter>;
 
 beforeEach(() => {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+  vi.setSystemTime(NOW);
   accounts = { accounts: [CASH, CARD, USD], totalMinor: 974_300_000, rate: { rateMinor: 1_265_000, source: 'cbu', date: TODAY }, missingRate: false };
   const salary = record({ id: 't3', type: 'income', amount: 12_500_000, amountMinor: 1_250_000_000, category: 'Зарплата', categoryId: 'c-salary', description: 'За сентябрь', date: YESTERDAY });
   operations = {
@@ -119,6 +123,7 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.unmount());
   container.remove();
+  vi.useRealTimers();
 });
 
 async function renderAccount(id = 'card') {
