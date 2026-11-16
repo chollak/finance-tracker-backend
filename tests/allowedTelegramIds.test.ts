@@ -214,6 +214,30 @@ describe('the API lets in only the allowed (FT-153)', () => {
     expect(await usersInDb()).toEqual([]);
   });
 
+  it('answers 403 to X-Dev-User-Id that only starts with an allowed id: no Telegram id, not that user (#255)', async () => {
+    await serve([String(ALLOWED)]);
+
+    expect((await get('/api/settings', { 'X-Dev-User-Id': `${ALLOWED}abc` })).status).toBe(403);
+    expect(await usersInDb()).toEqual([]);
+  });
+
+  it('X-Dev-User-Id that is no Telegram id next to a valid session cookie: refused, not the cookie\'s user (#255)', async () => {
+    const cookie = await sessionCookie(ALLOWED);
+    const badDevHeader = { ...cookie, 'X-Dev-User-Id': `${ALLOWED}abc` };
+
+    // An open list: requireAuth answers, and the cookie does not stand in for a typo in the dev header
+    await serve([]);
+    expect((await get('/api/settings', cookie)).status).toBe(200);
+    const open = await get('/api/settings', badDevHeader);
+    expect([open.status, open.body.code]).toEqual([401, 'INVALID_DEV_USER_ID']);
+    await new Promise<void>(resolve => server.close(() => resolve()));
+
+    // A list set: closed access answers first, as before
+    await serve([String(ALLOWED)]);
+    const closed = await get('/api/settings', badDevHeader);
+    expect([closed.status, closed.body.code]).toEqual([403, 'ACCESS_NOT_ALLOWED']);
+  });
+
   it('does not turn a login confirmed while the list was open into a session for someone not on it', async () => {
     const browserSecret = await confirmedLogin(STRANGER);
     await serve([String(ALLOWED)]);
