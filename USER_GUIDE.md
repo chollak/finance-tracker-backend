@@ -48,14 +48,15 @@ buttons:
 - a cancelled record: «Вернуть»;
 - «Изменить» opens «Сумму», «Категорию», «Счёт», «Дату», «Открыть в Kapelka ↗», «Готово» and «Отменить запись».
 
-**When the bot asks first:**
+**When the bot asks:**
 
-- **It guessed the category.** It asks with «Да, верно» or «Другая». When the category is «Другое», it shows
-  «Выбрать категорию».
+- **It guessed the category.** The record is written, and the bot asks with «Да, верно» or «Другая». When the
+  category is «Другое», it shows «Выбрать категорию».
 - **You named something without an amount** («кофе 25к, такси»). It writes the rest and asks «Сколько?» about the
   item. Answer with a number, or press «Пропустить «Такси»».
 - **The amount looks too large** for everyday spending: from 10 000 000 сум in «Кафе», «Транспорт», «Продукты»,
-  «Связь» or «Здоровье». It writes nothing until you press «Это 25 000 сум», «Да, верная» or «Не записывать».
+  «Связь» or «Здоровье». It writes nothing until you press «Это 25 000 сум» (a thousand times less), «Да, верная» or
+  «Не записывать».
 
 **Changing an amount by text.** Write «не 25, а 28». Anything else you change with «Изменить» under the record.
 
@@ -98,8 +99,8 @@ The input at the bottom of Home has these parts:
   «Отменить».
 - **The field** («Кофе 25к, такси 18к…») takes the same phrases as the bot. The arrow sends the phrase and opens
   «Проверьте записи».
-- **«Ввести вручную»** opens manual entry (`/add`): the amount on the app's own keypad, then the category, account,
-  date and note.
+- **«Ввести вручную»** opens manual entry (`/add`): the amount on the app's own keypad, with the category, account,
+  date and note on the same screen.
 - **The microphone and the camera** do not work in the Mini App yet. They say so: use voice in the bot, and type a
   receipt as text.
 
@@ -187,7 +188,8 @@ Every row says its current state, and a change applies at once.
 
 When there is no connection, a line under Home's header says so, and Home shows what was kept on the device. Chips,
 simple phrases («такси 18к», «обед 45 000, кофе 25к») and «Ввести вручную» still write. Those records show
-«Ждёт связи» and go to the server once the connection is back. Voice and receipt photos need a connection.
+«Ждёт связи» and go to the server once the connection is back. The microphone and the camera say they need a
+connection.
 
 ## 4. iPhone
 
