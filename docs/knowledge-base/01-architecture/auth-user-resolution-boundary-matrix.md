@@ -72,7 +72,7 @@ ended got `403` on a delete, an edit or «Отменить» and never the login
 |---|---|
 | `GET /:id`, `POST /:id/archive`, `/:id/unarchive`, `POST /archive/batch` on `optionalAuth` | `requireAuth` |
 | `DELETE /:id`, `POST /:id/restore`, `PUT /:id` on `optionalAuthOrAppToken` (FT-218) | `requireAuthOrAppToken` — the token signs in as `SHORTCUT_CAPTURE_OWNER` exactly as before |
-| Without sign-in, or with an `Authorization` that is not valid initData: the record read, then `403` (or `404` for an unknown id) | `401` before the record is read — `MISSING_AUTH_HEADER`, `INVALID_AUTH_FORMAT` or `INVALID_AUTH`, the answer every other route gives; an id that exists and one that does not get the same answer |
+| Without sign-in, or with an `Authorization` that is not valid initData: the record read, then `403` (or `404` for an unknown id) | `401` before the record is read — `MISSING_AUTH_HEADER`, `INVALID_AUTH_FORMAT`, `INVALID_AUTH` or `INIT_DATA_EXPIRED` (#316), the answer every other route gives; an id that exists and one that does not get the same answer |
 | `optionalAuth`, `optionalAuthOrAppToken` | Removed: no route used them any more |
 
 Unchanged: signed in (initData, the session cookie, `X-Dev-User-Id` outside production from this machine, the app

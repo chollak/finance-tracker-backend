@@ -18,7 +18,9 @@
   обращении. Без авторизации — `401`, и у маршрутов одной записи тоже (#271): `GET`, `PUT`, `DELETE /api/transactions/:id`
   и `POST …/restore` отвечают `401` до того, как читают запись, — ответ не выдаёт, есть ли такой id. Со входом чужая
   запись — `403 AUTHORIZATION_ERROR`, неизвестная — `404`. Ответ `401` — плоский (ниже, «Ошибки»), как у всех маршрутов:
-  `MISSING_AUTH_HEADER`, `INVALID_AUTH_FORMAT`, `INVALID_AUTH`, `MISSING_USER_DATA`, вне production — `INVALID_DEV_USER_ID`.
+  `MISSING_AUTH_HEADER`, `INVALID_AUTH_FORMAT`, `INVALID_AUTH`, `INIT_DATA_EXPIRED`, `MISSING_USER_DATA`, вне production —
+  `INVALID_DEV_USER_ID`. initData действует 24 часа (`INIT_DATA_MAX_AGE_SECONDS`, #316): Telegram выдаёт её при открытии
+  Mini App и не обновляет, пока Mini App открыт или свёрнут.
 - **iOS-приложение (FT-218)** входит токеном `X-Shortcut-Capture-Token` как `SHORTCUT_CAPTURE_OWNER` — только на шести
   маршрутах: `GET /api/transactions` (история), `GET /api/categories`, `GET /api/accounts` (только список),
   `DELETE /api/transactions/:id`, `POST /api/transactions/:id/restore`, `PUT /api/transactions/:id`. Ответы те же, что
@@ -57,7 +59,8 @@
 | 400 | `INVALID_USER_ID` | плоская | `userId` в пути, query или теле — не одна непустая строка (FT-162) |
 | 401 | `MISSING_AUTH_HEADER` | плоская | ни `Authorization`, ни cookie сессии |
 | 401 | `INVALID_AUTH_FORMAT` | плоская | `Authorization` не в виде `tma <initData>` |
-| 401 | `INVALID_AUTH` | плоская | initData не сошлась с токеном бота или старше часа |
+| 401 | `INVALID_AUTH` | плоская | initData не сошлась с токеном бота или не читается |
+| 401 | `INIT_DATA_EXPIRED` | плоская | initData подписана этим ботом, но старше 24 часов (#316): Mini App нужно открыть заново |
 | 401 | `MISSING_USER_DATA` | плоская | в верной initData нет `user` |
 | 401 | `INVALID_DEV_USER_ID` | плоская | вне production, с этой машины: `X-Dev-User-Id` — не Telegram id (`123abc`, #255); при заданном `ALLOWED_TELEGRAM_IDS` первым — `403 ACCESS_NOT_ALLOWED` |
 | 401 | `INVALID_SHORTCUT_TOKEN` | плоская | токен приложения пустой или неверный: шесть маршрутов iOS (FT-218) и `quick-capture` |
