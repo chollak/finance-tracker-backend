@@ -6,8 +6,9 @@ import { useIsOffline } from '@/shared/lib/offline';
 import { LoadingScreen } from '@/shared/ui/pastel';
 import { firstLaunchDecision } from './firstLaunchDecision';
 import { AppLoading } from './AppLoading';
+import { pageLoaders } from './pageLoaders';
 
-const FirstLaunchPage = lazy(() => import('@/pages/first-launch').then((m) => ({ default: m.FirstLaunchPage })));
+const FirstLaunchPage = lazy(() => pageLoaders.firstLaunch().then((m) => ({ default: m.FirstLaunchPage })));
 
 /**
  * Every screen of the app sits behind the first launch (FT-109): until the user has said how much money
