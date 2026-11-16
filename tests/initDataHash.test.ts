@@ -1,7 +1,7 @@
 import express from 'express';
 import { requireAuth } from '../src/delivery/web/express/middleware/authMiddleware';
 import { AppConfig } from '../src/shared/infrastructure/config/appConfig';
-import { captureLogLines, LogCapture } from './helpers/logLines';
+import { captureLogLines, levelOf, LogCapture } from './helpers/logLines';
 import { signedInitData } from './helpers/telegramInitData';
 import { listenOnLoopback, LoopbackServer } from './helpers/testServer';
 
@@ -53,8 +53,8 @@ describe('initData with a malformed hash (#275)', () => {
     expect(res.status).toBe(401);
     expect((await res.json()).code).toBe('INVALID_AUTH');
     const lines = await logs.lines();
-    expect(lines.some(line => /warn/.test(line) && line.includes('Malformed hash in initData'))).toBe(true);
-    expect(lines.filter(line => /error/.test(line))).toEqual([]);
+    expect(lines.some(line => levelOf(line) === 'warn' && line.includes('Malformed hash in initData'))).toBe(true);
+    expect(lines.filter(line => levelOf(line) === 'error')).toEqual([]);
   });
 
   it('a hash of the right form that does not match is a warn too; the real one signs in', async () => {
@@ -65,6 +65,6 @@ describe('initData with a malformed hash (#275)', () => {
     const signed = await signIn(signedInitData(TELEGRAM_ID, BOT_TOKEN));
     expect(signed.status).toBe(200);
     expect(await signed.json()).toEqual({ id: TELEGRAM_ID });
-    expect((await logs.lines()).filter(line => /error/.test(line))).toEqual([]);
+    expect((await logs.lines()).filter(line => levelOf(line) === 'error')).toEqual([]);
   });
 });

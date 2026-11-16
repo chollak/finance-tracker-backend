@@ -136,6 +136,9 @@ handleResult(...)
 
 but it is not used in controllers and its current type is narrow (`error?: AppError`), while many use cases return plain `Error` as well.
 
+(Gone in #275, with `handleResultResponse`, `validateRequiredFields`, `getPaginationParams` and `getQueryParam`: no
+controller called them.)
+
 **Recommendation:** Create/extend a small controller helper for Result responses before refactoring many routes.
 
 Candidate future task:
@@ -490,3 +493,5 @@ any change to transaction/debt accounting semantics
 ## FT-019A Controller Result Helper Slice
 
 FT-019A completed: `handleResultResponse(...)` now has direct helper tests, accepts `unknown` errors so it can safely forward any use-case `Result` failure to `handleControllerError(...)`, and BudgetController uses it for create/list/summaries/update result-response branches. Delete remains explicit to preserve the existing `data: null` response shape.
+
+`handleResultResponse` went in #275: its only caller, BudgetController, left with #264.
