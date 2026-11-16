@@ -48,7 +48,6 @@ describe('a record once written by a debt is an ordinary record (#265)', () => {
     app.use('/api/transactions', createTransactionRouter(
       transactionModule.getCreateTransactionUseCase(),
       transactionModule.getTransactionHistoryUseCase(),
-      transactionModule.getGetUserTransactionsUseCase(),
       transactionModule.getGetTransactionByIdUseCase(),
       transactionModule.getDeleteTransactionUseCase(),
       transactionModule.getUpdateTransactionUseCase(),

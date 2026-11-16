@@ -21,7 +21,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Goal now:** текущий фокус — в README доски [Kapelka](https://github.com/users/chollak/projects/1); здесь он не повторяется, чтобы не устаревать. Проект развивается, а не пишется заново; старые production/AWS-планы не возвращать.
 
-**Product name (2026-10-28):** Kapelka — one name for the bot, the Mini App and the future iOS app (decision 2026-10-28, renamed in FT-168). The repository and the npm package stay `finance-tracker-backend`. Kept on purpose under the old name, because a new one would break data or sign-ins: the cookies `daftar_session` / `daftar_login`, the Dexie database `daftar-offline`, the `localStorage` key `daftar-theme`. The live instance on the PC polls its own new bot Kapelka; @FinanceTrackerDevBot is the Mac's development bot.
+**Product name (2026-10-28):** Kapelka — one name for the bot, the Mini App and the iOS app (decision 2026-10-28, renamed in FT-168). The repository and the npm package stay `finance-tracker-backend`. Kept on purpose under the old name, because a new one would break data or sign-ins: the cookies `daftar_session` / `daftar_login`, the Dexie database `daftar-offline`, the `localStorage` key `daftar-theme`. The live instance on the PC polls its own new bot Kapelka; @FinanceTrackerDevBot is the Mac's development bot.
 
 **Source of truth for current work:** the board [Kapelka](https://github.com/users/chollak/projects/1) — issues of this repository with the label `board` (FT-049, 2026-11-03); rules: [`docs/tasks/README.md`](docs/tasks/README.md).
 
@@ -622,7 +622,7 @@ See: [Adding Features Guide](docs/knowledge-base/08-development/adding-features.
 
 - **Source**: All TypeScript code in `src/` compiles to `dist/`
 - **Frontend**: React app in `webapp/` builds to `public/webapp/` for Express serving
-- **iOS**: SwiftUI app Kapelka in `ios/` (FT-161): an offline queue to `POST /api/quick-capture` with the Shortcut token in Keychain; signing in the ignored `ios/Config/Signing.local.xcconfig`
+- **iOS**: SwiftUI app Kapelka in `ios/` (FT-161, [`ios/README.md`](ios/README.md)): phrases by voice or keyboard and Apple Pay payments go through an offline queue to `POST /api/quick-capture` and `/payment` (FT-177…FT-179); the tab «Записи» reads the records, deletes them with «Вернуть» and changes their category (FT-218…FT-221); a journal of command runs in the settings (#241). The Shortcut token is in Keychain; signing in the ignored `ios/Config/Signing.local.xcconfig`
 - **Tests**: Jest tests in `tests/` folder with `.test.ts` suffix
 - **Static Assets**: Express serves the webapp from `public/webapp/` on the root (any other path gets its `index.html`) and the API at `/api` (`createHttpApp`); the old `/webapp` path is gone (#272)
 

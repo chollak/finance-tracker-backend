@@ -4,7 +4,6 @@ import { GetPeriodTotalsUseCase } from './application/getPeriodTotals';
 import { GetFrequentRecordsUseCase } from './application/getFrequentRecords';
 import { GetMonthAnalyticsUseCase } from './application/getMonthAnalytics';
 import { GetCategoryAnalyticsUseCase } from './application/getCategoryAnalytics';
-import { GetUserTransactionsUseCase } from './application/getUserTransactions';
 import { GetTransactionByIdUseCase } from './application/getTransactionById';
 import { DeleteTransactionUseCase, RestoreTransactionUseCase } from './application/deleteTransaction';
 import { UpdateTransactionUseCase } from './application/updateTransaction';
@@ -122,10 +121,6 @@ export class TransactionModule {
   /** The frequent expenses for the quick chips over the composer (FT-114). */
   getFrequentRecordsUseCase(): GetFrequentRecordsUseCase {
     return new GetFrequentRecordsUseCase(this.repository);
-  }
-
-  getGetUserTransactionsUseCase(): GetUserTransactionsUseCase {
-    return new GetUserTransactionsUseCase(this.repository);
   }
 
   getGetTransactionByIdUseCase(): GetTransactionByIdUseCase {

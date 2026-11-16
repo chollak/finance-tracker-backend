@@ -7,7 +7,6 @@ export * from './button';
 export * from './card';
 export * from './dialog';
 export * from './form';
-export * from './input';
 export * from './label';
 export * from './progress';
 export * from './select';
@@ -17,7 +16,6 @@ export * from './skeleton';
 export * from './sonner';
 
 // Custom components
-export * from './autocomplete-input';
 export * from './empty-state';
 export * from './page-header';
 export * from './typography';

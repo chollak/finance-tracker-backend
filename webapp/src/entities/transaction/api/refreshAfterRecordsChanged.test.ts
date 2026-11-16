@@ -1,17 +1,19 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { QueryClient, QueryObserver, type QueryKey } from '@tanstack/react-query';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { QueryClient, QueryClientProvider, QueryObserver, type QueryKey } from '@tanstack/react-query';
 import { apiClient } from '@/shared/api/client';
-import { transactionDataSource } from '@/shared/lib/db';
+import { createRecord, deleteRecord, restoreRecord } from './serverRecords';
 import { memoryOfflineStorage, setOfflineStorage, useConnectivityStore, useOutboxStore } from '@/shared/lib/offline';
 import { useUserStore } from '@/entities/user';
 import { accountKeys } from '@/entities/account';
 import { analyticsKeys } from '@/entities/analytics';
 import { auditKeys } from '@/entities/audit';
 import { subscriptionKeys } from '@/entities/subscription/api/keys';
-import type { Transaction } from '@/shared/types';
+import type { CreateTransactionDTO, Transaction } from '@/shared/types';
 import type { QueuedRecordInput } from '../model/outbox';
 import { transactionKeys } from './keys';
-import { patchTransaction, restoreTransaction } from './mutations';
+import { deleteTransaction, patchTransaction, restoreTransaction, useCreateTransaction } from './mutations';
 import { flushRecordOutbox, queueRecords } from './recordOutbox';
 
 /**
@@ -21,7 +23,7 @@ import { flushRecordOutbox, queueRecords } from './recordOutbox';
  */
 
 vi.mock('@/shared/api/client', () => ({ apiClient: { put: vi.fn(), post: vi.fn(), delete: vi.fn(), get: vi.fn() } }));
-vi.mock('@/shared/lib/db', () => ({ transactionDataSource: { restore: vi.fn(), delete: vi.fn() } }));
+vi.mock('./serverRecords', () => ({ createRecord: vi.fn(), deleteRecord: vi.fn(), restoreRecord: vi.fn() }));
 
 const USER = '900000001';
 const WHOLE_HISTORY = { text: '', categoryId: null, accountId: null, type: null };
@@ -36,8 +38,6 @@ const ON_SCREEN = {
   analytics: analyticsKeys.month(USER, undefined, 'expense'),
   audit: auditKeys.current(USER),
   subscription: subscriptionKeys.status(USER),
-  // `useTransactions`: the whole list, the key every other list of records is under
-  wholeList: transactionKeys.list(USER),
 } satisfies Record<string, QueryKey>;
 
 const READ_ONCE = Object.fromEntries(Object.keys(ON_SCREEN).map((name) => [name, 1]));
@@ -59,6 +59,22 @@ const TAXI: QueuedRecordInput = {
   type: 'expense', amountMinor: 1_800_000, currency: 'UZS', accountId: 'card', categoryId: 'c-tr', categoryName: 'Транспорт',
   date: '2026-10-14', note: 'Такси',
 };
+/** A quick chip's record, as `useQuickChip` and manual entry hand it to `useCreateTransaction`. */
+const CHIP: CreateTransactionDTO = {
+  type: 'expense', amount: 18000, amountMinor: 1_800_000, currency: 'UZS', accountId: 'card', categoryId: 'c-tr',
+  category: 'Транспорт', date: '2026-10-14', description: 'Такси', userId: USER, clientId: 'chip-1',
+};
+
+/** `useCreateTransaction` as a screen holds it: mounted once (no DOM in these tests) and pressed by hand. */
+function createHook(): ReturnType<typeof useCreateTransaction> {
+  let hook: ReturnType<typeof useCreateTransaction> | undefined;
+  function Probe() {
+    hook = useCreateTransaction();
+    return null;
+  }
+  renderToStaticMarkup(createElement(QueryClientProvider, { client }, createElement(Probe)));
+  return hook!;
+}
 
 let client: QueryClient;
 let reads: Map<keyof typeof ON_SCREEN, number>;
@@ -90,7 +106,11 @@ beforeEach(async () => {
   useUserStore.setState({ userId: USER, userType: 'telegram' });
   vi.mocked(apiClient.put).mockReset().mockResolvedValue({ data: SAVED });
   vi.mocked(apiClient.post).mockReset().mockResolvedValue({ data: { id: 'srv-1' } });
-  vi.mocked(transactionDataSource.restore).mockReset().mockResolvedValue(undefined);
+  vi.mocked(restoreRecord).mockReset().mockResolvedValue(undefined);
+  vi.mocked(deleteRecord).mockReset().mockResolvedValue(undefined);
+  vi.mocked(createRecord).mockReset().mockResolvedValue({ ...SAVED, id: 'srv-1' });
+  // The haptic of a written record asks Telegram's WebApp, which these tests have none of
+  vi.stubGlobal('window', {});
   client = new QueryClient();
   reads = new Map();
   await openScreens();
@@ -99,6 +119,7 @@ beforeEach(async () => {
 afterEach(() => {
   for (const stop of stopReaders) stop();
   client.clear();
+  vi.unstubAllGlobals();
 });
 
 describe('a change of records reads each reader once (#288)', () => {
@@ -106,6 +127,24 @@ describe('a change of records reads each reader once (#288)', () => {
     await patchTransaction(client, { id: 't4', userId: USER, patch: { categoryId: 'c-pr' } });
     await settled();
 
+    expect(readsSinceOpen()).toEqual(READ_ONCE);
+    expect(CLOSED.map((queryKey) => client.getQueryState(queryKey)?.isInvalidated)).toEqual(CLOSED.map(() => true));
+  });
+
+  it('a record written by a quick chip or manual entry (#289)', async () => {
+    await createHook().mutateAsync(CHIP);
+    await settled();
+
+    expect(createRecord).toHaveBeenCalledWith(CHIP);
+    expect(readsSinceOpen()).toEqual(READ_ONCE);
+    expect(CLOSED.map((queryKey) => client.getQueryState(queryKey)?.isInvalidated)).toEqual(CLOSED.map(() => true));
+  });
+
+  it('«Удалить операцию» or «Отменить» after a write (#289)', async () => {
+    await deleteTransaction(client, { id: 't4', userId: USER });
+    await settled();
+
+    expect(deleteRecord).toHaveBeenCalledWith('t4');
     expect(readsSinceOpen()).toEqual(READ_ONCE);
     expect(CLOSED.map((queryKey) => client.getQueryState(queryKey)?.isInvalidated)).toEqual(CLOSED.map(() => true));
   });

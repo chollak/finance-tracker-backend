@@ -48,4 +48,15 @@ describe('the archive and the old analytics of records are gone (#273)', () => {
     expect(res.status).toBe(404);
     expect(await res.json()).toMatchObject({ success: false, code: 'NOT_FOUND' });
   });
+
+  /**
+   * #289: all of a user's records at once. Only the Mini App's old `useTransactions` read it, and no screen called that
+   * since «Пастель»; Home, History and the record sheet read `GET /api/transactions` a page at a time (FT-107).
+   */
+  it('GET /api/transactions/user/:userId is not a route (#289)', async () => {
+    const res = await fetch(`${server.baseUrl}/api/transactions/user/${USER_ID}`, { headers: { 'X-Dev-User-Id': USER_ID } });
+
+    expect(res.status).toBe(404);
+    expect(await res.json()).toMatchObject({ success: false, code: 'NOT_FOUND' });
+  });
 });

@@ -38,8 +38,8 @@ export const ROUTES = {
   // A record: Home with its sheet open (FT-115; the edit page /transactions/:id/edit is gone)
   RECORD: (id: string) => `/?${RECORD_PARAM}=${encodeURIComponent(id)}`,
 
-  // Manual entry (FT-113): a way to write, opened from Home, «Ещё» and an empty History; an empty month of analytics
-  // opens it on its own side (FT-121)
+  // Manual entry (FT-113): a way to write, opened by the keypad button of Home's composer and by «Ввести вручную»
+  // without a connection (FT-129); an empty month of analytics opens it on its own side (FT-121)
   MANUAL_ENTRY: '/add',
   MANUAL_ENTRY_OF: (type: 'expense' | 'income') => (type === 'income' ? `/add?${ENTRY_TYPE_PARAM}=income` : '/add'),
 
@@ -135,7 +135,6 @@ export const API_ENDPOINTS = {
 
   // Transactions
   TRANSACTIONS: {
-    LIST: (userId: string) => `/transactions/user/${userId}`,
     // History of the signed-in user, newest first (FT-107): search, filters and the next page's cursor (FT-116);
     // the user comes from authentication
     HISTORY: (

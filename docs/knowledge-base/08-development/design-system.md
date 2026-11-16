@@ -8,7 +8,7 @@ The old `webapp/src/design-system/` package and its decorative accent variants w
 
 - Shared primitives: `webapp/src/shared/ui/`
 - Global tokens: `webapp/src/app/styles/globals.css`
-- TypeScript token mirror: `webapp/src/shared/lib/design-tokens.ts`
+- TypeScript token mirror: `webapp/src/shared/lib/design-tokens.ts` — removed in #289 with the chart palette (charts went in FT-121)
 - Product UI rules for agents: `CLAUDE.md` → “Design System (WebApp Frontend)”
 
 ## Core principles
