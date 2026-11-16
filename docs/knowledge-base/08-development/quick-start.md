@@ -48,6 +48,8 @@ TG_BOT_API_KEY=your-telegram-bot-token
 # Who may use this instance: Telegram user ids, comma-separated (FT-153). Empty lets everyone in;
 # required with NODE_ENV=production
 ALLOWED_TELEGRAM_IDS=
+# Optional: admins of the subscription grant, whole Telegram ids, comma-separated; a wrong entry stops the start (#255)
+ADMIN_TELEGRAM_IDS=
 # Optional: the bot's @username for the web login link (FT-128); asked from Telegram when empty
 TG_BOT_USERNAME=YourBot
 WEB_APP_URL=http://localhost:3000
@@ -389,6 +391,7 @@ SELECT * FROM transaction LIMIT 10;
 | `FREE_LIMITS_ENABLED` | `false` | `true` включает лимиты бесплатного тарифа. На время вехи 10 выключены (решение Д3); использование всё равно считается |
 | `TG_BOT_API_KEY` | - | Telegram bot token; required in production while polling is on (FT-167) |
 | `ALLOWED_TELEGRAM_IDS` | - | Закрытый доступ (FT-153): Telegram id через запятую. Остальным бот молчит (в логе `warn` с id), API отвечает `403 ACCESS_NOT_ALLOWED` до создания пользователя, итоги дня и напоминания им не уходят. Пусто — пускает всех, но при `NODE_ENV=production` пустой список — ошибка запуска; запись не из цифр — ошибка запуска всегда. Свой id виден в логе: с непустым списком бот пишет `warn` с id каждого, кого не пустил — первый отказ сразу, повторы того же id одной строкой `(repeats)` с числом пропущенных раз в 10 минут (FT-166) |
+| `ADMIN_TELEGRAM_IDS` | - | Админы `requireAdmin` (выдача подписки `POST /api/subscription/grant`): целые Telegram id через запятую, по правилу `ALLOWED_TELEGRAM_IDS` — ведущие нули тот же id. Пусто — админов нет; запись не из цифр — ошибка запуска всегда (#255) |
 | `TG_BOT_USERNAME` | - | @username бота без `@` для ссылки входа в браузере `t.me/<bot>?start=login_…` (FT-128). Пусто — спрашивается у Telegram (`getMe`) |
 | `WEB_APP_URL` | `http://localhost:3000` | Public URL (перезаписывается `npm run dev:miniapp`; у живого экземпляра — адрес tailnet, [live-instance.md](live-instance.md)) |
 | `OPENAI_MODEL` | `gpt-4.1-mini` | Модель разбора текста (`gpt-4-turbo` OpenAI снял) |

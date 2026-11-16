@@ -47,7 +47,7 @@ goes by its token, anything else through `requireAuth` and `writeAsSignedInUser`
 | Caller | Requirement |
 |---|---|
 | Mini App and browser (no guests since Д4, 2026-10-21) | Full `requireAuth`: `Authorization: tma <initData>` (Telegram Mini App initData, HMAC-validated, max age 1 hour) or the browser session (FT-128). The capture is for the **signed-in user**: a body `userId` may be omitted; if sent, it must be that user's Telegram id, otherwise **`403 ACCESS_DENIED`**. |
-| Local dev only (`NODE_ENV !== 'production'`) | `X-Dev-User-Id: <telegramId>` header bypasses auth — only for a request from this machine (loopback, no `Cf-Connecting-Ip` / `X-Forwarded-For` / `Forwarded`): never through the `dev:miniapp` tunnel or from the network (`isLocalRequest`, 2026-10-21). The id is read by `telegramIdOf`, as `ALLOWED_TELEGRAM_IDS`: anything but a Telegram id (`123abc`) is `401 INVALID_DEV_USER_ID` (#255). |
+| Local dev only (`NODE_ENV !== 'production'`) | `X-Dev-User-Id: <telegramId>` header bypasses auth — only for a request from this machine (loopback, no `Cf-Connecting-Ip` / `X-Forwarded-For` / `Forwarded`): never through the `dev:miniapp` tunnel or from the network (`isLocalRequest`, 2026-10-21). The id is read by `telegramIdOf`, as `ALLOWED_TELEGRAM_IDS`: anything but a Telegram id (`123abc`) is `401 INVALID_DEV_USER_ID` (#255) — with `ALLOWED_TELEGRAM_IDS` set, `403 ACCESS_NOT_ALLOWED` comes first (closed access, before any route). A browser session cookie next to it does not count. |
 | iPhone Shortcut (production too) | `X-Shortcut-Capture-Token: <SHORTCUT_CAPTURE_TOKEN>`; the capture is for `SHORTCUT_CAPTURE_OWNER`. See [below](#ios-shortcut-capture). |
 
 Notes:
@@ -622,7 +622,7 @@ Auth and rate-limit middleware answer earlier in the chain and use a **flat** sh
 | 413 | `PAYLOAD_TOO_LARGE` | A body over 100 KB (#272, `JSON_BODY_LIMIT_BYTES`); the longest phrase is at most 12 KB of JSON. The body is read only as JSON and after closed access |
 | 400 | `INVALID_USER_ID` | A body or query `userId` that is not one non-blank string — a number, an array, `null`, `''` (FT-162) |
 | 401 | `MISSING_AUTH_HEADER` | No `Authorization` header, no browser session |
-| 401 | `INVALID_DEV_USER_ID` | Outside production, from this machine: an `X-Dev-User-Id` that is not a Telegram id (`123abc`, #255) |
+| 401 | `INVALID_DEV_USER_ID` | Outside production, from this machine: an `X-Dev-User-Id` that is not a Telegram id (`123abc`, #255); with `ALLOWED_TELEGRAM_IDS` set it is `403 ACCESS_NOT_ALLOWED` first |
 | 403 | `ACCESS_DENIED` | The body `userId` is not the signed-in user |
 | 403 | `ACCESS_DENIED` | A Shortcut's `X-Shortcut-User-Id` is not `SHORTCUT_CAPTURE_OWNER` (or not a Telegram id) |
 | 403 | `ACCESS_NOT_ALLOWED` | The signed-in user, or the Shortcut owner, is not in `ALLOWED_TELEGRAM_IDS` (FT-153) |
