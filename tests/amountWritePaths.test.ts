@@ -69,7 +69,6 @@ describe('FT-097: every writer may send amountMinor or the old amount', () => {
     app.use('/api/transactions', createTransactionRouter(
       new CreateTransactionUseCase(repo),
       unused,
-      unused,
       new GetTransactionByIdUseCase(repo),
       unused,
       new UpdateTransactionUseCase(repo),

@@ -45,7 +45,7 @@ const NOTIFICATION_ICONS: Record<NotificationKind, ReactNode> = {
  * тёмная»): sections, not a settings screen with «Сохранить». «Деньги» — the accounts and the rate, the default account
  * (FT-149), the categories, the audit; «Бот в Telegram» — the summary, the audit call and goal alerts, which drive the bot's scheduler (FT-124);
  * «Вид» — the theme; «Данные» — the export; by a direct link also «Аккаунт» with «Выйти» (FT-128). Every row says its state, every change
- * applies at once. Budgets and debts are not here (Д2). «Скачать все записи» (FT-126) sends the CSV to the chat with the
+ * applies at once. «Скачать все записи» (FT-126) sends the CSV to the chat with the
  * bot in Telegram and downloads it in a browser. «Категории» opens the categories screen (FT-127), «Ревизия трат» the
  * audit of the month before (FT-132, board «Ревизия (из „Ещё“)»), whose «Назад» returns here.
  */

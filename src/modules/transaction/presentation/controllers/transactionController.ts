@@ -3,7 +3,6 @@ import { CreateTransactionUseCase } from '../../application/createTransaction';
 import { GetTransactionHistoryUseCase } from '../../application/getTransactionHistory';
 import { GetPeriodTotalsUseCase } from '../../application/getPeriodTotals';
 import { GetFrequentRecordsUseCase } from '../../application/getFrequentRecords';
-import { GetUserTransactionsUseCase } from '../../application/getUserTransactions';
 import { GetTransactionByIdUseCase } from '../../application/getTransactionById';
 import { DeleteTransactionUseCase, RestoreTransactionUseCase } from '../../application/deleteTransaction';
 import { UpdateTransactionUseCase } from '../../application/updateTransaction';
@@ -15,7 +14,6 @@ import { ErrorFactory } from '../../../../shared/domain/errors/AppError';
 import { SUCCESS_MESSAGES } from '../../../../shared/domain/constants/messages';
 import { SubscriptionModule } from '../../../subscription/subscriptionModule';
 import { UserModule } from '../../../user/userModule';
-import { createUserResolutionMiddleware } from '../../../../delivery/web/express/middleware/userResolutionMiddleware';
 import {
   verifyOwnership,
   requireAuth,
@@ -32,7 +30,6 @@ import { verifyResourceOwnership } from '../../../../shared/infrastructure/utils
 import { createLogger, LogCategory } from '../../../../shared/infrastructure/logging';
 // Import for type extensions on Express.Request
 import '../../../../delivery/web/express/middleware/authMiddleware';
-import '../../../../delivery/web/express/middleware/userResolutionMiddleware';
 
 const logger = createLogger(LogCategory.TRANSACTION);
 
@@ -67,7 +64,6 @@ async function verifyTransactionOwnershipWithResult(
 export function createTransactionRouter(
   createUseCase: CreateTransactionUseCase,
   historyUseCase: GetTransactionHistoryUseCase,
-  getUserUseCase: GetUserTransactionsUseCase,
   getByIdUseCase: GetTransactionByIdUseCase,
   deleteUseCase: DeleteTransactionUseCase,
   updateUseCase: UpdateTransactionUseCase,
@@ -80,11 +76,6 @@ export function createTransactionRouter(
   frequentRecordsUseCase?: GetFrequentRecordsUseCase
 ): Router {
   const router = Router();
-
-  // User resolution middleware (resolves telegramId to UUID)
-  const resolveUser = userModule
-    ? createUserResolutionMiddleware(userModule)
-    : (_req: any, _res: any, next: any) => next();
 
   // Apply rate limiting to all routes
   router.use(standardRateLimiter);
@@ -173,23 +164,6 @@ export function createTransactionRouter(
       }
     });
   }
-
-  router.get('/user/:userId', requireAuth, verifyOwnership, resolveUser, async (req, res) => {
-    try {
-      // Use resolved UUID from middleware
-      const userId = req.resolvedUser?.id || getStringParam(req, 'userId');
-
-      if (!userId) {
-        const error = ErrorFactory.validation('User ID is required');
-        return handleControllerError(error, res);
-      }
-
-      const transactions = await getUserUseCase.execute(userId);
-      handleControllerSuccess(transactions, res);
-    } catch (error) {
-      handleControllerError(error, res);
-    }
-  });
 
   // The routes on one record sign in first, as every route does (#271): without a user 401 before the record is read,
   // so the answer does not tell which ids exist. Then the record must be the signed-in user's: 403, unknown 404

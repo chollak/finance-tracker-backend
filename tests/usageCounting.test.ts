@@ -91,7 +91,6 @@ describe('Telegram handlers do not count transactions a second time', () => {
           getQuickCaptureService: () => ({ capture: jest.fn().mockResolvedValue(result) }),
         },
         transactionModule: {
-          getGetUserTransactionsUseCase: () => ({ execute: jest.fn().mockResolvedValue([]) }),
           getCreateTransactionUseCase: () => ({
             execute: jest.fn().mockResolvedValue({ success: true, data: 'tx-9' }),
           }),
@@ -140,7 +139,6 @@ describe('POST /api/transactions does not count transactions a second time', () 
     router.use(express.json());
     router.use('/transactions', createTransactionRouter(
       { execute: createExecute } as any,
-      stub(),
       stub(),
       stub(),
       stub(),

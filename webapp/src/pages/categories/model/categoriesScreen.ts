@@ -1,5 +1,4 @@
 import {
-  categoryInitial,
   categoryNameKey,
   cleanCategoryName,
   pickableCategories,
@@ -10,7 +9,7 @@ import {
 } from '@/entities/category';
 import type { ApiError } from '@/shared/api';
 import { monthNameIn, monthNameLower, parseLocalDate } from '@/shared/lib/dates';
-import type { PastelColor } from '@/shared/lib/pastel/categoryColors';
+import { categoryInitial, type PastelColor } from '@/shared/lib/pastel/categoryColors';
 import { pluralRu, pluralWithCount } from '@/shared/lib/plural';
 
 /**

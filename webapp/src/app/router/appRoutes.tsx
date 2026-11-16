@@ -21,7 +21,8 @@ const MorePage = lazy(() => import('@/pages').then(m => ({ default: m.MorePage }
 const CategoriesPage = lazy(() => import('@/pages').then(m => ({ default: m.CategoriesPage })));
 // Pastel component showcase in both themes (FT-093), not linked from the app
 const PastelShowcasePage = lazy(() => import('@/pages').then(m => ({ default: m.PastelShowcasePage })));
-// Manual entry with the app's own keypad (FT-113), opened from Home, «Ещё» and an empty History
+// Manual entry with the app's own keypad (FT-113), opened by the keypad button of Home's composer, by an empty month of
+// analytics (FT-121) and by «Ввести вручную» on the voice and receipt screens without a connection (FT-129)
 const ManualEntryPage = lazy(() => import('@/pages').then(m => ({ default: m.ManualEntryPage })));
 // The review of the records a phrase from Home's composer made (FT-114)
 const CaptureReviewPage = lazy(() => import('@/pages').then(m => ({ default: m.CaptureReviewPage })));

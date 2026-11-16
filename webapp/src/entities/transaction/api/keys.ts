@@ -2,8 +2,9 @@
 export const transactionKeys = {
   all: ['transactions'] as const,
   lists: () => [...transactionKeys.all, 'list'] as const,
+  // Every list of the user's records: nothing reads this key itself (#289), the lists below are under it, so a change
+  // of categories or a capture refreshes them all at once
   list: (userId: string) => [...transactionKeys.lists(), userId] as const,
-  // Under list(userId) on purpose: whatever refreshes the user's list refreshes the recent records too.
   // Without a limit — every recent list of the user, for invalidation
   recent: (userId: string, limit?: number) =>
     limit === undefined
@@ -22,9 +23,7 @@ export const transactionKeys = {
     range
       ? ([...transactionKeys.all, 'totals', userId, range.from, range.to] as const)
       : ([...transactionKeys.all, 'totals', userId] as const),
-  details: () => [...transactionKeys.all, 'detail'] as const,
-  detail: (id: string) => [...transactionKeys.details(), id] as const,
   // One record as the record sheet shows it (FT-115): the full record with its amount in minor units,
-  // currency and account — apart from `detail`, which old screens fill with a view model without them
+  // currency and account
   record: (id: string) => [...transactionKeys.all, 'record', id] as const,
 };

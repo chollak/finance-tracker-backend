@@ -8,7 +8,17 @@
 >
 > #273 (2026-11-05): the archive's five routes and the old analytics `/api/transactions/analytics/*/:userId` are removed; they are history in the dated sections below.
 >
+> #289 (2026-11-16): `GET /api/transactions/user/:userId` — all of a user's records at once — is removed with `GetUserTransactionsUseCase`; it is history in the dated sections below.
+>
 > #274 (2026-11-05): the user routes — `/api/users/*` — are removed: no client called them, and `PUT /api/users/:id` answered `404` before its owner check, telling whether a UUID was someone's. A user is made only on the first request (`createCurrentUserMiddleware`, `getOrCreate`); settings change through `PATCH /api/settings`, the user taken from sign-in.
+
+## 2026-11-16 — all of a user's records at once is gone (#289)
+
+Only the Mini App's `useTransactions` read `GET /api/transactions/user/:userId`, and no screen called it since «Пастель»:
+Home, History and the record sheet read `GET /api/transactions` a page at a time (FT-107), the iOS app and the bot never
+read it. It is removed with `GetUserTransactionsUseCase` and answers `404` (`tests/deadTransactionRoutes.test.ts`). No
+records route carries `:userId` in the path now; of the legacy `:userId` routes only `GET /api/subscription/:userId` is
+left (`tests/legacyUserIdRoutes.test.ts`).
 
 ## 2026-11-16 — one Telegram id rule for the admins, the dev header and the notices (#255)
 
@@ -405,7 +415,7 @@ FT-017D decision: do not globally change this helper to fail-closed yet.
 | Settings | `GET`, `PATCH /api/settings` | `requireAuth` | signed-in user (`createCurrentUserMiddleware`) | none — no userId taken; an unknown field (`userId`, `timezone`) is `400` | strict |
 | Transaction history, totals, frequent | `GET /api/transactions` (FT-107), `/totals`, `/frequent` | `requireAuth` (`GET /` also the app token, FT-218) | signed-in user (`createCurrentUserMiddleware`) | none — no userId taken | strict |
 | Transaction create | `POST /api/transactions` | `requireAuth` | signed-in user (`createResolveCurrentUserMiddleware`) | `verifyOwnership` on a body/query userId, before resolution (FT-162) | strict |
-| Transaction user-scoped list | `GET /api/transactions/user/:userId` (the old analytics and the archive's two went in #273) | `requireAuth` (`allowGuestMode` until #206) | route middleware, after the check (FT-162) | `verifyOwnership` | strict |
+| Transaction user-scoped list — removed in #289 | `GET /api/transactions/user/:userId` (the old analytics and the archive's two went in #273) | — (`404`) | — | — | — |
 | Transaction by-id CRUD | `/api/transactions/:id`, `POST …/restore` (the archive's three went in #273) | `requireAuth`; delete, restore, edit `requireAuthOrAppToken` (FT-218); `optionalAuth` until #271 | controller/helper | `verifyResourceOwnership` | strict |
 | Voice text-input and upload — removed in #221 | `/api/voice/text-input`, `/api/voice/voice-input` | — (`404`) | — | — | — |
 | Quick capture | `POST /api/quick-capture`, `/payment` | `allowShortcutCapture`: `requireAuth` + `writeAsSignedInUser`, or the Shortcut token (FT-155) | controller resolver | signed-in user or `SHORTCUT_CAPTURE_OWNER` | strict |

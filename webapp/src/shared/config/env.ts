@@ -1,7 +1,7 @@
 // Environment configuration wrapper
 export const env = {
-  // API Configuration
-  apiBaseUrl: import.meta.env.VITE_API_BASE_URL || '/api',
+  // The API is always on the page's own origin: the server serves both, and the dev server proxies /api (#341)
+  apiBaseUrl: '/api',
 
   // Development mode
   isDevelopment: import.meta.env.DEV,
