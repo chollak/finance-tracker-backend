@@ -35,6 +35,7 @@ import { ProcessTextInputUseCase } from '../src/modules/voiceProcessing/applicat
 import { QuickCaptureService } from '../src/modules/quickCapture/application/quickCaptureService';
 import { TransactionLearningService } from '../src/shared/application/learning/transactionLearning';
 import { winstonLogger } from '../src/shared/infrastructure/logging';
+import { refuseWebAppOffHttps } from './helpers/telegramWebAppRefusal';
 
 // A voice message is not downloaded in tests; what it «says» is set by the test
 jest.mock('../src/delivery/messaging/telegram/utils', () => ({
@@ -272,6 +273,7 @@ describe('bot record messages (FT-122)', () => {
           replyFails = false;
           throw new Error('Telegram is down');
         }
+        refuseWebAppOffHttps(extra);
         const messageId = nextMessageId++;
         messages.set(messageId, { text, keyboard: extra?.reply_markup?.inline_keyboard ?? [] });
         return { message_id: messageId, chat: { id: TELEGRAM_ID } };
@@ -280,6 +282,7 @@ describe('bot record messages (FT-122)', () => {
         editMessageText: jest.fn(async (_chat: string, messageId: number, _inline: unknown, text: string, extra?: any) => {
           const refusal = refusedEdits.get(messageId);
           if (refusal) throw new TelegramError({ error_code: 400, description: refusal });
+          refuseWebAppOffHttps(extra);
           messages.set(messageId, { text, keyboard: extra?.reply_markup?.inline_keyboard ?? [] });
           return true;
         }),
@@ -419,6 +422,18 @@ describe('bot record messages (FT-122)', () => {
     expect(text(message)).toContain('Кафе · «Такси»');
     expect(text(message)).toMatch(/<i>Категория: Кафе\.<\/i>$/);
     expect(labels(message)).toEqual([['Изменить', 'Отменить']]);
+  });
+
+  it('without HTTPS — WEB_APP_URL=http://localhost:3000 — «Изменить» and «Дату» are drawn without the links to Kapelka (#278)', async () => {
+    jest.spyOn(AppConfig, 'getWebAppUrl').mockReturnValue('http://localhost:3000');
+    const message = await write('такси 18к нал', [taxi]);
+
+    const edit = await press(message, 'Изменить');
+    expect(labels(message)).toEqual([['Сумму', 'Категорию'], ['Счёт', 'Дату'], ['Готово'], ['Отменить запись']]);
+    const date = await press(message, 'Дату');
+    expect(labels(message)).toEqual([['✓ Сегодня', 'Вчера'], ['Позавчера'], ['‹ Назад']]);
+
+    for (const ctx of [edit, date]) expect(ctx.answerCbQuery).not.toHaveBeenCalledWith('Произошла ошибка. Попробуйте снова.');
   });
 
   it('a category picked with «Изменить» teaches the parser, as a correction in the Mini App does (FT-184)', async () => {

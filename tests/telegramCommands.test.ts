@@ -16,6 +16,7 @@ import { BOT_COMMANDS, registerCommandHandlers, setCommandMenu } from '../src/de
 import { registerMessageHandlers } from '../src/delivery/messaging/telegram/handlers/messageHandlers';
 import { registerRecordHandlers } from '../src/delivery/messaging/telegram/handlers/recordHandlers';
 import { openMigratedDatabase, TestDatabase } from './helpers/testDatabase';
+import { refuseWebAppOffHttps } from './helpers/telegramWebAppRefusal';
 
 /**
  * FT-124: /start and /help say what the boards «Бот · первое сообщение» and «Бот · меню команд» say; /today and
@@ -81,6 +82,7 @@ describe('bot commands (FT-124)', () => {
       session: {},
       modules: { transactionModule, userModule, notificationModule },
       reply: jest.fn(async (body: string, extra?: any) => {
+        refuseWebAppOffHttps(extra);
         replies.push({ text: body, keyboard: extra?.reply_markup?.inline_keyboard ?? [] });
         return { message_id: 900 + replies.length, chat: { id: TELEGRAM_ID } };
       }),
@@ -204,6 +206,20 @@ describe('bot commands (FT-124)', () => {
       `С начала октября — 355${NB}400${NB}сум, на 155${NB}400${NB}сум больше, чем за 1–14 сентября.`,
     ].join('\n'));
     expect(today.keyboard).toEqual([[expect.objectContaining({ text: 'Открыть Kapelka ↗' })]]);
+  });
+
+  it('without HTTPS — WEB_APP_URL=http://localhost:3000 of `npm run dev` — /start, /today and /month go out without links (#278)', async () => {
+    jest.spyOn(AppConfig, 'getWebAppUrl').mockReturnValue('http://localhost:3000');
+    await record('2026-10-14', 'Транспорт', 24_000);
+
+    const [greeting] = await send('/start');
+    const [today] = await send('/today');
+    const [month] = await send('/month');
+
+    expect(greeting.text).toContain('<b>Это Kapelka — учёт расходов и доходов.</b>');
+    expect(today.text).toContain(`<b>Итоги дня · 14${NB}октября</b>`);
+    expect(month.text).toContain('<b>Октябрь · 1–14</b>');
+    expect([greeting.keyboard, today.keyboard, month.keyboard]).toEqual([[], [], []]);
   });
 
   describe('/today with dollars and records awaiting review: Home\'s numbers, every expense counted', () => {

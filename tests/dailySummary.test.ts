@@ -21,6 +21,7 @@ import { SqliteNotificationLogRepository } from '../src/modules/notification/inf
 import { registerSummaryHandlers, summarySender } from '../src/delivery/messaging/telegram/handlers/summaryHandlers';
 import { TelegramAccess, telegramAccess } from '../src/shared/domain/access/telegramAccess';
 import { prepareDatabaseOnce } from './helpers/testDatabase';
+import { refuseWebAppOffHttps } from './helpers/telegramWebAppRefusal';
 
 /**
  * FT-124 end to end on a real SQLite file: the daily summary goes out at the user's chosen time on the user's
@@ -48,6 +49,7 @@ describe('daily summary (FT-124)', () => {
   const telegram = {
     sendMessage: jest.fn(async (chatId: string, text: string, extra?: any) => {
       if (refuse) throw refuse;
+      refuseWebAppOffHttps(extra);
       const message = { chatId: String(chatId), text, keyboard: extra?.reply_markup?.inline_keyboard ?? [], messageId: nextMessageId++ };
       sent.push(message);
       return { message_id: message.messageId, chat: { id: Number(chatId) } };
@@ -194,6 +196,19 @@ describe('daily summary (FT-124)', () => {
     expect(await logEntry(owner, 'daily_summary', '2026-10-14')).toMatchObject({
       status: 'sent', variant: 'summary', chatId: TELEGRAM_ID, messageId: 700,
     });
+  });
+
+  it('without HTTPS — WEB_APP_URL=http://localhost:3000 — goes out without «Открыть Kapelka ↗» (#278)', async () => {
+    jest.spyOn(AppConfig, 'getWebAppUrl').mockReturnValue('http://localhost:3000');
+    const owner = await user();
+    await record(owner, '2026-10-14', 'Кафе', 45_000);
+    at('2026-10-14', '21:00');
+
+    expect(await tick()).toEqual([{ userId: owner, day: '2026-10-14', outcome: 'sent' }]);
+    expect(sent).toHaveLength(1);
+    expect(sent[0].text).toContain(`Потрачено 45${NB}000${NB}сум · 1 запись`);
+    expect(sent[0].keyboard).toEqual([]);
+    expect(await logEntry(owner, 'daily_summary', '2026-10-14')).toMatchObject({ status: 'sent', messageId: 700 });
   });
 
   it('goes only to the users on ALLOWED_TELEGRAM_IDS from the config; the rest of the base is left as it is (FT-153)', async () => {

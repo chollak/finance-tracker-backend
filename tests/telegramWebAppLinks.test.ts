@@ -2,7 +2,7 @@ import { AppConfig } from '../src/shared/infrastructure/config/appConfig';
 import { recordKeyboard } from '../src/delivery/messaging/telegram/keyboards';
 import { formatDaySummary, formatMonthSummary } from '../src/delivery/messaging/telegram/formatters/summaryMessage';
 import { formatReminder } from '../src/delivery/messaging/telegram/formatters/reminderMessage';
-import { appLinks } from '../src/delivery/messaging/telegram/utils/webAppUrl';
+import { appLinks, isHttpsUrl } from '../src/delivery/messaging/telegram/utils/webAppUrl';
 import { DaySummary, MonthSummary } from '../src/modules/notification/domain/dailySummary';
 import { RecordMessageInput, RecordView } from '../src/delivery/messaging/telegram/formatters/recordMessage';
 import { recordMessageInput } from '../src/delivery/messaging/telegram/utils/recordMessageView';
@@ -145,18 +145,19 @@ describe('«Открыть в Kapelka ↗» under a record opens its sheet', () 
   });
 });
 
+/** Every keyboard of the bot with a link to the Mini App. */
+const keyboards: Array<[string, () => Keyboard | Promise<Keyboard>]> = [
+  ['the daily summary and /today', () => summaryKeyboard()],
+  ['/month', () => noticeKeyboard(formatMonthSummary(MONTH, { analyticsUrl: appLinks.analytics(USER_ID) }))],
+  ['«Изменить» under a record', () => recordMessageKeyboard('edit')],
+  ['the date picker under a record', () => recordMessageKeyboard('date')],
+  ['a message with many records', () => recordMessageKeyboard('confirm', MANY)],
+  ['the audit call', () => auditCallKeyboard()],
+  ['a goal reminder', () => goalKeyboard()],
+];
+
 describe('every Mini App link of the bot is a screen of the webapp', () => {
   const screens = new Set<string>(Object.values(ROUTES).flatMap((route) => (typeof route === 'string' ? [route] : [])));
-
-  const keyboards: Array<[string, () => Keyboard | Promise<Keyboard>]> = [
-    ['the daily summary and /today', () => summaryKeyboard()],
-    ['/month', () => noticeKeyboard(formatMonthSummary(MONTH, { analyticsUrl: appLinks.analytics(USER_ID) }))],
-    ['«Изменить» under a record', () => recordMessageKeyboard('edit')],
-    ['the date picker under a record', () => recordMessageKeyboard('date')],
-    ['a message with many records', () => recordMessageKeyboard('confirm', MANY)],
-    ['the audit call', () => auditCallKeyboard()],
-    ['a goal reminder', () => goalKeyboard()],
-  ];
 
   it.each(keyboards)('%s', async (_name, build) => {
     const buttons = webAppButtons(await build());
@@ -173,5 +174,30 @@ describe('every Mini App link of the bot is a screen of the webapp', () => {
 
     expect(paths).not.toContain('/transactions/add');
     expect(paths.filter((path) => path.endsWith('/edit'))).toEqual([]);
+  });
+});
+
+/**
+ * #278: Telegram opens a Mini App only at an HTTPS address and refuses the whole message for a button to any other —
+ * `npm run dev` without a tunnel runs with WEB_APP_URL=http://localhost:3000. The bot then links nowhere, as the login
+ * leaves out «Вернуться в браузер ↗».
+ */
+describe('no link to the Mini App without an HTTPS address (#278)', () => {
+  it.each(['http://localhost:3000', 'http://192.168.1.5:3000', 'localhost:3000', 'не адрес', ''])(
+    'WEB_APP_URL=%p: no keyboard of the bot has a Mini App button',
+    async (address) => {
+      jest.spyOn(AppConfig, 'getWebAppUrl').mockReturnValue(address);
+
+      for (const [, build] of keyboards) expect(webAppButtons(await build())).toEqual([]);
+      expect([appLinks.home(USER_ID), appLinks.analytics(USER_ID), appLinks.audit(USER_ID)]).toEqual([undefined, undefined, undefined]);
+    }
+  );
+
+  it('the one rule: an HTTPS address, whatever the case of its scheme', () => {
+    expect(isHttpsUrl('https://miniapp.test')).toBe(true);
+    expect(isHttpsUrl('HTTPS://miniapp.test/path')).toBe(true);
+    for (const address of ['http://localhost:3000', 'ftp://miniapp.test', 'https//miniapp.test', 'miniapp.test', '', undefined]) {
+      expect(isHttpsUrl(address)).toBe(false);
+    }
   });
 });
