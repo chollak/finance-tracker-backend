@@ -26,7 +26,7 @@ presentation` внутри каждого модуля `src/modules/`; прав�
 | `export` | CSV всех записей и перемещений (FT-126): скачать или прислать в чат с ботом |
 | `auth` | Вход в браузере через бота (FT-128): одноразовая ссылка на 5 минут, сессия — httpOnly-cookie |
 | `audit` | Ревизия трат и цели (FT-130, FT-131): `/api/audits`, `/api/goals` |
-| `debt` | Только `CreateDebtUseCase` для замороженного пути записи: `createModules()` создаёт модуль для `voiceProcessing` и не возвращает; уберёт #266 после FT-217 |
+| `debt` | Только `CreateDebtUseCase` с записью в `debts` — для замороженного пути записи: `createModules()` создаёт модуль для `voiceProcessing` и не возвращает; уберёт #266 после FT-217 |
 
 **Бот** (`src/delivery/messaging/telegram/`): `/start`, `/today`, `/stats`, `/budget`, `/week`, `/weekly`,
 `/transactions`, `/help`, `/premium`, `/cancel_subscription`, `/undo` (FT-122). Текст и голос идут через `QuickCaptureService`;
