@@ -226,8 +226,9 @@ connection.
 ## 6. Data and privacy
 
 - **Where it is kept:** one SQLite file on the server that runs Kapelka, and its backups. A copy goes to
-  `data/backups/` before each migration. On the live instance, `scripts/backup-db.sh` also copies the database to a
-  folder synced with Google Drive.
+  `data/backups/` before migrations are applied. Once the nightly backup is set up on the live instance
+  ([live-instance.md](docs/knowledge-base/08-development/live-instance.md), «Бэкап»), `scripts/backup-db.sh` copies
+  the database once a day to a folder synced with Google Drive.
 - **What is kept:**
   - records (amount, currency, category, account, date, note, merchant), each with the phrase as written or heard, or
     the payment's merchant;
