@@ -32,6 +32,9 @@ import { downloadVoiceFile } from '../src/delivery/messaging/telegram/utils';
 import { messageClientId } from '../src/delivery/messaging/telegram/utils/messageClientId';
 import { isClientId, isStoredClientId, itemClientId } from '../src/modules/transaction/domain/clientId';
 
+// ffmpeg is faked: a real one on fake audio is one more process per voice test (#295)
+jest.mock('child_process', () => jest.requireActual('./helpers/fakeFfmpeg').childProcessWithFakeFfmpeg());
+
 // A voice message is not downloaded in tests
 jest.mock('../src/delivery/messaging/telegram/utils', () => ({
   downloadVoiceFile: jest.fn(async (_url: string, fileId: string) => `/tmp/voice/${fileId}.ogg`),
