@@ -112,6 +112,17 @@ describe.each([
     });
   }
 
+  /** An album as Telegram sends it: one message per item, one `media_group_id`; photos and a video in the last place. */
+  function albumItems(groupId: string, count: number): Array<Record<string, unknown>> {
+    return Array.from({ length: count }, (_, index) => (index === count - 1
+      ? { media_group_id: groupId, video: { ...file(`${groupId}-${index}`), width: 1280, height: 720, duration: 5 } }
+      : { media_group_id: groupId, photo: [{ ...file(`${groupId}-${index}`), width: 90, height: 90 }] }));
+  }
+
+  async function album(sender: number, groupId: string, count: number): Promise<void> {
+    for (const item of albumItems(groupId, count)) await message(sender, item);
+  }
+
   /** The texts the bot sent after it started (the command menu goes out at start). */
   const replies = () => bot.calls.filter(call => call.method === 'sendMessage').map(call => ({ chat: call.payload.chat_id, text: call.payload.text }));
   const usersInDb = async () => (await db.dataSource.query('SELECT telegram_id FROM users')).map((row: { telegram_id: string }) => row.telegram_id);
@@ -157,9 +168,36 @@ describe.each([
 
   it('a stranger gets nothing for any of them, and no user is made', async () => {
     for (const [, content] of UNSUPPORTED) await message(STRANGER, content);
+    await album(STRANGER, 'stranger-album', 3);
 
     expect(replies()).toEqual([]);
     expect(await usersInDb()).toEqual([]);
+  });
+
+  it('an album of 3 — two photos and a video — gets one line, not one an item', async () => {
+    await album(ALLOWED, 'album-1', 3);
+
+    expect(replies()).toEqual([{ chat: ALLOWED, text: UNSUPPORTED_ANSWER }]);
+  });
+
+  it('an album whose messages are handled side by side, as polling handles a batch, gets one line too', async () => {
+    await Promise.all(albumItems('album-1', 3).map(item => message(ALLOWED, item)));
+
+    expect(replies()).toEqual([{ chat: ALLOWED, text: UNSUPPORTED_ANSWER }]);
+  });
+
+  it('two albums get two lines', async () => {
+    await album(ALLOWED, 'album-1', 3);
+    await album(ALLOWED, 'album-2', 2);
+
+    expect(replies()).toEqual([{ chat: ALLOWED, text: UNSUPPORTED_ANSWER }, { chat: ALLOWED, text: UNSUPPORTED_ANSWER }]);
+  });
+
+  it('a photo after an album gets its own line', async () => {
+    await album(ALLOWED, 'album-1', 3);
+    await message(ALLOWED, UNSUPPORTED[0][1]);
+
+    expect(replies()).toHaveLength(2);
   });
 
   it('a text goes to the capture as before, without the line', async () => {

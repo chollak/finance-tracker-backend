@@ -8,6 +8,7 @@ import { quickAddCategory } from '../utils/userCategories';
 import { assumedThousands, botMessageLog, chatIdOf, guessedIds, sendKeptConfirmation, sendRecordMessage } from '../utils/recordMessageView';
 import { messageClientId, withMessageClientId } from '../utils/messageClientId';
 import { messageDay } from '../utils/messageTime';
+import { RecentMediaGroups } from '../utils/recentMediaGroups';
 import { answerAmountQuestion } from './recordHandlers';
 import { parseAmountReply, refusalText } from '../utils/amountReply';
 import { fromMinor } from '../../../../shared/domain/money/money';
@@ -191,9 +192,16 @@ export function isUnsupportedMessage(update: Update): update is Update.MessageUp
   return 'message' in update && UNSUPPORTED_MESSAGE_KEYS.some(key => key in update.message);
 }
 
-/** One line instead of silence (#279): the bot reads only a text and a voice; a caption is not read either. */
-export async function answerUnsupportedMessage(ctx: MessageContext): Promise<void> {
-  await ctx.reply(RU.capture.unsupported);
+/**
+ * One line instead of silence (#279): the bot reads only a text and a voice; a caption is not read either. An album
+ * comes as a message per photo or video, with one `media_group_id`: only its first message is answered.
+ */
+export function createUnsupportedMessageAnswer(albums: RecentMediaGroups = new RecentMediaGroups()) {
+  return async function answerUnsupportedMessage(ctx: MessageContext): Promise<void> {
+    const album = 'media_group_id' in ctx.message ? ctx.message.media_group_id : undefined;
+    if (album && !albums.isFirst(`${ctx.chat.id}:${album}`)) return;
+    await ctx.reply(RU.capture.unsupported);
+  };
 }
 
 /**
@@ -249,8 +257,8 @@ export function registerMessageHandlers(
   }
 
   // A photo, an audio file, a video note, a video, a document or a sticker: after the text and the voice, in both
-  // branches
-  bot.on(isUnsupportedMessage, answerUnsupportedMessage);
+  // branches; an album — once
+  bot.on(isUnsupportedMessage, createUnsupportedMessageAnswer());
 }
 
 /**
