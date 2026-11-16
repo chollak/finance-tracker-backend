@@ -1,56 +1,20 @@
 import 'reflect-metadata';
-import fs from 'fs';
-import os from 'os';
-import path from 'path';
-import { AppConfig } from '../src/shared/infrastructure/config/appConfig';
-import { telegramAccess } from '../src/shared/domain/access/telegramAccess';
 import { winstonLogger } from '../src/shared/infrastructure/logging';
-import { startTelegramBot } from '../src/delivery/messaging/telegram/telegramBot';
 import { RU } from '../src/delivery/messaging/telegram/i18n/ru';
 import { UserModule } from '../src/modules/user/userModule';
 import { SqliteUserRepository } from '../src/modules/user/infrastructure/persistence/SqliteUserRepository';
 import { SqliteUserSettingsRepository } from '../src/modules/user/infrastructure/persistence/SqliteUserSettingsRepository';
 import { openMigratedDatabase, TestDatabase } from './helpers/testDatabase';
+import { TelegramStand } from './helpers/telegramStand';
 
 /**
  * #279: the bot handled only a text and a voice; a photo, an audio file, a video note, a video, a document and a
  * sticker got silence, and the person could not tell whether it arrived. Now each gets one line — what the bot
  * understands and how to write a record. Only after the closed access (FT-153): a stranger still gets nothing. The text
- * and the voice go to the capture as before, and none of the six reaches it. The bot is the real one
- * `startTelegramBot` assembles, on a real Telegraf: only polling, Telegram's API and the download of a voice are fakes.
+ * and the voice go to the capture as before, and none of the six reaches it. The bot is the one `startTelegramBot`
+ * assembles, on the stand (`tests/helpers/telegramStand.ts`, #294): only polling, Telegram's API and the download of a
+ * voice are fakes.
  */
-
-interface ApiCall { method: string; payload: any }
-
-// The real Telegraf without the network, as in telegramAllowedUsers.test.ts: launch() does not poll; every Bot API
-// call is kept and answered
-jest.mock('telegraf', () => {
-  const actual = jest.requireActual('telegraf');
-  class TestTelegraf extends actual.Telegraf {
-    static last: TestTelegraf;
-    readonly calls: ApiCall[] = [];
-
-    constructor(token: string, options?: unknown) {
-      super(token, options);
-      this.botInfo = { id: 1, is_bot: true, first_name: 'Kapelka', username: 'KapelkaBot' };
-      TestTelegraf.last = this;
-    }
-
-    launch() {
-      return new Promise(() => undefined);
-    }
-  }
-  let nextMessageId = 100;
-  actual.Telegram.prototype.callApi = async function (method: string, payload: any) {
-    TestTelegraf.last.calls.push({ method, payload });
-    if (method === 'sendMessage') {
-      return { message_id: nextMessageId++, date: 0, chat: { id: payload.chat_id, type: 'private' }, text: payload.text };
-    }
-    if (method === 'getFile') return { file_id: payload.file_id, file_unique_id: 'u', file_path: 'voice/file.oga' };
-    return true;
-  };
-  return { ...actual, Telegraf: TestTelegraf };
-});
 
 // The voice is not downloaded: the voice pipeline is a fake that takes any path
 jest.mock('../src/delivery/messaging/telegram/utils/fileDownloader', () => ({
@@ -93,23 +57,13 @@ describe.each([
   ['without the subscription module', undefined],
 ])('the bot answers what it does not read (#279), %s', (_branch, subscription) => {
   let db: TestDatabase;
-  let downloads: string;
-  let bot: { calls: ApiCall[]; handleUpdate(update: unknown): Promise<void> };
-  let updateId = 1;
+  let stand: TelegramStand;
   const capture = jest.fn();
   const processVoice = jest.fn();
 
+  /** A message of `sender` in their private chat with the bot. */
   function message(sender: number, content: Record<string, unknown>) {
-    return bot.handleUpdate({
-      update_id: updateId++,
-      message: {
-        message_id: updateId,
-        date: Math.floor(Date.now() / 1000),
-        chat: { id: sender, type: 'private' },
-        from: { id: sender, is_bot: false, first_name: 'Test', username: `user${sender}` },
-        ...content,
-      },
-    });
+    return stand.deliver(stand.messageUpdate(content, { from: { id: sender, first_name: 'Test' } }));
   }
 
   /** An album as Telegram sends it: one message per item, one `media_group_id`; photos and a video in the last place. */
@@ -123,17 +77,11 @@ describe.each([
     for (const item of albumItems(groupId, count)) await message(sender, item);
   }
 
-  /** The texts the bot sent after it started (the command menu goes out at start). */
-  const replies = () => bot.calls.filter(call => call.method === 'sendMessage').map(call => ({ chat: call.payload.chat_id, text: call.payload.text }));
+  /** The texts the bot sent after it started (the command menu goes out at start), with the chat as the bot named it. */
+  const replies = () => stand.calls.filter(call => call.method === 'sendMessage').map(call => ({ chat: call.payload.chat_id, text: call.payload.text }));
   const usersInDb = async () => (await db.dataSource.query('SELECT telegram_id FROM users')).map((row: { telegram_id: string }) => row.telegram_id);
 
   beforeEach(async () => {
-    downloads = fs.mkdtempSync(path.join(os.tmpdir(), 'i279-downloads-'));
-    jest.replaceProperty(AppConfig, 'TG_BOT_API_KEY', '123:test');
-    jest.replaceProperty(AppConfig, 'ENABLE_TELEGRAM_POLLING', true);
-    jest.replaceProperty(AppConfig, 'DOWNLOADS_PATH', downloads);
-    jest.replaceProperty(AppConfig, 'TELEGRAM_ACCESS', telegramAccess([String(ALLOWED)]));
-    jest.spyOn(process, 'once').mockImplementation(() => process);
     jest.spyOn(winstonLogger, 'warn').mockImplementation(() => winstonLogger);
     // Nothing to write in what was said or written: the capture answers «Не нашёл, что записать»
     capture.mockReset().mockResolvedValue({ transactions: [], debts: [] });
@@ -145,13 +93,13 @@ describe.each([
     const quickCaptureModule = { getQuickCaptureService: () => ({ capture }) };
     const transactionModule = { findByClientId: async () => [] };
 
-    startTelegramBot(voiceModule as any, transactionModule as any, userModule, quickCaptureModule as any, subscription as any);
-    bot = (jest.requireMock('telegraf') as any).Telegraf.last;
+    stand = new TelegramStand({ id: ALLOWED, first_name: 'Test' });
+    stand.install({ allowed: [ALLOWED] });
+    stand.start({ voiceModule, transactionModule, userModule, quickCaptureModule, subscriptionModule: subscription });
   });
 
   afterEach(async () => {
     await db.close();
-    fs.rmSync(downloads, { recursive: true, force: true });
     jest.restoreAllMocks();
   });
 

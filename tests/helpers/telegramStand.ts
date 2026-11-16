@@ -268,6 +268,8 @@ export class TelegramStand {
     );
     const launched = this.launched as Telegraf<any> | undefined;
     if (!launched) throw new Error(`The bot did not start: ${JSON.stringify(getTelegramBotStatus())}`);
+    // What the launch learns from getMe before it polls: the bot knows its own name before the first update
+    launched.botInfo = this.botInfo;
     // Telegram's file storage: every update's client shares these options
     if (this.fileRoot) Object.assign(launched.telegram.options, { apiRoot: this.fileRoot });
     return handle;

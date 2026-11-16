@@ -1,11 +1,7 @@
 import 'reflect-metadata';
-import fs from 'fs';
 import fsPromises from 'fs/promises';
-import os from 'os';
-import path from 'path';
+import type { Update } from 'telegraf/types';
 import { DataSource } from 'typeorm';
-import { createAppDataSource } from '../src/shared/infrastructure/database/database.config';
-import { runMigrationsWithBackup } from '../src/shared/infrastructure/database/migrationRunner';
 import { AppConfig } from '../src/shared/infrastructure/config/appConfig';
 import { TransactionModule } from '../src/modules/transaction/transactionModule';
 import { SqliteTransactionRepository } from '../src/modules/transaction/infrastructure/persistence/SqliteTransactionRepository';
@@ -19,9 +15,6 @@ import { SqliteUserRepository } from '../src/modules/user/infrastructure/persist
 import { SqliteUserSettingsRepository } from '../src/modules/user/infrastructure/persistence/SqliteUserSettingsRepository';
 import { BotMessageModule } from '../src/modules/botMessage/botMessageModule';
 import { SqliteBotMessageRepository } from '../src/modules/botMessage/infrastructure/SqliteBotMessageRepository';
-import { closeAmountQuestionOnCommand, registerRecordHandlers } from '../src/delivery/messaging/telegram/handlers/recordHandlers';
-import { registerCallbackHandlers } from '../src/delivery/messaging/telegram/handlers/callbackHandlers';
-import { registerMessageHandlers } from '../src/delivery/messaging/telegram/handlers/messageHandlers';
 import { resolveUserIdToUUID } from '../src/shared/application/helpers/userIdResolver';
 import { todayDateOnly } from '../src/shared/domain/dates/dateOnly';
 import { TranscriptionService } from '../src/modules/voiceProcessing/domain/transcriptionService';
@@ -31,12 +24,15 @@ import { QuickCaptureService } from '../src/modules/quickCapture/application/qui
 import { downloadVoiceFile } from '../src/delivery/messaging/telegram/utils';
 import { messageClientId } from '../src/delivery/messaging/telegram/utils/messageClientId';
 import { isClientId, isStoredClientId, itemClientId } from '../src/modules/transaction/domain/clientId';
+import { DatabaseFile, prepareDatabaseOnce } from './helpers/testDatabase';
+import { StandModules, TelegramStand } from './helpers/telegramStand';
 
 // ffmpeg is faked: a real one on fake audio is one more process per voice test (#295)
 jest.mock('child_process', () => jest.requireActual('./helpers/fakeFfmpeg').childProcessWithFakeFfmpeg());
 
 // A voice message is not downloaded in tests
-jest.mock('../src/delivery/messaging/telegram/utils', () => ({
+jest.mock('../src/delivery/messaging/telegram/utils/fileDownloader', () => ({
+  ...jest.requireActual('../src/delivery/messaging/telegram/utils/fileDownloader'),
   downloadVoiceFile: jest.fn(async (_url: string, fileId: string) => `/tmp/voice/${fileId}.ogg`),
   cleanupFile: jest.fn(async () => undefined),
 }));
@@ -45,7 +41,8 @@ jest.mock('../src/delivery/messaging/telegram/utils', () => ({
  * FT-167: the process can stop while a message is being handled — the shutdown waits for it only so long — and then
  * Telegram sends the message again after the restart, since its offset was never confirmed. The record it wrote must
  * not be written twice, nor confirmed twice: the person would read two confirmations as two records. Real SQLite file,
- * the real capture pipelines with the parser faked, the handlers registered the way telegramBot.ts registers them.
+ * the real capture pipelines with the parser faked; the bot is the one `startTelegramBot` assembles, on the stand
+ * (`tests/helpers/telegramStand.ts`, #294), and a restart is a new bot over the same file and the same chat.
  */
 
 const TELEGRAM_ID = 131184740;
@@ -60,39 +57,9 @@ const SENT_AT = new Date('2026-10-29T21:40:00+05:00');
 const NOW = new Date(SENT_AT.getTime() + 60_000);
 const today = todayDateOnly(SENT_AT);
 
-interface Button { text: string; callback_data?: string }
-
-type Middleware = (ctx: any, next: () => Promise<void>) => Promise<void> | void;
-
-async function run(chain: Middleware[], ctx: any): Promise<void> {
-  const step = async (index: number): Promise<void> => {
-    if (index < chain.length) await chain[index](ctx, () => step(index + 1));
-  };
-  await step(0);
-}
-
-/** The middleware, then the first handler that matches — as Telegraf runs a message. */
-class Bot {
-  readonly middleware: Middleware[] = [];
-  readonly handlers: Array<{ filter: (update: any) => boolean; chain: Middleware[] }> = [];
-  readonly actions: Array<{ trigger: RegExp | string; handler: (ctx: any) => Promise<void> }> = [];
-  use(middleware: Middleware) { this.middleware.push(middleware); }
-  on(filter: (update: any) => boolean, ...chain: Middleware[]) { this.handlers.push({ filter, chain }); }
-  action(trigger: RegExp | string, handler: (ctx: any) => Promise<void>) { this.actions.push({ trigger, handler }); }
-  /** «/name», maybe addressed to the bot by name; registered before the text handlers, so matched first. */
-  command(name: string, ...chain: Middleware[]) {
-    const pattern = new RegExp(`^/${name}(@\\w+)?(\\s|$)`);
-    this.handlers.push({ filter: update => pattern.test(update.message?.text ?? ''), chain });
-  }
-  async handle(ctx: any): Promise<void> {
-    await run([...this.middleware, ...(this.handlers.find(({ filter }) => filter(ctx.update))?.chain ?? [])], ctx);
-  }
-}
-
 interface Running {
   ds: DataSource;
-  bot: Bot;
-  modules: Record<string, unknown>;
+  modules: StandModules & { transactionModule: TransactionModule; botMessageModule: BotMessageModule };
   userModule: UserModule;
 }
 
@@ -116,32 +83,39 @@ function stopPoint(): StopPoint {
   };
 }
 
+/** A message of the test by its number: the same number is the same Telegram message. */
+interface TestMessage {
+  message_id: number;
+  text?: string;
+  voice?: { file_id: string; duration: number };
+}
+
 describe('a message Telegram sends again after a restart (FT-167)', () => {
-  let dir: string;
-  let file: string;
+  /** The bot's database: migrated once for the file, each test on its own copy, opened again on a restart. */
+  const migrated = prepareDatabaseOnce();
+  let db: DatabaseFile;
   let running: Running;
-  const open: DataSource[] = [];
-  /** What the bot sent to the chat, in order, and each message as it is now. */
-  let sent: string[] = [];
-  const shown = new Map<number, { text: string; keyboard: Button[][] }>();
-  let nextBotMessageId = 1000;
-  /** While set, the bot's replies never come back: the process stops while one is being sent. */
-  let hangingReply: StopPoint | undefined;
-  function hangReplies(): StopPoint {
-    hangingReply = stopPoint();
-    return hangingReply;
-  }
+  /** Telegram: the chat with the person, kept across restarts of the bot. */
+  let stand: TelegramStand;
+  /** The updates of the test by message number: what Telegram delivers, and delivers again after a restart. */
+  const updates = new Map<number, { content: string; update: Update.MessageUpdate }>();
   const parser = {
     transcribe: jest.fn(),
     analyzeInput: jest.fn(),
     analyzeTransactions: jest.fn(),
   };
 
-  async function start(): Promise<Running> {
-    const ds = createAppDataSource(file);
-    open.push(ds);
-    await ds.initialize();
-    await runMigrationsWithBackup(ds, file, path.join(dir, 'backups'));
+  /** What the bot sent to the chat, in order, as it sent it; a reply that never came back is not in it. */
+  const sent = () => stand.sent().map(message => message.text);
+
+  /** The process is killed while it sends its reply: the reply never comes back, nor reaches the chat. */
+  function hangReplies(): { reached: Promise<void> } {
+    return { reached: stand.hang('sendMessage') };
+  }
+
+  /** The bot's process: the modules over the file, the bot over them — `botId` is the bot Telegram knows it as. */
+  async function start(botId = BOT_ID): Promise<Running> {
+    const ds = await db.open();
 
     const categoryModule = new CategoryModule(new SqliteCategoryRepository(ds));
     const accountModule = new AccountModule(new SqliteAccountRepository(ds), undefined, new SqliteAccountMoveRepository(ds));
@@ -159,75 +133,56 @@ describe('a message Telegram sends again after a restart (FT-167)', () => {
       getIncrementUsageUseCase: () => ({ execute: async () => undefined }),
     };
 
-    // In the order telegramBot.ts registers them
-    const bot = new Bot();
-    bot.use(closeAmountQuestionOnCommand);
-    registerRecordHandlers(bot as any);
-    registerCallbackHandlers(bot as any);
-    registerMessageHandlers(bot as any, subscriptionModule as any, userModule);
-
-    return {
-      ds,
-      bot,
+    const modules = {
+      transactionModule,
+      accountModule,
+      categoryModule,
       userModule,
-      modules: {
-        transactionModule,
-        accountModule,
-        categoryModule,
-        userModule,
-        botMessageModule,
-        subscriptionModule,
-        quickCaptureModule: { getQuickCaptureService: () => quickCapture },
-        voiceModule: { getProcessVoiceInputUseCase: () => voice },
-      },
+      botMessageModule,
+      subscriptionModule,
+      quickCaptureModule: { getQuickCaptureService: () => quickCapture },
+      voiceModule: { getProcessVoiceInputUseCase: () => voice },
     };
+    stand.start(modules, { botId });
+    return { ds, userModule, modules };
   }
 
-  /** The process stops and starts again: the connection closes; the sessions in memory are gone. */
-  async function restart(): Promise<void> {
+  /**
+   * The process stops and starts again — as the bot `botId`: the connection closes; the sessions in memory are gone, and
+   * whatever the old process waited for never returns to it.
+   */
+  async function restart(botId = BOT_ID): Promise<void> {
     await running.ds.destroy();
-    running = await start();
+    running = await start(botId);
   }
 
-  /** What every update carries: the person, the chat, the bot, Telegram's answers to what the bot sends. */
-  function baseContext(botId: number) {
-    const chat = { id: TELEGRAM_ID, type: 'private' };
-    return {
-      from: { id: TELEGRAM_ID, first_name: 'Shukur' },
-      chat,
-      botInfo: { id: botId, is_bot: true, first_name: 'Kapelka', username: 'kapelka_test_bot' },
-      modules: running.modules,
-      sendChatAction: jest.fn().mockResolvedValue(undefined),
-      answerCbQuery: jest.fn().mockResolvedValue(undefined),
-      reply: jest.fn((text: string, extra?: any) => {
-        if (hangingReply) return hangingReply.stop();
-        sent.push(text);
-        const messageId = nextBotMessageId++;
-        shown.set(messageId, { text, keyboard: extra?.reply_markup?.inline_keyboard ?? [] });
-        return Promise.resolve({ message_id: messageId, chat });
-      }),
-      telegram: {
-        editMessageText: jest.fn(async (_chat: string, messageId: number, _inline: unknown, text: string, extra?: any) => {
-          shown.set(messageId, { text, keyboard: extra?.reply_markup?.inline_keyboard ?? [] });
-          return true;
-        }),
-        getFileLink: jest.fn(async () => ({ href: 'https://telegram.test/voice.ogg' })),
-      },
-    };
+  /**
+   * Message `message_id` of the test as Telegram delivers it, sent at SENT_AT. The same number with the same content is
+   * the very update again, as Telegram sends it after a restart; with other content, another bot's message of that
+   * number in the same chat.
+   */
+  function updateOf({ message_id: number, ...content }: TestMessage): Update.MessageUpdate {
+    const known = updates.get(number);
+    if (known && known.content === JSON.stringify(content)) return known.update;
+    const update = content.text !== undefined
+      ? stand.textUpdate(content.text, { sentAt: SENT_AT })
+      : stand.voiceUpdate(content.voice!.file_id, { sentAt: SENT_AT });
+    // Another bot's message of the same number: Telegram numbers a chat's messages with each bot on their own
+    if (known) Object.assign(update.message, { message_id: known.update.message.message_id });
+    updates.set(number, { content: JSON.stringify(content), update });
+    return update;
   }
 
   /** One update from Telegram, handled to the end — unless a reply hangs, as when the process is stopped. */
-  function deliver(message: Record<string, unknown>, session: Record<string, unknown> = {}, botId = BOT_ID): Promise<void> {
-    const base = baseContext(botId);
-    const full = { message_id: 10, date: Math.floor(SENT_AT.getTime() / 1000), chat: base.chat, from: base.from, ...message };
-    return running.bot.handle({ ...base, message: full, update: { update_id: 500 + Number(full.message_id), message: full }, session });
+  async function deliver(message: TestMessage): Promise<void> {
+    await stand.deliver(updateOf(message));
   }
 
   /**
    * One update whose handling the process is killed at `point`: resolves as soon as the handler is stopped there, not
    * after a guessed delay a slow CI runner may not keep (#261). A handler that ends, or fails, before it fails the test.
    */
-  async function deliverUntilKilled(point: StopPoint, message: Record<string, unknown>): Promise<void> {
+  async function deliverUntilKilled(point: { reached: Promise<void> }, message: TestMessage): Promise<void> {
     const outcome = await Promise.race([
       point.reached.then(() => 'killed' as const),
       deliver(message).then(() => 'ended' as const),
@@ -237,41 +192,45 @@ describe('a message Telegram sends again after a restart (FT-167)', () => {
 
   /** The person presses a button under a bot message. */
   async function press(messageId: number, label: string): Promise<void> {
-    const button = shown.get(messageId)?.keyboard.flat().find(candidate => candidate.text === label);
-    if (!button?.callback_data) throw new Error(`No button «${label}» under message ${messageId}`);
-    const data = button.callback_data;
-    const action = running.bot.actions.find(({ trigger }) => (typeof trigger === 'string' ? trigger === data : trigger.test(data)));
-    if (!action) throw new Error(`No handler for ${data}`);
-    const ctx: any = { ...baseContext(BOT_ID), callbackQuery: { data, message: { message_id: messageId, chat: { id: TELEGRAM_ID } } } };
-    ctx.match = typeof action.trigger === 'string' ? [data] : action.trigger.exec(data);
-    await action.handler(ctx);
+    await stand.press(messageId, label);
+  }
+
+  /**
+   * «Кафе» pressed under a quick-add message sent before FT-124: the bot asks for the amount and waits for it
+   * (`awaiting_amount`, kept in the session) — the next number is that record's amount.
+   */
+  async function quickAddCafe(): Promise<void> {
+    const owner = await resolveUserIdToUUID(String(TELEGRAM_ID), running.userModule);
+    const cafe = (await (running.modules.categoryModule as CategoryModule).getCatalog().listForUser(owner)).find(category => category.name === 'Кафе')!;
+    const message = stand.sentBefore('Выберите категорию', [[{ text: 'Кафе', callback_data: `quickadd:${cafe.id}` }]]);
+    await stand.press(message, 'Кафе');
+    // The bot waits for the amount now, not for a phrase
+    expect(sent().slice(-1)[0]).toContain('Введите сумму');
   }
 
   /** The id of the bot message sent last. */
-  const lastBotMessage = () => nextBotMessageId - 1;
+  const lastBotMessage = () => stand.sent().slice(-1)[0].messageId;
 
   async function records(): Promise<Array<{ amountMinor: number; description: string; date: string; deletedAt: string | null }>> {
     const rows = await running.ds.query('SELECT amount_minor AS amountMinor, description, date, deleted_at AS deletedAt FROM transactions ORDER BY createdAt, rowid');
     return rows.map((row: any) => ({ ...row, amountMinor: Number(row.amountMinor) }));
   }
 
-  const confirmations = () => sent.filter(text => /Расход/.test(text));
+  const confirmations = () => sent().filter(text => /Расход/.test(text));
   const coffee = { intent: 'transaction', amount: 25000, category: 'Кафе', type: 'expense', date: today, description: 'кофе' };
 
   beforeEach(async () => {
-    jest.useFakeTimers({
-      now: NOW,
-      doNotFake: ['nextTick', 'setImmediate', 'clearImmediate', 'setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'queueMicrotask', 'hrtime', 'performance'],
-    });
-    sent = [];
-    shown.clear();
-    hangingReply = undefined;
+    // Every timer is fake as well: a killed update never settles, and Telegraf's 10-minute limit on it, a real timer,
+    // would hold Jest open. useRealTimers() drops them
+    jest.useFakeTimers({ now: NOW, doNotFake: ['nextTick', 'setImmediate', 'clearImmediate', 'queueMicrotask', 'hrtime', 'performance'] });
+    updates.clear();
     parser.transcribe.mockReset();
     parser.analyzeInput.mockReset().mockResolvedValue({ transactions: [coffee], debts: [] });
     parser.analyzeTransactions.mockReset();
-    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ft167-redelivery-'));
-    file = path.join(dir, 'db.sqlite');
+    db = migrated.newFile();
     jest.spyOn(AppConfig, 'getWebAppUrl').mockReturnValue('https://miniapp.test');
+    stand = new TelegramStand({ id: TELEGRAM_ID, first_name: 'Shukur' });
+    stand.install();
     running = await start();
     await resolveUserIdToUUID(String(TELEGRAM_ID), running.userModule);
   });
@@ -280,21 +239,20 @@ describe('a message Telegram sends again after a restart (FT-167)', () => {
     jest.useRealTimers();
     jest.restoreAllMocks();
     (downloadVoiceFile as jest.Mock).mockClear();
-    for (const ds of open.splice(0)) if (ds.isInitialized) await ds.destroy();
-    fs.rmSync(dir, { recursive: true, force: true });
+    await db.remove();
   });
 
   it('a text phrase is written and confirmed once', async () => {
     await deliver({ message_id: 10, text: 'кофе 25 тысяч' });
     expect(await records()).toHaveLength(1);
     expect(confirmations()).toHaveLength(1);
-    const before = sent.length;
+    const before = sent().length;
 
     await restart();
     await deliver({ message_id: 10, text: 'кофе 25 тысяч' });
 
     expect(await records()).toEqual([expect.objectContaining({ amountMinor: 2_500_000, date: '2026-10-29' })]);
-    expect(sent).toHaveLength(before);
+    expect(sent()).toHaveLength(before);
     expect(parser.analyzeInput.mock.calls.length).toBeLessThanOrEqual(1);
     // The same words in a new message are a new record
     await deliver({ message_id: 11, text: 'кофе 25 тысяч' });
@@ -306,8 +264,6 @@ describe('a message Telegram sends again after a restart (FT-167)', () => {
     expect(await records()).toHaveLength(1);
     expect(confirmations()).toHaveLength(0);
     const parsed = parser.analyzeInput.mock.calls.length;
-
-    hangingReply = undefined;
     await restart();
     await deliver({ message_id: 10, text: 'кофе 25 тысяч' });
 
@@ -326,27 +282,28 @@ describe('a message Telegram sends again after a restart (FT-167)', () => {
     await deliver(voice);
     expect(await records()).toHaveLength(1);
     expect(confirmations()).toHaveLength(1);
-    const before = sent.length;
+    const before = sent().length;
 
     await restart();
     await deliver(voice);
 
     expect(await records()).toHaveLength(1);
-    expect(sent).toHaveLength(before);
+    expect(sent()).toHaveLength(before);
     expect(parser.transcribe).toHaveBeenCalledTimes(1);
     expect(downloadVoiceFile).toHaveBeenCalledTimes(1);
   });
 
   it('the amount after a quick-add category is written once, though the session that asked for it is gone', async () => {
-    await deliver({ message_id: 14, text: '500' }, { pendingAction: { type: 'awaiting_amount', category: 'Кафе' } });
+    await quickAddCafe();
+    await deliver({ message_id: 14, text: '500' });
     expect(await records()).toEqual([expect.objectContaining({ amountMinor: 50_000_000 })]);
-    const before = sent.length;
+    const before = sent().length;
 
     await restart();
     await deliver({ message_id: 14, text: '500' });
 
     expect(await records()).toHaveLength(1);
-    expect(sent).toHaveLength(before);
+    expect(sent()).toHaveLength(before);
   });
 
   it('the answer to «Сколько?» is written once', async () => {
@@ -358,13 +315,13 @@ describe('a message Telegram sends again after a restart (FT-167)', () => {
     await deliver({ message_id: 16, text: 'такси' });
     await deliver({ message_id: 17, text: '18 тысяч' });
     expect(await records()).toEqual([expect.objectContaining({ amountMinor: 1_800_000, description: 'такси' })]);
-    const before = sent.length;
+    const before = sent().length;
 
     await restart();
     await deliver({ message_id: 17, text: '18 тысяч' });
 
     expect(await records()).toHaveLength(1);
-    expect(sent).toHaveLength(before);
+    expect(sent()).toHaveLength(before);
   });
 
   it('a record the person cancelled stays cancelled', async () => {
@@ -380,12 +337,12 @@ describe('a message Telegram sends again after a restart (FT-167)', () => {
   it('the same message number from another bot is a new message, though the chat and bot_messages are the same', async () => {
     const taxi = { intent: 'transaction', amount: 30000, category: 'Транспорт', type: 'expense', date: today, description: 'такси' };
     parser.analyzeInput.mockImplementation(async (text: string) => ({ transactions: [text.startsWith('такси') ? taxi : coffee], debts: [] }));
-    await deliver({ message_id: 10, text: 'кофе 25 тысяч' }, {}, BOT_ID);
+    await deliver({ message_id: 10, text: 'кофе 25 тысяч' });
     // The move to another bot (live-instance.md, «Переезд»): bot_messages is cleared, the records stay
     await running.ds.query('DELETE FROM bot_messages');
 
-    await restart();
-    await deliver({ message_id: 10, text: 'такси 30 тысяч' }, {}, OTHER_BOT_ID);
+    await restart(OTHER_BOT_ID);
+    await deliver({ message_id: 10, text: 'такси 30 тысяч' });
 
     expect(await records()).toEqual([
       expect.objectContaining({ amountMinor: 2_500_000, description: 'кофе' }),
@@ -406,19 +363,19 @@ describe('a message Telegram sends again after a restart (FT-167)', () => {
     await press(confirmation, 'Сумму');
     await deliver({ message_id: 11, text: '30000' });
     expect(await records()).toEqual([expect.objectContaining({ amountMinor: 3_000_000, description: 'кофе' })]);
-    const before = sent.length;
+    const before = sent().length;
 
     await restart();
     await deliver({ message_id: 11, text: '30000' });
 
     expect(await records()).toEqual([expect.objectContaining({ amountMinor: 3_000_000, description: 'кофе' })]);
-    expect(sent).toHaveLength(before);
+    expect(sent()).toHaveLength(before);
   });
 
   describe('the edges left after FT-167 (FT-172)', () => {
     const taxi = { intent: 'transaction', amount: 30000, category: 'Транспорт', type: 'expense', date: today, description: 'такси' };
     const live = async () => (await records()).filter(record => record.deletedAt === null).map(record => record.description);
-    const undoReplies = () => sent.filter(text => text.startsWith('Отменил последнюю запись'));
+    const undoReplies = () => sent().filter(text => text.startsWith('Отменил последнюю запись'));
 
     beforeEach(() => {
       parser.analyzeInput.mockImplementation(async (text: string) => ({ transactions: [text.startsWith('такси') ? taxi : coffee], debts: [] }));
@@ -430,13 +387,13 @@ describe('a message Telegram sends again after a restart (FT-167)', () => {
       await deliver({ message_id: 12, text: '/undo' });
       expect(await live()).toEqual(['кофе']);
       expect(undoReplies()).toHaveLength(1);
-      const before = sent.length;
+      const before = sent().length;
 
       await restart();
       await deliver({ message_id: 12, text: '/undo' });
 
       expect(await live()).toEqual(['кофе']);
-      expect(sent).toHaveLength(before);
+      expect(sent()).toHaveLength(before);
       // A new /undo is a new one
       await deliver({ message_id: 13, text: '/undo' });
       expect(await live()).toEqual([]);
@@ -449,15 +406,13 @@ describe('a message Telegram sends again after a restart (FT-167)', () => {
       await deliverUntilKilled(hangReplies(), { message_id: 12, text: '/undo' });
       expect(await live()).toEqual(['кофе']);
       expect(undoReplies()).toHaveLength(0);
-
-      hangingReply = undefined;
       await restart();
       await deliver({ message_id: 12, text: '/undo' });
 
       expect(await live()).toEqual(['кофе']);
       expect(undoReplies()).toEqual([expect.stringContaining('Такси')]);
       // The confirmation is struck through with «Вернуть», and «Вернуть» under the reply brings the record back
-      expect(shown.get(taxiConfirmation)?.keyboard.flat().map(button => button.text)).toContain('Вернуть');
+      expect(stand.labelsOf(taxiConfirmation).flat()).toContain('Вернуть');
       await press(lastBotMessage(), 'Вернуть');
       expect(await live()).toEqual(['кофе', 'такси']);
     });
@@ -517,7 +472,7 @@ describe('a message Telegram sends again after a restart (FT-167)', () => {
     it('«Сколько?» of a phrase with no amount, killed while closing the other questions: not asked twice', async () => {
       const noAmount = { description: 'такси', category: 'Транспорт', type: 'expense', date: today };
       parser.analyzeInput.mockResolvedValue({ transactions: [], debts: [], withoutAmount: [noAmount] });
-      const asked = () => sent.filter(text => text.includes('Сколько?'));
+      const asked = () => sent().filter(text => text.includes('Сколько?'));
       const killed = stopPoint();
       jest.spyOn(runningLog(), 'otherQuestions').mockImplementation(killed.stop);
       await deliverUntilKilled(killed, { message_id: 30, text: 'такси' });
@@ -536,18 +491,17 @@ describe('a message Telegram sends again after a restart (FT-167)', () => {
       parser.analyzeInput.mockResolvedValue({ transactions: [unnamed], debts: [], withoutAmount: [noAmount] });
       // The confirmation as it goes out when nothing stops the bot
       await deliver({ message_id: 20, text: 'zzqx 25 и такси' });
-      const firstTime = sent[sent.length - 1];
+      const firstTime = sent()[sent().length - 1];
       expect(firstTime).toContain('Кафе?');
       expect(firstTime).toContain('«25» понял как 25');
       expect(firstTime).toContain('Сколько?');
 
       await deliverUntilKilled(hangReplies(), { message_id: 21, text: 'zzqx 25 и такси' });
       const parsed = parser.analyzeInput.mock.calls.length;
-      hangingReply = undefined;
       await restart();
       await deliver({ message_id: 21, text: 'zzqx 25 и такси' });
 
-      expect(sent[sent.length - 1]).toBe(firstTime);
+      expect(sent()[sent().length - 1]).toBe(firstTime);
       expect(parser.analyzeInput).toHaveBeenCalledTimes(parsed);
       expect((await records()).filter(record => record.description === 'zzqx')).toHaveLength(2);
       // The question is open: the next amount is the taxi's
@@ -564,7 +518,6 @@ describe('a message Telegram sends again after a restart (FT-167)', () => {
 
       await deliverUntilKilled(hangReplies(), voice);
       expect(await records()).toHaveLength(1);
-      hangingReply = undefined;
       await restart();
       await deliver(voice);
 
@@ -582,12 +535,10 @@ describe('a message Telegram sends again after a restart (FT-167)', () => {
       }));
       await deliverUntilKilled(hangReplies(), { message_id: 10, text: 'кофе 25000000' });
       expect(await records()).toEqual([expect.objectContaining({ deletedAt: expect.any(String) })]);
-
-      hangingReply = undefined;
       await restart();
       await deliver({ message_id: 10, text: 'кофе 25000000' });
 
-      expect(shown.get(lastBotMessage())?.text).toContain('Сумма большая');
+      expect(stand.textOf(lastBotMessage())).toContain('Сумма большая');
       expect(await records()).toEqual([expect.objectContaining({ deletedAt: expect.any(String) })]);
       await deliver({ message_id: 11, text: '25000' });
       expect(await records()).toEqual([expect.objectContaining({ amountMinor: 2_500_000, description: 'кофе', deletedAt: null })]);
@@ -607,14 +558,14 @@ describe('a message Telegram sends again after a restart (FT-167)', () => {
       await press(confirmation, 'Сумму');
       await deliver({ message_id: 12, text: '35000' });
       expect(await records()).toEqual([expect.objectContaining({ amountMinor: 3_500_000, description: 'кофе' })]);
-      const before = sent.length;
+      const before = sent().length;
 
       await restart();
       await deliver({ message_id: 11, text: '30000' });
       await deliver({ message_id: 12, text: '35000' });
 
       expect(await records()).toEqual([expect.objectContaining({ amountMinor: 3_500_000, description: 'кофе' })]);
-      expect(sent).toHaveLength(before);
+      expect(sent()).toHaveLength(before);
     });
 
     it('an answer to «Сумму» of a message more than 20 bot messages back writes no record when sent again', async () => {
@@ -646,16 +597,16 @@ describe('a message Telegram sends again after a restart (FT-167)', () => {
       debts: [],
     }));
     await deliver({ message_id: 10, text: 'кофе 25000000' });
-    expect(shown.get(lastBotMessage())?.text).toContain('Сумма большая');
+    expect(stand.textOf(lastBotMessage())).toContain('Сумма большая');
     await deliver({ message_id: 11, text: '25000' });
     expect(await records()).toEqual([expect.objectContaining({ amountMinor: 2_500_000, description: 'кофе', deletedAt: null })]);
-    const before = sent.length;
+    const before = sent().length;
 
     await restart();
     await deliver({ message_id: 11, text: '25000' });
 
     expect(await records()).toEqual([expect.objectContaining({ amountMinor: 2_500_000, description: 'кофе', deletedAt: null })]);
-    expect(sent).toHaveLength(before);
+    expect(sent()).toHaveLength(before);
   });
 });
 
