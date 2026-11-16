@@ -76,9 +76,10 @@ API (`buildServer` из [`expressServer.ts`](../../../src/delivery/web/express/e
 `404` с `no-store`, а не `index.html` с 200: иначе сервис-воркер (CacheFirst для `.js`) сохранил бы HTML под именем
 чанка. Остальные пути, как и раньше, — страницы webapp, её `index.html`. Чтобы сервер не отдал недописанный файл, который
 телефон сохранил бы навсегда, `npm run build:webapp` собирает рядом и подменяет `public/webapp` готовой сборкой целиком
-(`scripts/build-webapp.js`). Файл, найденный в старой папке и открытый уже после подмены, — тоже `404` с `no-store`, без
-`ETag` и `Last-Modified`: `serve-static` передаёт эту ошибку дальше с уже поставленным `immutable`, и обработчик ошибок
-`/assets` его снимает.
+(`scripts/build-webapp.js`). Файл, найденный в старой папке и открытый уже после подмены, — тоже `404` с `no-store`:
+`serve-static` передаёт эту ошибку дальше с уже поставленными заголовками файла (`immutable`, `ETag`, `Last-Modified`,
+`Content-Length`, при `Range` — `Content-Range`), и обработчик ошибок `/assets` их снимает. С длиной старого файла ответ
+висел бы или ломал следующий ответ на том же keep-alive соединении.
 
 Server слушает на порту из `process.env.PORT` (default: 3000).
 

@@ -81,14 +81,15 @@ From `tests/webAppCacheHeaders.test.ts` (#380), on `createHttpApp` over a folder
   in `assets/` without a hash — `public, max-age=0`
 - a file of `/assets/` that is not in the build (an old chunk, `/assets/`, a nested path) — `404` with `no-store` and no
   `ETag`, not `index.html`; client routes, `/assetsfoo` and `/webapp/assets/…` are still `index.html`
-- a file gone between stat and open (the moment of the swap) — `404` with `no-store`, no `ETag` or `Last-Modified`, not
-  the `immutable` set for it
+- a file gone between stat and open (the moment of the swap; a 50 KB chunk with `Range`, a 5-byte file) — a whole
+  `404 Not Found` with `no-store`, without the file's `ETag`, `Last-Modified`, `Content-Length` or `Content-Range` and
+  not the `immutable` set for it; the next request on the same kept-alive connection gets its own answer
 - `webapp/public/assets/` does not exist: a file there would land in the build's `assets/` without a hash
+- `/api/*` keeps `no-store`, `/api/assets/…` included
 
 From `tests/buildWebapp.test.ts` (#380): `npm run build:webapp` builds into `public/webapp.next` while `public/webapp`
 stays the old build, then swaps it in whole; a failed build, one without `index.html` or a failed second rename leaves
 the old build; nothing is left beside it; `build:webapp` (and so `postinstall`) runs the script.
-- `/api/*` keeps `no-store`, `/api/assets/…` included
 
 From `tests/legacyUserIdRoutes.test.ts` (FT-162), for every legacy route with `:userId` (transactions,
 subscription status; the dashboard ones until #205 removed them, the budget ones until #264, the debt ones until #265), on a real SQLite `users` table:
