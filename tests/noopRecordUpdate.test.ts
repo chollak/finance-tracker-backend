@@ -38,12 +38,11 @@ describe('a PUT that changes nothing writes nothing (FT-248)', () => {
     const app = express();
     app.use(express.json());
     app.use('/api/transactions', createTransactionRouter(
-      unused, unused, unused, unused,
+      unused, unused, unused,
       new GetTransactionByIdUseCase(records.repository),
       unused,
       new UpdateTransactionUseCase(records.repository, records.catalog, records.book),
       new UpdateTransactionWithLearningUseCase(records.repository, records.catalog, records.book),
-      unused, unused, unused, unused, unused,
       undefined,
       users
     ));

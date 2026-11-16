@@ -55,8 +55,8 @@ function buildTestApp() {
     getGetUserUseCase: () => ({ execute: jest.fn().mockResolvedValue({ success: true, data: { id: OWNER_UUID } }) }),
   } as unknown as UserModule;
   router.use('/transactions', createTransactionRouter(
-    records.create as never, unused, unused, records.ofUser as never, records.byId as never,
-    unused, unused, unused, unused, unused, unused, unused, unused,
+    records.create as never, unused, records.ofUser as never, records.byId as never,
+    unused, unused, unused,
     undefined,
     userModule
   ));

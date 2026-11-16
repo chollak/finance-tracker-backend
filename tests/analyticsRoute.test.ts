@@ -141,7 +141,7 @@ describe('analytics API with fair comparison (FT-120)', () => {
     await record({ amount: 500000, date: '2026-10-05', semanticType: 'own_transfer' });
     await record({ amount: 45000, date: '2026-10-05', needsReview: true });
     await records.repository.delete(await record({ amount: 70000, date: '2026-10-05' }));
-    await records.repository.archive(await record({ amount: 80000, date: '2026-10-05' }));
+    await records.markArchived(await record({ amount: 80000, date: '2026-10-05' }));
     const [card] = await records.book.listForUser('user-1');
     await db.dataSource.query(`UPDATE accounts SET opening_date = '2026-10-01' WHERE id = ?`, [card.id]);
     const cash = await accounts.getCreateAccountUseCase().execute({
@@ -255,7 +255,7 @@ describe('analytics API with fair comparison (FT-120)', () => {
 
     it('does not move the first month for deleted and archived records', async () => {
       await records.repository.delete(await record({ amount: 70000, date: '2026-07-05' }));
-      await records.repository.archive(await record({ amount: 80000, date: '2026-08-05' }));
+      await records.markArchived(await record({ amount: 80000, date: '2026-08-05' }));
       await record({ amount: 40000, date: '2026-09-03' });
       await record({ amount: 60000, date: '2026-10-02' });
 

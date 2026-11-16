@@ -90,8 +90,8 @@ describe('idempotent create for the offline queue (FT-106)', () => {
       const app = express();
       app.use(express.json());
       app.use('/api/transactions', createTransactionRouter(
-        records.create, unused, unused, unused, new GetTransactionByIdUseCase(records.repository),
-        unused, records.update, unused, unused, unused, unused, unused, unused,
+        records.create, unused, unused, new GetTransactionByIdUseCase(records.repository),
+        unused, records.update, unused,
         undefined, new UserModule(new SqliteUserRepository(db.dataSource))
       ));
       app.use(errorHandler);

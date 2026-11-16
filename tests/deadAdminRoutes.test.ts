@@ -33,13 +33,13 @@ describe('the dead admin routes are gone (FT-174)', () => {
     expect(res.status).toBe(404);
   });
 
-  it('GET /api/transactions/analytics is not a route of its own; the user-scoped analytics stay', () => {
+  it('GET /api/transactions/analytics is not a route of its own; the user-scoped ones went too (#273)', () => {
     const router = createTransactionRouter(...(Array.from({ length: 20 }, () => unusedModule) as Parameters<typeof createTransactionRouter>));
-    const routes = router.stack
+    const routes: string[] = router.stack
       .filter((layer: any) => layer.route)
       .map((layer: any) => `${Object.keys(layer.route.methods).join(',').toUpperCase()} ${layer.route.path}`);
 
     expect(routes).not.toContain('GET /analytics');
-    expect(routes).toContain('GET /analytics/summary/:userId');
+    expect(routes.filter(route => route.includes('/analytics'))).toEqual([]);
   });
 });

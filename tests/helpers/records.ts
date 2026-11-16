@@ -22,5 +22,9 @@ export function recordsOn(dataSource: DataSource) {
     moveRepository: new SqliteAccountMoveRepository(dataSource),
     create: new CreateTransactionUseCase(repository, catalog, book),
     update: new UpdateTransactionUseCase(repository, catalog, book),
+    /** Marks a record as the archive left it before #273: nothing in the app archives one any more (decision Д7). */
+    markArchived: async (id: string): Promise<void> => {
+      await dataSource.query('UPDATE transactions SET isArchived = 1 WHERE id = ?', [id]);
+    },
   };
 }

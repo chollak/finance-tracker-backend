@@ -37,10 +37,6 @@ class MemoryTransactions implements Partial<TransactionRepository> {
     return this.rows.get(id) ?? null;
   }
 
-  async findByIdIncludingArchived(id: string): Promise<Transaction | null> {
-    return this.rows.get(id) ?? null;
-  }
-
   async update(id: string, updates: Partial<Transaction>): Promise<Transaction> {
     const current = this.rows.get(id)!;
     const amountMinor = updates.amountMinor ?? current.amountMinor!;
@@ -74,12 +70,10 @@ describe('FT-097: every writer may send amountMinor or the old amount', () => {
       new CreateTransactionUseCase(repo),
       unused,
       unused,
-      unused,
       new GetTransactionByIdUseCase(repo),
       unused,
       new UpdateTransactionUseCase(repo),
       new UpdateTransactionWithLearningUseCase(repo),
-      unused, unused, unused, unused, unused,
       undefined,
       users
     ));

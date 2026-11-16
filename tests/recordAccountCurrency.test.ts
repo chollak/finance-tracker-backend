@@ -2,7 +2,6 @@ import { ProcessTextInputUseCase } from '../src/modules/voiceProcessing/applicat
 import { TranscriptionService } from '../src/modules/voiceProcessing/domain/transcriptionService';
 import { AccountModule } from '../src/modules/account/accountModule';
 import { PeriodTotalsService } from '../src/modules/transaction/application/periodTotalsService';
-import { AnalyticsService } from '../src/modules/transaction/application/analyticsService';
 import { summarizePeriod } from '../src/modules/transaction/domain/periodTotals';
 import { Transaction } from '../src/modules/transaction/domain/transactionEntity';
 import { openMigratedDatabase, TestDatabase } from './helpers/testDatabase';
@@ -247,15 +246,17 @@ describe('account and currency of every record (FT-103)', () => {
       expect(totals.excludedMovements).toEqual({ totalMinor: 20000000, bySemanticType: { own_transfer: 20000000 } });
     });
 
-    it('analytics asks for the user\'s rate when there are dollars', async () => {
-      const repository = { findByUserId: jest.fn().mockResolvedValue([tx({}), usd]) };
+    it('the totals service asks for the user\'s rate when there are dollars, and only then', async () => {
       const rates = { effectiveUsdRate: jest.fn().mockResolvedValue({ rateMinor: 1290000 }) };
-      const analytics = new AnalyticsService(repository as never, new PeriodTotalsService(rates));
+      const service = new PeriodTotalsService(rates);
 
-      const summary = await analytics.getAnalyticsSummary('user-1');
-
-      expect(summary.totalExpense).toBe(100000 + 709500);
+      const withDollars = await service.summarize('user-1', [tx({}), usd]);
+      expect(withDollars.expenseMinor).toBe((100000 + 709500) * 100);
       expect(rates.effectiveUsdRate).toHaveBeenCalledWith('user-1');
+
+      rates.effectiveUsdRate.mockClear();
+      expect((await service.summarize('user-1', [tx({})])).expenseMinor).toBe(100000 * 100);
+      expect(rates.effectiveUsdRate).not.toHaveBeenCalled();
     });
   });
 });
