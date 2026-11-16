@@ -381,10 +381,12 @@ Used inside:
 
 User ID normalization boundary.
 
-- Extracts user ID from params/query/body.
+- Extracts user ID from the path's `:userId` or `:telegramId`, the query and the body — never a route's `:id`, which
+  names a record or an account (#275).
 - UUID passes through, in lower case (#230).
 - A Telegram id resolves through `resolveUserIdToUUID(...)`.
-- Missing userId usually skips by default (`skipIfNoUserId=true`).
+- A missing userId skips: the route decides (the admin grant answers 400). The options `requireUserId` and
+  `skipIfNoUserId`, which nobody passed, and `getResolvedUserId` are gone (#275).
 - A userId that is not a non-blank string (FT-162), or a string that is no UUID and no Telegram id — `guest_*`, `abc`,
   `-5`, a number from 2^53 on (#224, #230, `resolvableUserIdOf`) — `400 INVALID_USER_ID`, not a resolver error;
   nothing is resolved or created.
