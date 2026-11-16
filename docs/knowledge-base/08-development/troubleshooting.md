@@ -521,6 +521,23 @@ On `SIGTERM` the bot stops taking updates and finishes the one it is handling �
 message's client id instead of writing them again (`… an amount answer again; it is not applied twice` — the same for
 an answer to «Сумму»). If the person got no confirmation the first time, the bot sends it then.
 
+### `A Telegram update is still being handled; the next updates of its chat wait for it`
+
+The bot takes the updates of one chat one at a time, and Telegraf no longer cuts a handler after 90 s (#317). This
+`warn` says an update (`updateId`, `updateType`) has run for 90 s and goes on: the chat's next messages wait for it,
+other chats do not, and polling takes the next batch only after it. A slow voice in a bad network can come close.
+Look at the lines of the same update before it (OpenAI, the voice download, a Bot API call).
+
+### `A Telegram update is not done after the limit; …`
+
+The update has hung for ten minutes (`UPDATE_LIMIT_MS`, #317). `… the next updates of its chat no longer wait for it`
+(the queue) and `… polling goes on without it` (`bot.catch`; one line per update of the batch that was still held —
+the chat's next updates that waited behind it too) mean the bot went on: the chat's next messages are handled, polling
+takes the next batch. The person gets no «Попробуйте снова»: the hung handler may still write and confirm, and its
+answer goes out if it ends. If it never ends, it stays in memory until the next restart, and Telegram does not send it
+again: the next `getUpdates` confirmed the batch. Look at the lines just before it for what it waited for (OpenAI, the
+voice download, a Bot API call).
+
 ### Who was turned away by `ALLOWED_TELEGRAM_IDS`
 
 With a list set, the bot ignores everyone else and the API answers them `403 ACCESS_NOT_ALLOWED` (FT-153). The log

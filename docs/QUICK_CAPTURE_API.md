@@ -46,7 +46,7 @@ goes by its token, anything else through `requireAuth` and `writeAsSignedInUser`
 
 | Caller | Requirement |
 |---|---|
-| Mini App and browser (no guests since Д4, 2026-10-21) | Full `requireAuth`: `Authorization: tma <initData>` (Telegram Mini App initData, HMAC-validated, max age 1 hour) or the browser session (FT-128). The capture is for the **signed-in user**: a body `userId` may be omitted; if sent, it must be that user's Telegram id, otherwise **`403 ACCESS_DENIED`**. |
+| Mini App and browser (no guests since Д4, 2026-10-21) | Full `requireAuth`: `Authorization: tma <initData>` (Telegram Mini App initData, HMAC-validated, max age 24 hours — `INIT_DATA_MAX_AGE_SECONDS`, #316) or the browser session (FT-128). The capture is for the **signed-in user**: a body `userId` may be omitted; if sent, it must be that user's Telegram id, otherwise **`403 ACCESS_DENIED`**. |
 | Local dev only (`NODE_ENV !== 'production'`) | `X-Dev-User-Id: <telegramId>` header bypasses auth — only for a request from this machine (loopback, no `Cf-Connecting-Ip` / `X-Forwarded-For` / `Forwarded`): never through the `dev:miniapp` tunnel or from the network (`isLocalRequest`, 2026-10-21). The id is read by `telegramIdOf`, as `ALLOWED_TELEGRAM_IDS`: anything but a Telegram id (`123abc`) is `401 INVALID_DEV_USER_ID` (#255) — with `ALLOWED_TELEGRAM_IDS` set, `403 ACCESS_NOT_ALLOWED` comes first (closed access, before any route). A browser session cookie next to it does not count. |
 | iPhone Shortcut (production too) | `X-Shortcut-Capture-Token: <SHORTCUT_CAPTURE_TOKEN>`; the capture is for `SHORTCUT_CAPTURE_OWNER`. See [below](#ios-shortcut-capture). |
 
@@ -631,7 +631,8 @@ Auth and rate-limit middleware answer earlier in the chain and use a **flat** sh
 | 403 | `SHORTCUT_CAPTURE_TOKEN_REQUIRED` | Outside production: a Shortcut request through the tunnel or from the network while `SHORTCUT_CAPTURE_TOKEN` is empty |
 | 403 | `SHORTCUT_OWNER_REQUIRED` | Outside production: a Shortcut request with neither `SHORTCUT_CAPTURE_OWNER` nor `X-Shortcut-User-Id` |
 | 401 | `INVALID_AUTH_FORMAT` | `Authorization` header not in `tma <initData>` form |
-| 401 | `INVALID_AUTH` | initData hash mismatch or older than 1 hour |
+| 401 | `INVALID_AUTH` | initData hash mismatch: not signed by this bot's token, or unreadable |
+| 401 | `INIT_DATA_EXPIRED` | initData signed by this bot but older than 24 hours (#316): Telegram renews it only when the Mini App is opened again |
 | 401 | `MISSING_USER_DATA` | Valid initData without a `user` payload |
 | 429 | `AI_RATE_LIMIT_EXCEEDED` | Shared AI rate limit exhausted for the IP |
 | 500 | `AUTH_NOT_CONFIGURED` | `TG_BOT_API_KEY` missing while validating initData |

@@ -7,6 +7,7 @@ import { RouteErrorPage } from '@/pages/route-error';
 import { ThemeController } from './ThemeController';
 import { ThemeSettingsSync } from '@/features/theme-choice';
 import { OfflineSync } from './OfflineSync';
+import { MiniAppReopenGate } from './MiniAppReopenGate';
 
 interface AppProvidersProps {
   children: ReactNode;
@@ -24,7 +25,8 @@ export function AppProviders({ children }: AppProvidersProps) {
           <OfflineSync />
           {/* The theme the user saved (FT-125) once the settings are read */}
           <ThemeSettingsSync />
-          {children}
+          {/* Inside Telegram, initData the server no longer takes: «Откройте Kapelka заново» instead of the app (#316) */}
+          <MiniAppReopenGate>{children}</MiniAppReopenGate>
         </HydrationGate>
       </QueryProvider>
     </ErrorBoundary>

@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { readSession, useUserStore } from '@/entities/user';
-import { forgetCachedResponses, onSessionLost } from '@/shared/api';
+import { forgetCachedResponses, onMiniAppRefused, onSessionLost } from '@/shared/api';
 import { env } from '@/shared/config/env';
 import { useUndoToastStore } from '@/shared/lib/undo';
 
@@ -14,6 +14,9 @@ import { useUndoToastStore } from '@/shared/lib/undo';
  * Later a 401 outside Telegram means the session ended (or «Выйти» in another tab): the login screen again. A browser
  * left without its session also forgets the API answers the service worker kept for it: routes such as `/api/accounts`
  * don't name the user, and the next account here must not be served them.
+ * Inside Telegram a 401 means the server no longer takes the Mini App's initData (#316: it lives 24 hours, Telegram
+ * renews it only when the Mini App is opened again): «Откройте Kapelka заново». The user, the kept answers and the
+ * outbox stay — the same account comes back with the new initData, and the waiting records go then.
  */
 export function UserInitializer() {
   const queryClient = useQueryClient();
@@ -68,9 +71,12 @@ export function UserInitializer() {
       queryClient.clear();
     });
 
+    onMiniAppRefused(() => useUserStore.getState().setMiniAppRefused());
+
     return () => {
       cancelled = true;
       onSessionLost(null);
+      onMiniAppRefused(null);
     };
   }, [queryClient]);
 

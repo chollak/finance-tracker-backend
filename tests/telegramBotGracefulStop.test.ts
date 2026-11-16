@@ -45,15 +45,20 @@ describe('the bot stops after the updates it is handling (FT-167)', () => {
     jest.restoreAllMocks();
   });
 
-  /** The bot with one message in Telegram's queue, whose handler runs until the test lets it finish. */
-  async function startWithMessageInFlight() {
+  /**
+   * The bot with one batch of messages in Telegram's queue (one message by default); each handler runs until the test
+   * lets them finish.
+   */
+  async function startWithMessageInFlight(batch: Update[] = [UPDATE]) {
     const entered = deferred();
     const release = deferred();
+    const started: number[] = [];
     const handled: number[] = [];
 
     jest.doMock('../src/delivery/messaging/telegram/handlers/messageHandlers', () => ({
       registerMessageHandlers: (bot: { on: (type: string, handler: (ctx: any) => Promise<void>) => void }) => {
         bot.on('message', async ctx => {
+          started.push(ctx.message.message_id);
           entered.resolve();
           await release.promise;
           handled.push(ctx.message.message_id);
@@ -82,7 +87,7 @@ describe('the bot stops after the updates it is handling (FT-167)', () => {
       if (payload.limit === 1) return [];
       if (!delivered) {
         delivered = true;
-        return [UPDATE];
+        return batch;
       }
       return new Promise((_resolve, reject) => options?.signal?.addEventListener('abort', () => reject(abortError())));
     }) as never);
@@ -92,8 +97,9 @@ describe('the bot stops after the updates it is handling (FT-167)', () => {
     const bot = startTelegramBot({} as any, {} as any, userModule, {} as any);
     await entered.promise;
 
-    const offsetConfirmed = () => calls.some(({ method, payload }) => method === 'getUpdates' && payload.limit === 1 && payload.offset === UPDATE.update_id + 1);
-    return { bot, release, handled, offsetConfirmed };
+    const nextOffset = batch[batch.length - 1].update_id + 1;
+    const offsetConfirmed = () => calls.some(({ method, payload }) => method === 'getUpdates' && payload.limit === 1 && payload.offset === nextOffset);
+    return { bot, release, started, handled, offsetConfirmed };
   }
 
   it('closes the database only after the message in flight is handled and its offset confirmed', async () => {
@@ -122,6 +128,23 @@ describe('the bot stops after the updates it is handling (FT-167)', () => {
     expect(handled).toEqual([10]);
     expect(order).toEqual(['database after the offset']);
     expect(exit).toHaveBeenCalledWith(0);
+  });
+
+  it('two messages of one chat in a batch run one after the other, and the stop waits for both before the offset (#317)', async () => {
+    const second: Update = { update_id: 101, message: { ...UPDATE.message, message_id: 11, text: 'такси 18к' } };
+    const { bot, release, started, handled, offsetConfirmed } = await startWithMessageInFlight([UPDATE, second]);
+    const { BOT_STOP_GRACE_MS } = await import('../src/delivery/runtime/gracefulShutdown');
+
+    const stopped = bot.stop(BOT_STOP_GRACE_MS);
+    await flush();
+    expect(started).toEqual([10]);
+    expect(offsetConfirmed()).toBe(false);
+
+    release.resolve();
+    await stopped;
+
+    expect(handled).toEqual([10, 11]);
+    expect(offsetConfirmed()).toBe(true);
   });
 
   it('a handler that outlives the grace period is left unconfirmed, so Telegram sends the message again', async () => {

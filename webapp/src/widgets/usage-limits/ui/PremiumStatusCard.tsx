@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card';
 import { Badge } from '@/shared/ui/badge';
-import { Crown, Infinity, Sparkles } from 'lucide-react';
+import { Crown, InfinityIcon, Sparkles } from 'lucide-react';
 import type { SubscriptionStatus } from '@/entities/subscription';
 import { pluralDays } from '@/shared/lib/plural';
 
@@ -82,7 +82,7 @@ function BenefitRow({ label }: { label: string }) {
   return (
     <div className="flex items-center gap-2.5 text-sm">
       <div className="w-5 h-5 rounded-md bg-warning-muted flex items-center justify-center">
-        <Infinity className="w-3.5 h-3.5 text-warning" />
+        <InfinityIcon className="w-3.5 h-3.5 text-warning" />
       </div>
       <span className="text-foreground/80">{label}</span>
     </div>

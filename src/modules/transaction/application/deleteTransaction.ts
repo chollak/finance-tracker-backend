@@ -11,7 +11,6 @@ const logger = getLogger(LogCategory.TRANSACTION);
 
 export interface DeleteTransactionRequest {
   id: string;
-  userId?: string;
 }
 
 /**
@@ -56,28 +55,31 @@ export class DeleteTransactionUseCase {
     this.counter.set(subscriptionModule, userModule);
   }
 
+  /**
+   * A record already deleted changes nothing (#317): its deletion time and the record counter stay — as a restore of a
+   * record that is not deleted. Two deletes of one record, a double /undo or «Отменить» after the Mini App, free one slot.
+   */
   async execute(request: DeleteTransactionRequest): Promise<Result<void>> {
-    const { id, userId } = request;
+    const id = request.id?.trim();
 
-    if (!id?.trim()) {
+    if (!id) {
       return ResultHelper.failure(new ValidationError('Transaction ID is required'));
     }
 
     try {
-      // Get transaction to know userId before deletion (for decrementing counter)
-      let transactionUserId = userId;
-      if (!transactionUserId) {
-        const transaction = await this.repository.findById(id.trim());
-        if (!transaction) {
-          return ResultHelper.failure(new NotFoundError('Transaction', id));
-        }
-        transactionUserId = transaction.userId;
+      const record = await this.repository.findById(id);
+      if (!record) {
+        const deleted = await this.repository.findByIdIncludingDeleted(id);
+        if (!deleted?.deletedAt) return ResultHelper.failure(new NotFoundError('Transaction', id));
+        logger.debug('Transaction already deleted; nothing changes', { transactionId: id });
+        return ResultHelper.success(undefined);
       }
 
-      await this.repository.delete(id.trim());
+      await this.repository.delete(id);
       logger.info('Transaction deleted', { transactionId: id });
 
-      if (transactionUserId) await this.counter.change(transactionUserId, 'decrement');
+      // The owner from the record: the counter is theirs (FT-171)
+      await this.counter.change(record.userId, 'decrement');
 
       return ResultHelper.success(undefined);
     } catch (error) {

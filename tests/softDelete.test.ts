@@ -89,6 +89,31 @@ describe('soft delete and restore of records (FT-105)', () => {
     expect(!unknown.success && (unknown.error as { statusCode?: number }).statusCode).toBe(404);
   });
 
+  it('deleting a record already deleted changes nothing and leaves the counter alone (#317)', async () => {
+    const id = await record(25000, '131184740');
+    const decrement = jest.fn().mockResolvedValue(undefined);
+    const subscriptions = {
+      getIncrementUsageUseCase: () => ({ execute: jest.fn() }),
+      getDecrementUsageUseCase: () => ({ execute: decrement }),
+    } as never;
+    const users = { getGetOrCreateUserUseCase: () => ({ execute: jest.fn().mockResolvedValue({ id: 'uuid-1' }) }) } as never;
+    const remove = new DeleteTransactionUseCase(records.repository);
+    remove.setSubscriptionDependencies(subscriptions, users);
+    const softDelete = jest.spyOn(records.repository, 'delete');
+
+    expect((await remove.execute({ id })).success).toBe(true);
+    const deletedAt = (await records.repository.findByIdIncludingDeleted(id))?.deletedAt;
+    expect(deletedAt).toBeTruthy();
+
+    expect((await remove.execute({ id })).success).toBe(true);
+
+    expect(softDelete).toHaveBeenCalledTimes(1);
+    expect((await records.repository.findByIdIncludingDeleted(id))?.deletedAt).toBe(deletedAt);
+    expect(decrement).toHaveBeenCalledTimes(1);
+    const unknown = await remove.execute({ id: 'nope' });
+    expect(!unknown.success && (unknown.error as { statusCode?: number }).statusCode).toBe(404);
+  });
+
   describe('DELETE /api/transactions/:id and POST /api/transactions/:id/restore', () => {
     let server: http.Server;
     let baseUrl: string;

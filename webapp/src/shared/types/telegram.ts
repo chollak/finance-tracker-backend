@@ -148,8 +148,8 @@ export interface TelegramWebApp {
   sendData(data: string): void;
 
   // Events
-  onEvent(eventType: string, callback: (data?: any) => void): void;
-  offEvent(eventType: string, callback: (data?: any) => void): void;
+  onEvent(eventType: string, callback: (data?: unknown) => void): void;
+  offEvent(eventType: string, callback: (data?: unknown) => void): void;
 
   // Fullscreen (Bot API 8.0+)
   requestFullscreen?(): void;

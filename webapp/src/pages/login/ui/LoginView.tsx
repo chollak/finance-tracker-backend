@@ -28,14 +28,14 @@ function ClockIcon() {
   );
 }
 
-export const LOGIN_STEPS = [
+const LOGIN_STEPS = [
   'Откроется чат с ботом Kapelka',
   'Нажмите там «Запустить» и «Подтвердить»',
   'Вернитесь сюда — вход завершится сам',
 ];
 
 /** What a screen reader hears when the screen changes. */
-export function loginLiveText(view: LoginState): string {
+function loginLiveText(view: LoginState): string {
   if (view.kind === 'waiting') return 'Ждём подтверждения в Telegram';
   if (view.kind === 'signing-in') return 'Вход подтверждён. Открываю Kapelka';
   if (view.kind === 'expired') return 'Вход не подтвердили. Можно попробовать снова';
