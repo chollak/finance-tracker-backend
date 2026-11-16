@@ -7,18 +7,11 @@ import { transactionLearning } from '../src/shared/application/learning/transact
 function buildRepo(existing: Transaction): TransactionRepository {
   return {
     create: jest.fn(),
-    getAll: jest.fn(),
     delete: jest.fn(),
     findById: jest.fn().mockResolvedValue(existing),
     findByUserId: jest.fn(),
     update: jest.fn().mockResolvedValue({ ...existing }),
     getByUserIdAndDateRange: jest.fn(),
-    archive: jest.fn(),
-    unarchive: jest.fn(),
-    archiveMultiple: jest.fn(),
-    archiveAllByUserId: jest.fn(),
-    findArchivedByUserId: jest.fn(),
-    findByIdIncludingArchived: jest.fn(),
   } as any;
 }
 

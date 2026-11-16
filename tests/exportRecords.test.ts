@@ -214,7 +214,7 @@ describe('export from the database and its routes (FT-126)', () => {
     const deleted = await spend(userId, 99000, 'удалённая', '2026-10-12');
     await records.repository.delete(deleted);
     const archived = await spend(userId, 77000, 'в архиве', '2026-10-12');
-    await records.repository.archive(archived);
+    await records.markArchived(archived);
     await spend('someone-else', 55000, 'чужая', '2026-10-12');
 
     const kept = await accounts.getCreateMoveUseCase().execute({ userId, body: { kind: 'transfer', fromAccountId: card.id, toAccountId: cash.data.id, amountMinor: sum(300000), date: '2026-10-13' } });

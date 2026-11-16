@@ -141,12 +141,6 @@ describe('POST /api/transactions does not count transactions a second time', () 
     router.use('/transactions', createTransactionRouter(
       { execute: createExecute } as any,
       stub(),
-      {} as any,
-      stub(),
-      stub(),
-      stub(),
-      stub(),
-      stub(),
       stub(),
       stub(),
       stub(),

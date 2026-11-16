@@ -24,7 +24,7 @@
 
 **Содержит:**
 - Use Cases (CreateTransactionUseCase, GetCurrentAuditUseCase)
-- Application Services (AnalyticsService, PeriodTotalsService)
+- Application Services (PeriodTotalsService)
 - DTOs (Data Transfer Objects)
 
 **Зависимости:** Domain Layer

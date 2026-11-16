@@ -4,8 +4,11 @@ import { HistoryAmount, HistoryCursor, HistoryFilters, HistoryPage } from "./tra
 
 export interface TransactionRepository {
     create(transaction: Transaction): Promise<Transaction>;
-    getAll(): Promise<Transaction[]>;
-    /** Reads leave deleted records out (FT-105); only the *IncludingDeleted lookup sees them. */
+    /**
+     * Reads leave deleted records out (FT-105); only the *IncludingDeleted lookup sees them. Records archived before
+     * #273 are left out the same way (decision Д7) — only that lookup and findByClientId see them; nothing archives a
+     * record or brings one back any more.
+     */
     findById(id: string): Promise<Transaction | null>;
     findByUserId(userId: string, limit?: number): Promise<Transaction[]>;
     /** Deletes softly (FT-105). */
@@ -27,12 +30,4 @@ export interface TransactionRepository {
     getByUserIdAndDateRange(userId: string, startDate: Date, endDate: Date): Promise<Transaction[]>;
     /** The day of the user's earliest record (not archived, not deleted) — when recording began (FT-120); null without records. */
     findFirstRecordDate(userId: string): Promise<string | null>;
-
-    // Archive methods
-    archive(id: string): Promise<void>;
-    unarchive(id: string): Promise<void>;
-    archiveMultiple(ids: string[]): Promise<void>;
-    archiveAllByUserId(userId: string): Promise<number>;
-    findArchivedByUserId(userId: string, limit?: number): Promise<Transaction[]>;
-    findByIdIncludingArchived(id: string): Promise<Transaction | null>;
 }

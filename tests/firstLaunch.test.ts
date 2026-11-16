@@ -6,7 +6,7 @@ import { UserModule } from '../src/modules/user/userModule';
 import { SqliteUserRepository } from '../src/modules/user/infrastructure/persistence/SqliteUserRepository';
 import { SqliteUserSettingsRepository } from '../src/modules/user/infrastructure/persistence/SqliteUserSettingsRepository';
 import { createSettingsRoutes } from '../src/modules/user/presentation/controllers/settingsController';
-import { AnalyticsService } from '../src/modules/transaction/application/analyticsService';
+import { PeriodTotalsService } from '../src/modules/transaction/application/periodTotalsService';
 import { todayDateOnly } from '../src/shared/domain/dates/dateOnly';
 import { openMigratedDatabase, TestDatabase } from './helpers/testDatabase';
 import { startTestServer, TestServer } from './helpers/testServer';
@@ -47,6 +47,8 @@ describe('first launch with opening balances (FT-109)', () => {
   const daysAgo = (days: number) => todayDateOnly(new Date(Date.now() - days * 24 * 60 * 60 * 1000));
   const byName = (summary: { accounts: Array<{ name: string }> }) =>
     Object.fromEntries(summary.accounts.map(account => [account.name, account])) as Record<string, any>;
+  /** Income and expenses of all the user's records, as every reader sums them (FT-103). */
+  const totalsOf = async (userId: string) => new PeriodTotalsService().summarize(userId, await records.repository.findByUserId(userId));
 
   it('turns the three amounts into opening balances dated today and marks the first launch done', async () => {
     expect((await as('GET', '/api/settings')).body.data.onboardedAt).toBeNull();
@@ -92,8 +94,7 @@ describe('first launch with opening balances (FT-109)', () => {
     expect(accounts['Карта']).toMatchObject({ id: card.id, openingDate: todayDateOnly(), balanceMinor: 2_000_000_00 });
     // The records are untouched: still in history and in analytics
     expect(await records.repository.findByUserId(userId)).toHaveLength(3);
-    const analytics = await new AnalyticsService(records.repository).getAnalyticsSummary(userId);
-    expect(analytics).toMatchObject({ totalIncome: 900000, totalExpense: 165000 });
+    expect(await totalsOf(userId)).toMatchObject({ incomeMinor: 900000 * 100, expenseMinor: 165000 * 100 });
 
     // A record made from today on counts
     await records.create.execute({ userId, accountId: card.id, amount: 25000, type: 'expense', category: 'Другое', description: 'x', date: todayDateOnly() });
@@ -134,7 +135,7 @@ describe('first launch with opening balances (FT-109)', () => {
     });
     // Still in history and in analytics
     expect(await records.repository.findByUserId(userId)).toHaveLength(1);
-    expect(await new AnalyticsService(records.repository).getAnalyticsSummary(userId)).toMatchObject({ totalExpense: 25000 });
+    expect(await totalsOf(userId)).toMatchObject({ expenseMinor: 25000 * 100 });
 
     // A record of the same day made after the first launch counts, as before
     const taxi = await recordToday(userId, card.id, 18000, 'такси');

@@ -16,19 +16,12 @@ describe('CreateTransactionUseCase', () => {
     const create = jest.fn().mockResolvedValue({ ...transaction, id: '1' });
     const repo: TransactionRepository = {
       create,
-      getAll: jest.fn(),
       delete: jest.fn(),
       findById: jest.fn(),
       findByUserId: jest.fn(),
       update: jest.fn(),
       getByUserIdAndDateRange: jest.fn(),
       findFirstRecordDate: jest.fn(),
-      archive: jest.fn(),
-      unarchive: jest.fn(),
-      archiveMultiple: jest.fn(),
-      archiveAllByUserId: jest.fn(),
-      findArchivedByUserId: jest.fn(),
-      findByIdIncludingArchived: jest.fn(),
     } as any;
 
     const useCase = new CreateTransactionUseCase(repo);
@@ -54,19 +47,12 @@ describe('CreateTransactionUseCase', () => {
     const create = jest.fn().mockResolvedValue({ ...transaction, id: '1' });
     const repo: TransactionRepository = {
       create,
-      getAll: jest.fn(),
       delete: jest.fn(),
       findById: jest.fn(),
       findByUserId: jest.fn(),
       update: jest.fn(),
       getByUserIdAndDateRange: jest.fn(),
       findFirstRecordDate: jest.fn(),
-      archive: jest.fn(),
-      unarchive: jest.fn(),
-      archiveMultiple: jest.fn(),
-      archiveAllByUserId: jest.fn(),
-      findArchivedByUserId: jest.fn(),
-      findByIdIncludingArchived: jest.fn(),
     } as any;
 
     const useCase = new CreateTransactionUseCase(repo);
@@ -89,19 +75,12 @@ describe('CreateTransactionUseCase', () => {
     const create = jest.fn().mockResolvedValue({ ...transaction, id: '1' });
     const repo: TransactionRepository = {
       create,
-      getAll: jest.fn(),
       delete: jest.fn(),
       findById: jest.fn(),
       findByUserId: jest.fn(),
       update: jest.fn(),
       getByUserIdAndDateRange: jest.fn(),
       findFirstRecordDate: jest.fn(),
-      archive: jest.fn(),
-      unarchive: jest.fn(),
-      archiveMultiple: jest.fn(),
-      archiveAllByUserId: jest.fn(),
-      findArchivedByUserId: jest.fn(),
-      findByIdIncludingArchived: jest.fn(),
     } as any;
 
     const useCase = new CreateTransactionUseCase(repo);
@@ -123,7 +102,6 @@ describe('CreateTransactionUseCase', () => {
     const create = jest.fn();
     const repo: TransactionRepository = {
       create,
-      getAll: jest.fn(),
       delete: jest.fn(),
     } as any;
 

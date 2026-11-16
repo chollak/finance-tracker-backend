@@ -11,17 +11,11 @@ import {
 import { createTransactionRouter } from '../src/modules/transaction/presentation/controllers/transactionController';
 import { CreateTransactionUseCase } from '../src/modules/transaction/application/createTransaction';
 import { GetTransactionHistoryUseCase } from '../src/modules/transaction/application/getTransactionHistory';
-import { AnalyticsService } from '../src/modules/transaction/application/analyticsService';
 import { GetUserTransactionsUseCase } from '../src/modules/transaction/application/getUserTransactions';
 import { GetTransactionByIdUseCase } from '../src/modules/transaction/application/getTransactionById';
 import { DeleteTransactionUseCase, RestoreTransactionUseCase } from '../src/modules/transaction/application/deleteTransaction';
 import { UpdateTransactionUseCase } from '../src/modules/transaction/application/updateTransaction';
 import { UpdateTransactionWithLearningUseCase } from '../src/modules/transaction/application/updateTransactionWithLearning';
-import { ArchiveTransactionUseCase } from '../src/modules/transaction/application/archiveTransaction';
-import { UnarchiveTransactionUseCase } from '../src/modules/transaction/application/unarchiveTransaction';
-import { ArchiveMultipleTransactionsUseCase } from '../src/modules/transaction/application/archiveMultipleTransactions';
-import { ArchiveAllByUserUseCase } from '../src/modules/transaction/application/archiveAllByUser';
-import { GetArchivedTransactionsUseCase } from '../src/modules/transaction/application/getArchivedTransactions';
 import { NotFoundError } from '../src/shared/domain/errors/AppError';
 import { UserModule } from '../src/modules/user/userModule';
 import { listenOnLoopback } from './helpers/testServer';
@@ -65,41 +59,21 @@ function buildTransactionTestApp(options: { userModule?: UserModule } = {}) {
 
   const createUseCase = { execute: jest.fn() } as unknown as CreateTransactionUseCase;
   const getUseCase = { execute: jest.fn() } as unknown as GetTransactionHistoryUseCase;
-  const analyticsService = {
-    getSummary: jest.fn(),
-    getCategoryBreakdown: jest.fn(),
-    getAnalyticsSummary: jest.fn(),
-    getDetailedCategoryBreakdown: jest.fn(),
-    getMonthlyTrends: jest.fn(),
-    getSpendingPatterns: jest.fn(),
-    getTopCategories: jest.fn(),
-  } as unknown as AnalyticsService;
   const getUserUseCase = { execute: jest.fn() } as unknown as GetUserTransactionsUseCase;
   const getByIdUseCase = { execute: jest.fn() } as unknown as GetTransactionByIdUseCase;
   const deleteUseCase = { execute: jest.fn() } as unknown as DeleteTransactionUseCase;
   const updateUseCase = { execute: jest.fn() } as unknown as UpdateTransactionUseCase;
   const updateWithLearningUseCase = { execute: jest.fn() } as unknown as UpdateTransactionWithLearningUseCase;
-  const archiveUseCase = { execute: jest.fn() } as unknown as ArchiveTransactionUseCase;
-  const unarchiveUseCase = { execute: jest.fn() } as unknown as UnarchiveTransactionUseCase;
-  const archiveMultipleUseCase = { execute: jest.fn() } as unknown as ArchiveMultipleTransactionsUseCase;
-  const archiveAllByUserUseCase = { execute: jest.fn() } as unknown as ArchiveAllByUserUseCase;
-  const getArchivedUseCase = { execute: jest.fn() } as unknown as GetArchivedTransactionsUseCase;
   const restoreUseCase = { execute: jest.fn() } as unknown as RestoreTransactionUseCase;
 
   router.use('/transactions', createTransactionRouter(
     createUseCase,
     getUseCase,
-    analyticsService,
     getUserUseCase,
     getByIdUseCase,
     deleteUseCase,
     updateUseCase,
     updateWithLearningUseCase,
-    archiveUseCase,
-    unarchiveUseCase,
-    archiveMultipleUseCase,
-    archiveAllByUserUseCase,
-    getArchivedUseCase,
     undefined,
     options.userModule,
     restoreUseCase
@@ -117,30 +91,21 @@ function buildTransactionTestApp(options: { userModule?: UserModule } = {}) {
     getByIdUseCase,
     updateUseCase,
     deleteUseCase,
-    archiveUseCase,
-    unarchiveUseCase,
-    archiveMultipleUseCase,
     restoreUseCase,
   };
 }
 
 /**
- * Every route on one record (#271): the record sheet, an edit, a delete, «Отменить» — and the archive's three until
- * #273 removes them. Each signs in first, as every other route does, before it reads the record. Three items in every
- * row: with fewer, it.each would hand the test a `done` callback in place of the body.
+ * Every route on one record (#271): the record sheet, an edit, a delete, «Отменить» (the archive's three are gone since
+ * #273). Each signs in first, as every other route does, before it reads the record. Three items in every row: with
+ * fewer, it.each would hand the test a `done` callback in place of the body.
  */
 const RECORD_ROUTES: Array<[method: string, path: string, body: unknown]> = [
   ['GET', '/api/transactions/tx-1', undefined],
   ['PUT', '/api/transactions/tx-1', { amount: 150 }],
   ['DELETE', '/api/transactions/tx-1', undefined],
   ['POST', '/api/transactions/tx-1/restore', undefined],
-  ['POST', '/api/transactions/tx-1/archive', undefined],
-  ['POST', '/api/transactions/tx-1/unarchive', undefined],
-  ['POST', '/api/transactions/archive/batch', { ids: ['tx-1'] }],
 ];
-
-/** The routes the Mini App and the iOS app use on one record; the archive's go with #273. */
-const LIVE_RECORD_ROUTES = RECORD_ROUTES.slice(0, 4);
 
 const SOMEONE_ELSES_RECORD = { id: 'tx-1', userId: 'someone-elses-uuid', amount: 100, category: 'food', type: 'expense' };
 const OWN_RECORD = { ...SOMEONE_ELSES_RECORD, userId: USER_UUID };
@@ -173,9 +138,6 @@ describe('Transaction API route boundaries', () => {
     mocks.updateUseCase.execute,
     mocks.deleteUseCase.execute,
     mocks.restoreUseCase.execute,
-    mocks.archiveUseCase.execute,
-    mocks.unarchiveUseCase.execute,
-    mocks.archiveMultipleUseCase.execute,
   ] as jest.Mock[];
 
   describe('a record’s routes sign in first (#271)', () => {
@@ -221,7 +183,7 @@ describe('Transaction API route boundaries', () => {
       (mocks.restoreUseCase.execute as jest.Mock).mockResolvedValue({ success: true, data: OWN_RECORD });
 
       const statuses = [];
-      for (const [method, path, body] of LIVE_RECORD_ROUTES) statuses.push((await call(method, path, headers, body)).status);
+      for (const [method, path, body] of RECORD_ROUTES) statuses.push((await call(method, path, headers, body)).status);
 
       expect(statuses).toEqual([200, 200, 200, 200]);
       expect(mocks.updateUseCase.execute).toHaveBeenCalledWith({ id: 'tx-1', amount: 150 });
@@ -229,7 +191,7 @@ describe('Transaction API route boundaries', () => {
       expect(mocks.restoreUseCase.execute).toHaveBeenCalledWith({ id: 'tx-1' });
     });
 
-    it.each(LIVE_RECORD_ROUTES)('%s %s of someone else’s record: 403 AUTHORIZATION_ERROR, nothing changes', async (method, path, body) => {
+    it.each(RECORD_ROUTES)('%s %s of someone else’s record: 403 AUTHORIZATION_ERROR, nothing changes', async (method, path, body) => {
       (mocks.getByIdUseCase.execute as jest.Mock).mockResolvedValue({ success: true, data: SOMEONE_ELSES_RECORD });
 
       const res = await call(method, path, headers, body);
@@ -242,7 +204,7 @@ describe('Transaction API route boundaries', () => {
       for (const write of recordWrites()) expect(write).not.toHaveBeenCalled();
     });
 
-    it.each(LIVE_RECORD_ROUTES)('%s %s of an unknown record: 404 NOT_FOUND', async (method, path, body) => {
+    it.each(RECORD_ROUTES)('%s %s of an unknown record: 404 NOT_FOUND', async (method, path, body) => {
       (mocks.getByIdUseCase.execute as jest.Mock).mockResolvedValue({
         success: false,
         error: new NotFoundError('Transaction', 'tx-1'),

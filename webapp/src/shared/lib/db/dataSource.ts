@@ -95,21 +95,6 @@ export const transactionDataSource = {
     const response = await apiClient.get<any>(`/transactions/${id}`);
     return response.data ? serverTxToLocal(response.data) : undefined;
   },
-
-  /**
-   * Get analytics summary
-   */
-  async getAnalytics(startDate?: string, endDate?: string) {
-    const { userId } = useUserStore.getState();
-    if (!userId) return null;
-
-    const params = new URLSearchParams();
-    if (startDate) params.set('startDate', startDate);
-    if (endDate) params.set('endDate', endDate);
-
-    const response = await apiClient.get(`/transactions/analytics/summary/${userId}?${params}`);
-    return response.data;
-  },
 };
 
 /**

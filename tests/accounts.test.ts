@@ -140,7 +140,7 @@ describe('accounts and balances (FT-101)', () => {
         const cash = await account('Наличные', 'UZS', toMinorSum(100000));
         const card = await account('Карта Humo', 'UZS');
         const archived = await record(cash.id, 40000);
-        await records.repository.archive(archived);
+        await records.markArchived(archived);
         await record(cash.id, 70000, { date: '2026-09-30' });
         await record(card.id, 15000);
 

@@ -5,7 +5,8 @@
 > в пути записи — `CreateDebtUseCase` и типы — уходит в #266 после FT-217. Записи, которые создал долг или платёж по нему,
 > — обычные записи: читаются, правятся и удаляются как все, в итогах — вне доходов и расходов
 > (`tests/debtLinkedRecords.test.ts`). Таблицы `debts` и `debt_payments` с данными остаются. Ниже — снимок FT-021,
-> поведение долгов в нём — история.
+> поведение долгов в нём — история. `AnalyticsService` удалён в #273: итоги считает `PeriodTotalsService`, где такая
+> запись — движение `debt`, вне доходов и расходов.
 >
 > Status: FT-021 audit. This document records current debt ↔ transaction behavior and accounting ambiguities before changing any money semantics.
 

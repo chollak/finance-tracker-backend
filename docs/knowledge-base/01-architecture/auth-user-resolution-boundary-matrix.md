@@ -6,7 +6,24 @@
 >
 > #265 (2026-11-04): the debt routes — `/api/debts/*` — and the debt use cases that resolved their owner themselves are removed; the debt routes in the dated sections below are history.
 >
+> #273 (2026-11-05): the archive's five routes and the old analytics `/api/transactions/analytics/*/:userId` are removed; they are history in the dated sections below.
+>
 > #274 (2026-11-05): the user routes — `/api/users/*` — are removed: no client called them, and `PUT /api/users/:id` answered `404` before its owner check, telling whether a UUID was someone's. A user is made only on the first request (`createCurrentUserMiddleware`, `getOrCreate`); settings change through `PATCH /api/settings`, the user taken from sign-in.
+
+## 2026-11-05 — the archive and the old analytics are gone (#273)
+
+Nothing called them: the Mini App, the iOS app and the bot never archived a record (deleting is soft since FT-105),
+and the analytics screen reads `/api/analytics` since FT-120. Removed: `POST /api/transactions/:id/archive`,
+`/:id/unarchive`, `/archive/batch`, `/archive/all/:userId`, `GET /archived/user/:userId` and
+`GET /api/transactions/analytics/{summary,categories,trends,patterns,top-categories}/:userId` — with their use cases,
+`AnalyticsService`, the repository's archive methods and `getAll()` (every user's records, no caller). They answer `404`
+(`tests/deadTransactionRoutes.test.ts`). Of the records routes with `:userId` in the path only
+`GET /api/transactions/user/:userId` is left (`tests/legacyUserIdRoutes.test.ts`).
+
+The `isArchived` column and the reads' filter stay: a record archived before stays hidden everywhere — Home, History
+and its search, totals, balances, analytics, the export, the bot's summaries, by its id `404` (decision Д7,
+`tests/archivedRecords.test.ts`). Nothing sets `isArchived` any more; bringing such records back is a change of real
+data.
 
 ## 2026-11-05 — a record's routes sign in first; `optionalAuth` is gone (#271)
 
@@ -27,7 +44,7 @@ Unchanged: signed in (initData, the session cookie, `X-Dev-User-Id` outside prod
 token), someone else's record is `403 AUTHORIZATION_ERROR` and an unknown one `404` — `verifyResourceOwnership` after
 the record is read. The archive's routes went over too, though #273 removes them: they would have been the only users
 of `optionalAuth` left.
-Tests: `tests/transactionRoutes.test.ts` (all seven routes: `401` without sign-in and with a non-initData
+Tests: `tests/transactionRoutes.test.ts` (all seven routes, four since #273: `401` without sign-in and with a non-initData
 `Authorization`, the record not read; signed in by the dev header and by the session: own record `200`, someone else's
 `403`, unknown `404`), `tests/appTokenRecords.test.ts` (on the real stack: `401` for an id that exists and one that
 does not, the record unchanged; the token opens exactly its six routes as before), `tests/localDevAuth.test.ts`,
@@ -363,8 +380,8 @@ FT-017D decision: do not globally change this helper to fail-closed yet.
 | Settings | `GET`, `PATCH /api/settings` | `requireAuth` | signed-in user (`createCurrentUserMiddleware`) | none — no userId taken; an unknown field (`userId`, `timezone`) is `400` | strict |
 | Transaction history, totals, frequent | `GET /api/transactions` (FT-107), `/totals`, `/frequent` | `requireAuth` (`GET /` also the app token, FT-218) | signed-in user (`createCurrentUserMiddleware`) | none — no userId taken | strict |
 | Transaction create | `POST /api/transactions` | `requireAuth` | signed-in user (`createResolveCurrentUserMiddleware`) | `verifyOwnership` on a body/query userId, before resolution (FT-162) | strict |
-| Transaction user-scoped analytics/list | `/api/transactions/.../:userId` | `requireAuth` (`allowGuestMode` until #206) | route middleware, after the check (FT-162) | `verifyOwnership` | strict |
-| Transaction by-id CRUD/archive | `/api/transactions/:id` | `requireAuth`; delete, restore, edit `requireAuthOrAppToken` (FT-218); `optionalAuth` until #271 | controller/helper | `verifyResourceOwnership` | strict |
+| Transaction user-scoped list | `GET /api/transactions/user/:userId` (the old analytics and the archive's two went in #273) | `requireAuth` (`allowGuestMode` until #206) | route middleware, after the check (FT-162) | `verifyOwnership` | strict |
+| Transaction by-id CRUD | `/api/transactions/:id`, `POST …/restore` (the archive's three went in #273) | `requireAuth`; delete, restore, edit `requireAuthOrAppToken` (FT-218); `optionalAuth` until #271 | controller/helper | `verifyResourceOwnership` | strict |
 | Voice text-input and upload — removed in #221 | `/api/voice/text-input`, `/api/voice/voice-input` | — (`404`) | — | — | — |
 | Quick capture | `POST /api/quick-capture`, `/payment` | `allowShortcutCapture`: `requireAuth` + `writeAsSignedInUser`, or the Shortcut token (FT-155) | controller resolver | signed-in user or `SHORTCUT_CAPTURE_OWNER` | strict |
 | Budgets — removed in #264 | `/api/budgets/users/:userId/...`, `/api/budgets/:budgetId...` | — (`404`) | — | — | — |
