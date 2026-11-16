@@ -3,7 +3,6 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { DataSource } from 'typeorm';
-import { TelegramError } from 'telegraf';
 import { createAppDataSource } from '../src/shared/infrastructure/database/database.config';
 import { runMigrationsWithBackup } from '../src/shared/infrastructure/database/migrationRunner';
 import { AppConfig } from '../src/shared/infrastructure/config/appConfig';
@@ -19,9 +18,6 @@ import { SqliteUserRepository } from '../src/modules/user/infrastructure/persist
 import { SqliteUserSettingsRepository } from '../src/modules/user/infrastructure/persistence/SqliteUserSettingsRepository';
 import { BotMessageModule } from '../src/modules/botMessage/botMessageModule';
 import { SqliteBotMessageRepository } from '../src/modules/botMessage/infrastructure/SqliteBotMessageRepository';
-import { closeAmountQuestionOnCommand, registerRecordHandlers } from '../src/delivery/messaging/telegram/handlers/recordHandlers';
-import { registerCallbackHandlers } from '../src/delivery/messaging/telegram/handlers/callbackHandlers';
-import { registerMessageHandlers } from '../src/delivery/messaging/telegram/handlers/messageHandlers';
 import { resolveUserIdToUUID } from '../src/shared/application/helpers/userIdResolver';
 import { addDaysToDateOnly, todayDateOnly } from '../src/shared/domain/dates/dateOnly';
 import { absoluteDate } from '../src/delivery/messaging/telegram/formatters/recordMessage';
@@ -35,10 +31,11 @@ import { ProcessTextInputUseCase } from '../src/modules/voiceProcessing/applicat
 import { QuickCaptureService } from '../src/modules/quickCapture/application/quickCaptureService';
 import { TransactionLearningService } from '../src/shared/application/learning/transactionLearning';
 import { winstonLogger } from '../src/shared/infrastructure/logging';
-import { refuseWebAppOffHttps } from './helpers/telegramWebAppRefusal';
+import { networkError, Refusal, REFUSAL, StandModules, TelegramStand } from './helpers/telegramStand';
 
 // A voice message is not downloaded in tests; what it «says» is set by the test
-jest.mock('../src/delivery/messaging/telegram/utils', () => ({
+jest.mock('../src/delivery/messaging/telegram/utils/fileDownloader', () => ({
+  ...jest.requireActual('../src/delivery/messaging/telegram/utils/fileDownloader'),
   downloadVoiceFile: jest.fn(async (_url: string, fileId: string) => `/tmp/voice/${fileId}.ogg`),
   cleanupFile: jest.fn(async () => undefined),
 }));
@@ -46,8 +43,9 @@ jest.mock('../src/delivery/messaging/telegram/utils', () => ({
 /**
  * FT-122 end to end on a real SQLite file: a phrase in the chat → one confirmation; «Изменить» → a
  * field in two presses; «Отменить» → struck through with «Вернуть»; /undo; and all of it after the bot
- * restarts. Telegram is a fake chat that keeps the messages the bot sent and edited; the handlers are
- * registered the way telegramBot.ts registers them, and every update runs through that chain.
+ * restarts. The bot is the one `startTelegramBot` assembles, on the real Telegraf (#280): Telegraf routes every
+ * update — the commands, the presses, the order the handlers are registered in. Telegram is the stand's chat
+ * (`tests/helpers/telegramStand.ts`): it keeps the messages the bot sent and edited and refuses as Telegram does.
  */
 
 const NB = ' ';
@@ -55,9 +53,6 @@ const MINUS = '−';
 const TELEGRAM_ID = 131184740;
 /** What the bot says to an amount answer of two numbers or more (FT-224). */
 const ONE_AMOUNT = `Вижу несколько чисел. Напишите одну сумму — например, 25${NB}000 или 25к.`;
-
-interface Button { text: string; callback_data?: string; web_app?: { url: string } }
-interface ChatMessage { text: string; keyboard: Button[][] }
 
 /** What a capture of the phrase should write — the parser is not under test here. */
 interface PlannedRecord {
@@ -74,60 +69,17 @@ interface PlannedRecord {
   phrase?: string;
 }
 
-type Middleware = (ctx: any, next: () => Promise<void>) => Promise<void> | void;
-
-async function run(chain: Middleware[], ctx: any): Promise<void> {
-  const step = async (index: number): Promise<void> => {
-    if (index < chain.length) await chain[index](ctx, () => step(index + 1));
-  };
-  await step(0);
-}
-
-class Bot {
-  readonly actions: Array<{ trigger: RegExp | string; handler: (ctx: any) => Promise<void> }> = [];
-  readonly commands = new Map<string, (ctx: any) => Promise<void>>();
-  readonly middleware: Middleware[] = [];
-  readonly handlers: Array<{ filter: (update: any) => boolean; chain: Middleware[] }> = [];
-
-  use(middleware: Middleware) {
-    this.middleware.push(middleware);
-  }
-
-  on(filter: (update: any) => boolean, ...chain: Middleware[]) {
-    this.handlers.push({ filter, chain });
-  }
-
-  action(trigger: RegExp | string, handler: (ctx: any) => Promise<void>) {
-    this.actions.push({ trigger, handler });
-  }
-
-  command(name: string, handler: (ctx: any) => Promise<void>) {
-    this.commands.set(name, handler);
-  }
-
-  /** A message the way Telegraf runs it: the middleware first, then its command or the first handler that matches. */
-  async handle(ctx: any): Promise<void> {
-    const text: unknown = ctx.message?.text;
-    const command = typeof text === 'string' && text.startsWith('/') ? this.commands.get(text.slice(1).split(/\s/)[0]) : undefined;
-    const tail: Middleware[] = command
-      ? [async (c: any) => command(c)]
-      : this.handlers.find(({ filter }) => filter(ctx.update))?.chain ?? [];
-    await run([...this.middleware, ...tail], ctx);
-  }
-}
-
 /** What the free limit says for the next record (FT-091: off by default, on here when a test says so). */
 interface LimitAnswer { allowed: boolean }
 
 interface Running {
   ds: DataSource;
-  modules: Record<string, unknown>;
+  modules: StandModules;
   transactionModule: TransactionModule;
   accountModule: AccountModule;
   categoryModule: CategoryModule;
   userModule: UserModule;
   botMessageModule: BotMessageModule;
-  bot: Bot;
   capture: jest.Mock;
   captureWithAmount: jest.Mock;
   voice: jest.Mock;
@@ -139,17 +91,13 @@ describe('bot record messages (FT-122)', () => {
   let running: Running;
   let userId: string;
   const open: DataSource[] = [];
-  const messages = new Map<number, ChatMessage>();
-  let nextMessageId = 100;
+  /** Telegram: the chat with the person, kept across restarts of the bot. */
+  let stand: TelegramStand;
   let plan: PlannedRecord[] = [];
   /** What the capture of the phrase names without an amount (FT-123). */
   let planMissing: ItemWithoutAmount[] = [];
   let heard = '';
   let limit: LimitAnswer = { allowed: true };
-  /** Telegram refuses the bot's next message once (FT-123 review). */
-  let replyFails = false;
-  /** What Telegram answers to an edit of a bot message the person deleted from the chat (#277). */
-  const refusedEdits = new Map<number, string>();
   const today = todayDateOnly();
 
   /** Writes the planned records the way the capture use cases do: through the create use case. */
@@ -223,35 +171,19 @@ describe('bot record messages (FT-122)', () => {
       getIncrementUsageUseCase: () => ({ execute: async () => undefined }),
     };
 
-    // In the order telegramBot.ts registers them
-    const bot = new Bot();
-    bot.use(closeAmountQuestionOnCommand);
-    registerRecordHandlers(bot as any);
-    registerCallbackHandlers(bot as any);
-    registerMessageHandlers(bot as any, subscriptionModule as any, userModule);
-
-    return {
-      ds,
+    const modules: StandModules = {
       transactionModule,
       accountModule,
       categoryModule,
       userModule,
       botMessageModule,
-      bot,
-      capture,
-      captureWithAmount,
-      voice,
-      modules: {
-        transactionModule,
-        accountModule,
-        categoryModule,
-        userModule,
-        botMessageModule,
-        subscriptionModule,
-        quickCaptureModule: { getQuickCaptureService: () => ({ capture, captureWithAmount }) },
-        voiceModule: { getProcessVoiceInputUseCase: () => ({ execute: voice }) },
-      },
+      subscriptionModule,
+      quickCaptureModule: { getQuickCaptureService: () => ({ capture, captureWithAmount }) },
+      voiceModule: { getProcessVoiceInputUseCase: () => ({ execute: voice }) },
     };
+    stand.start(modules);
+
+    return { ds, transactionModule, accountModule, categoryModule, userModule, botMessageModule, capture, captureWithAmount, voice, modules };
   }
 
   /** The bot process stops: the connection closes; what is in memory is gone. */
@@ -260,48 +192,15 @@ describe('bot record messages (FT-122)', () => {
     running = await start();
   }
 
-  function baseContext() {
-    return {
-      from: { id: TELEGRAM_ID, first_name: 'Shukur' },
-      chat: { id: TELEGRAM_ID },
-      session: {},
-      modules: running.modules,
-      sendChatAction: jest.fn().mockResolvedValue(undefined),
-      answerCbQuery: jest.fn().mockResolvedValue(undefined),
-      reply: jest.fn(async (text: string, extra?: any) => {
-        if (replyFails) {
-          replyFails = false;
-          throw new Error('Telegram is down');
-        }
-        refuseWebAppOffHttps(extra);
-        const messageId = nextMessageId++;
-        messages.set(messageId, { text, keyboard: extra?.reply_markup?.inline_keyboard ?? [] });
-        return { message_id: messageId, chat: { id: TELEGRAM_ID } };
-      }),
-      telegram: {
-        editMessageText: jest.fn(async (_chat: string, messageId: number, _inline: unknown, text: string, extra?: any) => {
-          const refusal = refusedEdits.get(messageId);
-          if (refusal) throw new TelegramError({ error_code: 400, description: refusal });
-          refuseWebAppOffHttps(extra);
-          messages.set(messageId, { text, keyboard: extra?.reply_markup?.inline_keyboard ?? [] });
-          return true;
-        }),
-        getFileLink: jest.fn(async () => ({ href: 'https://telegram.test/voice.ogg' })),
-      },
-    };
-  }
-
   /**
    * The person writes in the chat — as a Telegram reply to a bot message with `replyTo`; returns the id of
-   * the bot's last message.
+   * the chat's newest message: the bot's last answer.
    */
   async function write(text: string, records: PlannedRecord[] = [], extra: { missing?: ItemWithoutAmount[]; replyTo?: number } = {}): Promise<number> {
     plan = records;
     planMissing = extra.missing ?? [];
-    nextMessageId += 1; // the person's own message takes an id too
-    const message = { text, ...(extra.replyTo ? { reply_to_message: { message_id: extra.replyTo } } : {}) };
-    await running.bot.handle({ ...baseContext(), message, update: { message } });
-    return nextMessageId - 1;
+    await stand.write(text, { replyTo: extra.replyTo });
+    return stand.lastMessageId;
   }
 
   /** The person sends a voice message that is heard as `words`; returns the id of the bot's last message. */
@@ -309,51 +208,51 @@ describe('bot record messages (FT-122)', () => {
     plan = records;
     planMissing = missing;
     heard = words;
-    nextMessageId += 1;
-    const message = { voice: { file_id: `voice-${nextMessageId}` } };
-    await running.bot.handle({ ...baseContext(), message, update: { message } });
-    return nextMessageId - 1;
+    await stand.say();
+    return stand.lastMessageId;
   }
 
-  /** The person deletes a bot message from the chat, or clears the history: Telegram refuses to edit it (#277). */
-  function deleteFromChat(messageId: number, refusal = 'Bad Request: message to edit not found') {
-    messages.delete(messageId);
-    refusedEdits.set(messageId, refusal);
+  /**
+   * The person deletes a bot message from the chat, or clears the history: Telegram refuses to edit it — «message to
+   * edit not found», or the refusal given (#277).
+   */
+  function deleteFromChat(messageId: number, refusal?: string) {
+    stand.deleteFromChat(messageId, refusal === undefined ? undefined : { error_code: 400, description: refusal });
+  }
+
+  /** Telegram refuses every edit of this message. */
+  function refuseEdits(messageId: number, refusal: Refusal | Error) {
+    stand.refuse('editMessageText', refusal, { messageId, times: Infinity });
   }
 
   function awaiting() {
     return running.botMessageModule.getLog().awaitingAmount(String(TELEGRAM_ID));
   }
 
-  async function pressData(messageId: number, data: string) {
-    const ctx: any = { ...baseContext(), callbackQuery: { data, message: { message_id: messageId, chat: { id: TELEGRAM_ID } } } };
-    const action = running.bot.actions.find(({ trigger }) => (typeof trigger === 'string' ? trigger === data : trigger.test(data)));
-    if (!action) throw new Error(`No handler for ${data}`);
-    ctx.match = typeof action.trigger === 'string' ? [data] : action.trigger.exec(data);
-    await action.handler(ctx);
-    return ctx;
+  /** Presses a button by its data; returns what the bot answered the press with. */
+  function pressData(messageId: number, data: string, options: { from?: number } = {}) {
+    return stand.pressData(messageId, data, options);
   }
 
-  async function press(messageId: number, label: string) {
-    const button = messages.get(messageId)!.keyboard.flat().find(candidate => candidate.text === label);
-    if (!button?.callback_data) throw new Error(`No button «${label}» under message ${messageId}: ${JSON.stringify(labels(messageId))}`);
-    return pressData(messageId, button.callback_data);
+  function press(messageId: number, label: string) {
+    return stand.press(messageId, label);
   }
 
   /** The callback data of a button as it is now: pressed again later, it is a stale keyboard or a double tap. */
   function dataOf(messageId: number, label: string): string {
-    const button = messages.get(messageId)!.keyboard.flat().find(candidate => candidate.text === label);
-    if (!button?.callback_data) throw new Error(`No button «${label}» under message ${messageId}: ${JSON.stringify(labels(messageId))}`);
-    return button.callback_data;
+    return stand.dataOf(messageId, label);
   }
 
   function text(messageId: number): string {
-    return messages.get(messageId)!.text;
+    return stand.textOf(messageId);
   }
 
   function labels(messageId: number): string[][] {
-    return messages.get(messageId)!.keyboard.map(row => row.map(button => button.text));
+    return stand.labelsOf(messageId);
   }
+
+  /** The bot messages in the chat. */
+  const sent = () => stand.botMessages();
 
   async function record(id: string) {
     const found = await running.transactionModule.getGetTransactionByIdUseCase().execute(id, { includeDeleted: true });
@@ -371,12 +270,11 @@ describe('bot record messages (FT-122)', () => {
 
   beforeEach(async () => {
     limit = { allowed: true };
-    replyFails = false;
-    refusedEdits.clear();
     dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ft122-flow-'));
     file = path.join(dir, 'db.sqlite');
-    messages.clear();
     jest.spyOn(AppConfig, 'getWebAppUrl').mockReturnValue('https://miniapp.test');
+    stand = new TelegramStand({ id: TELEGRAM_ID, first_name: 'Shukur' });
+    stand.install();
     running = await start();
     userId = await resolveUserIdToUUID(String(TELEGRAM_ID), running.userModule);
     await running.accountModule.getBook().listForUser(userId); // «Карта»
@@ -403,7 +301,7 @@ describe('bot record messages (FT-122)', () => {
     );
     expect(labels(message)).toEqual([[`${MINUS}25${NB}000 · «Кофе»`], [`${MINUS}18${NB}000 · «Такси»`], ['Отменить все']]);
     expect(await recordIdsOf(message)).toHaveLength(2);
-    expect([...messages.values()].filter(sent => sent.text.includes('Кофе'))).toHaveLength(1);
+    expect(sent().filter(message => message.text.includes('Кофе'))).toHaveLength(1);
   });
 
   it('«Изменить» → «Категорию» → a category: two presses to the field, then the record changes', async () => {
@@ -433,7 +331,7 @@ describe('bot record messages (FT-122)', () => {
     const date = await press(message, 'Дату');
     expect(labels(message)).toEqual([['✓ Сегодня', 'Вчера'], ['Позавчера'], ['‹ Назад']]);
 
-    for (const ctx of [edit, date]) expect(ctx.answerCbQuery).not.toHaveBeenCalledWith('Произошла ошибка. Попробуйте снова.');
+    for (const answers of [edit, date]) expect(answers).not.toContain('Произошла ошибка. Попробуйте снова.');
   });
 
   it('a category picked with «Изменить» teaches the parser, as a correction in the Mini App does (FT-184)', async () => {
@@ -627,7 +525,7 @@ describe('bot record messages (FT-122)', () => {
     expect(text(reply)).toBe(`Изменил: ${MINUS}150${NB}000${NB}сум · «Обед с командой»`);
     expect(text(message)).toContain(`<i>Сумма изменена: было 145${NB}000.</i>`);
     // Nothing was written from it
-    expect([...messages.values()].some(sent => sent.text.includes('«Кофе»'))).toBe(false);
+    expect(sent().some(message => message.text.includes('«Кофе»'))).toBe(false);
     expect(await awaiting()).toBeNull();
   });
 
@@ -732,9 +630,9 @@ describe('bot record messages (FT-122)', () => {
     const deleted = await running.transactionModule.getDeleteTransactionUseCase().execute({ id });
     expect(deleted.success).toBe(true);
 
-    const ctx = await press(message, 'Кафе');
+    const answers = await press(message, 'Кафе');
 
-    expect(ctx.answerCbQuery).not.toHaveBeenCalledWith('Произошла ошибка. Попробуйте снова.');
+    expect(answers).not.toContain('Произошла ошибка. Попробуйте снова.');
     expect((await record(id)).deletedAt).toBeTruthy();
     expect(text(message)).toContain('Отменено — в приложении этой записи нет.');
     expect(labels(message)).toEqual([['Вернуть']]);
@@ -881,6 +779,45 @@ describe('bot record messages (FT-122)', () => {
     expect(labels(message)).toEqual([['Изменить', 'Отменить']]);
   });
 
+  describe('Telegram around the bot (#280)', () => {
+    const rows = async () => Number((await running.ds.query('SELECT COUNT(*) AS n FROM "transactions" WHERE "deleted_at" IS NULL'))[0].n);
+
+    // Polling hands a batch of getUpdates to the handlers side by side; the order inside one batch is #317
+    it('the same words twice in one batch of updates are two messages: two records, a confirmation each', async () => {
+      plan = [coffee];
+      planMissing = [];
+
+      const confirmations = await stand.deliver([stand.textUpdate('кофе 25к'), stand.textUpdate('кофе 25к')]);
+
+      expect(running.capture).toHaveBeenCalledTimes(2);
+      expect(await rows()).toBe(2);
+      expect(confirmations.map(message => message.text)).toEqual([expect.stringContaining('«Кофе»'), expect.stringContaining('«Кофе»')]);
+      const shown = await Promise.all(confirmations.map(message => recordIdsOf(message.id)));
+      expect(shown.map(ids => ids.length)).toEqual([1, 1]);
+      expect(new Set(shown.flat()).size).toBe(2);
+    });
+
+    it('a person who blocks the bot while the phrase is parsed keeps the record; the bot answers them when they come back', async () => {
+      const writeRecords = running.capture.getMockImplementation()!;
+      running.capture.mockImplementationOnce(async request => {
+        stand.block();
+        return writeRecords(request);
+      });
+      plan = [taxi];
+
+      // The confirmation and the error notices after it are all refused with 403; bot.catch gets the last one
+      await stand.write('такси 18к нал', { botCatch: 'allow' });
+
+      expect(await rows()).toBe(1);
+      expect(sent()).toEqual([]);
+      expect(stand.caught).toEqual([expect.objectContaining({ code: 403 })]);
+
+      const message = await write('кофе 25к', [coffee]);
+      expect(text(message)).toContain('«Кофе»');
+      expect(await rows()).toBe(2);
+    });
+  });
+
   describe('a bot message deleted from the chat (#277)', () => {
     const ERROR = 'Произошла ошибка. Попробуйте снова.';
 
@@ -905,8 +842,8 @@ describe('bot record messages (FT-122)', () => {
       expect((await record(coffeeId)).deletedAt).toBeFalsy();
       expect(text(reply)).toBe(`Отменил последнюю запись: ${MINUS}18${NB}000${NB}сум · «Такси»`);
       expect(labels(reply)).toEqual([['Вернуть']]);
-      expect([...messages.values()].map(sent => sent.text)).not.toContain(ERROR);
-      expect(messages.has(second)).toBe(false);
+      expect(sent().map(message => message.text)).not.toContain(ERROR);
+      expect(stand.has(second)).toBe(false);
       expect(warn).toHaveBeenCalledWith(
         expect.stringContaining('gone from the chat'),
         expect.objectContaining({ category: 'TELEGRAM', messageId: second, error: `400: ${refusal}` })
@@ -915,31 +852,31 @@ describe('bot record messages (FT-122)', () => {
 
     it('another refusal of Telegram is not taken for a deleted message', async () => {
       const message = await write('такси 18к нал', [taxi]);
-      refusedEdits.set(message, 'Bad Request: chat not found');
+      refuseEdits(message, REFUSAL.chatNotFound);
 
       expect(text(await write('/undo'))).toBe(ERROR);
     });
 
     it('429 and a network error are still errors', async () => {
       const message = await write('такси 18к нал', [taxi]);
-      refusedEdits.set(message, 'Too Many Requests: retry after 5');
+      refuseEdits(message, REFUSAL.tooManyRequests);
       expect(text(await write('/undo'))).toBe(ERROR);
 
       const other = await write('кофе 25к', [coffee]);
-      refusedEdits.set(other, 'request to https://api.telegram.org failed, reason: ECONNRESET');
-      const ctx = await press(other, 'Изменить');
-      expect(ctx.answerCbQuery).toHaveBeenCalledWith(ERROR);
+      refuseEdits(other, networkError('editMessageText'));
+      const answers = await press(other, 'Изменить');
+      expect(answers).toEqual([ERROR]);
     });
 
     it('«message is not modified» is still silent: no warning, no error, the press is saved', async () => {
       const warn = jest.spyOn(winstonLogger, 'warn').mockImplementation(() => winstonLogger);
       const message = await write('такси 18к нал', [taxi]);
-      refusedEdits.set(message, 'Bad Request: message is not modified: specified new message content and reply markup are exactly the same');
+      refuseEdits(message, REFUSAL.notModified);
 
-      const ctx = await press(message, 'Изменить');
+      const answers = await press(message, 'Изменить');
 
-      expect(ctx.answerCbQuery).toHaveBeenCalledWith(undefined);
-      expect(ctx.answerCbQuery).not.toHaveBeenCalledWith(ERROR);
+      expect(answers).toStrictEqual([undefined]);
+      expect(answers).not.toContain(ERROR);
       expect(warn).not.toHaveBeenCalledWith(expect.stringContaining('gone from the chat'), expect.anything());
       expect((await running.botMessageModule.getLog().find(String(TELEGRAM_ID), message))!.mode).toBe('edit');
     });
@@ -950,9 +887,9 @@ describe('bot record messages (FT-122)', () => {
       deleteFromChat(message);
       const reply = await write('/undo');
 
-      const ctx = await press(reply, 'Вернуть');
+      const answers = await press(reply, 'Вернуть');
 
-      expect(ctx.answerCbQuery).not.toHaveBeenCalledWith(ERROR);
+      expect(answers).not.toContain(ERROR);
       expect((await record(id)).deletedAt).toBeFalsy();
       expect(text(reply)).toBe('Вернул запись.');
       expect(labels(reply)).toEqual([]);
@@ -966,9 +903,9 @@ describe('bot record messages (FT-122)', () => {
       const reply = await write('/undo');
       deleteFromChat(reply);
 
-      const ctx = await press(message, 'Вернуть');
+      const answers = await press(message, 'Вернуть');
 
-      expect(ctx.answerCbQuery).not.toHaveBeenCalledWith(ERROR);
+      expect(answers).not.toContain(ERROR);
       expect((await record(id)).deletedAt).toBeFalsy();
       expect(text(message)).not.toContain('<s>');
       expect(text(message)).toMatch(/<i>Запись возвращена\.<\/i>$/);
@@ -992,9 +929,9 @@ describe('bot record messages (FT-122)', () => {
       await press(message, 'Категорию');
       await hideCategory('Кафе');
 
-      const ctx = await press(message, 'Кафе');
+      const answers = await press(message, 'Кафе');
 
-      expect(ctx.answerCbQuery).toHaveBeenCalledWith('Этой категории уже нет — выберите другую.');
+      expect(answers).toEqual(['Этой категории уже нет — выберите другую.']);
       expect((await record(id)).category).toBe('Транспорт');
       expect(labels(message).flat()).not.toContain('Кафе');
       expect(labels(message).flat()).toContain('✓ Транспорт');
@@ -1014,9 +951,9 @@ describe('bot record messages (FT-122)', () => {
       const hidden = await running.accountModule.getUpdateAccountUseCase().execute({ userId, accountId: cash.id, body: { isHidden: true } });
       expect(hidden.success).toBe(true);
 
-      const ctx = await press(message, 'Наличные');
+      const answers = await press(message, 'Наличные');
 
-      expect(ctx.answerCbQuery).toHaveBeenCalledWith('Этого счёта уже нет — выберите другой.');
+      expect(answers).toEqual(['Этого счёта уже нет — выберите другой.']);
       expect((await record(id)).accountId).toBe(card.id);
       expect(labels(message)).toEqual([['✓ Карта'], ['‹ Назад']]);
     });
@@ -1027,9 +964,9 @@ describe('bot record messages (FT-122)', () => {
       // Not a path of the app: a record that left the database altogether
       await running.ds.query('DELETE FROM "transactions" WHERE "id" = ?', [taxiId]);
 
-      const ctx = await press(message, `${MINUS}18${NB}000 · «Такси»`);
+      const answers = await press(message, `${MINUS}18${NB}000 · «Такси»`);
 
-      expect(ctx.answerCbQuery).toHaveBeenCalledWith('Не нашёл эту запись.');
+      expect(answers).toEqual(['Не нашёл эту запись.']);
       expect(text(message)).not.toContain('Такси');
       expect(labels(message)).toEqual([['Изменить', 'Отменить']]);
       expect((await record(coffeeId)).deletedAt).toBeFalsy();
@@ -1061,26 +998,21 @@ describe('bot record messages (FT-122)', () => {
   it('a button under a message it does not know, or of another person, changes nothing', async () => {
     const message = await write('такси 18к нал', [taxi]);
     const [id] = await recordIdsOf(message);
-    const stranger = { ...baseContext(), from: { id: 555 } };
     await resolveUserIdToUUID('555', running.userModule);
 
-    const ctx: any = { ...stranger, callbackQuery: { data: 'r:x', message: { message_id: message, chat: { id: TELEGRAM_ID } } } };
-    const action = running.bot.actions.find(({ trigger }) => typeof trigger !== 'string' && trigger.test('r:x'))!;
-    ctx.match = (action.trigger as RegExp).exec('r:x');
-    await action.handler(ctx);
+    const answers = await pressData(message, 'r:x', { from: 555 });
 
-    expect(ctx.answerCbQuery).toHaveBeenCalledWith('Не нашёл эту запись.');
+    expect(answers).toEqual(['Не нашёл эту запись.']);
     expect((await record(id)).deletedAt).toBeFalsy();
 
     const unknown = await pressData(9999, 'r:x');
-    expect(unknown.answerCbQuery).toHaveBeenCalledWith('Не нашёл эту запись.');
+    expect(unknown).toEqual(['Не нашёл эту запись.']);
   });
 
   it('takes over the buttons of a confirmation sent before FT-122: «Удалить» cancels with «Вернуть»', async () => {
     plan = [taxi];
     const { transactions } = await running.capture({ userId });
-    const old = nextMessageId++;
-    messages.set(old, { text: '✅ <b>Записал</b>\nТакси · 18 000 сум', keyboard: [] });
+    const old = stand.sentBefore('✅ <b>Записал</b>\nТакси · 18 000 сум');
 
     await pressData(old, `delete:${transactions[0].id}`);
 
@@ -1088,7 +1020,7 @@ describe('bot record messages (FT-122)', () => {
     expect(text(old)).toContain('Отменено — в приложении этой записи нет.');
     expect(labels(old)).toEqual([['Вернуть']]);
 
-    const edited = nextMessageId++;
+    const edited = stand.sentBefore('✅ <b>Записал</b>\nТакси · 18 000 сум');
     await pressData(edited, `edit:${(await running.capture({ userId })).transactions[0].id}`);
     expect(labels(edited)[0]).toEqual(['Сумму', 'Категорию']);
   });
@@ -1096,9 +1028,9 @@ describe('bot record messages (FT-122)', () => {
   it('answers every press so the button does not spin', async () => {
     const message = await write('такси 18к нал', [taxi]);
 
-    const ctx = await press(message, 'Изменить');
+    const answers = await press(message, 'Изменить');
 
-    expect(ctx.answerCbQuery).toHaveBeenCalled();
+    expect(answers).toHaveLength(1);
   });
   describe('clarifications and corrections by reply (FT-123)', () => {
     const taxiItem: ItemWithoutAmount = { description: 'такси', category: 'Транспорт', type: 'expense', date: today };
@@ -1461,14 +1393,14 @@ describe('bot record messages (FT-122)', () => {
         const fix = dataOf(message, `Это 25${NB}000${NB}сум`);
 
         await pressData(message, fix);
-        const ctx = await pressData(message, fix);
+        const answers = await pressData(message, fix);
 
         expect((await record(id)).amountMinor).toBe(2_500_000);
         expect(await inApp(id)).toBe(true);
         expect(text(message)).toContain(`<b>Расход ${MINUS}25${NB}000${NB}сум</b>`);
         expect(text(message)).toContain(`Сумма изменена: было 25${NB}000${NB}000.`);
         expect(labels(message)).toEqual([['Изменить', 'Отменить']]);
-        expect(ctx.answerCbQuery).toHaveBeenCalledWith(undefined);
+        expect(answers).toStrictEqual([undefined]);
       });
 
       it('«Не записывать» left from before «Да, верная» does not delete the written record', async () => {
@@ -1574,7 +1506,7 @@ describe('bot record messages (FT-122)', () => {
       });
 
       it('is written as it is when Telegram refuses the question', async () => {
-        replyFails = true;
+        stand.refuse('sendMessage', networkError('sendMessage'));
 
         const error = await write('кофе 25000000', [bigCoffee]);
 
@@ -1605,7 +1537,7 @@ describe('bot record messages (FT-122)', () => {
 
     describe('an amount answer after its question was deleted from the chat (#277)', () => {
       const ERROR = 'Произошла ошибка. Попробуйте снова.';
-      const sentTexts = () => [...messages.values()].map(sent => sent.text);
+      const sentTexts = () => sent().map(message => message.text);
       const rows = async () => Number((await running.ds.query('SELECT COUNT(*) AS n FROM "transactions"'))[0].n);
 
       it('«Сумму»: changed once, the bot says what changed, the question closes', async () => {

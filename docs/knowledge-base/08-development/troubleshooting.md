@@ -490,7 +490,9 @@ Expected response:
 ```
 
 `503` with `"status": "unhealthy"` means the bot's polling failed for good (`telegramBot.state = failed`, the cause in
-`telegramBot.lastError`); `starting`, `retrying`, `running` and `disabled` are `200` (FT-154).
+`telegramBot.lastError`); `starting`, `retrying`, `running` and `disabled` are `200` (FT-154). `starting` lasts until
+Telegram has answered the bot's `getMe`, usually under a second after a start (#280); one that stays means Telegram does
+not answer — the network or the token.
 
 ### Production process exits right after start
 

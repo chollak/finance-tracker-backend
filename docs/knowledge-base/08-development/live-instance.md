@@ -220,7 +220,8 @@ journalctl -u kapelka.service -f  # Ctrl+C — выйти; без группы a
 
 Готово, когда в журнале есть `Server started`, а проверка отвечает `"environment":"production"` и до переезда —
 `"telegramBot":{"state":"disabled"` (с пустым токеном ещё `"lastError":"TG_BOT_API_KEY missing"`). На репетиции и
-после переезда — `"state":"running"`.
+после переезда — `"state":"running"`; в первую секунду после запуска — `"starting"`, пока Telegram не ответил боту
+(#280).
 
 ```bash
 curl -s http://127.0.0.1:3000/api/health
