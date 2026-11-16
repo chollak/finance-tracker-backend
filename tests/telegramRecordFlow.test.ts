@@ -718,6 +718,25 @@ describe('bot record messages (FT-122)', () => {
     expect(text(second)).toMatch(/<i>Запись возвращена\.<\/i>$/);
   });
 
+  // #281: «Отменил последнюю запись: 2 записи» named one record and counted two
+  it('/undo of a message with several records says how many it cancelled, and «Вернуть» brings all back', async () => {
+    const message = await write('кофе 25к, такси 18к', [coffee, taxi]);
+    const [coffeeId, taxiId] = await recordIdsOf(message);
+
+    const reply = await write('/undo');
+
+    expect((await record(coffeeId)).deletedAt).toBeTruthy();
+    expect((await record(taxiId)).deletedAt).toBeTruthy();
+    expect(text(reply)).toBe('Отменил: 2 записи');
+    expect(labels(reply)).toEqual([['Вернуть']]);
+
+    await press(reply, 'Вернуть');
+
+    expect((await record(coffeeId)).deletedAt).toBeFalsy();
+    expect((await record(taxiId)).deletedAt).toBeFalsy();
+    expect(text(reply)).toBe('Вернул записи.');
+  });
+
   it('/undo again goes one record further back, and says when there is nothing left', async () => {
     const first = await write('кофе 25к', [coffee]);
     await write('такси 18к нал', [taxi]);

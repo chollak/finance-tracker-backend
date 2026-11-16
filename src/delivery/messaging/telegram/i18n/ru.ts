@@ -45,6 +45,8 @@ export const RU = {
     notFound: 'Не нашёл эту запись.',
     nothingToUndo: 'Отменять нечего: записей из чата пока нет.',
     undone: (what: string) => `Отменил последнюю запись: ${what}`,
+    // #281: several records of one message — «Отменил: 2 записи», not «последнюю запись»
+    undoneSeveral: (records: string) => `Отменил: ${records}`,
     reverted: (count: number) => (count > 1 ? 'Вернул записи.' : 'Вернул запись.'),
     amountNotPositive: 'Сумма должна быть больше нуля.',
     amountTooBig: 'Сумма слишком большая — проверьте её и напишите ещё раз.',
