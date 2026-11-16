@@ -170,7 +170,7 @@ function devUserIdHeader(req: Request): string | null {
 
 /**
  * The Telegram id the dev header names, by the rule of ALLOWED_TELEGRAM_IDS (`telegramIdOf`, #255): `0131184740` is
- * 131184740. Null for anything else — `parseInt` read `123abc` as the user 123 and a blank header as NaN.
+ * 131184740. Null for anything else — `parseInt` read `123abc` as the user 123 and `abc` as NaN.
  */
 function devTelegramIdOf(devUserId: string): number | null {
   const id = telegramIdOf(devUserId);

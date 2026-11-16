@@ -622,6 +622,7 @@ Auth and rate-limit middleware answer earlier in the chain and use a **flat** sh
 | 413 | `PAYLOAD_TOO_LARGE` | A body over 100 KB (#272, `JSON_BODY_LIMIT_BYTES`); the longest phrase is at most 12 KB of JSON. The body is read only as JSON and after closed access |
 | 400 | `INVALID_USER_ID` | A body or query `userId` that is not one non-blank string — a number, an array, `null`, `''` (FT-162) |
 | 401 | `MISSING_AUTH_HEADER` | No `Authorization` header, no browser session |
+| 401 | `INVALID_DEV_USER_ID` | Outside production, from this machine: an `X-Dev-User-Id` that is not a Telegram id (`123abc`, #255) |
 | 403 | `ACCESS_DENIED` | The body `userId` is not the signed-in user |
 | 403 | `ACCESS_DENIED` | A Shortcut's `X-Shortcut-User-Id` is not `SHORTCUT_CAPTURE_OWNER` (or not a Telegram id) |
 | 403 | `ACCESS_NOT_ALLOWED` | The signed-in user, or the Shortcut owner, is not in `ALLOWED_TELEGRAM_IDS` (FT-153) |
