@@ -74,10 +74,10 @@ function summaryNumbers(transactionModule: TransactionModule): SummaryNumbers {
 }
 
 /**
- * The users and their settings, of those allowed in (FT-153). Every recipient is on Tashkent's clock
- * (DEFAULT_TIME_ZONE): users.timezone is written by nobody since #274 and read by nobody since #275. A row's Telegram id is read as the list reads one
+ * The users and their settings, of those allowed in (FT-153). A row's Telegram id is read as the list reads one
  * (`telegramIdOf`, #255): `0597843119` is the listed `597843119`, as the notifier then writes to it. A row with no
- * Telegram id passes only an open list, and the notifier drops it.
+ * Telegram id passes only an open list, and the notifier drops it. Every recipient is on Tashkent's clock
+ * (DEFAULT_TIME_ZONE): users.timezone is written by nobody since #274 and read by nobody since #275.
  */
 async function allowedUsers(userModule: UserModule, access: TelegramAccess) {
   return (await userModule.listUsersWithSettings()).filter(({ user }) => access.allows(telegramIdOf(user.telegramId)));
