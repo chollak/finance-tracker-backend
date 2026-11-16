@@ -8,7 +8,7 @@
 
 **Location:** `src/modules/{module}/application/{action}UseCase.ts`
 
-**Template:**
+**Template** (пример условный: архива записей в коде нет с #273, решение Д7):
 ```typescript
 // src/modules/transaction/application/archiveTransactionUseCase.ts
 import { Result } from '../../../shared/domain/types/Result';

@@ -160,7 +160,7 @@ describe('history with search and filters (FT-107)', () => {
     const deleted = await record({ description: 'd', date: '2026-10-11' });
     const archived = await record({ description: 'e', date: '2026-10-12' });
     await records.repository.delete(deleted);
-    await records.repository.archive(archived);
+    await records.markArchived(archived);
     const categories = await records.catalog.listForUser('user-1');
     const id = (name: string) => categories.find(category => category.name === name)!.id;
     const [card] = await records.book.listForUser('user-1');
@@ -240,8 +240,8 @@ describe('history with search and filters (FT-107)', () => {
       const userModule = new UserModule(new SqliteUserRepository(db.dataSource), new SqliteUserSettingsRepository(db.dataSource));
       server = await startTestServer({
         '/transactions': createTransactionRouter(
-          records.create, history, unused, unused, new GetTransactionByIdUseCase(records.repository),
-          unused, records.update, unused, unused, unused, unused, unused, unused, undefined, userModule
+          records.create, history, unused, new GetTransactionByIdUseCase(records.repository),
+          unused, records.update, unused, undefined, userModule
         ),
         '/settings': createSettingsRoutes(userModule),
       });

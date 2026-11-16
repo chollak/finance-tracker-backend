@@ -88,7 +88,7 @@ describe('period totals for Home (FT-111)', () => {
     const deleted = await record({ amount: 70000 });
     const archived = await record({ amount: 80000 });
     await records.repository.delete(deleted);
-    await records.repository.archive(archived);
+    await records.markArchived(archived);
 
     const result = await october();
     // 300 × 12 650 = 3 795 000 сум
@@ -128,8 +128,7 @@ describe('period totals for Home (FT-111)', () => {
       const userModule = new UserModule(new SqliteUserRepository(db.dataSource), new SqliteUserSettingsRepository(db.dataSource));
       server = await startTestServer({
         '/transactions': createTransactionRouter(
-          records.create, unused, unused, unused, unused, unused, records.update, unused, unused, unused, unused, unused,
-          unused, undefined, userModule, undefined, totals
+          records.create, unused, unused, unused, unused, records.update, unused, undefined, userModule, undefined, totals
         ),
         '/settings': createSettingsRoutes(userModule),
       });

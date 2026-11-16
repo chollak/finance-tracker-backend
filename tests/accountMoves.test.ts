@@ -2,7 +2,6 @@ import { AccountModule } from '../src/modules/account/accountModule';
 import { createAccountRoutes } from '../src/modules/account/presentation/accountController';
 import { createMoveRoutes } from '../src/modules/account/presentation/moveController';
 import { dealRateMinor } from '../src/modules/account/domain/accountMove';
-import { AnalyticsService } from '../src/modules/transaction/application/analyticsService';
 import { PeriodTotalsService } from '../src/modules/transaction/application/periodTotalsService';
 import { UserModule } from '../src/modules/user/userModule';
 import { SqliteUserRepository } from '../src/modules/user/infrastructure/persistence/SqliteUserRepository';
@@ -76,9 +75,7 @@ describe('transfers, exchanges and adjustments (FT-104)', () => {
     });
     expect(await balances()).toEqual({ 'Карта': sum(-525000), 'Наличные': sum(500000) });
 
-    // Money changed accounts; nothing was spent: analytics and day totals see the coffee only
-    const analytics = new AnalyticsService(records.repository, new PeriodTotalsService());
-    expect((await analytics.getAnalyticsSummary('user-1')).totalExpense).toBe(25000);
+    // Money changed accounts; nothing was spent: the totals analytics and the day read see the coffee only
     const totals = new PeriodTotalsService().summarize('user-1', await records.repository.findByUserId('user-1'));
     expect((await totals).expenseMinor).toBe(sum(25000));
   });
