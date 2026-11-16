@@ -230,8 +230,8 @@ The application has two main delivery mechanisms:
 
 ### Data Flow
 
-Voice commands → OpenAI Whisper → GPT-4 Parsing → Transaction Creation → Database (SQLite via TypeORM)
-Text input → GPT-4 Parsing → Transaction Creation → Database
+Voice commands → OpenAI Whisper (`whisper-1`) → parsing with `gpt-4.1-mini` (`OPENAI_MODEL`) → Transaction Creation → Database (SQLite via TypeORM)
+Text input → parsing with `gpt-4.1-mini` → Transaction Creation → Database
 HTTP API → Controller → Use Case → Repository → Database
 
 ## Key Architectural Decisions
@@ -587,7 +587,7 @@ Closes #N
 1. Create use case class в `src/modules/{module}/application/`
 2. Add to module's constructor и getter method
 3. Create controller method в `src/modules/{module}/presentation/`
-4. Add route в `src/delivery/web/express/routes/`
+4. Add the route to the module's router next to the controller (`create…Routes()` in `src/modules/{module}/presentation/`); a new router is mounted in `buildServer` (`src/delivery/web/express/expressServer.ts`). `src/delivery/web/express/routes/` keeps only `healthRoutes.ts` and `subscriptionRoutes.ts`
 
 See: [Adding Features Guide](docs/knowledge-base/08-development/adding-features.md)
 
