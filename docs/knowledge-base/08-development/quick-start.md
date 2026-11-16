@@ -338,6 +338,13 @@ npm test transaction     # Run specific test file
 Jest does not check types: ts-jest only translates each file (#293). A type error in a test fails
 `npm run typecheck:tests` (a step of `verify`), not `npm test`.
 
+Bot scenarios run on `tests/helpers/telegramStand.ts` (#280): the real `startTelegramBot` on the real Telegraf, so
+Telegraf routes the commands, presses and handler order; only the Bot API is a fake private chat. It refuses as
+Telegram does (an edit of a deleted message, an edit that changes nothing, a second answer to a press, a Mini App
+button off HTTPS) and on demand (`refuse()` — 429, a network error; `block()` — 403), and takes updates one at a time
+or as one getUpdates batch (`deliver([...])`, handled side by side as polling does). An update that ends in `bot.catch`
+fails the delivery unless the test passes `botCatch: 'allow'`. Used by `telegramRecordFlow` and `telegramCommands`.
+
 ### Code Quality
 
 ```bash
