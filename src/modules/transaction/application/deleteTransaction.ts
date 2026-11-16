@@ -96,7 +96,11 @@ export class DeleteTransactionUseCase {
   }
 }
 
-/** «Отменить» after a delete (FT-105). Restoring a record that is not deleted changes nothing. */
+/**
+ * «Отменить» after a delete (FT-105). Restoring a record that is not deleted changes nothing. Two at the same moment
+ * (the Mini App and the bot, #383) both find the record deleted, but only the restore whose write changed it takes the
+ * slot back; both answer the record as it is now.
+ */
 export class RestoreTransactionUseCase {
   private counter = new TransactionCounter();
 
@@ -115,9 +119,14 @@ export class RestoreTransactionUseCase {
       if (!record) return ResultHelper.failure(new NotFoundError('Transaction', id));
       if (!record.deletedAt) return ResultHelper.success(record);
 
-      const restored = await this.repository.restore(id);
-      logger.info('Transaction restored', { transactionId: id });
-      await this.counter.change(record.userId, 'increment');
+      if (await this.repository.restore(id)) {
+        logger.info('Transaction restored', { transactionId: id });
+        await this.counter.change(record.userId, 'increment');
+      } else {
+        logger.debug('Transaction restored by another request meanwhile; nothing changes', { transactionId: id });
+      }
+      const restored = await this.repository.findByIdIncludingDeleted(id);
+      if (!restored) throw new Error(`Transaction ${id} not found after restore`);
       return ResultHelper.success(restored);
     } catch (error) {
       logger.error('Error restoring transaction', error as Error, { transactionId: id });

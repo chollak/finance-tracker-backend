@@ -16,8 +16,11 @@ export interface TransactionRepository {
      * deleted it, false when it was deleted already — by another delete at the same moment too — or is unknown.
      */
     delete(id: string): Promise<boolean>;
-    /** Brings a softly deleted record back. */
-    restore(id: string): Promise<Transaction>;
+    /**
+     * Brings a softly deleted record back in one write that changes only a deleted record (#383): true when this call
+     * restored it, false when it is not deleted — restored by another call at the same moment too — or is unknown.
+     */
+    restore(id: string): Promise<boolean>;
     findByIdIncludingDeleted(id: string): Promise<Transaction | null>;
     /**
      * The records the client sent under this id (FT-106), deleted ones too: the record with exactly

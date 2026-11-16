@@ -54,9 +54,10 @@ describe('soft delete and restore of records (FT-105)', () => {
     // A deleted record cannot be edited
     expect((await records.update.execute({ id: gone, amount: 1 })).success).toBe(false);
 
-    const restored = await records.repository.restore(gone);
+    expect(await records.repository.restore(gone)).toBe(true);
+    const restored = await records.repository.findById(gone);
     expect(restored).toMatchObject({ id: gone, amountMinor: 2500000 });
-    expect(restored.deletedAt).toBeUndefined();
+    expect(restored?.deletedAt).toBeUndefined();
     expect((await records.repository.findByUserId('user-1')).map(r => r.id).sort()).toEqual([kept, gone].sort());
     expect(await balance()).toBe(-3500000);
   });
@@ -70,6 +71,17 @@ describe('soft delete and restore of records (FT-105)', () => {
     expect(await records.repository.delete(id)).toBe(false);
     expect((await records.repository.findByIdIncludingDeleted(id))?.deletedAt).toBe(deletedAt);
     expect(await records.repository.delete('unknown-id')).toBe(false);
+  });
+
+  it('a restore says whether it restored the record: a record not deleted or unknown is not touched (#383)', async () => {
+    const id = await record(25000);
+    await records.repository.delete(id);
+
+    expect(await records.repository.restore(id)).toBe(true);
+    expect((await records.repository.findById(id))?.deletedAt).toBeUndefined();
+
+    expect(await records.repository.restore(id)).toBe(false);
+    expect(await records.repository.restore('unknown-id')).toBe(false);
   });
 
   it('the record counter goes down on delete and up on restore, once', async () => {
