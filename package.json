@@ -24,7 +24,7 @@
     "tokens:pastel": "node scripts/generate-pastel-tokens.js",
     "check:tokens": "node scripts/generate-pastel-tokens.js --check",
     "analyze": "npm run check:deps",
-    "verify": "npm run build && npm run typecheck:tests && npm run typecheck:scripts && npm run test:ci && npm run test:webapp && npm run build:webapp && npm run check:fonts && npm run check:tokens && npm run analyze",
+    "verify": "npm run build && npm run typecheck:tests && npm run typecheck:scripts && npm run lint:webapp && npm run test:ci && npm run test:webapp && npm run build:webapp && npm run check:fonts && npm run check:tokens && npm run analyze",
     "migration:show": "npm run build && node dist/shared/infrastructure/database/migrate.js show",
     "migration:run": "npm run build && node dist/shared/infrastructure/database/migrate.js run",
     "migration:revert": "npm run build && node dist/shared/infrastructure/database/migrate.js revert",
@@ -35,7 +35,8 @@
     "design:audit": "node scripts/mobile-ui-audit.js",
     "miniapp:menu": "node scripts/dev-miniapp.js",
     "dev:miniapp": "node scripts/dev-miniapp.js run",
-    "test:webapp": "cd webapp && npm run test"
+    "test:webapp": "cd webapp && npm run test",
+    "lint:webapp": "cd webapp && npm run lint"
   },
   "keywords": [],
   "author": "",

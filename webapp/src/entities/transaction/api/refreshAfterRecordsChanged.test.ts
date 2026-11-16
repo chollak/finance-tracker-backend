@@ -65,14 +65,20 @@ const CHIP: CreateTransactionDTO = {
   category: 'Транспорт', date: '2026-10-14', description: 'Такси', userId: USER, clientId: 'chip-1',
 };
 
+type CreateHook = ReturnType<typeof useCreateTransaction>;
+
+function Probe({ onRender }: { onRender: (hook: CreateHook) => void }) {
+  onRender(useCreateTransaction());
+  return null;
+}
+
 /** `useCreateTransaction` as a screen holds it: mounted once (no DOM in these tests) and pressed by hand. */
-function createHook(): ReturnType<typeof useCreateTransaction> {
-  let hook: ReturnType<typeof useCreateTransaction> | undefined;
-  function Probe() {
-    hook = useCreateTransaction();
-    return null;
-  }
-  renderToStaticMarkup(createElement(QueryClientProvider, { client }, createElement(Probe)));
+function createHook(): CreateHook {
+  let hook: CreateHook | undefined;
+  const onRender = (rendered: CreateHook) => {
+    hook = rendered;
+  };
+  renderToStaticMarkup(createElement(QueryClientProvider, { client }, createElement(Probe, { onRender })));
   return hook!;
 }
 

@@ -24,6 +24,7 @@ import { registerLoginHandlers } from './handlers/loginHandlers';
 import { closeAmountQuestionOnCommand, registerRecordHandlers } from './handlers/recordHandlers';
 import { registerPaymentHandlers } from './handlers/paymentHandlers';
 import { allowedUsersOnly } from './middleware/allowedUsersOnly';
+import { chatQueue, UPDATE_LIMIT_MS } from './middleware/chatQueue';
 import { createLogger, LogCategory } from '../../../shared/infrastructure/logging';
 
 const logger = createLogger(LogCategory.TELEGRAM);
@@ -76,6 +77,16 @@ function errorMessage(error: unknown): string {
 function isPollingConflict(error: unknown): boolean {
   const message = errorMessage(error);
   return message.includes('409') || /conflict/i.test(message);
+}
+
+/**
+ * Telegraf's own `handlerTimeout` (p-timeout's error, word for word), not a timeout an update's handler threw: that
+ * handler is done, and the person is told to try again as for any error.
+ */
+function isHandlerTimeout(error: unknown): boolean {
+  return error instanceof Error
+    && error.name === 'TimeoutError'
+    && error.message === `Promise timed out after ${UPDATE_LIMIT_MS} milliseconds`;
 }
 
 /** True when `promise` settled within `ms`, false when the time ran out first. */
@@ -176,8 +187,10 @@ export function startTelegramBot(
       return NO_BOT;
     }
 
-    // Create bot instance with custom context
-    const bot = new Telegraf<BotContext>(AppConfig.TG_BOT_API_KEY);
+    // Ten minutes, not Telegraf's 90 s (#317): the 90 s cut a slow voice while it could still write and confirm, and
+    // with the chat queue the wait behind the chat's earlier updates counts too. No limit would let one hung update
+    // hold the whole batch — polling waits for all of it — so every chat. The queue lets the chat go at the same mark
+    const bot = new Telegraf<BotContext>(AppConfig.TG_BOT_API_KEY, { handlerTimeout: UPDATE_LIMIT_MS });
 
     // Prepare modules for context injection
     const modules: BotModules = {
@@ -201,6 +214,9 @@ export function startTelegramBot(
 
     // Closed access (FT-153): first of all, so someone not in ALLOWED_TELEGRAM_IDS reaches nothing below
     bot.use(allowedUsersOnly(AppConfig.TELEGRAM_ACCESS));
+
+    // One update of a chat at a time, in Telegram's order (#317): before anything that awaits, or the order is lost
+    bot.use(chatQueue());
 
     // Inject modules into context
     bot.use((ctx, next) => {
@@ -244,6 +260,17 @@ export function startTelegramBot(
     // ===== ERROR HANDLING =====
 
     bot.catch((err, ctx) => {
+      // Telegraf let the update go so polling goes on, but its handler may still write and confirm: «Попробуйте
+      // снова» would make the repeat a second record (#317)
+      if (isHandlerTimeout(err)) {
+        logger.error('A Telegram update is not done after the limit; polling goes on without it', null, {
+          updateId: ctx?.update?.update_id,
+          updateType: ctx?.updateType,
+          afterMinutes: UPDATE_LIMIT_MS / 60_000,
+        });
+        return;
+      }
+
       logger.error('Telegram bot error', err instanceof Error ? err : new Error(String(err)), {
         userId: ctx?.from?.id,
         updateType: ctx?.updateType,

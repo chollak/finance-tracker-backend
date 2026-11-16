@@ -782,7 +782,61 @@ describe('bot record messages (FT-122)', () => {
   describe('Telegram around the bot (#280)', () => {
     const rows = async () => Number((await running.ds.query('SELECT COUNT(*) AS n FROM "transactions" WHERE "deleted_at" IS NULL'))[0].n);
 
-    // Polling hands a batch of getUpdates to the handlers side by side; the order inside one batch is #317
+    // Polling hands a batch of getUpdates to the handlers side by side; the bot takes one chat's updates one at a time,
+    // in Telegram's order (#317). A batch is everything that came while the bot did not poll: the PC asleep, a restart
+    describe('one batch of getUpdates is handled in the order Telegram sent it (#317)', () => {
+      it('a phrase and /undo: /undo cancels that phrase, not the record before it', async () => {
+        const first = await write('кофе 25к', [coffee]);
+        const [coffeeId] = await recordIdsOf(first);
+        plan = [taxi];
+        planMissing = [];
+
+        const [confirmation, reply, ...rest] = await stand.deliver([stand.textUpdate('такси 18к нал'), stand.textUpdate('/undo')]);
+
+        expect(rest).toEqual([]);
+        expect(reply.text).toBe(`Отменил последнюю запись: ${MINUS}18${NB}000${NB}сум · «Такси»`);
+        const [taxiId] = await recordIdsOf(confirmation.id);
+        expect((await record(taxiId)).deletedAt).toBeTruthy();
+        expect((await record(coffeeId)).deletedAt).toBeFalsy();
+        expect(text(confirmation.id)).toContain('Отменено — в приложении этой записи нет.');
+        expect(text(first)).not.toContain('Отменено');
+      });
+
+      it('two /undo cancel the two last records, each with its own reply', async () => {
+        const first = await write('кофе 25к', [coffee]);
+        const second = await write('такси 18к нал', [taxi]);
+        const [[coffeeId], [taxiId]] = [await recordIdsOf(first), await recordIdsOf(second)];
+
+        const replies = await stand.deliver([stand.textUpdate('/undo'), stand.textUpdate('/undo')]);
+
+        expect(replies.map(reply => reply.text)).toEqual([
+          `Отменил последнюю запись: ${MINUS}18${NB}000${NB}сум · «Такси»`,
+          `Отменил последнюю запись: ${MINUS}25${NB}000${NB}сум · «Кофе»`,
+        ]);
+        expect((await record(taxiId)).deletedAt).toBeTruthy();
+        expect((await record(coffeeId)).deletedAt).toBeTruthy();
+        expect(await rows()).toBe(0);
+      });
+
+      it('«такси» and «18к»: «18к» answers «Сколько?» and writes «Такси» for 18 000', async () => {
+        plan = [];
+        planMissing = [{ description: 'такси', category: 'Транспорт', type: 'expense', date: today }];
+
+        const [question, answer, ...rest] = await stand.deliver([stand.textUpdate('такси'), stand.textUpdate('18к')]);
+
+        expect(rest).toEqual([]);
+        expect(running.capture).toHaveBeenCalledTimes(1);
+        expect(running.captureWithAmount).toHaveBeenCalledTimes(1);
+        const [taxiId] = await recordIdsOf(answer.id);
+        expect(await record(taxiId)).toEqual(expect.objectContaining({ amountMinor: 1_800_000, category: 'Транспорт', description: 'такси' }));
+        expect(answer.text).toContain(`<b>Расход ${MINUS}18${NB}000${NB}сум</b>`);
+        expect(answer.text).toContain('«Такси»');
+        expect(question.text).toContain('«Такси»');
+        expect(await rows()).toBe(1);
+        expect(await awaiting()).toBeNull();
+      });
+    });
+
     it('the same words twice in one batch of updates are two messages: two records, a confirmation each', async () => {
       plan = [coffee];
       planMissing = [];
